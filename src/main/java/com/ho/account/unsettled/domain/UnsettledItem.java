@@ -1,0 +1,93 @@
+package com.ho.account.unsettled.domain;
+
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.domain.Customer;
+import com.ho.account.journal.domain.JournalDetail;
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "unsettled_items")
+public class UnsettledItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "journal_detail_id", nullable = false)
+    private JournalDetail journalDetail; // 발생 전표 상세
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_code", nullable = false)
+    private AccountSubject accountSubject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_code", referencedColumnName = "customerCode")
+    private Customer customer;
+
+    @Column(nullable = false)
+    private LocalDate occurrenceDate; // 발생일
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal originalAmount; // 발생 금액
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal settledAmount = BigDecimal.ZERO; // 반제된 금액
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal remainingAmount; // 잔액
+
+    @Column(length = 20)
+    private String status; // OPEN(미결), PARTIAL(부분반제), CLEARED(반제완료)
+
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) status = "OPEN";
+        if (remainingAmount == null) remainingAmount = originalAmount;
+    }
+
+    // 비즈니스 로직
+    public void settle(BigDecimal amount) {
+        if (remainingAmount.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("반제 금액이 잔액보다 큽니다.");
+        }
+        this.settledAmount = this.settledAmount.add(amount);
+        this.remainingAmount = this.remainingAmount.subtract(amount);
+        
+        if (this.remainingAmount.compareTo(BigDecimal.ZERO) == 0) {
+            this.status = "CLEARED";
+        } else {
+            this.status = "PARTIAL";
+        }
+    }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public JournalDetail getJournalDetail() { return journalDetail; }
+    public void setJournalDetail(JournalDetail journalDetail) { this.journalDetail = journalDetail; }
+
+    public AccountSubject getAccountSubject() { return accountSubject; }
+    public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
+
+    public Customer getCustomer() { return customer; }
+    public void setCustomer(Customer customer) { this.customer = customer; }
+
+    public LocalDate getOccurrenceDate() { return occurrenceDate; }
+    public void setOccurrenceDate(LocalDate occurrenceDate) { this.occurrenceDate = occurrenceDate; }
+
+    public BigDecimal getOriginalAmount() { return originalAmount; }
+    public void setOriginalAmount(BigDecimal originalAmount) { this.originalAmount = originalAmount; }
+
+    public BigDecimal getSettledAmount() { return settledAmount; }
+    public void setSettledAmount(BigDecimal settledAmount) { this.settledAmount = settledAmount; }
+
+    public BigDecimal getRemainingAmount() { return remainingAmount; }
+    public void setRemainingAmount(BigDecimal remainingAmount) { this.remainingAmount = remainingAmount; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+}

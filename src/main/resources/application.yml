@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: account
+  profiles:
+    active: local # 기본 활성 프로파일 (local)
+
+  # JPA 공통 설정
+  jpa:
+    open-in-view: false # OSIV 비활성화 (성능 최적화)
+    properties:
+      hibernate:
+        format_sql: true # SQL 포맷팅
+        use_sql_comments: true # SQL 주석 표시
+
+server:
+  port: 8080 # 기본 포트

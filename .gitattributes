@@ -1,0 +1,13 @@
+# Default behavior for all files
+* text=auto
+
+/gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary
+
+# Java sources
+*.java text diff=java
+
+# Binary files (do not modify line endings)
+*.class binary
+*.war binary

@@ -1,0 +1,24 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # Production Database Configuration (Example: MySQL)
+  datasource:
+    url: jdbc:mysql://localhost:3306/accounting_db?useSSL=false&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME} # 환경 변수 사용 권장
+    password: ${DB_PASSWORD} # 환경 변수 사용 권장
+    platform: mysql
+
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: validate # 운영 시에는 스키마 변경 금지 (검증만 수행)
+    show-sql: false # 운영 시에는 SQL 로그 비활성화
+
+logging:
+  level:
+    root: INFO # 로그 레벨 조정
+    com.accounting.system: INFO
