@@ -1,11 +1,11 @@
-package com.accounting.system.closing.service;
+package com.ho.account.closing.service;
 
-import com.accounting.system.closing.domain.ClosingStatus;
-import com.accounting.system.closing.domain.DailyClosingStatus;
-import com.accounting.system.closing.repository.ClosingStatusRepository;
-import com.accounting.system.closing.repository.DailyClosingStatusRepository;
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.repository.JournalEntryRepository;
+import com.ho.account.closing.domain.ClosingStatus;
+import com.ho.account.closing.domain.DailyClosingStatus;
+import com.ho.account.closing.repository.ClosingStatusRepository;
+import com.ho.account.closing.repository.DailyClosingStatusRepository;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.repository.JournalEntryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

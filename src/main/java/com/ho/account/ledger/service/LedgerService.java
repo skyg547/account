@@ -1,8 +1,8 @@
-package com.accounting.system.ledger.service;
+package com.ho.account.ledger.service;
 
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.journal.repository.JournalDetailRepository;
-import com.accounting.system.ledger.dto.LedgerDTO;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.repository.JournalDetailRepository;
+import com.ho.account.ledger.dto.LedgerDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

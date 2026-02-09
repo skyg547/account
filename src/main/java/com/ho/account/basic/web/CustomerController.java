@@ -1,7 +1,7 @@
-package com.accounting.system.basic.web;
+package com.ho.account.basic.web;
 
-import com.accounting.system.basic.domain.Customer;
-import com.accounting.system.basic.service.CustomerService;
+import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

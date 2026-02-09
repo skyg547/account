@@ -1,6 +1,6 @@
-package com.accounting.system.unsettled.repository;
+package com.ho.account.unsettled.repository;
 
-import com.accounting.system.unsettled.domain.UnsettledItem;
+import com.ho.account.unsettled.domain.UnsettledItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

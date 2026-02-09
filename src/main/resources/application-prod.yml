@@ -21,4 +21,4 @@ spring:
 logging:
   level:
     root: INFO # 로그 레벨 조정
-    com.accounting.system: INFO
+    com.ho.account: INFO

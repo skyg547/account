@@ -1,9 +1,9 @@
-package com.accounting.system.closing.web;
+package com.ho.account.closing.web;
 
-import com.accounting.system.closing.service.AnnualClosingService;
-import com.accounting.system.closing.service.ClosingService;
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.service.JournalService;
+import com.ho.account.closing.service.AnnualClosingService;
+import com.ho.account.closing.service.ClosingService;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.service.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;

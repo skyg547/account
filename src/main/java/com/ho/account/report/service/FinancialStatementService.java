@@ -1,10 +1,10 @@
-package com.accounting.system.report.service;
+package com.ho.account.report.service;
 
-import com.accounting.system.basic.domain.AccountSubject;
-import com.accounting.system.basic.repository.AccountSubjectRepository;
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.journal.repository.JournalDetailRepository;
-import com.accounting.system.report.dto.FinancialStatementDTO;
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.repository.AccountSubjectRepository;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.repository.JournalDetailRepository;
+import com.ho.account.report.dto.FinancialStatementDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

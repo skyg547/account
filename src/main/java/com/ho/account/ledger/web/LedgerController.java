@@ -1,7 +1,7 @@
-package com.accounting.system.ledger.web;
+package com.ho.account.ledger.web;
 
-import com.accounting.system.ledger.dto.LedgerDTO;
-import com.accounting.system.ledger.service.LedgerService;
+import com.ho.account.ledger.dto.LedgerDTO;
+import com.ho.account.ledger.service.LedgerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;

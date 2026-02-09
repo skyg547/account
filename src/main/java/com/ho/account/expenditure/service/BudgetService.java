@@ -1,9 +1,9 @@
-package com.accounting.system.expenditure.service;
+package com.ho.account.expenditure.service;
 
-import com.accounting.system.basic.domain.AccountSubject;
-import com.accounting.system.basic.domain.Department;
-import com.accounting.system.expenditure.domain.Budget;
-import com.accounting.system.expenditure.repository.BudgetRepository;
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.domain.Department;
+import com.ho.account.expenditure.domain.Budget;
+import com.ho.account.expenditure.repository.BudgetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

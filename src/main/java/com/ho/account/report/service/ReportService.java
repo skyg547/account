@@ -1,9 +1,9 @@
-package com.accounting.system.report.service;
+package com.ho.account.report.service;
 
-import com.accounting.system.report.domain.FinancialNote;
-import com.accounting.system.report.domain.FinancialReport;
-import com.accounting.system.report.repository.FinancialNoteRepository;
-import com.accounting.system.report.repository.FinancialReportRepository;
+import com.ho.account.report.domain.FinancialNote;
+import com.ho.account.report.domain.FinancialReport;
+import com.ho.account.report.repository.FinancialNoteRepository;
+import com.ho.account.report.repository.FinancialReportRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

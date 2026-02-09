@@ -1,18 +1,16 @@
-package com.accounting.system.journal.service;
+package com.ho.account.journal.service;
 
-import com.accounting.system.basic.domain.AccountSubject;
-import com.accounting.system.basic.domain.Customer;
-import com.accounting.system.basic.domain.Department;
-import com.accounting.system.basic.repository.AccountSubjectRepository;
-import com.accounting.system.basic.repository.CustomerRepository;
-import com.accounting.system.basic.repository.DepartmentRepository;
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.repository.JournalEntryRepository;
-// import com.accounting.system.closing.service.ClosingService; // 추후 이동 예정
-// import com.accounting.system.unsettled.service.UnsettledService; // 추후 이동 예정
-import com.accounting.code.service.ClosingService; // 임시 경로
-import com.accounting.code.service.UnsettledService; // 임시 경로
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.Department;
+import com.ho.account.basic.repository.AccountSubjectRepository;
+import com.ho.account.basic.repository.CustomerRepository;
+import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.repository.JournalEntryRepository;
+import com.ho.account.closing.service.ClosingService;
+import com.ho.account.unsettled.service.UnsettledService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

@@ -1,6 +1,6 @@
-package com.accounting.system.asset.repository;
+package com.ho.account.asset.repository;
 
-import com.accounting.system.asset.domain.FixedAsset;
+import com.ho.account.asset.domain.FixedAsset;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

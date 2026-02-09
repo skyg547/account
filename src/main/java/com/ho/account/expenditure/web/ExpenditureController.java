@@ -1,7 +1,7 @@
-package com.accounting.system.expenditure.web;
+package com.ho.account.expenditure.web;
 
-import com.accounting.system.expenditure.domain.ExpenditureResolution;
-import com.accounting.system.expenditure.service.ExpenditureService;
+import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.service.ExpenditureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;

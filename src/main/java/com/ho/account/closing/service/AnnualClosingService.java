@@ -1,11 +1,11 @@
-package com.accounting.system.closing.service;
+package com.ho.account.closing.service;
 
-import com.accounting.system.basic.domain.AccountSubject;
-import com.accounting.system.basic.repository.AccountSubjectRepository;
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.repository.JournalDetailRepository;
-import com.accounting.system.journal.service.JournalService;
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.repository.AccountSubjectRepository;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.repository.JournalDetailRepository;
+import com.ho.account.journal.service.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

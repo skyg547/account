@@ -1,6 +1,6 @@
-package com.accounting.system.closing.repository;
+package com.ho.account.closing.repository;
 
-import com.accounting.system.closing.domain.ClosingStatus;
+import com.ho.account.closing.domain.ClosingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

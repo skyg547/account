@@ -1,8 +1,8 @@
-package com.accounting.system.expenditure.repository;
+package com.ho.account.expenditure.repository;
 
-import com.accounting.system.basic.domain.AccountSubject;
-import com.accounting.system.basic.domain.Department;
-import com.accounting.system.expenditure.domain.Budget;
+import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.basic.domain.Department;
+import com.ho.account.expenditure.domain.Budget;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,6 +1,6 @@
-package com.accounting.system.asset.repository;
+package com.ho.account.asset.repository;
 
-import com.accounting.system.asset.domain.LeaseContract;
+import com.ho.account.asset.domain.LeaseContract;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

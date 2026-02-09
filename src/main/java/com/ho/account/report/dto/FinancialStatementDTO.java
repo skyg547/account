@@ -1,4 +1,4 @@
-package com.accounting.system.report.dto;
+package com.ho.account.report.dto;
 
 import java.math.BigDecimal;
 

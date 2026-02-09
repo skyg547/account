@@ -1,6 +1,6 @@
-package com.accounting.system.journal.repository;
+package com.ho.account.journal.repository;
 
-import com.accounting.system.journal.domain.JournalEntry;
+import com.ho.account.journal.domain.JournalEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

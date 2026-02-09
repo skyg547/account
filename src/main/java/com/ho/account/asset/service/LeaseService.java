@@ -1,10 +1,10 @@
-package com.accounting.system.asset.service;
+package com.ho.account.asset.service;
 
-import com.accounting.system.asset.domain.LeaseContract;
-import com.accounting.system.asset.repository.LeaseContractRepository;
-import com.accounting.system.expenditure.domain.ExpenditureDetail;
-import com.accounting.system.expenditure.domain.ExpenditureResolution;
-import com.accounting.system.expenditure.service.ExpenditureService;
+import com.ho.account.asset.domain.LeaseContract;
+import com.ho.account.asset.repository.LeaseContractRepository;
+import com.ho.account.expenditure.domain.ExpenditureDetail;
+import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.service.ExpenditureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

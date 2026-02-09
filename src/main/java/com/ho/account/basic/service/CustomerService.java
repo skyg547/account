@@ -1,7 +1,7 @@
-package com.accounting.system.basic.service;
+package com.ho.account.basic.service;
 
-import com.accounting.system.basic.domain.Customer;
-import com.accounting.system.basic.repository.CustomerRepository;
+import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

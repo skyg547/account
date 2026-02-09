@@ -1,7 +1,7 @@
-package com.accounting.system.unsettled.web;
+package com.ho.account.unsettled.web;
 
-import com.accounting.system.unsettled.domain.UnsettledItem;
-import com.accounting.system.unsettled.service.UnsettledService;
+import com.ho.account.unsettled.domain.UnsettledItem;
+import com.ho.account.unsettled.service.UnsettledService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

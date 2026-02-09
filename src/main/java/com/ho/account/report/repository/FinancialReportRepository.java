@@ -1,6 +1,6 @@
-package com.accounting.system.report.repository;
+package com.ho.account.report.repository;
 
-import com.accounting.system.report.domain.FinancialReport;
+import com.ho.account.report.domain.FinancialReport;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

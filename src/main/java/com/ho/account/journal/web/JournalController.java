@@ -1,7 +1,7 @@
-package com.accounting.system.journal.web;
+package com.ho.account.journal.web;
 
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.service.JournalService;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.service.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

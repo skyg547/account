@@ -1,6 +1,6 @@
-package com.accounting.system.basic.repository;
+package com.ho.account.basic.repository;
 
-import com.accounting.system.basic.domain.Department;
+import com.ho.account.basic.domain.Department;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

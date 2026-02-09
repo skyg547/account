@@ -1,9 +1,9 @@
-package com.accounting.system.expenditure.service;
+package com.ho.account.expenditure.service;
 
-import com.accounting.system.expenditure.domain.ExpenditureResolution;
-import com.accounting.system.expenditure.domain.Payment;
-import com.accounting.system.expenditure.repository.ExpenditureResolutionRepository;
-import com.accounting.system.expenditure.repository.PaymentRepository;
+import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.domain.Payment;
+import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
+import com.ho.account.expenditure.repository.PaymentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

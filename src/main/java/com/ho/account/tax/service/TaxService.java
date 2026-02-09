@@ -1,7 +1,7 @@
-package com.accounting.system.tax.service;
+package com.ho.account.tax.service;
 
-import com.accounting.system.tax.domain.TaxInvoice;
-import com.accounting.system.tax.repository.TaxInvoiceRepository;
+import com.ho.account.tax.domain.TaxInvoice;
+import com.ho.account.tax.repository.TaxInvoiceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

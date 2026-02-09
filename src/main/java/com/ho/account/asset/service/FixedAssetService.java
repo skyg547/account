@@ -1,10 +1,10 @@
-package com.accounting.system.asset.service;
+package com.ho.account.asset.service;
 
-import com.accounting.system.asset.domain.FixedAsset;
-import com.accounting.system.asset.repository.FixedAssetRepository;
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.journal.domain.JournalEntry;
-import com.accounting.system.journal.service.JournalService;
+import com.ho.account.asset.domain.FixedAsset;
+import com.ho.account.asset.repository.FixedAssetRepository;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.service.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

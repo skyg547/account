@@ -1,6 +1,6 @@
-package com.accounting.system.expenditure.repository;
+package com.ho.account.expenditure.repository;
 
-import com.accounting.system.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.domain.ExpenditureResolution;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,6 +1,6 @@
-package com.accounting.system.journal.repository;
+package com.ho.account.journal.repository;
 
-import com.accounting.system.journal.domain.JournalDetail;
+import com.ho.account.journal.domain.JournalDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

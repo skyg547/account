@@ -1,8 +1,8 @@
-package com.accounting.system.unsettled.service;
+package com.ho.account.unsettled.service;
 
-import com.accounting.system.journal.domain.JournalDetail;
-import com.accounting.system.unsettled.domain.UnsettledItem;
-import com.accounting.system.unsettled.repository.UnsettledItemRepository;
+import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.unsettled.domain.UnsettledItem;
+import com.ho.account.unsettled.repository.UnsettledItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

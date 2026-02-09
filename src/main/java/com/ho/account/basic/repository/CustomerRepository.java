@@ -1,6 +1,6 @@
-package com.accounting.system.basic.repository;
+package com.ho.account.basic.repository;
 
-import com.accounting.system.basic.domain.Customer;
+import com.ho.account.basic.domain.Customer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
