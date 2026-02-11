@@ -53,7 +53,7 @@ public class UnsettledService {
         BigDecimal remainingToSettle = amount;
 
         for (UnsettledItem item : items) {
-            if (!item.getAccountSubject().getAccountCode().equals(accountCode)) continue;
+            if (!item.getAccountSubject().getCode().equals(accountCode)) continue;
             if (remainingToSettle.compareTo(BigDecimal.ZERO) <= 0) break;
 
             BigDecimal settleAmount = item.getRemainingAmount().min(remainingToSettle);

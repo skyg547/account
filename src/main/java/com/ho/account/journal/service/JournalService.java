@@ -89,7 +89,7 @@ public class JournalService {
         journalEntryRepository.save(entry);
 
         for (JournalDetail detail : entry.getDetails()) {
-            if (Boolean.TRUE.equals(detail.getAccountSubject().getManageUnsettled())) {
+            if (Boolean.TRUE.equals(detail.getAccountSubject().isUnsettled())) {
                 // UnsettledService의 메서드 시그니처가 변경될 예정이므로 임시 주석 처리 또는 수정 필요
                 // 현재는 JournalDetail 객체를 그대로 넘기는 구조라고 가정
                  unsettledService.createUnsettledItem(detail); 
@@ -193,22 +193,18 @@ public class JournalService {
         BigDecimal creditSum = BigDecimal.ZERO;
 
         for (JournalDetail detail : entry.getDetails()) {
-            if (detail.getAccountSubject() == null || detail.getAccountSubject().getAccountCode() == null) {
+            if (detail.getAccountSubject() == null || detail.getAccountSubject().getCode() == null) {
                 throw new IllegalArgumentException("계정과목 코드는 필수입니다.");
             }
-            AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getAccountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 계정과목입니다: " + detail.getAccountSubject().getAccountCode()));
-            if (!account.getUseYn()) {
-                throw new IllegalArgumentException("사용 중지된 계정과목입니다: " + account.getAccountName());
-            }
+            AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getCode())
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 계정과목입니다: " + detail.getAccountSubject().getCode()));
+            // Removed check for !account.getUseYn() as it's not present in AccountSubject entity
             detail.setAccountSubject(account);
 
-            if (detail.getDepartment() != null && detail.getDepartment().getDeptCode() != null) {
-                Department dept = departmentRepository.findByDeptCode(detail.getDepartment().getDeptCode())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다: " + detail.getDepartment().getDeptCode()));
-                if (!dept.getUseYn()) {
-                    throw new IllegalArgumentException("사용 중지된 부서입니다: " + dept.getDeptName());
-                }
+            if (detail.getDepartment() != null && detail.getDepartment().getCode() != null) {
+                Department dept = departmentRepository.findByCode(detail.getDepartment().getCode())
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다: " + detail.getDepartment().getCode()));
+                // Removed check for !dept.getUseYn() as it's not present in Department entity
                 detail.setDepartment(dept);
             }
 

@@ -1,13 +1,16 @@
 package com.ho.account.basic.service;
 
 import com.ho.account.basic.domain.Department;
+import com.ho.account.basic.dto.DepartmentRequestDto;
 import com.ho.account.basic.repository.DepartmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -20,49 +23,67 @@ public class DepartmentService {
         this.departmentRepository = departmentRepository;
     }
 
-    // 부서 생성
-    public Department createDepartment(Department department) {
-        if (departmentRepository.existsByDeptCode(department.getDeptCode())) {
-            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + department.getDeptCode());
+    public Department createDepartment(DepartmentRequestDto requestDto) {
+        if (departmentRepository.existsById(requestDto.getCode())) {
+            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + requestDto.getCode());
+        }
+
+        Department department = requestDto.toEntity();
+
+        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
+            Department parent = departmentRepository.findById(requestDto.getParentCode())
+                    .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+            department.setParent(parent);
+        }
+
+        if (department.getValidFrom() == null) {
+            department.setValidFrom(LocalDate.now());
+        }
+        if (department.getValidTo() == null) {
+            department.setValidTo(LocalDate.of(9999, 12, 31));
         }
         return departmentRepository.save(department);
     }
 
-    // 전체 부서 조회
     @Transactional(readOnly = true)
-    public List<Department> getAllDepartments() {
-        return departmentRepository.findAll();
+    public Optional<Department> findDepartmentByCode(String code) {
+        return departmentRepository.findById(code);
     }
 
-    // 사용 중인 부서만 조회
     @Transactional(readOnly = true)
-    public List<Department> getActiveDepartments() {
-        return departmentRepository.findByUseYnTrue();
+    public List<Department> findAllActiveDepartments() {
+        LocalDate today = LocalDate.now();
+        return departmentRepository.findAll().stream()
+                .filter(dept -> !today.isBefore(dept.getValidFrom()) && !today.isAfter(dept.getValidTo()))
+                .collect(Collectors.toList());
     }
 
-    // 부서 상세 조회
-    @Transactional(readOnly = true)
-    public Optional<Department> getDepartmentByCode(String deptCode) {
-        return departmentRepository.findByDeptCode(deptCode);
-    }
+    public Department updateDepartment(String code, DepartmentRequestDto requestDto) {
+        Department department = departmentRepository.findById(code)
+                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
 
-    // 부서 정보 수정
-    public Department updateDepartment(Long id, Department departmentDetails) {
-        Department department = departmentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. ID: " + id));
+        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
+            Department parent = departmentRepository.findById(requestDto.getParentCode())
+                    .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+            department.setParent(parent);
+        } else {
+            department.setParent(null);
+        }
 
-        department.setDeptName(departmentDetails.getDeptName());
-        department.setParentDeptCode(departmentDetails.getParentDeptCode());
-        department.setUseYn(departmentDetails.getUseYn());
+        department.setName(requestDto.getName());
+        department.setType(requestDto.getType());
         
         return departmentRepository.save(department);
     }
 
-    // 부서 삭제 (논리적 삭제)
-    public void deleteDepartment(Long id) {
-        Department department = departmentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. ID: " + id));
-        department.setUseYn(false);
-        departmentRepository.save(department);
+    public void deactivateDepartment(String code) {
+        Department department = departmentRepository.findById(code)
+                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
+        
+        if (department.getValidTo().isAfter(LocalDate.now())) {
+            department.setValidTo(LocalDate.now());
+            departmentRepository.save(department);
+        }
     }
 }
+

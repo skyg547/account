@@ -1,5 +1,6 @@
 package com.ho.account.closing.web;
 
+import com.ho.account.closing.domain.ClosingPeriod;
 import com.ho.account.closing.service.AnnualClosingService;
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.journal.domain.JournalEntry;
@@ -30,7 +31,7 @@ public class ClosingController {
         this.annualClosingService = annualClosingService;
     }
 
-    // --- 일/월 마감 ---
+    // --- 일 마감 ---
     @PostMapping("/day/{date}")
     public ResponseEntity<Void> closeDay(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -61,30 +62,55 @@ public class ClosingController {
         return ResponseEntity.ok(closingService.isDayClosed(date));
     }
 
-    @PostMapping("/month/{yearMonth}")
-    public ResponseEntity<Void> closeMonth(@PathVariable String yearMonth, @RequestBody Map<String, String> body) {
+    // --- 월 마감 ---
+    @PostMapping("/month/{yearMonthId}")
+    public ResponseEntity<ClosingPeriod> closeMonth(@PathVariable Long yearMonthId, @RequestBody Map<String, String> body) {
         try {
             String userId = body.get("userId");
-            closingService.closeMonth(yearMonth, userId);
-            return ResponseEntity.ok().build();
+            ClosingPeriod closingPeriod = closingService.closeMonth(yearMonthId, userId);
+            return ResponseEntity.ok(closingPeriod);
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
-    @PostMapping("/month/{yearMonth}/cancel")
-    public ResponseEntity<Void> cancelMonthClosing(@PathVariable String yearMonth) {
+    @PostMapping("/month/{yearMonthId}/reopen/request")
+    public ResponseEntity<ClosingPeriod> requestMonthReopen(@PathVariable Long yearMonthId, @RequestBody Map<String, String> body) {
         try {
-            closingService.cancelMonthClosing(yearMonth);
-            return ResponseEntity.ok().build();
+            String requestorId = body.get("requestorId");
+            String reason = body.get("reason");
+            ClosingPeriod closingPeriod = closingService.requestMonthReopen(yearMonthId, requestorId, reason);
+            return ResponseEntity.ok(closingPeriod);
         } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
-    @GetMapping("/month/{yearMonth}/status")
-    public ResponseEntity<Boolean> isMonthClosed(@PathVariable String yearMonth) {
-        return ResponseEntity.ok(closingService.isMonthClosed(yearMonth));
+    @PostMapping("/month/{yearMonthId}/reopen/approve")
+    public ResponseEntity<ClosingPeriod> approveMonthReopen(@PathVariable Long yearMonthId, @RequestBody Map<String, String> body) {
+        try {
+            String approverId = body.get("approverId");
+            ClosingPeriod closingPeriod = closingService.approveMonthReopen(yearMonthId, approverId);
+            return ResponseEntity.ok(closingPeriod);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @PostMapping("/month/{yearMonthId}/reopen/reject")
+    public ResponseEntity<ClosingPeriod> rejectMonthReopen(@PathVariable Long yearMonthId, @RequestBody Map<String, String> body) {
+        try {
+            String approverId = body.get("approverId");
+            ClosingPeriod closingPeriod = closingService.rejectMonthReopen(yearMonthId, approverId);
+            return ResponseEntity.ok(closingPeriod);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @GetMapping("/month/{yearMonthId}/status")
+    public ResponseEntity<Boolean> isMonthClosed(@PathVariable Long yearMonthId) {
+        return ResponseEntity.ok(closingService.isMonthClosed(yearMonthId));
     }
 
     // --- 결산 보정 및 연차 결산 ---

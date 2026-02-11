@@ -54,9 +54,9 @@ public class FinancialStatementService {
         // 2. 계정별 잔액 계산
         // Map<계정코드, 잔액> 형태로 집계
         Map<String, BigDecimal> balanceMap = details.stream()
-                .filter(d -> isBalanceSheetAccount(d.getAccountSubject().getAccountType())) // BS 계정만 필터링
+                .filter(d -> isBalanceSheetAccount(d.getAccountSubject().getCategory().name())) // BS 계정만 필터링
                 .collect(Collectors.toMap(
-                        d -> d.getAccountSubject().getAccountCode(), // Key: 계정코드
+                        d -> d.getAccountSubject().getCode(), // Key: 계정코드
                         d -> calculateSignedAmount(d), // Value: 부호가 적용된 금액
                         BigDecimal::add // Merge Function: 같은 키가 있을 경우 금액 합산
                 ));
@@ -66,7 +66,7 @@ public class FinancialStatementService {
         for (Map.Entry<String, BigDecimal> entry : balanceMap.entrySet()) {
             AccountSubject account = accountSubjectRepository.findById(entry.getKey()).orElse(null);
             if (account != null) {
-                result.add(new FinancialStatementDTO(account.getAccountCode(), account.getAccountName(), entry.getValue()));
+                result.add(new FinancialStatementDTO(account.getCode(), account.getName(), entry.getValue()));
             }
         }
         return result;
@@ -86,9 +86,9 @@ public class FinancialStatementService {
 
         // 2. 계정별 합계 계산
         Map<String, BigDecimal> sumMap = details.stream()
-                .filter(d -> isIncomeStatementAccount(d.getAccountSubject().getAccountType())) // IS 계정만 필터링
+                .filter(d -> isIncomeStatementAccount(d.getAccountSubject().getCategory().name())) // IS 계정만 필터링
                 .collect(Collectors.toMap(
-                        d -> d.getAccountSubject().getAccountCode(),
+                        d -> d.getAccountSubject().getCode(),
                         d -> d.getAmount(), // IS는 발생액 기준이므로 차/대 구분 없이 합산 (단, 수익은 대변, 비용은 차변이 정상 잔액)
                         BigDecimal::add
                 ));
@@ -98,7 +98,7 @@ public class FinancialStatementService {
         for (Map.Entry<String, BigDecimal> entry : sumMap.entrySet()) {
             AccountSubject account = accountSubjectRepository.findById(entry.getKey()).orElse(null);
             if (account != null) {
-                result.add(new FinancialStatementDTO(account.getAccountCode(), account.getAccountName(), entry.getValue()));
+                result.add(new FinancialStatementDTO(account.getCode(), account.getName(), entry.getValue()));
             }
         }
         return result;
@@ -106,8 +106,8 @@ public class FinancialStatementService {
 
     // 헬퍼 메서드: 차대변 구분에 따른 부호 계산 (자산: 차변+, 대변- / 부채,자본: 대변+, 차변-)
     private BigDecimal calculateSignedAmount(JournalDetail detail) {
-        String type = detail.getAccountSubject().getAccountType();
-        boolean isDebitPositive = "ASSET".equals(type); // 자산은 차변이 증가
+        String type = detail.getAccountSubject().getCategory().name();
+        boolean isDebitPositive = AccountSubject.AccountCategory.ASSETS.name().equals(type); // 자산은 차변이 증가
 
         if ("DEBIT".equals(detail.getDrcrType())) {
             return isDebitPositive ? detail.getAmount() : detail.getAmount().negate();
@@ -118,11 +118,14 @@ public class FinancialStatementService {
 
     // 헬퍼 메서드: BS 계정 여부 확인
     private boolean isBalanceSheetAccount(String type) {
-        return "ASSET".equals(type) || "LIABILITY".equals(type) || "EQUITY".equals(type);
+        return AccountSubject.AccountCategory.ASSETS.name().equals(type) ||
+               AccountSubject.AccountCategory.LIABILITIES.name().equals(type) ||
+               AccountSubject.AccountCategory.EQUITY.name().equals(type);
     }
 
     // 헬퍼 메서드: IS 계정 여부 확인
     private boolean isIncomeStatementAccount(String type) {
-        return "REVENUE".equals(type) || "EXPENSE".equals(type);
+        return AccountSubject.AccountCategory.REVENUE.name().equals(type) ||
+               AccountSubject.AccountCategory.EXPENSES.name().equals(type);
     }
 }

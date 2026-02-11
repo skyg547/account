@@ -53,7 +53,7 @@ public class AnnualClosingService {
 
         // 2. 계정별 잔액 집계
         Map<AccountSubject, BigDecimal> balanceMap = details.stream()
-                .filter(d -> "REVENUE".equals(d.getAccountSubject().getAccountType()) || "EXPENSE".equals(d.getAccountSubject().getAccountType()))
+                .filter(d -> AccountSubject.AccountCategory.REVENUE.name().equals(d.getAccountSubject().getCategory().name()) || AccountSubject.AccountCategory.EXPENSES.name().equals(d.getAccountSubject().getCategory().name()))
                 .collect(Collectors.groupingBy(
                         JournalDetail::getAccountSubject,
                         Collectors.reducing(BigDecimal.ZERO, this::calculateSignedAmountForIS, BigDecimal::add)
@@ -121,10 +121,10 @@ public class AnnualClosingService {
 
     // 손익계산서용 부호 계산 (비용: 차변+, 수익: 대변-)
     private BigDecimal calculateSignedAmountForIS(JournalDetail detail) {
-        String type = detail.getAccountSubject().getAccountType();
-        if ("EXPENSE".equals(type)) {
+        String type = detail.getAccountSubject().getCategory().name();
+        if (AccountSubject.AccountCategory.EXPENSES.name().equals(type)) {
             return "DEBIT".equals(detail.getDrcrType()) ? detail.getAmount() : detail.getAmount().negate();
-        } else if ("REVENUE".equals(type)) {
+        } else if (AccountSubject.AccountCategory.REVENUE.name().equals(type)) {
             return "CREDIT".equals(detail.getDrcrType()) ? detail.getAmount().negate() : detail.getAmount();
         }
         return BigDecimal.ZERO;

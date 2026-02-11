@@ -1,60 +1,92 @@
 package com.ho.account.basic.domain;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime; // LocalDateTime 추가
 
 @Entity
 @Table(name = "departments")
 public class Department {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true, length = 20)
-    private String deptCode;
-
-    @Column(nullable = false, length = 100)
-    private String deptName;
-
     @Column(length = 20)
-    private String parentDeptCode;
+    private String code;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt; // 생성일시
 
     @Column(nullable = false)
-    private Boolean useYn = true;
+    private LocalDateTime updatedAt; // 수정일시
 
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(length = 50)
+    private String auditUser; // 감사 사용자
 
-    private LocalDateTime updatedAt;
+    @Column(nullable = false, length = 100)
+    private String name;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_code")
+    private Department parent;
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private DepartmentType type;
+
+    @Column(nullable = false)
+    private LocalDate validFrom;
+
+    @Column(nullable = false)
+    private LocalDate validTo;
+
+    public enum DepartmentType {
+        COST_CENTER,  // 비용 센터
+        PROFIT_CENTER, // 이익 센터
+        SUPPORT,       // 지원 부서
+        OTHER          // 기타
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
 
-    public String getDeptCode() { return deptCode; }
-    public void setDeptCode(String deptCode) { this.deptCode = deptCode; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getDeptName() { return deptName; }
-    public void setDeptName(String deptName) { this.deptName = deptName; }
+    public Department getParent() { return parent; }
+    public void setParent(Department parent) { this.parent = parent; }
 
-    public String getParentDeptCode() { return parentDeptCode; }
-    public void setParentDeptCode(String parentDeptCode) { this.parentDeptCode = parentDeptCode; }
+    public DepartmentType getType() { return type; }
+    public void setType(DepartmentType type) { this.type = type; }
+    
+    public LocalDate getValidFrom() { return validFrom; }
+    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
 
-    public Boolean getUseYn() { return useYn; }
-    public void setUseYn(Boolean useYn) { this.useYn = useYn; }
+    public LocalDate getValidTo() { return validTo; }
+    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    // 추가된 필드의 Getter and Setter
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
 }
+

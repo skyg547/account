@@ -107,7 +107,7 @@ public class ExpenditureService {
 
         // 2. 고정자산 자동 등록 체크
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            if (Boolean.TRUE.equals(detail.getAccountSubject().getIsFixedAsset())) {
+            if (Boolean.TRUE.equals(detail.getAccountSubject().isFixedAsset())) {
                 createFixedAssetFromExpenditure(detail, resolution);
             }
         }
@@ -132,7 +132,7 @@ public class ExpenditureService {
     private void createFixedAssetFromExpenditure(ExpenditureDetail detail, ExpenditureResolution resolution) {
         FixedAsset asset = new FixedAsset();
         asset.setAssetCode("FA-" + resolution.getResolutionNo() + "-" + detail.getId()); 
-        asset.setAssetName(detail.getDescription() != null ? detail.getDescription() : detail.getAccountSubject().getAccountName());
+        asset.setAssetName(detail.getDescription() != null ? detail.getDescription() : detail.getAccountSubject().getName());
         asset.setAccountSubject(detail.getAccountSubject());
         asset.setAcquisitionDate(resolution.getPaymentDate());
         asset.setAcquisitionCost(detail.getAmount());
@@ -189,14 +189,14 @@ public class ExpenditureService {
 
     // 유효성 검증
     private void validateResolution(ExpenditureResolution resolution) {
-        if (resolution.getDepartment() != null && resolution.getDepartment().getDeptCode() != null) {
-            Department dept = departmentRepository.findByDeptCode(resolution.getDepartment().getDeptCode())
+        if (resolution.getDepartment() != null && resolution.getDepartment().getCode() != null) {
+            Department dept = departmentRepository.findByCode(resolution.getDepartment().getCode())
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다."));
             resolution.setDepartment(dept);
         }
 
-        if (resolution.getPaymentAccount() != null && resolution.getPaymentAccount().getAccountCode() != null) {
-            AccountSubject account = accountSubjectRepository.findById(resolution.getPaymentAccount().getAccountCode())
+        if (resolution.getPaymentAccount() != null && resolution.getPaymentAccount().getCode() != null) {
+            AccountSubject account = accountSubjectRepository.findById(resolution.getPaymentAccount().getCode())
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지급 계정입니다."));
             resolution.setPaymentAccount(account);
         }
@@ -209,8 +209,8 @@ public class ExpenditureService {
         }
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            if (detail.getAccountSubject() != null && detail.getAccountSubject().getAccountCode() != null) {
-                AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getAccountCode())
+            if (detail.getAccountSubject() != null && detail.getAccountSubject().getCode() != null) {
+                AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getCode())
                         .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 비용 계정입니다."));
                 detail.setAccountSubject(account);
             }

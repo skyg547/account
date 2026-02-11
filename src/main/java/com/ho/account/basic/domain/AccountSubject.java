@@ -1,48 +1,205 @@
 package com.ho.account.basic.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime; // LocalDateTime 추가
 
+/**
+ * 계정과목(Chart of Accounts) 마스터 엔티티.
+ * 계층 구조, 유효 기간, 재무제표 매핑 등을 포함하여 전체 회계 시스템의 기반을 정의합니다.
+ */
 @Entity
 @Table(name = "account_subjects")
 public class AccountSubject {
 
+    /**
+     * 계정 코드 (Primary Key)
+     */
     @Id
-    @Column(length = 10)
-    private String accountCode;
-
-    @Column(nullable = false, length = 100)
-    private String accountName;
-
     @Column(length = 20)
-    private String accountType; // 자산, 부채, 자본, 수익, 비용
+    private String code;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt; // 생성일시
 
     @Column(nullable = false)
-    private Boolean isFixedAsset = false; // 고정자산 계정 여부
+    private LocalDateTime updatedAt; // 수정일시
 
+    @Column(length = 50)
+    private String auditUser; // 감사 사용자
+
+    /**
+     * 계정명
+     */
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    /**
+     * 상위 계정 코드 (계층 구조)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_code")
+    private AccountSubject parent;
+
+    /**
+     * 계정 대분류 (BS, IS, CF 등)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private AccountCategory category;
+
+    /**
+     * 계정 잔액 타입 (차변/대변)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private BalanceType balanceType;
+
+    /**
+     * 재무제표 표시 라인 (재무상태표, 손익계산서 등의 항목)
+     */
+    @Column(length = 100)
+    private String reportLine;
+
+    /**
+     * 미결(채권/채무) 관리 여부
+     */
     @Column(nullable = false)
-    private Boolean manageUnsettled = false; // 미결 관리 여부 (채권/채무 등)
+    private boolean unsettled;
 
-    private Boolean useYn = true;
+    /**
+     * 유효 시작일 (SCD2)
+     */
+    @Column(nullable = false)
+    private LocalDate validFrom;
 
-    // Getters and Setters
-    public String getAccountCode() { return accountCode; }
-    public void setAccountCode(String accountCode) { this.accountCode = accountCode; }
+    /**
+     * 유효 종료일 (SCD2)
+     */
+    @Column(nullable = false)
+    private LocalDate validTo;
+    
+    // --- 기존 필드 유지 또는 통합 ---
+    /**
+     * 고정자산 계정 여부
+     */
+    @Column(nullable = false)
+    private boolean fixedAsset;
 
-    public String getAccountName() { return accountName; }
-    public void setAccountName(String accountName) { this.accountName = accountName; }
+    // --- Enum Definitions ---
+    public enum AccountCategory {
+        ASSETS, LIABILITIES, EQUITY, REVENUE, EXPENSES
+    }
 
-    public String getAccountType() { return accountType; }
-    public void setAccountType(String accountType) { this.accountType = accountType; }
+    public enum BalanceType {
+        DEBIT, CREDIT
+    }
 
-    public Boolean getIsFixedAsset() { return isFixedAsset; }
-    public void setIsFixedAsset(Boolean fixedAsset) { isFixedAsset = fixedAsset; }
+    // --- Getters and Setters ---
 
-    public Boolean getManageUnsettled() { return manageUnsettled; }
-    public void setManageUnsettled(Boolean manageUnsettled) { this.manageUnsettled = manageUnsettled; }
+    public String getCode() {
+        return code;
+    }
 
-    public Boolean getUseYn() { return useYn; }
-    public void setUseYn(Boolean useYn) { this.useYn = useYn; }
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public AccountSubject getParent() {
+        return parent;
+    }
+
+    public void setParent(AccountSubject parent) {
+        this.parent = parent;
+    }
+
+    public AccountCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(AccountCategory category) {
+        this.category = category;
+    }
+
+    public BalanceType getBalanceType() {
+        return balanceType;
+    }
+
+    public void setBalanceType(BalanceType balanceType) {
+        this.balanceType = balanceType;
+    }
+
+    public String getReportLine() {
+        return reportLine;
+    }
+
+    public void setReportLine(String reportLine) {
+        this.reportLine = reportLine;
+    }
+    
+    public boolean isUnsettled() {
+        return unsettled;
+    }
+
+    public void setUnsettled(boolean unsettled) {
+        this.unsettled = unsettled;
+    }
+
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(LocalDate validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public LocalDate getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(LocalDate validTo) {
+        this.validTo = validTo;
+    }
+
+    public boolean isFixedAsset() {
+        return fixedAsset;
+    }
+
+    public void setFixedAsset(boolean fixedAsset) {
+        this.fixedAsset = fixedAsset;
+    }
+
+    // 추가된 필드의 Getter and Setter
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
 }
+
