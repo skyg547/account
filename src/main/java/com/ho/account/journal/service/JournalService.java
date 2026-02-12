@@ -10,6 +10,7 @@ import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
 import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
+import com.ho.account.journal.service.JournalRuleService;
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.unsettled.service.UnsettledService;
 
@@ -21,7 +22,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map; // Added
 import java.util.Optional;
+import com.ho.account.journal.domain.ConditionOperator;
 
 @Service
 @Transactional
@@ -33,6 +36,7 @@ public class JournalService {
     private final BusinessPartnerRepository businessPartnerRepository;
     private final ClosingService closingService;
     private final UnsettledService unsettledService;
+    private final JournalRuleService journalRuleService;
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
@@ -40,13 +44,15 @@ public class JournalService {
                           DepartmentRepository departmentRepository,
                           BusinessPartnerRepository businessPartnerRepository,
                           ClosingService closingService,
-                          UnsettledService unsettledService) {
+                          UnsettledService unsettledService,
+                          JournalRuleService journalRuleService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
         this.businessPartnerRepository = businessPartnerRepository;
         this.closingService = closingService;
         this.unsettledService = unsettledService;
+        this.journalRuleService = journalRuleService;
     }
 
     // 전표 생성
@@ -82,8 +88,8 @@ public class JournalService {
         }
 
         if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
-
-        entry.setStatus(JournalEntryStatus.APPROVED);
+            throw new IllegalStateException("승인 요청된 전표만 승인할 수 있습니다.");
+        }
         entry.setRejectionReason(null);
         journalEntryRepository.save(entry);
 
@@ -169,8 +175,8 @@ public class JournalService {
         }
 
         if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
-
-        entry.setStatus(JournalEntryStatus.REJECTED);
+            throw new IllegalStateException("승인 요청된 전표만 반려할 수 있습니다.");
+        }
         entry.setRejectionReason(reason);
         journalEntryRepository.save(entry);
     }
@@ -233,5 +239,138 @@ public class JournalService {
         List<JournalEntry> entries = journalEntryRepository.findByAccountingDate(date);
         int seq = entries.size() + 1;
         return String.format("%s-%03d", dateStr, seq);
+    }
+
+    /**
+     * Creates a JournalEntry by applying defined journal rules to a given transaction event.
+     * @param transactionEvent A map representing the transaction data (e.g., "transactionType": "SALE", "amount": "1000").
+     * @param accountingDate The accounting date for the journal entry.
+     * @return An Optional containing the generated JournalEntry if a rule matches, otherwise empty.
+     */
+    public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, String> transactionEvent, LocalDate accountingDate) {
+        List<JournalRule> activeRules = journalRuleService.findActiveRules(accountingDate);
+
+        for (JournalRule rule : activeRules) {
+            if (matchesConditions(rule, transactionEvent)) {
+                return Optional.of(generateJournalEntry(rule, transactionEvent, accountingDate));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean matchesConditions(JournalRule rule, Map<String, String> transactionEvent) {
+        for (JournalRuleCondition condition : rule.getConditions()) {
+            String eventValue = transactionEvent.get(condition.getField());
+            if (eventValue == null) {
+                return false; // Condition field not present in event
+            }
+
+            // Simple string comparison for now. More complex evaluation needed for full expression support.
+            // This part would be enhanced with a proper expression engine for advanced operators.
+            switch (condition.getOperator()) {
+                case EQUALS:
+                    if (!eventValue.equals(condition.getValue())) return false;
+                    break;
+                case NOT_EQUALS:
+                    if (eventValue.equals(condition.getValue())) return false;
+                    break;
+                case STARTS_WITH:
+                    if (!eventValue.startsWith(condition.getValue())) return false;
+                    break;
+                case ENDS_WITH:
+                    if (!eventValue.endsWith(condition.getValue())) return false;
+                    break;
+                case CONTAINS:
+                    if (!eventValue.contains(condition.getValue())) return false;
+                    break;
+                // Add more operators as needed (e.g., GREATER_THAN, LESS_THAN for numeric values)
+                default:
+                    // For unsupported operators, assume no match or throw an error
+                    return false;
+            }
+        }
+        return true; // All conditions matched
+    }
+
+    private JournalEntry generateJournalEntry(JournalRule rule, Map<String, String> transactionEvent, LocalDate accountingDate) {
+        JournalEntry journalEntry = new JournalEntry();
+        journalEntry.setSlipDate(LocalDate.now()); // Current date for slip date
+        journalEntry.setAccountingDate(accountingDate);
+        journalEntry.setDescription(rule.getDescription() != null ? rule.getDescription() : rule.getRuleName());
+        journalEntry.setStatus(JournalEntryStatus.DRAFT); // Rules generate DRAFT entries
+
+        for (JournalRuleDetail ruleDetail : rule.getRuleDetails()) {
+            JournalDetail detail = new JournalDetail();
+            detail.setDrcrType(ruleDetail.getDrcrType());
+
+            // Evaluate expressions (simple direct lookup or static value for now)
+            detail.setAccountSubject(evaluateAccountSubjectExpression(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent));
+            detail.setAmount(evaluateAmountExpression(ruleDetail.getAmountExpression(), transactionEvent));
+            detail.setBusinessPartner(evaluateBusinessPartnerExpression(ruleDetail.getBusinessPartnerCodeExpression(), transactionEvent));
+            detail.setDepartment(evaluateDepartmentExpression(ruleDetail.getDepartmentCodeExpression(), transactionEvent));
+            detail.setDetailDescription(evaluateDescriptionExpression(ruleDetail.getDescriptionExpression(), transactionEvent));
+
+            journalEntry.addDetail(detail);
+        }
+
+        validateJournalEntry(journalEntry); // Validate the generated entry
+        return journalEntry;
+    }
+
+    // Helper methods to evaluate expressions.
+    // For now, these will simply check if the expression is a direct value or a placeholder like "${key}".
+    // In a full implementation, a robust expression parser (e.g., SpEL) would be used.
+    private AccountSubject evaluateAccountSubjectExpression(String expression, Map<String, String> transactionEvent) {
+        String value = extractValueFromExpression(expression, transactionEvent);
+        if (value != null) {
+            return accountSubjectRepository.findById(value)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + value));
+        }
+        return null; // Or handle as error
+    }
+
+    private BigDecimal evaluateAmountExpression(String expression, Map<String, String> transactionEvent) {
+        String value = extractValueFromExpression(expression, transactionEvent);
+        if (value != null) {
+            try {
+                return new BigDecimal(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid Amount expression result from rule: " + value, e);
+            }
+        }
+        return BigDecimal.ZERO; // Or handle as error
+    }
+
+    private BusinessPartner evaluateBusinessPartnerExpression(String expression, Map<String, String> transactionEvent) {
+        String value = extractValueFromExpression(expression, transactionEvent);
+        if (value != null) {
+            return businessPartnerRepository.findByBusinessPartnerCode(value)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Business Partner Code from rule: " + value));
+        }
+        return null;
+    }
+
+    private Department evaluateDepartmentExpression(String expression, Map<String, String> transactionEvent) {
+        String value = extractValueFromExpression(expression, transactionEvent);
+        if (value != null) {
+            return departmentRepository.findByCode(value)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Department Code from rule: " + value));
+        }
+        return null;
+    }
+
+    private String evaluateDescriptionExpression(String expression, Map<String, String> transactionEvent) {
+        return extractValueFromExpression(expression, transactionEvent);
+    }
+
+    private String extractValueFromExpression(String expression, Map<String, String> transactionEvent) {
+        if (expression == null || expression.isEmpty()) {
+            return null;
+        }
+        if (expression.startsWith("${") && expression.endsWith("}")) {
+            String key = expression.substring(2, expression.length() - 1);
+            return transactionEvent.get(key);
+        }
+        return expression; // Treat as static value
     }
 }
