@@ -1,6 +1,11 @@
 package com.ho.account.reconciliation.service;
 
+import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.reconciliation.domain.*;
+import com.ho.account.reconciliation.dto.ReconciliationRequestDto;
+import com.ho.account.reconciliation.dto.ReconciliationResponseDto;
+import com.ho.account.reconciliation.dto.VarianceDto;
 import com.ho.account.reconciliation.repository.ReconciliationResultRepository;
 import com.ho.account.reconciliation.repository.ReconciliationVarianceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,10 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.ho.account.journal.domain.JournalEntry;
 
 @Service
 @Transactional
@@ -21,172 +24,325 @@ public class ReconciliationService {
 
     private final ReconciliationResultRepository reconciliationResultRepository;
     private final ReconciliationVarianceRepository reconciliationVarianceRepository;
+    private final JournalEntryRepository journalEntryRepository;
 
     @Autowired
     public ReconciliationService(ReconciliationResultRepository reconciliationResultRepository,
-                                 ReconciliationVarianceRepository reconciliationVarianceRepository) {
+            ReconciliationVarianceRepository reconciliationVarianceRepository,
+            JournalEntryRepository journalEntryRepository) {
         this.reconciliationResultRepository = reconciliationResultRepository;
         this.reconciliationVarianceRepository = reconciliationVarianceRepository;
+        this.journalEntryRepository = journalEntryRepository;
+    }
+
+    // ===== 대사 실행 =====
+
+    /**
+     * 범용 대사 실행 (ReconciliationRequestDto 기반)
+     */
+    public ReconciliationResponseDto executeReconciliation(ReconciliationRequestDto request) {
+        switch (request.getReconciliationType()) {
+            case SOURCE_STANDARD:
+                return performSourceStandardReconciliation(request.getReconciliationDate(), request.getRunBy());
+            case ACCOUNT_TOTALS:
+                return performAccountTotalsReconciliation(request.getReconciliationDate(), request.getRunBy());
+            case BANK_ACCOUNT:
+                return performBankAccountReconciliation(request.getReconciliationDate(), request.getRunBy());
+            default:
+                throw new IllegalArgumentException("지원하지 않는 대사 유형: " + request.getReconciliationType());
+        }
     }
 
     /**
-     * Executes a Source-Standard-Journal-Ledger reconciliation.
-     * @param reconciliationDate The date for which reconciliation is performed.
-     * @param runBy The user who initiated the reconciliation.
-     * @return The ReconciliationResult.
+     * 원천-표준-전표-원장 대사 (건수/금액 비교)
      */
-    public ReconciliationResult performSourceStandardReconciliation(LocalDate reconciliationDate, String runBy) {
-        ReconciliationResult result = new ReconciliationResult();
-        result.setReconciliationDate(reconciliationDate);
-        result.setReconciliationType(ReconciliationType.SOURCE_STANDARD);
-        result.setRunBy(runBy);
-        result.setRunAt(LocalDateTime.now());
+    public ReconciliationResponseDto performSourceStandardReconciliation(LocalDate reconciliationDate, String runBy) {
+        ReconciliationResult result = createBaseResult(reconciliationDate, ReconciliationType.SOURCE_STANDARD, runBy);
 
-        // TODO: Implement actual reconciliation logic for Source-Standard-Journal-Ledger
-        // This will involve querying various data sources (source systems, standard data, journal entries, ledger data)
-        // and comparing counts and amounts.
+        // 원천 데이터 건수/금액 집계 (실제로는 원천 시스템 조회)
+        long sourceCount = countSourceTransactions(reconciliationDate);
+        BigDecimal sourceAmount = sumSourceTransactionAmounts(reconciliationDate);
 
-        // Placeholder values for now
-        result.setTotalCountSource(100L);
-        result.setTotalAmountSource(new BigDecimal("10000.00"));
-        result.setTotalCountTarget(98L);
-        result.setTotalAmountTarget(new BigDecimal("9800.00"));
-        result.setVarianceCount(2L);
-        result.setVarianceAmount(new BigDecimal("200.00"));
+        // 대상 데이터 건수/금액 집계 (전표/원장 조회)
+        long targetCount = countJournalEntries(reconciliationDate);
+        BigDecimal targetAmount = sumJournalEntryAmounts(reconciliationDate);
 
-        if (result.getVarianceCount() > 0 || result.getVarianceAmount().compareTo(BigDecimal.ZERO) != 0) {
+        result.setTotalCountSource(sourceCount);
+        result.setTotalAmountSource(sourceAmount);
+        result.setTotalCountTarget(targetCount);
+        result.setTotalAmountTarget(targetAmount);
+
+        long varCount = Math.abs(sourceCount - targetCount);
+        BigDecimal varAmount = sourceAmount.subtract(targetAmount).abs();
+        result.setVarianceCount(varCount);
+        result.setVarianceAmount(varAmount);
+
+        if (varCount == 0 && varAmount.compareTo(BigDecimal.ZERO) == 0) {
+            result.setStatus(ReconciliationStatus.SUCCESS);
+        } else {
             result.setStatus(ReconciliationStatus.VARIANCE_FOUND);
-            // Example: create a variance
+        }
+
+        ReconciliationResult saved = reconciliationResultRepository.save(result);
+
+        // 차이 발생 시 차이 내역 생성
+        if (saved.getStatus() == ReconciliationStatus.VARIANCE_FOUND) {
+            createVarianceEntries(saved, sourceCount, targetCount, sourceAmount, targetAmount);
+        }
+
+        return toResponseDto(saved);
+    }
+
+    /**
+     * 계정합계 대사
+     */
+    public ReconciliationResponseDto performAccountTotalsReconciliation(LocalDate reconciliationDate, String runBy) {
+        ReconciliationResult result = createBaseResult(reconciliationDate, ReconciliationType.ACCOUNT_TOTALS, runBy);
+
+        // 전표 차변 합계
+        BigDecimal totalDebit = sumJournalDebitAmounts(reconciliationDate);
+        // 전표 대변 합계
+        BigDecimal totalCredit = sumJournalCreditAmounts(reconciliationDate);
+
+        long entryCount = countJournalEntries(reconciliationDate);
+
+        result.setTotalCountSource(entryCount);
+        result.setTotalAmountSource(totalDebit);
+        result.setTotalCountTarget(entryCount);
+        result.setTotalAmountTarget(totalCredit);
+
+        BigDecimal difference = totalDebit.subtract(totalCredit).abs();
+        result.setVarianceCount(difference.compareTo(BigDecimal.ZERO) != 0 ? 1L : 0L);
+        result.setVarianceAmount(difference);
+
+        if (difference.compareTo(BigDecimal.ZERO) == 0) {
+            result.setStatus(ReconciliationStatus.SUCCESS);
+        } else {
+            result.setStatus(ReconciliationStatus.VARIANCE_FOUND);
+        }
+
+        ReconciliationResult saved = reconciliationResultRepository.save(result);
+
+        if (saved.getStatus() == ReconciliationStatus.VARIANCE_FOUND) {
             ReconciliationVariance variance = new ReconciliationVariance();
-            variance.setReconciliationResult(result);
-            variance.setVarianceCode("SOURCE_DIFF");
-            variance.setDescription("Difference found between source and target data.");
-            variance.setAmount(result.getVarianceAmount());
-            variance.setDrCrType("DEBIT"); // Placeholder
+            variance.setReconciliationResult(saved);
+            variance.setVarianceCode("DEBIT_CREDIT_MISMATCH");
+            variance.setDescription("차변 합계(" + totalDebit + ")와 대변 합계(" + totalCredit + ") 불일치");
+            variance.setAmount(difference);
+            variance.setDrCrType(totalDebit.compareTo(totalCredit) > 0 ? "DR" : "CR");
             variance.setStatus(VarianceStatus.OPEN);
             reconciliationVarianceRepository.save(variance);
-        } else {
-            result.setStatus(ReconciliationStatus.SUCCESS);
         }
 
-        return reconciliationResultRepository.save(result);
+        return toResponseDto(saved);
     }
 
     /**
-     * Executes an Account Totals reconciliation.
-     * @param reconciliationDate The date for which reconciliation is performed.
-     * @param runBy The user who initiated the reconciliation.
-     * @return The ReconciliationResult.
+     * 은행계좌 대사 (통장 vs 장부)
      */
-    public ReconciliationResult performAccountTotalsReconciliation(LocalDate reconciliationDate, String runBy) {
-        ReconciliationResult result = new ReconciliationResult();
-        result.setReconciliationDate(reconciliationDate);
-        result.setReconciliationType(ReconciliationType.ACCOUNT_TOTALS);
-        result.setRunBy(runBy);
-        result.setRunAt(LocalDateTime.now());
+    public ReconciliationResponseDto performBankAccountReconciliation(LocalDate reconciliationDate, String runBy) {
+        ReconciliationResult result = createBaseResult(reconciliationDate, ReconciliationType.BANK_ACCOUNT, runBy);
 
-        // TODO: Implement actual reconciliation logic for Account Totals
-        // This will involve comparing aggregated balances for accounts.
+        // 실제 구현에서는 은행 데이터와 장부 데이터를 비교
+        BigDecimal bankBalance = getBankStatementBalance(reconciliationDate);
+        BigDecimal bookBalance = getBookBankBalance(reconciliationDate);
 
-        // Placeholder values
-        result.setTotalCountSource(50L);
-        result.setTotalAmountSource(new BigDecimal("50000.00"));
-        result.setTotalCountTarget(50L);
-        result.setTotalAmountTarget(new BigDecimal("50000.00"));
-        result.setVarianceCount(0L);
-        result.setVarianceAmount(BigDecimal.ZERO);
-        result.setStatus(ReconciliationStatus.SUCCESS);
+        result.setTotalCountSource(1L);
+        result.setTotalAmountSource(bankBalance);
+        result.setTotalCountTarget(1L);
+        result.setTotalAmountTarget(bookBalance);
 
-        return reconciliationResultRepository.save(result);
-    }
+        BigDecimal difference = bankBalance.subtract(bookBalance).abs();
+        result.setVarianceCount(difference.compareTo(BigDecimal.ZERO) != 0 ? 1L : 0L);
+        result.setVarianceAmount(difference);
 
-    /**
-     * Executes a Bank Account reconciliation.
-     * @param reconciliationDate The date for which reconciliation is performed.
-     * @param runBy The user who initiated the reconciliation.
-     * @return The ReconciliationResult.
-     */
-    public ReconciliationResult performBankAccountReconciliation(LocalDate reconciliationDate, String runBy) {
-        ReconciliationResult result = new ReconciliationResult();
-        result.setReconciliationDate(reconciliationDate);
-        result.setReconciliationType(ReconciliationType.BANK_ACCOUNT);
-        result.setRunBy(runBy);
-        result.setRunAt(LocalDateTime.now());
-
-        // TODO: Implement actual reconciliation logic for Bank Account
-        // This will involve comparing bank statements with ledger balances.
-
-        // Placeholder values
-        result.setTotalCountSource(200L);
-        result.setTotalAmountSource(new BigDecimal("200000.00"));
-        result.setTotalCountTarget(199L);
-        result.setTotalAmountTarget(new BigDecimal("199900.00"));
-        result.setVarianceCount(1L);
-        result.setVarianceAmount(new BigDecimal("100.00"));
-
-        if (result.getVarianceCount() > 0 || result.getVarianceAmount().compareTo(BigDecimal.ZERO) != 0) {
+        if (difference.compareTo(BigDecimal.ZERO) == 0) {
+            result.setStatus(ReconciliationStatus.SUCCESS);
+        } else {
             result.setStatus(ReconciliationStatus.VARIANCE_FOUND);
-        } else {
-            result.setStatus(ReconciliationStatus.SUCCESS);
         }
 
-        return reconciliationResultRepository.save(result);
+        ReconciliationResult saved = reconciliationResultRepository.save(result);
+
+        if (saved.getStatus() == ReconciliationStatus.VARIANCE_FOUND) {
+            ReconciliationVariance variance = new ReconciliationVariance();
+            variance.setReconciliationResult(saved);
+            variance.setVarianceCode("BANK_BOOK_MISMATCH");
+            variance.setDescription("은행잔액(" + bankBalance + ")과 장부잔액(" + bookBalance + ") 불일치");
+            variance.setAmount(difference);
+            variance.setDrCrType(bankBalance.compareTo(bookBalance) > 0 ? "DR" : "CR");
+            variance.setSourceReference("BANK_STATEMENT");
+            variance.setTargetReference("BOOK_BALANCE");
+            variance.setStatus(VarianceStatus.OPEN);
+            reconciliationVarianceRepository.save(variance);
+        }
+
+        return toResponseDto(saved);
     }
 
-    /**
-     * Retrieves all reconciliation results.
-     * @return A list of ReconciliationResult.
-     */
-    @Transactional(readOnly = true)
-    public List<ReconciliationResult> getAllReconciliationResults() {
-        return reconciliationResultRepository.findAll();
-    }
+    // ===== 조회 =====
 
-    /**
-     * Retrieves reconciliation results by type.
-     * @param type The type of reconciliation.
-     * @return A list of ReconciliationResult matching the type.
-     */
     @Transactional(readOnly = true)
-    public List<ReconciliationResult> getReconciliationResultsByType(ReconciliationType type) {
-        // Assuming findByType method is needed in repository
-        // return reconciliationResultRepository.findByReconciliationType(type);
-        // For now, returning all results and filtering
+    public List<ReconciliationResponseDto> getAllReconciliationResults() {
         return reconciliationResultRepository.findAll().stream()
-                .filter(r -> r.getReconciliationType() == type)
+                .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Retrieves all variances for a given reconciliation result.
-     * @param reconciliationResultId The ID of the reconciliation result.
-     * @return A list of ReconciliationVariance.
-     */
     @Transactional(readOnly = true)
-    public List<ReconciliationVariance> getVariancesByReconciliationResult(Long reconciliationResultId) {
-        // Assuming findByReconciliationResultId method is needed in repository
-        // return reconciliationVarianceRepository.findByReconciliationResultId(reconciliationResultId);
-        // For now, returning all and filtering
-        return reconciliationVarianceRepository.findAll().stream()
-                .filter(v -> v.getReconciliationResult() != null && v.getReconciliationResult().getId().equals(reconciliationResultId))
+    public ReconciliationResponseDto getReconciliationResultById(Long id) {
+        ReconciliationResult result = reconciliationResultRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("대사 결과를 찾을 수 없습니다: " + id));
+        ReconciliationResponseDto dto = toResponseDto(result);
+        List<VarianceDto> variances = reconciliationVarianceRepository.findByReconciliationResultId(id).stream()
+                .map(VarianceDto::from)
+                .collect(Collectors.toList());
+        dto.setVariances(variances);
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReconciliationResponseDto> getReconciliationResultsByType(ReconciliationType type) {
+        return reconciliationResultRepository.findByReconciliationType(type).stream()
+                .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<ReconciliationResponseDto> getReconciliationResultsByDate(LocalDate date) {
+        return reconciliationResultRepository.findByReconciliationDate(date).stream()
+                .map(this::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<VarianceDto> getVariancesByReconciliationResult(Long reconciliationResultId) {
+        return reconciliationVarianceRepository.findByReconciliationResultId(reconciliationResultId).stream()
+                .map(VarianceDto::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<VarianceDto> getOpenVariances() {
+        return reconciliationVarianceRepository.findByStatus(VarianceStatus.OPEN).stream()
+                .map(VarianceDto::from)
+                .collect(Collectors.toList());
+    }
+
+    // ===== 차이 해소 =====
+
     /**
-     * Resolves a variance by linking it to an adjustment journal entry.
-     * @param varianceId The ID of the variance to resolve.
-     * @param journalEntry The adjustment journal entry.
-     * @param resolvedBy The user who resolved the variance.
-     * @return The updated ReconciliationVariance.
+     * 조정 전표를 통한 차이 해소
      */
-    public ReconciliationVariance resolveVarianceWithAdjustment(Long varianceId, JournalEntry journalEntry, String resolvedBy) {
+    public VarianceDto resolveVarianceWithAdjustment(Long varianceId, Long journalEntryId, String resolvedBy) {
         ReconciliationVariance variance = reconciliationVarianceRepository.findById(varianceId)
-                .orElseThrow(() -> new IllegalArgumentException("Variance not found with ID: " + varianceId));
+                .orElseThrow(() -> new IllegalArgumentException("대사 차이를 찾을 수 없습니다: " + varianceId));
+
+        JournalEntry journalEntry = journalEntryRepository.findById(journalEntryId)
+                .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다: " + journalEntryId));
 
         variance.setAdjustmentJournalEntry(journalEntry);
         variance.setStatus(VarianceStatus.ADJUSTED);
         variance.setResolvedBy(resolvedBy);
         variance.setResolvedAt(LocalDateTime.now());
-        return reconciliationVarianceRepository.save(variance);
+
+        return VarianceDto.from(reconciliationVarianceRepository.save(variance));
+    }
+
+    /**
+     * 차이 무시 처리
+     */
+    public VarianceDto ignoreVariance(Long varianceId, String resolvedBy) {
+        ReconciliationVariance variance = reconciliationVarianceRepository.findById(varianceId)
+                .orElseThrow(() -> new IllegalArgumentException("대사 차이를 찾을 수 없습니다: " + varianceId));
+
+        variance.setStatus(VarianceStatus.IGNORED);
+        variance.setResolvedBy(resolvedBy);
+        variance.setResolvedAt(LocalDateTime.now());
+
+        return VarianceDto.from(reconciliationVarianceRepository.save(variance));
+    }
+
+    // ===== Private Helper Methods =====
+
+    private ReconciliationResult createBaseResult(LocalDate reconciliationDate, ReconciliationType type, String runBy) {
+        ReconciliationResult result = new ReconciliationResult();
+        result.setReconciliationDate(reconciliationDate);
+        result.setReconciliationType(type);
+        result.setRunBy(runBy);
+        result.setRunAt(LocalDateTime.now());
+        return result;
+    }
+
+    private void createVarianceEntries(ReconciliationResult result,
+            long sourceCount, long targetCount,
+            BigDecimal sourceAmount, BigDecimal targetAmount) {
+        if (sourceCount != targetCount) {
+            ReconciliationVariance countVariance = new ReconciliationVariance();
+            countVariance.setReconciliationResult(result);
+            countVariance.setVarianceCode("COUNT_MISMATCH");
+            countVariance.setDescription("원천 건수(" + sourceCount + ")와 대상 건수(" + targetCount + ") 불일치");
+            countVariance.setAmount(BigDecimal.valueOf(Math.abs(sourceCount - targetCount)));
+            countVariance.setStatus(VarianceStatus.OPEN);
+            reconciliationVarianceRepository.save(countVariance);
+        }
+
+        BigDecimal amountDiff = sourceAmount.subtract(targetAmount);
+        if (amountDiff.compareTo(BigDecimal.ZERO) != 0) {
+            ReconciliationVariance amountVariance = new ReconciliationVariance();
+            amountVariance.setReconciliationResult(result);
+            amountVariance.setVarianceCode("AMOUNT_MISMATCH");
+            amountVariance.setDescription("원천 금액(" + sourceAmount + ")과 대상 금액(" + targetAmount + ") 불일치");
+            amountVariance.setAmount(amountDiff.abs());
+            amountVariance.setDrCrType(amountDiff.compareTo(BigDecimal.ZERO) > 0 ? "DR" : "CR");
+            amountVariance.setStatus(VarianceStatus.OPEN);
+            reconciliationVarianceRepository.save(amountVariance);
+        }
+    }
+
+    private ReconciliationResponseDto toResponseDto(ReconciliationResult entity) {
+        return ReconciliationResponseDto.from(entity);
+    }
+
+    // ===== 데이터 조회 헬퍼 (실제 구현 시 확장 필요) =====
+
+    private long countSourceTransactions(LocalDate date) {
+        // TODO: 실제 원천 시스템 데이터 건수 조회
+        return 0L;
+    }
+
+    private BigDecimal sumSourceTransactionAmounts(LocalDate date) {
+        // TODO: 실제 원천 시스템 데이터 금액 합계 조회
+        return BigDecimal.ZERO;
+    }
+
+    private long countJournalEntries(LocalDate date) {
+        // TODO: 해당 일자의 전표 건수 조회
+        return 0L;
+    }
+
+    private BigDecimal sumJournalEntryAmounts(LocalDate date) {
+        // TODO: 해당 일자의 전표 금액 합계 조회
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal sumJournalDebitAmounts(LocalDate date) {
+        // TODO: 해당 일자의 전표 차변 합계 조회
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal sumJournalCreditAmounts(LocalDate date) {
+        // TODO: 해당 일자의 전표 대변 합계 조회
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getBankStatementBalance(LocalDate date) {
+        // TODO: 은행 잔액 조회 (외부 시스템 연동)
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getBookBankBalance(LocalDate date) {
+        // TODO: 장부상 은행 잔액 조회
+        return BigDecimal.ZERO;
     }
 }

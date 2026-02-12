@@ -1,9 +1,11 @@
-import com.ho.account.journal.domain.JournalEntryStatus;
+package com.ho.account.journal.domain;
+
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.ho.account.journal.domain.JournalEntryStatus;
 
 /**
  * 전표(Journal Entry) 헤더 정보를 담는 엔티티입니다.
@@ -50,9 +52,12 @@ public class JournalEntry {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = JournalEntryStatus.DRAFT;
-        if (accountingDate == null) accountingDate = slipDate;
-        if (entryType == null) entryType = "NORMAL"; // 기본값: 일반 전표
+        if (status == null)
+            status = JournalEntryStatus.DRAFT;
+        if (accountingDate == null)
+            accountingDate = slipDate;
+        if (entryType == null)
+            entryType = "NORMAL"; // 기본값: 일반 전표
     }
 
     // 연관관계 편의 메서드
@@ -71,34 +76,87 @@ public class JournalEntry {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getSlipNo() { return slipNo; }
-    public void setSlipNo(String slipNo) { this.slipNo = slipNo; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public LocalDate getSlipDate() { return slipDate; }
-    public void setSlipDate(LocalDate slipDate) { this.slipDate = slipDate; }
+    public String getSlipNo() {
+        return slipNo;
+    }
 
-    public LocalDate getAccountingDate() { return accountingDate; }
-    public void setAccountingDate(LocalDate accountingDate) { this.accountingDate = accountingDate; }
+    public void setSlipNo(String slipNo) {
+        this.slipNo = slipNo;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public LocalDate getSlipDate() {
+        return slipDate;
+    }
 
-    public JournalEntryStatus getStatus() { return status; }
-    public void setStatus(JournalEntryStatus status) { this.status = status; }
+    public void setSlipDate(LocalDate slipDate) {
+        this.slipDate = slipDate;
+    }
 
-    public String getEntryType() { return entryType; }
-    public void setEntryType(String entryType) { this.entryType = entryType; }
+    public LocalDate getAccountingDate() {
+        return accountingDate;
+    }
 
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public void setAccountingDate(LocalDate accountingDate) {
+        this.accountingDate = accountingDate;
+    }
 
-    public List<JournalDetail> getDetails() { return details; }
-    public void setDetails(List<JournalDetail> details) { this.details = details; }
+    public String getDescription() {
+        return description;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public JournalEntryStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(JournalEntryStatus status) {
+        this.status = status;
+    }
+
+    public String getEntryType() {
+        return entryType;
+    }
+
+    public void setEntryType(String entryType) {
+        this.entryType = entryType;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
+    public List<JournalDetail> getDetails() {
+        return details;
+    }
+
+    public void setDetails(List<JournalDetail> details) {
+        this.details = details;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 }

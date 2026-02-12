@@ -29,7 +29,7 @@ public class JournalDetail {
     private BigDecimal amount;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "deptCode")
+    @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department; // 귀속부서
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -40,27 +40,67 @@ public class JournalDetail {
     private String detailDescription; // 라인 적요
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public JournalEntry getJournalEntry() { return journalEntry; }
-    public void setJournalEntry(JournalEntry journalEntry) { this.journalEntry = journalEntry; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDrcrType() { return drcrType; }
-    public void setDrcrType(String drcrType) { this.drcrType = drcrType; }
+    public JournalEntry getJournalEntry() {
+        return journalEntry;
+    }
 
-    public AccountSubject getAccountSubject() { return accountSubject; }
-    public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
+    public void setJournalEntry(JournalEntry journalEntry) {
+        this.journalEntry = journalEntry;
+    }
 
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getDrcrType() {
+        return drcrType;
+    }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public void setDrcrType(String drcrType) {
+        this.drcrType = drcrType;
+    }
 
-    public BusinessPartner getBusinessPartner() { return businessPartner; }
-    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
+    public AccountSubject getAccountSubject() {
+        return accountSubject;
+    }
 
-    public String getDetailDescription() { return detailDescription; }
-    public void setDetailDescription(String detailDescription) { this.detailDescription = detailDescription; }
+    public void setAccountSubject(AccountSubject accountSubject) {
+        this.accountSubject = accountSubject;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public BusinessPartner getBusinessPartner() {
+        return businessPartner;
+    }
+
+    public void setBusinessPartner(BusinessPartner businessPartner) {
+        this.businessPartner = businessPartner;
+    }
+
+    public String getDetailDescription() {
+        return detailDescription;
+    }
+
+    public void setDetailDescription(String detailDescription) {
+        this.detailDescription = detailDescription;
+    }
 }

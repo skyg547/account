@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.web;
 
+import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import jakarta.validation.Valid;
 import com.ho.account.expenditure.service.ExpenditureService;
@@ -25,7 +26,8 @@ public class ExpenditureController {
 
     // 결의서 생성
     @PostMapping
-    public ResponseEntity<ExpenditureResolution> createResolution(@Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
+    public ResponseEntity<ExpenditureResolution> createResolution(
+            @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
         try {
             ExpenditureResolution created = expenditureService.createResolution(requestDto);
             return ResponseEntity.ok(created);
@@ -35,9 +37,12 @@ public class ExpenditureController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ExpenditureResolution> updateResolution(@PathVariable Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
+    public ResponseEntity<ExpenditureResolution> updateResolution(@PathVariable Long id,
+            @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
         try {
-            ExpenditureResolution updated = expenditureService.updateResolution(id, requestDto); // Need to add updateResolution to service
+            ExpenditureResolution updated = expenditureService.updateResolution(id, requestDto); // Need to add
+                                                                                                 // updateResolution to
+                                                                                                 // service
             return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);

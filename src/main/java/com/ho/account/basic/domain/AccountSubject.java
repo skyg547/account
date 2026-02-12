@@ -42,7 +42,14 @@ public class AccountSubject {
     private AccountSubject parent;
 
     /**
-     * 계정 대분류 (BS, IS, CF 등)
+     * 계정 상위 분류 (자산, 부채, 자본, 수익, 비용)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private AccountCategory category;
+
+    /**
+     * 계정 대분류 (BS, IS, CF 등) - 기존 AccountType 유지 또는 Category와 매핑
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
@@ -55,113 +62,126 @@ public class AccountSubject {
     @Column(nullable = false, length = 10)
     private BalanceType balanceType;
 
-        /**
-         * 재무제표 표시 라인 (재무상태표, 손익계산서 등의 항목)
-         */
-        @Column(length = 100)
-        private String financialReportMappingCode;
-    
-        /**
-         * 감독회계 보고서 매핑 코드
-         */
-        @Column(length = 100)
-        private String regulatoryMappingCode;
-    
-        /**
-         * 미결(채권/채무) 관리 여부
-         */
-        @Column(nullable = false)
-        private boolean unsettled;
-    
-        /**
-         * 유효 시작일 (SCD2)
-         */
-        @Column(nullable = false)
-        private LocalDate validFrom;
-    
-        /**
-         * 유효 종료일 (SCD2)
-         */
-        @Column(nullable = false)
-        private LocalDate validTo;
-        
-        // --- 기존 필드 유지 또는 통합 ---
-        /**
-         * 고정자산 계정 여부
-         */
-        @Column(nullable = false)
-        private boolean fixedAsset;
-    
-        // --- Enum Definitions ---
-        public enum AccountType {
-            ASSETS, LIABILITIES, EQUITY, REVENUE, EXPENSES
-        }
-    
-        public enum BalanceType {
-            DEBIT, CREDIT
-        }
-    
-        // --- Getters and Setters ---
-    
-        public String getCode() {
-            return code;
-        }
-    
-        public void setCode(String code) {
-            this.code = code;
-        }
-    
-        public String getName() {
-            return name;
-        }
-    
-        public void setName(String name) {
-            this.name = name;
-        }
-    
-        public AccountSubject getParent() {
-            return parent;
-        }
-    
-        public void setParent(AccountSubject parent) {
-            this.parent = parent;
-        }
-    
-        public AccountType getAccountType() {
-            return accountType;
-        }
-    
-        public void setAccountType(AccountType accountType) {
-            this.accountType = accountType;
-        }
-    
-        public BalanceType getBalanceType() {
-            return balanceType;
-        }
-    
-        public void setBalanceType(BalanceType balanceType) {
-            this.balanceType = balanceType;
-        }
-    
-        public String getFinancialReportMappingCode() {
-            return financialReportMappingCode;
-        }
-    
-        public void setFinancialReportMappingCode(String financialReportMappingCode) {
-            this.financialReportMappingCode = financialReportMappingCode;
-        }
-    
-        public String getRegulatoryMappingCode() {
-            return regulatoryMappingCode;
-        }
-    
-        public void setRegulatoryMappingCode(String regulatoryMappingCode) {
-            this.regulatoryMappingCode = regulatoryMappingCode;
-        }
-        
-        public boolean isUnsettled() {
-            return unsettled;
-        }
+    /**
+     * 재무제표 표시 라인 (재무상태표, 손익계산서 등의 항목)
+     */
+    @Column(name = "report_line", length = 100)
+    private String reportLine;
+
+    /**
+     * 감독회계 보고서 매핑 코드
+     */
+    @Column(length = 100)
+    private String regulatoryMappingCode;
+
+    /**
+     * 미결(채권/채무) 관리 여부
+     */
+    @Column(nullable = false)
+    private boolean unsettled;
+
+    /**
+     * 유효 시작일 (SCD2)
+     */
+    @Column(nullable = false)
+    private LocalDate validFrom;
+
+    /**
+     * 유효 종료일 (SCD2)
+     */
+    @Column(nullable = false)
+    private LocalDate validTo;
+
+    /**
+     * 고정자산 계정 여부
+     */
+    @Column(nullable = false)
+    private boolean fixedAsset;
+
+    // --- Enum Definitions ---
+    public enum AccountCategory {
+        ASSETS, LIABILITIES, EQUITY, REVENUE, EXPENSES
+    }
+
+    public enum AccountType {
+        ASSETS, LIABILITIES, EQUITY, REVENUE, EXPENSES,
+        NON_OPERATING_INCOME, NON_OPERATING_EXPENSES // 상세 분류가 필요할 수 있음
+    }
+
+    public enum BalanceType {
+        DEBIT, CREDIT
+    }
+
+    // --- Getters and Setters ---
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public AccountSubject getParent() {
+        return parent;
+    }
+
+    public void setParent(AccountSubject parent) {
+        this.parent = parent;
+    }
+
+    public AccountCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(AccountCategory category) {
+        this.category = category;
+    }
+
+    public AccountType getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(AccountType accountType) {
+        this.accountType = accountType;
+    }
+
+    public BalanceType getBalanceType() {
+        return balanceType;
+    }
+
+    public void setBalanceType(BalanceType balanceType) {
+        this.balanceType = balanceType;
+    }
+
+    public String getReportLine() {
+        return reportLine;
+    }
+
+    public void setReportLine(String reportLine) {
+        this.reportLine = reportLine;
+    }
+
+    public String getRegulatoryMappingCode() {
+        return regulatoryMappingCode;
+    }
+
+    public void setRegulatoryMappingCode(String regulatoryMappingCode) {
+        this.regulatoryMappingCode = regulatoryMappingCode;
+    }
+
+    public boolean isUnsettled() {
+        return unsettled;
+    }
+
     public void setUnsettled(boolean unsettled) {
         this.unsettled = unsettled;
     }
@@ -215,4 +235,3 @@ public class AccountSubject {
         this.auditUser = auditUser;
     }
 }
-

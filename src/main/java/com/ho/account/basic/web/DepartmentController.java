@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.ho.account.basic.dto.DepartmentRequestDto;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/basic/departments")
@@ -21,8 +22,8 @@ public class DepartmentController {
 
     // 부서 생성
     @PostMapping
-    public ResponseEntity<Department> createDepartment(@RequestBody Department department) {
-        Department createdDepartment = departmentService.createDepartment(department);
+    public ResponseEntity<Department> createDepartment(@RequestBody DepartmentRequestDto requestDto) {
+        Department createdDepartment = departmentService.createDepartment(requestDto);
         return ResponseEntity.ok(createdDepartment);
     }
 
@@ -35,7 +36,7 @@ public class DepartmentController {
     // 사용 중인 부서만 조회
     @GetMapping("/active")
     public List<Department> getActiveDepartments() {
-        return departmentService.getActiveDepartments();
+        return departmentService.findAllActiveDepartments();
     }
 
     // 부서 상세 조회
@@ -47,10 +48,11 @@ public class DepartmentController {
     }
 
     // 부서 정보 수정
-    @PutMapping("/{id}")
-    public ResponseEntity<Department> updateDepartment(@PathVariable Long id, @RequestBody Department departmentDetails) {
+    @PutMapping("/{deptCode}")
+    public ResponseEntity<Department> updateDepartment(@PathVariable String deptCode,
+            @RequestBody DepartmentRequestDto departmentDetails) {
         try {
-            Department updatedDepartment = departmentService.updateDepartment(id, departmentDetails);
+            Department updatedDepartment = departmentService.updateDepartment(deptCode, departmentDetails);
             return ResponseEntity.ok(updatedDepartment);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -58,10 +60,10 @@ public class DepartmentController {
     }
 
     // 부서 삭제 (논리적 삭제)
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDepartment(@PathVariable Long id) {
+    @DeleteMapping("/{deptCode}")
+    public ResponseEntity<Void> deleteDepartment(@PathVariable String deptCode) {
         try {
-            departmentService.deleteDepartment(id);
+            departmentService.deactivateDepartment(deptCode);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

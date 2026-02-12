@@ -33,7 +33,7 @@ public class ExpenditureResolution {
     private LocalDate paymentDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "deptCode")
+    @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -73,7 +73,8 @@ public class ExpenditureResolution {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = ExpenditureResolutionStatus.DRAFT;
+        if (status == null)
+            status = ExpenditureResolutionStatus.DRAFT;
     }
 
     // 연관관계 편의 메서드
@@ -90,49 +91,127 @@ public class ExpenditureResolution {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getResolutionNo() { return resolutionNo; }
-    public void setResolutionNo(String resolutionNo) { this.resolutionNo = resolutionNo; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public String getResolutionNo() {
+        return resolutionNo;
+    }
 
-    public LocalDate getResolutionDate() { return resolutionDate; }
-    public void setResolutionDate(LocalDate resolutionDate) { this.resolutionDate = resolutionDate; }
+    public void setResolutionNo(String resolutionNo) {
+        this.resolutionNo = resolutionNo;
+    }
 
-    public LocalDate getPaymentDate() { return paymentDate; }
-    public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }
+    public String getTitle() {
+        return title;
+    }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public AccountSubject getPaymentAccount() { return paymentAccount; }
-    public void setPaymentAccount(AccountSubject paymentAccount) { this.paymentAccount = paymentAccount; }
+    public LocalDate getResolutionDate() {
+        return resolutionDate;
+    }
 
-    public BigDecimal getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    public void setResolutionDate(LocalDate resolutionDate) {
+        this.resolutionDate = resolutionDate;
+    }
 
-    public ExpenditureResolutionStatus getStatus() { return status; }
-    public void setStatus(ExpenditureResolutionStatus status) { this.status = status; }
+    public LocalDate getPaymentDate() {
+        return paymentDate;
+    }
 
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public void setPaymentDate(LocalDate paymentDate) {
+        this.paymentDate = paymentDate;
+    }
 
-    public JournalEntry getJournalEntry() { return journalEntry; }
-    public void setJournalEntry(JournalEntry journalEntry) { this.journalEntry = journalEntry; }
+    public Department getDepartment() {
+        return department;
+    }
 
-    public LeaseContract getLeaseContract() { return leaseContract; }
-    public void setLeaseContract(LeaseContract leaseContract) { this.leaseContract = leaseContract; }
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
 
-    public TaxInvoice getTaxInvoice() { return taxInvoice; }
-    public void setTaxInvoice(TaxInvoice taxInvoice) { this.taxInvoice = taxInvoice; }
+    public AccountSubject getPaymentAccount() {
+        return paymentAccount;
+    }
 
-    public List<ExpenditureDetail> getDetails() { return details; }
-    public void setDetails(List<ExpenditureDetail> details) { this.details = details; }
+    public void setPaymentAccount(AccountSubject paymentAccount) {
+        this.paymentAccount = paymentAccount;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public ExpenditureResolutionStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ExpenditureResolutionStatus status) {
+        this.status = status;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public void setRejectionReason(String rejectionReason) {
+        this.rejectionReason = rejectionReason;
+    }
+
+    public JournalEntry getJournalEntry() {
+        return journalEntry;
+    }
+
+    public void setJournalEntry(JournalEntry journalEntry) {
+        this.journalEntry = journalEntry;
+    }
+
+    public LeaseContract getLeaseContract() {
+        return leaseContract;
+    }
+
+    public void setLeaseContract(LeaseContract leaseContract) {
+        this.leaseContract = leaseContract;
+    }
+
+    public TaxInvoice getTaxInvoice() {
+        return taxInvoice;
+    }
+
+    public void setTaxInvoice(TaxInvoice taxInvoice) {
+        this.taxInvoice = taxInvoice;
+    }
+
+    public List<ExpenditureDetail> getDetails() {
+        return details;
+    }
+
+    public void setDetails(List<ExpenditureDetail> details) {
+        this.details = details;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 }

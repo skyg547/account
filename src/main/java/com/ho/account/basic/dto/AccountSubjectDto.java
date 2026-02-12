@@ -15,7 +15,9 @@ public class AccountSubjectDto {
     private final LocalDate validFrom;
     private final LocalDate validTo;
 
-    public AccountSubjectDto(String code, String name, String parentCode, AccountSubject.AccountCategory category, AccountSubject.BalanceType balanceType, String reportLine, boolean unsettled, boolean fixedAsset, LocalDate validFrom, LocalDate validTo) {
+    public AccountSubjectDto(String code, String name, String parentCode, AccountSubject.AccountCategory category,
+            AccountSubject.BalanceType balanceType, String reportLine, boolean unsettled, boolean fixedAsset,
+            LocalDate validFrom, LocalDate validTo) {
         this.code = code;
         this.name = name;
         this.parentCode = parentCode;
@@ -45,19 +47,47 @@ public class AccountSubjectDto {
                 entity.isUnsettled(),
                 entity.isFixedAsset(),
                 entity.getValidFrom(),
-                entity.getValidTo()
-        );
+                entity.getValidTo());
     }
 
     // Getters
-    public String getCode() { return code; }
-    public String getName() { return name; }
-    public String getParentCode() { return parentCode; }
-    public AccountSubject.AccountCategory getCategory() { return category; }
-    public AccountSubject.BalanceType getBalanceType() { return balanceType; }
-    public String getReportLine() { return reportLine; }
-    public boolean isUnsettled() { return unsettled; }
-    public boolean isFixedAsset() { return fixedAsset; }
-    public LocalDate getValidFrom() { return validFrom; }
-    public LocalDate getValidTo() { return validTo; }
+    public String getCode() {
+        return code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getParentCode() {
+        return parentCode;
+    }
+
+    public AccountSubject.AccountCategory getCategory() {
+        return category;
+    }
+
+    public AccountSubject.BalanceType getBalanceType() {
+        return balanceType;
+    }
+
+    public String getReportLine() {
+        return reportLine;
+    }
+
+    public boolean isUnsettled() {
+        return unsettled;
+    }
+
+    public boolean isFixedAsset() {
+        return fixedAsset;
+    }
+
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
+
+    public LocalDate getValidTo() {
+        return validTo;
+    }
 }

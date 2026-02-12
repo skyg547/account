@@ -36,7 +36,8 @@ public class APPaymentController {
     public ResponseEntity<APPaymentDto> getAPPaymentById(@PathVariable Long id) {
         return apPaymentService.getAPPaymentById(id)
                 .map(APPaymentDto::fromEntity)
-                .orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/by-expenditure/{expenditureResolutionId}")
@@ -47,7 +48,8 @@ public class APPaymentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<APPaymentDto> updateAPPayment(@PathVariable Long id, @Valid @RequestBody APPaymentRequestDto requestDto) {
+    public ResponseEntity<APPaymentDto> updateAPPayment(@PathVariable Long id,
+            @Valid @RequestBody APPaymentRequestDto requestDto) {
         try {
             APPaymentDto updatedPayment = APPaymentDto.fromEntity(apPaymentService.updateAPPayment(id, requestDto));
             return ResponseEntity.ok(updatedPayment);

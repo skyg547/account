@@ -13,14 +13,18 @@ import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
+import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
 import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
 import com.ho.account.journal.service.JournalService;
+import com.ho.account.tax.domain.TaxInvoice;
+import com.ho.account.tax.repository.TaxInvoiceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -38,20 +42,18 @@ public class ExpenditureService {
     private final FixedAssetService fixedAssetService;
     private final LeaseContractRepository leaseContractRepository;
 
-    private final TaxInvoiceRepository taxInvoiceRepository; // New field
-    private final APInvoiceService apInvoiceService; // New field
+    private final TaxInvoiceRepository taxInvoiceRepository;
 
     @Autowired
     public ExpenditureService(ExpenditureResolutionRepository expenditureRepository,
-                              JournalService journalService,
-                              AccountSubjectRepository accountSubjectRepository,
-                              DepartmentRepository departmentRepository,
-                              BusinessPartnerRepository businessPartnerRepository,
-                              BudgetService budgetService,
-                              FixedAssetService fixedAssetService,
-                              LeaseContractRepository leaseContractRepository,
-                              TaxInvoiceRepository taxInvoiceRepository, // New parameter
-                              APInvoiceService apInvoiceService) { // New parameter
+            JournalService journalService,
+            AccountSubjectRepository accountSubjectRepository,
+            DepartmentRepository departmentRepository,
+            BusinessPartnerRepository businessPartnerRepository,
+            BudgetService budgetService,
+            FixedAssetService fixedAssetService,
+            LeaseContractRepository leaseContractRepository,
+            TaxInvoiceRepository taxInvoiceRepository) {
         this.expenditureRepository = expenditureRepository;
         this.journalService = journalService;
         this.accountSubjectRepository = accountSubjectRepository;
@@ -60,12 +62,12 @@ public class ExpenditureService {
         this.budgetService = budgetService;
         this.fixedAssetService = fixedAssetService;
         this.leaseContractRepository = leaseContractRepository;
-        this.taxInvoiceRepository = taxInvoiceRepository; // Assign new field
-        this.apInvoiceService = apInvoiceService; // Assign new field
+        this.taxInvoiceRepository = taxInvoiceRepository;
     }
 
     /**
      * 새로운 지출결의서를 생성합니다.
+     * 
      * @param requestDto 생성할 지출결의서 정보가 담긴 DTO
      * @return 저장된 ExpenditureResolution 엔티티
      */
@@ -77,18 +79,21 @@ public class ExpenditureService {
 
         // Validate and set Department
         Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
         resolution.setDepartment(department);
 
         // Validate and set Payment Account
         AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
         resolution.setPaymentAccount(paymentAccount);
 
         // Set Tax Invoice if provided
         if (requestDto.getTaxInvoiceId() != null) {
             TaxInvoice taxInvoice = taxInvoiceRepository.findById(requestDto.getTaxInvoiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("세금계산서를 찾을 수 없습니다. ID: " + requestDto.getTaxInvoiceId()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "세금계산서를 찾을 수 없습니다. ID: " + requestDto.getTaxInvoiceId()));
             if (!"PURCHASE".equals(taxInvoice.getType())) {
                 throw new IllegalArgumentException("지출결의서에 연결할 세금계산서는 'PURCHASE' 타입이어야 합니다.");
             }
@@ -104,12 +109,15 @@ public class ExpenditureService {
 
             // Validate and set Account Subject for detail
             AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
             // Validate and set Business Partner for detail
-            BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
+            BusinessPartner businessPartner = businessPartnerRepository
+                    .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
             detail.setBusinessPartner(businessPartner);
 
             resolution.addDetail(detail);
@@ -117,10 +125,19 @@ public class ExpenditureService {
         }
         resolution.setTotalAmount(totalAmount); // Ensure total amount is calculated
 
+        return createResolution(resolution);
+    }
+
+    /**
+     * 지출결의서 생성 (Entity 직접 입력)
+     * LeaseService 등 내부 서비스에서 호출
+     */
+    public ExpenditureResolution createResolution(ExpenditureResolution resolution) {
         // Budget check
         String yearMonth = resolution.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            budgetService.useBudget(yearMonth, resolution.getDepartment(), detail.getAccountSubject(), detail.getAmount());
+            budgetService.useBudget(yearMonth, resolution.getDepartment(), detail.getAccountSubject(),
+                    detail.getAmount());
         }
 
         String resolutionNo = generateResolutionNo(resolution.getResolutionDate());
@@ -132,7 +149,8 @@ public class ExpenditureService {
 
     /**
      * 기존 지출결의서를 수정합니다.
-     * @param id 수정할 지출결의서 ID
+     * 
+     * @param id         수정할 지출결의서 ID
      * @param requestDto 수정할 지출결의서 정보가 담긴 DTO
      * @return 수정된 ExpenditureResolution 엔티티
      */
@@ -141,7 +159,8 @@ public class ExpenditureService {
                 .orElseThrow(() -> new IllegalArgumentException("지출결의서를 찾을 수 없습니다. ID: " + id));
 
         // Only allow update if status is DRAFT or REJECTED
-        if (existingResolution.getStatus() != ExpenditureResolutionStatus.DRAFT && existingResolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
+        if (existingResolution.getStatus() != ExpenditureResolutionStatus.DRAFT
+                && existingResolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 결의서만 수정할 수 있습니다.");
         }
 
@@ -151,18 +170,21 @@ public class ExpenditureService {
 
         // Validate and set Department
         Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
         existingResolution.setDepartment(department);
 
         // Validate and set Payment Account
         AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
         existingResolution.setPaymentAccount(paymentAccount);
 
         // Set Tax Invoice if provided
         if (requestDto.getTaxInvoiceId() != null) {
             TaxInvoice taxInvoice = taxInvoiceRepository.findById(requestDto.getTaxInvoiceId())
-                    .orElseThrow(() -> new IllegalArgumentException("세금계산서를 찾을 수 없습니다. ID: " + requestDto.getTaxInvoiceId()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "세금계산서를 찾을 수 없습니다. ID: " + requestDto.getTaxInvoiceId()));
             if (!"PURCHASE".equals(taxInvoice.getType())) {
                 throw new IllegalArgumentException("지출결의서에 연결할 세금계산서는 'PURCHASE' 타입이어야 합니다.");
             }
@@ -181,12 +203,15 @@ public class ExpenditureService {
 
             // Validate and set Account Subject for detail
             AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
             // Validate and set Business Partner for detail
-            BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
+            BusinessPartner businessPartner = businessPartnerRepository
+                    .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
             detail.setBusinessPartner(businessPartner);
 
             existingResolution.addDetail(detail); // addDetail handles setting parent resolution and calculating total
@@ -196,9 +221,11 @@ public class ExpenditureService {
 
         // Re-check budget if details changed
         String yearMonth = existingResolution.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
-        // This would require a budgetService.updateBudget or similar, for now, just a re-check
+        // This would require a budgetService.updateBudget or similar, for now, just a
+        // re-check
         for (ExpenditureDetail detail : existingResolution.getDetails()) {
-            budgetService.useBudget(yearMonth, existingResolution.getDepartment(), detail.getAccountSubject(), detail.getAmount());
+            budgetService.useBudget(yearMonth, existingResolution.getDepartment(), detail.getAccountSubject(),
+                    detail.getAmount());
         }
 
         return expenditureRepository.save(existingResolution);
@@ -208,11 +235,12 @@ public class ExpenditureService {
     public void requestApproval(Long id) {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
-        
-        if (resolution.getStatus() != ExpenditureResolutionStatus.DRAFT && resolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
+
+        if (resolution.getStatus() != ExpenditureResolutionStatus.DRAFT
+                && resolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 결의서만 승인 요청할 수 있습니다.");
         }
-        
+
         resolution.setStatus(ExpenditureResolutionStatus.REQUESTED);
         expenditureRepository.save(resolution);
     }
@@ -223,6 +251,8 @@ public class ExpenditureService {
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
 
         if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
+            throw new IllegalStateException("승인요청 상태의 결의서만 승인할 수 있습니다.");
+        }
 
         // 1. 전표 생성 및 승인
         JournalEntry journalEntry = createJournalFromResolution(resolution);
@@ -256,8 +286,9 @@ public class ExpenditureService {
     // 고정자산 자동 등록 로직
     private void createFixedAssetFromExpenditure(ExpenditureDetail detail, ExpenditureResolution resolution) {
         FixedAsset asset = new FixedAsset();
-        asset.setAssetCode("FA-" + resolution.getResolutionNo() + "-" + detail.getId()); 
-        asset.setAssetName(detail.getDescription() != null ? detail.getDescription() : detail.getAccountSubject().getName());
+        asset.setAssetCode("FA-" + resolution.getResolutionNo() + "-" + detail.getId());
+        asset.setAssetName(
+                detail.getDescription() != null ? detail.getDescription() : detail.getAccountSubject().getName());
         asset.setAccountSubject(detail.getAccountSubject());
         asset.setAcquisitionDate(resolution.getPaymentDate());
         asset.setAcquisitionCost(detail.getAmount());
@@ -275,6 +306,8 @@ public class ExpenditureService {
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
 
         if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
+            throw new IllegalStateException("승인요청 상태의 결의서만 반려할 수 있습니다.");
+        }
 
         resolution.setStatus(ExpenditureResolutionStatus.REJECTED);
         resolution.setRejectionReason(reason);
@@ -287,7 +320,7 @@ public class ExpenditureService {
         entry.setSlipDate(resolution.getResolutionDate());
         entry.setAccountingDate(resolution.getPaymentDate());
         entry.setDescription("지출결의: " + resolution.getTitle());
-        
+
         for (ExpenditureDetail detail : resolution.getDetails()) {
             JournalDetail journalDetail = new JournalDetail();
             journalDetail.setDrcrType("DEBIT");
@@ -310,20 +343,18 @@ public class ExpenditureService {
         return entry;
     }
 
-
-
     private String generateResolutionNo(LocalDate date) {
         String dateStr = date.format(DateTimeFormatter.BASIC_ISO_DATE);
         List<ExpenditureResolution> list = expenditureRepository.findByResolutionDate(date);
         int seq = list.size() + 1;
         return String.format("REQ-%s-%03d", dateStr, seq);
     }
-    
+
     @Transactional(readOnly = true)
     public List<ExpenditureResolution> getResolutionsByDate(LocalDate startDate, LocalDate endDate) {
         return expenditureRepository.findByResolutionDateBetween(startDate, endDate);
     }
-    
+
     @Transactional(readOnly = true)
     public ExpenditureResolution getResolution(Long id) {
         return expenditureRepository.findById(id)

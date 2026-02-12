@@ -52,16 +52,18 @@ public class BusinessPartnerController {
 
     // 거래처 검색 (이름)
     @GetMapping("/search")
-    public List<Customer> searchCustomers(@RequestParam String name) {
-        return customerService.searchCustomersByName(name);
+    public List<BusinessPartner> searchBusinessPartners(@RequestParam String name) {
+        return businessPartnerService.searchBusinessPartnersByName(name);
     }
 
     // 거래처 정보 수정
     @PutMapping("/{id}")
-    public ResponseEntity<Customer> updateCustomer(@PathVariable Long id, @RequestBody Customer customerDetails) {
+    public ResponseEntity<BusinessPartner> updateBusinessPartner(@PathVariable Long id,
+            @RequestBody BusinessPartner businessPartnerDetails) {
         try {
-            Customer updatedCustomer = customerService.updateCustomer(id, customerDetails);
-            return ResponseEntity.ok(updatedCustomer);
+            BusinessPartner updatedBusinessPartner = businessPartnerService.updateBusinessPartner(id,
+                    businessPartnerDetails);
+            return ResponseEntity.ok(updatedBusinessPartner);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
@@ -69,9 +71,9 @@ public class BusinessPartnerController {
 
     // 거래처 삭제 (논리적 삭제)
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteBusinessPartner(@PathVariable Long id) {
         try {
-            customerService.deleteCustomer(id);
+            businessPartnerService.deleteBusinessPartner(id);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

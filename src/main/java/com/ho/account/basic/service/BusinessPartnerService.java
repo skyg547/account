@@ -1,7 +1,7 @@
 package com.ho.account.basic.service;
 
-import com.ho.account.basic.domain.Customer;
-import com.ho.account.basic.repository.CustomerRepository;
+import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.basic.repository.BusinessPartnerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,67 +11,67 @@ import java.util.Optional;
 
 @Service
 @Transactional
-public class CustomerService {
+public class BusinessPartnerService {
 
-    private final CustomerRepository customerRepository;
+    private final BusinessPartnerRepository businessPartnerRepository;
 
     @Autowired
-    public CustomerService(CustomerRepository customerRepository) {
-        this.customerRepository = customerRepository;
+    public BusinessPartnerService(BusinessPartnerRepository businessPartnerRepository) {
+        this.businessPartnerRepository = businessPartnerRepository;
     }
 
     // 거래처 생성
-    public Customer createCustomer(Customer customer) {
-        if (customerRepository.existsByCustomerCode(customer.getCustomerCode())) {
-            throw new IllegalArgumentException("이미 존재하는 거래처 코드입니다: " + customer.getCustomerCode());
+    public BusinessPartner createBusinessPartner(BusinessPartner businessPartner) {
+        if (businessPartnerRepository.existsByBusinessPartnerCode(businessPartner.getBusinessPartnerCode())) {
+            throw new IllegalArgumentException("이미 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
         }
-        return customerRepository.save(customer);
+        return businessPartnerRepository.save(businessPartner);
     }
 
     // 전체 거래처 조회
     @Transactional(readOnly = true)
-    public List<Customer> getAllCustomers() {
-        return customerRepository.findAll();
+    public List<BusinessPartner> getAllBusinessPartners() {
+        return businessPartnerRepository.findAll();
     }
 
     // 사용 중인 거래처만 조회
     @Transactional(readOnly = true)
-    public List<Customer> getActiveCustomers() {
-        return customerRepository.findByUseYnTrue();
+    public List<BusinessPartner> getActiveBusinessPartners() {
+        return businessPartnerRepository.findByUseYnTrue();
     }
 
     // 거래처 상세 조회 (코드)
     @Transactional(readOnly = true)
-    public Optional<Customer> getCustomerByCode(String customerCode) {
-        return customerRepository.findByCustomerCode(customerCode);
+    public Optional<BusinessPartner> getBusinessPartnerByCode(String businessPartnerCode) {
+        return businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode);
     }
 
     // 거래처 검색 (이름)
     @Transactional(readOnly = true)
-    public List<Customer> searchCustomersByName(String name) {
-        return customerRepository.findByCustomerNameContaining(name);
+    public List<BusinessPartner> searchBusinessPartnersByName(String name) {
+        return businessPartnerRepository.findByBusinessPartnerNameContaining(name);
     }
 
     // 거래처 정보 수정
-    public Customer updateCustomer(Long id, Customer customerDetails) {
-        Customer customer = customerRepository.findById(id)
+    public BusinessPartner updateBusinessPartner(Long id, BusinessPartner businessPartnerDetails) {
+        BusinessPartner businessPartner = businessPartnerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
 
-        customer.setCustomerName(customerDetails.getCustomerName());
-        customer.setRegistrationNumber(customerDetails.getRegistrationNumber());
-        customer.setCeoName(customerDetails.getCeoName());
-        customer.setBusinessType(customerDetails.getBusinessType());
-        customer.setBusinessItem(customerDetails.getBusinessItem());
-        customer.setUseYn(customerDetails.getUseYn());
-        
-        return customerRepository.save(customer);
+        businessPartner.setBusinessPartnerName(businessPartnerDetails.getBusinessPartnerName());
+        businessPartner.setRegistrationNumber(businessPartnerDetails.getRegistrationNumber());
+        businessPartner.setCeoName(businessPartnerDetails.getCeoName());
+        businessPartner.setBusinessType(businessPartnerDetails.getBusinessType());
+        businessPartner.setBusinessItem(businessPartnerDetails.getBusinessItem());
+        businessPartner.setUseYn(businessPartnerDetails.getUseYn());
+
+        return businessPartnerRepository.save(businessPartner);
     }
 
     // 거래처 삭제 (논리적 삭제)
-    public void deleteCustomer(Long id) {
-        Customer customer = customerRepository.findById(id)
+    public void deleteBusinessPartner(Long id) {
+        BusinessPartner businessPartner = businessPartnerRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
-        customer.setUseYn(false);
-        customerRepository.save(customer);
+        businessPartner.setUseYn(false);
+        businessPartnerRepository.save(businessPartner);
     }
 }

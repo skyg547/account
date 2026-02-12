@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "budgets", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"yearMonth", "dept_code", "account_code"})
+        @UniqueConstraint(columnNames = { "yearMonth", "dept_code", "account_code" })
 })
 public class Budget {
 
@@ -19,7 +19,7 @@ public class Budget {
     private String yearMonth; // YYYYMM
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "deptCode")
+    @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -33,23 +33,53 @@ public class Budget {
     private BigDecimal usedAmount = BigDecimal.ZERO; // 사용 예산
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getYearMonth() { return yearMonth; }
-    public void setYearMonth(String yearMonth) { this.yearMonth = yearMonth; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public String getYearMonth() {
+        return yearMonth;
+    }
 
-    public AccountSubject getAccountSubject() { return accountSubject; }
-    public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
+    public void setYearMonth(String yearMonth) {
+        this.yearMonth = yearMonth;
+    }
 
-    public BigDecimal getAssignedAmount() { return assignedAmount; }
-    public void setAssignedAmount(BigDecimal assignedAmount) { this.assignedAmount = assignedAmount; }
+    public Department getDepartment() {
+        return department;
+    }
 
-    public BigDecimal getUsedAmount() { return usedAmount; }
-    public void setUsedAmount(BigDecimal usedAmount) { this.usedAmount = usedAmount; }
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public AccountSubject getAccountSubject() {
+        return accountSubject;
+    }
+
+    public void setAccountSubject(AccountSubject accountSubject) {
+        this.accountSubject = accountSubject;
+    }
+
+    public BigDecimal getAssignedAmount() {
+        return assignedAmount;
+    }
+
+    public void setAssignedAmount(BigDecimal assignedAmount) {
+        this.assignedAmount = assignedAmount;
+    }
+
+    public BigDecimal getUsedAmount() {
+        return usedAmount;
+    }
+
+    public void setUsedAmount(BigDecimal usedAmount) {
+        this.usedAmount = usedAmount;
+    }
 
     // 비즈니스 로직
     public BigDecimal getRemainingAmount() {

@@ -25,6 +25,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map; // Added
 import java.util.Optional;
+import com.ho.account.journal.domain.JournalRule;
+import com.ho.account.journal.domain.JournalRuleCondition;
+import com.ho.account.journal.domain.JournalRuleDetail;
 import com.ho.account.journal.domain.ConditionOperator;
 
 @Service
@@ -42,13 +45,13 @@ public class JournalService {
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
-                          AccountSubjectRepository accountSubjectRepository,
-                          DepartmentRepository departmentRepository,
-                          BusinessPartnerRepository businessPartnerRepository,
-                          ClosingService closingService,
-                          UnsettledService unsettledService,
-                          JournalRuleService journalRuleService,
-                          BudgetService budgetService) {
+            AccountSubjectRepository accountSubjectRepository,
+            DepartmentRepository departmentRepository,
+            BusinessPartnerRepository businessPartnerRepository,
+            ClosingService closingService,
+            UnsettledService unsettledService,
+            JournalRuleService journalRuleService,
+            BudgetService budgetService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
@@ -101,7 +104,7 @@ public class JournalService {
             if (Boolean.TRUE.equals(detail.getAccountSubject().isUnsettled())) {
                 // UnsettledService의 메서드 시그니처가 변경될 예정이므로 임시 주석 처리 또는 수정 필요
                 // 현재는 JournalDetail 객체를 그대로 넘기는 구조라고 가정
-                 unsettledService.createUnsettledItem(detail); 
+                unsettledService.createUnsettledItem(detail);
             }
         }
     }
@@ -114,17 +117,20 @@ public class JournalService {
         if (closingService.isClosed(existingEntry.getAccountingDate())) {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다. 전표를 수정할 수 없습니다.");
         }
-        if (journalEntryDetails.getAccountingDate() != null && closingService.isClosed(journalEntryDetails.getAccountingDate())) {
+        if (journalEntryDetails.getAccountingDate() != null
+                && closingService.isClosed(journalEntryDetails.getAccountingDate())) {
             throw new IllegalStateException("변경하려는 날짜의 월은 이미 마감되었습니다.");
         }
 
-        if (existingEntry.getStatus() != JournalEntryStatus.DRAFT && existingEntry.getStatus() != JournalEntryStatus.REJECTED) {
+        if (existingEntry.getStatus() != JournalEntryStatus.DRAFT
+                && existingEntry.getStatus() != JournalEntryStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 전표만 수정할 수 있습니다.");
         }
 
         existingEntry.setSlipDate(journalEntryDetails.getSlipDate());
-        existingEntry.setAccountingDate(journalEntryDetails.getAccountingDate() != null ? 
-                                      journalEntryDetails.getAccountingDate() : journalEntryDetails.getSlipDate());
+        existingEntry.setAccountingDate(
+                journalEntryDetails.getAccountingDate() != null ? journalEntryDetails.getAccountingDate()
+                        : journalEntryDetails.getSlipDate());
         existingEntry.setDescription(journalEntryDetails.getDescription());
 
         existingEntry.clearDetails();
@@ -156,15 +162,15 @@ public class JournalService {
     public void requestApproval(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));
-        
+
         if (closingService.isClosed(entry.getAccountingDate())) {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다.");
         }
 
         if (entry.getStatus() != JournalEntryStatus.DRAFT && entry.getStatus() != JournalEntryStatus.REJECTED) {
-             throw new IllegalStateException("작성중이거나 반려된 전표만 승인 요청할 수 있습니다.");
+            throw new IllegalStateException("작성중이거나 반려된 전표만 승인 요청할 수 있습니다.");
         }
-        
+
         entry.setStatus(JournalEntryStatus.REQUESTED);
         journalEntryRepository.save(entry);
     }
@@ -223,29 +229,35 @@ public class JournalService {
                 throw new IllegalArgumentException("계정과목 코드는 필수입니다.");
             }
             AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getCode())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 계정과목입니다: " + detail.getAccountSubject().getCode()));
-            // Removed check for !account.getUseYn() as it's not present in AccountSubject entity
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 계정과목입니다: " + detail.getAccountSubject().getCode()));
+            // Removed check for !account.getUseYn() as it's not present in AccountSubject
+            // entity
             detail.setAccountSubject(account);
 
             if (detail.getDepartment() != null && detail.getDepartment().getCode() != null) {
                 Department dept = departmentRepository.findByCode(detail.getDepartment().getCode())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다: " + detail.getDepartment().getCode()));
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "존재하지 않는 부서입니다: " + detail.getDepartment().getCode()));
                 // Removed check for !dept.getUseYn() as it's not present in Department entity
                 detail.setDepartment(dept);
             }
 
             if (detail.getBusinessPartner() != null && detail.getBusinessPartner().getBusinessPartnerCode() != null) {
-                BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(detail.getBusinessPartner().getBusinessPartnerCode())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다: " + detail.getBusinessPartner().getBusinessPartnerCode()));
+                BusinessPartner businessPartner = businessPartnerRepository
+                        .findByBusinessPartnerCode(detail.getBusinessPartner().getBusinessPartnerCode())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "존재하지 않는 거래처입니다: " + detail.getBusinessPartner().getBusinessPartnerCode()));
                 if (!businessPartner.getUseYn()) {
                     throw new IllegalArgumentException("사용 중지된 거래처입니다: " + businessPartner.getBusinessPartnerName());
                 }
                 detail.setBusinessPartner(businessPartner);
             }
 
-            // TODO: Implement Tax Validation (DoD 05.3) - e.g., checking tax codes, rates, and rules
+            // TODO: Implement Tax Validation (DoD 05.3) - e.g., checking tax codes, rates,
+            // and rules
             // if (detail.getTaxCode() != null) {
-            //     taxService.validateTaxImplications(detail, entry.getAccountingDate());
+            // taxService.validateTaxImplications(detail, entry.getAccountingDate());
             // }
 
             if ("DEBIT".equals(detail.getDrcrType())) {
@@ -256,11 +268,10 @@ public class JournalService {
                 }
                 String yearMonth = entry.getAccountingDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
                 budgetService.checkBudgetAvailability(
-                    yearMonth,
-                    detail.getDepartment(),
-                    detail.getAccountSubject(),
-                    detail.getAmount()
-                );
+                        yearMonth,
+                        detail.getDepartment(),
+                        detail.getAccountSubject(),
+                        detail.getAmount());
             } else if ("CREDIT".equals(detail.getDrcrType())) {
                 creditSum = creditSum.add(detail.getAmount());
             } else {
@@ -297,7 +308,8 @@ public class JournalService {
         JournalEntry reversalEntry = new JournalEntry();
         reversalEntry.setSlipDate(LocalDate.now());
         reversalEntry.setAccountingDate(reversalDate);
-        reversalEntry.setDescription("역분개: " + originalEntry.getDescription() + " (원 전표 No: " + originalEntry.getSlipNo() + ")");
+        reversalEntry.setDescription(
+                "역분개: " + originalEntry.getDescription() + " (원 전표 No: " + originalEntry.getSlipNo() + ")");
         reversalEntry.setStatus(JournalEntryStatus.DRAFT); // Reversal entry starts as DRAFT
         reversalEntry.setEntryType("REVERSAL");
 
@@ -330,12 +342,17 @@ public class JournalService {
     }
 
     /**
-     * Creates a JournalEntry by applying defined journal rules to a given transaction event.
-     * @param transactionEvent A map representing the transaction data (e.g., "transactionType": "SALE", "amount": "1000").
-     * @param accountingDate The accounting date for the journal entry.
-     * @return An Optional containing the generated JournalEntry if a rule matches, otherwise empty.
+     * Creates a JournalEntry by applying defined journal rules to a given
+     * transaction event.
+     * 
+     * @param transactionEvent A map representing the transaction data (e.g.,
+     *                         "transactionType": "SALE", "amount": "1000").
+     * @param accountingDate   The accounting date for the journal entry.
+     * @return An Optional containing the generated JournalEntry if a rule matches,
+     *         otherwise empty.
      */
-    public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, String> transactionEvent, LocalDate accountingDate) {
+    public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, String> transactionEvent,
+            LocalDate accountingDate) {
         List<JournalRule> activeRules = journalRuleService.findActiveRules(accountingDate);
 
         for (JournalRule rule : activeRules) {
@@ -353,25 +370,33 @@ public class JournalService {
                 return false; // Condition field not present in event
             }
 
-            // Simple string comparison for now. More complex evaluation needed for full expression support.
-            // This part would be enhanced with a proper expression engine for advanced operators.
+            // Simple string comparison for now. More complex evaluation needed for full
+            // expression support.
+            // This part would be enhanced with a proper expression engine for advanced
+            // operators.
             switch (condition.getOperator()) {
                 case EQUALS:
-                    if (!eventValue.equals(condition.getValue())) return false;
+                    if (!eventValue.equals(condition.getValue()))
+                        return false;
                     break;
                 case NOT_EQUALS:
-                    if (eventValue.equals(condition.getValue())) return false;
+                    if (eventValue.equals(condition.getValue()))
+                        return false;
                     break;
                 case STARTS_WITH:
-                    if (!eventValue.startsWith(condition.getValue())) return false;
+                    if (!eventValue.startsWith(condition.getValue()))
+                        return false;
                     break;
                 case ENDS_WITH:
-                    if (!eventValue.endsWith(condition.getValue())) return false;
+                    if (!eventValue.endsWith(condition.getValue()))
+                        return false;
                     break;
                 case CONTAINS:
-                    if (!eventValue.contains(condition.getValue())) return false;
+                    if (!eventValue.contains(condition.getValue()))
+                        return false;
                     break;
-                // Add more operators as needed (e.g., GREATER_THAN, LESS_THAN for numeric values)
+                // Add more operators as needed (e.g., GREATER_THAN, LESS_THAN for numeric
+                // values)
                 default:
                     // For unsupported operators, assume no match or throw an error
                     return false;
@@ -380,7 +405,8 @@ public class JournalService {
         return true; // All conditions matched
     }
 
-    private JournalEntry generateJournalEntry(JournalRule rule, Map<String, String> transactionEvent, LocalDate accountingDate) {
+    private JournalEntry generateJournalEntry(JournalRule rule, Map<String, String> transactionEvent,
+            LocalDate accountingDate) {
         JournalEntry journalEntry = new JournalEntry();
         journalEntry.setSlipDate(LocalDate.now()); // Current date for slip date
         journalEntry.setAccountingDate(accountingDate);
@@ -392,11 +418,15 @@ public class JournalService {
             detail.setDrcrType(ruleDetail.getDrcrType());
 
             // Evaluate expressions (simple direct lookup or static value for now)
-            detail.setAccountSubject(evaluateAccountSubjectExpression(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent));
+            detail.setAccountSubject(
+                    evaluateAccountSubjectExpression(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent));
             detail.setAmount(evaluateAmountExpression(ruleDetail.getAmountExpression(), transactionEvent));
-            detail.setBusinessPartner(evaluateBusinessPartnerExpression(ruleDetail.getBusinessPartnerCodeExpression(), transactionEvent));
-            detail.setDepartment(evaluateDepartmentExpression(ruleDetail.getDepartmentCodeExpression(), transactionEvent));
-            detail.setDetailDescription(evaluateDescriptionExpression(ruleDetail.getDescriptionExpression(), transactionEvent));
+            detail.setBusinessPartner(
+                    evaluateBusinessPartnerExpression(ruleDetail.getBusinessPartnerCodeExpression(), transactionEvent));
+            detail.setDepartment(
+                    evaluateDepartmentExpression(ruleDetail.getDepartmentCodeExpression(), transactionEvent));
+            detail.setDetailDescription(
+                    evaluateDescriptionExpression(ruleDetail.getDescriptionExpression(), transactionEvent));
 
             journalEntry.addDetail(detail);
         }
@@ -406,13 +436,16 @@ public class JournalService {
     }
 
     // Helper methods to evaluate expressions.
-    // For now, these will simply check if the expression is a direct value or a placeholder like "${key}".
-    // In a full implementation, a robust expression parser (e.g., SpEL) would be used.
+    // For now, these will simply check if the expression is a direct value or a
+    // placeholder like "${key}".
+    // In a full implementation, a robust expression parser (e.g., SpEL) would be
+    // used.
     private AccountSubject evaluateAccountSubjectExpression(String expression, Map<String, String> transactionEvent) {
         String value = extractValueFromExpression(expression, transactionEvent);
         if (value != null) {
             return accountSubjectRepository.findById(value)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + value));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + value));
         }
         return null; // Or handle as error
     }
@@ -433,7 +466,8 @@ public class JournalService {
         String value = extractValueFromExpression(expression, transactionEvent);
         if (value != null) {
             return businessPartnerRepository.findByBusinessPartnerCode(value)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid Business Partner Code from rule: " + value));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Invalid Business Partner Code from rule: " + value));
         }
         return null;
     }

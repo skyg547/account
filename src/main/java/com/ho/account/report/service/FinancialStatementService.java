@@ -3,6 +3,7 @@ package com.ho.account.report.service;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.repository.AccountSubjectRepository;
 import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.report.dto.FinancialStatementDTO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +19,10 @@ import java.util.stream.Collectors;
 
 /**
  * 재무제표(재무상태표, 손익계산서) 생성을 담당하는 서비스 클래스입니다.
+ * 
  * @Service: 스프링 컨테이너에 빈(Bean)으로 등록되어 비즈니스 로직을 처리함을 나타냅니다.
- * @Transactional(readOnly = true): 이 클래스의 모든 메서드는 기본적으로 읽기 전용 트랜잭션으로 실행되어 성능을 최적화합니다.
+ * @Transactional(readOnly = true): 이 클래스의 모든 메서드는 기본적으로 읽기 전용 트랜잭션으로 실행되어 성능을
+ *                         최적화합니다.
  */
 @Service
 @Transactional(readOnly = true)
@@ -31,7 +34,7 @@ public class FinancialStatementService {
     // 생성자 주입 방식: 의존성을 명시적으로 주입받아 테스트 용이성과 불변성을 확보합니다.
     @Autowired
     public FinancialStatementService(JournalDetailRepository journalDetailRepository,
-                                     AccountSubjectRepository accountSubjectRepository) {
+            AccountSubjectRepository accountSubjectRepository) {
         this.journalDetailRepository = journalDetailRepository;
         this.accountSubjectRepository = accountSubjectRepository;
     }
@@ -77,12 +80,15 @@ public class FinancialStatementService {
      * 특정 기간(startDate ~ endDate) 동안의 수익, 비용 계정 발생액을 집계합니다.
      *
      * @param startDate 시작일
-     * @param endDate 종료일
+     * @param endDate   종료일
      * @return 손익계산서 항목 리스트
      */
     public List<FinancialStatementDTO> generateIncomeStatement(LocalDate startDate, LocalDate endDate) {
         // 1. 기간 내 승인된 전표 상세 내역 조회
-        List<JournalDetail> details = journalDetailRepository.findByAccountAndDateRangeForIS(startDate, endDate); // 별도 쿼리 메서드 필요
+        List<JournalDetail> details = journalDetailRepository.findByAccountAndDateRangeForIS(startDate, endDate); // 별도
+                                                                                                                  // 쿼리
+                                                                                                                  // 메서드
+                                                                                                                  // 필요
 
         // 2. 계정별 합계 계산
         Map<String, BigDecimal> sumMap = details.stream()
@@ -90,8 +96,7 @@ public class FinancialStatementService {
                 .collect(Collectors.toMap(
                         d -> d.getAccountSubject().getCode(),
                         d -> d.getAmount(), // IS는 발생액 기준이므로 차/대 구분 없이 합산 (단, 수익은 대변, 비용은 차변이 정상 잔액)
-                        BigDecimal::add
-                ));
+                        BigDecimal::add));
 
         // 3. DTO 변환
         List<FinancialStatementDTO> result = new ArrayList<>();
@@ -119,13 +124,13 @@ public class FinancialStatementService {
     // 헬퍼 메서드: BS 계정 여부 확인
     private boolean isBalanceSheetAccount(String type) {
         return AccountSubject.AccountCategory.ASSETS.name().equals(type) ||
-               AccountSubject.AccountCategory.LIABILITIES.name().equals(type) ||
-               AccountSubject.AccountCategory.EQUITY.name().equals(type);
+                AccountSubject.AccountCategory.LIABILITIES.name().equals(type) ||
+                AccountSubject.AccountCategory.EQUITY.name().equals(type);
     }
 
     // 헬퍼 메서드: IS 계정 여부 확인
     private boolean isIncomeStatementAccount(String type) {
         return AccountSubject.AccountCategory.REVENUE.name().equals(type) ||
-               AccountSubject.AccountCategory.EXPENSES.name().equals(type);
+                AccountSubject.AccountCategory.EXPENSES.name().equals(type);
     }
 }

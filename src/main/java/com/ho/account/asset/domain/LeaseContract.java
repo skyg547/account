@@ -1,7 +1,7 @@
 package com.ho.account.asset.domain;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -23,8 +23,8 @@ public class LeaseContract {
     private String contractName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "customerCode")
-    private Customer lessor; // 리스 제공자 (거래처)
+    @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode")
+    private BusinessPartner lessor; // 리스 제공자 (거래처)
 
     @Column(nullable = false)
     private LocalDate startDate;
@@ -39,7 +39,7 @@ public class LeaseContract {
     private Integer paymentDay; // 매월 지급일 (예: 25일)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "deptCode")
+    @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department; // 관리 부서
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -55,40 +55,96 @@ public class LeaseContract {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = "ACTIVE";
+        if (status == null)
+            status = "ACTIVE";
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getContractNo() { return contractNo; }
-    public void setContractNo(String contractNo) { this.contractNo = contractNo; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getContractName() { return contractName; }
-    public void setContractName(String contractName) { this.contractName = contractName; }
+    public String getContractNo() {
+        return contractNo;
+    }
 
-    public Customer getLessor() { return lessor; }
-    public void setLessor(Customer lessor) { this.lessor = lessor; }
+    public void setContractNo(String contractNo) {
+        this.contractNo = contractNo;
+    }
 
-    public LocalDate getStartDate() { return startDate; }
-    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public String getContractName() {
+        return contractName;
+    }
 
-    public LocalDate getEndDate() { return endDate; }
-    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+    public void setContractName(String contractName) {
+        this.contractName = contractName;
+    }
 
-    public BigDecimal getMonthlyPayment() { return monthlyPayment; }
-    public void setMonthlyPayment(BigDecimal monthlyPayment) { this.monthlyPayment = monthlyPayment; }
+    public BusinessPartner getLessor() {
+        return lessor;
+    }
 
-    public Integer getPaymentDay() { return paymentDay; }
-    public void setPaymentDay(Integer paymentDay) { this.paymentDay = paymentDay; }
+    public void setLessor(BusinessPartner lessor) {
+        this.lessor = lessor;
+    }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public LocalDate getStartDate() {
+        return startDate;
+    }
 
-    public AccountSubject getExpenseAccount() { return expenseAccount; }
-    public void setExpenseAccount(AccountSubject expenseAccount) { this.expenseAccount = expenseAccount; }
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public BigDecimal getMonthlyPayment() {
+        return monthlyPayment;
+    }
+
+    public void setMonthlyPayment(BigDecimal monthlyPayment) {
+        this.monthlyPayment = monthlyPayment;
+    }
+
+    public Integer getPaymentDay() {
+        return paymentDay;
+    }
+
+    public void setPaymentDay(Integer paymentDay) {
+        this.paymentDay = paymentDay;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public AccountSubject getExpenseAccount() {
+        return expenseAccount;
+    }
+
+    public void setExpenseAccount(AccountSubject expenseAccount) {
+        this.expenseAccount = expenseAccount;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 }

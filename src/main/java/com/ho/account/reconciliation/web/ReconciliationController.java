@@ -1,8 +1,9 @@
 package com.ho.account.reconciliation.web;
 
-import com.ho.account.reconciliation.domain.ReconciliationResult;
 import com.ho.account.reconciliation.domain.ReconciliationType;
-import com.ho.account.reconciliation.domain.ReconciliationVariance;
+import com.ho.account.reconciliation.dto.ReconciliationRequestDto;
+import com.ho.account.reconciliation.dto.ReconciliationResponseDto;
+import com.ho.account.reconciliation.dto.VarianceDto;
 import com.ho.account.reconciliation.service.ReconciliationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,88 +25,94 @@ public class ReconciliationController {
         this.reconciliationService = reconciliationService;
     }
 
-    // --- Reconciliation Execution Endpoints ---
+    // ===== 대사 실행 엔드포인트 =====
+
+    @PostMapping("/run")
+    public ResponseEntity<ReconciliationResponseDto> runReconciliation(
+            @RequestBody ReconciliationRequestDto request) {
+        ReconciliationResponseDto result = reconciliationService.executeReconciliation(request);
+        return ResponseEntity.ok(result);
+    }
 
     @PostMapping("/run/source-standard")
-    public ResponseEntity<ReconciliationResult> runSourceStandardReconciliation(
+    public ResponseEntity<ReconciliationResponseDto> runSourceStandard(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reconciliationDate,
-            @RequestBody Map<String, String> body) {
-        try {
-            String runBy = body.get("runBy");
-            ReconciliationResult result = reconciliationService.performSourceStandardReconciliation(reconciliationDate, runBy);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+            @RequestParam(required = false) String runBy) {
+        ReconciliationResponseDto result = reconciliationService.performSourceStandardReconciliation(reconciliationDate,
+                runBy);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/run/account-totals")
-    public ResponseEntity<ReconciliationResult> runAccountTotalsReconciliation(
+    public ResponseEntity<ReconciliationResponseDto> runAccountTotals(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reconciliationDate,
-            @RequestBody Map<String, String> body) {
-        try {
-            String runBy = body.get("runBy");
-            ReconciliationResult result = reconciliationService.performAccountTotalsReconciliation(reconciliationDate, runBy);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+            @RequestParam(required = false) String runBy) {
+        ReconciliationResponseDto result = reconciliationService.performAccountTotalsReconciliation(reconciliationDate,
+                runBy);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/run/bank-account")
-    public ResponseEntity<ReconciliationResult> runBankAccountReconciliation(
+    public ResponseEntity<ReconciliationResponseDto> runBankAccount(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reconciliationDate,
-            @RequestBody Map<String, String> body) {
-        try {
-            String runBy = body.get("runBy");
-            ReconciliationResult result = reconciliationService.performBankAccountReconciliation(reconciliationDate, runBy);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+            @RequestParam(required = false) String runBy) {
+        ReconciliationResponseDto result = reconciliationService.performBankAccountReconciliation(reconciliationDate,
+                runBy);
+        return ResponseEntity.ok(result);
     }
 
-    // --- Reconciliation Report/Query Endpoints ---
+    // ===== 조회 엔드포인트 =====
 
     @GetMapping("/results")
-    public ResponseEntity<List<ReconciliationResult>> getAllReconciliationResults() {
+    public ResponseEntity<List<ReconciliationResponseDto>> getAllResults() {
         return ResponseEntity.ok(reconciliationService.getAllReconciliationResults());
     }
 
+    @GetMapping("/results/{id}")
+    public ResponseEntity<ReconciliationResponseDto> getResultById(@PathVariable Long id) {
+        return ResponseEntity.ok(reconciliationService.getReconciliationResultById(id));
+    }
+
     @GetMapping("/results/type/{type}")
-    public ResponseEntity<List<ReconciliationResult>> getReconciliationResultsByType(@PathVariable ReconciliationType type) {
+    public ResponseEntity<List<ReconciliationResponseDto>> getResultsByType(@PathVariable ReconciliationType type) {
         return ResponseEntity.ok(reconciliationService.getReconciliationResultsByType(type));
     }
 
+    @GetMapping("/results/date/{date}")
+    public ResponseEntity<List<ReconciliationResponseDto>> getResultsByDate(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(reconciliationService.getReconciliationResultsByDate(date));
+    }
+
     @GetMapping("/results/{resultId}/variances")
-    public ResponseEntity<List<ReconciliationVariance>> getVariancesByReconciliationResult(@PathVariable Long resultId) {
+    public ResponseEntity<List<VarianceDto>> getVariancesByResult(@PathVariable Long resultId) {
         return ResponseEntity.ok(reconciliationService.getVariancesByReconciliationResult(resultId));
     }
 
-    // --- Variance Resolution Endpoints ---
+    @GetMapping("/variances/open")
+    public ResponseEntity<List<VarianceDto>> getOpenVariances() {
+        return ResponseEntity.ok(reconciliationService.getOpenVariances());
+    }
 
-    @PostMapping("/variances/{varianceId}/resolve-with-adjustment")
-    public ResponseEntity<ReconciliationVariance> resolveVarianceWithAdjustment(
+    // ===== 차이 해소 엔드포인트 =====
+
+    @PostMapping("/variances/{varianceId}/resolve")
+    public ResponseEntity<VarianceDto> resolveVariance(
             @PathVariable Long varianceId,
-            @RequestBody Map<String, Object> body) { // Using Map for flexibility, JournalEntry might be complex
-        try {
-            // TODO: In a real scenario, this would involve creating a JournalEntry object
-            // from the request body or linking to an existing one.
-            // For now, we'll pass a dummy JournalEntry or handle it in service.
-            // Assuming 'journalEntryId' is passed and JournalService can fetch it.
-            // For this example, we'll just mock the journalEntry.
+            @RequestBody Map<String, Object> body) {
+        Long journalEntryId = Long.valueOf(body.get("journalEntryId").toString());
+        String resolvedBy = (String) body.get("resolvedBy");
+        VarianceDto result = reconciliationService.resolveVarianceWithAdjustment(varianceId, journalEntryId,
+                resolvedBy);
+        return ResponseEntity.ok(result);
+    }
 
-            // Dummy JournalEntry for compilation, actual implementation would fetch/create it
-            // JournalEntry journalEntry = journalService.getJournalEntryById( (Long)body.get("journalEntryId") );
-            // For now, creating a new dummy JournalEntry just to satisfy the method signature
-            com.ho.account.journal.domain.JournalEntry dummyJournalEntry = new com.ho.account.journal.domain.JournalEntry();
-            dummyJournalEntry.setId(1L); // Mock ID
-
-            String resolvedBy = (String) body.get("resolvedBy");
-            ReconciliationVariance updatedVariance = reconciliationService.resolveVarianceWithAdjustment(varianceId, dummyJournalEntry, resolvedBy);
-            return ResponseEntity.ok(updatedVariance);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+    @PostMapping("/variances/{varianceId}/ignore")
+    public ResponseEntity<VarianceDto> ignoreVariance(
+            @PathVariable Long varianceId,
+            @RequestBody Map<String, String> body) {
+        String resolvedBy = body.get("resolvedBy");
+        VarianceDto result = reconciliationService.ignoreVariance(varianceId, resolvedBy);
+        return ResponseEntity.ok(result);
     }
 }

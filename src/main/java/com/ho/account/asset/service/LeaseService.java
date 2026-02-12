@@ -50,14 +50,14 @@ public class LeaseService {
         resolution.setPaymentDate(date);
         resolution.setDepartment(contract.getDepartment());
         // 지급 계좌는 별도 설정 필요 (여기서는 생략 또는 기본값 사용)
-        // resolution.setPaymentAccount(...); 
+        // resolution.setPaymentAccount(...);
 
         ExpenditureDetail detail = new ExpenditureDetail();
         detail.setAccountSubject(contract.getExpenseAccount());
         detail.setAmount(contract.getMonthlyPayment());
-        detail.setCustomer(contract.getLessor());
+        detail.setBusinessPartner(contract.getLessor());
         detail.setDescription("월 리스료");
-        
+
         resolution.addDetail(detail);
 
         // 결의서 생성 (DRAFT 상태)

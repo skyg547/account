@@ -1,80 +1,48 @@
-package com.ho.account.reconciliation.domain;
+package com.ho.account.reconciliation.dto;
 
-import jakarta.persistence.*;
+import com.ho.account.reconciliation.domain.ReconciliationResult;
+import com.ho.account.reconciliation.domain.ReconciliationStatus;
+import com.ho.account.reconciliation.domain.ReconciliationType;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
-@Entity
-@Table(name = "RECONCILIATION_RESULTS")
-public class ReconciliationResult {
+public class ReconciliationResponseDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "RECONCILIATION_DATE", nullable = false)
     private LocalDate reconciliationDate;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "RECONCILIATION_TYPE", nullable = false, length = 50)
     private ReconciliationType reconciliationType;
-
-    @Column(name = "CLOSING_PERIOD_ID")
     private Long closingPeriodId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "STATUS", nullable = false, length = 50)
     private ReconciliationStatus status;
-
-    @Column(name = "TOTAL_COUNT_SOURCE", nullable = false)
     private Long totalCountSource;
-
-    @Column(name = "TOTAL_AMOUNT_SOURCE", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmountSource;
-
-    @Column(name = "TOTAL_COUNT_TARGET", nullable = false)
     private Long totalCountTarget;
-
-    @Column(name = "TOTAL_AMOUNT_TARGET", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmountTarget;
-
-    @Column(name = "VARIANCE_COUNT", nullable = false)
     private Long varianceCount;
-
-    @Column(name = "VARIANCE_AMOUNT", nullable = false, precision = 19, scale = 2)
     private BigDecimal varianceAmount;
-
-    @Column(name = "RUN_BY", length = 50)
     private String runBy;
-
-    @Column(name = "RUN_AT")
     private LocalDateTime runAt;
+    private List<VarianceDto> variances;
 
-    @Column(name = "CREATE_DATE", nullable = false, updatable = false)
-    private LocalDateTime createDate;
-
-    @Column(name = "UPDATE_DATE", nullable = false)
-    private LocalDateTime updateDate;
-
-    @Column(name = "AUDIT_USER", nullable = false, length = 50)
-    private String auditUser;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createDate = LocalDateTime.now();
-        this.updateDate = LocalDateTime.now();
-        if (this.auditUser == null) {
-            this.auditUser = "SYSTEM";
-        }
-        if (this.runAt == null) {
-            this.runAt = LocalDateTime.now();
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updateDate = LocalDateTime.now();
+    // Static factory method from entity
+    public static ReconciliationResponseDto from(ReconciliationResult entity) {
+        ReconciliationResponseDto dto = new ReconciliationResponseDto();
+        dto.setId(entity.getId());
+        dto.setReconciliationDate(entity.getReconciliationDate());
+        dto.setReconciliationType(entity.getReconciliationType());
+        dto.setClosingPeriodId(entity.getClosingPeriodId());
+        dto.setStatus(entity.getStatus());
+        dto.setTotalCountSource(entity.getTotalCountSource());
+        dto.setTotalAmountSource(entity.getTotalAmountSource());
+        dto.setTotalCountTarget(entity.getTotalCountTarget());
+        dto.setTotalAmountTarget(entity.getTotalAmountTarget());
+        dto.setVarianceCount(entity.getVarianceCount());
+        dto.setVarianceAmount(entity.getVarianceAmount());
+        dto.setRunBy(entity.getRunBy());
+        dto.setRunAt(entity.getRunAt());
+        return dto;
     }
 
     // Getters and Setters
@@ -182,27 +150,11 @@ public class ReconciliationResult {
         this.runAt = runAt;
     }
 
-    public LocalDateTime getCreateDate() {
-        return createDate;
+    public List<VarianceDto> getVariances() {
+        return variances;
     }
 
-    public void setCreateDate(LocalDateTime createDate) {
-        this.createDate = createDate;
-    }
-
-    public LocalDateTime getUpdateDate() {
-        return updateDate;
-    }
-
-    public void setUpdateDate(LocalDateTime updateDate) {
-        this.updateDate = updateDate;
-    }
-
-    public String getAuditUser() {
-        return auditUser;
-    }
-
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
+    public void setVariances(List<VarianceDto> variances) {
+        this.variances = variances;
     }
 }

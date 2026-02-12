@@ -52,7 +52,7 @@ public class FixedAsset {
     private BigDecimal accumulatedDepreciation = BigDecimal.ZERO; // 현재까지의 감가상각누계액
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "deptCode")
+    @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department; // 관리 부서
 
     @Column(length = 20)
@@ -64,49 +64,120 @@ public class FixedAsset {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = "ACTIVE";
+        if (status == null)
+            status = "ACTIVE";
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getAssetCode() { return assetCode; }
-    public void setAssetCode(String assetCode) { this.assetCode = assetCode; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getAssetName() { return assetName; }
-    public void setAssetName(String assetName) { this.assetName = assetName; }
+    public String getAssetCode() {
+        return assetCode;
+    }
 
-    public AccountSubject getAccountSubject() { return accountSubject; }
-    public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
+    public void setAssetCode(String assetCode) {
+        this.assetCode = assetCode;
+    }
 
-    public AccountSubject getAccumulatedAccount() { return accumulatedAccount; }
-    public void setAccumulatedAccount(AccountSubject accumulatedAccount) { this.accumulatedAccount = accumulatedAccount; }
+    public String getAssetName() {
+        return assetName;
+    }
 
-    public AccountSubject getExpenseAccount() { return expenseAccount; }
-    public void setExpenseAccount(AccountSubject expenseAccount) { this.expenseAccount = expenseAccount; }
+    public void setAssetName(String assetName) {
+        this.assetName = assetName;
+    }
 
-    public LocalDate getAcquisitionDate() { return acquisitionDate; }
-    public void setAcquisitionDate(LocalDate acquisitionDate) { this.acquisitionDate = acquisitionDate; }
+    public AccountSubject getAccountSubject() {
+        return accountSubject;
+    }
 
-    public BigDecimal getAcquisitionCost() { return acquisitionCost; }
-    public void setAcquisitionCost(BigDecimal acquisitionCost) { this.acquisitionCost = acquisitionCost; }
+    public void setAccountSubject(AccountSubject accountSubject) {
+        this.accountSubject = accountSubject;
+    }
 
-    public Integer getUsefulLife() { return usefulLife; }
-    public void setUsefulLife(Integer usefulLife) { this.usefulLife = usefulLife; }
+    public AccountSubject getAccumulatedAccount() {
+        return accumulatedAccount;
+    }
 
-    public String getDepreciationMethod() { return depreciationMethod; }
-    public void setDepreciationMethod(String depreciationMethod) { this.depreciationMethod = depreciationMethod; }
+    public void setAccumulatedAccount(AccountSubject accumulatedAccount) {
+        this.accumulatedAccount = accumulatedAccount;
+    }
 
-    public BigDecimal getResidualValue() { return residualValue; }
-    public void setResidualValue(BigDecimal residualValue) { this.residualValue = residualValue; }
+    public AccountSubject getExpenseAccount() {
+        return expenseAccount;
+    }
 
-    public BigDecimal getAccumulatedDepreciation() { return accumulatedDepreciation; }
-    public void setAccumulatedDepreciation(BigDecimal accumulatedDepreciation) { this.accumulatedDepreciation = accumulatedDepreciation; }
+    public void setExpenseAccount(AccountSubject expenseAccount) {
+        this.expenseAccount = expenseAccount;
+    }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public LocalDate getAcquisitionDate() {
+        return acquisitionDate;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setAcquisitionDate(LocalDate acquisitionDate) {
+        this.acquisitionDate = acquisitionDate;
+    }
+
+    public BigDecimal getAcquisitionCost() {
+        return acquisitionCost;
+    }
+
+    public void setAcquisitionCost(BigDecimal acquisitionCost) {
+        this.acquisitionCost = acquisitionCost;
+    }
+
+    public Integer getUsefulLife() {
+        return usefulLife;
+    }
+
+    public void setUsefulLife(Integer usefulLife) {
+        this.usefulLife = usefulLife;
+    }
+
+    public String getDepreciationMethod() {
+        return depreciationMethod;
+    }
+
+    public void setDepreciationMethod(String depreciationMethod) {
+        this.depreciationMethod = depreciationMethod;
+    }
+
+    public BigDecimal getResidualValue() {
+        return residualValue;
+    }
+
+    public void setResidualValue(BigDecimal residualValue) {
+        this.residualValue = residualValue;
+    }
+
+    public BigDecimal getAccumulatedDepreciation() {
+        return accumulatedDepreciation;
+    }
+
+    public void setAccumulatedDepreciation(BigDecimal accumulatedDepreciation) {
+        this.accumulatedDepreciation = accumulatedDepreciation;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 }
