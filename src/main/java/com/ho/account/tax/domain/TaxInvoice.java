@@ -1,6 +1,6 @@
 package com.ho.account.tax.domain;
 
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -24,8 +24,8 @@ public class TaxInvoice {
     private LocalDate issueDate; // 작성일자
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "customerCode")
-    private Customer customer; // 공급받는자(매출) 또는 공급자(매입)
+    @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
+    private BusinessPartner businessPartner; // 공급받는자(매출) 또는 공급자(매입)
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal supplyAmount; // 공급가액
@@ -54,8 +54,8 @@ public class TaxInvoice {
     public LocalDate getIssueDate() { return issueDate; }
     public void setIssueDate(LocalDate issueDate) { this.issueDate = issueDate; }
 
-    public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public BusinessPartner getBusinessPartner() { return businessPartner; }
+    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
 
     public BigDecimal getSupplyAmount() { return supplyAmount; }
     public void setSupplyAmount(BigDecimal supplyAmount) { this.supplyAmount = supplyAmount; }

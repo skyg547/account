@@ -1,7 +1,7 @@
 package com.ho.account.journal.domain;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -33,8 +33,8 @@ public class JournalDetail {
     private Department department; // 귀속부서
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "customerCode")
-    private Customer customer; // 거래처
+    @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
+    private BusinessPartner businessPartner; // 거래처
 
     @Column(length = 200)
     private String detailDescription; // 라인 적요
@@ -58,8 +58,8 @@ public class JournalDetail {
     public Department getDepartment() { return department; }
     public void setDepartment(Department department) { this.department = department; }
 
-    public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public BusinessPartner getBusinessPartner() { return businessPartner; }
+    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
 
     public String getDetailDescription() { return detailDescription; }
     public void setDetailDescription(String detailDescription) { this.detailDescription = detailDescription; }

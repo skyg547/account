@@ -5,10 +5,10 @@ import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.repository.LeaseContractRepository;
 import com.ho.account.asset.service.FixedAssetService;
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.CustomerRepository;
+import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
@@ -32,7 +32,7 @@ public class ExpenditureService {
     private final JournalService journalService;
     private final AccountSubjectRepository accountSubjectRepository;
     private final DepartmentRepository departmentRepository;
-    private final CustomerRepository customerRepository;
+    private final BusinessPartnerRepository businessPartnerRepository;
     private final BudgetService budgetService;
     private final FixedAssetService fixedAssetService;
     private final LeaseContractRepository leaseContractRepository;
@@ -42,7 +42,7 @@ public class ExpenditureService {
                               JournalService journalService,
                               AccountSubjectRepository accountSubjectRepository,
                               DepartmentRepository departmentRepository,
-                              CustomerRepository customerRepository,
+                              BusinessPartnerRepository businessPartnerRepository,
                               BudgetService budgetService,
                               FixedAssetService fixedAssetService,
                               LeaseContractRepository leaseContractRepository) {
@@ -50,7 +50,7 @@ public class ExpenditureService {
         this.journalService = journalService;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
-        this.customerRepository = customerRepository;
+        this.businessPartnerRepository = businessPartnerRepository;
         this.budgetService = budgetService;
         this.fixedAssetService = fixedAssetService;
         this.leaseContractRepository = leaseContractRepository;
@@ -171,7 +171,7 @@ public class ExpenditureService {
             journalDetail.setAccountSubject(detail.getAccountSubject());
             journalDetail.setAmount(detail.getAmount());
             journalDetail.setDepartment(resolution.getDepartment());
-            journalDetail.setCustomer(detail.getCustomer());
+            journalDetail.setBusinessPartner(detail.getBusinessPartner());
             journalDetail.setDetailDescription(detail.getDescription());
             entry.addDetail(journalDetail);
         }
@@ -214,10 +214,10 @@ public class ExpenditureService {
                         .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 비용 계정입니다."));
                 detail.setAccountSubject(account);
             }
-            if (detail.getCustomer() != null && detail.getCustomer().getCustomerCode() != null) {
-                Customer customer = customerRepository.findByCustomerCode(detail.getCustomer().getCustomerCode())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다."));
-                detail.setCustomer(customer);
+            if (detail.getBusinessPartner() != null && detail.getBusinessPartner().getBusinessPartnerCode() != null) {
+                BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(detail.getBusinessPartner().getBusinessPartnerCode())
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다: " + detail.getBusinessPartner().getBusinessPartnerCode()));
+                detail.setBusinessPartner(businessPartner);
             }
         }
     }

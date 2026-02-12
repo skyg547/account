@@ -1,10 +1,10 @@
 package com.ho.account.journal.service;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.CustomerRepository;
+import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
@@ -29,7 +29,7 @@ public class JournalService {
     private final JournalEntryRepository journalEntryRepository;
     private final AccountSubjectRepository accountSubjectRepository;
     private final DepartmentRepository departmentRepository;
-    private final CustomerRepository customerRepository;
+    private final BusinessPartnerRepository businessPartnerRepository;
     private final ClosingService closingService;
     private final UnsettledService unsettledService;
 
@@ -37,13 +37,13 @@ public class JournalService {
     public JournalService(JournalEntryRepository journalEntryRepository,
                           AccountSubjectRepository accountSubjectRepository,
                           DepartmentRepository departmentRepository,
-                          CustomerRepository customerRepository,
+                          BusinessPartnerRepository businessPartnerRepository,
                           ClosingService closingService,
                           UnsettledService unsettledService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
-        this.customerRepository = customerRepository;
+        this.businessPartnerRepository = businessPartnerRepository;
         this.closingService = closingService;
         this.unsettledService = unsettledService;
     }
@@ -208,13 +208,13 @@ public class JournalService {
                 detail.setDepartment(dept);
             }
 
-            if (detail.getCustomer() != null && detail.getCustomer().getCustomerCode() != null) {
-                Customer customer = customerRepository.findByCustomerCode(detail.getCustomer().getCustomerCode())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다: " + detail.getCustomer().getCustomerCode()));
-                if (!customer.getUseYn()) {
-                    throw new IllegalArgumentException("사용 중지된 거래처입니다: " + customer.getCustomerName());
+            if (detail.getBusinessPartner() != null && detail.getBusinessPartner().getBusinessPartnerCode() != null) {
+                BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(detail.getBusinessPartner().getBusinessPartnerCode())
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다: " + detail.getBusinessPartner().getBusinessPartnerCode()));
+                if (!businessPartner.getUseYn()) {
+                    throw new IllegalArgumentException("사용 중지된 거래처입니다: " + businessPartner.getBusinessPartnerName());
                 }
-                detail.setCustomer(customer);
+                detail.setBusinessPartner(businessPartner);
             }
 
             if ("DEBIT".equals(detail.getDrcrType())) {

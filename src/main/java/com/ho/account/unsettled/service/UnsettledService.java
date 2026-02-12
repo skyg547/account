@@ -26,7 +26,7 @@ public class UnsettledService {
         UnsettledItem item = new UnsettledItem();
         item.setJournalDetail(detail);
         item.setAccountSubject(detail.getAccountSubject());
-        item.setCustomer(detail.getCustomer());
+        item.setBusinessPartner(detail.getBusinessPartner());
         item.setOccurrenceDate(detail.getJournalEntry().getAccountingDate());
         item.setOriginalAmount(detail.getAmount());
         item.setRemainingAmount(detail.getAmount());
@@ -46,8 +46,8 @@ public class UnsettledService {
 
     // 자동 반제 (FIFO: 선입선출) - 예시
     // 특정 거래처, 특정 계정의 가장 오래된 미결부터 차감
-    public void autoSettle(String customerCode, String accountCode, BigDecimal amount) {
-        List<UnsettledItem> items = unsettledItemRepository.findByCustomerCustomerCodeAndStatusNot(customerCode, "CLEARED");
+    public void autoSettle(String businessPartnerCode, String accountCode, BigDecimal amount) {
+        List<UnsettledItem> items = unsettledItemRepository.findByBusinessPartnerBusinessPartnerCodeAndStatusNot(businessPartnerCode, "CLEARED");
         // 날짜순 정렬 필요 (Repository 쿼리에서 정렬하거나 여기서 정렬)
         
         BigDecimal remainingToSettle = amount;
@@ -64,7 +64,7 @@ public class UnsettledService {
     
     // 미결 현황 조회
     @Transactional(readOnly = true)
-    public List<UnsettledItem> getUnsettledItems(String customerCode) {
-        return unsettledItemRepository.findByCustomerCustomerCodeAndStatusNot(customerCode, "CLEARED");
+    public List<UnsettledItem> getUnsettledItems(String businessPartnerCode) {
+        return unsettledItemRepository.findByBusinessPartnerBusinessPartnerCodeAndStatusNot(businessPartnerCode, "CLEARED");
     }
 }

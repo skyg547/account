@@ -1,7 +1,7 @@
 package com.ho.account.basic.web;
 
-import com.ho.account.basic.domain.Customer;
-import com.ho.account.basic.service.CustomerService;
+import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.basic.service.BusinessPartnerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -9,22 +9,22 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/basic/customers")
-public class CustomerController {
+@RequestMapping("/api/basic/businesspartners")
+public class BusinessPartnerController {
 
-    private final CustomerService customerService;
+    private final BusinessPartnerService businessPartnerService;
 
     @Autowired
-    public CustomerController(CustomerService customerService) {
-        this.customerService = customerService;
+    public BusinessPartnerController(BusinessPartnerService businessPartnerService) {
+        this.businessPartnerService = businessPartnerService;
     }
 
     // 거래처 생성
     @PostMapping
-    public ResponseEntity<Customer> createCustomer(@RequestBody Customer customer) {
+    public ResponseEntity<BusinessPartner> createBusinessPartner(@RequestBody BusinessPartner businessPartner) {
         try {
-            Customer createdCustomer = customerService.createCustomer(customer);
-            return ResponseEntity.ok(createdCustomer);
+            BusinessPartner createdBusinessPartner = businessPartnerService.createBusinessPartner(businessPartner);
+            return ResponseEntity.ok(createdBusinessPartner);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -32,20 +32,20 @@ public class CustomerController {
 
     // 전체 거래처 조회
     @GetMapping
-    public List<Customer> getAllCustomers() {
-        return customerService.getAllCustomers();
+    public List<BusinessPartner> getAllBusinessPartners() {
+        return businessPartnerService.getAllBusinessPartners();
     }
 
     // 사용 중인 거래처만 조회
     @GetMapping("/active")
-    public List<Customer> getActiveCustomers() {
-        return customerService.getActiveCustomers();
+    public List<BusinessPartner> getActiveBusinessPartners() {
+        return businessPartnerService.getActiveBusinessPartners();
     }
 
     // 거래처 상세 조회 (코드)
-    @GetMapping("/{customerCode}")
-    public ResponseEntity<Customer> getCustomerByCode(@PathVariable String customerCode) {
-        return customerService.getCustomerByCode(customerCode)
+    @GetMapping("/{businessPartnerCode}")
+    public ResponseEntity<BusinessPartner> getBusinessPartnerByCode(@PathVariable String businessPartnerCode) {
+        return businessPartnerService.getBusinessPartnerByCode(businessPartnerCode)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

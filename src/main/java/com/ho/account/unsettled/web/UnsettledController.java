@@ -22,8 +22,8 @@ public class UnsettledController {
     }
 
     // 미결 현황 조회 (거래처별)
-    @GetMapping("/customer/{customerCode}")
-    public List<UnsettledItem> getUnsettledItems(@PathVariable String customerCode) {
+    @GetMapping("/businesspartner/{businessPartnerCode}")
+    public List<UnsettledItem> getUnsettledItems(@PathVariable String businessPartnerCode) {
         return unsettledService.getUnsettledItems(customerCode);
     }
 

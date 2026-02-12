@@ -1,6 +1,6 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,8 +18,8 @@ public class LoanContract {
     private String loanContractNo;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "CUSTOMER_CODE", referencedColumnName = "customerCode", nullable = false)
-    private Customer customer;
+    @JoinColumn(name = "BUSINESS_PARTNER_CODE", referencedColumnName = "businessPartnerCode", nullable = false)
+    private BusinessPartner businessPartner;
 
     @Column(name = "LOAN_PRODUCT", nullable = false, length = 100)
     private String loanProduct;
@@ -80,8 +80,8 @@ public class LoanContract {
     public String getLoanContractNo() { return loanContractNo; }
     public void setLoanContractNo(String loanContractNo) { this.loanContractNo = loanContractNo; }
 
-    public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public BusinessPartner getBusinessPartner() { return businessPartner; }
+    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
 
     public String getLoanProduct() { return loanProduct; }
     public void setLoanProduct(String loanProduct) { this.loanProduct = loanProduct; }

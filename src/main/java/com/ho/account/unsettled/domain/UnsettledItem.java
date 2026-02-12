@@ -1,7 +1,7 @@
 package com.ho.account.unsettled.domain;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Customer;
+import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.journal.domain.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -24,8 +24,8 @@ public class UnsettledItem {
     private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "customerCode")
-    private Customer customer;
+    @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
+    private BusinessPartner businessPartner;
 
     @Column(nullable = false)
     private LocalDate occurrenceDate; // 발생일
@@ -73,8 +73,8 @@ public class UnsettledItem {
     public AccountSubject getAccountSubject() { return accountSubject; }
     public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
 
-    public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public BusinessPartner getBusinessPartner() { return businessPartner; }
+    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
 
     public LocalDate getOccurrenceDate() { return occurrenceDate; }
     public void setOccurrenceDate(LocalDate occurrenceDate) { this.occurrenceDate = occurrenceDate; }
