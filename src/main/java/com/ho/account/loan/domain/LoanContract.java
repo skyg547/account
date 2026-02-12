@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList; // Import ArrayList
+import java.util.List; // Import List
 
 @Entity
 @Table(name = "LOAN_CONTRACTS")
@@ -51,6 +53,17 @@ public class LoanContract {
     @Column(name = "EFFECTIVE_INTEREST_RATE", nullable = false, precision = 5, scale = 4)
     private BigDecimal effectiveInterestRate;
 
+    // New fields for EIR amortization tracking
+    @Column(name = "TOTAL_INTEREST_PAID", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalInterestPaid = BigDecimal.ZERO;
+
+    @Column(name = "TOTAL_PRINCIPAL_PAID", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalPrincipalPaid = BigDecimal.ZERO;
+
+    // OneToMany relationship to amortization schedule entries
+    @OneToMany(mappedBy = "loanContract", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
+
     @Column(name = "CREATE_DATE", updatable = false, nullable = false)
     private LocalDateTime createDate;
 
@@ -71,6 +84,12 @@ public class LoanContract {
     @PreUpdate
     protected void onUpdate() {
         updateDate = LocalDateTime.now();
+    }
+
+    // 연관관계 편의 메서드 (if needed, to add entries to schedule)
+    public void addAmortizationEntry(LoanAmortizationScheduleEntry entry) {
+        amortizationSchedule.add(entry);
+        entry.setLoanContract(this);
     }
 
     // Getters and Setters
@@ -112,6 +131,15 @@ public class LoanContract {
 
     public BigDecimal getEffectiveInterestRate() { return effectiveInterestRate; }
     public void setEffectiveInterestRate(BigDecimal effectiveInterestRate) { this.effectiveInterestRate = effectiveInterestRate; }
+
+    public BigDecimal getTotalInterestPaid() { return totalInterestPaid; }
+    public void setTotalInterestPaid(BigDecimal totalInterestPaid) { this.totalInterestPaid = totalInterestPaid; }
+
+    public BigDecimal getTotalPrincipalPaid() { return totalPrincipalPaid; }
+    public void setTotalPrincipalPaid(BigDecimal totalPrincipalPaid) { this.totalPrincipalPaid = totalPrincipalPaid; }
+
+    public List<LoanAmortizationScheduleEntry> getAmortizationSchedule() { return amortizationSchedule; }
+    public void setAmortizationSchedule(List<LoanAmortizationScheduleEntry> amortizationSchedule) { this.amortizationSchedule = amortizationSchedule; }
 
     public LocalDateTime getCreateDate() { return createDate; }
     public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
