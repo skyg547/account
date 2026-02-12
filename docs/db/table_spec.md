@@ -7,6 +7,8 @@
 | `ACCOUNT_NAME`    | `VARCHAR2(100)`| `NOT NULL`         | 계정명            |
 | `ACCOUNT_TYPE`    | `VARCHAR2(20)` | `NOT NULL`         | 계정유형 (자산, 부채, 자본, 수익, 비용) |
 | `PARENT_ACCOUNT_CODE`| `VARCHAR2(20)` | `FK`               | 상위 계정코드     |
+| `VALID_FROM_DATE` | `DATE`      | `NOT NULL`         | 유효 시작일 (SCD2) |
+| `VALID_TO_DATE`   | `DATE`      | `NULL`             | 유효 종료일 (SCD2) |
 | `IS_USED`         | `CHAR(1)`   | `NOT NULL, DEFAULT 'Y'`| 사용여부 (Y/N)    |
 | `CREATE_DATE`     | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
 | `UPDATE_DATE`     | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
@@ -14,6 +16,7 @@
 
 ### 인덱스 전략
 - `IDX_ACC_SUB_PARENT_ACC_CODE`: `PARENT_ACCOUNT_CODE` (계층 구조 조회 성능 향상)
+- `IDX_ACC_SUB_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
 
 ## 2. `DEPARTMENT` (부서)
 | 컬럼명              | 데이터 타입   | 제약 조건          | 설명              |
@@ -21,6 +24,8 @@
 | `DEPT_CODE`       | `VARCHAR2(20)` | `PK, NOT NULL`     | 부서코드          |
 | `DEPT_NAME`       | `VARCHAR2(100)`| `NOT NULL`         | 부서명            |
 | `PARENT_DEPT_CODE`| `VARCHAR2(20)` | `FK`               | 상위 부서코드     |
+| `VALID_FROM_DATE` | `DATE`      | `NOT NULL`         | 유효 시작일 (SCD2) |
+| `VALID_TO_DATE`   | `DATE`      | `NULL`             | 유효 종료일 (SCD2) |
 | `IS_USED`         | `CHAR(1)`   | `NOT NULL, DEFAULT 'Y'`| 사용여부 (Y/N)    |
 | `CREATE_DATE`     | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
 | `UPDATE_DATE`     | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
@@ -28,6 +33,7 @@
 
 ### 인덱스 전략
 - `IDX_DEPT_PARENT_DEPT_CODE`: `PARENT_DEPT_CODE` (계층 구조 조회 성능 향상)
+- `IDX_DEPT_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
 
 ## 3. `CUSTOMER` (거래처)
 | 컬럼명                 | 데이터 타입   | 제약 조건             | 설명              |
@@ -37,14 +43,121 @@
 | `BUSINESS_REG_NO`    | `VARCHAR2(20)` | `UNIQUE NULL`         | 사업자등록번호    |
 | `CONTACT_PERSON`     | `VARCHAR2(100)`| `NULL`                | 담당자            |
 | `CONTACT_NO`         | `VARCHAR2(20)` | `NULL`                | 연락처            |
+| `CUSTOMER_ACCOUNT_NO`| `VARCHAR2(100)`| `NULL`                | 거래처 계좌번호 (암호화/토큰화/마스킹 필요) |
+| `KYC_STATUS`         | `VARCHAR2(20)` | `DEFAULT 'PENDING'`   | KYC 상태          |
+| `VALID_FROM_DATE`    | `DATE`      | `NOT NULL`            | 유효 시작일 (SCD2) |
+| `VALID_TO_DATE`      | `DATE`      | `NULL`                | 유효 종료일 (SCD2) |
 | `CREATE_DATE`        | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
 | `UPDATE_DATE`        | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
 | `AUDIT_USER`         | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
 
 ### 인덱스 전략
 - `UDX_CUSTOMER_BUSINESS_REG_NO`: `BUSINESS_REG_NO` (사업자등록번호 조회 성능 향상 및 고유성 보장)
+- `IDX_CUSTOMER_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
 
-## 4. `FIXED_ASSETS` (고정자산)
+## 4. `PRODUCT_MASTER` (상품 마스터)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `PRODUCT_CODE`        | `VARCHAR2(20)` | `PK, NOT NULL`              | 상품 코드         |
+| `PRODUCT_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 상품명            |
+| `PRODUCT_GROUP`       | `VARCHAR2(50)` | `NOT NULL`                  | 상품군 (예: 대출, 예금, 파생) |
+| `ACCOUNT_CLASS_CODE`  | `VARCHAR2(20)` | `FK, NOT NULL`              | 회계 분류 계정 (상품군별 회계분류) |
+| `VALID_FROM_DATE`     | `DATE`      | `NOT NULL`                  | 유효 시작일         |
+| `VALID_TO_DATE`       | `DATE`      | `NULL`                      | 유효 종료일         |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_PM_PRODUCT_GROUP`: `PRODUCT_GROUP` (상품군별 조회 성능 향상)
+- `IDX_PM_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
+
+## 5. `CURRENCY` (통화)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `CURRENCY_CODE`       | `VARCHAR2(3)` | `PK, NOT NULL`              | 통화 코드 (ISO 4217) |
+| `CURRENCY_NAME`       | `VARCHAR2(50)` | `NOT NULL`                  | 통화명            |
+| `SYMBOL`              | `VARCHAR2(10)` | `NULL`                      | 통화 심볼 (예: ₩, $) |
+| `VALID_FROM_DATE`     | `DATE`      | `NOT NULL`                  | 유효 시작일         |
+| `VALID_TO_DATE`       | `DATE`      | `NULL`                      | 유효 종료일         |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_CURRENCY_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
+
+## 6. `EXCHANGE_RATE` (환율)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `BASE_CURRENCY_CODE`  | `VARCHAR2(3)` | `PK, FK, NOT NULL`          | 기준 통화 코드    |
+| `TARGET_CURRENCY_CODE`| `VARCHAR2(3)` | `PK, FK, NOT NULL`          | 대상 통화 코드    |
+| `APPLY_DATE`          | `DATE`      | `PK, NOT NULL`              | 적용 일자         |
+| `RATE`                | `NUMBER(19, 8)`| `NOT NULL`                  | 환율 (소수점 8자리) |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `UDX_EXCH_RATE_UNIQUE`: `BASE_CURRENCY_CODE`, `TARGET_CURRENCY_CODE`, `APPLY_DATE` (환율 고유성)
+
+## 7. `FISCAL_CALENDAR` (회계 캘린더)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `FISCAL_YEAR`         | `VARCHAR2(4)` | `PK, NOT NULL`              | 회계 연도         |
+| `FISCAL_PERIOD`       | `VARCHAR2(2)` | `PK, NOT NULL`              | 회계 기간 (월)    |
+| `START_DATE`          | `DATE`      | `NOT NULL`                  | 기간 시작일         |
+| `END_DATE`            | `DATE`      | `NOT NULL`                  | 기간 종료일         |
+| `CLOSING_STATUS`      | `VARCHAR2(20)` | `NOT NULL, DEFAULT 'OPEN'` | 마감 상태 (OPEN, CLOSED) |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `UDX_FISCAL_CAL_UNIQUE`: `FISCAL_YEAR`, `FISCAL_PERIOD` (회계 기간 고유성)
+
+## 8. `TAX_MASTER` (세무 마스터)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `TAX_CODE`            | `VARCHAR2(20)` | `PK, NOT NULL`              | 세목 코드         |
+| `TAX_NAME`            | `VARCHAR2(100)`| `NOT NULL`                  | 세목명            |
+| `TAX_TYPE`            | `VARCHAR2(20)` | `NOT NULL`                  | 세금 유형 (예: 부가세, 원천세) |
+| `RATE`                | `NUMBER(5, 4)` | `NOT NULL`                  | 세율 (소수점 4자리) |
+| `APPLY_START_DATE`    | `DATE`      | `NOT NULL`                  | 적용 시작일         |
+| `APPLY_END_DATE`      | `DATE`      | `NULL`                      | 적용 종료일         |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_TAX_MASTER_APPLY_DATE`: `APPLY_START_DATE`, `APPLY_END_DATE` (세율 적용 기간 조회 성능 향상)
+
+## 9. `MASTER_APPROVAL` (마스터 승인 이력)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `APPROVAL_ID`         | `NUMBER`    | `PK, IDENTITY`              | 승인 ID           |
+| `MASTER_TYPE`         | `VARCHAR2(50)` | `NOT NULL`                  | 마스터 유형 (예: ACCOUNT_SUBJECT, PRODUCT_MASTER) |
+| `MASTER_KEY`          | `VARCHAR2(100)`| `NOT NULL`                  | 마스터 고유 키 (예: ACCOUNT_CODE) |
+| `CHANGE_REQUEST_TYPE` | `VARCHAR2(20)` | `NOT NULL`                  | 변경 요청 유형 (CREATE, UPDATE, DELETE) |
+| `REQUEST_USER`        | `VARCHAR2(50)` | `NOT NULL`                  | 요청 사용자         |
+| `REQUEST_DATE`        | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 요청일            |
+| `APPROVER_USER`       | `VARCHAR2(50)` | `NULL`                      | 승인 사용자         |
+| `APPROVAL_DATE`       | `TIMESTAMP` | `NULL`                      | 승인일            |
+| `APPROVAL_STATUS`     | `VARCHAR2(20)` | `NOT NULL, DEFAULT 'PENDING'`| 승인 상태 (PENDING, APPROVED, REJECTED) |
+| `REMARKS`             | `VARCHAR2(500)`| `NULL`                      | 비고              |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_MA_MASTER_KEY`: `MASTER_TYPE`, `MASTER_KEY` (마스터별 승인 이력 조회 성능 향상)
+- `IDX_MA_REQUEST_USER`: `REQUEST_USER` (요청 사용자별 승인 이력 조회 성능 향상)
+
+---
+
+## 기존 테이블들 (마스터/기준정보와 연관성 고려)
+
+## 10. `FIXED_ASSETS` (고정자산)
 | 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
 |-----------------------|-------------|-----------------------------|-------------------|
 | `ID`                    | `NUMBER`    | `PK, IDENTITY`              | 고정자산 ID       |
@@ -70,7 +183,7 @@
 - `IDX_FA_ACCOUNT_CODE`: `ACCOUNT_CODE` (계정과목별 자산 조회 성능 향상)
 - `IDX_FA_DEPT_CODE`: `DEPT_CODE` (부서별 자산 조회 성능 향상)
 
-## 5. `LEASE_CONTRACTS` (리스 계약)
+## 11. `LEASE_CONTRACTS` (리스 계약)
 | 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
 |-----------------------|-------------|-----------------------------|-------------------|
 | `ID`                    | `NUMBER`    | `PK, IDENTITY`              | 리스 계약 ID      |
@@ -94,7 +207,7 @@
 - `IDX_LC_DEPT_CODE`: `DEPT_CODE` (부서별 계약 조회 성능 향상)
 - `IDX_LC_EXPENSE_ACCOUNT_CODE`: `EXPENSE_ACCOUNT_CODE` (비용 계정별 계약 조회 성능 향상)
 
-## 6. `UNSETTLED_ITEMS` (미지급금/미수금)
+## 12. `UNSETTLED_ITEMS` (미지급금/미수금)
 | 컬럼명                   | 데이터 타입   | 제약 조건                   | 설명              |
 |------------------------|-------------|-----------------------------|-------------------|
 | `ID`                     | `NUMBER`    | `PK, IDENTITY`              | 미지급/미수 항목 ID |
@@ -114,7 +227,7 @@
 - `IDX_UI_CUSTOMER_CODE`: `CUSTOMER_CODE` (거래처별 미지급/미수 항목 조회 성능 향상)
 - `IDX_UI_RELATED_JOURNAL_NO`: `RELATED_JOURNAL_NO` (관련 전표 조회 성능 향상)
 
-## 7. `JOURNAL_ENTRY` (전표)
+## 13. `JOURNAL_ENTRY` (전표)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `ID`                 | `NUMBER`    | `PK, IDENTITY`              | 전표 ID           |
@@ -135,7 +248,7 @@
 - `IDX_JE_JOURNAL_DATE`: `JOURNAL_DATE` (전표일자별 조회 성능 향상)
 - `IDX_JE_DEPT_CODE`: `DEPT_CODE` (부서별 전표 조회 성능 향상)
 
-## 8. `JOURNAL_DETAIL` (전표 상세)
+## 14. `JOURNAL_DETAIL` (전표 상세)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `ID`                 | `NUMBER`    | `PK, IDENTITY`              | 전표 상세 ID      |
@@ -153,7 +266,7 @@
 - `IDX_JD_JOURNAL_NO`: `JOURNAL_NO` (상위 전표 조회 성능 향상)
 - `IDX_JD_ACCOUNT_CODE`: `ACCOUNT_CODE` (계정과목별 상세 조회 성능 향상)
 
-## 9. `BUDGET` (예산)
+## 15. `BUDGET` (예산)
 | 컬럼명              | 데이터 타입   | 제약 조건                   | 설명              |
 |-------------------|-------------|-----------------------------|-------------------|
 | `ID`                | `NUMBER`    | `PK, IDENTITY`              | 예산 ID           |
@@ -176,7 +289,7 @@
 - `IDX_BGT_DEPT_CODE`: `DEPT_CODE` (부서별 예산 조회 성능 향상)
 - `IDX_BGT_ACCOUNT_CODE`: `ACCOUNT_CODE` (계정과목별 예산 조회 성능 향상)
 
-## 10. `EXPENDITURE_RESOLUTION` (지출결의)
+## 16. `EXPENDITURE_RESOLUTION` (지출결의)
 | 컬럼명                   | 데이터 타입   | 제약 조건                   | 설명              |
 |------------------------|-------------|-----------------------------|-------------------|
 | `ID`                     | `NUMBER`    | `PK, IDENTITY`              | 지출결의 ID       |
@@ -194,7 +307,7 @@
 - `IDX_ER_RESOLUTION_NO`: `RESOLUTION_NO` (결의번호 조회 성능 향상)
 - `IDX_ER_REQUESTING_DEPT_CODE`: `REQUESTING_DEPT_CODE` (신청 부서별 조회 성능 향상)
 
-## 11. `EXPENDITURE_DETAIL` (지출 상세)
+## 17. `EXPENDITURE_DETAIL` (지출 상세)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `ID`                 | `NUMBER`    | `PK, IDENTITY`              | 지출 상세 ID      |
@@ -211,7 +324,7 @@
 - `IDX_ED_RESOLUTION_NO`: `RESOLUTION_NO` (상위 결의 조회 성능 향상)
 - `IDX_ED_ACCOUNT_CODE`: `ACCOUNT_CODE` (계정과목별 상세 조회 성능 향상)
 
-## 12. `PAYMENT` (지급)
+## 18. `PAYMENT` (지급)
 | 컬럼명                   | 데이터 타입   | 제약 조건                   | 설명              |
 |------------------------|-------------|-----------------------------|-------------------|
 | `ID`                     | `NUMBER`    | `PK, IDENTITY`              | 지급 ID           |
@@ -230,7 +343,7 @@
 - `IDX_PMT_CUSTOMER_CODE`: `CUSTOMER_CODE` (거래처별 지급 조회 성능 향상)
 - `IDX_PMT_RELATED_RESOLUTION_NO`: `RELATED_RESOLUTION_NO` (관련 결의 조회 성능 향상)
 
-## 13. `DAILY_CLOSING_STATUS` (일별 마감 상태)
+## 19. `DAILY_CLOSING_STATUS` (일별 마감 상태)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `CLOSING_DATE`       | `DATE`      | `PK, NOT NULL`              | 마감일자          |
@@ -242,7 +355,7 @@
 ### 인덱스 전략
 - 없음 (PK가 날짜이므로 단일 조회 및 범위 조회에 효율적)
 
-## 14. `CLOSING_STATUS` (월별/연도별 마감 상태)
+## 20. `CLOSING_STATUS` (월별/연도별 마감 상태)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `CLOSING_YEAR_MONTH` | `VARCHAR2(6)` | `PK, NOT NULL`              | 마감연월 (YYYYMM) |
@@ -254,7 +367,7 @@
 ### 인덱스 전략
 - 없음 (PK가 연월이므로 단일 조회 및 범위 조회에 효율적)
 
-## 15. `LOAN_CONTRACTS` (대출 계약)
+## 21. `LOAN_CONTRACTS` (대출 계약)
 | 컬럼명                      | 데이터 타입   | 제약 조건                   | 설명              |
 |---------------------------|-------------|-----------------------------|-------------------|
 | `ID`                        | `NUMBER`    | `PK, IDENTITY`              | 대출 계약 ID      |
@@ -278,7 +391,7 @@
 - `IDX_LCN_LOAN_CONTRACT_NO`: `LOAN_CONTRACT_NO` (대출계약번호 조회 성능 향상)
 - `IDX_LCN_CUSTOMER_CODE`: `CUSTOMER_CODE` (고객별 대출 조회 성능 향상)
 
-## 16. `TAX_INVOICE` (세금계산서)
+## 22. `TAX_INVOICE` (세금계산서)
 | 컬럼명                   | 데이터 타입   | 제약 조건                   | 설명              |
 |------------------------|-------------|-----------------------------|-------------------|
 | `ID`                     | `NUMBER`    | `PK, IDENTITY`              | 세금계산서 ID     |
@@ -288,8 +401,8 @@
 | `RECIPIENT_CUSTOMER_CODE`| `VARCHAR2(20)` | `FK, NOT NULL`              | 공급받는자 거래처코드 |
 | `SUPPLY_AMOUNT`          | `NUMBER(19, 2)`| `NOT NULL`                  | 공급가액          |
 | `TAX_AMOUNT`             | `NUMBER(19, 2)`| `NOT NULL`                  | 세액              |
-| `TOTAL_AMOUNT`           | `NUMBER(19, 2)`| `NOT NULL`                  | 총액              |
-| `TYPE`                   | `VARCHAR2(20)` | `NOT NULL`                  | 유형 (매입, 매출) |
+| `TOTAL_AMOUNT`           | `NUMBER(19, 2)`| `NOT NULL`                  | 총액 (공급가액 + 세액) |
+| `TYPE`                   | `VARCHAR2(20)` | `NOT NULL`                  | 유형 (PURCHASE, SALES) |
 | `STATUS`                 | `VARCHAR2(20)` | `NOT NULL, DEFAULT 'ISSUED'`| 상태 (ISSUED, CANCELED) |
 | `CREATE_DATE`            | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
 | `UPDATE_DATE`            | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
@@ -301,13 +414,13 @@
 - `IDX_TI_SUPPLIER_CUSTOMER_CODE`: `SUPPLIER_CUSTOMER_CODE` (공급자별 조회 성능 향상)
 - `IDX_TI_RECIPIENT_CUSTOMER_CODE`: `RECIPIENT_CUSTOMER_CODE` (공급받는자별 조회 성능 향상)
 
-## 16. `FINANCIAL_REPORT` (재무보고서)
+## 23. `FINANCIAL_REPORT` (재무보고서)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `ID`                 | `NUMBER`    | `PK, IDENTITY`              | 재무보고서 ID     |
 | `REPORT_NO`          | `VARCHAR2(20)` | `UNIQUE, NOT NULL`          | 보고서번호        |
-| `REPORT_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 보고서명          |
-| `REPORT_TYPE`        | `VARCHAR2(50)` | `NOT NULL`                  | 보고서유형 (재무상태표, 손익계산서 등) |
+| `REPORT_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 보고서명            |
+| `REPORT_TYPE`        | `VARCHAR2(50)` | `NOT NULL`                  | 보고서유형 (FS, IS, CFS) |
 | `BASE_DATE`          | `DATE`      | `NOT NULL`                  | 기준일자          |
 | `CREATE_DATE`        | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
 | `UPDATE_DATE`        | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
@@ -318,7 +431,7 @@
 - `IDX_FR_REPORT_TYPE`: `REPORT_TYPE` (보고서유형별 조회 성능 향상)
 - `IDX_FR_BASE_DATE`: `BASE_DATE` (기준일자별 조회 성능 향상)
 
-## 17. `FINANCIAL_NOTE` (재무보고서 주석)
+## 24. `FINANCIAL_NOTE` (재무보고서 주석)
 | 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
 |--------------------|-------------|-----------------------------|-------------------|
 | `ID`                 | `NUMBER`    | `PK, IDENTITY`              | 주석 ID           |
