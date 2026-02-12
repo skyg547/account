@@ -1,5 +1,4 @@
-package com.ho.account.journal.domain;
-
+import com.ho.account.journal.domain.JournalEntryStatus;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,8 +29,9 @@ public class JournalEntry {
     @Column(length = 200)
     private String description; // 적요
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String status; // DRAFT, REQUESTED, APPROVED, REJECTED
+    private JournalEntryStatus status; // DRAFT, REQUESTED, APPROVED, REJECTED
 
     @Column(length = 20)
     private String entryType; // NORMAL(일반), ADJUSTMENT(결산보정), TRANSFER(손익대체/이월)
@@ -50,7 +50,7 @@ public class JournalEntry {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = "DRAFT";
+        if (status == null) status = JournalEntryStatus.DRAFT;
         if (accountingDate == null) accountingDate = slipDate;
         if (entryType == null) entryType = "NORMAL"; // 기본값: 일반 전표
     }
@@ -86,8 +86,8 @@ public class JournalEntry {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public JournalEntryStatus getStatus() { return status; }
+    public void setStatus(JournalEntryStatus status) { this.status = status; }
 
     public String getEntryType() { return entryType; }
     public void setEntryType(String entryType) { this.entryType = entryType; }

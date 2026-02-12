@@ -43,8 +43,9 @@ public class ExpenditureResolution {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String status;
+    private ExpenditureResolutionStatus status;
 
     @Column(length = 500)
     private String rejectionReason;
@@ -72,7 +73,7 @@ public class ExpenditureResolution {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = "DRAFT";
+        if (status == null) status = ExpenditureResolutionStatus.DRAFT;
     }
 
     // 연관관계 편의 메서드
@@ -113,8 +114,8 @@ public class ExpenditureResolution {
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public ExpenditureResolutionStatus getStatus() { return status; }
+    public void setStatus(ExpenditureResolutionStatus status) { this.status = status; }
 
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }

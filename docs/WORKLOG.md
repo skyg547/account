@@ -79,3 +79,17 @@ This document tracks the development progress, design decisions, and architectur
 
 *   **Further Considerations:** Advanced payment application logic (e.g., partial application of `APPayment` to multiple invoices/resolutions) will be handled in future iterations or specific payment application services.
 
+### 1.6 Status Enums for JournalEntry and ExpenditureResolution
+*   **DoD Requirement:** DoD 06.1 (전표 상태모델), and consistency for other domain objects.
+*   **Analysis:** The `status` field in `JournalEntry` and `ExpenditureResolution` were previously `String` types, leading to potential issues with consistency and type safety.
+*   **Changes Made:**
+    1.  **`JournalEntryStatus` Enum:**
+        *   Created `src/main/java/com/ho/account/journal/domain/JournalEntryStatus.java` with enum values: `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED`, `REVERSED`.
+        *   Modified `src/main/java/com/ho/account/journal/domain/JournalEntry.java` to use `JournalEntryStatus` enum for its `status` field, including `@Enumerated(EnumType.STRING)` and updating default value in `@PrePersist`.
+        *   Modified `src/main/java/com/ho/account/journal/service/JournalService.java` to use `JournalEntryStatus` enum for all status-related logic (setting status, comparisons).
+        *   Modified `src/main/java/com/ho/account/report/service/FinancialStatementService.java` to use `JournalEntryStatus.APPROVED` for filtering journal entries.
+    2.  **`ExpenditureResolutionStatus` Enum:**
+        *   Created `src/main/java/com/ho/account/expenditure/domain/ExpenditureResolutionStatus.java` with enum values: `DRAFT`, `REQUESTED`, `APPROVED`, `REJECTED`.
+        *   Modified `src/main/java/com/ho/account/expenditure/domain/ExpenditureResolution.java` to use `ExpenditureResolutionStatus` enum for its `status` field, including `@Enumerated(EnumType.STRING)` and updating default value in `@PrePersist`.
+        *   Modified `src/main/java/com/ho/account/expenditure/service/ExpenditureService.java` to use `ExpenditureResolutionStatus` enum for all status-related logic (setting status, comparisons).
+

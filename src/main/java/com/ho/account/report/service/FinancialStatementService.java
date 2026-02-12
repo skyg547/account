@@ -48,7 +48,7 @@ public class FinancialStatementService {
         // 실제 운영 환경에서는 쿼리 레벨에서 필터링하는 것이 성능상 유리합니다.
         List<JournalDetail> details = journalDetailRepository.findAll().stream()
                 .filter(d -> d.getJournalEntry().getAccountingDate().compareTo(asOfDate) <= 0) // 기준일 이전
-                .filter(d -> "APPROVED".equals(d.getJournalEntry().getStatus())) // 승인된 전표만
+                .filter(d -> JournalEntryStatus.APPROVED.equals(d.getJournalEntry().getStatus())) // 승인된 전표만
                 .collect(Collectors.toList());
 
         // 2. 계정별 잔액 계산

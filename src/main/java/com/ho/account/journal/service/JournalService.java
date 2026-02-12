@@ -8,6 +8,7 @@ import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.unsettled.service.UnsettledService;
@@ -62,7 +63,7 @@ public class JournalService {
 
         String slipNo = generateSlipNo(journalEntry.getAccountingDate());
         journalEntry.setSlipNo(slipNo);
-        journalEntry.setStatus("DRAFT");
+        journalEntry.setStatus(JournalEntryStatus.DRAFT);
 
         for (JournalDetail detail : journalEntry.getDetails()) {
             detail.setJournalEntry(journalEntry);
@@ -80,11 +81,9 @@ public class JournalService {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다.");
         }
 
-        if (!"REQUESTED".equals(entry.getStatus())) {
-            throw new IllegalStateException("승인 요청된 전표만 승인할 수 있습니다.");
-        }
+        if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
 
-        entry.setStatus("APPROVED");
+        entry.setStatus(JournalEntryStatus.APPROVED);
         entry.setRejectionReason(null);
         journalEntryRepository.save(entry);
 
@@ -109,7 +108,7 @@ public class JournalService {
             throw new IllegalStateException("변경하려는 날짜의 월은 이미 마감되었습니다.");
         }
 
-        if (!"DRAFT".equals(existingEntry.getStatus()) && !"REJECTED".equals(existingEntry.getStatus())) {
+        if (existingEntry.getStatus() != JournalEntryStatus.DRAFT && existingEntry.getStatus() != JournalEntryStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 전표만 수정할 수 있습니다.");
         }
 
@@ -137,7 +136,7 @@ public class JournalService {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다. 전표를 삭제할 수 없습니다.");
         }
 
-        if (!"DRAFT".equals(existingEntry.getStatus())) {
+        if (existingEntry.getStatus() != JournalEntryStatus.DRAFT) {
             throw new IllegalStateException("작성중인 전표만 삭제할 수 있습니다.");
         }
         journalEntryRepository.delete(existingEntry);
@@ -152,11 +151,11 @@ public class JournalService {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다.");
         }
 
-        if (!"DRAFT".equals(entry.getStatus()) && !"REJECTED".equals(entry.getStatus())) {
+        if (entry.getStatus() != JournalEntryStatus.DRAFT && entry.getStatus() != JournalEntryStatus.REJECTED) {
              throw new IllegalStateException("작성중이거나 반려된 전표만 승인 요청할 수 있습니다.");
         }
         
-        entry.setStatus("REQUESTED");
+        entry.setStatus(JournalEntryStatus.REQUESTED);
         journalEntryRepository.save(entry);
     }
 
@@ -169,11 +168,9 @@ public class JournalService {
             throw new IllegalStateException("해당 월은 이미 마감되었습니다.");
         }
 
-        if (!"REQUESTED".equals(entry.getStatus())) {
-            throw new IllegalStateException("승인 요청된 전표만 반려할 수 있습니다.");
-        }
+        if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
 
-        entry.setStatus("REJECTED");
+        entry.setStatus(JournalEntryStatus.REJECTED);
         entry.setRejectionReason(reason);
         journalEntryRepository.save(entry);
     }

@@ -12,6 +12,7 @@ import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
 import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
 import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
@@ -124,7 +125,7 @@ public class ExpenditureService {
 
         String resolutionNo = generateResolutionNo(resolution.getResolutionDate());
         resolution.setResolutionNo(resolutionNo);
-        resolution.setStatus("DRAFT"); // Initial status
+        resolution.setStatus(ExpenditureResolutionStatus.DRAFT); // Initial status
 
         return expenditureRepository.save(resolution);
     }
@@ -140,7 +141,7 @@ public class ExpenditureService {
                 .orElseThrow(() -> new IllegalArgumentException("지출결의서를 찾을 수 없습니다. ID: " + id));
 
         // Only allow update if status is DRAFT or REJECTED
-        if (!"DRAFT".equals(existingResolution.getStatus()) && !"REJECTED".equals(existingResolution.getStatus())) {
+        if (existingResolution.getStatus() != ExpenditureResolutionStatus.DRAFT && existingResolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 결의서만 수정할 수 있습니다.");
         }
 
@@ -208,11 +209,11 @@ public class ExpenditureService {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
         
-        if (!"DRAFT".equals(resolution.getStatus()) && !"REJECTED".equals(resolution.getStatus())) {
+        if (resolution.getStatus() != ExpenditureResolutionStatus.DRAFT && resolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
             throw new IllegalStateException("작성중이거나 반려된 결의서만 승인 요청할 수 있습니다.");
         }
         
-        resolution.setStatus("REQUESTED");
+        resolution.setStatus(ExpenditureResolutionStatus.REQUESTED);
         expenditureRepository.save(resolution);
     }
 
@@ -221,9 +222,7 @@ public class ExpenditureService {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
 
-        if (!"REQUESTED".equals(resolution.getStatus())) {
-            throw new IllegalStateException("승인 요청된 결의서만 승인할 수 있습니다.");
-        }
+        if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
 
         // 1. 전표 생성 및 승인
         JournalEntry journalEntry = createJournalFromResolution(resolution);
@@ -248,7 +247,7 @@ public class ExpenditureService {
             }
         }
 
-        resolution.setStatus("APPROVED");
+        resolution.setStatus(ExpenditureResolutionStatus.APPROVED);
         resolution.setJournalEntry(savedEntry);
         resolution.setRejectionReason(null);
         expenditureRepository.save(resolution);
@@ -275,11 +274,9 @@ public class ExpenditureService {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
 
-        if (!"REQUESTED".equals(resolution.getStatus())) {
-            throw new IllegalStateException("승인 요청된 결의서만 반려할 수 있습니다.");
-        }
+        if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
 
-        resolution.setStatus("REJECTED");
+        resolution.setStatus(ExpenditureResolutionStatus.REJECTED);
         resolution.setRejectionReason(reason);
         expenditureRepository.save(resolution);
     }
