@@ -1,34 +1,48 @@
 package com.ho.account.basic.dto;
 
 import com.ho.account.basic.domain.Product;
-
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 public class ProductDto {
+
     private Long id;
-    private String code;
+    private String productCode;
     private String name;
     private String description;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private String auditUser;
+    private String unitOfMeasure;
+    private Double price;
+    private Product.ProductType productType;
     private LocalDate validFrom;
     private LocalDate validTo;
 
     public ProductDto() {
     }
 
-    public ProductDto(Product product) {
-        this.id = product.getId();
-        this.code = product.getCode();
-        this.name = product.getName();
-        this.description = product.getDescription();
-        this.createdAt = product.getCreatedAt();
-        this.updatedAt = product.getUpdatedAt();
-        this.auditUser = product.getAuditUser();
-        this.validFrom = product.getValidFrom();
-        this.validTo = product.getValidTo();
+    public ProductDto(Long id, String productCode, String name, String description, String unitOfMeasure, Double price, Product.ProductType productType, LocalDate validFrom, LocalDate validTo) {
+        this.id = id;
+        this.productCode = productCode;
+        this.name = name;
+        this.description = description;
+        this.unitOfMeasure = unitOfMeasure;
+        this.price = price;
+        this.productType = productType;
+        this.validFrom = validFrom;
+        this.validTo = validTo;
+    }
+
+    // Static factory method for conversion from Product entity
+    public static ProductDto fromEntity(Product product) {
+        return new ProductDto(
+                product.getId(),
+                product.getProductCode(),
+                product.getName(),
+                product.getDescription(),
+                product.getUnitOfMeasure(),
+                product.getPrice(),
+                product.getProductType(),
+                product.getValidFrom(),
+                product.getValidTo()
+        );
     }
 
     // Getters and Setters
@@ -40,12 +54,12 @@ public class ProductDto {
         this.id = id;
     }
 
-    public String getCode() {
-        return code;
+    public String getProductCode() {
+        return productCode;
     }
 
-    public void setCode(String code) {
-        this.code = code;
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
     }
 
     public String getName() {
@@ -64,28 +78,28 @@ public class ProductDto {
         this.description = description;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public String getUnitOfMeasure() {
+        return unitOfMeasure;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setUnitOfMeasure(String unitOfMeasure) {
+        this.unitOfMeasure = unitOfMeasure;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+    public Double getPrice() {
+        return price;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    public void setPrice(Double price) {
+        this.price = price;
     }
 
-    public String getAuditUser() {
-        return auditUser;
+    public Product.ProductType getProductType() {
+        return productType;
     }
 
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
+    public void setProductType(Product.ProductType productType) {
+        this.productType = productType;
     }
 
     public LocalDate getValidFrom() {

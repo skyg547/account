@@ -5,8 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 상품 (Product) 마스터 엔티티.
- * 상품 정보, 유효 기간 등을 관리합니다.
+ * 상품(Product) 마스터 엔티티.
+ * 판매 및 구매 가능한 상품 또는 서비스를 정의합니다.
  */
 @Entity
 @Table(name = "products")
@@ -16,23 +16,42 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 상품 코드
+     */
     @Column(nullable = false, unique = true, length = 50)
-    private String code;
+    private String productCode;
 
-    @Column(nullable = false, length = 100)
+    /**
+     * 상품명
+     */
+    @Column(nullable = false, length = 200)
     private String name;
 
+    /**
+     * 상품 설명
+     */
     @Column(length = 500)
     private String description;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    /**
+     * 단위 (예: EA, KG, L)
+     */
+    @Column(length = 20)
+    private String unitOfMeasure;
 
+    /**
+     * 기본 판매 가격
+     */
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private Double price;
 
-    @Column(length = 50)
-    private String auditUser;
+    /**
+     * 상품 타입 (예: PHYSICAL, SERVICE, DIGITAL)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private ProductType productType;
 
     /**
      * 유효 시작일 (SCD2)
@@ -46,6 +65,20 @@ public class Product {
     @Column(nullable = false)
     private LocalDate validTo;
 
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
+    private String auditUser;
+
+    // Enum Definitions
+    public enum ProductType {
+        PHYSICAL, SERVICE, DIGITAL
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -55,12 +88,12 @@ public class Product {
         this.id = id;
     }
 
-    public String getCode() {
-        return code;
+    public String getProductCode() {
+        return productCode;
     }
 
-    public void setCode(String code) {
-        this.code = code;
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
     }
 
     public String getName() {
@@ -77,6 +110,46 @@ public class Product {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getUnitOfMeasure() {
+        return unitOfMeasure;
+    }
+
+    public void setUnitOfMeasure(String unitOfMeasure) {
+        this.unitOfMeasure = unitOfMeasure;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
+    }
+
+    public ProductType getProductType() {
+        return productType;
+    }
+
+    public void setProductType(ProductType productType) {
+        this.productType = productType;
+    }
+
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(LocalDate validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public LocalDate getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(LocalDate validTo) {
+        this.validTo = validTo;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -101,21 +174,5 @@ public class Product {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
-    }
-
-    public LocalDate getValidFrom() {
-        return validFrom;
-    }
-
-    public void setValidFrom(LocalDate validFrom) {
-        this.validFrom = validFrom;
-    }
-
-    public LocalDate getValidTo() {
-        return validTo;
-    }
-
-    public void setValidTo(LocalDate validTo) {
-        this.validTo = validTo;
     }
 }

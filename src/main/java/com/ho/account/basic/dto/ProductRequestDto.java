@@ -1,36 +1,43 @@
 package com.ho.account.basic.dto;
 
+import com.ho.account.basic.domain.Product;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-
+import jakarta.validation.constraints.PositiveOrZero;
 import java.time.LocalDate;
 
 public class ProductRequestDto {
-    @NotBlank(message = "Product code cannot be empty")
-    @Size(max = 50, message = "Product code cannot exceed 50 characters")
-    private String code;
 
-    @NotBlank(message = "Product name cannot be empty")
-    @Size(max = 100, message = "Product name cannot exceed 100 characters")
+    @NotBlank(message = "상품 코드는 필수입니다.")
+    private String productCode;
+
+    @NotBlank(message = "상품명은 필수입니다.")
     private String name;
 
-    @Size(max = 500, message = "Description cannot exceed 500 characters")
     private String description;
 
-    @NotNull(message = "Valid from date cannot be empty")
+    private String unitOfMeasure;
+
+    @NotNull(message = "가격은 필수입니다.")
+    @PositiveOrZero(message = "가격은 0 이상이어야 합니다.")
+    private Double price;
+
+    @NotNull(message = "상품 타입은 필수입니다.")
+    private Product.ProductType productType;
+
+    @NotNull(message = "유효 시작일은 필수입니다.")
     private LocalDate validFrom;
 
-    @NotNull(message = "Valid to date cannot be empty")
+    @NotNull(message = "유효 종료일은 필수입니다.")
     private LocalDate validTo;
 
     // Getters and Setters
-    public String getCode() {
-        return code;
+    public String getProductCode() {
+        return productCode;
     }
 
-    public void setCode(String code) {
-        this.code = code;
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
     }
 
     public String getName() {
@@ -47,6 +54,30 @@ public class ProductRequestDto {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getUnitOfMeasure() {
+        return unitOfMeasure;
+    }
+
+    public void setUnitOfMeasure(String unitOfMeasure) {
+        this.unitOfMeasure = unitOfMeasure;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
+    }
+
+    public Product.ProductType getProductType() {
+        return productType;
+    }
+
+    public void setProductType(Product.ProductType productType) {
+        this.productType = productType;
     }
 
     public LocalDate getValidFrom() {

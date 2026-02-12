@@ -7,7 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+import java.util.Optional; // Import Optional
+
 @Repository
 public interface TaxInvoiceRepository extends JpaRepository<TaxInvoice, Long> {
     List<TaxInvoice> findByIssueDateBetween(LocalDate startDate, LocalDate endDate);
+    Optional<TaxInvoice> findByIssueId(String issueId); // Add this method
 }

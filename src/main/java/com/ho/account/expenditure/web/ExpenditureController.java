@@ -1,6 +1,7 @@
 package com.ho.account.expenditure.web;
 
-import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
+import jakarta.validation.Valid;
 import com.ho.account.expenditure.service.ExpenditureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,10 +25,20 @@ public class ExpenditureController {
 
     // 결의서 생성
     @PostMapping
-    public ResponseEntity<ExpenditureResolution> createResolution(@RequestBody ExpenditureResolution resolution) {
+    public ResponseEntity<ExpenditureResolution> createResolution(@Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
         try {
-            ExpenditureResolution created = expenditureService.createResolution(resolution);
+            ExpenditureResolution created = expenditureService.createResolution(requestDto);
             return ResponseEntity.ok(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ExpenditureResolution> updateResolution(@PathVariable Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
+        try {
+            ExpenditureResolution updated = expenditureService.updateResolution(id, requestDto); // Need to add updateResolution to service
+            return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }

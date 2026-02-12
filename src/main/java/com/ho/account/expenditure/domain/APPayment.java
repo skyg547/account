@@ -1,12 +1,13 @@
 package com.ho.account.expenditure.domain;
 
+import com.ho.account.tax.domain.TaxInvoice; // Import TaxInvoice
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payments")
-public class Payment {
+@Table(name = "ap_payments") // Renamed table for clarity
+public class APPayment { // Renamed class
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,17 +17,24 @@ public class Payment {
     @JoinColumn(name = "expenditure_resolution_id", nullable = false)
     private ExpenditureResolution expenditureResolution;
 
+    @ManyToOne(fetch = FetchType.LAZY) // Added ManyToOne relationship to TaxInvoice
+    @JoinColumn(name = "tax_invoice_id") // Nullable by default
+    private TaxInvoice taxInvoice;
+
     @Column(nullable = false)
     private LocalDateTime paymentDate; // 실제 지급 일시
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount;
+    private BigDecimal amount; // Gross payment amount
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal unappliedAmount; // Amount not yet applied to invoices/resolutions
 
     @Column(length = 50)
     private String paymentMethod; // TRANSFER(이체), CASH(현금), CARD(카드)
 
     @Column(length = 20)
-    private String status; // COMPLETED, FAILED
+    private String status; // COMPLETED, FAILED, PENDING, PARTIALLY_APPLIED
 
     // Getters and Setters
     public Long getId() { return id; }
@@ -35,11 +43,17 @@ public class Payment {
     public ExpenditureResolution getExpenditureResolution() { return expenditureResolution; }
     public void setExpenditureResolution(ExpenditureResolution expenditureResolution) { this.expenditureResolution = expenditureResolution; }
 
+    public TaxInvoice getTaxInvoice() { return taxInvoice; }
+    public void setTaxInvoice(TaxInvoice taxInvoice) { this.taxInvoice = taxInvoice; }
+
     public LocalDateTime getPaymentDate() { return paymentDate; }
     public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+    public BigDecimal getUnappliedAmount() { return unappliedAmount; }
+    public void setUnappliedAmount(BigDecimal unappliedAmount) { this.unappliedAmount = unappliedAmount; }
 
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }

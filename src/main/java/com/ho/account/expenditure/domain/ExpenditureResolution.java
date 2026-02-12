@@ -4,6 +4,7 @@ import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.Department;
 import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.tax.domain.TaxInvoice; // Import TaxInvoice
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -56,6 +57,10 @@ public class ExpenditureResolution {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lease_contract_id")
     private LeaseContract leaseContract;
+
+    @ManyToOne(fetch = FetchType.LAZY) // Added ManyToOne relationship to TaxInvoice
+    @JoinColumn(name = "tax_invoice_id") // Nullable by default
+    private TaxInvoice taxInvoice;
 
     @OneToMany(mappedBy = "expenditureResolution", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExpenditureDetail> details = new ArrayList<>();
@@ -119,6 +124,9 @@ public class ExpenditureResolution {
 
     public LeaseContract getLeaseContract() { return leaseContract; }
     public void setLeaseContract(LeaseContract leaseContract) { this.leaseContract = leaseContract; }
+
+    public TaxInvoice getTaxInvoice() { return taxInvoice; }
+    public void setTaxInvoice(TaxInvoice taxInvoice) { this.taxInvoice = taxInvoice; }
 
     public List<ExpenditureDetail> getDetails() { return details; }
     public void setDetails(List<ExpenditureDetail> details) { this.details = details; }
