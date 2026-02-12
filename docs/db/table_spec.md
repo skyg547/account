@@ -444,3 +444,76 @@
 
 ### 인덱스 전략
 - `IDX_FN_REPORT_NO`: `REPORT_NO` (상위 보고서 조회 성능 향상)
+
+## 25. `RULE_MASTER` (룰 마스터)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `RULE_ID`             | `VARCHAR2(20)` | `PK, NOT NULL`              | 룰 ID             |
+| `RULE_NAME`           | `VARCHAR2(100)`| `NOT NULL`                  | 룰명              |
+| `RULE_TYPE`           | `VARCHAR2(20)` | `NOT NULL`                  | 룰 유형 (예: 분개룰, 검증룰, 상각룰) |
+| `DESCRIPTION`         | `VARCHAR2(500)`| `NULL`                      | 룰 설명           |
+| `PRIORITY`            | `NUMBER(3)` | `NOT NULL, DEFAULT 100`     | 룰 우선순위 (낮은 숫자 = 높은 우선순위) |
+| `APPLY_START_DATE`    | `DATE`      | `NOT NULL`                  | 적용 시작일         |
+| `APPLY_END_DATE`      | `DATE`      | `NULL`                      | 적용 종료일         |
+| `APPROVAL_STATUS`     | `VARCHAR2(20)` | `NOT NULL, DEFAULT 'PENDING'`| 승인 상태 (PENDING, APPROVED, REJECTED) |
+| `VERSION`             | `NUMBER(5)` | `NOT NULL, DEFAULT 1`       | 룰 버전           |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_RM_RULE_TYPE`: `RULE_TYPE` (룰 유형별 조회 성능 향상)
+- `IDX_RM_APPLY_DATE`: `APPLY_START_DATE`, `APPLY_END_DATE` (룰 적용 기간 조회 성능 향상)
+
+## 26. `RULE_CONDITION` (룰 조건)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `CONDITION_ID`        | `NUMBER`    | `PK, IDENTITY`              | 조건 ID           |
+| `RULE_ID`             | `VARCHAR2(20)` | `FK, NOT NULL`              | 룰 ID             |
+| `SEQUENCE`            | `NUMBER(3)` | `NOT NULL`                  | 조건 순번         |
+| `FIELD_NAME`          | `VARCHAR2(100)`| `NOT NULL`                  | 필드명 (예: TRANSACTION_TYPE, CUSTOMER_GROUP) |
+| `OPERATOR`            | `VARCHAR2(20)` | `NOT NULL`                  | 연산자 (예: EQ, NE, GT, LT, LIKE) |
+| `VALUE`               | `VARCHAR2(500)`| `NOT NULL`                  | 비교 값           |
+| `LOGICAL_OPERATOR`    | `VARCHAR2(10)` | `NULL`                      | 논리 연산자 (AND, OR) |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `UDX_RC_UNIQUE`: `RULE_ID`, `SEQUENCE` (룰 내 조건 순번 고유성)
+
+## 27. `RULE_ACTION` (룰 액션)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `ACTION_ID`           | `NUMBER`    | `PK, IDENTITY`              | 액션 ID           |
+| `RULE_ID`             | `VARCHAR2(20)` | `FK, NOT NULL`              | 룰 ID             |
+| `SEQUENCE`            | `NUMBER(3)` | `NOT NULL`                  | 액션 순번         |
+| `ACTION_TYPE`         | `VARCHAR2(50)` | `NOT NULL`                  | 액션 유형 (예: 분개 생성, 필드 값 설정, 에러 발생) |
+| `TARGET_FIELD_NAME`   | `VARCHAR2(100)`| `NULL`                      | 대상 필드명 (액션 유형에 따라) |
+| `VALUE_EXPRESSION`    | `VARCHAR2(500)`| `NULL`                      | 값 또는 표현식 (예: 계정코드, 금액 산식) |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `UDX_RA_UNIQUE`: `RULE_ID`, `SEQUENCE` (룰 내 액션 순번 고유성)
+
+## 28. `RULE_APPLICATION_LOG` (룰 적용 이력)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `LOG_ID`              | `NUMBER`    | `PK, IDENTITY`              | 로그 ID           |
+| `RULE_ID`             | `VARCHAR2(20)` | `FK, NOT NULL`              | 적용된 룰 ID      |
+| `RULE_VERSION`        | `NUMBER(5)` | `NOT NULL`                  | 적용된 룰 버전    |
+| `APPLY_DATE_TIME`     | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 적용 일시         |
+| `SOURCE_TRANSACTION_ID`| `VARCHAR2(100)`| `NOT NULL`                  | 원천 거래 ID      |
+| `RESULT_CODE`         | `VARCHAR2(20)` | `NOT NULL`                  | 결과 코드 (SUCCESS, FAILED, NO_MATCH) |
+| `RESULT_MESSAGE`      | `VARCHAR2(500)`| `NULL`                      | 결과 메시지         |
+| `GENERATED_JOURNAL_NO`| `VARCHAR2(20)` | `FK`                        | 생성된 전표 번호 (분개룰의 경우) |
+| `CREATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`         | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`          | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+### 인덱스 전략
+- `IDX_RAL_RULE_ID`: `RULE_ID` (룰별 적용 이력 조회 성능 향상)
+- `IDX_RAL_SOURCE_TRAN_ID`: `SOURCE_TRANSACTION_ID` (원천 거래별 적용 이력 조회 성능 향상)
+- `IDX_RAL_GENERATED_JE`: `GENERATED_JOURNAL_NO` (생성된 전표별 적용 이력 조회 성능 향상)
