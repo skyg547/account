@@ -32,6 +32,19 @@ public class JournalController {
         }
     }
 
+    // 전표 자동 생성 (From Event)
+    @PostMapping("/from-event")
+    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, String> eventData,
+                                                                  @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
+        try {
+            Optional<JournalEntry> createdEntry = journalService.createJournalEntryFromEvent(eventData, accountingDate);
+            return createdEntry.map(ResponseEntity::ok)
+                               .orElse(ResponseEntity.noContent().build()); // Or BadRequest if no rule matches
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
     // 전표 수정
     @PutMapping("/{id}")
     public ResponseEntity<JournalEntry> updateJournalEntry(@PathVariable Long id, @RequestBody JournalEntry journalEntry) {
@@ -101,6 +114,31 @@ public class JournalController {
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 전표 전기 (Post)
+    @PostMapping("/{id}/post")
+    public ResponseEntity<Void> postJournalEntry(@PathVariable Long id) {
+        try {
+            journalService.postJournalEntry(id);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 전표 역분개 (Reverse)
+    @PostMapping("/{id}/reverse")
+    public ResponseEntity<JournalEntry> reverseJournalEntry(@PathVariable Long id,
+                                                          @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate reversalDate) {
+        try {
+            // If no reversalDate is provided, use today's date
+            LocalDate actualReversalDate = (reversalDate != null) ? reversalDate : LocalDate.now();
+            JournalEntry reversedEntry = journalService.reverseJournalEntry(id, actualReversalDate);
+            return ResponseEntity.ok(reversedEntry);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(null);
         }
     }
 }

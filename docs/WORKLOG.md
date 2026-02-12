@@ -108,3 +108,21 @@ This document tracks the development progress, design decisions, and architectur
         *   Added `createJournalEntryFromEvent` method to `JournalService.java`. This method takes a `Map<String, String>` (representing a transaction event) and an `accountingDate`, then attempts to find and apply matching active `JournalRule`s.
         *   Implemented helper methods (`matchesConditions`, `generateJournalEntry`, `evaluateAccountSubjectExpression`, `evaluateAmountExpression`, `evaluateBusinessPartnerExpression`, `evaluateDepartmentExpression`, `evaluateDescriptionExpression`, `extractValueFromExpression`) within `JournalService.java` to facilitate rule matching and dynamic journal detail generation based on expressions.
 
+### 1.8 Journal Entry Validation and Lifecycle Management
+*   **DoD Requirement:** DoD 05.3 (검증: 예산/세무), DoD 05.5 (정정/취소/역분개), DoD 06.1 (GL Posting).
+*   **Analysis:** Enhanced journal entry validation and implemented full lifecycle management, including posting and reversal functionalities, to meet core accounting requirements.
+*   **Changes Made:**
+    1.  **Budget Validation:**
+        *   Added `checkBudgetAvailability` method to `src/main/java/com/ho/account/expenditure/service/BudgetService.java` to validate budget availability without consuming it.
+        *   Injected `BudgetService` into `src/main/java/com/ho/account/journal/service/JournalService.java`.
+        *   Integrated budget availability check into `JournalService.validateJournalEntry` for debit-type `JournalDetail`s.
+    2.  **Tax Validation Placeholder:**
+        *   Added a `TODO` comment in `JournalService.validateJournalEntry` for future tax validation implementation.
+    3.  **Journal Entry Lifecycle (Posting):**
+        *   Added `postJournalEntry(Long id)` method to `JournalService.java`. This method transitions an `APPROVED` journal entry to `POSTED` status, marking it for General Ledger integration.
+        *   Added a corresponding `@PostMapping("/{id}/post")` endpoint in `src/main/java/com/ho/account/journal/web/JournalController.java`.
+    4.  **Journal Entry Lifecycle (Reversal):**
+        *   Added `reverseJournalEntry(Long id, LocalDate reversalDate)` method to `JournalService.java`. This method creates a new, opposing journal entry to effectively reverse a previously `POSTED` entry, and sets the original entry's status to `REVERSED`.
+        *   Added a corresponding `@PostMapping("/{id}/reverse")` endpoint in `src/main/java/com/ho/account/journal/web/JournalController.java` to trigger the reversal process.
+    5.  **Rule-based Journal Entry Creation Endpoint:**
+        *   Added a new `@PostMapping("/from-event")` endpoint to `src/main/java/com/ho/account/journal/web/JournalController.java` that utilizes `JournalService.createJournalEntryFromEvent` to generate journal entries automatically from transaction event data.

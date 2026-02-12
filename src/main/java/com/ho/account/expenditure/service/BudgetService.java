@@ -42,4 +42,19 @@ public class BudgetService {
                 .map(Budget::getRemainingAmount)
                 .orElse(BigDecimal.ZERO);
     }
+
+    // 예산 사용 가능 여부 확인 (전표 유효성 검사 시 호출)
+    @Transactional(readOnly = true)
+    public void checkBudgetAvailability(String yearMonth, Department department, AccountSubject accountSubject, BigDecimal amount) {
+        Budget budget = budgetRepository.findByYearMonthAndDepartmentAndAccountSubject(yearMonth, department, accountSubject)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        String.format("예산이 편성되지 않았습니다. [연월: %s, 부서: %s, 계정과목: %s]",
+                                yearMonth, department.getName(), accountSubject.getName())));
+
+        if (budget.getRemainingAmount().compareTo(amount) < 0) {
+            throw new IllegalStateException(
+                    String.format("예산이 부족합니다. [연월: %s, 부서: %s, 계정과목: %s, 요청 금액: %s, 잔여 예산: %s]",
+                            yearMonth, department.getName(), accountSubject.getName(), amount, budget.getRemainingAmount()));
+        }
+    }
 }

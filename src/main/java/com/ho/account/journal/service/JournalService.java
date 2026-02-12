@@ -12,6 +12,7 @@ import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.journal.service.JournalRuleService;
 import com.ho.account.closing.service.ClosingService;
+import com.ho.account.expenditure.service.BudgetService;
 import com.ho.account.unsettled.service.UnsettledService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ public class JournalService {
     private final ClosingService closingService;
     private final UnsettledService unsettledService;
     private final JournalRuleService journalRuleService;
+    private final BudgetService budgetService;
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
@@ -45,7 +47,8 @@ public class JournalService {
                           BusinessPartnerRepository businessPartnerRepository,
                           ClosingService closingService,
                           UnsettledService unsettledService,
-                          JournalRuleService journalRuleService) {
+                          JournalRuleService journalRuleService,
+                          BudgetService budgetService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
@@ -53,6 +56,7 @@ public class JournalService {
         this.closingService = closingService;
         this.unsettledService = unsettledService;
         this.journalRuleService = journalRuleService;
+        this.budgetService = budgetService;
     }
 
     // 전표 생성
@@ -181,6 +185,25 @@ public class JournalService {
         journalEntryRepository.save(entry);
     }
 
+    // 전표 전기 (Post Journal Entry)
+    public void postJournalEntry(Long id) {
+        JournalEntry entry = journalEntryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));
+
+        if (closingService.isClosed(entry.getAccountingDate())) {
+            throw new IllegalStateException("해당 월은 이미 마감되었습니다. 전표를 전기할 수 없습니다.");
+        }
+
+        if (entry.getStatus() != JournalEntryStatus.APPROVED) {
+            throw new IllegalStateException("승인된 전표만 전기할 수 있습니다.");
+        }
+
+        entry.setStatus(JournalEntryStatus.POSTED);
+        journalEntryRepository.save(entry);
+        // TODO: GL 잔액 업데이트 로직 호출 (예: LedgerService.updateGlBalances(entry))
+        System.out.println("Journal Entry " + entry.getSlipNo() + " has been posted to GL.");
+    }
+
     @Transactional(readOnly = true)
     public List<JournalEntry> getJournalEntriesByDate(LocalDate startDate, LocalDate endDate) {
         return journalEntryRepository.findByAccountingDateBetween(startDate, endDate);
@@ -220,8 +243,24 @@ public class JournalService {
                 detail.setBusinessPartner(businessPartner);
             }
 
+            // TODO: Implement Tax Validation (DoD 05.3) - e.g., checking tax codes, rates, and rules
+            // if (detail.getTaxCode() != null) {
+            //     taxService.validateTaxImplications(detail, entry.getAccountingDate());
+            // }
+
             if ("DEBIT".equals(detail.getDrcrType())) {
                 debitSum = debitSum.add(detail.getAmount());
+                // Budget Validation for DEBIT entries
+                if (detail.getDepartment() == null || detail.getAccountSubject() == null) {
+                    throw new IllegalArgumentException("예산 검사를 위해 부서와 계정과목은 필수입니다.");
+                }
+                String yearMonth = entry.getAccountingDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
+                budgetService.checkBudgetAvailability(
+                    yearMonth,
+                    detail.getDepartment(),
+                    detail.getAccountSubject(),
+                    detail.getAmount()
+                );
             } else if ("CREDIT".equals(detail.getDrcrType())) {
                 creditSum = creditSum.add(detail.getAmount());
             } else {
@@ -239,6 +278,55 @@ public class JournalService {
         List<JournalEntry> entries = journalEntryRepository.findByAccountingDate(date);
         int seq = entries.size() + 1;
         return String.format("%s-%03d", dateStr, seq);
+    }
+
+    // 전표 역분개 (Reverse Journal Entry)
+    public JournalEntry reverseJournalEntry(Long id, LocalDate reversalDate) {
+        JournalEntry originalEntry = journalEntryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("원 전표를 찾을 수 없습니다. ID: " + id));
+
+        if (closingService.isClosed(reversalDate)) {
+            throw new IllegalStateException("해당 월은 이미 마감되었습니다. 역분개 전표를 생성할 수 없습니다.");
+        }
+
+        if (originalEntry.getStatus() != JournalEntryStatus.POSTED) {
+            throw new IllegalStateException("전기된 전표만 역분개할 수 있습니다.");
+        }
+
+        // Create a new JournalEntry for the reversal
+        JournalEntry reversalEntry = new JournalEntry();
+        reversalEntry.setSlipDate(LocalDate.now());
+        reversalEntry.setAccountingDate(reversalDate);
+        reversalEntry.setDescription("역분개: " + originalEntry.getDescription() + " (원 전표 No: " + originalEntry.getSlipNo() + ")");
+        reversalEntry.setStatus(JournalEntryStatus.DRAFT); // Reversal entry starts as DRAFT
+        reversalEntry.setEntryType("REVERSAL");
+
+        for (JournalDetail originalDetail : originalEntry.getDetails()) {
+            JournalDetail reversedDetail = new JournalDetail();
+            reversedDetail.setAccountSubject(originalDetail.getAccountSubject());
+            reversedDetail.setAmount(originalDetail.getAmount());
+            reversedDetail.setDepartment(originalDetail.getDepartment());
+            reversedDetail.setBusinessPartner(originalDetail.getBusinessPartner());
+            reversedDetail.setDetailDescription("역분개: " + originalDetail.getDetailDescription());
+
+            // Reverse DR/CR type
+            if ("DEBIT".equals(originalDetail.getDrcrType())) {
+                reversedDetail.setDrcrType("CREDIT");
+            } else {
+                reversedDetail.setDrcrType("DEBIT");
+            }
+            reversalEntry.addDetail(reversedDetail);
+        }
+
+        validateJournalEntry(reversalEntry); // Validate the generated reversal entry
+
+        // Mark original entry as REVERSED
+        originalEntry.setStatus(JournalEntryStatus.REVERSED);
+        // TODO: Optionally, link original to reversal and vice-versa for audit trail
+        journalEntryRepository.save(originalEntry);
+
+        // Save and return the new reversal entry
+        return journalEntryRepository.save(reversalEntry);
     }
 
     /**
