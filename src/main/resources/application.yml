@@ -6,6 +6,8 @@ spring:
 
   # JPA 공통 설정
   jpa:
+    hibernate:
+      ddl-auto: update
     open-in-view: false # OSIV 비활성화 (성능 최적화)
     properties:
       hibernate:
