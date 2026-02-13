@@ -6,19 +6,23 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 분개 규칙(Journal Rule) 엔티티
+ * 거래 유형별로 자동 분개 처리를 위한 규칙을 관리함.
+ */
 @Entity
 @Table(name = "journal_rules")
 public class JournalRule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // 내부 식별자
 
     @Column(nullable = false, unique = true, length = 50)
-    private String ruleCode;
+    private String ruleCode; // 규칙 코드
 
     @Column(nullable = false, length = 100)
-    private String ruleName;
+    private String ruleName; // 규칙명
 
     @Column(length = 500)
     private String description;

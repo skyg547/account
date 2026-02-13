@@ -8,6 +8,11 @@ import java.time.LocalDateTime; // LocalDateTime 추가
  * 계정과목(Chart of Accounts) 마스터 엔티티.
  * 계층 구조, 유효 기간, 재무제표 매핑 등을 포함하여 전체 회계 시스템의 기반을 정의합니다.
  */
+/**
+ * 계정과목(COA) 엔티티
+ * 회계 처리의 기본 단위가 되는 계정과목을 관리하며, Hierarchical 구조와 SCD2(Slowly Changing Dimension
+ * Type 2)를 지원함.
+ */
 @Entity
 @Table(name = "account_subjects")
 public class AccountSubject {
@@ -28,18 +33,12 @@ public class AccountSubject {
     @Column(length = 50)
     private String auditUser; // 감사 사용자
 
-    /**
-     * 계정명
-     */
     @Column(nullable = false, length = 100)
-    private String name;
+    private String name; // 계정과목명
 
-    /**
-     * 상위 계정 코드 (계층 구조)
-     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_code")
-    private AccountSubject parent;
+    @JoinColumn(name = "parent_code", referencedColumnName = "code")
+    private AccountSubject parent; // 상위 계정과목 (계층 구조)
 
     /**
      * 계정 상위 분류 (자산, 부채, 자본, 수익, 비용)
@@ -65,7 +64,7 @@ public class AccountSubject {
     /**
      * 재무제표 표시 라인 (재무상태표, 손익계산서 등의 항목)
      */
-    @Column(name = "report_line", length = 100)
+    @Column(length = 100)
     private String reportLine;
 
     /**

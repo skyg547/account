@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime; // LocalDateTime 추가
 
+/**
+ * 부서(Department/Cost Center) 엔티티
+ * 조직 구조를 관리하며, 비용 센터(Cost Center) 또는 이익 센터(Profit Center) 역할을 수행함.
+ */
 @Entity
 @Table(name = "departments")
 public class Department {
@@ -21,13 +25,22 @@ public class Department {
     @Column(length = 50)
     private String auditUser; // 감사 사용자
 
+    /**
+     * 부서의 이름.
+     */
     @Column(nullable = false, length = 100)
     private String name;
 
+    /**
+     * 상위 부서. 계층 구조를 나타냅니다.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_code")
+    @JoinColumn(name = "parent_code", referencedColumnName = "code")
     private Department parent;
 
+    /**
+     * 부서의 유형 (예: 비용 센터, 이익 센터, 지원 부서).
+     */
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
     private DepartmentType type;

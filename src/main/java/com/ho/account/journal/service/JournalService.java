@@ -11,7 +11,7 @@ import com.ho.account.journal.domain.JournalEntry;
 import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.ledger.service.LedgerPostingService;
-import com.ho.account.journal.service.JournalRuleService;
+// JournalRuleService import removed
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.expenditure.service.BudgetService;
 import com.ho.account.unsettled.service.UnsettledService;
@@ -29,8 +29,12 @@ import java.util.Optional;
 import com.ho.account.journal.domain.JournalRule;
 import com.ho.account.journal.domain.JournalRuleCondition;
 import com.ho.account.journal.domain.JournalRuleDetail;
-import com.ho.account.journal.domain.ConditionOperator;
+// ConditionOperator import removed
 
+/**
+ * 전표 관리 서비스(Journal Service)
+ * 전표의 생성, 수정, 승인, 확정(Posting), 역분개(Reversal) 등 전표 라이프사이클을 관리함.
+ */
 @Service
 @Transactional
 public class JournalService {

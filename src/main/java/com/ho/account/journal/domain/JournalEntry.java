@@ -7,11 +7,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import com.ho.account.journal.domain.JournalEntryStatus;
+// Unused import removed
 
 /**
- * 전표(Journal Entry) 헤더 정보를 담는 엔티티입니다.
- * 회계 거래의 기본 단위로, 날짜, 번호, 적요, 상태 등을 관리합니다.
+ * 분개 전표(Journal Entry) 엔티티
+ * 회계 전표의 헤더 정보를 관리하며, 상태(DRAFT, APPROVED, POSTED 등) 관리와 승인 프로세스를 포함함.
  */
 @Entity
 @Table(name = "journal_entries")

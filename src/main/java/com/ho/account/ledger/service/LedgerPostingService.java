@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * 원장 전기 서비스(Ledger Posting Service)
+ * 확정된 전표를 총계정원장(GL)에 반영하며, 개별 거래 내역(GlEntry) 생성 및 계정 잔액(GlBalance)을 업데이트함.
+ */
 @Service
 public class LedgerPostingService {
 
@@ -27,13 +31,18 @@ public class LedgerPostingService {
     @Autowired
     private FiscalPeriodRepository fiscalPeriodRepository;
 
+    /**
+     * 전표를 총계정원장에 전기(Post)함.
+     * 
+     * @param journalEntry 전기할 분개 전표
+     */
     @Transactional
-    public void postToLedger(JournalEntry entry) {
-        LocalDate postingDate = entry.getAccountingDate();
+    public void postToLedger(JournalEntry journalEntry) {
+        LocalDate postingDate = journalEntry.getAccountingDate();
         FiscalPeriod period = fiscalPeriodRepository.findByDate(postingDate)
                 .orElseThrow(() -> new RuntimeException("Fiscal period not found for date: " + postingDate));
 
-        for (JournalDetail detail : entry.getDetails()) {
+        for (JournalDetail detail : journalEntry.getDetails()) {
             // 1. GL Entry 생성
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
@@ -41,45 +50,49 @@ public class LedgerPostingService {
             glEntry.setFiscalYear(period.getFiscalYear());
             glEntry.setFiscalPeriod(period.getFiscalPeriod());
             glEntry.setPostingDate(postingDate);
-            glEntry.setCurrency(entry.getCurrency());
-            glEntry.setExchangeRate(entry.getExchangeRate());
+            glEntry.setCurrency(journalEntry.getCurrency());
+            glEntry.setExchangeRate(journalEntry.getExchangeRate());
 
             if ("DEBIT".equals(detail.getDrcrType())) {
                 glEntry.setDrAmount(detail.getAmount());
-                glEntry.setBaseDrAmount(detail.getAmount()); // TODO: Multi-currency logic
+                glEntry.setBaseDrAmount(detail.getBaseAmount());
+                glEntry.setCrAmount(BigDecimal.ZERO);
+                glEntry.setBaseCrAmount(BigDecimal.ZERO);
             } else {
                 glEntry.setCrAmount(detail.getAmount());
-                glEntry.setBaseCrAmount(detail.getAmount());
+                glEntry.setBaseCrAmount(detail.getBaseAmount());
+                glEntry.setDrAmount(BigDecimal.ZERO);
+                glEntry.setBaseDrAmount(BigDecimal.ZERO);
             }
 
-            glEntry.setLineageSourceType(entry.getLineageSourceType());
-            glEntry.setLineageSourceId(entry.getLineageSourceId());
-            glEntry.setAuditUser(entry.getAuditUser());
+            glEntry.setLineageSourceType(journalEntry.getLineageSourceType());
+            glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
+            glEntry.setAuditUser(journalEntry.getAuditUser());
             glEntryRepository.save(glEntry);
 
             // 2. GL Balance 업데이트
             GlBalance balance = glBalanceRepository.findByAccountAndFiscalYearAndFiscalPeriodAndDepartmentAndCurrency(
                     detail.getAccountSubject(), period.getFiscalYear(), period.getFiscalPeriod(),
-                    detail.getDepartment(), entry.getCurrency())
-                    .orElseGet(() -> createNewBalance(detail, period, entry));
+                    detail.getDepartment(), journalEntry.getCurrency())
+                    .orElseGet(() -> createNewBalance(detail, period, journalEntry));
 
             if ("DEBIT".equals(detail.getDrcrType())) {
                 balance.setCurrentPeriodDr(balance.getCurrentPeriodDr().add(detail.getAmount()));
             } else {
                 balance.setCurrentPeriodCr(balance.getCurrentPeriodCr().add(detail.getAmount()));
             }
-            balance.setAuditUser(entry.getAuditUser());
+            balance.setAuditUser(journalEntry.getAuditUser());
             glBalanceRepository.save(balance);
         }
     }
 
-    private GlBalance createNewBalance(JournalDetail detail, FiscalPeriod period, JournalEntry entry) {
+    private GlBalance createNewBalance(JournalDetail detail, FiscalPeriod period, JournalEntry journalEntry) {
         GlBalance balance = new GlBalance();
         balance.setAccount(detail.getAccountSubject());
         balance.setFiscalYear(period.getFiscalYear());
         balance.setFiscalPeriod(period.getFiscalPeriod());
         balance.setDepartment(detail.getDepartment());
-        balance.setCurrency(entry.getCurrency());
+        balance.setCurrency(journalEntry.getCurrency());
 
         // 전기 이월 잔액 가져오기 로직 (간소화됨)
         // TODO: 이전 기간 탐색 및 기초잔액 설정

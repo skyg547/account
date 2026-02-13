@@ -5,22 +5,26 @@ import java.time.LocalDateTime;
 import java.time.LocalDate; // Import LocalDate
 import java.util.List; // Import List
 
+/**
+ * 거래처(Business Partner) 엔티티
+ * 고객(Customer), 공급자(Vendor), 은행(Bank) 등 회사의 모든 거래 상대방을 통합 관리함.
+ */
 @Entity
 @Table(name = "business_partners")
 public class BusinessPartner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // 내부 식별자
 
     @Column(nullable = false, unique = true, length = 20)
-    private String businessPartnerCode;
+    private String businessPartnerCode; // 거래처 코드
 
     @Column(nullable = false, length = 100)
-    private String businessPartnerName;
+    private String businessPartnerName; // 거래처명
 
     @Column(length = 20)
-    private String registrationNumber; // 사업자등록번호
+    private String registrationNumber; // 사업자번호
 
     @Column(length = 50)
     private String ceoName;

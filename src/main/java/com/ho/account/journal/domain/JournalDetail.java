@@ -7,6 +7,10 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 전표 상세(Journal Detail) 엔티티
+ * 분개 전표의 개별 라인(차변/대변)을 관리하며, 계정과목, 금액, 귀속부서 등을 포함함.
+ */
 @Entity
 @Table(name = "journal_details")
 public class JournalDetail {
