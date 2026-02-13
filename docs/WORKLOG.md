@@ -1,5 +1,12 @@
 # WORKLOG
 
+## 2026-02-13
+- Added Javadocs to core entities and services.
+- Created business process documentation and workflows.
+- Added Docker support (Dockerfile, docker-compose.yml).
+  - Build command: `docker build -t account-app .`
+  - Run command: `docker compose up`
+
 ## [2026-02-13] Task Started: Comprehensive Accounting System Development
 
 - Initialized `task.md` with 15 core items.
