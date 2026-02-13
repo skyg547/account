@@ -26,8 +26,17 @@ public class AuditLog {
     @Column(name = "TARGET_ID", nullable = false, length = 100)
     private String targetId;
 
-    @Column(name = "CHANGE_DETAIL", columnDefinition = "CLOB")
-    private String changeDetail;
+    @Column(name = "BEFORE_DATA", columnDefinition = "CLOB")
+    private String beforeData;
+
+    @Column(name = "AFTER_DATA", columnDefinition = "CLOB")
+    private String afterData;
+
+    @Column(name = "STATUS", length = 20)
+    private String status;
+
+    @Column(name = "REMARKS", length = 1000)
+    private String remarks;
 
     @Column(name = "IP_ADDRESS", length = 50)
     private String ipAddress;
@@ -105,12 +114,36 @@ public class AuditLog {
         this.targetId = targetId;
     }
 
-    public String getChangeDetail() {
-        return changeDetail;
+    public String getBeforeData() {
+        return beforeData;
     }
 
-    public void setChangeDetail(String changeDetail) {
-        this.changeDetail = changeDetail;
+    public void setBeforeData(String beforeData) {
+        this.beforeData = beforeData;
+    }
+
+    public String getAfterData() {
+        return afterData;
+    }
+
+    public void setAfterData(String afterData) {
+        this.afterData = afterData;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
     }
 
     public String getIpAddress() {

@@ -35,7 +35,7 @@
 - `IDX_DEPT_PARENT_DEPT_CODE`: `PARENT_DEPT_CODE` (계층 구조 조회 성능 향상)
 - `IDX_DEPT_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
 
-## 3. `CUSTOMER` (거래처)
+## 3. `BUSINESS_PARTNERS` (거래처)
 | 컬럼명                 | 데이터 타입   | 제약 조건             | 설명              |
 |----------------------|-------------|-----------------------|-------------------|
 | `CUSTOMER_CODE`      | `VARCHAR2(20)` | `PK, NOT NULL`        | 거래처코드        |
@@ -43,7 +43,7 @@
 | `BUSINESS_REG_NO`    | `VARCHAR2(20)` | `UNIQUE NULL`         | 사업자등록번호    |
 | `CONTACT_PERSON`     | `VARCHAR2(100)`| `NULL`                | 담당자            |
 | `CONTACT_NO`         | `VARCHAR2(20)` | `NULL`                | 연락처            |
-| `CUSTOMER_ACCOUNT_NO`| `VARCHAR2(100)`| `NULL`                | 거래처 계좌번호 (암호화/토큰화/마스킹 필요) |
+| `CUSTOMER_ACCOUNT_NO`| `VARCHAR2(100)`| `NULL`                | 거래처 계좌번호     |
 | `KYC_STATUS`         | `VARCHAR2(20)` | `DEFAULT 'PENDING'`   | KYC 상태          |
 | `VALID_FROM_DATE`    | `DATE`      | `NOT NULL`            | 유효 시작일 (SCD2) |
 | `VALID_TO_DATE`      | `DATE`      | `NULL`                | 유효 종료일 (SCD2) |
@@ -52,8 +52,8 @@
 | `AUDIT_USER`         | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
 
 ### 인덱스 전략
-- `UDX_CUSTOMER_BUSINESS_REG_NO`: `BUSINESS_REG_NO` (사업자등록번호 조회 성능 향상 및 고유성 보장)
-- `IDX_CUSTOMER_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
+- `UDX_BP_BUSINESS_REG_NO`: `BUSINESS_REG_NO` (사업자등록번호 조회 성능 향상 및 고유성 보장)
+- `IDX_BP_VALIDITY`: `VALID_FROM_DATE`, `VALID_TO_DATE` (유효 기간별 조회 성능 향상)
 
 ## 4. `PRODUCT_MASTER` (상품 마스터)
 | 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
@@ -517,3 +517,216 @@
 - `IDX_RAL_RULE_ID`: `RULE_ID` (룰별 적용 이력 조회 성능 향상)
 - `IDX_RAL_SOURCE_TRAN_ID`: `SOURCE_TRANSACTION_ID` (원천 거래별 적용 이력 조회 성능 향상)
 - `IDX_RAL_GENERATED_JE`: `GENERATED_JOURNAL_NO` (생성된 전표별 적용 이력 조회 성능 향상)
+
+---
+
+## 29. `BANK_STATEMENTS` (은행 거래 내역)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `ID`                  | `NUMBER`    | `PK, IDENTITY`              | ID                |
+| `BANK_CODE`           | `VARCHAR2(20)`| `NOT NULL`                  | 은행 코드          |
+| `ACCOUNT_NO`          | `VARCHAR2(50)`| `NOT NULL`                  | 계좌 번호          |
+| `TRANSACTION_DATE`    | `DATE`      | `NOT NULL`                  | 거래 일자          |
+| `DESCRIPTION`         | `VARCHAR2(500)`| `NULL`                      | 거래 내용 (적요)    |
+| `WITHDRAWAL_AMOUNT`   | `NUMBER(19, 2)`| `NOT NULL, DEFAULT 0.00`    | 출금 금액          |
+| `DEPOSIT_AMOUNT`      | `NUMBER(19, 2)`| `NOT NULL, DEFAULT 0.00`    | 입금 금액          |
+| `RECONCILIATION_STATUS`| `VARCHAR2(20)`| `NOT NULL, DEFAULT 'UNMATCHED'`| 대사 상태         |
+
+## 30. `LOAN_AMORTIZATION_SCHEDULE_ENTRIES` (대출 상각 스케줄 항목)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `ID`                  | `NUMBER`    | `PK, IDENTITY`              | ID                |
+| `LOAN_CONTRACT_ID`    | `NUMBER`    | `FK, NOT NULL`              | 대출 계약 ID       |
+| `PAYMENT_DATE`        | `DATE`      | `NOT NULL`                  | 납입 예정일         |
+| `PERIOD_NUMBER`       | `NUMBER(5)` | `NOT NULL`                  | 회차               |
+| `INTEREST_AMOUNT`     | `NUMBER(19, 2)`| `NOT NULL`                  | 이자 금액          |
+| `PRINCIPAL_AMOUNT`    | `NUMBER(19, 2)`| `NOT NULL`                  | 원금 상환액         |
+| `ENDING_BALANCE`      | `NUMBER(19, 2)`| `NOT NULL`                  | 기말 잔액          |
+| `ENTRY_TYPE`          | `VARCHAR2(50)`| `NULL`                      | 항목 유형          |
+
+## 31. `LOAN_ACCRUAL_LOG` (대출 이자 발생 로그)
+| 컬럼명                  | 데이터 타입   | 제약 조건                   | 설명              |
+|-----------------------|-------------|-----------------------------|-------------------|
+| `ID`                  | `NUMBER`    | `PK, IDENTITY`              | ID                |
+| `ACCRUAL_DATE`        | `DATE`      | `NOT NULL`                  | 발생 일자          |
+| `LOAN_CONTRACT_ID`    | `NUMBER`    | `FK, NOT NULL`              | 대출 계약 ID       |
+| `ACCRUED_AMOUNT`      | `NUMBER(19, 2)`| `NOT NULL`                  | 발생 이자 금액      |
+| `JOURNAL_NO`          | `VARCHAR2(20)`| `NULL`                      | 관련 전표 번호      |
+| `STATUS`              | `VARCHAR2(20)`| `NOT NULL`                  | 상태 (SUCCESS, FAILED)|
+
+---
+
+## 32. `SYSTEM_USERS` (사용자)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `USER_ID`          | `VARCHAR2(50)` | `PK, NOT NULL`              | 사용자 ID         |
+| `USER_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 사용자명          |
+| `PASSWORD`         | `VARCHAR2(255)`| `NULL`                      | 비밀번호 (암호화)  |
+| `DEPT_CODE`        | `VARCHAR2(20)` | `FK`                        | 부서코드          |
+| `EMAIL`            | `VARCHAR2(100)`| `NULL`                      | 이메일            |
+| `STATUS`           | `VARCHAR2(20)` | `DEFAULT 'ACTIVE'`          | 상태 (ACTIVE, INACTIVE) |
+| `IS_LOCKED`        | `CHAR(1)`   | `DEFAULT 'N'`               | 잠금 여부 (Y/N)    |
+| `LAST_LOGIN_DATE`  | `TIMESTAMP` | `NULL`                      | 최종 로그인 일시   |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 33. `SYSTEM_ROLES` (역할)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ROLE_CODE`        | `VARCHAR2(20)` | `PK, NOT NULL`              | 역할 코드         |
+| `ROLE_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 역할명            |
+| `DESCRIPTION`      | `VARCHAR2(500)`| `NULL`                      | 설명              |
+| `IS_USED`          | `CHAR(1)`   | `NOT NULL, DEFAULT 'Y'`     | 사용여부 (Y/N)    |
+
+## 34. `USER_ROLES` (사용자-역할)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `USER_ID`          | `VARCHAR2(50)` | `PK, FK, NOT NULL`          | 사용자 ID         |
+| `ROLE_CODE`        | `VARCHAR2(20)` | `PK, FK, NOT NULL`          | 역할 코드         |
+
+## 35. `SYSTEM_FUNCTIONS` (기능 목록)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `FUNC_CODE`        | `VARCHAR2(50)` | `PK, NOT NULL`              | 기능 코드         |
+| `FUNC_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 기능명            |
+| `FUNC_TYPE`        | `VARCHAR2(20)` | `NULL`                      | 기능 유형 (MENU, BTN)|
+
+## 36. `ROLE_FUNC_PERMISSIONS` (역할별 기능 권한)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ROLE_CODE`        | `VARCHAR2(20)` | `PK, FK, NOT NULL`          | 역할 코드         |
+| `FUNC_CODE`        | `VARCHAR2(50)` | `PK, FK, NOT NULL`          | 기능 코드         |
+| `CAN_READ`         | `CHAR(1)`   | `DEFAULT 'Y'`               | 조회 권한 (Y/N)    |
+| `CAN_WRITE`        | `CHAR(1)`   | `DEFAULT 'N'`               | 작성 권한 (Y/N)    |
+| `CAN_APPROVE`      | `CHAR(1)`   | `DEFAULT 'N'`               | 승인 권한 (Y/N)    |
+
+## 37. `AUDIT_LOG` (중요 이벤트 로그)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 로그 ID           |
+| `EVENT_TYPE`       | `VARCHAR2(50)` | `NOT NULL`                  | 이벤트 유형 (LOGIN, MASTER, SLIP)|
+| `EVENT_NAME`       | `VARCHAR2(200)`| `NULL`                      | 이벤트명          |
+| `TARGET_TABLE`     | `VARCHAR2(50)` | `NULL`                      | 대상 테이블       |
+| `TARGET_ID`        | `VARCHAR2(100)`| `NULL`                      | 대상 PK           |
+| `USER_ID`          | `VARCHAR2(50)` | `NULL`                      | 수행 사용자 ID    |
+| `BEFORE_DATA`      | `CLOB`      | `NULL`                      | 변경 전 데이터 (JSON)|
+| `AFTER_DATA`       | `CLOB`      | `NULL`                      | 변경 후 데이터 (JSON)|
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 발생 일시         |
+
+## 38. `DATA_MASKING_POLICY` (마스킹 정책)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `POLICY_ID`        | `NUMBER`    | `PK, IDENTITY`              | 정책 ID           |
+| `TARGET_TABLE`     | `VARCHAR2(50)` | `NOT NULL`                  | 대상 테이블       |
+| `TARGET_COLUMN`    | `VARCHAR2(50)` | `NOT NULL`                  | 대상 컬럼         |
+| `MASKING_PATTERN`  | `VARCHAR2(100)`| `NULL`                      | 마스킹 패턴 (예: 3-2-5)|
+| `ROLE_CODE`        | `VARCHAR2(20)` | `NULL`                      | 특정 역할용 (NULL일 경우 공통)|
+## 39. `RPT_LINE_MAPPING` (보고서 라인 매핑)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | ID                |
+| `REPORT_TYPE`      | `VARCHAR2(50)` | `NOT NULL`                  | 보고서 유형 (BS, IS, CF, REGULATORY) |
+| `LINE_CODE`        | `VARCHAR2(50)` | `NOT NULL`                  | 보고 라인 코드    |
+| `LINE_NAME`        | `VARCHAR2(200)`| `NOT NULL`                  | 보고 라인 명      |
+| `ACCOUNT_CODE`     | `VARCHAR2(20)` | `NULL`                      | 계정코드 (Leaf node) |
+| `AGGREGATION_TYPE` | `VARCHAR2(20)` | `NOT NULL`                  | 집계 유형 (SUM, FORMULA) |
+| `FORMULA_EXPRESSION`| `VARCHAR2(500)`| `NULL`                      | 계산 공식         |
+| `DISPLAY_ORDER`    | `NUMBER(5)` | `NOT NULL`                  | 출력 순서         |
+| `PARENT_LINE_CODE` | `VARCHAR2(50)` | `NULL`                      | 상위 라인 코드    |
+| `VERSION`          | `NUMBER(5)` | `DEFAULT 1, NOT NULL`       | 버전              |
+| `VALID_FROM_DATE`  | `DATE`      | `NOT NULL`                  | 유효 시작일       |
+| `VALID_TO_DATE`    | `DATE`      | `DEFAULT '99991231'`        | 유효 종료일       |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `UPDATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 수정일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 40. `RPT_SNAPSHOT_HEADER` (보고서 스냅샷 헤더)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `SNAPSHOT_ID`      | `NUMBER`    | `PK, IDENTITY`              | 스냅샷 ID         |
+| `REPORT_TYPE`      | `VARCHAR2(50)` | `NOT NULL`                  | 보고서 유형       |
+| `BASE_DATE`        | `DATE`      | `NOT NULL`                  | 기준 일자         |
+| `VERSION`          | `NUMBER(5)` | `NOT NULL`                  | 제출/저장 버전    |
+| `STATUS`           | `VARCHAR2(20)` | `NOT NULL`                  | 상태 (DRAFT, FINAL, SUBMITTED) |
+| `DESCRIPTION`      | `VARCHAR2(500)`| `NULL`                      | 비고              |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 41. `RPT_SNAPSHOT_DETAIL` (보고서 스냅샷 상세)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 상세 ID           |
+| `SNAPSHOT_ID`      | `NUMBER`    | `FK, NOT NULL`              | 스냅샷 ID         |
+| `LINE_CODE`        | `VARCHAR2(50)` | `NOT NULL`                  | 보고 라인 코드    |
+| `AMOUNT`           | `NUMBER(19, 2)`| `NOT NULL`                  | 금액              |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 42. `DISCLOSURE_MART` (공시 마트)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 마트 데이터 ID     |
+| `MART_TYPE`        | `VARCHAR2(50)` | `NOT NULL`                  | 마트 유형 (MATURITY, INTEREST, CURRENCY) |
+| `BASE_DATE`        | `DATE`      | `NOT NULL`                  | 기준 일자         |
+| `CATEGORY_1`       | `VARCHAR2(100)`| `NULL`                      | 대분류            |
+| `CATEGORY_2`       | `VARCHAR2(100)`| `NULL`                      | 중분류            |
+| `AMOUNT`           | `NUMBER(19, 2)`| `NOT NULL`                  | 금액              |
+| `COUNT`            | `NUMBER(10)` | `NULL`                      | 건수              |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 43. `REGULATORY_SUBMISSION` (감독보고 제출 이력)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 제출 이력 ID      |
+| `REPORT_CODE`      | `VARCHAR2(50)` | `NOT NULL`                  | 보고서 코드       |
+| `SNAPSHOT_ID`      | `NUMBER`    | `FK, NOT NULL`              | 관련 스냅샷 ID    |
+| `SUBMISSION_DATE`  | `DATE`      | `NOT NULL`                  | 제출 일자         |
+| `SUBMITTER`        | `VARCHAR2(50)` | `NOT NULL`                  | 제출자            |
+| `SUBMISSION_CHANNEL`| `VARCHAR2(50)` | `NULL`                      | 제출 채널         |
+| `RESPONSE_STATUS`  | `VARCHAR2(50)` | `NULL`                      | 수신 결과         |
+| `CREATE_DATE`      | `TIMESTAMP` | `NOT NULL, DEFAULT SYSTIMESTAMP` | 생성일            |
+| `AUDIT_USER`       | `VARCHAR2(50)` | `NOT NULL, DEFAULT 'SYSTEM'` | 감사 사용자       |
+
+## 44. `RECONCILIATION_RESULTS` (대사 결과)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 결과 ID           |
+| `RECONCILIATION_DATE`| `DATE`      | `NOT NULL`                  | 대사 일자         |
+| `RECONCILIATION_TYPE`| `VARCHAR2(50)`| `NOT NULL`                  | 대사 유형         |
+| `STATUS`           | `VARCHAR2(50)`| `NOT NULL`                  | 상태              |
+| `TOTAL_AMOUNT_SOURCE`| `NUMBER(19, 2)`| `NOT NULL`                  | 원천 총액         |
+| `TOTAL_AMOUNT_TARGET`| `NUMBER(19, 2)`| `NOT NULL`                  | 대상 총액         |
+| `VARIANCE_AMOUNT`  | `NUMBER(19, 2)`| `NOT NULL`                  | 차이액           |
+
+## 45. `RECONCILIATION_VARIANCES` (대사 차이 및 관리)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | 차이 ID           |
+| `RECONCILIATION_RESULT_ID`| `NUMBER` | `FK, NOT NULL`              | 대사 결과 ID      |
+| `VARIANCE_CODE`    | `VARCHAR2(50)` | `NOT NULL`                  | 차이 코드         |
+| `CAUSE_CODE`       | `VARCHAR2(20)` | `NULL`                      | 원인 코드         |
+| `AMOUNT`           | `NUMBER(19, 2)`| `NOT NULL`                  | 차이 금액         |
+| `ADJUSTMENT_JOURNAL_ENTRY_ID`| `NUMBER`| `FK, NULL`                 | 조정 전표 ID      |
+| `STATUS`           | `VARCHAR2(50)` | `NOT NULL`                  | 상태 (OPEN, ADJUSTED, etc.) |
+| `SLA_DUE_DATE`     | `DATE`      | `NULL`                      | SLA 해결 기한     |
+| `ASSIGNED_USER_ID` | `VARCHAR2(50)` | `NULL`                      | 담당자 ID         |
+
+## 46. `RECON_UNIT_DEFINITION` (대사 단위 정의)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `UNIT_ID`          | `VARCHAR2(50)` | `PK`                        | 대사 단위 ID      |
+| `UNIT_NAME`        | `VARCHAR2(100)`| `NOT NULL`                  | 대사 단위 명      |
+| `RECON_TYPE`       | `VARCHAR2(50)` | `NOT NULL`                  | 대사 유형         |
+| `TOLERANCE_AMOUNT` | `NUMBER(19, 2)`| `DEFAULT 0.00`              | 허용 오차         |
+| `SLA_DAYS`         | `NUMBER(3)` | `DEFAULT 3`                 | 해결 기한 (일)    |
+| `MATCHING_RULES_JSON`| `CLOB`      | `NULL`                      | 자동 매칭 룰 (JSON)|
+
+## 47. `RECON_STAGE_RESULT` (대사 단계별 결과)
+| 컬럼명               | 데이터 타입   | 제약 조건                   | 설명              |
+|--------------------|-------------|-----------------------------|-------------------|
+| `ID`               | `NUMBER`    | `PK, IDENTITY`              | ID                |
+| `RECON_RESULT_ID`  | `NUMBER`    | `FK, NOT NULL`              | 대사 결과 ID (FK) |
+| `STAGE_CODE`       | `VARCHAR2(20)` | `NOT NULL`                  | 단계 (SOURCE, INTERFACE, etc.) |
+| `TOTAL_AMOUNT`     | `NUMBER(19, 2)`| `NOT NULL`                  | 단계별 총액       |

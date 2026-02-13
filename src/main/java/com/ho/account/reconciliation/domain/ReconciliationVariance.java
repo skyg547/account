@@ -58,6 +58,18 @@ public class ReconciliationVariance {
     @Column(name = "AUDIT_USER", nullable = false, length = 50)
     private String auditUser;
 
+    @Column(name = "CAUSE_CODE", length = 20)
+    private String causeCode;
+
+    @Column(name = "ASSIGNED_USER_ID", length = 50)
+    private String assignedUserId;
+
+    @Column(name = "SLA_DUE_DATE")
+    private java.time.LocalDate slaDueDate;
+
+    @Column(name = "ATTACHMENT_URL", length = 500)
+    private String attachmentUrl;
+
     @PrePersist
     protected void onCreate() {
         this.createDate = LocalDateTime.now();
@@ -194,5 +206,37 @@ public class ReconciliationVariance {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public String getCauseCode() {
+        return causeCode;
+    }
+
+    public void setCauseCode(String causeCode) {
+        this.causeCode = causeCode;
+    }
+
+    public String getAssignedUserId() {
+        return assignedUserId;
+    }
+
+    public void setAssignedUserId(String assignedUserId) {
+        this.assignedUserId = assignedUserId;
+    }
+
+    public java.time.LocalDate getSlaDueDate() {
+        return slaDueDate;
+    }
+
+    public void setSlaDueDate(java.time.LocalDate slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+
+    public String getAttachmentUrl() {
+        return attachmentUrl;
+    }
+
+    public void setAttachmentUrl(String attachmentUrl) {
+        this.attachmentUrl = attachmentUrl;
     }
 }

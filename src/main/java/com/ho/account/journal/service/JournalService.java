@@ -3,6 +3,7 @@ package com.ho.account.journal.service;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
+import com.ho.account.audit.domain.AuditLoggable;
 import com.ho.account.basic.repository.AccountSubjectRepository;
 import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
@@ -71,6 +72,7 @@ public class JournalService {
     }
 
     // 전표 생성
+    @AuditLoggable(eventType = "JOURNAL", eventName = "CREATE")
     public JournalEntry createJournalEntry(JournalEntry journalEntry) {
         if (journalEntry.getAccountingDate() == null) {
             journalEntry.setAccountingDate(journalEntry.getSlipDate());
@@ -101,6 +103,7 @@ public class JournalService {
     }
 
     // 전표 승인
+    @AuditLoggable(eventType = "JOURNAL", eventName = "APPROVE")
     public void approveJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));
@@ -112,6 +115,13 @@ public class JournalService {
         if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("승인 요청된 전표만 승인할 수 있습니다.");
         }
+
+        // SOD Check: Maker != Checker
+        String currentApprover = entry.getAuditUser(); // Simplified for now
+        if (entry.getCreatedBy() != null && entry.getCreatedBy().equals(currentApprover)) {
+            throw new IllegalStateException("전표 작성자는 직접 승인할 수 없습니다. (직무 분리 원칙)");
+        }
+
         entry.setRejectionReason(null);
         journalEntryRepository.save(entry);
 
@@ -125,6 +135,7 @@ public class JournalService {
     }
 
     // 전표 수정
+    @AuditLoggable(eventType = "JOURNAL", eventName = "UPDATE")
     public JournalEntry updateJournalEntry(Long id, JournalEntry journalEntryDetails) {
         JournalEntry existingEntry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));
@@ -166,6 +177,7 @@ public class JournalService {
     }
 
     // 전표 삭제
+    @AuditLoggable(eventType = "JOURNAL", eventName = "DELETE")
     public void deleteJournalEntry(Long id) {
         JournalEntry existingEntry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));
@@ -214,6 +226,7 @@ public class JournalService {
     }
 
     // 전표 전기 (Post Journal Entry)
+    @AuditLoggable(eventType = "JOURNAL", eventName = "POST")
     public void postJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("전표를 찾을 수 없습니다. ID: " + id));

@@ -10,6 +10,7 @@ import com.ho.account.loan.repository.LoanContractRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ho.account.audit.domain.AuditLoggable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,28 +27,35 @@ public class LoanService {
     private final LoanContractRepository loanContractRepository;
     private final LoanAmortizationScheduleEntryRepository amortizationRepository;
     private final BusinessPartnerRepository businessPartnerRepository;
+    private final EIRCalculator eirCalculator;
 
     @Autowired
     public LoanService(LoanContractRepository loanContractRepository,
-                       LoanAmortizationScheduleEntryRepository amortizationRepository,
-                       BusinessPartnerRepository businessPartnerRepository) {
+            LoanAmortizationScheduleEntryRepository amortizationRepository,
+            BusinessPartnerRepository businessPartnerRepository,
+            EIRCalculator eirCalculator) {
         this.loanContractRepository = loanContractRepository;
         this.amortizationRepository = amortizationRepository;
         this.businessPartnerRepository = businessPartnerRepository;
+        this.eirCalculator = eirCalculator;
     }
 
     /**
      * 새로운 대출 계약을 생성하고 EIR을 계산하여 상각 스케줄을 생성합니다.
+     * 
      * @param requestDto 생성할 대출 계약 정보가 담긴 DTO
      * @return 생성된 LoanContract 엔티티
      */
+    @AuditLoggable(eventType = "LOAN", eventName = "CREATE_CONTRACT")
     public LoanContract createLoanContract(LoanContractRequestDto requestDto) {
         if (loanContractRepository.existsByLoanContractNo(requestDto.getLoanContractNo())) {
             throw new IllegalArgumentException("이미 존재하는 대출 계약 번호입니다: " + requestDto.getLoanContractNo());
         }
 
-        BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
-                .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));
+        BusinessPartner businessPartner = businessPartnerRepository
+                .findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));
 
         LoanContract loanContract = new LoanContract();
         loanContract.setLoanContractNo(requestDto.getLoanContractNo());
@@ -76,6 +84,7 @@ public class LoanService {
 
     /**
      * ID로 대출 계약을 조회합니다.
+     * 
      * @param id 조회할 대출 계약 ID
      * @return Optional<LoanContract>
      */
@@ -86,6 +95,7 @@ public class LoanService {
 
     /**
      * 대출 계약 번호로 대출 계약을 조회합니다.
+     * 
      * @param loanContractNo 조회할 대출 계약 번호
      * @return Optional<LoanContract>
      */
@@ -96,6 +106,7 @@ public class LoanService {
 
     /**
      * 모든 대출 계약을 조회합니다.
+     * 
      * @return 대출 계약 리스트
      */
     @Transactional(readOnly = true)
@@ -105,21 +116,26 @@ public class LoanService {
 
     /**
      * 대출 계약 정보를 수정합니다.
-     * @param id 수정할 대출 계약 ID
+     * 
+     * @param id         수정할 대출 계약 ID
      * @param requestDto 수정할 내용이 담긴 DTO
      * @return 수정된 LoanContract 엔티티
      */
+    @AuditLoggable(eventType = "LOAN", eventName = "UPDATE_CONTRACT")
     public LoanContract updateLoanContract(Long id, LoanContractRequestDto requestDto) {
         LoanContract existingContract = loanContractRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("대출 계약을 찾을 수 없습니다. ID: " + id));
 
         // 대출 계약 번호 변경 시 중복 확인
-        if (!existingContract.getLoanContractNo().equals(requestDto.getLoanContractNo()) && loanContractRepository.existsByLoanContractNo(requestDto.getLoanContractNo())) {
+        if (!existingContract.getLoanContractNo().equals(requestDto.getLoanContractNo())
+                && loanContractRepository.existsByLoanContractNo(requestDto.getLoanContractNo())) {
             throw new IllegalArgumentException("이미 존재하는 대출 계약 번호입니다: " + requestDto.getLoanContractNo());
         }
 
-        BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
-                .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));
+        BusinessPartner businessPartner = businessPartnerRepository
+                .findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));
 
         existingContract.setLoanContractNo(requestDto.getLoanContractNo());
         existingContract.setBusinessPartner(businessPartner);
@@ -129,7 +145,8 @@ public class LoanService {
         existingContract.setMaturityDate(requestDto.getMaturityDate());
         existingContract.setInterestRate(requestDto.getInterestRate());
         existingContract.setRepaymentMethod(requestDto.getRepaymentMethod());
-        existingContract.setStatus(requestDto.getStatus() != null ? requestDto.getStatus() : existingContract.getStatus());
+        existingContract
+                .setStatus(requestDto.getStatus() != null ? requestDto.getStatus() : existingContract.getStatus());
         existingContract.setDeferredLoanFee(requestDto.getDeferredLoanFee());
 
         // EIR 재계산 (필요 시)
@@ -142,14 +159,15 @@ public class LoanService {
                 .forEach(amortizationRepository::delete);
         generateAmortizationSchedule(existingContract);
 
-
         return loanContractRepository.save(existingContract);
     }
 
     /**
      * 대출 계약을 삭제합니다.
+     * 
      * @param id 삭제할 대출 계약 ID
      */
+    @AuditLoggable(eventType = "LOAN", eventName = "DELETE_CONTRACT")
     public void deleteLoanContract(Long id) {
         LoanContract loanContract = loanContractRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("대출 계약을 찾을 수 없습니다. ID: " + id));
@@ -167,10 +185,12 @@ public class LoanService {
      * @return 계산된 유효 이자율
      */
     private BigDecimal calculateEffectiveInterestRate(LoanContract loanContract) {
-        // TODO: 실제 EIR 계산 로직 구현
-        // 현재는 명목 이자율을 반환하는 임시 구현.
-        // 이연 대출 수수료(deferredLoanFee)가 EIR에 반영되어야 함.
-        return loanContract.getInterestRate();
+        long totalMonths = ChronoUnit.MONTHS.between(loanContract.getDisbursementDate(),
+                loanContract.getMaturityDate());
+        if (totalMonths <= 0) {
+            return loanContract.getInterestRate();
+        }
+        return eirCalculator.calculateEIR(loanContract, (int) totalMonths);
     }
 
     /**
@@ -193,11 +213,13 @@ public class LoanService {
             }
 
             // 월 이자율
-            BigDecimal monthlyInterestRate = annualInterestRate.divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP); // 12개월, %
-            
+            BigDecimal monthlyInterestRate = annualInterestRate.divide(BigDecimal.valueOf(1200), 10,
+                    RoundingMode.HALF_UP); // 12개월, %
+
             // 월 상환액 (PMT 공식)
             BigDecimal pmtNumerator = monthlyInterestRate.multiply(principal);
-            BigDecimal pmtDenominator = BigDecimal.ONE.subtract(BigDecimal.ONE.add(monthlyInterestRate).pow(Math.negateExact((int)totalMonths)));
+            BigDecimal pmtDenominator = BigDecimal.ONE
+                    .subtract(BigDecimal.ONE.add(monthlyInterestRate).pow(Math.negateExact((int) totalMonths)));
             BigDecimal monthlyPayment = pmtNumerator.divide(pmtDenominator, 2, RoundingMode.HALF_UP);
 
             BigDecimal outstandingBalance = principal;
@@ -206,7 +228,8 @@ public class LoanService {
             for (int i = 1; i <= totalMonths; i++) {
                 currentPaymentDate = currentPaymentDate.plusMonths(1); // 매월 1일로 가정
 
-                BigDecimal interestPayment = outstandingBalance.multiply(monthlyInterestRate).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal interestPayment = outstandingBalance.multiply(monthlyInterestRate).setScale(2,
+                        RoundingMode.HALF_UP);
                 BigDecimal principalPayment = monthlyPayment.subtract(interestPayment);
 
                 // 마지막 회차 조정
@@ -245,9 +268,10 @@ public class LoanService {
 
     /**
      * 대출 상환을 처리합니다.
+     * 
      * @param loanContractId 대출 계약 ID
-     * @param paymentAmount 실제 상환 금액
-     * @param paymentDate 실제 상환일
+     * @param paymentAmount  실제 상환 금액
+     * @param paymentDate    실제 상환일
      */
     public void processLoanRepayment(Long loanContractId, BigDecimal paymentAmount, LocalDate paymentDate) {
         LoanContract loanContract = loanContractRepository.findById(loanContractId)

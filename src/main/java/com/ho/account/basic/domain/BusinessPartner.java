@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.LocalDate; // Import LocalDate
 import java.util.List; // Import List
+import com.ho.account.common.Masked;
 
 /**
  * 거래처(Business Partner) 엔티티
@@ -23,6 +24,7 @@ public class BusinessPartner {
     @Column(nullable = false, length = 100)
     private String businessPartnerName; // 거래처명
 
+    @Masked(pattern = "REG_NO")
     @Column(length = 20)
     private String registrationNumber; // 사업자번호
 

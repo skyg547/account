@@ -25,14 +25,23 @@ public class ReconciliationService {
     private final ReconciliationResultRepository reconciliationResultRepository;
     private final ReconciliationVarianceRepository reconciliationVarianceRepository;
     private final JournalEntryRepository journalEntryRepository;
+    private final com.ho.account.reconciliation.repository.BankStatementRepository bankStatementRepository;
+    private final com.ho.account.journal.repository.JournalDetailRepository journalDetailRepository;
+    private final AutomatedMatchingEngine matchingEngine;
 
     @Autowired
     public ReconciliationService(ReconciliationResultRepository reconciliationResultRepository,
             ReconciliationVarianceRepository reconciliationVarianceRepository,
-            JournalEntryRepository journalEntryRepository) {
+            JournalEntryRepository journalEntryRepository,
+            com.ho.account.reconciliation.repository.BankStatementRepository bankStatementRepository,
+            com.ho.account.journal.repository.JournalDetailRepository journalDetailRepository,
+            AutomatedMatchingEngine matchingEngine) {
         this.reconciliationResultRepository = reconciliationResultRepository;
         this.reconciliationVarianceRepository = reconciliationVarianceRepository;
         this.journalEntryRepository = journalEntryRepository;
+        this.bankStatementRepository = bankStatementRepository;
+        this.journalDetailRepository = journalDetailRepository;
+        this.matchingEngine = matchingEngine;
     }
 
     // ===== 대사 실행 =====
@@ -143,20 +152,46 @@ public class ReconciliationService {
     public ReconciliationResponseDto performBankAccountReconciliation(LocalDate reconciliationDate, String runBy) {
         ReconciliationResult result = createBaseResult(reconciliationDate, ReconciliationType.BANK_ACCOUNT, runBy);
 
-        // 실제 구현에서는 은행 데이터와 장부 데이터를 비교
-        BigDecimal bankBalance = getBankStatementBalance(reconciliationDate);
-        BigDecimal bookBalance = getBookBankBalance(reconciliationDate);
+        // 1. 데이터 추출
+        List<BankStatement> statements = bankStatementRepository.findAll().stream()
+                .filter(bs -> bs.getTransactionDate().equals(reconciliationDate))
+                .collect(Collectors.toList());
 
-        result.setTotalCountSource(1L);
-        result.setTotalAmountSource(bankBalance);
-        result.setTotalCountTarget(1L);
-        result.setTotalAmountTarget(bookBalance);
+        List<com.ho.account.journal.domain.JournalDetail> details = journalDetailRepository
+                .findByAccountAndDateRangeForIS(reconciliationDate, reconciliationDate).stream()
+                .filter(jd -> jd.getAccountSubject().getCode().startsWith("103")) // 은행계정
+                .collect(Collectors.toList());
 
-        BigDecimal difference = bankBalance.subtract(bookBalance).abs();
-        result.setVarianceCount(difference.compareTo(BigDecimal.ZERO) != 0 ? 1L : 0L);
-        result.setVarianceAmount(difference);
+        // 2. 자동 매칭 수행
+        List<AutomatedMatchingEngine.MatchResult> matchResults = matchingEngine.match(statements, details);
 
-        if (difference.compareTo(BigDecimal.ZERO) == 0) {
+        // 3. 결과 집계
+        long sourceCount = statements.size();
+        BigDecimal sourceAmount = statements.stream()
+                .map(s -> s.getDepositAmount().add(s.getWithdrawalAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long targetCount = details.size();
+        BigDecimal targetAmount = details.stream()
+                .map(com.ho.account.journal.domain.JournalDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        result.setTotalCountSource(sourceCount);
+        result.setTotalAmountSource(sourceAmount);
+        result.setTotalCountTarget(targetCount);
+        result.setTotalAmountTarget(targetAmount);
+
+        // 4. 차이 식별 및 로그 생성
+        long unmatchedCount = matchResults.stream().filter(r -> !r.isMatch()).count();
+        BigDecimal unmatchedAmount = matchResults.stream()
+                .filter(r -> !r.isMatch())
+                .map(r -> r.getBankStatement().getDepositAmount().add(r.getBankStatement().getWithdrawalAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        result.setVarianceCount(unmatchedCount);
+        result.setVarianceAmount(unmatchedAmount);
+
+        if (unmatchedCount == 0) {
             result.setStatus(ReconciliationStatus.SUCCESS);
         } else {
             result.setStatus(ReconciliationStatus.VARIANCE_FOUND);
@@ -164,18 +199,17 @@ public class ReconciliationService {
 
         ReconciliationResult saved = reconciliationResultRepository.save(result);
 
-        if (saved.getStatus() == ReconciliationStatus.VARIANCE_FOUND) {
-            ReconciliationVariance variance = new ReconciliationVariance();
-            variance.setReconciliationResult(saved);
-            variance.setVarianceCode("BANK_BOOK_MISMATCH");
-            variance.setDescription("은행잔액(" + bankBalance + ")과 장부잔액(" + bookBalance + ") 불일치");
-            variance.setAmount(difference);
-            variance.setDrCrType(bankBalance.compareTo(bookBalance) > 0 ? "DR" : "CR");
-            variance.setSourceReference("BANK_STATEMENT");
-            variance.setTargetReference("BOOK_BALANCE");
-            variance.setStatus(VarianceStatus.OPEN);
-            reconciliationVarianceRepository.save(variance);
-        }
+        // 차이 내역 상세 저장
+        matchResults.stream().filter(r -> !r.isMatch()).forEach(r -> {
+            ReconciliationVariance v = new ReconciliationVariance();
+            v.setReconciliationResult(saved);
+            v.setVarianceCode("UNMATCHED_STATEMENT");
+            v.setDescription("매칭되는 장부 내역 없음: " + r.getBankStatement().getDescription());
+            v.setAmount(r.getBankStatement().getDepositAmount().add(r.getBankStatement().getWithdrawalAmount()));
+            v.setSourceReference(r.getBankStatement().getId().toString());
+            v.setStatus(VarianceStatus.OPEN);
+            reconciliationVarianceRepository.save(v);
+        });
 
         return toResponseDto(saved);
     }
@@ -317,32 +351,27 @@ public class ReconciliationService {
     }
 
     private long countJournalEntries(LocalDate date) {
-        // TODO: 해당 일자의 전표 건수 조회
-        return 0L;
+        return journalEntryRepository.findByAccountingDate(date).size();
     }
 
     private BigDecimal sumJournalEntryAmounts(LocalDate date) {
-        // TODO: 해당 일자의 전표 금액 합계 조회
-        return BigDecimal.ZERO;
+        return journalEntryRepository.findByAccountingDate(date).stream()
+                .flatMap(je -> je.getDetails().stream())
+                .filter(jd -> "DEBIT".equals(jd.getDrcrType())) // 차변 합계 기준
+                .map(com.ho.account.journal.domain.JournalDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private BigDecimal sumJournalDebitAmounts(LocalDate date) {
-        // TODO: 해당 일자의 전표 차변 합계 조회
-        return BigDecimal.ZERO;
+        return sumJournalEntryAmounts(date);
     }
 
     private BigDecimal sumJournalCreditAmounts(LocalDate date) {
-        // TODO: 해당 일자의 전표 대변 합계 조회
-        return BigDecimal.ZERO;
+        return journalEntryRepository.findByAccountingDate(date).stream()
+                .flatMap(je -> je.getDetails().stream())
+                .filter(jd -> "CREDIT".equals(jd.getDrcrType()))
+                .map(com.ho.account.journal.domain.JournalDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal getBankStatementBalance(LocalDate date) {
-        // TODO: 은행 잔액 조회 (외부 시스템 연동)
-        return BigDecimal.ZERO;
-    }
-
-    private BigDecimal getBookBankBalance(LocalDate date) {
-        // TODO: 장부상 은행 잔액 조회
-        return BigDecimal.ZERO;
-    }
 }

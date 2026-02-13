@@ -31,13 +31,16 @@ public class AuditService {
     // ===== 감사 로그 =====
 
     public AuditLog logEvent(String eventType, String userId, String targetEntity,
-            String targetId, String changeDetail, String ipAddress) {
+            String targetId, String beforeData, String afterData, String status, String remarks, String ipAddress) {
         AuditLog log = new AuditLog();
         log.setEventType(eventType);
         log.setUserId(userId);
         log.setTargetEntity(targetEntity);
         log.setTargetId(targetId);
-        log.setChangeDetail(changeDetail);
+        log.setBeforeData(beforeData);
+        log.setAfterData(afterData);
+        log.setStatus(status);
+        log.setRemarks(remarks);
         log.setIpAddress(ipAddress);
         return auditLogRepository.save(log);
     }
