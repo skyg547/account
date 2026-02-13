@@ -1,0 +1,1562 @@
+﻿diff --git a/build.gradle b/build.gradle
+index 9a79d4d..51ec996 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -22,6 +22,9 @@ dependencies {
+     implementation 'org.springframework.boot:spring-boot-starter-web'
+     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+     implementation 'org.springframework.boot:spring-boot-starter-validation'
++    implementation 'jakarta.validation:jakarta.validation-api'
++    implementation 'jakarta.persistence:jakarta.persistence-api'
++    implementation 'jakarta.annotation:jakarta.annotation-api'
+     runtimeOnly 'com.h2database:h2'
+     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+diff --git a/docs/WORKLOG.md b/docs/WORKLOG.md
+index f125cc6..a1b7d4b 100644
+--- a/docs/WORKLOG.md
++++ b/docs/WORKLOG.md
+@@ -1,128 +1,8 @@
+-# Accounting System Development Worklog
++# WORKLOG
+ 
+-This document tracks the development progress, design decisions, and architectural choices made during the implementation of the new accounting system based on the provided DoD.
++## [2026-02-13] Task Started: Comprehensive Accounting System Development
+ 
+-## Phase 1: Project Setup & Core Model
+-
+-**Objective:** Establish project-wide entities and principles based on DoD sections 01-06.
+-
+-### 1.1 `AccountSubject`(怨꾩젙怨쇰ぉ) Entity
+-*   **DoD Requirement:** DoD 04.1 (COA/怨꾩젙怨쇰ぉ + 蹂닿퀬/媛먮룆 留ㅽ븨), DoD 04.2 (SCD2).
+-*   **Analysis:** The existing `AccountSubject` entity already implements SCD2 with `validFrom` and `validTo`. It uses a self-referencing `parent` field for hierarchical structure.
+-*   **Changes Made:**
+-    1.  Renamed `AccountCategory` enum to `AccountType`.
+-    2.  Renamed field `category` to `accountType` and updated its getter/setter.
+-    3.  Renamed field `reportLine` to `financialReportMappingCode` and updated its getter/setter.
+-    4.  Added new field `regulatoryMappingCode` (String) with its getter/setter.
+-
+-### 1.2 `Department`(遺?? Entity
+-*   **DoD Requirement:** DoD 04.2 (議곗쭅/洹?띾???肄붿뒪?몄꽱???먯씡?쇳꽣) + 議곗쭅媛쒗렪(SCD2)).
+-*   **Analysis:** The existing `Department` entity already implements SCD2 with `validFrom` and `validTo`. It uses a self-referencing `parent` field for hierarchical structure, and the `DepartmentType` enum covers `COST_CENTER` and `PROFIT_CENTER`.
+-*   **Changes Made:** No significant changes required, as the existing structure already meets the DoD requirements.
+-
+-### 1.3 `Customer`(嫄곕옒泥? Entity
+-*   **DoD Requirement:** DoD 04.3 (嫄곕옒泥?踰ㅻ뜑/怨좉컼/湲곌?/BP) + 怨꾩쥖 + KYC/?곹깭).
+-*   **Analysis:** The existing `Customer` entity was limited. It was generalized to `BusinessPartner` to encompass vendors, customers, and other business partners. It now includes fields for bank accounts and KYC/status information, and SCD2 implementation.
+-*   **Changes Made:**
+-    1.  Renamed `Customer` entity to `BusinessPartner` (file and class name).
+-    2.  Renamed `customerCode` to `businessPartnerCode` and `customerName` to `businessPartnerName`.
+-    3.  Added `PartnerType` enum (`CUSTOMER`, `VENDOR`, `BANK`, `OTHER_BP`) and `partnerType` field to `BusinessPartner`.
+-    4.  Created new entity `BusinessPartnerAccount` for bank account information and established a one-to-many relationship with `BusinessPartner`.
+-    5.  Added `KycStatus` enum (`PENDING`, `APPROVED`, `REJECTED`, `REVIEW_REQUIRED`) and `kycStatus` field to `BusinessPartner`.
+-    6.  Added `RiskRating` enum (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) and `riskRating` field to `BusinessPartner`.
+-    7.  Added `validFrom` and `validTo` (LocalDate) fields to `BusinessPartner` for SCD2.
+-
+-### 1.4 `Product`(?곹뭹) Entity
+-*   **DoD Requirement:** DoD 04.4 (?곹뭹/?곹뭹援?Product Master)).
+-*   **Changes Made:**
+-    1.  Created `Product` entity (Product.java) with `productCode`, `name`, `description`, `unitOfMeasure`, `price`, `productType`, and SCD2 fields (`validFrom`, `validTo`).
+-    2.  Created `ProductDto.java` for response payloads and `ProductRequestDto.java` for request payloads, including validation.
+-    3.  Created `ProductRepository.java` interface extending `JpaRepository` with custom methods for `findByProductCode` and `existsByProductCode`.
+-    4.  Created `ProductService.java` for business logic, including create, get, update, and deactivate operations, with SCD2 handling.
+-    5.  Created `ProductController.java` for REST API endpoints for Product management.
+-
+-### 1.5 `JournalEntry` & `JournalDetail`(?꾪몴/遺꾧컻) Entities
+-*   **DoD Requirement:** DoD 05 & 06 (猷??붿쭊, ?꾪몴 ?곹깭紐⑤뜽(DRAFT/APPROVED/POSTED/REVERSED)).
+-*   **Plan:**
+-    *   ...
+-
+-## Phase 2: ERP Modules (AP/AR/FA/Lease)
+-
+-**Objective:** Implement ERP-specific modules based on DoD sections 07-10.
+-
+-### 2.1 P2P/AP (吏異?留ㅼ엯) Module
+-*   **DoD Requirement:** DoD 07 (援щℓ-吏湲? 留ㅼ엯?멸툑怨꾩궛?? 留ㅼ엯?꾪몴, 吏湲? 誘몄?湲됯툑 愿由?.
+-*   **Analysis & Design Decisions:**
+-    *   **AP Invoices:** The existing `TaxInvoice` entity (`com.ho.account.tax.domain.TaxInvoice`) was chosen to represent AP invoices (specifically, `type = PURCHASE`). No new dedicated `PurchaseInvoice` entity was created.
+-        *   Created `src/main/java/com/ho/account/tax/dto/TaxInvoiceDto.java` and `TaxInvoiceRequestDto.java` for API communication.
+-        *   Added `findByIssueId(String issueId)` to `TaxInvoiceRepository.java` for improved lookup.
+-        *   Created `APInvoiceService.java` in `src/main/java/com/ho/account/expenditure/service` to manage `PURCHASE` type `TaxInvoice`s within the AP context, including CRUD operations and validation.
+-        *   Created `APInvoiceController.java` in `src/main/java/com/ho/account/expenditure/web` to expose REST endpoints for AP invoices.
+-    *   **AP Payments:** The existing `Payment` entity was refactored and enhanced.
+-        *   Renamed `Payment.java` to `APPayment.java` (file and class) in `src/main/java/com/ho/account/expenditure/domain`.
+-        *   Renamed `PaymentRepository.java` to `APPaymentRepository.java` (file and interface) in `src/main/java/com/ho/account/expenditure/repository`.
+-        *   Modified `APPayment` entity to include a nullable `@ManyToOne` relationship to `TaxInvoice` and an `unappliedAmount` field to handle partial payments/application.
+-        *   Created `src/main/java/com/ho/account/expenditure/dto/APPaymentDto.java` and `APPaymentRequestDto.java` for API communication.
+-        *   Created `APPaymentService.java` in `src/main/java/com/ho/account/expenditure/service` to manage `APPayment` business logic, linking to `ExpenditureResolution` and `TaxInvoice`.
+-        *   Created `APPaymentController.java` in `src/main/java/com/ho/account/expenditure/web` to expose REST endpoints for AP payments.
+-    *   **Integration (ExpenditureResolution & TaxInvoice/APPayment):**
+-        *   Added a nullable `@ManyToOne` relationship from `ExpenditureResolution` to `TaxInvoice` in `src/main/java/com/ho/account/expenditure/domain/ExpenditureResolution.java`, allowing expenditure resolutions to be linked to purchase tax invoices.
+-        *   Created `src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java` to handle incoming requests for `ExpenditureResolution`, including the optional `taxInvoiceId`.
+-        *   Modified `ExpenditureService.java`:
+-            *   Updated constructor to inject `TaxInvoiceRepository` and `APInvoiceService`.
+-            *   Refactored `createResolution` to accept `ExpenditureResolutionRequestDto`, perform DTO-to-entity mapping, and fetch/validate `TaxInvoice` if linked.
+-            *   Removed the old `validateResolution` method.
+-            *   Added `updateResolution` method to handle updates to expenditure resolutions.
+-        *   Modified `ExpenditureController.java`:
+-            *   Updated `createResolution` to accept `ExpenditureResolutionRequestDto`.
+-            *   Added `updateResolution` endpoint.
+-
+-*   **Further Considerations:** Advanced payment application logic (e.g., partial application of `APPayment` to multiple invoices/resolutions) will be handled in future iterations or specific payment application services.
+-
+-### 1.6 Status Enums for JournalEntry and ExpenditureResolution
+-*   **DoD Requirement:** DoD 06.1 (?꾪몴 ?곹깭紐⑤뜽), and consistency for other domain objects.
+-*   **Analysis:** The `status` field in `JournalEntry` and `ExpenditureResolution` were previously `String` types, leading to potential issues with consistency and type safety.
+-*   **Changes Made:**
+-    1.  **`JournalEntryStatus` Enum:**
+-        *   Created `src/main/java/com/ho/account/journal/domain/JournalEntryStatus.java` with enum values: `DRAFT`, `REQUESTED`, `APPROVED`, `POSTED`, `REVERSED`.
+-        *   Modified `src/main/java/com/ho/account/journal/domain/JournalEntry.java` to use `JournalEntryStatus` enum for its `status` field, including `@Enumerated(EnumType.STRING)` and updating default value in `@PrePersist`.
+-        *   Modified `src/main/java/com/ho/account/journal/service/JournalService.java` to use `JournalEntryStatus` enum for all status-related logic (setting status, comparisons).
+-        *   Modified `src/main/java/com/ho/account/report/service/FinancialStatementService.java` to use `JournalEntryStatus.APPROVED` for filtering journal entries.
+-    2.  **`ExpenditureResolutionStatus` Enum:**
+-        *   Created `src/main/java/com/ho/account/expenditure/domain/ExpenditureResolutionStatus.java` with enum values: `DRAFT`, `REQUESTED`, `APPROVED`, `REJECTED`.
+-        *   Modified `src/main/java/com/ho/account/expenditure/domain/ExpenditureResolution.java` to use `ExpenditureResolutionStatus` enum for its `status` field, including `@Enumerated(EnumType.STRING)` and updating default value in `@PrePersist`.
+-        *   Modified `src/main/java/com/ho/account/expenditure/service/ExpenditureService.java` to use `ExpenditureResolutionStatus` enum for all status-related logic (setting status, comparisons).
+-
+-### 1.7 Basic Journal Rule Engine
+-*   **DoD Requirement:** DoD 05.1 (猷?紐⑤뜽), DoD 05.2 (遺꾧컻 ?앹꽦 ?먮룞/?섍린).
+-*   **Analysis:** To enable automated and configurable journal entry creation, a basic rule engine was implemented. This involves defining rules, conditions for rule application, and details for journal entry generation.
+-*   **Changes Made:**
+-    1.  **`JournalRule` Entity:** Created `src/main/java/com/ho/account/journal/domain/JournalRule.java` to define journal rules with properties like `ruleCode`, `ruleName`, `description`, `validFrom`, `validTo`, `version`, `isActive`, and `priority`. Includes relationships to `JournalRuleCondition` and `JournalRuleDetail`.
+-    2.  **`ConditionOperator` Enum:** Created `src/main/java/com/ho/account/journal/domain/ConditionOperator.java` with enum values for various comparison operators (e.g., `EQUALS`, `NOT_EQUALS`, `STARTS_WITH`).
+-    3.  **`JournalRuleCondition` Entity:** Created `src/main/java/com/ho/account/journal/domain/JournalRuleCondition.java` to define conditions for `JournalRule`s, specifying the `field` to check, `operator`, and `value`.
+-    4.  **`JournalRuleDetail` Entity:** Created `src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java` to define the debit/credit entries generated by a rule, including expressions for `accountSubjectCode`, `amount`, `description`, `businessPartnerCode`, and `departmentCode`.
+-    5.  **Repositories:** Created `JournalRuleRepository.java`, `JournalRuleConditionRepository.java`, and `JournalRuleDetailRepository.java` to manage persistence for the new rule entities.
+-    6.  **`JournalRuleService`:** Created `src/main/java/com/ho/account/journal/service/JournalRuleService.java` to provide CRUD operations for `JournalRule` and methods to find active rules based on validity dates.
+-    7.  **Integration into `JournalService`:**
+-        *   Injected `JournalRuleService` into `JournalService.java`.
+-        *   Added `createJournalEntryFromEvent` method to `JournalService.java`. This method takes a `Map<String, String>` (representing a transaction event) and an `accountingDate`, then attempts to find and apply matching active `JournalRule`s.
+-        *   Implemented helper methods (`matchesConditions`, `generateJournalEntry`, `evaluateAccountSubjectExpression`, `evaluateAmountExpression`, `evaluateBusinessPartnerExpression`, `evaluateDepartmentExpression`, `evaluateDescriptionExpression`, `extractValueFromExpression`) within `JournalService.java` to facilitate rule matching and dynamic journal detail generation based on expressions.
+-
+-### 1.8 Journal Entry Validation and Lifecycle Management
+-*   **DoD Requirement:** DoD 05.3 (寃利? ?덉궛/?몃Т), DoD 05.5 (?뺤젙/痍⑥냼/??텇媛?, DoD 06.1 (GL Posting).
+-*   **Analysis:** Enhanced journal entry validation and implemented full lifecycle management, including posting and reversal functionalities, to meet core accounting requirements.
+-*   **Changes Made:**
+-    1.  **Budget Validation:**
+-        *   Added `checkBudgetAvailability` method to `src/main/java/com/ho/account/expenditure/service/BudgetService.java` to validate budget availability without consuming it.
+-        *   Injected `BudgetService` into `src/main/java/com/ho/account/journal/service/JournalService.java`.
+-        *   Integrated budget availability check into `JournalService.validateJournalEntry` for debit-type `JournalDetail`s.
+-    2.  **Tax Validation Placeholder:**
+-        *   Added a `TODO` comment in `JournalService.validateJournalEntry` for future tax validation implementation.
+-    3.  **Journal Entry Lifecycle (Posting):**
+-        *   Added `postJournalEntry(Long id)` method to `JournalService.java`. This method transitions an `APPROVED` journal entry to `POSTED` status, marking it for General Ledger integration.
+-        *   Added a corresponding `@PostMapping("/{id}/post")` endpoint in `src/main/java/com/ho/account/journal/web/JournalController.java`.
+-    4.  **Journal Entry Lifecycle (Reversal):**
+-        *   Added `reverseJournalEntry(Long id, LocalDate reversalDate)` method to `JournalService.java`. This method creates a new, opposing journal entry to effectively reverse a previously `POSTED` entry, and sets the original entry's status to `REVERSED`.
+-        *   Added a corresponding `@PostMapping("/{id}/reverse")` endpoint in `src/main/java/com/ho/account/journal/web/JournalController.java` to trigger the reversal process.
+-    5.  **Rule-based Journal Entry Creation Endpoint:**
+-        *   Added a new `@PostMapping("/from-event")` endpoint to `src/main/java/com/ho/account/journal/web/JournalController.java` that utilizes `JournalService.createJournalEntryFromEvent` to generate journal entries automatically from transaction event data.
++- Initialized `task.md` with 15 core items.
++- Created `implementation_plan.md` for the full system integration.
++- Researched existing documentation and codebase.
++- Plan covers: Master Data SCD2, Rule/Journal Engine, AP/AR Sub-ledgers, Loan Accounting, Closing/Reconciliation, and Audit/Reporting.
+diff --git a/schema-design/V1_account_subjects.sql b/schema-design/V1_account_subjects.sql
+deleted file mode 100644
+index 41f42eb..0000000
+--- a/schema-design/V1_account_subjects.sql
++++ /dev/null
+@@ -1,27 +0,0 @@
+-DROP TABLE IF EXISTS account_subjects;
+-
+-CREATE TABLE account_subjects (
+-    code VARCHAR(20) PRIMARY KEY,
+-    name VARCHAR(100) NOT NULL,
+-    parent_code VARCHAR(20),
+-    category VARCHAR(30),
+-    balance_type VARCHAR(10) NOT NULL,
+-    report_line VARCHAR(100),
+-    unsettled BOOLEAN NOT NULL DEFAULT FALSE,
+-    fixed_asset BOOLEAN NOT NULL DEFAULT FALSE,
+-    valid_from DATE NOT NULL,
+-    valid_to DATE NOT NULL,
+-    FOREIGN KEY (parent_code) REFERENCES account_subjects(code)
+-);
+-
+-COMMENT ON TABLE account_subjects IS '怨꾩젙怨쇰ぉ 留덉뒪???뚯씠釉?;
+-COMMENT ON COLUMN account_subjects.code IS '怨꾩젙 肄붾뱶 (PK)';
+-COMMENT ON COLUMN account_subjects.name IS '怨꾩젙紐?;
+-COMMENT ON COLUMN account_subjects.parent_code IS '?곸쐞 怨꾩젙 肄붾뱶 (怨꾩링 援ъ“)';
+-COMMENT ON COLUMN account_subjects.category IS '怨꾩젙 ?遺꾨쪟 (ASSETS, LIABILITIES, EQUITY, REVENUE, EXPENSES)';
+-COMMENT ON COLUMN account_subjects.balance_type IS '怨꾩젙 ?붿븸 ???(DEBIT, CREDIT)';
+-COMMENT ON COLUMN account_subjects.report_line IS '?щТ?쒗몴 ?쒖떆 ?쇱씤';
+-COMMENT ON COLUMN account_subjects.unsettled IS '誘멸껐(梨꾧텒/梨꾨Т) 愿由??щ?';
+-COMMENT ON COLUMN account_subjects.fixed_asset IS '怨좎젙?먯궛 怨꾩젙 ?щ?';
+-COMMENT ON COLUMN account_subjects.valid_from IS '?좏슚 ?쒖옉??(SCD2)';
+-COMMENT ON COLUMN account_subjects.valid_to IS '?좏슚 醫낅즺??(SCD2)';
+diff --git a/schema-design/V2_closing_tables.sql b/schema-design/V2_closing_tables.sql
+deleted file mode 100644
+index 5261258..0000000
+--- a/schema-design/V2_closing_tables.sql
++++ /dev/null
+@@ -1,28 +0,0 @@
+-CREATE TABLE closing_period (
+-    id BIGINT PRIMARY KEY, -- YYYYMM or YYYY (for annual)
+-    period_type VARCHAR(10) NOT NULL, -- e.g., 'MONTHLY', 'ANNUAL'
+-    start_date DATE NOT NULL,
+-    end_date DATE NOT NULL,
+-    status VARCHAR(20) NOT NULL, -- e.g., 'OPEN', 'IN_PROGRESS', 'PENDING_APPROVAL', 'CLOSED', 'REOPENED', 'FAILED'
+-    closed_at DATETIME,
+-    closed_by VARCHAR(50),
+-    reopened_at DATETIME,
+-    reopened_by VARCHAR(50),
+-    reopen_reason VARCHAR(255),
+-    approval_status VARCHAR(20), -- 'PENDING', 'APPROVED', 'REJECTED'
+-    approver VARCHAR(50),
+-    approval_date DATETIME
+-);
+-
+-CREATE TABLE closing_task (
+-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+-    closing_period_id BIGINT NOT NULL,
+-    task_name VARCHAR(100) NOT NULL,
+-    task_type VARCHAR(20) NOT NULL, -- 'BATCH', 'MANUAL', 'REPORT'
+-    status VARCHAR(20) NOT NULL, -- 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'SKIPPED'
+-    completed_at DATETIME,
+-    completed_by VARCHAR(50),
+-    sequence_order INT NOT NULL,
+-    failure_reason VARCHAR(255),
+-    FOREIGN KEY (closing_period_id) REFERENCES closing_period(id)
+-);
+diff --git a/schema-design/V3_reconciliation_tables.sql b/schema-design/V3_reconciliation_tables.sql
+deleted file mode 100644
+index 3b14fbb..0000000
+--- a/schema-design/V3_reconciliation_tables.sql
++++ /dev/null
+@@ -1,33 +0,0 @@
+-CREATE TABLE reconciliation_results (
+-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+-    reconciliation_date DATE NOT NULL,
+-    reconciliation_type VARCHAR(50) NOT NULL,
+-    closing_period_id BIGINT,
+-    status VARCHAR(50) NOT NULL,
+-    total_count_source BIGINT NOT NULL,
+-    total_amount_source DECIMAL(19, 2) NOT NULL,
+-    total_count_target BIGINT NOT NULL,
+-    total_amount_target DECIMAL(19, 2) NOT NULL,
+-    variance_count BIGINT NOT NULL,
+-    variance_amount DECIMAL(19, 2) NOT NULL,
+-    run_by VARCHAR(50),
+-    run_at DATETIME,
+-    FOREIGN KEY (closing_period_id) REFERENCES closing_period(id)
+-);
+-
+-CREATE TABLE reconciliation_variances (
+-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+-    reconciliation_result_id BIGINT NOT NULL,
+-    variance_code VARCHAR(50) NOT NULL,
+-    description VARCHAR(500) NOT NULL,
+-    amount DECIMAL(19, 2) NOT NULL,
+-    dr_cr_type VARCHAR(10),
+-    source_reference VARCHAR(255),
+-    target_reference VARCHAR(255),
+-    adjustment_journal_entry_id BIGINT,
+-    status VARCHAR(50) NOT NULL,
+-    resolved_by VARCHAR(50),
+-    resolved_at DATETIME,
+-    FOREIGN KEY (reconciliation_result_id) REFERENCES reconciliation_results(id),
+-    FOREIGN KEY (adjustment_journal_entry_id) REFERENCES journal_entry(id)
+-);
+diff --git a/src/main/java/com/ho/account/basic/domain/AccountSubject.java b/src/main/java/com/ho/account/basic/domain/AccountSubject.java
+index 300ae5e..11dfde1 100644
+--- a/src/main/java/com/ho/account/basic/domain/AccountSubject.java
++++ b/src/main/java/com/ho/account/basic/domain/AccountSubject.java
+@@ -210,28 +210,17 @@ public void setFixedAsset(boolean fixedAsset) {
+         this.fixedAsset = fixedAsset;
+     }
+ 
+-    // 異붽????꾨뱶??Getter and Setter
+-    public LocalDateTime getCreatedAt() {
+-        return createdAt;
+-    }
+-
+-    public void setCreatedAt(LocalDateTime createdAt) {
+-        this.createdAt = createdAt;
+-    }
+-
+-    public LocalDateTime getUpdatedAt() {
+-        return updatedAt;
+-    }
+-
+-    public void setUpdatedAt(LocalDateTime updatedAt) {
+-        this.updatedAt = updatedAt;
+-    }
+-
+-    public String getAuditUser() {
+-        return auditUser;
+-    }
+-
+-    public void setAuditUser(String auditUser) {
+-        this.auditUser = auditUser;
++    @PrePersist
++    protected void onCreate() {
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.auditUser == null) {
++            this.auditUser = "SYSTEM";
++        }
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
+     }
+ }
+diff --git a/src/main/java/com/ho/account/basic/domain/BusinessPartner.java b/src/main/java/com/ho/account/basic/domain/BusinessPartner.java
+index ed8dc9c..1689821 100644
+--- a/src/main/java/com/ho/account/basic/domain/BusinessPartner.java
++++ b/src/main/java/com/ho/account/basic/domain/BusinessPartner.java
+@@ -57,6 +57,9 @@ public class BusinessPartner {
+ 
+     private LocalDateTime updatedAt;
+ 
++    @Column(length = 50)
++    private String auditUser;
++
+     @OneToMany(mappedBy = "businessPartner", cascade = CascadeType.ALL, orphanRemoval = true)
+     private List<BusinessPartnerAccount> accounts;
+ 
+@@ -64,6 +67,9 @@ public class BusinessPartner {
+     protected void onCreate() {
+         createdAt = LocalDateTime.now();
+         updatedAt = LocalDateTime.now();
++        if (this.auditUser == null) {
++            this.auditUser = "SYSTEM";
++        }
+     }
+ 
+     @PreUpdate
+@@ -72,47 +78,125 @@ protected void onUpdate() {
+     }
+ 
+     // Getters and Setters
+-    public Long getId() { return id; }
+-    public void setId(Long id) { this.id = id; }
++    public Long getId() {
++        return id;
++    }
++
++    public void setId(Long id) {
++        this.id = id;
++    }
++
++    public String getBusinessPartnerCode() {
++        return businessPartnerCode;
++    }
++
++    public void setBusinessPartnerCode(String businessPartnerCode) {
++        this.businessPartnerCode = businessPartnerCode;
++    }
++
++    public String getBusinessPartnerName() {
++        return businessPartnerName;
++    }
++
++    public void setBusinessPartnerName(String businessPartnerName) {
++        this.businessPartnerName = businessPartnerName;
++    }
++
++    public String getRegistrationNumber() {
++        return registrationNumber;
++    }
++
++    public void setRegistrationNumber(String registrationNumber) {
++        this.registrationNumber = registrationNumber;
++    }
++
++    public String getCeoName() {
++        return ceoName;
++    }
++
++    public void setCeoName(String ceoName) {
++        this.ceoName = ceoName;
++    }
++
++    public String getBusinessType() {
++        return businessType;
++    }
++
++    public void setBusinessType(String businessType) {
++        this.businessType = businessType;
++    }
++
++    public String getBusinessItem() {
++        return businessItem;
++    }
++
++    public void setBusinessItem(String businessItem) {
++        this.businessItem = businessItem;
++    }
++
++    public PartnerType getPartnerType() {
++        return partnerType;
++    }
++
++    public void setPartnerType(PartnerType partnerType) {
++        this.partnerType = partnerType;
++    }
+ 
+-    public String getBusinessPartnerCode() { return businessPartnerCode; }
+-    public void setBusinessPartnerCode(String businessPartnerCode) { this.businessPartnerCode = businessPartnerCode; }
++    public Boolean getUseYn() {
++        return useYn;
++    }
++
++    public void setUseYn(Boolean useYn) {
++        this.useYn = useYn;
++    }
+ 
+-    public String getBusinessPartnerName() { return businessPartnerName; }
+-    public void setBusinessPartnerName(String businessPartnerName) { this.businessPartnerName = businessPartnerName; }
++    public KycStatus getKycStatus() {
++        return kycStatus;
++    }
+ 
+-    public String getRegistrationNumber() { return registrationNumber; }
+-    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
++    public void setKycStatus(KycStatus kycStatus) {
++        this.kycStatus = kycStatus;
++    }
+ 
+-    public String getCeoName() { return ceoName; }
+-    public void setCeoName(String ceoName) { this.ceoName = ceoName; }
++    public RiskRating getRiskRating() {
++        return riskRating;
++    }
+ 
+-    public String getBusinessType() { return businessType; }
+-    public void setBusinessType(String businessType) { this.businessType = businessType; }
++    public void setRiskRating(RiskRating riskRating) {
++        this.riskRating = riskRating;
++    }
+ 
+-    public String getBusinessItem() { return businessItem; }
+-    public void setBusinessItem(String businessItem) { this.businessItem = businessItem; }
++    public LocalDate getValidFrom() {
++        return validFrom;
++    }
+ 
+-    public PartnerType getPartnerType() { return partnerType; }
+-    public void setPartnerType(PartnerType partnerType) { this.partnerType = partnerType; }
++    public void setValidFrom(LocalDate validFrom) {
++        this.validFrom = validFrom;
++    }
+ 
+-    public Boolean getUseYn() { return useYn; }
+-    public void setUseYn(Boolean useYn) { this.useYn = useYn; }
++    public LocalDate getValidTo() {
++        return validTo;
++    }
+ 
+-    public KycStatus getKycStatus() { return kycStatus; }
+-    public void setKycStatus(KycStatus kycStatus) { this.kycStatus = kycStatus; }
++    public void setValidTo(LocalDate validTo) {
++        this.validTo = validTo;
++    }
+ 
+-    public RiskRating getRiskRating() { return riskRating; }
+-    public void setRiskRating(RiskRating riskRating) { this.riskRating = riskRating; }
++    public LocalDateTime getCreatedAt() {
++        return createdAt;
++    }
+ 
+-    public LocalDate getValidFrom() { return validFrom; }
+-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
+ 
+-    public LocalDate getValidTo() { return validTo; }
+-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
++    public String getAuditUser() {
++        return auditUser;
++    }
+ 
+-    public LocalDateTime getCreatedAt() { return createdAt; }
+-    public LocalDateTime getUpdatedAt() { return updatedAt; }
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
+ 
+     public List<BusinessPartnerAccount> getAccounts() {
+         return accounts;
+diff --git a/src/main/java/com/ho/account/basic/domain/Department.java b/src/main/java/com/ho/account/basic/domain/Department.java
+index 382ffcf..fd34bb0 100644
+--- a/src/main/java/com/ho/account/basic/domain/Department.java
++++ b/src/main/java/com/ho/account/basic/domain/Department.java
+@@ -39,54 +39,72 @@ public class Department {
+     private LocalDate validTo;
+ 
+     public enum DepartmentType {
+-        COST_CENTER,  // 鍮꾩슜 ?쇳꽣
++        COST_CENTER, // 鍮꾩슜 ?쇳꽣
+         PROFIT_CENTER, // ?댁씡 ?쇳꽣
+-        SUPPORT,       // 吏??遺??-        OTHER          // 湲고?
++        SUPPORT, // 吏??遺??+        OTHER // 湲고?
+     }
+ 
+     // Getters and Setters
+-    public String getCode() { return code; }
+-    public void setCode(String code) { this.code = code; }
++    public String getCode() {
++        return code;
++    }
+ 
+-    public String getName() { return name; }
+-    public void setName(String name) { this.name = name; }
++    public void setCode(String code) {
++        this.code = code;
++    }
+ 
+-    public Department getParent() { return parent; }
+-    public void setParent(Department parent) { this.parent = parent; }
++    public String getName() {
++        return name;
++    }
+ 
+-    public DepartmentType getType() { return type; }
+-    public void setType(DepartmentType type) { this.type = type; }
+-    
+-    public LocalDate getValidFrom() { return validFrom; }
+-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
++    public void setName(String name) {
++        this.name = name;
++    }
+ 
+-    public LocalDate getValidTo() { return validTo; }
+-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
++    public Department getParent() {
++        return parent;
++    }
+ 
+-    // 異붽????꾨뱶??Getter and Setter
+-    public LocalDateTime getCreatedAt() {
+-        return createdAt;
++    public void setParent(Department parent) {
++        this.parent = parent;
+     }
+ 
+-    public void setCreatedAt(LocalDateTime createdAt) {
+-        this.createdAt = createdAt;
++    public DepartmentType getType() {
++        return type;
+     }
+ 
+-    public LocalDateTime getUpdatedAt() {
+-        return updatedAt;
++    public void setType(DepartmentType type) {
++        this.type = type;
+     }
+ 
+-    public void setUpdatedAt(LocalDateTime updatedAt) {
+-        this.updatedAt = updatedAt;
++    public LocalDate getValidFrom() {
++        return validFrom;
+     }
+ 
+-    public String getAuditUser() {
+-        return auditUser;
++    public void setValidFrom(LocalDate validFrom) {
++        this.validFrom = validFrom;
+     }
+ 
+-    public void setAuditUser(String auditUser) {
+-        this.auditUser = auditUser;
++    public LocalDate getValidTo() {
++        return validTo;
+     }
+-}
+ 
++    public void setValidTo(LocalDate validTo) {
++        this.validTo = validTo;
++    }
++
++    @PrePersist
++    protected void onCreate() {
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.auditUser == null) {
++            this.auditUser = "SYSTEM";
++        }
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
++    }
++}
+diff --git a/src/main/java/com/ho/account/expenditure/domain/APPayment.java b/src/main/java/com/ho/account/expenditure/domain/APPayment.java
+index f02a133..98ff6e6 100644
+--- a/src/main/java/com/ho/account/expenditure/domain/APPayment.java
++++ b/src/main/java/com/ho/account/expenditure/domain/APPayment.java
+@@ -36,28 +36,105 @@ public class APPayment { // Renamed class
+     @Column(length = 20)
+     private String status; // COMPLETED, FAILED, PENDING, PARTIALLY_APPLIED
+ 
++    @Column(updatable = false)
++    private LocalDateTime createdAt;
++
++    private LocalDateTime updatedAt;
++
++    @Column(length = 50)
++    private String auditUser;
++
++    @PrePersist
++    protected void onCreate() {
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.auditUser == null)
++            this.auditUser = "SYSTEM";
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
++    }
++
+     // Getters and Setters
+-    public Long getId() { return id; }
+-    public void setId(Long id) { this.id = id; }
++    public Long getId() {
++        return id;
++    }
++
++    public void setId(Long id) {
++        this.id = id;
++    }
++
++    public ExpenditureResolution getExpenditureResolution() {
++        return expenditureResolution;
++    }
++
++    public void setExpenditureResolution(ExpenditureResolution expenditureResolution) {
++        this.expenditureResolution = expenditureResolution;
++    }
++
++    public TaxInvoice getTaxInvoice() {
++        return taxInvoice;
++    }
++
++    public void setTaxInvoice(TaxInvoice taxInvoice) {
++        this.taxInvoice = taxInvoice;
++    }
++
++    public LocalDateTime getPaymentDate() {
++        return paymentDate;
++    }
++
++    public void setPaymentDate(LocalDateTime paymentDate) {
++        this.paymentDate = paymentDate;
++    }
++
++    public BigDecimal getAmount() {
++        return amount;
++    }
++
++    public void setAmount(BigDecimal amount) {
++        this.amount = amount;
++    }
++
++    public BigDecimal getUnappliedAmount() {
++        return unappliedAmount;
++    }
++
++    public void setUnappliedAmount(BigDecimal unappliedAmount) {
++        this.unappliedAmount = unappliedAmount;
++    }
++
++    public String getPaymentMethod() {
++        return paymentMethod;
++    }
+ 
+-    public ExpenditureResolution getExpenditureResolution() { return expenditureResolution; }
+-    public void setExpenditureResolution(ExpenditureResolution expenditureResolution) { this.expenditureResolution = expenditureResolution; }
++    public void setPaymentMethod(String paymentMethod) {
++        this.paymentMethod = paymentMethod;
++    }
+ 
+-    public TaxInvoice getTaxInvoice() { return taxInvoice; }
+-    public void setTaxInvoice(TaxInvoice taxInvoice) { this.taxInvoice = taxInvoice; }
++    public String getStatus() {
++        return status;
++    }
+ 
+-    public LocalDateTime getPaymentDate() { return paymentDate; }
+-    public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
++    public void setStatus(String status) {
++        this.status = status;
++    }
+ 
+-    public BigDecimal getAmount() { return amount; }
+-    public void setAmount(BigDecimal amount) { this.amount = amount; }
++    public LocalDateTime getCreatedAt() {
++        return createdAt;
++    }
+ 
+-    public BigDecimal getUnappliedAmount() { return unappliedAmount; }
+-    public void setUnappliedAmount(BigDecimal unappliedAmount) { this.unappliedAmount = unappliedAmount; }
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
+ 
+-    public String getPaymentMethod() { return paymentMethod; }
+-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
++    public String getAuditUser() {
++        return auditUser;
++    }
+ 
+-    public String getStatus() { return status; }
+-    public void setStatus(String status) { this.status = status; }
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
+ }
+diff --git a/src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java b/src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java
+index ca41dd8..813e687 100644
+--- a/src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java
++++ b/src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java
+@@ -1,10 +1,10 @@
+ package com.ho.account.expenditure.dto;
+ 
+ import jakarta.validation.Valid;
++import jakarta.validation.constraints.DecimalMin;
+ import jakarta.validation.constraints.NotBlank;
+ import jakarta.validation.constraints.NotNull;
+ import jakarta.validation.constraints.Size;
+-import jakarta.validation.constraints.DecimalMin;
+ import java.math.BigDecimal;
+ import java.time.LocalDate;
+ import java.util.List;
+diff --git a/src/main/java/com/ho/account/journal/domain/JournalDetail.java b/src/main/java/com/ho/account/journal/domain/JournalDetail.java
+index 6675ee8..bd8a255 100644
+--- a/src/main/java/com/ho/account/journal/domain/JournalDetail.java
++++ b/src/main/java/com/ho/account/journal/domain/JournalDetail.java
+@@ -5,6 +5,7 @@
+ import com.ho.account.basic.domain.Department;
+ import jakarta.persistence.*;
+ import java.math.BigDecimal;
++import java.time.LocalDateTime;
+ 
+ @Entity
+ @Table(name = "journal_details")
+@@ -26,8 +27,10 @@ public class JournalDetail {
+     private AccountSubject accountSubject;
+ 
+     @Column(nullable = false, precision = 19, scale = 2)
+-    private BigDecimal amount;
++    private BigDecimal amount; // 嫄곕옒 ?듯솕 湲덉븸
+ 
++    @Column(nullable = false, precision = 19, scale = 2)
++    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곗? ?듯솕 湲덉븸
+     @ManyToOne(fetch = FetchType.LAZY)
+     @JoinColumn(name = "dept_code", referencedColumnName = "code")
+     private Department department; // 洹?띾???@@ -39,6 +42,27 @@ public class JournalDetail {
+     @Column(length = 200)
+     private String detailDescription; // ?쇱씤 ?곸슂
+ 
++    @Column(updatable = false)
++    private LocalDateTime createdAt;
++
++    private LocalDateTime updatedAt;
++
++    @Column(length = 50)
++    private String auditUser;
++
++    @PrePersist
++    protected void onCreate() {
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.auditUser == null)
++            this.auditUser = "SYSTEM";
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
++    }
++
+     // Getters and Setters
+     public Long getId() {
+         return id;
+@@ -103,4 +127,32 @@ public String getDetailDescription() {
+     public void setDetailDescription(String detailDescription) {
+         this.detailDescription = detailDescription;
+     }
++
++    public LocalDateTime getCreatedAt() {
++        return createdAt;
++    }
++
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
++
++    public void setUpdatedAt(LocalDateTime updatedAt) {
++        this.updatedAt = updatedAt;
++    }
++
++    public String getAuditUser() {
++        return auditUser;
++    }
++
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
++
++    public BigDecimal getBaseAmount() {
++        return baseAmount;
++    }
++
++    public void setBaseAmount(BigDecimal baseAmount) {
++        this.baseAmount = baseAmount;
++    }
+ }
+diff --git a/src/main/java/com/ho/account/journal/domain/JournalEntry.java b/src/main/java/com/ho/account/journal/domain/JournalEntry.java
+index 1b455e0..ab54afe 100644
+--- a/src/main/java/com/ho/account/journal/domain/JournalEntry.java
++++ b/src/main/java/com/ho/account/journal/domain/JournalEntry.java
+@@ -1,6 +1,8 @@
+ package com.ho.account.journal.domain;
+ 
++import com.ho.account.basic.domain.Currency;
+ import jakarta.persistence.*;
++import java.math.BigDecimal;
+ import java.time.LocalDate;
+ import java.time.LocalDateTime;
+ import java.util.ArrayList;
+@@ -38,6 +40,13 @@ public class JournalEntry {
+     @Column(length = 20)
+     private String entryType; // NORMAL(?쇰컲), ADJUSTMENT(寃곗궛蹂댁젙), TRANSFER(?먯씡?泥??댁썡)
+ 
++    @ManyToOne(fetch = FetchType.LAZY)
++    @JoinColumn(name = "currency_code")
++    private Currency currency;
++
++    @Column(precision = 19, scale = 8)
++    private BigDecimal exchangeRate;
++
+     @Column(length = 500)
+     private String rejectionReason;
+ 
+@@ -47,17 +56,37 @@ public class JournalEntry {
+     @Column(updatable = false)
+     private LocalDateTime createdAt;
+ 
++    private LocalDateTime updatedAt;
++
++    @Column(length = 50)
+     private String createdBy;
+ 
++    @Column(length = 50)
++    private String auditUser;
++
++    @Column(length = 50)
++    private String lineageSourceType; // ?? ERP_AP, BANKING_LOAN
++
++    @Column(length = 100)
++    private String lineageSourceId; // ?먯쿇 ?쒖뒪??ID
++
+     @PrePersist
+     protected void onCreate() {
+-        createdAt = LocalDateTime.now();
+-        if (status == null)
+-            status = JournalEntryStatus.DRAFT;
+-        if (accountingDate == null)
+-            accountingDate = slipDate;
+-        if (entryType == null)
+-            entryType = "NORMAL"; // 湲곕낯媛? ?쇰컲 ?꾪몴
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.status == null)
++            this.status = JournalEntryStatus.DRAFT;
++        if (this.accountingDate == null)
++            this.accountingDate = this.slipDate;
++        if (this.entryType == null)
++            this.entryType = "NORMAL";
++        if (this.auditUser == null)
++            this.auditUser = this.createdBy != null ? this.createdBy : "SYSTEM";
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
+     }
+ 
+     // ?곌?愿怨??몄쓽 硫붿꽌??@@ -152,6 +181,14 @@ public LocalDateTime getCreatedAt() {
+         return createdAt;
+     }
+ 
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
++
++    public void setUpdatedAt(LocalDateTime updatedAt) {
++        this.updatedAt = updatedAt;
++    }
++
+     public String getCreatedBy() {
+         return createdBy;
+     }
+@@ -159,4 +196,44 @@ public String getCreatedBy() {
+     public void setCreatedBy(String createdBy) {
+         this.createdBy = createdBy;
+     }
++
++    public String getAuditUser() {
++        return auditUser;
++    }
++
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
++
++    public String getLineageSourceType() {
++        return lineageSourceType;
++    }
++
++    public void setLineageSourceType(String lineageSourceType) {
++        this.lineageSourceType = lineageSourceType;
++    }
++
++    public String getLineageSourceId() {
++        return lineageSourceId;
++    }
++
++    public void setLineageSourceId(String lineageSourceId) {
++        this.lineageSourceId = lineageSourceId;
++    }
++
++    public Currency getCurrency() {
++        return currency;
++    }
++
++    public void setCurrency(Currency currency) {
++        this.currency = currency;
++    }
++
++    public BigDecimal getExchangeRate() {
++        return exchangeRate;
++    }
++
++    public void setExchangeRate(BigDecimal exchangeRate) {
++        this.exchangeRate = exchangeRate;
++    }
+ }
+diff --git a/src/main/java/com/ho/account/journal/domain/JournalRule.java b/src/main/java/com/ho/account/journal/domain/JournalRule.java
+index c9037f4..8ab3c7a 100644
+--- a/src/main/java/com/ho/account/journal/domain/JournalRule.java
++++ b/src/main/java/com/ho/account/journal/domain/JournalRule.java
+@@ -46,57 +46,156 @@ public class JournalRule {
+     @Column(updatable = false)
+     private LocalDateTime createdAt;
+ 
++    private LocalDateTime updatedAt;
++
++    @Column(length = 50)
++    private String auditUser;
++
+     private String createdBy;
+ 
+     @PrePersist
+     protected void onCreate() {
+-        createdAt = LocalDateTime.now();
+-        if (validFrom == null) validFrom = LocalDate.now();
+-        if (version == 0) version = 1;
+-        if (priority == 0) priority = 999; // Default low priority
+-        if (ruleCode == null) throw new IllegalArgumentException("Rule code cannot be null");
+-        if (ruleName == null) throw new IllegalArgumentException("Rule name cannot be null");
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.validFrom == null)
++            this.validFrom = LocalDate.now();
++        if (this.version == 0)
++            this.version = 1;
++        if (this.priority == 0)
++            this.priority = 999; // Default low priority
++        if (this.ruleCode == null)
++            throw new IllegalArgumentException("Rule code cannot be null");
++        if (this.ruleName == null)
++            throw new IllegalArgumentException("Rule name cannot be null");
++        if (this.auditUser == null)
++            this.auditUser = this.createdBy != null ? this.createdBy : "SYSTEM";
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
+     }
+ 
+     // Getters and Setters
+-    public Long getId() { return id; }
+-    public void setId(Long id) { this.id = id; }
++    public Long getId() {
++        return id;
++    }
++
++    public void setId(Long id) {
++        this.id = id;
++    }
++
++    public String getRuleCode() {
++        return ruleCode;
++    }
++
++    public void setRuleCode(String ruleCode) {
++        this.ruleCode = ruleCode;
++    }
++
++    public String getRuleName() {
++        return ruleName;
++    }
+ 
+-    public String getRuleCode() { return ruleCode; }
+-    public void setRuleCode(String ruleCode) { this.ruleCode = ruleCode; }
++    public void setRuleName(String ruleName) {
++        this.ruleName = ruleName;
++    }
+ 
+-    public String getRuleName() { return ruleName; }
+-    public void setRuleName(String ruleName) { this.ruleName = ruleName; }
++    public String getDescription() {
++        return description;
++    }
+ 
+-    public String getDescription() { return description; }
+-    public void setDescription(String description) { this.description = description; }
++    public void setDescription(String description) {
++        this.description = description;
++    }
+ 
+-    public LocalDate getValidFrom() { return validFrom; }
+-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
++    public LocalDate getValidFrom() {
++        return validFrom;
++    }
+ 
+-    public LocalDate getValidTo() { return validTo; }
+-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
++    public void setValidFrom(LocalDate validFrom) {
++        this.validFrom = validFrom;
++    }
+ 
+-    public int getVersion() { return version; }
+-    public void setVersion(int version) { this.version = version; }
++    public LocalDate getValidTo() {
++        return validTo;
++    }
+ 
+-    public boolean isActive() { return isActive; }
+-    public void setActive(boolean active) { isActive = active; }
++    public void setValidTo(LocalDate validTo) {
++        this.validTo = validTo;
++    }
+ 
+-    public int getPriority() { return priority; }
+-    public void setPriority(int priority) { this.priority = priority; }
++    public int getVersion() {
++        return version;
++    }
++
++    public void setVersion(int version) {
++        this.version = version;
++    }
+ 
+-    public List<JournalRuleCondition> getConditions() { return conditions; }
+-    public void setConditions(List<JournalRuleCondition> conditions) { this.conditions = conditions; }
++    public boolean isActive() {
++        return isActive;
++    }
+ 
+-    public List<JournalRuleDetail> getRuleDetails() { return ruleDetails; }
+-    public void setRuleDetails(List<JournalRuleDetail> ruleDetails) { this.ruleDetails = ruleDetails; }
++    public void setActive(boolean active) {
++        isActive = active;
++    }
+ 
+-    public LocalDateTime getCreatedAt() { return createdAt; }
+-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
++    public int getPriority() {
++        return priority;
++    }
+ 
+-    public String getCreatedBy() { return createdBy; }
+-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
++    public void setPriority(int priority) {
++        this.priority = priority;
++    }
++
++    public List<JournalRuleCondition> getConditions() {
++        return conditions;
++    }
++
++    public void setConditions(List<JournalRuleCondition> conditions) {
++        this.conditions = conditions;
++    }
++
++    public List<JournalRuleDetail> getRuleDetails() {
++        return ruleDetails;
++    }
++
++    public void setRuleDetails(List<JournalRuleDetail> ruleDetails) {
++        this.ruleDetails = ruleDetails;
++    }
++
++    public LocalDateTime getCreatedAt() {
++        return createdAt;
++    }
++
++    public void setCreatedAt(LocalDateTime createdAt) {
++        this.createdAt = createdAt;
++    }
++
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
++
++    public void setUpdatedAt(LocalDateTime updatedAt) {
++        this.updatedAt = updatedAt;
++    }
++
++    public String getAuditUser() {
++        return auditUser;
++    }
++
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
++
++    public String getCreatedBy() {
++        return createdBy;
++    }
++
++    public void setCreatedBy(String createdBy) {
++        this.createdBy = createdBy;
++    }
+ 
+     // Helper methods for relationships
+     public void addCondition(JournalRuleCondition condition) {
+diff --git a/src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java b/src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java
+index 9a8089a..cc87a63 100644
+--- a/src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java
++++ b/src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java
+@@ -1,7 +1,7 @@
+ package com.ho.account.journal.domain;
+ 
+ import jakarta.persistence.*;
+-import java.math.BigDecimal; // Import for BigDecimal, though it's an expression string here
++import java.time.LocalDateTime;
+ 
+ @Entity
+ @Table(name = "journal_rule_details")
+@@ -33,28 +33,113 @@ public class JournalRuleDetail {
+     @Column(length = 50)
+     private String departmentCodeExpression; // e.g., "D001", "${transaction.departmentCode}"
+ 
++    @Column(updatable = false)
++    private LocalDateTime createdAt;
++
++    private LocalDateTime updatedAt;
++
++    @Column(length = 50)
++    private String auditUser;
++
++    @PrePersist
++    protected void onCreate() {
++        this.createdAt = LocalDateTime.now();
++        this.updatedAt = LocalDateTime.now();
++        if (this.auditUser == null)
++            this.auditUser = "SYSTEM";
++    }
++
++    @PreUpdate
++    protected void onUpdate() {
++        this.updatedAt = LocalDateTime.now();
++    }
++
+     // Getters and Setters
+-    public Long getId() { return id; }
+-    public void setId(Long id) { this.id = id; }
++    public Long getId() {
++        return id;
++    }
++
++    public void setId(Long id) {
++        this.id = id;
++    }
++
++    public JournalRule getJournalRule() {
++        return journalRule;
++    }
++
++    public void setJournalRule(JournalRule journalRule) {
++        this.journalRule = journalRule;
++    }
++
++    public String getDrcrType() {
++        return drcrType;
++    }
++
++    public void setDrcrType(String drcrType) {
++        this.drcrType = drcrType;
++    }
++
++    public String getAccountSubjectCodeExpression() {
++        return accountSubjectCodeExpression;
++    }
++
++    public void setAccountSubjectCodeExpression(String accountSubjectCodeExpression) {
++        this.accountSubjectCodeExpression = accountSubjectCodeExpression;
++    }
++
++    public String getAmountExpression() {
++        return amountExpression;
++    }
++
++    public void setAmountExpression(String amountExpression) {
++        this.amountExpression = amountExpression;
++    }
++
++    public String getDescriptionExpression() {
++        return descriptionExpression;
++    }
++
++    public void setDescriptionExpression(String descriptionExpression) {
++        this.descriptionExpression = descriptionExpression;
++    }
++
++    public String getBusinessPartnerCodeExpression() {
++        return businessPartnerCodeExpression;
++    }
++
++    public void setBusinessPartnerCodeExpression(String businessPartnerCodeExpression) {
++        this.businessPartnerCodeExpression = businessPartnerCodeExpression;
++    }
++
++    public String getDepartmentCodeExpression() {
++        return departmentCodeExpression;
++    }
+ 
+-    public JournalRule getJournalRule() { return journalRule; }
+-    public void setJournalRule(JournalRule journalRule) { this.journalRule = journalRule; }
++    public void setDepartmentCodeExpression(String departmentCodeExpression) {
++        this.departmentCodeExpression = departmentCodeExpression;
++    }
+ 
+-    public String getDrcrType() { return drcrType; }
+-    public void setDrcrType(String drcrType) { this.drcrType = drcrType; }
++    public LocalDateTime getCreatedAt() {
++        return createdAt;
++    }
+ 
+-    public String getAccountSubjectCodeExpression() { return accountSubjectCodeExpression; }
+-    public void setAccountSubjectCodeExpression(String accountSubjectCodeExpression) { this.accountSubjectCodeExpression = accountSubjectCodeExpression; }
++    public void setCreatedAt(LocalDateTime createdAt) {
++        this.createdAt = createdAt;
++    }
+ 
+-    public String getAmountExpression() { return amountExpression; }
+-    public void setAmountExpression(String amountExpression) { this.amountExpression = amountExpression; }
++    public LocalDateTime getUpdatedAt() {
++        return updatedAt;
++    }
+ 
+-    public String getDescriptionExpression() { return descriptionExpression; }
+-    public void setDescriptionExpression(String descriptionExpression) { this.descriptionExpression = descriptionExpression; }
++    public void setUpdatedAt(LocalDateTime updatedAt) {
++        this.updatedAt = updatedAt;
++    }
+ 
+-    public String getBusinessPartnerCodeExpression() { return businessPartnerCodeExpression; }
+-    public void setBusinessPartnerCodeExpression(String businessPartnerCodeExpression) { this.businessPartnerCodeExpression = businessPartnerCodeExpression; }
++    public String getAuditUser() {
++        return auditUser;
++    }
+ 
+-    public String getDepartmentCodeExpression() { return departmentCodeExpression; }
+-    public void setDepartmentCodeExpression(String departmentCodeExpression) { this.departmentCodeExpression = departmentCodeExpression; }
++    public void setAuditUser(String auditUser) {
++        this.auditUser = auditUser;
++    }
+ }
+diff --git a/src/main/java/com/ho/account/journal/service/JournalService.java b/src/main/java/com/ho/account/journal/service/JournalService.java
+index 45948e7..5ed82b4 100644
+--- a/src/main/java/com/ho/account/journal/service/JournalService.java
++++ b/src/main/java/com/ho/account/journal/service/JournalService.java
+@@ -10,6 +10,7 @@
+ import com.ho.account.journal.domain.JournalEntry;
+ import com.ho.account.journal.domain.JournalEntryStatus;
+ import com.ho.account.journal.repository.JournalEntryRepository;
++import com.ho.account.ledger.service.LedgerPostingService;
+ import com.ho.account.journal.service.JournalRuleService;
+ import com.ho.account.closing.service.ClosingService;
+ import com.ho.account.expenditure.service.BudgetService;
+@@ -42,6 +43,7 @@ public class JournalService {
+     private final UnsettledService unsettledService;
+     private final JournalRuleService journalRuleService;
+     private final BudgetService budgetService;
++    private final LedgerPostingService ledgerPostingService;
+ 
+     @Autowired
+     public JournalService(JournalEntryRepository journalEntryRepository,
+@@ -51,7 +53,8 @@ public JournalService(JournalEntryRepository journalEntryRepository,
+             ClosingService closingService,
+             UnsettledService unsettledService,
+             JournalRuleService journalRuleService,
+-            BudgetService budgetService) {
++            BudgetService budgetService,
++            LedgerPostingService ledgerPostingService) {
+         this.journalEntryRepository = journalEntryRepository;
+         this.accountSubjectRepository = accountSubjectRepository;
+         this.departmentRepository = departmentRepository;
+@@ -60,6 +63,7 @@ public JournalService(JournalEntryRepository journalEntryRepository,
+         this.unsettledService = unsettledService;
+         this.journalRuleService = journalRuleService;
+         this.budgetService = budgetService;
++        this.ledgerPostingService = ledgerPostingService;
+     }
+ 
+     // ?꾪몴 ?앹꽦
+@@ -78,8 +82,15 @@ public JournalEntry createJournalEntry(JournalEntry journalEntry) {
+         journalEntry.setSlipNo(slipNo);
+         journalEntry.setStatus(JournalEntryStatus.DRAFT);
+ 
++        if (journalEntry.getAuditUser() == null) {
++            journalEntry.setAuditUser(journalEntry.getCreatedBy() != null ? journalEntry.getCreatedBy() : "SYSTEM");
++        }
++
+         for (JournalDetail detail : journalEntry.getDetails()) {
+             detail.setJournalEntry(journalEntry);
++            if (detail.getAuditUser() == null) {
++                detail.setAuditUser(journalEntry.getAuditUser());
++            }
+         }
+ 
+         return journalEntryRepository.save(journalEntry);
+@@ -135,9 +146,16 @@ public JournalEntry updateJournalEntry(Long id, JournalEntry journalEntryDetails
+ 
+         existingEntry.clearDetails();
+         for (JournalDetail detail : journalEntryDetails.getDetails()) {
++            if (detail.getAuditUser() == null) {
++                detail.setAuditUser(
++                        journalEntryDetails.getAuditUser() != null ? journalEntryDetails.getAuditUser() : "SYSTEM");
++            }
+             existingEntry.addDetail(detail);
+         }
+ 
++        existingEntry.setAuditUser(
++                journalEntryDetails.getAuditUser() != null ? journalEntryDetails.getAuditUser() : "SYSTEM");
++
+         validateJournalEntry(existingEntry);
+ 
+         return journalEntryRepository.save(existingEntry);
+@@ -206,7 +224,10 @@ public void postJournalEntry(Long id) {
+ 
+         entry.setStatus(JournalEntryStatus.POSTED);
+         journalEntryRepository.save(entry);
+-        // TODO: GL ?붿븸 ?낅뜲?댄듃 濡쒖쭅 ?몄텧 (?? LedgerService.updateGlBalances(entry))
++
++        // GL ?붿븸 ?낅뜲?댄듃 ?몄텧
++        ledgerPostingService.postToLedger(entry);
++
+         System.out.println("Journal Entry " + entry.getSlipNo() + " has been posted to GL.");
+     }
+ 
+diff --git a/src/main/java/com/ho/account/ledger/service/LedgerService.java b/src/main/java/com/ho/account/ledger/service/LedgerService.java
+index 6998161..2fbfca5 100644
+--- a/src/main/java/com/ho/account/ledger/service/LedgerService.java
++++ b/src/main/java/com/ho/account/ledger/service/LedgerService.java
+@@ -1,8 +1,15 @@
+ package com.ho.account.ledger.service;
+ 
+-import com.ho.account.journal.domain.JournalDetail;
+-import com.ho.account.journal.repository.JournalDetailRepository;
++import com.ho.account.basic.domain.AccountSubject;
++import com.ho.account.basic.domain.FiscalPeriod;
++import com.ho.account.basic.repository.AccountSubjectRepository;
++import com.ho.account.basic.repository.FiscalPeriodRepository;
++import com.ho.account.ledger.domain.GlEntry;
++import com.ho.account.ledger.domain.GlBalance;
+ import com.ho.account.ledger.dto.LedgerDTO;
++import com.ho.account.ledger.dto.TrialBalanceDTO;
++import com.ho.account.ledger.repository.GlBalanceRepository;
++import com.ho.account.ledger.repository.GlEntryRepository;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+@@ -16,72 +23,99 @@
+ @Transactional(readOnly = true)
+ public class LedgerService {
+ 
+-    private final JournalDetailRepository journalDetailRepository;
+-
+     @Autowired
+-    public LedgerService(JournalDetailRepository journalDetailRepository) {
+-        this.journalDetailRepository = journalDetailRepository;
+-    }
++    private GlBalanceRepository glBalanceRepository;
++    @Autowired
++    private GlEntryRepository glEntryRepository;
++    @Autowired
++    private FiscalPeriodRepository fiscalPeriodRepository;
++    @Autowired
++    private AccountSubjectRepository accountSubjectRepository;
+ 
+     // 珥앷퀎?뺤썝??議고쉶
+     public List<LedgerDTO> getGeneralLedger(String accountCode, LocalDate startDate, LocalDate endDate) {
+         List<LedgerDTO> ledgerList = new ArrayList<>();
++        AccountSubject account = accountSubjectRepository.findByCode(accountCode)
++                .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎: " + accountCode));
++
++        // 1. ?꾧린 ?댁썡湲?怨꾩궛
++        BigDecimal previousBalance = calculatePreviousBalance(account, startDate);
+ 
+-        // 1. ?꾧린 ?댁썡湲?怨꾩궛 (?쒖옉???댁쟾??紐⑤뱺 嫄곕옒 ?⑹궛)
+-        BigDecimal previousBalance = calculatePreviousBalance(accountCode, startDate);
+-        
+-        // ?꾧린 ?댁썡湲???ぉ 異붽?
+         ledgerList.add(new LedgerDTO(
+                 startDate.minusDays(1),
+                 "PREV-BAL",
+                 "?꾧린 ?댁썡",
+                 BigDecimal.ZERO,
+                 BigDecimal.ZERO,
+-                previousBalance
+-        ));
++                previousBalance));
+ 
+-        // 2. 湲곌컙 ??嫄곕옒 ?댁뿭 議고쉶
+-        List<JournalDetail> details = journalDetailRepository.findByAccountAndDateRange(accountCode, startDate, endDate);
+-        
+-        BigDecimal currentBalance = previousBalance;
++        // 2. 湲곌컙 ??嫄곕옒 ?댁뿭 議고쉶 (GlEntry 湲곕컲)
++        List<GlEntry> entries = glEntryRepository.findByAccountAndPostingDateBetweenOrderByPostingDateAscIdAsc(
++                account, startDate, endDate);
+ 
+-        for (JournalDetail detail : details) {
+-            BigDecimal debit = BigDecimal.ZERO;
+-            BigDecimal credit = BigDecimal.ZERO;
++        BigDecimal currentBalance = previousBalance;
+ 
+-            if ("DEBIT".equals(detail.getDrcrType())) {
+-                debit = detail.getAmount();
+-                currentBalance = currentBalance.add(debit);
+-            } else {
+-                credit = detail.getAmount();
+-                currentBalance = currentBalance.subtract(credit);
+-            }
++        for (GlEntry entry : entries) {
++            BigDecimal debit = entry.getDrAmount();
++            BigDecimal credit = entry.getCrAmount();
++            currentBalance = currentBalance.add(debit).subtract(credit);
+ 
+             ledgerList.add(new LedgerDTO(
+-                    detail.getJournalEntry().getAccountingDate(), // ?뚭퀎?쇱옄 ?ъ슜
+-                    detail.getJournalEntry().getSlipNo(),
+-                    detail.getDetailDescription() != null ? detail.getDetailDescription() : detail.getJournalEntry().getDescription(),
++                    entry.getPostingDate(),
++                    entry.getJournalDetail().getJournalEntry().getSlipNo(),
++                    entry.getJournalDetail().getDetailDescription() != null
++                            ? entry.getJournalDetail().getDetailDescription()
++                            : entry.getJournalDetail().getJournalEntry().getDescription(),
+                     debit,
+                     credit,
+-                    currentBalance
+-            ));
++                    currentBalance));
+         }
+ 
+         return ledgerList;
+     }
+ 
+-    // ?꾧린 ?댁썡湲?怨꾩궛 濡쒖쭅
+-    private BigDecimal calculatePreviousBalance(String accountCode, LocalDate startDate) {
+-        List<JournalDetail> prevDetails = journalDetailRepository.findPreviousDetails(accountCode, startDate);
+-        
+-        BigDecimal balance = BigDecimal.ZERO;
+-        for (JournalDetail detail : prevDetails) {
+-            if ("DEBIT".equals(detail.getDrcrType())) {
+-                balance = balance.add(detail.getAmount());
+-            } else {
+-                balance = balance.subtract(detail.getAmount());
+-            }
+-        }
+-        return balance;
++    private BigDecimal calculatePreviousBalance(AccountSubject account, LocalDate startDate) {
++        FiscalPeriod period = fiscalPeriodRepository.findByDate(startDate)
++                .orElseThrow(() -> new RuntimeException("?뚭퀎 湲곌컙??李얠쓣 ???놁뒿?덈떎."));
++
++        // ?대떦 湲곌컙??湲곗큹 ?붿븸 (Begin Balance) 吏묎퀎
++        BigDecimal beginBalance = glBalanceRepository.sumNetBeginBalance(
++                account, period.getFiscalYear(), period.getFiscalPeriod());
++
++        // 湲곌컙 ?쒖옉?쇰???startDate ?댁쟾源뚯???嫄곕옒 ?⑷퀎 吏묎퀎
++        BigDecimal periodActivity = glEntryRepository.sumNetAmount(
++                account, period.getStartDate(), startDate.minusDays(1));
++
++        return beginBalance.add(periodActivity);
++    }
++
++    // ?⑷퀎?붿븸?쒖궛??(Trial Balance) 議고쉶
++    public List<TrialBalanceDTO> getTrialBalance(String year, String period) {
++        List<GlBalance> balances = glBalanceRepository.findForTrialBalance(year, period);
++
++        // 怨꾩젙怨쇰ぉ蹂?吏묎퀎 (遺???듯솕 臾닿?)
++        return balances.stream()
++                .collect(java.util.stream.Collectors.groupingBy(b -> b.getAccount().getCode()))
++                .entrySet().stream()
++                .map(entry -> {
++                    AccountSubject acc = entry.getValue().get(0).getAccount();
++                    BigDecimal beginDr = entry.getValue().stream().map(GlBalance::getBeginBalanceDr)
++                            .reduce(BigDecimal.ZERO, BigDecimal::add);
++                    BigDecimal beginCr = entry.getValue().stream().map(GlBalance::getBeginBalanceCr)
++                            .reduce(BigDecimal.ZERO, BigDecimal::add);
++                    BigDecimal currDr = entry.getValue().stream().map(GlBalance::getCurrentPeriodDr)
++                            .reduce(BigDecimal.ZERO, BigDecimal::add);
++                    BigDecimal currCr = entry.getValue().stream().map(GlBalance::getCurrentPeriodCr)
++                            .reduce(BigDecimal.ZERO, BigDecimal::add);
++                    BigDecimal endDr = entry.getValue().stream().map(GlBalance::getEndBalanceDr).reduce(BigDecimal.ZERO,
++                            BigDecimal::add);
++                    BigDecimal endCr = entry.getValue().stream().map(GlBalance::getEndBalanceCr).reduce(BigDecimal.ZERO,
++                            BigDecimal::add);
++
++                    return new TrialBalanceDTO(acc.getCode(), acc.getName(), beginDr, beginCr, currDr, currCr, endDr,
++                            endCr);
++                })
++                .sorted(java.util.Comparator.comparing(TrialBalanceDTO::getAccountCode))
++                .collect(java.util.stream.Collectors.toList());
+     }
+ }
+ M build.gradle
+ M docs/WORKLOG.md
+ D schema-design/V1_account_subjects.sql
+ D schema-design/V2_closing_tables.sql
+ D schema-design/V3_reconciliation_tables.sql
+ M src/main/java/com/ho/account/basic/domain/AccountSubject.java
+ M src/main/java/com/ho/account/basic/domain/BusinessPartner.java
+ M src/main/java/com/ho/account/basic/domain/Department.java
+ M src/main/java/com/ho/account/expenditure/domain/APPayment.java
+ M src/main/java/com/ho/account/expenditure/dto/ExpenditureResolutionRequestDto.java
+ M src/main/java/com/ho/account/journal/domain/JournalDetail.java
+ M src/main/java/com/ho/account/journal/domain/JournalEntry.java
+ M src/main/java/com/ho/account/journal/domain/JournalRule.java
+ M src/main/java/com/ho/account/journal/domain/JournalRuleDetail.java
+ M src/main/java/com/ho/account/journal/service/JournalService.java
+ M src/main/java/com/ho/account/ledger/service/LedgerService.java
+?? diff.txt
+?? src/main/java/com/ho/account/audit/domain/MasterApproval.java
+?? src/main/java/com/ho/account/audit/repository/MasterApprovalRepository.java
+?? src/main/java/com/ho/account/audit/service/MasterApprovalService.java
+?? src/main/java/com/ho/account/basic/domain/Currency.java
+?? src/main/java/com/ho/account/basic/domain/ExchangeRate.java
+?? src/main/java/com/ho/account/basic/domain/FiscalPeriod.java
+?? src/main/java/com/ho/account/basic/repository/CurrencyRepository.java
+?? src/main/java/com/ho/account/basic/repository/ExchangeRateRepository.java
+?? src/main/java/com/ho/account/basic/repository/FiscalPeriodRepository.java
+?? src/main/java/com/ho/account/common/
+?? src/main/java/com/ho/account/expenditure/domain/Invoice.java
+?? src/main/java/com/ho/account/expenditure/repository/InvoiceRepository.java
+?? src/main/java/com/ho/account/income/
+?? src/main/java/com/ho/account/ledger/domain/
+?? src/main/java/com/ho/account/ledger/dto/TrialBalanceDTO.java
+?? src/main/java/com/ho/account/ledger/repository/
+?? src/main/java/com/ho/account/ledger/service/LedgerPostingService.java

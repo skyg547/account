@@ -5,6 +5,7 @@ import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "journal_details")
@@ -26,8 +27,10 @@ public class JournalDetail {
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount;
+    private BigDecimal amount; // 거래 통화 금액
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal baseAmount = BigDecimal.ZERO; // 기준 통화 금액
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department; // 귀속부서
@@ -38,6 +41,27 @@ public class JournalDetail {
 
     @Column(length = 200)
     private String detailDescription; // 라인 적요
+
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
+    private String auditUser;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.auditUser == null)
+            this.auditUser = "SYSTEM";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     // Getters and Setters
     public Long getId() {
@@ -102,5 +126,33 @@ public class JournalDetail {
 
     public void setDetailDescription(String detailDescription) {
         this.detailDescription = detailDescription;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
+
+    public BigDecimal getBaseAmount() {
+        return baseAmount;
+    }
+
+    public void setBaseAmount(BigDecimal baseAmount) {
+        this.baseAmount = baseAmount;
     }
 }

@@ -1,7 +1,7 @@
 package com.ho.account.journal.domain;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal; // Import for BigDecimal, though it's an expression string here
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "journal_rule_details")
@@ -33,28 +33,113 @@ public class JournalRuleDetail {
     @Column(length = 50)
     private String departmentCodeExpression; // e.g., "D001", "${transaction.departmentCode}"
 
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
+    private String auditUser;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.auditUser == null)
+            this.auditUser = "SYSTEM";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public JournalRule getJournalRule() { return journalRule; }
-    public void setJournalRule(JournalRule journalRule) { this.journalRule = journalRule; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDrcrType() { return drcrType; }
-    public void setDrcrType(String drcrType) { this.drcrType = drcrType; }
+    public JournalRule getJournalRule() {
+        return journalRule;
+    }
 
-    public String getAccountSubjectCodeExpression() { return accountSubjectCodeExpression; }
-    public void setAccountSubjectCodeExpression(String accountSubjectCodeExpression) { this.accountSubjectCodeExpression = accountSubjectCodeExpression; }
+    public void setJournalRule(JournalRule journalRule) {
+        this.journalRule = journalRule;
+    }
 
-    public String getAmountExpression() { return amountExpression; }
-    public void setAmountExpression(String amountExpression) { this.amountExpression = amountExpression; }
+    public String getDrcrType() {
+        return drcrType;
+    }
 
-    public String getDescriptionExpression() { return descriptionExpression; }
-    public void setDescriptionExpression(String descriptionExpression) { this.descriptionExpression = descriptionExpression; }
+    public void setDrcrType(String drcrType) {
+        this.drcrType = drcrType;
+    }
 
-    public String getBusinessPartnerCodeExpression() { return businessPartnerCodeExpression; }
-    public void setBusinessPartnerCodeExpression(String businessPartnerCodeExpression) { this.businessPartnerCodeExpression = businessPartnerCodeExpression; }
+    public String getAccountSubjectCodeExpression() {
+        return accountSubjectCodeExpression;
+    }
 
-    public String getDepartmentCodeExpression() { return departmentCodeExpression; }
-    public void setDepartmentCodeExpression(String departmentCodeExpression) { this.departmentCodeExpression = departmentCodeExpression; }
+    public void setAccountSubjectCodeExpression(String accountSubjectCodeExpression) {
+        this.accountSubjectCodeExpression = accountSubjectCodeExpression;
+    }
+
+    public String getAmountExpression() {
+        return amountExpression;
+    }
+
+    public void setAmountExpression(String amountExpression) {
+        this.amountExpression = amountExpression;
+    }
+
+    public String getDescriptionExpression() {
+        return descriptionExpression;
+    }
+
+    public void setDescriptionExpression(String descriptionExpression) {
+        this.descriptionExpression = descriptionExpression;
+    }
+
+    public String getBusinessPartnerCodeExpression() {
+        return businessPartnerCodeExpression;
+    }
+
+    public void setBusinessPartnerCodeExpression(String businessPartnerCodeExpression) {
+        this.businessPartnerCodeExpression = businessPartnerCodeExpression;
+    }
+
+    public String getDepartmentCodeExpression() {
+        return departmentCodeExpression;
+    }
+
+    public void setDepartmentCodeExpression(String departmentCodeExpression) {
+        this.departmentCodeExpression = departmentCodeExpression;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
 }

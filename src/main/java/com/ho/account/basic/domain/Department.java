@@ -39,54 +39,72 @@ public class Department {
     private LocalDate validTo;
 
     public enum DepartmentType {
-        COST_CENTER,  // 비용 센터
+        COST_CENTER, // 비용 센터
         PROFIT_CENTER, // 이익 센터
-        SUPPORT,       // 지원 부서
-        OTHER          // 기타
+        SUPPORT, // 지원 부서
+        OTHER // 기타
     }
 
     // Getters and Setters
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public Department getParent() { return parent; }
-    public void setParent(Department parent) { this.parent = parent; }
-
-    public DepartmentType getType() { return type; }
-    public void setType(DepartmentType type) { this.type = type; }
-    
-    public LocalDate getValidFrom() { return validFrom; }
-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
-
-    public LocalDate getValidTo() { return validTo; }
-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
-
-    // 추가된 필드의 Getter and Setter
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public String getCode() {
+        return code;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setCode(String code) {
+        this.code = code;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+    public String getName() {
+        return name;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public String getAuditUser() {
-        return auditUser;
+    public Department getParent() {
+        return parent;
     }
 
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
+    public void setParent(Department parent) {
+        this.parent = parent;
+    }
+
+    public DepartmentType getType() {
+        return type;
+    }
+
+    public void setType(DepartmentType type) {
+        this.type = type;
+    }
+
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(LocalDate validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public LocalDate getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(LocalDate validTo) {
+        this.validTo = validTo;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.auditUser == null) {
+            this.auditUser = "SYSTEM";
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }
-

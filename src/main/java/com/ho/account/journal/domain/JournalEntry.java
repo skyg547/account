@@ -1,6 +1,8 @@
 package com.ho.account.journal.domain;
 
+import com.ho.account.basic.domain.Currency;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -38,6 +40,13 @@ public class JournalEntry {
     @Column(length = 20)
     private String entryType; // NORMAL(일반), ADJUSTMENT(결산보정), TRANSFER(손익대체/이월)
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "currency_code")
+    private Currency currency;
+
+    @Column(precision = 19, scale = 8)
+    private BigDecimal exchangeRate;
+
     @Column(length = 500)
     private String rejectionReason;
 
@@ -47,17 +56,37 @@ public class JournalEntry {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
     private String createdBy;
+
+    @Column(length = 50)
+    private String auditUser;
+
+    @Column(length = 50)
+    private String lineageSourceType; // 예: ERP_AP, BANKING_LOAN
+
+    @Column(length = 100)
+    private String lineageSourceId; // 원천 시스템 ID
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null)
-            status = JournalEntryStatus.DRAFT;
-        if (accountingDate == null)
-            accountingDate = slipDate;
-        if (entryType == null)
-            entryType = "NORMAL"; // 기본값: 일반 전표
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.status == null)
+            this.status = JournalEntryStatus.DRAFT;
+        if (this.accountingDate == null)
+            this.accountingDate = this.slipDate;
+        if (this.entryType == null)
+            this.entryType = "NORMAL";
+        if (this.auditUser == null)
+            this.auditUser = this.createdBy != null ? this.createdBy : "SYSTEM";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     // 연관관계 편의 메서드
@@ -152,11 +181,59 @@ public class JournalEntry {
         return createdAt;
     }
 
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public String getCreatedBy() {
         return createdBy;
     }
 
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
+
+    public String getLineageSourceType() {
+        return lineageSourceType;
+    }
+
+    public void setLineageSourceType(String lineageSourceType) {
+        this.lineageSourceType = lineageSourceType;
+    }
+
+    public String getLineageSourceId() {
+        return lineageSourceId;
+    }
+
+    public void setLineageSourceId(String lineageSourceId) {
+        this.lineageSourceId = lineageSourceId;
+    }
+
+    public Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(Currency currency) {
+        this.currency = currency;
+    }
+
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
+    }
+
+    public void setExchangeRate(BigDecimal exchangeRate) {
+        this.exchangeRate = exchangeRate;
     }
 }

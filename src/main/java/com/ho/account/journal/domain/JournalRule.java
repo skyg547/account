@@ -46,57 +46,156 @@ public class JournalRule {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
+    private String auditUser;
+
     private String createdBy;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (validFrom == null) validFrom = LocalDate.now();
-        if (version == 0) version = 1;
-        if (priority == 0) priority = 999; // Default low priority
-        if (ruleCode == null) throw new IllegalArgumentException("Rule code cannot be null");
-        if (ruleName == null) throw new IllegalArgumentException("Rule name cannot be null");
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.validFrom == null)
+            this.validFrom = LocalDate.now();
+        if (this.version == 0)
+            this.version = 1;
+        if (this.priority == 0)
+            this.priority = 999; // Default low priority
+        if (this.ruleCode == null)
+            throw new IllegalArgumentException("Rule code cannot be null");
+        if (this.ruleName == null)
+            throw new IllegalArgumentException("Rule name cannot be null");
+        if (this.auditUser == null)
+            this.auditUser = this.createdBy != null ? this.createdBy : "SYSTEM";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getRuleCode() { return ruleCode; }
-    public void setRuleCode(String ruleCode) { this.ruleCode = ruleCode; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getRuleName() { return ruleName; }
-    public void setRuleName(String ruleName) { this.ruleName = ruleName; }
+    public String getRuleCode() {
+        return ruleCode;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setRuleCode(String ruleCode) {
+        this.ruleCode = ruleCode;
+    }
 
-    public LocalDate getValidFrom() { return validFrom; }
-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
+    public String getRuleName() {
+        return ruleName;
+    }
 
-    public LocalDate getValidTo() { return validTo; }
-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
+    public void setRuleName(String ruleName) {
+        this.ruleName = ruleName;
+    }
 
-    public int getVersion() { return version; }
-    public void setVersion(int version) { this.version = version; }
+    public String getDescription() {
+        return description;
+    }
 
-    public boolean isActive() { return isActive; }
-    public void setActive(boolean active) { isActive = active; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public int getPriority() { return priority; }
-    public void setPriority(int priority) { this.priority = priority; }
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
 
-    public List<JournalRuleCondition> getConditions() { return conditions; }
-    public void setConditions(List<JournalRuleCondition> conditions) { this.conditions = conditions; }
+    public void setValidFrom(LocalDate validFrom) {
+        this.validFrom = validFrom;
+    }
 
-    public List<JournalRuleDetail> getRuleDetails() { return ruleDetails; }
-    public void setRuleDetails(List<JournalRuleDetail> ruleDetails) { this.ruleDetails = ruleDetails; }
+    public LocalDate getValidTo() {
+        return validTo;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setValidTo(LocalDate validTo) {
+        this.validTo = validTo;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public int getVersion() {
+        return version;
+    }
+
+    public void setVersion(int version) {
+        this.version = version;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+
+    public void setPriority(int priority) {
+        this.priority = priority;
+    }
+
+    public List<JournalRuleCondition> getConditions() {
+        return conditions;
+    }
+
+    public void setConditions(List<JournalRuleCondition> conditions) {
+        this.conditions = conditions;
+    }
+
+    public List<JournalRuleDetail> getRuleDetails() {
+        return ruleDetails;
+    }
+
+    public void setRuleDetails(List<JournalRuleDetail> ruleDetails) {
+        this.ruleDetails = ruleDetails;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 
     // Helper methods for relationships
     public void addCondition(JournalRuleCondition condition) {

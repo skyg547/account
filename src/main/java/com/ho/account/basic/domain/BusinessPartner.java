@@ -57,6 +57,9 @@ public class BusinessPartner {
 
     private LocalDateTime updatedAt;
 
+    @Column(length = 50)
+    private String auditUser;
+
     @OneToMany(mappedBy = "businessPartner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BusinessPartnerAccount> accounts;
 
@@ -64,6 +67,9 @@ public class BusinessPartner {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.auditUser == null) {
+            this.auditUser = "SYSTEM";
+        }
     }
 
     @PreUpdate
@@ -72,47 +78,125 @@ public class BusinessPartner {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getBusinessPartnerCode() { return businessPartnerCode; }
-    public void setBusinessPartnerCode(String businessPartnerCode) { this.businessPartnerCode = businessPartnerCode; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getBusinessPartnerName() { return businessPartnerName; }
-    public void setBusinessPartnerName(String businessPartnerName) { this.businessPartnerName = businessPartnerName; }
+    public String getBusinessPartnerCode() {
+        return businessPartnerCode;
+    }
 
-    public String getRegistrationNumber() { return registrationNumber; }
-    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
+    public void setBusinessPartnerCode(String businessPartnerCode) {
+        this.businessPartnerCode = businessPartnerCode;
+    }
 
-    public String getCeoName() { return ceoName; }
-    public void setCeoName(String ceoName) { this.ceoName = ceoName; }
+    public String getBusinessPartnerName() {
+        return businessPartnerName;
+    }
 
-    public String getBusinessType() { return businessType; }
-    public void setBusinessType(String businessType) { this.businessType = businessType; }
+    public void setBusinessPartnerName(String businessPartnerName) {
+        this.businessPartnerName = businessPartnerName;
+    }
 
-    public String getBusinessItem() { return businessItem; }
-    public void setBusinessItem(String businessItem) { this.businessItem = businessItem; }
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
 
-    public PartnerType getPartnerType() { return partnerType; }
-    public void setPartnerType(PartnerType partnerType) { this.partnerType = partnerType; }
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
 
-    public Boolean getUseYn() { return useYn; }
-    public void setUseYn(Boolean useYn) { this.useYn = useYn; }
+    public String getCeoName() {
+        return ceoName;
+    }
 
-    public KycStatus getKycStatus() { return kycStatus; }
-    public void setKycStatus(KycStatus kycStatus) { this.kycStatus = kycStatus; }
+    public void setCeoName(String ceoName) {
+        this.ceoName = ceoName;
+    }
 
-    public RiskRating getRiskRating() { return riskRating; }
-    public void setRiskRating(RiskRating riskRating) { this.riskRating = riskRating; }
+    public String getBusinessType() {
+        return businessType;
+    }
 
-    public LocalDate getValidFrom() { return validFrom; }
-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
+    public void setBusinessType(String businessType) {
+        this.businessType = businessType;
+    }
 
-    public LocalDate getValidTo() { return validTo; }
-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
+    public String getBusinessItem() {
+        return businessItem;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setBusinessItem(String businessItem) {
+        this.businessItem = businessItem;
+    }
+
+    public PartnerType getPartnerType() {
+        return partnerType;
+    }
+
+    public void setPartnerType(PartnerType partnerType) {
+        this.partnerType = partnerType;
+    }
+
+    public Boolean getUseYn() {
+        return useYn;
+    }
+
+    public void setUseYn(Boolean useYn) {
+        this.useYn = useYn;
+    }
+
+    public KycStatus getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(KycStatus kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
+    public RiskRating getRiskRating() {
+        return riskRating;
+    }
+
+    public void setRiskRating(RiskRating riskRating) {
+        this.riskRating = riskRating;
+    }
+
+    public LocalDate getValidFrom() {
+        return validFrom;
+    }
+
+    public void setValidFrom(LocalDate validFrom) {
+        this.validFrom = validFrom;
+    }
+
+    public LocalDate getValidTo() {
+        return validTo;
+    }
+
+    public void setValidTo(LocalDate validTo) {
+        this.validTo = validTo;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
 
     public List<BusinessPartnerAccount> getAccounts() {
         return accounts;

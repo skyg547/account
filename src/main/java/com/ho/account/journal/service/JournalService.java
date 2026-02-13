@@ -10,6 +10,7 @@ import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
 import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
+import com.ho.account.ledger.service.LedgerPostingService;
 import com.ho.account.journal.service.JournalRuleService;
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.expenditure.service.BudgetService;
@@ -42,6 +43,7 @@ public class JournalService {
     private final UnsettledService unsettledService;
     private final JournalRuleService journalRuleService;
     private final BudgetService budgetService;
+    private final LedgerPostingService ledgerPostingService;
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
@@ -51,7 +53,8 @@ public class JournalService {
             ClosingService closingService,
             UnsettledService unsettledService,
             JournalRuleService journalRuleService,
-            BudgetService budgetService) {
+            BudgetService budgetService,
+            LedgerPostingService ledgerPostingService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
@@ -60,6 +63,7 @@ public class JournalService {
         this.unsettledService = unsettledService;
         this.journalRuleService = journalRuleService;
         this.budgetService = budgetService;
+        this.ledgerPostingService = ledgerPostingService;
     }
 
     // 전표 생성
@@ -78,8 +82,15 @@ public class JournalService {
         journalEntry.setSlipNo(slipNo);
         journalEntry.setStatus(JournalEntryStatus.DRAFT);
 
+        if (journalEntry.getAuditUser() == null) {
+            journalEntry.setAuditUser(journalEntry.getCreatedBy() != null ? journalEntry.getCreatedBy() : "SYSTEM");
+        }
+
         for (JournalDetail detail : journalEntry.getDetails()) {
             detail.setJournalEntry(journalEntry);
+            if (detail.getAuditUser() == null) {
+                detail.setAuditUser(journalEntry.getAuditUser());
+            }
         }
 
         return journalEntryRepository.save(journalEntry);
@@ -135,8 +146,15 @@ public class JournalService {
 
         existingEntry.clearDetails();
         for (JournalDetail detail : journalEntryDetails.getDetails()) {
+            if (detail.getAuditUser() == null) {
+                detail.setAuditUser(
+                        journalEntryDetails.getAuditUser() != null ? journalEntryDetails.getAuditUser() : "SYSTEM");
+            }
             existingEntry.addDetail(detail);
         }
+
+        existingEntry.setAuditUser(
+                journalEntryDetails.getAuditUser() != null ? journalEntryDetails.getAuditUser() : "SYSTEM");
 
         validateJournalEntry(existingEntry);
 
@@ -206,7 +224,10 @@ public class JournalService {
 
         entry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(entry);
-        // TODO: GL 잔액 업데이트 로직 호출 (예: LedgerService.updateGlBalances(entry))
+
+        // GL 잔액 업데이트 호출
+        ledgerPostingService.postToLedger(entry);
+
         System.out.println("Journal Entry " + entry.getSlipNo() + " has been posted to GL.");
     }
 

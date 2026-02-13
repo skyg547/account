@@ -36,28 +36,105 @@ public class APPayment { // Renamed class
     @Column(length = 20)
     private String status; // COMPLETED, FAILED, PENDING, PARTIALLY_APPLIED
 
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @Column(length = 50)
+    private String auditUser;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.auditUser == null)
+            this.auditUser = "SYSTEM";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public ExpenditureResolution getExpenditureResolution() { return expenditureResolution; }
-    public void setExpenditureResolution(ExpenditureResolution expenditureResolution) { this.expenditureResolution = expenditureResolution; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public TaxInvoice getTaxInvoice() { return taxInvoice; }
-    public void setTaxInvoice(TaxInvoice taxInvoice) { this.taxInvoice = taxInvoice; }
+    public ExpenditureResolution getExpenditureResolution() {
+        return expenditureResolution;
+    }
 
-    public LocalDateTime getPaymentDate() { return paymentDate; }
-    public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
+    public void setExpenditureResolution(ExpenditureResolution expenditureResolution) {
+        this.expenditureResolution = expenditureResolution;
+    }
 
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public TaxInvoice getTaxInvoice() {
+        return taxInvoice;
+    }
 
-    public BigDecimal getUnappliedAmount() { return unappliedAmount; }
-    public void setUnappliedAmount(BigDecimal unappliedAmount) { this.unappliedAmount = unappliedAmount; }
+    public void setTaxInvoice(TaxInvoice taxInvoice) {
+        this.taxInvoice = taxInvoice;
+    }
 
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public LocalDateTime getPaymentDate() {
+        return paymentDate;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setPaymentDate(LocalDateTime paymentDate) {
+        this.paymentDate = paymentDate;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public BigDecimal getUnappliedAmount() {
+        return unappliedAmount;
+    }
+
+    public void setUnappliedAmount(BigDecimal unappliedAmount) {
+        this.unappliedAmount = unappliedAmount;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getAuditUser() {
+        return auditUser;
+    }
+
+    public void setAuditUser(String auditUser) {
+        this.auditUser = auditUser;
+    }
 }
