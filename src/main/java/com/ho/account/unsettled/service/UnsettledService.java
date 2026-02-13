@@ -48,7 +48,7 @@ public class UnsettledService {
     // 특정 거래처, 특정 계정의 가장 오래된 미결부터 차감
     public void autoSettle(String businessPartnerCode, String accountCode, BigDecimal amount) {
         List<UnsettledItem> items = unsettledItemRepository.findByBusinessPartnerBusinessPartnerCodeAndStatusNot(businessPartnerCode, "CLEARED");
-        // 날짜순 정렬 필요 (Repository 쿼리에서 정렬하거나 여기서 정렬)
+        // 날짜순 정렬 필요 (Repository 쿼리 또는 여기서 정렬)
         
         BigDecimal remainingToSettle = amount;
 
