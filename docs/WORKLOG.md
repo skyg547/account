@@ -60,3 +60,17 @@
 - Created FixedAssetController with endpoints for registration, monthly depreciation, disposal, and retrieval.
 - Generated SQL DDL for ixed_assets table and saved it to docs/db/fixed_asset_schema.sql.
 - Created FixedAssetIntegrationTest to cover Acquisition -> Depreciation -> Disposal, with comprehensive journal entry verification.
+
+## [2026-02-14] Task Started: Order-to-Cash (O2C) / Accounts Receivable (AR) Module Implementation
+- Implementing O2C/AR module as per user request.
+- DoD: Define automatic matching rate target + enable unmatched queue operation.
+- Will start by defining core domain entities for sales invoices, receivables, and collections.
+- Completed Order-to-Cash (O2C) / Accounts Receivable (AR) module implementation.
+- New domain entities: SalesInvoice, Receivable, Collection, MatchingRule, UnmatchedCollection and their respective Enums.
+- New repositories for the above entities.
+- Implemented SalesService for sales invoice creation, receivable recognition, and sales journal entry.
+- Implemented CollectionService for payment reception, automatic/manual matching, and managing unmatched collections queue. Also includes matching rule management.
+- New DTOs: SalesInvoiceRequest, CollectionRequest, MatchingRuleRequest, ManualMatchingRequest.
+- New REST Controllers: SalesController and CollectionController for O2C/AR operations.
+- Generated SQL DDL for O2C/AR tables and saved it to docs/db/o2c_ar_schema.sql.
+- Created ARIntegrationTest covering sales invoice creation, collection receipt, automatic/manual matching scenarios, and unmatched queue operation, with comprehensive journal entry verification.
