@@ -74,3 +74,17 @@
 - New REST Controllers: SalesController and CollectionController for O2C/AR operations.
 - Generated SQL DDL for O2C/AR tables and saved it to docs/db/o2c_ar_schema.sql.
 - Created ARIntegrationTest covering sales invoice creation, collection receipt, automatic/manual matching scenarios, and unmatched queue operation, with comprehensive journal entry verification.
+
+## [2026-02-14] Task Started: Purchase-to-Pay (P2P) / Accounts Payable (AP) Module Implementation
+- Implementing P2P/AP module as per user request.
+- DoD: Invoice -> AP -> Payment -> Journal Entry + 2 types of exceptions passed.
+- Will start by defining core domain entities for purchase invoices, payables, and payments.
+- Completed Purchase-to-Pay (P2P) / Accounts Payable (AP) module implementation.
+- New domain entities: PurchaseInvoice (with composite key PurchaseInvoiceId), Payable, Payment, PaymentRun, AdvancePayment and their respective Enums.
+- New repositories for the above entities.
+- Implemented PurchaseService for purchase invoice creation, payable recognition, and purchase journal entry. Includes duplicate invoice check.
+- Implemented PaymentService for payment run management, payment execution, advance payment recording, and offsetting payables with advance payments.
+- New DTOs: PurchaseInvoiceRequest, PaymentRunRequest, ExecutePaymentRequest, AdvancePaymentRequest, OffsetPayableRequest.
+- New REST Controllers: PurchaseController and PaymentController for P2P/AP operations.
+- Generated SQL DDL for P2P/AP tables and saved it to docs/db/p2p_ap_schema.sql.
+- Created APIntegrationTest covering purchase invoice creation, payment execution, advance payment/offset, and partial payment scenarios, with comprehensive journal entry verification to satisfy the DoD.
