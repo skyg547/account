@@ -51,6 +51,15 @@ public class FixedAsset {
     @Column(precision = 19, scale = 2)
     private BigDecimal accumulatedDepreciation = BigDecimal.ZERO; // 현재까지의 감가상각누계액
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal currentBookValue; // 현재 장부가액 (취득원가 - 감가상각누계액)
+
+    @Column(precision = 19, scale = 2)
+    private BigDecimal depreciationAmountPerPeriod; // 기간별 감가상각액
+
+    @Column
+    private LocalDate lastDepreciationDate; // 마지막 감가상각 처리일
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
     private Department department; // 관리 부서
@@ -64,8 +73,36 @@ public class FixedAsset {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null)
+        if (status == null) {
             status = "ACTIVE";
+        }
+        if (currentBookValue == null) {
+            currentBookValue = acquisitionCost;
+        }
+        if (depreciationAmountPerPeriod == null && acquisitionCost != null && usefulLife != null) {
+            // Calculate depreciationAmountPerPeriod based on method
+            calculateDepreciationAmountPerPeriod();
+        }
+        // lastDepreciationDate should be null initially
+    }
+
+    // Helper method to calculate depreciationAmountPerPeriod
+    private void calculateDepreciationAmountPerPeriod() {
+        if ("STRAIGHT_LINE".equals(depreciationMethod)) {
+            if (usefulLife != null && usefulLife > 0) {
+                BigDecimal depreciableAmount = acquisitionCost.subtract(residualValue);
+                // Monthly depreciation for straight-line
+                this.depreciationAmountPerPeriod = depreciableAmount.divide(new BigDecimal(usefulLife * 12), 2, BigDecimal.ROUND_HALF_UP);
+            } else {
+                this.depreciationAmountPerPeriod = BigDecimal.ZERO;
+            }
+        } else if ("DECLINING".equals(depreciationMethod)) {
+            // For declining balance, depreciation is calculated each period on the book value.
+            // So, depreciationAmountPerPeriod will be calculated dynamically in the service.
+            this.depreciationAmountPerPeriod = BigDecimal.ZERO; // Initialize as zero, service will calculate
+        } else {
+            this.depreciationAmountPerPeriod = BigDecimal.ZERO;
+        }
     }
 
     // Getters and Setters
@@ -171,6 +208,30 @@ public class FixedAsset {
 
     public void setDepartment(Department department) {
         this.department = department;
+    }
+
+    public BigDecimal getCurrentBookValue() {
+        return currentBookValue;
+    }
+
+    public void setCurrentBookValue(BigDecimal currentBookValue) {
+        this.currentBookValue = currentBookValue;
+    }
+
+    public BigDecimal getDepreciationAmountPerPeriod() {
+        return depreciationAmountPerPeriod;
+    }
+
+    public void setDepreciationAmountPerPeriod(BigDecimal depreciationAmountPerPeriod) {
+        this.depreciationAmountPerPeriod = depreciationAmountPerPeriod;
+    }
+
+    public LocalDate getLastDepreciationDate() {
+        return lastDepreciationDate;
+    }
+
+    public void setLastDepreciationDate(LocalDate lastDepreciationDate) {
+        this.lastDepreciationDate = lastDepreciationDate;
     }
 
     public String getStatus() {

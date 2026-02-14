@@ -45,3 +45,18 @@
 - Reviewing current code state in LeaseAccountingService and LeaseAccountingIntegrationTest.
 - Test execution of LeaseAccountingIntegrationTest failed due to "insufficient memory" error. This seems to be a persistent JVM memory configuration issue as noted previously.
 - Generated SQL DDL for IFRS 16 lease accounting tables (lease_contracts, ight_of_use_assets, lease_liabilities, lease_payment_schedules) and saved it to docs/db/ifrs16_lease_schema.sql.
+
+## [2026-02-14] Task Started: Fixed Asset (FA) Module Implementation
+- Implementing Fixed Asset module as per user request.
+- DoD: Reproduce journal entries for Acquisition -> Depreciation -> Disposal for one asset.
+- Will investigate existing FixedAsset.java, FixedAssetRepository.java, and FixedAssetService.java.
+- Completed Fixed Asset (FA) module implementation.
+- Modified FixedAsset entity to include currentBookValue, depreciationAmountPerPeriod, and lastDepreciationDate.
+- Enhanced FixedAssetService:
+    - egisterAsset: Now creates acquisition journal entry.
+    - processMonthlyDepreciation: Updated to handle currentBookValue, lastDepreciationDate, and include basic declining balance method.
+    - disposeFixedAsset: New method to handle asset disposal and generate journal entries for gain/loss.
+- Created FixedAssetRequest and FixedAssetDisposalRequest DTOs.
+- Created FixedAssetController with endpoints for registration, monthly depreciation, disposal, and retrieval.
+- Generated SQL DDL for ixed_assets table and saved it to docs/db/fixed_asset_schema.sql.
+- Created FixedAssetIntegrationTest to cover Acquisition -> Depreciation -> Disposal, with comprehensive journal entry verification.
