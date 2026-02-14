@@ -157,7 +157,7 @@ class LoanControllerTest {
 
         mockMvc.perform(post("/api/loan/disbursals")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"loanId": 1, "disbursalDate": "2023-01-01", "disbursedAmount": 1000000, "user": "user1"}"))
+                        .content("{\"loanId\": 1, \"disbursalDate\": \"2023-01-01\", \"disbursedAmount\": 1000000, \"user\": \"user1\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.loanNumber").value("LN001"));
     }
@@ -169,7 +169,7 @@ class LoanControllerTest {
 
         mockMvc.perform(post("/api/loan/amortization-schedules/generate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"loanId": 1, "recalculationDate": "2023-01-01", "newEIR": 0.05, "user": "user1"}"))
+                        .content("{\"loanId\": 1, \"recalculationDate\": \"2023-01-01\", \"newEIR\": 0.05, \"user\": \"user1\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$[0].loanNumber").value("LN001"))
                 .andExpect(jsonPath("$[0].interestIncome").value(4166.67));
@@ -182,7 +182,7 @@ class LoanControllerTest {
 
         mockMvc.perform(post("/api/loan/events")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"loanId": 1, "eventType": "EARLY_REPAYMENT", "eventDate": "2023-04-01", "user": "user1", "newPrincipal": 950000}"))
+                        .content("{\"loanId\": 1, \"eventType\": \"EARLY_REPAYMENT\", \"eventDate\": \"2023-04-01\", \"user\": \"user1\", \"newPrincipal\": 950000}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.loanNumber").value("LN001"))
                 .andExpect(jsonPath("$.reason").value("EARLY_REPAYMENT"));
@@ -194,7 +194,7 @@ class LoanControllerTest {
 
         mockMvc.perform(post("/api/loan/dod-scenario")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"loanId": 1, "user": "dod_tester"}"))
+                        .content("{\"loanId\": 1, \"user\": \"dod_tester\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.loanNumber").value("LN001"))
                 .andExpect(jsonPath("$.reason").value("EARLY_REPAYMENT"));

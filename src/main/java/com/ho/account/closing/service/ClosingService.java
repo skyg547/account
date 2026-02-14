@@ -65,6 +65,25 @@ public class ClosingService {
         this.journalEntryRepository = journalEntryRepository;
     }
 
+    /**
+     * 특정 날짜에 해당하는 회계 기간이 마감되었는지 확인합니다.
+     *
+     * @param date 확인할 날짜
+     * @return 해당 회계 기간이 마감되었으면 true, 아니면 false
+     */
+    @Transactional(readOnly = true)
+    public boolean isClosed(LocalDate date) {
+        // 날짜로부터 회계 기간 (YYYYMM 형식) 결정
+        String fiscalYear = String.valueOf(date.getYear());
+        // 월을 2자리 형식으로 변환
+        String fiscalPeriodStr = String.format("%02d", date.getMonthValue());
+
+        return fiscalPeriodRepository.findByFiscalYearAndFiscalPeriod(fiscalYear, fiscalPeriodStr)
+                .map(fp -> fp.getClosingStatus() == FiscalPeriod.ClosingStatus.CLOSED ||
+                           fp.getClosingStatus() == FiscalPeriod.ClosingStatus.PERMANENTLY_CLOSED)
+                .orElse(false); // 회계 기간을 찾을 수 없으면 마감되지 않은 것으로 간주
+    }
+
     // --- ClosingCalendar (결산 캘린더) 관련 메서드 ---
 
     /**
@@ -396,7 +415,7 @@ public class ClosingService {
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
             // TODO: 리포트 생성 및 링크 reportLink
         } catch (Exception e) {
-            batch.setStatus(ProvisionBatch.ValuationBatchStatus.FAILED); // Using ValuationBatch.ValuationBatchStatus for now, should be ProvisionBatchStatus
+            batch.setStatus(ProvisionBatch.ProvisionBatchStatus.FAILED);
             // TODO: 에러 로깅
             throw new RuntimeException("Provision batch failed for " + provisionType.name() + " in period " + fiscalPeriodId, e);
         }
@@ -463,7 +482,7 @@ public class ClosingService {
         if (!allMandatoryTasksCompleted) {
             // TODO: 실패 사유 상세 로깅 및 알림
             updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); // 또는 FAILED 상태 도입
-            throw new IllegalStateException("Not all mandatory closing tasks are completed for " + calendar.getName());
+            throw new IllegalStateException("Not all mandatory closing tasks are completed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
         }
 
         // 2. 모든 ClosingGate가 PASSED 상태인지 확인
@@ -473,7 +492,7 @@ public class ClosingService {
         if (!allGatesPassed) {
             // TODO: 실패 사유 상세 로깅 및 알림
             updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); // 또는 FAILED 상태 도입
-            throw new IllegalStateException("Not all closing gates are passed for " + calendar.getName());
+            throw new IllegalStateException("Not all closing gates are passed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
         }
 
         // 3. (선택적) 해당 기간의 모든 ReconciliationRun이 SUCCESS 상태 (또는 특정 조건 충족)

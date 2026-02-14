@@ -52,7 +52,8 @@ class ReconciliationControllerTest {
         testUnit.setDescription("Bank statement vs General Ledger reconciliation");
         testUnit.setFrequency(ReconciliationFrequency.DAILY);
         testUnit.setReconciliationType(ReconciliationType.BANK_BOOK);
-        testUnit.setCriteriaJson("{"bankAccount":"123-456", "currency":"KRW"}");
+        String criteriaJson = "{\"bankAccount\":\"123-456\", \"currency\":\"KRW\"}";
+        testUnit.setCriteriaJson(criteriaJson);
         testUnit.setActive(true);
         testUnit.setCreatedAt(LocalDateTime.now());
         testUnit.setUpdatedAt(LocalDateTime.now());
@@ -109,9 +110,14 @@ class ReconciliationControllerTest {
 
         when(reconciliationService.assignDifference(anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(difference);
 
+        ReconciliationDifferenceAssignmentRequestDto assignmentRequest = new ReconciliationDifferenceAssignmentRequestDto();
+        assignmentRequest.setDifferenceId(1L);
+        assignmentRequest.setAssignedToUser("user123");
+        assignmentRequest.setSlaDueDate(LocalDateTime.now().plusDays(7));
+
         mockMvc.perform(post("/api/reconciliation/differences/assign")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"differenceId": 1, "assignedToUser": "user123", "slaDueDate": "" + LocalDateTime.now().plusDays(7) + ""}"))
+                        .content(objectMapper.writeValueAsString(assignmentRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignedToUser").value("user123"))
                 .andExpect(jsonPath("$.status").value("ASSIGNED"));

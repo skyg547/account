@@ -2,6 +2,8 @@ package com.ho.account.reconciliation.web;
 
 import com.ho.account.reconciliation.domain.DifferenceReasonCode;
 import com.ho.account.reconciliation.domain.ReconciliationRule;
+import com.ho.account.reconciliation.domain.ReconciliationDifference; // Added import
+import com.ho.account.reconciliation.domain.ReconciliationRun; // Added import
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import com.ho.account.reconciliation.dto.*;
 import com.ho.account.reconciliation.service.ReconciliationService;

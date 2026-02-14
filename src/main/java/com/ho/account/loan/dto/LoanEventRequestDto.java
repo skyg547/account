@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.math.BigDecimal; // Added import
 import java.time.LocalDate;
 import java.util.Optional; // For Optional fields
 

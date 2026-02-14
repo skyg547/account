@@ -20,6 +20,7 @@ import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import java.math.BigDecimal;
+import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunStatus; // Added import
 import java.util.Collections;
 
 /**
@@ -145,7 +146,7 @@ public class ReconciliationService {
     public List<ReconciliationRule> findRulesByReconciliationUnit(Long unitId) {
         ReconciliationUnit unit = reconciliationUnitRepository.findById(unitId)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationUnit not found with id: " + unitId));
-        return reconciliationRuleRepository.findByReconciliationUnit(unit);
+        return reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit);
     }
     // Note: findByReconciliationUnit method will need to be added to ReconciliationRuleRepository
 
@@ -293,9 +294,27 @@ public class ReconciliationService {
         run = reconciliationRunRepository.save(run);
 
         try {
+            // Declare local variables for reconciliation results
+            BigDecimal sourceAmount = BigDecimal.ZERO;
+            BigDecimal targetAmount = BigDecimal.ZERO;
+            int sourceCount = 0;
+            int targetCount = 0;
+            BigDecimal unmatchedAmount = BigDecimal.ZERO;
+            int unmatchedCount = 0;
+            BigDecimal matchedAmount = BigDecimal.ZERO;
+            int matchedCount = 0;
+
             // 3. 매칭된 항목/금액, 미매칭된 항목/금액 계산 (임시 로직)
             // 실제 구현에서는 각 rule의 ruleDefinitionJson을 파싱하여 복잡한 매칭 로직 수행
             // 이 예시에서는 모든 규칙을 적용하여 최종 차이를 계산한다고 가정
+
+            // TODO: Replace with actual logic to fetch source/target data based on reconciliationUnit and rules.
+            // For now, using dummy values for compilation and basic flow.
+            sourceAmount = new BigDecimal("1000.00"); // Dummy value
+            targetAmount = new BigDecimal("950.00");  // Dummy value
+            sourceCount = 10;
+            targetCount = 9;
+
 
             // 임시 매칭 로직: 단순 금액 불일치 발생 시 차이 생성
             if (sourceAmount.compareTo(targetAmount) != 0) {
@@ -347,13 +366,13 @@ public class ReconciliationService {
             }
 
             // run 객체 업데이트
-            run.setTotalItemsSource(sourceCount);
+            run.setTotalItemsSource((long)sourceCount);
             run.setTotalAmountSource(sourceAmount);
-            run.setTotalItemsTarget(targetCount);
+            run.setTotalItemsTarget((long)targetCount);
             run.setTotalAmountTarget(targetAmount);
-            run.setMatchedItemsCount(matchedCount);
+            run.setMatchedItemsCount((long)matchedCount);
             run.setMatchedAmount(matchedAmount);
-            run.setUnmatchedItemsCount(unmatchedCount);
+            run.setUnmatchedItemsCount((long)unmatchedCount);
             run.setUnmatchedAmount(unmatchedAmount);
             run.setStatus(ReconciliationRunStatus.SUCCESS);
 

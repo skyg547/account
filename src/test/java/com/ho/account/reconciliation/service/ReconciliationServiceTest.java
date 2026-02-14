@@ -72,7 +72,7 @@ class ReconciliationServiceTest {
         testUnit.setDescription("Bank statement vs General Ledger reconciliation");
         testUnit.setFrequency(ReconciliationFrequency.DAILY);
         testUnit.setReconciliationType(ReconciliationType.BANK_BOOK);
-        testUnit.setCriteriaJson("{"bankAccount":"123-456", "currency":"KRW"}");
+        testUnit.setCriteriaJson("{\"bankAccount\":\"123-456\", \"currency\":\"KRW\"}");
         testUnit.setActive(true);
 
         defaultReasonCode = new DifferenceReasonCode();

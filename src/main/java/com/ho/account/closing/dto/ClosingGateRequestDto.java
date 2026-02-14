@@ -1,5 +1,6 @@
 package com.ho.account.closing.dto;
 
+import com.ho.account.closing.domain.ClosingGate; // Added import
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

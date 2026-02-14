@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import com.ho.account.journal.service.JournalService; // Changed from JournalEntryService
 import java.util.List;
 
 @Service
@@ -18,16 +19,33 @@ public class LeaseService {
 
     private final LeaseContractRepository leaseContractRepository;
     private final ExpenditureService expenditureService;
+    private final LeaseAccountingService leaseAccountingService;
+    private final JournalService journalService; // Changed from JournalEntryService
 
     @Autowired
-    public LeaseService(LeaseContractRepository leaseContractRepository, ExpenditureService expenditureService) {
+    public LeaseService(LeaseContractRepository leaseContractRepository,
+                        ExpenditureService expenditureService,
+                        LeaseAccountingService leaseAccountingService,
+                        JournalService journalService) { // Changed from JournalEntryService
         this.leaseContractRepository = leaseContractRepository;
         this.expenditureService = expenditureService;
+        this.leaseAccountingService = leaseAccountingService;
+        this.journalService = journalService; // Changed from JournalEntryService
     }
 
-    // 리스 계약 등록
+    /**
+     * 리스 계약을 등록하고, IFRS 16 적용 대상인 경우 초기 인식을 수행합니다.
+     *
+     * @param contract 등록할 리스 계약 엔티티
+     * @return 등록 및 초기 인식 처리된 리스 계약 엔티티
+     */
     public LeaseContract registerContract(LeaseContract contract) {
-        return leaseContractRepository.save(contract);
+        LeaseContract savedContract = leaseContractRepository.save(contract);
+
+        if (savedContract.isIfrs16Applicable() && !savedContract.isShortTermLease() && !savedContract.isLowValueLease()) {
+            leaseAccountingService.recognizeInitialLease(savedContract);
+        }
+        return savedContract;
     }
 
     // 월 리스료 지급 결의서 자동 생성 (배치 작업용)

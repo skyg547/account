@@ -14,7 +14,7 @@ import lombok.Data;
 public class ClosingCalendarRequestDto {
     @NotBlank
     @Size(min = 4, max = 4)
-    @Pattern(regexp = "\d{4}", message = "Fiscal year must be a 4-digit number")
+    @Pattern(regexp = "\\d{4}", message = "Fiscal year must be a 4-digit number")
     private String fiscalYear;
 
     @NotBlank
