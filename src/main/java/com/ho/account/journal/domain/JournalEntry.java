@@ -14,7 +14,12 @@ import java.util.List;
  * 회계 전표의 헤더 정보를 관리하며, 상태(DRAFT, APPROVED, POSTED 등) 관리와 승인 프로세스를 포함함.
  */
 @Entity
-@Table(name = "journal_entries")
+@Table(name = "journal_entries", indexes = {
+    @Index(name = "idx_journal_entry_slip_no", columnList = "slipNo"),
+    @Index(name = "idx_journal_entry_accounting_date", columnList = "accountingDate"),
+    @Index(name = "idx_journal_entry_status", columnList = "status"),
+    @Index(name = "idx_journal_entry_lineage", columnList = "lineageSourceType, lineageSourceId")
+})
 public class JournalEntry {
 
     @Id

@@ -44,7 +44,7 @@
 - Goal: Complete the implementation and satisfy the DoD by finishing the integration test.
 - Reviewing current code state in LeaseAccountingService and LeaseAccountingIntegrationTest.
 - Test execution of LeaseAccountingIntegrationTest failed due to "insufficient memory" error. This seems to be a persistent JVM memory configuration issue as noted previously.
-- Generated SQL DDL for IFRS 16 lease accounting tables (lease_contracts, ight_of_use_assets, lease_liabilities, lease_payment_schedules) and saved it to docs/db/ifrs16_lease_schema.sql.
+- Generated SQL DDL for IFRS 16 lease accounting tables (lease_contracts, ight_of_use_assets, lease_liabilities, lease_payment_schedules) and saved it to docs/db/ifrs16_lease_schema.sql.
 
 ## [2026-02-14] Task Started: Fixed Asset (FA) Module Implementation
 - Implementing Fixed Asset module as per user request.
@@ -53,12 +53,12 @@
 - Completed Fixed Asset (FA) module implementation.
 - Modified FixedAsset entity to include currentBookValue, depreciationAmountPerPeriod, and lastDepreciationDate.
 - Enhanced FixedAssetService:
-    - egisterAsset: Now creates acquisition journal entry.
+    - egisterAsset: Now creates acquisition journal entry.
     - processMonthlyDepreciation: Updated to handle currentBookValue, lastDepreciationDate, and include basic declining balance method.
     - disposeFixedAsset: New method to handle asset disposal and generate journal entries for gain/loss.
 - Created FixedAssetRequest and FixedAssetDisposalRequest DTOs.
 - Created FixedAssetController with endpoints for registration, monthly depreciation, disposal, and retrieval.
-- Generated SQL DDL for ixed_assets table and saved it to docs/db/fixed_asset_schema.sql.
+- Generated SQL DDL for fixed_assets table and saved it to docs/db/fixed_asset_schema.sql.
 - Created FixedAssetIntegrationTest to cover Acquisition -> Depreciation -> Disposal, with comprehensive journal entry verification.
 
 ## [2026-02-14] Task Started: Order-to-Cash (O2C) / Accounts Receivable (AR) Module Implementation
@@ -88,3 +88,13 @@
 - New REST Controllers: PurchaseController and PaymentController for P2P/AP operations.
 - Generated SQL DDL for P2P/AP tables and saved it to docs/db/p2p_ap_schema.sql.
 - Created APIntegrationTest covering purchase invoice creation, payment execution, advance payment/offset, and partial payment scenarios, with comprehensive journal entry verification to satisfy the DoD.
+
+## [2026-02-14] Task Started: General Ledger (GL) & Sub-Ledger (SL) Module Implementation
+- Implementing GL/SL module as per user request.
+- DoD: Satisfy performance for 3 types of core lookups (Account x Period / Business Partner x Period / Source Tracking).
+- Completed GL/SL module implementation.
+- Created `SlEntry` entity and `SlEntryRepository` to manage Business Partner specific ledger entries.
+- Added lookup methods in `GlEntryRepository` and `SlEntryRepository` to track Lineage (Source Tracking).
+- Implemented `PostingService` that transitions `JournalEntry` to `POSTED` status and incrementally updates `GlBalance` and `SlBalance`.
+- Implemented `GlSlController` exposing REST APIs for posting, GL/SL balance lookups (Drill-down capabilities).
+- Created `GLSLIntegrationTest` mimicking Journal draft -> approve -> post flow, verifying increment changes in balances and lineage drill-down.

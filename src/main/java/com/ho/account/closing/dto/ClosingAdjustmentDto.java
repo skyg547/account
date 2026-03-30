@@ -3,6 +3,8 @@ package com.ho.account.closing.dto;
 import com.ho.account.closing.domain.ClosingAdjustment;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +13,8 @@ import java.time.LocalDateTime;
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ClosingAdjustmentDto {
     private Long id;
     private Long fiscalPeriodId;

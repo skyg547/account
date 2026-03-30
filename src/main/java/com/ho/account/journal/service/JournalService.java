@@ -11,7 +11,7 @@ import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.domain.JournalEntry;
 import com.ho.account.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.ledger.service.LedgerPostingService;
+import com.ho.account.ledger.service.LedgerService;
 // JournalRuleService import removed
 import com.ho.account.closing.service.ClosingService;
 import com.ho.account.expenditure.service.BudgetService;
@@ -48,7 +48,7 @@ public class JournalService {
     private final UnsettledService unsettledService;
     private final JournalRuleService journalRuleService;
     private final BudgetService budgetService;
-    private final LedgerPostingService ledgerPostingService;
+    private final LedgerService ledgerService;
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
@@ -59,7 +59,7 @@ public class JournalService {
             UnsettledService unsettledService,
             JournalRuleService journalRuleService,
             BudgetService budgetService,
-            LedgerPostingService ledgerPostingService) {
+            LedgerService ledgerService) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
@@ -68,7 +68,7 @@ public class JournalService {
         this.unsettledService = unsettledService;
         this.journalRuleService = journalRuleService;
         this.budgetService = budgetService;
-        this.ledgerPostingService = ledgerPostingService;
+        this.ledgerService = ledgerService;
     }
 
     // 전표 생성
@@ -242,8 +242,9 @@ public class JournalService {
         entry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(entry);
 
-        // GL 잔액 업데이트 호출
-        ledgerPostingService.postToLedger(entry);
+        for (JournalDetail detail : entry.getDetails()) {
+            ledgerService.updateLedgerBalances(detail, entry.getAccountingDate());
+        }
 
         System.out.println("Journal Entry " + entry.getSlipNo() + " has been posted to GL.");
     }
@@ -256,6 +257,17 @@ public class JournalService {
     @Transactional(readOnly = true)
     public Optional<JournalEntry> getJournalEntryBySlipNo(String slipNo) {
         return journalEntryRepository.findBySlipNo(slipNo);
+    }
+
+    /**
+     * 특정 ID의 JournalEntry와 연관된 JournalDetail을 함께 조회합니다.
+     * Drill-down 기능을 위해 사용됩니다.
+     * @param id 조회할 JournalEntry의 ID
+     * @return JournalEntry (존재하지 않을 경우 Optional.empty())
+     */
+    @Transactional(readOnly = true)
+    public Optional<JournalEntry> getJournalEntryWithDetails(Long id) {
+        return journalEntryRepository.findByIdWithDetails(id);
     }
 
     private void validateJournalEntry(JournalEntry entry) {

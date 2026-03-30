@@ -39,7 +39,7 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     private PaymentStatus status; // 지급 상태 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
 
-    @OneToOne(fetch = FetchType.LAзыY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
     private JournalEntry journalEntry; // 지급 처리 전표와의 연결
 

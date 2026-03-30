@@ -42,4 +42,13 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
        List<JournalDetail> findByAccountAndDateRangeForIS(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
+
+       // 특정 기간 내에 전기(POSTED)된 전표의 모든 상세 내역 조회
+       @Query("SELECT jd FROM JournalDetail jd " +
+                     "JOIN jd.journalEntry je " +
+                     "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
+                     "AND je.status = 'POSTED'")
+       List<JournalDetail> findPostedJournalDetailsByAccountingDateBetween(
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate);
 }

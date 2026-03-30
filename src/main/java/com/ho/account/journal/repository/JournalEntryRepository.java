@@ -2,6 +2,8 @@ package com.ho.account.journal.repository;
 
 import com.ho.account.journal.domain.JournalEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query; // Added missing import
+import org.springframework.data.repository.query.Param; // Added missing import
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -36,4 +38,7 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
      * @return 해당하는 분개 전표 리스트
      */
     List<JournalEntry> findByAccountingDateAndLineageSourceId(LocalDate accountingDate, String lineageSourceId);
+
+    @Query("SELECT je FROM JournalEntry je LEFT JOIN FETCH je.details WHERE je.id = :id")
+    Optional<JournalEntry> findByIdWithDetails(@Param("id") Long id);
 }

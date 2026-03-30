@@ -6,12 +6,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 환율 정보 엔티티
+ * 환율 정보 엔티티.
+ * 특정 일자에 적용되는 통화 간의 환율을 관리합니다.
  */
 @Entity
-@Table(name = "exchange_rates", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "base_currency_code", "target_currency_code", "applyDate" })
-})
+@Table(name = "exchange_rates",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"from_currency_code", "to_currency_code", "effective_date"}))
 public class ExchangeRate {
 
     @Id
@@ -19,38 +19,25 @@ public class ExchangeRate {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "base_currency_code", nullable = false)
-    private Currency baseCurrency;
+    @JoinColumn(name = "from_currency_code", referencedColumnName = "code", nullable = false)
+    private Currency fromCurrency; // 기준 통화 (예: USD)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_currency_code", nullable = false)
-    private Currency targetCurrency;
-
-    @Column(nullable = false)
-    private LocalDate applyDate;
+    @JoinColumn(name = "to_currency_code", referencedColumnName = "code", nullable = false)
+    private Currency toCurrency; // 대상 통화 (예: KRW)
 
     @Column(nullable = false, precision = 19, scale = 8)
-    private BigDecimal rate;
+    private BigDecimal rate; // 환율 (예: 1 USD = 1300 KRW)
 
-    @Column(updatable = false)
+    @Column(nullable = false)
+    private LocalDate effectiveDate; // 환율 적용 시작일
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    @Column(length = 50)
-    private String auditUser;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
     }
 
     // Getters and Setters
@@ -62,28 +49,20 @@ public class ExchangeRate {
         this.id = id;
     }
 
-    public Currency getBaseCurrency() {
-        return baseCurrency;
+    public Currency getFromCurrency() {
+        return fromCurrency;
     }
 
-    public void setBaseCurrency(Currency baseCurrency) {
-        this.baseCurrency = baseCurrency;
+    public void setFromCurrency(Currency fromCurrency) {
+        this.fromCurrency = fromCurrency;
     }
 
-    public Currency getTargetCurrency() {
-        return targetCurrency;
+    public Currency getToCurrency() {
+        return toCurrency;
     }
 
-    public void setTargetCurrency(Currency targetCurrency) {
-        this.targetCurrency = targetCurrency;
-    }
-
-    public LocalDate getApplyDate() {
-        return applyDate;
-    }
-
-    public void setApplyDate(LocalDate applyDate) {
-        this.applyDate = applyDate;
+    public void setToCurrency(Currency toCurrency) {
+        this.toCurrency = toCurrency;
     }
 
     public BigDecimal getRate() {
@@ -94,19 +73,19 @@ public class ExchangeRate {
         this.rate = rate;
     }
 
+    public LocalDate getEffectiveDate() {
+        return effectiveDate;
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate) {
+        this.effectiveDate = effectiveDate;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public String getAuditUser() {
-        return auditUser;
-    }
-
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

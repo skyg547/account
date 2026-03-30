@@ -12,7 +12,13 @@ import java.time.LocalDateTime;
  * 분개 전표의 개별 라인(차변/대변)을 관리하며, 계정과목, 금액, 귀속부서 등을 포함함.
  */
 @Entity
-@Table(name = "journal_details")
+@Table(name = "journal_details", indexes = {
+    @Index(name = "idx_journal_detail_journal_entry_id", columnList = "journal_entry_id"),
+    @Index(name = "idx_journal_detail_account_subject_id", columnList = "account_code"),
+    @Index(name = "idx_journal_detail_department_id", columnList = "dept_code"),
+    @Index(name = "idx_journal_detail_business_partner_id", columnList = "business_partner_code"),
+    @Index(name = "idx_journal_detail_drcr_type", columnList = "drcrType")
+})
 public class JournalDetail {
 
     @Id

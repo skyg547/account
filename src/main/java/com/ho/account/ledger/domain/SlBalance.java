@@ -1,7 +1,9 @@
 package com.ho.account.ledger.domain;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Currency;
+import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.basic.domain.Department;
+import com.ho.account.basic.domain.Currency; // Added missing import for Currency
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -10,16 +12,16 @@ import java.time.LocalDateTime;
 import java.util.List; // Added missing import for List
 
 /**
- * 총계정원장 잔액 (General Ledger Balance) 엔티티
- * 특정 계정과목의 일별 및 월별 잔액 정보를 기록합니다.
+ * 보조원장 잔액 (Subsidiary Ledger Balance) 엔티티
+ * 특정 계정과목, 거래처, 부서 조합의 일별 및 월별 잔액 정보를 기록합니다.
  */
 @Entity
-@Table(name = "gl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
+@Table(name = "sl_balances", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"account_subject_id", "business_partner_id", "department_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-    @Index(name = "idx_gl_balance_account_date", columnList = "account_subject_id, balanceDate")
+    @Index(name = "idx_sl_balance_account_bp_date", columnList = "account_subject_id, business_partner_id, balanceDate")
 })
-public class GlBalance {
+public class SlBalance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,6 +30,14 @@ public class GlBalance {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_subject_id", nullable = false)
     private AccountSubject accountSubject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_partner_id")
+    private BusinessPartner businessPartner; // 거래처 (선택 사항)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department; // 귀속부서 (선택 사항)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
@@ -82,6 +92,22 @@ public class GlBalance {
 
     public void setAccountSubject(AccountSubject accountSubject) {
         this.accountSubject = accountSubject;
+    }
+
+    public BusinessPartner getBusinessPartner() {
+        return businessPartner;
+    }
+
+    public void setBusinessPartner(BusinessPartner businessPartner) {
+        this.businessPartner = businessPartner;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 
     public LocalDate getBalanceDate() {
@@ -152,4 +178,3 @@ public class GlBalance {
         this.currency = currency;
     }
 }
-

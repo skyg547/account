@@ -58,7 +58,7 @@ public class CollectionController {
      */
     @PostMapping("/{collectionId}/auto-match")
     public ResponseEntity<String> triggerAutoMatch(@PathVariable Long collectionId) {
-        Collection collection = collectionService.collectionRepository.findById(collectionId)
+        Collection collection = collectionService.findById(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("수금을 찾을 수 없습니다: " + collectionId));
         collectionService.attemptAutoMatching(collection);
         return ResponseEntity.ok("Auto matching attempted for collection ID: " + collectionId);

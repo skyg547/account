@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime; // Added missing import
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -348,6 +349,16 @@ public class CollectionService {
      */
     public List<MatchingRule> getAllActiveMatchingRules() {
         return matchingRuleRepository.findByIsActiveOrderByPriorityAsc(true);
+    }
+
+    /**
+     * 특정 ID로 수금 내역을 조회합니다.
+     * @param id 조회할 수금 ID
+     * @return 수금 엔티티
+     */
+    @Transactional(readOnly = true)
+    public Optional<Collection> findById(Long id) {
+        return collectionRepository.findById(id);
     }
 
     // TODO: 연체/대손/손상 연계 로직 (정책 범위) - SalesService 또는 별도 서비스에서 관리

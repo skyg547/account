@@ -21,4 +21,6 @@ public interface GlEntryRepository extends JpaRepository<GlEntry, Long> {
     BigDecimal sumNetAmount(@Param("account") AccountSubject account,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    List<GlEntry> findByLineageSourceTypeAndLineageSourceId(String sourceType, String sourceId);
 }
