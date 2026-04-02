@@ -26,7 +26,7 @@ public class TrialBalanceDTO {
         this.endBalanceCr = endBalanceCr;
     }
 
-    // Getters
+    // Getter
     public String getAccountCode() {
         return accountCode;
     }

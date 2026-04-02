@@ -37,7 +37,7 @@ public class AccountSubjectRequestDto {
         return entity;
     }
 
-    // Getters
+    // Getter
     public String getCode() { return code; }
     public String getName() { return name; }
     public String getParentCode() { return parentCode; }

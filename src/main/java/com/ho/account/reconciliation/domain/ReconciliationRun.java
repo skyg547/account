@@ -87,7 +87,7 @@ public class ReconciliationRun {
         RUNNING, SUCCESS, FAILED, PARTIAL
     }
 
-    // --- Getters and Setters ---
+    // --- Getter 및 Setter ---
     public Long getId() {
         return id;
     }

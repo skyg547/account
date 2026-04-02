@@ -3,13 +3,13 @@ package com.ho.account.ledger.domain;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency; // Added missing import for Currency
+import com.ho.account.basic.domain.Currency; // 누락된 Currency import 추가
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.LocalDateTime;
-import java.util.List; // Added missing import for List
+import java.util.List; // 누락된 List import 추가
 
 /**
  * 보조원장 잔액 (Subsidiary Ledger Balance) 엔티티
@@ -77,7 +77,7 @@ public class SlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

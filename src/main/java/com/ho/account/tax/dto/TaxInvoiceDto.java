@@ -52,7 +52,7 @@ public class TaxInvoiceDto {
         );
     }
 
-    // Getters
+    // Getter
     public Long getId() {
         return id;
     }

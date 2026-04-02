@@ -45,7 +45,7 @@ public class FixedAssetRequest {
     @NotBlank(message = "관리 부서 코드는 필수입니다.")
     private String departmentCode;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getAssetCode() {
         return assetCode;
     }

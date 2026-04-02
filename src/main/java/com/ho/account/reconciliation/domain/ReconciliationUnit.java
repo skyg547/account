@@ -71,7 +71,7 @@ public class ReconciliationUnit {
         AR_AP_RECEIPT // 채권/채무 vs 수금/지급
     }
 
-    // --- Getters and Setters ---
+    // --- Getter 및 Setter ---
     public Long getId() {
         return id;
     }

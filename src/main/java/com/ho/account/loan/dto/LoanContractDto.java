@@ -92,7 +92,7 @@ public class LoanContractDto {
         );
     }
 
-    // Getters (Setters are generally not needed for DTOs unless for specific use cases like deserialization)
+    // Getter (DTO는 보통 Setter가 필요 없지만 역직렬화 등 특정 용도에서는 예외)
     public Long getId() {
         return id;
     }

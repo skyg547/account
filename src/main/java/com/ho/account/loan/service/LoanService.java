@@ -47,6 +47,7 @@ public class LoanService {
     private final DeferredItemRepository deferredItemRepository;
     private final EIRAmortizationScheduleRepository eirAmortizationScheduleRepository;
     private final RecalculationRunRepository recalculationRunRepository;
+    private final EIRCalculator eirCalculator;
 
     private final BusinessPartnerRepository businessPartnerRepository;
     private final CurrencyRepository currencyRepository;
@@ -62,6 +63,7 @@ public class LoanService {
                        DeferredItemRepository deferredItemRepository,
                        EIRAmortizationScheduleRepository eirAmortizationScheduleRepository,
                        RecalculationRunRepository recalculationRunRepository,
+                       EIRCalculator eirCalculator,
                        BusinessPartnerRepository businessPartnerRepository,
                        CurrencyRepository currencyRepository,
                        AccountSubjectRepository accountSubjectRepository,
@@ -74,6 +76,7 @@ public class LoanService {
         this.deferredItemRepository = deferredItemRepository;
         this.eirAmortizationScheduleRepository = eirAmortizationScheduleRepository;
         this.recalculationRunRepository = recalculationRunRepository;
+        this.eirCalculator = eirCalculator;
         this.businessPartnerRepository = businessPartnerRepository;
         this.currencyRepository = currencyRepository;
         this.accountSubjectRepository = accountSubjectRepository;
@@ -97,11 +100,15 @@ public class LoanService {
         loan.setBusinessPartner(bp);
         loan.setCurrency(currency);
 
-        // TODO: 초기 EIR 계산 로직 구현 (복잡한 재무 계산이 필요)
-        // 임시로 명목 이자율을 EIR로 설정
-        if (loan.getInitialEIR() == null) {
+        // 초기 EIR 계산 (이연 항목이 아직 없을 수 있으므로 명목 이자율로 초기화할 수도 있음)
+        // 만약 대출 생성 시 이미 이연 수수료 정보가 포함되어 있다면 여기서 계산 가능
+        List<DeferredItem> deferredItems = deferredItemRepository.findByLoan(loan);
+        if (!deferredItems.isEmpty()) {
+            loan.setInitialEIR(eirCalculator.calculateEIR(loan, deferredItems));
+        } else {
             loan.setInitialEIR(loan.getInterestRate());
         }
+        
         loan.setCurrentEIR(loan.getInitialEIR());
         loan.setStatus(LoanStatus.ACTIVE);
         return loanRepository.save(loan);
@@ -238,78 +245,116 @@ public class LoanService {
 
     /**
      * 대출의 EIR 상각 스케줄을 생성합니다. (최초 실행 시 또는 재계산 시)
-     * 이 메서드는 복잡한 재무 계산 로직을 포함합니다.
      * @param loanId 스케줄을 생성할 대출 ID
      * @param recalculationDate 재계산일 (최초 생성 시에는 대출 실행일)
-     * @param newEIR 적용할 새로운 EIR
+     * @param eirPercent 적용할 유효이자율 (연율, %)
      * @param user 생성자
      * @return 생성된 상각 스케줄 목록
      */
-    public List<EIRAmortizationSchedule> generateAmortizationSchedule(Long loanId, LocalDate recalculationDate, BigDecimal newEIR, String user) {
+    public List<EIRAmortizationSchedule> generateAmortizationSchedule(Long loanId, LocalDate recalculationDate, BigDecimal eirPercent, String user) {
         Loan loan = findLoanById(loanId);
-        // TODO: 기존 스케줄이 재계산으로 인해 무효화되는 경우 처리
-        // TODO: DeferredItem의 잔여 금액과 상각 종료일까지의 기간을 고려하여 EIR 재계산 로직 구현
+        List<DeferredItem> deferredItems = deferredItemRepository.findByLoan(loan);
+        
+        // EIR (연율, %) -> 월 이자율
+        BigDecimal monthlyEir = eirPercent.divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
+        BigDecimal monthlyNominalRate = loan.getInterestRate().divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
 
-        // 임시 스케줄 생성 로직 (실제 EIR 계산 로직으로 대체 필요)
-        BigDecimal outstandingBalance = loan.getPrincipalAmount(); // 최초에는 원금
-        LocalDate currentDate = recalculationDate;
+        BigDecimal outstandingPrincipal = loan.getPrincipalAmount();
+        BigDecimal outstandingDeferred = deferredItems.stream()
+                .filter(item -> item.getStatus() != DeferredItem.DeferredItemStatus.CANCELLED)
+                .map(DeferredItem::getRemainingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 총 잔여 회차 계산
+        long remainingMonths = java.time.temporal.ChronoUnit.MONTHS.between(recalculationDate, loan.getMaturityDate());
+        if (remainingMonths <= 0) remainingMonths = 1;
+
+        // 기존 스케줄 비활성화 (재계산 시)
+        List<EIRAmortizationSchedule> oldSchedules = eirAmortizationScheduleRepository.findByLoan(loan);
+        oldSchedules.stream()
+                .filter(s -> !s.getScheduleDate().isBefore(recalculationDate))
+                .forEach(s -> {
+                    s.setRecalculated(true);
+                    eirAmortizationScheduleRepository.save(s);
+                });
+
         List<EIRAmortizationSchedule> schedule = new java.util.ArrayList<>();
+        LocalDate currentDate = recalculationDate;
 
-        // 3개월 상각 예시를 위한 루프 (DoD 충족을 위해)
-        for (int i = 0; i < 3; i++) {
+        for (int i = 1; i <= remainingMonths; i++) {
+            BigDecimal beginningCarryingAmount = outstandingPrincipal.add(outstandingDeferred);
+            
+            // 1. 이자 수익 = 기초 장부가액 * EIR (월)
+            BigDecimal interestIncome = beginningCarryingAmount.multiply(monthlyEir).setScale(2, RoundingMode.HALF_UP);
+            
+            // 2. 명목 이자 = 기초 원금 * 명목 이자율 (월)
+            BigDecimal nominalInterest = outstandingPrincipal.multiply(monthlyNominalRate).setScale(2, RoundingMode.HALF_UP);
+            
+            // 3. 이연 상각액 = 이자 수익 - 명목 이자
+            BigDecimal deferredAmortization = interestIncome.subtract(nominalInterest).setScale(2, RoundingMode.HALF_UP);
+            
+            // 4. 원금 상환 (원리금 균등 PMT 가정 - 단순화)
+            double p = loan.getPrincipalAmount().doubleValue();
+            double r = monthlyNominalRate.doubleValue();
+            long totalN = java.time.temporal.ChronoUnit.MONTHS.between(loan.getDisbursalDate(), loan.getMaturityDate());
+            if (totalN <= 0) totalN = 1;
+            double pmtValue = (p * r) / (1 - Math.pow(1 + r, -totalN));
+            BigDecimal totalPayment = BigDecimal.valueOf(pmtValue).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal principalRepayment = totalPayment.subtract(nominalInterest).setScale(2, RoundingMode.HALF_UP);
+
+            if (i == remainingMonths) {
+                principalRepayment = outstandingPrincipal; // 마지막 회차 잔액 조정
+            }
+
             EIRAmortizationSchedule entry = new EIRAmortizationSchedule();
             entry.setLoan(loan);
             entry.setScheduleDate(currentDate.plusMonths(i));
-            entry.setBeginningBalance(outstandingBalance);
-
-            // 단순 계산 (실제 EIR 공식과 다름)
-            BigDecimal monthlyInterestRate = newEIR.divide(BigDecimal.valueOf(1200), 8, RoundingMode.HALF_UP); // 연이율 12개월
-            BigDecimal interest = outstandingBalance.multiply(monthlyInterestRate).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal principalRepayment = BigDecimal.valueOf(1000); // 임의의 원금 상환액
-            BigDecimal deferredAmortization = BigDecimal.valueOf(10); // 임의의 이연 상각액
-
-            entry.setInterestIncome(interest);
+            entry.setBeginningBalance(beginningCarryingAmount);
+            entry.setInterestIncome(interestIncome);
             entry.setPrincipalRepayment(principalRepayment);
             entry.setDeferredItemAmortization(deferredAmortization);
-            entry.setCashFlow(principalRepayment.add(interest)); // 임시
-
-            outstandingBalance = outstandingBalance.subtract(principalRepayment);
-            entry.setEndingBalance(outstandingBalance);
+            entry.setCashFlow(principalRepayment.add(nominalInterest));
+            
+            outstandingPrincipal = outstandingPrincipal.subtract(principalRepayment);
+            outstandingDeferred = outstandingDeferred.subtract(deferredAmortization);
+            entry.setEndingBalance(outstandingPrincipal.add(outstandingDeferred));
             entry.setAuditUser(user);
 
-            // 상각 분개 생성 (예: 대출채권 감소, 이자수익 증가, 이연자산 감소)
+            // 상각 분개 생성
             AccountSubject loanReceivableAccount = accountSubjectRepository.findById("131000").orElseThrow();
             AccountSubject interestIncomeAccount = accountSubjectRepository.findById("401000").orElseThrow();
-            AccountSubject deferredAssetAccount = accountSubjectRepository.findById("171000").orElseThrow(); // 예: 이연대출부대손익
+            AccountSubject deferredAssetAccount = accountSubjectRepository.findById("171000").orElseThrow();
 
+            // 원금/이자 회수 분개
             JournalEntry amortizationJe = createAutomatedJournalEntry(
                     entry.getScheduleDate(),
-                    loan.getLoanNumber() + " " + (i + 1) + "차 상각 분개",
+                    loan.getLoanNumber() + " " + i + "차 원리금 회수 및 이자수익",
                     user,
                     "EIR_AMORTIZATION",
-                    entry.getId() != null ? entry.getId().toString() : "NEW_" + i,
-                    principalRepayment.add(interest), // 총 현금흐름
-                    loanReceivableAccount, // 대변: 원금 회수
-                    interestIncomeAccount // 차변: 이자 수익 인식
+                    loan.getId().toString(),
+                    entry.getCashFlow(),
+                    loanReceivableAccount, // 대변: 원금 감소 (단순화)
+                    interestIncomeAccount // 차변: 이자 수익 (실제로는 현금 차변, 이자수익 대변 등 복잡함)
             );
-            // 추가: 이연 항목 상각 분개
-            JournalEntry deferredAmortizationJe = createAutomatedJournalEntry(
-                    entry.getScheduleDate(),
-                    loan.getLoanNumber() + " " + (i + 1) + "차 이연 항목 상각",
-                    user,
-                    "DEFERRED_ITEM_AMORT",
-                    deferredItemRepository.findByLoan(loan).stream().findFirst().map(DeferredItem::getId).orElse(0L).toString(), // 첫번째 이연항목 ID 사용
-                    deferredAmortization,
-                    deferredAssetAccount, // 대변: 이연 자산 감소
-                    interestIncomeAccount // 차변: 이자 수익으로 인식
-            );
-
             entry.setAmortizationJournalEntry(amortizationJe);
-            // TODO: DeferredItem의 remainingAmount 업데이트
+
             schedule.add(entry);
             eirAmortizationScheduleRepository.save(entry);
         }
-        loan.setCurrentEIR(newEIR); // EIR 업데이트
+        
+        // DeferredItem 잔액 업데이트 (단순화: 첫 번째 항목에 모두 반영)
+        if (!deferredItems.isEmpty()) {
+            DeferredItem firstItem = deferredItems.get(0);
+            firstItem.setRemainingAmount(outstandingDeferred);
+            if (outstandingDeferred.compareTo(BigDecimal.ZERO) <= 0) {
+                firstItem.setStatus(DeferredItem.DeferredItemStatus.FULLY_AMORTIZED);
+            } else {
+                firstItem.setStatus(DeferredItem.DeferredItemStatus.AMORTIZING);
+            }
+            deferredItemRepository.save(firstItem);
+        }
+
+        loan.setCurrentEIR(eirPercent);
         loanRepository.save(loan);
         return schedule;
     }
@@ -338,22 +383,41 @@ public class LoanService {
         run.setOldMaturityDate(loan.getMaturityDate());
         run.setAuditUser(user);
 
-        // TODO: 실제 재계산 로직 구현 (새로운 EIR, 만기일, 스케줄 등)
-        BigDecimal recalculatedEIR = loan.getInterestRate().add(BigDecimal.valueOf(0.001)); // 임의의 새로운 EIR
-        LocalDate recalculatedMaturityDate = newMaturityDate.orElse(loan.getMaturityDate().plusMonths(1)); // 임의의 새로운 만기일
+        // 원금 또는 만기일 업데이트
+        newPrincipal.ifPresent(loan::setPrincipalAmount);
+        newMaturityDate.ifPresent(loan::setMaturityDate);
 
-        // 기존 스케줄 마킹 또는 비활성화
+        // 새로운 EIR 계산
+        List<DeferredItem> deferredItems = deferredItemRepository.findByLoan(loan);
+        BigDecimal recalculatedEIR = eirCalculator.calculateEIR(loan, deferredItems);
+        
+        run.setNewEIR(recalculatedEIR);
+        run.setNewMaturityDate(loan.getMaturityDate());
+
         // 새로운 스케줄 생성
         List<EIRAmortizationSchedule> newSchedule = generateAmortizationSchedule(loanId, eventDate, recalculatedEIR, user);
-        run.setRecalculatedAmortizationScheduleStart(newSchedule.stream().min(Comparator.comparing(EIRAmortizationSchedule::getScheduleDate)).orElse(null));
+        run.setRecalculatedAmortizationScheduleStart(newSchedule.isEmpty() ? null : newSchedule.get(0));
 
-        run.setNewEIR(recalculatedEIR);
-        run.setNewMaturityDate(recalculatedMaturityDate);
-        // TODO: 재계산 영향 분석 impactAnalysis 필드 채우기
-        // TODO: 재계산으로 인한 조정 분개 (adjustmentJournalEntry) 생성 로직
+        // 재계산으로 인한 조정 분개 (단순화: 중도상환 시 차익/차손 등)
+        if (reason == RecalculationReason.EARLY_REPAYMENT && newPrincipal.isPresent()) {
+            BigDecimal repaymentAmount = run.getLoan().getPrincipalAmount().subtract(newPrincipal.get());
+            AccountSubject cashAccount = accountSubjectRepository.findById("101000").orElseThrow();
+            AccountSubject loanReceivableAccount = accountSubjectRepository.findById("131000").orElseThrow();
+
+            JournalEntry adjJe = createAutomatedJournalEntry(
+                    eventDate,
+                    loan.getLoanNumber() + " 중도상환 원금 회수",
+                    user,
+                    "EARLY_REPAYMENT",
+                    loan.getId().toString(),
+                    repaymentAmount,
+                    loanReceivableAccount, // 대변
+                    cashAccount // 차변
+            );
+            run.setAdjustmentJournalEntry(adjJe);
+        }
 
         loan.setCurrentEIR(recalculatedEIR);
-        loan.setMaturityDate(recalculatedMaturityDate);
         loanRepository.save(loan); // 대출 정보 업데이트
 
         return recalculationRunRepository.save(run);

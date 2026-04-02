@@ -25,7 +25,7 @@ public class FinancialStatementDTO {
         this.amount = amount;
     }
 
-    // Getters: 외부에서 필드 값을 읽을 수 있게 해주는 메서드들
+    // Getter: 외부에서 필드 값을 읽을 수 있게 해주는 메서드
     public String getAccountCode() { return accountCode; }
     public String getAccountName() { return accountName; }
     public BigDecimal getAmount() { return amount; }

@@ -31,7 +31,7 @@ public class ExpenditureDetail {
     @Column(length = 200)
     private String description; // 적요
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

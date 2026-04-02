@@ -16,22 +16,22 @@ public class JournalRuleDetail {
     private JournalRule journalRule;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT or CREDIT
+    private String drcrType; // 차변 또는 대변
 
     @Column(nullable = false, length = 100)
-    private String accountSubjectCodeExpression; // e.g., "10100", "${transaction.accountCode}"
+    private String accountSubjectCodeExpression; // 예: "10100", "${transaction.accountCode}"
 
     @Column(nullable = false, length = 100)
-    private String amountExpression; // e.g., "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
+    private String amountExpression; // 예: "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
 
     @Column(length = 255)
-    private String descriptionExpression; // e.g., "매출", "${transaction.description}"
+    private String descriptionExpression; // 예: "매출", "${transaction.description}"
 
     @Column(length = 50)
-    private String businessPartnerCodeExpression; // e.g., "BP001", "${transaction.businessPartnerCode}"
+    private String businessPartnerCodeExpression; // 예: "BP001", "${transaction.businessPartnerCode}"
 
     @Column(length = 50)
-    private String departmentCodeExpression; // e.g., "D001", "${transaction.departmentCode}"
+    private String departmentCodeExpression; // 예: "D001", "${transaction.departmentCode}"
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -54,7 +54,7 @@ public class JournalRuleDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

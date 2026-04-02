@@ -3,7 +3,7 @@ package com.ho.account.ledger.service;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency; // Added missing import for Currency
+import com.ho.account.basic.domain.Currency; // 누락된 Currency import 추가
 import com.ho.account.journal.domain.JournalDetail;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.ledger.domain.GlBalance;
@@ -18,7 +18,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors; // Added missing import for Collectors
+import java.util.stream.Collectors; // 누락된 Collectors import 추가
 
 /**
  * GL(총계정원장) 및 SL(보조원장) 잔액을 관리하는 서비스
@@ -141,14 +141,14 @@ public class LedgerService {
         if (accountSubject != null && currency != null) {
             return glBalanceRepository.findByBalanceDateBetweenAndAccountSubjectAndCurrency(startDate, endDate, accountSubject, currency);
         } else if (accountSubject != null) {
-            // Need a new query method for accountSubject only, or filter in memory
-            // For now, let's assume direct queries for specific combinations.
-            // A more robust solution would use Specification or Querydsl.
+            // accountSubject만 조회하는 새 쿼리 메서드가 필요하거나 메모리에서 필터링해야 함
+            // 우선 특정 조합에 대한 직접 조회 쿼리가 있다고 가정
+            // 더 견고한 방법은 Specification 또는 Querydsl을 사용하는 것
             return glBalanceRepository.findByBalanceDateBetween(startDate, endDate).stream()
                     .filter(b -> b.getAccountSubject().equals(accountSubject))
                     .collect(Collectors.toList());
         } else if (currency != null) {
-            // Need a new query method for currency only
+            // currency만 조회하는 새 쿼리 메서드가 필요함
             return glBalanceRepository.findByBalanceDateBetween(startDate, endDate).stream()
                     .filter(b -> b.getCurrency().equals(currency))
                     .collect(Collectors.toList());
@@ -171,8 +171,8 @@ public class LedgerService {
     public List<SlBalance> getSlBalances(LocalDate startDate, LocalDate endDate,
                                          AccountSubject accountSubject, BusinessPartner businessPartner,
                                          Department department, com.ho.account.basic.domain.Currency currency) {
-        // This method needs more robust filtering logic using Specifications or Querydsl for optimal performance
-        // For simplicity, using in-memory filtering for optional parameters where direct JPA derivation is complex
+        // 최적 성능을 위해 이 메서드는 Specifications 또는 Querydsl 기반의 더 견고한 필터링 로직이 필요함
+        // 단순화를 위해 직접 JPA 메서드 도출이 복잡한 선택 파라미터는 메모리 필터링 사용
         List<SlBalance> results = slBalanceRepository.findByBalanceDateBetween(startDate, endDate);
 
         if (accountSubject != null) {

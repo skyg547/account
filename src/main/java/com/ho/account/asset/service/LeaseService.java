@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import com.ho.account.journal.service.JournalService; // Changed from JournalEntryService
+import com.ho.account.journal.service.JournalService; // 기존 JournalEntryService에서 변경
 import java.util.List;
 
 @Service
@@ -20,17 +20,17 @@ public class LeaseService {
     private final LeaseContractRepository leaseContractRepository;
     private final ExpenditureService expenditureService;
     private final LeaseAccountingService leaseAccountingService;
-    private final JournalService journalService; // Changed from JournalEntryService
+    private final JournalService journalService; // 기존 JournalEntryService에서 변경
 
     @Autowired
     public LeaseService(LeaseContractRepository leaseContractRepository,
                         ExpenditureService expenditureService,
                         LeaseAccountingService leaseAccountingService,
-                        JournalService journalService) { // Changed from JournalEntryService
+                        JournalService journalService) { // 기존 JournalEntryService에서 변경
         this.leaseContractRepository = leaseContractRepository;
         this.expenditureService = expenditureService;
         this.leaseAccountingService = leaseAccountingService;
-        this.journalService = journalService; // Changed from JournalEntryService
+        this.journalService = journalService; // 기존 JournalEntryService에서 변경
     }
 
     /**

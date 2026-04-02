@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-// Unused import removed
+// 사용하지 않는 import 제거
 
 /**
  * 분개 전표(Journal Entry) 엔티티
@@ -109,7 +109,7 @@ public class JournalEntry {
         this.details.clear();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

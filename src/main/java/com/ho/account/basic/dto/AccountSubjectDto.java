@@ -50,7 +50,7 @@ public class AccountSubjectDto {
                 entity.getValidTo());
     }
 
-    // Getters
+    // Getter
     public String getCode() {
         return code;
     }

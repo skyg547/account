@@ -55,7 +55,7 @@ public class LoanAmortizationScheduleEntryDto {
         );
     }
 
-    // Getters
+    // Getter
     public Long getId() {
         return id;
     }

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.LocalDateTime;
-import java.util.List; // Added missing import for List
+import java.util.List; // 누락된 List import 추가
 
 /**
  * 총계정원장 잔액 (General Ledger Balance) 엔티티
@@ -67,7 +67,7 @@ public class GlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

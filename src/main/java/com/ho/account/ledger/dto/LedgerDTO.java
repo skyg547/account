@@ -20,7 +20,7 @@ public class LedgerDTO {
         this.balance = balance;
     }
 
-    // Getters
+    // Getter
     public LocalDate getDate() { return date; }
     public String getSlipNo() { return slipNo; }
     public String getDescription() { return description; }

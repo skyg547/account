@@ -2,8 +2,8 @@ package com.ho.account.journal.repository;
 
 import com.ho.account.journal.domain.JournalEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query; // Added missing import
-import org.springframework.data.repository.query.Param; // Added missing import
+import org.springframework.data.jpa.repository.Query; // 누락된 import 추가
+import org.springframework.data.repository.query.Param; // 누락된 import 추가
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;

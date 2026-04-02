@@ -14,7 +14,7 @@ public interface JournalRuleRepository extends JpaRepository<JournalRule, Long> 
 
     List<JournalRule> findByIsActiveTrueOrderByPriorityAscVersionDesc();
 
-    // For SCD2, find active rules for a given date
+    // SCD2 기준으로 지정 일자의 활성 규칙 조회
     List<JournalRule> findByIsActiveTrueAndValidFromBeforeAndValidToAfterOrValidToIsNullOrderByPriorityAscVersionDesc(
             LocalDate date1, LocalDate date2);
 }

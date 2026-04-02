@@ -70,10 +70,10 @@ public class LedgerIntegrationTest {
     private CurrencyRepository currencyRepository;
 
     @Autowired
-    private LedgerController ledgerController; // Direct controller for testing
+    private LedgerController ledgerController; // 테스트용 직접 컨트롤러
 
     @Autowired
-    private DrilldownController drilldownController; // Direct controller for testing
+    private DrilldownController drilldownController; // 테스트용 직접 컨트롤러
 
     private AccountSubject cashAccount;
     private AccountSubject salesRevenueAccount;
@@ -86,7 +86,7 @@ public class LedgerIntegrationTest {
         // Clear all balances before each test (for re-aggregation tests)
         ledgerService.reaggregateLedgerBalancesForPeriod(LocalDate.MIN, LocalDate.MAX);
 
-        // Setup common test data
+        // 공통 테스트 데이터 설정
         usdCurrency = new Currency();
         usdCurrency.setCode("USD");
         usdCurrency.setName("US Dollar");
@@ -146,7 +146,7 @@ public class LedgerIntegrationTest {
         journalEntry.addDetail(creditDetail);
 
         JournalEntry savedEntry = journalService.createJournalEntry(journalEntry);
-        // Assuming the status flow goes DRAFT -> APPROVED -> POSTED
+        // 상태 흐름이 DRAFT -> APPROVED -> POSTED라고 가정
         savedEntry.setStatus(JournalEntryStatus.APPROVED);
         journalService.postJournalEntry(savedEntry.getId());
         return savedEntry;
@@ -155,12 +155,12 @@ public class LedgerIntegrationTest {
     @Test
     @DisplayName("전표 전기 후 GL/SL 잔액이 올바르게 업데이트되는지 확인")
     void testGlSlBalanceUpdateAfterPosting() throws Exception {
-        // Given
+        // 사전 조건
         LocalDate today = LocalDate.now();
         BigDecimal amount = new BigDecimal("1000.00");
         createAndPostJournalEntry(today, amount, "Test Sale 1", "SALES", "INV001");
 
-        // When & Then - Verify GL Balance
+        // 실행 & 검증 - Verify GL Balance
         mockMvc.perform(get("/api/ledger/gl-balances")
                         .param("startDate", today.toString())
                         .param("endDate", today.toString())
@@ -181,7 +181,7 @@ public class LedgerIntegrationTest {
                 .andExpect(jsonPath("$[0].creditAmount").value(amount.doubleValue()))
                 .andExpect(jsonPath("$[0].endingBalance").value(amount.doubleValue()));
 
-        // When & Then - Verify SL Balance
+        // 실행 & 검증 - Verify SL Balance
         mockMvc.perform(get("/api/ledger/sl-balances")
                         .param("startDate", today.toString())
                         .param("endDate", today.toString())
@@ -200,14 +200,14 @@ public class LedgerIntegrationTest {
     @Test
     @DisplayName("전표 전기 후 GL/SL 잔액이 여러 건에 대해 누적되는지 확인")
     void testGlSlBalanceAccumulation() throws Exception {
-        // Given
+        // 사전 조건
         LocalDate today = LocalDate.now();
         BigDecimal amount1 = new BigDecimal("1000.00");
         BigDecimal amount2 = new BigDecimal("500.00");
         createAndPostJournalEntry(today, amount1, "Test Sale 1", "SALES", "INV001");
-        createAndPostJournalEntry(today, amount2, "Test Sale 2", "INV", "INV002"); // Another entry
+        createAndPostJournalEntry(today, amount2, "Test Sale 2", "INV", "INV002"); // 추가 전표
 
-        // When & Then - Verify GL Balance (Cash account)
+        // 실행 & 검증 - Verify GL Balance (Cash account)
         mockMvc.perform(get("/api/ledger/gl-balances")
                         .param("startDate", today.toString())
                         .param("endDate", today.toString())
@@ -222,11 +222,11 @@ public class LedgerIntegrationTest {
     @Test
     @DisplayName("드릴다운: 전표 ID로 전표 상세 정보 조회")
     void testDrilldownGetJournalEntryDetails() throws Exception {
-        // Given
+        // 사전 조건
         LocalDate today = LocalDate.now();
         JournalEntry postedEntry = createAndPostJournalEntry(today, new BigDecimal("2000.00"), "Drilldown Test Sale", "DRILL", "DRL001");
 
-        // When & Then
+        // 실행 & 검증
         mockMvc.perform(get("/api/drilldown/journal-entry/{journalEntryId}", postedEntry.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(postedEntry.getId()))
@@ -238,20 +238,20 @@ public class LedgerIntegrationTest {
     @Test
     @DisplayName("드릴다운: 전표 ID로 원천 문서 조회")
     void testDrilldownGetSourceDocument() throws Exception {
-        // Given
+        // 사전 조건
         LocalDate today = LocalDate.now();
-        String lineageSourceType = "SALES"; // Assuming SALES maps to SalesInvoice (which SourceDocumentService handles)
+        String lineageSourceType = "SALES"; // SALES가 SalesInvoice(SourceDocumentService 처리 대상)로 매핑된다고 가정
         String lineageSourceId = "TEST_SI_001"; // Needs to be a valid ID for a mock SalesInvoice if we fully integrate
 
         // To properly test this, we would need to mock/create a SalesInvoice and its repository
-        // For now, let's create a dummy entry and expect the service to try and find it.
+        // 우선 더미 전표를 만들어 서비스가 이를 조회하도록 가정
         JournalEntry postedEntry = createAndPostJournalEntry(today, new BigDecimal("1500.00"), "Source Document Test", lineageSourceType, lineageSourceId);
 
-        // When & Then - For a real test, ensure SalesInvoice (or appropriate entity) exists for lineageSourceId
+        // 실행 & 검증 - For a real test, ensure SalesInvoice (or appropriate entity) exists for lineageSourceId
         // Currently, SourceDocumentService would return empty optional if actual SalesInvoice not found
         // We will assert that the call is successful, but for full verification, a mock SalesInvoice might be needed.
         mockMvc.perform(get("/api/drilldown/journal-entry/{journalEntryId}/source-document", postedEntry.getId()))
-                .andExpect(status().isOk()) // Assuming success even if data is just type/empty for now
+                .andExpect(status().isOk()) // 현재는 데이터가 타입 정보만 있거나 비어 있어도 성공으로 간주
                 .andExpect(jsonPath("$.type").value("SalesInvoice")) // As defined in SourceDocumentService for SALES
                 .andExpect(jsonPath("$.data").doesNotExist()); // For this mock test, actual data might not exist
 
@@ -263,7 +263,7 @@ public class LedgerIntegrationTest {
     @Test
     @DisplayName("잔액 재집계 기능 확인 (마감 배치)")
     void testReaggregateBalancesForPeriod() throws Exception {
-        // Given
+        // 사전 조건
         LocalDate date1 = LocalDate.now().minusDays(5);
         LocalDate date2 = LocalDate.now().minusDays(2);
         LocalDate date3 = LocalDate.now().minusDays(1);
@@ -271,7 +271,7 @@ public class LedgerIntegrationTest {
         createAndPostJournalEntry(date1, new BigDecimal("100.00"), "Pre-reagg 1", "PREAGG", "PA001");
         createAndPostJournalEntry(date2, new BigDecimal("200.00"), "Pre-reagg 2", "PREAGG", "PA002");
 
-        // Verify initial state
+        // 초기 상태 검증
         mockMvc.perform(get("/api/ledger/gl-balances")
                         .param("startDate", date1.toString())
                         .param("endDate", date2.toString())
@@ -280,13 +280,13 @@ public class LedgerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].debitAmount").value(300.00));
 
-        // When - Reaggregate for a period that includes the entries
+        // 실행 - Reaggregate for a period that includes the entries
         mockMvc.perform(post("/api/ledger/reaggregate-balances")
                         .param("startDate", date1.toString())
                         .param("endDate", date2.toString()))
                 .andExpect(status().isOk());
 
-        // Then - Balances should still be correct (re-calculated from scratch)
+        // 검증 - Balances should still be correct (re-calculated from scratch)
         mockMvc.perform(get("/api/ledger/gl-balances")
                         .param("startDate", date1.toString())
                         .param("endDate", date2.toString())

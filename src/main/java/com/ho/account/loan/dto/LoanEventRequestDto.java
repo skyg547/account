@@ -8,7 +8,7 @@ import lombok.Data;
 
 import java.math.BigDecimal; // Added import
 import java.time.LocalDate;
-import java.util.Optional; // For Optional fields
+import java.util.Optional; // 선택 필드용
 
 /**
  * 대출 이벤트 (LoanEvent) 요청 DTO
@@ -31,7 +31,7 @@ public class LoanEventRequestDto {
     @Size(max = 50)
     private String user;
 
-    // Optional fields for recalculation
+    // 재계산용 선택 필드
     private Optional<BigDecimal> newPrincipal = Optional.empty();
     private Optional<LocalDate> newMaturityDate = Optional.empty();
 }

@@ -84,9 +84,9 @@ public class APPaymentService {
      */
     @Transactional(readOnly = true)
     public List<APPayment> getAPPaymentsByExpenditureResolution(Long expenditureResolutionId) {
-        // Assuming we might need a custom method in APPaymentRepository for this,
+        // 이 처리를 위해 APPaymentRepository에 사용자 정의 메서드가 필요할 수 있다고 가정
         // or filter from findAll if performance is not an issue for small datasets.
-        // For now, let's assume direct access if no custom method is added.
+        // 현재는 사용자 정의 메서드가 없으면 직접 접근한다고 가정
         return apPaymentRepository.findAll().stream()
                 .filter(p -> p.getExpenditureResolution().getId().equals(expenditureResolutionId))
                 .toList();

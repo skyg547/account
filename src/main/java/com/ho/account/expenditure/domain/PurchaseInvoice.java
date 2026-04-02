@@ -65,7 +65,7 @@ public class PurchaseInvoice {
         }
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getInvoiceNo() {
         return invoiceNo;
     }

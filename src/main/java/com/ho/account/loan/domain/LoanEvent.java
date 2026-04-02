@@ -65,7 +65,7 @@ public class LoanEvent {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

@@ -176,7 +176,7 @@ class ClosingControllerTest {
         requestDto.setCalendarId(10L);
         requestDto.setUser("admin");
 
-        testClosingCalendar.setStatus(ClosingCalendarStatus.CLOSED); // Simulate successful determination
+        testClosingCalendar.setStatus(ClosingCalendarStatus.CLOSED); // 성공 판정을 시뮬레이션
         when(closingService.determineClosingStatus(anyLong(), anyString()))
                 .thenReturn(testClosingCalendar);
 

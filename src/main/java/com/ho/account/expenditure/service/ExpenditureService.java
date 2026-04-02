@@ -193,7 +193,7 @@ public class ExpenditureService {
             existingResolution.setTaxInvoice(null); // Clear if not provided
         }
 
-        // Update Expenditure Details (replace existing ones for simplicity)
+        // 지출 상세 업데이트(단순화를 위해 기존 항목 교체)
         existingResolution.getDetails().clear();
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto : requestDto.getDetails()) {

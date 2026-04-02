@@ -38,7 +38,7 @@ public class DepartmentDto {
         );
     }
 
-    // Getters
+    // Getter
     public String getCode() { return code; }
     public String getName() { return name; }
     public String getParentCode() { return parentCode; }

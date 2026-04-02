@@ -58,7 +58,7 @@ public class Department {
         OTHER // 기타
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getCode() {
         return code;
     }

@@ -1,10 +1,13 @@
 package com.ho.account.loan.service;
 
-import com.ho.account.loan.domain.LoanContract;
+import com.ho.account.loan.domain.DeferredItem;
+import com.ho.account.loan.domain.Loan;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Period;
+import java.util.List;
 
 /**
  * 대출 유효이자율(EIR) 계산기
@@ -19,18 +22,30 @@ public class EIRCalculator {
     /**
      * 대출 계약의 EIR을 계산합니다.
      * 
-     * @param loanContract 대출 계약 (원금, 기간, 이연수수료, 명목이자율 정보 포함)
+     * @param loan 대출 정보 (원금, 명목이자율 정보 포함)
+     * @param deferredItems 이연 항목 목록 (수수료, 비용 등)
      * @return 계산된 유효이자율 (연율, %)
      */
-    public BigDecimal calculateEIR(LoanContract loanContract, int totalPeriods) {
-        BigDecimal principal = loanContract.getPrincipalAmount();
-        BigDecimal fees = loanContract.getDeferredLoanFee(); // 이연대출부대손익 (수익은 +, 비용은 -)
+    public BigDecimal calculateEIR(Loan loan, List<DeferredItem> deferredItems) {
+        BigDecimal principal = loan.getPrincipalAmount();
+        
+        // 이연 항목 합계 계산 (수익은 +, 비용은 -로 처리되어야 함)
+        // DeferredItemType의 성격에 따라 부호를 결정해야 하지만, 여기서는 단순 합산으로 가정
+        BigDecimal fees = deferredItems.stream()
+                .map(DeferredItem::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 순 현금 유출액 (투자액) = 원금 - 수수료 (Fee가 수익이면 투자금이 줄어듦)
         double initialInvestment = principal.subtract(fees).doubleValue();
 
+        // 총 회차 (개월 수)
+        int totalPeriods = Period.between(loan.getDisbursalDate(), loan.getMaturityDate()).getYears() * 12 
+                         + Period.between(loan.getDisbursalDate(), loan.getMaturityDate()).getMonths();
+        
+        if (totalPeriods <= 0) return loan.getInterestRate();
+
         // 원리금 균등 상환액 (PMT) 계산 (명목 이자율 기반)
-        double nominalRate = loanContract.getInterestRate().doubleValue() / 1200.0; // 월 이자율
+        double nominalRate = loan.getInterestRate().doubleValue() / 12.0; // 월 이자율 (0.05 / 12)
         double pmt = (principal.doubleValue() * nominalRate) / (1 - Math.pow(1 + nominalRate, -totalPeriods));
 
         // IRR 계산 (월 이자율)
@@ -55,6 +70,6 @@ public class EIRCalculator {
             r = nextR;
         }
 
-        return loanContract.getInterestRate(); // 수렴 실패 시 명목 이자율 반환
+        return loan.getInterestRate().multiply(BigDecimal.valueOf(100)); // 수렴 실패 시 명목 이자율 반환
     }
 }

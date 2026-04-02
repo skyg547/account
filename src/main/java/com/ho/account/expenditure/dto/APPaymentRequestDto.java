@@ -27,7 +27,7 @@ public class APPaymentRequestDto {
 
     // status는 서비스 내부에서 관리하므로 요청에서는 받지 않음.
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getExpenditureResolutionId() {
         return expenditureResolutionId;
     }

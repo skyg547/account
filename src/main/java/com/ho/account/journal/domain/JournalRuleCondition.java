@@ -24,7 +24,7 @@ public class JournalRuleCondition {
     @Column(nullable = false, length = 255)
     private String value; // The value to compare against
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

@@ -87,7 +87,7 @@ public class SlEntry {
             this.auditUser = "SYSTEM";
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     

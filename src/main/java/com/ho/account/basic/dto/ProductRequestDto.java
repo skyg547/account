@@ -31,7 +31,7 @@ public class ProductRequestDto {
     @NotNull(message = "유효 종료일은 필수입니다.")
     private LocalDate validTo;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getProductCode() {
         return productCode;
     }

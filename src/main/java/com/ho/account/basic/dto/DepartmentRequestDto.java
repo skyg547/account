@@ -26,7 +26,7 @@ public class DepartmentRequestDto {
         return entity;
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 

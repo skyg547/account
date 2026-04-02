@@ -65,6 +65,6 @@ public class FinancialReportingTest {
         // 4. 드릴다운 검증
         List<?> contributors = reportSnapshotService.getContributingJournals(snapshot.getSnapshotId(), "CASH");
         assertNotNull(contributors);
-        // 집계된 전표가 있으면 검증 logic 추가
+        // 집계된 전표가 있으면 검증 로직 추가
     }
 }

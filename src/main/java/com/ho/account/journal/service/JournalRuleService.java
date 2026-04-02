@@ -31,10 +31,10 @@ public class JournalRuleService {
         this.journalRuleDetailRepository = journalRuleDetailRepository;
     }
 
-    // JournalRule CRUD Operations
+    // JournalRule CRUD 작업
 
     public JournalRule createJournalRule(JournalRule journalRule) {
-        // Ensure that conditions and ruleDetails are linked to the rule before saving
+        // 저장 전에 conditions와 ruleDetails가 규칙에 연결되었는지 확인
         journalRule.getConditions().forEach(condition -> condition.setJournalRule(journalRule));
         journalRule.getRuleDetails().forEach(ruleDetail -> ruleDetail.setJournalRule(journalRule));
         return journalRuleRepository.save(journalRule);
@@ -66,15 +66,15 @@ public class JournalRuleService {
         existingRule.setVersion(updatedRule.getVersion());
         existingRule.setActive(updatedRule.isActive());
         existingRule.setPriority(updatedRule.getPriority());
-        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // Assuming createdBy can be updated or set on update
+        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // createdBy가 수정 시 갱신될 수 있다고 가정
 
-        // Handle conditions: clear existing and add new ones
+        // 조건 처리: 기존 항목 제거 후 신규 항목 추가
         existingRule.getConditions().clear();
         updatedRule.getConditions().forEach(condition -> {
             existingRule.addCondition(condition);
         });
 
-        // Handle rule details: clear existing and add new ones
+        // 규칙 상세 처리: 기존 항목 제거 후 신규 항목 추가
         existingRule.getRuleDetails().clear();
         updatedRule.getRuleDetails().forEach(ruleDetail -> {
             existingRule.addRuleDetail(ruleDetail);
@@ -87,7 +87,7 @@ public class JournalRuleService {
         journalRuleRepository.deleteById(id);
     }
 
-    // Method to find active rules for a given date, ordered by priority and version
+    // 지정 일자 기준 활성 규칙을 우선순위와 버전 순으로 조회하는 메서드
     @Transactional(readOnly = true)
     public List<JournalRule> findActiveRules(LocalDate date) {
         return journalRuleRepository.findByIsActiveTrueAndValidFromBeforeAndValidToAfterOrValidToIsNullOrderByPriorityAscVersionDesc(date, date);

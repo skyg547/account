@@ -62,7 +62,7 @@ public class SystemUser {
         this.updateDate = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getUserId() {
         return userId;
     }

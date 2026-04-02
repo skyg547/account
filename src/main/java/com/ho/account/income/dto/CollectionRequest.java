@@ -24,7 +24,7 @@ public class CollectionRequest {
 
     private String referenceNo;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public LocalDate getCollectionDate() {
         return collectionDate;
     }

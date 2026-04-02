@@ -32,7 +32,7 @@ public class Budget {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal usedAmount = BigDecimal.ZERO; // 사용 예산
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

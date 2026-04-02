@@ -66,17 +66,17 @@ public class APIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Clear all repositories for a clean test state
+        // 테스트 상태를 깨끗하게 유지하기 위해 모든 리포지토리 정리
         journalEntryRepository.deleteAll();
         advancePaymentRepository.deleteAll();
         paymentRepository.deleteAll();
         paymentRunRepository.deleteAll();
         payableRepository.deleteAll();
         purchaseInvoiceRepository.deleteAll();
-        businessPartnerRepository.deleteAll(); // Be careful with deleting shared master data
-        accountSubjectRepository.deleteAll(); // Be careful with deleting shared master data
+        businessPartnerRepository.deleteAll(); // 공유 마스터 데이터 삭제에 주의
+        accountSubjectRepository.deleteAll(); // 공유 마스터 데이터 삭제에 주의
 
-        // Setup common test data
+        // 공통 테스트 데이터 설정
         testVendor = new BusinessPartner();
         testVendor.setBusinessPartnerCode("VEND001");
         testVendor.setBusinessPartnerName("테스트 공급업체");
@@ -122,7 +122,7 @@ public class APIntegrationTest {
     @Test
     @DisplayName("매입 인보이스 생성 및 매입채무 인식, 전표 검증")
     void testCreatePurchaseInvoiceAndPayable() {
-        // Given
+        // 사전 조건
         PurchaseInvoice newInvoice = createPurchaseInvoice(
                 "P_INV001", testVendor.getBusinessPartnerCode(),
                 LocalDate.of(2024, 1, 1), LocalDate.of(2024, 1, 31),
@@ -130,10 +130,10 @@ public class APIntegrationTest {
                 "사무용품 구매"
         );
 
-        // When
+        // 실행
         PurchaseInvoice createdInvoice = purchaseService.createPurchaseInvoice(newInvoice);
 
-        // Then
+        // 검증
         assertThat(createdInvoice).isNotNull();
         assertThat(createdInvoice.getInvoiceNo()).isEqualTo("P_INV001");
         assertThat(createdInvoice.getStatus()).isEqualTo(PurchaseInvoiceStatus.RECEIVED);
@@ -145,7 +145,7 @@ public class APIntegrationTest {
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo(createdInvoice.getTotalAmount());
         assertThat(payable.getStatus()).isEqualTo(PayableStatus.OPEN);
 
-        // Verify journal entry for purchase recognition
+        // 매입 인식 전표 검증
         List<JournalEntry> entries = journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(
                 "PURCHASE_INVOICE", createdInvoice.getInvoiceNo() + "_" + createdInvoice.getVendor().getBusinessPartnerCode());
         assertThat(entries).hasSize(1);
@@ -153,19 +153,19 @@ public class APIntegrationTest {
         assertThat(purchaseEntry.getEntryType()).isEqualTo("PURCHASE_RECOGNITION");
         assertThat(purchaseEntry.getDetails()).hasSize(3);
 
-        // Debit: Expense
+        // 차변: 비용
         JournalDetail debitExpense = purchaseEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT") && d.getAccountSubject().getCode().equals(expenseAccount.getCode()))
                 .findFirst().get();
         assertThat(debitExpense.getAmount()).isEqualByComparingTo(createdInvoice.getNetAmount());
 
-        // Debit: VAT Receivable
+        // 차변: 부가세대급금
         JournalDetail debitVat = purchaseEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT") && d.getAccountSubject().getCode().equals(vatReceivableAccount.getCode()))
                 .findFirst().get();
         assertThat(debitVat.getAmount()).isEqualByComparingTo(createdInvoice.getTaxAmount());
 
-        // Credit: AP Account
+        // 대변: AP 계정
         JournalDetail creditAp = purchaseEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("CREDIT") && d.getAccountSubject().getCode().equals(apAccount.getCode()))
                 .findFirst().get();
@@ -175,7 +175,7 @@ public class APIntegrationTest {
     @Test
     @DisplayName("지급 실행 및 전표 검증")
     void testExecutePaymentRunAndPayment() {
-        // Given - 매입 인보이스 생성
+        // 사전 조건 - 매입 인보이스 생성
         PurchaseInvoice invoice = createAndSavePurchaseInvoice(
                 "P_INV002", testVendor.getBusinessPartnerCode(),
                 LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 15),
@@ -184,13 +184,13 @@ public class APIntegrationTest {
         );
         Payable payable = payableRepository.findByPurchaseInvoiceNoAndPurchaseInvoiceVendorCode(invoice.getInvoiceNo(), invoice.getVendor().getBusinessPartnerCode()).orElseThrow();
 
-        // When - 지급 실행 시작
+        // 실행 - 지급 실행 시작
         PaymentRun paymentRun = paymentService.initiatePaymentRun(LocalDate.of(2024, 2, 15), "2월 지급 실행", "SYSTEM");
         List<Payment> paymentsInRun = paymentRepository.findByPaymentRunId(paymentRun.getId());
         assertThat(paymentsInRun).hasSize(1);
         Payment payment = paymentsInRun.get(0);
 
-        // Then - 지급 실행 (executePayment)
+        // 검증 - 지급 실행 (executePayment)
         Payment completedPayment = paymentService.executePayment(payment.getId(), "우리은행 계좌");
 
         assertThat(completedPayment.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
@@ -198,7 +198,7 @@ public class APIntegrationTest {
         assertThat(updatedPayable.getOutstandingAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(updatedPayable.getStatus()).isEqualTo(PayableStatus.PAID);
 
-        // Verify payment journal entry
+        // 지급 전표 검증
         List<JournalEntry> entries = journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(
                 "PAYMENT", completedPayment.getId().toString());
         assertThat(entries).hasSize(1);
@@ -206,13 +206,13 @@ public class APIntegrationTest {
         assertThat(paymentEntry.getEntryType()).isEqualTo("PAYMENT_EXECUTION");
         assertThat(paymentEntry.getDetails()).hasSize(2);
 
-        // Debit: AP Account
+        // 차변: AP 계정
         JournalDetail debitAp = paymentEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT") && d.getAccountSubject().getCode().equals(apAccount.getCode()))
                 .findFirst().get();
         assertThat(debitAp.getAmount()).isEqualByComparingTo(completedPayment.getAmount());
 
-        // Credit: Cash Account
+        // 대변: 현금 계정
         JournalDetail creditCash = paymentEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("CREDIT") && d.getAccountSubject().getCode().equals(cashAccount.getCode()))
                 .findFirst().get();
@@ -222,14 +222,14 @@ public class APIntegrationTest {
     @Test
     @DisplayName("선급금 기록 및 상계 처리 전표 검증")
     void testAdvancePaymentAndOffset() {
-        // Given - 선급금 기록
+        // 사전 조건 - 선급금 기록
         AdvancePayment newAdvancePayment = createAdvancePayment(
                 testVendor.getBusinessPartnerCode(), LocalDate.of(2024, 3, 1),
                 new BigDecimal("50000"), "사전 구매 계약금"
         );
         AdvancePayment recordedAdvancePayment = paymentService.recordAdvancePayment(newAdvancePayment);
         
-        // Given - 매입 인보이스 생성 (선급금 상계 대상)
+        // 사전 조건 - 매입 인보이스 생성 (선급금 상계 대상)
         PurchaseInvoice invoice = createAndSavePurchaseInvoice(
                 "P_INV003", testVendor.getBusinessPartnerCode(),
                 LocalDate.of(2024, 3, 10), LocalDate.of(2024, 3, 31),
@@ -238,11 +238,11 @@ public class APIntegrationTest {
         );
         Payable payable = payableRepository.findByPurchaseInvoiceNoAndPurchaseInvoiceVendorCode(invoice.getInvoiceNo(), invoice.getVendor().getBusinessPartnerCode()).orElseThrow();
 
-        // When - 선급금으로 매입채무 상계
+        // 실행 - 선급금으로 매입채무 상계
         BigDecimal offsetAmount = new BigDecimal("50000");
         Payable updatedPayable = paymentService.offsetPayableWithAdvancePayment(payable.getId(), recordedAdvancePayment.getId(), offsetAmount);
 
-        // Then
+        // 검증
         assertThat(updatedPayable.getOutstandingAmount()).isEqualByComparingTo(new BigDecimal("60000")); // 110,000 - 50,000
         assertThat(updatedPayable.getStatus()).isEqualTo(PayableStatus.PARTIAL_PAID);
 
@@ -250,7 +250,7 @@ public class APIntegrationTest {
         assertThat(updatedAdvancePayment.getOutstandingAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(updatedAdvancePayment.getStatus()).isEqualTo(AdvancePaymentStatus.OFFSET);
 
-        // Verify offset journal entry
+        // 상계 전표 검증
         List<JournalEntry> entries = journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(
                 "PAYABLE_OFFSET", updatedPayable.getId().toString());
         assertThat(entries).hasSize(1);
@@ -258,13 +258,13 @@ public class APIntegrationTest {
         assertThat(offsetEntry.getEntryType()).isEqualTo("AP_ADVANCE_OFFSET");
         assertThat(offsetEntry.getDetails()).hasSize(2);
 
-        // Debit: AP Account
+        // 차변: AP 계정
         JournalDetail debitAp = offsetEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT") && d.getAccountSubject().getCode().equals(apAccount.getCode()))
                 .findFirst().get();
         assertThat(debitAp.getAmount()).isEqualByComparingTo(offsetAmount);
 
-        // Credit: Advance Payment Account
+        // 대변: 선급금 계정
         JournalDetail creditAdvancePayment = offsetEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("CREDIT") && d.getAccountSubject().getCode().equals(advancePaymentAccount.getCode()))
                 .findFirst().get();
@@ -274,7 +274,7 @@ public class APIntegrationTest {
     @Test
     @DisplayName("부분 지급 처리 전표 검증")
     void testPartialPayment() {
-        // Given - 매입 인보이스 생성
+        // 사전 조건 - 매입 인보이스 생성
         PurchaseInvoice invoice = createAndSavePurchaseInvoice(
                 "P_INV004", testVendor.getBusinessPartnerCode(),
                 LocalDate.of(2024, 4, 1), LocalDate.of(2024, 4, 30),
@@ -283,7 +283,7 @@ public class APIntegrationTest {
         );
         Payable payable = payableRepository.findByPurchaseInvoiceNoAndPurchaseInvoiceVendorCode(invoice.getInvoiceNo(), invoice.getVendor().getBusinessPartnerCode()).orElseThrow();
 
-        // When - 부분 지급 실행
+        // 실행 - 부분 지급 실행
         PaymentRun paymentRun = paymentService.initiatePaymentRun(LocalDate.of(2024, 4, 15), "4월 부분 지급 실행", "SYSTEM");
         // Payable의 금액을 부분적으로 지급하도록 Payment 객체를 수정하거나 생성해야 합니다.
         // 현재 initiatePaymentRun은 전액 지급을 가정하므로, 여기서는 수동으로 payment를 생성
@@ -299,13 +299,13 @@ public class APIntegrationTest {
 
         Payment completedPayment = paymentService.executePayment(partialPayment.getId(), "국민은행 계좌");
 
-        // Then
+        // 검증
         assertThat(completedPayment.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
         Payable updatedPayable = payableRepository.findById(payable.getId()).orElseThrow();
         assertThat(updatedPayable.getOutstandingAmount()).isEqualByComparingTo(new BigDecimal("50000")); // 100,000 - 50,000
         assertThat(updatedPayable.getStatus()).isEqualTo(PayableStatus.PARTIAL_PAID);
 
-        // Verify payment journal entry
+        // 지급 전표 검증
         List<JournalEntry> entries = journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(
                 "PAYMENT", completedPayment.getId().toString());
         assertThat(entries).hasSize(1);
@@ -313,13 +313,13 @@ public class APIntegrationTest {
         assertThat(paymentEntry.getEntryType()).isEqualTo("PAYMENT_EXECUTION");
         assertThat(paymentEntry.getDetails()).hasSize(2);
 
-        // Debit: AP Account
+        // 차변: AP 계정
         JournalDetail debitAp = paymentEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT") && d.getAccountSubject().getCode().equals(apAccount.getCode()))
                 .findFirst().get();
         assertThat(debitAp.getAmount()).isEqualByComparingTo(partialAmount);
 
-        // Credit: Cash Account
+        // 대변: 현금 계정
         JournalDetail creditCash = paymentEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("CREDIT") && d.getAccountSubject().getCode().equals(cashAccount.getCode()))
                 .findFirst().get();
@@ -332,7 +332,7 @@ public class APIntegrationTest {
         PurchaseInvoice invoice = new PurchaseInvoice();
         invoice.setInvoiceNo(invoiceNo);
         BusinessPartner vendor = new BusinessPartner();
-        vendor.setBusinessPartnerCode(vendorCode); // Only code needed for mapping
+        vendor.setBusinessPartnerCode(vendorCode); // 매핑에는 코드만 필요
         invoice.setVendor(vendor);
         invoice.setIssueDate(issueDate);
         invoice.setDueDate(dueDate);

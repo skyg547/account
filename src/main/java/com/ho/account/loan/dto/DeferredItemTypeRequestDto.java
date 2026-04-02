@@ -40,7 +40,7 @@ public class DeferredItemTypeRequestDto {
         type.setDescription(this.description);
         type.setDeferralMethod(this.deferralMethod);
         type.setActive(this.isActive);
-        // AccountSubjects will be set in service
+        // AccountSubject는 서비스에서 설정
         return type;
     }
 }

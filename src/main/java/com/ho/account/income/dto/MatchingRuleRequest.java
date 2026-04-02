@@ -25,7 +25,7 @@ public class MatchingRuleRequest {
     @NotNull(message = "규칙 활성화 여부는 필수입니다.")
     private boolean isActive;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

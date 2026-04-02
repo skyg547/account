@@ -3,7 +3,7 @@ package com.ho.account.basic.domain;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.LocalDate; // Import LocalDate
-import java.util.List; // Import List
+import java.util.List; // List import
 import com.ho.account.common.Masked;
 
 /**
@@ -83,7 +83,7 @@ public class BusinessPartner {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

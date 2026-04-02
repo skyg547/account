@@ -39,7 +39,7 @@ public class RoleFuncPermission {
     @Column(name = "AUDIT_USER", nullable = false, length = 50)
     private String auditUser = "SYSTEM";
 
-    // Getters and Setters
+    // Getter 및 Setter
     public RoleFuncPermissionId getId() {
         return id;
     }

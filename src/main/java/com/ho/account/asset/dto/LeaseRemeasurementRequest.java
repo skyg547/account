@@ -21,7 +21,7 @@ public class LeaseRemeasurementRequest {
     @DecimalMin(value = "0.00")
     private BigDecimal newDiscountRate; // 변경된 할인율 (nullable)
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getContractId() {
         return contractId;
     }

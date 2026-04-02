@@ -52,7 +52,7 @@ public class APPaymentDto {
         );
     }
 
-    // Getters
+    // Getter
     public Long getId() {
         return id;
     }

@@ -34,7 +34,7 @@ public class TaxInvoiceRequestDto {
     @PositiveOrZero(message = "합계금액은 0 이상이어야 합니다.")
     private BigDecimal totalAmount;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getIssueId() {
         return issueId;
     }

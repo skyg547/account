@@ -111,7 +111,7 @@ public class AccountSubject {
         DEBIT, CREDIT
     }
 
-    // --- Getters and Setters ---
+    // --- Getter 및 Setter ---
 
     public String getCode() {
         return code;

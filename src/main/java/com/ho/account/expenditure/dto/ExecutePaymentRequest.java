@@ -11,7 +11,7 @@ public class ExecutePaymentRequest {
     @NotBlank(message = "지급 나갈 계좌 정보는 필수입니다.")
     private String bankAccount;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getPaymentId() {
         return paymentId;
     }

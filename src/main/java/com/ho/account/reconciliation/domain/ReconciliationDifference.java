@@ -108,7 +108,7 @@ public class ReconciliationDifference {
         IGNORED    // 무시됨
     }
 
-    // --- Getters and Setters ---
+    // --- Getter 및 Setter ---
 
     public Long getId() {
         return id;
@@ -226,7 +226,7 @@ public class ReconciliationDifference {
         return resolvedAt;
     }
 
-    public void voidSetResolvedAt(LocalDateTime resolvedAt) {
+    public void setResolvedAt(LocalDateTime resolvedAt) {
         this.resolvedAt = resolvedAt;
     }
 

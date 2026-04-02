@@ -66,7 +66,7 @@ public class ReconUnitDefinition {
         this.updateDate = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getUnitId() {
         return unitId;
     }

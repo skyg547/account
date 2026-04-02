@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.List; // Added missing import
+import java.util.List; // 누락된 import 추가
 import java.util.Optional;
 
 /**

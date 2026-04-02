@@ -20,7 +20,7 @@ public class AdvancePaymentRequest {
 
     private String description;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getVendorCode() {
         return vendorCode;
     }

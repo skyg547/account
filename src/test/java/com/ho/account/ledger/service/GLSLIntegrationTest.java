@@ -124,14 +124,14 @@ public class GLSLIntegrationTest {
     @Test
     @DisplayName("GL/SL Posting Integration Test - Increment Balance & Lineage Drill-down")
     void testPostingAndDrillDown() {
-        // 1. Post Journal Entry
+        // 1. 전표 전기
         postingService.postJournalEntry(testJournal.getId());
 
-        // 2. Verify Journal Entry Status updated to POSTED
+        // 2. 전표 상태가 POSTED로 변경되었는지 검증
         JournalEntry postedJournal = journalEntryRepository.findById(testJournal.getId()).orElseThrow();
         assertThat(postedJournal.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
 
-        // 3. Verify GL Balance (Account x Period) Updated Incremental
+        // 3. GL 잔액(계정 x 기간)이 증분 반영되었는지 검증
         LocalDate today = LocalDate.now();
         List<GlBalance> glBalances = ledgerService.getGlBalances(today, today, reqAccount, currency);
         assertThat(glBalances).isNotEmpty();
@@ -140,7 +140,7 @@ public class GLSLIntegrationTest {
         assertThat(glb.getCreditAmount()).isEqualByComparingTo("1000");
         assertThat(glb.getEndingBalance()).isEqualByComparingTo("0");
 
-        // 4. Verify SL Balance (BusinessPartner x Period) Updated Incremental
+        // 4. SL 잔액(거래처 x 기간)이 증분 반영되었는지 검증
         List<SlBalance> slBalances = ledgerService.getSlBalances(today, today, reqAccount, bpData, null, currency);
         assertThat(slBalances).isNotEmpty();
         SlBalance slb = slBalances.get(0);
@@ -148,7 +148,7 @@ public class GLSLIntegrationTest {
         assertThat(slb.getCreditAmount()).isEqualByComparingTo("1000");
         assertThat(slb.getEndingBalance()).isEqualByComparingTo("0");
 
-        // 5. Verify Lineage Data exists in GL Entries (Drill-down Source -> Journal -> Account)
+        // 5. GL 엔트리에 계보 데이터가 존재하는지 검증(드릴다운 원천 -> 전표 -> 계정)
         List<GlEntry> lineageEntries = glEntryRepository.findByLineageSourceTypeAndLineageSourceId("ERP_AP", "INV-2023-001");
         assertThat(lineageEntries).hasSize(2);
         assertThat(lineageEntries.get(0).getPostingDate()).isEqualTo(today);

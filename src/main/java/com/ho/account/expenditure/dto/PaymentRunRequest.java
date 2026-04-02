@@ -14,7 +14,7 @@ public class PaymentRunRequest {
     @NotBlank(message = "생성자 정보는 필수입니다.")
     private String createdBy;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public LocalDate getRunDate() {
         return runDate;
     }

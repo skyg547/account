@@ -52,11 +52,11 @@ public class FixedAssetIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Clear existing journal entries to ensure clean state for each test
+        // 각 테스트가 독립적으로 실행되도록 기존 전표를 정리
         journalEntryRepository.deleteAll();
-        fixedAssetRepository.deleteAll(); // Clear fixed assets too
+        fixedAssetRepository.deleteAll(); // 고정자산 데이터도 함께 정리
 
-        // Setup test data
+        // 테스트 데이터 설정
         testDepartment = new Department();
         testDepartment.setCode("FA_DEPT");
         testDepartment.setName("고정자산 부서");
@@ -109,22 +109,22 @@ public class FixedAssetIntegrationTest {
     @Test
     @DisplayName("고정자산 취득 및 전표 검증")
     void testAcquireFixedAssetAndJournalEntry() {
-        // Given
+        // 사전 조건
         FixedAsset newAsset = createFixedAsset(
                 "FA001", "생산 기계", LocalDate.of(2023, 1, 1),
                 new BigDecimal("12000000"), 5, "STRAIGHT_LINE", new BigDecimal("0"), testDepartment
         );
 
-        // When
+        // 실행
         FixedAsset registeredAsset = fixedAssetService.registerAsset(newAsset);
 
-        // Then
+        // 검증
         assertThat(registeredAsset).isNotNull();
         assertThat(registeredAsset.getId()).isNotNull();
         assertThat(registeredAsset.getStatus()).isEqualTo("ACTIVE");
         assertThat(registeredAsset.getCurrentBookValue()).isEqualByComparingTo(newAsset.getAcquisitionCost());
 
-        // Verify acquisition journal entry
+        // 취득 전표 검증
         List<JournalEntry> entries = journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(
                 "FIXED_ASSET", registeredAsset.getId().toString());
         assertThat(entries).hasSize(1);
@@ -132,13 +132,13 @@ public class FixedAssetIntegrationTest {
         assertThat(acquisitionEntry.getEntryType()).isEqualTo("FIXED_ASSET_ACQUISITION");
         assertThat(acquisitionEntry.getDetails()).hasSize(2);
 
-        // Debit: FixedAssetAccount
+        // 차변: FixedAssetAccount
         JournalDetail debitDetail = acquisitionEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("DEBIT")).findFirst().get();
         assertThat(debitDetail.getAccountSubject().getCode()).isEqualTo(fixedAssetAccount.getCode());
         assertThat(debitDetail.getAmount()).isEqualByComparingTo(newAsset.getAcquisitionCost());
 
-        // Credit: CashAccount
+        // 대변: CashAccount
         JournalDetail creditDetail = acquisitionEntry.getDetails().stream()
                 .filter(d -> d.getDrcrType().equals("CREDIT")).findFirst().get();
         assertThat(creditDetail.getAccountSubject().getCode()).isEqualTo(cashAccount.getCode());
@@ -148,14 +148,14 @@ public class FixedAssetIntegrationTest {
     @Test
     @DisplayName("월별 감가상각 처리 및 전표 검증 - 정액법")
     void testMonthlyDepreciationStraightLineAndJournalEntry() {
-        // Given - 1200만원, 내용연수 5년, 잔존가치 0, 정액법 -> 월 20만원 상각
+        // 사전 조건 - 1200만원, 내용연수 5년, 잔존가치 0, 정액법 -> 월 20만원 상각
         FixedAsset asset = createAndRegisterFixedAsset(
                 "FA002", "배송 트럭", LocalDate.of(2023, 1, 1),
                 new BigDecimal("12000000"), 5, "STRAIGHT_LINE", new BigDecimal("0"), testDepartment
         );
         Long assetId = asset.getId();
 
-        // When - 3개월 감가상각 처리
+        // 실행 - 3개월 감가상각 처리
         LocalDate processDate1 = LocalDate.of(2023, 1, 31);
         fixedAssetService.processMonthlyDepreciation(processDate1);
         LocalDate processDate2 = LocalDate.of(2023, 2, 28);
@@ -163,7 +163,7 @@ public class FixedAssetIntegrationTest {
         LocalDate processDate3 = LocalDate.of(2023, 3, 31);
         fixedAssetService.processMonthlyDepreciation(processDate3);
 
-        // Then
+        // 검증
         FixedAsset updatedAsset = fixedAssetRepository.findById(assetId).orElseThrow();
         // 12,000,000 / (5 * 12) = 200,000
         BigDecimal expectedMonthlyDepreciation = new BigDecimal("200000.00");
@@ -175,7 +175,7 @@ public class FixedAssetIntegrationTest {
         assertThat(updatedAsset.getLastDepreciationDate()).isEqualTo(processDate3);
         assertThat(updatedAsset.getStatus()).isEqualTo("ACTIVE");
 
-        // Verify depreciation journal entries
+        // 감가상각 전표 검증
         List<JournalEntry> depreciationEntries = journalEntryRepository.findAll().stream()
                 .filter(e -> "FIXED_ASSET_DEPRECIATION".equals(e.getEntryType()) && e.getLineageSourceId().equals(assetId.toString()))
                 .collect(Collectors.toList());
@@ -183,12 +183,12 @@ public class FixedAssetIntegrationTest {
         assertThat(depreciationEntries).hasSize(3); // 3개월치 전표
         for (JournalEntry entry : depreciationEntries) {
             assertThat(entry.getDetails()).hasSize(2);
-            // Debit: Depreciation Expense
+            // 차변: 감가상각비
             JournalDetail debit = entry.getDetails().stream().filter(d -> d.getDrcrType().equals("DEBIT")).findFirst().get();
             assertThat(debit.getAccountSubject().getCode()).isEqualTo(depreciationExpenseAccount.getCode());
             assertThat(debit.getAmount()).isEqualByComparingTo(expectedMonthlyDepreciation);
 
-            // Credit: Accumulated Depreciation
+            // 대변: 감가상각누계액
             JournalDetail credit = entry.getDetails().stream().filter(d -> d.getDrcrType().equals("CREDIT")).findFirst().get();
             assertThat(credit.getAccountSubject().getCode()).isEqualTo(accumulatedDepreciationAccount.getCode());
             assertThat(credit.getAmount()).isEqualByComparingTo(expectedMonthlyDepreciation);
@@ -198,7 +198,7 @@ public class FixedAssetIntegrationTest {
     @Test
     @DisplayName("고정자산 처분 및 전표 검증 - 처분이익")
     void testDisposeFixedAssetWithGainAndJournalEntry() {
-        // Given - 3개월 감가상각된 자산
+        // 사전 조건 - 3개월 감가상각된 자산
         FixedAsset asset = createAndRegisterFixedAsset(
                 "FA003", "사무용 가구", LocalDate.of(2023, 1, 1),
                 new BigDecimal("6000000"), 5, "STRAIGHT_LINE", new BigDecimal("0"), testDepartment
@@ -217,14 +217,14 @@ public class FixedAssetIntegrationTest {
         BigDecimal salePrice = new BigDecimal("6000000"); // 처분가액 6,000,000 (처분이익 300,000)
         LocalDate disposalDate = LocalDate.of(2023, 4, 1);
 
-        // When
+        // 실행
         FixedAsset disposedAsset = fixedAssetService.disposeFixedAsset(assetId, disposalDate, salePrice);
 
-        // Then
+        // 검증
         assertThat(disposedAsset.getStatus()).isEqualTo("DISPOSED");
         assertThat(fixedAssetRepository.findById(assetId).orElseThrow().getStatus()).isEqualTo("DISPOSED");
 
-        // Verify disposal journal entry
+        // 처분 전표 검증
         List<JournalEntry> disposalEntries = journalEntryRepository.findAll().stream()
                 .filter(e -> "FIXED_ASSET_DISPOSAL".equals(e.getEntryType()) && e.getLineageSourceId().equals(assetId.toString()))
                 .collect(Collectors.toList());
@@ -232,23 +232,23 @@ public class FixedAssetIntegrationTest {
         JournalEntry disposalEntry = disposalEntries.get(0);
         assertThat(disposalEntry.getAccountingDate()).isEqualTo(disposalDate);
 
-        // Details verification
-        // Credit: FixedAssetAccount (Acquisition Cost)
+        // 상세 검증
+        // 대변: FixedAssetAccount(취득원가)
         JournalDetail assetCredit = disposalEntry.getDetails().stream()
                 .filter(d -> d.getAccountSubject().getCode().equals(fixedAssetAccount.getCode()) && d.getDrcrType().equals("CREDIT")).findFirst().get();
         assertThat(assetCredit.getAmount()).isEqualByComparingTo(acquisitionCost);
 
-        // Debit: AccumulatedDepreciationAccount
+        // 차변: AccumulatedDepreciationAccount
         JournalDetail accumulatedDepreciationDebit = disposalEntry.getDetails().stream()
                 .filter(d -> d.getAccountSubject().getCode().equals(accumulatedDepreciationAccount.getCode()) && d.getDrcrType().equals("DEBIT")).findFirst().get();
         assertThat(accumulatedDepreciationDebit.getAmount()).isEqualByComparingTo(accumulatedDepreciation);
 
-        // Debit: CashAccount (Sale Price)
+        // 차변: CashAccount(매각가액)
         JournalDetail cashDebit = disposalEntry.getDetails().stream()
                 .filter(d -> d.getAccountSubject().getCode().equals(cashAccount.getCode()) && d.getDrcrType().equals("DEBIT")).findFirst().get();
         assertThat(cashDebit.getAmount()).isEqualByComparingTo(salePrice);
 
-        // Credit: DisposalGainAccount (Gain on Disposal)
+        // 대변: DisposalGainAccount(처분이익)
         JournalDetail gainCredit = disposalEntry.getDetails().stream()
                 .filter(d -> d.getAccountSubject().getCode().equals(disposalGainAccount.getCode()) && d.getDrcrType().equals("CREDIT")).findFirst().get();
         assertThat(gainCredit.getAmount()).isEqualByComparingTo(salePrice.subtract(bookValue)); // 300,000
@@ -257,7 +257,7 @@ public class FixedAssetIntegrationTest {
     @Test
     @DisplayName("고정자산 처분 및 전표 검증 - 처분손실")
     void testDisposeFixedAssetWithLossAndJournalEntry() {
-        // Given - 3개월 감가상각된 자산
+        // 사전 조건 - 3개월 감가상각된 자산
         FixedAsset asset = createAndRegisterFixedAsset(
                 "FA004", "컴퓨터", LocalDate.of(2023, 1, 1),
                 new BigDecimal("3000000"), 5, "STRAIGHT_LINE", new BigDecimal("0"), testDepartment
@@ -276,20 +276,20 @@ public class FixedAssetIntegrationTest {
         BigDecimal salePrice = new BigDecimal("2500000"); // 처분가액 2,500,000 (처분손실 350,000)
         LocalDate disposalDate = LocalDate.of(2023, 4, 1);
 
-        // When
+        // 실행
         FixedAsset disposedAsset = fixedAssetService.disposeFixedAsset(assetId, disposalDate, salePrice);
 
-        // Then
+        // 검증
         assertThat(disposedAsset.getStatus()).isEqualTo("DISPOSED");
 
-        // Verify disposal journal entry
+        // 처분 전표 검증
         List<JournalEntry> disposalEntries = journalEntryRepository.findAll().stream()
                 .filter(e -> "FIXED_ASSET_DISPOSAL".equals(e.getEntryType()) && e.getLineageSourceId().equals(assetId.toString()))
                 .collect(Collectors.toList());
         assertThat(disposalEntries).hasSize(1);
         JournalEntry disposalEntry = disposalEntries.get(0);
 
-        // Debit: DisposalLossAccount
+        // 차변: DisposalLossAccount
         JournalDetail lossDebit = disposalEntry.getDetails().stream()
                 .filter(d -> d.getAccountSubject().getCode().equals(disposalLossAccount.getCode()) && d.getDrcrType().equals("DEBIT")).findFirst().get();
         assertThat(lossDebit.getAmount()).isEqualByComparingTo(bookValue.subtract(salePrice)); // 350,000

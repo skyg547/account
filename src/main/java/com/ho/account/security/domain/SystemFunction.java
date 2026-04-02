@@ -31,7 +31,7 @@ public class SystemFunction {
         this.createDate = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getFuncCode() {
         return funcCode;
     }

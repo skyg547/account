@@ -68,7 +68,7 @@ public class LeaseAccountingIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Mock data setup
+        // 목 데이터 설정
         testDepartment = new Department();
         testDepartment.setCode("DEPT001");
         testDepartment.setName("테스트 부서");
@@ -130,14 +130,14 @@ public class LeaseAccountingIntegrationTest {
         cashAccount.setUnsettled(false);
         accountSubjectRepository.save(cashAccount);
 
-        // Clear existing journal entries to ensure clean state for each test
+        // 각 테스트가 독립적으로 실행되도록 기존 전표를 정리
         journalEntryRepository.deleteAll();
     }
 
     @Test
     @DisplayName("IFRS 16 리스 초기 인식 테스트 및 분개 검증")
     void testInitialLeaseRecognitionAndJournalEntry() {
-        // Given
+        // 사전 조건
         LeaseContractRequest request = new LeaseContractRequest();
         request.setContractNo("LCS-001");
         request.setContractName("사무실 임대 리스");
@@ -169,10 +169,10 @@ public class LeaseAccountingIntegrationTest {
         contract.setInitialLeaseLiabilityValue(request.getInitialLeaseLiabilityValue());
 
 
-        // When
+        // 실행
         LeaseContract recognizedContract = leaseAccountingService.recognizeInitialLease(contract);
 
-        // Then
+        // 검증
         assertThat(recognizedContract).isNotNull();
         assertThat(recognizedContract.getId()).isNotNull();
 
@@ -210,7 +210,7 @@ public class LeaseAccountingIntegrationTest {
     @Test
     @DisplayName("월별 리스 회계 처리 및 분개 검증")
     void testMonthlyLeaseProcessingAndJournalEntries() {
-        // Given - 초기 인식된 리스 계약
+        // 사전 조건 - 초기 인식된 리스 계약
         LeaseContract contract = createAndRecognizeLease(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), new BigDecimal("1000000"), new BigDecimal("10000000"), new BigDecimal("0.05"));
         Long contractId = contract.getId();
 
@@ -219,11 +219,11 @@ public class LeaseAccountingIntegrationTest {
         BigDecimal initialRouValue = initialRouAsset.getCurrentBookValue();
         BigDecimal initialLeaseLiabilityValue = initialLeaseLiability.getCurrentValue();
 
-        // When - 1개월 후 처리
+        // 실행 - 1개월 후 처리
         LocalDate processDate1 = LocalDate.of(2025, 1, 1);
         leaseAccountingService.processMonthlyLeaseAccounting(processDate1);
 
-        // Then - 상태 검증
+        // 검증 - 상태 검증
         RightOfUseAsset updatedRouAsset1 = rightOfUseAssetRepository.findByLeaseContract(contract).get();
         LeaseLiability updatedLeaseLiability1 = leaseLiabilityRepository.findByLeaseContract(contract).get();
 
@@ -260,7 +260,7 @@ public class LeaseAccountingIntegrationTest {
     @Test
     @DisplayName("리스 계약 재측정 및 분개 검증")
     void testLeaseRemeasurementAndJournalEntries() {
-        // Given - 3개월 처리된 리스 계약
+        // 사전 조건 - 3개월 처리된 리스 계약
         LeaseContract contract = createAndRecognizeLease(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), new BigDecimal("1000000"), new BigDecimal("10000000"), new BigDecimal("0.05"));
         Long contractId = contract.getId();
         leaseAccountingService.processMonthlyLeaseAccounting(LocalDate.of(2025, 1, 1));
@@ -272,7 +272,7 @@ public class LeaseAccountingIntegrationTest {
         BigDecimal oldRouValue = rouAssetBeforeRemeasurement.getCurrentBookValue();
         BigDecimal oldLeaseLiabilityValue = leaseLiabilityBeforeRemeasurement.getCurrentValue();
 
-        // When - 리스 조건 변경 (월 리스료 증가, 종료일 연장, 할인율 변경)
+        // 실행 - 리스 조건 변경 (월 리스료 증가, 종료일 연장, 할인율 변경)
         LocalDate remeasurementDate = LocalDate.of(2025, 4, 1);
         LeaseRemeasurementRequest remeasurementRequest = new LeaseRemeasurementRequest();
         remeasurementRequest.setContractId(contractId);
@@ -289,7 +289,7 @@ public class LeaseAccountingIntegrationTest {
                 remeasurementRequest.getNewDiscountRate()
         );
 
-        // Then - 상태 검증
+        // 검증 - 상태 검증
         RightOfUseAsset rouAssetAfterRemeasurement = rightOfUseAssetRepository.findByLeaseContract(updatedContract).get();
         LeaseLiability leaseLiabilityAfterRemeasurement = leaseLiabilityRepository.findByLeaseContract(updatedContract).get();
 
@@ -321,7 +321,7 @@ public class LeaseAccountingIntegrationTest {
 
     private LeaseContract createAndRecognizeLease(LocalDate startDate, LocalDate endDate, BigDecimal monthlyPayment, BigDecimal initialValue, BigDecimal discountRate) {
         LeaseContract contract = new LeaseContract();
-        contract.setContractNo("TEST-" + System.nanoTime()); // Unique contract no
+        contract.setContractNo("TEST-" + System.nanoTime()); // 고유 계약번호
         contract.setContractName("테스트 리스 계약");
         contract.setStartDate(startDate);
         contract.setEndDate(endDate);

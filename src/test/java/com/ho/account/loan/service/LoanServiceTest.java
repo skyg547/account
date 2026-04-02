@@ -134,7 +134,7 @@ class LoanServiceTest {
         when(accountSubjectRepository.findById("131000")).thenReturn(Optional.of(loanReceivableAccount));
         when(journalEntryRepository.save(any(JournalEntry.class))).thenAnswer(i -> {
             JournalEntry je = i.getArgument(0);
-            je.setId(10L); // Simulate ID generation
+            je.setId(10L); // ID 생성 시뮬레이션
             return je;
         });
         when(journalEntryRepository.count()).thenReturn(1L);
@@ -160,7 +160,7 @@ class LoanServiceTest {
         when(accountSubjectRepository.findById("171000")).thenReturn(Optional.of(deferredAssetAccount));
         when(journalEntryRepository.save(any(JournalEntry.class))).thenAnswer(i -> {
             JournalEntry je = i.getArgument(0);
-            je.setId(11L); // Simulate ID
+            je.setId(11L); // ID 시뮬레이션
             return je;
         });
         when(journalEntryRepository.count()).thenReturn(2L);
@@ -292,7 +292,7 @@ class LoanServiceTest {
         assertEquals(testLoan.getLoanNumber(), finalRun.getLoan().getLoanNumber());
         assertEquals(RecalculationRun.RecalculationReason.EARLY_REPAYMENT, finalRun.getReason());
 
-        // Verify key interactions
+        // 핵심 상호작용 검증
         verify(loanService, times(1)).createDeferredItem(anyLong(), anyLong(), any(BigDecimal.class), any(LocalDate.class), any(LocalDate.class), anyString());
         verify(loanService, times(1)).generateAmortizationSchedule(anyLong(), any(LocalDate.class), any(BigDecimal.class), anyString());
         verify(loanEventRepository, times(1)).save(any(LoanEvent.class));

@@ -8,7 +8,7 @@ import java.time.LocalDate;
 
 public class LoanContractRequestDto {
 
-    private Long id; // For update scenarios
+    private Long id; // 수정 시나리오용
 
     @NotBlank(message = "대출 계약 번호는 필수입니다.")
     private String loanContractNo;
@@ -48,7 +48,7 @@ public class LoanContractRequestDto {
 
     // effectiveInterestRate는 서비스에서 계산되므로 요청에서는 받지 않음.
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

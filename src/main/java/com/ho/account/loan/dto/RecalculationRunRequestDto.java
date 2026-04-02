@@ -29,7 +29,7 @@ public class RecalculationRunRequestDto {
     @Size(max = 50)
     private String user;
 
-    // Optional fields for recalculation
+    // 재계산용 선택 필드
     private BigDecimal newPrincipal; // 중도상환 등으로 인한 원금 변경
     private LocalDate newMaturityDate; // 만기일 변경
 }

@@ -259,6 +259,25 @@ public class ReconciliationController {
     }
 
     /**
+     * 특정 대사 차이를 해결 또는 무시 처리합니다.
+     * DoD에 따라 사유 코드와 필요 시 조정 전표 링크를 함께 확정합니다.
+     *
+     * @param requestDto 대사 차이 해결 요청 정보
+     * @return 갱신된 대사 차이 정보
+     */
+    @PostMapping("/differences/resolve")
+    public ResponseEntity<ReconciliationDifferenceDto> resolveDifference(@Valid @RequestBody ReconciliationDifferenceResolutionRequestDto requestDto) {
+        ReconciliationDifference resolvedDifference = reconciliationService.resolveDifference(
+                requestDto.getDifferenceId(),
+                requestDto.getReasonCodeId(),
+                requestDto.getAdjustmentJournalEntryId(),
+                requestDto.getStatus(),
+                requestDto.getResolvedBy()
+        );
+        return ResponseEntity.ok(ReconciliationDifferenceDto.fromEntity(resolvedDifference));
+    }
+
+    /**
      * 특정 ReconciliationRun에 속한 모든 ReconciliationDifference를 조회합니다.
      * @param runId ReconciliationRun의 ID
      * @return ReconciliationDifference 목록

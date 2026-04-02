@@ -127,7 +127,7 @@ class ClosingServiceTest {
     void testCheckAndPassClosingGate() {
         when(closingGateRepository.findById(anyLong())).thenReturn(Optional.of(testClosingGate));
         when(closingGateRepository.save(any(ClosingGate.class))).thenReturn(testClosingGate);
-        // Simulate conditionsMet = true;
+        // conditionsMet = true 상황을 시뮬레이션
 
         ClosingGate passedGate = closingService.checkAndPassClosingGate(30L, "approver");
 
@@ -168,7 +168,7 @@ class ClosingServiceTest {
         pendingApproval.setId(1L);
         pendingApproval.setFiscalPeriod(testFiscalPeriod);
         pendingApproval.setStatus(ReopenApprovalStatus.PENDING);
-        testFiscalPeriod.setClosingStatus(FiscalPeriod.ClosingStatus.CLOSED); // Ensure period is closed before re-opening
+        testFiscalPeriod.setClosingStatus(FiscalPeriod.ClosingStatus.CLOSED); // 재오픈 전에 기간이 마감 상태인지 확인
 
         when(reopenApprovalRepository.findById(anyLong())).thenReturn(Optional.of(pendingApproval));
         when(reopenApprovalRepository.save(any(ReopenApproval.class))).thenReturn(pendingApproval);
@@ -176,7 +176,7 @@ class ClosingServiceTest {
         when(closingCalendarRepository.findByFiscalYearAndFiscalPeriod(anyString(), anyString()))
                 .thenReturn(Optional.of(testClosingCalendar));
         when(closingCalendarRepository.save(any(ClosingCalendar.class))).thenReturn(testClosingCalendar);
-        when(periodLockRepository.findByFiscalPeriod(any(FiscalPeriod.class))).thenReturn(Optional.empty()); // No existing lock
+        when(periodLockRepository.findByFiscalPeriod(any(FiscalPeriod.class))).thenReturn(Optional.empty()); // 기존 잠금 없음
 
         ReopenApproval approved = closingService.updateReopenApprovalStatus(1L, ReopenApprovalStatus.APPROVED, "manager");
 
@@ -189,7 +189,7 @@ class ClosingServiceTest {
 
     @Test
     void testDetermineClosingStatus_success() {
-        // Prepare calendar, task, gate for successful closing
+        // 성공적인 마감을 위한 캘린더, 태스크, 게이트 준비
         testClosingCalendar.setStatus(ClosingCalendarStatus.IN_PROGRESS);
         testClosingTask.setStatus(ClosingTaskStatus.COMPLETED);
         testClosingGate.setStatus(ClosingGateStatus.PASSED);
@@ -209,7 +209,7 @@ class ClosingServiceTest {
 
     @Test
     void testDetermineClosingStatus_tasksNotCompleted_throwsException() {
-        // Task remains PENDING
+        // 태스크는 PENDING 상태 유지
         when(closingCalendarRepository.findById(anyLong())).thenReturn(Optional.of(testClosingCalendar));
         when(closingTaskRepository.findByClosingCalendarOrderByTaskOrderAsc(any(ClosingCalendar.class)))
                 .thenReturn(Arrays.asList(testClosingTask));
@@ -217,6 +217,6 @@ class ClosingServiceTest {
 
 
         assertThrows(IllegalStateException.class, () -> closingService.determineClosingStatus(10L, "final_approver"));
-        verify(closingCalendarRepository, times(1)).save(any(ClosingCalendar.class)); // calendar status updated to IN_PROGRESS
+        verify(closingCalendarRepository, times(1)).save(any(ClosingCalendar.class)); // 캘린더 상태가 IN_PROGRESS로 변경됨
     }
 }

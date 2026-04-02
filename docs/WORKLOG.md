@@ -98,3 +98,27 @@
 - Implemented `PostingService` that transitions `JournalEntry` to `POSTED` status and incrementally updates `GlBalance` and `SlBalance`.
 - Implemented `GlSlController` exposing REST APIs for posting, GL/SL balance lookups (Drill-down capabilities).
 - Created `GLSLIntegrationTest` mimicking Journal draft -> approve -> post flow, verifying increment changes in balances and lineage drill-down.
+
+## 2026-04-01
+- **재무보고(Reporting) 모듈 고도화 완료**
+  - `FinancialStatementService.java`: 
+    - `ReportLineMapping` 기반의 BS/IS 금액 집계 로직 구현.
+    - **Drill-through** 기능 구현: 특정 보고 라인 코드로부터 해당 금액을 구성하는 원천 `JournalDetail` 목록을 즉시 추적 가능하도록 개선.
+  - `docs/db/report_schema.sql`: 보고 라인 매핑, 보고서 스냅샷 헤더/상세, 공시 마트 등 관련 테이블 DDL 생성.
+  - `src/test/java/com/ho/account/report/FinancialReportingIntegrationTest.java`: 전표 생성 -> 보고서 집계 -> 보고 라인에서 원천 전표 추적으로 이어지는 DoD 시나리오 검증 완료.
+
+## 2026-04-02
+- **대사(Reconciliation) DoD 정합성 보강**
+  - `ReconciliationService.java`
+    - `resolveDifference(...)` 추가.
+    - 대사 차이를 `RESOLVED` 또는 `IGNORED`로 종결할 때 `사유 코드`를 반드시 연결하도록 강제.
+    - `isAdjustable=true` 인 사유 코드는 `조정 전표 링크`가 없으면 종결할 수 없도록 검증 추가.
+  - `ReconciliationController.java`
+    - `POST /api/reconciliation/differences/resolve` 엔드포인트 추가.
+  - `ReconciliationDifference.java`
+    - `setResolvedAt(...)` 메서드명 오타 수정.
+  - 테스트 보강
+    - `ReconciliationServiceTest.java`: 해결 성공/실패 케이스 추가.
+    - `ReconciliationControllerTest.java`: 해결 API 테스트 추가.
+  - 문서 정합성 반영
+    - `docs/todo.md`에서 기존 완료된 `09 고정자산`, `10 리스`, 이번에 보강한 `13 대사` 항목을 완료(`o`)로 정리.

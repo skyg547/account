@@ -46,12 +46,12 @@ public class LoanRequestDto {
     @NotNull
     private Loan.PaymentFrequency paymentFrequency;
 
-    private BigDecimal initialEIR; // Optional, can be calculated by service
+    private BigDecimal initialEIR; // 선택값이며 서비스에서 계산 가능
 
     public Loan toEntity() {
         Loan loan = new Loan();
         loan.setLoanNumber(this.loanNumber);
-        // BusinessPartner and Currency will be set in service
+        // BusinessPartner와 Currency는 서비스에서 설정
         loan.setLoanType(this.loanType);
         loan.setPrincipalAmount(this.principalAmount);
         loan.setInterestRate(this.interestRate);

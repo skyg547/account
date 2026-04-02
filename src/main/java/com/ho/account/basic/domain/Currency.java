@@ -52,7 +52,7 @@ public class Currency {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getCurrencyCode() {
         return currencyCode;
     }

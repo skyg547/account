@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List; // Added missing import
+import java.util.List; // 누락된 import 추가
 
 @Service
 @Transactional

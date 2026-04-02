@@ -45,7 +45,7 @@ public class SecurityRole {
         this.updateDate = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getRoleCode() {
         return roleCode;
     }

@@ -259,6 +259,53 @@ public class ReconciliationService {
     }
 
     /**
+     * 대사 차이를 해결 또는 무시 처리합니다.
+     * DoD에 따라 차이는 반드시 사유 코드로 수렴해야 하며,
+     * 조정이 필요한 사유 코드는 조정 전표 링크가 있어야 합니다.
+     *
+     * @param differenceId 해결할 대사 차이 ID
+     * @param reasonCodeId 사유 코드 ID
+     * @param adjustmentJournalEntryId 조정 전표 ID
+     * @param status 최종 상태 (RESOLVED 또는 IGNORED)
+     * @param resolvedBy 처리자
+     * @return 갱신된 대사 차이
+     */
+    public ReconciliationDifference resolveDifference(Long differenceId, Long reasonCodeId, Long adjustmentJournalEntryId,
+                                                      ReconciliationDifference.ReconciliationDifferenceStatus status,
+                                                      String resolvedBy) {
+        ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
+                .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + differenceId));
+        DifferenceReasonCode reasonCode = differenceReasonCodeRepository.findById(reasonCodeId)
+                .orElseThrow(() -> new EntityNotFoundException("DifferenceReasonCode not found with id: " + reasonCodeId));
+
+        if (status != ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED
+                && status != ReconciliationDifference.ReconciliationDifferenceStatus.IGNORED) {
+            throw new IllegalArgumentException("Difference can only be finalized as RESOLVED or IGNORED.");
+        }
+
+        JournalEntry adjustmentJournalEntry = null;
+        if (adjustmentJournalEntryId != null) {
+            adjustmentJournalEntry = journalEntryRepository.findById(adjustmentJournalEntryId)
+                    .orElseThrow(() -> new EntityNotFoundException("JournalEntry not found with id: " + adjustmentJournalEntryId));
+        } else if (difference.getAdjustmentJournalEntry() != null) {
+            adjustmentJournalEntry = difference.getAdjustmentJournalEntry();
+        }
+
+        if (reasonCode.isAdjustable() && adjustmentJournalEntry == null) {
+            throw new IllegalArgumentException("Adjustable reason code requires an adjustment journal entry link.");
+        }
+
+        difference.setReasonCode(reasonCode);
+        difference.setAdjustmentJournalEntry(adjustmentJournalEntry);
+        difference.setStatus(status);
+        difference.setResolvedBy(resolvedBy);
+        difference.setResolvedAt(LocalDateTime.now());
+        difference.setAuditUser(resolvedBy);
+
+        return reconciliationDifferenceRepository.save(difference);
+    }
+
+    /**
      * 특정 대사 실행에 해당하는 모든 대사 차이를 조회합니다.
      * @param reconciliationRunId 대사 실행 ID
      * @return 대사 차이 목록
@@ -309,7 +356,7 @@ public class ReconciliationService {
             // 이 예시에서는 모든 규칙을 적용하여 최종 차이를 계산한다고 가정
 
             // TODO: Replace with actual logic to fetch source/target data based on reconciliationUnit and rules.
-            // For now, using dummy values for compilation and basic flow.
+            // 현재는 컴파일과 기본 흐름 확인을 위해 더미 값을 사용
             sourceAmount = new BigDecimal("1000.00"); // Dummy value
             targetAmount = new BigDecimal("950.00");  // Dummy value
             sourceCount = 10;
@@ -342,6 +389,7 @@ public class ReconciliationService {
 
                 diff.setReasonCode(defaultReason);
                 diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING); // 초기 상태
+                diff.setAuditUser("SYSTEM");
 
                 // 조정 전표 생성 로직 (isAdjustable이 true인 경우)
                 if (defaultReason.isAdjustable()) {

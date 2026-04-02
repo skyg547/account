@@ -40,7 +40,7 @@ public class PaymentRun {
         }
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

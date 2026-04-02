@@ -54,7 +54,7 @@ public class LeaseContractRequest {
     @DecimalMin(value = "0.00")
     private BigDecimal initialLeaseLiabilityValue;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public String getContractNo() {
         return contractNo;
     }

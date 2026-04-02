@@ -28,7 +28,7 @@ public class DailyClosingStatus {
         }
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
 

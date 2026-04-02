@@ -21,7 +21,7 @@ public class PurchaseInvoiceId implements Serializable {
         this.vendor = vendor;
     }
 
-    // Getters
+    // Getter
     public String getInvoiceNo() {
         return invoiceNo;
     }

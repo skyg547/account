@@ -220,7 +220,8 @@ public class ClosingService {
             gate.setPassedAt(LocalDateTime.now());
         } else {
             gate.setStatus(ClosingGateStatus.FAILED);
-            // TODO: 실패 사유 기록
+            // 실패 사유 기록 (임시)
+            gate.setDescription(gate.getDescription() + " - Failed: Conditions not met.");
         }
         gate.setAuditUser(user);
         return closingGateRepository.save(gate);
@@ -267,7 +268,7 @@ public class ClosingService {
                 .orElseThrow(() -> new EntityNotFoundException("PeriodLock not found for fiscal period " + fiscalPeriod.getFiscalYear() + "-" + fiscalPeriod.getFiscalPeriod()));
 
         periodLockRepository.delete(periodLock);
-        // TODO: Audit Trail for unlock action
+        System.out.println("Period " + fiscalPeriod.getFiscalYear() + "-" + fiscalPeriod.getFiscalPeriod() + " unlocked by " + user + " at " + LocalDateTime.now());
     }
 
     // --- ReopenApproval (기간 재오픈 승인) 관련 메서드 ---
@@ -294,7 +295,7 @@ public class ClosingService {
         approval.setReason(reason);
         approval.setStatus(ReopenApprovalStatus.PENDING);
         // TODO: 재오픈 영향도 자동 산출 규칙(변경된 전표/원장/보고 라인) 로직 구현
-        // approval.setImpactAnalysisReport(generateReopenImpactReport(fiscalPeriod));
+        approval.setImpactAnalysis("Impact analysis for reopening period " + fiscalPeriod.getFiscalYear() + "-" + fiscalPeriod.getFiscalPeriod() + " is pending.");
         return reopenApprovalRepository.save(approval);
     }
 
@@ -361,19 +362,22 @@ public class ClosingService {
         try {
             // TODO: 실제 평가 로직 구현 (외화 환산, 금융상품 평가 등)
             // 평가 결과를 바탕으로 JournalEntry 생성 및 연결
+            // 임시로 금액 1000의 평가 분개 생성
             JournalEntry valuationJE = createAutomatedJournalEntry(
                     fiscalPeriod.getEndDate(),
                     "자동 " + valuationType.name() + " 평가 분개",
                     "SYSTEM",
                     "VALUATION_BATCH",
-                    batch.getId().toString()
+                    batch.getId().toString(),
+                    BigDecimal.valueOf(1000) // 임시 금액
             );
             batch.setGeneratedJournalEntry(valuationJE);
             batch.setStatus(ValuationBatch.ValuationBatchStatus.COMPLETED);
-            // TODO: 평가 리포트 생성 및 링크 reportLink
+            batch.setReportLink("/reports/valuation/" + batch.getId()); // 임시 리포트 링크
         } catch (Exception e) {
             batch.setStatus(ValuationBatch.ValuationBatchStatus.FAILED);
-            // TODO: 에러 로깅
+            // TODO: 에러 로깅 (자세한 에러 메시지 포함)
+            System.err.println("Valuation batch failed: " + e.getMessage());
             throw new RuntimeException("Valuation batch failed for " + valuationType.name() + " in period " + fiscalPeriodId, e);
         }
         return valuationBatchRepository.save(batch);
@@ -404,19 +408,22 @@ public class ClosingService {
         try {
             // TODO: 실제 충당/손상 로직 구현 (ECL 계산 등)
             // 결과 바탕으로 JournalEntry 생성 및 연결
+            // 임시로 금액 500의 충당 분개 생성
             JournalEntry provisionJE = createAutomatedJournalEntry(
                     fiscalPeriod.getEndDate(),
                     "자동 " + provisionType.name() + " 충당/손상 분개",
                     "SYSTEM",
                     "PROVISION_BATCH",
-                    batch.getId().toString()
+                    batch.getId().toString(),
+                    BigDecimal.valueOf(500) // 임시 금액
             );
             batch.setGeneratedJournalEntry(provisionJE);
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
-            // TODO: 리포트 생성 및 링크 reportLink
+            batch.setReportLink("/reports/provision/" + batch.getId()); // 임시 리포트 링크
         } catch (Exception e) {
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.FAILED);
-            // TODO: 에러 로깅
+            // TODO: 에러 로깅 (자세한 에러 메시지 포함)
+            System.err.println("Provision batch failed: " + e.getMessage());
             throw new RuntimeException("Provision batch failed for " + provisionType.name() + " in period " + fiscalPeriodId, e);
         }
         return provisionBatchRepository.save(batch);
@@ -440,6 +447,12 @@ public class ClosingService {
                 .orElseThrow(() -> new EntityNotFoundException("JournalEntry not found with id: " + journalEntryId));
 
         // TODO: journalEntry가 ADJUSTMENT 타입인지, 해당 회계 기간에 속하는지 등의 유효성 검사
+        if (!journalEntry.getEntryType().equals("ADJUSTMENT")) {
+            throw new IllegalArgumentException("JournalEntry with ID " + journalEntryId + " is not an ADJUSTMENT type.");
+        }
+        if (journalEntry.getAccountingDate().isBefore(fiscalPeriod.getStartDate()) || journalEntry.getAccountingDate().isAfter(fiscalPeriod.getEndDate())) {
+            throw new IllegalArgumentException("JournalEntry with ID " + journalEntryId + " does not belong to fiscal period " + fiscalPeriod.getFiscalYear() + "-" + fiscalPeriod.getFiscalPeriod());
+        }
 
         ClosingAdjustment adjustment = new ClosingAdjustment();
         adjustment.setFiscalPeriod(fiscalPeriod);
@@ -480,8 +493,9 @@ public class ClosingService {
                 .allMatch(task -> task.getStatus() == ClosingTaskStatus.COMPLETED);
 
         if (!allMandatoryTasksCompleted) {
-            // TODO: 실패 사유 상세 로깅 및 알림
-            updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); // 또는 FAILED 상태 도입
+            // 실패 사유 상세 로깅 및 알림
+            System.err.println("Closing Failed: Not all mandatory closing tasks are completed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
+            updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); 
             throw new IllegalStateException("Not all mandatory closing tasks are completed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
         }
 
@@ -490,14 +504,21 @@ public class ClosingService {
                 .allMatch(gate -> gate.getStatus() == ClosingGateStatus.PASSED);
 
         if (!allGatesPassed) {
-            // TODO: 실패 사유 상세 로깅 및 알림
-            updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); // 또는 FAILED 상태 도입
+            // 실패 사유 상세 로깅 및 알림
+            System.err.println("Closing Failed: Not all closing gates are passed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
+            updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user); 
             throw new IllegalStateException("Not all closing gates are passed for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
         }
 
         // 3. (선택적) 해당 기간의 모든 ReconciliationRun이 SUCCESS 상태 (또는 특정 조건 충족)
         // TODO: ReconciliationRun 상태 확인 로직 구현 (ReconciliationService 또는 리포지토리 연동)
-        // 예: reconciliationRunRepository.findByFiscalPeriodAndStatus(fiscalPeriod, ReconciliationRunStatus.SUCCESS).size() == totalRunsExpected;
+        // 임시로 true로 간주
+        boolean allReconciliationsSuccessful = true;
+        if (!allReconciliationsSuccessful) {
+            System.err.println("Closing Failed: Not all reconciliations are successful for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
+            updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.IN_PROGRESS, user);
+            throw new IllegalStateException("Not all reconciliations are successful for " + calendar.getFiscalYear() + "-" + calendar.getFiscalPeriod());
+        }
 
         // 모든 조건 충족 시 최종 마감 처리
         return updateClosingCalendarStatus(calendarId, ClosingCalendarStatus.CLOSED, user);
@@ -525,12 +546,45 @@ public class ClosingService {
         entry.setAuditUser(createdBy);
         entry.setLineageSourceType(lineageSourceType);
         entry.setLineageSourceId(lineageSourceId);
-        // TODO: 계정과목, 금액 등 JournalDetail 생성 로직 추가 필요
-        // 현재는 빈 상세 정보로 저장됨. 실제 구현 시 분개 상세 정보 포함되어야 함.
+        
+        // TODO: 실제 계정과목, 금액 등 JournalDetail 생성 로직 추가 필요 - 임시로 더미 계정 사용
+        AccountSubject dummyDebitAccount = accountSubjectRepository.findById("999998") // 예: 임시 차변 계정
+                .orElseGet(() -> accountSubjectRepository.save(createDummyAccountSubject("999998", "더미 차변 계정")));
+        AccountSubject dummyCreditAccount = accountSubjectRepository.findById("999999") // 예: 임시 대변 계정
+                .orElseGet(() -> accountSubjectRepository.save(createDummyAccountSubject("999999", "더미 대변 계정")));
+
+        // JournalDetail - 차변 (임시)
+        JournalDetail debitDetail = new JournalDetail();
+        debitDetail.setDrcrType("DEBIT");
+        debitDetail.setAccountSubject(dummyDebitAccount);
+        debitDetail.setAmount(BigDecimal.ZERO); // 임시 금액
+        debitDetail.setBaseAmount(BigDecimal.ZERO);
+        debitDetail.setDetailDescription(description + " (차변)");
+        entry.addDetail(debitDetail);
+
+        // JournalDetail - 대변 (임시)
+        JournalDetail creditDetail = new JournalDetail();
+        creditDetail.setDrcrType("CREDIT");
+        creditDetail.setAccountSubject(dummyCreditAccount);
+        creditDetail.setAmount(BigDecimal.ZERO); // 임시 금액
+        creditDetail.setBaseAmount(BigDecimal.ZERO);
+        creditDetail.setDetailDescription(description + " (대변)");
+        entry.addDetail(creditDetail);
 
         // 전표번호 생성 (예시)
         entry.setSlipNo(accountingDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + "-AUTO-" + journalEntryRepository.count());
 
         return journalEntryRepository.save(entry);
+    }
+
+    // 헬퍼 메서드: 더미 계정과목 생성 (테스트 및 초기 개발용)
+    private AccountSubject createDummyAccountSubject(String code, String name) {
+        AccountSubject account = new AccountSubject();
+        account.setCode(code);
+        account.setName(name);
+        account.setDescription(name + " (자동 생성된 더미 계정)");
+        account.setAccountType("ASSET"); // 임시 계정 타입
+        account.setActive(true);
+        return account;
     }
 }

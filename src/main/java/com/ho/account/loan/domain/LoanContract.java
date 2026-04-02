@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList; // Import ArrayList
-import java.util.List; // Import List
+import java.util.ArrayList; // ArrayList import
+import java.util.List; // List import
 
 @Entity
 @Table(name = "LOAN_CONTRACTS")
@@ -53,14 +53,14 @@ public class LoanContract {
     @Column(name = "EFFECTIVE_INTEREST_RATE", nullable = false, precision = 5, scale = 4)
     private BigDecimal effectiveInterestRate;
 
-    // New fields for EIR amortization tracking
+    // EIR 상각 추적용 신규 필드
     @Column(name = "TOTAL_INTEREST_PAID", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalInterestPaid = BigDecimal.ZERO;
 
     @Column(name = "TOTAL_PRINCIPAL_PAID", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalPrincipalPaid = BigDecimal.ZERO;
 
-    // OneToMany relationship to amortization schedule entries
+    // 상각 스케줄 엔트리와의 OneToMany 관계
     @OneToMany(mappedBy = "loanContract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
 
@@ -86,13 +86,13 @@ public class LoanContract {
         updateDate = LocalDateTime.now();
     }
 
-    // 연관관계 편의 메서드 (if needed, to add entries to schedule)
+    // 연관관계 편의 메서드 (필요 시 스케줄에 엔트리를 추가하기 위한)
     public void addAmortizationEntry(LoanAmortizationScheduleEntry entry) {
         amortizationSchedule.add(entry);
         entry.setLoanContract(this);
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

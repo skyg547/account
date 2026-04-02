@@ -30,7 +30,7 @@ public class JournalRule {
     @Column(nullable = false)
     private LocalDate validFrom;
 
-    private LocalDate validTo; // Nullable for currently active rule
+    private LocalDate validTo; // 현재 활성 규칙이면 null 허용
 
     @Column(nullable = false)
     private int version;
@@ -39,7 +39,7 @@ public class JournalRule {
     private boolean isActive;
 
     @Column(nullable = false)
-    private int priority; // Lower number means higher priority
+    private int priority; // 숫자가 낮을수록 우선순위가 높음
 
     @OneToMany(mappedBy = "journalRule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JournalRuleCondition> conditions = new ArrayList<>();
@@ -66,7 +66,7 @@ public class JournalRule {
         if (this.version == 0)
             this.version = 1;
         if (this.priority == 0)
-            this.priority = 999; // Default low priority
+            this.priority = 999; // 기본 낮은 우선순위
         if (this.ruleCode == null)
             throw new IllegalArgumentException("Rule code cannot be null");
         if (this.ruleName == null)
@@ -80,7 +80,7 @@ public class JournalRule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }
@@ -201,7 +201,7 @@ public class JournalRule {
         this.createdBy = createdBy;
     }
 
-    // Helper methods for relationships
+    // 연관관계 헬퍼 메서드
     public void addCondition(JournalRuleCondition condition) {
         conditions.add(condition);
         condition.setJournalRule(this);

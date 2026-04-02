@@ -11,7 +11,7 @@ import java.util.List;
 
 public class ExpenditureResolutionRequestDto {
 
-    private Long id; // For update scenarios
+    private Long id; // 수정 시나리오용
 
     @NotBlank(message = "제목은 필수입니다.")
     private String title;
@@ -34,7 +34,7 @@ public class ExpenditureResolutionRequestDto {
     @Size(min = 1, message = "지출 상세 내역은 최소 하나 이상이어야 합니다.")
     private List<ExpenditureDetailRequestDto> details;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }
@@ -113,7 +113,7 @@ public class ExpenditureResolutionRequestDto {
 
         private String description;
 
-        // Getters and Setters
+        // Getter 및 Setter
         public String getAccountSubjectCode() {
             return accountSubjectCode;
         }

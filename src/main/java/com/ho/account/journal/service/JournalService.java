@@ -225,7 +225,7 @@ public class JournalService {
         journalEntryRepository.save(entry);
     }
 
-    // 전표 전기 (Post Journal Entry)
+    // 전표 전기 (전표 전기)
     @AuditLoggable(eventType = "JOURNAL", eventName = "POST")
     public void postJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id)
@@ -420,10 +420,10 @@ public class JournalService {
                 return false; // Condition field not present in event
             }
 
-            // Simple string comparison for now. More complex evaluation needed for full
-            // expression support.
-            // This part would be enhanced with a proper expression engine for advanced
-            // operators.
+            // 현재는 단순 문자열 비교만 수행하며, 전체 지원을 위해 더 복잡한 평가가 필요함
+            // 식 지원이 필요함.
+            // 이 부분은 고급 연산자를 위해 적절한 식 엔진으로 개선되어야 함
+            // 연산자 처리가 필요함.
             switch (condition.getOperator()) {
                 case EQUALS:
                     if (!eventValue.equals(condition.getValue()))
@@ -445,29 +445,29 @@ public class JournalService {
                     if (!eventValue.contains(condition.getValue()))
                         return false;
                     break;
-                // Add more operators as needed (e.g., GREATER_THAN, LESS_THAN for numeric
-                // values)
+                // 필요 시 더 많은 연산자 추가(예: 숫자 비교용 GREATER_THAN, LESS_THAN
+                // 값)
                 default:
-                    // For unsupported operators, assume no match or throw an error
+                    // 지원하지 않는 연산자는 미일치로 간주하거나 오류를 발생시킴
                     return false;
             }
         }
-        return true; // All conditions matched
+        return true; // 모든 조건 일치
     }
 
     private JournalEntry generateJournalEntry(JournalRule rule, Map<String, String> transactionEvent,
             LocalDate accountingDate) {
         JournalEntry journalEntry = new JournalEntry();
-        journalEntry.setSlipDate(LocalDate.now()); // Current date for slip date
+        journalEntry.setSlipDate(LocalDate.now()); // 전표일은 현재 일자 사용
         journalEntry.setAccountingDate(accountingDate);
         journalEntry.setDescription(rule.getDescription() != null ? rule.getDescription() : rule.getRuleName());
-        journalEntry.setStatus(JournalEntryStatus.DRAFT); // Rules generate DRAFT entries
+        journalEntry.setStatus(JournalEntryStatus.DRAFT); // 규칙은 DRAFT 전표를 생성함
 
         for (JournalRuleDetail ruleDetail : rule.getRuleDetails()) {
             JournalDetail detail = new JournalDetail();
             detail.setDrcrType(ruleDetail.getDrcrType());
 
-            // Evaluate expressions (simple direct lookup or static value for now)
+            // 식 평가(현재는 단순 직접 조회 또는 정적 값만 처리)
             detail.setAccountSubject(
                     evaluateAccountSubjectExpression(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent));
             detail.setAmount(evaluateAmountExpression(ruleDetail.getAmountExpression(), transactionEvent));
@@ -481,15 +481,15 @@ public class JournalService {
             journalEntry.addDetail(detail);
         }
 
-        validateJournalEntry(journalEntry); // Validate the generated entry
+        validateJournalEntry(journalEntry); // 생성된 전표 검증
         return journalEntry;
     }
 
-    // Helper methods to evaluate expressions.
-    // For now, these will simply check if the expression is a direct value or a
-    // placeholder like "${key}".
-    // In a full implementation, a robust expression parser (e.g., SpEL) would be
-    // used.
+    // 식 평가용 헬퍼 메서드.
+    // 현재는 식이 직접 값인지 여부만 단순 확인
+    // 또는 "${key}" 형태의 플레이스홀더인지 확인
+    // 전체 구현에서는 SpEL 같은 견고한 식 파서를 사용해야 함
+    // 사용해야 함.
     private AccountSubject evaluateAccountSubjectExpression(String expression, Map<String, String> transactionEvent) {
         String value = extractValueFromExpression(expression, transactionEvent);
         if (value != null) {
@@ -497,7 +497,7 @@ public class JournalService {
                     .orElseThrow(
                             () -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + value));
         }
-        return null; // Or handle as error
+        return null; // 또는 오류로 처리
     }
 
     private BigDecimal evaluateAmountExpression(String expression, Map<String, String> transactionEvent) {
@@ -509,7 +509,7 @@ public class JournalService {
                 throw new IllegalArgumentException("Invalid Amount expression result from rule: " + value, e);
             }
         }
-        return BigDecimal.ZERO; // Or handle as error
+        return BigDecimal.ZERO; // 또는 오류로 처리
     }
 
     private BusinessPartner evaluateBusinessPartnerExpression(String expression, Map<String, String> transactionEvent) {
@@ -543,6 +543,6 @@ public class JournalService {
             String key = expression.substring(2, expression.length() - 1);
             return transactionEvent.get(key);
         }
-        return expression; // Treat as static value
+        return expression; // 정적 값으로 처리
     }
 }

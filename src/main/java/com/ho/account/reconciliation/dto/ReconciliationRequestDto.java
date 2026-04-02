@@ -13,7 +13,7 @@ public class ReconciliationRequestDto {
 
     private String runBy;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public LocalDate getReconciliationDate() {
         return reconciliationDate;
     }

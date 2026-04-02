@@ -17,7 +17,7 @@ public class FixedAssetDisposalRequest {
     @DecimalMin(value = "0.00", message = "처분가액은 0 이상이어야 합니다.")
     private BigDecimal salePrice;
 
-    // Getters and Setters
+    // Getter 및 Setter
     public Long getAssetId() {
         return assetId;
     }

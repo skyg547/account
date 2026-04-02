@@ -7,6 +7,7 @@ import com.ho.account.reconciliation.domain.ReconciliationRun;
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import com.ho.account.reconciliation.domain.ReconciliationUnit.ReconciliationFrequency;
 import com.ho.account.reconciliation.domain.ReconciliationUnit.ReconciliationType;
+import com.ho.account.reconciliation.dto.ReconciliationDifferenceResolutionRequestDto;
 import com.ho.account.reconciliation.dto.ReconciliationRunRequestDto;
 import com.ho.account.reconciliation.service.ReconciliationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,7 +78,7 @@ class ReconciliationControllerTest {
 
         mockMvc.perform(post("/api/reconciliation/units")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(testUnit))) // Assuming DTO matches entity for simplicity
+                        .content(objectMapper.writeValueAsString(testUnit))) // 단순화를 위해 DTO가 엔티티와 동일하다고 가정
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Bank vs Book"));
     }
@@ -106,7 +107,7 @@ class ReconciliationControllerTest {
         difference.setAssignedToUser("user123");
         difference.setSlaDueDate(LocalDateTime.now().plusDays(7));
         difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED);
-        difference.setReconciliationRun(testRun); // Link to a run
+        difference.setReconciliationRun(testRun); // 실행 이력과 연결
 
         when(reconciliationService.assignDifference(anyLong(), anyString(), any(LocalDateTime.class))).thenReturn(difference);
 
@@ -138,5 +139,39 @@ class ReconciliationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1L))
                 .andExpect(jsonPath("$[0].differenceType").value("AMOUNT_MISMATCH"));
+    }
+
+    @Test
+    void testResolveDifference() throws Exception {
+        ReconciliationDifference difference = new ReconciliationDifference();
+        difference.setId(1L);
+        difference.setReconciliationRun(testRun);
+        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED);
+        difference.setResolvedBy("resolver1");
+        difference.setResolvedAt(LocalDateTime.now());
+
+        DifferenceReasonCode reasonCode = new DifferenceReasonCode();
+        reasonCode.setId(1L);
+        reasonCode.setName("일반 불일치");
+        difference.setReasonCode(reasonCode);
+
+        when(reconciliationService.resolveDifference(anyLong(), anyLong(), anyLong(),
+                any(ReconciliationDifference.ReconciliationDifferenceStatus.class), anyString()))
+                .thenReturn(difference);
+
+        ReconciliationDifferenceResolutionRequestDto requestDto = new ReconciliationDifferenceResolutionRequestDto();
+        requestDto.setDifferenceId(1L);
+        requestDto.setReasonCodeId(1L);
+        requestDto.setAdjustmentJournalEntryId(100L);
+        requestDto.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED);
+        requestDto.setResolvedBy("resolver1");
+
+        mockMvc.perform(post("/api/reconciliation/differences/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESOLVED"))
+                .andExpect(jsonPath("$.resolvedBy").value("resolver1"))
+                .andExpect(jsonPath("$.reasonCodeId").value(1L));
     }
 }
