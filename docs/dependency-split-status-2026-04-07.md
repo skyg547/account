@@ -7,6 +7,8 @@
 - `SourceDocumentService` now depends on `SourceDocumentProvider` implementations instead of AR/AP repositories
 - reporting code now lives outside `app` and depends on `master-data` and `journal-ledger`
 - contract adapter implementations now live outside `app`
+- drilldown and source-document routing now live in `journal-ledger`, while providers live with their owning domains
+- `app` runtime code is reduced to Spring Boot bootstrap; unmatched legacy artifacts were removed from the runtime module
 - tests remain in `app` so full integration coverage is preserved during transition
 
 ## Remaining Cross-Domain Dependencies
@@ -26,4 +28,6 @@
 
 - moved `com.ho.account.report.*` from `app` to `reporting`
 - moved contract adapter implementations into `master-data`, `journal-ledger`, `closing`, and `expenditure-resolution`
-- `app` is now closer to a pure bootstrap/composition module
+- split source-document providers by ownership: `asset-lease`, `loan`, `receivable`, `payable`
+- moved unused `InvoiceMatching` artifacts into `docs/legacy-src`
+- `app` is now effectively a bootstrap module

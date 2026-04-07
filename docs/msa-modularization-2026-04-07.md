@@ -8,6 +8,9 @@
 - Moved current AP core main source code into `payable`
 - Moved current reporting domain/repository/service code into `reporting`
 - Moved contract adapter implementations into their owning modules
+- Moved drilldown and source-document routing into `journal-ledger`
+- Split source-document providers into owning domain modules
+- Reduced `app` runtime code to bootstrap-only and moved unmatched legacy common artifacts out of runtime
 - Kept remaining `asset`/`tax` coupled flows in `app`
 
 ## Current Module Ownership
@@ -31,6 +34,8 @@
   - reporting services
 - `master-data`, `journal-ledger`, `closing`, `expenditure-resolution`
   - own the contract adapter implementations they expose
+- `asset-lease`, `loan`, `receivable`, `payable`
+  - own their `SourceDocumentProvider` implementations
 
 ## Compatibility Interfaces
 
@@ -49,8 +54,7 @@
   - still depend on `tax`
   - remain in `app`
 - app adapters and drilldown/common services
-  - remain in `app` as composition-layer code
-  - remaining files are bootstrap, source-document composition, and unmatched shared artifacts
+  - reduced to bootstrap-only runtime code
 
 ## Next Split Order
 

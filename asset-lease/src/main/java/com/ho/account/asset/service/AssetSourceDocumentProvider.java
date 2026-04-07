@@ -1,9 +1,8 @@
-package com.ho.account.common.service;
+package com.ho.account.asset.service;
 
 import com.ho.account.asset.repository.FixedAssetRepository;
 import com.ho.account.asset.repository.LeaseContractRepository;
 import com.ho.account.contracts.source.SourceDocumentProvider;
-import com.ho.account.loan.repository.LoanContractRepository;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -13,20 +12,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Order(100)
-public class AppSourceDocumentProvider implements SourceDocumentProvider {
+public class AssetSourceDocumentProvider implements SourceDocumentProvider {
 
-    private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE", "LOAN");
+    private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE");
 
     private final FixedAssetRepository fixedAssetRepository;
     private final LeaseContractRepository leaseContractRepository;
-    private final LoanContractRepository loanContractRepository;
 
-    public AppSourceDocumentProvider(FixedAssetRepository fixedAssetRepository,
-                                     LeaseContractRepository leaseContractRepository,
-                                     LoanContractRepository loanContractRepository) {
+    public AssetSourceDocumentProvider(FixedAssetRepository fixedAssetRepository,
+                                       LeaseContractRepository leaseContractRepository) {
         this.fixedAssetRepository = fixedAssetRepository;
         this.leaseContractRepository = leaseContractRepository;
-        this.loanContractRepository = loanContractRepository;
     }
 
     @Override
@@ -48,11 +44,6 @@ public class AppSourceDocumentProvider implements SourceDocumentProvider {
                 });
                 case "IFRS16_LEASE" -> leaseContractRepository.findById(id).map(contract -> {
                     documentDetails.put("type", "LeaseContract");
-                    documentDetails.put("data", contract);
-                    return documentDetails;
-                });
-                case "LOAN" -> loanContractRepository.findById(id).map(contract -> {
-                    documentDetails.put("type", "LoanContract");
                     documentDetails.put("data", contract);
                     return documentDetails;
                 });
