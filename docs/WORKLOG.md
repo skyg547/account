@@ -122,3 +122,26 @@
     - `ReconciliationControllerTest.java`: 해결 API 테스트 추가.
   - 문서 정합성 반영
     - `docs/todo.md`에서 기존 완료된 `09 고정자산`, `10 리스`, 이번에 보강한 `13 대사` 항목을 완료(`o`)로 정리.
+- **DB DDL 현행/레거시 분류 정리**
+  - `docs/db/README.md` 추가.
+  - `docs/db` 하위 DDL을 Java 엔티티 기준으로 `현행`, `부분 일치`, `레거시`로 분류.
+  - `docs/config-guide.md`, `docs/skills.md`에서 `docs/db/*.sql`를 일괄 현행으로 보지 않고 `docs/db/README.md`를 먼저 보도록 기준 수정.
+
+## 2026-04-03
+- **DB DDL 물리 분리 및 멀티모듈 구조 전환**
+  - `docs/db/current`, `docs/db/legacy` 디렉토리 추가 후 DDL 파일을 실제로 분리.
+  - Gradle을 `app`, `contracts`, `shared-kernel` 멀티모듈 구조로 전환.
+  - 기존 `src`를 `app/src`로 이동하여 실행 애플리케이션을 `app` 모듈로 수용.
+  - `docs/msa-modularization.md` 추가로 도메인 기반 MSA 분리 방향과 권장 경계를 문서화.
+  - `contracts`에 `MasterDataQueryPort`, `JournalPostingPort` 및 참조/명령 DTO 추가.
+  - `app`에 모놀리스 호환 어댑터 `MonolithMasterDataQueryAdapter`, `MonolithJournalPostingAdapter` 추가.
+- **DDL-엔티티 대응표 보강**
+  - `docs/db/README.md`에 파일별 테이블과 Java 엔티티 대응표 추가.
+  - 현행/부분 일치/레거시 구분뿐 아니라 누락 엔티티와 병렬 모델까지 명시.
+- **코드 1차 모듈 분리 진행**
+  - `master-data` 모듈 추가 후 `basic` 패키지를 분리.
+  - `governance` 모듈 추가 후 `security`, `audit` 패키지를 분리.
+  - `shared-kernel`로 `Masked` 어노테이션 이동.
+  - `docs/dependency-split-status.md` 추가로 소스/테스트 의존 현황과 다음 분리 우선순위를 문서화.
+  - 전체 `assemble` 성공 확인.
+  - 전체 `test`는 기존 테스트 코드와 현행 도메인 API 불일치로 `app:compileTestJava` 단계에서 실패 확인.

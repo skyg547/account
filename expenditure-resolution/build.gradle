@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management'
+}
+
+description = 'account-expenditure-resolution'
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+    }
+}
+
+dependencies {
+    implementation project(':contracts')
+    implementation project(':master-data')
+    implementation project(':journal-ledger')
+    implementation project(':asset-lease')
+    implementation project(':tax')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

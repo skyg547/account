@@ -1,28 +1,48 @@
-# Role-Based Configuration Guide (Cline-Style)
+# 프로젝트 스킬/설정 가이드
 
-This document explains how to configure Antigravity to act with specific roles and sequential tasks, similar to Cline.
+이 문서는 `account` 프로젝트에서 에이전트가 일관되게 작업하기 위해 필요한 설정 기준을 설명한다.
 
-## 1. Role Definitions (Personas)
-**File**: [.clinerules](file:///c:/Users/gktjd/IdeaProjects/account/.clinerules) / [docs/GEMINI_SKILL.md](file:///c:/Users/gktjd/IdeaProjects/account/docs/GEMINI_SKILL.md)
+## 1. 실제 기준 문서
 
-- Add new personas under the `### 👥 1. 전문가 페르소나 및 R&R` section.
-- Define specific responsibilities (R&R) and tools each role should prioritize.
+이 프로젝트에서 우선순위가 높은 문서는 아래 순서다.
 
-## 2. Automated Workflows
-**Directory**: [.agent/workflows/](file:///c:/Users/gktjd/IdeaProjects/account/.agent/workflows/)
+1. `docs/WORKLOG.md`
+2. `docs/todo.md`
+3. 현재 작업 도메인 문서
+4. `docs/db/README.md`
+5. 관련 `docs/db/*.sql`
+6. 관련 코드와 테스트
+7. 구조 변경 작업이면 `docs/msa-modularization.md`
 
-- Create `.md` files in this directory to define sequential steps.
-- Use the standard markdown list format for steps.
-- These can be executed as holistic missions.
+## 2. 실제 스킬 파일
 
-## 3. MCP (Model Context Protocol)
-Antigravity supports MCP through server-side integration.
-- **Tools**: `list_resources`, `read_resource`.
-- **Configuration**: MCP servers are typically configured in the system environment or via `.vscode/settings.json` (if using specific extensions).
-- **Verification**: Call `list_resources` with a `ServerName` to see what a specific server provides.
+이 저장소에서 "스킬처럼" 동작하려면 저장소 루트에 있는 `SKILL.md`를 기준으로 삼는다.
 
-## 4. Skill Settings
-**Files**: `**/SKILL.md`
+- 목적: 새 세션이 시작되어도 같은 방식으로 작업을 이어가기 위함
+- 내용: 문서 읽는 순서, 정합성 규칙, DoD 처리, 커밋 기준
 
-- Place `SKILL.md` files in domain folders to provide localized "expert knowledge".
-- Antigravity 자동으로 해당 디렉토리 상의 `SKILL.md`를 인지하여 해당 도메인 전문가로 동작합니다.
+`docs/skills.md`는 설명 문서이고, 실제 작업 지침은 루트 `SKILL.md`가 담당한다.
+
+## 3. 문서 정합성 규칙
+
+- 기능 완료 시 `docs/todo.md`의 완료 표기와 DoD 상태를 같이 갱신한다.
+- 중요한 작업 단위가 끝나면 `docs/WORKLOG.md`에 작업 이력을 남긴다.
+- 도메인 기능이 추가되면 관련 문서와 DDL도 가능한 범위에서 맞춘다.
+- 단, `docs/db/*.sql`는 현행과 레거시가 섞여 있으므로 먼저 `docs/db/README.md`의 분류를 확인한다.
+
+## 4. 코드 작업 규칙
+
+- Spring Boot + JPA + DTO 분리 원칙 유지
+- 금액 계산은 `BigDecimal`
+- 회계 로직은 상태, 마감, 승인, SOD, 라인리지까지 함께 본다
+- 테스트 없이 문서만 완료 처리하지 않는다
+
+## 5. 저장소 내에서 필요한 스킬 범주
+
+- 세션 복구 스킬
+- 문서/코드 정합성 유지 스킬
+- 회계 도메인 구현 스킬
+- 테스트 보강 스킬
+- 커밋 정리 스킬
+
+상세 내용은 `docs/skills.md`와 루트 `SKILL.md`를 따른다.

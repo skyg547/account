@@ -1,0 +1,65 @@
+package com.ho.account.common.service;
+
+import com.ho.account.asset.repository.FixedAssetRepository;
+import com.ho.account.asset.repository.LeaseContractRepository;
+import com.ho.account.contracts.source.SourceDocumentProvider;
+import com.ho.account.loan.repository.LoanContractRepository;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+@Component
+@Order(100)
+public class AppSourceDocumentProvider implements SourceDocumentProvider {
+
+    private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE", "LOAN");
+
+    private final FixedAssetRepository fixedAssetRepository;
+    private final LeaseContractRepository leaseContractRepository;
+    private final LoanContractRepository loanContractRepository;
+
+    public AppSourceDocumentProvider(FixedAssetRepository fixedAssetRepository,
+                                     LeaseContractRepository leaseContractRepository,
+                                     LoanContractRepository loanContractRepository) {
+        this.fixedAssetRepository = fixedAssetRepository;
+        this.leaseContractRepository = leaseContractRepository;
+        this.loanContractRepository = loanContractRepository;
+    }
+
+    @Override
+    public boolean supports(String lineageSourceType) {
+        return SUPPORTED_TYPES.contains(lineageSourceType);
+    }
+
+    @Override
+    public Optional<Map<String, Object>> getSourceDocument(String lineageSourceType, String lineageSourceId) {
+        try {
+            Long id = Long.valueOf(lineageSourceId);
+            Map<String, Object> documentDetails = new HashMap<>();
+
+            return switch (lineageSourceType) {
+                case "FIXED_ASSET" -> fixedAssetRepository.findById(id).map(asset -> {
+                    documentDetails.put("type", "FixedAsset");
+                    documentDetails.put("data", asset);
+                    return documentDetails;
+                });
+                case "IFRS16_LEASE" -> leaseContractRepository.findById(id).map(contract -> {
+                    documentDetails.put("type", "LeaseContract");
+                    documentDetails.put("data", contract);
+                    return documentDetails;
+                });
+                case "LOAN" -> loanContractRepository.findById(id).map(contract -> {
+                    documentDetails.put("type", "LoanContract");
+                    documentDetails.put("data", contract);
+                    return documentDetails;
+                });
+                default -> Optional.empty();
+            };
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
+    }
+}
