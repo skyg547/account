@@ -2,7 +2,6 @@ package com.ho.account.expenditure.domain;
 
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Currency;
-import com.ho.account.tax.domain.TaxInvoice;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -52,9 +51,8 @@ public class Invoice {
     @Column(nullable = false, length = 20)
     private InvoiceStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tax_invoice_id")
-    private TaxInvoice taxInvoice;
+    @Column(name = "tax_invoice_id")
+    private Long taxInvoiceId;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -174,12 +172,12 @@ public class Invoice {
         this.status = status;
     }
 
-    public TaxInvoice getTaxInvoice() {
-        return taxInvoice;
+    public Long getTaxInvoiceId() {
+        return taxInvoiceId;
     }
 
-    public void setTaxInvoice(TaxInvoice taxInvoice) {
-        this.taxInvoice = taxInvoice;
+    public void setTaxInvoiceId(Long taxInvoiceId) {
+        this.taxInvoiceId = taxInvoiceId;
     }
 
     public LocalDateTime getCreatedAt() {

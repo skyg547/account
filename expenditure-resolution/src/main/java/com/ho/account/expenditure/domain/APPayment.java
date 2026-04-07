@@ -1,6 +1,5 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.tax.domain.TaxInvoice; // Import TaxInvoice
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,9 +16,8 @@ public class APPayment { // Renamed class
     @JoinColumn(name = "expenditure_resolution_id", nullable = false)
     private ExpenditureResolution expenditureResolution;
 
-    @ManyToOne(fetch = FetchType.LAZY) // Added ManyToOne relationship to TaxInvoice
-    @JoinColumn(name = "tax_invoice_id") // Nullable by default
-    private TaxInvoice taxInvoice;
+    @Column(name = "tax_invoice_id")
+    private Long taxInvoiceId;
 
     @Column(nullable = false)
     private LocalDateTime paymentDate; // 실제 지급 일시
@@ -74,12 +72,12 @@ public class APPayment { // Renamed class
         this.expenditureResolution = expenditureResolution;
     }
 
-    public TaxInvoice getTaxInvoice() {
-        return taxInvoice;
+    public Long getTaxInvoiceId() {
+        return taxInvoiceId;
     }
 
-    public void setTaxInvoice(TaxInvoice taxInvoice) {
-        this.taxInvoice = taxInvoice;
+    public void setTaxInvoiceId(Long taxInvoiceId) {
+        this.taxInvoiceId = taxInvoiceId;
     }
 
     public LocalDateTime getPaymentDate() {

@@ -11,7 +11,9 @@
 - Moved drilldown and source-document routing into `journal-ledger`
 - Split source-document providers into owning domain modules
 - Reduced `app` runtime code to bootstrap-only and moved unmatched legacy common artifacts out of runtime
-- Kept remaining `asset`/`tax` coupled flows in `app`
+- Replaced direct fixed-asset registration / lease activation calls with `AssetRegistrationPort`
+- Moved AP tax-invoice API/service ownership into `tax`
+- Replaced direct tax-invoice entity/repository coupling with `TaxInvoiceQueryPort`
 
 ## Current Module Ownership
 
@@ -34,22 +36,26 @@
   - reporting services
 - `master-data`, `journal-ledger`, `closing`, `expenditure-resolution`
   - own the contract adapter implementations they expose
+- `tax`
+  - owns AP tax-invoice APIs/services
+  - exposes tax-invoice lookup through a contracts adapter
 - `asset-lease`, `loan`, `receivable`, `payable`
   - own their `SourceDocumentProvider` implementations
 
 ## Compatibility Interfaces
 
 - Added [SourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/source/SourceDocumentProvider.java)
+- Added [TaxInvoiceQueryPort.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/tax/TaxInvoiceQueryPort.java)
 - Replaced repository-coupled source document routing with providers:
   - [AppSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/app/src/main/java/com/ho/account/common/service/AppSourceDocumentProvider.java)
   - [ReceivableSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/receivable/src/main/java/com/ho/account/income/service/ReceivableSourceDocumentProvider.java)
   - [PayableSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/payable/src/main/java/com/ho/account/expenditure/service/PayableSourceDocumentProvider.java)
+- Replaced direct tax-invoice lookups with [TaxInvoiceQueryAdapter.java](/C:/Users/skyg547/IdeaProjects/account/tax/src/main/java/com/ho/account/tax/adapter/TaxInvoiceQueryAdapter.java)
 
 ## Deferred Areas
 
-- `ExpenditureService`, `APPaymentService`, `APInvoiceService`, `BudgetService`
-  - still depend on `asset` and `tax`
-  - remain in `app`
+- `BudgetService`
+  - still depends on surrounding expenditure workflow decisions
 - legacy `ArInvoice`, `ArPayment`
   - still depend on `tax`
   - remain in `app`
@@ -58,6 +64,6 @@
 
 ## Next Split Order
 
-1. split `asset` into `asset-lease`
-2. extract `tax` contracts or move `tax` to its own module
-3. split remaining expenditure-resolution workflow after dependency inversion
+1. remove remaining AR legacy `tax` coupling
+2. reduce direct `master-data` entity sharing across modules
+3. add module-owned tests as `app` integration tests are carved back

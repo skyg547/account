@@ -16,7 +16,6 @@ dependencies {
     implementation project(':master-data')
     implementation project(':journal-ledger')
     implementation project(':asset-lease')
-    implementation project(':tax')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

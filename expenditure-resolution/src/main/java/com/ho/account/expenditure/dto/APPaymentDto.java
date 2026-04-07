@@ -1,7 +1,6 @@
 package com.ho.account.expenditure.dto;
 
 import com.ho.account.expenditure.domain.APPayment;
-import com.ho.account.tax.dto.TaxInvoiceDto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -33,17 +32,11 @@ public class APPaymentDto {
     }
 
     public static APPaymentDto fromEntity(APPayment apPayment) {
-        Long taxInvoiceId = null;
-        String taxInvoiceIssueId = null;
-        if (apPayment.getTaxInvoice() != null) {
-            taxInvoiceId = apPayment.getTaxInvoice().getId();
-            taxInvoiceIssueId = apPayment.getTaxInvoice().getIssueId();
-        }
         return new APPaymentDto(
                 apPayment.getId(),
                 apPayment.getExpenditureResolution().getId(),
-                taxInvoiceId,
-                taxInvoiceIssueId,
+                apPayment.getTaxInvoiceId(),
+                null,
                 apPayment.getPaymentDate(),
                 apPayment.getAmount(),
                 apPayment.getUnappliedAmount(),
