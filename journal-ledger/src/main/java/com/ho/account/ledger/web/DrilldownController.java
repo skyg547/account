@@ -24,14 +24,16 @@ public class DrilldownController {
     }
 
     @GetMapping("/journal-entry/{journalEntryId}")
-    public ResponseEntity<Map<String, Object>> getJournalEntryDetails(@PathVariable Long journalEntryId) {
+    public ResponseEntity<Map<String, Object>> getJournalEntryDetails(
+            @PathVariable("journalEntryId") Long journalEntryId) {
         JournalEntry journalEntry = journalService.getJournalEntryWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("Journal Entry not found with ID: " + journalEntryId));
         return ResponseEntity.ok(toJournalEntryResponse(journalEntry));
     }
 
     @GetMapping("/journal-entry/{journalEntryId}/source-document")
-    public ResponseEntity<Map<String, Object>> getSourceDocumentForJournalEntry(@PathVariable Long journalEntryId) {
+    public ResponseEntity<Map<String, Object>> getSourceDocumentForJournalEntry(
+            @PathVariable("journalEntryId") Long journalEntryId) {
         JournalEntry journalEntry = journalService.getJournalEntryWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("Journal Entry not found with ID: " + journalEntryId));
 
