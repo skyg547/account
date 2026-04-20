@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: journal-ledger
+
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# JPA 공통 (독립 DB용 H2 메모리 설정 등 추가)
+  datasource:
+    url: jdbc:h2:mem:journaldb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
