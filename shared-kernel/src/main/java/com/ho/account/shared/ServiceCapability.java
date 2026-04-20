@@ -1,0 +1,12 @@
+package com.ho.account.shared;
+
+public enum ServiceCapability {
+    SOURCE_DOCUMENT_LOOKUP,
+    MASTER_DATA_QUERY,
+    JOURNAL_POSTING,
+    ACCOUNTING_PERIOD_STATUS,
+    BUDGET_CONTROL,
+    ASSET_REGISTRATION,
+    LEASE_PAYMENT_RESOLUTION,
+    TAX_INVOICE_QUERY
+}

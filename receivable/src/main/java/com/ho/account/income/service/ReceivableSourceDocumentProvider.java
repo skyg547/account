@@ -1,6 +1,7 @@
 package com.ho.account.income.service;
 
 import com.ho.account.contracts.source.SourceDocumentProvider;
+import com.ho.account.shared.BoundedContext;
 import com.ho.account.income.repository.SalesInvoiceRepository;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,8 +23,8 @@ public class ReceivableSourceDocumentProvider implements SourceDocumentProvider 
     }
 
     @Override
-    public boolean supports(String lineageSourceType) {
-        return SUPPORTED_TYPES.contains(lineageSourceType);
+    public Set<String> supportedLineageSourceTypes() {
+        return SUPPORTED_TYPES;
     }
 
     @Override
@@ -49,5 +50,20 @@ public class ReceivableSourceDocumentProvider implements SourceDocumentProvider 
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public String serviceName() {
+        return "receivable-source-document-provider";
+    }
+
+    @Override
+    public BoundedContext boundedContext() {
+        return BoundedContext.RECEIVABLE;
+    }
+
+    @Override
+    public String description() {
+        return "Provides receivable lineage documents from sales invoices.";
     }
 }

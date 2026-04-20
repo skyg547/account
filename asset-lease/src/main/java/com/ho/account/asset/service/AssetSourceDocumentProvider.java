@@ -3,6 +3,7 @@ package com.ho.account.asset.service;
 import com.ho.account.asset.repository.FixedAssetRepository;
 import com.ho.account.asset.repository.LeaseContractRepository;
 import com.ho.account.contracts.source.SourceDocumentProvider;
+import com.ho.account.shared.BoundedContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +27,8 @@ public class AssetSourceDocumentProvider implements SourceDocumentProvider {
     }
 
     @Override
-    public boolean supports(String lineageSourceType) {
-        return SUPPORTED_TYPES.contains(lineageSourceType);
+    public Set<String> supportedLineageSourceTypes() {
+        return SUPPORTED_TYPES;
     }
 
     @Override
@@ -52,5 +53,20 @@ public class AssetSourceDocumentProvider implements SourceDocumentProvider {
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public String serviceName() {
+        return "asset-lease-source-document-provider";
+    }
+
+    @Override
+    public BoundedContext boundedContext() {
+        return BoundedContext.ASSET_LEASE;
+    }
+
+    @Override
+    public String description() {
+        return "Provides fixed asset and lease lineage documents.";
     }
 }

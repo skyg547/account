@@ -1,16 +1,20 @@
 package com.ho.account.expenditure.service;
 
 import com.ho.account.contracts.source.SourceDocumentProvider;
+import com.ho.account.shared.BoundedContext;
 import com.ho.account.expenditure.repository.PurchaseInvoiceRepository;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
 @Order(20)
 public class PayableSourceDocumentProvider implements SourceDocumentProvider {
+
+    private static final Set<String> SUPPORTED_TYPES = Set.of("P2P_AP");
 
     private final PurchaseInvoiceRepository purchaseInvoiceRepository;
 
@@ -19,8 +23,8 @@ public class PayableSourceDocumentProvider implements SourceDocumentProvider {
     }
 
     @Override
-    public boolean supports(String lineageSourceType) {
-        return "P2P_AP".equals(lineageSourceType);
+    public Set<String> supportedLineageSourceTypes() {
+        return SUPPORTED_TYPES;
     }
 
     @Override
@@ -36,5 +40,20 @@ public class PayableSourceDocumentProvider implements SourceDocumentProvider {
             documentDetails.put("data", invoice);
             return documentDetails;
         });
+    }
+
+    @Override
+    public String serviceName() {
+        return "payable-source-document-provider";
+    }
+
+    @Override
+    public BoundedContext boundedContext() {
+        return BoundedContext.PAYABLE;
+    }
+
+    @Override
+    public String description() {
+        return "Provides payable lineage documents from purchase invoices.";
     }
 }

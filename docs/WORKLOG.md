@@ -145,3 +145,13 @@
   - `docs/dependency-split-status.md` 추가로 소스/테스트 의존 현황과 다음 분리 우선순위를 문서화.
   - 전체 `assemble` 성공 확인.
   - 전체 `test`는 기존 테스트 코드와 현행 도메인 API 불일치로 `app:compileTestJava` 단계에서 실패 확인.
+
+## 2026-04-16
+- **서비스 디스커버리 모델 1차 도입**
+  - `shared-kernel`에 `ServiceCapability`, `DiscoverableService`, `ServiceDiscoveryRegistry`를 추가하고 `ServiceDescriptor`를 capability 기반 메타모델로 확장.
+  - `BoundedContext`를 실제 분리 후보 모듈 단위로 세분화 (`CLOSING`, `RECONCILIATION`, `REPORTING`, `TAX`, `EXPENDITURE_RESOLUTION` 등).
+  - `contracts`의 `SourceDocumentProvider`를 discoverable contract로 승격.
+  - `app`에 `SpringServiceDiscoveryRegistry`를 추가해 Spring Bean 기반 런타임 등록/탐색 모델을 구현.
+  - `journal-ledger`의 `SourceDocumentService`가 구현체 목록 직접 순회 대신 registry를 사용하도록 변경.
+  - `receivable`, `payable`, `asset-lease`, `loan` 원천문서 제공자에 서비스명/컨텍스트/설명을 추가.
+  - `docs/service-discovery-model.md`에 서비스 디스커버리 기준 문서화.

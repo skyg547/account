@@ -17,14 +17,15 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[모듈] --> B[BoundedContext 선택]
-    B --> C[ServiceDescriptor 생성]
-    C --> D[서비스 이름/설명/컨텍스트 전달]
+    A[모듈 서비스] --> B[BoundedContext 선택]
+    B --> C[ServiceCapability 선택]
+    C --> D[ServiceDescriptor 생성]
+    D --> E[ServiceDiscoveryRegistry 등록]
 ```
 
 설명:
-- `ServiceDescriptor`는 서비스 이름, 소속 컨텍스트, 설명을 함께 묶습니다.
-- 모듈 카탈로그나 등록 정보에 쓰기 좋은 구조입니다.
+- `ServiceDescriptor`는 서비스 이름, 소속 컨텍스트, capability, 설명을 함께 묶습니다.
+- 모듈 카탈로그, 서비스 등록 정보, 포트 라우팅 기준으로 쓸 수 있는 구조입니다.
 
 ## 3. 데이터 마스킹 흐름
 
@@ -66,4 +67,5 @@ flowchart TD
 
 - `MaskingSerializer`는 Jackson 설정에 연결되어야 실제로 동작합니다.
 - 패턴별 규칙은 간단한 문자열 가공 수준입니다.
-- `BoundedContext` 구분은 세밀한 모듈 단위보다 큰 범주 기준입니다.
+- 서비스 디스커버리는 현재 Spring Bean 수집 기반이며, 이후 외부 레지스트리로 확장할 수 있습니다.
+- `BoundedContext` 구분은 실제 분리 후보 모듈 경계를 기준으로 유지합니다.
