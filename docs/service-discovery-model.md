@@ -7,6 +7,7 @@
 - 모듈별 기능 제공자를 Spring Bean 목록 주입에만 의존하지 않고 공통 모델로 식별합니다.
 - `contracts` 포트, `shared-kernel` 메타데이터, `app` 런타임 레지스트리를 같은 규칙으로 묶습니다.
 - 이후 REST/gRPC/Event 기반 분리 시에도 같은 서비스명, 컨텍스트, capability를 재사용합니다.
+- `gateway-service` 같은 인프라 진입점도 서비스 ID 기준으로 같은 런타임 토폴로지 안에서 관리합니다.
 
 ## 2. 핵심 모델
 
@@ -72,3 +73,4 @@
 - `MasterDataQueryPort`, `JournalPostingPort`, `AccountingPeriodStatusPort`도 capability 기반으로 등록합니다.
 - 운영 문서에 서비스 카탈로그와 장애 영향도 표를 추가합니다.
 - 필요 시 registry를 정적 Spring Bean 검색에서 Config Server 또는 서비스 메타 저장소 기반으로 확장합니다.
+- API 진입점은 `gateway-service`가 담당하고, 도메인 서비스는 Eureka 서비스 ID를 통해 게이트웨이 라우트에 연결합니다.

@@ -3,3 +3,7 @@ plugins {
 }
 
 description = 'account-contracts'
+
+dependencies {
+    implementation project(':shared-kernel')
+}
