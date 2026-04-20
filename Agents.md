@@ -1,7 +1,7 @@
 # Repo Agent Guide
 
 ## Scope
-이 문서는 `C:\dev\risk` 저장소 전체에 적용되는 공통 작업 가이드다.
+이 문서는 현제 프로젝트 저장소 전체에 적용되는 공통 작업 가이드다.
 
 ## Working Architecture Rules
 - **Layer Separation**: Hexagonal Architecture(Port/Adapter) 원칙을 엄격히 준수한다.
