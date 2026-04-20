@@ -1,29 +1,27 @@
-package com.ho.account.basic.service;
+package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.dto.AccountSubjectRequestDto;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
+import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * 계정과목 마스터 데이터에 대한 비즈니스 로직을 처리하는 서비스 클래스입니다.
  */
 @Service
 @Transactional
-public class AccountSubjectService {
+public class AccountSubjectService implements AccountSubjectUseCase {
 
-    private final AccountSubjectRepository accountSubjectRepository;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
 
-    @Autowired
-    public AccountSubjectService(AccountSubjectRepository accountSubjectRepository) {
-        this.accountSubjectRepository = accountSubjectRepository;
+    public AccountSubjectService(AccountSubjectPersistencePort accountSubjectPersistencePort) {
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
     }
 
     /**
@@ -31,28 +29,22 @@ public class AccountSubjectService {
      * @param requestDto 생성할 계정과목 정보가 담긴 DTO
      * @return 저장된 계정과목 엔티티
      */
-    public AccountSubject createAccountSubject(AccountSubjectRequestDto requestDto) {
-        if (accountSubjectRepository.existsById(requestDto.getCode())) {
-            throw new IllegalArgumentException("이미 존재하는 계정 코드입니다: " + requestDto.getCode());
+    public AccountSubject createAccountSubject(AccountSubjectCommand command) {
+        if (accountSubjectPersistencePort.existsByCode(command.code())) {
+            throw new IllegalArgumentException("이미 존재하는 계정 코드입니다: " + command.code());
         }
 
-        AccountSubject accountSubject = requestDto.toEntity();
+        AccountSubject accountSubject = command.toEntity();
 
-        // parentCode로 부모 엔티티를 찾아서 설정
-        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
-            AccountSubject parent = accountSubjectRepository.findByCode(requestDto.getParentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("상위 계정을 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+        if (command.hasParentCode()) {
+            AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
+                    .orElseThrow(() -> new IllegalArgumentException("상위 계정을 찾을 수 없습니다. 코드: " + command.parentCode()));
             accountSubject.setParent(parent);
         }
 
-        // SCD2 원칙에 따라 초기 유효기간 설정
-        if (accountSubject.getValidFrom() == null) {
-            accountSubject.setValidFrom(LocalDate.now());
-        }
-        if (accountSubject.getValidTo() == null) {
-            accountSubject.setValidTo(LocalDate.of(9999, 12, 31));
-        }
-        return accountSubjectRepository.save(accountSubject);
+        MasterDataValidityPolicy.applyDefaultWindow(accountSubject::getValidFrom, accountSubject::setValidFrom,
+                accountSubject::getValidTo, accountSubject::setValidTo);
+        return accountSubjectPersistencePort.save(accountSubject);
     }
 
     /**
@@ -62,7 +54,7 @@ public class AccountSubjectService {
      */
     @Transactional(readOnly = true)
     public Optional<AccountSubject> findAccountSubjectByCode(String code) {
-        return accountSubjectRepository.findByCode(code);
+        return accountSubjectPersistencePort.findByCode(code);
     }
 
     /**
@@ -71,10 +63,9 @@ public class AccountSubjectService {
      */
     @Transactional(readOnly = true)
     public List<AccountSubject> findAllActiveAccountSubjects() {
-        LocalDate today = LocalDate.now();
-        return accountSubjectRepository.findAll().stream()
-                .filter(acc -> !today.isBefore(acc.getValidFrom()) && !today.isAfter(acc.getValidTo()))
-                .collect(Collectors.toList());
+        return accountSubjectPersistencePort.findAll().stream()
+                .filter(MasterDataValidityPolicy.isActiveNow(AccountSubject::getValidFrom, AccountSubject::getValidTo))
+                .toList();
     }
 
     /**
@@ -83,28 +74,26 @@ public class AccountSubjectService {
      * @param requestDto 수정할 내용이 담긴 DTO
      * @return 수정된 계정과목 엔티티
      */
-    public AccountSubject updateAccountSubject(String code, AccountSubjectRequestDto requestDto) {
-        AccountSubject account = accountSubjectRepository.findByCode(code)
+    public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
+        AccountSubject account = accountSubjectPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        // 부모 계정 업데이트
-        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
-            AccountSubject parent = accountSubjectRepository.findByCode(requestDto.getParentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("상위 계정을 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+        if (command.hasParentCode()) {
+            AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
+                    .orElseThrow(() -> new IllegalArgumentException("상위 계정을 찾을 수 없습니다. 코드: " + command.parentCode()));
             account.setParent(parent);
         } else {
             account.setParent(null);
         }
 
-        // 수정 가능한 필드 업데이트
-        account.setName(requestDto.getName());
-        account.setCategory(requestDto.getCategory());
-        account.setBalanceType(requestDto.getBalanceType());
-        account.setReportLine(requestDto.getReportLine());
-        account.setUnsettled(requestDto.isUnsettled());
-        account.setFixedAsset(requestDto.isFixedAsset());
-        
-        return accountSubjectRepository.save(account);
+        account.setName(command.name());
+        account.setCategory(command.category());
+        account.setBalanceType(command.balanceType());
+        account.setReportLine(command.reportLine());
+        account.setUnsettled(command.unsettled());
+        account.setFixedAsset(command.fixedAsset());
+
+        return accountSubjectPersistencePort.save(account);
     }
 
     /**
@@ -112,13 +101,11 @@ public class AccountSubjectService {
      * @param code 비활성화할 계정 코드
      */
     public void deactivateAccountSubject(String code) {
-        AccountSubject account = accountSubjectRepository.findByCode(code)
+        AccountSubject account = accountSubjectPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("계정과목을 찾을 수 없습니다. 코드: " + code));
-        
-        if (account.getValidTo().isAfter(LocalDate.now())) {
-            account.setValidTo(LocalDate.now());
-            accountSubjectRepository.save(account);
-        }
+
+        MasterDataValidityPolicy.closeIfActive(account::getValidTo, account::setValidTo);
+        accountSubjectPersistencePort.save(account);
     }
 }
 

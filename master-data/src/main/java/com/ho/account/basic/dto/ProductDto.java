@@ -1,4 +1,4 @@
-package com.ho.account.basic.dto;
+package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.basic.domain.Product;
 import java.time.LocalDate;

@@ -1,6 +1,7 @@
-package com.ho.account.basic.dto;
+package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 
 import java.time.LocalDate;
 
@@ -35,6 +36,20 @@ public class AccountSubjectRequestDto {
         entity.setValidFrom(this.validFrom);
         entity.setValidTo(this.validTo);
         return entity;
+    }
+
+    public AccountSubjectCommand toCommand() {
+        return new AccountSubjectCommand(
+                code,
+                name,
+                parentCode,
+                category,
+                balanceType,
+                reportLine,
+                unsettled,
+                fixedAsset,
+                validFrom,
+                validTo);
     }
 
     // Getter

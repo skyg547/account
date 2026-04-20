@@ -1,48 +1,45 @@
-package com.ho.account.basic.web;
+package com.ho.account.masterdata.api.web;
 
 import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.service.DepartmentService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.masterdata.api.dto.DepartmentRequestDto;
+import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import com.ho.account.basic.dto.DepartmentRequestDto;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/basic/departments")
 public class DepartmentController {
 
-    private final DepartmentService departmentService;
+    private final DepartmentUseCase departmentUseCase;
 
-    @Autowired
-    public DepartmentController(DepartmentService departmentService) {
-        this.departmentService = departmentService;
+    public DepartmentController(DepartmentUseCase departmentUseCase) {
+        this.departmentUseCase = departmentUseCase;
     }
 
     // 부서 생성
     @PostMapping
     public ResponseEntity<Department> createDepartment(@RequestBody DepartmentRequestDto requestDto) {
-        Department createdDepartment = departmentService.createDepartment(requestDto);
+        Department createdDepartment = departmentUseCase.createDepartment(requestDto.toCommand());
         return ResponseEntity.ok(createdDepartment);
     }
 
     // 전체 부서 조회
     @GetMapping
     public List<Department> getAllDepartments() {
-        return departmentService.getAllDepartments();
+        return departmentUseCase.getAllDepartments();
     }
 
     // 사용 중인 부서만 조회
     @GetMapping("/active")
     public List<Department> getActiveDepartments() {
-        return departmentService.findAllActiveDepartments();
+        return departmentUseCase.findAllActiveDepartments();
     }
 
     // 부서 상세 조회
     @GetMapping("/{deptCode}")
     public ResponseEntity<Department> getDepartmentByCode(@PathVariable String deptCode) {
-        return departmentService.getDepartmentByCode(deptCode)
+        return departmentUseCase.getDepartmentByCode(deptCode)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -52,7 +49,7 @@ public class DepartmentController {
     public ResponseEntity<Department> updateDepartment(@PathVariable String deptCode,
             @RequestBody DepartmentRequestDto departmentDetails) {
         try {
-            Department updatedDepartment = departmentService.updateDepartment(deptCode, departmentDetails);
+            Department updatedDepartment = departmentUseCase.updateDepartment(deptCode, departmentDetails.toCommand());
             return ResponseEntity.ok(updatedDepartment);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -63,7 +60,7 @@ public class DepartmentController {
     @DeleteMapping("/{deptCode}")
     public ResponseEntity<Void> deleteDepartment(@PathVariable String deptCode) {
         try {
-            departmentService.deactivateDepartment(deptCode);
+            departmentUseCase.deactivateDepartment(deptCode);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

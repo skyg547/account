@@ -1,26 +1,25 @@
-package com.ho.account.basic.service;
+package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.basic.domain.Product;
-import com.ho.account.basic.dto.ProductRequestDto;
-import com.ho.account.basic.repository.ProductRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.masterdata.core.application.command.ProductCommand;
+import com.ho.account.masterdata.core.application.usecase.ProductUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.port.out.ProductPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 @Transactional
-public class ProductService {
+public class ProductService implements ProductUseCase {
 
-    private final ProductRepository productRepository;
+    private final ProductPersistencePort productPersistencePort;
 
-    @Autowired
-    public ProductService(ProductRepository productRepository) {
-        this.productRepository = productRepository;
+    public ProductService(ProductPersistencePort productPersistencePort) {
+        this.productPersistencePort = productPersistencePort;
     }
 
     /**
@@ -29,33 +28,19 @@ public class ProductService {
      * @param requestDto 생성할 상품 정보가 담긴 DTO
      * @return 저장된 상품 엔티티
      */
-    public Product createProduct(ProductRequestDto requestDto) {
-        if (productRepository.existsByProductCode(requestDto.getProductCode())) {
-            throw new IllegalArgumentException("이미 존재하는 상품 코드입니다: " + requestDto.getProductCode());
+    public Product createProduct(ProductCommand command) {
+        if (productPersistencePort.existsByProductCode(command.productCode())) {
+            throw new IllegalArgumentException("이미 존재하는 상품 코드입니다: " + command.productCode());
         }
 
-        Product product = new Product();
-        product.setProductCode(requestDto.getProductCode());
-        product.setName(requestDto.getName());
-        product.setDescription(requestDto.getDescription());
-        product.setUnitOfMeasure(requestDto.getUnitOfMeasure());
-        product.setPrice(requestDto.getPrice());
-        product.setProductType(requestDto.getProductType());
-        product.setValidFrom(requestDto.getValidFrom());
-        product.setValidTo(requestDto.getValidTo());
+        Product product = command.toEntity();
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
-        product.setAuditUser("system"); // TODO: 실제 사용자 정보로 대체
+        product.setAuditUser("system");
+        MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
+                product::getValidTo, product::setValidTo);
 
-        // SCD2 원칙에 따라 초기 유효기간 설정 (requestDto에서 받아오므로 필요 없을 수 있음, 유효성 검증)
-        if (product.getValidFrom() == null) {
-            product.setValidFrom(LocalDate.now());
-        }
-        if (product.getValidTo() == null) {
-            product.setValidTo(LocalDate.of(9999, 12, 31));
-        }
-
-        return productRepository.save(product);
+        return productPersistencePort.save(product);
     }
 
     /**
@@ -66,7 +51,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Optional<Product> getProductById(Long id) {
-        return productRepository.findById(id);
+        return productPersistencePort.findById(id);
     }
 
     /**
@@ -77,7 +62,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Optional<Product> getProductByProductCode(String productCode) {
-        return productRepository.findByProductCode(productCode);
+        return productPersistencePort.findByProductCode(productCode);
     }
 
     /**
@@ -87,9 +72,8 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public List<Product> getAllActiveProducts() {
-        LocalDate today = LocalDate.now();
-        return productRepository.findAll().stream()
-                .filter(product -> !today.isBefore(product.getValidFrom()) && !today.isAfter(product.getValidTo()))
+        return productPersistencePort.findAll().stream()
+                .filter(MasterDataValidityPolicy.isActiveNow(Product::getValidFrom, Product::getValidTo))
                 .toList();
     }
 
@@ -101,33 +85,27 @@ public class ProductService {
      * @param requestDto 수정할 내용이 담긴 DTO
      * @return 수정된 상품 엔티티
      */
-    public Product updateProduct(Long id, ProductRequestDto requestDto) {
-        Product existingProduct = productRepository.findById(id)
+    public Product updateProduct(Long id, ProductCommand command) {
+        Product existingProduct = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        // 상품 코드 변경 시 중복 확인
-        if (!existingProduct.getProductCode().equals(requestDto.getProductCode()) && productRepository.existsByProductCode(requestDto.getProductCode())) {
-            throw new IllegalArgumentException("이미 존재하는 상품 코드입니다: " + requestDto.getProductCode());
+        if (!existingProduct.getProductCode().equals(command.productCode())
+                && productPersistencePort.existsByProductCode(command.productCode())) {
+            throw new IllegalArgumentException("이미 존재하는 상품 코드입니다: " + command.productCode());
         }
 
-        // SCD2 처리: validFrom 또는 validTo가 변경되면 새로운 버전을 생성하는 로직이 필요할 수 있으나,
-        // 현재는 단순히 기존 엔티티를 업데이트하는 방식으로 진행.
-        // 실제 SCD2 구현에서는 기존 엔티티의 validTo를 LocalDate.now()로 설정하고,
-        // 새로운 엔티티를 requestDto의 validFrom, validTo로 생성하는 방식이 일반적.
-        // 여기서는 유효기간 자체는 업데이트 가능하도록 구현.
-
-        existingProduct.setProductCode(requestDto.getProductCode());
-        existingProduct.setName(requestDto.getName());
-        existingProduct.setDescription(requestDto.getDescription());
-        existingProduct.setUnitOfMeasure(requestDto.getUnitOfMeasure());
-        existingProduct.setPrice(requestDto.getPrice());
-        existingProduct.setProductType(requestDto.getProductType());
-        existingProduct.setValidFrom(requestDto.getValidFrom());
-        existingProduct.setValidTo(requestDto.getValidTo());
+        existingProduct.setProductCode(command.productCode());
+        existingProduct.setName(command.name());
+        existingProduct.setDescription(command.description());
+        existingProduct.setUnitOfMeasure(command.unitOfMeasure());
+        existingProduct.setPrice(command.price());
+        existingProduct.setProductType(command.productType());
+        existingProduct.setValidFrom(command.validFrom());
+        existingProduct.setValidTo(command.validTo());
         existingProduct.setUpdatedAt(LocalDateTime.now());
-        existingProduct.setAuditUser("system"); // TODO: 실제 사용자 정보로 대체
+        existingProduct.setAuditUser("system");
 
-        return productRepository.save(existingProduct);
+        return productPersistencePort.save(existingProduct);
     }
 
     /**
@@ -136,15 +114,12 @@ public class ProductService {
      * @param id 비활성화할 상품 ID
      */
     public void deactivateProduct(Long id) {
-        Product product = productRepository.findById(id)
+        Product product = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        // 오늘 날짜로 유효 종료일을 설정하여 상품을 비활성화 (SCD2)
-        if (product.getValidTo().isAfter(LocalDate.now())) {
-            product.setValidTo(LocalDate.now());
-            product.setUpdatedAt(LocalDateTime.now());
-            product.setAuditUser("system"); // TODO: 실제 사용자 정보로 대체
-            productRepository.save(product);
-        }
+        MasterDataValidityPolicy.closeIfActive(product::getValidTo, product::setValidTo);
+        product.setUpdatedAt(LocalDateTime.now());
+        product.setAuditUser("system");
+        productPersistencePort.save(product);
     }
 }

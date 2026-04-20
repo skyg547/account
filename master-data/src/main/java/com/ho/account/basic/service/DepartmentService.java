@@ -1,101 +1,91 @@
-package com.ho.account.basic.service;
+package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.dto.DepartmentRequestDto;
-import com.ho.account.basic.repository.DepartmentRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.masterdata.core.application.command.DepartmentCommand;
+import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.port.out.DepartmentPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
 @Transactional
-public class DepartmentService {
+public class DepartmentService implements DepartmentUseCase {
 
-    private final DepartmentRepository departmentRepository;
+    private final DepartmentPersistencePort departmentPersistencePort;
 
-    @Autowired
-    public DepartmentService(DepartmentRepository departmentRepository) {
-        this.departmentRepository = departmentRepository;
+    public DepartmentService(DepartmentPersistencePort departmentPersistencePort) {
+        this.departmentPersistencePort = departmentPersistencePort;
     }
 
-    public Department createDepartment(DepartmentRequestDto requestDto) {
-        if (departmentRepository.existsById(requestDto.getCode())) {
-            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + requestDto.getCode());
+    public Department createDepartment(DepartmentCommand command) {
+        if (departmentPersistencePort.existsByCode(command.code())) {
+            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + command.code());
         }
 
-        Department department = requestDto.toEntity();
+        Department department = command.toEntity();
 
-        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
-            Department parent = departmentRepository.findById(requestDto.getParentCode())
+        if (command.hasParentCode()) {
+            Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + command.parentCode()));
             department.setParent(parent);
         }
 
-        if (department.getValidFrom() == null) {
-            department.setValidFrom(LocalDate.now());
-        }
-        if (department.getValidTo() == null) {
-            department.setValidTo(LocalDate.of(9999, 12, 31));
-        }
-        return departmentRepository.save(department);
+        MasterDataValidityPolicy.applyDefaultWindow(department::getValidFrom, department::setValidFrom,
+                department::getValidTo, department::setValidTo);
+        return departmentPersistencePort.save(department);
     }
 
     @Transactional(readOnly = true)
     public Optional<Department> getDepartmentByCode(String code) {
-        return departmentRepository.findById(code);
+        return departmentPersistencePort.findByCode(code);
     }
 
     @Transactional(readOnly = true)
     public Optional<Department> findDepartmentByCode(String code) {
-        return departmentRepository.findById(code);
+        return departmentPersistencePort.findByCode(code);
     }
 
     @Transactional(readOnly = true)
     public List<Department> getAllDepartments() {
-        return departmentRepository.findAll();
+        return departmentPersistencePort.findAll();
     }
 
     @Transactional(readOnly = true)
     public List<Department> findAllActiveDepartments() {
-        LocalDate today = LocalDate.now();
-        return departmentRepository.findAll().stream()
-                .filter(dept -> !today.isBefore(dept.getValidFrom()) && !today.isAfter(dept.getValidTo()))
-                .collect(Collectors.toList());
+        return departmentPersistencePort.findAll().stream()
+                .filter(MasterDataValidityPolicy.isActiveNow(Department::getValidFrom, Department::getValidTo))
+                .toList();
     }
 
-    public Department updateDepartment(String code, DepartmentRequestDto requestDto) {
-        Department department = departmentRepository.findById(code)
+    public Department updateDepartment(String code, DepartmentCommand command) {
+        Department department = departmentPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
 
-        if (requestDto.getParentCode() != null && !requestDto.getParentCode().isEmpty()) {
-            Department parent = departmentRepository.findById(requestDto.getParentCode())
+        if (command.hasParentCode()) {
+            Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + requestDto.getParentCode()));
+                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + command.parentCode()));
             department.setParent(parent);
         } else {
             department.setParent(null);
         }
 
-        department.setName(requestDto.getName());
-        department.setType(requestDto.getType());
+        department.setName(command.name());
+        department.setType(command.type());
 
-        return departmentRepository.save(department);
+        return departmentPersistencePort.save(department);
     }
 
     public void deactivateDepartment(String code) {
-        Department department = departmentRepository.findById(code)
+        Department department = departmentPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
 
-        if (department.getValidTo().isAfter(LocalDate.now())) {
-            department.setValidTo(LocalDate.now());
-            departmentRepository.save(department);
-        }
+        MasterDataValidityPolicy.closeIfActive(department::getValidTo, department::setValidTo);
+        departmentPersistencePort.save(department);
     }
 }

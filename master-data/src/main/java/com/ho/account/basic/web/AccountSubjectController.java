@@ -1,10 +1,9 @@
-package com.ho.account.basic.web;
+package com.ho.account.masterdata.api.web;
 
 import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.dto.AccountSubjectDto;
-import com.ho.account.basic.dto.AccountSubjectRequestDto;
-import com.ho.account.basic.service.AccountSubjectService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.masterdata.api.dto.AccountSubjectDto;
+import com.ho.account.masterdata.api.dto.AccountSubjectRequestDto;
+import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,34 +14,32 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/basic/account-subjects")
 public class AccountSubjectController {
 
-    private final AccountSubjectService accountSubjectService;
+    private final AccountSubjectUseCase accountSubjectUseCase;
 
-    @Autowired
-    public AccountSubjectController(AccountSubjectService accountSubjectService) {
-        this.accountSubjectService = accountSubjectService;
+    public AccountSubjectController(AccountSubjectUseCase accountSubjectUseCase) {
+        this.accountSubjectUseCase = accountSubjectUseCase;
     }
 
     @PostMapping
     public ResponseEntity<AccountSubjectDto> createAccountSubject(@RequestBody AccountSubjectRequestDto requestDto) {
         try {
-            AccountSubject createdAccount = accountSubjectService.createAccountSubject(requestDto);
+            AccountSubject createdAccount = accountSubjectUseCase.createAccountSubject(requestDto.toCommand());
             return ResponseEntity.ok(AccountSubjectDto.fromEntity(createdAccount));
         } catch (IllegalArgumentException e) {
-            // Consider creating a proper error response object
             return ResponseEntity.badRequest().build();
         }
     }
 
     @GetMapping
     public List<AccountSubjectDto> getActiveAccountSubjects() {
-        return accountSubjectService.findAllActiveAccountSubjects().stream()
+        return accountSubjectUseCase.findAllActiveAccountSubjects().stream()
                 .map(AccountSubjectDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
     @GetMapping("/{code}")
     public ResponseEntity<AccountSubjectDto> getAccountSubjectByCode(@PathVariable String code) {
-        return accountSubjectService.findAccountSubjectByCode(code)
+        return accountSubjectUseCase.findAccountSubjectByCode(code)
                 .map(account -> ResponseEntity.ok(AccountSubjectDto.fromEntity(account)))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -50,7 +47,7 @@ public class AccountSubjectController {
     @PutMapping("/{code}")
     public ResponseEntity<AccountSubjectDto> updateAccountSubject(@PathVariable String code, @RequestBody AccountSubjectRequestDto requestDto) {
         try {
-            AccountSubject updatedAccount = accountSubjectService.updateAccountSubject(code, requestDto);
+            AccountSubject updatedAccount = accountSubjectUseCase.updateAccountSubject(code, requestDto.toCommand());
             return ResponseEntity.ok(AccountSubjectDto.fromEntity(updatedAccount));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -60,7 +57,7 @@ public class AccountSubjectController {
     @DeleteMapping("/{code}")
     public ResponseEntity<Void> deactivateAccountSubject(@PathVariable String code) {
         try {
-            accountSubjectService.deactivateAccountSubject(code);
+            accountSubjectUseCase.deactivateAccountSubject(code);
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

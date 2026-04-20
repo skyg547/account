@@ -1,6 +1,7 @@
-package com.ho.account.basic.dto;
+package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.application.command.ProductCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -94,5 +95,17 @@ public class ProductRequestDto {
 
     public void setValidTo(LocalDate validTo) {
         this.validTo = validTo;
+    }
+
+    public ProductCommand toCommand() {
+        return new ProductCommand(
+                productCode,
+                name,
+                description,
+                unitOfMeasure,
+                price,
+                productType,
+                validFrom,
+                validTo);
     }
 }

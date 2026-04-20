@@ -1,6 +1,7 @@
-package com.ho.account.basic.dto;
+package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import java.time.LocalDate;
 
 public class DepartmentRequestDto {
@@ -24,6 +25,10 @@ public class DepartmentRequestDto {
         entity.setValidFrom(this.validFrom);
         entity.setValidTo(this.validTo);
         return entity;
+    }
+
+    public DepartmentCommand toCommand() {
+        return new DepartmentCommand(code, name, parentCode, type, validFrom, validTo);
     }
 
     // Getter 및 Setter
