@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # --- Kibana: 로그 시각화 대시보드 ---
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: kibana
+    volumes:
+      # 현재 폴더의 설정 파일을 연결
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    ports:
+      - "5601:5601" # 웹 브라우저로 접속하는 포트
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

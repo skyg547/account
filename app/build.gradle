@@ -16,7 +16,7 @@ dependencies {
     implementation project(':shared-kernel')
     implementation project(':master-data')
     implementation project(':governance')
-    implementation project(':journal-ledger')
+    implementation project(':journal-ledger:core')
     implementation project(':closing')
     implementation project(':loan')
     implementation project(':reconciliation')
@@ -43,6 +43,7 @@ dependencies {
     runtimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation project(':journal-ledger:api')
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

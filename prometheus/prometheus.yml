@@ -1,0 +1,26 @@
+# ======================== Prometheus Configuration =========================
+# 초보자를 위한 프로메테우스 순찰(Scraping) 일정표입니다.
+
+global:
+  scrape_interval: 15s # 15초마다 한 번씩 각 서버의 체온(메트릭)을 잽니다.
+  evaluation_interval: 15s
+
+# 어느 서버들을 방문해서 데이터를 수집할지 정의합니다.
+scrape_configs:
+  # 1. 자기 자신(프로메테우스)의 상태도 수집합니다.
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. Master-Data 서비스 수집 (도커 네트워크 내부에서는 host.docker.internal이나 호스트 IP로 접근해야 로컬 포트를 볼 수 있지만, 
+  # 서비스들이 아직 도커화되지 않았고 로컬 PC에서 띄운다면 host.docker.internal을 씁니다.)
+  - job_name: 'master-data'
+    metrics_path: '/actuator/prometheus' # Spring Boot Actuator가 열어둔 메트릭 주소
+    static_configs:
+      - targets: ['host.docker.internal:8082'] # 로컬 PC의 8082 포트로 구동된 master-data를 가리킴
+
+  # 3. Discovery 서비스 수집
+  - job_name: 'discovery'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8761']

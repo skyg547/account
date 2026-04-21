@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # --- Prometheus: 상태 측정 및 메트릭 수집 센터 ---
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    volumes:
+      # 로컬에 작성한 순찰 일정표(설정 파일)를 컨테이너 내부로 연결
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090" # 외부와 통신하는 포트 (http://localhost:9090)
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

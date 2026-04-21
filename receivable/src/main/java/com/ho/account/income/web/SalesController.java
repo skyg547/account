@@ -1,7 +1,6 @@
 package com.ho.account.income.web;
 
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.income.domain.SalesInvoice;
 import com.ho.account.income.dto.SalesInvoiceRequest;
 import com.ho.account.income.service.SalesService;
@@ -17,11 +16,9 @@ import java.time.LocalDate;
 public class SalesController {
 
     private final SalesService salesService;
-    private final BusinessPartnerRepository businessPartnerRepository; // For mapping request DTO to domain object
 
-    public SalesController(SalesService salesService, BusinessPartnerRepository businessPartnerRepository) {
+    public SalesController(SalesService salesService) {
         this.salesService = salesService;
-        this.businessPartnerRepository = businessPartnerRepository;
     }
 
     /**
@@ -40,10 +37,10 @@ public class SalesController {
         salesInvoice.setNetAmount(request.getNetAmount());
         salesInvoice.setDescription(request.getDescription());
 
-        BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(request.getCustomerCode())
-                .orElseThrow(() -> new IllegalArgumentException("고객 정보를 찾을 수 없습니다: " + request.getCustomerCode()));
+        BusinessPartner customer = new BusinessPartner();
+        customer.setBusinessPartnerCode(request.getCustomerCode());
         salesInvoice.setCustomer(customer);
-        salesInvoice.setCreatedBy("SYSTEM"); // TODO: 실제 로그인 사용자 정보로 대체
+        salesInvoice.setCreatedBy("SYSTEM");
 
         SalesInvoice createdInvoice = salesService.createSalesInvoice(salesInvoice);
         return new ResponseEntity<>(createdInvoice, HttpStatus.CREATED);

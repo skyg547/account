@@ -1,0 +1,13 @@
+# ======================== Logstash Configuration =========================
+# 초보자를 위한 로그스태시 자체 설정 파일입니다.
+
+# 네트워크 설정: 모든 IP에서 로그를 받을 수 있도록 열어둡니다.
+http.host: "0.0.0.0"
+
+# 파이프라인 설정 자동 새로고침 
+# (컨테이너 재시작 없이 logstash.conf 수정 시 즉시 반영됨)
+config.reload.automatic: true
+config.reload.interval: 3s
+
+# X-Pack 모니터링 기능 끄기 (로컬 메모리 절약)
+xpack.monitoring.enabled: false

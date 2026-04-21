@@ -18,6 +18,15 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
+    // ELK Logstash 연동을 위한 인코더
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    // MSA 분산 추적(Zipkin)을 위한 Micrometer Tracing (Brave 브릿지 사용)
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    // 추출한 운송장 번호 내역을 Zipkin 서버로 보내주는 역할
+    implementation 'io.zipkin.reporter2:zipkin-reporter-brave'
+    // 프로메테우스 메트릭 노출
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
 }

@@ -1,29 +1,21 @@
-# API Gateway
+# 🚪 API Gateway (스프링 클라우드 게이트웨이)
 
-`gateway` 모듈은 외부 요청의 단일 진입점을 제공하는 Spring Cloud Gateway 런타임이다.
+`gateway` 모듈은 호텔의 "1층 안내데스크" 역할을 하는 외부 요청의 단일 진입점입니다.
 
-## 목적
+## 1. 목적 (초보자를 위한 설명)
+- **주소 은닉:** 외부 손님(프론트엔드 앱)이 `master-data`(8082)나 `journal-ledger`(8081)의 포트 번호를 일일이 외우지 않고, 게이트웨이(8080) 하나만 바라보고 통신하게 합니다.
+- **자동 라우팅:** Eureka(길찾기 앱)에 등록된 서비스 ID를 바탕으로 올바른 서비스로 트래픽을 자동 분배합니다.
+- **공통 보안 및 추적:** 공통 CORS, Zipkin 트레이싱(운송장 번호 발급)을 여기서 가장 먼저 수행합니다.
 
-- 외부 클라이언트가 백엔드 서비스 주소를 직접 알지 않도록 한다.
-- Eureka에 등록된 서비스 ID 기준으로 라우팅한다.
-- 공통 CORS, 추적 헤더, 기본 응답 헤더를 한 곳에서 적용한다.
+## 2. 현재 라우팅 규칙
+- `/api/basic/**` ➔ `master-data` 서비스
+- `/api/journals/**`, `/api/ledgers/**`, `/api/unsettled/**` 등 ➔ `journal-ledger` 서비스
+- `/api/**` (그 외 나머지) ➔ `account` (기존 모놀리식 구버전)
 
-## 현재 범위
+## 3. 실행 방법
+전체 MSA 생태계의 대문이므로, Eureka 서버(`discovery`)가 켜진 후에 실행되어야 합니다.
 
-- `/api/**` -> `lb://account`
-- `/actuator/health`, `/actuator/info` -> `lb://account`
-- `X-Request-Id` 생성 및 전달
-- 기본 CORS
-- 기본 응답 헤더와 요청 로깅
-
-## 실행 순서
-
-1. `./gradlew :discovery:bootRun`
-2. `./gradlew :app:bootRun`
-3. `./gradlew :gateway:bootRun`
-
-게이트웨이는 기본적으로 `http://localhost:8081`에서 기동한다.
-
-## 참고 문서
-
-- [docs/concept.md](./docs/concept.md)
+```bash
+./gradlew :gateway:bootRun
+```
+게이트웨이는 기본적으로 **http://localhost:8080** 에서 기동합니다.

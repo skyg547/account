@@ -14,7 +14,7 @@ dependencyManagement {
 dependencies {
     implementation project(':contracts')
     implementation project(':master-data')
-    implementation project(':journal-ledger')
+    implementation project(':journal-ledger:core')
     implementation project(':asset-lease')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'

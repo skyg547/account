@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # --- Elasticsearch: 로그 저장 및 검색 엔진 ---
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: elasticsearch
+    volumes:
+      # 현재 폴더의 설정 파일을 컨테이너 내부로 연결 (읽기 전용: ro)
+      - ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    environment:
+      - discovery.type=single-node # 단일 노드로 실행 (로컬 개발용)
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # 메모리 사용량 제한 (최소 512MB)
+    ports:
+      - "9200:9200" # 외부와 통신하는 포트
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

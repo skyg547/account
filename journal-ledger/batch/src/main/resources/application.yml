@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: journal-ledger
+
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# JPA 공통 (독립 DB용 H2 메모리 설정 등 추가)
+  datasource:
+    url: jdbc:h2:mem:journaldb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+# --- Monitoring: 프로메테우스가 이 서버의 상태를 긁어갈 수 있도록 문을 열어줍니다. ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  # --- Tracing (Zipkin): 100% 확률로 운송장 번호를 발급하고 Zipkin으로 보냄 ---
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: "http://localhost:9411/api/v2/spans"

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  # --- Grafana: 메트릭 시각화 대시보드 전광판 ---
+  grafana:
+    image: grafana/grafana:10.1.5
+    container_name: grafana
+    volumes:
+      # 로컬에 작성한 '프로메테우스 자동 연결' 설정 폴더를 컨테이너 내부로 통째로 밀어넣습니다.
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000" # 외부와 통신하는 포트 (http://localhost:3000)
+    networks:
+      - account-network
+    # 그라파나가 켜지기 전에 프로메테우스가 연결망에 존재하기를 기대합니다. (단독 구동도 가능)
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # --- Logstash: 로그 수집 및 가공 도구 ---
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.10
+    container_name: logstash
+    volumes:
+      # 현재 폴더의 설정 파일 및 작업 지시서(pipeline)를 연결
+      - ./config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5000:5000" # Spring Boot 서비스들이 로그를 던지는 포트
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m" # 메모리 사용량 제한
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

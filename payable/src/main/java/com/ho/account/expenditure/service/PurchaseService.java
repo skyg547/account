@@ -1,25 +1,19 @@
 package com.ho.account.expenditure.service;
 
-import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.repository.AccountSubjectRepository;
 import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.domain.*;
 import com.ho.account.expenditure.repository.PayableRepository;
 import com.ho.account.expenditure.repository.PurchaseInvoiceRepository;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.domain.JournalEntryStatus;
-import com.ho.account.journal.service.JournalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -28,22 +22,19 @@ public class PurchaseService {
     private final PurchaseInvoiceRepository purchaseInvoiceRepository;
     private final PayableRepository payableRepository;
     private final BusinessPartnerRepository businessPartnerRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final DepartmentRepository departmentRepository;
-    private final JournalService journalService;
+    private final MasterDataQueryPort masterDataQueryPort;
+    private final JournalPostingPort journalPostingPort;
 
     public PurchaseService(PurchaseInvoiceRepository purchaseInvoiceRepository,
                            PayableRepository payableRepository,
                            BusinessPartnerRepository businessPartnerRepository,
-                           AccountSubjectRepository accountSubjectRepository,
-                           DepartmentRepository departmentRepository,
-                           JournalService journalService) {
+                           MasterDataQueryPort masterDataQueryPort,
+                           JournalPostingPort journalPostingPort) {
         this.purchaseInvoiceRepository = purchaseInvoiceRepository;
         this.payableRepository = payableRepository;
         this.businessPartnerRepository = businessPartnerRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.departmentRepository = departmentRepository;
-        this.journalService = journalService;
+        this.masterDataQueryPort = masterDataQueryPort;
+        this.journalPostingPort = journalPostingPort;
     }
 
     /**
@@ -53,9 +44,11 @@ public class PurchaseService {
      * @return 생성된 매입 인보이스
      */
     public PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice) {
-        // 공급업체 존재 여부 확인
-        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(invoice.getVendor().getBusinessPartnerCode())
-                .orElseThrow(() -> new IllegalArgumentException("공급업체 정보를 찾을 수 없습니다: " + invoice.getVendor().getBusinessPartnerCode()));
+        String vendorCode = invoice.getVendor().getBusinessPartnerCode();
+        masterDataQueryPort.findBusinessPartner(vendorCode)
+                .orElseThrow(() -> new IllegalArgumentException("공급업체 정보를 찾을 수 없습니다: " + vendorCode));
+        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(vendorCode)
+                .orElseThrow(() -> new IllegalArgumentException("공급업체 정보를 찾을 수 없습니다: " + vendorCode));
         invoice.setVendor(vendor);
 
         // 중복 인보이스 확인 (거래처 + 인보이스 번호)
@@ -88,53 +81,28 @@ public class PurchaseService {
         payableRepository.save(payable);
 
         // 2. 매입 인식 전표 생성
-        AccountSubject apAccount = accountSubjectRepository.findById("21100") // 매입채무 계정 코드 (예시)
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for Accounts Payable not found"));
-        AccountSubject expenseAccount = accountSubjectRepository.findById("50100") // 상품매입 또는 비용 계정 코드 (예시)
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for Expense not found"));
-        AccountSubject vatReceivableAccount = accountSubjectRepository.findById("13500") // 부가세대급금 계정 코드 (예시)
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for VAT Receivable not found"));
-        Department defaultDepartment = getOrCreateDefaultDepartment();
+        requireAccount("21100", "AccountSubject for Accounts Payable not found");
+        requireAccount("50100", "AccountSubject for Expense not found");
+        requireAccount("13500", "AccountSubject for VAT Receivable not found");
 
-        JournalEntry purchaseEntry = new JournalEntry();
-        purchaseEntry.setSlipDate(invoice.getIssueDate());
-        purchaseEntry.setAccountingDate(invoice.getIssueDate());
-        purchaseEntry.setDescription("매입 인식: " + invoice.getInvoiceNo() + " - " + invoice.getVendor().getBusinessPartnerName());
-        purchaseEntry.setEntryType("PURCHASE_RECOGNITION");
-        purchaseEntry.setLineageSourceType("PURCHASE_INVOICE");
-        purchaseEntry.setLineageSourceId(invoice.getInvoiceNo() + "_" + invoice.getVendor().getBusinessPartnerCode()); // 복합키 사용
-        purchaseEntry.setCreatedBy(invoice.getCreatedBy());
-        purchaseEntry.setStatus(JournalEntryStatus.DRAFT);
-
-        // 차변: 비용 (공급가액)
-        JournalDetail debitExpense = new JournalDetail();
-        debitExpense.setDrcrType("DEBIT");
-        debitExpense.setAccountSubject(expenseAccount);
-        debitExpense.setAmount(invoice.getNetAmount());
-        debitExpense.setDepartment(defaultDepartment);
-        debitExpense.setDetailDescription("상품 매입");
-        purchaseEntry.addDetail(debitExpense);
-
-        // 차변: 부가세대급금 (세액)
-        JournalDetail debitVat = new JournalDetail();
-        debitVat.setDrcrType("DEBIT");
-        debitVat.setAccountSubject(vatReceivableAccount);
-        debitVat.setAmount(invoice.getTaxAmount());
-        debitVat.setDepartment(defaultDepartment);
-        debitVat.setDetailDescription("부가세대급금");
-        purchaseEntry.addDetail(debitVat);
-
-        // 대변: 매입채무 (총액)
-        JournalDetail creditAp = new JournalDetail();
-        creditAp.setDrcrType("CREDIT");
-        creditAp.setAccountSubject(apAccount);
-        creditAp.setAmount(invoice.getTotalAmount());
-        creditAp.setDetailDescription("매입채무 발생");
-        purchaseEntry.addDetail(creditAp);
-
-        JournalEntry createdJournal = journalService.createJournalEntry(purchaseEntry);
-        savedInvoice.setJournalEntry(createdJournal); // 인보이스에 전표 연결
-        purchaseInvoiceRepository.save(savedInvoice);
+        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+                invoice.getIssueDate(),
+                invoice.getIssueDate(),
+                "매입 인식: " + invoice.getInvoiceNo() + " - " + invoice.getVendor().getBusinessPartnerName(),
+                "PURCHASE_RECOGNITION",
+                null,
+                null,
+                invoice.getCreatedBy(),
+                invoice.getCreatedBy(),
+                "PURCHASE_INVOICE",
+                invoice.getInvoiceNo() + "_" + invoice.getVendor().getBusinessPartnerCode(),
+                List.of(
+                        new JournalLineCommand("DEBIT", "50100", invoice.getNetAmount(), null, null,
+                                vendor.getBusinessPartnerCode(), "상품 매입"),
+                        new JournalLineCommand("DEBIT", "13500", invoice.getTaxAmount(), null, null,
+                                vendor.getBusinessPartnerCode(), "부가세대급금"),
+                        new JournalLineCommand("CREDIT", "21100", invoice.getTotalAmount(), null, null,
+                                vendor.getBusinessPartnerCode(), "매입채무 발생"))));
 
         return savedInvoice;
     }
@@ -170,13 +138,8 @@ public class PurchaseService {
         }
     }
 
-    private Department getOrCreateDefaultDepartment() {
-        return departmentRepository.findByCode("DEFAULT")
-                .orElseGet(() -> {
-                    Department department = new Department();
-                    department.setCode("DEFAULT");
-                    department.setName("Default Department");
-                    return departmentRepository.save(department);
-                });
+    private void requireAccount(String accountCode, String message) {
+        masterDataQueryPort.findAccountSubject(accountCode)
+                .orElseThrow(() -> new IllegalStateException(message));
     }
 }

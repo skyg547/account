@@ -1,0 +1,17 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        native:
+          # Git 저장소 대신, 로컬 PC의 'config-repo' 폴더를 바라보도록 설정합니다.
+          # 나중에 운영(Prod) 환경으로 갈 때는 이 부분을 Git URL로 바꾸면 됩니다.
+          search-locations: file://${user.dir}/config-repo
+
+  profiles:
+    # 로컬 파일 시스템을 사용하겠다는 선언입니다.
+    active: native

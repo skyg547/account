@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spring Boot 로그 설정 파일 -->
+<configuration>
+    <!-- 기본 설정 포함 (콘솔 출력 서식 등) -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- application.yml에 정의된 서비스 이름을 가져옴 -->
+    <springProperty scope="context" name="appName" source="spring.application.name"/>
+
+    <!-- Logstash로 로그를 전송하는 설정 (TCP 방식) -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>localhost:5000</destination> <!-- Logstash 서버 주소 -->
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- 로그에 서비스 이름을 자동으로 추가하여 어떤 서비스의 로그인지 구분 가능하게 함 -->
+            <customFields>{"service":"${appName}"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- 전체 로그 출력 레벨 설정 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/> <!-- 콘솔(터미널)에도 출력 -->
+        <appender-ref ref="LOGSTASH"/> <!-- ELK로도 전송 -->
+    </root>
+</configuration>

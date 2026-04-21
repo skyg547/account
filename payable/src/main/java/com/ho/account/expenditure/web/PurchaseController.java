@@ -1,7 +1,6 @@
 package com.ho.account.expenditure.web;
 
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.expenditure.domain.PurchaseInvoice;
 import com.ho.account.expenditure.dto.PurchaseInvoiceRequest;
 import com.ho.account.expenditure.service.PurchaseService;
@@ -17,11 +16,9 @@ import java.time.LocalDate;
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
-    private final BusinessPartnerRepository businessPartnerRepository; // For mapping request DTO to domain object
 
-    public PurchaseController(PurchaseService purchaseService, BusinessPartnerRepository businessPartnerRepository) {
+    public PurchaseController(PurchaseService purchaseService) {
         this.purchaseService = purchaseService;
-        this.businessPartnerRepository = businessPartnerRepository;
     }
 
     /**
@@ -40,10 +37,10 @@ public class PurchaseController {
         purchaseInvoice.setNetAmount(request.getNetAmount());
         purchaseInvoice.setDescription(request.getDescription());
 
-        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(request.getVendorCode())
-                .orElseThrow(() -> new IllegalArgumentException("공급업체 정보를 찾을 수 없습니다: " + request.getVendorCode()));
+        BusinessPartner vendor = new BusinessPartner();
+        vendor.setBusinessPartnerCode(request.getVendorCode());
         purchaseInvoice.setVendor(vendor);
-        purchaseInvoice.setCreatedBy("SYSTEM"); // TODO: 실제 로그인 사용자 정보로 대체
+        purchaseInvoice.setCreatedBy("SYSTEM");
 
         PurchaseInvoice createdInvoice = purchaseService.createPurchaseInvoice(purchaseInvoice);
         return new ResponseEntity<>(createdInvoice, HttpStatus.CREATED);

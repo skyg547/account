@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # --- Zipkin: 분산 환경 요청 추적 센터 ---
+  zipkin:
+    image: openzipkin/zipkin:3.0.4
+    container_name: zipkin
+    ports:
+      - "9411:9411" # 브라우저 접속 및 Spring Boot 서버들이 데이터를 쏘는 포트
+    environment:
+      # 메모리 기반 저장소를 사용하여 가볍게 띄움 (운영 시에는 Elasticsearch 등으로 변경 권장)
+      - STORAGE_TYPE=mem
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 외부에서 미리 생성된 공통 네트워크 사용

@@ -1,0 +1,77 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - http://localhost:*
+              - http://127.0.0.1:*
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - X-Request-Id
+            allowCredentials: true
+      routes:
+        # Master Data Service 라우팅
+        - id: master-data-api
+          uri: lb://master-data
+          predicates:
+            - Path=/api/basic/**
+        
+        # Journal Ledger Service 라우팅
+        - id: journal-ledger-api
+          uri: lb://journal-ledger
+          predicates:
+            - Path=/api/journals/**,/api/ledgers/**,/api/unsettled/**,/api/gl-sl/**,/api/drilldown/**
+            
+        # 구 모놀리식 폴백용
+        - id: account-api
+          uri: lb://account
+          predicates:
+            - Path=/api/**
+          
+        - id: all-actuator
+          uri: lb://account
+          predicates:
+            - Path=/actuator/health,/actuator/info
+
+eureka:
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: false
+
+# --- Monitoring: 프로메테우스 및 Zipkin ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: "http://localhost:9411/api/v2/spans"
+
+logging:
+  level:
+    com.ho.account.gateway: INFO

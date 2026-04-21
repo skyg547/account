@@ -1,29 +1,39 @@
 # WORKLOG (Source of Truth)
 
-## 📅 2026-04-20
+## 📅 2026-04-21
 ### [기획/팀장]
-- 새로운 서비스 디스커버리 모듈 구축 요청이 들어옴.
-- Eureka Server 역할을 할 `discovery` 모듈 구현 계획안(`implementation_plan.md`) 작성 및 승인 획득.
-- 업무 API 서비스들을 Eureka Client로 단일 통합(app) 등록 진행함.
-- **[구조 개편 결단]** `app` 비즈니스 컨테이너를 삭제하고 본격적인 MSA로 탈바꿈하자는 합의 도달! 시범적으로 분산 문서 중앙화 및 `journal-ledger`의 독립 마이크로서비스 전환 시작.
+- `master-data` 모듈을 독립 마이크로서비스로 전환하기 위한 설계 및 실행 착수.
+- 전표(Journal)와 원장(Ledger)이 의존하는 핵심 기준 정보(마스터 데이터)의 독립성 확보.
 
 ### [백엔드]
-- `discovery` 서버(포트:8761) 구축.
-- `app` 모듈 Eureka 클라이언트 연동 마무리. 
-- (New) 문서 중앙화: `app/docs` 하위의 모든 마크다운 문서들을 최상위 `docs/` 폴더로 이관 이동 스크립트 실행 성공 (`Move-Item`).
-- (New) 본격 MSA화 작업 (Target: `journal-ledger`):
-  - `journal-ledger/build.gradle`에서 `java-library`를 폐기하고 `spring-boot`, `eureka-client`, `web` 등의 어플리케이션 의존성 추가.
-  - `@SpringBootApplication`, `@EnableDiscoveryClient` 어노테이션이 박힌 메인 클래스 `JournalLedgerApplication` 생성.
-  - 전용 `application.yml` 추가. 포트 분리(8081) 및 인메모리 독자 DB(H2) 셋업 추가. 독립 Eureka 네트워킹 설정 완료.
+- `master-data` 모듈을 Spring Boot 애플리케이션으로 승격 (포트: 8082).
+- `build.gradle`에 `spring-boot`, `eureka-client` 의존성 추가 및 `MasterDataApplication` 생성.
+- 독립 H2 인메모리 DB 및 Eureka 서버 연동 설정 (`application.yml`) 완료.
+- `./gradlew :master-data:build` 컴파일 및 빌드 성공 확인.
 
-### [QA]
-- `DiscoveryApplicationTests.java` ContextLoad 통과 확인.
-- `./gradlew :app:build` 컴파일 성과 달성.
-- (New) `./gradlew :journal-ledger:build` 단독 빌드 및 테스트 완전 통과. 타 모듈(`app`) 간섭 없이 독자적인 API 서비스 구동 능력 증명! (Exit code: 0)
+### [모델러]
+- 핵심 마스터 데이터 엔티티(`AccountSubject`, `BusinessPartner`, `Department`)의 SCD2(Slowly Changing Dimension Type 2) 적용 상태 전수 검사.
+- 모든 핵심 마스터에 `validFrom`, `validTo`를 이용한 유효기간 기반 이력 관리 로직이 정교하게 구현되어 있음을 확인(DoD 달성).
 
-**Next 담당자 ([기획/팀장]):**
-- 1차 시범 분리가 성공함에 따라, 향후 나머지 레거시 라이브러리(`loan`, `closing` 등)의 순차적인 MSA 쪼개기 작업에 착수하거나, 다른 설계 작업을 개시할 수 있음.
+### [기획/팀장]
+- 중앙 집중형 로그 관리를 위한 ELK(Elasticsearch, Logstash, Kibana) 스택 및 시스템 상태 모니터링을 위한 프로메테우스(Prometheus), 그라파나(Grafana) 설계 도입.
+- MSA 분산 추적(Distributed Tracing)을 위한 **Zipkin(집킨)** 스택 추가 도입.
+- 기존 모놀리식 구성을 해체하고 `elasticsearch`, `logstash`, `kibana`, `prometheus`, `grafana`, `zipkin` 6개의 독립 모듈(폴더)을 프로젝트 최상단(루트)으로 완전 분리 이동.
+- 각 폴더 내에 초보 개발자를 위한 친절한 비유를 담은 `README.md` 가이드 문서 작성 (그라파나의 프로메테우스 자동 연결 설정 포함).
+- 프로젝트 룰에 따라 '1-Directory 1-README' 및 '초보자용 설명' 원칙 준수.
 
-### [모델러] / [백엔드]
-- (New) `journal-ledger` 내부 패키지를 DDD 3계층(`domain`, `application`, `adapter`) 구조로 뼈대 구축 완료.
-- 각 패키지마다 1-Directory 1-README 원칙을 이식하여 각 계층의 역할(의존성 방향 포함) 문서화 적용.
+### [기획/팀장]
+- MSA의 "프랜차이즈 본사" 역할을 하는 **중앙 설정 서버(Config Server)** 인프라 신규 도입 (포트 8888).
+- 수십 개로 쪼개질 마이크로서비스들의 `application.yml` 파일을 한 곳에서 중앙 통제할 수 있도록 `config-repo` 디렉토리 신설.
+- 프로젝트 룰에 따라 `config-server` 모듈 내에 초보자를 위한 비유와 실행법이 담긴 `README.md` 가이드 작성.
+
+### [백엔드]
+- `config-server` 독립 모듈 생성 및 `spring-cloud-config-server` 의존성 주입 완료.
+- `discovery`, `master-data`, `journal-ledger`, `gateway` 등 모든 핵심 서비스의 복잡한 로컬 `application.yml` 설정을 `config-repo` 폴더의 단일 텍스트 파일들로 전면 이관.
+- 공통 모듈인 `shared-kernel`에 `spring-cloud-starter-config` 의존성 추가.
+- 각 서비스의 `application.yml`은 오직 `spring.config.import=optional:configserver:http://localhost:8888/` 속성만을 갖도록 대폭 경량화(초경량 지점 셋팅 완료).
+
+**Next 담당자 ([기획/팀장] -> [QA]):**
+- 가장 먼저 `./gradlew :config-server:bootRun`을 실행하여 본사(8888) 서버를 띄운다.
+- 브라우저에서 `http://localhost:8888/master-data/default`를 호출하여 중앙 설정이 정상적으로 반환되는지 확인.
+- 이후 `discovery`, `gateway` 등 나머지 서비스들을 띄우고, 이들이 켜지면서 본사로부터 설정을 올바르게 다운로드받는지 검증 요망.
