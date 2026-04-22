@@ -72,9 +72,16 @@
 - **코드 내 상세 가이드 주석:** `layout.tsx`, `page.tsx` 등 핵심 파일에 초보자가 이해하기 쉬운 한글 주석 작업 완료.
 - **README 고도화:** 모든 가이드 문서로 연결되는 포털 형태의 `frontend/README.md` 전면 개편.
 
+### [프론트] master-data & journal-ledger 화면 설계 및 뼈대 구축
+- **도메인 특화 화면 설계 완료:** `master-data`와 `journal-ledger`의 엔티티 분석을 바탕으로 [도메인 화면 설계서](file:///c:/Users/skyg547/IdeaProjects/account/docs/domain-screen-design.md) 작성 완료.
+- **핵심 화면 뼈대(Page TSX) 4종 생성:**
+    - `Master Data`: 계정 과목 관리(트리 구조), 거래처 관리(그리드/필터) 화면 구축.
+    - `Journal Ledger`: 전표 입력(마스터-디테일/대차 검증), 전표 조회(날짜/상태 필터) 화면 구축.
+- **네비게이션 연동:** Sidebar에 신규 생성된 4개 메뉴 링크 연동 및 아이콘 최신화 완료.
+
 **Next 담당자 ([프론트] -> [QA]):**
-- 작성된 가이드 문서의 가독성 및 도커 컨테이너 빌드 정상 여부 검증이 필요합니다.
-- 초보 개발자 입장에서 가이드를 따라 서비스가 정상 실행되는지 최종 확인을 요청합니다.
+- 설계된 화면의 UI 레이아웃이 현업 회계 담당자의 사용성에 부합하는지 검토 바랍니다.
+- 새롭게 추가된 4개 페이지의 정상 노출 여부 및 사이드바 링크 작동 상태 확인을 요청합니다.
 
 ### [백엔드] master-data DDD/Hexagonal 보강
 - 현재까지의 MSA 전환 작업을 `79e1e01` 커밋으로 고정하고 `origin/main`에 push 완료.
@@ -83,3 +90,11 @@
 - `BusinessPartner` API를 JPA Entity 직접 요청/응답 방식에서 `BusinessPartnerRequestDto`/`BusinessPartnerDto`/`BusinessPartnerCommand` 경유 방식으로 전환.
 - 초보 개발자가 요청 흐름을 따라갈 수 있도록 `master-data/README.md`, `master-data/docs/README.md`, `beginner-guide.md`, `process-flow.md`에 헥사고날 요청 흐름과 패키지 책임을 상세화.
 - `./gradlew :master-data:compileJava` 성공 확인.
+
+### [백엔드] master-data 2차 변경관리 구현
+- `MasterDataChangeRequest` 도메인을 추가해 기준정보 변경요청, 승인, 반려, 적용 완료 상태 흐름을 구현.
+- 요청자와 승인자가 같을 수 없도록 SOD 통제를 도메인 메서드에서 강제.
+- `MasterDataChangeRequestUseCase`, `MasterDataChangeRequestService`, `MasterDataChangeRequestPersistencePort`, JPA Adapter를 추가해 변경관리도 헥사고날 포트/어댑터 구조로 연결.
+- `POST /api/master-data/change-requests`, `/approve`, `/reject`, `/apply`, `GET /pending` API를 추가.
+- `V2__master_data_change_requests.sql` Flyway DDL을 추가해 변경요청 테이블과 조회 인덱스를 정의.
+- 도메인 상태 전이 테스트와 application service 테스트를 추가.

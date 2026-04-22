@@ -29,12 +29,23 @@
 
 `Controller -> UseCase -> Application Service -> Output Port -> JPA Adapter -> Repository -> DB`
 
-## 4. 실행 방법
+## 4. 마스터 변경관리
+
+운영자가 계정과목, 거래처, 부서 같은 기준정보를 바로 수정하면 과거 전표와 보고서가 흔들릴 수 있습니다.
+그래서 2차 구조에서는 `MasterDataChangeRequest`를 추가해 아래 흐름을 남깁니다.
+
+1. 운영자가 변경요청을 등록합니다.
+2. 시스템은 대상 마스터, 대상 키, 변경 유형, 요청 버전, 적용일, payload JSON을 저장합니다.
+3. 승인자는 요청자와 다른 사람이어야 합니다. 이것이 SOD(직무분리) 통제입니다.
+4. 승인된 요청만 적용 완료(`APPLIED`) 처리할 수 있습니다.
+5. 변경 이력은 감사와 재처리 판단의 근거가 됩니다.
+
+## 5. 실행 방법
 ```bash
 ./gradlew :master-data:bootRun
 ```
 
-## 5. Docker 로 실행하기
+## 6. Docker 로 실행하기
 ```bash
 docker build -t account/master-data .
 docker run -p 8082:8082 account/master-data

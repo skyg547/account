@@ -115,3 +115,33 @@ flowchart LR
 - 계정과목과 부서는 `validFrom`, `validTo` 기반으로 활성 여부를 판단한다.
 - 거래처는 현재 `useYn`으로 활성 여부를 판단한다.
 - `MasterDataQueryPort`는 향후 MSA 분리를 위한 조회 계약 역할도 한다.
+
+## 6. 마스터 변경관리 흐름
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED : 변경요청 등록
+    REQUESTED --> APPROVED : 승인자 승인
+    REQUESTED --> REJECTED : 승인자 반려
+    APPROVED --> APPLIED : 적용 완료 기록
+```
+
+요청 흐름:
+
+```mermaid
+flowchart LR
+    A[운영자] --> B[ChangeRequestController]
+    B --> C[MasterDataChangeRequestUseCase]
+    C --> D[MasterDataChangeRequestService]
+    D --> E[MasterDataChangeRequestPersistencePort]
+    E --> F[JpaMasterDataChangeRequestPersistenceAdapter]
+    F --> G[(master_data_change_requests)]
+```
+
+실무 포인트:
+
+- `payloadJson`에는 실제 변경될 필드를 JSON으로 남긴다.
+- `requestedVersion`은 "몇 번째 변경안인가"를 추적한다.
+- `effectiveDate`는 "언제부터 적용할 것인가"를 뜻한다.
+- 요청자와 승인자가 같으면 승인할 수 없다.
+- 이력 테이블은 감사, 재처리, 롤백 판단의 근거다.

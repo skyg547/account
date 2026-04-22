@@ -22,6 +22,17 @@
 3. JPA, H2, Flyway 같은 기술 선택은 infrastructure adapter 안쪽에 둔다.
 4. 유효기간 기본값과 활성 판정은 `MasterDataValidityPolicy`에서 한 번만 정의한다.
 
+## 마스터 변경관리
+
+2차 작업부터 `MasterDataChangeRequest`가 기준정보 변경의 통제 허브 역할을 한다.
+
+- `REQUESTED`: 운영자가 변경을 요청한 상태
+- `APPROVED`: 승인자가 승인한 상태
+- `REJECTED`: 승인자가 반려한 상태
+- `APPLIED`: 승인된 요청이 실제 마스터에 반영된 상태
+
+이 모델은 아직 "승인된 payload를 실제 마스터 row에 자동 반영"하는 단계까지는 가지 않는다. 그 적용기는 다음 단계에서 대상별 application service와 연결한다.
+
 문서 순서:
 
 1. [beginner-guide.md](/C:/Users/skyg547/IdeaProjects/account/master-data/docs/beginner-guide.md)

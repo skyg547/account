@@ -9,6 +9,7 @@ erDiagram
     BUSINESS_PARTNERS ||--o{ BUSINESS_PARTNER_ACCOUNTS : has
     CURRENCIES ||--o{ EXCHANGE_RATES : from
     CURRENCIES ||--o{ EXCHANGE_RATES : to
+    MASTER_DATA_CHANGE_REQUESTS }o--|| MASTER_DATA_TARGET : controls
 ```
 
 ## 2. 핵심 엔티티
@@ -156,6 +157,31 @@ erDiagram
 - `product_type`
 - `valid_from`
 - `valid_to`
+
+### 2.9 `master_data_change_requests`
+
+기준정보 변경요청과 승인 이력을 저장하는 통제 테이블이다.
+
+주요 컬럼:
+
+- `id`
+- `target_type`: `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` 등
+- `target_key`: 변경 대상의 업무 키
+- `change_type`: `CREATE`, `UPDATE`, `DEACTIVATE`
+- `status`: `REQUESTED`, `APPROVED`, `REJECTED`, `APPLIED`
+- `effective_date`: 적용 예정일
+- `requested_version`: 요청 버전
+- `requested_by`
+- `approved_by`
+- `requested_at`
+- `approved_at`
+- `reason`
+- `payload_json`: 변경 상세 JSON
+
+중요 인덱스:
+
+- `status + requested_at`: 승인 대기 목록 조회
+- `target_type + target_key + requested_version`: 대상별 변경 이력 추적
 
 ## 3. 데이터 활용 관점
 

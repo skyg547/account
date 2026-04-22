@@ -1,0 +1,89 @@
+package com.ho.account.masterdata.core.application.service;
+
+import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.port.out.MasterDataChangeRequestPersistencePort;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class MasterDataChangeRequestServiceTest {
+
+    private final InMemoryPort port = new InMemoryPort();
+    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port);
+
+    @Test
+    void requestsAndApprovesMasterDataChange() {
+        MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
+                MasterDataType.BUSINESS_PARTNER,
+                "BP-001",
+                ChangeType.CREATE,
+                LocalDate.now().plusDays(3),
+                1,
+                "operator",
+                "신규 거래처",
+                "{\"businessPartnerName\":\"테스트 거래처\"}"));
+
+        MasterDataChangeRequest approved = service.approve(requested.getId(), "manager");
+
+        assertThat(approved.getStatus()).isEqualTo(ChangeStatus.APPROVED);
+        assertThat(approved.getApprovedBy()).isEqualTo("manager");
+    }
+
+    @Test
+    void findsOnlyPendingRequests() {
+        MasterDataChangeRequest first = service.requestChange(command("D-001"));
+        MasterDataChangeRequest second = service.requestChange(command("D-002"));
+        service.approve(second.getId(), "manager");
+
+        assertThat(service.findPendingRequests())
+                .extracting(MasterDataChangeRequest::getId)
+                .containsExactly(first.getId());
+    }
+
+    private MasterDataChangeRequestCommand command(String key) {
+        return new MasterDataChangeRequestCommand(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE,
+                LocalDate.now().plusDays(1), 1, "operator", "부서 변경", "{}");
+    }
+
+    private static final class InMemoryPort implements MasterDataChangeRequestPersistencePort {
+        private final List<MasterDataChangeRequest> store = new ArrayList<>();
+        private long sequence = 1L;
+
+        @Override
+        public Optional<MasterDataChangeRequest> findById(Long id) {
+            return store.stream().filter(request -> request.getId().equals(id)).findFirst();
+        }
+
+        @Override
+        public List<MasterDataChangeRequest> findByStatus(ChangeStatus status) {
+            return store.stream().filter(request -> request.getStatus() == status).toList();
+        }
+
+        @Override
+        public MasterDataChangeRequest save(MasterDataChangeRequest request) {
+            if (request.getId() == null) {
+                setId(request, sequence++);
+                store.add(request);
+            }
+            return request;
+        }
+
+        private void setId(MasterDataChangeRequest request, Long id) {
+            try {
+                java.lang.reflect.Field field = MasterDataChangeRequest.class.getDeclaredField("id");
+                field.setAccessible(true);
+                field.set(request, id);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+}

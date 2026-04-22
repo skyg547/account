@@ -117,3 +117,21 @@
 - 상위 계층 연결이 맞는가
 - 거래처 사용 가능 상태인가
 - 다른 모듈이 참조할 최소 필드가 빠지지 않았는가
+
+## 9. 마스터 변경요청은 왜 필요한가
+
+기준정보는 단순 설정값이 아니다. 예를 들어 계정과목 이름이나 거래처 상태가 바뀌면 전표 검증, 보고, 감사 추적이 함께 영향을 받는다.
+
+그래서 운영 변경은 아래처럼 남긴다.
+
+1. `POST /api/master-data/change-requests`로 변경요청을 만든다.
+2. `GET /api/master-data/change-requests/pending`으로 승인 대기 목록을 본다.
+3. `POST /api/master-data/change-requests/{id}/approve`로 승인한다.
+4. `POST /api/master-data/change-requests/{id}/reject`로 반려한다.
+5. `POST /api/master-data/change-requests/{id}/apply`로 적용 완료 상태를 남긴다.
+
+중요한 통제:
+
+- 요청자와 승인자는 같을 수 없다.
+- 승인 전 요청은 적용 완료 처리할 수 없다.
+- 적용일(`effectiveDate`)과 요청 버전(`requestedVersion`)을 반드시 남긴다.
