@@ -123,7 +123,7 @@ stateDiagram-v2
     [*] --> REQUESTED : 변경요청 등록
     REQUESTED --> APPROVED : 승인자 승인
     REQUESTED --> REJECTED : 승인자 반려
-    APPROVED --> APPLIED : 적용 완료 기록
+    APPROVED --> APPLIED : 실제 마스터 적용 성공
 ```
 
 요청 흐름:
@@ -144,4 +144,6 @@ flowchart LR
 - `requestedVersion`은 "몇 번째 변경안인가"를 추적한다.
 - `effectiveDate`는 "언제부터 적용할 것인가"를 뜻한다.
 - 요청자와 승인자가 같으면 승인할 수 없다.
+- `DefaultMasterDataChangeApplier`는 payload JSON을 대상별 command로 바꾼 뒤 기존 마스터 유스케이스를 호출한다.
+- `apply-due`는 적용일이 오늘 이하인 `APPROVED` 요청만 골라 적용한다.
 - 이력 테이블은 감사, 재처리, 롤백 판단의 근거다.

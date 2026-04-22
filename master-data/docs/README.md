@@ -31,7 +31,12 @@
 - `REJECTED`: 승인자가 반려한 상태
 - `APPLIED`: 승인된 요청이 실제 마스터에 반영된 상태
 
-이 모델은 아직 "승인된 payload를 실제 마스터 row에 자동 반영"하는 단계까지는 가지 않는다. 그 적용기는 다음 단계에서 대상별 application service와 연결한다.
+3차부터 승인된 payload를 실제 마스터 row에 반영하는 `DefaultMasterDataChangeApplier`가 추가됐다.
+
+- 변경요청은 상태 전이를 담당한다.
+- 적용기는 payload JSON을 대상별 command로 변환한다.
+- 실제 생성/수정/비활성화 규칙은 기존 `AccountSubjectUseCase`, `BusinessPartnerUseCase`, `DepartmentUseCase`, `ProductUseCase`가 처리한다.
+- 적용 성공 후 변경요청은 `APPLIED`가 된다.
 
 문서 순서:
 

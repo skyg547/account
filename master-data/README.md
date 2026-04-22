@@ -37,8 +37,16 @@
 1. 운영자가 변경요청을 등록합니다.
 2. 시스템은 대상 마스터, 대상 키, 변경 유형, 요청 버전, 적용일, payload JSON을 저장합니다.
 3. 승인자는 요청자와 다른 사람이어야 합니다. 이것이 SOD(직무분리) 통제입니다.
-4. 승인된 요청만 적용 완료(`APPLIED`) 처리할 수 있습니다.
-5. 변경 이력은 감사와 재처리 판단의 근거가 됩니다.
+4. 승인된 요청만 실제 마스터 유스케이스에 적용할 수 있습니다.
+5. 적용이 성공하면 `APPLIED` 상태가 됩니다.
+6. 변경 이력은 감사와 재처리 판단의 근거가 됩니다.
+
+3차 적용 범위:
+
+- `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT`의 `CREATE`, `UPDATE`, `DEACTIVATE`를 지원합니다.
+- `POST /api/master-data/change-requests/{id}/apply`는 단건 승인 요청을 실제 마스터에 반영합니다.
+- `POST /api/master-data/change-requests/apply-due`는 적용일이 오늘 이하인 승인 요청을 일괄 반영합니다.
+- `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 아직 자동 적용 대상이 아니며, 다음 단계에서 전용 유스케이스를 붙입니다.
 
 ## 5. 실행 방법
 ```bash

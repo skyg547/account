@@ -60,6 +60,16 @@
 - **단위 테스트 검증:** `FixedAssetTest`를 통해 정액법 상각 및 상각 완료 조건(잔존가치 도달)을 완벽하게 검증했습니다.
 - **가이드 문서화:** `docs/asset-lease-guide.md`를 작성하여 IFRS 16 리스 회계의 기술적/비즈니스적 배경을 정리했습니다.
 
+### 📅 2026-04-22 (저녁)
+### [기획/팀장]
+- **MSA 10종 인프라 연동 완결:** Eureka, Kafka, Zipkin에 이어 **ELK(Logging)** 연동을 위한 Logstash Appender 설정을 전 모듈에 배포 완료.
+- **자산 이력 관리 설계:** 자산의 이동 및 상태 변화를 추적하는 `AssetHistory` 시스템 설계.
+
+### [백엔드]
+- **ELK 연동 보강:** `logback-spring.xml`을 통해 모든 마이크로서비스 로그를 JSON 형태로 Logstash에 전송하도록 구현.
+- **자산 이력 시스템 구현:** `FixedAssetService` 내에 부서 이동(`DEPT_CHANGE`) 및 상태 변경 이력을 자동 기록하는 로직 통합.
+- **Git Ops:** 모든 독립화 및 고도화 코드를 원격 저장소(`main`)에 최종 동기화.
+
 
 ### [모델러]
 - `GlBalance`, `SlBalance` 엔티티 통합 및 `@Entity`, `@Table` 등 JPA 어노테이션 보강.
@@ -113,3 +123,10 @@
 - `POST /api/master-data/change-requests`, `/approve`, `/reject`, `/apply`, `GET /pending` API를 추가.
 - `V2__master_data_change_requests.sql` Flyway DDL을 추가해 변경요청 테이블과 조회 인덱스를 정의.
 - 도메인 상태 전이 테스트와 application service 테스트를 추가.
+
+### [백엔드] master-data 3차 변경요청 실제 적용기 구현
+- `MasterDataChangeApplier`와 `DefaultMasterDataChangeApplier`를 추가해 승인된 변경요청의 `payloadJson`을 실제 마스터 유스케이스로 연결.
+- `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT`의 `CREATE`, `UPDATE`, `DEACTIVATE` 자동 적용을 지원.
+- `POST /api/master-data/change-requests/{id}/apply`가 단순 상태 변경이 아니라 실제 마스터 적용 후 `APPLIED`로 전환되도록 변경.
+- `POST /api/master-data/change-requests/apply-due`를 추가해 적용일이 도래한 승인 요청을 일괄 적용할 수 있게 구현.
+- 변경요청 service 테스트에 단건 적용 및 적용일 도래 승인건 일괄 적용 케이스를 추가.

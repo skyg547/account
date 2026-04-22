@@ -128,10 +128,28 @@
 2. `GET /api/master-data/change-requests/pending`으로 승인 대기 목록을 본다.
 3. `POST /api/master-data/change-requests/{id}/approve`로 승인한다.
 4. `POST /api/master-data/change-requests/{id}/reject`로 반려한다.
-5. `POST /api/master-data/change-requests/{id}/apply`로 적용 완료 상태를 남긴다.
+5. `POST /api/master-data/change-requests/{id}/apply`로 승인된 요청을 실제 마스터에 적용한다.
+6. `POST /api/master-data/change-requests/apply-due`로 적용일이 도래한 승인 요청을 한 번에 적용한다.
 
 중요한 통제:
 
 - 요청자와 승인자는 같을 수 없다.
 - 승인 전 요청은 적용 완료 처리할 수 없다.
 - 적용일(`effectiveDate`)과 요청 버전(`requestedVersion`)을 반드시 남긴다.
+- 생성/수정 요청의 `payloadJson`은 대상별 command JSON이어야 한다.
+
+예시 payload:
+
+```json
+{
+  "code": "101000",
+  "name": "현금및현금성자산",
+  "category": "ASSETS",
+  "balanceType": "DEBIT",
+  "reportLine": "BS_CASH",
+  "unsettled": false,
+  "fixedAsset": false,
+  "validFrom": "2026-04-22",
+  "validTo": "9999-12-31"
+}
+```
