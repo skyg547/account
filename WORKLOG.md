@@ -23,17 +23,20 @@
 - 프로젝트 룰에 따라 '1-Directory 1-README' 및 '초보자용 설명' 원칙 준수.
 
 ### [기획/팀장]
-- MSA의 "프랜차이즈 본사" 역할을 하는 **중앙 설정 서버(Config Server)** 인프라 신규 도입 (포트 8888).
-- 수십 개로 쪼개질 마이크로서비스들의 `application.yml` 파일을 한 곳에서 중앙 통제할 수 있도록 `config-repo` 디렉토리 신설.
-- 프로젝트 룰에 따라 `config-server` 모듈 내에 초보자를 위한 비유와 실행법이 담긴 `README.md` 가이드 작성.
+- 운영(Production) 레벨의 시스템 안정성을 확보하기 위해 **① 서킷 브레이커(Resilience4j)** 와 **② 중앙 인증 시스템(JWT Auth)** 전격 도입.
+- 기존 내부회계 관리를 담당하는 `governance` 모듈의 고유 역할을 보존하고, 오직 인증(로그인 및 JWT 발급)만을 전담하는 **`auth` 마이크로서비스 모듈을 신규 생성**하여 도메인 경계를 명확히 분리.
+- 운영 환경을 위한 필수 인프라 점검 수행 및 마지막 퍼즐인 **③ Flyway(DB 형상 관리)** 와 **④ OpenFeign(동기 통신 최적화)** 전격 도입 설계.
+- 대규모 협업 및 보안, 확장성을 위한 Advanced MSA 도구 4종(Swagger, Spring Cloud Contract, Redis, Vault) 추가 설계 및 구조화 완비.
+- 여태까지 구축한 방대한 MSA 인프라 10종(ELK, Kafka, Zipkin, Config 등)의 역할과 존재 이유를 총망라한 **초보자용 완벽 가이드 (`docs/infrastructure-guide.md`)** 작성 완료.
 
 ### [백엔드]
-- `config-server` 독립 모듈 생성 및 `spring-cloud-config-server` 의존성 주입 완료.
-- `discovery`, `master-data`, `journal-ledger`, `gateway` 등 모든 핵심 서비스의 복잡한 로컬 `application.yml` 설정을 `config-repo` 폴더의 단일 텍스트 파일들로 전면 이관.
-- 공통 모듈인 `shared-kernel`에 `spring-cloud-starter-config` 의존성 추가.
-- 각 서비스의 `application.yml`은 오직 `spring.config.import=optional:configserver:http://localhost:8888/` 속성만을 갖도록 대폭 경량화(초경량 지점 셋팅 완료).
+- `shared-kernel/build.gradle`에 `flyway-core`, `spring-cloud-starter-openfeign` 등 공통 라이브러리 추가.
+- `master-data`와 `journal-ledger`의 리소스 폴더에 `db/migration/V1__init_baseline.sql` 뼈대 생성.
+- `MasterDataApplication`과 `JournalLedgerApplication` 메인 클래스에 `@EnableFeignClients` 어노테이션 추가.
+- `shared-kernel`에 통합 명세서 `springdoc-openapi`(Swagger), 소비자 주도 계약 `spring-cloud-starter-contract-verifier`, 초고속 분산 캐시 `spring-boot-starter-data-redis`, 중앙 비밀번호 관리 `spring-cloud-starter-vault-config` 라이브러리 전격 주입.
+- `gateway` 모듈의 WebFlux 환경을 위한 전용 Swagger 의존성 추가 및 `config-repo/gateway-service.yml`에 각 서비스의 Swagger 문서를 한 곳으로 끌어모으는(Aggregate) 라우팅 설정 완료.
+- 프로젝트 최상단에 `redis`, `vault` 독립 폴더를 생성하고, 각각의 `docker-compose.yml`과 초보자용 비유가 담긴 `README.md` 작성으로 MSA 개별 관리 체계 완성.
 
-**Next 담당자 ([기획/팀장] -> [QA]):**
-- 가장 먼저 `./gradlew :config-server:bootRun`을 실행하여 본사(8888) 서버를 띄운다.
-- 브라우저에서 `http://localhost:8888/master-data/default`를 호출하여 중앙 설정이 정상적으로 반환되는지 확인.
-- 이후 `discovery`, `gateway` 등 나머지 서비스들을 띄우고, 이들이 켜지면서 본사로부터 설정을 올바르게 다운로드받는지 검증 요망.
+**Next 담당자 ([기획/팀장] -> [백엔드]):**
+- 뼈대와 인프라 셋팅은 100% 끝났습니다!
+- 이제 `journal-ledger`에 숨어있는 **"전표 룰 엔진 (Rule Engine)"** 을 고도화하여, 외부 이벤트(Kafka)가 들어왔을 때 자동으로 완벽한 복식부기 전표를 생성해 내는 **비즈니스 로직(YOLO 코딩)**에 전념할 차례입니다.

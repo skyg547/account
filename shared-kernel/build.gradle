@@ -6,7 +6,6 @@ description = 'account-shared-kernel'
 
 dependencies {
     api platform('org.springframework.boot:spring-boot-dependencies:3.2.5')
-    api platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.1')
     api 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
     // ELK Logstash 연동을 위한 인코더
     api 'net.logstash.logback:logstash-logback-encoder:7.4'
@@ -22,5 +21,25 @@ dependencies {
     api 'io.zipkin.reporter2:zipkin-reporter-brave'
     
     // MSA 중앙 설정 관리(Config Client)
-    api 'org.springframework.cloud:spring-cloud-starter-config'
+
+    // 카프카(Kafka) 전광판에 뉴스를 쓰고 읽기 위한 라이브러리
+    api 'org.springframework.kafka:spring-kafka'
+
+    // 서비스 간 동기 통신을 우아하게 처리하는 OpenFeign 전화기
+
+    // 데이터베이스 도면(버전) 관리 도구 Flyway
+    api 'org.flywaydb:flyway-core'
+
+    // 통합 API 명세서 (Swagger) - 자동 메뉴판 생성기
+    api 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+
+    // 초고속 분산 캐시 및 글로벌 자물쇠 (Redis)
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // 스위스 은행 비밀 금고 (HashiCorp Vault) - 보안 설정
+    api 'org.springframework.cloud:spring-cloud-starter-vault-config'
+
+    // MSA 팀 간 API 연동 각서 검증기 (Spring Cloud Contract)
+    testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-verifier'
+    testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-stub-runner'
 }

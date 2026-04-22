@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # 1. Zookeeper: 카프카 전광판 매니저 (카프카가 제대로 도는지 관리)
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - account-network
+
+  # 2. Kafka: 전광판 본체 (메시지를 영구적으로 저장하고 배포)
+  kafka:
+    image: bitnami/kafka:3.4
+    container_name: kafka
+    ports:
+      - "9092:9092" # Spring Boot(로컬 PC)에서 접속할 외부 포트
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      # 도커 네트워크 내부(INTERNAL)와 로컬 PC 외부(EXTERNAL)를 구분하여 리스너 설정
+      - KAFKA_CFG_LISTENERS=INTERNAL://:29092,EXTERNAL://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+    depends_on:
+      - zookeeper
+    networks:
+      - account-network
+
+  # 3. Kafka UI: 전광판 관리자 화면 (명령어 없이 웹에서 카프카 메시지 확인)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080" # 외부 접속 포트 (http://localhost:8090)
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=account-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092 # 도커 내부 통신망 사용
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true # 프로젝트 최상단의 setup-network.bat으로 생성한 공통망 사용

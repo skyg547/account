@@ -23,28 +23,84 @@ spring:
               - X-Request-Id
             allowCredentials: true
       routes:
+        # Auth Service (출입증 발급 센터) - 여기는 검문소 필터 없이 무조건 통과시켜야 합니다!
+        - id: auth-api
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+
         # Master Data Service 라우팅
         - id: master-data-api
           uri: lb://master-data
           predicates:
             - Path=/api/basic/**
+          filters:
+            - name: JwtAuthenticationFilter # 1차 검문소: 출입증 검사
+            - name: CircuitBreaker # 2차 방어막: 뒷단 죽었는지 검사
+              args:
+                name: masterDataCircuitBreaker
+                fallbackUri: forward:/fallback/master-data
         
         # Journal Ledger Service 라우팅
         - id: journal-ledger-api
           uri: lb://journal-ledger
           predicates:
             - Path=/api/journals/**,/api/ledgers/**,/api/unsettled/**,/api/gl-sl/**,/api/drilldown/**
+          filters:
+            - name: JwtAuthenticationFilter
+            - name: CircuitBreaker
+              args:
+                name: journalLedgerCircuitBreaker
+                fallbackUri: forward:/fallback/journal-ledger
+                
+        # OpenAPI (Swagger) 문서 긁어오기 라우팅
+        - id: openapi-master-data
+          uri: lb://master-data
+          predicates:
+            - Path=/v3/api-docs/master-data
+          filters:
+            - RewritePath=/v3/api-docs/master-data, /v3/api-docs
+        - id: openapi-journal-ledger
+          uri: lb://journal-ledger
+          predicates:
+            - Path=/v3/api-docs/journal-ledger
+          filters:
+            - RewritePath=/v3/api-docs/journal-ledger, /v3/api-docs
+        - id: openapi-auth
+          uri: lb://auth-service
+          predicates:
+            - Path=/v3/api-docs/auth-service
+          filters:
+            - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
             
         # 구 모놀리식 폴백용
         - id: account-api
           uri: lb://account
           predicates:
             - Path=/api/**
-          
-        - id: all-actuator
-          uri: lb://account
-          predicates:
-            - Path=/actuator/health,/actuator/info
+
+springdoc:
+  swagger-ui:
+    # 게이트웨이에서 여러 서비스의 메뉴판을 합쳐서(Aggregate) 보여주는 설정입니다.
+    urls:
+      - {name: "Master Data Service", url: "/v3/api-docs/master-data"}
+      - {name: "Journal Ledger Service", url: "/v3/api-docs/journal-ledger"}
+      - {name: "Auth Service", url: "/v3/api-docs/auth-service"}
+
+# --- Resilience4j 두꺼비집 민감도 설정 ---
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true # 헬스 체크(Prometheus)에 두꺼비집 상태(Open/Closed) 노출
+        slidingWindowSize: 10 # 최근 10개의 요청을 검사해서
+        failureRateThreshold: 50 # 절반 이상(50%)이 실패하면 두꺼비집을 팍 내림(Open)!
+        waitDurationInOpenState: 10000 # 10초 동안 내린 채로 유지하다가 슬쩍 올려봄(Half-Open)
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s # 뒷단 서버가 3초 이상 묵묵부답이면 강제로 통신을 끊고 실패(Fallback) 처리!
 
 eureka:
   client:

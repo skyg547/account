@@ -9,6 +9,7 @@ spring:
     password:
   jpa:
     hibernate:
+      # 운영에서는 반드시 validate 또는 none으로 변경하고 Flyway 도면으로만 DB를 고쳐야 합니다!
       ddl-auto: update
     show-sql: true
     properties:
@@ -17,6 +18,11 @@ spring:
   h2:
     console:
       enabled: true
+  flyway:
+    enabled: true
+    # 기존에 테이블이 있어도 도면 1번부터 덮어쓰지 않고 기준선(Baseline)을 잡고 시작하게 합니다.
+    baseline-on-migrate: true
+    baseline-version: 0
 
 eureka:
   client:
@@ -36,9 +42,22 @@ management:
   endpoint:
     prometheus:
       enabled: true
+  # --- Tracing (Zipkin): 100% 확률로 운송장 번호를 발급하고 Zipkin으로 보냄 ---
   tracing:
     sampling:
       probability: 1.0
   zipkin:
     tracing:
       endpoint: "http://localhost:9411/api/v2/spans"
+
+  # --- Kafka: 전광판(이벤트 브로커) 연결 설정 ---
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: master-data-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest

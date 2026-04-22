@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # --- Redis: 초고속 분산 캐시 및 글로벌 메모장 ---
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis
+    ports:
+      - "6379:6379" # Spring Boot에서 기본적으로 접속하는 포트
+    command: redis-server --appendonly yes # 메모리뿐만 아니라 디스크에도 데이터를 백업합니다.
+    networks:
+      - account-network
+
+  # --- Redis Commander: 레디스를 시각적으로 보는 브라우저 화면 ---
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081" # 브라우저 접속 포트 (http://localhost:8081)
+    depends_on:
+      - redis
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true

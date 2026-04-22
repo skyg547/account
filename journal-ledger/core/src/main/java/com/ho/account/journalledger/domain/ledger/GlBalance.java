@@ -16,8 +16,6 @@ import java.time.YearMonth;
  * 총계정원장 잔액 (General Ledger Balance) - Rich Domain Model
  * 함수형 스타일로 비즈니스 로직을 캡슐화합니다.
  */
-@Entity
-@Table(name = "gl_balances")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GlBalance {

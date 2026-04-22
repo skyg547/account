@@ -17,6 +17,9 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    
+    // 연쇄 장애 방지를 위한 서킷 브레이커(두꺼비집) 추가
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j'
 
     // ELK Logstash 연동을 위한 인코더
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
@@ -26,6 +29,14 @@ dependencies {
     implementation 'io.zipkin.reporter2:zipkin-reporter-brave'
     // 프로메테우스 메트릭 노출
     implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // 통합 API 명세서 (Swagger) - Gateway 전용 (WebFlux)
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0'
+
+    // JWT (JSON Web Token) 검증을 위한 라이브러리
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

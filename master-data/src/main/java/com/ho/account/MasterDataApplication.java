@@ -3,6 +3,7 @@ package com.ho.account;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+@EnableFeignClients // 다른 마이크로서비스와 우아하게 전화(API 호출)할 수 있는 기능을 켭니다.
 @EnableJpaRepositories(basePackages = "com.ho.account")
 @EntityScan(basePackages = "com.ho.account")
 public class MasterDataApplication {
