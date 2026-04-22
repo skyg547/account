@@ -17,7 +17,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MasterDataChangeRequestServiceTest {
 
     private final InMemoryPort port = new InMemoryPort();
-    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port);
+    private final RecordingApplier applier = new RecordingApplier();
+    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port, applier);
 
     @Test
     void requestsAndApprovesMasterDataChange() {
@@ -46,6 +47,42 @@ class MasterDataChangeRequestServiceTest {
         assertThat(service.findPendingRequests())
                 .extracting(MasterDataChangeRequest::getId)
                 .containsExactly(first.getId());
+    }
+
+    @Test
+    void appliesApprovedChangeAndMarksApplied() {
+        MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
+                MasterDataType.DEPARTMENT,
+                "D-APPLY",
+                ChangeType.UPDATE,
+                LocalDate.now(),
+                1,
+                "operator",
+                "즉시 적용",
+                "{}"));
+        service.approve(requested.getId(), "manager");
+
+        MasterDataChangeRequest applied = service.applyApprovedChange(requested.getId());
+
+        assertThat(applied.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+        assertThat(applier.appliedIds).containsExactly(requested.getId());
+    }
+
+    @Test
+    void appliesOnlyApprovedChangesWhoseEffectiveDateHasArrived() {
+        MasterDataChangeRequest due = service.requestChange(new MasterDataChangeRequestCommand(
+                MasterDataType.DEPARTMENT, "D-DUE", ChangeType.UPDATE, LocalDate.now(), 1,
+                "operator", "도래", "{}"));
+        MasterDataChangeRequest future = service.requestChange(new MasterDataChangeRequestCommand(
+                MasterDataType.DEPARTMENT, "D-FUTURE", ChangeType.UPDATE, LocalDate.now().plusDays(1), 1,
+                "operator", "미도래", "{}"));
+        service.approve(due.getId(), "manager");
+        service.approve(future.getId(), "manager");
+
+        assertThat(service.applyDueApprovedChanges())
+                .extracting(MasterDataChangeRequest::getId)
+                .containsExactly(due.getId());
+        assertThat(applier.appliedIds).containsExactly(due.getId());
     }
 
     private MasterDataChangeRequestCommand command(String key) {
@@ -84,6 +121,15 @@ class MasterDataChangeRequestServiceTest {
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException(e);
             }
+        }
+    }
+
+    private static final class RecordingApplier implements MasterDataChangeApplier {
+        private final List<Long> appliedIds = new ArrayList<>();
+
+        @Override
+        public void apply(MasterDataChangeRequest request) {
+            appliedIds.add(request.getId());
         }
     }
 }

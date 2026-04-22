@@ -1,8 +1,9 @@
 package com.ho.account.journal.web;
 
 import com.ho.account.journalledger.domain.journal.JournalEntry;
-import com.ho.account.journalledger.application.service.journal.JournalService;
+import com.ho.account.journalledger.domain.journal.service.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 전표 관리 API 컨트롤러
+ * 전표 생성, 자동 생성 및 조회를 담당합니다.
+ */
 @RestController
 @RequestMapping("/api/journals")
 public class JournalController {
@@ -22,62 +27,47 @@ public class JournalController {
         this.journalService = journalService;
     }
 
-    // 전표 생성
+    /**
+     * 수동 전표 생성
+     */
     @PostMapping
     public ResponseEntity<JournalEntry> createJournalEntry(@RequestBody JournalEntry journalEntry) {
         try {
             JournalEntry createdEntry = journalService.createJournalEntry(journalEntry);
             return ResponseEntity.ok(createdEntry);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
-    // 전표 자동 생성 (From Event)
-    @PostMapping("/from-event")
-    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
-            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
-        try {
-            Optional<JournalEntry> createdEntry = journalService.createJournalEntryFromEvent(eventData, accountingDate);
-            return createdEntry.map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.noContent().build());
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
-    // 전표 수정
-    @PutMapping("/{id}")
-    public ResponseEntity<JournalEntry> updateJournalEntry(@PathVariable Long id,
-            @RequestBody JournalEntry journalEntry) {
-        try {
-            JournalEntry updatedEntry = journalService.updateJournalEntry(id, journalEntry);
-            return ResponseEntity.ok(updatedEntry);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
-    }
-
-    // 전표 삭제
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJournalEntry(@PathVariable Long id) {
-        try {
-            journalService.deleteJournalEntry(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
-    // 전표 조회 (기간별)
+    /**
+     * 이벤트를 통한 전표 자동 생성 (룰 엔진 활용)
+     */
+    @PostMapping("/from-event")
+    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
+        try {
+            Optional<JournalEntry> createdEntry = journalService.createJournalEntryFromEvent(eventData, accountingDate);
+            return createdEntry.map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.noContent().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * 기간별 전표 목록 조회
+     */
     @GetMapping
     public List<JournalEntry> getJournalEntries(
-            @RequestParam org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return journalService.getJournalEntriesByDate(startDate, endDate);
     }
 
-    // 전표 상세 조회 (전표번호)
+    /**
+     * 전표 번호로 상세 조회
+     */
     @GetMapping("/{slipNo}")
     public ResponseEntity<JournalEntry> getJournalEntry(@PathVariable String slipNo) {
         return journalService.getJournalEntryBySlipNo(slipNo)
@@ -85,61 +75,29 @@ public class JournalController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 승인 요청
-    @PostMapping("/{id}/request")
-    public ResponseEntity<Void> requestApproval(@PathVariable Long id) {
-        try {
-            journalService.requestApproval(id);
-            return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    // 전표 승인
+    /**
+     * 전표 승인
+     */
     @PostMapping("/{id}/approve")
     public ResponseEntity<Void> approveJournalEntry(@PathVariable Long id) {
         try {
             journalService.approveJournalEntry(id);
             return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
-    // 전표 반려
-    @PostMapping("/{id}/reject")
-    public ResponseEntity<Void> rejectJournalEntry(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        try {
-            String reason = body.get("reason");
-            journalService.rejectJournalEntry(id, reason);
-            return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    // 전표 전기 (Post)
+    /**
+     * 전표 전기 (원장 반영)
+     */
     @PostMapping("/{id}/post")
     public ResponseEntity<Void> postJournalEntry(@PathVariable Long id) {
         try {
             journalService.postJournalEntry(id);
             return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
-        }
-    }
-
-    // 전표 역분개 (Reverse)
-    @PostMapping("/{id}/reverse")
-    public ResponseEntity<JournalEntry> reverseJournalEntry(@PathVariable Long id,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate reversalDate) {
-        try {
-            LocalDate actualReversalDate = (reversalDate != null) ? reversalDate : LocalDate.now();
-            JournalEntry reversedEntry = journalService.reverseJournalEntry(id, actualReversalDate);
-            return ResponseEntity.ok(reversedEntry);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(null);
         }
     }
 }

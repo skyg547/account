@@ -1,0 +1,114 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  margin-bottom: 8px;
+}
+
+.titleArea h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.titleArea p {
+  color: #64748b;
+}
+
+.filterBar {
+  padding: 24px 32px;
+}
+
+.filterRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 32px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterGroup label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.filterGroup select {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--fg-color);
+  min-width: 200px;
+}
+
+.searchBtn {
+  background: var(--fg-color);
+  color: var(--bg-color);
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.listSection {
+  padding: 32px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--card-border);
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-size: 0.9rem;
+}
+
+.time {
+  font-family: monospace;
+  color: #94a3b8;
+}
+
+.userId {
+  font-weight: 600;
+}
+
+.ip, .agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.success {
+  color: #22c55e;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fail {
+  color: #ef4444;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

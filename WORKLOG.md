@@ -43,8 +43,23 @@
 - **원장 전기 로직 완성:** `PostingService`를 통해 전표 확정 시 `GlEntry`, `SlEntry` 상세 내역을 생성하도록 구현. (빌드 및 테스트 검증 완료)
 - **잔액 이월(Carry-forward) 구현:** `LedgerService`에서 전표 전기 시 직전 최종 잔액을 조회하여 기초 잔액(Beginning Balance)으로 자동 설정하는 로직 추가. (가이드 문서 작성 완료)
 - **단위 테스트 및 문서화:** `JournalRuleEngineTest`를 통해 SpEL 로직 검증 완료 및 `ledger-carry-forward.md` 문서 고도화 완료.
-- **[New] 배치 및 운영 도구:** `journal-ledger:batch` 모듈에 잔액 재집계 배치 구현. `RUNBOOK.md` 및 `start-*.bat` 스크립트 제작으로 운영 자동화 완성.
-- **[New] 인프라 정합성:** 모든 모듈의 Eureka, Kafka, Zipkin 연동 상태 점검 및 최적화 완료.
+- [New] 배치 및 운영 도구:** `journal-ledger:batch` 모듈에 잔액 재집계 배치 구현. `RUNBOOK.md` 및 `start-*.bat` 스크립트 제작으로 운영 자동화 완성.
+- [New] 인프라 정합성:** 모든 모듈의 Eureka, Kafka, Zipkin 연동 상태 점검 및 최적화 완료.
+
+### 📅 2026-04-22 (오후)
+### [기획/팀장]
+- **`asset-lease` 모듈 고도화 완료:** 고정자산 및 IFRS 16 리스 회계의 핵심 비즈니스 로직을 완성하고, `journal-ledger`와 Kafka로 연동했습니다.
+- **배치 아키텍처 정립:** 매달 말일 실행되는 감가상각 전용 배치 구조를 설계했습니다.
+
+### [백엔드]
+- **Kafka 기반 비동기 연동:** 자산 취득, 상각, 처분 시 이벤트를 발행하여 전표가 자동으로 생성되도록 구현했습니다.
+- **빌드 환경 최적화:** `asset-lease` 모듈의 Lombok, Batch, Cloud 의존성 문제를 모두 해결하고 빌드 정합성을 확보했습니다.
+- **도메인 로직 캡슐화:** `FixedAsset` 엔티티 내부에 복잡한 상각 계산 로직을 이동시켜 객체지향적인 설계를 강화했습니다.
+
+### [QA]
+- **단위 테스트 검증:** `FixedAssetTest`를 통해 정액법 상각 및 상각 완료 조건(잔존가치 도달)을 완벽하게 검증했습니다.
+- **가이드 문서화:** `docs/asset-lease-guide.md`를 작성하여 IFRS 16 리스 회계의 기술적/비즈니스적 배경을 정리했습니다.
+
 
 ### [모델러]
 - `GlBalance`, `SlBalance` 엔티티 통합 및 `@Entity`, `@Table` 등 JPA 어노테이션 보강.

@@ -1,6 +1,7 @@
 plugins {
-    id 'java-library'
+    id 'org.springframework.boot'
     id 'io.spring.dependency-management'
+    id 'java-library'
 }
 
 description = 'account-asset-lease'
@@ -8,6 +9,7 @@ description = 'account-asset-lease'
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
     }
 }
 
@@ -15,11 +17,32 @@ dependencies {
     api project(':contracts')
     implementation project(':shared-kernel')
     implementation project(':master-data')
-    implementation project(':journal-ledger:core')
+    // implementation project(':journal-ledger:core') // <--- 독립성을 위해 과감히 제거!
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.kafka:spring-kafka'
+    
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    runtimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+}
+
+bootJar {
+    enabled = true // 이제 단독 실행 파일(JAR) 생성이 가능합니다.
+}
+
+jar {
+    enabled = false
 }

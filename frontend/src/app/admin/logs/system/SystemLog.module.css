@@ -1,0 +1,106 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  margin-bottom: 8px;
+}
+
+.titleArea h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.titleArea p {
+  color: #64748b;
+}
+
+.filterBar {
+  padding: 24px 32px;
+}
+
+.filterRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 32px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterGroup label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.filterGroup select {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--fg-color);
+  min-width: 200px;
+}
+
+.searchBtn {
+  background: #3b82f6;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.logConsole {
+  background: #0f172a;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.consoleHeader {
+  background: #1e293b;
+  padding: 12px 20px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #334155;
+}
+
+.consoleBody {
+  padding: 24px;
+  min-height: 400px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.logLine {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.lvlInfo { color: #22c55e; font-weight: 700; }
+.lvlWarn { color: #f59e0b; font-weight: 700; }
+.lvlError { color: #ef4444; font-weight: 700; }
+
+.timestamp { color: #64748b; }
+.msg { color: #e2e8f0; }
+
+.errorLine {
+  background: rgba(239, 68, 68, 0.1);
+  margin-left: -24px;
+  margin-right: -24px;
+  padding-left: 24px;
+  padding-right: 24px;
+}

@@ -1,0 +1,183 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  margin-bottom: 8px;
+}
+
+.titleArea h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.titleArea p {
+  color: #64748b;
+}
+
+.statusBanner {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.currentPeriod, .lastClosing {
+  padding: 32px;
+  position: relative;
+}
+
+.currentPeriod span, .lastClosing span {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.currentPeriod h3, .lastClosing h3 {
+  margin-top: 12px;
+  font-size: 1.6rem;
+  letter-spacing: -0.5px;
+}
+
+.statusBadge {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  background: #22c55e;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.layout {
+  display: flex;
+  gap: 24px;
+}
+
+.timelineSection {
+  flex: 1;
+  padding: 40px;
+}
+
+.timelineSection h3 {
+  margin-bottom: 32px;
+  font-size: 1.2rem;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 10px;
+  bottom: 40px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.step {
+  display: flex;
+  gap: 24px;
+  padding-bottom: 48px;
+  position: relative;
+}
+
+.stepIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-color);
+  border: 2px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  z-index: 1;
+}
+
+.completed .stepIcon {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: white;
+}
+
+.inProgress .stepIcon {
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+}
+
+.stepContent h4 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.stepContent p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.timestamp {
+  font-size: 0.8rem;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.stepActions {
+  margin-top: 16px;
+}
+
+.executeBtn {
+  background: var(--primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sideArea {
+  width: 320px;
+}
+
+.warningCard {
+  padding: 24px;
+}
+
+.warningCard h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #f59e0b;
+  margin-bottom: 16px;
+}
+
+.warningCard ul {
+  padding-left: 20px;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

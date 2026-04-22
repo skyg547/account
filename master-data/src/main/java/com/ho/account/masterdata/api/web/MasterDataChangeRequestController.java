@@ -52,6 +52,13 @@ public class MasterDataChangeRequestController {
 
     @PostMapping("/{requestId}/apply")
     public ResponseEntity<MasterDataChangeRequestDto> markApplied(@PathVariable Long requestId) {
-        return ResponseEntity.ok(MasterDataChangeRequestDto.fromEntity(useCase.markApplied(requestId)));
+        return ResponseEntity.ok(MasterDataChangeRequestDto.fromEntity(useCase.applyApprovedChange(requestId)));
+    }
+
+    @PostMapping("/apply-due")
+    public List<MasterDataChangeRequestDto> applyDueApprovedChanges() {
+        return useCase.applyDueApprovedChanges().stream()
+                .map(MasterDataChangeRequestDto::fromEntity)
+                .toList();
     }
 }

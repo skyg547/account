@@ -33,6 +33,7 @@
 ### Step 4: 비즈니스 서비스
 1. `master-data` (Port: 8082)
 2. `journal-ledger` (Port: 8081)
+3. `asset-lease` (Port: 8083)
 
 ---
 

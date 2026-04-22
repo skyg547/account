@@ -17,5 +17,9 @@ public interface MasterDataChangeRequestUseCase {
 
     MasterDataChangeRequest markApplied(Long requestId);
 
+    MasterDataChangeRequest applyApprovedChange(Long requestId);
+
+    List<MasterDataChangeRequest> applyDueApprovedChanges();
+
     List<MasterDataChangeRequest> findPendingRequests();
 }

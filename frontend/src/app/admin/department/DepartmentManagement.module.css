@@ -1,0 +1,134 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  margin-bottom: 8px;
+}
+
+.titleArea h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.titleArea p {
+  color: #64748b;
+}
+
+.layout {
+  display: flex;
+  gap: 24px;
+}
+
+.orgSection {
+  width: 320px;
+  padding: 24px;
+  min-height: 600px;
+}
+
+.orgTree {
+  margin-top: 20px;
+}
+
+.orgTree ul {
+  list-style: none;
+  padding-left: 16px;
+  line-height: 2.2;
+  font-size: 0.9rem;
+}
+
+.mainArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detailCard, .attributionCard {
+  padding: 32px;
+}
+
+.infoGrid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.infoItem label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.infoItem input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fg-color);
+}
+
+.valWithIcon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.attrForm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formGroup label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.formGroup select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--fg-color);
+}
+
+.radioGroup {
+  display: flex;
+  gap: 24px;
+}
+
+.radioGroup label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.saveBtn {
+  background: var(--fg-color);
+  color: var(--bg-color);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  align-self: flex-start;
+}

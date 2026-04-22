@@ -3,12 +3,24 @@ package com.ho.account.asset.domain;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.Department;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 고정자산 (Fixed Asset) 엔티티
+ * 정액법 및 정률법 감가상각 로직을 내포합니다.
+ */
 @Entity
 @Table(name = "fixed_assets")
+@Getter
+@Setter
+@NoArgsConstructor
 public class FixedAsset {
 
     @Id
@@ -23,49 +35,49 @@ public class FixedAsset {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
-    private AccountSubject accountSubject; // 자산 계정 (예: 차량운반구)
+    private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "accumulated_account_code")
-    private AccountSubject accumulatedAccount; // 감가상각누계액 계정 (차감 계정)
+    private AccountSubject accumulatedAccount;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expense_account_code")
-    private AccountSubject expenseAccount; // 감가상각비 계정 (비용 계정)
+    private AccountSubject expenseAccount;
 
     @Column(nullable = false)
-    private LocalDate acquisitionDate; // 취득일
+    private LocalDate acquisitionDate;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal acquisitionCost; // 취득원가
+    private BigDecimal acquisitionCost;
 
     @Column(nullable = false)
-    private Integer usefulLife; // 내용연수 (년)
+    private Integer usefulLife;
 
     @Column(length = 20)
-    private String depreciationMethod; // STRAIGHT_LINE(정액법), DECLINING(정률법)
+    private String depreciationMethod; // STRAIGHT_LINE, DECLINING
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal residualValue = BigDecimal.ZERO; // 잔존가치
+    private BigDecimal residualValue = BigDecimal.ZERO;
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal accumulatedDepreciation = BigDecimal.ZERO; // 현재까지의 감가상각누계액
+    private BigDecimal accumulatedDepreciation = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal currentBookValue; // 현재 장부가액 (취득원가 - 감가상각누계액)
+    private BigDecimal currentBookValue;
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal depreciationAmountPerPeriod; // 기간별 감가상각액
+    private BigDecimal depreciationAmountPerPeriod;
 
     @Column
-    private LocalDate lastDepreciationDate; // 마지막 감가상각 처리일
+    private LocalDate lastDepreciationDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department; // 관리 부서
+    private Department department;
 
     @Column(length = 20)
-    private String status; // ACTIVE(사용중), DISPOSED(처분), FULLY_DEPRECIATED(상각완료)
+    private String status; // ACTIVE, DISPOSED, FULLY_DEPRECIATED
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -73,172 +85,55 @@ public class FixedAsset {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = "ACTIVE";
-        }
-        if (currentBookValue == null) {
-            currentBookValue = acquisitionCost;
-        }
-        if (depreciationAmountPerPeriod == null && acquisitionCost != null && usefulLife != null) {
-            // Calculate depreciationAmountPerPeriod based on method
-            calculateDepreciationAmountPerPeriod();
-        }
-        // lastDepreciationDate should be null initially
+        if (status == null) status = "ACTIVE";
+        if (currentBookValue == null) currentBookValue = acquisitionCost;
+        if (accumulatedDepreciation == null) accumulatedDepreciation = BigDecimal.ZERO;
+        if (residualValue == null) residualValue = BigDecimal.ZERO;
+        calculateInitialDepreciationAmount();
     }
 
-    // Helper method to calculate depreciationAmountPerPeriod
-    private void calculateDepreciationAmountPerPeriod() {
+    private void calculateInitialDepreciationAmount() {
         if ("STRAIGHT_LINE".equals(depreciationMethod)) {
             if (usefulLife != null && usefulLife > 0) {
                 BigDecimal depreciableAmount = acquisitionCost.subtract(residualValue);
-                // Monthly depreciation for straight-line
-                this.depreciationAmountPerPeriod = depreciableAmount.divide(new BigDecimal(usefulLife * 12), 2, BigDecimal.ROUND_HALF_UP);
-            } else {
-                this.depreciationAmountPerPeriod = BigDecimal.ZERO;
+                this.depreciationAmountPerPeriod = depreciableAmount.divide(new BigDecimal(usefulLife * 12), 2, RoundingMode.HALF_UP);
             }
-        } else if ("DECLINING".equals(depreciationMethod)) {
-            // For declining balance, depreciation is calculated each period on the book value.
-            // So, depreciationAmountPerPeriod will be calculated dynamically in the service.
-            this.depreciationAmountPerPeriod = BigDecimal.ZERO; // Initialize as zero, service will calculate
-        } else {
-            this.depreciationAmountPerPeriod = BigDecimal.ZERO;
         }
     }
 
-    // Getter 및 Setter
-    public Long getId() {
-        return id;
+    /**
+     * 감가상각비를 계산하고 상태를 업데이트합니다.
+     */
+    public BigDecimal depreciate(LocalDate targetDate) {
+        if (!"ACTIVE".equals(status)) return BigDecimal.ZERO;
+
+        BigDecimal amount = calculateCurrentDepreciationAmount();
+        BigDecimal maxDepreciable = currentBookValue.subtract(residualValue);
+        amount = amount.min(maxDepreciable);
+
+        if (amount.compareTo(BigDecimal.ZERO) > 0) {
+            if (this.accumulatedDepreciation == null) this.accumulatedDepreciation = BigDecimal.ZERO;
+            
+            this.accumulatedDepreciation = this.accumulatedDepreciation.add(amount);
+            this.currentBookValue = this.currentBookValue.subtract(amount);
+            this.lastDepreciationDate = targetDate;
+
+            // 상각 완료 체크
+            if (this.currentBookValue.subtract(this.residualValue).abs().compareTo(new BigDecimal("0.01")) < 0) {
+                this.status = "FULLY_DEPRECIATED";
+                this.currentBookValue = this.residualValue;
+            }
+        }
+        return amount;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getAssetCode() {
-        return assetCode;
-    }
-
-    public void setAssetCode(String assetCode) {
-        this.assetCode = assetCode;
-    }
-
-    public String getAssetName() {
-        return assetName;
-    }
-
-    public void setAssetName(String assetName) {
-        this.assetName = assetName;
-    }
-
-    public AccountSubject getAccountSubject() {
-        return accountSubject;
-    }
-
-    public void setAccountSubject(AccountSubject accountSubject) {
-        this.accountSubject = accountSubject;
-    }
-
-    public AccountSubject getAccumulatedAccount() {
-        return accumulatedAccount;
-    }
-
-    public void setAccumulatedAccount(AccountSubject accumulatedAccount) {
-        this.accumulatedAccount = accumulatedAccount;
-    }
-
-    public AccountSubject getExpenseAccount() {
-        return expenseAccount;
-    }
-
-    public void setExpenseAccount(AccountSubject expenseAccount) {
-        this.expenseAccount = expenseAccount;
-    }
-
-    public LocalDate getAcquisitionDate() {
-        return acquisitionDate;
-    }
-
-    public void setAcquisitionDate(LocalDate acquisitionDate) {
-        this.acquisitionDate = acquisitionDate;
-    }
-
-    public BigDecimal getAcquisitionCost() {
-        return acquisitionCost;
-    }
-
-    public void setAcquisitionCost(BigDecimal acquisitionCost) {
-        this.acquisitionCost = acquisitionCost;
-    }
-
-    public Integer getUsefulLife() {
-        return usefulLife;
-    }
-
-    public void setUsefulLife(Integer usefulLife) {
-        this.usefulLife = usefulLife;
-    }
-
-    public String getDepreciationMethod() {
-        return depreciationMethod;
-    }
-
-    public void setDepreciationMethod(String depreciationMethod) {
-        this.depreciationMethod = depreciationMethod;
-    }
-
-    public BigDecimal getResidualValue() {
-        return residualValue;
-    }
-
-    public void setResidualValue(BigDecimal residualValue) {
-        this.residualValue = residualValue;
-    }
-
-    public BigDecimal getAccumulatedDepreciation() {
-        return accumulatedDepreciation;
-    }
-
-    public void setAccumulatedDepreciation(BigDecimal accumulatedDepreciation) {
-        this.accumulatedDepreciation = accumulatedDepreciation;
-    }
-
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
-    }
-
-    public BigDecimal getCurrentBookValue() {
-        return currentBookValue;
-    }
-
-    public void setCurrentBookValue(BigDecimal currentBookValue) {
-        this.currentBookValue = currentBookValue;
-    }
-
-    public BigDecimal getDepreciationAmountPerPeriod() {
-        return depreciationAmountPerPeriod;
-    }
-
-    public void setDepreciationAmountPerPeriod(BigDecimal depreciationAmountPerPeriod) {
-        this.depreciationAmountPerPeriod = depreciationAmountPerPeriod;
-    }
-
-    public LocalDate getLastDepreciationDate() {
-        return lastDepreciationDate;
-    }
-
-    public void setLastDepreciationDate(LocalDate lastDepreciationDate) {
-        this.lastDepreciationDate = lastDepreciationDate;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
+    private BigDecimal calculateCurrentDepreciationAmount() {
+        if ("STRAIGHT_LINE".equals(depreciationMethod)) {
+            return depreciationAmountPerPeriod != null ? depreciationAmountPerPeriod : BigDecimal.ZERO;
+        } else if ("DECLINING".equals(depreciationMethod)) {
+            BigDecimal annualRate = new BigDecimal("0.2"); 
+            return currentBookValue.multiply(annualRate).divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
     }
 }

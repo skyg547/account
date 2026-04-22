@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.usecase.MasterDataChangeReques
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.port.out.MasterDataChangeRequestPersistencePort;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class MasterDataChangeRequestService implements MasterDataChangeRequestUseCase {
 
     private final MasterDataChangeRequestPersistencePort persistencePort;
+    private final MasterDataChangeApplier changeApplier;
 
-    public MasterDataChangeRequestService(MasterDataChangeRequestPersistencePort persistencePort) {
+    public MasterDataChangeRequestService(MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataChangeApplier changeApplier) {
         this.persistencePort = persistencePort;
+        this.changeApplier = changeApplier;
     }
 
     @Override
@@ -58,6 +62,26 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
         MasterDataChangeRequest request = findRequired(requestId);
         request.markApplied();
         return persistencePort.save(request);
+    }
+
+    @Override
+    public MasterDataChangeRequest applyApprovedChange(Long requestId) {
+        MasterDataChangeRequest request = findRequired(requestId);
+        if (!request.isReadyToApply(LocalDate.now())) {
+            throw new IllegalStateException("승인 상태이고 적용일이 도래한 요청만 적용할 수 있습니다.");
+        }
+        changeApplier.apply(request);
+        request.markApplied();
+        return persistencePort.save(request);
+    }
+
+    @Override
+    public List<MasterDataChangeRequest> applyDueApprovedChanges() {
+        LocalDate today = LocalDate.now();
+        return persistencePort.findByStatus(ChangeStatus.APPROVED).stream()
+                .filter(request -> request.isReadyToApply(today))
+                .map(request -> applyApprovedChange(request.getId()))
+                .toList();
     }
 
     @Override
