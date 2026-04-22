@@ -1,7 +1,7 @@
 package com.ho.account.journal.web;
 
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.service.JournalService;
+import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.application.service.journal.JournalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,12 +35,12 @@ public class JournalController {
 
     // 전표 자동 생성 (From Event)
     @PostMapping("/from-event")
-    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, String> eventData,
+    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
             @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
         try {
             Optional<JournalEntry> createdEntry = journalService.createJournalEntryFromEvent(eventData, accountingDate);
             return createdEntry.map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.noContent().build()); // Or BadRequest if no rule matches
+                    .orElse(ResponseEntity.noContent().build());
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -72,8 +72,8 @@ public class JournalController {
     // 전표 조회 (기간별)
     @GetMapping
     public List<JournalEntry> getJournalEntries(
-            @RequestParam LocalDate startDate,
-            @RequestParam LocalDate endDate) {
+            @RequestParam org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return journalService.getJournalEntriesByDate(startDate, endDate);
     }
 
@@ -135,7 +135,6 @@ public class JournalController {
     public ResponseEntity<JournalEntry> reverseJournalEntry(@PathVariable Long id,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate reversalDate) {
         try {
-            // If no reversalDate is provided, use today's date
             LocalDate actualReversalDate = (reversalDate != null) ? reversalDate : LocalDate.now();
             JournalEntry reversedEntry = journalService.reverseJournalEntry(id, actualReversalDate);
             return ResponseEntity.ok(reversedEntry);

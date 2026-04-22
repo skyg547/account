@@ -1,22 +1,20 @@
-# Service Discovery (Eureka Server)
+# 🗺️ Discovery Service (유레카 서버) - "사내 전화번호부"
 
-이 모듈은 분산된 MSA 환경에서 수많은 마이크로서비스들의 위치(IP, 설정 등)를 동적으로 추적하기 위한 중앙 레지스트리인 **서비스 디스커버리 모듈**입니다.
+## 1. 초보자를 위한 개념 설명
+MSA 환경에서는 서버(지점)가 수십 개로 늘어나고, 트래픽에 따라 IP 주소와 포트가 수시로 바뀝니다. 
+**Discovery Service (Eureka)**는 모든 마이크로서비스가 켜질 때마다 "저 지금 8082번 포트에서 영업 시작했습니다!" 하고 신고(Register)하는 **'사내 중앙 전화번호부'**입니다.
+다른 서버가 `master-data`를 찾고 싶을 때, IP 주소 대신 `master-data`라는 이름만 대면 유레카가 알아서 현재 영업 중인 IP 주소를 알려줍니다.
 
-## 📌 초보자(주니어)를 위한 개념 설명
-> **서비스 디스커버리란?**  
-> 전화번호부(다이얼) 책과 같은 역할을 합니다. 각 서비스(대출 시스템, 입출금 시스템 등)는 켤 때마다 자신의 IP를 서비스 디스커버리에 등록(`register`)합니다. 그러면 다른 서비스들이 서로 요청을 보낼 때, 대상 IP 주소를 직접 기억할 필요 없이 이 전화번호부(서비스 디스커버리)에 물어봐서 동적으로 찾아낼 수 있습니다! 덕분에 클라우드 환경에서 서비스들이 꺼지거나 켜져도 유연하게 연결이 유지됩니다.
+## 2. 실행 방법
+MSA 시스템을 기동할 때 **Config Server 다음으로 가장 먼저** 켜져야 하는 핵심 인프라입니다.
+```bash
+./gradlew :discovery:bootRun
+```
+브라우저에서 `http://localhost:8761`에 접속하면, 현재 우리 시스템에 어떤 마이크로서비스들이 살아서 숨 쉬고 있는지(Instances currently registered) 한눈에 볼 수 있는 대시보드가 열립니다!
 
-## 🚀 비즈니스 목적
-- 모든 백엔드 모듈 노드의 주소를 동적으로 추적.
-- 로드밸런싱(단 서버 목록 제공 역할)과 장애 회복 능력 증대.
-
-## 💻 실행 방법
-1. 프로젝트 루트로 이동하여 다음 명령어로 모듈을 단독 실행합니다.
-   ```bash
-   ./gradlew :discovery:bootRun
-   ```
-2. 브라우저를 열고 `http://localhost:8761`에 접속하여 Eureka 대시보드가 정상적으로 보이는지 확인합니다.
-
-## 📦 의존성
-- `spring-cloud-starter-netflix-eureka-server`
-- `spring-boot-starter-web`
+## 3. Docker 로 실행하기
+이 폴더에 있는 `Dockerfile`을 통해 이 서비스를 레고 블록(도커 이미지)으로 만들 수 있습니다.
+```bash
+docker build -t account/discovery-service .
+docker run -p 8761:8761 account/discovery-service
+```

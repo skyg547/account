@@ -1,6 +1,6 @@
 package com.ho.account.journal.repository;
 
-import com.ho.account.journal.domain.JournalRule;
+import com.ho.account.journalledger.domain.journal.JournalRule;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,7 +14,7 @@ public interface JournalRuleRepository extends JpaRepository<JournalRule, Long> 
 
     List<JournalRule> findByIsActiveTrueOrderByPriorityAscVersionDesc();
 
-    // SCD2 기준으로 지정 일자의 활성 규칙 조회
+    // SCD2 湲곗??쇰줈 吏???쇱옄???쒖꽦 洹쒖튃 議고쉶
     List<JournalRule> findByIsActiveTrueAndValidFromBeforeAndValidToAfterOrValidToIsNullOrderByPriorityAscVersionDesc(
             LocalDate date1, LocalDate date2);
 }

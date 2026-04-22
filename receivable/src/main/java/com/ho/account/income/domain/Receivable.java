@@ -1,7 +1,6 @@
 package com.ho.account.income.domain;
 
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,9 +39,6 @@ public class Receivable {
     @Enumerated(EnumType.STRING)
     private ReceivableStatus status; // 채권 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 매출채권 인식 전표와의 연결 (선택적)
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -113,14 +109,6 @@ public class Receivable {
 
     public void setStatus(ReceivableStatus status) {
         this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
     }
 
     public LocalDateTime getCreatedAt() {

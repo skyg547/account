@@ -8,9 +8,9 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.service.JournalService;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.application.service.journal.JournalService;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -50,14 +50,14 @@ public class MonolithJournalPostingAdapter implements JournalPostingPort {
 
         if (command.currencyCode() != null && !command.currencyCode().isBlank()) {
             entry.setCurrency(currencyRepository.findByCurrencyCode(command.currencyCode())
-                    .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다. code=" + command.currencyCode())));
+                    .orElseThrow(() -> new IllegalArgumentException("?듯솕瑜?李얠쓣 ???놁뒿?덈떎. code=" + command.currencyCode())));
         }
 
         for (JournalLineCommand line : command.lines()) {
             JournalDetail detail = new JournalDetail();
             detail.setDrcrType(line.drcrType());
             detail.setAccountSubject(accountSubjectRepository.findByCode(line.accountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("계정과목을 찾을 수 없습니다. code=" + line.accountCode())));
+                    .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎. code=" + line.accountCode())));
             detail.setAmount(line.amount());
             detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
             detail.setDetailDescription(line.detailDescription());
@@ -65,13 +65,13 @@ public class MonolithJournalPostingAdapter implements JournalPostingPort {
 
             if (line.departmentCode() != null && !line.departmentCode().isBlank()) {
                 detail.setDepartment(departmentRepository.findByCode(line.departmentCode())
-                        .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. code=" + line.departmentCode())));
+                        .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. code=" + line.departmentCode())));
             }
 
             if (line.businessPartnerCode() != null && !line.businessPartnerCode().isBlank()) {
                 detail.setBusinessPartner(businessPartnerRepository.findByBusinessPartnerCode(line.businessPartnerCode())
                         .orElseThrow(() -> new IllegalArgumentException(
-                                "거래처를 찾을 수 없습니다. code=" + line.businessPartnerCode())));
+                                "嫄곕옒泥섎? 李얠쓣 ???놁뒿?덈떎. code=" + line.businessPartnerCode())));
             }
 
             entry.addDetail(detail);

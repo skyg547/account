@@ -1,4 +1,4 @@
-package com.ho.account.journal.domain;
+package com.ho.account.journalledger.domain.journal;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -16,22 +16,22 @@ public class JournalRuleDetail {
     private JournalRule journalRule;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // 차변 또는 대변
+    private String drcrType; // 李⑤? ?먮뒗 ?蹂
 
     @Column(nullable = false, length = 100)
-    private String accountSubjectCodeExpression; // 예: "10100", "${transaction.accountCode}"
+    private String accountSubjectCodeExpression; // ?? "10100", "${transaction.accountCode}"
 
     @Column(nullable = false, length = 100)
-    private String amountExpression; // 예: "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
+    private String amountExpression; // ?? "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
 
     @Column(length = 255)
-    private String descriptionExpression; // 예: "매출", "${transaction.description}"
+    private String descriptionExpression; // ?? "留ㅼ텧", "${transaction.description}"
 
     @Column(length = 50)
-    private String businessPartnerCodeExpression; // 예: "BP001", "${transaction.businessPartnerCode}"
+    private String businessPartnerCodeExpression; // ?? "BP001", "${transaction.businessPartnerCode}"
 
     @Column(length = 50)
-    private String departmentCodeExpression; // 예: "D001", "${transaction.departmentCode}"
+    private String departmentCodeExpression; // ?? "D001", "${transaction.departmentCode}"
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -54,7 +54,7 @@ public class JournalRuleDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

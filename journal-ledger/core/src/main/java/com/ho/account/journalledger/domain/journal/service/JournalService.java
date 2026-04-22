@@ -1,4 +1,4 @@
-package com.ho.account.journal.service;
+package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
@@ -9,12 +9,12 @@ import com.ho.account.basic.repository.BusinessPartnerRepository;
 import com.ho.account.basic.repository.DepartmentRepository;
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.expenditure.BudgetControlPort;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.domain.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.domain.journal.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.ledger.service.LedgerService;
-import com.ho.account.unsettled.service.UnsettledService;
+import com.ho.account.journalledger.application.service.ledger.LedgerService;
+import com.ho.account.journalledger.application.service.unsettled.UnsettledService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,15 +24,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map; // Added
+import java.util.Map;
 import java.util.Optional;
-import com.ho.account.journal.domain.JournalRule;
-import com.ho.account.journal.domain.JournalRuleCondition;
-import com.ho.account.journal.domain.JournalRuleDetail;
-// ConditionOperator import removed
+import com.ho.account.journalledger.domain.journal.JournalRule;
+import com.ho.account.journalledger.domain.journal.JournalRuleDetail;
 
 /**
- * 전표 관리 서비스(Journal Service)
+ * 전표 관리 서비스 (Journal Service)
  * 전표의 생성, 수정, 승인, 확정(Posting), 역분개(Reversal) 등 전표 라이프사이클을 관리함.
  */
 @Service
@@ -48,6 +46,7 @@ public class JournalService {
     private final JournalRuleService journalRuleService;
     private final BudgetControlPort budgetControlPort;
     private final LedgerService ledgerService;
+    private final JournalRuleEngine journalRuleEngine;
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
@@ -58,7 +57,8 @@ public class JournalService {
             UnsettledService unsettledService,
             JournalRuleService journalRuleService,
             BudgetControlPort budgetControlPort,
-            LedgerService ledgerService) {
+            LedgerService ledgerService,
+            JournalRuleEngine journalRuleEngine) {
         this.journalEntryRepository = journalEntryRepository;
         this.accountSubjectRepository = accountSubjectRepository;
         this.departmentRepository = departmentRepository;
@@ -68,6 +68,7 @@ public class JournalService {
         this.journalRuleService = journalRuleService;
         this.budgetControlPort = budgetControlPort;
         this.ledgerService = ledgerService;
+        this.journalRuleEngine = journalRuleEngine;
     }
 
     // 전표 생성
@@ -121,13 +122,12 @@ public class JournalService {
             throw new IllegalStateException("전표 작성자는 직접 승인할 수 없습니다. (직무 분리 원칙)");
         }
 
+        entry.setStatus(JournalEntryStatus.APPROVED);
         entry.setRejectionReason(null);
         journalEntryRepository.save(entry);
 
         for (JournalDetail detail : entry.getDetails()) {
             if (Boolean.TRUE.equals(detail.getAccountSubject().isUnsettled())) {
-                // UnsettledService의 메서드 시그니처가 변경될 예정이므로 임시 주석 처리 또는 수정 필요
-                // 현재는 JournalDetail 객체를 그대로 넘기는 구조라고 가정
                 unsettledService.createUnsettledItem(detail);
             }
         }
@@ -220,11 +220,12 @@ public class JournalService {
         if (entry.getStatus() != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("승인 요청된 전표만 반려할 수 있습니다.");
         }
+        entry.setStatus(JournalEntryStatus.REJECTED);
         entry.setRejectionReason(reason);
         journalEntryRepository.save(entry);
     }
 
-    // 전표 전기 (전표 전기)
+    // 전표 전기
     @AuditLoggable(eventType = "JOURNAL", eventName = "POST")
     public void postJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id)
@@ -258,12 +259,6 @@ public class JournalService {
         return journalEntryRepository.findBySlipNo(slipNo);
     }
 
-    /**
-     * 특정 ID의 JournalEntry와 연관된 JournalDetail을 함께 조회합니다.
-     * Drill-down 기능을 위해 사용됩니다.
-     * @param id 조회할 JournalEntry의 ID
-     * @return JournalEntry (존재하지 않을 경우 Optional.empty())
-     */
     @Transactional(readOnly = true)
     public Optional<JournalEntry> getJournalEntryWithDetails(Long id) {
         return journalEntryRepository.findByIdWithDetails(id);
@@ -280,15 +275,12 @@ public class JournalService {
             AccountSubject account = accountSubjectRepository.findById(detail.getAccountSubject().getCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "존재하지 않는 계정과목입니다: " + detail.getAccountSubject().getCode()));
-            // Removed check for !account.getUseYn() as it's not present in AccountSubject
-            // entity
             detail.setAccountSubject(account);
 
             if (detail.getDepartment() != null && detail.getDepartment().getCode() != null) {
                 Department dept = departmentRepository.findByCode(detail.getDepartment().getCode())
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "존재하지 않는 부서입니다: " + detail.getDepartment().getCode()));
-                // Removed check for !dept.getUseYn() as it's not present in Department entity
                 detail.setDepartment(dept);
             }
 
@@ -303,15 +295,8 @@ public class JournalService {
                 detail.setBusinessPartner(businessPartner);
             }
 
-            // TODO: Implement Tax Validation (DoD 05.3) - e.g., checking tax codes, rates,
-            // and rules
-            // if (detail.getTaxCode() != null) {
-            // taxService.validateTaxImplications(detail, entry.getAccountingDate());
-            // }
-
             if ("DEBIT".equals(detail.getDrcrType())) {
                 debitSum = debitSum.add(detail.getAmount());
-                // Budget Validation for DEBIT entries
                 if (detail.getDepartment() == null || detail.getAccountSubject() == null) {
                     throw new IllegalArgumentException("예산 검사를 위해 부서와 계정과목은 필수입니다.");
                 }
@@ -353,13 +338,12 @@ public class JournalService {
             throw new IllegalStateException("전기된 전표만 역분개할 수 있습니다.");
         }
 
-        // Create a new JournalEntry for the reversal
         JournalEntry reversalEntry = new JournalEntry();
         reversalEntry.setSlipDate(LocalDate.now());
         reversalEntry.setAccountingDate(reversalDate);
         reversalEntry.setDescription(
                 "역분개: " + originalEntry.getDescription() + " (원 전표 No: " + originalEntry.getSlipNo() + ")");
-        reversalEntry.setStatus(JournalEntryStatus.DRAFT); // Reversal entry starts as DRAFT
+        reversalEntry.setStatus(JournalEntryStatus.DRAFT);
         reversalEntry.setEntryType("REVERSAL");
 
         for (JournalDetail originalDetail : originalEntry.getDetails()) {
@@ -370,7 +354,6 @@ public class JournalService {
             reversedDetail.setBusinessPartner(originalDetail.getBusinessPartner());
             reversedDetail.setDetailDescription("역분개: " + originalDetail.getDetailDescription());
 
-            // Reverse DR/CR type
             if ("DEBIT".equals(originalDetail.getDrcrType())) {
                 reversedDetail.setDrcrType("CREDIT");
             } else {
@@ -379,169 +362,93 @@ public class JournalService {
             reversalEntry.addDetail(reversedDetail);
         }
 
-        validateJournalEntry(reversalEntry); // Validate the generated reversal entry
-
-        // Mark original entry as REVERSED
+        validateJournalEntry(reversalEntry);
         originalEntry.setStatus(JournalEntryStatus.REVERSED);
-        // TODO: Optionally, link original to reversal and vice-versa for audit trail
         journalEntryRepository.save(originalEntry);
 
-        // Save and return the new reversal entry
         return journalEntryRepository.save(reversalEntry);
     }
 
     /**
-     * Creates a JournalEntry by applying defined journal rules to a given
-     * transaction event.
-     * 
-     * @param transactionEvent A map representing the transaction data (e.g.,
-     *                         "transactionType": "SALE", "amount": "1000").
-     * @param accountingDate   The accounting date for the journal entry.
-     * @return An Optional containing the generated JournalEntry if a rule matches,
-     *         otherwise empty.
+     * 트랜잭션 이벤트에 룰을 적용하여 전표를 자동 생성합니다.
      */
-    public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, String> transactionEvent,
+    public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> transactionEvent,
             LocalDate accountingDate) {
         List<JournalRule> activeRules = journalRuleService.findActiveRules(accountingDate);
 
         for (JournalRule rule : activeRules) {
-            if (matchesConditions(rule, transactionEvent)) {
-                return Optional.of(generateJournalEntry(rule, transactionEvent, accountingDate));
+            if (journalRuleEngine.matches(rule, transactionEvent)) {
+                JournalEntry generatedEntry = generateJournalEntry(rule, transactionEvent, accountingDate);
+                return Optional.of(createJournalEntry(generatedEntry));
             }
         }
         return Optional.empty();
     }
 
-    private boolean matchesConditions(JournalRule rule, Map<String, String> transactionEvent) {
-        for (JournalRuleCondition condition : rule.getConditions()) {
-            String eventValue = transactionEvent.get(condition.getField());
-            if (eventValue == null) {
-                return false; // Condition field not present in event
-            }
-
-            // 현재는 단순 문자열 비교만 수행하며, 전체 지원을 위해 더 복잡한 평가가 필요함
-            // 식 지원이 필요함.
-            // 이 부분은 고급 연산자를 위해 적절한 식 엔진으로 개선되어야 함
-            // 연산자 처리가 필요함.
-            switch (condition.getOperator()) {
-                case EQUALS:
-                    if (!eventValue.equals(condition.getValue()))
-                        return false;
-                    break;
-                case NOT_EQUALS:
-                    if (eventValue.equals(condition.getValue()))
-                        return false;
-                    break;
-                case STARTS_WITH:
-                    if (!eventValue.startsWith(condition.getValue()))
-                        return false;
-                    break;
-                case ENDS_WITH:
-                    if (!eventValue.endsWith(condition.getValue()))
-                        return false;
-                    break;
-                case CONTAINS:
-                    if (!eventValue.contains(condition.getValue()))
-                        return false;
-                    break;
-                // 필요 시 더 많은 연산자 추가(예: 숫자 비교용 GREATER_THAN, LESS_THAN
-                // 값)
-                default:
-                    // 지원하지 않는 연산자는 미일치로 간주하거나 오류를 발생시킴
-                    return false;
-            }
-        }
-        return true; // 모든 조건 일치
-    }
-
-    private JournalEntry generateJournalEntry(JournalRule rule, Map<String, String> transactionEvent,
+    private JournalEntry generateJournalEntry(JournalRule rule, Map<String, Object> transactionEvent,
             LocalDate accountingDate) {
         JournalEntry journalEntry = new JournalEntry();
-        journalEntry.setSlipDate(LocalDate.now()); // 전표일은 현재 일자 사용
+        journalEntry.setSlipDate(LocalDate.now());
         journalEntry.setAccountingDate(accountingDate);
-        journalEntry.setDescription(rule.getDescription() != null ? rule.getDescription() : rule.getRuleName());
-        journalEntry.setStatus(JournalEntryStatus.DRAFT); // 규칙은 DRAFT 전표를 생성함
+        
+        String description = evaluateString(rule.getDescription() != null ? rule.getDescription() : rule.getRuleName(), transactionEvent);
+        journalEntry.setDescription(description);
+        journalEntry.setStatus(JournalEntryStatus.DRAFT);
+        journalEntry.setEntryType("AUTO");
 
         for (JournalRuleDetail ruleDetail : rule.getRuleDetails()) {
             JournalDetail detail = new JournalDetail();
             detail.setDrcrType(ruleDetail.getDrcrType());
 
-            // 식 평가(현재는 단순 직접 조회 또는 정적 값만 처리)
-            detail.setAccountSubject(
-                    evaluateAccountSubjectExpression(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent));
-            detail.setAmount(evaluateAmountExpression(ruleDetail.getAmountExpression(), transactionEvent));
-            detail.setBusinessPartner(
-                    evaluateBusinessPartnerExpression(ruleDetail.getBusinessPartnerCodeExpression(), transactionEvent));
-            detail.setDepartment(
-                    evaluateDepartmentExpression(ruleDetail.getDepartmentCodeExpression(), transactionEvent));
-            detail.setDetailDescription(
-                    evaluateDescriptionExpression(ruleDetail.getDescriptionExpression(), transactionEvent));
+            String accountCode = evaluateString(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent);
+            detail.setAccountSubject(accountSubjectRepository.findById(accountCode)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + accountCode)));
+
+            BigDecimal amount = evaluateBigDecimal(ruleDetail.getAmountExpression(), transactionEvent);
+            detail.setAmount(amount);
+            detail.setBaseAmount(amount);
+
+            String bpCode = evaluateString(ruleDetail.getBusinessPartnerCodeExpression(), transactionEvent);
+            if (bpCode != null) {
+                detail.setBusinessPartner(businessPartnerRepository.findByBusinessPartnerCode(bpCode).orElse(null));
+            }
+
+            String deptCode = evaluateString(ruleDetail.getDepartmentCodeExpression(), transactionEvent);
+            if (deptCode != null) {
+                detail.setDepartment(departmentRepository.findByCode(deptCode).orElse(null));
+            }
+
+            detail.setDetailDescription(evaluateString(ruleDetail.getDescriptionExpression(), transactionEvent));
 
             journalEntry.addDetail(detail);
         }
 
-        validateJournalEntry(journalEntry); // 생성된 전표 검증
         return journalEntry;
     }
 
-    // 식 평가용 헬퍼 메서드.
-    // 현재는 식이 직접 값인지 여부만 단순 확인
-    // 또는 "${key}" 형태의 플레이스홀더인지 확인
-    // 전체 구현에서는 SpEL 같은 견고한 식 파서를 사용해야 함
-    // 사용해야 함.
-    private AccountSubject evaluateAccountSubjectExpression(String expression, Map<String, String> transactionEvent) {
-        String value = extractValueFromExpression(expression, transactionEvent);
-        if (value != null) {
-            return accountSubjectRepository.findById(value)
-                    .orElseThrow(
-                            () -> new IllegalArgumentException("Invalid Account Subject Code from rule: " + value));
-        }
-        return null; // 또는 오류로 처리
-    }
-
-    private BigDecimal evaluateAmountExpression(String expression, Map<String, String> transactionEvent) {
-        String value = extractValueFromExpression(expression, transactionEvent);
-        if (value != null) {
-            try {
-                return new BigDecimal(value);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid Amount expression result from rule: " + value, e);
-            }
-        }
-        return BigDecimal.ZERO; // 또는 오류로 처리
-    }
-
-    private BusinessPartner evaluateBusinessPartnerExpression(String expression, Map<String, String> transactionEvent) {
-        String value = extractValueFromExpression(expression, transactionEvent);
-        if (value != null) {
-            return businessPartnerRepository.findByBusinessPartnerCode(value)
-                    .orElseThrow(
-                            () -> new IllegalArgumentException("Invalid Business Partner Code from rule: " + value));
-        }
-        return null;
-    }
-
-    private Department evaluateDepartmentExpression(String expression, Map<String, String> transactionEvent) {
-        String value = extractValueFromExpression(expression, transactionEvent);
-        if (value != null) {
-            return departmentRepository.findByCode(value)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid Department Code from rule: " + value));
-        }
-        return null;
-    }
-
-    private String evaluateDescriptionExpression(String expression, Map<String, String> transactionEvent) {
-        return extractValueFromExpression(expression, transactionEvent);
-    }
-
-    private String extractValueFromExpression(String expression, Map<String, String> transactionEvent) {
-        if (expression == null || expression.isEmpty()) {
-            return null;
-        }
+    private String evaluateString(String expression, Map<String, Object> event) {
+        if (expression == null || expression.isEmpty()) return null;
         if (expression.startsWith("${") && expression.endsWith("}")) {
             String key = expression.substring(2, expression.length() - 1);
-            return transactionEvent.get(key);
+            Object val = event.get(key);
+            return val != null ? String.valueOf(val) : null;
         }
-        return expression; // 정적 값으로 처리
+        return expression;
+    }
+
+    private BigDecimal evaluateBigDecimal(String expression, Map<String, Object> event) {
+        if (expression == null || expression.isEmpty()) return BigDecimal.ZERO;
+        if (expression.startsWith("${") && expression.endsWith("}")) {
+            String key = expression.substring(2, expression.length() - 1);
+            Object val = event.get(key);
+            if (val instanceof BigDecimal) return (BigDecimal) val;
+            if (val instanceof Number) return new BigDecimal(val.toString());
+            if (val instanceof String) return new BigDecimal((String) val);
+        }
+        try {
+            return new BigDecimal(expression);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
     }
 }

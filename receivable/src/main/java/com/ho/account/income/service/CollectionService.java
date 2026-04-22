@@ -1,11 +1,11 @@
 package com.ho.account.income.service;
 
-import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.repository.AccountSubjectRepository;
 import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.income.domain.Collection;
 import com.ho.account.income.domain.CollectionStatus;
 import com.ho.account.income.domain.MatchingCriteria;
@@ -21,12 +21,7 @@ import com.ho.account.income.repository.MatchingRuleRepository;
 import com.ho.account.income.repository.ReceivableRepository;
 import com.ho.account.income.repository.SalesInvoiceRepository;
 import com.ho.account.income.repository.UnmatchedCollectionRepository;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.domain.JournalEntryStatus;
-import com.ho.account.journal.service.JournalService;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -40,9 +35,8 @@ public class CollectionService {
     private final CollectionRepository collectionRepository;
     private final ReceivableRepository receivableRepository;
     private final BusinessPartnerRepository businessPartnerRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final DepartmentRepository departmentRepository;
-    private final JournalService journalService;
+    private final MasterDataQueryPort masterDataQueryPort;
+    private final JournalPostingPort journalPostingPort;
     private final MatchingRuleRepository matchingRuleRepository;
     private final UnmatchedCollectionRepository unmatchedCollectionRepository;
     private final SalesInvoiceRepository salesInvoiceRepository;
@@ -50,28 +44,27 @@ public class CollectionService {
     public CollectionService(CollectionRepository collectionRepository,
                              ReceivableRepository receivableRepository,
                              BusinessPartnerRepository businessPartnerRepository,
-                             AccountSubjectRepository accountSubjectRepository,
-                             DepartmentRepository departmentRepository,
-                             JournalService journalService,
+                             MasterDataQueryPort masterDataQueryPort,
+                             JournalPostingPort journalPostingPort,
                              MatchingRuleRepository matchingRuleRepository,
                              UnmatchedCollectionRepository unmatchedCollectionRepository,
                              SalesInvoiceRepository salesInvoiceRepository) {
         this.collectionRepository = collectionRepository;
         this.receivableRepository = receivableRepository;
         this.businessPartnerRepository = businessPartnerRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.departmentRepository = departmentRepository;
-        this.journalService = journalService;
+        this.masterDataQueryPort = masterDataQueryPort;
+        this.journalPostingPort = journalPostingPort;
         this.matchingRuleRepository = matchingRuleRepository;
         this.unmatchedCollectionRepository = unmatchedCollectionRepository;
         this.salesInvoiceRepository = salesInvoiceRepository;
     }
 
     public Collection receivePayment(Collection collection) {
-        BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(
-                        collection.getCustomer().getBusinessPartnerCode())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "고객 정보를 찾을 수 없습니다: " + collection.getCustomer().getBusinessPartnerCode()));
+        String customerCode = collection.getCustomer().getBusinessPartnerCode();
+        masterDataQueryPort.findBusinessPartner(customerCode)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
+        BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(customerCode)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
         collection.setCustomer(customer);
 
         if (collection.getStatus() == null) {
@@ -80,41 +73,25 @@ public class CollectionService {
 
         Collection savedCollection = collectionRepository.save(collection);
 
-        AccountSubject cashAccount = accountSubjectRepository.findById("10100")
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for Cash/Bank not found"));
-        AccountSubject arClearingAccount = accountSubjectRepository.findById("21100")
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for AR Clearing not found"));
-        Department defaultDepartment = getOrCreateDefaultDepartment();
+        requireAccount("10100", "AccountSubject for Cash/Bank not found");
+        requireAccount("21100", "AccountSubject for AR Clearing not found");
 
-        JournalEntry collectionEntry = new JournalEntry();
-        collectionEntry.setSlipDate(collection.getCollectionDate());
-        collectionEntry.setAccountingDate(collection.getCollectionDate());
-        collectionEntry.setDescription("수금 인식: "
-                + collection.getCustomer().getBusinessPartnerName() + " - " + collection.getAmount());
-        collectionEntry.setEntryType("COLLECTION_RECOGNITION");
-        collectionEntry.setLineageSourceType("COLLECTION");
-        collectionEntry.setLineageSourceId(savedCollection.getId().toString());
-        collectionEntry.setCreatedBy("SYSTEM");
-        collectionEntry.setStatus(JournalEntryStatus.DRAFT);
-
-        JournalDetail debitCash = new JournalDetail();
-        debitCash.setDrcrType("DEBIT");
-        debitCash.setAccountSubject(cashAccount);
-        debitCash.setAmount(collection.getAmount());
-        debitCash.setDepartment(defaultDepartment);
-        debitCash.setDetailDescription("현금/예금 증가");
-        collectionEntry.addDetail(debitCash);
-
-        JournalDetail creditArClearing = new JournalDetail();
-        creditArClearing.setDrcrType("CREDIT");
-        creditArClearing.setAccountSubject(arClearingAccount);
-        creditArClearing.setAmount(collection.getAmount());
-        creditArClearing.setDetailDescription("AR Clearing 계정 증가 (미매칭 수금)");
-        collectionEntry.addDetail(creditArClearing);
-
-        JournalEntry createdJournal = journalService.createJournalEntry(collectionEntry);
-        savedCollection.setJournalEntry(createdJournal);
-        collectionRepository.save(savedCollection);
+        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+                collection.getCollectionDate(),
+                collection.getCollectionDate(),
+                "Collection received: " + customer.getBusinessPartnerName() + " - " + collection.getAmount(),
+                "COLLECTION_RECOGNITION",
+                null,
+                null,
+                "SYSTEM",
+                "SYSTEM",
+                "COLLECTION",
+                savedCollection.getId().toString(),
+                List.of(
+                        new JournalLineCommand("DEBIT", "10100", collection.getAmount(), null, null,
+                                customer.getBusinessPartnerCode(), "Cash/Bank increase"),
+                        new JournalLineCommand("CREDIT", "21100", collection.getAmount(), null, null,
+                                customer.getBusinessPartnerCode(), "AR clearing increase"))));
 
         attemptAutoMatching(savedCollection);
         return savedCollection;
@@ -212,39 +189,26 @@ public class CollectionService {
             salesInvoiceRepository.save(invoice);
         }
 
-        AccountSubject arAccount = accountSubjectRepository.findById("11100")
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for Accounts Receivable not found"));
-        AccountSubject arClearingAccount = accountSubjectRepository.findById("21100")
-                .orElseThrow(() -> new IllegalStateException("AccountSubject for AR Clearing not found"));
-        Department defaultDepartment = getOrCreateDefaultDepartment();
+        requireAccount("11100", "AccountSubject for Accounts Receivable not found");
+        requireAccount("21100", "AccountSubject for AR Clearing not found");
 
-        JournalEntry matchingEntry = new JournalEntry();
-        matchingEntry.setSlipDate(collection.getCollectionDate());
-        matchingEntry.setAccountingDate(collection.getCollectionDate());
-        matchingEntry.setDescription("수금 매칭: "
-                + collection.getCustomer().getBusinessPartnerName() + " - " + collection.getAmount());
-        matchingEntry.setEntryType("COLLECTION_MATCHING");
-        matchingEntry.setLineageSourceType("COLLECTION_MATCH");
-        matchingEntry.setLineageSourceId(collection.getId().toString());
-        matchingEntry.setCreatedBy("SYSTEM_AUTO_MATCH");
-        matchingEntry.setStatus(JournalEntryStatus.DRAFT);
-
-        JournalDetail debitArClearing = new JournalDetail();
-        debitArClearing.setDrcrType("DEBIT");
-        debitArClearing.setAccountSubject(arClearingAccount);
-        debitArClearing.setAmount(collection.getAmount());
-        debitArClearing.setDepartment(defaultDepartment);
-        debitArClearing.setDetailDescription("AR Clearing 계정 감소");
-        matchingEntry.addDetail(debitArClearing);
-
-        JournalDetail creditAr = new JournalDetail();
-        creditAr.setDrcrType("CREDIT");
-        creditAr.setAccountSubject(arAccount);
-        creditAr.setAmount(collection.getAmount());
-        creditAr.setDetailDescription("매출채권 감소");
-        matchingEntry.addDetail(creditAr);
-
-        journalService.createJournalEntry(matchingEntry);
+        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+                collection.getCollectionDate(),
+                collection.getCollectionDate(),
+                "Collection matched: " + collection.getCustomer().getBusinessPartnerName() + " - "
+                        + collection.getAmount(),
+                "COLLECTION_MATCHING",
+                null,
+                null,
+                "SYSTEM_AUTO_MATCH",
+                "SYSTEM_AUTO_MATCH",
+                "COLLECTION_MATCH",
+                collection.getId().toString(),
+                List.of(
+                        new JournalLineCommand("DEBIT", "21100", collection.getAmount(), null, null,
+                                collection.getCustomer().getBusinessPartnerCode(), "AR clearing decrease"),
+                        new JournalLineCommand("CREDIT", "11100", collection.getAmount(), null, null,
+                                collection.getCustomer().getBusinessPartnerCode(), "Accounts receivable decrease"))));
     }
 
     public List<UnmatchedCollection> getUnmatchedCollections() {
@@ -253,14 +217,14 @@ public class CollectionService {
 
     public Collection manualMatchCollection(Long collectionId, Long receivableId, BigDecimal matchingAmount) {
         Collection collection = collectionRepository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("수금 정보를 찾을 수 없습니다: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
         Receivable receivable = receivableRepository.findById(receivableId)
-                .orElseThrow(() -> new IllegalArgumentException("매출채권을 찾을 수 없습니다: " + receivableId));
+                .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + receivableId));
 
         if (matchingAmount.compareTo(BigDecimal.ZERO) <= 0
                 || matchingAmount.compareTo(collection.getAmount()) > 0
                 || matchingAmount.compareTo(receivable.getOutstandingAmount()) > 0) {
-            throw new IllegalArgumentException("유효하지 않은 매칭 금액입니다.");
+            throw new IllegalArgumentException("Invalid matching amount.");
         }
 
         processSuccessfulMatch(collection, receivable);
@@ -285,7 +249,7 @@ public class CollectionService {
 
             UnmatchedCollection newUnmatched = new UnmatchedCollection();
             newUnmatched.setCollection(remainingCollection);
-            newUnmatched.setReason("부분 매칭 후 잔액");
+            newUnmatched.setReason("Remaining amount after partial match");
             newUnmatched.setStatus(UnmatchedCollectionStatus.PENDING);
             unmatchedCollectionRepository.save(newUnmatched);
 
@@ -309,13 +273,8 @@ public class CollectionService {
         return collectionRepository.findById(id);
     }
 
-    private Department getOrCreateDefaultDepartment() {
-        return departmentRepository.findByCode("DEFAULT")
-                .orElseGet(() -> {
-                    Department department = new Department();
-                    department.setCode("DEFAULT");
-                    department.setName("Default Department");
-                    return departmentRepository.save(department);
-                });
+    private void requireAccount(String accountCode, String message) {
+        masterDataQueryPort.findAccountSubject(accountCode)
+                .orElseThrow(() -> new IllegalStateException(message));
     }
 }

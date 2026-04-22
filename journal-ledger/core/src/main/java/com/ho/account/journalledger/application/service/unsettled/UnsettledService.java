@@ -1,8 +1,8 @@
-package com.ho.account.unsettled.service;
+package com.ho.account.journalledger.application.service.unsettled;
 
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.unsettled.domain.UnsettledItem;
-import com.ho.account.unsettled.repository.UnsettledItemRepository;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.journalledger.domain.unsettled.UnsettledItem;
+import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +21,7 @@ public class UnsettledService {
         this.unsettledItemRepository = unsettledItemRepository;
     }
 
-    // 미결 발생 처리 (전표 승인 시 호출)
+    // 誘멸껐 諛쒖깮 泥섎━ (?꾪몴 ?뱀씤 ???몄텧)
     public void createUnsettledItem(JournalDetail detail) {
         UnsettledItem item = new UnsettledItem();
         item.setJournalDetail(detail);
@@ -35,20 +35,20 @@ public class UnsettledService {
         unsettledItemRepository.save(item);
     }
 
-    // 반제 처리 (수동 지정 반제)
+    // 諛섏젣 泥섎━ (?섎룞 吏??諛섏젣)
     public void settleItem(Long unsettledItemId, BigDecimal amount) {
         UnsettledItem item = unsettledItemRepository.findById(unsettledItemId)
-                .orElseThrow(() -> new IllegalArgumentException("미결 항목을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("誘멸껐 ??ぉ??李얠쓣 ???놁뒿?덈떎."));
         
         item.settle(amount);
         unsettledItemRepository.save(item);
     }
 
-    // 자동 반제 (FIFO: 선입선출) - 예시
-    // 특정 거래처, 특정 계정의 가장 오래된 미결부터 차감
+    // ?먮룞 諛섏젣 (FIFO: ?좎엯?좎텧) - ?덉떆
+    // ?뱀젙 嫄곕옒泥? ?뱀젙 怨꾩젙??媛???ㅻ옒??誘멸껐遺??李④컧
     public void autoSettle(String businessPartnerCode, String accountCode, BigDecimal amount) {
         List<UnsettledItem> items = unsettledItemRepository.findByBusinessPartnerBusinessPartnerCodeAndStatusNot(businessPartnerCode, "CLEARED");
-        // 날짜순 정렬 필요 (Repository 쿼리 또는 여기서 정렬)
+        // ?좎쭨???뺣젹 ?꾩슂 (Repository 荑쇰━ ?먮뒗 ?ш린???뺣젹)
         
         BigDecimal remainingToSettle = amount;
 
@@ -62,7 +62,7 @@ public class UnsettledService {
         }
     }
     
-    // 미결 현황 조회
+    // 誘멸껐 ?꾪솴 議고쉶
     @Transactional(readOnly = true)
     public List<UnsettledItem> getUnsettledItems(String businessPartnerCode) {
         return unsettledItemRepository.findByBusinessPartnerBusinessPartnerCodeAndStatusNot(businessPartnerCode, "CLEARED");

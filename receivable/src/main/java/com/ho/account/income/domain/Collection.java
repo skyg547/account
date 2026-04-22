@@ -1,7 +1,6 @@
 package com.ho.account.income.domain;
 
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,9 +41,6 @@ public class Collection {
     @Enumerated(EnumType.STRING)
     private CollectionStatus status; // 수금 상태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 현금 수금 전표와의 연결
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -120,14 +116,6 @@ public class Collection {
 
     public void setStatus(CollectionStatus status) {
         this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
     }
 
     public LocalDateTime getCreatedAt() {

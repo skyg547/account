@@ -1,13 +1,13 @@
-package com.ho.account.ledger.service;
+package com.ho.account.journalledger.application.service.ledger;
 
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.domain.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.domain.journal.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.ledger.domain.GlEntry;
-import com.ho.account.ledger.domain.SlEntry;
-import com.ho.account.ledger.repository.GlEntryRepository;
-import com.ho.account.ledger.repository.SlEntryRepository;
+import com.ho.account.journalledger.domain.ledger.GlEntry;
+import com.ho.account.journalledger.domain.ledger.SlEntry;
+import com.ho.account.journalledger.adapter.out.persistence.ledger.GlEntryRepository;
+import com.ho.account.journalledger.adapter.out.persistence.ledger.SlEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +32,7 @@ public class PostingService {
     }
 
     /**
-     * DRAFT 또는 APPROVED 상태의 전표를 POSTED 상태로 변경하고, 원장 및 보조원장 상세를 기록하며 잔액을 실시간으로 업데이트합니다 (증분 업데이트).
+     * DRAFT ?먮뒗 APPROVED ?곹깭???꾪몴瑜?POSTED ?곹깭濡?蹂寃쏀븯怨? ?먯옣 諛?蹂댁“?먯옣 ?곸꽭瑜?湲곕줉?섎ŉ ?붿븸???ㅼ떆媛꾩쑝濡??낅뜲?댄듃?⑸땲??(利앸텇 ?낅뜲?댄듃).
      */
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
@@ -43,7 +43,7 @@ public class PostingService {
             throw new IllegalStateException("JournalEntry is already posted or reversed.");
         }
 
-        // 상태를 POSTED로 변경
+        // ?곹깭瑜?POSTED濡?蹂寃?
         journalEntry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(journalEntry);
 
@@ -51,11 +51,11 @@ public class PostingService {
         String fiscalYear = String.valueOf(accountingDate.getYear());
         String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
 
-        // 각 상세 라인에 대해 GlEntry, SlEntry 생성 및 잔액 업데이트
+        // 媛??곸꽭 ?쇱씤?????GlEntry, SlEntry ?앹꽦 諛??붿븸 ?낅뜲?댄듃
         for (JournalDetail detail : journalEntry.getDetails()) {
             boolean isDebit = "DEBIT".equals(detail.getDrcrType());
 
-            // 1. GlEntry 생성
+            // 1. GlEntry ?앹꽦
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
             glEntry.setAccount(detail.getAccountSubject());
@@ -81,7 +81,7 @@ public class PostingService {
             glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             glEntryRepository.save(glEntry);
 
-            // 2. SlEntry 생성 (거래처 또는 부서가 있는 경우에도 기본 생성, Drill-down 용도)
+            // 2. SlEntry ?앹꽦 (嫄곕옒泥??먮뒗 遺?쒓? ?덈뒗 寃쎌슦?먮룄 湲곕낯 ?앹꽦, Drill-down ?⑸룄)
             SlEntry slEntry = new SlEntry();
             slEntry.setJournalDetail(detail);
             slEntry.setAccount(detail.getAccountSubject());
@@ -109,7 +109,7 @@ public class PostingService {
             slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             slEntryRepository.save(slEntry);
 
-            // 3. 증분 잔액 업데이트
+            // 3. 利앸텇 ?붿븸 ?낅뜲?댄듃
             ledgerService.updateLedgerBalances(detail, accountingDate);
         }
     }

@@ -1,4 +1,4 @@
-package com.ho.account.journal.domain;
+package com.ho.account.journalledger.domain.journal;
 
 import com.ho.account.basic.domain.Currency;
 import jakarta.persistence.CascadeType;

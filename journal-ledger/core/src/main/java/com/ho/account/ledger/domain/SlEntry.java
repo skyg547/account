@@ -1,18 +1,18 @@
-package com.ho.account.ledger.domain;
+package com.ho.account.journalledger.domain.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
 import com.ho.account.basic.domain.Currency;
-import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 보조원장 상세 (SL Entry)
- * 거래처(BusinessPartner) 및 부서(Department) 상세가 포함된 원장 상세 내역.
+ * 蹂댁“?먯옣 ?곸꽭 (SL Entry)
+ * 嫄곕옒泥?BusinessPartner) 諛?遺??Department) ?곸꽭媛 ?ы븿???먯옣 ?곸꽭 ?댁뿭.
  */
 @Entity
 @Table(name = "sl_entries", indexes = {
@@ -87,7 +87,7 @@ public class SlEntry {
             this.auditUser = "SYSTEM";
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     

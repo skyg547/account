@@ -1,8 +1,8 @@
-package com.ho.account.journal.service;
+package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journal.domain.JournalRule;
-import com.ho.account.journal.domain.JournalRuleCondition;
-import com.ho.account.journal.domain.JournalRuleDetail;
+import com.ho.account.journalledger.domain.journal.JournalRule;
+import com.ho.account.journalledger.domain.journal.JournalRuleCondition;
+import com.ho.account.journalledger.domain.journal.JournalRuleDetail;
 import com.ho.account.journal.repository.JournalRuleRepository;
 import com.ho.account.journal.repository.JournalRuleConditionRepository;
 import com.ho.account.journal.repository.JournalRuleDetailRepository;
@@ -31,10 +31,10 @@ public class JournalRuleService {
         this.journalRuleDetailRepository = journalRuleDetailRepository;
     }
 
-    // JournalRule CRUD 작업
+    // JournalRule CRUD ?묒뾽
 
     public JournalRule createJournalRule(JournalRule journalRule) {
-        // 저장 전에 conditions와 ruleDetails가 규칙에 연결되었는지 확인
+        // ????꾩뿉 conditions? ruleDetails媛 洹쒖튃???곌껐?섏뿀?붿? ?뺤씤
         journalRule.getConditions().forEach(condition -> condition.setJournalRule(journalRule));
         journalRule.getRuleDetails().forEach(ruleDetail -> ruleDetail.setJournalRule(journalRule));
         return journalRuleRepository.save(journalRule);
@@ -66,15 +66,15 @@ public class JournalRuleService {
         existingRule.setVersion(updatedRule.getVersion());
         existingRule.setActive(updatedRule.isActive());
         existingRule.setPriority(updatedRule.getPriority());
-        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // createdBy가 수정 시 갱신될 수 있다고 가정
+        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // createdBy媛 ?섏젙 ??媛깆떊?????덈떎怨?媛??
 
-        // 조건 처리: 기존 항목 제거 후 신규 항목 추가
+        // 議곌굔 泥섎━: 湲곗〈 ??ぉ ?쒓굅 ???좉퇋 ??ぉ 異붽?
         existingRule.getConditions().clear();
         updatedRule.getConditions().forEach(condition -> {
             existingRule.addCondition(condition);
         });
 
-        // 규칙 상세 처리: 기존 항목 제거 후 신규 항목 추가
+        // 洹쒖튃 ?곸꽭 泥섎━: 湲곗〈 ??ぉ ?쒓굅 ???좉퇋 ??ぉ 異붽?
         existingRule.getRuleDetails().clear();
         updatedRule.getRuleDetails().forEach(ruleDetail -> {
             existingRule.addRuleDetail(ruleDetail);
@@ -87,7 +87,7 @@ public class JournalRuleService {
         journalRuleRepository.deleteById(id);
     }
 
-    // 지정 일자 기준 활성 규칙을 우선순위와 버전 순으로 조회하는 메서드
+    // 吏???쇱옄 湲곗? ?쒖꽦 洹쒖튃???곗꽑?쒖쐞? 踰꾩쟾 ?쒖쑝濡?議고쉶?섎뒗 硫붿꽌??
     @Transactional(readOnly = true)
     public List<JournalRule> findActiveRules(LocalDate date) {
         return journalRuleRepository.findByIsActiveTrueAndValidFromBeforeAndValidToAfterOrValidToIsNullOrderByPriorityAscVersionDesc(date, date);

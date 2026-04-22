@@ -2,22 +2,29 @@ package com.ho.account.ledger.domain;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.Currency;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.LocalDateTime;
-import java.util.List; // 누락된 List import 추가
+import java.time.YearMonth;
 
-/**
- * 총계정원장 잔액 (General Ledger Balance) 엔티티
- * 특정 계정과목의 일별 및 월별 잔액 정보를 기록합니다.
- */
 @Entity
 @Table(name = "gl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
+        @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-    @Index(name = "idx_gl_balance_account_date", columnList = "account_subject_id, balanceDate")
+        @Index(name = "idx_gl_balance_account_date", columnList = "account_subject_id, balanceDate")
 })
 public class GlBalance {
 
@@ -34,22 +41,22 @@ public class GlBalance {
     private Currency currency;
 
     @Column(nullable = false)
-    private LocalDate balanceDate; // 잔액 일자 (일별 잔액)
+    private LocalDate balanceDate;
 
     @Column(nullable = false)
-    private YearMonth period; // 회계 기간 (월별 잔액 집계를 위한)
+    private YearMonth period;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance = BigDecimal.ZERO; // 기초 잔액
+    private BigDecimal beginningBalance = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal debitAmount = BigDecimal.ZERO; // 차변 발생액
+    private BigDecimal debitAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal creditAmount = BigDecimal.ZERO; // 대변 발생액
+    private BigDecimal creditAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance = BigDecimal.ZERO; // 기말 잔액
+    private BigDecimal endingBalance = BigDecimal.ZERO;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -67,7 +74,6 @@ public class GlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
     public Long getId() {
         return id;
     }
@@ -82,6 +88,14 @@ public class GlBalance {
 
     public void setAccountSubject(AccountSubject accountSubject) {
         this.accountSubject = accountSubject;
+    }
+
+    public Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(Currency currency) {
+        this.currency = currency;
     }
 
     public LocalDate getBalanceDate() {
@@ -143,13 +157,4 @@ public class GlBalance {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
-
-    public Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Currency currency) {
-        this.currency = currency;
-    }
 }
-

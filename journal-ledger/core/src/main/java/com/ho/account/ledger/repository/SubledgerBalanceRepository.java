@@ -1,10 +1,10 @@
-package com.ho.account.ledger.repository;
+package com.ho.account.journalledger.adapter.out.persistence.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Currency;
-import com.ho.account.ledger.domain.GlBalanceType;
-import com.ho.account.ledger.domain.SubledgerBalance;
+import com.ho.account.journalledger.domain.ledger.GlBalanceType;
+import com.ho.account.journalledger.domain.ledger.SubledgerBalance;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

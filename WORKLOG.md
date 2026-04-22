@@ -28,15 +28,10 @@
 - 운영 환경을 위한 필수 인프라 점검 수행 및 마지막 퍼즐인 **③ Flyway(DB 형상 관리)** 와 **④ OpenFeign(동기 통신 최적화)** 전격 도입 설계.
 - 대규모 협업 및 보안, 확장성을 위한 Advanced MSA 도구 4종(Swagger, Spring Cloud Contract, Redis, Vault) 추가 설계 및 구조화 완비.
 - 여태까지 구축한 방대한 MSA 인프라 10종(ELK, Kafka, Zipkin, Config 등)의 역할과 존재 이유를 총망라한 **초보자용 완벽 가이드 (`docs/infrastructure-guide.md`)** 작성 완료.
-
-### [백엔드]
-- `shared-kernel/build.gradle`에 `flyway-core`, `spring-cloud-starter-openfeign` 등 공통 라이브러리 추가.
-- `master-data`와 `journal-ledger`의 리소스 폴더에 `db/migration/V1__init_baseline.sql` 뼈대 생성.
-- `MasterDataApplication`과 `JournalLedgerApplication` 메인 클래스에 `@EnableFeignClients` 어노테이션 추가.
-- `shared-kernel`에 통합 명세서 `springdoc-openapi`(Swagger), 소비자 주도 계약 `spring-cloud-starter-contract-verifier`, 초고속 분산 캐시 `spring-boot-starter-data-redis`, 중앙 비밀번호 관리 `spring-cloud-starter-vault-config` 라이브러리 전격 주입.
-- `gateway` 모듈의 WebFlux 환경을 위한 전용 Swagger 의존성 추가 및 `config-repo/gateway-service.yml`에 각 서비스의 Swagger 문서를 한 곳으로 끌어모으는(Aggregate) 라우팅 설정 완료.
-- 프로젝트 최상단에 `redis`, `vault` 독립 폴더를 생성하고, 각각의 `docker-compose.yml`과 초보자용 비유가 담긴 `README.md` 작성으로 MSA 개별 관리 체계 완성.
+- 클라우드 배포(K8s) 준비를 위해 **모든 마이크로서비스(`discovery`, `config-server`, `gateway`, `auth`, `master-data`, `journal-ledger`)에 `Dockerfile` 작성 완료.**
+- **[New]** 초보자의 눈높이에 맞춰 `contracts`와 `shared-kernel` 같은 핵심 공통 모듈의 존재 이유와 주의사항을 아주 상세하게 풀어쓴 `README.md` 고도화 작업 완료.
+- **[New]** 향후 어떤 비즈니스 모듈을 순차적으로 개발할지, 그 우선순위와 명확한 이유를 담은 **'비즈니스 모듈 개발 로드맵 (`docs/next-business-modules-plan.md`)'** 수립 완료.
 
 **Next 담당자 ([기획/팀장] -> [백엔드]):**
-- 뼈대와 인프라 셋팅은 100% 끝났습니다!
-- 이제 `journal-ledger`에 숨어있는 **"전표 룰 엔진 (Rule Engine)"** 을 고도화하여, 외부 이벤트(Kafka)가 들어왔을 때 자동으로 완벽한 복식부기 전표를 생성해 내는 **비즈니스 로직(YOLO 코딩)**에 전념할 차례입니다.
+- 로드맵 Phase 1에 따라, 이제 인프라를 벗어나 `journal-ledger`의 **"전표 룰 엔진 (Rule Engine)"** 고도화 작업에 돌입합니다.
+- 카프카에서 이벤트를 받아 자동으로 복식부기 전표를 찍어내는 코어 비즈니스 로직(YOLO 코딩)을 시작할 준비가 되었습니다.

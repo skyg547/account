@@ -1,19 +1,19 @@
-package com.ho.account.ledger.domain;
+package com.ho.account.journalledger.domain.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency; // 누락된 Currency import 추가
+import com.ho.account.basic.domain.Currency; // ?꾨씫??Currency import 異붽?
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.LocalDateTime;
-import java.util.List; // 누락된 List import 추가
+import java.util.List; // ?꾨씫??List import 異붽?
 
 /**
- * 보조원장 잔액 (Subsidiary Ledger Balance) 엔티티
- * 특정 계정과목, 거래처, 부서 조합의 일별 및 월별 잔액 정보를 기록합니다.
+ * 蹂댁“?먯옣 ?붿븸 (Subsidiary Ledger Balance) ?뷀떚??
+ * ?뱀젙 怨꾩젙怨쇰ぉ, 嫄곕옒泥? 遺??議고빀???쇰퀎 諛??붾퀎 ?붿븸 ?뺣낫瑜?湲곕줉?⑸땲??
  */
 @Entity
 @Table(name = "sl_balances", uniqueConstraints = {
@@ -33,33 +33,33 @@ public class SlBalance {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_id")
-    private BusinessPartner businessPartner; // 거래처 (선택 사항)
+    private BusinessPartner businessPartner; // 嫄곕옒泥?(?좏깮 ?ы빆)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
-    private Department department; // 귀속부서 (선택 사항)
+    private Department department; // 洹?띾???(?좏깮 ?ы빆)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
     private Currency currency;
 
     @Column(nullable = false)
-    private LocalDate balanceDate; // 잔액 일자 (일별 잔액)
+    private LocalDate balanceDate; // ?붿븸 ?쇱옄 (?쇰퀎 ?붿븸)
 
     @Column(nullable = false)
-    private YearMonth period; // 회계 기간 (월별 잔액 집계를 위한)
+    private YearMonth period; // ?뚭퀎 湲곌컙 (?붾퀎 ?붿븸 吏묎퀎瑜??꾪븳)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance = BigDecimal.ZERO; // 기초 잔액
+    private BigDecimal beginningBalance = BigDecimal.ZERO; // 湲곗큹 ?붿븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal debitAmount = BigDecimal.ZERO; // 차변 발생액
+    private BigDecimal debitAmount = BigDecimal.ZERO; // 李⑤? 諛쒖깮??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal creditAmount = BigDecimal.ZERO; // 대변 발생액
+    private BigDecimal creditAmount = BigDecimal.ZERO; // ?蹂 諛쒖깮??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance = BigDecimal.ZERO; // 기말 잔액
+    private BigDecimal endingBalance = BigDecimal.ZERO; // 湲곕쭚 ?붿븸
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -77,7 +77,7 @@ public class SlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

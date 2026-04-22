@@ -1,8 +1,8 @@
-package com.ho.account.unsettled.domain;
+package com.ho.account.journalledger.domain.unsettled;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,7 +17,7 @@ public class UnsettledItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_detail_id", nullable = false)
-    private JournalDetail journalDetail; // 발생 전표 상세
+    private JournalDetail journalDetail; // 諛쒖깮 ?꾪몴 ?곸꽭
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
@@ -28,19 +28,19 @@ public class UnsettledItem {
     private BusinessPartner businessPartner;
 
     @Column(nullable = false)
-    private LocalDate occurrenceDate; // 발생일
+    private LocalDate occurrenceDate; // 諛쒖깮??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 발생 금액
+    private BigDecimal originalAmount; // 諛쒖깮 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal settledAmount = BigDecimal.ZERO; // 반제된 금액
+    private BigDecimal settledAmount = BigDecimal.ZERO; // 諛섏젣??湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // 잔액
+    private BigDecimal remainingAmount; // ?붿븸
 
     @Column(length = 20)
-    private String status; // OPEN(미결), PARTIAL(부분반제), CLEARED(반제완료)
+    private String status; // OPEN(誘멸껐), PARTIAL(遺遺꾨컲??, CLEARED(諛섏젣?꾨즺)
 
     @PrePersist
     protected void onCreate() {
@@ -48,10 +48,10 @@ public class UnsettledItem {
         if (remainingAmount == null) remainingAmount = originalAmount;
     }
 
-    // 비즈니스 로직
+    // 鍮꾩쫰?덉뒪 濡쒖쭅
     public void settle(BigDecimal amount) {
         if (remainingAmount.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("반제 금액이 잔액보다 큽니다.");
+            throw new IllegalArgumentException("諛섏젣 湲덉븸???붿븸蹂대떎 ?쎈땲??");
         }
         this.settledAmount = this.settledAmount.add(amount);
         this.remainingAmount = this.remainingAmount.subtract(amount);
@@ -63,7 +63,7 @@ public class UnsettledItem {
         }
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

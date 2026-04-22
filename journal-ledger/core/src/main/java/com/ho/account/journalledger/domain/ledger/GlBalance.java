@@ -3,9 +3,9 @@ package com.ho.account.journalledger.domain.ledger;
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.Currency;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,11 +13,18 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 
 /**
- * 총계정원장 잔액 (General Ledger Balance) - Rich Domain Model
- * 함수형 스타일로 비즈니스 로직을 캡슐화합니다.
+ * 총계정원장 잔액 (General Ledger Balance)
+ * 특정 계정과목 및 통화별 일별/월별 잔액을 관리합니다.
  */
+@Entity
+@Table(name = "gl_balances", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
+}, indexes = {
+    @Index(name = "idx_gl_balance_date", columnList = "balance_date")
+})
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Setter
+@NoArgsConstructor
 public class GlBalance {
 
     @Id
@@ -32,7 +39,7 @@ public class GlBalance {
     @JoinColumn(name = "currency_code", nullable = false)
     private Currency currency;
 
-    @Column(nullable = false)
+    @Column(name = "balance_date", nullable = false)
     private LocalDate balanceDate;
 
     @Column(nullable = false)
@@ -55,20 +62,20 @@ public class GlBalance {
 
     private LocalDateTime updatedAt;
 
-    // --- 비즈니스 로직 (Functional Style) ---
+    // --- 비즈니스 로직 ---
 
-    public void postDebit(Money amount) {
-        this.debitAmount = this.debitAmount.add(amount.amount());
-        this.recalculateBalance();
+    public void addDebit(BigDecimal amount) {
+        this.debitAmount = this.debitAmount.add(amount);
+        recalculate();
     }
 
-    public void postCredit(Money amount) {
-        this.creditAmount = this.creditAmount.add(amount.amount());
-        this.recalculateBalance();
+    public void addCredit(BigDecimal amount) {
+        this.creditAmount = this.creditAmount.add(amount);
+        recalculate();
     }
 
-    private void recalculateBalance() {
-        // 잔액 = 기초 + 차변 - 대변 (또는 계정과목 성격에 따라 다름, 여기선 단순 합산 예시)
+    public void recalculate() {
+        // 잔액 = 기초 + 차변 - 대변
         this.endingBalance = this.beginningBalance.add(this.debitAmount).subtract(this.creditAmount);
         this.updatedAt = LocalDateTime.now();
     }
@@ -76,6 +83,15 @@ public class GlBalance {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.beginningBalance == null) this.beginningBalance = BigDecimal.ZERO;
+        if (this.debitAmount == null) this.debitAmount = BigDecimal.ZERO;
+        if (this.creditAmount == null) this.creditAmount = BigDecimal.ZERO;
+        recalculate();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
 }

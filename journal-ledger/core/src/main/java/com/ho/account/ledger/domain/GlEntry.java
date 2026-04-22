@@ -1,15 +1,15 @@
-package com.ho.account.ledger.domain;
+package com.ho.account.journalledger.domain.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.Currency;
-import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 총계정원장 상세 (GL Entry)
+ * 珥앷퀎?뺤썝???곸꽭 (GL Entry)
  */
 @Entity
 @Table(name = "gl_entries")
@@ -74,7 +74,7 @@ public class GlEntry {
             this.auditUser = "SYSTEM";
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

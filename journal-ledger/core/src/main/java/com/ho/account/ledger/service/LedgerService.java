@@ -1,15 +1,15 @@
-package com.ho.account.ledger.service;
+package com.ho.account.journalledger.application.service.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
 import com.ho.account.basic.domain.Currency;
 import com.ho.account.basic.domain.Department;
-import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.JournalDetail;
 import com.ho.account.journal.repository.JournalDetailRepository;
-import com.ho.account.ledger.domain.GlBalance;
-import com.ho.account.ledger.domain.SlBalance;
-import com.ho.account.ledger.repository.GlBalanceRepository;
-import com.ho.account.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.domain.ledger.GlBalance;
+import com.ho.account.journalledger.domain.ledger.SlBalance;
+import com.ho.account.journalledger.adapter.out.persistence.ledger.GlBalanceRepository;
+import com.ho.account.journalledger.adapter.out.persistence.ledger.SlBalanceRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;

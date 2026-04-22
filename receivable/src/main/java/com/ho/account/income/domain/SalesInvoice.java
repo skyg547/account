@@ -1,7 +1,6 @@
 package com.ho.account.income.domain;
 
 import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,9 +44,6 @@ public class SalesInvoice {
     @Enumerated(EnumType.STRING)
     private SalesInvoiceStatus status; // 인보이스 상태 (ISSUED, PAID, PARTIAL_PAID, OVERDUE, CANCELLED)
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 매출 인식 전표와의 연결
 
     @Column(length = 500)
     private String description; // 설명
@@ -137,14 +133,6 @@ public class SalesInvoice {
 
     public void setStatus(SalesInvoiceStatus status) {
         this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
     }
 
     public String getDescription() {

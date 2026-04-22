@@ -1,4 +1,4 @@
-package com.ho.account.journal.domain;
+package com.ho.account.journalledger.domain.journal;
 
 public enum ConditionOperator {
     EQUALS,

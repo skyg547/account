@@ -1,4 +1,4 @@
-package com.ho.account.ledger.domain;
+package com.ho.account.journalledger.domain.ledger;
 
 import com.ho.account.basic.domain.AccountSubject;
 import com.ho.account.basic.domain.BusinessPartner;
@@ -9,9 +9,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 보조원장 (Subledger) 잔액 엔티티.
- * 특정 계정과목, 거래처, 통화, 일자별 잔액을 관리합니다.
- * 주로 미결제(Unsettled) 계정(예: 매출채권, 매입채무)에 대해 사용됩니다.
+ * 蹂댁“?먯옣 (Subledger) ?붿븸 ?뷀떚??
+ * ?뱀젙 怨꾩젙怨쇰ぉ, 嫄곕옒泥? ?듯솕, ?쇱옄蹂??붿븸??愿由ы빀?덈떎.
+ * 二쇰줈 誘멸껐??Unsettled) 怨꾩젙(?? 留ㅼ텧梨꾧텒, 留ㅼ엯梨꾨Т)??????ъ슜?⑸땲??
  */
 @Entity
 @Table(name = "subledger_balances",
@@ -24,25 +24,25 @@ public class SubledgerBalance {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
-    private AccountSubject accountSubject; // 잔액을 관리할 계정과목 (예: 매출채권, 매입채무)
+    private AccountSubject accountSubject; // ?붿븸??愿由ы븷 怨꾩젙怨쇰ぉ (?? 留ㅼ텧梨꾧텒, 留ㅼ엯梨꾨Т)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", nullable = false)
-    private BusinessPartner businessPartner; // 잔액을 관리할 거래처
+    private BusinessPartner businessPartner; // ?붿븸??愿由ы븷 嫄곕옒泥?
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency; // 잔액 통화
+    private Currency currency; // ?붿븸 ?듯솕
 
     @Column(nullable = false)
-    private LocalDate accountingDate; // 잔액 기준일
+    private LocalDate accountingDate; // ?붿븸 湲곗???
 
     @Column(nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
-    private GlBalanceType balanceType; // 잔액 타입 (DEBIT, CREDIT)
+    private GlBalanceType balanceType; // ?붿븸 ???(DEBIT, CREDIT)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount = BigDecimal.ZERO; // 잔액 금액
+    private BigDecimal amount = BigDecimal.ZERO; // ?붿븸 湲덉븸
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -52,7 +52,7 @@ public class SubledgerBalance {
         createdAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
