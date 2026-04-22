@@ -7,6 +7,12 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface AccountSubjectRepository extends JpaRepository<AccountSubject, String> {
-    Optional<AccountSubject> findByCode(String code);
+public interface AccountSubjectRepository extends JpaRepository<AccountSubject, Long> {
+    Optional<AccountSubject> findFirstByCodeOrderByValidFromDesc(String code);
+
+    default Optional<AccountSubject> findByCode(String code) {
+        return findFirstByCodeOrderByValidFromDesc(code);
+    }
+
+    boolean existsByCode(String code);
 }

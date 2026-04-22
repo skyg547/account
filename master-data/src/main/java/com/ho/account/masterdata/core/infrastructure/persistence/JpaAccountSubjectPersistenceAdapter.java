@@ -18,7 +18,7 @@ public class JpaAccountSubjectPersistenceAdapter implements AccountSubjectPersis
 
     @Override
     public boolean existsByCode(String code) {
-        return accountSubjectRepository.existsById(code);
+        return accountSubjectRepository.existsByCode(code);
     }
 
     @Override
