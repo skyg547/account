@@ -68,15 +68,32 @@
 
 ## 5. 처음 코드를 읽는 순서
 
-1. `master-data/src/main/java/com/ho/account/basic/domain/AccountSubject.java`
-2. `master-data/src/main/java/com/ho/account/basic/domain/BusinessPartner.java`
-3. `master-data/src/main/java/com/ho/account/basic/domain/Department.java`
-4. `master-data/src/main/java/com/ho/account/basic/service/AccountSubjectService.java`
-5. `master-data/src/main/java/com/ho/account/basic/service/BusinessPartnerService.java`
-6. `master-data/src/main/java/com/ho/account/basic/service/DepartmentService.java`
-7. `master-data/src/main/java/com/ho/account/common/adapter/MonolithMasterDataQueryAdapter.java`
+1. `master-data/src/main/java/com/ho/account/masterdata/api/web/AccountSubjectController.java`
+2. `master-data/src/main/java/com/ho/account/masterdata/api/dto/AccountSubjectRequestDto.java`
+3. `master-data/src/main/java/com/ho/account/masterdata/core/application/usecase/AccountSubjectUseCase.java`
+4. `master-data/src/main/java/com/ho/account/masterdata/core/application/service/AccountSubjectService.java`
+5. `master-data/src/main/java/com/ho/account/masterdata/core/port/out/AccountSubjectPersistencePort.java`
+6. `master-data/src/main/java/com/ho/account/masterdata/core/infrastructure/persistence/JpaAccountSubjectPersistenceAdapter.java`
+7. `master-data/src/main/java/com/ho/account/basic/repository/AccountSubjectRepository.java`
+8. `master-data/src/main/java/com/ho/account/basic/domain/AccountSubject.java`
+9. `master-data/src/main/java/com/ho/account/common/adapter/MonolithMasterDataQueryAdapter.java`
 
-## 6. 자주 헷갈리는 지점
+## 6. 헥사고날 흐름을 쉽게 읽는 법
+
+예를 들어 거래처를 등록하면 코드 흐름은 아래처럼 이동한다.
+
+1. `BusinessPartnerController`: HTTP 요청을 받는다.
+2. `BusinessPartnerRequestDto`: JSON 요청을 API 전용 객체로 받는다.
+3. `BusinessPartnerCommand`: API DTO를 유스케이스 입력값으로 바꾼다.
+4. `BusinessPartnerUseCase`: Controller가 바라보는 입력 포트다.
+5. `BusinessPartnerService`: 중복 코드, 유효기간 기본값 같은 업무 규칙을 처리한다.
+6. `BusinessPartnerPersistencePort`: Service가 바라보는 출력 포트다.
+7. `JpaBusinessPartnerPersistenceAdapter`: 출력 포트를 구현하고 Spring Data JPA Repository를 호출한다.
+8. `BusinessPartnerRepository`: 실제 DB 접근을 수행한다.
+
+이 구조의 장점은 DB가 JPA에서 JDBC Bulk나 외부 Master API로 바뀌어도 Service 코드를 덜 흔든다는 점이다.
+
+## 7. 자주 헷갈리는 지점
 
 ### 6.1 활성 여부 판정 방식이 완전히 같지 않다
 
@@ -93,7 +110,7 @@
 - `MonolithMasterDataQueryAdapter`는 현재 모놀리스 내부 어댑터지만,
 - 구조적으로는 다른 모듈이 직접 엔티티를 보지 않고 조회 계약으로 가기 위한 다리다.
 
-## 7. 체크리스트
+## 8. 체크리스트
 
 - 코드가 유일한가
 - 활성 기간이 맞는가

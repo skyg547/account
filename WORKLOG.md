@@ -32,6 +32,54 @@
 - **[New]** 초보자의 눈높이에 맞춰 `contracts`와 `shared-kernel` 같은 핵심 공통 모듈의 존재 이유와 주의사항을 아주 상세하게 풀어쓴 `README.md` 고도화 작업 완료.
 - **[New]** 향후 어떤 비즈니스 모듈을 순차적으로 개발할지, 그 우선순위와 명확한 이유를 담은 **'비즈니스 모듈 개발 로드맵 (`docs/next-business-modules-plan.md`)'** 수립 완료.
 
-**Next 담당자 ([기획/팀장] -> [백엔드]):**
-- 로드맵 Phase 1에 따라, 이제 인프라를 벗어나 `journal-ledger`의 **"전표 룰 엔진 (Rule Engine)"** 고도화 작업에 돌입합니다.
-- 카프카에서 이벤트를 받아 자동으로 복식부기 전표를 찍어내는 코어 비즈니스 로직(YOLO 코딩)을 시작할 준비가 되었습니다.
+## 📅 2026-04-22
+### [기획/팀장]
+- Phase 1 "회계의 심장" 완성: 전표 자동 생성부터 원장 전기까지의 End-to-End 파이프라인 구축 완료.
+- 파편화되어 있던 `ledger` 도메인을 `journalledger` 패키지로 통합 및 헥사고날 아키텍처 구조 정립.
+
+### [백엔드]
+- **전표 룰 엔진 고도화:** SpEL(Spring Expression Language)을 도입하여 `${amount} * 0.1`과 같은 복잡한 수식 계산 및 조건 매칭 지원.
+- **Kafka 연동:** `KafkaTransactionListener`를 통해 외부 트랜잭션 이벤트를 실시간 수신하여 자동 전표 생성.
+- **원장 전기 로직 완성:** `PostingService`를 통해 전표 확정 시 `GlEntry`, `SlEntry` 상세 내역을 생성하도록 구현. (빌드 및 테스트 검증 완료)
+- **잔액 이월(Carry-forward) 구현:** `LedgerService`에서 전표 전기 시 직전 최종 잔액을 조회하여 기초 잔액(Beginning Balance)으로 자동 설정하는 로직 추가. (가이드 문서 작성 완료)
+- **단위 테스트 및 문서화:** `JournalRuleEngineTest`를 통해 SpEL 로직 검증 완료 및 `ledger-carry-forward.md` 문서 고도화 완료.
+- **[New] 배치 및 운영 도구:** `journal-ledger:batch` 모듈에 잔액 재집계 배치 구현. `RUNBOOK.md` 및 `start-*.bat` 스크립트 제작으로 운영 자동화 완성.
+- **[New] 인프라 정합성:** 모든 모듈의 Eureka, Kafka, Zipkin 연동 상태 점검 및 최적화 완료.
+
+### [모델러]
+- `GlBalance`, `SlBalance` 엔티티 통합 및 `@Entity`, `@Table` 등 JPA 어노테이션 보강.
+- 엔티티 내부에 `addDebit`, `addCredit`, `recalculate` 등 비즈니스 로직을 캡슐화한 풍부한 도메인 모델(Rich Domain Model) 구현.
+
+### [프론트]
+- **프론트엔드 집중 개발 뼈대 구축 완료.**
+- **아키텍처 및 디자인 설계:** `docs/` 내에 Next.js 15 기반 아키텍처 및 글래스모피즘(Glassmorphism) 레이아웃 설계서 작성 완료.
+- **프로젝트 초기화:** `frontend/` 디렉토리에 Next.js 15 (TypeScript, App Router) 독립 프로젝트 생성.
+- **프리미엄 디자인 시스템:** TailwindCSS 대신 Vanilla CSS(CSS Modules)를 사용하여 우리만의 독창적인 다크 테마 및 유리 효과(Glass Style) 토큰 정의 (`globals.css`).
+- **공통 인터페이스 구현:**
+    - `Sidebar.tsx`: Lucide 아이콘을 활용한 세련된 좌측 메뉴.
+    - `Navbar.tsx`: 통합 검색창 및 사용자 프로필이 포함된 상단 바.
+    - `RootLayout`: 사이드바와 컨텐츠 영역이 조화로운 전역 구조 완비.
+- **대시보드 메인 구현:** 총 자산, 부채, 당기순이익 위젯 및 실시간 전표 유입 리스트가 포함된 첫 화면 개발 완료.
+- **문서화:** 초보 개발자를 위한 로컬 `frontend/README.md` 가이드 및 코드 내 주석 작업 완료.
+
+### [프론트]
+- **프론트엔드 초보자 맞춤형 교육 환경 및 인프라 구축 완료.**
+- **교육 문서 3종 세트 작성:**
+    - `beginner-guide.md`: 비유를 통한 Next.js 기초 및 폴더 구조 설명.
+    - `development-guide.md`: 실전 페이지 생성 및 CSS Modules 사용법 가이드.
+    - `runbook.md`: 초보자가 겪는 주요 에러(Port 3000 등) 해결 방법 명시.
+- **Docker 기반 독립 실행 환경 구축:** `Dockerfile` 및 `docker-compose.yml` 작성을 통해 프런트엔드만 따로 띄워 테스트 가능한 환경 제공.
+- **코드 내 상세 가이드 주석:** `layout.tsx`, `page.tsx` 등 핵심 파일에 초보자가 이해하기 쉬운 한글 주석 작업 완료.
+- **README 고도화:** 모든 가이드 문서로 연결되는 포털 형태의 `frontend/README.md` 전면 개편.
+
+**Next 담당자 ([프론트] -> [QA]):**
+- 작성된 가이드 문서의 가독성 및 도커 컨테이너 빌드 정상 여부 검증이 필요합니다.
+- 초보 개발자 입장에서 가이드를 따라 서비스가 정상 실행되는지 최종 확인을 요청합니다.
+
+### [백엔드] master-data DDD/Hexagonal 보강
+- 현재까지의 MSA 전환 작업을 `79e1e01` 커밋으로 고정하고 `origin/main`에 push 완료.
+- `master-data`의 Controller/DTO/Application Service 파일 위치를 package 구조와 맞게 `masterdata.api` 및 `masterdata.core.application` 아래로 정리.
+- `AccountSubject`, `BusinessPartner`, `Department`, `Product` 저장 흐름에 `core.port.out` 출력 포트 인터페이스를 추가하여 application service가 JPA Repository를 직접 알지 않도록 정리.
+- `BusinessPartner` API를 JPA Entity 직접 요청/응답 방식에서 `BusinessPartnerRequestDto`/`BusinessPartnerDto`/`BusinessPartnerCommand` 경유 방식으로 전환.
+- 초보 개발자가 요청 흐름을 따라갈 수 있도록 `master-data/README.md`, `master-data/docs/README.md`, `beginner-guide.md`, `process-flow.md`에 헥사고날 요청 흐름과 패키지 책임을 상세화.
+- `./gradlew :master-data:compileJava` 성공 확인.

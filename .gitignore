@@ -11,6 +11,11 @@ bin/
 *.ipr
 out/
 
+# Hexagonal architecture uses packages named "port/out".
+# Keep IDE build output ignored, but allow source packages that intentionally use this name.
+!**/src/main/java/**/port/out/
+!**/src/main/java/**/port/out/*.java
+
 # STS
 .apt_generated
 .classpath

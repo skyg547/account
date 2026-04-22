@@ -2,13 +2,25 @@
 
 `master-data` 모듈은 계정과목, 거래처, 부서, 통화, 환율, 회계기간, 상품 같은 기준 정보를 관리한다.
 
-현재 구조는 점진적으로 `api / core / batch` 경계로 정리 중이다.
+현재 구조는 `api / core / batch` 경계와 헥사고날 포트/어댑터 경계를 함께 사용한다.
 
 - `api`: REST controller와 request/response DTO
-- `core`: 유스케이스, 도메인 정책, 포트, JPA 어댑터
+- `core.application.usecase`: inbound adapter가 호출하는 입력 포트
+- `core.application.service`: 트랜잭션과 유스케이스 흐름을 제어하는 application service
+- `core.application.command`: DTO에서 변환된 유스케이스 입력값
+- `core.domain.policy`: SCD2 유효기간, 활성 판정 같은 순수 도메인 정책
+- `core.port.out`: application service가 의존하는 출력 포트
+- `core.infrastructure.persistence`: Spring Data JPA Repository를 감싸는 출력 어댑터
 - `batch`: 기준정보 유효성 점검 같은 배치 오케스트레이션
 
 다른 모듈은 이 데이터를 직접 참조하거나 `MasterDataQueryPort`를 통해 조회한다.
+
+핵심 원칙:
+
+1. Controller는 JPA Entity를 요청/응답 모델로 직접 쓰지 않는다.
+2. Service는 Repository를 직접 호출하지 않고 `port.out` 인터페이스만 호출한다.
+3. JPA, H2, Flyway 같은 기술 선택은 infrastructure adapter 안쪽에 둔다.
+4. 유효기간 기본값과 활성 판정은 `MasterDataValidityPolicy`에서 한 번만 정의한다.
 
 문서 순서:
 

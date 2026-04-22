@@ -85,9 +85,24 @@ li {
   list-style: none;
 }
 
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-family: inherit;
+/* Layout Structure */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 260px; /* sidebar width */
+}
+
+.content {
+  padding: 40px;
+  flex: 1;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
 }

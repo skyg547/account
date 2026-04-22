@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎨 Account.AI Frontend (Modern Financial System UI)
 
-## Getting Started
+본 모듈은 MSA 기반 재무 시스템의 사용자 인터페이스를 담당하는 **Next.js 15** 애플리케이션입니다. 
+초보자분들도 쉽게 적응할 수 있도록 설계되었으니, 아래 가이드를 천천히 따라와 주세요!
 
-First, run the development server:
+---
 
+## 📚 초보자를 위한 학습 & 개발 가이드
+처음 오셨다면 아래 문서들을 순서대로 읽어보시는 것을 강력 추천합니다.
+
+1.  [**🐣 프론트엔드 입문 가이드**](./docs/beginner-guide.md): 우리 프로젝트의 구조와 기초 개념을 설명합니다.
+2.  [**🛠️ 실전 개발 가이드**](./docs/development-guide.md): 페이지를 만들고 디자인을 입히는 구체적인 방법을 알려줍니다.
+3.  [**🚒 런북 (장해 해결)**](./docs/runbook.md): 에러가 났을 때 당황하지 않고 대처하는 법을 모았습니다.
+
+---
+
+## 🚀 빠른 시작 (Running Locally)
+
+### 💻 내 컴퓨터에서 바로 실행하기
 ```bash
+# 1. 프론트엔드 폴더로 이동
+cd frontend
+
+# 2. 필요한 도구들(패키지) 설치
+npm install
+
+# 3. 개발 서버 실행
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+이제 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어보세요!
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 🐳 Docker로 간편하게 실행하기 (Docker 필요)
+설사 내 컴퓨터에 Node.js가 없어도 도커만 있다면 실행할 수 있습니다.
+```bash
+# 1. 이미지 빌드 및 실행
+docker-compose up --build
+```
+이제 [http://localhost:4000](http://localhost:4000)에서 결과를 확인할 수 있습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏗️ 우리의 기술 약속 (Tech Stack)
 
-## Learn More
+*   **뼈대:** Next.js 15 (최신 App Router 방식)
+*   **언어:** TypeScript (실수를 줄여주는 꼼꼼한 조수)
+*   **디자인:** Vanilla CSS + CSS Modules (우리만의 독창적인 스타일)
+*   **테마:** **글래스모피즘(Glassmorphism)** - 유리처럼 비치는 고급스러운 디자인
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📂 폴더 구조 퀵뷰
+*   `src/app`: 웹사이트의 주소와 페이지 내용 (`Page`, `Layout`)
+*   `src/components`: 반복해서 재사용할 수 있는 예쁜 부품들
+*   `src/styles`: 전역 디자인 규칙 (`globals.css`)
+*   `docs`: 여러분을 위한 상세 가이드 문서함
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+**담당자: [프론트]**
+*마지막 수정: 2026-04-22*
