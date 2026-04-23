@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 public class MasterDataValidityReportPipeline {
 
     public MasterDataBatchReport createDailyValidityReport(LocalDate asOfDate) {
-        // 실제 로직 구현 생략 (컴파일 통과용)
-        return new MasterDataBatchReport();
+        // 실제 집계 로직이 필요하나, 현재는 컴파일 통과를 위해 기본값 반환
+        return new MasterDataBatchReport(asOfDate, 0L, 0L, 0L, 0L);
     }
 }

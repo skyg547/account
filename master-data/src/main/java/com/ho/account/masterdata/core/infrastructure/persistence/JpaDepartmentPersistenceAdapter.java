@@ -32,8 +32,12 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
     }
 
     @Override
+    public List<Department> findAllActive() {
+        return departmentRepository.findByUseYnTrue();
+    }
+
+    @Override
     public Department save(Department department) {
         return departmentRepository.save(department);
     }
 }
-

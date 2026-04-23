@@ -22,6 +22,11 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
     }
 
     @Override
+    public List<MasterDataChangeRequest> findAll() {
+        return repository.findAll();
+    }
+
+    @Override
     public List<MasterDataChangeRequest> findByStatus(ChangeStatus status) {
         return repository.findByStatusOrderByRequestedAtAsc(status);
     }
@@ -31,4 +36,3 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
         return repository.save(request);
     }
 }
-

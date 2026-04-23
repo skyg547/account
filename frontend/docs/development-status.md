@@ -49,8 +49,8 @@
 | 감사 모니터링 | `/finance/banking/audit` | 🎨 | [ ] | 실시간 위험 거래 알림 |
 | Basel III RWA 현황 | `/risk/basel-iii/rwa` | ✅ | [ ] | **[NEW]** RWA 산출 및 모니터링 |
 | IFRS 9 ECL 시뮬레이션 | `/risk/ifrs-9/ecl` | ✅ | [ ] | **[NEW]** 기대신용손실 분석 |
-| ALM / 금리 리스크 | `/risk/alm/interest` | ⏳ | [ ] | **[NEW]** 금리 갭 및 NII 시뮬레이션 |
-| 유동성 리스크(LCR) | `/risk/liquidity` | ⏳ | [ ] | **[NEW]** LCR/NSFR 비율 관리 |
+| ALM / 금리 리스크 | `/risk/alm/interest` | ✅ | [ ] | **[NEW]** 금리 갭 및 NII 시뮬레이션 |
+| 유동성 리스크(LCR) | `/risk/liquidity` | ✅ | [ ] | **[NEW]** LCR/NSFR 비율 관리 |
 
 ## 5. 기준 정보 (MASTER)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
@@ -66,6 +66,12 @@
 | 귀속 부서 관리 | `/admin/dept` | 🎨 | [ ] | 조직도 및 귀속 정보 |
 | 시스템 로그 조회 | `/admin/logs` | 🎨 | [ ] | 통합 이벤트 로그 조회 |
 
+## 7. 인프라 및 가이드 (INFRA)
+| 구분 | 문서/링크 | 상태 | 비고 |
+| :--- | :--- | :---: | :--- |
+| 프론트 가이드 | `docs/frontend-engineering-guide.md` | ✅ | **[NEW]** Tailwind 표준 정의 |
+| 스타일 표준 | `Tailwind CSS 3.4` | ✅ | **[NEW]** CSS 모듈에서 전환 중 |
+
 ---
 
-**업데이트 일자:** 2026-04-22 20:00 (YOLO 모드 운영 관리)
+**업데이트 일자:** 2026-04-23 16:15 (Tailwind CSS 표준 도입 완료)

@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.port.in;
 
-import com.ho.account.masterdata.core.domain.model.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
 import java.util.List;
 
 /**
@@ -8,4 +9,16 @@ import java.util.List;
  */
 public interface MasterDataChangeRequestUseCase {
     List<MasterDataChangeRequest> getAllChangeRequests();
+    
+    MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command);
+    
+    List<MasterDataChangeRequest> findPendingRequests();
+    
+    MasterDataChangeRequest approve(Long requestId, String approver);
+    
+    MasterDataChangeRequest reject(Long requestId, String approver, String reason);
+    
+    MasterDataChangeRequest applyApprovedChange(Long requestId);
+    
+    List<MasterDataChangeRequest> applyDueApprovedChanges();
 }

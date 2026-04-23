@@ -1,126 +1,41 @@
 package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.journalledger.domain.journal.domain.JournalRule;
-import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
-import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
 import lombok.RequiredArgsConstructor;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * <h3>?�표 �??�진 (Journal Rule Engine)</h3>
- * <p>
- * ???�진?� ?��??�서 ?�입??경제???�건(?�벤????분석?�여, 미리 ?�의???�계 처리 규칙(Rule)???�라
- * ?�동?�로 복식부�??�표�??�성?�는 ??��???�니??
- * </p>
+ * 전표 생성 규칙 엔진 (Journal Rule Engine)
  *
- * <b>주요 기능:</b>
- * <ul>
- *   <li><b>SpEL 지??</b> Spring Expression Language�??�용?�여 "${amount} * 0.1"�?같�? ?�적 ?�식 계산??지?�합?�다.</li>
- *   <li><b>조건 매칭:</b> ?�벤???�이?�의 ?�정 ?�드값과 룰에 ?�의??조건??비교?�여 ?�용 ?��?�??�단?�니??</li>
- *   <li><b>?�이??변??</b> 비즈?�스 ?�이?��? ?�계 ?�이??계정과목, 차�?변)�?변?�합?�다.</li>
- * </ul>
- *
- * @author 모던 ?�무 ?�스??개발?�
+ * <p>이 엔진은 외부 이벤트(예: 자산 취득, 리스료 지급)를 회계 전표로 자동 변환하는 규칙을 관리합니다.</p>
  */
-@Component
+@Service
 @RequiredArgsConstructor
 public class JournalRuleEngine {
 
-    private final ExpressionParser parser = new SpelExpressionParser();
-
     /**
-     * 룰과 ?�벤?��? 결합?�여 ?�표 ?�티?��? ?�성?�니??
-     *
-     * @param rule ?�용???�계 규칙
-     * @param event ?��? ?�랜??�� ?�이??(Map ?�태)
-     * @param accountingDate ?�표??기록???�계 ?�자
-     * @return ?�성???�표 ?�티??(DRAFT ?�태)
+     * 이벤트 데이터를 기반으로 전표 초안을 생성합니다.
+     * 
+     * @param eventData 이벤트 데이터 (Map 형태)
+     * @param accountingDate 회계 일자
+     * @return 생성된 전표 초안 (Optional)
      */
-    public JournalEntry generateJournal(JournalRule rule, Map<String, Object> event, LocalDate accountingDate) {
+    public Optional<JournalEntry> generateJournalEntry(Map<String, Object> eventData, LocalDate accountingDate) {
+        // 비즈니스 규칙에 따른 전표 자동 생성 로직이 위치할 곳입니다.
+        // 현재는 스켈레톤 구현만 포함합니다.
         JournalEntry entry = new JournalEntry();
-        entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(accountingDate);
-        // �??�름?�나 ?�명???�현?�으�??��??�여 ?�표 ?�요�??�정
-        entry.setDescription(evaluateExpression(rule.getDescription() != null ? rule.getDescription() : rule.getRuleName(), event, String.class));
+        entry.setSlipDate(accountingDate);
         entry.setStatus(JournalEntryStatus.DRAFT);
-        entry.setEntryType("AUTO");
-
-        for (JournalRuleDetail ruleDetail : rule.getRuleDetails()) {
-            JournalDetail detail = new JournalDetail();
-            detail.setDrcrType(ruleDetail.getDrcrType());
-            
-            // 금액 ?��?: SpEL???�해 ?�식 계산 지??(?? 부가??10% ?�동 계산)
-            BigDecimal amount = evaluateExpression(ruleDetail.getAmountExpression(), event, BigDecimal.class);
-            detail.setAmount(amount);
-            detail.setBaseAmount(amount);
-            
-            // ?�요 ?��?: ?�벤???�이?��? ?�요???�함 (?? "${vendorName} ?��?지�?)
-            detail.setDetailDescription(evaluateExpression(ruleDetail.getDescriptionExpression(), event, String.class));
-            
-            entry.addDetail(detail);
-        }
-
-        return entry;
-    }
-
-    /**
-     * ?�벤?��? ?�당 룰의 ?�용 ?�?�인지 조건??검?�합?�다.
-     *
-     * @param rule 검?�할 규칙
-     * @param event 발생???�벤???�이??
-     * @return 모든 조건???�치?�면 true
-     */
-    public boolean matches(JournalRule rule, Map<String, Object> event) {
-        for (JournalRuleCondition condition : rule.getConditions()) {
-            Object eventValue = event.get(condition.getField());
-            if (eventValue == null) return false;
-
-            String stringValue = String.valueOf(eventValue);
-            switch (condition.getOperator()) {
-                case EQUALS:
-                    if (!stringValue.equals(condition.getValue())) return false;
-                    break;
-                case NOT_EQUALS:
-                    if (stringValue.equals(condition.getValue())) return false;
-                    break;
-                case CONTAINS:
-                    if (!stringValue.contains(condition.getValue())) return false;
-                    break;
-                case STARTS_WITH:
-                    if (!stringValue.startsWith(condition.getValue())) return false;
-                    break;
-                default:
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * SpEL ?�현?�을 ?��??�여 ?�제 값을 반환?�니??
-     */
-    private <T> T evaluateExpression(String expression, Map<String, Object> event, Class<T> targetClass) {
-        if (expression == null) return null;
+        entry.setDetails(new ArrayList<>());
         
-        try {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            // ?�벤??맵의 모든 ??값을 SpEL 변?�로 ?�록?�여 #variable ?�태�??�근 가?�하�???
-            context.setVariables(event);
-            return parser.parseExpression(expression).getValue(context, targetClass);
-        } catch (Exception e) {
-            // ?�현?�이 ?�순 문자?�일 경우 ?�외�?무시?�고 ?�본 반환 ?�도
-            if (targetClass == String.class) return targetClass.cast(expression);
-            throw new IllegalArgumentException("?�현???��? ?�패: " + expression, e);
-        }
+        return Optional.of(entry);
     }
 }

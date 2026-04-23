@@ -1,68 +1,40 @@
-# 🛠️ 프론트엔드 엔지니어링 가이드 (Grid CRUD & API 연동)
+# 🛠️ 프론트엔드 엔지니어링 가이드 (v1.0)
 
-본 가이드는 우리 프로젝트의 개발 효율성을 높이고, 모든 개발자가 일관된 코딩 스타일을 유지하기 위한 기술 표준입니다.
+본 문서는 **'Account.AI'** 프로젝트의 프론트엔드 개발 표준 및 품질 가이드를 정의합니다.
 
----
+## 1. 기술 스택 (Tech Stack)
+- **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS (Utility-first)
+- **State Management:** React Context API (NavContext 등)
+- **Icons:** Lucide React
+- **Charts:** Recharts
 
-## 1. API 호출 표준 (Axios & TanStack Query)
+## 2. 디자인 시스템 및 테마
+### 🎨 컬러 팔레트 (Tailwind Config 연동)
+- **Primary:** `#3b82f6` (Blue-500) - 메인 액션 및 브랜드 컬러
+- **Background:** `var(--background)` - 다크 모드 연동 기본 배경
+- **Surface:** `glass-card` (커스텀 클래스) - 글래스모피즘 카드 UI
 
-우리는 서버와의 통신을 위해 `Axios`를 기반으로 한 공통 인스턴스를 사용하며, 데이터 상태 관리를 위해 `TanStack Query (v5)`를 도입했습니다.
+### ✨ 주요 UI 유틸리티
+- **Glassmorphism:** `bg-white/5 backdrop-blur-md border border-white/10`
+- **Modern Shadow:** `shadow-xl shadow-black/20`
+- **Hover Effects:** `hover:scale-[1.02] transition-all duration-300`
 
-### ① API 호출 유틸리티 (`/src/lib/api.ts`)
-모든 요청은 공통 Axios 인스턴스를 거쳐야 하며, 인터셉터를 통해 JWT 토큰 주입 및 에러 처리를 자동화합니다.
+## 3. 컴포넌트 개발 규칙
+- **Functional Components:** 모든 컴포넌트는 Functional 레시피로 작성하며, `use client` 지시어를 적절히 사용합니다.
+- **Tailwind-first:** 인라인 클래스 사용을 원칙으로 하며, 복잡한 조합은 `@apply` 보단 컴포넌트 분리를 지향합니다.
+- **Accessibility:** 모든 버튼과 인터랙션 요소에는 고유한 `id`와 `aria-label`을 부여합니다.
 
-```typescript
-// 예시: 전표 데이터 가져오기
-export const fetchJournals = async () => {
-  const { data } = await api.get('/api/journal/list');
-  return data;
-};
-```
+## 4. API 연동 가이드 (Integration)
+- 모든 API 요청은 `src/lib/api.ts`에 정의된 중앙 클라이언트를 사용합니다.
+- 데이터 로딩 시 `Skeleton Screen` 또는 `Loading Spinner`를 반드시 표시합니다.
+- 에러 발생 시 `Toast` 또는 `AlertBox`를 통해 사용자에게 친절한 메시지를 제공합니다.
 
-### ② TanStack Query 사용 패턴
-컴포넌트 내에서는 직접 `useEffect`를 쓰지 말고, 전용 Hook을 사용하세요.
-
-- **조회 (Read):** `useQuery`를 사용하세요. 가시적인 로딩 상태(`isLoading`)를 반드시 처리해야 합니다.
-- **생성/수정/삭제 (CUD):** `useMutation`을 사용하세요. 성공 시 `queryClient.invalidateQueries`를 호출해 데이터를 최신화해야 합니다.
-
----
-
-## 2. Grid CRUD 구현 가이드 (표준 패턴)
-
-회계 시스템의 90%는 '그리드(표)'로 이루어집니다. 엑셀처럼 편리한 CRUD 경험을 제공하기 위한 표준 구현 방식입니다.
-
-### [그리드 CRUD 프로세스]
-1.  **Read:** `useQuery`로 목록 데이터를 가져와 `state`에 담습니다.
-2.  **Create:** '행 추가' 버튼 클릭 시 `state` 배열에 빈 객체를 새롭게 추가(`push`)합니다.
-3.  **Update:** 각 셀(Cell)의 `input`에 `onChange` 이벤트를 걸어 `state`를 실시간 업데이트합니다.
-4.  **Delete:** '행 삭제' 버튼 클릭 시 필터링을 통해 `state`에서 해당 항목을 제거합니다.
-5.  **Save:** `onBlur` 또는 상단 '저장' 버튼 클릭 시 `useMutation`을 호출해 서버에 반영합니다.
-
-```tsx
-// 그리드 행 추가 예시
-const addRow = () => {
-  const newRow = { id: Date.now(), accountCode: '', debit: 0, credit: 0 };
-  setData([...data, newRow]);
-};
-```
+## 5. 작업 프로세스
+1. **Layout 정의**: `app/` 하위에 라우트 생성
+2. **UI 스켈레톤**: Tailwind로 레이아웃 및 Mock 데이터 배치
+3. **API 바인딩**: 실데이터 연동 및 상태 관리
+4. **검증**: 다크모드 및 반응형 레이아웃 확인
 
 ---
-
-## 3. 이벤트 핸들링 및 상태 관리
-
-- **대차 차액 검증 (Banking Integrity):** 차변과 대변의 합계가 맞지 않으면 실시간으로 경고 메시지를 보여주고 '저장' 버튼을 비활성화하세요.
-- **입력 제한:** 금액 입력 칸에는 숫자만 들어가야 하며, 천 단위 콤마(`,`) 처리를 위한 필터 유틸리티를 사용하세요.
-- **모달/오버레이:** 복잡한 검색(예: 수만 개의 계정 과목 중 하나 찾기)은 필터가 포함된 모달 오버레이를 사용합니다.
-
----
-
-## 💡 초보자를 위한 개념 설명: "그리드 CRUD"
-> **그리드(Grid)란?** 엑셀 시트처럼 칸이 나뉘어 있는 표를 말합니다.
-> **CRUD란?** 생성을 뜻하는 **C**(reate), 조회를 뜻하는 **R**(ead), 수정을 뜻하는 **U**(pdate), 삭제를 뜻하는 **D**(elete)의 앞 글자를 딴 용어로, 데이터 관리의 기본이 되는 4가지 기능을 의미합니다.
-> 
-> 우리가 만드는 시스템에서는 은행원들이 엑셀을 쓰듯이 웹 브라우저에서도 데이터를 넣고(C), 보고(R), 고치고(U), 지울(D) 수 있게 만드는 것이 핵심입니다!
-
----
-
-**작성자: [프론트]**
-*최종 수정일: 2026-04-22*
+**Last Updated:** 2026-04-23 by [프론트]

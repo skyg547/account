@@ -16,9 +16,13 @@ public interface DepartmentUseCase {
     List<Department> getAllDepartments();
 
     List<Department> findAllActiveDepartments();
+    
+    // Alias for findAllActiveDepartments to match controller
+    default List<Department> getActiveDepartments() {
+        return findAllActiveDepartments();
+    }
 
     Department updateDepartment(String code, DepartmentCommand command);
 
     void deactivateDepartment(String code);
 }
-

@@ -1,92 +1,98 @@
 package com.ho.account.masterdata.core.application.service;
 
+import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
-import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
-import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
+/**
+ * 부서 관리 서비스
+ */
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class DepartmentService implements DepartmentUseCase {
 
     private final DepartmentPersistencePort departmentPersistencePort;
 
-    public DepartmentService(DepartmentPersistencePort departmentPersistencePort) {
-        this.departmentPersistencePort = departmentPersistencePort;
-    }
-
+    @Override
+    @Transactional
     public Department createDepartment(DepartmentCommand command) {
         if (departmentPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("??? �댁???�뒗 ?��???�붾??�땲?? " + command.code());
+            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + command.code());
         }
 
-        Department department = command.toEntity();
-
-        if (command.hasParentCode()) {
+        Department department = new Department();
+        department.setCode(command.code());
+        department.setName(command.name());
+        
+        if (command.parentCode() != null) {
             Department parent = departmentPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(
-                            () -> new IllegalArgumentException("?�쐞 ?��??? ��??????�뒿??�떎. ?�붾? " + command.parentCode()));
+                    .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다: " + command.parentCode()));
             department.setParent(parent);
         }
+        
+        department.setValidFrom(command.validFrom());
+        department.setValidTo(command.validTo());
+        department.setUseYn(true);
 
-        MasterDataValidityPolicy.applyDefaultWindow(department::getValidFrom, department::setValidFrom,
-                department::getValidTo, department::setValidTo);
         return departmentPersistencePort.save(department);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public Optional<Department> getDepartmentByCode(String code) {
         return departmentPersistencePort.findByCode(code);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public Optional<Department> findDepartmentByCode(String code) {
         return departmentPersistencePort.findByCode(code);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<Department> getAllDepartments() {
         return departmentPersistencePort.findAll();
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<Department> findAllActiveDepartments() {
-        return departmentPersistencePort.findAll().stream()
-                .filter(MasterDataValidityPolicy.isActiveNow(Department::getValidFrom, Department::getValidTo))
-                .toList();
+        return departmentPersistencePort.findAllActive();
     }
 
+    @Override
+    @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("?��??? ��??????�뒿??�떎. ?�붾? " + code));
-
-        if (command.hasParentCode()) {
-            Department parent = departmentPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(
-                            () -> new IllegalArgumentException("?�쐞 ?��??? ��??????�뒿??�떎. ?�붾? " + command.parentCode()));
-            department.setParent(parent);
-        } else {
-            department.setParent(null);
-        }
+                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다: " + code));
 
         department.setName(command.name());
-        department.setType(command.type());
+        if (command.parentCode() != null) {
+            Department parent = departmentPersistencePort.findByCode(command.parentCode())
+                    .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다: " + command.parentCode()));
+            department.setParent(parent);
+        }
+        
+        department.setValidFrom(command.validFrom());
+        department.setValidTo(command.validTo());
 
         return departmentPersistencePort.save(department);
     }
 
+    @Override
+    @Transactional
     public void deactivateDepartment(String code) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("?��??? ��??????�뒿??�떎. ?�붾? " + code));
-
-        MasterDataValidityPolicy.closeIfActive(department::getValidTo, department::setValidTo);
+                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다: " + code));
+        department.setUseYn(false);
         departmentPersistencePort.save(department);
     }
 }
-

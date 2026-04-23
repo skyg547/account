@@ -1,22 +1,22 @@
-# Gradle files
+# Java / Gradle
 .gradle/
+.gradle-local/
 build/
 bin/
 *.class
+*.jar
+*.war
+*.ear
 
-# IDE files
+# IDE - IntelliJ IDEA
 .idea/
 *.iml
 *.iws
 *.ipr
 out/
+gen/
 
-# Hexagonal architecture uses packages named "port/out".
-# Keep IDE build output ignored, but allow source packages that intentionally use this name.
-!**/src/main/java/**/port/out/
-!**/src/main/java/**/port/out/*.java
-
-# STS
+# IDE - Eclipse / STS
 .apt_generated
 .classpath
 .factorypath
@@ -25,23 +25,36 @@ out/
 .springBeans
 .sts4-cache
 
-# NetBeans
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-# VS Code
+# IDE - VS Code
 .vscode/
 
-# OS generated files
+# Node.js / Next.js
+node_modules/
+.next/
+dist/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vercel
+
+# OS / Common
 .DS_Store
 Thumbs.db
-
-# Log files
 *.log
+tmp/
+temp/
 
-# Local environment properties
+# Spring Boot Local Properties
 application-local.properties
 application-local.yml
+
+# Hexagonal Architecture Exception
+# Keep source packages named "port/out" (don't ignore them if they are in src)
+!**/src/main/java/**/port/out/
+!**/src/main/java/**/port/out/*.java

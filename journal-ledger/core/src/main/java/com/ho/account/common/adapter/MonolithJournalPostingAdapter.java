@@ -1,83 +1,70 @@
 package com.ho.account.common.adapter;
 
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.service.JournalService;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.contracts.journal.JournalEntryCommand;
-import com.ho.account.contracts.journal.JournalLineCommand;
-import com.ho.account.contracts.journal.JournalPostingPort;
-import com.ho.account.contracts.journal.JournalPostingResult;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.service.JournalService;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import com.ho.account.masterdata.core.domain.model.Department;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.stream.Collectors;
+
+/**
+ * 모놀리스 전표 기입 어댑터
+ */
 @Component
-public class MonolithJournalPostingAdapter implements JournalPostingPort {
+@RequiredArgsConstructor
+public class MonolithJournalPostingAdapter {
 
     private final JournalService journalService;
-    private final accountSubjectPersistencePort accountSubjectPersistencePort;
-    private final departmentPersistencePort departmentPersistencePort;
-    private final businessPartnerPersistencePort businessPartnerPersistencePort;
-    private final currencyPersistencePort currencyPersistencePort;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final DepartmentPersistencePort departmentPersistencePort;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final CurrencyPersistencePort currencyPersistencePort;
 
-    public MonolithJournalPostingAdapter(
-            JournalService journalService,
-            accountSubjectPersistencePort accountSubjectPersistencePort,
-            departmentPersistencePort departmentPersistencePort,
-            businessPartnerPersistencePort businessPartnerPersistencePort,
-            currencyPersistencePort currencyPersistencePort) {
-        this.journalService = journalService;
-        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
-        this.departmentPersistencePort = departmentPersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
-        this.currencyPersistencePort = currencyPersistencePort;
-    }
-
-    @Override
-    public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
+    public void post(com.ho.account.common.adapter.MonolithJournalPostingCommand command) {
         JournalEntry entry = new JournalEntry();
-        entry.setSlipDate(command.slipDate());
         entry.setAccountingDate(command.accountingDate());
-        entry.setDescription(command.description());
-        entry.setEntryType(command.entryType());
-        entry.setExchangeRate(command.exchangeRate());
-        entry.setCreatedBy(command.createdBy());
-        entry.setAuditUser(command.auditUser());
-        entry.setLineageSourceType(command.lineageSourceType());
-        entry.setLineageSourceId(command.lineageSourceId());
+        entry.setSlipDate(command.accountingDate());
+        entry.setSummary(command.description());
+        
+        Currency currency = currencyPersistencePort.findByCode(command.currencyCode())
+                .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + command.currencyCode()));
+        entry.setCurrency(currency);
 
-        if (command.currencyCode() != null && !command.currencyCode().isBlank()) {
-            entry.setCurrency(currencyPersistencePort.findByCurrencyCode(command.currencyCode())
-                    .orElseThrow(() -> new IllegalArgumentException("?�화�?찾을 ???�습?�다. code=" + command.currencyCode())));
-        }
-
-        for (JournalLineCommand line : command.lines()) {
+        entry.setDetails(command.lines().stream().map(line -> {
             JournalDetail detail = new JournalDetail();
-            detail.setDrcrType(line.drcrType());
-            detail.setAccountSubject(accountSubjectPersistencePort.findByCode(line.accountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("계정과목??찾을 ???�습?�다. code=" + line.accountCode())));
-            detail.setAmount(line.amount());
-            detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
-            detail.setDetailDescription(line.detailDescription());
-            detail.setAuditUser(command.auditUser());
-
-            if (line.departmentCode() != null && !line.departmentCode().isBlank()) {
-                detail.setDepartment(departmentPersistencePort.findByCode(line.departmentCode())
-                        .orElseThrow(() -> new IllegalArgumentException("부?��? 찾을 ???�습?�다. code=" + line.departmentCode())));
+            AccountSubject account = accountSubjectPersistencePort.findByCode(line.accountCode())
+                    .orElseThrow(() -> new IllegalArgumentException("Account subject not found: " + line.accountCode()));
+            detail.setAccountSubject(account);
+            
+            detail.setDebitAmount(line.debitAmount());
+            detail.setCreditAmount(line.creditAmount());
+            
+            if (line.departmentCode() != null) {
+                Department dept = departmentPersistencePort.findByCode(line.departmentCode())
+                        .orElseThrow(() -> new IllegalArgumentException("Department not found: " + line.departmentCode()));
+                detail.setDepartment(dept);
             }
-
-            if (line.businessPartnerCode() != null && !line.businessPartnerCode().isBlank()) {
-                detail.setBusinessPartner(businessPartnerPersistencePort.findByBusinessPartnerCode(line.businessPartnerCode())
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "거래처�? 찾을 ???�습?�다. code=" + line.businessPartnerCode())));
+            
+            if (line.businessPartnerCode() != null) {
+                BusinessPartner bp = businessPartnerPersistencePort.findByBusinessPartnerCode(line.businessPartnerCode())
+                        .orElseThrow(() -> new IllegalArgumentException("Business partner not found: " + line.businessPartnerCode()));
+                detail.setBusinessPartner(bp);
             }
+            
+            detail.setSummary(line.description());
+            detail.setJournalEntry(entry);
+            return detail;
+        }).collect(Collectors.toList()));
 
-            entry.addDetail(detail);
-        }
-
-        JournalEntry created = journalService.createJournalEntry(entry);
-        return new JournalPostingResult(created.getId(), created.getSlipNo(), created.getStatus().name());
+        journalService.createJournalEntry(entry);
     }
 }
