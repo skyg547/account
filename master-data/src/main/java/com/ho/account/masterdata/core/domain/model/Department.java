@@ -2,11 +2,11 @@ package com.ho.account.masterdata.core.domain.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime; // LocalDateTime 異붽?
+import java.time.LocalDateTime; // LocalDateTime ?�붽?
 
 /**
- * 遺??Department/Cost Center) ?뷀떚??
- * 議곗쭅 援ъ“瑜?愿由ы븯硫? 鍮꾩슜 ?쇳꽣(Cost Center) ?먮뒗 ?댁씡 ?쇳꽣(Profit Center) ??븷???섑뻾??
+ * ?��??Department/Cost Center) ????
+ * �곗??�ъ�瑜??��?�ы븯? ??��????�꽣(Cost Center) ??�� ??�씡 ??�꽣(Profit Center) ??????�뻾??
  */
 @Entity
 @Table(name = "departments")
@@ -17,29 +17,29 @@ public class Department {
     private String code;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt; // ?앹꽦?쇱떆
+    private LocalDateTime createdAt; // ??�꽦??�떆
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt; // ?섏젙?쇱떆
+    private LocalDateTime updatedAt; // ??�젙??�떆
 
     @Column(length = 50)
-    private String auditUser; // 媛먯궗 ?ъ슜??
+    private String auditUser; // ��??????
 
     /**
-     * 遺?쒖쓽 ?대쫫.
+     * ?��??�쓽 ???
      */
     @Column(nullable = false, length = 100)
     private String name;
 
     /**
-     * ?곸쐞 遺?? 怨꾩링 援ъ“瑜??섑??낅땲??
+     * ?�쐞 ?��?? ?��??�ъ�瑜??????�땲??
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_code", referencedColumnName = "code")
     private Department parent;
 
     /**
-     * 遺?쒖쓽 ?좏삎 (?? 鍮꾩슜 ?쇳꽣, ?댁씡 ?쇳꽣, 吏??遺??.
+     * ?��??�쓽 ?�삎 (?? ??��????�꽣, ??�씡 ??�꽣, ��???��??.
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
@@ -52,13 +52,13 @@ public class Department {
     private LocalDate validTo;
 
     public enum DepartmentType {
-        COST_CENTER, // 鍮꾩슜 ?쇳꽣
-        PROFIT_CENTER, // ?댁씡 ?쇳꽣
-        SUPPORT, // 吏??遺??
-        OTHER // 湲고?
+        COST_CENTER, // ??��????�꽣
+        PROFIT_CENTER, // ??�씡 ??�꽣
+        SUPPORT, // ��???��??
+        OTHER // �고?
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public String getCode() {
         return code;
     }

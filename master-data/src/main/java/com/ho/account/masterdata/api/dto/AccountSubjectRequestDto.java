@@ -18,24 +18,7 @@ public class AccountSubjectRequestDto {
     private LocalDate validFrom;
     private LocalDate validTo;
 
-    // Default constructor for JSON deserialization
     public AccountSubjectRequestDto() {
-    }
-    
-    // toEntity method to convert DTO to domain object
-    public AccountSubject toEntity() {
-        AccountSubject entity = new AccountSubject();
-        entity.setCode(this.code);
-        entity.setName(this.name);
-        // parent will be set in the service
-        entity.setCategory(this.category);
-        entity.setBalanceType(this.balanceType);
-        entity.setReportLine(this.reportLine);
-        entity.setUnsettled(this.unsettled);
-        entity.setFixedAsset(this.fixedAsset);
-        entity.setValidFrom(this.validFrom);
-        entity.setValidTo(this.validTo);
-        return entity;
     }
 
     public AccountSubjectCommand toCommand() {

@@ -1,14 +1,16 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.api.dto.BusinessPartnerDto;
 import com.ho.account.masterdata.api.dto.BusinessPartnerRequestDto;
-import com.ho.account.masterdata.core.application.usecase.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * �래??����
+ */
 @RestController
 @RequestMapping("/api/basic/businesspartners")
 public class BusinessPartnerController {
@@ -19,18 +21,22 @@ public class BusinessPartnerController {
         this.businessPartnerUseCase = businessPartnerUseCase;
     }
 
-    // 嫄곕옒泥??앹꽦
+    /**
+     * �래??�록
+     */
     @PostMapping
     public ResponseEntity<BusinessPartnerDto> createBusinessPartner(@RequestBody BusinessPartnerRequestDto requestDto) {
         try {
-            BusinessPartner createdBusinessPartner = businessPartnerUseCase.createBusinessPartner(requestDto.toCommand());
-            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(createdBusinessPartner));
+            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(
+                    businessPartnerUseCase.createBusinessPartner(requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
     }
 
-    // ?꾩껜 嫄곕옒泥?議고쉶
+    /**
+     * ?�체 �래?�회
+     */
     @GetMapping
     public List<BusinessPartnerDto> getAllBusinessPartners() {
         return businessPartnerUseCase.getAllBusinessPartners().stream()
@@ -38,7 +44,9 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // ?ъ슜 以묒씤 嫄곕옒泥섎쭔 議고쉶
+    /**
+     * ?�성 ?�태??�래�만 �회
+     */
     @GetMapping("/active")
     public List<BusinessPartnerDto> getActiveBusinessPartners() {
         return businessPartnerUseCase.getActiveBusinessPartners().stream()
@@ -46,7 +54,9 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // 嫄곕옒泥??곸꽭 議고쉶 (肄붾뱶)
+    /**
+     * �래??�세 �회 (�드 �반)
+     */
     @GetMapping("/{businessPartnerCode}")
     public ResponseEntity<BusinessPartnerDto> getBusinessPartnerByCode(@PathVariable String businessPartnerCode) {
         return businessPartnerUseCase.getBusinessPartnerByCode(businessPartnerCode)
@@ -55,7 +65,9 @@ public class BusinessPartnerController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 嫄곕옒泥?寃??(?대쫫)
+    /**
+     * �래???(?�름 �반)
+     */
     @GetMapping("/search")
     public List<BusinessPartnerDto> searchBusinessPartners(@RequestParam String name) {
         return businessPartnerUseCase.searchBusinessPartnersByName(name).stream()
@@ -63,20 +75,23 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // 嫄곕옒泥??뺣낫 ?섏젙
+    /**
+     * �래??�보 ?�정
+     */
     @PutMapping("/{id}")
     public ResponseEntity<BusinessPartnerDto> updateBusinessPartner(@PathVariable Long id,
             @RequestBody BusinessPartnerRequestDto requestDto) {
         try {
-            BusinessPartner updatedBusinessPartner = businessPartnerUseCase.updateBusinessPartner(id,
-                    requestDto.toCommand());
-            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(updatedBusinessPartner));
+            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(
+                    businessPartnerUseCase.updateBusinessPartner(id, requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
-    // 嫄곕옒泥???젣 (?쇰━????젣)
+    /**
+     * �래???��
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBusinessPartner(@PathVariable Long id) {
         try {

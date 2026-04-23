@@ -8,18 +8,18 @@ import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
-import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;
-import com.ho.account.masterdata.core.application.usecase.BusinessPartnerUseCase;
-import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
-import com.ho.account.masterdata.core.application.usecase.ProductUseCase;
+import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.application.port.in.BusinessPartnerUseCase;
+import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
+import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import org.springframework.stereotype.Component;
 
 /**
- * 蹂寃쎌슂泥?payload瑜??ㅼ젣 留덉뒪??蹂寃??좎뒪耳?댁뒪濡??곌껐?⑸땲??
+ * �쎌?��?payload????�젣 �덉???��??�뒪?��??�뒪??�껐??�땲??
  *
- * <p>???대옒?ㅻ뒗 "?뱀씤 ?대젰"怨?"?ㅼ젣 留덉뒪??row 蹂寃? ?ъ씠???묒갑?쒖엯?덈떎. 蹂寃쎌슂泥??꾨찓?몄?
- * ?곹깭 ?꾩씠留??뚭퀬, ??곷퀎 ?앹꽦/?섏젙/鍮꾪솢?깊솕 洹쒖튃? 湲곗〈 留덉뒪???좎뒪耳?댁뒪媛 怨꾩냽 ?대떦?⑸땲??</p>
+ * <p>???????�뒗 "?????????"??�젣 �덉???row ��? ??????�갑??�엯??�떎. �쎌?��??��??
+ * ?�깭 ?��????? ???��???�꽦/??�젙/??��??�솕 �쒖??? �곗??�덉????�뒪?��??�뒪�� ?��???????�땲??</p>
  */
 @Component
 public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
@@ -47,7 +47,7 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case BUSINESS_PARTNER -> applyBusinessPartner(request);
             case DEPARTMENT -> applyDepartment(request);
             case PRODUCT -> applyProduct(request);
-            default -> throw new IllegalArgumentException("?꾩쭅 ?먮룞 ?곸슜??吏?먰븯吏 ?딅뒗 留덉뒪???좏삎?낅땲?? "
+            default -> throw new IllegalArgumentException("?�� ??�� ?�슜??��?�븯�� ??�뒗 �덉????�삎??�땲?? "
                     + request.getTargetType());
         }
     }
@@ -66,14 +66,14 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case CREATE -> businessPartnerUseCase.createBusinessPartner(readPayload(request, BusinessPartnerCommand.class));
             case UPDATE -> {
                 BusinessPartner partner = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("嫄곕옒泥섎? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
+                        .orElseThrow(() -> new IllegalArgumentException("�곕?��?? ��??????�뒿??�떎. ?�붾? "
                                 + request.getTargetKey()));
                 businessPartnerUseCase.updateBusinessPartner(partner.getId(),
                         readPayload(request, BusinessPartnerCommand.class));
             }
             case DEACTIVATE -> {
                 BusinessPartner partner = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("嫄곕옒泥섎? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
+                        .orElseThrow(() -> new IllegalArgumentException("�곕?��?? ��??????�뒿??�떎. ?�붾? "
                                 + request.getTargetKey()));
                 businessPartnerUseCase.deleteBusinessPartner(partner.getId());
             }
@@ -94,13 +94,13 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case CREATE -> productUseCase.createProduct(readPayload(request, ProductCommand.class));
             case UPDATE -> {
                 Product product = productUseCase.getProductByProductCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("?곹뭹??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
+                        .orElseThrow(() -> new IllegalArgumentException("?��???��??????�뒿??�떎. ?�붾? "
                                 + request.getTargetKey()));
                 productUseCase.updateProduct(product.getId(), readPayload(request, ProductCommand.class));
             }
             case DEACTIVATE -> {
                 Product product = productUseCase.getProductByProductCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("?곹뭹??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
+                        .orElseThrow(() -> new IllegalArgumentException("?��???��??????�뒿??�떎. ?�붾? "
                                 + request.getTargetKey()));
                 productUseCase.deactivateProduct(product.getId());
             }
@@ -109,12 +109,13 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private <T> T readPayload(MasterDataChangeRequest request, Class<T> payloadType) {
         if (request.getPayloadJson() == null || request.getPayloadJson().isBlank()) {
-            throw new IllegalArgumentException("?앹꽦/?섏젙 蹂寃쎌슂泥?뿉??payloadJson???꾩슂?⑸땲??");
+            throw new IllegalArgumentException("??�꽦/??�젙 �쎌?��???payloadJson???��??�땲??");
         }
         try {
             return objectMapper.readValue(request.getPayloadJson(), payloadType);
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("payloadJson??" + payloadType.getSimpleName() + "濡?蹂?섑븷 ???놁뒿?덈떎.", e);
+            throw new IllegalArgumentException("payloadJson??" + payloadType.getSimpleName() + "?��??�븷 ????�뒿??�떎.", e);
         }
     }
 }
+

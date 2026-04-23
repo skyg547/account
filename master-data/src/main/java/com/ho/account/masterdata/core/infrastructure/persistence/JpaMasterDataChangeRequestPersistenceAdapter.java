@@ -2,7 +2,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
-import com.ho.account.masterdata.core.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -31,3 +31,4 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
         return repository.save(request);
     }
 }
+

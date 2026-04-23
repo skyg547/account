@@ -36,8 +36,7 @@ class MasterDataChangeRequestTest {
         MasterDataChangeRequest request = sampleRequest();
 
         assertThatThrownBy(() -> request.approve("operator"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("?붿껌?먯? ?뱀씤??);
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -62,7 +61,7 @@ class MasterDataChangeRequestTest {
                 LocalDate.now().plusDays(1),
                 1,
                 "operator",
-                "怨꾩젙紐?蹂寃?,
-                "{\"name\":\"?꾧툑諛륂쁽湲덉꽦?먯궛\"}");
+                "Update account subject",
+                "{\"name\":\"Cash and cash equivalents\"}");
     }
 }

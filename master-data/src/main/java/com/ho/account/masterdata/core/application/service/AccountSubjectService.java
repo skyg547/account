@@ -2,9 +2,9 @@ package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
-import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
-import com.ho.account.masterdata.core.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 怨꾩젙怨쇰ぉ 留덉뒪???곗씠?곗뿉 ???鍮꾩쫰?덉뒪 濡쒖쭅??泥섎━?섎뒗 ?쒕퉬???대옒?ㅼ엯?덈떎.
+ * ?��?�懰??�덉????�씠?�뿉 ??????��??�뒪 ��??��???�뒗 ??�퉬???????�엯??�떎.
  */
 @Service
 @Transactional
@@ -25,20 +25,20 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ?덈줈??怨꾩젙怨쇰ぉ???앹꽦?⑸땲??
-     * @param requestDto ?앹꽦??怨꾩젙怨쇰ぉ ?뺣낫媛 ?닿릿 DTO
-     * @return ??λ맂 怨꾩젙怨쇰ぉ ?뷀떚??
+     * ??�줈???��?�懰?????�꽦??�땲??
+     * @param requestDto ??�꽦???��?�懰???���� ??�� DTO
+     * @return ?????��?�懰??????
      */
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
         if (accountSubjectPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("?대? 議댁옱?섎뒗 怨꾩젙 肄붾뱶?낅땲?? " + command.code());
+            throw new IllegalArgumentException("??? �댁???�뒗 ?��???�붾??�땲?? " + command.code());
         }
 
         AccountSubject accountSubject = command.toEntity();
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("?곸쐞 怨꾩젙??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
+                    .orElseThrow(() -> new IllegalArgumentException("?�쐞 ?��???��??????�뒿??�떎. ?�붾? " + command.parentCode()));
             accountSubject.setParent(parent);
         }
 
@@ -48,8 +48,8 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * 肄붾뱶濡??뱀젙 怨꾩젙怨쇰ぉ??議고쉶?⑸땲??
-     * @param code 議고쉶??怨꾩젙 肄붾뱶
+     * ?�붾�濡?????��?�懰???�고???�땲??
+     * @param code �고????��???�붾?
      * @return Optional<AccountSubject>
      */
     @Transactional(readOnly = true)
@@ -58,8 +58,8 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ?꾩옱 ?쒖젏(today)???좏슚??紐⑤뱺 怨꾩젙怨쇰ぉ??議고쉶?⑸땲??
-     * @return ?좏슚??怨꾩젙怨쇰ぉ 由ъ뒪??
+     * ?�� ??�젏(today)???�슚??�⑤??��?�懰???�고???�땲??
+     * @return ?�슚???��?�懰???�ъ뒪??
      */
     @Transactional(readOnly = true)
     public List<AccountSubject> findAllActiveAccountSubjects() {
@@ -69,18 +69,18 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * 怨꾩젙怨쇰ぉ ?뺣낫瑜??섏젙?⑸땲??
-     * @param code ?섏젙??怨꾩젙 肄붾뱶
-     * @param requestDto ?섏젙???댁슜???닿릿 DTO
-     * @return ?섏젙??怨꾩젙怨쇰ぉ ?뷀떚??
+     * ?��?�懰???��????�젙??�땲??
+     * @param code ??�젙???��???�붾?
+     * @param requestDto ??�젙????�슜????�� DTO
+     * @return ??�젙???��?�懰??????
      */
     public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
         AccountSubject account = accountSubjectPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("?��?�懰???��??????�뒿??�떎. ?�붾? " + code));
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("?곸쐞 怨꾩젙??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
+                    .orElseThrow(() -> new IllegalArgumentException("?�쐞 ?��???��??????�뒿??�떎. ?�붾? " + command.parentCode()));
             account.setParent(parent);
         } else {
             account.setParent(null);
@@ -97,15 +97,16 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ?뱀젙 怨꾩젙怨쇰ぉ??鍮꾪솢?깊솕?⑸땲?? (?쇰━????젣)
-     * @param code 鍮꾪솢?깊솕??怨꾩젙 肄붾뱶
+     * ????��?�懰?????��??�솕??�땲?? (??�━??????
+     * @param code ??��??�솕???��???�붾?
      */
     public void deactivateAccountSubject(String code) {
         AccountSubject account = accountSubjectPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("?��?�懰???��??????�뒿??�떎. ?�붾? " + code));
 
         MasterDataValidityPolicy.closeIfActive(account::getValidTo, account::setValidTo);
         accountSubjectPersistencePort.save(account);
     }
 }
+
 

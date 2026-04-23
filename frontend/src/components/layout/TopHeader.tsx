@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { Bell, Search, User, Moon, Sun, LayoutGrid } from 'lucide-react';
 import { useNav, NavCategory } from '@/context/NavContext';
@@ -45,6 +47,10 @@ export default function TopHeader() {
           className={activeCategory === 'BANKING' ? styles.active : ''} 
           onClick={() => handleCategoryClick('BANKING')}
         >은행업무</button>
+        <button 
+          className={activeCategory === 'RISK' ? styles.active : ''} 
+          onClick={() => handleCategoryClick('RISK')}
+        >리스크관리</button>
         <button 
           className={activeCategory === 'MASTER' ? styles.active : ''} 
           onClick={() => handleCategoryClick('MASTER')}

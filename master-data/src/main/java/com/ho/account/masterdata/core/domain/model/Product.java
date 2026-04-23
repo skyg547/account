@@ -5,8 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?ê³¹ë­¹(Product) ï§ë‰ë’ª???ë·€ë–š??
- * ?ë¨®â„“ è«›?æ´Ñ‰â„“ åª›Â€?Î½ë¸³ ?ê³¹ë­¹ ?ë¨®ë’— ?ì’•í‰¬?ã…»? ?ëº¤ì“½?â‘¸ë•²??
+ * ?¹ë?(Product) ë‰???????
+ * ??„“ ??´Ñ‰â„“ ›Â???¹ë? ??’— ??•í‰¬??? ?“½??¸ë•²??
  */
 @Entity
 @Table(name = "products")
@@ -17,50 +17,50 @@ public class Product {
     private Long id;
 
     /**
-     * ?ê³¹ë­¹ è‚„ë¶¾ë±¶
+     * ?¹ë? ?„ë¶¾?
      */
     @Column(nullable = false, unique = true, length = 50)
     private String productCode;
 
     /**
-     * ?ê³¹ë­¹ï§?
+     * ?¹ë??
      */
     @Column(nullable = false, length = 200)
     private String name;
 
     /**
-     * ?ê³¹ë­¹ ?ã…»ì±¸
+     * ?¹ë? ??»ì±¸
      */
     @Column(length = 500)
     private String description;
 
     /**
-     * ?â‘¥ì (?? EA, KG, L)
+     * ?? (?? EA, KG, L)
      */
     @Column(length = 20)
     private String unitOfMeasure;
 
     /**
-     * æ¹²ê³•ë‚¯ ?ë¨®â„“ åª›Â€å¯ƒ?
+     * ²ê³•????„“ ›Â?
      */
     @Column(nullable = false)
     private Double price;
 
     /**
-     * ?ê³¹ë­¹ ?Â€??(?? PHYSICAL, SERVICE, DIGITAL)
+     * ?¹ë? ????(?? PHYSICAL, SERVICE, DIGITAL)
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private ProductType productType;
 
     /**
-     * ?ì¢ìŠš ?ì’–ì˜‰??(SCD2)
+     * ?ìŠš ??–ì˜‰??(SCD2)
      */
     @Column(nullable = false)
     private LocalDate validFrom;
 
     /**
-     * ?ì¢ìŠš é†«ë‚…ì¦º??(SCD2)
+     * ?ìŠš ?‚…??(SCD2)
      */
     @Column(nullable = false)
     private LocalDate validTo;
@@ -79,7 +79,7 @@ public class Product {
         PHYSICAL, SERVICE, DIGITAL
     }
 
-    // Getter è«›?Setter
+    // Getter ?Setter
     public Long getId() {
         return id;
     }

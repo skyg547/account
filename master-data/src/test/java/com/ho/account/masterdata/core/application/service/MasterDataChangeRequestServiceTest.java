@@ -5,7 +5,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
-import com.ho.account.masterdata.core.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +29,8 @@ class MasterDataChangeRequestServiceTest {
                 LocalDate.now().plusDays(3),
                 1,
                 "operator",
-                "?좉퇋 嫄곕옒泥?,
-                "{\"businessPartnerName\":\"?뚯뒪??嫄곕옒泥?"}"));
+                "Create vendor partner",
+                "{\"businessPartnerName\":\"Acme Vendor\"}"));
 
         MasterDataChangeRequest approved = service.approve(requested.getId(), "manager");
 
@@ -58,7 +58,7 @@ class MasterDataChangeRequestServiceTest {
                 LocalDate.now(),
                 1,
                 "operator",
-                "利됱떆 ?곸슜",
+                "Update department name",
                 "{}"));
         service.approve(requested.getId(), "manager");
 
@@ -72,10 +72,10 @@ class MasterDataChangeRequestServiceTest {
     void appliesOnlyApprovedChangesWhoseEffectiveDateHasArrived() {
         MasterDataChangeRequest due = service.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.DEPARTMENT, "D-DUE", ChangeType.UPDATE, LocalDate.now(), 1,
-                "operator", "?꾨옒", "{}"));
+                "operator", "Due change", "{}"));
         MasterDataChangeRequest future = service.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.DEPARTMENT, "D-FUTURE", ChangeType.UPDATE, LocalDate.now().plusDays(1), 1,
-                "operator", "誘몃룄??, "{}"));
+                "operator", "Future change", "{}"));
         service.approve(due.getId(), "manager");
         service.approve(future.getId(), "manager");
 
@@ -87,7 +87,7 @@ class MasterDataChangeRequestServiceTest {
 
     private MasterDataChangeRequestCommand command(String key) {
         return new MasterDataChangeRequestCommand(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE,
-                LocalDate.now().plusDays(1), 1, "operator", "遺??蹂寃?, "{}");
+                LocalDate.now().plusDays(1), 1, "operator", "Routine department change", "{}");
     }
 
     private static final class InMemoryPort implements MasterDataChangeRequestPersistencePort {
@@ -133,3 +133,4 @@ class MasterDataChangeRequestServiceTest {
         }
     }
 }
+

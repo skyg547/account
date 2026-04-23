@@ -7,8 +7,8 @@ import java.util.List; // List import
 import com.ho.account.common.Masked;
 
 /**
- * 嫄곕옒泥?Business Partner) ?뷀떚??
- * 怨좉컼(Customer), 怨듦툒??Vendor), ???Bank) ???뚯궗??紐⑤뱺 嫄곕옒 ?곷?諛⑹쓣 ?듯빀 愿由ы븿.
+ * �곕?��?Business Partner) ????
+ * ?��?Customer), ?��???Vendor), ????Bank) ?????��??�⑤?�곕????�⑹?????? ?��?�ы븿.
  */
 @Entity
 @Table(name = "business_partners")
@@ -16,26 +16,26 @@ public class BusinessPartner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // ?대? ?앸퀎??
+    private Long id; // ??? ??��??
 
     @Column(nullable = false, unique = true, length = 20)
-    private String businessPartnerCode; // 嫄곕옒泥?肄붾뱶
+    private String businessPartnerCode; // �곕?��??�붾?
 
     @Column(nullable = false, length = 100)
-    private String businessPartnerName; // 嫄곕옒泥섎챸
+    private String businessPartnerName; // �곕?��?�챸
 
     @Masked(pattern = "REG_NO")
     @Column(length = 20)
-    private String registrationNumber; // ?ъ뾽?먮쾲??
+    private String registrationNumber; // ????��??
 
     @Column(length = 50)
     private String ceoName;
 
     @Column(length = 50)
-    private String businessType; // ?낇깭
+    private String businessType; // ??�깭
 
     @Column(length = 50)
-    private String businessItem; // 醫낅ぉ
+    private String businessItem; // ?��??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -101,7 +101,7 @@ public class BusinessPartner {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public Long getId() {
         return id;
     }

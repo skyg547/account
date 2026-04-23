@@ -6,8 +6,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?섏쑉 ?뺣낫 ?뷀떚??
- * ?뱀젙 ?쇱옄???곸슜?섎뒗 ?듯솕 媛꾩쓽 ?섏쑉??愿由ы빀?덈떎.
+ * ??�쑉 ?�� ????
+ * ?????�옄???�슜??�뒗 ???�� �꾩????�쑉???��?�ы�???�떎.
  */
 @Entity
 @Table(name = "exchange_rates",
@@ -20,17 +20,17 @@ public class ExchangeRate {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "from_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency fromCurrency; // 湲곗? ?듯솕 (?? USD)
+    private Currency fromCurrency; // �곗? ???�� (?? USD)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "to_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency toCurrency; // ????듯솕 (?? KRW)
+    private Currency toCurrency; // ???????�� (?? KRW)
 
     @Column(nullable = false, precision = 19, scale = 8)
-    private BigDecimal rate; // ?섏쑉 (?? 1 USD = 1300 KRW)
+    private BigDecimal rate; // ??�쑉 (?? 1 USD = 1300 KRW)
 
     @Column(nullable = false)
-    private LocalDate effectiveDate; // ?섏쑉 ?곸슜 ?쒖옉??
+    private LocalDate effectiveDate; // ??�쑉 ?�슜 ??�옉??
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,7 +40,7 @@ public class ExchangeRate {
         createdAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public Long getId() {
         return id;
     }

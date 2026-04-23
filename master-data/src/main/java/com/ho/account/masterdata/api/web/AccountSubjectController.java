@@ -1,9 +1,8 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.api.dto.AccountSubjectDto;
 import com.ho.account.masterdata.api.dto.AccountSubjectRequestDto;
-import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;
+import com.ho.account.masterdata.core.application.port.in.AccountSubjectUseCase;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,8 +22,8 @@ public class AccountSubjectController {
     @PostMapping
     public ResponseEntity<AccountSubjectDto> createAccountSubject(@RequestBody AccountSubjectRequestDto requestDto) {
         try {
-            AccountSubject createdAccount = accountSubjectUseCase.createAccountSubject(requestDto.toCommand());
-            return ResponseEntity.ok(AccountSubjectDto.fromEntity(createdAccount));
+            return ResponseEntity.ok(AccountSubjectDto.fromEntity(
+                    accountSubjectUseCase.createAccountSubject(requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
@@ -47,8 +46,8 @@ public class AccountSubjectController {
     @PutMapping("/{code}")
     public ResponseEntity<AccountSubjectDto> updateAccountSubject(@PathVariable String code, @RequestBody AccountSubjectRequestDto requestDto) {
         try {
-            AccountSubject updatedAccount = accountSubjectUseCase.updateAccountSubject(code, requestDto.toCommand());
-            return ResponseEntity.ok(AccountSubjectDto.fromEntity(updatedAccount));
+            return ResponseEntity.ok(
+                    AccountSubjectDto.fromEntity(accountSubjectUseCase.updateAccountSubject(code, requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
@@ -64,3 +63,4 @@ public class AccountSubjectController {
         }
     }
 }
+

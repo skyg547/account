@@ -1,0 +1,59 @@
+### 1. 서비스 상태 점검 (Health Check)
+GET http://localhost:8083/actuator/health
+
+### ------------------------------------------------------------
+### [ 고정자산 API 테스트 ]
+### ------------------------------------------------------------
+
+### 2. 신규 고정자산 등록 (취득 인식)
+POST http://localhost:8083/api/fixed-assets
+Content-Type: application/json
+
+{
+  "assetCode": "FA-2026-0001",
+  "assetName": "MacBook Pro 16 M3",
+  "accountSubjectCode": "12301",
+  "accumulatedAccountCode": "12302",
+  "expenseAccountCode": "80201",
+  "departmentCode": "DEPT-001",
+  "acquisitionDate": "2026-04-23",
+  "acquisitionCost": 4500000,
+  "usefulLife": 48,
+  "depreciationMethod": "STRAIGHT_LINE",
+  "residualValue": 0
+}
+
+### 3. 특정 고정자산 상세 조회 (ID 1번)
+GET http://localhost:8083/api/fixed-assets/1
+
+### 4. 월별 감가상각 수동 실행 (2026년 4월말 기준)
+POST http://localhost:8083/api/fixed-assets/depreciate/2026-04-30
+
+### ------------------------------------------------------------
+### [ IFRS 16 리스 회계 API 테스트 ]
+### ------------------------------------------------------------
+
+### 5. 리스 계약 등록 (사용권자산/리스부채 초기 인식)
+POST http://localhost:8083/api/ifrs16/leases
+Content-Type: application/json
+
+{
+  "contractNo": "LEASE-2026-X01",
+  "contractName": "여의도 본사 사무실 임차",
+  "lessorBusinessPartnerCode": "BP-001",
+  "startDate": "2026-04-01",
+  "endDate": "2028-03-31",
+  "monthlyPayment": 5000000,
+  "discountRate": 4.5,
+  "initialRightOfUseAssetValue": 110000000,
+  "initialLeaseLiabilityValue": 105000000,
+  "departmentCode": "DEPT-001",
+  "expenseAccountCode": "80202",
+  "ifrs16Applicable": true
+}
+
+### 6. 전체 리스 계약 현황 조회
+GET http://localhost:8083/api/ifrs16/leases
+
+### 7. 리스 월 결산 처리 (2026년 4월말 기준)
+POST http://localhost:8083/api/ifrs16/leases/process-monthly/2026-04-30

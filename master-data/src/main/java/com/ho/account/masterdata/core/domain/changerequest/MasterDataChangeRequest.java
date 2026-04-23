@@ -12,10 +12,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 留덉뒪??蹂寃쎌슂泥??꾨찓?몄엯?덈떎.
+ * Controlled master-data change request.
  *
- * <p>留덉뒪???곗씠?곕뒗 ?꾪몴, ?먯옣, 蹂닿퀬媛 怨듯넻?쇰줈 誘욧퀬 ?곕뒗 湲곗??낅땲?? 洹몃옒???댁쁺?먭? 諛붾줈
- * 媛믪쓣 諛붽씀吏 ?딄퀬 "?붿껌 -> ?뱀씤/諛섎젮 -> ?곸슜" ?곹깭瑜??④꺼??媛먯궗 異붿쟻??媛?ν빀?덈떎.</p>
+ * <p>The aggregate keeps approval workflow and audit state for sensitive master-data changes.
+ * It enforces the REQUESTED -> APPROVED/REJECTED -> APPLIED lifecycle and separation of
+ * duties between requester and approver.</p>
  */
 @Entity
 @Table(name = "master_data_change_requests")
@@ -68,12 +69,12 @@ public class MasterDataChangeRequest {
 
     public MasterDataChangeRequest(MasterDataType targetType, String targetKey, ChangeType changeType,
             LocalDate effectiveDate, Integer requestedVersion, String requestedBy, String reason, String payloadJson) {
-        this.targetType = require(targetType, "???留덉뒪???좏삎? ?꾩닔?낅땲??");
-        this.targetKey = requireText(targetKey, "????ㅻ뒗 ?꾩닔?낅땲??");
-        this.changeType = require(changeType, "蹂寃??좏삎? ?꾩닔?낅땲??");
-        this.effectiveDate = require(effectiveDate, "?곸슜?쇱? ?꾩닔?낅땲??");
+        this.targetType = require(targetType, "Target type is required.");
+        this.targetKey = requireText(targetKey, "Target key is required.");
+        this.changeType = require(changeType, "Change type is required.");
+        this.effectiveDate = require(effectiveDate, "Effective date is required.");
         this.requestedVersion = requirePositiveVersion(requestedVersion);
-        this.requestedBy = requireText(requestedBy, "?붿껌?먮뒗 ?꾩닔?낅땲??");
+        this.requestedBy = requireText(requestedBy, "Requester is required.");
         this.reason = reason;
         this.payloadJson = payloadJson;
         this.status = ChangeStatus.REQUESTED;
@@ -81,10 +82,10 @@ public class MasterDataChangeRequest {
     }
 
     public void approve(String approver) {
-        ensureRequested("?뱀씤? REQUESTED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
-        String normalizedApprover = requireText(approver, "?뱀씤?먮뒗 ?꾩닔?낅땲??");
+        ensureRequested("Only REQUESTED changes can be approved.");
+        String normalizedApprover = requireText(approver, "Approver is required.");
         if (requestedBy.equals(normalizedApprover)) {
-            throw new IllegalStateException("?붿껌?먯? ?뱀씤?먮뒗 媛숈쓣 ???놁뒿?덈떎.");
+            throw new IllegalStateException("Requester and approver must be different users.");
         }
         this.approvedBy = normalizedApprover;
         this.approvedAt = LocalDateTime.now();
@@ -92,8 +93,8 @@ public class MasterDataChangeRequest {
     }
 
     public void reject(String approver, String rejectReason) {
-        ensureRequested("諛섎젮??REQUESTED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
-        this.approvedBy = requireText(approver, "諛섎젮?먮뒗 ?꾩닔?낅땲??");
+        ensureRequested("Only REQUESTED changes can be rejected.");
+        this.approvedBy = requireText(approver, "Rejecter is required.");
         this.approvedAt = LocalDateTime.now();
         this.reason = rejectReason;
         this.status = ChangeStatus.REJECTED;
@@ -101,7 +102,7 @@ public class MasterDataChangeRequest {
 
     public void markApplied() {
         if (status != ChangeStatus.APPROVED) {
-            throw new IllegalStateException("?곸슜 ?꾨즺 泥섎━??APPROVED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
+            throw new IllegalStateException("Only APPROVED changes can be applied.");
         }
         this.status = ChangeStatus.APPLIED;
     }
@@ -132,7 +133,7 @@ public class MasterDataChangeRequest {
 
     private static Integer requirePositiveVersion(Integer version) {
         if (version == null || version < 1) {
-            throw new IllegalArgumentException("?붿껌 踰꾩쟾? 1 ?댁긽?댁뼱???⑸땲??");
+            throw new IllegalArgumentException("Requested version must be 1 or greater.");
         }
         return version;
     }

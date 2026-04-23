@@ -12,26 +12,14 @@ public class DepartmentRequestDto {
     private LocalDate validFrom;
     private LocalDate validTo;
     
-    // Default constructor for JSON deserialization
     public DepartmentRequestDto() {
-    }
-
-    public Department toEntity() {
-        Department entity = new Department();
-        entity.setCode(this.code);
-        entity.setName(this.name);
-        // parent will be set in the service
-        entity.setType(this.type);
-        entity.setValidFrom(this.validFrom);
-        entity.setValidTo(this.validTo);
-        return entity;
     }
 
     public DepartmentCommand toCommand() {
         return new DepartmentCommand(code, name, parentCode, type, validFrom, validTo);
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 

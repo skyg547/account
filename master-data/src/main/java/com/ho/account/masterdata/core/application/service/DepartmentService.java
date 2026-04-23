@@ -2,9 +2,9 @@ package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
-import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
+import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
-import com.ho.account.masterdata.core.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ public class DepartmentService implements DepartmentUseCase {
 
     public Department createDepartment(DepartmentCommand command) {
         if (departmentPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("?대? 議댁옱?섎뒗 遺??肄붾뱶?낅땲?? " + command.code());
+            throw new IllegalArgumentException("??? �댁???�뒗 ?��???�붾??�땲?? " + command.code());
         }
 
         Department department = command.toEntity();
@@ -31,7 +31,7 @@ public class DepartmentService implements DepartmentUseCase {
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("?곸쐞 遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
+                            () -> new IllegalArgumentException("?�쐞 ?��??? ��??????�뒿??�떎. ?�붾? " + command.parentCode()));
             department.setParent(parent);
         }
 
@@ -64,12 +64,12 @@ public class DepartmentService implements DepartmentUseCase {
 
     public Department updateDepartment(String code, DepartmentCommand command) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("?��??? ��??????�뒿??�떎. ?�붾? " + code));
 
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("?곸쐞 遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
+                            () -> new IllegalArgumentException("?�쐞 ?��??? ��??????�뒿??�떎. ?�붾? " + command.parentCode()));
             department.setParent(parent);
         } else {
             department.setParent(null);
@@ -83,9 +83,10 @@ public class DepartmentService implements DepartmentUseCase {
 
     public void deactivateDepartment(String code) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("?��??? ��??????�뒿??�떎. ?�붾? " + code));
 
         MasterDataValidityPolicy.closeIfActive(department::getValidTo, department::setValidTo);
         departmentPersistencePort.save(department);
     }
 }
+

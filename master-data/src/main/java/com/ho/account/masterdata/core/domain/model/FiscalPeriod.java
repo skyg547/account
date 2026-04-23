@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?뚭퀎 罹섎┛??(留덇컧 ?곹깭 愿由ъ슜)
+ * ?????��???(�덇??�깭 ?��?�ъ슜)
  */
 @Entity
 @Table(name = "fiscal_periods", uniqueConstraints = {
@@ -60,7 +60,7 @@ public class FiscalPeriod {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public Long getId() {
         return id;
     }

@@ -46,7 +46,7 @@ public class BusinessPartnerAccount {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter ?Setter
     public Long getId() {
         return id;
     }

@@ -13,6 +13,22 @@ dependencyManagement {
     }
 }
 
+sourceSets {
+    main {
+        java {
+            srcDirs = ['core/src/main/java', 'api/src/main/java', 'batch/src/main/java']
+        }
+        resources {
+            srcDirs = ['core/src/main/resources', 'api/src/main/resources', 'batch/src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['core/src/test/java', 'api/src/test/java', 'batch/src/test/java']
+        }
+    }
+}
+
 dependencies {
     api project(':contracts')
     implementation project(':shared-kernel')

@@ -7,32 +7,35 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.time.LocalDate;
 
+/**
+ * 상품 등록/수정 요청 DTO
+ */
 public class ProductRequestDto {
 
-    @NotBlank(message = "?곹뭹 肄붾뱶???꾩닔?낅땲??")
+    @NotBlank(message = "상품 코드는 필수입니다.")
     private String productCode;
 
-    @NotBlank(message = "?곹뭹紐낆? ?꾩닔?낅땲??")
+    @NotBlank(message = "상품 명칭은 필수입니다.")
     private String name;
 
     private String description;
 
     private String unitOfMeasure;
 
-    @NotNull(message = "媛寃⑹? ?꾩닔?낅땲??")
-    @PositiveOrZero(message = "媛寃⑹? 0 ?댁긽?댁뼱???⑸땲??")
+    @NotNull(message = "가격은 필수입니다.")
+    @PositiveOrZero(message = "가격은 0원 이상이어야 합니다.")
     private Double price;
 
-    @NotNull(message = "?곹뭹 ??낆? ?꾩닔?낅땲??")
+    @NotNull(message = "상품 유형은 필수입니다.")
     private Product.ProductType productType;
 
-    @NotNull(message = "?좏슚 ?쒖옉?쇱? ?꾩닔?낅땲??")
+    @NotNull(message = "유효 시작일은 필수입니다.")
     private LocalDate validFrom;
 
-    @NotNull(message = "?좏슚 醫낅즺?쇱? ?꾩닔?낅땲??")
+    @NotNull(message = "유효 종료일은 필수입니다.")
     private LocalDate validTo;
 
-    // Getter 諛?Setter
+    // Getter & Setter
     public String getProductCode() {
         return productCode;
     }

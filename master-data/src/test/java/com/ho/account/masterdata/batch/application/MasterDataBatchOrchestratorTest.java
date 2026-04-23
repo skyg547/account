@@ -1,13 +1,14 @@
 package com.ho.account.masterdata.batch.application;
 
+import com.ho.account.masterdata.core.application.pipeline.MasterDataValidityReportPipeline;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.model.Product;
-import com.ho.account.masterdata.core.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -20,11 +21,12 @@ class MasterDataBatchOrchestratorTest {
     @Test
     void createsDailyValidityReportFromPorts() {
         LocalDate asOfDate = LocalDate.of(2026, 4, 20);
-        MasterDataBatchOrchestrator orchestrator = new MasterDataBatchOrchestrator(
+        MasterDataValidityReportPipeline pipeline = new MasterDataValidityReportPipeline(
                 new FakeAccountSubjectPort(),
                 new FakeDepartmentPort(),
                 new FakeProductPort(),
                 new FakeBusinessPartnerPort());
+        MasterDataBatchOrchestrator orchestrator = new MasterDataBatchOrchestrator(pipeline);
 
         MasterDataBatchReport report = orchestrator.createDailyValidityReport(asOfDate);
 
@@ -158,3 +160,4 @@ class MasterDataBatchOrchestratorTest {
         }
     }
 }
+

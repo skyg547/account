@@ -3,7 +3,7 @@ package com.ho.account.masterdata.api.web;
 import com.ho.account.masterdata.api.dto.MasterDataChangeDecisionDto;
 import com.ho.account.masterdata.api.dto.MasterDataChangeRequestCreateDto;
 import com.ho.account.masterdata.api.dto.MasterDataChangeRequestDto;
-import com.ho.account.masterdata.core.application.usecase.MasterDataChangeRequestUseCase;
+import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,3 +62,4 @@ public class MasterDataChangeRequestController {
                 .toList();
     }
 }
+

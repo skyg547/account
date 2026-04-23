@@ -2,7 +2,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
-import com.ho.account.masterdata.core.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -51,3 +51,4 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
         return businessPartnerRepository.save(businessPartner);
     }
 }
+

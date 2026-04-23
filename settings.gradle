@@ -1,2 +1,2 @@
 rootProject.name = 'account'
-include 'app', 'contracts', 'shared-kernel', 'master-data', 'governance', 'journal-ledger:core', 'journal-ledger:api', 'journal-ledger:batch', 'closing', 'loan', 'reconciliation', 'receivable', 'payable', 'asset-lease', 'tax', 'expenditure-resolution', 'reporting', 'discovery', 'gateway', 'config-server', 'auth'
+include 'app', 'contracts', 'shared-kernel', 'master-data', 'governance', 'journal-ledger:core', 'journal-ledger:api', 'journal-ledger:batch', 'closing', 'loan:core', 'loan:api', 'loan:batch', 'reconciliation', 'receivable', 'payable', 'asset-lease', 'tax', 'expenditure-resolution', 'reporting', 'discovery', 'gateway', 'config-server', 'auth'

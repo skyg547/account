@@ -1,20 +1,20 @@
 package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
-import com.ho.account.masterdata.core.application.usecase.MasterDataChangeRequestUseCase;
+import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
-import com.ho.account.masterdata.core.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 留덉뒪??蹂寃쎄?由??좎뒪耳?댁뒪 ?쒕퉬?ㅼ엯?덈떎.
+ * �덉???�쎄????�뒪?��??�뒪 ??�퉬??�엯??�떎.
  *
- * <p>???쒕퉬?ㅻ뒗 蹂寃쎌슂泥?쓽 ?곹깭 ?먮쫫留?愿由ы빀?덈떎. ?ㅼ젣 怨꾩젙怨쇰ぉ/嫄곕옒泥?row瑜?諛붽씀???묒뾽?
- * ?뱀씤???붿껌???곸슜?섎뒗 蹂꾨룄 application service ?먮뒗 batch媛 ?대떦?섎룄濡?遺꾨━?⑸땲??</p>
+ * <p>????�퉬??�뒗 �쎌?��????�깭 ????��?�ы�???�떎. ??�젣 ?��?�懰??�곕?��?row??�붽????�뾽??
+ * ?????�껌???�슜??�뒗 �꾨?application service ??�� batch�� ?????�룄??�꾨???�땲??</p>
  */
 @Service
 @Transactional
@@ -68,7 +68,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     public MasterDataChangeRequest applyApprovedChange(Long requestId) {
         MasterDataChangeRequest request = findRequired(requestId);
         if (!request.isReadyToApply(LocalDate.now())) {
-            throw new IllegalStateException("?뱀씤 ?곹깭?닿퀬 ?곸슜?쇱씠 ?꾨옒???붿껌留??곸슜?????덉뒿?덈떎.");
+            throw new IllegalStateException("????�깭??��??�슜??�씠 ?��???�껌??�슜??????�뒿??�떎.");
         }
         changeApplier.apply(request);
         request.markApplied();
@@ -92,6 +92,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
 
     private MasterDataChangeRequest findRequired(Long requestId) {
         return persistencePort.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("留덉뒪??蹂寃쎌슂泥?쓣 李얠쓣 ???놁뒿?덈떎. ID: " + requestId));
+                .orElseThrow(() -> new IllegalArgumentException("�덉???�쎌?��???��??????�뒿??�떎. ID: " + requestId));
     }
 }
+

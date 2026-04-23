@@ -11,6 +11,7 @@ export type NavCategory =
   | 'ACCOUNTING'  // 재무업무 (전표, 원장, 결산)
   | 'OPERATIONS'  // 재무운영 (기업 실무, 채권/채무)
   | 'BANKING'     // 은행특화
+  | 'RISK'        // 리스크관리 (Basel III, IFRS 9)
   | 'MASTER'      // 기준관리
   | 'ADMIN';      // 시스템관리
 

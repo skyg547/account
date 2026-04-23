@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?ë“¯ì†• ?ëº£ë‚« ?ë·€ë–š??(ISO 4217)
+ * ???†• ?‚« ????(ISO 4217)
  */
 @Entity
 @Table(name = "currencies")
@@ -52,7 +52,7 @@ public class Currency {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter è«›?Setter
+    // Getter ?Setter
     public String getCurrencyCode() {
         return currencyCode;
     }

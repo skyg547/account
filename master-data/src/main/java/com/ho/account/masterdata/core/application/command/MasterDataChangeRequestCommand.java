@@ -5,7 +5,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import java.time.LocalDate;
 
 /**
- * 留덉뒪??蹂寃쎌슂泥??앹꽦 command?낅땲??
+ * �덉???�쎌?��???�꽦 command??�땲??
  */
 public record MasterDataChangeRequestCommand(
         MasterDataType targetType,

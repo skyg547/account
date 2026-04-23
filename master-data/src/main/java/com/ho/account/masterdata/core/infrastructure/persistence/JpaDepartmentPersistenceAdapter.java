@@ -2,7 +2,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
-import com.ho.account.masterdata.core.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -36,3 +36,4 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
         return departmentRepository.save(department);
     }
 }
+

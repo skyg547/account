@@ -1,9 +1,8 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.api.dto.ProductDto;
 import com.ho.account.masterdata.api.dto.ProductRequestDto;
-import com.ho.account.masterdata.core.application.usecase.ProductUseCase;
+import com.ho.account.masterdata.core.application.port.in.ProductUseCase;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,8 +23,7 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody ProductRequestDto requestDto) {
         try {
-            Product createdProduct = productUseCase.createProduct(requestDto.toCommand());
-            return ResponseEntity.ok(ProductDto.fromEntity(createdProduct));
+            return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.createProduct(requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -48,8 +46,7 @@ public class ProductController {
     @PutMapping("/{id}")
     public ResponseEntity<ProductDto> updateProduct(@PathVariable Long id, @Valid @RequestBody ProductRequestDto requestDto) {
         try {
-            Product updatedProduct = productUseCase.updateProduct(id, requestDto.toCommand());
-            return ResponseEntity.ok(ProductDto.fromEntity(updatedProduct));
+            return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.updateProduct(id, requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -65,3 +62,4 @@ public class ProductController {
         }
     }
 }
+

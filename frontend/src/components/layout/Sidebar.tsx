@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import Link from 'next/link';
 import { 
@@ -86,6 +88,16 @@ const menuItems = [
       { icon: TrendingUp, label: '내부 금리(FTP)', href: '/finance/banking/ftp' },
       { icon: CalendarCheck, label: '은행 일계표', href: '/finance/banking/daily-summary' },
       { icon: ShieldAlert, label: '감사 모니터링', href: '/finance/banking/audit' },
+    ]
+  },
+  { 
+    category: 'RISK',
+    group: '리스크 관리', 
+    items: [
+      { icon: BarChart3, label: 'Basel III RWA 현황', href: '/risk/basel-iii/rwa' },
+      { icon: Activity, label: 'IFRS 9 ECL 시뮬레이션', href: '/risk/ifrs-9/ecl' },
+      { icon: TrendingUp, label: 'ALM / 금리 리스크', href: '/risk/alm/interest' },
+      { icon: ShieldCheck, label: '유동성 리스크(LCR)', href: '/risk/liquidity' },
     ]
   },
   { 
