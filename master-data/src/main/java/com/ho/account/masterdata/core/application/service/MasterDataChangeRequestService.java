@@ -11,10 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 마스터 변경관리 유스케이스 서비스입니다.
+ * 留덉뒪??蹂寃쎄?由??좎뒪耳?댁뒪 ?쒕퉬?ㅼ엯?덈떎.
  *
- * <p>이 서비스는 변경요청의 상태 흐름만 관리합니다. 실제 계정과목/거래처 row를 바꾸는 작업은
- * 승인된 요청을 적용하는 별도 application service 또는 batch가 담당하도록 분리합니다.</p>
+ * <p>???쒕퉬?ㅻ뒗 蹂寃쎌슂泥?쓽 ?곹깭 ?먮쫫留?愿由ы빀?덈떎. ?ㅼ젣 怨꾩젙怨쇰ぉ/嫄곕옒泥?row瑜?諛붽씀???묒뾽?
+ * ?뱀씤???붿껌???곸슜?섎뒗 蹂꾨룄 application service ?먮뒗 batch媛 ?대떦?섎룄濡?遺꾨━?⑸땲??</p>
  */
 @Service
 @Transactional
@@ -68,7 +68,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     public MasterDataChangeRequest applyApprovedChange(Long requestId) {
         MasterDataChangeRequest request = findRequired(requestId);
         if (!request.isReadyToApply(LocalDate.now())) {
-            throw new IllegalStateException("승인 상태이고 적용일이 도래한 요청만 적용할 수 있습니다.");
+            throw new IllegalStateException("?뱀씤 ?곹깭?닿퀬 ?곸슜?쇱씠 ?꾨옒???붿껌留??곸슜?????덉뒿?덈떎.");
         }
         changeApplier.apply(request);
         request.markApplied();
@@ -92,6 +92,6 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
 
     private MasterDataChangeRequest findRequired(Long requestId) {
         return persistencePort.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("마스터 변경요청을 찾을 수 없습니다. ID: " + requestId));
+                .orElseThrow(() -> new IllegalArgumentException("留덉뒪??蹂寃쎌슂泥?쓣 李얠쓣 ???놁뒿?덈떎. ID: " + requestId));
     }
 }

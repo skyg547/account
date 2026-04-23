@@ -1,0 +1,23 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.titleArea h2 { font-size: 1.8rem; font-weight: 800; }
+.filterBar { display: flex; gap: 12px; align-items: center; }
+.datePicker { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--card-border); }
+.datePicker input { background: transparent; border: none; color: inherit; outline: none; font-family: monospace; }
+.searchBtn { background: var(--primary); color: white; padding: 8px 20px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.printBtn { background: rgba(255, 255, 255, 0.05); color: var(--fg-color); padding: 8px 16px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; border: 1px solid var(--card-border); }
+.tableSection { padding: 32px; overflow-x: auto; }
+.tableHeader { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.unit { font-size: 0.75rem; color: #64748b; font-weight: 600; }
+.table { width: 100%; border-collapse: collapse; min-width: 900px; }
+.table th { text-align: left; padding: 12px; border: 1px solid var(--card-border); font-size: 0.8rem; background: rgba(255, 255, 255, 0.02); }
+.center { text-align: center; }
+.sub { font-size: 0.7rem; color: #94a3b8; text-align: right; }
+.table td { padding: 12px; border: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.85rem; text-align: right; }
+.table td:first-child { text-align: left; font-weight: 500; }
+.indent0 { padding-left: 12px !important; color: var(--primary); font-weight: 800 !important; }
+.indent1 { padding-left: 24px !important; }
+.indent2 { padding-left: 36px !important; color: #94a3b8; }
+.groupRow { background: rgba(99, 102, 241, 0.05); }
+.totalRow { background: rgba(255, 255, 255, 0.05); font-weight: 800; border-top: 2px solid var(--card-border); }
+.totalRow td { border-bottom: 3px double var(--card-border); }

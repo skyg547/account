@@ -1,9 +1,9 @@
 package com.ho.account.masterdata.batch.application;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.port.out.DepartmentPersistencePort;

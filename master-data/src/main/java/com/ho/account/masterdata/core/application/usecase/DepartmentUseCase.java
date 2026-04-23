@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.application.usecase;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import java.util.List;
 import java.util.Optional;

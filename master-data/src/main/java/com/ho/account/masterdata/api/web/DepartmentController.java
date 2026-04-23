@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.api.dto.DepartmentRequestDto;
 import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
 import java.util.List;
@@ -17,26 +17,26 @@ public class DepartmentController {
         this.departmentUseCase = departmentUseCase;
     }
 
-    // 부서 생성
+    // 遺???앹꽦
     @PostMapping
     public ResponseEntity<Department> createDepartment(@RequestBody DepartmentRequestDto requestDto) {
         Department createdDepartment = departmentUseCase.createDepartment(requestDto.toCommand());
         return ResponseEntity.ok(createdDepartment);
     }
 
-    // 전체 부서 조회
+    // ?꾩껜 遺??議고쉶
     @GetMapping
     public List<Department> getAllDepartments() {
         return departmentUseCase.getAllDepartments();
     }
 
-    // 사용 중인 부서만 조회
+    // ?ъ슜 以묒씤 遺?쒕쭔 議고쉶
     @GetMapping("/active")
     public List<Department> getActiveDepartments() {
         return departmentUseCase.findAllActiveDepartments();
     }
 
-    // 부서 상세 조회
+    // 遺???곸꽭 議고쉶
     @GetMapping("/{deptCode}")
     public ResponseEntity<Department> getDepartmentByCode(@PathVariable String deptCode) {
         return departmentUseCase.getDepartmentByCode(deptCode)
@@ -44,7 +44,7 @@ public class DepartmentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 부서 정보 수정
+    // 遺???뺣낫 ?섏젙
     @PutMapping("/{deptCode}")
     public ResponseEntity<Department> updateDepartment(@PathVariable String deptCode,
             @RequestBody DepartmentRequestDto departmentDetails) {
@@ -56,7 +56,7 @@ public class DepartmentController {
         }
     }
 
-    // 부서 삭제 (논리적 삭제)
+    // 遺????젣 (?쇰━????젣)
     @DeleteMapping("/{deptCode}")
     public ResponseEntity<Void> deleteDepartment(@PathVariable String deptCode) {
         try {

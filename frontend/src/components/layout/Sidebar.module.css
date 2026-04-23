@@ -1,13 +1,13 @@
 .sidebar {
   width: 260px;
-  height: 100vh;
+  height: calc(100vh - 64px);
   background: var(--sidebar-bg);
   color: var(--sidebar-fg);
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
-  top: 0;
+  top: 64px;
   z-index: 100;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
 }

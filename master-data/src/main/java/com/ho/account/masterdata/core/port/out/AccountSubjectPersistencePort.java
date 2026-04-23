@@ -1,14 +1,14 @@
 package com.ho.account.masterdata.core.port.out;
 
-import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 계정과목 저장소로 나가는 출력 포트입니다.
+ * 怨꾩젙怨쇰ぉ ??μ냼濡??섍???異쒕젰 ?ы듃?낅땲??
  *
- * <p>헥사고날 아키텍처에서는 application service가 JPA Repository를 직접 알면 안 됩니다.
- * 서비스는 이 포트만 보고, 실제 DB 접근은 infrastructure adapter가 담당합니다.</p>
+ * <p>?μ궗怨좊궇 ?꾪궎?띿쿂?먯꽌??application service媛 JPA Repository瑜?吏곸젒 ?뚮㈃ ???⑸땲??
+ * ?쒕퉬?ㅻ뒗 ???ы듃留?蹂닿퀬, ?ㅼ젣 DB ?묎렐? infrastructure adapter媛 ?대떦?⑸땲??</p>
  */
 public interface AccountSubjectPersistencePort {
 

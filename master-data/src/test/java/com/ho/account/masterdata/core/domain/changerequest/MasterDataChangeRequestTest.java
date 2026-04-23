@@ -37,7 +37,7 @@ class MasterDataChangeRequestTest {
 
         assertThatThrownBy(() -> request.approve("operator"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("요청자와 승인자");
+                .hasMessageContaining("?붿껌?먯? ?뱀씤??);
     }
 
     @Test
@@ -62,7 +62,7 @@ class MasterDataChangeRequestTest {
                 LocalDate.now().plusDays(1),
                 1,
                 "operator",
-                "계정명 변경",
-                "{\"name\":\"현금및현금성자산\"}");
+                "怨꾩젙紐?蹂寃?,
+                "{\"name\":\"?꾧툑諛륂쁽湲덉꽦?먯궛\"}");
     }
 }

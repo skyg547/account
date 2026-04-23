@@ -1,7 +1,7 @@
 package com.ho.account.masterdata.core.infrastructure.persistence;
 
-import com.ho.account.basic.domain.Product;
-import com.ho.account.basic.repository.ProductRepository;
+import com.ho.account.masterdata.core.domain.model.Product;
+import com.ho.account.masterdata.core.infrastructure.persistence.repository.ProductRepository;
 import com.ho.account.masterdata.core.port.out.ProductPersistencePort;
 import java.util.List;
 import java.util.Optional;

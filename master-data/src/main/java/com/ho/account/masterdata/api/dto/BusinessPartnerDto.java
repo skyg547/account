@@ -1,13 +1,12 @@
 package com.ho.account.masterdata.api.dto;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.time.LocalDate;
 
 /**
- * 거래처 REST 응답 DTO입니다.
+ * 嫄곕옒泥?REST ?묐떟 DTO?낅땲??
  *
- * <p>응답에는 화면과 외부 모듈이 필요한 안정 필드만 담습니다. 계좌 목록 같은 민감하거나
- * 무거운 연관관계는 별도 API로 분리하는 것이 안전합니다.</p>
+ * <p>?묐떟?먮뒗 ?붾㈃怨??몃? 紐⑤뱢???꾩슂???덉젙 ?꾨뱶留??댁뒿?덈떎. 怨꾩쥖 紐⑸줉 媛숈? 誘쇨컧?섍굅?? * 臾닿굅???곌?愿怨꾨뒗 蹂꾨룄 API濡?遺꾨━?섎뒗 寃껋씠 ?덉쟾?⑸땲??</p>
  */
 public class BusinessPartnerDto {
 

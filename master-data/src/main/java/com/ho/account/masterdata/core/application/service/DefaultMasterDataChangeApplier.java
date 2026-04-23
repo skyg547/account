@@ -2,8 +2,8 @@ package com.ho.account.masterdata.core.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.AccountSubjectCommand;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
@@ -16,10 +16,10 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import org.springframework.stereotype.Component;
 
 /**
- * 변경요청 payload를 실제 마스터 변경 유스케이스로 연결합니다.
+ * 蹂寃쎌슂泥?payload瑜??ㅼ젣 留덉뒪??蹂寃??좎뒪耳?댁뒪濡??곌껐?⑸땲??
  *
- * <p>이 클래스는 "승인 이력"과 "실제 마스터 row 변경" 사이의 접착제입니다. 변경요청 도메인은
- * 상태 전이만 알고, 대상별 생성/수정/비활성화 규칙은 기존 마스터 유스케이스가 계속 담당합니다.</p>
+ * <p>???대옒?ㅻ뒗 "?뱀씤 ?대젰"怨?"?ㅼ젣 留덉뒪??row 蹂寃? ?ъ씠???묒갑?쒖엯?덈떎. 蹂寃쎌슂泥??꾨찓?몄?
+ * ?곹깭 ?꾩씠留??뚭퀬, ??곷퀎 ?앹꽦/?섏젙/鍮꾪솢?깊솕 洹쒖튃? 湲곗〈 留덉뒪???좎뒪耳?댁뒪媛 怨꾩냽 ?대떦?⑸땲??</p>
  */
 @Component
 public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
@@ -47,7 +47,7 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case BUSINESS_PARTNER -> applyBusinessPartner(request);
             case DEPARTMENT -> applyDepartment(request);
             case PRODUCT -> applyProduct(request);
-            default -> throw new IllegalArgumentException("아직 자동 적용을 지원하지 않는 마스터 유형입니다: "
+            default -> throw new IllegalArgumentException("?꾩쭅 ?먮룞 ?곸슜??吏?먰븯吏 ?딅뒗 留덉뒪???좏삎?낅땲?? "
                     + request.getTargetType());
         }
     }
@@ -66,14 +66,14 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case CREATE -> businessPartnerUseCase.createBusinessPartner(readPayload(request, BusinessPartnerCommand.class));
             case UPDATE -> {
                 BusinessPartner partner = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. 코드: "
+                        .orElseThrow(() -> new IllegalArgumentException("嫄곕옒泥섎? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
                                 + request.getTargetKey()));
                 businessPartnerUseCase.updateBusinessPartner(partner.getId(),
                         readPayload(request, BusinessPartnerCommand.class));
             }
             case DEACTIVATE -> {
                 BusinessPartner partner = businessPartnerUseCase.getBusinessPartnerByCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. 코드: "
+                        .orElseThrow(() -> new IllegalArgumentException("嫄곕옒泥섎? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
                                 + request.getTargetKey()));
                 businessPartnerUseCase.deleteBusinessPartner(partner.getId());
             }
@@ -94,13 +94,13 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
             case CREATE -> productUseCase.createProduct(readPayload(request, ProductCommand.class));
             case UPDATE -> {
                 Product product = productUseCase.getProductByProductCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. 코드: "
+                        .orElseThrow(() -> new IllegalArgumentException("?곹뭹??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
                                 + request.getTargetKey()));
                 productUseCase.updateProduct(product.getId(), readPayload(request, ProductCommand.class));
             }
             case DEACTIVATE -> {
                 Product product = productUseCase.getProductByProductCode(request.getTargetKey())
-                        .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. 코드: "
+                        .orElseThrow(() -> new IllegalArgumentException("?곹뭹??李얠쓣 ???놁뒿?덈떎. 肄붾뱶: "
                                 + request.getTargetKey()));
                 productUseCase.deactivateProduct(product.getId());
             }
@@ -109,12 +109,12 @@ public class DefaultMasterDataChangeApplier implements MasterDataChangeApplier {
 
     private <T> T readPayload(MasterDataChangeRequest request, Class<T> payloadType) {
         if (request.getPayloadJson() == null || request.getPayloadJson().isBlank()) {
-            throw new IllegalArgumentException("생성/수정 변경요청에는 payloadJson이 필요합니다.");
+            throw new IllegalArgumentException("?앹꽦/?섏젙 蹂寃쎌슂泥?뿉??payloadJson???꾩슂?⑸땲??");
         }
         try {
             return objectMapper.readValue(request.getPayloadJson(), payloadType);
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("payloadJson을 " + payloadType.getSimpleName() + "로 변환할 수 없습니다.", e);
+            throw new IllegalArgumentException("payloadJson??" + payloadType.getSimpleName() + "濡?蹂?섑븷 ???놁뒿?덈떎.", e);
         }
     }
 }

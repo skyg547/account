@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.api.dto.ProductDto;
 import com.ho.account.masterdata.api.dto.ProductRequestDto;
 import com.ho.account.masterdata.core.application.usecase.ProductUseCase;

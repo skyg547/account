@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.dto;
 
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.Product;
 import java.time.LocalDate;
 
 public class ProductDto {
@@ -45,7 +45,7 @@ public class ProductDto {
         );
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

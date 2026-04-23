@@ -29,8 +29,8 @@ class MasterDataChangeRequestServiceTest {
                 LocalDate.now().plusDays(3),
                 1,
                 "operator",
-                "신규 거래처",
-                "{\"businessPartnerName\":\"테스트 거래처\"}"));
+                "?좉퇋 嫄곕옒泥?,
+                "{\"businessPartnerName\":\"?뚯뒪??嫄곕옒泥?"}"));
 
         MasterDataChangeRequest approved = service.approve(requested.getId(), "manager");
 
@@ -58,7 +58,7 @@ class MasterDataChangeRequestServiceTest {
                 LocalDate.now(),
                 1,
                 "operator",
-                "즉시 적용",
+                "利됱떆 ?곸슜",
                 "{}"));
         service.approve(requested.getId(), "manager");
 
@@ -72,10 +72,10 @@ class MasterDataChangeRequestServiceTest {
     void appliesOnlyApprovedChangesWhoseEffectiveDateHasArrived() {
         MasterDataChangeRequest due = service.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.DEPARTMENT, "D-DUE", ChangeType.UPDATE, LocalDate.now(), 1,
-                "operator", "도래", "{}"));
+                "operator", "?꾨옒", "{}"));
         MasterDataChangeRequest future = service.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.DEPARTMENT, "D-FUTURE", ChangeType.UPDATE, LocalDate.now().plusDays(1), 1,
-                "operator", "미도래", "{}"));
+                "operator", "誘몃룄??, "{}"));
         service.approve(due.getId(), "manager");
         service.approve(future.getId(), "manager");
 
@@ -87,7 +87,7 @@ class MasterDataChangeRequestServiceTest {
 
     private MasterDataChangeRequestCommand command(String key) {
         return new MasterDataChangeRequestCommand(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE,
-                LocalDate.now().plusDays(1), 1, "operator", "부서 변경", "{}");
+                LocalDate.now().plusDays(1), 1, "operator", "遺??蹂寃?, "{}");
     }
 
     private static final class InMemoryPort implements MasterDataChangeRequestPersistencePort {

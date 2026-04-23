@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.dto;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import java.time.LocalDate;
 
@@ -31,7 +31,7 @@ public class DepartmentRequestDto {
         return new DepartmentCommand(code, name, parentCode, type, validFrom, validTo);
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 

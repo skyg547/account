@@ -1,0 +1,22 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.titleArea h2 { font-size: 1.8rem; font-weight: 800; }
+.exchangeRate { display: flex; gap: 20px; }
+.rateItem { padding: 12px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 12px; display: flex; flex-direction: column; gap: 4px; }
+.rateItem span { font-size: 0.75rem; color: #64748b; font-weight: 700; }
+.rateItem strong { font-size: 1.1rem; letter-spacing: -0.5px; }
+.up { color: #22c55e; font-weight: 700; font-size: 0.8rem; }
+.down { color: #ef4444; font-weight: 700; font-size: 0.8rem; }
+.positionSummary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.card { padding: 32px; flex: 1; }
+.card h4 { font-size: 0.9rem; color: #64748b; margin-bottom: 12px; }
+.card h3 { font-size: 2rem; letter-spacing: -1px; }
+.subText { margin-top: 8px; font-size: 0.85rem; color: #94a3b8; }
+.gridSection { padding: 32px; }
+.gridSection h3 { font-size: 1.1rem; margin-bottom: 24px; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--card-border); font-size: 0.85rem; color: #64748b; }
+.table td { padding: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.95rem; }
+.currencyCode { background: rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 800; font-family: monospace; margin-right: 8px; }
+.bold { font-weight: 700; }
+.statusOk { background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; }

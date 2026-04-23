@@ -1,15 +1,15 @@
 package com.ho.account.masterdata.core.application.usecase;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 거래처 마스터 입력 포트입니다.
+ * 嫄곕옒泥?留덉뒪???낅젰 ?ы듃?낅땲??
  *
- * <p>Controller 같은 inbound adapter는 이 인터페이스만 호출합니다. 이렇게 두면 REST가 아닌
- * Kafka, batch, CLI가 들어오더라도 같은 유스케이스 규칙을 재사용할 수 있습니다.</p>
+ * <p>Controller 媛숈? inbound adapter?????명꽣?섏씠?ㅻ쭔 ?몄텧?⑸땲?? ?대젃寃??먮㈃ REST媛 ?꾨땶
+ * Kafka, batch, CLI媛 ?ㅼ뼱?ㅻ뜑?쇰룄 媛숈? ?좎뒪耳?댁뒪 洹쒖튃???ъ궗?⑺븷 ???덉뒿?덈떎.</p>
  */
 public interface BusinessPartnerUseCase {
 

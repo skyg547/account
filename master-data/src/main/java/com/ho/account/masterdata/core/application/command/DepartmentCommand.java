@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.application.command;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import java.time.LocalDate;
 
 public record DepartmentCommand(

@@ -1,7 +1,7 @@
 package com.ho.account.masterdata.core.infrastructure.persistence;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import com.ho.account.masterdata.core.port.out.BusinessPartnerPersistencePort;
 import java.util.List;
 import java.util.Optional;

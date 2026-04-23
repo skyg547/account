@@ -1,14 +1,14 @@
 package com.ho.account.masterdata.api.dto;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
 import java.time.LocalDate;
 
 /**
- * 거래처 REST 요청 DTO입니다.
+ * 嫄곕옒泥?REST ?붿껌 DTO?낅땲??
  *
- * <p>Controller 바깥으로만 쓰는 API 모델입니다. JPA Entity를 요청 본문으로 직접 받지 않기
- * 때문에 DB 컬럼이나 연관관계가 API 계약으로 새어 나가지 않습니다.</p>
+ * <p>Controller 諛붽묑?쇰줈留??곕뒗 API 紐⑤뜽?낅땲?? JPA Entity瑜??붿껌 蹂몃Ц?쇰줈 吏곸젒 諛쏆? ?딄린
+ * ?뚮Ц??DB 而щ읆?대굹 ?곌?愿怨꾧? API 怨꾩빟?쇰줈 ?덉뼱 ?섍?吏 ?딆뒿?덈떎.</p>
  */
 public class BusinessPartnerRequestDto {
 

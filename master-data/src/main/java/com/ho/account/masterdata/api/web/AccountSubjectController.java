@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.api.dto.AccountSubjectDto;
 import com.ho.account.masterdata.api.dto.AccountSubjectRequestDto;
 import com.ho.account.masterdata.core.application.usecase.AccountSubjectUseCase;

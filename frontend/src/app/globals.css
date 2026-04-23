@@ -89,6 +89,7 @@ li {
 .app-container {
   display: flex;
   min-height: 100vh;
+  padding-top: 64px; /* header height */
 }
 
 .main-wrapper {
@@ -96,11 +97,12 @@ li {
   display: flex;
   flex-direction: column;
   margin-left: 260px; /* sidebar width */
+  min-height: calc(100vh - 64px);
 }
 
 .content {
   padding: 40px;
-  flex: 1;
+  flex: 1; /* content expands to push footer down */
 }
 
 [data-theme='dark'] {

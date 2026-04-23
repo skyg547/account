@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.web;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.api.dto.BusinessPartnerDto;
 import com.ho.account.masterdata.api.dto.BusinessPartnerRequestDto;
 import com.ho.account.masterdata.core.application.usecase.BusinessPartnerUseCase;
@@ -19,7 +19,7 @@ public class BusinessPartnerController {
         this.businessPartnerUseCase = businessPartnerUseCase;
     }
 
-    // 거래처 생성
+    // 嫄곕옒泥??앹꽦
     @PostMapping
     public ResponseEntity<BusinessPartnerDto> createBusinessPartner(@RequestBody BusinessPartnerRequestDto requestDto) {
         try {
@@ -30,7 +30,7 @@ public class BusinessPartnerController {
         }
     }
 
-    // 전체 거래처 조회
+    // ?꾩껜 嫄곕옒泥?議고쉶
     @GetMapping
     public List<BusinessPartnerDto> getAllBusinessPartners() {
         return businessPartnerUseCase.getAllBusinessPartners().stream()
@@ -38,7 +38,7 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // 사용 중인 거래처만 조회
+    // ?ъ슜 以묒씤 嫄곕옒泥섎쭔 議고쉶
     @GetMapping("/active")
     public List<BusinessPartnerDto> getActiveBusinessPartners() {
         return businessPartnerUseCase.getActiveBusinessPartners().stream()
@@ -46,7 +46,7 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // 거래처 상세 조회 (코드)
+    // 嫄곕옒泥??곸꽭 議고쉶 (肄붾뱶)
     @GetMapping("/{businessPartnerCode}")
     public ResponseEntity<BusinessPartnerDto> getBusinessPartnerByCode(@PathVariable String businessPartnerCode) {
         return businessPartnerUseCase.getBusinessPartnerByCode(businessPartnerCode)
@@ -55,7 +55,7 @@ public class BusinessPartnerController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 거래처 검색 (이름)
+    // 嫄곕옒泥?寃??(?대쫫)
     @GetMapping("/search")
     public List<BusinessPartnerDto> searchBusinessPartners(@RequestParam String name) {
         return businessPartnerUseCase.searchBusinessPartnersByName(name).stream()
@@ -63,7 +63,7 @@ public class BusinessPartnerController {
                 .toList();
     }
 
-    // 거래처 정보 수정
+    // 嫄곕옒泥??뺣낫 ?섏젙
     @PutMapping("/{id}")
     public ResponseEntity<BusinessPartnerDto> updateBusinessPartner(@PathVariable Long id,
             @RequestBody BusinessPartnerRequestDto requestDto) {
@@ -76,7 +76,7 @@ public class BusinessPartnerController {
         }
     }
 
-    // 거래처 삭제 (논리적 삭제)
+    // 嫄곕옒泥???젣 (?쇰━????젣)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBusinessPartner(@PathVariable Long id) {
         try {

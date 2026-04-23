@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.api.dto;
 
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,30 +9,30 @@ import java.time.LocalDate;
 
 public class ProductRequestDto {
 
-    @NotBlank(message = "상품 코드는 필수입니다.")
+    @NotBlank(message = "?곹뭹 肄붾뱶???꾩닔?낅땲??")
     private String productCode;
 
-    @NotBlank(message = "상품명은 필수입니다.")
+    @NotBlank(message = "?곹뭹紐낆? ?꾩닔?낅땲??")
     private String name;
 
     private String description;
 
     private String unitOfMeasure;
 
-    @NotNull(message = "가격은 필수입니다.")
-    @PositiveOrZero(message = "가격은 0 이상이어야 합니다.")
+    @NotNull(message = "媛寃⑹? ?꾩닔?낅땲??")
+    @PositiveOrZero(message = "媛寃⑹? 0 ?댁긽?댁뼱???⑸땲??")
     private Double price;
 
-    @NotNull(message = "상품 타입은 필수입니다.")
+    @NotNull(message = "?곹뭹 ??낆? ?꾩닔?낅땲??")
     private Product.ProductType productType;
 
-    @NotNull(message = "유효 시작일은 필수입니다.")
+    @NotNull(message = "?좏슚 ?쒖옉?쇱? ?꾩닔?낅땲??")
     private LocalDate validFrom;
 
-    @NotNull(message = "유효 종료일은 필수입니다.")
+    @NotNull(message = "?좏슚 醫낅즺?쇱? ?꾩닔?낅땲??")
     private LocalDate validTo;
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public String getProductCode() {
         return productCode;
     }

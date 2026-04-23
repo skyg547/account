@@ -1,13 +1,12 @@
 package com.ho.account.masterdata.core.application.command;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.time.LocalDate;
 
 /**
- * 거래처 생성/수정 유스케이스로 들어오는 application command입니다.
+ * 嫄곕옒泥??앹꽦/?섏젙 ?좎뒪耳?댁뒪濡??ㅼ뼱?ㅻ뒗 application command?낅땲??
  *
- * <p>REST 요청 DTO를 그대로 서비스에 넘기지 않고 command로 변환하면, API 모양이 바뀌어도
- * core application 계층의 의도가 흔들리지 않습니다.</p>
+ * <p>REST ?붿껌 DTO瑜?洹몃?濡??쒕퉬?ㅼ뿉 ?섍린吏 ?딄퀬 command濡?蹂?섑븯硫? API 紐⑥뼇??諛붾뚯뼱?? * core application 怨꾩링???섎룄媛 ?붾뱾由ъ? ?딆뒿?덈떎.</p>
  */
 public record BusinessPartnerCommand(
         String businessPartnerCode,

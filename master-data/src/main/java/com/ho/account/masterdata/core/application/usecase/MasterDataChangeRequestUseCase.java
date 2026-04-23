@@ -5,7 +5,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import java.util.List;
 
 /**
- * 마스터 변경관리 입력 포트입니다.
+ * 留덉뒪??蹂寃쎄?由??낅젰 ?ы듃?낅땲??
  */
 public interface MasterDataChangeRequestUseCase {
 

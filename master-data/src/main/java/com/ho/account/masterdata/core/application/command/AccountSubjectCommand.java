@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.application.command;
 
-import com.ho.account.basic.domain.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.time.LocalDate;
 
 public record AccountSubjectCommand(

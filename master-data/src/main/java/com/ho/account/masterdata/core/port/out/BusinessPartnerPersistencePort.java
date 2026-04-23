@@ -1,14 +1,14 @@
 package com.ho.account.masterdata.core.port.out;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 거래처 저장소 출력 포트입니다.
+ * 嫄곕옒泥???μ냼 異쒕젰 ?ы듃?낅땲??
  *
- * <p>거래처는 AP/AR/자금/은행 원천에서 모두 참조되는 기준정보입니다. 그래서 application
- * 계층은 "어디에 저장되는지"보다 "어떤 조회와 저장이 필요한지"만 정의합니다.</p>
+ * <p>嫄곕옒泥섎뒗 AP/AR/?먭툑/????먯쿇?먯꽌 紐⑤몢 李몄“?섎뒗 湲곗??뺣낫?낅땲?? 洹몃옒??application
+ * 怨꾩링? "?대뵒????λ릺?붿?"蹂대떎 "?대뼡 議고쉶? ??μ씠 ?꾩슂?쒖?"留??뺤쓽?⑸땲??</p>
  */
 public interface BusinessPartnerPersistencePort {
 

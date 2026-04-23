@@ -1,0 +1,20 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+.header { margin-bottom: 8px; }
+.titleArea h2 { font-size: 1.8rem; font-weight: 800; }
+.vatDashboard { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+.vatCard, .infoCard { padding: 32px; }
+.vatCard h4 { margin-bottom: 24px; color: var(--primary); }
+.vatValueGrid { display: flex; flex-direction: column; gap: 16px; }
+.vatItem { display: flex; justify-content: space-between; font-size: 1.1rem; }
+.vatItem strong { font-family: monospace; }
+.total { border-top: 1px solid var(--card-border); padding-top: 16px; font-size: 1.3rem; font-weight: 800; }
+.infoCard h3 { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin-bottom: 16px; }
+.prepBtn { margin-top: 24px; width: 100%; background: var(--fg-color); color: var(--bg-color); padding: 12px; border-radius: 8px; font-weight: 700; }
+.checkSection { padding: 32px; }
+.sectionHeader { margin-bottom: 24px; }
+.sectionHeader h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--card-border); font-size: 0.85rem; color: #64748b; }
+.table td { padding: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.95rem; }
+.errorRow { background: rgba(239, 68, 68, 0.05); }
+.danger { color: #ef4444; font-weight: 700; }

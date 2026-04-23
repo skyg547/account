@@ -1,0 +1,27 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.titleArea h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 4px; }
+.titleArea p { color: #64748b; }
+.payBtn { background: var(--fg-color); color: var(--bg-color); padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.paymentDashboard { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+.scheduleCard, .statusSummary { padding: 32px; }
+.scheduleCard h3 { font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin-bottom: 24px; color: var(--primary); }
+.amountList { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.amountItem { display: flex; justify-content: space-between; font-size: 0.95rem; }
+.totalArea { border-top: 1px solid var(--card-border); padding-top: 16px; display: flex; justify-content: space-between; font-weight: 800; font-size: 1.2rem; }
+.statusSummary { display: flex; flex-direction: column; gap: 32px; justify-content: center; }
+.summaryItem { display: flex; align-items: center; gap: 20px; }
+.summaryItem span { font-size: 0.85rem; color: #64748b; font-weight: 600; }
+.summaryItem h4 { font-size: 1.3rem; margin-top: 4px; }
+.yellow { color: #f59e0b; }
+.green { color: #22c55e; }
+.listSection { padding: 32px; }
+.listHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.filters { display: flex; gap: 12px; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--card-border); color: #64748b; font-size: 0.85rem; }
+.table td { padding: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.95rem; }
+.bold { font-weight: 700; }
+.danger { color: #ef4444; font-weight: 800; }
+.badgeDanger { background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+.badgeDefault { background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }

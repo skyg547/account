@@ -12,10 +12,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 마스터 변경요청 도메인입니다.
+ * 留덉뒪??蹂寃쎌슂泥??꾨찓?몄엯?덈떎.
  *
- * <p>마스터 데이터는 전표, 원장, 보고가 공통으로 믿고 쓰는 기준입니다. 그래서 운영자가 바로
- * 값을 바꾸지 않고 "요청 -> 승인/반려 -> 적용" 상태를 남겨야 감사 추적이 가능합니다.</p>
+ * <p>留덉뒪???곗씠?곕뒗 ?꾪몴, ?먯옣, 蹂닿퀬媛 怨듯넻?쇰줈 誘욧퀬 ?곕뒗 湲곗??낅땲?? 洹몃옒???댁쁺?먭? 諛붾줈
+ * 媛믪쓣 諛붽씀吏 ?딄퀬 "?붿껌 -> ?뱀씤/諛섎젮 -> ?곸슜" ?곹깭瑜??④꺼??媛먯궗 異붿쟻??媛?ν빀?덈떎.</p>
  */
 @Entity
 @Table(name = "master_data_change_requests")
@@ -68,12 +68,12 @@ public class MasterDataChangeRequest {
 
     public MasterDataChangeRequest(MasterDataType targetType, String targetKey, ChangeType changeType,
             LocalDate effectiveDate, Integer requestedVersion, String requestedBy, String reason, String payloadJson) {
-        this.targetType = require(targetType, "대상 마스터 유형은 필수입니다.");
-        this.targetKey = requireText(targetKey, "대상 키는 필수입니다.");
-        this.changeType = require(changeType, "변경 유형은 필수입니다.");
-        this.effectiveDate = require(effectiveDate, "적용일은 필수입니다.");
+        this.targetType = require(targetType, "???留덉뒪???좏삎? ?꾩닔?낅땲??");
+        this.targetKey = requireText(targetKey, "????ㅻ뒗 ?꾩닔?낅땲??");
+        this.changeType = require(changeType, "蹂寃??좏삎? ?꾩닔?낅땲??");
+        this.effectiveDate = require(effectiveDate, "?곸슜?쇱? ?꾩닔?낅땲??");
         this.requestedVersion = requirePositiveVersion(requestedVersion);
-        this.requestedBy = requireText(requestedBy, "요청자는 필수입니다.");
+        this.requestedBy = requireText(requestedBy, "?붿껌?먮뒗 ?꾩닔?낅땲??");
         this.reason = reason;
         this.payloadJson = payloadJson;
         this.status = ChangeStatus.REQUESTED;
@@ -81,10 +81,10 @@ public class MasterDataChangeRequest {
     }
 
     public void approve(String approver) {
-        ensureRequested("승인은 REQUESTED 상태에서만 가능합니다.");
-        String normalizedApprover = requireText(approver, "승인자는 필수입니다.");
+        ensureRequested("?뱀씤? REQUESTED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
+        String normalizedApprover = requireText(approver, "?뱀씤?먮뒗 ?꾩닔?낅땲??");
         if (requestedBy.equals(normalizedApprover)) {
-            throw new IllegalStateException("요청자와 승인자는 같을 수 없습니다.");
+            throw new IllegalStateException("?붿껌?먯? ?뱀씤?먮뒗 媛숈쓣 ???놁뒿?덈떎.");
         }
         this.approvedBy = normalizedApprover;
         this.approvedAt = LocalDateTime.now();
@@ -92,8 +92,8 @@ public class MasterDataChangeRequest {
     }
 
     public void reject(String approver, String rejectReason) {
-        ensureRequested("반려는 REQUESTED 상태에서만 가능합니다.");
-        this.approvedBy = requireText(approver, "반려자는 필수입니다.");
+        ensureRequested("諛섎젮??REQUESTED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
+        this.approvedBy = requireText(approver, "諛섎젮?먮뒗 ?꾩닔?낅땲??");
         this.approvedAt = LocalDateTime.now();
         this.reason = rejectReason;
         this.status = ChangeStatus.REJECTED;
@@ -101,7 +101,7 @@ public class MasterDataChangeRequest {
 
     public void markApplied() {
         if (status != ChangeStatus.APPROVED) {
-            throw new IllegalStateException("적용 완료 처리는 APPROVED 상태에서만 가능합니다.");
+            throw new IllegalStateException("?곸슜 ?꾨즺 泥섎━??APPROVED ?곹깭?먯꽌留?媛?ν빀?덈떎.");
         }
         this.status = ChangeStatus.APPLIED;
     }
@@ -132,7 +132,7 @@ public class MasterDataChangeRequest {
 
     private static Integer requirePositiveVersion(Integer version) {
         if (version == null || version < 1) {
-            throw new IllegalArgumentException("요청 버전은 1 이상이어야 합니다.");
+            throw new IllegalArgumentException("?붿껌 踰꾩쟾? 1 ?댁긽?댁뼱???⑸땲??");
         }
         return version;
     }

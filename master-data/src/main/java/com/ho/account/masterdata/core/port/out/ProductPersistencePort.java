@@ -1,14 +1,14 @@
 package com.ho.account.masterdata.core.port.out;
 
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.Product;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 상품 마스터 저장소 출력 포트입니다.
+ * ?곹뭹 留덉뒪????μ냼 異쒕젰 ?ы듃?낅땲??
  *
- * <p>상품은 Banking/ERP 이벤트가 회계 룰을 탈 때 중요한 분류 키가 됩니다. core 계층은
- * 이 포트만 사용해서 상품 코드 중복, 조회, 저장을 수행합니다.</p>
+ * <p>?곹뭹? Banking/ERP ?대깽?멸? ?뚭퀎 猷곗쓣 ????以묒슂??遺꾨쪟 ?ㅺ? ?⑸땲?? core 怨꾩링?
+ * ???ы듃留??ъ슜?댁꽌 ?곹뭹 肄붾뱶 以묐났, 議고쉶, ??μ쓣 ?섑뻾?⑸땲??</p>
  */
 public interface ProductPersistencePort {
 

@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.application.usecase;
 
-import com.ho.account.basic.domain.Product;
+import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.command.ProductCommand;
 import java.util.List;
 import java.util.Optional;

@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.application.service;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.application.command.DepartmentCommand;
 import com.ho.account.masterdata.core.application.usecase.DepartmentUseCase;
 import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
@@ -23,7 +23,7 @@ public class DepartmentService implements DepartmentUseCase {
 
     public Department createDepartment(DepartmentCommand command) {
         if (departmentPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + command.code());
+            throw new IllegalArgumentException("?대? 議댁옱?섎뒗 遺??肄붾뱶?낅땲?? " + command.code());
         }
 
         Department department = command.toEntity();
@@ -31,7 +31,7 @@ public class DepartmentService implements DepartmentUseCase {
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + command.parentCode()));
+                            () -> new IllegalArgumentException("?곸쐞 遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
             department.setParent(parent);
         }
 
@@ -64,12 +64,12 @@ public class DepartmentService implements DepartmentUseCase {
 
     public Department updateDepartment(String code, DepartmentCommand command) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
 
         if (command.hasParentCode()) {
             Department parent = departmentPersistencePort.findByCode(command.parentCode())
                     .orElseThrow(
-                            () -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다. 코드: " + command.parentCode()));
+                            () -> new IllegalArgumentException("?곸쐞 遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + command.parentCode()));
             department.setParent(parent);
         } else {
             department.setParent(null);
@@ -83,7 +83,7 @@ public class DepartmentService implements DepartmentUseCase {
 
     public void deactivateDepartment(String code) {
         Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. 코드: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. 肄붾뱶: " + code));
 
         MasterDataValidityPolicy.closeIfActive(department::getValidTo, department::setValidTo);
         departmentPersistencePort.save(department);

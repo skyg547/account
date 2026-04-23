@@ -1,7 +1,10 @@
 package com.ho.account.asset.service;
 
+import com.ho.account.asset.domain.AssetHistory;
 import com.ho.account.asset.domain.FixedAsset;
+import com.ho.account.asset.repository.AssetHistoryRepository;
 import com.ho.account.asset.repository.FixedAssetRepository;
+import com.ho.account.basic.domain.Department;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -10,13 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 고정자산 서비스 (Fixed Asset Service)
- * 자산 등록, 감가상각 실행 및 Kafka 이벤트를 통한 전표 자동 연계 담당.
+ * 자산 등록, 감가상각 실행 및 이력 관리를 담당합니다.
  */
 @Slf4j
 @Service
@@ -25,72 +29,66 @@ import java.util.Map;
 public class FixedAssetService {
 
     private final FixedAssetRepository fixedAssetRepository;
+    private final AssetHistoryRepository assetHistoryRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private static final String TOPIC = "transaction-events";
 
     /**
-     * 자산 취득 등록 및 취득 전표 이벤트 발행
+     * 자산 취득 등록
      */
     public FixedAsset registerAsset(FixedAsset asset) {
         FixedAsset savedAsset = fixedAssetRepository.save(asset);
-        log.info("Asset registered: {} ({})", asset.getAssetName(), asset.getAssetCode());
-
-        // Kafka 이벤트 발행: 취득 전표 생성용
-        Map<String, Object> event = new HashMap<>();
-        event.put("transactionType", "FIXED_ASSET_ACQUISITION");
-        event.put("assetId", savedAsset.getId());
-        event.put("assetCode", savedAsset.getAssetCode());
-        event.put("assetName", savedAsset.getAssetName());
-        event.put("amount", savedAsset.getAcquisitionCost());
-        event.put("accountingDate", savedAsset.getAcquisitionDate().toString());
-        event.put("deptCode", savedAsset.getDepartment().getCode());
-        event.put("assetAccountCode", savedAsset.getAccountSubject().getCode());
         
-        kafkaTemplate.send(TOPIC, event);
+        // 1. 이력 생성 (ACQUISITION)
+        createHistory(savedAsset, "ACQUISITION", null, savedAsset.getDepartment(), null, savedAsset.getStatus(), "자산 신규 취득");
+
+        // 2. Kafka 이벤트 발행
+        sendKafkaEvent("FIXED_ASSET_ACQUISITION", savedAsset, savedAsset.getAcquisitionCost(), savedAsset.getAcquisitionDate());
+        
         return savedAsset;
     }
 
     /**
-     * 특정 일자의 감가상각을 일괄 처리하고 전표 이벤트를 발행합니다.
-     * (배치 작업에서 주로 호출됨)
+     * 감가상각 실행
      */
     public void processMonthlyDepreciation(LocalDate accountingDate) {
         List<FixedAsset> activeAssets = fixedAssetRepository.findByStatus("ACTIVE");
-        log.info("Processing depreciation for {} assets on {}", activeAssets.size(), accountingDate);
-
         for (FixedAsset asset : activeAssets) {
             BigDecimal amount = asset.depreciate(accountingDate);
-
             if (amount.compareTo(BigDecimal.ZERO) > 0) {
-                // Kafka 이벤트 발행: 감가상각비 전표 생성용
-                Map<String, Object> event = new HashMap<>();
-                event.put("transactionType", "FIXED_ASSET_DEPRECIATION");
-                event.put("assetId", asset.getId());
-                event.put("assetCode", asset.getAssetCode());
-                event.put("amount", amount);
-                event.put("accountingDate", accountingDate.toString());
-                event.put("deptCode", asset.getDepartment().getCode());
-                event.put("expenseAccountCode", asset.getExpenseAccount().getCode());
-                event.put("accumulatedAccountCode", asset.getAccumulatedAccount().getCode());
-                
-                kafkaTemplate.send(TOPIC, event);
+                sendDepreciationEvent(asset, amount, accountingDate);
                 fixedAssetRepository.save(asset);
             }
         }
     }
 
     /**
-     * 자산 처분 처리 및 처분 전표 이벤트 발행
+     * 부서 이동 처리
      */
-    public FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice) {
-        FixedAsset asset = fixedAssetRepository.findById(assetId)
-                .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
-
-        asset.setStatus("DISPOSED");
+    public void changeDepartment(Long assetId, Department newDept, String reason) {
+        FixedAsset asset = fixedAssetRepository.findById(assetId).orElseThrow();
+        Department oldDept = asset.getDepartment();
+        
+        asset.setDepartment(newDept);
         fixedAssetRepository.save(asset);
 
-        // Kafka 이벤트 발행: 처분 전표 생성용
+        createHistory(asset, "DEPT_CHANGE", oldDept, newDept, asset.getStatus(), asset.getStatus(), reason);
+        log.info("Asset {} moved from {} to {}", asset.getAssetCode(), oldDept.getName(), newDept.getName());
+    }
+
+    /**
+     * 자산 처분
+     */
+    public FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice) {
+        FixedAsset asset = fixedAssetRepository.findById(assetId).orElseThrow();
+        String oldStatus = asset.getStatus();
+
+        asset.setStatus("DISPOSED");
+        FixedAsset savedAsset = fixedAssetRepository.save(asset);
+
+        createHistory(savedAsset, "DISPOSAL", null, null, oldStatus, "DISPOSED", "자산 처분 (매각가: " + salePrice + ")");
+
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "FIXED_ASSET_DISPOSAL");
         event.put("assetId", asset.getId());
@@ -99,8 +97,45 @@ public class FixedAssetService {
         event.put("salePrice", salePrice);
         event.put("accountingDate", disposalDate.toString());
         event.put("deptCode", asset.getDepartment().getCode());
-        
         kafkaTemplate.send(TOPIC, event);
-        return asset;
+        
+        return savedAsset;
+    }
+
+    private void createHistory(FixedAsset asset, String type, Department oldDept, Department newDept, String oldStatus, String newStatus, String desc) {
+        AssetHistory history = new AssetHistory();
+        history.setAsset(asset);
+        history.setHistoryType(type);
+        history.setOldDepartment(oldDept);
+        history.setNewDepartment(newDept);
+        history.setOldStatus(oldStatus);
+        history.setNewStatus(newStatus);
+        history.setDescription(desc);
+        history.setEventAt(LocalDateTime.now());
+        history.setAuditUser("SYSTEM");
+        assetHistoryRepository.save(history);
+    }
+
+    private void sendKafkaEvent(String type, FixedAsset asset, BigDecimal amount, LocalDate date) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("transactionType", type);
+        event.put("assetId", asset.getId());
+        event.put("assetCode", asset.getAssetCode());
+        event.put("amount", amount);
+        event.put("accountingDate", date.toString());
+        event.put("deptCode", asset.getDepartment().getCode());
+        kafkaTemplate.send(TOPIC, event);
+    }
+
+    private void sendDepreciationEvent(FixedAsset asset, BigDecimal amount, LocalDate date) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("transactionType", "FIXED_ASSET_DEPRECIATION");
+        event.put("assetId", asset.getId());
+        event.put("amount", amount);
+        event.put("accountingDate", date.toString());
+        event.put("deptCode", asset.getDepartment().getCode());
+        event.put("expenseAccountCode", asset.getExpenseAccount().getCode());
+        event.put("accumulatedAccountCode", asset.getAccumulatedAccount().getCode());
+        kafkaTemplate.send(TOPIC, event);
     }
 }

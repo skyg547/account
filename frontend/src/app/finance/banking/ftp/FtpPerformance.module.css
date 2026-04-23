@@ -1,0 +1,23 @@
+.container { display: flex; flex-direction: column; gap: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.titleArea h2 { font-size: 1.8rem; font-weight: 800; }
+.calcBtn { background: var(--bg-color); border: 1px solid var(--primary); color: var(--primary); padding: 10px 20px; border-radius: 8px; font-weight: 700; transition: all 0.2s; }
+.calcBtn:hover { background: var(--primary); color: white; }
+.dashboard { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+.chartArea { padding: 32px; display: flex; flex-direction: column; }
+.chartArea h3 { font-size: 1.1rem; margin-bottom: 32px; }
+.barChartPlaceholder { flex: 1; display: flex; align-items: flex-end; gap: 24px; min-height: 200px; padding: 0 40px; border-bottom: 2px solid var(--card-border); }
+.chartBar { flex: 1; border-radius: 8px 8px 0 0; position: relative; display: flex; justify-content: center; }
+.chartBar span { position: absolute; bottom: -30px; font-size: 0.75rem; color: #64748b; font-weight: 700; white-space: nowrap; }
+.infoArea { display: flex; flex-direction: column; gap: 24px; }
+.miniCard { padding: 24px; }
+.miniCard h4 { font-size: 0.8rem; color: #64748b; margin-bottom: 8px; }
+.miniCard h2 { font-size: 1.8rem; letter-spacing: -0.5px; }
+.miniCard p { margin-top: 4px; font-size: 0.75rem; color: #22c55e; font-weight: 600; }
+.listArea { padding: 32px; }
+.listArea h3 { font-size: 1.1rem; margin-bottom: 24px; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--card-border); font-size: 0.85rem; color: #64748b; }
+.table td { padding: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.95rem; }
+.bold { font-weight: 700; }
+.success { color: #22c55e; font-weight: 700; }

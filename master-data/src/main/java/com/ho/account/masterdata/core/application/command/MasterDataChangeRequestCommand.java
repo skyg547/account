@@ -5,7 +5,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import java.time.LocalDate;
 
 /**
- * 마스터 변경요청 생성 command입니다.
+ * 留덉뒪??蹂寃쎌슂泥??앹꽦 command?낅땲??
  */
 public record MasterDataChangeRequestCommand(
         MasterDataType targetType,

@@ -1,0 +1,152 @@
+.header {
+  height: 64px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--glass-border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* 좌측 로고 영역 */
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+}
+
+.iconBox {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--primary), #4f46e5);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.systemName h1 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: white;
+  line-height: 1;
+}
+
+.systemName span {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+/* 중앙 메뉴 바 */
+.menuBar { display: flex; gap: 32px; align-items: center; margin: 0 40px; }
+.menuBar button { 
+  background: none; border: none; color: #64748b; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; padding: 4px 0;
+}
+.menuBar button:hover { color: #fff; }
+.menuBar button.active { color: var(--primary); }
+.menuBar button.active::after { 
+  content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 20px; height: 3px; background: var(--primary); border-radius: 10px; box-shadow: 0 4px 12px var(--primary);
+}
+
+/* 우측 유틸리티 영역 */
+.rightArea {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.searchBox input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: white;
+  font-size: 0.85rem;
+  width: 150px;
+}
+
+.actionIcons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconBtn {
+  position: relative;
+  color: #94a3b8;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.notiBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: 2px solid var(--sidebar-bg);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.userText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.userName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+}
+
+.userDept {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
