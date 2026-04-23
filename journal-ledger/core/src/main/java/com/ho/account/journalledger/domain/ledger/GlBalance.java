@@ -1,7 +1,7 @@
 package com.ho.account.journalledger.domain.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Currency;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,8 +13,8 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 
 /**
- * 총계정원장 잔액 (General Ledger Balance)
- * 특정 계정과목 및 통화별 일별/월별 잔액을 관리합니다.
+ * 총계?�원???�액 (General Ledger Balance)
+ * ?�정 계정과목 �??�화�??�별/?�별 ?�액??관리합?�다.
  */
 @Entity
 @Table(name = "gl_balances", uniqueConstraints = {
@@ -62,7 +62,7 @@ public class GlBalance {
 
     private LocalDateTime updatedAt;
 
-    // --- 비즈니스 로직 ---
+    // --- 비즈?�스 로직 ---
 
     public void addDebit(BigDecimal amount) {
         this.debitAmount = this.debitAmount.add(amount);
@@ -75,7 +75,7 @@ public class GlBalance {
     }
 
     public void recalculate() {
-        // 잔액 = 기초 + 차변 - 대변
+        // ?�액 = 기초 + 차�? - ?�변
         this.endingBalance = this.beginningBalance.add(this.debitAmount).subtract(this.creditAmount);
         this.updatedAt = LocalDateTime.now();
     }

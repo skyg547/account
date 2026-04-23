@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.domain.unsettled;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,7 +17,7 @@ public class UnsettledItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_detail_id", nullable = false)
-    private JournalDetail journalDetail; // 諛쒖깮 ?꾪몴 ?곸꽭
+    private JournalDetail journalDetail; // 諛쒖�??꾪몴 ?곸꽭
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
@@ -28,19 +28,19 @@ public class UnsettledItem {
     private BusinessPartner businessPartner;
 
     @Column(nullable = false)
-    private LocalDate occurrenceDate; // 諛쒖깮??
+    private LocalDate occurrenceDate; // 諛쒖�??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 諛쒖깮 湲덉븸
+    private BigDecimal originalAmount; // 諛쒖�?湲덉�?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal settledAmount = BigDecimal.ZERO; // 諛섏젣??湲덉븸
+    private BigDecimal settledAmount = BigDecimal.ZERO; // 諛섏???湲덉�?
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal remainingAmount; // ?붿븸
 
     @Column(length = 20)
-    private String status; // OPEN(誘멸껐), PARTIAL(遺遺꾨컲??, CLEARED(諛섏젣?꾨즺)
+    private String status; // OPEN(誘멸�?, PARTIAL(?�?�꾨�??, CLEARED(諛섏??꾨즺)
 
     @PrePersist
     protected void onCreate() {
@@ -48,10 +48,10 @@ public class UnsettledItem {
         if (remainingAmount == null) remainingAmount = originalAmount;
     }
 
-    // 鍮꾩쫰?덉뒪 濡쒖쭅
+    // ??���??�뒪 濡쒖�?
     public void settle(BigDecimal amount) {
         if (remainingAmount.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("諛섏젣 湲덉븸???붿븸蹂대떎 ?쎈땲??");
+            throw new IllegalArgumentException("諛섏??湲덉�???붿븸蹂�?????�땲??");
         }
         this.settledAmount = this.settledAmount.add(amount);
         this.remainingAmount = this.remainingAmount.subtract(amount);
@@ -63,7 +63,7 @@ public class UnsettledItem {
         }
     }
 
-    // Getter 諛?Setter
+    // Getter �?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

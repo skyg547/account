@@ -16,10 +16,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.time.LocalDate;
 
 /**
- * <h3>원장 잔액 재집계 배치 (Balance Re-aggregation Batch)</h3>
+ * <h3>?�장 ?�액 ?�집�?배치 (Balance Re-aggregation Batch)</h3>
  * <p>
- * 과거의 전표 데이터가 수정되거나, 누락된 전표가 사후에 입력되었을 때
- * 특정 기간의 원장 잔액을 처음부터 다시 계산하여 정합성을 맞춥니다.
+ * 과거???�표 ?�이?��? ?�정?�거?? ?�락???�표가 ?�후???�력?�었????
+ * ?�정 기간???�장 ?�액??처음부???�시 계산?�여 ?�합?�을 맞춥?�다.
  * </p>
  */
 @Slf4j
@@ -30,7 +30,7 @@ public class BalanceReaggregationBatchConfig {
     private final LedgerService ledgerService;
 
     /**
-     * 전일자 잔액을 재집계하는 배치 잡
+     * ?�일???�액???�집계하??배치 ??
      */
     @Bean
     public Job dailyBalanceReaggregationJob(JobRepository jobRepository, Step reaggregateStep) {
@@ -43,7 +43,7 @@ public class BalanceReaggregationBatchConfig {
     public Step reaggregateStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("reaggregateStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
-                    // 기본적으로 어제 날짜의 데이터를 재집계
+                    // 기본?�으�??�제 ?�짜???�이?��? ?�집�?
                     LocalDate yesterday = LocalDate.now().minusDays(1);
                     log.info("Starting balance re-aggregation for: {}", yesterday);
                     

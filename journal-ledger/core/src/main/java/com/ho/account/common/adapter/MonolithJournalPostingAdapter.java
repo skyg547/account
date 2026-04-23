@@ -1,15 +1,15 @@
 package com.ho.account.common.adapter;
 
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.CurrencyRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
-import com.ho.account.journalledger.domain.journal.JournalDetail;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.service.JournalService;
 import org.springframework.stereotype.Component;
 
@@ -17,22 +17,22 @@ import org.springframework.stereotype.Component;
 public class MonolithJournalPostingAdapter implements JournalPostingPort {
 
     private final JournalService journalService;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final DepartmentRepository departmentRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
-    private final CurrencyRepository currencyRepository;
+    private final accountSubjectPersistencePort accountSubjectPersistencePort;
+    private final departmentPersistencePort departmentPersistencePort;
+    private final businessPartnerPersistencePort businessPartnerPersistencePort;
+    private final currencyPersistencePort currencyPersistencePort;
 
     public MonolithJournalPostingAdapter(
             JournalService journalService,
-            AccountSubjectRepository accountSubjectRepository,
-            DepartmentRepository departmentRepository,
-            BusinessPartnerRepository businessPartnerRepository,
-            CurrencyRepository currencyRepository) {
+            accountSubjectPersistencePort accountSubjectPersistencePort,
+            departmentPersistencePort departmentPersistencePort,
+            businessPartnerPersistencePort businessPartnerPersistencePort,
+            currencyPersistencePort currencyPersistencePort) {
         this.journalService = journalService;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.departmentRepository = departmentRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
-        this.currencyRepository = currencyRepository;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.currencyPersistencePort = currencyPersistencePort;
     }
 
     @Override
@@ -49,29 +49,29 @@ public class MonolithJournalPostingAdapter implements JournalPostingPort {
         entry.setLineageSourceId(command.lineageSourceId());
 
         if (command.currencyCode() != null && !command.currencyCode().isBlank()) {
-            entry.setCurrency(currencyRepository.findByCurrencyCode(command.currencyCode())
-                    .orElseThrow(() -> new IllegalArgumentException("통화를 찾을 수 없습니다. code=" + command.currencyCode())));
+            entry.setCurrency(currencyPersistencePort.findByCurrencyCode(command.currencyCode())
+                    .orElseThrow(() -> new IllegalArgumentException("?�화�?찾을 ???�습?�다. code=" + command.currencyCode())));
         }
 
         for (JournalLineCommand line : command.lines()) {
             JournalDetail detail = new JournalDetail();
             detail.setDrcrType(line.drcrType());
-            detail.setAccountSubject(accountSubjectRepository.findByCode(line.accountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("계정과목을 찾을 수 없습니다. code=" + line.accountCode())));
+            detail.setAccountSubject(accountSubjectPersistencePort.findByCode(line.accountCode())
+                    .orElseThrow(() -> new IllegalArgumentException("계정과목??찾을 ???�습?�다. code=" + line.accountCode())));
             detail.setAmount(line.amount());
             detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
             detail.setDetailDescription(line.detailDescription());
             detail.setAuditUser(command.auditUser());
 
             if (line.departmentCode() != null && !line.departmentCode().isBlank()) {
-                detail.setDepartment(departmentRepository.findByCode(line.departmentCode())
-                        .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. code=" + line.departmentCode())));
+                detail.setDepartment(departmentPersistencePort.findByCode(line.departmentCode())
+                        .orElseThrow(() -> new IllegalArgumentException("부?��? 찾을 ???�습?�다. code=" + line.departmentCode())));
             }
 
             if (line.businessPartnerCode() != null && !line.businessPartnerCode().isBlank()) {
-                detail.setBusinessPartner(businessPartnerRepository.findByBusinessPartnerCode(line.businessPartnerCode())
+                detail.setBusinessPartner(businessPartnerPersistencePort.findByBusinessPartnerCode(line.businessPartnerCode())
                         .orElseThrow(() -> new IllegalArgumentException(
-                                "거래처를 찾을 수 없습니다. code=" + line.businessPartnerCode())));
+                                "거래처�? 찾을 ???�습?�다. code=" + line.businessPartnerCode())));
             }
 
             entry.addDetail(detail);

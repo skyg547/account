@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.journal;
+package com.ho.account.journalledger.domain.journal.domain;
 
 public enum JournalEntryStatus {
     DRAFT,

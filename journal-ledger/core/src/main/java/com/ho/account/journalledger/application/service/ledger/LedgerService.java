@@ -1,10 +1,10 @@
 package com.ho.account.journalledger.application.service.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Currency;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.ledger.GlBalance;
 import com.ho.account.journalledger.domain.ledger.SlBalance;
@@ -62,7 +62,7 @@ public class LedgerService {
             newGlBalance.setBalanceDate(accountingDate);
             newGlBalance.setPeriod(period);
 
-            // 잔액 이월 (Carry-forward) 로직
+            // ?�액 ?�월 (Carry-forward) 로직
             glBalanceRepository.findFirstByAccountSubjectAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(
                     accountSubject, currency, accountingDate)
                 .ifPresent(prev -> newGlBalance.setBeginningBalance(prev.getEndingBalance()));
@@ -101,7 +101,7 @@ public class LedgerService {
             newSlBalance.setBalanceDate(accountingDate);
             newSlBalance.setPeriod(period);
 
-            // 잔액 이월 (Carry-forward) 로직
+            // ?�액 ?�월 (Carry-forward) 로직
             slBalanceRepository.findFirstByAccountSubjectAndBusinessPartnerAndDepartmentAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(
                     accountSubject, businessPartner, department, currency, accountingDate)
                 .ifPresent(prev -> newSlBalance.setBeginningBalance(prev.getEndingBalance()));

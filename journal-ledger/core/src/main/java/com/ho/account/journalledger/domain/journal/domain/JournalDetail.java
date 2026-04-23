@@ -1,15 +1,15 @@
-package com.ho.account.journalledger.domain.journal;
+package com.ho.account.journalledger.domain.journal.domain;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ?꾪몴 ?곸꽭(Journal Detail) ?뷀떚??
- * 遺꾧컻 ?꾪몴??媛쒕퀎 ?쇱씤(李⑤?/?蹂)??愿由ы븯硫? 怨꾩젙怨쇰ぉ, 湲덉븸, 洹?띾????깆쓣 ?ы븿??
+ * ?꾪몴 ?곸꽭(Journal Detail) ?뷀???
+ * ?�꾧�??꾪몴??媛쒕????�씤(李⑤?/??蹂)???�?�ы븯�? ?�꾩?�怨쇰?? 湲덉�? 洹??????깆쓣 ??�??
  */
 @Entity
 @Table(name = "journal_details", indexes = {
@@ -30,27 +30,27 @@ public class JournalDetail {
     private JournalEntry journalEntry;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT(李⑤?), CREDIT(?蹂)
+    private String drcrType; // DEBIT(李⑤?), CREDIT(??蹂)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 嫄곕옒 ?듯솕 湲덉븸
+    private BigDecimal amount; // 嫄곕?????�� 湲덉�?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곗? ?듯솕 湲덉븸
+    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곗? ???�� 湲덉�?
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department; // 洹?띾???
+    private Department department; // 洹?????
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 嫄곕옒泥?
+    private BusinessPartner businessPartner; // 嫄곕?�泥?
 
     @Column(length = 200)
-    private String detailDescription; // ?쇱씤 ?곸슂
+    private String detailDescription; // ??�씤 ?곸슂
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -73,7 +73,7 @@ public class JournalDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

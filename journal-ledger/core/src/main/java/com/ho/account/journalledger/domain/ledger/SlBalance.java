@@ -1,9 +1,9 @@
 package com.ho.account.journalledger.domain.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,8 +15,8 @@ import java.time.YearMonth;
 import java.time.LocalDateTime;
 
 /**
- * 보조원장 잔액 (Subsidiary Ledger Balance)
- * 계정과목, 거래처, 부서 조합별 잔액을 관리합니다.
+ * 보조?�장 ?�액 (Subsidiary Ledger Balance)
+ * 계정과목, 거래�? 부??조합�??�액??관리합?�다.
  */
 @Entity
 @Table(name = "sl_balances", uniqueConstraints = {
@@ -72,7 +72,7 @@ public class SlBalance {
 
     private LocalDateTime updatedAt;
 
-    // --- 비즈니스 로직 ---
+    // --- 비즈?�스 로직 ---
 
     public void addDebit(BigDecimal amount) {
         this.debitAmount = this.debitAmount.add(amount);

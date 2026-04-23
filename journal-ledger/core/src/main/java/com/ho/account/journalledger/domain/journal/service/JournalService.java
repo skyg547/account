@@ -1,17 +1,17 @@
 package com.ho.account.journalledger.domain.journal.service;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.audit.domain.AuditLoggable;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.expenditure.BudgetControlPort;
-import com.ho.account.journalledger.domain.journal.JournalDetail;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
-import com.ho.account.journalledger.domain.journal.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
@@ -29,20 +29,20 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import com.ho.account.journalledger.domain.journal.JournalRule;
-import com.ho.account.journalledger.domain.journal.JournalRuleDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalRule;
+import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
 
 /**
- * 전표 관리 서비스 (Journal Service)
+ * ?�표 관�??�비??(Journal Service)
  */
 @Service
 @Transactional
 public class JournalService {
 
     private final JournalEntryRepository journalEntryRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final DepartmentRepository departmentRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final accountSubjectPersistencePort accountSubjectPersistencePort;
+    private final departmentPersistencePort departmentPersistencePort;
+    private final businessPartnerPersistencePort businessPartnerPersistencePort;
     private final AccountingPeriodStatusPort accountingPeriodStatusPort;
     private final UnsettledService unsettledService;
     private final JournalRuleService journalRuleService;
@@ -52,9 +52,9 @@ public class JournalService {
 
     @Autowired
     public JournalService(JournalEntryRepository journalEntryRepository,
-            AccountSubjectRepository accountSubjectRepository,
-            DepartmentRepository departmentRepository,
-            BusinessPartnerRepository businessPartnerRepository,
+            accountSubjectPersistencePort accountSubjectPersistencePort,
+            departmentPersistencePort departmentPersistencePort,
+            businessPartnerPersistencePort businessPartnerPersistencePort,
             AccountingPeriodStatusPort accountingPeriodStatusPort,
             UnsettledService unsettledService,
             JournalRuleService journalRuleService,
@@ -62,9 +62,9 @@ public class JournalService {
             PostingService postingService,
             JournalRuleEngine journalRuleEngine) {
         this.journalEntryRepository = journalEntryRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.departmentRepository = departmentRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.accountingPeriodStatusPort = accountingPeriodStatusPort;
         this.unsettledService = unsettledService;
         this.journalRuleService = journalRuleService;
@@ -73,14 +73,14 @@ public class JournalService {
         this.journalRuleEngine = journalRuleEngine;
     }
 
-    // 전표 생성
+    // ?�표 ?�성
     @AuditLoggable(eventType = "JOURNAL", eventName = "CREATE")
     public JournalEntry createJournalEntry(JournalEntry journalEntry) {
         if (journalEntry.getAccountingDate() == null) {
             journalEntry.setAccountingDate(journalEntry.getSlipDate());
         }
         if (accountingPeriodStatusPort.isClosed(journalEntry.getAccountingDate())) {
-            throw new IllegalStateException("해당 월은 이미 마감되었습니다.");
+            throw new IllegalStateException("?�당 ?��? ?��? 마감?�었?�니??");
         }
         validateJournalEntry(journalEntry);
         journalEntry.setSlipNo(generateSlipNo(journalEntry.getAccountingDate()));
@@ -89,7 +89,7 @@ public class JournalService {
         return journalEntryRepository.save(journalEntry);
     }
 
-    // 전표 승인
+    // ?�표 ?�인
     @AuditLoggable(eventType = "JOURNAL", eventName = "APPROVE")
     public void approveJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id).orElseThrow();
@@ -102,14 +102,14 @@ public class JournalService {
             .forEach(unsettledService::createUnsettledItem);
     }
 
-    // 전표 전기 (Post) - 핵심 변경 지점
+    // ?�표 ?�기 (Post) - ?�심 변�?지??
     @AuditLoggable(eventType = "JOURNAL", eventName = "POST")
     public void postJournalEntry(Long id) {
-        // 직접 처리하지 않고 특화된 PostingService에 위임하여 GlEntry 생성 및 Balance 업데이트 수행
+        // 직접 처리?��? ?�고 ?�화??PostingService???�임?�여 GlEntry ?�성 �?Balance ?�데?�트 ?�행
         postingService.postJournalEntry(id);
     }
 
-    // 전표 자동 생성
+    // ?�표 ?�동 ?�성
     public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> transactionEvent, LocalDate accountingDate) {
         List<JournalRule> activeRules = journalRuleService.findActiveRules(accountingDate);
         for (JournalRule rule : activeRules) {
@@ -132,7 +132,7 @@ public class JournalService {
             JournalDetail detail = new JournalDetail();
             detail.setDrcrType(ruleDetail.getDrcrType());
             String accountCode = evaluateString(ruleDetail.getAccountSubjectCodeExpression(), transactionEvent);
-            detail.setAccountSubject(accountSubjectRepository.findById(accountCode).orElseThrow());
+            detail.setAccountSubject(accountSubjectPersistencePort.findById(accountCode).orElseThrow());
             BigDecimal amount = evaluateBigDecimal(ruleDetail.getAmountExpression(), transactionEvent);
             detail.setAmount(amount);
             detail.setBaseAmount(amount);

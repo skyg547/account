@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication(scanBasePackages = "com.ho.account")
 @EnableDiscoveryClient
-@EnableFeignClients // 다른 마이크로서비스와 우아하게 전화(API 호출)할 수 있는 기능을 켭니다.
+@EnableFeignClients // ?�른 마이?�로?�비?��? ?�아?�게 ?�화(API ?�출)?????�는 기능??�?��??
 public class JournalLedgerApplication {
 
     public static void main(String[] args) {

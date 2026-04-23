@@ -1,18 +1,18 @@
 package com.ho.account.journalledger.domain.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency;
-import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 蹂댁“?먯옣 ?곸꽭 (SL Entry)
- * 嫄곕옒泥?BusinessPartner) 諛?遺??Department) ?곸꽭媛 ?ы븿???먯옣 ?곸꽭 ?댁뿭.
+ * 蹂댁??�?�� ?곸꽭 (SL Entry)
+ * 嫄곕?�泥?BusinessPartner) �??�??Department) ?곸꽭媛 ??�???�?�� ?곸꽭 ??�뿭.
  */
 @Entity
 @Table(name = "sl_entries", indexes = {
@@ -87,7 +87,7 @@ public class SlEntry {
             this.auditUser = "SYSTEM";
     }
 
-    // Getter 諛?Setter
+    // Getter �?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     

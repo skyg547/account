@@ -1,4 +1,4 @@
-package com.ho.account.ledger.dto;
+package com.ho.account.journalledger.core.domain.ledger.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -6,10 +6,10 @@ import java.time.LocalDate;
 public class LedgerDTO {
     private LocalDate date;
     private String slipNo;
-    private String description; // 적요
-    private BigDecimal debitAmount; // 차변
-    private BigDecimal creditAmount; // 대변
-    private BigDecimal balance; // 잔액
+    private String description; // ?�요
+    private BigDecimal debitAmount; // 차�?
+    private BigDecimal creditAmount; // ?�변
+    private BigDecimal balance; // ?�액
 
     public LedgerDTO(LocalDate date, String slipNo, String description, BigDecimal debitAmount, BigDecimal creditAmount, BigDecimal balance) {
         this.date = date;

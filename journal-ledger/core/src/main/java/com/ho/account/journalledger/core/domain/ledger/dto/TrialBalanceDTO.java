@@ -1,4 +1,4 @@
-package com.ho.account.ledger.dto;
+package com.ho.account.journalledger.core.domain.ledger.dto;
 
 import java.math.BigDecimal;
 
@@ -27,7 +27,7 @@ public class TrialBalanceDTO {
     }
 
     // Getter
-    public String getAccountCode() {
+    public String getCode() {
         return accountCode;
     }
 

@@ -31,11 +31,12 @@
 | 매출채권(AR) 관리 | `/finance/receivable` | 🎨 | [ ] | Aging 차트 및 목록 |
 | 매입채무(AP) 관리 | `/finance/payable` | 🎨 | [ ] | 지급 예정 스케줄 관리 |
 | 세무/부가세 | `/finance/tax` | 🎨 | [ ] | 부가세 신고 기초 데이터 |
-| 고정자산 관리 | `/finance/assets` | 🎨 | [ ] | 자산 대장 및 상각 추이 |
+| 고정자산 관리 | `/finance/assets` | ✅ | [X] | 자산 대장, 등록 및 처분 기능 |
 | 지출결의(경비) 포털 | `/finance/expense` | 🎨 | [ ] | 개인별 지출 현황 및 신청 |
 | 예산 관리 | `/finance/budget` | 🎨 | [ ] | **[NEW]** 부서별 예산 편성 |
 | 자금 수지 계획 | `/finance/cashflow` | 🎨 | [ ] | **[NEW]** 입출금 예정 스케줄 |
-| 리스 회계 | `/finance/lease` | 🎨 | [ ] | **[NEW]** IFRS 16 리스 상각 |
+| 리스 회계 | `/finance/lease` | ✅ | [X] | **[NEW]** IFRS 16 리스 등록 및 재측정 |
+| 자션/리스 결산 | `/finance/assets/closing` | ✅ | [X] | **[NEW]** 월말 상각 및 결산 실행 |
 | 연결 회계 기초 | `/finance/consolidation` | 🎨 | [ ] | **[NEW]** 연결 정산표 기초 |
 
 ## 4. 은행 특화 업무 (BANKING)

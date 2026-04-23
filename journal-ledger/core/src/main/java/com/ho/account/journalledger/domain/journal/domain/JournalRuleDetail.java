@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.journal;
+package com.ho.account.journalledger.domain.journal.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -16,7 +16,7 @@ public class JournalRuleDetail {
     private JournalRule journalRule;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // 李⑤? ?먮뒗 ?蹂
+    private String drcrType; // 李⑤? ?�?�� ??蹂
 
     @Column(nullable = false, length = 100)
     private String accountSubjectCodeExpression; // ?? "10100", "${transaction.accountCode}"
@@ -25,7 +25,7 @@ public class JournalRuleDetail {
     private String amountExpression; // ?? "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
 
     @Column(length = 255)
-    private String descriptionExpression; // ?? "留ㅼ텧", "${transaction.description}"
+    private String descriptionExpression; // ?? "留ㅼ??, "${transaction.description}"
 
     @Column(length = 50)
     private String businessPartnerCodeExpression; // ?? "BP001", "${transaction.businessPartnerCode}"
@@ -54,7 +54,7 @@ public class JournalRuleDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

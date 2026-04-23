@@ -1,27 +1,32 @@
-package com.ho.account.journalledger.domain.ledger;
+package com.ho.account.journalledger.core.domain.ledger.domain;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency; // ?꾨씫??Currency import 異붽?
-import jakarta.persistence.*;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.LocalDateTime;
-import java.util.List; // ?꾨씫??List import 異붽?
+import java.time.YearMonth;
 
-/**
- * 蹂댁“?먯옣 ?붿븸 (Subsidiary Ledger Balance) ?뷀떚??
- * ?뱀젙 怨꾩젙怨쇰ぉ, 嫄곕옒泥? 遺??議고빀???쇰퀎 諛??붾퀎 ?붿븸 ?뺣낫瑜?湲곕줉?⑸땲??
- */
 @Entity
-@Table(name = "sl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_subject_id", "business_partner_id", "department_id", "currency_code", "balance_date", "period"})
+@Table(name = "gl_balances", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-    @Index(name = "idx_sl_balance_account_bp_date", columnList = "account_subject_id, business_partner_id, balanceDate")
+        @Index(name = "idx_gl_balance_account_date", columnList = "account_subject_id, balanceDate")
 })
-public class SlBalance {
+public class GlBalance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,34 +37,26 @@ public class SlBalance {
     private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "business_partner_id")
-    private BusinessPartner businessPartner; // 嫄곕옒泥?(?좏깮 ?ы빆)
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
-    private Department department; // 洹?띾???(?좏깮 ?ы빆)
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
     private Currency currency;
 
     @Column(nullable = false)
-    private LocalDate balanceDate; // ?붿븸 ?쇱옄 (?쇰퀎 ?붿븸)
+    private LocalDate balanceDate;
 
     @Column(nullable = false)
-    private YearMonth period; // ?뚭퀎 湲곌컙 (?붾퀎 ?붿븸 吏묎퀎瑜??꾪븳)
+    private YearMonth period;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance = BigDecimal.ZERO; // 湲곗큹 ?붿븸
+    private BigDecimal beginningBalance = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal debitAmount = BigDecimal.ZERO; // 李⑤? 諛쒖깮??
+    private BigDecimal debitAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal creditAmount = BigDecimal.ZERO; // ?蹂 諛쒖깮??
+    private BigDecimal creditAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance = BigDecimal.ZERO; // 湲곕쭚 ?붿븸
+    private BigDecimal endingBalance = BigDecimal.ZERO;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -77,7 +74,6 @@ public class SlBalance {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -94,20 +90,12 @@ public class SlBalance {
         this.accountSubject = accountSubject;
     }
 
-    public BusinessPartner getBusinessPartner() {
-        return businessPartner;
+    public Currency getCurrency() {
+        return currency;
     }
 
-    public void setBusinessPartner(BusinessPartner businessPartner) {
-        this.businessPartner = businessPartner;
-    }
-
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
+    public void setCurrency(Currency currency) {
+        this.currency = currency;
     }
 
     public LocalDate getBalanceDate() {
@@ -168,13 +156,5 @@ public class SlBalance {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
-    }
-
-    public Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Currency currency) {
-        this.currency = currency;
     }
 }

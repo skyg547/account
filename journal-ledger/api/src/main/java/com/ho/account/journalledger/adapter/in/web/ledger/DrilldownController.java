@@ -1,7 +1,7 @@
 package com.ho.account.journalledger.adapter.in.web.ledger;
 
 import com.ho.account.common.service.SourceDocumentService;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.application.service.journal.JournalService;
 import java.util.LinkedHashMap;
 import java.util.Map;

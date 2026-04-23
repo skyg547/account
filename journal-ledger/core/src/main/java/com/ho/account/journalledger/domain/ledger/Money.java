@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * 금액을 표현하는 불변 Value Object (Functional Programming)
+ * 금액???�현?�는 불�? Value Object (Functional Programming)
  */
 public record Money(BigDecimal amount) {
     public static final Money ZERO = new Money(BigDecimal.ZERO);
@@ -13,8 +13,7 @@ public record Money(BigDecimal amount) {
         if (amount == null) {
             amount = BigDecimal.ZERO;
         }
-        // 은행 업무 표준: 소수점 2자리 반올림
-        amount = amount.setScale(2, RoundingMode.HALF_UP);
+        // ?�???�무 ?��?: ?�수??2?�리 반올�?        amount = amount.setScale(2, RoundingMode.HALF_UP);
     }
 
     public Money add(Money other) {

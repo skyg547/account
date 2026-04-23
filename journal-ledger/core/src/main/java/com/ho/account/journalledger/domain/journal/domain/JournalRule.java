@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.journal;
+package com.ho.account.journalledger.domain.journal.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 遺꾧컻 洹쒖튃(Journal Rule) ?뷀떚??
- * 嫄곕옒 ?좏삎蹂꾨줈 ?먮룞 遺꾧컻 泥섎━瑜??꾪븳 洹쒖튃??愿由ы븿.
+ * ?�꾧�?洹쒖??Journal Rule) ?뷀???
+ * 嫄곕???좏삎蹂꾨�??�?�� ?�꾧�?泥섎?�瑜??꾪븳 洹쒖????�?�ы븿.
  */
 @Entity
 @Table(name = "journal_rules")
@@ -16,13 +16,13 @@ public class JournalRule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // ?대? ?앸퀎??
+    private Long id; // ??�? ??��??
 
     @Column(nullable = false, unique = true, length = 50)
-    private String ruleCode; // 洹쒖튃 肄붾뱶
+    private String ruleCode; // 洹쒖???�붾�?
 
     @Column(nullable = false, length = 100)
-    private String ruleName; // 洹쒖튃紐?
+    private String ruleName; // 洹쒖?�紐?
 
     @Column(length = 500)
     private String description;
@@ -30,7 +30,7 @@ public class JournalRule {
     @Column(nullable = false)
     private LocalDate validFrom;
 
-    private LocalDate validTo; // ?꾩옱 ?쒖꽦 洹쒖튃?대㈃ null ?덉슜
+    private LocalDate validTo; // ?꾩옱 ??�꽦 洹쒖???�??null ??�슜
 
     @Column(nullable = false)
     private int version;
@@ -39,7 +39,7 @@ public class JournalRule {
     private boolean isActive;
 
     @Column(nullable = false)
-    private int priority; // ?レ옄媛 ??쓣?섎줉 ?곗꽑?쒖쐞媛 ?믪쓬
+    private int priority; // ??�옄媛 ?????�줉 ?곗꽑??�쐞媛 ?믪쓬
 
     @OneToMany(mappedBy = "journalRule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JournalRuleCondition> conditions = new ArrayList<>();
@@ -66,7 +66,7 @@ public class JournalRule {
         if (this.version == 0)
             this.version = 1;
         if (this.priority == 0)
-            this.priority = 999; // 湲곕낯 ??? ?곗꽑?쒖쐞
+            this.priority = 999; // 湲곕????? ?곗꽑??�쐞
         if (this.ruleCode == null)
             throw new IllegalArgumentException("Rule code cannot be null");
         if (this.ruleName == null)
@@ -80,7 +80,7 @@ public class JournalRule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }
@@ -201,7 +201,7 @@ public class JournalRule {
         this.createdBy = createdBy;
     }
 
-    // ?곌?愿怨??ы띁 硫붿꽌??
+    // ?�??�??????硫붿�??
     public void addCondition(JournalRuleCondition condition) {
         conditions.add(condition);
         condition.setJournalRule(this);

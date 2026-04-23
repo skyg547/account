@@ -1,6 +1,6 @@
 package com.ho.account.journal.repository;
 
-import com.ho.account.journalledger.domain.journal.JournalRuleCondition;
+import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

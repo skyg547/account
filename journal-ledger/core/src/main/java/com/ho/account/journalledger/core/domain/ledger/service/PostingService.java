@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.application.service.ledger;
 
-import com.ho.account.journalledger.domain.journal.JournalDetail;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
-import com.ho.account.journalledger.domain.journal.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.GlEntry;
 import com.ho.account.journalledger.domain.ledger.SlEntry;
@@ -32,7 +32,7 @@ public class PostingService {
     }
 
     /**
-     * DRAFT ?먮뒗 APPROVED ?곹깭???꾪몴瑜?POSTED ?곹깭濡?蹂寃쏀븯怨? ?먯옣 諛?蹂댁“?먯옣 ?곸꽭瑜?湲곕줉?섎ŉ ?붿븸???ㅼ떆媛꾩쑝濡??낅뜲?댄듃?⑸땲??(利앸텇 ?낅뜲?댄듃).
+     * DRAFT ?�?�� APPROVED ?곹깭???꾪몴??POSTED ?곹깭�?蹂寃�?�?�? ?�?�� �?蹂댁??�?�� ?곸꽭??湲곕�??��??붿븸????�떆媛꾩?�濡???�뜲??�듃??�땲??(利앸????�뜲??�듃).
      */
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
@@ -43,7 +43,7 @@ public class PostingService {
             throw new IllegalStateException("JournalEntry is already posted or reversed.");
         }
 
-        // ?곹깭瑜?POSTED濡?蹂寃?
+        // ?곹깭??POSTED�?蹂�?
         journalEntry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(journalEntry);
 
@@ -51,11 +51,11 @@ public class PostingService {
         String fiscalYear = String.valueOf(accountingDate.getYear());
         String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
 
-        // 媛??곸꽭 ?쇱씤?????GlEntry, SlEntry ?앹꽦 諛??붿븸 ?낅뜲?댄듃
+        // �??곸꽭 ??�씤??????GlEntry, SlEntry ??�꽦 �??붿븸 ??�뜲??�듃
         for (JournalDetail detail : journalEntry.getDetails()) {
             boolean isDebit = "DEBIT".equals(detail.getDrcrType());
 
-            // 1. GlEntry ?앹꽦
+            // 1. GlEntry ??�꽦
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
             glEntry.setAccount(detail.getAccountSubject());
@@ -81,7 +81,7 @@ public class PostingService {
             glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             glEntryRepository.save(glEntry);
 
-            // 2. SlEntry ?앹꽦 (嫄곕옒泥??먮뒗 遺?쒓? ?덈뒗 寃쎌슦?먮룄 湲곕낯 ?앹꽦, Drill-down ?⑸룄)
+            // 2. SlEntry ??�꽦 (嫄곕?�泥??�?�� ?�??? ??�뒗 寃쎌??�?�� 湲곕????�꽦, Drill-down ??�룄)
             SlEntry slEntry = new SlEntry();
             slEntry.setJournalDetail(detail);
             slEntry.setAccount(detail.getAccountSubject());
@@ -109,7 +109,7 @@ public class PostingService {
             slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             slEntryRepository.save(slEntry);
 
-            // 3. 利앸텇 ?붿븸 ?낅뜲?댄듃
+            // 3. 利앸???붿븸 ??�뜲??�듃
             ledgerService.updateLedgerBalances(detail, accountingDate);
         }
     }

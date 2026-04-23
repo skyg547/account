@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.application.service.ledger;
 
-import com.ho.account.journalledger.domain.journal.JournalDetail;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
-import com.ho.account.journalledger.domain.journal.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.GlEntry;
 import com.ho.account.journalledger.domain.ledger.SlEntry;
@@ -43,7 +43,7 @@ public class PostingService {
         for (JournalDetail detail : journalEntry.getDetails()) {
             boolean isDebit = "DEBIT".equals(detail.getDrcrType());
 
-            // 1. GlEntry 생성
+            // 1. GlEntry ?�성
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
             glEntry.setAccount(detail.getAccountSubject());
@@ -65,7 +65,7 @@ public class PostingService {
             }
             glEntryRepository.save(glEntry);
 
-            // 2. SlEntry 생성
+            // 2. SlEntry ?�성
             SlEntry slEntry = new SlEntry();
             slEntry.setJournalDetail(detail);
             slEntry.setAccount(detail.getAccountSubject());
@@ -89,7 +89,7 @@ public class PostingService {
             }
             slEntryRepository.save(slEntry);
 
-            // 3. 잔액 업데이트 (Carry-forward 포함)
+            // 3. ?�액 ?�데?�트 (Carry-forward ?�함)
             ledgerService.updateLedgerBalances(detail, accountingDate);
         }
     }

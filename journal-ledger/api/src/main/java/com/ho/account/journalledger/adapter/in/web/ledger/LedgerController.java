@@ -1,13 +1,13 @@
 package com.ho.account.journalledger.adapter.in.web.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.domain.Currency;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
-import com.ho.account.basic.repository.CurrencyRepository;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
 import com.ho.account.journalledger.domain.ledger.GlBalance;
 import com.ho.account.journalledger.domain.ledger.SlBalance;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
@@ -27,21 +27,21 @@ import java.util.List;
 public class LedgerController {
 
     private final LedgerService ledgerService;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
-    private final DepartmentRepository departmentRepository;
-    private final CurrencyRepository currencyRepository;
+    private final accountSubjectPersistencePort accountSubjectPersistencePort;
+    private final businessPartnerPersistencePort businessPartnerPersistencePort;
+    private final departmentPersistencePort departmentPersistencePort;
+    private final currencyPersistencePort currencyPersistencePort;
 
     public LedgerController(LedgerService ledgerService,
-                            AccountSubjectRepository accountSubjectRepository,
-                            BusinessPartnerRepository businessPartnerRepository,
-                            DepartmentRepository departmentRepository,
-                            CurrencyRepository currencyRepository) {
+                            accountSubjectPersistencePort accountSubjectPersistencePort,
+                            businessPartnerPersistencePort businessPartnerPersistencePort,
+                            departmentPersistencePort departmentPersistencePort,
+                            currencyPersistencePort currencyPersistencePort) {
         this.ledgerService = ledgerService;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
-        this.departmentRepository = departmentRepository;
-        this.currencyRepository = currencyRepository;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.currencyPersistencePort = currencyPersistencePort;
     }
 
     /**
@@ -61,13 +61,13 @@ public class LedgerController {
 
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectRepository.findById(accountCode)
+            accountSubject = accountSubjectPersistencePort.findById(accountCode)
                     .orElseThrow(() -> new IllegalArgumentException("AccountSubject not found with code: " + accountCode));
         }
 
         Currency currency = null;
         if (currencyCode != null) {
-            currency = currencyRepository.findById(currencyCode)
+            currency = currencyPersistencePort.findById(currencyCode)
                     .orElseThrow(() -> new IllegalArgumentException("Currency not found with code: " + currencyCode));
         }
 
@@ -96,25 +96,25 @@ public class LedgerController {
 
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectRepository.findById(accountCode)
+            accountSubject = accountSubjectPersistencePort.findById(accountCode)
                     .orElseThrow(() -> new IllegalArgumentException("AccountSubject not found with code: " + accountCode));
         }
 
         BusinessPartner businessPartner = null;
         if (businessPartnerCode != null) {
-            businessPartner = businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode)
+            businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(businessPartnerCode)
                     .orElseThrow(() -> new IllegalArgumentException("BusinessPartner not found with code: " + businessPartnerCode));
         }
 
         Department department = null;
         if (deptCode != null) {
-            department = departmentRepository.findByCode(deptCode)
+            department = departmentPersistencePort.findByCode(deptCode)
                     .orElseThrow(() -> new IllegalArgumentException("Department not found with code: " + deptCode));
         }
 
         Currency currency = null;
         if (currencyCode != null) {
-            currency = currencyRepository.findById(currencyCode)
+            currency = currencyPersistencePort.findById(currencyCode)
                     .orElseThrow(() -> new IllegalArgumentException("Currency not found with code: " + currencyCode));
         }
 

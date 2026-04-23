@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.domain.journal;
+package com.ho.account.journalledger.domain.journal.domain;
 
 import jakarta.persistence.*;
 
@@ -24,7 +24,7 @@ public class JournalRuleCondition {
     @Column(nullable = false, length = 255)
     private String value; // The value to compare against
 
-    // Getter è«›?Setter
+    // Getter è«?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

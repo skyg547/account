@@ -1,11 +1,11 @@
 package com.ho.account.journalledger.adapter.in.web.ledger;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Currency;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.journalledger.domain.journal.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.GlBalance;
 import com.ho.account.journalledger.domain.ledger.SlBalance;
@@ -25,21 +25,21 @@ public class GlSlController {
 
     private final PostingService postingService;
     private final LedgerService ledgerService;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final accountSubjectPersistencePort accountSubjectPersistencePort;
+    private final businessPartnerPersistencePort businessPartnerPersistencePort;
     private final GlEntryRepository glEntryRepository;
     private final JournalEntryRepository journalEntryRepository;
 
     public GlSlController(PostingService postingService,
                           LedgerService ledgerService,
-                          AccountSubjectRepository accountSubjectRepository,
-                          BusinessPartnerRepository businessPartnerRepository,
+                          accountSubjectPersistencePort accountSubjectPersistencePort,
+                          businessPartnerPersistencePort businessPartnerPersistencePort,
                           GlEntryRepository glEntryRepository,
                           JournalEntryRepository journalEntryRepository) {
         this.postingService = postingService;
         this.ledgerService = ledgerService;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.glEntryRepository = glEntryRepository;
         this.journalEntryRepository = journalEntryRepository;
     }
@@ -64,7 +64,7 @@ public class GlSlController {
         
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectRepository.findById(accountCode).orElse(null);
+            accountSubject = accountSubjectPersistencePort.findById(accountCode).orElse(null);
         }
         
         List<GlBalance> balances = ledgerService.getGlBalances(startDate, endDate, accountSubject, null);
@@ -82,7 +82,7 @@ public class GlSlController {
         
         BusinessPartner bp = null;
         if (businessPartnerCode != null) {
-            bp = businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode).orElse(null);
+            bp = businessPartnerPersistencePort.findByBusinessPartnerCode(businessPartnerCode).orElse(null);
         }
         
         List<SlBalance> balances = ledgerService.getSlBalances(startDate, endDate, null, bp, null, null);

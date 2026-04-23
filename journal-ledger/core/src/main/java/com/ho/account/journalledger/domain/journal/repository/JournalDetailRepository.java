@@ -1,6 +1,6 @@
 package com.ho.account.journal.repository;
 
-import com.ho.account.journalledger.domain.journal.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 public interface JournalDetailRepository extends JpaRepository<JournalDetail, Long> {
 
-       // ?뱀젙 怨꾩젙怨쇰ぉ??湲곌컙蹂??곸꽭 ?댁뿭 議고쉶 (?뱀씤???꾪몴留? ?뚭퀎?쇱옄 湲곗?)
+       // ?뱀???�꾩?�怨쇰???湲곌컙蹂??곸꽭 ??�뿭 議고??(?뱀????꾪몴�? ???�??�옄 湲곗?)
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE jd.accountSubject.code = :accountCode " +
@@ -24,7 +24,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
 
-       // ?뱀젙 怨꾩젙怨쇰ぉ???꾧린 ?댁썡湲??쒖옉???댁쟾 ?붿븸) 怨꾩궛 (?뱀씤???꾪몴留? ?뚭퀎?쇱옄 湲곗?)
+       // ?뱀???�꾩?�怨쇰????꾧린 ??�썡�???�옉????�쟾 ?붿븸) ?�꾩�?(?뱀????꾪몴�? ???�??�옄 湲곗?)
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE jd.accountSubject.code = :accountCode " +
@@ -34,7 +34,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("accountCode") String accountCode,
                      @Param("startDate") LocalDate startDate);
 
-       // ?먯씡怨꾩궛?쒖슜 湲곌컙蹂??꾩껜 ?댁뿭 議고쉶 (?뱀씤???꾪몴留?
+       // ?�?��?�꾩�??�슜 湲곌컙蹂??꾩껜 ??�뿭 議고??(?뱀????꾪몴�?
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
@@ -43,7 +43,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
 
-       // ?뱀젙 湲곌컙 ?댁뿉 ?꾧린(POSTED)???꾪몴??紐⑤뱺 ?곸꽭 ?댁뿭 議고쉶
+       // ?뱀??湲곌�???�뿉 ?꾧린(POSTED)???꾪몴??紐⑤�??곸꽭 ??�뿭 議고??
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
