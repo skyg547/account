@@ -17,8 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MasterDataChangeRequestServiceTest {
 
     private final InMemoryPort port = new InMemoryPort();
-    private final RecordingApplier applier = new RecordingApplier();
-    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port, applier);
+    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port);
 
     @Test
     void requestsAndApprovesMasterDataChange() {
@@ -65,7 +64,6 @@ class MasterDataChangeRequestServiceTest {
         MasterDataChangeRequest applied = service.applyApprovedChange(requested.getId());
 
         assertThat(applied.getStatus()).isEqualTo(ChangeStatus.APPLIED);
-        assertThat(applier.appliedIds).containsExactly(requested.getId());
     }
 
     @Test
@@ -82,7 +80,6 @@ class MasterDataChangeRequestServiceTest {
         assertThat(service.applyDueApprovedChanges())
                 .extracting(MasterDataChangeRequest::getId)
                 .containsExactly(due.getId());
-        assertThat(applier.appliedIds).containsExactly(due.getId());
     }
 
     private MasterDataChangeRequestCommand command(String key) {
@@ -97,6 +94,11 @@ class MasterDataChangeRequestServiceTest {
         @Override
         public Optional<MasterDataChangeRequest> findById(Long id) {
             return store.stream().filter(request -> request.getId().equals(id)).findFirst();
+        }
+
+        @Override
+        public List<MasterDataChangeRequest> findAll() {
+            return new ArrayList<>(store);
         }
 
         @Override
@@ -121,15 +123,6 @@ class MasterDataChangeRequestServiceTest {
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException(e);
             }
-        }
-    }
-
-    private static final class RecordingApplier implements MasterDataChangeApplier {
-        private final List<Long> appliedIds = new ArrayList<>();
-
-        @Override
-        public void apply(MasterDataChangeRequest request) {
-            appliedIds.add(request.getId());
         }
     }
 }

@@ -1,14 +1,14 @@
 package com.ho.account.masterdata.batch.application;
 
 import com.ho.account.masterdata.core.application.pipeline.MasterDataValidityReportPipeline;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Department;
-import com.ho.account.masterdata.core.domain.model.Product;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.domain.model.Product;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -54,7 +54,12 @@ class MasterDataBatchOrchestratorTest {
             active.setCode("1000");
             active.setValidFrom(LocalDate.of(2026, 4, 1));
             active.setValidTo(LocalDate.of(2026, 4, 30));
-            return List.of(active);
+
+            AccountSubject inactive = new AccountSubject();
+            inactive.setCode("2000");
+            inactive.setValidFrom(LocalDate.of(2026, 1, 1));
+            inactive.setValidTo(LocalDate.of(2026, 1, 31));
+            return List.of(active, inactive);
         }
 
         @Override
@@ -80,7 +85,17 @@ class MasterDataBatchOrchestratorTest {
             active.setCode("HR");
             active.setValidFrom(LocalDate.of(2026, 1, 1));
             active.setValidTo(LocalDate.of(2026, 12, 31));
-            return List.of(active);
+
+            Department inactive = new Department();
+            inactive.setCode("OLD");
+            inactive.setValidFrom(LocalDate.of(2025, 1, 1));
+            inactive.setValidTo(LocalDate.of(2025, 12, 31));
+            return List.of(active, inactive);
+        }
+
+        @Override
+        public List<Department> findAllActive() {
+            return findAll();
         }
 
         @Override
@@ -111,7 +126,12 @@ class MasterDataBatchOrchestratorTest {
             active.setProductCode("P-1");
             active.setValidFrom(LocalDate.of(2026, 4, 1));
             active.setValidTo(LocalDate.of(2026, 5, 1));
-            return List.of(active);
+
+            Product inactive = new Product();
+            inactive.setProductCode("P-OLD");
+            inactive.setValidFrom(LocalDate.of(2025, 1, 1));
+            inactive.setValidTo(LocalDate.of(2025, 12, 31));
+            return List.of(active, inactive);
         }
 
         @Override
@@ -138,15 +158,23 @@ class MasterDataBatchOrchestratorTest {
 
         @Override
         public List<BusinessPartner> findAll() {
-            return findByUseYnTrue();
+            BusinessPartner active = new BusinessPartner();
+            active.setBusinessPartnerCode("BP-1");
+            active.setUseYn(true);
+            active.setValidFrom(LocalDate.of(2026, 1, 1));
+            active.setValidTo(LocalDate.of(2026, 12, 31));
+
+            BusinessPartner inactive = new BusinessPartner();
+            inactive.setBusinessPartnerCode("BP-OLD");
+            inactive.setUseYn(false);
+            inactive.setValidFrom(LocalDate.of(2026, 1, 1));
+            inactive.setValidTo(LocalDate.of(2026, 12, 31));
+            return List.of(active, inactive);
         }
 
         @Override
         public List<BusinessPartner> findByUseYnTrue() {
-            BusinessPartner partner = new BusinessPartner();
-            partner.setBusinessPartnerCode("BP-1");
-            partner.setUseYn(true);
-            return List.of(partner);
+            return findAll().stream().filter(partner -> Boolean.TRUE.equals(partner.getUseYn())).toList();
         }
 
         @Override
