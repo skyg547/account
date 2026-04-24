@@ -3,3 +3,8 @@ spring:
     name: gateway-service
   config:
     import: "optional:configserver:http://localhost:8888/"
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    issuer: ${AUTH_JWT_ISSUER:auth-service}

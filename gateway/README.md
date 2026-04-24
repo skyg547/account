@@ -14,7 +14,20 @@ Eureka 서버(`discovery`)와 Config 서버(`config-server`)가 켜진 후에 �
 ./gradlew :gateway:bootRun
 ```
 
-## 3. Docker 로 실행하기
+## 3. JWT 검증 설정
+
+`gateway`와 `auth`는 동일한 JWT 서명키/issuer를 사용해야 합니다.
+
+```yaml
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+```
+
+환경변수로 운영값을 주입하는 것을 권장합니다.
+
+## 4. Docker 로 실행하기
 ```bash
 docker build -t account/gateway-service .
 docker run -p 8080:8080 account/gateway-service
