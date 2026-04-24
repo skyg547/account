@@ -28,24 +28,22 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <NavProvider>
-          {/* 1. 최상단 고정 헤더 (시스템명, 사용자정보) */}
-          <TopHeader />
-
-          <div className="app-container">
-            {/* 2. 좌측 메뉴판 (사이드바) */}
+          {/* Main Layout Wrapper */}
+          <div className="flex bg-[#020617] min-h-screen selection:bg-blue-500/30 selection:text-blue-200">
+            {/* Sidebar - Fixed Left */}
             <Sidebar />
 
-            {/* 3. 오른쪽 메인 내용 영역 */}
-            <div className="main-wrapper">
+            <div className="flex-1 flex flex-col ml-[300px] min-h-screen">
+              {/* Top Global Header - Stays relative to content but fixed top */}
+              <TopHeader />
               
-              {/* 3-1. 실제 페이지 본문 */}
-              <main className="content">
+              {/* Page Body - Animated transition */}
+              <main className="flex-1 p-10 pt-[120px] animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
                 {children}
               </main>
 
-              {/* 3-2. 하단 푸터 (환경 정보 표시) */}
+              {/* Minimal Footer */}
               <Footer />
-
             </div>
           </div>
         </NavProvider>

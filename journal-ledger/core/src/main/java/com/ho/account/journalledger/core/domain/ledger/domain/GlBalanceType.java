@@ -1,10 +1,9 @@
-package com.ho.account.journalledger.domain.ledger;
+package com.ho.account.journalledger.core.domain.ledger.domain;
 
 /**
- * GL ?붿븸 ????�쓣 ?뺤쓽??�뒗 Enum.
- * 李⑤?(DEBIT) ?붿븸 ?�?�� ??蹂(CREDIT) ?붿븸???????�땲??
+ * GL Balance Type (DEBIT/CREDIT)
  */
 public enum GlBalanceType {
-    DEBIT,  // 李⑤? ?붿븸
-    CREDIT  // ??蹂 ?붿븸
+    DEBIT,
+    CREDIT
 }

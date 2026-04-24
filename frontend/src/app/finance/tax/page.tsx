@@ -9,80 +9,129 @@ import styles from './TaxVatSupport.module.css';
  */
 export default function TaxVatSupportPage() {
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.titleArea}>
-          <h2>세무/부가세 신고 지원</h2>
-          <p>분기별 부가가치세 신고를 위한 매입/매출 집계 및 정합성 검증을 수행합니다.</p>
+    <div className="flex flex-col gap-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-black text-white italic tracking-tight uppercase">세무/부가세 신고 지원</h2>
+          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">분기별 매입/매출 집계 및 국세청(Hometax) 데이터 교차 검증</p>
+        </div>
+        <div className="flex gap-2">
+           <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+              <Download size={18} /> 집계내역 다운로드
+           </button>
         </div>
       </header>
 
       {/* 부가세 요약 현황 */}
-      <section className={styles.vatDashboard}>
-        <div className={`glass-card ${styles.vatCard}`}>
-          <h4>2026년 1기 확정 부가세 현황</h4>
-          <div className={styles.vatValueGrid}>
-            <div className={styles.vatItem}>
-              <span>매출 부가세 (A)</span>
-              <strong>₩84,200,000</strong>
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 bg-white/5 border border-white/10 rounded-[32px] p-10 backdrop-blur-xl relative overflow-hidden group">
+          <h4 className="text-xs font-black text-blue-500 uppercase tracking-[0.2em] mb-10">2026년 1기 확정 부가세 실시간 현황</h4>
+          
+          <div className="space-y-6 relative z-10">
+            <div className="flex justify-between items-end pb-4 border-b border-white/5 group/row hover:border-white/20 transition-colors">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">OUTPUT (A)</span>
+                <span className="text-lg font-bold text-slate-300 group-hover/row:text-white">매출 부가가치세</span>
+              </div>
+              <div className="text-3xl font-black italic text-slate-200 group-hover/row:text-blue-400 transition-colors tracking-tighter">₩84,200,000</div>
             </div>
-            <div className={styles.vatItem}>
-              <span>- 매입 부가세 (B)</span>
-              <strong>₩52,500,000</strong>
+            
+            <div className="flex justify-between items-end pb-4 border-b border-white/5 group/row hover:border-white/20 transition-colors">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">INPUT (B)</span>
+                <span className="text-lg font-bold text-slate-300 group-hover/row:text-white">매입 부가가치세 (공제 대상)</span>
+              </div>
+              <div className="text-3xl font-black italic text-slate-200 group-hover/row:text-rose-400 transition-colors tracking-tighter">- ₩52,500,000</div>
             </div>
-            <div className={`${styles.vatItem} ${styles.total}`}>
-              <span>= 납부 세액 (A-B)</span>
-              <strong>₩31,700,000</strong>
+
+            <div className="pt-8 flex justify-between items-baseline">
+               <span className="text-xl font-black text-white italic tracking-tight">최종 납부/환급 예상 세액</span>
+               <div className="flex flex-col items-end">
+                  <span className="text-5xl font-black italic text-white tracking-tighter shadow-blue-500/50">₩31,700,000</span>
+                  <span className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1 uppercase tracking-widest leading-none">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Final Estimate
+                  </span>
+               </div>
             </div>
+          </div>
+          
+          <div className="absolute -right-10 -bottom-10 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity duration-1000 pointer-events-none">
+             <Calculator size={300} className="text-white" />
           </div>
         </div>
 
-        <div className={`glass-card ${styles.infoCard}`}>
-          <h3><AlertCircle size={18} /> 신고 안내</h3>
-          <p>1기 확정 신고 기간: 7월 1일 ~ 7월 25일</p>
-          <button className={styles.prepBtn}>신고 기초자료 생성</button>
+        <div className="lg:col-span-4 bg-gradient-to-br from-indigo-900/20 to-slate-900/20 border border-indigo-500/20 rounded-[32px] p-8 shadow-2xl flex flex-col justify-between group">
+          <div>
+            <h3 className="text-lg font-black text-white flex items-center gap-3 tracking-tight mb-4">
+               <AlertCircle size={22} className="text-indigo-400" /> 신고 안내 및 통제
+            </h3>
+            <p className="text-slate-400 text-sm font-medium leading-relaxed italic tracking-tighter">
+              1기 확정 신고 마감일까지 <strong>D-22</strong> 남았습니다.<br/>
+              모든 매입 세금계산서의 국세청 대조 작업을 완료해 주시기 바랍니다.
+            </p>
+            <div className="mt-8 space-y-3">
+              <div className="flex justify-between text-xs font-bold px-1">
+                 <span className="text-slate-500 uppercase">신고 기간</span>
+                 <span className="text-slate-300">07.01 ~ 07.25</span>
+              </div>
+              <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                 <div className="w-2/3 h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+              </div>
+            </div>
+          </div>
+          
+          <button className="bg-white text-slate-950 font-black text-sm py-4 rounded-2xl mt-12 transition-all hover:bg-indigo-400 hover:text-white shadow-xl active:scale-95 uppercase tracking-widest">
+            신고 기초자료 생성
+          </button>
         </div>
       </section>
 
       {/* 불일치 대조 그리드 */}
-      <section className={`glass-card ${styles.checkSection}`}>
-        <div className={styles.sectionHeader}>
-          <h3><Calculator size={18} /> 불일치 내역 대조 (Hometax vs System)</h3>
-          <span>시스템과 국세청 데이터가 일치하지 않는 2건이 발견되었습니다.</span>
+      <section className="bg-white/5 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-xl">
+        <div className="p-8 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
+            <h3 className="text-lg font-black text-white flex items-center gap-3 tracking-tight leading-none uppercase">
+               <FileSearch size={22} className="text-amber-400" /> Hometax vs System 교차 검증 (Mismatch)
+            </h3>
+            <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 animate-pulse">2 INCONSISTENCIES FOUND</span>
         </div>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>구분</th>
-              <th>일자</th>
-              <th>거래처</th>
-              <th>공급가액</th>
-              <th>시스템 세액</th>
-              <th>국세청 세액</th>
-              <th>차이</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className={styles.errorRow}>
-              <td>매입</td>
-              <td>2026-04-12</td>
-              <td>삼선기술(주)</td>
-              <td>₩1,000,000</td>
-              <td>₩100,000</td>
-              <td>₩0</td>
-              <td className={styles.danger}>₩100,000</td>
-            </tr>
-            <tr>
-              <td>매출</td>
-              <td>2026-04-15</td>
-              <td>글로벌샵</td>
-              <td>₩500,000</td>
-              <td>₩50,000</td>
-              <td>₩50,000</td>
-              <td>₩0</td>
-            </tr>
-          </tbody>
-        </table>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
+                <th className="px-8 py-5">TYPE</th>
+                <th className="px-6 py-5">DATE</th>
+                <th className="px-6 py-5">PARTNER</th>
+                <th className="px-6 py-5">SUPPLY AMT</th>
+                <th className="px-6 py-5">SYSTEM TAX</th>
+                <th className="px-6 py-5">HOMETAX AMT</th>
+                <th className="px-8 py-5 text-right">VARIANCE</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              <tr className="bg-rose-500/5 hover:bg-rose-500/10 transition-colors group">
+                <td className="px-8 py-6 text-sm font-black text-rose-400 uppercase italic">매입</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">2026-04-12</td>
+                <td className="px-6 py-6 text-sm font-bold text-white tracking-tight">삼선기술(주)</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">₩1,000,000</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-300 font-black">₩100,000</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold italic">₩0</td>
+                <td className="px-8 py-6 text-right">
+                  <span className="text-sm font-black text-rose-500 italic shadow-rose-950 shadow-lg tracking-tighter">₩100,000</span>
+                </td>
+              </tr>
+              <tr className="hover:bg-white/[0.03] transition-colors group">
+                <td className="px-8 py-6 text-sm font-black text-blue-400 uppercase italic">매출</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold">2026-04-15</td>
+                <td className="px-6 py-6 text-sm font-bold text-slate-300 group-hover:text-white">글로벌샵</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold">₩500,000</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold">₩50,000</td>
+                <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold">₩50,000</td>
+                <td className="px-8 py-6 text-right text-sm font-mono text-slate-600 font-bold">₩0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

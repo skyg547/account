@@ -7,99 +7,117 @@ import {
   Clock, 
   ArrowUpRight 
 } from 'lucide-react';
-import styles from './page.module.css';
-
-/**
- * [대시보드 메인 페이지]
- * 접속하자마자 우리를 반겨주는 첫 화면입니다. 
- * 주요 돈의 흐름(자산, 부채 등)을 한눈에 보여주는 역할을 해요.
- */
 export default function Dashboard() {
   return (
-    <div className={styles.dashboard}>
+    <div className="flex flex-col gap-10">
       
-      {/* 1. 상단 타이틀 영역: 현재 보고 있는 화면이 무엇인지 알려줍니다. */}
-      <header className={styles.header}>
-        <h1 className={styles.title}>재무 현황 대시보드</h1>
-        <p className={styles.subtitle}>실시간 데이터 분석 및 전표 현황입니다.</p>
+      {/* 1. 상단 타이틀 영역 */}
+      <header>
+        <h1 className="text-4xl font-black tracking-tight text-white">재무 현황 대시보드</h1>
+        <p className="text-slate-400 mt-2 font-medium">AI 기반 실시간 데이터 분석 및 전표 현황 파이프라인</p>
       </header>
 
-      {/* 2. 요약 카드 섹션 (그리드 레이아웃)
-          - statsGrid를 통해 3개의 카드를 일정한 간격으로 배치합니다. */}
-      <section className={styles.statsGrid}>
+      {/* 2. 요약 카드 섹션 */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* 2-1. 총 자산 카드: 회사의 총 재산을 보여줍니다. */}
-        <div className={`glass-card ${styles.statCard}`}>
-          <div className={styles.statHeader}>
-            <div className={styles.iconBox} style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}>
-              <DollarSign size={24} />
+        {/* 2-1. 총 자산 카드 */}
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-[32px] hover:scale-[1.02] transition-all duration-300 group cursor-pointer shadow-xl shadow-blue-900/10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
+              <DollarSign size={28} />
             </div>
-            <span className={styles.statLabel}>총 자산</span>
+            <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-400/10 px-3 py-1 rounded-full text-xs font-bold">
+               <TrendingUp size={14} /> 12.5%
+            </div>
           </div>
-          <div className={styles.statValue}>₩1,240,500,000</div>
-          <div className={styles.statChange}>
-            <TrendingUp size={16} /> <span>12.5% vs 지난달</span>
+          <span className="text-slate-500 text-sm font-bold uppercase tracking-wider">Total Assets</span>
+          <div className="text-3xl font-black italic mt-1 text-white">₩1,240,500,000</div>
+          <div className="mt-4 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+             <div className="h-full bg-blue-500 w-[75%]" />
           </div>
         </div>
 
-        {/* 2-2. 총 부채 카드: 갚아야 할 돈을 보여줍니다. */}
-        <div className={`glass-card ${styles.statCard}`}>
-          <div className={styles.statHeader}>
-            <div className={styles.iconBox} style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-              <CreditCard size={24} />
+        {/* 2-2. 총 부채 카드 */}
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-[32px] hover:scale-[1.02] transition-all duration-300 group cursor-pointer shadow-xl shadow-red-900/10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-400 group-hover:bg-red-500 group-hover:text-white transition-colors duration-300">
+              <CreditCard size={28} />
             </div>
-            <span className={styles.statLabel}>총 부채</span>
+            <div className="flex items-center gap-1.5 text-orange-400 bg-orange-400/10 px-3 py-1 rounded-full text-xs font-bold">
+               <TrendingDown size={14} /> 3.2%
+            </div>
           </div>
-          <div className={styles.statValue}>₩450,200,000</div>
-          <div className={styles.statChange}>
-            <TrendingDown size={16} /> <span>3.2% vs 지난달</span>
+          <span className="text-slate-500 text-sm font-bold uppercase tracking-wider">Total Liabilities</span>
+          <div className="text-3xl font-black italic mt-1 text-white">₩450,200,000</div>
+           <div className="mt-4 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+             <div className="h-full bg-red-500 w-[40%]" />
           </div>
         </div>
 
-        {/* 2-3. 당기순이익 카드: 자산에서 부채를 뺀 진짜 남은 이익입니다. */}
-        <div className={`glass-card ${styles.statCard}`}>
-          <div className={styles.statHeader}>
-            <div className={styles.iconBox} style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-              <ArrowUpRight size={24} />
+        {/* 2-3. 당기순이익 카드 */}
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-[32px] hover:scale-[1.02] transition-all duration-300 group cursor-pointer shadow-xl shadow-emerald-900/10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300">
+              <ArrowUpRight size={28} />
             </div>
-            <span className={styles.statLabel}>당기순이익</span>
+            <div className="flex items-center gap-1.5 text-blue-400 bg-blue-400/10 px-3 py-1 rounded-full text-xs font-bold">
+               <TrendingUp size={14} /> 8.1%
+            </div>
           </div>
-          <div className={styles.statValue}>₩790,300,000</div>
-          <div className={styles.statChange}>
-            <TrendingUp size={16} /> <span style={{ color: '#22c55e' }}>8.1% vs 지난달</span>
+          <span className="text-slate-500 text-sm font-bold uppercase tracking-wider">Net Income</span>
+          <div className="text-3xl font-black italic mt-1 text-white">₩790,300,000</div>
+           <div className="mt-4 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+             <div className="h-full bg-emerald-500 w-[65%]" />
           </div>
         </div>
       </section>
 
-      {/* 3. 최근 활동 내역 섹션
-          - 전표(장부 기록)가 실시간으로 들어오는 모습을 보여주는 곳입니다. */}
-      <section className={styles.activitySection}>
-        <div className={`glass-card ${styles.activityCard}`}>
-          <div className={styles.cardHeader}>
-            <h3>최근 전표 유입 현황</h3>
-            <button className={styles.moreBtn}>전체 보기</button>
+      {/* 3. 최근 활동 내역 섹션 */}
+      <section>
+        <div className="bg-white/5 border border-white/10 rounded-[32px] p-10 overflow-hidden relative">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-xl font-bold text-white flex items-center gap-3">
+               <div className="w-2 h-8 bg-blue-600 rounded-full" /> 최근 전표 유입 현황
+            </h3>
+            <button className="text-blue-500 hover:text-blue-400 text-sm font-black uppercase tracking-tighter transition-colors">View All Feed</button>
           </div>
           
-          {/* 리스트 출력: 데이터 배열을 돌며 화면에 하나씩 그려줍니다. */}
-          <div className={styles.activityList}>
+          <div className="space-y-4">
             {[
               { id: 'J-20240422001', desc: '삼성전자 비품 매입', amount: '₩12,500,000', status: '자동분개완료', time: '5분 전' },
               { id: 'J-20240422002', desc: '커피빈 운영비 지출', amount: '₩8,500', status: '검토대기', time: '12분 전' },
               { id: 'J-20240422003', desc: '스타트업 클라우드 결제', amount: '₩1,200,000', status: '자동분개완료', time: '1시간 전' },
-            ].map((item) => (
-              <div key={item.id} className={styles.activityItem}>
-                <div className={styles.activityInfo}>
-                  <div className={styles.activityId}>{item.id}</div>
-                  <div className={styles.activityDesc}>{item.desc}</div>
+            ].map((item, idx) => (
+              <div 
+                key={item.id} 
+                className="flex items-center justify-between p-6 rounded-2xl bg-white/5 hover:bg-white/[0.08] transition-all duration-300 border border-transparent hover:border-white/10 group animate-in slide-in-from-right duration-500"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div className="flex items-center gap-6">
+                   <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-mono text-[10px] text-slate-500 border border-white/5">
+                      {idx + 1}
+                   </div>
+                   <div>
+                      <div className="text-xs text-blue-500 font-black mb-1 font-mono tracking-tighter">{item.id}</div>
+                      <div className="text-slate-200 font-bold">{item.desc}</div>
+                   </div>
                 </div>
-                <div className={styles.activityRight}>
-                  <div className={styles.activityAmount}>{item.amount}</div>
-                  <div className={styles.activityMeta}>
-                    <Clock size={12} /> {item.time} · <span className={item.status === '검토대기' ? styles.pending : styles.success}>{item.status}</span>
+                <div className="text-right flex flex-col items-end gap-1.5">
+                  <div className="text-lg font-black text-white italic tracking-tight">{item.amount}</div>
+                  <div className="flex items-center gap-2 text-[10px] font-bold">
+                    <span className="flex items-center gap-1 text-slate-500"><Clock size={12} /> {item.time}</span>
+                    <span className="text-slate-700">·</span>
+                    <span className={item.status === '검토대기' ? 'text-amber-500' : 'text-emerald-500'}>
+                       {item.status}
+                    </span>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none">
+             <DollarSign size={200} className="text-blue-500" />
           </div>
         </div>
       </section>

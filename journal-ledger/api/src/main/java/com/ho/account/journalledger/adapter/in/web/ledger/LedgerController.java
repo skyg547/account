@@ -8,8 +8,8 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.journalledger.domain.ledger.GlBalance;
-import com.ho.account.journalledger.domain.ledger.SlBalance;
+import com.ho.account.journalledger.core.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.core.domain.ledger.domain.SlBalance;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;

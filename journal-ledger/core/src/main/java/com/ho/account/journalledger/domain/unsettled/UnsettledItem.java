@@ -7,6 +7,10 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * 미결 항목(Unsettled Item) 엔티티
+ * 반제(Settlement) 처리가 필요한 항목(예: 외상매입금, 미지급금 등)을 관리한다.
+ */
 @Entity
 @Table(name = "unsettled_items")
 public class UnsettledItem {
@@ -17,7 +21,7 @@ public class UnsettledItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_detail_id", nullable = false)
-    private JournalDetail journalDetail; // 諛쒖�??꾪몴 ?곸꽭
+    private JournalDetail journalDetail; // 발생 전표 상세
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
@@ -28,30 +32,41 @@ public class UnsettledItem {
     private BusinessPartner businessPartner;
 
     @Column(nullable = false)
-    private LocalDate occurrenceDate; // 諛쒖�??
+    private LocalDate occurrenceDate; // 발생일
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 諛쒖�?湲덉�?
+    private BigDecimal originalAmount; // 발생 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal settledAmount = BigDecimal.ZERO; // 諛섏???湲덉�?
+    private BigDecimal settledAmount = BigDecimal.ZERO; // 반제 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // ?붿븸
+    private BigDecimal remainingAmount; // 잔액
 
     @Column(length = 20)
-    private String status; // OPEN(誘멸�?, PARTIAL(?�?�꾨�??, CLEARED(諛섏??꾨즺)
+    private String status; // OPEN(미결), PARTIAL(부분반제), CLEARED(반제완료)
+
+    @Column(nullable = false)
+    private boolean resolved = false; // 반제 완료 여부 (Repository 쿼리용)
 
     @PrePersist
     protected void onCreate() {
         if (status == null) status = "OPEN";
         if (remainingAmount == null) remainingAmount = originalAmount;
+        updateResolvedStatus();
     }
 
-    // ??���??�뒪 濡쒖�?
+    private void updateResolvedStatus() {
+        this.resolved = "CLEARED".equals(this.status);
+    }
+
+    /**
+     * 반제 처리 로직
+     * @param amount 반제할 금액
+     */
     public void settle(BigDecimal amount) {
         if (remainingAmount.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("諛섏??湲덉�???붿븸蹂�?????�땲??");
+            throw new IllegalArgumentException("반제 금액이 잔액보다 클 수 없습니다.");
         }
         this.settledAmount = this.settledAmount.add(amount);
         this.remainingAmount = this.remainingAmount.subtract(amount);
@@ -61,9 +76,10 @@ public class UnsettledItem {
         } else {
             this.status = "PARTIAL";
         }
+        updateResolvedStatus();
     }
 
-    // Getter �?Setter
+    // Getter & Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -90,4 +106,7 @@ public class UnsettledItem {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public boolean isResolved() { return resolved; }
+    public void setResolved(boolean resolved) { this.resolved = resolved; }
 }

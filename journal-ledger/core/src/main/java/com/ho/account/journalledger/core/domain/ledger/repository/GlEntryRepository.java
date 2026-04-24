@@ -1,7 +1,7 @@
-package com.ho.account.journalledger.adapter.out.persistence.ledger;
+package com.ho.account.journalledger.core.domain.ledger.repository;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.journalledger.domain.ledger.GlEntry;
+import com.ho.account.journalledger.core.domain.ledger.domain.GlEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

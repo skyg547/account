@@ -13,8 +13,6 @@ import {
   AlertCircle,
   FileSpreadsheet
 } from 'lucide-react';
-import styles from './EclSimulator.module.css';
-
 // [Mock Data] 전이 행렬 시뮬레이션
 const transitionData = [
   { name: 'S1 -> S1', value: 92 },
@@ -32,110 +30,147 @@ export default function EclSimulatorPage() {
   const [activeScenario, setActiveScenario] = useState('Standard');
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className="titleArea">
-          <h2 className="text-2xl font-bold">IFRS 9 ECL 시뮬레이션</h2>
-          <p className="text-sm text-gray-400">거시경제 시나리오별 기대신용손실(ECL) 및 충당금 변동성을 분석합니다.</p>
+    <div className="flex flex-col gap-8">
+      {/* 타이틀 및 상단 액션 */}
+      <header className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-black text-white italic tracking-tight">IFRS 9 ECL 시뮬레이션</h2>
+          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">거시경제 시나리오별 기대신용손실(ECL) 및 충당금 변동성 정밀 분석</p>
         </div>
         <div className="flex gap-2">
-          <button className="icon-btn-secondary"><RefreshCcw size={18} /> 초기화</button>
-          <button className="btn-primary flex items-center gap-2"><Calculator size={18} /> 분석 실행</button>
+          <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold">
+            <RefreshCcw size={18} /> 초기화
+          </button>
+          <button className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl border border-blue-500/50 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-sm font-black">
+            <Calculator size={18} /> 분석 실행
+          </button>
         </div>
       </header>
 
-      <main className={styles.simulatorGrid}>
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* 파라미터 입력 패널 */}
-        <aside className={styles.inputPanel + " glass-card"}>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Info size={18} className="text-blue-400" /> 시뮬레이션 변수
+        <aside className="lg:col-span-4 bg-[#1e293b]/50 backdrop-blur-xl border border-white/10 p-8 rounded-[32px] shadow-2xl">
+          <h3 className="text-lg font-black text-white flex items-center gap-3 mb-8 tracking-tight">
+            <div className="w-2 h-6 bg-blue-500 rounded-full" /> 시뮬레이션 변수 설정
           </h3>
           
-          <div className={styles.inputGroup}>
-            <label>경제 시나리오 가중치</label>
-            <select value={activeScenario} onChange={(e) => setActiveScenario(e.target.value)}>
-              <option value="Optimistic">낙관적 (20%)</option>
-              <option value="Standard">표준 (50%)</option>
-              <option value="Pessimistic">비관적 (30%)</option>
-            </select>
-          </div>
-
-          <div className={styles.inputGroup}>
-            <label>부도율(PD) 보정 계수(%)</label>
-            <input type="number" defaultValue="1.2" />
-          </div>
-
-          <div className={styles.inputGroup}>
-            <label>부도시손실률(LGD) 타겟</label>
-            <input type="range" min="0" max="100" defaultValue="45" />
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>0%</span>
-              <span>45%</span>
-              <span>100%</span>
+          <div className="space-y-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">경제 시나리오 가중치</label>
+              <select 
+                value={activeScenario} 
+                onChange={(e) => setActiveScenario(e.target.value)}
+                className="bg-slate-900 border border-white/10 text-white text-sm rounded-xl p-3 focus:border-blue-500 outline-none transition-all cursor-pointer font-bold"
+              >
+                <option value="Optimistic">낙관적 (20%)</option>
+                <option value="Standard">표준 (50%)</option>
+                <option value="Pessimistic">비관적 (30%)</option>
+              </select>
             </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">부도율(PD) 보정 계수(%)</label>
+              <input 
+                type="number" 
+                defaultValue="1.2" 
+                className="bg-slate-900 border border-white/10 text-white text-sm rounded-xl p-3 focus:border-blue-500 outline-none transition-all font-mono font-bold"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+               <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">부도시손실률(LGD) 타겟</label>
+                  <span className="text-blue-400 font-mono font-bold text-xs">45%</span>
+               </div>
+              <input type="range" min="0" max="100" defaultValue="45" className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-blue-500 border border-white/5" />
+              <div className="flex justify-between text-[10px] text-slate-600 font-bold tracking-tighter">
+                <span>0%</span>
+                <span>TARGET</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">보유 기간 (Lifetime)</label>
+              <input 
+                type="number" 
+                defaultValue="12" 
+                className="bg-slate-900 border border-white/10 text-white text-sm rounded-xl p-3 focus:border-blue-500 outline-none transition-all font-mono font-bold"
+              />
+            </div>
+
+            <button className="w-full bg-slate-100 hover:bg-white text-slate-950 font-black text-sm py-4 rounded-2xl transition-all shadow-xl active:scale-95 mt-4">
+              시나리오 적용 및 재계산
+            </button>
           </div>
 
-          <div className={styles.inputGroup}>
-            <label>보유 기간 (Lifetime)</label>
-            <input type="number" defaultValue="12" />
-          </div>
-
-          <button className={styles.calcBtn}>
-            시나리오 적용 및 재계산
-          </button>
-
-          <div className="mt-6 border-t border-gray-800 pt-6">
-            <h4 className="text-sm font-medium mb-3 text-gray-300">최근 분석 이력</h4>
-            <ul className="text-xs space-y-2 text-gray-500">
-              <li className="flex justify-between"><span>2026-Q1 결산용</span> <span>04.20</span></li>
-              <li className="flex justify-between"><span>금리인상 시나리오</span> <span>04.15</span></li>
-            </ul>
+          <div className="mt-10 pt-8 border-t border-white/10">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-1">최근 분석 이력</h4>
+            <div className="space-y-2">
+              {[
+                { label: '2026-Q1 결산용', date: '04.20', type: 'Official' },
+                { label: '금리인상 시나리오', date: '04.15', type: 'Simulation' },
+              ].map((item, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-transparent hover:border-white/10 transition-all cursor-pointer group">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">{item.label}</span>
+                    <span className="text-[9px] text-slate-600 font-black uppercase">{item.type}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500 font-bold">{item.date}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </aside>
 
         {/* 결과 분석 패널 */}
-        <section className={styles.resultPanel}>
-          <div className={styles.summaryCards}>
-            <div className={styles.summaryCard}>
-              <div className={styles.cardLabel}>총 기대신용손실(ECL)</div>
-              <div className={styles.cardValue}>42.5B</div>
-              <div className="text-xs text-red-400 mt-1 flex items-center gap-1">
-                <TrendingUp size={12} /> 전회차 대비 +2.1B
+        <section className="lg:col-span-8 flex flex-col gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[28px] hover:bg-white/[0.08] transition-all">
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total ECL</div>
+              <div className="text-3xl font-black italic text-white leading-none">₩42.5B</div>
+              <div className="text-[10px] text-rose-400 mt-4 font-bold flex items-center gap-1">
+                <TrendingUp size={12} /> VS PREV +2.1B
               </div>
             </div>
-            <div className={styles.summaryCard}>
-              <div className={styles.cardLabel}>평균 부도율(WAPD)</div>
-              <div className={styles.cardValue}>0.84%</div>
-              <div className="text-xs text-gray-500 mt-1">S1 익스포저 가중 평균</div>
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[28px] hover:bg-white/[0.08] transition-all">
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">AVG WAPD</div>
+              <div className="text-3xl font-black italic text-white leading-none">0.84%</div>
+              <div className="text-[10px] text-slate-500 mt-4 font-bold">STAGE 1 WEIGHTED AVG</div>
             </div>
-            <div className={styles.summaryCard}>
-              <div className={styles.cardLabel}>전이 대상 자산(S2/S3)</div>
-              <div className={styles.cardValue}>12.4%</div>
-              <div className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                <AlertCircle size={12} /> 모니터링 필요
+            <div className="bg-white/5 border border-white/10 p-6 rounded-[28px] hover:bg-white/[0.08] transition-all border-amber-500/20">
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">SICR TRANSITION</div>
+              <div className="text-3xl font-black italic text-white leading-none">12.4%</div>
+              <div className="text-[10px] text-amber-500 mt-4 font-bold flex items-center gap-1">
+                <AlertCircle size={12} /> CRITICAL MONITORING
               </div>
             </div>
           </div>
 
-          <div className={styles.chartArea + " glass-card"}>
-            <h3 className="text-md font-semibold mb-6 flex items-center gap-2">
-              <FileSpreadsheet size={18} className="text-green-400" /> 자산군 및 단계 별 충당금 적립률 (%)
+          <div className="flex-1 bg-white/5 border border-white/10 rounded-[32px] p-8 backdrop-blur-xl relative overflow-hidden group">
+            <h3 className="text-lg font-black text-white flex items-center gap-3 mb-10 tracking-tight">
+               <FileSpreadsheet size={20} className="text-emerald-400" /> 자산군 및 단계 별 충당금 적립률 분석
             </h3>
-            <div style={{ width: '100%', height: 350 }}>
+            <div style={{ width: '100%', height: 380 }}>
               <ResponsiveContainer>
                 <ComposedChart data={stageComparisonData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis type="number" stroke="#888" fontSize={12} />
-                  <YAxis dataKey="group" type="category" stroke="#888" fontSize={12} width={80} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                  <XAxis type="number" stroke="#475569" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
+                  <YAxis dataKey="group" type="category" stroke="#475569" fontSize={11} width={80} axisLine={false} tickLine={false} fontWeight="black" />
                   <Tooltip 
-                    contentStyle={{ background: '#111', border: '1px solid #333' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                    contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
                   />
-                  <Legend />
-                  <Bar dataKey="stage1" fill="#3b82f6" name="Stage 1" stackId="a" barSize={30} />
-                  <Bar dataKey="stage2" fill="#fbbf24" name="Stage 2 (SICR)" stackId="a" />
-                  <Bar dataKey="stage3" fill="#ef4444" name="Stage 3 (Default)" stackId="a" />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 'bold' }} />
+                  <Bar dataKey="stage1" fill="#3b82f6" name="Stage 1" stackId="a" barSize={34} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="stage2" fill="#f59e0b" name="Stage 2 (SICR)" stackId="a" />
+                  <Bar dataKey="stage3" fill="#ef4444" name="Stage 3 (Default)" stackId="a" radius={[0, 6, 6, 0]} />
                 </ComposedChart>
               </ResponsiveContainer>
+            </div>
+            
+            <div className="absolute -bottom-10 -right-10 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity duration-700 pointer-events-none">
+               <Calculator size={300} className="text-white" />
             </div>
           </div>
         </section>

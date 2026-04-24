@@ -3,6 +3,10 @@ package com.ho.account.journalledger.domain.journal.domain;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * 전표 규칙 상세(Journal Rule Detail) 엔티티
+ * 규칙이 매칭되었을 때 생성될 전표 라인(분개)의 구체적인 명세를 정의한다.
+ */
 @Entity
 @Table(name = "journal_rule_details")
 public class JournalRuleDetail {
@@ -16,22 +20,22 @@ public class JournalRuleDetail {
     private JournalRule journalRule;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // 李⑤? ?�?�� ??蹂
+    private String drcrType; // DEBIT(차변) 또는 CREDIT(대변)
 
     @Column(nullable = false, length = 100)
-    private String accountSubjectCodeExpression; // ?? "10100", "${transaction.accountCode}"
+    private String accountSubjectCodeExpression; // 예: "10100", "${transaction.accountCode}"
 
     @Column(nullable = false, length = 100)
-    private String amountExpression; // ?? "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
+    private String amountExpression; // 예: "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
 
     @Column(length = 255)
-    private String descriptionExpression; // ?? "留ㅼ??, "${transaction.description}"
+    private String descriptionExpression; // 예: "매출", "${transaction.description}"
 
     @Column(length = 50)
-    private String businessPartnerCodeExpression; // ?? "BP001", "${transaction.businessPartnerCode}"
+    private String businessPartnerCodeExpression; // 예: "BP001", "${transaction.businessPartnerCode}"
 
     @Column(length = 50)
-    private String departmentCodeExpression; // ?? "D001", "${transaction.departmentCode}"
+    private String departmentCodeExpression; // 예: "D001", "${transaction.departmentCode}"
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -54,7 +58,7 @@ public class JournalRuleDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

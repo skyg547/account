@@ -1,19 +1,22 @@
-package com.ho.account.journalledger.domain.ledger;
+package com.ho.account.journalledger.core.domain.ledger.domain;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 /**
- * ?•Ïï∑??Î∫§Ïçù??(GL) ?®Íæ©???Î∂øÎ∏∏ ?Î∑Ä???
- * ?Î±Ä???®Íæ©?ôÊÄ®Ïá∞?? ???Üï, ??±ÏòÑËπ??Î∂øÎ∏∏???ø¬Ä?±—ãÎ???àÎñé.
+ * General Ledger Account Balance
  */
 @Entity
-@Table(name = "gl_account_balances",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"account_code", "currency_code", "accounting_date", "balance_type"}))
+@Table(name = "gl_account_balances")
+@Getter @Setter
+@NoArgsConstructor
 public class GlAccountBalance {
 
     @Id
@@ -21,85 +24,24 @@ public class GlAccountBalance {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_code", nullable = false)
-    private AccountSubject accountSubject; // ?Î∂øÎ∏∏???ø¬Ä?±—ãÎ∏∑ ?®Íæ©?ôÊÄ®Ïá∞??
+    @JoinColumn(name = "account_code", referencedColumnName = "account_code")
+    private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency; // ?Î∂øÎ∏∏ ???Üï (Êπ≤Í≥ó? ???Üï ?Î®?íó Â´ÑÍ≥ï?????Üï)
+    @JoinColumn(name = "currency_code", referencedColumnName = "currency_code")
+    private Currency currency;
 
     @Column(nullable = false)
-    private LocalDate accountingDate; // ?Î∂øÎ∏∏ Êπ≤Í≥ó???
+    private LocalDate balanceDate;
 
-    @Column(nullable = false, length = 10)
-    @Enumerated(EnumType.STRING)
-    private GlBalanceType balanceType; // ?Î∂øÎ∏∏ ????(DEBIT, CREDIT)
+    private BigDecimal debitAmount = BigDecimal.ZERO;
+    private BigDecimal creditAmount = BigDecimal.ZERO;
+    private BigDecimal endingBalance = BigDecimal.ZERO;
 
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount = BigDecimal.ZERO; // ?Î∂øÎ∏∏ Êπ≤ÎçâÎ∏?
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
-
-    // Getter Ë´?Setter
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public AccountSubject getAccountSubject() {
-        return accountSubject;
-    }
-
-    public void setAccountSubject(AccountSubject accountSubject) {
-        this.accountSubject = accountSubject;
-    }
-
-    public Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Currency currency) {
-        this.currency = currency;
-    }
-
-    public LocalDate getAccountingDate() {
-        return accountingDate;
-    }
-
-    public void setAccountingDate(LocalDate accountingDate) {
-        this.accountingDate = accountingDate;
-    }
-
-    public GlBalanceType getBalanceType() {
-        return balanceType;
-    }
-
-    public void setBalanceType(GlBalanceType balanceType) {
-        this.balanceType = balanceType;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void updateBalance(BigDecimal debit, BigDecimal credit) {
+        this.debitAmount = this.debitAmount.add(debit);
+        this.creditAmount = this.creditAmount.add(credit);
+        // Calculation logic depends on Account Type (Asset/Liability)
+        this.endingBalance = this.debitAmount.subtract(this.creditAmount);
     }
 }

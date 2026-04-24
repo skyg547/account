@@ -7,8 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ?�꾧�?洹쒖??Journal Rule) ?뷀???
- * 嫄곕???좏삎蹂꾨�??�?�� ?�꾧�?泥섎?�瑜??꾪븳 洹쒖????�?�ы븿.
+ * 전표 규칙(Journal Rule) 엔티티
+ * 거래 유형별로 자동 전표 처리를 위한 규칙을 정의한다.
  */
 @Entity
 @Table(name = "journal_rules")
@@ -16,13 +16,13 @@ public class JournalRule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // ??�? ??��??
+    private Long id; // 식별자
 
     @Column(nullable = false, unique = true, length = 50)
-    private String ruleCode; // 洹쒖???�붾�?
+    private String ruleCode; // 규칙 코드
 
     @Column(nullable = false, length = 100)
-    private String ruleName; // 洹쒖?�紐?
+    private String ruleName; // 규칙 명
 
     @Column(length = 500)
     private String description;
@@ -30,7 +30,7 @@ public class JournalRule {
     @Column(nullable = false)
     private LocalDate validFrom;
 
-    private LocalDate validTo; // ?꾩옱 ??�꽦 洹쒖???�??null ??�슜
+    private LocalDate validTo; // 종료일 (현재 활성 규칙은 null 허용)
 
     @Column(nullable = false)
     private int version;
@@ -39,7 +39,7 @@ public class JournalRule {
     private boolean isActive;
 
     @Column(nullable = false)
-    private int priority; // ??�옄媛 ?????�줉 ?곗꽑??�쐞媛 ?믪쓬
+    private int priority; // 숫자가 낮을수록 우선순위가 높음
 
     @OneToMany(mappedBy = "journalRule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<JournalRuleCondition> conditions = new ArrayList<>();
@@ -66,7 +66,7 @@ public class JournalRule {
         if (this.version == 0)
             this.version = 1;
         if (this.priority == 0)
-            this.priority = 999; // 湲곕????? ?곗꽑??�쐞
+            this.priority = 999; // 기본 우선순위
         if (this.ruleCode == null)
             throw new IllegalArgumentException("Rule code cannot be null");
         if (this.ruleName == null)
@@ -80,7 +80,7 @@ public class JournalRule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }
@@ -201,7 +201,7 @@ public class JournalRule {
         this.createdBy = createdBy;
     }
 
-    // ?�??�??????硫붿�??
+    // 편의 메서드
     public void addCondition(JournalRuleCondition condition) {
         conditions.add(condition);
         condition.setJournalRule(this);

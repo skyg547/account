@@ -1,5 +1,4 @@
 import React from 'react';
-import styles from './Footer.module.css';
 
 /**
  * [시스템 하단 푸터]
@@ -9,17 +8,17 @@ export default function Footer() {
   const isDev = process.env.NODE_ENV === 'development';
 
   return (
-    <footer className={styles.footer}>
-      <div className={styles.left}>
-        <p>&copy; 2026 Account.AI Project. All Rights Reserved.</p>
+    <footer className="h-10 w-full bg-[#0f172a] border-t border-white/5 flex items-center justify-between px-6 text-[10px] text-slate-500 font-medium">
+      <div className="flex items-center gap-4">
+        <p>&copy; 2026 Account.AI Project. Modern Enterprise Resource Management.</p>
       </div>
       
-      <div className={styles.right}>
-        <div className={styles.envTag}>
-          <span className={styles.dot}></span>
-          <span className={styles.envText}>SYSTEM STATUS: </span>
-          <span className={isDev ? styles.dev : styles.prod}>
-            {isDev ? 'DEVELOPMENT' : 'PRODUCTION'}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-md border border-white/5">
+          <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDev ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
+          <span className="uppercase tracking-tighter">Status: </span>
+          <span className={`font-black tracking-tighter ${isDev ? 'text-amber-500' : 'text-emerald-500'}`}>
+            {isDev ? 'Development Mode' : 'Production Active'}
           </span>
         </div>
       </div>

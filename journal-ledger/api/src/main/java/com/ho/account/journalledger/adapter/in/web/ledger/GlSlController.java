@@ -7,10 +7,10 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.domain.ledger.GlBalance;
-import com.ho.account.journalledger.domain.ledger.SlBalance;
-import com.ho.account.journalledger.domain.ledger.GlEntry;
-import com.ho.account.journalledger.adapter.out.persistence.ledger.GlEntryRepository;
+import com.ho.account.journalledger.core.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.core.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.core.domain.ledger.domain.GlEntry;
+import com.ho.account.journalledger.core.domain.ledger.repository.GlEntryRepository;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import org.springframework.http.ResponseEntity;

@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ?꾪몴 ?곸꽭(Journal Detail) ?뷀???
- * ?�꾧�??꾪몴??媛쒕????�씤(李⑤?/??蹂)???�?�ы븯�? ?�꾩?�怨쇰?? 湲덉�? 洹??????깆쓣 ??�??
+ * 전표 상세(Journal Detail) 엔티티
+ * 분개 전표의 개별 라인(차변/대변)을 저장하며 계정과목, 금액, 귀속부서 등을 포함한다.
  */
 @Entity
 @Table(name = "journal_details", indexes = {
@@ -30,27 +30,27 @@ public class JournalDetail {
     private JournalEntry journalEntry;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT(李⑤?), CREDIT(??蹂)
+    private String drcrType; // DEBIT(차변), CREDIT(대변)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 嫄곕?????�� 湲덉�?
+    private BigDecimal amount; // 거래통화 기준 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곗? ???�� 湲덉�?
+    private BigDecimal baseAmount = BigDecimal.ZERO; // 기본통화 기준 금액
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department; // 洹?????
+    private Department department; // 귀속부서
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 嫄곕?�泥?
+    private BusinessPartner businessPartner; // 거래처
 
     @Column(length = 200)
-    private String detailDescription; // ??�씤 ?곸슂
+    private String detailDescription; // 라인별 적요
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -73,7 +73,7 @@ public class JournalDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter & Setter
     public Long getId() {
         return id;
     }

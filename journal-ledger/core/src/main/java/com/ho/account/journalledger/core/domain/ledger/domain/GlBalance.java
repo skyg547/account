@@ -2,30 +2,29 @@ package com.ho.account.journalledger.core.domain.ledger.domain;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.Currency;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 
+/**
+ * 총계정원장 잔액 (General Ledger Balance)
+ * 특정 계정과목 및 통화별/일별/월별 잔액을 관리합니다.
+ */
 @Entity
 @Table(name = "gl_balances", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
+    @UniqueConstraint(columnNames = {"account_subject_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-        @Index(name = "idx_gl_balance_account_date", columnList = "account_subject_id, balanceDate")
+    @Index(name = "idx_gl_balance_date", columnList = "balance_date")
 })
+@Getter
+@Setter
+@NoArgsConstructor
 public class GlBalance {
 
     @Id
@@ -40,7 +39,7 @@ public class GlBalance {
     @JoinColumn(name = "currency_code", nullable = false)
     private Currency currency;
 
-    @Column(nullable = false)
+    @Column(name = "balance_date", nullable = false)
     private LocalDate balanceDate;
 
     @Column(nullable = false)
@@ -63,98 +62,36 @@ public class GlBalance {
 
     private LocalDateTime updatedAt;
 
+    // --- 비즈니스 로직 ---
+
+    public void addDebit(BigDecimal amount) {
+        this.debitAmount = this.debitAmount.add(amount);
+        recalculate();
+    }
+
+    public void addCredit(BigDecimal amount) {
+        this.creditAmount = this.creditAmount.add(amount);
+        recalculate();
+    }
+
+    public void recalculate() {
+        // 잔액 = 기초 + 차변 - 대변
+        this.endingBalance = this.beginningBalance.add(this.debitAmount).subtract(this.creditAmount);
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        if (this.beginningBalance == null) this.beginningBalance = BigDecimal.ZERO;
+        if (this.debitAmount == null) this.debitAmount = BigDecimal.ZERO;
+        if (this.creditAmount == null) this.creditAmount = BigDecimal.ZERO;
+        recalculate();
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public AccountSubject getAccountSubject() {
-        return accountSubject;
-    }
-
-    public void setAccountSubject(AccountSubject accountSubject) {
-        this.accountSubject = accountSubject;
-    }
-
-    public Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Currency currency) {
-        this.currency = currency;
-    }
-
-    public LocalDate getBalanceDate() {
-        return balanceDate;
-    }
-
-    public void setBalanceDate(LocalDate balanceDate) {
-        this.balanceDate = balanceDate;
-    }
-
-    public YearMonth getPeriod() {
-        return period;
-    }
-
-    public void setPeriod(YearMonth period) {
-        this.period = period;
-    }
-
-    public BigDecimal getBeginningBalance() {
-        return beginningBalance;
-    }
-
-    public void setBeginningBalance(BigDecimal beginningBalance) {
-        this.beginningBalance = beginningBalance;
-    }
-
-    public BigDecimal getDebitAmount() {
-        return debitAmount;
-    }
-
-    public void setDebitAmount(BigDecimal debitAmount) {
-        this.debitAmount = debitAmount;
-    }
-
-    public BigDecimal getCreditAmount() {
-        return creditAmount;
-    }
-
-    public void setCreditAmount(BigDecimal creditAmount) {
-        this.creditAmount = creditAmount;
-    }
-
-    public BigDecimal getEndingBalance() {
-        return endingBalance;
-    }
-
-    public void setEndingBalance(BigDecimal endingBalance) {
-        this.endingBalance = endingBalance;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

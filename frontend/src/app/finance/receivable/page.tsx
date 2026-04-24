@@ -9,84 +9,143 @@ import styles from './ReceivableAging.module.css';
  */
 export default function ReceivableAgingPage() {
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.titleArea}>
-          <h2>매출채권 관리 및 연령 분석</h2>
-          <p>미수 채권의 회수 상태를 모니터링하고 연령별 리스크를 관리합니다.</p>
+    <div className="flex flex-col gap-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-black text-white italic tracking-tight uppercase">매출채권 관리 및 연령 분석</h2>
+          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">미수 채권의 회수 상태 실시간 모니터링 및 연령별 부실 리스크 조기 식별</p>
+        </div>
+        <div className="flex gap-2">
+           <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+              <DollarSign size={18} /> 입금 결과 매칭
+           </button>
         </div>
       </header>
 
       {/* 연령별 대시보드 (Aging Chart) */}
-      <section className={styles.agingDashboard}>
-        <div className={`glass-card ${styles.agingCard}`}>
-          <div className={styles.chartHeader}>
-            <TrendingUp size={18} /> <span>채권 연령 분포 (Aging Summary)</span>
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 bg-white/5 border border-white/10 rounded-[32px] p-10 backdrop-blur-xl relative overflow-hidden group">
+          <div className="flex justify-between items-center mb-10">
+            <h4 className="text-xs font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+              <TrendingUp size={16} /> 채권 연령 분포 (Aging Summary)
+            </h4>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">AS OF TODAY</span>
           </div>
-          <div className={styles.chartArea}>
-            {/* Simple CSS Chart Replacement for Skeleton */}
-            <div className={styles.barGroup}>
-              <div className={styles.bar} style={{ height: '70%', background: '#22c55e' }}></div>
-              <div className={styles.bar} style={{ height: '20%', background: '#3b82f6' }}></div>
-              <div className={styles.bar} style={{ height: '8%', background: '#f59e0b' }}></div>
-              <div className={styles.bar} style={{ height: '2%', background: '#ef4444' }}></div>
+
+          <div className="flex flex-col gap-8 relative z-10">
+            <div className="flex items-end justify-around h-[240px] px-4 border-b border-white/5 pb-2">
+              {[
+                { label: '0-30일', height: '70%', color: 'from-emerald-500 to-teal-600', val: '₩588.1M' },
+                { label: '31-60일', height: '20%', color: 'from-blue-500 to-indigo-600', val: '₩168.0M' },
+                { label: '61-90일', height: '8%', color: 'from-amber-500 to-orange-600', val: '₩67.2M' },
+                { label: '90일+', height: '4%', color: 'from-rose-500 to-red-600', val: '₩16.8M' },
+              ].map((bar, i) => (
+                <div key={i} className="flex flex-col items-center group/bar w-20">
+                  <div className="mb-2 opacity-0 group-hover/bar:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-mono font-black text-white bg-slate-800 px-2 py-1 rounded shadow-xl">{bar.val}</span>
+                  </div>
+                  <div 
+                    className={`w-full rounded-t-xl bg-gradient-to-t ${bar.color} shadow-lg group-hover/bar:brightness-125 transition-all duration-500 cursor-pointer relative`}
+                    style={{ height: bar.height }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+                  </div>
+                  <span className="mt-4 text-[11px] font-bold text-slate-500 group-hover/bar:text-slate-300 transition-colors uppercase tracking-widest">{bar.label}</span>
+                </div>
+              ))}
             </div>
-            <div className={styles.labels}>
-              <span>0-30일</span>
-              <span>31-60일</span>
-              <span>61-90일</span>
-              <span>90일+</span>
-            </div>
+          </div>
+          
+          <div className="absolute -right-10 -top-10 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity duration-1000 pointer-events-none">
+             <TrendingUp size={280} className="text-white" />
           </div>
         </div>
         
-        <div className={styles.kpiGrid}>
-          <div className={`glass-card ${styles.kpiCard}`}>
-            <span className={styles.kpiLabel}>총 미수채권</span>
-            <h3 className={styles.kpiValue}>₩840,200,000</h3>
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.08] transition-all group overflow-hidden relative">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Total Receivable</span>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black italic text-white tracking-tighter">₩840,200,000</h3>
+              <span className="text-[10px] font-bold text-emerald-500">+1.2%</span>
+            </div>
+            <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+              <DollarSign size={80} className="text-white" />
+            </div>
           </div>
-          <div className={`glass-card ${styles.kpiCard}`}>
-            <span className={styles.kpiLabel}>연체 채권 (90일+)</span>
-            <h3 className={`${styles.kpiValue} ${styles.danger}`}>₩16,800,000</h3>
+
+          <div className="bg-rose-500/5 border border-rose-500/20 rounded-[32px] p-8 hover:bg-rose-500/10 transition-all group overflow-hidden relative border-dashed">
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-2 flex items-center gap-2">
+              <AlertTriangle size={14} /> Critical Aging (90일+)
+            </span>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-3xl font-black italic text-rose-500 tracking-tighter">₩16,800,000</h3>
+              <span className="text-[10px] font-bold text-rose-400">High Risk</span>
+            </div>
+            <div className="absolute -right-4 -bottom-4 opacity-[0.1] group-hover:opacity-[0.2] transition-opacity">
+              <AlertTriangle size={80} className="text-rose-500" />
+            </div>
+          </div>
+
+          <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-[32px] p-8 flex flex-col justify-center">
+            <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-indigo-900/20 active:scale-95 uppercase tracking-widest text-sm">
+              상환 독촉 공문 발송
+            </button>
           </div>
         </div>
       </section>
 
       {/* 상세 채권 리스트 */}
-      <section className={`glass-card ${styles.listSection}`}>
-        <h3>거래처별 채권 상세 현황</h3>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>거래처명</th>
-              <th>총 청구액</th>
-              <th>수금액</th>
-              <th>잔액</th>
-              <th>가장 오래된 전표</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              { name: '(주)글로벌네트워크', total: '₩450,000,000', collected: '₩450,000,000', balance: '₩0', oldest: '-', status: '회수완료' },
-              { name: '대박소프트', total: '₩120,500,000', collected: '₩80,000,000', balance: '₩40,500,000', oldest: '2026-03-15', status: '30일 경과' },
-              { name: '부도위기컴퍼니', total: '₩25,000,000', collected: '₩0', balance: '₩25,000,000', oldest: '2025-12-01', status: '장기미수' },
-            ].map((row, idx) => (
-              <tr key={idx}>
-                <td className={styles.bold}>{row.name}</td>
-                <td>{row.total}</td>
-                <td>{row.collected}</td>
-                <td className={styles.bold}>{row.balance}</td>
-                <td className={styles.date}>{row.oldest}</td>
-                <td>
-                  <span className={row.status === '장기미수' ? styles.statusDanger : styles.statusInfo}>
-                    {row.status}
-                  </span>
-                </td>
+      <section className="bg-white/5 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-xl">
+        <div className="p-8 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
+            <h3 className="text-lg font-black text-white flex items-center gap-3 tracking-tight leading-none uppercase">
+               <Users size={22} className="text-blue-400" /> 거래처별 채권 상세 현황
+            </h3>
+            <div className="flex gap-2">
+               <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 text-slate-500" size={14} />
+                  <input type="text" placeholder="Filter by date..." className="bg-slate-950 border border-white/5 rounded-lg py-1.5 pl-9 pr-4 text-xs text-slate-400 outline-none w-40" />
+               </div>
+            </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
+                <th className="px-8 py-5">Partner Name</th>
+                <th className="px-6 py-5">Total Billed</th>
+                <th className="px-6 py-5">Collected</th>
+                <th className="px-6 py-5">Balance</th>
+                <th className="px-6 py-5">Oldest Invoice</th>
+                <th className="px-8 py-5 text-right">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {[
+                { name: '(주)글로벌네트워크', total: '₩450,000,000', collected: '₩450,000,000', balance: '₩0', oldest: '-', status: '회수완료' },
+                { name: '대박소프트', total: '₩120,500,000', collected: '₩80,000,000', balance: '₩40,500,000', oldest: '2026-03-15', status: '30일 경과' },
+                { name: '부도위기컴퍼니', total: '₩25,000,000', collected: '₩0', balance: '₩25,000,000', oldest: '2025-12-01', status: '장기미수' },
+              ].map((row, idx) => (
+                <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
+                  <td className="px-8 py-6 text-sm font-black text-white tracking-tight">{row.name}</td>
+                  <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{row.total}</td>
+                  <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{row.collected}</td>
+                  <td className="px-6 py-6 text-sm font-mono text-emerald-400 font-black italic">{row.balance}</td>
+                  <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold italic">{row.oldest}</td>
+                  <td className="px-8 py-6 text-right">
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
+                      row.status === '회수완료' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                      row.status === '30일 경과' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
+                    }`}>
+                      {row.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

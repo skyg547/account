@@ -1,6 +1,6 @@
 package com.ho.account.security.domain;
 
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;

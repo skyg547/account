@@ -33,7 +33,7 @@ public class MonolithJournalPostingAdapter {
         JournalEntry entry = new JournalEntry();
         entry.setAccountingDate(command.accountingDate());
         entry.setSlipDate(command.accountingDate());
-        entry.setSummary(command.description());
+        entry.setDescription(command.description());
         
         Currency currency = currencyPersistencePort.findByCode(command.currencyCode())
                 .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + command.currencyCode()));
@@ -45,8 +45,13 @@ public class MonolithJournalPostingAdapter {
                     .orElseThrow(() -> new IllegalArgumentException("Account subject not found: " + line.accountCode()));
             detail.setAccountSubject(account);
             
-            detail.setDebitAmount(line.debitAmount());
-            detail.setCreditAmount(line.creditAmount());
+            if (line.debitAmount() != null && line.debitAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                detail.setAmount(line.debitAmount());
+                detail.setDrcrType("DEBIT");
+            } else if (line.creditAmount() != null && line.creditAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                detail.setAmount(line.creditAmount());
+                detail.setDrcrType("CREDIT");
+            }
             
             if (line.departmentCode() != null) {
                 Department dept = departmentPersistencePort.findByCode(line.departmentCode())
@@ -60,7 +65,7 @@ public class MonolithJournalPostingAdapter {
                 detail.setBusinessPartner(bp);
             }
             
-            detail.setSummary(line.description());
+            detail.setDetailDescription(line.description());
             detail.setJournalEntry(entry);
             return detail;
         }).collect(Collectors.toList()));
