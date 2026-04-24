@@ -5,6 +5,7 @@ import com.ho.account.auth.core.application.exception.InvalidCredentialsExceptio
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
+import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService implements AuthUseCase {
 
     private final AuthUserQueryPort authUserQueryPort;
+    private final DepartmentValidationPort departmentValidationPort;
     private final PasswordVerifierPort passwordVerifierPort;
     private final TokenIssuerPort tokenIssuerPort;
 
@@ -38,13 +40,18 @@ public class AuthService implements AuthUseCase {
             throw new UserAccessDeniedException("User account is locked");
         }
 
+        if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()
+                && !departmentValidationPort.existsDepartmentCode(user.getDepartmentCode())) {
+            throw new UserAccessDeniedException("Department code is invalid: " + user.getDepartmentCode());
+        }
+
         TokenIssuerPort.IssuedToken issuedToken = tokenIssuerPort.issue(user);
         return new LoginResponse(
                 issuedToken.token(),
                 "Bearer",
                 issuedToken.expiresInSeconds(),
                 user.getUsername(),
+                user.getDepartmentCode(),
                 user.getRoles());
     }
 }
-

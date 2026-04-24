@@ -5,6 +5,8 @@ spring:
     import: "optional:configserver:http://localhost:8888/"
 
 auth:
+  master-data:
+    base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
   jwt:
     secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
@@ -12,6 +14,7 @@ auth:
   users:
     - username: ${AUTH_DEFAULT_USERNAME:admin}
       password: ${AUTH_DEFAULT_PASSWORD:1234}
+      department-code: ${AUTH_DEFAULT_DEPARTMENT_CODE:FIN}
       active: true
       locked: false
       roles:

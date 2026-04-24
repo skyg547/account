@@ -4,6 +4,7 @@ import com.ho.account.auth.api.dto.LoginResponse;
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
+import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
@@ -20,10 +21,12 @@ class AuthServiceTest {
     @Test
     void returnsBearerTokenWhenCredentialsAreValid() {
         AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "{noop}1234", true, false, List.of("ROLE_ADMIN"))));
+                "admin", new AuthUser("admin", "{noop}1234", "FIN", true, false, List.of("ROLE_ADMIN"))));
+        DepartmentValidationPort departmentValidationPort = code -> true;
         PasswordVerifierPort passwordVerifierPort = (raw, stored) -> "{noop}".concat(raw).equals(stored);
         TokenIssuerPort tokenIssuerPort = user -> new TokenIssuerPort.IssuedToken("token-123", 3600L);
-        AuthService authService = new AuthService(userQueryPort, passwordVerifierPort, tokenIssuerPort);
+        AuthService authService = new AuthService(
+                userQueryPort, departmentValidationPort, passwordVerifierPort, tokenIssuerPort);
 
         LoginResponse response = authService.login("admin", "1234");
 
@@ -31,6 +34,7 @@ class AuthServiceTest {
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresIn()).isEqualTo(3600L);
         assertThat(response.username()).isEqualTo("admin");
+        assertThat(response.departmentCode()).isEqualTo("FIN");
         assertThat(response.roles()).containsExactly("ROLE_ADMIN");
     }
 
@@ -38,6 +42,7 @@ class AuthServiceTest {
     void throwsWhenUserDoesNotExist() {
         AuthService authService = new AuthService(
                 new InMemoryUserQueryPort(Map.of()),
+                code -> true,
                 (raw, stored) -> true,
                 user -> new TokenIssuerPort.IssuedToken("token", 1L));
 
@@ -51,6 +56,7 @@ class AuthServiceTest {
                 "admin", new AuthUser("admin", "1234", true, false, List.of("ROLE_ADMIN"))));
         AuthService authService = new AuthService(
                 userQueryPort,
+                code -> true,
                 (raw, stored) -> false,
                 user -> new TokenIssuerPort.IssuedToken("token", 1L));
 
@@ -64,6 +70,7 @@ class AuthServiceTest {
                 "admin", new AuthUser("admin", "1234", false, false, List.of("ROLE_ADMIN"))));
         AuthService authService = new AuthService(
                 userQueryPort,
+                code -> true,
                 String::equals,
                 user -> new TokenIssuerPort.IssuedToken("token", 1L));
 
@@ -78,12 +85,29 @@ class AuthServiceTest {
                 "admin", new AuthUser("admin", "1234", true, true, List.of("ROLE_ADMIN"))));
         AuthService authService = new AuthService(
                 userQueryPort,
+                code -> true,
                 String::equals,
                 user -> new TokenIssuerPort.IssuedToken("token", 1L));
 
         assertThatThrownBy(() -> authService.login("admin", "1234"))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("locked");
+    }
+
+    @Test
+    void throwsWhenDepartmentCodeDoesNotExistInMasterData() {
+        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
+                "admin", new AuthUser("admin", "1234", "UNKNOWN", true, false, List.of("ROLE_ADMIN"))));
+        DepartmentValidationPort departmentValidationPort = code -> false;
+        AuthService authService = new AuthService(
+                userQueryPort,
+                departmentValidationPort,
+                String::equals,
+                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+
+        assertThatThrownBy(() -> authService.login("admin", "1234"))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("Department code is invalid");
     }
 
     private record InMemoryUserQueryPort(Map<String, AuthUser> users) implements AuthUserQueryPort {
@@ -93,4 +117,3 @@ class AuthServiceTest {
         }
     }
 }
-

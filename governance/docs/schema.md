@@ -88,7 +88,7 @@ erDiagram
 제약:
 - `ROLE_ID + FUNCTION_CODE + ACCESS_TYPE` 유니크
 
-## 2. Security 영역
+## 2. Security 영역 (Legacy / 이관 대상)
 
 ```mermaid
 erDiagram
@@ -117,6 +117,7 @@ erDiagram
 의미:
 - 시스템 사용자 마스터입니다.
 - `email`은 `@Masked(pattern = "EMAIL")` 대상입니다.
+- 목표 경계에서는 사용자/메뉴/권한 마스터를 `auth` 모듈로 이관합니다.
 
 ### `SYSTEM_ROLES`
 
@@ -164,4 +165,4 @@ erDiagram
 
 - `audit.domain.SystemRole`과 `security.domain.SecurityRole`는 이름은 비슷하지만 다른 모델입니다.
 - 현재 API와 서비스는 주로 `audit` 쪽 역할/권한 모델을 사용합니다.
-- `security` 모델은 사용자-역할-기능 권한 구조를 더 정교하게 담고 있지만 연결 서비스가 아직 약합니다.
+- `security` 모델은 사용자-역할-기능 권한 구조를 담고 있으며, 운영 경계 정리 시 `auth`로 이동시키는 것이 권장됩니다.

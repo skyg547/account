@@ -33,16 +33,19 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(expirationSeconds);
 
-        String token = Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(user.getUsername())
                 .claim("roles", user.getRoles())
                 .setIssuer(properties.getJwt().getIssuer())
                 .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(expiresAt))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(Date.from(expiresAt));
+
+        if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()) {
+            builder.claim("departmentCode", user.getDepartmentCode());
+        }
+
+        String token = builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
 
         return new IssuedToken(token, expirationSeconds);
     }
 }
-

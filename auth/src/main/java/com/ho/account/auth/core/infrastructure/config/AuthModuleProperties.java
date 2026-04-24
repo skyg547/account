@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AuthModuleProperties {
 
     private Jwt jwt = new Jwt();
+    private MasterData masterData = new MasterData();
     private List<User> users = new ArrayList<>();
 
     public Jwt getJwt() {
@@ -16,6 +17,14 @@ public class AuthModuleProperties {
 
     public void setJwt(Jwt jwt) {
         this.jwt = jwt;
+    }
+
+    public MasterData getMasterData() {
+        return masterData;
+    }
+
+    public void setMasterData(MasterData masterData) {
+        this.masterData = masterData;
     }
 
     public List<User> getUsers() {
@@ -53,6 +62,18 @@ public class AuthModuleProperties {
 
         public void setExpirationSeconds(long expirationSeconds) {
             this.expirationSeconds = expirationSeconds;
+        }
+    }
+
+    public static class MasterData {
+        private String baseUrl = "http://localhost:8082";
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
         }
     }
 

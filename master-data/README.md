@@ -39,6 +39,13 @@ Package responsibilities:
 - `Product`: product or service reference data.
 - `MasterDataChangeRequest`: controlled change request, approval, rejection, and application history.
 
+## Integration Note (Auth / IAM)
+
+- `Department` master ownership is in `master-data`.
+- `auth` (or IAM) should store only `departmentCode` as a reference.
+- Department name, hierarchy, and validity window must be resolved from `master-data`, not duplicated in auth tables.
+- `auth` login validation can resolve department existence via `GET /api/basic/departments/{departmentCode}`.
+
 ## Change Request Control
 
 Operational changes should be registered as `MasterDataChangeRequest` records when approval and auditability are required.

@@ -29,9 +29,9 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
         return new AuthUser(
                 user.getUsername(),
                 user.getPassword(),
+                user.getDepartmentCode(),
                 user.isActive(),
                 user.isLocked(),
                 user.getRoles());
     }
 }
-
