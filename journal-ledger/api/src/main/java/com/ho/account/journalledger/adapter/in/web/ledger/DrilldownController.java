@@ -2,7 +2,7 @@ package com.ho.account.journalledger.adapter.in.web.ledger;
 
 import com.ho.account.common.service.SourceDocumentService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.application.service.journal.JournalService;
+import com.ho.account.journalledger.domain.journal.service.JournalService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 드릴다운(Drill-down) 기능을 제공하는 컨트롤러.
+ * 보고서 데이터로부터 원천 전표 및 문서를 추적한다.
+ */
 @RestController
 @RequestMapping("/api/drilldown")
 public class DrilldownController {
@@ -23,6 +27,9 @@ public class DrilldownController {
         this.sourceDocumentService = sourceDocumentService;
     }
 
+    /**
+     * 전표 상세 내역 조회 (드릴다운용)
+     */
     @GetMapping("/journal-entry/{journalEntryId}")
     public ResponseEntity<Map<String, Object>> getJournalEntryDetails(
             @PathVariable("journalEntryId") Long journalEntryId) {
@@ -31,6 +38,9 @@ public class DrilldownController {
         return ResponseEntity.ok(toJournalEntryResponse(journalEntry));
     }
 
+    /**
+     * 전표의 원천 문서 조회 (증빙 등)
+     */
     @GetMapping("/journal-entry/{journalEntryId}/source-document")
     public ResponseEntity<Map<String, Object>> getSourceDocumentForJournalEntry(
             @PathVariable("journalEntryId") Long journalEntryId) {

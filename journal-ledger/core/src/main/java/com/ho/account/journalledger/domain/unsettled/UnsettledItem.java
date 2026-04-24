@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 미결 항목(Unsettled Item) 엔티티
- * 반제(Settlement) 처리가 필요한 항목(예: 외상매입금, 미지급금 등)을 관리한다.
+ * 誘멸껐 ??ぉ(Unsettled Item) ?뷀떚??
+ * 諛섏젣(Settlement) 泥섎━媛 ?꾩슂????ぉ(?? ?몄긽留ㅼ엯湲? 誘몄?湲됯툑 ????愿由ы븳??
  */
 @Entity
 @Table(name = "unsettled_items")
@@ -21,7 +21,7 @@ public class UnsettledItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_detail_id", nullable = false)
-    private JournalDetail journalDetail; // 발생 전표 상세
+    private JournalDetail journalDetail; // 諛쒖깮 ?꾪몴 ?곸꽭
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
@@ -32,22 +32,22 @@ public class UnsettledItem {
     private BusinessPartner businessPartner;
 
     @Column(nullable = false)
-    private LocalDate occurrenceDate; // 발생일
+    private LocalDate occurrenceDate; // 諛쒖깮??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 발생 금액
+    private BigDecimal originalAmount; // 諛쒖깮 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal settledAmount = BigDecimal.ZERO; // 반제 금액
+    private BigDecimal settledAmount = BigDecimal.ZERO; // 諛섏젣 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // 잔액
+    private BigDecimal remainingAmount; // ?붿븸
 
     @Column(length = 20)
-    private String status; // OPEN(미결), PARTIAL(부분반제), CLEARED(반제완료)
+    private String status; // OPEN(誘멸껐), PARTIAL(遺遺꾨컲??, CLEARED(諛섏젣?꾨즺)
 
     @Column(nullable = false)
-    private boolean resolved = false; // 반제 완료 여부 (Repository 쿼리용)
+    private boolean resolved = false; // 諛섏젣 ?꾨즺 ?щ? (Repository 荑쇰━??
 
     @PrePersist
     protected void onCreate() {
@@ -61,12 +61,12 @@ public class UnsettledItem {
     }
 
     /**
-     * 반제 처리 로직
-     * @param amount 반제할 금액
+     * 諛섏젣 泥섎━ 濡쒖쭅
+     * @param amount 諛섏젣??湲덉븸
      */
     public void settle(BigDecimal amount) {
         if (remainingAmount.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("반제 금액이 잔액보다 클 수 없습니다.");
+            throw new IllegalArgumentException("諛섏젣 湲덉븸???붿븸蹂대떎 ?????놁뒿?덈떎.");
         }
         this.settledAmount = this.settledAmount.add(amount);
         this.remainingAmount = this.remainingAmount.subtract(amount);

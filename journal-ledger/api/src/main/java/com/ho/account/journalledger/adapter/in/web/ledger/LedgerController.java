@@ -8,35 +8,34 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.core.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
 
 /**
- * GL(총계?�원?? �?SL(보조?�장) ?�이?��? 조회?�고 관리하??REST 컨트롤러.
+ * GL(총계정원장) 및 SL(보조원장) 데이터를 조회하고 관리하는 REST 컨트롤러.
  */
 @RestController
 @RequestMapping("/api/ledger")
 public class LedgerController {
 
     private final LedgerService ledgerService;
-    private final accountSubjectPersistencePort accountSubjectPersistencePort;
-    private final businessPartnerPersistencePort businessPartnerPersistencePort;
-    private final departmentPersistencePort departmentPersistencePort;
-    private final currencyPersistencePort currencyPersistencePort;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final DepartmentPersistencePort departmentPersistencePort;
+    private final CurrencyPersistencePort currencyPersistencePort;
 
     public LedgerController(LedgerService ledgerService,
-                            accountSubjectPersistencePort accountSubjectPersistencePort,
-                            businessPartnerPersistencePort businessPartnerPersistencePort,
-                            departmentPersistencePort departmentPersistencePort,
-                            currencyPersistencePort currencyPersistencePort) {
+                            AccountSubjectPersistencePort accountSubjectPersistencePort,
+                            BusinessPartnerPersistencePort businessPartnerPersistencePort,
+                            DepartmentPersistencePort departmentPersistencePort,
+                            CurrencyPersistencePort currencyPersistencePort) {
         this.ledgerService = ledgerService;
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
@@ -45,12 +44,12 @@ public class LedgerController {
     }
 
     /**
-     * ?�정 기간 ?�안??GL ?�액??조회?�니??
-     * @param startDate 조회 ?�작??
-     * @param endDate 조회 종료??
-     * @param accountCode 계정과목 코드 (?�택 ?�항)
-     * @param currencyCode ?�화 코드 (?�택 ?�항)
-     * @return GL ?�액 목록
+     * 특정 기간 동안의 GL 잔액을 조회합니다.
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
+     * @param accountCode 계정과목 코드 (선택 사항)
+     * @param currencyCode 통화 코드 (선택 사항)
+     * @return GL 잔액 목록
      */
     @GetMapping("/gl-balances")
     public ResponseEntity<List<GlBalance>> getGlBalances(
@@ -61,13 +60,13 @@ public class LedgerController {
 
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectPersistencePort.findById(accountCode)
+            accountSubject = accountSubjectPersistencePort.findByCode(accountCode)
                     .orElseThrow(() -> new IllegalArgumentException("AccountSubject not found with code: " + accountCode));
         }
 
         Currency currency = null;
         if (currencyCode != null) {
-            currency = currencyPersistencePort.findById(currencyCode)
+            currency = currencyPersistencePort.findByCode(currencyCode)
                     .orElseThrow(() -> new IllegalArgumentException("Currency not found with code: " + currencyCode));
         }
 
@@ -76,14 +75,14 @@ public class LedgerController {
     }
 
     /**
-     * ?�정 기간 ?�안??SL ?�액??조회?�니??
-     * @param startDate 조회 ?�작??
-     * @param endDate 조회 종료??
-     * @param accountCode 계정과목 코드 (?�택 ?�항)
-     * @param businessPartnerCode 거래�?코드 (?�택 ?�항)
-     * @param deptCode 부??코드 (?�택 ?�항)
-     * @param currencyCode ?�화 코드 (?�택 ?�항)
-     * @return SL ?�액 목록
+     * 특정 기간 동안의 SL 잔액을 조회합니다.
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
+     * @param accountCode 계정과목 코드 (선택 사항)
+     * @param businessPartnerCode 거래처 코드 (선택 사항)
+     * @param deptCode 부서 코드 (선택 사항)
+     * @param currencyCode 통화 코드 (선택 사항)
+     * @return SL 잔액 목록
      */
     @GetMapping("/sl-balances")
     public ResponseEntity<List<SlBalance>> getSlBalances(
@@ -96,7 +95,7 @@ public class LedgerController {
 
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectPersistencePort.findById(accountCode)
+            accountSubject = accountSubjectPersistencePort.findByCode(accountCode)
                     .orElseThrow(() -> new IllegalArgumentException("AccountSubject not found with code: " + accountCode));
         }
 
@@ -114,7 +113,7 @@ public class LedgerController {
 
         Currency currency = null;
         if (currencyCode != null) {
-            currency = currencyPersistencePort.findById(currencyCode)
+            currency = currencyPersistencePort.findByCode(currencyCode)
                     .orElseThrow(() -> new IllegalArgumentException("Currency not found with code: " + currencyCode));
         }
 
@@ -123,10 +122,10 @@ public class LedgerController {
     }
 
     /**
-     * GL �?SL ?�액???�집계합?�다. (마감 배치 ?�책)
-     * @param startDate ?�집�??�작??
-     * @param endDate ?�집�?종료??
-     * @return ?�공 메시지
+     * GL 및 SL 잔액을 재집계합니다. (마감 배치 정책)
+     * @param startDate 재집계 시작일
+     * @param endDate 재집계 종료일
+     * @return 성공 메시지
      */
     @PostMapping("/reaggregate-balances")
     public ResponseEntity<String> reaggregateBalances(

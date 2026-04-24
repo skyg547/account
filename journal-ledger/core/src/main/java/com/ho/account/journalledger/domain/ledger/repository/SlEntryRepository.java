@@ -1,6 +1,6 @@
-package com.ho.account.journalledger.core.domain.ledger.repository;
+package com.ho.account.journalledger.domain.ledger.repository;
 
-import com.ho.account.journalledger.core.domain.ledger.domain.SlEntry;
+import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

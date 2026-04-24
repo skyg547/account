@@ -33,9 +33,13 @@ import {
   ShieldAlert,
   CalendarDays,
   Network,
-  CheckCircle
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Shield
 } from 'lucide-react';
-import { useNav, NavCategory } from '@/context/NavContext';
+import { useNav } from '@/context/NavContext';
 
 const menuItems = [
   { 
@@ -112,7 +116,8 @@ const menuItems = [
     category: 'ADMIN',
     group: '시스템 관리', 
     items: [
-      { icon: Users, label: '사용자 및 권한', href: '/admin/users' },
+      { icon: Users, label: '사용자 그룹 관리', href: '/admin/users' },
+      { icon: Layers, label: '메뉴 및 접근 권한', href: '/admin/menus' },
       { icon: Landmark, label: '귀속 부서 관리', href: '/admin/dept' },
       { icon: FileText, label: '시스템 로그 조회', href: '/admin/logs' },
     ]
@@ -120,38 +125,51 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
-  const { activeCategory } = useNav();
+  const { activeCategory, isCollapsed, toggleSidebar } = useNav();
 
   const filteredMenuItems = menuItems.filter(group => group.category === activeCategory);
 
   return (
-    <aside className="w-[300px] h-screen fixed top-0 left-0 bg-[#020617] border-r border-white/5 flex flex-col z-[100] transition-all duration-500 overflow-hidden group/sidebar">
+    <aside className={`${isCollapsed ? 'w-20' : 'w-[300px]'} h-screen fixed top-0 left-0 bg-[#020617] border-r border-white/5 flex flex-col z-[100] transition-all duration-500 overflow-hidden group/sidebar shadow-2xl`}>
       {/* Sidebar Header (Identity) */}
-      <div className="h-[80px] px-8 flex items-center gap-3 border-b border-white/5 bg-white/[0.01]">
-         <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20 group-hover/sidebar:rotate-[90deg] transition-transform duration-700">
-            <Zap size={24} fill="currentColor" />
+      <div className={`h-[80px] px-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-white/5 bg-white/[0.01]`}>
+         <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20 group-hover/sidebar:rotate-[90deg] transition-transform duration-700">
+               <Zap size={24} fill="currentColor" />
+            </div>
+            {!isCollapsed && (
+              <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-500">
+                 <h1 className="text-xl font-black text-white italic tracking-tighter leading-none">ANTIGRAV</h1>
+                 <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mt-0.5 italic">FINANCIAL</span>
+              </div>
+            )}
          </div>
-         <div className="flex flex-col">
-            <h1 className="text-xl font-black text-white italic tracking-tighter leading-none">ANTIGRAV</h1>
-            <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mt-0.5 italic">FINANCIAL CORE</span>
-         </div>
+         <button 
+           onClick={toggleSidebar}
+           className={`p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all outline-none ${isCollapsed ? 'hidden group-hover/sidebar:flex items-center justify-center absolute bg-blue-600/90 text-white -right-4 w-8 h-8 rounded-full shadow-xl z-50' : ''}`}
+         >
+           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={18} />}
+         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-10 custom-scrollbar space-y-10">
+      <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'px-3' : 'px-6'} py-10 custom-scrollbar space-y-10`}>
         {filteredMenuItems.map((group, idx) => (
           <div key={idx} className="animate-in slide-in-from-left duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
-            <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-6 px-3 flex items-center gap-2">
-               <div className="w-1 h-1 bg-slate-700 rounded-full" /> {group.group}
-            </h3>
+            {!isCollapsed && (
+              <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-6 px-3 flex items-center gap-2">
+                 <div className="w-1 h-1 bg-slate-700 rounded-full" /> {group.group}
+              </h3>
+            )}
             <ul className="space-y-1.5">
               {group.items.map((item, itemIdx) => (
                 <li key={itemIdx}>
                   <Link 
                     href={item.href} 
-                    className="flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:text-white hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item"
+                    className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-4 px-4'} py-3 rounded-2xl text-slate-500 hover:text-white hover:bg-white/[0.03] border border-transparent hover:border-white/5 transition-all group/item whitespace-nowrap active:scale-95`}
+                    title={isCollapsed ? item.label : ''}
                   >
-                    <item.icon size={18} className="text-slate-600 group-hover/item:text-blue-400 group-hover/item:scale-110 transition-all duration-300" />
-                    <span className="text-sm font-black tracking-tight">{item.label}</span>
+                    <item.icon size={18} className="text-slate-600 group-hover/item:text-blue-400 group-hover/item:scale-110 transition-all duration-300 shrink-0" />
+                    {!isCollapsed && <span className="text-sm font-black tracking-tight animate-in fade-in slide-in-from-left-2 duration-300">{item.label}</span>}
                   </Link>
                 </li>
               ))}
@@ -161,15 +179,17 @@ export default function Sidebar() {
       </div>
 
       {/* Sidebar Footer */}
-      <div className="p-6 border-t border-white/5 bg-slate-950/50">
-        <div className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-white/5 border border-white/5 hover:border-blue-500/30 cursor-pointer transition-all group/settings backdrop-blur-md">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 group-hover/settings:text-blue-400 transition-colors">
+      <div className={`p-6 border-t border-white/5 bg-slate-950/50 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center w-12 h-12' : 'gap-4 px-4 py-4 w-full'} rounded-2xl bg-white/5 border border-white/5 hover:border-blue-500/30 cursor-pointer transition-all group/settings backdrop-blur-md`}>
+          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 group-hover/settings:text-blue-400 transition-colors shrink-0">
             <Settings size={20} className="group-hover/settings:rotate-90 transition-transform duration-500" />
           </div>
-          <div className="flex flex-col">
-             <span className="text-xs font-black text-white tracking-tight uppercase">System Center</span>
-             <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">Parameters</span>
-          </div>
+          {!isCollapsed && (
+            <div className="flex flex-col animate-in fade-in duration-300">
+               <span className="text-xs font-black text-white tracking-tight uppercase leading-none">System Admin</span>
+               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1">Config Mode</span>
+            </div>
+          )}
         </div>
       </div>
     </aside>

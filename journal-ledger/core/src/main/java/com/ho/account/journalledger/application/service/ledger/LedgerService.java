@@ -5,11 +5,11 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Currency;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.core.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.core.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.core.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
+import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,7 +62,7 @@ public class LedgerService {
             newGlBalance.setBalanceDate(accountingDate);
             newGlBalance.setPeriod(period);
 
-            // ?�액 ?�월 (Carry-forward) 로직
+            // ?붿븸 ?댁썡 (Carry-forward) 濡쒖쭅
             glBalanceRepository.findFirstByAccountSubjectAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(
                     accountSubject, currency, accountingDate)
                 .ifPresent(prev -> newGlBalance.setBeginningBalance(prev.getEndingBalance()));
@@ -101,7 +101,7 @@ public class LedgerService {
             newSlBalance.setBalanceDate(accountingDate);
             newSlBalance.setPeriod(period);
 
-            // ?�액 ?�월 (Carry-forward) 로직
+            // ?붿븸 ?댁썡 (Carry-forward) 濡쒖쭅
             slBalanceRepository.findFirstByAccountSubjectAndBusinessPartnerAndDepartmentAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(
                     accountSubject, businessPartner, department, currency, accountingDate)
                 .ifPresent(prev -> newSlBalance.setBeginningBalance(prev.getEndingBalance()));

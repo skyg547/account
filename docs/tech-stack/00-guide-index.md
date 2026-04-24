@@ -26,6 +26,24 @@
 | **18** | **Secret** | HashiCorp Vault | 스위스 은행 비밀 금고(보안 정보 저장) | [보기 (08)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/08-advanced-infra.md) |
 | **19** | **Call** | OpenFeign | 스마트 사내 전화기(선언적 서비스 호출) | [보기 (08)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/08-advanced-infra.md) |
 | **20** | **Docs** | Swagger / OpenAPI | 사진 포함 통합 메뉴판(API 자동 명세화) | [보기 (08)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/08-advanced-infra.md) |
+| **21** | **Lang** | TypeScript | 안전장치가 달린 전동 드릴(타입 안전성) | [보기 (09)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/09-dev-support-testing.md) |
+| **22** | **Tool** | Lombok | 자동 청소 로봇(반복 코드 자동 생성) | [보기 (09)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/09-dev-support-testing.md) |
+| **23** | **QA** | JUnit 5 & Mockito | 현장 감찰관 및 배역 배우(테스트/모킹) | [보기 (09)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/09-dev-support-testing.md) |
+| **24** | **Build** | Gradle | 부품 조달 팀 및 조립 설명서(빌드 도구) | [보기 (10)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/10-build-container.md) |
+| **25** | **Ops** | Docker | 규격화된 표준 컨테이너(가상화/배포) | [보기 (10)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/10-build-container.md) |
+| **26** | **Qual** | ESLint | 똑똑한 맞춤법 검사기(코드 품질/스타일) | [보기 (10)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/10-build-container.md) |
+| **27** | **Style** | Tailwind CSS | 미리 준비된 옷들로 가득한 편집샵 (Utility CSS) | [보기 (11)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/11-modern-ux-db.md) |
+| **28** | **DB Mix** | H2 Database | 휴대하기 편한 초소형 미니 냉장고 (Dev DB) | [보기 (11)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/11-modern-ux-db.md) |
+| **29** | **Parse** | Jackson | 자동 번역기 및 포장 기계 (JSON 파싱) | [보기 (12)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/12-data-monitoring.md) |
+| **30** | **Health** | Actuator | 서버 전용 실시간 건강 진단기 (Monitoring) | [보기 (12)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/12-data-monitoring.md) |
+| **31** | **Logic** | Java Stream API | 공장 자동화 컨베이어 벨트 (데이터 처리) | [보기 (13)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/13-logic-contracts.md) |
+| **32** | **Verify** | Spring Cloud Contract | 공증받은 법적 API 계약서 (Consumer Contract) | [보기 (13)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/13-logic-contracts.md) |
+| **33** | **Chart** | Recharts | 엑셀 그래프의 웹 버전(데이터 시각화) | [보기 (14)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/14-frontend-viz.md) |
+| **34** | **AOP** | Spring AOP | 건물의 화재 감지기 및 CCTV(공통 로직 분리) | [보기 (14)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/14-frontend-viz.md) |
+| **35** | **Check** | Spring Validation | 공항의 입국 심사대(데이터 무결성 검증) | [보기 (14)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/14-frontend-viz.md) |
+| **36** | **DDD** | Aggregate/VO/Entity | 전문가의 용어로 지도를 그리는 법(도메인 설계) | [보기 (15)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/15-advanced-ddd-patterns.md) |
+| **37** | **EDA** | Event-Driven | 방송국과 라디오 청취자(느슨한 결합/이벤트) | [보기 (15)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/15-advanced-ddd-patterns.md) |
+| **38** | **Model** | Rich Domain Model | 스스로 생각하고 행동하는 로봇(도메인 로직 응집) | [보기 (15)](file:///c:/Users/skyg547/IdeaProjects/account/docs/tech-stack/15-advanced-ddd-patterns.md) |
 
 ---
 

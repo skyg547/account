@@ -3,11 +3,11 @@ package com.ho.account.journalledger.application.service.ledger;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlEntry;
-import com.ho.account.journalledger.core.domain.ledger.domain.SlEntry;
-import com.ho.account.journalledger.core.domain.ledger.repository.GlEntryRepository;
-import com.ho.account.journalledger.core.domain.ledger.repository.SlEntryRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
+import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
+import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
+import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 
+/**
+ * 전표 데이터를 원장(GL/SL)에 전기(Posting)하는 서비스
+ */
 @Service
 @RequiredArgsConstructor
 public class PostingService {
@@ -43,7 +46,7 @@ public class PostingService {
         for (JournalDetail detail : journalEntry.getDetails()) {
             boolean isDebit = "DEBIT".equals(detail.getDrcrType());
 
-            // 1. GlEntry ?�성
+            // 1. GlEntry 생성
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
             glEntry.setAccount(detail.getAccountSubject());
@@ -65,7 +68,7 @@ public class PostingService {
             }
             glEntryRepository.save(glEntry);
 
-            // 2. SlEntry ?�성
+            // 2. SlEntry 생성
             SlEntry slEntry = new SlEntry();
             slEntry.setJournalDetail(detail);
             slEntry.setAccount(detail.getAccountSubject());
@@ -89,7 +92,7 @@ public class PostingService {
             }
             slEntryRepository.save(slEntry);
 
-            // 3. ?�액 ?�데?�트 (Carry-forward ?�함)
+            // 3. 잔액 업데이트 (Carry-forward 포함)
             ledgerService.updateLedgerBalances(detail, accountingDate);
         }
     }

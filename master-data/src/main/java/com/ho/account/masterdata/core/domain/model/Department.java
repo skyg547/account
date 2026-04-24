@@ -2,11 +2,11 @@ package com.ho.account.masterdata.core.domain.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime; // LocalDateTime ?�붽?
+import java.time.LocalDateTime;
 
 /**
- * ?��??Department/Cost Center) ????
- * �곗??�ъ�瑜??��?�ы븯? ??��????�꽣(Cost Center) ??�� ??�씡 ??�꽣(Profit Center) ??????�뻾??
+ * 부서(Department/Cost Center) 엔티티
+ * 조직 구조를 관리하며 비용 센터(Cost Center) 또는 이익 센터(Profit Center) 역할을 수행함.
  */
 @Entity
 @Table(name = "departments")
@@ -17,29 +17,29 @@ public class Department {
     private String code;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt; // ??�꽦??�떆
+    private LocalDateTime createdAt; // 생성일시
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt; // ??�젙??�떆
+    private LocalDateTime updatedAt; // 수정일시
 
     @Column(length = 50)
-    private String auditUser; // ��??????
+    private String auditUser; // 감사 사용자
 
     /**
-     * ?��??�쓽 ???
+     * 부서의 명칭
      */
     @Column(nullable = false, length = 100)
     private String name;
 
     /**
-     * ?�쐞 ?��?? ?��??�ъ�瑜??????�땲??
+     * 상위 부서 연관관계
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_code", referencedColumnName = "code")
     private Department parent;
 
     /**
-     * ?��??�쓽 ?�삎 (?? ??��????�꽣, ??�씡 ??�꽣, ��???��??.
+     * 부서의 유형 (예: 비용 센터, 이익 센터, 지원 부서 등)
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
@@ -52,13 +52,13 @@ public class Department {
     private LocalDate validTo;
 
     public enum DepartmentType {
-        COST_CENTER, // ??��????�꽣
-        PROFIT_CENTER, // ??�씡 ??�꽣
-        SUPPORT, // ��???��??
-        OTHER // �고?
+        COST_CENTER, // 비용 센터
+        PROFIT_CENTER, // 이익 센터
+        SUPPORT, // 지원 부서
+        OTHER // 기타
     }
 
-    // Getter ?Setter
+    // Getter 및 Setter
     public String getCode() {
         return code;
     }

@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ???�� ?�� ????(ISO 4217)
+ * 통화 정보 엔티티 (ISO 4217)
  */
 @Entity
 @Table(name = "currencies")
@@ -13,13 +13,13 @@ public class Currency {
 
     @Id
     @Column(name = "currency_code", length = 3)
-    private String currencyCode; // ISO 4217 (?? KRW, USD, EUR)
+    private String currencyCode; // ISO 4217 (예: KRW, USD, EUR)
 
     @Column(nullable = false, length = 50)
     private String currencyName;
 
     @Column(length = 10)
-    private String symbol; // ?? ?? $
+    private String symbol; // 통화 기호 (예: ₩, $)
 
     @Column(nullable = false)
     private LocalDate validFrom;
@@ -52,7 +52,7 @@ public class Currency {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter ?Setter
+    // Getter 및 Setter
     public String getCurrencyCode() {
         return currencyCode;
     }

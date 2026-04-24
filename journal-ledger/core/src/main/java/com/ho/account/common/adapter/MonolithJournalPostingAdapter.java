@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 import java.util.stream.Collectors;
 
 /**
- * 모놀리스 전표 기입 어댑터
+ * 紐⑤?由ъ뒪 ?꾪몴 湲곗엯 ?대뙌??
  */
 @Component
 @RequiredArgsConstructor

@@ -5,9 +5,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
+/**
+ * Journal Ledger 마이크로서비스 애플리케이션 메인 클래스
+ */
 @SpringBootApplication(scanBasePackages = "com.ho.account")
 @EnableDiscoveryClient
-@EnableFeignClients // ?�른 마이?�로?�비?��? ?�아?�게 ?�화(API ?�출)?????�는 기능??�?��??
+@EnableFeignClients // 다른 마이크로서비스 API 호출(FeignClient) 기능 활성화
 public class JournalLedgerApplication {
 
     public static void main(String[] args) {

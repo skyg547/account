@@ -31,10 +31,10 @@ public class JournalRuleService {
         this.journalRuleDetailRepository = journalRuleDetailRepository;
     }
 
-    // JournalRule CRUD ?묒뾽
+    // JournalRule CRUD ?臾믩씜
 
     public JournalRule createJournalRule(JournalRule journalRule) {
-        // ?????꾩뿉 conditions?? ruleDetails媛 洹쒖????곌껐??��??�? ?뺤씤
+        // ?????袁⑸퓠 conditions?? ruleDetails揶쎛 域뱀뮇????怨뚭퍙??뤿??遺? ?類ㅼ뵥
         journalRule.getConditions().forEach(condition -> condition.setJournalRule(journalRule));
         journalRule.getRuleDetails().forEach(ruleDetail -> ruleDetail.setJournalRule(journalRule));
         return journalRuleRepository.save(journalRule);
@@ -66,15 +66,15 @@ public class JournalRuleService {
         existingRule.setVersion(updatedRule.getVersion());
         existingRule.setActive(updatedRule.isActive());
         existingRule.setPriority(updatedRule.getPriority());
-        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // createdBy媛 ??�젙 ??媛깆???????�떎??媛??
+        existingRule.setCreatedBy(updatedRule.getCreatedBy()); // createdBy揶쎛 ??륁젟 ??揶쏄퉮???????덈뼄??揶쎛??
 
-        // 議곌�?泥섎?? 湲곗????????�굅 ???좉퇋 ?????�붽?
+        // 鈺곌퀗援?筌ｌ꼶?? 疫꿸퀣????????볤탢 ???醫됲뇣 ?????곕떽?
         existingRule.getConditions().clear();
         updatedRule.getConditions().forEach(condition -> {
             existingRule.addCondition(condition);
         });
 
-        // 洹쒖???곸꽭 泥섎?? 湲곗????????�굅 ???좉퇋 ?????�붽?
+        // 域뱀뮇???怨멸쉭 筌ｌ꼶?? 疫꿸퀣????????볤탢 ???醫됲뇣 ?????곕떽?
         existingRule.getRuleDetails().clear();
         updatedRule.getRuleDetails().forEach(ruleDetail -> {
             existingRule.addRuleDetail(ruleDetail);
@@ -87,7 +87,7 @@ public class JournalRuleService {
         journalRuleRepository.deleteById(id);
     }
 
-    // 吏????�옄 湲곗? ??�꽦 洹쒖????곗꽑??�쐞?? 踰꾩????�쑝�?議고???�뒗 硫붿�??
+    // 筌왖????깆쁽 疫꿸퀣? ??뽮쉐 域뱀뮇????怨쀪퐨??뽰맄?? 甕곌쑴????뽰몵嚥?鈺곌퀬???롫뮉 筌롫뗄苑??
     @Transactional(readOnly = true)
     public List<JournalRule> findActiveRules(LocalDate date) {
         return journalRuleRepository.findByIsActiveTrueAndValidFromBeforeAndValidToAfterOrValidToIsNullOrderByPriorityAscVersionDesc(date, date);

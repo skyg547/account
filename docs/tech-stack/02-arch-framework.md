@@ -13,6 +13,17 @@
 - **Microservices**: `journal-ledger`, `master-data` 등 개별 독립 서비스를 빠르게 기동하는 엔진으로 사용됩니다.
 - **REST API**: 프론트엔드가 데이터를 가져갈 수 있도록 창구를 만드는 데 사용됩니다.
 
+### 🚀 실전 사용 가이드 (Step-by-Step)
+**[간단한 데이터 조회 API 만들기]**
+1. **Controller 작성**: 사용자가 접속할 '입구' 주소를 만듭니다.
+   ```java
+   @GetMapping("/api/hello")
+   public String hello() { return "Welcome!"; }
+   ```
+2. **DTO 정의**: 주고받을 데이터 규격을 만듭니다.
+3. **Service 연동**: 버튼을 눌렀을 때 실행될 비즈니스 로직을 연결합니다.
+4. **확인**: 서버 재시작 후 브라우저에서 해당 주소로 접속해 응답이 오는지 확인합니다.
+
 ---
 
 # 📐 [Tech 04] Hexagonal Architecture (Port & Adapter)
@@ -29,3 +40,10 @@
 ### 🛠️ 우리 프로젝트에서의 활용
 - **코드 수명 보장**: 나중에 데이터베이스를 MySQL에서 Oracle로 바꿔도, 핵심 비즈니스 로직(Core)은 한 줄도 고칠 필요가 없게 설계되었습니다. 
 - **AGENTS.md 준수**: 우리 팀의 작업 규칙 중 하나인 "Hexagonal Architecture 원칙 엄격 준수"가 바로 이것입니다.
+
+### 🚀 실전 사용 가이드 (Step-by-Step)
+**[새로운 비즈니스 로직 추가하기]**
+1. **Domain 작성**: `domain` 패키지에 핵심 규칙과 데이터를 담은 클래스를 만듭니다.
+2. **Port(인터페이스) 정의**: `application.port.out`에 "나는 이런 서비스가 필요해"라고 인터페이스를 정의합니다.
+3. **Service 구현**: `application.service`에서 Domain과 Port를 조립하여 유즈케이스를 완성합니다.
+4. **Adapter(구현체) 구현**: `infrastructure.adapter`에서 실제로 DB에 저장하는 구체적인 코드(JPA 등)를 작성합니다.

@@ -18,6 +18,8 @@ export type NavCategory =
 interface NavContextType {
   activeCategory: NavCategory;
   setActiveCategory: (category: NavCategory) => void;
+  isCollapsed: boolean;
+  toggleSidebar: () => void;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
@@ -28,9 +30,12 @@ const NavContext = createContext<NavContextType | undefined>(undefined);
  */
 export function NavProvider({ children }: { children: ReactNode }) {
   const [activeCategory, setActiveCategory] = useState<NavCategory>('ACCOUNTING');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   return (
-    <NavContext.Provider value={{ activeCategory, setActiveCategory }}>
+    <NavContext.Provider value={{ activeCategory, setActiveCategory, isCollapsed, toggleSidebar }}>
       {children}
     </NavContext.Provider>
   );

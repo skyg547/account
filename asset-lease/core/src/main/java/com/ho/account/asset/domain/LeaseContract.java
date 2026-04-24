@@ -58,7 +58,7 @@ public class LeaseContract {
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expense_account_code", referencedColumnName = "account_code")
+    @JoinColumn(name = "expense_account_code")
     private AccountSubject expenseAccount;
 
     private boolean ifrs16Applicable = true;

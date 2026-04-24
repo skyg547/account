@@ -1,6 +1,6 @@
 package com.ho.account.journalledger.adapter.in.kafka;
 
-import com.ho.account.journalledger.application.service.journal.JournalService;
+import com.ho.account.journalledger.domain.journal.service.JournalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -10,9 +10,9 @@ import java.time.LocalDate;
 import java.util.Map;
 
 /**
- * Kafka ?�랜??�� ?�벤??리스??
- * ?� 모듈(매입, 매출, ?��????�서 발생?�는 경제???�건(Event)???�신?�여
- * �??�진???�해 ?�표�??�동?�로 ?�성?�니??
+ * Kafka 트랜잭션 이벤트 리스너
+ * 타 모듈(매입, 매출, 급여 등)에서 발생하는 경제적 사건(Event)을 수신하여
+ * 룰 엔진을 통해 전표를 자동으로 생성합니다.
  */
 @Slf4j
 @Component
@@ -26,13 +26,13 @@ public class KafkaTransactionListener {
         log.info("Received transaction event: {}", event);
 
         try {
-            // ?�벤?�에???�계?�자 추출 (?�으�??�늘 ?�짜)
+            // 이벤트에서 회계일자 추출 (없으면 오늘 날짜)
             LocalDate accountingDate = LocalDate.now();
             if (event.containsKey("accountingDate")) {
                 accountingDate = LocalDate.parse(event.get("accountingDate").toString());
             }
 
-            // ?�표 ?�동 ?�성 ?�도
+            // 전표 자동 생성 시도
             journalService.createJournalEntryFromEvent(event, accountingDate)
                     .ifPresentOrElse(
                             entry -> log.info("Successfully generated journal entry: No={}, ID={}", entry.getSlipNo(), entry.getId()),
@@ -41,7 +41,7 @@ public class KafkaTransactionListener {
 
         } catch (Exception e) {
             log.error("Failed to process transaction event: {}", event, e);
-            // TODO: Error Handling (Dead Letter Queue ??
+            // TODO: Error Handling (Dead Letter Queue 등)
         }
     }
 }

@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * ?�표 관�?API 컨트롤러
- * ?�표 ?�성, ?�동 ?�성 �?조회�??�당?�니??
+ * 전표 관리 API 컨트롤러
+ * 전표 수동 생성, 자동 생성 및 조회를 담당합니다.
  */
 @RestController
 @RequestMapping("/api/journals")
@@ -28,7 +28,7 @@ public class JournalController {
     }
 
     /**
-     * ?�동 ?�표 ?�성
+     * 수동 전표 생성
      */
     @PostMapping
     public ResponseEntity<JournalEntry> createJournalEntry(@RequestBody JournalEntry journalEntry) {
@@ -41,7 +41,7 @@ public class JournalController {
     }
 
     /**
-     * ?�벤?��? ?�한 ?�표 ?�동 ?�성 (�??�진 ?�용)
+     * 이벤트에 의한 전표 자동 생성 (룰 엔진 사용)
      */
     @PostMapping("/from-event")
     public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
@@ -56,7 +56,7 @@ public class JournalController {
     }
 
     /**
-     * 기간�??�표 목록 조회
+     * 기간별 전표 목록 조회
      */
     @GetMapping
     public List<JournalEntry> getJournalEntries(
@@ -66,7 +66,7 @@ public class JournalController {
     }
 
     /**
-     * ?�표 번호�??�세 조회
+     * 전표 번호로 상세 조회
      */
     @GetMapping("/{slipNo}")
     public ResponseEntity<JournalEntry> getJournalEntry(@PathVariable String slipNo) {
@@ -76,7 +76,7 @@ public class JournalController {
     }
 
     /**
-     * ?�표 ?�인
+     * 전표 승인
      */
     @PostMapping("/{id}/approve")
     public ResponseEntity<Void> approveJournalEntry(@PathVariable Long id) {
@@ -89,7 +89,7 @@ public class JournalController {
     }
 
     /**
-     * ?�표 ?�기 (?�장 반영)
+     * 전표 전기 (원장 반영)
      */
     @PostMapping("/{id}/post")
     public ResponseEntity<Void> postJournalEntry(@PathVariable Long id) {

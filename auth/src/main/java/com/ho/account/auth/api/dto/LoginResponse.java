@@ -7,6 +7,6 @@ public record LoginResponse(
         String tokenType,
         long expiresIn,
         String username,
+        String departmentCode,
         List<String> roles) {
 }
-

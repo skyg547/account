@@ -10,6 +10,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 미결 항목 관리 API 컨트롤러
+ */
 @RestController
 @RequestMapping("/api/unsettled")
 public class UnsettledController {
@@ -21,13 +24,17 @@ public class UnsettledController {
         this.unsettledService = unsettledService;
     }
 
-    // 미결 ?�황 조회 (거래처별)
+    /**
+     * 미결 현황 조회 (거래처별)
+     */
     @GetMapping("/businesspartner/{businessPartnerCode}")
     public List<UnsettledItem> getUnsettledItems(@PathVariable String businessPartnerCode) {
         return unsettledService.getUnsettledItems(businessPartnerCode);
     }
 
-    // ?�동 반제 처리
+    /**
+     * 수동 반제 처리
+     */
     @PostMapping("/{id}/settle")
     public ResponseEntity<Void> settleItem(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
         try {

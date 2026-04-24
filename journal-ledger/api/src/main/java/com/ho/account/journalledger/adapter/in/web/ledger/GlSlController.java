@@ -2,15 +2,14 @@ package com.ho.account.journalledger.adapter.in.web.ledger;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journal.repository.JournalEntryRepository;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.core.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlEntry;
-import com.ho.account.journalledger.core.domain.ledger.repository.GlEntryRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
+import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import org.springframework.http.ResponseEntity;
@@ -19,21 +18,24 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * GL 및 SL 잔액과 엔트리를 조회하는 컨트롤러
+ */
 @RestController
 @RequestMapping("/api/ledger")
 public class GlSlController {
 
     private final PostingService postingService;
     private final LedgerService ledgerService;
-    private final accountSubjectPersistencePort accountSubjectPersistencePort;
-    private final businessPartnerPersistencePort businessPartnerPersistencePort;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final GlEntryRepository glEntryRepository;
     private final JournalEntryRepository journalEntryRepository;
 
     public GlSlController(PostingService postingService,
                           LedgerService ledgerService,
-                          accountSubjectPersistencePort accountSubjectPersistencePort,
-                          businessPartnerPersistencePort businessPartnerPersistencePort,
+                          AccountSubjectPersistencePort accountSubjectPersistencePort,
+                          BusinessPartnerPersistencePort businessPartnerPersistencePort,
                           GlEntryRepository glEntryRepository,
                           JournalEntryRepository journalEntryRepository) {
         this.postingService = postingService;
@@ -45,7 +47,7 @@ public class GlSlController {
     }
 
     /**
-     * ?�표 ?�장 ?�기 (Posting)
+     * 전표 원장 전기 (Posting)
      */
     @PostMapping("/post/{journalEntryId}")
     public ResponseEntity<String> postJournalEntry(@PathVariable Long journalEntryId) {
@@ -54,7 +56,7 @@ public class GlSlController {
     }
 
     /**
-     * GL ?�장 ?�액 조회 (계정 x 기간)
+     * GL 원장 잔액 조회 (계정 x 기간)
      */
     @GetMapping("/gl/balances")
     public ResponseEntity<?> getGlBalances(
@@ -64,7 +66,7 @@ public class GlSlController {
         
         AccountSubject accountSubject = null;
         if (accountCode != null) {
-            accountSubject = accountSubjectPersistencePort.findById(accountCode).orElse(null);
+            accountSubject = accountSubjectPersistencePort.findByCode(accountCode).orElse(null);
         }
         
         List<GlBalance> balances = ledgerService.getGlBalances(startDate, endDate, accountSubject, null);
@@ -72,7 +74,7 @@ public class GlSlController {
     }
 
     /**
-     * SL 보조?�장 ?�액 조회 (거래�?x 기간)
+     * SL 보조원장 잔액 조회 (거래처 x 기간)
      */
     @GetMapping("/sl/balances")
     public ResponseEntity<?> getSlBalances(
@@ -90,7 +92,7 @@ public class GlSlController {
     }
 
     /**
-     * Drill-down: ?�천 추적 (보고 -> ?�장 -> ?�표)
+     * Drill-down: 원천 추적 (보고 -> 원장 -> 전표)
      */
     @GetMapping("/drill-down")
     public ResponseEntity<?> getDrillDown(

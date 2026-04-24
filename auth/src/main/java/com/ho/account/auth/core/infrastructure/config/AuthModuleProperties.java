@@ -59,6 +59,7 @@ public class AuthModuleProperties {
     public static class User {
         private String username;
         private String password;
+        private String departmentCode;
         private boolean active = true;
         private boolean locked = false;
         private List<String> roles = List.of("ROLE_USER");
@@ -77,6 +78,14 @@ public class AuthModuleProperties {
 
         public void setPassword(String password) {
             this.password = password;
+        }
+
+        public String getDepartmentCode() {
+            return departmentCode;
+        }
+
+        public void setDepartmentCode(String departmentCode) {
+            this.departmentCode = departmentCode;
         }
 
         public boolean isActive() {
@@ -104,4 +113,3 @@ public class AuthModuleProperties {
         }
     }
 }
-

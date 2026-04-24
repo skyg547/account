@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.core.domain.ledger.dto;
+package com.ho.account.journalledger.application.service.ledger.dto;
 
 import java.math.BigDecimal;
 

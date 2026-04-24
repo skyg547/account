@@ -1,9 +1,9 @@
-package com.ho.account.journalledger.core.domain.ledger.repository;
+package com.ho.account.journalledger.domain.ledger.repository;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.Currency;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlAccountBalance;
-import com.ho.account.journalledger.core.domain.ledger.domain.GlBalanceType;
+import com.ho.account.journalledger.domain.ledger.domain.GlAccountBalance;
+import com.ho.account.journalledger.domain.ledger.domain.GlBalanceType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

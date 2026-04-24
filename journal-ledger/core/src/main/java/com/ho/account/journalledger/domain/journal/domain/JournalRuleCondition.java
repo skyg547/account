@@ -3,8 +3,8 @@ package com.ho.account.journalledger.domain.journal.domain;
 import jakarta.persistence.*;
 
 /**
- * 전표 규칙 조건(Journal Rule Condition) 엔티티
- * 전표 규칙이 적용되기 위한 거래 데이터의 조건을 정의한다.
+ * ?꾪몴 洹쒖튃 議곌굔(Journal Rule Condition) ?뷀떚??
+ * ?꾪몴 洹쒖튃???곸슜?섍린 ?꾪븳 嫄곕옒 ?곗씠?곗쓽 議곌굔???뺤쓽?쒕떎.
  */
 @Entity
 @Table(name = "journal_rule_conditions")
@@ -19,16 +19,16 @@ public class JournalRuleCondition {
     private JournalRule journalRule;
 
     @Column(nullable = false, length = 50)
-    private String field; // 예: "transactionType", "productCode", "departmentCode"
+    private String field; // ?? "transactionType", "productCode", "departmentCode"
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ConditionOperator operator; // 예: EQUALS, STARTS_WITH, CONTAINS
+    private ConditionOperator operator; // ?? EQUALS, STARTS_WITH, CONTAINS
 
     @Column(nullable = false, length = 255)
-    private String value; // 비교할 값
+    private String value; // 鍮꾧탳??媛?
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

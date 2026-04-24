@@ -11,6 +11,12 @@
 ### 🛠️ 우리 프로젝트에서의 활용
 - **Entity**: `AccountSubject`, `Voucher` 등 금융 데이터 모델을 DB 테이블과 1:1로 매칭하여 관리합니다.
 
+### 🚀 실전 사용 가이드 (Step-by-Step)
+**[데이터베이스에 데이터 저장하기]**
+1. **Entity 선언**: `@Entity` 어노테이션을 클래스에 붙여 DB 테이블임을 선언합니다.
+2. **Repository 생성**: `JpaRepository`를 상속받은 인터페이스를 만듭니다.
+3. **Save 호출**: 서비스 레이어에서 `repository.save(myObject)`를 호출하면 자동으로 SQL이 날아갑니다.
+
 ---
 
 # 🔍 [Tech 06] QueryDSL (Type-safe Query)
@@ -25,3 +31,9 @@
 
 ### 🛠️ 우리 프로젝트에서의 활용
 - **통합 검색**: 전표 조회 화면(`/journal/list`)에서 기간, 계정, 금액 등 수많은 필터를 조합해서 검색할 때 이 기술이 핵심적인 역할을 합니다.
+
+### 🚀 실전 사용 가이드 (Step-by-Step)
+**[복잡한 조건으로 데이터 검색하기]**
+1. **Q-Type 생성**: 프로젝트를 빌드하면 QueryDSL이 엔티티를 본뜬 QClass를 자동으로 만듭니다.
+2. **조회 로직 작성**: `queryFactory.selectFrom(qUser).where(qUser.age.gt(20)).fetch()` 처럼 자바 코드로 쿼리를 짭니다.
+3. **조건 조합**: `if`문을 사용하여 사용자가 입력한 필터만 검색 조건으로 쏙쏙 집어넣습니다.

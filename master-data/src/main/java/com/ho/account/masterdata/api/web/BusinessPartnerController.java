@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * �래??����
+ * 거래처 관리 컨트롤러
  */
 @RestController
 @RequestMapping("/api/basic/businesspartners")
@@ -22,7 +22,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * �래??�록
+     * 거래처 등록
      */
     @PostMapping
     public ResponseEntity<BusinessPartnerDto> createBusinessPartner(@RequestBody BusinessPartnerRequestDto requestDto) {
@@ -35,7 +35,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * ?�체 �래?�회
+     * 전체 거래처 조회
      */
     @GetMapping
     public List<BusinessPartnerDto> getAllBusinessPartners() {
@@ -45,7 +45,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * ?�성 ?�태??�래�만 �회
+     * 활성 상태의 거래처만 조회
      */
     @GetMapping("/active")
     public List<BusinessPartnerDto> getActiveBusinessPartners() {
@@ -55,7 +55,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * �래??�세 �회 (�드 �반)
+     * 거래처 상세 조회 (코드 기반)
      */
     @GetMapping("/{businessPartnerCode}")
     public ResponseEntity<BusinessPartnerDto> getBusinessPartnerByCode(@PathVariable String businessPartnerCode) {
@@ -66,7 +66,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * �래???(?�름 �반)
+     * 거래처 검색 (이름 기반)
      */
     @GetMapping("/search")
     public List<BusinessPartnerDto> searchBusinessPartners(@RequestParam String name) {
@@ -76,7 +76,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * �래??�보 ?�정
+     * 거래처 정보 수정
      */
     @PutMapping("/{id}")
     public ResponseEntity<BusinessPartnerDto> updateBusinessPartner(@PathVariable Long id,
@@ -90,7 +90,7 @@ public class BusinessPartnerController {
     }
 
     /**
-     * �래???��
+     * 거래처 삭제
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBusinessPartner(@PathVariable Long id) {

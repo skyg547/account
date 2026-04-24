@@ -19,6 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 전표 서비스 (Journal Service)
+ */
 @Service
 @RequiredArgsConstructor
 public class JournalService {
@@ -47,6 +50,10 @@ public class JournalService {
         return journalEntryRepository.findBySlipNo(slipNo);
     }
 
+    public Optional<JournalEntry> getJournalEntryWithDetails(Long id) {
+        return journalEntryRepository.findById(id);
+    }
+
     @Transactional
     public void approveJournalEntry(Long id) {
         JournalEntry entry = journalEntryRepository.findById(id).orElseThrow();
@@ -59,6 +66,5 @@ public class JournalService {
         JournalEntry entry = journalEntryRepository.findById(id).orElseThrow();
         entry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(entry);
-        // TODO: Ledger 연동 로직 추가
     }
 }

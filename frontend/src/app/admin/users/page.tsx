@@ -1,70 +1,221 @@
-import React from 'react';
-import { UserPlus, Shield, Key, Search } from 'lucide-react';
-import styles from './UserManagement.module.css';
+"use client";
+
+import React, { useState } from 'react';
+import { 
+  Users, 
+  UserPlus, 
+  Search, 
+  Filter, 
+  MoreVertical, 
+  Shield, 
+  ShieldAlert, 
+  ShieldCheck, 
+  Mail, 
+  Key, 
+  Clock,
+  Eye,
+  Edit2,
+  Trash2,
+  Server,
+  History
+} from 'lucide-react';
+
+// Mock 데이터: 사용자 관리
+const usersData = [
+  { id: 1, name: '김재무', email: 'jm.kim@antigrav.ai', role: 'ACCOUNTING_ADMIN', status: 'ACTIVE', lastLogin: '10분 전', dept: '재무회계팀' },
+  { id: 2, name: '이리스크', email: 'risk.lee@antigrav.ai', role: 'RISK_MANAGER', status: 'ACTIVE', lastLogin: '2시간 전', dept: '리스크관리부' },
+  { id: 3, name: '박기준', email: 'base.park@antigrav.ai', role: 'MASTER_MANAGER', status: 'PENDING', lastLogin: '어제', dept: 'IT운영팀' },
+  { id: 4, name: '최감사', email: 'audit.choi@antigrav.ai', role: 'AUDITOR', status: 'ACTIVE', lastLogin: '3일 전', dept: '감사실' },
+  { id: 5, name: '정일반', email: 'normal.jung@antigrav.ai', role: 'USER', status: 'INACTIVE', lastLogin: '1달 전', dept: '영업기획팀' },
+];
+
+const roleStyles: any = {
+  ACCOUNTING_ADMIN: { label: '회계관리자', color: 'text-blue-400', bg: 'bg-blue-400/10', icon: ShieldCheck },
+  RISK_MANAGER: { label: '리스크관리자', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: ShieldAlert },
+  MASTER_MANAGER: { label: '마스터관리자', color: 'text-emerald-400', bg: 'bg-emerald-400/10', icon: Shield },
+  AUDITOR: { label: '감사역', color: 'text-amber-400', bg: 'bg-amber-400/10', icon: Eye },
+  USER: { label: '일반사용자', color: 'text-slate-400', bg: 'bg-slate-400/10', icon: Users },
+};
 
 /**
- * [사용자 관리 화면]
- * 시스템 접속 권한을 가진 사용자를 관리하고 직무별 권한(Role)을 할당합니다.
- * 설계서 파트 3-⑤ 기반.
+ * [사용자 그룹 및 권한 관리 화면]
+ * 프리미엄 ERP 스타일로 디자인된 사용자 관리 인터페이스입니다.
  */
 export default function UserManagementPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.titleArea}>
-          <h2>사용자 및 권한 관리</h2>
-          <p>시스템 접근 권한 및 사용자 계정 상태를 관리합니다.</p>
-        </div>
-        <button className={styles.addBtn}><UserPlus size={18} /> 사용자 추가</button>
-      </header>
-
-      <section className={`glass-card ${styles.mainSection}`}>
-        <div className={styles.toolbar}>
-          <div className={styles.searchBox}>
-            <Search size={18} />
-            <input type="text" placeholder="이름, 아이디, 부서 검색" />
+    <div className="space-y-10">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-blue-500 mb-2">
+            <ShieldCheck size={20} />
+            <span className="text-xs font-black uppercase tracking-[0.3em]">System Security</span>
           </div>
+          <h2 className="text-4xl font-black text-white tracking-tighter italic">
+            사용자 그룹 및 권한 관리
+          </h2>
+          <p className="text-slate-500 font-medium max-w-2xl">
+            전사 시스템 사용자의 역할(Role) 기반 접근 제어(RBAC) 및 보안 정책을 관리합니다.
+          </p>
         </div>
 
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>사용자</th>
-              <th>부서</th>
-              <th>권한 그룹</th>
-              <th>최근 접속</th>
-              <th>상태</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              { name: '관리자', id: 'admin', dept: '경영지원팀', role: '시스템관리자', last: '2026-04-22 10:30', status: '활성' },
-              { name: '홍길동', id: 'hong.gd', dept: '재무팀', role: '회계팀장', last: '2026-04-22 09:15', status: '활성' },
-              { name: '이순신', id: 'lee.ss', dept: '영업부', role: '일반사용자', last: '2026-04-21 17:40', status: '잠금' },
-            ].map((u, idx) => (
-              <tr key={idx}>
-                <td>
-                  <div className={styles.userInfo}>
-                    <span className={styles.userName}>{u.name}</span>
-                    <span className={styles.userId}>{u.id}</span>
-                  </div>
-                </td>
-                <td>{u.dept}</td>
-                <td><span className={styles.roleBadge}><Shield size={12} /> {u.role}</span></td>
-                <td>{u.last}</td>
-                <td><span className={u.status === '활성' ? styles.statusActive : styles.statusLocked}>{u.status}</span></td>
-                <td>
-                  <div className={styles.actions}>
-                    <button title="비밀번호 초기화"><Key size={16} /></button>
-                    <button title="권한 수정"><Shield size={16} /></button>
-                  </div>
-                </td>
+        <div className="flex items-center gap-3">
+          <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-sm font-black transition-all flex items-center gap-2">
+            <Filter size={18} className="text-slate-400" /> 필터링
+          </button>
+          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
+            <UserPlus size={18} /> 신규 사용자 초대
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: '전체 사용자', value: '124', sub: 'Active 118', color: 'blue' },
+          { label: '관리자 권한', value: '12', sub: 'System/Domain', color: 'purple' },
+          { label: '미승인 요청', value: '3', sub: 'Pending Approval', color: 'amber' },
+          { label: '보안 이슈(24h)', value: '0', sub: 'Clean Status', color: 'emerald' },
+        ].map((stat, i) => (
+          <div key={i} className="p-6 rounded-[2.5rem] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group/stat relative overflow-hidden">
+             <div className={`absolute top-0 right-0 w-32 h-32 bg-${stat.color}-500/5 blur-[50px] rounded-full group-hover/stat:scale-150 transition-transform duration-700`} />
+             <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">{stat.label}</p>
+             <div className="flex items-end gap-3 text-white">
+                <span className="text-3xl font-black italic tracking-tighter leading-none">{stat.value}</span>
+                <span className="text-[10px] font-bold text-slate-600 mb-1">{stat.sub}</span>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      {/* User Table Section */}
+      <div className="glass-panel p-8 rounded-[3rem] border border-white/10 relative overflow-hidden">
+        <div className="flex items-center justify-between mb-8">
+           <div className="relative group/search max-w-md w-full">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within/search:text-blue-500 transition-colors" size={20} />
+              <input 
+                type="text" 
+                placeholder="사용자명, 이메일, 부서 검색..."
+                className="w-full bg-slate-950 border border-white/5 focus:border-blue-500/50 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none transition-all placeholder:text-slate-700 font-bold"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+           </div>
+           <div className="flex items-center gap-2 text-slate-500 text-xs font-black uppercase tracking-widest">
+              <Clock size={14} className="text-blue-500" /> Last System Audit: 2026-04-24 14:00
+           </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/5">
+                <th className="pb-6 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">사용자 정보</th>
+                <th className="pb-6 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">소속 및 부서</th>
+                <th className="pb-6 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">보안 역할 (Role)</th>
+                <th className="pb-6 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">상태</th>
+                <th className="pb-6 px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest">최종 접속</th>
+                <th className="pb-6 px-4 text-right"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody className="divide-y divide-white/[0.02]">
+              {usersData.map((user) => {
+                const style = roleStyles[user.role];
+                const RoleIcon = style.icon;
+                
+                return (
+                  <tr key={user.id} className="group/row hover:bg-white/[0.02] transition-colors">
+                    <td className="py-6 px-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 flex items-center justify-center text-white font-black text-lg group-hover/row:scale-110 transition-transform">
+                           {user.name.charAt(0)}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-base font-black text-white leading-tight">{user.name}</span>
+                          <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                             <Mail size={12} className="text-slate-600" /> {user.email}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-6 px-4">
+                       <span className="text-sm font-bold text-slate-400 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+                          {user.dept}
+                       </span>
+                    </td>
+                    <td className="py-6 px-4">
+                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl ${style.bg} ${style.color} border border-current/10`}>
+                        <RoleIcon size={14} />
+                        <span className="text-xs font-black tracking-tight">{style.label}</span>
+                      </div>
+                    </td>
+                    <td className="py-6 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          user.status === 'ACTIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                          user.status === 'PENDING' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 
+                          'bg-slate-700'
+                        }`} />
+                        <span className={`text-xs font-black ${
+                          user.status === 'ACTIVE' ? 'text-emerald-500' : 
+                          user.status === 'PENDING' ? 'text-amber-500' : 
+                          'text-slate-600'
+                        }`}>
+                          {user.status}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-6 px-4">
+                       <span className="text-sm font-bold text-slate-500 tracking-tight">{user.lastLogin}</span>
+                    </td>
+                    <td className="py-6 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                         <button className="p-3 rounded-xl hover:bg-blue-500/10 text-slate-500 hover:text-blue-400 transition-all opacity-0 group-hover/row:opacity-100">
+                            <Edit2 size={16} />
+                         </button>
+                         <button className="p-3 rounded-xl hover:bg-slate-500/10 text-slate-500 hover:text-white transition-all">
+                            <MoreVertical size={18} />
+                         </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Role Definitions Mini Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+         <div className="glass-panel p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group/card shadow-2xl shadow-blue-500/5">
+            <div className="flex items-center gap-3 mb-6">
+               <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white">
+                  <Key size={20} />
+               </div>
+               <h3 className="text-xl font-black text-white italic tracking-tight">비밀번호 및 보안 정책</h3>
+            </div>
+            <p className="text-slate-500 text-sm mb-6 font-medium">최근 90일 내 비밀번호 변경 강제, 2-Factor 인증(MFA) 활성화 여부 등을 설정합니다.</p>
+            <button className="text-blue-400 text-sm font-black hover:underline underline-offset-4 flex items-center gap-2">
+               설정 바로가기 <History size={14} />
+            </button>
+         </div>
+
+         <div className="glass-panel p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group/card shadow-2xl shadow-emerald-500/5">
+            <div className="flex items-center gap-3 mb-6">
+               <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white">
+                  <ShieldCheck size={20} />
+               </div>
+               <h3 className="text-xl font-black text-white italic tracking-tight">IP 접속 보안 관리</h3>
+            </div>
+            <p className="text-slate-500 text-sm mb-6 font-medium">사내망 IP 및 특정 화이트리스트 외 접속을 차단하며, 이상 징후 발생 시 즉각 알림을 발송합니다.</p>
+            <button className="text-emerald-400 text-sm font-black hover:underline underline-offset-4 flex items-center gap-2">
+               차단 목록 확인 <Server size={14} />
+            </button>
+         </div>
+      </div>
     </div>
   );
 }

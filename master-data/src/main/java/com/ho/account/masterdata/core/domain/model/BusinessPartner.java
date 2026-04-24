@@ -2,13 +2,13 @@ package com.ho.account.masterdata.core.domain.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.time.LocalDate; // Import LocalDate
-import java.util.List; // List import
+import java.time.LocalDate;
+import java.util.List;
 import com.ho.account.common.Masked;
 
 /**
- * �곕?��?Business Partner) ????
- * ?��?Customer), ?��???Vendor), ????Bank) ?????��??�⑤?�곕????�⑹?????? ?��?�ы븿.
+ * 거래처(Business Partner) 엔티티
+ * 고객(Customer), 공급업체(Vendor), 은행(Bank) 등의 외부 이해관계자 정보를 통합 관리함.
  */
 @Entity
 @Table(name = "business_partners")
@@ -16,26 +16,26 @@ public class BusinessPartner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // ??? ??��??
+    private Long id; // 기술적 기본키
 
     @Column(nullable = false, unique = true, length = 20)
-    private String businessPartnerCode; // �곕?��??�붾?
+    private String businessPartnerCode; // 거래처 코드
 
     @Column(nullable = false, length = 100)
-    private String businessPartnerName; // �곕?��?�챸
+    private String businessPartnerName; // 거래처명
 
     @Masked(pattern = "REG_NO")
     @Column(length = 20)
-    private String registrationNumber; // ????��??
+    private String registrationNumber; // 사업자번호
 
     @Column(length = 50)
     private String ceoName;
 
     @Column(length = 50)
-    private String businessType; // ??�깭
+    private String businessType; // 업태
 
     @Column(length = 50)
-    private String businessItem; // ?��??
+    private String businessItem; // 종목
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -101,7 +101,7 @@ public class BusinessPartner {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getter ?Setter
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

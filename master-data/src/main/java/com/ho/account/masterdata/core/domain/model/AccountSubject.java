@@ -8,9 +8,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?��?�懰??Account Subject) ????
- * SCD2(Slowly Changing Dimension Type 2)???��??�쾶 ��?��???�떎.
- * ??�씪???��???�붾?code)??�룄 �곌???�씪 ??�Ⅸ ?��??��?????�룄????�ы궎(id)???????�땲??
+ * 계정과목(Account Subject) 엔티티.
+ * SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 관리한다.
+ * 유일한 계정코드(code)가 존재하더라도 연관관계는 대체 키인 기술적인 기본키(id)를 사용한다.
  */
 @Entity
 @Table(name = "account_subjects", indexes = {
@@ -26,14 +26,14 @@ public class AccountSubject {
     private Long id;
 
     @Column(nullable = false, length = 20)
-    private String code; // ?��???�붾?(??�씪 ?�붾�媛? ????�꾩??�댁??��??
+    private String code; // 계정코드 (유일 코드가 아님에 주의)
 
     @Column(nullable = false, length = 100)
-    private String name; // ?��?�懰?�紐?
+    private String name; // 계정과목명
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
-    private AccountSubject parent; // ?�쐞 ?��?�懰??(ID �곕??��??�ъ�?
+    private AccountSubject parent; // 상위 계정과목 (ID 기반 연관관계)
 
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
@@ -88,7 +88,7 @@ public class AccountSubject {
     }
 
     /**
-     * ??�쟾 ???��??????�뿉???�몄????��??????�쓣 ?�뜕 ?�붾?????�솚??�붿??�엯??�떎.
+     * 기존 코드와의 호환성을 위해 남겨둔 메서드들입니다.
      */
     @Deprecated
     public void setAccountType(String accountType) {
@@ -122,14 +122,14 @@ public class AccountSubject {
     }
 
     /**
-     * ?�� ??�젏???�슚??? ?��
+     * 특정 시점에 유효한지 확인
      */
     public boolean isValid(LocalDate date) {
         return (date.isEqual(validFrom) || date.isAfter(validFrom)) && (date.isEqual(validTo) || date.isBefore(validTo));
     }
 
     /**
-     * ??�쟾 �꾩???�덇??��? ��??
+     * 현재 이력을 종료
      */
     public void terminate(LocalDate endDate) {
         this.validTo = endDate;

@@ -1,10 +1,10 @@
-package com.ho.account.journalledger.core.domain.ledger.domain;
+package com.ho.account.journalledger.domain.ledger.domain;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * 금액을 표현하는 불변 Value Object
+ * 湲덉븸???쒗쁽?섎뒗 遺덈? Value Object
  */
 public record Money(BigDecimal amount) {
     public static final Money ZERO = new Money(BigDecimal.ZERO);
@@ -13,7 +13,7 @@ public record Money(BigDecimal amount) {
         if (amount == null) {
             amount = BigDecimal.ZERO;
         }
-        // 소수점 2자리 반올림
+        // ?뚯닔??2?먮━ 諛섏삱由?
         amount = amount.setScale(2, RoundingMode.HALF_UP);
     }
 

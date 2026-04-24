@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.core.domain.ledger.domain;
+package com.ho.account.journalledger.domain.ledger.domain;
 
 /**
  * GL Balance Type (DEBIT/CREDIT)

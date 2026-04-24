@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.core.domain.ledger.domain;
+package com.ho.account.journalledger.domain.ledger.domain;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "sl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_subject_id", "business_partner_id", "department_id", "currency_code", "balance_date", "period"})
+    @UniqueConstraint(columnNames = {"account_id", "bp_id", "dept_id", "currency_code", "balance_date", "period"})
 }, indexes = {
     @Index(name = "idx_sl_balance_date", columnList = "balance_date")
 })
@@ -34,15 +34,15 @@ public class SlBalance {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_subject_id", nullable = false)
+    @JoinColumn(name = "account_id", nullable = false)
     private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "business_partner_id")
+    @JoinColumn(name = "bp_id")
     private BusinessPartner businessPartner;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
+    @JoinColumn(name = "dept_id")
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -75,17 +75,21 @@ public class SlBalance {
     // --- 비즈니스 로직 ---
 
     public void addDebit(BigDecimal amount) {
-        this.debitAmount = this.debitAmount.add(amount);
+        this.debitAmount = (this.debitAmount == null ? BigDecimal.ZERO : this.debitAmount).add(amount);
         recalculate();
     }
 
     public void addCredit(BigDecimal amount) {
-        this.creditAmount = this.creditAmount.add(amount);
+        this.creditAmount = (this.creditAmount == null ? BigDecimal.ZERO : this.creditAmount).add(amount);
         recalculate();
     }
 
     public void recalculate() {
-        this.endingBalance = this.beginningBalance.add(this.debitAmount).subtract(this.creditAmount);
+        // 잔액 = 기초 + 차변 - 대변
+        BigDecimal beg = this.beginningBalance == null ? BigDecimal.ZERO : this.beginningBalance;
+        BigDecimal dr = this.debitAmount == null ? BigDecimal.ZERO : this.debitAmount;
+        BigDecimal cr = this.creditAmount == null ? BigDecimal.ZERO : this.creditAmount;
+        this.endingBalance = beg.add(dr).subtract(cr);
         this.updatedAt = LocalDateTime.now();
     }
 

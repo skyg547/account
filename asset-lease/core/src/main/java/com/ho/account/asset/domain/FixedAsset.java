@@ -31,15 +31,15 @@ public class FixedAsset {
     private String assetName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_code", referencedColumnName = "account_code")
+    @JoinColumn(name = "account_code")
     private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "accumulated_account_code", referencedColumnName = "account_code")
+    @JoinColumn(name = "accumulated_account_code")
     private AccountSubject accumulatedAccount;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expense_account_code", referencedColumnName = "account_code")
+    @JoinColumn(name = "expense_account_code")
     private AccountSubject expenseAccount;
 
     @Column(nullable = false)

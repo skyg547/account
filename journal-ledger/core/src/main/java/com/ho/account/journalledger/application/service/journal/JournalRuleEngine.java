@@ -12,24 +12,24 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 전표 생성 규칙 엔진 (Journal Rule Engine)
+ * ?꾪몴 ?앹꽦 洹쒖튃 ?붿쭊 (Journal Rule Engine)
  *
- * <p>이 엔진은 외부 이벤트(예: 자산 취득, 리스료 지급)를 회계 전표로 자동 변환하는 규칙을 관리합니다.</p>
+ * <p>???붿쭊? ?몃? ?대깽???? ?먯궛 痍⑤뱷, 由ъ뒪猷?吏湲?瑜??뚭퀎 ?꾪몴濡??먮룞 蹂?섑븯??洹쒖튃??愿由ы빀?덈떎.</p>
  */
 @Service
 @RequiredArgsConstructor
 public class JournalRuleEngine {
 
     /**
-     * 이벤트 데이터를 기반으로 전표 초안을 생성합니다.
+     * ?대깽???곗씠?곕? 湲곕컲?쇰줈 ?꾪몴 珥덉븞???앹꽦?⑸땲??
      * 
-     * @param eventData 이벤트 데이터 (Map 형태)
-     * @param accountingDate 회계 일자
-     * @return 생성된 전표 초안 (Optional)
+     * @param eventData ?대깽???곗씠??(Map ?뺥깭)
+     * @param accountingDate ?뚭퀎 ?쇱옄
+     * @return ?앹꽦???꾪몴 珥덉븞 (Optional)
      */
     public Optional<JournalEntry> generateJournalEntry(Map<String, Object> eventData, LocalDate accountingDate) {
-        // 비즈니스 규칙에 따른 전표 자동 생성 로직이 위치할 곳입니다.
-        // 현재는 스켈레톤 구현만 포함합니다.
+        // 鍮꾩쫰?덉뒪 洹쒖튃???곕Ⅸ ?꾪몴 ?먮룞 ?앹꽦 濡쒖쭅???꾩튂??怨녹엯?덈떎.
+        // ?꾩옱???ㅼ펷?덊넠 援ы쁽留??ы븿?⑸땲??
         JournalEntry entry = new JournalEntry();
         entry.setAccountingDate(accountingDate);
         entry.setSlipDate(accountingDate);

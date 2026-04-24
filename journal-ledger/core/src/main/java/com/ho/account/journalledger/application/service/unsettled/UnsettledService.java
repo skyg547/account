@@ -8,9 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * 미결 항목 관리 서비스
+ * 미결 항목 관리 서비스 (Unsettled Service)
  */
 @Service
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class UnsettledService {
     }
 
     @Transactional
-    public void resolveItem(Long id, BigDecimal amount, String reason) {
+    public void settleItem(Long id, BigDecimal amount) {
         UnsettledItem item = unsettledItemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unsettled item not found: " + id));
         
@@ -34,5 +35,15 @@ public class UnsettledService {
 
     public List<UnsettledItem> getActiveUnsettledItems() {
         return unsettledItemRepository.findByResolvedFalse();
+    }
+
+    public List<UnsettledItem> getUnsettledItems(String businessPartnerCode) {
+        List<UnsettledItem> all = unsettledItemRepository.findByResolvedFalse();
+        if (businessPartnerCode == null) return all;
+        
+        return all.stream()
+                .filter(item -> item.getBusinessPartner() != null && 
+                        businessPartnerCode.equals(item.getBusinessPartner().getBusinessPartnerCode()))
+                .collect(Collectors.toList());
     }
 }

@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 전표 상세(Journal Detail) 엔티티
- * 분개 전표의 개별 라인(차변/대변)을 저장하며 계정과목, 금액, 귀속부서 등을 포함한다.
+ * ?꾪몴 ?곸꽭(Journal Detail) ?뷀떚??
+ * 遺꾧컻 ?꾪몴??媛쒕퀎 ?쇱씤(李⑤?/?蹂)????ν븯硫?怨꾩젙怨쇰ぉ, 湲덉븸, 洹?띾????깆쓣 ?ы븿?쒕떎.
  */
 @Entity
 @Table(name = "journal_details", indexes = {
@@ -30,27 +30,27 @@ public class JournalDetail {
     private JournalEntry journalEntry;
 
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT(차변), CREDIT(대변)
+    private String drcrType; // DEBIT(李⑤?), CREDIT(?蹂)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 거래통화 기준 금액
+    private BigDecimal amount; // 嫄곕옒?듯솕 湲곗? 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal baseAmount = BigDecimal.ZERO; // 기본통화 기준 금액
+    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곕낯?듯솕 湲곗? 湲덉븸
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department; // 귀속부서
+    private Department department; // 洹?띾???
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 거래처
+    private BusinessPartner businessPartner; // 嫄곕옒泥?
 
     @Column(length = 200)
-    private String detailDescription; // 라인별 적요
+    private String detailDescription; // ?쇱씤蹂??곸슂
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

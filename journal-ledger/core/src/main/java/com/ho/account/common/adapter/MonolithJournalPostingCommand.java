@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 모놀리스 전표 기입 명령 (Record)
+ * 紐⑤?由ъ뒪 ?꾪몴 湲곗엯 紐낅졊 (Record)
  */
 public record MonolithJournalPostingCommand(
         LocalDate accountingDate,

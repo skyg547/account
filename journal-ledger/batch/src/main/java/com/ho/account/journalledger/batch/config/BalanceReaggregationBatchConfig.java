@@ -16,10 +16,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.time.LocalDate;
 
 /**
- * <h3>?�장 ?�액 ?�집�?배치 (Balance Re-aggregation Batch)</h3>
+ * <h3>?먯옣 ?붿븸 ?ъ쭛怨?諛곗튂 (Balance Re-aggregation Batch)</h3>
  * <p>
- * 과거???�표 ?�이?��? ?�정?�거?? ?�락???�표가 ?�후???�력?�었????
- * ?�정 기간???�장 ?�액??처음부???�시 계산?�여 ?�합?�을 맞춥?�다.
+ * 怨쇨굅???꾪몴 ?곗씠?곌? ?섏젙?섍굅?? ?꾨씫???꾪몴媛 ?ы썑???낅젰?섏뿀????
+ * ?뱀젙 湲곌컙???먯옣 ?붿븸??泥섏쓬遺???ㅼ떆 怨꾩궛?섏뿬 ?뺥빀?깆쓣 留욎땅?덈떎.
  * </p>
  */
 @Slf4j
@@ -30,7 +30,7 @@ public class BalanceReaggregationBatchConfig {
     private final LedgerService ledgerService;
 
     /**
-     * ?�일???�액???�집계하??배치 ??
+     * ?꾩씪???붿븸???ъ쭛怨꾪븯??諛곗튂 ??
      */
     @Bean
     public Job dailyBalanceReaggregationJob(JobRepository jobRepository, Step reaggregateStep) {
@@ -43,7 +43,7 @@ public class BalanceReaggregationBatchConfig {
     public Step reaggregateStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("reaggregateStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
-                    // 기본?�으�??�제 ?�짜???�이?��? ?�집�?
+                    // 湲곕낯?곸쑝濡??댁젣 ?좎쭨???곗씠?곕? ?ъ쭛怨?
                     LocalDate yesterday = LocalDate.now().minusDays(1);
                     log.info("Starting balance re-aggregation for: {}", yesterday);
                     
