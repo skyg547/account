@@ -1,21 +1,87 @@
-# 🔑 Auth Service (인증 및 출입증 발급 센터)
+# Auth Service
 
-## 1. 초보자를 위한 개념 설명
-MSA 환경에서는 모든 서버가 각자 사용자의 로그인을 검사하면 너무 비효율적입니다.
-**Auth Service**는 오직 "사용자의 아이디/비밀번호가 맞는지 확인"하고, 위조가 불가능한 **'JWT 토큰(출입증)'**을 발급해 주는 일만 전담하는 특수 부서입니다.
+`auth` 모듈은 사용자 인증과 JWT 발급을 담당합니다.
 
-고객이 이 출입증을 받아 대문(Gateway)에 보여주면, 게이트웨이는 "어? Auth 부서에서 발급한 진짜 출입증 맞네!" 하고 문을 열어줍니다.
+## 주요 API
 
-## 2. 주요 기능
-- `POST /api/auth/login`: 아이디와 비밀번호를 받아 JWT 토큰을 반환합니다.
+- `POST /api/auth/login`
 
-## 3. 실행 방법
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "1234"
+}
+```
+
+Response:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "username": "admin",
+  "roles": [
+    "ROLE_ADMIN"
+  ]
+}
+```
+
+## 구조 (DDD + Hexagonal)
+
+요청 흐름:
+
+```text
+Controller(api.web)
+  -> UseCase(port.in)
+  -> Application Service(core.application.service)
+  -> Output Ports(core.application.port.out)
+  -> Infrastructure Adapters(core.infrastructure.*)
+```
+
+패키지 역할:
+
+- `com.ho.account.auth.api.dto`: 로그인 요청/응답 DTO
+- `com.ho.account.auth.api.web`: 인증 컨트롤러, 예외 응답 처리
+- `com.ho.account.auth.core.application.port.in`: 인증 유즈케이스
+- `com.ho.account.auth.core.application.port.out`: 사용자 조회/비밀번호 검증/토큰 발급 포트
+- `com.ho.account.auth.core.application.service`: 로그인 흐름 제어
+- `com.ho.account.auth.core.domain.model`: 인증 도메인 모델
+- `com.ho.account.auth.core.infrastructure.persistence`: 설정 기반 사용자 조회 어댑터
+- `com.ho.account.auth.core.infrastructure.security`: 비밀번호 검증, JWT 발급 어댑터
+- `com.ho.account.auth.core.infrastructure.config`: `auth.*` 설정 바인딩
+
+## 설정
+
+`application.yml` 기본값:
+
+```yaml
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+    expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:3600}
+  users:
+    - username: ${AUTH_DEFAULT_USERNAME:admin}
+      password: ${AUTH_DEFAULT_PASSWORD:1234}
+      active: true
+      locked: false
+      roles:
+        - ROLE_ADMIN
+```
+
+`users[].password`는 평문 또는 Spring Security Delegating Password 형식(`{bcrypt}...`, `{noop}...`)을 지원합니다.
+
+## 실행
+
 ```bash
 ./gradlew :auth:bootRun
 ```
 
-## 4. Docker 로 실행하기
+## 테스트/빌드
+
 ```bash
-docker build -t account/auth-service .
-docker run -p 8084:8084 account/auth-service
+./gradlew :auth:build
 ```
