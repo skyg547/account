@@ -54,6 +54,8 @@ public class PostingService {
             glEntry.setFiscalPeriod(fiscalPeriod);
             glEntry.setPostingDate(accountingDate);
             glEntry.setCurrency(journalEntry.getCurrency());
+            glEntry.setLineageSourceType(journalEntry.getLineageSourceType());
+            glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             
             if (isDebit) {
                 glEntry.setDrAmount(detail.getAmount());
@@ -78,6 +80,8 @@ public class PostingService {
             slEntry.setFiscalPeriod(fiscalPeriod);
             slEntry.setPostingDate(accountingDate);
             slEntry.setCurrency(journalEntry.getCurrency());
+            slEntry.setLineageSourceType(journalEntry.getLineageSourceType());
+            slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
             
             if (isDebit) {
                 slEntry.setDrAmount(detail.getAmount());

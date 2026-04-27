@@ -201,9 +201,7 @@
 
 ---
 
----
-
-## 9. General Corporate Finance Hub (일반 재무 실무)
+## 8. General Corporate Finance Hub (일반 재무 실무)
 
 금융기관 외 일반 기업의 재무팀에서 필수적으로 사용하는 확장 기능 모듈입니다.
 
@@ -229,7 +227,8 @@
 
 ---
 
-## 10. UI/UX 구현 가이드 (Backend 연동 기반)
+,ReplacementChunks:[{AllowMultiple:false,EndLine:272,ReplacementContent:
+## 11. UI/UX 구현 가이드 (Backend 연동 기반)
 
 *   **Real-time Feedback:** 전표 입력 시 대차 차액이 0이 되지 않으면 '저장' 버튼을 비활성화하고 차액을 실시간으로 상단에 표시합니다.
 *   **Search Overlay:** 계정 과목이나 거래처 입력 시 텍스트만 치는 것이 아니라, 오버레이 팝업을 띄워 검색 속도를 높입니다.

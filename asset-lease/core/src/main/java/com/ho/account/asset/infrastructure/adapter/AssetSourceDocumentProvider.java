@@ -1,30 +1,26 @@
-package com.ho.account.asset.service;
+package com.ho.account.asset.infrastructure.adapter;
 
-import com.ho.account.asset.repository.FixedAssetRepository;
-import com.ho.account.asset.repository.LeaseContractRepository;
+import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
+import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.contracts.source.SourceDocumentProvider;
 import com.ho.account.shared.BoundedContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
 @Order(100)
+@RequiredArgsConstructor
 public class AssetSourceDocumentProvider implements SourceDocumentProvider {
 
     private static final Set<String> SUPPORTED_TYPES = Set.of("FIXED_ASSET", "IFRS16_LEASE");
 
-    private final FixedAssetRepository fixedAssetRepository;
-    private final LeaseContractRepository leaseContractRepository;
-
-    public AssetSourceDocumentProvider(FixedAssetRepository fixedAssetRepository,
-                                       LeaseContractRepository leaseContractRepository) {
-        this.fixedAssetRepository = fixedAssetRepository;
-        this.leaseContractRepository = leaseContractRepository;
-    }
+    private final FixedAssetPersistencePort fixedAssetPersistencePort;
+    private final LeasePersistencePort leasePersistencePort;
 
     @Override
     public Set<String> supportedLineageSourceTypes() {
@@ -38,12 +34,12 @@ public class AssetSourceDocumentProvider implements SourceDocumentProvider {
             Map<String, Object> documentDetails = new HashMap<>();
 
             return switch (lineageSourceType) {
-                case "FIXED_ASSET" -> fixedAssetRepository.findById(id).map(asset -> {
+                case "FIXED_ASSET" -> fixedAssetPersistencePort.findById(id).map(asset -> {
                     documentDetails.put("type", "FixedAsset");
                     documentDetails.put("data", asset);
                     return documentDetails;
                 });
-                case "IFRS16_LEASE" -> leaseContractRepository.findById(id).map(contract -> {
+                case "IFRS16_LEASE" -> leasePersistencePort.findContractById(id).map(contract -> {
                     documentDetails.put("type", "LeaseContract");
                     documentDetails.put("data", contract);
                     return documentDetails;

@@ -13,11 +13,11 @@ import java.util.Optional;
 
 @Repository
 public interface GlAccountBalanceRepository extends JpaRepository<GlAccountBalance, Long> {
-    Optional<GlAccountBalance> findByAccountSubjectAndCurrencyAndAccountingDateAndBalanceType(
-            AccountSubject accountSubject, Currency currency, LocalDate accountingDate, GlBalanceType balanceType);
+    Optional<GlAccountBalance> findByAccountSubjectAndCurrencyAndBalanceDateAndBalanceType(
+            AccountSubject accountSubject, Currency currency, LocalDate balanceDate, GlBalanceType balanceType);
 
-    List<GlAccountBalance> findByAccountSubjectAndAccountingDateBetween(
+    List<GlAccountBalance> findByAccountSubjectAndBalanceDateBetween(
             AccountSubject accountSubject, LocalDate startDate, LocalDate endDate);
 
-    List<GlAccountBalance> findByAccountingDateBetween(LocalDate startDate, LocalDate endDate);
+    List<GlAccountBalance> findByBalanceDateBetween(LocalDate startDate, LocalDate endDate);
 }

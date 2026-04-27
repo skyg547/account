@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.adapter.in.web.ledger;
 
 import com.ho.account.common.service.SourceDocumentService;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.service.JournalService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/drilldown")
 public class DrilldownController {
 
-    private final JournalService journalService;
+    private final JournalUseCase journalUseCase;
     private final SourceDocumentService sourceDocumentService;
 
-    public DrilldownController(JournalService journalService, SourceDocumentService sourceDocumentService) {
-        this.journalService = journalService;
+    public DrilldownController(JournalUseCase journalUseCase, SourceDocumentService sourceDocumentService) {
+        this.journalUseCase = journalUseCase;
         this.sourceDocumentService = sourceDocumentService;
     }
 
@@ -33,7 +33,7 @@ public class DrilldownController {
     @GetMapping("/journal-entry/{journalEntryId}")
     public ResponseEntity<Map<String, Object>> getJournalEntryDetails(
             @PathVariable("journalEntryId") Long journalEntryId) {
-        JournalEntry journalEntry = journalService.getJournalEntryWithDetails(journalEntryId)
+        JournalEntry journalEntry = journalUseCase.getJournalEntryWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("Journal Entry not found with ID: " + journalEntryId));
         return ResponseEntity.ok(toJournalEntryResponse(journalEntry));
     }
@@ -44,7 +44,7 @@ public class DrilldownController {
     @GetMapping("/journal-entry/{journalEntryId}/source-document")
     public ResponseEntity<Map<String, Object>> getSourceDocumentForJournalEntry(
             @PathVariable("journalEntryId") Long journalEntryId) {
-        JournalEntry journalEntry = journalService.getJournalEntryWithDetails(journalEntryId)
+        JournalEntry journalEntry = journalUseCase.getJournalEntryWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("Journal Entry not found with ID: " + journalEntryId));
 
         if (journalEntry.getLineageSourceType() == null || journalEntry.getLineageSourceId() == null) {

@@ -1,7 +1,7 @@
 package com.ho.account.tax.service;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.tax.domain.TaxInvoice;
 import com.ho.account.tax.dto.TaxInvoiceRequestDto;
 import com.ho.account.tax.repository.TaxInvoiceRepository;
@@ -16,12 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class APInvoiceService {
 
     private final TaxInvoiceRepository taxInvoiceRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
 
     public APInvoiceService(TaxInvoiceRepository taxInvoiceRepository,
-                            BusinessPartnerRepository businessPartnerRepository) {
+                            BusinessPartnerPersistencePort businessPartnerPersistencePort) {
         this.taxInvoiceRepository = taxInvoiceRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
     }
 
     public TaxInvoice createAPInvoice(TaxInvoiceRequestDto requestDto) {
@@ -29,7 +29,7 @@ public class APInvoiceService {
             throw new IllegalArgumentException("AP Invoice는 PURCHASE 타입만 생성할 수 있습니다.");
         }
 
-        BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(
+        BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(
                         requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));
@@ -75,7 +75,7 @@ public class APInvoiceService {
             throw new IllegalArgumentException("AP Invoice는 PURCHASE 타입만 수정할 수 있습니다.");
         }
 
-        BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(
+        BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(
                         requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "거래처를 찾을 수 없습니다. 코드: " + requestDto.getBusinessPartnerCode()));

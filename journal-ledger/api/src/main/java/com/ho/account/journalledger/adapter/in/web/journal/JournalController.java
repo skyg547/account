@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.adapter.in.web.journal;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.service.JournalService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,19 +13,15 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 전표 관리 API 컨트롤러
- * 전표 수동 생성, 자동 생성 및 조회를 담당합니다.
+ * 전표 관리 API 컨트롤러 (Inbound Adapter)
+ * 헥사고날 아키텍처의 Inbound Port(JournalUseCase)를 통해 비즈니스 로직을 호출합니다.
  */
 @RestController
 @RequestMapping("/api/journals")
+@RequiredArgsConstructor
 public class JournalController {
 
-    private final JournalService journalService;
-
-    @Autowired
-    public JournalController(JournalService journalService) {
-        this.journalService = journalService;
-    }
+    private final JournalUseCase journalUseCase;
 
     /**
      * 수동 전표 생성
@@ -33,10 +29,10 @@ public class JournalController {
     @PostMapping
     public ResponseEntity<JournalEntry> createJournalEntry(@RequestBody JournalEntry journalEntry) {
         try {
-            JournalEntry createdEntry = journalService.createJournalEntry(journalEntry);
+            JournalEntry createdEntry = journalUseCase.createJournalEntry(journalEntry);
             return ResponseEntity.ok(createdEntry);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
@@ -47,7 +43,7 @@ public class JournalController {
     public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
         try {
-            Optional<JournalEntry> createdEntry = journalService.createJournalEntryFromEvent(eventData, accountingDate);
+            Optional<JournalEntry> createdEntry = journalUseCase.createJournalEntryFromEvent(eventData, accountingDate);
             return createdEntry.map(ResponseEntity::ok)
                     .orElse(ResponseEntity.noContent().build());
         } catch (Exception e) {
@@ -62,7 +58,7 @@ public class JournalController {
     public List<JournalEntry> getJournalEntries(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return journalService.getJournalEntriesByDate(startDate, endDate);
+        return journalUseCase.getJournalEntriesByDate(startDate, endDate);
     }
 
     /**
@@ -70,7 +66,7 @@ public class JournalController {
      */
     @GetMapping("/{slipNo}")
     public ResponseEntity<JournalEntry> getJournalEntry(@PathVariable String slipNo) {
-        return journalService.getJournalEntryBySlipNo(slipNo)
+        return journalUseCase.getJournalEntryBySlipNo(slipNo)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -79,9 +75,9 @@ public class JournalController {
      * 전표 승인
      */
     @PostMapping("/{id}/approve")
-    public ResponseEntity<Void> approveJournalEntry(@PathVariable Long id) {
+    public ResponseEntity<Void> approveJournalEntry(@PathVariable Long id, @RequestParam(defaultValue = "ADMIN") String user) {
         try {
-            journalService.approveJournalEntry(id);
+            journalUseCase.approveJournalEntry(id, user);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -92,9 +88,9 @@ public class JournalController {
      * 전표 전기 (원장 반영)
      */
     @PostMapping("/{id}/post")
-    public ResponseEntity<Void> postJournalEntry(@PathVariable Long id) {
+    public ResponseEntity<Void> postJournalEntry(@PathVariable Long id, @RequestParam(defaultValue = "ADMIN") String user) {
         try {
-            journalService.postJournalEntry(id);
+            journalUseCase.postJournalEntry(id, user);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();

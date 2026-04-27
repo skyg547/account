@@ -17,10 +17,8 @@ export default function TopHeader() {
 
   const navItems: { id: NavCategory; label: string; icon?: React.ReactNode }[] = [
     { id: 'DASHBOARD', label: '현황판' },
-    { id: 'ACCOUNTING', label: '차변/대변' },
-    { id: 'OPERATIONS', label: '회계운영' },
-    { id: 'BANKING', label: '금융특화' },
-    { id: 'RISK', label: '리스크' },
+    { id: 'ACCOUNTING', label: '재무회계' },
+    { id: 'OPERATIONS', label: '자금/자산' },
     { id: 'MASTER', label: '기준정보' },
     { id: 'ADMIN', label: '관리자' },
   ];

@@ -1,13 +1,13 @@
-package com.ho.account.asset.service;
+package com.ho.account.asset.application.service;
 
+import com.ho.account.asset.application.port.in.FixedAssetUseCase;
+import com.ho.account.asset.application.port.out.AssetEventPort;
+import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
 import com.ho.account.asset.domain.AssetHistory;
 import com.ho.account.asset.domain.FixedAsset;
-import com.ho.account.asset.repository.AssetHistoryRepository;
-import com.ho.account.asset.repository.FixedAssetRepository;
 import com.ho.account.masterdata.core.domain.model.Department;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,18 +20,18 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class FixedAssetService {
+public class FixedAssetEntryService implements FixedAssetUseCase {
 
-    private final FixedAssetRepository fixedAssetRepository;
-    private final AssetHistoryRepository assetHistoryRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final FixedAssetPersistencePort persistencePort;
+    private final AssetEventPort eventPort;
 
     private static final String TOPIC = "transaction-events";
 
+    @Override
     @Transactional
     public FixedAsset registerAsset(FixedAsset asset) {
         asset.setStatus("ACTIVE");
-        FixedAsset savedAsset = fixedAssetRepository.save(asset);
+        FixedAsset savedAsset = persistencePort.save(asset);
 
         createHistory(savedAsset, "ACQUISITION", null, asset.getDepartment(), null, "ACTIVE", "Initial acquisition");
 
@@ -42,16 +42,18 @@ public class FixedAssetService {
         event.put("accountingDate", savedAsset.getAcquisitionDate().toString());
         event.put("deptCode", savedAsset.getDepartment().getCode());
         
-        kafkaTemplate.send(TOPIC, event);
+        eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
     }
 
+    @Override
     @Transactional
     public void processMonthlyDepreciation(LocalDate processDate) {
-        fixedAssetRepository.findByStatus("ACTIVE").forEach(asset -> {
+        persistencePort.findByStatus("ACTIVE").forEach(asset -> {
+            // Rich Domain Model: 도메인 엔티티 내의 depreciate 로직 호출
             BigDecimal amount = asset.depreciate(processDate);
             if (amount.compareTo(BigDecimal.ZERO) > 0) {
-                fixedAssetRepository.save(asset);
+                persistencePort.save(asset);
                 createHistory(asset, "DEPRECIATION", null, null, null, asset.getStatus(), "Monthly depreciation");
                 
                 Map<String, Object> event = new HashMap<>();
@@ -60,17 +62,20 @@ public class FixedAssetService {
                 event.put("amount", amount);
                 event.put("accountingDate", processDate.toString());
                 event.put("deptCode", asset.getDepartment().getCode());
-                kafkaTemplate.send(TOPIC, event);
+                eventPort.sendAssetEvent(TOPIC, event);
             }
         });
     }
 
+    @Override
     @Transactional
     public FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice) {
-        FixedAsset asset = fixedAssetRepository.findById(assetId).orElseThrow();
+        FixedAsset asset = persistencePort.findById(assetId)
+                .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
+        
         String oldStatus = asset.getStatus();
         asset.setStatus("DISPOSED");
-        FixedAsset savedAsset = fixedAssetRepository.save(asset);
+        FixedAsset savedAsset = persistencePort.save(asset);
 
         createHistory(savedAsset, "DISPOSAL", null, null, oldStatus, "DISPOSED", "Asset disposal");
 
@@ -82,16 +87,19 @@ public class FixedAssetService {
         event.put("accountingDate", disposalDate.toString());
         event.put("deptCode", savedAsset.getDepartment().getCode());
         
-        kafkaTemplate.send(TOPIC, event);
+        eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
     }
 
+    @Override
     @Transactional
     public void changeDepartment(Long assetId, Department newDept, String reason) {
-        FixedAsset asset = fixedAssetRepository.findById(assetId).orElseThrow();
+        FixedAsset asset = persistencePort.findById(assetId)
+                .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
+        
         Department oldDept = asset.getDepartment();
         asset.setDepartment(newDept);
-        fixedAssetRepository.save(asset);
+        persistencePort.save(asset);
 
         createHistory(asset, "TRANSFER", oldDept, newDept, null, null, reason);
     }
@@ -107,6 +115,6 @@ public class FixedAssetService {
         history.setDescription(desc);
         history.setEventAt(LocalDateTime.now());
         history.setAuditUser("SYSTEM");
-        assetHistoryRepository.save(history);
+        persistencePort.saveHistory(history);
     }
 }

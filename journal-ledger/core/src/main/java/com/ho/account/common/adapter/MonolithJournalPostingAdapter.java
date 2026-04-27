@@ -2,7 +2,7 @@ package com.ho.account.common.adapter;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.service.JournalService;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MonolithJournalPostingAdapter {
 
-    private final JournalService journalService;
+    private final JournalUseCase journalUseCase;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final DepartmentPersistencePort departmentPersistencePort;
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
@@ -70,6 +70,6 @@ public class MonolithJournalPostingAdapter {
             return detail;
         }).collect(Collectors.toList()));
 
-        journalService.createJournalEntry(entry);
+        journalUseCase.createJournalEntry(entry);
     }
 }

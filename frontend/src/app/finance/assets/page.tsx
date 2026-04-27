@@ -1,184 +1,134 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
+  Package, 
   Plus, 
   Search, 
-  Trash2, 
-  FileOutput, 
-  Filter, 
-  Calendar,
-  Package,
+  BarChart3, 
+  Calculator, 
+  ArrowDownCircle, 
   History,
-  X
+  Building,
+  Computer,
+  Car,
+  Table,
+  FileText,
+  RotateCw
 } from 'lucide-react';
-import styles from './AssetManagement.module.css';
 
-// [Mock Data] 자산 목록
-const mockAssets = [
-  { id: 1, code: 'AST-2026-0001', name: '서버 하드웨어 (Core)', acqDate: '2026-01-15', acqCost: 45000000, life: 5, method: 'STRAIGHT_LINE', status: 'ACTIVE', dept: 'IT개발팀' },
-  { id: 2, code: 'AST-2026-0002', name: '사무동 업무용 PC (30대)', acqDate: '2026-02-10', acqCost: 36000000, life: 3, method: 'DECLINING_BALANCE', status: 'ACTIVE', dept: '경영지원팀' },
-  { id: 3, code: 'AST-2025-0152', name: '업무용 법인차량 (G80)', acqDate: '2025-11-20', acqCost: 65000000, life: 5, method: 'STRAIGHT_LINE', status: 'DISPOSED', dept: '영업본부' },
-];
-
-export default function AssetManagementPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
+/**
+ * [고정자산 관리 화면]
+ * 회사의 유무형 자산을 등록하고 감가상각비를 자동 계산 및 전표화합니다.
+ */
+export default function AssetsPage() {
   return (
-    <div className={styles.container}>
-      {/* 1. 헤더 및 컨트롤 바 */}
-      <header className={styles.header}>
-        <div className="titleArea">
-          <h2 className="text-2xl font-bold">고정자산 마스터</h2>
-          <p className="text-sm text-gray-400">기업이 보유한 고정자산의 원장 관리 및 상각 내역을 추적합니다.</p>
+    <div className="space-y-10">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-blue-500 mb-2">
+            <Package size={20} />
+            <span className="text-xs font-black uppercase tracking-[0.3em]">Fixed Asset Management</span>
+          </div>
+          <h2 className="text-4xl font-black text-white tracking-tighter italic">
+            고정자산 통합 관리
+          </h2>
+          <p className="text-slate-500 font-medium max-w-2xl">
+            유무형 자산의 취득, 감가상각, 이동 및 처분 프로세스를 디지털화하고 재무제표와 실시간 연동합니다.
+          </p>
         </div>
-        <div className={styles.actionPanel}>
-          <button className="icon-btn-secondary"><Filter size={18} /> 필터</button>
-          <button className="icon-btn-secondary"><FileOutput size={18} /> 엑셀 내보내기</button>
-          <button className="btn-primary flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} /> 신규 자산 등록
+
+        <div className="flex items-center gap-3">
+          <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
+            <RotateCw size={18} /> 감가상각 재계산
+          </button>
+          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 px-8">
+            <Plus size={18} /> 자산 신규 취득
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* 2. 자산 현황 요약 카드 (상단) */}
-      <section className="grid grid-cols-4 gap-4">
-        <div className="glass-card p-6 border-l-4 border-blue-500">
-          <div className="text-xs text-gray-400 mb-1">총 자산 취득가액</div>
-          <div className="text-xl font-bold">1.28 B</div>
-        </div>
-        <div className="glass-card p-6 border-l-4 border-green-500">
-          <div className="text-xs text-gray-400 mb-1">당월 감가상각액</div>
-          <div className="text-xl font-bold">12.5 M</div>
-        </div>
-        <div className="glass-card p-6 border-l-4 border-amber-500">
-          <div className="text-xs text-gray-400 mb-1">미상각 잔액</div>
-          <div className="text-xl font-bold">845.2 M</div>
-        </div>
-        <div className="glass-card p-6 border-l-4 border-purple-500">
-          <div className="text-xs text-gray-400 mb-1">운용 중인 자산</div>
-          <div className="text-xl font-bold">142 건</div>
-        </div>
-      </section>
+      {/* Asset Category Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+         {[
+           { icon: Building, label: '건물/구축물', count: '14', value: '₩12.4B' },
+           { icon: Computer, label: '비품/IT기기', count: '450', value: '₩2.1B' },
+           { icon: Car, label: '차량운반구', count: '8', value: '₩0.4B' },
+           { icon: FileText, label: '무형자산', count: '25', value: '₩3.5B' },
+         ].map((cat, i) => (
+           <div key={i} className="glass-panel p-8 rounded-[3rem] border border-white/10 bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500 mb-6 group-hover:scale-110 transition-transform">
+                 <cat.icon size={24} />
+              </div>
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{cat.label}</span>
+              <div className="text-2xl font-black text-white mt-1 italic tracking-tighter">{cat.value}</div>
+              <div className="text-xs font-bold text-slate-700 mt-2">{cat.count} Items Listed</div>
+           </div>
+         ))}
+      </div>
 
-      {/* 3. 자산 그리드 영역 */}
-      <section className={styles.gridSection}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold flex items-center gap-2"><Package size={18} /> 자산 관리 대장</h3>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-gray-500" size={16} />
-            <input 
-              type="text" 
-              placeholder="자산명, 자산코드 검색..." 
-              className="pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm outline-none focus:border-blue-500" 
-            />
-          </div>
-        </div>
-
-        <div className={styles.tableContainer}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>자산코드</th>
-                <th>자산명</th>
-                <th>취득일자</th>
-                <th>취득원가</th>
-                <th>내용연수/방법</th>
-                <th>관리부서</th>
-                <th>상태</th>
-                <th>액션</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockAssets.map(asset => (
-                <tr key={asset.id}>
-                  <td className="font-mono text-blue-400">{asset.code}</td>
-                  <td>{asset.name}</td>
-                  <td>{asset.acqDate}</td>
-                  <td className="text-right font-semibold">{asset.acqCost.toLocaleString()}</td>
-                  <td>{asset.life}년 / {asset.method === 'STRAIGHT_LINE' ? '정액법' : '정률법'}</td>
-                  <td>{asset.dept}</td>
-                  <td>
-                    <span className={`${styles.statusTag} ${asset.status === 'ACTIVE' ? styles.active : styles.disposed}`}>
-                      {asset.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                       <button title="이력조회" className="p-1 hover:text-blue-400 transition-colors"><History size={16} /></button>
-                       <button title="처분/폐기" className="p-1 hover:text-red-400 transition-colors"><Trash2 size={16} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* 4. 신규 등록 모달 */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal + " glass-card"}>
-            <div className="flex justify-between items-center border-b border-white/10 pb-4">
-              <h3 className="text-xl font-bold">신규 고정자산 등록</h3>
-              <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+      {/* Asset Inventory Table Placeholder */}
+      <div className="glass-panel p-10 rounded-[3rem] border border-white/10 bg-white/[0.01]">
+         <div className="flex items-center justify-between mb-10">
+            <div className="flex flex-col gap-1">
+               <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Asset Inventory Registry</h3>
+               <span className="text-[10px] text-slate-700 font-bold uppercase tracking-widest leading-none">Last depreciation calculated: 2026-03-31</span>
             </div>
-            
-            <form className={styles.formGrid}>
-              <div className={styles.inputGroup}>
-                <label>자산 코드 (자동채번)</label>
-                <input type="text" placeholder="AST-2026-XXXX" disabled />
-              </div>
-              <div className={styles.inputGroup}>
-                <label>자산명</label>
-                <input type="text" placeholder="자산 명칭 입력" />
-              </div>
-              <div className={styles.inputGroup}>
-                <label>자산 계정</label>
-                <select>
-                  <option>대기 중...</option>
-                  <option>1001-01 기계장치</option>
-                  <option>1001-02 비품</option>
-                  <option>1001-03 차량운반구</option>
-                </select>
-              </div>
-              <div className={styles.inputGroup}>
-                <label>관리 부서</label>
-                <select>
-                  <option>전체 부서</option>
-                  <option>IT개발팀</option>
-                  <option>경영지원팀</option>
-                </select>
-              </div>
-              <div className={styles.inputGroup}>
-                <label>취득 일자</label>
-                <input type="date" />
-              </div>
-              <div className={styles.inputGroup}>
-                <label>취득 원가</label>
-                <input type="number" placeholder="0" />
-              </div>
-              <div className={styles.inputGroup}>
-                <label>내용 연수 (년)</label>
-                <input type="number" placeholder="5" />
-              </div>
-              <div className={styles.inputGroup}>
-                <label>상각 방법</label>
-                <select>
-                  <option value="STRAIGHT_LINE">정액법</option>
-                  <option value="DECLINING_BALANCE">정률법</option>
-                </select>
-              </div>
-            </form>
-
-            <div className={styles.modalFooter}>
-               <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>취소</button>
-               <button className="btn-primary px-8">자산 등록 실행</button>
+            <div className="relative group max-w-sm w-full">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
+               <input type="text" placeholder="Asset code, name, serial..." className="w-full bg-slate-950 border border-white/5 rounded-2xl py-3.5 pl-12 pr-6 text-sm text-white outline-none focus:border-blue-500/30 transition-all font-bold" />
             </div>
-          </div>
-        </div>
-      )}
+         </div>
+
+         <div className="overflow-x-auto">
+            <table className="w-full text-left">
+               <thead>
+                  <tr className="border-b border-white/5 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                     <th className="pb-6 px-4">Code / Asset Name</th>
+                     <th className="pb-6 px-4">Acquisition Date</th>
+                     <th className="pb-6 px-4">Cost (Book Value)</th>
+                     <th className="pb-6 px-4">Depreciation</th>
+                     <th className="pb-6 px-4 text-right">Action</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-white/[0.02]">
+                  {[
+                    { id: 'AST-26012', name: 'MacBook Pro 16" (M3 Max)', date: '2026-01-15', cost: '₩4,500,000', book: '₩3,800,000', method: '정액법 (5년)' },
+                    { id: 'AST-25881', name: 'HQ Server Rack Alpha', date: '2025-11-20', cost: '₩45,000,000', book: '₩32,500,000', method: '정액법 (5년)' },
+                    { id: 'AST-25102', name: 'Electric Truck Genesis', date: '2025-08-05', cost: '₩68,000,000', book: '₩55,000,000', method: '정액법 (5년)' },
+                  ].map((asset, idx) => (
+                    <tr key={idx} className="group/row hover:bg-white/[0.02] transition-colors">
+                       <td className="py-6 px-4">
+                          <div className="flex flex-col">
+                             <span className="text-sm font-black text-white">{asset.name}</span>
+                             <span className="text-[10px] text-slate-700 font-mono tracking-tighter uppercase">{asset.id}</span>
+                          </div>
+                       </td>
+                       <td className="py-6 px-4">
+                          <span className="text-xs font-bold text-slate-500">{asset.date}</span>
+                       </td>
+                       <td className="py-6 px-4">
+                          <div className="flex flex-col">
+                             <span className="text-sm font-black text-white">{asset.book}</span>
+                             <span className="text-[10px] text-slate-700 italic">Cost: {asset.cost}</span>
+                          </div>
+                       </td>
+                       <td className="py-6 px-4">
+                          <div className="flex items-center gap-3">
+                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                             <span className="text-xs font-bold text-slate-400 capitalize">{asset.method}</span>
+                          </div>
+                       </td>
+                       <td className="py-6 px-4 text-right">
+                          <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-500 hover:text-white transition-all"><History size={16} /></button>
+                       </td>
+                    </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      </div>
     </div>
   );
 }

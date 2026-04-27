@@ -1,128 +1,128 @@
+"use client";
+
 import React from 'react';
-import { Camera, ClipboardCheck, Wallet, History, FileText } from 'lucide-react';
-import styles from './ExpenseResolution.module.css';
+import { 
+  Receipt, 
+  Plus, 
+  Search, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  Image as ImageIcon,
+  CreditCard,
+  Building2,
+  ChevronRight,
+  MoreVertical,
+  History,
+  FileSearch
+} from 'lucide-react';
 
 /**
- * [지출결의 및 경비 포털 화면]
- * 임직원이 사용한 경비를 청구하고 승인 워크플로우를 관리합니다.
- * 설계서 파트 6-⑰ 기반.
+ * [지출결의 및 경비 신청 포털 화면]
+ * 임직원이 법인카드/개인경비를 신청하고 재무팀이 이를 승인/전표화하는 통합 접점입니다.
  */
-export default function ExpenseResolutionPage() {
+export default function ExpensePortalPage() {
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-black text-white italic tracking-tight uppercase">지출결의 및 경비 포털</h2>
-          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">법인카드 및 개인 경비 청구 통합 관리 및 지능형 승인 워크플로우 현황</p>
+    <div className="space-y-10">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 text-amber-500 mb-2">
+            <Receipt size={20} />
+            <span className="text-xs font-black uppercase tracking-[0.3em]">Expense Management Portal</span>
+          </div>
+          <h2 className="text-4xl font-black text-white tracking-tighter italic">
+            지출결의 및 경비 관리
+          </h2>
+          <p className="text-slate-500 font-medium max-w-2xl">
+            법인카드 사용 내역 및 개인 지출에 대한 정산/결의를 수행합니다. 승인 완료 시 회계 전표로 자동 전환됩니다.
+          </p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl border border-blue-500/20 transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95">
-          <FileText size={18} /> 신규 경비 청구
-        </button>
-      </header>
 
-      {/* 개인 경비 요약 위젯 */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: '이번 달 사용 금액', value: '1,240,500', color: 'text-white', icon: <Wallet size={20} className="text-blue-400" /> },
-          { label: '부서 예산 잔액', value: '5,800,000', color: 'text-slate-300', icon: <ClipboardCheck size={20} className="text-emerald-400" /> },
-          { label: '진행 중인 청구', value: '2건', color: 'text-blue-400', icon: <Camera size={20} className="text-amber-400" /> },
-        ].map((item, i) => (
-          <div key={i} className="bg-white/5 border border-white/10 rounded-[28px] p-8 hover:bg-white/[0.08] transition-all group relative overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</span>
-              <div className="opacity-40 group-hover:opacity-100 transition-opacity">{item.icon}</div>
-            </div>
-            <h3 className={`text-3xl font-black italic tracking-tighter ${item.color}`}>
-              {item.value.includes('건') ? item.value : `₩${item.value}`}
-            </h3>
-            <div className="absolute -right-2 -bottom-2 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
-              {React.cloneElement(item.icon, { size: 100 })}
-            </div>
-          </div>
-        ))}
-      </section>
+        <div className="flex items-center gap-3">
+          <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
+            <History size={18} /> 과거 상세 이력
+          </button>
+          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 px-8">
+            <Plus size={18} /> 신규 지출결의
+          </button>
+        </div>
+      </div>
 
-      {/* 최근 청구 내역 및 카드 내역 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <main className="lg:col-span-8 bg-white/5 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-xl shrink-0">
-          <div className="p-8 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
-            <h3 className="text-lg font-black text-white flex items-center gap-3 tracking-tight leading-none uppercase italic">
-              최근 지출결의 내역 (Recent Claims)
-            </h3>
-            <button className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors group">
-              <History size={14} className="group-hover:rotate-[-45deg] transition-transform" /> VIEW FULL HISTORY
-            </button>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                  <th className="px-8 py-5">DATE</th>
-                  <th className="px-6 py-5">DESCRIPTION</th>
-                  <th className="px-6 py-5 text-right">AMOUNT</th>
-                  <th className="px-6 py-5 text-center">STATUS</th>
-                  <th className="px-8 py-5 text-right">DETAIL</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {[
-                  { date: '2026-04-20', desc: '점심 식대 (A식당)', amount: '₩12,000', status: '승인완료', type: 'success' },
-                  { date: '2026-04-18', desc: '영업용 택시비', amount: '₩24,500', status: '검토중', type: 'warning' },
-                  { date: '2026-04-15', desc: '도서 구입 (클린 코드)', amount: '₩35,000', status: '반려', type: 'danger' },
-                ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
-                    <td className="px-8 py-6 text-sm font-mono font-bold text-slate-500">{row.date}</td>
-                    <td className="px-6 py-6 text-sm font-black text-white tracking-tight">{row.desc}</td>
-                    <td className="px-6 py-6 text-sm font-mono font-black italic text-slate-300 text-right">{row.amount}</td>
-                    <td className="px-6 py-6 text-center">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
-                        row.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                        row.type === 'warning' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]' :
-                        'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                      }`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <button className="text-blue-500 hover:text-blue-400 text-xs font-black uppercase tracking-widest underline decoration-blue-500/30 underline-offset-4">Open</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+         {[
+           { label: 'Unsettled Card Usage', value: '12', sub: '₩2,450,000', color: 'blue' },
+           { label: 'Pending Approval', value: '5', sub: '₩1,800,000', color: 'amber' },
+           { label: 'Settled (This Month)', value: '48', sub: '₩15,500,000', color: 'emerald' },
+         ].map((stat, i) => (
+           <div key={i} className="glass-panel p-8 rounded-[3rem] border border-white/10 bg-white/[0.01] flex flex-col items-center text-center">
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{stat.label}</span>
+              <div className="text-4xl font-black text-white mt-3 italic tracking-tighter">{stat.value}</div>
+              <div className="text-sm font-bold text-slate-400 mt-2">{stat.sub}</div>
+              <div className={`mt-6 w-full h-[2px] bg-${stat.color}-600/20 rounded-full overflow-hidden`}>
+                 <div className={`h-full bg-${stat.color}-500 w-1/2`} />
+              </div>
+           </div>
+         ))}
+      </div>
 
-        <aside className="lg:col-span-4 space-y-6">
-          <section className="bg-white/5 border border-white/10 rounded-[32px] p-8 backdrop-blur-xl relative overflow-hidden group">
-            <h3 className="text-lg font-black text-white flex items-center gap-3 tracking-tight mb-8 uppercase italic">
-              <Wallet size={20} className="text-blue-400" /> 미청구 법인카드 (Feed)
-            </h3>
-            
-            <div className="space-y-4 relative z-10">
-              {[
-                { date: '04.22 12:30', vendor: '무한갈비 정식', price: '₩45,000' },
-                { date: '04.21 08:45', vendor: '스타벅스 강남역', price: '₩5,600' },
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col gap-4 p-5 bg-slate-950/40 border border-white/5 rounded-2xl hover:border-blue-500/30 transition-all group/item">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-mono font-bold text-slate-500">{item.date}</span>
-                    <button className="bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-500/20 transition-all">Quick Claim</button>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div className="text-sm font-black text-white tracking-tight">{item.vendor}</div>
-                    <div className="text-lg font-black italic text-slate-200 group-hover/item:text-blue-400 transition-colors">{item.price}</div>
-                  </div>
-                </div>
-              ))}
+      {/* Recent Expense Requests List */}
+      <div className="glass-panel p-10 rounded-[3rem] border border-white/10 bg-white/[0.01]">
+         <div className="flex items-center justify-between mb-10">
+            <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Recent Expense Requests</h3>
+            <div className="relative group max-w-sm w-full">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 font-bold" size={18} />
+               <input type="text" placeholder="Search by description, date..." className="w-full bg-slate-950 border border-white/5 rounded-2xl py-3.5 pl-12 pr-6 text-sm text-white outline-none focus:border-blue-500/30 transition-all font-bold" />
             </div>
+         </div>
 
-            <div className="absolute -right-10 -bottom-10 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity duration-1000 pointer-events-none">
-              <Wallet size={200} className="text-white" />
-            </div>
-          </section>
-        </aside>
+         <div className="space-y-4">
+            {[
+              { type: 'Corporate Card', desc: 'AWS Cloud Services - Monthly', amount: '₩1,240,000', date: '2026-04-24', status: 'PENDING', user: 'Kim J.M.' },
+              { type: 'Personal Cash', desc: 'Taxi for Client Meeting', amount: '₩18,500', date: '2026-04-23', status: 'APPROVED', user: 'Lee S.Y.' },
+              { type: 'Corporate Card', desc: 'Strategic Partner Lunch', amount: '₩85,000', date: '2026-04-23', status: 'APPROVED', user: 'Park D.W.' },
+              { type: 'Expense Request', desc: 'Hardware Upgrade (Server)', amount: '₩5,600,000', date: '2026-04-22', status: 'REJECTED', user: 'Choi A.R.' },
+            ].map((item, idx) => (
+              <div key={idx} className="group/row flex items-center justify-between p-6 rounded-3xl bg-white/[0.01] border border-white/[0.03] hover:border-white/10 hover:bg-white/[0.02] transition-all cursor-pointer">
+                 <div className="flex items-center gap-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${
+                      item.status === 'PENDING' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                      item.status === 'APPROVED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                      'bg-rose-500/10 border-rose-500/20 text-rose-500'
+                    }`}>
+                       {item.type === 'Corporate Card' ? <CreditCard size={20} /> : <Receipt size={20} />}
+                    </div>
+                    <div className="flex flex-col">
+                       <span className="text-base font-black text-white tracking-tight">{item.desc}</span>
+                       <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.user}</span>
+                          <div className="w-1 h-1 bg-slate-800 rounded-full" />
+                          <span className="text-[10px] font-bold text-slate-700 italic tracking-tighter">{item.date}</span>
+                       </div>
+                    </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-10">
+                    <span className="text-sm font-mono font-black text-white w-24 text-right">{item.amount}</span>
+                    <div className="flex items-center gap-3 w-32 justify-end">
+                       {item.status === 'PENDING' ? (
+                         <div className="flex items-center gap-1.5 text-amber-500 font-black text-[10px] tracking-widest uppercase"><Clock size={14} /> Pending</div>
+                       ) : item.status === 'APPROVED' ? (
+                         <div className="flex items-center gap-1.5 text-emerald-500 font-black text-[10px] tracking-widest uppercase"><CheckCircle2 size={14} /> Approved</div>
+                       ) : (
+                         <div className="flex items-center gap-1.5 text-rose-500 font-black text-[10px] tracking-widest uppercase"><XCircle size={14} /> Rejected</div>
+                       )}
+                       <button className="p-2 text-white/5 group-hover/row:text-slate-500 hover:text-white transition-colors"><ChevronRight size={18} /></button>
+                    </div>
+                 </div>
+              </div>
+            ))}
+         </div>
+
+         <button className="w-full mt-10 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3">
+            Load More Requests <FileSearch size={16} />
+         </button>
       </div>
     </div>
   );

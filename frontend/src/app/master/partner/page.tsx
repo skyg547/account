@@ -1,68 +1,82 @@
-import { Search, Plus, Filter, Download } from 'lucide-react';
+"use client";
+
+import React, { useState } from 'react';
+import { Search, Plus, Filter, Download, Send, CreditCard, Landmark, Users } from 'lucide-react';
 
 /**
  * [거래처 관리 화면]
- * 외부 비즈니스 파트너(매입처, 매출처) 정보를 관리하는 화면입니다.
- * 설계서 파트 1-② 기반.
+ * 외부 비즈니스 파트너 데이터를 관리하며 일반 사용자의 등록 요청 기능을 포함합니다.
  */
 export default function PartnerPage() {
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex justify-between items-center">
+      <header className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-          <h2 className="text-3xl font-black text-white italic tracking-tight uppercase">거래처 관리 (Registry)</h2>
-          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">회사의 모든 외부 비즈니스 파트너 및 매입/매출처 통합 데이터베이스 관리</p>
+          <div className="flex items-center gap-3 text-emerald-500 mb-2">
+            <Users size={20} />
+            <span className="text-xs font-black uppercase tracking-[0.3em]">Business Registry</span>
+          </div>
+          <h2 className="text-4xl font-black text-white italic tracking-tighter italic">거래처 통합 관리</h2>
+          <p className="text-slate-500 mt-2 text-sm font-medium leading-none">전사 파트너 DB 관리 및 사용자의 신규 등록 요청 워크플로우 지원</p>
         </div>
-        <div className="flex gap-2">
-          <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl border border-blue-500/20 transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95">
-            <Plus size={18} /> 신규 파트너 등록
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsRequestModalOpen(true)}
+            className="bg-white/5 hover:bg-white/10 text-white px-8 py-3.5 rounded-2xl border border-white/10 transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest active:scale-95 shadow-2xl"
+          >
+            <Send size={18} className="text-blue-500" /> 신규 거래처 요청
+          </button>
+          <button className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3.5 rounded-2xl border border-blue-500/20 transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-95">
+            <Plus size={18} /> 직접 등록 (관리자)
           </button>
         </div>
       </header>
 
       {/* 필터 및 검색 바 */}
-      <section className="bg-white/5 border border-white/10 rounded-[28px] p-6 backdrop-blur-xl flex flex-col sm:flex-row justify-between items-center gap-6">
+      <section className="bg-white/5 border border-white/10 rounded-[32px] p-6 backdrop-blur-xl flex flex-col sm:flex-row justify-between items-center gap-6">
         <div className="relative w-full max-w-md group">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-blue-400 transition-colors" />
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-500 transition-colors" size={20} />
           <input 
             type="text" 
             placeholder="Search by name, tax ID, or owner..." 
-            className="w-full bg-slate-950 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm text-slate-300 outline-none focus:border-blue-500/50 transition-all shadow-inner font-bold"
+            className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm text-white outline-none focus:border-blue-500/50 transition-all shadow-inner font-bold"
           />
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-white/10 text-slate-400 text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all">
+          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-white/10 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all">
             <Filter size={16} /> Filters
           </button>
-          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-white/10 text-slate-400 text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all">
-            <Download size={16} /> Export Excel
+          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-white/10 text-slate-500 text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all">
+            <Download size={16} /> Export
           </button>
         </div>
       </section>
 
       {/* 거래처 목록 그리드 */}
-      <section className="bg-white/5 border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-xl">
+      <section className="bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden backdrop-blur-xl transition-all">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                <th className="px-8 py-5">Partner Category</th>
-                <th className="px-6 py-5">Full Name</th>
-                <th className="px-6 py-5">Tax Identifier</th>
-                <th className="px-6 py-5">Representative</th>
-                <th className="px-6 py-5">Status</th>
-                <th className="px-8 py-5 text-right">Action</th>
+              <tr className="text-slate-600 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                <th className="px-10 py-6">Partner Category</th>
+                <th className="px-6 py-6">Full Name / Code</th>
+                <th className="px-6 py-6">Tax Identifier</th>
+                <th className="px-6 py-6 font-mono">Status</th>
+                <th className="px-10 py-6 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-white/[0.02]">
               {[
-                { type: '매출처', name: '코드마스터(주)', id: '123-45-67890', owner: '이코드', status: '활성' },
-                { type: '매입처', name: '(주)재무기술', id: '220-81-12345', owner: '김재무', status: '활성' },
-                { type: '금융', name: '신한은행(강남)', id: '110-22-33333', owner: '은행장', status: '활성' },
+                { type: '매출처', name: '코드마스터(주)', id: '123-45-67890', owner: '이코드', status: 'ACTIVE' },
+                { type: '매입처', name: '(주)재무기술', id: '220-81-12345', owner: '김재무', status: 'ACTIVE' },
+                { type: '금융', name: '신한은행(강남)', id: '110-22-33333', owner: '은행장', status: 'ACTIVE' },
+                { type: '매출처', name: '요청중 거래처', id: 'PENDING', owner: '나요청', status: 'PENDING' },
               ].map((p, idx) => (
-                <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
-                  <td className="px-8 py-6">
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
+                <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="px-10 py-8">
+                    <span className={`text-[10px] font-black px-3.5 py-1.5 rounded-xl border ${
                       p.type === '매출처' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                       p.type === '매입처' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                       'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
@@ -70,17 +84,21 @@ export default function PartnerPage() {
                       {p.type}
                     </span>
                   </td>
-                  <td className="px-6 py-6 text-sm font-black text-white tracking-tight">{p.name}</td>
-                  <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.id}</td>
-                  <td className="px-6 py-6 text-sm font-bold text-slate-300">{p.owner}</td>
-                  <td className="px-6 py-6 text-sm">
-                    <div className="flex items-center gap-2 font-bold text-emerald-500">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                      <span className="text-[11px] font-black uppercase">{p.status}</span>
+                  <td className="px-6 py-8">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-base font-black text-white tracking-tight">{p.name}</span>
+                      <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{p.owner} 대표</span>
                     </div>
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <button className="text-xs font-black text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Details</button>
+                  <td className="px-6 py-8 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.id}</td>
+                  <td className="px-6 py-8">
+                    <div className={`flex items-center gap-2 font-black ${p.status === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+                      <span className="text-[10px] uppercase tracking-widest">{p.status}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-8 text-right">
+                    <button className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-all hover:bg-white/5 px-4 py-2 rounded-xl border border-transparent hover:border-white/10">Details</button>
                   </td>
                 </tr>
               ))}
@@ -88,6 +106,75 @@ export default function PartnerPage() {
           </table>
         </div>
       </section>
+
+      {/* [MODAL] Request for New Partner */}
+      {isRequestModalOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 sm:p-20">
+           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsRequestModalOpen(false)} />
+           <div className="relative w-full max-w-2xl bg-[#020617] border border-white/10 rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-4 mb-10">
+                 <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-xl shadow-emerald-900/20">
+                    <Send size={28} />
+                 </div>
+                 <div>
+                    <h3 className="text-2xl font-black text-white italic tracking-tight uppercase">New Partner Request</h3>
+                    <p className="text-slate-500 text-sm font-medium">관리자에게 신규 비즈니스 파트너 등록을 요청합니다.</p>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="space-y-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">카테고리</label>
+                       <div className="grid grid-cols-2 gap-2">
+                          <button className="flex items-center gap-2 px-4 py-3 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-400 text-xs font-black">
+                             <CreditCard size={14} /> 매출처
+                          </button>
+                          <button className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-500 text-xs font-black hover:bg-white/10">
+                             <Landmark size={14} /> 매입처
+                          </button>
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">사업자 등록번호</label>
+                       <input type="text" className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-white font-mono text-sm outline-none focus:border-blue-500/30" placeholder="000-00-00000" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">거래처 상호명</label>
+                       <input type="text" className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-white text-sm outline-none focus:border-blue-500/30 font-black" placeholder="(주)엔티그라비티" />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">대표자 성명</label>
+                       <input type="text" className="w-full bg-slate-900 border border-white/5 rounded-2xl p-4 text-white text-sm outline-none focus:border-blue-500/30 font-bold" placeholder="홍길동" />
+                    </div>
+                 </div>
+              </div>
+
+              <div className="mt-8 space-y-2">
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">첨부 서류 (사업자등록증 등)</label>
+                 <div className="w-full h-24 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-slate-600 hover:border-blue-500/30 cursor-pointer transition-all">
+                    <Download size={20} className="mb-2" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Click to upload documents</span>
+                 </div>
+              </div>
+
+              <div className="flex gap-4 pt-10">
+                 <button 
+                   onClick={() => setIsRequestModalOpen(false)}
+                   className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 font-black tracking-widest text-xs transition-all uppercase"
+                 >
+                   Discard
+                 </button>
+                 <button className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white font-black tracking-widest text-xs transition-all uppercase shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
+                   Submit Partner Request
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

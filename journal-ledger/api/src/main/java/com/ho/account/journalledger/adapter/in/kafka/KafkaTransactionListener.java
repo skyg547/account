@@ -1,6 +1,6 @@
 package com.ho.account.journalledger.adapter.in.kafka;
 
-import com.ho.account.journalledger.domain.journal.service.JournalService;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -19,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class KafkaTransactionListener {
 
-    private final JournalService journalService;
+    private final JournalUseCase journalUseCase;
 
     @KafkaListener(topics = "transaction-events", groupId = "journal-ledger-group")
     public void listenTransactionEvent(Map<String, Object> event) {
@@ -33,7 +33,7 @@ public class KafkaTransactionListener {
             }
 
             // 전표 자동 생성 시도
-            journalService.createJournalEntryFromEvent(event, accountingDate)
+            journalUseCase.createJournalEntryFromEvent(event, accountingDate)
                     .ifPresentOrElse(
                             entry -> log.info("Successfully generated journal entry: No={}, ID={}", entry.getSlipNo(), entry.getId()),
                             () -> log.warn("No matching journal rule found for event: {}", event)

@@ -29,11 +29,11 @@ public class GlEntry {
     private JournalDetail journalDetail;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id") // ID 기반 조인
+    @JoinColumn(name = "account_id")
     private AccountSubject account;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code") // Currency는 코드가 PK임
+    @JoinColumn(name = "currency_code")
     private Currency currency;
 
     private String fiscalYear;
@@ -46,6 +46,10 @@ public class GlEntry {
     private BigDecimal baseCrAmount = BigDecimal.ZERO;
 
     private String summary;
+
+    // 원천 추적용 필드 (Drill-down 용)
+    private String lineageSourceType;
+    private String lineageSourceId;
 
     // --- 편의 메서드 (기존 서비스 호환용) ---
     public void setJournalDetail(JournalDetail detail) {

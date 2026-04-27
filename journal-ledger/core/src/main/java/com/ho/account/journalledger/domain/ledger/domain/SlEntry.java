@@ -57,6 +57,10 @@ public class SlEntry {
 
     private String summary;
 
+    // 원천 추적용 필드 (Drill-down 용)
+    private String lineageSourceType;
+    private String lineageSourceId;
+
     // --- 편의 메서드 (기존 서비스 호환용) ---
     public void setJournalDetail(JournalDetail detail) {
         this.journalDetail = detail;

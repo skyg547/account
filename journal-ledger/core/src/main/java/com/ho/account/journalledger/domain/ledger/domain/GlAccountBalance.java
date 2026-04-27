@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * General Ledger Account Balance
+ * 총계정원장 계정별 잔액 (General Ledger Account Balance)
  */
 @Entity
 @Table(name = "gl_account_balances")
@@ -24,15 +24,19 @@ public class GlAccountBalance {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_code")
+    @JoinColumn(name = "account_id")
     private AccountSubject accountSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code", referencedColumnName = "currency_code")
+    @JoinColumn(name = "currency_code")
     private Currency currency;
 
     @Column(nullable = false)
     private LocalDate balanceDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private GlBalanceType balanceType; // DEBIT, CREDIT
 
     private BigDecimal debitAmount = BigDecimal.ZERO;
     private BigDecimal creditAmount = BigDecimal.ZERO;
@@ -41,7 +45,7 @@ public class GlAccountBalance {
     public void updateBalance(BigDecimal debit, BigDecimal credit) {
         this.debitAmount = this.debitAmount.add(debit);
         this.creditAmount = this.creditAmount.add(credit);
-        // Calculation logic depends on Account Type (Asset/Liability)
+        // 계산 로직은 계정 유형(자산/부채)에 따라 달라질 수 있음
         this.endingBalance = this.debitAmount.subtract(this.creditAmount);
     }
 }

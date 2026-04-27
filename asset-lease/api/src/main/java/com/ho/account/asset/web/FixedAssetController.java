@@ -1,13 +1,14 @@
 package com.ho.account.asset.web;
 
+import com.ho.account.asset.application.port.in.FixedAssetUseCase;
 import com.ho.account.asset.domain.FixedAsset;
 import com.ho.account.asset.dto.FixedAssetDisposalRequest;
 import com.ho.account.asset.dto.FixedAssetRequest;
-import com.ho.account.asset.repository.FixedAssetRepository;
-import com.ho.account.asset.service.FixedAssetService;
+import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,26 +16,17 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 
 /**
- * 고정자산 관리 컨트롤러
+ * 고정자산 관리 컨트롤러 (Inbound Adapter)
  */
 @RestController
 @RequestMapping("/api/fixed-assets")
+@RequiredArgsConstructor
 public class FixedAssetController {
 
-    private final FixedAssetService fixedAssetService;
-    private final FixedAssetRepository fixedAssetRepository;
+    private final FixedAssetUseCase fixedAssetUseCase;
+    private final FixedAssetPersistencePort fixedAssetPersistencePort;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final DepartmentPersistencePort departmentPersistencePort;
-
-    public FixedAssetController(FixedAssetService fixedAssetService,
-                                FixedAssetRepository fixedAssetRepository,
-                                AccountSubjectPersistencePort accountSubjectPersistencePort,
-                                DepartmentPersistencePort departmentPersistencePort) {
-        this.fixedAssetService = fixedAssetService;
-        this.fixedAssetRepository = fixedAssetRepository;
-        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
-        this.departmentPersistencePort = departmentPersistencePort;
-    }
 
     @PostMapping
     public ResponseEntity<FixedAsset> registerFixedAsset(@Valid @RequestBody FixedAssetRequest request) {
@@ -56,19 +48,19 @@ public class FixedAssetController {
         fixedAsset.setDepartment(departmentPersistencePort.findByCode(request.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException("관리 부서를 찾을 수 없습니다: " + request.getDepartmentCode())));
 
-        FixedAsset registeredAsset = fixedAssetService.registerAsset(fixedAsset);
+        FixedAsset registeredAsset = fixedAssetUseCase.registerAsset(fixedAsset);
         return new ResponseEntity<>(registeredAsset, HttpStatus.CREATED);
     }
 
     @PostMapping("/depreciate/{processDate}")
     public ResponseEntity<String> runMonthlyDepreciation(@PathVariable LocalDate processDate) {
-        fixedAssetService.processMonthlyDepreciation(processDate);
+        fixedAssetUseCase.processMonthlyDepreciation(processDate);
         return ResponseEntity.ok("Monthly depreciation processed for " + processDate);
     }
 
     @PostMapping("/dispose")
     public ResponseEntity<FixedAsset> disposeFixedAsset(@Valid @RequestBody FixedAssetDisposalRequest request) {
-        FixedAsset disposedAsset = fixedAssetService.disposeFixedAsset(
+        FixedAsset disposedAsset = fixedAssetUseCase.disposeFixedAsset(
                 request.getAssetId(),
                 request.getDisposalDate(),
                 request.getSalePrice()
@@ -78,7 +70,7 @@ public class FixedAssetController {
 
     @GetMapping("/{id}")
     public ResponseEntity<FixedAsset> getFixedAssetById(@PathVariable Long id) {
-        return fixedAssetRepository.findById(id)
+        return fixedAssetPersistencePort.findById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

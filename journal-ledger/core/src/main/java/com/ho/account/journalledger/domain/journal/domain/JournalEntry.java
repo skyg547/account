@@ -52,6 +52,61 @@ public class JournalEntry {
     @Column(length = 20)
     private JournalEntryStatus status;
 
+    /**
+     * 전표 승인 프로세스
+     */
+    public void approve(String approver) {
+        if (this.status != JournalEntryStatus.DRAFT && this.status != JournalEntryStatus.REQUESTED) {
+            throw new IllegalStateException("승인 가능한 상태가 아닙니다. 현재 상태: " + this.status);
+        }
+        validateBalance();
+        this.status = JournalEntryStatus.APPROVED;
+        this.auditUser = approver;
+    }
+
+    /**
+     * 전표 반려 프로세스
+     */
+    public void reject(String approver, String reason) {
+        this.status = JournalEntryStatus.REJECTED;
+        this.rejectionReason = reason;
+        this.auditUser = approver;
+    }
+
+    /**
+     * 전표 전기 (원장 반영 가능 상태로 전환)
+     */
+    public void post(String poster) {
+        if (this.status != JournalEntryStatus.APPROVED) {
+            throw new IllegalStateException("승인된 전표만 전기할 수 있습니다.");
+        }
+        this.status = JournalEntryStatus.POSTED;
+        this.auditUser = poster;
+    }
+
+    /**
+     * 차대변 합계 검증 (정합성 체크)
+     */
+    public void validateBalance() {
+        if (details.isEmpty()) {
+            throw new IllegalStateException("전표 상세 내역이 없습니다.");
+        }
+        
+        BigDecimal debitSum = details.stream()
+                .filter(d -> "DEBIT".equalsIgnoreCase(d.getDrcrType()))
+                .map(JournalDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal creditSum = details.stream()
+                .filter(d -> "CREDIT".equalsIgnoreCase(d.getDrcrType()))
+                .map(JournalDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (debitSum.compareTo(creditSum) != 0) {
+            throw new IllegalStateException(String.format("차대변 합계가 일치하지 않습니다. (차변: %s, 대변: %s)", debitSum, creditSum));
+        }
+    }
+
     @Column(length = 50)
     private String entryType;
 
