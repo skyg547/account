@@ -3,6 +3,7 @@ package com.ho.account.journalledger.application.service.ledger;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
@@ -44,7 +45,7 @@ public class PostingService {
         String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
 
         for (JournalDetail detail : journalEntry.getDetails()) {
-            boolean isDebit = "DEBIT".equals(detail.getDrcrType());
+            boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
 
             // 1. GlEntry 생성
             GlEntry glEntry = new GlEntry();

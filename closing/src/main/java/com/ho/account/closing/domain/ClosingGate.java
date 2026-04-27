@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 결산 게이트 (Closing Gate) 엔티티
- * 결산 진행의 중요한 단계를 나타내며, 다음 단계로 진행하기 위한 조건을 정의합니다.
+ * 寃곗궛 寃뚯씠??(Closing Gate) ?뷀떚??
+ * 寃곗궛 吏꾪뻾??以묒슂???④퀎瑜??섑??대ŉ, ?ㅼ쓬 ?④퀎濡?吏꾪뻾?섍린 ?꾪븳 議곌굔???뺤쓽?⑸땲??
  */
 @Entity
 @Table(name = "closing_gates")
@@ -20,7 +20,7 @@ public class ClosingGate {
     private ClosingCalendar closingCalendar;
 
     @Column(nullable = false, length = 100)
-    private String name; // 게이트명 (예: "PRE-CLOSING 완료", "조정 전표 완료")
+    private String name; // 寃뚯씠?몃챸 (?? "PRE-CLOSING ?꾨즺", "議곗젙 ?꾪몴 ?꾨즺")
 
     @Column(length = 500)
     private String description;
@@ -29,7 +29,7 @@ public class ClosingGate {
     @Column(nullable = false, length = 30)
     private ClosingGateStatus status; // PENDING, PASSED, FAILED
 
-    // 게이트 통과 조건 (예: 모든 ClosingTask가 완료 상태, 특정 ReconciliationRun이 성공 상태 등)
+    // 寃뚯씠???듦낵 議곌굔 (?? 紐⑤뱺 ClosingTask媛 ?꾨즺 ?곹깭, ?뱀젙 ReconciliationRun???깃났 ?곹깭 ??
     @Column(columnDefinition = "TEXT")
     private String checkConditionJson;
 
@@ -68,7 +68,7 @@ public class ClosingGate {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

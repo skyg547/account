@@ -1,7 +1,7 @@
 package com.ho.account.income.service;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -25,46 +25,32 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class CollectionService {
 
     private final CollectionRepository collectionRepository;
     private final ReceivableRepository receivableRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final MatchingRuleRepository matchingRuleRepository;
     private final UnmatchedCollectionRepository unmatchedCollectionRepository;
     private final SalesInvoiceRepository salesInvoiceRepository;
 
-    public CollectionService(CollectionRepository collectionRepository,
-                             ReceivableRepository receivableRepository,
-                             BusinessPartnerRepository businessPartnerRepository,
-                             MasterDataQueryPort masterDataQueryPort,
-                             JournalPostingPort journalPostingPort,
-                             MatchingRuleRepository matchingRuleRepository,
-                             UnmatchedCollectionRepository unmatchedCollectionRepository,
-                             SalesInvoiceRepository salesInvoiceRepository) {
-        this.collectionRepository = collectionRepository;
-        this.receivableRepository = receivableRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
-        this.masterDataQueryPort = masterDataQueryPort;
-        this.journalPostingPort = journalPostingPort;
-        this.matchingRuleRepository = matchingRuleRepository;
-        this.unmatchedCollectionRepository = unmatchedCollectionRepository;
-        this.salesInvoiceRepository = salesInvoiceRepository;
-    }
-
     public Collection receivePayment(Collection collection) {
         String customerCode = collection.getCustomer().getBusinessPartnerCode();
+        
         masterDataQueryPort.findBusinessPartner(customerCode)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
-        BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(customerCode)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
+        
+        BusinessPartner customer = businessPartnerPersistencePort.findByBusinessPartnerCode(customerCode)
+                .orElseThrow(() -> new IllegalArgumentException("Customer entity not found: " + customerCode));
         collection.setCustomer(customer);
 
         if (collection.getStatus() == null) {

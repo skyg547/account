@@ -1,6 +1,6 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,7 +39,7 @@ public class LoanContract {
     private BigDecimal interestRate;
 
     @Column(name = "REPAYMENT_METHOD", nullable = false, length = 50)
-    private String repaymentMethod; // 원리금균등, 만기일시 등
+    private String repaymentMethod; // ?�리금균?? 만기?�시 ??
 
     @Column(name = "STATUS", nullable = false, length = 20)
     private String status; // ACTIVE, PAID_OFF, DEFAULT
@@ -53,14 +53,14 @@ public class LoanContract {
     @Column(name = "EFFECTIVE_INTEREST_RATE", nullable = false, precision = 5, scale = 4)
     private BigDecimal effectiveInterestRate;
 
-    // EIR 상각 추적용 신규 필드
+    // EIR ?�각 추적???�규 ?�드
     @Column(name = "TOTAL_INTEREST_PAID", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalInterestPaid = BigDecimal.ZERO;
 
     @Column(name = "TOTAL_PRINCIPAL_PAID", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalPrincipalPaid = BigDecimal.ZERO;
 
-    // 상각 스케줄 엔트리와의 OneToMany 관계
+    // ?�각 ?��?�??�트리�???OneToMany 관�?
     @OneToMany(mappedBy = "loanContract", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
 
@@ -86,11 +86,11 @@ public class LoanContract {
         updateDate = LocalDateTime.now();
     }
 
-    // [Business Logic] 상각 스케줄 생성 (원리금 균등 상환 예시)
+    // [Business Logic] ?�각 ?��?�??�성 (?�리�?균등 ?�환 ?�시)
     public List<LoanAmortizationScheduleEntry> generateAmortizationSchedule(int totalPeriods) {
         BigDecimal periodicRate = this.interestRate.divide(BigDecimal.valueOf(12), 10, java.math.RoundingMode.HALF_UP);
         
-        // 원리금 균등 상환액 계산 공식: P * r * (1+r)^n / ((1+r)^n - 1)
+        // ?�리�?균등 ?�환??계산 공식: P * r * (1+r)^n / ((1+r)^n - 1)
         BigDecimal onePlusRPowerN = periodicRate.add(BigDecimal.ONE).pow(totalPeriods);
         BigDecimal payment = principalAmount.multiply(periodicRate).multiply(onePlusRPowerN)
                 .divide(onePlusRPowerN.subtract(BigDecimal.ONE), 2, java.math.RoundingMode.HALF_UP);
@@ -102,7 +102,7 @@ public class LoanContract {
             BigDecimal interest = remainingBalance.multiply(periodicRate).setScale(2, java.math.RoundingMode.HALF_UP);
             BigDecimal principal = payment.subtract(interest);
             
-            if (i == totalPeriods) { // 마지막 회차 잔액 조정
+            if (i == totalPeriods) { // 마�?�??�차 ?�액 조정
                 principal = remainingBalance;
                 payment = principal.add(interest);
                 remainingBalance = BigDecimal.ZERO;
@@ -127,13 +127,13 @@ public class LoanContract {
         return entries;
     }
 
-    // 연관관계 편의 메서드
+    // ?��?관�??�의 메서??
     public void addAmortizationEntry(LoanAmortizationScheduleEntry entry) {
         this.amortizationSchedule.add(entry);
         entry.setLoanContract(this);
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

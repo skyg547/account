@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.web;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.expenditure.domain.AdvancePayment;
 import com.ho.account.expenditure.domain.Payable;
 import com.ho.account.expenditure.domain.Payment;
@@ -34,9 +34,9 @@ public class PaymentController {
     }
 
     /**
-     * 새로운 지급 실행을 시작하고, 만기일이 도래한 매입채무를 대상으로 지급을 생성합니다.
-     * @param request 지급 실행 요청 DTO
-     * @return 생성된 지급 실행 정보
+     * ?�로??지�??�행???�작?�고, 만기?�이 ?�래??매입채무�??�?�으�?지급을 ?�성?�니??
+     * @param request 지�??�행 ?�청 DTO
+     * @return ?�성??지�??�행 ?�보
      */
     @PostMapping("/run")
     public ResponseEntity<PaymentRun> initiatePaymentRun(@Valid @RequestBody PaymentRunRequest request) {
@@ -45,9 +45,9 @@ public class PaymentController {
     }
 
     /**
-     * 특정 지급 실행 ID에 포함된 지급 목록을 조회합니다.
-     * @param paymentRunId 지급 실행 ID
-     * @return 지급 목록
+     * ?�정 지�??�행 ID???�함??지�?목록??조회?�니??
+     * @param paymentRunId 지�??�행 ID
+     * @return 지�?목록
      */
     @GetMapping("/run/{paymentRunId}")
     public ResponseEntity<List<Payment>> getPaymentsInRun(@PathVariable Long paymentRunId) {
@@ -57,9 +57,9 @@ public class PaymentController {
 
 
     /**
-     * 지급을 실행하고 관련 전표를 생성합니다. (단건 지급 또는 지급 실행 내 지급 처리)
-     * @param request 지급 실행 요청 DTO
-     * @return 완료된 지급 정보
+     * 지급을 ?�행?�고 관???�표�??�성?�니?? (?�건 지�??�는 지�??�행 ??지�?처리)
+     * @param request 지�??�행 ?�청 DTO
+     * @return ?�료??지�??�보
      */
     @PostMapping("/execute")
     public ResponseEntity<Payment> executePayment(@Valid @RequestBody ExecutePaymentRequest request) {
@@ -68,14 +68,14 @@ public class PaymentController {
     }
 
     /**
-     * 선급금을 기록하고 전표를 생성합니다.
-     * @param request 선급금 등록 요청 DTO
-     * @return 생성된 선급금 정보
+     * ?�급금을 기록?�고 ?�표�??�성?�니??
+     * @param request ?�급�??�록 ?�청 DTO
+     * @return ?�성???�급�??�보
      */
     @PostMapping("/advance")
     public ResponseEntity<AdvancePayment> recordAdvancePayment(@Valid @RequestBody AdvancePaymentRequest request) {
         BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(request.getVendorCode())
-                .orElseThrow(() -> new IllegalArgumentException("공급업체 정보를 찾을 수 없습니다: " + request.getVendorCode()));
+                .orElseThrow(() -> new IllegalArgumentException("공급?�체 ?�보�?찾을 ???�습?�다: " + request.getVendorCode()));
 
         AdvancePayment advancePayment = new AdvancePayment();
         advancePayment.setVendor(vendor);
@@ -88,9 +88,9 @@ public class PaymentController {
     }
 
     /**
-     * 매입채무를 선급금과 상계 처리합니다.
-     * @param request 상계 요청 DTO
-     * @return 업데이트된 매입채무 정보
+     * 매입채무�??�급금과 ?�계 처리?�니??
+     * @param request ?�계 ?�청 DTO
+     * @return ?�데?�트??매입채무 ?�보
      */
     @PostMapping("/offset-payable")
     public ResponseEntity<Payable> offsetPayableWithAdvancePayment(@Valid @RequestBody OffsetPayableRequest request) {

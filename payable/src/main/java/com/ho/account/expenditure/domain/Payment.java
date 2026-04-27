@@ -1,15 +1,15 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 지급 엔티티.
- * 공급업체에게 지급된 금액 정보를 관리합니다.
+ * 지�??�티??
+ * 공급?�체?�게 지급된 금액 ?�보�?관리합?�다.
  */
 @Entity
 @Table(name = "payments")
@@ -24,28 +24,28 @@ public class Payment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 지급 대상 공급업체 (거래처)
+    private BusinessPartner vendor; // 지�??�??공급?�체 (거래�?
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount; // 지급액
 
     @Column(length = 100)
-    private String bankAccount; // 지급된 은행 계좌 (이름 또는 번호)
+    private String bankAccount; // 지급된 ?�??계좌 (?�름 ?�는 번호)
 
     @Column(length = 100)
-    private String referenceNo; // 내부 추적 또는 은행 참조 번호
+    private String referenceNo; // ?��? 추적 ?�는 ?�??참조 번호
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PaymentStatus status; // 지급 상태 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
+    private PaymentStatus status; // 지�??�태 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 지급 처리 전표와의 연결
+    private JournalEntry journalEntry; // 지�?처리 ?�표?�???�결
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_run_id")
-    private PaymentRun paymentRun; // 관련 지급 실행 (PaymentRun)
+    private PaymentRun paymentRun; // 관??지�??�행 (PaymentRun)
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,11 +54,11 @@ public class Payment {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = PaymentStatus.INITIATED; // 초기 상태는 INITIATED
+            status = PaymentStatus.INITIATED; // 초기 ?�태??INITIATED
         }
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

@@ -1,6 +1,6 @@
 package com.ho.account.expenditure.web;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.expenditure.domain.PurchaseInvoice;
 import com.ho.account.expenditure.dto.PurchaseInvoiceRequest;
 import com.ho.account.expenditure.service.PurchaseService;
@@ -22,9 +22,9 @@ public class PurchaseController {
     }
 
     /**
-     * 새로운 매입 인보이스를 생성하고 매입채무를 인식하며, 매입 인식 전표를 생성합니다.
-     * @param request 매입 인보이스 등록 요청 DTO
-     * @return 생성된 매입 인보이스 정보
+     * ?�로??매입 ?�보?�스�??�성?�고 매입채무�??�식?�며, 매입 ?�식 ?�표�??�성?�니??
+     * @param request 매입 ?�보?�스 ?�록 ?�청 DTO
+     * @return ?�성??매입 ?�보?�스 ?�보
      */
     @PostMapping("/invoices")
     public ResponseEntity<PurchaseInvoice> createPurchaseInvoice(@Valid @RequestBody PurchaseInvoiceRequest request) {
@@ -47,8 +47,8 @@ public class PurchaseController {
     }
 
     /**
-     * 특정 날짜를 기준으로 매입채무의 상태를 업데이트합니다 (예: 연체 처리).
-     * @param asOfDate 처리 기준일자
+     * ?�정 ?�짜�?기�??�로 매입채무???�태�??�데?�트?�니??(?? ?�체 처리).
+     * @param asOfDate 처리 기�??�자
      * @return 처리 결과 메시지
      */
     @PostMapping("/payables/update-status/{asOfDate}")

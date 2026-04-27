@@ -1,14 +1,14 @@
 package com.ho.account.income.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 수금(입금) 엔티티.
- * 고객으로부터 입금된 금액 정보를 관리합니다.
+ * ?�금(?�금) ?�티??
+ * 고객?�로부???�금??금액 ?�보�?관리합?�다.
  */
 @Entity
 @Table(name = "collections")
@@ -19,27 +19,27 @@ public class Collection {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate collectionDate; // 수금일
+    private LocalDate collectionDate; // ?�금??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 입금 고객 (거래처)
+    private BusinessPartner customer; // ?�금 고객 (거래�?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 수금액
+    private BigDecimal amount; // ?�금??
 
     @Column(length = 100)
-    private String bankAccount; // 입금된 은행 계좌 (이름 또는 번호)
+    private String bankAccount; // ?�금???�??계좌 (?�름 ?�는 번호)
 
     @Column(length = 100)
-    private String virtualAccount; // 가상 계좌 정보 (사용하는 경우)
+    private String virtualAccount; // 가??계좌 ?�보 (?�용?�는 경우)
 
     @Column(length = 100)
-    private String referenceNo; // 매칭을 위한 참조 번호 (예: 인보이스 번호, 주문 번호)
+    private String referenceNo; // 매칭???�한 참조 번호 (?? ?�보?�스 번호, 주문 번호)
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private CollectionStatus status; // 수금 상태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
+    private CollectionStatus status; // ?�금 ?�태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
 
 
     @Column(nullable = false, updatable = false)
@@ -49,11 +49,11 @@ public class Collection {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = CollectionStatus.RECEIVED; // 초기 상태는 RECEIVED (수신됨)
+            status = CollectionStatus.RECEIVED; // 초기 ?�태??RECEIVED (?�신??
         }
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

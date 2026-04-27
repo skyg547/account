@@ -2,6 +2,7 @@ package com.ho.account.common.adapter;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
@@ -47,10 +48,10 @@ public class MonolithJournalPostingAdapter {
             
             if (line.debitAmount() != null && line.debitAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
                 detail.setAmount(line.debitAmount());
-                detail.setDrcrType("DEBIT");
+                detail.setSide(JournalSide.DEBIT);
             } else if (line.creditAmount() != null && line.creditAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
                 detail.setAmount(line.creditAmount());
-                detail.setDrcrType("CREDIT");
+                detail.setSide(JournalSide.CREDIT);
             }
             
             if (line.departmentCode() != null) {

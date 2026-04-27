@@ -1,15 +1,15 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매입채무 오픈 아이템 엔티티.
- * 공급업체에 지급해야 할 개별 항목을 나타냅니다.
+ * 매입채무 ?�픈 ?�이???�티??
+ * 공급?�체??지급해????개별 ??��???��??�니??
  */
 @Entity
 @Table(name = "payables")
@@ -20,7 +20,7 @@ public class Payable {
     private Long id;
 
     @Transient
-    private PurchaseInvoice purchaseInvoice; // 관련 매입 인보이스
+    private PurchaseInvoice purchaseInvoice; // 관??매입 ?�보?�스
 
     // To handle composite key of PurchaseInvoice, we need to manually map the columns
     @Column(name = "purchase_invoice_invoice_no", nullable = false)
@@ -32,24 +32,24 @@ public class Payable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 채무 대상 공급업체 (거래처)
+    private BusinessPartner vendor; // 채무 ?�??공급?�체 (거래�?
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal originalAmount; // 최초 채무 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 미지급 금액
+    private BigDecimal outstandingAmount; // 미�?�?금액
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기일 (지급 예정일)
+    private LocalDate dueDate; // 만기??(지�??�정??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PayableStatus status; // 채무 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private PayableStatus status; // 채무 ?�태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 매입채무 인식 전표와의 연결 (선택적)
+    private JournalEntry journalEntry; // 매입채무 ?�식 ?�표?�???�결 (?�택??
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,7 +65,7 @@ public class Payable {
         }
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

@@ -5,6 +5,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,7 @@ class JournalRuleEngineTest {
         
         // 李⑤?: ?щ퉬援먰넻鍮?30,000??
         JournalRuleDetail debitDetail = new JournalRuleDetail();
-        debitDetail.setDrcrType("DEBIT");
+        debitDetail.setDrcrType(JournalSide.DEBIT.name());
         debitDetail.setAmountExpression("#amount"); // SpEL 蹂???ъ슜
         debitDetail.setDescriptionExpression("#vendorName + ' ?댁슜嫄?");
         rule.addRuleDetail(debitDetail);

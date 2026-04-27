@@ -1,13 +1,13 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 충당/손상 배치 (Provision/Impairment Batch) 엔티티
- * 부채 및 자산의 충당금/손상차손 등을 계산하고 기록하는 배치 실행 이력을 관리합니다.
+ * 異⑸떦/?먯긽 諛곗튂 (Provision/Impairment Batch) ?뷀떚??
+ * 遺梨?諛??먯궛??異⑸떦湲??먯긽李⑥넀 ?깆쓣 怨꾩궛?섍퀬 湲곕줉?섎뒗 諛곗튂 ?ㅽ뻾 ?대젰??愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "provision_batches")
@@ -26,7 +26,7 @@ public class ProvisionBatch {
     private ProvisionType provisionType; // BAD_DEBT, IMPAIRMENT, ECL (Expected Credit Loss)
 
     @Column(nullable = false)
-    private LocalDateTime runDateTime; // 배치 실행 일시
+    private LocalDateTime runDateTime; // 諛곗튂 ?ㅽ뻾 ?쇱떆
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -34,13 +34,13 @@ public class ProvisionBatch {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generated_journal_entry_id")
-    private JournalEntry generatedJournalEntry; // 생성된 조정 분개 전표
+    private JournalEntry generatedJournalEntry; // ?앹꽦??議곗젙 遺꾧컻 ?꾪몴
 
     @Column(length = 200)
-    private String reportLink; // 생성된 리포트 링크 (예: PDF, 스프레드시트)
+    private String reportLink; // ?앹꽦??由ы룷??留곹겕 (?? PDF, ?ㅽ봽?덈뱶?쒗듃)
 
     @Column(length = 50)
-    private String runBy; // 배치 실행자
+    private String runBy; // 諛곗튂 ?ㅽ뻾??
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -73,7 +73,7 @@ public class ProvisionBatch {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

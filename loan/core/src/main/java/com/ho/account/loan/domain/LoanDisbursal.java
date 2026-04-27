@@ -1,14 +1,14 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 대출 실행 (Loan Disbursal) 엔티티
- * 대출금의 최초 실행 내역을 기록하며, 관련 분개 전표와 연결됩니다.
+ * ?��??�행 (Loan Disbursal) ?�티??
+ * ?�출금??최초 ?�행 ?�역??기록?�며, 관??분개 ?�표?� ?�결?�니??
  */
 @Entity
 @Table(name = "loan_disbursals")
@@ -23,14 +23,14 @@ public class LoanDisbursal {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // 실제 실행일
+    private LocalDate disbursalDate; // ?�제 ?�행??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal disbursedAmount; // 실행 금액
+    private BigDecimal disbursedAmount; // ?�행 금액
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 실행 관련 분개 전표
+    private JournalEntry journalEntry; // ?�행 관??분개 ?�표
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -53,7 +53,7 @@ public class LoanDisbursal {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

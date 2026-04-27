@@ -39,9 +39,23 @@ import {
   Layers,
   Shield
 } from 'lucide-react';
-import { useNav } from '@/context/NavContext';
+import { useNav, UserRole } from '@/context/NavContext';
 
-const menuItems = [
+interface MenuItem {
+  icon: any;
+  label: string;
+  href: string;
+  requiredRoles?: UserRole[];
+}
+
+interface MenuGroup {
+  category: string;
+  group: string;
+  requiredRoles?: UserRole[];
+  items: MenuItem[];
+}
+
+const menuItems: MenuGroup[] = [
   { 
     category: 'DASHBOARD',
     group: '대시보드', 
@@ -52,23 +66,25 @@ const menuItems = [
   { 
     category: 'ACCOUNTING',
     group: '핵심 회계 업무', 
+    requiredRoles: ['ACCOUNTING_ADMIN', 'USER', 'SYSTEM_ADMIN', 'AUDITOR'],
     items: [
       { icon: FileText, label: '전표 조회', href: '/journal/list' },
-      { icon: Plus, label: '전표 입력', href: '/journal/entry' },
+      { icon: Plus, label: '전표 입력', href: '/journal/entry', requiredRoles: ['USER', 'ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
       { icon: BarChart, label: '총계정원장', href: '/journal/ledger/gl' },
       { icon: PieChart, label: '보조원장', href: '/journal/ledger/sl' },
-      { icon: Zap, label: '자동 분개 설정', href: '/journal/rules' },
-      { icon: CalendarDays, label: '결산/재무제표', href: '/closing' },
-      { icon: Percent, label: '부가세 신고 관리', href: '/finance/tax' },
+      { icon: Zap, label: '자동 분개 설정', href: '/journal/rules', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
+      { icon: CalendarDays, label: '결산/재무제표', href: '/closing', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'] },
+      { icon: Percent, label: '부가세 신고 관리', href: '/finance/tax', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
     ]
   },
   { 
     category: 'OPERATIONS',
     group: '자금 및 운영', 
+    requiredRoles: ['ACCOUNTING_ADMIN', 'USER', 'SYSTEM_ADMIN'],
     items: [
       { icon: DollarSign, label: '매출채권(AR)', href: '/finance/receivable' },
       { icon: CreditCard, label: '매입채무(AP)', href: '/finance/payable' },
-      { icon: Wallet, label: '예산 편성/통제', href: '/finance/budget' },
+      { icon: Wallet, label: '예산 편성/통제', href: '/finance/budget', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
       { icon: Activity, label: '자금 수지/계획', href: '/finance/cashflow' },
       { icon: Receipt, label: '지출결의 포털', href: '/finance/expense' },
     ]
@@ -76,6 +92,7 @@ const menuItems = [
   { 
     category: 'OPERATIONS',
     group: '자산 및 특수 회계', 
+    requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [
       { icon: Package, label: '고정자산 관리', href: '/finance/assets' },
       { icon: FileText, label: '리스 회계', href: '/finance/lease' },
@@ -85,6 +102,7 @@ const menuItems = [
   { 
     category: 'MASTER',
     group: '기준 정보', 
+    requiredRoles: ['MASTER_MANAGER', 'SYSTEM_ADMIN'],
     items: [
       { icon: BookOpen, label: '계정 과목 관리', href: '/master/account' },
       { icon: Users, label: '거래처 관리', href: '/master/partner' },
@@ -95,6 +113,7 @@ const menuItems = [
   { 
     category: 'ADMIN',
     group: '시스템 관리', 
+    requiredRoles: ['SYSTEM_ADMIN', 'ACCOUNTING_ADMIN'],
     items: [
       { icon: Users, label: '사용자 그룹 관리', href: '/admin/users' },
       { icon: Layers, label: '메뉴 및 접근 권한', href: '/admin/menus' },
@@ -104,9 +123,21 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
-  const { activeCategory, isCollapsed, toggleSidebar } = useNav();
+  const { activeCategory, isCollapsed, toggleSidebar, userRole } = useNav();
 
-  const filteredMenuItems = menuItems.filter(group => group.category === activeCategory);
+  // 권한 체크 함수
+  const hasAccess = (requiredRoles?: UserRole[]) => {
+    if (!requiredRoles || userRole === 'SYSTEM_ADMIN') return true;
+    return requiredRoles.includes(userRole);
+  };
+
+  const filteredMenuItems = menuItems
+    .filter(group => group.category === activeCategory && hasAccess(group.requiredRoles))
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => hasAccess(item.requiredRoles))
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <aside className={`${isCollapsed ? 'w-20' : 'w-[300px]'} h-screen fixed top-0 left-0 bg-[#020617] border-r border-white/5 flex flex-col z-[100] transition-all duration-500 overflow-hidden group/sidebar shadow-2xl`}>

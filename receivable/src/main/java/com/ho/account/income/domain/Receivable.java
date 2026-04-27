@@ -1,14 +1,14 @@
 package com.ho.account.income.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매출채권 오픈 아이템 엔티티.
- * 고객으로부터 수금해야 할 개별 항목을 나타냅니다.
+ * 매출채권 ?�픈 ?�이???�티??
+ * 고객?�로부???�금?�야 ??개별 ??��???��??�니??
  */
 @Entity
 @Table(name = "receivables")
@@ -20,11 +20,11 @@ public class Receivable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_invoice_id")
-    private SalesInvoice salesInvoice; // 관련 매출 인보이스
+    private SalesInvoice salesInvoice; // 관??매출 ?�보?�스
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 채권 대상 고객 (거래처)
+    private BusinessPartner customer; // 채권 ?�??고객 (거래�?
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal originalAmount; // 최초 채권 금액
@@ -33,11 +33,11 @@ public class Receivable {
     private BigDecimal outstandingAmount; // 미수 금액
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기일 (수금 예정일)
+    private LocalDate dueDate; // 만기??(?�금 ?�정??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private ReceivableStatus status; // 채권 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private ReceivableStatus status; // 채권 ?�태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
 
     @Column(nullable = false, updatable = false)
@@ -54,7 +54,7 @@ public class Receivable {
         }
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

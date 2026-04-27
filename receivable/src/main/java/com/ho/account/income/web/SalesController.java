@@ -1,6 +1,6 @@
 package com.ho.account.income.web;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.income.domain.SalesInvoice;
 import com.ho.account.income.dto.SalesInvoiceRequest;
 import com.ho.account.income.service.SalesService;
@@ -22,9 +22,9 @@ public class SalesController {
     }
 
     /**
-     * 새로운 매출 인보이스를 생성하고 매출채권을 인식하며, 매출 인식 전표를 생성합니다.
-     * @param request 매출 인보이스 등록 요청 DTO
-     * @return 생성된 매출 인보이스 정보
+     * ?�로??매출 ?�보?�스�??�성?�고 매출채권???�식?�며, 매출 ?�식 ?�표�??�성?�니??
+     * @param request 매출 ?�보?�스 ?�록 ?�청 DTO
+     * @return ?�성??매출 ?�보?�스 ?�보
      */
     @PostMapping("/invoices")
     public ResponseEntity<SalesInvoice> createSalesInvoice(@Valid @RequestBody SalesInvoiceRequest request) {
@@ -47,8 +47,8 @@ public class SalesController {
     }
 
     /**
-     * 특정 날짜를 기준으로 매출채권의 상태를 업데이트합니다 (예: 연체 처리).
-     * @param asOfDate 처리 기준일자
+     * ?�정 ?�짜�?기�??�로 매출채권???�태�??�데?�트?�니??(?? ?�체 처리).
+     * @param asOfDate 처리 기�??�자
      * @return 처리 결과 메시지
      */
     @PostMapping("/receivables/update-status/{asOfDate}")

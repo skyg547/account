@@ -1,12 +1,12 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 기간 재오픈 승인 (Reopen Approval) 엔티티
- * 마감된 회계 기간을 재오픈하기 위한 승인 요청 및 이력을 관리합니다.
+ * 湲곌컙 ?ъ삤???뱀씤 (Reopen Approval) ?뷀떚??
+ * 留덇컧???뚭퀎 湲곌컙???ъ삤?덊븯湲??꾪븳 ?뱀씤 ?붿껌 諛??대젰??愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "reopen_approvals")
@@ -38,7 +38,7 @@ public class ReopenApproval {
     private LocalDateTime approvedAt;
 
     @Column(columnDefinition = "TEXT")
-    private String impactAnalysisReport; // 재오픈 영향도 자동 산출 결과
+    private String impactAnalysisReport; // ?ъ삤???곹뼢???먮룞 ?곗텧 寃곌낵
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -67,7 +67,7 @@ public class ReopenApproval {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

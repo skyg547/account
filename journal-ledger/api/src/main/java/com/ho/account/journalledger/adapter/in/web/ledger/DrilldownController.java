@@ -76,7 +76,7 @@ public class DrilldownController {
         response.put("details", journalEntry.getDetails().stream().map(detail -> {
             Map<String, Object> detailResponse = new LinkedHashMap<>();
             detailResponse.put("id", detail.getId());
-            detailResponse.put("drcrType", detail.getDrcrType());
+            detailResponse.put("drcrType", detail.getSide() != null ? detail.getSide().name() : null);
             detailResponse.put("amount", detail.getAmount());
             detailResponse.put("baseAmount", detail.getBaseAmount());
             detailResponse.put("detailDescription", detail.getDetailDescription());

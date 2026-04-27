@@ -1,12 +1,12 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 결산 캘린더 (Closing Calendar) 엔티티
- * 특정 회계연도 및 회계기간의 결산 일정을 관리합니다.
+ * 寃곗궛 罹섎┛??(Closing Calendar) ?뷀떚??
+ * ?뱀젙 ?뚭퀎?곕룄 諛??뚭퀎湲곌컙??寃곗궛 ?쇱젙??愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "closing_calendars", uniqueConstraints = {
@@ -21,7 +21,7 @@ public class ClosingCalendar {
     @Column(name = "fiscal_year", nullable = false, length = 4)
     private String fiscalYear;
 
-    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR 등
+    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR ??
     private String fiscalPeriod;
 
     @Enumerated(EnumType.STRING)
@@ -44,7 +44,7 @@ public class ClosingCalendar {
     private LocalDateTime reopenedAt;
 
     @Column(nullable = false)
-    private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
+    private boolean isCurrentPeriod; // ?꾩옱 ?쒖꽦 寃곗궛 湲곌컙 ?щ?
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -76,7 +76,7 @@ public class ClosingCalendar {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

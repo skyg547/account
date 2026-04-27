@@ -1,14 +1,14 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * EIR 상각 스케줄 (EIR Amortization Schedule) 엔티티
- * 유효이자율(EIR) 방법에 따라 계산된 대출의 기간별 상각 스케줄을 기록합니다.
+ * EIR ?�각 ?��?�?(EIR Amortization Schedule) ?�티??
+ * ?�효?�자??EIR) 방법???�라 계산???�출의 기간�??�각 ?��?줄을 기록?�니??
  */
 @Entity
 @Table(name = "eir_amortization_schedules")
@@ -23,32 +23,32 @@ public class EIRAmortizationSchedule {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate scheduleDate; // 해당 스케줄의 기준일 (일별/월별 등)
+    private LocalDate scheduleDate; // ?�당 ?��?줄의 기�???(?�별/?�별 ??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance; // 기초 잔액
+    private BigDecimal beginningBalance; // 기초 ?�액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal interestIncome; // 이자 수익 (EIR 적용)
+    private BigDecimal interestIncome; // ?�자 ?�익 (EIR ?�용)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalRepayment; // 원금 상환액
+    private BigDecimal principalRepayment; // ?�금 ?�환??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance; // 기말 잔액
+    private BigDecimal endingBalance; // 기말 ?�액
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal deferredItemAmortization; // 이연 항목 상각액 (수수료, 비용 등)
+    private BigDecimal deferredItemAmortization; // ?�연 ??�� ?�각??(?�수�? 비용 ??
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal cashFlow; // 해당 기간 현금 흐름
+    private BigDecimal cashFlow; // ?�당 기간 ?�금 ?�름
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amortization_journal_entry_id")
-    private JournalEntry amortizationJournalEntry; // 상각 관련 분개 전표
+    private JournalEntry amortizationJournalEntry; // ?�각 관??분개 ?�표
 
     @Column(nullable = false)
-    private boolean isRecalculated = false; // 재계산된 스케줄 항목인지 여부
+    private boolean isRecalculated = false; // ?�계?�된 ?��?�???��?��? ?��?
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -71,7 +71,7 @@ public class EIRAmortizationSchedule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

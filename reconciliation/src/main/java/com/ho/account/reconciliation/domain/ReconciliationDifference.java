@@ -1,13 +1,13 @@
 package com.ho.account.reconciliation.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 대사 차이(Reconciliation Difference) 엔티티
- * 대사 실행 결과 발견된 차이 항목을 기록하고, 사유 코드 및 조정 전표와 연계합니다.
+ * ?�??차이(Reconciliation Difference) ?�티??
+ * ?�???�행 결과 발견??차이 ??��??기록?�고, ?�유 코드 �?조정 ?�표?� ?�계?�니??
  */
 @Entity
 @Table(name = "reconciliation_differences")
@@ -23,21 +23,21 @@ public class ReconciliationDifference {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private DifferenceType differenceType; // 차이 유형 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH 등)
+    private DifferenceType differenceType; // 차이 ?�형 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH ??
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountExpected; // 기대 금액
+    private BigDecimal amountExpected; // 기�? 금액
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountActual; // 실제 금액
+    private BigDecimal amountActual; // ?�제 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal differenceAmount; // 차이 금액
 
     @Column(length = 1000)
-    private String description; // 차이 상세 설명
+    private String description; // 차이 ?�세 ?�명
 
-    // 원천/대상 데이터 항목에 대한 참조 (예: JSON 문자열로 { "type": "BANK_TRANSACTION", "id": "TXN123" } 또는 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
+    // ?�천/?�???�이????��???�??참조 (?? JSON 문자?�로 { "type": "BANK_TRANSACTION", "id": "TXN123" } ?�는 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
     @Column(columnDefinition = "TEXT")
     private String sourceItemRef;
 
@@ -46,25 +46,25 @@ public class ReconciliationDifference {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reason_code_id")
-    private DifferenceReasonCode reasonCode; // 차이 사유 코드 (DoD: 차이는 "원인코드"로 반드시 수렴)
+    private DifferenceReasonCode reasonCode; // 차이 ?�유 코드 (DoD: 차이??"?�인코드"�?반드???�렴)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // 조정 전표 (DoD: "조정전표 링크"로 반드시 수렴)
+    private JournalEntry adjustmentJournalEntry; // 조정 ?�표 (DoD: "조정?�표 링크"�?반드???�렴)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ReconciliationDifferenceStatus status; // 차이 처리 상태 (PENDING, ASSIGNED, RESOLVED, IGNORED)
+    private ReconciliationDifferenceStatus status; // 차이 처리 ?�태 (PENDING, ASSIGNED, RESOLVED, IGNORED)
 
     @Column(length = 50)
-    private String assignedToUser; // 담당자 (User 엔티티와 FK 연결 가능하나, 일단 String으로)
+    private String assignedToUser; // ?�당??(User ?�티?��? FK ?�결 가?�하?? ?�단 String?�로)
 
     private LocalDateTime slaDueDate; // SLA 기한
 
-    private LocalDateTime resolvedAt; // 해결 일시
+    private LocalDateTime resolvedAt; // ?�결 ?�시
 
     @Column(length = 50)
-    private String resolvedBy; // 해결자
+    private String resolvedBy; // ?�결??
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -93,22 +93,22 @@ public class ReconciliationDifference {
 
     // --- Enums ---
     public enum DifferenceType {
-        AMOUNT_MISMATCH, // 금액 불일치
-        MISSING_SOURCE,  // 원천 데이터 누락
-        MISSING_TARGET,  // 대상 데이터 누락
-        DATE_MISMATCH,   // 날짜 불일치
-        OTHER            // 기타
+        AMOUNT_MISMATCH, // 금액 불일�?
+        MISSING_SOURCE,  // ?�천 ?�이???�락
+        MISSING_TARGET,  // ?�???�이???�락
+        DATE_MISMATCH,   // ?�짜 불일�?
+        OTHER            // 기�?
     }
 
     public enum ReconciliationDifferenceStatus {
-        PENDING,   // 처리 대기
-        ASSIGNED,  // 담당자 할당
-        IN_REVIEW, // 검토 중
-        RESOLVED,  // 해결 완료
-        IGNORED    // 무시됨
+        PENDING,   // 처리 ?��?
+        ASSIGNED,  // ?�당???�당
+        IN_REVIEW, // 검??�?
+        RESOLVED,  // ?�결 ?�료
+        IGNORED    // 무시??
     }
 
-    // --- Getter 및 Setter ---
+    // --- Getter �?Setter ---
 
     public Long getId() {
         return id;

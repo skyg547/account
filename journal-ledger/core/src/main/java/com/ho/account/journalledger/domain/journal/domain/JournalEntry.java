@@ -93,12 +93,12 @@ public class JournalEntry {
         }
         
         BigDecimal debitSum = details.stream()
-                .filter(d -> "DEBIT".equalsIgnoreCase(d.getDrcrType()))
+                .filter(d -> JournalSide.DEBIT.equals(d.getSide()))
                 .map(JournalDetail::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         
         BigDecimal creditSum = details.stream()
-                .filter(d -> "CREDIT".equalsIgnoreCase(d.getDrcrType()))
+                .filter(d -> JournalSide.CREDIT.equals(d.getSide()))
                 .map(JournalDetail::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         

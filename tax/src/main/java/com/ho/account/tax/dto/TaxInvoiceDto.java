@@ -1,6 +1,6 @@
 package com.ho.account.tax.dto;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.tax.domain.TaxInvoice;
 import java.math.BigDecimal;
 import java.time.LocalDate;

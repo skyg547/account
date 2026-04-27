@@ -1,13 +1,13 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 평가 배치 (Valuation Batch) 엔티티
- * 외화 환산, 금융 상품 평가 등 특정 시점에 이루어지는 회계 평가 배치를 기록합니다.
+ * ?됯? 諛곗튂 (Valuation Batch) ?뷀떚??
+ * ?명솕 ?섏궛, 湲덉쑖 ?곹뭹 ?됯? ???뱀젙 ?쒖젏???대（?댁????뚭퀎 ?됯? 諛곗튂瑜?湲곕줉?⑸땲??
  */
 @Entity
 @Table(name = "valuation_batches")
@@ -23,10 +23,10 @@ public class ValuationBatch {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private ValuationType valuationType; // FX_RATE, FINANCIAL_INSTRUMENT 등
+    private ValuationType valuationType; // FX_RATE, FINANCIAL_INSTRUMENT ??
 
     @Column(nullable = false)
-    private LocalDateTime runDateTime; // 배치 실행 일시
+    private LocalDateTime runDateTime; // 諛곗튂 ?ㅽ뻾 ?쇱떆
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -34,13 +34,13 @@ public class ValuationBatch {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "generated_journal_entry_id")
-    private JournalEntry generatedJournalEntry; // 생성된 조정 분개 전표
+    private JournalEntry generatedJournalEntry; // ?앹꽦??議곗젙 遺꾧컻 ?꾪몴
 
     @Column(length = 200)
-    private String reportLink; // 생성된 리포트 링크 (예: PDF, 스프레드시트)
+    private String reportLink; // ?앹꽦??由ы룷??留곹겕 (?? PDF, ?ㅽ봽?덈뱶?쒗듃)
 
     @Column(length = 50)
-    private String runBy; // 배치 실행자
+    private String runBy; // 諛곗튂 ?ㅽ뻾??
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -73,7 +73,7 @@ public class ValuationBatch {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

@@ -1,9 +1,9 @@
 package com.ho.account.expenditure.domain;
 
 import com.ho.account.asset.domain.LeaseContract;
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -53,7 +53,7 @@ public class ExpenditureResolution {
     @JoinColumn(name = "journal_entry_id")
     private JournalEntry journalEntry;
 
-    // 리스 계약 연결 (선택)
+    // 由ъ뒪 怨꾩빟 ?곌껐 (?좏깮)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lease_contract_id")
     private LeaseContract leaseContract;
@@ -75,7 +75,7 @@ public class ExpenditureResolution {
             status = ExpenditureResolutionStatus.DRAFT;
     }
 
-    // 연관관계 편의 메서드
+    // ?곌?愿怨??몄쓽 硫붿꽌??
     public void addDetail(ExpenditureDetail detail) {
         details.add(detail);
         detail.setExpenditureResolution(this);
@@ -88,7 +88,7 @@ public class ExpenditureResolution {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

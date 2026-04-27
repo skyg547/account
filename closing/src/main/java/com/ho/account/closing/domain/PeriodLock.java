@@ -1,12 +1,12 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 기간 잠금 (Period Lock) 엔티티
- * 특정 회계 기간에 대한 거래 입력 및 수정 방지를 위해 기간 잠금 상태를 관리합니다.
+ * 湲곌컙 ?좉툑 (Period Lock) ?뷀떚??
+ * ?뱀젙 ?뚭퀎 湲곌컙?????嫄곕옒 ?낅젰 諛??섏젙 諛⑹?瑜??꾪빐 湲곌컙 ?좉툑 ?곹깭瑜?愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "period_locks")
@@ -22,7 +22,7 @@ public class PeriodLock {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private PeriodLockType lockType; // ALL_TRANSACTIONS, NON_ADJUSTMENT_ENTRIES 등
+    private PeriodLockType lockType; // ALL_TRANSACTIONS, NON_ADJUSTMENT_ENTRIES ??
 
     @Column(length = 50)
     private String lockedBy;
@@ -41,9 +41,9 @@ public class PeriodLock {
     private String auditUser;
 
     public enum PeriodLockType {
-        ALL_TRANSACTIONS, // 모든 거래 잠금 (완전 잠금)
-        NON_ADJUSTMENT_ENTRIES, // 조정 전표를 제외한 모든 거래 잠금 (결산 조정 가능)
-        PARTIAL_LOCK // 특정 모듈 또는 특정 사용자 그룹에 대한 잠금
+        ALL_TRANSACTIONS, // 紐⑤뱺 嫄곕옒 ?좉툑 (?꾩쟾 ?좉툑)
+        NON_ADJUSTMENT_ENTRIES, // 議곗젙 ?꾪몴瑜??쒖쇅??紐⑤뱺 嫄곕옒 ?좉툑 (寃곗궛 議곗젙 媛??
+        PARTIAL_LOCK // ?뱀젙 紐⑤뱢 ?먮뒗 ?뱀젙 ?ъ슜??洹몃９??????좉툑
     }
 
     @PrePersist
@@ -59,7 +59,7 @@ public class PeriodLock {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

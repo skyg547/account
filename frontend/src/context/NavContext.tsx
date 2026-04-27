@@ -14,11 +14,26 @@ export type NavCategory =
   | 'MASTER'      // 기준관리
   | 'ADMIN';      // 시스템관리
 
+/**
+ * [보안 역할 정의]
+ * RBAC(Role Based Access Control)를 위한 사용자 역할입니다.
+ */
+export type UserRole = 
+  | 'SYSTEM_ADMIN'
+  | 'ACCOUNTING_ADMIN'
+  | 'RISK_MANAGER'
+  | 'MASTER_MANAGER'
+  | 'AUDITOR'
+  | 'USER';
+
 interface NavContextType {
   activeCategory: NavCategory;
   setActiveCategory: (category: NavCategory) => void;
   isCollapsed: boolean;
   toggleSidebar: () => void;
+  // 권한 관련 추가
+  userRole: UserRole;
+  setUserRole: (role: UserRole) => void;
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
@@ -30,11 +45,19 @@ const NavContext = createContext<NavContextType | undefined>(undefined);
 export function NavProvider({ children }: { children: ReactNode }) {
   const [activeCategory, setActiveCategory] = useState<NavCategory>('ACCOUNTING');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('ACCOUNTING_ADMIN');
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   return (
-    <NavContext.Provider value={{ activeCategory, setActiveCategory, isCollapsed, toggleSidebar }}>
+    <NavContext.Provider value={{ 
+      activeCategory, 
+      setActiveCategory, 
+      isCollapsed, 
+      toggleSidebar,
+      userRole,
+      setUserRole
+    }}>
       {children}
     </NavContext.Provider>
   );

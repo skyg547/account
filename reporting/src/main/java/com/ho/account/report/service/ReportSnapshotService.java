@@ -1,6 +1,6 @@
 package com.ho.account.report.service;
 
-import com.ho.account.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.report.domain.ReportLineMapping;
 import com.ho.account.report.domain.ReportSnapshotDetail;
@@ -34,7 +34,7 @@ public class ReportSnapshotService {
     }
 
     /**
-     * 특정 기준일의 보고서를 생성하고 스냅샷으로 저장합니다.
+     * ?�정 기�??�의 보고?��? ?�성?�고 ?�냅?�으�??�?�합?�다.
      */
     public ReportSnapshotHeader createSnapshot(String reportType, LocalDate baseDate, String description) {
         List<ReportLineMapping> mappings = reportMappingService.getActiveMappings(reportType, baseDate);
@@ -66,7 +66,7 @@ public class ReportSnapshotService {
     }
 
     /**
-     * 보고서 스냅샷의 특정 라인 금액을 구성하는 전표 상세 내역을 조회합니다 (Drill-through).
+     * 보고???�냅?�의 ?�정 ?�인 금액??구성?�는 ?�표 ?�세 ?�역??조회?�니??(Drill-through).
      */
     public List<JournalDetail> getContributingJournals(Long snapshotId, String lineCode) {
         ReportSnapshotHeader header = headerRepository.findById(snapshotId)
@@ -91,7 +91,7 @@ public class ReportSnapshotService {
     private BigDecimal calculateLineAmount(ReportLineMapping mapping, LocalDate baseDate) {
         if ("SUM".equals(mapping.getAggregationType())) {
             if (mapping.getAccountCode() != null) {
-                // 특정 계정의 잔액 합산 (최적화된 쿼리 사용)
+                // ?�정 계정???�액 ?�산 (최적?�된 쿼리 ?�용)
                 return journalDetailRepository.findByAccountAndDateRange(
                         mapping.getAccountCode(),
                         LocalDate.of(1900, 1, 1),
@@ -101,13 +101,13 @@ public class ReportSnapshotService {
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
             }
         }
-        // FORMULA 등 추가 로직 필요 (여기선 단순화)
+        // FORMULA ??추�? 로직 ?�요 (?�기???�순??
         return BigDecimal.ZERO;
     }
 
     private BigDecimal calculateSignedAmount(JournalDetail detail) {
-        // 실제 운영 환경에서는 계정 성격(차변형/대변형)에 따라 부호를 결정해야 함
-        // 여기서는 단순 차변-대변으로 처리 (자산 계정 기준)
+        // ?�제 ?�영 ?�경?�서??계정 ?�격(차�????�변?????�라 부?��? 결정?�야 ??
+        // ?�기?�는 ?�순 차�?-?�변?�로 처리 (?�산 계정 기�?)
         return "DEBIT".equals(detail.getDrcrType()) ? detail.getAmount() : detail.getAmount().negate();
     }
 }

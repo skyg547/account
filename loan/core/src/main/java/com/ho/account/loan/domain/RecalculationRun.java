@@ -1,14 +1,14 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 재계산 실행 (Recalculation Run) 엔티티
- * 중도상환, 조건 변경 등으로 인해 유효이자율(EIR) 스케줄이 재계산된 이력을 관리합니다.
+ * ?�계???�행 (Recalculation Run) ?�티??
+ * 중도?�환, 조건 변�??�으�??�해 ?�효?�자??EIR) ?��?줄이 ?�계?�된 ?�력??관리합?�다.
  */
 @Entity
 @Table(name = "recalculation_runs")
@@ -23,32 +23,32 @@ public class RecalculationRun {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate recalculationDate; // 재계산 실행일
+    private LocalDate recalculationDate; // ?�계???�행??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private RecalculationReason reason; // 재계산 사유 (EARLY_REPAYMENT, CONDITION_CHANGE 등)
+    private RecalculationReason reason; // ?�계???�유 (EARLY_REPAYMENT, CONDITION_CHANGE ??
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal oldEIR; // 이전 유효이자율
+    private BigDecimal oldEIR; // ?�전 ?�효?�자??
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal newEIR; // 새로운 유효이자율
+    private BigDecimal newEIR; // ?�로???�효?�자??
 
-    private LocalDate oldMaturityDate; // 이전 만기일
+    private LocalDate oldMaturityDate; // ?�전 만기??
 
-    private LocalDate newMaturityDate; // 새로운 만기일
+    private LocalDate newMaturityDate; // ?�로??만기??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculated_amortization_schedule_start_id")
-    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // 재계산된 스케줄의 시작 항목
+    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // ?�계?�된 ?��?줄의 ?�작 ??��
 
     @Column(columnDefinition = "TEXT")
-    private String impactAnalysis; // 재계산 영향 분석 (JSON 또는 텍스트)
+    private String impactAnalysis; // ?�계???�향 분석 (JSON ?�는 ?�스??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // 재계산으로 인한 조정 분개 전표
+    private JournalEntry adjustmentJournalEntry; // ?�계?�으�??�한 조정 분개 ?�표
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -75,7 +75,7 @@ public class RecalculationRun {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

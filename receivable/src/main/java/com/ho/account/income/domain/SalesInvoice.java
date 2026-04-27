@@ -1,14 +1,14 @@
 package com.ho.account.income.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매출 인보이스 엔티티.
- * 고객에게 발행된 매출 및 청구 정보를 관리합니다.
+ * 매출 ?�보?�스 ?�티??
+ * 고객?�게 발행??매출 �?�?�� ?�보�?관리합?�다.
  */
 @Entity
 @Table(name = "sales_invoices")
@@ -19,34 +19,34 @@ public class SalesInvoice {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String invoiceNo; // 인보이스 번호
+    private String invoiceNo; // ?�보?�스 번호
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 고객 (거래처)
+    private BusinessPartner customer; // 고객 (거래�?
 
     @Column(nullable = false)
-    private LocalDate issueDate; // 발행일
+    private LocalDate issueDate; // 발행??
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기일 (수금 예정일)
+    private LocalDate dueDate; // 만기??(?�금 ?�정??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal totalAmount; // 총액 (공급가액 + 세액)
+    private BigDecimal totalAmount; // 총액 (공급가??+ ?�액)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal taxAmount; // 세액
+    private BigDecimal taxAmount; // ?�액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal netAmount; // 공급가액
+    private BigDecimal netAmount; // 공급가??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private SalesInvoiceStatus status; // 인보이스 상태 (ISSUED, PAID, PARTIAL_PAID, OVERDUE, CANCELLED)
+    private SalesInvoiceStatus status; // ?�보?�스 ?�태 (ISSUED, PAID, PARTIAL_PAID, OVERDUE, CANCELLED)
 
 
     @Column(length = 500)
-    private String description; // 설명
+    private String description; // ?�명
 
     @Column(nullable = false, updatable = false)
     private String createdBy;
@@ -62,7 +62,7 @@ public class SalesInvoice {
         }
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

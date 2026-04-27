@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.repository;
 
 import com.ho.account.expenditure.domain.Invoice;
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

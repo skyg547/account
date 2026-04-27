@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -27,12 +27,12 @@ public class Budget {
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal assignedAmount = BigDecimal.ZERO; // 배정 예산
+    private BigDecimal assignedAmount = BigDecimal.ZERO; // 諛곗젙 ?덉궛
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal usedAmount = BigDecimal.ZERO; // 사용 예산
+    private BigDecimal usedAmount = BigDecimal.ZERO; // ?ъ슜 ?덉궛
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -81,14 +81,14 @@ public class Budget {
         this.usedAmount = usedAmount;
     }
 
-    // 비즈니스 로직
+    // 鍮꾩쫰?덉뒪 濡쒖쭅
     public BigDecimal getRemainingAmount() {
         return assignedAmount.subtract(usedAmount);
     }
 
     public void useBudget(BigDecimal amount) {
         if (getRemainingAmount().compareTo(amount) < 0) {
-            throw new IllegalStateException("예산이 부족합니다. 잔액: " + getRemainingAmount());
+            throw new IllegalStateException("?덉궛??遺議깊빀?덈떎. ?붿븸: " + getRemainingAmount());
         }
         this.usedAmount = this.usedAmount.add(amount);
     }

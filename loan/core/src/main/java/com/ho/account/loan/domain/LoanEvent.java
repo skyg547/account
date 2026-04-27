@@ -1,13 +1,13 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 대출 이벤트 (Loan Event) 엔티티
- * 대출 계약의 생애 주기 동안 발생하는 주요 이벤트(중도상환, 조건 변경 등)를 기록합니다.
+ * ?��??�벤??(Loan Event) ?�티??
+ * ?��?계약???�애 주기 ?�안 발생?�는 주요 ?�벤??중도?�환, 조건 변�???�?기록?�니??
  */
 @Entity
 @Table(name = "loan_events")
@@ -23,19 +23,19 @@ public class LoanEvent {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private EventType eventType; // EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE 등
+    private EventType eventType; // EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE ??
 
     @Column(nullable = false)
-    private LocalDate eventDate; // 이벤트 발생일
+    private LocalDate eventDate; // ?�벤??발생??
 
     @Column(length = 1000)
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry relatedJournalEntry; // 이벤트 관련 분개 전표
+    private JournalEntry relatedJournalEntry; // ?�벤??관??분개 ?�표
 
-    // 재계산이 필요한 이벤트의 경우 RecalculationRun과 연결
+    // ?�계?�이 ?�요???�벤?�의 경우 RecalculationRun�??�결
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculation_run_id")
     private RecalculationRun recalculationRun;
@@ -65,7 +65,7 @@ public class LoanEvent {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

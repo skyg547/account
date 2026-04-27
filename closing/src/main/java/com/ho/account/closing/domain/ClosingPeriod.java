@@ -50,10 +50,10 @@ public class ClosingPeriod {
         this.startDate = startDate;
         this.endDate = endDate;
         this.status = ClosingStatusEnum.OPEN; // Default status
-        this.closedBy = createdBy; // createdBy를 최초 담당자로 가정
+        this.closedBy = createdBy; // createdBy瑜?理쒖큹 ?대떦?먮줈 媛??
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

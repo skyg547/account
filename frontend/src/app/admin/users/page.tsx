@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -15,21 +13,14 @@ import {
   Clock,
   Eye,
   Edit2,
-  Trash2,
   Server,
   History
 } from 'lucide-react';
+import { useNav, UserRole } from '@/context/NavContext';
+import { adminService, UserInfo } from '@/services/adminService';
 
-// Mock 데이터: 사용자 관리
-const usersData = [
-  { id: 1, name: '김재무', email: 'jm.kim@antigrav.ai', role: 'ACCOUNTING_ADMIN', status: 'ACTIVE', lastLogin: '10분 전', dept: '재무회계팀' },
-  { id: 2, name: '이리스크', email: 'risk.lee@antigrav.ai', role: 'RISK_MANAGER', status: 'ACTIVE', lastLogin: '2시간 전', dept: '리스크관리부' },
-  { id: 3, name: '박기준', email: 'base.park@antigrav.ai', role: 'MASTER_MANAGER', status: 'PENDING', lastLogin: '어제', dept: 'IT운영팀' },
-  { id: 4, name: '최감사', email: 'audit.choi@antigrav.ai', role: 'AUDITOR', status: 'ACTIVE', lastLogin: '3일 전', dept: '감사실' },
-  { id: 5, name: '정일반', email: 'normal.jung@antigrav.ai', role: 'USER', status: 'INACTIVE', lastLogin: '1달 전', dept: '영업기획팀' },
-];
-
-const roleStyles: any = {
+const roleStyles: Record<string, any> = {
+  SYSTEM_ADMIN: { label: '시스템관리자', color: 'text-red-400', bg: 'bg-red-400/10', icon: ShieldCheck },
   ACCOUNTING_ADMIN: { label: '회계관리자', color: 'text-blue-400', bg: 'bg-blue-400/10', icon: ShieldCheck },
   RISK_MANAGER: { label: '리스크관리자', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: ShieldAlert },
   MASTER_MANAGER: { label: '마스터관리자', color: 'text-emerald-400', bg: 'bg-emerald-400/10', icon: Shield },
@@ -37,12 +28,38 @@ const roleStyles: any = {
   USER: { label: '일반사용자', color: 'text-slate-400', bg: 'bg-slate-400/10', icon: Users },
 };
 
-/**
- * [사용자 그룹 및 권한 관리 화면]
- * 프리미엄 ERP 스타일로 디자인된 사용자 관리 인터페이스입니다.
- */
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<UserInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { userRole, setUserRole } = useNav();
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    const data = await adminService.getUsers();
+    setUsers(data);
+    setLoading(false);
+  };
+
+  const handleRoleChange = async (userId: number, role: UserRole) => {
+    const success = await adminService.updateUserRole(userId, role);
+    if (success) {
+      // 내 역할도 변경하여 사이드바 동기화 확인 (시뮬레이션)
+      setUserRole(role);
+      // 목록 새로고침
+      loadUsers();
+    }
+  };
+
+  const filteredUsers = users.filter(u => 
+    u.name.includes(searchTerm) || 
+    u.email.includes(searchTerm) || 
+    u.dept.includes(searchTerm)
+  );
 
   return (
     <div className="space-y-10">
@@ -74,13 +91,13 @@ export default function UserManagementPage() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: '전체 사용자', value: '124', sub: 'Active 118', color: 'blue' },
-          { label: '관리자 권한', value: '12', sub: 'System/Domain', color: 'purple' },
-          { label: '미승인 요청', value: '3', sub: 'Pending Approval', color: 'amber' },
+          { label: '전체 사용자', value: users.length.toString(), sub: 'Active', color: 'blue' },
+          { label: '관리자 권한', value: users.filter(u => u.role.includes('ADMIN')).length.toString(), sub: 'System/Domain', color: 'purple' },
+          { label: '미승인 요청', value: users.filter(u => u.status === 'PENDING').length.toString(), sub: 'Pending Approval', color: 'amber' },
           { label: '보안 이슈(24h)', value: '0', sub: 'Clean Status', color: 'emerald' },
         ].map((stat, i) => (
           <div key={i} className="p-6 rounded-[2.5rem] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group/stat relative overflow-hidden">
-             <div className={`absolute top-0 right-0 w-32 h-32 bg-${stat.color}-500/5 blur-[50px] rounded-full group-hover/stat:scale-150 transition-transform duration-700`} />
+             <div className={`absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[50px] rounded-full group-hover/stat:scale-150 transition-transform duration-700`} />
              <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">{stat.label}</p>
              <div className="flex items-end gap-3 text-white">
                 <span className="text-3xl font-black italic tracking-tighter leading-none">{stat.value}</span>
@@ -103,9 +120,7 @@ export default function UserManagementPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
            </div>
-           <div className="flex items-center gap-2 text-slate-500 text-xs font-black uppercase tracking-widest">
-              <Clock size={14} className="text-blue-500" /> Last System Audit: 2026-04-24 14:00
-           </div>
+           {loading && <div className="text-blue-500 font-black text-xs animate-pulse">Syncing with Central Security...</div>}
         </div>
 
         <div className="overflow-x-auto">
@@ -121,9 +136,10 @@ export default function UserManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.02]">
-              {usersData.map((user) => {
-                const style = roleStyles[user.role];
+              {filteredUsers.map((user) => {
+                const style = roleStyles[user.role] || roleStyles.USER;
                 const RoleIcon = style.icon;
+                const isCurrentRole = userRole === user.role;
                 
                 return (
                   <tr key={user.id} className="group/row hover:bg-white/[0.02] transition-colors">
@@ -146,10 +162,16 @@ export default function UserManagementPage() {
                        </span>
                     </td>
                     <td className="py-6 px-4">
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl ${style.bg} ${style.color} border border-current/10`}>
+                      <button 
+                        onClick={() => handleRoleChange(user.id, user.role)}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl ${style.bg} ${style.color} border ${isCurrentRole ? 'border-current shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'border-current/10'} hover:scale-105 transition-all relative group/role`}
+                      >
                         <RoleIcon size={14} />
                         <span className="text-xs font-black tracking-tight">{style.label}</span>
-                      </div>
+                        {isCurrentRole && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                        )}
+                      </button>
                     </td>
                     <td className="py-6 px-4">
                       <div className="flex items-center gap-2">
@@ -188,7 +210,6 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      {/* Role Definitions Mini Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
          <div className="glass-panel p-8 rounded-[3rem] border border-white/10 relative overflow-hidden group/card shadow-2xl shadow-blue-500/5">
             <div className="flex items-center gap-3 mb-6">

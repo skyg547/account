@@ -1,15 +1,15 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Currency;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 대출 (Loan) 계약 엔티티
- * 대출 계약의 기본 정보를 관리하며, 유효이자율(EIR) 계산의 기초가 됩니다.
+ * ?��?(Loan) 계약 ?�티??
+ * ?��?계약??기본 ?�보�?관리하�? ?�효?�자??EIR) 계산??기초가 ?�니??
  */
 @Entity
 @Table(name = "loans")
@@ -20,45 +20,45 @@ public class Loan {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String loanNumber; // 대출 번호
+    private String loanNumber; // ?��?번호
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_id", nullable = false)
-    private BusinessPartner businessPartner; // 차입자 (borrower)
+    private BusinessPartner businessPartner; // 차입??(borrower)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private LoanType loanType; // 대출 유형 (TERM_LOAN, REVOLVING_LOAN, MORTGAGE 등)
+    private LoanType loanType; // ?��??�형 (TERM_LOAN, REVOLVING_LOAN, MORTGAGE ??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency; // 통화
+    private Currency currency; // ?�화
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalAmount; // 원금
+    private BigDecimal principalAmount; // ?�금
 
     @Column(nullable = false, precision = 5, scale = 4)
-    private BigDecimal interestRate; // 명목 이자율 (연 이자율)
+    private BigDecimal interestRate; // 명목 ?�자??(???�자??
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // 대출 실행일
+    private LocalDate disbursalDate; // ?��??�행??
 
     @Column(nullable = false)
-    private LocalDate maturityDate; // 만기일
+    private LocalDate maturityDate; // 만기??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private PaymentFrequency paymentFrequency; // 상환 주기
+    private PaymentFrequency paymentFrequency; // ?�환 주기
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal initialEIR; // 최초 유효 이자율 (Effective Interest Rate)
+    private BigDecimal initialEIR; // 최초 ?�효 ?�자??(Effective Interest Rate)
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal currentEIR; // 현재 유효 이자율 (재계산 시 변경 가능)
+    private BigDecimal currentEIR; // ?�재 ?�효 ?�자??(?�계????변�?가??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private LoanStatus status; // 대출 상태 (ACTIVE, REPAID, DEFAULTED)
+    private LoanStatus status; // ?��??�태 (ACTIVE, REPAID, DEFAULTED)
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -95,7 +95,7 @@ public class Loan {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

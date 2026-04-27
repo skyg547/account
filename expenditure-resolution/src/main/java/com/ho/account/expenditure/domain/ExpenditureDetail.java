@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -19,19 +19,19 @@ public class ExpenditureDetail {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
-    private AccountSubject accountSubject; // 비용 계정 (차변 계정)
+    private AccountSubject accountSubject; // 鍮꾩슜 怨꾩젙 (李⑤? 怨꾩젙)
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 거래처
+    private BusinessPartner businessPartner; // 嫄곕옒泥?
 
     @Column(length = 200)
-    private String description; // 적요
+    private String description; // ?곸슂
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

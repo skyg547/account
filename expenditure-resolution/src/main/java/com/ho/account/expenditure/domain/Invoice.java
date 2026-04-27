@@ -1,14 +1,14 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Currency;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 송장 (Invoice / AP Open Item) 엔티티
+ * ?≪옣 (Invoice / AP Open Item) ?뷀떚??
  */
 @Entity
 @Table(name = "ap_invoices")
@@ -45,7 +45,7 @@ public class Invoice {
     private BigDecimal totalAmount;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // 미지급 잔액
+    private BigDecimal remainingAmount; // 誘몄?湲??붿븸
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -83,7 +83,7 @@ public class Invoice {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

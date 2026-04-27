@@ -1,11 +1,11 @@
 package com.ho.account.common.adapter;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionCommand;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionPort;
 import com.ho.account.expenditure.domain.ExpenditureDetail;

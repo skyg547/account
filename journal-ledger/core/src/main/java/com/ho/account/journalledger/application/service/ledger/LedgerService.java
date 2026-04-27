@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Currency;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
@@ -39,7 +40,7 @@ public class LedgerService {
         Department department = journalDetail.getDepartment();
         Currency currency = journalDetail.getJournalEntry().getCurrency();
         BigDecimal amount = journalDetail.getBaseAmount();
-        boolean isDebit = "DEBIT".equals(journalDetail.getDrcrType());
+        boolean isDebit = JournalSide.DEBIT.equals(journalDetail.getSide());
 
         updateGlBalance(accountSubject, currency, amount, isDebit, accountingDate);
         updateSlBalance(accountSubject, businessPartner, department, currency, amount, isDebit, accountingDate);

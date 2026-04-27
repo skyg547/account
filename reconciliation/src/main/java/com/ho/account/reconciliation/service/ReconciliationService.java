@@ -12,11 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.domain.JournalEntryStatus;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journal.repository.JournalDetailRepository;
 import com.ho.account.journal.repository.JournalEntryRepository;
 import java.math.BigDecimal;
@@ -24,8 +24,8 @@ import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunS
 import java.util.Collections;
 
 /**
- * 대사(Reconciliation) 관련 비즈니스 로직을 처리하는 서비스 클래스.
- * 대사 단위, 규칙, 차이 사유 코드 관리 및 실제 대사 실행 로직을 포함합니다.
+ * ?�??Reconciliation) 관??비즈?�스 로직??처리?�는 ?�비???�래??
+ * ?�???�위, 규칙, 차이 ?�유 코드 관�?�??�제 ?�???�행 로직???�함?�니??
  */
 @Service
 @Transactional
@@ -39,7 +39,7 @@ public class ReconciliationService {
     private final JournalEntryRepository journalEntryRepository;
     private final JournalDetailRepository journalDetailRepository;
     private final AccountSubjectRepository accountSubjectRepository;
-    private final ObjectMapper objectMapper; // JSON 파싱을 위한 ObjectMapper
+    private final ObjectMapper objectMapper; // JSON ?�싱???�한 ObjectMapper
 
     @Autowired
     public ReconciliationService(ReconciliationUnitRepository reconciliationUnitRepository,
@@ -62,21 +62,21 @@ public class ReconciliationService {
         this.objectMapper = objectMapper;
     }
 
-    // --- ReconciliationUnit (대사 단위) 관련 메서드 ---
+    // --- ReconciliationUnit (?�???�위) 관??메서??---
 
     /**
-     * 새로운 대사 단위를 생성합니다.
-     * @param reconciliationUnit 생성할 대사 단위 엔티티
-     * @return 생성된 대사 단위
+     * ?�로???�???�위�??�성?�니??
+     * @param reconciliationUnit ?�성???�???�위 ?�티??
+     * @return ?�성???�???�위
      */
     public ReconciliationUnit createReconciliationUnit(ReconciliationUnit reconciliationUnit) {
-        // 중복 이름 검증 등 추가 로직 필요 시 구현
+        // 중복 ?�름 검�???추�? 로직 ?�요 ??구현
         return reconciliationUnitRepository.save(reconciliationUnit);
     }
 
     /**
-     * 모든 대사 단위를 조회합니다.
-     * @return 모든 대사 단위 목록
+     * 모든 ?�???�위�?조회?�니??
+     * @return 모든 ?�???�위 목록
      */
     @Transactional(readOnly = true)
     public List<ReconciliationUnit> findAllReconciliationUnits() {
@@ -84,10 +84,10 @@ public class ReconciliationService {
     }
 
     /**
-     * ID로 대사 단위를 조회합니다.
-     * @param id 대사 단위 ID
-     * @return 조회된 대사 단위
-     * @throws EntityNotFoundException 해당 ID의 대사 단위가 없을 경우
+     * ID�??�???�위�?조회?�니??
+     * @param id ?�???�위 ID
+     * @return 조회???�???�위
+     * @throws EntityNotFoundException ?�당 ID???�???�위가 ?�을 경우
      */
     @Transactional(readOnly = true)
     public ReconciliationUnit findReconciliationUnitById(Long id) {
@@ -96,11 +96,11 @@ public class ReconciliationService {
     }
 
     /**
-     * 대사 단위를 업데이트합니다.
-     * @param id 업데이트할 대사 단위의 ID
-     * @param updatedUnit 업데이트할 내용을 담은 대사 단위 엔티티
-     * @return 업데이트된 대사 단위
-     * @throws EntityNotFoundException 해당 ID의 대사 단위가 없을 경우
+     * ?�???�위�??�데?�트?�니??
+     * @param id ?�데?�트???�???�위??ID
+     * @param updatedUnit ?�데?�트???�용???��? ?�???�위 ?�티??
+     * @return ?�데?�트???�???�위
+     * @throws EntityNotFoundException ?�당 ID???�???�위가 ?�을 경우
      */
     public ReconciliationUnit updateReconciliationUnit(Long id, ReconciliationUnit updatedUnit) {
         ReconciliationUnit existingUnit = reconciliationUnitRepository.findById(id)
@@ -112,35 +112,35 @@ public class ReconciliationService {
         existingUnit.setReconciliationType(updatedUnit.getReconciliationType());
         existingUnit.setCriteriaJson(updatedUnit.getCriteriaJson());
         existingUnit.setActive(updatedUnit.isActive());
-        // auditUser 및 updatedAt은 @PreUpdate에서 처리됨
+        // auditUser �?updatedAt?� @PreUpdate?�서 처리??
         return reconciliationUnitRepository.save(existingUnit);
     }
 
     /**
-     * 대사 단위를 삭제합니다. (연관된 규칙, 실행 결과, 차이도 함께 처리 필요)
-     * @param id 삭제할 대사 단위의 ID
+     * ?�???�위�???��?�니?? (?��???규칙, ?�행 결과, 차이???�께 처리 ?�요)
+     * @param id ??��???�???�위??ID
      */
     public void deleteReconciliationUnit(Long id) {
-        // TODO: 연관된 ReconciliationRule, ReconciliationRun, ReconciliationDifference 처리 로직 추가 필요
+        // TODO: ?��???ReconciliationRule, ReconciliationRun, ReconciliationDifference 처리 로직 추�? ?�요
         reconciliationUnitRepository.deleteById(id);
     }
 
-    // --- ReconciliationRule (대사 규칙) 관련 메서드 ---
+    // --- ReconciliationRule (?�??규칙) 관??메서??---
 
     /**
-     * 새로운 대사 규칙을 생성합니다.
-     * @param reconciliationRule 생성할 대사 규칙 엔티티
-     * @return 생성된 대사 규칙
+     * ?�로???�??규칙???�성?�니??
+     * @param reconciliationRule ?�성???�??규칙 ?�티??
+     * @return ?�성???�??규칙
      */
     public ReconciliationRule createReconciliationRule(ReconciliationRule reconciliationRule) {
-        // 중복 이름, 유효성 검증 등 추가 로직 필요 시 구현
+        // 중복 ?�름, ?�효??검�???추�? 로직 ?�요 ??구현
         return reconciliationRuleRepository.save(reconciliationRule);
     }
 
     /**
-     * 특정 대사 단위에 속한 모든 대사 규칙을 조회합니다.
-     * @param unitId 대사 단위 ID
-     * @return 대사 규칙 목록
+     * ?�정 ?�???�위???�한 모든 ?�??규칙??조회?�니??
+     * @param unitId ?�???�위 ID
+     * @return ?�??규칙 목록
      */
     @Transactional(readOnly = true)
     public List<ReconciliationRule> findRulesByReconciliationUnit(Long unitId) {
@@ -151,11 +151,11 @@ public class ReconciliationService {
     // Note: findByReconciliationUnit method will need to be added to ReconciliationRuleRepository
 
     /**
-     * 대사 규칙을 업데이트합니다.
-     * @param id 업데이트할 대사 규칙의 ID
-     * @param updatedRule 업데이트할 내용을 담은 대사 규칙 엔티티
-     * @return 업데이트된 대사 규칙
-     * @throws EntityNotFoundException 해당 ID의 대사 규칙이 없을 경우
+     * ?�??규칙???�데?�트?�니??
+     * @param id ?�데?�트???�??규칙??ID
+     * @param updatedRule ?�데?�트???�용???��? ?�??규칙 ?�티??
+     * @return ?�데?�트???�??규칙
+     * @throws EntityNotFoundException ?�당 ID???�??규칙???�을 경우
      */
     public ReconciliationRule updateReconciliationRule(Long id, ReconciliationRule updatedRule) {
         ReconciliationRule existingRule = reconciliationRuleRepository.findById(id)
@@ -167,33 +167,33 @@ public class ReconciliationService {
         existingRule.setToleranceValue(updatedRule.getToleranceValue());
         existingRule.setPriority(updatedRule.getPriority());
         existingRule.setActive(updatedRule.isActive());
-        existingRule.setReconciliationUnit(updatedRule.getReconciliationUnit()); // FK 변경 가능성
+        existingRule.setReconciliationUnit(updatedRule.getReconciliationUnit()); // FK 변�?가?�성
         return reconciliationRuleRepository.save(existingRule);
     }
 
     /**
-     * 대사 규칙을 삭제합니다.
-     * @param id 삭제할 대사 규칙의 ID
+     * ?�??규칙????��?�니??
+     * @param id ??��???�??규칙??ID
      */
     public void deleteReconciliationRule(Long id) {
         reconciliationRuleRepository.deleteById(id);
     }
 
-    // --- DifferenceReasonCode (차이 사유 코드) 관련 메서드 ---
+    // --- DifferenceReasonCode (차이 ?�유 코드) 관??메서??---
 
     /**
-     * 새로운 차이 사유 코드를 생성합니다.
-     * @param reasonCode 생성할 차이 사유 코드 엔티티
-     * @return 생성된 차이 사유 코드
+     * ?�로??차이 ?�유 코드�??�성?�니??
+     * @param reasonCode ?�성??차이 ?�유 코드 ?�티??
+     * @return ?�성??차이 ?�유 코드
      */
     public DifferenceReasonCode createDifferenceReasonCode(DifferenceReasonCode reasonCode) {
-        // 중복 코드/이름 검증 등 추가 로직 필요 시 구현
+        // 중복 코드/?�름 검�???추�? 로직 ?�요 ??구현
         return differenceReasonCodeRepository.save(reasonCode);
     }
 
     /**
-     * 모든 차이 사유 코드를 조회합니다.
-     * @return 모든 차이 사유 코드 목록
+     * 모든 차이 ?�유 코드�?조회?�니??
+     * @return 모든 차이 ?�유 코드 목록
      */
     @Transactional(readOnly = true)
     public List<DifferenceReasonCode> findAllDifferenceReasonCodes() {
@@ -201,10 +201,10 @@ public class ReconciliationService {
     }
 
     /**
-     * ID로 차이 사유 코드를 조회합니다.
-     * @param id 차이 사유 코드 ID
-     * @return 조회된 차이 사유 코드
-     * @throws EntityNotFoundException 해당 ID의 차이 사유 코드가 없을 경우
+     * ID�?차이 ?�유 코드�?조회?�니??
+     * @param id 차이 ?�유 코드 ID
+     * @return 조회??차이 ?�유 코드
+     * @throws EntityNotFoundException ?�당 ID??차이 ?�유 코드가 ?�을 경우
      */
     @Transactional(readOnly = true)
     public DifferenceReasonCode findDifferenceReasonCodeById(Long id) {
@@ -213,11 +213,11 @@ public class ReconciliationService {
     }
 
     /**
-     * 차이 사유 코드를 업데이트합니다.
-     * @param id 업데이트할 차이 사유 코드의 ID
-     * @param updatedReasonCode 업데이트할 내용을 담은 차이 사유 코드 엔티티
-     * @return 업데이트된 차이 사유 코드
-     * @throws EntityNotFoundException 해당 ID의 차이 사유 코드가 없을 경우
+     * 차이 ?�유 코드�??�데?�트?�니??
+     * @param id ?�데?�트??차이 ?�유 코드??ID
+     * @param updatedReasonCode ?�데?�트???�용???��? 차이 ?�유 코드 ?�티??
+     * @return ?�데?�트??차이 ?�유 코드
+     * @throws EntityNotFoundException ?�당 ID??차이 ?�유 코드가 ?�을 경우
      */
     public DifferenceReasonCode updateDifferenceReasonCode(Long id, DifferenceReasonCode updatedReasonCode) {
         DifferenceReasonCode existingCode = differenceReasonCodeRepository.findById(id)
@@ -232,21 +232,21 @@ public class ReconciliationService {
     }
 
     /**
-     * 차이 사유 코드를 삭제합니다.
-     * @param id 삭제할 차이 사유 코드의 ID
+     * 차이 ?�유 코드�???��?�니??
+     * @param id ??��??차이 ?�유 코드??ID
      */
     public void deleteDifferenceReasonCode(Long id) {
-        // TODO: 연관된 ReconciliationDifference 처리 로직 추가 필요 (FK 제약 조건)
+        // TODO: ?��???ReconciliationDifference 처리 로직 추�? ?�요 (FK ?�약 조건)
         differenceReasonCodeRepository.deleteById(id);
     }
 
     /**
-     * 대사 차이를 특정 사용자에게 할당하고 SLA 기한을 설정합니다.
-     * @param differenceId 할당할 대사 차이의 ID
-     * @param assignedToUser 할당받을 사용자 ID 또는 이름
+     * ?�??차이�??�정 ?�용?�에�??�당?�고 SLA 기한???�정?�니??
+     * @param differenceId ?�당???�??차이??ID
+     * @param assignedToUser ?�당받을 ?�용??ID ?�는 ?�름
      * @param slaDueDate SLA 기한
-     * @return 업데이트된 ReconciliationDifference
-     * @throws EntityNotFoundException 해당 ID의 대사 차이가 없을 경우
+     * @return ?�데?�트??ReconciliationDifference
+     * @throws EntityNotFoundException ?�당 ID???�??차이가 ?�을 경우
      */
     public ReconciliationDifference assignDifference(Long differenceId, String assignedToUser, LocalDateTime slaDueDate) {
         ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
@@ -254,21 +254,19 @@ public class ReconciliationService {
 
         difference.setAssignedToUser(assignedToUser);
         difference.setSlaDueDate(slaDueDate);
-        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED); // 상태를 ASSIGNED로 변경
-        return reconciliationDifferenceRepository.save(difference);
+        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED); // ?�태�?ASSIGNED�?변�?        return reconciliationDifferenceRepository.save(difference);
     }
 
     /**
-     * 대사 차이를 해결 또는 무시 처리합니다.
-     * DoD에 따라 차이는 반드시 사유 코드로 수렴해야 하며,
-     * 조정이 필요한 사유 코드는 조정 전표 링크가 있어야 합니다.
+     * ?�??차이�??�결 ?�는 무시 처리?�니??
+     * DoD???�라 차이??반드???�유 코드�??�렴?�야 ?�며,
+     * 조정???�요???�유 코드??조정 ?�표 링크가 ?�어???�니??
      *
-     * @param differenceId 해결할 대사 차이 ID
-     * @param reasonCodeId 사유 코드 ID
-     * @param adjustmentJournalEntryId 조정 전표 ID
-     * @param status 최종 상태 (RESOLVED 또는 IGNORED)
-     * @param resolvedBy 처리자
-     * @return 갱신된 대사 차이
+     * @param differenceId ?�결???�??차이 ID
+     * @param reasonCodeId ?�유 코드 ID
+     * @param adjustmentJournalEntryId 조정 ?�표 ID
+     * @param status 최종 ?�태 (RESOLVED ?�는 IGNORED)
+     * @param resolvedBy 처리??     * @return 갱신???�??차이
      */
     public ReconciliationDifference resolveDifference(Long differenceId, Long reasonCodeId, Long adjustmentJournalEntryId,
                                                       ReconciliationDifference.ReconciliationDifferenceStatus status,
@@ -306,9 +304,9 @@ public class ReconciliationService {
     }
 
     /**
-     * 특정 대사 실행에 해당하는 모든 대사 차이를 조회합니다.
-     * @param reconciliationRunId 대사 실행 ID
-     * @return 대사 차이 목록
+     * ?�정 ?�???�행???�당?�는 모든 ?�??차이�?조회?�니??
+     * @param reconciliationRunId ?�???�행 ID
+     * @return ?�??차이 목록
      */
     @Transactional(readOnly = true)
     public List<ReconciliationDifference> findDifferencesByReconciliationRunId(Long reconciliationRunId) {
@@ -317,27 +315,27 @@ public class ReconciliationService {
         return reconciliationDifferenceRepository.findByReconciliationRun(run);
     }
 
-    // --- Core Reconciliation Logic (대사 실행 로직) ---
+    // --- Core Reconciliation Logic (?�???�행 로직) ---
 
     /**
-     * 특정 대사 단위를 기반으로 대사를 실행합니다.
-     * 이 메서드는 대사 로직의 진입점이며, 실제 매칭 및 차이 식별 로직을 호출합니다.
-     * @param unitId 대사를 실행할 대사 단위의 ID
-     * @param reconciliationDate 대사 기준일
-     * @return 생성된 대사 실행 결과 (ReconciliationRun)
-     * @throws EntityNotFoundException 대사 단위를 찾을 수 없는 경우
+     * ?�정 ?�???�위�?기반?�로 ?�?��? ?�행?�니??
+     * ??메서?�는 ?�??로직??진입?�이�? ?�제 매칭 �?차이 ?�별 로직???�출?�니??
+     * @param unitId ?�?��? ?�행???�???�위??ID
+     * @param reconciliationDate ?�??기�???
+     * @return ?�성???�???�행 결과 (ReconciliationRun)
+     * @throws EntityNotFoundException ?�???�위�?찾을 ???�는 경우
      */
     public ReconciliationRun performReconciliation(Long unitId, LocalDate reconciliationDate) {
         ReconciliationUnit reconciliationUnit = findReconciliationUnitById(unitId);
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 
-        // ReconciliationRun 시작 기록
+        // ReconciliationRun ?�작 기록
         ReconciliationRun run = new ReconciliationRun();
         run.setReconciliationUnit(reconciliationUnit);
         run.setReconciliationDate(reconciliationDate);
         run.setRunStartTime(LocalDateTime.now());
         run.setStatus(ReconciliationRunStatus.RUNNING);
-        run.setRunBy("SYSTEM"); // 또는 현재 로그인 사용자 정보
+        run.setRunBy("SYSTEM"); // ?�는 ?�재 로그???�용???�보
         run = reconciliationRunRepository.save(run);
 
         try {
@@ -351,23 +349,23 @@ public class ReconciliationService {
             BigDecimal matchedAmount = BigDecimal.ZERO;
             int matchedCount = 0;
 
-            // 3. 매칭된 항목/금액, 미매칭된 항목/금액 계산 (임시 로직)
-            // 실제 구현에서는 각 rule의 ruleDefinitionJson을 파싱하여 복잡한 매칭 로직 수행
-            // 이 예시에서는 모든 규칙을 적용하여 최종 차이를 계산한다고 가정
+            // 3. 매칭????��/금액, 미매�?�� ??��/금액 계산 (?�시 로직)
+            // ?�제 구현?�서??�?rule??ruleDefinitionJson???�싱?�여 복잡??매칭 로직 ?�행
+            // ???�시?�서??모든 규칙???�용?�여 최종 차이�?계산?�다�?가??
 
             // TODO: Replace with actual logic to fetch source/target data based on reconciliationUnit and rules.
-            // 현재는 컴파일과 기본 흐름 확인을 위해 더미 값을 사용
+            // ?�재??컴파?�과 기본 ?�름 ?�인???�해 ?��? 값을 ?�용
             sourceAmount = new BigDecimal("1000.00"); // Dummy value
             targetAmount = new BigDecimal("950.00");  // Dummy value
             sourceCount = 10;
             targetCount = 9;
 
 
-            // 임시 매칭 로직: 단순 금액 불일치 발생 시 차이 생성
+            // ?�시 매칭 로직: ?�순 금액 불일�?발생 ??차이 ?�성
             if (sourceAmount.compareTo(targetAmount) != 0) {
                 // 차이 발생
                 unmatchedAmount = sourceAmount.subtract(targetAmount).abs();
-                unmatchedCount = sourceCount - targetCount; // 간단한 예시로 차이 개수 설정
+                unmatchedCount = sourceCount - targetCount; // 간단???�시�?차이 개수 ?�정
                 matchedAmount = sourceAmount.min(targetAmount);
                 matchedCount = Math.min(sourceCount, targetCount);
 
@@ -377,43 +375,43 @@ public class ReconciliationService {
                 diff.setAmountExpected(sourceAmount);
                 diff.setAmountActual(targetAmount);
                 diff.setDifferenceAmount(unmatchedAmount);
-                diff.setDescription(reconciliationUnit.getName() + " - 금액 불일치 발생 (기준일: " + reconciliationDate + ")");
-                // sourceItemRef와 targetItemRef는 실제 데이터를 반영하도록 변경 필요
+                diff.setDescription(reconciliationUnit.getName() + " - 금액 불일�?발생 (기�??? " + reconciliationDate + ")");
+                // sourceItemRef?� targetItemRef???�제 ?�이?��? 반영?�도�?변�??�요
                 diff.setSourceItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
                 diff.setTargetItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
 
-                // DoD: 차이는 "원인코드+조정전표 링크"로 반드시 수렴
-                // 기본 차이 사유 코드를 조회하거나, 규칙 기반으로 특정 사유 코드 할당
+                // DoD: 차이??"?�인코드+조정?�표 링크"�?반드???�렴
+                // 기본 차이 ?�유 코드�?조회?�거?? 규칙 기반?�로 ?�정 ?�유 코드 ?�당
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
-                        .orElseGet(() -> differenceReasonCodeRepository.save(createDefaultReasonCode())); // 기본 사유 코드 없으면 생성 후 저장
+                        .orElseGet(() -> differenceReasonCodeRepository.save(createDefaultReasonCode())); // 기본 ?�유 코드 ?�으�??�성 ???�??
 
                 diff.setReasonCode(defaultReason);
-                diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING); // 초기 상태
+                diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING); // 초기 ?�태
                 diff.setAuditUser("SYSTEM");
 
-                // 조정 전표 생성 로직 (isAdjustable이 true인 경우)
+                // 조정 ?�표 ?�성 로직 (isAdjustable??true??경우)
                 if (defaultReason.isAdjustable()) {
-                    // 차변/대변 계정과목은 대사 단위의 유형이나 시스템 설정에 따라 달라짐
-                    // 여기서는 임시로 특정 계정과목 사용
-                    AccountSubject debitAccount = accountSubjectRepository.findById("121000") // 예: 미결제 계정 (임시)
+                    // 차�?/?�변 계정과목?� ?�???�위???�형?�나 ?�스???�정???�라 ?�라�?
+                    // ?�기?�는 ?�시�??�정 계정과목 ?�용
+                    AccountSubject debitAccount = accountSubjectRepository.findById("121000") // ?? 미결??계정 (?�시)
                             .orElseThrow(() -> new EntityNotFoundException("Debit AccountSubject (121000) not found. Please create it."));
-                    AccountSubject creditAccount = accountSubjectRepository.findById("999999") // 예: 대사차이 조정 계정 (임시)
+                    AccountSubject creditAccount = accountSubjectRepository.findById("999999") // ?? ?�?�차??조정 계정 (?�시)
                             .orElseThrow(() -> new EntityNotFoundException("Credit AccountSubject (999999) not found. Please create it."));
 
                     JournalEntry adjustmentEntry = createAdjustmentJournalEntry(
                             reconciliationDate,
                             unmatchedAmount,
-                            reconciliationUnit.getName() + " 대사 차이 조정 (" + defaultReason.getName() + ")",
+                            reconciliationUnit.getName() + " ?�??차이 조정 (" + defaultReason.getName() + ")",
                             debitAccount,
                             creditAccount,
                             "SYSTEM"
                     );
-                    diff.setAdjustmentJournalEntry(adjustmentEntry); // 조정 전표 링크
+                    diff.setAdjustmentJournalEntry(adjustmentEntry); // 조정 ?�표 링크
                 }
                 reconciliationDifferenceRepository.save(diff);
             }
 
-            // run 객체 업데이트
+            // run 객체 ?�데?�트
             run.setTotalItemsSource((long)sourceCount);
             run.setTotalAmountSource(sourceAmount);
             run.setTotalItemsTarget((long)targetCount);
@@ -427,7 +425,7 @@ public class ReconciliationService {
 
         } catch (Exception e) {
             run.setStatus(ReconciliationRunStatus.FAILED);
-            // TODO: 에러 로깅
+            // TODO: ?�러 로깅
             throw new RuntimeException("Reconciliation failed for unit " + unitId, e);
         } finally {
             run.setRunEndTime(LocalDateTime.now());
@@ -438,14 +436,14 @@ public class ReconciliationService {
     }
 
     /**
-     * 조정 전표를 생성하고 저장하는 헬퍼 메서드.
-     * @param accountingDate 회계일자
+     * 조정 ?�표�??�성?�고 ?�?�하???�퍼 메서??
+     * @param accountingDate ?�계?�자
      * @param amount 금액
-     * @param description 적요
-     * @param debitAccount 차변 계정과목
-     * @param creditAccount 대변 계정과목
-     * @param createdBy 생성자
-     * @return 생성된 JournalEntry
+     * @param description ?�요
+     * @param debitAccount 차�? 계정과목
+     * @param creditAccount ?�변 계정과목
+     * @param createdBy ?�성??
+     * @return ?�성??JournalEntry
      */
     private JournalEntry createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
                                                       AccountSubject debitAccount, AccountSubject creditAccount, String createdBy) {
@@ -453,44 +451,44 @@ public class ReconciliationService {
         entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(accountingDate);
         entry.setDescription(description);
-        entry.setStatus(JournalEntryStatus.DRAFT); // 조정 전표는 DRAFT 상태로 생성 후 승인 프로세스를 거칠 수 있음
+        entry.setStatus(JournalEntryStatus.DRAFT); // 조정 ?�표??DRAFT ?�태�??�성 ???�인 ?�로?�스�?거칠 ???�음
         entry.setEntryType("ADJUSTMENT");
         entry.setCreatedBy(createdBy);
         entry.setAuditUser(createdBy);
         entry.setLineageSourceType("RECONCILIATION");
-        entry.setLineageSourceId("RECON_ADJ-" + System.currentTimeMillis()); // 고유한 ID 생성
+        entry.setLineageSourceId("RECON_ADJ-" + System.currentTimeMillis()); // 고유??ID ?�성
 
-        // JournalDetail - 차변
+        // JournalDetail - 차�?
         JournalDetail debitDetail = new JournalDetail();
         debitDetail.setDrcrType("DEBIT");
         debitDetail.setAccountSubject(debitAccount);
         debitDetail.setAmount(amount);
-        debitDetail.setBaseAmount(amount); // 기준 통화 금액도 동일하다고 가정
-        debitDetail.setDetailDescription(description + " (차변)");
+        debitDetail.setBaseAmount(amount); // 기�? ?�화 금액???�일?�다�?가??
+        debitDetail.setDetailDescription(description + " (차�?)");
         entry.addDetail(debitDetail);
 
-        // JournalDetail - 대변
+        // JournalDetail - ?�변
         JournalDetail creditDetail = new JournalDetail();
         creditDetail.setDrcrType("CREDIT");
         creditDetail.setAccountSubject(creditAccount);
         creditDetail.setAmount(amount);
-        creditDetail.setBaseAmount(amount); // 기준 통화 금액도 동일하다고 가정
-        creditDetail.setDetailDescription(description + " (대변)");
+        creditDetail.setBaseAmount(amount); // 기�? ?�화 금액???�일?�다�?가??
+        creditDetail.setDetailDescription(description + " (?�변)");
         entry.addDetail(creditDetail);
 
-        // 전표번호 생성 (예시)
+        // ?�표번호 ?�성 (?�시)
         entry.setSlipNo(accountingDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + "-ADJ-" + journalEntryRepository.count());
 
         return journalEntryRepository.save(entry);
     }
 
-    // 기본 차이 사유 코드를 생성하는 헬퍼 메서드 (초기 데이터 로딩 시 사용 가능)
+    // 기본 차이 ?�유 코드�??�성?�는 ?�퍼 메서??(초기 ?�이??로딩 ???�용 가??
     private DifferenceReasonCode createDefaultReasonCode() {
         DifferenceReasonCode defaultReason = new DifferenceReasonCode();
         defaultReason.setCode("GENERIC_MISMATCH");
-        defaultReason.setName("일반 불일치");
-        defaultReason.setDescription("자동 매칭되지 않은 일반적인 불일치");
-        defaultReason.setAdjustable(true); // 기본적으로 조정 가능하도록 설정
+        defaultReason.setName("?�반 불일�?);
+        defaultReason.setDescription("?�동 매칭?��? ?��? ?�반?�인 불일�?);
+        defaultReason.setAdjustable(true); // 기본?�으�?조정 가?�하?�록 ?�정
         defaultReason.setActive(true);
         return defaultReason;
     }

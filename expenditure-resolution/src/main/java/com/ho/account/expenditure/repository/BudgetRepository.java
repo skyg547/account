@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.repository;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Department;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.expenditure.domain.Budget;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

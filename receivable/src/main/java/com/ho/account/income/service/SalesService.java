@@ -1,7 +1,7 @@
 package com.ho.account.income.service;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -14,39 +14,31 @@ import com.ho.account.income.repository.ReceivableRepository;
 import com.ho.account.income.repository.SalesInvoiceRepository;
 import java.time.LocalDate;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class SalesService {
 
     private final SalesInvoiceRepository salesInvoiceRepository;
     private final ReceivableRepository receivableRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
 
-    public SalesService(SalesInvoiceRepository salesInvoiceRepository,
-                        ReceivableRepository receivableRepository,
-                        BusinessPartnerRepository businessPartnerRepository,
-                        MasterDataQueryPort masterDataQueryPort,
-                        JournalPostingPort journalPostingPort) {
-        this.salesInvoiceRepository = salesInvoiceRepository;
-        this.receivableRepository = receivableRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
-        this.masterDataQueryPort = masterDataQueryPort;
-        this.journalPostingPort = journalPostingPort;
-    }
-
     public SalesInvoice createSalesInvoice(SalesInvoice invoice) {
         String customerCode = invoice.getCustomer().getBusinessPartnerCode();
+        
+        // MasterDataQueryPort를 통해 정합성 확인
         masterDataQueryPort.findBusinessPartner(customerCode)
                 .orElseThrow(() -> new IllegalArgumentException("고객 정보를 찾을 수 없습니다: " + customerCode));
-        BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(
-                        customerCode)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "고객 정보를 찾을 수 없습니다: " + customerCode));
+        
+        // 실제 엔티티 연결은 PersistencePort를 통해 수행
+        BusinessPartner customer = businessPartnerPersistencePort.findByBusinessPartnerCode(customerCode)
+                .orElseThrow(() -> new IllegalArgumentException("고객 엔티티를 찾을 수 없습니다: " + customerCode));
         invoice.setCustomer(customer);
 
         if (invoice.getStatus() == null) {
@@ -97,15 +89,13 @@ public class SalesService {
         List<Receivable> overdueReceivables =
                 receivableRepository.findByDueDateBeforeAndStatusNot(asOfDate, ReceivableStatus.PAID);
         for (Receivable receivable : overdueReceivables) {
-            if (receivable.getDueDate().isBefore(asOfDate)) {
-                receivable.setStatus(ReceivableStatus.OVERDUE);
-                receivableRepository.save(receivable);
+            receivable.setStatus(ReceivableStatus.OVERDUE);
+            receivableRepository.save(receivable);
 
-                if (receivable.getSalesInvoice() != null
-                        && receivable.getSalesInvoice().getStatus() != SalesInvoiceStatus.PARTIAL_PAID) {
-                    receivable.getSalesInvoice().setStatus(SalesInvoiceStatus.OVERDUE);
-                    salesInvoiceRepository.save(receivable.getSalesInvoice());
-                }
+            if (receivable.getSalesInvoice() != null
+                    && receivable.getSalesInvoice().getStatus() != SalesInvoiceStatus.PARTIAL_PAID) {
+                receivable.getSalesInvoice().setStatus(SalesInvoiceStatus.OVERDUE);
+                salesInvoiceRepository.save(receivable.getSalesInvoice());
             }
         }
     }

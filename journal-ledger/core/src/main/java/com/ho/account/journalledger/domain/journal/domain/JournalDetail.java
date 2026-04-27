@@ -8,16 +8,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ?꾪몴 ?곸꽭(Journal Detail) ?뷀떚??
- * 遺꾧컻 ?꾪몴??媛쒕퀎 ?쇱씤(李⑤?/?蹂)????ν븯硫?怨꾩젙怨쇰ぉ, 湲덉븸, 洹?띾????깆쓣 ?ы븿?쒕떎.
+ * 전표 상세(Journal Detail) 엔티티
+ * 분개 전표의 개별 라인(차변/대변)을 저장하며 계정과목, 금액, 귀속부서 등을 포함합니다.
  */
 @Entity
 @Table(name = "journal_details", indexes = {
     @Index(name = "idx_journal_detail_journal_entry_id", columnList = "journal_entry_id"),
-    @Index(name = "idx_journal_detail_account_subject_id", columnList = "account_code"),
-    @Index(name = "idx_journal_detail_department_id", columnList = "dept_code"),
-    @Index(name = "idx_journal_detail_business_partner_id", columnList = "business_partner_code"),
-    @Index(name = "idx_journal_detail_drcr_type", columnList = "drcrType")
+    @Index(name = "idx_journal_detail_account_code", columnList = "account_code"),
+    @Index(name = "idx_journal_detail_dept_code", columnList = "dept_code"),
+    @Index(name = "idx_journal_detail_business_partner_code", columnList = "business_partner_code"),
+    @Index(name = "idx_journal_detail_side", columnList = "side")
 })
 public class JournalDetail {
 
@@ -29,28 +29,30 @@ public class JournalDetail {
     @JoinColumn(name = "journal_entry_id", nullable = false)
     private JournalEntry journalEntry;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT(李⑤?), CREDIT(?蹂)
+    private JournalSide side; // DEBIT(차변), CREDIT(대변)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_code", nullable = false)
     private AccountSubject accountSubject;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 嫄곕옒?듯솕 湲곗? 湲덉븸
+    private BigDecimal amount; // 거래통화 기준 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal baseAmount = BigDecimal.ZERO; // 湲곕낯?듯솕 湲곗? 湲덉븸
+    private BigDecimal baseAmount = BigDecimal.ZERO; // 기본통화 기준 금액
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department; // 洹?띾???
+    private Department department; // 귀속부서
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 嫄곕옒泥?
+    private BusinessPartner businessPartner; // 거래처
 
     @Column(length = 200)
-    private String detailDescription; // ?쇱씤蹂??곸슂
+    private String detailDescription; // 라인별 적요
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -90,12 +92,12 @@ public class JournalDetail {
         this.journalEntry = journalEntry;
     }
 
-    public String getDrcrType() {
-        return drcrType;
+    public JournalSide getSide() {
+        return side;
     }
 
-    public void setDrcrType(String drcrType) {
-        this.drcrType = drcrType;
+    public void setSide(JournalSide side) {
+        this.side = side;
     }
 
     public AccountSubject getAccountSubject() {

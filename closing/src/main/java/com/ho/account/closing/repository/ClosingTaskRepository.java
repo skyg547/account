@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * ClosingTask 엔티티를 위한 Spring Data JPA Repository
+ * ClosingTask ?뷀떚?곕? ?꾪븳 Spring Data JPA Repository
  */
 @Repository
 public interface ClosingTaskRepository extends JpaRepository<ClosingTask, Long> {

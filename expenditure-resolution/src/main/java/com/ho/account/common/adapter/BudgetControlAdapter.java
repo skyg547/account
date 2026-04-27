@@ -1,9 +1,9 @@
 package com.ho.account.common.adapter;
 
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.contracts.expenditure.BudgetControlPort;
 import com.ho.account.expenditure.repository.BudgetRepository;
 import com.ho.account.expenditure.service.BudgetService;
@@ -32,9 +32,9 @@ public class BudgetControlAdapter implements BudgetControlPort {
     @Override
     public void checkBudgetAvailability(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
         Department department = departmentRepository.findByCode(departmentCode)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다. code=" + departmentCode));
+                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. code=" + departmentCode));
         AccountSubject accountSubject = accountSubjectRepository.findByCode(accountCode)
-                .orElseThrow(() -> new IllegalArgumentException("계정과목을 찾을 수 없습니다. code=" + accountCode));
+                .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎. code=" + accountCode));
         if (budgetRepository.findByYearMonthAndDepartmentAndAccountSubject(yearMonth, department, accountSubject).isEmpty()) {
             return;
         }

@@ -1,14 +1,14 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 이연 항목 (Deferred Item) 엔티티
- * 대출과 관련된 개별 이연 수수료, 비용 등을 관리하며 상각 스케줄의 기초가 됩니다.
+ * ?�연 ??�� (Deferred Item) ?�티??
+ * ?�출과 관?�된 개별 ?�연 ?�수�? 비용 ?�을 관리하�??�각 ?��?줄의 기초가 ?�니??
  */
 @Entity
 @Table(name = "deferred_items")
@@ -27,23 +27,23 @@ public class DeferredItem {
     private DeferredItemType deferredItemType;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 총 이연 금액
+    private BigDecimal amount; // �??�연 금액
 
     @Column(nullable = false)
-    private LocalDate deferralDate; // 이연 발생일
+    private LocalDate deferralDate; // ?�연 발생??
 
     @Column(nullable = false)
-    private LocalDate amortizationStartDate; // 상각 시작일
+    private LocalDate amortizationStartDate; // ?�각 ?�작??
 
     @Column(nullable = false)
-    private LocalDate amortizationEndDate; // 상각 종료일
+    private LocalDate amortizationEndDate; // ?�각 종료??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // 잔여 이연 금액
+    private BigDecimal remainingAmount; // ?�여 ?�연 금액
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "initial_journal_entry_id")
-    private JournalEntry initialJournalEntry; // 최초 이연 처리 분개 전표
+    private JournalEntry initialJournalEntry; // 최초 ?�연 처리 분개 ?�표
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -76,7 +76,7 @@ public class DeferredItem {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter �?Setter
     public Long getId() {
         return id;
     }

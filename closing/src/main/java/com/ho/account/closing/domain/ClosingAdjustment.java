@@ -1,13 +1,13 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.basic.domain.FiscalPeriod;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 결산 조정 (Closing Adjustment) 엔티티
- * 결산 시점에 발생한 조정/재분류 분개 이력을 관리합니다.
+ * 寃곗궛 議곗젙 (Closing Adjustment) ?뷀떚??
+ * 寃곗궛 ?쒖젏??諛쒖깮??議곗젙/?щ텇瑜?遺꾧컻 ?대젰??愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "closing_adjustments")
@@ -23,7 +23,7 @@ public class ClosingAdjustment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id", nullable = false)
-    private JournalEntry journalEntry; // 조정 분개 전표
+    private JournalEntry journalEntry; // 議곗젙 遺꾧컻 ?꾪몴
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
@@ -46,10 +46,10 @@ public class ClosingAdjustment {
     private String auditUser;
 
     public enum AdjustmentType {
-        ACCRUAL, // 발생
-        DEFERRAL, // 이연
-        RECLASSIFICATION, // 재분류
-        ERROR_CORRECTION, // 오류 수정
+        ACCRUAL, // 諛쒖깮
+        DEFERRAL, // ?댁뿰
+        RECLASSIFICATION, // ?щ텇瑜?
+        ERROR_CORRECTION, // ?ㅻ쪟 ?섏젙
         OTHER
     }
 
@@ -66,7 +66,7 @@ public class ClosingAdjustment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

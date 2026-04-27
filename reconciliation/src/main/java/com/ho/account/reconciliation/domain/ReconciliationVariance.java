@@ -1,6 +1,6 @@
 package com.ho.account.reconciliation.domain;
 
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -87,7 +87,7 @@ public class ReconciliationVariance {
         this.updateDate = LocalDateTime.now();
     }
 
-    // Getter Î∞è Setter
+    // Getter Î∞?Setter
     public Long getId() {
         return id;
     }

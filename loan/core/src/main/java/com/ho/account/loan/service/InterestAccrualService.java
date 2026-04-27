@@ -1,9 +1,9 @@
 package com.ho.account.loan.service;
 
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.service.JournalService;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.loan.domain.LoanAccrualLog;
 import com.ho.account.loan.domain.LoanContract;
 import com.ho.account.loan.repository.LoanAccrualLogRepository;
@@ -18,7 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 대출 이자 발생(Accrual) 처리 서비스
+ * ?��??�자 발생(Accrual) 처리 ?�비??
  */
 @Service
 public class InterestAccrualService {
@@ -43,7 +43,7 @@ public class InterestAccrualService {
     }
 
     /**
-     * 특정 일자의 모든 활성 대출에 대해 이자 발생 처리를 수행합니다.
+     * ?�정 ?�자??모든 ?�성 ?�출에 ?�???�자 발생 처리�??�행?�니??
      */
     @Transactional
     public void processDailyAccrual(LocalDate accrualDate) {
@@ -55,13 +55,13 @@ public class InterestAccrualService {
     }
 
     private void processIndividualAccrual(LoanContract loan, LocalDate accrualDate) {
-        // 이미 해당 일자에 발생 처리가 되었는지 확인
+        // ?��? ?�당 ?�자??발생 처리가 ?�었?��? ?�인
         if (accrualLogRepository.findByLoanContractIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
             return;
         }
 
-        // 해당 일자에 해당하는 상각 스케줄 항목 찾기 (월말 정산 기준 가정)
-        // 실제로는 일할 계산(Daily Accrual)이 정석이나, 여기서는 간단히 스케줄 기반 월말 처리를 예시로 함
+        // ?�당 ?�자???�당?�는 ?�각 ?��?�???�� 찾기 (?�말 ?�산 기�? 가??
+        // ?�제로는 ?�할 계산(Daily Accrual)???�석?�나, ?�기?�는 간단???��?�?기반 ?�말 처리�??�시�???
         amortizationRepository.findByLoanContractIdAndPaymentDate(loan.getId(), accrualDate)
                 .ifPresent(scheduleEntry -> {
                     BigDecimal interestAmount = scheduleEntry.getInterestAmount();
@@ -73,7 +73,7 @@ public class InterestAccrualService {
                     log.setAuditUser("SYSTEM");
 
                     try {
-                        // 1. 전표 생성
+                        // 1. ?�표 ?�성
                         JournalEntry journalEntry = createAccrualJournal(loan, interestAmount, accrualDate);
                         JournalEntry savedJournal = journalService.createJournalEntry(journalEntry);
 
@@ -93,23 +93,23 @@ public class InterestAccrualService {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(date);
-        entry.setDescription("대출 이자 발생 수익 인식: " + loan.getLoanContractNo());
+        entry.setDescription("?��??�자 발생 ?�익 ?�식: " + loan.getLoanContractNo());
         entry.setCreatedBy("SYSTEM");
 
-        // 차변: 미수이자 (또는 대출 채권 증액)
+        // 차�?: 미수?�자 (?�는 ?��?채권 증액)
         JournalDetail debit = new JournalDetail();
         debit.setDrcrType("DEBIT");
         debit.setAmount(amount);
-        debit.setDetailDescription("미수이자 발생");
-        // 이자미수금 계정 (예: 11501)
+        debit.setDetailDescription("미수?�자 발생");
+        // ?�자미수�?계정 (?? 11501)
         accountSubjectRepository.findByCode("11501").ifPresent(debit::setAccountSubject);
 
-        // 대변: 이자수익
+        // ?�변: ?�자?�익
         JournalDetail credit = new JournalDetail();
         credit.setDrcrType("CREDIT");
         credit.setAmount(amount);
-        credit.setDetailDescription("이자수익 인식");
-        // 대출이자수익 계정 (예: 41101)
+        credit.setDetailDescription("?�자?�익 ?�식");
+        // ?�출이?�수??계정 (?? 41101)
         accountSubjectRepository.findByCode("41101").ifPresent(credit::setAccountSubject);
 
         entry.addDetail(debit);

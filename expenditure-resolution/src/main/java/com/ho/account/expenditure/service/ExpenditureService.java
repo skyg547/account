@@ -1,12 +1,12 @@
 package com.ho.account.expenditure.service;
 
 import com.ho.account.asset.domain.LeaseContract;
-import com.ho.account.basic.domain.AccountSubject;
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.domain.Department;
-import com.ho.account.basic.repository.AccountSubjectRepository;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
-import com.ho.account.basic.repository.DepartmentRepository;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.contracts.asset.AssetAcquisitionCommand;
 import com.ho.account.contracts.asset.AssetRegistrationPort;
 import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
@@ -16,9 +16,9 @@ import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
 import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
-import com.ho.account.journal.domain.JournalDetail;
-import com.ho.account.journal.domain.JournalEntry;
-import com.ho.account.journal.service.JournalService;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -65,12 +65,12 @@ public class ExpenditureService {
 
         Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
+                        "議댁옱?섏? ?딅뒗 遺?쒖엯?덈떎. 肄붾뱶: " + requestDto.getDepartmentCode()));
         resolution.setDepartment(department);
 
         AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
+                        "議댁옱?섏? ?딅뒗 吏湲?怨꾩젙?낅땲?? 肄붾뱶: " + requestDto.getPaymentAccountCode()));
         resolution.setPaymentAccount(paymentAccount);
 
         validatePurchaseTaxInvoice(requestDto.getTaxInvoiceId());
@@ -84,13 +84,13 @@ public class ExpenditureService {
 
             AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
+                            "議댁옱?섏? ?딅뒗 鍮꾩슜 怨꾩젙?낅땲?? 肄붾뱶: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
             BusinessPartner businessPartner = businessPartnerRepository
                     .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
+                            "議댁옱?섏? ?딅뒗 嫄곕옒泥섏엯?덈떎. 肄붾뱶: " + detailDto.getBusinessPartnerCode()));
             detail.setBusinessPartner(businessPartner);
 
             resolution.addDetail(detail);
@@ -117,11 +117,11 @@ public class ExpenditureService {
 
     public ExpenditureResolution updateResolution(Long id, ExpenditureResolutionRequestDto requestDto) {
         ExpenditureResolution existingResolution = expenditureRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("지출결의서를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("吏異쒓껐?섏꽌瑜?李얠쓣 ???놁뒿?덈떎. ID: " + id));
 
         if (existingResolution.getStatus() != ExpenditureResolutionStatus.DRAFT
                 && existingResolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
-            throw new IllegalStateException("작성중이거나 반려된 결의서만 수정할 수 있습니다.");
+            throw new IllegalStateException("?묒꽦以묒씠嫄곕굹 諛섎젮??寃곗쓽?쒕쭔 ?섏젙?????덉뒿?덈떎.");
         }
 
         existingResolution.setTitle(requestDto.getTitle());
@@ -130,12 +130,12 @@ public class ExpenditureService {
 
         Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
+                        "議댁옱?섏? ?딅뒗 遺?쒖엯?덈떎. 肄붾뱶: " + requestDto.getDepartmentCode()));
         existingResolution.setDepartment(department);
 
         AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 지급 계정입니다. 코드: " + requestDto.getPaymentAccountCode()));
+                        "議댁옱?섏? ?딅뒗 吏湲?怨꾩젙?낅땲?? 肄붾뱶: " + requestDto.getPaymentAccountCode()));
         existingResolution.setPaymentAccount(paymentAccount);
 
         validatePurchaseTaxInvoice(requestDto.getTaxInvoiceId());
@@ -150,13 +150,13 @@ public class ExpenditureService {
 
             AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "존재하지 않는 비용 계정입니다. 코드: " + detailDto.getAccountSubjectCode()));
+                            "議댁옱?섏? ?딅뒗 鍮꾩슜 怨꾩젙?낅땲?? 肄붾뱶: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
             BusinessPartner businessPartner = businessPartnerRepository
                     .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
+                            "議댁옱?섏? ?딅뒗 嫄곕옒泥섏엯?덈떎. 肄붾뱶: " + detailDto.getBusinessPartnerCode()));
             detail.setBusinessPartner(businessPartner);
 
             existingResolution.addDetail(detail);
@@ -175,11 +175,11 @@ public class ExpenditureService {
 
     public void requestApproval(Long id) {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("寃곗쓽?쒕? 李얠쓣 ???놁뒿?덈떎. ID: " + id));
 
         if (resolution.getStatus() != ExpenditureResolutionStatus.DRAFT
                 && resolution.getStatus() != ExpenditureResolutionStatus.REJECTED) {
-            throw new IllegalStateException("작성중이거나 반려된 결의서만 승인 요청할 수 있습니다.");
+            throw new IllegalStateException("?묒꽦以묒씠嫄곕굹 諛섎젮??寃곗쓽?쒕쭔 ?뱀씤 ?붿껌?????덉뒿?덈떎.");
         }
 
         resolution.setStatus(ExpenditureResolutionStatus.REQUESTED);
@@ -188,10 +188,10 @@ public class ExpenditureService {
 
     public void approveResolution(Long id) {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("寃곗쓽?쒕? 李얠쓣 ???놁뒿?덈떎. ID: " + id));
 
         if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
-            throw new IllegalStateException("승인요청 상태의 결의서만 승인할 수 있습니다.");
+            throw new IllegalStateException("?뱀씤?붿껌 ?곹깭??寃곗쓽?쒕쭔 ?뱀씤?????덉뒿?덈떎.");
         }
 
         JournalEntry journalEntry = createJournalFromResolution(resolution);
@@ -218,10 +218,10 @@ public class ExpenditureService {
 
     public void rejectResolution(Long id, String reason) {
         ExpenditureResolution resolution = expenditureRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("寃곗쓽?쒕? 李얠쓣 ???놁뒿?덈떎. ID: " + id));
 
         if (resolution.getStatus() != ExpenditureResolutionStatus.REQUESTED) {
-            throw new IllegalStateException("승인요청 상태의 결의서만 반려할 수 있습니다.");
+            throw new IllegalStateException("?뱀씤?붿껌 ?곹깭??寃곗쓽?쒕쭔 諛섎젮?????덉뒿?덈떎.");
         }
 
         resolution.setStatus(ExpenditureResolutionStatus.REJECTED);
@@ -237,7 +237,7 @@ public class ExpenditureService {
     @Transactional(readOnly = true)
     public ExpenditureResolution getResolution(Long id) {
         return expenditureRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("寃곗쓽?쒕? 李얠쓣 ???놁뒿?덈떎."));
     }
 
     private void createFixedAssetFromExpenditure(ExpenditureDetail detail, ExpenditureResolution resolution) {
@@ -257,7 +257,7 @@ public class ExpenditureService {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(resolution.getResolutionDate());
         entry.setAccountingDate(resolution.getPaymentDate());
-        entry.setDescription("지출결의 " + resolution.getTitle());
+        entry.setDescription("吏異쒓껐??" + resolution.getTitle());
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             JournalDetail journalDetail = new JournalDetail();
@@ -275,7 +275,7 @@ public class ExpenditureService {
         creditDetail.setAccountSubject(resolution.getPaymentAccount());
         creditDetail.setAmount(resolution.getTotalAmount());
         creditDetail.setDepartment(resolution.getDepartment());
-        creditDetail.setDetailDescription("지출결의 지급");
+        creditDetail.setDetailDescription("吏異쒓껐??吏湲?);
         entry.addDetail(creditDetail);
 
         return entry;
@@ -294,9 +294,9 @@ public class ExpenditureService {
         }
 
         TaxInvoiceRef taxInvoice = taxInvoiceQueryPort.findById(taxInvoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("세금계산서를 찾을 수 없습니다. ID: " + taxInvoiceId));
+                .orElseThrow(() -> new IllegalArgumentException("?멸툑怨꾩궛?쒕? 李얠쓣 ???놁뒿?덈떎. ID: " + taxInvoiceId));
         if (!"PURCHASE".equals(taxInvoice.type())) {
-            throw new IllegalArgumentException("지출결의서에 연결하는 세금계산서는 PURCHASE 타입이어야 합니다.");
+            throw new IllegalArgumentException("吏異쒓껐?섏꽌???곌껐?섎뒗 ?멸툑怨꾩궛?쒕뒗 PURCHASE ??낆씠?댁빞 ?⑸땲??");
         }
     }
 }

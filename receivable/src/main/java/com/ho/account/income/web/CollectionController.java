@@ -1,7 +1,7 @@
 package com.ho.account.income.web;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.income.domain.Collection;
 import com.ho.account.income.domain.MatchingRule;
 import com.ho.account.income.domain.UnmatchedCollection;
@@ -29,9 +29,9 @@ public class CollectionController {
     }
 
     /**
-     * 새로운 수금을 수신하고 초기 전표를 생성합니다. 자동 매칭을 시도합니다.
-     * @param request 수금 등록 요청 DTO
-     * @return 생성된 수금 정보
+     * ?�로???�금???�신?�고 초기 ?�표�??�성?�니?? ?�동 매칭???�도?�니??
+     * @param request ?�금 ?�록 ?�청 DTO
+     * @return ?�성???�금 ?�보
      */
     @PostMapping
     public ResponseEntity<Collection> receiveCollection(@Valid @RequestBody CollectionRequest request) {
@@ -43,7 +43,7 @@ public class CollectionController {
         collection.setReferenceNo(request.getReferenceNo());
 
         BusinessPartner customer = businessPartnerRepository.findByBusinessPartnerCode(request.getCustomerCode())
-                .orElseThrow(() -> new IllegalArgumentException("고객 정보를 찾을 수 없습니다: " + request.getCustomerCode()));
+                .orElseThrow(() -> new IllegalArgumentException("고객 ?�보�?찾을 ???�습?�다: " + request.getCustomerCode()));
         collection.setCustomer(customer);
 
         Collection createdCollection = collectionService.receivePayment(collection);
@@ -51,22 +51,22 @@ public class CollectionController {
     }
 
     /**
-     * 특정 수금에 대해 자동 매칭을 수동으로 트리거합니다.
-     * (주로 미매칭 큐에서 수금을 편집한 후 재시도할 때 사용될 수 있습니다.)
-     * @param collectionId 매칭을 시도할 수금 ID
+     * ?�정 ?�금???�???�동 매칭???�동?�로 ?�리거합?�다.
+     * (주로 미매�??�에???�금???�집?????�시?�할 ???�용?????�습?�다.)
+     * @param collectionId 매칭???�도???�금 ID
      * @return 처리 결과 메시지
      */
     @PostMapping("/{collectionId}/auto-match")
     public ResponseEntity<String> triggerAutoMatch(@PathVariable Long collectionId) {
         Collection collection = collectionService.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("수금을 찾을 수 없습니다: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("?�금??찾을 ???�습?�다: " + collectionId));
         collectionService.attemptAutoMatching(collection);
         return ResponseEntity.ok("Auto matching attempted for collection ID: " + collectionId);
     }
 
     /**
-     * 미매칭된 수금 목록 (미매칭 큐)을 조회합니다.
-     * @return 미매칭 상태의 수금 목록
+     * 미매�?�� ?�금 목록 (미매�?????조회?�니??
+     * @return 미매�??�태???�금 목록
      */
     @GetMapping("/unmatched")
     public ResponseEntity<List<UnmatchedCollection>> getUnmatchedCollections() {
@@ -75,9 +75,9 @@ public class CollectionController {
     }
 
     /**
-     * 수금을 매출채권에 수동으로 매칭합니다.
-     * @param request 수동 매칭 요청 DTO
-     * @return 매칭된 수금 정보
+     * ?�금??매출채권???�동?�로 매칭?�니??
+     * @param request ?�동 매칭 ?�청 DTO
+     * @return 매칭???�금 ?�보
      */
     @PostMapping("/manual-match")
     public ResponseEntity<Collection> manualMatchCollection(@Valid @RequestBody ManualMatchingRequest request) {
@@ -90,9 +90,9 @@ public class CollectionController {
     }
 
     /**
-     * 매칭 규칙을 생성 또는 업데이트합니다.
-     * @param request 매칭 규칙 요청 DTO
-     * @return 저장된 매칭 규칙 정보
+     * 매칭 규칙???�성 ?�는 ?�데?�트?�니??
+     * @param request 매칭 규칙 ?�청 DTO
+     * @return ?�?�된 매칭 규칙 ?�보
      */
     @PostMapping("/matching-rules")
     public ResponseEntity<MatchingRule> saveMatchingRule(@Valid @RequestBody MatchingRuleRequest request) {
@@ -111,8 +111,8 @@ public class CollectionController {
     }
 
     /**
-     * 모든 활성 매칭 규칙을 조회합니다.
-     * @return 활성 매칭 규칙 목록
+     * 모든 ?�성 매칭 규칙??조회?�니??
+     * @return ?�성 매칭 규칙 목록
      */
     @GetMapping("/matching-rules")
     public ResponseEntity<List<MatchingRule>> getAllMatchingRules() {

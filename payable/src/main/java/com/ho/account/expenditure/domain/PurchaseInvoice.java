@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.journal.domain.JournalEntry;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

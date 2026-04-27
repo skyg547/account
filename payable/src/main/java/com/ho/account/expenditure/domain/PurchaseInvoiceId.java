@@ -1,12 +1,12 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.basic.domain.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * PurchaseInvoice 엔티티의 복합 키를 정의하는 클래스.
- * invoiceNo와 vendor(BusinessPartner)를 조합하여 유니크한 인보이스를 식별합니다.
+ * PurchaseInvoice ?�티?�의 복합 ?��? ?�의?�는 ?�래??
+ * invoiceNo?� vendor(BusinessPartner)�?조합?�여 ?�니?�한 ?�보?�스�??�별?�니??
  */
 public class PurchaseInvoiceId implements Serializable {
 

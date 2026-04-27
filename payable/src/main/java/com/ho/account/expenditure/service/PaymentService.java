@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.service;
 
-import com.ho.account.basic.domain.BusinessPartner;
-import com.ho.account.basic.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
