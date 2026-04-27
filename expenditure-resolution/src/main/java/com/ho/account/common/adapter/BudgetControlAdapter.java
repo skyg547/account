@@ -14,27 +14,27 @@ import org.springframework.stereotype.Component;
 public class BudgetControlAdapter implements BudgetControlPort {
 
     private final BudgetService budgetService;
-    private final DepartmentRepository departmentRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
+    private final DepartmentPersistencePort departmentPersistencePort;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final BudgetRepository budgetRepository;
 
     public BudgetControlAdapter(
             BudgetService budgetService,
-            DepartmentRepository departmentRepository,
-            AccountSubjectRepository accountSubjectRepository,
+            DepartmentPersistencePort departmentPersistencePort,
+            AccountSubjectPersistencePort accountSubjectPersistencePort,
             BudgetRepository budgetRepository) {
         this.budgetService = budgetService;
-        this.departmentRepository = departmentRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.budgetRepository = budgetRepository;
     }
 
     @Override
     public void checkBudgetAvailability(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
-        Department department = departmentRepository.findByCode(departmentCode)
-                .orElseThrow(() -> new IllegalArgumentException("遺?쒕? 李얠쓣 ???놁뒿?덈떎. code=" + departmentCode));
-        AccountSubject accountSubject = accountSubjectRepository.findByCode(accountCode)
-                .orElseThrow(() -> new IllegalArgumentException("怨꾩젙怨쇰ぉ??李얠쓣 ???놁뒿?덈떎. code=" + accountCode));
+        Department department = departmentPersistencePort.findByCode(departmentCode)
+                .orElseThrow(() -> new IllegalArgumentException("Department not found. code=" + departmentCode));
+        AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(accountCode)
+                .orElseThrow(() -> new IllegalArgumentException("Account subject not found. code=" + accountCode));
         if (budgetRepository.findByYearMonthAndDepartmentAndAccountSubject(yearMonth, department, accountSubject).isEmpty()) {
             return;
         }

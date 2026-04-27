@@ -18,6 +18,7 @@ import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import com.ho.account.expenditure.repository.ExpenditureResolutionRepository;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,27 +32,27 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExpenditureService {
 
     private final ExpenditureResolutionRepository expenditureRepository;
-    private final JournalService journalService;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final DepartmentRepository departmentRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final JournalUseCase journalUseCase;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final DepartmentPersistencePort departmentPersistencePort;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final BudgetService budgetService;
     private final AssetRegistrationPort assetRegistrationPort;
     private final TaxInvoiceQueryPort taxInvoiceQueryPort;
 
     public ExpenditureService(ExpenditureResolutionRepository expenditureRepository,
-            JournalService journalService,
-            AccountSubjectRepository accountSubjectRepository,
-            DepartmentRepository departmentRepository,
-            BusinessPartnerRepository businessPartnerRepository,
+            JournalUseCase journalUseCase,
+            AccountSubjectPersistencePort accountSubjectPersistencePort,
+            DepartmentPersistencePort departmentPersistencePort,
+            BusinessPartnerPersistencePort businessPartnerPersistencePort,
             BudgetService budgetService,
             AssetRegistrationPort assetRegistrationPort,
             TaxInvoiceQueryPort taxInvoiceQueryPort) {
         this.expenditureRepository = expenditureRepository;
-        this.journalService = journalService;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.departmentRepository = departmentRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.journalUseCase = journalUseCase;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.budgetService = budgetService;
         this.assetRegistrationPort = assetRegistrationPort;
         this.taxInvoiceQueryPort = taxInvoiceQueryPort;
@@ -63,12 +64,12 @@ public class ExpenditureService {
         resolution.setResolutionDate(requestDto.getResolutionDate());
         resolution.setPaymentDate(requestDto.getPaymentDate());
 
-        Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
+        Department department = departmentPersistencePort.findByCode(requestDto.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "議댁옱?섏? ?딅뒗 遺?쒖엯?덈떎. 肄붾뱶: " + requestDto.getDepartmentCode()));
         resolution.setDepartment(department);
 
-        AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
+        AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(requestDto.getPaymentAccountCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "議댁옱?섏? ?딅뒗 吏湲?怨꾩젙?낅땲?? 肄붾뱶: " + requestDto.getPaymentAccountCode()));
         resolution.setPaymentAccount(paymentAccount);
@@ -82,12 +83,12 @@ public class ExpenditureService {
             detail.setDescription(detailDto.getDescription());
             detail.setAmount(detailDto.getAmount());
 
-            AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
+            AccountSubject detailAccount = accountSubjectPersistencePort.findByCode(detailDto.getAccountSubjectCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "議댁옱?섏? ?딅뒗 鍮꾩슜 怨꾩젙?낅땲?? 肄붾뱶: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
-            BusinessPartner businessPartner = businessPartnerRepository
+            BusinessPartner businessPartner = businessPartnerPersistencePort
                     .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "議댁옱?섏? ?딅뒗 嫄곕옒泥섏엯?덈떎. 肄붾뱶: " + detailDto.getBusinessPartnerCode()));
@@ -128,12 +129,12 @@ public class ExpenditureService {
         existingResolution.setResolutionDate(requestDto.getResolutionDate());
         existingResolution.setPaymentDate(requestDto.getPaymentDate());
 
-        Department department = departmentRepository.findByCode(requestDto.getDepartmentCode())
+        Department department = departmentPersistencePort.findByCode(requestDto.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "議댁옱?섏? ?딅뒗 遺?쒖엯?덈떎. 肄붾뱶: " + requestDto.getDepartmentCode()));
         existingResolution.setDepartment(department);
 
-        AccountSubject paymentAccount = accountSubjectRepository.findById(requestDto.getPaymentAccountCode())
+        AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(requestDto.getPaymentAccountCode())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "議댁옱?섏? ?딅뒗 吏湲?怨꾩젙?낅땲?? 肄붾뱶: " + requestDto.getPaymentAccountCode()));
         existingResolution.setPaymentAccount(paymentAccount);
@@ -148,12 +149,12 @@ public class ExpenditureService {
             detail.setDescription(detailDto.getDescription());
             detail.setAmount(detailDto.getAmount());
 
-            AccountSubject detailAccount = accountSubjectRepository.findById(detailDto.getAccountSubjectCode())
+            AccountSubject detailAccount = accountSubjectPersistencePort.findByCode(detailDto.getAccountSubjectCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "議댁옱?섏? ?딅뒗 鍮꾩슜 怨꾩젙?낅땲?? 肄붾뱶: " + detailDto.getAccountSubjectCode()));
             detail.setAccountSubject(detailAccount);
 
-            BusinessPartner businessPartner = businessPartnerRepository
+            BusinessPartner businessPartner = businessPartnerPersistencePort
                     .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "議댁옱?섏? ?딅뒗 嫄곕옒泥섏엯?덈떎. 肄붾뱶: " + detailDto.getBusinessPartnerCode()));
@@ -195,9 +196,8 @@ public class ExpenditureService {
         }
 
         JournalEntry journalEntry = createJournalFromResolution(resolution);
-        JournalEntry savedEntry = journalService.createJournalEntry(journalEntry);
-        journalService.requestApproval(savedEntry.getId());
-        journalService.approveJournalEntry(savedEntry.getId());
+        JournalEntry savedEntry = journalUseCase.createJournalEntry(journalEntry);
+        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             if (Boolean.TRUE.equals(detail.getAccountSubject().isFixedAsset())) {
@@ -261,9 +261,10 @@ public class ExpenditureService {
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             JournalDetail journalDetail = new JournalDetail();
-            journalDetail.setDrcrType("DEBIT");
+            journalDetail.setSide(JournalSide.DEBIT);
             journalDetail.setAccountSubject(detail.getAccountSubject());
             journalDetail.setAmount(detail.getAmount());
+            journalDetail.setBaseAmount(detail.getAmount());
             journalDetail.setDepartment(resolution.getDepartment());
             journalDetail.setBusinessPartner(detail.getBusinessPartner());
             journalDetail.setDetailDescription(detail.getDescription());
@@ -271,11 +272,12 @@ public class ExpenditureService {
         }
 
         JournalDetail creditDetail = new JournalDetail();
-        creditDetail.setDrcrType("CREDIT");
+        creditDetail.setSide(JournalSide.CREDIT);
         creditDetail.setAccountSubject(resolution.getPaymentAccount());
         creditDetail.setAmount(resolution.getTotalAmount());
+        creditDetail.setBaseAmount(resolution.getTotalAmount());
         creditDetail.setDepartment(resolution.getDepartment());
-        creditDetail.setDetailDescription("吏異쒓껐??吏湲?);
+        creditDetail.setDetailDescription("Expenditure payment");
         entry.addDetail(creditDetail);
 
         return entry;

@@ -17,27 +17,27 @@ import org.springframework.stereotype.Component;
 public class MonolithLeasePaymentResolutionAdapter implements LeasePaymentResolutionPort {
 
     private final ExpenditureService expenditureService;
-    private final DepartmentRepository departmentRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final DepartmentPersistencePort departmentPersistencePort;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
 
     public MonolithLeasePaymentResolutionAdapter(ExpenditureService expenditureService,
-                                                 DepartmentRepository departmentRepository,
-                                                 AccountSubjectRepository accountSubjectRepository,
-                                                 BusinessPartnerRepository businessPartnerRepository) {
+                                                 DepartmentPersistencePort departmentPersistencePort,
+                                                 AccountSubjectPersistencePort accountSubjectPersistencePort,
+                                                 BusinessPartnerPersistencePort businessPartnerPersistencePort) {
         this.expenditureService = expenditureService;
-        this.departmentRepository = departmentRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.departmentPersistencePort = departmentPersistencePort;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
     }
 
     @Override
     public void createLeasePaymentResolution(LeasePaymentResolutionCommand command) {
-        Department department = departmentRepository.findByCode(command.departmentCode())
+        Department department = departmentPersistencePort.findByCode(command.departmentCode())
                 .orElseThrow(() -> new IllegalArgumentException("Department not found: " + command.departmentCode()));
-        AccountSubject accountSubject = accountSubjectRepository.findById(command.accountCode())
+        AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(command.accountCode())
                 .orElseThrow(() -> new IllegalArgumentException("Account subject not found: " + command.accountCode()));
-        BusinessPartner businessPartner = businessPartnerRepository.findByBusinessPartnerCode(command.businessPartnerCode())
+        BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(command.businessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException("Business partner not found: " + command.businessPartnerCode()));
 
         ExpenditureResolution resolution = new ExpenditureResolution();
