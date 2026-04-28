@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?��?(Loan) 계약 ?�티??
- * ?��?계약??기본 ?�보�?관리하�? ?�효?�자??EIR) 계산??기초가 ?�니??
+ * ?異?(Loan) 怨꾩빟 ?뷀떚??
+ * ?異?怨꾩빟??湲곕낯 ?뺣낫瑜?愿由ы븯硫? ?좏슚?댁옄??EIR) 怨꾩궛??湲곗큹媛 ?⑸땲??
  */
 @Entity
 @Table(name = "loans")
@@ -20,45 +20,45 @@ public class Loan {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String loanNumber; // ?��?번호
+    private String loanNumber; // ?異?踰덊샇
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_id", nullable = false)
-    private BusinessPartner businessPartner; // 차입??(borrower)
+    private BusinessPartner businessPartner; // 李⑥엯??(borrower)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private LoanType loanType; // ?��??�형 (TERM_LOAN, REVOLVING_LOAN, MORTGAGE ??
+    private LoanType loanType; // ?異??좏삎 (TERM_LOAN, REVOLVING_LOAN, MORTGAGE ??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency; // ?�화
+    private Currency currency; // ?듯솕
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalAmount; // ?�금
+    private BigDecimal principalAmount; // ?먭툑
 
     @Column(nullable = false, precision = 5, scale = 4)
-    private BigDecimal interestRate; // 명목 ?�자??(???�자??
+    private BigDecimal interestRate; // 紐낅ぉ ?댁옄??(???댁옄??
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // ?��??�행??
+    private LocalDate disbursalDate; // ?異??ㅽ뻾??
 
     @Column(nullable = false)
-    private LocalDate maturityDate; // 만기??
+    private LocalDate maturityDate; // 留뚭린??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private PaymentFrequency paymentFrequency; // ?�환 주기
+    private PaymentFrequency paymentFrequency; // ?곹솚 二쇨린
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal initialEIR; // 최초 ?�효 ?�자??(Effective Interest Rate)
+    private BigDecimal initialEIR; // 理쒖큹 ?좏슚 ?댁옄??(Effective Interest Rate)
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal currentEIR; // ?�재 ?�효 ?�자??(?�계????변�?가??
+    private BigDecimal currentEIR; // ?꾩옱 ?좏슚 ?댁옄??(?ш퀎????蹂寃?媛??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private LoanStatus status; // ?��??�태 (ACTIVE, REPAID, DEFAULTED)
+    private LoanStatus status; // ?異??곹깭 (ACTIVE, REPAID, DEFAULTED)
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -95,7 +95,7 @@ public class Loan {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

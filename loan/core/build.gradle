@@ -4,6 +4,11 @@ plugins {
 }
 
 description = 'account-loan-core'
+group = 'com.ho.loan'
+
+base {
+    archivesName = 'account-loan-core'
+}
 
 dependencyManagement {
     imports {
@@ -15,6 +20,7 @@ dependencies {
     api project(':contracts')
     api project(':shared-kernel')
     api project(':master-data')
+    api project(':journal-ledger:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'

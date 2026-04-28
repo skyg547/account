@@ -22,9 +22,9 @@ public class SalesController {
     }
 
     /**
-     * ?�로??매출 ?�보?�스�??�성?�고 매출채권???�식?�며, 매출 ?�식 ?�표�??�성?�니??
-     * @param request 매출 ?�보?�스 ?�록 ?�청 DTO
-     * @return ?�성??매출 ?�보?�스 ?�보
+     * ?덈줈??留ㅼ텧 ?몃낫?댁뒪瑜??앹꽦?섍퀬 留ㅼ텧梨꾧텒???몄떇?섎ŉ, 留ㅼ텧 ?몄떇 ?꾪몴瑜??앹꽦?⑸땲??
+     * @param request 留ㅼ텧 ?몃낫?댁뒪 ?깅줉 ?붿껌 DTO
+     * @return ?앹꽦??留ㅼ텧 ?몃낫?댁뒪 ?뺣낫
      */
     @PostMapping("/invoices")
     public ResponseEntity<SalesInvoice> createSalesInvoice(@Valid @RequestBody SalesInvoiceRequest request) {
@@ -47,9 +47,9 @@ public class SalesController {
     }
 
     /**
-     * ?�정 ?�짜�?기�??�로 매출채권???�태�??�데?�트?�니??(?? ?�체 처리).
-     * @param asOfDate 처리 기�??�자
-     * @return 처리 결과 메시지
+     * ?뱀젙 ?좎쭨瑜?湲곗??쇰줈 留ㅼ텧梨꾧텒???곹깭瑜??낅뜲?댄듃?⑸땲??(?? ?곗껜 泥섎━).
+     * @param asOfDate 泥섎━ 湲곗??쇱옄
+     * @return 泥섎━ 寃곌낵 硫붿떆吏
      */
     @PostMapping("/receivables/update-status/{asOfDate}")
     public ResponseEntity<String> updateReceivableStatus(@PathVariable LocalDate asOfDate) {

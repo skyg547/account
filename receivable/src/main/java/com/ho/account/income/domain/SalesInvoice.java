@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매출 ?�보?�스 ?�티??
- * 고객?�게 발행??매출 �?�?�� ?�보�?관리합?�다.
+ * 留ㅼ텧 ?몃낫?댁뒪 ?뷀떚??
+ * 怨좉컼?먭쾶 諛쒗뻾??留ㅼ텧 諛?泥?뎄 ?뺣낫瑜?愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "sales_invoices")
@@ -19,34 +19,34 @@ public class SalesInvoice {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String invoiceNo; // ?�보?�스 번호
+    private String invoiceNo; // ?몃낫?댁뒪 踰덊샇
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 고객 (거래�?
+    private BusinessPartner customer; // 怨좉컼 (嫄곕옒泥?
 
     @Column(nullable = false)
-    private LocalDate issueDate; // 발행??
+    private LocalDate issueDate; // 諛쒗뻾??
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기??(?�금 ?�정??
+    private LocalDate dueDate; // 留뚭린??(?섍툑 ?덉젙??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal totalAmount; // 총액 (공급가??+ ?�액)
+    private BigDecimal totalAmount; // 珥앹븸 (怨듦툒媛??+ ?몄븸)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal taxAmount; // ?�액
+    private BigDecimal taxAmount; // ?몄븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal netAmount; // 공급가??
+    private BigDecimal netAmount; // 怨듦툒媛??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private SalesInvoiceStatus status; // ?�보?�스 ?�태 (ISSUED, PAID, PARTIAL_PAID, OVERDUE, CANCELLED)
+    private SalesInvoiceStatus status; // ?몃낫?댁뒪 ?곹깭 (ISSUED, PAID, PARTIAL_PAID, OVERDUE, CANCELLED)
 
 
     @Column(length = 500)
-    private String description; // ?�명
+    private String description; // ?ㅻ챸
 
     @Column(nullable = false, updatable = false)
     private String createdBy;
@@ -62,7 +62,7 @@ public class SalesInvoice {
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

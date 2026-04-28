@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매출채권 ?�픈 ?�이???�티??
- * 고객?�로부???�금?�야 ??개별 ??��???��??�니??
+ * 留ㅼ텧梨꾧텒 ?ㅽ뵂 ?꾩씠???뷀떚??
+ * 怨좉컼?쇰줈遺???섍툑?댁빞 ??媛쒕퀎 ??ぉ???섑??낅땲??
  */
 @Entity
 @Table(name = "receivables")
@@ -20,24 +20,24 @@ public class Receivable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_invoice_id")
-    private SalesInvoice salesInvoice; // 관??매출 ?�보?�스
+    private SalesInvoice salesInvoice; // 愿??留ㅼ텧 ?몃낫?댁뒪
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 채권 ?�??고객 (거래�?
+    private BusinessPartner customer; // 梨꾧텒 ???怨좉컼 (嫄곕옒泥?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 최초 채권 금액
+    private BigDecimal originalAmount; // 理쒖큹 梨꾧텒 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 미수 금액
+    private BigDecimal outstandingAmount; // 誘몄닔 湲덉븸
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기??(?�금 ?�정??
+    private LocalDate dueDate; // 留뚭린??(?섍툑 ?덉젙??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private ReceivableStatus status; // 채권 ?�태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private ReceivableStatus status; // 梨꾧텒 ?곹깭 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
 
     @Column(nullable = false, updatable = false)
@@ -54,7 +54,7 @@ public class Receivable {
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

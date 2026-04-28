@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * EIR ?�각 ?��?�?(EIR Amortization Schedule) ?�티??
- * ?�효?�자??EIR) 방법???�라 계산???�출의 기간�??�각 ?��?줄을 기록?�니??
+ * EIR ?곴컖 ?ㅼ?以?(EIR Amortization Schedule) ?뷀떚??
+ * ?좏슚?댁옄??EIR) 諛⑸쾿???곕씪 怨꾩궛???異쒖쓽 湲곌컙蹂??곴컖 ?ㅼ?以꾩쓣 湲곕줉?⑸땲??
  */
 @Entity
 @Table(name = "eir_amortization_schedules")
@@ -23,32 +23,32 @@ public class EIRAmortizationSchedule {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate scheduleDate; // ?�당 ?��?줄의 기�???(?�별/?�별 ??
+    private LocalDate scheduleDate; // ?대떦 ?ㅼ?以꾩쓽 湲곗???(?쇰퀎/?붾퀎 ??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance; // 기초 ?�액
+    private BigDecimal beginningBalance; // 湲곗큹 ?붿븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal interestIncome; // ?�자 ?�익 (EIR ?�용)
+    private BigDecimal interestIncome; // ?댁옄 ?섏씡 (EIR ?곸슜)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalRepayment; // ?�금 ?�환??
+    private BigDecimal principalRepayment; // ?먭툑 ?곹솚??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance; // 기말 ?�액
+    private BigDecimal endingBalance; // 湲곕쭚 ?붿븸
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal deferredItemAmortization; // ?�연 ??�� ?�각??(?�수�? 비용 ??
+    private BigDecimal deferredItemAmortization; // ?댁뿰 ??ぉ ?곴컖??(?섏닔猷? 鍮꾩슜 ??
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal cashFlow; // ?�당 기간 ?�금 ?�름
+    private BigDecimal cashFlow; // ?대떦 湲곌컙 ?꾧툑 ?먮쫫
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amortization_journal_entry_id")
-    private JournalEntry amortizationJournalEntry; // ?�각 관??분개 ?�표
+    private JournalEntry amortizationJournalEntry; // ?곴컖 愿??遺꾧컻 ?꾪몴
 
     @Column(nullable = false)
-    private boolean isRecalculated = false; // ?�계?�된 ?��?�???��?��? ?��?
+    private boolean isRecalculated = false; // ?ш퀎?곕맂 ?ㅼ?以???ぉ?몄? ?щ?
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -71,7 +71,7 @@ public class EIRAmortizationSchedule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

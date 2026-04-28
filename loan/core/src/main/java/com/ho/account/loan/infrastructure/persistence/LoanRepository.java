@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 /**
- * Loan ?”í‹°?°ë? ?„í•œ Spring Data JPA Repository
+ * Loan ?ë·€ë–š?ê³•? ?ê¾ªë¸³ Spring Data JPA Repository
  */
 @Repository
 public interface LoanRepository extends JpaRepository<Loan, Long> {

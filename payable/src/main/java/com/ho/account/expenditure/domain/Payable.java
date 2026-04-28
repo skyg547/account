@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 매입채무 ?�픈 ?�이???�티??
- * 공급?�체??지급해????개별 ??��???��??�니??
+ * 留ㅼ엯梨꾨Т ?ㅽ뵂 ?꾩씠???뷀떚??
+ * 怨듦툒?낆껜??吏湲됲빐????媛쒕퀎 ??ぉ???섑??낅땲??
  */
 @Entity
 @Table(name = "payables")
@@ -20,7 +20,7 @@ public class Payable {
     private Long id;
 
     @Transient
-    private PurchaseInvoice purchaseInvoice; // 관??매입 ?�보?�스
+    private PurchaseInvoice purchaseInvoice; // 愿??留ㅼ엯 ?몃낫?댁뒪
 
     // To handle composite key of PurchaseInvoice, we need to manually map the columns
     @Column(name = "purchase_invoice_invoice_no", nullable = false)
@@ -32,24 +32,24 @@ public class Payable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 채무 ?�??공급?�체 (거래�?
+    private BusinessPartner vendor; // 梨꾨Т ???怨듦툒?낆껜 (嫄곕옒泥?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 최초 채무 금액
+    private BigDecimal originalAmount; // 理쒖큹 梨꾨Т 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 미�?�?금액
+    private BigDecimal outstandingAmount; // 誘몄?湲?湲덉븸
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 만기??(지�??�정??
+    private LocalDate dueDate; // 留뚭린??(吏湲??덉젙??
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PayableStatus status; // 채무 ?�태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private PayableStatus status; // 梨꾨Т ?곹깭 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 매입채무 ?�식 ?�표?�???�결 (?�택??
+    private JournalEntry journalEntry; // 留ㅼ엯梨꾨Т ?몄떇 ?꾪몴????곌껐 (?좏깮??
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,7 +65,7 @@ public class Payable {
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

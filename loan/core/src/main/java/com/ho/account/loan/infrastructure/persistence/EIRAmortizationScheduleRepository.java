@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * EIRAmortizationSchedule ?”í‹°?°ë? ?„í•œ Spring Data JPA Repository
+ * EIRAmortizationSchedule ?ë·€ë–š?ê³•? ?ê¾ªë¸³ Spring Data JPA Repository
  */
 @Repository
 public interface EIRAmortizationScheduleRepository extends JpaRepository<EIRAmortizationSchedule, Long> {

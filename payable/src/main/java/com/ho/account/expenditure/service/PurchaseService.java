@@ -21,66 +21,66 @@ public class PurchaseService {
 
     private final PurchaseInvoiceRepository purchaseInvoiceRepository;
     private final PayableRepository payableRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
 
     public PurchaseService(PurchaseInvoiceRepository purchaseInvoiceRepository,
                            PayableRepository payableRepository,
-                           BusinessPartnerRepository businessPartnerRepository,
+                           BusinessPartnerPersistencePort businessPartnerPersistencePort,
                            MasterDataQueryPort masterDataQueryPort,
                            JournalPostingPort journalPostingPort) {
         this.purchaseInvoiceRepository = purchaseInvoiceRepository;
         this.payableRepository = payableRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
     }
 
     /**
-     * 매입 ?�보?�스�??�성?�고 ?�당 매입채무�??�식?�며, 매입 ?�식 ?�표�??�성?�니??
-     * 중복 ?�보?�스 (거래�? ?�보?�스번호)�?방�??�니??
-     * @param invoice 매입 ?�보?�스 ?�보
-     * @return ?�성??매입 ?�보?�스
+     * 留ㅼ엯 ?몃낫?댁뒪瑜??앹꽦?섍퀬 ?대떦 留ㅼ엯梨꾨Т瑜??몄떇?섎ŉ, 留ㅼ엯 ?몄떇 ?꾪몴瑜??앹꽦?⑸땲??
+     * 以묐났 ?몃낫?댁뒪 (嫄곕옒泥? ?몃낫?댁뒪踰덊샇)瑜?諛⑹??⑸땲??
+     * @param invoice 留ㅼ엯 ?몃낫?댁뒪 ?뺣낫
+     * @return ?앹꽦??留ㅼ엯 ?몃낫?댁뒪
      */
     public PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice) {
         String vendorCode = invoice.getVendor().getBusinessPartnerCode();
         masterDataQueryPort.findBusinessPartner(vendorCode)
-                .orElseThrow(() -> new IllegalArgumentException("공급?�체 ?�보�?찾을 ???�습?�다: " + vendorCode));
-        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(vendorCode)
-                .orElseThrow(() -> new IllegalArgumentException("공급?�체 ?�보�?찾을 ???�습?�다: " + vendorCode));
+                .orElseThrow(() -> new IllegalArgumentException("怨듦툒?낆껜 ?뺣낫瑜?李얠쓣 ???놁뒿?덈떎: " + vendorCode));
+        BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
+                .orElseThrow(() -> new IllegalArgumentException("怨듦툒?낆껜 ?뺣낫瑜?李얠쓣 ???놁뒿?덈떎: " + vendorCode));
         invoice.setVendor(vendor);
 
-        // 중복 ?�보?�스 ?�인 (거래�?+ ?�보?�스 번호)
+        // 以묐났 ?몃낫?댁뒪 ?뺤씤 (嫄곕옒泥?+ ?몃낫?댁뒪 踰덊샇)
         if (purchaseInvoiceRepository.findByInvoiceNoAndVendorBusinessPartnerCode(
                 invoice.getInvoiceNo(), vendor.getBusinessPartnerCode()).isPresent()) {
-            throw new IllegalArgumentException("?��? 존재?�는 ?�보?�스 번호?�니??(공급?�체: " + vendor.getBusinessPartnerName() + ", ?�보?�스 번호: " + invoice.getInvoiceNo() + ")");
+            throw new IllegalArgumentException("?대? 議댁옱?섎뒗 ?몃낫?댁뒪 踰덊샇?낅땲??(怨듦툒?낆껜: " + vendor.getBusinessPartnerName() + ", ?몃낫?댁뒪 踰덊샇: " + invoice.getInvoiceNo() + ")");
         }
 
 
-        // 기본 ?�태 ?�정
+        // 湲곕낯 ?곹깭 ?ㅼ젙
         if (invoice.getStatus() == null) {
             invoice.setStatus(PurchaseInvoiceStatus.RECEIVED);
         }
         if (invoice.getCreatedBy() == null) {
-            invoice.setCreatedBy("SYSTEM"); // ?�는 ?�재 로그???�용???�보
+            invoice.setCreatedBy("SYSTEM"); // ?먮뒗 ?꾩옱 濡쒓렇???ъ슜???뺣낫
         }
 
         PurchaseInvoice savedInvoice = purchaseInvoiceRepository.save(invoice);
 
-        // 1. 매입채무 ?�성 (Open Item)
+        // 1. 留ㅼ엯梨꾨Т ?앹꽦 (Open Item)
         Payable payable = new Payable();
         payable.setPurchaseInvoiceNo(savedInvoice.getInvoiceNo());
         payable.setPurchaseInvoiceVendorCode(savedInvoice.getVendor().getBusinessPartnerCode());
 
         payable.setVendor(vendor);
         payable.setOriginalAmount(savedInvoice.getTotalAmount());
-        payable.setOutstandingAmount(savedInvoice.getTotalAmount()); // 초기?�는 미�?급금 ?�액
+        payable.setOutstandingAmount(savedInvoice.getTotalAmount()); // 珥덇린?먮뒗 誘몄?湲됯툑 ?꾩븸
         payable.setDueDate(savedInvoice.getDueDate());
         payable.setStatus(PayableStatus.OPEN);
         payableRepository.save(payable);
 
-        // 2. 매입 ?�식 ?�표 ?�성
+        // 2. 留ㅼ엯 ?몄떇 ?꾪몴 ?앹꽦
         requireAccount("21100", "AccountSubject for Accounts Payable not found");
         requireAccount("50100", "AccountSubject for Expense not found");
         requireAccount("13500", "AccountSubject for VAT Receivable not found");
@@ -88,7 +88,7 @@ public class PurchaseService {
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 invoice.getIssueDate(),
                 invoice.getIssueDate(),
-                "매입 ?�식: " + invoice.getInvoiceNo() + " - " + invoice.getVendor().getBusinessPartnerName(),
+                "留ㅼ엯 ?몄떇: " + invoice.getInvoiceNo() + " - " + invoice.getVendor().getBusinessPartnerName(),
                 "PURCHASE_RECOGNITION",
                 null,
                 null,
@@ -98,30 +98,30 @@ public class PurchaseService {
                 invoice.getInvoiceNo() + "_" + invoice.getVendor().getBusinessPartnerCode(),
                 List.of(
                         new JournalLineCommand("DEBIT", "50100", invoice.getNetAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "?�품 매입"),
+                                vendor.getBusinessPartnerCode(), "?곹뭹 留ㅼ엯"),
                         new JournalLineCommand("DEBIT", "13500", invoice.getTaxAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "부가?��?급금"),
+                                vendor.getBusinessPartnerCode(), "遺媛?몃?湲됯툑"),
                         new JournalLineCommand("CREDIT", "21100", invoice.getTotalAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "매입채무 발생"))));
+                                vendor.getBusinessPartnerCode(), "留ㅼ엯梨꾨Т 諛쒖깮"))));
 
         return savedInvoice;
     }
 
     /**
-     * 매입채무 ?�태�??�데?�트?�니?? (?? ?�체 처리)
-     * @param asOfDate 기�??�자
+     * 留ㅼ엯梨꾨Т ?곹깭瑜??낅뜲?댄듃?⑸땲?? (?? ?곗껜 泥섎━)
+     * @param asOfDate 湲곗??쇱옄
      */
     public void updatePayableStatus(LocalDate asOfDate) {
-        // 만기?�이 지??OPEN ?�는 PARTIAL_PAID ?�태??채무�?OVERDUE�?변�?
+        // 留뚭린?쇱씠 吏??OPEN ?먮뒗 PARTIAL_PAID ?곹깭??梨꾨Т瑜?OVERDUE濡?蹂寃?
         List<Payable> overduePayables = payableRepository.findByDueDateBeforeAndStatusNot(asOfDate, PayableStatus.PAID);
         for (Payable payable : overduePayables) {
-            if (payable.getDueDate().isBefore(asOfDate)) { // ?�실??만기?�이 지??경우
+            if (payable.getDueDate().isBefore(asOfDate)) { // ?뺤떎??留뚭린?쇱씠 吏??寃쎌슦
                 payable.setStatus(PayableStatus.OVERDUE);
                 payableRepository.save(payable);
 
-                // 관??PurchaseInvoice??OVERDUE�??�데?�트 (부�?지급된 경우 ?�외 ??로직 추�? 가??
+                // 愿??PurchaseInvoice??OVERDUE濡??낅뜲?댄듃 (遺遺?吏湲됰맂 寃쎌슦 ?쒖쇅 ??濡쒖쭅 異붽? 媛??
                 if (payable.getPurchaseInvoice() != null &&
-                    payable.getPurchaseInvoice().getStatus() != PurchaseInvoiceStatus.PARTIAL_PAID) { // 부�?지급된 건�? ?�로 관�?
+                    payable.getPurchaseInvoice().getStatus() != PurchaseInvoiceStatus.PARTIAL_PAID) { // 遺遺?吏湲됰맂 嫄댁? ?곕줈 愿由?
                     // purchaseInvoiceRepository.findById(new PurchaseInvoiceId(payable.getPurchaseInvoiceNo(), payable.getPurchaseInvoiceVendorCode()))
                     //         .ifPresent(pi -> {
                     //             pi.setStatus(PurchaseInvoiceStatus.OVERDUE);

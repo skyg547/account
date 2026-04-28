@@ -6,8 +6,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ?�??차이(Reconciliation Difference) ?�티??
- * ?�???�행 결과 발견??차이 ??��??기록?�고, ?�유 코드 �?조정 ?�표?� ?�계?�니??
+ * ???李⑥씠(Reconciliation Difference) ?뷀떚??
+ * ????ㅽ뻾 寃곌낵 諛쒓껄??李⑥씠 ??ぉ??湲곕줉?섍퀬, ?ъ쑀 肄붾뱶 諛?議곗젙 ?꾪몴? ?곌퀎?⑸땲??
  */
 @Entity
 @Table(name = "reconciliation_differences")
@@ -23,21 +23,21 @@ public class ReconciliationDifference {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private DifferenceType differenceType; // 차이 ?�형 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH ??
+    private DifferenceType differenceType; // 李⑥씠 ?좏삎 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH ??
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountExpected; // 기�? 금액
+    private BigDecimal amountExpected; // 湲곕? 湲덉븸
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountActual; // ?�제 금액
+    private BigDecimal amountActual; // ?ㅼ젣 湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal differenceAmount; // 차이 금액
+    private BigDecimal differenceAmount; // 李⑥씠 湲덉븸
 
     @Column(length = 1000)
-    private String description; // 차이 ?�세 ?�명
+    private String description; // 李⑥씠 ?곸꽭 ?ㅻ챸
 
-    // ?�천/?�???�이????��???�??참조 (?? JSON 문자?�로 { "type": "BANK_TRANSACTION", "id": "TXN123" } ?�는 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
+    // ?먯쿇/????곗씠????ぉ?????李몄“ (?? JSON 臾몄옄?대줈 { "type": "BANK_TRANSACTION", "id": "TXN123" } ?먮뒗 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
     @Column(columnDefinition = "TEXT")
     private String sourceItemRef;
 
@@ -46,25 +46,25 @@ public class ReconciliationDifference {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reason_code_id")
-    private DifferenceReasonCode reasonCode; // 차이 ?�유 코드 (DoD: 차이??"?�인코드"�?반드???�렴)
+    private DifferenceReasonCode reasonCode; // 李⑥씠 ?ъ쑀 肄붾뱶 (DoD: 李⑥씠??"?먯씤肄붾뱶"濡?諛섎뱶???섎졃)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // 조정 ?�표 (DoD: "조정?�표 링크"�?반드???�렴)
+    private JournalEntry adjustmentJournalEntry; // 議곗젙 ?꾪몴 (DoD: "議곗젙?꾪몴 留곹겕"濡?諛섎뱶???섎졃)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ReconciliationDifferenceStatus status; // 차이 처리 ?�태 (PENDING, ASSIGNED, RESOLVED, IGNORED)
+    private ReconciliationDifferenceStatus status; // 李⑥씠 泥섎━ ?곹깭 (PENDING, ASSIGNED, RESOLVED, IGNORED)
 
     @Column(length = 50)
-    private String assignedToUser; // ?�당??(User ?�티?��? FK ?�결 가?�하?? ?�단 String?�로)
+    private String assignedToUser; // ?대떦??(User ?뷀떚?곗? FK ?곌껐 媛?ν븯?? ?쇰떒 String?쇰줈)
 
-    private LocalDateTime slaDueDate; // SLA 기한
+    private LocalDateTime slaDueDate; // SLA 湲고븳
 
-    private LocalDateTime resolvedAt; // ?�결 ?�시
+    private LocalDateTime resolvedAt; // ?닿껐 ?쇱떆
 
     @Column(length = 50)
-    private String resolvedBy; // ?�결??
+    private String resolvedBy; // ?닿껐??
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -93,22 +93,22 @@ public class ReconciliationDifference {
 
     // --- Enums ---
     public enum DifferenceType {
-        AMOUNT_MISMATCH, // 금액 불일�?
-        MISSING_SOURCE,  // ?�천 ?�이???�락
-        MISSING_TARGET,  // ?�???�이???�락
-        DATE_MISMATCH,   // ?�짜 불일�?
-        OTHER            // 기�?
+        AMOUNT_MISMATCH, // 湲덉븸 遺덉씪移?
+        MISSING_SOURCE,  // ?먯쿇 ?곗씠???꾨씫
+        MISSING_TARGET,  // ????곗씠???꾨씫
+        DATE_MISMATCH,   // ?좎쭨 遺덉씪移?
+        OTHER            // 湲고?
     }
 
     public enum ReconciliationDifferenceStatus {
-        PENDING,   // 처리 ?��?
-        ASSIGNED,  // ?�당???�당
-        IN_REVIEW, // 검??�?
-        RESOLVED,  // ?�결 ?�료
-        IGNORED    // 무시??
+        PENDING,   // 泥섎━ ?湲?
+        ASSIGNED,  // ?대떦???좊떦
+        IN_REVIEW, // 寃??以?
+        RESOLVED,  // ?닿껐 ?꾨즺
+        IGNORED    // 臾댁떆??
     }
 
-    // --- Getter �?Setter ---
+    // --- Getter 諛?Setter ---
 
     public Long getId() {
         return id;

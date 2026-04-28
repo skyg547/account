@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ?�??거래 ?�역�??��?(GL) ??��???�동?�로 매칭?�는 ?�진
+ * ???嫄곕옒 ?댁뿭怨??λ?(GL) ??ぉ???먮룞?쇰줈 留ㅼ묶?섎뒗 ?붿쭊
  */
 @Component
 public class AutomatedMatchingEngine {
@@ -47,7 +47,7 @@ public class AutomatedMatchingEngine {
     }
 
     /**
-     * ?�???�역 리스?��? ?��? ?�역 리스?��? ?�조하??매칭 결과�?반환?�니??
+     * ????댁뿭 由ъ뒪?몄? ?λ? ?댁뿭 由ъ뒪?몃? ?議고븯??留ㅼ묶 寃곌낵瑜?諛섑솚?⑸땲??
      */
     public List<MatchResult> match(List<BankStatement> statements, List<JournalDetail> details) {
         List<MatchResult> results = new ArrayList<>();
@@ -69,7 +69,7 @@ public class AutomatedMatchingEngine {
     }
 
     private boolean isMatch(BankStatement stmt, JournalDetail detail) {
-        // 1. 금액 비교 (?��?�?기�? - ?�장?� ?�금/출금 구분, ?��???차�?/?�변 구분)
+        // 1. 湲덉븸 鍮꾧탳 (?덈?媛?湲곗? - ?듭옣? ?낃툑/異쒓툑 援щ텇, ?λ???李⑤?/?蹂 援щ텇)
         BigDecimal stmtAmount = stmt.getDepositAmount().compareTo(BigDecimal.ZERO) > 0 ? stmt.getDepositAmount()
                 : stmt.getWithdrawalAmount();
 
@@ -77,16 +77,16 @@ public class AutomatedMatchingEngine {
             return false;
         }
 
-        // 2. ?�짜 비교 (?�기??기�?, ?�상 +- 1~3???�용 가?�하???�기?�는 ?�치�??�정)
+        // 2. ?좎쭨 鍮꾧탳 (?꾧린??湲곗?, ?듭긽 +- 1~3???덉슜 媛?ν븯???ш린?쒕뒗 ?쇱튂濡??쒖젙)
         LocalDate stmtDate = stmt.getTransactionDate();
         LocalDate glDate = detail.getJournalEntry().getAccountingDate();
 
         if (!stmtDate.equals(glDate)) {
-            // ?��? 매칭: ?�짜가 1??차이??경우???�용?�도�??�장 가??
+            // ?쇱? 留ㅼ묶: ?좎쭨媛 1??李⑥씠??寃쎌슦???덉슜?섎룄濡??뺤옣 媛??
             return false;
         }
 
-        // 3. ?�요/?�명 비교 (간단???�함 ?��? ?�인)
+        // 3. ?곸슂/?ㅻ챸 鍮꾧탳 (媛꾨떒???ы븿 ?щ? ?뺤씤)
         // String stmtDesc = stmt.getDescription() != null ? stmt.getDescription() : "";
         // String glDesc = detail.getDetailDescription() != null ?
         // detail.getDetailDescription() : "";

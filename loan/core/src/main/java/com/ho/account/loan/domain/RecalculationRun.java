@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?�계???�행 (Recalculation Run) ?�티??
- * 중도?�환, 조건 변�??�으�??�해 ?�효?�자??EIR) ?��?줄이 ?�계?�된 ?�력??관리합?�다.
+ * ?ш퀎???ㅽ뻾 (Recalculation Run) ?뷀떚??
+ * 以묐룄?곹솚, 議곌굔 蹂寃??깆쑝濡??명빐 ?좏슚?댁옄??EIR) ?ㅼ?以꾩씠 ?ш퀎?곕맂 ?대젰??愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "recalculation_runs")
@@ -23,32 +23,32 @@ public class RecalculationRun {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate recalculationDate; // ?�계???�행??
+    private LocalDate recalculationDate; // ?ш퀎???ㅽ뻾??
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private RecalculationReason reason; // ?�계???�유 (EARLY_REPAYMENT, CONDITION_CHANGE ??
+    private RecalculationReason reason; // ?ш퀎???ъ쑀 (EARLY_REPAYMENT, CONDITION_CHANGE ??
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal oldEIR; // ?�전 ?�효?�자??
+    private BigDecimal oldEIR; // ?댁쟾 ?좏슚?댁옄??
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal newEIR; // ?�로???�효?�자??
+    private BigDecimal newEIR; // ?덈줈???좏슚?댁옄??
 
-    private LocalDate oldMaturityDate; // ?�전 만기??
+    private LocalDate oldMaturityDate; // ?댁쟾 留뚭린??
 
-    private LocalDate newMaturityDate; // ?�로??만기??
+    private LocalDate newMaturityDate; // ?덈줈??留뚭린??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculated_amortization_schedule_start_id")
-    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // ?�계?�된 ?��?줄의 ?�작 ??��
+    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // ?ш퀎?곕맂 ?ㅼ?以꾩쓽 ?쒖옉 ??ぉ
 
     @Column(columnDefinition = "TEXT")
-    private String impactAnalysis; // ?�계???�향 분석 (JSON ?�는 ?�스??
+    private String impactAnalysis; // ?ш퀎???곹뼢 遺꾩꽍 (JSON ?먮뒗 ?띿뒪??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // ?�계?�으�??�한 조정 분개 ?�표
+    private JournalEntry adjustmentJournalEntry; // ?ш퀎?곗쑝濡??명븳 議곗젙 遺꾧컻 ?꾪몴
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -75,7 +75,7 @@ public class RecalculationRun {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

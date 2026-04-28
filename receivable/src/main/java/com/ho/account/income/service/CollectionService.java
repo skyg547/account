@@ -25,13 +25,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class CollectionService {
 
     private final CollectionRepository collectionRepository;
@@ -42,6 +40,24 @@ public class CollectionService {
     private final MatchingRuleRepository matchingRuleRepository;
     private final UnmatchedCollectionRepository unmatchedCollectionRepository;
     private final SalesInvoiceRepository salesInvoiceRepository;
+
+    public CollectionService(CollectionRepository collectionRepository,
+                             ReceivableRepository receivableRepository,
+                             BusinessPartnerPersistencePort businessPartnerPersistencePort,
+                             MasterDataQueryPort masterDataQueryPort,
+                             JournalPostingPort journalPostingPort,
+                             MatchingRuleRepository matchingRuleRepository,
+                             UnmatchedCollectionRepository unmatchedCollectionRepository,
+                             SalesInvoiceRepository salesInvoiceRepository) {
+        this.collectionRepository = collectionRepository;
+        this.receivableRepository = receivableRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.masterDataQueryPort = masterDataQueryPort;
+        this.journalPostingPort = journalPostingPort;
+        this.matchingRuleRepository = matchingRuleRepository;
+        this.unmatchedCollectionRepository = unmatchedCollectionRepository;
+        this.salesInvoiceRepository = salesInvoiceRepository;
+    }
 
     public Collection receivePayment(Collection collection) {
         String customerCode = collection.getCustomer().getBusinessPartnerCode();

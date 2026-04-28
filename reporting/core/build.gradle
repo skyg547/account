@@ -1,0 +1,37 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management'
+}
+
+description = 'account-reporting-core'
+group = 'com.ho.reporting'
+
+base {
+    archivesName = 'account-reporting-core'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
+    }
+}
+
+dependencies {
+    api project(':contracts')
+    api project(':shared-kernel')
+    api project(':master-data')
+    api project(':journal-ledger:core')
+
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+jar {
+    enabled = true
+}

@@ -32,7 +32,7 @@ public class PaymentService {
     private final PayableRepository payableRepository;
     private final PaymentRunRepository paymentRunRepository;
     private final AdvancePaymentRepository advancePaymentRepository;
-    private final BusinessPartnerRepository businessPartnerRepository;
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
 
@@ -40,14 +40,14 @@ public class PaymentService {
                           PayableRepository payableRepository,
                           PaymentRunRepository paymentRunRepository,
                           AdvancePaymentRepository advancePaymentRepository,
-                          BusinessPartnerRepository businessPartnerRepository,
+                          BusinessPartnerPersistencePort businessPartnerPersistencePort,
                           MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort) {
         this.paymentRepository = paymentRepository;
         this.payableRepository = payableRepository;
         this.paymentRunRepository = paymentRunRepository;
         this.advancePaymentRepository = advancePaymentRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
     }
@@ -139,7 +139,7 @@ public class PaymentService {
         String vendorCode = advancePayment.getVendor().getBusinessPartnerCode();
         masterDataQueryPort.findBusinessPartner(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
-        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(vendorCode)
+        BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
         advancePayment.setVendor(vendor);
 

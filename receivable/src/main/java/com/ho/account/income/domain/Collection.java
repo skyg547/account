@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?�금(?�금) ?�티??
- * 고객?�로부???�금??금액 ?�보�?관리합?�다.
+ * ?섍툑(?낃툑) ?뷀떚??
+ * 怨좉컼?쇰줈遺???낃툑??湲덉븸 ?뺣낫瑜?愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "collections")
@@ -19,27 +19,27 @@ public class Collection {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate collectionDate; // ?�금??
+    private LocalDate collectionDate; // ?섍툑??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // ?�금 고객 (거래�?
+    private BusinessPartner customer; // ?낃툑 怨좉컼 (嫄곕옒泥?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // ?�금??
+    private BigDecimal amount; // ?섍툑??
 
     @Column(length = 100)
-    private String bankAccount; // ?�금???�??계좌 (?�름 ?�는 번호)
+    private String bankAccount; // ?낃툑?????怨꾩쥖 (?대쫫 ?먮뒗 踰덊샇)
 
     @Column(length = 100)
-    private String virtualAccount; // 가??계좌 ?�보 (?�용?�는 경우)
+    private String virtualAccount; // 媛??怨꾩쥖 ?뺣낫 (?ъ슜?섎뒗 寃쎌슦)
 
     @Column(length = 100)
-    private String referenceNo; // 매칭???�한 참조 번호 (?? ?�보?�스 번호, 주문 번호)
+    private String referenceNo; // 留ㅼ묶???꾪븳 李몄“ 踰덊샇 (?? ?몃낫?댁뒪 踰덊샇, 二쇰Ц 踰덊샇)
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private CollectionStatus status; // ?�금 ?�태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
+    private CollectionStatus status; // ?섍툑 ?곹깭 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
 
 
     @Column(nullable = false, updatable = false)
@@ -49,11 +49,11 @@ public class Collection {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = CollectionStatus.RECEIVED; // 초기 ?�태??RECEIVED (?�신??
+            status = CollectionStatus.RECEIVED; // 珥덇린 ?곹깭??RECEIVED (?섏떊??
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

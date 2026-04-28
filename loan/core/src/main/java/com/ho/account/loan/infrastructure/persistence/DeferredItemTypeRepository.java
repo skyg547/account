@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 /**
- * DeferredItemType ?”í‹°?°ë? ?„í•œ Spring Data JPA Repository
+ * DeferredItemType ?ë·€ë–š?ê³•? ?ê¾ªë¸³ Spring Data JPA Repository
  */
 @Repository
 public interface DeferredItemTypeRepository extends JpaRepository<DeferredItemType, Long> {

@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?��??�행 (Loan Disbursal) ?�티??
- * ?�출금??최초 ?�행 ?�역??기록?�며, 관??분개 ?�표?� ?�결?�니??
+ * ?異??ㅽ뻾 (Loan Disbursal) ?뷀떚??
+ * ?異쒓툑??理쒖큹 ?ㅽ뻾 ?댁뿭??湲곕줉?섎ŉ, 愿??遺꾧컻 ?꾪몴? ?곌껐?⑸땲??
  */
 @Entity
 @Table(name = "loan_disbursals")
@@ -23,14 +23,14 @@ public class LoanDisbursal {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // ?�제 ?�행??
+    private LocalDate disbursalDate; // ?ㅼ젣 ?ㅽ뻾??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal disbursedAmount; // ?�행 금액
+    private BigDecimal disbursedAmount; // ?ㅽ뻾 湲덉븸
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // ?�행 관??분개 ?�표
+    private JournalEntry journalEntry; // ?ㅽ뻾 愿??遺꾧컻 ?꾪몴
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -53,7 +53,7 @@ public class LoanDisbursal {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?�급�??�티??
- * 공급?�체??미리 지급된 금액??관리하�? 추후 매입채무?� ?�계?????�습?�다.
+ * ?좉툒湲??뷀떚??
+ * 怨듦툒?낆껜??誘몃━ 吏湲됰맂 湲덉븸??愿由ы븯硫? 異뷀썑 留ㅼ엯梨꾨Т? ?곴퀎?????덉뒿?덈떎.
  */
 @Entity
 @Table(name = "advance_payments")
@@ -21,27 +21,27 @@ public class AdvancePayment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // ?�급�?지�??�??공급?�체
+    private BusinessPartner vendor; // ?좉툒湲?吏湲????怨듦툒?낆껜
 
     @Column(nullable = false)
-    private LocalDate paymentDate; // ?�급�?지급일
+    private LocalDate paymentDate; // ?좉툒湲?吏湲됱씪
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 최초 ?�급�?금액
+    private BigDecimal amount; // 理쒖큹 ?좉툒湲?湲덉븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // ?�계 가?�한 ?�여 금액
+    private BigDecimal outstandingAmount; // ?곴퀎 媛?ν븳 ?붿뿬 湲덉븸
 
     @Column(length = 500)
-    private String description; // ?�명
+    private String description; // ?ㅻ챸
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private AdvancePaymentStatus status; // ?�급�??�태 (ACTIVE, OFFSET, REFUNDED)
+    private AdvancePaymentStatus status; // ?좉툒湲??곹깭 (ACTIVE, OFFSET, REFUNDED)
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // ?�급�?지�??�표?�???�결
+    private JournalEntry journalEntry; // ?좉툒湲?吏湲??꾪몴????곌껐
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -57,7 +57,7 @@ public class AdvancePayment {
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

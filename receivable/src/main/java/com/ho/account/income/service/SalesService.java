@@ -14,13 +14,11 @@ import com.ho.account.income.repository.ReceivableRepository;
 import com.ho.account.income.repository.SalesInvoiceRepository;
 import java.time.LocalDate;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class SalesService {
 
     private final SalesInvoiceRepository salesInvoiceRepository;
@@ -28,6 +26,18 @@ public class SalesService {
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
+
+    public SalesService(SalesInvoiceRepository salesInvoiceRepository,
+                        ReceivableRepository receivableRepository,
+                        BusinessPartnerPersistencePort businessPartnerPersistencePort,
+                        MasterDataQueryPort masterDataQueryPort,
+                        JournalPostingPort journalPostingPort) {
+        this.salesInvoiceRepository = salesInvoiceRepository;
+        this.receivableRepository = receivableRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.masterDataQueryPort = masterDataQueryPort;
+        this.journalPostingPort = journalPostingPort;
+    }
 
     public SalesInvoice createSalesInvoice(SalesInvoice invoice) {
         String customerCode = invoice.getCustomer().getBusinessPartnerCode();

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * LoanDisbursal ?”í‹°?°ë? ?„í•œ Spring Data JPA Repository
+ * LoanDisbursal ?ë·€ë–š?ê³•? ?ê¾ªë¸³ Spring Data JPA Repository
  */
 @Repository
 public interface LoanDisbursalRepository extends JpaRepository<LoanDisbursal, Long> {

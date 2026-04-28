@@ -6,8 +6,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?��??�벤??(Loan Event) ?�티??
- * ?��?계약???�애 주기 ?�안 발생?�는 주요 ?�벤??중도?�환, 조건 변�???�?기록?�니??
+ * ?異??대깽??(Loan Event) ?뷀떚??
+ * ?異?怨꾩빟???앹븷 二쇨린 ?숈븞 諛쒖깮?섎뒗 二쇱슂 ?대깽??以묐룄?곹솚, 議곌굔 蹂寃???瑜?湲곕줉?⑸땲??
  */
 @Entity
 @Table(name = "loan_events")
@@ -26,16 +26,16 @@ public class LoanEvent {
     private EventType eventType; // EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE ??
 
     @Column(nullable = false)
-    private LocalDate eventDate; // ?�벤??발생??
+    private LocalDate eventDate; // ?대깽??諛쒖깮??
 
     @Column(length = 1000)
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry relatedJournalEntry; // ?�벤??관??분개 ?�표
+    private JournalEntry relatedJournalEntry; // ?대깽??愿??遺꾧컻 ?꾪몴
 
-    // ?�계?�이 ?�요???�벤?�의 경우 RecalculationRun�??�결
+    // ?ш퀎?곗씠 ?꾩슂???대깽?몄쓽 寃쎌슦 RecalculationRun怨??곌껐
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculation_run_id")
     private RecalculationRun recalculationRun;
@@ -65,7 +65,7 @@ public class LoanEvent {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

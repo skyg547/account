@@ -8,8 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 지�??�티??
- * 공급?�체?�게 지급된 금액 ?�보�?관리합?�다.
+ * 吏湲??뷀떚??
+ * 怨듦툒?낆껜?먭쾶 吏湲됰맂 湲덉븸 ?뺣낫瑜?愿由ы빀?덈떎.
  */
 @Entity
 @Table(name = "payments")
@@ -20,32 +20,32 @@ public class Payment {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate paymentDate; // 지급일
+    private LocalDate paymentDate; // 吏湲됱씪
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 지�??�??공급?�체 (거래�?
+    private BusinessPartner vendor; // 吏湲????怨듦툒?낆껜 (嫄곕옒泥?
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 지급액
+    private BigDecimal amount; // 吏湲됱븸
 
     @Column(length = 100)
-    private String bankAccount; // 지급된 ?�??계좌 (?�름 ?�는 번호)
+    private String bankAccount; // 吏湲됰맂 ???怨꾩쥖 (?대쫫 ?먮뒗 踰덊샇)
 
     @Column(length = 100)
-    private String referenceNo; // ?��? 추적 ?�는 ?�??참조 번호
+    private String referenceNo; // ?대? 異붿쟻 ?먮뒗 ???李몄“ 踰덊샇
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PaymentStatus status; // 지�??�태 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
+    private PaymentStatus status; // 吏湲??곹깭 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 지�?처리 ?�표?�???�결
+    private JournalEntry journalEntry; // 吏湲?泥섎━ ?꾪몴????곌껐
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_run_id")
-    private PaymentRun paymentRun; // 관??지�??�행 (PaymentRun)
+    private PaymentRun paymentRun; // 愿??吏湲??ㅽ뻾 (PaymentRun)
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,11 +54,11 @@ public class Payment {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = PaymentStatus.INITIATED; // 초기 ?�태??INITIATED
+            status = PaymentStatus.INITIATED; // 珥덇린 ?곹깭??INITIATED
         }
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

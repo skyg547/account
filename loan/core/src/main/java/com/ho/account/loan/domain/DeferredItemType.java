@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * ?�연 ??�� ?�형 (Deferred Item Type) ?�티??
- * ?�연 ?�?�이 ?�는 ?�수료나 비용 ?�의 ?�형???�의?�고, 관???�계 계정??매핑?�니??
+ * ?댁뿰 ??ぉ ?좏삎 (Deferred Item Type) ?뷀떚??
+ * ?댁뿰 ??곸씠 ?섎뒗 ?섏닔猷뚮굹 鍮꾩슜 ?깆쓽 ?좏삎???뺤쓽?섍퀬, 愿???뚭퀎 怨꾩젙??留ㅽ븨?⑸땲??
  */
 @Entity
 @Table(name = "deferred_item_types")
@@ -17,25 +17,25 @@ public class DeferredItemType {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
-    private String code; // ?�연 ??�� 코드 (?? LOAN_ORIGINATION_FEE)
+    private String code; // ?댁뿰 ??ぉ 肄붾뱶 (?? LOAN_ORIGINATION_FEE)
 
     @Column(nullable = false, length = 200)
-    private String name; // ?�연 ??���?
+    private String name; // ?댁뿰 ??ぉ紐?
 
     @Column(length = 500)
     private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private DeferralMethod deferralMethod; // ?�연 방법 (STRAIGHT_LINE, EIR_METHOD ??
+    private DeferralMethod deferralMethod; // ?댁뿰 諛⑸쾿 (STRAIGHT_LINE, EIR_METHOD ??
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deferred_asset_account_code")
-    private AccountSubject deferredAssetAccount; // ?�연 ?�산 계정 (?? ?�연?�출�??�?�익 ?�산)
+    private AccountSubject deferredAssetAccount; // ?댁뿰 ?먯궛 怨꾩젙 (?? ?댁뿰?異쒕???먯씡 ?먯궛)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recognized_income_account_code")
-    private AccountSubject recognizedIncomeAccount; // ?�식 ?�익 계정 (?? ?�자?�익)
+    private AccountSubject recognizedIncomeAccount; // ?몄떇 ?먯씡 怨꾩젙 (?? ?댁옄?섏씡)
 
     @Column(nullable = false)
     private boolean isActive = true;
@@ -49,7 +49,7 @@ public class DeferredItemType {
     private String auditUser;
 
     public enum DeferralMethod {
-        STRAIGHT_LINE, EIR_METHOD, EFFECTIVE_INTEREST_METHOD // EIR_METHOD?� EFFECTIVE_INTEREST_METHOD???�일 개념?��?�?명시?�으�?구분
+        STRAIGHT_LINE, EIR_METHOD, EFFECTIVE_INTEREST_METHOD // EIR_METHOD? EFFECTIVE_INTEREST_METHOD???숈씪 媛쒕뀗?댁?留?紐낆떆?곸쑝濡?援щ텇
     }
 
     @PrePersist
@@ -65,7 +65,7 @@ public class DeferredItemType {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

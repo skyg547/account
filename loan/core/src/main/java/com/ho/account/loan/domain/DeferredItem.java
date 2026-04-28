@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?�연 ??�� (Deferred Item) ?�티??
- * ?�출과 관?�된 개별 ?�연 ?�수�? 비용 ?�을 관리하�??�각 ?��?줄의 기초가 ?�니??
+ * ?댁뿰 ??ぉ (Deferred Item) ?뷀떚??
+ * ?異쒓낵 愿?⑤맂 媛쒕퀎 ?댁뿰 ?섏닔猷? 鍮꾩슜 ?깆쓣 愿由ы븯硫??곴컖 ?ㅼ?以꾩쓽 湲곗큹媛 ?⑸땲??
  */
 @Entity
 @Table(name = "deferred_items")
@@ -27,23 +27,23 @@ public class DeferredItem {
     private DeferredItemType deferredItemType;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // �??�연 금액
+    private BigDecimal amount; // 珥??댁뿰 湲덉븸
 
     @Column(nullable = false)
-    private LocalDate deferralDate; // ?�연 발생??
+    private LocalDate deferralDate; // ?댁뿰 諛쒖깮??
 
     @Column(nullable = false)
-    private LocalDate amortizationStartDate; // ?�각 ?�작??
+    private LocalDate amortizationStartDate; // ?곴컖 ?쒖옉??
 
     @Column(nullable = false)
-    private LocalDate amortizationEndDate; // ?�각 종료??
+    private LocalDate amortizationEndDate; // ?곴컖 醫낅즺??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // ?�여 ?�연 금액
+    private BigDecimal remainingAmount; // ?붿뿬 ?댁뿰 湲덉븸
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "initial_journal_entry_id")
-    private JournalEntry initialJournalEntry; // 최초 ?�연 처리 분개 ?�표
+    private JournalEntry initialJournalEntry; // 理쒖큹 ?댁뿰 泥섎━ 遺꾧컻 ?꾪몴
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -76,7 +76,7 @@ public class DeferredItem {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() {
         return id;
     }

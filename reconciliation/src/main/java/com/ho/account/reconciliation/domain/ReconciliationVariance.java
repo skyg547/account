@@ -87,7 +87,7 @@ public class ReconciliationVariance {
         this.updateDate = LocalDateTime.now();
     }
 
-    // Getter ë°?Setter
+    // Getter è«›?Setter
     public Long getId() {
         return id;
     }

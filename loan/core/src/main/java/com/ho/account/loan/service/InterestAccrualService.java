@@ -1,24 +1,25 @@
 package com.ho.account.loan.service;
 
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.domain.LoanAccrualLog;
 import com.ho.account.loan.domain.LoanContract;
-import com.ho.account.loan.repository.LoanAccrualLogRepository;
-import com.ho.account.loan.repository.LoanContractRepository;
-import com.ho.account.loan.repository.LoanAmortizationScheduleEntryRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.ho.account.loan.infrastructure.persistence.LoanAccrualLogRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanAmortizationScheduleEntryRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanContractRepository;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ?€ì¶??´ì ë°œìƒ(Accrual) ì²˜ë¦¬ ?œë¹„??
+ * Daily interest accrual service for active loan contracts.
  */
 @Service
 public class InterestAccrualService {
@@ -26,42 +27,35 @@ public class InterestAccrualService {
     private final LoanContractRepository loanContractRepository;
     private final LoanAmortizationScheduleEntryRepository amortizationRepository;
     private final LoanAccrualLogRepository accrualLogRepository;
-    private final JournalService journalService;
-    private final AccountSubjectRepository accountSubjectRepository;
+    private final JournalUseCase journalUseCase;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
 
-    @Autowired
-    public InterestAccrualService(LoanContractRepository loanContractRepository,
+    public InterestAccrualService(
+            LoanContractRepository loanContractRepository,
             LoanAmortizationScheduleEntryRepository amortizationRepository,
             LoanAccrualLogRepository accrualLogRepository,
-            JournalService journalService,
-            AccountSubjectRepository accountSubjectRepository) {
+            JournalUseCase journalUseCase,
+            AccountSubjectPersistencePort accountSubjectPersistencePort) {
         this.loanContractRepository = loanContractRepository;
         this.amortizationRepository = amortizationRepository;
         this.accrualLogRepository = accrualLogRepository;
-        this.journalService = journalService;
-        this.accountSubjectRepository = accountSubjectRepository;
+        this.journalUseCase = journalUseCase;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
     }
 
-    /**
-     * ?¹ì • ?¼ì??ëª¨ë“  ?œì„± ?€ì¶œì— ?€???´ì ë°œìƒ ì²˜ë¦¬ë¥??˜í–‰?©ë‹ˆ??
-     */
     @Transactional
     public void processDailyAccrual(LocalDate accrualDate) {
         List<LoanContract> activeLoans = loanContractRepository.findByStatus("ACTIVE");
-
         for (LoanContract loan : activeLoans) {
             processIndividualAccrual(loan, accrualDate);
         }
     }
 
     private void processIndividualAccrual(LoanContract loan, LocalDate accrualDate) {
-        // ?´ë? ?´ë‹¹ ?¼ì??ë°œìƒ ì²˜ë¦¬ê°€ ?˜ì—ˆ?”ì? ?•ì¸
         if (accrualLogRepository.findByLoanContractIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
             return;
         }
 
-        // ?´ë‹¹ ?¼ì???´ë‹¹?˜ëŠ” ?ê° ?¤ì?ì¤???ª© ì°¾ê¸° (?”ë§ ?•ì‚° ê¸°ì? ê°€??
-        // ?¤ì œë¡œëŠ” ?¼í•  ê³„ì‚°(Daily Accrual)???•ì„?´ë‚˜, ?¬ê¸°?œëŠ” ê°„ë‹¨???¤ì?ì¤?ê¸°ë°˜ ?”ë§ ì²˜ë¦¬ë¥??ˆì‹œë¡???
         amortizationRepository.findByLoanContractIdAndPaymentDate(loan.getId(), accrualDate)
                 .ifPresent(scheduleEntry -> {
                     BigDecimal interestAmount = scheduleEntry.getInterestAmount();
@@ -73,11 +67,8 @@ public class InterestAccrualService {
                     log.setAuditUser("SYSTEM");
 
                     try {
-                        // 1. ?„í‘œ ?ì„±
                         JournalEntry journalEntry = createAccrualJournal(loan, interestAmount, accrualDate);
-                        JournalEntry savedJournal = journalService.createJournalEntry(journalEntry);
-
-                        // 2. ë¡œê·¸ ê¸°ë¡
+                        JournalEntry savedJournal = journalUseCase.createJournalEntry(journalEntry);
                         log.setJournalNo(savedJournal.getSlipNo());
                         log.setStatus("SUCCESS");
                     } catch (Exception e) {
@@ -90,27 +81,38 @@ public class InterestAccrualService {
     }
 
     private JournalEntry createAccrualJournal(LoanContract loan, BigDecimal amount, LocalDate date) {
+        AccountSubject accruedInterestReceivable = accountSubjectPersistencePort.findByCode("11501")
+                .orElseThrow(() -> new IllegalStateException("Account not found: 11501"));
+        AccountSubject interestIncome = accountSubjectPersistencePort.findByCode("41101")
+                .orElseThrow(() -> new IllegalStateException("Account not found: 41101"));
+
         JournalEntry entry = new JournalEntry();
+        entry.setSlipNo(date + "-LOAN-ACCRUAL-" + System.currentTimeMillis());
         entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(date);
-        entry.setDescription("?€ì¶??´ì ë°œìƒ ?˜ìµ ?¸ì‹: " + loan.getLoanContractNo());
+        entry.setDescription("Loan daily interest accrual: " + loan.getLoanContractNo());
+        entry.setStatus(JournalEntryStatus.DRAFT);
+        entry.setEntryType("NORMAL");
         entry.setCreatedBy("SYSTEM");
+        entry.setAuditUser("SYSTEM");
+        entry.setLineageSourceType("LOAN");
+        if (loan.getId() != null) {
+            entry.setLineageSourceId(loan.getId().toString());
+        }
 
-        // ì°¨ë?: ë¯¸ìˆ˜?´ì (?ëŠ” ?€ì¶?ì±„ê¶Œ ì¦ì•¡)
         JournalDetail debit = new JournalDetail();
-        debit.setDrcrType("DEBIT");
+        debit.setSide(JournalSide.DEBIT);
         debit.setAmount(amount);
-        debit.setDetailDescription("ë¯¸ìˆ˜?´ì ë°œìƒ");
-        // ?´ìë¯¸ìˆ˜ê¸?ê³„ì • (?? 11501)
-        accountSubjectRepository.findByCode("11501").ifPresent(debit::setAccountSubject);
+        debit.setBaseAmount(amount);
+        debit.setDetailDescription("Accrued interest receivable");
+        debit.setAccountSubject(accruedInterestReceivable);
 
-        // ?€ë³€: ?´ì?˜ìµ
         JournalDetail credit = new JournalDetail();
-        credit.setDrcrType("CREDIT");
+        credit.setSide(JournalSide.CREDIT);
         credit.setAmount(amount);
-        credit.setDetailDescription("?´ì?˜ìµ ?¸ì‹");
-        // ?€ì¶œì´?ìˆ˜??ê³„ì • (?? 41101)
-        accountSubjectRepository.findByCode("41101").ifPresent(credit::setAccountSubject);
+        credit.setBaseAmount(amount);
+        credit.setDetailDescription("Interest income accrual");
+        credit.setAccountSubject(interestIncome);
 
         entry.addDetail(debit);
         entry.addDetail(credit);

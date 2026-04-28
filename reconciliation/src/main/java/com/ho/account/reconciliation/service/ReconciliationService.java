@@ -17,15 +17,16 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.journal.repository.JournalDetailRepository;
-import com.ho.account.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
+import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import java.math.BigDecimal;
 import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunStatus; // Added import
 import java.util.Collections;
 
 /**
- * ?�??Reconciliation) 관??비즈?�스 로직??처리?�는 ?�비???�래??
- * ?�???�위, 규칙, 차이 ?�유 코드 관�?�??�제 ?�???�행 로직???�함?�니??
+ * ???Reconciliation) 愿??鍮꾩쫰?덉뒪 濡쒖쭅??泥섎━?섎뒗 ?쒕퉬???대옒??
+ * ????⑥쐞, 洹쒖튃, 李⑥씠 ?ъ쑀 肄붾뱶 愿由?諛??ㅼ젣 ????ㅽ뻾 濡쒖쭅???ы븿?⑸땲??
  */
 @Service
 @Transactional
@@ -38,8 +39,8 @@ public class ReconciliationService {
     private final ReconciliationDifferenceRepository reconciliationDifferenceRepository;
     private final JournalEntryRepository journalEntryRepository;
     private final JournalDetailRepository journalDetailRepository;
-    private final AccountSubjectRepository accountSubjectRepository;
-    private final ObjectMapper objectMapper; // JSON ?�싱???�한 ObjectMapper
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final ObjectMapper objectMapper; // JSON ?뚯떛???꾪븳 ObjectMapper
 
     @Autowired
     public ReconciliationService(ReconciliationUnitRepository reconciliationUnitRepository,
@@ -49,7 +50,7 @@ public class ReconciliationService {
                                  ReconciliationDifferenceRepository reconciliationDifferenceRepository,
                                  JournalEntryRepository journalEntryRepository,
                                  JournalDetailRepository journalDetailRepository,
-                                 AccountSubjectRepository accountSubjectRepository,
+                                 AccountSubjectPersistencePort accountSubjectPersistencePort,
                                  ObjectMapper objectMapper) {
         this.reconciliationUnitRepository = reconciliationUnitRepository;
         this.reconciliationRuleRepository = reconciliationRuleRepository;
@@ -58,25 +59,25 @@ public class ReconciliationService {
         this.reconciliationDifferenceRepository = reconciliationDifferenceRepository;
         this.journalEntryRepository = journalEntryRepository;
         this.journalDetailRepository = journalDetailRepository;
-        this.accountSubjectRepository = accountSubjectRepository;
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.objectMapper = objectMapper;
     }
 
-    // --- ReconciliationUnit (?�???�위) 관??메서??---
+    // --- ReconciliationUnit (????⑥쐞) 愿??硫붿꽌??---
 
     /**
-     * ?�로???�???�위�??�성?�니??
-     * @param reconciliationUnit ?�성???�???�위 ?�티??
-     * @return ?�성???�???�위
+     * ?덈줈??????⑥쐞瑜??앹꽦?⑸땲??
+     * @param reconciliationUnit ?앹꽦??????⑥쐞 ?뷀떚??
+     * @return ?앹꽦??????⑥쐞
      */
     public ReconciliationUnit createReconciliationUnit(ReconciliationUnit reconciliationUnit) {
-        // 중복 ?�름 검�???추�? 로직 ?�요 ??구현
+        // 以묐났 ?대쫫 寃利???異붽? 濡쒖쭅 ?꾩슂 ??援ы쁽
         return reconciliationUnitRepository.save(reconciliationUnit);
     }
 
     /**
-     * 모든 ?�???�위�?조회?�니??
-     * @return 모든 ?�???�위 목록
+     * 紐⑤뱺 ????⑥쐞瑜?議고쉶?⑸땲??
+     * @return 紐⑤뱺 ????⑥쐞 紐⑸줉
      */
     @Transactional(readOnly = true)
     public List<ReconciliationUnit> findAllReconciliationUnits() {
@@ -84,10 +85,10 @@ public class ReconciliationService {
     }
 
     /**
-     * ID�??�???�위�?조회?�니??
-     * @param id ?�???�위 ID
-     * @return 조회???�???�위
-     * @throws EntityNotFoundException ?�당 ID???�???�위가 ?�을 경우
+     * ID濡?????⑥쐞瑜?議고쉶?⑸땲??
+     * @param id ????⑥쐞 ID
+     * @return 議고쉶??????⑥쐞
+     * @throws EntityNotFoundException ?대떦 ID??????⑥쐞媛 ?놁쓣 寃쎌슦
      */
     @Transactional(readOnly = true)
     public ReconciliationUnit findReconciliationUnitById(Long id) {
@@ -96,11 +97,11 @@ public class ReconciliationService {
     }
 
     /**
-     * ?�???�위�??�데?�트?�니??
-     * @param id ?�데?�트???�???�위??ID
-     * @param updatedUnit ?�데?�트???�용???��? ?�???�위 ?�티??
-     * @return ?�데?�트???�???�위
-     * @throws EntityNotFoundException ?�당 ID???�???�위가 ?�을 경우
+     * ????⑥쐞瑜??낅뜲?댄듃?⑸땲??
+     * @param id ?낅뜲?댄듃??????⑥쐞??ID
+     * @param updatedUnit ?낅뜲?댄듃???댁슜???댁? ????⑥쐞 ?뷀떚??
+     * @return ?낅뜲?댄듃??????⑥쐞
+     * @throws EntityNotFoundException ?대떦 ID??????⑥쐞媛 ?놁쓣 寃쎌슦
      */
     public ReconciliationUnit updateReconciliationUnit(Long id, ReconciliationUnit updatedUnit) {
         ReconciliationUnit existingUnit = reconciliationUnitRepository.findById(id)
@@ -112,35 +113,35 @@ public class ReconciliationService {
         existingUnit.setReconciliationType(updatedUnit.getReconciliationType());
         existingUnit.setCriteriaJson(updatedUnit.getCriteriaJson());
         existingUnit.setActive(updatedUnit.isActive());
-        // auditUser �?updatedAt?� @PreUpdate?�서 처리??
+        // auditUser 諛?updatedAt? @PreUpdate?먯꽌 泥섎━??
         return reconciliationUnitRepository.save(existingUnit);
     }
 
     /**
-     * ?�???�위�???��?�니?? (?��???규칙, ?�행 결과, 차이???�께 처리 ?�요)
-     * @param id ??��???�???�위??ID
+     * ????⑥쐞瑜???젣?⑸땲?? (?곌???洹쒖튃, ?ㅽ뻾 寃곌낵, 李⑥씠???④퍡 泥섎━ ?꾩슂)
+     * @param id ??젣??????⑥쐞??ID
      */
     public void deleteReconciliationUnit(Long id) {
-        // TODO: ?��???ReconciliationRule, ReconciliationRun, ReconciliationDifference 처리 로직 추�? ?�요
+        // TODO: ?곌???ReconciliationRule, ReconciliationRun, ReconciliationDifference 泥섎━ 濡쒖쭅 異붽? ?꾩슂
         reconciliationUnitRepository.deleteById(id);
     }
 
-    // --- ReconciliationRule (?�??규칙) 관??메서??---
+    // --- ReconciliationRule (???洹쒖튃) 愿??硫붿꽌??---
 
     /**
-     * ?�로???�??규칙???�성?�니??
-     * @param reconciliationRule ?�성???�??규칙 ?�티??
-     * @return ?�성???�??규칙
+     * ?덈줈?????洹쒖튃???앹꽦?⑸땲??
+     * @param reconciliationRule ?앹꽦?????洹쒖튃 ?뷀떚??
+     * @return ?앹꽦?????洹쒖튃
      */
     public ReconciliationRule createReconciliationRule(ReconciliationRule reconciliationRule) {
-        // 중복 ?�름, ?�효??검�???추�? 로직 ?�요 ??구현
+        // 以묐났 ?대쫫, ?좏슚??寃利???異붽? 濡쒖쭅 ?꾩슂 ??援ы쁽
         return reconciliationRuleRepository.save(reconciliationRule);
     }
 
     /**
-     * ?�정 ?�???�위???�한 모든 ?�??규칙??조회?�니??
-     * @param unitId ?�???�위 ID
-     * @return ?�??규칙 목록
+     * ?뱀젙 ????⑥쐞???랁븳 紐⑤뱺 ???洹쒖튃??議고쉶?⑸땲??
+     * @param unitId ????⑥쐞 ID
+     * @return ???洹쒖튃 紐⑸줉
      */
     @Transactional(readOnly = true)
     public List<ReconciliationRule> findRulesByReconciliationUnit(Long unitId) {
@@ -151,11 +152,11 @@ public class ReconciliationService {
     // Note: findByReconciliationUnit method will need to be added to ReconciliationRuleRepository
 
     /**
-     * ?�??규칙???�데?�트?�니??
-     * @param id ?�데?�트???�??규칙??ID
-     * @param updatedRule ?�데?�트???�용???��? ?�??규칙 ?�티??
-     * @return ?�데?�트???�??규칙
-     * @throws EntityNotFoundException ?�당 ID???�??규칙???�을 경우
+     * ???洹쒖튃???낅뜲?댄듃?⑸땲??
+     * @param id ?낅뜲?댄듃?????洹쒖튃??ID
+     * @param updatedRule ?낅뜲?댄듃???댁슜???댁? ???洹쒖튃 ?뷀떚??
+     * @return ?낅뜲?댄듃?????洹쒖튃
+     * @throws EntityNotFoundException ?대떦 ID?????洹쒖튃???놁쓣 寃쎌슦
      */
     public ReconciliationRule updateReconciliationRule(Long id, ReconciliationRule updatedRule) {
         ReconciliationRule existingRule = reconciliationRuleRepository.findById(id)
@@ -167,33 +168,33 @@ public class ReconciliationService {
         existingRule.setToleranceValue(updatedRule.getToleranceValue());
         existingRule.setPriority(updatedRule.getPriority());
         existingRule.setActive(updatedRule.isActive());
-        existingRule.setReconciliationUnit(updatedRule.getReconciliationUnit()); // FK 변�?가?�성
+        existingRule.setReconciliationUnit(updatedRule.getReconciliationUnit()); // FK 蹂寃?媛?μ꽦
         return reconciliationRuleRepository.save(existingRule);
     }
 
     /**
-     * ?�??규칙????��?�니??
-     * @param id ??��???�??규칙??ID
+     * ???洹쒖튃????젣?⑸땲??
+     * @param id ??젣?????洹쒖튃??ID
      */
     public void deleteReconciliationRule(Long id) {
         reconciliationRuleRepository.deleteById(id);
     }
 
-    // --- DifferenceReasonCode (차이 ?�유 코드) 관??메서??---
+    // --- DifferenceReasonCode (李⑥씠 ?ъ쑀 肄붾뱶) 愿??硫붿꽌??---
 
     /**
-     * ?�로??차이 ?�유 코드�??�성?�니??
-     * @param reasonCode ?�성??차이 ?�유 코드 ?�티??
-     * @return ?�성??차이 ?�유 코드
+     * ?덈줈??李⑥씠 ?ъ쑀 肄붾뱶瑜??앹꽦?⑸땲??
+     * @param reasonCode ?앹꽦??李⑥씠 ?ъ쑀 肄붾뱶 ?뷀떚??
+     * @return ?앹꽦??李⑥씠 ?ъ쑀 肄붾뱶
      */
     public DifferenceReasonCode createDifferenceReasonCode(DifferenceReasonCode reasonCode) {
-        // 중복 코드/?�름 검�???추�? 로직 ?�요 ??구현
+        // 以묐났 肄붾뱶/?대쫫 寃利???異붽? 濡쒖쭅 ?꾩슂 ??援ы쁽
         return differenceReasonCodeRepository.save(reasonCode);
     }
 
     /**
-     * 모든 차이 ?�유 코드�?조회?�니??
-     * @return 모든 차이 ?�유 코드 목록
+     * 紐⑤뱺 李⑥씠 ?ъ쑀 肄붾뱶瑜?議고쉶?⑸땲??
+     * @return 紐⑤뱺 李⑥씠 ?ъ쑀 肄붾뱶 紐⑸줉
      */
     @Transactional(readOnly = true)
     public List<DifferenceReasonCode> findAllDifferenceReasonCodes() {
@@ -201,10 +202,10 @@ public class ReconciliationService {
     }
 
     /**
-     * ID�?차이 ?�유 코드�?조회?�니??
-     * @param id 차이 ?�유 코드 ID
-     * @return 조회??차이 ?�유 코드
-     * @throws EntityNotFoundException ?�당 ID??차이 ?�유 코드가 ?�을 경우
+     * ID濡?李⑥씠 ?ъ쑀 肄붾뱶瑜?議고쉶?⑸땲??
+     * @param id 李⑥씠 ?ъ쑀 肄붾뱶 ID
+     * @return 議고쉶??李⑥씠 ?ъ쑀 肄붾뱶
+     * @throws EntityNotFoundException ?대떦 ID??李⑥씠 ?ъ쑀 肄붾뱶媛 ?놁쓣 寃쎌슦
      */
     @Transactional(readOnly = true)
     public DifferenceReasonCode findDifferenceReasonCodeById(Long id) {
@@ -213,11 +214,11 @@ public class ReconciliationService {
     }
 
     /**
-     * 차이 ?�유 코드�??�데?�트?�니??
-     * @param id ?�데?�트??차이 ?�유 코드??ID
-     * @param updatedReasonCode ?�데?�트???�용???��? 차이 ?�유 코드 ?�티??
-     * @return ?�데?�트??차이 ?�유 코드
-     * @throws EntityNotFoundException ?�당 ID??차이 ?�유 코드가 ?�을 경우
+     * 李⑥씠 ?ъ쑀 肄붾뱶瑜??낅뜲?댄듃?⑸땲??
+     * @param id ?낅뜲?댄듃??李⑥씠 ?ъ쑀 肄붾뱶??ID
+     * @param updatedReasonCode ?낅뜲?댄듃???댁슜???댁? 李⑥씠 ?ъ쑀 肄붾뱶 ?뷀떚??
+     * @return ?낅뜲?댄듃??李⑥씠 ?ъ쑀 肄붾뱶
+     * @throws EntityNotFoundException ?대떦 ID??李⑥씠 ?ъ쑀 肄붾뱶媛 ?놁쓣 寃쎌슦
      */
     public DifferenceReasonCode updateDifferenceReasonCode(Long id, DifferenceReasonCode updatedReasonCode) {
         DifferenceReasonCode existingCode = differenceReasonCodeRepository.findById(id)
@@ -232,21 +233,21 @@ public class ReconciliationService {
     }
 
     /**
-     * 차이 ?�유 코드�???��?�니??
-     * @param id ??��??차이 ?�유 코드??ID
+     * 李⑥씠 ?ъ쑀 肄붾뱶瑜???젣?⑸땲??
+     * @param id ??젣??李⑥씠 ?ъ쑀 肄붾뱶??ID
      */
     public void deleteDifferenceReasonCode(Long id) {
-        // TODO: ?��???ReconciliationDifference 처리 로직 추�? ?�요 (FK ?�약 조건)
+        // TODO: ?곌???ReconciliationDifference 泥섎━ 濡쒖쭅 異붽? ?꾩슂 (FK ?쒖빟 議곌굔)
         differenceReasonCodeRepository.deleteById(id);
     }
 
     /**
-     * ?�??차이�??�정 ?�용?�에�??�당?�고 SLA 기한???�정?�니??
-     * @param differenceId ?�당???�??차이??ID
-     * @param assignedToUser ?�당받을 ?�용??ID ?�는 ?�름
-     * @param slaDueDate SLA 기한
-     * @return ?�데?�트??ReconciliationDifference
-     * @throws EntityNotFoundException ?�당 ID???�??차이가 ?�을 경우
+     * ???李⑥씠瑜??뱀젙 ?ъ슜?먯뿉寃??좊떦?섍퀬 SLA 湲고븳???ㅼ젙?⑸땲??
+     * @param differenceId ?좊떦?????李⑥씠??ID
+     * @param assignedToUser ?좊떦諛쏆쓣 ?ъ슜??ID ?먮뒗 ?대쫫
+     * @param slaDueDate SLA 湲고븳
+     * @return ?낅뜲?댄듃??ReconciliationDifference
+     * @throws EntityNotFoundException ?대떦 ID?????李⑥씠媛 ?놁쓣 寃쎌슦
      */
     public ReconciliationDifference assignDifference(Long differenceId, String assignedToUser, LocalDateTime slaDueDate) {
         ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
@@ -254,19 +255,20 @@ public class ReconciliationService {
 
         difference.setAssignedToUser(assignedToUser);
         difference.setSlaDueDate(slaDueDate);
-        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED); // ?�태�?ASSIGNED�?변�?        return reconciliationDifferenceRepository.save(difference);
+        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED); // ?곹깭瑜?ASSIGNED濡?蹂寃?
+        return reconciliationDifferenceRepository.save(difference);
     }
 
     /**
-     * ?�??차이�??�결 ?�는 무시 처리?�니??
-     * DoD???�라 차이??반드???�유 코드�??�렴?�야 ?�며,
-     * 조정???�요???�유 코드??조정 ?�표 링크가 ?�어???�니??
+     * ???李⑥씠瑜??닿껐 ?먮뒗 臾댁떆 泥섎━?⑸땲??
+     * DoD???곕씪 李⑥씠??諛섎뱶???ъ쑀 肄붾뱶濡??섎졃?댁빞 ?섎ŉ,
+     * 議곗젙???꾩슂???ъ쑀 肄붾뱶??議곗젙 ?꾪몴 留곹겕媛 ?덉뼱???⑸땲??
      *
-     * @param differenceId ?�결???�??차이 ID
-     * @param reasonCodeId ?�유 코드 ID
-     * @param adjustmentJournalEntryId 조정 ?�표 ID
-     * @param status 최종 ?�태 (RESOLVED ?�는 IGNORED)
-     * @param resolvedBy 처리??     * @return 갱신???�??차이
+     * @param differenceId ?닿껐?????李⑥씠 ID
+     * @param reasonCodeId ?ъ쑀 肄붾뱶 ID
+     * @param adjustmentJournalEntryId 議곗젙 ?꾪몴 ID
+     * @param status 理쒖쥌 ?곹깭 (RESOLVED ?먮뒗 IGNORED)
+     * @param resolvedBy 泥섎━??     * @return 媛깆떊?????李⑥씠
      */
     public ReconciliationDifference resolveDifference(Long differenceId, Long reasonCodeId, Long adjustmentJournalEntryId,
                                                       ReconciliationDifference.ReconciliationDifferenceStatus status,
@@ -304,9 +306,9 @@ public class ReconciliationService {
     }
 
     /**
-     * ?�정 ?�???�행???�당?�는 모든 ?�??차이�?조회?�니??
-     * @param reconciliationRunId ?�???�행 ID
-     * @return ?�??차이 목록
+     * ?뱀젙 ????ㅽ뻾???대떦?섎뒗 紐⑤뱺 ???李⑥씠瑜?議고쉶?⑸땲??
+     * @param reconciliationRunId ????ㅽ뻾 ID
+     * @return ???李⑥씠 紐⑸줉
      */
     @Transactional(readOnly = true)
     public List<ReconciliationDifference> findDifferencesByReconciliationRunId(Long reconciliationRunId) {
@@ -315,27 +317,27 @@ public class ReconciliationService {
         return reconciliationDifferenceRepository.findByReconciliationRun(run);
     }
 
-    // --- Core Reconciliation Logic (?�???�행 로직) ---
+    // --- Core Reconciliation Logic (????ㅽ뻾 濡쒖쭅) ---
 
     /**
-     * ?�정 ?�???�위�?기반?�로 ?�?��? ?�행?�니??
-     * ??메서?�는 ?�??로직??진입?�이�? ?�제 매칭 �?차이 ?�별 로직???�출?�니??
-     * @param unitId ?�?��? ?�행???�???�위??ID
-     * @param reconciliationDate ?�??기�???
-     * @return ?�성???�???�행 결과 (ReconciliationRun)
-     * @throws EntityNotFoundException ?�???�위�?찾을 ???�는 경우
+     * ?뱀젙 ????⑥쐞瑜?湲곕컲?쇰줈 ??щ? ?ㅽ뻾?⑸땲??
+     * ??硫붿꽌?쒕뒗 ???濡쒖쭅??吏꾩엯?먯씠硫? ?ㅼ젣 留ㅼ묶 諛?李⑥씠 ?앸퀎 濡쒖쭅???몄텧?⑸땲??
+     * @param unitId ??щ? ?ㅽ뻾??????⑥쐞??ID
+     * @param reconciliationDate ???湲곗???
+     * @return ?앹꽦??????ㅽ뻾 寃곌낵 (ReconciliationRun)
+     * @throws EntityNotFoundException ????⑥쐞瑜?李얠쓣 ???녿뒗 寃쎌슦
      */
     public ReconciliationRun performReconciliation(Long unitId, LocalDate reconciliationDate) {
         ReconciliationUnit reconciliationUnit = findReconciliationUnitById(unitId);
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 
-        // ReconciliationRun ?�작 기록
+        // ReconciliationRun ?쒖옉 湲곕줉
         ReconciliationRun run = new ReconciliationRun();
         run.setReconciliationUnit(reconciliationUnit);
         run.setReconciliationDate(reconciliationDate);
         run.setRunStartTime(LocalDateTime.now());
         run.setStatus(ReconciliationRunStatus.RUNNING);
-        run.setRunBy("SYSTEM"); // ?�는 ?�재 로그???�용???�보
+        run.setRunBy("SYSTEM"); // ?먮뒗 ?꾩옱 濡쒓렇???ъ슜???뺣낫
         run = reconciliationRunRepository.save(run);
 
         try {
@@ -349,23 +351,23 @@ public class ReconciliationService {
             BigDecimal matchedAmount = BigDecimal.ZERO;
             int matchedCount = 0;
 
-            // 3. 매칭????��/금액, 미매�?�� ??��/금액 계산 (?�시 로직)
-            // ?�제 구현?�서??�?rule??ruleDefinitionJson???�싱?�여 복잡??매칭 로직 ?�행
-            // ???�시?�서??모든 규칙???�용?�여 최종 차이�?계산?�다�?가??
+            // 3. 留ㅼ묶????ぉ/湲덉븸, 誘몃ℓ移?맂 ??ぉ/湲덉븸 怨꾩궛 (?꾩떆 濡쒖쭅)
+            // ?ㅼ젣 援ы쁽?먯꽌??媛?rule??ruleDefinitionJson???뚯떛?섏뿬 蹂듭옟??留ㅼ묶 濡쒖쭅 ?섑뻾
+            // ???덉떆?먯꽌??紐⑤뱺 洹쒖튃???곸슜?섏뿬 理쒖쥌 李⑥씠瑜?怨꾩궛?쒕떎怨?媛??
 
             // TODO: Replace with actual logic to fetch source/target data based on reconciliationUnit and rules.
-            // ?�재??컴파?�과 기본 ?�름 ?�인???�해 ?��? 값을 ?�용
+            // ?꾩옱??而댄뙆?쇨낵 湲곕낯 ?먮쫫 ?뺤씤???꾪빐 ?붾? 媛믪쓣 ?ъ슜
             sourceAmount = new BigDecimal("1000.00"); // Dummy value
             targetAmount = new BigDecimal("950.00");  // Dummy value
             sourceCount = 10;
             targetCount = 9;
 
 
-            // ?�시 매칭 로직: ?�순 금액 불일�?발생 ??차이 ?�성
+            // ?꾩떆 留ㅼ묶 濡쒖쭅: ?⑥닚 湲덉븸 遺덉씪移?諛쒖깮 ??李⑥씠 ?앹꽦
             if (sourceAmount.compareTo(targetAmount) != 0) {
-                // 차이 발생
+                // 李⑥씠 諛쒖깮
                 unmatchedAmount = sourceAmount.subtract(targetAmount).abs();
-                unmatchedCount = sourceCount - targetCount; // 간단???�시�?차이 개수 ?�정
+                unmatchedCount = sourceCount - targetCount; // 媛꾨떒???덉떆濡?李⑥씠 媛쒖닔 ?ㅼ젙
                 matchedAmount = sourceAmount.min(targetAmount);
                 matchedCount = Math.min(sourceCount, targetCount);
 
@@ -375,43 +377,43 @@ public class ReconciliationService {
                 diff.setAmountExpected(sourceAmount);
                 diff.setAmountActual(targetAmount);
                 diff.setDifferenceAmount(unmatchedAmount);
-                diff.setDescription(reconciliationUnit.getName() + " - 금액 불일�?발생 (기�??? " + reconciliationDate + ")");
-                // sourceItemRef?� targetItemRef???�제 ?�이?��? 반영?�도�?변�??�요
+                diff.setDescription(reconciliationUnit.getName() + " - 湲덉븸 遺덉씪移?諛쒖깮 (湲곗??? " + reconciliationDate + ")");
+                // sourceItemRef? targetItemRef???ㅼ젣 ?곗씠?곕? 諛섏쁺?섎룄濡?蹂寃??꾩슂
                 diff.setSourceItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
                 diff.setTargetItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
 
-                // DoD: 차이??"?�인코드+조정?�표 링크"�?반드???�렴
-                // 기본 차이 ?�유 코드�?조회?�거?? 규칙 기반?�로 ?�정 ?�유 코드 ?�당
+                // DoD: 李⑥씠??"?먯씤肄붾뱶+議곗젙?꾪몴 留곹겕"濡?諛섎뱶???섎졃
+                // 湲곕낯 李⑥씠 ?ъ쑀 肄붾뱶瑜?議고쉶?섍굅?? 洹쒖튃 湲곕컲?쇰줈 ?뱀젙 ?ъ쑀 肄붾뱶 ?좊떦
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
-                        .orElseGet(() -> differenceReasonCodeRepository.save(createDefaultReasonCode())); // 기본 ?�유 코드 ?�으�??�성 ???�??
+                        .orElseGet(() -> differenceReasonCodeRepository.save(createDefaultReasonCode())); // 湲곕낯 ?ъ쑀 肄붾뱶 ?놁쑝硫??앹꽦 ?????
 
                 diff.setReasonCode(defaultReason);
-                diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING); // 초기 ?�태
+                diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING); // 珥덇린 ?곹깭
                 diff.setAuditUser("SYSTEM");
 
-                // 조정 ?�표 ?�성 로직 (isAdjustable??true??경우)
+                // 議곗젙 ?꾪몴 ?앹꽦 濡쒖쭅 (isAdjustable??true??寃쎌슦)
                 if (defaultReason.isAdjustable()) {
-                    // 차�?/?�변 계정과목?� ?�???�위???�형?�나 ?�스???�정???�라 ?�라�?
-                    // ?�기?�는 ?�시�??�정 계정과목 ?�용
-                    AccountSubject debitAccount = accountSubjectRepository.findById("121000") // ?? 미결??계정 (?�시)
+                    // 李⑤?/?蹂 怨꾩젙怨쇰ぉ? ????⑥쐞???좏삎?대굹 ?쒖뒪???ㅼ젙???곕씪 ?щ씪吏?
+                    // ?ш린?쒕뒗 ?꾩떆濡??뱀젙 怨꾩젙怨쇰ぉ ?ъ슜
+                    AccountSubject debitAccount = accountSubjectPersistencePort.findByCode("121000") // ?? 誘멸껐??怨꾩젙 (?꾩떆)
                             .orElseThrow(() -> new EntityNotFoundException("Debit AccountSubject (121000) not found. Please create it."));
-                    AccountSubject creditAccount = accountSubjectRepository.findById("999999") // ?? ?�?�차??조정 계정 (?�시)
+                    AccountSubject creditAccount = accountSubjectPersistencePort.findByCode("999999") // ?? ??ъ감??議곗젙 怨꾩젙 (?꾩떆)
                             .orElseThrow(() -> new EntityNotFoundException("Credit AccountSubject (999999) not found. Please create it."));
 
                     JournalEntry adjustmentEntry = createAdjustmentJournalEntry(
                             reconciliationDate,
                             unmatchedAmount,
-                            reconciliationUnit.getName() + " ?�??차이 조정 (" + defaultReason.getName() + ")",
+                            reconciliationUnit.getName() + " ???李⑥씠 議곗젙 (" + defaultReason.getName() + ")",
                             debitAccount,
                             creditAccount,
                             "SYSTEM"
                     );
-                    diff.setAdjustmentJournalEntry(adjustmentEntry); // 조정 ?�표 링크
+                    diff.setAdjustmentJournalEntry(adjustmentEntry); // 議곗젙 ?꾪몴 留곹겕
                 }
                 reconciliationDifferenceRepository.save(diff);
             }
 
-            // run 객체 ?�데?�트
+            // run 媛앹껜 ?낅뜲?댄듃
             run.setTotalItemsSource((long)sourceCount);
             run.setTotalAmountSource(sourceAmount);
             run.setTotalItemsTarget((long)targetCount);
@@ -425,7 +427,7 @@ public class ReconciliationService {
 
         } catch (Exception e) {
             run.setStatus(ReconciliationRunStatus.FAILED);
-            // TODO: ?�러 로깅
+            // TODO: ?먮윭 濡쒓퉭
             throw new RuntimeException("Reconciliation failed for unit " + unitId, e);
         } finally {
             run.setRunEndTime(LocalDateTime.now());
@@ -436,14 +438,14 @@ public class ReconciliationService {
     }
 
     /**
-     * 조정 ?�표�??�성?�고 ?�?�하???�퍼 메서??
-     * @param accountingDate ?�계?�자
-     * @param amount 금액
-     * @param description ?�요
-     * @param debitAccount 차�? 계정과목
-     * @param creditAccount ?�변 계정과목
-     * @param createdBy ?�성??
-     * @return ?�성??JournalEntry
+     * 議곗젙 ?꾪몴瑜??앹꽦?섍퀬 ??ν븯???ы띁 硫붿꽌??
+     * @param accountingDate ?뚭퀎?쇱옄
+     * @param amount 湲덉븸
+     * @param description ?곸슂
+     * @param debitAccount 李⑤? 怨꾩젙怨쇰ぉ
+     * @param creditAccount ?蹂 怨꾩젙怨쇰ぉ
+     * @param createdBy ?앹꽦??
+     * @return ?앹꽦??JournalEntry
      */
     private JournalEntry createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
                                                       AccountSubject debitAccount, AccountSubject creditAccount, String createdBy) {
@@ -451,44 +453,44 @@ public class ReconciliationService {
         entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(accountingDate);
         entry.setDescription(description);
-        entry.setStatus(JournalEntryStatus.DRAFT); // 조정 ?�표??DRAFT ?�태�??�성 ???�인 ?�로?�스�?거칠 ???�음
+        entry.setStatus(JournalEntryStatus.DRAFT); // 議곗젙 ?꾪몴??DRAFT ?곹깭濡??앹꽦 ???뱀씤 ?꾨줈?몄뒪瑜?嫄곗튌 ???덉쓬
         entry.setEntryType("ADJUSTMENT");
         entry.setCreatedBy(createdBy);
         entry.setAuditUser(createdBy);
         entry.setLineageSourceType("RECONCILIATION");
-        entry.setLineageSourceId("RECON_ADJ-" + System.currentTimeMillis()); // 고유??ID ?�성
+        entry.setLineageSourceId("RECON_ADJ-" + System.currentTimeMillis()); // 怨좎쑀??ID ?앹꽦
 
-        // JournalDetail - 차�?
+        // JournalDetail - 李⑤?
         JournalDetail debitDetail = new JournalDetail();
-        debitDetail.setDrcrType("DEBIT");
+        debitDetail.setSide(JournalSide.DEBIT);
         debitDetail.setAccountSubject(debitAccount);
         debitDetail.setAmount(amount);
-        debitDetail.setBaseAmount(amount); // 기�? ?�화 금액???�일?�다�?가??
-        debitDetail.setDetailDescription(description + " (차�?)");
+        debitDetail.setBaseAmount(amount); // 湲곗? ?듯솕 湲덉븸???숈씪?섎떎怨?媛??
+        debitDetail.setDetailDescription(description + " (李⑤?)");
         entry.addDetail(debitDetail);
 
-        // JournalDetail - ?�변
+        // JournalDetail - ?蹂
         JournalDetail creditDetail = new JournalDetail();
-        creditDetail.setDrcrType("CREDIT");
+        creditDetail.setSide(JournalSide.CREDIT);
         creditDetail.setAccountSubject(creditAccount);
         creditDetail.setAmount(amount);
-        creditDetail.setBaseAmount(amount); // 기�? ?�화 금액???�일?�다�?가??
-        creditDetail.setDetailDescription(description + " (?�변)");
+        creditDetail.setBaseAmount(amount); // 湲곗? ?듯솕 湲덉븸???숈씪?섎떎怨?媛??
+        creditDetail.setDetailDescription(description + " (?蹂)");
         entry.addDetail(creditDetail);
 
-        // ?�표번호 ?�성 (?�시)
+        // ?꾪몴踰덊샇 ?앹꽦 (?덉떆)
         entry.setSlipNo(accountingDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + "-ADJ-" + journalEntryRepository.count());
 
         return journalEntryRepository.save(entry);
     }
 
-    // 기본 차이 ?�유 코드�??�성?�는 ?�퍼 메서??(초기 ?�이??로딩 ???�용 가??
+    // 湲곕낯 李⑥씠 ?ъ쑀 肄붾뱶瑜??앹꽦?섎뒗 ?ы띁 硫붿꽌??(珥덇린 ?곗씠??濡쒕뵫 ???ъ슜 媛??
     private DifferenceReasonCode createDefaultReasonCode() {
         DifferenceReasonCode defaultReason = new DifferenceReasonCode();
         defaultReason.setCode("GENERIC_MISMATCH");
-        defaultReason.setName("?�반 불일�?);
-        defaultReason.setDescription("?�동 매칭?��? ?��? ?�반?�인 불일�?);
-        defaultReason.setAdjustable(true); // 기본?�으�?조정 가?�하?�록 ?�정
+        defaultReason.setName("Generic Mismatch");
+        defaultReason.setDescription("General mismatch found during reconciliation");
+        defaultReason.setAdjustable(true); // 湲곕낯?곸쑝濡?議곗젙 媛?ν븯?꾨줉 ?ㅼ젙
         defaultReason.setActive(true);
         return defaultReason;
     }

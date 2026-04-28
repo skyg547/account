@@ -2,7 +2,7 @@ package com.ho.account.loan.service;
 
 import com.ho.account.contracts.source.SourceDocumentProvider;
 import com.ho.account.shared.BoundedContext;
-import com.ho.account.loan.repository.LoanContractRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanContractRepository;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;

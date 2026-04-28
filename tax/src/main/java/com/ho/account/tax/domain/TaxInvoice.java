@@ -15,33 +15,33 @@ public class TaxInvoice {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 30)
-    private String issueId; // ?�인번호
+    private String issueId; // ?뱀씤踰덊샇
 
     @Column(nullable = false)
-    private String type; // SALES(매출), PURCHASE(매입)
+    private String type; // SALES(留ㅼ텧), PURCHASE(留ㅼ엯)
 
     @Column(nullable = false)
-    private LocalDate issueDate; // ?�성?�자
+    private LocalDate issueDate; // ?묒꽦?쇱옄
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner; // 공급받는??매출) ?�는 공급??매입)
+    private BusinessPartner businessPartner; // 怨듦툒諛쏅뒗??留ㅼ텧) ?먮뒗 怨듦툒??留ㅼ엯)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal supplyAmount; // 공급가??
+    private BigDecimal supplyAmount; // 怨듦툒媛??
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal taxAmount; // ?�액
+    private BigDecimal taxAmount; // ?몄븸
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal totalAmount; // ?�계금액
+    private BigDecimal totalAmount; // ?⑷퀎湲덉븸
 
-    // ?�표 ?�결 (?�택)
+    // ?꾪몴 ?곌껐 (?좏깮)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "journal_entry_id")
     private JournalEntry journalEntry;
 
-    // Getter �?Setter
+    // Getter 諛?Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

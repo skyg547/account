@@ -25,18 +25,18 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository; // For fetching payment details
-    private final BusinessPartnerRepository businessPartnerRepository; // For mapping request DTO to domain object
+    private final BusinessPartnerPersistencePort businessPartnerPersistencePort; // For mapping request DTO to domain object
 
-    public PaymentController(PaymentService paymentService, PaymentRepository paymentRepository, BusinessPartnerRepository businessPartnerRepository) {
+    public PaymentController(PaymentService paymentService, PaymentRepository paymentRepository, BusinessPartnerPersistencePort businessPartnerPersistencePort) {
         this.paymentService = paymentService;
         this.paymentRepository = paymentRepository;
-        this.businessPartnerRepository = businessPartnerRepository;
+        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
     }
 
     /**
-     * ?�로??지�??�행???�작?�고, 만기?�이 ?�래??매입채무�??�?�으�?지급을 ?�성?�니??
-     * @param request 지�??�행 ?�청 DTO
-     * @return ?�성??지�??�행 ?�보
+     * ?덈줈??吏湲??ㅽ뻾???쒖옉?섍퀬, 留뚭린?쇱씠 ?꾨옒??留ㅼ엯梨꾨Т瑜???곸쑝濡?吏湲됱쓣 ?앹꽦?⑸땲??
+     * @param request 吏湲??ㅽ뻾 ?붿껌 DTO
+     * @return ?앹꽦??吏湲??ㅽ뻾 ?뺣낫
      */
     @PostMapping("/run")
     public ResponseEntity<PaymentRun> initiatePaymentRun(@Valid @RequestBody PaymentRunRequest request) {
@@ -45,9 +45,9 @@ public class PaymentController {
     }
 
     /**
-     * ?�정 지�??�행 ID???�함??지�?목록??조회?�니??
-     * @param paymentRunId 지�??�행 ID
-     * @return 지�?목록
+     * ?뱀젙 吏湲??ㅽ뻾 ID???ы븿??吏湲?紐⑸줉??議고쉶?⑸땲??
+     * @param paymentRunId 吏湲??ㅽ뻾 ID
+     * @return 吏湲?紐⑸줉
      */
     @GetMapping("/run/{paymentRunId}")
     public ResponseEntity<List<Payment>> getPaymentsInRun(@PathVariable Long paymentRunId) {
@@ -57,9 +57,9 @@ public class PaymentController {
 
 
     /**
-     * 지급을 ?�행?�고 관???�표�??�성?�니?? (?�건 지�??�는 지�??�행 ??지�?처리)
-     * @param request 지�??�행 ?�청 DTO
-     * @return ?�료??지�??�보
+     * 吏湲됱쓣 ?ㅽ뻾?섍퀬 愿???꾪몴瑜??앹꽦?⑸땲?? (?④굔 吏湲??먮뒗 吏湲??ㅽ뻾 ??吏湲?泥섎━)
+     * @param request 吏湲??ㅽ뻾 ?붿껌 DTO
+     * @return ?꾨즺??吏湲??뺣낫
      */
     @PostMapping("/execute")
     public ResponseEntity<Payment> executePayment(@Valid @RequestBody ExecutePaymentRequest request) {
@@ -68,14 +68,14 @@ public class PaymentController {
     }
 
     /**
-     * ?�급금을 기록?�고 ?�표�??�성?�니??
-     * @param request ?�급�??�록 ?�청 DTO
-     * @return ?�성???�급�??�보
+     * ?좉툒湲덉쓣 湲곕줉?섍퀬 ?꾪몴瑜??앹꽦?⑸땲??
+     * @param request ?좉툒湲??깅줉 ?붿껌 DTO
+     * @return ?앹꽦???좉툒湲??뺣낫
      */
     @PostMapping("/advance")
     public ResponseEntity<AdvancePayment> recordAdvancePayment(@Valid @RequestBody AdvancePaymentRequest request) {
-        BusinessPartner vendor = businessPartnerRepository.findByBusinessPartnerCode(request.getVendorCode())
-                .orElseThrow(() -> new IllegalArgumentException("공급?�체 ?�보�?찾을 ???�습?�다: " + request.getVendorCode()));
+        BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(request.getVendorCode())
+                .orElseThrow(() -> new IllegalArgumentException("怨듦툒?낆껜 ?뺣낫瑜?李얠쓣 ???놁뒿?덈떎: " + request.getVendorCode()));
 
         AdvancePayment advancePayment = new AdvancePayment();
         advancePayment.setVendor(vendor);
@@ -88,9 +88,9 @@ public class PaymentController {
     }
 
     /**
-     * 매입채무�??�급금과 ?�계 처리?�니??
-     * @param request ?�계 ?�청 DTO
-     * @return ?�데?�트??매입채무 ?�보
+     * 留ㅼ엯梨꾨Т瑜??좉툒湲덇낵 ?곴퀎 泥섎━?⑸땲??
+     * @param request ?곴퀎 ?붿껌 DTO
+     * @return ?낅뜲?댄듃??留ㅼ엯梨꾨Т ?뺣낫
      */
     @PostMapping("/offset-payable")
     public ResponseEntity<Payable> offsetPayableWithAdvancePayment(@Valid @RequestBody OffsetPayableRequest request) {
