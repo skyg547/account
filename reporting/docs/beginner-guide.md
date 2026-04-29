@@ -55,13 +55,14 @@
 
 ## 4. 처음 읽는 코드 순서
 
-1. `reporting/src/main/java/com/ho/account/report/service/FinancialStatementService.java`
-2. `reporting/src/main/java/com/ho/account/report/service/ReportSnapshotService.java`
-3. `reporting/src/main/java/com/ho/account/report/service/ReportMappingService.java`
-4. `reporting/src/main/java/com/ho/account/report/service/CrossCheckService.java`
-5. `reporting/src/main/java/com/ho/account/report/domain/ReportLineMapping.java`
-6. `reporting/src/main/java/com/ho/account/report/domain/ReportSnapshotHeader.java`
-7. `reporting/src/main/java/com/ho/account/report/domain/ReportSnapshotDetail.java`
+1. `reporting/core/src/main/java/com/ho/account/reporting/application/service/ReportingService.java`
+2. `reporting/core/src/main/java/com/ho/account/reporting/application/port/in/GenerateStatementUseCase.java`
+3. `reporting/core/src/main/java/com/ho/account/reporting/application/port/out/LoadLedgerPort.java`
+4. `reporting/core/src/main/java/com/ho/account/reporting/domain/model/FinancialStatement.java`
+5. `reporting/core/src/main/java/com/ho/account/reporting/domain/model/ReportLine.java`
+6. `reporting/core/src/main/java/com/ho/account/reporting/infrastructure/persistence/LedgerClientAdapter.java`
+7. `reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java`
+8. `reporting/batch/src/main/java/com/ho/account/reporting/adapter/in/batch/ReportingBatchAdapter.java`
 
 ## 5. 자주 헷갈리는 지점
 

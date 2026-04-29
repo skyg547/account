@@ -7,3 +7,22 @@
 1. [beginner-guide.md](/C:/Users/skyg547/IdeaProjects/account/reporting/docs/beginner-guide.md)
 2. [process-flow.md](/C:/Users/skyg547/IdeaProjects/account/reporting/docs/process-flow.md)
 3. [schema.md](/C:/Users/skyg547/IdeaProjects/account/reporting/docs/schema.md)
+
+## Document Export API
+
+- Endpoint: `POST /api/v1/reporting/generate/document`
+- Required query params: `type`, `baseDate`
+- Optional query param: `format` (`PDF` or `EXCEL`, default `PDF`)
+- Required header: `X-User-ID`
+
+Example request:
+
+```http
+POST /api/v1/reporting/generate/document?type=BALANCE_SHEET&baseDate=2026-03-31T00:00:00&format=EXCEL
+X-User-ID: tester
+```
+
+Response:
+- Binary file download
+- `Content-Type`: `application/pdf` (PDF) or `text/csv; charset=UTF-8` (EXCEL)
+- `Content-Disposition`: attachment filename
