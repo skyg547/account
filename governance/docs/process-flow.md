@@ -44,7 +44,8 @@ sequenceDiagram
 설명:
 - AOP가 메서드 호출 전후를 감쌉니다.
 - 현재 `targetEntity`는 `SERVICE_METHOD`로 기록합니다.
-- IP는 HTTP 요청이 있으면 request에서 읽고, 없으면 `0.0.0.0`입니다.
+- 사용자 식별은 `X-User-ID` -> `remoteUser` -> `principal` -> `SYSTEM` 순으로 해석합니다.
+- IP는 `X-Forwarded-For` 우선, 없으면 `remoteAddr`, 요청 컨텍스트가 없으면 `0.0.0.0`입니다.
 
 ## 3. 감사로그 조회 흐름
 
@@ -89,7 +90,7 @@ sequenceDiagram
 설명:
 - 승인요청은 `PENDING`으로 시작합니다.
 - 승인자는 요청자와 같을 수 없습니다.
-- 현재 승인 후 실제 마스터 반영은 아직 구현되어 있지 않습니다.
+- 승인 시 `master-data` 변경요청을 생성하고 승인/적용까지 연계합니다.
 
 ## 5. 역할과 권한 흐름 (Legacy)
 
@@ -135,7 +136,5 @@ flowchart LR
 
 ## 8. 현재 구현상 주의점
 
-- 감사로그 사용자 식별이 아직 고정값입니다.
-- 승인 완료 후 실제 데이터 반영 로직이 비어 있습니다.
 - 역할/권한 모델이 이원화되어 있습니다.
-- `AuditController`는 `MasterApprovalService` API를 아직 노출하지 않습니다.
+- `security` 패키지는 legacy 경계로 분류되어 신규 IAM 확장은 `auth` 모듈에서 진행하는 것이 권장됩니다.

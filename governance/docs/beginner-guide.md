@@ -46,8 +46,8 @@
 를 `AUDIT_LOG` 테이블에 남깁니다.
 
 주의:
-- 현재 사용자 ID는 실제 로그인 사용자 대신 `SYSTEM`으로 기록됩니다.
-- 그래서 운영에 쓰려면 보안 컨텍스트 연동이 필요합니다.
+- 사용자 ID는 `X-User-ID` -> `remoteUser` -> `principal` -> `SYSTEM` 순으로 기록됩니다.
+- 운영 환경에서는 API Gateway/Auth 계층에서 `X-User-ID` 전달 규칙을 고정하는 것이 좋습니다.
 
 ## 5. 승인관리는 어떻게 보나요
 
@@ -59,7 +59,7 @@
 4. 요청자 본인이 승인하려 하면 SOD 위반으로 막힙니다.
 5. 승인 또는 반려 처리됩니다.
 
-현재는 여기까지 저장은 되지만, 승인 후 실제 마스터 반영 로직은 아직 비어 있습니다.
+현재는 승인 시 `master-data` 변경요청 생성/승인/적용까지 연계됩니다.
 
 ## 6. 권한은 어떻게 이해하면 되나요
 
@@ -90,13 +90,15 @@
 4. `POST /api/audit/roles`
 5. `POST /api/audit/roles/{roleCode}/authorizations`
 6. `GET /api/audit/permissions/check`
+7. `GET /api/audit/approvals/pending`
+8. `POST /api/audit/approvals/requests`
+9. `POST /api/audit/approvals/{approvalId}/approve`
+10. `POST /api/audit/approvals/{approvalId}/reject`
 
 ## 9. 현재 코드에서 꼭 주의할 점
 
-- 사용자 식별은 아직 실제 로그인과 연결되지 않았습니다.
-- 승인 후 실제 반영 로직이 없습니다.
 - `governance` 내부의 security 관련 모델은 경계 정리 대상이라 처음 보면 헷갈릴 수 있습니다.
-- `AuditController`는 감사와 권한 API 중심이고, 승인 API는 아직 노출돼 있지 않습니다.
+- IAM 마스터(사용자/메뉴/권한 매트릭스)는 `auth` 중심으로 정리하는 방향을 유지해야 합니다.
 
 ## 10. 문서 추천 순서
 

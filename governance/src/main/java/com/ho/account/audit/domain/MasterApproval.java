@@ -61,6 +61,42 @@ public class MasterApproval {
         PENDING, APPROVED, REJECTED
     }
 
+    public void approve(String approverUser, String remarks, LocalDateTime approvedAt) {
+        if (this.status != ApprovalStatus.PENDING) {
+            throw new IllegalStateException("Only PENDING approval can be approved.");
+        }
+        String normalizedApprover = requireText(approverUser, "Approver user is required.");
+        if (normalizedApprover.equals(this.requestUser)) {
+            throw new IllegalStateException("Self-approval is not allowed (SOD Violation)");
+        }
+
+        this.status = ApprovalStatus.APPROVED;
+        this.approverUser = normalizedApprover;
+        this.approvalDate = approvedAt != null ? approvedAt : LocalDateTime.now();
+        this.remarks = remarks;
+        this.auditUser = normalizedApprover;
+    }
+
+    public void reject(String approverUser, String remarks, LocalDateTime rejectedAt) {
+        if (this.status != ApprovalStatus.PENDING) {
+            throw new IllegalStateException("Only PENDING approval can be rejected.");
+        }
+        String normalizedApprover = requireText(approverUser, "Approver user is required.");
+
+        this.status = ApprovalStatus.REJECTED;
+        this.approverUser = normalizedApprover;
+        this.approvalDate = rejectedAt != null ? rejectedAt : LocalDateTime.now();
+        this.remarks = remarks;
+        this.auditUser = normalizedApprover;
+    }
+
+    private String requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

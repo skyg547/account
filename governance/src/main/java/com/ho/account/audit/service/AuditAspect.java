@@ -1,28 +1,24 @@
 package com.ho.account.audit.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.audit.application.model.AuditActor;
+import com.ho.account.audit.application.port.in.AuditLogUseCase;
+import com.ho.account.audit.application.port.out.AuditActorProviderPort;
 import com.ho.account.audit.domain.AuditLoggable;
-import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
+import lombok.RequiredArgsConstructor;
 
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class AuditAspect {
 
-    private final AuditService auditService;
+    private final AuditLogUseCase auditLogUseCase;
+    private final AuditActorProviderPort auditActorProviderPort;
     private final ObjectMapper objectMapper;
-
-    @Autowired
-    public AuditAspect(AuditService auditService, ObjectMapper objectMapper) {
-        this.auditService = auditService;
-        this.objectMapper = objectMapper;
-    }
 
     @Around("@annotation(auditLoggable)")
     public Object audit(ProceedingJoinPoint joinPoint, AuditLoggable auditLoggable) throws Throwable {
@@ -32,15 +28,7 @@ public class AuditAspect {
             eventName = joinPoint.getSignature().getName();
         }
 
-        String userId = "SYSTEM"; // In a real system, get from SecurityContext
-        String ipAddress = "0.0.0.0";
-
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            ipAddress = request.getRemoteAddr();
-            // userId = (String) request.getSession().getAttribute("userId"); // Placeholder
-        }
+        AuditActor actor = auditActorProviderPort.currentActor();
 
         String beforeData = null;
         Object[] args = joinPoint.getArgs();
@@ -71,8 +59,16 @@ public class AuditAspect {
             remarks = throwable.getMessage();
             throw throwable;
         } finally {
-            auditService.logEvent(eventType, userId, "SERVICE_METHOD", eventName, beforeData, afterData, status,
-                    remarks, ipAddress);
+            auditLogUseCase.logEvent(new AuditLogUseCase.LogCommand(
+                    eventType,
+                    actor.userId(),
+                    "SERVICE_METHOD",
+                    eventName,
+                    beforeData,
+                    afterData,
+                    status,
+                    remarks,
+                    actor.ipAddress()));
         }
 
         return result;

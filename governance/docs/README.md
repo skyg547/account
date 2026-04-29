@@ -24,10 +24,40 @@
 - `TracingService`
 - `DataMaskingService`
 
+## Hexagonal DDD 적용 현황
+
+- Inbound:
+  - `AuditController` (HTTP)
+  - `AuditAspect` (`@AuditLoggable` AOP)
+- Application:
+  - `application.port.in`: `AuditLogUseCase`, `AuthorizationUseCase`, `MasterApprovalUseCase`
+  - `application.service`: `AuditService`, `MasterApprovalService`
+  - `application.port.out`: persistence/actor/master-data 연계 포트
+- Infrastructure:
+  - `infrastructure.persistence`: JPA adapter
+  - `infrastructure.security`: 요청 컨텍스트 기반 사용자/IP 해석
+  - `infrastructure.masterdata`: 승인 변경을 `master-data` 유스케이스로 반영
+
+## 내부회계 통제 포인트
+
+- 감사로그 사용자 식별:
+  - 우선순위 `X-User-ID` -> `request.getRemoteUser()` -> `request.getUserPrincipal()` -> `SYSTEM`
+- SOD:
+  - 요청자와 승인자 동일 시 승인 불가
+- 승인 후 반영:
+  - `MasterApproval` 승인 시 `master-data` 변경요청 생성 -> 승인 -> 적용까지 연결
+- 권한:
+  - role + function + accessType 조합 중복 부여 차단
+
+## Master Approval API
+
+- `GET /api/audit/approvals/pending`
+- `POST /api/audit/approvals/requests`
+- `POST /api/audit/approvals/{approvalId}/approve`
+- `POST /api/audit/approvals/{approvalId}/reject`
+
 ## 현재 구현 기준에서 먼저 알아둘 점
 
 - `audit` 패키지와 `security` 패키지가 함께 있지만, 목표 경계에서 사용자/메뉴/권한(IAM) 책임은 `auth` 모듈입니다.
-- `AuditAspect`는 현재 사용자 정보를 `SecurityContext`에서 읽지 않고 `SYSTEM`으로 기록합니다.
-- `MasterApprovalService.approve()`에는 실제 마스터 반영 로직이 아직 `TODO` 상태입니다.
 - `security` 패키지 모델은 이관 대상(legacy)으로 보고 신규 기능은 `governance`가 아닌 `auth`에서 확장해야 합니다.
 - `DataMaskingService`는 패턴별 문자열 마스킹만 제공합니다.
