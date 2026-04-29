@@ -54,11 +54,27 @@ public class Payment {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = PaymentStatus.INITIATED; // 珥덇린 ?곹깭??INITIATED
+            status = PaymentStatus.INITIATED; // 초기 상태는 INITIATED
         }
     }
 
-    // Getter 諛?Setter
+    public boolean canExecute() {
+        return status == PaymentStatus.INITIATED || status == PaymentStatus.APPROVED;
+    }
+
+    public void markAsCompleted(String bankAccount) {
+        if (!canExecute()) {
+            throw new IllegalStateException("현재 상태에서는 지급 완료 처리를 할 수 없습니다: " + status);
+        }
+        this.status = PaymentStatus.COMPLETED;
+        this.bankAccount = bankAccount;
+    }
+
+    public void markAsFailed() {
+        this.status = PaymentStatus.FAILED;
+    }
+
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

@@ -65,7 +65,44 @@ public class Payable {
         }
     }
 
-    // Getter 諛?Setter
+    /**
+     * 지급 금액을 적용하여 잔액을 차감하고 상태를 업데이트합니다.
+     */
+    public void applyPayment(BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("지급 금액은 0보다 커야 합니다.");
+        }
+        if (amount.compareTo(this.outstandingAmount) > 0) {
+            throw new IllegalArgumentException("지급 금액이 채무 잔액보다 클 수 없습니다.");
+        }
+
+        this.outstandingAmount = this.outstandingAmount.subtract(amount);
+        updateStatusByBalance();
+    }
+
+    /**
+     * 선급금 상계 금액을 적용합니다.
+     */
+    public void applyOffset(BigDecimal amount) {
+        applyPayment(amount); // 상계도 결국 잔액을 차감하는 행위이므로 동일 로직 사용
+    }
+
+    private void updateStatusByBalance() {
+        if (this.outstandingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            this.status = PayableStatus.PAID;
+            this.outstandingAmount = BigDecimal.ZERO;
+        } else {
+            this.status = PayableStatus.PARTIAL_PAID;
+        }
+    }
+
+    public void markAsOverdue() {
+        if (this.status != PayableStatus.PAID) {
+            this.status = PayableStatus.OVERDUE;
+        }
+    }
+
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

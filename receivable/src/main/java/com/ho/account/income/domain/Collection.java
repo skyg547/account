@@ -49,11 +49,27 @@ public class Collection {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = CollectionStatus.RECEIVED; // 珥덇린 ?곹깭??RECEIVED (?섏떊??
+            status = CollectionStatus.RECEIVED; // 초기 상태는 RECEIVED (수신됨)
         }
     }
 
-    // Getter 諛?Setter
+    public void markAsMatched() {
+        this.status = CollectionStatus.MATCHED;
+    }
+
+    public void markAsPartialMatched() {
+        this.status = CollectionStatus.PARTIAL_MATCHED;
+    }
+
+    public void markAsUnmatched() {
+        this.status = CollectionStatus.UNMATCHED;
+    }
+
+    public boolean canMatch() {
+        return status == CollectionStatus.RECEIVED || status == CollectionStatus.UNMATCHED || status == CollectionStatus.PARTIAL_MATCHED;
+    }
+
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

@@ -68,10 +68,26 @@
 - **도메인 지식 문서화**: `reporting/docs/external_reporting_guide.md`를 통해 K-IFRS 기준 보고서 산출 프로세스 정립.
 - **빌드 및 정합성 검증**: `./gradlew :reporting:classes` 빌드 성공을 통한 의존성 및 코드 정합성 최종 확인.
 
+### 📅 2026-04-28 (오후)
+### [기획/팀장] 매입채무(Payable) 및 매출채권(Receivable) 모듈 아키텍처 현대화
+- **헥사고날 아키텍처 전면 도입**: `payable` 및 `receivable` 모듈의 계층형 구조를 헥사고날(Port/Adapter) 아키텍처로 전환 완료.
+- **Rich Domain Model (DDD) 고도화**:
+  - `Payable/Receivable`: 잔액 차감(`applyPayment/applyCollection`) 및 상태 전이 로직 캡슐화.
+  - `Collection`: 매칭 가능 여부(`canMatch`) 및 상태 관리 로직 내재화.
+- **비즈니스 로직 응집도 향상**: 서비스 계층의 복잡한 상태 변경 로직을 도메인 엔티티 내부로 이동시켜 객체지향적 설계 강화.
+
+### [백엔드] 헥사고날 서비스 및 어댑터 구현
+- **Port/UseCase 정의**: `PurchaseUseCase`, `PaymentUseCase`, `SalesUseCase`, `CollectionUseCase` 등 도메인별 유즈케이스 추상화.
+- **Persistence Adapter**: JPA 리포지토리를 격리하는 영속성 어댑터 계층 구축으로 인프라 의존성 최소화.
+- **Web Adapter**: 헥사고날 포트를 사용하는 REST 컨트롤러로 리팩토링.
+
+### [QA] 모듈 컴파일 및 정합성 검증
+- **빌드 성공**: `:payable` 및 `:receivable` 모듈의 리팩토링 후 컴파일 정합성 최종 확인 완료.
+
 **NEXT STEPS (다음 담당자):**
-1. **[백엔드] PDF/Excel 리포트 생성기 구현**: `FinancialStatement` 도메인 모델을 시각적 문서로 변환하는 아웃바운드 어댑터 추가.
-2. **[QA] 회계 등식 검증 테스트**: 자산 = 부채 + 자본 등식이 모든 보고서 생성 시 성립하는지 검증하는 비즈니스 규칙 테스트 강화.
-3. **[프론트] 보고서 대시보드 연동**: 생성된 재무제표 데이터를 그리드와 차트로 시각화하는 프론트엔드 연동 작업.
+1. **[QA] 통합 시나리오 테스트**: 매출 인식 -> 수납 -> 매칭으로 이어지는 전체 O2C(Order to Cash) 흐름의 회계 정합성 검증.
+2. **[프론트] 매출/매입 관리 UI 연동**: 현대화된 백엔드 구조에 맞춘 프론트엔드 서비스 레이어 최적화.
+3. **[백엔드] 타 모듈 확장**: `asset`, `tax` 등 나머지 도메인 모듈에 대한 순차적 헥사고날 전환 검토.
 
 
 

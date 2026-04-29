@@ -54,7 +54,40 @@ public class Receivable {
         }
     }
 
-    // Getter 諛?Setter
+    /**
+     * 수납 금액을 적용하여 잔액을 차감하고 상태를 업데이트합니다.
+     */
+    public void applyCollection(BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("수납 금액은 0보다 커야 합니다.");
+        }
+        if (amount.compareTo(this.outstandingAmount) > 0) {
+            throw new IllegalArgumentException("수납 금액이 채권 잔액보다 클 수 없습니다.");
+        }
+
+        this.outstandingAmount = this.outstandingAmount.subtract(amount);
+        updateStatusByBalance();
+    }
+
+    private void updateStatusByBalance() {
+        if (this.outstandingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            this.status = ReceivableStatus.PAID;
+            this.outstandingAmount = BigDecimal.ZERO;
+        } else {
+            this.status = ReceivableStatus.PARTIAL_PAID;
+        }
+    }
+
+    /**
+     * 기일 경과 여부를 확인하여 상태를 OVERDUE로 변경합니다.
+     */
+    public void markAsOverdue() {
+        if (this.status != ReceivableStatus.PAID) {
+            this.status = ReceivableStatus.OVERDUE;
+        }
+    }
+
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }

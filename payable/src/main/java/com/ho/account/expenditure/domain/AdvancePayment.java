@@ -57,7 +57,28 @@ public class AdvancePayment {
         }
     }
 
-    // Getter 諛?Setter
+    /**
+     * 채무와 상계 처리하여 선급금 잔액을 차감합니다.
+     */
+    public void applyOffset(BigDecimal offsetAmount) {
+        if (offsetAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("상계 금액은 0보다 커야 합니다.");
+        }
+        if (offsetAmount.compareTo(this.outstandingAmount) > 0) {
+            throw new IllegalArgumentException("상계 금액이 선급금 잔액보다 클 수 없습니다.");
+        }
+
+        this.outstandingAmount = this.outstandingAmount.subtract(offsetAmount);
+        
+        if (this.outstandingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            this.status = AdvancePaymentStatus.OFFSET;
+            this.outstandingAmount = BigDecimal.ZERO;
+        } else {
+            this.status = AdvancePaymentStatus.ACTIVE;
+        }
+    }
+
+    // Getter 및 Setter
     public Long getId() {
         return id;
     }
