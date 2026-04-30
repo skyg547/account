@@ -15,6 +15,11 @@ public class CurrencyPersistenceAdapter implements CurrencyPersistencePort {
     private final CurrencyRepository currencyRepository;
 
     @Override
+    public Currency save(Currency currency) {
+        return currencyRepository.save(currency);
+    }
+
+    @Override
     public Optional<Currency> findByCode(String code) {
         return currencyRepository.findById(code);
     }

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :expenditure-resolution:compileJava)",
+      "Bash(./gradlew :app:compileJava)",
+      "Bash(./gradlew :expenditure-resolution:build)",
+      "Bash(./gradlew :journal-ledger:core:build :journal-ledger:api:compileJava :journal-ledger:batch:compileJava)"
+    ]
+  }
+}

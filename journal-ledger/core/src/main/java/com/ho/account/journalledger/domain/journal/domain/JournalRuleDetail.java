@@ -4,53 +4,121 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * ?꾪몴 洹쒖튃 ?곸꽭(Journal Rule Detail) ?뷀떚??
- * 洹쒖튃??留ㅼ묶?섏뿀?????앹꽦???꾪몴 ?쇱씤(遺꾧컻)??援ъ껜?곸씤 紐낆꽭瑜??뺤쓽?쒕떎.
+ * 자동 분개 규칙 명세 (Journal Rule Detail) — 규칙 적용 시 생성할 전표 라인 정의.
+ *
+ * ─────────────────────────────────────────────────
+ * [업무 설명]
+ * JournalRule의 조건이 충족됐을 때 실제로 생성할 전표 라인(분개 명세)을 정의합니다.
+ * 하나의 규칙에 여러 개의 명세 라인이 있을 수 있으며, 각 라인이 JournalDetail 한 줄이 됩니다.
+ *
+ * 예시) "매입 인식" 규칙의 명세:
+ *   [명세1] DEBIT  | 계정: "50100"(매입 비용)  | 금액: "${transaction.amount}"
+ *   [명세2] DEBIT  | 계정: "13500"(부가세 대급금) | 금액: "${transaction.amount} * 0.1"
+ *   [명세3] CREDIT | 계정: "21100"(매입채무)   | 금액: "${transaction.totalAmount}"
+ *
+ * 표현식(Expression) 방식:
+ *   - 고정값: "10100", "1000000"
+ *   - 동적값: "${transaction.accountCode}", "${transaction.amount}"
+ *   - 수식:   "${transaction.amount} * 0.1" (부가세 10%)
+ *   JournalRuleEngine에서 이벤트 데이터로 표현식을 평가(eval)합니다.
+ *
+ * ─────────────────────────────────────────────────
+ * [개발 설명]
+ * - journal_rule_details 테이블에 매핑됩니다.
+ * - JournalRule과 @ManyToOne 관계입니다.
+ * - drcrType은 String으로 저장됩니다 ("DEBIT" 또는 "CREDIT").
+ *   추후 JournalSide 열거형으로 교체를 고려할 수 있습니다.
+ * - 표현식 평가 로직은 JournalRuleEngine에서 구현합니다 (현재 stub 상태).
+ * ─────────────────────────────────────────────────
  */
 @Entity
 @Table(name = "journal_rule_details")
 public class JournalRuleDetail {
 
+    /** 시스템 내부 PK (자동 증가) */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 소속 분개 규칙.
+     * 이 명세 라인이 어느 JournalRule에 속하는지를 나타냅니다.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rule_id", nullable = false)
     private JournalRule journalRule;
 
+    /**
+     * 차변/대변 구분.
+     * "DEBIT" 또는 "CREDIT" 문자열로 저장됩니다.
+     * JournalRuleEngine이 이 값을 JournalSide 열거형으로 변환하여 JournalDetail에 설정합니다.
+     */
     @Column(nullable = false, length = 10)
-    private String drcrType; // DEBIT(李⑤?) ?먮뒗 CREDIT(?蹂)
+    private String drcrType;
 
+    /**
+     * 계정과목 코드 표현식.
+     * 고정 코드: "10100" (현금 계정)
+     * 동적 코드: "${transaction.accountCode}" (이벤트 데이터의 accountCode 필드 값 사용)
+     * JournalRuleEngine에서 이벤트 데이터를 바탕으로 실제 계정 코드로 평가합니다.
+     */
     @Column(nullable = false, length = 100)
-    private String accountSubjectCodeExpression; // ?? "10100", "${transaction.accountCode}"
+    private String accountSubjectCodeExpression;
 
+    /**
+     * 금액 표현식.
+     * 고정 금액:  "1000000"
+     * 동적 금액:  "${transaction.amount}"
+     * 수식:       "${transaction.amount} * 0.1" (예: 부가세 10% 계산)
+     * JournalRuleEngine에서 이벤트 데이터를 바탕으로 BigDecimal로 평가합니다.
+     */
     @Column(nullable = false, length = 100)
-    private String amountExpression; // ?? "1000", "${transaction.amount}", "${transaction.amount} * 0.1"
+    private String amountExpression;
 
+    /**
+     * 적요 표현식 (선택).
+     * null이면 전표 헤더의 description을 사용합니다.
+     * 동적 적요: "${transaction.description}"
+     */
     @Column(length = 255)
-    private String descriptionExpression; // ?? "留ㅼ텧", "${transaction.description}"
+    private String descriptionExpression;
 
+    /**
+     * 거래처 코드 표현식 (선택).
+     * 고정 코드:  "BP001"
+     * 동적 코드:  "${transaction.businessPartnerCode}"
+     * null이면 거래처 미설정.
+     */
     @Column(length = 50)
-    private String businessPartnerCodeExpression; // ?? "BP001", "${transaction.businessPartnerCode}"
+    private String businessPartnerCodeExpression;
 
+    /**
+     * 부서 코드 표현식 (선택).
+     * 고정 코드:  "D001"
+     * 동적 코드:  "${transaction.departmentCode}"
+     * null이면 부서 미설정.
+     */
     @Column(length = 50)
-    private String departmentCodeExpression; // ?? "D001", "${transaction.departmentCode}"
+    private String departmentCodeExpression;
 
+    /** 최초 생성 일시 (수정 불가) */
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    /** 최종 수정 일시 */
     private LocalDateTime updatedAt;
 
+    /** 처리자 */
     @Column(length = 50)
     private String auditUser;
+
+    // ─── 생명주기 콜백 ──────────────────────────────────────
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
+        if (this.auditUser == null) this.auditUser = "SYSTEM";
     }
 
     @PreUpdate
@@ -58,92 +126,38 @@ public class JournalRuleDetail {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
-    public Long getId() {
-        return id;
-    }
+    // ─── Getter / Setter ──────────────────────────────────
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public JournalRule getJournalRule() {
-        return journalRule;
-    }
+    public JournalRule getJournalRule() { return journalRule; }
+    public void setJournalRule(JournalRule journalRule) { this.journalRule = journalRule; }
 
-    public void setJournalRule(JournalRule journalRule) {
-        this.journalRule = journalRule;
-    }
+    public String getDrcrType() { return drcrType; }
+    public void setDrcrType(String drcrType) { this.drcrType = drcrType; }
 
-    public String getDrcrType() {
-        return drcrType;
-    }
+    public String getAccountSubjectCodeExpression() { return accountSubjectCodeExpression; }
+    public void setAccountSubjectCodeExpression(String expr) { this.accountSubjectCodeExpression = expr; }
 
-    public void setDrcrType(String drcrType) {
-        this.drcrType = drcrType;
-    }
+    public String getAmountExpression() { return amountExpression; }
+    public void setAmountExpression(String expr) { this.amountExpression = expr; }
 
-    public String getAccountSubjectCodeExpression() {
-        return accountSubjectCodeExpression;
-    }
+    public String getDescriptionExpression() { return descriptionExpression; }
+    public void setDescriptionExpression(String expr) { this.descriptionExpression = expr; }
 
-    public void setAccountSubjectCodeExpression(String accountSubjectCodeExpression) {
-        this.accountSubjectCodeExpression = accountSubjectCodeExpression;
-    }
+    public String getBusinessPartnerCodeExpression() { return businessPartnerCodeExpression; }
+    public void setBusinessPartnerCodeExpression(String expr) { this.businessPartnerCodeExpression = expr; }
 
-    public String getAmountExpression() {
-        return amountExpression;
-    }
+    public String getDepartmentCodeExpression() { return departmentCodeExpression; }
+    public void setDepartmentCodeExpression(String expr) { this.departmentCodeExpression = expr; }
 
-    public void setAmountExpression(String amountExpression) {
-        this.amountExpression = amountExpression;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public String getDescriptionExpression() {
-        return descriptionExpression;
-    }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public void setDescriptionExpression(String descriptionExpression) {
-        this.descriptionExpression = descriptionExpression;
-    }
-
-    public String getBusinessPartnerCodeExpression() {
-        return businessPartnerCodeExpression;
-    }
-
-    public void setBusinessPartnerCodeExpression(String businessPartnerCodeExpression) {
-        this.businessPartnerCodeExpression = businessPartnerCodeExpression;
-    }
-
-    public String getDepartmentCodeExpression() {
-        return departmentCodeExpression;
-    }
-
-    public void setDepartmentCodeExpression(String departmentCodeExpression) {
-        this.departmentCodeExpression = departmentCodeExpression;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public String getAuditUser() {
-        return auditUser;
-    }
-
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
-    }
+    public String getAuditUser() { return auditUser; }
+    public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
 }

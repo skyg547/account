@@ -73,7 +73,7 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("rouAmount", contract.getInitialRightOfUseAssetValue());
         event.put("liabilityAmount", contract.getInitialLeaseLiabilityValue());
         event.put("accountingDate", contract.getStartDate().toString());
-        event.put("deptCode", contract.getDepartment().getCode());
+        event.put("deptCode", contract.getDepartmentCode());
         
         eventPort.sendAssetEvent(TOPIC, event);
     }
@@ -115,7 +115,7 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("transactionType", "IFRS16_REMEASUREMENT");
         event.put("contractId", updated.getId());
         event.put("accountingDate", remeasureDate.toString());
-        event.put("deptCode", updated.getDepartment().getCode());
+        event.put("deptCode", updated.getDepartmentCode());
         eventPort.sendAssetEvent(TOPIC, event);
         
         return updated;
@@ -165,7 +165,7 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("principalAmount", schedule.getPrincipalPortion());
         event.put("totalPayment", schedule.getScheduledPaymentAmount());
         event.put("accountingDate", processDate.toString());
-        event.put("deptCode", contract.getDepartment().getCode());
+        event.put("deptCode", contract.getDepartmentCode());
         
         eventPort.sendAssetEvent(TOPIC, event);
     }
@@ -200,9 +200,9 @@ public class LeaseEntryService implements LeaseUseCase {
                 "리스료 지급 " + contract.getContractName(),
                 date,
                 date,
-                contract.getDepartment().getCode(),
-                contract.getExpenseAccount().getCode(),
-                contract.getLessor().getBusinessPartnerCode(),
+                contract.getDepartmentCode(),
+                contract.getExpenseAccountCode(),
+                contract.getLessorCode(),
                 contract.getMonthlyPayment(),
                 "월 리스료"
         ));

@@ -4,9 +4,6 @@ import com.ho.account.asset.application.port.in.LeaseUseCase;
 import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.dto.LeaseContractRequest;
 import com.ho.account.asset.dto.LeaseRemeasurementRequest;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,9 +22,6 @@ import java.util.List;
 public class LeaseAccountingController {
 
     private final LeaseUseCase leaseUseCase;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
 
     @PostMapping
     public ResponseEntity<LeaseContract> createLeaseContract(@Valid @RequestBody LeaseContractRequest request) {
@@ -40,18 +34,9 @@ public class LeaseAccountingController {
         contract.setPaymentDay(request.getPaymentDay());
         contract.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
 
-        if (request.getLessorBusinessPartnerCode() != null) {
-            contract.setLessor(businessPartnerPersistencePort.findByBusinessPartnerCode(request.getLessorBusinessPartnerCode())
-                    .orElseThrow(() -> new IllegalArgumentException("Lessor Business Partner not found")));
-        }
-        if (request.getDepartmentCode() != null) {
-            contract.setDepartment(departmentPersistencePort.findByCode(request.getDepartmentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("Department not found")));
-        }
-        if (request.getExpenseAccountCode() != null) {
-            contract.setExpenseAccount(accountSubjectPersistencePort.findByCode(request.getExpenseAccountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("Expense Account Subject not found")));
-        }
+        contract.setLessorCode(request.getLessorBusinessPartnerCode());
+        contract.setDepartmentCode(request.getDepartmentCode());
+        contract.setExpenseAccountCode(request.getExpenseAccountCode());
 
         contract.setIfrs16Applicable(request.isIfrs16Applicable());
         contract.setShortTermLease(request.isShortTermLease());

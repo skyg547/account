@@ -5,7 +5,6 @@ import com.ho.account.asset.application.port.out.AssetEventPort;
 import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
 import com.ho.account.asset.domain.AssetHistory;
 import com.ho.account.asset.domain.FixedAsset;
-import com.ho.account.masterdata.core.domain.model.Department;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,14 +32,14 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         asset.setStatus("ACTIVE");
         FixedAsset savedAsset = persistencePort.save(asset);
 
-        createHistory(savedAsset, "ACQUISITION", null, asset.getDepartment(), null, "ACTIVE", "Initial acquisition");
+        createHistory(savedAsset, "ACQUISITION", null, asset.getDepartmentCode(), null, "ACTIVE", "Initial acquisition");
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "ASSET_ACQUISITION");
         event.put("assetCode", savedAsset.getAssetCode());
         event.put("amount", savedAsset.getAcquisitionCost());
         event.put("accountingDate", savedAsset.getAcquisitionDate().toString());
-        event.put("deptCode", savedAsset.getDepartment().getCode());
+        event.put("deptCode", savedAsset.getDepartmentCode());
         
         eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
@@ -50,7 +49,6 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
     @Transactional
     public void processMonthlyDepreciation(LocalDate processDate) {
         persistencePort.findByStatus("ACTIVE").forEach(asset -> {
-            // Rich Domain Model: 도메인 엔티티 내의 depreciate 로직 호출
             BigDecimal amount = asset.depreciate(processDate);
             if (amount.compareTo(BigDecimal.ZERO) > 0) {
                 persistencePort.save(asset);
@@ -61,7 +59,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
                 event.put("assetCode", asset.getAssetCode());
                 event.put("amount", amount);
                 event.put("accountingDate", processDate.toString());
-                event.put("deptCode", asset.getDepartment().getCode());
+                event.put("deptCode", asset.getDepartmentCode());
                 eventPort.sendAssetEvent(TOPIC, event);
             }
         });
@@ -85,7 +83,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         event.put("salePrice", salePrice);
         event.put("bookValue", savedAsset.getCurrentBookValue());
         event.put("accountingDate", disposalDate.toString());
-        event.put("deptCode", savedAsset.getDepartment().getCode());
+        event.put("deptCode", savedAsset.getDepartmentCode());
         
         eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
@@ -93,23 +91,23 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
     @Override
     @Transactional
-    public void changeDepartment(Long assetId, Department newDept, String reason) {
+    public void changeDepartment(Long assetId, String newDeptCode, String reason) {
         FixedAsset asset = persistencePort.findById(assetId)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
         
-        Department oldDept = asset.getDepartment();
-        asset.setDepartment(newDept);
+        String oldDeptCode = asset.getDepartmentCode();
+        asset.setDepartmentCode(newDeptCode);
         persistencePort.save(asset);
 
-        createHistory(asset, "TRANSFER", oldDept, newDept, null, null, reason);
+        createHistory(asset, "TRANSFER", oldDeptCode, newDeptCode, null, null, reason);
     }
 
-    private void createHistory(FixedAsset asset, String type, Department oldDept, Department newDept, String oldStatus, String newStatus, String desc) {
+    private void createHistory(FixedAsset asset, String type, String oldDeptCode, String newDeptCode, String oldStatus, String newStatus, String desc) {
         AssetHistory history = new AssetHistory();
         history.setFixedAsset(asset);
         history.setHistoryType(type);
-        history.setOldDepartment(oldDept);
-        history.setNewDepartment(newDept);
+        history.setOldDepartmentCode(oldDeptCode);
+        history.setNewDepartmentCode(newDeptCode);
         history.setOldStatus(oldStatus);
         history.setNewStatus(newStatus);
         history.setDescription(desc);

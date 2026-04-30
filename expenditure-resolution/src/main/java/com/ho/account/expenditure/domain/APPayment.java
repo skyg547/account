@@ -5,8 +5,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ap_payments") // Renamed table for clarity
-public class APPayment { // Renamed class
+@Table(name = "ap_payments")
+public class APPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,19 +20,20 @@ public class APPayment { // Renamed class
     private Long taxInvoiceId;
 
     @Column(nullable = false)
-    private LocalDateTime paymentDate; // 실제 지급 일시
+    private LocalDateTime paymentDate;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // Gross payment amount
+    private BigDecimal amount;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal unappliedAmount; // Amount not yet applied to invoices/resolutions
+    private BigDecimal unappliedAmount;
 
     @Column(length = 50)
-    private String paymentMethod; // TRANSFER(이체), CASH(현금), CARD(카드)
+    private String paymentMethod;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String status; // COMPLETED, FAILED, PENDING, PARTIALLY_APPLIED
+    private APPaymentStatus status;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -46,8 +47,7 @@ public class APPayment { // Renamed class
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
+        if (this.auditUser == null) this.auditUser = "SYSTEM";
     }
 
     @PreUpdate
@@ -55,84 +55,65 @@ public class APPayment { // Renamed class
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 및 Setter
-    public Long getId() {
-        return id;
+    // 도메인 상태 전이 메서드
+    public void complete() {
+        if (this.status != APPaymentStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태의 지급만 완료 처리할 수 있습니다.");
+        }
+        this.status = APPaymentStatus.COMPLETED;
+        this.unappliedAmount = BigDecimal.ZERO;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void fail() {
+        if (this.status != APPaymentStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태의 지급만 실패 처리할 수 있습니다.");
+        }
+        this.status = APPaymentStatus.FAILED;
     }
 
-    public ExpenditureResolution getExpenditureResolution() {
-        return expenditureResolution;
+    public void partiallyApply(BigDecimal appliedAmount) {
+        if (appliedAmount == null || appliedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("적용 금액은 0보다 커야 합니다.");
+        }
+        if (appliedAmount.compareTo(this.unappliedAmount) > 0) {
+            throw new IllegalStateException("적용 금액이 미적용 잔액을 초과합니다.");
+        }
+        this.unappliedAmount = this.unappliedAmount.subtract(appliedAmount);
+        this.status = this.unappliedAmount.compareTo(BigDecimal.ZERO) == 0
+                ? APPaymentStatus.COMPLETED
+                : APPaymentStatus.PARTIALLY_APPLIED;
     }
 
+    // Getter / Setter
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public ExpenditureResolution getExpenditureResolution() { return expenditureResolution; }
     public void setExpenditureResolution(ExpenditureResolution expenditureResolution) {
         this.expenditureResolution = expenditureResolution;
     }
 
-    public Long getTaxInvoiceId() {
-        return taxInvoiceId;
-    }
+    public Long getTaxInvoiceId() { return taxInvoiceId; }
+    public void setTaxInvoiceId(Long taxInvoiceId) { this.taxInvoiceId = taxInvoiceId; }
 
-    public void setTaxInvoiceId(Long taxInvoiceId) {
-        this.taxInvoiceId = taxInvoiceId;
-    }
+    public LocalDateTime getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
 
-    public LocalDateTime getPaymentDate() {
-        return paymentDate;
-    }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
-    public void setPaymentDate(LocalDateTime paymentDate) {
-        this.paymentDate = paymentDate;
-    }
+    public BigDecimal getUnappliedAmount() { return unappliedAmount; }
+    public void setUnappliedAmount(BigDecimal unappliedAmount) { this.unappliedAmount = unappliedAmount; }
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
+    public APPaymentStatus getStatus() { return status; }
+    public void setStatus(APPaymentStatus status) { this.status = status; }
 
-    public BigDecimal getUnappliedAmount() {
-        return unappliedAmount;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 
-    public void setUnappliedAmount(BigDecimal unappliedAmount) {
-        this.unappliedAmount = unappliedAmount;
-    }
-
-    public String getPaymentMethod() {
-        return paymentMethod;
-    }
-
-    public void setPaymentMethod(String paymentMethod) {
-        this.paymentMethod = paymentMethod;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public String getAuditUser() {
-        return auditUser;
-    }
-
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
-    }
+    public String getAuditUser() { return auditUser; }
+    public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
 }

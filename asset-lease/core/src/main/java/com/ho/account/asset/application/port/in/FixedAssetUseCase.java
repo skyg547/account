@@ -9,5 +9,5 @@ public interface FixedAssetUseCase {
     FixedAsset registerAsset(FixedAsset asset);
     void processMonthlyDepreciation(LocalDate processDate);
     FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice);
-    void changeDepartment(Long assetId, Department newDept, String reason);
+    void changeDepartment(Long assetId, String newDeptCode, String reason);
 }

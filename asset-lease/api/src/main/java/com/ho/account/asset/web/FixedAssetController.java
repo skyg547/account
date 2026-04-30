@@ -5,8 +5,6 @@ import com.ho.account.asset.domain.FixedAsset;
 import com.ho.account.asset.dto.FixedAssetDisposalRequest;
 import com.ho.account.asset.dto.FixedAssetRequest;
 import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,8 +23,6 @@ public class FixedAssetController {
 
     private final FixedAssetUseCase fixedAssetUseCase;
     private final FixedAssetPersistencePort fixedAssetPersistencePort;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
 
     @PostMapping
     public ResponseEntity<FixedAsset> registerFixedAsset(@Valid @RequestBody FixedAssetRequest request) {
@@ -39,14 +35,10 @@ public class FixedAssetController {
         fixedAsset.setDepreciationMethod(request.getDepreciationMethod());
         fixedAsset.setResidualValue(request.getResidualValue());
 
-        fixedAsset.setAccountSubject(accountSubjectPersistencePort.findByCode(request.getAccountSubjectCode())
-                .orElseThrow(() -> new IllegalArgumentException("자산 계정 과목을 찾을 수 없습니다: " + request.getAccountSubjectCode())));
-        fixedAsset.setAccumulatedAccount(accountSubjectPersistencePort.findByCode(request.getAccumulatedAccountCode())
-                .orElseThrow(() -> new IllegalArgumentException("감가상각누계액 계정 과목을 찾을 수 없습니다: " + request.getAccumulatedAccountCode())));
-        fixedAsset.setExpenseAccount(accountSubjectPersistencePort.findByCode(request.getExpenseAccountCode())
-                .orElseThrow(() -> new IllegalArgumentException("감가상각비 계정 과목을 찾을 수 없습니다: " + request.getExpenseAccountCode())));
-        fixedAsset.setDepartment(departmentPersistencePort.findByCode(request.getDepartmentCode())
-                .orElseThrow(() -> new IllegalArgumentException("관리 부서를 찾을 수 없습니다: " + request.getDepartmentCode())));
+        fixedAsset.setAccountCode(request.getAccountSubjectCode());
+        fixedAsset.setAccumulatedAccountCode(request.getAccumulatedAccountCode());
+        fixedAsset.setExpenseAccountCode(request.getExpenseAccountCode());
+        fixedAsset.setDepartmentCode(request.getDepartmentCode());
 
         FixedAsset registeredAsset = fixedAssetUseCase.registerAsset(fixedAsset);
         return new ResponseEntity<>(registeredAsset, HttpStatus.CREATED);

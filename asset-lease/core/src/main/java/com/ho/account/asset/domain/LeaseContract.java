@@ -1,8 +1,5 @@
 package com.ho.account.asset.domain;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,9 +27,8 @@ public class LeaseContract {
     @Column(nullable = false)
     private String contractName;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lessor_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner lessor;
+    @Column(name = "lessor_code", length = 20)
+    private String lessorCode;
 
     @Column(nullable = false)
     private LocalDate startDate;
@@ -53,13 +49,11 @@ public class LeaseContract {
 
     private String status; // ACTIVE, TERMINATED, MODIFIED
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "dept_code")
-    private Department department;
+    @Column(name = "dept_code", length = 20)
+    private String departmentCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expense_account_code")
-    private AccountSubject expenseAccount;
+    @Column(name = "expense_account_code", length = 20)
+    private String expenseAccountCode;
 
     private boolean ifrs16Applicable = true;
     private boolean shortTermLease = false;

@@ -41,7 +41,31 @@ public class TaxInvoice {
     @JoinColumn(name = "journal_entry_id")
     private JournalEntry journalEntry;
 
-    // Getter 諛?Setter
+    public void validateAmounts() {
+        if (supplyAmount == null || taxAmount == null || totalAmount == null) {
+            throw new IllegalArgumentException("공급가액, 세액, 합계금액은 필수입니다.");
+        }
+        if (supplyAmount.add(taxAmount).compareTo(totalAmount) != 0) {
+            throw new IllegalArgumentException("공급가액과 세액의 합이 합계금액과 일치하지 않습니다.");
+        }
+    }
+
+    public boolean isPurchaseType() {
+        return "PURCHASE".equals(this.type);
+    }
+
+    public void updateInfo(String issueId, LocalDate issueDate, BusinessPartner businessPartner, 
+                          BigDecimal supplyAmount, BigDecimal taxAmount, BigDecimal totalAmount) {
+        this.issueId = issueId;
+        this.issueDate = issueDate;
+        this.businessPartner = businessPartner;
+        this.supplyAmount = supplyAmount;
+        this.taxAmount = taxAmount;
+        this.totalAmount = totalAmount;
+        validateAmounts();
+    }
+
+    // Getter 및 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

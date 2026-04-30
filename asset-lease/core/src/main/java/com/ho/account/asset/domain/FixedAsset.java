@@ -1,7 +1,5 @@
 package com.ho.account.asset.domain;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,17 +28,14 @@ public class FixedAsset {
     @Column(nullable = false)
     private String assetName;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_code")
-    private AccountSubject accountSubject;
+    @Column(name = "account_code", length = 20)
+    private String accountCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "accumulated_account_code")
-    private AccountSubject accumulatedAccount;
+    @Column(name = "accumulated_account_code", length = 20)
+    private String accumulatedAccountCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expense_account_code")
-    private AccountSubject expenseAccount;
+    @Column(name = "expense_account_code", length = 20)
+    private String expenseAccountCode;
 
     @Column(nullable = false)
     private LocalDate acquisitionDate;
@@ -66,9 +61,8 @@ public class FixedAsset {
     @Column(nullable = false)
     private String status; // ACTIVE, DISPOSED, FULLY_DEPRECIATED
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "dept_code")
-    private Department department;
+    @Column(name = "dept_code", length = 20)
+    private String departmentCode;
 
     public BigDecimal depreciate(LocalDate processDate) {
         if (!"ACTIVE".equals(status)) return BigDecimal.ZERO;

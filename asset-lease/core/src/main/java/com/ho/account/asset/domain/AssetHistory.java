@@ -1,6 +1,5 @@
 package com.ho.account.asset.domain;
 
-import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,13 +26,11 @@ public class AssetHistory {
 
     private String historyType; // TRANSFER, DISPOSAL, DEPRECIATION, STATUS_CHANGE
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "old_dept_code", referencedColumnName = "dept_code")
-    private Department oldDepartment;
+    @Column(name = "old_dept_code", length = 20)
+    private String oldDepartmentCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "new_dept_code", referencedColumnName = "dept_code")
-    private Department newDepartment;
+    @Column(name = "new_dept_code", length = 20)
+    private String newDepartmentCode;
 
     private String oldStatus;
     private String newStatus;

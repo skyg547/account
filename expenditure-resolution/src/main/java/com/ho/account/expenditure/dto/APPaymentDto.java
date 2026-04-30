@@ -41,7 +41,7 @@ public class APPaymentDto {
                 apPayment.getAmount(),
                 apPayment.getUnappliedAmount(),
                 apPayment.getPaymentMethod(),
-                apPayment.getStatus()
+                apPayment.getStatus() != null ? apPayment.getStatus().name() : null
         );
     }
 

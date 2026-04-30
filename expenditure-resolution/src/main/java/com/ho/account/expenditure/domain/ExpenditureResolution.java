@@ -88,7 +88,33 @@ public class ExpenditureResolution {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Getter 諛?Setter
+    // 도메인 상태 전이 메서드
+    public void requestApproval() {
+        if (this.status != ExpenditureResolutionStatus.DRAFT
+                && this.status != ExpenditureResolutionStatus.REJECTED) {
+            throw new IllegalStateException("DRAFT 또는 REJECTED 상태의 결의서만 승인 요청할 수 있습니다.");
+        }
+        this.status = ExpenditureResolutionStatus.REQUESTED;
+    }
+
+    public void approve(JournalEntry journalEntry) {
+        if (this.status != ExpenditureResolutionStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태의 결의서만 승인할 수 있습니다.");
+        }
+        this.status = ExpenditureResolutionStatus.APPROVED;
+        this.journalEntry = journalEntry;
+        this.rejectionReason = null;
+    }
+
+    public void reject(String reason) {
+        if (this.status != ExpenditureResolutionStatus.REQUESTED) {
+            throw new IllegalStateException("REQUESTED 상태의 결의서만 반려할 수 있습니다.");
+        }
+        this.status = ExpenditureResolutionStatus.REJECTED;
+        this.rejectionReason = reason;
+    }
+
+    // Getter / Setter
     public Long getId() {
         return id;
     }
