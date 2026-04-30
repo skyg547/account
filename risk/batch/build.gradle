@@ -6,7 +6,18 @@ plugins {
 
 dependencies {
     implementation project(':risk:core')
+    implementation project(':loan:core')
+    
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    runtimeOnly 'com.h2database:h2'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 bootJar {

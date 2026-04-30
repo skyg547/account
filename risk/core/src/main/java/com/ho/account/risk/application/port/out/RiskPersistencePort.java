@@ -15,6 +15,8 @@ public interface RiskPersistencePort {
 
     void saveExposure(CreditRiskExposure exposure);
 
+    void saveAllExposures(List<CreditRiskExposure> exposures);
+
     void saveRwa(RiskWeightedAsset rwa);
 
     List<CreditRiskExposure> findExposuresByBaseDate(LocalDate baseDate);
