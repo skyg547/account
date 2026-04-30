@@ -17,73 +17,168 @@ import java.time.LocalDate;
 import java.math.BigDecimal;
 
 /**
- * 전표 데이터를 원장(GL/SL)에 전기(Posting)하는 서비스
+ * 전기 서비스 (Posting Service) — 전표를 원장에 반영합니다.
+ *
+ * ─────────────────────────────────────────────────
+ * [업무 설명]
+ * 전기(Posting)는 회계에서 "전표 작성"과 "장부 반영"을 구분하는 핵심 단계입니다.
+ *
+ * 전기 전: 전표는 작성되었지만 원장에 반영되지 않아 재무제표에 영향이 없습니다.
+ * 전기 후: 원장(GL/SL)에 잔액이 반영되어 재무제표 작성의 기초 데이터가 됩니다.
+ *
+ * 전기 처리 시 발생하는 일 (전표 상세 라인 1개당):
+ *   1. GL Entry(총계정원장 분개항목) 생성 — 계정과목 단위 기록
+ *   2. SL Entry(보조원장 분개항목) 생성  — 계정과목+거래처+부서 단위 기록
+ *   3. GL Balance(총계정원장 잔액) 갱신  — 차변/대변 누적 및 기말잔액 재계산
+ *   4. SL Balance(보조원장 잔액) 갱신    — 거래처별/부서별 잔액 갱신
+ *
+ * 예시:
+ *   전표: 차변 매출채권(11000) 100,000 / 대변 매출(41000) 100,000
+ *   전기 후:
+ *     GlEntry: 매출채권 차변 100,000 생성
+ *     GlEntry: 매출     대변 100,000 생성
+ *     SlEntry: 매출채권+거래처A 차변 100,000 생성
+ *     GlBalance: 매출채권 잔액 +100,000
+ *     SlBalance: 매출채권+거래처A 잔액 +100,000
+ *
+ * ─────────────────────────────────────────────────
+ * [개발 설명]
+ * - JournalEntryService.postJournalEntry()가 전표 상태를 POSTED로 변경한 후,
+ *   이 서비스가 원장 항목(Entry)과 잔액(Balance)을 생성/갱신합니다.
+ * - 전표 상세 라인(JournalDetail) 하나당 GlEntry 1개 + SlEntry 1개가 생성됩니다.
+ * - 잔액 갱신(Carry-forward 포함)은 LedgerService에 위임합니다.
+ * - POSTED 또는 REVERSED 상태의 전표에 재전기를 시도하면 예외가 발생합니다.
+ *
+ * 트랜잭션:
+ *   전체 전기 과정이 하나의 트랜잭션으로 묶입니다.
+ *   전기 도중 오류 발생 시 전표 상태 변경, Entry 생성, Balance 갱신이 모두 롤백됩니다.
+ * ─────────────────────────────────────────────────
  */
 @Service
 @RequiredArgsConstructor
 public class PostingService {
 
+    /**
+     * 전표 저장소.
+     * 전기할 전표를 조회하고, 상태(POSTED)를 저장합니다.
+     */
     private final JournalEntryRepository journalEntryRepository;
+
+    /**
+     * GL Entry 저장소.
+     * 총계정원장 분개항목(계정과목 단위)을 저장합니다.
+     */
     private final GlEntryRepository glEntryRepository;
+
+    /**
+     * SL Entry 저장소.
+     * 보조원장 분개항목(계정과목+거래처+부서 단위)을 저장합니다.
+     */
     private final SlEntryRepository slEntryRepository;
+
+    /**
+     * 원장 잔액 서비스.
+     * GL Balance / SL Balance 잔액 갱신 및 Carry-forward(기초잔액 이월)를 담당합니다.
+     */
     private final LedgerService ledgerService;
 
+    /**
+     * 전표를 원장에 전기합니다.
+     *
+     * [업무 설명]
+     * APPROVED 상태의 전표를 원장(GL/SL)에 공식 반영합니다.
+     * 이 메서드 호출 후 재무제표에 해당 거래가 반영됩니다.
+     *
+     * 처리 순서:
+     *   1. 전표 조회 및 상태 검증 (이미 전기/역전기된 전표 재전기 방지)
+     *   2. 전표 상태 → POSTED 변경 및 저장
+     *   3. 전표 상세 라인(JournalDetail) 반복 처리:
+     *      a. GL Entry 생성 (총계정원장 기록)
+     *      b. SL Entry 생성 (보조원장 기록)
+     *      c. GL Balance / SL Balance 잔액 갱신 (Carry-forward 포함)
+     *
+     * [개발 설명]
+     * - 차변/대변 구분: JournalSide.DEBIT이면 drAmount, 아니면 crAmount에 값 설정
+     * - amount vs baseAmount:
+     *     detail.getAmount()     → 거래통화 금액 (외화일 경우 USD 그대로)
+     *     detail.getBaseAmount() → 기본통화(KRW) 환산 금액 (잔액 계산 기준)
+     * - lineageSourceType/lineageSourceId: JournalEntry 헤더에서 복사하여
+     *   "GlEntry → 원천 문서" 역추적(drill-down)에 사용
+     *
+     * @param journalEntryId 전기할 전표의 내부 PK
+     * @throws IllegalArgumentException 존재하지 않는 전표 ID
+     * @throws IllegalStateException    이미 POSTED 또는 REVERSED 상태인 전표
+     */
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
+        // ─── 1단계: 전표 조회 및 중복 전기 방지 ───────────────────────────
         JournalEntry journalEntry = journalEntryRepository.findById(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 
+        // 이미 전기(POSTED)되었거나 역전기(REVERSED)된 전표는 재전기 불가
         if (journalEntry.getStatus() == JournalEntryStatus.POSTED || journalEntry.getStatus() == JournalEntryStatus.REVERSED) {
             throw new IllegalStateException("JournalEntry is already posted or reversed.");
         }
 
+        // ─── 2단계: 전표 상태 POSTED로 변경 ────────────────────────────────
         journalEntry.setStatus(JournalEntryStatus.POSTED);
         journalEntryRepository.save(journalEntry);
 
+        // ─── 3단계: 회계연도/회계기간 계산 ─────────────────────────────────
         LocalDate accountingDate = journalEntry.getAccountingDate();
+        // 회계연도: "2026" (4자리 연도 문자열)
         String fiscalYear = String.valueOf(accountingDate.getYear());
+        // 회계기간: "01" ~ "12" (2자리 월 문자열, 앞자리 0 패딩)
         String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
 
+        // ─── 4단계: 전표 상세 라인별 원장 항목 생성 ────────────────────────
         for (JournalDetail detail : journalEntry.getDetails()) {
+            // 차변 여부 판단 (차변=true, 대변=false)
             boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
 
-            // 1. GlEntry 생성
+            // ── 4-1. GL Entry(총계정원장 분개항목) 생성 ──────────────────────
+            // GL Entry는 계정과목 단위로 거래를 기록합니다.
+            // 재무제표(손익계산서, 재무상태표)의 기초 데이터가 됩니다.
             GlEntry glEntry = new GlEntry();
-            glEntry.setJournalDetail(detail);
-            glEntry.setAccount(detail.getAccountSubject());
-            glEntry.setFiscalYear(fiscalYear);
-            glEntry.setFiscalPeriod(fiscalPeriod);
-            glEntry.setPostingDate(accountingDate);
-            glEntry.setCurrency(journalEntry.getCurrency());
-            glEntry.setLineageSourceType(journalEntry.getLineageSourceType());
-            glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
-            
+            glEntry.setJournalDetail(detail);                               // 원천 전표 라인 연결 (drill-down용)
+            glEntry.setAccount(detail.getAccountSubject());                  // 계정과목 (예: 매출채권 11000)
+            glEntry.setFiscalYear(fiscalYear);                               // 회계연도
+            glEntry.setFiscalPeriod(fiscalPeriod);                           // 회계기간
+            glEntry.setPostingDate(accountingDate);                          // 전기일
+            glEntry.setCurrency(journalEntry.getCurrency());                 // 거래통화
+            glEntry.setLineageSourceType(journalEntry.getLineageSourceType()); // 원천 문서 유형 (drill-down)
+            glEntry.setLineageSourceId(journalEntry.getLineageSourceId());   // 원천 문서 ID (drill-down)
+
             if (isDebit) {
-                glEntry.setDrAmount(detail.getAmount());
-                glEntry.setCrAmount(BigDecimal.ZERO);
-                glEntry.setBaseDrAmount(detail.getBaseAmount());
-                glEntry.setBaseCrAmount(BigDecimal.ZERO);
+                // 차변 항목: drAmount에 거래통화 금액, baseDrAmount에 KRW 환산 금액 설정
+                glEntry.setDrAmount(detail.getAmount());           // 거래통화 차변
+                glEntry.setCrAmount(BigDecimal.ZERO);              // 대변은 0
+                glEntry.setBaseDrAmount(detail.getBaseAmount());   // KRW 환산 차변
+                glEntry.setBaseCrAmount(BigDecimal.ZERO);          // KRW 환산 대변은 0
             } else {
-                glEntry.setDrAmount(BigDecimal.ZERO);
-                glEntry.setCrAmount(detail.getAmount());
-                glEntry.setBaseDrAmount(BigDecimal.ZERO);
-                glEntry.setBaseCrAmount(detail.getBaseAmount());
+                // 대변 항목: crAmount에 거래통화 금액, baseCrAmount에 KRW 환산 금액 설정
+                glEntry.setDrAmount(BigDecimal.ZERO);              // 차변은 0
+                glEntry.setCrAmount(detail.getAmount());           // 거래통화 대변
+                glEntry.setBaseDrAmount(BigDecimal.ZERO);          // KRW 환산 차변은 0
+                glEntry.setBaseCrAmount(detail.getBaseAmount());   // KRW 환산 대변
             }
             glEntryRepository.save(glEntry);
 
-            // 2. SlEntry 생성
+            // ── 4-2. SL Entry(보조원장 분개항목) 생성 ───────────────────────
+            // SL Entry는 GL Entry에 거래처(businessPartner)와 부서(department) 정보를 추가합니다.
+            // 예: 매출채권 거래처A 차변 100,000 (GL Entry보다 세분화된 기록)
             SlEntry slEntry = new SlEntry();
-            slEntry.setJournalDetail(detail);
-            slEntry.setAccount(detail.getAccountSubject());
-            slEntry.setBusinessPartner(detail.getBusinessPartner());
-            slEntry.setDepartment(detail.getDepartment());
+            slEntry.setJournalDetail(detail);                               // 원천 전표 라인 연결
+            slEntry.setAccount(detail.getAccountSubject());                  // 계정과목
+            slEntry.setBusinessPartner(detail.getBusinessPartner());         // 거래처 (채권·채무 관리 핵심)
+            slEntry.setDepartment(detail.getDepartment());                   // 귀속 부서 (부서별 원가 분석)
             slEntry.setFiscalYear(fiscalYear);
             slEntry.setFiscalPeriod(fiscalPeriod);
             slEntry.setPostingDate(accountingDate);
             slEntry.setCurrency(journalEntry.getCurrency());
             slEntry.setLineageSourceType(journalEntry.getLineageSourceType());
             slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
-            
+
             if (isDebit) {
                 slEntry.setDrAmount(detail.getAmount());
                 slEntry.setCrAmount(BigDecimal.ZERO);
@@ -97,7 +192,9 @@ public class PostingService {
             }
             slEntryRepository.save(slEntry);
 
-            // 3. 잔액 업데이트 (Carry-forward 포함)
+            // ── 4-3. GL Balance / SL Balance 잔액 갱신 ──────────────────────
+            // LedgerService가 GL/SL 잔액 레코드를 조회하거나 신규 생성(Carry-forward 포함)하여
+            // 차변/대변 금액을 누적하고 기말잔액(endingBalance)을 재계산합니다.
             ledgerService.updateLedgerBalances(detail, accountingDate);
         }
     }

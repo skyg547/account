@@ -1,5 +1,4 @@
 import React from 'react';
-import { Globe, RefreshCcw, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import styles from './FxPosition.module.css';
 
 export default function FxPositionPage() {

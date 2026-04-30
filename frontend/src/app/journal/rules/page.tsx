@@ -58,8 +58,8 @@ export default function JournalRulesPage() {
                 <Code size={16} /> <h4>실행 조건 (SpEL Conditions)</h4>
               </div>
               <div className={styles.conditionField}>
-                <code>#amount &gt; 1000000 && #vendorCode.startsWith('BP-')</code>
-                <p className={styles.hint}>금액이 1,000,000원 이상이고 거래처 코드가 'BP-'로 시작하는 경우</p>
+                <code>#amount &gt; 1000000 &amp;&amp; #vendorCode.startsWith(&apos;BP-&apos;)</code>
+                <p className={styles.hint}>금액이 1,000,000원 이상이고 거래처 코드가 &apos;BP-&apos;로 시작하는 경우</p>
               </div>
             </div>
 

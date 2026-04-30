@@ -28,7 +28,7 @@ public class APInvoiceController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaxInvoiceDto> getAPInvoiceById(@PathVariable Long id) {
+    public ResponseEntity<TaxInvoiceDto> getAPInvoiceById(@PathVariable("id") Long id) {
         return taxInvoiceUseCase.getAPInvoiceById(id)
                 .map(TaxInvoiceDto::fromEntity)
                 .map(ResponseEntity::ok)
@@ -36,7 +36,7 @@ public class APInvoiceController {
     }
 
     @GetMapping("/issue-id/{issueId}")
-    public ResponseEntity<TaxInvoiceDto> getAPInvoiceByIssueId(@PathVariable String issueId) {
+    public ResponseEntity<TaxInvoiceDto> getAPInvoiceByIssueId(@PathVariable("issueId") String issueId) {
         return taxInvoiceUseCase.getAPInvoiceByIssueId(issueId)
                 .map(TaxInvoiceDto::fromEntity)
                 .map(ResponseEntity::ok)
@@ -54,12 +54,12 @@ public class APInvoiceController {
 
     @PutMapping("/{id}")
     public ResponseEntity<TaxInvoiceDto> updateAPInvoice(
-            @PathVariable Long id, @Valid @RequestBody TaxInvoiceRequestDto requestDto) {
+            @PathVariable("id") Long id, @Valid @RequestBody TaxInvoiceRequestDto requestDto) {
         return ResponseEntity.ok(TaxInvoiceDto.fromEntity(taxInvoiceUseCase.updateAPInvoice(id, requestDto)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAPInvoice(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteAPInvoice(@PathVariable("id") Long id) {
         taxInvoiceUseCase.deleteAPInvoice(id);
         return ResponseEntity.noContent().build();
     }

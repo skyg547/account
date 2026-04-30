@@ -8,11 +8,8 @@ import {
   Clock, 
   CheckCircle2, 
   XCircle, 
-  Image as ImageIcon,
   CreditCard,
-  Building2,
   ChevronRight,
-  MoreVertical,
   History,
   FileSearch
 } from 'lucide-react';

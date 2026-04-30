@@ -1,5 +1,5 @@
 import React from 'react';
-import { Landmark, ArrowLeftRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import styles from './InterBranch.module.css';
 
 export default function InterBranchPage() {

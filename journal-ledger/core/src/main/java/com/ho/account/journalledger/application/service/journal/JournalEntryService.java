@@ -115,9 +115,10 @@ public class JournalEntryService implements JournalUseCase {
      * @return 생성된 전표 Optional (규칙 미매칭 시 empty)
      */
     @Override
+    @Transactional
     public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> eventData, LocalDate accountingDate) {
-        // JournalRuleEngine이 규칙 매칭 → 전표 자동 생성
-        return journalRuleEngine.generateJournalEntry(eventData, accountingDate);
+        return journalRuleEngine.generateJournalEntry(eventData, accountingDate)
+                .map(this::createJournalEntry);
     }
 
     /**

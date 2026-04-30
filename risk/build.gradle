@@ -1,0 +1,5 @@
+// Risk Root build.gradle
+subprojects {
+    group = 'com.ho.account.risk'
+    version = '0.0.1-SNAPSHOT'
+}

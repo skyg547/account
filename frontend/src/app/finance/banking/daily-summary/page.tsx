@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarCheck, Printer, Download, Search } from 'lucide-react';
+import { CalendarCheck, Printer, Search } from 'lucide-react';
 import styles from './DailySummary.module.css';
 
 export default function DailySummaryPage() {

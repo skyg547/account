@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogIn, Monitor, Globe, CheckCircle2, XCircle } from 'lucide-react';
+import { Monitor, Globe, CheckCircle2, XCircle } from 'lucide-react';
 import styles from './AccessLog.module.css';
 
 /**

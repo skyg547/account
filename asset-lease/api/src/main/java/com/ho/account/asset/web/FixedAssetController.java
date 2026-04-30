@@ -4,7 +4,6 @@ import com.ho.account.asset.application.port.in.FixedAssetUseCase;
 import com.ho.account.asset.domain.FixedAsset;
 import com.ho.account.asset.dto.FixedAssetDisposalRequest;
 import com.ho.account.asset.dto.FixedAssetRequest;
-import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 고정자산 관리 컨트롤러 (Inbound Adapter)
@@ -22,7 +22,6 @@ import java.time.LocalDate;
 public class FixedAssetController {
 
     private final FixedAssetUseCase fixedAssetUseCase;
-    private final FixedAssetPersistencePort fixedAssetPersistencePort;
 
     @PostMapping
     public ResponseEntity<FixedAsset> registerFixedAsset(@Valid @RequestBody FixedAssetRequest request) {
@@ -45,7 +44,7 @@ public class FixedAssetController {
     }
 
     @PostMapping("/depreciate/{processDate}")
-    public ResponseEntity<String> runMonthlyDepreciation(@PathVariable LocalDate processDate) {
+    public ResponseEntity<String> runMonthlyDepreciation(@PathVariable("processDate") LocalDate processDate) {
         fixedAssetUseCase.processMonthlyDepreciation(processDate);
         return ResponseEntity.ok("Monthly depreciation processed for " + processDate);
     }
@@ -60,9 +59,14 @@ public class FixedAssetController {
         return ResponseEntity.ok(disposedAsset);
     }
 
+    @GetMapping
+    public ResponseEntity<List<FixedAsset>> getAllFixedAssets(@RequestParam(required = false) String status) {
+        return ResponseEntity.ok(fixedAssetUseCase.findByStatus(status));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<FixedAsset> getFixedAssetById(@PathVariable Long id) {
-        return fixedAssetPersistencePort.findById(id)
+    public ResponseEntity<FixedAsset> getFixedAssetById(@PathVariable("id") Long id) {
+        return fixedAssetUseCase.findById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

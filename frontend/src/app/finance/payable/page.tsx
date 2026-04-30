@@ -1,6 +1,5 @@
 import React from 'react';
 import { CreditCard, Calendar, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
-import styles from './PayableManagement.module.css';
 
 /**
  * [매입채무 및 지급 관리 화면]

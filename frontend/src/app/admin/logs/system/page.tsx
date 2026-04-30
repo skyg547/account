@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, AlertTriangle, Info, Bug } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import styles from './SystemLog.module.css';
 
 /**

@@ -1,0 +1,237 @@
+package com.ho.account.expenditure.dto;
+
+import com.ho.account.expenditure.domain.ExpenditureDetail;
+import com.ho.account.expenditure.domain.ExpenditureResolution;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+public class ExpenditureResolutionDto {
+
+    private Long id;
+    private String resolutionNo;
+    private String title;
+    private LocalDate resolutionDate;
+    private LocalDate paymentDate;
+    private String departmentCode;
+    private String departmentName;
+    private String paymentAccountCode;
+    private String paymentAccountName;
+    private BigDecimal totalAmount;
+    private String status;
+    private String rejectionReason;
+    private Long taxInvoiceId;
+    private List<ExpenditureDetailDto> details;
+
+    public ExpenditureResolutionDto() {
+    }
+
+    public ExpenditureResolutionDto(
+            Long id,
+            String resolutionNo,
+            String title,
+            LocalDate resolutionDate,
+            LocalDate paymentDate,
+            String departmentCode,
+            String departmentName,
+            String paymentAccountCode,
+            String paymentAccountName,
+            BigDecimal totalAmount,
+            String status,
+            String rejectionReason,
+            Long taxInvoiceId,
+            List<ExpenditureDetailDto> details) {
+        this.id = id;
+        this.resolutionNo = resolutionNo;
+        this.title = title;
+        this.resolutionDate = resolutionDate;
+        this.paymentDate = paymentDate;
+        this.departmentCode = departmentCode;
+        this.departmentName = departmentName;
+        this.paymentAccountCode = paymentAccountCode;
+        this.paymentAccountName = paymentAccountName;
+        this.totalAmount = totalAmount;
+        this.status = status;
+        this.rejectionReason = rejectionReason;
+        this.taxInvoiceId = taxInvoiceId;
+        this.details = details;
+    }
+
+    public static ExpenditureResolutionDto fromEntity(ExpenditureResolution resolution) {
+        String departmentCode = null;
+        String departmentName = null;
+        if (resolution.getDepartment() != null) {
+            departmentCode = resolution.getDepartment().getCode();
+            departmentName = resolution.getDepartment().getName();
+        }
+
+        String paymentAccountCode = null;
+        String paymentAccountName = null;
+        if (resolution.getPaymentAccount() != null) {
+            paymentAccountCode = resolution.getPaymentAccount().getCode();
+            paymentAccountName = resolution.getPaymentAccount().getName();
+        }
+
+        List<ExpenditureDetailDto> detailDtos = resolution.getDetails() == null
+                ? List.of()
+                : resolution.getDetails().stream()
+                        .map(ExpenditureDetailDto::fromEntity)
+                        .toList();
+
+        return new ExpenditureResolutionDto(
+                resolution.getId(),
+                resolution.getResolutionNo(),
+                resolution.getTitle(),
+                resolution.getResolutionDate(),
+                resolution.getPaymentDate(),
+                departmentCode,
+                departmentName,
+                paymentAccountCode,
+                paymentAccountName,
+                resolution.getTotalAmount(),
+                resolution.getStatus() != null ? resolution.getStatus().name() : null,
+                resolution.getRejectionReason(),
+                resolution.getTaxInvoiceId(),
+                detailDtos);
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getResolutionNo() {
+        return resolutionNo;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public LocalDate getResolutionDate() {
+        return resolutionDate;
+    }
+
+    public LocalDate getPaymentDate() {
+        return paymentDate;
+    }
+
+    public String getDepartmentCode() {
+        return departmentCode;
+    }
+
+    public String getDepartmentName() {
+        return departmentName;
+    }
+
+    public String getPaymentAccountCode() {
+        return paymentAccountCode;
+    }
+
+    public String getPaymentAccountName() {
+        return paymentAccountName;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getRejectionReason() {
+        return rejectionReason;
+    }
+
+    public Long getTaxInvoiceId() {
+        return taxInvoiceId;
+    }
+
+    public List<ExpenditureDetailDto> getDetails() {
+        return details;
+    }
+
+    public static class ExpenditureDetailDto {
+
+        private Long id;
+        private String accountSubjectCode;
+        private String accountSubjectName;
+        private BigDecimal amount;
+        private String businessPartnerCode;
+        private String businessPartnerName;
+        private String description;
+
+        public ExpenditureDetailDto() {
+        }
+
+        public ExpenditureDetailDto(
+                Long id,
+                String accountSubjectCode,
+                String accountSubjectName,
+                BigDecimal amount,
+                String businessPartnerCode,
+                String businessPartnerName,
+                String description) {
+            this.id = id;
+            this.accountSubjectCode = accountSubjectCode;
+            this.accountSubjectName = accountSubjectName;
+            this.amount = amount;
+            this.businessPartnerCode = businessPartnerCode;
+            this.businessPartnerName = businessPartnerName;
+            this.description = description;
+        }
+
+        public static ExpenditureDetailDto fromEntity(ExpenditureDetail detail) {
+            String accountSubjectCode = null;
+            String accountSubjectName = null;
+            if (detail.getAccountSubject() != null) {
+                accountSubjectCode = detail.getAccountSubject().getCode();
+                accountSubjectName = detail.getAccountSubject().getName();
+            }
+
+            String businessPartnerCode = null;
+            String businessPartnerName = null;
+            if (detail.getBusinessPartner() != null) {
+                businessPartnerCode = detail.getBusinessPartner().getBusinessPartnerCode();
+                businessPartnerName = detail.getBusinessPartner().getBusinessPartnerName();
+            }
+
+            return new ExpenditureDetailDto(
+                    detail.getId(),
+                    accountSubjectCode,
+                    accountSubjectName,
+                    detail.getAmount(),
+                    businessPartnerCode,
+                    businessPartnerName,
+                    detail.getDescription());
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getAccountSubjectCode() {
+            return accountSubjectCode;
+        }
+
+        public String getAccountSubjectName() {
+            return accountSubjectName;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public String getBusinessPartnerCode() {
+            return businessPartnerCode;
+        }
+
+        public String getBusinessPartnerName() {
+            return businessPartnerName;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+    }
+}

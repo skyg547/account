@@ -1,6 +1,5 @@
 import React from 'react';
 import { TrendingUp, Users, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
-import styles from './ReceivableAging.module.css';
 
 /**
  * [매출채권 및 연령 분석 화면]

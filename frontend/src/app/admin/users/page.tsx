@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from 'react';
 import { 
   Users, 
@@ -10,7 +12,6 @@ import {
   ShieldCheck, 
   Mail, 
   Key, 
-  Clock,
   Eye,
   Edit2,
   Server,
@@ -18,8 +19,16 @@ import {
 } from 'lucide-react';
 import { useNav, UserRole } from '@/context/NavContext';
 import { adminService, UserInfo } from '@/services/adminService';
+import React, { useCallback } from 'react';
 
-const roleStyles: Record<string, any> = {
+interface RoleStyle {
+  label: string;
+  color: string;
+  bg: string;
+  icon: React.ElementType;
+}
+
+const roleStyles: Record<string, RoleStyle> = {
   SYSTEM_ADMIN: { label: '시스템관리자', color: 'text-red-400', bg: 'bg-red-400/10', icon: ShieldCheck },
   ACCOUNTING_ADMIN: { label: '회계관리자', color: 'text-blue-400', bg: 'bg-blue-400/10', icon: ShieldCheck },
   RISK_MANAGER: { label: '리스크관리자', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: ShieldAlert },
@@ -34,16 +43,25 @@ export default function UserManagementPage() {
   const [loading, setLoading] = useState(true);
   const { userRole, setUserRole } = useNav();
 
-  useEffect(() => {
-    loadUsers();
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await adminService.getUsers();
+      setUsers(data);
+    } catch (err: unknown) {
+      console.error('Failed to load users:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const loadUsers = async () => {
-    setLoading(true);
-    const data = await adminService.getUsers();
-    setUsers(data);
-    setLoading(false);
-  };
+  useEffect(() => {
+    let ignore = false;
+    const trigger = async () => {
+      if (!ignore) await loadUsers();
+    };
+    setTimeout(() => trigger(), 0);
+    return () => { ignore = true; };
+  }, [loadUsers]);
 
   const handleRoleChange = async (userId: number, role: UserRole) => {
     const success = await adminService.updateUserRole(userId, role);

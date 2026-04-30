@@ -13,8 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -100,6 +102,19 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         persistencePort.save(asset);
 
         createHistory(asset, "TRANSFER", oldDeptCode, newDeptCode, null, null, reason);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FixedAsset> findByStatus(String status) {
+        String normalizedStatus = status == null || status.isBlank() ? "ACTIVE" : status.trim().toUpperCase();
+        return persistencePort.findByStatus(normalizedStatus);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<FixedAsset> findById(Long id) {
+        return persistencePort.findById(id);
     }
 
     private void createHistory(FixedAsset asset, String type, String oldDeptCode, String newDeptCode, String oldStatus, String newStatus, String desc) {

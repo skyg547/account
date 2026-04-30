@@ -2,61 +2,38 @@
 
 ## 1. 이 모듈을 한 문장으로 설명하면
 
-`expenditure-resolution`은 지출 요청을 결의서로 만들고, 승인 후 회계 전표와 지급 흐름으로 연결하는 모듈이다.
+`expenditure-resolution`은 지출 요청을 결의서로 만들고, 승인 후 전표/지급/자산/리스 흐름으로 안전하게 연결하는 모듈입니다.
 
 ## 2. 초보자가 먼저 이해해야 할 개념
 
-### 2.1 지출결의서
+### 2.1 지출결의서 (`ExpenditureResolution`)
 
-- 회사가 이 비용을 집행해도 되는지 판단하는 문서다.
-- 회계 전표의 앞단 승인 문서라고 보면 된다.
+- "이 비용을 집행해도 되는가"를 기록하는 승인 문서입니다.
+- 상태는 `DRAFT -> REQUESTED -> APPROVED` 또는 `REJECTED`로 이동합니다.
 
-### 2.2 상세 라인
+### 2.2 상세 라인 (`ExpenditureDetail`)
 
-- 어떤 계정과목으로 얼마를 지출하는지 적는다.
-- 거래처도 라인별로 연결할 수 있다.
+- 어떤 계정과목으로 얼마를 지출하는지 기록합니다.
+- 승인 시 각 상세 라인이 차변 분개 라인의 입력 근거가 됩니다.
 
 ### 2.3 지급 계정
 
-- 최종 대변으로 빠지는 계정이다.
-- 예: 현금, 보통예금, 미지급금 성격 계정
+- 결의 총액의 대변 계정입니다.
+- 예: 보통예금, 현금, 미지급금 계정
 
-### 2.4 예산 통제
+### 2.4 예산 통제 (`BudgetService`)
 
-- 승인 전에 "이 부서가 이 계정으로 쓸 수 있는 예산이 남았는가"를 확인한다.
+- 결의 생성/수정 시 월(`yyyyMM`) + 부서 + 계정 기준으로 사용 예산을 반영합니다.
+- 예산 부족 시 결의 저장이 거부됩니다.
 
-### 2.5 세금계산서 연결
+### 2.5 세금계산서 검증
 
-- 연결된 세금계산서는 `PURCHASE` 타입이어야 한다.
+- 결의/AP 지급에 세금계산서를 연결하면 반드시 `PURCHASE` 타입이어야 합니다.
+- 검증은 `TaxInvoiceQueryPort` 조회 후 타입 체크로 수행합니다.
 
-## 3. 실제 시나리오
+## 3. 주요 API
 
-### 3.1 일반 비용 집행
-
-1. 사용자가 지출결의서를 작성한다.
-2. 시스템이 부서, 계정, 거래처를 확인한다.
-3. 예산을 차감한다.
-4. 결의서를 `DRAFT`로 저장한다.
-5. 승인 요청 후 승인되면 전표를 만든다.
-
-### 3.2 고정자산 취득
-
-1. 지출결의 상세 중 자산 계정이 있다.
-2. 승인 시 회계 전표를 만든다.
-3. 동시에 자산 등록 포트를 호출한다.
-
-### 3.3 리스 연계 집행
-
-1. 결의서가 리스 계약과 연결돼 있다.
-2. 승인 시 리스 계약 활성화 포트를 호출한다.
-
-### 3.4 AP 지급
-
-1. 승인된 결의서를 대상으로 지급 이력을 만든다.
-2. 상태는 처음 `PENDING`
-3. 이후 지급 결과에 따라 상태를 갱신한다.
-
-## 4. 주요 API
+### 3.1 지출결의 API
 
 - `POST /api/expenditures`
 - `PUT /api/expenditures/{id}`
@@ -65,6 +42,12 @@
 - `POST /api/expenditures/{id}/reject`
 - `GET /api/expenditures`
 - `GET /api/expenditures/{id}`
+
+응답은 엔티티 직접 노출이 아니라 `ExpenditureResolutionDto`를 반환합니다.
+(순환 참조/과다 직렬화 방지)
+
+### 3.2 AP 지급 API
+
 - `POST /api/ap/payments`
 - `GET /api/ap/payments/{id}`
 - `GET /api/ap/payments/by-expenditure/{expenditureResolutionId}`
@@ -72,45 +55,45 @@
 - `PATCH /api/ap/payments/{id}/status`
 - `DELETE /api/ap/payments/{id}`
 
-## 5. 처음 읽는 코드 순서
+## 4. 처음 읽는 코드 순서 (현재 경로)
 
-1. `expenditure-resolution/src/main/java/com/ho/account/expenditure/service/ExpenditureService.java`
-2. `expenditure-resolution/src/main/java/com/ho/account/expenditure/web/ExpenditureController.java`
-3. `expenditure-resolution/src/main/java/com/ho/account/expenditure/domain/ExpenditureResolution.java`
-4. `expenditure-resolution/src/main/java/com/ho/account/expenditure/domain/ExpenditureDetail.java`
-5. `expenditure-resolution/src/main/java/com/ho/account/expenditure/service/BudgetService.java`
-6. `expenditure-resolution/src/main/java/com/ho/account/expenditure/service/APPaymentService.java`
-7. `expenditure-resolution/src/main/java/com/ho/account/common/adapter/BudgetControlAdapter.java`
+1. `expenditure-resolution/src/main/java/com/ho/account/expenditure/domain/ExpenditureResolution.java`
+2. `expenditure-resolution/src/main/java/com/ho/account/expenditure/domain/ExpenditureDetail.java`
+3. `expenditure-resolution/src/main/java/com/ho/account/expenditure/application/port/in/ExpenditureResolutionUseCase.java`
+4. `expenditure-resolution/src/main/java/com/ho/account/expenditure/application/service/ExpenditureResolutionService.java`
+5. `expenditure-resolution/src/main/java/com/ho/account/expenditure/application/service/BudgetService.java`
+6. `expenditure-resolution/src/main/java/com/ho/account/expenditure/application/service/APPaymentService.java`
+7. `expenditure-resolution/src/main/java/com/ho/account/expenditure/adapter/in/web/ExpenditureController.java`
+8. `expenditure-resolution/src/main/java/com/ho/account/expenditure/adapter/in/web/APPaymentController.java`
+9. `expenditure-resolution/src/main/java/com/ho/account/expenditure/adapter/in/contract/BudgetControlAdapter.java`
+
+## 5. 실무 시나리오를 짧게 보면
+
+1. 결의 생성: 부서/계정/거래처/세금계산서 검증 + 예산 반영
+2. 승인 요청: 상태를 `REQUESTED`로 변경
+3. 승인: 전표 생성 및 승인 처리, 자산/리스 연계, 결의 `APPROVED`
+4. 지급 생성: 결의와 세금계산서 검증 후 `APPayment(PENDING)` 생성
 
 ## 6. 자주 헷갈리는 지점
 
-### 6.1 이 모듈이 직접 전기까지 끝내는 것은 아니다
+### 6.1 이 모듈이 회계 전표 엔진 자체인가요?
 
-- 전표를 만들기는 하지만,
-- 실제 회계 규칙과 상태 관리는 `journal-ledger`에 의존한다.
+아닙니다. 전표 생성 트리거를 담당하고, 실제 회계 처리 생명주기는 `journal-ledger` 유즈케이스에 위임합니다.
 
-### 6.2 승인 시 journal 상태는 `POSTED`까지 가지 않는다
+### 6.2 승인 전에 예산을 보나요, 승인 후에 보나요?
 
-- 현재 구현은 `create -> request -> approve`까지 호출한다.
-- 즉, 전기까지 자동으로 가지는 않는다.
+현재 구현은 결의 생성/수정 시점에 예산 사용을 반영합니다.
+운영 규칙이 승인 시점 차감을 요구한다면 추가 설계가 필요합니다.
 
-### 6.3 예산 차감 시점이 빠르다
+### 6.3 수정 시 예산 재정산은 완전한가요?
 
-- 현재는 결의 생성/수정 시점에 예산 사용 처리를 한다.
-- 승인 시점 차감이 아니라는 점을 알아야 한다.
+현재 코드는 기존 상세를 "복원"한 뒤 재차감하는 구조가 아니라, 새 상세 기준으로 다시 사용 처리합니다.
+회계 정책에 따라 보강 여부를 검토해야 합니다.
 
-### 6.4 수정 로직은 예산 재정산이 정교하지 않다
+## 7. 초보자 체크리스트
 
-- 기존 상세를 되돌린 뒤 다시 차감하는 구조가 아니라,
-- 새 상세 기준으로 다시 사용 처리한다.
-- 운영 로직을 강화하려면 이 부분 보완이 필요하다.
-
-## 7. 체크리스트
-
-- 부서 코드가 맞는가
-- 지급 계정 코드가 맞는가
-- 상세 계정과 거래처가 맞는가
-- 세금계산서가 `PURCHASE` 타입인가
-- 예산이 충분한가
-- 자산/리스 연계 대상인가
-- 승인 후 생성된 전표가 연결됐는가
+- 결의 상태 전이가 규칙(`DRAFT/REQUESTED/APPROVED/REJECTED`)을 지키는가?
+- 세금계산서 연결 시 `PURCHASE` 타입 검증이 빠지지 않았는가?
+- 금액 계산이 `BigDecimal`로 유지되는가?
+- 예산 반영 시 `yearMonth + dept + account` 기준을 지키는가?
+- 승인 후 생성 전표와 결의 연결(`journalEntry`)이 누락되지 않았는가?

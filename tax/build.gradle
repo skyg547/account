@@ -8,6 +8,7 @@ description = 'account-tax'
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
     }
 }
 

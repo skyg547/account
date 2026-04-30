@@ -1,11 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   CalendarDays, 
-  ChevronRight, 
-  PieChart, 
-  BarChart, 
   FileText, 
   CheckCircle2, 
   Activity,
@@ -20,8 +17,6 @@ import {
  * 월말/연말 결산 상태를 모니터링하고 표준 재무제표(BS, PL 등)를 생성합니다.
  */
 export default function ClosingPage() {
-  const [activeTab, setActiveTab] = useState('STATUS');
-
   return (
     <div className="space-y-10">
       {/* Page Header */}

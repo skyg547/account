@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Users } from 'lucide-react';
 import styles from './SubLedger.module.css';
 
 /**

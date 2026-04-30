@@ -3,14 +3,10 @@
 import React from 'react';
 import { 
   Network, 
-  Plus, 
   Search, 
-  Activity, 
-  Layers, 
   RefreshCcw, 
   ArrowRight,
   Database,
-  ShieldCheck,
   Zap,
   Globe
 } from 'lucide-react';

@@ -49,7 +49,7 @@ const initialMenuStructure = [
 ];
 
 const PermissionBadge = ({ role }: { role: string }) => {
-  const styles: any = {
+  const styles: Record<string, string> = {
     ALL: 'bg-slate-700 text-slate-300 border-slate-600',
     ACCOUNTING_ADMIN: 'bg-blue-600/10 text-blue-400 border-blue-500/20',
     RISK_MANAGER: 'bg-purple-600/10 text-purple-400 border-purple-500/20',
@@ -183,7 +183,7 @@ export default function MenuManagementPage() {
 
                  <div className="p-6 rounded-[2rem] bg-white/5 border border-white/5">
                     <h4 className="text-sm font-black text-white mb-2 italic">Hierarchy Inheritance</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed font-medium">상위 카테고리의 권한을 하위 메뉴가 자동으로 상속할지 여부를 결정합니다. 보안상 '상속 해제'를 권장합니다.</p>
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium">상위 카테고리의 권한을 하위 메뉴가 자동으로 상속할지 여부를 결정합니다. 보안상 &apos;상속 해제&apos;를 권장합니다.</p>
                     <div className="mt-4 flex items-center justify-between">
                        <span className="text-xs font-black text-blue-400">상속 활성화</span>
                        <div className="w-10 h-5 bg-blue-600 rounded-full relative p-1 cursor-pointer">

@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Bell, Search, User, Moon, Sun, LayoutGrid } from 'lucide-react';
+import { Bell, Search, User, Moon } from 'lucide-react';
 import { useNav, NavCategory } from '@/context/NavContext';
 
 /**

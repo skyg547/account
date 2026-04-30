@@ -7,14 +7,11 @@ import {
   Search, 
   MoreVertical, 
   MapPin, 
-  Phone, 
   Users, 
   CheckCircle2,
-  ChevronRight,
   Building2,
   TreePine,
   Edit2,
-  Trash2
 } from 'lucide-react';
 
 // Mock 데이터: 귀속 부서 정보

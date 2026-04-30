@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitBranch, User, MapPin } from 'lucide-react';
+import { User, MapPin } from 'lucide-react';
 import styles from './DepartmentManagement.module.css';
 
 /**

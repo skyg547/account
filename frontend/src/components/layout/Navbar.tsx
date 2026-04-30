@@ -1,6 +1,5 @@
 import React from 'react';
-import { Bell, Search, User, Moon, Sun } from 'lucide-react';
-import styles from './Navbar.module.css';
+import { Bell, Search, User, Moon } from 'lucide-react';
 
 export default function Navbar() {
   return (

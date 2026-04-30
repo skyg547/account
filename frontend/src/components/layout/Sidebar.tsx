@@ -7,42 +7,30 @@ import {
   FileText, 
   BookOpen, 
   Settings, 
-  BarChart3, 
   Wallet,
   Activity,
   Plus,
   Users,
-  ShieldCheck,
-  History,
-  Server,
   BarChart,
   PieChart,
   Zap,
-  Stamp,
-  Clock,
-  ClipboardCheck,
   DollarSign,
   CreditCard,
   Percent,
   Package,
   Receipt,
   Landmark,
-  Globe,
-  TrendingUp,
-  CalendarCheck,
-  ShieldAlert,
   CalendarDays,
   Network,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  Layers,
-  Shield
+  Layers
 } from 'lucide-react';
 import { useNav, UserRole } from '@/context/NavContext';
 
 interface MenuItem {
-  icon: any;
+  icon: React.ElementType;
   label: string;
   href: string;
   requiredRoles?: UserRole[];

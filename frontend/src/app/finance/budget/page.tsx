@@ -3,14 +3,7 @@
 import React from 'react';
 import { 
   Wallet, 
-  TrendUp, 
-  TrendDown, 
   Plus, 
-  CheckCircle2, 
-  AlertTriangle,
-  BarChart,
-  ArrowRight,
-  Target,
   FileSpreadsheet
 } from 'lucide-react';
 

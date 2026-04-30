@@ -27,7 +27,7 @@ public class APPaymentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<APPaymentDto> getAPPaymentById(@PathVariable Long id) {
+    public ResponseEntity<APPaymentDto> getAPPaymentById(@PathVariable("id") Long id) {
         return apPaymentUseCase.getAPPaymentById(id)
                 .map(APPaymentDto::fromEntity)
                 .map(ResponseEntity::ok)
@@ -35,7 +35,8 @@ public class APPaymentController {
     }
 
     @GetMapping("/by-expenditure/{expenditureResolutionId}")
-    public List<APPaymentDto> getAPPaymentsByExpenditureResolution(@PathVariable Long expenditureResolutionId) {
+    public List<APPaymentDto> getAPPaymentsByExpenditureResolution(
+            @PathVariable("expenditureResolutionId") Long expenditureResolutionId) {
         return apPaymentUseCase.getAPPaymentsByExpenditureResolution(expenditureResolutionId).stream()
                 .map(APPaymentDto::fromEntity)
                 .collect(Collectors.toList());
@@ -43,19 +44,19 @@ public class APPaymentController {
 
     @PutMapping("/{id}")
     public ResponseEntity<APPaymentDto> updateAPPayment(
-            @PathVariable Long id, @Valid @RequestBody APPaymentRequestDto requestDto) {
+            @PathVariable("id") Long id, @Valid @RequestBody APPaymentRequestDto requestDto) {
         return ResponseEntity.ok(APPaymentDto.fromEntity(apPaymentUseCase.updateAPPayment(id, requestDto)));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<APPaymentDto> updateAPPaymentStatus(
-            @PathVariable Long id, @RequestBody String status) {
+            @PathVariable("id") Long id, @RequestBody String status) {
         APPaymentStatus apPaymentStatus = APPaymentStatus.valueOf(status.trim().toUpperCase());
         return ResponseEntity.ok(APPaymentDto.fromEntity(apPaymentUseCase.updateAPPaymentStatus(id, apPaymentStatus)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAPPayment(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteAPPayment(@PathVariable("id") Long id) {
         apPaymentUseCase.deleteAPPayment(id);
         return ResponseEntity.noContent().build();
     }

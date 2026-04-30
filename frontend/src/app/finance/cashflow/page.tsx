@@ -3,14 +3,8 @@
 import React from 'react';
 import { 
   Activity, 
-  TrendingUp, 
-  TrendingDown, 
-  ArrowRight, 
-  PieChart, 
-  DollarSign,
   Calendar,
   AlertCircle,
-  Clock,
   ArrowUpRight
 } from 'lucide-react';
 

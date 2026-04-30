@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { 
   BookOpen, 
-  Plus, 
   Search, 
   ChevronRight, 
   ChevronDown, 
@@ -17,8 +16,16 @@ import {
   Send
 } from 'lucide-react';
 
+interface AccountNode {
+  id: string;
+  name: string;
+  type: 'GROUP' | 'SUBJECT';
+  status?: string;
+  children?: AccountNode[];
+}
+
 // Mock 데이터: 계정 과목 트리
-const initialTreeData = [
+const initialTreeData: AccountNode[] = [
   { id: '1000', name: '자산', type: 'GROUP', children: [
     { id: '1100', name: '유동자산', type: 'GROUP', children: [
       { id: '1101', name: '현금/예금', type: 'SUBJECT', status: 'ACTIVE' },
@@ -104,7 +111,7 @@ export default function AccountSubjectPage() {
 
                    {expandedGroups.includes(group.id) && (
                      <div className="ml-12 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                        {group.children.map((child: any) => (
+                        {group.children?.map((child) => (
                           <div key={child.id} className="space-y-4">
                              <div className="flex items-center gap-4 group/sub" onClick={() => child.type === 'GROUP' && toggleGroup(child.id)}>
                                 {child.type === 'GROUP' ? (
@@ -123,7 +130,7 @@ export default function AccountSubjectPage() {
                              
                              {child.type === 'GROUP' && expandedGroups.includes(child.id) && (
                                <div className="ml-10 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
-                                  {child.children.map((sub: any) => (
+                                  {child.children?.map((sub) => (
                                     <div key={sub.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between group/row hover:border-white/20 transition-all">
                                        <div className="flex items-center gap-4">
                                           <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500">

@@ -1,5 +1,4 @@
 import React from 'react';
-import { TrendingUp, BarChart3, Database, Target } from 'lucide-react';
 import styles from './FtpPerformance.module.css';
 
 export default function FtpPerformancePage() {

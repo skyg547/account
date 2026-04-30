@@ -1,4 +1,4 @@
-import { FileBarChart, Layers, Download, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileBarChart, Layers, Download, ChevronRight, ChevronDown } from 'lucide-react';
 
 /**
  * [재무제표 보고서 조회 화면]

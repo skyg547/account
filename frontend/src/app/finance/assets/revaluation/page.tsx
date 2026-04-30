@@ -12,11 +12,19 @@ import {
   FileText
 } from 'lucide-react';
 
+interface AssetForReval {
+  id: number;
+  code: string;
+  name: string;
+  bookValue: number;
+  lastReval: string;
+}
+
 export default function AssetRevaluationPage() {
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AssetForReval | null>(null);
 
   // Mock Assets for Revaluation
-  const assetsForReval = [
+  const assetsForReval: AssetForReval[] = [
     { id: 1, code: 'AST-BUILD-001', name: '강남사옥 (토지/건물)', bookValue: 1250000000, lastReval: '2025-12-31' },
     { id: 2, code: 'AST-MACH-042', name: '반도체 식각 장비', bookValue: 450000000, lastReval: '2026-01-10' },
   ];

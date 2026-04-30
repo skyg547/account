@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Search, Filter, TrendingUp, ArrowRight } from 'lucide-react';
+import { Download, Search, ArrowRight } from 'lucide-react';
 import styles from './GeneralLedger.module.css';
 
 /**

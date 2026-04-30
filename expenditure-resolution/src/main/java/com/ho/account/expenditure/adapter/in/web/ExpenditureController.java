@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.adapter.in.web;
 
 import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCase;
-import com.ho.account.expenditure.domain.ExpenditureResolution;
+import com.ho.account.expenditure.dto.ExpenditureResolutionDto;
 import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,44 +23,49 @@ public class ExpenditureController {
     }
 
     @PostMapping
-    public ResponseEntity<ExpenditureResolution> createResolution(
+    public ResponseEntity<ExpenditureResolutionDto> createResolution(
             @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.createResolution(requestDto));
+        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+                expenditureResolutionUseCase.createResolution(requestDto)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ExpenditureResolution> updateResolution(
-            @PathVariable Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.updateResolution(id, requestDto));
+    public ResponseEntity<ExpenditureResolutionDto> updateResolution(
+            @PathVariable("id") Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
+        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+                expenditureResolutionUseCase.updateResolution(id, requestDto)));
     }
 
     @PostMapping("/{id}/request")
-    public ResponseEntity<Void> requestApproval(@PathVariable Long id) {
+    public ResponseEntity<Void> requestApproval(@PathVariable("id") Long id) {
         expenditureResolutionUseCase.requestApproval(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/approve")
-    public ResponseEntity<Void> approveResolution(@PathVariable Long id) {
+    public ResponseEntity<Void> approveResolution(@PathVariable("id") Long id) {
         expenditureResolutionUseCase.approveResolution(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/reject")
-    public ResponseEntity<Void> rejectResolution(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<Void> rejectResolution(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         expenditureResolutionUseCase.rejectResolution(id, body.get("reason"));
         return ResponseEntity.ok().build();
     }
 
     @GetMapping
-    public List<ExpenditureResolution> getResolutions(
+    public List<ExpenditureResolutionDto> getResolutions(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return expenditureResolutionUseCase.getResolutionsByDate(startDate, endDate);
+        return expenditureResolutionUseCase.getResolutionsByDate(startDate, endDate).stream()
+                .map(ExpenditureResolutionDto::fromEntity)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ExpenditureResolution> getResolution(@PathVariable Long id) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.getResolution(id));
+    public ResponseEntity<ExpenditureResolutionDto> getResolution(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+                expenditureResolutionUseCase.getResolution(id)));
     }
 }

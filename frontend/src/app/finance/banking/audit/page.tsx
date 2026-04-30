@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Eye, UserX, Terminal, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, UserX, Terminal, ShieldCheck } from 'lucide-react';
 import styles from './AuditMonitoring.module.css';
 
 export default function AuditMonitoringPage() {

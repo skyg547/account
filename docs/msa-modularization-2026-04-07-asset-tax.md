@@ -11,8 +11,10 @@
 
 - added [LeasePaymentResolutionPort.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/expenditure/LeasePaymentResolutionPort.java)
 - added [LeasePaymentResolutionCommand.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/expenditure/LeasePaymentResolutionCommand.java)
-- added [MonolithLeasePaymentResolutionAdapter.java](/C:/Users/skyg547/IdeaProjects/account/app/src/main/java/com/ho/account/common/adapter/MonolithLeasePaymentResolutionAdapter.java)
-- updated [LeaseService.java](/C:/Users/skyg547/IdeaProjects/account/asset-lease/src/main/java/com/ho/account/asset/service/LeaseService.java) to call the port instead of `ExpenditureService`
+- transitional adapter moved to module-owned location:
+  - [MonolithLeasePaymentResolutionAdapter.java](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/src/main/java/com/ho/account/expenditure/adapter/in/contract/MonolithLeasePaymentResolutionAdapter.java)
+- lease orchestration service path changed during later refactoring:
+  - `LeaseService.java` legacy path removed
 
 ## Current Remaining Coupling
 

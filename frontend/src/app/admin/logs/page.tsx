@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { 
-  FileText, 
   Search, 
   Filter, 
   Download, 
@@ -11,7 +10,6 @@ import {
   CheckCircle2, 
   Info,
   Clock,
-  User,
   Shield,
   Terminal,
   Activity,

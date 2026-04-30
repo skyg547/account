@@ -4,51 +4,51 @@
 
 ```mermaid
 erDiagram
-    TAX_INVOICES }o--o| BUSINESS_PARTNERS : counterparty
-    TAX_INVOICES }o--o| JOURNAL_ENTRIES : optional_link
+    TAX_INVOICES }o--o| BUSINESS_PARTNERS : business_partner_code
+    TAX_INVOICES }o--o| JOURNAL_ENTRIES : journal_entry_id_optional
 ```
 
-## 2. 핵심 엔티티
+## 2. 핵심 엔티티: `tax_invoices`
 
-### 2.1 `tax_invoices`
-
-세금계산서 엔티티다.
+세금계산서 1건을 저장하는 테이블입니다.
 
 주요 컬럼:
 
-- `id`
-- `issue_id`
-- `type`
-- `issue_date`
-- `business_partner_code`
-- `supply_amount`
-- `tax_amount`
-- `total_amount`
-- `journal_entry_id`
+- `id`: 내부 식별자
+- `issue_id`: 외부 증빙 식별자(유니크)
+- `type`: `SALES` 또는 `PURCHASE`
+- `issue_date`: 발행일
+- `business_partner_code`: 거래처 코드(FK)
+- `supply_amount`: 공급가액 (`BigDecimal`)
+- `tax_amount`: 세액 (`BigDecimal`)
+- `total_amount`: 합계금액 (`BigDecimal`)
+- `journal_entry_id`: 전표 연결(선택)
 
-핵심 의미:
+## 3. 도메인 규칙 매핑
 
-- `type`
-  - `SALES`
-  - `PURCHASE`
-- `journal_entry_id`
-  - 선택 연결
-  - 세금계산서와 연계된 회계 전표가 있을 경우 사용
+`TaxInvoice` 도메인에서 다음 규칙을 강제합니다.
 
-## 3. 데이터 흐름 관점
+- `supply_amount + tax_amount == total_amount`
+- AP 흐름에서는 `type == PURCHASE`
+
+즉, 스키마는 데이터를 담고, 정합성은 도메인 + 서비스가 함께 지킵니다.
+
+## 4. 데이터 흐름 관점
 
 ```mermaid
 flowchart LR
-    A[BusinessPartner] --> B[TaxInvoice]
-    B --> C[APInvoiceService]
-    B --> D[TaxInvoiceQueryAdapter]
-    D --> E[TaxInvoiceRef]
-    E --> F[expenditure-resolution]
+    A[APInvoiceController] --> B[TaxInvoiceUseCase]
+    B --> C[TaxInvoiceService]
+    C --> D[TaxInvoicePersistencePort]
+    D --> E[(tax_invoices)]
+
+    F[expenditure-resolution] --> G[TaxInvoiceQueryPort]
+    G --> H[TaxInvoiceRef]
 ```
 
-## 4. 초보자용 해석
+## 5. 초보자용 해석
 
-- `TaxInvoice`는 세금 증빙의 저장 단위다.
-- `issueId`는 외부 증빙 식별자 역할을 한다.
-- `type`이 매우 중요하다.
-- 지출 모듈은 이 값이 `PURCHASE`인지 확인해 매입 증빙으로 인정한다.
+- `issue_id`는 업무팀이 증빙을 추적할 때 가장 자주 보는 키입니다.
+- `type`은 단순 분류값이 아니라 업무 경계값입니다.
+- 금액 3종(`supply/tax/total`)은 회계 계산의 최소 검증 세트입니다.
+- `journal_entry_id`는 필요할 때만 연결되는 선택 관계입니다.

@@ -46,11 +46,12 @@
 
 - Added [SourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/source/SourceDocumentProvider.java)
 - Added [TaxInvoiceQueryPort.java](/C:/Users/skyg547/IdeaProjects/account/contracts/src/main/java/com/ho/account/contracts/tax/TaxInvoiceQueryPort.java)
-- Replaced repository-coupled source document routing with providers:
-  - [AppSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/app/src/main/java/com/ho/account/common/service/AppSourceDocumentProvider.java)
-  - [ReceivableSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/receivable/src/main/java/com/ho/account/income/service/ReceivableSourceDocumentProvider.java)
-  - [PayableSourceDocumentProvider.java](/C:/Users/skyg547/IdeaProjects/account/payable/src/main/java/com/ho/account/expenditure/service/PayableSourceDocumentProvider.java)
-- Replaced direct tax-invoice lookups with [TaxInvoiceQueryAdapter.java](/C:/Users/skyg547/IdeaProjects/account/tax/src/main/java/com/ho/account/tax/adapter/TaxInvoiceQueryAdapter.java)
+- Source document routing was provider-based, and some transitional classes were later removed or relocated.
+  - `AppSourceDocumentProvider.java` (legacy path removed from current runtime)
+  - `ReceivableSourceDocumentProvider.java` (legacy path removed during module split)
+  - `PayableSourceDocumentProvider.java` (legacy path removed during module split)
+- Tax lookup adapter was also refactored later.
+  - `TaxInvoiceQueryAdapter.java` (legacy path removed)
 
 ## Deferred Areas
 

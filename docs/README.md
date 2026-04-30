@@ -1,31 +1,60 @@
-# App Module Docs
+# Repository Docs Hub
 
-`app` 모듈은 모든 업무 모듈을 묶어 실행하는 Spring Boot 진입점입니다.
+이 디렉터리는 저장소 전체 문서 허브입니다.
+업무/개발 초보자가 모듈 구조와 흐름을 이해할 수 있도록 문서를 분류해 제공합니다.
 
-## 문서 목록
+## 1. 먼저 읽기 (입문 순서)
 
-- [process-flow.md](./process-flow.md): 애플리케이션 부팅과 프로파일 적용 흐름을 설명합니다.
-- [schema.md](./schema.md): 설정 파일과 엔트리포인트 구조를 정리합니다.
-- [beginner-guide.md](./beginner-guide.md): 초보자가 이 모듈의 역할을 쉽게 이해할 수 있도록 설명합니다.
+1. [../BEGINNER_GUIDE.md](/C:/Users/skyg547/IdeaProjects/account/BEGINNER_GUIDE.md)
+2. [business_workflow.md](./business_workflow.md)
+3. [domain-catalog.md](./domain-catalog.md)
+4. [service-discovery-model.md](./service-discovery-model.md)
 
-## 이 모듈이 하는 일
+## 2. 아키텍처/원칙 문서
 
-1. 전체 모듈을 하나의 실행 애플리케이션으로 묶습니다.
-2. Spring Boot 시작점을 제공합니다.
-3. 환경별 설정 파일을 로드합니다.
-4. Actuator, JPA, Web, Validation 등 공통 런타임 구성을 활성화합니다.
+- [principles_and_policies.md](./principles_and_policies.md)
+- [msa-modularization.md](./msa-modularization.md)
+- [msa-execution-and-work-plan.md](./msa-execution-and-work-plan.md)
+- [infrastructure-guide.md](./infrastructure-guide.md)
 
-## 핵심 파일
+## 3. 모듈 공통 읽기 규칙
 
-- `AccountApplication`
-- `application.yml`
-- `application.yaml`
-- `application-dev.yml`
-- `application-prod.yml`
+각 업무 모듈은 아래 3종 문서를 기본으로 유지합니다.
 
-## 현재 구현 기준에서 먼저 알아둘 점
+- `docs/beginner-guide.md`: 업무/도메인 개념 입문
+- `docs/process-flow.md`: API/유즈케이스 처리 흐름
+- `docs/schema.md`: 데이터 구조와 핵심 컬럼
 
-- 실제 비즈니스 로직은 없고 조립/실행 역할만 합니다.
-- 기본 활성 프로파일이 `local`로 지정되어 있지만, 현재 리포지토리에는 `application-local.yml`이 없습니다.
-- 대신 `application-dev.yml`과 `application-prod.yml`이 존재합니다.
-- `application.yml`과 `application.yaml`이 동시에 있어 기본 설정 파일이 이중 존재합니다.
+## 4. 초보자 권장 학습 경로
+
+### 4.1 업무 흐름 먼저
+
+- `expenditure-resolution/docs/*`
+- `tax/docs/*`
+- `governance/docs/*`
+
+### 4.2 회계 엔진 흐름 확장
+
+- `journal-ledger/docs/*`
+- `closing/docs/*`
+- `reporting/docs/*`
+
+### 4.3 기준정보/연계 이해
+
+- `master-data/docs/*`
+- `contracts/docs/*`
+- `shared-kernel/docs/*`
+
+## 5. 문서 최신화 원칙
+
+- 코드 경로가 바뀌면 문서 링크도 같은 커밋에서 수정합니다.
+- 비즈니스 규칙(검증, 상태전이, 배치 재실행 정책)이 바뀌면 흐름 문서를 먼저 갱신합니다.
+- 테스트를 실행하지 못했으면 문서/작업로그에 이유를 남깁니다.
+
+## 6. 문서 깨짐 점검 팁
+
+- UTF-8 인코딩 확인
+- 상대/절대 링크 존재 여부 확인
+- 오래된 이력 문서의 경로는 "당시 기준" 표시를 추가해 오해를 줄입니다.
+
+필요하면 이 허브에 모듈별 온보딩 링크를 계속 추가해 확장합니다.
