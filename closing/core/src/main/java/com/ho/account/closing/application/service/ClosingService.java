@@ -215,7 +215,7 @@ public class ClosingService implements ClosingUseCase {
                     batch.getId().toString(),
                     BigDecimal.valueOf(1000)
             );
-            batch.setGeneratedJournalEntryId(result.getJournalEntryId());
+            batch.setGeneratedJournalEntryId(result.journalEntryId());
             batch.setStatus(ValuationBatch.ValuationBatchStatus.COMPLETED);
             batch.setReportLink("/reports/valuation/" + batch.getId());
         } catch (Exception e) {
@@ -247,7 +247,7 @@ public class ClosingService implements ClosingUseCase {
                     batch.getId().toString(),
                     BigDecimal.valueOf(500)
             );
-            batch.setGeneratedJournalEntryId(result.getJournalEntryId());
+            batch.setGeneratedJournalEntryId(result.journalEntryId());
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
         } catch (Exception e) {
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.FAILED);

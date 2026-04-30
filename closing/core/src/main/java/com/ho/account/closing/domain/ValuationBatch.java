@@ -1,13 +1,21 @@
 package com.ho.account.closing.domain;
 
 import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
-/**
- * ?됯? 諛곗튂 (Valuation Batch) ?뷀떚??
- * ?명솕 ?섏궛, 湲덉쑖 ?곹뭹 ?됯? ???뱀젙 ?쒖젏???대（?댁????뚭퀎 ?됯? 諛곗튂瑜?湲곕줉?⑸땲??
- */
 @Entity
 @Table(name = "valuation_batches")
 public class ValuationBatch {
@@ -22,23 +30,23 @@ public class ValuationBatch {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private ValuationType valuationType; // FX_RATE, FINANCIAL_INSTRUMENT ??
+    private ValuationType valuationType;
 
     @Column(nullable = false)
-    private LocalDateTime runDateTime; // 諛곗튂 ?ㅽ뻾 ?쇱떆
+    private LocalDateTime runDateTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private ValuationBatchStatus status; // RUNNING, COMPLETED, FAILED
+    private ValuationBatchStatus status;
 
     @Column(name = "generated_journal_entry_id")
-    private Long generatedJournalEntryId; // ?앹꽦??議곗젙 遺꾧컻 ?꾪몴 ID
+    private Long generatedJournalEntryId;
 
     @Column(length = 200)
-    private String reportLink; // ?앹꽦??由ы룷??留곹겕 (?? PDF, ?ㅽ봽?덈뱶?쒗듃)
+    private String reportLink;
 
     @Column(length = 50)
-    private String runBy; // 諛곗튂 ?ㅽ뻾??
+    private String runBy;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -49,21 +57,28 @@ public class ValuationBatch {
     private String auditUser;
 
     public enum ValuationType {
-        FX_RATE, FINANCIAL_INSTRUMENT, INVENTORY
+        FX_RATE,
+        FINANCIAL_INSTRUMENT,
+        INVENTORY
     }
 
     public enum ValuationBatchStatus {
-        RUNNING, COMPLETED, FAILED, PENDING_APPROVAL
+        RUNNING,
+        COMPLETED,
+        FAILED,
+        PENDING_APPROVAL
     }
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
+        if (this.status == null) {
             this.status = ValuationBatchStatus.RUNNING;
-        if (this.auditUser == null)
+        }
+        if (this.auditUser == null) {
             this.auditUser = "SYSTEM";
+        }
     }
 
     @PreUpdate
@@ -71,7 +86,6 @@ public class ValuationBatch {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -112,12 +126,12 @@ public class ValuationBatch {
         this.status = status;
     }
 
-    public JournalEntry getGeneratedJournalEntry() {
-        return generatedJournalEntry;
+    public Long getGeneratedJournalEntryId() {
+        return generatedJournalEntryId;
     }
 
-    public void setGeneratedJournalEntry(JournalEntry generatedJournalEntry) {
-        this.generatedJournalEntry = generatedJournalEntry;
+    public void setGeneratedJournalEntryId(Long generatedJournalEntryId) {
+        this.generatedJournalEntryId = generatedJournalEntryId;
     }
 
     public String getReportLink() {
@@ -157,10 +171,6 @@ public class ValuationBatch {
     }
 
     public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
-    }
-}
-(String auditUser) {
         this.auditUser = auditUser;
     }
 }

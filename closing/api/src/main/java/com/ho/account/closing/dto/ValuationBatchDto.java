@@ -35,7 +35,7 @@ public class ValuationBatchDto {
                 .valuationType(entity.getValuationType())
                 .runDateTime(entity.getRunDateTime())
                 .status(entity.getStatus())
-                .generatedJournalEntryId(entity.getGeneratedJournalEntry() != null ? entity.getGeneratedJournalEntry().getId() : null)
+                .generatedJournalEntryId(entity.getGeneratedJournalEntryId())
                 .reportLink(entity.getReportLink())
                 .runBy(entity.getRunBy())
                 .createdAt(entity.getCreatedAt())
