@@ -41,6 +41,13 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public JournalSummary getJournalSummary(Long journalEntryId) {
+        return journalUseCase.getJournalEntry(journalEntryId)
+                .map(this::mapToSummary)
+                .orElseThrow(() -> new NoSuchElementException("Journal entry not found: " + journalEntryId));
+    }
+
     private JournalSummary mapToSummary(JournalEntry entry) {
         JournalSummary summary = new JournalSummary();
         summary.setId(entry.getId());

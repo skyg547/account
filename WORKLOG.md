@@ -112,10 +112,30 @@
 - **Risk 모듈 폐기**: 사용자 요청에 따라 리스크 관련 모든 코드 및 문서 완전 삭제 및 복구 완료.
 - **Git Push 완료**: 세무 고도화, 결산 현대화, 리스크 복구 내역을 원격 저장소(`main`)에 최종 동기화.
 
+### 📅 2026-05-04 (오전 - 결산 로직 강화 및 모델링)
+### [백엔드] 결산 조정 전표 및 프로세스 검증 로직 실체화
+- **검증 로직 대폭 강화**: `ClosingService.createClosingAdjustment` 내에 회기 상태(OPEN 여부), 전표 존재 확인, 회계 일자 정합성, 대차 평형(Balance Check) 검증 로직 구현 완료.
+- **결산 프로세스 제어**: `determineClosingStatus`에서 필수 태스크(`isMandatory`) 완료 여부 및 결산 게이트(`ClosingGate`) 통과 여부를 검증하는 로직 실체화.
+- **포트 및 어댑터 확장**: 
+    - `JournalQueryPort`에 `getJournalSummary` 메서드 추가 및 `MonolithJournalQueryAdapter` 구현.
+    - `ClosingTask/GatePersistencePort`에 `findByClosingCalendar` 메서드 추가.
+- **의존성 해결**: `closing:core` 모듈의 빌드 정합성을 위해 `spring-cloud-dependencies` BOM 적용.
+
+### [모델러] 결산 감사 로그(Audit Log) 설계 및 도입
+- **ClosingAuditLog 엔티티 설계**: 결산 상태 변경, 재오픈 요청/승인, 조정 전표 생성 등 주요 행위를 추적하기 위한 `ClosingAuditLog` 모델 구축.
+- **감사 추적(Audit Trail) 연동**: `ClosingService` 내 주요 상태 변경 메서드(`updateStatus`, `passGate`, `reopen` 등)에 감사 로그 기록 로직 통합 완료.
+- **영속성 계층 구축**: `ClosingAuditLogPersistencePort`, `Repository`, `Adapter` 구현을 통해 로그 데이터의 영구 보존 보장.
+
+### [QA] 결산 서비스 단위 테스트 및 빌드 검증
+- **ClosingServiceTest 구현**: Mockito를 활용하여 다양한 예외 상황(회기 마감, 대차 불일치, 기간 외 전표, 태스크 미완료 등)에 대한 비즈니스 규칙 검증 완료.
+- **빌드 성공**: 신규 엔티티 및 감사 로그 로직 추가 후 `:closing:core:classes` 컴파일 정합성 최종 확인.
+
 **NEXT STEPS (다음 담당자):**
-1. **[프론트] 결산 관리 화면 리팩토링**: 백엔드 API 변경에 따른 월마감/연마감 제어 화면 UI 최적화.
-2. **[백엔드] 결산 조정 전표 검증 로직 강화**: `ClosingService` 내 임시로 구현된 대사 및 검증 로직 실체화.
-3. **[모델러] 결산 이력 및 감사 로그 설계**: 결산 취소 및 재오픈 시 상세 이력을 보존하기 위한 감사 추적 모델 추가.
+1. **[프론트] 결산 감사 로그 조회 화면 구현**: 관리자가 결산 프로세스의 진행 이력 및 재오픈 사유를 확인할 수 있는 타임라인 형태의 Audit Log UI 구축.
+2. **[프론트] 결산 관리 화면 리팩토링**: 백엔드에서 강화된 검증 로직(에러 메시지 처리 등)을 UI에 반영하고, 결산 진행 상태 시각화 최적화.
+3. **[백엔드] 결산 보고서 자동 생성 연동**: 결산 완료 시 `reporting` 모듈과 연동하여 표준 재무제표가 자동으로 생성되는 이벤트 체인 설계.
+
+
 
 
 

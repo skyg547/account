@@ -19,4 +19,9 @@ public interface JournalQueryPort {
      * 특정 전표의 상세 내역을 조회합니다.
      */
     List<JournalDetailSummary> getJournalDetails(Long journalEntryId);
+
+    /**
+     * 특정 전표의 요약 정보를 조회합니다.
+     */
+    JournalSummary getJournalSummary(Long journalEntryId);
 }
