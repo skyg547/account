@@ -195,6 +195,26 @@ public class ClosingTask {
         this.auditUser = auditUser;
     }
 
+    /**
+     * 태스크를 완료 상태로 변경합니다.
+     *
+     * @param user 처리자
+     */
+    public void complete(String user) {
+        this.status = ClosingTaskStatus.COMPLETED;
+        this.auditUser = user;
+    }
+
+    /**
+     * 태스크를 진행 중 상태로 변경합니다.
+     *
+     * @param user 처리자
+     */
+    public void start(String user) {
+        this.status = ClosingTaskStatus.IN_PROGRESS;
+        this.auditUser = user;
+    }
+
     @Deprecated
     public String getTaskCode() {
         return taskCode;

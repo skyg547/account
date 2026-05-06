@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface PayableRepository extends JpaRepository<Payable, Long> {
     Optional<Payable> findByPurchaseInvoiceNoAndPurchaseInvoiceVendorCode(String purchaseInvoiceNo,
             String purchaseInvoiceVendorCode);
-    List<Payable> findByVendorBusinessPartnerCodeAndStatus(String vendorCode, PayableStatus status);
+    List<Payable> findByVendorCodeAndStatus(String vendorCode, PayableStatus status);
     List<Payable> findByDueDateBeforeAndStatusNot(LocalDate dueDate, PayableStatus status);
-    List<Payable> findByVendorBusinessPartnerCodeAndOutstandingAmountGreaterThan(String vendorCode, BigDecimal amount);
+    List<Payable> findByVendorCodeAndOutstandingAmountGreaterThan(String vendorCode, BigDecimal amount);
 }

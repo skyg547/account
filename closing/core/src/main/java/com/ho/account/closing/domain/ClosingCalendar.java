@@ -189,6 +189,44 @@ public class ClosingCalendar {
         this.auditUser = auditUser;
     }
 
+    /**
+     * 결산 완료 가능 여부를 확인합니다.
+     *
+     * @param tasks 현재 회기의 결산 태스크 목록
+     * @param gates 현재 회기의 결산 게이트 목록
+     * @return 완료 가능 여부
+     */
+    public boolean isReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
+        // 1. 필수 태스크 완료 여부 확인
+        boolean allMandatoryTasksCompleted = tasks.stream()
+                .filter(ClosingTask::isMandatory)
+                .allMatch(t -> t.getStatus() == ClosingTask.ClosingTaskStatus.COMPLETED);
+
+        if (!allMandatoryTasksCompleted) return false;
+
+        // 2. 모든 게이트 통과 여부 확인
+        boolean allGatesPassed = gates.stream()
+                .allMatch(g -> g.getStatus() == ClosingGate.ClosingGateStatus.PASSED);
+
+        return allGatesPassed;
+    }
+
+    /**
+     * 결산을 최종 확정 상태로 변경합니다.
+     *
+     * @param user 처리자
+     * @throws IllegalStateException 완료 가능한 상태가 아닐 경우
+     */
+    public void close(String user) {
+        if (this.status == ClosingCalendarStatus.CLOSED || this.status == ClosingCalendarStatus.PERMANENTLY_CLOSED) {
+            throw new IllegalStateException("이미 마감된 회기입니다.");
+        }
+        this.status = ClosingCalendarStatus.CLOSED;
+        this.closedBy = user;
+        this.closedAt = LocalDateTime.now();
+        this.auditUser = user;
+    }
+
     @Deprecated
     public String getName() {
         return name;

@@ -12,6 +12,6 @@ import java.util.Optional;
 @Repository
 public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, Long> {
     Optional<SalesInvoice> findByInvoiceNo(String invoiceNo);
-    List<SalesInvoice> findByCustomerBusinessPartnerCodeAndStatus(String customerCode, SalesInvoiceStatus status);
+    List<SalesInvoice> findByCustomerCodeAndStatus(String customerCode, SalesInvoiceStatus status);
     List<SalesInvoice> findByDueDateBeforeAndStatusIn(LocalDate dueDate, List<SalesInvoiceStatus> statuses);
 }

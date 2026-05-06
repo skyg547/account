@@ -16,6 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * [PurchaseService]
+ * 매입 인보이스 관리 및 채무(Payable) 생성을 담당합니다.
+ * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 결합도를 최소화합니다.
+ */
 @Service
 @Transactional
 public class PurchaseService implements PurchaseUseCase {
@@ -40,12 +45,11 @@ public class PurchaseService implements PurchaseUseCase {
 
     @Override
     public PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice) {
-        String vendorCode = invoice.getVendor().getBusinessPartnerCode();
+        String vendorCode = invoice.getVendorCode();
         validateVendor(vendorCode);
         
         BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
-        invoice.setVendor(vendor);
 
         if (purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode(
                 invoice.getInvoiceNo(), vendor.getBusinessPartnerCode()).isPresent()) {
@@ -61,10 +65,11 @@ public class PurchaseService implements PurchaseUseCase {
 
         PurchaseInvoice savedInvoice = purchaseInvoicePersistencePort.save(invoice);
 
-        // 1. Payable 생성
+        // 1. Payable 생성 (ID 기반 참조 적용)
         Payable payable = new Payable();
-        payable.setPurchaseInvoice(savedInvoice);
-        payable.setVendor(vendor);
+        payable.setPurchaseInvoiceNo(savedInvoice.getInvoiceNo());
+        payable.setPurchaseInvoiceVendorCode(savedInvoice.getVendorCode());
+        payable.setVendorCode(savedInvoice.getVendorCode());
         payable.setOriginalAmount(savedInvoice.getTotalAmount());
         payable.setOutstandingAmount(savedInvoice.getTotalAmount());
         payable.setDueDate(savedInvoice.getDueDate());
@@ -72,7 +77,7 @@ public class PurchaseService implements PurchaseUseCase {
         payablePersistencePort.save(payable);
 
         // 2. 전표 발행
-        postPurchaseJournal(savedInvoice, vendor);
+        postPurchaseJournal(savedInvoice, vendor.getBusinessPartnerName());
 
         return savedInvoice;
     }
@@ -84,14 +89,15 @@ public class PurchaseService implements PurchaseUseCase {
             payable.markAsOverdue();
             payablePersistencePort.save(payable);
             
-            // 연관 인보이스 상태 업데이트 (Rich Domain Model 적용 포인트)
-            if (payable.getPurchaseInvoice() != null) {
-                PurchaseInvoice pi = payable.getPurchaseInvoice();
-                if (pi.getStatus() != PurchaseInvoiceStatus.PARTIAL_PAID) {
-                    pi.setStatus(PurchaseInvoiceStatus.OVERDUE);
-                    purchaseInvoicePersistencePort.save(pi);
-                }
-            }
+            // 연관 인보이스 상태 업데이트 (ID 기반 조회 후 처리)
+            purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode(
+                    payable.getPurchaseInvoiceNo(), payable.getPurchaseInvoiceVendorCode())
+                .ifPresent(pi -> {
+                    if (pi.getStatus() != PurchaseInvoiceStatus.PARTIAL_PAID) {
+                        pi.setStatus(PurchaseInvoiceStatus.OVERDUE);
+                        purchaseInvoicePersistencePort.save(pi);
+                    }
+                });
         }
     }
 
@@ -100,7 +106,7 @@ public class PurchaseService implements PurchaseUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing in master data: " + vendorCode));
     }
 
-    private void postPurchaseJournal(PurchaseInvoice invoice, BusinessPartner vendor) {
+    private void postPurchaseJournal(PurchaseInvoice invoice, String vendorName) {
         requireAccount("21100", "Accounts Payable account missing");
         requireAccount("50100", "Expense account missing");
         requireAccount("13500", "VAT account missing");
@@ -108,21 +114,21 @@ public class PurchaseService implements PurchaseUseCase {
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 invoice.getIssueDate(),
                 invoice.getIssueDate(),
-                "Purchase: " + invoice.getInvoiceNo() + " - " + vendor.getBusinessPartnerName(),
+                "Purchase: " + invoice.getInvoiceNo() + " - " + vendorName,
                 "PURCHASE_RECOGNITION",
                 null,
                 null,
                 invoice.getCreatedBy(),
                 invoice.getCreatedBy(),
                 "PURCHASE_INVOICE",
-                invoice.getInvoiceNo() + "_" + vendor.getBusinessPartnerCode(),
+                invoice.getInvoiceNo() + "_" + invoice.getVendorCode(),
                 List.of(
                         new JournalLineCommand("DEBIT", "50100", invoice.getNetAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "Purchase Expense"),
+                                invoice.getVendorCode(), "Purchase Expense"),
                         new JournalLineCommand("DEBIT", "13500", invoice.getTaxAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "Input VAT"),
+                                invoice.getVendorCode(), "Input VAT"),
                         new JournalLineCommand("CREDIT", "21100", invoice.getTotalAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "Accounts Payable"))));
+                                invoice.getVendorCode(), "Accounts Payable"))));
     }
 
     private void requireAccount(String accountCode, String message) {

@@ -6,7 +6,7 @@
 
 이 프로젝트에서 우선순위가 높은 문서는 아래 순서다.
 
-1. `docs/WORKLOG.md`
+1. `WORKLOG.md`
 2. `docs/todo.md`
 3. 현재 작업 도메인 문서
 4. `docs/db/README.md`
@@ -26,7 +26,7 @@
 ## 3. 문서 정합성 규칙
 
 - 기능 완료 시 `docs/todo.md`의 완료 표기와 DoD 상태를 같이 갱신한다.
-- 중요한 작업 단위가 끝나면 `docs/WORKLOG.md`에 작업 이력을 남긴다.
+- 중요한 작업 단위가 끝나면 `WORKLOG.md`에 작업 이력을 남긴다.
 - 도메인 기능이 추가되면 관련 문서와 DDL도 가능한 범위에서 맞춘다.
 - 단, `docs/db/*.sql`는 현행과 레거시가 섞여 있으므로 먼저 `docs/db/README.md`의 분류를 확인한다.
 

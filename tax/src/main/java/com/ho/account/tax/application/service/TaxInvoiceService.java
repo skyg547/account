@@ -1,7 +1,6 @@
 package com.ho.account.tax.application.service;
 
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.tax.application.port.in.TaxInvoiceUseCase;
 import com.ho.account.tax.application.port.out.TaxInvoicePersistencePort;
 import com.ho.account.tax.domain.TaxInvoice;
@@ -13,6 +12,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * [TaxInvoiceService]
+ * 세금계산서 비즈니스 로직을 담당합니다.
+ * 타 모듈(Master Data)과는 ID(Code) 기반으로 통신하여 모듈 간 결합도를 최소화합니다.
+ */
 @Service
 @Transactional
 public class TaxInvoiceService implements TaxInvoiceUseCase {
@@ -32,20 +36,20 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
             throw new IllegalArgumentException("AP Invoice는 PURCHASE 타입만 생성할 수 있습니다.");
         }
 
-        BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(
-                        requestDto.getBusinessPartnerCode())
+        // 거래처 존재 여부 검증 (모듈 간 정합성 체크)
+        businessPartnerPersistencePort.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다: " + requestDto.getBusinessPartnerCode()));
 
-        TaxInvoice taxInvoice = new TaxInvoice();
-        taxInvoice.setIssueId(requestDto.getIssueId());
-        taxInvoice.setType(requestDto.getType());
-        taxInvoice.setIssueDate(requestDto.getIssueDate());
-        taxInvoice.setBusinessPartner(businessPartner);
-        taxInvoice.setSupplyAmount(requestDto.getSupplyAmount());
-        taxInvoice.setTaxAmount(requestDto.getTaxAmount());
-        taxInvoice.setTotalAmount(requestDto.getTotalAmount());
+        TaxInvoice taxInvoice = TaxInvoice.create(
+                requestDto.getIssueId(),
+                requestDto.getType(),
+                requestDto.getIssueDate(),
+                requestDto.getBusinessPartnerCode(), // 엔티티 직접 참조 대신 Code 저장
+                requestDto.getSupplyAmount(),
+                requestDto.getTaxAmount(),
+                requestDto.getTotalAmount()
+        );
 
-        taxInvoice.validateAmounts();
         return taxInvoicePersistencePort.save(taxInvoice);
     }
 
@@ -80,14 +84,13 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
             throw new IllegalArgumentException("AP Invoice는 PURCHASE 타입만 수정할 수 있습니다.");
         }
 
-        BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(
-                        requestDto.getBusinessPartnerCode())
+        businessPartnerPersistencePort.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다: " + requestDto.getBusinessPartnerCode()));
 
         existingInvoice.updateInfo(
                 requestDto.getIssueId(),
                 requestDto.getIssueDate(),
-                businessPartner,
+                requestDto.getBusinessPartnerCode(), // 엔티티 직접 참조 대신 Code 저장
                 requestDto.getSupplyAmount(),
                 requestDto.getTaxAmount(),
                 requestDto.getTotalAmount()

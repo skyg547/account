@@ -17,7 +17,7 @@
 ## 이 프로젝트에 필요한 핵심 스킬
 
 ### 1. 세션 복구 스킬
-- 작업 시작 전 반드시 `docs/WORKLOG.md`를 먼저 읽는다.
+- 작업 시작 전 반드시 `WORKLOG.md`를 먼저 읽는다.
 - 다음으로 `docs/todo.md`를 읽고 완료(`o`) 여부와 남은 DoD를 확인한다.
 - 현재 작업 도메인이 있으면 해당 도메인 문서를 추가로 읽는다.
   - 대사: `docs/reconciliation.md`
@@ -56,7 +56,7 @@
 
 ## 권장 작업 순서
 
-1. `docs/WORKLOG.md` 확인
+1. `WORKLOG.md` 확인
 2. `docs/todo.md` 확인
 3. 관련 도메인 문서 확인
 4. 현재 코드/테스트/DDL 상태 확인
@@ -79,7 +79,7 @@
 
 ## 관련 문서
 
-- `docs/WORKLOG.md`
+- `WORKLOG.md`
 - `docs/todo.md`
 - `docs/principles_and_policies.md`
 - `docs/domain-catalog.md`

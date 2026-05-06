@@ -9,8 +9,10 @@ import {
   ArrowUpRight,
   Stamp,
   Lock,
-  Search
+  Search,
+  History
 } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * [결산 및 재무제표 조회 화면]
@@ -34,7 +36,10 @@ export default function ClosingPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 text-white">
+          <Link href="/closing/audit" className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
+            <History size={18} /> 감사 로그 조회
+          </Link>
           <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
             <Lock size={18} /> 계정 잠금 설정
           </button>

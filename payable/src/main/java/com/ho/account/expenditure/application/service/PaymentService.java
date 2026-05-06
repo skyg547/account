@@ -16,6 +16,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * [PaymentService]
+ * 지급 실행, 선급금 관리 및 상계 처리를 담당합니다.
+ * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 통신하여 결합도를 낮춥니다.
+ */
 @Service
 @Transactional
 public class PaymentService implements PaymentUseCase {
@@ -59,7 +64,7 @@ public class PaymentService implements PaymentUseCase {
         for (Payable payable : duePayables) {
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);
-            payment.setVendor(payable.getVendor());
+            payment.setVendorCode(payable.getVendorCode()); // ID 기반 참조로 변경
             payment.setAmount(payable.getOutstandingAmount());
             payment.setStatus(PaymentStatus.INITIATED);
             payment.setPaymentRun(savedPaymentRun);
@@ -83,13 +88,13 @@ public class PaymentService implements PaymentUseCase {
         payment.markAsCompleted(bankAccount);
         Payment completedPayment = paymentPersistencePort.save(payment);
 
-        // 채무 잔액 차감 (DDD: Payable 내부 로직 호출)
+        // 채무 잔액 차감 (ID 기반 조회 및 DDD 로직 호출)
         Payable payable = payablePersistencePort.findByVendorCodeAndOutstandingAmountGreaterThan(
-                        payment.getVendor().getBusinessPartnerCode(), BigDecimal.ZERO)
+                        payment.getVendorCode(), BigDecimal.ZERO)
                 .stream()
                 .filter(candidate -> candidate.getOutstandingAmount().compareTo(payment.getAmount()) >= 0)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Matching payable not found for amount: " + payment.getAmount()));
+                .orElseThrow(() -> new IllegalStateException("Matching payable not found for vendor: " + payment.getVendorCode()));
 
         payable.applyPayment(payment.getAmount());
         payablePersistencePort.save(payable);
@@ -101,16 +106,15 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public AdvancePayment recordAdvancePayment(AdvancePayment advancePayment) {
-        String vendorCode = advancePayment.getVendor().getBusinessPartnerCode();
+        String vendorCode = advancePayment.getVendorCode();
         validateVendor(vendorCode);
         
         BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
-        advancePayment.setVendor(vendor);
 
         AdvancePayment savedAdvancePayment = advancePaymentPersistencePort.save(advancePayment);
 
-        postAdvanceJournal(savedAdvancePayment, vendor);
+        postAdvanceJournal(savedAdvancePayment, vendor.getBusinessPartnerName());
 
         return savedAdvancePayment;
     }
@@ -143,53 +147,61 @@ public class PaymentService implements PaymentUseCase {
         requireAccount("21100", "AP account missing");
         requireAccount("10100", "Cash account missing");
 
+        String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payment.getVendorCode())
+                .map(BusinessPartner::getBusinessPartnerName)
+                .orElse(payment.getVendorCode());
+
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 payment.getPaymentDate(),
                 payment.getPaymentDate(),
-                "Payment: " + payment.getVendor().getBusinessPartnerName() + " - " + payment.getAmount(),
+                "Payment: " + vendorName + " - " + payment.getAmount(),
                 "PAYMENT_EXECUTION",
                 null, null, "SYSTEM", "SYSTEM",
                 "PAYMENT", payment.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", "21100", payment.getAmount(), null, null,
-                                payment.getVendor().getBusinessPartnerCode(), "AP Decrease"),
+                                payment.getVendorCode(), "AP Decrease"),
                         new JournalLineCommand("CREDIT", "10100", payment.getAmount(), null, null,
-                                payment.getVendor().getBusinessPartnerCode(), "Cash/Bank Decrease"))));
+                                payment.getVendorCode(), "Cash/Bank Decrease"))));
     }
 
-    private void postAdvanceJournal(AdvancePayment advance, BusinessPartner vendor) {
+    private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
         requireAccount("13100", "Advance account missing");
         requireAccount("10100", "Cash account missing");
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 advance.getPaymentDate(),
                 advance.getPaymentDate(),
-                "Advance: " + vendor.getBusinessPartnerName() + " - " + advance.getAmount(),
+                "Advance: " + vendorName + " - " + advance.getAmount(),
                 "ADVANCE_PAYMENT",
                 null, null, "SYSTEM", "SYSTEM",
                 "ADVANCE_PAYMENT", advance.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", "13100", advance.getAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "Advance recognized"),
+                                advance.getVendorCode(), "Advance recognized"),
                         new JournalLineCommand("CREDIT", "10100", advance.getAmount(), null, null,
-                                vendor.getBusinessPartnerCode(), "Cash Decrease"))));
+                                advance.getVendorCode(), "Cash Decrease"))));
     }
 
     private void postOffsetJournal(Payable payable, BigDecimal amount) {
         requireAccount("21100", "AP account missing");
         requireAccount("13100", "Advance account missing");
 
+        String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payable.getVendorCode())
+                .map(BusinessPartner::getBusinessPartnerName)
+                .orElse(payable.getVendorCode());
+
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 LocalDate.now(), LocalDate.now(),
-                "Offset: " + payable.getVendor().getBusinessPartnerName() + " - " + amount,
+                "Offset: " + vendorName + " - " + amount,
                 "AP_ADVANCE_OFFSET",
                 null, null, "SYSTEM", "SYSTEM",
                 "PAYABLE_OFFSET", payable.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", "21100", amount, null, null,
-                                payable.getVendor().getBusinessPartnerCode(), "AP Offset"),
+                                payable.getVendorCode(), "AP Offset"),
                         new JournalLineCommand("CREDIT", "13100", amount, null, null,
-                                payable.getVendor().getBusinessPartnerCode(), "Advance Offset"))));
+                                payable.getVendorCode(), "Advance Offset"))));
     }
 
     private void requireAccount(String accountCode, String message) {

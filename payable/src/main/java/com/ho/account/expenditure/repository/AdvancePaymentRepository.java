@@ -10,6 +10,6 @@ import java.util.List;
 
 @Repository
 public interface AdvancePaymentRepository extends JpaRepository<AdvancePayment, Long> {
-    List<AdvancePayment> findByVendorBusinessPartnerCodeAndStatus(String vendorCode, AdvancePaymentStatus status);
-    List<AdvancePayment> findByVendorBusinessPartnerCodeAndOutstandingAmountGreaterThan(String vendorCode, BigDecimal amount);
+    List<AdvancePayment> findByVendorCodeAndStatus(String vendorCode, AdvancePaymentStatus status);
+    List<AdvancePayment> findByVendorCodeAndOutstandingAmountGreaterThan(String vendorCode, BigDecimal amount);
 }

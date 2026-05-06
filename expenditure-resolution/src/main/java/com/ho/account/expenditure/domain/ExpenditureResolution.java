@@ -1,9 +1,5 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.asset.domain.LeaseContract;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Department;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,6 +7,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * [ExpenditureResolution] 도메인 엔티티.
+ * 지출 결의서 정보를 관리하며, 승인 프로세스 및 타 모듈과의 독립성을 보장합니다.
+ */
 @Entity
 @Table(name = "expenditure_resolutions")
 public class ExpenditureResolution {
@@ -20,24 +20,28 @@ public class ExpenditureResolution {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 20)
-    private String resolutionNo;
+    private String resolutionNo; // 결의 번호
 
     @Column(nullable = false, length = 200)
-    private String title;
+    private String title; // 결의 제목
 
     @Column(nullable = false)
-    private LocalDate resolutionDate;
+    private LocalDate resolutionDate; // 결의 일자
 
     @Column(nullable = false)
-    private LocalDate paymentDate;
+    private LocalDate paymentDate; // 지급 예정일
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department;
+    /**
+     * 귀속 부서 코드 (ID 참조로 변경하여 모듈 간 결합도 제거)
+     */
+    @Column(name = "dept_code", length = 20)
+    private String deptCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_account_code")
-    private AccountSubject paymentAccount;
+    /**
+     * 지급 계정 코드
+     */
+    @Column(name = "payment_account_code", length = 20)
+    private String paymentAccountCode;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
@@ -47,17 +51,23 @@ public class ExpenditureResolution {
     private ExpenditureResolutionStatus status;
 
     @Column(length = 500)
-    private String rejectionReason;
+    private String rejectionReason; // 반려 사유
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry;
+    /**
+     * 연관된 전표 ID (ID 참조)
+     */
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId;
 
-    // 由ъ뒪 怨꾩빟 ?곌껐 (?좏깮)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lease_contract_id")
-    private LeaseContract leaseContract;
+    /**
+     * 연관된 리스 계약 ID (ID 참조)
+     */
+    @Column(name = "lease_contract_id")
+    private Long leaseContractId;
 
+    /**
+     * 연관된 세금계산서 ID (ID 참조)
+     */
     @Column(name = "tax_invoice_id")
     private Long taxInvoiceId;
 
@@ -66,16 +76,29 @@ public class ExpenditureResolution {
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(length = 50)
     private String createdBy;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null)
-            status = ExpenditureResolutionStatus.DRAFT;
+    protected ExpenditureResolution() {}
+
+    /**
+     * 지출 결의서 생성을 위한 정적 팩토리 메서드.
+     */
+    public static ExpenditureResolution create(String resolutionNo, String title, LocalDate resolutionDate, 
+                                              LocalDate paymentDate, String deptCode, String accountCode, String createdBy) {
+        ExpenditureResolution resolution = new ExpenditureResolution();
+        resolution.resolutionNo = resolutionNo;
+        resolution.title = title;
+        resolution.resolutionDate = resolutionDate;
+        resolution.paymentDate = paymentDate;
+        resolution.deptCode = deptCode;
+        resolution.paymentAccountCode = accountCode;
+        resolution.createdBy = createdBy;
+        resolution.status = ExpenditureResolutionStatus.DRAFT;
+        return resolution;
     }
 
-    // ?곌?愿怨??몄쓽 硫붿꽌??
     public void addDetail(ExpenditureDetail detail) {
         details.add(detail);
         detail.setExpenditureResolution(this);
@@ -88,7 +111,9 @@ public class ExpenditureResolution {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // 도메인 상태 전이 메서드
+    /**
+     * 승인을 요청합니다.
+     */
     public void requestApproval() {
         if (this.status != ExpenditureResolutionStatus.DRAFT
                 && this.status != ExpenditureResolutionStatus.REJECTED) {
@@ -97,15 +122,21 @@ public class ExpenditureResolution {
         this.status = ExpenditureResolutionStatus.REQUESTED;
     }
 
-    public void approve(JournalEntry journalEntry) {
+    /**
+     * 결의서를 승인하고 회계 전표와 연결합니다.
+     */
+    public void approve(Long journalEntryId) {
         if (this.status != ExpenditureResolutionStatus.REQUESTED) {
             throw new IllegalStateException("REQUESTED 상태의 결의서만 승인할 수 있습니다.");
         }
         this.status = ExpenditureResolutionStatus.APPROVED;
-        this.journalEntry = journalEntry;
+        this.journalEntryId = journalEntryId;
         this.rejectionReason = null;
     }
 
+    /**
+     * 결의서를 반려합니다.
+     */
     public void reject(String reason) {
         if (this.status != ExpenditureResolutionStatus.REQUESTED) {
             throw new IllegalStateException("REQUESTED 상태의 결의서만 반려할 수 있습니다.");
@@ -114,128 +145,46 @@ public class ExpenditureResolution {
         this.rejectionReason = reason;
     }
 
-    // Getter / Setter
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getResolutionNo() {
-        return resolutionNo;
+    /**
+     * 지출 결의서 정보를 업데이트합니다.
+     */
+    public void updateInfo(String title, LocalDate resolutionDate, LocalDate paymentDate, String deptCode, String accountCode) {
+        this.title = title;
+        this.resolutionDate = resolutionDate;
+        this.paymentDate = paymentDate;
+        this.deptCode = deptCode;
+        this.paymentAccountCode = accountCode;
     }
 
     public void setResolutionNo(String resolutionNo) {
         this.resolutionNo = resolutionNo;
     }
 
-    public String getTitle() {
-        return title;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        if (status == null) status = ExpenditureResolutionStatus.DRAFT;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    // Getter
+    public Long getId() { return id; }
+    public String getResolutionNo() { return resolutionNo; }
+    public String getTitle() { return title; }
+    public LocalDate getResolutionDate() { return resolutionDate; }
+    public LocalDate getPaymentDate() { return paymentDate; }
+    public String getDeptCode() { return deptCode; }
+    public String getPaymentAccountCode() { return paymentAccountCode; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public ExpenditureResolutionStatus getStatus() { return status; }
+    public String getRejectionReason() { return rejectionReason; }
+    public Long getJournalEntryId() { return journalEntryId; }
+    public Long getLeaseContractId() { return leaseContractId; }
+    public Long getTaxInvoiceId() { return taxInvoiceId; }
+    public List<ExpenditureDetail> getDetails() { return details; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getCreatedBy() { return createdBy; }
 
-    public LocalDate getResolutionDate() {
-        return resolutionDate;
-    }
-
-    public void setResolutionDate(LocalDate resolutionDate) {
-        this.resolutionDate = resolutionDate;
-    }
-
-    public LocalDate getPaymentDate() {
-        return paymentDate;
-    }
-
-    public void setPaymentDate(LocalDate paymentDate) {
-        this.paymentDate = paymentDate;
-    }
-
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
-    }
-
-    public AccountSubject getPaymentAccount() {
-        return paymentAccount;
-    }
-
-    public void setPaymentAccount(AccountSubject paymentAccount) {
-        this.paymentAccount = paymentAccount;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public ExpenditureResolutionStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ExpenditureResolutionStatus status) {
-        this.status = status;
-    }
-
-    public String getRejectionReason() {
-        return rejectionReason;
-    }
-
-    public void setRejectionReason(String rejectionReason) {
-        this.rejectionReason = rejectionReason;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
-    }
-
-    public LeaseContract getLeaseContract() {
-        return leaseContract;
-    }
-
-    public void setLeaseContract(LeaseContract leaseContract) {
-        this.leaseContract = leaseContract;
-    }
-
-    public Long getTaxInvoiceId() {
-        return taxInvoiceId;
-    }
-
-    public void setTaxInvoiceId(Long taxInvoiceId) {
-        this.taxInvoiceId = taxInvoiceId;
-    }
-
-    public List<ExpenditureDetail> getDetails() {
-        return details;
-    }
-
-    public void setDetails(List<ExpenditureDetail> details) {
-        this.details = details;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
+    // Setter (필요한 경우에만 제한적으로 제공하거나 도메인 메서드 사용 지향)
+    public void setLeaseContractId(Long leaseContractId) { this.leaseContractId = leaseContractId; }
+    public void setTaxInvoiceId(Long taxInvoiceId) { this.taxInvoiceId = taxInvoiceId; }
 }

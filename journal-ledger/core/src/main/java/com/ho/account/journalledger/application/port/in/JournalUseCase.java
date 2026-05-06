@@ -122,6 +122,11 @@ public interface JournalUseCase {
     Optional<JournalEntry> getJournalEntryWithDetails(Long id);
 
     /**
+     * 전표를 조회합니다. (헤더 정보만)
+     */
+    Optional<JournalEntry> getJournalEntry(Long id);
+
+    /**
      * 전표를 승인합니다.
      *
      * [업무 설명]
@@ -159,9 +164,30 @@ public interface JournalUseCase {
      * APPROVED 상태여야만 전기 가능합니다.
      *
      * @param id     전기할 전표의 내부 PK
-     * @param poster 전기 처리자 식별자
-     * @throws IllegalArgumentException 존재하지 않는 전표 ID
-     * @throws IllegalStateException    APPROVED 상태가 아닌 경우
-     */
-    void postJournalEntry(Long id, String poster);
-}
+     @param poster 전기 처리자 식별자
+      * @throws IllegalArgumentException 존재하지 않는 전표 ID
+      * @throws IllegalStateException    APPROVED 상태가 아닌 경우
+      */
+     void postJournalEntry(Long id, String poster);
+
+     /**
+      * 특정 전표를 취소하는 역분개(Reversal) 전표를 생성합니다.
+      *
+      * [업무 설명]
+      * 이미 전기(POSTED)된 전표에 오류가 발견된 경우, 해당 전표를 직접 수정하는 대신
+      * 차대변 방향을 반전시킨 새로운 전표를 생성하여 기존 회계 처리를 무효화합니다 (취소 분개).
+      * 예: "차: 현금 100 / 대: 매출 100" 실수 → "차: 매출 100 / 대: 현금 100" 역분개 생성
+      *
+      * [개발 설명]
+      * 원본 전표의 내용을 복사하여 차대변을 반전시킨 새 JournalEntry 객체를 생성하고 저장합니다.
+      * 도메인 엔티티의 createReversal() 메서드를 활용합니다.
+      *
+      * @param id             원본 전표 ID (POSTED 상태여야 함)
+      * @param accountingDate 역분개 회계 반영일
+      * @param creator        역분개 작성자
+      * @param reason         취소 사유
+      * @return 생성된 역분개 전표
+      * @throws IllegalStateException 원본 전표가 POSTED 상태가 아닌 경우
+      */
+     JournalEntry reverseJournalEntry(Long id, LocalDate accountingDate, String creator, String reason);
+     }

@@ -188,4 +188,22 @@ public class JournalDetail {
 
     public String getAuditUser() { return auditUser; }
     public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
+
+    /**
+     * 현재 라인의 차대변 방향을 반전시킨 새로운 JournalDetail 객체를 생성합니다.
+     * 역분개(Reversal) 전표 생성 시 사용됩니다.
+     *
+     * @return 차대변이 반전된 새로운 JournalDetail (id는 null)
+     */
+    public JournalDetail copyWithFlippedSide() {
+        JournalDetail flipped = new JournalDetail();
+        flipped.setSide(this.side == JournalSide.DEBIT ? JournalSide.CREDIT : JournalSide.DEBIT);
+        flipped.setAccountSubject(this.accountSubject);
+        flipped.setAmount(this.amount);
+        flipped.setBaseAmount(this.baseAmount);
+        flipped.setDepartment(this.department);
+        flipped.setBusinessPartner(this.businessPartner);
+        flipped.setDetailDescription("[역분개] " + this.detailDescription);
+        return flipped;
+    }
 }

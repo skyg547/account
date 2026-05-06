@@ -10,7 +10,7 @@
 
 ## 작업 시작 시 해야 할 일
 
-1. `docs/WORKLOG.md`를 읽고 최근 작업 이력을 확인한다.
+1. `WORKLOG.md`를 읽고 최근 작업 이력을 확인한다.
 2. `docs/todo.md`를 읽고 완료(`o`)와 미완료 항목을 확인한다.
 3. 현재 작업 대상 도메인 문서를 읽는다.
 4. `git status --short`로 기존 변경사항을 확인한다.
@@ -25,13 +25,13 @@
 ## 작업 종료 시 원칙
 
 - 필요한 경우 `docs/todo.md` 완료 표기를 갱신한다.
-- `docs/WORKLOG.md`에 변경 내용을 기록한다.
+- `WORKLOG.md`에 변경 내용을 기록한다.
 - 커밋 전 변경 묶음이 일관적인지 확인한다.
 
 ## 권장 참조 문서
 
 - `docs/skills.md`
-- `docs/WORKLOG.md`
+- `WORKLOG.md`
 - `docs/todo.md`
 - `docs/principles_and_policies.md`
 - `docs/domain-catalog.md`

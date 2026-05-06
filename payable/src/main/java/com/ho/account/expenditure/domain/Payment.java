@@ -1,15 +1,14 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 吏湲??뷀떚??
- * 怨듦툒?낆껜?먭쾶 吏湲됰맂 湲덉븸 ?뺣낫瑜?愿由ы빀?덈떎.
+ * [Payment] 도메인 엔티티.
+ * 공급업체에게 실제로 지급된 내역을 관리합니다.
+ * 타 모듈과는 ID/Code 기반으로 참조하여 결합도를 낮춥니다.
  */
 @Entity
 @Table(name = "payments")
@@ -20,32 +19,36 @@ public class Payment {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate paymentDate; // 吏湲됱씪
+    private LocalDate paymentDate; // 지급일
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 吏湲????怨듦툒?낆껜 (嫄곕옒泥?
+    /**
+     * 지급 대상 공급업체 코드.
+     */
+    @Column(name = "vendor_code", nullable = false, length = 20)
+    private String vendorCode;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 吏湲됱븸
+    private BigDecimal amount; // 지급액
 
     @Column(length = 100)
-    private String bankAccount; // 吏湲됰맂 ???怨꾩쥖 (?대쫫 ?먮뒗 踰덊샇)
+    private String bankAccount; // 지급된 대상 계좌
 
     @Column(length = 100)
-    private String referenceNo; // ?대? 異붿쟻 ?먮뒗 ???李몄“ 踰덊샇
+    private String referenceNo; // 외부 추적 번호
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PaymentStatus status; // 吏湲??곹깭 (INITIATED, APPROVED, COMPLETED, FAILED, CANCELLED)
+    private PaymentStatus status; // 지급 상태
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 吏湲?泥섎━ ?꾪몴????곌껐
+    /**
+     * 연관된 회계 전표 ID.
+     */
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_run_id")
-    private PaymentRun paymentRun; // 愿??吏湲??ㅽ뻾 (PaymentRun)
+    private PaymentRun paymentRun; // 연관된 지급 실행 그룹
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,7 +57,7 @@ public class Payment {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) {
-            status = PaymentStatus.INITIATED; // 초기 상태는 INITIATED
+            status = PaymentStatus.INITIATED;
         }
     }
 
@@ -75,83 +78,33 @@ public class Payment {
     }
 
     // Getter 및 Setter
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public LocalDate getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }
 
-    public LocalDate getPaymentDate() {
-        return paymentDate;
-    }
+    public String getVendorCode() { return vendorCode; }
+    public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
 
-    public void setPaymentDate(LocalDate paymentDate) {
-        this.paymentDate = paymentDate;
-    }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
-    public BusinessPartner getVendor() {
-        return vendor;
-    }
+    public String getBankAccount() { return bankAccount; }
+    public void setBankAccount(String bankAccount) { this.bankAccount = bankAccount; }
 
-    public void setVendor(BusinessPartner vendor) {
-        this.vendor = vendor;
-    }
+    public String getReferenceNo() { return referenceNo; }
+    public void setReferenceNo(String referenceNo) { this.referenceNo = referenceNo; }
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
+    public PaymentStatus getStatus() { return status; }
+    public void setStatus(PaymentStatus status) { this.status = status; }
 
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
+    public Long getJournalEntryId() { return journalEntryId; }
+    public void setJournalEntryId(Long journalEntryId) { this.journalEntryId = journalEntryId; }
 
-    public String getBankAccount() {
-        return bankAccount;
-    }
+    public PaymentRun getPaymentRun() { return paymentRun; }
+    public void setPaymentRun(PaymentRun paymentRun) { this.paymentRun = paymentRun; }
 
-    public void setBankAccount(String bankAccount) {
-        this.bankAccount = bankAccount;
-    }
-
-    public String getReferenceNo() {
-        return referenceNo;
-    }
-
-    public void setReferenceNo(String referenceNo) {
-        this.referenceNo = referenceNo;
-    }
-
-    public PaymentStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PaymentStatus status) {
-        this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
-    }
-
-    public PaymentRun getPaymentRun() {
-        return paymentRun;
-    }
-
-    public void setPaymentRun(PaymentRun paymentRun) {
-        this.paymentRun = paymentRun;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

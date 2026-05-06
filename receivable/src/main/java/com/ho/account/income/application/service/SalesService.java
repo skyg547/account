@@ -40,30 +40,28 @@ public class SalesService implements SalesUseCase {
 
     @Override
     public SalesInvoice createSalesInvoice(SalesInvoice invoice) {
-        String customerCode = invoice.getCustomer().getBusinessPartnerCode();
+        String customerCode = invoice.getCustomerCode();
         validateCustomer(customerCode);
 
-        BusinessPartner customer = businessPartnerPersistencePort.findByBusinessPartnerCode(customerCode)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
-        invoice.setCustomer(customer);
-
-        if (invoice.getStatus() == null) {
-            invoice.setStatus(SalesInvoiceStatus.ISSUED);
-        }
-
+        // 1. SalesInvoice 저장
         SalesInvoice savedInvoice = salesInvoicePersistencePort.save(invoice);
 
-        // 1. Receivable 생성
+        // 2. Receivable 생성
         Receivable receivable = new Receivable();
         receivable.setSalesInvoice(savedInvoice);
+        // Receivable 엔티티도 ID 기반 참조로 변경하는 것이 좋으나, 현재는 엔티티 정의를 확인 후 필요시 수정
+        // 일단은 기존 구조 유지하되 invoice에서 정보를 가져옴
+        BusinessPartner customer = businessPartnerPersistencePort.findByBusinessPartnerCode(customerCode)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
         receivable.setCustomer(customer);
+        
         receivable.setOriginalAmount(savedInvoice.getTotalAmount());
         receivable.setOutstandingAmount(savedInvoice.getTotalAmount());
         receivable.setDueDate(savedInvoice.getDueDate());
         receivable.setStatus(ReceivableStatus.OPEN);
         receivablePersistencePort.save(receivable);
 
-        // 2. 매출 인식 전표 발행
+        // 3. 매출 인식 전표 발행
         postSalesJournal(savedInvoice, customer);
 
         return savedInvoice;
@@ -79,7 +77,7 @@ public class SalesService implements SalesUseCase {
             if (receivable.getSalesInvoice() != null) {
                 SalesInvoice si = receivable.getSalesInvoice();
                 if (si.getStatus() != SalesInvoiceStatus.PARTIAL_PAID) {
-                    si.setStatus(SalesInvoiceStatus.OVERDUE);
+                    si.markAsOverdue();
                     salesInvoicePersistencePort.save(si);
                 }
             }

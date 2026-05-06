@@ -134,8 +134,17 @@ public class ClosingService implements ClosingUseCase {
         ClosingTask task = closingTaskPersistencePort.findById(taskId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingTask not found"));
         String prevStatus = task.getStatus().name();
-        task.setStatus(newStatus);
-        task.setAuditUser(user);
+        
+        // 도메인 메서드 활용
+        if (newStatus == ClosingTaskStatus.COMPLETED) {
+            task.complete(user);
+        } else if (newStatus == ClosingTaskStatus.IN_PROGRESS) {
+            task.start(user);
+        } else {
+            task.setStatus(newStatus);
+            task.setAuditUser(user);
+        }
+
         ClosingTask saved = closingTaskPersistencePort.save(task);
 
         // 감사 로그 기록
@@ -372,29 +381,16 @@ public class ClosingService implements ClosingUseCase {
         ClosingCalendar calendar = findClosingCalendarById(calendarId);
         String prevStatus = calendar.getStatus().name();
 
-        // 1. 필수 태스크 완료 여부 확인
+        // 1. 도메인 메서드에 완료 가능 여부 위임
         List<ClosingTask> tasks = closingTaskPersistencePort.findByClosingCalendar(calendar);
-        boolean allMandatoryTasksCompleted = tasks.stream()
-                .filter(ClosingTask::isMandatory)
-                .allMatch(t -> t.getStatus() == ClosingTaskStatus.COMPLETED);
-        
-        if (!allMandatoryTasksCompleted) {
-            throw new IllegalStateException("Cannot close: Not all mandatory tasks are completed.");
-        }
-
-        // 2. 모든 게이트 통과 여부 확인
         List<ClosingGate> gates = closingGatePersistencePort.findByClosingCalendar(calendar);
-        boolean allGatesPassed = gates.stream()
-                .allMatch(g -> g.getStatus() == ClosingGateStatus.PASSED);
         
-        if (!allGatesPassed) {
-            throw new IllegalStateException("Cannot close: Not all closing gates are passed.");
+        if (!calendar.isReadyToClose(tasks, gates)) {
+            throw new IllegalStateException("결산을 완료할 수 있는 상태가 아닙니다. 필수 태스크 및 게이트를 확인하세요.");
         }
 
-        calendar.setStatus(ClosingCalendarStatus.CLOSED);
-        calendar.setClosedBy(user);
-        calendar.setClosedAt(LocalDateTime.now());
-        calendar.setAuditUser(user);
+        // 2. 도메인 메서드에 상태 변경 위임
+        calendar.close(user);
         
         fiscalPeriodPersistencePort.findByFiscalYearAndFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
                 .ifPresent(fp -> {

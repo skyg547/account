@@ -1,25 +1,15 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * [PurchaseInvoice] 도메인 엔티티.
+ * 공급업체로부터 수취한 매입 인보이스 정보를 관리합니다.
+ * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 결합도를 낮춥니다.
+ */
 @Entity
 @Table(
         name = "purchase_invoices",
@@ -34,9 +24,11 @@ public class PurchaseInvoice {
     @Column(name = "invoice_no", nullable = false, length = 50)
     private String invoiceNo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor;
+    /**
+     * 공급업체(거래처) 코드.
+     */
+    @Column(name = "vendor_code", nullable = false, length = 20)
+    private String vendorCode;
 
     @Column(nullable = false)
     private LocalDate issueDate;
@@ -57,9 +49,11 @@ public class PurchaseInvoice {
     @Enumerated(EnumType.STRING)
     private PurchaseInvoiceStatus status;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry;
+    /**
+     * 연관된 회계 전표 ID.
+     */
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId;
 
     @Column(length = 500)
     private String description;
@@ -81,107 +75,43 @@ public class PurchaseInvoice {
         }
     }
 
-    public Long getId() {
-        return id;
-    }
+    // Getter 및 Setter
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getInvoiceNo() { return invoiceNo; }
+    public void setInvoiceNo(String invoiceNo) { this.invoiceNo = invoiceNo; }
 
-    public String getInvoiceNo() {
-        return invoiceNo;
-    }
+    public String getVendorCode() { return vendorCode; }
+    public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
 
-    public void setInvoiceNo(String invoiceNo) {
-        this.invoiceNo = invoiceNo;
-    }
+    public LocalDate getIssueDate() { return issueDate; }
+    public void setIssueDate(LocalDate issueDate) { this.issueDate = issueDate; }
 
-    public BusinessPartner getVendor() {
-        return vendor;
-    }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
-    public void setVendor(BusinessPartner vendor) {
-        this.vendor = vendor;
-    }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public LocalDate getIssueDate() {
-        return issueDate;
-    }
+    public BigDecimal getTaxAmount() { return taxAmount; }
+    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
 
-    public void setIssueDate(LocalDate issueDate) {
-        this.issueDate = issueDate;
-    }
+    public BigDecimal getNetAmount() { return netAmount; }
+    public void setNetAmount(BigDecimal netAmount) { this.netAmount = netAmount; }
 
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
+    public PurchaseInvoiceStatus getStatus() { return status; }
+    public void setStatus(PurchaseInvoiceStatus status) { this.status = status; }
 
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
+    public Long getJournalEntryId() { return journalEntryId; }
+    public void setJournalEntryId(Long journalEntryId) { this.journalEntryId = journalEntryId; }
 
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
-    public BigDecimal getTaxAmount() {
-        return taxAmount;
-    }
-
-    public void setTaxAmount(BigDecimal taxAmount) {
-        this.taxAmount = taxAmount;
-    }
-
-    public BigDecimal getNetAmount() {
-        return netAmount;
-    }
-
-    public void setNetAmount(BigDecimal netAmount) {
-        this.netAmount = netAmount;
-    }
-
-    public PurchaseInvoiceStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PurchaseInvoiceStatus status) {
-        this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

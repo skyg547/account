@@ -280,6 +280,44 @@ public class JournalEntry {
     }
 
     /**
+     * 현재 전표를 취소하는 역분개(Reversal) 전표를 생성합니다.
+     *
+     * [업무 규칙]
+     * - POSTED 상태인 전표만 역분개할 수 있습니다.
+     * - 원본 전표의 모든 라인의 차대변 방향을 반전시켜 생성합니다.
+     * - 역분개 전표는 생성 즉시 승인(APPROVED) 상태로 두거나, 정책에 따라 DRAFT로 둘 수 있습니다.
+     *   (여기서는 명시적 검토를 위해 DRAFT로 생성합니다)
+     *
+     * @param creator        역분개 작성자
+     * @param accountingDate 역분개 회계 반영일
+     * @param reason         역분개 사유
+     * @return 생성된 역분개 전표 (id 없음)
+     */
+    public JournalEntry createReversal(String creator, LocalDate accountingDate, String reason) {
+        if (this.status != JournalEntryStatus.POSTED) {
+            throw new IllegalStateException("전기 완료된 전표만 역분개할 수 있습니다.");
+        }
+
+        JournalEntry reversal = new JournalEntry();
+        reversal.setSlipDate(LocalDate.now());
+        reversal.setAccountingDate(accountingDate);
+        reversal.setDescription("[역분개 취소] " + this.description + " (사유: " + reason + ")");
+        reversal.setEntryType("REVERSAL");
+        reversal.setCurrency(this.currency);
+        reversal.setExchangeRate(this.exchangeRate);
+        reversal.setCreatedBy(creator);
+        reversal.setLineageSourceType("JOURNAL_ENTRY");
+        reversal.setLineageSourceId(this.id.toString());
+
+        for (JournalDetail originalDetail : this.details) {
+            reversal.addDetail(originalDetail.copyWithFlippedSide());
+        }
+
+        reversal.validateBalance();
+        return reversal;
+    }
+
+    /**
      * 차변/대변 합계 일치 여부를 검증합니다.
      *
      * [업무 설명]

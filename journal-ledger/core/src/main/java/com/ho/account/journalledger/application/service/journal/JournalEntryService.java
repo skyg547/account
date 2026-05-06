@@ -169,6 +169,11 @@ public class JournalEntryService implements JournalUseCase {
         return journalPersistencePort.findByIdWithDetails(id);
     }
 
+    @Override
+    public Optional<JournalEntry> getJournalEntry(Long id) {
+        return journalPersistencePort.findById(id);
+    }
+
     /**
      * 전표를 승인합니다.
      *
@@ -236,5 +241,19 @@ public class JournalEntryService implements JournalUseCase {
 
         // 3. 변경된 상태를 저장
         journalPersistencePort.save(entry);
+    }
+
+    @Override
+    @Transactional
+    public JournalEntry reverseJournalEntry(Long id, LocalDate accountingDate, String creator, String reason) {
+        // 1. 원본 전표 조회 (상세 내역 포함)
+        JournalEntry original = journalPersistencePort.findByIdWithDetails(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
+
+        // 2. 도메인 엔티티에 역분개 생성 위임 (Rich Domain Model)
+        JournalEntry reversal = original.createReversal(creator, accountingDate, reason);
+
+        // 3. 역분개 전표 저장 및 반환
+        return createJournalEntry(reversal);
     }
 }

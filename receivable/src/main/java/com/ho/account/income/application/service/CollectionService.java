@@ -125,7 +125,7 @@ public class CollectionService implements CollectionUseCase {
         // 연관 인보이스 상태 업데이트
         if (receivable.getSalesInvoice() != null) {
             SalesInvoice si = receivable.getSalesInvoice();
-            si.setStatus(receivable.getStatus() == ReceivableStatus.PAID ? SalesInvoiceStatus.PAID : SalesInvoiceStatus.PARTIAL_PAID);
+            si.updateStatusFromReceivable(receivable.getStatus());
             salesInvoicePersistencePort.save(si);
         }
 

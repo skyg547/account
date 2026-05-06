@@ -1,15 +1,14 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 留ㅼ엯梨꾨Т ?ㅽ뵂 ?꾩씠???뷀떚??
- * 怨듦툒?낆껜??吏湲됲빐????媛쒕퀎 ??ぉ???섑??낅땲??
+ * [Payable] 도메인 엔티티.
+ * 공급업체에 지급해야 할 개별 채무 항목을 관리합니다.
+ * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 독립성을 보장합니다.
  */
 @Entity
 @Table(name = "payables")
@@ -19,37 +18,42 @@ public class Payable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Transient
-    private PurchaseInvoice purchaseInvoice; // 愿??留ㅼ엯 ?몃낫?댁뒪
-
-    // To handle composite key of PurchaseInvoice, we need to manually map the columns
-    @Column(name = "purchase_invoice_invoice_no", nullable = false)
+    /**
+     * 관련 매입 인보이스 번호.
+     */
+    @Column(name = "purchase_invoice_invoice_no", nullable = false, length = 50)
     private String purchaseInvoiceNo;
 
-    @Column(name = "purchase_invoice_vendor_code", nullable = false)
+    /**
+     * 매입 인보이스의 공급업체 코드.
+     */
+    @Column(name = "purchase_invoice_vendor_code", nullable = false, length = 20)
     private String purchaseInvoiceVendorCode;
 
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vendor_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner vendor; // 梨꾨Т ???怨듦툒?낆껜 (嫄곕옒泥?
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 理쒖큹 梨꾨Т 湲덉븸
+    /**
+     * 채무 대상 공급업체 코드.
+     */
+    @Column(name = "vendor_code", nullable = false, length = 20)
+    private String vendorCode;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 誘몄?湲?湲덉븸
+    private BigDecimal originalAmount; // 최초 채무 금액
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal outstandingAmount; // 미지급 금액 (잔액)
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 留뚭린??(吏湲??덉젙??
+    private LocalDate dueDate; // 만기일 (지급 예정일)
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private PayableStatus status; // 梨꾨Т ?곹깭 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private PayableStatus status; // 채무 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // 留ㅼ엯梨꾨Т ?몄떇 ?꾪몴????곌껐 (?좏깮??
+    /**
+     * 연관된 회계 전표 ID.
+     */
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -84,7 +88,7 @@ public class Payable {
      * 선급금 상계 금액을 적용합니다.
      */
     public void applyOffset(BigDecimal amount) {
-        applyPayment(amount); // 상계도 결국 잔액을 차감하는 행위이므로 동일 로직 사용
+        applyPayment(amount);
     }
 
     private void updateStatusByBalance() {
@@ -103,95 +107,33 @@ public class Payable {
     }
 
     // Getter 및 Setter
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getPurchaseInvoiceNo() { return purchaseInvoiceNo; }
+    public void setPurchaseInvoiceNo(String purchaseInvoiceNo) { this.purchaseInvoiceNo = purchaseInvoiceNo; }
 
-    public PurchaseInvoice getPurchaseInvoice() {
-        return purchaseInvoice;
-    }
+    public String getPurchaseInvoiceVendorCode() { return purchaseInvoiceVendorCode; }
+    public void setPurchaseInvoiceVendorCode(String purchaseInvoiceVendorCode) { this.purchaseInvoiceVendorCode = purchaseInvoiceVendorCode; }
 
-    public void setPurchaseInvoice(PurchaseInvoice purchaseInvoice) {
-        this.purchaseInvoice = purchaseInvoice;
-        if (purchaseInvoice != null) {
-            this.purchaseInvoiceNo = purchaseInvoice.getInvoiceNo();
-            this.purchaseInvoiceVendorCode = purchaseInvoice.getVendor().getBusinessPartnerCode();
-        }
-    }
+    public String getVendorCode() { return vendorCode; }
+    public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
 
-    public String getPurchaseInvoiceNo() {
-        return purchaseInvoiceNo;
-    }
+    public BigDecimal getOriginalAmount() { return originalAmount; }
+    public void setOriginalAmount(BigDecimal originalAmount) { this.originalAmount = originalAmount; }
 
-    public void setPurchaseInvoiceNo(String purchaseInvoiceNo) {
-        this.purchaseInvoiceNo = purchaseInvoiceNo;
-    }
+    public BigDecimal getOutstandingAmount() { return outstandingAmount; }
+    public void setOutstandingAmount(BigDecimal outstandingAmount) { this.outstandingAmount = outstandingAmount; }
 
-    public String getPurchaseInvoiceVendorCode() {
-        return purchaseInvoiceVendorCode;
-    }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
 
-    public void setPurchaseInvoiceVendorCode(String purchaseInvoiceVendorCode) {
-        this.purchaseInvoiceVendorCode = purchaseInvoiceVendorCode;
-    }
+    public PayableStatus getStatus() { return status; }
+    public void setStatus(PayableStatus status) { this.status = status; }
 
-    public BusinessPartner getVendor() {
-        return vendor;
-    }
+    public Long getJournalEntryId() { return journalEntryId; }
+    public void setJournalEntryId(Long journalEntryId) { this.journalEntryId = journalEntryId; }
 
-    public void setVendor(BusinessPartner vendor) {
-        this.vendor = vendor;
-    }
-
-    public BigDecimal getOriginalAmount() {
-        return originalAmount;
-    }
-
-    public void setOriginalAmount(BigDecimal originalAmount) {
-        this.originalAmount = originalAmount;
-    }
-
-    public BigDecimal getOutstandingAmount() {
-        return outstandingAmount;
-    }
-
-    public void setOutstandingAmount(BigDecimal outstandingAmount) {
-        this.outstandingAmount = outstandingAmount;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public PayableStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PayableStatus status) {
-        this.status = status;
-    }
-
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
-    }
-
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

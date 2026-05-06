@@ -25,6 +25,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * [IntegratedBusinessProcessTest]
+ * 전사 통합 비즈니스 프로세스(세금계산서 -> 매입 -> 채무 -> 지급)를 검증합니다.
+ * 리팩토링된 ID 기반 참조 체계에서도 데이터 정합성이 유지되는지 확인합니다.
+ */
 @SpringBootTest
 @Transactional
 public class IntegratedBusinessProcessTest {
@@ -105,7 +110,7 @@ public class IntegratedBusinessProcessTest {
         // Step 2: 매입 인식 (Purchase Invoice & Payable 생성)
         PurchaseInvoice purchaseInvoice = new PurchaseInvoice();
         purchaseInvoice.setInvoiceNo(taxInvoice.getIssueId());
-        purchaseInvoice.setVendor(vendor);
+        purchaseInvoice.setVendorCode("VEND-001"); // 엔티티 직접 참조 대신 Code 사용
         purchaseInvoice.setIssueDate(taxInvoice.getIssueDate());
         purchaseInvoice.setDueDate(taxInvoice.getIssueDate()); // 만기일을 오늘로 설정 (즉시 지급 대상)
         purchaseInvoice.setNetAmount(taxInvoice.getSupplyAmount());
@@ -119,11 +124,13 @@ public class IntegratedBusinessProcessTest {
         List<Payable> payables = payablePersistencePort.findByDueDateBeforeAndStatusNot(
                 LocalDate.now().plusDays(1), PayableStatus.PAID);
         assertThat(payables).isNotEmpty();
+        
         Payable payable = payables.stream()
-                .filter(p -> p.getPurchaseInvoice().getInvoiceNo().equals("TAX-2026-001"))
+                .filter(p -> p.getPurchaseInvoiceNo().equals("TAX-2026-001")) // ID 기반 필드 사용
                 .findFirst()
                 .orElseThrow();
         assertThat(payable.getOutstandingAmount()).isEqualByComparingTo(new BigDecimal("1100000"));
+        assertThat(payable.getVendorCode()).isEqualTo("VEND-001");
 
         // Step 4: 지급 실행 (Payment)
         var paymentRun = paymentUseCase.initiatePaymentRun(LocalDate.now(), "Monthly Payment", "ADMIN");
