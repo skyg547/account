@@ -48,7 +48,7 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
 
     @Override
     public Optional<DepartmentRef> findDepartment(String departmentCode) {
-        return departmentRepository.findByCode(departmentCode)
+        return departmentRepository.findCurrentByCode(departmentCode)
                 .map(department -> new DepartmentRef(
                         department.getCode(),
                         department.getName(),

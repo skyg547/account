@@ -6,38 +6,21 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 /**
  * 자동 분개 규칙 (Journal Rule) — 이벤트 기반 전표 자동 생성 규칙 정의.
- *
- * ─────────────────────────────────────────────────
- * [업무 설명]
- * 자동 분개 규칙은 특정 업무 이벤트(예: 매입 인보이스 등록, 리스 지급 등)가 발생했을 때
- * 사람이 수동으로 전표를 작성하지 않아도, 시스템이 미리 정의된 규칙에 따라
- * 자동으로 분개 전표를 생성할 수 있도록 합니다.
- *
- * 하나의 규칙은:
- *   1. 조건(JournalRuleCondition 목록) — 이 규칙이 적용될 이벤트 조건
- *   2. 상세(JournalRuleDetail 목록)  — 생성할 전표 라인(차/대변 계정, 금액 표현식)
- * 로 구성됩니다.
- *
- * 주요 필드:
- *   - ruleCode   : 규칙 식별 코드 (예: "PURCHASE_RECOGNITION", "LEASE_PAYMENT")
- *   - validFrom/validTo : 규칙 유효 기간 (회계 기준 변경 시 기간 지정)
- *   - priority   : 여러 규칙이 조건에 맞을 때 우선 적용 순서 (숫자가 낮을수록 높은 우선순위)
- *   - version    : 규칙 이력 관리용 버전 번호
- *   - isActive   : 현재 활성 여부 (false이면 규칙 엔진이 무시)
- *
- * ─────────────────────────────────────────────────
- * [개발 설명]
- * - JPA @Entity로 journal_rules 테이블에 매핑됩니다.
- * - JournalRuleEngine.generateJournalEntry()에서 이 규칙을 조회하여 전표를 생성합니다.
- * - conditions와 ruleDetails는 CascadeType.ALL + orphanRemoval=true로 관리합니다.
- * - 현재 JournalRuleEngine 구현은 스텁(stub) 상태이며, 실제 규칙 평가 로직은
- *   추후 conditions/ruleDetails를 순회하며 구현해야 합니다.
- * ─────────────────────────────────────────────────
+ * SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 규칙의 이력을 관리합니다.
  */
 @Entity
-@Table(name = "journal_rules")
+@Table(name = "journal_rules", indexes = {
+    @Index(name = "idx_journal_rule_code_valid", columnList = "rule_code, valid_from, valid_to")
+})
+@Getter
+@Setter
+@NoArgsConstructor
 public class JournalRule {
 
     /** 시스템 내부 PK (자동 증가) */
@@ -46,11 +29,10 @@ public class JournalRule {
     private Long id;
 
     /**
-     * 규칙 코드 (유니크).
+     * 규칙 코드 (SCD2를 위해 유니크 제약 조건 제거).
      * 이벤트 데이터의 transactionType 또는 ruleCode 필드와 매칭됩니다.
-     * 예: "PURCHASE_RECOGNITION", "LEASE_PAYMENT", "ASSET_DEPRECIATION"
      */
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(name = "rule_code", nullable = false, length = 50)
     private String ruleCode;
 
     /**
@@ -180,50 +162,6 @@ public class JournalRule {
         ruleDetails.add(ruleDetail);
         ruleDetail.setJournalRule(this);
     }
-
-    // ─── Getter / Setter ──────────────────────────────────
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getRuleCode() { return ruleCode; }
-    public void setRuleCode(String ruleCode) { this.ruleCode = ruleCode; }
-
-    public String getRuleName() { return ruleName; }
-    public void setRuleName(String ruleName) { this.ruleName = ruleName; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public LocalDate getValidFrom() { return validFrom; }
-    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
-
-    public LocalDate getValidTo() { return validTo; }
-    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
-
-    public int getVersion() { return version; }
-    public void setVersion(int version) { this.version = version; }
-
-    public boolean isActive() { return isActive; }
-    public void setActive(boolean active) { isActive = active; }
-
-    public int getPriority() { return priority; }
-    public void setPriority(int priority) { this.priority = priority; }
-
-    public List<JournalRuleCondition> getConditions() { return conditions; }
-    public void setConditions(List<JournalRuleCondition> conditions) { this.conditions = conditions; }
-
-    public List<JournalRuleDetail> getRuleDetails() { return ruleDetails; }
-    public void setRuleDetails(List<JournalRuleDetail> ruleDetails) { this.ruleDetails = ruleDetails; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-
-    public String getAuditUser() { return auditUser; }
-    public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

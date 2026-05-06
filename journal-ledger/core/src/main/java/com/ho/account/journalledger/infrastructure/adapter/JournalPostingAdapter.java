@@ -62,7 +62,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             detail.setSide("DEBIT".equalsIgnoreCase(line.drcrType()) ? JournalSide.DEBIT : JournalSide.CREDIT);
             
             if (line.departmentCode() != null) {
-                departmentPersistencePort.findByCode(line.departmentCode())
+                departmentPersistencePort.findActiveByCode(line.departmentCode())
                         .ifPresent(detail::setDepartment);
             }
             

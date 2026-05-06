@@ -9,10 +9,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface DepartmentRepository extends JpaRepository<Department, String> {
-    Optional<Department> findByCode(String code);
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+    
+    @Query("SELECT d FROM Department d WHERE d.code = :code AND d.validFrom <= :date AND d.validTo >= :date")
+    Optional<Department> findActiveByCode(String code, LocalDate date);
 
-    // useYn 필드가 삭제되었으므로 유효 기간 기반으로 활성 부서 조회
-    @Query("SELECT d FROM Department d WHERE d.validFrom <= CURRENT_DATE AND d.validTo >= CURRENT_DATE")
-    List<Department> findByUseYnTrue();
+    default Optional<Department> findCurrentByCode(String code) {
+        return findActiveByCode(code, LocalDate.now());
+    }
+
+    @Query("SELECT d FROM Department d WHERE d.validFrom <= :date AND d.validTo >= :date")
+    List<Department> findActiveVersions(LocalDate date);
 }

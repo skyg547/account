@@ -2,40 +2,35 @@ package com.ho.account.journalledger.domain.journal.repository;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query; // ?袁⑥뵭??import ?占쎈떽?
-import org.springframework.data.repository.query.Param; // ?袁⑥뵭??import ?占쎈떽?
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 전표 저장소 (Journal Entry Repository)
+ */
 @Repository
 public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long> {
+    
     Optional<JournalEntry> findBySlipNo(String slipNo);
+    
     List<JournalEntry> findBySlipDateBetween(LocalDate startDate, LocalDate endDate);
     
-    // ???占??占쎌쁽 疫꿸퀣? 鈺곌퀬??
     List<JournalEntry> findByAccountingDateBetween(LocalDate startDate, LocalDate endDate);
     
-    // ?諭?????占??占쎌쁽???袁るご 鈺곌퀬??(占?占쏙옙占??
     List<JournalEntry> findByAccountingDate(LocalDate accountingDate);
 
     /**
-     * ?諭???占?占쏙옙 ??占쎈뮞???醫륁굨??ID????占???占쎈뮉 筌뤴뫀占??占쎄쑨占??袁るご??鈺곌퀬???占쎈빍??
-     * IFRS 16 ?占싼딅뮞 ?占승???占쎄쑨占??占쎈뗄????????????占쎈뮸??占쎈뼄.
-     * @param lineageSourceType ?占?占쏙옙 ??占쎈뮞???醫륁굨 (?? "IFRS16_LEASE")
-     * @param lineageSourceId ?占?占쏙옙 ??占쎈뮞??ID (?? ?占싼딅뮞 ?占쎄쑴占?ID)
-     * @return ??占???占쎈뮉 ?占쎄쑨占??袁るご ?占싼딅뮞??
+     * 원천 시스템 유형과 ID로 전표 목록을 조회합니다. (역추적용)
      */
     List<JournalEntry> findByLineageSourceTypeAndLineageSourceId(String lineageSourceType, String lineageSourceId);
 
     /**
-     * ?諭?????占??占쎌쁽?? ?占?占쏙옙 ??占쎈뮞??ID????占???占쎈뮉 筌뤴뫀占??占쎄쑨占??袁るご??鈺곌퀬???占쎈빍??
-     * ?遺억옙??占싼딅뮞 ???占?筌ｌ꼶???占쎄쑨占?野꺜筌앹빘占??????????占쎈뮸??占쎈뼄.
-     * @param accountingDate ???占??占쎌쁽
-     * @param lineageSourceId ?占?占쏙옙 ??占쎈뮞??ID (?? ?占싼딅뮞 ?占쎄쑴占?ID)
-     * @return ??占???占쎈뮉 ?占쎄쑨占??袁るご ?占싼딅뮞??
+     * 회계일자와 원천 ID로 전표 목록을 조회합니다.
      */
     List<JournalEntry> findByAccountingDateAndLineageSourceId(LocalDate accountingDate, String lineageSourceId);
 

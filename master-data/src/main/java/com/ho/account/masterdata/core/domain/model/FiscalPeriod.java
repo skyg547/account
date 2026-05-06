@@ -1,16 +1,23 @@
 package com.ho.account.masterdata.core.domain.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?????��???(�덇??�깭 ?��?�ъ슜)
+ * 회계기간(Fiscal Period) 엔티티
+ * 특정 연도의 월별 마감 상태를 관리합니다.
  */
 @Entity
 @Table(name = "fiscal_periods", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "fiscal_year", "fiscal_period" })
 })
+@Getter
+@Setter
+@NoArgsConstructor
 public class FiscalPeriod {
 
     @Id
@@ -58,71 +65,6 @@ public class FiscalPeriod {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    // Getter ?Setter
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getFiscalYear() {
-        return fiscalYear;
-    }
-
-    public void setFiscalYear(String fiscalYear) {
-        this.fiscalYear = fiscalYear;
-    }
-
-    public String getFiscalPeriod() {
-        return fiscalPeriod;
-    }
-
-    public void setFiscalPeriod(String fiscalPeriod) {
-        this.fiscalPeriod = fiscalPeriod;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-    public ClosingStatus getClosingStatus() {
-        return closingStatus;
-    }
-
-    public void setClosingStatus(ClosingStatus closingStatus) {
-        this.closingStatus = closingStatus;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public String getAuditUser() {
-        return auditUser;
-    }
-
-    public void setAuditUser(String auditUser) {
-        this.auditUser = auditUser;
     }
 
     @Deprecated

@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journal.repository.JournalRuleConditionRepository;
-import com.ho.account.journal.repository.JournalRuleDetailRepository;
-import com.ho.account.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleConditionRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleDetailRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -262,7 +262,7 @@ public class JournalRuleEngine {
 
             String departmentCode = resolveStringExpression(ruleDetail.getDepartmentCodeExpression(), eventData, false);
             if (departmentCode != null && !departmentCode.isBlank()) {
-                Department department = departmentPersistencePort.findByCode(departmentCode)
+                Department department = departmentPersistencePort.findActiveByCode(departmentCode)
                         .orElseThrow(() -> new IllegalArgumentException("Department not found: " + departmentCode));
                 detail.setDepartment(department);
             }

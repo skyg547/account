@@ -1,4 +1,4 @@
-package com.ho.account.journal.repository;
+package com.ho.account.journalledger.domain.journal.repository;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import org.springframework.data.jpa.repository.JpaRepository;

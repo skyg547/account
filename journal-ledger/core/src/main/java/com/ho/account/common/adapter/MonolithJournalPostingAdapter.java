@@ -148,7 +148,7 @@ public class MonolithJournalPostingAdapter {
 
             // 부서코드가 있으면 Department 엔티티 변환 (null이면 건너뜀)
             if (line.departmentCode() != null) {
-                Department dept = departmentPersistencePort.findByCode(line.departmentCode())
+                Department dept = departmentPersistencePort.findActiveByCode(line.departmentCode())
                         .orElseThrow(() -> new IllegalArgumentException("Department not found: " + line.departmentCode()));
                 detail.setDepartment(dept);
             }

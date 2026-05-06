@@ -18,12 +18,17 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
 
     @Override
     public boolean existsByCode(String code) {
-        return departmentRepository.existsById(code);
+        return departmentRepository.findCurrentByCode(code).isPresent();
     }
 
     @Override
-    public Optional<Department> findByCode(String code) {
-        return departmentRepository.findByCode(code);
+    public Optional<Department> findById(Long id) {
+        return departmentRepository.findById(id);
+    }
+
+    @Override
+    public Optional<Department> findActiveByCode(String code) {
+        return departmentRepository.findCurrentByCode(code);
     }
 
     @Override
@@ -33,7 +38,7 @@ public class JpaDepartmentPersistenceAdapter implements DepartmentPersistencePor
 
     @Override
     public List<Department> findAllActive() {
-        return departmentRepository.findByUseYnTrue();
+        return departmentRepository.findActiveVersions(java.time.LocalDate.now());
     }
 
     @Override

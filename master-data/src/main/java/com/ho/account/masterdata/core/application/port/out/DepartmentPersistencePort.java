@@ -11,7 +11,9 @@ public interface DepartmentPersistencePort {
 
     boolean existsByCode(String code);
 
-    Optional<Department> findByCode(String code);
+    Optional<Department> findById(Long id);
+
+    Optional<Department> findActiveByCode(String code);
 
     List<Department> findAll();
 

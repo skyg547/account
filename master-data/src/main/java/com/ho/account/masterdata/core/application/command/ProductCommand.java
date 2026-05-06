@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.command;
 
 import com.ho.account.masterdata.core.domain.model.Product;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record ProductCommand(
@@ -8,7 +9,7 @@ public record ProductCommand(
         String name,
         String description,
         String unitOfMeasure,
-        Double price,
+        BigDecimal price,
         Product.ProductType productType,
         LocalDate validFrom,
         LocalDate validTo) {

@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.application.command.ProductCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -24,7 +25,7 @@ public class ProductRequestDto {
 
     @NotNull(message = "가격은 필수입니다.")
     @PositiveOrZero(message = "가격은 0원 이상이어야 합니다.")
-    private Double price;
+    private BigDecimal price;
 
     @NotNull(message = "상품 유형은 필수입니다.")
     private Product.ProductType productType;
@@ -68,11 +69,11 @@ public class ProductRequestDto {
         this.unitOfMeasure = unitOfMeasure;
     }
 
-    public Double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(Double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 

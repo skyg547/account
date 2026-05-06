@@ -62,7 +62,7 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
 
     @Override
     public ExpenditureResolution createResolution(ExpenditureResolutionRequestDto requestDto) {
-        Department department = departmentPersistencePort.findByCode(requestDto.getDepartmentCode())
+        Department department = departmentPersistencePort.findActiveByCode(requestDto.getDepartmentCode())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
 
         AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(requestDto.getPaymentAccountCode())
@@ -95,18 +95,16 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         String yearMonth = resolution.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
         
         // 부서 정보 조회 (ID 기반)
-        Department department = departmentPersistencePort.findByCode(resolution.getDeptCode())
+        Department department = departmentPersistencePort.findActiveByCode(resolution.getDeptCode())
                 .orElseThrow(() -> new IllegalStateException("Department not found: " + resolution.getDeptCode()));
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            budgetService.useBudget(yearMonth, department, detail.getAccountSubject(),
-                    detail.getAmount());
+            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
+                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
+            budgetService.useBudget(yearMonth, department, accountSubject, detail.getAmount());
         }
         String resolutionNo = generateResolutionNo(resolution.getResolutionDate());
-        // setResolutionNo is needed here as it's generated, but I'll use a protected setter or internal method
-        // For simplicity, I'll keep the generated no in a private setter if available, or I'll add one.
-        // I used a write_file which replaced the entire content, let's see if I included it.
-        // Yes, I have resolution.getResolutionNo() but no public setter. I'll add a setter or update create.
+        resolution.setResolutionNo(resolutionNo);
         
         return resolutionPersistencePort.save(resolution);
     }
@@ -135,12 +133,13 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         }
 
         // 예산 확인
-        Department department = departmentPersistencePort.findByCode(existing.getDeptCode())
-                .orElseThrow();
+        Department department = departmentPersistencePort.findActiveByCode(existing.getDeptCode())
+                .orElseThrow(() -> new IllegalStateException("Department not found: " + existing.getDeptCode()));
         String yearMonth = existing.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
         for (ExpenditureDetail detail : existing.getDetails()) {
-            budgetService.useBudget(yearMonth, department, detail.getAccountSubject(),
-                    detail.getAmount());
+            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
+                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
+            budgetService.useBudget(yearMonth, department, accountSubject, detail.getAmount());
         }
 
         return resolutionPersistencePort.save(existing);
@@ -164,8 +163,10 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            if (Boolean.TRUE.equals(detail.getAccountSubject().isFixedAsset())) {
-                registerFixedAsset(detail, resolution);
+            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
+                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
+            if (Boolean.TRUE.equals(accountSubject.isFixedAsset())) {
+                registerFixedAsset(detail, resolution, accountSubject);
             }
         }
 
@@ -199,22 +200,12 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
     }
 
     private ExpenditureDetail buildDetail(ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto) {
-        ExpenditureDetail detail = new ExpenditureDetail();
-        detail.setDescription(detailDto.getDescription());
-        detail.setAmount(detailDto.getAmount());
-
-        AccountSubject detailAccount = accountSubjectPersistencePort.findByCode(detailDto.getAccountSubjectCode())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 비용 계정과목입니다. 코드: " + detailDto.getAccountSubjectCode()));
-        detail.setAccountSubject(detailAccount);
-
-        BusinessPartner businessPartner = businessPartnerPersistencePort
-                .findByBusinessPartnerCode(detailDto.getBusinessPartnerCode())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 거래처입니다. 코드: " + detailDto.getBusinessPartnerCode()));
-        detail.setBusinessPartner(businessPartner);
-
-        return detail;
+        return ExpenditureDetail.create(
+                detailDto.getAccountSubjectCode(),
+                detailDto.getAmount(),
+                detailDto.getBusinessPartnerCode(),
+                detailDto.getDescription()
+        );
     }
 
     private JournalEntry buildJournalEntry(ExpenditureResolution resolution) {
@@ -226,16 +217,19 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         entry.setLineageSourceId(resolution.getResolutionNo());
 
         // 부서 정보
-        Department department = departmentPersistencePort.findByCode(resolution.getDeptCode()).orElse(null);
+        Department department = departmentPersistencePort.findActiveByCode(resolution.getDeptCode()).orElse(null);
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
+            AccountSubject detailAccount = accountSubjectPersistencePort.findByCode(detail.getAccountCode()).orElse(null);
+            BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(detail.getBusinessPartnerCode()).orElse(null);
+
             JournalDetail debitLine = new JournalDetail();
             debitLine.setSide(JournalSide.DEBIT);
-            debitLine.setAccountSubject(detail.getAccountSubject());
+            debitLine.setAccountSubject(detailAccount);
             debitLine.setAmount(detail.getAmount());
             debitLine.setBaseAmount(detail.getAmount());
             debitLine.setDepartment(department);
-            debitLine.setBusinessPartner(detail.getBusinessPartner());
+            debitLine.setBusinessPartner(businessPartner);
             debitLine.setDetailDescription(detail.getDescription());
             entry.addDetail(debitLine);
         }
@@ -253,11 +247,11 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         return entry;
     }
 
-    private void registerFixedAsset(ExpenditureDetail detail, ExpenditureResolution resolution) {
+    private void registerFixedAsset(ExpenditureDetail detail, ExpenditureResolution resolution, AccountSubject accountSubject) {
         assetRegistrationPort.registerAcquiredAsset(new AssetAcquisitionCommand(
                 "FA-" + resolution.getResolutionNo() + "-" + detail.getId(),
-                detail.getDescription() != null ? detail.getDescription() : detail.getAccountSubject().getName(),
-                detail.getAccountSubject().getCode(),
+                detail.getDescription() != null ? detail.getDescription() : accountSubject.getName(),
+                accountSubject.getCode(),
                 resolution.getPaymentDate(),
                 detail.getAmount(),
                 resolution.getDeptCode(),
@@ -265,23 +259,6 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
                 "STRAIGHT_LINE",
                 "REGISTERED"));
     }
-
-    private String generateResolutionNo(LocalDate date) {
-        String dateStr = date.format(DateTimeFormatter.BASIC_ISO_DATE);
-        List<ExpenditureResolution> list = resolutionPersistencePort.findByResolutionDate(date);
-        int seq = list.size() + 1;
-        return String.format("REQ-%s-%03d", dateStr, seq);
-    }
-
-    private void validatePurchaseTaxInvoice(Long taxInvoiceId) {
-        if (taxInvoiceId == null) return;
-        TaxInvoiceRef taxInvoice = taxInvoiceQueryPort.findById(taxInvoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("세금계산서를 찾을 수 없습니다. ID: " + taxInvoiceId));
-        if (!"PURCHASE".equals(taxInvoice.type())) {
-            throw new IllegalArgumentException("지출결의서에 연결하는 세금계산서는 PURCHASE 타입이어야 합니다.");
-        }
-    }
-}
 
     private String generateResolutionNo(LocalDate date) {
         String dateStr = date.format(DateTimeFormatter.BASIC_ISO_DATE);

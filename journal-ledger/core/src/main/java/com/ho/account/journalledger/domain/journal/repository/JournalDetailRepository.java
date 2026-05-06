@@ -10,14 +10,14 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * ?꾪몴 ?곸꽭 ?덊룷吏?좊━
- * 媛??꾪몴??媛쒕퀎 遺꾧컻 ??ぉ(李⑤?/?蹂)??愿由ы빀?덈떎.
+ * 전표 상세 저장소 (Journal Detail Repository)
+ * 각 전표의 개별 분개 항목(차변/대변)을 관리합니다.
  */
 @Repository
 public interface JournalDetailRepository extends JpaRepository<JournalDetail, Long> {
 
        /**
-        * ?뱀젙 怨꾩젙怨쇰ぉ??湲곌컙蹂??곸꽭 ?댁뿭 議고쉶 (?뚭퀎?쇱옄 湲곗?)
+        * 특정 계정과목의 기간별 상세 내역 조회 (회계일자 기준)
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
@@ -31,7 +31,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("endDate") LocalDate endDate);
 
        /**
-        * ?뱀젙 怨꾩젙怨쇰ぉ???꾧린 ?댁썡遺?議고쉶 ?쒖옉???댁쟾 ?⑷퀎) ?곗텧???댁뿭 議고쉶
+        * 특정 계정과목의 전기 이월분 조회 (시작일 이전 합계 산출용)
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
@@ -43,7 +43,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("startDate") LocalDate startDate);
 
        /**
-        * ?먯씡怨꾩궛?쒖슜 湲곌컙蹂??꾩껜 ?곸꽭 ?댁뿭 議고쉶
+        * 시산표용 기간별 전체 상세 내역 조회
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
@@ -54,7 +54,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("endDate") LocalDate endDate);
 
        /**
-        * ?뱀젙 湲곌컙 ?댁뿉 ?꾧린(POSTED)??紐⑤뱺 ?꾪몴 ?곸꽭 ?댁뿭 議고쉶
+        * 특정 기간 내에 전기(POSTED)된 모든 전표 상세 내역 조회
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +

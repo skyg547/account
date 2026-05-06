@@ -23,53 +23,34 @@ public class ProductService implements ProductUseCase {
     }
 
     /**
-     * ??ˆì¤ˆ???¹ë?????¹ê½¦??¸ë•²??
-     *
-     * @param requestDto ??¹ê½¦???¹ë? ?‚«›Â ??¿ë DTO
-     * @return ?????¹ë? ????
+     * ìƒˆë¡œìš´ ìƒí’ˆì„ ìƒì„±í•©ë‹ˆë‹¤.
      */
     public Product createProduct(ProductCommand command) {
-        if (productPersistencePort.existsByProductCode(command.productCode())) {
-            throw new IllegalArgumentException("??? °ëŒ???ë’— ?¹ë? ?„ë¶¾??…ë•²?? " + command.productCode());
-        }
-
+        // SCD2ì—ì„œëŠ” ë™ì¼ ì½”ë“œê°€ ì¡´ì¬í•  ìˆ˜ ìˆìœ¼ë‚˜, ë³´í†µ ì‹ ê·œ ìƒì„± ì‹œ ì¤‘ë³µ ì²´í¬ ë¡œì§ì€ ì •ì±…ì— ë”°ë¼ ë‹¤ë¦„.
+        // ì—¬ê¸°ì„œëŠ” ë‹¨ìˆœí•¨ì„ ìœ ì§€.
         Product product = command.toEntity();
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
         product.setAuditUser("system");
-        MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
-                product::getValidTo, product::setValidTo);
+        
+        if (product.getValidFrom() == null || product.getValidTo() == null) {
+            MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
+                    product::getValidTo, product::setValidTo);
+        }
 
         return productPersistencePort.save(product);
     }
 
-    /**
-     * ID?????¹ë???°ê³ ???¸ë•²??
-     *
-     * @param id °ê³ ????¹ë? ID
-     * @return Optional<Product>
-     */
     @Transactional(readOnly = true)
     public Optional<Product> getProductById(Long id) {
         return productPersistencePort.findById(id);
     }
 
-    /**
-     * ?¹ë? ?„ë¶¾¶æ¿¡?????¹ë???°ê³ ???¸ë•²??
-     *
-     * @param productCode °ê³ ????¹ë? ?„ë¶¾?
-     * @return Optional<Product>
-     */
     @Transactional(readOnly = true)
     public Optional<Product> getProductByProductCode(String productCode) {
         return productPersistencePort.findByProductCode(productCode);
     }
 
-    /**
-     * ?˜± ??–ì (today)???ìŠš??â‘¤??¹ë???°ê³ ???¸ë•²??
-     *
-     * @return ?ìŠš???¹ë? ?±ÑŠë’ª??
-     */
     @Transactional(readOnly = true)
     public List<Product> getAllActiveProducts() {
         return productPersistencePort.findAll().stream()
@@ -78,21 +59,11 @@ public class ProductService implements ProductUseCase {
     }
 
     /**
-     * ?¹ë? ?‚«????ì ™??¸ë•²??
-     * (SCD2 ??Šƒ???•ì”ª ²ê³—???¹ë?????¾ª??Šì†•??í???ˆì¤ˆ???ìŠš ²ê³Œ??°ì¤ˆ ??¹ê½¦????ë£„ ??‰ë’¿??ˆë–. ????•ë’— ??‹š???˜± ?ìŠš ?¹ë????‚«????…ëœ²??„ë“ƒ??¸ë•²??)
-     *
-     * @param id         ??ì ™???¹ë? ID
-     * @param requestDto ??ì ™????ìŠœ????¿ë DTO
-     * @return ??ì ™???¹ë? ????
+     * ìƒí’ˆ ì •ë³´ë¥¼ ìˆ˜ì •í•©ë‹ˆë‹¤. (SCD2 ì •ì±…ì— ë”°ë¼ ì´ë ¥ì„ ì¢…ë£Œí•˜ê³  ì‹ ê·œ í–‰ì„ ìƒì„±í•  ìˆ˜ë„ ìˆìœ¼ë‚˜, ì—¬ê¸°ì„œëŠ” ë‹¨ìˆœ ì—…ë°ì´íŠ¸)
      */
     public Product updateProduct(Long id, ProductCommand command) {
         Product existingProduct = productPersistencePort.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("?¹ë???– ??????ë’¿??ˆë–. ID: " + id));
-
-        if (!existingProduct.getProductCode().equals(command.productCode())
-                && productPersistencePort.existsByProductCode(command.productCode())) {
-            throw new IllegalArgumentException("??? °ëŒ???ë’— ?¹ë? ?„ë¶¾??…ë•²?? " + command.productCode());
-        }
+                .orElseThrow(() -> new IllegalArgumentException("ìƒí’ˆì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ID: " + id));
 
         existingProduct.setProductCode(command.productCode());
         existingProduct.setName(command.name());
@@ -109,13 +80,11 @@ public class ProductService implements ProductUseCase {
     }
 
     /**
-     * ????¹ë?????¾ª??Šì†•??¸ë•²?? (??°â”??????- SCD2 ?ìŠš ²ê³Œ??‚…?
-     *
-     * @param id ??¾ª??Šì†•???¹ë? ID
+     * ìƒí’ˆì„ ë¹„í™œì„±í™”(ì¢…ë£Œ) ì²˜ë¦¬í•©ë‹ˆë‹¤.
      */
     public void deactivateProduct(Long id) {
         Product product = productPersistencePort.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("?¹ë???– ??????ë’¿??ˆë–. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("ìƒí’ˆì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ID: " + id));
 
         MasterDataValidityPolicy.closeIfActive(product::getValidTo, product::setValidTo);
         product.setUpdatedAt(LocalDateTime.now());
@@ -123,4 +92,3 @@ public class ProductService implements ProductUseCase {
         productPersistencePort.save(product);
     }
 }
-

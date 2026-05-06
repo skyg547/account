@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.api.dto;
 
 import com.ho.account.masterdata.core.domain.model.Product;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class ProductDto {
@@ -10,7 +11,7 @@ public class ProductDto {
     private String name;
     private String description;
     private String unitOfMeasure;
-    private Double price;
+    private BigDecimal price;
     private Product.ProductType productType;
     private LocalDate validFrom;
     private LocalDate validTo;
@@ -18,7 +19,7 @@ public class ProductDto {
     public ProductDto() {
     }
 
-    public ProductDto(Long id, String productCode, String name, String description, String unitOfMeasure, Double price, Product.ProductType productType, LocalDate validFrom, LocalDate validTo) {
+    public ProductDto(Long id, String productCode, String name, String description, String unitOfMeasure, BigDecimal price, Product.ProductType productType, LocalDate validFrom, LocalDate validTo) {
         this.id = id;
         this.productCode = productCode;
         this.name = name;
@@ -45,76 +46,31 @@ public class ProductDto {
         );
     }
 
-    // Getter ?Setter
-    public Long getId() {
-        return id;
-    }
+    // Getter & Setter
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getProductCode() { return productCode; }
+    public void setProductCode(String productCode) { this.productCode = productCode; }
 
-    public String getProductCode() {
-        return productCode;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public void setProductCode(String productCode) {
-        this.productCode = productCode;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public String getName() {
-        return name;
-    }
+    public String getUnitOfMeasure() { return unitOfMeasure; }
+    public void setUnitOfMeasure(String unitOfMeasure) { this.unitOfMeasure = unitOfMeasure; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
 
-    public String getDescription() {
-        return description;
-    }
+    public Product.ProductType getProductType() { return productType; }
+    public void setProductType(Product.ProductType productType) { this.productType = productType; }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    public LocalDate getValidFrom() { return validFrom; }
+    public void setValidFrom(LocalDate validFrom) { this.validFrom = validFrom; }
 
-    public String getUnitOfMeasure() {
-        return unitOfMeasure;
-    }
-
-    public void setUnitOfMeasure(String unitOfMeasure) {
-        this.unitOfMeasure = unitOfMeasure;
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price;
-    }
-
-    public Product.ProductType getProductType() {
-        return productType;
-    }
-
-    public void setProductType(Product.ProductType productType) {
-        this.productType = productType;
-    }
-
-    public LocalDate getValidFrom() {
-        return validFrom;
-    }
-
-    public void setValidFrom(LocalDate validFrom) {
-        this.validFrom = validFrom;
-    }
-
-    public LocalDate getValidTo() {
-        return validTo;
-    }
-
-    public void setValidTo(LocalDate validTo) {
-        this.validTo = validTo;
-    }
+    public LocalDate getValidTo() { return validTo; }
+    public void setValidTo(LocalDate validTo) { this.validTo = validTo; }
 }

@@ -23,8 +23,8 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department createDepartment(DepartmentCommand command) {
-        if (departmentPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("이미 존재하는 부서 코드입니다: " + command.code());
+        if (departmentPersistencePort.findActiveByCode(command.code()).isPresent()) {
+            throw new IllegalArgumentException("이미 해당 시점에 활성화된 부서 코드입니다: " + command.code());
         }
 
         Department department = new Department();
@@ -32,14 +32,13 @@ public class DepartmentService implements DepartmentUseCase {
         department.setName(command.name());
         
         if (command.parentCode() != null) {
-            Department parent = departmentPersistencePort.findByCode(command.parentCode())
+            Department parent = departmentPersistencePort.findActiveByCode(command.parentCode())
                     .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다: " + command.parentCode()));
             department.setParent(parent);
         }
         
         department.setValidFrom(command.validFrom());
         department.setValidTo(command.validTo());
-        department.setUseYn(true);
 
         return departmentPersistencePort.save(department);
     }
@@ -47,13 +46,13 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional(readOnly = true)
     public Optional<Department> getDepartmentByCode(String code) {
-        return departmentPersistencePort.findByCode(code);
+        return departmentPersistencePort.findActiveByCode(code);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<Department> findDepartmentByCode(String code) {
-        return departmentPersistencePort.findByCode(code);
+        return departmentPersistencePort.findActiveByCode(code);
     }
 
     @Override
@@ -71,12 +70,13 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
-        Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다: " + code));
+        Department department = departmentPersistencePort.findActiveByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
 
+        // 단순 필드 업데이트 (실제 SCD2 적용 시에는 이력을 종료하고 신규 행 생성 프로세스가 필요할 수 있음)
         department.setName(command.name());
         if (command.parentCode() != null) {
-            Department parent = departmentPersistencePort.findByCode(command.parentCode())
+            Department parent = departmentPersistencePort.findActiveByCode(command.parentCode())
                     .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다: " + command.parentCode()));
             department.setParent(parent);
         }
@@ -90,9 +90,11 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public void deactivateDepartment(String code) {
-        Department department = departmentPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("부서를 찾을 수 없습니다: " + code));
-        department.setUseYn(false);
+        Department department = departmentPersistencePort.findActiveByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
+        
+        // SCD2: 현재 활성 버전을 오늘 날짜로 종료
+        department.terminate(java.time.LocalDate.now());
         departmentPersistencePort.save(department);
     }
 }

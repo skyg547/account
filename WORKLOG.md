@@ -208,3 +208,30 @@
   - `:journal-ledger:core:compileJava` 실패 (`PostingService`의 `List`, `ArrayList` import 누락).
   - 따라서 성능 최적화 조치 중 원장 모듈은 후속 수정 필요.
 
+### 📅 2026-05-06 (모듈 순차 검수 - Codex)
+### [검수] DDD/헥사고날/주석/재무흐름 관점 재점검
+- **검수 범위**: `master-data`, `journal-ledger`, `receivable`, `expenditure-resolution`, 연관 모듈(`tax`, `payable`, `closing`).
+- **검수 방식**: 모듈별 컴파일 재실행 + 코드/주석/업무흐름 정합성 리뷰.
+- **컴파일 결과 요약**:
+  - 성공: `master-data`, `journal-ledger`, `tax`, `payable`, `closing`
+  - 실패: `receivable`(UTF BOM 인코딩), `expenditure-resolution`(`DepartmentPersistencePort` 시그니처 미반영)
+- **핵심 리스크**:
+  - `receivable` Java 파일 다수 UTF BOM으로 컴파일 불가.
+  - `expenditure-resolution`에서 `findByCode` 호출 잔존으로 컴파일 불가.
+  - 리스 지급 결의 생성 시 차/대 계정 동일 세팅 가능성으로 분개 의미 훼손 위험.
+- **검수 상세 보고서**: 루트 `MODULE_REVIEW_2026-05-06.md`에 라인 단위로 기록.
+
+### 📅 2026-05-06 (모듈 순차 검수 후속 조치 - Codex)
+### [조치/재검증] 컴파일 블로커 해소
+- **조치 내용**:
+  - `receivable` 패키지 이동 파일들의 UTF BOM 제거 및 테스트 패키지 정합화.
+  - `expenditure-resolution`에서 `DepartmentPersistencePort` 호출을 `findActiveByCode` 기준으로 정리.
+- **재검증 결과**:
+  - `:receivable:compileJava` 성공.
+  - `:expenditure-resolution:compileJava` 성공.
+  - `:receivable:test` 성공.
+  - `:master-data:compileJava :journal-ledger:core:compileJava :receivable:compileJava :expenditure-resolution:compileJava :tax:compileJava :payable:compileJava :closing:core:compileJava` 성공.
+- **잔여 리스크(설계/품질)**:
+  - 리스 지급 결의의 차/대 계정 분리 정책 보완 필요.
+  - 일부 `orElse(null)` 기반 전표 라인 생성 로직 점검 필요.
+

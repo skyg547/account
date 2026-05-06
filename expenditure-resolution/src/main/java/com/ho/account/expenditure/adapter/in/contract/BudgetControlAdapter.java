@@ -33,7 +33,7 @@ public class BudgetControlAdapter implements BudgetControlPort {
     @Override
     public void checkBudgetAvailability(String yearMonth, String departmentCode, String accountCode,
             BigDecimal amount) {
-        Department department = departmentPersistencePort.findByCode(departmentCode)
+        Department department = departmentPersistencePort.findActiveByCode(departmentCode)
                 .orElseThrow(() -> new IllegalArgumentException("Department not found. code=" + departmentCode));
         AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(accountCode)
                 .orElseThrow(() -> new IllegalArgumentException("Account subject not found. code=" + accountCode));

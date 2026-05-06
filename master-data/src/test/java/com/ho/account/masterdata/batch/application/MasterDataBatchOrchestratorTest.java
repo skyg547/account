@@ -75,7 +75,12 @@ class MasterDataBatchOrchestratorTest {
         }
 
         @Override
-        public Optional<Department> findByCode(String code) {
+        public Optional<Department> findById(Long id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Department> findActiveByCode(String code) {
             return Optional.empty();
         }
 

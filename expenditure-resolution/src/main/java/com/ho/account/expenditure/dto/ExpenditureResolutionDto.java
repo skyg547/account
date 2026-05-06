@@ -58,20 +58,6 @@ public class ExpenditureResolutionDto {
     }
 
     public static ExpenditureResolutionDto fromEntity(ExpenditureResolution resolution) {
-        String departmentCode = null;
-        String departmentName = null;
-        if (resolution.getDepartment() != null) {
-            departmentCode = resolution.getDepartment().getCode();
-            departmentName = resolution.getDepartment().getName();
-        }
-
-        String paymentAccountCode = null;
-        String paymentAccountName = null;
-        if (resolution.getPaymentAccount() != null) {
-            paymentAccountCode = resolution.getPaymentAccount().getCode();
-            paymentAccountName = resolution.getPaymentAccount().getName();
-        }
-
         List<ExpenditureDetailDto> detailDtos = resolution.getDetails() == null
                 ? List.of()
                 : resolution.getDetails().stream()
@@ -84,10 +70,10 @@ public class ExpenditureResolutionDto {
                 resolution.getTitle(),
                 resolution.getResolutionDate(),
                 resolution.getPaymentDate(),
-                departmentCode,
-                departmentName,
-                paymentAccountCode,
-                paymentAccountName,
+                resolution.getDeptCode(),
+                null, // departmentName is not available in the decoupled domain
+                resolution.getPaymentAccountCode(),
+                null, // paymentAccountName is not available in the decoupled domain
                 resolution.getTotalAmount(),
                 resolution.getStatus() != null ? resolution.getStatus().name() : null,
                 resolution.getRejectionReason(),
@@ -182,27 +168,13 @@ public class ExpenditureResolutionDto {
         }
 
         public static ExpenditureDetailDto fromEntity(ExpenditureDetail detail) {
-            String accountSubjectCode = null;
-            String accountSubjectName = null;
-            if (detail.getAccountSubject() != null) {
-                accountSubjectCode = detail.getAccountSubject().getCode();
-                accountSubjectName = detail.getAccountSubject().getName();
-            }
-
-            String businessPartnerCode = null;
-            String businessPartnerName = null;
-            if (detail.getBusinessPartner() != null) {
-                businessPartnerCode = detail.getBusinessPartner().getBusinessPartnerCode();
-                businessPartnerName = detail.getBusinessPartner().getBusinessPartnerName();
-            }
-
             return new ExpenditureDetailDto(
                     detail.getId(),
-                    accountSubjectCode,
-                    accountSubjectName,
+                    detail.getAccountCode(),
+                    null, // accountSubjectName is not available in the decoupled domain
                     detail.getAmount(),
-                    businessPartnerCode,
-                    businessPartnerName,
+                    detail.getBusinessPartnerCode(),
+                    null, // businessPartnerName is not available in the decoupled domain
                     detail.getDescription());
         }
 
