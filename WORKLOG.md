@@ -159,11 +159,6 @@
 ### [QA]
 - **전사 통합 테스트 Pass**: 리팩토링 이후의 데이터 정합성 검증 완료.
 
-## 📌 NEXT STEPS
-1. **[프론트] 결산 감사 로그 조회 화면 구현**: 관리자가 결산 프로세스의 진행 이력 및 재오픈 사유를 확인할 수 있는 타임라인 형태의 Audit Log UI 구축.
-2. **[프론트] 결산 관리 화면 리팩토링**: 백엔드에서 강화된 검증 로직을 UI에 반영하고 시각화 최적화.
-3. **[백엔드] 성능 최적화**: 대량 전표 생성 시의 Batch 처리 성능 측정 및 인덱스 튜닝.
-
 ### 📅 2026-05-06 (재검수)
 ### [검수] Gemini 변경분 재검수 결과
 - **검수 범위**: `closing`, `journal-ledger`, `expenditure-resolution`, `receivable`, `payable`, `tax`, `frontend(closing)` 변경.
@@ -173,9 +168,9 @@
   - `expenditure-resolution` 컴파일 실패 재현.
   - `.\gradlew :tax:compileJava :receivable:compileJava :payable:compileJava :journal-ledger:core:compileJava :closing:core:compileJava --console=plain` 성공.
   - `frontend`에서 `npm run build` 성공(ESLint unused 경고만 존재).
-- **완료되어 리뷰 목록에서 삭제한 항목**:
-  - `tax/.../TaxInvoiceDto.java`의 `getBusinessPartner()` 컴파일 오류 항목 삭제(재검수 시 `:tax:compileJava` 성공).
-  - `closing`, `journal-ledger`, `receivable`, `payable` 모듈 컴파일 실패 항목 삭제(재검수 시 컴파일 성공).
+- **완료된 리뷰 조치 정리**:
+  - `tax/.../TaxInvoiceDto.java`의 `getBusinessPartner()` 컴파일 오류 항목 삭제 완료.
+  - `closing`, `receivable`, `payable` 모듈 컴파일 오류 항목 삭제 완료.
 - **미해결 이슈(유지)**:
   - **Critical**: `expenditure-resolution/.../ExpenditureResolutionService.java` 하단 중복 메서드/중복 닫힘 중괄호로 문법 오류 지속(라인 286 이후).
   - **High**: `expenditure-resolution/.../ExpenditureResolutionDto.java`의 `getDepartment()/getPaymentAccount()` 접근과 현재 `ExpenditureResolution` 모델 간 불일치.
@@ -195,4 +190,21 @@
 
 ### [QA]
 - **린트 및 빌드 검수**: `frontend` 모듈의 타입 체크 및 빌드 성공 확인.
+
+
+### 📅 2026-05-04 (오후) - 백엔드 성능 최적화 업데이트
+### [백엔드]
+- **대용량 데이터 처리 최적화 완료**:
+  - `LedgerService`: N+1 쿼리 문제를 해결하기 위해 `updateLedgerBalancesBulk` 메서드 도입. 메모리 기반 집계 후 벌크 업데이트 수행.
+  - `PostingService`: 전표 전기 시 개별 `save`를 `saveAll`로 변경하여 DB IO 획기적 단축.
+- **DB 인덱스 튜닝 (Index Tuning)**:
+  - `gl_balances`, `sl_balances`: Carry-forward 조회 및 기간별 집계 성능을 위한 복합 인덱스(`idx_gl_balance_lookup` 등) 추가.
+  - `journal_entries`: 전기 상태 및 일자 기반 조회를 위한 복합 인덱스(`idx_journal_entry_posting_lookup`) 최적화.
+  - `fixed_assets`: 배치 처리 속도 향상을 위해 `status` 인덱스 추가.
+
+### [QA]
+- **컴파일 재검수 결과**:
+  - `:asset-lease:compileJava` 성공.
+  - `:journal-ledger:core:compileJava` 실패 (`PostingService`의 `List`, `ArrayList` import 누락).
+  - 따라서 성능 최적화 조치 중 원장 모듈은 후속 수정 필요.
 

@@ -62,8 +62,7 @@ import java.util.List;
 @Entity
 @Table(name = "journal_entries", indexes = {
         @Index(name = "idx_journal_entry_slip_no", columnList = "slipNo"),
-        @Index(name = "idx_journal_entry_accounting_date", columnList = "accountingDate"),
-        @Index(name = "idx_journal_entry_status", columnList = "status"),
+        @Index(name = "idx_journal_entry_posting_lookup", columnList = "status, accountingDate"),
         @Index(name = "idx_journal_entry_lineage", columnList = "lineageSourceType, lineageSourceId")
 })
 public class JournalEntry {

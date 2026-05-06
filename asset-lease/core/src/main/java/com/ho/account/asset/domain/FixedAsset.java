@@ -13,7 +13,9 @@ import java.time.LocalDate;
  * 고정자산 엔티티
  */
 @Entity
-@Table(name = "fixed_assets")
+@Table(name = "fixed_assets", indexes = {
+    @Index(name = "idx_fixed_asset_status", columnList = "status")
+})
 @Getter @Setter
 @NoArgsConstructor
 public class FixedAsset {

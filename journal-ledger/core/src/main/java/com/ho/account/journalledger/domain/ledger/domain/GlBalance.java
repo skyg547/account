@@ -48,9 +48,10 @@ import java.time.YearMonth;
  */
 @Entity
 @Table(name = "gl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_id", "currency_code", "balance_date", "period"})
+    @UniqueConstraint(name = "uk_gl_balance_key", columnNames = {"account_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-    @Index(name = "idx_gl_balance_date", columnList = "balance_date")
+    @Index(name = "idx_gl_balance_lookup", columnList = "account_id, currency_code, balance_date"),
+    @Index(name = "idx_gl_balance_period", columnList = "period, account_id")
 })
 @Getter
 @Setter

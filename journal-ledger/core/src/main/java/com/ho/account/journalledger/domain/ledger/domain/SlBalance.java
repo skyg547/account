@@ -41,9 +41,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "sl_balances", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"account_id", "bp_id", "dept_id", "currency_code", "balance_date", "period"})
+    @UniqueConstraint(name = "uk_sl_balance_key", columnNames = {"account_id", "bp_id", "dept_id", "currency_code", "balance_date", "period"})
 }, indexes = {
-    @Index(name = "idx_sl_balance_date", columnList = "balance_date")
+    @Index(name = "idx_sl_balance_lookup", columnList = "account_id, bp_id, dept_id, balance_date"),
+    @Index(name = "idx_sl_balance_period", columnList = "period, account_id")
 })
 @Getter
 @Setter
