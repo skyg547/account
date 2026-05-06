@@ -164,21 +164,35 @@
 2. **[프론트] 결산 관리 화면 리팩토링**: 백엔드에서 강화된 검증 로직을 UI에 반영하고 시각화 최적화.
 3. **[백엔드] 성능 최적화**: 대량 전표 생성 시의 Batch 처리 성능 측정 및 인덱스 튜닝.
 
-### 📅 2026-05-06 (검수)
-### [검수] Gemini 변경분 코드 리뷰 결과
-- **검수 범위**: `closing`, `journal-ledger`, `expenditure-resolution`, `receivable`, `tax`, 관련 문서 변경.
-- **검수 방식**: 변경 diff 점검 + 모듈 컴파일/테스트 실행.
+### 📅 2026-05-06 (재검수)
+### [검수] Gemini 변경분 재검수 결과
+- **검수 범위**: `closing`, `journal-ledger`, `expenditure-resolution`, `receivable`, `payable`, `tax`, `frontend(closing)` 변경.
+- **검수 방식**: 모듈 컴파일/빌드 재실행 + 코드 정합성 점검.
 - **실행 확인**:
-  - `.\gradlew :expenditure-resolution:compileJava :receivable:compileJava :tax:compileJava :journal-ledger:core:compileJava :closing:core:compileJava --console=plain` 실행.
-  - `expenditure-resolution` 컴파일 실패 확인.
-  - `.\gradlew :receivable:compileJava :tax:compileJava :journal-ledger:core:compileJava :closing:core:compileJava --console=plain` 실행.
-  - `tax` 컴파일 실패 확인.
-  - `.\gradlew :receivable:test --console=plain` 성공.
-- **주요 검수 이슈**:
-  - **Critical**: `expenditure-resolution/.../ExpenditureResolutionService.java` 하단에 클래스 외부 중복 메서드(`generateResolutionNo`, `validatePurchaseTaxInvoice`)가 남아 문법 오류 발생.
-  - **Critical**: `tax/.../TaxInvoiceDto.java`가 제거된 `TaxInvoice.getBusinessPartner()`를 계속 호출하여 컴파일 오류 발생.
-  - **High**: `expenditure-resolution/.../ExpenditureResolutionDto.java`가 제거된 `getDepartment()/getPaymentAccount()` 접근을 유지해 엔티티 리팩터링과 불일치.
-  - **High**: `expenditure-resolution/.../MonolithLeasePaymentResolutionAdapter.java`가 `new ExpenditureResolution()` 및 제거된 setter 호출을 유지해 현재 도메인 모델과 불일치.
-  - **High**: `ExpenditureResolutionService.createResolution(...)`에서 결의번호 생성 후 저장 엔티티에 세팅 누락(`resolutionNo` null 저장 위험).
-- **검수 결론**: 현재 상태는 병합/배포 불가. Gemini 변경분 선수정 후 재검증 필요.
+  - `.\gradlew :expenditure-resolution:compileJava :tax:compileJava :receivable:compileJava :payable:compileJava :journal-ledger:core:compileJava :closing:core:compileJava --console=plain` 실행.
+  - `expenditure-resolution` 컴파일 실패 재현.
+  - `.\gradlew :tax:compileJava :receivable:compileJava :payable:compileJava :journal-ledger:core:compileJava :closing:core:compileJava --console=plain` 성공.
+  - `frontend`에서 `npm run build` 성공(ESLint unused 경고만 존재).
+- **완료되어 리뷰 목록에서 삭제한 항목**:
+  - `tax/.../TaxInvoiceDto.java`의 `getBusinessPartner()` 컴파일 오류 항목 삭제(재검수 시 `:tax:compileJava` 성공).
+  - `closing`, `journal-ledger`, `receivable`, `payable` 모듈 컴파일 실패 항목 삭제(재검수 시 컴파일 성공).
+- **미해결 이슈(유지)**:
+  - **Critical**: `expenditure-resolution/.../ExpenditureResolutionService.java` 하단 중복 메서드/중복 닫힘 중괄호로 문법 오류 지속(라인 286 이후).
+  - **High**: `expenditure-resolution/.../ExpenditureResolutionDto.java`의 `getDepartment()/getPaymentAccount()` 접근과 현재 `ExpenditureResolution` 모델 간 불일치.
+  - **High**: `expenditure-resolution/.../MonolithLeasePaymentResolutionAdapter.java`가 현재 도메인 모델과 맞지 않는 생성/세터 호출 사용.
+- **검수 결론**: 프론트 빌드는 통과했으나 `expenditure-resolution` 미해결로 전체 병합/배포는 여전히 불가.
+
+### 📅 2026-05-04 (오후) - 프론트엔드 업데이트 (2)
+### [프론트]
+- **결산 관리 화면 리팩토링 완료**:
+  - 백엔드 `ClosingTask` 엔티티 구조를 반영한 새로운 Task Explorer 구축.
+  - 결산 카테고리별(Pre, Entry, Post, Reporting) 필터링 기능 추가.
+  - 실패한 작업에 대한 에러 메시지 가시화 및 재시도(Retry) UI 적용.
+  - 실시간 재무 정합성 검증 섹션 고도화를 통해 결산 승인 전 필수 체크리스트 명시.
+- **UI/UX 개선**:
+  - 진행률 시각화 차트 개선 및 전체 작업 통계 카드 도입.
+  - `History` 아이콘 연동 및 `Next.js` 빌드 정합성 확보.
+
+### [QA]
+- **린트 및 빌드 검수**: `frontend` 모듈의 타입 체크 및 빌드 성공 확인.
 

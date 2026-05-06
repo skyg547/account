@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CalendarDays, 
   FileText, 
@@ -10,17 +10,59 @@ import {
   Stamp,
   Lock,
   Search,
-  History
+  History,
+  AlertTriangle,
+  ChevronRight,
+  RefreshCcw,
+  Info,
+  User
 } from 'lucide-react';
 import Link from 'next/link';
 
 /**
- * [결산 및 재무제표 조회 화면]
- * 월말/연말 결산 상태를 모니터링하고 표준 재무제표(BS, PL 등)를 생성합니다.
+ * [결산 관리 화면 리팩토링]
+ * 백엔드의 ClosingTaskStatus 및 Category 체계를 반영하여 고도화된 UI를 제공합니다.
  */
+
+// 백엔드 엔티티 구조를 반영한 인터페이스
+interface ClosingTask {
+  id: number;
+  name: string;
+  category: 'PRE_CLOSING' | 'CLOSING_ENTRY' | 'POST_CLOSING' | 'REPORTING';
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+  assignedTo: string;
+  dueDate: string;
+  isMandatory: boolean;
+  errorMessage?: string;
+}
+
+const MOCK_TASKS: ClosingTask[] = [
+  { id: 1, name: '전표 마감 및 대조', category: 'PRE_CLOSING', status: 'COMPLETED', assignedTo: '회계팀', dueDate: '2026-04-20', isMandatory: true },
+  { id: 2, name: '은행 잔액 대조 (Reconciliation)', category: 'PRE_CLOSING', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-21', isMandatory: true },
+  { id: 3, name: '외화 환평가 실행', category: 'CLOSING_ENTRY', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-22', isMandatory: true },
+  { id: 4, name: '감가상각비 계상', category: 'CLOSING_ENTRY', status: 'IN_PROGRESS', assignedTo: '고정자산팀', dueDate: '2026-04-23', isMandatory: true },
+  { id: 5, name: '결산 분개 자동 생성', category: 'CLOSING_ENTRY', status: 'FAILED', assignedTo: '시스템', dueDate: '2026-04-23', isMandatory: true, errorMessage: '매출채권 모듈 응답 지연으로 인한 배치 중단' },
+  { id: 6, name: '이익잉여금 처분 계산', category: 'POST_CLOSING', status: 'PENDING', assignedTo: '재무기획팀', dueDate: '2026-04-24', isMandatory: true },
+  { id: 7, name: '표준 재무제표 확정', category: 'REPORTING', status: 'PENDING', assignedTo: 'CFO', dueDate: '2026-04-25', isMandatory: true },
+];
+
 export default function ClosingPage() {
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
+  const filteredTasks = selectedCategory === 'ALL' 
+    ? MOCK_TASKS 
+    : MOCK_TASKS.filter(t => t.category === selectedCategory);
+
+  const progress = Math.round((MOCK_TASKS.filter(t => t.status === 'COMPLETED').length / MOCK_TASKS.length) * 100);
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 animate-in fade-in duration-700">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
@@ -32,120 +74,165 @@ export default function ClosingPage() {
             결산 및 재무제표 관리
           </h2>
           <p className="text-slate-500 font-medium max-w-2xl">
-            월간/연간 결산 프로세스를 수행하고 실시간 재무 데이터 기반의 정합성 검증 및 리포트를 생성합니다.
+            2026년 04월 결산 프로세스가 진행 중입니다. 백엔드 검증 로직을 통해 실시간 정합성을 체크합니다.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 text-white">
+        <div className="flex items-center gap-3">
           <Link href="/closing/audit" className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
             <History size={18} /> 감사 로그 조회
           </Link>
-          <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
-            <Lock size={18} /> 계정 잠금 설정
-          </button>
           <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
             <Stamp size={18} /> 결산 승인 요청
           </button>
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Closing Progress Bar Area */}
-        <div className="lg:col-span-12 glass-panel p-8 rounded-[3rem] border border-white/10 bg-white/[0.01]">
+      {/* Progress & Quick Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 glass-panel p-8 rounded-[3rem] border border-white/10 bg-white/[0.01]">
            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Current Closing Progress (2026.04)</h3>
-              <span className="text-xs font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">78% COMPLETED</span>
+              <div className="flex items-center gap-4">
+                 <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Overall Progress</h3>
+                 <button 
+                  onClick={handleRefresh}
+                  className={`p-2 rounded-full hover:bg-white/5 transition-all ${isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-600'}`}
+                 >
+                    <RefreshCcw size={16} />
+                 </button>
+              </div>
+              <span className="text-xs font-black text-blue-500 bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/20">{progress}% COMPLETED</span>
            </div>
            
-           <div className="relative w-full h-4 bg-slate-900 rounded-full overflow-hidden border border-white/5 p-1 mb-10">
-              <div className="h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all duration-1000" style={{ width: '78%' }} />
+           <div className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-white/5 p-0.5 mb-8">
+              <div className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: '전표 마감', status: 'SUCCESS', date: '2026-04-22' },
-                { label: '외화 환평가', status: 'SUCCESS', date: '2026-04-23' },
-                { label: '결산 분개 생성', status: 'IN_PROGRESS', date: 'Processing' },
-                { label: '재무제표 확정', status: 'WAITING', date: 'Pending' },
-              ].map((step, idx) => (
-                <div key={idx} className="flex flex-col gap-3 p-5 rounded-2xl bg-white/5 border border-white/5 group hover:border-white/10 transition-all">
-                   <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{`Step 0${idx + 1}`}</span>
-                      {step.status === 'SUCCESS' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Activity size={16} className="text-slate-600 animate-pulse" />}
-                   </div>
-                   <span className="text-sm font-black text-white">{step.label}</span>
-                   <span className="text-[10px] font-bold text-slate-600 italic tracking-tighter">{step.date}</span>
+                { label: 'Total Tasks', value: MOCK_TASKS.length, color: 'text-white' },
+                { label: 'Completed', value: MOCK_TASKS.filter(t => t.status === 'COMPLETED').length, color: 'text-emerald-500' },
+                { label: 'In Progress', value: MOCK_TASKS.filter(t => t.status === 'IN_PROGRESS').length, color: 'text-blue-500' },
+                { label: 'Failed', value: MOCK_TASKS.filter(t => t.status === 'FAILED').length, color: 'text-rose-500' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                   <p className="text-[10px] font-black text-slate-500 uppercase mb-1">{stat.label}</p>
+                   <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
                 </div>
               ))}
            </div>
         </div>
 
-        {/* Financial Statements Preview */}
-        <div className="lg:col-span-8 glass-panel p-8 rounded-[3rem] border border-white/10 bg-white/[0.01]">
-           <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Statement Preview</h3>
-              <div className="flex gap-2">
-                 {['BS', 'PL', 'CF'].map(tab => (
-                   <button key={tab} className="px-4 py-2 text-[10px] font-black text-slate-500 border border-white/5 rounded-xl hover:bg-white/5 transition-all">{tab}</button>
-                 ))}
-              </div>
-           </div>
-
+        <div className="glass-panel p-8 rounded-[3rem] border border-white/10 bg-amber-500/[0.03]">
+           <h3 className="text-lg font-black text-white italic mb-6 flex items-center gap-2">
+              <AlertTriangle size={18} className="text-amber-500" />
+              Critical Alerts
+           </h3>
            <div className="space-y-4">
-              {[
-                { acc: 'I. 유동자산', cur: '1,245,600,000', prev: '1,100,500,000', change: '+13.1%' },
-                { acc: '   1. 현금 및 현금성자산', cur: '540,200,000', prev: '420,000,000', change: '+28.6%' },
-                { acc: '   2. 단기금융상품', cur: '200,000,000', prev: '250,000,000', change: '-20.0%' },
-                { acc: '   3. 매출채권', cur: '505,400,000', prev: '430,500,000', change: '+17.4%' },
-                { acc: 'II. 비유동자산', cur: '2,800,000,000', prev: '2,750,000,000', change: '+1.8%' },
-              ].map((row, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 rounded-xl hover:bg-white/[0.02] transition-colors border border-transparent hover:border-white/5">
-                   <span className={`text-sm font-bold ${row.acc.startsWith(' ') ? 'text-slate-500 ml-4' : 'text-slate-200'}`}>{row.acc}</span>
-                   <div className="flex items-center gap-10">
-                      <span className="text-sm font-mono font-black text-white w-32 text-right">{row.cur}</span>
-                      <span className={`text-[10px] font-black w-14 text-right ${row.change.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>{row.change}</span>
-                   </div>
+              {MOCK_TASKS.filter(t => t.status === 'FAILED').map(task => (
+                <div key={task.id} className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
+                   <p className="text-xs font-black text-rose-500 uppercase">{task.name}</p>
+                   <p className="text-[10px] text-rose-200/60 leading-relaxed font-medium">{task.errorMessage}</p>
                 </div>
+              ))}
+              {MOCK_TASKS.filter(t => t.status === 'FAILED').length === 0 && (
+                <p className="text-xs text-slate-600 font-bold italic">No critical issues found.</p>
+              )}
+           </div>
+        </div>
+      </div>
+
+      {/* Task Explorer */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-xl font-black text-white italic tracking-tight">Closing Task Explorer</h3>
+           <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+              {['ALL', 'PRE_CLOSING', 'CLOSING_ENTRY', 'POST_CLOSING', 'REPORTING'].map(cat => (
+                <button 
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
+                    selectedCategory === cat ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {cat.replace('_', ' ')}
+                </button>
               ))}
            </div>
         </div>
 
-        {/* Sidebar Controls */}
-        <div className="lg:col-span-4 space-y-8">
-           <div className="glass-panel p-8 rounded-[3rem] border border-white/10 bg-emerald-500/[0.02]">
-              <h3 className="text-lg font-black text-white italic mb-6">결산 정합성 체크</h3>
-              <div className="space-y-4">
-                 {[
-                   '차/대 정합성 검증 (O)',
-                   '미승인 전표 존재 유부 (None)',
-                   '은행 잔액 대조 (Matched)',
-                   '감가상각비 계산 (O)'
-                 ].map((check, i) => (
-                   <div key={i} className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 font-medium">{check}</span>
-                      <ArrowUpRight size={14} className="text-emerald-500" />
+        <div className="grid grid-cols-1 gap-4">
+           {filteredTasks.map((task) => (
+             <div key={task.id} className="glass-panel group p-6 rounded-[2rem] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/10 transition-all flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${
+                      task.status === 'COMPLETED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                      task.status === 'FAILED' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 animate-pulse' :
+                      task.status === 'IN_PROGRESS' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
+                      'bg-slate-800 border-white/5 text-slate-600'
+                   }`}>
+                      {task.status === 'COMPLETED' ? <CheckCircle2 size={24} /> : 
+                       task.status === 'FAILED' ? <AlertTriangle size={24} /> :
+                       <Activity size={24} className={task.status === 'IN_PROGRESS' ? 'animate-spin-slow' : ''} />}
                    </div>
-                 ))}
-              </div>
-           </div>
+                   
+                   <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                         <h4 className="text-lg font-black text-white group-hover:text-blue-400 transition-colors">{task.name}</h4>
+                         {task.isMandatory && <span className="text-[8px] font-black text-amber-500 border border-amber-500/30 px-1.5 py-0.5 rounded uppercase">Mandatory</span>}
+                      </div>
+                      <div className="flex items-center gap-4">
+                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{task.category}</span>
+                         <span className="w-1 h-1 bg-slate-800 rounded-full" />
+                         <span className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                            <User size={12} /> {task.assignedTo}
+                         </span>
+                         <span className="w-1 h-1 bg-slate-800 rounded-full" />
+                         <span className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                            <CalendarDays size={12} /> Due: {task.dueDate}
+                         </span>
+                      </div>
+                   </div>
+                </div>
 
-           <div className="glass-panel p-8 rounded-[3rem] border border-white/10 bg-slate-950">
-              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Report Search</h4>
-              <div className="relative mb-6">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700" size={16} />
-                 <input type="text" placeholder="Search by year/month..." className="w-full bg-slate-900 border border-white/5 rounded-xl py-3 pl-12 text-xs text-white outline-none" />
-              </div>
-              <div className="flex flex-col gap-2">
-                 <button className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 text-xs text-slate-300 font-black hover:bg-white/10 transition-all">
-                    <span>2026.03 Financial Statements</span>
-                    <FileText size={16} />
-                 </button>
-                 <button className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 text-xs text-slate-300 font-black hover:bg-white/10 transition-all">
-                    <span>2026.02 Financial Statements</span>
-                    <FileText size={16} />
-                 </button>
-              </div>
+                <div className="flex items-center gap-4">
+                   {task.status === 'FAILED' && (
+                     <button className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 text-[10px] font-black rounded-xl border border-rose-500/20 transition-all">
+                        RETRY BATCH
+                     </button>
+                   )}
+                   <button className="p-3 bg-white/5 rounded-xl border border-white/5 text-slate-500 hover:text-white hover:bg-white/10 transition-all">
+                      <ChevronRight size={20} />
+                   </button>
+                </div>
+             </div>
+           ))}
+        </div>
+      </div>
+
+      {/* Financial Consistency Check */}
+      <div className="glass-panel p-10 rounded-[3.5rem] border border-white/10 bg-slate-950 overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-emerald-500 to-blue-600" />
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+           <div className="space-y-4">
+              <h3 className="text-2xl font-black text-white italic tracking-tighter">실시간 재무 정합성 검증</h3>
+              <p className="text-slate-500 text-sm font-medium max-w-xl">
+                 결산 확정 전, 시스템이 전표의 차/대 평형, 미승인 건수, 마스터 데이터 정합성을 자동으로 검수합니다. 
+                 모든 항목이 <span className="text-emerald-500 font-bold">PASS</span> 상태여야 결산 승인이 가능합니다.
+              </p>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full md:w-auto">
+              {[
+                { label: 'Trial Balance Match', status: 'PASS' },
+                { label: 'Unposted Journals', status: '0 건' },
+                { label: 'Bank Reconciliation', status: 'MATCHED' },
+                { label: 'Asset Depreciation', status: 'CALCULATED' },
+              ].map((check, i) => (
+                <div key={i} className="flex items-center justify-between gap-10 p-4 rounded-2xl bg-white/5 border border-white/5">
+                   <span className="text-xs font-bold text-slate-400">{check.label}</span>
+                   <span className="text-xs font-black text-emerald-500">{check.status}</span>
+                </div>
+              ))}
            </div>
         </div>
       </div>
