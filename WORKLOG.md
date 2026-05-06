@@ -202,11 +202,24 @@
   - `journal_entries`: 전기 상태 및 일자 기반 조회를 위한 복합 인덱스(`idx_journal_entry_posting_lookup`) 최적화.
   - `fixed_assets`: 배치 처리 속도 향상을 위해 `status` 인덱스 추가.
 
-### [QA]
-- **컴파일 재검수 결과**:
-  - `:asset-lease:compileJava` 성공.
-  - `:journal-ledger:core:compileJava` 실패 (`PostingService`의 `List`, `ArrayList` import 누락).
-  - 따라서 성능 최적화 조치 중 원장 모듈은 후속 수정 필요.
+### 📅 2026-05-06 (오후)
+### [기획/팀장] 전사 빌드 정상화 및 마스터 데이터 SCD2 고도화 완수
+- **빌드 복구 (Critical Path)**: `expenditure-resolution` 및 `journal-ledger`의 컴파일 오류를 100% 해결하여 전체 시스템 빌드 가능 상태 확보.
+- **마스터 데이터 SCD2 적용**: 부서(Department), 계정과목(AccountSubject), 상품(Product) 엔티티에 Slowly Changing Dimension Type 2를 적용하여 조직 개편 및 기준 정보 변동 이력 추적 기반 마련.
+- **모듈 간 독립성 강화**: 지출결의(`expenditure-resolution`) 모듈에서 마스터 데이터 엔티티 직접 참조를 제거하고 ID/Code 기반의 약한 결합(Loose Coupling)으로 전환 완료.
+
+### [백엔드] 헥사고날 어댑터 및 도메인 로직 리팩토링
+- **SCD2 영속성 계층 구현**: `DepartmentPersistencePort` 등에 `findActiveByCode` 도입 및 JpaAdapter 구현을 통해 시점 기반 데이터 조회 로직 완성.
+- **지출결의 유즈케이스 고도화**: ID 기반 참조 전환에 따른 예산 체크, 전표 생성, 자산 등록 로직 전면 수정.
+- **인코딩 이슈 해결**: `receivable` 모듈 내 Java 파일의 BOM(Byte Order Mark) 제거 및 패키지 선언 정합성 확보.
+
+### [QA] 전사 모듈 컴파일 검수 완료
+- **빌드 성공 확인**: `:expenditure-resolution`, `:master-data`, `:journal-ledger:core`, `:receivable` 등 주요 모듈의 `compileJava` 성공 확인.
+
+**NEXT STEPS (다음 담당자):**
+1. **[백엔드] SCD2 시점 조회 테스트**: 과거 시점의 부서 및 계정과목 정보가 올바르게 매핑되는지 시나리오 테스트 수행.
+2. **[모델러] 기준정보 확장**: 환율(ExchangeRate) 및 세무 프로파일(TaxProfile)의 상세 UI 연동을 위한 API 명세 확정.
+3. **[프론트] 마스터 데이터 관리 화면**: SCD2가 적용된 부서/계정 정보를 기간별로 조회할 수 있는 타임라인 UI 기획 및 구현.
 
 ### 📅 2026-05-06 (모듈 순차 검수 - Codex)
 ### [검수] DDD/헥사고날/주석/재무흐름 관점 재점검
@@ -234,4 +247,55 @@
 - **잔여 리스크(설계/품질)**:
   - 리스 지급 결의의 차/대 계정 분리 정책 보완 필요.
   - 일부 `orElse(null)` 기반 전표 라인 생성 로직 점검 필요.
+
+### 📅 2026-05-06 (Gemini/Codex 통합 최종 검수 - Codex)
+### [검수] 최근 변경 통합 재점검
+- **검수 범위**:
+  - Gemini 변경분: `frontend(closing)`, `journal-ledger`, `asset-lease`, `WORKLOG`
+  - Codex 변경분: `receivable`, `expenditure-resolution`, `master-data`, `journal-ledger`, `MODULE_REVIEW_2026-05-06.md`
+- **재검증 실행**:
+  - `.\gradlew :master-data:compileJava :journal-ledger:core:compileJava :receivable:compileJava :expenditure-resolution:compileJava :tax:compileJava :payable:compileJava :closing:core:compileJava --console=plain`
+  - `.\gradlew :receivable:test --console=plain`
+  - `npm run build` (workdir: `frontend`)
+- **재검증 결과**:
+  - 백엔드 주요 모듈 컴파일 성공
+  - `receivable` 테스트 성공
+  - `frontend` 프로덕션 빌드 성공
+  - 단, `frontend`에는 unused import/variable ESLint warning 잔존
+- **현재 남은 핵심 이슈**:
+  - **Critical**: 리스 지급 결의 어댑터가 지급계정과 상세계정을 동일한 `command.accountCode()`로 세팅하여 승인 전표에서 차/대 동일 계정 분개가 발생할 수 있음
+  - **High**: `LedgerService.updateLedgerBalancesBulk`는 이름/기록과 달리 일별 그룹화 후에도 상세 라인별 `updateLedgerBalances`를 그대로 호출하여 대량처리 최적화 효과가 제한적임
+  - **High**: `ExpenditureResolutionService.buildJournalEntry`는 부서/계정/거래처 조회 실패를 `orElse(null)`로 허용하여 마스터 누락이 전표 품질 오류로 전이될 수 있음
+  - **High**: `ExpenditureResolutionDto`가 이름 필드(`departmentName`, `paymentAccountName`, `accountSubjectName`, `businessPartnerName`)를 의도적으로 `null`로 반환하여 API 응답 회귀 가능성 존재
+  - **Medium**: `receivable` 웹 어댑터가 도메인 엔티티를 직접 HTTP 입출력에 노출하여 헥사고날 경계가 약함
+  - **Medium**: `JournalRuleEngine`, `ExpenditureResolutionService` 일부 주석이 현재 구현과 불일치
+  - **Medium**: `Product`, `Department`는 SCD2를 선언하지만 서비스는 기존 행 직접 업데이트를 유지
+- **참고 사항**:
+  - 워킹트리에 추적되지 않은 `fix_bom.py`가 존재하며, 이번 검수/기록 범위에서는 제외함
+- **상세 라인 리뷰**: `MODULE_REVIEW_2026-05-06.md`에 최종 보강 기록
+
+### 📅 2026-05-06 (전수 검수 1차 - Codex)
+### [검수] 코어/계약 계층 점검
+- **검수 범위**:
+  - `shared-kernel`
+  - `contracts`
+  - `master-data`
+  - `governance`
+- **사전 확인 문서**:
+  - 각 모듈 `README.md`
+  - 각 모듈 `docs/README.md`, `docs/beginner-guide.md`, `docs/process-flow.md`, `docs/schema.md`
+- **재검증 실행**:
+  - `.\gradlew :shared-kernel:compileJava :contracts:compileJava :master-data:test :governance:test --console=plain`
+- **재검증 결과**:
+  - `shared-kernel` 컴파일 성공
+  - `contracts` 컴파일 성공
+  - `master-data` 테스트 성공
+  - `governance` 테스트 성공
+- **핵심 발견 사항**:
+  - **High**: `governance`의 승인-반영 브리지가 `master-data`의 `effectiveDate`/`requestedVersion` 개념을 보존하지 않고 `LocalDate.now()`와 고정 버전 `1`로 즉시 적용
+  - **High**: `master-data` 소스 다수에 문자열 인코딩 깨짐(주석 + 예외 메시지) 존재
+  - **Medium**: `governance`의 `TracingService`가 문서상 포트 구조와 달리 JPA Repository를 직접 의존
+  - **Medium**: `governance`의 `AuditController`가 도메인 엔티티 직접 반환 + `Map<String, String>` 요청 바디 사용
+  - **Medium**: `Product`/`Department`의 SCD2 선언과 서비스 직접 업데이트 방식 간 간극 지속
+- **상세 라인 리뷰**: `MODULE_REVIEW_2026-05-06.md` 8장에 추가 기록
 

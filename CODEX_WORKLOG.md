@@ -57,3 +57,33 @@
 - 결과:
   - 위 명령 전체 성공.
   - `WORKLOG.md`, `MODULE_REVIEW_2026-05-06.md`에 후속 조치 결과 반영.
+
+## 2026-05-06 (Gemini/Codex 통합 최종 검수)
+- 사용자 요청: 지금까지의 Gemini/Codex 변경 전체 재검수 및 리뷰 기록.
+- 확인 범위:
+  - 최근 커밋 `2298c42`, `88e8672`, `08d271f`
+  - 영향 모듈 `frontend(closing)`, `journal-ledger`, `receivable`, `expenditure-resolution`, `master-data`
+- 실행 명령:
+  - `.\gradlew :master-data:compileJava :journal-ledger:core:compileJava :receivable:compileJava :expenditure-resolution:compileJava :tax:compileJava :payable:compileJava :closing:core:compileJava --console=plain`
+  - `.\gradlew :receivable:test --console=plain`
+  - `npm run build` (workdir: `frontend`)
+- 결과:
+  - 컴파일/테스트/프론트 빌드는 모두 통과.
+  - 남은 이슈는 컴파일 블로커가 아니라 설계/주석/업무흐름/성능 주장 정합성 문제로 정리.
+  - `WORKLOG.md`, `MODULE_REVIEW_2026-05-06.md`에 최종 검수 의견 반영.
+
+## 2026-05-06 (전수 검수 1차: 코어/계약 계층)
+- 사용자 요청: 디렉토리 단위 단계별 전수 검수 시작.
+- 확인 문서:
+  - `shared-kernel/README.md`, `shared-kernel/docs/*.md`
+  - `contracts/README.md`, `contracts/docs/*.md`
+  - `master-data/README.md`, `master-data/docs/*.md`
+  - `governance/README.md`, `governance/docs/*.md`
+- 실행 명령:
+  - `.\gradlew :shared-kernel:compileJava :contracts:compileJava :master-data:test :governance:test --console=plain`
+- 결과:
+  - 1차 범위 빌드/테스트 성공.
+  - `governance -> master-data` 승인 연계에서 `effectiveDate`/`requestedVersion` 유실 확인.
+  - `master-data` 여러 소스 파일의 문자열 인코딩 깨짐 확인.
+  - `TracingService`의 repository 직접 의존, `AuditController`의 경계 약화 문제 확인.
+  - `WORKLOG.md`, `MODULE_REVIEW_2026-05-06.md`에 1차 검수 결과 반영.
