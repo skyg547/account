@@ -1,7 +1,17 @@
 # Repo Agent Guide
 
 ## Scope
-이 문서는 현제 프로젝트 저장소 전체에 적용되는 공통 작업 가이드다.
+이 문서는 Codex 작업에만 적용되는 작업 가이드다.
+
+## Codex Only Rule
+- 본 문서(`Agents.md`)의 규칙은 Codex에만 적용한다.
+- Gemini 및 기타 모델은 각 전용 설정 파일을 따른다.
+- Codex는 구현보다 검수/리뷰 요청을 받았을 때 `WORKLOG.md`에 검수 결과를 남기고, Codex 자체 작업 이력은 `CODEX_WORKLOG.md`에 분리 기록한다.
+
+## Agent Config Separation
+- Codex는 루트 `Agents.md`를 기본 설정 파일로 사용한다.
+- Gemini는 루트 `GEMINI.md`를 기본 설정 파일로 사용한다.
+- 공통 원칙은 두 문서에 맞춰 동기화하되, 모델별 역할 지시는 각 전용 파일에만 기록한다.
 
 ## Working Architecture Rules
 - **Layer Separation**: Hexagonal Architecture(Port/Adapter) 원칙을 엄격히 준수한다.
@@ -28,6 +38,11 @@
 - API 변경 시 컨트롤러, DTO, 서비스, 테스트 영향 범위를 함께 확인한다.
 - 배치 변경 시 파라미터, 재실행 가능성, 정합성 검증 포인트를 함께 점검한다.
 - 프론트 변경 시 모바일 레이아웃과 기존 데이터 흐름 유지 여부를 확인한다.
+
+## Codex Worklog Review Role
+- Codex는 작업 시작 전에 루트 `WORKLOG.md` 최신 항목을 확인한다.
+- Codex는 작업 종료 시 실제 변경 내용과 워크로그 기록(범위, 테스트, 리스크)의 일치 여부를 검수/리뷰한다.
+- 불일치나 누락이 있으면 해당 항목을 명확히 지적하고 보완 제안을 남긴다.
 
 ## Verification
 - 가능하면 변경 범위에 맞는 테스트를 우선 실행한다.
