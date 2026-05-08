@@ -118,6 +118,7 @@ flowchart TD
   - 차변 `93100` 이자비용
   - 차변 `25100` 리스부채
   - 대변 `10100` 현금/예금
+- `LeasePaymentResolutionPort` 연계 시에도 상환 스케줄의 `interestPortion`과 `principalPortion`을 별도 차변 라인으로 전달한다.
 
 ## 7. IFRS 16 재측정
 

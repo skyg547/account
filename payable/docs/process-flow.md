@@ -116,13 +116,13 @@ flowchart TD
 ## 6. 드릴다운 연계
 
 - `PayableSourceDocumentProvider`가 `SourceDocumentProvider`를 구현한다
-- 현재 지원하는 `lineageSourceType`은 `P2P_AP`
+- 현재 지원하는 `lineageSourceType`은 `PURCHASE_INVOICE`, `P2P_AP`
 - `lineageSourceId`에서 인보이스번호와 거래처 코드를 파싱해 원본 인보이스를 반환한다
 
 주의:
 
-- 현재 `PurchaseService`에서 생성하는 `lineageSourceType`은 `PURCHASE_INVOICE`
-- 즉, 드릴다운 공급자와 전표 생성 쪽의 타입 값이 일치하지 않아 보이는 지점이 있다
+- `PurchaseService`에서 생성하는 기본 `lineageSourceType`은 `PURCHASE_INVOICE`
+- 기존 문서/연계에서 사용하던 `P2P_AP`도 호환 타입으로 유지한다
 
 ## 7. 초보자가 꼭 기억할 포인트
 

@@ -80,6 +80,7 @@ flowchart LR
 설명:
 - 예산 확인은 `BudgetControlPort.checkBudgetAvailability(...)`로 호출합니다.
 - 리스 월지급 해소는 `LeasePaymentResolutionCommand`로 전달됩니다.
+- IFRS 16 리스 지급처럼 차변이 여러 줄이면 `LeasePaymentResolutionLineCommand` 목록으로 이자비용/리스부채 원금을 분리해 전달합니다.
 
 ## 6. 자산/세금/마감 연계 흐름
 

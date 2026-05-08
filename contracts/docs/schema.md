@@ -26,6 +26,7 @@ flowchart TD
     D --> D1[BudgetControlPort]
     D --> D2[LeasePaymentResolutionPort]
     D --> D3[LeasePaymentResolutionCommand]
+    D --> D4[LeasePaymentResolutionLineCommand]
     E --> E1[AssetRegistrationPort]
     E --> E2[AssetAcquisitionCommand]
     F --> F1[TaxInvoiceQueryPort]
@@ -144,8 +145,21 @@ flowchart TD
 - `resolutionDate`
 - `paymentDate`
 - `departmentCode`
-- `accountCode`
+- `debitAccountCode`
+- `creditAccountCode`
 - `businessPartnerCode`
+- `amount`
+- `detailDescription`
+- `debitLines`
+
+의미:
+- 기존 단일 차변 라인 호출은 `debitAccountCode`, `amount`, `detailDescription`를 사용합니다.
+- IFRS 16 리스 지급처럼 차변이 여러 줄이면 `debitLines`에 `LeasePaymentResolutionLineCommand` 목록을 담습니다.
+
+### `LeasePaymentResolutionLineCommand`
+
+필드:
+- `debitAccountCode`
 - `amount`
 - `detailDescription`
 

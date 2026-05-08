@@ -72,7 +72,7 @@
 5. `receivable/src/main/java/com/ho/account/income/domain/Collection.java`
 6. `receivable/src/main/java/com/ho/account/income/domain/MatchingRule.java`
 7. `receivable/src/main/java/com/ho/account/income/domain/UnmatchedCollection.java`
-8. `receivable/src/main/java/com/ho/account/income/service/ReceivableSourceDocumentProvider.java`
+8. `receivable/src/main/java/com/ho/account/receivable/adapter/out/source/ReceivableSourceDocumentProvider.java`
 
 ## 6. 자주 헷갈리는 지점
 

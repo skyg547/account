@@ -172,3 +172,26 @@
 - 검증:
   - 문서/운영 지침 변경만 수행.
   - 코드 빌드/테스트는 실행하지 않음.
+
+## 2026-05-08 (3차 검수 Findings 보완 구현)
+- 사용자 요청: 검수된 항목을 Codex가 계속 수정하고 작업 로그를 남김.
+- 수정 내용:
+  - `tax` 테스트를 `TaxInvoice.create(...)` 기반으로 갱신해 setter 제거 후 도메인 계약과 일치시킴.
+  - `expenditure-resolution` 테스트를 최신 생성자/`findActiveByCode`/protected 도메인 생성 정책에 맞춤.
+  - `ExpenditureResolutionUseCase`에서 DTO 변환 책임을 제거하고 `ExpenditureResolutionDtoAssembler`를 웹 어댑터에 추가.
+  - `LeasePaymentResolutionCommand`에 다중 차변 라인 지원을 추가하고, 기존 단일 라인 생성자는 유지.
+  - `MonolithLeasePaymentResolutionAdapter`가 리스 지급 결의의 여러 차변 라인을 `ExpenditureDetail` 여러 건으로 생성하도록 변경.
+  - `LeaseEntryService`가 IFRS16 리스 지급 시 스케줄의 `interestPortion`/`principalPortion`을 `93100`/`25100` 차변 라인으로 분리 전달하도록 변경.
+  - `payable`/`receivable`에 `SourceDocumentProvider` 구현체와 단위 테스트를 추가.
+  - 관련 문서와 `.gitignore` 예외를 갱신.
+- 실행 명령:
+  - `.\gradlew :tax:test :expenditure-resolution:test --console=plain --max-workers=1`
+  - `.\gradlew :payable:test :receivable:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :asset-lease:test :expenditure-resolution:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :tax:test :payable:test :receivable:test :expenditure-resolution:test :asset-lease:test :loan:core:compileJava :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- 결과:
+  - 위 명령 모두 `BUILD SUCCESSFUL`.
+  - 마지막 강제 재실행에서 기존 `master-data` 소스 인코딩 진단이 출력 말미에 섞였으나 Gradle 종료 코드는 성공.
+- 남은 리스크:
+  - `loan`의 회귀 테스트 부재와 원장 전기 수렴 경로는 아직 미해결.
+  - `master-data` 인코딩 깨짐은 별도 정리 대상.

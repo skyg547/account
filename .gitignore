@@ -55,6 +55,14 @@ application-local.properties
 application-local.yml
 
 # Hexagonal Architecture Exception
-# Keep source packages named "port/out" (don't ignore them if they are in src)
+# Keep source packages named "port/out" or "adapter/out/source" (don't ignore them if they are in src)
 !**/src/main/java/**/port/out/
 !**/src/main/java/**/port/out/*.java
+!**/src/main/java/**/adapter/out/
+**/src/main/java/**/adapter/out/*
+!**/src/main/java/**/adapter/out/source/
+!**/src/main/java/**/adapter/out/source/**
+!**/src/test/java/**/adapter/out/
+**/src/test/java/**/adapter/out/*
+!**/src/test/java/**/adapter/out/source/
+!**/src/test/java/**/adapter/out/source/**

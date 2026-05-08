@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -46,7 +47,7 @@ class APPaymentServiceTest {
         request.setAmount(new BigDecimal("5000.00"));
         request.setPaymentMethod("TRANSFER");
 
-        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(new ExpenditureResolution()));
+        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(createResolution()));
         when(taxInvoiceQueryPort.findById(10L)).thenReturn(Optional.of(new TaxInvoiceRef(10L, "TX-10", "PURCHASE")));
         when(apPaymentPersistencePort.save(any(APPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -71,9 +72,20 @@ class APPaymentServiceTest {
         request.setAmount(new BigDecimal("5000.00"));
         request.setPaymentMethod("TRANSFER");
 
-        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(new ExpenditureResolution()));
+        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(createResolution()));
         when(taxInvoiceQueryPort.findById(10L)).thenReturn(Optional.of(new TaxInvoiceRef(10L, "TX-10", "SALES")));
 
         assertThrows(IllegalArgumentException.class, () -> service.createAPPayment(request));
+    }
+
+    private ExpenditureResolution createResolution() {
+        return ExpenditureResolution.create(
+                "REQ-20260429-001",
+                "테스트 지출결의",
+                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 4, 30),
+                "D001",
+                "PAY001",
+                "TEST");
     }
 }

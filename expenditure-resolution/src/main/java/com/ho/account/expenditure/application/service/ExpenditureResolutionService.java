@@ -9,7 +9,6 @@ import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCa
 import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPersistencePort;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
-import com.ho.account.expenditure.dto.ExpenditureResolutionDto;
 import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
@@ -41,7 +40,6 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
     private final BudgetService budgetService;
     private final AssetRegistrationPort assetRegistrationPort;
     private final TaxInvoiceQueryPort taxInvoiceQueryPort;
-    private final com.ho.account.contracts.masterdata.MasterDataQueryPort masterDataQueryPort;
 
     public ExpenditureResolutionService(
             ExpenditureResolutionPersistencePort resolutionPersistencePort,
@@ -51,8 +49,7 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
             BusinessPartnerPersistencePort businessPartnerPersistencePort,
             BudgetService budgetService,
             AssetRegistrationPort assetRegistrationPort,
-            TaxInvoiceQueryPort taxInvoiceQueryPort,
-            com.ho.account.contracts.masterdata.MasterDataQueryPort masterDataQueryPort) {
+            TaxInvoiceQueryPort taxInvoiceQueryPort) {
         this.resolutionPersistencePort = resolutionPersistencePort;
         this.journalUseCase = journalUseCase;
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
@@ -61,7 +58,6 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         this.budgetService = budgetService;
         this.assetRegistrationPort = assetRegistrationPort;
         this.taxInvoiceQueryPort = taxInvoiceQueryPort;
-        this.masterDataQueryPort = masterDataQueryPort;
     }
 
     @Override
@@ -201,55 +197,6 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
     @Transactional(readOnly = true)
     public List<ExpenditureResolution> getResolutionsByDate(LocalDate startDate, LocalDate endDate) {
         return resolutionPersistencePort.findByResolutionDateBetween(startDate, endDate);
-    }
-
-    /**
-     * 엔티티를 DTO로 변환하며, 마스터 데이터 포트를 통해 명칭 필드들을 채웁니다.
-     */
-    public ExpenditureResolutionDto toDto(ExpenditureResolution resolution) {
-        String deptName = masterDataQueryPort.findDepartment(resolution.getDeptCode())
-                .map(com.ho.account.contracts.masterdata.DepartmentRef::name).orElse(null);
-        String paymentAccountName = masterDataQueryPort.findAccountSubject(resolution.getPaymentAccountCode())
-                .map(com.ho.account.contracts.masterdata.AccountSubjectRef::name).orElse(null);
-
-        List<ExpenditureResolutionDto.ExpenditureDetailDto> detailDtos = resolution.getDetails().stream()
-                .map(detail -> {
-                    String accountName = masterDataQueryPort.findAccountSubject(detail.getAccountCode())
-                            .map(com.ho.account.contracts.masterdata.AccountSubjectRef::name).orElse(null);
-                    String partnerName = masterDataQueryPort.findBusinessPartner(detail.getBusinessPartnerCode())
-                            .map(com.ho.account.contracts.masterdata.BusinessPartnerRef::name).orElse(null);
-                    
-                    return new ExpenditureResolutionDto.ExpenditureDetailDto(
-                            detail.getId(),
-                            detail.getAccountCode(),
-                            accountName,
-                            detail.getAmount(),
-                            detail.getBusinessPartnerCode(),
-                            partnerName,
-                            detail.getDescription()
-                    );
-                }).toList();
-
-        return new ExpenditureResolutionDto(
-                resolution.getId(),
-                resolution.getResolutionNo(),
-                resolution.getTitle(),
-                resolution.getResolutionDate(),
-                resolution.getPaymentDate(),
-                resolution.getDeptCode(),
-                deptName,
-                resolution.getPaymentAccountCode(),
-                paymentAccountName,
-                resolution.getTotalAmount(),
-                resolution.getStatus() != null ? resolution.getStatus().name() : null,
-                resolution.getRejectionReason(),
-                resolution.getTaxInvoiceId(),
-                detailDtos
-        );
-    }
-
-    public List<ExpenditureResolutionDto> toDtoList(List<ExpenditureResolution> resolutions) {
-        return resolutions.stream().map(this::toDto).toList();
     }
 
     private ExpenditureDetail buildDetail(ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto) {

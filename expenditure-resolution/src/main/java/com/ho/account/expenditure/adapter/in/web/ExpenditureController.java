@@ -17,22 +17,26 @@ import java.util.Map;
 public class ExpenditureController {
 
     private final ExpenditureResolutionUseCase expenditureResolutionUseCase;
+    private final ExpenditureResolutionDtoAssembler dtoAssembler;
 
-    public ExpenditureController(ExpenditureResolutionUseCase expenditureResolutionUseCase) {
+    public ExpenditureController(
+            ExpenditureResolutionUseCase expenditureResolutionUseCase,
+            ExpenditureResolutionDtoAssembler dtoAssembler) {
         this.expenditureResolutionUseCase = expenditureResolutionUseCase;
+        this.dtoAssembler = dtoAssembler;
     }
 
     @PostMapping
     public ResponseEntity<ExpenditureResolutionDto> createResolution(
             @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
+        return ResponseEntity.ok(dtoAssembler.toDto(
                 expenditureResolutionUseCase.createResolution(requestDto)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ExpenditureResolutionDto> updateResolution(
             @PathVariable("id") Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
+        return ResponseEntity.ok(dtoAssembler.toDto(
                 expenditureResolutionUseCase.updateResolution(id, requestDto)));
     }
 
@@ -58,13 +62,13 @@ public class ExpenditureController {
     public List<ExpenditureResolutionDto> getResolutions(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return expenditureResolutionUseCase.toDtoList(
+        return dtoAssembler.toDtoList(
                 expenditureResolutionUseCase.getResolutionsByDate(startDate, endDate));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ExpenditureResolutionDto> getResolution(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
+        return ResponseEntity.ok(dtoAssembler.toDto(
                 expenditureResolutionUseCase.getResolution(id)));
     }
 }

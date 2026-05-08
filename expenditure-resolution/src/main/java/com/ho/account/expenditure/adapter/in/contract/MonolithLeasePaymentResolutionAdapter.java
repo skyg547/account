@@ -1,6 +1,7 @@
 package com.ho.account.expenditure.adapter.in.contract;
 
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionCommand;
+import com.ho.account.contracts.expenditure.LeasePaymentResolutionLineCommand;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionPort;
 import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCase;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
@@ -30,14 +31,16 @@ public class MonolithLeasePaymentResolutionAdapter implements LeasePaymentResolu
                 "SYSTEM_LEASE"
         );
 
-        // detail의 accountCode는 차변(Debit) 계정으로 사용됨
-        ExpenditureDetail detail = ExpenditureDetail.create(
-                command.debitAccountCode(), // 차변(Debit) 계정: 예) 리스부채 또는 비용
-                command.amount(),
-                command.businessPartnerCode(),
-                command.detailDescription()
-        );
-        resolution.addDetail(detail);
+        for (LeasePaymentResolutionLineCommand line : command.debitLines()) {
+            // detail의 accountCode는 차변(Debit) 계정으로 사용됨
+            ExpenditureDetail detail = ExpenditureDetail.create(
+                    line.debitAccountCode(),
+                    line.amount(),
+                    command.businessPartnerCode(),
+                    line.detailDescription()
+            );
+            resolution.addDetail(detail);
+        }
 
         expenditureResolutionUseCase.createResolution(resolution);
     }

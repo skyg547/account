@@ -8,6 +8,7 @@ import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
 import com.ho.account.asset.domain.RightOfUseAsset;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionCommand;
+import com.ho.account.contracts.expenditure.LeasePaymentResolutionLineCommand;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,9 @@ public class LeaseEntryService implements LeaseUseCase {
     private final LeasePaymentResolutionPort leasePaymentResolutionPort;
 
     private static final String TOPIC = "transaction-events";
+    private static final String LEASE_LIABILITY_ACCOUNT_CODE = "25100";
+    private static final String LEASE_INTEREST_EXPENSE_ACCOUNT_CODE = "93100";
+    private static final String ACCOUNTS_PAYABLE_ACCOUNT_CODE = "21100";
 
     @Override
     @Transactional
@@ -196,18 +200,86 @@ public class LeaseEntryService implements LeaseUseCase {
     }
 
     private void createLeaseExpenditure(LeaseContract contract, LocalDate date) {
-        // IFRS 16 리스료 지급 결의: 차변(리스부채 또는 리스비용), 대변(미지급금)
-        // creditAccountCode는 시스템 표준인 '21100'(미지급금)을 기본값으로 사용
+        if (isCapitalizedIfrs16Lease(contract)) {
+            Optional<LeasePaymentSchedule> schedule = findLeasePaymentScheduleForMonth(contract, date);
+            if (schedule.isPresent()) {
+                createIfrs16LeasePaymentResolution(contract, date, schedule.get());
+                return;
+            }
+        }
+
+        // 단기/소액/스케줄 미확정 리스는 기존 비용 처리 경로를 유지한다.
         leasePaymentResolutionPort.createLeasePaymentResolution(new LeasePaymentResolutionCommand(
                 "리스료 지급 " + contract.getContractName(),
                 date,
                 date,
                 contract.getDepartmentCode(),
                 contract.getExpenseAccountCode(), // 차변: 리스부채 또는 비용 계정
-                "21100",                         // 대변: 미지급금 (표준)
+                ACCOUNTS_PAYABLE_ACCOUNT_CODE,    // 대변: 미지급금 (표준)
                 contract.getLessorCode(),
                 contract.getMonthlyPayment(),
                 "월 리스료"
         ));
+    }
+
+    private boolean isCapitalizedIfrs16Lease(LeaseContract contract) {
+        return contract.isIfrs16Applicable()
+                && !contract.isShortTermLease()
+                && !contract.isLowValueLease();
+    }
+
+    private Optional<LeasePaymentSchedule> findLeasePaymentScheduleForMonth(LeaseContract contract, LocalDate date) {
+        return persistencePort.findSchedulesByContract(contract).stream()
+                .filter(schedule -> sameYearMonth(schedule.getPaymentDate(), date))
+                .filter(schedule -> "SCHEDULED".equals(schedule.getStatus()))
+                .findFirst();
+    }
+
+    private boolean sameYearMonth(LocalDate left, LocalDate right) {
+        return left != null
+                && right != null
+                && left.getYear() == right.getYear()
+                && left.getMonth() == right.getMonth();
+    }
+
+    private void createIfrs16LeasePaymentResolution(
+            LeaseContract contract,
+            LocalDate date,
+            LeasePaymentSchedule schedule) {
+        List<LeasePaymentResolutionLineCommand> debitLines = new ArrayList<>();
+        addDebitLine(
+                debitLines,
+                LEASE_INTEREST_EXPENSE_ACCOUNT_CODE,
+                schedule.getInterestPortion(),
+                "리스 이자비용");
+        addDebitLine(
+                debitLines,
+                LEASE_LIABILITY_ACCOUNT_CODE,
+                schedule.getPrincipalPortion(),
+                "리스부채 원금 상환");
+
+        if (debitLines.isEmpty()) {
+            throw new IllegalStateException("Lease payment schedule has no positive payment portions: "
+                    + contract.getId());
+        }
+
+        leasePaymentResolutionPort.createLeasePaymentResolution(new LeasePaymentResolutionCommand(
+                "리스료 지급 " + contract.getContractName(),
+                date,
+                date,
+                contract.getDepartmentCode(),
+                ACCOUNTS_PAYABLE_ACCOUNT_CODE,
+                contract.getLessorCode(),
+                debitLines));
+    }
+
+    private void addDebitLine(
+            List<LeasePaymentResolutionLineCommand> debitLines,
+            String accountCode,
+            BigDecimal amount,
+            String description) {
+        if (amount != null && amount.signum() > 0) {
+            debitLines.add(new LeasePaymentResolutionLineCommand(accountCode, amount, description));
+        }
     }
 }

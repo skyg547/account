@@ -400,3 +400,24 @@
 - **검증**:
   - 문서/운영 지침 변경만 수행했으며 별도 빌드/테스트는 실행하지 않음.
 
+### 📅 2026-05-08 (3차 검수 보완 작업 - Codex)
+### [수정] 업무 서브레저 테스트/드릴다운/리스 지급 결의 보완
+- **수정 범위**:
+  - `tax`: `TaxInvoiceTest`를 도메인 정적 팩토리 계약 기준으로 갱신.
+  - `expenditure-resolution`: 테스트 계약을 최신 도메인/포트 기준으로 갱신하고, DTO 변환 책임을 `ExpenditureResolutionDtoAssembler`로 분리.
+  - `contracts`: `LeasePaymentResolutionCommand`를 하위 호환 유지 상태에서 다중 차변 라인(`LeasePaymentResolutionLineCommand`) 지원으로 확장.
+  - `asset-lease`: IFRS16 월 지급 결의가 스케줄의 이자/원금(`93100`, `25100`)을 별도 차변 라인으로 전달하도록 보완.
+  - `payable`/`receivable`: `SourceDocumentProvider` 구현체와 단위 테스트를 추가하고 문서의 드릴다운 타입/경로 설명을 실제 구현과 맞춤.
+  - `.gitignore`: 소스 패키지 `adapter/out/source`가 IDE 산출물 `out/` 규칙에 가려지지 않도록 예외 추가.
+- **재검증 실행**:
+  - `.\gradlew :tax:test :expenditure-resolution:test --console=plain --max-workers=1`
+  - `.\gradlew :payable:test :receivable:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :asset-lease:test :expenditure-resolution:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :tax:test :payable:test :receivable:test :expenditure-resolution:test :asset-lease:test :loan:core:compileJava :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 성공: `tax:test`, `expenditure-resolution:test`, `payable:test`, `receivable:test`, `contracts:compileJava`, `asset-lease:test`, `loan:core/api/batch:compileJava`
+  - 강제 재실행 결과는 `BUILD SUCCESSFUL`로 종료됨.
+- **남은 리스크**:
+  - `loan`의 DoD 회귀 테스트 부재와 직접 전표 저장/전기 미수렴 경로는 이번 보완 범위에서 미수정.
+  - 강제 재실행 출력 말미에 기존 `master-data` 일부 소스의 UTF-8 인코딩 진단이 섞여 출력됨. Gradle 결과는 성공이지만, 별도 인코딩 정리 작업으로 분리하는 것이 안전함.
+

@@ -65,7 +65,7 @@
 4. `payable/src/main/java/com/ho/account/expenditure/domain/Payable.java`
 5. `payable/src/main/java/com/ho/account/expenditure/domain/Payment.java`
 6. `payable/src/main/java/com/ho/account/expenditure/domain/AdvancePayment.java`
-7. `payable/src/main/java/com/ho/account/expenditure/service/PayableSourceDocumentProvider.java`
+7. `payable/src/main/java/com/ho/account/expenditure/adapter/out/source/PayableSourceDocumentProvider.java`
 
 ## 6. 자주 헷갈리는 지점
 
@@ -84,9 +84,9 @@
 - `create -> request -> approve`까지만 호출한다.
 - 전기까지 자동으로 마무리되지는 않는다.
 
-### 6.4 드릴다운 source type 값은 점검이 필요하다
+### 6.4 드릴다운 source type 값은 호환된다
 
-- 공급자 구현과 전표 생성 쪽 `lineageSourceType` 값이 다르게 보인다.
+- 공급자는 전표 생성 쪽 `PURCHASE_INVOICE`와 기존 연계 타입 `P2P_AP`를 함께 지원한다.
 
 ## 7. 체크리스트
 

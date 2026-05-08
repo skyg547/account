@@ -11,7 +11,6 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,15 +52,7 @@ class ExpenditureResolutionServiceTest {
 
     @Test
     void createResolutionWithPurchaseTaxInvoiceSavesResolution() {
-        ExpenditureResolutionService service = new ExpenditureResolutionService(
-                resolutionPersistencePort,
-                journalUseCase,
-                accountSubjectPersistencePort,
-                departmentPersistencePort,
-                businessPartnerPersistencePort,
-                budgetService,
-                assetRegistrationPort,
-                taxInvoiceQueryPort);
+        ExpenditureResolutionService service = createService();
 
         LocalDate resolutionDate = LocalDate.of(2026, 4, 29);
         ExpenditureResolutionRequestDto request = createRequest(resolutionDate);
@@ -78,14 +69,9 @@ class ExpenditureResolutionServiceTest {
         expenseAccount.setCode("EXP001");
         expenseAccount.setName("수선비");
 
-        BusinessPartner partner = new BusinessPartner();
-        partner.setBusinessPartnerCode("BP001");
-        partner.setBusinessPartnerName("테스트거래처");
-
-        when(departmentPersistencePort.findByCode("D001")).thenReturn(Optional.of(department));
+        when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(department));
         when(accountSubjectPersistencePort.findByCode("PAY001")).thenReturn(Optional.of(paymentAccount));
         when(accountSubjectPersistencePort.findByCode("EXP001")).thenReturn(Optional.of(expenseAccount));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("BP001")).thenReturn(Optional.of(partner));
         when(taxInvoiceQueryPort.findById(10L)).thenReturn(Optional.of(new TaxInvoiceRef(10L, "TX-10", "PURCHASE")));
         when(resolutionPersistencePort.findByResolutionDate(resolutionDate)).thenReturn(List.of());
         when(resolutionPersistencePort.save(any(ExpenditureResolution.class)))
@@ -104,15 +90,7 @@ class ExpenditureResolutionServiceTest {
 
     @Test
     void createResolutionWithSalesTaxInvoiceThrows() {
-        ExpenditureResolutionService service = new ExpenditureResolutionService(
-                resolutionPersistencePort,
-                journalUseCase,
-                accountSubjectPersistencePort,
-                departmentPersistencePort,
-                businessPartnerPersistencePort,
-                budgetService,
-                assetRegistrationPort,
-                taxInvoiceQueryPort);
+        ExpenditureResolutionService service = createService();
 
         ExpenditureResolutionRequestDto request = createRequest(LocalDate.of(2026, 4, 29));
 
@@ -124,7 +102,7 @@ class ExpenditureResolutionServiceTest {
         paymentAccount.setCode("PAY001");
         paymentAccount.setName("보통예금");
 
-        when(departmentPersistencePort.findByCode("D001")).thenReturn(Optional.of(department));
+        when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(department));
         when(accountSubjectPersistencePort.findByCode("PAY001")).thenReturn(Optional.of(paymentAccount));
         when(taxInvoiceQueryPort.findById(10L)).thenReturn(Optional.of(new TaxInvoiceRef(10L, "TX-10", "SALES")));
 
@@ -149,5 +127,17 @@ class ExpenditureResolutionServiceTest {
         detail.setDescription("세금계산서 검증 테스트");
         request.setDetails(List.of(detail));
         return request;
+    }
+
+    private ExpenditureResolutionService createService() {
+        return new ExpenditureResolutionService(
+                resolutionPersistencePort,
+                journalUseCase,
+                accountSubjectPersistencePort,
+                departmentPersistencePort,
+                businessPartnerPersistencePort,
+                budgetService,
+                assetRegistrationPort,
+                taxInvoiceQueryPort);
     }
 }

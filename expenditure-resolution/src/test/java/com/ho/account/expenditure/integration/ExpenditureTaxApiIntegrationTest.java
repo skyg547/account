@@ -2,8 +2,13 @@ package com.ho.account.expenditure.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.contracts.asset.AssetRegistrationPort;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
+import com.ho.account.contracts.masterdata.DepartmentRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.adapter.in.web.APPaymentController;
 import com.ho.account.expenditure.adapter.in.web.ExpenditureController;
+import com.ho.account.expenditure.adapter.in.web.ExpenditureResolutionDtoAssembler;
 import com.ho.account.expenditure.application.port.out.APPaymentPersistencePort;
 import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPersistencePort;
 import com.ho.account.expenditure.application.service.APPaymentService;
@@ -41,6 +46,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 
@@ -112,6 +118,8 @@ class ExpenditureTaxApiIntegrationTest {
     private AssetRegistrationPort assetRegistrationPort;
     @MockBean
     private BudgetService budgetService;
+    @MockBean
+    private MasterDataQueryPort masterDataQueryPort;
 
     @BeforeEach
     void setUpMasterDataPorts() {
@@ -134,10 +142,18 @@ class ExpenditureTaxApiIntegrationTest {
         businessPartnerRepository.deleteAll();
         BusinessPartner persistedPartner = businessPartnerRepository.save(partner);
 
-        when(departmentPersistencePort.findByCode("D001")).thenReturn(Optional.of(department));
+        when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(department));
         when(accountSubjectPersistencePort.findByCode("PAY001")).thenReturn(Optional.of(paymentAccount));
         when(accountSubjectPersistencePort.findByCode("EXP001")).thenReturn(Optional.of(expenseAccount));
         when(businessPartnerPersistencePort.findByBusinessPartnerCode("BP001")).thenReturn(Optional.of(persistedPartner));
+        when(masterDataQueryPort.findDepartment("D001"))
+                .thenReturn(Optional.of(new DepartmentRef("D001", "재무팀", null)));
+        when(masterDataQueryPort.findAccountSubject("PAY001"))
+                .thenReturn(Optional.of(new AccountSubjectRef("PAY001", "보통예금", false, false)));
+        when(masterDataQueryPort.findAccountSubject("EXP001"))
+                .thenReturn(Optional.of(new AccountSubjectRef("EXP001", "복리후생비", false, false)));
+        when(masterDataQueryPort.findBusinessPartner("BP001"))
+                .thenReturn(Optional.of(new BusinessPartnerRef("BP001", "테스트거래처", "VENDOR", true)));
         when(journalUseCase.createJournalEntry(any())).thenAnswer(invocation -> {
             JournalEntry entry = invocation.getArgument(0);
             entry.setId(100L);
@@ -250,6 +266,7 @@ class ExpenditureTaxApiIntegrationTest {
             TaxInvoicePersistenceAdapter.class,
             TaxInvoiceQueryAdapter.class,
             ExpenditureController.class,
+            ExpenditureResolutionDtoAssembler.class,
             APPaymentController.class,
             ExpenditureResolutionService.class,
             APPaymentService.class,
@@ -269,10 +286,7 @@ class ExpenditureTaxApiIntegrationTest {
                 @Override
                 public ExpenditureResolution save(ExpenditureResolution resolution) {
                     if (resolution.getId() == null) {
-                        resolution.setId(sequence.incrementAndGet());
-                    }
-                    if (resolution.getStatus() == null) {
-                        resolution.setStatus(ExpenditureResolutionStatus.DRAFT);
+                        ReflectionTestUtils.setField(resolution, "id", sequence.incrementAndGet());
                     }
                     store.put(resolution.getId(), resolution);
                     return resolution;
