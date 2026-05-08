@@ -71,9 +71,9 @@ public class ExpenditureResolutionDto {
                 resolution.getResolutionDate(),
                 resolution.getPaymentDate(),
                 resolution.getDeptCode(),
-                null, // departmentName is not available in the decoupled domain
+                null, 
                 resolution.getPaymentAccountCode(),
-                null, // paymentAccountName is not available in the decoupled domain
+                null, 
                 resolution.getTotalAmount(),
                 resolution.getStatus() != null ? resolution.getStatus().name() : null,
                 resolution.getRejectionReason(),
@@ -109,12 +109,20 @@ public class ExpenditureResolutionDto {
         return departmentName;
     }
 
+    public void setDepartmentName(String departmentName) {
+        this.departmentName = departmentName;
+    }
+
     public String getPaymentAccountCode() {
         return paymentAccountCode;
     }
 
     public String getPaymentAccountName() {
         return paymentAccountName;
+    }
+
+    public void setPaymentAccountName(String paymentAccountName) {
+        this.paymentAccountName = paymentAccountName;
     }
 
     public BigDecimal getTotalAmount() {
@@ -171,10 +179,10 @@ public class ExpenditureResolutionDto {
             return new ExpenditureDetailDto(
                     detail.getId(),
                     detail.getAccountCode(),
-                    null, // accountSubjectName is not available in the decoupled domain
+                    null, 
                     detail.getAmount(),
                     detail.getBusinessPartnerCode(),
-                    null, // businessPartnerName is not available in the decoupled domain
+                    null, 
                     detail.getDescription());
         }
 
@@ -190,6 +198,10 @@ public class ExpenditureResolutionDto {
             return accountSubjectName;
         }
 
+        public void setAccountSubjectName(String accountSubjectName) {
+            this.accountSubjectName = accountSubjectName;
+        }
+
         public BigDecimal getAmount() {
             return amount;
         }
@@ -200,6 +212,10 @@ public class ExpenditureResolutionDto {
 
         public String getBusinessPartnerName() {
             return businessPartnerName;
+        }
+
+        public void setBusinessPartnerName(String businessPartnerName) {
+            this.businessPartnerName = businessPartnerName;
         }
 
         public String getDescription() {

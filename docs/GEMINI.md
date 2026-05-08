@@ -44,3 +44,13 @@ To build, run, and test the project, use the following Gradle commands:
 *   **Transaction Management:** `@Transactional` annotation is consistently applied to service methods to define transactional boundaries.
 *   **Slowly Changing Dimensions (SCD2):** For master data like `AccountSubject`, validity periods (`validFrom`, `validTo`) are managed to implement SCD2 principles, allowing for historical tracking of changes.
 *   **Code Structure:** Packages are organized by feature domain (e.g., `basic`, `asset`, `journal`, `expenditure`).
+
+## Gemini Role In This Repository
+
+Gemini's default role is independent review, not implementation.
+
+*   Codex is the primary owner for implementation, test fixes, documentation updates, and final verification.
+*   Gemini reviews Codex changes and reports defects, regressions, missing tests, architectural violations, and documentation mismatches.
+*   Gemini should not modify code unless the user explicitly asks Gemini to implement.
+*   Gemini should use the root `GEMINI_REVIEW_PROMPT.md` as the handoff prompt for review tasks.
+*   Review output should list findings first, ordered by severity, with file and line references.

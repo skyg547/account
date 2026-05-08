@@ -8,11 +8,13 @@ import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersist
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * ?��?�懰??�덉????�씠?�뿉 ??????��??�뒪 ��??��???�뒗 ??�퉬???????�엯??�떎.
+ * 계정과목(Account Subject) 마스터 데이터를 관리하는 서비스 클래스입니다.
+ * SCD2(Slowly Changing Dimension Type 2) 원칙을 적용하여 데이터 변경 이력을 관리합니다.
  */
 @Service
 @Transactional
@@ -25,20 +27,21 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ??�줈???��?�懰?????�꽦??�땲??
-     * @param requestDto ??�꽦???��?�懰???���� ??�� DTO
-     * @return ?????��?�懰??????
+     * 새로운 계정과목을 생성합니다.
+     * @param command 생성할 계정과목 정보
+     * @return 생성된 계정과목 객체
      */
+    @Override
     public AccountSubject createAccountSubject(AccountSubjectCommand command) {
-        if (accountSubjectPersistencePort.existsByCode(command.code())) {
-            throw new IllegalArgumentException("??? �댁???�뒗 ?��???�붾??�땲?? " + command.code());
+        if (accountSubjectPersistencePort.findByCode(command.code()).isPresent()) {
+            throw new IllegalArgumentException("이미 해당 시점에 활성화된 계정과목 코드가 존재합니다: " + command.code());
         }
 
         AccountSubject accountSubject = command.toEntity();
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("?�쐞 ?��???��??????�뒿??�떎. ?�붾? " + command.parentCode()));
+                    .orElseThrow(() -> new IllegalArgumentException("상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
             accountSubject.setParent(parent);
         }
 
@@ -48,19 +51,21 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ?�붾�濡?????��?�懰???�고???�땲??
-     * @param code �고????��???�붾?
+     * 코드로 현재 활성화된 계정과목을 조회합니다.
+     * @param code 조회할 계정코드
      * @return Optional<AccountSubject>
      */
+    @Override
     @Transactional(readOnly = true)
     public Optional<AccountSubject> findAccountSubjectByCode(String code) {
         return accountSubjectPersistencePort.findByCode(code);
     }
 
     /**
-     * ?�� ??�젏(today)???�슚??�⑤??��?�懰???�고???�땲??
-     * @return ?�슚???��?�懰???�ъ뒪??
+     * 현재 시점(today)에 유효한 모든 계정과목을 조회합니다.
+     * @return 유효한 계정과목 리스트
      */
+    @Override
     @Transactional(readOnly = true)
     public List<AccountSubject> findAllActiveAccountSubjects() {
         return accountSubjectPersistencePort.findAll().stream()
@@ -69,44 +74,66 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     }
 
     /**
-     * ?��?�懰???��????�젙??�땲??
-     * @param code ??�젙???��???�붾?
-     * @param requestDto ??�젙????�슜????�� DTO
-     * @return ??�젙???��?�懰??????
+     * 계정과목 정보를 수정합니다. (SCD2 적용)
+     * 기존 이력을 종료하고 새로운 버전의 행을 생성합니다.
+     * @param code 수정할 계정코드
+     * @param command 수정할 내용
+     * @return 새롭게 생성된 계정과목 버전 객체
      */
+    @Override
     public AccountSubject updateAccountSubject(String code, AccountSubjectCommand command) {
-        AccountSubject account = accountSubjectPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("?��?�懰???��??????�뒿??�떎. ?�붾? " + code));
+        AccountSubject currentActive = accountSubjectPersistencePort.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
+
+        // SCD2: 기존 활성 버전 종료
+        LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
+        
+        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
+            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
+        }
+        
+        currentActive.terminate(oldValidTo);
+        accountSubjectPersistencePort.save(currentActive);
+
+        // SCD2: 새로운 버전 생성
+        AccountSubject newVersion = command.toEntity();
+        newVersion.setCode(code); // 코드는 동일하게 유지
 
         if (command.hasParentCode()) {
             AccountSubject parent = accountSubjectPersistencePort.findByCode(command.parentCode())
-                    .orElseThrow(() -> new IllegalArgumentException("?�쐞 ?��???��??????�뒿??�떎. ?�붾? " + command.parentCode()));
-            account.setParent(parent);
+                    .orElseThrow(() -> new IllegalArgumentException("상위 계정과목을 찾을 수 없습니다. 코드: " + command.parentCode()));
+            newVersion.setParent(parent);
         } else {
-            account.setParent(null);
+            newVersion.setParent(null);
+        }
+        
+        newVersion.setValidFrom(newValidFrom);
+        if (command.validTo() != null) {
+            newVersion.setValidTo(command.validTo());
+        } else {
+            newVersion.setValidTo(LocalDate.of(9999, 12, 31));
         }
 
-        account.setName(command.name());
-        account.setCategory(command.category());
-        account.setBalanceType(command.balanceType());
-        account.setReportLine(command.reportLine());
-        account.setUnsettled(command.unsettled());
-        account.setFixedAsset(command.fixedAsset());
-
-        return accountSubjectPersistencePort.save(account);
+        return accountSubjectPersistencePort.save(newVersion);
     }
 
     /**
-     * ????��?�懰?????��??�솕??�땲?? (??�━??????
-     * @param code ??��??�솕???��???�붾?
+     * 계정과목을 비활성화합니다. (현재 버전을 오늘 날짜로 종료)
+     * @param code 비활성화할 계정코드
      */
+    @Override
     public void deactivateAccountSubject(String code) {
         AccountSubject account = accountSubjectPersistencePort.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("?��?�懰???��??????�뒿??�떎. ?�붾? " + code));
+                .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
         MasterDataValidityPolicy.closeIfActive(account::getValidTo, account::setValidTo);
         accountSubjectPersistencePort.save(account);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountSubject> getAllAccountSubjects() {
+        return accountSubjectPersistencePort.findAll();
+    }
 }
-
-

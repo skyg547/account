@@ -269,12 +269,100 @@ public class LedgerService {
     }
 
     private void updateDailyBalances(LocalDate date, List<JournalDetail> details) {
-        // 이 날짜의 GL/SL Balance를 한 번에 조회하여 Map에 캐싱
-        // (실제 대량 처리 시에는 PersistenceContext 내에서 관리되므로 JPA 1차 캐시 활용 가능)
+        // 1. GL Balance 집계 및 반영
+        Map<String, BigDecimal> glDebitMap = new LinkedHashMap<>();
+        Map<String, BigDecimal> glCreditMap = new LinkedHashMap<>();
+        Map<String, GlBalanceKey> glKeys = new LinkedHashMap<>();
+
+        // 2. SL Balance 집계 및 반영
+        Map<String, BigDecimal> slDebitMap = new LinkedHashMap<>();
+        Map<String, BigDecimal> slCreditMap = new LinkedHashMap<>();
+        Map<String, SlBalanceKey> slKeys = new LinkedHashMap<>();
+
         for (JournalDetail detail : details) {
-            updateLedgerBalances(detail, date);
+            AccountSubject account = detail.getAccountSubject();
+            Currency currency = detail.getJournalEntry().getCurrency();
+            BigDecimal amount = detail.getBaseAmount();
+            boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
+
+            // GL Key
+            String glKeyStr = account.getCode() + "|" + currency.getCode();
+            glKeys.putIfAbsent(glKeyStr, new GlBalanceKey(account, currency));
+            if (isDebit) {
+                glDebitMap.merge(glKeyStr, amount, BigDecimal::add);
+            } else {
+                glCreditMap.merge(glKeyStr, amount, BigDecimal::add);
+            }
+
+            // SL Key
+            BusinessPartner partner = detail.getBusinessPartner();
+            Department dept = detail.getDepartment();
+            String slKeyStr = glKeyStr + "|" + (partner != null ? partner.getBusinessPartnerCode() : "NULL") + "|" + (dept != null ? dept.getCode() : "NULL");
+            slKeys.putIfAbsent(slKeyStr, new SlBalanceKey(account, partner, dept, currency));
+            if (isDebit) {
+                slDebitMap.merge(slKeyStr, amount, BigDecimal::add);
+            } else {
+                slCreditMap.merge(slKeyStr, amount, BigDecimal::add);
+            }
+        }
+
+        // GL 반영
+        for (Map.Entry<String, GlBalanceKey> entry : glKeys.entrySet()) {
+            GlBalanceKey key = entry.getValue();
+            BigDecimal debitSum = glDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            BigDecimal creditSum = glCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            updateGlBalanceWithSums(key.account(), key.currency(), debitSum, creditSum, date);
+        }
+
+        // SL 반영
+        for (Map.Entry<String, SlBalanceKey> entry : slKeys.entrySet()) {
+            SlBalanceKey key = entry.getValue();
+            BigDecimal debitSum = slDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            BigDecimal creditSum = slCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            updateSlBalanceWithSums(key.account(), key.partner(), key.dept(), key.currency(), debitSum, creditSum, date);
         }
     }
+
+    private void updateGlBalanceWithSums(AccountSubject account, Currency currency, BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
+        YearMonth period = YearMonth.from(date);
+        GlBalance glBalance = glBalanceRepository.findByAccountSubjectAndCurrencyAndBalanceDateAndPeriod(account, currency, date, period)
+                .orElseGet(() -> {
+                    GlBalance newBal = new GlBalance();
+                    newBal.setAccountSubject(account);
+                    newBal.setCurrency(currency);
+                    newBal.setBalanceDate(date);
+                    newBal.setPeriod(period);
+                    glBalanceRepository.findFirstByAccountSubjectAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(account, currency, date)
+                            .ifPresent(prev -> newBal.setBeginningBalance(prev.getEndingBalance()));
+                    return newBal;
+                });
+        glBalance.addDebit(debitSum);
+        glBalance.addCredit(creditSum);
+        glBalanceRepository.save(glBalance);
+    }
+
+    private void updateSlBalanceWithSums(AccountSubject account, BusinessPartner partner, Department dept, Currency currency, BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
+        YearMonth period = YearMonth.from(date);
+        SlBalance slBalance = slBalanceRepository.findByAccountSubjectAndBusinessPartnerAndDepartmentAndCurrencyAndBalanceDateAndPeriod(account, partner, dept, currency, date, period)
+                .orElseGet(() -> {
+                    SlBalance newBal = new SlBalance();
+                    newBal.setAccountSubject(account);
+                    newBal.setBusinessPartner(partner);
+                    newBal.setDepartment(dept);
+                    newBal.setCurrency(currency);
+                    newBal.setBalanceDate(date);
+                    newBal.setPeriod(period);
+                    slBalanceRepository.findFirstByAccountSubjectAndBusinessPartnerAndDepartmentAndCurrencyAndBalanceDateBeforeOrderByBalanceDateDesc(account, partner, dept, currency, date)
+                            .ifPresent(prev -> newBal.setBeginningBalance(prev.getEndingBalance()));
+                    return newBal;
+                });
+        slBalance.addDebit(debitSum);
+        slBalance.addCredit(creditSum);
+        slBalanceRepository.save(slBalance);
+    }
+
+    private record GlBalanceKey(AccountSubject account, Currency currency) {}
+    private record SlBalanceKey(AccountSubject account, BusinessPartner partner, Department dept, Currency currency) {}
 
     /**
      * GL Balance 목록을 조회하고 집계합니다.

@@ -25,14 +25,14 @@ public class ExpenditureController {
     @PostMapping
     public ResponseEntity<ExpenditureResolutionDto> createResolution(
             @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
                 expenditureResolutionUseCase.createResolution(requestDto)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ExpenditureResolutionDto> updateResolution(
             @PathVariable("id") Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
-        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
                 expenditureResolutionUseCase.updateResolution(id, requestDto)));
     }
 
@@ -58,14 +58,13 @@ public class ExpenditureController {
     public List<ExpenditureResolutionDto> getResolutions(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return expenditureResolutionUseCase.getResolutionsByDate(startDate, endDate).stream()
-                .map(ExpenditureResolutionDto::fromEntity)
-                .toList();
+        return expenditureResolutionUseCase.toDtoList(
+                expenditureResolutionUseCase.getResolutionsByDate(startDate, endDate));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ExpenditureResolutionDto> getResolution(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(ExpenditureResolutionDto.fromEntity(
+        return ResponseEntity.ok(expenditureResolutionUseCase.toDto(
                 expenditureResolutionUseCase.getResolution(id)));
     }
 }

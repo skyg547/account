@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,21 +71,35 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public Department updateDepartment(String code, DepartmentCommand command) {
-        Department department = departmentPersistencePort.findActiveByCode(code)
+        Department currentActive = departmentPersistencePort.findActiveByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
 
-        // 단순 필드 업데이트 (실제 SCD2 적용 시에는 이력을 종료하고 신규 행 생성 프로세스가 필요할 수 있음)
-        department.setName(command.name());
+        // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
+        LocalDate newValidFrom = command.validFrom();
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
+        
+        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
+            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
+        }
+        
+        currentActive.terminate(oldValidTo);
+        departmentPersistencePort.save(currentActive);
+
+        // SCD2: 새로운 버전 생성
+        Department newVersion = new Department();
+        newVersion.setCode(code);
+        newVersion.setName(command.name());
+        
         if (command.parentCode() != null) {
             Department parent = departmentPersistencePort.findActiveByCode(command.parentCode())
                     .orElseThrow(() -> new IllegalArgumentException("상위 부서를 찾을 수 없습니다: " + command.parentCode()));
-            department.setParent(parent);
+            newVersion.setParent(parent);
         }
         
-        department.setValidFrom(command.validFrom());
-        department.setValidTo(command.validTo());
+        newVersion.setValidFrom(newValidFrom);
+        newVersion.setValidTo(command.validTo());
 
-        return departmentPersistencePort.save(department);
+        return departmentPersistencePort.save(newVersion);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,12 @@ public class JournalEntryService implements JournalUseCase {
      * 예: "매입 이벤트" → 매입채무 차변/대변 자동 분개
      */
     private final JournalRuleEngine journalRuleEngine;
+
+    /**
+     * 전기 서비스 (Posting Service).
+     * 전표 승인 후 실제 원장(GL/SL)에 반영하는 역할을 담당합니다.
+     */
+    private final PostingService postingService;
 
     /**
      * 전표를 수동으로 생성합니다.
@@ -241,6 +248,10 @@ public class JournalEntryService implements JournalUseCase {
 
         // 3. 변경된 상태를 저장
         journalPersistencePort.save(entry);
+
+        // 4. 원장 반영 수행 (PostingService 호출)
+        // [중요] 상태 변경과 원장 반영이 하나의 트랜잭션 내에서 원자적으로 처리되도록 보장합니다.
+        postingService.postJournalEntry(id);
     }
 
     @Override

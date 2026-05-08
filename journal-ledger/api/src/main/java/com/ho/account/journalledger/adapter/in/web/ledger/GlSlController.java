@@ -47,15 +47,6 @@ public class GlSlController {
     }
 
     /**
-     * 전표 원장 전기 (Posting)
-     */
-    @PostMapping("/post/{journalEntryId}")
-    public ResponseEntity<String> postJournalEntry(@PathVariable Long journalEntryId) {
-        postingService.postJournalEntry(journalEntryId);
-        return ResponseEntity.ok("Successfully posted journal entry: " + journalEntryId);
-    }
-
-    /**
      * GL 원장 잔액 조회 (계정 x 기간)
      */
     @GetMapping("/gl/balances")

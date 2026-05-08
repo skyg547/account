@@ -16,5 +16,7 @@ public interface AccountSubjectUseCase {
     AccountSubject updateAccountSubject(String code, AccountSubjectCommand command);
 
     void deactivateAccountSubject(String code);
+
+    List<AccountSubject> getAllAccountSubjects();
 }
 

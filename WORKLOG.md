@@ -216,10 +216,19 @@
 ### [QA] 전사 모듈 컴파일 검수 완료
 - **빌드 성공 확인**: `:expenditure-resolution`, `:master-data`, `:journal-ledger:core`, `:receivable` 등 주요 모듈의 `compileJava` 성공 확인.
 
+### 📅 2026-05-08 (오전)
+### [백엔드] 원장 성능 최적화 및 마스터 데이터 SCD2 고도화 완수
+- **원장 잔액 갱신 성능 최적화 (Critical Performance Fix)**: `LedgerService`의 `updateLedgerBalancesBulk` 메서드가 일별 그룹화 후에도 상세 라인별로 DB 조회/저장을 반복하던 N+1 문제를 해결. 메모리 내 일별 집계 후 배치 처리 방식으로 개선하여 대량 전표 전기 시의 성능을 획기적으로 향상시킴.
+- **마스터 데이터 SCD2 로직 정석화**: `Department` 및 `AccountSubject` 정보를 수정할 때 단순 필드 업데이트 대신, 기존 이력을 종료(terminate)하고 새로운 이력 행을 생성하는 SCD2(Slowly Changing Dimension Type 2) 프로세스를 `DepartmentService`와 `AccountSubjectService`에 완벽히 구현.
+- **코드 품질 및 인코딩 개선**: `AccountSubjectService` 내의 문자열 인코딩 깨짐 현상을 해결하고 한글 주석을 보강하여 가독성 향상.
+
+### [QA]
+- **컴파일 검수**: `journal-ledger`, `master-data` 모듈의 리팩토링 후 컴파일 정합성 확인 완료.
+
 **NEXT STEPS (다음 담당자):**
-1. **[백엔드] SCD2 시점 조회 테스트**: 과거 시점의 부서 및 계정과목 정보가 올바르게 매핑되는지 시나리오 테스트 수행.
-2. **[모델러] 기준정보 확장**: 환율(ExchangeRate) 및 세무 프로파일(TaxProfile)의 상세 UI 연동을 위한 API 명세 확정.
-3. **[프론트] 마스터 데이터 관리 화면**: SCD2가 적용된 부서/계정 정보를 기간별로 조회할 수 있는 타임라인 UI 기획 및 구현.
+1. **[백엔드] 금융 상품 마스터(Product Master) SCD2 적용**: 부서/계정과목과 동일한 방식으로 상품 마스터에도 SCD2 이력 관리 로직 반영.
+2. **[백엔드] 전표/룰 엔진 검증 로직 강화**: 차대일치, 계정유효성, 마감잠금 등 전표 생성 시의 검증 필터 고도화.
+3. **[프론트] SCD2 타임라인 조회 UI**: 마스터 데이터의 변경 이력을 기간별로 확인할 수 있는 사용자 화면 구현.
 
 ### 📅 2026-05-06 (모듈 순차 검수 - Codex)
 ### [검수] DDD/헥사고날/주석/재무흐름 관점 재점검
@@ -298,4 +307,96 @@
   - **Medium**: `governance`의 `AuditController`가 도메인 엔티티 직접 반환 + `Map<String, String>` 요청 바디 사용
   - **Medium**: `Product`/`Department`의 SCD2 선언과 서비스 직접 업데이트 방식 간 간극 지속
 - **상세 라인 리뷰**: `MODULE_REVIEW_2026-05-06.md` 8장에 추가 기록
+
+### 📅 2026-05-06 (전수 검수 2차 - Codex)
+### [검수] 회계 엔진 계층 점검
+- **검수 범위**:
+  - `journal-ledger`
+  - `closing`
+  - `reconciliation`
+  - `reporting`
+- **사전 확인 문서**:
+  - 각 모듈 `README.md` 또는 `docs/README.md`
+  - 각 모듈 `docs/beginner-guide.md`
+  - 각 모듈 `docs/process-flow.md`
+  - 각 모듈 `docs/schema.md`
+  - `journal-ledger/docs/ledger-carry-forward.md`
+  - `reporting/docs/architecture.md`
+  - `reporting/docs/external_reporting_guide.md`
+- **재검증 실행**:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:compileJava :closing:core:test :closing:api:compileJava :closing:batch:compileJava :reconciliation:compileJava :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain`
+  - `.\gradlew :journal-ledger:api:test :journal-ledger:batch:compileJava :closing:core:test :closing:api:compileJava :closing:batch:compileJava :reconciliation:compileJava :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain`
+  - `.\gradlew :journal-ledger:batch:compileJava :closing:core:test :closing:api:compileJava :closing:batch:compileJava :reconciliation:compileJava :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain`
+  - `.\gradlew :closing:api:compileJava :closing:batch:compileJava :reconciliation:compileJava :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain`
+- **재검증 결과**:
+  - `journal-ledger:core` 메인 코드는 컴파일되지만 테스트 소스 컴파일 실패
+  - `journal-ledger:api` 컴파일 실패 (`DepartmentPersistencePort.findByCode` 잔존)
+  - `journal-ledger:batch` 컴파일 성공
+  - `closing:core` 테스트 실패
+  - `closing:api`, `closing:batch` 컴파일 성공
+  - `reconciliation` 컴파일 성공
+  - `reporting:core`, `reporting:api`, `reporting:batch` 테스트 성공
+- **핵심 발견 사항**:
+  - **Critical**: `journal-ledger`에 같은 의미의 `post` API가 두 개 존재하지만 회계 효과가 다름. `/api/journals/{id}/post`는 상태만 `POSTED`로 바꾸고, `/api/ledger/post/{journalEntryId}`만 GL/SL 엔트리와 잔액을 생성
+  - **High**: `journal-ledger:api`가 `DepartmentPersistencePort.findByCode` 호출 잔존으로 현재 빌드 불가
+  - **High**: `closing:core`의 `determineClosingStatus`가 테스트 계약과 어긋나고 `calendar.getStatus().name()`에서 null 상태 NPE 가능
+  - **High**: `reconciliation`은 아직 `journal-ledger` 내부 Repository/Entity를 직접 의존하고, 실제 대사 금액 대신 더미 값(`1000.00`, `950.00`)으로 결과를 생성
+  - **Medium**: `closing` 자동 분개는 더미 계정 `999998`, `999999`를 그대로 사용
+  - **Medium**: `reporting`은 테스트는 통과하지만 실제 원장 연동 대신 목업 잔액/과거보고서로 단일 라인(`ASSET_CASH`)만 생성
+  - **Medium**: `closing`, `reconciliation` 도메인/서비스 소스에 문자열 인코딩 깨짐이 여전히 다수 존재
+- **참고 사항**:
+  - 워킹트리의 추적되지 않은 `fix_bom.py`는 이번 2차 검수 범위에서 제외
+- **상세 라인 리뷰**: `MODULE_REVIEW_2026-05-06.md` 9장에 추가 기록
+
+### 📅 2026-05-08 (전수 검수 3차 - Codex)
+### [검수] 업무 서브레저/ERP·Banking 계층 점검
+- **검수 범위**:
+  - `tax`
+  - `payable`
+  - `receivable`
+  - `expenditure-resolution`
+  - `asset-lease`
+  - `loan:core`, `loan:api`, `loan:batch`
+  - 연관 변경분: `contracts`의 `LeasePaymentResolutionCommand`, `master-data` SCD2 변경분 일부
+- **사전 확인 문서**:
+  - 각 모듈 `README.md` 또는 `docs/README.md`
+  - 각 모듈 `docs/beginner-guide.md`, `docs/process-flow.md`, `docs/schema.md`
+  - `docs/loan_accounting.md`
+  - `docs/db/README.md`
+- **재검증 실행**:
+  - `.\gradlew :contracts:compileJava --console=plain`
+  - `.\gradlew :tax:test --console=plain --max-workers=1`
+  - `.\gradlew :payable:test --console=plain --max-workers=1`
+  - `.\gradlew :receivable:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :expenditure-resolution:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:core:compileJava :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :tax:compileJava :receivable:test :asset-lease:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 성공: `contracts:compileJava`, `tax:compileJava`, `payable:test`, `receivable:compileJava`, `receivable:test`, `asset-lease:compileJava`, `asset-lease:test`, `loan:core/api/batch:compileJava`
+  - 실패: `tax:test`, `expenditure-resolution:test`
+- **핵심 발견 사항**:
+  - **High**: `tax` 테스트가 도메인 setter 제거 후에도 `setSupplyAmount/setTaxAmount/setTotalAmount`를 호출해 테스트 소스 컴파일이 불가
+  - **High**: `expenditure-resolution` 테스트가 현재 서비스 생성자, `DepartmentPersistencePort.findActiveByCode`, protected 도메인 생성 정책을 반영하지 못해 테스트 소스 컴파일이 불가
+  - **High**: 리스 지급 결의 보완으로 차/대 계정은 분리됐지만, `asset-lease`는 월 지급 결의 차변에 여전히 계약의 비용계정 전체 금액을 사용해 IFRS16 원금/이자 분리와 맞지 않을 수 있음
+  - **Medium**: `ExpenditureResolutionUseCase`가 DTO 변환 메서드까지 포함해 인바운드 유스케이스 포트가 웹 응답 조립 책임을 함께 갖게 됨
+  - **Medium**: `payable`/`receivable` 문서는 `SourceDocumentProvider` 기반 드릴다운을 설명하지만 현재 구현체가 확인되지 않아 전표 원천 추적이 문서와 다름
+  - **Medium**: `loan`은 컴파일되지만 테스트 소스가 없고, `Loan`/`LoanContract` 병행 모델 및 직접 전표 저장 경로가 남아 있어 DoD 재현을 회귀 검증하기 어려움
+- **참고 사항**:
+  - 검수 중 워킹트리에 다른 변경이 추가로 감지되어 기존 변경은 되돌리지 않고 현재 기준 결과만 기록함
+  - 상세 라인 리뷰는 `MODULE_REVIEW_2026-05-06.md` 10장에 추가 기록
+
+### 📅 2026-05-08 (AI 협업 역할 정리 - Codex)
+### [문서/운영] Codex 구현 주도, Gemini 독립 리뷰 체계 정리
+- **역할 분담 확정**:
+  - Codex: 구현/수정/테스트 보강/문서 갱신/최종 검증 담당.
+  - Gemini: Codex 변경분에 대한 독립 코드 리뷰 담당.
+- **설정 문서 갱신**:
+  - `Agents.md`: Codex Implementation Owner Role 추가.
+  - `GEMINI.md`: Gemini 기본 역할을 구현자가 아닌 독립 리뷰어로 조정.
+  - `docs/GEMINI.md`: Gemini 리뷰 역할 설명 추가.
+- **리뷰 핸드오프 문서 추가**:
+  - `GEMINI_REVIEW_PROMPT.md` 신규 생성.
+  - Gemini에게 그대로 전달할 리뷰 프롬프트, 검수 기준, 출력 형식, 현재 알려진 이슈를 정리.
+- **검증**:
+  - 문서/운영 지침 변경만 수행했으며 별도 빌드/테스트는 실행하지 않음.
 

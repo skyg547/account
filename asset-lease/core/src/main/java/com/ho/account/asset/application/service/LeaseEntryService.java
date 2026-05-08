@@ -196,12 +196,15 @@ public class LeaseEntryService implements LeaseUseCase {
     }
 
     private void createLeaseExpenditure(LeaseContract contract, LocalDate date) {
+        // IFRS 16 리스료 지급 결의: 차변(리스부채 또는 리스비용), 대변(미지급금)
+        // creditAccountCode는 시스템 표준인 '21100'(미지급금)을 기본값으로 사용
         leasePaymentResolutionPort.createLeasePaymentResolution(new LeasePaymentResolutionCommand(
                 "리스료 지급 " + contract.getContractName(),
                 date,
                 date,
                 contract.getDepartmentCode(),
-                contract.getExpenseAccountCode(),
+                contract.getExpenseAccountCode(), // 차변: 리스부채 또는 비용 계정
+                "21100",                         // 대변: 미지급금 (표준)
                 contract.getLessorCode(),
                 contract.getMonthlyPayment(),
                 "월 리스료"
