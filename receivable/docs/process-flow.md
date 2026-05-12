@@ -1,135 +1,49 @@
-# receivable process flow
+# Receivable Process Flow
 
-## 1. 이 모듈이 하는 일
+## 1. 이 모듈이 하는 일 (Hexagonal Architecture 중심)
 
-`receivable`은 매출을 채권으로 인식하고, 돈이 들어오면 수납을 기록하고, 미수채권과 매칭하는 모듈이다.
+이 모듈은 매출 발생부터 채권 회수까지의 과정을 헥사고날 아키텍처(Ports and Adapters) 원칙에 따라 처리합니다.
+내부 도메인 로직은 외부(웹, DB, 타 도메인)와 완벽히 격리되어 있습니다.
 
 핵심 책임:
-
-- 매출 인보이스 등록
-- 미수채권 생성
-- 수납 기록
-- 자동 매칭
-- 수동 매칭
-- 미매칭 수납 관리
-- 매출/수납 관련 전표 생성
+- 매출 인보이스 및 미수채권 도메인 관리
+- 수납 기록 및 자동/수동 매칭 로직 (Core Domain)
+- 원장 모듈과의 느슨한 연동 (Outbound Port 및 ID 기반 참조)
 
 ## 2. 전체 흐름도
 
 ```mermaid
 flowchart TD
-    A[SalesInvoice 등록] --> B[Receivable 생성]
-    A --> C[매출 인식 전표 생성]
-    B --> D[기일 경과]
-    D --> E[OVERDUE 상태 갱신]
-    F[Collection 수신] --> G[수납 인식 전표 생성]
-    G --> H[자동 매칭 시도]
+    A[Inbound Adapter: REST API] --> B[Sales / Collection UseCase]
+    B --> C[도메인 로직: Receivable 생성]
+    C --> D[Outbound Port: Journal 생성 요청]
+    D --> E[전표 ID 반환 및 도메인에 ID 저장]
+    
+    F[수납 Event / API] --> G[Collection UseCase]
+    G --> H[도메인 로직: 자동 매칭 엔진 실행]
     H --> I{매칭 성공?}
     I -->|예| J[Receivable 잔액 차감]
-    J --> K[매칭 전표 생성]
-    I -->|아니오| L[UnmatchedCollection 생성]
-    L --> M[수동 매칭]
-    M --> N[부분 또는 전체 해소]
+    J --> K[Outbound Port: 매칭 전표 생성 요청]
+    K --> L[전표 ID를 Receivable 이력에 저장]
+    I -->|아니오| M[UnmatchedCollection 상태로 보관]
 ```
 
-## 3. 매출 인식 흐름
+## 3. 매출 및 수납 인식 상세 흐름
 
 ### 3.1 매출 인보이스 등록
+- **Port:** `CreateSalesInvoiceUseCase`
+- **로직:** 인보이스를 도메인 엔티티로 저장하고, 동일 금액의 `Receivable`을 생성.
+- **외부 연동:** `JournalPostingPort`를 통해 매출 인식 전표를 생성하고, 리턴받은 `journalEntryId`를 JPA 엔티티에 저장합니다. (ID-based Reference)
 
-- 진입점: `POST /api/sales/invoices`
-- 서비스: `SalesService.createSalesInvoice`
+### 3.2 수납과 매칭
+- **Port:** `RecordCollectionUseCase`
+- **로직:** 은행 입금 내역을 `Collection` 도메인 엔티티로 저장.
+- 자동 매칭 시도 시 우선순위 규칙에 따라 고객의 `OPEN` 상태 채권과 대조합니다.
+- 매칭 성공 시 잔액을 줄이고 상태를 변경하며, 전표 생성 포트를 호출합니다.
+- 매칭 실패 시 `UnmatchedCollection`을 생성하여 수동 매칭 대기열로 넘깁니다.
 
-처리:
+## 4. 인프라 및 아키텍처 특징
 
-1. 고객 존재 여부 확인
-2. `SalesInvoice` 저장
-3. 동일 금액의 `Receivable` 생성
-4. 매출 인식 전표 생성
-
-생성 분개:
-
-- 차변: 매출채권 `11100`
-- 대변: 매출 `40100`
-- 대변: 부가세예수금 `22100`
-
-## 4. 수납과 매칭 흐름
-
-### 4.1 수납 수신
-
-- 진입점: `POST /api/collections`
-- 서비스: `CollectionService.receivePayment`
-
-처리:
-
-1. 고객 존재 여부 확인
-2. `Collection` 저장
-3. 수납 인식 전표 생성
-4. 자동 매칭 시도
-
-생성 분개:
-
-- 차변: 현금/예금 `10100`
-- 대변: AR Clearing `21100`
-
-### 4.2 자동 매칭
-
-- 서비스: `CollectionService.attemptAutoMatching`
-- 규칙:
-  - `REFERENCE_NO_EXACT`
-  - `CUSTOMER_CODE`
-  - `AMOUNT_EXACT`
-  - `AMOUNT_FUZZY`
-  - `VIRTUAL_ACCOUNT`
-
-현재 동작:
-
-- 우선순위가 높은 활성 규칙부터 적용
-- 고객의 `OPEN` 채권을 순회하며 일치 여부 확인
-- 성공 시 `processSuccessfulMatch` 실행
-- 실패 시 `UnmatchedCollection` 생성
-
-### 4.3 성공 매칭 후 처리
-
-- `Receivable.outstandingAmount` 감소
-- `Receivable` 상태를 `PAID` 또는 `PARTIAL_PAID`로 변경
-- `SalesInvoice` 상태도 함께 갱신
-- 매칭 전표 생성
-
-생성 분개:
-
-- 차변: AR Clearing `21100`
-- 대변: 매출채권 `11100`
-
-### 4.4 수동 매칭
-
-- 진입점: `POST /api/collections/manual-match`
-- 서비스: `CollectionService.manualMatchCollection`
-
-특징:
-
-- 부분 매칭도 가능
-- 일부만 매칭되면 남은 수납 금액으로 새 `Collection`과 새 `UnmatchedCollection`을 만든다
-- 원래 수납은 `PARTIAL_MATCHED`로 바뀔 수 있다
-
-## 5. 상태 갱신 흐름
-
-- 매출채권 연체 갱신: `POST /api/sales/receivables/update-status/{asOfDate}`
-- 수금 예정일이 지난 채권은 `OVERDUE`로 변경
-- 관련 인보이스도 `OVERDUE`로 바뀔 수 있음
-
-## 6. 드릴다운 연계
-
-- `ReceivableSourceDocumentProvider`가 원천 문서 제공자 역할을 한다
-- 지원 타입:
-  - `O2C_AR`
-  - `SALES`
-  - `SALES_INVOICE`
-
-즉, `journal-ledger`에서 lineage를 통해 매출 인보이스 원문으로 내려갈 수 있다.
-
-## 7. 초보자가 꼭 기억할 포인트
-
-- 수납과 매출채권 감소는 같은 전표가 아니다.
-- 먼저 수납을 인식하고, 그 다음 채권과 매칭해 AR을 줄인다.
-- 미매칭 수납은 실패가 아니라 "아직 어디에 붙일지 모르는 돈"이다.
-- 자동 매칭 규칙 품질이 운영 효율을 크게 좌우한다.
+- **ID 기반 참조:** 모든 회계 전표 및 고객 정보(Business Partner) 등 다른 바운디드 컨텍스트의 데이터는 객체 연관관계(`@ManyToOne`)를 맺지 않고 식별자(ID 문자열 또는 숫자)로만 참조합니다.
+- **다단계 도커 (Multi-stage Docker):** 런타임 최적화를 위해 빌드 스테이지와 실행 스테이지가 분리된 도커 이미지 상에서 동작합니다.
+- **SCD2:** 만약 매칭 규칙이나 고객 정책이 변경될 경우, 기존 데이터 정합성을 위해 과거 이력을 보존하는 설계 원칙을 적용합니다.

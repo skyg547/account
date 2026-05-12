@@ -1,37 +1,56 @@
 # Contracts Module Docs
 
-`contracts` 모듈은 MSA 간 의존을 직접 구현체에 묶지 않도록 포트와 커맨드/레퍼런스 DTO를 제공하는 계약 모듈입니다.
+`contracts` 모듈은 MSA 간 의존성을 물리적인 구현체에 묶지 않기 위해 포트(Port)와 DTO(Command/Ref) 규약을 정의하는 통신 양식 저장소입니다.
 
-## 문서 목록
+---
 
-- [process-flow.md](./process-flow.md): 모듈 간 호출이 어떤 계약을 통해 연결되는지 설명합니다.
-- [schema.md](./schema.md): 주요 포트, 커맨드, 레퍼런스 타입을 정리합니다.
-- [beginner-guide.md](./beginner-guide.md): 초보자가 왜 이 모듈이 필요한지 쉽게 이해할 수 있도록 설명합니다.
+## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-## 이 모듈이 하는 일
+**Q. 이 모듈은 왜 필요한가요?**
+마이크로서비스 구조에서 `asset-lease`가 `expenditure-resolution`의 내부 클래스를 직접 호출하면 의존성이 꼬이고 스파게티 코드가 됩니다.
+이를 막기 위해, 구현 코드는 각자 모듈에 두고 **"서로 대화할 때 쓸 A4 결재 서류 양식(인터페이스, DTO)"**만 이곳 `contracts`에 모아둡니다.
 
-1. 전표 생성 요청 규약을 정의합니다.
-2. 마스터 조회 규약을 정의합니다.
-3. 리스/자산/예산/세금/마감 연계 포트를 정의합니다.
-4. 소스문서 드릴다운 공급자 규약을 정의합니다.
+**초보자가 알아야 할 3가지 핵심 요소:**
+1. **Port (포트):** 다른 부서에 요청을 던지는 창구 (예: `JournalPostingPort`).
+2. **Command (커맨드):** 요청할 때 빈칸을 채워서 보내는 양식 (예: `JournalEntryCommand`).
+3. **Ref (레퍼런스):** 복잡한 마스터 데이터 대신 이름표만 가져오는 DTO (예: `AccountSubjectRef`).
 
-## 핵심 계약
+> ⚠️ **주의:** 이 모듈에는 비즈니스 구현 로직이 없습니다. 껍데기만 존재하며, 단독 실행되는 서버가 아니므로 `docker-compose` 구동 대상이 아닙니다. 실제 동작은 각 업무 모듈(Adapter)이 이 포트를 구현하면서 완성됩니다.
 
-- `JournalPostingPort`
-- `MasterDataQueryPort`
-- `SourceDocumentProvider`
-- `BudgetControlPort`
-- `LeasePaymentResolutionPort`
-- `AssetRegistrationPort`
-- `TaxInvoiceQueryPort`
-- `AccountingPeriodStatusPort`
+---
 
-## 현재 구현 기준에서 먼저 알아둘 점
+## 2. 🔄 처리 흐름 (Process Flow)
 
-- 이 모듈에는 비즈니스 구현이 없습니다. 인터페이스와 레코드만 있습니다.
-- 실제 동작은 각 업무 모듈이 이 계약을 구현하면서 완성됩니다.
-- 다른 모듈 문서에서 보였던 연계는 대부분 여기 정의된 포트를 통해 연결됩니다.
-  - `asset-lease` -> `LeasePaymentResolutionPort`
-  - `expenditure-resolution` -> `BudgetControlPort`
-  - `journal-ledger` 주변 -> `JournalPostingPort`, `SourceDocumentProvider`
-  - `master-data` -> `MasterDataQueryPort`
+호출 모듈은 `contracts`의 포트만 알고 있으며, 실제 수행은 구현 모듈이 담당합니다.
+
+### 전표 생성 흐름 (Journal)
+1. **호출 모듈** -> `createDraftEntry(JournalEntryCommand)` -> `JournalPostingPort`
+2. **구현 모듈 (`journal-ledger`)** 어댑터가 이를 받아 실제 전표 엔티티를 생성하고 원장에 반영.
+3. 결과로 `JournalPostingResult` 반환.
+
+### 전표 조회/집계 흐름 (Journal Query)
+1. **호출 모듈** -> `getJournalDetailAggregate(startDate, endDate, side)` -> `JournalQueryPort`
+2. **구현 모듈 (`journal-ledger`)** 어댑터가 DB 집계 쿼리로 기간/차대변 기준 상세 건수와 금액 합계를 반환.
+3. 결과로 `JournalDetailAggregateSummary`를 받아 대량 전표 상세를 애플리케이션 메모리에서 순회하지 않아도 됩니다.
+
+### 마스터 데이터 조회 흐름 (Master Data)
+1. **호출 모듈** -> `findAccountSubject("10100")` -> `MasterDataQueryPort`
+2. **구현 모듈 (`master-data`)** 어댑터가 DB 조회 후 `AccountSubjectRef` (이름표 DTO) 반환.
+- 이를 통해 타 모듈이 `master-data`의 엔티티를 직접 바라보지 않아도 됩니다.
+
+### 예산/지출/대사 흐름
+- **리스 지급:** `asset-lease` -> `LeasePaymentResolutionPort` -> `expenditure-resolution` (지출 결의서 생성)
+- **드릴다운:** 각 모듈이 `SourceDocumentProvider`를 구현하여, 전표에서 원문서를 추적(`lineageSourceType` 기반).
+
+---
+
+## 3. 💾 주요 계약 스키마 (Schema)
+
+이 모듈은 DB 테이블이 없으며, 아래와 같은 데이터 전송 객체(DTO)와 포트 명세로 구성됩니다.
+
+- **Journal (전표):** `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`, `JournalLineCommand`, `JournalPostingResult`, `JournalDetailAggregateSummary`
+- **Master Data (기준정보):** `MasterDataQueryPort`, `AccountSubjectRef`, `BusinessPartnerRef`, `DepartmentRef`
+- **Source (추적):** `SourceDocumentProvider` (전표에서 원문서 역추적)
+- **Expenditure (지출):** `BudgetControlPort`, `LeasePaymentResolutionPort`, `LeasePaymentResolutionCommand`
+- **Asset (자산):** `AssetRegistrationPort`, `AssetAcquisitionCommand`
+- **Tax & Closing (세금/마감):** `TaxInvoiceQueryPort`, `AccountingPeriodStatusPort`

@@ -2,98 +2,79 @@
 
 ## 1. 이 모듈이 하는 일
 
-`reporting`은 원장 데이터를 재무제표, 스냅샷, 공시 제출용 데이터로 바꾸는 모듈이다.
+`reporting`은 원장 데이터를 재무제표, 스냅샷, 공시 제출용 데이터로 변환하는 모듈입니다. 헥사고날 아키텍처(Ports and Adapters)를 채택하여, 핵심 도메인 로직을 외부 시스템(웹, DB)으로부터 철저히 격리합니다.
 
 핵심 책임:
-
-- 보고 라인 매핑 관리
+- 보고 라인 매핑 관리 (SCD2 이력 관리)
 - 실시간 재무제표 계산
 - 보고 스냅샷 생성
-- 드릴스루 제공
+- 드릴스루 (ID 기반 전표 추적)
 - 보고 교차검증
-- 공시/노트/마트 데이터 저장
 
-## 2. 전체 흐름도
+## 2. 전체 흐름도 (Hexagonal Architecture View)
 
 ```mermaid
 flowchart TD
-    A[POSTED JournalDetail] --> B[ReportLineMapping]
-    B --> C[FinancialStatementService]
-    C --> D[실시간 BS/IS 계산]
-    B --> E[ReportSnapshotService]
-    E --> F[ReportSnapshotHeader 생성]
-    F --> G[ReportSnapshotDetail 생성]
-    G --> H[CrossCheckService 검증]
-    F --> I[RegulatorySubmission]
-    D --> J[Drill-through]
-    G --> J
+    subgraph Inbound Adapters
+        A[Web Controller]
+        B[Batch Adapter]
+    end
+    
+    subgraph Application / Ports
+        C[GenerateStatementUseCase - Inbound Port]
+        D[ReportingService - UseCase Impl]
+        E[LoadLedgerPort - Outbound Port]
+        F[SaveSnapshotPort - Outbound Port]
+    end
+    
+    subgraph Domain Model
+        G[ReportLineMapping]
+        H[FinancialStatement]
+    end
+    
+    subgraph Outbound Adapters
+        I[LedgerClientAdapter / Feign or HTTP]
+        J[ReportingJpaAdapter / Repository]
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    D --> G
+    D --> H
+    D --> E
+    D --> F
+    E --> I
+    F --> J
 ```
 
 ## 3. 핵심 흐름 설명
 
-### 3.1 보고 라인 매핑 관리
+### 3.1 보고 라인 매핑 관리 (SCD2 기반)
 
-- 서비스: `ReportMappingService`
-- 역할:
-  - 라인 코드와 계정코드의 연결 관리
-  - 유효기간과 버전 관리
-  - 새 버전 생성 시 기존 버전 `validToDate` 종료
-
-즉, 같은 라인 코드도 시점에 따라 다른 매핑을 가질 수 있다.
+- **도메인**: `ReportLineMapping`
+- 규칙이 변경될 때 기존 매핑을 `UPDATE` 덮어쓰기 하는 것이 아니라, 새로운 버전을 `INSERT` 하고 기존 버전의 `validToDate`를 닫습니다. (Slowly Changing Dimensions Type 2 방식)
+- 과거 기준일자로 보고서를 뽑을 때는 그 시점에 유효했던 버전을 찾아 계산합니다.
 
 ### 3.2 실시간 재무제표 계산
 
-- 서비스: `FinancialStatementService`
-- 주요 메서드:
-  - `generateBalanceSheet`
-  - `generateIncomeStatement`
-
-계산 방식:
-
-- `ReportLineMapping`을 읽는다
-- `POSTED` 상태 전표만 집계한다
-- 계정 카테고리와 차대 방향을 보고 부호를 계산한다
+- **Inbound Port**: `GenerateStatementUseCase.generateBalanceSheet`
+- 계산 방식:
+  - `ReportLineMapping` 도메인 모델을 조회합니다.
+  - 외부 어댑터(LoadLedgerPort)를 통해 타 모듈의 원장 전표 데이터(POSTED 상태)를 가져옵니다. (ID 기반으로 참조하여 느슨하게 결합)
+  - 계정 카테고리와 차대 방향을 확인해 금액 부호를 정하고 합산합니다.
 
 ### 3.3 스냅샷 생성
 
-- 서비스: `ReportSnapshotService.createSnapshot`
-- 처리:
-  - 기준일자에 유효한 매핑 조회
-  - 라인별 금액 계산
-  - `ReportSnapshotHeader` 생성
-  - `ReportSnapshotDetail` 다건 생성
-  - 같은 보고유형/기준일자의 버전 번호 증가
+- 기준일자에 유효한 매핑을 조회합니다.
+- `SaveSnapshotPort`를 통해 계산된 `FinancialStatement` 데이터를 영속화(DB 저장)합니다.
+- JPA Entity인 `ReportSnapshotHeaderJpaEntity`와 `ReportSnapshotDetailJpaEntity`로 변환되어 저장됩니다.
 
-### 3.4 드릴스루
+### 3.4 드릴스루 (Drill-through)
 
-- `FinancialStatementService.getJournalDetailsByReportLine`
-- `ReportSnapshotService.getContributingJournals`
+- 특정 보고 라인(예: 현금 100만 원)을 구성하는 원천 전표 내역을 역추적합니다.
+- 다른 모듈의 객체를 직접 로딩하지 않고, 보관하고 있던 전표의 `ID` 목록을 이용해 `journal-ledger` 모듈의 API/어댑터를 호출하여 상세 내역을 받아옵니다.
 
-동작:
+## 4. Multi-stage Docker 환경 배포 흐름
 
-- 특정 보고 라인에 연결된 계정 코드를 찾는다
-- 해당 계정의 전표 상세를 기간 조건으로 조회한다
-- 원천 전표까지 내려가 볼 수 있다
-
-### 3.5 교차검증
-
-- 서비스: `CrossCheckService`
-- 현재 구현:
-  - 대차대조표에서 `TOTAL_ASSETS = TOTAL_LIABILITIES + TOTAL_EQUITY` 검증
-
-## 4. 드릴스루 흐름도
-
-```mermaid
-flowchart LR
-    A[ReportLineMapping] --> B[Report line]
-    B --> C[JournalDetail]
-    C --> D[JournalEntry]
-    D --> E[원천 문서 drilldown]
-```
-
-## 5. 초보자가 꼭 기억할 포인트
-
-- 이 모듈은 `POSTED` 전표만 신뢰한다.
-- 보고 숫자는 매핑 테이블 품질에 크게 의존한다.
-- 실시간 조회와 스냅샷 저장은 별도 흐름이다.
-- FORMULA 집계는 아직 제한적이며 SUM 중심 구현이다.
+`reporting` 모듈은 개발, 테스트, 운영 환경에 맞춰 빌드 및 배포됩니다. 도커 환경에서는 빌드 스테이지와 실행 스테이지가 나뉘어 최종 이미지가 가볍게 유지됩니다.

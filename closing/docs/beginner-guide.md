@@ -1,123 +1,27 @@
-# closing beginner guide
+# Closing Beginner Guide
 
 ## 1. 이 모듈을 한 문장으로 설명하면
 
-`closing`은 월마감, 분기마감, 연마감 같은 기간 종료를 통제하는 운영 모듈이다.
+`closing`은 월마감, 분기마감, 연마감 같은 회계기간 종료를 통제하고 더 이상 과거 장부를 조작하지 못하도록 자물쇠를 채우는 운영 모듈입니다.
 
-## 2. 초보자가 먼저 이해해야 할 개념
+## 2. 초보자를 위한 개념 설명 (Beginner's Concept Explanation)
 
-### 2.1 FiscalPeriod
+**결산 마감은 '가계부 한 달 치를 확정하고 테이프로 봉인하는 것'과 같습니다.**
+- 한 달 동안(예: 3월) 물건을 사고팔고 월급을 줍니다. 
+- 4월 초가 되면 "3월에 얼마 벌고 얼마 썼는지 확정하자!"라고 선언합니다. 이것이 '결산(Closing)'입니다.
+- **체크리스트 (Closing Task):** 마감하기 전에 통장 잔고가 맞는지, 세금은 다 계산했는지 하나씩 V표시를 하며 확인합니다.
+- **잠금 (Period Lock):** 마감이 끝났는데 누군가 몰래 3월 25일에 지출 내역을 끼워 넣으면 3월 총액이 틀어지게 됩니다. 그래서 3월 장부에 자물쇠를 채워 아무도 수정하지 못하게 막는 것입니다.
+- **재오픈 (Reopen):** 만약 진짜 중요한 누락이 있어서 꼭 3월 장부를 수정해야 한다면, 책임자의 승인을 받고 임시로 자물쇠를 푸는 절차를 거칩니다.
 
-- 실제 회계기간 기준이다.
-- 닫혔는지 열렸는지를 다른 모듈이 참조한다.
+## 3. 핵심 아키텍처 및 기술 표준
 
-### 2.2 ClosingCalendar
+- **헥사고날 아키텍처 (Ports and Adapters):** 마감 상태를 판정하는 규칙과 캘린더 도메인은 완전히 격리되어 있습니다. 다른 모듈(전표 모듈 등)이 "지금 마감됐어?"라고 물어볼 때는 DB를 직접 보지 않고 `AccountingPeriodStatusPort`라는 Inbound Port를 통해 질의합니다.
+- **ID 기반 참조 (ID-based references):** 마감을 진행한 담당자, 재오픈 승인자 등은 모두 사번(문자열)이 아닌 `user_id`나 `employee_id` 같은 시스템의 근본 식별자를 통해 연결됩니다.
+- **SCD2 (Slowly Changing Dimensions):** 마감 캘린더나 태스크의 상태가 IN_PROGRESS에서 CLOSED로 바뀔 때, 상태 변화의 이력과 승인 로그를 안전하게 보존하기 위해 SCD2 개념의 이력 관리를 채택하여 언제 상태가 바뀌었는지 감사(Audit)할 수 있습니다.
+- **Multi-stage Docker 환경:** 이 모듈은 마감 상태를 빠르게 서빙하는 데 특화되어 있으며, 빌드 도구가 제거된 다단계 런타임 도커 환경을 통해 인프라 자원을 효율적으로 사용합니다.
 
-- 해당 기간의 결산 진행판이다.
-- "지금 이 기간 마감이 어디까지 왔는가?"를 보여준다.
-
-### 2.3 ClosingTask
-
-- 마감 전에 해야 하는 체크리스트다.
-- 예: 대사 완료, 평가 실행, 보고서 점검
-
-### 2.4 ClosingGate
-
-- 단순 태스크보다 더 강한 통과 조건이다.
-- 모든 필수 태스크가 끝나야 게이트를 넘는 식으로 쓸 수 있다.
-
-### 2.5 PeriodLock
-
-- 마감된 기간에 더 이상 거래를 넣지 못하게 막는 잠금이다.
-
-### 2.6 ReopenApproval
-
-- 닫힌 기간을 다시 열어야 할 때 남기는 승인 절차다.
-
-## 3. 실제 운영 시나리오
-
-### 3.1 월마감 시작
-
-1. 해당 `FiscalPeriod`가 존재한다.
-2. `ClosingCalendar`를 만든다.
-3. 태스크와 게이트를 등록한다.
-4. 캘린더 상태를 `IN_PROGRESS`로 바꾼다.
-
-### 3.2 마감 작업 진행
-
-1. 담당자가 태스크를 하나씩 완료한다.
-2. 필요한 경우 평가 배치와 충당 배치를 실행한다.
-3. 배치 결과로 결산용 전표가 만들어질 수 있다.
-4. 필요한 수동 조정 전표를 `ClosingAdjustment`로 기록한다.
-
-### 3.3 마감 완료 판정
-
-1. `determineClosingStatus`를 호출한다.
-2. 필수 태스크와 게이트를 검사한다.
-3. 조건이 맞으면 `FiscalPeriod`와 `ClosingCalendar`가 닫힌다.
-
-### 3.4 재오픈
-
-1. 닫힌 기간에 수정 필요가 생긴다.
-2. 재오픈 승인 요청을 만든다.
-3. 승인되면 잠금이 해제되고 기간이 다시 열린다.
-
-## 4. 주요 API
-
-- `POST /api/closing/calendars`
-- `GET /api/closing/calendars/{id}`
-- `GET /api/closing/calendars/by-period`
-- `PUT /api/closing/calendars/{id}/status`
-- `POST /api/closing/tasks`
-- `PUT /api/closing/tasks/{id}/status`
-- `POST /api/closing/gates`
-- `PUT /api/closing/gates/{id}/check`
-- `POST /api/closing/period-locks`
-- `DELETE /api/closing/period-locks/{fiscalPeriodId}`
-- `POST /api/closing/reopen-approvals`
-- `PUT /api/closing/reopen-approvals/{id}/status`
-- `POST /api/closing/valuation-batches/run`
-- `POST /api/closing/provision-batches/run`
-- `POST /api/closing/adjustments`
-- `POST /api/closing/calendars/determine-status`
-
-## 5. 처음 읽는 코드 순서
-
-1. `closing/src/main/java/com/ho/account/closing/service/ClosingService.java`
-2. `closing/src/main/java/com/ho/account/closing/web/ClosingController.java`
-3. `closing/src/main/java/com/ho/account/closing/domain/ClosingCalendar.java`
-4. `closing/src/main/java/com/ho/account/closing/domain/ClosingTask.java`
-5. `closing/src/main/java/com/ho/account/closing/domain/ClosingGate.java`
-6. `closing/src/main/java/com/ho/account/closing/domain/PeriodLock.java`
-7. `closing/src/main/java/com/ho/account/closing/domain/ReopenApproval.java`
-8. `closing/src/main/java/com/ho/account/common/adapter/ClosingStatusAdapter.java`
-
-## 6. 자주 헷갈리는 지점
-
-### 6.1 마감 캘린더 상태와 실제 기간 상태는 다르다
-
-- 운영 화면용 상태는 `ClosingCalendar`
-- 다른 모듈이 참조하는 진짜 잠금 기준은 `FiscalPeriod.closingStatus`
-
-### 6.2 게이트 조건은 아직 완전 자동이 아니다
-
-- JSON 필드는 있지만 현재 서비스는 임시 통과 처리 성격이 있다.
-
-### 6.3 배치 전표는 현재 임시 구현이다
-
-- 더미 계정을 써서 `ADJUSTMENT` 전표를 만든다.
-- 따라서 운영형 완성 로직으로 보기보다 스켈레톤으로 봐야 한다.
-
-### 6.4 이 모듈은 다른 모듈과 강하게 연결된다
-
-- `journal-ledger`는 이 모듈을 통해 마감 여부를 확인한다.
-- 즉, 여기 상태가 잘못되면 전표 생성/수정/전기 통제도 틀어진다.
-
-## 7. 체크리스트
-
-- 해당 기간의 `FiscalPeriod`가 있는가
-- 필수 태스크가 모두 완료됐는가
-- 게이트가 모두 통과됐는가
-- 잠금이 필요한가
-- 재오픈 승인 이력이 남았는가
-- 결산 조정 전표가 해당 기간과 타입 조건을 만족하는가
+## 4. 실제 운영 시나리오
+1. **월초:** 캘린더를 엽니다. 상태는 `IN_PROGRESS`가 됩니다.
+2. **진행 중:** 담당자들이 할 일(Task)을 완료하고, 통과 관문(Gate)을 체크합니다.
+3. **평가 및 분개:** 환율 평가 등의 배치를 돌리고 결산용 조정 전표를 생성합니다.
+4. **마감 확정:** 모든 태스크가 끝나면 캘린더가 닫히고, 장부가 잠깁니다(`CLOSED`).

@@ -1,77 +1,52 @@
-# tax process flow
+# Tax Process Flow
 
 ## 1. 이 모듈이 하는 일
 
 `tax`는 매입 세금계산서를 관리하고, 타 모듈이 세금계산서 타입/식별 정보를 조회할 수 있도록 계약 기반 데이터를 제공합니다.
 
-핵심 책임:
-
-- 매입 세금계산서 CRUD
+- 매입 세금계산서 CRUD 및 이력 관리(SCD2)
 - 금액 정합성 검증 (`supply + tax = total`)
 - 매입 타입(`PURCHASE`) 경계 강제
-- 기간 조회 및 증빙 식별자(`issueId`) 조회
+- 다단계 도커(Multi-stage Docker) 배포 환경에서의 안정적인 런타임 제공
 
-## 2. AP 세금계산서 처리 흐름
+## 2. AP 세금계산서 처리 흐름 (헥사고날 아키텍처 기반)
 
 ```mermaid
 flowchart TD
-    A[클라이언트 요청] --> B[APInvoiceController]
-    B --> C[TaxInvoiceUseCase]
-    C --> D[TaxInvoiceService]
-    D --> E{type == PURCHASE?}
-    E -->|No| X[예외 반환]
-    E -->|Yes| F[거래처 존재 검증]
-    F --> G[TaxInvoice 도메인 생성/수정]
-    G --> H{금액 합계 검증 통과?}
-    H -->|No| X
-    H -->|Yes| I[TaxInvoicePersistencePort 저장]
-    I --> J[응답 반환]
+    subgraph Inbound Adapters
+        A[클라이언트 / Web UI 요청] --> B[APInvoiceController]
+        B --> C[TaxInvoiceUseCase / Inbound Port]
+    end
+
+    subgraph Domain & Application Service
+        C --> D[TaxInvoiceService]
+        D --> E{type == PURCHASE?}
+        E -->|No| X[예외 반환]
+        E -->|Yes| F[거래처 ID 존재 검증]
+        F --> G[TaxInvoice 도메인 객체 생성/수정]
+        G --> H{금액 합계 검증 통과?}
+        H -->|No| X
+    end
+
+    subgraph Outbound Adapters
+        H -->|Yes| I[TaxInvoicePersistencePort / Outbound Port]
+        I --> J[TaxInvoiceJpaAdapter]
+        J --> K[(DB: tax_invoices SCD2 적용)]
+    end
+    K --> L[응답 반환]
 ```
 
-## 3. API별 내부 동작
+## 3. 핵심 처리 원칙
 
-### 3.1 생성 (`POST /api/ap/invoices`)
+### 3.1 헥사고날 포트/어댑터 통제
+- **Inbound Port:** 모든 비즈니스 유즈케이스는 인터페이스(Port)로 정의되어 Controller와 도메인을 분리합니다.
+- **Outbound Port:** DB 접근이나 외부 MSA(마스터 데이터) 호출은 영속성 포트와 외부 연동 포트를 통해서만 이루어집니다.
 
-- 컨트롤러: `APInvoiceController.createAPInvoice`
-- 서비스: `TaxInvoiceService.createAPInvoice`
-- 규칙:
-  - `requestDto.type`이 반드시 `PURCHASE`
-  - 거래처 코드가 존재해야 함
-  - 금액 합계 검증 통과 후 저장
+### 3.2 ID 기반 참조 (ID-based references)
+- 외부 모듈과의 모든 데이터 결합은 `business_partner_code`와 같은 문자열이 아닌 불변의 고유 식별자인 `business_partner_id`를 사용합니다.
 
-### 3.2 조회 (`GET`)
+### 3.3 SCD2 이력 관리
+- 데이터 수정(Update) 시, 물리적인 덮어쓰기(Overwrite)를 방지하고, 이전 레코드의 `valid_to`를 업데이트한 후 새로운 레코드를 `is_current = true` 상태로 Insert하여 완벽한 감사 추적(Audit Trail)을 보장합니다.
 
-- `getAPInvoiceById`
-- `getAPInvoiceByIssueId`
-- `getAPInvoicesBetweenDates`
-
-조회 시에도 서비스에서 `isPurchaseType()` 필터를 적용합니다.
-
-### 3.3 수정/삭제 (`PUT`, `DELETE`)
-
-- 수정/삭제 대상이 실제로 존재해야 함
-- 기존 데이터와 요청 데이터 모두 `PURCHASE` 경계를 만족해야 함
-- 수정 시 `TaxInvoice.updateInfo(...)`로 금액 재검증 수행
-
-## 4. 다른 모듈과의 연계 포인트
-
-- `expenditure-resolution`의 서비스는 `contracts`의 `TaxInvoiceQueryPort`를 통해 세금계산서를 조회합니다.
-- 조회 결과는 `TaxInvoiceRef(id, issueId, type)` 형태의 경량 참조 모델입니다.
-- 업무 규칙은 동일합니다: `type == PURCHASE`일 때만 매입 증빙으로 인정됩니다.
-
-## 5. 구현 점검 포인트 (리팩터링 진행 구간)
-
-현재 소스 기준으로 `TaxInvoiceUseCase`/`TaxInvoicePersistencePort`는 분리되어 있으며,
-타 모듈 조회 계약(`TaxInvoiceQueryPort`)은 `contracts`에 정의되어 있습니다.
-
-초보자는 아래를 함께 확인해야 합니다.
-
-- 포트 인터페이스와 실제 빈 구성의 연결 여부
-- 모듈 통합 시 조회 어댑터 구현 위치
-- 컨트롤러가 애플리케이션 포트에만 의존하는지 여부
-
-## 6. 초보자가 꼭 기억할 포인트
-
-- AP API는 매입 전용이므로 `PURCHASE` 경계가 핵심입니다.
-- 금액 검증 실패는 단순 입력오류가 아니라 회계 증빙 오류입니다.
-- 헥사고날 관점에서 컨트롤러는 유즈케이스만 호출하고, 외부 시스템/영속성 세부는 포트 뒤로 숨겨야 합니다.
+### 3.4 Multi-stage Docker 운영
+- 배포 시, 소스 코드를 빌드하는 Builder 이미지와 실행 환경만 담은 Runtime 이미지로 분리되어 구동되며, 환경 변수 주입을 통해 컨테이너 시작 시 동적으로 DB 및 카프카 연결을 설정합니다.

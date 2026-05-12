@@ -1,15 +1,18 @@
 package com.ho.account.common.adapter;
 
 import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -24,6 +27,7 @@ import java.util.stream.Collectors;
 public class MonolithJournalQueryAdapter implements JournalQueryPort {
 
     private final JournalUseCase journalUseCase;
+    private final JournalDetailRepository journalDetailRepository;
 
     @Override
     public List<JournalSummary> getJournalSummaries(LocalDate startDate, LocalDate endDate) {
@@ -39,6 +43,21 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
         return entry.getDetails().stream()
                 .map(this::mapToDetailSummary)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public JournalDetailAggregateSummary getJournalDetailAggregate(LocalDate startDate, LocalDate endDate,
+            JournalSide side) {
+        JournalDetailRepository.JournalDetailAggregateProjection projection =
+                journalDetailRepository.summarizeByAccountingDateBetweenAndSide(startDate, endDate, mapJournalSide(side));
+        if (projection == null) {
+            return new JournalDetailAggregateSummary(0, BigDecimal.ZERO);
+        }
+        Long detailCount = projection.getDetailCount();
+        BigDecimal totalAmount = projection.getTotalAmount();
+        return new JournalDetailAggregateSummary(
+                detailCount == null ? 0L : detailCount,
+                totalAmount == null ? BigDecimal.ZERO : totalAmount);
     }
 
     @Override
@@ -72,5 +91,14 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
         summary.setAmount(detail.getAmount());
         summary.setBaseAmount(detail.getBaseAmount());
         return summary;
+    }
+
+    private com.ho.account.journalledger.domain.journal.domain.JournalSide mapJournalSide(JournalSide side) {
+        if (side == null) {
+            throw new IllegalArgumentException("Journal side must not be null.");
+        }
+        return side == JournalSide.DEBIT
+                ? com.ho.account.journalledger.domain.journal.domain.JournalSide.DEBIT
+                : com.ho.account.journalledger.domain.journal.domain.JournalSide.CREDIT;
     }
 }

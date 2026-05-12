@@ -7,11 +7,13 @@
 ## 1. 🚨 Critical / High (우선 해결 과제)
 
 ### [Reconciliation (대사)]
-- [ ] **대량 데이터 성능 최적화:** `buildTargetSnapshot`에서 모든 전표를 루프 돌며 합산하는 방식은 대량 처리 시 성능 병목을 유발합니다. `JournalQueryPort`에 기간별 합계(Sum)를 DB 단에서 직접 집계해 반환하는 메서드를 추가하여 교체하세요.
-- [ ] **외부 데이터 연동 미흡:** `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 설정값(`matchingRulesJson`)에 의존하고 있습니다. 실제 외부 원천/인터페이스 시스템(Mock 어댑터 포함)을 통해 데이터를 가져와 집계하도록 전환하세요.
+- [x] **대량 데이터 성능 최적화:** `buildTargetSnapshot`에서 모든 전표를 루프 돌며 합산하는 방식은 대량 처리 시 성능 병목을 유발합니다. `JournalQueryPort`에 기간별 합계(Sum)를 DB 단에서 직접 집계해 반환하는 메서드를 추가하여 교체하세요. -> *(완료: `JournalDetailAggregateSummary`와 `JournalQueryPort.getJournalDetailAggregate` 추가, `journal-ledger` DB 집계 어댑터 구현, `ReconciliationService` 대상 집계 전환 및 테스트 보강)*
+- [x] **외부 데이터 연동 미흡:** `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 설정값(`matchingRulesJson`)에 의존하고 있습니다. 실제 외부 원천/인터페이스 시스템(Mock 어댑터 포함)을 통해 데이터를 가져와 집계하도록 전환하세요. -> *(완료: `ExternalReconSnapshotPort`/`ExternalReconSnapshotRequest` 계약 추가, `RECON_EXTERNAL_STAGE_RECORD` 스테이징 집계 어댑터 구현, `ReconManagerService` SOURCE/INTERFACE 포트 호출 전환 및 테스트 보강)*
 
 ### [Loan (대출)]
 - [ ] **E2E 회귀 테스트 부재 및 전표 수렴 완결성:** 대출 전표가 원장(`POSTED`)까지 수렴하는 과정을 증명하는 E2E 검증 테스트가 부족합니다. 또한 `Loan`과 `LoanContract` 병행 모델을 통합하고, 코드 내 하드코딩된 계정코드를 제거하세요.
+  - 진행: `LoanService`/`InterestAccrualService` 자동 전표가 생성 후 `approveJournalEntry`와 `postJournalEntry`까지 호출하도록 보강했고, 대출 회계 계정코드는 `LoanAccountingProperties` 설정으로 분리했습니다. `LoanServiceTest`, `InterestAccrualServiceTest`로 POSTED 수렴 호출과 설정 계정 사용을 검증했습니다.
+  - 남음: `Loan`/`LoanContract` 병행 모델 통합과 실제 `journal-ledger` 모듈까지 포함한 통합 E2E 테스트는 아직 미완료입니다.
 
 ### [Master-Data (기준 정보)]
 - [ ] **SCD2 완전 적용 미흡:** `Product` 및 `Department` 모듈에서 데이터 변경 시 기존 행을 직접 덮어쓰고 있어 SCD2(이력 관리) 정책을 위반하고 있습니다. 신규 버전을 생성하고 이전 버전의 `validTo`를 닫는 진정한 의미의 SCD2 로직으로 전면 수정하세요.

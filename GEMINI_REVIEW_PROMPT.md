@@ -108,6 +108,16 @@ Notes:
   - `performReconciliation`은 원천/대상 금액 차이가 활성 규칙의 허용오차를 초과할 때만 `AMOUNT_MISMATCH` 차이를 생성.
   - `ReconciliationTolerancePolicyTest`, `ReconciliationServiceTest`를 추가/갱신해 절대/퍼센트 허용오차와 허용오차 이내 차이 미생성을 검증.
   - `GEMINI_MODULE_REVIEW.md`의 Reconciliation 지적을 재확인했고, `ReconciliationService.java`의 깨진 한글 주석/문자열을 ASCII 설명으로 정리.
+  - `JournalDetailAggregateSummary`와 `JournalQueryPort.getJournalDetailAggregate`를 추가하고, `ReconciliationService.buildTargetSnapshot`을 DB 집계 포트 호출로 전환.
+  - `CODEX_HANDOFF_TASKS.md`의 Reconciliation 대량 데이터 성능 최적화 항목을 완료 표시.
+  - `ExternalReconSnapshotPort`, `ExternalReconSnapshotRequest`, `ExternalReconSnapshot`를 추가해 심화 대사의 외부 원천/인터페이스 집계 계약을 애플리케이션 포트로 분리.
+  - `ExternalReconStageRecord`, `ExternalReconStageRecordRepository`, `ExternalReconStageSnapshotAdapter`를 추가해 `RECON_EXTERNAL_STAGE_RECORD` 스테이징 데이터를 DB 단에서 집계하는 Mock/외부 어댑터를 구현.
+  - `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 `matchingRulesJson`의 고정 금액/건수를 직접 읽지 않고 `ExternalReconSnapshotPort.loadSnapshot`을 호출하도록 전환.
+  - `ReconManagerServiceTest`, `ExternalReconStageSnapshotAdapterTest`를 보강하고 `CODEX_HANDOFF_TASKS.md`의 Reconciliation 외부 데이터 연동 항목을 완료 표시.
+  - `LoanAccountingProperties`를 추가해 대출 자동 전표 계정코드를 `account.loan.accounting.*` 설정으로 분리.
+  - `LoanService`와 `InterestAccrualService`의 자동 전표가 생성 후 `approveJournalEntry`/`postJournalEntry`까지 호출하도록 보강.
+  - `LoanServiceTest`, `InterestAccrualServiceTest`로 설정 계정 사용과 전표 생성/승인/전기 호출 순서를 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 Loan 항목은 하위 작업 진행 내역을 남기되, `Loan`/`LoanContract` 모델 통합과 실제 모듈 E2E가 남아 있어 미완료 상태로 유지.
 - 최근 검증:
   - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
   - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
@@ -127,10 +137,18 @@ Notes:
   - 결과는 오류 없이 종료했고 CRLF 변환 경고만 출력됨.
   - `rg -n "...mojibake pattern..." reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconciliationService.java`
   - 결과는 매칭 없음.
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
+  - 결과는 `BUILD SUCCESSFUL`.
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+  - 결과는 `BUILD SUCCESSFUL`.
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - 결과는 모두 `BUILD SUCCESSFUL`.
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
-  - `loan`은 여전히 `Loan`/`LoanContract` 병행 모델과 계정코드 하드코딩이 남아 있다.
-  - `reconciliation` 메인 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
+  - `loan`의 자동 전표 계정코드는 `LoanAccountingProperties` 설정으로 분리됐지만, `Loan`/`LoanContract` 병행 모델은 아직 남아 있다.
+  - `loan` 자동 전표는 `JournalUseCase` 생성 후 승인/전기 호출까지 수행하지만, 실제 `journal-ledger` 모듈까지 포함한 통합 E2E 테스트는 아직 없다.
+  - `reconciliation` 메인 `ReconciliationService` 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
   - `reconciliation` 조정분개 링크는 전표 ID 참조로 전환됐고, `ReconciliationService`의 `JournalEntryRepository` 의존성은 제거됐다.
   - `reconciliation` 업무별 차/대 계정 산정 정책은 아직 별도 도메인 정책으로 분리되지 않았다.
   - `AutomatedMatchingEngine`는 `JournalDetailSummary` 계약 DTO 기반으로 전환됐고, `reconciliation`의 `journal-ledger:core` 직접 의존성은 제거됐다.
@@ -139,8 +157,9 @@ Notes:
   - 자동 매칭은 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 아직 사용하지 않는다.
   - `GEMINI_MODULE_REVIEW.md`가 지적한 `ReconciliationService.java` 인코딩 깨짐은 후속 조치로 정리됐다.
   - `GEMINI_MODULE_REVIEW.md`가 지적한 `reconciliation`의 `journal-ledger:core` 직접 의존성과 `JournalEntryRepository` 직접 참조는 제거됐다.
-  - `GEMINI_MODULE_REVIEW.md`가 지적한 대량 집계 성능 리스크는 아직 남아 있다.
-  - `ReconManagerService` SOURCE/INTERFACE 단계는 더미 금액은 제거됐지만 아직 외부 시스템 조회가 아니라 `matchingRulesJson` 명시 집계값 기반이다.
+  - `GEMINI_MODULE_REVIEW.md`가 지적한 `ReconciliationService.buildTargetSnapshot` 대량 집계 성능 리스크는 DB 집계 포트 전환으로 완화됐다.
+  - `ReconManagerService` SOURCE/INTERFACE 단계는 `ExternalReconSnapshotPort`와 `RECON_EXTERNAL_STAGE_RECORD` 스테이징 집계 어댑터로 전환되어 `matchingRulesJson` 명시 집계값 직접 의존을 제거했다.
+  - `ReconManagerService` JOURNAL 단계는 아직 전표 요약/상세 루프 기반 집계다.
   - 신규 `LedgerQueryPort`는 GL 잔액 조회만 제공하며 SL/거래처/부서 단위 조회는 아직 없다.
   - 작업 전부터 `contracts`, `master-data`, 문서, `GEMINI_MODULE_REVIEW.md` 등 다른 미커밋 변경이 존재했다.
 

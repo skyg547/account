@@ -3,13 +3,13 @@ package com.ho.account.reconciliation.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
-import com.ho.account.contracts.journal.JournalSummary;
+import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -432,33 +432,19 @@ public class ReconciliationService {
     }
 
     private ReconciliationSnapshot buildTargetSnapshot(LocalDate reconciliationDate) {
-        BigDecimal targetAmount = BigDecimal.ZERO;
-        int targetCount = 0;
-
-        List<JournalSummary> journalSummaries = journalQueryPort.getJournalSummaries(reconciliationDate, reconciliationDate);
-        for (JournalSummary journalSummary : journalSummaries) {
-            if (journalSummary.getId() == null) {
-                continue;
-            }
-            for (JournalDetailSummary detail : journalQueryPort.getJournalDetails(journalSummary.getId())) {
-                if (detail.getSide() == com.ho.account.contracts.journal.JournalSide.DEBIT) {
-                    targetAmount = targetAmount.add(resolveDetailAmount(detail));
-                    targetCount++;
-                }
-            }
+        JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregate(
+                reconciliationDate,
+                reconciliationDate,
+                JournalSide.DEBIT);
+        if (aggregate == null) {
+            return new ReconciliationSnapshot(0, BigDecimal.ZERO);
         }
-
-        return new ReconciliationSnapshot(targetCount, targetAmount);
-    }
-
-    private BigDecimal resolveDetailAmount(JournalDetailSummary detail) {
-        if (detail.getBaseAmount() != null) {
-            return detail.getBaseAmount();
+        long detailCount = aggregate.getDetailCount();
+        if (detailCount > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Target journal detail count exceeds supported reconciliation count range.");
         }
-        if (detail.getAmount() != null) {
-            return detail.getAmount();
-        }
-        return BigDecimal.ZERO;
+        BigDecimal totalAmount = aggregate.getTotalAmount() == null ? BigDecimal.ZERO : aggregate.getTotalAmount();
+        return new ReconciliationSnapshot((int) detailCount, totalAmount);
     }
 
     private BigDecimal readDecimal(JsonNode root, String fieldName) {

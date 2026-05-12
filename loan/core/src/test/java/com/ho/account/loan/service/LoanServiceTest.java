@@ -3,6 +3,7 @@ package com.ho.account.loan.service;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanDisbursal;
@@ -31,8 +32,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.InOrder;
 
 @ExtendWith(MockitoExtension.class)
 class LoanServiceTest {
@@ -63,9 +66,16 @@ class LoanServiceTest {
     private JournalUseCase journalUseCase;
 
     private LoanService service;
+    private LoanAccountingProperties accountingProperties;
 
     @BeforeEach
     void setUp() {
+        accountingProperties = new LoanAccountingProperties();
+        accountingProperties.setCashAccountCode("101999");
+        accountingProperties.setLoanReceivableAccountCode("131999");
+        accountingProperties.setDeferredAssetAccountCode("171999");
+        accountingProperties.setRecognizedIncomeAccountCode("401999");
+
         service = new LoanService(
                 loanRepository,
                 loanDisbursalRepository,
@@ -78,6 +88,7 @@ class LoanServiceTest {
                 businessPartnerPersistencePort,
                 currencyPersistencePort,
                 accountSubjectPersistencePort,
+                accountingProperties,
                 journalUseCase);
     }
 
@@ -88,15 +99,21 @@ class LoanServiceTest {
         loan.setId(1L);
         loan.setLoanNumber("LN-2026-001");
 
-        AccountSubject cashAccount = account("101000");
-        AccountSubject loanReceivableAccount = account("131000");
+        AccountSubject cashAccount = account("101999");
+        AccountSubject loanReceivableAccount = account("131999");
         JournalEntry savedJournal = new JournalEntry();
+        savedJournal.setId(77L);
         savedJournal.setSlipNo("JE-LOAN-1");
+        JournalEntry postedJournal = new JournalEntry();
+        postedJournal.setId(77L);
+        postedJournal.setSlipNo("JE-LOAN-1");
+        postedJournal.setStatus(JournalEntryStatus.POSTED);
 
         when(loanRepository.findById(1L)).thenReturn(Optional.of(loan));
-        when(accountSubjectPersistencePort.findByCode("101000")).thenReturn(Optional.of(cashAccount));
-        when(accountSubjectPersistencePort.findByCode("131000")).thenReturn(Optional.of(loanReceivableAccount));
+        when(accountSubjectPersistencePort.findByCode("101999")).thenReturn(Optional.of(cashAccount));
+        when(accountSubjectPersistencePort.findByCode("131999")).thenReturn(Optional.of(loanReceivableAccount));
         when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenReturn(savedJournal);
+        when(journalUseCase.getJournalEntryWithDetails(77L)).thenReturn(Optional.of(postedJournal));
         when(loanDisbursalRepository.save(any(LoanDisbursal.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LoanDisbursal disbursal = service.disburseLoan(
@@ -119,13 +136,19 @@ class LoanServiceTest {
         JournalDetail debit = journal.getDetails().get(0);
         JournalDetail credit = journal.getDetails().get(1);
         assertThat(debit.getSide()).isEqualTo(JournalSide.DEBIT);
-        assertThat(debit.getAccountSubject().getCode()).isEqualTo("131000");
+        assertThat(debit.getAccountSubject().getCode()).isEqualTo("131999");
         assertThat(debit.getAmount()).isEqualByComparingTo("1000000.00");
         assertThat(credit.getSide()).isEqualTo(JournalSide.CREDIT);
-        assertThat(credit.getAccountSubject().getCode()).isEqualTo("101000");
+        assertThat(credit.getAccountSubject().getCode()).isEqualTo("101999");
         assertThat(credit.getAmount()).isEqualByComparingTo("1000000.00");
 
-        assertThat(disbursal.getJournalEntry()).isSameAs(savedJournal);
+        InOrder journalOrder = inOrder(journalUseCase);
+        journalOrder.verify(journalUseCase).createJournalEntry(any(JournalEntry.class));
+        journalOrder.verify(journalUseCase).approveJournalEntry(77L, "loan-user");
+        journalOrder.verify(journalUseCase).postJournalEntry(77L, "loan-user");
+
+        assertThat(disbursal.getJournalEntry()).isSameAs(postedJournal);
+        assertThat(disbursal.getJournalEntry().getStatus()).isEqualTo(JournalEntryStatus.POSTED);
         assertThat(disbursal.getAuditUser()).isEqualTo("loan-user");
     }
 

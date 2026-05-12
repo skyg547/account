@@ -21,6 +21,11 @@ public interface JournalQueryPort {
     List<JournalDetailSummary> getJournalDetails(Long journalEntryId);
 
     /**
+     * 특정 기간의 전표 상세를 DB 집계 기준으로 요약합니다.
+     */
+    JournalDetailAggregateSummary getJournalDetailAggregate(LocalDate startDate, LocalDate endDate, JournalSide side);
+
+    /**
      * 특정 전표의 요약 정보를 조회합니다.
      */
     JournalSummary getJournalSummary(Long journalEntryId);

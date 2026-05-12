@@ -1,219 +1,56 @@
-# Contracts Schema
+# contracts 스키마 (Schema)
 
-## 1. 계약 맵
+## 1. 개념적 스키마 (DTO 및 Port 구조)
+
+`contracts` 모듈은 물리적인 데이터베이스 테이블을 가지지 않습니다. 이곳의 스키마는 **데이터 교환을 위한 순수 객체(Command, Reference DTO)** 구조를 의미합니다. 다른 모듈의 멀티 스테이지 환경 배포를 위해 REST API 페이로드 또는 Kafka 이벤트 메시지로 직렬화/역직렬화하기 좋은 형태로 유지해야 합니다.
 
 ```mermaid
-flowchart TD
-    A[Journal Contracts]
-    B[Master Data Contracts]
-    C[Source Contracts]
-    D[Expenditure Contracts]
-    E[Asset Contracts]
-    F[Tax Contracts]
-    G[Closing Contracts]
-
-    A --> A1[JournalPostingPort]
-    A --> A2[JournalEntryCommand]
-    A --> A3[JournalLineCommand]
-    A --> A4[JournalPostingResult]
-
-    B --> B1[MasterDataQueryPort]
-    B --> B2[AccountSubjectRef]
-    B --> B3[BusinessPartnerRef]
-    B --> B4[DepartmentRef]
-
-    C --> C1[SourceDocumentProvider]
-    D --> D1[BudgetControlPort]
-    D --> D2[LeasePaymentResolutionPort]
-    D --> D3[LeasePaymentResolutionCommand]
-    D --> D4[LeasePaymentResolutionLineCommand]
-    E --> E1[AssetRegistrationPort]
-    E --> E2[AssetAcquisitionCommand]
-    F --> F1[TaxInvoiceQueryPort]
-    F --> F2[TaxInvoiceRef]
-    G --> G1[AccountingPeriodStatusPort]
+classDiagram
+    class MasterDataQueryPort {
+        <<Interface>>
+        +findAccountSubject(code) AccountSubjectRef
+        +findBusinessPartner(code) BusinessPartnerRef
+    }
+    class JournalPostingPort {
+        <<Interface>>
+        +createDraftEntry(JournalEntryCommand) JournalPostingResult
+    }
+    class BudgetControlPort {
+        <<Interface>>
+        +checkBudgetAvailability(yearMonth, dept, acc, amount)
+    }
 ```
 
-## 2. Journal 계약
+## 2. 주요 Reference DTO (읽기 전용 계약)
 
-### `JournalPostingPort`
-
-메서드:
-- `JournalPostingResult createDraftEntry(JournalEntryCommand command)`
-
-의미:
-- 호출 모듈이 초안 전표 생성을 요청할 때 쓰는 공통 포트입니다.
-
-### `JournalEntryCommand`
-
-필드:
-- `slipDate`
-- `accountingDate`
-- `description`
-- `entryType`
-- `currencyCode`
-- `exchangeRate`
-- `createdBy`
-- `auditUser`
-- `lineageSourceType`
-- `lineageSourceId`
-- `lines`
-
-의미:
-- 전표 헤더 전체를 한 번에 전달합니다.
-
-### `JournalLineCommand`
-
-필드:
-- `drcrType`
-- `accountCode`
-- `amount`
-- `baseAmount`
-- `departmentCode`
-- `businessPartnerCode`
-- `detailDescription`
-
-의미:
-- 전표 상세라인 한 건을 표현합니다.
-
-### `JournalPostingResult`
-
-필드:
-- `journalEntryId`
-- `slipNo`
-- `status`
-
-의미:
-- 전표 생성 후 호출자에게 최소 결과만 반환합니다.
-
-## 3. Master Data 계약
-
-### `MasterDataQueryPort`
-
-메서드:
-- `findAccountSubject(String accountCode)`
-- `findBusinessPartner(String businessPartnerCode)`
-- `findDepartment(String departmentCode)`
-
-반환:
-- `Optional<AccountSubjectRef>`
-- `Optional<BusinessPartnerRef>`
-- `Optional<DepartmentRef>`
+다른 모듈의 데이터를 참조할 때 사용하는 가벼운 객체입니다. Entity가 아님에 주의합니다.
 
 ### `AccountSubjectRef`
-
-필드:
-- `code`
-- `name`
-- `unsettled`
-- `fixedAsset`
+- `code` (String, 식별자)
+- `name` (String)
+- `unsettled` (Boolean, 미결 여부)
 
 ### `BusinessPartnerRef`
+- `code` (String)
+- `name` (String)
 
-필드:
-- `code`
-- `name`
-- `partnerType`
-- `active`
+## 3. 주요 Command DTO (쓰기/명령 계약)
 
-### `DepartmentRef`
+다른 모듈에 작업을 지시할 때 사용하는 객체입니다.
 
-필드:
-- `code`
-- `name`
-- `type`
+### `JournalEntryCommand`
+- `slipDate` (LocalDate)
+- `accountingDate` (LocalDate)
+- `lineageSourceType` (String - 이력 추적용)
+- `lineageSourceId` (String - 이력 추적용)
+- `lines` (List&lt;JournalLineCommand&gt;)
 
-## 4. Expenditure 계약
+### `JournalLineCommand`
+- `drcrType` (Enum: DEBIT/CREDIT)
+- `accountCode` (String)
+- `amount` (BigDecimal)
+- `departmentCode` (String)
 
-### `BudgetControlPort`
-
-메서드:
-- `checkBudgetAvailability(String yearMonth, String departmentCode, String accountCode, BigDecimal amount)`
-
-의미:
-- 예산 가능 여부를 검사하고, 부족하면 구현체가 예외를 던지는 방식으로 쓰입니다.
-
-### `LeasePaymentResolutionPort`
-
-메서드:
-- `createLeasePaymentResolution(LeasePaymentResolutionCommand command)`
-
-### `LeasePaymentResolutionCommand`
-
-필드:
-- `title`
-- `resolutionDate`
-- `paymentDate`
-- `departmentCode`
-- `debitAccountCode`
-- `creditAccountCode`
-- `businessPartnerCode`
-- `amount`
-- `detailDescription`
-- `debitLines`
-
-의미:
-- 기존 단일 차변 라인 호출은 `debitAccountCode`, `amount`, `detailDescription`를 사용합니다.
-- IFRS 16 리스 지급처럼 차변이 여러 줄이면 `debitLines`에 `LeasePaymentResolutionLineCommand` 목록을 담습니다.
-
-### `LeasePaymentResolutionLineCommand`
-
-필드:
-- `debitAccountCode`
-- `amount`
-- `detailDescription`
-
-## 5. Asset 계약
-
-### `AssetRegistrationPort`
-
-메서드:
-- `registerAcquiredAsset(AssetAcquisitionCommand command)`
-- `activateLeaseContract(Long leaseContractId)`
-
-### `AssetAcquisitionCommand`
-
-필드:
-- `assetCode`
-- `assetName`
-- `accountCode`
-- `acquisitionDate`
-- `acquisitionCost`
-- `departmentCode`
-- `usefulLife`
-- `depreciationMethod`
-- `status`
-
-## 6. Tax / Closing / Source 계약
-
-### `TaxInvoiceQueryPort`
-
-메서드:
-- `findById(Long taxInvoiceId)`
-
-반환:
-- `Optional<TaxInvoiceRef>`
-
-### `TaxInvoiceRef`
-
-필드:
-- `id`
-- `issueId`
-- `type`
-
-### `AccountingPeriodStatusPort`
-
-메서드:
-- `boolean isClosed(LocalDate accountingDate)`
-
-### `SourceDocumentProvider`
-
-메서드:
-- `boolean supports(String lineageSourceType)`
-- `Optional<Map<String, Object>> getSourceDocument(String lineageSourceType, String lineageSourceId)`
-
-## 7. 읽을 때 중요한 점
-
-- `contracts`는 저장 테이블이 없고, 타입 계약만 있습니다.
-- 스키마라는 말도 여기서는 "데이터 구조 계약"에 가깝습니다.
-- 이 모듈의 변경은 여러 모듈 컴파일에 동시에 영향을 줍니다.
+## 4. 헥사고날/MSA 환경에서의 원칙
+- **결합도 최소화:** 이 모듈 안에는 `@Entity`나 `@Table`, JPA 관련 어노테이션이 절대 포함되어서는 안 됩니다.
+- **불변성(Immutability):** 가급적 Record 클래스나 final 필드를 사용하여 전달 중 값이 오염되지 않도록 합니다.

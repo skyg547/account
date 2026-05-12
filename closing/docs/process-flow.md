@@ -1,145 +1,42 @@
-# closing process flow
+# Closing Process Flow
 
 ## 1. 이 모듈이 하는 일
 
-`closing`은 "해당 회계기간을 정말 닫아도 되는가"를 운영적으로 관리하는 모듈이다.
+`closing`은 "해당 회계기간을 정말 닫아도 되는가"를 통제하고, 기간 잠금 및 마감 조정을 수행하는 컨트롤 타워입니다.
 
-핵심 책임:
-
-- 결산 캘린더 생성
-- 결산 체크리스트 관리
-- 게이트 통과 관리
-- 기간 잠금/해제
-- 재오픈 승인
-- 평가/충당 배치 실행
-- 결산 조정 전표 기록
-- 마감 완료 가능 여부 시스템 판정
-
-## 2. 전체 흐름도
+## 2. 결산 캘린더 및 마감 흐름 (헥사고날 아키텍처 기반)
 
 ```mermaid
 flowchart TD
-    A[회계기간 준비] --> B[ClosingCalendar 생성]
-    B --> C[ClosingTask 등록]
-    B --> D[ClosingGate 등록]
-    C --> E[태스크 수행]
-    E --> F[필수 태스크 완료]
-    D --> G[게이트 점검]
-    G --> H[게이트 통과]
-    F --> I[평가/충당 배치 실행]
-    I --> J[ADJUSTMENT 전표 생성]
-    J --> K[결산 조정 기록]
-    H --> L[determineClosingStatus 호출]
-    K --> L
-    L --> M{모든 조건 충족?}
-    M -->|예| N[FiscalPeriod CLOSED]
-    M -->|예| O[ClosingCalendar CLOSED]
-    M -->|아니오| P[IN_PROGRESS 유지]
+    subgraph Inbound Adapters (Web / API / Job)
+        A[사용자 마감 시작 요청] --> B[ClosingController]
+        B --> C[ClosingUseCase / Port]
+    end
+
+    subgraph Application & Domain
+        C --> D[ClosingService]
+        D --> E[ClosingCalendar 엔티티 생성 및 상태 변경]
+        E --> F[태스크(Task) 및 게이트(Gate) 검증 규칙 수행]
+        F --> G{모든 조건 통과?}
+        G -->|Yes| H[FiscalPeriod 상태 업데이트 및 Lock 생성]
+    end
+
+    subgraph Outbound Adapters
+        H --> I[PeriodLockPersistencePort]
+        I --> J[(DB: 기간 잠금 이력 기록)]
+    end
 ```
 
-## 3. 기간 잠금과 재오픈 흐름
+## 3. 핵심 처리 원칙
 
-```mermaid
-flowchart LR
-    A[FiscalPeriod] --> B[PeriodLock 생성]
-    B --> C[전표 입력/수정 차단]
-    C --> D[재오픈 요청]
-    D --> E[ReopenApproval PENDING]
-    E --> F{승인 여부}
-    F -->|REJECTED| G[잠금 유지]
-    F -->|APPROVED| H[FiscalPeriod OPEN]
-    H --> I[PeriodLock 삭제]
-    H --> J[ClosingCalendar OPEN]
-```
+### 3.1 헥사고날 통제망 연계
+- 전표 생성 모듈(`journal-ledger`)은 데이터를 INSERT하기 전 반드시 Closing 모듈이 제공하는 `AccountingPeriodStatusPort`를 호출해 해당 날짜가 열려 있는지(OPEN) 확인합니다. Closing 모듈은 독립적인 도메인 규칙을 바탕으로 결과를 응답합니다.
 
-## 4. 코드 기준 단계별 설명
+### 3.2 ID 기반 참조 (ID-based references)
+- 다른 모듈에 있는 특정 회계 기간이나 조직 단위, 사용자 정보를 참조할 때, `period_id`, `approved_by_id` 등 고유 ID만을 사용해 결합도를 낮췄습니다.
 
-### 4.1 마감 여부 조회
+### 3.3 상태 변경과 이력 추적 (SCD2 관점)
+- 마감(Closing)의 특성상 상태가 한 번 변하면 되돌리기 어렵고 증적이 중요합니다. 따라서 `FiscalPeriod`의 상태가 변경되거나 잠금이 발생(Period Lock)할 때, 단순 UPDATE가 아니라 시간 정보(`valid_from`, `valid_to`)를 포함한 버전닝 또는 이력 테이블(로그성) 추가 방식을 활용해 과거 상태를 완벽히 재현할 수 있게 합니다.
 
-- 어댑터: `ClosingStatusAdapter`
-- 계약: `AccountingPeriodStatusPort`
-- 사용처: `journal-ledger` 등 다른 모듈
-- 기준:
-  - `FiscalPeriod.closingStatus`가 `CLOSED` 또는 `PERMANENTLY_CLOSED`면 닫힌 기간으로 본다
-
-### 4.2 결산 캘린더 생성
-
-- 진입점: `POST /api/closing/calendars`
-- 서비스: `ClosingService.createClosingCalendar`
-- 처리:
-  - 같은 연도/기간의 `FiscalPeriod` 존재 여부 확인
-  - 캘린더 상태를 `OPEN`으로 생성
-
-### 4.3 태스크와 게이트 운영
-
-- 태스크 생성: `POST /api/closing/tasks`
-- 게이트 생성: `POST /api/closing/gates`
-- 태스크 상태 갱신: `PUT /api/closing/tasks/{id}/status`
-- 게이트 검사: `PUT /api/closing/gates/{id}/check`
-
-현재 구현 포인트:
-
-- 태스크 완료 조건 JSON은 저장만 하고 실제 평가 엔진은 아직 없다
-- 게이트 조건 JSON도 저장만 하고 현재는 임시로 통과 처리 가능 구조다
-
-### 4.4 기간 잠금
-
-- 진입점: `POST /api/closing/period-locks`
-- 서비스: `ClosingService.lockPeriod`
-- 처리:
-  - `FiscalPeriod` 조회
-  - 이미 잠겨 있으면 중복 잠금 차단
-  - 잠금 유형, 사유, 잠금 사용자 기록
-
-### 4.5 재오픈 승인
-
-- 요청: `POST /api/closing/reopen-approvals`
-- 승인/반려: `PUT /api/closing/reopen-approvals/{id}/status`
-
-승인 시 실제로 일어나는 일:
-
-- `FiscalPeriod.closingStatus`를 `OPEN`으로 변경
-- 해당 `PeriodLock` 삭제
-- 연결된 `ClosingCalendar`를 `OPEN`으로 변경
-
-### 4.6 평가/충당 배치
-
-- 평가 배치: `POST /api/closing/valuation-batches/run`
-- 충당 배치: `POST /api/closing/provision-batches/run`
-
-현재 구현:
-
-- 실제 정교한 계산 엔진 대신 임시 자동 전표 생성 로직이 들어 있다
-- 생성 전표는 `entryType = ADJUSTMENT`
-- 더미 계정 `999998`, `999999`를 사용해 차대 전표를 만든다
-
-### 4.7 결산 조정
-
-- 진입점: `POST /api/closing/adjustments`
-- 서비스: `ClosingService.createClosingAdjustment`
-- 조건:
-  - 대상 전표가 `ADJUSTMENT` 타입이어야 함
-  - 전표 회계일자가 해당 회계기간 범위 안이어야 함
-
-### 4.8 최종 마감 상태 판정
-
-- 진입점: `POST /api/closing/calendars/determine-status`
-- 서비스: `ClosingService.determineClosingStatus`
-
-판정 조건:
-
-1. 필수 태스크가 모두 `COMPLETED`
-2. 게이트가 모두 `PASSED`
-3. 대사 성공 여부는 현재 TODO이며 임시로 성공 처리
-
-조건 충족 시:
-
-- `FiscalPeriod`를 `CLOSED`로 변경
-- `ClosingCalendar`를 `CLOSED`로 변경
-
-## 5. 초보자가 꼭 기억할 포인트
-
-- 이 모듈의 핵심은 "전표를 만드는 것"이 아니라 "마감 통제"다.
-- 실제 잠금 판단은 `FiscalPeriod` 상태를 본다.
-- 게이트와 태스크의 JSON 조건 평가는 아직 완전 구현이 아니다.
-- 평가/충당 배치 전표는 현재 임시 구현 성격이 강하다.
+### 3.4 Multi-stage Docker 운영
+- 배포 파이프라인 상에서 Builder 이미지를 통해 컴파일과 테스트가 수행되고, 최종적으로 슬림한 Runtime Docker 컨테이너만 배포되어 메모리 사용량을 최소화하고 보안 취약점을 줄입니다. 마감 시즌에 트래픽이 몰리지 않으므로 경량 컨테이너 운영에 매우 적합합니다.

@@ -7,6 +7,9 @@ import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshot;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest;
 import com.ho.account.reconciliation.domain.ReconStageResult;
 import com.ho.account.reconciliation.domain.ReconUnitDefinition;
 import com.ho.account.reconciliation.domain.ReconciliationResult;
@@ -33,6 +36,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +60,9 @@ class ReconManagerServiceTest {
     @Mock
     private LedgerQueryPort ledgerQueryPort;
 
+    @Mock
+    private ExternalReconSnapshotPort externalReconSnapshotPort;
+
     private ReconManagerService reconManagerService;
 
     @BeforeEach
@@ -65,6 +72,7 @@ class ReconManagerServiceTest {
                 stageResultRepository,
                 resultRepository,
                 varianceRepository,
+                externalReconSnapshotPort,
                 journalQueryPort,
                 ledgerQueryPort,
                 new ObjectMapper()
@@ -80,6 +88,17 @@ class ReconManagerServiceTest {
 
         when(unitRepository.findById("UNIT-001")).thenReturn(Optional.of(unit));
         when(resultRepository.save(any(ReconciliationResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(externalReconSnapshotPort.loadSnapshot(any(ExternalReconSnapshotRequest.class)))
+                .thenAnswer(invocation -> {
+                    ExternalReconSnapshotRequest request = invocation.getArgument(0);
+                    if (ExternalReconSnapshotRequest.SOURCE_STAGE.equals(request.stageCode())) {
+                        return new ExternalReconSnapshot(10L, new BigDecimal("1000.00"));
+                    }
+                    if (ExternalReconSnapshotRequest.INTERFACE_STAGE.equals(request.stageCode())) {
+                        return new ExternalReconSnapshot(10L, new BigDecimal("1000.00"));
+                    }
+                    return ExternalReconSnapshot.zero();
+                });
         when(journalQueryPort.getJournalSummaries(reconDate, reconDate)).thenReturn(List.of(journalSummary));
         when(journalQueryPort.getJournalDetails(99L)).thenReturn(List.of(
                 journalDetail(JournalSide.DEBIT, "11000", "980.00"),
@@ -109,6 +128,13 @@ class ReconManagerServiceTest {
         verify(varianceRepository).save(varianceCaptor.capture());
         assertThat(varianceCaptor.getValue().getVarianceCode()).isEqualTo("DEEP_MISMATCH");
         assertThat(varianceCaptor.getValue().getAmount()).isEqualByComparingTo("50.00");
+
+        ArgumentCaptor<ExternalReconSnapshotRequest> snapshotRequestCaptor =
+                ArgumentCaptor.forClass(ExternalReconSnapshotRequest.class);
+        verify(externalReconSnapshotPort, times(2)).loadSnapshot(snapshotRequestCaptor.capture());
+        assertThat(snapshotRequestCaptor.getAllValues())
+                .extracting(ExternalReconSnapshotRequest::stageCode)
+                .containsExactly("SOURCE", "INTERFACE");
     }
 
     private ReconUnitDefinition reconUnitDefinition() {
@@ -118,12 +144,11 @@ class ReconManagerServiceTest {
         unit.setReconType(ReconciliationType.ACCOUNT_TOTALS);
         unit.setToleranceAmount(BigDecimal.ZERO);
         unit.setSlaDays(3);
+        unit.setProductCode("LOAN");
+        unit.setCurrencyCode("KRW");
+        unit.setLegalEntityCode("HO");
         unit.setMatchingRulesJson("""
                 {
-                  "sourceAmount": "1000.00",
-                  "sourceCount": 10,
-                  "interfaceAmount": "1000.00",
-                  "interfaceCount": 10,
                   "journalAccountCode": "11000",
                   "ledgerAccountCode": "11000",
                   "ledgerCurrencyCode": "KRW",

@@ -1,132 +1,38 @@
-# payable process flow
+# Payable Process Flow
 
-## 1. 이 모듈이 하는 일
+## 1. 이 모듈이 하는 일 (Hexagonal Architecture 중심)
 
-`payable`은 매입 거래를 채무로 인식하고, 실제 지급과 선급금 상계까지 연결하는 모듈이다.
-
-핵심 책임:
-
-- 매입 인보이스 등록
-- AP 채무 오픈아이템 생성
-- 지급 런 생성
-- 개별 지급 실행
-- 선급금 기록
-- 채무와 선급금 상계
-- 각 단계의 회계 전표 생성
+`payable` 모듈은 매입 거래를 채무로 인식하고, 지급을 실행하며 선급금을 관리합니다.
+도메인 핵심 로직과 외부 인프라(웹 API, DB 연결, 타 서비스 API)가 헥사고날 아키텍처 원칙에 의해 포트(Port)와 어댑터(Adapter)로 분리되어 있습니다.
 
 ## 2. 전체 흐름도
 
 ```mermaid
 flowchart TD
-    A[PurchaseInvoice 등록] --> B[Payable 생성]
-    A --> C[매입 인식 전표 생성]
-    B --> D[지급기일 도래]
-    D --> E[PaymentRun 시작]
-    E --> F[Payment 생성]
-    F --> G[지급 실행]
-    G --> H[Payable 잔액 차감]
-    G --> I[지급 전표 생성]
-    J[AdvancePayment 등록] --> K[선급금 전표 생성]
-    K --> L[AdvancePayment ACTIVE]
-    L --> M[Payable와 상계]
-    M --> N[Payable/AdvancePayment 잔액 차감]
-    M --> O[상계 전표 생성]
+    A[Inbound Adapter: REST API] --> B[Purchase / Payment UseCase]
+    B --> C[도메인 로직: Payable 엔티티 생성]
+    C --> D[Outbound Port: Journal 생성 위임]
+    D --> E[전표 ID를 반환받아 ID-based Reference로 저장]
+    
+    F[만기일 도래 배치] --> G[PaymentRun UseCase]
+    G --> H[도메인 로직: Payment 리스트 생성 및 실행]
+    H --> I[Payable 잔액 차감]
+    H --> J[Outbound Port: 지급 전표 생성 위임]
+    J --> K[도메인에 지급 전표 ID 업데이트]
+    
+    L[AdvancePayment 등록] --> M[Payable 상계 로직]
+    M --> N[Outbound Port: 상계 전표 생성]
 ```
 
-## 3. 매입 인보이스 인식 흐름
+## 3. 지급 런과 지급 실행 상세 흐름
 
-### 3.1 인보이스 등록
+- **Port:** `InitiatePaymentRunUseCase`, `ExecutePaymentUseCase`
+- **도메인 격리:** 지급 대상 거래처 및 채무 데이터를 조회할 때, 어댑터가 DB에서 도메인 엔티티로 변환하여 전달합니다.
+- 여러 결제 건을 모아 처리할 때, 각 지급 건(`Payment`)의 상태 전이는 도메인 객체 내부 로직에 의해 캡슐화되어 진행됩니다.
+- 지급 완료 후 회계 전표 반영은 `JournalPostingPort` 인터페이스를 통해 비동기 혹은 동기로 위임되며, 타 모듈 결합을 최소화하기 위해 전표의 식별자(ID)만 반환받아 저장합니다.
 
-- 진입점: `POST /api/purchase/invoices`
-- 서비스: `PurchaseService.createPurchaseInvoice`
+## 4. 인프라 및 아키텍처 특징
 
-처리:
-
-1. 공급업체 존재 여부 확인
-2. 거래처+인보이스번호 중복 확인
-3. `PurchaseInvoice` 저장
-4. `Payable` 오픈아이템 생성
-5. 매입 인식 전표 생성
-
-생성 분개:
-
-- 차변: 비용/매입 계정 `50100`
-- 차변: 부가세대급금 `13500`
-- 대변: 매입채무 `21100`
-
-## 4. 지급 런과 지급 실행 흐름
-
-### 4.1 지급 런 생성
-
-- 진입점: `POST /api/payments/run`
-- 서비스: `PaymentService.initiatePaymentRun`
-
-처리:
-
-- 기준일 이전 만기 채무를 조회
-- 각 채무에 대해 `Payment` 레코드 생성
-- `PaymentRun` 상태를 `PROCESSING`으로 전환
-
-### 4.2 개별 지급 실행
-
-- 진입점: `POST /api/payments/execute`
-- 서비스: `PaymentService.executePayment`
-
-처리:
-
-1. `Payment` 상태가 실행 가능한지 확인
-2. 지급 성공 가정 로직 수행
-3. 연결 가능한 `Payable` 잔액 차감
-4. 상태를 `PAID` 또는 `PARTIAL_PAID`로 변경
-5. 지급 전표 생성
-
-생성 분개:
-
-- 차변: 매입채무 `21100`
-- 대변: 현금/예금 `10100`
-
-## 5. 선급금과 상계 흐름
-
-### 5.1 선급금 기록
-
-- 진입점: `POST /api/payments/advance`
-- 서비스: `PaymentService.recordAdvancePayment`
-
-생성 분개:
-
-- 차변: 선급금 `13100`
-- 대변: 현금/예금 `10100`
-
-### 5.2 선급금 상계
-
-- 진입점: `POST /api/payments/offset-payable`
-- 서비스: `PaymentService.offsetPayableWithAdvancePayment`
-
-처리:
-
-- 채무 잔액과 선급금 잔액을 동시에 감소
-- 채무는 `PAID` 또는 `PARTIAL_PAID`
-- 선급금은 `OFFSET` 또는 `ACTIVE`
-
-생성 분개:
-
-- 차변: 매입채무 `21100`
-- 대변: 선급금 `13100`
-
-## 6. 드릴다운 연계
-
-- `PayableSourceDocumentProvider`가 `SourceDocumentProvider`를 구현한다
-- 현재 지원하는 `lineageSourceType`은 `PURCHASE_INVOICE`, `P2P_AP`
-- `lineageSourceId`에서 인보이스번호와 거래처 코드를 파싱해 원본 인보이스를 반환한다
-
-주의:
-
-- `PurchaseService`에서 생성하는 기본 `lineageSourceType`은 `PURCHASE_INVOICE`
-- 기존 문서/연계에서 사용하던 `P2P_AP`도 호환 타입으로 유지한다
-
-## 7. 초보자가 꼭 기억할 포인트
-
-- 이 모듈은 채무 관리와 지급 실행을 같이 가진다.
-- 각 주요 액션마다 전표를 따로 만든다.
-- 상태 관리보다 중요한 것은 잔액(`outstandingAmount`) 변화다.
-- 계정코드 `21100`, `10100`, `13100`, `13500`, `50100`은 현재 하드코딩된 기본 계정에 가깝다.
+- **ID 기반 참조:** 공급업체(`vendor_code`)나 전표(`journal_entry_id`) 등 다른 모듈이 소유한 데이터는 식별자로만 참조합니다.
+- **다단계 도커 (Multi-stage Docker):** 효율적인 빌드 및 실행을 위해 Multi-stage Dockerfile을 사용하여 최적화된 JRE 컨테이너 위에서 실행됩니다.
+- **이력 관리 (SCD2):** 거래처 지급 조건이나 은행 계좌 정보가 변경될 수 있으므로, 과거 지급 이력에 문제가 없도록 식별자 참조와 SCD2 형태의 변경 이력 관리를 활용하여 정합성을 유지합니다.

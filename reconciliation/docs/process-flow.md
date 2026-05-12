@@ -1,41 +1,40 @@
 # Reconciliation Process Flow
 
-## 1. 전체 흐름
+## 1. 전체 흐름 (Hexagonal Architecture 기반)
+
+이 모듈은 헥사고날 아키텍처(Ports and Adapters)를 적용하여, 대사 엔진 코어가 인바운드/아웃바운드 어댑터와 분리되어 작동합니다. 외부 모듈(전표 등) 참조는 객체 대신 ID를 사용합니다.
 
 ```mermaid
 flowchart TD
-    A[대사 단위 생성] --> B[대사 규칙 생성]
-    B --> C[대사 실행]
-    C --> D{차이 존재?}
-    D -- 아니오 --> E[성공 종료]
-    D -- 예 --> F[ReconciliationDifference 생성]
-    F --> G[담당자 지정]
-    G --> H[사유코드 선택]
-    H --> I{조정분개 필요?}
-    I -- 예 --> J[조정분개 연결]
-    I -- 아니오 --> K[무시 또는 해소]
-    J --> K
+    A[Inbound: REST API] --> B[대사 유스케이스 / Service]
+    B --> C[대사 단위 및 규칙 조회]
+    C --> D[Outbound Port: 원천/대상 데이터 조회]
+    D --> E[대사 엔진 로직 수행]
+    E --> F{차이 존재?}
+    F -- 아니오 --> G[성공 상태 저장]
+    F -- 예 --> H[ReconciliationDifference 생성]
+    H --> I[Outbound Port: 담당자 할당 및 메일 발송]
+    H --> J{조정분개 필요?}
+    J -- 예 --> K[Outbound Port: JournalPostingPort로 분개 요청]
+    K --> L[전표 ID(ID-based reference) 반환받아 차이 기록에 연결]
+    J -- 아니오 --> M[차이 상태 업데이트]
+    M --> N[Outbound Port: DB에 저장]
 ```
 
 ## 2. 단위와 규칙 준비
 
 ```mermaid
 sequenceDiagram
-    participant API as ReconciliationController
-    participant Service as ReconciliationService
-    participant UnitRepo as ReconciliationUnitRepository
-    participant RuleRepo as ReconciliationRuleRepository
+    participant API as WebAdapter(Controller)
+    participant UseCase as ReconciliationUseCase
+    participant UnitPort as UnitRepositoryPort
+    participant RulePort as RuleRepositoryPort
 
-    API->>Service: createReconciliationUnit
-    Service->>UnitRepo: 저장
-    API->>Service: createReconciliationRule
-    Service->>RuleRepo: 우선순위 포함 저장
+    API->>UseCase: createReconciliationUnit
+    UseCase->>UnitPort: save (SCD2 이력 관리 적용)
+    API->>UseCase: createReconciliationRule
+    UseCase->>RulePort: save
 ```
-
-설명:
-- 먼저 어떤 종류의 대사를 할지 정의합니다.
-- 예: 은행대사, GL-보조원장 대사, 원천-총계정원장 대사
-- 규칙은 우선순위가 낮은 숫자부터 먼저 적용됩니다.
 
 ## 3. 메인 대사 실행 흐름
 
@@ -43,96 +42,29 @@ sequenceDiagram
 flowchart TD
     A[POST /api/reconciliation/run] --> B[ReconciliationRun 생성]
     B --> C[규칙 조회]
-    C --> D[원천/대상 집계]
-    D --> E{금액 차이 허용오차 이내?}
-    E -- 예 --> F[run.status = SUCCESS]
-    E -- 아니오 --> G[Difference 생성]
-    G --> H[기본 사유코드 조회 또는 생성]
-    H --> I{조정 가능 사유인가?}
-    I -- 예 --> J[조정분개 생성]
-    I -- 아니오 --> K[차이만 저장]
-    J --> L[run 통계 업데이트]
-    K --> L
+    C --> D[원천 데이터: API 등 Outbound Port 경유]
+    C --> E[대상 데이터: JournalQueryPort를 통한 ID 조회]
+    D & E --> F[대사 엔진 (Core Domain)]
+    F --> G{금액 차이 허용오차 이내?}
+    G -- 예 --> H[run.status = SUCCESS]
+    G -- 아니오 --> I[Difference 생성]
+    I --> J{조정 가능 사유인가?}
+    J -- 예 --> K[JournalPostingPort.createDraftEntry 호출]
+    K --> L[반환된 전표 ID를 Difference에 매핑]
+    J -- 아니오 --> M[차이 내역만 저장]
+    L & M --> N[run 통계 업데이트 및 저장]
 ```
 
 설명:
-- 메인 흐름은 `ReconciliationUnit.criteriaJson`의 `sourceAmount`, `sourceCount`를 원천 집계값으로 사용합니다.
-- 대상 집계값은 `JournalQueryPort`로 기준일 전표와 상세를 조회한 뒤 차변 상세의 `baseAmount` 또는 `amount`를 합산합니다.
-- 활성 `ReconciliationRule` 중 우선순위가 가장 높은 규칙의 `toleranceType/toleranceValue`로 금액 허용오차를 계산합니다.
-- `ABSOLUTE`는 금액 그대로, `PERCENTAGE`는 원천 금액 대비 비율로 계산합니다.
-- 금액 차이가 허용오차를 초과하면 `AMOUNT_MISMATCH` 차이를 한 건 생성합니다.
-- 기본 사유코드는 `GENERIC_MISMATCH`입니다.
-- 자동 생성되는 `GENERIC_MISMATCH`는 조정분개를 만들지 않습니다.
-- 조정 가능한 사유코드로 조정분개를 만들려면 `criteriaJson`에 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode`를 설정해야 합니다.
-- 조정분개 생성은 `JournalPostingPort.createDraftEntry`로 위임하고, 생성된 전표 ID를 차이에 연결합니다.
+- 메인 흐름에서 원천/대상 데이터는 헥사고날의 아웃바운드 포트를 통해 조회합니다.
+- `JournalQueryPort`로 기준일 전표와 상세를 조회한 뒤 비교합니다.
+- 금액 차이가 허용오차를 초과하면 차이를 생성하며, 조정분개는 모듈간 결합도를 낮추기 위해 `JournalPostingPort`로 위임하여 **ID 기반 참조(journalEntryId)**로 연결합니다.
 
 ## 4. 차이 담당자 배정과 해소
 
-```mermaid
-sequenceDiagram
-    participant API as ReconciliationController
-    participant Service as ReconciliationService
-    participant Diff as ReconciliationDifferenceRepository
+- 조정 가능한 사유코드라면 조정분개 링크가 반드시 있어야 하며, 이는 헥사고날 원칙에 따라 엔티티 연관이 아닌 전표 ID(Long/String)로 저장됩니다.
 
-    API->>Service: assignDifference
-    Service->>Diff: 담당자/SLA 저장
-    API->>Service: resolveDifference
-    Service->>Service: 사유코드 검증
-    Service->>Service: 조정분개 필요 여부 검증
-    Service->>Diff: RESOLVED 또는 IGNORED 저장
-```
+## 5. 런타임 및 인프라 (Multi-stage Docker)
 
-핵심 규칙:
-- 조정 가능한 사유코드라면 조정분개 링크가 반드시 있어야 합니다.
-- 조정분개 링크는 `JournalEntry` 엔티티 직접 연관이 아니라 전표 ID로 저장합니다.
-- 최종 상태는 `RESOLVED` 또는 `IGNORED`만 허용됩니다.
-
-## 5. 자동 매칭 엔진 흐름
-
-```mermaid
-flowchart LR
-    A[BankStatement 목록] --> C[AutomatedMatchingEngine]
-    B[JournalDetailSummary 목록] --> C
-    C --> D{금액 허용오차 이내?}
-    D -- 아니오 --> E[NO_MATCH_FOUND]
-    D -- 예 --> F{회계일자 허용오차 이내?}
-    F -- 아니오 --> E
-    F -- 예 --> G[EXACT_DATE_AMOUNT_MATCH]
-```
-
-설명:
-- 기본 `match(...)` 호출은 금액과 회계일자를 정확히 비교합니다.
-- `MatchOptions`를 전달하면 금액 허용오차와 일자 허용일수를 적용합니다.
-- 허용오차로 매칭된 건은 `TOLERANCE_DATE_AMOUNT_MATCH`로 구분합니다.
-- 현재 구현은 설명문구 비교를 쓰지 않습니다.
-- 입력 전표 라인은 `journal-ledger` 도메인 엔티티가 아니라 `contracts`의 `JournalDetailSummary`를 사용합니다.
-
-## 6. 심화 대사 흐름
-
-```mermaid
-flowchart TD
-    A[ReconUnitDefinition 선택] --> B[4단계 금액 집계]
-    B --> C[SOURCE]
-    B --> D[INTERFACE]
-    B --> E[JOURNAL]
-    B --> F[LEDGER]
-    F --> G[Source vs Ledger 차이 계산]
-    G --> H{허용오차 이내?}
-    H -- 예 --> I[ReconciliationResult SUCCESS]
-    H -- 아니오 --> J[ReconciliationVariance 생성]
-```
-
-설명:
-- `ReconManagerService`는 SOURCE -> INTERFACE -> JOURNAL -> LEDGER 4단계 대사를 모델링합니다.
-- SOURCE/INTERFACE는 `ReconUnitDefinition.matchingRulesJson`에 명시된 집계값을 사용합니다.
-- JOURNAL은 `JournalQueryPort`로 기준일 전표 상세를 조회한 뒤 차변 상세 금액을 집계합니다.
-- LEDGER는 `LedgerQueryPort`로 GL 잔액을 조회해 집계합니다.
-- `ledgerAmountBasis`는 기본 `DEBIT`이며, `CREDIT`, `ENDING_BALANCE`, `ABS_ENDING_BALANCE`도 사용할 수 있습니다.
-
-## 7. 현재 구현상 주의점
-
-- 메인 대사와 심화 대사 모델이 통합되지 않았습니다.
-- 메인 흐름의 대상 금액은 `JournalQueryPort` 기반이지만, 원천 금액은 아직 `criteriaJson`에 명시된 집계값을 사용합니다.
-- 심화 흐름의 SOURCE/INTERFACE 단계는 아직 외부 원천 시스템 조회가 아니라 `matchingRulesJson` 명시값 기반입니다.
-- 자동 매칭은 금액/일자 허용오차를 지원하지만 설명문구 유사도나 전표번호 비교는 아직 없습니다.
-- 삭제 API에는 연관 데이터 정리 TODO가 남아 있습니다.
+- 위 과정은 모두 Multi-stage Docker 환경에서 컴파일된 최적화 이미지 기반으로 컨테이너 내에서 실행됩니다.
+- 포트/어댑터 간의 데이터 이동은 외부 시스템(예: Kafka, REST)을 통해 유연하게 확장될 수 있도록 설계되었습니다.

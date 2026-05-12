@@ -29,18 +29,21 @@ public class InterestAccrualService {
     private final LoanAccrualLogRepository accrualLogRepository;
     private final JournalUseCase journalUseCase;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final LoanAccountingProperties accountingProperties;
 
     public InterestAccrualService(
             LoanContractRepository loanContractRepository,
             LoanAmortizationScheduleEntryRepository amortizationRepository,
             LoanAccrualLogRepository accrualLogRepository,
             JournalUseCase journalUseCase,
-            AccountSubjectPersistencePort accountSubjectPersistencePort) {
+            AccountSubjectPersistencePort accountSubjectPersistencePort,
+            LoanAccountingProperties accountingProperties) {
         this.loanContractRepository = loanContractRepository;
         this.amortizationRepository = amortizationRepository;
         this.accrualLogRepository = accrualLogRepository;
         this.journalUseCase = journalUseCase;
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.accountingProperties = accountingProperties;
     }
 
     @Transactional
@@ -68,7 +71,7 @@ public class InterestAccrualService {
 
                     try {
                         JournalEntry journalEntry = createAccrualJournal(loan, interestAmount, accrualDate);
-                        JournalEntry savedJournal = journalUseCase.createJournalEntry(journalEntry);
+                        JournalEntry savedJournal = createAndPostJournal(journalEntry);
                         log.setJournalNo(savedJournal.getSlipNo());
                         log.setStatus("SUCCESS");
                     } catch (Exception e) {
@@ -81,10 +84,10 @@ public class InterestAccrualService {
     }
 
     private JournalEntry createAccrualJournal(LoanContract loan, BigDecimal amount, LocalDate date) {
-        AccountSubject accruedInterestReceivable = accountSubjectPersistencePort.findByCode("11501")
-                .orElseThrow(() -> new IllegalStateException("Account not found: 11501"));
-        AccountSubject interestIncome = accountSubjectPersistencePort.findByCode("41101")
-                .orElseThrow(() -> new IllegalStateException("Account not found: 41101"));
+        AccountSubject accruedInterestReceivable = resolveAccount(
+                accountingProperties.getAccruedInterestReceivableAccountCode());
+        AccountSubject interestIncome = resolveAccount(
+                accountingProperties.getInterestIncomeAccountCode());
 
         JournalEntry entry = new JournalEntry();
         entry.setSlipNo(date + "-LOAN-ACCRUAL-" + System.currentTimeMillis());
@@ -118,5 +121,20 @@ public class InterestAccrualService {
         entry.addDetail(credit);
 
         return entry;
+    }
+
+    private JournalEntry createAndPostJournal(JournalEntry journalEntry) {
+        JournalEntry savedEntry = journalUseCase.createJournalEntry(journalEntry);
+        if (savedEntry == null || savedEntry.getId() == null) {
+            throw new IllegalStateException("Loan accrual journal entry was not persisted with an id.");
+        }
+        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
+        journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
+        return journalUseCase.getJournalEntry(savedEntry.getId()).orElse(savedEntry);
+    }
+
+    private AccountSubject resolveAccount(String accountCode) {
+        return accountSubjectPersistencePort.findByCode(accountCode)
+                .orElseThrow(() -> new IllegalStateException("Account not found: " + accountCode));
     }
 }

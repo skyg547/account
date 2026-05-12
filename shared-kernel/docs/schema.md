@@ -1,6 +1,8 @@
 # Shared-Kernel Schema
 
-## 1. 포함 타입
+## 1. 포함 타입 및 구조
+
+DB 테이블 스키마가 아니라, 헥사고날 아키텍처의 포트(Port)들이 통신하기 위해 공유하는 코드 레벨의 **타입(Type)** 스키마입니다.
 
 ```mermaid
 flowchart TD
@@ -12,105 +14,36 @@ flowchart TD
     A --> F[ServiceDiscoveryRegistry interface]
     A --> G[Masked annotation]
     A --> H[MaskingSerializer]
+    A --> I[Common ID Types (추가 권장)]
 ```
 
 ## 2. `BoundedContext`
 
-값:
-- `MASTER_DATA`
-- `GOVERNANCE`
-- `JOURNAL_LEDGER`
-- `RECEIVABLE`
-- `PAYABLE`
-- `ASSET_LEASE`
-- `LOAN`
-- `CLOSING`
-- `RECONCILIATION`
-- `REPORTING`
-- `TAX`
-- `EXPENDITURE_RESOLUTION`
-
-의미:
-- 서비스나 모듈이 어느 업무 경계에 속하는지 표현하는 enum입니다.
+MSA(Microservices Architecture) 환경에서 각 독립된 도메인 경계를 정의합니다.
+값: `MASTER_DATA`, `GOVERNANCE`, `JOURNAL_LEDGER`, `LOAN`, `REPORTING` 등
 
 ## 3. `ServiceCapability`
 
-값:
-- `SOURCE_DOCUMENT_LOOKUP`
-- `MASTER_DATA_QUERY`
-- `JOURNAL_POSTING`
-- `ACCOUNTING_PERIOD_STATUS`
-- `BUDGET_CONTROL`
-- `ASSET_REGISTRATION`
-- `LEASE_PAYMENT_RESOLUTION`
-- `TAX_INVOICE_QUERY`
-
-의미:
-- 서비스가 외부에 제공하는 계약 기능을 표현하는 enum입니다.
+서비스가 포트(Port)를 통해 외부 어댑터에 제공하는 계약/기능의 종류입니다.
+값: `SOURCE_DOCUMENT_LOOKUP`, `JOURNAL_POSTING`, `BUDGET_CONTROL` 등
 
 ## 4. `ServiceDescriptor`
 
-필드:
-- `serviceName`
-- `context`
-- `capabilities`
-- `description`
+Docker 및 MSA 환경에서 서비스 디스커버리에 사용되는 서비스의 메타정보(명함)입니다.
+필드: `serviceName`, `context`, `capabilities`, `description`
 
-의미:
-- 서비스 메타정보와 capability 집합을 한 번에 표현하는 record입니다.
+## 5. `DiscoverableService` 및 `ServiceDiscoveryRegistry`
 
-## 5. `DiscoverableService`
+- **의미**: 런타임에 여러 컨테이너 인스턴스들이 자신의 존재를 알리고(Discoverable), 필요한 다른 서비스를 Capability/Context 기준으로 찾을 수 있게 해주는 공통 레지스트리 인터페이스입니다.
 
-핵심 메서드:
-- `descriptor()`
+## 6. `Masked` 및 `MaskingSerializer`
 
-의미:
-- 런타임 레지스트리에 등록될 수 있는 서비스의 최소 계약입니다.
+보안 규칙 준수를 위한 어노테이션과 직렬화 도구입니다.
 
-## 6. `ServiceDiscoveryRegistry`
+- 속성: `pattern` (REG_NO, ACCOUNT, EMAIL 등)
+- 역할: API로 나가는 JSON 문자열에서 주민번호나 계좌번호를 마스킹 처리하여 Outbound Adapter의 보안을 책임집니다.
 
-핵심 메서드:
-- `getServiceDescriptors()`
-- `findDescriptor(...)`
-- `findByContext(...)`
-- `findByCapability(...)`
-- `getServices(...)`
+## 7. 아키텍처 핵심 원칙과 연결 (ID 기반 참조)
 
-의미:
-- discoverable service를 capability/컨텍스트 기준으로 찾는 공통 레지스트리 계약입니다.
-
-## 7. `Masked`
-
-속성:
-- `pattern`
-
-기본값:
-- `DEFAULT`
-
-적용 대상:
-- `FIELD`
-- `METHOD`
-
-의미:
-- 민감정보 필드에 어떤 마스킹 규칙을 쓸지 표시하는 어노테이션입니다.
-
-## 8. `MaskingSerializer`
-
-역할:
-- `JsonSerializer<String>`
-- `ContextualSerializer`
-
-핵심 메서드:
-- `serialize(...)`
-- `createContextual(...)`
-
-지원 규칙:
-- `REG_NO`
-- `ACCOUNT`
-- `EMAIL`
-- 기본 마스킹
-
-## 9. 읽을 때 중요한 점
-
-- 이 모듈은 DB 스키마가 아니라 코드 레벨 공통 계약 모음입니다.
-- 실제 마스킹 동작 여부는 사용하는 쪽의 Jackson 직렬화 설정과 필드 어노테이션에 달려 있습니다.
+- **ID 기반 참조 지원**: `shared-kernel`은 다른 모듈의 JPA 엔티티를 직접 가져다 쓰지 못하도록 돕는 역할도 해야 합니다. `AccountId`, `LedgerId` 같은 범용적인 값 객체(Value Object)나 식별자 인터페이스를 여기에 두면, 각 모듈이 의존성 없이 ID만 주고받을 수 있게 됩니다.
+- 모듈의 의존성은 언제나 `shared-kernel`을 향해야 하며, `shared-kernel`이 특정 비즈니스 모듈(예: `reporting`)을 의존하는 역방향 참조는 절대 불가합니다.

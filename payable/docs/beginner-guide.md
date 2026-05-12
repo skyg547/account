@@ -1,98 +1,42 @@
-# payable beginner guide
+# Payable Beginner Guide
 
-## 1. 이 모듈을 한 문장으로 설명하면
+## 1. 이 모듈을 한 문장으로 설명하면 (초보자를 위한 개념 설명)
 
-`payable`은 "사야 할 것을 사고, 갚아야 할 돈을 채무로 잡고, 실제로 지급하는" 모듈이다.
+`payable`(매입채무) 모듈은 "회사에 필요한 물건이나 서비스를 사고 나중에 갚기로 한 빚(매입채무)을 장부에 기록하고, 약속한 날짜에 맞춰 실제로 돈을 이체해 빚을 갚아나가는(지급) 전체 과정"을 관리합니다.
+
+마치 인터넷 쇼핑몰에서 카드로 물건을 산 뒤(매입채무 발생), 다음 달 카드 대금 결제일에 맞춰 통장에서 돈이 빠져나가는(지급) 것과 같습니다. 돈을 미리 내는 선급금(예: 계약금) 처리도 담당합니다.
 
 ## 2. 초보자가 먼저 이해해야 할 개념
 
-### 2.1 매입 인보이스
-
-- 공급업체가 보낸 청구서다.
-
-### 2.2 매입채무
-
-- 아직 지급하지 않은 금액이다.
-- 인보이스를 등록하면 채무가 열린다.
-
-### 2.3 지급 런
-
-- 여러 건 지급을 한 번에 처리하기 위한 배치 묶음이다.
-
-### 2.4 선급금
-
-- 청구서보다 먼저 돈을 준 경우다.
-- 나중에 채무와 상계할 수 있다.
+- **매입 인보이스 (Purchase Invoice):** 거래처가 우리에게 "물건값 내놓으세요" 하고 보낸 청구서입니다.
+- **매입채무 (Payable):** 청구서를 받고 아직 우리가 거래처에 주지 않은 돈(빚)입니다.
+- **지급 런 (Payment Run):** 여러 거래처에 줄 돈들을 매일 건건이 처리하기 힘드니, "오늘 오후 2시에 지급할 목록"을 한 바구니에 담아 일괄로 이체 처리하는 배치 작업입니다.
+- **선급금 (Advance Payment):** 물건을 받기도 전에 계약금 명목으로 거래처에 미리 준 돈입니다. 나중에 채무가 생기면 서로 퉁칠(상계) 수 있습니다.
 
 ## 3. 실제 시나리오
 
-### 3.1 매입 인보이스 등록
+1. **매입 인보이스 등록:** 청구서를 시스템에 입력하면 매입채무가 생깁니다.
+2. **지급 실행:** 만기가 된 채무들을 모아 `PaymentRun`을 돌리면, 채무 잔액이 줄어들고 실제 지급 전표가 생깁니다.
+3. **선급금 상계:** 거래처에 미리 준 돈이 있다면, 새로 생긴 채무와 상계처리하여 줄 돈을 덜어냅니다.
 
-1. 공급업체와 인보이스 번호를 입력한다.
-2. 인보이스를 저장한다.
-3. 동일 금액의 `Payable`을 생성한다.
-4. 매입 인식 전표를 만든다.
+## 4. 현재 헥사고날 아키텍처와 시스템 환경
 
-### 3.2 지급 실행
+시스템은 **헥사고날 아키텍처(Ports and Adapters)**에 기반하여 설계되었습니다.
+- `Payable` 코어 로직은 결제 인프라나 원장 시스템과 직접 맞닿지 않습니다.
+- 타 시스템(예: 은행 연동망, 회계 원장) 연동 시에는 포트(Port) 인터페이스를 사용하며, 데이터는 **ID 기반 참조**(`journalEntryId`, `vendorCode` 등)로만 연결하여 모듈을 독립적으로 유지합니다.
+- 거래처 결제 조건 변경 이력 등을 안정적으로 추적하기 위해 **SCD2 (Slowly Changing Dimensions)** 방식을 고려해 설계되었습니다.
+- 운영 환경은 가볍고 배포가 빠른 **다단계 도커(Multi-stage Docker)** 환경을 사용합니다.
 
-1. 만기 채무를 대상으로 `PaymentRun`을 만든다.
-2. 각 채무별 `Payment`가 만들어진다.
-3. 실제 지급을 실행한다.
-4. 채무 잔액이 줄고 지급 전표가 생긴다.
-
-### 3.3 선급금 상계
-
-1. 먼저 돈을 지급한 `AdvancePayment`가 있다.
-2. 나중에 채무가 생긴다.
-3. 둘을 상계한다.
-4. 채무와 선급금 잔액이 동시에 줄어든다.
-
-## 4. 주요 API
+## 5. 주요 API
 
 - `POST /api/purchase/invoices`
 - `POST /api/purchase/payables/update-status/{asOfDate}`
 - `POST /api/payments/run`
-- `GET /api/payments/run/{paymentRunId}`
 - `POST /api/payments/execute`
 - `POST /api/payments/advance`
 - `POST /api/payments/offset-payable`
 
-## 5. 처음 읽는 코드 순서
+## 6. 초보자가 꼭 기억할 포인트
 
-1. `payable/src/main/java/com/ho/account/expenditure/service/PurchaseService.java`
-2. `payable/src/main/java/com/ho/account/expenditure/service/PaymentService.java`
-3. `payable/src/main/java/com/ho/account/expenditure/domain/PurchaseInvoice.java`
-4. `payable/src/main/java/com/ho/account/expenditure/domain/Payable.java`
-5. `payable/src/main/java/com/ho/account/expenditure/domain/Payment.java`
-6. `payable/src/main/java/com/ho/account/expenditure/domain/AdvancePayment.java`
-7. `payable/src/main/java/com/ho/account/expenditure/adapter/out/source/PayableSourceDocumentProvider.java`
-
-## 6. 자주 헷갈리는 지점
-
-### 6.1 인보이스와 채무는 다르다
-
-- 인보이스는 증빙이다.
-- 채무는 회계상 미지급 금액이다.
-
-### 6.2 지급 실행 시 채무 선택 로직은 단순하다
-
-- 현재는 공급업체 기준 미지급 채무 중 조건에 맞는 한 건을 찾는 단순 방식이다.
-- 운영 고도화 시 매칭 규칙을 더 정교하게 봐야 한다.
-
-### 6.3 전표가 생성돼도 POSTED까지는 가지 않는다
-
-- `create -> request -> approve`까지만 호출한다.
-- 전기까지 자동으로 마무리되지는 않는다.
-
-### 6.4 드릴다운 source type 값은 호환된다
-
-- 공급자는 전표 생성 쪽 `PURCHASE_INVOICE`와 기존 연계 타입 `P2P_AP`를 함께 지원한다.
-
-## 7. 체크리스트
-
-- 공급업체가 존재하는가
-- 인보이스 번호가 중복되지 않는가
-- 채무 잔액이 맞는가
-- 지급 후 상태가 맞게 바뀌는가
-- 선급금 잔액이 음수가 되지 않는가
-- 생성된 전표와 원천 문서 연결이 일관적인가
+- **청구서와 빚은 다르다:** 인보이스는 종이(증빙)이고, 채무는 장부상의 빚입니다.
+- 전표 생성 포트를 호출했다고 바로 회계원장에 최종 반영되는 것은 아닙니다. 전표 시스템의 승인 과정을 거쳐야 합니다.

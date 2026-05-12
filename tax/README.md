@@ -1,55 +1,32 @@
-# Tax Module (세무)
+# 🧾 Tax Service (세금 및 세금계산서 관리)
 
-## 1. 비즈니스 목적
+`tax` 모듈은 국세청(홈택스) 등과 연계되거나 내부적으로 발행/수취하는 세금계산서를 관리하는 모듈입니다.
 
-`tax` 모듈은 세금계산서 데이터를 관리하며, 특히 매입(`PURCHASE`) 증빙 정합성을 보장해
-지출결의/AP 지급 같은 후속 모듈이 신뢰할 수 있는 기준 데이터를 사용하도록 지원합니다.
+---
 
-## 2. 헥사고날 구조 요약
+## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-- `domain`
-  - `TaxInvoice`: 금액 합계 검증(`validateAmounts`)과 타입 보조 로직(`isPurchaseType`)을 포함한 핵심 도메인
-- `application/port/in`
-  - `TaxInvoiceUseCase`: 외부 진입점이 의존하는 인바운드 포트
-- `application/service`
-  - `TaxInvoiceService`: 유즈케이스 구현, 거래처 검증, 타입 경계(`PURCHASE`) 강제
-- `application/port/out`
-  - `TaxInvoicePersistencePort`: 영속성 기술(JPA 등) 은닉용 아웃바운드 포트
-- `adapter/in/web`
-  - `APInvoiceController`: REST API 어댑터
-- `repository`
-  - `TaxInvoiceRepository`: JPA 인터페이스
+모든 기업 간 거래에는 부가가치세(VAT)가 붙고, 이를 증명하기 위해 **세금계산서**를 주고받아야 합니다.
+1. **수취 (매입 세금계산서):** 회사가 돈을 쓰고 `expenditure-resolution`(지출결의)이나 `payable`(매입채무)을 올릴 때, 반드시 `tax` 모듈에 등록된 세금계산서 ID를 연결해야 합니다. 증빙 없는 지출은 인정되지 않습니다.
+2. **발행 (매출 세금계산서):** 회사가 돈을 벌고 `receivable`(매출채권)을 잡을 때, 고객에게 세금계산서를 발행해 주어야 합니다.
 
-## 3. 핵심 비즈니스 규칙
+---
 
-- 금액 정합성: `supplyAmount + taxAmount = totalAmount`
-- AP 경계: AP API는 `PURCHASE` 타입만 허용
-- 거래처 검증: `BusinessPartner`가 존재해야 생성/수정 가능
+## 2. 🔄 아키텍처 및 테스트 품질
 
-## 4. API
+- **타 모듈 연동:** 다른 모듈들은 세금계산서 정보를 알아내기 위해 `contracts` 모듈의 `TaxInvoiceQueryPort`를 호출합니다.
+- **최신 리뷰 이슈:** 최근 도메인 객체(`TaxInvoice`)의 생성 방식이 정적 팩토리(`create`) 중심으로 리팩토링되었으나, **테스트 코드가 옛날 방식(setter)을 사용하고 있어 컴파일 에러**가 나는 상태입니다. 이는 조속히 수정해야 할 과제입니다.
 
-- `POST /api/ap/invoices`
-- `GET /api/ap/invoices/{id}`
-- `GET /api/ap/invoices/issue-id/{issueId}`
-- `GET /api/ap/invoices?startDate=...&endDate=...`
-- `PUT /api/ap/invoices/{id}`
-- `DELETE /api/ap/invoices/{id}`
+---
 
-## 5. 개발 초보자 실행 순서
+## 3. 🐳 실행 방법 (Docker & Local)
 
-1. 모듈 문서 읽기
-   - `tax/docs/beginner-guide.md`
-   - `tax/docs/process-flow.md`
-   - `tax/docs/schema.md`
-2. 코드 읽기
-   - `domain -> application/service -> adapter/in/web` 순서
-3. 검증
-   - `./gradlew :tax:build --console=plain`
-   - `./gradlew :tax:test --console=plain`
+**최신 엔터프라이즈 Docker 환경 (권장):**
+```bash
+docker-compose up -d tax
+```
 
-## 6. 변경 시 체크리스트
-
-- 타입 검증(`PURCHASE`)이 생성/조회/수정/삭제 전 구간에서 유지되는가?
-- 금액 검증이 도메인에서 반드시 호출되는가?
-- 컨트롤러가 포트(`UseCase`)에만 의존하는가?
-- API 변경 시 `tax/docs` 문서 3종을 함께 갱신했는가?
+**로컬 개발 환경 (전통적 방식):**
+```bash
+./gradlew :tax:api:bootRun
+```

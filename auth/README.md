@@ -1,101 +1,45 @@
-# Auth Service
+# 🔑 Auth Service (인증 및 권한 모듈)
 
-`auth` 모듈은 사용자 인증과 JWT 발급을 담당합니다.
+`auth` 모듈은 사용자의 로그인을 처리하고, 다른 모든 서비스에서 통용되는 '출입증(JWT 토큰)'을 발급하는 센터입니다.
 
-## 주요 API
+---
 
+## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
+
+MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 또 로그인하게 할 수는 없습니다.
+
+그래서 사용자는 **딱 한 번 `auth` 모듈에 로그인**합니다.
+성공하면 `auth` 모듈은 위조가 불가능한 **JWT(JSON Web Token)**라는 전자 출입증을 만들어 줍니다. 사용자는 이후 모든 요청마다 이 출입증을 보여주고, 다른 서버들은 "아, `auth` 부서에서 도장 찍어준 출입증이구나!" 하고 믿고 통과시켜 줍니다.
+
+---
+
+## 2. 🔄 처리 흐름 및 모듈 경계 (Process Flow)
+
+### 📌 로그인 API
 - `POST /api/auth/login`
+- 사용자 이름(`username`)과 비밀번호를 받아, 맞으면 JWT 토큰(roles, departmentCode 포함)을 반환합니다.
 
-Request:
+### 📌 헥사고날 아키텍처 (DDD)
+- **Controller:** 로그인 요청 수신
+- **UseCase -> Service:** 로그인 흐름 제어
+- **Infrastructure:** 설정 기반의 사용자 조회, 비밀번호 검증(Bcrypt 등), JWT 발급 어댑터 구현
 
-```json
-{
-  "username": "admin",
-  "password": "1234"
-}
+### 🚨 모듈 경계 (중요!)
+- 사용자 식별과 권한 부여는 `auth`가 담당합니다.
+- 하지만 **부서 정보(조직 구조)**는 `auth`가 소유하지 않습니다. 부서는 `master-data` 모듈의 소유입니다.
+- `auth`는 사용자의 `departmentCode`만 글자(참조값)로 보관하며, 상세 정보가 필요할 때는 `master-data`(`GET /api/basic/departments/{departmentCode}`)를 호출하여 확인합니다.
+
+---
+
+## 3. 🐳 실행 방법 (Docker & Local)
+
+**최신 엔터프라이즈 Docker 환경 (권장):**
+이 모듈은 멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
+```bash
+docker-compose up -d auth
 ```
 
-Response:
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "tokenType": "Bearer",
-  "expiresIn": 3600,
-  "username": "admin",
-  "departmentCode": "FIN",
-  "roles": [
-    "ROLE_ADMIN"
-  ]
-}
-```
-
-## 구조 (DDD + Hexagonal)
-
-요청 흐름:
-
-```text
-Controller(api.web)
-  -> UseCase(port.in)
-  -> Application Service(core.application.service)
-  -> Output Ports(core.application.port.out)
-  -> Infrastructure Adapters(core.infrastructure.*)
-```
-
-패키지 역할:
-
-- `com.ho.account.auth.api.dto`: 로그인 요청/응답 DTO
-- `com.ho.account.auth.api.web`: 인증 컨트롤러, 예외 응답 처리
-- `com.ho.account.auth.core.application.port.in`: 인증 유즈케이스
-- `com.ho.account.auth.core.application.port.out`: 사용자 조회/비밀번호 검증/토큰 발급 포트
-- `com.ho.account.auth.core.application.service`: 로그인 흐름 제어
-- `com.ho.account.auth.core.domain.model`: 인증 도메인 모델
-- `com.ho.account.auth.core.infrastructure.persistence`: 설정 기반 사용자 조회 어댑터
-- `com.ho.account.auth.core.infrastructure.security`: 비밀번호 검증, JWT 발급 어댑터
-- `com.ho.account.auth.core.infrastructure.config`: `auth.*` 설정 바인딩
-
-## 모듈 경계 (중요)
-
-- 사용자/메뉴/권한(접근제어): `auth` 소유
-- 부서(조직 마스터): `master-data` 소유
-
-`auth`는 부서 마스터를 중복 저장하지 않고, 사용자에 `departmentCode`만 참조값으로 보관합니다.
-즉, 부서명/계층/유효기간은 항상 `master-data`를 기준으로 조회합니다.
-로그인 시 `departmentCode`가 있으면 `master-data`의 `GET /api/basic/departments/{departmentCode}`를 호출해
-실존 여부를 검증합니다.
-
-## 설정
-
-`application.yml` 기본값:
-
-```yaml
-auth:
-  master-data:
-    base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
-  jwt:
-    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
-    issuer: ${AUTH_JWT_ISSUER:auth-service}
-    expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:3600}
-  users:
-    - username: ${AUTH_DEFAULT_USERNAME:admin}
-      password: ${AUTH_DEFAULT_PASSWORD:1234}
-      department-code: ${AUTH_DEFAULT_DEPARTMENT_CODE:FIN}
-      active: true
-      locked: false
-      roles:
-        - ROLE_ADMIN
-```
-
-`users[].password`는 평문 또는 Spring Security Delegating Password 형식(`{bcrypt}...`, `{noop}...`)을 지원합니다.
-
-## 실행
-
+**로컬 개발 환경 (전통적 방식):**
 ```bash
 ./gradlew :auth:bootRun
-```
-
-## 테스트/빌드
-
-```bash
-./gradlew :auth:build
 ```

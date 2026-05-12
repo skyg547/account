@@ -470,3 +470,70 @@
   - `buildTargetSnapshot`은 아직 `JournalQueryPort`로 전표 목록과 상세를 조회해 루프 합산하므로 Gemini가 지적한 대량 집계 성능 리스크가 남아 있음.
   - `ReconManagerService` SOURCE/INTERFACE는 아직 외부 시스템 조회가 아니라 설정값 기반.
   - 다른 모듈의 더미 계정/하드코딩 리스크는 이번 범위에서 제외.
+
+## 2026-05-12 (handoff 대사 대상 집계 성능 개선)
+- 사용자 요청: `CODEX_HANDOFF_TASKS.md`의 검수 과제를 계획으로 쪼개 작업하고 완료 처리.
+- 기준 판단:
+  - Critical/High 첫 항목인 `ReconciliationService.buildTargetSnapshot` 대량 집계 병목은 최근 Gemini 리뷰의 남은 성능 리스크와도 일치함.
+- 수정 내용:
+  - `JournalDetailAggregateSummary` 계약 DTO 추가.
+  - `JournalQueryPort.getJournalDetailAggregate(LocalDate, LocalDate, JournalSide)` 추가.
+  - `JournalDetailRepository.summarizeByAccountingDateBetweenAndSide` JPQL 집계 쿼리 추가.
+  - `MonolithJournalQueryAdapter`가 Repository 집계 결과를 `JournalDetailAggregateSummary`로 변환하도록 구현.
+  - `ReconciliationService.buildTargetSnapshot`이 `getJournalSummaries`/`getJournalDetails` 루프 대신 집계 포트를 호출하도록 변경.
+  - `MonolithJournalQueryAdapterTest` 추가, `ReconciliationServiceTest` 갱신.
+  - `CODEX_HANDOFF_TASKS.md`의 해당 과제를 `[x]` 완료로 표시.
+  - `contracts/docs/README.md`에 Journal Query 집계 흐름을 문서화.
+- 실행 명령:
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
+  - `git diff --check -- CODEX_HANDOFF_TASKS.md contracts/src/main/java/com/ho/account/contracts/journal/JournalDetailAggregateSummary.java contracts/src/main/java/com/ho/account/contracts/journal/JournalQueryPort.java contracts/docs/README.md journal-ledger/core/src/main/java/com/ho/account/common/adapter/MonolithJournalQueryAdapter.java journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/repository/JournalDetailRepository.java journal-ledger/core/src/test/java/com/ho/account/common/adapter/MonolithJournalQueryAdapterTest.java reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconciliationService.java reconciliation/src/test/java/com/ho/account/reconciliation/service/ReconciliationServiceTest.java`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+  - `git diff --check`는 오류 없이 종료했고 CRLF 변환 경고만 출력됨.
+- 남은 리스크:
+  - 다음 handoff 항목인 `ReconManagerService` SOURCE/INTERFACE 외부 데이터 연동 미흡은 아직 남아 있음.
+  - `journal-ledger/docs`, `reconciliation/docs` 일부 파일은 작업 전부터 삭제 상태였고 복구하지 않음.
+
+## 2026-05-12 (handoff 대사 외부 스냅샷 연동)
+- 사용자 요청: `CODEX_HANDOFF_TASKS.md`의 미완료 작업을 계획으로 쪼개 단계별 진행하고 완료 처리.
+- 기준 판단:
+  - Critical/High에서 남은 다음 항목은 `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 `matchingRulesJson` 고정 집계값에 의존하는 문제였음.
+- 수정 내용:
+  - `ExternalReconSnapshotPort`, `ExternalReconSnapshotRequest`, `ExternalReconSnapshot`를 추가해 외부 원천/인터페이스 집계 계약을 애플리케이션 포트로 분리.
+  - `ExternalReconStageRecord`와 `ExternalReconStageRecordRepository`를 추가해 `RECON_EXTERNAL_STAGE_RECORD` 스테이징 데이터를 `unitId`, `stageCode`, 대사일, 상품/통화/법인 기준으로 DB 단 집계.
+  - `ExternalReconStageSnapshotAdapter`를 추가해 Mock/스테이징 외부 시스템 집계를 포트 구현으로 제공.
+  - `ReconManagerService`가 `SOURCE`/`INTERFACE` 스냅샷을 `matchingRulesJson`에서 직접 읽지 않고 `ExternalReconSnapshotPort.loadSnapshot`으로 가져오도록 변경.
+  - `ReconManagerServiceTest`는 외부 포트 호출과 단계별 결과를 검증하도록 갱신.
+  - `ExternalReconStageSnapshotAdapterTest`를 추가해 Repository 집계 매핑과 null projection 방어를 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 해당 과제를 `[x]` 완료로 표시.
+  - `reconciliation/README.md`에 외부 스냅샷 포트와 스테이징 집계 흐름을 문서화.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `ReconciliationService`의 단순 메인 대사 원천 집계는 아직 `criteriaJson` 기반이며 이번 `ReconManagerService` 항목 범위 밖.
+  - 심화 대사의 JOURNAL 단계는 아직 전표 상세 루프 집계 경로라, 필요 시 별도 포트 집계로 최적화할 수 있음.
+  - `reconciliation/docs` 일부 파일은 작업 전부터 삭제 상태였고 복구하지 않음.
+
+## 2026-05-12 (handoff loan 전표 수렴/계정 설정화)
+- 사용자 요청: `CODEX_HANDOFF_TASKS.md`의 미완료 작업을 단계별 진행.
+- 기준 판단:
+  - Loan 항목은 `POSTED` 수렴 검증, `Loan`/`LoanContract` 모델 통합, 하드코딩 계정 제거가 묶인 큰 작업이므로, 우선 회계 영향이 큰 전표 수렴과 계정코드 설정화부터 분리 수행.
+- 수정 내용:
+  - `LoanAccountingProperties`를 추가해 현금, 대출채권, 이연자산, 인식수익, 미수이자, 이자수익 계정코드를 `account.loan.accounting.*` 설정으로 분리.
+  - `LoanService`의 대출 실행/재계산/이연 항목 전표가 설정 계정코드를 조회하도록 변경.
+  - `LoanService.createAutomatedJournalEntry`가 전표 생성 후 `approveJournalEntry`와 `postJournalEntry`를 호출하고 전기 후 전표를 재조회하도록 변경.
+  - `InterestAccrualService`도 설정 계정코드를 사용하고 일일 이자 발생 전표를 생성 후 승인/전기하도록 변경.
+  - `LoanServiceTest`를 갱신하고 `InterestAccrualServiceTest`를 추가해 설정 계정 사용, 전표 생성, 승인, 전기 호출 순서를 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 Loan 항목은 아직 `[ ]`로 유지하고 완료된 하위 작업/남은 모델 통합 및 통합 E2E 범위를 명시.
+  - `loan/README.md`에 설정 키와 현재 보강 범위를 문서화.
+- 실행 명령:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- 결과:
+  - 두 명령 모두 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `Loan`/`LoanContract` 병행 모델 통합은 아직 미완료.
+  - 실제 `journal-ledger` 모듈까지 포함한 E2E 테스트는 아직 없고, 현재는 `JournalUseCase` 호출 흐름 단위 테스트로 보강한 상태.
+  - `loan:core`의 `journal-ledger:core` 직접 의존은 유지됨.

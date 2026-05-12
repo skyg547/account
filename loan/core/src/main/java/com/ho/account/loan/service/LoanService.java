@@ -60,6 +60,7 @@ public class LoanService {
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final CurrencyPersistencePort currencyPersistencePort;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final LoanAccountingProperties accountingProperties;
     private final JournalUseCase journalUseCase;
 
     public Loan createLoan(Loan loan) {
@@ -91,10 +92,12 @@ public class LoanService {
         disbursal.setDisbursedAmount(disbursedAmount);
         disbursal.setAuditUser(user);
 
-        AccountSubject cashAccount = accountSubjectPersistencePort.findByCode("101000")
-                .orElseThrow(() -> new EntityNotFoundException("Cash account not found."));
-        AccountSubject loanReceivableAccount = accountSubjectPersistencePort.findByCode("131000")
-                .orElseThrow(() -> new EntityNotFoundException("Loan receivable account not found."));
+        AccountSubject cashAccount = resolveAccount(
+                accountingProperties.getCashAccountCode(),
+                "Cash account not found.");
+        AccountSubject loanReceivableAccount = resolveAccount(
+                accountingProperties.getLoanReceivableAccountCode(),
+                "Loan receivable account not found.");
 
         JournalEntry disbursalJe = createAutomatedJournalEntry(
                 disbursalDate,
@@ -297,10 +300,12 @@ public class LoanService {
 
         BigDecimal principalDelta = oldPrincipal.subtract(loan.getPrincipalAmount());
         if (reason == RecalculationReason.EARLY_REPAYMENT && principalDelta.signum() > 0) {
-            AccountSubject cashAccount = accountSubjectPersistencePort.findByCode("101000")
-                    .orElseThrow(() -> new EntityNotFoundException("Cash account not found."));
-            AccountSubject loanReceivableAccount = accountSubjectPersistencePort.findByCode("131000")
-                    .orElseThrow(() -> new EntityNotFoundException("Loan receivable account not found."));
+            AccountSubject cashAccount = resolveAccount(
+                    accountingProperties.getCashAccountCode(),
+                    "Cash account not found.");
+            AccountSubject loanReceivableAccount = resolveAccount(
+                    accountingProperties.getLoanReceivableAccountCode(),
+                    "Loan receivable account not found.");
 
             JournalEntry adjustmentEntry = createAutomatedJournalEntry(
                     recalculationDate,
@@ -397,12 +402,14 @@ public class LoanService {
             String user) {
         AccountSubject deferredAssetAccount = deferredItemType.getDeferredAssetAccount() != null
                 ? deferredItemType.getDeferredAssetAccount()
-                : accountSubjectPersistencePort.findByCode("171000")
-                        .orElseThrow(() -> new EntityNotFoundException("Deferred asset account not found."));
+                : resolveAccount(
+                        accountingProperties.getDeferredAssetAccountCode(),
+                        "Deferred asset account not found.");
         AccountSubject recognizedIncomeAccount = deferredItemType.getRecognizedIncomeAccount() != null
                 ? deferredItemType.getRecognizedIncomeAccount()
-                : accountSubjectPersistencePort.findByCode("401000")
-                        .orElseThrow(() -> new EntityNotFoundException("Recognized income account not found."));
+                : resolveAccount(
+                        accountingProperties.getRecognizedIncomeAccountCode(),
+                        "Recognized income account not found.");
 
         return createAutomatedJournalEntry(
                 deferralDate,
@@ -453,7 +460,22 @@ public class LoanService {
         entry.addDetail(creditDetail);
 
         entry.setSlipNo(accountingDate + "-LOAN-" + System.currentTimeMillis());
-        return journalUseCase.createJournalEntry(entry);
+        JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
+        postAutomatedJournalEntry(savedEntry, createdBy);
+        return journalUseCase.getJournalEntryWithDetails(savedEntry.getId()).orElse(savedEntry);
+    }
+
+    private AccountSubject resolveAccount(String accountCode, String notFoundMessage) {
+        return accountSubjectPersistencePort.findByCode(accountCode)
+                .orElseThrow(() -> new EntityNotFoundException(notFoundMessage + " code=" + accountCode));
+    }
+
+    private void postAutomatedJournalEntry(JournalEntry entry, String user) {
+        if (entry == null || entry.getId() == null) {
+            throw new IllegalStateException("Loan journal entry was not persisted with an id.");
+        }
+        journalUseCase.approveJournalEntry(entry.getId(), user);
+        journalUseCase.postJournalEntry(entry.getId(), user);
     }
 
     private LoanEvent.EventType mapReasonToEventType(RecalculationReason reason) {

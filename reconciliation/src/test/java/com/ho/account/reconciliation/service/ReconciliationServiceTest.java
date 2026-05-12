@@ -1,7 +1,7 @@
 package com.ho.account.reconciliation.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
@@ -241,17 +241,8 @@ class ReconciliationServiceTest {
     }
 
     private void stubJournalTarget(LocalDate reconciliationDate, String debitAmount) {
-        JournalSummary summary = new JournalSummary();
-        summary.setId(99L);
-        JournalDetailSummary debit = new JournalDetailSummary();
-        debit.setSide(JournalSide.DEBIT);
-        debit.setBaseAmount(new BigDecimal(debitAmount));
-        JournalDetailSummary credit = new JournalDetailSummary();
-        credit.setSide(JournalSide.CREDIT);
-        credit.setBaseAmount(new BigDecimal(debitAmount));
-
-        when(journalQueryPort.getJournalSummaries(reconciliationDate, reconciliationDate)).thenReturn(List.of(summary));
-        when(journalQueryPort.getJournalDetails(99L)).thenReturn(List.of(debit, credit));
+        when(journalQueryPort.getJournalDetailAggregate(reconciliationDate, reconciliationDate, JournalSide.DEBIT))
+                .thenReturn(new JournalDetailAggregateSummary(1L, new BigDecimal(debitAmount)));
     }
 
     private ReconciliationUnit reconciliationUnit(String criteriaJson) {

@@ -7,6 +7,9 @@ import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshot;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +29,7 @@ public class ReconManagerService {
     private final ReconStageResultRepository stageResultRepository;
     private final ReconciliationResultRepository resultRepository;
     private final ReconciliationVarianceRepository varianceRepository;
+    private final ExternalReconSnapshotPort externalReconSnapshotPort;
     private final JournalQueryPort journalQueryPort;
     private final LedgerQueryPort ledgerQueryPort;
     private final ObjectMapper objectMapper;
@@ -35,6 +39,7 @@ public class ReconManagerService {
             ReconStageResultRepository stageResultRepository,
             ReconciliationResultRepository resultRepository,
             ReconciliationVarianceRepository varianceRepository,
+            ExternalReconSnapshotPort externalReconSnapshotPort,
             JournalQueryPort journalQueryPort,
             LedgerQueryPort ledgerQueryPort,
             ObjectMapper objectMapper) {
@@ -42,6 +47,7 @@ public class ReconManagerService {
         this.stageResultRepository = stageResultRepository;
         this.resultRepository = resultRepository;
         this.varianceRepository = varianceRepository;
+        this.externalReconSnapshotPort = externalReconSnapshotPort;
         this.journalQueryPort = journalQueryPort;
         this.ledgerQueryPort = ledgerQueryPort;
         this.objectMapper = objectMapper;
@@ -70,8 +76,8 @@ public class ReconManagerService {
 
         // 1. 단계별 집계 (Source -> Interface -> Journal -> Ledger)
         List<ReconStageResult> stages = new ArrayList<>();
-        StageSnapshot sourceSnapshot = buildConfiguredSnapshot(unit, "source");
-        StageSnapshot interfaceSnapshot = buildConfiguredSnapshot(unit, "interface");
+        StageSnapshot sourceSnapshot = buildExternalSnapshot(unit, ExternalReconSnapshotRequest.SOURCE_STAGE, reconDate);
+        StageSnapshot interfaceSnapshot = buildExternalSnapshot(unit, ExternalReconSnapshotRequest.INTERFACE_STAGE, reconDate);
         StageSnapshot journalSnapshot = buildJournalSnapshot(unit, reconDate);
         StageSnapshot ledgerSnapshot = buildLedgerSnapshot(unit, reconDate);
 
@@ -127,12 +133,19 @@ public class ReconManagerService {
         varianceRepository.save(v);
     }
 
-    private StageSnapshot buildConfiguredSnapshot(ReconUnitDefinition unit, String stage) {
-        JsonNode root = parseMatchingRules(unit);
-        JsonNode stageNode = root.path(stage);
-        BigDecimal amount = readDecimal(stageNode, "amount", readDecimal(root, stage + "Amount", BigDecimal.ZERO));
-        long count = readLong(stageNode, "count", readLong(root, stage + "Count", 0L));
-        return new StageSnapshot(count, amount);
+    private StageSnapshot buildExternalSnapshot(ReconUnitDefinition unit, String stageCode, LocalDate date) {
+        ExternalReconSnapshot snapshot = externalReconSnapshotPort.loadSnapshot(ExternalReconSnapshotRequest.of(
+                unit.getUnitId(),
+                stageCode,
+                date,
+                unit.getProductCode(),
+                unit.getCurrencyCode(),
+                unit.getLegalEntityCode()
+        ));
+        if (snapshot == null) {
+            return new StageSnapshot(0L, BigDecimal.ZERO);
+        }
+        return new StageSnapshot(snapshot.count(), safe(snapshot.amount()));
     }
 
     private StageSnapshot buildJournalSnapshot(ReconUnitDefinition unit, LocalDate date) {
@@ -207,34 +220,6 @@ public class ReconManagerService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Invalid matchingRulesJson for unit " + unit.getUnitId(), e);
         }
-    }
-
-    private BigDecimal readDecimal(JsonNode root, String fieldName, BigDecimal defaultValue) {
-        JsonNode node = root.get(fieldName);
-        if (node == null || node.isNull()) {
-            return defaultValue;
-        }
-        if (node.isNumber()) {
-            return node.decimalValue();
-        }
-        if (node.isTextual() && !node.asText().isBlank()) {
-            return new BigDecimal(node.asText());
-        }
-        return defaultValue;
-    }
-
-    private long readLong(JsonNode root, String fieldName, long defaultValue) {
-        JsonNode node = root.get(fieldName);
-        if (node == null || node.isNull()) {
-            return defaultValue;
-        }
-        if (node.isNumber()) {
-            return node.longValue();
-        }
-        if (node.isTextual() && !node.asText().isBlank()) {
-            return Long.parseLong(node.asText());
-        }
-        return defaultValue;
     }
 
     private String readText(JsonNode root, String fieldName) {

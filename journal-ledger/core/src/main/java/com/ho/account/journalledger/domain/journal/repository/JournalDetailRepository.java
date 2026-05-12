@@ -1,11 +1,13 @@
 package com.ho.account.journalledger.domain.journal.repository;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -63,4 +65,24 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
        List<JournalDetail> findPostedJournalDetailsByAccountingDateBetween(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);
+
+       /**
+        * 기간과 차대변 방향 기준의 전표 상세 금액을 DB에서 직접 집계합니다.
+        */
+       @Query("SELECT COUNT(jd) AS detailCount, " +
+                     "COALESCE(SUM(COALESCE(jd.baseAmount, jd.amount)), 0) AS totalAmount " +
+                     "FROM JournalDetail jd " +
+                     "JOIN jd.journalEntry je " +
+                     "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
+                     "AND jd.side = :side")
+       JournalDetailAggregateProjection summarizeByAccountingDateBetweenAndSide(
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate,
+                     @Param("side") JournalSide side);
+
+       interface JournalDetailAggregateProjection {
+              Long getDetailCount();
+
+              BigDecimal getTotalAmount();
+       }
 }

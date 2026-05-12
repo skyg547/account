@@ -1,151 +1,42 @@
-# journal-ledger beginner guide
+# journal-ledger 초보자 가이드 (Beginner Guide)
 
-## 1. 이 모듈을 한 문장으로 설명하면
+`journal-ledger` 모듈은 회계 플랫폼의 핵심 엔진으로, 거래를 회계 전표로 만들고 승인하여 원장(Ledger)에 반영하고, 나중에 데이터를 역추적할 수 있게 기록을 남기는 역할을 합니다. 이 모듈은 헥사고날 아키텍처(Ports and Adapters)로 설계되어 있습니다.
 
-`journal-ledger`는 "거래를 회계 전표로 만들고, 승인하고, 원장에 반영하고, 나중에 다시 추적할 수 있게 남기는 모듈"이다.
+## 🌟 초보자를 위한 개념 설명
 
-## 2. 초보자가 먼저 이해해야 할 개념 5개
+* **전표 (Journal Entry):** 영수증의 요약본입니다. 언제, 무슨 목적으로 얼마를 썼는지 또는 벌었는지 기록하는 하나의 단위입니다.
+* **차변과 대변 (Debit / Credit):** 회계의 기본 원칙으로 돈의 들어옴과 나감을 구분합니다. 양쪽의 금액 합계는 항상 같아야 합니다.
+* **원장 (Ledger):** 전표들이 모여서 만들어진 큰 장부입니다. "현재 우리 회사의 현금 잔액은 얼마인가?"를 물어볼 때 답을 주는 곳입니다.
+* **Lineage (계보/출처):** 이 전표가 "어떤 시스템의 어떤 거래(예: 대출 시스템의 #1234 대출 실행)" 때문에 생겨났는지 꼬리표를 달아두는 것입니다. 이 꼬리표가 있어야 나중에 회계 감사 시 거래 내역을 추적할 수 있습니다.
 
-### 2.1 전표 (`JournalEntry`)
+## 주요 개념
 
-- 회계 처리 한 건의 헤더다.
-- 예: "2026-04-13 대출 실행 전표"
+### 전표 (JournalEntry) 와 전표 라인 (JournalDetail)
+- `JournalEntry`는 회계 처리 한 건의 헤더를 의미합니다.
+- `JournalDetail`은 실제 차변/대변 금액이 기록되는 상세 라인입니다.
 
-### 2.2 전표 라인 (`JournalDetail`)
-
-- 실제 차변/대변 줄이다.
-- 하나의 전표에는 여러 라인이 들어간다.
-
-### 2.3 상태 (`JournalEntryStatus`)
-
+### 상태 (JournalEntryStatus)
 - `DRAFT`: 작성 중
 - `REQUESTED`: 승인 요청됨
 - `APPROVED`: 승인 완료
-- `REJECTED`: 반려됨
-- `POSTED`: 원장 반영 완료
-- `REVERSED`: 역분개된 원본
+- `POSTED`: 원장 반영 완료 (전기됨)
 
-### 2.4 GL / SL
+### ID 기반 참조 원칙
+- `journal-ledger`는 계정과목(`account_code`), 부서(`department_code`), 거래처(`business_partner_code`) 등을 저장할 때 `master-data`의 엔티티를 직접 연결(Join)하지 않고 코드(ID) 값만 문자열로 저장합니다.
 
-- `GL`: 계정과목 중심 총계정원장
-- `SL`: 거래처, 부서 등 보조 차원을 포함한 보조원장
+## 코드 분석 순서 (헥사고날 아키텍처 기준)
 
-### 2.5 lineage
+1. **Inbound Adapter:** `JournalController` (API 엔드포인트)
+2. **Inbound Port:** `JournalUseCase` 인터페이스
+3. **Application Service:** `JournalService` (트랜잭션 조율)
+4. **Domain Model:** `JournalEntry`, `JournalDetail` (전표 상태 전이, 차대변 일치 검증 등 핵심 로직)
+5. **Outbound Port:** `JournalPersistencePort` 인터페이스
+6. **Outbound Adapter:** `JpaJournalPersistenceAdapter`
+7. **Repository:** Spring Data JPA 레포지토리
 
-- 원천 문서와 회계 결과를 연결하는 추적 키다.
-- 값은 `lineageSourceType`, `lineageSourceId` 두 개다.
-- 이 값이 있어야 "이 숫자가 어디서 왔는가?"를 끝까지 추적할 수 있다.
+## 변경 시 주의사항
 
-## 3. 가장 흔한 업무 시나리오
-
-### 3.1 수기 전표
-
-1. 사용자가 전표를 입력한다.
-2. 시스템이 계정과목, 부서, 거래처, 차대 합계를 검증한다.
-3. 전표가 `DRAFT`로 저장된다.
-4. 승인 요청 후 `REQUESTED`가 된다.
-5. 승인되면 전기 가능 상태가 된다.
-6. 전기되면 GL/SL과 잔액에 반영된다.
-
-### 3.2 자동 분개
-
-1. 외부 도메인이 이벤트를 보낸다.
-2. `JournalRule`이 맞는지 검사한다.
-3. 규칙이 맞으면 전표를 생성한다.
-4. 이후 흐름은 수기 전표와 동일하다.
-
-### 3.3 미결 관리
-
-1. 특정 계정과목이 미결 계정으로 설정돼 있다.
-2. 전표 승인 시 `UnsettledItem`이 생성된다.
-3. 나중에 정산 금액을 입력한다.
-4. 남은 금액이 0이면 `CLEARED`가 된다.
-
-## 4. 주요 API를 어떻게 보면 되는가
-
-### 4.1 전표 API
-
-- `POST /api/journals`
-- `GET /api/journals?startDate=...&endDate=...`
-- `GET /api/journals/{slipNo}`
-- `PUT /api/journals/{id}`
-- `DELETE /api/journals/{id}`
-- `POST /api/journals/{id}/request`
-- `POST /api/journals/{id}/approve`
-- `POST /api/journals/{id}/reject`
-- `POST /api/journals/{id}/post`
-- `POST /api/journals/{id}/reverse`
-- `POST /api/journals/from-event`
-
-### 4.2 원장 API
-
-- `GET /api/ledger/gl-balances`
-- `GET /api/ledger/sl-balances`
-- `POST /api/ledger/reaggregate-balances`
-- `GET /api/ledger/drill-down`
-
-### 4.3 드릴다운 API
-
-- `GET /api/drilldown/journal-entry/{journalEntryId}`
-- `GET /api/drilldown/journal-entry/{journalEntryId}/source-document`
-
-### 4.4 미결 API
-
-- `GET /api/unsettled/businesspartner/{businessPartnerCode}`
-- `POST /api/unsettled/{id}/settle`
-
-## 5. 처음 분석할 때 추천하는 코드 순서
-
-1. `journal-ledger/src/main/java/com/ho/account/journal/web/JournalController.java`
-2. `journal-ledger/src/main/java/com/ho/account/journal/service/JournalService.java`
-3. `journal-ledger/src/main/java/com/ho/account/journal/domain/JournalEntry.java`
-4. `journal-ledger/src/main/java/com/ho/account/journal/domain/JournalDetail.java`
-5. `journal-ledger/src/main/java/com/ho/account/ledger/service/PostingService.java`
-6. `journal-ledger/src/main/java/com/ho/account/ledger/service/LedgerService.java`
-7. `journal-ledger/src/main/java/com/ho/account/ledger/web/DrilldownController.java`
-8. `journal-ledger/src/main/java/com/ho/account/unsettled/service/UnsettledService.java`
-
-## 6. 실제로 자주 헷갈리는 지점
-
-### 6.1 승인과 전기는 다르다
-
-- 승인되었다고 원장 반영이 끝난 것이 아니다.
-- `POSTED`가 되어야 원장 반영이 끝난다.
-
-### 6.2 `amount`와 `baseAmount`는 다르다
-
-- `amount`는 거래 통화 금액이다.
-- `baseAmount`는 기준 통화 금액이다.
-- 원장 잔액 집계는 현재 `baseAmount` 기준으로 누적된다.
-
-### 6.3 드릴다운은 전표 번호만으로 끝나지 않는다
-
-- 보고 숫자에서 원천 문서까지 가려면 lineage가 필요하다.
-- 전표를 생성하는 외부 모듈이 이 값을 빠뜨리면 추적성이 떨어진다.
-
-### 6.4 전기 처리는 단일 공개 API에서 시작한다
-
-- 공개 API는 `POST /api/journals/{id}/post`다.
-- 애플리케이션 서비스는 `PostingService.postJournalEntry`에 위임한다.
-- `PostingService`가 상태 변경, GL/SL 상세 생성, 잔액 갱신을 하나의 트랜잭션에서 처리한다.
-
-초보자 기준 정리:
-
-- 승인(`APPROVED`)만으로 원장에 반영되지 않는다.
-- 전기(`POSTED`)가 끝나야 GL/SL 상세와 잔액이 함께 생성된다.
-
-## 7. 이 모듈을 볼 때 체크리스트
-
-- 차변/대변 합계가 맞는가
-- 마감 월 차단이 걸려 있는가
-- 예산 통제가 필요한 라인인가
-- 미결 계정인가
-- lineage가 채워졌는가
-- 전기 후 GL/SL 상세와 잔액이 모두 맞는가
-
-## 8. 다음으로 같이 보면 좋은 모듈
-
-- `master-data`: 계정과목, 부서, 거래처 참조
-- `governance`: 감사 로깅, 통제
-- `closing`: 마감 상태 조회 포트
-- `reporting`: 드릴다운 소비 측
+- 전표 승인(`APPROVED`)과 원장 반영(전기, `POSTED`)은 분리된 과정입니다. 전기가 완료되어야 실제 잔액이 변경됩니다.
+- 도메인 로직은 엔티티 내부나 Domain Policy 객체에 위치해야 하며, Application Service는 이를 조율만 해야 합니다.
+- 외부 모듈과의 통신은 반드시 Port/Adapter를 거쳐야 하며 엔티티 노출은 금지됩니다.
+- 멀티 스테이지 Docker 환경에서 독립적인 컨테이너 구동 시 의존성(DB, Kafka 등) 연결을 항상 고려해야 합니다.

@@ -1,11 +1,60 @@
-# Governance Module (내부회계 통제)
+# 🛡️ Governance Module (내부회계 통제)
 
-`governance` 모듈은 내부회계 통제(감사로그, 승인 워크플로우, SOD)를 담당합니다.
+`governance` 모듈은 내부회계 통제, 즉 "누가 무엇을 했는지 남기고(감사로그), 중요한 변경은 승인받게 만들며, 누가 무엇을 할 수 있는지 통제(직무분리, SOD)하는" 책임 부서입니다.
 
-읽기 순서:
+---
 
-1. [docs/README.md](./docs/README.md)
-2. [docs/process-flow.md](./docs/process-flow.md)
-3. [docs/schema.md](./docs/schema.md)
-4. [docs/beginner-guide.md](./docs/beginner-guide.md)
+## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
+회계 시스템은 숫자만 맞으면 끝나는 것이 아닙니다. 외부 감사관이 왔을 때 아래 질문들에 완벽하게 답할 수 있어야 합니다.
+- "누가 이 전표를 만들었나?"
+- "누가 기준정보(계정과목)를 바꿨나?"
+- "승인 없이 몰래 처리된 것은 없나?"
+
+이 질문에 답하게 해주는 든든한 기반이 바로 `governance` 모듈입니다.
+
+### 🚨 모듈 경계 (IAM vs Governance)
+- **사용자/권한 마스터 (IAM):** 사용자 추가, 비밀번호 관리, 메뉴 접근 권한 등은 **`auth` 모듈**의 책임입니다. (현재 일부 코드가 `security` 패키지에 남아 있으나 이관 대상입니다.)
+- **내부회계 통제 (Governance):** 승인 프로세스, 직무 분리(한 사람이 요청과 승인을 혼자 다 하지 못하게 함), 마스킹, 감사 로그 저장 등은 **`governance` 모듈**의 책임입니다.
+
+---
+
+## 2. 🔄 핵심 아키텍처 및 처리 흐름 (Process Flow)
+
+### 📌 감사로그 (Audit Log) 자동 기록
+시스템에서 일어난 행동의 기록(흔적)을 남깁니다.
+1. 개발자가 중요한 메서드에 `@AuditLoggable` 어노테이션을 붙입니다.
+2. `AuditAspect`가 해당 메서드를 가로채서(AOP), 호출 전 데이터와 호출 후 결과를 JSON으로 직렬화합니다.
+3. 이를 `AUDIT_LOG` 테이블에 성공/실패 여부, 사용자 ID, IP 주소와 함께 영구 저장합니다.
+
+### 📌 승인 관리 및 직무분리 (SOD)
+기준 정보(`master-data`) 변경처럼 중요한 작업은 혼자서 결재할 수 없습니다.
+1. **요청:** 사용자가 승인 요청(`MasterApproval`)을 올립니다 (상태: `PENDING`).
+2. **통제:** 요청자 본인이 승인하려고 하면 SOD(직무 분리) 위반으로 막힙니다.
+3. **승인/반려:** 다른 권한자가 승인 또는 반려 처리를 합니다.
+
+### 📌 데이터 마스킹 (Masking)
+이메일이나 주민/등록번호 같은 민감정보를 화면이나 로그에 그대로 노출하지 않도록 일부를 가려줍니다. (예: `abc@example.com` -> `a***@example.com`)
+
+---
+
+## 3. 💾 주요 스키마 (Schema)
+
+- `AUDIT_LOG`: 서비스 실행 전후 데이터, 사용자, 결과 상태를 저장하는 감사로그 테이블.
+- `MASTER_APPROVAL`: 마스터 생성/수정/삭제 요청을 승인 대상으로 관리하는 테이블 (`PENDING`, `APPROVED`, `REJECTED`).
+- `SYSTEM_ROLE` & `AUTHORIZATION`: 내부회계 통제를 위한 역할 및 권한 매트릭스.
+
+---
+
+## 4. 🐳 실행 방법 (Docker & Local)
+
+**최신 엔터프라이즈 Docker 환경 (권장):**
+멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
+```bash
+docker-compose up -d governance
+```
+
+**로컬 개발 환경 (전통적 방식):**
+```bash
+./gradlew :governance:bootRun
+```

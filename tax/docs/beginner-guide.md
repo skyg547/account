@@ -1,77 +1,38 @@
-# tax beginner guide
+# Tax Beginner Guide
 
 ## 1. 이 모듈을 한 문장으로 설명하면
 
 `tax` 모듈은 매입 세금계산서(AP Invoice)를 안전하게 저장하고, 지출/지급 모듈이 증빙의 유효성을 검증할 수 있도록 기준 데이터를 제공하는 모듈입니다.
 
-## 2. 초보자가 먼저 이해해야 할 핵심 개념
+## 2. 초보자를 위한 개념 설명 (Beginner's Concept Explanation)
 
-### 2.1 세금계산서 타입 (`type`)
+**세금계산서는 회사의 '영수증'입니다.**
+우리가 식당에서 밥을 먹고 영수증을 받아야 비용 처리를 할 수 있듯이, 회사도 다른 회사로부터 물건을 사거나 서비스를 받을 때 반드시 '매입 세금계산서'라는 공식 증빙을 받아야 합니다.
+- `supplyAmount` (공급가액): 순수한 물건/서비스 가격 (예: 밥값 10,000원)
+- `taxAmount` (세액): 부가가치세 (예: 부가세 1,000원)
+- `totalAmount` (합계금액): 최종 결제 금액 (예: 총 11,000원)
 
+이 모듈은 누가, 언제, 얼마짜리 영수증을 발행했는지 기록하고, "공급가액 + 세액 = 합계금액" 공식이 숫자 1원이라도 틀리지 않는지 철저히 검사하는 문지기 역할을 합니다.
+
+## 3. 핵심 아키텍처 및 기술 표준
+
+- **헥사고날 아키텍처 (Ports and Adapters):** 외부의 웹 요청이나 다른 MSA 모듈의 호출은 `Inbound Adapter`를 통해 `Inbound Port (UseCase)`로 들어옵니다. DB 저장 및 외부 거래처 검증은 도메인이 직접 하지 않고 `Outbound Port`를 거쳐 `Outbound Adapter`에서 수행됩니다. 이를 통해 도메인 로직이 인프라 기술에 종속되지 않습니다.
+- **ID 기반 참조 (ID-based references):** 기존의 `business_partner_code`와 같은 문자열 식별자 대신, 이제는 `business_partner_id`와 같이 명확한 고유 ID를 기반으로 다른 시스템(master-data)과 데이터를 연계합니다.
+- **SCD2 (Slowly Changing Dimensions):** 세금계산서의 중요한 상태나 금액 정보가 변경될 경우, 기존 레코드를 단순히 덮어쓰지 않고 `valid_from`, `valid_to`, `is_current` 컬럼을 활용하여 과거 이력을 보존합니다.
+- **Multi-stage Docker 환경:** 이 모듈은 빌드용 컨테이너와 런타임용 컨테이너를 분리한 다단계(Multi-stage) 도커 환경으로 빌드되어, 최종 운영 환경에는 불필요한 빌드 도구 없이 매우 가볍고 안전하게 배포됩니다.
+
+## 4. 초보자가 먼저 이해해야 할 핵심 개념
+
+### 4.1 세금계산서 타입 (`type`)
 - `SALES`: 매출 세금계산서
-- `PURCHASE`: 매입 세금계산서
+- `PURCHASE`: 매입 세금계산서 (본 모듈의 핵심 대상)
 
-이 모듈의 AP API는 매입 업무 전용이므로 `PURCHASE`만 허용합니다.
-
-### 2.2 금액 검증 규칙 (`BigDecimal`)
-
-- `supplyAmount`(공급가액)
-- `taxAmount`(세액)
-- `totalAmount`(합계금액)
-
-도메인 규칙:
-
-- `supplyAmount + taxAmount == totalAmount`
-
-즉, 숫자 한 자리라도 다르면 저장이 거부됩니다.
-
-### 2.3 거래처 참조
-
-세금계산서는 반드시 거래처(`BusinessPartner`)와 연결됩니다.
-거래처 코드는 `master-data` 모듈에서 검증합니다.
-
-## 3. 주요 API
-
-- `POST /api/ap/invoices`
-- `GET /api/ap/invoices/{id}`
-- `GET /api/ap/invoices/issue-id/{issueId}`
-- `GET /api/ap/invoices?startDate=...&endDate=...`
-- `PUT /api/ap/invoices/{id}`
-- `DELETE /api/ap/invoices/{id}`
-
-## 4. 처음 읽는 코드 순서 (현재 경로 기준)
-
-1. `tax/src/main/java/com/ho/account/tax/domain/TaxInvoice.java`
-2. `tax/src/main/java/com/ho/account/tax/application/port/in/TaxInvoiceUseCase.java`
-3. `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java`
-4. `tax/src/main/java/com/ho/account/tax/adapter/in/web/APInvoiceController.java`
-5. `tax/src/main/java/com/ho/account/tax/application/port/out/TaxInvoicePersistencePort.java`
-6. `tax/src/main/java/com/ho/account/tax/repository/TaxInvoiceRepository.java`
+### 4.2 거래처 참조 (ID-based)
+세금계산서는 반드시 거래처의 고유 식별자(`business_partner_id`)와 연결되며, 이는 마스터 데이터 모듈을 통해 무결성이 검증됩니다.
 
 ## 5. 단계별 업무 흐름을 아주 쉽게 풀면
-
-1. 사용자가 AP 세금계산서 생성 API를 호출합니다.
-2. 서비스가 `type == PURCHASE`인지 먼저 확인합니다.
-3. 거래처 코드가 실제 마스터 데이터에 존재하는지 확인합니다.
-4. 도메인 객체에서 금액 합계 검증을 수행합니다.
-5. 검증이 통과되면 저장하고, 조회/수정/삭제도 같은 규칙으로 보호합니다.
-
-## 6. 자주 헷갈리는 지점
-
-### 6.1 왜 조회에서도 `PURCHASE`를 다시 확인하나요?
-
-서비스는 AP 전용 경계를 지키기 위해 조회 결과에서도 `isPurchaseType()` 필터를 적용합니다.
-즉, 잘못된 타입 데이터가 섞여 있어도 AP API는 매입 데이터만 반환합니다.
-
-### 6.2 왜 단순 CRUD처럼 보이는데 도메인 검증이 중요한가요?
-
-세금계산서는 다른 회계 흐름(지출결의/AP 지급)의 기준 증빙입니다.
-여기서 금액/타입 검증을 놓치면 후속 모듈에서 잘못된 전표나 지급이 발생할 수 있습니다.
-
-## 7. 초보자 체크리스트
-
-- 요청 `type`이 `PURCHASE`인가?
-- 거래처 코드가 `master-data`에 실제 존재하는가?
-- `supplyAmount + taxAmount == totalAmount`를 만족하는가?
-- 조회/수정/삭제 대상도 `PURCHASE`인가?
-- 오류 메시지가 업무 담당자가 이해할 수 있게 충분히 구체적인가?
+1. 사용자가 API를 통해 세금계산서 생성을 요청합니다.
+2. 시스템이 `type == PURCHASE`인지 먼저 확인합니다.
+3. 전달받은 `business_partner_id`가 마스터 데이터에 존재하는지 확인합니다.
+4. "공급가액 + 세액 == 합계금액"을 계산해 맞는지 확인합니다.
+5. 검증에 통과하면 SCD2 방식으로 이력을 남기며 DB에 안전하게 저장합니다.
