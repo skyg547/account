@@ -10,6 +10,7 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.reconciliation.domain.DifferenceReasonCode;
 import com.ho.account.reconciliation.domain.ReconciliationDifference;
+import com.ho.account.reconciliation.domain.ReconciliationRule;
 import com.ho.account.reconciliation.domain.ReconciliationRun;
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import com.ho.account.reconciliation.repository.DifferenceReasonCodeRepository;
@@ -111,6 +112,32 @@ class ReconciliationServiceTest {
     }
 
     @Test
+    void performReconciliationDoesNotCreateDifferenceWithinRuleTolerance() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = reconciliationUnit("{\"sourceAmount\":\"1000.00\",\"sourceCount\":2}");
+        ReconciliationRule rule = reconciliationRule(ReconciliationRule.ToleranceType.ABSOLUTE, "5.00", true);
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of(rule));
+        stubRunSave();
+        stubJournalTarget(reconciliationDate, "995.00");
+
+        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate);
+
+        assertThat(run.getTotalAmountSource()).isEqualByComparingTo("1000.00");
+        assertThat(run.getTotalAmountTarget()).isEqualByComparingTo("995.00");
+        assertThat(run.getUnmatchedAmount()).isEqualByComparingTo("0.00");
+        assertThat(run.getUnmatchedItemsCount()).isEqualTo(0L);
+        assertThat(run.getMatchedAmount()).isEqualByComparingTo("995.00");
+        assertThat(run.getMatchedItemsCount()).isEqualTo(1L);
+        assertThat(run.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+
+        verify(reconciliationDifferenceRepository, never()).save(any());
+        verify(differenceReasonCodeRepository, never()).findByCode("GENERIC_MISMATCH");
+        verify(journalPostingPort, never()).createDraftEntry(any());
+    }
+
+    @Test
     void defaultReasonCodeDoesNotCreateAdjustmentJournalByDefault() {
         LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
         ReconciliationUnit unit = reconciliationUnit("{\"sourceAmount\":\"1000.00\",\"sourceCount\":2}");
@@ -205,8 +232,12 @@ class ReconciliationServiceTest {
     }
 
     private void stubRunAndDifferenceSaves() {
-        when(reconciliationRunRepository.save(any(ReconciliationRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubRunSave();
         when(reconciliationDifferenceRepository.save(any(ReconciliationDifference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private void stubRunSave() {
+        when(reconciliationRunRepository.save(any(ReconciliationRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private void stubJournalTarget(LocalDate reconciliationDate, String debitAmount) {
@@ -238,6 +269,15 @@ class ReconciliationServiceTest {
         reasonCode.setAdjustable(adjustable);
         reasonCode.setActive(true);
         return reasonCode;
+    }
+
+    private ReconciliationRule reconciliationRule(ReconciliationRule.ToleranceType toleranceType, String toleranceValue,
+            boolean active) {
+        ReconciliationRule rule = new ReconciliationRule();
+        rule.setToleranceType(toleranceType);
+        rule.setToleranceValue(new BigDecimal(toleranceValue));
+        rule.setActive(active);
+        return rule;
     }
 
 }

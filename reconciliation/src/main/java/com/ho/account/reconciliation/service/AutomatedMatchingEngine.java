@@ -1,27 +1,68 @@
 package com.ho.account.reconciliation.service;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.reconciliation.domain.BankStatement;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
- * ???嫄곕옒 ?댁뿭怨??λ?(GL) ??ぉ???먮룞?쇰줈 留ㅼ묶?섎뒗 ?붿쭊
+ * Matches bank statement rows with journal detail summaries.
  */
 @Component
 public class AutomatedMatchingEngine {
 
+    public static final String EXACT_DATE_AMOUNT_MATCH = "EXACT_DATE_AMOUNT_MATCH";
+    public static final String TOLERANCE_DATE_AMOUNT_MATCH = "TOLERANCE_DATE_AMOUNT_MATCH";
+    public static final String NO_MATCH_FOUND = "NO_MATCH_FOUND";
+
+    public static class MatchOptions {
+        private final BigDecimal amountTolerance;
+        private final long dateToleranceDays;
+
+        private MatchOptions(BigDecimal amountTolerance, long dateToleranceDays) {
+            if (amountTolerance == null) {
+                throw new IllegalArgumentException("amountTolerance must not be null");
+            }
+            if (amountTolerance.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("amountTolerance must not be negative");
+            }
+            if (dateToleranceDays < 0) {
+                throw new IllegalArgumentException("dateToleranceDays must not be negative");
+            }
+            this.amountTolerance = amountTolerance;
+            this.dateToleranceDays = dateToleranceDays;
+        }
+
+        public static MatchOptions exact() {
+            return new MatchOptions(BigDecimal.ZERO, 0);
+        }
+
+        public static MatchOptions of(BigDecimal amountTolerance, long dateToleranceDays) {
+            return new MatchOptions(amountTolerance, dateToleranceDays);
+        }
+
+        public BigDecimal getAmountTolerance() {
+            return amountTolerance;
+        }
+
+        public long getDateToleranceDays() {
+            return dateToleranceDays;
+        }
+    }
+
     public static class MatchResult {
         private final BankStatement bankStatement;
-        private final JournalDetail journalDetail;
+        private final JournalDetailSummary journalDetail;
         private final boolean isMatch;
         private final String matchReason;
 
-        public MatchResult(BankStatement bankStatement, JournalDetail journalDetail, boolean isMatch,
+        public MatchResult(BankStatement bankStatement, JournalDetailSummary journalDetail, boolean isMatch,
                 String matchReason) {
             this.bankStatement = bankStatement;
             this.journalDetail = journalDetail;
@@ -33,7 +74,7 @@ public class AutomatedMatchingEngine {
             return bankStatement;
         }
 
-        public JournalDetail getJournalDetail() {
+        public JournalDetailSummary getJournalDetail() {
             return journalDetail;
         }
 
@@ -47,50 +88,84 @@ public class AutomatedMatchingEngine {
     }
 
     /**
-     * ????댁뿭 由ъ뒪?몄? ?λ? ?댁뿭 由ъ뒪?몃? ?議고븯??留ㅼ묶 寃곌낵瑜?諛섑솚?⑸땲??
+     * Matches with exact amount and exact date to preserve legacy behavior.
      */
-    public List<MatchResult> match(List<BankStatement> statements, List<JournalDetail> details) {
+    public List<MatchResult> match(List<BankStatement> statements, List<JournalDetailSummary> details) {
+        return match(statements, details, MatchOptions.exact());
+    }
+
+    public List<MatchResult> match(List<BankStatement> statements, List<JournalDetailSummary> details,
+            MatchOptions options) {
+        Objects.requireNonNull(statements, "statements must not be null");
+        Objects.requireNonNull(details, "details must not be null");
+        Objects.requireNonNull(options, "options must not be null");
+
         List<MatchResult> results = new ArrayList<>();
 
         for (BankStatement stmt : statements) {
             boolean found = false;
-            for (JournalDetail detail : details) {
-                if (isMatch(stmt, detail)) {
-                    results.add(new MatchResult(stmt, detail, true, "EXACT_DATE_AMOUNT_MATCH"));
+            for (JournalDetailSummary detail : details) {
+                if (isMatch(stmt, detail, options)) {
+                    results.add(new MatchResult(stmt, detail, true, matchReason(stmt, detail)));
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                results.add(new MatchResult(stmt, null, false, "NO_MATCH_FOUND"));
+                results.add(new MatchResult(stmt, null, false, NO_MATCH_FOUND));
             }
         }
         return results;
     }
 
-    private boolean isMatch(BankStatement stmt, JournalDetail detail) {
-        // 1. 湲덉븸 鍮꾧탳 (?덈?媛?湲곗? - ?듭옣? ?낃툑/異쒓툑 援щ텇, ?λ???李⑤?/?蹂 援щ텇)
-        BigDecimal stmtAmount = stmt.getDepositAmount().compareTo(BigDecimal.ZERO) > 0 ? stmt.getDepositAmount()
-                : stmt.getWithdrawalAmount();
-
-        if (stmtAmount.compareTo(detail.getAmount()) != 0) {
+    private boolean isMatch(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
+        BigDecimal stmtAmount = statementAmount(stmt);
+        BigDecimal detailAmount = detailAmount(detail);
+        if (stmtAmount == null || detailAmount == null) {
             return false;
         }
 
-        // 2. ?좎쭨 鍮꾧탳 (?꾧린??湲곗?, ?듭긽 +- 1~3???덉슜 媛?ν븯???ш린?쒕뒗 ?쇱튂濡??쒖젙)
+        BigDecimal amountDifference = stmtAmount.subtract(detailAmount).abs();
+        if (amountDifference.compareTo(options.getAmountTolerance()) > 0) {
+            return false;
+        }
+
         LocalDate stmtDate = stmt.getTransactionDate();
-        LocalDate glDate = detail.getJournalEntry().getAccountingDate();
-
-        if (!stmtDate.equals(glDate)) {
-            // ?쇱? 留ㅼ묶: ?좎쭨媛 1??李⑥씠??寃쎌슦???덉슜?섎룄濡??뺤옣 媛??
+        LocalDate glDate = detail.getAccountingDate();
+        if (stmtDate == null || glDate == null) {
             return false;
         }
 
-        // 3. ?곸슂/?ㅻ챸 鍮꾧탳 (媛꾨떒???ы븿 ?щ? ?뺤씤)
-        // String stmtDesc = stmt.getDescription() != null ? stmt.getDescription() : "";
-        // String glDesc = detail.getDetailDescription() != null ?
-        // detail.getDetailDescription() : "";
+        long dateDifference = Math.abs(ChronoUnit.DAYS.between(stmtDate, glDate));
+        return dateDifference <= options.getDateToleranceDays();
+    }
 
-        return true;
+    private String matchReason(BankStatement stmt, JournalDetailSummary detail) {
+        BigDecimal stmtAmount = statementAmount(stmt);
+        BigDecimal detailAmount = detailAmount(detail);
+        LocalDate stmtDate = stmt.getTransactionDate();
+        LocalDate glDate = detail.getAccountingDate();
+        if (stmtAmount != null && detailAmount != null && stmtAmount.compareTo(detailAmount) == 0
+                && stmtDate != null && stmtDate.equals(glDate)) {
+            return EXACT_DATE_AMOUNT_MATCH;
+        }
+        return TOLERANCE_DATE_AMOUNT_MATCH;
+    }
+
+    private BigDecimal statementAmount(BankStatement statement) {
+        BigDecimal depositAmount = zeroIfNull(statement.getDepositAmount());
+        BigDecimal withdrawalAmount = zeroIfNull(statement.getWithdrawalAmount());
+        if (depositAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return depositAmount;
+        }
+        return withdrawalAmount;
+    }
+
+    private BigDecimal detailAmount(JournalDetailSummary detail) {
+        return detail.getBaseAmount() != null ? detail.getBaseAmount() : detail.getAmount();
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
     }
 }

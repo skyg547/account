@@ -1,0 +1,8 @@
+# [초보자를 위한 개념 설명]
+# 이 모듈은 단독으로 실행되는 서버가 아니므로 docker-compose 설정이 의미가 없습니다.
+# 구조를 맞추기 위한 빈 템플릿입니다.
+
+version: '3.8'
+services:
+  contracts:
+    build: .

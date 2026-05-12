@@ -74,7 +74,7 @@ Notes:
 
 ## Current Handoff Context
 
-- 현재 로컬 기준 커밋: `754c42f`
+- 현재 로컬 기준 커밋: `e8b3080`
 - 현재 로컬 워킹트리에는 미커밋 변경이 남아 있을 수 있다.
 - 최근 Codex 구현 범위:
   - `journal-ledger:api`의 `DepartmentPersistencePort.findByCode` 잔존 호출을 `findActiveByCode`로 수정.
@@ -98,6 +98,16 @@ Notes:
   - `JournalPostingAdapter`가 `JournalEntryCommand`의 누락 필드와 라인 `baseAmount`를 반영하도록 보완.
   - `ReconciliationService` 자동 조정분개 생성을 직접 Repository 저장에서 `JournalPostingPort.createDraftEntry` 호출로 전환.
   - `JournalPostingAdapterTest`, `ReconciliationServiceTest` 갱신.
+  - `ReconciliationDifference`, `ReconciliationVariance`의 조정분개 링크를 `JournalEntry` 엔티티 직접 연관에서 전표 ID 참조로 전환.
+  - `ReconciliationService`의 `JournalEntryRepository` 의존성 제거 및 수동 조정분개 ID 검증을 `JournalQueryPort` 기반으로 변경.
+  - `JournalDetailSummary`에 `accountingDate` 추가.
+  - `AutomatedMatchingEngine` 입력 타입을 `JournalDetail`에서 `JournalDetailSummary`로 전환하고 `reconciliation`의 `journal-ledger:core` 직접 의존성을 제거.
+  - `AutomatedMatchingEngine.MatchOptions`를 추가해 기본 완전일치 동작은 유지하면서 금액 허용오차와 일자 허용일수 기반 매칭을 지원.
+  - `AutomatedMatchingEngineTest`에 허용오차 매칭 성공, 허용오차 초과 실패, 음수 옵션 거부 테스트를 추가.
+  - `ReconciliationTolerancePolicy` 도메인 정책을 추가해 `ReconciliationRule.toleranceType/toleranceValue`를 메인 대사 집계 비교에 적용.
+  - `performReconciliation`은 원천/대상 금액 차이가 활성 규칙의 허용오차를 초과할 때만 `AMOUNT_MISMATCH` 차이를 생성.
+  - `ReconciliationTolerancePolicyTest`, `ReconciliationServiceTest`를 추가/갱신해 절대/퍼센트 허용오차와 허용오차 이내 차이 미생성을 검증.
+  - `GEMINI_MODULE_REVIEW.md`의 Reconciliation 지적을 재확인했고, `ReconciliationService.java`의 깨진 한글 주석/문자열을 ASCII 설명으로 정리.
 - 최근 검증:
   - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
   - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
@@ -110,13 +120,26 @@ Notes:
   - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
   - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
   - `.\gradlew :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
   - 결과는 모두 `BUILD SUCCESSFUL`.
+  - `git diff --check -- reconciliation/src/main/java/com/ho/account/reconciliation/service/AutomatedMatchingEngine.java reconciliation/src/test/java/com/ho/account/reconciliation/service/AutomatedMatchingEngineTest.java reconciliation/docs/README.md reconciliation/docs/process-flow.md reconciliation/docs/beginner-guide.md reconciliation/docs/schema.md`
+  - 결과는 오류 없이 종료했고 CRLF 변환 경고만 출력됨.
+  - `rg -n "...mojibake pattern..." reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconciliationService.java`
+  - 결과는 매칭 없음.
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
   - `loan`은 여전히 `Loan`/`LoanContract` 병행 모델과 계정코드 하드코딩이 남아 있다.
   - `reconciliation` 메인 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
-  - `reconciliation` 조정분개 생성은 `JournalPostingPort`로 위임하지만, `ReconciliationDifference.adjustmentJournalEntry`가 엔티티 직접 연관이라 링크 조회에는 `JournalEntryRepository`가 남아 있다.
+  - `reconciliation` 조정분개 링크는 전표 ID 참조로 전환됐고, `ReconciliationService`의 `JournalEntryRepository` 의존성은 제거됐다.
   - `reconciliation` 업무별 차/대 계정 산정 정책은 아직 별도 도메인 정책으로 분리되지 않았다.
+  - `AutomatedMatchingEngine`는 `JournalDetailSummary` 계약 DTO 기반으로 전환됐고, `reconciliation`의 `journal-ledger:core` 직접 의존성은 제거됐다.
+  - `performReconciliation`의 메인 집계 비교는 `ReconciliationRule.toleranceType/toleranceValue`를 사용한다.
+  - `AutomatedMatchingEngine`는 `MatchOptions`로 금액/일자 허용오차를 받을 수 있지만, 저장된 `ReconciliationRule.ruleDefinitionJson`의 라인 단위 매칭 조건을 이 옵션으로 변환하는 통합 호출 경로는 아직 없다.
+  - 자동 매칭은 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 아직 사용하지 않는다.
+  - `GEMINI_MODULE_REVIEW.md`가 지적한 `ReconciliationService.java` 인코딩 깨짐은 후속 조치로 정리됐다.
+  - `GEMINI_MODULE_REVIEW.md`가 지적한 `reconciliation`의 `journal-ledger:core` 직접 의존성과 `JournalEntryRepository` 직접 참조는 제거됐다.
+  - `GEMINI_MODULE_REVIEW.md`가 지적한 대량 집계 성능 리스크는 아직 남아 있다.
   - `ReconManagerService` SOURCE/INTERFACE 단계는 더미 금액은 제거됐지만 아직 외부 시스템 조회가 아니라 `matchingRulesJson` 명시 집계값 기반이다.
   - 신규 `LedgerQueryPort`는 GL 잔액 조회만 제공하며 SL/거래처/부서 단위 조회는 아직 없다.
   - 작업 전부터 `contracts`, `master-data`, 문서, `GEMINI_MODULE_REVIEW.md` 등 다른 미커밋 변경이 존재했다.

@@ -44,7 +44,7 @@ flowchart TD
     A[POST /api/reconciliation/run] --> B[ReconciliationRun 생성]
     B --> C[규칙 조회]
     C --> D[원천/대상 집계]
-    D --> E{금액 일치?}
+    D --> E{금액 차이 허용오차 이내?}
     E -- 예 --> F[run.status = SUCCESS]
     E -- 아니오 --> G[Difference 생성]
     G --> H[기본 사유코드 조회 또는 생성]
@@ -58,7 +58,9 @@ flowchart TD
 설명:
 - 메인 흐름은 `ReconciliationUnit.criteriaJson`의 `sourceAmount`, `sourceCount`를 원천 집계값으로 사용합니다.
 - 대상 집계값은 `JournalQueryPort`로 기준일 전표와 상세를 조회한 뒤 차변 상세의 `baseAmount` 또는 `amount`를 합산합니다.
-- 금액이 다르면 `AMOUNT_MISMATCH` 차이를 한 건 생성합니다.
+- 활성 `ReconciliationRule` 중 우선순위가 가장 높은 규칙의 `toleranceType/toleranceValue`로 금액 허용오차를 계산합니다.
+- `ABSOLUTE`는 금액 그대로, `PERCENTAGE`는 원천 금액 대비 비율로 계산합니다.
+- 금액 차이가 허용오차를 초과하면 `AMOUNT_MISMATCH` 차이를 한 건 생성합니다.
 - 기본 사유코드는 `GENERIC_MISMATCH`입니다.
 - 자동 생성되는 `GENERIC_MISMATCH`는 조정분개를 만들지 않습니다.
 - 조정 가능한 사유코드로 조정분개를 만들려면 `criteriaJson`에 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode`를 설정해야 합니다.
@@ -82,6 +84,7 @@ sequenceDiagram
 
 핵심 규칙:
 - 조정 가능한 사유코드라면 조정분개 링크가 반드시 있어야 합니다.
+- 조정분개 링크는 `JournalEntry` 엔티티 직접 연관이 아니라 전표 ID로 저장합니다.
 - 최종 상태는 `RESOLVED` 또는 `IGNORED`만 허용됩니다.
 
 ## 5. 자동 매칭 엔진 흐름
@@ -89,17 +92,20 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     A[BankStatement 목록] --> C[AutomatedMatchingEngine]
-    B[JournalDetail 목록] --> C
-    C --> D{금액 일치?}
+    B[JournalDetailSummary 목록] --> C
+    C --> D{금액 허용오차 이내?}
     D -- 아니오 --> E[NO_MATCH_FOUND]
-    D -- 예 --> F{회계일자 정확히 일치?}
+    D -- 예 --> F{회계일자 허용오차 이내?}
     F -- 아니오 --> E
     F -- 예 --> G[EXACT_DATE_AMOUNT_MATCH]
 ```
 
 설명:
-- 현재 구현은 설명문구 비교나 허용일수 오차를 쓰지 않습니다.
-- 그래서 조금만 어긋나도 매칭 실패가 날 수 있습니다.
+- 기본 `match(...)` 호출은 금액과 회계일자를 정확히 비교합니다.
+- `MatchOptions`를 전달하면 금액 허용오차와 일자 허용일수를 적용합니다.
+- 허용오차로 매칭된 건은 `TOLERANCE_DATE_AMOUNT_MATCH`로 구분합니다.
+- 현재 구현은 설명문구 비교를 쓰지 않습니다.
+- 입력 전표 라인은 `journal-ledger` 도메인 엔티티가 아니라 `contracts`의 `JournalDetailSummary`를 사용합니다.
 
 ## 6. 심화 대사 흐름
 
@@ -128,5 +134,5 @@ flowchart TD
 - 메인 대사와 심화 대사 모델이 통합되지 않았습니다.
 - 메인 흐름의 대상 금액은 `JournalQueryPort` 기반이지만, 원천 금액은 아직 `criteriaJson`에 명시된 집계값을 사용합니다.
 - 심화 흐름의 SOURCE/INTERFACE 단계는 아직 외부 원천 시스템 조회가 아니라 `matchingRulesJson` 명시값 기반입니다.
-- 자동 매칭 조건이 단순합니다.
+- 자동 매칭은 금액/일자 허용오차를 지원하지만 설명문구 유사도나 전표번호 비교는 아직 없습니다.
 - 삭제 API에는 연관 데이터 정리 TODO가 남아 있습니다.

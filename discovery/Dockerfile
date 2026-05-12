@@ -1,15 +1,29 @@
-# 뼈대(OS 및 Java) 설정: 가볍고 빠른 알파인 리눅스 기반의 자바 21 버전 사용
-FROM eclipse-temurin:21-jre-alpine
+# [엔터프라이즈급 멀티스테이지 빌드]
+# 1단계: 빌드 환경 (Builder)
+# 소스코드를 가져와서 컴파일하고 실행 파일(.jar)을 만드는 과정입니다.
+FROM gradle:8.7-jdk21-alpine AS builder
+WORKDIR /build
 
-# 레고 블록의 이름표(작업 공간) 설정
+# 전체 프로젝트 소스를 복사합니다. (멀티 모듈 의존성 해결을 위함)
+COPY . .
+
+# 해당 모듈만 선택하여 빌드합니다. (테스트는 생략하여 빌드 속도 향상)
+# 엔터프라이즈 환경에서는 CI/CD 파이프라인에서 이미 테스트를 거치므로 여기선 패스합니다.
+RUN ./gradlew :discovery:build -x test --no-daemon
+
+# 2단계: 실행 환경 (Runner)
+# 무거운 빌드 도구(Gradle 등)를 버리고, 자바 실행기(JRE)만 있는 가벼운 이미지로 갈아탑니다.
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# 빌드된 스프링 부트 파일(jar)을 레고 블록 안으로 복사
-# (이 Dockerfile을 실행하기 전에 ./gradlew :discovery:bootJar 명령어로 jar 파일을 먼저 만들어야 합니다)
-COPY build/libs/*.jar app.jar
+# 타임존 설정 (한국 시간)
+RUN apk add --no-cache tzdata &&     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime &&     echo "Asia/Seoul" > /etc/timezone
 
-# 이 레고 블록은 8761번 포트를 씁니다!
-EXPOSE 8761
+# 빌더 환경에서 생성된 .jar 파일만 쏙 빼옵니다. (이미지 용량 최적화)
+COPY --from=builder /build/discovery/build/libs/*-SNAPSHOT.jar app.jar
+# 하위 모듈이 있을 경우 (예: journal-ledger/core)
+COPY --from=builder /build/discovery/*/build/libs/*-SNAPSHOT.jar app.jar || true
+COPY --from=builder /build/discovery/api/build/libs/*-SNAPSHOT.jar app.jar || true
 
-# 도커 컨테이너가 켜질 때 실행할 명령어: "자바 프로그램을 실행해라!"
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# 실행 시 메모리 옵션 및 환경변수를 받을 수 있도록 설정합니다.
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

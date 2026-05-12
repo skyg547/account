@@ -1,0 +1,485 @@
+# [엔터프라이즈 MSA 통합 실행 환경]
+# 모든 백엔드 모듈과 인프라를 실행 순서(depends_on)와 헬스체크(healthcheck)로 묶어
+# 명령어 한 방에 안정적으로 띄울 수 있는 마스터 설정 파일입니다.
+version: '3.8'
+
+networks:
+  account-network:
+    driver: bridge
+
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    networks:
+      - account-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - account-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    networks:
+      - account-network
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - account-network
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - account-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.10
+    container_name: logstash
+    ports:
+      - "5044:5044"
+    networks:
+      - account-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - account-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - account-network
+
+  vault:
+    image: vault:1.13.3
+    container_name: vault
+    ports:
+      - "8200:8200"
+    networks:
+      - account-network
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - account-network
+
+  asset-lease:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: asset-lease/Dockerfile
+    container_name: asset-lease
+    ports:
+      - "8083:8083"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  auth:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: auth/Dockerfile
+    container_name: auth
+    ports:
+      - "8084:8084"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  closing:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: closing/Dockerfile
+    container_name: closing
+    ports:
+      - "8085:8085"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  config-server:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: config-server/Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+
+  discovery:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: discovery/Dockerfile
+    container_name: discovery
+    ports:
+      - "8761:8761"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+
+  expenditure-resolution:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: expenditure-resolution/Dockerfile
+    container_name: expenditure-resolution
+    ports:
+      - "8086:8086"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  gateway:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: gateway/Dockerfile
+    container_name: gateway
+    ports:
+      - "8000:8000"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  governance:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: governance/Dockerfile
+    container_name: governance
+    ports:
+      - "8087:8087"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  journal-ledger:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: journal-ledger/Dockerfile
+    container_name: journal-ledger
+    ports:
+      - "8081:8081"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  loan:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: loan/Dockerfile
+    container_name: loan
+    ports:
+      - "8088:8088"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  master-data:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: master-data/Dockerfile
+    container_name: master-data
+    ports:
+      - "8089:8089"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  payable:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: payable/Dockerfile
+    container_name: payable
+    ports:
+      - "8090:8090"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  receivable:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: receivable/Dockerfile
+    container_name: receivable
+    ports:
+      - "8091:8091"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  reconciliation:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: reconciliation/Dockerfile
+    container_name: reconciliation
+    ports:
+      - "8092:8092"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  reporting:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: reporting/Dockerfile
+    container_name: reporting
+    ports:
+      - "8093:8093"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  tax:
+    build:
+      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      dockerfile: tax/Dockerfile
+    container_name: tax
+    ports:
+      - "8094:8094"
+    networks:
+      - account-network
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery:
+        condition: service_started
+
+  frontend-node:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend-node
+    networks:
+      - account-network
+    environment:
+      - NEXT_PUBLIC_API_URL=http://gateway:8000
+
+  frontend-nginx:
+    build:
+      context: ./frontend-nginx
+      dockerfile: Dockerfile
+    container_name: frontend-nginx
+    ports:
+      - "80:80"
+    networks:
+      - account-network
+    depends_on:
+      - frontend-node
+      - gateway

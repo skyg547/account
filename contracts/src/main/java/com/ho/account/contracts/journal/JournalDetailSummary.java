@@ -1,6 +1,7 @@
 package com.ho.account.contracts.journal;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class JournalDetailSummary {
     private Long id;
@@ -8,6 +9,7 @@ public class JournalDetailSummary {
     private String accountCode;
     private String accountName;
     private String accountCategory;
+    private LocalDate accountingDate;
     private BigDecimal amount;
     private BigDecimal baseAmount;
 
@@ -49,6 +51,14 @@ public class JournalDetailSummary {
 
     public void setAccountCategory(String accountCategory) {
         this.accountCategory = accountCategory;
+    }
+
+    public LocalDate getAccountingDate() {
+        return accountingDate;
+    }
+
+    public void setAccountingDate(LocalDate accountingDate) {
+        this.accountingDate = accountingDate;
     }
 
     public BigDecimal getAmount() {

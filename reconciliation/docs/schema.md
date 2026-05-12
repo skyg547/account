@@ -8,7 +8,7 @@ erDiagram
     RECONCILIATION_UNIT ||--o{ RECONCILIATION_RUN : executes
     RECONCILIATION_RUN ||--o{ RECONCILIATION_DIFFERENCE : finds
     DIFFERENCE_REASON_CODE ||--o{ RECONCILIATION_DIFFERENCE : classifies
-    JOURNAL_ENTRY ||--o{ RECONCILIATION_DIFFERENCE : adjusts
+    JOURNAL_ENTRY ||--o{ RECONCILIATION_DIFFERENCE : id_reference
 ```
 
 ### `reconciliation_units`
@@ -41,6 +41,10 @@ erDiagram
 
 의미:
 - 자동 매칭 기준과 허용오차를 정의합니다.
+- 메인 대사 집계 비교는 활성 규칙 중 우선순위가 가장 높은 규칙의 금액 허용오차를 사용합니다.
+- `ABSOLUTE`는 `toleranceValue`를 금액 그대로 사용합니다.
+- `PERCENTAGE`는 원천 금액 기준 비율로 허용오차 금액을 계산합니다.
+- 현재 `AutomatedMatchingEngine`의 라인 단위 매칭은 별도 `MatchOptions`로 금액 허용오차와 일자 허용일수를 받습니다.
 
 ### `reconciliation_runs`
 
@@ -88,6 +92,7 @@ erDiagram
 
 의미:
 - 대사 과정에서 발견된 차이와 처리 상태를 저장합니다.
+- `adjustment_journal_entry_id`는 `journal-ledger` 엔티티 직접 연관이 아니라 전표 ID 참조입니다.
 
 ### `difference_reason_codes`
 
@@ -110,6 +115,7 @@ erDiagram
     RECON_UNIT_DEFINITION ||--o{ RECONCILIATION_RESULT : groups_by_type
     RECONCILIATION_RESULT ||--o{ RECON_STAGE_RESULT : stages
     RECONCILIATION_RESULT ||--o{ RECONCILIATION_VARIANCE : variances
+    JOURNAL_ENTRY ||--o{ RECONCILIATION_VARIANCE : id_reference
 ```
 
 ### `RECON_UNIT_DEFINITION`

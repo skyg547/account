@@ -364,3 +364,109 @@
 - 남은 리스크:
   - `ReconciliationDifference.adjustmentJournalEntry`가 아직 `JournalEntry` 엔티티 직접 연관이라 링크 조회에는 `JournalEntryRepository`가 남아 있음.
   - 완전한 독립성 확보를 위해서는 조정분개 링크를 ID/계약 기반 참조로 바꾸는 후속 변경이 필요.
+
+## 2026-05-12 (reconciliation 조정분개 링크 ID 참조 전환)
+- 사용자 요청: 계속 작업 진행.
+- 기준 판단:
+  - 직전 작업 후에도 `ReconciliationDifference.adjustmentJournalEntry`가 `JournalEntry` 엔티티 직접 연관이라 `ReconciliationService`에 `JournalEntryRepository.findById`가 남아 있었음.
+- 수정 내용:
+  - `ReconciliationDifference`의 `JournalEntry` `@ManyToOne`을 제거하고 `adjustment_journal_entry_id` 컬럼을 `Long adjustmentJournalEntryId`로 매핑.
+  - `ReconciliationVariance`도 `ADJUSTMENT_JOURNAL_ENTRY_ID`를 `Long adjustmentJournalEntryId`로 매핑.
+  - `ReconciliationService`에서 `JournalEntryRepository` 의존성을 제거.
+  - 수동 조정분개 ID는 `JournalQueryPort.getJournalSummary`로 존재 확인 후 ID만 저장하도록 변경.
+  - 자동 조정분개 생성은 `JournalPostingPort` 결과의 `journalEntryId`를 그대로 차이에 저장.
+  - `ReconciliationDifferenceDto`, `VarianceDto`, `ReconciliationServiceTest`를 ID 참조 기준으로 갱신.
+  - `reconciliation/docs`에 조정분개 링크가 전표 ID 참조임을 명시.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `AutomatedMatchingEngine`는 아직 `journal-ledger`의 `JournalDetail` 도메인 타입을 입력 모델로 사용함.
+  - 조정분개 계정 산정은 설정 기반이며, 업무별 정책 객체로는 아직 분리되지 않음.
+
+## 2026-05-12 (reconciliation 자동 매칭 계약 DTO 전환)
+- 사용자 요청: 계속 작업 진행.
+- 기준 판단:
+  - 조정분개 링크 ID 전환 후 `reconciliation` 메인 소스에서 남은 `journal-ledger` 도메인 직접 의존은 `AutomatedMatchingEngine`의 `JournalDetail` 입력 모델이었음.
+- 수정 내용:
+  - `JournalDetailSummary`에 `accountingDate` 필드를 추가.
+  - `MonolithJournalQueryAdapter`가 전표 상세 요약에 회계일자를 채우도록 변경.
+  - `AutomatedMatchingEngine`이 `JournalDetail` 대신 `JournalDetailSummary`를 입력받도록 변경.
+  - 금액 비교는 `baseAmount` 우선, 없으면 `amount`를 사용하도록 보완.
+  - `reconciliation/build.gradle`에서 `journal-ledger:core` 직접 의존성을 제거.
+  - `AutomatedMatchingEngineTest`를 추가해 계약 DTO 기반 exact match와 date mismatch를 검증.
+  - `reconciliation/docs`의 자동 매칭 설명을 `JournalDetailSummary` 기준으로 갱신.
+- 실행 명령:
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 원천/SOURCE 집계는 아직 외부 시스템 조회가 아니라 설정값 기반.
+  - 자동 매칭 조건은 여전히 금액과 일자 정확히 일치만 지원.
+  - 조정분개 계정 산정은 설정 기반이며, 업무별 정책 객체로는 아직 분리되지 않음.
+
+## 2026-05-12 (reconciliation 자동 매칭 허용오차 옵션 추가)
+- 사용자 요청: 계속 작업 진행.
+- 기준 판단:
+  - 직전 작업으로 `AutomatedMatchingEngine`의 DTO 의존성은 정리됐지만, 금액과 일자가 조금만 달라도 실패하는 운영 리스크가 남아 있었음.
+- 수정 내용:
+  - `AutomatedMatchingEngine.MatchOptions`를 추가해 금액 허용오차와 일자 허용일수를 입력받도록 확장.
+  - 기존 `match(List<BankStatement>, List<JournalDetailSummary>)`는 `MatchOptions.exact()`로 위임해 기존 완전일치 동작을 유지.
+  - 매칭 사유를 상수화하고, 완전일치와 허용오차 매칭을 각각 `EXACT_DATE_AMOUNT_MATCH`, `TOLERANCE_DATE_AMOUNT_MATCH`로 구분.
+  - 금액 비교는 은행 입금 우선/출금 대체, 전표 `baseAmount` 우선/`amount` 대체 규칙을 유지하고 null 금액을 방어.
+  - `AutomatedMatchingEngineTest`에 허용오차 매칭 성공, 허용오차 초과 실패, 음수 옵션 거부 테스트를 추가.
+  - `reconciliation/docs`에 기본 완전일치와 `MatchOptions` 기반 허용오차 매칭 기준을 반영.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+  - `git diff --check -- reconciliation/src/main/java/com/ho/account/reconciliation/service/AutomatedMatchingEngine.java reconciliation/src/test/java/com/ho/account/reconciliation/service/AutomatedMatchingEngineTest.java reconciliation/docs/README.md reconciliation/docs/process-flow.md reconciliation/docs/beginner-guide.md reconciliation/docs/schema.md`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+  - `git diff --check`는 오류 없이 종료했고 CRLF 변환 경고만 출력됨.
+- 남은 리스크:
+  - `ReconciliationRule`의 tolerance 필드를 실제 `MatchOptions`로 변환해 사용하는 통합 호출 경로는 아직 없음.
+  - 설명문구 유사도, 전표번호, 계좌번호 등 복합 매칭 조건은 아직 없음.
+  - 원천/SOURCE 집계는 아직 외부 시스템 조회가 아니라 설정값 기반.
+
+## 2026-05-12 (reconciliation 메인 대사 규칙 허용오차 적용)
+- 사용자 요청: 계속 작업 진행.
+- 기준 판단:
+  - `ReconciliationRule`에는 `toleranceType/toleranceValue`가 있지만 `performReconciliation`이 규칙을 조회만 하고 집계 비교에 사용하지 않았음.
+- 수정 내용:
+  - `ReconciliationTolerancePolicy` 도메인 정책을 추가해 금액 허용오차 계산을 서비스 흐름에서 분리.
+  - 우선순위 순서로 전달된 규칙 중 첫 활성 규칙의 허용오차를 적용.
+  - `ABSOLUTE`는 금액 그대로, `PERCENTAGE`는 원천 금액 기준 비율로 허용오차를 계산.
+  - `performReconciliation`이 원천/대상 금액 차이가 허용오차를 초과할 때만 `AMOUNT_MISMATCH` 차이를 만들도록 변경.
+  - 허용오차 이내인 경우 차이, 사유코드, 조정분개를 생성하지 않고 matched 집계를 채우도록 보완.
+  - `ReconciliationTolerancePolicyTest`와 `ReconciliationServiceTest`를 추가/갱신.
+  - `reconciliation/docs`에 메인 대사 집계 비교의 허용오차 적용 기준을 문서화.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 라인 단위 `AutomatedMatchingEngine.MatchOptions`는 아직 저장된 `ReconciliationRule.ruleDefinitionJson`과 자동 연결되지 않음.
+  - 설명문구 유사도, 전표번호, 계좌번호 등 복합 매칭 조건은 아직 없음.
+  - 원천/SOURCE 집계는 아직 외부 시스템 조회가 아니라 설정값 기반.
+
+## 2026-05-12 (Gemini 리뷰 후속 확인 및 reconciliation 인코딩 정리)
+- 사용자 요청: 작업을 수행하고 `GEMINI_REVIEW_PROMPT.md`의 Gemini 리뷰 내용을 확인.
+- 확인 내용:
+  - `GEMINI_REVIEW_PROMPT.md`는 리뷰 결과가 아니라 Gemini에게 전달할 표준 리뷰 프롬프트/핸드오프 문서임.
+  - 실제 Gemini 리뷰 결과는 `GEMINI_MODULE_REVIEW.md`에 있으며, `ReconciliationService.java` 인코딩 깨짐, `journal-ledger:core` 직접 의존성, 대량 집계 성능 리스크를 지적함.
+- 수정 내용:
+  - 현재 코드 기준 `reconciliation`의 `journal-ledger:core` 직접 의존성과 `JournalEntryRepository` 직접 참조는 이미 제거된 상태임을 확인.
+  - `ReconciliationService.java`의 깨진 한글 Javadoc/주석을 ASCII 설명으로 정리.
+  - 차이 설명과 조정분개 설명에 남아 있던 깨진 문자열을 ASCII 문구로 교체.
+  - `GEMINI_REVIEW_PROMPT.md`, `WORKLOG.md`, `CODEX_WORKLOG.md`에 이번 Gemini 리뷰 후속 조치와 남은 리스크를 반영.
+- 실행 명령:
+  - `rg -n "...mojibake pattern..." reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconciliationService.java`
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - 깨진 인코딩 패턴 검색 결과 없음.
+  - 첫 Gradle 실행은 출력 없이 제한 시간 초과.
+  - 재실행 결과 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `buildTargetSnapshot`은 아직 `JournalQueryPort`로 전표 목록과 상세를 조회해 루프 합산하므로 Gemini가 지적한 대량 집계 성능 리스크가 남아 있음.
+  - `ReconManagerService` SOURCE/INTERFACE는 아직 외부 시스템 조회가 아니라 설정값 기반.
+  - 다른 모듈의 더미 계정/하드코딩 리스크는 이번 범위에서 제외.
