@@ -7,7 +7,9 @@
       "Bash(./gradlew :journal-ledger:core:build :journal-ledger:api:compileJava :journal-ledger:batch:compileJava)",
       "Bash(./gradlew :journal-ledger:core:compileJava)",
       "Bash(git -C C:/Users/skyg547/IdeaProjects/account status --short)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\skyg547\\\\IdeaProjects\\\\account\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

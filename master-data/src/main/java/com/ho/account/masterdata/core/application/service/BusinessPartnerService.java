@@ -8,9 +8,14 @@ import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersis
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 거래처(Business Partner) 마스터 데이터를 관리하는 서비스입니다.
+ * 헥사고날 아키텍처의 Application Service 계층이며, SCD2 이력 관리 정책을 따릅니다.
+ */
 @Service
 @Transactional
 public class BusinessPartnerService implements BusinessPartnerUseCase {
@@ -22,86 +27,88 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
     }
 
     /**
-     * �곕?��?? ?�퇋 ?�줉??�땲??
-     *
-     * <p>??�붿??�뒗 DTO??JPA Repository??�⑤??�떎. command???��?????�줈 �붽???
-     * ��???�붾?? ?�슚�곌?�곕??��?�숈? ??��?�쒖?�留??�슜?????�쒕?????�濡???????��??�땲??</p>
+     * 신규 거래처를 등록합니다.
      */
     public BusinessPartner createBusinessPartner(BusinessPartnerCommand command) {
         BusinessPartner businessPartner = command.toEntity();
         if (businessPartnerPersistencePort.existsByBusinessPartnerCode(businessPartner.getBusinessPartnerCode())) {
-            throw new IllegalArgumentException("??? �댁???�뒗 �곕?��??�붾??�땲?? " + businessPartner.getBusinessPartnerCode());
+            throw new IllegalArgumentException("이미 존재하는 거래처 코드입니다: " + businessPartner.getBusinessPartnerCode());
         }
         MasterDataValidityPolicy.applyDefaultWindow(businessPartner::getValidFrom, businessPartner::setValidFrom,
                 businessPartner::getValidTo, businessPartner::setValidTo);
         return businessPartnerPersistencePort.save(businessPartner);
     }
 
-    // ?�� �곕?��?�고??
+    /**
+     * 모든 거래처를 조회합니다.
+     */
     @Transactional(readOnly = true)
     public List<BusinessPartner> getAllBusinessPartners() {
         return businessPartnerPersistencePort.findAll();
     }
 
-    // ????��??�곕?��?�쭔 �고??
+    /**
+     * 활성화된 거래처만 조회합니다. (Legacy UseYn 플래그 기반)
+     */
     @Transactional(readOnly = true)
     public List<BusinessPartner> getActiveBusinessPartners() {
         return businessPartnerPersistencePort.findByUseYnTrue();
     }
 
-    // �곕?��??�꽭 �고??(?�붾?
+    /**
+     * 거래처 코드로 단건 조회합니다.
+     */
     @Transactional(readOnly = true)
     public Optional<BusinessPartner> getBusinessPartnerByCode(String businessPartnerCode) {
         return businessPartnerPersistencePort.findByBusinessPartnerCode(businessPartnerCode);
     }
 
-    // �곕?��?��??(???
+    /**
+     * 거래처 이름으로 검색합니다.
+     */
     @Transactional(readOnly = true)
     public List<BusinessPartner> searchBusinessPartnersByName(String name) {
         return businessPartnerPersistencePort.findByBusinessPartnerNameContaining(name);
     }
 
     /**
-     * �곕?��?? ??�젙??�땲??
-     *
-     * <p>?��??�숈? row????�젙??�뒗 ??�쁺??�쎌???�떎. ?��??? ???�源?? ?��?????�� ?�� �쎌?
-     * ??�썑 �꾨?SCD2 �꾩????�꽦 ?�뒪?��??�뒪??�꾨???????�뒿??�떎.</p>
+     * 거래처 정보를 수정합니다. (SCD2 원칙에 따라 기존 버전을 종료하고 새 버전을 생성합니다)
      */
     public BusinessPartner updateBusinessPartner(Long id, BusinessPartnerCommand command) {
-        BusinessPartner businessPartner = businessPartnerPersistencePort.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("�곕?��?? ��??????�뒿??�떎. ID: " + id));
+        BusinessPartner currentActive = businessPartnerPersistencePort.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
 
-        businessPartner.setBusinessPartnerName(command.businessPartnerName());
-        businessPartner.setRegistrationNumber(command.registrationNumber());
-        businessPartner.setCeoName(command.ceoName());
-        businessPartner.setBusinessType(command.businessType());
-        businessPartner.setBusinessItem(command.businessItem());
-        if (command.partnerType() != null) {
-            businessPartner.setPartnerType(command.partnerType());
+        // SCD2: 기존 활성 버전 종료
+        LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
+        
+        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
+            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
         }
-        if (command.useYn() != null) {
-            businessPartner.setUseYn(command.useYn());
-        }
-        if (command.kycStatus() != null) {
-            businessPartner.setKycStatus(command.kycStatus());
-        }
-        if (command.riskRating() != null) {
-            businessPartner.setRiskRating(command.riskRating());
-        }
-        businessPartner.setValidFrom(command.validFrom());
-        businessPartner.setValidTo(command.validTo());
-        MasterDataValidityPolicy.applyDefaultWindow(businessPartner::getValidFrom, businessPartner::setValidFrom,
-                businessPartner::getValidTo, businessPartner::setValidTo);
+        
+        // 현재 활성 이력을 종료
+        currentActive.setValidTo(oldValidTo);
+        currentActive.setUseYn(false);
+        businessPartnerPersistencePort.save(currentActive);
 
-        return businessPartnerPersistencePort.save(businessPartner);
+        // SCD2: 새로운 버전 생성
+        BusinessPartner newVersion = command.toEntity();
+        newVersion.setBusinessPartnerCode(currentActive.getBusinessPartnerCode());
+        newVersion.setValidFrom(newValidFrom);
+        newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        
+        return businessPartnerPersistencePort.save(newVersion);
     }
 
-    // �곕?��?????(??�━??????
+    /**
+     * 거래처를 논리적으로 삭제(비활성화)합니다.
+     */
     public void deleteBusinessPartner(Long id) {
         BusinessPartner businessPartner = businessPartnerPersistencePort.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("�곕?��?? ��??????�뒿??�떎. ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
+        
+        MasterDataValidityPolicy.closeIfActive(businessPartner::getValidTo, businessPartner::setValidTo);
         businessPartner.setUseYn(false);
         businessPartnerPersistencePort.save(businessPartner);
     }
 }
-

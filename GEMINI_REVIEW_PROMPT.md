@@ -74,12 +74,52 @@ Notes:
 
 ## Current Handoff Context
 
-- 원격 동기화 기준 커밋: `bb62cb3`
+- 현재 로컬 기준 커밋: `754c42f`
 - 현재 로컬 워킹트리에는 미커밋 변경이 남아 있을 수 있다.
-- 최근 Codex 3차 검수 결과:
-  - 통과: `contracts:compileJava`, `tax:compileJava`, `payable:test`, `receivable:test`, `asset-lease:test`, `loan:core/api/batch:compileJava`
-  - 실패: `tax:test`, `expenditure-resolution:test`
-- Gemini는 위 실패를 "이미 알려진 이슈"로 취급하되, 원인이 다르거나 추가 영향이 있으면 보고한다.
+- 최근 Codex 구현 범위:
+  - `journal-ledger:api`의 `DepartmentPersistencePort.findByCode` 잔존 호출을 `findActiveByCode`로 수정.
+  - `JournalEntryService.postJournalEntry`가 `PostingService` 단일 전기 경로로 위임하도록 수정.
+  - `PostingService.postJournalEntry(Long, String)`가 도메인 `JournalEntry.post(poster)`로 상태 전이와 감사 사용자 기록을 처리한 뒤 GL/SL 엔트리와 잔액을 생성하도록 보완.
+  - `JournalEntryServiceTest`, `PostingServiceTest` 추가.
+  - `journal-ledger/docs/process-flow.md`, `journal-ledger/docs/beginner-guide.md` 전기 경로 설명 갱신.
+  - `closing:core`의 `determineClosingStatus` null 상태 NPE를 제거하고 `ClosingCalendar.validateReadyToClose` 도메인 검증을 추가.
+  - `ClosingServiceTest`의 마감 완료 판정 테스트 6건이 통과하도록 감사 로그 포트 mock을 보강.
+  - `master-data`의 깨진 주석 5개 파일을 UTF-8/ASCII 설명으로 복구해 `unmappable character` 컴파일 진단을 제거.
+  - `loan:core`의 자동 전표 생성 경로를 `JournalUseCase.createJournalEntry`로 통일하고 `LoanServiceTest`를 추가.
+  - `reconciliation` 메인 대사 흐름의 하드코딩 더미 금액을 제거하고 `criteriaJson` 원천 집계값 + `JournalQueryPort` 대상 전표 집계로 전환.
+  - `ReconciliationServiceTest` 추가 및 `reconciliation/docs` 구현 설명 갱신.
+  - `reconciliation` 테스트 런타임의 Spring Cloud 전이 의존성 버전 해석을 위해 Spring Cloud BOM 추가.
+  - `reconciliation` 조정분개 계정 `121000`/`999999` 하드코딩을 제거하고 `criteriaJson`의 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode`를 사용하도록 변경.
+  - 자동 생성되는 `GENERIC_MISMATCH` 기본 사유코드는 `adjustable=false`로 생성하도록 변경.
+  - `contracts`에 `LedgerQueryPort`, `LedgerBalanceSummary` 추가.
+  - `journal-ledger:core`에 `MonolithLedgerQueryAdapter` 추가.
+  - `ReconManagerService` 심화 대사 흐름의 더미 금액을 제거하고 SOURCE/INTERFACE 설정값, JOURNAL `JournalQueryPort`, LEDGER `LedgerQueryPort` 집계로 전환.
+  - `ReconManagerServiceTest` 추가 및 `reconciliation/docs` 심화 대사 설명 갱신.
+  - `JournalPostingAdapter`가 `JournalEntryCommand`의 누락 필드와 라인 `baseAmount`를 반영하도록 보완.
+  - `ReconciliationService` 자동 조정분개 생성을 직접 Repository 저장에서 `JournalPostingPort.createDraftEntry` 호출로 전환.
+  - `JournalPostingAdapterTest`, `ReconciliationServiceTest` 갱신.
+- 최근 검증:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :journal-ledger:api:compileJava --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :master-data:compileJava --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
+  - 결과는 모두 `BUILD SUCCESSFUL`.
+- 알려진 이슈:
+  - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
+  - `loan`은 여전히 `Loan`/`LoanContract` 병행 모델과 계정코드 하드코딩이 남아 있다.
+  - `reconciliation` 메인 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
+  - `reconciliation` 조정분개 생성은 `JournalPostingPort`로 위임하지만, `ReconciliationDifference.adjustmentJournalEntry`가 엔티티 직접 연관이라 링크 조회에는 `JournalEntryRepository`가 남아 있다.
+  - `reconciliation` 업무별 차/대 계정 산정 정책은 아직 별도 도메인 정책으로 분리되지 않았다.
+  - `ReconManagerService` SOURCE/INTERFACE 단계는 더미 금액은 제거됐지만 아직 외부 시스템 조회가 아니라 `matchingRulesJson` 명시 집계값 기반이다.
+  - 신규 `LedgerQueryPort`는 GL 잔액 조회만 제공하며 SL/거래처/부서 단위 조회는 아직 없다.
+  - 작업 전부터 `contracts`, `master-data`, 문서, `GEMINI_MODULE_REVIEW.md` 등 다른 미커밋 변경이 존재했다.
 
 ## Review Handoff Checklist
 

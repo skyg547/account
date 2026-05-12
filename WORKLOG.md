@@ -225,10 +225,23 @@
 ### [QA]
 - **컴파일 검수**: `journal-ledger`, `master-data` 모듈의 리팩토링 후 컴파일 정합성 확인 완료.
 
+### 📅 2026-05-11 (오후 - Gemini 독립 리뷰)
+### [QA/리뷰어]
+- **전사 비즈니스 로직 및 아키텍처 정수 리뷰 완료**: Codex의 최근 작업분(전표 전기, 결산, SCD2, 리스 계정 분리)에 대한 전수 검토 수행.
+- **주요 성과 검증**:
+    - **리스 지급 결의 정상화**: IFRS16에 따른 원금/이자 계정 분리(`25100`, `93100`) 로직이 `asset-lease`에 성공적으로 반영됨을 확인 (Critical 이슈 해결).
+    - **전표 전기 경로 단일화**: `PostingService`를 통한 GL/SL 엔트리 생성 및 벌크 저장 로직의 정합성 확인.
+    - **결산 안정성 강화**: `ClosingService`의 NPE 방어 코드 및 도메인 기반 검증 로직 반영 확인.
+- **식별된 잔여 리스크 (Critical/High)**:
+    - **[Reconciliation] 인코딩 오류**: `ReconciliationService` 내 한글 주석 깨짐 현상 발견 (즉시 조치 필요).
+    - **[Reconciliation] 아키텍처 위반**: `reconciliation` 모듈이 `journal-ledger:core`를 직접 의존하는 구조 확인 (헥사고날 원칙 위배).
+    - **[Performance] 대량 데이터 처리**: `ReconciliationService` 및 `PostingService`의 루프 기반 집계 로직에 대한 성능 최적화 검토 필요.
+- **후속 조치**: 상세 리뷰 결과는 `GEMINI_MODULE_REVIEW.md`에 기록하고 Codex에게 이관.
+
 **NEXT STEPS (다음 담당자):**
-1. **[백엔드] 금융 상품 마스터(Product Master) SCD2 적용**: 부서/계정과목과 동일한 방식으로 상품 마스터에도 SCD2 이력 관리 로직 반영.
-2. **[백엔드] 전표/룰 엔진 검증 로직 강화**: 차대일치, 계정유효성, 마감잠금 등 전표 생성 시의 검증 필터 고도화.
-3. **[프론트] SCD2 타임라인 조회 UI**: 마스터 데이터의 변경 이력을 기간별로 확인할 수 있는 사용자 화면 구현.
+1. **[Codex/백엔드] Reconciliation 인코딩 및 의존성 해결**: `ReconciliationService`의 인코딩을 UTF-8로 정리하고, `journal-ledger` 의존성을 `contracts` 포트로 격리.
+2. **[Codex/백엔드] SCD2 적용 확산**: `Product` 서비스 외 잔여 마스터 데이터 모듈에 대한 SCD2 표준 로직 적용 완료.
+3. **[Codex/프론트] SCD2 이력 조회 화면**: 마스터 데이터의 변경 이력 타임라인을 시각화하는 관리자 UI 구현.
 
 ### 📅 2026-05-06 (모듈 순차 검수 - Codex)
 ### [검수] DDD/헥사고날/주석/재무흐름 관점 재점검
@@ -420,4 +433,160 @@
 - **남은 리스크**:
   - `loan`의 DoD 회귀 테스트 부재와 직접 전표 저장/전기 미수렴 경로는 이번 보완 범위에서 미수정.
   - 강제 재실행 출력 말미에 기존 `master-data` 일부 소스의 UTF-8 인코딩 진단이 섞여 출력됨. Gradle 결과는 성공이지만, 별도 인코딩 정리 작업으로 분리하는 것이 안전함.
+
+### 📅 2026-05-11 (운영 적용 순서 문서화 - Codex)
+### [문서] 모듈 실행 순서와 운영 롤아웃 순서 정리
+- **수정 범위**:
+  - `docs/msa-execution-and-work-plan.md`에 실제 운영 적용 순서와 운영 적용 게이트 추가.
+  - `docs/README.md`의 문서 허브에 해당 문서의 역할을 명확히 보강.
+- **핵심 판단**:
+  - 실행 순서는 인프라 의존성 기준.
+  - 운영 적용 순서는 데이터 정합성/장애 영향이 낮은 기반 모듈부터 업무 트래픽을 받는 순서.
+  - 현재 우선 적용 후보는 `master-data -> journal-ledger -> tax -> payable/receivable -> expenditure-resolution -> asset-lease`.
+  - `loan`, `closing`, `reconciliation`, `reporting`은 운영 전 회귀 테스트와 전기/대사 수렴 검증 보강이 필요.
+- **검증**:
+  - 문서 변경만 수행했으며 빌드/테스트는 실행하지 않음.
+
+### 📅 2026-05-11 (journal-ledger 전기 경로 보완 - Codex)
+### [수정] 전표 전기 단일 경로와 API 컴파일 실패 보완
+- **수정 범위**:
+  - `journal-ledger:api`: `LedgerController`의 부서 조회를 현재 `DepartmentPersistencePort.findActiveByCode` 계약에 맞춰 수정.
+  - `journal-ledger:core`: `JournalEntryService.postJournalEntry`가 상태를 선변경하지 않고 `PostingService.postJournalEntry(id, poster)`에 위임하도록 정리.
+  - `journal-ledger:core`: `PostingService`가 도메인 `JournalEntry.post(poster)`로 `APPROVED -> POSTED` 상태 전이와 감사 사용자 기록을 처리한 뒤 GL/SL 엔트리 및 잔액을 생성하도록 보완.
+  - `journal-ledger:core` 테스트: 전기 위임 경로와 GL/SL 엔트리 생성 단위 테스트 추가.
+  - `journal-ledger/docs`: 실제 공개 API 기준으로 전기 경로 문서 보정.
+- **재검증 실행**:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :journal-ledger:api:compileJava --console=plain --max-workers=1 --rerun-tasks`
+- **재검증 결과**:
+  - 위 명령 모두 `BUILD SUCCESSFUL`.
+  - `journal-ledger:core` 강제 테스트에서 신규 `JournalEntryServiceTest`, `PostingServiceTest`가 실행되고 실패/에러 0건을 확인.
+- **남은 리스크**:
+  - Gradle 출력 말미에 기존 `master-data` 일부 파일의 UTF-8 인코딩 진단이 계속 섞여 출력됨. 종료 코드는 성공이지만 별도 인코딩 정리 작업이 필요.
+  - 작업 전 워킹트리에 `contracts`, `master-data`, 문서, `GEMINI_MODULE_REVIEW.md` 등 다른 미커밋 변경이 이미 존재했으며 되돌리지 않음.
+
+### 📅 2026-05-11 (closing 마감 판정 테스트 보완 - Codex)
+### [수정] 결산 완료 판정 NPE와 실패 사유 검증 보완
+- **수정 범위**:
+  - `closing:core`: `ClosingService.determineClosingStatus`에서 캘린더 상태가 null인 테스트/비영속 객체도 안전하게 이전 상태명을 처리하도록 보완.
+  - `closing:core`: `ClosingCalendar.validateReadyToClose` 도메인 검증을 추가해 필수 태스크 미완료와 게이트 미통과 사유를 구분해 예외 처리.
+  - `closing:core` 테스트: 성공 경로에서 필요한 `ClosingAuditLogPersistencePort` mock을 명시.
+- **재검증 실행**:
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava :closing:core:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 두 명령 모두 `BUILD SUCCESSFUL`.
+  - `ClosingServiceTest` 6건 실패/에러 0건을 확인.
+- **남은 리스크**:
+  - `closing` 평가/충당 배치의 더미 계정(`999998`, `999999`) 사용은 기존 문서상 알려진 임시 구현이며 이번 범위에서는 미수정.
+
+### 📅 2026-05-11 (master-data 인코딩 진단 정리 - Codex)
+### [수정] UTF-8 컴파일 진단을 유발하던 깨진 주석 복구
+- **수정 범위**:
+  - `master-data`의 깨진 주석을 ASCII 설명으로 교체하고 UTF-8로 재저장.
+  - 대상 파일:
+    - `MasterDataChangeRequestCommand`
+    - `AccountSubjectPersistencePort`
+    - `BusinessPartnerPersistencePort`
+    - `MasterDataChangeApplier`
+    - `ExchangeRate`
+- **재검증 실행**:
+  - `.\gradlew :master-data:compileJava --console=plain --max-workers=1 --rerun-tasks`
+- **재검증 결과**:
+  - `BUILD SUCCESSFUL`.
+  - 이전에 Gradle 출력 말미에 섞이던 `unmappable character ... encoding UTF-8` 진단이 재현되지 않음.
+- **남은 리스크**:
+  - 작업 전부터 존재한 `master-data`의 `BusinessPartnerService`, `ProductService` 미커밋 변경은 이번 인코딩 정리 범위에서 수정하지 않음.
+
+### 📅 2026-05-11 (loan 전표 경로 회귀 테스트 보강 - Codex)
+### [수정] 대출 실행 자동분개를 JournalUseCase 경로로 통일
+- **수정 범위**:
+  - `loan:core`: `LoanService`의 자동 전표 생성이 `JournalPersistencePort.save`를 직접 호출하지 않고 `JournalUseCase.createJournalEntry`를 사용하도록 변경.
+  - `loan:core` 테스트: 대출 실행 시 `LOAN_DISBURSAL` lineage, 차변 `131000`, 대변 `101000`, 금액 균형, 실행 이력 전표 연결을 검증하는 `LoanServiceTest` 추가.
+- **재검증 실행**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 두 명령 모두 `BUILD SUCCESSFUL`.
+  - 신규 `LoanServiceTest` 1건 실패/에러 0건.
+- **남은 리스크**:
+  - `Loan`/`LoanContract` 병행 모델 통합과 계정코드 하드코딩 제거는 아직 미해결.
+  - 대출 전표의 `POSTED` 전기 수렴까지 보장하는 E2E 테스트는 별도 보강 필요.
+
+### 📅 2026-05-11 (reconciliation 메인 대사 더미 금액 제거 - Codex)
+### [수정] 메인 대사 실행값을 criteriaJson과 JournalQueryPort 집계로 전환
+- **수정 범위**:
+  - `reconciliation`: `performReconciliation`의 하드코딩 금액 `1000.00` vs `950.00`와 더미 건수를 제거.
+  - `ReconciliationUnit.criteriaJson`의 `sourceAmount`, `sourceCount`를 원천 집계값으로 읽도록 보완.
+  - `JournalQueryPort`로 기준일 전표 요약/상세를 조회하고 차변 상세 금액을 대상 집계값으로 산출하도록 변경.
+  - 사용되지 않던 `JournalDetailRepository` 주입을 제거하고 `contracts` 의존성을 명시.
+  - `reconciliation` 테스트 런타임에서 Spring Cloud 전이 의존성 버전이 비지 않도록 Spring Cloud BOM을 추가.
+  - `ReconciliationServiceTest`를 추가해 더미값이 아닌 criteria/source와 journal target 집계로 차이를 생성하는지 검증.
+  - `reconciliation/docs`의 더미 금액 설명을 현재 구현 기준으로 갱신.
+- **재검증 실행**:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 첫 실행은 Spring Cloud 전이 의존성 버전 미해석으로 실패했고, `reconciliation/build.gradle`에 Spring Cloud BOM을 보강한 뒤 재실행 성공.
+  - 최종 실행은 `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - 원천 집계는 아직 실제 외부 원천 어댑터가 아니라 `criteriaJson` 명시값에 의존.
+  - 조정분개 생성은 계정코드 `121000`, `999999` 하드코딩과 `journal-ledger` 내부 엔티티/Repository 링크가 일부 남아 있음.
+  - `ReconManagerService` 심화 흐름의 단계별 금액 집계는 여전히 더미값 기반.
+
+### 📅 2026-05-11 (reconciliation 조정분개 계정 설정화 - Codex)
+### [수정] 조정분개 하드코딩 계정 제거와 기본 사유코드 정책 보완
+- **수정 범위**:
+  - `reconciliation`: 조정 가능한 사유코드일 때 차/대 계정을 고정값 `121000`, `999999`로 조회하던 로직을 제거.
+  - 자동 조정분개 계정은 `ReconciliationUnit.criteriaJson`의 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode`에서만 읽도록 변경.
+  - 조정 가능한 사유코드인데 계정코드가 없으면 명시적 예외로 실패하도록 보완.
+  - 자동 생성되는 `GENERIC_MISMATCH` 기본 사유코드는 `adjustable=false`로 생성해 숨은 조정분개가 생기지 않도록 변경.
+  - `ReconciliationServiceTest`에 기본 사유코드 비조정, 설정 계정 기반 조정분개 생성 회귀 테스트를 추가.
+  - `reconciliation/docs`의 조정분개 계정 설명을 `criteriaJson` 설정 방식으로 갱신.
+- **재검증 실행**:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - 조정분개 생성 자체는 아직 `journal-ledger` 내부 `JournalEntry` 엔티티와 `JournalEntryRepository`에 직접 연결되어 있음.
+  - 계정코드 정책은 설정화됐지만, 업무별 차/대 계정 산정 규칙은 별도 도메인 정책으로 더 분리할 필요가 있음.
+  - `ReconManagerService` 심화 흐름의 단계별 금액 집계는 여전히 더미값 기반.
+
+### 📅 2026-05-11 (reconciliation 심화 대사 더미 금액 제거 - Codex)
+### [수정] ReconManagerService 4단계 집계를 설정값과 조회 포트 기반으로 전환
+- **수정 범위**:
+  - `contracts`: GL 잔액 조회용 `LedgerQueryPort`, `LedgerBalanceSummary` 추가.
+  - `journal-ledger:core`: `MonolithLedgerQueryAdapter`를 추가해 `LedgerService.getGlBalances` 결과를 `contracts` DTO로 변환.
+  - `reconciliation`: `ReconManagerService`의 `fetchSourceAmount/fetchInterfaceAmount/fetchJournalAmount/fetchLedgerAmount` 더미 메서드 제거.
+  - SOURCE/INTERFACE 단계는 `ReconUnitDefinition.matchingRulesJson`의 `sourceAmount/sourceCount`, `interfaceAmount/interfaceCount`를 사용하도록 변경.
+  - JOURNAL 단계는 `JournalQueryPort`로 기준일 전표 상세 차변 금액을 집계하도록 변경.
+  - LEDGER 단계는 `LedgerQueryPort`로 GL 잔액을 조회해 `ledgerAmountBasis` 기준으로 집계하도록 변경.
+  - variance SLA 일수가 null이면 기본 3일을 적용해 NPE를 방지하도록 보완.
+  - `ReconManagerServiceTest`를 추가해 4단계 집계와 variance 생성 경로를 검증.
+  - `reconciliation/docs`의 심화 대사 설명과 `MATCHING_RULES_JSON` 설정 키를 갱신.
+- **재검증 실행**:
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - `BUILD SUCCESSFUL`.
+  - `MonolithLedgerQueryAdapter`의 deprecated API 사용 알림이 출력됐으나 빌드 실패는 아님.
+- **남은 리스크**:
+  - SOURCE/INTERFACE 단계는 아직 실제 외부 원천/인터페이스 시스템 조회가 아니라 `matchingRulesJson` 명시 집계값 기반.
+  - LEDGER 조회 포트는 GL 잔액만 지원하며 SL/거래처/부서 단위 조회는 별도 확장 필요.
+  - `reconciliation`의 조정분개 링크는 아직 `journal-ledger` 내부 엔티티/Repository 기반.
+
+### 📅 2026-05-12 (reconciliation 조정분개 생성 포트 경로 전환 - Codex)
+### [수정] 대사 조정분개 생성을 JournalPostingPort로 위임
+- **수정 범위**:
+  - `journal-ledger:core`: `JournalPostingAdapter`가 `JournalEntryCommand`의 `entryType`, `exchangeRate`, `createdBy`, `auditUser`, `lineageSourceType`, `lineageSourceId`, 라인 `baseAmount`를 전표 엔티티에 반영하도록 보완.
+  - `journal-ledger:core` 테스트: `JournalPostingAdapterTest`를 추가해 command 필드와 라인 금액 매핑을 검증.
+  - `reconciliation`: `ReconciliationService`가 조정분개를 직접 `JournalEntry`/`JournalDetail`로 조립해 저장하지 않고 `JournalPostingPort.createDraftEntry`로 위임하도록 변경.
+  - `reconciliation` 테스트: 조정 가능 사유코드 경로에서 생성 command와 전표 링크 조회를 검증하도록 갱신.
+  - `reconciliation/docs`: 조정분개 생성 경로를 `JournalPostingPort` 기준으로 갱신.
+- **재검증 실행**:
+  - `.\gradlew :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - `ReconciliationDifference.adjustmentJournalEntry` 필드가 `JournalEntry` 엔티티 직접 연관이라, 생성된 전표 ID를 링크하기 위한 조회는 아직 `JournalEntryRepository`를 사용.
+  - 완전한 모듈 독립성을 위해서는 조정분개 링크를 엔티티 연관 대신 ID/계약 기반 참조로 전환하는 후속 설계가 필요.
 

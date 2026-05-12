@@ -6,8 +6,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ??ì‘‰ ?‚« ????
- * ?????±ì˜„???¸ìŠœ??ë’— ???†• ›ê¾©????ì‘‰???¿Â?±Ñ‹ë???ˆë–.
+ * Exchange rate master data.
+ * Stores effective rates between two currencies.
  */
 @Entity
 @Table(name = "exchange_rates",
@@ -20,17 +20,17 @@ public class ExchangeRate {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "from_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency fromCurrency; // ²ê³—? ???†• (?? USD)
+    private Currency fromCurrency; // Source currency, for example USD
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "to_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency toCurrency; // ???????†• (?? KRW)
+    private Currency toCurrency; // Target currency, for example KRW
 
     @Column(nullable = false, precision = 19, scale = 8)
-    private BigDecimal rate; // ??ì‘‰ (?? 1 USD = 1300 KRW)
+    private BigDecimal rate; // Exchange rate, for example 1 USD = 1300 KRW
 
     @Column(nullable = false)
-    private LocalDate effectiveDate; // ??ì‘‰ ?¸ìŠœ ??–ì˜‰??
+    private LocalDate effectiveDate; // Effective start date
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -40,7 +40,7 @@ public class ExchangeRate {
         createdAt = LocalDateTime.now();
     }
 
-    // Getter ?Setter
+    // Getters and setters
     public Long getId() {
         return id;
     }

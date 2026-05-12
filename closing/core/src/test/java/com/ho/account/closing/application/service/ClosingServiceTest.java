@@ -35,6 +35,8 @@ public class ClosingServiceTest {
     @Mock
     private ClosingGatePersistencePort closingGatePersistencePort;
     @Mock
+    private ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
+    @Mock
     private FiscalPeriodPersistencePort fiscalPeriodPersistencePort;
     @Mock
     private JournalQueryPort journalQueryPort;

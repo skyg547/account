@@ -3,7 +3,7 @@ package com.ho.account.masterdata.core.application.service;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 
 /**
- * ????ë‰???‚ÂƒìŒ?‚ï?????¼ì £ ë‰????ë’ª?³Â??ë’ª???¸ìŠœ??ë’— application port??…ë•²??
+ * Application port that applies approved master-data change requests.
  */
 public interface MasterDataChangeApplier {
 

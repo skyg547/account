@@ -1,7 +1,6 @@
 package com.ho.account.loan.service;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
@@ -61,7 +60,6 @@ public class LoanService {
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final CurrencyPersistencePort currencyPersistencePort;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final JournalPersistencePort journalPersistencePort;
     private final JournalUseCase journalUseCase;
 
     public Loan createLoan(Loan loan) {
@@ -455,7 +453,7 @@ public class LoanService {
         entry.addDetail(creditDetail);
 
         entry.setSlipNo(accountingDate + "-LOAN-" + System.currentTimeMillis());
-        return journalPersistencePort.save(entry);
+        return journalUseCase.createJournalEntry(entry);
     }
 
     private LoanEvent.EventType mapReasonToEventType(RecalculationReason reason) {

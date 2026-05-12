@@ -44,6 +44,12 @@ public class JournalPostingAdapter implements JournalPostingPort {
         entry.setAccountingDate(command.accountingDate());
         entry.setSlipDate(command.slipDate());
         entry.setDescription(command.description());
+        entry.setEntryType(command.entryType());
+        entry.setExchangeRate(command.exchangeRate() != null ? command.exchangeRate() : BigDecimal.ONE);
+        entry.setCreatedBy(command.createdBy());
+        entry.setAuditUser(command.auditUser());
+        entry.setLineageSourceType(command.lineageSourceType());
+        entry.setLineageSourceId(command.lineageSourceId());
 
         // 기본 통화 KRW (Command에 없으면)
         String currencyCode = command.currencyCode() != null ? command.currencyCode() : "KRW";
@@ -59,6 +65,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             detail.setAccountSubject(account);
             
             detail.setAmount(line.amount());
+            detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
             detail.setSide("DEBIT".equalsIgnoreCase(line.drcrType()) ? JournalSide.DEBIT : JournalSide.CREDIT);
             
             if (line.departmentCode() != null) {

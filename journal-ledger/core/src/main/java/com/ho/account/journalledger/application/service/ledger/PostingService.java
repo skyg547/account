@@ -2,7 +2,6 @@ package com.ho.account.journalledger.application.service.ledger;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
@@ -45,8 +44,8 @@ import java.math.BigDecimal;
  *
  * ─────────────────────────────────────────────────
  * [개발 설명]
- * - JournalEntryService.postJournalEntry()가 전표 상태를 POSTED로 변경한 후,
- *   이 서비스가 원장 항목(Entry)과 잔액(Balance)을 생성/갱신합니다.
+ * - JournalEntryService.postJournalEntry()는 이 서비스에 전기 처리를 위임합니다.
+ * - 이 서비스가 전표 상태 변경, 원장 항목(Entry) 생성, 잔액(Balance) 갱신을 원자적으로 처리합니다.
  * - 전표 상세 라인(JournalDetail) 하나당 GlEntry 1개 + SlEntry 1개가 생성됩니다.
  * - 잔액 갱신(Carry-forward 포함)은 LedgerService에 위임합니다.
  * - POSTED 또는 REVERSED 상태의 전표에 재전기를 시도하면 예외가 발생합니다.
@@ -113,17 +112,26 @@ public class PostingService {
      */
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
+        postJournalEntry(journalEntryId, "SYSTEM");
+    }
+
+    /**
+     * 전표를 원장에 전기합니다.
+     *
+     * @param journalEntryId 전기할 전표의 내부 PK
+     * @param poster         전기 처리자 식별자
+     * @throws IllegalArgumentException 존재하지 않는 전표 ID
+     * @throws IllegalStateException    APPROVED 상태가 아닌 전표
+     */
+    @Transactional
+    public void postJournalEntry(Long journalEntryId, String poster) {
         // ─── 1단계: 전표 조회 및 중복 전기 방지 ───────────────────────────
         JournalEntry journalEntry = journalEntryRepository.findById(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 
-        // 이미 전기(POSTED)되었거나 역전기(REVERSED)된 전표는 재전기 불가
-        if (journalEntry.getStatus() == JournalEntryStatus.POSTED || journalEntry.getStatus() == JournalEntryStatus.REVERSED) {
-            throw new IllegalStateException("JournalEntry is already posted or reversed.");
-        }
-
         // ─── 2단계: 전표 상태 POSTED로 변경 ────────────────────────────────
-        journalEntry.setStatus(JournalEntryStatus.POSTED);
+        // 도메인 메서드가 APPROVED 상태 여부와 감사 사용자 기록을 함께 검증/처리합니다.
+        journalEntry.post(poster);
         journalEntryRepository.save(journalEntry);
 
         // ─── 3단계: 회계연도/회계기간 계산 ─────────────────────────────────

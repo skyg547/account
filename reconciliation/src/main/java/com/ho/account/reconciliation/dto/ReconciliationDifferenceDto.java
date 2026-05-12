@@ -49,7 +49,7 @@ public class ReconciliationDifferenceDto {
                 .targetItemRef(entity.getTargetItemRef())
                 .reasonCodeId(entity.getReasonCode() != null ? entity.getReasonCode().getId() : null)
                 .reasonCodeName(entity.getReasonCode() != null ? entity.getReasonCode().getName() : null)
-                .adjustmentJournalEntryId(entity.getAdjustmentJournalEntry() != null ? entity.getAdjustmentJournalEntry().getId() : null)
+                .adjustmentJournalEntryId(entity.getAdjustmentJournalEntryId())
                 .status(entity.getStatus())
                 .assignedToUser(entity.getAssignedToUser())
                 .slaDueDate(entity.getSlaDueDate())

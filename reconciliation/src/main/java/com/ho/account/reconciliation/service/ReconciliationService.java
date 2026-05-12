@@ -1,7 +1,15 @@
 package com.ho.account.reconciliation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -12,17 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
 import java.math.BigDecimal;
 import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunStatus; // Added import
-import java.util.Collections;
 
 /**
  * ???Reconciliation) 愿??鍮꾩쫰?덉뒪 濡쒖쭅??泥섎━?섎뒗 ?쒕퉬???대옒??
@@ -37,9 +36,8 @@ public class ReconciliationService {
     private final DifferenceReasonCodeRepository differenceReasonCodeRepository;
     private final ReconciliationRunRepository reconciliationRunRepository;
     private final ReconciliationDifferenceRepository reconciliationDifferenceRepository;
-    private final JournalEntryRepository journalEntryRepository;
-    private final JournalDetailRepository journalDetailRepository;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final JournalQueryPort journalQueryPort;
+    private final JournalPostingPort journalPostingPort;
     private final ObjectMapper objectMapper; // JSON ?뚯떛???꾪븳 ObjectMapper
 
     @Autowired
@@ -48,18 +46,16 @@ public class ReconciliationService {
                                  DifferenceReasonCodeRepository differenceReasonCodeRepository,
                                  ReconciliationRunRepository reconciliationRunRepository,
                                  ReconciliationDifferenceRepository reconciliationDifferenceRepository,
-                                 JournalEntryRepository journalEntryRepository,
-                                 JournalDetailRepository journalDetailRepository,
-                                 AccountSubjectPersistencePort accountSubjectPersistencePort,
+                                 JournalQueryPort journalQueryPort,
+                                 JournalPostingPort journalPostingPort,
                                  ObjectMapper objectMapper) {
         this.reconciliationUnitRepository = reconciliationUnitRepository;
         this.reconciliationRuleRepository = reconciliationRuleRepository;
         this.differenceReasonCodeRepository = differenceReasonCodeRepository;
         this.reconciliationRunRepository = reconciliationRunRepository;
         this.reconciliationDifferenceRepository = reconciliationDifferenceRepository;
-        this.journalEntryRepository = journalEntryRepository;
-        this.journalDetailRepository = journalDetailRepository;
-        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.journalQueryPort = journalQueryPort;
+        this.journalPostingPort = journalPostingPort;
         this.objectMapper = objectMapper;
     }
 
@@ -283,20 +279,20 @@ public class ReconciliationService {
             throw new IllegalArgumentException("Difference can only be finalized as RESOLVED or IGNORED.");
         }
 
-        JournalEntry adjustmentJournalEntry = null;
+        Long adjustmentJournalEntryIdToLink = null;
         if (adjustmentJournalEntryId != null) {
-            adjustmentJournalEntry = journalEntryRepository.findById(adjustmentJournalEntryId)
-                    .orElseThrow(() -> new EntityNotFoundException("JournalEntry not found with id: " + adjustmentJournalEntryId));
-        } else if (difference.getAdjustmentJournalEntry() != null) {
-            adjustmentJournalEntry = difference.getAdjustmentJournalEntry();
+            validateAdjustmentJournalEntry(adjustmentJournalEntryId);
+            adjustmentJournalEntryIdToLink = adjustmentJournalEntryId;
+        } else if (difference.getAdjustmentJournalEntryId() != null) {
+            adjustmentJournalEntryIdToLink = difference.getAdjustmentJournalEntryId();
         }
 
-        if (reasonCode.isAdjustable() && adjustmentJournalEntry == null) {
+        if (reasonCode.isAdjustable() && adjustmentJournalEntryIdToLink == null) {
             throw new IllegalArgumentException("Adjustable reason code requires an adjustment journal entry link.");
         }
 
         difference.setReasonCode(reasonCode);
-        difference.setAdjustmentJournalEntry(adjustmentJournalEntry);
+        difference.setAdjustmentJournalEntryId(adjustmentJournalEntryIdToLink);
         difference.setStatus(status);
         difference.setResolvedBy(resolvedBy);
         difference.setResolvedAt(LocalDateTime.now());
@@ -341,33 +337,23 @@ public class ReconciliationService {
         run = reconciliationRunRepository.save(run);
 
         try {
-            // Declare local variables for reconciliation results
-            BigDecimal sourceAmount = BigDecimal.ZERO;
-            BigDecimal targetAmount = BigDecimal.ZERO;
-            int sourceCount = 0;
-            int targetCount = 0;
+            ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit);
+            ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationDate);
+
+            BigDecimal sourceAmount = sourceSnapshot.amount();
+            BigDecimal targetAmount = targetSnapshot.amount();
+            int sourceCount = sourceSnapshot.count();
+            int targetCount = targetSnapshot.count();
             BigDecimal unmatchedAmount = BigDecimal.ZERO;
             int unmatchedCount = 0;
             BigDecimal matchedAmount = BigDecimal.ZERO;
             int matchedCount = 0;
 
-            // 3. 留ㅼ묶????ぉ/湲덉븸, 誘몃ℓ移?맂 ??ぉ/湲덉븸 怨꾩궛 (?꾩떆 濡쒖쭅)
-            // ?ㅼ젣 援ы쁽?먯꽌??媛?rule??ruleDefinitionJson???뚯떛?섏뿬 蹂듭옟??留ㅼ묶 濡쒖쭅 ?섑뻾
-            // ???덉떆?먯꽌??紐⑤뱺 洹쒖튃???곸슜?섏뿬 理쒖쥌 李⑥씠瑜?怨꾩궛?쒕떎怨?媛??
-
-            // TODO: Replace with actual logic to fetch source/target data based on reconciliationUnit and rules.
-            // ?꾩옱??而댄뙆?쇨낵 湲곕낯 ?먮쫫 ?뺤씤???꾪빐 ?붾? 媛믪쓣 ?ъ슜
-            sourceAmount = new BigDecimal("1000.00"); // Dummy value
-            targetAmount = new BigDecimal("950.00");  // Dummy value
-            sourceCount = 10;
-            targetCount = 9;
-
-
             // ?꾩떆 留ㅼ묶 濡쒖쭅: ?⑥닚 湲덉븸 遺덉씪移?諛쒖깮 ??李⑥씠 ?앹꽦
             if (sourceAmount.compareTo(targetAmount) != 0) {
                 // 李⑥씠 諛쒖깮
                 unmatchedAmount = sourceAmount.subtract(targetAmount).abs();
-                unmatchedCount = sourceCount - targetCount; // 媛꾨떒???덉떆濡?李⑥씠 媛쒖닔 ?ㅼ젙
+                unmatchedCount = Math.abs(sourceCount - targetCount);
                 matchedAmount = sourceAmount.min(targetAmount);
                 matchedCount = Math.min(sourceCount, targetCount);
 
@@ -393,22 +379,16 @@ public class ReconciliationService {
 
                 // 議곗젙 ?꾪몴 ?앹꽦 濡쒖쭅 (isAdjustable??true??寃쎌슦)
                 if (defaultReason.isAdjustable()) {
-                    // 李⑤?/?蹂 怨꾩젙怨쇰ぉ? ????⑥쐞???좏삎?대굹 ?쒖뒪???ㅼ젙???곕씪 ?щ씪吏?
-                    // ?ш린?쒕뒗 ?꾩떆濡??뱀젙 怨꾩젙怨쇰ぉ ?ъ슜
-                    AccountSubject debitAccount = accountSubjectPersistencePort.findByCode("121000") // ?? 誘멸껐??怨꾩젙 (?꾩떆)
-                            .orElseThrow(() -> new EntityNotFoundException("Debit AccountSubject (121000) not found. Please create it."));
-                    AccountSubject creditAccount = accountSubjectPersistencePort.findByCode("999999") // ?? ??ъ감??議곗젙 怨꾩젙 (?꾩떆)
-                            .orElseThrow(() -> new EntityNotFoundException("Credit AccountSubject (999999) not found. Please create it."));
+                    AdjustmentAccountCodes accountCodes = resolveAdjustmentAccountCodes(reconciliationUnit);
 
-                    JournalEntry adjustmentEntry = createAdjustmentJournalEntry(
+                    Long adjustmentEntryId = createAdjustmentJournalEntry(
                             reconciliationDate,
                             unmatchedAmount,
                             reconciliationUnit.getName() + " ???李⑥씠 議곗젙 (" + defaultReason.getName() + ")",
-                            debitAccount,
-                            creditAccount,
+                            accountCodes,
                             "SYSTEM"
                     );
-                    diff.setAdjustmentJournalEntry(adjustmentEntry); // 議곗젙 ?꾪몴 留곹겕
+                    diff.setAdjustmentJournalEntryId(adjustmentEntryId); // 議곗젙 ?꾪몴 留곹겕
                 }
                 reconciliationDifferenceRepository.save(diff);
             }
@@ -437,6 +417,108 @@ public class ReconciliationService {
         return run;
     }
 
+    private ReconciliationSnapshot buildSourceSnapshot(ReconciliationUnit reconciliationUnit) {
+        JsonNode root = parseCriteriaJson(reconciliationUnit);
+        BigDecimal amount = readDecimal(root, "sourceAmount");
+        int count = readInt(root, "sourceCount");
+        return new ReconciliationSnapshot(count, amount);
+    }
+
+    private ReconciliationSnapshot buildTargetSnapshot(LocalDate reconciliationDate) {
+        BigDecimal targetAmount = BigDecimal.ZERO;
+        int targetCount = 0;
+
+        List<JournalSummary> journalSummaries = journalQueryPort.getJournalSummaries(reconciliationDate, reconciliationDate);
+        for (JournalSummary journalSummary : journalSummaries) {
+            if (journalSummary.getId() == null) {
+                continue;
+            }
+            for (JournalDetailSummary detail : journalQueryPort.getJournalDetails(journalSummary.getId())) {
+                if (detail.getSide() == com.ho.account.contracts.journal.JournalSide.DEBIT) {
+                    targetAmount = targetAmount.add(resolveDetailAmount(detail));
+                    targetCount++;
+                }
+            }
+        }
+
+        return new ReconciliationSnapshot(targetCount, targetAmount);
+    }
+
+    private BigDecimal resolveDetailAmount(JournalDetailSummary detail) {
+        if (detail.getBaseAmount() != null) {
+            return detail.getBaseAmount();
+        }
+        if (detail.getAmount() != null) {
+            return detail.getAmount();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal readDecimal(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return BigDecimal.ZERO;
+        }
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        if (node.isTextual() && !node.asText().isBlank()) {
+            return new BigDecimal(node.asText());
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private int readInt(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return 0;
+        }
+        if (node.isNumber()) {
+            return node.intValue();
+        }
+        if (node.isTextual() && !node.asText().isBlank()) {
+            return Integer.parseInt(node.asText());
+        }
+        return 0;
+    }
+
+    private AdjustmentAccountCodes resolveAdjustmentAccountCodes(ReconciliationUnit reconciliationUnit) {
+        JsonNode root = parseCriteriaJson(reconciliationUnit);
+        String debitAccountCode = readText(root, "adjustmentDebitAccountCode");
+        String creditAccountCode = readText(root, "adjustmentCreditAccountCode");
+        if (debitAccountCode == null || creditAccountCode == null) {
+            throw new IllegalArgumentException(
+                    "Adjustable reconciliation unit " + reconciliationUnit.getId()
+                            + " requires adjustmentDebitAccountCode and adjustmentCreditAccountCode in criteriaJson.");
+        }
+        return new AdjustmentAccountCodes(debitAccountCode, creditAccountCode);
+    }
+
+    private String readText(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String text = node.asText();
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return text.trim();
+    }
+
+    private JsonNode parseCriteriaJson(ReconciliationUnit reconciliationUnit) {
+        String criteriaJson = reconciliationUnit.getCriteriaJson();
+        if (criteriaJson == null || criteriaJson.isBlank()) {
+            return objectMapper.createObjectNode();
+        }
+
+        try {
+            return objectMapper.readTree(criteriaJson);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Invalid reconciliation criteriaJson for unit " + reconciliationUnit.getId(), e);
+        }
+    }
+
     /**
      * 議곗젙 ?꾪몴瑜??앹꽦?섍퀬 ??ν븯???ы띁 硫붿꽌??
      * @param accountingDate ?뚭퀎?쇱옄
@@ -445,43 +527,48 @@ public class ReconciliationService {
      * @param debitAccount 李⑤? 怨꾩젙怨쇰ぉ
      * @param creditAccount ?蹂 怨꾩젙怨쇰ぉ
      * @param createdBy ?앹꽦??
-     * @return ?앹꽦??JournalEntry
+     * @return ?앹꽦??JournalEntry ID
      */
-    private JournalEntry createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
-                                                      AccountSubject debitAccount, AccountSubject creditAccount, String createdBy) {
-        JournalEntry entry = new JournalEntry();
-        entry.setSlipDate(LocalDate.now());
-        entry.setAccountingDate(accountingDate);
-        entry.setDescription(description);
-        entry.setStatus(JournalEntryStatus.DRAFT); // 議곗젙 ?꾪몴??DRAFT ?곹깭濡??앹꽦 ???뱀씤 ?꾨줈?몄뒪瑜?嫄곗튌 ???덉쓬
-        entry.setEntryType("ADJUSTMENT");
-        entry.setCreatedBy(createdBy);
-        entry.setAuditUser(createdBy);
-        entry.setLineageSourceType("RECONCILIATION");
-        entry.setLineageSourceId("RECON_ADJ-" + System.currentTimeMillis()); // 怨좎쑀??ID ?앹꽦
+    private Long createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
+                                              AdjustmentAccountCodes accountCodes, String createdBy) {
+        JournalEntryCommand command = new JournalEntryCommand(
+                LocalDate.now(),
+                accountingDate,
+                description,
+                "ADJUSTMENT",
+                "KRW",
+                BigDecimal.ONE,
+                createdBy,
+                createdBy,
+                "RECONCILIATION",
+                "RECON_ADJ-" + System.currentTimeMillis(),
+                List.of(
+                        new JournalLineCommand("DEBIT", accountCodes.debitAccountCode(), amount, amount, null, null, description + " (debit)"),
+                        new JournalLineCommand("CREDIT", accountCodes.creditAccountCode(), amount, amount, null, null, description + " (credit)")
+                )
+        );
 
-        // JournalDetail - 李⑤?
-        JournalDetail debitDetail = new JournalDetail();
-        debitDetail.setSide(JournalSide.DEBIT);
-        debitDetail.setAccountSubject(debitAccount);
-        debitDetail.setAmount(amount);
-        debitDetail.setBaseAmount(amount); // 湲곗? ?듯솕 湲덉븸???숈씪?섎떎怨?媛??
-        debitDetail.setDetailDescription(description + " (李⑤?)");
-        entry.addDetail(debitDetail);
+        JournalPostingResult result = journalPostingPort.createDraftEntry(command);
+        if (result.journalEntryId() == null) {
+            throw new IllegalStateException("JournalPostingPort returned no journalEntryId for reconciliation adjustment.");
+        }
+        return result.journalEntryId();
+    }
 
-        // JournalDetail - ?蹂
-        JournalDetail creditDetail = new JournalDetail();
-        creditDetail.setSide(JournalSide.CREDIT);
-        creditDetail.setAccountSubject(creditAccount);
-        creditDetail.setAmount(amount);
-        creditDetail.setBaseAmount(amount); // 湲곗? ?듯솕 湲덉븸???숈씪?섎떎怨?媛??
-        creditDetail.setDetailDescription(description + " (?蹂)");
-        entry.addDetail(creditDetail);
+    private void validateAdjustmentJournalEntry(Long adjustmentJournalEntryId) {
+        try {
+            if (journalQueryPort.getJournalSummary(adjustmentJournalEntryId) == null) {
+                throw new EntityNotFoundException("JournalEntry not found with id: " + adjustmentJournalEntryId);
+            }
+        } catch (RuntimeException e) {
+            throw new EntityNotFoundException("JournalEntry not found with id: " + adjustmentJournalEntryId);
+        }
+    }
 
-        // ?꾪몴踰덊샇 ?앹꽦 (?덉떆)
-        entry.setSlipNo(accountingDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + "-ADJ-" + journalEntryRepository.count());
+    private record ReconciliationSnapshot(int count, BigDecimal amount) {
+    }
 
-        return journalEntryRepository.save(entry);
+    private record AdjustmentAccountCodes(String debitAccountCode, String creditAccountCode) {
     }
 
     // 湲곕낯 李⑥씠 ?ъ쑀 肄붾뱶瑜??앹꽦?섎뒗 ?ы띁 硫붿꽌??(珥덇린 ?곗씠??濡쒕뵫 ???ъ슜 媛??
@@ -490,7 +577,7 @@ public class ReconciliationService {
         defaultReason.setCode("GENERIC_MISMATCH");
         defaultReason.setName("Generic Mismatch");
         defaultReason.setDescription("General mismatch found during reconciliation");
-        defaultReason.setAdjustable(true); // 湲곕낯?곸쑝濡?議곗젙 媛?ν븯?꾨줉 ?ㅼ젙
+        defaultReason.setAdjustable(false);
         defaultReason.setActive(true);
         return defaultReason;
     }

@@ -1,5 +1,12 @@
 package com.ho.account.reconciliation.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.contracts.ledger.LedgerBalanceSummary;
+import com.ho.account.contracts.ledger.LedgerQueryPort;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,16 +26,25 @@ public class ReconManagerService {
     private final ReconStageResultRepository stageResultRepository;
     private final ReconciliationResultRepository resultRepository;
     private final ReconciliationVarianceRepository varianceRepository;
+    private final JournalQueryPort journalQueryPort;
+    private final LedgerQueryPort ledgerQueryPort;
+    private final ObjectMapper objectMapper;
 
     @Autowired
     public ReconManagerService(ReconUnitDefinitionRepository unitRepository,
             ReconStageResultRepository stageResultRepository,
             ReconciliationResultRepository resultRepository,
-            ReconciliationVarianceRepository varianceRepository) {
+            ReconciliationVarianceRepository varianceRepository,
+            JournalQueryPort journalQueryPort,
+            LedgerQueryPort ledgerQueryPort,
+            ObjectMapper objectMapper) {
         this.unitRepository = unitRepository;
         this.stageResultRepository = stageResultRepository;
         this.resultRepository = resultRepository;
         this.varianceRepository = varianceRepository;
+        this.journalQueryPort = journalQueryPort;
+        this.ledgerQueryPort = ledgerQueryPort;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -54,10 +70,15 @@ public class ReconManagerService {
 
         // 1. 단계별 집계 (Source -> Interface -> Journal -> Ledger)
         List<ReconStageResult> stages = new ArrayList<>();
-        stages.add(createStageResult(savedResult, "SOURCE", fetchSourceAmount(unit, reconDate)));
-        stages.add(createStageResult(savedResult, "INTERFACE", fetchInterfaceAmount(unit, reconDate)));
-        stages.add(createStageResult(savedResult, "JOURNAL", fetchJournalAmount(unit, reconDate)));
-        stages.add(createStageResult(savedResult, "LEDGER", fetchLedgerAmount(unit, reconDate)));
+        StageSnapshot sourceSnapshot = buildConfiguredSnapshot(unit, "source");
+        StageSnapshot interfaceSnapshot = buildConfiguredSnapshot(unit, "interface");
+        StageSnapshot journalSnapshot = buildJournalSnapshot(unit, reconDate);
+        StageSnapshot ledgerSnapshot = buildLedgerSnapshot(unit, reconDate);
+
+        stages.add(createStageResult(savedResult, "SOURCE", sourceSnapshot));
+        stages.add(createStageResult(savedResult, "INTERFACE", interfaceSnapshot));
+        stages.add(createStageResult(savedResult, "JOURNAL", journalSnapshot));
+        stages.add(createStageResult(savedResult, "LEDGER", ledgerSnapshot));
 
         stageResultRepository.saveAll(stages);
 
@@ -67,11 +88,14 @@ public class ReconManagerService {
         BigDecimal diff = sourceAmt.subtract(ledgerAmt).abs();
 
         savedResult.setTotalAmountSource(sourceAmt);
+        savedResult.setTotalCountSource(sourceSnapshot.count());
         savedResult.setTotalAmountTarget(ledgerAmt);
+        savedResult.setTotalCountTarget(ledgerSnapshot.count());
         savedResult.setVarianceAmount(diff);
         savedResult.setVarianceCount(diff.compareTo(BigDecimal.ZERO) == 0 ? 0L : 1L);
 
-        if (diff.compareTo(unit.getToleranceAmount()) <= 0) {
+        BigDecimal toleranceAmount = unit.getToleranceAmount() == null ? BigDecimal.ZERO : unit.getToleranceAmount();
+        if (diff.compareTo(toleranceAmount) <= 0) {
             savedResult.setStatus(ReconciliationStatus.SUCCESS);
         } else {
             savedResult.setStatus(ReconciliationStatus.VARIANCE_FOUND);
@@ -81,12 +105,12 @@ public class ReconManagerService {
         return resultRepository.save(savedResult);
     }
 
-    private ReconStageResult createStageResult(ReconciliationResult result, String stage, BigDecimal amount) {
+    private ReconStageResult createStageResult(ReconciliationResult result, String stage, StageSnapshot snapshot) {
         ReconStageResult sr = new ReconStageResult();
         sr.setReconciliationResult(result);
         sr.setStageCode(stage);
-        sr.setTotalCount(0L); // 건수 생략
-        sr.setTotalAmount(amount);
+        sr.setTotalCount(snapshot.count());
+        sr.setTotalAmount(snapshot.amount());
         return sr;
     }
 
@@ -98,24 +122,137 @@ public class ReconManagerService {
         v.setDescription(desc);
         v.setAmount(amt);
         v.setStatus(VarianceStatus.OPEN);
-        v.setSlaDueDate(LocalDate.now().plusDays(unit.getSlaDays()));
+        int slaDays = unit.getSlaDays() == null ? 3 : unit.getSlaDays();
+        v.setSlaDueDate(LocalDate.now().plusDays(slaDays));
         varianceRepository.save(v);
     }
 
-    // 외부 데이터 조회를 위한 Mock 메서드
-    private BigDecimal fetchSourceAmount(ReconUnitDefinition unit, LocalDate date) {
-        return new BigDecimal("1000");
+    private StageSnapshot buildConfiguredSnapshot(ReconUnitDefinition unit, String stage) {
+        JsonNode root = parseMatchingRules(unit);
+        JsonNode stageNode = root.path(stage);
+        BigDecimal amount = readDecimal(stageNode, "amount", readDecimal(root, stage + "Amount", BigDecimal.ZERO));
+        long count = readLong(stageNode, "count", readLong(root, stage + "Count", 0L));
+        return new StageSnapshot(count, amount);
     }
 
-    private BigDecimal fetchInterfaceAmount(ReconUnitDefinition unit, LocalDate date) {
-        return new BigDecimal("1000");
+    private StageSnapshot buildJournalSnapshot(ReconUnitDefinition unit, LocalDate date) {
+        BigDecimal amount = BigDecimal.ZERO;
+        long count = 0L;
+        String accountCode = readText(parseMatchingRules(unit), "journalAccountCode");
+
+        for (var summary : journalQueryPort.getJournalSummaries(date, date)) {
+            if (summary.getId() == null) {
+                continue;
+            }
+            for (JournalDetailSummary detail : journalQueryPort.getJournalDetails(summary.getId())) {
+                if (detail.getSide() == com.ho.account.contracts.journal.JournalSide.DEBIT
+                        && matchesAccount(detail.getAccountCode(), accountCode)) {
+                    amount = amount.add(resolveJournalAmount(detail));
+                    count++;
+                }
+            }
+        }
+
+        return new StageSnapshot(count, amount);
     }
 
-    private BigDecimal fetchJournalAmount(ReconUnitDefinition unit, LocalDate date) {
-        return new BigDecimal("1000");
+    private StageSnapshot buildLedgerSnapshot(ReconUnitDefinition unit, LocalDate date) {
+        JsonNode rules = parseMatchingRules(unit);
+        String accountCode = readText(rules, "ledgerAccountCode");
+        String currencyCode = readText(rules, "ledgerCurrencyCode");
+        String amountBasis = readText(rules, "ledgerAmountBasis");
+
+        BigDecimal amount = BigDecimal.ZERO;
+        long count = 0L;
+        for (LedgerBalanceSummary summary : ledgerQueryPort.getGlBalanceSummaries(date, date, accountCode, currencyCode)) {
+            amount = amount.add(resolveLedgerAmount(summary, amountBasis));
+            count++;
+        }
+
+        return new StageSnapshot(count, amount);
     }
 
-    private BigDecimal fetchLedgerAmount(ReconUnitDefinition unit, LocalDate date) {
-        return new BigDecimal("950");
+    private BigDecimal resolveJournalAmount(JournalDetailSummary detail) {
+        if (detail.getBaseAmount() != null) {
+            return detail.getBaseAmount();
+        }
+        if (detail.getAmount() != null) {
+            return detail.getAmount();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolveLedgerAmount(LedgerBalanceSummary summary, String amountBasis) {
+        String basis = amountBasis == null ? "DEBIT" : amountBasis.trim().toUpperCase();
+        return switch (basis) {
+            case "CREDIT" -> safe(summary.getCreditAmount());
+            case "ENDING_BALANCE" -> safe(summary.getEndingBalance());
+            case "ABS_ENDING_BALANCE" -> safe(summary.getEndingBalance()).abs();
+            default -> safe(summary.getDebitAmount());
+        };
+    }
+
+    private boolean matchesAccount(String actualAccountCode, String expectedAccountCode) {
+        return expectedAccountCode == null || expectedAccountCode.equals(actualAccountCode);
+    }
+
+    private JsonNode parseMatchingRules(ReconUnitDefinition unit) {
+        String matchingRulesJson = unit.getMatchingRulesJson();
+        if (matchingRulesJson == null || matchingRulesJson.isBlank()) {
+            return objectMapper.createObjectNode();
+        }
+
+        try {
+            return objectMapper.readTree(matchingRulesJson);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Invalid matchingRulesJson for unit " + unit.getUnitId(), e);
+        }
+    }
+
+    private BigDecimal readDecimal(JsonNode root, String fieldName, BigDecimal defaultValue) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        if (node.isTextual() && !node.asText().isBlank()) {
+            return new BigDecimal(node.asText());
+        }
+        return defaultValue;
+    }
+
+    private long readLong(JsonNode root, String fieldName, long defaultValue) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        if (node.isNumber()) {
+            return node.longValue();
+        }
+        if (node.isTextual() && !node.asText().isBlank()) {
+            return Long.parseLong(node.asText());
+        }
+        return defaultValue;
+    }
+
+    private String readText(JsonNode root, String fieldName) {
+        JsonNode node = root.get(fieldName);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String text = node.asText();
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return text.trim();
+    }
+
+    private BigDecimal safe(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private record StageSnapshot(long count, BigDecimal amount) {
     }
 }

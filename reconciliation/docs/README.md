@@ -28,8 +28,17 @@
 - 대사 모델이 두 세트 공존합니다.
   - `ReconciliationUnit`, `ReconciliationRun`, `ReconciliationDifference` 중심의 메인 흐름
   - `ReconUnitDefinition`, `ReconciliationResult`, `ReconStageResult`, `ReconciliationVariance` 중심의 심화 흐름
-- `performReconciliation`는 아직 실제 데이터 추출 대신 더미 금액 `1000` vs `950`를 사용합니다.
+- `performReconciliation`의 메인 흐름은 더미 금액을 사용하지 않습니다.
+  - 원천 값은 `ReconciliationUnit.criteriaJson`의 `sourceAmount`, `sourceCount`에서 읽습니다.
+  - 대상 값은 `JournalQueryPort`로 기준일 전표 상세를 조회해 차변 기준 금액을 집계합니다.
 - `AutomatedMatchingEngine`는 금액 일치 + 회계일자 정확히 일치만 봅니다.
-- 조정분개 계정도 현재 하드코딩입니다.
-  - 차변 `121000`
-  - 대변 `999999`
+- 조정 가능한 사유코드로 자동 조정분개를 만들려면 `criteriaJson`에 계정코드를 명시해야 합니다.
+  - `adjustmentDebitAccountCode`
+  - `adjustmentCreditAccountCode`
+- 자동 조정분개 생성은 `JournalPostingPort`를 통해 journal-ledger의 전표 생성 경로로 위임합니다.
+- 기본 생성되는 `GENERIC_MISMATCH` 사유코드는 자동 조정분개를 만들지 않습니다.
+- `ReconManagerService` 심화 흐름의 4단계 금액 집계는 더미값을 사용하지 않습니다.
+  - SOURCE/INTERFACE: `matchingRulesJson`의 `sourceAmount/sourceCount`, `interfaceAmount/interfaceCount`
+  - JOURNAL: `JournalQueryPort` 전표 상세 차변 집계
+  - LEDGER: `LedgerQueryPort` GL 잔액 집계
+  - 선택 설정: `journalAccountCode`, `ledgerAccountCode`, `ledgerCurrencyCode`, `ledgerAmountBasis`

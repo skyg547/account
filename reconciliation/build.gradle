@@ -7,9 +7,12 @@ description = 'account-reconciliation'
 
 dependencies {
     implementation platform('org.springframework.boot:spring-boot-dependencies:3.2.5')
+    implementation platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.1')
     testImplementation platform('org.springframework.boot:spring-boot-dependencies:3.2.5')
+    testImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.1')
 
     implementation project(':shared-kernel')
+    implementation project(':contracts')
     implementation project(':master-data')
     implementation project(':journal-ledger:core')
 

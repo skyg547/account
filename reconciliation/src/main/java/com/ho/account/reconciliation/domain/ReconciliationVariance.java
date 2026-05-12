@@ -1,6 +1,5 @@
 package com.ho.account.reconciliation.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,9 +34,8 @@ public class ReconciliationVariance {
     @Column(name = "TARGET_REFERENCE", length = 255)
     private String targetReference;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ADJUSTMENT_JOURNAL_ENTRY_ID")
-    private JournalEntry adjustmentJournalEntry;
+    @Column(name = "ADJUSTMENT_JOURNAL_ENTRY_ID")
+    private Long adjustmentJournalEntryId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "STATUS", nullable = false, length = 50)
@@ -152,12 +150,12 @@ public class ReconciliationVariance {
         this.targetReference = targetReference;
     }
 
-    public JournalEntry getAdjustmentJournalEntry() {
-        return adjustmentJournalEntry;
+    public Long getAdjustmentJournalEntryId() {
+        return adjustmentJournalEntryId;
     }
 
-    public void setAdjustmentJournalEntry(JournalEntry adjustmentJournalEntry) {
-        this.adjustmentJournalEntry = adjustmentJournalEntry;
+    public void setAdjustmentJournalEntryId(Long adjustmentJournalEntryId) {
+        this.adjustmentJournalEntryId = adjustmentJournalEntryId;
     }
 
     public VarianceStatus getStatus() {

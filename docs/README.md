@@ -14,7 +14,7 @@
 
 - [principles_and_policies.md](./principles_and_policies.md)
 - [msa-modularization.md](./msa-modularization.md)
-- [msa-execution-and-work-plan.md](./msa-execution-and-work-plan.md)
+- [msa-execution-and-work-plan.md](./msa-execution-and-work-plan.md): 실행 순서, 작업 우선순위, 실제 운영 적용 순서
 - [infrastructure-guide.md](./infrastructure-guide.md)
 
 ## 3. 모듈 공통 읽기 규칙

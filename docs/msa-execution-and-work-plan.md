@@ -34,6 +34,39 @@
 
 `gateway`는 외부 진입점이므로 마지막에 띄운다. `discovery`, `config-server`는 다른 서비스의 기반이므로 먼저 띄운다.
 
+## 2.1 실제 운영 적용 순서
+
+운영 적용 순서는 "먼저 띄우는 순서"가 아니라 "장애 영향과 데이터 정합성 위험이 낮은 것부터 실제 업무 트래픽을 받게 하는 순서"다.
+
+권장 순서는 다음과 같다.
+
+| 단계 | 운영 적용 대상 | 운영 방식 | 선행 조건 |
+| --- | --- | --- | --- |
+| 0 | `shared-kernel`, `contracts` | 라이브러리/계약 배포 | `:contracts:compileJava` 성공, 하위 호환 생성자 유지 |
+| 1 | `discovery`, `config-server`, `auth`, `gateway` | 인프라 먼저 무업무 트래픽으로 검증 | 서비스 등록, 설정 로딩, 인증 토큰, 라우팅 헬스체크 |
+| 2 | `master-data`, `governance` | 기준정보/승인 관리부터 제한 오픈 | 계정/부서/거래처 SCD2 기준 확정, 변경 승인/감사 로그 확인 |
+| 3 | `journal-ledger:core`, `journal-ledger:api`, `journal-ledger:batch` | 전표/원장 엔진을 내부 트래픽 또는 shadow mode로 적용 | 전표 생성, 승인, 전기, GL/SL 반영 경로가 하나로 수렴 |
+| 4 | `tax` | 세금계산서 등록/조회부터 운영 적용 | `PURCHASE`/`SALES` 타입 검증, 금액 합계 검증, 지출/AP 연계 테스트 |
+| 5 | `receivable`, `payable` | AR/AP 서브레저를 파일럿 법인/부서에 적용 | 원천 문서 드릴다운, 전표 lineage, 잔액 상태 전이 테스트 |
+| 6 | `expenditure-resolution` | 지출결의/승인/AP 지급 흐름 적용 | 예산 차감 정책, 세금계산서 연계, 승인 후 전표 생성 검증 |
+| 7 | `asset-lease` | 고정자산부터 적용 후 IFRS16 리스 적용 | 취득/상각/처분 검증, IFRS16 이자/원금 분리 결의 검증 |
+| 8 | `loan` | 운영 전 추가 보강 후 제한 적용 | 실행→이연→3개월 상각→중도상환 재계산 회귀 테스트 필요 |
+| 9 | `closing`, `reconciliation` | 처음에는 읽기/검증 모드, 이후 마감 통제 활성화 | 원천-전표-원장 대사율, 마감 실패/재오픈 절차 검증 |
+| 10 | `reporting` | 보고서 shadow run 후 공식 보고 전환 | 보고 라인에서 원천 문서까지 drill-through 검증 |
+
+현재 코드 상태 기준으로는 `master-data -> journal-ledger -> tax -> payable/receivable -> expenditure-resolution -> asset-lease`까지가 우선 적용 후보이고, `loan`, `closing`, `reconciliation`, `reporting`은 운영 전 회귀 테스트와 전기/대사 수렴 검증을 더 보강하는 것이 안전하다.
+
+## 2.2 운영 적용 게이트
+
+각 단계는 다음 조건을 통과한 뒤 다음 단계로 넘어간다.
+
+- 컴파일/테스트: 해당 모듈 `compileJava` 또는 `test`가 성공한다.
+- 데이터 정합성: 원천 문서 ID, 전표 lineage, GL/SL 반영 결과가 추적된다.
+- 재처리: 실패 후 재시도해도 중복 전표나 중복 잔액 차감이 발생하지 않는다.
+- 롤백: 설정/라우팅/기능 플래그로 신규 트래픽을 차단할 수 있다.
+- 감사: 변경자, 승인자, 적용일, 원천 문서가 로그 또는 엔티티로 남는다.
+- 운영 관찰: 헬스체크, 주요 오류 로그, 처리 건수/금액 지표를 확인할 수 있다.
+
 ## 3. 기본 실행 명령
 
 Windows PowerShell 기준으로 JDK 21을 명시해서 실행한다.

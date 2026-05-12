@@ -59,24 +59,36 @@ public class ProductService implements ProductUseCase {
     }
 
     /**
-     * 상품 정보를 수정합니다. (SCD2 정책에 따라 이력을 종료하고 신규 행을 생성할 수도 있으나, 여기서는 단순 업데이트)
+     * 상품 정보를 수정합니다. (SCD2 정책에 따라 기존 활성 이력을 종료하고 신규 버전을 생성합니다.)
      */
     public Product updateProduct(Long id, ProductCommand command) {
-        Product existingProduct = productPersistencePort.findById(id)
+        Product currentActive = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        existingProduct.setProductCode(command.productCode());
-        existingProduct.setName(command.name());
-        existingProduct.setDescription(command.description());
-        existingProduct.setUnitOfMeasure(command.unitOfMeasure());
-        existingProduct.setPrice(command.price());
-        existingProduct.setProductType(command.productType());
-        existingProduct.setValidFrom(command.validFrom());
-        existingProduct.setValidTo(command.validTo());
-        existingProduct.setUpdatedAt(LocalDateTime.now());
-        existingProduct.setAuditUser("system");
+        // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
+        java.time.LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : java.time.LocalDate.now();
+        java.time.LocalDate oldValidTo = newValidFrom.minusDays(1);
 
-        return productPersistencePort.save(existingProduct);
+        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
+            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
+        }
+
+        currentActive.terminate(oldValidTo);
+        productPersistencePort.save(currentActive);
+
+        // SCD2: 새로운 버전 생성
+        Product newVersion = new Product();
+        newVersion.setProductCode(command.productCode() != null ? command.productCode() : currentActive.getProductCode());
+        newVersion.setName(command.name());
+        newVersion.setDescription(command.description());
+        newVersion.setUnitOfMeasure(command.unitOfMeasure());
+        newVersion.setPrice(command.price());
+        newVersion.setProductType(command.productType());
+        newVersion.setValidFrom(newValidFrom);
+        newVersion.setValidTo(command.validTo() != null ? command.validTo() : java.time.LocalDate.of(9999, 12, 31));
+        newVersion.setAuditUser("system");
+
+        return productPersistencePort.save(newVersion);
     }
 
     /**

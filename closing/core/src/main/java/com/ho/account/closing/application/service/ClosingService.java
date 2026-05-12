@@ -379,15 +379,12 @@ public class ClosingService implements ClosingUseCase {
     @Override
     public ClosingCalendar determineClosingStatus(Long calendarId, String user) {
         ClosingCalendar calendar = findClosingCalendarById(calendarId);
-        String prevStatus = calendar.getStatus().name();
+        String prevStatus = calendar.getStatus() != null ? calendar.getStatus().name() : ClosingCalendarStatus.OPEN.name();
 
         // 1. 도메인 메서드에 완료 가능 여부 위임
         List<ClosingTask> tasks = closingTaskPersistencePort.findByClosingCalendar(calendar);
         List<ClosingGate> gates = closingGatePersistencePort.findByClosingCalendar(calendar);
-        
-        if (!calendar.isReadyToClose(tasks, gates)) {
-            throw new IllegalStateException("결산을 완료할 수 있는 상태가 아닙니다. 필수 태스크 및 게이트를 확인하세요.");
-        }
+        calendar.validateReadyToClose(tasks, gates);
 
         // 2. 도메인 메서드에 상태 변경 위임
         calendar.close(user);

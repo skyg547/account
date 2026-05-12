@@ -107,7 +107,7 @@ public class LedgerController {
 
         Department department = null;
         if (deptCode != null) {
-            department = departmentPersistencePort.findByCode(deptCode)
+            department = departmentPersistencePort.findActiveByCode(deptCode)
                     .orElseThrow(() -> new IllegalArgumentException("Department not found with code: " + deptCode));
         }
 

@@ -95,24 +95,16 @@ stateDiagram-v2
 
 ### 4.5 전기
 
-- 전기 경로가 현재 두 갈래다.
-- `POST /api/journals/{id}/post` -> `JournalService.postJournalEntry`
-- `POST /api/ledger/post/{journalEntryId}` -> `PostingService.postJournalEntry`
+- 전기 공개 API는 `POST /api/journals/{id}/post` 하나로 사용한다.
+- `JournalEntryService.postJournalEntry`는 전표 상태를 먼저 바꾸지 않고 `PostingService.postJournalEntry`에 위임한다.
 
-차이점:
+처리 책임:
 
-- `JournalService.postJournalEntry`
-  - 전표 상태를 `POSTED`로 변경
-  - `LedgerService.updateLedgerBalances`만 호출
 - `PostingService.postJournalEntry`
-  - 전표 상태를 `POSTED`로 변경
+  - `APPROVED` 상태인지 도메인 메서드로 검증
+  - 전표 상태를 `POSTED`로 변경하고 전기 처리자를 `auditUser`에 기록
   - `GlEntry`, `SlEntry`를 생성
-  - `LedgerService.updateLedgerBalances`도 호출
-
-문서 기준 권장 해석:
-
-- 단순 상태 변경과 잔액 반영만 보면 `JournalService`
-- 드릴다운까지 포함한 완전한 원장 전기 흐름은 `PostingService`
+  - `LedgerService.updateLedgerBalancesBulk`로 GL/SL 잔액을 갱신
 
 ## 5. 드릴다운 흐름
 

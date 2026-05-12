@@ -197,18 +197,45 @@ public class ClosingCalendar {
      * @return 완료 가능 여부
      */
     public boolean isReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
+        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
+        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+
         // 1. 필수 태스크 완료 여부 확인
-        boolean allMandatoryTasksCompleted = tasks.stream()
+        boolean allMandatoryTasksCompleted = safeTasks.stream()
                 .filter(ClosingTask::isMandatory)
                 .allMatch(t -> t.getStatus() == ClosingTask.ClosingTaskStatus.COMPLETED);
 
         if (!allMandatoryTasksCompleted) return false;
 
         // 2. 모든 게이트 통과 여부 확인
-        boolean allGatesPassed = gates.stream()
+        boolean allGatesPassed = safeGates.stream()
                 .allMatch(g -> g.getStatus() == ClosingGate.ClosingGateStatus.PASSED);
 
         return allGatesPassed;
+    }
+
+    /**
+     * 결산 완료 가능 여부를 검증하고 실패 사유를 업무 메시지로 구분합니다.
+     *
+     * @param tasks 현재 회기의 결산 태스크 목록
+     * @param gates 현재 회기의 결산 게이트 목록
+     */
+    public void validateReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
+        java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
+        java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+
+        boolean allMandatoryTasksCompleted = safeTasks.stream()
+                .filter(ClosingTask::isMandatory)
+                .allMatch(t -> t.getStatus() == ClosingTask.ClosingTaskStatus.COMPLETED);
+        if (!allMandatoryTasksCompleted) {
+            throw new IllegalStateException("Not all mandatory tasks are completed.");
+        }
+
+        boolean allGatesPassed = safeGates.stream()
+                .allMatch(g -> g.getStatus() == ClosingGate.ClosingGateStatus.PASSED);
+        if (!allGatesPassed) {
+            throw new IllegalStateException("Not all closing gates are passed.");
+        }
     }
 
     /**

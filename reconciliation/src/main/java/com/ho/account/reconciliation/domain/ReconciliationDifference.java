@@ -1,6 +1,5 @@
 package com.ho.account.reconciliation.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -48,9 +47,8 @@ public class ReconciliationDifference {
     @JoinColumn(name = "reason_code_id")
     private DifferenceReasonCode reasonCode; // 李⑥씠 ?ъ쑀 肄붾뱶 (DoD: 李⑥씠??"?먯씤肄붾뱶"濡?諛섎뱶???섎졃)
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // 議곗젙 ?꾪몴 (DoD: "議곗젙?꾪몴 留곹겕"濡?諛섎뱶???섎졃)
+    @Column(name = "adjustment_journal_entry_id")
+    private Long adjustmentJournalEntryId; // 議곗젙 ?꾪몴 ID
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -190,12 +188,12 @@ public class ReconciliationDifference {
         this.reasonCode = reasonCode;
     }
 
-    public JournalEntry getAdjustmentJournalEntry() {
-        return adjustmentJournalEntry;
+    public Long getAdjustmentJournalEntryId() {
+        return adjustmentJournalEntryId;
     }
 
-    public void setAdjustmentJournalEntry(JournalEntry adjustmentJournalEntry) {
-        this.adjustmentJournalEntry = adjustmentJournalEntry;
+    public void setAdjustmentJournalEntryId(Long adjustmentJournalEntryId) {
+        this.adjustmentJournalEntryId = adjustmentJournalEntryId;
     }
 
     public ReconciliationDifferenceStatus getStatus() {

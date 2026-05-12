@@ -4,7 +4,6 @@ import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -238,20 +237,8 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public void postJournalEntry(Long id, String poster) {
-        // 1. 전표 조회 (없으면 즉시 예외)
-        JournalEntry entry = journalPersistencePort.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
-
-        // 2. 도메인 엔티티에 상태 전환 위임 (Rich Domain Model)
-        //    post() 내부에서 현재 상태가 APPROVED인지 검증합니다.
-        entry.post(poster);
-
-        // 3. 변경된 상태를 저장
-        journalPersistencePort.save(entry);
-
-        // 4. 원장 반영 수행 (PostingService 호출)
-        // [중요] 상태 변경과 원장 반영이 하나의 트랜잭션 내에서 원자적으로 처리되도록 보장합니다.
-        postingService.postJournalEntry(id);
+        // 상태 전이와 GL/SL 원장 반영은 PostingService에서 하나의 트랜잭션으로 처리합니다.
+        postingService.postJournalEntry(id, poster);
     }
 
     @Override

@@ -32,8 +32,7 @@ public class VarianceDto {
         dto.setDrCrType(entity.getDrCrType());
         dto.setSourceReference(entity.getSourceReference());
         dto.setTargetReference(entity.getTargetReference());
-        dto.setAdjustmentJournalEntryId(
-                entity.getAdjustmentJournalEntry() != null ? entity.getAdjustmentJournalEntry().getId() : null);
+        dto.setAdjustmentJournalEntryId(entity.getAdjustmentJournalEntryId());
         dto.setStatus(entity.getStatus());
         dto.setResolvedBy(entity.getResolvedBy());
         dto.setResolvedAt(entity.getResolvedAt());

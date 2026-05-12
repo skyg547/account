@@ -1,8 +1,8 @@
 package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journal.repository.JournalRuleConditionRepository;
-import com.ho.account.journal.repository.JournalRuleDetailRepository;
-import com.ho.account.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleConditionRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleDetailRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;

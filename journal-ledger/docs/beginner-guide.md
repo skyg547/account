@@ -79,7 +79,6 @@
 
 ### 4.2 원장 API
 
-- `POST /api/ledger/post/{journalEntryId}`
 - `GET /api/ledger/gl-balances`
 - `GET /api/ledger/sl-balances`
 - `POST /api/ledger/reaggregate-balances`
@@ -124,15 +123,16 @@
 - 보고 숫자에서 원천 문서까지 가려면 lineage가 필요하다.
 - 전표를 생성하는 외부 모듈이 이 값을 빠뜨리면 추적성이 떨어진다.
 
-### 6.4 현재 전기 API는 두 개다
+### 6.4 전기 처리는 단일 공개 API에서 시작한다
 
-- `JournalService.postJournalEntry`
-- `PostingService.postJournalEntry`
+- 공개 API는 `POST /api/journals/{id}/post`다.
+- 애플리케이션 서비스는 `PostingService.postJournalEntry`에 위임한다.
+- `PostingService`가 상태 변경, GL/SL 상세 생성, 잔액 갱신을 하나의 트랜잭션에서 처리한다.
 
 초보자 기준 정리:
 
-- 잔액만 보면 `JournalService`도 이해 가능하다.
-- GL/SL 상세와 드릴다운까지 보려면 `PostingService` 흐름까지 함께 봐야 한다.
+- 승인(`APPROVED`)만으로 원장에 반영되지 않는다.
+- 전기(`POSTED`)가 끝나야 GL/SL 상세와 잔액이 함께 생성된다.
 
 ## 7. 이 모듈을 볼 때 체크리스트
 

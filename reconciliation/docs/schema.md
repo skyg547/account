@@ -130,6 +130,12 @@ erDiagram
 
 의미:
 - 심화 대사에서 쓰는 단위 정의입니다.
+- `MATCHING_RULES_JSON`은 다음 실행 설정을 담을 수 있습니다.
+  - `sourceAmount`, `sourceCount`
+  - `interfaceAmount`, `interfaceCount`
+  - `journalAccountCode`
+  - `ledgerAccountCode`, `ledgerCurrencyCode`
+  - `ledgerAmountBasis`: `DEBIT`, `CREDIT`, `ENDING_BALANCE`, `ABS_ENDING_BALANCE`
 
 ### `RECONCILIATION_RESULTS`
 
