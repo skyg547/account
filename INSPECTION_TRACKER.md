@@ -13,8 +13,8 @@
 - [o] `config-server`, `discovery`, `gateway`: 인프라 설정 정합성 확인 완료.
 
 ### Phase 2: 기준 정보 및 권한 (Master Data & Governance)
-- [△] `master-data`: SCD2 정책 적용 보완 완료 (`Product`, `Department`, `BusinessPartner`, `Currency`). `ExchangeRate` 참조 구조 개선 완료.
-- [△] `governance`: 승인 연계 유실 문제 수정 완료. **[잔여]** `SystemUser` -> `Department` 객체 참조 ID 기반으로 변경 필요.
+- [o] `master-data`: SCD2 정책 적용 보완 완료 (`Product`, `Department`, `BusinessPartner`, `Currency`). `ExchangeRate` 참조 구조 개선 완료.
+- [o] `governance`: 승인 연계 유실 문제 수정 및 `SystemUser` -> `Department` ID 기반 참조 전환 완료. (Phase 2 보완 완료)
 
 ### Phase 3: 업무 서브레저 (Subledgers)
 - [o] `expenditure-resolution`: 마스터 조회 예외 처리 및 DTO 바인딩 보완 완료.
