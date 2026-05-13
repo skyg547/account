@@ -1,6 +1,7 @@
 package com.ho.account.audit.domain;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -41,6 +42,12 @@ public class MasterApproval {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ApprovalStatus status;
+
+    @Column(name = "EFFECTIVE_DATE")
+    private LocalDate effectiveDate;
+
+    @Column(name = "REQUESTED_VERSION")
+    private Integer requestedVersion;
 
     @Column(length = 500)
     private String remarks;
@@ -191,6 +198,22 @@ public class MasterApproval {
 
     public void setStatus(ApprovalStatus status) {
         this.status = status;
+    }
+
+    public LocalDate getEffectiveDate() {
+        return effectiveDate;
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate) {
+        this.effectiveDate = effectiveDate;
+    }
+
+    public Integer getRequestedVersion() {
+        return requestedVersion;
+    }
+
+    public void setRequestedVersion(Integer requestedVersion) {
+        this.requestedVersion = requestedVersion;
     }
 
     public String getRemarks() {

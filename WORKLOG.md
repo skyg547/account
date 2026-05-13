@@ -756,3 +756,63 @@
   - 실제 `journal-ledger` 저장소/포스팅 서비스를 포함한 통합 E2E 테스트는 아직 미완료이며, 현재는 `JournalUseCase` 호출 순서 단위 회귀 테스트로 보강한 상태.
   - `loan:core`는 여전히 `journal-ledger:core` 직접 의존을 사용하므로, 계약 포트 기반 분리 여부는 후속 설계가 필요.
 
+### 📅 2026-05-12 (handoff master-data SCD2 보강 - Codex)
+### [수정] Product/Department 활성 버전 종료 및 신규 버전 생성 정책 보강
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Master-Data SCD2 항목을 확인.
+  - 작업 전 `master-data/README.md`, `ProductService`, `DepartmentService`, 각 포트/어댑터/Repository와 엔티티의 `validFrom`/`validTo` 정책을 확인.
+- **수정 범위**:
+  - `ProductPersistencePort.findActiveByProductCode`와 `ProductRepository.findActiveByProductCode(productCode, date)`를 추가해 이력 다건 환경에서 활성 상품 버전을 명시 조회.
+  - `ProductService`가 코드 조회 시 활성 버전만 반환하고, 생성 시 현재 활성 코드 중복을 방어하도록 보강.
+  - `ProductService.updateProduct`가 활성 버전만 수정 대상으로 허용하고, 상품코드 변경을 방어하며, 기존 활성 버전을 종료한 뒤 기존값을 보존한 신규 버전을 생성하도록 보강.
+  - `DepartmentService.createDepartment`에 기본 유효기간 정책을 명시 적용.
+  - `DepartmentService.updateDepartment`가 `validFrom` 누락 시 오늘을 사용하고, 부서코드 변경을 방어하며, 기존값/부모/유형을 보존한 신규 버전을 생성하도록 보강.
+  - `ProductServiceTest`, `DepartmentServiceTest`를 추가하고 기존 배치 테스트 fake port를 새 Product 포트 계약에 맞게 갱신.
+  - `CODEX_HANDOFF_TASKS.md`의 Master-Data SCD2 항목을 완료 표시하고 `master-data/README.md`를 갱신.
+- **재검증 실행**:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 첫 실행은 새 Product 포트 메서드 추가로 기존 fake port 컴파일이 실패했고, 테스트 더블을 갱신 후 재실행.
+  - 재실행 결과 Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - DB 레벨에서 동일 코드의 유효기간 중복을 막는 exclusion/unique 제약은 아직 없음.
+  - Department API에는 update/deactivate endpoint가 아직 노출되어 있지 않아 UseCase 경로 중심으로 검증됨.
+
+### 📅 2026-05-12 (handoff governance 승인 연계 정보 보존 - Codex)
+### [수정] MasterApproval의 effectiveDate/requestedVersion을 master-data 변경요청으로 전달
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Governance 승인 연계 정보 유실 항목을 확인.
+  - 작업 전 `governance/README.md`, `MasterApproval`, `MasterApprovalService`, `MasterDataChangeRequestAdapter`, `MasterApprovalServiceTest`, master-data 변경요청 커맨드를 확인.
+- **수정 범위**:
+  - `MasterApproval`에 `effectiveDate`, `requestedVersion` 필드를 추가.
+  - `MasterApprovalUseCase.RequestApprovalCommand`와 `AuditController.MasterApprovalRequest`가 두 필드를 받도록 확장.
+  - `MasterApprovalService.requestApproval`이 요청값을 승인 엔티티에 보존하고, 누락 시 기존 호환 기본값을 사용하도록 변경.
+  - `MasterDataChangeRequestAdapter`가 `LocalDate.now()`/`1` 고정값 대신 `MasterApproval`의 `effectiveDate`/`requestedVersion`을 전달하도록 변경.
+  - `MasterApprovalServiceTest`, `MasterDataChangeRequestAdapterTest`로 값 보존과 전달을 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 해당 항목을 완료 표시하고 `governance/README.md`를 갱신.
+- **재검증 실행**:
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - governance 모듈에는 별도 DB migration 디렉터리가 없어 신규 컬럼 운영 반영 방식은 배포 환경의 DDL 정책 확인이 필요.
+  - `AuditController`는 여전히 도메인 엔티티와 `Map<String,String>` 입력을 일부 노출하며, 이는 handoff의 별도 Medium 항목으로 남아 있음.
+
+### 📅 2026-05-12 (handoff expenditure master lookup 검수 - Codex)
+### [검수/테스트] 지출결의 전표 생성의 마스터 조회 실패 예외 처리 검증
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Expenditure-Resolution 마스터 조회 실패 은닉 항목을 확인.
+  - 작업 전 `expenditure-resolution/README.md`, `ExpenditureResolutionService`, 기존 `ExpenditureResolutionServiceTest`를 확인.
+- **확인 결과**:
+  - 전표 생성 핵심 경로인 `buildJournalEntry`는 부서, 상세 계정, 거래처, 지급 계정 조회에 `orElseThrow`를 사용하고 있어 `orElse(null)` 은닉 경로가 남아 있지 않음을 확인.
+  - 남은 `orElse(null)` 검색 결과는 `ExpenditureResolutionDtoAssembler`의 응답 이름 보강용 선택 조회이며, 전표 생성/저장 정합성 경로와 분리됨.
+- **수정 범위**:
+  - `ExpenditureResolutionServiceTest`에 승인 전표 생성 시 부서 누락, 상세 계정 누락, 거래처 누락이 각각 예외를 발생시키고 `journalUseCase.createJournalEntry`와 저장을 호출하지 않음을 검증하는 테스트 추가.
+  - `CODEX_HANDOFF_TASKS.md`의 해당 항목을 완료 표시.
+- **재검증 실행**:
+  - `.\gradlew :expenditure-resolution:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - Assembler의 이름 필드 조회 실패는 응답 표시 품질 문제로만 남고, 전표 생성 차단 로직에는 영향 없음.
+

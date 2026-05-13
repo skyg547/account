@@ -28,7 +28,12 @@ public class JpaProductPersistenceAdapter implements ProductPersistencePort {
 
     @Override
     public Optional<Product> findByProductCode(String productCode) {
-        return productRepository.findByProductCode(productCode);
+        return productRepository.findByProductCodeOrderByValidFromDesc(productCode).stream().findFirst();
+    }
+
+    @Override
+    public Optional<Product> findActiveByProductCode(String productCode) {
+        return productRepository.findActiveByProductCode(productCode, java.time.LocalDate.now());
     }
 
     @Override

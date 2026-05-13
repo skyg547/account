@@ -8,6 +8,7 @@ import com.ho.account.masterdata.core.application.port.out.ProductPersistencePor
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,8 +27,10 @@ public class ProductService implements ProductUseCase {
      * 새로운 상품을 생성합니다.
      */
     public Product createProduct(ProductCommand command) {
-        // SCD2에서는 동일 코드가 존재할 수 있으나, 보통 신규 생성 시 중복 체크 로직은 정책에 따라 다름.
-        // 여기서는 단순함을 유지.
+        productPersistencePort.findActiveByProductCode(command.productCode())
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("이미 활성화된 상품 코드입니다: " + command.productCode());
+                });
         Product product = command.toEntity();
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
@@ -48,7 +51,7 @@ public class ProductService implements ProductUseCase {
 
     @Transactional(readOnly = true)
     public Optional<Product> getProductByProductCode(String productCode) {
-        return productPersistencePort.findByProductCode(productCode);
+        return productPersistencePort.findActiveByProductCode(productCode);
     }
 
     @Transactional(readOnly = true)
@@ -64,10 +67,16 @@ public class ProductService implements ProductUseCase {
     public Product updateProduct(Long id, ProductCommand command) {
         Product currentActive = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
+        if (!MasterDataValidityPolicy.isActiveAt(LocalDate.now(), currentActive.getValidFrom(), currentActive.getValidTo())) {
+            throw new IllegalArgumentException("활성 상품 버전만 수정할 수 있습니다. ID: " + id);
+        }
+        if (command.productCode() != null && !command.productCode().equals(currentActive.getProductCode())) {
+            throw new IllegalArgumentException("상품 코드는 SCD2 버전 수정에서 변경할 수 없습니다: " + currentActive.getProductCode());
+        }
 
         // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
-        java.time.LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : java.time.LocalDate.now();
-        java.time.LocalDate oldValidTo = newValidFrom.minusDays(1);
+        LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate oldValidTo = newValidFrom.minusDays(1);
 
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
             throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
@@ -78,14 +87,14 @@ public class ProductService implements ProductUseCase {
 
         // SCD2: 새로운 버전 생성
         Product newVersion = new Product();
-        newVersion.setProductCode(command.productCode() != null ? command.productCode() : currentActive.getProductCode());
-        newVersion.setName(command.name());
-        newVersion.setDescription(command.description());
-        newVersion.setUnitOfMeasure(command.unitOfMeasure());
-        newVersion.setPrice(command.price());
-        newVersion.setProductType(command.productType());
+        newVersion.setProductCode(currentActive.getProductCode());
+        newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
+        newVersion.setDescription(command.description() != null ? command.description() : currentActive.getDescription());
+        newVersion.setUnitOfMeasure(command.unitOfMeasure() != null ? command.unitOfMeasure() : currentActive.getUnitOfMeasure());
+        newVersion.setPrice(command.price() != null ? command.price() : currentActive.getPrice());
+        newVersion.setProductType(command.productType() != null ? command.productType() : currentActive.getProductType());
         newVersion.setValidFrom(newValidFrom);
-        newVersion.setValidTo(command.validTo() != null ? command.validTo() : java.time.LocalDate.of(9999, 12, 31));
+        newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
         newVersion.setAuditUser("system");
 
         return productPersistencePort.save(newVersion);

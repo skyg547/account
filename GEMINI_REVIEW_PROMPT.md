@@ -118,6 +118,14 @@ Notes:
   - `LoanService`와 `InterestAccrualService`의 자동 전표가 생성 후 `approveJournalEntry`/`postJournalEntry`까지 호출하도록 보강.
   - `LoanServiceTest`, `InterestAccrualServiceTest`로 설정 계정 사용과 전표 생성/승인/전기 호출 순서를 검증.
   - `CODEX_HANDOFF_TASKS.md`의 Loan 항목은 하위 작업 진행 내역을 남기되, `Loan`/`LoanContract` 모델 통합과 실제 모듈 E2E가 남아 있어 미완료 상태로 유지.
+  - `ProductPersistencePort.findActiveByProductCode`와 Product Repository/Adapter 활성 조회를 추가.
+  - `ProductService`와 `DepartmentService`의 SCD2 갱신 경로를 보강해 활성 버전만 종료하고, 새 버전을 생성하며, 기존값 보존과 자연키 변경 방어를 수행.
+  - `ProductServiceTest`, `DepartmentServiceTest`를 추가하고 `CODEX_HANDOFF_TASKS.md`의 Master-Data SCD2 항목을 완료 표시.
+  - `MasterApproval`/`MasterApprovalUseCase.RequestApprovalCommand`/`AuditController.MasterApprovalRequest`에 `effectiveDate`, `requestedVersion`을 추가.
+  - `MasterDataChangeRequestAdapter`가 `LocalDate.now()`와 고정 버전 `1` 대신 governance 승인 요청의 `effectiveDate`/`requestedVersion`을 보존해 master-data 변경요청으로 전달하도록 변경.
+  - `MasterApprovalServiceTest`, `MasterDataChangeRequestAdapterTest`로 값 보존/전달을 검증하고 `CODEX_HANDOFF_TASKS.md`의 Governance 승인 연계 항목을 완료 표시.
+  - `ExpenditureResolutionService` 전표 생성 경로가 부서/계정/거래처 조회 실패를 `orElseThrow`로 차단함을 재확인.
+  - `ExpenditureResolutionServiceTest`에 부서/상세 계정/거래처 누락 시 전표 생성과 저장이 호출되지 않는 회귀 테스트를 추가하고 Expenditure-Resolution 마스터 조회 실패 은닉 항목을 완료 표시.
 - 최근 검증:
   - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
   - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
@@ -144,10 +152,19 @@ Notes:
   - `.\gradlew :loan:core:test --console=plain --max-workers=1`
   - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
   - 결과는 모두 `BUILD SUCCESSFUL`.
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+  - 첫 실행은 fake port 갱신 누락으로 실패했고, 보완 후 재실행 결과 `BUILD SUCCESSFUL`.
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+  - 결과는 `BUILD SUCCESSFUL`.
+  - `.\gradlew :expenditure-resolution:test --console=plain --max-workers=1`
+  - 결과는 `BUILD SUCCESSFUL`.
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
   - `loan`의 자동 전표 계정코드는 `LoanAccountingProperties` 설정으로 분리됐지만, `Loan`/`LoanContract` 병행 모델은 아직 남아 있다.
   - `loan` 자동 전표는 `JournalUseCase` 생성 후 승인/전기 호출까지 수행하지만, 실제 `journal-ledger` 모듈까지 포함한 통합 E2E 테스트는 아직 없다.
+  - `master-data` Product/Department 서비스는 SCD2 신규 버전 생성과 기존 버전 종료를 테스트로 검증했지만, DB 레벨 유효기간 중복 방지 제약은 아직 없다.
+  - governance 승인 연계의 effectiveDate/requestedVersion 유실은 수정됐지만, 신규 `MASTER_APPROVAL` 컬럼 migration은 아직 별도 작성되지 않았다.
+  - expenditure DTO Assembler의 이름 표시용 선택 조회는 조회 실패 시 null을 반환할 수 있으나, 전표 생성 경로의 마스터 조회 실패 차단과는 분리된다.
   - `reconciliation` 메인 `ReconciliationService` 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
   - `reconciliation` 조정분개 링크는 전표 ID 참조로 전환됐고, `ReconciliationService`의 `JournalEntryRepository` 의존성은 제거됐다.
   - `reconciliation` 업무별 차/대 계정 산정 정책은 아직 별도 도메인 정책으로 분리되지 않았다.

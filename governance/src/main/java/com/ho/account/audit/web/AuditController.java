@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -119,7 +120,9 @@ public class AuditController {
                 body.masterKey(),
                 body.requestType(),
                 body.payload(),
-                body.requestUser()));
+                body.requestUser(),
+                body.effectiveDate(),
+                body.requestedVersion()));
         return ResponseEntity.ok(approval);
     }
 
@@ -150,7 +153,9 @@ public class AuditController {
             String masterKey,
             MasterApproval.ChangeRequestType requestType,
             String payload,
-            String requestUser) {
+            String requestUser,
+            LocalDate effectiveDate,
+            Integer requestedVersion) {
     }
 
     public record MasterApprovalDecision(

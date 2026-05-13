@@ -21,8 +21,8 @@ public class MasterDataChangeRequestAdapter implements MasterDataChangeApplyPort
                 mapMasterType(approval.getMasterType()),
                 approval.getMasterKey(),
                 mapChangeType(approval.getRequestType()),
-                LocalDate.now(),
-                1,
+                resolveEffectiveDate(approval),
+                resolveRequestedVersion(approval),
                 approval.getRequestUser(),
                 buildReason(approval),
                 approval.getPayload());
@@ -31,6 +31,27 @@ public class MasterDataChangeRequestAdapter implements MasterDataChangeApplyPort
         MasterDataChangeRequest approved =
                 masterDataChangeRequestUseCase.approve(requested.getId(), approval.getApproverUser());
         masterDataChangeRequestUseCase.applyApprovedChange(approved.getId());
+    }
+
+    private LocalDate resolveEffectiveDate(MasterApproval approval) {
+        if (approval.getEffectiveDate() != null) {
+            return approval.getEffectiveDate();
+        }
+        if (approval.getRequestDate() != null) {
+            return approval.getRequestDate().toLocalDate();
+        }
+        return LocalDate.now();
+    }
+
+    private Integer resolveRequestedVersion(MasterApproval approval) {
+        Integer requestedVersion = approval.getRequestedVersion();
+        if (requestedVersion == null) {
+            return 1;
+        }
+        if (requestedVersion < 1) {
+            throw new IllegalArgumentException("Requested version must be 1 or greater.");
+        }
+        return requestedVersion;
     }
 
     private MasterDataChangeRequest.MasterDataType mapMasterType(String masterType) {
@@ -58,4 +79,3 @@ public class MasterDataChangeRequestAdapter implements MasterDataChangeApplyPort
         return baseReason + " " + governanceTrace;
     }
 }
-

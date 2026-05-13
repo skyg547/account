@@ -1,6 +1,7 @@
 package com.ho.account.audit.application.port.in;
 
 import com.ho.account.audit.domain.MasterApproval;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface MasterApprovalUseCase {
@@ -18,7 +19,9 @@ public interface MasterApprovalUseCase {
             String masterKey,
             MasterApproval.ChangeRequestType requestType,
             String payload,
-            String requestUser) {
+            String requestUser,
+            LocalDate effectiveDate,
+            Integer requestedVersion) {
     }
 
     record ApproveCommand(
@@ -33,4 +36,3 @@ public interface MasterApprovalUseCase {
             String remarks) {
     }
 }
-

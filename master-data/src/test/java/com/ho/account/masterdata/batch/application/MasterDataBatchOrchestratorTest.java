@@ -126,6 +126,11 @@ class MasterDataBatchOrchestratorTest {
         }
 
         @Override
+        public Optional<Product> findActiveByProductCode(String productCode) {
+            return Optional.empty();
+        }
+
+        @Override
         public List<Product> findAll() {
             Product active = new Product();
             active.setProductCode("P-1");
@@ -193,4 +198,3 @@ class MasterDataBatchOrchestratorTest {
         }
     }
 }
-

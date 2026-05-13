@@ -16,6 +16,8 @@ public interface ProductPersistencePort {
 
     Optional<Product> findByProductCode(String productCode);
 
+    Optional<Product> findActiveByProductCode(String productCode);
+
     List<Product> findAll();
 
     Product save(Product product);

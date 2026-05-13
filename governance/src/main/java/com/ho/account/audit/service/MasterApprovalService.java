@@ -6,6 +6,7 @@ import com.ho.account.audit.application.port.out.MasterDataChangeApplyPort;
 import com.ho.account.audit.domain.MasterApproval;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,8 @@ public class MasterApprovalService implements MasterApprovalUseCase {
         approval.setRequestType(command.requestType());
         approval.setPayload(command.payload());
         approval.setRequestUser(command.requestUser());
+        approval.setEffectiveDate(command.effectiveDate() != null ? command.effectiveDate() : LocalDate.now());
+        approval.setRequestedVersion(resolveRequestedVersion(command.requestedVersion()));
         approval.setAuditUser(command.requestUser());
         return masterApprovalPersistencePort.save(approval);
     }
@@ -64,5 +67,15 @@ public class MasterApprovalService implements MasterApprovalUseCase {
     @Override
     public List<MasterApproval> getPendingRequests() {
         return masterApprovalPersistencePort.findByStatus(MasterApproval.ApprovalStatus.PENDING);
+    }
+
+    private Integer resolveRequestedVersion(Integer requestedVersion) {
+        if (requestedVersion == null) {
+            return 1;
+        }
+        if (requestedVersion < 1) {
+            throw new IllegalArgumentException("Requested version must be 1 or greater.");
+        }
+        return requestedVersion;
     }
 }
