@@ -17,7 +17,7 @@
 
 ### [Master-Data (기준 정보)]
 - [x] **SCD2 완전 적용 미흡:** `Product` 및 `Department` 모듈에서 데이터 변경 시 기존 행을 직접 덮어쓰고 있어 SCD2(이력 관리) 정책을 위반하고 있습니다. 신규 버전을 생성하고 이전 버전의 `validTo`를 닫는 진정한 의미의 SCD2 로직으로 전면 수정하세요. -> *(완료: `Product` 활성 버전 조회 포트/Repository 추가, Product/Department 업데이트 시 기존 활성 버전 종료 및 신규 버전 생성/기존값 보존/코드 변경 방어 보강, SCD2 회귀 테스트 추가)*
-- [ ] **추가 SCD2 및 참조 위반:** `BusinessPartner`와 `Currency` 엔티티에 `terminate()` 메서드를 추가하여 SCD2 정책을 완전히 준수하도록 수정하세요. 또한 `ExchangeRate`가 `Currency`를 `@ManyToOne`으로 직접 참조하고 있는 부분을 분리하여 ID 기반 참조 구조로 개선하세요.
+- [x] **추가 SCD2 및 참조 위반:** `BusinessPartner`와 `Currency` 엔티티에 `terminate()` 메서드를 추가하여 SCD2 정책을 완전히 준수하도록 수정하세요. 또한 `ExchangeRate`가 `Currency`를 `@ManyToOne`으로 직접 참조하고 있는 부분을 분리하여 ID 기반 참조 구조로 개선하세요. -> *(완료: `BusinessPartner`/`Currency`에 `isValid`/`terminate` 추가, 거래처 활성 버전 조회/중복 체크 및 SCD2 신규 버전 생성 보강, `Currency` 대리키 기반 SCD2 구조 전환, `ExchangeRate`의 `Currency @ManyToOne` 제거 및 통화코드 참조 전환, 회귀 테스트 추가)*
 
 ### [Governance (권한/감사)]
 - [x] **승인 연계 시 마스터 데이터 정보 유실:** `master-data` 변경요청에 대해 `governance` 모듈이 승인 시, 기존의 `effectiveDate`와 `requestedVersion`을 무시하고 `LocalDate.now()`와 고정 버전(1)으로 덮어써 이력이 훼손되는 문제를 수정하세요. -> *(완료: `MasterApproval`/요청 커맨드/API 요청에 `effectiveDate`, `requestedVersion` 추가, `MasterDataChangeRequestAdapter`가 승인 요청 값을 보존하도록 변경, 회귀 테스트 추가)*

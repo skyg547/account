@@ -57,3 +57,20 @@ flowchart LR
 ```
 
 **핵심 원칙:** `journal-ledger` 등 다른 모듈은 `master-data`의 JPA 엔티티나 테이블을 직접 참조(Direct Reference)해서는 안 됩니다. 데이터베이스의 외래키(FK) 대신 ID(`code` 등)를 문자열로 저장하고, 필요 시 API 통신(Port)을 통해 데이터를 조회(ID-based Reference)합니다.
+
+## SCD2 기준정보 변경 흐름
+
+```mermaid
+flowchart LR
+    A[활성 버전 조회] --> B[기존 버전 terminate]
+    B --> C[변경값과 기존값 병합]
+    C --> D[새 버전 저장]
+```
+
+적용 대상:
+- `Product`
+- `Department`
+- `BusinessPartner`
+- `Currency`
+
+`ExchangeRate`는 `Currency` 엔티티를 직접 참조하지 않고 `fromCurrencyCode`, `toCurrencyCode`만 보관해 환율과 통화 이력의 결합도를 낮춥니다.

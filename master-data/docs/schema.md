@@ -9,7 +9,7 @@ erDiagram
     ACCOUNT_SUBJECTS }o--o| ACCOUNT_SUBJECTS : "parent_code (ID Reference)"
     DEPARTMENTS }o--o| DEPARTMENTS : "parent_code (ID Reference)"
     BUSINESS_PARTNERS ||--o{ BUSINESS_PARTNER_ACCOUNTS : "has"
-    CURRENCIES ||--o{ EXCHANGE_RATES : "from/to currency"
+    CURRENCIES }o--o{ EXCHANGE_RATES : "from/to currency_code"
     MASTER_DATA_CHANGE_REQUESTS }o--|| MASTER_DATA_TARGET : "target_key (ID Reference)"
 ```
 
@@ -33,6 +33,34 @@ SCD2 방식을 적용하여 `valid_from`과 `valid_to`를 통해 이력을 관�
 - `business_partner_name`
 - `valid_from` (SCD2 적용)
 - `valid_to`
+
+동작:
+- 거래처 코드는 SCD2 자연키입니다.
+- 변경 시 기존 활성 버전은 `terminate(endDate)`로 닫고 새 버전을 생성합니다.
+
+### `currencies` (통화)
+
+- `id` (대리키)
+- `currency_code` (ISO 4217 코드)
+- `currency_name`
+- `valid_from`
+- `valid_to`
+
+동작:
+- 통화 코드도 SCD2 자연키입니다.
+- `Currency`는 `terminate(endDate)`로 현재 이력을 종료합니다.
+
+### `exchange_rates` (환율)
+
+- `id`
+- `from_currency_code`
+- `to_currency_code`
+- `rate`
+- `effective_date`
+
+동작:
+- `ExchangeRate`는 `Currency` 엔티티를 `@ManyToOne`으로 직접 참조하지 않고 통화 코드만 저장합니다.
+- 기준 정보 모듈 내부에서도 환율은 통화의 대리키가 아니라 업무 식별자인 ISO 통화코드 기준으로 추적합니다.
 
 ### `departments` (부서)
 

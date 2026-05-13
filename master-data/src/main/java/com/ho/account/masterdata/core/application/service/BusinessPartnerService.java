@@ -85,14 +85,20 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
             throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
         }
+        if (command.businessPartnerCode() != null
+                && !command.businessPartnerCode().equals(currentActive.getBusinessPartnerCode())) {
+            throw new IllegalArgumentException("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
+        }
+        if (!Boolean.TRUE.equals(currentActive.getUseYn()) || !currentActive.isValid(LocalDate.now())) {
+            throw new IllegalStateException("활성 거래처 버전만 수정할 수 있습니다.");
+        }
         
         // 현재 활성 이력을 종료
-        currentActive.setValidTo(oldValidTo);
-        currentActive.setUseYn(false);
+        currentActive.terminate(oldValidTo);
         businessPartnerPersistencePort.save(currentActive);
 
         // SCD2: 새로운 버전 생성
-        BusinessPartner newVersion = command.toEntity();
+        BusinessPartner newVersion = buildNextVersion(currentActive, command);
         newVersion.setBusinessPartnerCode(currentActive.getBusinessPartnerCode());
         newVersion.setValidFrom(newValidFrom);
         newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
@@ -107,8 +113,30 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         BusinessPartner businessPartner = businessPartnerPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
         
-        MasterDataValidityPolicy.closeIfActive(businessPartner::getValidTo, businessPartner::setValidTo);
-        businessPartner.setUseYn(false);
+        businessPartner.terminate(LocalDate.now());
         businessPartnerPersistencePort.save(businessPartner);
+    }
+
+    private BusinessPartner buildNextVersion(BusinessPartner currentActive, BusinessPartnerCommand command) {
+        BusinessPartner newVersion = new BusinessPartner();
+        newVersion.setBusinessPartnerName(firstNonNull(
+                command.businessPartnerName(),
+                currentActive.getBusinessPartnerName()));
+        newVersion.setRegistrationNumber(firstNonNull(
+                command.registrationNumber(),
+                currentActive.getRegistrationNumber()));
+        newVersion.setCeoName(firstNonNull(command.ceoName(), currentActive.getCeoName()));
+        newVersion.setBusinessType(firstNonNull(command.businessType(), currentActive.getBusinessType()));
+        newVersion.setBusinessItem(firstNonNull(command.businessItem(), currentActive.getBusinessItem()));
+        newVersion.setPartnerType(firstNonNull(command.partnerType(), currentActive.getPartnerType()));
+        newVersion.setUseYn(firstNonNull(command.useYn(), Boolean.TRUE));
+        newVersion.setKycStatus(firstNonNull(command.kycStatus(), currentActive.getKycStatus()));
+        newVersion.setRiskRating(firstNonNull(command.riskRating(), currentActive.getRiskRating()));
+        newVersion.setAuditUser(currentActive.getAuditUser());
+        return newVersion;
+    }
+
+    private <T> T firstNonNull(T requested, T fallback) {
+        return requested != null ? requested : fallback;
     }
 }

@@ -18,13 +18,11 @@ public class ExchangeRate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "from_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency fromCurrency; // Source currency, for example USD
+    @Column(name = "from_currency_code", nullable = false, length = 3)
+    private String fromCurrencyCode; // Source currency, for example USD
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "to_currency_code", referencedColumnName = "currency_code", nullable = false)
-    private Currency toCurrency; // Target currency, for example KRW
+    @Column(name = "to_currency_code", nullable = false, length = 3)
+    private String toCurrencyCode; // Target currency, for example KRW
 
     @Column(nullable = false, precision = 19, scale = 8)
     private BigDecimal rate; // Exchange rate, for example 1 USD = 1300 KRW
@@ -49,20 +47,44 @@ public class ExchangeRate {
         this.id = id;
     }
 
+    public String getFromCurrencyCode() {
+        return fromCurrencyCode;
+    }
+
+    public void setFromCurrencyCode(String fromCurrencyCode) {
+        this.fromCurrencyCode = fromCurrencyCode;
+    }
+
+    public String getToCurrencyCode() {
+        return toCurrencyCode;
+    }
+
+    public void setToCurrencyCode(String toCurrencyCode) {
+        this.toCurrencyCode = toCurrencyCode;
+    }
+
+    @Deprecated
     public Currency getFromCurrency() {
-        return fromCurrency;
+        Currency currency = new Currency();
+        currency.setCurrencyCode(fromCurrencyCode);
+        return currency;
     }
 
+    @Deprecated
     public void setFromCurrency(Currency fromCurrency) {
-        this.fromCurrency = fromCurrency;
+        this.fromCurrencyCode = fromCurrency != null ? fromCurrency.getCurrencyCode() : null;
     }
 
+    @Deprecated
     public Currency getToCurrency() {
-        return toCurrency;
+        Currency currency = new Currency();
+        currency.setCurrencyCode(toCurrencyCode);
+        return currency;
     }
 
+    @Deprecated
     public void setToCurrency(Currency toCurrency) {
-        this.toCurrency = toCurrency;
+        this.toCurrencyCode = toCurrency != null ? toCurrency.getCurrencyCode() : null;
     }
 
     public BigDecimal getRate() {

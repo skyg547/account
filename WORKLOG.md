@@ -816,3 +816,24 @@
 - **남은 리스크**:
   - Assembler의 이름 필드 조회 실패는 응답 표시 품질 문제로만 남고, 전표 생성 차단 로직에는 영향 없음.
 
+### 📅 2026-05-13 (handoff master-data 추가 SCD2 보강 - Codex)
+### [수정] BusinessPartner/Currency SCD2 종료 정책 및 ExchangeRate ID 기반 참조 전환
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Master-Data 추가 SCD2 및 참조 위반 항목을 확인.
+  - 작업 전 `master-data/README.md`, `master-data/docs/*.md`, `BusinessPartner`, `Currency`, `ExchangeRate`, 관련 Repository/Adapter/Service를 확인.
+- **수정 범위**:
+  - `BusinessPartner`에 `isValid`/`terminate` 도메인 메서드를 추가하고, 거래처 코드 유니크 제약 대신 `business_partner_code + valid_from + valid_to` 인덱스 기준으로 SCD2 이력 저장이 가능하도록 보강.
+  - `BusinessPartnerRepository`가 활성 버전 기준으로 단건 조회/중복 체크/활성 목록 조회를 수행하도록 변경.
+  - `BusinessPartnerService.updateBusinessPartner`가 활성 버전만 수정하고, 거래처 코드 변경을 차단하며, 기존값 보존 후 신규 버전을 생성하도록 보강.
+  - `Currency`에 대리키 `id`, `isValid`, `terminate`를 추가해 동일 통화코드의 복수 이력 저장이 가능하도록 변경.
+  - `CurrencyRepository`/`CurrencyPersistenceAdapter`를 활성 통화코드 조회 기준으로 변경.
+  - `ExchangeRate`의 `Currency @ManyToOne` 직접 참조를 제거하고 `fromCurrencyCode`/`toCurrencyCode` 코드 참조로 전환.
+  - `BusinessPartnerServiceTest`, `CurrencyExchangeRateTest`를 추가하고 `CODEX_HANDOFF_TASKS.md`의 해당 항목을 완료 표시.
+- **재검증 실행**:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - Gradle 명령이 성공 종료.
+- **남은 리스크**:
+  - 실제 운영 DB에서 `business_partners`, `currencies`, `exchange_rates` 구조를 바꾸는 DDL migration은 아직 별도 작성되어 있지 않음.
+  - 다른 모듈의 레거시 문서 중 `business_partner_code` FK를 전제로 한 SQL 문서는 별도 문서 정리 대상.
+

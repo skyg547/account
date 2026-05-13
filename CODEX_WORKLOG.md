@@ -596,3 +596,23 @@
   - `BUILD SUCCESSFUL`.
 - 남은 리스크:
   - DTO 이름 바인딩용 Assembler의 선택 조회는 조회 실패 시 null을 반환할 수 있으나, 전표 생성 정합성과는 분리됨.
+
+## 2026-05-13 (handoff master-data 추가 SCD2 보강)
+- 사용자 요청: 검수받은 내용의 실행 계획을 계속 진행하고 완료 표시.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Critical/High 미완료 중 Master-Data 추가 SCD2 항목을 독립 작업 단위로 처리.
+- 수정 내용:
+  - `BusinessPartner`에 `isValid`/`terminate` 도메인 메서드를 추가하고, SCD2 이력 저장이 가능하도록 코드 유니크 제약을 제거하고 유효기간 인덱스를 추가.
+  - `BusinessPartnerRepository`/`BusinessPartnerService`를 활성 버전 기준 조회/중복 체크/수정으로 보강.
+  - `BusinessPartnerService.updateBusinessPartner`가 거래처 코드 변경을 차단하고, 누락 필드는 기존 활성 버전 값을 보존해 신규 버전을 생성하도록 변경.
+  - `Currency`에 대리키 `id`, `isValid`, `terminate`를 추가하고, 통화코드 활성 버전 조회 구조로 변경.
+  - `ExchangeRate`에서 `Currency @ManyToOne` 직접 참조를 제거하고 `fromCurrencyCode`/`toCurrencyCode` 문자열 코드 참조로 전환.
+  - `BusinessPartnerServiceTest`, `CurrencyExchangeRateTest`를 추가.
+  - `CODEX_HANDOFF_TASKS.md`의 Master-Data 추가 SCD2 항목을 `[x]` 완료로 표시하고 `master-data` 문서를 갱신.
+- 실행 명령:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+- 결과:
+  - Gradle 명령 성공.
+- 남은 리스크:
+  - 운영 DB용 DDL migration은 아직 없음.
+  - 레거시 DB 문서의 `business_partner_code` FK 설명은 별도 문서 정리 대상.

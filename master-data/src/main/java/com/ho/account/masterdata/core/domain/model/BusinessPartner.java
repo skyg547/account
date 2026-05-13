@@ -11,14 +11,16 @@ import com.ho.account.common.Masked;
  * 고객(Customer), 공급업체(Vendor), 은행(Bank) 등의 외부 이해관계자 정보를 통합 관리함.
  */
 @Entity
-@Table(name = "business_partners")
+@Table(name = "business_partners", indexes = {
+        @Index(name = "idx_bp_code_valid", columnList = "business_partner_code, valid_from, valid_to")
+})
 public class BusinessPartner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 기술적 기본키
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(name = "business_partner_code", nullable = false, length = 20)
     private String businessPartnerCode; // 거래처 코드
 
     @Column(nullable = false, length = 100)
@@ -99,6 +101,18 @@ public class BusinessPartner {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isValid(LocalDate date) {
+        return date != null
+                && (date.isEqual(validFrom) || date.isAfter(validFrom))
+                && (date.isEqual(validTo) || date.isBefore(validTo));
+    }
+
+    public void terminate(LocalDate endDate) {
+        this.validTo = endDate;
+        this.useYn = false;
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Getter 및 Setter

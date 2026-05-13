@@ -1,6 +1,5 @@
 package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
-import com.ho.account.masterdata.core.domain.model.Currency;
 import com.ho.account.masterdata.core.domain.model.ExchangeRate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,8 +10,17 @@ import java.util.Optional;
 
 @Repository
 public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long> {
-    @Query("SELECT er FROM ExchangeRate er WHERE er.fromCurrency = :fromCurrency AND er.toCurrency = :toCurrency AND er.effectiveDate <= :date ORDER BY er.effectiveDate DESC")
-    Optional<ExchangeRate> findExchangeRate(Currency fromCurrency, Currency toCurrency, LocalDate date);
+    @Query("""
+            SELECT er FROM ExchangeRate er
+            WHERE er.fromCurrencyCode = :fromCurrencyCode
+              AND er.toCurrencyCode = :toCurrencyCode
+              AND er.effectiveDate <= :date
+            ORDER BY er.effectiveDate DESC
+            """)
+    Optional<ExchangeRate> findExchangeRate(String fromCurrencyCode, String toCurrencyCode, LocalDate date);
 
-    Optional<ExchangeRate> findByFromCurrencyAndToCurrencyAndEffectiveDate(Currency fromCurrency, Currency toCurrency, LocalDate effectiveDate);
+    Optional<ExchangeRate> findByFromCurrencyCodeAndToCurrencyCodeAndEffectiveDate(
+            String fromCurrencyCode,
+            String toCurrencyCode,
+            LocalDate effectiveDate);
 }

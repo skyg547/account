@@ -8,11 +8,16 @@ import java.time.LocalDateTime;
  * 통화 정보 엔티티 (ISO 4217)
  */
 @Entity
-@Table(name = "currencies")
+@Table(name = "currencies", indexes = {
+        @Index(name = "idx_currency_code_valid", columnList = "currency_code, valid_from, valid_to")
+})
 public class Currency {
 
     @Id
-    @Column(name = "currency_code", length = 3)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode; // ISO 4217 (예: KRW, USD, EUR)
 
     @Column(nullable = false, length = 50)
@@ -52,7 +57,26 @@ public class Currency {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public boolean isValid(LocalDate date) {
+        return date != null
+                && (date.isEqual(validFrom) || date.isAfter(validFrom))
+                && (date.isEqual(validTo) || date.isBefore(validTo));
+    }
+
+    public void terminate(LocalDate endDate) {
+        this.validTo = endDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     // Getter 및 Setter
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getCurrencyCode() {
         return currencyCode;
     }

@@ -21,6 +21,6 @@ public class CurrencyPersistenceAdapter implements CurrencyPersistencePort {
 
     @Override
     public Optional<Currency> findByCode(String code) {
-        return currencyRepository.findById(code);
+        return currencyRepository.findByCurrencyCode(code);
     }
 }
