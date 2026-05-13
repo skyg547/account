@@ -1,6 +1,5 @@
 package com.ho.account.security.domain;
 
-import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -21,9 +20,8 @@ public class SystemUser {
     @Column(name = "PASSWORD", length = 255)
     private String password;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DEPT_CODE")
-    private Department department;
+    @Column(name = "DEPARTMENT_ID")
+    private Long departmentId;
 
     @Masked(pattern = "EMAIL")
     @Column(name = "EMAIL", length = 100)
@@ -87,12 +85,12 @@ public class SystemUser {
         this.password = password;
     }
 
-    public Department getDepartment() {
-        return department;
+    public Long getDepartmentId() {
+        return departmentId;
     }
 
-    public void setDepartment(Department department) {
-        this.department = department;
+    public void setDepartmentId(Long departmentId) {
+        this.departmentId = departmentId;
     }
 
     public String getEmail() {

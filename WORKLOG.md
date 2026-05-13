@@ -837,3 +837,21 @@
   - 실제 운영 DB에서 `business_partners`, `currencies`, `exchange_rates` 구조를 바꾸는 DDL migration은 아직 별도 작성되어 있지 않음.
   - 다른 모듈의 레거시 문서 중 `business_partner_code` FK를 전제로 한 SQL 문서는 별도 문서 정리 대상.
 
+### 📅 2026-05-13 (handoff governance SystemUser 참조 분리 - Codex)
+### [수정] SystemUser의 Department 엔티티 직접 참조 제거
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Governance 모듈 간 객체 참조 위반 항목을 확인.
+  - 작업 전 `governance/README.md`, `governance/docs/*.md`, `SystemUser`, `SystemUserRepository`를 확인.
+- **수정 범위**:
+  - `SystemUser`에서 `master-data`의 `Department` import, `@ManyToOne`, `@JoinColumn` 직접 참조를 제거.
+  - 부서 정보는 `Long departmentId` 값 참조로 저장하도록 변경.
+  - `SystemUserTest`를 추가해 `departmentId` 저장과 `department` 직접 `@ManyToOne` 필드 부재를 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 해당 항목을 완료 표시하고 governance 문서를 갱신.
+- **재검증 실행**:
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - Gradle 명령 성공.
+- **남은 리스크**:
+  - 운영 DB의 기존 `DEPT_CODE` 컬럼을 `DEPARTMENT_ID`로 전환하는 migration은 아직 별도 작성되어 있지 않음.
+  - `security` 패키지는 governance 문서 기준 auth 모듈 이관 대상 legacy 영역으로 남아 있음.
+

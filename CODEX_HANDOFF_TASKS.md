@@ -21,7 +21,7 @@
 
 ### [Governance (권한/감사)]
 - [x] **승인 연계 시 마스터 데이터 정보 유실:** `master-data` 변경요청에 대해 `governance` 모듈이 승인 시, 기존의 `effectiveDate`와 `requestedVersion`을 무시하고 `LocalDate.now()`와 고정 버전(1)으로 덮어써 이력이 훼손되는 문제를 수정하세요. -> *(완료: `MasterApproval`/요청 커맨드/API 요청에 `effectiveDate`, `requestedVersion` 추가, `MasterDataChangeRequestAdapter`가 승인 요청 값을 보존하도록 변경, 회귀 테스트 추가)*
-- [ ] **모듈 간 객체 참조(FK) 위반:** `SystemUser` 엔티티가 `master-data`의 `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 헥사고날 아키텍처 원칙에 따라 `Long departmentId`로 변경하고 ID 기반 통신으로 결합도를 낮추세요.
+- [x] **모듈 간 객체 참조(FK) 위반:** `SystemUser` 엔티티가 `master-data`의 `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 헥사고날 아키텍처 원칙에 따라 `Long departmentId`로 변경하고 ID 기반 통신으로 결합도를 낮추세요. -> *(완료: `SystemUser`의 `Department @ManyToOne` 제거, `departmentId` 값 참조 전환, 직접 참조 방지 회귀 테스트 추가)*
 
 ### [Expenditure-Resolution (지출 결의)]
 - [x] **마스터 조회 실패 은닉(NPE 방어):** 전표 생성 시 부서/계정/거래처 미존재를 `orElse(null)`로 강제 허용하여 불완전한 전표가 저장될 위험이 있습니다. 마스터 조회 실패 시 명시적으로 예외 처리(Exception)하도록 변경하세요. -> *(완료: 전표 생성 경로가 `orElseThrow` 기반임을 재확인하고, 승인 전표 생성 시 부서/계정/거래처 누락이 전표 생성과 저장을 차단하는 회귀 테스트 추가)*

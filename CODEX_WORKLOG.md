@@ -616,3 +616,20 @@
 - 남은 리스크:
   - 운영 DB용 DDL migration은 아직 없음.
   - 레거시 DB 문서의 `business_partner_code` FK 설명은 별도 문서 정리 대상.
+
+## 2026-05-13 (handoff governance SystemUser 참조 분리)
+- 사용자 요청: 검수받은 내용의 실행 계획을 계속 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Governance Critical/High 미완료 항목인 `SystemUser -> Department` 직접 참조 제거를 독립 작업 단위로 처리.
+- 수정 내용:
+  - `SystemUser`에서 `master-data.Department` import, `@ManyToOne`, `@JoinColumn` 직접 참조를 제거.
+  - 부서 정보는 `Long departmentId` 값 참조로 저장하도록 변경.
+  - `SystemUserTest`를 추가해 department ID 저장과 `department` 직접 `@ManyToOne` 필드 부재를 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 Governance 직접 참조 항목을 `[x]` 완료로 표시하고 `governance` 문서를 갱신.
+- 실행 명령:
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+- 결과:
+  - Gradle 명령 성공.
+- 남은 리스크:
+  - 운영 DB migration은 아직 없음.
+  - `security` 패키지는 auth 모듈 이관 대상 legacy 영역으로 남아 있음.

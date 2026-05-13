@@ -8,6 +8,7 @@
 erDiagram
     MASTER_APPROVAL }o--|| SYSTEM_USER_REF : "requested_by (ID Only)"
     AUDIT_LOG }o--|| SYSTEM_USER_REF : "logged_by (ID Only)"
+    SYSTEM_USER_REF }o--o| DEPARTMENT_REF : "department_id (ID Only)"
     AUDIT_LOG {
         String event_type
         String target_entity
@@ -47,5 +48,15 @@ erDiagram
 - `approver_user_id` (승인자 ID - ID 기반 참조)
 - `request_date`
 - `approval_date`
+
+### `system_users` (legacy IAM 참조)
+
+사용자/권한 마스터는 장기적으로 `auth` 모듈 책임입니다. governance 안에 남아 있는 legacy `SystemUser` 모델은 부서를 직접 FK/엔티티로 들지 않고 값 참조만 보관합니다.
+
+- `user_id`
+- `user_name`
+- `department_id` (master-data Department ID 값 참조)
+- `email`
+- `status`
 
 **멀티 스테이지 환경:** 이 테이블들은 Flyway/Liquibase를 통해 `governance` 전용 데이터베이스 인스턴스 또는 스키마에 독립적으로 생성됩니다.
