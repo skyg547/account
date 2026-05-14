@@ -633,3 +633,42 @@
 - 남은 리스크:
   - 운영 DB migration은 아직 없음.
   - `security` 패키지는 auth 모듈 이관 대상 legacy 영역으로 남아 있음.
+
+## 2026-05-14 (handoff closing FiscalPeriod 참조 분리)
+- 사용자 요청: Gemini handoff 이후 `TOTAL_QUALITY_REPORT.md` 로드맵 2번인 `closing` 리팩토링부터 재개.
+- 기준 판단:
+  - `ClosingAdjustment`뿐 아니라 `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`도 `master-data`의 `FiscalPeriod`를 `@ManyToOne`으로 직접 참조하고 있었음.
+  - JPA 관계 제거만으로는 `ClosingService`가 master-data 도메인 엔티티에 계속 의존하므로, contracts 기반 기간 제어 포트로 분리하는 것이 적절하다고 판단.
+- 수정 내용:
+  - `contracts`에 `FiscalPeriodControlPort`, `FiscalPeriodRef` 추가.
+  - `master-data`에 `MonolithFiscalPeriodControlAdapter` 추가.
+  - `closing:core`에서 master-data 직접 dependency 제거.
+  - `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne`를 `fiscalPeriodId` 값 참조로 전환.
+  - `ClosingService`, Repository/Port, API DTO를 `fiscalPeriodId` 및 contracts 포트 기준으로 갱신.
+  - `ClosingServiceTest`에 결산 조정이 회기 ID를 저장하는 회귀 테스트 추가.
+  - `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`를 갱신.
+- 실행 명령:
+  - `.\gradlew :contracts:compileJava :master-data:compileJava :closing:core:compileJava :closing:api:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+- 결과:
+  - 모두 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `closing` 자동 평가/충당 분개의 더미 계정(`999998`, `999999`)과 하드코딩 금액은 별도 Medium 과제로 남음.
+  - 운영 DB에 이미 FK 제약이 있다면 JPA 관계 제거와 별도로 제약/마이그레이션 정책 확인이 필요.
+
+## 2026-05-14 (handoff reconciliation 인코딩 잔여 점검)
+- 사용자 요청: 다음 작업 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 다음 항목인 reconciliation 엔티티 파일 인코딩 복구를 처리.
+  - `ReconciliationDifference.java`는 선행 handoff에서 정상화되어 있었고, 잔여 검색 결과 `ReconciliationVariance.java`의 getter/setter 주석 1건만 mojibake로 확인됨.
+- 수정 내용:
+  - `ReconciliationVariance.java`의 `Getter 諛?Setter` 주석을 ASCII 설명으로 정리.
+  - BOM, 제어문자, 주요 mojibake 패턴을 재검색.
+  - `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 복합 매칭 조건 확장과 계정 산정 정책 도메인화는 handoff의 별도 Medium 항목으로 남아 있음.

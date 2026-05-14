@@ -1,19 +1,16 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,9 +21,14 @@ public class ClosingAdjustment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fiscal_period_id", nullable = false)
-    private FiscalPeriod fiscalPeriod;
+    @Column(name = "fiscal_period_id", nullable = false)
+    private Long fiscalPeriodId;
+
+    @Transient
+    private String fiscalYear;
+
+    @Transient
+    private String fiscalPeriod;
 
     @Column(name = "journal_entry_id", nullable = false)
     private Long journalEntryId;
@@ -81,11 +83,33 @@ public class ClosingAdjustment {
         this.id = id;
     }
 
-    public FiscalPeriod getFiscalPeriod() {
+    public Long getFiscalPeriodId() {
+        return fiscalPeriodId;
+    }
+
+    public void setFiscalPeriodId(Long fiscalPeriodId) {
+        this.fiscalPeriodId = fiscalPeriodId;
+    }
+
+    public String getFiscalYear() {
+        return fiscalYear;
+    }
+
+    public void setFiscalYear(String fiscalYear) {
+        this.fiscalYear = fiscalYear;
+    }
+
+    public String getFiscalPeriod() {
         return fiscalPeriod;
     }
 
-    public void setFiscalPeriod(FiscalPeriod fiscalPeriod) {
+    public void setFiscalPeriod(String fiscalPeriod) {
+        this.fiscalPeriod = fiscalPeriod;
+    }
+
+    public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
+        this.fiscalPeriodId = fiscalPeriodId;
+        this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
     }
 

@@ -1,6 +1,5 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 

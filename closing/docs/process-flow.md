@@ -34,6 +34,7 @@ flowchart TD
 
 ### 3.2 ID 기반 참조 (ID-based references)
 - 다른 모듈에 있는 특정 회계 기간이나 조직 단위, 사용자 정보를 참조할 때, `period_id`, `approved_by_id` 등 고유 ID만을 사용해 결합도를 낮췄습니다.
+- 회계기간 정합성 조회와 상태 변경은 `FiscalPeriodControlPort` 계약을 통해 수행합니다. `closing` 도메인 엔티티는 `FiscalPeriod @ManyToOne` 대신 `fiscal_period_id` 값만 저장합니다.
 
 ### 3.3 상태 변경과 이력 추적 (SCD2 관점)
 - 마감(Closing)의 특성상 상태가 한 번 변하면 되돌리기 어렵고 증적이 중요합니다. 따라서 `FiscalPeriod`의 상태가 변경되거나 잠금이 발생(Period Lock)할 때, 단순 UPDATE가 아니라 시간 정보(`valid_from`, `valid_to`)를 포함한 버전닝 또는 이력 테이블(로그성) 추가 방식을 활용해 과거 상태를 완벽히 재현할 수 있게 합니다.

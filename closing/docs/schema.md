@@ -42,3 +42,5 @@ DB 엔티티와 비즈니스 객체는 분리됩니다. DB에서 조회된 `FISC
 
 ### 2.4 배치 트랜잭션과 조정 전표
 - `VALUATION_BATCHES`와 `CLOSING_ADJUSTMENTS` 테이블은 배치 작업의 결과물인 `journal_entry_id`만을 참조값으로 들고 있습니다. 원본 전표 데이터는 원장 모듈이 관리하므로 철저한 ID 참조 및 관심사 분리가 달성되었습니다.
+- `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`, `ClosingAdjustment`는 `FiscalPeriod` 엔티티를 JPA 관계로 들고 있지 않고 `fiscal_period_id` 값만 저장합니다.
+- 회계기간 상태 조회/변경은 `contracts`의 `FiscalPeriodControlPort`를 통해 수행하며, `closing:core`는 `master-data` 도메인 엔티티에 직접 의존하지 않습니다.

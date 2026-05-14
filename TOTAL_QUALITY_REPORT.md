@@ -8,8 +8,8 @@
 
 | 지표 | 상태 | 설명 |
 | :--- | :---: | :--- |
-| **빌드 정합성** | ✅ | 전 모듈 컴파일 성공 (2026-05-13 기준) |
-| **헥사고날 준수** | △ | 패키지 분리는 완료되었으나, 코어 모듈 내 엔티티 직접 참조 잔존 |
+| **빌드 정합성** | ✅ | 주요 변경 모듈 컴파일 및 테스트 성공 (2026-05-14 기준) |
+| **헥사고날 준수** | △ | 핵심 엔티티 직접 참조는 계속 정리 중이며, 일부 목업/정책 고도화 과제가 남아 있음 |
 | **데이터 무결성** | ✅ | SCD2(이력 관리) 정책 마스터 데이터 주요 도메인 적용 완료 |
 | **운영 안정성** | △ | 엔터프라이즈 Docker 환경 구축 완료, 일부 목업 연동 고도화 필요 |
 
@@ -17,7 +17,14 @@
 
 ## 2. 📅 시계열 검수 히스토리 (Review Timeline)
 
-### 🟢 2026-05-13: 전사 모듈 정밀 검수 및 빌드 검증 (최신)
+### 🟢 2026-05-14: Closing 직접 참조 분리 및 계약 포트 전환 (최신)
+- **목적:** `closing` 모듈의 `FiscalPeriod` 직접 엔티티 참조를 제거하고 master-data 연동을 contracts 포트로 전환.
+- **주요 결과:**
+    - `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne` 제거.
+    - `FiscalPeriodControlPort`/`FiscalPeriodRef` 계약과 master-data 어댑터를 추가해 `closing:core`의 master-data 직접 의존성 제거.
+    - `:closing:core:test`, `:master-data:test` 및 관련 컴파일 검증 성공.
+
+### 🟢 2026-05-13: 전사 모듈 정밀 검수 및 빌드 검증
 - **목적:** 헥사고날/ID 참조/SCD2/Docker 전환 이후 최종 무결성 점검 및 빌드 정합성 확인.
 - **주요 결과:** 
     - **전사 모듈 빌드 성공:** Phase 1(기반) ~ Phase 5(서브레저) 전 모듈 `classes` 빌드 완료.
@@ -69,8 +76,8 @@
 
 ### [Phase 4] 회계 엔진 및 결산
 - **`journal-ledger`**: **[🚨 위반]** `JournalDetail`이 `AccountSubject`, `BusinessPartner` 등을 직접 참조 중 (ID 전환 필수).
-- **`closing`**: **[⚠️ 보완 필요]** `ClosingAdjustment`의 `FiscalPeriod` 직접 참조 위반.
-- **`reconciliation`**: ID 참조는 준수하나 엔티티 파일 인코딩 복구 필요.
+- **`closing`**: `FiscalPeriod` 직접 엔티티 참조 제거 완료. 단, 자동 평가/충당 분개의 더미 계정/금액 정책화는 별도 Medium 과제로 남음.
+- **`reconciliation`**: ID 참조 준수 및 엔티티 파일 인코딩 잔여 점검 완료. 복합 매칭 조건/계정 산정 정책 고도화는 별도 과제로 남음.
 - **`reporting`**: 목업 데이터 제거 및 실제 원장 연동 고도화 필요.
 
 ---
@@ -78,11 +85,11 @@
 ## 5. 🚀 향후 로드맵 (Action Items)
 
 1. **[Resolved]** `journal-ledger` 모듈 객체 직접 참조 ID 기반 리팩토링 완료.
-2. **[High]** `closing` 모듈 잔여 객체 직접 참조 ID 기반 리팩토링 (Codex 진행 예정).
-3. **[In Progress]** `reconciliation` 모듈 인코딩 복구 (`ReconciliationDifference` 완료, 타 파일 점검 필요).
+2. **[Resolved]** `closing` 모듈 잔여 객체 직접 참조 ID 기반 리팩토링 완료.
+3. **[Resolved]** `reconciliation` 모듈 인코딩 복구 및 잔여 엔티티 파일 점검 완료.
 4. **[High]** `reporting` 목업 연동 제거 및 실제 원장 데이터(`journal-ledger`) 연동 구현.
 5. **[Resolved]** `receivable` 아키텍처 위반 조치 및 인코딩 복구 완료.
 
 ---
-**작성일:** 2026-05-13
-**작성자:** [기획/팀장/리뷰어 - Gemini]
+**작성일:** 2026-05-14
+**작성자:** [기획/팀장/리뷰어 - Gemini], [백엔드 - Codex]

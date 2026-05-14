@@ -1,12 +1,11 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 湲곌컙 ?좉툑 (Period Lock) ?뷀떚??
- * ?뱀젙 ?뚭퀎 湲곌컙?????嫄곕옒 ?낅젰 諛??섏젙 諛⑹?瑜??꾪빐 湲곌컙 ?좉툑 ?곹깭瑜?愿由ы빀?덈떎.
+ * Period lock for a fiscal period.
+ * Stores the fiscal period as an ID value to keep closing independent from master-data entities.
  */
 @Entity
 @Table(name = "period_locks")
@@ -16,13 +15,18 @@ public class PeriodLock {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fiscal_period_id", nullable = false)
-    private FiscalPeriod fiscalPeriod;
+    @Column(name = "fiscal_period_id", nullable = false)
+    private Long fiscalPeriodId;
+
+    @Transient
+    private String fiscalYear;
+
+    @Transient
+    private String fiscalPeriod;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private PeriodLockType lockType; // ALL_TRANSACTIONS, NON_ADJUSTMENT_ENTRIES ??
+    private PeriodLockType lockType;
 
     @Column(length = 50)
     private String lockedBy;
@@ -41,9 +45,9 @@ public class PeriodLock {
     private String auditUser;
 
     public enum PeriodLockType {
-        ALL_TRANSACTIONS, // 紐⑤뱺 嫄곕옒 ?좉툑 (?꾩쟾 ?좉툑)
-        NON_ADJUSTMENT_ENTRIES, // 議곗젙 ?꾪몴瑜??쒖쇅??紐⑤뱺 嫄곕옒 ?좉툑 (寃곗궛 議곗젙 媛??
-        PARTIAL_LOCK // ?뱀젙 紐⑤뱢 ?먮뒗 ?뱀젙 ?ъ슜??洹몃９??????좉툑
+        ALL_TRANSACTIONS,
+        NON_ADJUSTMENT_ENTRIES,
+        PARTIAL_LOCK
     }
 
     @PrePersist
@@ -59,7 +63,6 @@ public class PeriodLock {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -68,11 +71,33 @@ public class PeriodLock {
         this.id = id;
     }
 
-    public FiscalPeriod getFiscalPeriod() {
+    public Long getFiscalPeriodId() {
+        return fiscalPeriodId;
+    }
+
+    public void setFiscalPeriodId(Long fiscalPeriodId) {
+        this.fiscalPeriodId = fiscalPeriodId;
+    }
+
+    public String getFiscalYear() {
+        return fiscalYear;
+    }
+
+    public void setFiscalYear(String fiscalYear) {
+        this.fiscalYear = fiscalYear;
+    }
+
+    public String getFiscalPeriod() {
         return fiscalPeriod;
     }
 
-    public void setFiscalPeriod(FiscalPeriod fiscalPeriod) {
+    public void setFiscalPeriod(String fiscalPeriod) {
+        this.fiscalPeriod = fiscalPeriod;
+    }
+
+    public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
+        this.fiscalPeriodId = fiscalPeriodId;
+        this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
     }
 

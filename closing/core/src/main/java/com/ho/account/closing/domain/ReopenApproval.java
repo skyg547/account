@@ -1,12 +1,11 @@
 package com.ho.account.closing.domain;
 
-import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 湲곌컙 ?ъ삤???뱀씤 (Reopen Approval) ?뷀떚??
- * 留덇컧???뚭퀎 湲곌컙???ъ삤?덊븯湲??꾪븳 ?뱀씤 ?붿껌 諛??대젰??愿由ы빀?덈떎.
+ * Approval request for reopening a fiscal period.
+ * Stores only the fiscal period ID to avoid cross-module entity coupling.
  */
 @Entity
 @Table(name = "reopen_approvals")
@@ -16,9 +15,14 @@ public class ReopenApproval {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "fiscal_period_id", nullable = false)
-    private FiscalPeriod fiscalPeriod;
+    @Column(name = "fiscal_period_id", nullable = false)
+    private Long fiscalPeriodId;
+
+    @Transient
+    private String fiscalYear;
+
+    @Transient
+    private String fiscalPeriod;
 
     @Column(length = 50)
     private String requestedBy;
@@ -38,7 +42,7 @@ public class ReopenApproval {
     private LocalDateTime approvedAt;
 
     @Column(columnDefinition = "TEXT")
-    private String impactAnalysisReport; // ?ъ삤???곹뼢???먮룞 ?곗텧 寃곌낵
+    private String impactAnalysisReport;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -67,7 +71,6 @@ public class ReopenApproval {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -76,11 +79,33 @@ public class ReopenApproval {
         this.id = id;
     }
 
-    public FiscalPeriod getFiscalPeriod() {
+    public Long getFiscalPeriodId() {
+        return fiscalPeriodId;
+    }
+
+    public void setFiscalPeriodId(Long fiscalPeriodId) {
+        this.fiscalPeriodId = fiscalPeriodId;
+    }
+
+    public String getFiscalYear() {
+        return fiscalYear;
+    }
+
+    public void setFiscalYear(String fiscalYear) {
+        this.fiscalYear = fiscalYear;
+    }
+
+    public String getFiscalPeriod() {
         return fiscalPeriod;
     }
 
-    public void setFiscalPeriod(FiscalPeriod fiscalPeriod) {
+    public void setFiscalPeriod(String fiscalPeriod) {
+        this.fiscalPeriod = fiscalPeriod;
+    }
+
+    public void assignFiscalPeriod(Long fiscalPeriodId, String fiscalYear, String fiscalPeriod) {
+        this.fiscalPeriodId = fiscalPeriodId;
+        this.fiscalYear = fiscalYear;
         this.fiscalPeriod = fiscalPeriod;
     }
 

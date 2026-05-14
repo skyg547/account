@@ -30,9 +30,9 @@ public class ReopenApprovalDto {
     public static ReopenApprovalDto fromEntity(ReopenApproval entity) {
         return ReopenApprovalDto.builder()
                 .id(entity.getId())
-                .fiscalPeriodId(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getId() : null)
-                .fiscalYear(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalYear() : null)
-                .fiscalPeriod(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalPeriod() : null)
+                .fiscalPeriodId(entity.getFiscalPeriodId())
+                .fiscalYear(entity.getFiscalYear())
+                .fiscalPeriod(entity.getFiscalPeriod())
                 .requestedBy(entity.getRequestedBy())
                 .requestedAt(entity.getRequestedAt())
                 .reason(entity.getReason())

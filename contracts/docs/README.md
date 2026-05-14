@@ -49,7 +49,7 @@
 이 모듈은 DB 테이블이 없으며, 아래와 같은 데이터 전송 객체(DTO)와 포트 명세로 구성됩니다.
 
 - **Journal (전표):** `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`, `JournalLineCommand`, `JournalPostingResult`, `JournalDetailAggregateSummary`
-- **Master Data (기준정보):** `MasterDataQueryPort`, `AccountSubjectRef`, `BusinessPartnerRef`, `DepartmentRef`
+- **Master Data (기준정보):** `MasterDataQueryPort`, `FiscalPeriodControlPort`, `AccountSubjectRef`, `BusinessPartnerRef`, `DepartmentRef`, `FiscalPeriodRef`
 - **Source (추적):** `SourceDocumentProvider` (전표에서 원문서 역추적)
 - **Expenditure (지출):** `BudgetControlPort`, `LeasePaymentResolutionPort`, `LeasePaymentResolutionCommand`
 - **Asset (자산):** `AssetRegistrationPort`, `AssetAcquisitionCommand`

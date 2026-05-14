@@ -880,3 +880,44 @@
   2. econciliation 모듈의 남은 인코딩 문제를 점검하고 복구하십시오.
   3. eporting 모듈의 목업 데이터를 걷어내고 JournalQueryPort를 통해 실제 원장 데이터를 연동하십시오.
 
+
+### 📅 2026-05-14 (handoff closing 직접 참조 분리 - Codex)
+### [수정] Closing의 FiscalPeriod 엔티티 직접 참조 제거 및 contracts 포트 전환
+- **확인 범위**:
+  - `WORKLOG.md` 최신 항목, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `CODEX_HANDOFF_TASKS.md` 확인.
+  - 작업 전 `closing/README.md`, `closing/docs/*.md`, `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`, `ClosingService`, 관련 Repository/DTO/Test 확인.
+- **수정 범위**:
+  - `contracts`에 `FiscalPeriodControlPort`, `FiscalPeriodRef` 추가.
+  - `master-data`에 `MonolithFiscalPeriodControlAdapter` 추가.
+  - `closing:core`의 master-data 직접 dependency 제거.
+  - `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne`를 `fiscalPeriodId` 값 참조로 전환.
+  - `ClosingService`, `PeriodLockPersistencePort`, Repository 파생 쿼리, API DTO를 `fiscalPeriodId`/contracts 포트 기준으로 갱신.
+  - `ClosingServiceTest`에 결산 조정이 회기 ID를 저장하는 회귀 테스트 추가.
+  - `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `CODEX_WORKLOG.md` 갱신.
+- **재검증 실행**:
+  - `.\gradlew :contracts:compileJava :master-data:compileJava :closing:core:compileJava :closing:api:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 모두 Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - `closing` 자동 평가/충당 분개의 더미 계정(`999998`, `999999`)과 하드코딩 금액은 handoff의 별도 Medium 항목으로 남아 있음.
+  - 운영 DB에 기존 `fiscal_period_id` FK 제약이 있다면 JPA 관계 제거와 별도로 migration/제약 유지 정책 확인 필요.
+
+### 📅 2026-05-14 (handoff reconciliation 인코딩 잔여 점검 - Codex)
+### [수정] Reconciliation 엔티티 파일 인코딩 잔여 복구
+- **확인 범위**:
+  - `CODEX_HANDOFF_TASKS.md`의 Reconciliation 인코딩 및 품질 항목 확인.
+  - 작업 전 `reconciliation/README.md`, `reconciliation/docs/*.md`, domain/service Java 파일 인코딩 후보 검색.
+- **확인 결과**:
+  - `ReconciliationDifference.java`는 선행 handoff에서 정상화되어 있음을 확인.
+  - BOM, 제어문자, 주요 mojibake 패턴 검색 결과 잔여 후보는 `ReconciliationVariance.java`의 깨진 getter/setter 주석 1건뿐이었음.
+- **수정 범위**:
+  - `ReconciliationVariance.java`의 `Getter 諛?Setter` 주석을 ASCII 설명으로 정리.
+  - `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `CODEX_WORKLOG.md` 갱신.
+- **재검증 실행**:
+  - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
+- **재검증 결과**:
+  - Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - 복합 매칭 조건 확장과 계정 산정 정책 도메인화는 handoff의 별도 Medium 항목으로 남아 있음.

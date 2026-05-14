@@ -3,8 +3,8 @@ package com.ho.account.closing.application.service;
 import com.ho.account.closing.application.port.out.*;
 import com.ho.account.closing.domain.*;
 import com.ho.account.contracts.journal.*;
-import com.ho.account.masterdata.core.application.port.out.FiscalPeriodPersistencePort;
-import com.ho.account.masterdata.core.domain.model.FiscalPeriod;
+import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
+import com.ho.account.contracts.masterdata.FiscalPeriodRef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,34 +37,40 @@ public class ClosingServiceTest {
     @Mock
     private ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     @Mock
-    private FiscalPeriodPersistencePort fiscalPeriodPersistencePort;
+    private FiscalPeriodControlPort fiscalPeriodControlPort;
     @Mock
     private JournalQueryPort journalQueryPort;
 
     @InjectMocks
     private ClosingService closingService;
 
-    private FiscalPeriod openPeriod;
-    private FiscalPeriod closedPeriod;
+    private FiscalPeriodRef openPeriod;
+    private FiscalPeriodRef closedPeriod;
 
     @BeforeEach
     void setUp() {
-        openPeriod = new FiscalPeriod();
-        openPeriod.setId(1L);
-        openPeriod.setStartDate(LocalDate.of(2026, 1, 1));
-        openPeriod.setEndDate(LocalDate.of(2026, 1, 31));
-        openPeriod.setClosingStatus(FiscalPeriod.ClosingStatus.OPEN);
+        openPeriod = new FiscalPeriodRef(
+                1L,
+                "2026",
+                "01",
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 1, 31),
+                "OPEN");
 
-        closedPeriod = new FiscalPeriod();
-        closedPeriod.setId(2L);
-        closedPeriod.setClosingStatus(FiscalPeriod.ClosingStatus.CLOSED);
+        closedPeriod = new FiscalPeriodRef(
+                2L,
+                "2026",
+                "02",
+                LocalDate.of(2026, 2, 1),
+                LocalDate.of(2026, 2, 28),
+                "CLOSED");
     }
 
     @Test
     @DisplayName("결산 조정 전표 생성 시 회기가 OPEN이 아니면 예외가 발생한다")
     void createClosingAdjustment_PeriodNotOpen_ThrowsException() {
         // given
-        when(fiscalPeriodPersistencePort.findById(2L)).thenReturn(Optional.of(closedPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(2L)).thenReturn(Optional.of(closedPeriod));
 
         // when & then
         assertThatThrownBy(() -> closingService.createClosingAdjustment(2L, 100L, ClosingAdjustment.AdjustmentType.ACCRUAL, "Test", "ADMIN"))
@@ -76,7 +82,7 @@ public class ClosingServiceTest {
     @DisplayName("결산 조정 전표 생성 시 전표가 대차 불일치면 예외가 발생한다")
     void createClosingAdjustment_UnbalancedJournal_ThrowsException() {
         // given
-        when(fiscalPeriodPersistencePort.findById(1L)).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
         
         JournalSummary summary = new JournalSummary();
         summary.setAccountingDate(LocalDate.of(2026, 1, 15));
@@ -102,7 +108,7 @@ public class ClosingServiceTest {
     @DisplayName("결산 조정 전표 생성 시 전표 회계 일자가 회기 범위를 벗어나면 예외가 발생한다")
     void createClosingAdjustment_AccountingDateOutsideRange_ThrowsException() {
         // given
-        when(fiscalPeriodPersistencePort.findById(1L)).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
         
         JournalSummary summary = new JournalSummary();
         summary.setAccountingDate(LocalDate.of(2026, 2, 1)); // 회기는 1월인데 전표는 2월
@@ -112,6 +118,42 @@ public class ClosingServiceTest {
         assertThatThrownBy(() -> closingService.createClosingAdjustment(1L, 100L, ClosingAdjustment.AdjustmentType.ACCRUAL, "Test", "ADMIN"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Journal accounting date is outside the fiscal period range");
+    }
+
+    @Test
+    @DisplayName("결산 조정은 FiscalPeriod 엔티티 참조 대신 회기 ID를 저장한다")
+    void createClosingAdjustment_Success_StoresFiscalPeriodId() {
+        // given
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+
+        JournalSummary summary = new JournalSummary();
+        summary.setAccountingDate(LocalDate.of(2026, 1, 15));
+        when(journalQueryPort.getJournalSummary(100L)).thenReturn(summary);
+
+        JournalDetailSummary debit = new JournalDetailSummary();
+        debit.setSide(JournalSide.DEBIT);
+        debit.setAmount(new BigDecimal("1000"));
+
+        JournalDetailSummary credit = new JournalDetailSummary();
+        credit.setSide(JournalSide.CREDIT);
+        credit.setAmount(new BigDecimal("1000"));
+
+        when(journalQueryPort.getJournalDetails(100L)).thenReturn(List.of(debit, credit));
+        when(closingAdjustmentPersistencePort.save(any(ClosingAdjustment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        ClosingAdjustment result = closingService.createClosingAdjustment(
+                1L,
+                100L,
+                ClosingAdjustment.AdjustmentType.ACCRUAL,
+                "Test",
+                "ADMIN");
+
+        // then
+        assertThat(result.getFiscalPeriodId()).isEqualTo(1L);
+        assertThat(result.getFiscalYear()).isEqualTo("2026");
+        assertThat(result.getFiscalPeriod()).isEqualTo("01");
     }
 
     @Test
@@ -176,7 +218,15 @@ public class ClosingServiceTest {
         gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
         when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
 
-        when(fiscalPeriodPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.updateClosingStatus(1L, "CLOSED", "ADMIN")).thenReturn(
+                new FiscalPeriodRef(
+                        1L,
+                        "2026",
+                        "01",
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 1, 31),
+                        "CLOSED"));
         when(closingCalendarPersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -185,6 +235,6 @@ public class ClosingServiceTest {
         // then
         assertThat(result.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
         assertThat(result.getClosedBy()).isEqualTo("ADMIN");
-        verify(fiscalPeriodPersistencePort).save(argThat(fp -> fp.getClosingStatus() == FiscalPeriod.ClosingStatus.CLOSED));
+        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
     }
 }

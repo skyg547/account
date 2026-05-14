@@ -1,4 +1,4 @@
-# 📋 전사 모듈 정밀 검수 트래커 (2026-05-13)
+﻿# 📋 전사 모듈 정밀 검수 트래커 (2026-05-14)
 
 > ⚠️ **공지:** 본 트래커의 상세 검수 결과와 아키텍처 위반 사항은 **[TOTAL_QUALITY_REPORT.md](./TOTAL_QUALITY_REPORT.md)**에 최종 정리되었습니다.
 
@@ -20,15 +20,15 @@
 ### Phase 3: 업무 서브레저 (Subledgers)
 - [o] `expenditure-resolution`: 마스터 조회 예외 처리 및 DTO 바인딩 보완 완료.
 - [o] `payable`: ID 기반 참조 및 헥사고날 준수 확인.
-- [△] `receivable`: **[위반]** `Receivable` -> `BusinessPartner` 객체 참조 존재. 인코딩 깨짐 현상. (Codex Handoff 예정)
+- [△] `receivable`: `Receivable` 직접 참조/인코딩은 최근 handoff에서 조치 완료로 보고되었으나, 웹 어댑터 DTO 전환은 별도 확인 필요.
 - [o] `tax`: 도메인 팩토리 리팩토링 정합성 확인.
 - [o] `asset-lease`: IFRS16 계정 분리 로직 및 자산 감가상각 로직 검수 완료.
 - [o] `loan`: 자동 전표 생성 및 원장 수렴 호출 로직 검수 완료.
 
 ### Phase 4: 회계 엔진 및 결산 (Core Accounting)
-- [ ] `journal-ledger`: 전표 생성/전기 로직, 벌크 처리 성능 및 헥사고날 격리 상태 정밀 검수.
-- [ ] `closing`: 마감 통제 정책 및 결산 자동 분개 엔진 검수.
-- [ ] `reconciliation`: 대량 데이터 집계 성능 및 외부 연동 포트 정합성 검수.
+- [△] `journal-ledger`: 직접 참조 리팩토링은 최근 handoff에서 조치 완료로 보고되었으나, 잔여 import/주석 정합성 추가 확인 필요.
+- [△] `closing`: `FiscalPeriod` 직접 엔티티 참조 제거 완료. 자동 평가/충당 분개의 더미 계정/금액 정책화는 보완 필요.
+- [△] `reconciliation`: 인코딩 잔여 점검 완료. 복합 매칭 조건과 계정 산정 정책 도메인화는 보완 필요.
 - [ ] `reporting`: 실제 원장 데이터 연동 구조 및 DTO 변환 적정성 검수.
 
 ---
@@ -44,4 +44,5 @@
 ## 📝 작업 로그
 * 2026-05-13: 전사 모듈 정밀 검수 계획 수립 및 Phase 1~3 중간 결과 동기화 완료.
 * 2026-05-13: Phase 4 (회계 엔진/결산) 정밀 검수 및 조치 완료. `journal-ledger`, `receivable` 모듈의 객체 직접 참조 위반 해결. `expenditure-resolution`, `loan` 연관 오류 수정 및 전사 테스트 통과 확인. `reconciliation` 인코딩 복구 작업 착수.
-��서(TOTAL_QUALITY_REPORT.md)에 집대성.
+* 2026-05-14: `closing`의 `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`에서 `FiscalPeriod` 직접 참조를 제거하고 contracts 기반 `FiscalPeriodControlPort`로 전환. 상세 결과는 `TOTAL_QUALITY_REPORT.md`와 `CODEX_HANDOFF_TASKS.md`에 반영.
+* 2026-05-14: `reconciliation` 엔티티/서비스 Java 파일 인코딩 잔여 점검 완료. `ReconciliationVariance`의 깨진 주석 1건을 정리하고 `:reconciliation:test` 통과 확인.

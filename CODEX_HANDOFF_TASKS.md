@@ -12,7 +12,7 @@
 
 ### [Journal-Ledger & Closing (코어 위반)]
 - [ ] **[Journal-Ledger] 모듈 간 객체 참조(FK) 위반:** `JournalDetail` 엔티티가 `master-data`의 `AccountSubject`, `BusinessPartner`, `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 이를 `String accountCode`, `String deptCode`, `String businessPartnerCode` 등의 ID 기반 참조로 전환하고 Port를 통해 정합성을 검증하도록 수정하세요.
-- [ ] **[Closing] 모듈 간 객체 참조(FK) 위반:** `ClosingAdjustment` 엔티티가 `master-data`의 `FiscalPeriod`를 직접 참조하고 있습니다. ID 기반 참조로 수정하세요.
+- [x] **[Closing] 모듈 간 객체 참조(FK) 위반:** `ClosingAdjustment` 엔티티가 `master-data`의 `FiscalPeriod`를 직접 참조하고 있습니다. ID 기반 참조로 수정하세요. -> *(완료: `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne`를 `fiscalPeriodId` 값 참조로 전환. `contracts`에 `FiscalPeriodControlPort`/`FiscalPeriodRef`를 추가하고 `master-data`의 `MonolithFiscalPeriodControlAdapter`로 구현해 `closing:core`의 master-data 직접 의존성을 제거. DTO/Repository/Service/Test 갱신 및 `:contracts:compileJava :master-data:compileJava :closing:core:compileJava :closing:api:compileJava`, `:closing:core:test`, `:master-data:test` 성공)*.
 
 ### [Loan (대출)]
 - [ ] **E2E 회귀 테스트 부재 및 전표 수렴 완결성:** 대출 전표가 원장(`POSTED`)까지 수렴하는 과정을 증명하는 E2E 검증 테스트가 부족합니다. 또한 `Loan`과 `LoanContract` 병행 모델을 통합하고, 코드 내 하드코딩된 계정코드를 제거하세요.
@@ -47,7 +47,7 @@
 - [ ] **[Governance] TracingService 포트 우회:** `TracingService`가 `AuditLogRepository`에 직접 의존하여 계층을 무너뜨린 것을 Port를 통하도록 구조를 수정하세요.
 
 ### [Reconciliation (인코딩 및 품질)]
-- [ ] **엔티티 파일 인코딩 복구:** `ReconciliationDifference.java` 등 일부 엔티티 파일의 한글 주석과 문자열이 심각하게 깨져 있습니다. UTF-8로 인코딩을 정리하고 가독성을 확보하세요.
+- [x] **엔티티 파일 인코딩 복구:** `ReconciliationDifference.java` 등 일부 엔티티 파일의 한글 주석과 문자열이 심각하게 깨져 있습니다. UTF-8로 인코딩을 정리하고 가독성을 확보하세요. -> *(완료: `ReconciliationDifference`는 선행 handoff에서 정상화되어 있음을 확인했고, 잔여 mojibake 검색 결과 `ReconciliationVariance.java`의 깨진 getter/setter 주석 1건을 ASCII 설명으로 정리. BOM/제어문자/주요 mojibake 패턴 재검색 결과 없음. `.\gradlew :reconciliation:test --console=plain --max-workers=1` 성공)*.
 
 ### [Reconciliation (대사 심화)]
 - [ ] **복합 매칭 조건 확장:** `AutomatedMatchingEngine`의 매칭 로직에 금액/일자 외에도 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 지원하도록 고도화하세요.

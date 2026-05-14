@@ -29,9 +29,9 @@ public class ValuationBatchDto {
     public static ValuationBatchDto fromEntity(ValuationBatch entity) {
         return ValuationBatchDto.builder()
                 .id(entity.getId())
-                .fiscalPeriodId(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getId() : null)
-                .fiscalYear(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalYear() : null)
-                .fiscalPeriod(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalPeriod() : null)
+                .fiscalPeriodId(entity.getFiscalPeriodId())
+                .fiscalYear(entity.getFiscalYear())
+                .fiscalPeriod(entity.getFiscalPeriod())
                 .valuationType(entity.getValuationType())
                 .runDateTime(entity.getRunDateTime())
                 .status(entity.getStatus())

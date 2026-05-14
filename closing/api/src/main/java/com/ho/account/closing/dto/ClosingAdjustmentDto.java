@@ -32,9 +32,9 @@ public class ClosingAdjustmentDto {
     public static ClosingAdjustmentDto fromEntity(ClosingAdjustment entity) {
         return ClosingAdjustmentDto.builder()
                 .id(entity.getId())
-                .fiscalPeriodId(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getId() : null)
-                .fiscalYear(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalYear() : null)
-                .fiscalPeriod(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalPeriod() : null)
+                .fiscalPeriodId(entity.getFiscalPeriodId())
+                .fiscalYear(entity.getFiscalYear())
+                .fiscalPeriod(entity.getFiscalPeriod())
                 .journalEntryId(entity.getJournalEntryId())
                 .adjustmentType(entity.getAdjustmentType())
                 .description(entity.getDescription())

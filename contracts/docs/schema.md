@@ -11,6 +11,12 @@ classDiagram
         +findAccountSubject(code) AccountSubjectRef
         +findBusinessPartner(code) BusinessPartnerRef
     }
+    class FiscalPeriodControlPort {
+        <<Interface>>
+        +findFiscalPeriodById(id) FiscalPeriodRef
+        +findFiscalPeriod(year, period) FiscalPeriodRef
+        +updateClosingStatus(id, status, auditUser) FiscalPeriodRef
+    }
     class JournalPostingPort {
         <<Interface>>
         +createDraftEntry(JournalEntryCommand) JournalPostingResult
@@ -33,6 +39,13 @@ classDiagram
 ### `BusinessPartnerRef`
 - `code` (String)
 - `name` (String)
+
+### `FiscalPeriodRef`
+- `id` (Long)
+- `fiscalYear` (String)
+- `fiscalPeriod` (String)
+- `startDate` / `endDate` (LocalDate)
+- `closingStatus` (String)
 
 ## 3. 주요 Command DTO (쓰기/명령 계약)
 

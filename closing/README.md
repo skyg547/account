@@ -23,6 +23,9 @@
 ### 📌 결산 캘린더 (ClosingCalendar) 도메인 주도 검증
 과거에는 NPE 에러가 나거나 코드가 꼬이는 일이 있었지만, 최근 리팩토링으로 상태 판정 검증 로직이 도메인 모델 내부로 응집되었습니다. 마감을 닫으려면 `ClosingCalendar`가 자신의 상태를 스스로 검증합니다.
 
+### 📌 FiscalPeriod 참조 분리
+결산 조정, 기간 잠금, 재오픈 승인, 평가/충당 배치는 `master-data`의 `FiscalPeriod` 엔티티를 직접 참조하지 않습니다. 저장값은 `fiscalPeriodId`이며, 회계기간 조회/상태 변경은 `contracts`의 `FiscalPeriodControlPort`를 통해 수행합니다.
+
 ---
 
 ## 3. 🐳 실행 방법 (Docker & Local)

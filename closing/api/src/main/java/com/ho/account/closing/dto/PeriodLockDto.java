@@ -27,9 +27,9 @@ public class PeriodLockDto {
     public static PeriodLockDto fromEntity(PeriodLock entity) {
         return PeriodLockDto.builder()
                 .id(entity.getId())
-                .fiscalPeriodId(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getId() : null)
-                .fiscalYear(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalYear() : null)
-                .fiscalPeriod(entity.getFiscalPeriod() != null ? entity.getFiscalPeriod().getFiscalPeriod() : null)
+                .fiscalPeriodId(entity.getFiscalPeriodId())
+                .fiscalYear(entity.getFiscalYear())
+                .fiscalPeriod(entity.getFiscalPeriod())
                 .lockType(entity.getLockType())
                 .lockedBy(entity.getLockedBy())
                 .lockedAt(entity.getLockedAt())
