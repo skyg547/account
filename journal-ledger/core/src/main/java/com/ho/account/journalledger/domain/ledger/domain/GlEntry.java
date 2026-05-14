@@ -69,20 +69,18 @@ public class GlEntry {
     /**
      * 계정과목.
      * 이 GL Entry가 귀속되는 계정 (예: 현금 10100, 매출채권 11000).
-     * GlBalance는 이 account를 키로 잔액을 집계합니다.
+     * GlBalance는 이 accountCode를 키로 잔액을 집계합니다.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
-    private AccountSubject account;
+    @Column(name = "account_code", nullable = false, length = 50)
+    private String accountCode;
 
     /**
      * 거래 통화.
      * 외화 거래 시 해당 통화 (예: USD, EUR).
      * 원화 거래이면 null 또는 KRW.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code")
-    private Currency currency;
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
 
     /**
      * 회계연도 (Fiscal Year).

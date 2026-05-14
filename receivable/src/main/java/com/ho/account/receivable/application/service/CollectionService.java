@@ -3,14 +3,13 @@ package com.ho.account.receivable.application.service;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.CollectionUseCase;
 import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
 import com.ho.account.receivable.domain.*;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,32 +23,25 @@ public class CollectionService implements CollectionUseCase {
     private final CollectionPersistencePort collectionPersistencePort;
     private final ReceivablePersistencePort receivablePersistencePort;
     private final SalesInvoicePersistencePort salesInvoicePersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
 
     public CollectionService(CollectionPersistencePort collectionPersistencePort,
                              ReceivablePersistencePort receivablePersistencePort,
                              SalesInvoicePersistencePort salesInvoicePersistencePort,
-                             BusinessPartnerPersistencePort businessPartnerPersistencePort,
                              MasterDataQueryPort masterDataQueryPort,
                              JournalPostingPort journalPostingPort) {
         this.collectionPersistencePort = collectionPersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
     }
 
     @Override
     public Collection receivePayment(Collection collection) {
-        String customerCode = collection.getCustomer().getBusinessPartnerCode();
-        validateCustomer(customerCode);
-
-        BusinessPartner customer = businessPartnerPersistencePort.findByBusinessPartnerCode(customerCode)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerCode));
-        collection.setCustomer(customer);
+        String customerCode = collection.getCustomerCode();
+        BusinessPartnerRef customer = validateCustomer(customerCode);
 
         if (collection.getStatus() == null) {
             collection.setStatus(CollectionStatus.RECEIVED);
@@ -74,7 +66,7 @@ public class CollectionService implements CollectionUseCase {
 
         // 단순 자동 매칭 로직 (참조번호 기반)
         List<Receivable> openReceivables = receivablePersistencePort.findByCustomerCodeAndStatus(
-                collection.getCustomer().getBusinessPartnerCode(), ReceivableStatus.OPEN);
+                collection.getCustomerCode(), ReceivableStatus.OPEN);
 
         Receivable match = openReceivables.stream()
                 .filter(r -> r.getOriginalAmount().compareTo(collection.getAmount()) == 0)
@@ -130,48 +122,49 @@ public class CollectionService implements CollectionUseCase {
         }
 
         // 매칭 전표 발행 (AR Clearing -> AR)
-        postMatchJournal(collection, receivable, amount);
+        BusinessPartnerRef customer = validateCustomer(collection.getCustomerCode());
+        postMatchJournal(collection, receivable, amount, customer);
     }
 
-    private void validateCustomer(String customerCode) {
-        masterDataQueryPort.findBusinessPartner(customerCode)
+    private BusinessPartnerRef validateCustomer(String customerCode) {
+        return masterDataQueryPort.findBusinessPartner(customerCode)
                 .orElseThrow(() -> new IllegalArgumentException("Customer info missing: " + customerCode));
     }
 
-    private void postCollectionRecognitionJournal(Collection collection, BusinessPartner customer) {
+    private void postCollectionRecognitionJournal(Collection collection, BusinessPartnerRef customer) {
         requireAccount("10100", "Cash account missing");
         requireAccount("21100", "AR Clearing account missing");
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Collection: " + customer.getBusinessPartnerName() + " - " + collection.getAmount(),
+                "Collection: " + customer.name() + " - " + collection.getAmount(),
                 "COLLECTION_RECOGNITION",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION", collection.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", "10100", collection.getAmount(), null, null,
-                                customer.getBusinessPartnerCode(), "Cash/Bank Increase"),
+                                customer.code(), "Cash/Bank Increase"),
                         new JournalLineCommand("CREDIT", "21100", collection.getAmount(), null, null,
-                                customer.getBusinessPartnerCode(), "AR Clearing recognized"))));
+                                customer.code(), "AR Clearing recognized"))));
     }
 
-    private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount) {
+    private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount, BusinessPartnerRef customer) {
         requireAccount("21100", "AR Clearing account missing");
         requireAccount("11100", "Accounts Receivable account missing");
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 collection.getCollectionDate(),
                 collection.getCollectionDate(),
-                "Match: " + collection.getCustomer().getBusinessPartnerName() + " - " + amount,
+                "Match: " + customer.name() + " - " + amount,
                 "AR_CLEARING",
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION_MATCH", collection.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", "21100", amount, null, null,
-                                collection.getCustomer().getBusinessPartnerCode(), "AR Clearing decrease"),
+                                customer.code(), "AR Clearing decrease"),
                         new JournalLineCommand("CREDIT", "11100", amount, null, null,
-                                collection.getCustomer().getBusinessPartnerCode(), "Accounts Receivable decrease"))));
+                                customer.code(), "Accounts Receivable decrease"))));
     }
 
     private void requireAccount(String accountCode, String message) {

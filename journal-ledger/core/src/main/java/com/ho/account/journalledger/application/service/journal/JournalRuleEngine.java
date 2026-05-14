@@ -11,14 +11,6 @@ import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Currency;
-import com.ho.account.masterdata.core.domain.model.Department;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,49 +28,6 @@ import java.util.regex.Pattern;
 
 /**
  * 자동분개 규칙 엔진 (Journal Rule Engine).
- *
- * ─────────────────────────────────────────────────
- * [업무 설명]
- * 자동분개란 비즈니스 이벤트(예: 매입, 지출결의, 리스 납부)가 발생하면
- * 사람이 직접 전표를 입력하지 않아도 시스템이 자동으로 적절한 전표를 생성하는 기능입니다.
- *
- * 예시:
- *   이벤트: 매입 청구서 등록 (금액: 100,000원, 거래처: BP001)
- *   → 자동 생성 전표:
- *     차변: 매입비용(51000) 100,000원
- *     대변: 매입채무(21100) 100,000원
- *
- * 자동분개 규칙(JournalRule)은 DB에 등록되어 있으며,
- * 이벤트 유형(eventType), 금액 범위, 거래처 조건 등에 따라 적용 규칙이 결정됩니다.
- * 규칙 우선순위(priority 필드)가 낮을수록 먼저 적용됩니다.
- *
- * 주요 사용처:
- *   - 매입채무 모듈: 매입 청구서 등록 시 자동 전표
- *   - 지출결의 모듈: 지출결의 승인 시 자동 전표
- *   - 리스 모듈: 월별 리스료 납부 자동 전표
- *
- * ─────────────────────────────────────────────────
- * [개발 설명]
- * JournalEntryService.createJournalEntryFromEvent()에서 호출됩니다.
- *
- * 동작 흐름:
- *   1. 이벤트 데이터(Map)에서 eventType 추출
- *   2. DB에서 해당 eventType에 매칭되는 JournalRule 목록 조회
- *   3. 각 규칙의 조건(JournalRuleCondition) 평가 (금액, 거래처 등 조건 검사)
- *   4. 조건에 맞는 규칙의 분개 라인(JournalRuleDetail) 기반으로 JournalEntry + JournalDetail 생성
- *   5. 생성된 전표 반환 (규칙 미매칭 시 Optional.empty())
- *
- * [현재 구현 상태]
- * 현재 이 클래스는 스켈레톤(뼈대) 구현으로, 실제 규칙 매칭 로직은
- * JournalRuleRepository, JournalRuleCondition 평가 로직과 함께 추후 완성이 필요합니다.
- * 지금은 빈 DRAFT 전표만 반환합니다.
- *
- * 추후 구현 시 참고:
- *   - JournalRule.priority: 낮을수록 먼저 적용 (priority=1이 가장 먼저)
- *   - JournalRuleCondition: 금액 범위, 거래처, 계정과목 조건 평가
- *   - JournalRuleDetail: 차변/대변 계정과목 및 금액 표현식 (${}  문법)
- *   - JournalRule.validFrom/validTo: 유효 기간 필터링 필요
- * ─────────────────────────────────────────────────
  */
 @Service
 @RequiredArgsConstructor
@@ -90,31 +39,7 @@ public class JournalRuleEngine {
     private final JournalRuleRepository journalRuleRepository;
     private final JournalRuleConditionRepository journalRuleConditionRepository;
     private final JournalRuleDetailRepository journalRuleDetailRepository;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    private final CurrencyPersistencePort currencyPersistencePort;
 
-    /**
-     * 이벤트 데이터를 기반으로 자동 전표를 생성합니다.
-     *
-     * [업무 설명]
-     * 외부 모듈(매입, 지출결의, 리스 등)에서 이벤트가 발생하면,
-     * 이 메서드가 이벤트 데이터를 분석하여 적절한 전표를 자동으로 생성합니다.
-     * 규칙이 매칭되지 않으면 빈 Optional을 반환하므로, 호출자가 예외 처리를 해야 합니다.
-     *
-     * [개발 설명]
-     * eventData 키 예시:
-     *   - "eventType"    : 이벤트 유형 (예: "PURCHASE", "EXPENDITURE", "LEASE_PAYMENT")
-     *   - "amount"       : 거래 금액 (BigDecimal 또는 Number 타입)
-     *   - "vendorId"     : 거래처 ID (String)
-     *   - "departmentId" : 귀속 부서 ID (String)
-     *   - "currencyCode" : 거래 통화 (예: "KRW", "USD")
-     *
-     * @param eventData      이벤트 데이터 (키-값 쌍의 Map)
-     * @param accountingDate 회계 반영일 (전표의 accountingDate와 slipDate에 사용)
-     * @return 생성된 전표 Optional (규칙 미매칭 시 empty)
-     */
     @Transactional(readOnly = true)
     public Optional<JournalEntry> generateJournalEntry(Map<String, Object> eventData, LocalDate accountingDate) {
         if (eventData == null || eventData.isEmpty()) {
@@ -236,7 +161,9 @@ public class JournalRuleEngine {
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType(firstNonBlankValue(eventData, "lineageSourceType").orElse(rule.getRuleCode()));
         entry.setLineageSourceId(firstNonBlankValue(eventData, "lineageSourceId", "sourceId", "documentId", "assetCode", "contractNo").orElse(null));
-        resolveCurrency(eventData).ifPresent(entry::setCurrency);
+        
+        String currencyCode = resolveCurrencyCode(eventData);
+        entry.setCurrencyCode(currencyCode);
 
         List<JournalRuleDetail> sortedRuleDetails = new ArrayList<>(ruleDetails);
         sortedRuleDetails.sort(Comparator.comparing(JournalRuleDetail::getId, Comparator.nullsLast(Long::compareTo)));
@@ -245,8 +172,9 @@ public class JournalRuleEngine {
             JournalDetail detail = new JournalDetail();
 
             String accountCode = resolveStringExpression(ruleDetail.getAccountSubjectCodeExpression(), eventData, true);
-            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(accountCode)
-                    .orElseThrow(() -> new IllegalArgumentException("Account subject not found: " + accountCode));
+            if (accountCode == null || accountCode.isBlank()) {
+                throw new IllegalArgumentException("Account code resolution failed for rule detail: " + ruleDetail.getId());
+            }
 
             BigDecimal amount = evaluateAmountExpression(ruleDetail.getAmountExpression(), eventData);
             if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -254,7 +182,7 @@ public class JournalRuleEngine {
             }
 
             detail.setSide(parseSide(ruleDetail.getDrcrType()));
-            detail.setAccountSubject(accountSubject);
+            detail.setAccountCode(accountCode);
             detail.setAmount(amount);
             detail.setBaseAmount(amount);
             detail.setDetailDescription(resolveLineDescription(ruleDetail, entry, eventData));
@@ -262,16 +190,12 @@ public class JournalRuleEngine {
 
             String departmentCode = resolveStringExpression(ruleDetail.getDepartmentCodeExpression(), eventData, false);
             if (departmentCode != null && !departmentCode.isBlank()) {
-                Department department = departmentPersistencePort.findActiveByCode(departmentCode)
-                        .orElseThrow(() -> new IllegalArgumentException("Department not found: " + departmentCode));
-                detail.setDepartment(department);
+                detail.setDepartmentCode(departmentCode);
             }
 
             String businessPartnerCode = resolveStringExpression(ruleDetail.getBusinessPartnerCodeExpression(), eventData, false);
             if (businessPartnerCode != null && !businessPartnerCode.isBlank()) {
-                BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(businessPartnerCode)
-                        .orElseThrow(() -> new IllegalArgumentException("Business partner not found: " + businessPartnerCode));
-                detail.setBusinessPartner(businessPartner);
+                detail.setBusinessPartnerCode(businessPartnerCode);
             }
 
             entry.addDetail(detail);
@@ -280,12 +204,8 @@ public class JournalRuleEngine {
         return entry;
     }
 
-    private Optional<Currency> resolveCurrency(Map<String, Object> eventData) {
-        Optional<String> requestedCode = firstNonBlankValue(eventData, "currencyCode", "currency");
-        if (requestedCode.isPresent()) {
-            return currencyPersistencePort.findByCode(requestedCode.get());
-        }
-        return currencyPersistencePort.findByCode("KRW");
+    private String resolveCurrencyCode(Map<String, Object> eventData) {
+        return firstNonBlankValue(eventData, "currencyCode", "currency").orElse("KRW");
     }
 
     private String resolveEntryDescription(JournalRule rule, Map<String, Object> eventData) {

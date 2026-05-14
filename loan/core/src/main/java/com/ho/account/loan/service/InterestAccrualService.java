@@ -108,14 +108,14 @@ public class InterestAccrualService {
         debit.setAmount(amount);
         debit.setBaseAmount(amount);
         debit.setDetailDescription("Accrued interest receivable");
-        debit.setAccountSubject(accruedInterestReceivable);
+        debit.setAccountCode(accruedInterestReceivable.getCode());
 
         JournalDetail credit = new JournalDetail();
         credit.setSide(JournalSide.CREDIT);
         credit.setAmount(amount);
         credit.setBaseAmount(amount);
         credit.setDetailDescription("Interest income accrual");
-        credit.setAccountSubject(interestIncome);
+        credit.setAccountCode(interestIncome.getCode());
 
         entry.addDetail(debit);
         entry.addDetail(credit);

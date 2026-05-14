@@ -230,11 +230,11 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
 
             JournalDetail debitLine = new JournalDetail();
             debitLine.setSide(JournalSide.DEBIT);
-            debitLine.setAccountSubject(detailAccount);
+            debitLine.setAccountCode(detailAccount.getCode());
             debitLine.setAmount(detail.getAmount());
             debitLine.setBaseAmount(detail.getAmount());
-            debitLine.setDepartment(department);
-            debitLine.setBusinessPartner(businessPartner);
+            debitLine.setDepartmentCode(department.getCode());
+            debitLine.setBusinessPartnerCode(businessPartner.getBusinessPartnerCode());
             debitLine.setDetailDescription(detail.getDescription());
             entry.addDetail(debitLine);
         }
@@ -243,10 +243,10 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         creditLine.setSide(JournalSide.CREDIT);
         AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(resolution.getPaymentAccountCode())
                 .orElseThrow(() -> new IllegalStateException("지급 계정과목을 찾을 수 없습니다. 코드: " + resolution.getPaymentAccountCode()));
-        creditLine.setAccountSubject(paymentAccount);
+        creditLine.setAccountCode(paymentAccount.getCode());
         creditLine.setAmount(resolution.getTotalAmount());
         creditLine.setBaseAmount(resolution.getTotalAmount());
-        creditLine.setDepartment(department);
+        creditLine.setDepartmentCode(department.getCode());
         creditLine.setDetailDescription("Expenditure payment");
         entry.addDetail(creditLine);
 

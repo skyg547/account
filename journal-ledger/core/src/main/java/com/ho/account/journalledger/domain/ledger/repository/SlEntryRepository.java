@@ -10,11 +10,9 @@ import java.util.List;
 @Repository
 public interface SlEntryRepository extends JpaRepository<SlEntry, Long> {
 
-    List<SlEntry> findByBusinessPartner_BusinessPartnerCodeAndPostingDateBetween(String bpCode, LocalDate startDate, LocalDate endDate);
-    
-    List<SlEntry> findByBusinessPartner_BusinessPartnerCodeAndAccount_CodeAndPostingDateBetween(String bpCode, String accountCode, LocalDate startDate, LocalDate endDate);
-    
-    List<SlEntry> findByLineageSourceTypeAndLineageSourceId(String sourceType, String sourceId);
+    List<SlEntry> findByPostingDateBetween(LocalDate startDate, LocalDate endDate);
 
-    List<SlEntry> findByAccount_CodeAndPostingDateBetween(String accountCode, LocalDate startDate, LocalDate endDate);
+    List<SlEntry> findByBusinessPartnerCodeAndPostingDateBetween(String bpCode, LocalDate startDate, LocalDate endDate);
+
+    List<SlEntry> findByBusinessPartnerCodeAndAccountCodeAndPostingDateBetween(String bpCode, String accountCode, LocalDate startDate, LocalDate endDate);
 }

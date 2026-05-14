@@ -1,8 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Department;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,11 +18,11 @@ import java.time.LocalDateTime;
  *
  * 주요 필드:
  *   - side            : DEBIT(차변) 또는 CREDIT(대변)
- *   - accountSubject  : 계정과목 (예: 현금, 매출채권, 복리후생비 등)
+ *   - accountCode     : 계정과목 코드 (예: 현금, 매출채권, 복리후생비 등)
  *   - amount          : 거래 통화 기준 금액 (외화 거래 시 외화 금액)
  *   - baseAmount      : 기본 통화(KRW) 기준 금액 (원장 잔액 계산에 사용)
- *   - department      : 귀속 부서 (부서별 원가 분석에 활용)
- *   - businessPartner : 거래처 (매입/매출처, 보조원장 SL 구분 키)
+ *   - departmentCode  : 귀속 부서 코드 (부서별 원가 분석에 활용)
+ *   - businessPartnerCode : 거래처 코드 (매입/매출처, 보조원장 SL 구분 키)
  *   - detailDescription : 라인별 상세 적요 (헤더 적요와 별개)
  *
  * ─────────────────────────────────────────────────
@@ -75,11 +72,9 @@ public class JournalDetail {
     /**
      * 계정과목 (Account Subject).
      * 예: 현금(10100), 매출채권(11000), 복리후생비(82100) 등.
-     * master-data 모듈의 AccountSubject 엔티티를 참조합니다.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_code", nullable = false)
-    private AccountSubject accountSubject;
+    @Column(name = "account_code", nullable = false, length = 50)
+    private String accountCode;
 
     /**
      * 거래 통화 기준 금액.
@@ -104,9 +99,8 @@ public class JournalDetail {
      * 부서별 원가/비용 분석(관리회계)에 사용됩니다.
      * null 허용: 부서 귀속이 불필요한 계정(예: 현금, 차입금)은 null.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dept_code", referencedColumnName = "code")
-    private Department department;
+    @Column(name = "dept_code", length = 50)
+    private String departmentCode;
 
     /**
      * 거래처 (Business Partner).
@@ -114,9 +108,8 @@ public class JournalDetail {
      * 예: 매입처 A사, 매출처 B사 등.
      * null 허용: 거래처 없는 내부 계정은 null.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "business_partner_code", referencedColumnName = "businessPartnerCode")
-    private BusinessPartner businessPartner;
+    @Column(name = "business_partner_code", length = 50)
+    private String businessPartnerCode;
 
     /**
      * 라인별 상세 적요.
@@ -164,8 +157,8 @@ public class JournalDetail {
     public JournalSide getSide() { return side; }
     public void setSide(JournalSide side) { this.side = side; }
 
-    public AccountSubject getAccountSubject() { return accountSubject; }
-    public void setAccountSubject(AccountSubject accountSubject) { this.accountSubject = accountSubject; }
+    public String getAccountCode() { return accountCode; }
+    public void setAccountCode(String accountCode) { this.accountCode = accountCode; }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
@@ -173,11 +166,11 @@ public class JournalDetail {
     public BigDecimal getBaseAmount() { return baseAmount; }
     public void setBaseAmount(BigDecimal baseAmount) { this.baseAmount = baseAmount; }
 
-    public Department getDepartment() { return department; }
-    public void setDepartment(Department department) { this.department = department; }
+    public String getDepartmentCode() { return departmentCode; }
+    public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
 
-    public BusinessPartner getBusinessPartner() { return businessPartner; }
-    public void setBusinessPartner(BusinessPartner businessPartner) { this.businessPartner = businessPartner; }
+    public String getBusinessPartnerCode() { return businessPartnerCode; }
+    public void setBusinessPartnerCode(String businessPartnerCode) { this.businessPartnerCode = businessPartnerCode; }
 
     public String getDetailDescription() { return detailDescription; }
     public void setDetailDescription(String detailDescription) { this.detailDescription = detailDescription; }
@@ -198,11 +191,11 @@ public class JournalDetail {
     public JournalDetail copyWithFlippedSide() {
         JournalDetail flipped = new JournalDetail();
         flipped.setSide(this.side == JournalSide.DEBIT ? JournalSide.CREDIT : JournalSide.DEBIT);
-        flipped.setAccountSubject(this.accountSubject);
+        flipped.setAccountCode(this.accountCode);
         flipped.setAmount(this.amount);
         flipped.setBaseAmount(this.baseAmount);
-        flipped.setDepartment(this.department);
-        flipped.setBusinessPartner(this.businessPartner);
+        flipped.setDepartmentCode(this.departmentCode);
+        flipped.setBusinessPartnerCode(this.businessPartnerCode);
         flipped.setDetailDescription("[역분개] " + this.detailDescription);
         return flipped;
     }

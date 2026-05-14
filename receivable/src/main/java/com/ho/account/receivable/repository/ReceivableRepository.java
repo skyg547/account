@@ -14,10 +14,10 @@ import java.util.Optional;
 @Repository
 public interface ReceivableRepository extends JpaRepository<Receivable, Long> {
     Optional<Receivable> findBySalesInvoice(SalesInvoice salesInvoice);
-    List<Receivable> findByCustomerBusinessPartnerCodeAndStatus(String customerCode, ReceivableStatus status);
+    List<Receivable> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status);
     List<Receivable> findByDueDateBeforeAndStatusNot(LocalDate dueDate, ReceivableStatus status);
-    List<Receivable> findByCustomerBusinessPartnerCodeAndOutstandingAmountGreaterThan(String customerCode, BigDecimal amount);
+    List<Receivable> findByCustomerCodeAndOutstandingAmountGreaterThan(String customerCode, BigDecimal amount);
 
     // For matching
-    List<Receivable> findByCustomerBusinessPartnerCodeAndOutstandingAmountBetween(String customerCode, BigDecimal minAmount, BigDecimal maxAmount);
+    List<Receivable> findByCustomerCodeAndOutstandingAmountBetween(String customerCode, BigDecimal minAmount, BigDecimal maxAmount);
 }

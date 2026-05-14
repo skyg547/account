@@ -93,6 +93,11 @@ public interface JournalUseCase {
     List<JournalEntry> getJournalEntriesByDate(LocalDate startDate, LocalDate endDate);
 
     /**
+     * 원천 문서 역추적(Drill-down)을 위한 전표 목록을 조회합니다.
+     */
+    List<JournalEntry> getJournalEntriesBySource(String sourceType, String sourceId);
+
+    /**
      * 전표번호(slipNo)로 전표를 조회합니다.
      *
      * [업무 설명]

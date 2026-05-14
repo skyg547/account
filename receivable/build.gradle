@@ -15,8 +15,6 @@ dependencyManagement {
 dependencies {
     api project(':contracts')
     implementation project(':shared-kernel')
-    implementation project(':master-data')
-    implementation project(':journal-ledger:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

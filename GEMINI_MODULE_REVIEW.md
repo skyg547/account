@@ -1,7 +1,9 @@
-# Gemini Code Review Report (2026-05-11)
+# 🤖 Gemini Code Review Report (2026-05-11)
 
-## 1. 개요
-최근 Codex에 의해 진행된 전표 전기 경로 보완, 결산 판정 로직 개선, 마스터 데이터 SCD2 적용 및 리스 지급 결의 계정 분리 작업에 대한 전수 검토 결과입니다.
+> ⚠️ **공지:** 이 리포트의 내용은 **[TOTAL_QUALITY_REPORT.md](./TOTAL_QUALITY_REPORT.md)**로 통합되었습니다.
+
+---
+
 
 ## 2. 주요 검토 결과 (Summary)
 

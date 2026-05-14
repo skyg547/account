@@ -136,10 +136,10 @@ class LoanServiceTest {
         JournalDetail debit = journal.getDetails().get(0);
         JournalDetail credit = journal.getDetails().get(1);
         assertThat(debit.getSide()).isEqualTo(JournalSide.DEBIT);
-        assertThat(debit.getAccountSubject().getCode()).isEqualTo("131999");
+        assertThat(debit.getAccountCode()).isEqualTo("131999");
         assertThat(debit.getAmount()).isEqualByComparingTo("1000000.00");
         assertThat(credit.getSide()).isEqualTo(JournalSide.CREDIT);
-        assertThat(credit.getAccountSubject().getCode()).isEqualTo("101999");
+        assertThat(credit.getAccountCode()).isEqualTo("101999");
         assertThat(credit.getAmount()).isEqualByComparingTo("1000000.00");
 
         InOrder journalOrder = inOrder(journalUseCase);

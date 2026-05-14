@@ -23,7 +23,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
-                     "WHERE jd.accountSubject.code = :accountCode " +
+                     "WHERE jd.accountCode = :accountCode " +
                      "AND je.accountingDate BETWEEN :startDate AND :endDate " +
                      "AND je.status = 'APPROVED' " +
                      "ORDER BY je.accountingDate ASC, je.slipNo ASC")
@@ -37,7 +37,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
         */
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
-                     "WHERE jd.accountSubject.code = :accountCode " +
+                     "WHERE jd.accountCode = :accountCode " +
                      "AND je.accountingDate < :startDate " +
                      "AND je.status = 'APPROVED'")
        List<JournalDetail> findPreviousDetails(

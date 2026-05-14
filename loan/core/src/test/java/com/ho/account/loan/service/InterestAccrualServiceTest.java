@@ -111,10 +111,10 @@ class InterestAccrualServiceTest {
         JournalDetail debit = journal.getDetails().get(0);
         JournalDetail credit = journal.getDetails().get(1);
         assertThat(debit.getSide()).isEqualTo(JournalSide.DEBIT);
-        assertThat(debit.getAccountSubject().getCode()).isEqualTo("11599");
+        assertThat(debit.getAccountCode()).isEqualTo("11599");
         assertThat(debit.getAmount()).isEqualByComparingTo("123.45");
         assertThat(credit.getSide()).isEqualTo(JournalSide.CREDIT);
-        assertThat(credit.getAccountSubject().getCode()).isEqualTo("41199");
+        assertThat(credit.getAccountCode()).isEqualTo("41199");
         assertThat(credit.getAmount()).isEqualByComparingTo("123.45");
 
         InOrder journalOrder = inOrder(journalUseCase);

@@ -8,11 +8,6 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,14 +33,6 @@ class JournalRuleEngineTest {
     private JournalRuleConditionRepository journalRuleConditionRepository;
     @Mock
     private JournalRuleDetailRepository journalRuleDetailRepository;
-    @Mock
-    private AccountSubjectPersistencePort accountSubjectPersistencePort;
-    @Mock
-    private DepartmentPersistencePort departmentPersistencePort;
-    @Mock
-    private BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    @Mock
-    private CurrencyPersistencePort currencyPersistencePort;
 
     private JournalRuleEngine engine;
 
@@ -54,11 +41,7 @@ class JournalRuleEngineTest {
         engine = new JournalRuleEngine(
                 journalRuleRepository,
                 journalRuleConditionRepository,
-                journalRuleDetailRepository,
-                accountSubjectPersistencePort,
-                departmentPersistencePort,
-                businessPartnerPersistencePort,
-                currencyPersistencePort);
+                journalRuleDetailRepository);
     }
 
     @Test
@@ -93,9 +76,6 @@ class JournalRuleEngineTest {
         when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
         when(journalRuleConditionRepository.findByJournalRuleId(1L)).thenReturn(List.of(typeCondition, amountCondition));
         when(journalRuleDetailRepository.findByJournalRuleId(1L)).thenReturn(List.of(debit, credit));
-        when(accountSubjectPersistencePort.findByCode("15000")).thenReturn(Optional.of(account("15000")));
-        when(accountSubjectPersistencePort.findByCode("10100")).thenReturn(Optional.of(account("10100")));
-        when(currencyPersistencePort.findByCode("KRW")).thenReturn(Optional.empty());
 
         Optional<JournalEntry> generated = engine.generateJournalEntry(
                 Map.of(
@@ -152,9 +132,6 @@ class JournalRuleEngineTest {
         when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
         when(journalRuleConditionRepository.findByJournalRuleId(3L)).thenReturn(List.of());
         when(journalRuleDetailRepository.findByJournalRuleId(3L)).thenReturn(List.of(debit, credit));
-        when(accountSubjectPersistencePort.findByCode("13500")).thenReturn(Optional.of(account("13500")));
-        when(accountSubjectPersistencePort.findByCode("21100")).thenReturn(Optional.of(account("21100")));
-        when(currencyPersistencePort.findByCode("KRW")).thenReturn(Optional.empty());
 
         Optional<JournalEntry> generated = engine.generateJournalEntry(
                 Map.of("ruleCode", "VAT_RULE", "transaction", Map.of("totalAmount", new BigDecimal("110000"))),
@@ -176,12 +153,5 @@ class JournalRuleEngineTest {
         rule.setPriority(1);
         rule.setValidFrom(LocalDate.of(2025, 1, 1));
         return rule;
-    }
-
-    private AccountSubject account(String code) {
-        AccountSubject accountSubject = new AccountSubject();
-        accountSubject.setCode(code);
-        accountSubject.setName("TEST-" + code);
-        return accountSubject;
     }
 }

@@ -1,14 +1,13 @@
 package com.ho.account.receivable.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 留ㅼ텧梨꾧텒 ?ㅽ뵂 ?꾩씠???뷀떚??
- * 怨좉컼?쇰줈遺???섍툑?댁빞 ??媛쒕퀎 ??ぉ???섑??낅땲??
+ * 매출채권 오픈 아이템 엔티티.
+ * 고객으로부터 수금해야 할 개별 채권 항목을 나타냅니다.
  */
 @Entity
 @Table(name = "receivables")
@@ -20,24 +19,23 @@ public class Receivable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_invoice_id")
-    private SalesInvoice salesInvoice; // 愿??留ㅼ텧 ?몃낫?댁뒪
+    private SalesInvoice salesInvoice; // 관련 매출 인보이스
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // 梨꾧텒 ???怨좉컼 (嫄곕옒泥?
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 理쒖큹 梨꾧텒 湲덉븸
+    @Column(name = "customer_code", nullable = false, length = 50)
+    private String customerCode; // 채권 대상 고객 코드 (거래처)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 誘몄닔 湲덉븸
+    private BigDecimal originalAmount; // 최초 채권 금액
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal outstandingAmount; // 미수 금액
 
     @Column(nullable = false)
-    private LocalDate dueDate; // 留뚭린??(?섍툑 ?덉젙??
+    private LocalDate dueDate; // 만기일 (수금 예정일)
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private ReceivableStatus status; // 梨꾧텒 ?곹깭 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
+    private ReceivableStatus status; // 채권 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
 
 
     @Column(nullable = false, updatable = false)
@@ -104,12 +102,12 @@ public class Receivable {
         this.salesInvoice = salesInvoice;
     }
 
-    public BusinessPartner getCustomer() {
-        return customer;
+    public String getCustomerCode() {
+        return customerCode;
     }
 
-    public void setCustomer(BusinessPartner customer) {
-        this.customer = customer;
+    public void setCustomerCode(String customerCode) {
+        this.customerCode = customerCode;
     }
 
     public BigDecimal getOriginalAmount() {

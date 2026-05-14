@@ -142,6 +142,11 @@ public class JournalEntryService implements JournalUseCase {
         return journalPersistencePort.findByAccountingDateBetween(startDate, endDate);
     }
 
+    @Override
+    public List<JournalEntry> getJournalEntriesBySource(String sourceType, String sourceId) {
+        return journalPersistencePort.findBySource(sourceType, sourceId);
+    }
+
     /**
      * 전표번호로 전표를 조회합니다.
      *

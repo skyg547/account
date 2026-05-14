@@ -136,4 +136,9 @@ public class JournalPersistenceAdapter implements JournalPersistencePort {
     public List<JournalEntry> findByAccountingDateBetween(LocalDate startDate, LocalDate endDate) {
         return journalEntryRepository.findByAccountingDateBetween(startDate, endDate);
     }
+
+    @Override
+    public List<JournalEntry> findBySource(String sourceType, String sourceId) {
+        return journalEntryRepository.findByLineageSourceTypeAndLineageSourceId(sourceType, sourceId);
+    }
 }

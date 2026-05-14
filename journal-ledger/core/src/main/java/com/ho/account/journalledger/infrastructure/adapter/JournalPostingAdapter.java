@@ -8,14 +8,6 @@ import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Currency;
-import com.ho.account.masterdata.core.domain.model.Department;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,10 +25,6 @@ import java.util.stream.Collectors;
 public class JournalPostingAdapter implements JournalPostingPort {
 
     private final JournalUseCase journalUseCase;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    private final CurrencyPersistencePort currencyPersistencePort;
 
     @Override
     public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
@@ -53,29 +41,22 @@ public class JournalPostingAdapter implements JournalPostingPort {
 
         // 기본 통화 KRW (Command에 없으면)
         String currencyCode = command.currencyCode() != null ? command.currencyCode() : "KRW";
-        Currency currency = currencyPersistencePort.findByCode(currencyCode)
-                .orElseThrow(() -> new IllegalArgumentException("Currency not found: " + currencyCode));
-        entry.setCurrency(currency);
+        entry.setCurrencyCode(currencyCode);
 
         entry.setDetails(command.lines().stream().map(line -> {
             JournalDetail detail = new JournalDetail();
             
-            AccountSubject account = accountSubjectPersistencePort.findByCode(line.accountCode())
-                    .orElseThrow(() -> new IllegalArgumentException("Account subject not found: " + line.accountCode()));
-            detail.setAccountSubject(account);
-            
+            detail.setAccountCode(line.accountCode());
             detail.setAmount(line.amount());
             detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
             detail.setSide("DEBIT".equalsIgnoreCase(line.drcrType()) ? JournalSide.DEBIT : JournalSide.CREDIT);
             
             if (line.departmentCode() != null) {
-                departmentPersistencePort.findActiveByCode(line.departmentCode())
-                        .ifPresent(detail::setDepartment);
+                detail.setDepartmentCode(line.departmentCode());
             }
             
             if (line.businessPartnerCode() != null) {
-                businessPartnerPersistencePort.findByBusinessPartnerCode(line.businessPartnerCode())
-                        .ifPresent(detail::setBusinessPartner);
+                detail.setBusinessPartnerCode(line.businessPartnerCode());
             }
             
             detail.setDetailDescription(line.detailDescription());

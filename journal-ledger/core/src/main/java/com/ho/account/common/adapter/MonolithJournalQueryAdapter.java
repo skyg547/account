@@ -5,6 +5,7 @@ import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -28,6 +29,7 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
 
     private final JournalUseCase journalUseCase;
     private final JournalDetailRepository journalDetailRepository;
+    private final MasterDataQueryPort masterDataQueryPort;
 
     @Override
     public List<JournalSummary> getJournalSummaries(LocalDate startDate, LocalDate endDate) {
@@ -82,9 +84,14 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
         JournalDetailSummary summary = new JournalDetailSummary();
         summary.setId(detail.getId());
         summary.setSide(detail.getSide() == com.ho.account.journalledger.domain.journal.domain.JournalSide.DEBIT ? JournalSide.DEBIT : JournalSide.CREDIT);
-        summary.setAccountCode(detail.getAccountSubject().getCode());
-        summary.setAccountName(detail.getAccountSubject().getName());
-        summary.setAccountCategory(detail.getAccountSubject().getCategory().name());
+        
+        String accountCode = detail.getAccountCode();
+        summary.setAccountCode(accountCode);
+        
+        masterDataQueryPort.findAccountSubject(accountCode).ifPresent(acc -> {
+            summary.setAccountName(acc.name());
+        });
+
         if (detail.getJournalEntry() != null) {
             summary.setAccountingDate(detail.getJournalEntry().getAccountingDate());
         }

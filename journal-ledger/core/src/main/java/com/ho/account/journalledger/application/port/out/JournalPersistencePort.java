@@ -119,4 +119,9 @@ public interface JournalPersistencePort {
      * @return 해당 기간 전표 목록 (없으면 빈 리스트)
      */
     List<JournalEntry> findByAccountingDateBetween(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 원천 문서 정보를 기반으로 전표를 조회합니다.
+     */
+    List<JournalEntry> findBySource(String sourceType, String sourceId);
 }

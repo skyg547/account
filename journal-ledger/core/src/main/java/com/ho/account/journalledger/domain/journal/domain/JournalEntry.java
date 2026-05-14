@@ -124,9 +124,8 @@ public class JournalEntry {
      * 외화 거래 시 해당 통화를 설정하고, exchangeRate로 기본 통화 환산 금액을 계산합니다.
      * 국내 원화 거래이면 null 또는 KRW.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code")
-    private Currency currency;
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
 
     /**
      * 환율 (거래 통화 → 기본 통화 변환 비율).
@@ -302,7 +301,7 @@ public class JournalEntry {
         reversal.setAccountingDate(accountingDate);
         reversal.setDescription("[역분개 취소] " + this.description + " (사유: " + reason + ")");
         reversal.setEntryType("REVERSAL");
-        reversal.setCurrency(this.currency);
+        reversal.setCurrencyCode(this.currencyCode);
         reversal.setExchangeRate(this.exchangeRate);
         reversal.setCreatedBy(creator);
         reversal.setLineageSourceType("JOURNAL_ENTRY");
@@ -407,8 +406,8 @@ public class JournalEntry {
     public String getEntryType() { return entryType; }
     public void setEntryType(String entryType) { this.entryType = entryType; }
 
-    public Currency getCurrency() { return currency; }
-    public void setCurrency(Currency currency) { this.currency = currency; }
+    public String getCurrencyCode() { return currencyCode; }
+    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
 
     public BigDecimal getExchangeRate() { return exchangeRate; }
     public void setExchangeRate(BigDecimal exchangeRate) { this.exchangeRate = exchangeRate; }

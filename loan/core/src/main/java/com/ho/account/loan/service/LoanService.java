@@ -445,7 +445,7 @@ public class LoanService {
 
         JournalDetail debitDetail = new JournalDetail();
         debitDetail.setSide(JournalSide.DEBIT);
-        debitDetail.setAccountSubject(debitAccount);
+        debitDetail.setAccountCode(debitAccount.getCode());
         debitDetail.setAmount(amount);
         debitDetail.setBaseAmount(amount);
         debitDetail.setDetailDescription(description + " (DEBIT)");
@@ -453,7 +453,7 @@ public class LoanService {
 
         JournalDetail creditDetail = new JournalDetail();
         creditDetail.setSide(JournalSide.CREDIT);
-        creditDetail.setAccountSubject(creditAccount);
+        creditDetail.setAccountCode(creditAccount.getCode());
         creditDetail.setAmount(amount);
         creditDetail.setBaseAmount(amount);
         creditDetail.setDetailDescription(description + " (CREDIT)");

@@ -855,3 +855,28 @@
   - 운영 DB의 기존 `DEPT_CODE` 컬럼을 `DEPARTMENT_ID`로 전환하는 migration은 아직 별도 작성되어 있지 않음.
   - `security` 패키지는 governance 문서 기준 auth 모듈 이관 대상 legacy 영역으로 남아 있음.
 
+
+### [QA]
+- **[수정] journal-ledger 및 연관 모듈 엔티티 식별자 기반 의존성 리팩토링**
+  - journal-ledger 내부 엔티티 (JournalDetail, GlEntry, SlEntry, GlBalance, SlBalance, UnsettledItem)에서 AccountSubject, BusinessPartner, Department, Currency 엔티티 직접 참조를 ccountCode, usinessPartnerCode, departmentCode, currencyCode 등 String ID 참조로 수정.
+  - 연관된 모든 Repository, Service, Adapter 구현체 수정 및 테스트 코드 검증 완료.
+  - expenditure-resolution, loan 모듈 내부에서 journal-ledger 수정으로 발생한 컴파일 및 테스트 에러 해결 완료.
+  - 전체 프로젝트 gradlew test 통과 확인.
+
+
+### [QA] 2026-05-13 (오후) - 2차 작업 완료 및 Codex 이관 준비
+- **작업 완료 사항**:
+  - journal-ledger: 전 엔티티(JournalDetail, GlEntry, SlEntry, GlBalance, SlBalance, UnsettledItem) 객체 직접 참조 제거 및 String ID 참조 리팩토링 완료.
+  - eceivable: Receivable, Collection 엔티티 객체 직접 참조 제거 및 ID 참조 전환, 파일 인코딩 복구 완료.
+  - expenditure-resolution, loan: journal-ledger 리팩토링에 따른 연관 코드 및 테스트 수정 완료.
+  - econciliation: ReconciliationDifference 인코딩 복구 완료.
+  - 전사 테스트 (gradlew test) 통과 확인.
+- **진행 중/미완료 사항**:
+  - econciliation: 타 엔티티 파일 인코딩 추가 점검 필요.
+  - closing: ClosingAdjustment 등 잔여 객체 직접 참조 ID 기반 리팩토링 미착수.
+  - eporting: 목업 연동 제거 및 실제 원장 데이터 연동 미착수.
+- **Codex Handoff 지침**:
+  1. TOTAL_QUALITY_REPORT.md의 로드맵 2번(closing 리팩토링)부터 작업을 재개하십시오.
+  2. econciliation 모듈의 남은 인코딩 문제를 점검하고 복구하십시오.
+  3. eporting 모듈의 목업 데이터를 걷어내고 JournalQueryPort를 통해 실제 원장 데이터를 연동하십시오.
+

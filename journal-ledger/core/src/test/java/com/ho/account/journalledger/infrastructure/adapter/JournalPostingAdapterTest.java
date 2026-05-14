@@ -7,12 +7,6 @@ import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,41 +29,15 @@ class JournalPostingAdapterTest {
     @Mock
     private JournalUseCase journalUseCase;
 
-    @Mock
-    private AccountSubjectPersistencePort accountSubjectPersistencePort;
-
-    @Mock
-    private DepartmentPersistencePort departmentPersistencePort;
-
-    @Mock
-    private BusinessPartnerPersistencePort businessPartnerPersistencePort;
-
-    @Mock
-    private CurrencyPersistencePort currencyPersistencePort;
-
     private JournalPostingAdapter adapter;
 
     @BeforeEach
     void setUp() {
-        adapter = new JournalPostingAdapter(
-                journalUseCase,
-                accountSubjectPersistencePort,
-                departmentPersistencePort,
-                businessPartnerPersistencePort,
-                currencyPersistencePort
-        );
+        adapter = new JournalPostingAdapter(journalUseCase);
     }
 
     @Test
     void createDraftEntryMapsCommandFieldsAndBaseAmount() {
-        Currency currency = new Currency();
-        currency.setCurrencyCode("KRW");
-        AccountSubject debitAccount = accountSubject("131000");
-        AccountSubject creditAccount = accountSubject("211000");
-
-        when(currencyPersistencePort.findByCode("KRW")).thenReturn(Optional.of(currency));
-        when(accountSubjectPersistencePort.findByCode("131000")).thenReturn(Optional.of(debitAccount));
-        when(accountSubjectPersistencePort.findByCode("211000")).thenReturn(Optional.of(creditAccount));
         when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
             JournalEntry entry = invocation.getArgument(0);
             entry.setId(77L);
@@ -109,6 +76,7 @@ class JournalPostingAdapterTest {
         assertThat(entry.getSlipDate()).isEqualTo(LocalDate.of(2026, 5, 12));
         assertThat(entry.getAccountingDate()).isEqualTo(LocalDate.of(2026, 5, 11));
         assertThat(entry.getEntryType()).isEqualTo("ADJUSTMENT");
+        assertThat(entry.getCurrencyCode()).isEqualTo("KRW");
         assertThat(entry.getExchangeRate()).isEqualByComparingTo("1.00");
         assertThat(entry.getCreatedBy()).isEqualTo("tester");
         assertThat(entry.getAuditUser()).isEqualTo("tester");
@@ -117,20 +85,13 @@ class JournalPostingAdapterTest {
         assertThat(entry.getDetails()).hasSize(2);
         assertThat(entry.getDetails()).anySatisfy(detail -> {
             assertThat(detail.getSide()).isEqualTo(JournalSide.DEBIT);
-            assertThat(detail.getAccountSubject()).isSameAs(debitAccount);
+            assertThat(detail.getAccountCode()).isEqualTo("131000");
             assertThat(detail.getBaseAmount()).isEqualByComparingTo("50.00");
         });
         assertThat(entry.getDetails()).anySatisfy(detail -> {
             assertThat(detail.getSide()).isEqualTo(JournalSide.CREDIT);
-            assertThat(detail.getAccountSubject()).isSameAs(creditAccount);
+            assertThat(detail.getAccountCode()).isEqualTo("211000");
             assertThat(detail.getBaseAmount()).isEqualByComparingTo("50.00");
         });
-    }
-
-    private AccountSubject accountSubject(String code) {
-        AccountSubject accountSubject = new AccountSubject();
-        accountSubject.setCode(code);
-        accountSubject.setName(code);
-        return accountSubject;
     }
 }

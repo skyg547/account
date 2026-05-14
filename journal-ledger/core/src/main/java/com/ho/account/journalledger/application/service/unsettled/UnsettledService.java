@@ -150,8 +150,7 @@ public class UnsettledService {
 
         // 거래처 코드로 인-메모리 필터
         return all.stream()
-                .filter(item -> item.getBusinessPartner() != null &&
-                        businessPartnerCode.equals(item.getBusinessPartner().getBusinessPartnerCode()))
+                .filter(item -> businessPartnerCode.equals(item.getBusinessPartnerCode()))
                 .collect(Collectors.toList());
     }
 }

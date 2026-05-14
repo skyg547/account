@@ -1,7 +1,5 @@
 package com.ho.account.journalledger.domain.ledger.domain;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,13 +21,11 @@ public class GlAccountBalance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
-    private AccountSubject accountSubject;
+    @Column(name = "account_code", nullable = false, length = 50)
+    private String accountCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code")
-    private Currency currency;
+    @Column(name = "currency_code", nullable = false, length = 3)
+    private String currencyCode;
 
     @Column(nullable = false)
     private LocalDate balanceDate;

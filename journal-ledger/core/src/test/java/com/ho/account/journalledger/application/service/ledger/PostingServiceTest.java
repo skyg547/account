@@ -9,8 +9,6 @@ import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
 import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
 import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,16 +88,13 @@ class PostingServiceTest {
     }
 
     private JournalEntry approvedEntry() {
-        Currency currency = new Currency();
-        currency.setCurrencyCode("KRW");
-
         JournalEntry entry = new JournalEntry();
         entry.setId(1L);
         entry.setSlipNo("JE-20260510-0001");
         entry.setSlipDate(LocalDate.of(2026, 5, 10));
         entry.setAccountingDate(LocalDate.of(2026, 5, 10));
         entry.setStatus(JournalEntryStatus.APPROVED);
-        entry.setCurrency(currency);
+        entry.setCurrencyCode("KRW");
         entry.setLineageSourceType("UNIT_TEST");
         entry.setLineageSourceId("SRC-1");
         entry.addDetail(detail(JournalSide.DEBIT, "10100"));
@@ -108,12 +103,9 @@ class PostingServiceTest {
     }
 
     private JournalDetail detail(JournalSide side, String accountCode) {
-        AccountSubject account = new AccountSubject();
-        account.setCode(accountCode);
-
         JournalDetail detail = new JournalDetail();
         detail.setSide(side);
-        detail.setAccountSubject(account);
+        detail.setAccountCode(accountCode);
         detail.setAmount(new BigDecimal("100.00"));
         detail.setBaseAmount(new BigDecimal("100.00"));
         return detail;

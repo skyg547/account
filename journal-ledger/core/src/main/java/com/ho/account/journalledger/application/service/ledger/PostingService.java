@@ -19,129 +19,33 @@ import java.math.BigDecimal;
 
 /**
  * 전기 서비스 (Posting Service) — 전표를 원장에 반영합니다.
- *
- * ─────────────────────────────────────────────────
- * [업무 설명]
- * 전기(Posting)는 회계에서 "전표 작성"과 "장부 반영"을 구분하는 핵심 단계입니다.
- *
- * 전기 전: 전표는 작성되었지만 원장에 반영되지 않아 재무제표에 영향이 없습니다.
- * 전기 후: 원장(GL/SL)에 잔액이 반영되어 재무제표 작성의 기초 데이터가 됩니다.
- *
- * 전기 처리 시 발생하는 일 (전표 상세 라인 1개당):
- *   1. GL Entry(총계정원장 분개항목) 생성 — 계정과목 단위 기록
- *   2. SL Entry(보조원장 분개항목) 생성  — 계정과목+거래처+부서 단위 기록
- *   3. GL Balance(총계정원장 잔액) 갱신  — 차변/대변 누적 및 기말잔액 재계산
- *   4. SL Balance(보조원장 잔액) 갱신    — 거래처별/부서별 잔액 갱신
- *
- * 예시:
- *   전표: 차변 매출채권(11000) 100,000 / 대변 매출(41000) 100,000
- *   전기 후:
- *     GlEntry: 매출채권 차변 100,000 생성
- *     GlEntry: 매출     대변 100,000 생성
- *     SlEntry: 매출채권+거래처A 차변 100,000 생성
- *     GlBalance: 매출채권 잔액 +100,000
- *     SlBalance: 매출채권+거래처A 잔액 +100,000
- *
- * ─────────────────────────────────────────────────
- * [개발 설명]
- * - JournalEntryService.postJournalEntry()는 이 서비스에 전기 처리를 위임합니다.
- * - 이 서비스가 전표 상태 변경, 원장 항목(Entry) 생성, 잔액(Balance) 갱신을 원자적으로 처리합니다.
- * - 전표 상세 라인(JournalDetail) 하나당 GlEntry 1개 + SlEntry 1개가 생성됩니다.
- * - 잔액 갱신(Carry-forward 포함)은 LedgerService에 위임합니다.
- * - POSTED 또는 REVERSED 상태의 전표에 재전기를 시도하면 예외가 발생합니다.
- *
- * 트랜잭션:
- *   전체 전기 과정이 하나의 트랜잭션으로 묶입니다.
- *   전기 도중 오류 발생 시 전표 상태 변경, Entry 생성, Balance 갱신이 모두 롤백됩니다.
- * ─────────────────────────────────────────────────
  */
 @Service
 @RequiredArgsConstructor
 public class PostingService {
 
-    /**
-     * 전표 저장소.
-     * 전기할 전표를 조회하고, 상태(POSTED)를 저장합니다.
-     */
     private final JournalEntryRepository journalEntryRepository;
-
-    /**
-     * GL Entry 저장소.
-     * 총계정원장 분개항목(계정과목 단위)을 저장합니다.
-     */
     private final GlEntryRepository glEntryRepository;
-
-    /**
-     * SL Entry 저장소.
-     * 보조원장 분개항목(계정과목+거래처+부서 단위)을 저장합니다.
-     */
     private final SlEntryRepository slEntryRepository;
-
-    /**
-     * 원장 잔액 서비스.
-     * GL Balance / SL Balance 잔액 갱신 및 Carry-forward(기초잔액 이월)를 담당합니다.
-     */
     private final LedgerService ledgerService;
 
-    /**
-     * 전표를 원장에 전기합니다.
-     *
-     * [업무 설명]
-     * APPROVED 상태의 전표를 원장(GL/SL)에 공식 반영합니다.
-     * 이 메서드 호출 후 재무제표에 해당 거래가 반영됩니다.
-     *
-     * 처리 순서:
-     *   1. 전표 조회 및 상태 검증 (이미 전기/역전기된 전표 재전기 방지)
-     *   2. 전표 상태 → POSTED 변경 및 저장
-     *   3. 전표 상세 라인(JournalDetail) 반복 처리:
-     *      a. GL Entry 생성 (총계정원장 기록)
-     *      b. SL Entry 생성 (보조원장 기록)
-     *      c. GL Balance / SL Balance 잔액 갱신 (Carry-forward 포함)
-     *
-     * [개발 설명]
-     * - 차변/대변 구분: JournalSide.DEBIT이면 drAmount, 아니면 crAmount에 값 설정
-     * - amount vs baseAmount:
-     *     detail.getAmount()     → 거래통화 금액 (외화일 경우 USD 그대로)
-     *     detail.getBaseAmount() → 기본통화(KRW) 환산 금액 (잔액 계산 기준)
-     * - lineageSourceType/lineageSourceId: JournalEntry 헤더에서 복사하여
-     *   "GlEntry → 원천 문서" 역추적(drill-down)에 사용
-     *
-     * @param journalEntryId 전기할 전표의 내부 PK
-     * @throws IllegalArgumentException 존재하지 않는 전표 ID
-     * @throws IllegalStateException    이미 POSTED 또는 REVERSED 상태인 전표
-     */
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
         postJournalEntry(journalEntryId, "SYSTEM");
     }
 
-    /**
-     * 전표를 원장에 전기합니다.
-     *
-     * @param journalEntryId 전기할 전표의 내부 PK
-     * @param poster         전기 처리자 식별자
-     * @throws IllegalArgumentException 존재하지 않는 전표 ID
-     * @throws IllegalStateException    APPROVED 상태가 아닌 전표
-     */
     @Transactional
     public void postJournalEntry(Long journalEntryId, String poster) {
-        // ─── 1단계: 전표 조회 및 중복 전기 방지 ───────────────────────────
         JournalEntry journalEntry = journalEntryRepository.findById(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 
-        // ─── 2단계: 전표 상태 POSTED로 변경 ────────────────────────────────
-        // 도메인 메서드가 APPROVED 상태 여부와 감사 사용자 기록을 함께 검증/처리합니다.
         journalEntry.post(poster);
         journalEntryRepository.save(journalEntry);
 
-        // ─── 3단계: 회계연도/회계기간 계산 ─────────────────────────────────
         LocalDate accountingDate = journalEntry.getAccountingDate();
-        // 회계연도: "2026" (4자리 연도 문자열)
         String fiscalYear = String.valueOf(accountingDate.getYear());
-        // 회계기간: "01" ~ "12" (2자리 월 문자열, 앞자리 0 패딩)
         String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
 
-        // ─── 4단계: 전표 상세 라인별 원장 항목 준비 (벌크 처리를 위해 리스트에 수집) ────────
         List<GlEntry> glEntries = new ArrayList<>();
         List<SlEntry> slEntries = new ArrayList<>();
         List<JournalDetail> details = journalEntry.getDetails();
@@ -149,14 +53,13 @@ public class PostingService {
         for (JournalDetail detail : details) {
             boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
 
-            // ── 4-1. GL Entry 준비 ──────────────────────
             GlEntry glEntry = new GlEntry();
             glEntry.setJournalDetail(detail);
-            glEntry.setAccount(detail.getAccountSubject());
+            glEntry.setAccountCode(detail.getAccountCode());
             glEntry.setFiscalYear(fiscalYear);
             glEntry.setFiscalPeriod(fiscalPeriod);
             glEntry.setPostingDate(accountingDate);
-            glEntry.setCurrency(journalEntry.getCurrency());
+            glEntry.setCurrencyCode(journalEntry.getCurrencyCode());
             glEntry.setLineageSourceType(journalEntry.getLineageSourceType());
             glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
 
@@ -173,16 +76,15 @@ public class PostingService {
             }
             glEntries.add(glEntry);
 
-            // ── 4-2. SL Entry 준비 ───────────────────────
             SlEntry slEntry = new SlEntry();
             slEntry.setJournalDetail(detail);
-            slEntry.setAccount(detail.getAccountSubject());
-            slEntry.setBusinessPartner(detail.getBusinessPartner());
-            slEntry.setDepartment(detail.getDepartment());
+            slEntry.setAccountCode(detail.getAccountCode());
+            slEntry.setBusinessPartnerCode(detail.getBusinessPartnerCode());
+            slEntry.setDepartmentCode(detail.getDepartmentCode());
             slEntry.setFiscalYear(fiscalYear);
             slEntry.setFiscalPeriod(fiscalPeriod);
             slEntry.setPostingDate(accountingDate);
-            slEntry.setCurrency(journalEntry.getCurrency());
+            slEntry.setCurrencyCode(journalEntry.getCurrencyCode());
             slEntry.setLineageSourceType(journalEntry.getLineageSourceType());
             slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
 
@@ -200,11 +102,9 @@ public class PostingService {
             slEntries.add(slEntry);
         }
 
-        // ─── 5단계: 벌크 저장 및 잔액 갱신 ────────────────────────────────
         glEntryRepository.saveAll(glEntries);
         slEntryRepository.saveAll(slEntries);
         
-        // LedgerService의 벌크 갱신 메서드 호출
         ledgerService.updateLedgerBalancesBulk(details);
     }
 }

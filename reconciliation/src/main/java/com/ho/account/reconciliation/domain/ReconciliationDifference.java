@@ -5,8 +5,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ???李⑥씠(Reconciliation Difference) ?뷀떚??
- * ????ㅽ뻾 寃곌낵 諛쒓껄??李⑥씠 ??ぉ??湲곕줉?섍퀬, ?ъ쑀 肄붾뱶 諛?議곗젙 ?꾪몴? ?곌퀎?⑸땲??
+ * 대사 차이(Reconciliation Difference) 엔티티.
+ * 대사 실행 결과 발견된 차이 항목을 기록하고, 사유 코드 및 조정 전표와 연계합니다.
  */
 @Entity
 @Table(name = "reconciliation_differences")
@@ -22,21 +22,21 @@ public class ReconciliationDifference {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private DifferenceType differenceType; // 李⑥씠 ?좏삎 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH ??
+    private DifferenceType differenceType; // 차이 유형 (MISSING_SOURCE, MISSING_TARGET, AMOUNT_MISMATCH 등)
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountExpected; // 湲곕? 湲덉븸
+    private BigDecimal amountExpected; // 기대 금액
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal amountActual; // ?ㅼ젣 湲덉븸
+    private BigDecimal amountActual; // 실제 금액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal differenceAmount; // 李⑥씠 湲덉븸
+    private BigDecimal differenceAmount; // 차이 금액
 
     @Column(length = 1000)
-    private String description; // 李⑥씠 ?곸꽭 ?ㅻ챸
+    private String description; // 차이 상세 설명
 
-    // ?먯쿇/????곗씠????ぉ?????李몄“ (?? JSON 臾몄옄?대줈 { "type": "BANK_TRANSACTION", "id": "TXN123" } ?먮뒗 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
+    // 원천/대상 데이터 항목에 대한 참조 (예: JSON 문자열로 { "type": "BANK_TRANSACTION", "id": "TXN123" } 또는 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
     @Column(columnDefinition = "TEXT")
     private String sourceItemRef;
 
@@ -45,24 +45,24 @@ public class ReconciliationDifference {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reason_code_id")
-    private DifferenceReasonCode reasonCode; // 李⑥씠 ?ъ쑀 肄붾뱶 (DoD: 李⑥씠??"?먯씤肄붾뱶"濡?諛섎뱶???섎졃)
+    private DifferenceReasonCode reasonCode; // 차이 사유 코드 (DoD: 차이는 원인코드로 반드시 수렴)
 
     @Column(name = "adjustment_journal_entry_id")
-    private Long adjustmentJournalEntryId; // 議곗젙 ?꾪몴 ID
+    private Long adjustmentJournalEntryId; // 조정 전표 ID
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ReconciliationDifferenceStatus status; // 李⑥씠 泥섎━ ?곹깭 (PENDING, ASSIGNED, RESOLVED, IGNORED)
+    private ReconciliationDifferenceStatus status; // 차이 처리 상태 (PENDING, ASSIGNED, RESOLVED, IGNORED)
 
     @Column(length = 50)
-    private String assignedToUser; // ?대떦??(User ?뷀떚?곗? FK ?곌껐 媛?ν븯?? ?쇰떒 String?쇰줈)
+    private String assignedToUser; // 담당자 (User 엔티티와 FK 연결 가능하나, 일단 String으로)
 
-    private LocalDateTime slaDueDate; // SLA 湲고븳
+    private LocalDateTime slaDueDate; // SLA 기한
 
-    private LocalDateTime resolvedAt; // ?닿껐 ?쇱떆
+    private LocalDateTime resolvedAt; // 해결 일시
 
     @Column(length = 50)
-    private String resolvedBy; // ?닿껐??
+    private String resolvedBy; // 해결자
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -91,22 +91,22 @@ public class ReconciliationDifference {
 
     // --- Enums ---
     public enum DifferenceType {
-        AMOUNT_MISMATCH, // 湲덉븸 遺덉씪移?
-        MISSING_SOURCE,  // ?먯쿇 ?곗씠???꾨씫
-        MISSING_TARGET,  // ????곗씠???꾨씫
-        DATE_MISMATCH,   // ?좎쭨 遺덉씪移?
-        OTHER            // 湲고?
+        AMOUNT_MISMATCH, // 금액 불일치
+        MISSING_SOURCE,  // 원천 데이터 누락
+        MISSING_TARGET,  // 대상 데이터 누락
+        DATE_MISMATCH,   // 날짜 불일치
+        OTHER            // 기타
     }
 
     public enum ReconciliationDifferenceStatus {
-        PENDING,   // 泥섎━ ?湲?
-        ASSIGNED,  // ?대떦???좊떦
-        IN_REVIEW, // 寃??以?
-        RESOLVED,  // ?닿껐 ?꾨즺
-        IGNORED    // 臾댁떆??
+        PENDING,   // 처리 대기
+        ASSIGNED,  // 담당자 할당
+        IN_REVIEW, // 검토 중
+        RESOLVED,  // 해결 완료
+        IGNORED    // 무시됨
     }
 
-    // --- Getter 諛?Setter ---
+    // --- Getter 및 Setter ---
 
     public Long getId() {
         return id;

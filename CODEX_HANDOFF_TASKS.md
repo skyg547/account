@@ -10,6 +10,10 @@
 - [x] **대량 데이터 성능 최적화:** `buildTargetSnapshot`에서 모든 전표를 루프 돌며 합산하는 방식은 대량 처리 시 성능 병목을 유발합니다. `JournalQueryPort`에 기간별 합계(Sum)를 DB 단에서 직접 집계해 반환하는 메서드를 추가하여 교체하세요. -> *(완료: `JournalDetailAggregateSummary`와 `JournalQueryPort.getJournalDetailAggregate` 추가, `journal-ledger` DB 집계 어댑터 구현, `ReconciliationService` 대상 집계 전환 및 테스트 보강)*
 - [x] **외부 데이터 연동 미흡:** `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 설정값(`matchingRulesJson`)에 의존하고 있습니다. 실제 외부 원천/인터페이스 시스템(Mock 어댑터 포함)을 통해 데이터를 가져와 집계하도록 전환하세요. -> *(완료: `ExternalReconSnapshotPort`/`ExternalReconSnapshotRequest` 계약 추가, `RECON_EXTERNAL_STAGE_RECORD` 스테이징 집계 어댑터 구현, `ReconManagerService` SOURCE/INTERFACE 포트 호출 전환 및 테스트 보강)*
 
+### [Journal-Ledger & Closing (코어 위반)]
+- [ ] **[Journal-Ledger] 모듈 간 객체 참조(FK) 위반:** `JournalDetail` 엔티티가 `master-data`의 `AccountSubject`, `BusinessPartner`, `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 이를 `String accountCode`, `String deptCode`, `String businessPartnerCode` 등의 ID 기반 참조로 전환하고 Port를 통해 정합성을 검증하도록 수정하세요.
+- [ ] **[Closing] 모듈 간 객체 참조(FK) 위반:** `ClosingAdjustment` 엔티티가 `master-data`의 `FiscalPeriod`를 직접 참조하고 있습니다. ID 기반 참조로 수정하세요.
+
 ### [Loan (대출)]
 - [ ] **E2E 회귀 테스트 부재 및 전표 수렴 완결성:** 대출 전표가 원장(`POSTED`)까지 수렴하는 과정을 증명하는 E2E 검증 테스트가 부족합니다. 또한 `Loan`과 `LoanContract` 병행 모델을 통합하고, 코드 내 하드코딩된 계정코드를 제거하세요.
   - 진행: `LoanService`/`InterestAccrualService` 자동 전표가 생성 후 `approveJournalEntry`와 `postJournalEntry`까지 호출하도록 보강했고, 대출 회계 계정코드는 `LoanAccountingProperties` 설정으로 분리했습니다. `LoanServiceTest`, `InterestAccrualServiceTest`로 POSTED 수렴 호출과 설정 계정 사용을 검증했습니다.
@@ -42,6 +46,9 @@
 - [ ] **[Governance] 도메인 엔티티 및 Map 노출:** `AuditController`에서 도메인 엔티티 반환 및 `Map<String, String>` 입력 구조를 전용 DTO로 변경하세요.
 - [ ] **[Governance] TracingService 포트 우회:** `TracingService`가 `AuditLogRepository`에 직접 의존하여 계층을 무너뜨린 것을 Port를 통하도록 구조를 수정하세요.
 
+### [Reconciliation (인코딩 및 품질)]
+- [ ] **엔티티 파일 인코딩 복구:** `ReconciliationDifference.java` 등 일부 엔티티 파일의 한글 주석과 문자열이 심각하게 깨져 있습니다. UTF-8로 인코딩을 정리하고 가독성을 확보하세요.
+
 ### [Reconciliation (대사 심화)]
 - [ ] **복합 매칭 조건 확장:** `AutomatedMatchingEngine`의 매칭 로직에 금액/일자 외에도 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 지원하도록 고도화하세요.
 - [ ] **계정 산정 정책 도메인화:** 업무별 차/대 계정 산정을 설정(`criteriaJson`)에만 의존하지 않고, 별도의 도메인 정책(Policy) 객체로 명확히 분리하세요.
@@ -58,4 +65,6 @@
 ## 3. 🎨 프론트엔드 및 시스템 고도화 과제 (Next Steps)
 
 - [ ] **[Frontend] 마스터 데이터 SCD2 타임라인 UI 구현:** `master-data`의 기준 정보 변경 이력을 한눈에 볼 수 있는 Audit Log 타임라인 화면을 프론트엔드에 구축하세요.
+- [ ] **[Backend] 전표 및 룰 엔진 검증 로직 강화:** 전표 생성 시 하드코딩된 차대일치, 계정유효성, 마감잠금 확인 로직을 독립적인 검증 필터/엔진으로 고도화하세요.
+r-data`의 기준 정보 변경 이력을 한눈에 볼 수 있는 Audit Log 타임라인 화면을 프론트엔드에 구축하세요.
 - [ ] **[Backend] 전표 및 룰 엔진 검증 로직 강화:** 전표 생성 시 하드코딩된 차대일치, 계정유효성, 마감잠금 확인 로직을 독립적인 검증 필터/엔진으로 고도화하세요.

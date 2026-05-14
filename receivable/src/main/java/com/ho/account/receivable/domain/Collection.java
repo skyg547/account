@@ -1,14 +1,13 @@
 package com.ho.account.receivable.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?섍툑(?낃툑) ?뷀떚??
- * 怨좉컼?쇰줈遺???낃툑??湲덉븸 ?뺣낫瑜?愿由ы빀?덈떎.
+ * 수금(입금) 엔티티.
+ * 고객으로부터 입금된 금액 정보를 관리합니다.
  */
 @Entity
 @Table(name = "collections")
@@ -19,27 +18,26 @@ public class Collection {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate collectionDate; // ?섍툑??
+    private LocalDate collectionDate; // 수금일
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_code", referencedColumnName = "businessPartnerCode", nullable = false)
-    private BusinessPartner customer; // ?낃툑 怨좉컼 (嫄곕옒泥?
+    @Column(name = "customer_code", nullable = false, length = 50)
+    private String customerCode; // 입금 고객 코드 (거래처)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // ?섍툑??
+    private BigDecimal amount; // 수금액
 
     @Column(length = 100)
-    private String bankAccount; // ?낃툑?????怨꾩쥖 (?대쫫 ?먮뒗 踰덊샇)
+    private String bankAccount; // 입금된 당행 계좌 (이름 또는 번호)
 
     @Column(length = 100)
-    private String virtualAccount; // 媛??怨꾩쥖 ?뺣낫 (?ъ슜?섎뒗 寃쎌슦)
+    private String virtualAccount; // 가상 계좌 정보 (사용하는 경우)
 
     @Column(length = 100)
-    private String referenceNo; // 留ㅼ묶???꾪븳 李몄“ 踰덊샇 (?? ?몃낫?댁뒪 踰덊샇, 二쇰Ц 踰덊샇)
+    private String referenceNo; // 매칭을 위한 참조 번호 (예: 인보이스 번호, 주문 번호)
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private CollectionStatus status; // ?섍툑 ?곹깭 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
+    private CollectionStatus status; // 수금 상태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
 
 
     @Column(nullable = false, updatable = false)
@@ -86,12 +84,12 @@ public class Collection {
         this.collectionDate = collectionDate;
     }
 
-    public BusinessPartner getCustomer() {
-        return customer;
+    public String getCustomerCode() {
+        return customerCode;
     }
 
-    public void setCustomer(BusinessPartner customer) {
-        this.customer = customer;
+    public void setCustomerCode(String customerCode) {
+        this.customerCode = customerCode;
     }
 
     public BigDecimal getAmount() {

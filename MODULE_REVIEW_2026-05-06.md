@@ -1,19 +1,9 @@
-# Module Sequential Review (2026-05-06)
+# 📝 Module Sequential Review (2026-05-06)
 
-검수 기준:
-- DDD / Hexagonal Architecture 준수 여부
-- 주석/설명 정합성
-- 재무 업무 흐름(분개/정산/마스터 참조) 타당성
-- 모듈 컴파일 가능 여부
-
-검수 순서:
-1. `master-data`
-2. `journal-ledger:core`
-3. `receivable`
-4. `expenditure-resolution`
-5. `tax`, `payable`, `closing:core` (연관 모듈)
+> ⚠️ **공지:** 이 과거 검수 이력은 **[TOTAL_QUALITY_REPORT.md](./TOTAL_QUALITY_REPORT.md)**의 히스토리 세션에 통합되었습니다.
 
 ---
+
 
 ## 1) 컴파일 점검 결과
 

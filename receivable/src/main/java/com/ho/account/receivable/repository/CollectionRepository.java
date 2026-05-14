@@ -14,6 +14,6 @@ import java.util.Optional;
 public interface CollectionRepository extends JpaRepository<Collection, Long> {
     List<Collection> findByStatus(CollectionStatus status);
     Optional<Collection> findByReferenceNo(String referenceNo);
-    List<Collection> findByCustomerBusinessPartnerCodeAndStatus(String customerCode, CollectionStatus status);
-    List<Collection> findByCustomerBusinessPartnerCodeAndAmountBetween(String customerCode, BigDecimal minAmount, BigDecimal maxAmount);
+    List<Collection> findByCustomerCodeAndStatus(String customerCode, CollectionStatus status);
+    List<Collection> findByCustomerCodeAndAmountBetween(String customerCode, BigDecimal minAmount, BigDecimal maxAmount);
 }

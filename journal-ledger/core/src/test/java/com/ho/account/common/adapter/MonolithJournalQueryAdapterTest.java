@@ -2,6 +2,7 @@ package com.ho.account.common.adapter;
 
 import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalSide;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import org.junit.jupiter.api.Test;
@@ -25,13 +26,16 @@ class MonolithJournalQueryAdapterTest {
     private JournalDetailRepository journalDetailRepository;
 
     @Mock
+    private MasterDataQueryPort masterDataQueryPort;
+
+    @Mock
     private JournalDetailRepository.JournalDetailAggregateProjection aggregateProjection;
 
     @Test
     void getJournalDetailAggregateUsesRepositorySummary() {
         LocalDate startDate = LocalDate.of(2026, 5, 1);
         LocalDate endDate = LocalDate.of(2026, 5, 31);
-        MonolithJournalQueryAdapter adapter = new MonolithJournalQueryAdapter(journalUseCase, journalDetailRepository);
+        MonolithJournalQueryAdapter adapter = new MonolithJournalQueryAdapter(journalUseCase, journalDetailRepository, masterDataQueryPort);
 
         when(journalDetailRepository.summarizeByAccountingDateBetweenAndSide(
                 startDate,
