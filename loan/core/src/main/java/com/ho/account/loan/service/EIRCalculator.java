@@ -2,7 +2,6 @@ package com.ho.account.loan.service;
 
 import com.ho.account.loan.domain.DeferredItem;
 import com.ho.account.loan.domain.Loan;
-import com.ho.account.loan.domain.LoanContract;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -72,43 +71,5 @@ public class EIRCalculator {
         }
 
         return loan.getInterestRate().multiply(BigDecimal.valueOf(100)); // 수렴 실패 시 명목 이자율 반환
-    }
-
-    public BigDecimal calculateEIR(LoanContract loanContract, int totalPeriods) {
-        BigDecimal principal = loanContract.getPrincipalAmount();
-        BigDecimal fees = loanContract.getDeferredLoanFee() != null ? loanContract.getDeferredLoanFee() : BigDecimal.ZERO;
-
-        double initialInvestment = principal.subtract(fees).doubleValue();
-        if (totalPeriods <= 0) {
-            return loanContract.getInterestRate().setScale(4, RoundingMode.HALF_UP);
-        }
-
-        double nominalRate = loanContract.getInterestRate().doubleValue() / 100.0 / 12.0;
-        if (nominalRate == 0.0d) {
-            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        }
-
-        double pmt = (principal.doubleValue() * nominalRate) / (1 - Math.pow(1 + nominalRate, -totalPeriods));
-        double r = nominalRate;
-
-        for (int i = 0; i < MAX_ITERATIONS; i++) {
-            double f = 0;
-            double df = 0;
-
-            for (int t = 1; t <= totalPeriods; t++) {
-                double discountFactor = Math.pow(1 + r, t);
-                f += pmt / discountFactor;
-                df -= (t * pmt) / (discountFactor * (1 + r));
-            }
-            f -= initialInvestment;
-
-            double nextR = r - f / df;
-            if (Math.abs(nextR - r) < PRECISION) {
-                return BigDecimal.valueOf(nextR * 1200).setScale(4, RoundingMode.HALF_UP);
-            }
-            r = nextR;
-        }
-
-        return loanContract.getInterestRate().setScale(4, RoundingMode.HALF_UP);
     }
 }

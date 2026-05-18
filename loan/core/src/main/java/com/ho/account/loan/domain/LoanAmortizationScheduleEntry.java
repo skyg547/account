@@ -14,8 +14,8 @@ public class LoanAmortizationScheduleEntry {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "LOAN_CONTRACT_ID", nullable = false)
-    private LoanContract loanContract;
+    @JoinColumn(name = "LOAN_ID", nullable = false)
+    private Loan loan;
 
     @Column(name = "PAYMENT_DATE", nullable = false)
     private LocalDate paymentDate;
@@ -69,8 +69,8 @@ public class LoanAmortizationScheduleEntry {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public LoanContract getLoanContract() { return loanContract; }
-    public void setLoanContract(LoanContract loanContract) { this.loanContract = loanContract; }
+    public Loan getLoan() { return loan; }
+    public void setLoan(Loan loan) { this.loan = loan; }
 
     public LocalDate getPaymentDate() { return paymentDate; }
     public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }

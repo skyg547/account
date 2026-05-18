@@ -7,7 +7,7 @@ import java.time.LocalDate;
 public class LoanAmortizationScheduleEntryDto {
 
     private Long id;
-    private Long loanContractId;
+    private Long loanId;
     private LocalDate paymentDate;
     private Integer periodNumber;
     private BigDecimal startingBalance;
@@ -21,9 +21,9 @@ public class LoanAmortizationScheduleEntryDto {
     public LoanAmortizationScheduleEntryDto() {
     }
 
-    public LoanAmortizationScheduleEntryDto(Long id, Long loanContractId, LocalDate paymentDate, Integer periodNumber, BigDecimal startingBalance, BigDecimal scheduledPaymentAmount, BigDecimal interestAmount, BigDecimal principalAmount, BigDecimal endingBalance, BigDecimal deferredFeeAmortization, String entryType) {
+    public LoanAmortizationScheduleEntryDto(Long id, Long loanId, LocalDate paymentDate, Integer periodNumber, BigDecimal startingBalance, BigDecimal scheduledPaymentAmount, BigDecimal interestAmount, BigDecimal principalAmount, BigDecimal endingBalance, BigDecimal deferredFeeAmortization, String entryType) {
         this.id = id;
-        this.loanContractId = loanContractId;
+        this.loanId = loanId;
         this.paymentDate = paymentDate;
         this.periodNumber = periodNumber;
         this.startingBalance = startingBalance;
@@ -36,13 +36,13 @@ public class LoanAmortizationScheduleEntryDto {
     }
 
     public static LoanAmortizationScheduleEntryDto fromEntity(LoanAmortizationScheduleEntry entry) {
-        Long loanContractId = null;
-        if (entry.getLoanContract() != null) {
-            loanContractId = entry.getLoanContract().getId();
+        Long loanId = null;
+        if (entry.getLoan() != null) {
+            loanId = entry.getLoan().getId();
         }
         return new LoanAmortizationScheduleEntryDto(
                 entry.getId(),
-                loanContractId,
+                loanId,
                 entry.getPaymentDate(),
                 entry.getPeriodNumber(),
                 entry.getStartingBalance(),
@@ -60,8 +60,8 @@ public class LoanAmortizationScheduleEntryDto {
         return id;
     }
 
-    public Long getLoanContractId() {
-        return loanContractId;
+    public Long getLoanId() {
+        return loanId;
     }
 
     public LocalDate getPaymentDate() {

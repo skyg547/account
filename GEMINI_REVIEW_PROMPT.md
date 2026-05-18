@@ -117,7 +117,10 @@ Notes:
   - `LoanAccountingProperties`를 추가해 대출 자동 전표 계정코드를 `account.loan.accounting.*` 설정으로 분리.
   - `LoanService`와 `InterestAccrualService`의 자동 전표가 생성 후 `approveJournalEntry`/`postJournalEntry`까지 호출하도록 보강.
   - `LoanServiceTest`, `InterestAccrualServiceTest`로 설정 계정 사용과 전표 생성/승인/전기 호출 순서를 검증.
-  - `CODEX_HANDOFF_TASKS.md`의 Loan 항목은 하위 작업 진행 내역을 남기되, `Loan`/`LoanContract` 모델 통합과 실제 모듈 E2E가 남아 있어 미완료 상태로 유지.
+  - `Loan` 단일 모델로 별도 계약 엔티티/저장소/DTO 잔재를 제거하고, 일일 이자 발생/원천 문서 조회/상각 스케줄 참조를 통합.
+  - `LoanAccountingProperties`의 코드 기본값을 제거하고 설정 누락 시 자동 전표 생성 전에 실패하도록 보강.
+  - `LoanJournalPostingFlowTest`를 추가해 대출 실행이 실제 `JournalEntryService`/`PostingService` 경로를 지나 전표 `POSTED`, GL/SL 엔트리 저장 호출, 원장 갱신 호출까지 수렴함을 검증.
+  - `CODEX_HANDOFF_TASKS.md`의 Loan 항목을 완료 처리하되, DB-backed H2/실DB 스키마 검증은 별도 리스크로 남김.
   - `ProductPersistencePort.findActiveByProductCode`와 Product Repository/Adapter 활성 조회를 추가.
   - `ProductService`와 `DepartmentService`의 SCD2 갱신 경로를 보강해 활성 버전만 종료하고, 새 버전을 생성하며, 기존값 보존과 자연키 변경 방어를 수행.
   - `ProductServiceTest`, `DepartmentServiceTest`를 추가하고 `CODEX_HANDOFF_TASKS.md`의 Master-Data SCD2 항목을 완료 표시.
@@ -187,8 +190,8 @@ Notes:
   - 결과는 모두 `BUILD SUCCESSFUL`.
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
-  - `loan`의 자동 전표 계정코드는 `LoanAccountingProperties` 설정으로 분리됐지만, `Loan`/`LoanContract` 병행 모델은 아직 남아 있다.
-  - `loan` 자동 전표는 `JournalUseCase` 생성 후 승인/전기 호출까지 수행하지만, 실제 `journal-ledger` 모듈까지 포함한 통합 E2E 테스트는 아직 없다.
+  - `loan`의 별도 계약 엔티티/저장소/DTO 잔재는 제거됐고 `Loan` 단일 모델로 수렴했다.
+  - `loan` 자동 전표는 `JournalEntryService`/`PostingService` 서비스 통합 테스트로 GL/SL 저장 호출까지 검증했지만, H2/실DB 스키마까지 포함하는 DB-backed E2E는 아직 없다.
   - `master-data` Product/Department 서비스는 SCD2 신규 버전 생성과 기존 버전 종료를 테스트로 검증했지만, DB 레벨 유효기간 중복 방지 제약은 아직 없다.
   - governance 승인 연계의 effectiveDate/requestedVersion 유실은 수정됐지만, 신규 `MASTER_APPROVAL` 컬럼 migration은 아직 별도 작성되지 않았다.
   - expenditure DTO Assembler의 이름 표시용 선택 조회는 조회 실패 시 null을 반환할 수 있으나, 전표 생성 경로의 마스터 조회 실패 차단과는 분리된다.

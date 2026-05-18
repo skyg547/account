@@ -2,7 +2,7 @@ package com.ho.account.loan.service;
 
 import com.ho.account.contracts.source.SourceDocumentProvider;
 import com.ho.account.shared.BoundedContext;
-import com.ho.account.loan.infrastructure.persistence.LoanContractRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanRepository;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -16,10 +16,10 @@ public class LoanSourceDocumentProvider implements SourceDocumentProvider {
 
     private static final Set<String> SUPPORTED_TYPES = Set.of("LOAN");
 
-    private final LoanContractRepository loanContractRepository;
+    private final LoanRepository loanRepository;
 
-    public LoanSourceDocumentProvider(LoanContractRepository loanContractRepository) {
-        this.loanContractRepository = loanContractRepository;
+    public LoanSourceDocumentProvider(LoanRepository loanRepository) {
+        this.loanRepository = loanRepository;
     }
 
     @Override
@@ -32,8 +32,8 @@ public class LoanSourceDocumentProvider implements SourceDocumentProvider {
         try {
             Long id = Long.valueOf(lineageSourceId);
             Map<String, Object> documentDetails = new HashMap<>();
-            return loanContractRepository.findById(id).map(contract -> {
-                documentDetails.put("type", "LoanContract");
+            return loanRepository.findById(id).map(contract -> {
+                documentDetails.put("type", "Loan");
                 documentDetails.put("data", contract);
                 return documentDetails;
             });
@@ -54,6 +54,6 @@ public class LoanSourceDocumentProvider implements SourceDocumentProvider {
 
     @Override
     public String description() {
-        return "Provides loan lineage documents from loan contracts.";
+        return "Provides loan lineage documents from loans.";
     }
 }

@@ -15,9 +15,11 @@
 - [x] **[Closing] 모듈 간 객체 참조(FK) 위반:** `ClosingAdjustment` 엔티티가 `master-data`의 `FiscalPeriod`를 직접 참조하고 있습니다. ID 기반 참조로 수정하세요. -> *(완료: `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne`를 `fiscalPeriodId` 값 참조로 전환. `contracts`에 `FiscalPeriodControlPort`/`FiscalPeriodRef`를 추가하고 `master-data`의 `MonolithFiscalPeriodControlAdapter`로 구현해 `closing:core`의 master-data 직접 의존성을 제거. DTO/Repository/Service/Test 갱신 및 `:contracts:compileJava :master-data:compileJava :closing:core:compileJava :closing:api:compileJava`, `:closing:core:test`, `:master-data:test` 성공)*.
 
 ### [Loan (대출)]
-- [ ] **E2E 회귀 테스트 부재 및 전표 수렴 완결성:** 대출 전표가 원장(`POSTED`)까지 수렴하는 과정을 증명하는 E2E 검증 테스트가 부족합니다. 또한 `Loan`과 `LoanContract` 병행 모델을 통합하고, 코드 내 하드코딩된 계정코드를 제거하세요.
+- [x] **E2E 회귀 테스트 부재 및 전표 수렴 완결성:** 대출 전표가 원장(`POSTED`)까지 수렴하는 과정을 증명하는 E2E 검증 테스트가 부족합니다. 또한 `Loan`과 `LoanContract` 병행 모델을 통합하고, 코드 내 하드코딩된 계정코드를 제거하세요.
   - 진행: `LoanService`/`InterestAccrualService` 자동 전표가 생성 후 `approveJournalEntry`와 `postJournalEntry`까지 호출하도록 보강했고, 대출 회계 계정코드는 `LoanAccountingProperties` 설정으로 분리했습니다. `LoanServiceTest`, `InterestAccrualServiceTest`로 POSTED 수렴 호출과 설정 계정 사용을 검증했습니다.
-  - 남음: `Loan`/`LoanContract` 병행 모델 통합과 실제 `journal-ledger` 모듈까지 포함한 통합 E2E 테스트는 아직 미완료입니다.
+  - 추가 진행: 별도 계약 엔티티/저장소/DTO 잔재를 제거하고 `Loan` 단일 모델로 일일 이자 발생, 상각 스케줄, 원천 문서 조회 경로를 통합했습니다. `LoanAccountingProperties`의 코드 기본값도 제거해 설정 누락 시 자동 전표 생성 전에 실패하도록 보강했습니다.
+  - 완료: `LoanJournalPostingFlowTest`를 추가해 대출 실행이 실제 `JournalEntryService`/`PostingService` 경로를 지나 전표 `POSTED`, GL/SL 엔트리 저장 호출, 원장 잔액 갱신 호출까지 수렴함을 검증했습니다.
+  - 잔여 리스크: 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반입니다. H2/실DB 스키마까지 포함하는 DB-backed E2E는 별도 운영 검증 범위입니다.
 
 ### [Master-Data (기준 정보)]
 - [x] **SCD2 완전 적용 미흡:** `Product` 및 `Department` 모듈에서 데이터 변경 시 기존 행을 직접 덮어쓰고 있어 SCD2(이력 관리) 정책을 위반하고 있습니다. 신규 버전을 생성하고 이전 버전의 `validTo`를 닫는 진정한 의미의 SCD2 로직으로 전면 수정하세요. -> *(완료: `Product` 활성 버전 조회 포트/Repository 추가, Product/Department 업데이트 시 기존 활성 버전 종료 및 신규 버전 생성/기존값 보존/코드 변경 방어 보강, SCD2 회귀 테스트 추가)*

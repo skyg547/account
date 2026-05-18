@@ -9,5 +9,5 @@ import java.util.Optional;
 
 @Repository
 public interface LoanAccrualLogRepository extends JpaRepository<LoanAccrualLog, Long> {
-    Optional<LoanAccrualLog> findByLoanContractIdAndAccrualDate(Long loanContractId, LocalDate accrualDate);
+    Optional<LoanAccrualLog> findByLoanIdAndAccrualDate(Long loanId, LocalDate accrualDate);
 }

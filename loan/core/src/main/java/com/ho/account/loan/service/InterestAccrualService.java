@@ -6,15 +6,16 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.domain.LoanAccrualLog;
-import com.ho.account.loan.domain.LoanContract;
+import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.infrastructure.persistence.LoanAccrualLogRepository;
 import com.ho.account.loan.infrastructure.persistence.LoanAmortizationScheduleEntryRepository;
-import com.ho.account.loan.infrastructure.persistence.LoanContractRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanRepository;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InterestAccrualService {
 
-    private final LoanContractRepository loanContractRepository;
+    private final LoanRepository loanRepository;
     private final LoanAmortizationScheduleEntryRepository amortizationRepository;
     private final LoanAccrualLogRepository accrualLogRepository;
     private final JournalUseCase journalUseCase;
@@ -32,13 +33,13 @@ public class InterestAccrualService {
     private final LoanAccountingProperties accountingProperties;
 
     public InterestAccrualService(
-            LoanContractRepository loanContractRepository,
+            LoanRepository loanRepository,
             LoanAmortizationScheduleEntryRepository amortizationRepository,
             LoanAccrualLogRepository accrualLogRepository,
             JournalUseCase journalUseCase,
             AccountSubjectPersistencePort accountSubjectPersistencePort,
             LoanAccountingProperties accountingProperties) {
-        this.loanContractRepository = loanContractRepository;
+        this.loanRepository = loanRepository;
         this.amortizationRepository = amortizationRepository;
         this.accrualLogRepository = accrualLogRepository;
         this.journalUseCase = journalUseCase;
@@ -48,23 +49,23 @@ public class InterestAccrualService {
 
     @Transactional
     public void processDailyAccrual(LocalDate accrualDate) {
-        List<LoanContract> activeLoans = loanContractRepository.findByStatus("ACTIVE");
-        for (LoanContract loan : activeLoans) {
+        List<Loan> activeLoans = loanRepository.findByStatus(Loan.LoanStatus.ACTIVE);
+        for (Loan loan : activeLoans) {
             processIndividualAccrual(loan, accrualDate);
         }
     }
 
-    private void processIndividualAccrual(LoanContract loan, LocalDate accrualDate) {
-        if (accrualLogRepository.findByLoanContractIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
+    private void processIndividualAccrual(Loan loan, LocalDate accrualDate) {
+        if (accrualLogRepository.findByLoanIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
             return;
         }
 
-        amortizationRepository.findByLoanContractIdAndPaymentDate(loan.getId(), accrualDate)
+        amortizationRepository.findByLoanIdAndPaymentDate(loan.getId(), accrualDate)
                 .ifPresent(scheduleEntry -> {
                     BigDecimal interestAmount = scheduleEntry.getInterestAmount();
 
                     LoanAccrualLog log = new LoanAccrualLog();
-                    log.setLoanContract(loan);
+                    log.setLoan(loan);
                     log.setAccrualDate(accrualDate);
                     log.setAccruedAmount(interestAmount);
                     log.setAuditUser("SYSTEM");
@@ -83,7 +84,7 @@ public class InterestAccrualService {
                 });
     }
 
-    private JournalEntry createAccrualJournal(LoanContract loan, BigDecimal amount, LocalDate date) {
+    private JournalEntry createAccrualJournal(Loan loan, BigDecimal amount, LocalDate date) {
         AccountSubject accruedInterestReceivable = resolveAccount(
                 accountingProperties.getAccruedInterestReceivableAccountCode());
         AccountSubject interestIncome = resolveAccount(
@@ -93,12 +94,13 @@ public class InterestAccrualService {
         entry.setSlipNo(date + "-LOAN-ACCRUAL-" + System.currentTimeMillis());
         entry.setSlipDate(LocalDate.now());
         entry.setAccountingDate(date);
-        entry.setDescription("Loan daily interest accrual: " + loan.getLoanContractNo());
+        entry.setDescription("Loan daily interest accrual: " + loan.getLoanNumber());
         entry.setStatus(JournalEntryStatus.DRAFT);
         entry.setEntryType("NORMAL");
         entry.setCreatedBy("SYSTEM");
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType("LOAN");
+        entry.setCurrencyCode(resolveLoanCurrencyCode(loan));
         if (loan.getId() != null) {
             entry.setLineageSourceId(loan.getId().toString());
         }
@@ -131,6 +133,13 @@ public class InterestAccrualService {
         journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
         journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
         return journalUseCase.getJournalEntry(savedEntry.getId()).orElse(savedEntry);
+    }
+
+    private String resolveLoanCurrencyCode(Loan loan) {
+        return Optional.ofNullable(loan.getCurrency())
+                .map(currency -> currency.getCurrencyCode())
+                .filter(code -> !code.isBlank())
+                .orElseThrow(() -> new IllegalStateException("Loan currencyCode is required for journal posting."));
     }
 
     private AccountSubject resolveAccount(String accountCode) {

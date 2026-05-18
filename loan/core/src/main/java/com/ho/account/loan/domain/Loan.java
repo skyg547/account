@@ -4,12 +4,15 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * ?異?(Loan) 怨꾩빟 ?뷀떚??
- * ?異?怨꾩빟??湲곕낯 ?뺣낫瑜?愿由ы븯硫? ?좏슚?댁옄??EIR) 怨꾩궛??湲곗큹媛 ?⑸땲??
+ * Loan master aggregate.
+ * Stores the unified loan model that replaced the old separate contract entity.
  */
 @Entity
 @Table(name = "loans")
@@ -20,45 +23,66 @@ public class Loan {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String loanNumber; // ?異?踰덊샇
+    private String loanNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_partner_id", nullable = false)
-    private BusinessPartner businessPartner; // 李⑥엯??(borrower)
+    private BusinessPartner businessPartner;
+
+    @Column(name = "LOAN_PRODUCT", length = 100)
+    private String loanProduct;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private LoanType loanType; // ?異??좏삎 (TERM_LOAN, REVOLVING_LOAN, MORTGAGE ??
+    private LoanType loanType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency; // ?듯솕
+    private Currency currency;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalAmount; // ?먭툑
+    private BigDecimal principalAmount;
 
     @Column(nullable = false, precision = 5, scale = 4)
-    private BigDecimal interestRate; // 紐낅ぉ ?댁옄??(???댁옄??
+    private BigDecimal interestRate;
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // ?異??ㅽ뻾??
+    private LocalDate disbursalDate;
 
     @Column(nullable = false)
-    private LocalDate maturityDate; // 留뚭린??
+    private LocalDate maturityDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private PaymentFrequency paymentFrequency; // ?곹솚 二쇨린
+    private PaymentFrequency paymentFrequency;
+
+    @Column(name = "REPAYMENT_METHOD", length = 50)
+    private String repaymentMethod;
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal initialEIR; // 理쒖큹 ?좏슚 ?댁옄??(Effective Interest Rate)
+    private BigDecimal initialEIR;
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal currentEIR; // ?꾩옱 ?좏슚 ?댁옄??(?ш퀎????蹂寃?媛??
+    private BigDecimal currentEIR;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private LoanStatus status; // ?異??곹깭 (ACTIVE, REPAID, DEFAULTED)
+    private LoanStatus status;
+
+    @Column(name = "CURRENT_PRINCIPAL_BALANCE", precision = 19, scale = 2)
+    private BigDecimal currentPrincipalBalance;
+
+    @Column(name = "DEFERRED_LOAN_FEE", precision = 19, scale = 2)
+    private BigDecimal deferredLoanFee;
+
+    @Column(name = "TOTAL_INTEREST_PAID", precision = 19, scale = 2)
+    private BigDecimal totalInterestPaid = BigDecimal.ZERO;
+
+    @Column(name = "TOTAL_PRINCIPAL_PAID", precision = 19, scale = 2)
+    private BigDecimal totalPrincipalPaid = BigDecimal.ZERO;
+
+    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -95,7 +119,6 @@ public class Loan {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
     public Long getId() {
         return id;
     }
@@ -222,5 +245,94 @@ public class Loan {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public String getLoanProduct() { return loanProduct; }
+    public void setLoanProduct(String loanProduct) { this.loanProduct = loanProduct; }
+
+    public String getRepaymentMethod() { return repaymentMethod; }
+    public void setRepaymentMethod(String repaymentMethod) { this.repaymentMethod = repaymentMethod; }
+
+    public BigDecimal getCurrentPrincipalBalance() { return currentPrincipalBalance; }
+    public void setCurrentPrincipalBalance(BigDecimal currentPrincipalBalance) { this.currentPrincipalBalance = currentPrincipalBalance; }
+
+    public BigDecimal getDeferredLoanFee() { return deferredLoanFee; }
+    public void setDeferredLoanFee(BigDecimal deferredLoanFee) { this.deferredLoanFee = deferredLoanFee; }
+
+    public BigDecimal getTotalInterestPaid() { return totalInterestPaid; }
+    public void setTotalInterestPaid(BigDecimal totalInterestPaid) { this.totalInterestPaid = totalInterestPaid; }
+
+    public BigDecimal getTotalPrincipalPaid() { return totalPrincipalPaid; }
+    public void setTotalPrincipalPaid(BigDecimal totalPrincipalPaid) { this.totalPrincipalPaid = totalPrincipalPaid; }
+
+    public List<LoanAmortizationScheduleEntry> getAmortizationSchedule() { return amortizationSchedule; }
+    public void setAmortizationSchedule(List<LoanAmortizationScheduleEntry> amortizationSchedule) { this.amortizationSchedule = amortizationSchedule; }
+
+    public List<LoanAmortizationScheduleEntry> generateAmortizationSchedule(int totalPeriods) {
+        validateScheduleInputs(totalPeriods);
+
+        BigDecimal periodicRate = this.interestRate.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+        BigDecimal payment = calculatePeriodicPayment(periodicRate, totalPeriods);
+
+        BigDecimal remainingBalance = principalAmount;
+        List<LoanAmortizationScheduleEntry> entries = new ArrayList<>();
+
+        for (int i = 1; i <= totalPeriods; i++) {
+            BigDecimal interest = remainingBalance.multiply(periodicRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal principal = payment.subtract(interest);
+
+            if (i == totalPeriods) {
+                principal = remainingBalance;
+                payment = principal.add(interest);
+                remainingBalance = BigDecimal.ZERO;
+            } else {
+                remainingBalance = remainingBalance.subtract(principal);
+            }
+
+            LoanAmortizationScheduleEntry entry = new LoanAmortizationScheduleEntry();
+            entry.setLoan(this);
+            entry.setPeriodNumber(i);
+            entry.setPaymentDate(disbursalDate.plusMonths(i));
+            entry.setStartingBalance(remainingBalance.add(principal));
+            entry.setInterestAmount(interest);
+            entry.setPrincipalAmount(principal);
+            entry.setScheduledPaymentAmount(payment);
+            entry.setEndingBalance(remainingBalance);
+            entry.setEntryType("REPAYMENT");
+
+            entries.add(entry);
+        }
+        this.amortizationSchedule = entries;
+        return entries;
+    }
+
+    public void addAmortizationEntry(LoanAmortizationScheduleEntry entry) {
+        this.amortizationSchedule.add(entry);
+        entry.setLoan(this);
+    }
+
+    private void validateScheduleInputs(int totalPeriods) {
+        if (totalPeriods <= 0) {
+            throw new IllegalArgumentException("totalPeriods must be positive");
+        }
+        if (principalAmount == null || principalAmount.signum() <= 0) {
+            throw new IllegalStateException("principalAmount must be positive");
+        }
+        if (interestRate == null || interestRate.signum() < 0) {
+            throw new IllegalStateException("interestRate must not be negative");
+        }
+        if (disbursalDate == null) {
+            throw new IllegalStateException("disbursalDate is required");
+        }
+    }
+
+    private BigDecimal calculatePeriodicPayment(BigDecimal periodicRate, int totalPeriods) {
+        if (periodicRate.signum() == 0) {
+            return principalAmount.divide(BigDecimal.valueOf(totalPeriods), 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal onePlusRPowerN = periodicRate.add(BigDecimal.ONE).pow(totalPeriods);
+        return principalAmount.multiply(periodicRate).multiply(onePlusRPowerN)
+                .divide(onePlusRPowerN.subtract(BigDecimal.ONE), 2, RoundingMode.HALF_UP);
     }
 }

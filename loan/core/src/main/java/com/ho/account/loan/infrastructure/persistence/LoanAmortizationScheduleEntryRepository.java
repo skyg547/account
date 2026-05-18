@@ -8,8 +8,8 @@ import java.util.List;
 
 @Repository
 public interface LoanAmortizationScheduleEntryRepository extends JpaRepository<LoanAmortizationScheduleEntry, Long> {
-    List<LoanAmortizationScheduleEntry> findByLoanContractIdOrderByPeriodNumberAsc(Long loanContractId);
+    List<LoanAmortizationScheduleEntry> findByLoanIdOrderByPeriodNumberAsc(Long loanId);
 
-    java.util.Optional<LoanAmortizationScheduleEntry> findByLoanContractIdAndPaymentDate(Long loanContractId,
+    java.util.Optional<LoanAmortizationScheduleEntry> findByLoanIdAndPaymentDate(Long loanId,
             java.time.LocalDate paymentDate);
 }

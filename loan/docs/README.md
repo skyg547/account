@@ -26,12 +26,12 @@
 
 ## 현재 구현 기준에서 먼저 알아둘 점
 
-- 대출 모델이 `Loan`과 `LoanContract` 두 종류로 나뉘어 있습니다.
-  - `LoanService`의 주요 API는 `Loan`을 사용합니다.
-  - `InterestAccrualService`, `LoanSourceDocumentProvider`는 `LoanContract`를 사용합니다.
-- 자동 분개는 일부 경로에서 `JournalService`를 거치지 않고 저장소에 직접 저장됩니다.
-- 계정과목 코드가 일부 하드코딩되어 있습니다.
-  - 대출 실행: `101000`, `131000`
-  - 이연 초기 인식: `101000`, 이연유형의 자산계정
-  - EIR 상각: `131000`, `401000`, `171000`
-  - 일별 이자 발생: `11501`, `41101`
+- 대출 모델은 `Loan` 단일 도메인 모델을 기준으로 통합되어 있습니다.
+  - 일일 이자 발생, 원천 문서 조회, 상각 스케줄 엔트리는 모두 `Loan`을 참조합니다.
+  - 별도 계약 엔티티와 저장소는 제거되었습니다.
+- 자동 분개는 `JournalUseCase`로 생성한 뒤 승인/전기 호출까지 수행합니다.
+- `LoanJournalPostingFlowTest`는 실제 `JournalEntryService`와 `PostingService`를 연결해 대출 실행 전표가 `POSTED`로 수렴하고 GL/SL 엔트리 저장 및 원장 갱신 호출이 발생하는지 검증합니다.
+- 대출 회계 계정코드는 `account.loan.accounting.*` 설정으로만 받습니다.
+  - 설정 누락 시 코드 기본값으로 대체하지 않고 자동 전표 생성 전에 실패합니다.
+  - 필수 키는 `cash-account-code`, `loan-receivable-account-code`, `deferred-asset-account-code`, `recognized-income-account-code`, `accrued-interest-receivable-account-code`, `interest-income-account-code`입니다.
+- DB-backed H2/실DB 스키마 검증은 현재 테스트 범위 밖이며 운영 검증 시 별도 보강 대상입니다.

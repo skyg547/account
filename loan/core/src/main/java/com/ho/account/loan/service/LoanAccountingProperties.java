@@ -7,15 +7,15 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "account.loan.accounting")
 public class LoanAccountingProperties {
 
-    private String cashAccountCode = "101000";
-    private String loanReceivableAccountCode = "131000";
-    private String deferredAssetAccountCode = "171000";
-    private String recognizedIncomeAccountCode = "401000";
-    private String accruedInterestReceivableAccountCode = "11501";
-    private String interestIncomeAccountCode = "41101";
+    private String cashAccountCode;
+    private String loanReceivableAccountCode;
+    private String deferredAssetAccountCode;
+    private String recognizedIncomeAccountCode;
+    private String accruedInterestReceivableAccountCode;
+    private String interestIncomeAccountCode;
 
     public String getCashAccountCode() {
-        return cashAccountCode;
+        return required(cashAccountCode, "cash-account-code");
     }
 
     public void setCashAccountCode(String cashAccountCode) {
@@ -23,7 +23,7 @@ public class LoanAccountingProperties {
     }
 
     public String getLoanReceivableAccountCode() {
-        return loanReceivableAccountCode;
+        return required(loanReceivableAccountCode, "loan-receivable-account-code");
     }
 
     public void setLoanReceivableAccountCode(String loanReceivableAccountCode) {
@@ -31,7 +31,7 @@ public class LoanAccountingProperties {
     }
 
     public String getDeferredAssetAccountCode() {
-        return deferredAssetAccountCode;
+        return required(deferredAssetAccountCode, "deferred-asset-account-code");
     }
 
     public void setDeferredAssetAccountCode(String deferredAssetAccountCode) {
@@ -39,7 +39,7 @@ public class LoanAccountingProperties {
     }
 
     public String getRecognizedIncomeAccountCode() {
-        return recognizedIncomeAccountCode;
+        return required(recognizedIncomeAccountCode, "recognized-income-account-code");
     }
 
     public void setRecognizedIncomeAccountCode(String recognizedIncomeAccountCode) {
@@ -47,7 +47,7 @@ public class LoanAccountingProperties {
     }
 
     public String getAccruedInterestReceivableAccountCode() {
-        return accruedInterestReceivableAccountCode;
+        return required(accruedInterestReceivableAccountCode, "accrued-interest-receivable-account-code");
     }
 
     public void setAccruedInterestReceivableAccountCode(String accruedInterestReceivableAccountCode) {
@@ -55,10 +55,17 @@ public class LoanAccountingProperties {
     }
 
     public String getInterestIncomeAccountCode() {
-        return interestIncomeAccountCode;
+        return required(interestIncomeAccountCode, "interest-income-account-code");
     }
 
     public void setInterestIncomeAccountCode(String interestIncomeAccountCode) {
         this.interestIncomeAccountCode = interestIncomeAccountCode;
+    }
+
+    private String required(String value, String key) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("account.loan.accounting." + key + " must be configured");
+        }
+        return value;
     }
 }

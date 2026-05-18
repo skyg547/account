@@ -5,6 +5,8 @@
 ```mermaid
 erDiagram
     LOAN ||--o{ LOAN_DISBURSAL : disburses
+    LOAN ||--o{ LOAN_ACCRUAL_LOG : accrues
+    LOAN ||--o{ LOAN_AMORTIZATION_SCHEDULE_ENTRIES : schedules
     LOAN ||--o{ DEFERRED_ITEM : owns
     LOAN ||--o{ EIR_AMORTIZATION_SCHEDULE : amortizes
     LOAN ||--o{ LOAN_EVENT : raises
@@ -16,6 +18,8 @@ erDiagram
         decimal principal_amount
         decimal interest_rate
         decimal current_eir
+        decimal current_principal_balance
+        decimal deferred_loan_fee
         timestamp valid_from "SCD2"
         timestamp valid_to "SCD2"
         boolean is_current "SCD2"
@@ -37,7 +41,13 @@ erDiagram
 ## 2. 주요 테이블 및 아키텍처 특징
 
 ### `loans` (대출 마스터)
-대출의 조건과 이율, 잔액 정보를 들고 있습니다. ID 기반 참조를 철저히 지켜 외부 의존성을 낮췄습니다. 금리나 조건이 바뀔 경우 업데이트 대신 SCD2 방식을 통해 새 버전을 쌓습니다.
+대출의 조건과 이율, 잔액 정보를 들고 있습니다. 기존 별도 계약 엔티티에 있던 계약번호, 상품, 상환방식, 잔액, 이연수수료, 누적 상환 정보는 `loans` 기준으로 통합되었습니다. 금리나 조건이 바뀔 경우 업데이트 대신 SCD2 방식을 통해 새 버전을 쌓는 것이 목표 구조입니다.
+
+### `loan_amortization_schedule_entries` (상환 스케줄)
+일일 이자 발생에서 참조하는 상환 스케줄입니다. 현재 외래키는 `loan_id`로 통합되어 별도 계약 테이블을 참조하지 않습니다.
+
+### `loan_accrual_logs` (이자 발생 로그)
+일별 이자 발생 처리의 중복 실행을 막기 위한 로그입니다. 현재 외래키는 `loan_id`로 통합되어 같은 대출/일자 조합의 재처리를 차단합니다.
 
 ### `eir_amortization_schedules` (EIR 상각 스케줄)
 가장 많은 데이터가 쌓이는 테이블입니다. 대출이 재계산될 때 과거 스케줄은 `is_recalculated=true` 대신 SCD2(`is_current=false`)로 이력화되어, 특정 시점에 미래 스케줄이 어땠는지 시계열 조회가 가능합니다.

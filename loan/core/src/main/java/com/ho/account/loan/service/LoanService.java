@@ -64,9 +64,17 @@ public class LoanService {
     private final JournalUseCase journalUseCase;
 
     public Loan createLoan(Loan loan) {
-        BusinessPartner bp = businessPartnerPersistencePort.findById(loan.getBusinessPartner().getId())
+        Long businessPartnerId = Optional.ofNullable(loan.getBusinessPartner())
+                .map(BusinessPartner::getId)
+                .orElseThrow(() -> new IllegalArgumentException("businessPartnerId is required"));
+        String currencyCode = Optional.ofNullable(loan.getCurrency())
+                .map(Currency::getCurrencyCode)
+                .filter(code -> !code.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("currencyCode is required"));
+
+        BusinessPartner bp = businessPartnerPersistencePort.findById(businessPartnerId)
                 .orElseThrow(() -> new EntityNotFoundException("BusinessPartner not found"));
-        Currency currency = currencyPersistencePort.findByCode(loan.getCurrency().getCurrencyCode())
+        Currency currency = currencyPersistencePort.findByCode(currencyCode)
                 .orElseThrow(() -> new EntityNotFoundException("Currency not found"));
         loan.setBusinessPartner(bp);
         loan.setCurrency(currency);
@@ -105,6 +113,7 @@ public class LoanService {
                 user,
                 "LOAN_DISBURSAL",
                 loanId.toString(),
+                resolveLoanCurrencyCode(loan),
                 disbursedAmount,
                 cashAccount,
                 loanReceivableAccount
@@ -313,6 +322,7 @@ public class LoanService {
                     user,
                     "LOAN_RECALCULATION",
                     loanId.toString(),
+                    resolveLoanCurrencyCode(loan),
                     principalDelta,
                     loanReceivableAccount,
                     cashAccount
@@ -417,6 +427,7 @@ public class LoanService {
                 user,
                 "LOAN_DEFERRED_ITEM",
                 loan.getId().toString(),
+                resolveLoanCurrencyCode(loan),
                 amount,
                 recognizedIncomeAccount,
                 deferredAssetAccount
@@ -429,6 +440,7 @@ public class LoanService {
             String createdBy,
             String lineageSourceType,
             String lineageSourceId,
+            String currencyCode,
             BigDecimal amount,
             AccountSubject creditAccount,
             AccountSubject debitAccount) {
@@ -442,6 +454,7 @@ public class LoanService {
         entry.setAuditUser(createdBy);
         entry.setLineageSourceType(lineageSourceType);
         entry.setLineageSourceId(lineageSourceId);
+        entry.setCurrencyCode(currencyCode);
 
         JournalDetail debitDetail = new JournalDetail();
         debitDetail.setSide(JournalSide.DEBIT);
@@ -468,6 +481,13 @@ public class LoanService {
     private AccountSubject resolveAccount(String accountCode, String notFoundMessage) {
         return accountSubjectPersistencePort.findByCode(accountCode)
                 .orElseThrow(() -> new EntityNotFoundException(notFoundMessage + " code=" + accountCode));
+    }
+
+    private String resolveLoanCurrencyCode(Loan loan) {
+        return Optional.ofNullable(loan.getCurrency())
+                .map(Currency::getCurrencyCode)
+                .filter(code -> !code.isBlank())
+                .orElseThrow(() -> new IllegalStateException("Loan currencyCode is required for journal posting."));
     }
 
     private void postAutomatedJournalEntry(JournalEntry entry, String user) {

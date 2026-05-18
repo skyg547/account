@@ -17,8 +17,8 @@ public class LoanAccrualLog {
     private LocalDate accrualDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "LOAN_CONTRACT_ID", nullable = false)
-    private LoanContract loanContract;
+    @JoinColumn(name = "LOAN_ID", nullable = false)
+    private Loan loan;
 
     @Column(name = "ACCRUED_AMOUNT", nullable = false, precision = 19, scale = 2)
     private BigDecimal accruedAmount;
@@ -71,12 +71,12 @@ public class LoanAccrualLog {
         this.accrualDate = accrualDate;
     }
 
-    public LoanContract getLoanContract() {
-        return loanContract;
+    public Loan getLoan() {
+        return loan;
     }
 
-    public void setLoanContract(LoanContract loanContract) {
-        this.loanContract = loanContract;
+    public void setLoan(Loan loan) {
+        this.loan = loan;
     }
 
     public BigDecimal getAccruedAmount() {

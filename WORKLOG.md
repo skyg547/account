@@ -1055,3 +1055,28 @@
   - Gradle `BUILD SUCCESSFUL`.
 - **남은 리스크**:
   - SL 잔액 조회는 현재 `LedgerService` 내부에서 날짜 범위 조회 후 애플리케이션 필터를 적용하므로, 대량 데이터용 전용 Repository 집계 쿼리는 후속 성능 고도화 범위.
+
+### 📅 2026-05-18 (handoff loan 모델 통합 검수/보강 - Codex)
+### [검수/수정] Loan 단일 모델 수렴 및 계정 설정 누락 방어
+- **확인 범위**:
+  - `git fetch origin` 후 로컬 `main`이 `origin/main`보다 1커밋 앞서 있고 뒤처짐은 없음을 확인.
+  - `loan/README.md`, `loan/docs/*.md`, Gemini가 남긴 loan diff, `Loan`, `InterestAccrualService`, `LoanSourceDocumentProvider`, `LoanPort`, DTO/Repository 변경 확인.
+- **검수 결과**:
+  - Gemini 변경은 별도 계약 엔티티 삭제와 `Loan` 참조 전환 방향은 맞았고 `:loan:core:test`는 성공.
+  - 단, `LoanContract` 명칭이 DTO/포트에 남아 있었고, `LoanRequestDto.toEntity()`가 거래처/통화 참조를 세팅하지 않아 API 생성 경로에서 `LoanService.createLoan()` NPE 위험이 있었음.
+  - `LoanAccountingProperties`에 계정코드 기본값이 남아 있어 설정화 작업이 숨은 fallback으로 동작할 수 있었음.
+- **수정 범위**:
+  - `LoanContractDto`, `LoanContractRequestDto`와 별도 계약 저장소를 제거하고, 포트/어댑터 메서드를 `saveLoan`, `findByLoanNumber`로 정리.
+  - `LoanRequestDto.toEntity()`가 businessPartnerId/currencyCode 참조를 전달하도록 수정하고 `LoanService.createLoan()`에 명시적 입력 검증 추가.
+  - `LoanAccountingProperties`의 기본 계정코드를 제거하고 필수 설정 누락 시 `IllegalStateException`으로 실패하도록 변경.
+  - `LoanService`/`InterestAccrualService` 자동 전표에 통화코드를 명시하도록 보강.
+  - `LoanJournalPostingFlowTest`를 추가해 대출 실행이 실제 `JournalEntryService`/`PostingService` 경로를 지나 전표 `POSTED`, GL/SL 엔트리 저장 호출, 원장 갱신 호출까지 수렴하는지 검증.
+  - `Loan.generateAmortizationSchedule`의 깨진 주석을 정리하고 0% 이자율/잘못된 기간 방어 테스트 추가.
+  - loan README/docs 및 handoff 문서 갱신.
+- **재검증 실행**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 두 명령 모두 Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반임. H2/실DB 스키마까지 포함하는 DB-backed E2E는 별도 운영 검증 범위.

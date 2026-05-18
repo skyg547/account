@@ -2,7 +2,7 @@ package com.ho.account.loan.infrastructure.persistence;
 
 import com.ho.account.loan.application.port.out.LoanPort;
 import com.ho.account.loan.domain.LoanAmortizationScheduleEntry;
-import com.ho.account.loan.domain.LoanContract;
+import com.ho.account.loan.domain.Loan;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -19,23 +19,23 @@ import java.util.List;
 public class LoanJdbcAdapter implements LoanPort {
 
     private final JdbcTemplate jdbcTemplate;
-    private final LoanContractRepository jpaRepository;
+    private final LoanRepository jpaRepository;
 
     @Override
-    public void saveLoanContract(LoanContract loanContract) {
-        jpaRepository.save(loanContract);
+    public void saveLoan(Loan loan) {
+        jpaRepository.save(loan);
     }
 
     @Override
     @Transactional
     public void saveAllAmortizationEntries(List<LoanAmortizationScheduleEntry> entries) {
         String sql = "INSERT INTO LOAN_AMORTIZATION_SCHEDULE_ENTRIES " +
-                     "(LOAN_CONTRACT_ID, PAYMENT_DATE, PERIOD_NUMBER, STARTING_BALANCE, " +
+                     "(LOAN_ID, PAYMENT_DATE, PERIOD_NUMBER, STARTING_BALANCE, " +
                      "SCHEDULED_PAYMENT_AMOUNT, INTEREST_AMOUNT, PRINCIPAL_AMOUNT, ENDING_BALANCE, ENTRY_TYPE, CREATE_DATE, UPDATE_DATE, AUDIT_USER) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM')";
 
         jdbcTemplate.batchUpdate(sql, entries, 1000, (PreparedStatement ps, LoanAmortizationScheduleEntry entry) -> {
-            ps.setLong(1, entry.getLoanContract().getId());
+            ps.setLong(1, entry.getLoan().getId());
             ps.setDate(2, Date.valueOf(entry.getPaymentDate()));
             ps.setInt(3, entry.getPeriodNumber());
             ps.setBigDecimal(4, entry.getStartingBalance());
@@ -48,8 +48,8 @@ public class LoanJdbcAdapter implements LoanPort {
     }
 
     @Override
-    public LoanContract findByContractNo(String contractNo) {
-        return jpaRepository.findByLoanContractNo(contractNo)
-                .orElseThrow(() -> new IllegalArgumentException("Loan contract not found: " + contractNo));
+    public Loan findByLoanNumber(String loanNumber) {
+        return jpaRepository.findByLoanNumber(loanNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Loan not found: " + loanNumber));
     }
 }

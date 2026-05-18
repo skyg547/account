@@ -1,6 +1,8 @@
 package com.ho.account.loan.dto;
 
 import com.ho.account.loan.domain.Loan;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -51,7 +53,14 @@ public class LoanRequestDto {
     public Loan toEntity() {
         Loan loan = new Loan();
         loan.setLoanNumber(this.loanNumber);
-        // BusinessPartner와 Currency는 서비스에서 설정
+        BusinessPartner businessPartner = new BusinessPartner();
+        businessPartner.setId(this.businessPartnerId);
+        loan.setBusinessPartner(businessPartner);
+
+        Currency currency = new Currency();
+        currency.setCurrencyCode(this.currencyCode);
+        loan.setCurrency(currency);
+
         loan.setLoanType(this.loanType);
         loan.setPrincipalAmount(this.principalAmount);
         loan.setInterestRate(this.interestRate);

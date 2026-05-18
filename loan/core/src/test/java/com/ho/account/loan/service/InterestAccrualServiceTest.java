@@ -7,12 +7,13 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.domain.LoanAccrualLog;
 import com.ho.account.loan.domain.LoanAmortizationScheduleEntry;
-import com.ho.account.loan.domain.LoanContract;
+import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.infrastructure.persistence.LoanAccrualLogRepository;
 import com.ho.account.loan.infrastructure.persistence.LoanAmortizationScheduleEntryRepository;
-import com.ho.account.loan.infrastructure.persistence.LoanContractRepository;
+import com.ho.account.loan.infrastructure.persistence.LoanRepository;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.Currency;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +37,7 @@ import static org.mockito.Mockito.when;
 class InterestAccrualServiceTest {
 
     @Mock
-    private LoanContractRepository loanContractRepository;
+    private LoanRepository loanRepository;
 
     @Mock
     private LoanAmortizationScheduleEntryRepository amortizationRepository;
@@ -60,7 +61,7 @@ class InterestAccrualServiceTest {
         accountingProperties.setInterestIncomeAccountCode("41199");
 
         service = new InterestAccrualService(
-                loanContractRepository,
+                loanRepository,
                 amortizationRepository,
                 accrualLogRepository,
                 journalUseCase,
@@ -72,9 +73,10 @@ class InterestAccrualServiceTest {
     @Test
     void processDailyAccrualCreatesAndPostsJournal() {
         LocalDate accrualDate = LocalDate.of(2026, 5, 12);
-        LoanContract loan = new LoanContract();
+        Loan loan = new Loan();
         loan.setId(5L);
-        loan.setLoanContractNo("LC-001");
+        loan.setLoanNumber("LC-001");
+        loan.setCurrency(currency("KRW"));
 
         LoanAmortizationScheduleEntry scheduleEntry = new LoanAmortizationScheduleEntry();
         scheduleEntry.setInterestAmount(new BigDecimal("123.45"));
@@ -87,10 +89,10 @@ class InterestAccrualServiceTest {
         postedJournal.setSlipNo("JE-ACCRUAL-91");
         postedJournal.setStatus(JournalEntryStatus.POSTED);
 
-        when(loanContractRepository.findByStatus("ACTIVE")).thenReturn(List.of(loan));
-        when(accrualLogRepository.findByLoanContractIdAndAccrualDate(5L, accrualDate))
+        when(loanRepository.findByStatus(Loan.LoanStatus.ACTIVE)).thenReturn(List.of(loan));
+        when(accrualLogRepository.findByLoanIdAndAccrualDate(5L, accrualDate))
                 .thenReturn(Optional.empty());
-        when(amortizationRepository.findByLoanContractIdAndPaymentDate(5L, accrualDate))
+        when(amortizationRepository.findByLoanIdAndPaymentDate(5L, accrualDate))
                 .thenReturn(Optional.of(scheduleEntry));
         when(accountSubjectPersistencePort.findByCode("11599")).thenReturn(Optional.of(account("11599")));
         when(accountSubjectPersistencePort.findByCode("41199")).thenReturn(Optional.of(account("41199")));
@@ -106,6 +108,7 @@ class InterestAccrualServiceTest {
         assertThat(journal.getStatus()).isEqualTo(JournalEntryStatus.DRAFT);
         assertThat(journal.getLineageSourceType()).isEqualTo("LOAN");
         assertThat(journal.getLineageSourceId()).isEqualTo("5");
+        assertThat(journal.getCurrencyCode()).isEqualTo("KRW");
         assertThat(journal.getDetails()).hasSize(2);
 
         JournalDetail debit = journal.getDetails().get(0);
@@ -133,5 +136,11 @@ class InterestAccrualServiceTest {
         account.setCode(code);
         account.setName("ACCOUNT-" + code);
         return account;
+    }
+
+    private Currency currency(String code) {
+        Currency currency = new Currency();
+        currency.setCurrencyCode(code);
+        return currency;
     }
 }

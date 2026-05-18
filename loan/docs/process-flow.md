@@ -33,6 +33,14 @@ sequenceDiagram
     OutPort->>DB: 엔티티 변환 후 DB 반영 (SCD2 처리)
 ```
 
+## 2.1 현재 모델 통합 상태
+
+- 대출 계약성 정보와 스케줄 관계는 `Loan` 단일 도메인 모델에 수렴했습니다.
+- 일일 이자 발생(`InterestAccrualService`)과 원천 문서 조회(`LoanSourceDocumentProvider`)는 더 이상 별도 계약 저장소를 조회하지 않고 `LoanRepository`를 사용합니다.
+- 대출 실행/이연 항목/이자 발생 자동 전표는 `JournalUseCase.createJournalEntry` 이후 `approveJournalEntry`, `postJournalEntry` 순서로 수렴합니다.
+- 대출 실행 전표는 서비스 통합 테스트에서 실제 `JournalEntryService`와 `PostingService`를 거쳐 `POSTED` 상태, GL/SL 엔트리 저장 호출, 원장 잔액 갱신 호출까지 검증됩니다.
+- 계정코드는 `account.loan.accounting.*` 설정이 필수이며, 코드 기본값으로 대체하지 않습니다.
+
 ## 3. 핵심 기술 요소 적용 사항
 
 ### 3.1 헥사고날 분리

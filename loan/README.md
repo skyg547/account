@@ -17,11 +17,11 @@
 
 ## 2. 🔄 아키텍처 및 개선 과제 (Handoff Tasks)
 
-- **도메인 모델 파편화:** 현재 코드 내부에 `Loan` 객체와 `LoanContract` 객체가 병행해서 쓰이고 있어 모델이 쪼개져 있는 상태입니다. 이를 하나의 일관된 대출 도메인으로 통합해야 합니다.
-- **계정코드 설정화:** 대출 실행, 이자 발생, 이연 항목 전표의 계정코드는 `account.loan.accounting.*` 설정(`LoanAccountingProperties`)으로 분리되어 환경별로 조정할 수 있습니다.
-- **전표 수렴 보강:** 대출 자동 전표는 생성 후 `JournalUseCase.approveJournalEntry`와 `postJournalEntry`를 호출해 `POSTED` 수렴 경로를 탑니다. 현재는 단위 회귀 테스트로 호출 흐름을 검증하며, 실제 `journal-ledger`를 포함한 통합 E2E 테스트는 남은 과제입니다.
+- **도메인 모델 통합:** 대출 계약/잔액/스케줄 관계는 `Loan` 단일 도메인 모델을 기준으로 통합되었습니다. 기존 별도 계약 엔티티와 저장소는 제거되었습니다.
+- **계정코드 설정화:** 대출 실행, 이자 발생, 이연 항목 전표의 계정코드는 `account.loan.accounting.*` 설정(`LoanAccountingProperties`)으로 주입합니다. 코드 기본값은 두지 않으며 설정 누락 시 자동 전표 생성 전에 실패합니다.
+- **전표 수렴 보강:** 대출 자동 전표는 생성 후 `JournalUseCase.approveJournalEntry`와 `postJournalEntry`를 호출해 `POSTED` 수렴 경로를 탑니다. `LoanJournalPostingFlowTest`는 실제 `JournalEntryService`/`PostingService` 경로를 사용해 GL/SL 엔트리 저장 호출과 원장 갱신 호출까지 검증합니다.
 
-대표 설정 키:
+필수 설정 키:
 ```yaml
 account:
   loan:
