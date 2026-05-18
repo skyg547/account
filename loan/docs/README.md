@@ -34,4 +34,7 @@
 - 대출 회계 계정코드는 `account.loan.accounting.*` 설정으로만 받습니다.
   - 설정 누락 시 코드 기본값으로 대체하지 않고 자동 전표 생성 전에 실패합니다.
   - 필수 키는 `cash-account-code`, `loan-receivable-account-code`, `deferred-asset-account-code`, `recognized-income-account-code`, `accrued-interest-receivable-account-code`, `interest-income-account-code`입니다.
+- loan 스키마는 `loan/core/src/main/resources/db/migration/V30__init_loan_schema.sql` Flyway migration으로 관리합니다.
+  - H2 MySQL 모드에서 migration 적용 테스트를 수행합니다.
+  - 기존 모듈 migration의 `V1` 중복을 피하기 위해 loan은 전역 후순번을 사용합니다.
 - DB-backed H2/실DB 스키마 검증은 현재 테스트 범위 밖이며 운영 검증 시 별도 보강 대상입니다.

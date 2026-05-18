@@ -120,6 +120,7 @@ Notes:
   - `Loan` 단일 모델로 별도 계약 엔티티/저장소/DTO 잔재를 제거하고, 일일 이자 발생/원천 문서 조회/상각 스케줄 참조를 통합.
   - `LoanAccountingProperties`의 코드 기본값을 제거하고 설정 누락 시 자동 전표 생성 전에 실패하도록 보강.
   - `LoanJournalPostingFlowTest`를 추가해 대출 실행이 실제 `JournalEntryService`/`PostingService` 경로를 지나 전표 `POSTED`, GL/SL 엔트리 저장 호출, 원장 갱신 호출까지 수렴함을 검증.
+  - `loan/core/src/main/resources/db/migration/V30__init_loan_schema.sql`와 `LoanFlywayMigrationTest`를 추가해 Loan 단일 모델 기준 Flyway 스키마를 H2 MySQL 모드에서 검증.
   - `CODEX_HANDOFF_TASKS.md`의 Loan 항목을 완료 처리하되, DB-backed H2/실DB 스키마 검증은 별도 리스크로 남김.
   - `ProductPersistencePort.findActiveByProductCode`와 Product Repository/Adapter 활성 조회를 추가.
   - `ProductService`와 `DepartmentService`의 SCD2 갱신 경로를 보강해 활성 버전만 종료하고, 새 버전을 생성하며, 기존값 보존과 자연키 변경 방어를 수행.
@@ -191,7 +192,8 @@ Notes:
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
   - `loan`의 별도 계약 엔티티/저장소/DTO 잔재는 제거됐고 `Loan` 단일 모델로 수렴했다.
-  - `loan` 자동 전표는 `JournalEntryService`/`PostingService` 서비스 통합 테스트로 GL/SL 저장 호출까지 검증했지만, H2/실DB 스키마까지 포함하는 DB-backed E2E는 아직 없다.
+  - `loan` 자동 전표는 `JournalEntryService`/`PostingService` 서비스 통합 테스트로 GL/SL 저장 호출까지 검증했고, loan Flyway migration은 H2 MySQL 모드 적용 테스트를 통과했다.
+  - 기존 `master-data`와 `journal-ledger`가 모두 `V1` migration을 갖고 있어, 여러 모듈을 한 런타임 classpath에서 Flyway 기본 location으로 스캔하면 전역 버전 충돌 가능성이 있다.
   - `master-data` Product/Department 서비스는 SCD2 신규 버전 생성과 기존 버전 종료를 테스트로 검증했지만, DB 레벨 유효기간 중복 방지 제약은 아직 없다.
   - governance 승인 연계의 effectiveDate/requestedVersion 유실은 수정됐지만, 신규 `MASTER_APPROVAL` 컬럼 migration은 아직 별도 작성되지 않았다.
   - expenditure DTO Assembler의 이름 표시용 선택 조회는 조회 실패 시 null을 반환할 수 있으나, 전표 생성 경로의 마스터 조회 실패 차단과는 분리된다.

@@ -19,7 +19,8 @@
   - 진행: `LoanService`/`InterestAccrualService` 자동 전표가 생성 후 `approveJournalEntry`와 `postJournalEntry`까지 호출하도록 보강했고, 대출 회계 계정코드는 `LoanAccountingProperties` 설정으로 분리했습니다. `LoanServiceTest`, `InterestAccrualServiceTest`로 POSTED 수렴 호출과 설정 계정 사용을 검증했습니다.
   - 추가 진행: 별도 계약 엔티티/저장소/DTO 잔재를 제거하고 `Loan` 단일 모델로 일일 이자 발생, 상각 스케줄, 원천 문서 조회 경로를 통합했습니다. `LoanAccountingProperties`의 코드 기본값도 제거해 설정 누락 시 자동 전표 생성 전에 실패하도록 보강했습니다.
   - 완료: `LoanJournalPostingFlowTest`를 추가해 대출 실행이 실제 `JournalEntryService`/`PostingService` 경로를 지나 전표 `POSTED`, GL/SL 엔트리 저장 호출, 원장 잔액 갱신 호출까지 수렴함을 검증했습니다.
-  - 잔여 리스크: 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반입니다. H2/실DB 스키마까지 포함하는 DB-backed E2E는 별도 운영 검증 범위입니다.
+  - 완료: `V30__init_loan_schema.sql` Flyway migration과 `LoanFlywayMigrationTest`를 추가해 `Loan` 단일 모델 기준 스키마가 H2 MySQL 모드에서 적용되는지 검증했습니다.
+  - 잔여 리스크: 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반입니다. 여러 모듈을 한 런타임 classpath에서 Flyway 기본 스캔할 경우 기존 `V1` migration 중복을 정리하거나 모듈별 location 설정이 필요합니다.
 
 ### [Master-Data (기준 정보)]
 - [x] **SCD2 완전 적용 미흡:** `Product` 및 `Department` 모듈에서 데이터 변경 시 기존 행을 직접 덮어쓰고 있어 SCD2(이력 관리) 정책을 위반하고 있습니다. 신규 버전을 생성하고 이전 버전의 `validTo`를 닫는 진정한 의미의 SCD2 로직으로 전면 수정하세요. -> *(완료: `Product` 활성 버전 조회 포트/Repository 추가, Product/Department 업데이트 시 기존 활성 버전 종료 및 신규 버전 생성/기존값 보존/코드 변경 방어 보강, SCD2 회귀 테스트 추가)*

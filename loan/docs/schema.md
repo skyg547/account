@@ -58,3 +58,6 @@ erDiagram
 ## 3. 포트 및 어댑터 관점의 매핑
 - DB 테이블(`loans`, `eir_amortization_schedules`)은 JPA Entity 객체와 매핑됩니다.
 - 도메인 로직 처리 시에는 JPA Entity를 순수 도메인 객체로 매퍼가 변환한 후 비즈니스 룰을 검증하고 다시 Entity로 매핑되어 저장됩니다. 이로써 DB 스키마 변경이 핵심 이자 계산 로직에 영향을 주지 않도록 격리됩니다.
+- `loan/core/src/main/resources/db/migration/V30__init_loan_schema.sql`이 현재 `Loan` 단일 모델 기준의 Flyway 초기 스키마를 관리합니다.
+- 현재 migration은 loan 내부 FK만 정의하고, `journal-ledger`/`master-data` 등 다른 모듈 테이블은 실행 순서 충돌을 피하기 위해 ID/코드 컬럼으로만 둡니다.
+- Flyway 버전은 기존 모듈의 `V1` 충돌 가능성을 피하기 위해 전역 후순번(`V30`)을 사용합니다.

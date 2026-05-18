@@ -22,7 +22,7 @@ public class Loan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(name = "loan_number", nullable = false, unique = true, length = 50)
     private String loanNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -40,16 +40,16 @@ public class Loan {
     @JoinColumn(name = "currency_code", nullable = false)
     private Currency currency;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(name = "principal_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal principalAmount;
 
-    @Column(nullable = false, precision = 5, scale = 4)
+    @Column(name = "interest_rate", nullable = false, precision = 5, scale = 4)
     private BigDecimal interestRate;
 
-    @Column(nullable = false)
+    @Column(name = "disbursal_date", nullable = false)
     private LocalDate disbursalDate;
 
-    @Column(nullable = false)
+    @Column(name = "maturity_date", nullable = false)
     private LocalDate maturityDate;
 
     @Enumerated(EnumType.STRING)
@@ -59,10 +59,10 @@ public class Loan {
     @Column(name = "REPAYMENT_METHOD", length = 50)
     private String repaymentMethod;
 
-    @Column(precision = 5, scale = 4)
+    @Column(name = "initial_eir", precision = 5, scale = 4)
     private BigDecimal initialEIR;
 
-    @Column(precision = 5, scale = 4)
+    @Column(name = "current_eir", precision = 5, scale = 4)
     private BigDecimal currentEIR;
 
     @Enumerated(EnumType.STRING)
@@ -84,12 +84,13 @@ public class Loan {
     @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
 
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(length = 50)
+    @Column(name = "audit_user", length = 50)
     private String auditUser;
 
     public enum LoanType {

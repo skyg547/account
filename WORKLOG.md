@@ -1080,3 +1080,21 @@
   - 두 명령 모두 Gradle `BUILD SUCCESSFUL`.
 - **남은 리스크**:
   - 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반임. H2/실DB 스키마까지 포함하는 DB-backed E2E는 별도 운영 검증 범위.
+
+### 📅 2026-05-18 (handoff loan Flyway migration 보강 - Codex)
+### [수정] Loan 단일 모델 기준 Flyway 스키마 추가
+- **확인 범위**:
+  - `shared-kernel`에 Flyway 의존성이 있고 `master-data`, `journal-ledger`, `asset-lease`에는 `db/migration` 리소스가 있음을 확인.
+  - `loan`에는 migration 디렉터리가 없어서, 기존 상태는 Flyway 의존성은 있으나 loan 스키마 파일은 없는 상태였음.
+- **수정 범위**:
+  - `loan/core/src/main/resources/db/migration/V30__init_loan_schema.sql` 추가.
+  - `Loan`의 EIR/생성일/감사자 주요 컬럼명을 migration과 일치하도록 명시.
+  - `LoanFlywayMigrationTest` 추가 및 H2 test runtime 의존성 보강.
+  - loan schema docs 및 handoff 문서 갱신.
+- **재검증 실행**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- **재검증 결과**:
+  - 두 명령 모두 Gradle `BUILD SUCCESSFUL`.
+- **남은 리스크**:
+  - 기존 `master-data`와 `journal-ledger`가 모두 `V1` migration을 갖고 있어 여러 모듈을 한 런타임 classpath에서 Flyway 기본 location으로 스캔하면 버전 충돌 가능성이 있음. loan migration은 이를 추가 악화하지 않도록 전역 후순번 `V30`으로 추가했지만, 장기적으로 모듈별 Flyway location 또는 전역 migration 버전 정책 정리가 필요.

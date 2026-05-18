@@ -47,7 +47,7 @@
 * 2026-05-14: `closing`의 `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`에서 `FiscalPeriod` 직접 참조를 제거하고 contracts 기반 `FiscalPeriodControlPort`로 전환. 상세 결과는 `TOTAL_QUALITY_REPORT.md`와 `CODEX_HANDOFF_TASKS.md`에 반영.
 * 2026-05-14: `reconciliation` 엔티티/서비스 Java 파일 인코딩 잔여 점검 완료. `ReconciliationVariance`의 깨진 주석 1건을 정리하고 `:reconciliation:test` 통과 확인.
 * 2026-05-14: `reporting`의 `LedgerClientAdapter` 목업 잔액/과거보고서 반환을 제거하고 `LedgerQueryPort` 기반 GL 잔액 조회로 전환. `:reporting:core:test`, `:reporting:api:compileJava`, `:reporting:batch:compileJava`, `:reporting:api:test`, `:reporting:batch:test` 통과 확인.
-* 2026-05-18: `loan`의 별도 계약 엔티티/저장소/DTO 잔재를 제거하고 `Loan` 단일 모델로 수렴. 계정코드 기본값 fallback 제거, API 생성 DTO 참조 전달 보강, 실제 `JournalEntryService`/`PostingService` 경로를 쓰는 `LoanJournalPostingFlowTest` 추가, `:loan:core:test`, `:loan:api:compileJava`, `:loan:batch:compileJava` 통과 확인.
+* 2026-05-18: `loan`의 별도 계약 엔티티/저장소/DTO 잔재를 제거하고 `Loan` 단일 모델로 수렴. 계정코드 기본값 fallback 제거, API 생성 DTO 참조 전달 보강, 실제 `JournalEntryService`/`PostingService` 경로를 쓰는 `LoanJournalPostingFlowTest`와 Flyway 적용용 `LoanFlywayMigrationTest` 추가, `:loan:core:test`, `:loan:api:compileJava`, `:loan:batch:compileJava` 통과 확인.
 * 2026-05-14: `closing` 자동 평가/충당 분개의 더미 계정/고정 금액을 제거하고 `account.closing.accounting.*` 설정 룰로 전환. `:closing:core:test`, `:closing:api:compileJava`, `:closing:batch:compileJava` 통과 확인.
 * 2026-05-15: `receivable`의 `SalesController`, `CollectionController`를 DTO 입출력으로 전환하고 수동 매칭 `Map` 요청을 `ManualMatchingRequest`로 교체. `:receivable:test` 통과 확인.
 * 2026-05-18: `governance`의 `AuditController` 도메인/Map 노출을 DTO로 정리하고 `TracingService`의 `AuditLogRepository` 직접 의존을 `AuditLogPersistencePort`로 전환. `:governance:test` 통과 확인.

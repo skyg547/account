@@ -73,7 +73,7 @@
 ### [Phase 3] 업무 서브레저
 - **`expenditure-resolution`**: 마스터 조회 NPE 방어 및 DTO 바인딩 보완 완료.
 - **`payable`, `tax`, `asset-lease`**: 비즈니스 로직 헥사고날 고립 확인.
-- **`loan`**: 별도 계약 엔티티/저장소/DTO 잔재 제거, `Loan` 단일 모델 수렴, 계정코드 기본값 fallback 제거 완료. `JournalEntryService`/`PostingService` 경로의 서비스 통합 E2E로 POSTED/GL/SL 수렴 검증 완료. DB-backed E2E는 잔여 리스크.
+- **`loan`**: 별도 계약 엔티티/저장소/DTO 잔재 제거, `Loan` 단일 모델 수렴, 계정코드 기본값 fallback 제거 완료. `JournalEntryService`/`PostingService` 경로의 서비스 통합 E2E로 POSTED/GL/SL 수렴 검증 완료. Loan Flyway migration과 H2 적용 테스트 추가 완료.
 - **`receivable`**: 고객 참조는 `customerCode` 값 참조로 정리 완료. 웹 어댑터도 요청/응답 DTO로 전환 완료.
 
 ### [Phase 4] 회계 엔진 및 결산

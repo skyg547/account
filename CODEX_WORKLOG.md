@@ -844,3 +844,24 @@
   - `git diff --check -- loan`은 오류 없이 종료했고 CRLF 변환 경고만 출력.
 - 남은 리스크:
   - 현재 E2E는 서비스 통합 테스트로 JPA Repository는 mock/fake 기반임. H2/실DB 스키마까지 포함하는 DB-backed E2E는 별도 운영 검증 범위.
+
+## 2026-05-18 (handoff loan Flyway migration 보강)
+- 사용자 요청: 커밋 진행 후 DB가 Flyway로 관리되는지 확인하고 다음 작업 진행.
+- 커밋:
+  - `cc8abde Complete loan model consolidation`
+- 기준 판단:
+  - `shared-kernel`에 Flyway 의존성이 있어 실행 모듈 classpath로 Flyway를 사용할 수 있음.
+  - `master-data`, `journal-ledger`, `asset-lease`에는 `db/migration` 리소스가 있으나 `loan`에는 없었음.
+  - 따라서 기존 상태는 "Flyway 사용 가능/일부 모듈 관리"이고, loan 스키마는 migration으로 관리되지 않던 상태.
+- 수정 내용:
+  - `loan/core/src/main/resources/db/migration/V30__init_loan_schema.sql` 추가.
+  - `Loan`의 `initial_eir`, `current_eir`, `created_at`, `updated_at`, `audit_user` 등 migration과 민감한 컬럼명을 명시.
+  - `loan:core` 테스트 runtime에 H2를 추가하고 `LoanFlywayMigrationTest`로 migration 적용 및 핵심 테이블/컬럼 존재를 검증.
+  - `loan/docs/schema.md`, `loan/docs/README.md`, `CODEX_HANDOFF_TASKS.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+- 결과:
+  - 모두 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 기존 `master-data`와 `journal-ledger`가 모두 `V1` migration을 갖고 있어, 여러 모듈을 한 런타임 classpath에서 Flyway 기본 location으로 스캔하면 버전 충돌 가능성이 있음. loan migration은 전역 후순번 `V30`으로 추가했지만, 전사적으로 모듈별 Flyway location 또는 전역 버전 정책 정리가 필요.
