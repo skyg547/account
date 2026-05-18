@@ -9,13 +9,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,9 +40,17 @@ public class ClosingServiceTest {
     @Mock
     private ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     @Mock
+    private ValuationBatchPersistencePort valuationBatchPersistencePort;
+    @Mock
+    private ProvisionBatchPersistencePort provisionBatchPersistencePort;
+    @Mock
     private FiscalPeriodControlPort fiscalPeriodControlPort;
     @Mock
+    private JournalPostingPort journalPostingPort;
+    @Mock
     private JournalQueryPort journalQueryPort;
+    @Spy
+    private ClosingAccountingProperties closingAccountingProperties = new ClosingAccountingProperties();
 
     @InjectMocks
     private ClosingService closingService;
@@ -157,6 +168,101 @@ public class ClosingServiceTest {
     }
 
     @Test
+    @DisplayName("평가 배치는 설정된 계정과 금액으로 자동 분개를 생성한다")
+    void runValuationBatch_UsesConfiguredAccountingRule() {
+        // given
+        closingAccountingProperties.setValuationRules(Map.of(
+                ValuationBatch.ValuationType.FX_RATE,
+                rule("510100", "110100", "1234.56")));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(valuationBatchPersistencePort.save(any(ValuationBatch.class))).thenAnswer(invocation -> {
+            ValuationBatch batch = invocation.getArgument(0);
+            if (batch.getId() == null) {
+                batch.setId(77L);
+            }
+            return batch;
+        });
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(new JournalPostingResult(900L, "SLIP-900", "DRAFT"));
+
+        // when
+        ValuationBatch result = closingService.runValuationBatch(
+                1L,
+                ValuationBatch.ValuationType.FX_RATE,
+                "ADMIN");
+
+        // then
+        assertThat(result.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.COMPLETED);
+        assertThat(result.getGeneratedJournalEntryId()).isEqualTo(900L);
+
+        ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort).createDraftEntry(captor.capture());
+        JournalEntryCommand command = captor.getValue();
+        assertThat(command.lineageSourceType()).isEqualTo("VALUATION_BATCH");
+        assertThat(command.lineageSourceId()).isEqualTo("77");
+        assertThat(command.lines()).extracting(JournalLineCommand::accountCode)
+                .containsExactly("510100", "110100");
+        assertThat(command.lines()).allSatisfy(line ->
+                assertThat(line.amount()).isEqualByComparingTo("1234.56"));
+    }
+
+    @Test
+    @DisplayName("충당 배치는 설정된 계정과 금액으로 자동 분개를 생성한다")
+    void runProvisionBatch_UsesConfiguredAccountingRule() {
+        // given
+        closingAccountingProperties.setProvisionRules(Map.of(
+                ProvisionBatch.ProvisionType.BAD_DEBT,
+                rule("550100", "129100", "789.10")));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(provisionBatchPersistencePort.save(any(ProvisionBatch.class))).thenAnswer(invocation -> {
+            ProvisionBatch batch = invocation.getArgument(0);
+            if (batch.getId() == null) {
+                batch.setId(88L);
+            }
+            return batch;
+        });
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(new JournalPostingResult(901L, "SLIP-901", "DRAFT"));
+
+        // when
+        ProvisionBatch result = closingService.runProvisionBatch(
+                1L,
+                ProvisionBatch.ProvisionType.BAD_DEBT,
+                "ADMIN");
+
+        // then
+        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
+        assertThat(result.getGeneratedJournalEntryId()).isEqualTo(901L);
+
+        ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
+        verify(journalPostingPort).createDraftEntry(captor.capture());
+        JournalEntryCommand command = captor.getValue();
+        assertThat(command.lineageSourceType()).isEqualTo("PROVISION_BATCH");
+        assertThat(command.lineageSourceId()).isEqualTo("88");
+        assertThat(command.lines()).extracting(JournalLineCommand::accountCode)
+                .containsExactly("550100", "129100");
+        assertThat(command.lines()).allSatisfy(line ->
+                assertThat(line.amount()).isEqualByComparingTo("789.10"));
+    }
+
+    @Test
+    @DisplayName("평가 배치 회계 룰이 없으면 더미 분개를 생성하지 않고 실패한다")
+    void runValuationBatch_MissingAccountingRule_ThrowsExceptionBeforePosting() {
+        // given
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+
+        // when & then
+        assertThatThrownBy(() -> closingService.runValuationBatch(
+                1L,
+                ValuationBatch.ValuationType.FX_RATE,
+                "ADMIN"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("account.closing.accounting.valuation-rules.FX_RATE");
+
+        verifyNoInteractions(valuationBatchPersistencePort, journalPostingPort);
+    }
+
+    @Test
     @DisplayName("필수 태스크가 완료되지 않았으면 결산을 완료할 수 없다")
     void determineClosingStatus_MandatoryTaskNotCompleted_ThrowsException() {
         // given
@@ -236,5 +342,16 @@ public class ClosingServiceTest {
         assertThat(result.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.CLOSED);
         assertThat(result.getClosedBy()).isEqualTo("ADMIN");
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
+    }
+
+    private ClosingAccountingProperties.AutomatedJournalRule rule(
+            String debitAccountCode,
+            String creditAccountCode,
+            String amount) {
+        ClosingAccountingProperties.AutomatedJournalRule rule = new ClosingAccountingProperties.AutomatedJournalRule();
+        rule.setDebitAccountCode(debitAccountCode);
+        rule.setCreditAccountCode(creditAccountCode);
+        rule.setAmount(new BigDecimal(amount));
+        return rule;
     }
 }

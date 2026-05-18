@@ -11,7 +11,7 @@
 - [x] **외부 데이터 연동 미흡:** `ReconManagerService`의 `SOURCE`/`INTERFACE` 단계가 설정값(`matchingRulesJson`)에 의존하고 있습니다. 실제 외부 원천/인터페이스 시스템(Mock 어댑터 포함)을 통해 데이터를 가져와 집계하도록 전환하세요. -> *(완료: `ExternalReconSnapshotPort`/`ExternalReconSnapshotRequest` 계약 추가, `RECON_EXTERNAL_STAGE_RECORD` 스테이징 집계 어댑터 구현, `ReconManagerService` SOURCE/INTERFACE 포트 호출 전환 및 테스트 보강)*
 
 ### [Journal-Ledger & Closing (코어 위반)]
-- [ ] **[Journal-Ledger] 모듈 간 객체 참조(FK) 위반:** `JournalDetail` 엔티티가 `master-data`의 `AccountSubject`, `BusinessPartner`, `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 이를 `String accountCode`, `String deptCode`, `String businessPartnerCode` 등의 ID 기반 참조로 전환하고 Port를 통해 정합성을 검증하도록 수정하세요.
+- [x] **[Journal-Ledger] 모듈 간 객체 참조(FK) 위반:** `JournalDetail` 엔티티가 `master-data`의 `AccountSubject`, `BusinessPartner`, `Department`를 `@ManyToOne`으로 직접 참조하고 있습니다. 이를 `String accountCode`, `String deptCode`, `String businessPartnerCode` 등의 ID 기반 참조로 전환하고 Port를 통해 정합성을 검증하도록 수정하세요. -> *(완료/재확인: `JournalDetail`, `JournalEntry`, `GlEntry`, `SlEntry`, `GlBalance`, `SlBalance`, `UnsettledItem`의 master-data 엔티티 직접 import/@ManyToOne은 제거되어 있고 코드 값 참조를 사용. 남은 `@ManyToOne`은 journal-ledger 내부 전표/룰/미결 관계. stale 엔티티 변환 주석도 코드 값 저장 설명으로 정리. `:journal-ledger:core:test` 성공)*
 - [x] **[Closing] 모듈 간 객체 참조(FK) 위반:** `ClosingAdjustment` 엔티티가 `master-data`의 `FiscalPeriod`를 직접 참조하고 있습니다. ID 기반 참조로 수정하세요. -> *(완료: `ClosingAdjustment`, `PeriodLock`, `ReopenApproval`, `ValuationBatch`, `ProvisionBatch`의 `FiscalPeriod @ManyToOne`를 `fiscalPeriodId` 값 참조로 전환. `contracts`에 `FiscalPeriodControlPort`/`FiscalPeriodRef`를 추가하고 `master-data`의 `MonolithFiscalPeriodControlAdapter`로 구현해 `closing:core`의 master-data 직접 의존성을 제거. DTO/Repository/Service/Test 갱신 및 `:contracts:compileJava :master-data:compileJava :closing:core:compileJava :closing:api:compileJava`, `:closing:core:test`, `:master-data:test` 성공)*.
 
 ### [Loan (대출)]
@@ -35,27 +35,27 @@
 ## 2. ⚠️ Medium (아키텍처 및 품질 개선 과제)
 
 ### [Common & Closing]
-- [ ] **하드코딩 더미 계정/금액 제거:** `closing` 모듈의 자동 분개 및 평가 배치에 남아있는 더미 계정(`999998`, `999999`)과 하드코딩된 금액들을 실제 룰 엔진이나 설정 정보 기반으로 동적 할당하도록 리팩토링하세요.
+- [x] **하드코딩 더미 계정/금액 제거:** `closing` 모듈의 자동 분개 및 평가 배치에 남아있는 더미 계정(`999998`, `999999`)과 하드코딩된 금액들을 실제 룰 엔진이나 설정 정보 기반으로 동적 할당하도록 리팩토링하세요. -> *(완료: `ClosingAccountingProperties`를 추가해 평가/충당 유형별 차변 계정, 대변 계정, 금액을 `account.closing.accounting.*` 설정에서 읽도록 전환. 설정 누락/0 이하 금액은 자동 분개 생성 전 명시적으로 실패. `ClosingServiceTest`로 설정 룰 사용 및 누락 시 posting 미호출 검증. `:closing:core:test`, `:closing:api:compileJava`, `:closing:batch:compileJava` 성공)*.
 
 ### [Reporting (보고서)]
-- [ ] **목업(Mock) 연동 제거:** `LedgerClientAdapter`에 하드코딩된 원장 잔액(`101`, `102`)과 고정 보고서명(`ASSET_CASH`)을 걷어내고, 실제 `journal-ledger` 연동 데이터를 읽어 재무제표를 생성하도록 구현하세요.
+- [x] **목업(Mock) 연동 제거:** `LedgerClientAdapter`에 하드코딩된 원장 잔액(`101`, `102`)과 고정 보고서명(`ASSET_CASH`)을 걷어내고, 실제 `journal-ledger` 연동 데이터를 읽어 재무제표를 생성하도록 구현하세요. -> *(완료: `LedgerClientAdapter`가 `contracts`의 `LedgerQueryPort`로 기준일 GL 잔액 요약을 조회하고 계정별 잔액 맵으로 변환하도록 변경. 목업 과거 보고서(`PAST-001`/`ASSET_CASH`) 반환 제거. `reporting:core`의 `journal-ledger:core` 직접 의존성 제거 및 어댑터 회귀 테스트 추가)*.
 
 ### [Receivable & Governance (헥사고날 위반)]
-- [ ] **[Receivable] 모듈 간 객체 참조(FK) 위반 및 인코딩:** `Receivable` 엔티티가 `master-data`의 `BusinessPartner`를 `@ManyToOne`으로 직접 참조하여 Bounded Context 격리를 위반하고 있습니다. `String customerCode` (또는 ID)로 변경하세요. 파일 내 한글 깨짐(인코딩) 문제도 함께 해결하세요.
-- [ ] **[Receivable] 웹 어댑터 도메인 노출:** `CollectionController` 및 `SalesController`에서 응답 시 도메인 엔티티를 직접 노출하지 말고 DTO로 전환하세요.
-- [ ] **[Governance] 도메인 엔티티 및 Map 노출:** `AuditController`에서 도메인 엔티티 반환 및 `Map<String, String>` 입력 구조를 전용 DTO로 변경하세요.
-- [ ] **[Governance] TracingService 포트 우회:** `TracingService`가 `AuditLogRepository`에 직접 의존하여 계층을 무너뜨린 것을 Port를 통하도록 구조를 수정하세요.
+- [x] **[Receivable] 모듈 간 객체 참조(FK) 위반 및 인코딩:** `Receivable` 엔티티가 `master-data`의 `BusinessPartner`를 `@ManyToOne`으로 직접 참조하여 Bounded Context 격리를 위반하고 있습니다. `String customerCode` (또는 ID)로 변경하세요. 파일 내 한글 깨짐(인코딩) 문제도 함께 해결하세요. -> *(확인 완료: 현재 `Receivable`, `SalesInvoice`, `Collection`은 고객 정보를 `customerCode` 값으로 저장하며, `BusinessPartner`는 `contracts.masterdata.BusinessPartnerRef` 조회 DTO로만 사용. 잔여 `@ManyToOne`은 같은 모듈 내부 `SalesInvoice`, `Collection` 관계만 해당)*.
+- [x] **[Receivable] 웹 어댑터 도메인 노출:** `CollectionController` 및 `SalesController`에서 응답 시 도메인 엔티티를 직접 노출하지 말고 DTO로 전환하세요. -> *(완료: `SalesController`는 `SalesInvoiceRequest/Response`, `CollectionController`는 `CollectionRequest/Response`를 사용하도록 전환. 수동 매칭 요청도 `Map<String,Object>` 대신 `ManualMatchingRequest`로 변경하고, 기존 `amount` 입력명은 `@JsonAlias`로 호환. 컨트롤러 단위 테스트 추가 및 `:receivable:test` 성공)*.
+- [x] **[Governance] 도메인 엔티티 및 Map 노출:** `AuditController`에서 도메인 엔티티 반환 및 `Map<String, String>` 입력 구조를 전용 DTO로 변경하세요. -> *(완료: 감사로그/역할/권한/마스터 승인 API 응답을 `*Response` DTO로 전환하고, 역할 생성/권한 부여/승인 결정 입력을 전용 request DTO로 교체. `:governance:test` 성공)*
+- [x] **[Governance] TracingService 포트 우회:** `TracingService`가 `AuditLogRepository`에 직접 의존하여 계층을 무너뜨린 것을 Port를 통하도록 구조를 수정하세요. -> *(완료: `TracingService`가 `AuditLogPersistencePort`를 통해 감사로그를 조회하도록 전환하고 `TracingServiceTest`로 포트 호출 경계를 검증. `:governance:test` 성공)*
 
 ### [Reconciliation (인코딩 및 품질)]
 - [x] **엔티티 파일 인코딩 복구:** `ReconciliationDifference.java` 등 일부 엔티티 파일의 한글 주석과 문자열이 심각하게 깨져 있습니다. UTF-8로 인코딩을 정리하고 가독성을 확보하세요. -> *(완료: `ReconciliationDifference`는 선행 handoff에서 정상화되어 있음을 확인했고, 잔여 mojibake 검색 결과 `ReconciliationVariance.java`의 깨진 getter/setter 주석 1건을 ASCII 설명으로 정리. BOM/제어문자/주요 mojibake 패턴 재검색 결과 없음. `.\gradlew :reconciliation:test --console=plain --max-workers=1` 성공)*.
 
 ### [Reconciliation (대사 심화)]
-- [ ] **복합 매칭 조건 확장:** `AutomatedMatchingEngine`의 매칭 로직에 금액/일자 외에도 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 지원하도록 고도화하세요.
-- [ ] **계정 산정 정책 도메인화:** 업무별 차/대 계정 산정을 설정(`criteriaJson`)에만 의존하지 않고, 별도의 도메인 정책(Policy) 객체로 명확히 분리하세요.
+- [x] **복합 매칭 조건 확장:** `AutomatedMatchingEngine`의 매칭 로직에 금액/일자 외에도 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 지원하도록 고도화하세요. -> *(완료: `JournalDetailSummary`에 전표번호/헤더·라인 적요/계좌번호 필드 추가, `AutomatedMatchingEngine`에 SlipNo/Description/AccountNo 매칭 옵션 및 로직 구현, 레거시 exact 매칭 사유 보존 테스트 포함 검증 완료)*
+- [x] **계정 산정 정책 도메인화:** 업무별 차/대 계정 산정을 설정(`criteriaJson`)에만 의존하지 않고, 별도의 도메인 정책(Policy) 객체로 명확히 분리하세요. -> *(완료: `ReconciliationAdjustmentPolicy` 도메인 정책 객체 생성 및 계정 산정 검증 로직 이관, 숨은 기본 계정 fallback 제거, `ReconciliationService` 리팩토링 및 테스트 통과)*
 
 ### [Contracts & Journal-Ledger]
-- [ ] **[Contracts] LedgerQueryPort 조회 기능 확장:** 현재 GL(총계정원장) 잔액 조회만 지원하는 구조에 SL(보조원장)/거래처/부서 단위 조회 기능을 추가하세요.
-- [ ] **[Journal-Ledger] 주석 정합성:** `JournalRuleEngine`의 주석("스켈레톤/빈 DRAFT 반환")이 실제 로직(평가 및 라인 생성)과 다르므로 정확히 갱신하세요.
+- [x] **[Contracts] LedgerQueryPort 조회 기능 확장:** 현재 GL(총계정원장) 잔액 조회만 지원하는 구조에 SL(보조원장)/거래처/부서 단위 조회 기능을 추가하세요. -> *(완료: `LedgerQueryPort.getSlBalanceSummaries` 추가, `LedgerBalanceSummary`에 거래처/부서 차원 필드 추가, `MonolithLedgerQueryAdapter`가 `LedgerService.getSlBalances`를 노출하도록 구현, 어댑터 테스트 추가 및 `:contracts:compileJava :journal-ledger:core:test` 성공)*
+- [x] **[Journal-Ledger] 주석 정합성:** `JournalRuleEngine`의 주석("스켈레톤/빈 DRAFT 반환")이 실제 로직(평가 및 라인 생성)과 다르므로 정확히 갱신하세요. -> *(확인 완료: 현재 `JournalRuleEngine`에는 스켈레톤/빈 DRAFT 반환 주석이 남아 있지 않고, 룰 후보 조회/조건 평가/라인 생성 로직이 실제 구현되어 있음. `MonolithJournalPostingCommand`의 stale 엔티티 변환 주석은 ID 값 저장 설명으로 정리)*
 
 ### [Expenditure-Resolution]
 - [x] **API 응답 DTO 필드 회귀:** `ExpenditureResolutionDto`에서 이름 필드(`departmentName` 등)가 항상 null로 반환되는 문제를 조회 어댑터 등을 활용하여 해결하세요. -> *(해결 완료: `ExpenditureResolutionDtoAssembler`에서 `MasterDataQueryPort`를 활용하여 동적으로 이름 필드를 채우는 로직 구현 확인)*

@@ -672,3 +672,146 @@
   - `BUILD SUCCESSFUL`.
 - 남은 리스크:
   - 복합 매칭 조건 확장과 계정 산정 정책 도메인화는 handoff의 별도 Medium 항목으로 남아 있음.
+
+## 2026-05-14 (handoff reporting 목업 연동 제거)
+- 사용자 요청: 다음 작업 계속 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Reporting Medium 항목인 목업 연동 제거를 처리.
+  - `LedgerClientAdapter`의 하드코딩 잔액과 과거 보고서 반환은 실제 원장 연동을 가리는 목업이므로 제거 대상.
+  - `reporting:core`는 `contracts`의 `LedgerQueryPort`만 알면 되므로 `journal-ledger:core` 직접 의존성은 제거하는 것이 헥사고날 경계에 맞음.
+- 수정 내용:
+  - `LedgerClientAdapter`가 `LedgerQueryPort.getGlBalanceSummaries(baseDate, baseDate, null, null)`를 호출해 기준일 GL 잔액 요약을 읽도록 변경.
+  - 조회 결과를 계정코드별 `Map<String, BigDecimal>`로 변환하고, 중복 계정은 합산.
+  - `endingBalance`가 없는 요약은 `debitAmount - creditAmount`로 보정.
+  - 목업 과거 보고서(`PAST-001`, `ASSET_CASH`) 반환을 제거하고 스냅샷 저장소 미구현 시 `Optional.empty()`를 반환하도록 변경.
+  - `reporting/core/build.gradle`에서 `journal-ledger:core` 직접 의존성을 제거.
+  - `LedgerClientAdapterTest`를 추가해 실제 포트 호출 인자, 계정별 합산, 보정 계산, 과거 보고서 빈 결과를 검증.
+  - `reporting` README/docs, `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :reporting:core:test --console=plain --max-workers=1`
+  - `.\gradlew :reporting:api:compileJava :reporting:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :reporting:api:test :reporting:batch:test --console=plain --max-workers=1`
+- 결과:
+  - 모두 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `ReportingService`의 라인 산출은 아직 최소 구현으로, SCD2 기반 `ReportLineMapping` 저장/조회와 복수 보고 라인 산출은 다음 과제.
+  - 과거 보고서 스냅샷 저장소가 없으므로 운영 비교 재무제표의 전기 금액은 별도 영속화 어댑터가 필요.
+
+## 2026-05-14 (handoff closing 자동분개 룰 설정화)
+- 사용자 요청: 다음 작업 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Common & Closing Medium 항목인 더미 계정/고정 금액 제거를 처리.
+  - `ClosingService.runValuationBatch`와 `runProvisionBatch`가 자동 분개 생성 시 `999998`, `999999`, `1000`, `500`을 직접 사용하고 있었음.
+- 수정 내용:
+  - `ClosingAccountingProperties` 추가.
+  - 평가 유형별 `valuation-rules`, 충당 유형별 `provision-rules`에서 차변 계정, 대변 계정, 금액을 읽도록 변경.
+  - 설정 누락, 빈 계정, 0 이하 금액이면 자동 분개 생성 전 실패하도록 검증.
+  - `ClosingService.createAutomatedJournalEntry`가 설정 룰 기반으로 `JournalLineCommand`를 생성하도록 변경.
+  - `ClosingServiceTest`에 평가/충당 배치가 설정 계정/금액을 사용하는지, 룰 누락 시 배치 저장과 전표 생성이 호출되지 않는지 검증 추가.
+  - `closing` README/process-flow, `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :closing:api:compileJava :closing:batch:compileJava --console=plain --max-workers=1`
+- 결과:
+  - 모두 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 운영 계정 및 금액은 환경별 설정으로 반드시 주입해야 함.
+  - 금액 산출까지 도메인 룰 엔진으로 자동화하는 것은 후속 고도화 범위.
+
+## 2026-05-15 (handoff receivable 웹 DTO 전환)
+- 사용자 요청: 다음 작업 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Receivable 웹 어댑터 도메인 노출 항목을 처리.
+  - 현재 코드 기준 `Receivable`의 `BusinessPartner @ManyToOne` 직접 참조는 이미 제거되어 있고, 고객은 `customerCode`와 `contracts.masterdata.BusinessPartnerRef`로 다뤄짐을 확인.
+- 수정 내용:
+  - `SalesController`가 `SalesInvoiceRequest`를 받고 `SalesInvoiceResponse`를 반환하도록 변경.
+  - `CollectionController`가 `CollectionRequest`를 받고 `CollectionResponse`를 반환하도록 변경.
+  - 수동 매칭 요청을 `Map<String,Object>` 대신 `ManualMatchingRequest`로 전환하고 `amount` 입력명은 `@JsonAlias`로 호환.
+  - `SalesInvoiceRequest`, `CollectionRequest`에 도메인 변환 메서드 추가.
+  - `CollectionResponse` 추가.
+  - `SalesInvoice.create`에 description 전달 overload 추가.
+  - `SalesControllerTest`, `CollectionControllerTest` 추가.
+  - `receivable` README/process-flow, `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :receivable:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 기존 수동 매칭 요청의 `amount` 필드는 호환 별칭으로 유지하지만, 신규 API 문서상 권장 필드는 `matchingAmount`.
+
+## 2026-05-18 (handoff governance 웹/추적성 경계 정리)
+- 사용자 요청: 작업 재개 전 git 동기화 우선 수행.
+- 동기화:
+  - `git fetch origin`
+  - `git rev-list --left-right --count HEAD...origin/main`
+  - 결과: `0 0`으로 로컬 `main`과 `origin/main` 커밋 차이 없음.
+- 기준 판단:
+  - 현재 코드 기준 `journal-ledger`의 마스터 엔티티 직접 참조 지적은 오래된 문서와 실제 코드가 일부 어긋나 있었음.
+  - `governance`에는 `AuditController` DTO 전환 변경이 이미 진행 중이었고, `TracingService`의 `AuditLogRepository` 직접 의존은 실제 잔여 계층 위반으로 확인되어 같은 범위에서 마무리.
+- 수정 내용:
+  - `TracingService`가 `AuditLogRepository` 대신 `AuditLogPersistencePort`를 주입받아 `findByTargetEntityAndTargetId`를 호출하도록 변경.
+  - `TracingServiceTest` 추가.
+  - `CODEX_HANDOFF_TASKS.md`의 Governance DTO 전환/TracingService 포트 우회 항목을 `[x]` 완료로 표시.
+  - `governance` README/docs, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `security` 패키지는 auth 모듈 이관 대상 legacy 영역으로 남아 있음.
+
+## 2026-05-18 (handoff journal-ledger 직접 참조/주석 재확인)
+- 사용자 요청: handoff 작업 계속 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 Journal-Ledger 직접 참조 항목은 이미 `[x]`였지만 설명이 오래되어 실제 코드 상태를 재확인.
+  - `JournalRuleEngine`의 "스켈레톤/빈 DRAFT 반환" 주석은 현재 코드에 남아 있지 않았음.
+  - 대신 `MonolithJournalPostingCommand`에 코드 값을 엔티티로 변환한다는 오래된 설명이 남아 있어 정리 대상이라고 판단.
+- 수정 내용:
+  - `MonolithJournalPostingCommand`의 currency/account/department/businessPartner 주석을 "journal-ledger에는 코드 값만 저장하고 유효성은 외부 master-data 포트에서 검증"하는 설명으로 갱신.
+  - `CODEX_HANDOFF_TASKS.md`의 Journal-Ledger 직접 참조 및 주석 정합성 항목을 실제 코드 기준으로 갱신.
+  - `WORKLOG.md`에 검수/문서 결과 기록.
+- 실행 명령:
+  - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1`
+- 결과:
+  - 첫 실행은 120초 제한으로 timeout.
+  - 300초 제한 재실행 결과 `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - `contracts`의 `LedgerQueryPort` SL/거래처/부서 단위 조회 확장은 별도 미완료 항목.
+
+## 2026-05-18 (handoff reconciliation 복합 매칭/조정 정책 보강)
+- 사용자 요청: yolo 모드로 다음 작업 계속 진행.
+- 기준 판단:
+  - 워킹트리에 Reconciliation 대사 심화 변경(`AutomatedMatchingEngine`, `ReconciliationAdjustmentPolicy`, `JournalDetailSummary`)이 이미 존재했지만, 품질 문서/워크로그에는 아직 보완 필요로 남아 있었음.
+  - 기존 변경은 `ACCOUNT_NO_MATCH` 상수와 옵션이 있으나 실제 계좌번호 매칭 로직이 없었고, 조정 정책이 hardcoded fallback 계정을 다시 도입하고 있어 보완 필요.
+- 수정 내용:
+  - `JournalDetailSummary`에 `accountNo` 추가.
+  - `AutomatedMatchingEngine`의 매칭 판정을 `resolveMatchReason`으로 정리하고, 옵션이 켜진 경우 SlipNo/Description/AccountNo 복합 조건을 적용하도록 보강.
+  - 계좌번호는 구분자를 제거하고 대소문자를 정규화해 비교.
+  - 기본 `match(...)`의 exact amount/date 매칭 사유가 복합 필드 때문에 바뀌지 않도록 회귀 테스트 추가.
+  - `ReconciliationAdjustmentPolicy`에서 숨은 기본 계정 fallback을 제거하고 조정 가능한 대사 단위에 명시 계정이 없으면 실패하도록 변경.
+  - `ReconciliationServiceTest`, `AutomatedMatchingEngineTest` 보강.
+  - `reconciliation` README/docs, `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `GEMINI_REVIEW_PROMPT.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - 저장된 `ReconciliationRule.ruleDefinitionJson`을 `AutomatedMatchingEngine.MatchOptions`로 변환해 자동 매칭 호출에 연결하는 통합 경로는 아직 없음.
+
+## 2026-05-18 (handoff contracts LedgerQueryPort 확장)
+- 사용자 요청: yolo 모드로 다음 작업 계속 진행.
+- 기준 판단:
+  - `CODEX_HANDOFF_TASKS.md`의 미완료 항목 중 Contracts & Journal-Ledger의 `LedgerQueryPort` 조회 기능 확장을 처리.
+  - `LedgerService`에는 이미 `getSlBalances(startDate, endDate, accountCode, businessPartnerCode, departmentCode, currencyCode)`가 있으므로 contracts 포트와 어댑터 노출을 보강하는 방식이 가장 작은 변경이라고 판단.
+- 수정 내용:
+  - `LedgerQueryPort.getSlBalanceSummaries` 추가.
+  - `LedgerBalanceSummary`에 `businessPartnerCode`, `departmentCode` 필드 추가.
+  - `MonolithLedgerQueryAdapter`에 GL/SL 매핑 메서드를 분리하고 SL 잔액 조회 구현 추가.
+  - `MonolithLedgerQueryAdapterTest` 추가.
+  - `CODEX_HANDOFF_TASKS.md`, `contracts/docs`, `journal-ledger/docs`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `GEMINI_REVIEW_PROMPT.md`, `WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:test --console=plain --max-workers=1`
+- 결과:
+  - `BUILD SUCCESSFUL`.
+- 남은 리스크:
+  - SL 잔액 조회는 현재 `LedgerService` 내부 필터/집계 기반이며, 대량 데이터용 전용 Repository 집계 쿼리는 별도 성능 고도화 대상.

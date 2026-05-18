@@ -9,23 +9,32 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
  * Matches bank statement rows with journal detail summaries.
+ * 금액/일자 외에도 전표번호, 적요 유사도 등 복합 조건을 지원하도록 고도화되었습니다.
  */
 @Component
 public class AutomatedMatchingEngine {
 
     public static final String EXACT_DATE_AMOUNT_MATCH = "EXACT_DATE_AMOUNT_MATCH";
     public static final String TOLERANCE_DATE_AMOUNT_MATCH = "TOLERANCE_DATE_AMOUNT_MATCH";
+    public static final String COMPLEX_DESCRIPTION_MATCH = "COMPLEX_DESCRIPTION_MATCH";
+    public static final String SLIP_NO_MATCH = "SLIP_NO_MATCH";
+    public static final String ACCOUNT_NO_MATCH = "ACCOUNT_NO_MATCH";
     public static final String NO_MATCH_FOUND = "NO_MATCH_FOUND";
 
     public static class MatchOptions {
         private final BigDecimal amountTolerance;
         private final long dateToleranceDays;
+        private final boolean useDescriptionMatch;
+        private final boolean useSlipNoMatch;
+        private final boolean useAccountNoMatch;
 
-        private MatchOptions(BigDecimal amountTolerance, long dateToleranceDays) {
+        private MatchOptions(BigDecimal amountTolerance, long dateToleranceDays,
+                boolean useDescriptionMatch, boolean useSlipNoMatch, boolean useAccountNoMatch) {
             if (amountTolerance == null) {
                 throw new IllegalArgumentException("amountTolerance must not be null");
             }
@@ -37,14 +46,22 @@ public class AutomatedMatchingEngine {
             }
             this.amountTolerance = amountTolerance;
             this.dateToleranceDays = dateToleranceDays;
+            this.useDescriptionMatch = useDescriptionMatch;
+            this.useSlipNoMatch = useSlipNoMatch;
+            this.useAccountNoMatch = useAccountNoMatch;
         }
 
         public static MatchOptions exact() {
-            return new MatchOptions(BigDecimal.ZERO, 0);
+            return new MatchOptions(BigDecimal.ZERO, 0, false, false, false);
         }
 
         public static MatchOptions of(BigDecimal amountTolerance, long dateToleranceDays) {
-            return new MatchOptions(amountTolerance, dateToleranceDays);
+            return new MatchOptions(amountTolerance, dateToleranceDays, false, false, false);
+        }
+
+        public static MatchOptions complex(BigDecimal amountTolerance, long dateToleranceDays,
+                boolean description, boolean slipNo, boolean accountNo) {
+            return new MatchOptions(amountTolerance, dateToleranceDays, description, slipNo, accountNo);
         }
 
         public BigDecimal getAmountTolerance() {
@@ -53,6 +70,18 @@ public class AutomatedMatchingEngine {
 
         public long getDateToleranceDays() {
             return dateToleranceDays;
+        }
+
+        public boolean isUseDescriptionMatch() {
+            return useDescriptionMatch;
+        }
+
+        public boolean isUseSlipNoMatch() {
+            return useSlipNoMatch;
+        }
+
+        public boolean isUseAccountNoMatch() {
+            return useAccountNoMatch;
         }
     }
 
@@ -105,8 +134,9 @@ public class AutomatedMatchingEngine {
         for (BankStatement stmt : statements) {
             boolean found = false;
             for (JournalDetailSummary detail : details) {
-                if (isMatch(stmt, detail, options)) {
-                    results.add(new MatchResult(stmt, detail, true, matchReason(stmt, detail)));
+                String matchReason = resolveMatchReason(stmt, detail, options);
+                if (matchReason != null) {
+                    results.add(new MatchResult(stmt, detail, true, matchReason));
                     found = true;
                     break;
                 }
@@ -118,38 +148,74 @@ public class AutomatedMatchingEngine {
         return results;
     }
 
-    private boolean isMatch(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
+    private String resolveMatchReason(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
         BigDecimal stmtAmount = statementAmount(stmt);
         BigDecimal detailAmount = detailAmount(detail);
         if (stmtAmount == null || detailAmount == null) {
-            return false;
+            return null;
         }
 
         BigDecimal amountDifference = stmtAmount.subtract(detailAmount).abs();
         if (amountDifference.compareTo(options.getAmountTolerance()) > 0) {
-            return false;
+            return null;
+        }
+
+        if (options.isUseSlipNoMatch() && containsNormalized(stmt.getDescription(), detail.getSlipNo())) {
+            return SLIP_NO_MATCH;
+        }
+
+        if (options.isUseAccountNoMatch() && sameAccountNo(stmt.getAccountNo(), detail.getAccountNo())) {
+            return ACCOUNT_NO_MATCH;
+        }
+
+        if (options.isUseDescriptionMatch()
+                && (containsNormalized(stmt.getDescription(), detail.getDetailDescription())
+                || containsNormalized(stmt.getDescription(), detail.getHeaderDescription()))) {
+            return COMPLEX_DESCRIPTION_MATCH;
         }
 
         LocalDate stmtDate = stmt.getTransactionDate();
         LocalDate glDate = detail.getAccountingDate();
         if (stmtDate == null || glDate == null) {
-            return false;
+            return null;
         }
 
         long dateDifference = Math.abs(ChronoUnit.DAYS.between(stmtDate, glDate));
-        return dateDifference <= options.getDateToleranceDays();
+        if (dateDifference > options.getDateToleranceDays()) {
+            return null;
+        }
+
+        return amountDifference.compareTo(BigDecimal.ZERO) == 0 && dateDifference == 0
+                ? EXACT_DATE_AMOUNT_MATCH
+                : TOLERANCE_DATE_AMOUNT_MATCH;
     }
 
-    private String matchReason(BankStatement stmt, JournalDetailSummary detail) {
-        BigDecimal stmtAmount = statementAmount(stmt);
-        BigDecimal detailAmount = detailAmount(detail);
-        LocalDate stmtDate = stmt.getTransactionDate();
-        LocalDate glDate = detail.getAccountingDate();
-        if (stmtAmount != null && detailAmount != null && stmtAmount.compareTo(detailAmount) == 0
-                && stmtDate != null && stmtDate.equals(glDate)) {
-            return EXACT_DATE_AMOUNT_MATCH;
+    private boolean containsNormalized(String source, String token) {
+        String normalizedSource = normalizeText(source);
+        String normalizedToken = normalizeText(token);
+        return normalizedSource != null && normalizedToken != null
+                && normalizedSource.contains(normalizedToken);
+    }
+
+    private boolean sameAccountNo(String left, String right) {
+        String normalizedLeft = normalizeAccountNo(left);
+        String normalizedRight = normalizeAccountNo(right);
+        return normalizedLeft != null && normalizedLeft.equals(normalizedRight);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
-        return TOLERANCE_DATE_AMOUNT_MATCH;
+        return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeAccountNo(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+        return normalized.isBlank() ? null : normalized;
     }
 
     private BigDecimal statementAmount(BankStatement statement) {

@@ -1,6 +1,5 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
-import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

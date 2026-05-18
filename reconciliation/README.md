@@ -22,7 +22,8 @@
 
 - **헥사고날 원칙 준수:** 과거에는 `journal-ledger`의 내부 DB(Repository)를 몰래 훔쳐보던 구조였지만, 이제는 `contracts` 모듈의 `JournalQueryPort`를 통해 합법적으로 장부 데이터를 받아오도록 수정되었습니다.
 - **외부 스냅샷 포트:** 심화 대사의 `SOURCE`/`INTERFACE` 단계는 `matchingRulesJson`의 고정 금액이 아니라 `ExternalReconSnapshotPort`를 통해 외부 원천/인터페이스 스테이징 데이터를 집계합니다. 기본 구현은 `RECON_EXTERNAL_STAGE_RECORD`를 DB에서 합산하는 Mock/스테이징 어댑터입니다.
-- **도메인 정책 (Policy) 도입:** 오차가 얼마까지 허용되는지 판단하는 `ReconciliationTolerancePolicy` 도메인 규칙이 새롭게 적용되었습니다.
+- **도메인 정책 (Policy) 도입:** 오차가 얼마까지 허용되는지 판단하는 `ReconciliationTolerancePolicy`와 조정분개 계정 산정을 검증하는 `ReconciliationAdjustmentPolicy`가 적용되었습니다.
+- **복합 자동 매칭:** `AutomatedMatchingEngine`은 금액/일자 외에도 전표번호, 적요 문구, 계좌번호 조건을 옵션으로 사용할 수 있습니다.
 - **성능 개선:** 메인 대사의 전표 대상 집계는 `JournalQueryPort.getJournalDetailAggregate`로 DB 단 합계를 사용하고, 심화 대사의 외부 스테이지도 스테이징 테이블 집계 쿼리를 사용합니다.
 
 ---

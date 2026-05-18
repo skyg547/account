@@ -58,7 +58,7 @@ public record MonolithJournalPostingCommand(
         /**
          * 거래 통화 코드.
          * 예: "KRW"(원화), "USD"(달러), "EUR"(유로)
-         * CurrencyPersistencePort를 통해 Currency 엔티티로 변환됩니다.
+         * journal-ledger에는 코드 값만 저장하고, 유효성은 외부 master-data 포트에서 검증합니다.
          */
         String currencyCode,
 
@@ -83,7 +83,7 @@ public record MonolithJournalPostingCommand(
     public record JournalLine(
             /**
              * 계정과목 코드.
-             * AccountSubjectPersistencePort를 통해 AccountSubject 엔티티로 변환됩니다.
+             * journal-ledger에는 계정 코드 값만 저장합니다.
              * 예: "51000"(매입비용), "21100"(매입채무), "11000"(매출채권)
              */
             String accountCode,
@@ -105,7 +105,7 @@ public record MonolithJournalPostingCommand(
             /**
              * 귀속 부서 코드 (선택).
              * null 가능: 부서 귀속이 필요 없는 계정(매입채무 등)은 null.
-             * 설정 시 DepartmentPersistencePort를 통해 Department 엔티티로 변환됩니다.
+             * journal-ledger에는 부서 코드 값만 저장합니다.
              * 예: "DEPT01"(생산부서), "DEPT02"(영업부서)
              */
             String departmentCode,
@@ -113,7 +113,7 @@ public record MonolithJournalPostingCommand(
             /**
              * 거래처 코드 (선택).
              * null 가능: 거래처 없는 계정(복리후생비 등)은 null.
-             * 설정 시 BusinessPartnerPersistencePort를 통해 BusinessPartner 엔티티로 변환됩니다.
+             * journal-ledger에는 거래처 코드 값만 저장합니다.
              * 예: "BP001"(삼성전자), "BP002"(LG전자)
              */
             String businessPartnerCode,

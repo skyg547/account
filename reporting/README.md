@@ -20,8 +20,8 @@
 `reporting` 모듈은 스스로 DB에 장부를 가지고 있지 않습니다.
 보고서를 뽑아달라는 요청이 오면, `contracts` 모듈의 `LedgerQueryPort` 등을 통해 `journal-ledger`에 물어봐서 잔액 데이터를 끌어모은 뒤 양식에 맞게 포맷팅합니다.
 
-> ⚠️ **현재 상태 주의 (Mockup):**
-> 최신 리뷰(Handoff Tasks)에 따르면, 현재 이 모듈의 연동 어댑터(`LedgerClientAdapter`)에는 하드코딩된 잔액(`101`, `102`)과 보고서명(`ASSET_CASH`)이 들어가 있는 목업(Mock) 상태입니다. 추후 실제 `journal-ledger` 데이터와 연동하는 고도화 작업이 필요합니다.
+> **현재 상태:**
+> `LedgerClientAdapter`는 하드코딩 목업 잔액 대신 `LedgerQueryPort`의 GL 잔액 요약을 조회합니다. 기준일 현재 잔액을 계정코드별로 묶어 `ReportingService`에 전달하며, 이전 보고서 스냅샷 저장소는 아직 별도 구현 과제로 남아 있어 과거 비교값이 없으면 0으로 처리합니다.
 
 ---
 

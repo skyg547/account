@@ -41,3 +41,26 @@ flowchart TD
 
 ### 3.4 Multi-stage Docker 운영
 - 배포 파이프라인 상에서 Builder 이미지를 통해 컴파일과 테스트가 수행되고, 최종적으로 슬림한 Runtime Docker 컨테이너만 배포되어 메모리 사용량을 최소화하고 보안 취약점을 줄입니다. 마감 시즌에 트래픽이 몰리지 않으므로 경량 컨테이너 운영에 매우 적합합니다.
+
+### 3.5 자동 평가/충당 분개 설정
+- `runValuationBatch`, `runProvisionBatch`는 더미 계정/고정 금액을 쓰지 않습니다.
+- 운영 설정의 `account.closing.accounting.valuation-rules.<VALUATION_TYPE>`와 `account.closing.accounting.provision-rules.<PROVISION_TYPE>`에서 차변 계정, 대변 계정, 금액을 읽어 전표를 생성합니다.
+- 설정이 누락되거나 금액이 0 이하이면 자동 분개를 생성하지 않고 명시적으로 실패합니다.
+
+예시:
+
+```yaml
+account:
+  closing:
+    accounting:
+      valuation-rules:
+        FX_RATE:
+          debit-account-code: "510100"
+          credit-account-code: "110100"
+          amount: 1234.56
+      provision-rules:
+        BAD_DEBT:
+          debit-account-code: "550100"
+          credit-account-code: "129100"
+          amount: 789.10
+```

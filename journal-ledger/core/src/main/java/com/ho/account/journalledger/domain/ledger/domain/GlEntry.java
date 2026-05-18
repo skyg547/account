@@ -1,8 +1,6 @@
 package com.ho.account.journalledger.domain.ledger.domain;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

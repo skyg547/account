@@ -74,7 +74,7 @@ Notes:
 
 ## Current Handoff Context
 
-- 현재 로컬 기준 커밋: `e8b3080`
+- 현재 로컬 기준 커밋: `9082ece`
 - 현재 로컬 워킹트리에는 미커밋 변경이 남아 있을 수 있다.
 - 최근 Codex 구현 범위:
   - `journal-ledger:api`의 `DepartmentPersistencePort.findByCode` 잔존 호출을 `findActiveByCode`로 수정.
@@ -126,6 +126,22 @@ Notes:
   - `MasterApprovalServiceTest`, `MasterDataChangeRequestAdapterTest`로 값 보존/전달을 검증하고 `CODEX_HANDOFF_TASKS.md`의 Governance 승인 연계 항목을 완료 표시.
   - `ExpenditureResolutionService` 전표 생성 경로가 부서/계정/거래처 조회 실패를 `orElseThrow`로 차단함을 재확인.
   - `ExpenditureResolutionServiceTest`에 부서/상세 계정/거래처 누락 시 전표 생성과 저장이 호출되지 않는 회귀 테스트를 추가하고 Expenditure-Resolution 마스터 조회 실패 은닉 항목을 완료 표시.
+  - `reporting`의 `LedgerClientAdapter` 목업 원장 잔액(`101`, `102`)과 목업 과거 보고서(`PAST-001`, `ASSET_CASH`) 반환을 제거.
+  - `LedgerClientAdapter`가 `LedgerQueryPort.getGlBalanceSummaries`로 기준일 GL 잔액 요약을 조회하고 계정코드별 잔액 맵으로 변환하도록 변경.
+  - `reporting:core`의 `journal-ledger:core` 직접 의존성을 제거하고 `LedgerClientAdapterTest`를 추가.
+  - `reporting` 문서, `CODEX_HANDOFF_TASKS.md`, `TOTAL_QUALITY_REPORT.md`, `INSPECTION_TRACKER.md`, `WORKLOG.md`, `CODEX_WORKLOG.md`를 갱신.
+  - `closing`의 자동 평가/충당 배치 더미 계정(`999998`, `999999`)과 고정 금액(`1000`, `500`)을 제거.
+  - `ClosingAccountingProperties`를 추가해 `account.closing.accounting.valuation-rules.*`, `account.closing.accounting.provision-rules.*` 설정으로 자동분개 계정/금액을 주입하도록 변경.
+  - `ClosingServiceTest`에 설정 룰 사용과 룰 누락 시 전표 생성 미호출 회귀 테스트를 추가.
+  - `receivable`의 `SalesController`, `CollectionController`를 DTO 입출력으로 전환.
+  - 수동 매칭 요청을 `Map<String,Object>`에서 `ManualMatchingRequest`로 변경하고 기존 `amount` 필드는 `@JsonAlias`로 호환.
+  - `CollectionResponse`, `SalesControllerTest`, `CollectionControllerTest`를 추가.
+  - `governance`의 `AuditController` 도메인/Map 노출을 DTO 입출력으로 정리.
+  - `TracingService`가 `AuditLogRepository` 대신 `AuditLogPersistencePort`를 사용하도록 변경하고 `TracingServiceTest`를 추가.
+  - `journal-ledger`의 master-data 엔티티 직접 참조 제거 상태를 재확인하고 `MonolithJournalPostingCommand`의 stale 엔티티 변환 주석을 코드 값 저장 설명으로 정리.
+  - `JournalDetailSummary`에 `accountNo`를 추가하고 `AutomatedMatchingEngine` 복합 매칭을 SlipNo/Description/AccountNo 기준으로 보강.
+  - `ReconciliationAdjustmentPolicy`가 조정분개 계정 산정을 검증하도록 분리하고 숨은 기본 계정 fallback을 제거.
+  - `LedgerQueryPort.getSlBalanceSummaries`와 `LedgerBalanceSummary` 거래처/부서 차원 필드를 추가하고 `MonolithLedgerQueryAdapterTest`를 보강.
 - 최근 검증:
   - `.\gradlew :journal-ledger:core:test :journal-ledger:api:compileJava --console=plain --max-workers=1`
   - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --rerun-tasks`
@@ -140,6 +156,7 @@ Notes:
   - `.\gradlew :journal-ledger:core:test :reconciliation:test --console=plain --max-workers=1`
   - `.\gradlew :reconciliation:test --console=plain --max-workers=1`
   - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:test --console=plain --max-workers=1`
   - 결과는 모두 `BUILD SUCCESSFUL`.
   - `git diff --check -- reconciliation/src/main/java/com/ho/account/reconciliation/service/AutomatedMatchingEngine.java reconciliation/src/test/java/com/ho/account/reconciliation/service/AutomatedMatchingEngineTest.java reconciliation/docs/README.md reconciliation/docs/process-flow.md reconciliation/docs/beginner-guide.md reconciliation/docs/schema.md`
   - 결과는 오류 없이 종료했고 CRLF 변환 경고만 출력됨.
@@ -158,6 +175,16 @@ Notes:
   - 결과는 `BUILD SUCCESSFUL`.
   - `.\gradlew :expenditure-resolution:test --console=plain --max-workers=1`
   - 결과는 `BUILD SUCCESSFUL`.
+  - `.\gradlew :reporting:core:test --console=plain --max-workers=1`
+  - `.\gradlew :reporting:api:compileJava :reporting:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :reporting:api:test :reporting:batch:test --console=plain --max-workers=1`
+  - `.\gradlew :closing:core:test --console=plain --max-workers=1`
+  - `.\gradlew :closing:api:compileJava :closing:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :receivable:test --console=plain --max-workers=1`
+  - `.\gradlew :governance:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1`
+  - `.\gradlew :contracts:compileJava :journal-ledger:core:compileJava :reconciliation:test --console=plain --max-workers=1`
+  - 결과는 모두 `BUILD SUCCESSFUL`.
 - 알려진 이슈:
   - `master-data` UTF-8 인코딩 진단은 최근 `:master-data:compileJava --rerun-tasks` 기준 재현되지 않았다.
   - `loan`의 자동 전표 계정코드는 `LoanAccountingProperties` 설정으로 분리됐지만, `Loan`/`LoanContract` 병행 모델은 아직 남아 있다.
@@ -167,17 +194,19 @@ Notes:
   - expenditure DTO Assembler의 이름 표시용 선택 조회는 조회 실패 시 null을 반환할 수 있으나, 전표 생성 경로의 마스터 조회 실패 차단과는 분리된다.
   - `reconciliation` 메인 `ReconciliationService` 흐름은 더미 금액을 제거했지만, 원천 집계는 아직 `criteriaJson` 명시값 기반이다.
   - `reconciliation` 조정분개 링크는 전표 ID 참조로 전환됐고, `ReconciliationService`의 `JournalEntryRepository` 의존성은 제거됐다.
-  - `reconciliation` 업무별 차/대 계정 산정 정책은 아직 별도 도메인 정책으로 분리되지 않았다.
+  - `reconciliation` 업무별 차/대 계정 산정 정책은 `ReconciliationAdjustmentPolicy`로 분리됐고, 조정 가능한 대사 단위에 계정 설정이 없으면 실패한다.
   - `AutomatedMatchingEngine`는 `JournalDetailSummary` 계약 DTO 기반으로 전환됐고, `reconciliation`의 `journal-ledger:core` 직접 의존성은 제거됐다.
   - `performReconciliation`의 메인 집계 비교는 `ReconciliationRule.toleranceType/toleranceValue`를 사용한다.
-  - `AutomatedMatchingEngine`는 `MatchOptions`로 금액/일자 허용오차를 받을 수 있지만, 저장된 `ReconciliationRule.ruleDefinitionJson`의 라인 단위 매칭 조건을 이 옵션으로 변환하는 통합 호출 경로는 아직 없다.
-  - 자동 매칭은 설명문구 유사도, 전표번호, 계좌번호 등 복합 조건을 아직 사용하지 않는다.
+  - `AutomatedMatchingEngine`는 `MatchOptions`로 금액/일자 허용오차와 전표번호/적요/계좌번호 복합 조건을 받을 수 있지만, 저장된 `ReconciliationRule.ruleDefinitionJson`의 라인 단위 매칭 조건을 이 옵션으로 변환하는 통합 호출 경로는 아직 없다.
   - `GEMINI_MODULE_REVIEW.md`가 지적한 `ReconciliationService.java` 인코딩 깨짐은 후속 조치로 정리됐다.
   - `GEMINI_MODULE_REVIEW.md`가 지적한 `reconciliation`의 `journal-ledger:core` 직접 의존성과 `JournalEntryRepository` 직접 참조는 제거됐다.
   - `GEMINI_MODULE_REVIEW.md`가 지적한 `ReconciliationService.buildTargetSnapshot` 대량 집계 성능 리스크는 DB 집계 포트 전환으로 완화됐다.
   - `ReconManagerService` SOURCE/INTERFACE 단계는 `ExternalReconSnapshotPort`와 `RECON_EXTERNAL_STAGE_RECORD` 스테이징 집계 어댑터로 전환되어 `matchingRulesJson` 명시 집계값 직접 의존을 제거했다.
   - `ReconManagerService` JOURNAL 단계는 아직 전표 요약/상세 루프 기반 집계다.
-  - 신규 `LedgerQueryPort`는 GL 잔액 조회만 제공하며 SL/거래처/부서 단위 조회는 아직 없다.
+  - `LedgerQueryPort`는 GL 잔액 조회와 SL/거래처/부서 단위 잔액 조회를 제공한다.
+  - `ReportingService`의 보고 라인 산출은 아직 최소 구현이며 SCD2 기반 `ReportLineMapping` 저장/조회와 과거 스냅샷 저장소가 필요하다.
+  - `closing` 자동분개 계정/금액은 이제 설정 필수이며, 산출 금액 자체를 룰 엔진으로 계산하는 고도화는 아직 없다.
+  - `receivable` 수동 매칭 요청의 금액 필드는 `matchingAmount`가 권장이고, 기존 `amount`는 호환 별칭으로 유지된다.
   - 작업 전부터 `contracts`, `master-data`, 문서, `GEMINI_MODULE_REVIEW.md` 등 다른 미커밋 변경이 존재했다.
 
 ## Review Handoff Checklist

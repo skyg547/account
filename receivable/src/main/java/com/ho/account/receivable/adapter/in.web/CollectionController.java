@@ -1,13 +1,14 @@
 package com.ho.account.receivable.adapter.in.web;
 
 import com.ho.account.receivable.application.port.in.CollectionUseCase;
-import com.ho.account.receivable.domain.Collection;
+import com.ho.account.receivable.dto.CollectionRequest;
+import com.ho.account.receivable.dto.CollectionResponse;
+import com.ho.account.receivable.dto.ManualMatchingRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/collections")
@@ -20,8 +21,9 @@ public class CollectionController {
     }
 
     @PostMapping
-    public ResponseEntity<Collection> receivePayment(@RequestBody Collection collection) {
-        return ResponseEntity.ok(collectionUseCase.receivePayment(collection));
+    public ResponseEntity<CollectionResponse> receivePayment(@Valid @RequestBody CollectionRequest request) {
+        return ResponseEntity.ok(CollectionResponse.fromEntity(
+                collectionUseCase.receivePayment(request.toEntity())));
     }
 
     @PostMapping("/{collectionId}/auto-match")
@@ -31,16 +33,18 @@ public class CollectionController {
     }
 
     @GetMapping("/unmatched")
-    public ResponseEntity<List<Collection>> getUnmatchedCollections() {
-        return ResponseEntity.ok(collectionUseCase.getUnmatchedCollections());
+    public ResponseEntity<List<CollectionResponse>> getUnmatchedCollections() {
+        return ResponseEntity.ok(collectionUseCase.getUnmatchedCollections().stream()
+                .map(CollectionResponse::fromEntity)
+                .toList());
     }
 
     @PostMapping("/manual-match")
-    public ResponseEntity<Void> manualMatchCollection(@RequestBody Map<String, Object> request) {
-        Long collectionId = Long.valueOf(request.get("collectionId").toString());
-        Long receivableId = Long.valueOf(request.get("receivableId").toString());
-        BigDecimal amount = new BigDecimal(request.get("amount").toString());
-        collectionUseCase.manualMatchCollection(collectionId, receivableId, amount);
+    public ResponseEntity<Void> manualMatchCollection(@Valid @RequestBody ManualMatchingRequest request) {
+        collectionUseCase.manualMatchCollection(
+                request.getCollectionId(),
+                request.getReceivableId(),
+                request.getMatchingAmount());
         return ResponseEntity.ok().build();
     }
 }

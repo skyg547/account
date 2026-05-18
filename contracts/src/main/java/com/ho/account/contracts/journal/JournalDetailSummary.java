@@ -12,6 +12,11 @@ public class JournalDetailSummary {
     private LocalDate accountingDate;
     private BigDecimal amount;
     private BigDecimal baseAmount;
+    private String slipNo;
+    private String detailDescription;
+    private String headerDescription;
+    private String businessPartnerCode;
+    private String accountNo;
 
     public Long getId() {
         return id;
@@ -75,5 +80,45 @@ public class JournalDetailSummary {
 
     public void setBaseAmount(BigDecimal baseAmount) {
         this.baseAmount = baseAmount;
+    }
+
+    public String getSlipNo() {
+        return slipNo;
+    }
+
+    public void setSlipNo(String slipNo) {
+        this.slipNo = slipNo;
+    }
+
+    public String getDetailDescription() {
+        return detailDescription;
+    }
+
+    public void setDetailDescription(String detailDescription) {
+        this.detailDescription = detailDescription;
+    }
+
+    public String getHeaderDescription() {
+        return headerDescription;
+    }
+
+    public void setHeaderDescription(String headerDescription) {
+        this.headerDescription = headerDescription;
+    }
+
+    public String getBusinessPartnerCode() {
+        return businessPartnerCode;
+    }
+
+    public void setBusinessPartnerCode(String businessPartnerCode) {
+        this.businessPartnerCode = businessPartnerCode;
+    }
+
+    public String getAccountNo() {
+        return accountNo;
+    }
+
+    public void setAccountNo(String accountNo) {
+        this.accountNo = accountNo;
     }
 }

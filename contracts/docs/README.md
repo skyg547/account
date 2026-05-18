@@ -33,6 +33,11 @@
 2. **구현 모듈 (`journal-ledger`)** 어댑터가 DB 집계 쿼리로 기간/차대변 기준 상세 건수와 금액 합계를 반환.
 3. 결과로 `JournalDetailAggregateSummary`를 받아 대량 전표 상세를 애플리케이션 메모리에서 순회하지 않아도 됩니다.
 
+### 원장 잔액 조회 흐름 (Ledger Query)
+1. **호출 모듈** -> `getGlBalanceSummaries(...)` 또는 `getSlBalanceSummaries(...)` -> `LedgerQueryPort`
+2. **구현 모듈 (`journal-ledger`)** 어댑터가 GL/SL 잔액을 계정, 통화, 거래처, 부서 차원으로 조회합니다.
+3. 결과로 `LedgerBalanceSummary`를 받아 보고/대사 모듈이 journal-ledger 내부 엔티티를 직접 참조하지 않고 잔액을 사용할 수 있습니다.
+
 ### 마스터 데이터 조회 흐름 (Master Data)
 1. **호출 모듈** -> `findAccountSubject("10100")` -> `MasterDataQueryPort`
 2. **구현 모듈 (`master-data`)** 어댑터가 DB 조회 후 `AccountSubjectRef` (이름표 DTO) 반환.
@@ -48,7 +53,7 @@
 
 이 모듈은 DB 테이블이 없으며, 아래와 같은 데이터 전송 객체(DTO)와 포트 명세로 구성됩니다.
 
-- **Journal (전표):** `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`, `JournalLineCommand`, `JournalPostingResult`, `JournalDetailAggregateSummary`
+- **Journal (전표/원장):** `JournalPostingPort`, `JournalQueryPort`, `LedgerQueryPort`, `JournalEntryCommand`, `JournalLineCommand`, `JournalPostingResult`, `JournalDetailAggregateSummary`, `LedgerBalanceSummary`
 - **Master Data (기준정보):** `MasterDataQueryPort`, `FiscalPeriodControlPort`, `AccountSubjectRef`, `BusinessPartnerRef`, `DepartmentRef`, `FiscalPeriodRef`
 - **Source (추적):** `SourceDocumentProvider` (전표에서 원문서 역추적)
 - **Expenditure (지출):** `BudgetControlPort`, `LeasePaymentResolutionPort`, `LeasePaymentResolutionCommand`

@@ -33,3 +33,12 @@ flowchart LR
     C -->|ID 기반 참조| D[(master-data API)]
 ```
 모든 전표 라인은 계정과목, 부서, 거래처 정보를 식별자(ID) 값으로만 가지고 있습니다. 실제 이름이나 속성이 필요할 때는 API 조회를 통해 데이터를 조합합니다. 이는 MSA 환경과 멀티 스테이지 Docker 환경에서 서비스 간 결합도를 낮추는 핵심입니다.
+
+## 4. GL/SL 잔액 조회 계약
+
+`LedgerQueryPort`는 외부 모듈이 journal-ledger 엔티티를 직접 참조하지 않고 원장 잔액을 조회할 수 있게 합니다.
+
+- `getGlBalanceSummaries`: 계정/통화 기준 총계정원장 잔액 조회
+- `getSlBalanceSummaries`: 계정/거래처/부서/통화 기준 보조원장 잔액 조회
+
+대사와 보고 모듈은 이 계약을 통해 잔액을 조회하므로, journal-ledger 내부 JPA 엔티티 구조가 외부로 새지 않습니다.

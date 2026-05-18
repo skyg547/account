@@ -35,9 +35,11 @@
 - `AutomatedMatchingEngine`는 `JournalDetailSummary` 기준으로 은행 거래와 전표 라인을 매칭합니다.
   - 기본 `match(...)` 호출은 금액과 회계일자가 정확히 같아야 합니다.
   - `MatchOptions`를 전달하면 금액 허용오차와 일자 허용일수를 적용할 수 있습니다.
+  - 복합 옵션을 켜면 전표번호, 전표/라인 적요, 계좌번호를 추가 매칭 조건으로 사용할 수 있습니다.
 - 조정 가능한 사유코드로 자동 조정분개를 만들려면 `criteriaJson`에 계정코드를 명시해야 합니다.
   - `adjustmentDebitAccountCode`
   - `adjustmentCreditAccountCode`
+  - 계정코드가 없거나 `criteriaJson`이 잘못된 경우 숨은 기본 계정으로 대체하지 않고 실행을 실패시킵니다.
 - 자동 조정분개 생성은 `JournalPostingPort`를 통해 journal-ledger의 전표 생성 경로로 위임합니다.
 - 차이에 저장되는 조정분개 링크는 `JournalEntry` 엔티티 연관이 아니라 전표 ID입니다.
 - 기본 생성되는 `GENERIC_MISMATCH` 사유코드는 자동 조정분개를 만들지 않습니다.

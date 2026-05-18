@@ -44,6 +44,8 @@ sequenceDiagram
 **설명:**
 - AOP가 Application Service의 유스케이스 호출 전후를 감싸서 변경 이력을 직렬화합니다.
 - 멀티 스테이지 Docker 환경이나 MSA 구조에서는 이 Audit Log 기록이 비동기 이벤트(Kafka 등)로 발행되어 Audit 전용 컨테이너에서 적재될 수도 있습니다 (결합도 최소화).
+- 감사 조회 API는 도메인 엔티티를 그대로 반환하지 않고 `AuditLogResponse` 등 전용 DTO로 변환합니다.
+- 추적성 패키지 조회는 `AuditLogPersistencePort`를 통해 수행하며 JPA Repository를 서비스에서 직접 호출하지 않습니다.
 
 ## 3. 마스터 승인 흐름 (ID 기반 참조)
 

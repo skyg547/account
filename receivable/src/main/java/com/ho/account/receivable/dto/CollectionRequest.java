@@ -1,5 +1,6 @@
 package com.ho.account.receivable.dto;
 
+import com.ho.account.receivable.domain.Collection;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +24,17 @@ public class CollectionRequest {
     private String virtualAccount;
 
     private String referenceNo;
+
+    public Collection toEntity() {
+        Collection collection = new Collection();
+        collection.setCollectionDate(collectionDate);
+        collection.setCustomerCode(customerCode);
+        collection.setAmount(amount);
+        collection.setBankAccount(bankAccount);
+        collection.setVirtualAccount(virtualAccount);
+        collection.setReferenceNo(referenceNo);
+        return collection;
+    }
 
     // Getter 및 Setter
     public LocalDate getCollectionDate() {

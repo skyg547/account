@@ -28,7 +28,7 @@
 
 1. **[웹 어댑터]** 기준일자를 입력받습니다 (`ReportingController`).
 2. **[유스케이스/포트]** 해당 일자에 유효한 매핑 정보를 읽어옵니다 (`GenerateStatementUseCase`).
-3. **[DB 어댑터/포트]** 타 모듈에서 `POSTED` 상태인 전표(ID 기반 참조)만 조회합니다 (`LoadLedgerPort`).
+3. **[아웃바운드 어댑터/포트]** `LedgerClientAdapter`가 `LedgerQueryPort`를 통해 기준일의 GL 잔액 요약을 조회합니다 (`LoadLedgerPort`).
 4. **[도메인 모델]** 라인별 금액을 계산하여 `FinancialStatement`를 생성합니다.
 
 ### 4.2 스냅샷 생성 및 이력 관리
@@ -55,7 +55,7 @@
 - 스냅샷은 과거의 계산 결과를 저장해둔 고정된 데이터입니다.
 
 ### 6.2 POSTED 전표만 봅니다
-- 작성 중이거나 승인만 된 전표는 집계에서 제외됩니다. 반드시 장부에 반영된(POSTED) 전표만 취급합니다.
+- 작성 중이거나 승인만 된 전표는 집계에서 제외됩니다. `journal-ledger`의 잔액 요약을 통해 장부에 반영된 금액만 취급합니다.
 
 ### 6.3 객체 직접 참조 금지 (ID 기반 참조)
 - JPA 연관관계를 맺을 때 다른 모듈의 엔티티를 직접 `@ManyToOne` 등으로 묶지 않고, `Long ledgerId`처럼 ID 값만 들고 있어야 합니다.

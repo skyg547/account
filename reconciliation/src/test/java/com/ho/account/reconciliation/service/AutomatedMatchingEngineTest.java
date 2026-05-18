@@ -58,6 +58,75 @@ class AutomatedMatchingEngineTest {
     }
 
     @Test
+    void matchSucceedsWithSlipNoInDescription() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        statement.setDescription("Payment for slip-001");
+
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 20));
+        detail.setSlipNo("SLIP-001");
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(statement),
+                List.of(detail),
+                AutomatedMatchingEngine.MatchOptions.complex(BigDecimal.ZERO, 0, false, true, false));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.SLIP_NO_MATCH);
+    }
+
+    @Test
+    void matchSucceedsWithDescriptionSimilarity() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        statement.setDescription("Invoice 12345 from ABC Corp");
+
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 20));
+        detail.setDetailDescription("Invoice 12345");
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(statement),
+                List.of(detail),
+                AutomatedMatchingEngine.MatchOptions.complex(BigDecimal.ZERO, 0, true, false, false));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.COMPLEX_DESCRIPTION_MATCH);
+    }
+
+    @Test
+    void matchSucceedsWithAccountNoIgnoringSeparators() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        statement.setAccountNo("123-456-789");
+
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 20));
+        detail.setAccountNo("123456789");
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(statement),
+                List.of(detail),
+                AutomatedMatchingEngine.MatchOptions.complex(BigDecimal.ZERO, 0, false, false, true));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.ACCOUNT_NO_MATCH);
+    }
+
+    @Test
+    void exactMatchKeepsLegacyReasonWhenComplexOptionsAreDisabled() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        statement.setDescription("Payment for SLIP-001");
+
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+        detail.setSlipNo("SLIP-001");
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(List.of(statement), List.of(detail));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.EXACT_DATE_AMOUNT_MATCH);
+    }
+
+    @Test
     void matchFailsWhenToleranceIsExceeded() {
         BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
         JournalDetailSummary detail = journalDetail("101.01", LocalDate.of(2026, 5, 14));

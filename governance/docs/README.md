@@ -27,7 +27,7 @@
 ## Hexagonal DDD 적용 현황
 
 - Inbound:
-  - `AuditController` (HTTP)
+  - `AuditController` (HTTP, request/response DTO)
   - `AuditAspect` (`@AuditLoggable` AOP)
 - Application:
   - `application.port.in`: `AuditLogUseCase`, `AuthorizationUseCase`, `MasterApprovalUseCase`
@@ -48,6 +48,8 @@
   - `MasterApproval` 승인 시 `master-data` 변경요청 생성 -> 승인 -> 적용까지 연결
 - 권한:
   - role + function + accessType 조합 중복 부여 차단
+- 추적성 조회:
+  - `TracingService`는 `AuditLogRepository`가 아니라 `AuditLogPersistencePort`를 통해 감사 로그를 조회
 
 ## Master Approval API
 

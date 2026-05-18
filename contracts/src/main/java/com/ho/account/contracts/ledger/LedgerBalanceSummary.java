@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 public class LedgerBalanceSummary {
     private String accountCode;
+    private String businessPartnerCode;
+    private String departmentCode;
     private String currencyCode;
     private BigDecimal debitAmount;
     private BigDecimal creditAmount;
@@ -15,6 +17,22 @@ public class LedgerBalanceSummary {
 
     public void setAccountCode(String accountCode) {
         this.accountCode = accountCode;
+    }
+
+    public String getBusinessPartnerCode() {
+        return businessPartnerCode;
+    }
+
+    public void setBusinessPartnerCode(String businessPartnerCode) {
+        this.businessPartnerCode = businessPartnerCode;
+    }
+
+    public String getDepartmentCode() {
+        return departmentCode;
+    }
+
+    public void setDepartmentCode(String departmentCode) {
+        this.departmentCode = departmentCode;
     }
 
     public String getCurrencyCode() {

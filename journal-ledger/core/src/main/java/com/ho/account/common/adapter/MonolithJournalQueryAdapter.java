@@ -94,9 +94,13 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
 
         if (detail.getJournalEntry() != null) {
             summary.setAccountingDate(detail.getJournalEntry().getAccountingDate());
+            summary.setSlipNo(detail.getJournalEntry().getSlipNo());
+            summary.setHeaderDescription(detail.getJournalEntry().getDescription());
         }
         summary.setAmount(detail.getAmount());
         summary.setBaseAmount(detail.getBaseAmount());
+        summary.setDetailDescription(detail.getDetailDescription());
+        summary.setBusinessPartnerCode(detail.getBusinessPartnerCode());
         return summary;
     }
 

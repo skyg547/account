@@ -14,10 +14,11 @@
 
 ---
 
-## 2. 🔄 아키텍처 및 헥사고날 위반 주의
+## 2. 🔄 아키텍처 및 헥사고날 경계
 
-- 최근 리뷰(Handoff Tasks)에 따르면, `CollectionController`와 `SalesController` 같은 웹 어댑터 계층에서 도메인 엔티티를 직접 반환하여 **헥사고날 아키텍처 원칙을 위반**하고 있는 상태입니다. 
-- 추후 외부로 응답을 내보낼 때는 반드시 전용 DTO로 변환하여 반환하도록 고도화해야 합니다.
+- `CollectionController`와 `SalesController`는 외부 HTTP 요청/응답을 전용 DTO로 받고 반환합니다.
+- 고객 정보는 `customerCode` 값으로 저장하고, 정합성 검증과 이름 조회는 `contracts`의 마스터 데이터 포트를 통해 수행합니다.
+- 수납 수동 매칭 요청도 `Map` 대신 `ManualMatchingRequest` DTO로 받습니다.
 
 ---
 

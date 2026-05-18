@@ -19,6 +19,7 @@ erDiagram
 - `name`, `description`
 - `frequency`, `reconciliation_type`
 - `criteria_json` (상세 비교 조건)
+  - 자동 조정분개 사용 시 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode` 필수
 - `is_active`, `valid_from`, `valid_to` (SCD2 이력 추적용)
 - `created_at`, `updated_at`, `audit_user`
 
@@ -46,6 +47,16 @@ erDiagram
 - `adjustment_journal_entry_id` (ID Reference)
 - `status`, `assigned_to_user`
 - `resolved_at`, `resolved_by`
+
+### `JournalDetailSummary` 연동 필드
+
+자동 매칭은 `contracts`의 `JournalDetailSummary`를 입력 계약으로 사용합니다. 복합 매칭을 위해 다음 요약 필드를 활용합니다.
+
+- `slipNo`
+- `detailDescription`
+- `headerDescription`
+- `accountNo`
+- `businessPartnerCode`
 
 ## 2. 심화 대사 모델
 

@@ -27,6 +27,7 @@
 1. 개발자가 중요한 메서드에 `@AuditLoggable` 어노테이션을 붙입니다.
 2. `AuditAspect`가 해당 메서드를 가로채서(AOP), 호출 전 데이터와 호출 후 결과를 JSON으로 직렬화합니다.
 3. 이를 `AUDIT_LOG` 테이블에 성공/실패 여부, 사용자 ID, IP 주소와 함께 영구 저장합니다.
+4. 감사 API와 추적성 조회는 도메인 엔티티/JPA Repository를 직접 노출하지 않고 DTO와 `AuditLogPersistencePort`를 통해 접근합니다.
 
 ### 📌 승인 관리 및 직무분리 (SOD)
 기준 정보(`master-data`) 변경처럼 중요한 작업은 혼자서 결재할 수 없습니다.
@@ -37,6 +38,9 @@
 
 ### 📌 데이터 마스킹 (Masking)
 이메일이나 주민/등록번호 같은 민감정보를 화면이나 로그에 그대로 노출하지 않도록 일부를 가려줍니다. (예: `abc@example.com` -> `a***@example.com`)
+
+### 📌 웹 API 경계
+`AuditController`는 감사로그, 역할, 권한, 마스터 승인 결과를 전용 응답 DTO로 반환합니다. 역할 생성, 권한 부여, 승인/반려 요청도 `Map` 입력 대신 명시적인 request DTO를 사용합니다.
 
 ---
 

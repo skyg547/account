@@ -22,6 +22,8 @@
 
 ## 3. 대외 보고서 처리 프로세스
 1.  **Request**: 웹 요청 또는 배치 스케줄에 의한 트리거.
-2.  **Data Loading**: 인접 모듈(`journal-ledger`) 및 과거 히스토리 DB에서 데이터 로드.
+2.  **Data Loading**: `contracts`의 `LedgerQueryPort`를 통해 인접 모듈(`journal-ledger`)의 GL 잔액 요약을 로드.
 3.  **Core Logic**: 계정별 합산, 비교식 재무제표 산출, 주석 번호 매핑.
 4.  **Finalization**: 데이터 정합성 검토 및 보고서 상태 확정.
+
+현재 과거 보고서 히스토리 저장소는 구현되어 있지 않으므로 `LoadReportHistoryPort`는 확정 스냅샷을 찾지 못한 경우 빈 결과를 반환합니다. 스냅샷 영속화와 SCD2 라인 매핑은 다음 고도화 범위입니다.

@@ -9,6 +9,7 @@ import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.reconciliation.domain.DifferenceReasonCode;
+import com.ho.account.reconciliation.domain.ReconciliationAdjustmentPolicy;
 import com.ho.account.reconciliation.domain.ReconciliationDifference;
 import com.ho.account.reconciliation.domain.ReconciliationRule;
 import com.ho.account.reconciliation.domain.ReconciliationRun;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -64,6 +66,7 @@ class ReconciliationServiceTest {
 
     @BeforeEach
     void setUp() {
+        ObjectMapper objectMapper = new ObjectMapper();
         reconciliationService = new ReconciliationService(
                 reconciliationUnitRepository,
                 reconciliationRuleRepository,
@@ -72,7 +75,8 @@ class ReconciliationServiceTest {
                 reconciliationDifferenceRepository,
                 journalQueryPort,
                 journalPostingPort,
-                new ObjectMapper()
+                objectMapper,
+                new ReconciliationAdjustmentPolicy(objectMapper)
         );
     }
 
@@ -203,6 +207,30 @@ class ReconciliationServiceTest {
         ArgumentCaptor<ReconciliationDifference> differenceCaptor = ArgumentCaptor.forClass(ReconciliationDifference.class);
         verify(reconciliationDifferenceRepository).save(differenceCaptor.capture());
         assertThat(differenceCaptor.getValue().getAdjustmentJournalEntryId()).isEqualTo(77L);
+    }
+
+    @Test
+    void adjustableReasonRejectsMissingAdjustmentAccounts() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = reconciliationUnit("{\"sourceAmount\":\"1000.00\",\"sourceCount\":2}");
+        DifferenceReasonCode reasonCode = reasonCode(true);
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        stubRunSave();
+        when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
+        stubJournalTarget(reconciliationDate, "950.00");
+
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Reconciliation failed")
+                .cause()
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("adjustmentDebitAccountCode")
+                .hasMessageContaining("adjustmentCreditAccountCode");
+
+        verify(journalPostingPort, never()).createDraftEntry(any());
+        verify(reconciliationDifferenceRepository, never()).save(any());
     }
 
     @Test

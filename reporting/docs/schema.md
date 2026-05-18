@@ -56,7 +56,7 @@ erDiagram
 
 ```mermaid
 flowchart LR
-    A[외부 모듈의 전표 ID] --> B(LoadLedgerPort)
+    A[journal-ledger GL 잔액 요약] --> B(LoadLedgerPort)
     B --> C{Domain Logic}
     C --> D(SaveSnapshotPort)
     D --> E[JPA EntityManager]

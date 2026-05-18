@@ -33,7 +33,7 @@ flowchart TD
     end
     
     subgraph Outbound Adapters
-        I[LedgerClientAdapter / Feign or HTTP]
+        I[LedgerClientAdapter / LedgerQueryPort]
         J[ReportingJpaAdapter / Repository]
     end
 
@@ -61,8 +61,9 @@ flowchart TD
 - **Inbound Port**: `GenerateStatementUseCase.generateBalanceSheet`
 - 계산 방식:
   - `ReportLineMapping` 도메인 모델을 조회합니다.
-  - 외부 어댑터(LoadLedgerPort)를 통해 타 모듈의 원장 전표 데이터(POSTED 상태)를 가져옵니다. (ID 기반으로 참조하여 느슨하게 결합)
+  - 외부 어댑터(`LoadLedgerPort`)가 `LedgerQueryPort`를 호출해 기준일의 GL 잔액 요약을 가져옵니다. (ID/계약 기반으로 참조하여 느슨하게 결합)
   - 계정 카테고리와 차대 방향을 확인해 금액 부호를 정하고 합산합니다.
+  - 현재 구현은 확정 스냅샷 저장소가 없으면 전기 비교금액을 0으로 처리합니다.
 
 ### 3.3 스냅샷 생성
 

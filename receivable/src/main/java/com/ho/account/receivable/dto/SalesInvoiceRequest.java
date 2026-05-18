@@ -1,5 +1,6 @@
 package com.ho.account.receivable.dto;
 
+import com.ho.account.receivable.domain.SalesInvoice;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -33,6 +34,20 @@ public class SalesInvoiceRequest {
     private BigDecimal netAmount;
 
     private String description;
+    private String createdBy;
+
+    public SalesInvoice toEntity() {
+        String creator = hasText(createdBy) ? createdBy : "SYSTEM";
+        return SalesInvoice.create(
+                invoiceNo,
+                customerCode,
+                issueDate,
+                dueDate,
+                netAmount,
+                taxAmount,
+                creator,
+                description);
+    }
 
     // Getter 및 Setter
     public String getInvoiceNo() {
@@ -97,5 +112,17 @@ public class SalesInvoiceRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

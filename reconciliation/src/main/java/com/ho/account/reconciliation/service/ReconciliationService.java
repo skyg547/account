@@ -38,6 +38,7 @@ public class ReconciliationService {
     private final JournalQueryPort journalQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final ObjectMapper objectMapper;
+    private final ReconciliationAdjustmentPolicy adjustmentPolicy;
     private final ReconciliationTolerancePolicy tolerancePolicy = new ReconciliationTolerancePolicy();
 
     @Autowired
@@ -48,7 +49,8 @@ public class ReconciliationService {
                                  ReconciliationDifferenceRepository reconciliationDifferenceRepository,
                                  JournalQueryPort journalQueryPort,
                                  JournalPostingPort journalPostingPort,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 ReconciliationAdjustmentPolicy adjustmentPolicy) {
         this.reconciliationUnitRepository = reconciliationUnitRepository;
         this.reconciliationRuleRepository = reconciliationRuleRepository;
         this.differenceReasonCodeRepository = differenceReasonCodeRepository;
@@ -57,6 +59,7 @@ public class ReconciliationService {
         this.journalQueryPort = journalQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.objectMapper = objectMapper;
+        this.adjustmentPolicy = adjustmentPolicy;
     }
 
     // --- ReconciliationUnit methods ---
@@ -385,7 +388,7 @@ public class ReconciliationService {
                 diff.setAuditUser("SYSTEM");
 
                 if (defaultReason.isAdjustable()) {
-                    AdjustmentAccountCodes accountCodes = resolveAdjustmentAccountCodes(reconciliationUnit);
+                    ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
 
                     Long adjustmentEntryId = createAdjustmentJournalEntry(
                             reconciliationDate,
@@ -475,18 +478,6 @@ public class ReconciliationService {
         return 0;
     }
 
-    private AdjustmentAccountCodes resolveAdjustmentAccountCodes(ReconciliationUnit reconciliationUnit) {
-        JsonNode root = parseCriteriaJson(reconciliationUnit);
-        String debitAccountCode = readText(root, "adjustmentDebitAccountCode");
-        String creditAccountCode = readText(root, "adjustmentCreditAccountCode");
-        if (debitAccountCode == null || creditAccountCode == null) {
-            throw new IllegalArgumentException(
-                    "Adjustable reconciliation unit " + reconciliationUnit.getId()
-                            + " requires adjustmentDebitAccountCode and adjustmentCreditAccountCode in criteriaJson.");
-        }
-        return new AdjustmentAccountCodes(debitAccountCode, creditAccountCode);
-    }
-
     private String readText(JsonNode root, String fieldName) {
         JsonNode node = root.get(fieldName);
         if (node == null || node.isNull()) {
@@ -523,7 +514,7 @@ public class ReconciliationService {
      * @return created journal entry id
      */
     private Long createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
-                                              AdjustmentAccountCodes accountCodes, String createdBy) {
+                                              ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes, String createdBy) {
         JournalEntryCommand command = new JournalEntryCommand(
                 LocalDate.now(),
                 accountingDate,
@@ -559,9 +550,6 @@ public class ReconciliationService {
     }
 
     private record ReconciliationSnapshot(int count, BigDecimal amount) {
-    }
-
-    private record AdjustmentAccountCodes(String debitAccountCode, String creditAccountCode) {
     }
 
     private DifferenceReasonCode createDefaultReasonCode() {

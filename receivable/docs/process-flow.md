@@ -45,5 +45,6 @@ flowchart TD
 ## 4. 인프라 및 아키텍처 특징
 
 - **ID 기반 참조:** 모든 회계 전표 및 고객 정보(Business Partner) 등 다른 바운디드 컨텍스트의 데이터는 객체 연관관계(`@ManyToOne`)를 맺지 않고 식별자(ID 문자열 또는 숫자)로만 참조합니다.
+- **웹 DTO 경계:** REST 컨트롤러는 `SalesInvoice`, `Collection` 도메인 엔티티를 직접 노출하지 않고 `SalesInvoiceRequest/Response`, `CollectionRequest/Response`, `ManualMatchingRequest`로 외부 계약을 분리합니다.
 - **다단계 도커 (Multi-stage Docker):** 런타임 최적화를 위해 빌드 스테이지와 실행 스테이지가 분리된 도커 이미지 상에서 동작합니다.
 - **SCD2:** 만약 매칭 규칙이나 고객 정책이 변경될 경우, 기존 데이터 정합성을 위해 과거 이력을 보존하는 설계 원칙을 적용합니다.

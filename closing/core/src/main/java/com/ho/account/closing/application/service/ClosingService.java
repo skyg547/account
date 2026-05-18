@@ -64,6 +64,7 @@ public class ClosingService implements ClosingUseCase {
     private final FiscalPeriodControlPort fiscalPeriodControlPort;
     private final JournalPostingPort journalPostingPort;
     private final JournalQueryPort journalQueryPort;
+    private final ClosingAccountingProperties closingAccountingProperties;
 
     @Transactional(readOnly = true)
     @Override
@@ -258,6 +259,8 @@ public class ClosingService implements ClosingUseCase {
     public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        ClosingAccountingProperties.AutomatedJournalRule accountingRule =
+                closingAccountingProperties.requireValuationRule(valuationType);
 
         ValuationBatch batch = new ValuationBatch();
         batch.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
@@ -275,7 +278,7 @@ public class ClosingService implements ClosingUseCase {
                     "SYSTEM",
                     "VALUATION_BATCH",
                     batch.getId().toString(),
-                    BigDecimal.valueOf(1000)
+                    accountingRule
             );
             batch.setGeneratedJournalEntryId(result.journalEntryId());
             batch.setStatus(ValuationBatch.ValuationBatchStatus.COMPLETED);
@@ -291,6 +294,8 @@ public class ClosingService implements ClosingUseCase {
     public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        ClosingAccountingProperties.AutomatedJournalRule accountingRule =
+                closingAccountingProperties.requireProvisionRule(provisionType);
 
         ProvisionBatch batch = new ProvisionBatch();
         batch.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
@@ -307,7 +312,7 @@ public class ClosingService implements ClosingUseCase {
                     "SYSTEM",
                     "PROVISION_BATCH",
                     batch.getId().toString(),
-                    BigDecimal.valueOf(500)
+                    accountingRule
             );
             batch.setGeneratedJournalEntryId(result.journalEntryId());
             batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
@@ -407,10 +412,25 @@ public class ClosingService implements ClosingUseCase {
             String createdBy,
             String lineageSourceType,
             String lineageSourceId,
-            BigDecimal amount) {
+            ClosingAccountingProperties.AutomatedJournalRule accountingRule) {
+        BigDecimal amount = accountingRule.getAmount();
         List<JournalLineCommand> lines = List.of(
-                new JournalLineCommand("DEBIT", "999998", amount, amount, null, null, description + " (차변)"),
-                new JournalLineCommand("CREDIT", "999999", amount, amount, null, null, description + " (대변)")
+                new JournalLineCommand(
+                        "DEBIT",
+                        accountingRule.getDebitAccountCode(),
+                        amount,
+                        amount,
+                        null,
+                        null,
+                        description + " (차변)"),
+                new JournalLineCommand(
+                        "CREDIT",
+                        accountingRule.getCreditAccountCode(),
+                        amount,
+                        amount,
+                        null,
+                        null,
+                        description + " (대변)")
         );
 
         JournalEntryCommand command = new JournalEntryCommand(

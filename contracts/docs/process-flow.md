@@ -42,7 +42,23 @@ sequenceDiagram
 ```
 전표를 발행하고자 하는 모든 모듈(자산, 지출, 마감 등)은 오직 이 Command 규약에 맞춰 데이터를 조립합니다.
 
-## 4. 소스문서 드릴다운 (Lineage) 추적 흐름
+## 4. 원장 잔액 조회 계약 흐름
+
+```mermaid
+sequenceDiagram
+    participant Caller as Calling Module
+    participant Port as LedgerQueryPort
+    participant Impl as Ledger Adapter (journal-ledger)
+
+    Caller->>Port: getGlBalanceSummaries(...)
+    Caller->>Port: getSlBalanceSummaries(...)
+    Port->>Impl: 구현체 위임
+    Impl-->>Caller: LedgerBalanceSummary 목록 반환
+```
+
+GL 조회는 계정/통화 기준, SL 조회는 계정/거래처/부서/통화 기준으로 잔액을 조회할 수 있습니다.
+
+## 5. 소스문서 드릴다운 (Lineage) 추적 흐름
 
 ```mermaid
 flowchart TD

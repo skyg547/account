@@ -9,4 +9,11 @@ public interface LedgerQueryPort {
                                                      LocalDate endDate,
                                                      String accountCode,
                                                      String currencyCode);
+
+    List<LedgerBalanceSummary> getSlBalanceSummaries(LocalDate startDate,
+                                                     LocalDate endDate,
+                                                     String accountCode,
+                                                     String businessPartnerCode,
+                                                     String departmentCode,
+                                                     String currencyCode);
 }

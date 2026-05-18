@@ -26,6 +26,9 @@
 ### 📌 FiscalPeriod 참조 분리
 결산 조정, 기간 잠금, 재오픈 승인, 평가/충당 배치는 `master-data`의 `FiscalPeriod` 엔티티를 직접 참조하지 않습니다. 저장값은 `fiscalPeriodId`이며, 회계기간 조회/상태 변경은 `contracts`의 `FiscalPeriodControlPort`를 통해 수행합니다.
 
+### 📌 자동 평가/충당 분개 룰
+평가 배치와 충당 배치는 더미 계정이나 고정 금액을 사용하지 않습니다. `account.closing.accounting.valuation-rules.*`, `account.closing.accounting.provision-rules.*` 설정으로 유형별 차변 계정, 대변 계정, 금액을 지정해야 하며, 설정이 없으면 자동 분개를 생성하지 않고 실패합니다.
+
 ---
 
 ## 3. 🐳 실행 방법 (Docker & Local)

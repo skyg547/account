@@ -1,7 +1,9 @@
 package com.ho.account.receivable.adapter.in.web;
 
 import com.ho.account.receivable.application.port.in.SalesUseCase;
-import com.ho.account.receivable.domain.SalesInvoice;
+import com.ho.account.receivable.dto.SalesInvoiceRequest;
+import com.ho.account.receivable.dto.SalesInvoiceResponse;
+import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +21,9 @@ public class SalesController {
     }
 
     @PostMapping("/invoices")
-    public ResponseEntity<SalesInvoice> createSalesInvoice(@RequestBody SalesInvoice invoice) {
-        return ResponseEntity.ok(salesUseCase.createSalesInvoice(invoice));
+    public ResponseEntity<SalesInvoiceResponse> createSalesInvoice(@Valid @RequestBody SalesInvoiceRequest request) {
+        return ResponseEntity.ok(SalesInvoiceResponse.fromEntity(
+                salesUseCase.createSalesInvoice(request.toEntity())));
     }
 
     @PostMapping("/receivables/update-status/{asOfDate}")

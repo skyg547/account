@@ -62,6 +62,11 @@ public class SalesInvoice {
      */
     public static SalesInvoice create(String invoiceNo, String customerCode, LocalDate issueDate, LocalDate dueDate,
                                      BigDecimal netAmount, BigDecimal taxAmount, String createdBy) {
+        return create(invoiceNo, customerCode, issueDate, dueDate, netAmount, taxAmount, createdBy, null);
+    }
+
+    public static SalesInvoice create(String invoiceNo, String customerCode, LocalDate issueDate, LocalDate dueDate,
+                                     BigDecimal netAmount, BigDecimal taxAmount, String createdBy, String description) {
         SalesInvoice invoice = new SalesInvoice();
         invoice.invoiceNo = invoiceNo;
         invoice.customerCode = customerCode;
@@ -72,6 +77,7 @@ public class SalesInvoice {
         invoice.totalAmount = netAmount.add(taxAmount);
         invoice.createdBy = createdBy;
         invoice.status = SalesInvoiceStatus.ISSUED;
+        invoice.description = description;
         return invoice;
     }
 
