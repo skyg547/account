@@ -4,6 +4,7 @@ import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,16 +74,17 @@ public class JournalEntryService implements JournalUseCase {
     private final PostingService postingService;
 
     /**
+     * 전표 검증 엔진.
+     * 차대일치, 계정유효성, 마감잠금 등 복합 검증을 수행합니다.
+     */
+    private final JournalValidationEngine journalValidationEngine;
+
+    /**
      * 전표를 수동으로 생성합니다.
      *
      * [업무 설명]
      * 회계 담당자가 직접 작성한 전표를 저장합니다.
-     * 저장 전 반드시 차변합계 = 대변합계 검증을 수행합니다.
-     * (복식부기 원칙: 차변과 대변은 항상 같아야 합니다)
-     *
-     * [개발 설명]
-     * validateBalance()는 JournalEntry 도메인 엔티티의 메서드입니다.
-     * 도메인 로직(검증)을 서비스가 아닌 도메인 객체 내부에 캡슐화한 패턴입니다.
+     * 저장 전 검증 엔진을 통해 차대일치, 계정유효성, 마감잠금 등을 확인합니다.
      *
      * @param journalEntry 저장할 전표 (Controller에서 DTO → 도메인 변환 후 전달)
      * @return 저장된 전표 (DB에서 생성된 id, slipNo 포함)
@@ -97,9 +99,9 @@ public class JournalEntryService implements JournalUseCase {
             journalEntry.setSlipNo("JE-" + datePart + "-" + uniquePart);
         }
 
-        // 복식부기 검증: 차변합계 ≠ 대변합계이면 IllegalStateException 발생
-        // 이 검증은 도메인 엔티티(JournalEntry) 내부에 정의되어 있습니다.
-        journalEntry.validateBalance();
+        // 검증 엔진 실행: 차대일치, 마감잠금, 계정유효성 등
+        journalValidationEngine.validate(journalEntry);
+
         return journalPersistencePort.save(journalEntry);
     }
 

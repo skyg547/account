@@ -77,7 +77,7 @@
 - **`receivable`**: 고객 참조는 `customerCode` 값 참조로 정리 완료. 웹 어댑터도 요청/응답 DTO로 전환 완료.
 
 ### [Phase 4] 회계 엔진 및 결산
-- **`journal-ledger`**: ID 기반 참조 전환 완료. JournalDetail, 원장 엔티티(GlEntry, SlEntry 등)에서 직접 참조 제거 및 stale 주석 정리 완료.
+- **`journal-ledger`**: ID 기반 참조 전환 및 stale 주석 정리 완료. `JournalValidationFilter` 기반의 전표 검증 엔진 고도화(차대일치, 마감잠금, 계정유효성) 적용 완료.
 - **`closing`**: `FiscalPeriod` 직접 엔티티 참조 제거 완료. 자동 평가/충당 분개 계정과 금액은 설정 기반 룰로 전환 완료.
 - **`reconciliation`**: ID 참조 준수, 엔티티 파일 인코딩 잔여 점검, 복합 자동 매칭, 조정분개 계정 산정 정책 도메인화 완료.
 - **`reporting`**: 목업 원장/과거보고서 반환 제거 및 `LedgerQueryPort` 기반 실제 GL 잔액 연동 완료. 스냅샷 영속화와 SCD2 라인 매핑은 추가 고도화 필요.
@@ -94,6 +94,7 @@
 6. **[Resolved]** `governance` 웹 어댑터 DTO 전환 및 추적성 조회 포트 경계 정리 완료.
 7. **[Resolved]** `reconciliation` 복합 매칭 조건 및 조정분개 계정 산정 정책 도메인화 완료.
 8. **[Resolved]** `contracts` LedgerQueryPort GL/SL 잔액 조회 계약 확장 완료.
+9. **[Resolved]** `journal-ledger` 전표 검증 엔진 고도화 (Balance, ClosingLock, AccountValidity 필터 아키텍처 도입) 완료.
 
 ---
 **작성일:** 2026-05-18
