@@ -14,6 +14,15 @@ import java.util.List;
  * Loan master aggregate.
  * Stores the unified loan model that replaced the old separate contract entity.
  */
+/**
+ * 대출(Loan) 엔티티 — 대출 계약 정보와 잔액, 스케줄을 관리하는 핵심 모델.
+ *
+ * 🐣 [초보자를 위한 설명]
+ * 대출은 '은행이 고객에게 돈을 빌려준 사건' 그 자체를 의미합니다.
+ * 이 클래스는 고객이 얼마를 빌렸는지(원금), 이자는 몇 퍼센트인지(이자율), 
+ * 그리고 매달 언제 얼마씩 갚아야 하는지(상환 스케줄)를 모두 기억하고 있습니다.
+ * 특히 '유효이자율(EIR)'이라는 마법의 숫자를 계산해서, 실제 벌어들이는 수익을 아주 정밀하게 계산해내는 역할을 합니다.
+ */
 @Entity
 @Table(name = "loans")
 public class Loan {

@@ -1,45 +1,91 @@
-# 🚪 Closing Service (결산 및 마감 관리)
+# 🔒 Closing Service (결산 마감 관리)
 
-`closing` 모듈은 회계 기수(월/연말)의 문을 닫아 더 이상 과거 날짜로 전표가 생기지 않게 하고, 외화 평가나 감가상각 같은 결산 자동 분개를 수행하는 결산 센터입니다.
+`closing` 모듈은 회계 기간의 종료를 통제하고, 장부를 봉인하여 과거 데이터의 임의 수정을 방지하는 시스템의 '안전 자물쇠' 역할을 합니다.
 
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-회계팀의 매달 말일은 전쟁입니다. 이 과정을 도와주는 것이 `closing` 모듈입니다.
-1. **마감 통제:** "이번 달 장부 닫습니다!" 하면, 아무도 이번 달 날짜로 뒤늦게 전표를 만들지 못하도록 셔터를 내립니다.
-2. **평가 및 자동 분개:** 기말 환율을 적용해 외화 예금의 원화 가치를 재평가하거나, 자산 감가상각비를 계산해 결산 전표(조정 분개)를 자동으로 찍어냅니다.
-3. **이월 (Carry-forward):** 연말이 되면 올해의 수익/비용을 싹 비우고, 내년도 장부의 시작 잔액(기초 잔액)으로 넘겨주는 작업을 통제합니다.
-
-> **💡 중요 포인트:** `closing` 모듈이 "문 닫혔어!"라고 판단하는 로직(`validateReadyToClose`)에는 모든 필수 결산 작업(Task)이 끝났는지, 다른 부서의 마감(Gate)이 통과되었는지 확인하는 깐깐한 도메인 규칙이 들어 있습니다.
-
----
-
-## 2. 🔄 아키텍처 및 연동 흐름 (Process Flow)
-
-### 📌 헥사고날 아키텍처 (DDD)
-타 모듈(`journal-ledger` 등)이 전표를 끊기 전, 이 전표의 회계일자가 유효한지 `contracts` 모듈의 `AccountingPeriodStatusPort`를 통해 `closing` 쪽에 물어봅니다.
-
-### 📌 결산 캘린더 (ClosingCalendar) 도메인 주도 검증
-과거에는 NPE 에러가 나거나 코드가 꼬이는 일이 있었지만, 최근 리팩토링으로 상태 판정 검증 로직이 도메인 모델 내부로 응집되었습니다. 마감을 닫으려면 `ClosingCalendar`가 자신의 상태를 스스로 검증합니다.
-
-### 📌 FiscalPeriod 참조 분리
-결산 조정, 기간 잠금, 재오픈 승인, 평가/충당 배치는 `master-data`의 `FiscalPeriod` 엔티티를 직접 참조하지 않습니다. 저장값은 `fiscalPeriodId`이며, 회계기간 조회/상태 변경은 `contracts`의 `FiscalPeriodControlPort`를 통해 수행합니다.
-
-### 📌 자동 평가/충당 분개 룰
-평가 배치와 충당 배치는 더미 계정이나 고정 금액을 사용하지 않습니다. `account.closing.accounting.valuation-rules.*`, `account.closing.accounting.provision-rules.*` 설정으로 유형별 차변 계정, 대변 계정, 금액을 지정해야 하며, 설정이 없으면 자동 분개를 생성하지 않고 실패합니다.
+**결산 마감은 '가계부 한 달 치를 확정하고 테이프로 봉인하는 것'과 같습니다.**
+1. **결산(Closing):** 한 달 동안의 모든 거래를 모아 "이달의 이익은 얼마!"라고 최종 확정 짓는 작업입니다.
+2. **태스크(Task):** 마감 전 반드시 체크해야 할 리스트입니다. (예: "통장 잔액 확인", "법인카드 정산")
+3. **잠금(Lock):** 마감이 끝난 달에 누군가 몰래 과거 날짜로 전표를 넣지 못하도록 해당 기간을 잠그는 것입니다.
+4. **재오픈(Reopen):** 정말 중요한 실수로 인해 잠긴 기간을 수정해야 할 때, 높은 책임자의 승인을 받아 임시로 자물쇠를 푸는 절차입니다.
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 2. 🔄 프로세스 흐름 (Process Flow)
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
-멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
+### 📌 결산 캘린더 및 마감 파이프라인
+마감 시작부터 태스크 검증, 최종 기간 잠금까지의 헥사고날 아키텍처 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자/배치
+    participant Service as ClosingService
+    participant Task as ClosingTask
+    participant Journal as Journal-Ledger
+    participant DB as Persistence Adapter
+
+    User->>Service: 마감 프로세스 시작
+    Service->>Task: 필수 체크리스트 검증
+    Task-->>Service: 검증 완료
+    
+    rect rgb(240, 240, 240)
+        Note over Service, Journal: 기간 잠금 및 연동
+        Service->>DB: Period Lock 생성 (SCD2 이력 저장)
+        Service->>Journal: 해당 기간 전표 생성 차단 활성화
+    end
+    
+    Service-->>User: 마감 확정 완료
+```
+
+### 📌 타 모듈과의 연동 (Status Port)
+전표 모듈은 전표를 끊기 전, 이 포트를 통해 해당 날짜가 마감되었는지 확인합니다.
+
+```mermaid
+flowchart LR
+    A[Journal Service] -- "Is date closed?" --> B{AccountingPeriodStatusPort}
+    B -- "Status Check" --> C[Closing Service]
+    C -- "OPEN / CLOSED" --> A
+```
+
+---
+
+## 3. 📊 데이터 모델 (Schema)
+
+회계 기간의 상태와 잠금 이력을 완벽히 추적합니다.
+
+```mermaid
+erDiagram
+    FISCAL_PERIODS ||--o{ PERIOD_LOCKS : "locked_by"
+    CLOSING_CALENDARS ||--o{ CLOSING_TASKS : "manages"
+
+    FISCAL_PERIODS {
+        uuid id PK
+        String fiscal_year "연도"
+        String period_month "월"
+        String status "OPEN, CLOSED"
+        Boolean is_current "SCD2"
+    }
+    
+    PERIOD_LOCKS {
+        uuid id PK
+        uuid fiscal_period_id FK "ID 기반 참조"
+        String lock_type "GENERAL, PARTIAL"
+        LocalDateTime locked_at "잠금 일시"
+    }
+```
+
+---
+
+## 4. 🐳 실행 및 설정 방법
+
+**실행 명령:**
 ```bash
 docker-compose up -d closing
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :closing:api:bootRun
-```
+**설정 주의사항:**
+- 자동 평가/충당 분개 계정은 `account.closing.accounting.*` 설정을 통해 동적으로 할당됩니다.
+- 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.

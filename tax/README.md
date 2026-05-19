@@ -1,32 +1,74 @@
-# 🧾 Tax Service (세금 및 세금계산서 관리)
+# 🧾 Tax Service (세무 및 세금계산서 관리)
 
-`tax` 모듈은 국세청(홈택스) 등과 연계되거나 내부적으로 발행/수취하는 세금계산서를 관리하는 모듈입니다.
+`tax` 모듈은 회사의 공식 증빙인 세금계산서(VAT Invoice)를 관리하고, 국세청 신고 및 매입/매출 전표와의 정합성을 보장하는 모듈입니다.
 
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-모든 기업 간 거래에는 부가가치세(VAT)가 붙고, 이를 증명하기 위해 **세금계산서**를 주고받아야 합니다.
-1. **수취 (매입 세금계산서):** 회사가 돈을 쓰고 `expenditure-resolution`(지출결의)이나 `payable`(매입채무)을 올릴 때, 반드시 `tax` 모듈에 등록된 세금계산서 ID를 연결해야 합니다. 증빙 없는 지출은 인정되지 않습니다.
-2. **발행 (매출 세금계산서):** 회사가 돈을 벌고 `receivable`(매출채권)을 잡을 때, 고객에게 세금계산서를 발행해 주어야 합니다.
+**세금계산서는 회사의 '공식 영수증'입니다.**
+우리가 식당에서 밥을 먹고 영수증을 받아야 비용 처리를 할 수 있듯이, 회사도 다른 회사와 거래할 때 반드시 '세금계산서'라는 공식 문서를 주고받아야 합니다.
+1. **공급가액 (Supply):** 순수한 물건 가격 (예: 10,000원)
+2. **세액 (VAT):** 나라에 내는 부가가치세 (예: 1,000원)
+3. **합계금액 (Total):** 최종 결제 금액 (예: 11,000원)
+
+이 모듈은 이 공식(공급가액 + 세액 = 합계)이 1원이라도 틀리지 않는지 철저히 감시하는 문지기 역할을 합니다.
 
 ---
 
-## 2. 🔄 아키텍처 및 테스트 품질
+## 2. 🔄 프로세스 흐름 (Process Flow)
 
-- **타 모듈 연동:** 다른 모듈들은 세금계산서 정보를 알아내기 위해 `contracts` 모듈의 `TaxInvoiceQueryPort`를 호출합니다.
-- **최신 리뷰 이슈:** 최근 도메인 객체(`TaxInvoice`)의 생성 방식이 정적 팩토리(`create`) 중심으로 리팩토링되었으나, **테스트 코드가 옛날 방식(setter)을 사용하고 있어 컴파일 에러**가 나는 상태입니다. 이는 조속히 수정해야 할 과제입니다.
+### 📌 세금계산서 발행 및 검증 흐름
+외부 요청부터 금액 검증, SCD2 이력 저장까지의 헥사고날 아키텍처 흐름입니다.
+
+```mermaid
+flowchart TD
+    A[세금계산서 생성 요청] --> B{종류 확인}
+    B -->|매입/매출| C[금액 정합성 검증]
+    C -->|공급+세액=합계| D{Master Data 연동}
+    D -->|거래처 실존 확인| E[TaxInvoice 도메인 생성]
+    E --> F[SCD2 이력 저장 Port 호출]
+    F --> G[완료]
+```
+
+### 📌 아키텍처 원칙: ID 기반 참조 및 이력 보존
+모든 거래처 정보는 **String ID**로 관리하며, 증빙의 수정 이력을 **SCD2** 방식으로 완벽히 보존합니다.
+
+```mermaid
+flowchart LR
+    TaxInvoice -- "customerCode" --> Partner[(Master Data)]
+    TaxInvoice -- "SCD2" --> History[(History Log)]
+    style Partner fill:#f9f
+```
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 📊 데이터 모델 (Schema)
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
+세금계산서의 무결성과 이력 추적을 위한 테이블 구조입니다.
+
+```mermaid
+erDiagram
+    TAX_INVOICES {
+        Long id PK
+        String issue_id "외부 증빙 식별자"
+        String customer_code "ID Reference"
+        BigDecimal supply_amount "공급가액"
+        BigDecimal tax_amount "세액"
+        BigDecimal total_amount "합계금액"
+        Boolean is_current "SCD2"
+    }
+```
+
+---
+
+## 4. 🐳 실행 및 연동 방법
+
+**실행 명령:**
 ```bash
 docker-compose up -d tax
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :tax:api:bootRun
-```
+**연동 주의사항:**
+- 세금계산서는 회계 전표(`journal-ledger`)와 긴밀히 연동되어야 합니다.
+- 금액 검증 실패 시 전표 생성이 차단되므로 도메인 내 `validateAmounts()` 로직을 반드시 확인하세요.

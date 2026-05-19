@@ -3,6 +3,16 @@ package com.ho.account.audit.domain;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * 감사 로그(Audit Log) 엔티티 — 시스템 내 모든 중요한 데이터 변경 이력을 기록합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 감사 로그는 비행기의 '블랙박스'나 CCTV와 같습니다. 
+ * 누군가 시스템에 들어와서 중요한 장부를 수정하거나 지웠을 때, 
+ * "누가(auditUser)", "언제(eventDateTime)", "어디서(ipAddress)", "어떤 데이터(targetEntity)를", 
+ * "수정 전(beforeData)은 어땠는데, 수정 후(afterData)는 어떻게 바꾸었는지" 
+ * 꼼꼼하게 빠짐없이 기록해두는 보안 장치입니다. 문제가 생기면 제일 먼저 열어보는 데이터입니다.
+ */
 @Entity
 @Table(name = "AUDIT_LOG")
 public class AuditLog {

@@ -1,36 +1,93 @@
-# 💸 Expenditure Resolution Service (지출 결의)
+# 📑 Expenditure Resolution Service (지출 결의 관리)
 
-`expenditure-resolution` 모듈은 회사에서 돈을 쓰기 위해 기안을 올리고, 승인받아 최종적으로 돈을 지급하기까지의 프로세스(지출 결의 및 AP)를 관리합니다.
+`expenditure-resolution` 모듈은 회사의 비용 지출에 대한 내부 승인(결재)을 관리하고, 승인 완료 시 회계 전표 및 지급 처리로 안전하게 연결하는 '지출 컨트롤 타워'입니다.
 
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-회사에서 비품을 사거나 회식비를 쓸 때 마음대로 돈을 꺼내 쓸 수 없습니다.
-1. **지출 결의서 작성:** "개발팀 회식비로 30만 원 쓰겠습니다" 하고 문서를 올립니다.
-2. **예산 통제 (Budget Control):** 개발팀에 배정된 회식비 예산이 30만 원 이상 남아있는지 확인합니다.
-3. **세금계산서 매핑:** 돈을 썼으면 적격 증빙(세금계산서 등)을 붙여야 합니다. `tax` 모듈을 참조합니다.
-4. **승인 및 전표 생성:** 팀장이 승인하면, `journal-ledger`에 "회식비 30 / 미지급금 30" 전표가 꽂힙니다.
-5. **지급 (AP Payment):** 실제 통장에서 돈이 나가면 미지급금을 지우는 지급 처리를 합니다.
+**지출 결의는 '회사 돈을 쓰기 전 사장님께 허락을 받는 보고서'와 같습니다.**
+1. **지출 결의서:** "이 물건을 이 거래처에서 이만큼의 돈을 주고 사겠습니다"라고 미리 적어내는 문서입니다.
+2. **상태 흐름:** 작성 중(`DRAFT`) → 승인 요청(`REQUESTED`) → 승인 완료(`APPROVED`).
+3. **예산 통제:** 결의서를 쓰는 순간, 우리 부서가 이번 달에 쓸 수 있는 예산에서 그만큼을 미리 찜해둡니다. (한도 초과 시 경고)
+4. **전표 연동:** 승인이 떨어지면 시스템이 자동으로 회계팀 장부(`journal-ledger`)에 "돈 나갈 예정!"이라고 전표를 넘겨줍니다.
 
 ---
 
-## 2. 🔄 최근 고도화 내용 및 아키텍처
+## 2. 🔄 프로세스 흐름 (Process Flow)
 
-- **마스터 참조 완결성:** 예전에는 부서나 계정코드가 잘못 입력되어도 몰래 넘어가는(`orElse(null)`) 문제가 있었지만, 지금은 `MasterDataQueryPort`를 통해 엄격하게 검증(`orElseThrow()`)하여 잘못된 전표가 생성되지 않습니다.
-- **DTO 이름 자동 바인딩:** API 응답 시 부서명, 계정명이 항상 `null`로 나가던 문제를 해결하여, Assembler 단계에서 `master-data`를 조회해 이름을 채워 넣습니다.
-- **리스 지급 계정 분리 (IFRS16):** `asset-lease` 모듈의 요청을 받아 리스료를 지급할 때, 원금과 이자를 하나의 계정에 뭉뚱그리지 않고 분리해서 차변에 반영하는 로직이 적용되었습니다.
+### 📌 지출 결의 라이프사이클 및 연동
+결의서 작성부터 예산 체크, 최종 전표 생성까지의 헥사고날 아키텍처 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    participant User as 기안자
+    participant Exp as Expenditure Service
+    participant Budget as Budget Port
+    participant Master as MasterData Port
+    participant Journal as Journal-Ledger
+
+    User->>Exp: 지출 결의서 작성
+    Exp->>Master: 부서/계정/거래처 유효성 확인
+    Exp->>Budget: 가용 예산 체크 및 차감
+    Exp-->>User: DRAFT 저장 완료
+    
+    User->>Exp: 승인 요청 (REQUESTED)
+    Note over Exp: [승인권자 승인 프로세스]
+    
+    Exp->>Journal: 승인 완료 시 자동 전표 생성 요청
+    Journal-->>Exp: 전표 ID(journalEntryId) 반환
+    Exp->>Exp: APPROVED 상태 전이 및 전표 ID 저장
+```
+
+### 📌 헥사고날 아키텍처: 외부 연동
+모든 외부 모듈과는 Port 인터페이스를 통해 **ID(String Code)** 기반으로 느슨하게 연결됩니다.
+
+```mermaid
+flowchart LR
+    Exp[지출결의 모듈] -- "deptCode" --> Master[(Master Data)]
+    Exp -- "taxInvoiceId" --> Tax[(Tax Module)]
+    Exp -- "journalEntryId" --> Ledger[(Journal Ledger)]
+    style Master fill:#f9f
+    style Tax fill:#f9f
+    style Ledger fill:#f9f
+```
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 📊 데이터 모델 (Schema)
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
+지출 결의 헤더와 상세 분개 항목을 관리합니다.
+
+```mermaid
+erDiagram
+    EXPENDITURE_RESOLUTIONS ||--o{ EXPENDITURE_DETAILS : "contains"
+    
+    EXPENDITURE_RESOLUTIONS {
+        Long id PK
+        String resolution_no "유니크 결의번호"
+        String dept_code "ID Reference"
+        String status "DRAFT, REQUESTED, APPROVED"
+        Long journal_entry_id "생성된 전표 ID"
+    }
+    
+    EXPENDITURE_DETAILS {
+        Long id PK
+        String account_code "ID Reference"
+        String business_partner_code "거래처 ID"
+        BigDecimal amount "금액"
+    }
+```
+
+---
+
+## 4. 🐳 실행 및 연동 방법
+
+**실행 명령:**
 ```bash
 docker-compose up -d expenditure-resolution
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :expenditure-resolution:api:bootRun
-```
+**연동 주의사항:**
+- 지출 승인 시 `JournalPostingPort`를 통해 전표가 생성되므로, 회계 엔진 모듈이 구동 중이어야 합니다.
+- 예산 통제 규칙은 `BudgetControlPort` 구현체에 따라 달라질 수 있습니다.

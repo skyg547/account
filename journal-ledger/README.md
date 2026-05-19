@@ -20,31 +20,78 @@
 
 ---
 
-## 2. 🔄 처리 흐름 및 주요 설계 (Process Flow)
+## 2. 🔄 프로세스 흐름 (Process Flow)
 
-### 📌 수기 전표 vs 자동 전표
-- **수기:** 사용자가 직접 차/대를 입력 -> `DRAFT` 저장 -> 결재 후 `APPROVED` -> 원장 전기 `POSTED`.
-- **자동:** 외부 도메인(`loan`, `asset-lease` 등)에서 이벤트 발생 -> `JournalRuleEngine`이 룰 확인 후 자동 전표 생성 -> 이후 흐름 동일.
+### 📌 전표 라이프사이클 및 검증 엔진
+전표 생성부터 원장 반영까지의 전체 흐름입니다. 특히 최근 도입된 **검증 엔진(JournalValidationEngine)**이 데이터 무결성을 보장합니다.
 
-### 📌 승인(APPROVED)과 전기(POSTED)는 다릅니다!
-초보자가 가장 많이 헷갈리는 부분입니다. **결재가 났다고 해서 장부 잔액이 바뀌지 않습니다.**
-반드시 **전기(Posting)** 과정을 거쳐 상태가 `POSTED`가 되어야만 GL/SL 원장 잔액에 돈이 더해지고 빼집니다.
-최근 리팩토링으로 전기 처리는 `PostingService.postJournalEntry`라는 단일 경로로 수렴되어 원장 정합성을 완벽히 보장합니다.
+```mermaid
+sequenceDiagram
+    participant App as 외부 모듈/사용자
+    participant Service as JournalEntryService
+    participant Engine as JournalValidationEngine
+    participant DB as Persistence Adapter
 
-### 📌 모듈 연동 주의점
-전표를 끊을 때 계정 코드가 유효한지는 `master-data`에 물어보고, 현재 마감이 닫혔는지는 `closing`에 물어봅니다. 직접 DB를 보지 않고 모두 `contracts` 모듈의 포트를 사용합니다.
+    App->>Service: 전표 생성 요청 (JournalEntry)
+    Service->>Engine: validate(entry) 호출
+    Note over Engine: 1. 차대일치 확인<br/>2. 마감 여부 확인(Closing 연동)<br/>3. 계정 유효성 확인(Master 연동)
+    Engine-->>Service: 검증 성공
+    Service->>DB: DRAFT 상태로 저장
+    Service-->>App: 생성 완료 (ID 반환)
+
+    Note over App, DB: [승인 프로세스 생략]
+
+    App->>Service: 전기(Posting) 요청
+    Service->>Service: PostingService 호출
+    Service->>DB: 원장(GL/SL) 잔액 업데이트 및 POSTED 전환
+    Service-->>App: 전기 완료
+```
+
+### 📌 헥사고날 아키텍처 및 ID 기반 참조
+`journal-ledger`는 계정과목, 부서, 거래처 등을 저장할 때 엔티티를 직접 연결하지 않고 **코드(ID) 값만 문자열로 저장**합니다.
+
+```mermaid
+flowchart LR
+    A[외부 도메인 이벤트] -->|Lineage 전달| B[Inbound Port]
+    B --> C[JournalEntry 도메인]
+    C -->|ID 기반 참조| D[(master-data API)]
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+```
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 📊 데이터 모델 (Schema)
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
-멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
-```bash
-docker-compose up -d journal-ledger
+원천 추적과 모듈 간 격리를 최우선으로 설계되었습니다.
+
+```mermaid
+erDiagram
+    JOURNAL_ENTRY ||--o{ JOURNAL_DETAIL : "contains"
+    JOURNAL_ENTRY {
+        Long id PK
+        String slip_no "유니크 채번"
+        String status "DRAFT, APPROVED, POSTED"
+        String lineage_source_type "출처 시스템"
+        String lineage_source_id "출처 식별자"
+    }
+    JOURNAL_DETAIL {
+        Long id PK
+        String account_code "ID Reference (master-data)"
+        String business_partner_code "ID Reference (master-data)"
+        BigDecimal amount "금액"
+        String side "DEBIT / CREDIT"
+    }
 ```
 
-**로컬 개발 환경 (전통적 방식):**
+---
+
+## 4. 🐳 실행 및 연동 방법
+
+**연동 주의사항:**
+- 전표 생성 전 반드시 `contracts` 모듈의 Port를 통해 계정 코드와 마감 여부를 확인해야 합니다.
+- **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
+
+**실행 방법 (Docker):**
 ```bash
-./gradlew :journal-ledger:api:bootRun
+docker-compose up -d journal-ledger
 ```

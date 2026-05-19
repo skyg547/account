@@ -1,35 +1,86 @@
-# 🏢 Asset Lease Service (자산 및 IFRS16 리스 관리)
+# 🏢 Asset Lease Service (자산 및 리스 관리)
 
-`asset-lease` 모듈은 회사가 소유한 유형자산(컴퓨터, 책상 등)과 IFRS 16 회계기준에 따른 리스(사무실 임대차 등) 계약을 관리합니다.
+`asset-lease` 모듈은 회사의 고정자산(건물, 기계, 비품 등)의 생애주기와 IFRS 16 국제회계기준에 따른 리스 계약을 통합 관리하는 모듈입니다.
 
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-**Q. 일반 지출과 자산/리스는 뭐가 다른가요?**
-복사용지 10만 원어치는 사자마자 바로 '비용' 처리하면 끝입니다.
-하지만 1,000만 원짜리 서버를 사거나, 5년짜리 사무실 임대차 계약을 맺으면 당장 전액을 비용으로 털 수 없습니다.
+**고정자산 (Fixed Asset)은 '비싼 컴퓨터를 사서 몇 년 동안 나눠서 비용 처리하는 것'입니다.**
+- 회사가 500만 원짜리 서버를 샀다고 칩시다. 이 500만 원을 산 날 한 번에 다 비용으로 털어버리면, 그 달은 엄청난 적자가 납니다.
+- 그래서 5년 동안 쓸 거니까 "매년 100만 원씩만 썼다고 치자"라고 나누는 것이 **감가상각(Depreciation)**입니다.
 
-- **자산 (Asset):** 1,000만 원짜리 서버를 자산으로 등록해두고, 5년에 걸쳐 매달 '감가상각비'라는 비용으로 조금씩 쪼개서 장부에 반영합니다.
-- **리스 (Lease):** 예전에는 월세 100만 원을 매달 내면 그냥 비용이었지만, IFRS 16 규정이 생기면서 "5년 동안 쓸 권리(사용권자산)"와 "5년 동안 갚아야 할 빚(리스부채)"을 장부에 미리 다 잡아둬야 합니다. 매달 월세를 낼 때는 빚(원금)을 갚는 것과 이자를 내는 것으로 정교하게 쪼개서(`asset-lease`가 계산) `expenditure-resolution` 모듈로 보내어 전표를 치게 합니다.
-
----
-
-## 2. 🔄 최근 고도화 (IFRS 16 계정 분리)
-
-과거에는 리스료 월세 100만 원을 지급할 때 단순히 차변과 대변에 같은 계정을 꽂는 버그가 있었습니다.
-현재는 IFRS 16 규정에 맞춰 리스료 지급 시 **원금(25100)**과 **이자(93100)**를 명확히 분리하여 `LeasePaymentResolutionCommand`에 담아 지출결의 모듈로 전송하도록 치명적인 버그가 수정되었습니다.
+**리스 (Lease)는 '사무실이나 복사기를 장기 렌탈할 때, 내 자산처럼 장부에 올리는 것'입니다.**
+- 옛날에는 매달 렌탈료 낼 때마다 그냥 '비용'으로 처리했습니다.
+- 이제는(IFRS 16 규정) 3년 동안 총 낼 돈을 다 더해서 **부채(앞으로 갚을 돈)**로 잡고, 동시에 3년 동안 쓸 권리를 **자산(사용권자산)**으로 잡아둡니다. 그래서 매달 돈을 낼 때 이자 갚는 것과 원금 갚는 것으로 쪼개서 복잡하게 회계 처리를 합니다.
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 2. 🔄 프로세스 흐름 (Process Flow)
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
+### 📌 전체 업무 흐름 및 전표 연동
+자산 취득부터 월별 상각, 그리고 최종 전표 기표까지의 흐름입니다.
+
+```mermaid
+flowchart TD
+    A[자산/리스 계약 등록] --> B{종류 분류}
+    B -->|고정자산| C[감가상각 계산]
+    B -->|IFRS 16 리스| D[사용권자산/부채 산출]
+    C --> E[월별 결산 실행]
+    D --> E
+    E --> F{Journal-Ledger 연동}
+    F -->|Port 호출| G[회계 전표 생성 및 전기]
+```
+
+### 📌 SCD2 및 ID 기반 참조 아키텍처
+자산의 조건 변경 시 과거 이력을 보존하며, 타 모듈과는 ID(String/UUID) 값으로만 통신합니다.
+
+```mermaid
+flowchart LR
+    A[자산 정보 변경] --> B{SCD2 처리}
+    B --> C[기존 버전 마감]
+    B --> D[신규 버전 생성]
+    E[자산 모듈] -- "ID Reference" --> F[(Master Data)]
+    style F fill:#f9f,stroke:#333,stroke-width:2px
+```
+
+---
+
+## 3. 📊 데이터 모델 (Schema)
+
+고정자산과 리스 계약의 핵심 테이블 구조입니다.
+
+```mermaid
+erDiagram
+    FIXED_ASSETS ||--o{ ASSET_HISTORY : "logs"
+    LEASE_CONTRACTS ||--|| RIGHT_OF_USE_ASSETS : "capitalizes"
+    LEASE_CONTRACTS ||--|| LEASE_LIABILITIES : "recognizes"
+
+    FIXED_ASSETS {
+        uuid id PK
+        uuid department_id FK "ID 기반 참조"
+        decimal acquisition_cost "취득가액"
+        decimal current_book_value "장부가액"
+        boolean is_current "SCD2"
+    }
+    
+    LEASE_CONTRACTS {
+        uuid id PK
+        uuid lessor_id FK "거래처 ID"
+        decimal monthly_payment "리스료"
+        decimal discount_rate "할인율"
+    }
+```
+
+---
+
+## 4. 🐳 실행 및 연동 방법
+
+**실행 명령:**
 ```bash
 docker-compose up -d asset-lease
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :asset-lease:api:bootRun
-```
+**연동 주의사항:**
+- 감가상각 및 리스 전표 생성 시 `contracts` 모듈의 `JournalPostingPort`를 통해 회계 코어와 통신합니다.
+- 부서나 거래처 정보 조회 시 `MasterDataQueryPort`를 사용하세요.

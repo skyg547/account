@@ -4,8 +4,12 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 寃곗궛 ?쒖뒪??(Closing Task) ?뷀떚??
- * 寃곗궛 罹섎┛?붿뿉 ?ы븿??媛쒕퀎 ?쒖뒪??泥댄겕由ъ뒪????ぉ)瑜??뺤쓽?⑸땲??
+ * 결산 태스크(Closing Task) 엔티티 — 마감 전 수행해야 할 개별 작업 단위를 정의하고 상태를 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 결산 태스크는 '마감 전 체크리스트의 한 줄'과 같습니다. 
+ * "은행 잔고 대조 완료", "부가세 신고 준비" 등 마감을 위해 반드시 끝내야 하는 숙제들입니다. 
+ * 이 숙제가 모두 '완료' 상태가 되어야만 비로소 그달의 장부에 자물쇠를 채울 수 있습니다.
  */
 @Entity
 @Table(name = "closing_tasks")
@@ -20,7 +24,7 @@ public class ClosingTask {
     private ClosingCalendar closingCalendar;
 
     @Column(nullable = false, length = 200)
-    private String name; // ?쒖뒪?щ챸 (?? "???????꾨즺", "?명솕 ?됯? ?ㅽ뻾")
+    private String name; // 태스크명 (예: "은행잔고 대조 완료", "외화 평가 실행")
 
     @Column(length = 1000)
     private String description;

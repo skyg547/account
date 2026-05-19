@@ -4,8 +4,13 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 대사 단위(Reconciliation Unit) 엔티티
- * 어떤 항목들을 어떤 기준으로 대사할 것인지 정의합니다. (예: 은행계좌 대사, 전표-원장 대사)
+ * 대사 단위(Reconciliation Unit) 엔티티 — 어떤 장부들을 어떤 기준으로 비교할지 정의합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 대사 단위는 '비교 작업의 이름표'와 같습니다. 
+ * "우리 회사 통장 내역과 회계 장부를 비교하자"라는 하나의 약속을 정의하고, 
+ * "금액이 10원 미만으로 차이 나면 그냥 넘어가자" 같은 세부 규칙들을 담고 있습니다. 
+ * 이 설정에 따라 시스템이 매일 밤 자동으로 짝을 맞춰보고 차이가 있는지 검사합니다.
  */
 @Entity
 @Table(name = "reconciliation_units")

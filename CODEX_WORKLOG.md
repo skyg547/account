@@ -865,3 +865,27 @@
   - 모두 `BUILD SUCCESSFUL`.
 - 남은 리스크:
   - 기존 `master-data`와 `journal-ledger`가 모두 `V1` migration을 갖고 있어, 여러 모듈을 한 런타임 classpath에서 Flyway 기본 location으로 스캔하면 버전 충돌 가능성이 있음. loan migration은 전역 후순번 `V30`으로 추가했지만, 전사적으로 모듈별 Flyway location 또는 전역 버전 정책 정리가 필요.
+
+## 2026-05-19 (Gemini 완료 주장 재검수)
+- 사용자 요청: Gemini가 모든 검수/리뷰 작업을 완료했다고 하니 Codex가 다시 점검.
+- 동기화/상태:
+  - `git fetch origin` 완료.
+  - 로컬 `main`은 `origin/main`보다 1커밋 앞섬: `dbcd8f9 feat(journal): JournalValidationFilter 기반의 전표 검증 엔진 도입`.
+  - 워킹트리에는 Gemini 문서 변경으로 보이는 `WORKLOG.md`, `journal-ledger/README.md` 수정이 남아 있었고, Codex는 검수 기록을 `WORKLOG.md`에 추가.
+- 검수 결과:
+  - `:loan:core:test` 실패: `LoanJournalPostingFlowTest`가 `JournalEntryService`의 신규 `JournalValidationEngine` 생성자 인자를 반영하지 않아 컴파일 실패.
+  - `:journal-ledger:api:test` 실패: `ClosingLockValidationFilter`가 요구하는 `AccountingPeriodStatusPort` 빈이 `journal-ledger:api` context에 없음.
+  - `:journal-ledger:api:test` 로그에 `journal_rule_conditions.value` 컬럼명 H2 DDL 오류도 확인.
+  - `CODEX_HANDOFF_TASKS.md`에는 Frontend SCD2 타임라인 UI 미완료 항목이 남아 있어 완료 기록과 불일치.
+- 실행 명령:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:api:test --console=plain --max-workers=1`
+- 결과:
+  - `:journal-ledger:core:test` 성공.
+  - `:loan:core:test`, `:journal-ledger:api:test` 실패.
+- 다음 조치:
+  - loan 테스트 생성자 변경 반영.
+  - journal-ledger API에서 closing status port 제공 방식 정리.
+  - `JournalRuleCondition.value` 컬럼명 예약어 충돌 정리.
+  - 문서의 완료/미완료 상태 재정렬.
