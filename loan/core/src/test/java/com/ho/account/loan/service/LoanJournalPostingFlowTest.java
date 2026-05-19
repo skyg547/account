@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.service.journal.JournalEntryService;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
+import com.ho.account.journalledger.application.service.journal.validator.BalanceValidationFilter;
+import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -66,7 +68,8 @@ class LoanJournalPostingFlowTest {
         JournalEntryService journalUseCase = new JournalEntryService(
                 journalStore,
                 mock(JournalRuleEngine.class),
-                postingService);
+                postingService,
+                new JournalValidationEngine(List.of(new BalanceValidationFilter())));
 
         LoanRepository loanRepository = mock(LoanRepository.class);
         LoanDisbursalRepository loanDisbursalRepository = mock(LoanDisbursalRepository.class);

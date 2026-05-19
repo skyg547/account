@@ -97,5 +97,16 @@ class LedgerClientAdapterTest {
             this.currencyCode = currencyCode;
             return response;
         }
+
+        @Override
+        public List<LedgerBalanceSummary> getSlBalanceSummaries(
+                LocalDate startDate,
+                LocalDate endDate,
+                String accountCode,
+                String businessPartnerCode,
+                String departmentCode,
+                String currencyCode) {
+            return List.of();
+        }
     }
 }

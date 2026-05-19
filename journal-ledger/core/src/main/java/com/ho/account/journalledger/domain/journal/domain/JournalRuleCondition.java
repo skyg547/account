@@ -70,7 +70,7 @@ public class JournalRuleCondition {
      * 숫자 비교(GREATER_THAN 등): JournalRuleEngine에서 BigDecimal로 파싱하여 비교합니다.
      * 예: "PURCHASE", "D0", "1000000"
      */
-    @Column(nullable = false, length = 255)
+    @Column(name = "condition_value", nullable = false, length = 255)
     private String value;
 
     // ─── Getter / Setter ──────────────────────────────────
