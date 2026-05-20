@@ -63,8 +63,10 @@ erDiagram
 
     RPT_LINE_MAPPING {
         Long id PK
+        String statement_type "BS, IS"
         String line_code "보고 항목 코드"
         String account_code "연결된 계정 코드"
+        Integer display_order "표시 순서"
         LocalDate valid_from "SCD2 시작"
         LocalDate valid_to "SCD2 종료"
     }
@@ -89,4 +91,6 @@ docker-compose up -d reporting
 **연동 주의사항:**
 - 실시간 집계 시 `LedgerQueryPort`를 통해 `journal-ledger` 모듈의 최신 잔액을 가져옵니다.
 - 보고서 서식 변경 시 SCD2 정책에 따라 기존 매핑의 `valid_to`를 닫고 새 버전을 생성해야 합니다.
-- 현재 기본 구현은 `DefaultReportLineMappingAdapter`의 SCD2 매핑과 `InMemoryReportSnapshotAdapter`를 통해 BS/IS 라인 생성과 전기 비교 스냅샷 저장을 수행합니다. 운영 DB 영속화는 `LoadReportLineMappingPort`, `StoreReportSnapshotPort`, `LoadReportHistoryPort`의 JPA 어댑터로 확장합니다.
+- 현재 기본 구현은 `JpaReportLineMappingAdapter`와 `JpaReportSnapshotAdapter`가 `RPT_LINE_MAPPING`, `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL` 테이블을 사용합니다.
+- Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재합니다.
+- 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다.

@@ -7,9 +7,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "account.reporting.persistence", name = "mode", havingValue = "memory")
 public class DefaultReportLineMappingAdapter implements LoadReportLineMappingPort {
 
     private static final LocalDate DEFAULT_VALID_FROM = LocalDate.of(2020, 1, 1);

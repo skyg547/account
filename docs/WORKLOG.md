@@ -1259,3 +1259,27 @@
   - Reporting 스냅샷과 라인 매핑은 현재 인메모리/기본 매핑 어댑터이므로 운영 DB 영속화용 JPA 어댑터와 Flyway 테이블은 후속 구현이 필요.
   - Auth 사용자는 여전히 설정 기반 인메모리 저장소가 기본이므로 운영 사용자/역할 assignment 영속화 어댑터는 별도 과제.
   - 검증 중 JVM 메모리 부족으로 낮은 `org.gradle.jvmargs`를 사용해 모듈 단위로 테스트했다.
+
+### 📅 2026-05-20 (Codex 구현)
+### [수정] Reporting 매핑/스냅샷 운영 DB 영속화
+- **수정 범위**:
+  - Reporting: `JpaReportLineMappingAdapter`를 추가해 `RPT_LINE_MAPPING` SCD2 행을 기준일별로 조회하고, 같은 보고 라인의 계정 행을 하나의 `ReportLineMapping`으로 그룹핑하도록 구현.
+  - Reporting: `JpaReportSnapshotAdapter`를 추가해 FINAL 재무제표를 `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL`에 저장하고 전기 비교용 확정 스냅샷을 조회하도록 구현.
+  - Reporting: 기존 `DefaultReportLineMappingAdapter`, `InMemoryReportSnapshotAdapter`는 `account.reporting.persistence.mode=memory`일 때만 활성화되도록 전환.
+  - Reporting: Flyway `V60__reporting_persistence_schema.sql`에 라인 매핑/스냅샷 테이블, 인덱스, 기본 BS/IS 매핑 seed를 추가.
+  - Reporting: JPA 슬라이스 테스트와 테스트 전용 `logback-test.xml`을 추가해 Flyway/H2 기반 매핑 조회와 FINAL 스냅샷 교체 저장을 검증.
+- **문서 갱신**:
+  - `reporting/README.md`
+  - `reporting/docs/beginner-guide.md`
+  - `reporting/docs/process-flow.md`
+  - `reporting/docs/schema.md`
+- **재검증 실행**:
+  - `.\gradlew :reporting:core:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `git diff --check`
+- **재검증 결과**:
+  - Reporting core/api/batch 대상 테스트 성공.
+  - `git diff --check`는 CRLF 경고 외 문제 없음.
+- **남은 리스크**:
+  - 운영 DB 방언별 Flyway 실행과 실제 reporting 서비스 컨테이너 smoke는 별도 검증이 필요하다.
+  - Reporting standalone Boot application/bootJar 구성은 이번 범위에 포함하지 않았다.

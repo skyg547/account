@@ -992,3 +992,30 @@
   - `git diff --check`는 CRLF 경고 외 문제 없음.
 - 특이사항:
   - 초기 Gradle 실행은 Windows 페이징 파일/JVM 메모리 부족으로 실패하여, 검증 명령은 낮은 `org.gradle.jvmargs`와 `--no-daemon` 기준으로 재실행.
+
+## 2026-05-20 (Reporting JPA/Flyway 영속화)
+- 사용자 요청: 이전에 남은 다음 작업을 이어서 진행.
+- 확인 문서:
+  - `docs/WORKLOG.md`
+  - `CODEX_WORKLOG.md`
+  - `reporting/README.md`
+  - `reporting/docs/README.md`
+- 수정 내용:
+  - `JpaReportLineMappingAdapter`, `ReportLineMappingJpaEntity`, `ReportLineMappingJpaRepository` 추가.
+  - `JpaReportSnapshotAdapter`, `ReportSnapshotHeaderJpaEntity`, `ReportSnapshotDetailJpaEntity`, `ReportSnapshotHeaderJpaRepository` 추가.
+  - `V60__reporting_persistence_schema.sql` 추가: `RPT_LINE_MAPPING`, `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL`, 인덱스, 기본 BS/IS seed.
+  - 기존 인메모리/기본 매핑 어댑터는 `account.reporting.persistence.mode=memory` 전용으로 변경하고, JPA 어댑터를 기본값으로 설정.
+  - JPA/Flyway 테스트를 위해 `reporting:core`에 `flyway-core`, H2 test runtime 추가.
+  - `JpaReportPersistenceAdapterTest` 추가로 SCD2 매핑 그룹핑, FINAL 스냅샷 교체 저장/조회 검증.
+  - `reporting/core/src/test/resources/logback-test.xml` 추가로 `master-data` logback classpath 부작용 차단.
+  - `reporting/README.md`, `reporting/docs/*.md`, `docs/WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :reporting:core:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `git diff --check`
+- 결과:
+  - Reporting core/api/batch 테스트 성공.
+  - `git diff --check`는 CRLF 경고 외 문제 없음.
+- 남은 리스크:
+  - 운영 DB 방언별 Flyway 실행과 reporting 컨테이너 smoke는 별도 확인 필요.
+  - Reporting standalone Boot application/bootJar 구성은 이번 범위에서 다루지 않음.
