@@ -1192,4 +1192,13 @@
 - **Loan 모듈**: `Loan` 엔티티(Aggregate Root)와 `LoanService`, `LoanController`에 대출 회계 흐름 및 헥사고날 아키텍처 매핑에 관한 교육용 주석 작성 완료.
 - **Closing 모듈**: `ClosingPeriod` 엔티티 및 `ClosingService`, `ClosingController`에 결산/마감 잠금 및 재오픈 워크플로우에 대한 초보자 가이드 주석 추가.
 - **Journal-Ledger 모듈**: `JournalEntry` (기존 작성분 유지/확인), `PostingService`, `JournalController`에 전표의 승인 및 원장 전기(Posting) 과정에 대한 헥사고날 아키텍처 주석 보강.
-- **상태 업데이트**: `docs/todo.md`의 `05`, `06`, `11`, `12` 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영. Git 동기화(commit/push) 진행.
+- **상태 업데이트**: `docs/todo.md`의 `05`, `06`, `11`, `12` 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영. Git 동기화(commit/push) 진행. (완료)
+
+### [백엔드/QA] 대사(Reconciliation) 및 ERP 스트림(AP, AR, FA, Tax) 주석 보강 및 검수
+- **대사(Reconciliation) 모듈**: `ReconciliationDifference` (Aggregate Root)와 `ReconciliationService`, `ReconciliationController`에 대사 차이 해결 과정 및 헥사고날 구조 설명 주석 추가.
+- **매입(Payable/AP) 모듈**: `Payable` 엔티티 및 `PaymentService`, `PaymentController`에 채무 관리 및 지급 실행 로직에 대한 초보자 가이드 추가.
+- **매출(Receivable/AR) 모듈**: `Receivable` 엔티티 및 `SalesService`, `SalesController`에 채권 발생 및 수납 처리 흐름 설명 보강.
+- **고정자산(Fixed Asset) 모듈**: `FixedAsset` 엔티티 및 `FixedAssetEntryService`, `FixedAssetController`에 자산 취득/상각/처분 라이프사이클 주석 추가.
+- **세무(Tax) 모듈**: `TaxInvoice` 엔티티 및 `TaxInvoiceService`, `APInvoiceController`에 세금계산서 증빙 및 금액 검증 원칙 주석 추가.
+- **검증**: `reconciliation`, `payable`, `receivable`, `asset-lease`, `tax` 모듈 정상 컴파일 확인 완료.
+- **상태 업데이트**: `docs/todo.md`의 `07~10`, `13` 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영. Git 동기화 진행.

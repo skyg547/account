@@ -8,6 +8,16 @@ import java.time.LocalDateTime;
  * 대사 차이(Reconciliation Difference) 엔티티.
  * 대사 실행 결과 발견된 차이 항목을 기록하고, 사유 코드 및 조정 전표와 연계합니다.
  */
+/**
+ * [DDD(도메인 주도 설계) - Aggregate Root]
+ * 대사 차이(Reconciliation Difference) 엔티티. 대사 실행 결과 발견된 불일치 항목과 그 해결 과정을 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 대사 차이는 한마디로 '장부가 맞지 않는 내역'입니다.
+ * 예를 들어, 은행 통장에는 10,000원이 입금되었는데 회사 장부에는 9,000원만 기록되어 있다면 1,000원의 차이가 발생하겠죠?
+ * 이 클래스는 그 1,000원이 왜 차이 나는지(사유), 누구에게 확인을 맡겼는지(담당자), 
+ * 그리고 최종적으로 어떻게 해결했는지(조정 전표 등)를 기록하는 일지 역할을 합니다.
+ */
 @Entity
 @Table(name = "reconciliation_differences")
 public class ReconciliationDifference {

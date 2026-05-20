@@ -24,7 +24,16 @@ import java.math.BigDecimal;
 import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunStatus;
 
 /**
- * Application service for reconciliation units, rules, difference reasons, runs, and resolution flows.
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 대사(Reconciliation) 업무의 핵심 비즈니스 로직을 처리하는 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 대사 업무의 '현장 소장'입니다. 
+ * "오늘치 대사를 실행해!"라는 명령을 받으면, 
+ * 1. 비교할 대상 데이터(원천 vs 장부)를 싹 긁어모아 오고, 
+ * 2. 정해진 규칙(Rule)에 따라 하나씩 짝을 맞춰본 뒤, 
+ * 3. 짝이 안 맞는 내역(Difference)이 있으면 따로 모아서 담당자에게 배정하거나 자동으로 수정하는 전표를 끊어주는 등 
+ * 전체적인 업무 흐름을 총괄합니다.
  */
 @Service
 @Transactional

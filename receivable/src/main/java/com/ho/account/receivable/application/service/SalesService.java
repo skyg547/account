@@ -15,6 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 매출 인식 및 채권 생성을 담당하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 '회사의 수입'을 장부에 적는 일을 총괄합니다.
+ * 1. 매출이 발생하면 인보이스(청구서)를 발행하고, 
+ * 2. 동시에 "돈을 받아야 한다"는 채권(Receivable) 장부를 새로 만듭니다. 
+ * 3. 마지막으로 회계 시스템(Journal Ledger)에 "매출이 이만큼 났으니 전표 끊어줘!"라고 요청하는 조율사 역할을 수행합니다.
+ */
 @Service
 @Transactional
 public class SalesService implements SalesUseCase {

@@ -17,8 +17,15 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * [PaymentService]
- * 지급 실행, 선급금 관리 및 상계 처리를 담당합니다.
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 지급 실행, 선급금 관리 및 상계 처리를 담당하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 '회사의 지갑'을 관리하는 관리자입니다. 
+ * "오늘 갚아야 할 돈이 있는 거래처들 다 모아봐!" (Payment Run), 
+ * "A 거래처에 실제로 돈 보내고 장부에서 빚 지워줘!" (Execute Payment), 
+ * "미리 준 돈(선급금)이 있으니 나중에 줄 돈이랑 퉁치자!" (Offset) 같은 복잡한 일들을 순서대로 처리합니다.
+ * 
  * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 통신하여 결합도를 낮춥니다.
  */
 @Service

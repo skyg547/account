@@ -17,8 +17,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
  * 대사(Reconciliation) 관련 REST API를 제공하는 컨트롤러.
- * 대사 단위, 규칙, 차이 사유 코드 관리 및 대사 실행 기능을 제공합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 대사 시스템의 '안내 데스크'입니다.
+ * 사용자가 웹 화면에서 "대사 규칙을 새로 만들어줘", "지금 바로 대사 작업 시작해"라고 요청하면, 
+ * 그 요청을 받아서 내부 서비스(`ReconciliationService`)가 이해할 수 있는 명령으로 번역해서 전달하는 역할을 합니다.
+ * 화면(UI)과 내부 로직(Core) 사이의 통로라고 보시면 됩니다.
  */
 @RestController
 @RequestMapping("/api/reconciliation")

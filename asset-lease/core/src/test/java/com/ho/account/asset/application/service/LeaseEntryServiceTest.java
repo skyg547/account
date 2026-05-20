@@ -3,50 +3,39 @@ package com.ho.account.asset.application.service;
 import com.ho.account.asset.application.port.out.AssetEventPort;
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
+import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
+import com.ho.account.asset.domain.RightOfUseAsset;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionCommand;
 import com.ho.account.contracts.expenditure.LeasePaymentResolutionPort;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 class LeaseEntryServiceTest {
-
-    @Mock
-    private LeasePersistencePort persistencePort;
-    @Mock
-    private AssetEventPort eventPort;
-    @Mock
-    private LeasePaymentResolutionPort leasePaymentResolutionPort;
 
     @Test
     void processMonthlyLeasePaymentSplitsIfrs16PaymentIntoInterestAndPrincipal() {
-        LeaseEntryService service = new LeaseEntryService(
-                persistencePort,
-                eventPort,
-                leasePaymentResolutionPort);
         LeaseContract contract = createIfrs16LeaseContract();
         LeasePaymentSchedule schedule = createSchedule(contract);
-        when(persistencePort.findActiveContracts("ACTIVE")).thenReturn(List.of(contract));
-        when(persistencePort.findSchedulesByContract(contract)).thenReturn(List.of(schedule));
+        FakeLeasePersistencePort persistencePort =
+                new FakeLeasePersistencePort(List.of(contract), List.of(schedule));
+        RecordingLeasePaymentResolutionPort leasePaymentResolutionPort =
+                new RecordingLeasePaymentResolutionPort();
+        LeaseEntryService service = new LeaseEntryService(
+                persistencePort,
+                new NoOpAssetEventPort(),
+                leasePaymentResolutionPort);
 
         service.processMonthlyLeasePayment(LocalDate.of(2026, 5, 25));
 
-        ArgumentCaptor<LeasePaymentResolutionCommand> captor =
-                ArgumentCaptor.forClass(LeasePaymentResolutionCommand.class);
-        verify(leasePaymentResolutionPort).createLeasePaymentResolution(captor.capture());
-        LeasePaymentResolutionCommand command = captor.getValue();
+        LeasePaymentResolutionCommand command = leasePaymentResolutionPort.command;
         assertEquals("21100", command.creditAccountCode());
         assertEquals(new BigDecimal("1200.00"), command.amount());
         assertEquals(2, command.debitLines().size());
@@ -83,5 +72,94 @@ class LeaseEntryServiceTest {
         schedule.setRemainingLeaseLiability(new BigDecimal("9000.00"));
         schedule.setStatus("SCHEDULED");
         return schedule;
+    }
+
+    private static class FakeLeasePersistencePort implements LeasePersistencePort {
+
+        private final List<LeaseContract> activeContracts;
+        private final List<LeasePaymentSchedule> schedules;
+
+        private FakeLeasePersistencePort(
+                List<LeaseContract> activeContracts,
+                List<LeasePaymentSchedule> schedules) {
+            this.activeContracts = activeContracts;
+            this.schedules = schedules;
+        }
+
+        @Override
+        public LeaseContract saveContract(LeaseContract contract) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<LeaseContract> findContractById(Long id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<LeaseContract> findActiveContracts(String status) {
+            return activeContracts.stream()
+                    .filter(contract -> status.equals(contract.getStatus()))
+                    .toList();
+        }
+
+        @Override
+        public List<LeaseContract> findIfrs16ApplicableActiveContracts() {
+            return List.of();
+        }
+
+        @Override
+        public RightOfUseAsset saveROUAsset(RightOfUseAsset asset) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<RightOfUseAsset> findROUAssetByContract(LeaseContract contract) {
+            return Optional.empty();
+        }
+
+        @Override
+        public LeaseLiability saveLiability(LeaseLiability liability) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<LeaseLiability> findLiabilityByContract(LeaseContract contract) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void savePaymentSchedules(List<LeasePaymentSchedule> schedules) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void savePaymentSchedule(LeasePaymentSchedule schedule) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<LeasePaymentSchedule> findSchedulesByContract(LeaseContract contract) {
+            return schedules.stream()
+                    .filter(schedule -> schedule.getLeaseContract() == contract)
+                    .toList();
+        }
+    }
+
+    private static class NoOpAssetEventPort implements AssetEventPort {
+
+        @Override
+        public void sendAssetEvent(String topic, Map<String, Object> eventData) {
+        }
+    }
+
+    private static class RecordingLeasePaymentResolutionPort implements LeasePaymentResolutionPort {
+
+        private LeasePaymentResolutionCommand command;
+
+        @Override
+        public void createLeasePaymentResolution(LeasePaymentResolutionCommand command) {
+            this.command = command;
+        }
     }
 }

@@ -12,6 +12,15 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
+ * 매입 세금계산서(AP Invoice) 관련 REST API를 제공하는 웹 컨트롤러입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 시스템의 '세금계산서 접수 데스크'입니다.
+ * 외부 시스템이나 화면에서 "매입 세금계산서가 들어왔어요"라고 신고하면, 
+ * 그 정보를 받아서 내부 세무 서비스(`TaxInvoiceService`)가 처리할 수 있도록 전달해주는 입구 역할을 합니다.
+ */
 @RestController
 @RequestMapping("/api/ap/invoices")
 public class APInvoiceController {

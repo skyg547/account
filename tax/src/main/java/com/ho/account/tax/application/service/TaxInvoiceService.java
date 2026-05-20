@@ -13,8 +13,13 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * [TaxInvoiceService]
- * 세금계산서 비즈니스 로직을 담당합니다.
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 세금계산서 비즈니스 로직을 담당하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 시스템의 '세무 담당자'입니다. 
+ * 매입 세금계산서를 받으면 거래처가 실제 등록된 곳인지 확인하고, 
+ * 우리 장부에 기록할 수 있도록 도메인 객체(`TaxInvoice`)를 생성하여 저장소(Port)에 보관하는 일을 합니다.
  * 타 모듈(Master Data)과는 ID(Code) 기반으로 통신하여 모듈 간 결합도를 최소화합니다.
  */
 @Service

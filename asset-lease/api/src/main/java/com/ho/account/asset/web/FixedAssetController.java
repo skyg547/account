@@ -14,7 +14,14 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 고정자산 관리 컨트롤러 (Inbound Adapter)
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
+ * 고정자산 관리 기능을 제공하는 웹 컨트롤러입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 시스템의 '자산 관리 창구'입니다.
+ * 사용자가 화면에서 "새 노트북을 샀어요"라고 등록하거나 "이번 달 감가상각을 실행해줘"라고 요청하면, 
+ * 그 신호를 받아서 내부 비즈니스 서비스(`FixedAssetEntryService`)가 일을 할 수 있게 연결해줍니다.
+ * 외부 세계(Web)와 내부 비즈니스 로직(Core) 사이의 다리 역할을 합니다.
  */
 @RestController
 @RequestMapping("/api/fixed-assets")

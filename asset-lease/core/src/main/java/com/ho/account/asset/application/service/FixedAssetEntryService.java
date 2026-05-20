@@ -18,6 +18,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 고정자산의 등록, 상각 처리, 처분 등을 담당하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 회사의 '자산 관리자'입니다. 
+ * 새로운 비품을 사면 장부에 등록하고(registerAsset), 
+ * 매달 가치가 떨어지는 것을 계산해서 반영하며(processMonthlyDepreciation), 
+ * 낡아서 팔거나 버릴 때(disposeFixedAsset)의 모든 과정을 지휘합니다. 
+ * 또한 자산의 변동이 생길 때마다 회계 부서에 알리는 이벤트(Event) 발행 역할도 수행합니다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
