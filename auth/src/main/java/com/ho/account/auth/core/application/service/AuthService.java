@@ -13,6 +13,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * [애플리케이션 서비스] AuthService
+ * 인증(Authentication) 및 인가(Authorization) 유즈케이스를 처리하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 건물 입구의 '보안 요원'과 같습니다.
+ * 누군가 건물(시스템)에 들어오려고 할 때, 
+ * 1) 신분증에 적힌 이름이 명단에 있는지 확인하고(사용자 조회), 
+ * 2) 비밀번호가 맞는지 검사하며(비밀번호 검증), 
+ * 3) 퇴사자이거나 정직 중인 사람은 아닌지(계정 활성화 및 잠금 확인), 
+ * 4) 소속 부서가 실제로 존재하는지(부서 검증) 꼼꼼하게 따집니다.
+ * 모든 검사를 무사히 통과하면 건물 출입증(JWT 토큰)을 발급해 줍니다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

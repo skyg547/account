@@ -1202,3 +1202,12 @@
 - **세무(Tax) 모듈**: `TaxInvoice` 엔티티 및 `TaxInvoiceService`, `APInvoiceController`에 세금계산서 증빙 및 금액 검증 원칙 주석 추가.
 - **검증**: `reconciliation`, `payable`, `receivable`, `asset-lease`, `tax` 모듈 정상 컴파일 확인 완료.
 - **상태 업데이트**: `docs/todo.md`의 `07~10`, `13` 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영. Git 동기화 진행.
+
+### 📅 2026-05-20 (Gemini YOLO 모드)
+### [기획/팀장 & 백엔드]
+- **Reporting, Auth, Governance 모듈 리뷰 및 주석 보강**:
+  - Reporting 모듈의 FinancialStatement, ReportingService 등 주요 도메인/서비스 클래스가 이미 초보자 가이드 및 헥사고날 아키텍처 주석을 포함하고 있음을 확인.
+  - Auth 모듈의 AuthUser, AuthService 클래스에 인증/인가 과정 및 도메인 의미에 대한 초보자 가이드 주석 신규 추가.
+  - Governance 모듈의 AuditLog, SystemRole, AuditService 클래스에 직무분리(SOD), 접근 제어, 감사 로그 등의 목적을 설명하는 초보자 가이드 주석 신규 추가.
+  - Frontend 코드 (FinancialStatementsPage, UserManagementPage)에 화면의 비즈니스적 의미 및 작동 방식을 설명하는 교육용 주석 추가.
+- **Todo 업데이트**: docs/todo.md의 14, 15 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영 및 E2E/릴리즈 계획 진행 중임을 표기.

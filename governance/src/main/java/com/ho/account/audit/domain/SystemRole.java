@@ -5,6 +5,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 시스템 역할(SystemRole) 도메인 엔티티 — 시스템 내의 사용자 직무와 역할을 정의합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 회사 내의 '직급' 또는 '담당 업무명'과 같습니다.
+ * 예를 들어 "회계 팀장", "일반 행원", "시스템 관리자" 같은 이름표(Role)를 만들어 둡니다.
+ * 이 이름표 하나에 여러 가지 권한(Authorizations)을 묶어두고, 
+ * 사용자에게 이름표만 달아주면 관련된 모든 권한이 한 번에 부여되는 구조(RBAC)입니다.
+ */
 @Entity
 @Table(name = "SYSTEM_ROLE")
 public class SystemRole {

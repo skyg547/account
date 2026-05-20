@@ -37,6 +37,16 @@ const roleStyles: Record<string, RoleStyle> = {
   USER: { label: '일반사용자', color: 'text-slate-400', bg: 'bg-slate-400/10', icon: Users },
 };
 
+/**
+ * [사용자 그룹 및 권한 관리 화면]
+ * 전사 시스템 사용자의 역할(Role) 기반 접근 제어(RBAC)를 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 화면은 시스템의 '출입증 관리 사무소'입니다.
+ * 신규 직원이 오면 계정을 만들어주고, "당신은 회계관리자니까 전표 승인을 할 수 있어요" 처럼
+ * 각 사용자에게 알맞은 역할(Role) 이름표를 달아주는 곳입니다.
+ * 여기서 역할을 변경하면, 즉시 사용자의 사이드바 메뉴가 바뀌는 것을 볼 수 있습니다.
+ */
 export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<UserInfo[]>([]);

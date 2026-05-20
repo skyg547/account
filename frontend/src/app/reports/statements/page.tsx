@@ -4,6 +4,11 @@ import { FileBarChart, Layers, Download, ChevronRight, ChevronDown } from 'lucid
  * [재무제표 보고서 조회 화면]
  * 재무상태표(BS) 및 손익계산서(PL)를 계층적으로 조회하고 비교 분석합니다.
  * 설계서 파트 4-⑪ 기반.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 화면은 회사의 성적표(재무제표)를 보여주는 대시보드입니다.
+ * 경영진이 가장 많이 보는 화면으로, '작년 이맘때 대비 자산이 얼마나 늘었는지(비교 재무제표)'를 한눈에 보여줍니다.
+ * 헥사고날 백엔드(reporting 모듈)에서 생성된 데이터를 시계열로 뿌려주는 역할을 합니다.
  */
 export default function FinancialStatementsPage() {
   return (

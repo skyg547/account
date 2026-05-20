@@ -15,6 +15,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * [애플리케이션 서비스] AuditService
+ * 감사 로그 기록 및 역할/권한 관리를 담당하는 핵심 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 회사의 '감사실장' 역할을 합니다.
+ * 1) 누군가 시스템에서 중요한 일을 하면 그 기록(로그)을 안전한 금고에 보관하고(logEvent),
+ * 2) "이 직원은 재무제표를 볼 수 있지만 수정은 못해!"와 같이, 
+ *    직원들의 역할과 권한을 엄격하게 관리(createRole, grantAuthorization)합니다.
+ * 특히 한 사람이 돈을 청구하고 스스로 승인하는 것(횡령 위험)을 막기 위한 직무분리(SOD) 검사도 수행합니다.
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
