@@ -9,6 +9,7 @@ public class AuthModuleProperties {
 
     private Jwt jwt = new Jwt();
     private MasterData masterData = new MasterData();
+    private Persistence persistence = new Persistence();
     private List<User> users = new ArrayList<>();
 
     public Jwt getJwt() {
@@ -25,6 +26,14 @@ public class AuthModuleProperties {
 
     public void setMasterData(MasterData masterData) {
         this.masterData = masterData;
+    }
+
+    public Persistence getPersistence() {
+        return persistence;
+    }
+
+    public void setPersistence(Persistence persistence) {
+        this.persistence = persistence;
     }
 
     public List<User> getUsers() {
@@ -74,6 +83,18 @@ public class AuthModuleProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+    }
+
+    public static class Persistence {
+        private String mode = "jpa";
+
+        public String getMode() {
+            return mode;
+        }
+
+        public void setMode(String mode) {
+            this.mode = mode;
         }
     }
 

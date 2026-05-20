@@ -111,6 +111,23 @@ class AuthServiceTest {
                 .hasMessageContaining("Department code is invalid");
     }
 
+    @Test
+    void validateTokenVersion_returnsTrueOnlyWhenRoleVersionMatchesCurrentUserVersion() {
+        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
+                "admin", new AuthUser("admin", "1234", "FIN", true, false, List.of("ROLE_ADMIN")),
+                "changed", new AuthUser("changed", "1234", "FIN", true, false, List.of("ROLE_ADMIN"))));
+        AuthService authService = new AuthService(
+                userQueryPort,
+                code -> true,
+                String::equals,
+                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+
+        assertThat(authService.validateTokenVersion("admin", 1L)).isTrue();
+        assertThat(authService.validateTokenVersion("admin", 0L)).isFalse();
+        assertThat(authService.validateTokenVersion("admin", 2L)).isFalse();
+        assertThat(authService.validateTokenVersion("missing", 1L)).isFalse();
+    }
+
     private record InMemoryUserQueryPort(Map<String, AuthUser> users) implements AuthUserQueryPort {
         @Override
         public Optional<AuthUser> findByUsername(String username) {

@@ -1284,6 +1284,27 @@
   - 운영 DB 방언별 Flyway 실행과 실제 reporting 서비스 컨테이너 smoke는 별도 검증이 필요하다.
   - Reporting standalone Boot application/bootJar 구성은 이번 범위에 포함하지 않았다.
 
+### 📅 2026-05-20 (Codex 구현)
+### [수정] Auth 사용자/RoleAssignment 운영 DB 영속화
+- **수정 범위**:
+  - Auth: `JpaAuthUserQueryAdapter`를 추가해 `AUTH_USERS`, `AUTH_ROLE_ASSIGNMENTS`에서 로그인 사용자와 승인/유효기간 기반 역할 할당을 조회하도록 구현.
+  - Auth: `AuthUserJpaEntity`, `RoleAssignmentJpaEntity`, `AuthUserJpaRepository`를 추가해 Auth 도메인 모델과 JPA 저장 모델을 분리.
+  - Auth: `AuthUserSeedRunner`를 추가해 DB에 없는 설정 기반 초기 사용자만 seed하도록 구현. 기본 비밀번호는 Flyway에 하드코딩하지 않고 환경변수/설정값을 따른다.
+  - Auth: 기존 `InMemoryAuthUserQueryAdapter`는 `auth.persistence.mode=memory`일 때만 활성화되도록 전환.
+  - Auth: Flyway `V70__auth_user_role_schema.sql`에 사용자/역할 할당 테이블과 조회 인덱스를 추가.
+  - Auth: JPA 슬라이스 테스트를 추가해 역할 할당 조회, 승인/만료 역할 필터링, 설정 기반 seed 중복 방지를 검증.
+  - Auth: 토큰 `roleVersion` 검증 API는 현재 DB 버전과 정확히 일치할 때만 유효하도록 보정하고 DTO validation을 추가.
+- **문서 갱신**:
+  - `auth/README.md`
+- **재검증 실행**:
+  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :auth:build --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- **재검증 결과**:
+  - Auth 테스트/빌드 성공.
+- **남은 리스크**:
+  - 실제 운영 DB 방언별 Flyway 실행과 auth 서비스 컨테이너 smoke는 별도 확인이 필요하다.
+  - Governance 승인 완료 후 Auth DB 역할 할당을 직접 변경하는 통합 포트/API는 별도 과제로 남는다.
+
 ### 📅 2026-05-20 (Gemini YOLO 모드 - 2차)
 ### [기획/팀장 & 백엔드]
 - **거버넌스 및 Auth 모듈 심화 로직 구현 (보안 통제 고도화)**:

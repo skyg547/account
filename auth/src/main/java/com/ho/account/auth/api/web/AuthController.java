@@ -2,6 +2,8 @@ package com.ho.account.auth.api.web;
 
 import com.ho.account.auth.api.dto.LoginRequest;
 import com.ho.account.auth.api.dto.LoginResponse;
+import com.ho.account.auth.api.dto.TokenValidationRequest;
+import com.ho.account.auth.api.dto.TokenValidationResponse;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,5 +25,12 @@ public class AuthController {
         LoginResponse response = authUseCase.login(request.username(), request.password());
         return ResponseEntity.ok(response);
     }
-}
 
+    @PostMapping("/validate-token-version")
+    public ResponseEntity<TokenValidationResponse> validateTokenVersion(
+            @Valid @RequestBody TokenValidationRequest request) {
+        boolean valid = authUseCase.validateTokenVersion(request.username(), request.roleVersion());
+        return ResponseEntity.ok(new TokenValidationResponse(
+                valid, valid ? "OK" : "Token version is outdated due to role changes. Please re-login."));
+    }
+}

@@ -11,9 +11,11 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "memory")
 public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
 
     private final Map<String, AuthUser> usersByUsername;

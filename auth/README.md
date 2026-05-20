@@ -23,7 +23,20 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 ### 📌 헥사고날 아키텍처 (DDD)
 - **Controller:** 로그인 요청 수신
 - **UseCase -> Service:** 로그인 흐름 제어
-- **Infrastructure:** 설정 기반의 사용자 조회, 비밀번호 검증(Bcrypt 등), JWT 발급 어댑터 구현
+- **Infrastructure:** JPA 기반 사용자/역할 할당 조회, 설정 기반 초기 사용자 seed, 비밀번호 검증(Bcrypt 등), JWT 발급 어댑터 구현
+
+### 📌 사용자/역할 영속화
+- 기본 모드는 `auth.persistence.mode=jpa`입니다.
+- `AUTH_PERSISTENCE_MODE=memory`로 설정하면 로컬 데모용 설정 기반 인메모리 사용자 저장소를 사용합니다.
+- 운영 기본 테이블은 Flyway `V70__auth_user_role_schema.sql`이 생성합니다.
+  - `AUTH_USERS`: 사용자 식별자, 저장 비밀번호, 부서 코드, 활성/잠금 상태, `roleVersion`
+  - `AUTH_ROLE_ASSIGNMENTS`: 승인 상태, 유효기간, 데이터 범위를 포함한 역할 할당
+- 초기 사용자는 DB에 없을 때만 `auth.users` 설정에서 seed합니다. 비밀번호는 마이그레이션에 하드코딩하지 않고 환경변수/설정값을 따릅니다.
+
+### 📌 토큰 Role Version 검증
+- `POST /api/auth/validate-token-version`
+- 요청의 `username`, `roleVersion`이 현재 DB의 사용자 `roleVersion`과 정확히 일치할 때만 유효로 판단합니다.
+- 역할 변경으로 DB의 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
 ### 🚨 모듈 경계 (중요!)
 - 사용자 식별과 권한 부여는 `auth`가 담당합니다.

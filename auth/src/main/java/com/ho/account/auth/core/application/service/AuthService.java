@@ -72,4 +72,11 @@ public class AuthService implements AuthUseCase {
                 user.getRoles(),
                 user.getRoleVersion());
     }
+
+    @Override
+    public boolean validateTokenVersion(String username, long roleVersion) {
+        return authUserQueryPort.findByUsername(username)
+                .map(user -> user.getRoleVersion() == roleVersion)
+                .orElse(false);
+    }
 }

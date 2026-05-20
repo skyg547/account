@@ -5,6 +5,8 @@ spring:
     import: "optional:configserver:http://localhost:8888/"
 
 auth:
+  persistence:
+    mode: ${AUTH_PERSISTENCE_MODE:jpa}
   master-data:
     base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
   jwt:

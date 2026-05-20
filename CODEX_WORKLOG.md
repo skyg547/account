@@ -1019,3 +1019,31 @@
 - 남은 리스크:
   - 운영 DB 방언별 Flyway 실행과 reporting 컨테이너 smoke는 별도 확인 필요.
   - Reporting standalone Boot application/bootJar 구성은 이번 범위에서 다루지 않음.
+
+## 2026-05-20 (Auth 사용자/RoleAssignment JPA/Flyway 영속화)
+- 사용자 요청: reporting 변경 커밋/푸시 후 다음 작업 진행.
+- 선행 처리:
+  - `git commit -m "Persist reporting mappings and snapshots"`
+  - `git push origin main`
+  - 결과: `49f3e86 Persist reporting mappings and snapshots`가 `origin/main`에 반영됨.
+- 확인 문서:
+  - `docs/WORKLOG.md`
+  - `CODEX_WORKLOG.md`
+  - `auth/README.md`
+- 수정 내용:
+  - `JpaAuthUserQueryAdapter`, `AuthUserJpaEntity`, `RoleAssignmentJpaEntity`, `AuthUserJpaRepository` 추가.
+  - `V70__auth_user_role_schema.sql` 추가: `AUTH_USERS`, `AUTH_ROLE_ASSIGNMENTS`, 로그인/역할 조회 인덱스.
+  - `AuthUserSeedRunner` 추가: DB에 없는 설정 기반 초기 사용자만 seed. 비밀번호는 migration에 하드코딩하지 않고 `auth.users`/환경변수를 따름.
+  - 기존 `InMemoryAuthUserQueryAdapter`는 `auth.persistence.mode=memory` 전용으로 전환.
+  - `auth/build.gradle`에 JPA/Flyway/H2 의존성 추가.
+  - `JpaAuthUserPersistenceAdapterTest` 추가로 사용자 조회, 역할 할당, 승인/만료 필터링, seed 중복 방지 검증.
+  - 기존 토큰 version 검증 변경을 현재 JPA 역할 버전 흐름에 맞춰 `현재 roleVersion == 토큰 roleVersion`일 때만 통과하도록 보정하고 DTO validation 추가.
+  - `auth/README.md`, `docs/WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :auth:build --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- 결과:
+  - Auth 테스트/빌드 성공.
+- 남은 리스크:
+  - 운영 DB 방언별 Flyway 실행과 auth 컨테이너 smoke는 별도 확인 필요.
+  - Governance 승인 완료 후 Auth DB 역할 할당을 변경하는 통합 포트/API는 후속 과제.
