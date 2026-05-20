@@ -1283,3 +1283,11 @@
 - **남은 리스크**:
   - 운영 DB 방언별 Flyway 실행과 실제 reporting 서비스 컨테이너 smoke는 별도 검증이 필요하다.
   - Reporting standalone Boot application/bootJar 구성은 이번 범위에 포함하지 않았다.
+
+### 📅 2026-05-20 (Gemini YOLO 모드 - 2차)
+### [기획/팀장 & 백엔드]
+- **거버넌스 및 Auth 모듈 심화 로직 구현 (보안 통제 고도화)**:
+  - **Maker-Checker (요청자-승인자 분리)**: 역할(SystemRole) 및 권한(Authorization) 생성 시 즉시 반영되지 않고 MasterApprovalUseCase를 통한 승인 대기 상태로 진입하도록 워크플로우 적용. SystemRoleApprovalApplyAdapter 구현 완료.
+  - **직무 분리(SOD) 위반 통제**: AuditService.grantAuthorization 내에 SOD 충돌 매트릭스(예: 전표 생성과 승인 권한 동시 보유 금지) 검증 로직 추가.
+  - **JWT 토큰 무효화(버전 관리) 기반 마련**: AuthUser 도메인에 oleVersion 도입, 역할 변경 시 버전이 증가하도록 구성. JWT 발급 시 버전을 Claim으로 굽고 Gateway에서 헤더로 파싱하도록 설정했으며, Auth 모듈에 실시간 토큰 유효성을 검사하는 /api/auth/validate-token-version API 구현 완료.
+- **상태 업데이트**: docs/todo.md 15번 항목에 심화 로직 구현 완료 표기.
