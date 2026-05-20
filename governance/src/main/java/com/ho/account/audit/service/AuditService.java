@@ -93,6 +93,8 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
 
     @Override
     public SystemRole createRole(CreateRoleCommand command) {
+        // @todo [검수-업무/통제] 역할 생성은 즉시 저장이 아니라 maker-checker 승인,
+        //       변경 사유, 적용일, 감사 로그를 포함한 권한 변경 워크플로우로 승격해야 한다.
         if (command == null) {
             throw new IllegalArgumentException("Create role command is required.");
         }
@@ -124,6 +126,8 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
 
     @Override
     public Authorization grantAuthorization(GrantAuthorizationCommand command) {
+        // @todo [검수-DDD/업무프로세스] 권한 부여 전 role-function-access 조합 중복만 보지 말고,
+        //       SOD 충돌 매트릭스, 데이터 범위, 유효기간, 승인 상태를 정책 객체로 검증해야 한다.
         if (command == null) {
             throw new IllegalArgumentException("Grant authorization command is required.");
         }
@@ -161,6 +165,8 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
     @Override
     @Transactional(readOnly = true)
     public boolean hasPermission(String roleCode, String functionCode, AccessType accessType) {
+        // @todo [검수-업무/통제] 현재 권한 확인은 단일 roleCode 기준이며 dataScope와 다중 역할 충돌을 반영하지 않는다.
+        //       사용자별 role assignment, 부서/법인 범위, deny 우선 정책까지 포함한 AuthorizationDecision 모델이 필요하다.
         SystemRole role = systemRolePersistencePort.findByRoleCode(roleCode).orElse(null);
         if (role == null)
             return false;

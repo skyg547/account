@@ -11,6 +11,9 @@ import { FileBarChart, Layers, Download, ChevronRight, ChevronDown } from 'lucid
  * 헥사고날 백엔드(reporting 모듈)에서 생성된 데이터를 시계열로 뿌려주는 역할을 합니다.
  */
 export default function FinancialStatementsPage() {
+  // @todo [검수-헥사고날/UI] 현재 화면은 하드코딩된 재무제표 샘플이다.
+  //       `/api/v1/reporting/generate`와 `/generate/document`를 중앙 API 클라이언트로 호출하고,
+  //       로딩/오류/마감잠금/스냅샷 버전 상태를 화면 상태로 분리해야 한다.
   return (
     <div className="flex flex-col gap-10">
       <header className="flex justify-between items-center">
@@ -76,6 +79,8 @@ export default function FinancialStatementsPage() {
 
           {/* Hierarchy Layers */}
           <div className="space-y-px">
+            {/* @todo [검수-업무프로세스] 보고 라인은 lineCode 기반으로 전표 -> GL/SL -> 원천 문서까지 drill-through 가능해야 한다.
+                현재 정적 행은 감사 추적성, 제출본 스냅샷 재현, 1분 내 원천 추적 DoD를 검증할 수 없다. */}
             {/* 자산 섹션 */}
             <div className="grid grid-cols-12 gap-4 px-8 py-6 border-b border-white/5 bg-white/[0.03] group hover:bg-white/[0.05] transition-colors items-center">
               <div className="col-span-6 text-sm font-black text-white flex items-center gap-3">

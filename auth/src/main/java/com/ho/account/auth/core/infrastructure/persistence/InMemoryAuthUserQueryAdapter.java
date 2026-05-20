@@ -18,6 +18,8 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
     private final Map<String, AuthUser> usersByUsername;
 
     public InMemoryAuthUserQueryAdapter(AuthModuleProperties properties) {
+        // @todo [검수-헥사고날] 설정 기반 인메모리 사용자 저장소는 로컬 부트스트랩 용도로 한정하고,
+        //       운영 경로는 AuthUserPersistencePort/JPA 어댑터와 권한 변경 감사 로그를 통해 관리해야 한다.
         this.usersByUsername = new ConcurrentHashMap<>(
                 properties.getUsers().stream()
                         .map(this::toDomain)

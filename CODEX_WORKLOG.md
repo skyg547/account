@@ -931,3 +931,41 @@
 - 남은 리스크:
   - smoke는 외부 Config/Eureka 등록/Vault/Tracing을 끈 로컬 context 기동 확인이며, 실제 MSA 연동은 인프라 포함 실행으로 별도 확인 필요.
   - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적 파일은 `docs/WORKLOG.md`라 해당 파일에 검수 기록을 남김.
+
+## 2026-05-20 (.agent 및 Codex 규칙 재학습)
+- 사용자 요청에 따라 `.agent` 하위 Markdown과 Codex 작업 규칙을 현재 세션 기준으로 재확인.
+- 확인 문서/규칙:
+  - `.agent/workflows/feature-dev.md`
+  - `.clinerules`
+  - `Agents.md`
+  - `CODEX_WORKLOG.md` 최신 항목
+  - `docs/WORKLOG.md` 최신 항목
+- 확인 결과:
+  - `.agent` 하위 Markdown은 `workflows/feature-dev.md` 1개이며, 역할 기반 feature workflow는 `.clinerules`의 PM/DA/Backend/QA/SRE 흐름을 따른다.
+  - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 최신 검수 기록은 `docs/WORKLOG.md`에 남아 있다.
+  - 이후 작업은 `Agents.md` 기준으로 헥사고날 계층 분리, 배치 오케스트레이터 비즈니스 로직 금지, `BigDecimal` 중심 금액 처리, 변경 대상 모듈 README/docs 선확인, 검증/리스크 보고 규칙을 적용한다.
+- 코드 변경 없음.
+
+## 2026-05-20 (Auth/Governance/Reporting @todo 검수 주석)
+- 사용자 요청: 현재 빌드는 성공 상태로 보고, 파일들을 리뷰하면서 DDD/헥사고날/업무 프로세스 관점의 고도화 및 수정 보완 사항을 코드에 `@todo` 주석으로 남김.
+- 확인 문서:
+  - `docs/WORKLOG.md`, `docs/todo.md`
+  - `docs/README.md`, `docs/principles_and_policies.md`, `docs/e2e_business_workflows.md`
+  - `auth/README.md`
+  - `governance/README.md`, `governance/docs/README.md`
+  - `reporting/README.md`, `reporting/docs/README.md`
+  - `frontend/README.md`, `frontend/docs/screen-inventory.md`, `frontend/docs/development-status.md`, `frontend/docs/frontend-engineering-guide.md`
+- 수정 내용:
+  - `auth`의 JWT/role/version/토큰 폐기, RoleAssignment 모델링, 인메모리 사용자 저장소 운영 한계에 `@todo` 표시.
+  - `governance`의 `SystemRole` aggregate/JPA 결합, 역할 생성 승인 흐름, 권한 부여 SOD/데이터 범위/유효기간, permission decision 모델에 `@todo` 표시.
+  - `reporting`의 하드코딩된 보고 라인 매핑, SCD2 매핑, FINAL 스냅샷 저장소 미구현에 `@todo` 표시.
+  - `frontend`의 admin users mock/역할 변경 시뮬레이션, 신규 사용자 온보딩 승인 흐름, financial statements API 연동/드릴스루/스냅샷 추적에 `@todo` 표시.
+  - 검수 결과를 `docs/WORKLOG.md`에 기록.
+- 실행 명령:
+  - `git diff --check`
+  - `.\gradlew :auth:compileJava :governance:compileJava :reporting:core:compileJava --console=plain --max-workers=1`
+  - `npm run build` (workdir: `frontend`)
+- 결과:
+  - `git diff --check` 문제 없음(CRLF 경고만 출력).
+  - Gradle 컴파일 성공.
+  - Frontend build 성공. 기존 closing 화면 unused variable 경고는 남음.

@@ -20,6 +20,8 @@ public class AuthUser {
     private final String departmentCode;
     private final boolean active;
     private final boolean locked;
+    // @todo [검수-DDD] roles 문자열 목록만으로는 역할 부여의 유효기간, 승인 상태, 데이터 범위,
+    //       SOD 충돌 사유를 표현하기 어렵다. RoleAssignment 값 객체 또는 권한 조회 포트로 분리 검토.
     private final List<String> roles;
 
     public AuthUser(String username, String storedPassword, boolean active, boolean locked, List<String> roles) {

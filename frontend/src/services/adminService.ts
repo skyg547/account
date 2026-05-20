@@ -15,6 +15,8 @@ export interface UserInfo {
 }
 
 class AdminService {
+  // @todo [검수-헥사고날/UI] Mock 데이터는 화면 시연용이다. 운영 흐름은 auth 사용자 API와 governance 권한/승인 API를
+  //       분리 호출하고, 변경 요청 ID/승인 상태/감사 로그 링크를 UI 모델에 포함해야 한다.
   // Mock 데이터
   private mockUsers: UserInfo[] = [
     { id: 1, name: '김재무', email: 'jm.kim@antigrav.ai', role: 'ACCOUNTING_ADMIN', status: 'ACTIVE', lastLogin: '10분 전', dept: '재무회계팀' },
@@ -39,6 +41,8 @@ class AdminService {
    * 사용자 역할 업데이트
    */
   async updateUserRole(userId: number, role: UserRole): Promise<boolean> {
+    // @todo [검수-업무/통제] 역할 변경은 즉시 반영 API가 아니라 SOD 검증과 승인 요청 생성으로 처리해야 한다.
+    //       성공 응답도 boolean 대신 requestId/status/effectiveDate를 반환하도록 계약을 재설계해야 한다.
     console.log(`[API] Updating user ${userId} role to ${role}`);
     return new Promise((resolve) => {
       setTimeout(() => {

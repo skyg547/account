@@ -1211,3 +1211,25 @@
   - Governance 모듈의 AuditLog, SystemRole, AuditService 클래스에 직무분리(SOD), 접근 제어, 감사 로그 등의 목적을 설명하는 초보자 가이드 주석 신규 추가.
   - Frontend 코드 (FinancialStatementsPage, UserManagementPage)에 화면의 비즈니스적 의미 및 작동 방식을 설명하는 교육용 주석 추가.
 - **Todo 업데이트**: docs/todo.md의 14, 15 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영 및 E2E/릴리즈 계획 진행 중임을 표기.
+
+### 📅 2026-05-20 (Codex 검수)
+### [검수/@todo] Auth/Governance/Reporting/Frontend DDD·헥사고날·업무 프로세스 보완점 표시
+- **확인 범위**:
+  - `Agents.md`, `.agent/workflows/feature-dev.md`, `.clinerules`, `docs/WORKLOG.md`, `docs/todo.md`
+  - 전사 문서 `docs/README.md`, `docs/principles_and_policies.md`, `docs/e2e_business_workflows.md`
+  - 대상 모듈 문서 `auth/README.md`, `governance/README.md`, `governance/docs/README.md`, `reporting/README.md`, `reporting/docs/README.md`, `frontend/README.md`, `frontend/docs/screen-inventory.md`, `frontend/docs/development-status.md`, `frontend/docs/frontend-engineering-guide.md`
+- **검수 결과 및 코드 표시**:
+  - Auth: 정적 role 문자열/JWT 클레임만으로 권한 변경 승인, 토큰 폐기, role version을 반영하기 어렵다는 점을 `@todo`로 표시.
+  - Governance: `SystemRole`이 JPA/public setter 중심이고 역할/권한 변경이 즉시 반영되는 구조라 maker-checker 승인, SOD 매트릭스, 감사 이벤트 고도화가 필요함을 `@todo`로 표시.
+  - Reporting: 보고 라인/계정 매핑과 전기 스냅샷 조회가 하드코딩/미구현 상태라 SCD2 매핑, FINAL 스냅샷 저장소, BS/PL/CF 공통 파이프라인 고도화 필요성을 `@todo`로 표시.
+  - Frontend: 사용자 권한 화면은 mock/시뮬레이션 상태이고 재무제표 화면은 정적 샘플이라 API 연동, 승인 상태, 드릴스루, 제출본 스냅샷 추적 필요성을 `@todo`로 표시.
+- **재검증 실행**:
+  - `git diff --check`
+  - `.\gradlew :auth:compileJava :governance:compileJava :reporting:core:compileJava --console=plain --max-workers=1`
+  - `npm run build` (workdir: `frontend`)
+- **재검증 결과**:
+  - Gradle 컴파일 성공.
+  - Frontend Next build 성공.
+  - 기존 closing 화면 unused variable 경고는 남아 있으나 이번 변경과 무관.
+- **남은 리스크**:
+  - 이번 작업은 구현 변경이 아니라 후속 고도화 지점의 코드 내 검수 표시다. 실제 권한 승인/스냅샷/드릴스루/API 연동은 별도 구현 작업으로 남는다.

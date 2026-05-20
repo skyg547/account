@@ -49,6 +49,9 @@ public class ReportingService implements GenerateStatementUseCase {
 
         // 4. 비교식 항목 계산 및 추가
         if (command.type() == FinancialStatement.StatementType.BALANCE_SHEET) {
+            // @todo [검수-DDD/업무프로세스] 보고 라인/계정 매핑이 코드에 하드코딩되어 있다.
+            //       RPT_LINE_MAPPING의 SCD2 유효기간, 보고서 버전, 공시 주석 번호를 도메인 정책으로 조회해
+            //       BS/PL/CF 전체를 동일한 파이프라인으로 생성하도록 고도화해야 한다.
             
             // 당기 금액 계산
             BigDecimal cashCurrent = currentBalances.getOrDefault("101", BigDecimal.ZERO)

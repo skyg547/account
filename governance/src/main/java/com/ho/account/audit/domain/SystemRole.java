@@ -14,6 +14,9 @@ import java.util.List;
  * 이 이름표 하나에 여러 가지 권한(Authorizations)을 묶어두고, 
  * 사용자에게 이름표만 달아주면 관련된 모든 권한이 한 번에 부여되는 구조(RBAC)입니다.
  */
+// @todo [검수-헥사고날/DDD] 도메인 엔티티가 JPA 어노테이션과 공개 setter에 직접 묶여 있어
+//       역할 코드 불변성, 권한 추가/회수 규칙, 감사 사용자 변경 규칙을 우회할 수 있다.
+//       순수 도메인 aggregate와 persistence entity 분리 또는 factory/행위 메서드 중심으로 보강해야 한다.
 @Entity
 @Table(name = "SYSTEM_ROLE")
 public class SystemRole {

@@ -51,6 +51,8 @@ public class LedgerClientAdapter implements LoadLedgerPort, LoadReportHistoryPor
     public Optional<FinancialStatement> findFinalizedStatement(
             FinancialStatement.StatementType type,
             LocalDateTime date) {
+        // @todo [검수-헥사고날/업무프로세스] 전기 비교와 제출본 재현을 위해 FINAL 스냅샷 저장소 포트를 실제 JPA/외부 저장소
+        //       어댑터로 연결해야 한다. 현재 Optional.empty()는 비교 재무제표와 감사 증빙 요건을 충족하지 못한다.
         return Optional.empty();
     }
 

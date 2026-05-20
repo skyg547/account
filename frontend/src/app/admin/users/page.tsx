@@ -74,6 +74,8 @@ export default function UserManagementPage() {
   }, [loadUsers]);
 
   const handleRoleChange = async (userId: number, role: UserRole) => {
+    // @todo [검수-업무/통제] 행의 역할 버튼 클릭이 현재 로그인 사용자의 userRole까지 바꾸는 시뮬레이션이다.
+    //       실제 구현은 대상 사용자 role 변경 요청을 governance 승인 워크플로우로 보내고, 승인 완료 후 auth 토큰/세션을 갱신해야 한다.
     const success = await adminService.updateUserRole(userId, role);
     if (success) {
       // 내 역할도 변경하여 사이드바 동기화 확인 (시뮬레이션)
@@ -111,6 +113,7 @@ export default function UserManagementPage() {
             <Filter size={18} className="text-slate-400" /> 필터링
           </button>
           <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
+            {/* @todo [검수-업무프로세스] 신규 사용자 초대는 KYC/부서 유효성/초기 역할 승인/감사 로그 생성까지 포함한 온보딩 플로우로 연결해야 한다. */}
             <UserPlus size={18} /> 신규 사용자 초대
           </button>
         </div>
