@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management'
+}
+
+description = 'account-deposit-batch'
+group = 'com.ho.deposit'
+
+base {
+    archivesName = 'account-deposit-batch'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
+    }
+}
+
+dependencies {
+    implementation project(':deposit:core')
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
+}
+
+jar { enabled = true }

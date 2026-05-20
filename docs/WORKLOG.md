@@ -1124,3 +1124,66 @@
   - `:loan:core:test`, `:journal-ledger:api:test`는 실패.
 - **남은 리스크**:
   - 최신 전표 검증 엔진 변경분은 완료 상태로 보기 어렵고, loan 및 journal-ledger API 회귀를 먼저 수정한 뒤 문서 완료 표시를 재정리해야 함.
+
+### 📅 2026-05-19 (모듈 순차 빌드/실행 회귀 수정 - Codex)
+### [수정] 전체 Gradle/Next 빌드 및 실행 가능 JAR smoke 회복
+- **확인 범위**:
+  - `.agent/workflows/feature-dev.md`, `.clinerules`, `Agents.md`, 변경 대상 모듈 README/docs, 최신 worklog를 확인.
+  - `.\gradlew projects --console=plain`로 Gradle 모듈 구성을 확인.
+- **수정 범위**:
+  - `loan:core` 전표 통합 테스트가 신규 `JournalValidationEngine` 생성자 계약을 따르도록 보강.
+  - `journal-ledger:core`의 `JournalRuleCondition.value` 컬럼을 `condition_value`로 변경해 H2 예약어 충돌을 제거.
+  - `AccountingPeriodStatusPort` 구현을 `journal-ledger:core` 공통 어댑터로 이동해 journal-ledger API/closing API 양쪽에서 마감 상태 검증 빈을 사용할 수 있게 정리.
+  - `reporting:core` 테스트 fake에 신규 `LedgerQueryPort.getSlBalanceSummaries` 계약을 반영.
+  - `closing:api`에 실행용 `ClosingApplication`, Spring Cloud BOM, journal-ledger core 의존성, bootJar mainClass를 추가하고, Java source가 없는 `closing:batch`는 bootJar 대신 plain jar만 생성하도록 정리.
+  - `asset-lease`, `journal-ledger:batch`, `loan:api`, `loan:batch`의 component/entity/repository scan 범위를 필요한 패키지로 좁혀 다중 모듈 classpath의 중복 repository/application scan을 차단.
+  - `loan:api`, `loan:batch`에 JPA starter를 추가해 명시 repository scan 어노테이션 컴파일 계약을 맞춤.
+  - `asset-lease` migration을 `V20__init_asset_lease.sql`로 조정해 master-data `V1`과의 Flyway 버전 충돌을 제거.
+  - `AssetHistoryRepository` 파생 쿼리명을 엔티티 필드명 `fixedAsset`에 맞게 수정.
+  - asset-lease 단독 실행용 `UnavailableLeasePaymentResolutionAdapter`를 조건부 fallback으로 추가해 expenditure 연동 포트가 없는 로컬 런타임에서도 context가 뜨도록 함.
+  - 기존 shared-kernel의 `SpringServiceDiscoveryRegistry`와 충돌하던 중복 registry 추가분을 제거.
+  - `docs/INFRA_RUN_GUIDE.md`에 Discovery 실행 시 `eureka.client.enabled=false`를 쓰면 안 되는 주의점을 추가.
+- **재검증 실행**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:api:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew test --console=plain --max-workers=1`
+  - `.\gradlew build --console=plain --max-workers=1`
+  - `npm run build` (workdir: `frontend`)
+  - 실행 가능 Spring Boot JAR 12개 순차 smoke: `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance`, `journal-ledger-api`, `journal-ledger-batch`, `closing-api`, `loan-api`, `loan-batch`, `asset-lease`
+- **재검증 결과**:
+  - Gradle `test`, Gradle `build`, frontend `npm run build` 모두 성공.
+  - JAR smoke는 외부 인프라 없이 `spring.cloud.config.enabled=false`, `spring.cloud.vault.enabled=false`, `management.tracing.enabled=false`, `server.port=0` 기준으로 모두 `STARTED`.
+  - Discovery는 Eureka Server 자체가 `ApplicationInfoManager`를 필요로 하므로 공통 smoke 인자의 `eureka.client.enabled=false`를 제외하고 별도 재검증해 `STARTED` 확인.
+- **남은 리스크**:
+  - 로컬 smoke는 외부 Config Server/Eureka client 등록/Vault/Tracing을 끈 context 기동 확인이다. 실제 MSA 연동은 인프라 실행 순서와 운영 설정으로 별도 확인 필요.
+  - `frontend` 빌드는 성공했지만 기존 closing 화면 unused import 경고가 남아 있음.
+
+### 📅 2026-05-19 (오후 - Gemini YOLO 모드 시작)
+### [기획/팀장]
+- **프로젝트 핵심 원칙 및 업무 흐름 고도화 완료**:
+  - `01. 범위 & 원칙`: In/Out 범위(ERP vs Banking), 용어집(Glossary) 보강 완료. (`docs/principles_and_policies.md`)
+  - `02. 업무흐름`: 대표 시나리오 10개(ERP 5 + Banking 5)를 텍스트 BPMN 형식으로 구체화 완료. (`docs/e2e_business_workflows.md`)
+  - **DoD 달성**: 변경관리/재처리/마감잠금 원칙 문서 확정 및 10대 시나리오 정의 완료.
+- **차기 작업 로드맵 수립**: Banking 서브레저 중 미구현된 '예금(Deposits)', '외환(FX)', '유가증권(Securities)', '파생상품(Derivatives)' 모듈을 순차적으로 구축하기로 결정.
+
+### [모델러]
+- **예금(Deposits) 도메인 설계**:
+  - `DepositAccount`: 예금 계좌 (SCD2 적용 검토)
+  - `DepositTransaction`: 입출금 거래 내역
+  - `DepositInterestSchedule`: 이자 지급 스케줄 및 미지급이자 계산 로직 설계 중.
+
+**NEXT STEPS (다음 담당자):**
+1. **[모델러/백엔드] 예금 모듈 구현**: 헥사고날 아키텍처 기반의 `deposit` 모듈 신규 생성 및 핵심 엔티티/포트 구현. (완료)
+2. **[백엔드] 예금-회계 연동**: 예금 입출금 및 이자 발생 시 `journal-ledger` 연동 전표 생성 로직 구현.
+
+### 📅 2026-05-19 (오후 - Gemini YOLO 모드 연장)
+### [백엔드/모델러] 예금(Deposits) 모듈 헥사고날 아키텍처 리팩토링 및 교육용 주석 추가
+- **헥사고날 구조 확립**: `deposit` 모듈의 영속성 계층을 분리하여 `DepositAccountPersistencePort` (Outbound Port) 및 `DepositAccountPersistenceAdapter`로 구현. 도메인 서비스(`DepositService`)가 JPA에 의존하지 않도록 의존성 역전(DIP) 원칙 준수 완료.
+- **초보자 및 리뷰어 맞춤형 문서화(주석) 보강**:
+  - `DepositAccount`: Aggregate Root로서의 역할, Rich Domain Model 철학(입출금 로직 내재화), SCD2(이력 관리) 적용에 대한 상세 주석 추가.
+  - `DepositService`: Application Service(지휘자)로서의 역할 및 UseCase 처리 흐름 설명 추가.
+  - `DepositController`: Inbound Web Adapter의 역할과 데이터 변환 의미 설명 추가.
+  - `DepositAccountPersistencePort` & `Adapter`: Outbound Port 및 Adapter의 개념적 차이와 DB 결합도 분리 이유 설명 추가.
+- **검증**: `deposit:core` 및 `deposit:api` 모듈 정상 컴파일 확인 (`BUILD SUCCESSFUL`).
+- **상태 업데이트**: `docs/todo.md`에 DDD, 헥사고날, 업무 흐름 주석 관련 DoD 추가 및 'o' 표시 완료.

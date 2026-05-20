@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface AssetHistoryRepository extends JpaRepository<AssetHistory, Long> {
-    List<AssetHistory> findByAssetOrderByEventAtDesc(FixedAsset asset);
+    List<AssetHistory> findByFixedAssetOrderByEventAtDesc(FixedAsset asset);
 }

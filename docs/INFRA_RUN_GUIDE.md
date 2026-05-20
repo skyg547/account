@@ -70,6 +70,7 @@ Gateway를 거쳐 인증 서비스에 도달하는지 확인합니다.
 | :--- | :--- | :--- |
 | **Port 8080 already in use** | 다른 서비스가 이미 실행 중 | `netstat -ano \| findstr :8080`으로 PID 확인 후 `Stop-Process -Id <PID> -Force` |
 | **Cannot create Auth for TOKEN** | Vault 서버 미기동 | 실행 인자에 `--spring.cloud.vault.enabled=false` 추가 |
+| **Discovery에서 ApplicationInfoManager 빈 누락** | Eureka Server 기동 시 `--eureka.client.enabled=false`로 Eureka Client 자동설정까지 꺼짐 | Discovery에는 `--eureka.client.enabled=false`를 쓰지 말고 `register-with-eureka=false`, `fetch-registry=false`만 사용 |
 | **Config Server 설정 조회 실패** | `config-repo` 경로 오규 | `search-locations` 인자에 실제 폴더의 **절대 경로**를 `file:///` 형식으로 입력 |
 
 ---

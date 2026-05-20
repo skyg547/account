@@ -889,3 +889,45 @@
   - journal-ledger API에서 closing status port 제공 방식 정리.
   - `JournalRuleCondition.value` 컬럼명 예약어 충돌 정리.
   - 문서의 완료/미완료 상태 재정렬.
+
+## 2026-05-19 (모듈 순차 빌드/실행 회귀 수정)
+- 사용자 요청: `.agent` 규칙 확인 후, 진행 중이던 모든 모듈 순차 빌드/실행 검증을 계속 진행.
+- 확인 문서:
+  - `.agent/workflows/feature-dev.md`
+  - `.clinerules`
+  - `Agents.md`
+  - `docs/WORKLOG.md`
+  - 변경 대상 모듈 README/docs
+- 수정 내용:
+  - `LoanJournalPostingFlowTest`가 `JournalEntryService`의 `JournalValidationEngine` 생성자 계약을 따르도록 수정.
+  - `JournalRuleCondition.value` 컬럼을 `condition_value`로 변경.
+  - `FiscalPeriodAccountingPeriodStatusAdapter`를 journal-ledger core 공통 어댑터로 제공하고 API 쪽 중복/부적절한 위치의 구현을 제거.
+  - reporting 테스트 fake에 `getSlBalanceSummaries` 구현 추가.
+  - `closing:api` 실행 진입점과 bootJar 설정을 추가하고, source가 없는 `closing:batch`는 bootJar 비활성화.
+  - `asset-lease`, `journal-ledger:batch`, `loan:api`, `loan:batch`의 scan 범위를 좁혀 중복 Application/Repository scan과 누락 repository 문제를 정리.
+  - `loan:api`, `loan:batch`에 JPA starter 추가.
+  - asset-lease Flyway migration을 `V20`으로 조정하고, `AssetHistoryRepository` 파생 쿼리명을 실제 필드명에 맞게 수정.
+  - asset-lease 단독 실행용 `UnavailableLeasePaymentResolutionAdapter`를 조건부 fallback으로 추가.
+  - shared-kernel에 이미 있던 `SpringServiceDiscoveryRegistry`와 충돌하던 중복 구현 제거.
+  - `docs/INFRA_RUN_GUIDE.md`에 Discovery 실행 시 `eureka.client.enabled=false` 금지 주의점 추가.
+  - `GEMINI_REVIEW_PROMPT.md`를 이번 변경 범위 기준으로 갱신.
+- 실행 명령:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:api:test --console=plain --max-workers=1`
+  - `.\gradlew :journal-ledger:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew projects --console=plain`
+  - `.\gradlew test --console=plain --max-workers=1`
+  - `.\gradlew build --console=plain --max-workers=1`
+  - `npm run build` (workdir: `frontend`)
+  - 순차 `java -jar` smoke: 12개 실행 가능 Spring Boot JAR
+- 결과:
+  - Gradle `test` 성공.
+  - Gradle `build` 성공.
+  - frontend `npm run build` 성공. 기존 unused import warning은 남음.
+  - JAR smoke 성공:
+    - 공통 로컬 인자: `--server.port=0`, `--spring.cloud.config.enabled=false`, `--spring.cloud.vault.enabled=false`, `--management.tracing.enabled=false`, `--spring.batch.job.enabled=false`
+    - Discovery는 `eureka.client.enabled=false`를 제외하고 별도 실행해 `STARTED` 확인.
+    - `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance`, `journal-ledger-api`, `journal-ledger-batch`, `closing-api`, `loan-api`, `loan-batch`, `asset-lease` 모두 `STARTED`.
+- 남은 리스크:
+  - smoke는 외부 Config/Eureka 등록/Vault/Tracing을 끈 로컬 context 기동 확인이며, 실제 MSA 연동은 인프라 포함 실행으로 별도 확인 필요.
+  - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적 파일은 `docs/WORKLOG.md`라 해당 파일에 검수 기록을 남김.

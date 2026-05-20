@@ -1,4 +1,4 @@
-package com.ho.account.journalledger.adapter.out.closing;
+package com.ho.account.common.adapter;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
