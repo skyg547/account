@@ -11,6 +11,7 @@ import com.ho.account.audit.application.port.out.MasterApprovalPersistencePort;
 import com.ho.account.audit.application.port.out.MasterDataChangeApplyPort;
 import com.ho.account.audit.domain.MasterApproval;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -21,7 +22,7 @@ class MasterApprovalServiceTest {
     void requestApproval_preservesEffectiveDateAndRequestedVersion() {
         MasterApprovalPersistencePort approvalPort = Mockito.mock(MasterApprovalPersistencePort.class);
         MasterDataChangeApplyPort applyPort = Mockito.mock(MasterDataChangeApplyPort.class);
-        MasterApprovalService service = new MasterApprovalService(approvalPort, applyPort);
+        MasterApprovalService service = new MasterApprovalService(approvalPort, List.of(applyPort));
         when(approvalPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0, MasterApproval.class));
 
         MasterApproval approval = service.requestApproval(new MasterApprovalUseCase.RequestApprovalCommand(
@@ -41,7 +42,8 @@ class MasterApprovalServiceTest {
     void approve_appliesMasterDataChangeAndPersistsApproval() {
         MasterApprovalPersistencePort approvalPort = Mockito.mock(MasterApprovalPersistencePort.class);
         MasterDataChangeApplyPort applyPort = Mockito.mock(MasterDataChangeApplyPort.class);
-        MasterApprovalService service = new MasterApprovalService(approvalPort, applyPort);
+        MasterApprovalService service = new MasterApprovalService(approvalPort, List.of(applyPort));
+        when(applyPort.supports("DEPARTMENT")).thenReturn(true);
 
         MasterApproval approval = pendingApproval("requester01");
         when(approvalPort.findById(1L)).thenReturn(Optional.of(approval));
@@ -60,7 +62,7 @@ class MasterApprovalServiceTest {
     void approve_throwsOnSelfApproval() {
         MasterApprovalPersistencePort approvalPort = Mockito.mock(MasterApprovalPersistencePort.class);
         MasterDataChangeApplyPort applyPort = Mockito.mock(MasterDataChangeApplyPort.class);
-        MasterApprovalService service = new MasterApprovalService(approvalPort, applyPort);
+        MasterApprovalService service = new MasterApprovalService(approvalPort, List.of(applyPort));
 
         MasterApproval approval = pendingApproval("requester01");
         when(approvalPort.findById(1L)).thenReturn(Optional.of(approval));

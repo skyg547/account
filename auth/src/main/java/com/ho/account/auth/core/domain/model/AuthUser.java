@@ -20,9 +20,8 @@ public class AuthUser {
     private final String departmentCode;
     private final boolean active;
     private final boolean locked;
-    // @todo [검수-DDD] roles 문자열 목록만으로는 역할 부여의 유효기간, 승인 상태, 데이터 범위,
-    //       SOD 충돌 사유를 표현하기 어렵다. RoleAssignment 값 객체 또는 권한 조회 포트로 분리 검토.
-    private final List<String> roles;
+    private final List<RoleAssignment> roleAssignments;
+    private final long roleVersion;
 
     public AuthUser(String username, String storedPassword, boolean active, boolean locked, List<String> roles) {
         this(username, storedPassword, null, active, locked, roles);
@@ -30,12 +29,18 @@ public class AuthUser {
 
     public AuthUser(String username, String storedPassword, String departmentCode, boolean active, boolean locked,
             List<String> roles) {
+        this(username, storedPassword, departmentCode, active, locked, toAssignments(roles), 1L);
+    }
+
+    public AuthUser(String username, String storedPassword, String departmentCode, boolean active, boolean locked,
+            List<RoleAssignment> roleAssignments, long roleVersion) {
         this.username = username;
         this.storedPassword = storedPassword;
         this.departmentCode = departmentCode;
         this.active = active;
         this.locked = locked;
-        this.roles = roles == null ? List.of() : List.copyOf(roles);
+        this.roleAssignments = roleAssignments == null ? List.of() : List.copyOf(roleAssignments);
+        this.roleVersion = Math.max(1L, roleVersion);
     }
 
     public String getUsername() {
@@ -59,10 +64,33 @@ public class AuthUser {
     }
 
     public List<String> getRoles() {
-        return roles;
+        return roleAssignments.stream()
+                .filter(assignment -> assignment.isEffectiveAt(java.time.Instant.now()))
+                .map(RoleAssignment::roleCode)
+                .distinct()
+                .toList();
+    }
+
+    public List<RoleAssignment> getRoleAssignments() {
+        return roleAssignments;
+    }
+
+    public long getRoleVersion() {
+        return roleVersion;
     }
 
     public boolean hasUsername(String otherUsername) {
         return Objects.equals(this.username, otherUsername);
+    }
+
+    private static List<RoleAssignment> toAssignments(List<String> roles) {
+        if (roles == null) {
+            return List.of();
+        }
+        return roles.stream()
+                .filter(Objects::nonNull)
+                .filter(role -> !role.isBlank())
+                .map(RoleAssignment::approved)
+                .toList();
     }
 }

@@ -89,3 +89,4 @@ docker-compose up -d reporting
 **연동 주의사항:**
 - 실시간 집계 시 `LedgerQueryPort`를 통해 `journal-ledger` 모듈의 최신 잔액을 가져옵니다.
 - 보고서 서식 변경 시 SCD2 정책에 따라 기존 매핑의 `valid_to`를 닫고 새 버전을 생성해야 합니다.
+- 현재 기본 구현은 `DefaultReportLineMappingAdapter`의 SCD2 매핑과 `InMemoryReportSnapshotAdapter`를 통해 BS/IS 라인 생성과 전기 비교 스냅샷 저장을 수행합니다. 운영 DB 영속화는 `LoadReportLineMappingPort`, `StoreReportSnapshotPort`, `LoadReportHistoryPort`의 JPA 어댑터로 확장합니다.

@@ -4,19 +4,19 @@ import com.ho.account.audit.application.port.in.MasterApprovalUseCase;
 import com.ho.account.audit.application.port.out.MasterApprovalPersistencePort;
 import com.ho.account.audit.application.port.out.MasterDataChangeApplyPort;
 import com.ho.account.audit.domain.MasterApproval;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class MasterApprovalService implements MasterApprovalUseCase {
 
     private final MasterApprovalPersistencePort masterApprovalPersistencePort;
-    private final MasterDataChangeApplyPort masterDataChangeApplyPort;
+    private final List<MasterDataChangeApplyPort> masterDataChangeApplyPorts;
 
     @Override
     @Transactional
@@ -47,7 +47,10 @@ public class MasterApprovalService implements MasterApprovalUseCase {
                 .orElseThrow(() -> new IllegalArgumentException("Approval request not found. ID: " + command.approvalId()));
 
         approval.approve(command.approverUser(), command.remarks(), LocalDateTime.now());
-        masterDataChangeApplyPort.applyApprovedChange(approval);
+        masterDataChangeApplyPorts.stream()
+                .filter(port -> port.supports(approval.getMasterType()))
+                .findFirst()
+                .ifPresent(port -> port.applyApprovedChange(approval));
 
         return masterApprovalPersistencePort.save(approval);
     }

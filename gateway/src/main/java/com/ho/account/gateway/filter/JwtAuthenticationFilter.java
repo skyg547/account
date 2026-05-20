@@ -5,7 +5,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.security.Keys;
+import java.security.Key;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
@@ -14,8 +16,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-
-import java.security.Key;
 
 /**
  * JWT 검문소 (Gateway Filter)
@@ -70,6 +70,14 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 Claims claims = jwtParser.parseClaimsJws(token).getBody();
                 ServerHttpRequest requestWithPrincipal = request.mutate()
                         .header("X-Auth-User", claims.getSubject())
+                        .header("X-Auth-Roles", resolveRolesHeader(claims))
+                        .header("X-Auth-Role-Version", resolveRoleVersionHeader(claims))
+                        .headers(headers -> {
+                            String departmentCode = claims.get("departmentCode", String.class);
+                            if (departmentCode != null && !departmentCode.isBlank()) {
+                                headers.set("X-Auth-Department", departmentCode);
+                            }
+                        })
                         .build();
                 exchange = exchange.mutate().request(requestWithPrincipal).build();
 
@@ -91,5 +99,22 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
     public static class Config {
         // 필터에 추가적인 설정값을 넣고 싶을 때 사용 (현재는 비워둠)
+    }
+
+    private String resolveRolesHeader(Claims claims) {
+        Object rolesClaim = claims.get("roles");
+        if (rolesClaim instanceof List<?> roles) {
+            return roles.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .reduce((left, right) -> left + "," + right)
+                    .orElse("");
+        }
+        return "";
+    }
+
+    private String resolveRoleVersionHeader(Claims claims) {
+        Object roleVersion = claims.get("roleVersion");
+        return roleVersion == null ? "1" : String.valueOf(roleVersion);
     }
 }

@@ -33,17 +33,13 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-19 "모듈 순차 빌드/실행 회귀 수정"입니다.
-- loan core 테스트의 JournalValidationEngine 생성자 계약 반영
-- journal-ledger core의 JournalRuleCondition 컬럼명 `condition_value` 변경
-- AccountingPeriodStatusPort 구현을 journal-ledger core 공통 어댑터로 이동
-- reporting 테스트 fake의 LedgerQueryPort 신규 메서드 반영
-- closing API 실행 진입점/bootJar 설정 추가 및 closing batch bootJar 비활성화
-- asset-lease, journal-ledger batch, loan api/batch의 component/entity/repository scan 범위 축소
-- loan api/batch JPA starter 추가
-- asset-lease Flyway migration `V20` 조정, AssetHistoryRepository 쿼리명 수정, LeasePaymentResolutionPort 조건부 fallback 추가
-- shared-kernel SpringServiceDiscoveryRegistry 중복 구현 제거
-- docs/INFRA_RUN_GUIDE.md, docs/WORKLOG.md, CODEX_WORKLOG.md 갱신
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-20 "@todo 고도화 구현"입니다.
+- Auth `RoleAssignment` 값 객체, `roleVersion`, JWT role assignment 클레임 추가
+- Gateway JWT 클레임을 `X-Auth-*` 헤더로 전파
+- Governance `AuthorizationPolicy`/`AuthorizationDecision` 추가, 역할/권한 변경을 `MasterApproval` 요청 및 승인 후 반영 흐름으로 전환
+- Reporting SCD2 `ReportLineMapping`, 매핑/스냅샷 포트, 기본 매핑 어댑터, 인메모리 FINAL 스냅샷 어댑터 추가
+- Frontend 사용자 role 변경 승인 요청 UI, Reporting API 기반 재무제표 조회/문서 출력 및 데모 폴백 구현
+- 관련 README, `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -92,10 +88,12 @@ Notes:
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew test --console=plain --max-workers=1`: 성공
-  - `.\gradlew build --console=plain --max-workers=1`: 성공
-  - `npm run build` in `frontend`: 성공, 기존 unused import warning만 남음
-  - JAR smoke: `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance`, `journal-ledger-api`, `journal-ledger-batch`, `closing-api`, `loan-api`, `loan-batch`, `asset-lease` 모두 `STARTED`
+  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `.\gradlew :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `.\gradlew :reporting:core:test :reporting:api:compileJava :gateway:compileJava --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `npm run build` in `frontend`: 성공, 기존 `closing` unused variable warning만 남음
+  - `git diff --check`: CRLF 경고 외 문제 없음
 
 ## Review Handoff Checklist
 

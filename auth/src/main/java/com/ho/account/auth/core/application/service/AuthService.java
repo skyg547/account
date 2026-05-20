@@ -58,8 +58,10 @@ public class AuthService implements AuthUseCase {
             throw new UserAccessDeniedException("Department code is invalid: " + user.getDepartmentCode());
         }
 
-        // @todo [검수-업무/통제] 권한 변경 승인, 역할 버전, 토큰 폐기 목록을 연동해
-        //       이미 발급된 JWT가 최신 RBAC/SOD 정책을 우회하지 못하도록 고도화해야 한다.
+        if (user.getRoles().isEmpty()) {
+            throw new UserAccessDeniedException("User has no approved effective roles");
+        }
+
         TokenIssuerPort.IssuedToken issuedToken = tokenIssuerPort.issue(user);
         return new LoginResponse(
                 issuedToken.token(),
@@ -67,6 +69,7 @@ public class AuthService implements AuthUseCase {
                 issuedToken.expiresInSeconds(),
                 user.getUsername(),
                 user.getDepartmentCode(),
-                user.getRoles());
+                user.getRoles(),
+                user.getRoleVersion());
     }
 }

@@ -36,6 +36,7 @@ class AuthServiceTest {
         assertThat(response.username()).isEqualTo("admin");
         assertThat(response.departmentCode()).isEqualTo("FIN");
         assertThat(response.roles()).containsExactly("ROLE_ADMIN");
+        assertThat(response.roleVersion()).isEqualTo(1L);
     }
 
     @Test

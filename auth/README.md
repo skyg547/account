@@ -17,7 +17,8 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 
 ### 📌 로그인 API
 - `POST /api/auth/login`
-- 사용자 이름(`username`)과 비밀번호를 받아, 맞으면 JWT 토큰(roles, departmentCode 포함)을 반환합니다.
+- 사용자 이름(`username`)과 비밀번호를 받아, 맞으면 JWT 토큰(`roles`, `departmentCode`, `roleVersion`, 승인된 역할 할당 정보)을 반환합니다.
+- 역할은 단순 문자열이 아니라 `RoleAssignment` 값 객체로 관리하며, 승인 여부와 유효기간을 통과한 역할만 토큰과 응답에 포함합니다.
 
 ### 📌 헥사고날 아키텍처 (DDD)
 - **Controller:** 로그인 요청 수신

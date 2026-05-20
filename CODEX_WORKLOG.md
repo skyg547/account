@@ -969,3 +969,26 @@
   - `git diff --check` 문제 없음(CRLF 경고만 출력).
   - Gradle 컴파일 성공.
   - Frontend build 성공. 기존 closing 화면 unused variable 경고는 남음.
+
+## 2026-05-20 (@todo 고도화 구현)
+- 사용자 요청: 코드에 남긴 `@todo`를 찾아 실제 고도화 구현 진행.
+- 수정 내용:
+  - `auth`: `RoleAssignment` 값 객체 추가, `AuthUser` role assignment/version 모델링, 로그인 시 승인/유효 역할 없으면 거부, `LoginResponse`/JWT에 `roleVersion`과 role assignment 클레임 추가.
+  - `gateway`: JWT 클레임을 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더로 전파.
+  - `governance`: `AuthorizationPolicy`, `AuthorizationDecision` 추가. 역할 생성/권한 부여는 `MasterApproval` 요청으로 등록하고, 승인 후 `SystemRoleApprovalApplyAdapter`가 실제 반영. `MasterApprovalService`는 masterType별 apply port를 선택하도록 변경.
+  - `reporting`: `ReportLineMapping`, `LoadReportLineMappingPort`, `StoreReportSnapshotPort`, 기본 SCD2 매핑 어댑터와 인메모리 스냅샷 어댑터 추가. `ReportingService`는 하드코딩 계정 대신 매핑 포트 기반으로 BS/IS 라인을 생성하고 FINAL 스냅샷 저장.
+  - `frontend`: 사용자 role 변경은 승인 요청으로 등록하고, 재무제표 화면은 Reporting API와 문서 출력 API를 호출하며 API 실패 시 데모 데이터로 폴백.
+  - 관련 README/screen inventory 및 `docs/WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:core:test :reporting:api:compileJava :gateway:compileJava --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `npm run build` (workdir: `frontend`)
+  - `git diff --check`
+- 결과:
+  - 대상 Gradle 테스트/컴파일 성공.
+  - Frontend build 성공. 기존 `closing` unused variable 경고는 남음.
+  - `git diff --check`는 CRLF 경고 외 문제 없음.
+- 특이사항:
+  - 초기 Gradle 실행은 Windows 페이징 파일/JVM 메모리 부족으로 실패하여, 검증 명령은 낮은 `org.gradle.jvmargs`와 `--no-daemon` 기준으로 재실행.

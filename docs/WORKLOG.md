@@ -1233,3 +1233,29 @@
   - 기존 closing 화면 unused variable 경고는 남아 있으나 이번 변경과 무관.
 - **남은 리스크**:
   - 이번 작업은 구현 변경이 아니라 후속 고도화 지점의 코드 내 검수 표시다. 실제 권한 승인/스냅샷/드릴스루/API 연동은 별도 구현 작업으로 남는다.
+
+### 📅 2026-05-20 (Codex 구현)
+### [수정] @todo 검수 항목 고도화 구현
+- **수정 범위**:
+  - Auth: `RoleAssignment` 값 객체와 `roleVersion`을 추가하고, 승인/유효기간을 통과한 역할만 로그인 응답 및 JWT 클레임에 포함하도록 변경.
+  - Gateway: JWT에서 사용자, 역할, 역할 버전, 부서 클레임을 `X-Auth-*` 헤더로 전달하도록 보강.
+  - Governance: `AuthorizationPolicy`/`AuthorizationDecision`을 추가하고 역할 생성/권한 부여를 `MasterApproval` 요청으로 전환. 승인 후 `SystemRoleApprovalApplyAdapter`가 실제 역할/권한 변경을 반영하도록 구성.
+  - Reporting: `ReportLineMapping`과 `LoadReportLineMappingPort`, `StoreReportSnapshotPort`를 추가해 SCD2 매핑 기반 재무제표 생성 및 FINAL 스냅샷 저장을 구현.
+  - Frontend: 사용자 역할 변경은 Governance 승인 요청으로 등록하고, 재무제표 화면은 Reporting API 조회/문서 출력 호출 및 데모 폴백을 갖도록 변경.
+- **문서 갱신**:
+  - `auth/README.md`, `governance/README.md`, `reporting/README.md`, `frontend/docs/screen-inventory.md`
+- **재검증 실행**:
+  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:core:test :reporting:api:compileJava :gateway:compileJava --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `npm run build` (workdir: `frontend`)
+  - `git diff --check`
+- **재검증 결과**:
+  - 대상 Gradle 테스트/컴파일 성공.
+  - Frontend Next build 성공. 기존 `closing` 화면 unused variable 경고는 남아 있으나 이번 변경과 무관.
+  - `git diff --check`는 CRLF 경고 외 문제 없음.
+- **남은 리스크**:
+  - Reporting 스냅샷과 라인 매핑은 현재 인메모리/기본 매핑 어댑터이므로 운영 DB 영속화용 JPA 어댑터와 Flyway 테이블은 후속 구현이 필요.
+  - Auth 사용자는 여전히 설정 기반 인메모리 저장소가 기본이므로 운영 사용자/역할 assignment 영속화 어댑터는 별도 과제.
+  - 검증 중 JVM 메모리 부족으로 낮은 `org.gradle.jvmargs`를 사용해 모듈 단위로 테스트했다.

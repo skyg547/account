@@ -37,6 +37,8 @@ const roleStyles: Record<string, RoleStyle> = {
   USER: { label: '일반사용자', color: 'text-slate-400', bg: 'bg-slate-400/10', icon: Users },
 };
 
+const roleOptions = Object.keys(roleStyles) as UserRole[];
+
 /**
  * [사용자 그룹 및 권한 관리 화면]
  * 전사 시스템 사용자의 역할(Role) 기반 접근 제어(RBAC)를 관리합니다.
@@ -51,7 +53,8 @@ export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const { userRole, setUserRole } = useNav();
+  const [message, setMessage] = useState('');
+  const { userRole } = useNav();
 
   const loadUsers = useCallback(async () => {
     try {
@@ -74,15 +77,16 @@ export default function UserManagementPage() {
   }, [loadUsers]);
 
   const handleRoleChange = async (userId: number, role: UserRole) => {
-    // @todo [검수-업무/통제] 행의 역할 버튼 클릭이 현재 로그인 사용자의 userRole까지 바꾸는 시뮬레이션이다.
-    //       실제 구현은 대상 사용자 role 변경 요청을 governance 승인 워크플로우로 보내고, 승인 완료 후 auth 토큰/세션을 갱신해야 한다.
-    const success = await adminService.updateUserRole(userId, role);
-    if (success) {
-      // 내 역할도 변경하여 사이드바 동기화 확인 (시뮬레이션)
-      setUserRole(role);
-      // 목록 새로고침
-      loadUsers();
-    }
+    const result = await adminService.requestRoleChange(userId, role);
+    setUsers(current => current.map(user => user.id === userId
+      ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
+      : user));
+    setMessage(`승인 요청 ${result.requestId} 생성됨 · ${result.effectiveDate}`);
+  };
+
+  const handleInvite = async () => {
+    const result = await adminService.requestUserOnboarding();
+    setMessage(`신규 사용자 온보딩 승인 요청 ${result.requestId} 생성됨`);
   };
 
   const filteredUsers = users.filter(u => 
@@ -112,12 +116,20 @@ export default function UserManagementPage() {
           <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-sm font-black transition-all flex items-center gap-2">
             <Filter size={18} className="text-slate-400" /> 필터링
           </button>
-          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
-            {/* @todo [검수-업무프로세스] 신규 사용자 초대는 KYC/부서 유효성/초기 역할 승인/감사 로그 생성까지 포함한 온보딩 플로우로 연결해야 한다. */}
+          <button
+            onClick={handleInvite}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
+          >
             <UserPlus size={18} /> 신규 사용자 초대
           </button>
         </div>
       </div>
+
+      {message && (
+        <div className="px-5 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm font-bold">
+          {message}
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -193,16 +205,24 @@ export default function UserManagementPage() {
                        </span>
                     </td>
                     <td className="py-6 px-4">
-                      <button 
-                        onClick={() => handleRoleChange(user.id, user.role)}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl ${style.bg} ${style.color} border ${isCurrentRole ? 'border-current shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'border-current/10'} hover:scale-105 transition-all relative group/role`}
-                      >
+                      <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-2xl ${style.bg} ${style.color} border ${isCurrentRole ? 'border-current shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'border-current/10'} relative`}>
                         <RoleIcon size={14} />
-                        <span className="text-xs font-black tracking-tight">{style.label}</span>
+                        <select
+                          value={user.role}
+                          onChange={(event) => handleRoleChange(user.id, event.target.value as UserRole)}
+                          className="bg-transparent text-xs font-black tracking-tight outline-none cursor-pointer"
+                          aria-label={`${user.name} 역할 변경`}
+                        >
+                          {roleOptions.map(option => (
+                            <option key={option} value={option} className="bg-slate-950 text-slate-200">
+                              {roleStyles[option].label}
+                            </option>
+                          ))}
+                        </select>
                         {isCurrentRole && (
                           <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-900 animate-pulse" />
                         )}
-                      </button>
+                      </div>
                     </td>
                     <td className="py-6 px-4">
                       <div className="flex items-center gap-2">

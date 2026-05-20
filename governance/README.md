@@ -55,6 +55,9 @@ flowchart TD
     F --> G[해당 모듈로 데이터 변경 지시]
 ```
 
+### 📌 역할/권한 변경 흐름
+역할 생성과 권한 부여는 즉시 DB에 반영하지 않고 `MasterApproval` 요청으로 먼저 등록합니다. 승인자가 승인하면 `SystemRoleApprovalApplyAdapter`가 역할 또는 권한 변경을 반영합니다. 권한 부여 전에는 `AuthorizationPolicy`가 WRITE/EXECUTE 충돌, 데이터 범위 기본값, 중복 권한을 검증합니다.
+
 ---
 
 ## 3. 📊 데이터 모델 (Schema)

@@ -16,6 +16,16 @@ public class MasterDataChangeRequestAdapter implements MasterDataChangeApplyPort
     private final MasterDataChangeRequestUseCase masterDataChangeRequestUseCase;
 
     @Override
+    public boolean supports(String masterType) {
+        try {
+            MasterDataChangeRequest.MasterDataType.valueOf(masterType.trim().toUpperCase());
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
     public void applyApprovedChange(MasterApproval approval) {
         MasterDataChangeRequestCommand command = new MasterDataChangeRequestCommand(
                 mapMasterType(approval.getMasterType()),

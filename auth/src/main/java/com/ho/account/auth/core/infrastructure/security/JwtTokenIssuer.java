@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -36,6 +37,13 @@ public class JwtTokenIssuer implements TokenIssuerPort {
         var builder = Jwts.builder()
                 .setSubject(user.getUsername())
                 .claim("roles", user.getRoles())
+                .claim("roleVersion", user.getRoleVersion())
+                .claim("roleAssignments", user.getRoleAssignments().stream()
+                        .filter(assignment -> assignment.isEffectiveAt(now))
+                        .map(assignment -> Map.of(
+                                "roleCode", assignment.roleCode(),
+                                "dataScope", assignment.dataScope()))
+                        .toList())
                 .setIssuer(properties.getJwt().getIssuer())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiresAt));

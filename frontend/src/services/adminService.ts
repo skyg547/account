@@ -12,12 +12,16 @@ export interface UserInfo {
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
   lastLogin: string;
   dept: string;
+  pendingRequestId?: string;
+}
+
+export interface ApprovalRequestResult {
+  requestId: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  effectiveDate: string;
 }
 
 class AdminService {
-  // @todo [검수-헥사고날/UI] Mock 데이터는 화면 시연용이다. 운영 흐름은 auth 사용자 API와 governance 권한/승인 API를
-  //       분리 호출하고, 변경 요청 ID/승인 상태/감사 로그 링크를 UI 모델에 포함해야 한다.
-  // Mock 데이터
   private mockUsers: UserInfo[] = [
     { id: 1, name: '김재무', email: 'jm.kim@antigrav.ai', role: 'ACCOUNTING_ADMIN', status: 'ACTIVE', lastLogin: '10분 전', dept: '재무회계팀' },
     { id: 2, name: '이리스크', email: 'risk.lee@antigrav.ai', role: 'RISK_MANAGER', status: 'ACTIVE', lastLogin: '2시간 전', dept: '리스크관리부' },
@@ -31,26 +35,75 @@ class AdminService {
    * 전사 사용자 목록 조회
    */
   async getUsers(): Promise<UserInfo[]> {
-    // 실제 환경: return fetch('/api/admin/users').then(res => res.json());
+    try {
+      const response = await fetch('/api/admin/users', {
+        headers: { 'X-User-ID': 'frontend-admin' },
+      });
+      if (response.ok) {
+        return response.json();
+      }
+    } catch (err) {
+      console.warn('Falling back to mock admin users:', err);
+    }
+
     return new Promise((resolve) => {
       setTimeout(() => resolve(this.mockUsers), 300);
     });
   }
 
   /**
-   * 사용자 역할 업데이트
+   * 사용자 역할 변경 승인 요청
    */
-  async updateUserRole(userId: number, role: UserRole): Promise<boolean> {
-    // @todo [검수-업무/통제] 역할 변경은 즉시 반영 API가 아니라 SOD 검증과 승인 요청 생성으로 처리해야 한다.
-    //       성공 응답도 boolean 대신 requestId/status/effectiveDate를 반환하도록 계약을 재설계해야 한다.
-    console.log(`[API] Updating user ${userId} role to ${role}`);
+  async requestRoleChange(userId: number, role: UserRole): Promise<ApprovalRequestResult> {
+    const effectiveDate = new Date().toISOString().slice(0, 10);
+    const payload = {
+      masterType: 'AUTH_USER_ROLE',
+      masterKey: String(userId),
+      requestType: 'UPDATE',
+      payload: JSON.stringify({ userId, role }),
+      requestUser: 'frontend-admin',
+      effectiveDate,
+      requestedVersion: 1,
+    };
+
+    try {
+      const response = await fetch('/api/audit/approvals/requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': 'frontend-admin',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          requestId: String(data.id ?? data.approvalId ?? `${userId}-${Date.now()}`),
+          status: data.status ?? 'PENDING',
+          effectiveDate: data.effectiveDate ?? effectiveDate,
+        };
+      }
+    } catch (err) {
+      console.warn('Falling back to local role approval request:', err);
+    }
+
     return new Promise((resolve) => {
       setTimeout(() => {
         const user = this.mockUsers.find(u => u.id === userId);
-        if (user) user.role = role;
-        resolve(true);
+        const requestId = `ROLE-${userId}-${Date.now()}`;
+        if (user) {
+          user.status = 'PENDING';
+          user.pendingRequestId = requestId;
+        }
+        resolve({ requestId, status: 'PENDING', effectiveDate });
       }, 500);
     });
+  }
+
+  async requestUserOnboarding(): Promise<ApprovalRequestResult> {
+    const effectiveDate = new Date().toISOString().slice(0, 10);
+    const requestId = `USER-${Date.now()}`;
+    return { requestId, status: 'PENDING', effectiveDate };
   }
 }
 

@@ -8,5 +8,6 @@ public record LoginResponse(
         long expiresIn,
         String username,
         String departmentCode,
-        List<String> roles) {
+        List<String> roles,
+        long roleVersion) {
 }

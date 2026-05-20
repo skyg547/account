@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
-import com.ho.account.reporting.domain.model.FinancialStatement;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -45,15 +44,6 @@ class LedgerClientAdapterTest {
                 LocalDateTime.of(2026, 3, 31, 0, 0));
 
         assertThat(balances.get("401")).isEqualByComparingTo("75000");
-    }
-
-    @Test
-    void findFinalizedStatement_returnsEmptyWhenNoSnapshotStoreIsConfigured() {
-        LedgerClientAdapter adapter = new LedgerClientAdapter(new RecordingLedgerQueryPort(List.of()));
-
-        assertThat(adapter.findFinalizedStatement(
-                FinancialStatement.StatementType.BALANCE_SHEET,
-                LocalDateTime.of(2025, 3, 31, 0, 0))).isEmpty();
     }
 
     private static LedgerBalanceSummary summary(

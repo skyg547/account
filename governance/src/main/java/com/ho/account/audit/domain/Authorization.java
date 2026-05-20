@@ -35,6 +35,31 @@ public class Authorization {
     @Column(name = "AUDIT_USER", nullable = false, length = 50)
     private String auditUser;
 
+    public static Authorization grant(
+            SystemRole role,
+            String functionCode,
+            AccessType accessType,
+            String dataScope,
+            String auditUser) {
+        if (role == null) {
+            throw new IllegalArgumentException("Role is required.");
+        }
+        if (functionCode == null || functionCode.isBlank()) {
+            throw new IllegalArgumentException("Function code is required.");
+        }
+        if (accessType == null) {
+            throw new IllegalArgumentException("Access type is required.");
+        }
+
+        Authorization authorization = new Authorization();
+        authorization.role = role;
+        authorization.functionCode = functionCode.trim();
+        authorization.accessType = accessType;
+        authorization.dataScope = dataScope == null || dataScope.isBlank() ? "GLOBAL" : dataScope.trim();
+        authorization.auditUser = auditUser == null || auditUser.isBlank() ? "SYSTEM" : auditUser.trim();
+        return authorization;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createDate = LocalDateTime.now();

@@ -2,9 +2,12 @@ package com.ho.account.reporting.application.service;
 
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
 import com.ho.account.reporting.application.port.out.LoadLedgerPort;
+import com.ho.account.reporting.application.port.out.LoadReportLineMappingPort;
 import com.ho.account.reporting.application.port.out.LoadReportHistoryPort;
+import com.ho.account.reporting.application.port.out.StoreReportSnapshotPort;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.ReportLine;
+import com.ho.account.reporting.domain.model.ReportLineMapping;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +28,9 @@ import java.util.UUID;
 public class ReportingService implements GenerateStatementUseCase {
 
     private final LoadLedgerPort loadLedgerPort;
-    private final LoadReportHistoryPort loadReportHistoryPort; // 과거 데이터 조회를 위한 포트 추가
+    private final LoadReportHistoryPort loadReportHistoryPort;
+    private final LoadReportLineMappingPort loadReportLineMappingPort;
+    private final StoreReportSnapshotPort storeReportSnapshotPort;
 
     @Override
     public FinancialStatement generate(GenerateCommand command) {
@@ -47,31 +52,31 @@ public class ReportingService implements GenerateStatementUseCase {
             command.baseDate()
         );
 
-        // 4. 비교식 항목 계산 및 추가
-        if (command.type() == FinancialStatement.StatementType.BALANCE_SHEET) {
-            // @todo [검수-DDD/업무프로세스] 보고 라인/계정 매핑이 코드에 하드코딩되어 있다.
-            //       RPT_LINE_MAPPING의 SCD2 유효기간, 보고서 버전, 공시 주석 번호를 도메인 정책으로 조회해
-            //       BS/PL/CF 전체를 동일한 파이프라인으로 생성하도록 고도화해야 한다.
-            
-            // 당기 금액 계산
-            BigDecimal cashCurrent = currentBalances.getOrDefault("101", BigDecimal.ZERO)
-                                     .add(currentBalances.getOrDefault("102", BigDecimal.ZERO));
+        // 4. SCD2 보고 라인 매핑을 기준으로 비교식 항목 계산 및 추가
+        for (ReportLineMapping mapping : loadReportLineMappingPort.loadMappings(command.type(), command.baseDate())) {
+            BigDecimal currentAmount = mapping.accountCodes().stream()
+                    .map(accountCode -> currentBalances.getOrDefault(accountCode, BigDecimal.ZERO))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            // 전기 금액 찾기 (과거 보고서가 있다면 해당 항목의 금액을 가져옵니다)
-            BigDecimal cashPrevious = previousStatement
-                .map(s -> s.getLines().stream()
-                    .filter(l -> "ASSET_CASH".equals(l.getLineCode()))
-                    .map(ReportLine::getCurrentAmount)
-                    .findFirst()
-                    .orElse(BigDecimal.ZERO))
-                .orElse(BigDecimal.ZERO);
+            BigDecimal previousAmount = previousStatement
+                    .map(s -> s.getLines().stream()
+                            .filter(line -> mapping.lineCode().equals(line.getLineCode()))
+                            .map(ReportLine::getCurrentAmount)
+                            .findFirst()
+                            .orElse(BigDecimal.ZERO))
+                    .orElse(BigDecimal.ZERO);
 
-            // 보고서에 '당기 vs 전기' 비교 항목 추가
-            // 주석 번호는 예시로 '3'을 부여합니다.
-            statement.addLine(new ReportLine("ASSET_CASH", "현금 및 현금성자산", cashCurrent, cashPrevious, "3", 1));
+            statement.addLine(new ReportLine(
+                    mapping.lineCode(),
+                    mapping.label(),
+                    currentAmount,
+                    previousAmount,
+                    mapping.noteNumber(),
+                    mapping.level()));
         }
 
         statement.finalizeStatement();
+        storeReportSnapshotPort.saveFinalized(statement);
         return statement;
     }
 }
