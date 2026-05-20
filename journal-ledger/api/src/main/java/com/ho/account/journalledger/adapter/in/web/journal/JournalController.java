@@ -13,8 +13,13 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 전표 관리 API 컨트롤러 (Inbound Adapter)
- * 헥사고날 아키텍처의 Inbound Port(JournalUseCase)를 통해 비즈니스 로직을 호출합니다.
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
+ * 전표 관리 API 컨트롤러
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 사용자가 화면에서 수동 전표를 입력하거나, ERP/Banking 모듈에서 거래가 발생하여 전표를 자동 생성할 때
+ * 이 컨트롤러가 API 요청을 받아줍니다. HTTP 요청을 애플리케이션 서비스(JournalUseCase)로 전달하여 
+ * 비즈니스 로직을 실행하도록 돕는 '문지기' 역할을 합니다.
  */
 @RestController
 @RequestMapping("/api/journals")

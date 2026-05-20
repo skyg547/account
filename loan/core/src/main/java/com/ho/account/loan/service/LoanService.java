@@ -41,7 +41,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Loan accounting application service.
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 대출 모듈의 '지휘자' 역할을 합니다.
+ * "대출을 실행해줘(disburseLoan)!", "대출 조건을 변경해줘(recalculateLoan)!" 라는 외부 요청이 들어오면,
+ * 1. 대출 도메인(Loan) 객체를 불러와 핵심 계산(EIR 상각 스케줄 생성 등)을 맡기고,
+ * 2. 결과를 영속성 어댑터(Repository)를 통해 DB에 저장한 뒤,
+ * 3. 회계 모듈 포트(JournalUseCase)를 통해 '대출 전표'를 자동으로 발행합니다.
+ * 
+ * 비즈니스 로직(도메인)과 인프라/타 모듈 연동(포트)을 깔끔하게 조율하는 것이 이 서비스의 목적입니다.
  */
 @Service
 @Transactional

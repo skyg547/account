@@ -5,7 +5,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Represents a financial closing period, tracking its status and associated approval workflows.
+ * [DDD(도메인 주도 설계) - Aggregate Root]
+ * 결산 기수(Closing Period) 엔티티. 특정 회계 기간의 상태(오픈, 마감 등)와 승인 워크플로우를 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 결산 기수는 쉽게 말해 '한 달치 장부(또는 1년치 장부)'를 의미합니다.
+ * 회계에서는 한 달이 끝나면 장부를 닫아(Close) 더 이상 수정할 수 없게 막는데(마감잠금), 
+ * 이 클래스가 그 장부의 '자물쇠' 역할을 합니다. 만약 특별한 이유로 과거 장부를 다시 열어야 한다면,
+ * 엄격한 '재오픈 승인(Reopen Approval)' 과정을 거치도록 설계되어 있습니다.
  */
 @Entity
 @Table(name = "closing_period")

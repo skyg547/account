@@ -17,8 +17,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
  * 대출 회계 (Loan Accounting) 관련 REST API를 제공하는 컨트롤러.
  * 대출 계약 관리, 실행, 이연 부대손익, EIR 스케줄 및 재계산 등을 처리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 대출 모듈이 외부(예: 웹 브라우저, 모바일 앱, 혹은 사내 타 시스템)와 소통하기 위해 
+ * 열어둔 '접수처(Web Adapter)'입니다. 외부에서 들어온 HTTP 요청(JSON 등)을
+ * 애플리케이션 서비스(LoanService)가 이해할 수 있는 형태의 객체(Dto)로 변환하여 전달하고,
+ * 서비스의 처리 결과를 다시 외부 포맷(JSON)으로 응답합니다.
+ * 이를 통해 핵심 비즈니스 로직은 HTTP, REST 같은 웹 기술에 종속되지 않고 순수하게 유지될 수 있습니다.
  */
 @RestController
 @RequestMapping("/api/loan")

@@ -1187,3 +1187,9 @@
   - `DepositAccountPersistencePort` & `Adapter`: Outbound Port 및 Adapter의 개념적 차이와 DB 결합도 분리 이유 설명 추가.
 - **검증**: `deposit:core` 및 `deposit:api` 모듈 정상 컴파일 확인 (`BUILD SUCCESSFUL`).
 - **상태 업데이트**: `docs/todo.md`에 DDD, 헥사고날, 업무 흐름 주석 관련 DoD 추가 및 'o' 표시 완료.
+
+### [백엔드/QA] 기존 주요 모듈 (Loan, Closing, Journal-Ledger) DDD 및 헥사고날 주석 보강
+- **Loan 모듈**: `Loan` 엔티티(Aggregate Root)와 `LoanService`, `LoanController`에 대출 회계 흐름 및 헥사고날 아키텍처 매핑에 관한 교육용 주석 작성 완료.
+- **Closing 모듈**: `ClosingPeriod` 엔티티 및 `ClosingService`, `ClosingController`에 결산/마감 잠금 및 재오픈 워크플로우에 대한 초보자 가이드 주석 추가.
+- **Journal-Ledger 모듈**: `JournalEntry` (기존 작성분 유지/확인), `PostingService`, `JournalController`에 전표의 승인 및 원장 전기(Posting) 과정에 대한 헥사고날 아키텍처 주석 보강.
+- **상태 업데이트**: `docs/todo.md`의 `05`, `06`, `11`, `12` 항목에 대해 (DDD/헥사고날 및 업무 주석 완료) 처리 반영. Git 동기화(commit/push) 진행.

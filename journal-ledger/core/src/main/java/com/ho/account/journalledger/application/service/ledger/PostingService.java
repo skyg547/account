@@ -18,7 +18,13 @@ import java.time.LocalDate;
 import java.math.BigDecimal;
 
 /**
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
  * 전기 서비스 (Posting Service) — 전표를 원장에 반영합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 전기(Posting)란 승인된 '전표(영수증)'의 내용을 바탕으로 실제 '총계정원장(GL)'과 '보조원장(SL)'이라는 큰 장부에 기록을 옮겨 적는 행위입니다.
+ * 이 클래스는 전표 승인 이후, 해당 전표의 상세 라인(차변/대변)을 하나씩 읽어서 원장 엔티티(GlEntry, SlEntry)로 변환하고
+ * 영속성 포트를 통해 DB에 저장하는 중추적인 역할을 합니다.
  */
 @Service
 @RequiredArgsConstructor

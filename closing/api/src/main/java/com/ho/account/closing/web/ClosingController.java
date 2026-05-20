@@ -14,8 +14,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
  * 결산 (Closing) 관련 REST API를 제공하는 컨트롤러.
  * 결산 캘린더, 태스크, 게이트, 기간 잠금 및 재오픈 승인, 평가/충당 배치, 결산 조정 등을 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 결산 기간 오픈, 재오픈, 결산 평가 자동 분개 등 외부 시스템이나 사용자가 
+ * 애플리케이션으로 명령을 보내는 유일한 관문(Web API)입니다.
+ * HTTP 요청(Request Dto)을 받아, 애플리케이션이 이해할 수 있는 명령으로 변환 후 `ClosingUseCase`에 전달합니다.
  */
 @RestController
 @RequestMapping("/api/closing")

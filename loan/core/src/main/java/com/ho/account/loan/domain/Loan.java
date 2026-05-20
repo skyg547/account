@@ -278,6 +278,10 @@ public class Loan {
     public List<LoanAmortizationScheduleEntry> getAmortizationSchedule() { return amortizationSchedule; }
     public void setAmortizationSchedule(List<LoanAmortizationScheduleEntry> amortizationSchedule) { this.amortizationSchedule = amortizationSchedule; }
 
+    /**
+     * [Rich Domain Model] 상환 스케줄 생성 로직
+     * 외부 서비스 클래스가 아닌, 대출 도메인 자신이 원금과 이자율을 바탕으로 월별 상환 스케줄을 직접 계산합니다.
+     */
     public List<LoanAmortizationScheduleEntry> generateAmortizationSchedule(int totalPeriods) {
         validateScheduleInputs(totalPeriods);
 

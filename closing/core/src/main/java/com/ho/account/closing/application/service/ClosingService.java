@@ -44,7 +44,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 결산 (Closing) 관련 비즈니스 로직을 처리하는 서비스 클래스.
+ * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 결산(Closing) 모듈의 '오케스트레이터(지휘자)'입니다.
+ * 월말 결산 시기가 오면 평가(Valuation), 충당(Provision), 마감(Close) 등 수많은 작업이 순차적으로 실행되어야 합니다.
+ * 이 서비스는 "결산 달력(ClosingCalendar)을 만들고, 태스크(Task)를 진행시키고, 최종적으로 장부를 닫아라!"라는 명령(UseCase)을 받아,
+ * 도메인 모델에게 상태 변경을 위임하고, 영속성 포트(Repository)를 통해 DB에 저장하며,
+ * 타 모듈(MasterData, JournalLedger) 포트를 호출하여 의존성을 깔끔하게 처리합니다.
  */
 @Service
 @Transactional
