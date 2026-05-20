@@ -1312,3 +1312,6 @@
   - **직무 분리(SOD) 위반 통제**: AuditService.grantAuthorization 내에 SOD 충돌 매트릭스(예: 전표 생성과 승인 권한 동시 보유 금지) 검증 로직 추가.
   - **JWT 토큰 무효화(버전 관리) 기반 마련**: AuthUser 도메인에 oleVersion 도입, 역할 변경 시 버전이 증가하도록 구성. JWT 발급 시 버전을 Claim으로 굽고 Gateway에서 헤더로 파싱하도록 설정했으며, Auth 모듈에 실시간 토큰 유효성을 검사하는 /api/auth/validate-token-version API 구현 완료.
 - **상태 업데이트**: docs/todo.md 15번 항목에 심화 로직 구현 완료 표기.
+
+### 📅 2026-05-20 (사용자 피드백 반영)
+- **작업 범위 조정**: 사용자의 지시에 따라 '프론트엔드-백엔드 API 연동 및 고도화' 작업은 현재 개발 범위(Next Steps)에서 완전히 제외 및 삭제 처리함.
