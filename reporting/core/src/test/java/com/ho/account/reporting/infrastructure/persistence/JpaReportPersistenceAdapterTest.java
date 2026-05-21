@@ -32,6 +32,9 @@ class JpaReportPersistenceAdapterTest {
     @Autowired
     private ReportLineMappingJpaRepository lineMappingRepository;
 
+    @Autowired
+    private JpaRegulatoryReportSubmissionAdapter regulatoryReportSubmissionAdapter;
+
     @Test
     void loadMappings_groupsEffectiveAccountRowsByReportLine() {
         lineMappingRepository.deleteAll();
@@ -108,6 +111,28 @@ class JpaReportPersistenceAdapterTest {
         assertThat(loaded.getLines().get(0).getPreviousAmount()).isEqualByComparingTo("800000");
     }
 
+    @Test
+    void regulatorySubmissionAdapter_incrementsVersionPerStatementTypeAndBaseDate() {
+        LocalDateTime baseDate = LocalDateTime.of(2026, 3, 31, 0, 0);
+        FinancialStatement statement = finalizedStatement("ST-001", baseDate, "1250000");
+
+        assertThat(regulatoryReportSubmissionAdapter.nextVersion(
+                FinancialStatement.StatementType.BALANCE_SHEET,
+                baseDate)).isEqualTo(1);
+
+        regulatoryReportSubmissionAdapter.save(com.ho.account.reporting.domain.model.RegulatoryReportSubmission.ready(
+                "SUB-001",
+                statement,
+                1,
+                "tester",
+                null,
+                LocalDateTime.of(2026, 4, 1, 9, 0)));
+
+        assertThat(regulatoryReportSubmissionAdapter.nextVersion(
+                FinancialStatement.StatementType.BALANCE_SHEET,
+                baseDate)).isEqualTo(2);
+    }
+
     private static FinancialStatement finalizedStatement(
             String statementId,
             LocalDateTime baseDate,
@@ -133,11 +158,13 @@ class JpaReportPersistenceAdapterTest {
     @EntityScan(basePackageClasses = {
             ReportLineMappingJpaEntity.class,
             ReportSnapshotHeaderJpaEntity.class,
-            ReportSnapshotDetailJpaEntity.class
+            ReportSnapshotDetailJpaEntity.class,
+            RegulatoryReportSubmissionJpaEntity.class
     })
     @Import({
             JpaReportLineMappingAdapter.class,
-            JpaReportSnapshotAdapter.class
+            JpaReportSnapshotAdapter.class,
+            JpaRegulatoryReportSubmissionAdapter.class
     })
     static class JpaTestConfiguration {
     }

@@ -23,7 +23,25 @@ FINAL 재무제표 헤더입니다. `statement_type`, `base_date`, `status`는 �
 
 FINAL 재무제표 라인 상세입니다. `current_amount`, `previous_amount`는 `DECIMAL(19, 4)`로 저장하고, 헤더 삭제 시 함께 삭제됩니다.
 
+## RPT_REGULATORY_SUBMISSION
+
+확정 재무제표 스냅샷을 감독보고 제출본으로 등록한 이력을 저장합니다.
+같은 `statement_type`, `base_date` 조합은 제출할 때마다 `submission_version`을 1씩 증가시키며, 2차 제출부터는 정정 사유가 필요합니다.
+
+주요 컬럼:
+
+- `submission_id`: 외부 제출본 식별자
+- `statement_id`: 제출 기준이 된 `RPT_SNAPSHOT_HEADER.statement_id`
+- `statement_type`, `base_date`: 보고서 종류와 기준일
+- `submission_version`: 제출 버전
+- `submitted_by`, `submitted_at`: 제출 요청자와 제출 시각
+- `correction_reason`: 정정 제출 사유
+- `status`: 현재는 제출 준비 완료 상태인 `READY`
+- `validation_messages`: 검증 메시지 보관 영역
+
 ## Migration
 
 - `reporting/core/src/main/resources/db/migration/V60__reporting_persistence_schema.sql`
 - 기본 BS/IS 매핑 seed를 포함합니다.
+- `reporting/core/src/main/resources/db/migration/V61__reporting_regulatory_submission.sql`
+- 감독보고 제출본 버전 이력 테이블을 생성합니다.

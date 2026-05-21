@@ -2,7 +2,9 @@ package com.ho.account.reporting.adapter.in.web;
 
 import com.ho.account.reporting.application.port.in.ExportStatementDocumentUseCase;
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
+import com.ho.account.reporting.application.port.in.SubmitRegulatoryReportUseCase;
 import com.ho.account.reporting.domain.model.FinancialStatement;
+import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,6 +27,7 @@ public class ReportingController {
 
     private final GenerateStatementUseCase generateStatementUseCase;
     private final ExportStatementDocumentUseCase exportStatementDocumentUseCase;
+    private final SubmitRegulatoryReportUseCase submitRegulatoryReportUseCase;
 
     @PostMapping("/generate")
     public FinancialStatement generateStatement(
@@ -55,5 +58,16 @@ public class ReportingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + document.fileName() + "\"")
                 .contentLength(document.content().length)
                 .body(document.content());
+    }
+
+    @PostMapping("/submissions/regulatory")
+    public RegulatoryReportSubmission submitRegulatoryReport(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate,
+            @RequestParam(value = "correctionReason", required = false) String correctionReason,
+            @RequestHeader("X-User-ID") String userId) {
+        SubmitRegulatoryReportUseCase.SubmitCommand command =
+                new SubmitRegulatoryReportUseCase.SubmitCommand(type, baseDate, userId, correctionReason);
+        return submitRegulatoryReportUseCase.submit(command);
     }
 }

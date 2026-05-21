@@ -26,3 +26,20 @@ Response:
 - Binary file download
 - `Content-Type`: `application/pdf` (PDF) or `text/csv; charset=UTF-8` (EXCEL)
 - `Content-Disposition`: attachment filename
+
+## Regulatory Submission API
+
+- Endpoint: `POST /api/v1/reporting/submissions/regulatory`
+- Required query params: `type`, `baseDate`
+- Optional query param: `correctionReason` (required from version 2)
+- Required header: `X-User-ID`
+
+Example request:
+
+```http
+POST /api/v1/reporting/submissions/regulatory?type=BALANCE_SHEET&baseDate=2026-03-31T00:00:00
+X-User-ID: tester
+```
+
+Response:
+- `submissionId`, `statementId`, `statementType`, `baseDate`, `version`, `submittedBy`, `submittedAt`, `correctionReason`, `status`

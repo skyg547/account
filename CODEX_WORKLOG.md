@@ -27,6 +27,28 @@
   - 실제 환경에서 Auth/Governance 양쪽 내부 토큰 환경변수 값이 불일치하면 승인 반영 호출이 403으로 실패한다.
   - 장기적으로는 토큰 회전, mTLS, 내부망 ACL 같은 서비스 간 인증 강화 설계가 필요하다.
 
+## 2026-05-21 (Reporting 감독보고 제출본 버전/정정/검증)
+- 사용자 요청: "다음 작업 진행해줘".
+- 선확인:
+  - `docs/todo.md`: 14번 재무보고/공시/감독보고 영역 확인.
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/process-flow.md`, `reporting/docs/schema.md` 확인.
+  - `rg -n "@todo|TODO|todo"` 결과 코드 내 미처리 TODO 문자열은 없음.
+- 수정 내용:
+  - `SubmitRegulatoryReportUseCase`, `RegulatoryReportSubmissionService` 추가.
+  - `RegulatoryReportSubmission` 도메인 모델 추가. 제출 전 FINAL 스냅샷, 라인 중복/금액/계층, BS 총계, IS 순액 검증.
+  - `StoreRegulatoryReportSubmissionPort`와 JPA/인메모리 어댑터 추가.
+  - `RPT_REGULATORY_SUBMISSION` Flyway 마이그레이션 추가.
+  - `POST /api/v1/reporting/submissions/regulatory` API 추가.
+  - 서비스/API/JPA 테스트와 reporting 문서, `docs/todo.md`, 워크로그/Gemini 리뷰 프롬프트 갱신.
+- 실행 명령:
+  - `.\gradlew :reporting:core:test :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- 결과:
+  - Reporting core/api 테스트 성공.
+- 남은 리스크:
+  - 실제 감독기관 제출 전문/파일 전송 및 제출 결과 수신 상태 모델은 후속 구현 필요.
+  - 주석 마트와 CF 라인 매핑은 후속 과제로 남음.
+
 ## 2026-05-20 (Governance 승인 기반 Auth 역할 반영)
 - 사용자 요청: "다음 작업 진행해줘".
 - 선확인:

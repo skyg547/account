@@ -22,6 +22,23 @@
   - 운영/스테이징 배포 시 `AUTH_INTERNAL_API_TOKEN`과 `GOVERNANCE_AUTH_INTERNAL_TOKEN`을 같은 값으로 주입해야 한다.
   - 토큰 회전, mTLS, 네트워크 ACL 같은 운영 수준의 서비스 간 인증 정책은 별도 설계가 필요하다.
 
+### 📅 2026-05-21 (Codex 구현)
+### [고도화] Reporting 감독보고 제출본 버전/정정/검증
+- **수정 범위**:
+  - Reporting Core: `SubmitRegulatoryReportUseCase`와 `RegulatoryReportSubmissionService`를 추가해 확정 재무제표 스냅샷을 감독보고 제출본으로 등록.
+  - Reporting Domain: `RegulatoryReportSubmission` 모델을 추가하고 제출 전 필수 라인/금액, 중복 라인, BS 총계, IS 순액 검증을 수행.
+  - Reporting Persistence: JPA/인메모리 제출본 저장 어댑터와 `RPT_REGULATORY_SUBMISSION` Flyway 마이그레이션 추가.
+  - Reporting API: `POST /api/v1/reporting/submissions/regulatory` 엔드포인트 추가. 2차 제출부터 정정 사유를 필수로 검증.
+  - `docs/todo.md`의 14.1, 14.4, 14.5 완료 표시 보강.
+- **문서 갱신**:
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/process-flow.md`, `reporting/docs/schema.md`
+- **검증**:
+  - `.\gradlew :reporting:core:test :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"` 성공.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"` 성공.
+- **남은 리스크**:
+  - 실제 감독기관 제출 전문/파일 전송, 제출 결과 수신, 반려 후 재제출 상태 모델은 아직 별도 구현이 필요하다.
+  - 주석 마트(만기/금리/통화/리스크)와 CF 라인 매핑은 후속 작업 범위로 남아 있다.
+
 ### 📅 2026-05-20 (Codex 구현)
 ### [수정] Governance 승인 기반 Auth 사용자 역할 반영 연결
 - **수정 범위**:

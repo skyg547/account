@@ -22,6 +22,25 @@ sequenceDiagram
     Service-->>API: FINAL statement
 ```
 
+## 감독보고 제출본 등록
+
+```mermaid
+sequenceDiagram
+    participant API as Reporting API
+    participant Service as RegulatoryReportSubmissionService
+    participant Snapshot as LoadReportHistoryPort
+    participant Submission as StoreRegulatoryReportSubmissionPort
+
+    API->>Service: submit(type, baseDate, requester, correctionReason)
+    Service->>Snapshot: findFinalizedStatement(type, baseDate)
+    Snapshot-->>Service: FINAL statement snapshot
+    Service->>Submission: nextVersion(type, baseDate)
+    Submission-->>Service: version
+    Service->>Service: validate lines and correction policy
+    Service->>Submission: save(READY submission)
+    Service-->>API: submission id/version/status
+```
+
 ## 계층 책임
 
 - `application.service`: 유즈케이스 흐름, 트랜잭션, 포트 협업을 담당합니다.

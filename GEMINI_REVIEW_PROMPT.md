@@ -33,12 +33,13 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Governance -> Auth 내부 API 토큰 보호"입니다.
-- Auth 내부 API `POST /api/auth/internal/users/{username}/role-assignments`에 `X-Internal-Auth-Token` 검증 추가
-- Auth 설정 `auth.internal-api.token` / 환경변수 `AUTH_INTERNAL_API_TOKEN` 추가
-- Governance Auth RestClient 호출에 `X-Internal-Auth-Token` 헤더 추가
-- Governance 설정 `governance.integrations.auth.internal-token` / 환경변수 `GOVERNANCE_AUTH_INTERNAL_TOKEN` 추가
-- Auth 컨트롤러 테스트와 Governance RestClient 테스트 추가
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 감독보고 제출본 버전/정정/검증"입니다.
+- Reporting Core `SubmitRegulatoryReportUseCase`, `RegulatoryReportSubmissionService` 추가
+- `RegulatoryReportSubmission` 도메인 모델과 제출 전 검증 추가
+- `StoreRegulatoryReportSubmissionPort`와 JPA/인메모리 저장 어댑터 추가
+- Flyway `V61__reporting_regulatory_submission.sql` 추가
+- Reporting API `POST /api/v1/reporting/submissions/regulatory` 추가
+- Reporting service/API/JPA 테스트 추가
 - 관련 README/docs/worklog 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
@@ -88,8 +89,9 @@ Notes:
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew :auth:test :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
-  - 이번 범위는 backend 설정/컨트롤러/REST 어댑터/문서 변경이며 frontend 변경은 없음
+  - `.\gradlew :reporting:core:test :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - 이번 범위는 reporting backend와 문서 변경이며 frontend 변경은 없음
   - 전체 `git diff --check`: 범위 밖 미커밋 파일의 trailing whitespace가 남아 있을 수 있음
 
 ## Review Handoff Checklist
