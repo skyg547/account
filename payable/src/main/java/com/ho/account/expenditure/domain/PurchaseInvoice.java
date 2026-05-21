@@ -9,6 +9,12 @@ import java.time.LocalDateTime;
  * [PurchaseInvoice] 도메인 엔티티.
  * 공급업체로부터 수취한 매입 인보이스 정보를 관리합니다.
  * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 결합도를 낮춥니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 클래스는 회사가 물건을 사고 거래처(공급업체)로부터 받은 '청구서(세금계산서)'를 의미합니다.
+ * "언제(issueDate), 누구한테(vendorCode), 얼마(totalAmount)를 줘야 하는지"가 적혀 있습니다.
+ * 이 청구서가 최종 승인(APPROVED)되면, 실제로 갚아야 할 외상값인 Payable(매입채무)이 자동 생성되며,
+ * 동시에 회계 장부에 기록하기 위한 분개(JournalEntry)가 발생합니다.
  */
 @Entity
 @Table(

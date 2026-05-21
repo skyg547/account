@@ -28,6 +28,15 @@ import java.util.regex.Pattern;
 
 /**
  * 자동분개 규칙 엔진 (Journal Rule Engine).
+ * 타 모듈(ERP/Banking)에서 발생한 비즈니스 이벤트 데이터를 기반으로,
+ * 룰 기반 분개(Journalizing)를 수행하여 회계 전표(JournalEntry)를 생성하는 핵심 도메인 서비스입니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 엔진은 회계 시스템의 '자동 번역기' 역할을 합니다.
+ * 영업팀, 구매팀, 은행 시스템 등에서 발생한 날것의 거래 데이터(JSON 형태)가 들어오면,
+ * 미리 등록된 분개 규칙(JournalRule)들을 쭉 훑어보고 조건이 맞는 것을 찾습니다.
+ * 조건이 맞으면, "차변엔 무슨 계정, 대변엔 무슨 계정, 금액은 어떻게 계산해서 넣어라"는 
+ * 규칙에 따라 완벽한 회계 전표를 뚝딱 만들어냅니다.
  */
 @Service
 @RequiredArgsConstructor

@@ -13,8 +13,15 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 계정과목(Account Subject) 마스터 데이터를 관리하는 서비스 클래스입니다.
+ * [애플리케이션 서비스] AccountSubjectService
+ * 계정과목(Account Subject) 마스터 데이터를 관리하는 헥사고날 아키텍처의 핵심 유즈케이스(UseCase) 구현체입니다.
  * SCD2(Slowly Changing Dimension Type 2) 원칙을 적용하여 데이터 변경 이력을 관리합니다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 이 서비스는 회사의 '계정과목 관리자' 역할을 합니다.
+ * 새로운 계정과목표를 발급(createAccountSubject)하거나, 
+ * 기존 계정과목표의 내용이 바뀌면 옛날 표는 마감(terminate) 처리하고 새로운 표를 발급(updateAccountSubject)합니다.
+ * 이 과정을 통해 과거 장부에 적힌 계정과목과 현재 장부에 적히는 계정과목이 섞이지 않도록 엄격하게 관리합니다.
  */
 @Service
 @Transactional

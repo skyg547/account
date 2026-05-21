@@ -11,6 +11,13 @@ import java.time.LocalDateTime;
  * 계정과목(Account Subject) 엔티티.
  * SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 관리한다.
  * 유일한 계정코드(code)가 존재하더라도 연관관계는 대체 키인 기술적인 기본키(id)를 사용한다.
+ * 
+ * 🐣 [초보자를 위한 설명]
+ * 계정과목은 회사에서 돈이 들어오고 나가는 명목(이름표)을 뜻합니다.
+ * 예를 들어, "직원 월급"은 '급여'라는 계정과목표를 달고 기록됩니다.
+ * 이 클래스는 시스템에서 사용되는 모든 계정과목표의 마스터 데이터를 정의합니다.
+ * 특히, 회계 정책이 바뀌어 계정과목의 속성이 변경되더라도 과거 데이터(전표)에 영향을 
+ * 주지 않도록 유효기간(validFrom, validTo)을 두어 과거 이력을 모두 보존하는 SCD2 방식을 사용합니다.
  */
 @Entity
 @Table(name = "account_subjects", indexes = {

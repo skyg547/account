@@ -34,6 +34,7 @@ import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunS
  * 2. 정해진 규칙(Rule)에 따라 하나씩 짝을 맞춰본 뒤, 
  * 3. 짝이 안 맞는 내역(Difference)이 있으면 따로 모아서 담당자에게 배정하거나 자동으로 수정하는 전표를 끊어주는 등 
  * 전체적인 업무 흐름을 총괄합니다.
+ * 포트 앤 어댑터 패턴을 사용하여, 실제 외부 데이터(은행 등)를 가져오는 역할은 Out Port로 분리했습니다.
  */
 @Service
 @Transactional
