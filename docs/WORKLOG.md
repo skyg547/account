@@ -3,6 +3,14 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 4차)
+### [백엔드]
+- **대출(Loan) 모듈 일일 EIR 상각 배치 구현**:
+  - `loan/batch` 하위에 `LoanInterestAccrualBatchConfig.java` 신규 생성.
+  - Spring Batch(Reader/Processor/Writer)를 활용해 매일 자정 ACTIVE 대출의 상각 전표(Journal) 생성 로직 구현 및 주석 추가.
+  - `InterestAccrualService`의 개별 상각 처리 메서드를 Public 으로 노출.
+  - `loan:batch:compileJava` 성공 확인 및 백그라운드 Gradle 데몬 정리 완료.
+
 ### 📅 초기화
 - 전체 작업 이력 정리 및 초기화 완료.
 

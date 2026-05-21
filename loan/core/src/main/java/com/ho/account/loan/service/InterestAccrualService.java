@@ -55,7 +55,7 @@ public class InterestAccrualService {
         }
     }
 
-    private void processIndividualAccrual(Loan loan, LocalDate accrualDate) {
+    public void processIndividualAccrual(Loan loan, LocalDate accrualDate) {
         if (accrualLogRepository.findByLoanIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
             return;
         }
