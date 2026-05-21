@@ -62,6 +62,7 @@ flowchart TD
 사용자에게 부여된 Auth 역할 변경은 `AUTH_USER_ROLE` 승인 요청으로 관리합니다.
 승인 완료 시 `AuthUserRoleApprovalApplyAdapter`가 payload의 `username`과 `role/roleCode/roles`를 해석하고, `RestClientAuthUserRoleAssignmentAdapter`가 Auth 내부 API(`/api/auth/internal/users/{username}/role-assignments`)를 호출합니다.
 Auth는 기존 역할 할당을 승인된 목록으로 교체하고 `roleVersion`을 증가시켜 기존 JWT 재사용을 차단합니다.
+이 호출은 `X-Internal-Auth-Token` 헤더를 포함하며, 값은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 설정합니다.
 
 ---
 
@@ -105,3 +106,4 @@ docker-compose up -d governance
 - 다른 모듈에서 `@AuditLoggable` 어노테이션을 사용하여 감사 로그 작성을 트리거할 수 있습니다.
 - `AuditController`의 웹 어댑터는 도메인 엔티티를 직접 노출하지 않고 전용 DTO로 변환하여 응답합니다.
 - Auth 연동 기본 주소는 `GOVERNANCE_AUTH_BASE_URL` 환경변수로 조정합니다. 기본값은 `http://localhost:8081`입니다.
+- Auth 내부 역할 반영 API 호출 토큰은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 조정합니다. Auth의 `AUTH_INTERNAL_API_TOKEN`과 같은 값을 사용해야 합니다.

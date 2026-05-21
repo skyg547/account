@@ -47,6 +47,7 @@
 - 승인 후 반영:
   - `MasterApproval` 승인 시 `master-data` 변경요청 생성 -> 승인 -> 적용까지 연결
   - `AUTH_USER_ROLE` 승인 시 Auth 내부 역할 할당 API를 호출해 사용자 역할과 `roleVersion`을 갱신
+  - Governance -> Auth 내부 호출은 `X-Internal-Auth-Token` 헤더를 사용하며, `GOVERNANCE_AUTH_INTERNAL_TOKEN`과 Auth의 `AUTH_INTERNAL_API_TOKEN`이 일치해야 함
 - 권한:
   - role + function + accessType 조합 중복 부여 차단
 - 추적성 조회:
@@ -71,6 +72,7 @@
 ```
 
 승인 후 Governance는 role 값을 `ROLE_ACCOUNTING_ADMIN` 형태로 정규화해 Auth 내부 API에 전달합니다.
+내부 API 호출에는 `X-Internal-Auth-Token`이 포함되며 토큰 미설정 또는 불일치 시 Auth가 403으로 거절합니다.
 
 ## 현재 구현 기준에서 먼저 알아둘 점
 

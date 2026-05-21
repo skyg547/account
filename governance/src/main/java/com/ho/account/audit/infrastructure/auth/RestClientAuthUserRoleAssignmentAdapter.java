@@ -6,21 +6,29 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
 @Component
 public class RestClientAuthUserRoleAssignmentAdapter implements AuthUserRoleAssignmentApplyPort {
 
-    private final RestClient authRestClient;
+    private static final String INTERNAL_AUTH_TOKEN_HEADER = "X-Internal-Auth-Token";
 
-    public RestClientAuthUserRoleAssignmentAdapter(@Qualifier("authRestClient") RestClient authRestClient) {
+    private final RestClient authRestClient;
+    private final AuthIntegrationProperties authIntegrationProperties;
+
+    public RestClientAuthUserRoleAssignmentAdapter(
+            @Qualifier("authRestClient") RestClient authRestClient,
+            AuthIntegrationProperties authIntegrationProperties) {
         this.authRestClient = authRestClient;
+        this.authIntegrationProperties = authIntegrationProperties;
     }
 
     @Override
     public void replaceUserRoles(AuthUserRoleAssignmentChange change) {
         authRestClient.post()
                 .uri("/api/auth/internal/users/{username}/role-assignments", change.username())
+                .header(INTERNAL_AUTH_TOKEN_HEADER, internalToken())
                 .body(new RoleAssignmentApplyRequest(
                         change.roleCodes(),
                         change.dataScope(),
@@ -30,6 +38,14 @@ public class RestClientAuthUserRoleAssignmentAdapter implements AuthUserRoleAssi
                         change.approvalTraceId()))
                 .retrieve()
                 .toBodilessEntity();
+    }
+
+    private String internalToken() {
+        String token = authIntegrationProperties.getInternalToken();
+        if (!StringUtils.hasText(token)) {
+            throw new IllegalStateException("governance.integrations.auth.internal-token must be configured");
+        }
+        return token;
     }
 
     private record RoleAssignmentApplyRequest(

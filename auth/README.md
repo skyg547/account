@@ -41,6 +41,7 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 ### 📌 내부 역할 할당 반영 API
 - `POST /api/auth/internal/users/{username}/role-assignments`
 - Governance 승인 완료 후 호출되는 내부 API입니다.
+- 요청 헤더 `X-Internal-Auth-Token`이 `auth.internal-api.token`과 일치해야만 처리합니다.
 - 요청 본문은 `roleCodes`, `dataScope`, `validFrom`, `validTo`, `approvedBy`, `approvalTraceId`를 받습니다.
 - 기존 역할 할당을 승인된 새 목록으로 교체하고 `roleVersion`을 1 증가시켜 기존 JWT를 만료 대상으로 만듭니다.
 
@@ -62,4 +63,9 @@ docker-compose up -d auth
 **로컬 개발 환경 (전통적 방식):**
 ```bash
 ./gradlew :auth:bootRun
+```
+
+**내부 API 토큰 설정:**
+```bash
+AUTH_INTERNAL_API_TOKEN=local-internal-auth-token
 ```

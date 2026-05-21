@@ -6,6 +6,27 @@
 ### 📅 초기화
 - 작업 이력 정리 및 초기화 완료.
 
+## 2026-05-21 (Governance -> Auth 내부 API 토큰 보호)
+- 사용자 요청: "커밋 진행하고 다음 작업 진행해".
+- 선확인:
+  - `git status --short --branch`: `main...origin/main [ahead 1]`, 사용자/Gemini로 보이는 기존 미커밋 변경은 범위에서 제외.
+  - `docs/WORKLOG.md`, `auth/README.md`, `governance/README.md`, `governance/docs/README.md` 확인.
+  - `auth/docs`는 존재하지 않음.
+- 수정 내용:
+  - Auth 내부 역할 할당 API에 `X-Internal-Auth-Token` 헤더 검증 추가.
+  - `auth.internal-api.token` / `AUTH_INTERNAL_API_TOKEN` 설정 추가.
+  - Governance Auth RestClient 역할 반영 호출에 내부 토큰 헤더 추가.
+  - `governance.integrations.auth.internal-token` / `GOVERNANCE_AUTH_INTERNAL_TOKEN` 설정 추가.
+  - Auth 컨트롤러 테스트와 Governance RestClient 테스트 보강.
+  - 관련 README/docs/worklog/Gemini 리뷰 프롬프트 갱신.
+- 실행 명령:
+  - `.\gradlew :auth:test :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- 결과:
+  - Auth/Governance 테스트 성공.
+- 남은 리스크:
+  - 실제 환경에서 Auth/Governance 양쪽 내부 토큰 환경변수 값이 불일치하면 승인 반영 호출이 403으로 실패한다.
+  - 장기적으로는 토큰 회전, mTLS, 내부망 ACL 같은 서비스 간 인증 강화 설계가 필요하다.
+
 ## 2026-05-20 (Governance 승인 기반 Auth 역할 반영)
 - 사용자 요청: "다음 작업 진행해줘".
 - 선확인:

@@ -10,6 +10,7 @@ public class AuthModuleProperties {
     private Jwt jwt = new Jwt();
     private MasterData masterData = new MasterData();
     private Persistence persistence = new Persistence();
+    private InternalApi internalApi = new InternalApi();
     private List<User> users = new ArrayList<>();
 
     public Jwt getJwt() {
@@ -34,6 +35,14 @@ public class AuthModuleProperties {
 
     public void setPersistence(Persistence persistence) {
         this.persistence = persistence;
+    }
+
+    public InternalApi getInternalApi() {
+        return internalApi;
+    }
+
+    public void setInternalApi(InternalApi internalApi) {
+        this.internalApi = internalApi;
     }
 
     public List<User> getUsers() {
@@ -95,6 +104,18 @@ public class AuthModuleProperties {
 
         public void setMode(String mode) {
             this.mode = mode;
+        }
+    }
+
+    public static class InternalApi {
+        private String token = "local-internal-auth-token";
+
+        public String getToken() {
+            return token;
+        }
+
+        public void setToken(String token) {
+            this.token = token;
         }
     }
 

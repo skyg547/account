@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AuthIntegrationProperties {
 
     private String baseUrl = "http://localhost:8081";
+    private String internalToken = "local-internal-auth-token";
 
     public String getBaseUrl() {
         return baseUrl;
@@ -13,5 +14,13 @@ public class AuthIntegrationProperties {
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getInternalToken() {
+        return internalToken;
+    }
+
+    public void setInternalToken(String internalToken) {
+        this.internalToken = internalToken;
     }
 }

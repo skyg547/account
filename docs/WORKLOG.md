@@ -6,6 +6,22 @@
 ### 📅 초기화
 - 전체 작업 이력 정리 및 초기화 완료.
 
+### 📅 2026-05-21 (Codex 구현)
+### [보안 보강] Governance -> Auth 내부 역할 반영 API 토큰 보호
+- **수정 범위**:
+  - Auth: 내부 역할 할당 API `POST /api/auth/internal/users/{username}/role-assignments`에 `X-Internal-Auth-Token` 검증을 추가.
+  - Auth: `auth.internal-api.token` 설정과 `AUTH_INTERNAL_API_TOKEN` 환경변수 기본값을 추가.
+  - Governance: Auth RestClient 역할 반영 호출에 `X-Internal-Auth-Token` 헤더를 포함하도록 보강.
+  - Governance: `governance.integrations.auth.internal-token` 설정과 `GOVERNANCE_AUTH_INTERNAL_TOKEN` 환경변수 기본값을 추가.
+  - 테스트: Auth 컨트롤러 내부 토큰 검증 테스트와 Governance RestClient 헤더 전송/토큰 설정 검증 테스트를 추가.
+- **문서 갱신**:
+  - `auth/README.md`, `governance/README.md`, `governance/docs/README.md`
+- **검증**:
+  - `.\gradlew :auth:test :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"` 성공.
+- **남은 리스크**:
+  - 운영/스테이징 배포 시 `AUTH_INTERNAL_API_TOKEN`과 `GOVERNANCE_AUTH_INTERNAL_TOKEN`을 같은 값으로 주입해야 한다.
+  - 토큰 회전, mTLS, 네트워크 ACL 같은 운영 수준의 서비스 간 인증 정책은 별도 설계가 필요하다.
+
 ### 📅 2026-05-20 (Codex 구현)
 ### [수정] Governance 승인 기반 Auth 사용자 역할 반영 연결
 - **수정 범위**:

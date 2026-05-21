@@ -8,3 +8,4 @@ governance:
   integrations:
     auth:
       base-url: ${GOVERNANCE_AUTH_BASE_URL:http://localhost:8081}
+      internal-token: ${GOVERNANCE_AUTH_INTERNAL_TOKEN:local-internal-auth-token}
