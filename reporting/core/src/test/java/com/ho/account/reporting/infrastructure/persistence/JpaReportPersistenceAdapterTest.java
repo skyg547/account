@@ -2,6 +2,8 @@ package com.ho.account.reporting.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ho.account.reporting.domain.model.DisclosureNoteMart;
+import com.ho.account.reporting.domain.model.DisclosureNoteMartEntry.NoteCategory;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.ReportLine;
 import com.ho.account.reporting.domain.model.ReportLineMapping;
@@ -34,6 +36,9 @@ class JpaReportPersistenceAdapterTest {
 
     @Autowired
     private JpaRegulatoryReportSubmissionAdapter regulatoryReportSubmissionAdapter;
+
+    @Autowired
+    private JpaDisclosureNoteMartAdapter disclosureNoteMartAdapter;
 
     @Test
     void loadMappings_groupsEffectiveAccountRowsByReportLine() {
@@ -133,6 +138,33 @@ class JpaReportPersistenceAdapterTest {
                 baseDate)).isEqualTo(2);
     }
 
+    @Test
+    void disclosureNoteMartAdapter_replacesAndLoadsMartEntries() {
+        LocalDateTime baseDate = LocalDateTime.of(2026, 3, 31, 0, 0);
+        FinancialStatement statement = finalizedStatement("ST-001", baseDate, "1250000");
+        DisclosureNoteMart firstMart = DisclosureNoteMart.fromStatement(
+                statement,
+                "tester",
+                LocalDateTime.of(2026, 4, 1, 9, 0));
+        DisclosureNoteMart secondMart = DisclosureNoteMart.fromStatement(
+                statement,
+                "tester",
+                LocalDateTime.of(2026, 4, 1, 10, 0));
+
+        disclosureNoteMartAdapter.replace(firstMart);
+        disclosureNoteMartAdapter.replace(secondMart);
+
+        DisclosureNoteMart loaded = disclosureNoteMartAdapter.find(
+                        FinancialStatement.StatementType.BALANCE_SHEET,
+                        baseDate)
+                .orElseThrow();
+
+        assertThat(loaded.getMartId()).isEqualTo(secondMart.getMartId());
+        assertThat(loaded.getEntries()).hasSize(1);
+        assertThat(loaded.getEntries().get(0).getNoteCategory()).isEqualTo(NoteCategory.CURRENCY);
+        assertThat(loaded.getEntries().get(0).getCurrentAmount()).isEqualByComparingTo("1250000");
+    }
+
     private static FinancialStatement finalizedStatement(
             String statementId,
             LocalDateTime baseDate,
@@ -159,12 +191,14 @@ class JpaReportPersistenceAdapterTest {
             ReportLineMappingJpaEntity.class,
             ReportSnapshotHeaderJpaEntity.class,
             ReportSnapshotDetailJpaEntity.class,
-            RegulatoryReportSubmissionJpaEntity.class
+            RegulatoryReportSubmissionJpaEntity.class,
+            DisclosureNoteMartJpaEntity.class
     })
     @Import({
             JpaReportLineMappingAdapter.class,
             JpaReportSnapshotAdapter.class,
-            JpaRegulatoryReportSubmissionAdapter.class
+            JpaRegulatoryReportSubmissionAdapter.class,
+            JpaDisclosureNoteMartAdapter.class
     })
     static class JpaTestConfiguration {
     }

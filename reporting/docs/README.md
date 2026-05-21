@@ -43,3 +43,21 @@ X-User-ID: tester
 
 Response:
 - `submissionId`, `statementId`, `statementType`, `baseDate`, `version`, `submittedBy`, `submittedAt`, `correctionReason`, `status`
+
+## Disclosure Note Mart API
+
+- Generate endpoint: `POST /api/v1/reporting/disclosure-notes/generate`
+- Query endpoint: `GET /api/v1/reporting/disclosure-notes`
+- Required query params: `type`, `baseDate`
+- Generate required header: `X-User-ID`
+
+Example generate request:
+
+```http
+POST /api/v1/reporting/disclosure-notes/generate?type=BALANCE_SHEET&baseDate=2026-03-31T00:00:00
+X-User-ID: tester
+```
+
+Response:
+- `martId`, `statementId`, `statementType`, `baseDate`, `generatedBy`, `generatedAt`
+- `entries[]`: `noteNumber`, `noteCategory`, `sourceLineCode`, `maturityBucket`, `rateType`, `currencyCode`, `riskCategory`, `currentAmount`, `previousAmount`

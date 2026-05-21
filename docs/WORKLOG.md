@@ -39,6 +39,23 @@
   - 실제 감독기관 제출 전문/파일 전송, 제출 결과 수신, 반려 후 재제출 상태 모델은 아직 별도 구현이 필요하다.
   - 주석 마트(만기/금리/통화/리스크)와 CF 라인 매핑은 후속 작업 범위로 남아 있다.
 
+### 📅 2026-05-21 (Codex 구현)
+### [고도화] Reporting 주석 마트 생성/조회
+- **수정 범위**:
+  - Reporting Core: `DisclosureNoteMartUseCase`와 `DisclosureNoteMartService`를 추가해 확정 재무제표 스냅샷의 주석 라인을 마트로 전개.
+  - Reporting Domain: `DisclosureNoteMart`, `DisclosureNoteMartEntry`를 추가하고 주석 번호/라인 코드 기반으로 만기, 금리, 통화, 리스크 범주를 분류.
+  - Reporting Persistence: JPA/인메모리 주석 마트 어댑터와 `RPT_DISCLOSURE_NOTE_MART` Flyway 마이그레이션 추가.
+  - Reporting API: `POST /api/v1/reporting/disclosure-notes/generate`, `GET /api/v1/reporting/disclosure-notes` 엔드포인트 추가.
+  - `docs/todo.md`의 14.2 완료 표시.
+- **문서 갱신**:
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/process-flow.md`, `reporting/docs/schema.md`, `reporting/docs/beginner-guide.md`
+- **검증**:
+  - 첫 `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"` 실행은 Gradle daemon stop으로 중단.
+  - 동일 명령 재실행 성공.
+- **남은 리스크**:
+  - 현재 분류는 note 번호와 라인 코드/라벨 기반 기본 규칙이다. 운영 수준에서는 별도 SCD2 공시 분류 매핑 테이블로 정책화가 필요하다.
+  - 공시 주석의 상세 원천 drill-through는 아직 보고 라인 코드 수준이며 전표/원천 이벤트까지의 상세 링크는 후속 작업이다.
+
 ### 📅 2026-05-20 (Codex 구현)
 ### [수정] Governance 승인 기반 Auth 사용자 역할 반영 연결
 - **수정 범위**:

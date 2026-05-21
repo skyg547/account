@@ -49,6 +49,32 @@
   - 실제 감독기관 제출 전문/파일 전송 및 제출 결과 수신 상태 모델은 후속 구현 필요.
   - 주석 마트와 CF 라인 매핑은 후속 과제로 남음.
 
+## 2026-05-21 (Reporting 주석 마트 생성/조회)
+- 사용자 요청: "진행해 깃 동기화도".
+- Git 동기화:
+  - `git fetch origin` 실행.
+  - `git rev-list --left-right --count origin/main...HEAD`: `0 3`.
+  - `git push origin main` 성공. `d502fae`, `42ddcc8`, `cfe79a5`가 `origin/main`에 반영됨.
+- 선확인:
+  - `docs/todo.md`: 14.2 주석 마트 미완료 확인.
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/schema.md`, `reporting/docs/process-flow.md`, `reporting/docs/beginner-guide.md` 확인.
+- 수정 내용:
+  - `DisclosureNoteMartUseCase`, `DisclosureNoteMartService` 추가.
+  - `DisclosureNoteMart`, `DisclosureNoteMartEntry` 도메인 모델 추가.
+  - note 번호/라인 코드/라벨 기반으로 만기, 금리, 통화, 리스크 범주 분류.
+  - `LoadDisclosureNoteMartPort`, `StoreDisclosureNoteMartPort`와 JPA/인메모리 어댑터 추가.
+  - `RPT_DISCLOSURE_NOTE_MART` Flyway 마이그레이션 추가.
+  - `POST /api/v1/reporting/disclosure-notes/generate`, `GET /api/v1/reporting/disclosure-notes` API 추가.
+  - 서비스/API/JPA 테스트와 reporting 문서, `docs/todo.md`, 워크로그/Gemini 리뷰 프롬프트 갱신.
+- 실행 명령:
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- 결과:
+  - 첫 실행은 Gradle daemon stop으로 중단.
+  - 동일 명령 재실행 성공.
+- 남은 리스크:
+  - 운영 수준의 공시 분류 정책은 SCD2 매핑 테이블로 분리 필요.
+  - 전표/원천 이벤트 단위 drill-through는 후속 구현 필요.
+
 ## 2026-05-20 (Governance 승인 기반 Auth 역할 반영)
 - 사용자 요청: "다음 작업 진행해줘".
 - 선확인:

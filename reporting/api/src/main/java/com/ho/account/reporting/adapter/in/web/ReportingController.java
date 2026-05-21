@@ -2,7 +2,9 @@ package com.ho.account.reporting.adapter.in.web;
 
 import com.ho.account.reporting.application.port.in.ExportStatementDocumentUseCase;
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
+import com.ho.account.reporting.application.port.in.DisclosureNoteMartUseCase;
 import com.ho.account.reporting.application.port.in.SubmitRegulatoryReportUseCase;
+import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
 import java.time.LocalDateTime;
@@ -11,6 +13,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +31,7 @@ public class ReportingController {
     private final GenerateStatementUseCase generateStatementUseCase;
     private final ExportStatementDocumentUseCase exportStatementDocumentUseCase;
     private final SubmitRegulatoryReportUseCase submitRegulatoryReportUseCase;
+    private final DisclosureNoteMartUseCase disclosureNoteMartUseCase;
 
     @PostMapping("/generate")
     public FinancialStatement generateStatement(
@@ -69,5 +73,25 @@ public class ReportingController {
         SubmitRegulatoryReportUseCase.SubmitCommand command =
                 new SubmitRegulatoryReportUseCase.SubmitCommand(type, baseDate, userId, correctionReason);
         return submitRegulatoryReportUseCase.submit(command);
+    }
+
+    @PostMapping("/disclosure-notes/generate")
+    public DisclosureNoteMart generateDisclosureNoteMart(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate,
+            @RequestHeader("X-User-ID") String userId) {
+        DisclosureNoteMartUseCase.GenerateCommand command =
+                new DisclosureNoteMartUseCase.GenerateCommand(type, baseDate, userId);
+        return disclosureNoteMartUseCase.generate(command);
+    }
+
+    @GetMapping("/disclosure-notes")
+    public ResponseEntity<DisclosureNoteMart> findDisclosureNoteMart(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate) {
+        DisclosureNoteMartUseCase.FindQuery query = new DisclosureNoteMartUseCase.FindQuery(type, baseDate);
+        return disclosureNoteMartUseCase.find(query)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

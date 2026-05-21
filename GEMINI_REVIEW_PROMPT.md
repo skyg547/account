@@ -33,12 +33,12 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 감독보고 제출본 버전/정정/검증"입니다.
-- Reporting Core `SubmitRegulatoryReportUseCase`, `RegulatoryReportSubmissionService` 추가
-- `RegulatoryReportSubmission` 도메인 모델과 제출 전 검증 추가
-- `StoreRegulatoryReportSubmissionPort`와 JPA/인메모리 저장 어댑터 추가
-- Flyway `V61__reporting_regulatory_submission.sql` 추가
-- Reporting API `POST /api/v1/reporting/submissions/regulatory` 추가
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 주석 마트 생성/조회"입니다.
+- Reporting Core `DisclosureNoteMartUseCase`, `DisclosureNoteMartService` 추가
+- `DisclosureNoteMart`, `DisclosureNoteMartEntry` 도메인 모델과 주석 분류 규칙 추가
+- `LoadDisclosureNoteMartPort`, `StoreDisclosureNoteMartPort`와 JPA/인메모리 저장 어댑터 추가
+- Flyway `V62__reporting_disclosure_note_mart.sql` 추가
+- Reporting API `POST /api/v1/reporting/disclosure-notes/generate`, `GET /api/v1/reporting/disclosure-notes` 추가
 - Reporting service/API/JPA 테스트 추가
 - 관련 README/docs/worklog 갱신
 
@@ -89,7 +89,6 @@ Notes:
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew :reporting:core:test :reporting:api:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
   - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
   - 이번 범위는 reporting backend와 문서 변경이며 frontend 변경은 없음
   - 전체 `git diff --check`: 범위 밖 미커밋 파일의 trailing whitespace가 남아 있을 수 있음

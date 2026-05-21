@@ -39,9 +39,26 @@ FINAL 재무제표 라인 상세입니다. `current_amount`, `previous_amount`�
 - `status`: 현재는 제출 준비 완료 상태인 `READY`
 - `validation_messages`: 검증 메시지 보관 영역
 
+## RPT_DISCLOSURE_NOTE_MART
+
+확정 재무제표 스냅샷의 주석 번호별 금액을 만기, 금리, 통화, 리스크 관점으로 전개한 공시 마트입니다.
+재생성 시 같은 `statement_type`, `base_date` 조합의 기존 엔트리를 삭제하고 새 마트 엔트리로 교체합니다.
+
+주요 컬럼:
+
+- `entry_id`, `mart_id`: 주석 마트 엔트리와 생성 실행 식별자
+- `statement_id`, `statement_type`, `base_date`: 원천 재무제표 스냅샷 식별자
+- `note_number`, `note_category`: 주석 번호와 공시 범주
+- `source_line_code`, `source_line_label`: 보고서 라인 추적 키
+- `maturity_bucket`, `rate_type`, `currency_code`, `risk_category`: 공시 분석 차원
+- `current_amount`, `previous_amount`: 당기/전기 비교 금액
+- `generated_by`, `generated_at`: 생성자와 생성 시각
+
 ## Migration
 
 - `reporting/core/src/main/resources/db/migration/V60__reporting_persistence_schema.sql`
 - 기본 BS/IS 매핑 seed를 포함합니다.
 - `reporting/core/src/main/resources/db/migration/V61__reporting_regulatory_submission.sql`
 - 감독보고 제출본 버전 이력 테이블을 생성합니다.
+- `reporting/core/src/main/resources/db/migration/V62__reporting_disclosure_note_mart.sql`
+- 주석 마트 테이블과 조회/분류 인덱스를 생성합니다.

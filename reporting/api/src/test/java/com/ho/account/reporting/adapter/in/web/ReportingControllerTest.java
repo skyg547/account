@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ho.account.reporting.application.port.in.ExportStatementDocumentUseCase;
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
+import com.ho.account.reporting.application.port.in.DisclosureNoteMartUseCase;
 import com.ho.account.reporting.application.port.in.SubmitRegulatoryReportUseCase;
+import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
 import com.ho.account.reporting.domain.model.ReportLine;
@@ -42,6 +45,9 @@ class ReportingControllerTest {
     @Mock
     private SubmitRegulatoryReportUseCase submitRegulatoryReportUseCase;
 
+    @Mock
+    private DisclosureNoteMartUseCase disclosureNoteMartUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -49,7 +55,8 @@ class ReportingControllerTest {
         ReportingController controller = new ReportingController(
                 generateStatementUseCase,
                 exportStatementDocumentUseCase,
-                submitRegulatoryReportUseCase);
+                submitRegulatoryReportUseCase,
+                disclosureNoteMartUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -160,6 +167,62 @@ class ReportingControllerTest {
                 .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
         Assertions.assertThat(command.requesterId()).isEqualTo("tester");
         Assertions.assertThat(command.correctionReason()).isEqualTo("Correct prior submission");
+    }
+
+    @Test
+    void generateDisclosureNoteMart_delegatesToUseCase() throws Exception {
+        DisclosureNoteMart mart = DisclosureNoteMart.fromStatement(
+                finalizedBalanceSheet("ST-001"),
+                "tester",
+                LocalDateTime.of(2026, 4, 1, 9, 0));
+        when(disclosureNoteMartUseCase.generate(any())).thenReturn(mart);
+
+        mockMvc.perform(post("/api/v1/reporting/disclosure-notes/generate")
+                        .param("type", "BALANCE_SHEET")
+                        .param("baseDate", "2026-03-31T00:00:00")
+                        .header("X-User-ID", "tester"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statementId").value("ST-001"))
+                .andExpect(jsonPath("$.statementType").value("BALANCE_SHEET"))
+                .andExpect(jsonPath("$.entries[0].noteNumber").value("3"))
+                .andExpect(jsonPath("$.entries[0].noteCategory").value("CURRENCY"));
+
+        ArgumentCaptor<DisclosureNoteMartUseCase.GenerateCommand> captor =
+                ArgumentCaptor.forClass(DisclosureNoteMartUseCase.GenerateCommand.class);
+        verify(disclosureNoteMartUseCase).generate(captor.capture());
+
+        DisclosureNoteMartUseCase.GenerateCommand command = captor.getValue();
+        Assertions.assertThat(command.type())
+                .isEqualTo(FinancialStatement.StatementType.BALANCE_SHEET);
+        Assertions.assertThat(command.baseDate())
+                .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
+        Assertions.assertThat(command.requesterId()).isEqualTo("tester");
+    }
+
+    @Test
+    void findDisclosureNoteMart_returnsStoredMart() throws Exception {
+        DisclosureNoteMart mart = DisclosureNoteMart.fromStatement(
+                finalizedBalanceSheet("ST-001"),
+                "tester",
+                LocalDateTime.of(2026, 4, 1, 9, 0));
+        when(disclosureNoteMartUseCase.find(any())).thenReturn(java.util.Optional.of(mart));
+
+        mockMvc.perform(get("/api/v1/reporting/disclosure-notes")
+                        .param("type", "BALANCE_SHEET")
+                        .param("baseDate", "2026-03-31T00:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statementId").value("ST-001"))
+                .andExpect(jsonPath("$.entries[0].sourceLineCode").value("ASSET_CASH"));
+
+        ArgumentCaptor<DisclosureNoteMartUseCase.FindQuery> captor =
+                ArgumentCaptor.forClass(DisclosureNoteMartUseCase.FindQuery.class);
+        verify(disclosureNoteMartUseCase).find(captor.capture());
+
+        DisclosureNoteMartUseCase.FindQuery query = captor.getValue();
+        Assertions.assertThat(query.type())
+                .isEqualTo(FinancialStatement.StatementType.BALANCE_SHEET);
+        Assertions.assertThat(query.baseDate())
+                .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
     }
 
     private FinancialStatement finalizedBalanceSheet(String statementId) {

@@ -41,6 +41,23 @@ sequenceDiagram
     Service-->>API: submission id/version/status
 ```
 
+## 주석 마트 생성
+
+```mermaid
+sequenceDiagram
+    participant API as Reporting API
+    participant Service as DisclosureNoteMartService
+    participant Snapshot as LoadReportHistoryPort
+    participant Mart as Disclosure Note Mart Adapter
+
+    API->>Service: generate(type, baseDate, requester)
+    Service->>Snapshot: findFinalizedStatement(type, baseDate)
+    Snapshot-->>Service: FINAL statement snapshot
+    Service->>Service: classify note lines by maturity/rate/currency/risk
+    Service->>Mart: replace(mart)
+    Service-->>API: mart entries
+```
+
 ## 계층 책임
 
 - `application.service`: 유즈케이스 흐름, 트랜잭션, 포트 협업을 담당합니다.

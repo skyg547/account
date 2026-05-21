@@ -11,6 +11,7 @@
 2. **매핑 (Mapping):** 어떤 영수증(계정)을 어떤 요약 항목(보고 라인)에 넣을지 정하는 규칙입니다.
 3. **스냅샷 (Snapshot):** 특정 날짜의 재무 상태를 사진 찍듯 고정해서 저장해둔 데이터입니다. 나중에 "작년 숫자가 왜 이랬지?" 할 때 꺼내보는 증거가 됩니다.
 4. **드릴스루 (Drill-through):** 보고서의 요약된 숫자를 클릭했을 때, 그 숫자를 만든 상세 전표 내역까지 끝까지 파고들어 보여주는 기능입니다.
+5. **주석 마트 (Disclosure Note Mart):** 재무제표의 주석 번호별 금액을 만기, 금리, 통화, 리스크 관점으로 다시 정리한 공시용 데이터입니다.
 
 ---
 
@@ -57,6 +58,13 @@ flowchart LR
 - 2차 제출부터는 `correctionReason`이 필수입니다.
 - 제출 전 보고 라인 중복, 필수 금액, 합계 논리(BS 총계/IS 순액)를 검증합니다.
 
+### 📌 주석 마트 생성 및 조회
+- `POST /api/v1/reporting/disclosure-notes/generate`
+- `GET /api/v1/reporting/disclosure-notes`
+- 확정된 재무제표 스냅샷의 `noteNumber`가 있는 라인을 주석 마트로 전개합니다.
+- 라인 코드/주석 번호 기준으로 만기, 금리, 통화, 리스크 범주를 분류하고 금액과 전기 비교 금액을 함께 저장합니다.
+- 재생성 시 같은 보고서 종류와 기준일의 기존 마트를 교체 저장합니다.
+
 ---
 
 ## 3. 📊 데이터 모델 (Schema)
@@ -92,6 +100,14 @@ erDiagram
         Integer submission_version "제출 버전"
         String status "READY"
     }
+
+    RPT_DISCLOSURE_NOTE_MART {
+        Long id PK
+        String mart_id "주석 마트 ID"
+        String note_number "주석 번호"
+        String note_category "MATURITY/RATE/CURRENCY/RISK"
+        BigDecimal current_amount "당기 금액"
+    }
 ```
 
 ---
@@ -108,5 +124,6 @@ docker-compose up -d reporting
 - 보고서 서식 변경 시 SCD2 정책에 따라 기존 매핑의 `valid_to`를 닫고 새 버전을 생성해야 합니다.
 - 현재 기본 구현은 `JpaReportLineMappingAdapter`와 `JpaReportSnapshotAdapter`가 `RPT_LINE_MAPPING`, `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL` 테이블을 사용합니다.
 - 감독보고 제출본은 `RPT_REGULATORY_SUBMISSION`에 기준일별 버전과 정정 사유를 저장합니다.
-- Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블을 생성합니다.
+- 주석 마트는 `RPT_DISCLOSURE_NOTE_MART`에 note 번호, 공시 범주, 만기/금리/통화/리스크 분류와 금액을 저장합니다.
+- Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블, `V62__reporting_disclosure_note_mart.sql`은 주석 마트 테이블을 생성합니다.
 - 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다.
