@@ -3,6 +3,17 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 5차)
+### [백엔드 & 모델러]
+- **대출 모듈 11.4 & 11.5 기 구현 확인**:
+  - `LoanService.recalculateLoan` 및 `EIRCalculator` 내부에 중도상환, 조건변경 시의 Newton-Raphson 기반 EIR 재계산과 상각 전표, 잔액 조정 전표 발행 로직이 이미 완벽히 구현되어 있음을 코드 및 테스트(`LoanServiceTest`)로 확인. `todo.md`에 완료(o) 마킹.
+- **결산(Closing) 모듈 외화평가(FX Valuation) 배치 구현**:
+  - `closing/batch` 모듈을 신규 구성 (Spring Batch, JPA 설정 포함).
+  - `GlAccountBalanceRepository`에 특정 일자 기준 외화(비 KRW) 잔액을 조회하는 `findLatestForeignCurrencyBalances` 네이티브 Query 추가.
+  - `FxValuationService` 생성: 기말 환율을 조회하여 장부 원화 금액과 평가 원화 금액의 차액을 계산하고, "외화환산이익/손실" 회계 전표(Journal Entry)를 자동 발행하는 핵심 로직 구현 및 주석(`🐣 초보자를 위한 설명`) 작성.
+  - `FxValuationBatchConfig` 생성: 기말 평가 대상을 조회하여 평가 서비스를 호출하는 Spring Batch (Reader/Processor/Writer) 구성 완료.
+  - `closing:batch:compileJava` 성공 확인 및 백그라운드 데몬 정리 완료.
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 4차)
 ### [백엔드]
 - **대출(Loan) 모듈 일일 EIR 상각 배치 구현**:

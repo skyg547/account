@@ -15,6 +15,25 @@ public class ClosingAccountingProperties {
     private Map<ValuationBatch.ValuationType, AutomatedJournalRule> valuationRules = new LinkedHashMap<>();
     private Map<ProvisionBatch.ProvisionType, AutomatedJournalRule> provisionRules = new LinkedHashMap<>();
 
+    private String fxTranslationGainAccountCode = "72000"; // Default: 외화환산이익
+    private String fxTranslationLossAccountCode = "92000"; // Default: 외화환산손실
+
+    public String getFxTranslationGainAccountCode() {
+        return fxTranslationGainAccountCode;
+    }
+
+    public void setFxTranslationGainAccountCode(String fxTranslationGainAccountCode) {
+        this.fxTranslationGainAccountCode = fxTranslationGainAccountCode;
+    }
+
+    public String getFxTranslationLossAccountCode() {
+        return fxTranslationLossAccountCode;
+    }
+
+    public void setFxTranslationLossAccountCode(String fxTranslationLossAccountCode) {
+        this.fxTranslationLossAccountCode = fxTranslationLossAccountCode;
+    }
+
     public AutomatedJournalRule requireValuationRule(ValuationBatch.ValuationType valuationType) {
         return requireRule("valuation-rules." + valuationType.name(), valuationRules.get(valuationType));
     }
