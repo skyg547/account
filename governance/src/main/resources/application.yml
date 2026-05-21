@@ -3,3 +3,8 @@ spring:
     name: governance-service
   config:
     import: "optional:configserver:http://localhost:8888/"
+
+governance:
+  integrations:
+    auth:
+      base-url: ${GOVERNANCE_AUTH_BASE_URL:http://localhost:8081}

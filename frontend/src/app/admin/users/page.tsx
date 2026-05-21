@@ -76,9 +76,9 @@ export default function UserManagementPage() {
     return () => { ignore = true; };
   }, [loadUsers]);
 
-  const handleRoleChange = async (userId: number, role: UserRole) => {
-    const result = await adminService.requestRoleChange(userId, role);
-    setUsers(current => current.map(user => user.id === userId
+  const handleRoleChange = async (targetUser: UserInfo, role: UserRole) => {
+    const result = await adminService.requestRoleChange(targetUser, role);
+    setUsers(current => current.map(user => user.id === targetUser.id
       ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
       : user));
     setMessage(`승인 요청 ${result.requestId} 생성됨 · ${result.effectiveDate}`);
@@ -209,7 +209,7 @@ export default function UserManagementPage() {
                         <RoleIcon size={14} />
                         <select
                           value={user.role}
-                          onChange={(event) => handleRoleChange(user.id, event.target.value as UserRole)}
+                          onChange={(event) => handleRoleChange(user, event.target.value as UserRole)}
                           className="bg-transparent text-xs font-black tracking-tight outline-none cursor-pointer"
                           aria-label={`${user.name} 역할 변경`}
                         >

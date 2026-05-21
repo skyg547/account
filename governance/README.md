@@ -58,6 +58,11 @@ flowchart TD
 ### 📌 역할/권한 변경 흐름
 역할 생성과 권한 부여는 즉시 DB에 반영하지 않고 `MasterApproval` 요청으로 먼저 등록합니다. 승인자가 승인하면 `SystemRoleApprovalApplyAdapter`가 역할 또는 권한 변경을 반영합니다. 권한 부여 전에는 `AuthorizationPolicy`가 WRITE/EXECUTE 충돌, 데이터 범위 기본값, 중복 권한을 검증합니다.
 
+### 📌 사용자 역할 변경 승인 후 Auth 반영
+사용자에게 부여된 Auth 역할 변경은 `AUTH_USER_ROLE` 승인 요청으로 관리합니다.
+승인 완료 시 `AuthUserRoleApprovalApplyAdapter`가 payload의 `username`과 `role/roleCode/roles`를 해석하고, `RestClientAuthUserRoleAssignmentAdapter`가 Auth 내부 API(`/api/auth/internal/users/{username}/role-assignments`)를 호출합니다.
+Auth는 기존 역할 할당을 승인된 목록으로 교체하고 `roleVersion`을 증가시켜 기존 JWT 재사용을 차단합니다.
+
 ---
 
 ## 3. 📊 데이터 모델 (Schema)
@@ -99,3 +104,4 @@ docker-compose up -d governance
 **연동 주의사항:**
 - 다른 모듈에서 `@AuditLoggable` 어노테이션을 사용하여 감사 로그 작성을 트리거할 수 있습니다.
 - `AuditController`의 웹 어댑터는 도메인 엔티티를 직접 노출하지 않고 전용 DTO로 변환하여 응답합니다.
+- Auth 연동 기본 주소는 `GOVERNANCE_AUTH_BASE_URL` 환경변수로 조정합니다. 기본값은 `http://localhost:8081`입니다.

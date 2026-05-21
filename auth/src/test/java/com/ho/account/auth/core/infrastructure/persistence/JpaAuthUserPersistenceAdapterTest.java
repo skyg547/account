@@ -26,6 +26,9 @@ class JpaAuthUserPersistenceAdapterTest {
     private JpaAuthUserQueryAdapter adapter;
 
     @Autowired
+    private JpaAuthUserRoleAssignmentAdapter roleAssignmentAdapter;
+
+    @Autowired
     private AuthUserJpaRepository repository;
 
     @Test
@@ -66,6 +69,25 @@ class JpaAuthUserPersistenceAdapterTest {
         assertThat(user.getRoleVersion()).isEqualTo(1L);
     }
 
+    @Test
+    void replaceRoleAssignments_replacesRolesAndIncrementsRoleVersion() {
+        repository.save(userWithRoles());
+        repository.flush();
+
+        AuthUser updated = roleAssignmentAdapter.replaceRoleAssignments(
+                "teller",
+                List.of(new RoleAssignment("ROLE_AUDITOR", "GLOBAL", null, null, true)),
+                "approver01");
+
+        assertThat(updated.getRoleVersion()).isEqualTo(4L);
+        assertThat(updated.getRoles()).containsExactly("ROLE_AUDITOR");
+
+        AuthUser reloaded = adapter.findByUsername("teller").orElseThrow();
+        assertThat(reloaded.getRoleAssignments()).hasSize(1);
+        assertThat(reloaded.getRoles()).containsExactly("ROLE_AUDITOR");
+        assertThat(reloaded.getRoleVersion()).isEqualTo(4L);
+    }
+
     private AuthUserJpaEntity userWithRoles() {
         Instant now = Instant.now();
         AuthUserJpaEntity user = new AuthUserJpaEntity(
@@ -103,7 +125,10 @@ class JpaAuthUserPersistenceAdapterTest {
             AuthUserJpaEntity.class,
             RoleAssignmentJpaEntity.class
     })
-    @Import(JpaAuthUserQueryAdapter.class)
+    @Import({
+            JpaAuthUserQueryAdapter.class,
+            JpaAuthUserRoleAssignmentAdapter.class
+    })
     static class JpaTestConfiguration {
     }
 }

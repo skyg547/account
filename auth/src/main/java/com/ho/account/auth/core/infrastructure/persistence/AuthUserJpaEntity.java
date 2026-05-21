@@ -106,6 +106,15 @@ class AuthUserJpaEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    void replaceRoleAssignments(List<RoleAssignmentJpaEntity> newRoleAssignments) {
+        this.roleAssignments.clear();
+        if (newRoleAssignments != null) {
+            newRoleAssignments.forEach(this::addRoleAssignment);
+        }
+        this.roleVersion = this.roleVersion + 1L;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);

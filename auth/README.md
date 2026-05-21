@@ -38,6 +38,12 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 - 요청의 `username`, `roleVersion`이 현재 DB의 사용자 `roleVersion`과 정확히 일치할 때만 유효로 판단합니다.
 - 역할 변경으로 DB의 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
+### 📌 내부 역할 할당 반영 API
+- `POST /api/auth/internal/users/{username}/role-assignments`
+- Governance 승인 완료 후 호출되는 내부 API입니다.
+- 요청 본문은 `roleCodes`, `dataScope`, `validFrom`, `validTo`, `approvedBy`, `approvalTraceId`를 받습니다.
+- 기존 역할 할당을 승인된 새 목록으로 교체하고 `roleVersion`을 1 증가시켜 기존 JWT를 만료 대상으로 만듭니다.
+
 ### 🚨 모듈 경계 (중요!)
 - 사용자 식별과 권한 부여는 `auth`가 담당합니다.
 - 하지만 **부서 정보(조직 구조)**는 `auth`가 소유하지 않습니다. 부서는 `master-data` 모듈의 소유입니다.

@@ -46,6 +46,7 @@
   - 요청자와 승인자 동일 시 승인 불가
 - 승인 후 반영:
   - `MasterApproval` 승인 시 `master-data` 변경요청 생성 -> 승인 -> 적용까지 연결
+  - `AUTH_USER_ROLE` 승인 시 Auth 내부 역할 할당 API를 호출해 사용자 역할과 `roleVersion`을 갱신
 - 권한:
   - role + function + accessType 조합 중복 부여 차단
 - 추적성 조회:
@@ -57,6 +58,19 @@
 - `POST /api/audit/approvals/requests`
 - `POST /api/audit/approvals/{approvalId}/approve`
 - `POST /api/audit/approvals/{approvalId}/reject`
+
+## Auth Role Approval
+
+- `masterType`: `AUTH_USER_ROLE`
+- `requestType`: `CREATE` 또는 `UPDATE`
+- `masterKey`: 권장값은 Auth `username`
+- `payload` 예시:
+
+```json
+{"username":"admin","role":"ACCOUNTING_ADMIN","dataScope":"FIN"}
+```
+
+승인 후 Governance는 role 값을 `ROLE_ACCOUNTING_ADMIN` 형태로 정규화해 Auth 내부 API에 전달합니다.
 
 ## 현재 구현 기준에서 먼저 알아둘 점
 

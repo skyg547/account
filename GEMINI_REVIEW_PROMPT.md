@@ -33,15 +33,14 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-20 "Auth 사용자/RoleAssignment JPA/Flyway 영속화"입니다.
-- Auth `AUTH_USERS`, `AUTH_ROLE_ASSIGNMENTS` Flyway schema 추가
-- `JpaAuthUserQueryAdapter` 사용자/역할 할당 조회 구현
-- `AuthUserJpaEntity`, `RoleAssignmentJpaEntity`, `AuthUserJpaRepository` 추가
-- `AuthUserSeedRunner` 설정 기반 초기 사용자 seed 구현
-- 기존 `InMemoryAuthUserQueryAdapter`를 `auth.persistence.mode=memory` 전용으로 전환
-- 토큰 `roleVersion` 검증 API는 현재 DB 버전과 정확히 일치할 때만 유효하도록 보정하고 DTO validation 추가
-- JPA/Flyway/H2 기반 `JpaAuthUserPersistenceAdapterTest` 추가
-- Auth README와 worklog 갱신
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-20 "Governance 승인 기반 Auth 역할 반영"입니다.
+- Auth 내부 API `POST /api/auth/internal/users/{username}/role-assignments` 추가
+- `AuthUserRoleAssignmentUseCase`, `AuthUserRoleAssignmentService`, JPA/메모리 역할 교체 어댑터 추가
+- 역할 교체 시 기존 role assignments를 승인된 목록으로 교체하고 `roleVersion` 증가
+- Governance `AUTH_USER_ROLE` 승인 apply 어댑터 추가
+- Governance Auth RestClient 연동 설정(`GOVERNANCE_AUTH_BASE_URL`) 추가
+- Frontend `/admin/users` 역할 변경 승인 payload에 Auth `username` 포함
+- 관련 README/docs/worklog 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -90,9 +89,10 @@ Notes:
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
-  - `.\gradlew :auth:build --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
-  - `git diff --check`: CRLF 경고 외 문제 없음
+  - `.\gradlew :auth:test :governance:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
+  - `npm run build` in `frontend`: 성공, 기존 `closing` unused variable warning만 남음
+  - `git diff --check -- auth governance frontend docs\WORKLOG.md CODEX_WORKLOG.md GEMINI_REVIEW_PROMPT.md`: 성공, CRLF 경고만 출력
+  - 전체 `git diff --check`: 이번 범위 밖 미커밋 파일의 trailing whitespace로 실패
 
 ## Review Handoff Checklist
 

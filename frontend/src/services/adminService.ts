@@ -54,13 +54,13 @@ class AdminService {
   /**
    * 사용자 역할 변경 승인 요청
    */
-  async requestRoleChange(userId: number, role: UserRole): Promise<ApprovalRequestResult> {
+  async requestRoleChange(user: UserInfo, role: UserRole): Promise<ApprovalRequestResult> {
     const effectiveDate = new Date().toISOString().slice(0, 10);
     const payload = {
       masterType: 'AUTH_USER_ROLE',
-      masterKey: String(userId),
+      masterKey: user.email,
       requestType: 'UPDATE',
-      payload: JSON.stringify({ userId, role }),
+      payload: JSON.stringify({ username: user.email, userId: String(user.id), role }),
       requestUser: 'frontend-admin',
       effectiveDate,
       requestedVersion: 1,
@@ -78,7 +78,7 @@ class AdminService {
       if (response.ok) {
         const data = await response.json();
         return {
-          requestId: String(data.id ?? data.approvalId ?? `${userId}-${Date.now()}`),
+          requestId: String(data.id ?? data.approvalId ?? `${user.id}-${Date.now()}`),
           status: data.status ?? 'PENDING',
           effectiveDate: data.effectiveDate ?? effectiveDate,
         };
@@ -89,11 +89,11 @@ class AdminService {
 
     return new Promise((resolve) => {
       setTimeout(() => {
-        const user = this.mockUsers.find(u => u.id === userId);
-        const requestId = `ROLE-${userId}-${Date.now()}`;
-        if (user) {
-          user.status = 'PENDING';
-          user.pendingRequestId = requestId;
+        const targetUser = this.mockUsers.find(u => u.id === user.id);
+        const requestId = `ROLE-${user.id}-${Date.now()}`;
+        if (targetUser) {
+          targetUser.status = 'PENDING';
+          targetUser.pendingRequestId = requestId;
         }
         resolve({ requestId, status: 'PENDING', effectiveDate });
       }, 500);

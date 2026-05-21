@@ -60,7 +60,7 @@
 *   **설명:** 시스템 접속 권한을 가진 사용자를 관리하고 직무별 권한(Role)을 할당합니다.
 *   **주요 기능:**
     *   **사용자 그리드:** 이름, 아이디, 소속 부서, 최근 접속일 등 계정 상태 모니터링.
-    *   **권한 변경 승인 요청:** 사용자별 Role 변경을 즉시 반영하지 않고 Governance 승인 요청으로 등록.
+    *   **권한 변경 승인 요청:** 사용자별 Role 변경을 즉시 반영하지 않고 Governance `AUTH_USER_ROLE` 승인 요청으로 등록하며, payload에 Auth `username`을 포함.
 *   **관련 도메인:** `User`, `Role` (Auth Service)
 
 ## 7. 귀속부서(조직) 관리 (Department Management)
