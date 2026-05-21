@@ -33,12 +33,14 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 주석 마트 생성/조회"입니다.
-- Reporting Core `DisclosureNoteMartUseCase`, `DisclosureNoteMartService` 추가
-- `DisclosureNoteMart`, `DisclosureNoteMartEntry` 도메인 모델과 주석 분류 규칙 추가
-- `LoadDisclosureNoteMartPort`, `StoreDisclosureNoteMartPort`와 JPA/인메모리 저장 어댑터 추가
-- Flyway `V62__reporting_disclosure_note_mart.sql` 추가
-- Reporting API `POST /api/v1/reporting/disclosure-notes/generate`, `GET /api/v1/reporting/disclosure-notes` 추가
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 감독보고 매핑/제출"입니다.
+- Reporting Core `SubmitRegulatoryFilingUseCase`, `RegulatoryFilingService` 추가
+- `RegulatoryReportMapping`, `RegulatoryFiling`, `RegulatoryFilingLine`, `RegulatoryFilingPackage`, `RegulatoryFilingReceipt` 도메인 모델 추가
+- `LoadRegulatoryReportSubmissionPort`, `LoadRegulatoryReportMappingPort`, `SubmitRegulatoryFilingPort`, `StoreRegulatoryFilingPort`, `LoadRegulatoryFilingPort` 추가
+- JPA/인메모리 감독보고 매핑 로더와 제출 이력 어댑터 추가
+- `LocalRegulatoryFilingGatewayAdapter` 추가
+- Flyway `V63__reporting_regulatory_filing.sql` 추가
+- Reporting API `POST /api/v1/reporting/regulatory-filings/submit`, `GET /api/v1/reporting/regulatory-filings/latest` 추가
 - Reporting service/API/JPA 테스트 추가
 - 관련 README/docs/worklog 갱신
 

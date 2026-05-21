@@ -58,6 +58,32 @@ sequenceDiagram
     Service-->>API: mart entries
 ```
 
+## 감독보고 매핑 및 제출
+
+```mermaid
+sequenceDiagram
+    participant API as Reporting API
+    participant Service as RegulatoryFilingService
+    participant Submission as LoadRegulatoryReportSubmissionPort
+    participant Mart as LoadDisclosureNoteMartPort
+    participant Mapping as LoadRegulatoryReportMappingPort
+    participant Gateway as SubmitRegulatoryFilingPort
+    participant Store as StoreRegulatoryFilingPort
+
+    API->>Service: submit(type, baseDate, targetAgency, requester)
+    Service->>Submission: findLatestReady(type, baseDate)
+    Submission-->>Service: READY submission version
+    Service->>Mart: find(type, baseDate)
+    Mart-->>Service: disclosure note mart
+    Service->>Mapping: loadMappings(type, baseDate)
+    Mapping-->>Service: effective SCD2 mappings
+    Service->>Service: map mart entries to filing lines
+    Service->>Gateway: submit(package)
+    Gateway-->>Service: receipt id
+    Service->>Store: save(filing lines + receipt)
+    Service-->>API: filing result
+```
+
 ## 계층 책임
 
 - `application.service`: 유즈케이스 흐름, 트랜잭션, 포트 협업을 담당합니다.

@@ -3,9 +3,11 @@ package com.ho.account.reporting.adapter.in.web;
 import com.ho.account.reporting.application.port.in.ExportStatementDocumentUseCase;
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
 import com.ho.account.reporting.application.port.in.DisclosureNoteMartUseCase;
+import com.ho.account.reporting.application.port.in.SubmitRegulatoryFilingUseCase;
 import com.ho.account.reporting.application.port.in.SubmitRegulatoryReportUseCase;
 import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.FinancialStatement;
+import com.ho.account.reporting.domain.model.RegulatoryFiling;
 import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class ReportingController {
     private final ExportStatementDocumentUseCase exportStatementDocumentUseCase;
     private final SubmitRegulatoryReportUseCase submitRegulatoryReportUseCase;
     private final DisclosureNoteMartUseCase disclosureNoteMartUseCase;
+    private final SubmitRegulatoryFilingUseCase submitRegulatoryFilingUseCase;
 
     @PostMapping("/generate")
     public FinancialStatement generateStatement(
@@ -91,6 +94,28 @@ public class ReportingController {
             @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate) {
         DisclosureNoteMartUseCase.FindQuery query = new DisclosureNoteMartUseCase.FindQuery(type, baseDate);
         return disclosureNoteMartUseCase.find(query)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/regulatory-filings/submit")
+    public RegulatoryFiling submitRegulatoryFiling(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate,
+            @RequestParam(value = "targetAgency", defaultValue = "FSS") String targetAgency,
+            @RequestHeader("X-User-ID") String userId) {
+        SubmitRegulatoryFilingUseCase.SubmitCommand command =
+                new SubmitRegulatoryFilingUseCase.SubmitCommand(type, baseDate, userId, targetAgency);
+        return submitRegulatoryFilingUseCase.submit(command);
+    }
+
+    @GetMapping("/regulatory-filings/latest")
+    public ResponseEntity<RegulatoryFiling> findLatestRegulatoryFiling(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate) {
+        SubmitRegulatoryFilingUseCase.FindLatestQuery query =
+                new SubmitRegulatoryFilingUseCase.FindLatestQuery(type, baseDate);
+        return submitRegulatoryFilingUseCase.findLatest(query)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

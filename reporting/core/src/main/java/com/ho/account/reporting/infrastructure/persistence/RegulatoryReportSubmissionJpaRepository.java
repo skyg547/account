@@ -1,6 +1,7 @@
 package com.ho.account.reporting.infrastructure.persistence;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,4 +18,9 @@ interface RegulatoryReportSubmissionJpaRepository
     Integer findMaxVersion(
             @Param("statementType") String statementType,
             @Param("baseDate") LocalDateTime baseDate);
+
+    Optional<RegulatoryReportSubmissionJpaEntity> findTopByStatementTypeAndBaseDateAndStatusOrderBySubmissionVersionDesc(
+            String statementType,
+            LocalDateTime baseDate,
+            String status);
 }

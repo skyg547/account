@@ -65,6 +65,13 @@ flowchart LR
 - 라인 코드/주석 번호 기준으로 만기, 금리, 통화, 리스크 범주를 분류하고 금액과 전기 비교 금액을 함께 저장합니다.
 - 재생성 시 같은 보고서 종류와 기준일의 기존 마트를 교체 저장합니다.
 
+### 📌 감독보고 매핑 및 제출
+- `POST /api/v1/reporting/regulatory-filings/submit`
+- `GET /api/v1/reporting/regulatory-filings/latest`
+- 확정 제출본과 주석 마트를 기준으로 `RPT_REGULATORY_REPORT_MAPPING`의 SCD2 매핑을 적용해 감독보고 제출 패키지를 만듭니다.
+- 로컬 제출 게이트웨이는 접수 영수증을 반환하고, 제출 라인과 영수증은 `RPT_REGULATORY_FILING`에 저장합니다.
+- 기본 대상 기관은 `FSS`이며, 기본 BS/IS 감독보고 매핑 seed가 포함되어 있습니다.
+
 ---
 
 ## 3. 📊 데이터 모델 (Schema)
@@ -108,6 +115,22 @@ erDiagram
         String note_category "MATURITY/RATE/CURRENCY/RISK"
         BigDecimal current_amount "당기 금액"
     }
+
+    RPT_REGULATORY_REPORT_MAPPING {
+        Long id PK
+        String target_agency "제출 기관"
+        String report_code "감독보고 서식"
+        String field_code "감독보고 필드"
+        LocalDate valid_from "SCD2 시작"
+    }
+
+    RPT_REGULATORY_FILING {
+        Long id PK
+        String filing_id "제출 실행 ID"
+        String regulator_receipt_id "접수 영수증"
+        String field_code "제출 필드"
+        BigDecimal current_amount "제출 금액"
+    }
 ```
 
 ---
@@ -125,5 +148,6 @@ docker-compose up -d reporting
 - 현재 기본 구현은 `JpaReportLineMappingAdapter`와 `JpaReportSnapshotAdapter`가 `RPT_LINE_MAPPING`, `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL` 테이블을 사용합니다.
 - 감독보고 제출본은 `RPT_REGULATORY_SUBMISSION`에 기준일별 버전과 정정 사유를 저장합니다.
 - 주석 마트는 `RPT_DISCLOSURE_NOTE_MART`에 note 번호, 공시 범주, 만기/금리/통화/리스크 분류와 금액을 저장합니다.
-- Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블, `V62__reporting_disclosure_note_mart.sql`은 주석 마트 테이블을 생성합니다.
+- 감독보고 매핑과 제출 이력은 `RPT_REGULATORY_REPORT_MAPPING`, `RPT_REGULATORY_FILING`에 저장합니다.
+- Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블, `V62__reporting_disclosure_note_mart.sql`은 주석 마트 테이블, `V63__reporting_regulatory_filing.sql`은 감독보고 매핑/제출 테이블을 생성합니다.
 - 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다.

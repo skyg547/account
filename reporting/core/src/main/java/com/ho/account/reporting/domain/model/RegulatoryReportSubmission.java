@@ -87,6 +87,30 @@ public class RegulatoryReportSubmission {
                 validationMessages);
     }
 
+    public static RegulatoryReportSubmission restored(
+            String submissionId,
+            String statementId,
+            FinancialStatement.StatementType statementType,
+            LocalDateTime baseDate,
+            int version,
+            String submittedBy,
+            LocalDateTime submittedAt,
+            String correctionReason,
+            SubmissionStatus status,
+            List<String> validationMessages) {
+        return new RegulatoryReportSubmission(
+                submissionId,
+                statementId,
+                statementType,
+                baseDate,
+                version,
+                submittedBy,
+                submittedAt,
+                correctionReason,
+                status,
+                validationMessages);
+    }
+
     private static List<String> validateStatement(FinancialStatement statement) {
         List<String> messages = new ArrayList<>();
         if (statement.getStatus() != FinancialStatement.StatementStatus.FINAL) {

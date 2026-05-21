@@ -75,6 +75,29 @@
   - 운영 수준의 공시 분류 정책은 SCD2 매핑 테이블로 분리 필요.
   - 전표/원천 이벤트 단위 drill-through는 후속 구현 필요.
 
+## 2026-05-21 (Reporting 감독보고 매핑/제출)
+- 사용자 요청: "진행해".
+- 선확인:
+  - `git status --short --branch`: `main...origin/main`, clean.
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/todo.md` 확인.
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/process-flow.md`, `reporting/docs/schema.md`, `reporting/docs/beginner-guide.md` 확인.
+- 수정 내용:
+  - `SubmitRegulatoryFilingUseCase`, `RegulatoryFilingService` 추가.
+  - `RegulatoryReportMapping`, `RegulatoryFiling`, `RegulatoryFilingLine`, `RegulatoryFilingPackage`, `RegulatoryFilingReceipt` 도메인 모델 추가.
+  - READY 제출본, 주석 마트, SCD2 감독보고 매핑을 조합해 제출 패키지를 생성.
+  - `LocalRegulatoryFilingGatewayAdapter`로 로컬 접수 영수증 생성.
+  - `RPT_REGULATORY_REPORT_MAPPING`, `RPT_REGULATORY_FILING` Flyway 마이그레이션 및 기본 FSS BS/IS 매핑 seed 추가.
+  - JPA/인메모리 매핑 로더와 제출 이력 어댑터 추가.
+  - `POST /api/v1/reporting/regulatory-filings/submit`, `GET /api/v1/reporting/regulatory-filings/latest` API 추가.
+  - 서비스/API/JPA 테스트와 reporting 문서, `docs/todo.md`, 워크로그/Gemini 리뷰 프롬프트 갱신.
+- 실행 명령:
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`
+- 결과:
+  - Reporting core/api/batch 테스트 성공.
+- 남은 리스크:
+  - 실제 감독기관 전송 프로토콜, 인증, 반려 응답 수신은 후속 구현 필요.
+  - 운영 서식 전체 필드 매핑과 버전별 검증 규칙은 추가 보강 필요.
+
 ## 2026-05-20 (Governance 승인 기반 Auth 역할 반영)
 - 사용자 요청: "다음 작업 진행해줘".
 - 선확인:

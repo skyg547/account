@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.DisclosureNoteMartEntry.NoteCategory;
 import com.ho.account.reporting.domain.model.FinancialStatement;
+import com.ho.account.reporting.domain.model.RegulatoryFiling;
+import com.ho.account.reporting.domain.model.RegulatoryFilingLine;
+import com.ho.account.reporting.domain.model.RegulatoryReportMapping;
 import com.ho.account.reporting.domain.model.ReportLine;
 import com.ho.account.reporting.domain.model.ReportLineMapping;
 import java.math.BigDecimal;
@@ -39,6 +42,12 @@ class JpaReportPersistenceAdapterTest {
 
     @Autowired
     private JpaDisclosureNoteMartAdapter disclosureNoteMartAdapter;
+
+    @Autowired
+    private JpaRegulatoryReportMappingAdapter regulatoryReportMappingAdapter;
+
+    @Autowired
+    private JpaRegulatoryFilingAdapter regulatoryFilingAdapter;
 
     @Test
     void loadMappings_groupsEffectiveAccountRowsByReportLine() {
@@ -165,6 +174,37 @@ class JpaReportPersistenceAdapterTest {
         assertThat(loaded.getEntries().get(0).getCurrentAmount()).isEqualByComparingTo("1250000");
     }
 
+    @Test
+    void regulatoryReportMappingAdapter_loadsEffectiveMappingsFromSeed() {
+        List<RegulatoryReportMapping> mappings = regulatoryReportMappingAdapter.loadMappings(
+                FinancialStatement.StatementType.BALANCE_SHEET,
+                LocalDateTime.of(2026, 3, 31, 0, 0));
+
+        assertThat(mappings)
+                .extracting(RegulatoryReportMapping::fieldCode)
+                .contains("CASH_AND_CASH_EQUIVALENTS", "DEPOSIT_LIABILITIES");
+    }
+
+    @Test
+    void regulatoryFilingAdapter_savesAndLoadsLatestFiling() {
+        LocalDateTime baseDate = LocalDateTime.of(2026, 3, 31, 0, 0);
+        RegulatoryFiling first = regulatoryFiling("FILING-001", baseDate, "RECEIPT-001", "1000000");
+        RegulatoryFiling second = regulatoryFiling("FILING-002", baseDate, "RECEIPT-002", "1250000");
+
+        regulatoryFilingAdapter.save(first);
+        regulatoryFilingAdapter.save(second);
+
+        RegulatoryFiling loaded = regulatoryFilingAdapter.findLatest(
+                        FinancialStatement.StatementType.BALANCE_SHEET,
+                        baseDate)
+                .orElseThrow();
+
+        assertThat(loaded.getFilingId()).isEqualTo("FILING-002");
+        assertThat(loaded.getRegulatorReceiptId()).isEqualTo("RECEIPT-002");
+        assertThat(loaded.getLines()).hasSize(1);
+        assertThat(loaded.getLines().get(0).currentAmount()).isEqualByComparingTo("1250000");
+    }
+
     private static FinancialStatement finalizedStatement(
             String statementId,
             LocalDateTime baseDate,
@@ -184,6 +224,37 @@ class JpaReportPersistenceAdapterTest {
         return statement;
     }
 
+    private static RegulatoryFiling regulatoryFiling(
+            String filingId,
+            LocalDateTime baseDate,
+            String receiptId,
+            String currentAmount) {
+        return RegulatoryFiling.restored(
+                filingId,
+                "SUB-001",
+                FinancialStatement.StatementType.BALANCE_SHEET,
+                baseDate,
+                1,
+                "FSS",
+                "tester",
+                "FILING-001".equals(filingId)
+                        ? LocalDateTime.of(2026, 4, 1, 9, 0)
+                        : LocalDateTime.of(2026, 4, 1, 10, 0),
+                RegulatoryFiling.FilingStatus.ACCEPTED,
+                receiptId,
+                "Accepted",
+                List.of(new RegulatoryFilingLine(
+                        "FSS_BS_DISCLOSURE",
+                        "CASH_AND_CASH_EQUIVALENTS",
+                        "현금 및 현금성자산",
+                        "3",
+                        "ASSET_CASH",
+                        "Cash",
+                        new BigDecimal(currentAmount),
+                        new BigDecimal("800000"),
+                        10)));
+    }
+
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EnableJpaRepositories(basePackageClasses = ReportLineMappingJpaRepository.class)
@@ -192,13 +263,17 @@ class JpaReportPersistenceAdapterTest {
             ReportSnapshotHeaderJpaEntity.class,
             ReportSnapshotDetailJpaEntity.class,
             RegulatoryReportSubmissionJpaEntity.class,
-            DisclosureNoteMartJpaEntity.class
+            DisclosureNoteMartJpaEntity.class,
+            RegulatoryReportMappingJpaEntity.class,
+            RegulatoryFilingJpaEntity.class
     })
     @Import({
             JpaReportLineMappingAdapter.class,
             JpaReportSnapshotAdapter.class,
             JpaRegulatoryReportSubmissionAdapter.class,
-            JpaDisclosureNoteMartAdapter.class
+            JpaDisclosureNoteMartAdapter.class,
+            JpaRegulatoryReportMappingAdapter.class,
+            JpaRegulatoryFilingAdapter.class
     })
     static class JpaTestConfiguration {
     }

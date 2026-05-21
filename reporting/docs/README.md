@@ -61,3 +61,22 @@ X-User-ID: tester
 Response:
 - `martId`, `statementId`, `statementType`, `baseDate`, `generatedBy`, `generatedAt`
 - `entries[]`: `noteNumber`, `noteCategory`, `sourceLineCode`, `maturityBucket`, `rateType`, `currencyCode`, `riskCategory`, `currentAmount`, `previousAmount`
+
+## Regulatory Filing API
+
+- Submit endpoint: `POST /api/v1/reporting/regulatory-filings/submit`
+- Latest query endpoint: `GET /api/v1/reporting/regulatory-filings/latest`
+- Required query params: `type`, `baseDate`
+- Optional query param: `targetAgency` (`FSS` default)
+- Submit required header: `X-User-ID`
+
+Example submit request:
+
+```http
+POST /api/v1/reporting/regulatory-filings/submit?type=BALANCE_SHEET&baseDate=2026-03-31T00:00:00&targetAgency=FSS
+X-User-ID: tester
+```
+
+Response:
+- `filingId`, `submissionId`, `targetAgency`, `status`, `regulatorReceiptId`, `regulatorMessage`
+- `lines[]`: `reportCode`, `fieldCode`, `fieldLabel`, `sourceNoteNumber`, `sourceLineCode`, `currentAmount`, `previousAmount`

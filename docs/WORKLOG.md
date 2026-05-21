@@ -56,6 +56,23 @@
   - 현재 분류는 note 번호와 라인 코드/라벨 기반 기본 규칙이다. 운영 수준에서는 별도 SCD2 공시 분류 매핑 테이블로 정책화가 필요하다.
   - 공시 주석의 상세 원천 drill-through는 아직 보고 라인 코드 수준이며 전표/원천 이벤트까지의 상세 링크는 후속 작업이다.
 
+### 📅 2026-05-21 (Codex 구현)
+### [고도화] Reporting 감독보고 매핑/제출
+- **수정 범위**:
+  - Reporting Core: `SubmitRegulatoryFilingUseCase`와 `RegulatoryFilingService`를 추가해 READY 제출본과 주석 마트를 감독보고 제출 패키지로 변환.
+  - Reporting Domain: `RegulatoryReportMapping`, `RegulatoryFiling`, `RegulatoryFilingLine`, `RegulatoryFilingPackage`, `RegulatoryFilingReceipt` 모델 추가.
+  - Reporting Persistence: 감독보고 SCD2 매핑 로더, 제출 이력 JPA/인메모리 어댑터와 `RPT_REGULATORY_REPORT_MAPPING`, `RPT_REGULATORY_FILING` Flyway 마이그레이션 추가.
+  - Reporting Infrastructure: `LocalRegulatoryFilingGatewayAdapter`를 추가해 로컬 접수 영수증을 생성.
+  - Reporting API: `POST /api/v1/reporting/regulatory-filings/submit`, `GET /api/v1/reporting/regulatory-filings/latest` 엔드포인트 추가.
+  - `docs/todo.md`의 14.3 완료 표시.
+- **문서 갱신**:
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/process-flow.md`, `reporting/docs/schema.md`, `reporting/docs/beginner-guide.md`
+- **검증**:
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"` 성공.
+- **남은 리스크**:
+  - 현재 제출 게이트웨이는 로컬 접수 영수증 생성 어댑터이며, 실제 감독기관 전송 프로토콜/인증/반려 응답 처리는 후속 구현이 필요하다.
+  - 매핑 seed는 기본 BS/IS 일부 필드만 포함하며, 운영 서식 전체 필드와 버전별 검증 규칙은 추가 보강이 필요하다.
+
 ### 📅 2026-05-20 (Codex 구현)
 ### [수정] Governance 승인 기반 Auth 사용자 역할 반영 연결
 - **수정 범위**:

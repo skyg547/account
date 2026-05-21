@@ -69,4 +69,20 @@ class RegulatoryReportSubmissionJpaEntity {
         entity.validationMessages = String.join("\n", submission.getValidationMessages());
         return entity;
     }
+
+    RegulatoryReportSubmission toDomain() {
+        return RegulatoryReportSubmission.restored(
+                submissionId,
+                statementId,
+                com.ho.account.reporting.domain.model.FinancialStatement.StatementType.valueOf(statementType),
+                baseDate,
+                submissionVersion,
+                submittedBy,
+                submittedAt,
+                correctionReason,
+                RegulatoryReportSubmission.SubmissionStatus.valueOf(status),
+                validationMessages == null || validationMessages.isBlank()
+                        ? java.util.List.of()
+                        : java.util.Arrays.asList(validationMessages.split("\\n")));
+    }
 }

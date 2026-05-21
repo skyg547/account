@@ -1,5 +1,6 @@
 package com.ho.account.reporting.infrastructure.persistence;
 
+import com.ho.account.reporting.application.port.out.LoadRegulatoryReportSubmissionPort;
 import com.ho.account.reporting.application.port.out.StoreRegulatoryReportSubmissionPort;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
@@ -8,13 +9,15 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "account.reporting.persistence", name = "mode", havingValue = "memory")
-public class InMemoryRegulatoryReportSubmissionAdapter implements StoreRegulatoryReportSubmissionPort {
+public class InMemoryRegulatoryReportSubmissionAdapter
+        implements StoreRegulatoryReportSubmissionPort, LoadRegulatoryReportSubmissionPort {
 
     private final Map<SubmissionKey, List<RegulatoryReportSubmission>> submissions = new ConcurrentHashMap<>();
 
@@ -34,6 +37,15 @@ public class InMemoryRegulatoryReportSubmissionAdapter implements StoreRegulator
             next.add(submission);
             return List.copyOf(next);
         });
+    }
+
+    @Override
+    public Optional<RegulatoryReportSubmission> findLatestReady(
+            FinancialStatement.StatementType type,
+            LocalDateTime baseDate) {
+        return submissions.getOrDefault(new SubmissionKey(type, baseDate), List.of()).stream()
+                .filter(submission -> submission.getStatus() == RegulatoryReportSubmission.SubmissionStatus.READY)
+                .max(Comparator.comparingInt(RegulatoryReportSubmission::getVersion));
     }
 
     private record SubmissionKey(

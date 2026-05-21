@@ -14,9 +14,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ho.account.reporting.application.port.in.ExportStatementDocumentUseCase;
 import com.ho.account.reporting.application.port.in.GenerateStatementUseCase;
 import com.ho.account.reporting.application.port.in.DisclosureNoteMartUseCase;
+import com.ho.account.reporting.application.port.in.SubmitRegulatoryFilingUseCase;
 import com.ho.account.reporting.application.port.in.SubmitRegulatoryReportUseCase;
 import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.FinancialStatement;
+import com.ho.account.reporting.domain.model.RegulatoryFiling;
+import com.ho.account.reporting.domain.model.RegulatoryFilingLine;
+import com.ho.account.reporting.domain.model.RegulatoryFilingReceipt;
 import com.ho.account.reporting.domain.model.RegulatoryReportSubmission;
 import com.ho.account.reporting.domain.model.ReportLine;
 import java.math.BigDecimal;
@@ -48,6 +52,9 @@ class ReportingControllerTest {
     @Mock
     private DisclosureNoteMartUseCase disclosureNoteMartUseCase;
 
+    @Mock
+    private SubmitRegulatoryFilingUseCase submitRegulatoryFilingUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -56,7 +63,8 @@ class ReportingControllerTest {
                 generateStatementUseCase,
                 exportStatementDocumentUseCase,
                 submitRegulatoryReportUseCase,
-                disclosureNoteMartUseCase);
+                disclosureNoteMartUseCase,
+                submitRegulatoryFilingUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -225,6 +233,58 @@ class ReportingControllerTest {
                 .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
     }
 
+    @Test
+    void submitRegulatoryFiling_delegatesToUseCase() throws Exception {
+        RegulatoryFiling filing = regulatoryFiling();
+        when(submitRegulatoryFilingUseCase.submit(any())).thenReturn(filing);
+
+        mockMvc.perform(post("/api/v1/reporting/regulatory-filings/submit")
+                        .param("type", "BALANCE_SHEET")
+                        .param("baseDate", "2026-03-31T00:00:00")
+                        .param("targetAgency", "FSS")
+                        .header("X-User-ID", "tester"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filingId").value("FILING-001"))
+                .andExpect(jsonPath("$.submissionId").value("SUB-001"))
+                .andExpect(jsonPath("$.targetAgency").value("FSS"))
+                .andExpect(jsonPath("$.regulatorReceiptId").value("LOCAL-FSS-BALANCE_SHEET-20260331-V1"))
+                .andExpect(jsonPath("$.lines[0].fieldCode").value("CASH_AND_CASH_EQUIVALENTS"));
+
+        ArgumentCaptor<SubmitRegulatoryFilingUseCase.SubmitCommand> captor =
+                ArgumentCaptor.forClass(SubmitRegulatoryFilingUseCase.SubmitCommand.class);
+        verify(submitRegulatoryFilingUseCase).submit(captor.capture());
+
+        SubmitRegulatoryFilingUseCase.SubmitCommand command = captor.getValue();
+        Assertions.assertThat(command.type())
+                .isEqualTo(FinancialStatement.StatementType.BALANCE_SHEET);
+        Assertions.assertThat(command.baseDate())
+                .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
+        Assertions.assertThat(command.requesterId()).isEqualTo("tester");
+        Assertions.assertThat(command.targetAgency()).isEqualTo("FSS");
+    }
+
+    @Test
+    void findLatestRegulatoryFiling_returnsStoredFiling() throws Exception {
+        when(submitRegulatoryFilingUseCase.findLatest(any())).thenReturn(java.util.Optional.of(regulatoryFiling()));
+
+        mockMvc.perform(get("/api/v1/reporting/regulatory-filings/latest")
+                        .param("type", "BALANCE_SHEET")
+                        .param("baseDate", "2026-03-31T00:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filingId").value("FILING-001"))
+                .andExpect(jsonPath("$.lines[0].reportCode").value("FSS_BS_DISCLOSURE"));
+
+        ArgumentCaptor<SubmitRegulatoryFilingUseCase.FindLatestQuery> captor =
+                ArgumentCaptor.forClass(SubmitRegulatoryFilingUseCase.FindLatestQuery.class);
+        verify(submitRegulatoryFilingUseCase).findLatest(captor.capture());
+
+        SubmitRegulatoryFilingUseCase.FindLatestQuery query = captor.getValue();
+        Assertions.assertThat(query.type())
+                .isEqualTo(FinancialStatement.StatementType.BALANCE_SHEET);
+        Assertions.assertThat(query.baseDate())
+                .isEqualTo(LocalDateTime.of(2026, 3, 31, 0, 0));
+    }
+
     private FinancialStatement finalizedBalanceSheet(String statementId) {
         FinancialStatement statement = new FinancialStatement(
                 statementId,
@@ -239,5 +299,33 @@ class ReportingControllerTest {
                 1));
         statement.finalizeStatement();
         return statement;
+    }
+
+    private RegulatoryFiling regulatoryFiling() {
+        return RegulatoryFiling.restored(
+                "FILING-001",
+                "SUB-001",
+                FinancialStatement.StatementType.BALANCE_SHEET,
+                LocalDateTime.of(2026, 3, 31, 0, 0),
+                1,
+                "FSS",
+                "tester",
+                LocalDateTime.of(2026, 4, 1, 10, 0),
+                RegulatoryFiling.FilingStatus.ACCEPTED,
+                new RegulatoryFilingReceipt(
+                        "LOCAL-FSS-BALANCE_SHEET-20260331-V1",
+                        LocalDateTime.of(2026, 4, 1, 10, 0),
+                        "Accepted").receiptId(),
+                "Accepted",
+                java.util.List.of(new RegulatoryFilingLine(
+                        "FSS_BS_DISCLOSURE",
+                        "CASH_AND_CASH_EQUIVALENTS",
+                        "현금 및 현금성자산",
+                        "3",
+                        "ASSET_CASH",
+                        "Cash",
+                        new BigDecimal("850000000"),
+                        new BigDecimal("700000000"),
+                        10)));
     }
 }
