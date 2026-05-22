@@ -1,14 +1,35 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Filter, Download, Send, CreditCard, Landmark, Users } from 'lucide-react';
+import { masterDataService, BusinessPartnerDto } from '@/services/masterDataService';
 
 /**
  * [거래처 관리 화면]
  * 외부 비즈니스 파트너 데이터를 관리하며 일반 사용자의 등록 요청 기능을 포함합니다.
+ * 백엔드 Master Data API 연동 완료.
  */
 export default function PartnerPage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [partners, setPartners] = useState<BusinessPartnerDto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPartners = async () => {
+    setLoading(true);
+    try {
+      const data = await masterDataService.getBusinessPartners();
+      setPartners(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPartners();
+  }, []);
 
   return (
     <div className="flex flex-col gap-8">
@@ -56,55 +77,64 @@ export default function PartnerPage() {
 
       {/* 거래처 목록 그리드 */}
       <section className="bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden backdrop-blur-xl transition-all">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-slate-600 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
-                <th className="px-10 py-6">Partner Category</th>
-                <th className="px-6 py-6">Full Name / Code</th>
-                <th className="px-6 py-6">Tax Identifier</th>
-                <th className="px-6 py-6 font-mono">Status</th>
-                <th className="px-10 py-6 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.02]">
-              {[
-                { type: '매출처', name: '코드마스터(주)', id: '123-45-67890', owner: '이코드', status: 'ACTIVE' },
-                { type: '매입처', name: '(주)재무기술', id: '220-81-12345', owner: '김재무', status: 'ACTIVE' },
-                { type: '금융', name: '신한은행(강남)', id: '110-22-33333', owner: '은행장', status: 'ACTIVE' },
-                { type: '매출처', name: '요청중 거래처', id: 'PENDING', owner: '나요청', status: 'PENDING' },
-              ].map((p, idx) => (
-                <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-10 py-8">
-                    <span className={`text-[10px] font-black px-3.5 py-1.5 rounded-xl border ${
-                      p.type === '매출처' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      p.type === '매입처' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    }`}>
-                      {p.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-8">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base font-black text-white tracking-tight">{p.name}</span>
-                      <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{p.owner} 대표</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-8 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.id}</td>
-                  <td className="px-6 py-8">
-                    <div className={`flex items-center gap-2 font-black ${p.status === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
-                      <span className="text-[10px] uppercase tracking-widest">{p.status}</span>
-                    </div>
-                  </td>
-                  <td className="px-10 py-8 text-right">
-                    <button className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-all hover:bg-white/5 px-4 py-2 rounded-xl border border-transparent hover:border-white/10">Details</button>
-                  </td>
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <span className="text-white">데이터를 불러오는 중입니다...</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-slate-600 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                  <th className="px-10 py-6">Partner Category</th>
+                  <th className="px-6 py-6">Full Name / Code</th>
+                  <th className="px-6 py-6">Tax Identifier</th>
+                  <th className="px-6 py-6 font-mono">Status</th>
+                  <th className="px-10 py-6 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/[0.02]">
+                {partners.length > 0 ? (
+                  partners.map((p, idx) => (
+                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-10 py-8">
+                        <span className={`text-[10px] font-black px-3.5 py-1.5 rounded-xl border ${
+                          p.type === 'CORPORATE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          p.type === 'FINANCIAL' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}>
+                          {p.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-8">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-base font-black text-white tracking-tight">{p.name}</span>
+                          <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{p.code}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-8 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.taxRegistrationNumber || p.registrationNumber || '-'}</td>
+                      <td className="px-6 py-8">
+                        <div className={`flex items-center gap-2 font-black ${p.status === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+                          <span className="text-[10px] uppercase tracking-widest">{p.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 text-right">
+                        <button className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-all hover:bg-white/5 px-4 py-2 rounded-xl border border-transparent hover:border-white/10">Details</button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-slate-500">
+                      조회된 거래처가 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* [MODAL] Request for New Partner */}

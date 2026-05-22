@@ -1,20 +1,18 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   Search, 
   ChevronRight, 
   ChevronDown, 
-  FileText, 
   CheckCircle2, 
   Clock, 
   AlertCircle,
   Layers,
-  Edit2,
-  Trash2,
   Send
 } from 'lucide-react';
+import { masterDataService, AccountSubjectDto } from '@/services/masterDataService';
 
 interface AccountNode {
   id: string;
@@ -24,30 +22,107 @@ interface AccountNode {
   children?: AccountNode[];
 }
 
-// Mock 데이터: 계정 과목 트리
-const initialTreeData: AccountNode[] = [
-  { id: '1000', name: '자산', type: 'GROUP', children: [
-    { id: '1100', name: '유동자산', type: 'GROUP', children: [
-      { id: '1101', name: '현금/예금', type: 'SUBJECT', status: 'ACTIVE' },
-      { id: '1102', name: '매출채권', type: 'SUBJECT', status: 'ACTIVE' },
-    ]},
-    { id: '1200', name: '비유동자산', type: 'GROUP', children: [
-      { id: '1201', name: '기계장치', type: 'SUBJECT', status: 'ACTIVE' },
-    ]},
-  ]},
-  { id: '2000', name: '부채', type: 'GROUP', children: [] },
-];
+function buildAccountTree(subjects: AccountSubjectDto[]): AccountNode[] {
+  const nodeMap = new Map<string, AccountNode>();
+  const rootNodes: AccountNode[] = [];
+
+  subjects.forEach(subject => {
+    nodeMap.set(subject.code, {
+      id: subject.code,
+      name: subject.name,
+      type: subject.category,
+      status: subject.status,
+      children: []
+    });
+  });
+
+  subjects.forEach(subject => {
+    const node = nodeMap.get(subject.code)!;
+    if (subject.parentCode && nodeMap.has(subject.parentCode)) {
+      nodeMap.get(subject.parentCode)!.children!.push(node);
+    } else {
+      rootNodes.push(node);
+    }
+  });
+
+  return rootNodes;
+}
 
 /**
  * [계정 과목 관리 화면 - 리뉴얼 및 승인 요청 기능 추가]
  * 계층 구조 시각화와 일반 사용자의 '신규 요청' 기능을 통합합니다.
+ * 백엔드 Master Data API 연동 완료.
  */
 export default function AccountSubjectPage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState(['1000', '1100']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [treeData, setTreeData] = useState<AccountNode[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const data = await masterDataService.getAccountSubjects();
+      const tree = buildAccountTree(data);
+      setTreeData(tree);
+      // 최상위 노드 자동 확장 (원한다면 로직 변경 가능)
+      if (tree.length > 0) {
+        setExpandedGroups(tree.map(n => n.id));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, []);
 
   const toggleGroup = (id: string) => {
     setExpandedGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const renderNode = (node: AccountNode, depth: number = 0) => {
+    const isExpanded = expandedGroups.includes(node.id);
+    const hasChildren = node.children && node.children.length > 0;
+
+    return (
+      <div key={node.id} className="space-y-4">
+        <div 
+          className={`flex items-center gap-4 group/item ${node.type === 'GROUP' ? 'cursor-pointer' : ''} ${depth > 0 ? 'ml-12' : ''}`} 
+          onClick={() => node.type === 'GROUP' && toggleGroup(node.id)}
+        >
+          {node.type === 'GROUP' ? (
+            <div className="p-1 rounded-lg hover:bg-white/5 text-slate-500">
+              {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+            </div>
+          ) : (
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mx-2" />
+          )}
+          
+          <span className="text-sm font-black text-slate-500 tracking-widest uppercase">{node.id}</span>
+          <span className={`text-lg font-black tracking-tight ${node.type === 'GROUP' ? 'text-slate-300' : 'text-white'}`}>{node.name}</span>
+          
+          {node.status === 'ACTIVE' && node.type === 'SUBJECT' && (
+            <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 ml-2">ACTIVE</span>
+          )}
+          {node.status === 'INACTIVE' && (
+            <span className="text-[10px] font-black text-rose-500 bg-rose-500/5 px-2 py-0.5 rounded border border-rose-500/10 ml-2">INACTIVE</span>
+          )}
+
+          {node.type === 'GROUP' && <div className="h-[1px] flex-1 bg-white/5 mx-4" />}
+        </div>
+
+        {isExpanded && hasChildren && (
+          <div className="animate-in slide-in-from-top-2 duration-300">
+            {node.children!.map(child => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -98,63 +173,15 @@ export default function AccountSubjectPage() {
            </div>
 
            <div className="space-y-6">
-              {initialTreeData.map((group) => (
-                <div key={group.id} className="space-y-4">
-                   <div className="flex items-center gap-4 group/item cursor-pointer" onClick={() => toggleGroup(group.id)}>
-                      <div className="p-1 rounded-lg hover:bg-white/5 text-slate-500">
-                         {expandedGroups.includes(group.id) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                      </div>
-                      <span className="text-sm font-black text-slate-500 tracking-widest uppercase">{group.id}</span>
-                      <span className="text-lg font-black text-white tracking-tight">{group.name}</span>
-                      <div className="h-[1px] flex-1 bg-white/5 mx-4" />
-                   </div>
-
-                   {expandedGroups.includes(group.id) && (
-                     <div className="ml-12 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                        {group.children?.map((child) => (
-                          <div key={child.id} className="space-y-4">
-                             <div className="flex items-center gap-4 group/sub" onClick={() => child.type === 'GROUP' && toggleGroup(child.id)}>
-                                {child.type === 'GROUP' ? (
-                                  <div className="p-1 rounded-lg hover:bg-white/5 text-slate-600">
-                                     {expandedGroups.includes(child.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                                  </div>
-                                ) : (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mx-2" />
-                                )}
-                                <span className="text-xs font-bold text-slate-600 font-mono tracking-tighter">{child.id}</span>
-                                <span className={`text-base font-bold ${child.type === 'GROUP' ? 'text-slate-300' : 'text-white'}`}>{child.name}</span>
-                                {child.status === 'ACTIVE' && (
-                                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 ml-2">ACTIVE</span>
-                                )}
-                             </div>
-                             
-                             {child.type === 'GROUP' && expandedGroups.includes(child.id) && (
-                               <div className="ml-10 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
-                                  {child.children?.map((sub) => (
-                                    <div key={sub.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between group/row hover:border-white/20 transition-all">
-                                       <div className="flex items-center gap-4">
-                                          <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500">
-                                             <FileText size={16} />
-                                          </div>
-                                          <div className="flex flex-col">
-                                             <span className="text-sm font-black text-white">{sub.name}</span>
-                                             <span className="text-[10px] text-slate-600 font-mono italic">{sub.id}</span>
-                                          </div>
-                                       </div>
-                                       <div className="flex items-center gap-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                          <button className="p-2 text-slate-500 hover:text-white transition-colors"><Edit2 size={14} /></button>
-                                          <button className="p-2 text-slate-500 hover:text-white transition-colors"><Trash2 size={14} /></button>
-                                       </div>
-                                    </div>
-                                  ))}
-                               </div>
-                             )}
-                          </div>
-                        ))}
-                     </div>
-                   )}
+              {loading ? (
+                <div className="flex justify-center items-center py-10">
+                  <span className="text-white">데이터를 불러오는 중입니다...</span>
                 </div>
-              ))}
+              ) : treeData.length > 0 ? (
+                treeData.map(node => renderNode(node))
+              ) : (
+                <div className="text-center py-10 text-slate-500">조회된 계정과목이 없습니다.</div>
+              )}
            </div>
         </div>
 

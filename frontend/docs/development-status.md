@@ -56,8 +56,8 @@
 ## 5. 기준 정보 (MASTER)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
 | :--- | :--- | :---: | :---: | :--- |
-| 계정 과목 관리 | `/master/account` | 🎨 | [ ] | 트리형 계정 체계 관리 |
-| 거래처 관리 | `/master/partner` | 🎨 | [ ] | 거래처 마스터 그리드 |
+| 계정 과목 관리 | `/master/account` | ✅ | [X] | 백엔드 API `/api/basic/account-subjects` 연동 완료 |
+| 거래처 관리 | `/master/partner` | ✅ | [X] | 백엔드 API `/api/basic/business-partners` 연동 완료 |
 | 기준 정보 승인 | `/master/approval` | 🎨 | [ ] | 승인 대기함 및 Diff 뷰어 |
 
 ## 6. 시스템 관리 (ADMIN)
