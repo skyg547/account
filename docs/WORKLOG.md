@@ -3,6 +3,20 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 9차)
+### [프론트엔드]
+- **Frontend (Next.js) 재무제표(BS/IS) 화면 API 연동**:
+  - `frontend/src/services/reportingService.ts`에서 Mock 데이터(`sampleStatement`)를 제거하고 에러 발생 시 UI로 예외를 던지도록 엄격한 API 연동(Strict Integration) 체계 도입.
+  - 백엔드의 `/api/v1/reporting/generate` 엔드포인트와 풀스택 연동.
+
+### 📅 2026-05-21 (Gemini YOLO 모드 - 10차)
+### [프론트엔드]
+- **Frontend (Next.js) 기준정보(마스터) 관리 화면 API 연동**:
+  - `frontend/src/services/masterDataService.ts` 생성: 백엔드의 `/api/basic/account-subjects` 및 `/api/basic/business-partners` 연동.
+  - `frontend/src/app/master/account/page.tsx` 리팩토링: 하드코딩된 트리 데이터를 제거하고, `masterDataService`를 통해 받아온 평면 배열을 재귀적으로 `buildAccountTree`하여 렌더링하도록 수정.
+  - `frontend/src/app/master/partner/page.tsx` 리팩토링: 하드코딩된 거래처 그리드를 제거하고, 실제 DB의 데이터를 받아 렌더링.
+  - 빌드(typing/linting) 통과 확인 및 Git 동기화.
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 7차)
 ### [프론트엔드]
 - **Frontend (Next.js) UI 연동 및 개발 진입**:
