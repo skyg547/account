@@ -134,7 +134,7 @@ public class ReconciliationService {
      * @param id reconciliation unit id
      */
     public void deleteReconciliationUnit(Long id) {
-        // TODO: define cleanup policy for related rules, runs, and differences.
+        // @todo DDD consistency: define cleanup/archive policy for related rules, runs, and differences before allowing unit deletion.
         reconciliationUnitRepository.deleteById(id);
     }
 
@@ -255,7 +255,7 @@ public class ReconciliationService {
      * @param id reason code id
      */
     public void deleteDifferenceReasonCode(Long id) {
-        // TODO: define cleanup policy for differences that reference this reason code.
+        // @todo DDD consistency: prevent deleting reason codes referenced by historical differences, or introduce SCD2/inactive versioning.
         differenceReasonCodeRepository.deleteById(id);
     }
 
@@ -356,6 +356,7 @@ public class ReconciliationService {
         run.setReconciliationDate(reconciliationDate);
         run.setRunStartTime(LocalDateTime.now());
         run.setStatus(ReconciliationRunStatus.RUNNING);
+        // @todo Audit consistency: pass the real scheduler/user actor into the use case instead of hardcoding SYSTEM.
         run.setRunBy("SYSTEM");
         run = reconciliationRunRepository.save(run);
 
@@ -438,6 +439,7 @@ public class ReconciliationService {
     }
 
     private ReconciliationSnapshot buildSourceSnapshot(ReconciliationUnit reconciliationUnit) {
+        // @todo Hexagonal boundary: sourceAmount/sourceCount in criteriaJson is a skeleton adapter; load real source snapshots through an outbound port.
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         BigDecimal amount = readDecimal(root, "sourceAmount");
         int count = readInt(root, "sourceCount");
@@ -445,6 +447,7 @@ public class ReconciliationService {
     }
 
     private ReconciliationSnapshot buildTargetSnapshot(LocalDate reconciliationDate) {
+        // @todo Reconciliation policy: target snapshot currently aggregates DEBIT only and relies on repository status semantics; align account/currency/status filters per unit.
         JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregate(
                 reconciliationDate,
                 reconciliationDate,
@@ -525,6 +528,7 @@ public class ReconciliationService {
      */
     private Long createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
                                               ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes, String createdBy) {
+        // @todo Accounting policy: currency, exchange rate, idempotency key, and adjustment reason should come from the reconciliation unit/policy.
         JournalEntryCommand command = new JournalEntryCommand(
                 LocalDate.now(),
                 accountingDate,
@@ -563,6 +567,7 @@ public class ReconciliationService {
     }
 
     private DifferenceReasonCode createDefaultReasonCode() {
+        // @todo Master-data consistency: seed and manage reason codes as reference data instead of creating GENERIC_MISMATCH during runtime.
         DifferenceReasonCode defaultReason = new DifferenceReasonCode();
         defaultReason.setCode("GENERIC_MISMATCH");
         defaultReason.setName("Generic Mismatch");

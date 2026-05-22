@@ -166,6 +166,7 @@ public class JournalRuleEngine {
         entry.setAccountingDate(accountingDate);
         entry.setStatus(JournalEntryStatus.DRAFT);
         entry.setDescription(resolveEntryDescription(rule, eventData));
+        // @todo Audit consistency: propagate requester/approver from eventData or security context instead of hardcoding SYSTEM.
         entry.setCreatedBy("SYSTEM");
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType(firstNonBlankValue(eventData, "lineageSourceType").orElse(rule.getRuleCode()));
@@ -195,6 +196,7 @@ public class JournalRuleEngine {
             detail.setAmount(amount);
             detail.setBaseAmount(amount);
             detail.setDetailDescription(resolveLineDescription(ruleDetail, entry, eventData));
+            // @todo Audit consistency: journal lines should inherit the same actor as the entry, not a separate hardcoded SYSTEM value.
             detail.setAuditUser("SYSTEM");
 
             String departmentCode = resolveStringExpression(ruleDetail.getDepartmentCodeExpression(), eventData, false);
@@ -214,6 +216,7 @@ public class JournalRuleEngine {
     }
 
     private String resolveCurrencyCode(Map<String, Object> eventData) {
+        // @todo Master-data consistency: resolve default currency from company/accounting policy instead of forcing KRW.
         return firstNonBlankValue(eventData, "currencyCode", "currency").orElse("KRW");
     }
 
@@ -338,6 +341,7 @@ public class JournalRuleEngine {
             return value;
         }
 
+        // @todo Rule DSL hardening: return a typed missing-value result instead of null so optional dimensions and invalid expressions are distinguishable.
         if (normalizedReference.startsWith("transaction.")) {
             value = lookupValue(eventData, normalizedReference.substring("transaction.".length()));
             if (value != null) {

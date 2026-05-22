@@ -60,6 +60,7 @@ public class PurchaseService implements PurchaseUseCase {
             invoice.setStatus(PurchaseInvoiceStatus.RECEIVED);
         }
         if (invoice.getCreatedBy() == null) {
+            // @todo Audit consistency: default actor must come from request/security context instead of SYSTEM.
             invoice.setCreatedBy("SYSTEM");
         }
 
@@ -107,6 +108,7 @@ public class PurchaseService implements PurchaseUseCase {
     }
 
     private void postPurchaseJournal(PurchaseInvoice invoice, String vendorName) {
+        // @todo Accounting policy: replace hardcoded AP/expense/VAT accounts with product/vendor/tax profile mapping or JournalRuleEngine.
         requireAccount("21100", "Accounts Payable account missing");
         requireAccount("50100", "Expense account missing");
         requireAccount("13500", "VAT account missing");

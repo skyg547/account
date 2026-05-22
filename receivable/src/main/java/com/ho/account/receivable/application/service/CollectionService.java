@@ -64,6 +64,7 @@ public class CollectionService implements CollectionUseCase {
             return;
         }
 
+        // @todo Matching policy: exact amount-only matching ignores reference number, virtual account, due-date tolerance, and duplicate candidates.
         // 단순 자동 매칭 로직 (참조번호 기반)
         List<Receivable> openReceivables = receivablePersistencePort.findByCustomerCodeAndStatus(
                 collection.getCustomerCode(), ReceivableStatus.OPEN);
@@ -108,6 +109,7 @@ public class CollectionService implements CollectionUseCase {
             collection.markAsMatched();
         } else {
             collection.markAsPartialMatched();
+            // @todo Open-item consistency: persist residual collection/open receivable split explicitly instead of leaving partial matching implied.
             // 부분 매칭 시 잔액 처리 로직 (생략 가능 또는 별도 Collection 생성)
         }
 
@@ -132,6 +134,7 @@ public class CollectionService implements CollectionUseCase {
     }
 
     private void postCollectionRecognitionJournal(Collection collection, BusinessPartnerRef customer) {
+        // @todo Accounting policy: replace hardcoded cash/clearing accounts with bank clearing policy or JournalRuleEngine mapping.
         requireAccount("10100", "Cash account missing");
         requireAccount("21100", "AR Clearing account missing");
 
@@ -150,6 +153,7 @@ public class CollectionService implements CollectionUseCase {
     }
 
     private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount, BusinessPartnerRef customer) {
+        // @todo Accounting policy: replace hardcoded clearing/AR accounts with configured receivable clearing policy.
         requireAccount("21100", "AR Clearing account missing");
         requireAccount("11100", "Accounts Receivable account missing");
 

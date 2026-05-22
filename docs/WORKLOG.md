@@ -3,6 +3,14 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 7차)
+### [프론트엔드]
+- **Frontend (Next.js) UI 연동 및 개발 진입**:
+  - `frontend/src/services/closingService.ts` 신규 생성. 결산 태스크 조회 및 '외화 평가(FX)', '기대신용손실(ECL)' 배치 재실행(Retry Batch) API 연동 로직 추가.
+  - `frontend/src/app/closing/page.tsx` 결산 관리 화면 수정. 하드코딩된 Mock 데이터를 `closingService`를 통해 API로 연동하도록 변경 (`useEffect` 사용).
+  - 결산 관리 화면 내 "RETRY BATCH" 버튼 클릭 시 실제로 `runValuationBatch` 및 `runProvisionBatch` API를 호출하여 배치를 재가동하도록 `handleRetryBatch` 로직 연동 완료.
+  - `frontend/docs/development-status.md`에 결산 관리(Closing) 화면 API 연동 상태 업데이트(`✅ [X]`).
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 6차)
 ### [백엔드]
 - **결산(Closing) 모듈 대손충당금(ECL) 및 결산조정 배치 구현**:

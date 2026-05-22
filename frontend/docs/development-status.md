@@ -38,6 +38,7 @@
 | 리스 회계 | `/finance/lease` | ✅ | [X] | **[NEW]** IFRS 16 리스 등록 및 재측정 |
 | 자션/리스 결산 | `/finance/assets/closing` | ✅ | [X] | **[NEW]** 월말 상각 및 결산 실행 |
 | 연결 회계 기초 | `/finance/consolidation` | 🎨 | [ ] | **[NEW]** 연결 정산표 기초 |
+| 결산 관리 | `/closing` | ✅ | [X] | **[NEW]** 외화 평가 및 대손충당금(ECL) 배치 실행 API 연동 완료 |
 
 ## 4. 은행 특화 업무 (BANKING)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |

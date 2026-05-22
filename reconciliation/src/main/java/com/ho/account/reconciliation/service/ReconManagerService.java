@@ -57,6 +57,7 @@ public class ReconManagerService {
      * 특정 대사 단위에 대해 4단계 대사를 수행합니다.
      */
     public ReconciliationResult performDeepReconciliation(String unitId, LocalDate reconDate, String runBy) {
+        // @todo Domain model boundary: this advanced ReconUnitDefinition/ReconciliationResult flow coexists with ReconciliationUnit/ReconciliationRun; define one aggregate lifecycle.
         ReconUnitDefinition unit = unitRepository.findById(unitId)
                 .orElseThrow(() -> new IllegalArgumentException("Unit not found"));
 
@@ -128,6 +129,7 @@ public class ReconManagerService {
         v.setDescription(desc);
         v.setAmount(amt);
         v.setStatus(VarianceStatus.OPEN);
+        // @todo SLA policy: default SLA days must come from reconciliation policy/master data, not a hidden service-level fallback.
         int slaDays = unit.getSlaDays() == null ? 3 : unit.getSlaDays();
         v.setSlaDueDate(LocalDate.now().plusDays(slaDays));
         varianceRepository.save(v);
@@ -143,6 +145,7 @@ public class ReconManagerService {
                 unit.getLegalEntityCode()
         ));
         if (snapshot == null) {
+            // @todo Integration consistency: distinguish "no source rows" from adapter failure; returning zero can hide broken upstream feeds.
             return new StageSnapshot(0L, BigDecimal.ZERO);
         }
         return new StageSnapshot(snapshot.count(), safe(snapshot.amount()));
@@ -153,6 +156,7 @@ public class ReconManagerService {
         long count = 0L;
         String accountCode = readText(parseMatchingRules(unit), "journalAccountCode");
 
+        // @todo High performance: this loads journal summaries/details through application loops; push filtered aggregation to an outbound query port for 100M+ rows.
         for (var summary : journalQueryPort.getJournalSummaries(date, date)) {
             if (summary.getId() == null) {
                 continue;
@@ -210,6 +214,7 @@ public class ReconManagerService {
     }
 
     private JsonNode parseMatchingRules(ReconUnitDefinition unit) {
+        // @todo DDD hardening: replace untyped matchingRulesJson keys with a validated policy object so account/currency/basis errors fail early.
         String matchingRulesJson = unit.getMatchingRulesJson();
         if (matchingRulesJson == null || matchingRulesJson.isBlank()) {
             return objectMapper.createObjectNode();

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CalendarDays, 
   FileText, 
@@ -18,48 +18,69 @@ import {
   User
 } from 'lucide-react';
 import Link from 'next/link';
+import { closingService, ClosingTaskDto } from '@/services/closingService';
 
 /**
  * [결산 관리 화면 리팩토링]
  * 백엔드의 ClosingTaskStatus 및 Category 체계를 반영하여 고도화된 UI를 제공합니다.
  */
 
-// 백엔드 엔티티 구조를 반영한 인터페이스
-interface ClosingTask {
-  id: number;
-  name: string;
-  category: 'PRE_CLOSING' | 'CLOSING_ENTRY' | 'POST_CLOSING' | 'REPORTING';
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
-  assignedTo: string;
-  dueDate: string;
-  isMandatory: boolean;
-  errorMessage?: string;
-}
-
-const MOCK_TASKS: ClosingTask[] = [
-  { id: 1, name: '전표 마감 및 대조', category: 'PRE_CLOSING', status: 'COMPLETED', assignedTo: '회계팀', dueDate: '2026-04-20', isMandatory: true },
-  { id: 2, name: '은행 잔액 대조 (Reconciliation)', category: 'PRE_CLOSING', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-21', isMandatory: true },
-  { id: 3, name: '외화 환평가 실행', category: 'CLOSING_ENTRY', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-22', isMandatory: true },
-  { id: 4, name: '감가상각비 계상', category: 'CLOSING_ENTRY', status: 'IN_PROGRESS', assignedTo: '고정자산팀', dueDate: '2026-04-23', isMandatory: true },
-  { id: 5, name: '결산 분개 자동 생성', category: 'CLOSING_ENTRY', status: 'FAILED', assignedTo: '시스템', dueDate: '2026-04-23', isMandatory: true, errorMessage: '매출채권 모듈 응답 지연으로 인한 배치 중단' },
-  { id: 6, name: '이익잉여금 처분 계산', category: 'POST_CLOSING', status: 'PENDING', assignedTo: '재무기획팀', dueDate: '2026-04-24', isMandatory: true },
-  { id: 7, name: '표준 재무제표 확정', category: 'REPORTING', status: 'PENDING', assignedTo: 'CFO', dueDate: '2026-04-25', isMandatory: true },
-];
-
 export default function ClosingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [tasks, setTasks] = useState<ClosingTaskDto[]>([]);
 
-  const handleRefresh = () => {
+  const fetchTasks = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      // 1은 하드코딩된 예시 캘린더 ID
+      const fetchedTasks = await closingService.getTasks(1);
+      setTasks(fetchedTasks);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const handleRetryBatch = async (task: ClosingTaskDto) => {
+    let success = false;
+    if (task.name.includes('ECL')) {
+      success = await closingService.runProvisionBatch({
+        fiscalPeriodId: 1,
+        provisionType: 'ECL',
+        runBy: 'frontend-admin'
+      });
+    } else if (task.name.includes('FX')) {
+      success = await closingService.runValuationBatch({
+        fiscalPeriodId: 1,
+        valuationType: 'FX_RATE',
+        runBy: 'frontend-admin'
+      });
+    } else {
+      alert('현재 지원되지 않는 배치 재실행입니다.');
+      return;
+    }
+
+    if (success) {
+      alert('배치 실행 요청이 성공적으로 전송되었습니다.');
+      fetchTasks();
+    } else {
+      alert('배치 실행 요청에 실패했습니다.');
+    }
   };
 
   const filteredTasks = selectedCategory === 'ALL' 
-    ? MOCK_TASKS 
-    : MOCK_TASKS.filter(t => t.category === selectedCategory);
+    ? tasks 
+    : tasks.filter(t => t.category === selectedCategory);
 
-  const progress = Math.round((MOCK_TASKS.filter(t => t.status === 'COMPLETED').length / MOCK_TASKS.length) * 100);
+  const progress = tasks.length > 0 
+    ? Math.round((tasks.filter(t => t.status === 'COMPLETED').length / tasks.length) * 100)
+    : 0;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -95,7 +116,7 @@ export default function ClosingPage() {
               <div className="flex items-center gap-4">
                  <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Overall Progress</h3>
                  <button 
-                  onClick={handleRefresh}
+                  onClick={fetchTasks}
                   className={`p-2 rounded-full hover:bg-white/5 transition-all ${isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-600'}`}
                  >
                     <RefreshCcw size={16} />
@@ -110,10 +131,10 @@ export default function ClosingPage() {
 
            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Total Tasks', value: MOCK_TASKS.length, color: 'text-white' },
-                { label: 'Completed', value: MOCK_TASKS.filter(t => t.status === 'COMPLETED').length, color: 'text-emerald-500' },
-                { label: 'In Progress', value: MOCK_TASKS.filter(t => t.status === 'IN_PROGRESS').length, color: 'text-blue-500' },
-                { label: 'Failed', value: MOCK_TASKS.filter(t => t.status === 'FAILED').length, color: 'text-rose-500' },
+                { label: 'Total Tasks', value: tasks.length, color: 'text-white' },
+                { label: 'Completed', value: tasks.filter(t => t.status === 'COMPLETED').length, color: 'text-emerald-500' },
+                { label: 'In Progress', value: tasks.filter(t => t.status === 'IN_PROGRESS').length, color: 'text-blue-500' },
+                { label: 'Failed', value: tasks.filter(t => t.status === 'FAILED').length, color: 'text-rose-500' },
               ].map((stat, i) => (
                 <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl">
                    <p className="text-[10px] font-black text-slate-500 uppercase mb-1">{stat.label}</p>
@@ -129,13 +150,13 @@ export default function ClosingPage() {
               Critical Alerts
            </h3>
            <div className="space-y-4">
-              {MOCK_TASKS.filter(t => t.status === 'FAILED').map(task => (
+              {tasks.filter(t => t.status === 'FAILED').map(task => (
                 <div key={task.id} className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
                    <p className="text-xs font-black text-rose-500 uppercase">{task.name}</p>
-                   <p className="text-[10px] text-rose-200/60 leading-relaxed font-medium">{task.errorMessage}</p>
+                   <p className="text-[10px] text-rose-200/60 leading-relaxed font-medium">{task.errorMessage || '원인 불명의 오류가 발생했습니다.'}</p>
                 </div>
               ))}
-              {MOCK_TASKS.filter(t => t.status === 'FAILED').length === 0 && (
+              {tasks.filter(t => t.status === 'FAILED').length === 0 && (
                 <p className="text-xs text-slate-600 font-bold italic">No critical issues found.</p>
               )}
            </div>
@@ -197,7 +218,10 @@ export default function ClosingPage() {
 
                 <div className="flex items-center gap-4">
                    {task.status === 'FAILED' && (
-                     <button className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 text-[10px] font-black rounded-xl border border-rose-500/20 transition-all">
+                     <button 
+                        onClick={() => handleRetryBatch(task)}
+                        className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 text-[10px] font-black rounded-xl border border-rose-500/20 transition-all"
+                     >
                         RETRY BATCH
                      </button>
                    )}

@@ -92,6 +92,7 @@ public class SalesService implements SalesUseCase {
     }
 
     private void postSalesJournal(SalesInvoice invoice, BusinessPartnerRef customer) {
+        // @todo Accounting policy: resolve AR/revenue/VAT accounts from product/customer/tax profile or JournalRuleEngine instead of fixed codes.
         requireAccount("11100", "Accounts Receivable account missing");
         requireAccount("40100", "Sales Revenue account missing");
         requireAccount("22100", "VAT Payable account missing");

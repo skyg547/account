@@ -91,11 +91,13 @@ public class PaymentService implements PaymentUseCase {
             throw new IllegalStateException("Payment cannot be executed in current status: " + payment.getStatus());
         }
 
+        // @todo Integration: replace mock-success payment execution with outbound bank/payment gateway port, idempotency key, retry, and failure-state handling.
         // 실제 지급 실행 (Mock 성공)
         payment.markAsCompleted(bankAccount);
         Payment completedPayment = paymentPersistencePort.save(payment);
 
         // 채무 잔액 차감 (ID 기반 조회 및 DDD 로직 호출)
+        // @todo Open-item consistency: Payment should carry payableId/open-item key from the payment run; vendor+amount matching can settle the wrong payable.
         Payable payable = payablePersistencePort.findByVendorCodeAndOutstandingAmountGreaterThan(
                         payment.getVendorCode(), BigDecimal.ZERO)
                 .stream()
@@ -151,6 +153,7 @@ public class PaymentService implements PaymentUseCase {
     }
 
     private void postPaymentJournal(Payment payment) {
+        // @todo Accounting policy: replace hardcoded cash/AP accounts with bank account/payment method/account mapping policy.
         requireAccount("21100", "AP account missing");
         requireAccount("10100", "Cash account missing");
 
@@ -173,6 +176,7 @@ public class PaymentService implements PaymentUseCase {
     }
 
     private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
+        // @todo Accounting policy: replace hardcoded advance/cash accounts with vendor advance policy and bank account mapping.
         requireAccount("13100", "Advance account missing");
         requireAccount("10100", "Cash account missing");
 
@@ -191,6 +195,7 @@ public class PaymentService implements PaymentUseCase {
     }
 
     private void postOffsetJournal(Payable payable, BigDecimal amount) {
+        // @todo Accounting policy: replace hardcoded AP/advance offset accounts with configured clearing policy.
         requireAccount("21100", "AP account missing");
         requireAccount("13100", "Advance account missing");
 

@@ -18,6 +18,8 @@ import java.util.List;
 @Repository
 public interface JournalDetailRepository extends JpaRepository<JournalDetail, Long> {
 
+       // @todo DDD/consistency: these repository queries hardcode financial status strings and mix APPROVED with POSTED.
+       // Move the status boundary to JournalEntryStatus parameters/policies so GL, SL, reporting, and reconciliation read the same posting state.
        /**
         * 특정 계정과목의 기간별 상세 내역 조회 (회계일자 기준)
         */
@@ -69,6 +71,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
        /**
         * 기간과 차대변 방향 기준의 전표 상세 금액을 DB에서 직접 집계합니다.
         */
+       // @todo Reconciliation consistency: this aggregate has no posting-status filter; align it with posted ledger basis before using it as a recon target.
        @Query("SELECT COUNT(jd) AS detailCount, " +
                      "COALESCE(SUM(COALESCE(jd.baseAmount, jd.amount)), 0) AS totalAmount " +
                      "FROM JournalDetail jd " +
