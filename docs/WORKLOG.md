@@ -3,6 +3,13 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 11차)
+### [프론트엔드]
+- **Frontend (Next.js) 재무운영(고정자산, 리스 회계) 화면 연동 검증**:
+  - `frontend/src/app/finance/assets/page.tsx` 및 `frontend/src/app/finance/lease/page.tsx` 코드를 분석하여, 이미 내부에 하드코딩된 Mock 데이터가 없고 `assetService.getAssets()`, `leaseService.getLeases()` 등을 통한 백엔드 API (`/api/fixed-assets`, `/api/ifrs16/leases`) 리얼 데이터 연동이 완벽하게 구현되어 있음을 코드 레벨에서 확인했습니다.
+  - 감가상각 실행(`runDepreciation`) 및 리스 월별 회계 처리(`processMonthly`) 로직의 API 바인딩 역시 정상적으로 적용되어 있음을 교차 검증 완료했습니다.
+  - `npm run build`를 통한 런타임/타입 무결성 통과를 재확인하고, `docs/development-status.md`에 `✅ [X]`로 상태가 정확히 기록되어 있음을 확정지었습니다.
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 9차)
 ### [프론트엔드]
 - **Frontend (Next.js) 재무제표(BS/IS) 화면 API 연동**:
