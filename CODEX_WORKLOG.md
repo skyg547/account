@@ -121,3 +121,69 @@
 - 남은 리스크:
   - 실제 MSA 환경에서 Governance -> Auth 내부 API 인증/네트워크 경로 smoke 필요.
   - 전체 `git diff --check`는 이번 범위 밖 미커밋 파일들의 trailing whitespace 때문에 실패.
+
+## 2026-05-22 (DDD/헥사고날 업무 흐름 @todo 검수)
+- 사용자 요청: "모듈들을 순차적으로 점검하면서 @todo를 남겨줘".
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/todo.md` 확인.
+  - `journal-ledger`, `payable`, `receivable`, `reconciliation`, `closing`, `reporting` 주요 README/docs 및 업무 흐름 코드 확인.
+  - 이번 범위의 프론트엔드 변경은 없음.
+- 수정 내용:
+  - GL/SL/Journal Ledger: 전표 상태 기준 혼재, 대사 집계 필터 누락, 자동분개 감사자/통화/Rule DSL null 처리 위험 `@todo`를 확인.
+  - P2P/AP: 하드코딩 계정, Mock 지급 실행, 지급-open item 매칭 정합성, 감사자 기본값 위험 `@todo`를 확인.
+  - O2C/AR: 하드코딩 계정, 수납 자동매칭/부분매칭 잔액 처리 위험 `@todo`를 확인.
+  - Reconciliation: 모델 이원화, JSON 정책, skeleton source snapshot, 대량 매칭 성능, 중복 매칭, 조정 정책 위험에 `@todo`를 추가/확인.
+  - Closing: FX/ECL 하드코딩, 가상 장부환율, idempotency, 자동 승인/전기 통제 위험에 `@todo`를 추가.
+  - Reporting: 로컬 감독보고 영수증 게이트웨이의 실제 연동 대체 필요성을 `@todo`로 추가.
+  - `docs/WORKLOG.md`에 검수 결과와 남은 리스크 기록.
+- 검증:
+  - `rg -n "@todo" journal-ledger payable receivable reconciliation closing reporting`로 주석 위치 확인.
+  - `git diff --check` 성공(CRLF 경고만 출력).
+- 남은 리스크:
+  - 이번 작업은 검수 주석 추가이며 실제 업무 로직 보완은 후속 구현 필요.
+  - 테스트는 동작 변경이 없는 주석/문서 변경 중심이라 아직 실행하지 않음.
+
+## 2026-05-22 (결산 배치 재실행 정합성 및 대사 매칭 정합성 보강)
+- 사용자 요청: "계속 진행해 줘".
+- 선확인:
+  - `git status --short --branch`: `main...origin/main`, 이전 검수 주석 변경 미커밋 상태 확인.
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `closing/README.md`, `closing/docs/README.md`, `reconciliation/README.md`, `reconciliation/docs/README.md` 확인.
+- 수정 내용:
+  - `ClosingSlipNoFactory` 추가.
+  - FX/ECL 배치 전표번호를 `System.currentTimeMillis()` 대신 기준일, 배치 ID, 계정 식별자 해시로 결정적으로 생성.
+  - 배치 ID 파라미터가 없을 때 현재시각 대신 기준일(`yyyyMMdd`)을 기본값으로 사용.
+  - `closing:batch` 테스트 의존성을 `org.springframework.batch:spring-batch-test`로 수정.
+  - 전표번호 결정성/20자 길이 테스트 추가.
+  - `AutomatedMatchingEngine`에서 한 번 매칭된 전표 라인을 재사용하지 않도록 변경.
+  - 은행 출금과 전표 CREDIT 라인을 음수로 비교해 반대방향 금액 매칭을 방지.
+  - `closing/README.md`, `reconciliation/docs/README.md`, `docs/WORKLOG.md` 갱신.
+  - `GEMINI_REVIEW_PROMPT.md`를 이번 변경 범위로 갱신.
+- 실행 명령:
+  - `.\gradlew :closing:batch:test --console=plain`
+  - `.\gradlew :reconciliation:test --console=plain`
+- 결과:
+  - Closing batch 테스트 성공.
+  - Reconciliation 테스트 성공.
+- 남은 리스크:
+  - 대사 매칭 성능은 아직 O(n*m) 구조라 대량 처리를 위한 인덱싱/DB 후보 추출이 필요하다.
+  - FX/ECL 통화/정책 하드코딩과 자동 승인/전기 통제는 후속 과제로 남아 있다.
+
+## 2026-05-22 (Reconciliation 자동매칭 후보 인덱싱)
+- 사용자 요청: "계속 진행해 줘".
+- 선확인:
+  - `reconciliation/README.md`, `reconciliation/docs/README.md`, `AutomatedMatchingEngine`, `AutomatedMatchingEngineTest` 확인.
+- 수정 내용:
+  - 전표 라인을 부호 반영 금액 기준 `TreeMap` 인덱스로 구성.
+  - 은행 거래 금액의 허용오차 범위에 들어오는 전표 후보만 평가하도록 변경.
+  - 후보 내부는 기존 전표 라인 입력 순서를 유지하도록 정렬.
+  - 허용오차 내 입력 순서 보존 테스트 추가.
+  - `reconciliation/docs/README.md`, `docs/WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :reconciliation:test --console=plain`
+  - 변경 범위 `git diff --check`
+- 결과:
+  - Reconciliation 테스트 성공.
+  - 변경 범위 diff check 성공(CRLF 경고만 출력).
+- 남은 리스크:
+  - 전체 `git diff --check`는 이번 범위 밖 프론트엔드 파일의 trailing whitespace로 실패한다.
+  - 1억 건 이상 대사에는 인메모리 인덱스 외에 DB/배치 파티셔닝 기반 후보 조회와 청크 상태 저장이 필요하다.

@@ -68,7 +68,7 @@ public class EclProvisionBatchConfig {
                     ? LocalDate.parse(closingDateStr, DateTimeFormatter.ISO_DATE) 
                     : LocalDate.now();
             
-            Long batchId = (provisionBatchId != null) ? provisionBatchId : System.currentTimeMillis();
+            Long batchId = resolveBatchId(closingDate, provisionBatchId);
 
             try {
                 eclProvisionService.processEclProvision(closingDate, batchId);
@@ -80,5 +80,12 @@ public class EclProvisionBatchConfig {
 
             return RepeatStatus.FINISHED;
         };
+    }
+
+    private Long resolveBatchId(LocalDate closingDate, Long provisionBatchId) {
+        if (provisionBatchId != null) {
+            return provisionBatchId;
+        }
+        return Long.parseLong(closingDate.format(DateTimeFormatter.BASIC_ISO_DATE));
     }
 }

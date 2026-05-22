@@ -33,15 +33,17 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-21 "Reporting 감독보고 매핑/제출"입니다.
-- Reporting Core `SubmitRegulatoryFilingUseCase`, `RegulatoryFilingService` 추가
-- `RegulatoryReportMapping`, `RegulatoryFiling`, `RegulatoryFilingLine`, `RegulatoryFilingPackage`, `RegulatoryFilingReceipt` 도메인 모델 추가
-- `LoadRegulatoryReportSubmissionPort`, `LoadRegulatoryReportMappingPort`, `SubmitRegulatoryFilingPort`, `StoreRegulatoryFilingPort`, `LoadRegulatoryFilingPort` 추가
-- JPA/인메모리 감독보고 매핑 로더와 제출 이력 어댑터 추가
-- `LocalRegulatoryFilingGatewayAdapter` 추가
-- Flyway `V63__reporting_regulatory_filing.sql` 추가
-- Reporting API `POST /api/v1/reporting/regulatory-filings/submit`, `GET /api/v1/reporting/regulatory-filings/latest` 추가
-- Reporting service/API/JPA 테스트 추가
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-22 "결산 배치 재실행 정합성 및 대사 매칭 정합성/성능 보강"입니다.
+- Closing Batch `ClosingSlipNoFactory` 추가
+- FX/ECL 배치 자동 전표번호를 기준일, 배치 ID, 계정 식별자 해시 기반 20자 결정적 값으로 변경
+- FX/ECL 배치 ID 파라미터가 없을 때 현재시각 대신 기준일(`yyyyMMdd`)을 기본값으로 사용
+- `closing:batch` 테스트 의존성을 `org.springframework.batch:spring-batch-test`로 수정
+- `ClosingSlipNoFactoryTest` 추가
+- `AutomatedMatchingEngine`이 한 번 매칭한 전표 라인을 같은 실행에서 재사용하지 않도록 변경
+- 은행 출금과 전표 `CREDIT` 라인을 음수로 비교해 반대방향 금액 매칭을 방지
+- 전표 라인을 부호 반영 금액 기준 `TreeMap` 인덱스로 구성하고, 은행 거래 금액의 허용오차 범위 후보만 평가하도록 변경
+- `AutomatedMatchingEngineTest`에 중복 매칭 및 방향성 테스트 추가
+- 허용오차 내 후보 평가 시 기존 전표 라인 입력 순서가 유지되는 테스트 추가
 - 관련 README/docs/worklog 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
@@ -91,9 +93,11 @@ Notes:
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon -D"org.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=384m"`: 성공
-  - 이번 범위는 reporting backend와 문서 변경이며 frontend 변경은 없음
-  - 전체 `git diff --check`: 범위 밖 미커밋 파일의 trailing whitespace가 남아 있을 수 있음
+  - `.\gradlew :closing:batch:test --console=plain`: 성공
+  - `.\gradlew :reconciliation:test --console=plain`: 성공(대사 매칭 정합성 보강 후 1회, 후보 인덱싱 후 1회)
+  - 이번 범위는 closing batch, reconciliation backend, 문서 변경이며 frontend 변경은 없음
+  - 변경 범위 `git diff --check`: 성공(CRLF 경고만 출력)
+  - 전체 `git diff --check`: 이번 범위 밖 프론트엔드 파일 trailing whitespace로 실패
 
 ## Review Handoff Checklist
 

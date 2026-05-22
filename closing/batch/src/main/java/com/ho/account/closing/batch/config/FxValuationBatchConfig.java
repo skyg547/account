@@ -106,7 +106,7 @@ public class FxValuationBatchConfig {
                     ? LocalDate.parse(valuationDateStr, DateTimeFormatter.ISO_DATE) 
                     : LocalDate.now();
             
-            Long batchId = (valuationBatchId != null) ? valuationBatchId : System.currentTimeMillis();
+            Long batchId = resolveBatchId(valuationDate, valuationBatchId);
 
             for (GlAccountBalance balance : balances) {
                 try {
@@ -117,5 +117,12 @@ public class FxValuationBatchConfig {
                 }
             }
         };
+    }
+
+    private Long resolveBatchId(LocalDate valuationDate, Long valuationBatchId) {
+        if (valuationBatchId != null) {
+            return valuationBatchId;
+        }
+        return Long.parseLong(valuationDate.format(DateTimeFormatter.BASIC_ISO_DATE));
     }
 }

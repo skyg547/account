@@ -1,6 +1,7 @@
 package com.ho.account.reconciliation.service;
 
 import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.reconciliation.domain.BankStatement;
 import org.springframework.stereotype.Component;
 
@@ -8,9 +9,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Matches bank statement rows with journal detail summaries.
@@ -130,12 +136,20 @@ public class AutomatedMatchingEngine {
         Objects.requireNonNull(options, "options must not be null");
 
         List<MatchResult> results = new ArrayList<>();
+        Set<Integer> matchedDetailIndexes = new HashSet<>();
+        NavigableMap<BigDecimal, List<IndexedDetail>> indexedDetails = indexDetailsBySignedAmount(details);
 
         for (BankStatement stmt : statements) {
             boolean found = false;
-            for (JournalDetailSummary detail : details) {
+            for (IndexedDetail candidate : candidateDetails(stmt, options, indexedDetails)) {
+                if (matchedDetailIndexes.contains(candidate.index())) {
+                    continue;
+                }
+
+                JournalDetailSummary detail = candidate.detail();
                 String matchReason = resolveMatchReason(stmt, detail, options);
                 if (matchReason != null) {
+                    matchedDetailIndexes.add(candidate.index());
                     results.add(new MatchResult(stmt, detail, true, matchReason));
                     found = true;
                     break;
@@ -146,6 +160,37 @@ public class AutomatedMatchingEngine {
             }
         }
         return results;
+    }
+
+    private NavigableMap<BigDecimal, List<IndexedDetail>> indexDetailsBySignedAmount(List<JournalDetailSummary> details) {
+        NavigableMap<BigDecimal, List<IndexedDetail>> index = new TreeMap<>();
+        for (int detailIndex = 0; detailIndex < details.size(); detailIndex++) {
+            JournalDetailSummary detail = details.get(detailIndex);
+            BigDecimal signedAmount = detailAmount(detail);
+            if (signedAmount == null) {
+                continue;
+            }
+            index.computeIfAbsent(signedAmount, ignored -> new ArrayList<>())
+                    .add(new IndexedDetail(detailIndex, detail));
+        }
+        return index;
+    }
+
+    private List<IndexedDetail> candidateDetails(BankStatement stmt, MatchOptions options,
+            NavigableMap<BigDecimal, List<IndexedDetail>> indexedDetails) {
+        BigDecimal signedAmount = statementAmount(stmt);
+        if (signedAmount == null) {
+            return List.of();
+        }
+
+        BigDecimal fromAmount = signedAmount.subtract(options.getAmountTolerance());
+        BigDecimal toAmount = signedAmount.add(options.getAmountTolerance());
+        List<IndexedDetail> candidates = new ArrayList<>();
+        indexedDetails.subMap(fromAmount, true, toAmount, true)
+                .values()
+                .forEach(candidates::addAll);
+        candidates.sort(Comparator.comparingInt(IndexedDetail::index));
+        return candidates;
     }
 
     private String resolveMatchReason(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
@@ -224,14 +269,24 @@ public class AutomatedMatchingEngine {
         if (depositAmount.compareTo(BigDecimal.ZERO) > 0) {
             return depositAmount;
         }
-        return withdrawalAmount;
+        if (withdrawalAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return withdrawalAmount.negate();
+        }
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal detailAmount(JournalDetailSummary detail) {
-        return detail.getBaseAmount() != null ? detail.getBaseAmount() : detail.getAmount();
+        BigDecimal amount = detail.getBaseAmount() != null ? detail.getBaseAmount() : detail.getAmount();
+        if (amount == null) {
+            return null;
+        }
+        return detail.getSide() == JournalSide.CREDIT ? amount.negate() : amount;
     }
 
     private BigDecimal zeroIfNull(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private record IndexedDetail(int index, JournalDetailSummary detail) {
     }
 }

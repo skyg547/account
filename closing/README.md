@@ -88,4 +88,5 @@ docker-compose up -d closing
 
 **설정 주의사항:**
 - 자동 평가/충당 분개 계정은 `account.closing.accounting.*` 설정을 통해 동적으로 할당됩니다.
+- FX/ECL 배치 전표번호는 기준일, 배치 ID, 계정 식별자를 조합해 20자 이내로 결정적으로 생성됩니다. 배치 ID 파라미터가 없으면 기준일(`yyyyMMdd`)을 기본값으로 사용해 같은 기준일 재실행이 중복 전표번호로 감지될 수 있게 합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.

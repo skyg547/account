@@ -18,8 +18,8 @@
 ## 2. 재무 업무 (ACCOUNTING)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
 | :--- | :--- | :---: | :---: | :--- |
-| 전표 조회 | `/journal/list` | 🎨 | [ ] | 필터 및 그리드 레이아웃 완료 |
-| 전표 입력 | `/journal/entry` | 🎨 | [ ] | 대차 대조 폼 완료 |
+| 전표 조회 | `/journal/list` | ✅ | [X] | 백엔드 API `/api/journals` GET 연동 완료 |
+| 전표 입력 | `/journal/entry` | ✅ | [X] | 백엔드 API `/api/journals` POST 및 대차 검증 연동 완료 |
 | 총계정원장 | `/journal/ledger/gl` | 🎨 | [ ] | 계정별 합계 그리드 완료 |
 | 보조원장 | `/journal/ledger/sl` | 🎨 | [ ] | 거래처별 잔액 그리드 완료 |
 | 자동 분개 설정 | `/journal/rules` | 🎨 | [ ] | 룰 설정 UI 스켈레톤 |

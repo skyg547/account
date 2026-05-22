@@ -46,6 +46,7 @@ public class FxValuationService {
         String currencyCode = balance.getCurrencyCode();
         
         // 1. 기말 환율 조회 (외화 -> KRW)
+        // @todo Accounting policy: resolve functional/reporting currency from legal-entity policy instead of hardcoding KRW.
         Optional<ExchangeRate> rateOpt = exchangeRateRepository.findExchangeRate(currencyCode, "KRW", valuationDate);
         if (rateOpt.isEmpty()) {
             log.warn("FX Rate not found for {} to KRW on {}. Skipping valuation for account: {}", currencyCode, valuationDate, balance.getAccountCode());
@@ -60,7 +61,7 @@ public class FxValuationService {
             return; // 잔액이 0이면 평가할 필요 없음
         }
 
-        // TODO: GL 잔액 테이블(GlAccountBalance)에 장부상 원화 잔액(Base Ending Balance) 필드가 없어서 
+        // @todo Closing accuracy: GL 잔액 테이블(GlAccountBalance)에 장부상 원화 잔액(Base Ending Balance) 필드가 없어서
         // 현재로서는 평가만 진행하도록 처리합니다. 
         // 완벽한 구현을 위해서는 GlAccountBalance에 baseEndingBalance(KRW) 필드가 존재하고 
         // 평가 시 (외화금액 * 기말환율) - 장부상 원화 잔액 = 평가손익 으로 계산해야 합니다.
@@ -95,6 +96,7 @@ public class FxValuationService {
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType("FX_VALUATION");
         entry.setLineageSourceId(batchId.toString());
+        // @todo Accounting policy: journal currency should follow closing valuation policy, not a hardcoded KRW value.
         entry.setCurrencyCode("KRW");
 
         JournalDetail accountDetail = new JournalDetail();
@@ -126,10 +128,11 @@ public class FxValuationService {
         entry.addDetail(accountDetail);
         entry.addDetail(pnlDetail);
 
-        entry.setSlipNo(valuationDate + "-FXVAL-" + System.currentTimeMillis());
+        entry.setSlipNo(ClosingSlipNoFactory.fxValuation(valuationDate, accountCode, batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
         // 배치이므로 자동 승인 및 전기
+        // @todo Closing control: auto approve/post should pass through a closing adjustment approval policy or compensating reversal process.
         journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
         journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
     }

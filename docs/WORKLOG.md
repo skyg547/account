@@ -140,3 +140,55 @@
   - **12. 결산(Closing)**: \ClosingPeriod\, \ClosingService\ 에 마감잠금 및 재오픈 승인 프로세스 설명 추가.
   - **13. 대사(Reconciliation)**: \ReconciliationRun\, \ReconciliationService\ 에 이기종 데이터 대조 및 차이 조정 설명 추가.
 - **상태 업데이트**: 전 모듈에 대한 업무 주석 및 DDD 아키텍처 코멘트 적용 완료.
+
+### 📅 2026-05-22 (Codex 검수)
+### [리뷰] DDD/헥사고날 업무 흐름 및 정합성 @todo 점검
+- **검수 범위**:
+  - GL/SL/Journal Ledger, P2P/AP, O2C/AR, Reconciliation, Closing, Reporting 제출 게이트웨이 흐름을 우선 점검.
+- **코드 기준으로 확인/추가한 주요 @todo**:
+  - 전표 상세 조회의 `APPROVED`/`POSTED` 상태 기준 혼재 및 대사 집계의 전기 상태 필터 누락.
+  - 구매/지급/매출/수납 서비스의 하드코딩 계정코드, `SYSTEM` 감사자, Mock 지급 실행, open-item 매칭 정합성 위험.
+  - 대사 모듈의 모델 이원화, JSON 기반 미검증 정책, source snapshot skeleton, 대량 루프 매칭 성능, 중복 매칭 위험.
+  - 결산 FX/ECL 배치의 KRW/계정/ECL rate 하드코딩, 가상 장부환율, timestamp 기반 slipNo, 자동 승인/전기 통제 미흡.
+  - Reporting 감독보고 게이트웨이의 로컬 영수증 생성 어댑터를 실제 프로토콜/인증/반려 callback으로 대체해야 하는 위험.
+- **검수 결과**:
+  - 현재 빌드 완료 여부와 별개로 운영 정합성 기준에서는 후속 구현이 필요한 지점이 남아 있다.
+  - 이번 작업은 동작 변경 없이 검수 주석과 워크로그 기록 중심으로 수행했다.
+- **검증**:
+  - `rg -n "@todo" journal-ledger payable receivable reconciliation closing reporting`로 주석 위치 확인.
+  - `git diff --check` 성공(CRLF 경고만 출력).
+- **남은 리스크**:
+  - 주석으로 표시한 항목은 실제 구현 전까지 재무제표/대사/결산 자동화의 운영 신뢰성 리스크로 남는다.
+
+### 📅 2026-05-22 (Codex 구현)
+### [고도화] 결산 배치 재실행 정합성 및 대사 매칭 정합성 보강
+- **수정 범위**:
+  - Closing Batch: `ClosingSlipNoFactory`를 추가해 FX/ECL 자동 전표번호를 기준일, 배치 ID, 계정 식별자 기반 20자 고정 형식으로 생성.
+  - Closing Batch: 배치 ID 파라미터가 없을 때 현재시각 대신 기준일(`yyyyMMdd`)을 기본값으로 사용하도록 변경.
+  - Closing Batch: 테스트 의존성을 `org.springframework.batch:spring-batch-test`로 수정하고 전표번호 결정성/길이 테스트 추가.
+  - Reconciliation: 자동 매칭 엔진이 한 번 매칭한 전표 라인을 같은 실행에서 재사용하지 않도록 변경.
+  - Reconciliation: 은행 입금/출금과 전표 DEBIT/CREDIT 방향을 부호로 반영해 반대방향 금액 매칭을 방지.
+- **문서 갱신**:
+  - `closing/README.md`, `reconciliation/docs/README.md`
+- **검증**:
+  - `.\gradlew :closing:batch:test --console=plain` 성공.
+  - `.\gradlew :reconciliation:test --console=plain` 성공.
+- **남은 리스크**:
+  - 대사 매칭은 여전히 중첩 루프 기반이므로 1억 건 이상 처리에는 인덱싱/DB 집계 기반 후보 추출이 필요하다.
+  - FX/ECL의 통화, ECL rate, 자동 승인/전기 정책은 별도 후속 구현이 필요하다.
+
+### 📅 2026-05-22 (Codex 구현)
+### [고도화] Reconciliation 자동매칭 후보 인덱싱
+- **수정 범위**:
+  - `AutomatedMatchingEngine`이 전표 라인을 부호 반영 금액 기준 `TreeMap` 인덱스로 구성하도록 변경.
+  - 은행 거래별로 금액 허용오차 범위에 들어오는 전표 후보만 평가해 전체 전표 라인 중첩 스캔을 제거.
+  - 후보 내부는 기존 전표 라인 입력 순서를 유지하도록 정렬해 기존 우선순위 계약을 보존.
+  - 허용오차 내 입력 순서 보존 테스트를 추가.
+- **문서 갱신**:
+  - `reconciliation/docs/README.md`
+- **검증**:
+  - `.\gradlew :reconciliation:test --console=plain` 성공.
+  - 변경 범위 `git diff --check` 성공(CRLF 경고만 출력).
+- **남은 리스크**:
+  - 전체 `git diff --check`는 이번 범위 밖 프론트엔드 파일의 trailing whitespace로 실패한다.
+  - 인메모리 후보 인덱싱은 단일 실행 내 매칭 비용을 줄이지만, 1억 건 이상에서는 DB/배치 파티셔닝 기반 후보 조회와 청크 단위 상태 저장이 추가로 필요하다.

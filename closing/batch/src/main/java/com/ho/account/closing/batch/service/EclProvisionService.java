@@ -42,8 +42,10 @@ public class EclProvisionService {
     private final JournalUseCase journalUseCase;
     private final ClosingAccountingProperties accountingProperties;
 
+    // @todo ECL policy: replace the hardcoded loan receivable account with product/account metadata from master data.
     // 대출채권 계정 (평가 대상 원본) - 하드코딩된 예시이며, 실제로는 마스터 메타데이터에서 관리해야 함
     private static final String LOAN_RECEIVABLE_ACCOUNT = "12000"; 
+    // @todo IFRS9 model: replace the fixed 1% rate with Stage/PD/LGD/EAD model output and versioned assumptions.
     // 기대신용손실률 (1%) - IFRS 9 모델러가 산출한 Stage별 확률이라고 가정
     private static final BigDecimal ECL_RATE = new BigDecimal("0.01");
 
@@ -60,6 +62,7 @@ public class EclProvisionService {
         String allowanceForDoubtfulAccounts = eclRule.getCreditAccountCode(); // 예: 12001 (대손충당금)
 
         // 2. 기말 대출채권 잔액 조회 (간소화를 위해 특정 계정 하나만 조회)
+        // @todo Accounting policy: resolve reporting currency from legal-entity policy instead of hardcoding KRW.
         Optional<GlAccountBalance> loanBalanceOpt = glAccountBalanceRepository
                 .findByAccountCodeAndCurrencyCodeAndBalanceDateAndBalanceType(
                         LOAN_RECEIVABLE_ACCOUNT, "KRW", closingDate, GlBalanceType.DEBIT);
@@ -116,6 +119,7 @@ public class EclProvisionService {
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType("ECL_PROVISION");
         entry.setLineageSourceId(batchId.toString());
+        // @todo Accounting policy: journal currency should follow the ECL valuation currency, not a hardcoded KRW value.
         entry.setCurrencyCode("KRW");
 
         JournalDetail debitDetail = new JournalDetail();
@@ -145,6 +149,7 @@ public class EclProvisionService {
             debitDetail.setDetailDescription("Allowance for Doubtful Accounts (ECL Reversal)");
             
             // 대변: 대손충당금환입 (수익) -> 예제를 위해 임시로 expenseAccount를 반대로 씀. (실무는 별도 수익 계정)
+            // @todo Accounting policy: use a configured impairment reversal income account instead of reusing the expense account.
             creditDetail.setSide(JournalSide.CREDIT);
             creditDetail.setAccountCode(expenseAccount); 
             creditDetail.setDetailDescription("Bad Debt Expense Reversal (Income)");
@@ -153,10 +158,11 @@ public class EclProvisionService {
         entry.addDetail(debitDetail);
         entry.addDetail(creditDetail);
 
-        entry.setSlipNo(closingDate + "-ECL-" + System.currentTimeMillis());
+        entry.setSlipNo(ClosingSlipNoFactory.eclProvision(closingDate, allowanceAccount, batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
         // 배치이므로 자동 승인 및 전기
+        // @todo Closing control: auto approve/post should pass through a closing adjustment approval policy or reversal workflow.
         journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
         journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
         

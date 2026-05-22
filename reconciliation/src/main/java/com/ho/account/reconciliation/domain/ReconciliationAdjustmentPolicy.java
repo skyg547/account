@@ -32,6 +32,7 @@ public class ReconciliationAdjustmentPolicy {
             throw new IllegalArgumentException("Reconciliation unit is required.");
         }
 
+        // @todo Configuration hardening: move adjustment account codes from free-form criteriaJson into a typed, validated reconciliation policy.
         String criteriaJson = unit.getCriteriaJson();
         if (criteriaJson == null || criteriaJson.isBlank()) {
             throw missingAccountCodes(unit);

@@ -1,6 +1,7 @@
 package com.ho.account.reconciliation.service;
 
 import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.reconciliation.domain.BankStatement;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +55,23 @@ class AutomatedMatchingEngineTest {
         assertThat(results).hasSize(1);
         assertThat(results.get(0).isMatch()).isTrue();
         assertThat(results.get(0).getJournalDetail()).isSameAs(detail);
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.TOLERANCE_DATE_AMOUNT_MATCH);
+    }
+
+    @Test
+    void matchPreservesJournalDetailInputOrderWithinAmountTolerance() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary firstDetail = journalDetail("100.50", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary secondDetail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(statement),
+                List.of(firstDetail, secondDetail),
+                AutomatedMatchingEngine.MatchOptions.of(new BigDecimal("1.00"), 0));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getJournalDetail()).isSameAs(firstDetail);
         assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.TOLERANCE_DATE_AMOUNT_MATCH);
     }
 
@@ -124,6 +142,51 @@ class AutomatedMatchingEngineTest {
         assertThat(results).hasSize(1);
         assertThat(results.get(0).isMatch()).isTrue();
         assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.EXACT_DATE_AMOUNT_MATCH);
+    }
+
+    @Test
+    void matchConsumesJournalDetailOnce() {
+        BankStatement firstStatement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        BankStatement secondStatement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(firstStatement, secondStatement),
+                List.of(detail));
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getJournalDetail()).isSameAs(detail);
+        assertThat(results.get(1).isMatch()).isFalse();
+        assertThat(results.get(1).getJournalDetail()).isNull();
+        assertThat(results.get(1).getMatchReason()).isEqualTo(AutomatedMatchingEngine.NO_MATCH_FOUND);
+    }
+
+    @Test
+    void matchUsesSignedDirectionForBankAndJournalAmounts() {
+        BankStatement withdrawal = bankStatement("0.00", "100.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary creditDetail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+        creditDetail.setSide(JournalSide.CREDIT);
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(List.of(withdrawal), List.of(creditDetail));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isTrue();
+        assertThat(results.get(0).getJournalDetail()).isSameAs(creditDetail);
+    }
+
+    @Test
+    void matchRejectsOppositeSignedDirectionEvenWhenAbsoluteAmountMatches() {
+        BankStatement deposit = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary creditDetail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+        creditDetail.setSide(JournalSide.CREDIT);
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(List.of(deposit), List.of(creditDetail));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isFalse();
+        assertThat(results.get(0).getJournalDetail()).isNull();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.NO_MATCH_FOUND);
     }
 
     @Test

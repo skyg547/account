@@ -14,6 +14,7 @@ public class LocalRegulatoryFilingGatewayAdapter implements SubmitRegulatoryFili
 
     @Override
     public RegulatoryFilingReceipt submit(RegulatoryFilingPackage filingPackage) {
+        // @todo Integration: replace local receipt generation with the actual regulator protocol, auth, retry, and rejection callback handling.
         String receiptId = "LOCAL-%s-%s-%s-V%d".formatted(
                 filingPackage.targetAgency(),
                 filingPackage.statementType().name(),

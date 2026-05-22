@@ -1,20 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   CalendarDays, 
-  FileText, 
   CheckCircle2, 
   Activity,
-  ArrowUpRight,
   Stamp,
-  Lock,
-  Search,
   History,
   AlertTriangle,
   ChevronRight,
   RefreshCcw,
-  Info,
   User
 } from 'lucide-react';
 import Link from 'next/link';
@@ -30,7 +25,7 @@ export default function ClosingPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tasks, setTasks] = useState<ClosingTaskDto[]>([]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setIsRefreshing(true);
     try {
       // 1은 하드코딩된 예시 캘린더 ID
@@ -41,11 +36,12 @@ export default function ClosingPage() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   const handleRetryBatch = async (task: ClosingTaskDto) => {
     let success = false;

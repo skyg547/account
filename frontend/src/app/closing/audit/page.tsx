@@ -153,7 +153,7 @@ export default function ClosingAuditPage() {
               <p className="text-slate-500 font-bold">검색 결과와 일치하는 감사 로그가 없습니다.</p>
             </div>
           ) : (
-            filteredLogs.map((log, index) => (
+            filteredLogs.map((log) => (
               <div key={log.id} className="relative pl-24 group">
                 {/* Timeline Dot */}
                 <div className={`absolute left-[1.625rem] top-1.5 w-4 h-4 rounded-full border-4 border-slate-950 z-10 transition-transform group-hover:scale-125 ${
