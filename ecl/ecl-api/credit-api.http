@@ -1,0 +1,129 @@
+@host = http://localhost:8083
+@baseDate = 2026-04-25
+@accountId = 1
+@accountNo = CR-ACC-10001
+@industryCode = MANUFACTURING
+@scenario = SEVERE_CRISIS
+@jobName = creditRiskMasterJob
+
+### Accounts - list
+GET {{host}}/api/v1/credit-risk/accounts
+Accept: application/json
+
+### Accounts - get by id
+GET {{host}}/api/v1/credit-risk/accounts/{{accountId}}
+Accept: application/json
+
+### Accounts - create
+POST {{host}}/api/v1/credit-risk/accounts
+Content-Type: application/json
+Accept: application/json
+
+{
+  "accountNo": "CR-ACC-90001",
+  "customer": {
+    "id": 1
+  },
+  "productCode": "CORP_LOAN",
+  "currency": "KRW",
+  "notionalAmount": 100000000,
+  "outstandingAmount": 75000000,
+  "productCategory": "LOAN",
+  "interestRate": 0.045,
+  "repaymentMethod": "AMORTIZATION",
+  "repaymentFreq": 1,
+  "openDate": "2024-01-15",
+  "maturityDate": "2027-01-15",
+  "staging": "STAGE1",
+  "originalRating": "A",
+  "internalRating": "A",
+  "isDebtRestructured": false,
+  "isActive": true
+}
+
+### Accounts - collaterals by account number
+GET {{host}}/api/v1/credit-risk/accounts/{{accountNo}}/collaterals
+Accept: application/json
+
+### Results - summary
+GET {{host}}/api/v1/credit-risk/results/summary?baseDate={{baseDate}}
+Accept: application/json
+
+### Results - concentration
+GET {{host}}/api/v1/credit-risk/results/concentration?baseDate={{baseDate}}
+Accept: application/json
+
+### Results - concentration detail
+GET {{host}}/api/v1/credit-risk/results/concentration/{{industryCode}}
+Accept: application/json
+
+### Results - calculate single account risk
+POST {{host}}/api/v1/credit-risk/results/calculate/{{accountId}}?baseDate={{baseDate}}
+Accept: application/json
+
+### Analysis - HHI concentration
+GET {{host}}/api/v1/credit-risk/analysis/concentration
+Accept: application/json
+
+### Batch - latest status
+GET {{host}}/api/v1/credit-risk/batch/status
+Accept: application/json
+
+### Batch - run master or standalone job
+POST {{host}}/api/v1/credit-risk/batch/run?jobName={{jobName}}
+Accept: application/json
+
+### Batch - run EAD from batch controller
+POST {{host}}/api/v1/credit-risk/batch/run-ead?baseDate={{baseDate}}
+Accept: application/json
+
+### EAD - run batch
+POST {{host}}/api/v1/credit-risk/ead/batch?baseDate={{baseDate}}
+Accept: application/json
+
+### EAD - run alternate path
+POST {{host}}/api/v1/credit-risk/ead/run-ead-alt?baseDate={{baseDate}}
+Accept: application/json
+
+### EAD - verification page
+GET {{host}}/api/v1/credit-risk/ead/verification?baseDate={{baseDate}}&page=0&size=20
+Accept: application/json
+
+### Metadata - grades
+GET {{host}}/api/v1/credit-risk/metadata/grades
+Accept: application/json
+
+### Metadata - LGD segments
+GET {{host}}/api/v1/credit-risk/metadata/lgd-segments
+Accept: application/json
+
+### Metadata - parameters
+GET {{host}}/api/v1/credit-risk/metadata/parameters
+Accept: application/json
+
+### Metadata - upsert parameter
+POST {{host}}/api/v1/credit-risk/metadata/parameters
+Content-Type: application/json
+Accept: application/json
+
+{
+  "paramKey": "PD_FLOOR",
+  "paramValue": 0.00050000,
+  "description": "Minimum PD floor for manual verification"
+}
+
+### Regulatory report - summary
+GET {{host}}/api/v1/credit-risk/report/summary?baseDate={{baseDate}}
+Accept: application/json
+
+### Stress test - run
+POST {{host}}/api/v1/credit-risk/stress-test/run?baseDate={{baseDate}}&scenario={{scenario}}
+Accept: application/json
+
+### Stress test - results
+GET {{host}}/api/v1/credit-risk/stress-test/results?baseDate={{baseDate}}&scenario={{scenario}}
+Accept: application/json
+
+### Stress test - summary
+GET {{host}}/api/v1/credit-risk/stress-test/summary?baseDate={{baseDate}}&scenario={{scenario}}
+Accept: application/json

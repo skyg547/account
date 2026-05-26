@@ -1,0 +1,40 @@
+spring:
+  config:
+    activate:
+      on-profile: demo
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:h2:mem:credit_risk_demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:/demo/credit-batch-demo-data.sql
+  cloud:
+    discovery:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    com.risk: INFO

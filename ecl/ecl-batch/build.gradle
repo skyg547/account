@@ -1,0 +1,28 @@
+dependencies {
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    implementation project(':credit-risk-service:credit-core')
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // QueryDSL
+    implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
+}
+
+test {
+    useJUnitPlatform()
+    maxHeapSize = "128m" // 가상 메모리 부족 회피를 위한 극한 축소
+    jvmArgs "-XX:+UseSerialGC", "-Xms32m" // Serial GC 적용으로 네이티브 메모리 절약
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+        exceptionFormat = "full"
+    }
+}

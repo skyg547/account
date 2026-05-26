@@ -1,0 +1,222 @@
+@host = http://localhost:8085
+@baseDate = 2026-04-25
+@productCode = LOAN_MORTGAGE_001
+@curveId = 1
+@curveName = KRW_GOVT
+@scenario = SEVERE_CRISIS
+
+### Mart - customers
+GET {{host}}/api/v1/mart/customers
+Accept: application/json
+
+### Mart - explorer
+GET {{host}}/api/v1/mart/explorer?baseDate={{baseDate}}&page=0&size=20
+Accept: application/json
+
+### Mart - summary
+GET {{host}}/api/v1/mart/summary?baseDate={{baseDate}}
+Accept: application/json
+
+### Mart - staging chart
+GET {{host}}/api/v1/mart/charts/staging?baseDate={{baseDate}}
+Accept: application/json
+
+### Mart - sector chart
+GET {{host}}/api/v1/mart/charts/sector?baseDate={{baseDate}}
+Accept: application/json
+
+### Mart - reconciliation
+GET {{host}}/api/v1/mart/reconciliation?baseDate={{baseDate}}
+Accept: application/json
+
+### Mart - DQ audit
+GET {{host}}/api/v1/mart/dq-audit?baseDate={{baseDate}}
+Accept: application/json
+
+### Mart products - list
+GET {{host}}/api/v1/mart/products
+Accept: application/json
+
+### Mart products - get by code
+GET {{host}}/api/v1/mart/products/{{productCode}}
+Accept: application/json
+
+### Mart products - update
+PUT {{host}}/api/v1/mart/products/{{productCode}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "productCode": "{{productCode}}",
+  "productName": "Mortgage Loan",
+  "productCategory": "LOAN",
+  "rateType": "FIXED",
+  "paymentFreq": 1,
+  "isExcluded": false,
+  "defaultCcf": 0.7500
+}
+
+### Governance - audit logs
+GET {{host}}/api/v1/mart/governance/audit-logs
+Accept: application/json
+
+### Governance - health snapshot
+GET {{host}}/api/v1/mart/governance/health
+Accept: application/json
+
+### Governance - summary snapshot
+GET {{host}}/api/v1/mart/governance/snapshot
+Accept: application/json
+
+### Governance - seed demo logs
+POST {{host}}/api/v1/mart/governance/audit-logs/seed
+Accept: application/json
+
+### Stress simulator
+GET {{host}}/api/v1/mart/simulate/stress?baseDate={{baseDate}}&scenario={{scenario}}
+Accept: application/json
+
+### Exchange rates - create
+POST {{host}}/api/v1/market-data/exchange-rates
+Content-Type: application/json
+Accept: application/json
+
+{
+  "baseDate": "{{baseDate}}",
+  "baseCurrency": "USD",
+  "quoteCurrency": "KRW",
+  "rate": 1350.25,
+  "bidRate": 1349.90,
+  "askRate": 1350.60,
+  "changeAmount": 5.10,
+  "changePercent": 0.38,
+  "source": "MANUAL"
+}
+
+### Exchange rates - by date
+GET {{host}}/api/v1/market-data/exchange-rates/by-date?baseDate={{baseDate}}
+Accept: application/json
+
+### Exchange rates - by pair
+GET {{host}}/api/v1/market-data/exchange-rates/pair?baseDate={{baseDate}}&baseCurrency=USD&quoteCurrency=KRW
+Accept: application/json
+
+### Exchange rates - latest
+GET {{host}}/api/v1/market-data/exchange-rates/latest?baseCurrency=USD&quoteCurrency=KRW
+Accept: application/json
+
+### Exchange rates - historical
+GET {{host}}/api/v1/market-data/exchange-rates/historical?baseCurrency=USD&quoteCurrency=KRW&startDate=2026-04-01&endDate=2026-04-25
+Accept: application/json
+
+### Market rates - create one
+POST {{host}}/api/v1/market-data/market-rates
+Content-Type: application/json
+Accept: application/json
+
+{
+  "baseDate": "{{baseDate}}",
+  "rateName": "KORIBOR_3M",
+  "rateType": "KORIBOR",
+  "currency": "KRW",
+  "tenor": 3,
+  "tenorLabel": "3M",
+  "rate": 0.0345,
+  "changeBp": -1.25,
+  "source": "MANUAL"
+}
+
+### Market rates - batch create
+POST {{host}}/api/v1/market-data/market-rates/batch
+Content-Type: application/json
+Accept: application/json
+
+[
+  {
+    "baseDate": "{{baseDate}}",
+    "rateName": "KORIBOR_1M",
+    "rateType": "KORIBOR",
+    "currency": "KRW",
+    "tenor": 1,
+    "tenorLabel": "1M",
+    "rate": 0.0338,
+    "changeBp": -0.50,
+    "source": "MANUAL"
+  },
+  {
+    "baseDate": "{{baseDate}}",
+    "rateName": "KORIBOR_3M",
+    "rateType": "KORIBOR",
+    "currency": "KRW",
+    "tenor": 3,
+    "tenorLabel": "3M",
+    "rate": 0.0345,
+    "changeBp": -1.25,
+    "source": "MANUAL"
+  }
+]
+
+### Market rates - by date
+GET {{host}}/api/v1/market-data/market-rates/by-date?baseDate={{baseDate}}
+Accept: application/json
+
+### Market rates - by date and type
+GET {{host}}/api/v1/market-data/market-rates/by-date-type?baseDate={{baseDate}}&rateType=KORIBOR
+Accept: application/json
+
+### Market rates - historical
+GET {{host}}/api/v1/market-data/market-rates/historical?rateName=KORIBOR_3M&tenor=3&startDate=2026-04-01&endDate=2026-04-25
+Accept: application/json
+
+### Market rates - active names
+GET {{host}}/api/v1/market-data/market-rates/names
+Accept: application/json
+
+### Yield curves - create
+POST {{host}}/api/v1/market-data/yield-curves
+Content-Type: application/json
+Accept: application/json
+
+{
+  "curveName": "{{curveName}}",
+  "baseDate": "{{baseDate}}",
+  "currency": "KRW",
+  "curveType": "GOVERNMENT",
+  "description": "KRW government curve for IntelliJ HTTP client",
+  "points": [
+    {
+      "tenor": 3,
+      "tenorLabel": "3M",
+      "rate": 0.0310,
+      "discountFactor": 0.9923
+    },
+    {
+      "tenor": 12,
+      "tenorLabel": "1Y",
+      "rate": 0.0325,
+      "discountFactor": 0.9685
+    },
+    {
+      "tenor": 60,
+      "tenorLabel": "5Y",
+      "rate": 0.0355,
+      "discountFactor": 0.8380
+    }
+  ]
+}
+
+### Yield curves - get by id
+GET {{host}}/api/v1/market-data/yield-curves/{{curveId}}
+Accept: application/json
+
+### Yield curves - by date
+GET {{host}}/api/v1/market-data/yield-curves/by-date?baseDate={{baseDate}}
+Accept: application/json
+
+### Yield curves - by currency
+GET {{host}}/api/v1/market-data/yield-curves/by-currency?currency=KRW
+Accept: application/json
+
+### Yield curves - latest by curve name
+GET {{host}}/api/v1/market-data/yield-curves/latest/{{curveName}}
+Accept: application/json

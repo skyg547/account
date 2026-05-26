@@ -28,8 +28,8 @@
 ## 3. 재무 운영 (OPERATIONS)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
 | :--- | :--- | :---: | :---: | :--- |
-| 매출채권(AR) 관리 | `/finance/receivable` | 🎨 | [ ] | Aging 차트 및 목록 |
-| 매입채무(AP) 관리 | `/finance/payable` | 🎨 | [ ] | 지급 예정 스케줄 관리 |
+| 매출채권(AR) 관리 | `/finance/receivable` | ✅ | [X] | 백엔드 API `/api/receivable/invoices` 연동 완료 |
+| 매입채무(AP) 관리 | `/finance/payable` | ✅ | [X] | 백엔드 API `/api/payable/invoices` 연동 완료 |
 | 세무/부가세 | `/finance/tax` | 🎨 | [ ] | 부가세 신고 기초 데이터 |
 | 고정자산 관리 | `/finance/assets` | ✅ | [X] | 자산 대장, 등록 및 처분 기능 |
 | 지출결의(경비) 포털 | `/finance/expense` | 🎨 | [ ] | 개인별 지출 현황 및 신청 |
@@ -43,8 +43,8 @@
 ## 4. 은행 특화 업무 (BANKING)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
 | :--- | :--- | :---: | :---: | :--- |
-| 지점간 자금 정산 | `/finance/banking/inter-branch` | 🎨 | [ ] | 지점별 대조 그리드 |
-| 외환(FX) 포지션 | `/fx/position` | 🎨 | [ ] | 실시간 환율 및 포지션 |
+| 지점간 자금 정산 | `/finance/banking/inter-branch` | ✅ | [X] | 백엔드 정산 대시보드 API 연동 완료 |
+| 외환(FX) 포지션 | `/fx/position` | ✅ | [X] | FX 대시보드 API 연동 완료 |
 | 내부 금리(FTP) | `/finance/banking/ftp` | 🎨 | [ ] | 부서 성과 기여도 분석 |
 | 은행 일계표 | `/finance/banking/daily-summary` | 🎨 | [ ] | 일일 시산표 레이아웃 |
 | 감사 모니터링 | `/finance/banking/audit` | 🎨 | [ ] | 실시간 위험 거래 알림 |

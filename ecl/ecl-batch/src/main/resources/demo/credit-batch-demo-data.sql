@@ -1,0 +1,2 @@
+-- 이 파일은 자동 초기화 충돌 방지를 위해 비워 두었습니다.
+-- 테스트 데이터는 CreditRiskBatchIntegrationTest의 setUp()에서 수동으로 로드됩니다.

@@ -1,7 +1,42 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import styles from './FxPosition.module.css';
+import { fxService, FxDashboardData } from '@/services/fxService';
 
 export default function FxPositionPage() {
+  const [data, setData] = useState<FxDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fxService.getDashboardData();
+      setData(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('en-US').format(val);
+
+  if (loading || !data) {
+    return (
+      <div className={styles.container}>
+        <div className="flex justify-center items-center py-20 text-slate-500 font-bold">
+          Loading FX Position Data...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -10,29 +45,30 @@ export default function FxPositionPage() {
           <p>통화별 보유 자원 및 리스크 포지션을 실시간으로 모니터링합니다.</p>
         </div>
         <div className={styles.exchangeRate}>
-          <div className={styles.rateItem}>
-            <span>USD/KRW</span>
-            <strong>1,385.40</strong>
-            <span className={styles.up}>+2.4 (0.17%)</span>
-          </div>
-          <div className={styles.rateItem}>
-            <span>JPY/KRW</span>
-            <strong>894.20</strong>
-            <span className={styles.down}>-1.1 (0.12%)</span>
-          </div>
+          {data.rates.map((r, idx) => (
+            <div key={idx} className={styles.rateItem}>
+              <span>{r.pair}</span>
+              <strong>{r.rate.toFixed(2)}</strong>
+              <span className={r.changeAmount >= 0 ? styles.up : styles.down}>
+                {r.changeAmount >= 0 ? '+' : ''}{r.changeAmount} ({r.changePercent >= 0 ? '+' : ''}{r.changePercent}%)
+              </span>
+            </div>
+          ))}
         </div>
       </header>
 
       <div className={styles.positionSummary}>
         <div className={styles.card + " glass-card"}>
           <h4>전체 외화 순포지션</h4>
-          <h3>$4,250,000</h3>
-          <p className={styles.subText}>환산금액 ₩5,888,250,000</p>
+          <h3>${formatCurrency(data.totalNetPosition)}</h3>
+          <p className={styles.subText}>환산금액 ₩{formatCurrency(data.totalKrwAmount)}</p>
         </div>
         <div className={styles.card + " glass-card"}>
           <h4>당일 환평가 손익</h4>
-          <h3 className={styles.up}>+₩12,450,000</h3>
-          <p className={styles.subText}>전일 대비 15% 상승</p>
+          <h3 className={data.dailyValuationGainLoss >= 0 ? styles.up : styles.down}>
+            {data.dailyValuationGainLoss >= 0 ? '+' : ''}₩{formatCurrency(data.dailyValuationGainLoss)}
+          </h3>
+          <p className={styles.subText}>전일 대비 {data.gainLossPercent}% 상승</p>
         </div>
       </div>
 
@@ -50,22 +86,22 @@ export default function FxPositionPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><span className={styles.currencyCode}>USD</span> 미국 달러</td>
-              <td className={styles.bold}>$2,500,000</td>
-              <td>1,375.00</td>
-              <td>₩3,463,500,000</td>
-              <td className={styles.up}>+₩26,000,000</td>
-              <td><span className={styles.statusOk}>SAFE</span></td>
-            </tr>
-            <tr>
-              <td><span className={styles.currencyCode}>JPY</span> 일본 엔</td>
-              <td className={styles.bold}>¥150,000,000</td>
-              <td>905.00</td>
-              <td>₩1,341,300,000</td>
-              <td className={styles.down}>-₩8,500,000</td>
-              <td><span className={styles.statusOk}>SAFE</span></td>
-            </tr>
+            {data.positions.map((p, idx) => (
+              <tr key={idx}>
+                <td><span className={styles.currencyCode}>{p.currencyCode}</span> {p.currencyName}</td>
+                <td className={styles.bold}>{p.currencyCode === 'JPY' ? '¥' : '$'}{formatCurrency(p.foreignAmount)}</td>
+                <td>{p.averageRate.toFixed(2)}</td>
+                <td>₩{formatCurrency(p.krwAmount)}</td>
+                <td className={p.valuationGainLoss >= 0 ? styles.up : styles.down}>
+                  {p.valuationGainLoss >= 0 ? '+' : ''}₩{formatCurrency(p.valuationGainLoss)}
+                </td>
+                <td>
+                  <span className={p.limitStatus === 'SAFE' ? styles.statusOk : styles.statusWarning}>
+                    {p.limitStatus}
+                  </span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </section>

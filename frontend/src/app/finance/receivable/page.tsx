@@ -1,12 +1,42 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { receivableService, ReceivableInvoice } from '@/services/receivableService';
 
 /**
  * [매출채권 및 연령 분석 화면]
  * 미수금 현황을 파악하고 채권 연령(Aging)을 분석하여 수급 관리를 수행합니다.
- * 설계서 파트 6-⑬ 기반.
+ * 백엔드 Receivable API 연동 완료.
  */
 export default function ReceivableAgingPage() {
+  const [invoices, setInvoices] = useState<ReceivableInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
+    try {
+      const data = await receivableService.getInvoices();
+      setInvoices(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInvoices();
+  }, []);
+
+  const totalReceivable = invoices.reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
+  
+  // Calculate critical aging (e.g. past due > 90 days). Here we just simulate with a logic if needed, or default to 0
+  const criticalAging = invoices.filter(inv => inv.status === 'DEFAULTED').reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
+
+  const formatAmount = (val: number) => `₩${(val || 0).toLocaleString()}`;
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex justify-between items-center">
@@ -15,7 +45,10 @@ export default function ReceivableAgingPage() {
           <p className="text-slate-500 mt-2 text-sm font-medium leading-none">미수 채권의 회수 상태 실시간 모니터링 및 연령별 부실 리스크 조기 식별</p>
         </div>
         <div className="flex gap-2">
-           <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg">
+           <button 
+             onClick={fetchInvoices}
+             className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg"
+           >
               <DollarSign size={18} /> 입금 결과 매칭
            </button>
         </div>
@@ -62,9 +95,9 @@ export default function ReceivableAgingPage() {
         
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.08] transition-all group overflow-hidden relative">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Total Receivable</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Total Receivable Balance</span>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-3xl font-black italic text-white tracking-tighter">₩840,200,000</h3>
+              <h3 className="text-3xl font-black italic text-white tracking-tighter">{formatAmount(totalReceivable)}</h3>
               <span className="text-[10px] font-bold text-emerald-500">+1.2%</span>
             </div>
             <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
@@ -74,10 +107,10 @@ export default function ReceivableAgingPage() {
 
           <div className="bg-rose-500/5 border border-rose-500/20 rounded-[32px] p-8 hover:bg-rose-500/10 transition-all group overflow-hidden relative border-dashed">
             <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-2 flex items-center gap-2">
-              <AlertTriangle size={14} /> Critical Aging (90일+)
+              <AlertTriangle size={14} /> Critical Aging (90일+ / Defaulted)
             </span>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-3xl font-black italic text-rose-500 tracking-tighter">₩16,800,000</h3>
+              <h3 className="text-3xl font-black italic text-rose-500 tracking-tighter">{formatAmount(criticalAging)}</h3>
               <span className="text-[10px] font-bold text-rose-400">High Risk</span>
             </div>
             <div className="absolute -right-4 -bottom-4 opacity-[0.1] group-hover:opacity-[0.2] transition-opacity">
@@ -111,37 +144,52 @@ export default function ReceivableAgingPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                <th className="px-8 py-5">Partner Name</th>
+                <th className="px-8 py-5">Invoice No / Partner</th>
                 <th className="px-6 py-5">Total Billed</th>
                 <th className="px-6 py-5">Collected</th>
                 <th className="px-6 py-5">Balance</th>
-                <th className="px-6 py-5">Oldest Invoice</th>
+                <th className="px-6 py-5">Due Date</th>
                 <th className="px-8 py-5 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {[
-                { name: '(주)글로벌네트워크', total: '₩450,000,000', collected: '₩450,000,000', balance: '₩0', oldest: '-', status: '회수완료' },
-                { name: '대박소프트', total: '₩120,500,000', collected: '₩80,000,000', balance: '₩40,500,000', oldest: '2026-03-15', status: '30일 경과' },
-                { name: '부도위기컴퍼니', total: '₩25,000,000', collected: '₩0', balance: '₩25,000,000', oldest: '2025-12-01', status: '장기미수' },
-              ].map((row, idx) => (
-                <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
-                  <td className="px-8 py-6 text-sm font-black text-white tracking-tight">{row.name}</td>
-                  <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{row.total}</td>
-                  <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{row.collected}</td>
-                  <td className="px-6 py-6 text-sm font-mono text-emerald-400 font-black italic">{row.balance}</td>
-                  <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold italic">{row.oldest}</td>
-                  <td className="px-8 py-6 text-right">
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
-                      row.status === '회수완료' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                      row.status === '30일 경과' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
-                    }`}>
-                      {row.status}
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-500 font-bold italic">
+                    Loading invoices...
                   </td>
                 </tr>
-              ))}
+              ) : invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-500 font-bold italic">
+                    조회된 매출채권 내역이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                invoices.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-black text-white tracking-tight">{row.businessPartnerCode}</span>
+                        <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{row.invoiceNo}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{formatAmount(row.totalAmount)}</td>
+                    <td className="px-6 py-6 text-sm font-mono text-slate-400 font-bold">{formatAmount(row.collectedAmount)}</td>
+                    <td className="px-6 py-6 text-sm font-mono text-emerald-400 font-black italic">{formatAmount(row.balanceAmount)}</td>
+                    <td className="px-6 py-6 text-sm font-mono text-slate-500 font-bold italic">{row.dueDate}</td>
+                    <td className="px-8 py-6 text-right">
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
+                        row.status === 'FULLY_COLLECTED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                        row.status === 'PARTIALLY_COLLECTED' || row.status === 'ISSUED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                        'bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse'
+                      }`}>
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

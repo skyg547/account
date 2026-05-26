@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:./db/risk_data_mart_demo;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  batch:
+    job:
+      enabled: false
+  cloud:
+    discovery:
+      enabled: false
+  main:
+    web-application-type: none
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+logging:
+  level:
+    com.risk: INFO
+    org.hibernate.SQL: WARN
+
+mart:
+  batch:
+    cdm-load:
+      parallel-enabled: false
+    bootstrap:
+      enabled: false
+    demo-seed:
+      enabled: true

@@ -1,0 +1,102 @@
+server:
+  port: 8086 # 리스크 데이터 마트 배치 제어 포트
+
+spring:
+  application:
+    name: risk-data-mart-batch
+  datasource:
+    # 로컬 개발용 H2 파일 DB 설정
+    url: jdbc:h2:file:./db/risk_data_mart_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  
+  # JPA 및 수치 정밀도 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  # Spring Batch 설정
+  # Chunk Size: ETL 공정은 대량 데이터 이동이 핵심이므로 500~1000 청크 사이즈를 권장합니다.
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+# 서비스 디스커버리 연동
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+# 모니터링
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.risk: DEBUG
+
+# 마트 배치 상세 설정
+mart:
+  batch:
+    cdm-load:
+      parallel-enabled: false # 필요 시 true로 설정하여 병렬 ETL 가동
+    bootstrap:
+      enabled: false
+    demo-seed:
+      enabled: false
+
+---
+# 실운영 환경 프로파일 (PostgreSQL)
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/market_data_db
+    username: risk_user
+    password: risk_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  batch:
+    jdbc:
+      platform: postgresql
+      initialize-schema: always
+
+---
+# Docker 컨테이너 환경 프로파일
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://postgres:5432/market_data_db
+    username: risk_user
+    password: risk_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  batch:
+    jdbc:
+      platform: postgresql
+      initialize-schema: always
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-service:8761/eureka/

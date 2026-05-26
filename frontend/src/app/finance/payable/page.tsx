@@ -1,12 +1,40 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
+import { payableService, PayableInvoice } from '@/services/payableService';
 
 /**
  * [매입채무 및 지급 관리 화면]
  * 협력사에 지급해야 할 대금을 관리하고 주별/월별 지급 스케줄을 조정합니다.
- * 설계서 파트 6-⑭ 기반.
+ * 백엔드 Payable API 연동 완료.
  */
 export default function PayableManagementPage() {
+  const [invoices, setInvoices] = useState<PayableInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
+    try {
+      const data = await payableService.getInvoices();
+      setInvoices(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInvoices();
+  }, []);
+
+  const totalPending = invoices.filter(inv => inv.status !== 'FULLY_PAID' && inv.status !== 'CANCELLED').length;
+  const totalPaidAmount = invoices.filter(inv => inv.status === 'FULLY_PAID' || inv.status === 'PARTIALLY_PAID').reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+  
+  const formatAmount = (val: number) => `₩${(val || 0).toLocaleString()}`;
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex justify-between items-center">
@@ -14,9 +42,17 @@ export default function PayableManagementPage() {
           <h2 className="text-3xl font-black text-white italic tracking-tight uppercase">매입채무 및 지급 관리</h2>
           <p className="text-slate-500 mt-2 text-sm font-medium leading-none">공급업체 지급 대기 내역 정합성 확인 및 최적 자금 계획 기반 일괄 지급 실행</p>
         </div>
-        <button className="bg-white text-slate-950 hover:bg-indigo-400 hover:text-white px-6 py-3 rounded-2xl transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest shadow-xl active:scale-95">
-          <CreditCard size={18} /> 일괄 지급 승인
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={fetchInvoices}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg"
+          >
+            <Clock size={18} /> 새로고침
+          </button>
+          <button className="bg-white text-slate-950 hover:bg-indigo-400 hover:text-white px-6 py-3 rounded-2xl transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest shadow-xl active:scale-95">
+            <CreditCard size={18} /> 일괄 지급 승인
+          </button>
+        </div>
       </header>
 
       {/* 지급 스케줄 대시보드 */}
@@ -69,7 +105,7 @@ export default function PayableManagementPage() {
             </div>
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">지급 대기 (Pending)</span>
-              <h4 className="text-3xl font-black italic text-white leading-none tracking-tighter">45건</h4>
+              <h4 className="text-3xl font-black italic text-white leading-none tracking-tighter">{totalPending}건</h4>
             </div>
           </div>
 
@@ -79,7 +115,7 @@ export default function PayableManagementPage() {
             </div>
             <div>
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">금월 완료 (Success)</span>
-              <h4 className="text-2xl font-black italic text-white leading-none tracking-tighter uppercase tracking-[-0.05em]">₩128,500,000</h4>
+              <h4 className="text-2xl font-black italic text-white leading-none tracking-tighter uppercase tracking-[-0.05em]">{formatAmount(totalPaidAmount)}</h4>
             </div>
           </div>
 
@@ -114,33 +150,59 @@ export default function PayableManagementPage() {
               <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
                 <th className="px-8 py-5 w-10"><input type="checkbox" className="w-4 h-4 rounded border-white/10 bg-slate-900 accent-indigo-600" /></th>
                 <th className="px-6 py-5">Due Date</th>
-                <th className="px-6 py-5">Vendor</th>
+                <th className="px-6 py-5">Vendor / Invoice No</th>
                 <th className="px-6 py-5">Description</th>
-                <th className="px-6 py-5">Amount</th>
+                <th className="px-6 py-5">Amount (Balance)</th>
                 <th className="px-8 py-5 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {[
-                { due: '2026-04-22', vendor: '서버팩토리(주)', desc: '클라우드 비용(4월)', amount: '₩4,500,000', status: '오늘 마감', type: 'urgent' },
-                { due: '2026-04-24', vendor: '문구나라', desc: '사무용품 구입비', amount: '₩120,000', status: '대기', type: 'default' },
-                { due: '2026-04-28', vendor: '인테리어디자인', desc: '사무실 리모델링 2차', amount: '₩15,000,000', status: '대기', type: 'default' },
-              ].map((row, idx) => (
-                <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
-                  <td className="px-8 py-6"><input type="checkbox" className="w-4 h-4 rounded border-white/10 bg-slate-900 accent-indigo-600" /></td>
-                  <td className={`px-6 py-6 text-sm font-mono font-bold ${row.type === 'urgent' ? 'text-rose-500' : 'text-slate-500'}`}>{row.due}</td>
-                  <td className="px-6 py-6 text-sm font-black text-white tracking-tight">{row.vendor}</td>
-                  <td className="px-6 py-6 text-sm font-medium text-slate-400">{row.desc}</td>
-                  <td className="px-6 py-6 text-sm font-mono font-black italic text-slate-200">{row.amount}</td>
-                  <td className="px-8 py-6 text-right">
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
-                      row.type === 'urgent' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 animate-pulse' : 'bg-slate-500/10 text-slate-500 border-white/5'
-                    }`}>
-                      {row.status}
-                    </span>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-500 font-bold italic">
+                    Loading invoices...
                   </td>
                 </tr>
-              ))}
+              ) : invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-500 font-bold italic">
+                    조회된 매입채무 내역이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                invoices.map((row, idx) => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const isUrgent = row.dueDate <= todayStr && row.status !== 'FULLY_PAID';
+                  return (
+                    <tr key={idx} className="hover:bg-white/[0.03] transition-colors group">
+                      <td className="px-8 py-6"><input type="checkbox" className="w-4 h-4 rounded border-white/10 bg-slate-900 accent-indigo-600" /></td>
+                      <td className={`px-6 py-6 text-sm font-mono font-bold ${isUrgent ? 'text-rose-500' : 'text-slate-500'}`}>{row.dueDate}</td>
+                      <td className="px-6 py-6">
+                         <div className="flex flex-col gap-1">
+                           <span className="text-sm font-black text-white tracking-tight">{row.businessPartnerCode}</span>
+                           <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{row.invoiceNo}</span>
+                         </div>
+                      </td>
+                      <td className="px-6 py-6 text-sm font-medium text-slate-400">{row.description || '-'}</td>
+                      <td className="px-6 py-6">
+                         <div className="flex flex-col gap-1">
+                            <span className="text-sm font-mono font-black italic text-slate-200">{formatAmount(row.balanceAmount)}</span>
+                            <span className="text-[10px] text-slate-600 italic">Total: {formatAmount(row.totalAmount)}</span>
+                         </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
+                          isUrgent ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 animate-pulse' : 
+                          row.status === 'FULLY_PAID' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                          'bg-slate-500/10 text-slate-500 border-white/5'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

@@ -1,0 +1,38 @@
+package com.risk.mart.core.infrastructure.persistence.entity.ods;
+
+import lombok.*;
+
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.util.Objects;
+
+/**
+ * OdsGeneralLedger 엔티티의 복합 기본키(Composite PK) 클래스입니다.
+ * 기준일자, 계정과목, 점포, 통화의 조합으로 유니크한 원장 데이터를 식별합니다.
+ */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class OdsGeneralLedgerId implements Serializable {
+    private LocalDate baseDate;
+    private String subjectCode;
+    private String branchCode;
+    private String currencyCode;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OdsGeneralLedgerId that = (OdsGeneralLedgerId) o;
+        return Objects.equals(baseDate, that.baseDate) &&
+               Objects.equals(subjectCode, that.subjectCode) &&
+               Objects.equals(branchCode, that.branchCode) &&
+               Objects.equals(currencyCode, that.currencyCode);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(baseDate, subjectCode, branchCode, currencyCode);
+    }
+}

@@ -3,6 +3,14 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-21 (Gemini YOLO 모드 - 12차)
+### [프론트엔드]
+- **Frontend (Next.js) 재무운영(AR, AP) 관리 화면 API 연동**:
+  - `frontend/src/services/receivableService.ts` 및 `payableService.ts` 신규 생성. 백엔드의 `/api/receivable/invoices` 및 `/api/payable/invoices`와 통신하도록 설계.
+  - `frontend/src/app/finance/receivable/page.tsx` 및 `payable/page.tsx` 리팩토링: 하드코딩된 그리드 데이터를 제거하고 API를 호출해 실제 매출채권 및 매입채무 데이터를 동적으로 렌더링.
+  - 총액 잔액 합계(`Total Receivable Balance` 등)를 API 응답 기반으로 실시간 계산하여 출력하도록 보강.
+  - 빌드 검증을 모두 통과하고 상태판(`docs/development-status.md`) 갱신 및 Git 연동 완료.
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 11차)
 ### [프론트엔드]
 - **Frontend (Next.js) 재무운영(고정자산, 리스 회계) 화면 연동 검증**:

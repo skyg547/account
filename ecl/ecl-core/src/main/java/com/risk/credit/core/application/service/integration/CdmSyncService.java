@@ -1,0 +1,111 @@
+package com.risk.credit.core.application.service.integration;
+
+import com.risk.common.entity.IntegratedRiskPosition;
+import com.risk.credit.core.application.port.out.CrAccountBulkPort;
+import com.risk.credit.core.application.port.out.CrCustomerBulkPort;
+import com.risk.credit.core.application.port.out.IntegratedRiskPositionRepository;
+import com.risk.credit.core.domain.exposure.CrAccount;
+import com.risk.credit.core.domain.exposure.CrCustomer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * [금융 아키텍처] CDM(통합 마트) -> 신용리스크 엔진 데이터 동기화 서비스 (v6.0 고도화)
+ * 
+ * 💡 [초보자를 위한 개념 설명]
+ * 이 서비스는 '대량 수송 열차'와 같습니다. 
+ * 데이터 마트라는 거대한 창고에서 수만 명의 고객과 수십만 개의 대출 정보를 
+ * 하나씩 옮기는 대신, 벌크(Bulk)라는 큰 컨테이너에 담아 한꺼번에 신용리스크 엔진으로 옮겨줍니다.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class CdmSyncService {
+
+    private final IntegratedRiskPositionRepository cdmRepository;
+    private final CrCustomerBulkPort customerBulkPort;
+    private final CrAccountBulkPort accountBulkPort;
+
+    /**
+     * 특정 기준일의 통합 마트 데이터를 신용리스크 엔진으로 고속 동기화합니다.
+     */
+    @Transactional
+    public void syncFromCdm(LocalDate baseDate) {
+        log.info("🔄 [CDM Bulk Sync] 신용리스크 데이터 동기화 시작 (기준일: {})", baseDate);
+
+        // 1. 통합 마트에서 해당 날짜의 모든 포지션 조회
+        List<IntegratedRiskPosition> cdmPositions = cdmRepository.findByBaseDt(baseDate);
+        log.info("📥 [CDM Bulk Sync] 마트 데이터 로드 완료: {} 건", cdmPositions.size());
+
+        if (cdmPositions.isEmpty()) {
+            log.warn("⚠️ [CDM Bulk Sync] 해당 날짜에 동기화할 데이터가 없습니다.");
+            return;
+        }
+
+        // 2. 차주(Customer) 정보 고속 Upsert
+        syncCustomersBulk(cdmPositions);
+
+        // 3. 계좌(Account) 정보 고속 Upsert
+        syncAccountsBulk(cdmPositions);
+
+        log.info("✅ [CDM Bulk Sync] 신용리스크 데이터 동기화 완료.");
+    }
+
+    private void syncCustomersBulk(List<IntegratedRiskPosition> positions) {
+        // 중복 제거된 고객 정보 생성
+        List<CrCustomer> customers = positions.stream()
+                .collect(Collectors.toMap(
+                        IntegratedRiskPosition::getCustomerCode,
+                        p -> CrCustomer.builder()
+                                .customerCode(p.getCustomerCode())
+                                .customerName(p.getCustomerName() != null ? p.getCustomerName() : "Unknown-" + p.getCustomerCode())
+                                .customerType(p.getCustomerType())
+                                .internalRating(p.getInternalRating())
+                                .industryCode(p.getIndustryCode())
+                                .countryCode(p.getCountryCode())
+                                .isSme(p.getIsSme() != null ? p.getIsSme() : false)
+                                .warningLevel(p.getWarningLevel() != null ? p.getWarningLevel() : "NORMAL")
+                                .build(),
+                        (existing, replacement) -> existing
+                ))
+                .values().stream().toList();
+
+        customerBulkPort.bulkUpsert(customers);
+        log.info("👤 [CDM Bulk Sync] 차주 정보 Upsert 완료: {} 건", customers.size());
+    }
+
+    private void syncAccountsBulk(List<IntegratedRiskPosition> positions) {
+        List<CrAccount> accounts = positions.stream()
+                .map(p -> CrAccount.builder()
+                        .accountNo(p.getAccNo())
+                        .productCode(p.getProductCode())
+                        .currency(p.getCurrency().name())
+                        .notionalAmount(p.getLimitAmount())
+                        .outstandingAmount(p.getOutstandingAmount())
+                        .productCategory(p.getProductCategory() != null ? p.getProductCategory().name() : null)
+                        .interestRate(p.getInterestRate())
+                        .repaymentMethod(p.getRepaymentMethod())
+                        .gracePeriod(p.getGracePeriod())
+                        .repaymentFreq(p.getRepaymentFreq())
+                        .branchCode(p.getBranchCd())
+                        .bizUnitCode(p.getBizUnitCd())
+                        .staging(p.getStaging())
+                        .delinquentDays(p.getDelinquentDays())
+                        .openDate(p.getOpenDate())
+                        .maturityDate(p.getMaturityDate())
+                        .internalRating(p.getInternalRating())
+                        .isDebtRestructured(p.getIsDebtRestructured() != null ? p.getIsDebtRestructured() : false)
+                        .build())
+                .toList();
+
+        accountBulkPort.bulkUpsert(accounts);
+        log.info("💳 [CDM Bulk Sync] 계좌 정보 Upsert 완료: {} 건", accounts.size());
+    }
+}

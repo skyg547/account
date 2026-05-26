@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: never
+  cloud:
+    discovery:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false

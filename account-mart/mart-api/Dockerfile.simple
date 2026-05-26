@@ -1,0 +1,8 @@
+FROM docker.io/library/eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY build/libs/*-SNAPSHOT.jar app.jar
+ENV SPRING_PROFILES_ACTIVE=docker
+EXPOSE 8085
+HEALTHCHECK --interval=20s --timeout=5s --retries=5 \
+  CMD wget -qO- http://localhost:8085/actuator/health || exit 1
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=docker", "-jar", "app.jar"]
