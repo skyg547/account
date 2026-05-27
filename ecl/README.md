@@ -69,6 +69,30 @@ psql -U admin -d credit_risk_db -f db/data-cr.sql
 ### 2. 8단계 규제 오케스트레이션 파이프라인
 `creditRiskCalculationJob`은 아래 8단계를 순차적으로 수행하여 최종 리스크 지표를 산출합니다. 상세 내용은 [process-flow.md](docs/process-flow.md)를 참고하세요.
 
+```mermaid
+flowchart LR
+    subgraph "Data Preparation"
+        M[1. Sync Master] --> C[2. Regulatory Contract]
+    end
+    
+    subgraph "IFRS 9 Staging & Mitigation"
+        C --> S[3. Credit Monitoring\n(Staging)]
+        S --> A1[4. Collateral Allocation\n(General)]
+        A1 --> A2[5. Special Collateral\n(Real Estate)]
+    end
+    
+    subgraph "Risk Engine (Core)"
+        A2 --> CALC((6. Calculation\nEAD, RWA, ECL))
+    end
+    
+    subgraph "Consolidation & Analytics"
+        CALC --> CON[7. Consolidation\n(To Mart)]
+        CON --> HHI[8. Concentration Analysis\n(HHI Index)]
+    end
+    
+    style CALC fill:#f9f,stroke:#333,stroke-width:3px
+```
+
 1.  **Sync Master**: ODS/CDM으로부터 최신 규제 마스터(환율, 금리 등)를 동기화합니다.
 2.  **Regulatory Contract**: 여신 계약과 담보 간의 규제상 관계를 유효성 있게 매핑합니다.
 3.  **Credit Monitoring**: 차주의 부도 정보 및 조기경보를 기반으로 IFRS 9 스테이징을 확정합니다.

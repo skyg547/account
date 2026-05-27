@@ -12,6 +12,48 @@
 
 본 서비스는 **Hexagonal Architecture(Port/Adapter 분리)** 원칙을 준수하여, 데이터 소스(ODS)의 변화가 리스크 통합 모델에 직접적인 영향을 주지 않도록 설계되었습니다.
 
+```mermaid
+flowchart TD
+    subgraph "Data Sources (Source of Truth)"
+        ERP[(GL / SL 원장)]
+        LOAN[(여신 원장)]
+    end
+
+    subgraph "mart-batch (ETL Pipeline)"
+        EXTRACT[Data Extraction]
+        TRANSFORM[Cleansing & DQ Check]
+        LOAD[CDM Standardization]
+    end
+
+    subgraph "mart-core (Data Model)"
+        ODS[(ODS\nRaw Data)]
+        CDM[(CDM\nIntegrated Model)]
+    end
+
+    subgraph "mart-api (Serving)"
+        API[REST & GRPC API]
+    end
+    
+    subgraph "Consumers"
+        ECL[ECL / Risk Engine]
+        UI[Frontend Dashboard]
+    end
+
+    ERP --> EXTRACT
+    LOAN --> EXTRACT
+    
+    EXTRACT --> ODS
+    ODS --> TRANSFORM
+    TRANSFORM --> LOAD
+    LOAD --> CDM
+    
+    CDM --> API
+    API --> ECL
+    API --> UI
+    
+    style CDM fill:#ff9,stroke:#333,stroke-width:3px
+```
+
 *   **`mart-api` [고객 응대 창구]**: 정제된 리스크 데이터 및 시장 데이터를 외부(엔진, 프론트엔드)에 제공하는 창구입니다.
 *   **`mart-batch` [대용량 데이터 공장 라인]**: 원천 시스템(ODS)의 데이터를 읽어와서 리스크 표준 규격(CDM)으로 변환하고 적재하는 ETL 공장입니다.
 *   **`mart-core` [수식 계산기 및 핵심 장부 관리]**: 리스크 통합 데이터 모델과 데이터 품질 검증 로직이 집약된 핵심 모듈입니다. 모든 수치 데이터는 정밀도 유지를 위해 `BigDecimal`로 관리됩니다.
