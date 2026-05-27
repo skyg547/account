@@ -48,7 +48,7 @@
 | 내부 금리(FTP) | `/finance/banking/ftp` | 🎨 | [ ] | 부서 성과 기여도 분석 |
 | 은행 일계표 | `/finance/banking/daily-summary` | 🎨 | [ ] | 일일 시산표 레이아웃 |
 | 감사 모니터링 | `/finance/banking/audit` | 🎨 | [ ] | 실시간 위험 거래 알림 |
-| Basel III RWA 현황 | `/risk/basel-iii/rwa` | ✅ | [ ] | **[NEW]** RWA 산출 및 모니터링 |
+| 국제 금융 규제 RWA 현황 | `/risk/국제 금융 규제-iii/rwa` | ✅ | [ ] | **[NEW]** RWA 산출 및 모니터링 |
 | IFRS 9 ECL 시뮬레이션 | `/risk/ifrs-9/ecl` | ✅ | [ ] | **[NEW]** 기대신용손실 분석 |
 | ALM / 금리 리스크 | `/risk/alm/interest` | ✅ | [ ] | **[NEW]** 금리 갭 및 NII 시뮬레이션 |
 | 유동성 리스크(LCR) | `/risk/liquidity` | ✅ | [ ] | **[NEW]** LCR/NSFR 비율 관리 |

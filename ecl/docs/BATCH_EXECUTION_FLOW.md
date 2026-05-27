@@ -65,7 +65,7 @@ graph TD
     2.  **`monitoringStep`**: `CreditMonitoringService.java`
         - 리스크 한도 관리 및 일일 변동성 체크를 수행합니다.
     3.  **`regulatoryContractStep`**: `RegulatoryContractTasklet.java`
-        - 바젤 III 규제 기준에 따른 계약 분류 코드를 매핑합니다.
+        - 국제 금융 규제 기준에 따른 계약 분류 코드를 매핑합니다.
 
 ### [STEP 2] 담보 배분 및 최적화 (Collateral Optimization)
 - **Config**: `CollateralBatchConfig`
@@ -99,7 +99,7 @@ graph TD
     1.  **`eclManagerStep`**: `EclProcessor.java` **[Parallel]**
         - 미래전망 정보를 결합하여 기대신용손실(ECL)을 최종 산출합니다.
     2.  **`rwaManagerStep`**: `RwaProcessor.java` **[Parallel]**
-        - 바젤 III 규제 수식을 적용하여 계좌별 위험가중자산(RWA)을 산출합니다.
+        - 국제 금융 규제 수식을 적용하여 계좌별 위험가중자산(RWA)을 산출합니다.
     3.  **`allowanceSummaryStep`**: `AllowanceSummaryTasklet.java`
         - 완료된 ECL 결과를 `allowance_account_mappings`와 결합해 `allowance_summary`를 재생성합니다.
         - 이 결과는 `closing`의 대손충당금 전표 생성 입력으로 사용됩니다.

@@ -6,10 +6,10 @@ import lombok.Getter;
 import java.math.BigDecimal;
 
 /**
- * [Value Object] 바젤 IRB(내부등급법) 규제 파라미터 집합.
+ * [Value Object] 국제 금융 규제IRB(내부등급법) 규제 파라미터 집합.
  *
  * 💡 [초보자를 위한 개념 설명]
- * 바젤 IRB 산식에는 여러 '상수가 들어갑니다. 예를 들어:
+ * 국제 금융 규제IRB 산식에는 여러 '상수가 들어갑니다. 예를 들어:
  *   - "PD(부도율)는 아무리 우량 고객이라도 최소 0.05%는 되어야 한다" → PD Floor
  *   - "자산상관계수(R)는 0.12에서 0.24 사이에서 결정된다" → Asset Correlation 가중치
  *   - "만기조정 계수는 특정 상수로 계산한다" → Maturity Adjustment 상수
@@ -29,7 +29,7 @@ public class IrbRegulatoryParams {
 
     /**
      * PD 하한선 (PD Floor).
-     * 바젤 규제상 PD는 이 값 밑으로 내려갈 수 없습니다.
+     * 국제 금융 규제상 PD는 이 값 밑으로 내려갈 수 없습니다.
      * 예: 0.0005 (= 0.05%)
      *
      * 💡 아무리 신용이 좋은 고객이라도 부도 확률이 0%는 아니라는 규제 철학을 반영합니다.
@@ -43,7 +43,7 @@ public class IrbRegulatoryParams {
 
     /**
      * 자산상관계수 하한 가중치 (기업 익스포저 기준).
-     * 바젤 산식에서 R = corrBase × f(PD) + corrHigh × (1 - f(PD)) 형태로 사용됩니다.
+     * 국제 금융 규제산식에서 R = corrBase × f(PD) + corrHigh × (1 - f(PD)) 형태로 사용됩니다.
      * 기본값: 0.12 (= 12%)
      *
      * 💡 PD가 높을수록(위험할수록) 이 작은 값에 가까워져, 상관계수가 낮아집니다.
@@ -107,7 +107,7 @@ public class IrbRegulatoryParams {
 
     /**
      * SME 매출액 상관계수 보정 상한 (단위: 백만 EUR 또는 억 원).
-     * 바젤 SME 보정: R_adj = R × (1 - (1 - (S-5)/45))
+     * 국제 금융 규제SME 보정: R_adj = R × (1 - (1 - (S-5)/45))
      * 기본값: 50 (= 매출 50억 이상이면 보정 미적용)
      *
      * 💡 중소기업(SME)은 대기업보다 시스템적 리스크에 덜 노출되므로,

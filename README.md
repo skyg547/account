@@ -96,7 +96,7 @@ flowchart TD
 
 ### 📊 리스크 분석 및 보고 (Risk & Reporting)
 * **`account-mart/`**: 분산된 원장 및 거래 데이터를 긁어와(ETL), 데이터 품질(DQ)을 검증하고 리스크 분석용 통합 데이터 모델(CDM)로 제공하는 ODS/Mart 시스템입니다.
-* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 및 바젤 규제에 따른 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 기대신용손실(ECL)과 RWA를 산출합니다.
+* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 및 국제 금융 규제에 따른 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 기대신용손실(ECL)과 RWA를 산출합니다.
 * **`reporting/`**: 최종 확정된 원장 데이터를 기반으로 대차대조표(BS), 손익계산서(PL) 등 재무제표와 주석 마트(Disclosure Note Mart)를 생성하며, 원천 전표로의 역추적(Drill-through) API를 제공합니다.
 
 ### 🌐 프론트엔드 및 인프라 (Frontend & Infra)

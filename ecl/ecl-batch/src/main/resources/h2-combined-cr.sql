@@ -298,7 +298,7 @@ INSERT INTO cr_lgd_segment_masters (segment_name, customer_type, collateral_type
 
 DELETE FROM cr_regulatory_parameters;
 INSERT INTO cr_regulatory_parameters (param_key, param_value, description) VALUES
-('PD_FLOOR',            0.0005,     '부도확률 하한선 (바젤 IV: 0.05%)'),
+('PD_FLOOR',            0.0005,     '부도확률 하한선 (국제 금융 규제: 0.05%)'),
 ('ASSET_CORR_BASE',     0.12,       '기업 자산상관계수 하한 가중치 (12%)'),
 ('ASSET_CORR_HIGH',     0.24,       '기업 자산상관계수 상한 가중치 (24%)'),
 ('RETAIL_CORR_BASE',    0.03,       '소매 자산상관계수 하한 (3%)'),
@@ -308,7 +308,7 @@ INSERT INTO cr_regulatory_parameters (param_key, param_value, description) VALUE
 ('SME_SIZE_THRESHOLD',  50.0,       'SME 매출액 보정 상한 (50억)'),
 ('SECURED_LGD_FLOOR',   0.20,       '담보부 LGD 하한 (FIRB: 20%)'),
 ('UNSECURED_LGD_FLOOR', 0.45,       '무담보 LGD 기준값 (FIRB: 45%)'),
-('FI_CORR_MULTIPLIER',  1.25,       '금융기관 상관계수 배수 (바젤 III: 125%)');
+('FI_CORR_MULTIPLIER',  1.25,       '금융기관 상관계수 배수 (국제 금융 규제: 125%)');
 
 DELETE FROM cr_sa_rw_masters;
 INSERT INTO cr_sa_rw_masters (customer_type, rating_code, risk_weight, description) VALUES

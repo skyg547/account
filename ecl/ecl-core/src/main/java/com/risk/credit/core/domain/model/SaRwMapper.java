@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 
 /**
- * [Component] 바젤 IV 표준방법(SA) 위험가중치 매핑 서비스.
+ * [Component] 국제 금융 규제 표준방법(SA) 위험가중치 매핑 서비스.
  *
  * 금융감독기관의 표준 가이드라인에 따라 차주 유형과 신용 등급의 조합으로
  * 표준방법 위험가중치(Risk Weight)를 결정합니다.

@@ -1,6 +1,7 @@
 package com.risk.mart.batch.job.ods;
 
 import com.risk.mart.batch.config.MartBatchExecutionConfig;
+import com.risk.mart.batch.tasklet.AllowanceExposureSnapshotTasklet;
 import com.risk.mart.batch.tasklet.CdmEventPublishTasklet;
 import com.risk.mart.core.domain.ods.audit.processor.CollateralDataQualityProcessor;
 import com.risk.mart.core.domain.ods.audit.processor.LedgerDataQualityProcessor;
@@ -55,6 +56,7 @@ public class IntegratedPositionEtlJobConfig {
     private final RegulatoryDataTasklet regulatoryDataTasklet;
     private final com.risk.mart.batch.tasklet.MartReportingTasklet martReportingTasklet;
     private final CdmEventPublishTasklet cdmEventPublishTasklet;
+    private final AllowanceExposureSnapshotTasklet allowanceExposureSnapshotTasklet;
     private final IntegratedPositionProcessor integratedPositionProcessor;
     
     @Qualifier("coreLedgerDataQualityProcessor")
@@ -78,6 +80,7 @@ public class IntegratedPositionEtlJobConfig {
                 .next(Objects.requireNonNull(collateralDataQualityStep()))
                 .next(Objects.requireNonNull(odsReconcileStep()))
                 .next(Objects.requireNonNull(cdmLoadStep()))
+                .next(Objects.requireNonNull(allowanceExposureSnapshotStep()))
                 .next(Objects.requireNonNull(martReportingStep()))
                 .next(cdmEventPublishStep()) // [v7.0 추가] EDA 알림 발행
                 .build();
@@ -151,6 +154,14 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
+    public Job allowanceExposureSnapshotJob() {
+        return new JobBuilder("allowanceExposureSnapshotJob", Objects.requireNonNull(jobRepository))
+                .incrementer(new RunIdIncrementer())
+                .start(Objects.requireNonNull(allowanceExposureSnapshotStep()))
+                .build();
+    }
+
+    @Bean
     public Job martReportingJob() {
         return new JobBuilder("martReportingJob", Objects.requireNonNull(jobRepository))
                 .incrementer(new RunIdIncrementer())
@@ -202,6 +213,13 @@ public class IntegratedPositionEtlJobConfig {
     public Step martReportingStep() {
         return new StepBuilder("martReportingStep", Objects.requireNonNull(jobRepository))
                 .tasklet(Objects.requireNonNull(martReportingTasklet), Objects.requireNonNull(transactionManager))
+                .build();
+    }
+
+    @Bean
+    public Step allowanceExposureSnapshotStep() {
+        return new StepBuilder("allowanceExposureSnapshotStep", Objects.requireNonNull(jobRepository))
+                .tasklet(Objects.requireNonNull(allowanceExposureSnapshotTasklet), Objects.requireNonNull(transactionManager))
                 .build();
     }
 

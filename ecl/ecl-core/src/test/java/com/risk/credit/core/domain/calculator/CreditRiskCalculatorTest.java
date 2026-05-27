@@ -51,7 +51,7 @@ class CreditRiskCalculatorTest {
     }
 
     @Test
-    @DisplayName("✅ 바젤 III 표준방법(SA) RWA 산출 검증")
+    @DisplayName("✅ 국제 금융 규제 표준방법(SA) RWA 산출 검증")
     void testCalculateRwaSa() {
         BigDecimal ead = new BigDecimal("1000000");
         BigDecimal standardRw = new BigDecimal("0.75");
@@ -61,7 +61,7 @@ class CreditRiskCalculatorTest {
     }
 
     @Test
-    @DisplayName("✅ 바젤 III 내부등급법(IRB) RWA 산출 검증")
+    @DisplayName("✅ 국제 금융 규제 내부등급법(IRB) RWA 산출 검증")
     void testCalculateRwaIrb() {
         BigDecimal pd = new BigDecimal("0.01");
         BigDecimal lgd = new BigDecimal("0.45");

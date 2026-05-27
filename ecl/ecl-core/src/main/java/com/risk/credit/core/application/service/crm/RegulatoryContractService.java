@@ -48,7 +48,7 @@ public class RegulatoryContractService {
 
         // 2. 계좌-담보 자동 매핑 (차주 ID 기반 조인)
         // CustomerID가 동일한 대출계좌와 담보를 DB 레벨에서 직접 조인하여 삽입합니다.
-        // 이는 바젤 III 규제상 동일 차주 내부의 담보 대체성을 가장 빠르게 구현하는 방식입니다.
+        // 이는 국제 금융 규제상 동일 차주 내부의 담보 대체성을 가장 빠르게 구현하는 방식입니다.
         log.info("  -> [2/2] 차주(Customer) ID 기반 계약-담보 일괄 매칭 수행 중...");
         int insertedCount = collateralBulkPort.createMappingsByCustomerId();
         

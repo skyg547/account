@@ -83,5 +83,25 @@ public class IntegratedPositionEtlJobTest {
                 Integer.class,
                 java.sql.Date.valueOf(baseDate));
         assertThat(reconcileMatches).isEqualTo(4);
+
+        Integer snapshotRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM allowance_exposure_snapshots WHERE base_date = ?",
+                Integer.class,
+                java.sql.Date.valueOf(baseDate));
+        assertThat(snapshotRows).isEqualTo(5);
+
+        BigDecimal undrawnAmount = jdbcTemplate.queryForObject(
+                "SELECT undrawn_amount FROM allowance_exposure_snapshots WHERE base_date = ? AND exposure_id = ?",
+                BigDecimal.class,
+                java.sql.Date.valueOf(baseDate),
+                "DEMO-ACC003");
+        assertThat(undrawnAmount).isEqualByComparingTo(new BigDecimal("500000000.0000"));
+
+        String accountingAccountCode = jdbcTemplate.queryForObject(
+                "SELECT accounting_account_code FROM allowance_exposure_snapshots WHERE base_date = ? AND exposure_id = ?",
+                String.class,
+                java.sql.Date.valueOf(baseDate),
+                "DEMO-ACC001");
+        assertThat(accountingAccountCode).isEqualTo("L001");
     }
 }

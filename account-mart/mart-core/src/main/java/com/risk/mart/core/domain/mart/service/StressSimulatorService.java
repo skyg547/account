@@ -20,7 +20,7 @@ import java.util.Map;
  * 
  * 💡 [초보자를 위한 개념 설명]
  * 스트레스 테스트(Stress Test)는 "최악의 상황"을 가정하여 은행의 건전성을 측정하는 엔진입니다.
- * 평상시(Baseline)의 예상 손실과 자본 수준을 계산한 뒤, 특정 위기 시나리오(예: 금융위기 재발)를 적용하여
+ * 평상시(국제 금융 규제ine)의 예상 손실과 자본 수준을 계산한 뒤, 특정 위기 시나리오(예: 금융위기 재발)를 적용하여
  * 얼마나 더 많은 손실이 발생하고, 자본이 얼마나 더 필요한지를 실시간으로 추정합니다.
  */
 @Slf4j
@@ -43,8 +43,8 @@ public class StressSimulatorService {
 
         List<IntegratedRiskPosition> positions = martRepository.findByBaseDt(baseDate);
 
-        BigDecimal totalBaselineEcl = BigDecimal.ZERO;
-        BigDecimal totalBaselineRwa = BigDecimal.ZERO;
+        BigDecimal total국제 금융 규제ineEcl = BigDecimal.ZERO;
+        BigDecimal total국제 금융 규제ineRwa = BigDecimal.ZERO;
         BigDecimal totalStressEcl = BigDecimal.ZERO;
         BigDecimal totalStressRwa = BigDecimal.ZERO;
         BigDecimal totalExposure = BigDecimal.ZERO;
@@ -55,26 +55,26 @@ public class StressSimulatorService {
 
         for (IntegratedRiskPosition pos : positions) {
             BigDecimal exposure = pos.getOutstandingAmount() != null ? pos.getOutstandingAmount() : BigDecimal.ZERO;
-            BigDecimal baselineEcl = pos.getExpectedLoss() != null ? pos.getExpectedLoss() : BigDecimal.ZERO;
-            BigDecimal baselineRwa = pos.getRwaIrb() != null ? pos.getRwaIrb() : BigDecimal.ZERO;
+            BigDecimal 국제 금융 규제ineEcl = pos.getExpectedLoss() != null ? pos.getExpectedLoss() : BigDecimal.ZERO;
+            BigDecimal 국제 금융 규제ineRwa = pos.getRwaIrb() != null ? pos.getRwaIrb() : BigDecimal.ZERO;
 
             totalExposure = totalExposure.add(exposure);
-            totalBaselineEcl = totalBaselineEcl.add(baselineEcl);
-            totalBaselineRwa = totalBaselineRwa.add(baselineRwa);
+            total국제 금융 규제ineEcl = total국제 금융 규제ineEcl.add(국제 금융 규제ineEcl);
+            total국제 금융 규제ineRwa = total국제 금융 규제ineRwa.add(국제 금융 규제ineRwa);
 
             // --- 스트레스 시나리오 적용 로직 (Simulation Logic) ---
 
             // 1. Stress ECL (예상손실 충격)
-            // 공식: Baseline ECL * PD Multiplier * LGD Multiplier
+            // 공식: 국제 금융 규제ine ECL * PD Multiplier * LGD Multiplier
             if (pos.getExpectedLoss() != null) {
                 totalStressEcl = totalStressEcl
                         .add(pos.getExpectedLoss().multiply(BigDecimal.valueOf(pdMult * lgdMult), MC));
             }
 
             // 2. Stress RWA (위험가중자산 충격 - 간이 모델)
-            // 실제 바젤 IRB 공식은 비선형적이지만, 시뮬레이션에서는 표준화된 충격 계수를 사용합니다.
+            // 실제 국제 금융 규제IRB 공식은 비선형적이지만, 시뮬레이션에서는 표준화된 충격 계수를 사용합니다.
             if (pos.getRwaIrb() != null) {
-                // PD가 상승하면 바젤 K-Factor 공식에 의해 RWA는 더 급격하게(비선형적) 상승하는 특성을 반영
+                // PD가 상승하면 국제 금융 규제K-Factor 공식에 의해 RWA는 더 급격하게(비선형적) 상승하는 특성을 반영
                 double rwaShockFactor = 1.0 + (pdMult - 1.0) * 0.8;
                 totalStressRwa = totalStressRwa
                         .add(pos.getRwaIrb().multiply(BigDecimal.valueOf(rwaShockFactor * lgdMult), MC));
@@ -87,16 +87,16 @@ public class StressSimulatorService {
         result.put("totalExposure", totalExposure);
 
         // 결과값 반올림 정규화
-        result.put("baselineEcl", totalBaselineEcl.setScale(0, RoundingMode.HALF_UP));
-        result.put("baselineRwa", totalBaselineRwa.setScale(0, RoundingMode.HALF_UP));
+        result.put("국제 금융 규제ineEcl", total국제 금융 규제ineEcl.setScale(0, RoundingMode.HALF_UP));
+        result.put("국제 금융 규제ineRwa", total국제 금융 규제ineRwa.setScale(0, RoundingMode.HALF_UP));
         result.put("stressEcl", totalStressEcl.setScale(0, RoundingMode.HALF_UP));
         result.put("stressRwa", totalStressRwa.setScale(0, RoundingMode.HALF_UP));
 
         // 규제 자본 영향도 산출 (기본 자본 비율 8% 가정)
-        // 공식: (Stress RWA - Baseline RWA) * 8%
-        BigDecimal baselineCapital = totalBaselineRwa.multiply(new BigDecimal("0.08"));
+        // 공식: (Stress RWA - 국제 금융 규제ine RWA) * 8%
+        BigDecimal 국제 금융 규제ineCapital = total국제 금융 규제ineRwa.multiply(new BigDecimal("0.08"));
         BigDecimal stressCapital = totalStressRwa.multiply(new BigDecimal("0.08"));
-        result.put("capitalImpact", stressCapital.subtract(baselineCapital).setScale(0, RoundingMode.HALF_UP));
+        result.put("capitalImpact", stressCapital.subtract(국제 금융 규제ineCapital).setScale(0, RoundingMode.HALF_UP));
 
         log.info("? [시뮬레이션] 완료. 자본 영향도: {}", result.get("capitalImpact"));
         return result;

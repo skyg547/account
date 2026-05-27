@@ -37,7 +37,7 @@ import java.time.temporal.ChronoUnit;
 @RequiredArgsConstructor
 public class RwaProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
 
-    /** 💡 [초보자 가이드] 바젤 III 규제 산식을 실제로 구현한 복잡한 계산 엔진입니다. */
+    /** 💡 [초보자 가이드] 국제 금융 규제 산식을 실제로 구현한 복잡한 계산 엔진입니다. */
     private final CreditRiskCalculator riskCalculator;
     
     /** 💡 [초보자 가이드] 정부가 정한 법적인 표준 위험 가중치를 찾아주는 서비스입니다. */
@@ -66,7 +66,7 @@ public class RwaProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
         IrbRegulatoryParams irbParams = irbParameterService.getParameters();
 
         // 1. 잔존 만기 재산출 (RWA 수식용)
-        // 💡 [만기] 바젤 규정상 만기조정(Maturity Adjustment)을 위해 남은 기간을 년 단위로 구합니다.
+        // 💡 [만기] 국제 금융 규제상 만기조정(Maturity Adjustment)을 위해 남은 기간을 년 단위로 구합니다.
         double maturityYears = 2.5d;
         if (result.getAccount().getMaturityDate() != null) {
             long remainingDays = ChronoUnit.DAYS.between(baseDate, result.getAccount().getMaturityDate());
@@ -82,7 +82,7 @@ public class RwaProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
         BigDecimal rwaSa = riskCalculator.calculateRwaSa(result.getEadStar(), appliedRw);
 
         // 3. 내부등급법(IRB) RWA 산출
-        // 💡 [IRB] 은행 내부 모형으로 구한 PD, LGD, EAD를 바젤 공식에 넣어 산출합니다. 가장 정밀한 단계입니다.
+        // 💡 [IRB] 은행 내부 모형으로 구한 PD, LGD, EAD를 국제 금융 규제공식에 넣어 산출합니다. 가장 정밀한 단계입니다.
         CreditRiskCalculator.IrbResult irbResult = riskCalculator.calculateRwaIrb(
                 result.getPd(),
                 result.getLgd(),

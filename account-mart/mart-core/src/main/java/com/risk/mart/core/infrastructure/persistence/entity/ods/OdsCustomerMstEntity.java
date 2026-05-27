@@ -64,7 +64,7 @@ public class OdsCustomerMstEntity {
     private String industryName;
 
     @Column(name = "is_sme")
-    @Comment("중소기업여부: 바젤 III 규제상 SME 차주에 대한 기업규모 보정(Size Adjustment) 적용 여부 결정")
+    @Comment("중소기업여부: 국제 금융 규제상 SME 차주에 대한 기업규모 보정(Size Adjustment) 적용 여부 결정")
     private Boolean isSme;
 
     @Column(name = "branch_cd", length = 10)

@@ -77,7 +77,7 @@ public class EadCrmCalculationService {
                 : BigDecimal.ZERO;
 
         // 2. 전문 규제 엔진(EadCalculator) 호출
-        // 💡 EadCalculator는 바젤 표준방법/내부등급법의 복잡한 EAD 산식을 코드화한 핵심 모듈입니다.
+        // 💡 EadCalculator는 국제 금융 규제표준방법/내부등급법의 복잡한 EAD 산식을 코드화한 핵심 모듈입니다.
         Object[] rawResult = eadCalculator.calculateAdvancedEAD(
                 account.getOutstandingAmount(), 
                 account.getNotionalAmount(),

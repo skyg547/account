@@ -28,7 +28,7 @@ import java.math.RoundingMode;
 public class EadCalculator {
 
     /**
-     * [고도화] 바젤 기반 고도화된 EAD* (보정 EAD) 산출.
+     * [고도화] 국제 금융 규제기반 고도화된 EAD* (보정 EAD) 산출.
      *
      * 💡 [산출 흐름 요약]
      * ① 미사용 잔액 = 약정 한도 - 현재 잔액

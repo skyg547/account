@@ -68,7 +68,7 @@ public class LgdCalculationService {
                 });
 
         // 3. 최종 규제 LGD Floor 적용 (담보부/무담보부 분기)
-        // 💡 [바젤 규제 가이드] 
+        // 💡 [국제 금융 규제 가이드] 
         //    담보가 있는 자산(Secured)은 LGD가 낮지만, 예상치 못한 가치 하락에 대비해 최소한의 손실률(Secured Floor, 약 10% 등)을 적용합니다. 
         //    무담보(Unsecured)는 훨씬 더 높은 최저선(약 25~45%)을 적용합니다.
         BigDecimal finalLgd = hasCollateral 

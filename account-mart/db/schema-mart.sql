@@ -230,6 +230,37 @@ CREATE TABLE dim_integrated_position_master (
 CREATE TABLE dim_integrated_position_master_2026m04 PARTITION OF dim_integrated_position_master 
     FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
 
+-- Section 4.5. 대손충당금/ECL 입력 스냅샷
+CREATE TABLE allowance_exposure_snapshots (
+    base_date DATE NOT NULL,
+    exposure_id VARCHAR(80) NOT NULL,
+    source_system VARCHAR(30) NOT NULL,
+    source_account_no VARCHAR(50) NOT NULL,
+    customer_code VARCHAR(50) NOT NULL,
+    product_code VARCHAR(20),
+    legal_entity_code VARCHAR(20) NOT NULL,
+    branch_code VARCHAR(20),
+    currency_code VARCHAR(3) NOT NULL,
+    outstanding_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    undrawn_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    interest_rate NUMERIC(10,6),
+    effective_interest_rate NUMERIC(10,6),
+    open_date DATE,
+    maturity_date DATE,
+    delinquent_days INTEGER DEFAULT 0,
+    original_rating VARCHAR(20),
+    current_rating VARCHAR(20),
+    warning_level VARCHAR(20),
+    debt_restructured BOOLEAN NOT NULL DEFAULT FALSE,
+    collateral_value NUMERIC(19,4) NOT NULL DEFAULT 0,
+    collateral_type VARCHAR(20),
+    accounting_account_code VARCHAR(20),
+    allowance_account_code VARCHAR(20),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (base_date, exposure_id)
+);
+
 -- Section 2.5 배치 감사 원장
 CREATE TABLE batch_job_audit (
     job_id BIGSERIAL PRIMARY KEY,
@@ -247,3 +278,6 @@ CREATE INDEX idx_mart_base_dt ON dim_integrated_position_master(base_dt);
 CREATE INDEX idx_mart_acc_no ON dim_integrated_position_master(acc_no);
 CREATE INDEX idx_recon_base_dt ON ods_reconcile_hist(base_dt);
 CREATE INDEX idx_dq_base_dt ON ods_dq_audit(base_dt);
+CREATE INDEX idx_allowance_exposure_base ON allowance_exposure_snapshots(base_date);
+CREATE INDEX idx_allowance_exposure_customer ON allowance_exposure_snapshots(customer_code);
+CREATE INDEX idx_allowance_exposure_product_currency ON allowance_exposure_snapshots(product_code, currency_code);

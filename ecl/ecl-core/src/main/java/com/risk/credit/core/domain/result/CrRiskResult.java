@@ -108,7 +108,7 @@ public class CrRiskResult extends BaseEntity {
 
     /** 
      * 자산상관계수 (R, Asset Correlation) 
-     * 바젤 III IRB 수식에서 차주 유형별로 적용되는 상관관계 값
+     * 국제 금융 규제 IRB 수식에서 차주 유형별로 적용되는 상관관계 값
      */
     @Column(name = "r_value", precision = 10, scale = 8)
     private BigDecimal rValue;

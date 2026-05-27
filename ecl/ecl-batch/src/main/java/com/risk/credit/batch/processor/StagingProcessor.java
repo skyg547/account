@@ -48,7 +48,7 @@ public class StagingProcessor implements ItemProcessor<CrAccount, CrRiskResult> 
     /** 💡 [초보자 가이드] 부도 시 손실률(LGD)의 기초 값을 매핑해주는 서비스입니다. */
     private final LgdCalculationService lgdCalculationService;
     
-    /** 💡 [초보자 가이드] 바젤 규제에서 정한 최소 부도 확률(PD Floor) 등을 관리하는 서비스입니다. */
+    /** 💡 [초보자 가이드] 국제 금융 규제에서 정한 최소 부도 확률(PD Floor) 등을 관리하는 서비스입니다. */
     private final IrbParameterService irbParameterService;
 
     /** 💡 [초보자 가이드] 배치 실행 시 입력받는 '기준 일자'입니다. */

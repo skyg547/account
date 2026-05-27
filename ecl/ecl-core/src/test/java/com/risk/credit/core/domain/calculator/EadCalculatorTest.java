@@ -18,7 +18,7 @@ class EadCalculatorTest {
     }
 
     @Test
-    @DisplayName("✅ 바젤 IV UCCR 10% CCF 및 미인출액 검증")
+    @DisplayName("✅ 국제 금융 규제 UCCR 10% CCF 및 미인출액 검증")
     void testCalculateEadWithUccr() {
         BigDecimal outstanding = new BigDecimal("10000000"); // 1,000만
         BigDecimal limit = new BigDecimal("50000000");       // 5,000만

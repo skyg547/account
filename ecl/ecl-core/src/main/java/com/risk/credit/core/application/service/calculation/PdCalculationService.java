@@ -90,7 +90,7 @@ public class PdCalculationService {
         }
 
         // 4. 최종 규제 PD Floor 적용
-        // 💡 [바젤 규정] PD는 아무리 낮아도 규제 당국이 정한 최소선(PD Floor, 예: 0.03%)보다 낮을 수 없습니다.
+        // 💡 [국제 금융 규제] PD는 아무리 낮아도 규제 당국이 정한 최소선(PD Floor, 예: 0.03%)보다 낮을 수 없습니다.
         BigDecimal finalPd = penalizedPd.max(irbParams.getPdFloor());
         
         log.debug("📊 [PD 산출 최종] 계좌번호: {}, 적용등급: {}, 최종 PD: {}", 

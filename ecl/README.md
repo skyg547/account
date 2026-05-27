@@ -1,6 +1,6 @@
 # 🛡️ 신용 리스크 관리 서비스 (Credit Risk Service)
 
-> **Architect's Vision**: "은행의 건전성을 지탱하는 가장 견고한 방패로서, IFRS 9 및 바젤 III/IV 규제를 완벽히 준수하여 정밀한 리스크 자본을 산출하는 엔진입니다."
+> **Architect's Vision**: "은행의 건전성을 지탱하는 가장 견고한 방패로서, IFRS 9 및 국제 금융 규제를 완벽히 준수하여 정밀한 리스크 자본을 산출하는 엔진입니다."
 
 본 서비스는 전사의 여신 포지션 데이터를 기반으로 **신용등급(PD)**, **부도 시 손실률(LGD)**, **부도 시 노출액(EAD)**을 결합하여, 회계적 **기대손실(ECL)**과 규제적 **위험가중자산(RWA)**을 산출합니다.
 
@@ -8,7 +8,7 @@
 
 ## 👥 담당 역할 (Roles)
 - **[백엔드 개발자]**: 고성능 배치 파이프라인 구축, Hexagonal Architecture 기반의 도메인 보호, 외부 시스템(ODS, Eureka) 연동 및 API 설계.
-- **[리스크 모델러]**: 바젤 규제 산식 구현, 최적화 알고리즘(`Simplex`) 설계, `BigDecimal` 기반의 정밀한 리스크 엔진 로직 검증.
+- **[리스크 모델러]**: 국제 금융 규제 산식 구현, 최적화 알고리즘(`Simplex`) 설계, `BigDecimal` 기반의 정밀한 리스크 엔진 로직 검증.
 
 ---
 
@@ -98,7 +98,7 @@ flowchart LR
 3.  **Credit Monitoring**: 차주의 부도 정보 및 조기경보를 기반으로 IFRS 9 스테이징을 확정합니다.
 4.  **Collateral Allocation**: 자본 절감을 극대화하는 워터폴 알고리즘으로 일반 담보를 배분합니다.
 5.  **Special Collateral**: 부동산 상세 속성(LTV, 선순위 등)을 반영하여 특화 담보를 배분합니다.
-6.  **Calculation (Main)**: 바젤 III/IV 표준 및 내부등급법 수식으로 **EAD, RWA, ECL**을 본산출합니다.
+6.  **Calculation (Main)**: 국제 금융 규제 표준 및 내부등급법 수식으로 **EAD, RWA, ECL**을 본산출합니다.
 7.  **Consolidation**: 산출 결과를 월통합 자산 관리 마트로 이관 및 생성합니다.
 8.  **Concentration Analysis**: 산업별/차주별 집중 리스크(HHI 지수)를 자동 측정합니다.
 
@@ -114,7 +114,7 @@ flowchart LR
 
 - **Java 21 / Spring Boot 3.4**: 최신 Java 기능을 활용한 고성능 연산 처리.
 - **Apache Commons Math**: 대규모 행렬 연산 및 LP(Linear Programming) 최적화 알고리즘 구현.
-- **IFRS 9 / Basel III/IV 준수**: 글로벌 표준 규제 산식(Standardized & IRB Approach) 완벽 구현.
+- **IFRS 9 / 국제 금융 규제 준수**: 글로벌 표준 규제 산식(Standardized & IRB Approach) 완벽 구현.
 
 ---
 

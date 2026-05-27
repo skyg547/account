@@ -51,7 +51,7 @@ INSERT INTO cr_sa_rw_masters (customer_type, rating_code, risk_weight, descripti
 -- 4. 규제 파라미터 (cr_regulatory_parameters)
 DELETE FROM cr_regulatory_parameters;
 INSERT INTO cr_regulatory_parameters (param_key, param_value, description) VALUES
-('BASEL_CONFIDENCE_LEVEL', 0.999, '바젤 III 신뢰수준'),
+('국제 금융 규제_CONFIDENCE_LEVEL', 0.999, '국제 금융 규제 신뢰수준'),
 ('CORRELATION_FACTOR_MIN', 0.12, '상관계수 최소값'),
 ('CORRELATION_FACTOR_MAX', 0.24, '상관계수 최대값'),
 ('AVG_MATURITY', 2.5, '평균 만기(연)');

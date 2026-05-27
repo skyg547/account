@@ -42,7 +42,7 @@ const initialMenuStructure = [
     id: 'RISK', name: '리스크 관리 (Risk)', slug: 'risk', 
     permissions: ['RISK_MANAGER', 'AUDITOR'], active: true,
     sub: [
-      { id: 'R1', name: 'Basel III RWA', slug: '/risk/basel-iii/rwa', permissions: ['RISK_MANAGER'], active: true },
+      { id: 'R1', name: '국제 금융 규제 RWA', slug: '/risk/국제 금융 규제-iii/rwa', permissions: ['RISK_MANAGER'], active: true },
       { id: 'R2', name: 'IFRS 9 Simulation', slug: '/risk/ifrs-9/ecl', permissions: ['RISK_MANAGER'], active: true },
     ]
   },

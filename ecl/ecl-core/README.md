@@ -5,7 +5,7 @@
 
 ## 💡 초보자를 위한 개념 설명
 본 모듈은 리스크 시스템의 **'두뇌와 심장'**입니다.
-- **수식 계산기**: 바젤 III/IV, IFRS 9와 같은 매우 복잡한 금융 수학 공식들이 이 안에 들어있습니다. 
+- **수식 계산기**: 국제 금융 규제, IFRS 9와 같은 매우 복잡한 금융 수학 공식들이 이 안에 들어있습니다. 
 - **핵심 장부**: 은행의 가장 중요한 자산인 대출, 담보 정보의 원천 모델(Domain Model)을 관리합니다.
 - 돈을 다루는 곳이므로 `0.000001`의 오차도 허용하지 않기 위해 `BigDecimal`을 사용하여 정밀하게 계산합니다.
 
@@ -26,7 +26,7 @@
 | **Step 01** | `stage01_sync` | **데이터 정합성 및 통합**: ODS에서 넘어온 원천 데이터를 정제하고 리스크 산출용 통합 포지션을 생성합니다. | `RiskDataQualityService`, `IntegratedRiskPositionRepository` |
 | **Step 02** | `stage02_collateral` | **담보 및 신용위험완화(CRM)**: 고객별 담보 배분 최적화(Waterfall 기법) 및 부동산 특화 담보가치를 산출합니다. | `CollateralAllocationService`, `CrCollateral` |
 | **Step 03** | `stage03_staging` | **IFRS 9 스테이징**: 연체일수, 외부 등급, 조기경보 신호를 기반으로 자산의 건전성 단계(Stage 1~3)를 판정합니다. | `StagingService`, `LifetimePdService` |
-| **Step 04** | `stage04_engine` | **리스크 산출 엔진**: Basel III/IV 규제 수식을 바탕으로 EAD, PD, LGD, RWA, ECL을 최종 산출합니다. | `CreditRiskService`, `CreditRiskCalculator`, `EadCalculator` |
+| **Step 04** | `stage04_engine` | **리스크 산출 엔진**: 국제 금융 규제 수식을 바탕으로 EAD, PD, LGD, RWA, ECL을 최종 산출합니다. | `CreditRiskService`, `CreditRiskCalculator`, `EadCalculator` |
 | **Step 05** | `stage05_report` | **분석 및 보고**: 산출 결과를 바탕으로 집중리스크(HHI), 스트레스 테스트, 대외 보고용 요약을 생성합니다. | `RegulatoryReportService`, `StressTestService`, `ConcentrationRiskService` |
 
 ## 📁 공통 도메인 모델 (Domain Models)
