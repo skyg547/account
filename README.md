@@ -1,24 +1,178 @@
-# Modern Financial System (MSA)
+# 🏦 K-Bank 차세대 재무 시스템 (Modern Financial System)
 
-본 프로젝트는 DDD 및 헥사고날 아키텍처 기반의 모던 재무 시스템(엔터프라이즈 리스크 시스템)입니다.
+> **"금융 데이터의 정합성과 확장성을 극대화한 MSA 기반 엔터프라이즈 재무/리스크 시스템"**
 
-## 아키텍처 및 도커 환경 구성
+이 저장소는 기존의 거대한 모놀리식 회계 시스템을 **도메인 주도 설계(DDD) 및 헥사고날 아키텍처(Hexagonal Architecture)** 기반의 마이크로서비스(MSA)로 전환하여 구축한 차세대 플랫폼입니다. 
+데이터 발생부터 전표 생성, 결산, 그리고 신용 리스크 산출(IFRS 9)에 이르는 전 과정을 End-to-End로 지원합니다.
+
+---
+
+## 🌟 핵심 기능 및 비즈니스 파이프라인
+
+본 시스템은 아래와 같은 6단계의 거대한 통합 비즈니스 흐름을 갖추고 있습니다.
+
+```mermaid
+flowchart TD
+    subgraph "Phase 1: 기반 시스템 (Foundation)"
+        MD[(Master Data)] -- "기준정보 제공\n(SCD2 이력관리)" --> SL
+        MD -- "ID 기반 검증" --> JL
+    end
+
+    subgraph "Phase 2: 업무 서브레저 (Subledgers)"
+        SL[Subledger Modules]
+        EX[지출\nexpenditure] --> SL
+        LN[여신\nloan] --> SL
+        AR[매출채권\nreceivable] --> SL
+        AP[매입채무\npayable] --> SL
+        AS[자산/리스\nasset-lease] --> SL
+    end
+
+    subgraph "Phase 3: 회계 엔진 (Core Accounting)"
+        SL -- "1. 전표 생성 요청" --> JL_USE[JournalUseCase]
+        JL_USE --> RE[자동 분개 엔진\nRule Engine]
+        RE --> DRAFT[DRAFT 전표]
+        DRAFT --> APP[전표 승인\nAPPROVED]
+        APP -- "2. 전기 실행" --> POST[PostingService]
+        POST --> GL_SL[(GL / SL 원장)]
+    end
+
+    subgraph "Phase 4: 결산 및 대사 (Closing & Recon)"
+        GL_SL -- "3. 잔액 대조" --> RC[대사 엔진\nreconciliation]
+        RC -- "차이 발견 시" --> ADJ[조정 전표 생성]
+        ADJ --> JL_USE
+
+        CL[결산 통제\nclosing] -- "4. 마감 잠금" --> JL_USE
+    end
+
+    subgraph "Phase 5: 리스크 분석 및 마트 (Risk & Mart)"
+        GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart\nODS / CDM)]
+        LN -- "여신 기초 데이터" --> MART
+        
+        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 리스크 엔진\nECL & RWA]
+        ECL_ENG -- "7. 대손충당금 산출" --> ECL_SUM[Allowance Summary]
+        
+        ECL_SUM -- "결산 자동 분개" --> CL
+    end
+
+    subgraph "Phase 6: 보고 및 역추적 (Reporting)"
+        GL_SL -- "8. 최종 잔액 집계" --> RP[보고서 엔진\nreporting]
+        RP --> FS[재무제표 & 주석 마트\nFinancial Statements]
+        FS --> DT[드릴스루\nDrill-through]
+        DT -- "9. 전표 상세 역추적" --> GL_SL
+    end
+
+    style MD fill:#f9f,stroke:#333,stroke-width:2px
+    style GL_SL fill:#bbf,stroke:#333,stroke-width:2px
+    style MART fill:#ffb,stroke:#333,stroke-width:2px
+    style ECL_ENG fill:#fbf,stroke:#333,stroke-width:2px
+    style FS fill:#dfd,stroke:#333,stroke-width:4px
+```
+
+---
+
+## 🏗️ 시스템 아키텍처
+
+저희 시스템은 수많은 금융 데이터를 끊김 없이 처리하기 위해 철저한 마이크로서비스(MSA) 기반으로 설계되었습니다.
+
+```mermaid
+flowchart TD
+    subgraph "External Clients"
+        UI[Frontend App / Browser]
+    end
+
+    subgraph "API Gateway Layer"
+        GW[API Gateway\n(Port: 8080)]
+        CB[Resilience4j\n(Circuit Breaker)]
+        GW -.-> CB
+    end
+
+    subgraph "Service Discovery & Config"
+        EUREKA((Eureka Server\nPort: 8761))
+        CONFIG[Config Server\nPort: 8888]
+    end
+
+    subgraph "Backend Microservices"
+        MS1[Master Data Service]
+        MS2[Journal Ledger Service]
+        MS3[Closing & Reporting]
+        MS4[Finance Subledgers]
+    end
+
+    subgraph "Data & Messaging"
+        DB[(PostgreSQL)]
+        KAFKA[[Apache Kafka\nMessage Broker]]
+        REDIS[(Redis\nCache & Lock)]
+    end
+
+    subgraph "Observability (모니터링 & 로깅)"
+        ZIPKIN[Zipkin\nTrace ID]
+        ELK{{ELK Stack\nElasticsearch, Logstash, Kibana}}
+        PROM[Prometheus & Grafana]
+    end
+
+    UI -->|HTTPS Request| GW
+    
+    GW -.->|Routing| MS1
+    GW -.->|Routing| MS2
+    GW -.->|Routing| MS3
+    GW -.->|Routing| MS4
+    
+    MS1 <-->|Register & Fetch| EUREKA
+    MS2 <-->|Register & Fetch| EUREKA
+    MS3 <-->|Register & Fetch| EUREKA
+    MS4 <-->|Register & Fetch| EUREKA
+    
+    CONFIG -.->|Push Properties| MS1
+    CONFIG -.->|Push Properties| MS2
+    CONFIG -.->|Push Properties| MS3
+    CONFIG -.->|Push Properties| MS4
+
+    MS1 --> DB
+    MS2 --> DB
+    MS3 --> DB
+    MS4 --> DB
+    
+    MS1 -.-> KAFKA
+    MS2 -.-> KAFKA
+    
+    MS1 -.-> REDIS
+    MS2 -.-> REDIS
+
+    MS1 -.->|Logs & Metrics| ELK
+    MS2 -.->|Traces| ZIPKIN
+    MS3 -.->|Metrics| PROM
+    
+    style EUREKA fill:#ff9,stroke:#333,stroke-width:2px
+    style GW fill:#bbf,stroke:#333,stroke-width:2px
+    style KAFKA fill:#dfd,stroke:#333,stroke-width:2px
+```
+
+### 기술 스택 (Tech Stack)
+* **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS (Glassmorphism UI)
+* **Backend:** Spring Boot 3.4 (Java 21), Spring Data JPA, QueryDSL, Spring Batch
+* **Architecture:** MSA, Hexagonal Architecture, Domain-Driven Design (DDD)
+* **Infrastructure:** PostgreSQL, H2, Redis, Apache Kafka, ELK Stack, Prometheus & Grafana
+* **Deployment:** Docker, Docker Compose
+
+---
+
+## 🚀 빠른 시작 (Getting Started)
 
 모든 개별 MSA 모듈 및 인프라스트럭처에 대해 독립적으로 실행 가능한 `Dockerfile`과 `docker-compose.yml`이 구성되어 있습니다.
 
-### 포함된 모듈
+### 인프라 및 기반 시스템 구동
+```bash
+# Gateway, Eureka, Config-server 등 핵심 기반 구동
+./start-infra.bat (또는 개별 docker-compose up -d)
+```
 
-**백엔드 모듈 (Spring Boot)**
-* `asset-lease`, `auth`, `closing`, `config-server`, `discovery`, `expenditure-resolution`, `gateway`, `governance`, `journal-ledger`, `loan`, `master-data`, `payable`, `receivable`, `reconciliation`, `reporting`, `tax`
-
-**인프라 및 기타 (Docker Compose 지원)**
-* `elasticsearch`, `grafana`, `kafka`, `kibana`, `logstash`, `prometheus`, `redis`, `vault`, `zipkin`
-
-### 개별 모듈 실행 방법
-
-각 모듈 디렉토리로 이동하여 다음 명령어로 모듈별 컨테이너를 구동할 수 있습니다 (테스트 및 빌드는 수행하지 않은 상태로 구동만 진행).
+### 애플리케이션 빌드 및 구동
+*(참고: 애플리케이션 모듈의 경우 컨테이너를 올리기 전 `./gradlew build` 등을 통해 `.jar` 파일이 `build/libs/`에 존재해야 정상적으로 `Dockerfile` 빌드가 완료됩니다.)*
 
 ```bash
+# 전체 모듈 빌드
+./gradlew build -x test
+
 # 예시: master-data 모듈 구동
 cd master-data
 docker-compose up -d
@@ -27,14 +181,15 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-*(참고: 애플리케이션 모듈의 경우 `./gradlew build` 등을 통해 `.jar` 파일이 `build/libs/`에 존재해야 정상적으로 `Dockerfile` 빌드가 완료됩니다.)*
+---
 
-## 문서 가이드
+## 📚 상세 문서 가이드 (Documentation)
 
-프로젝트 전반의 업무 흐름 및 아키텍처 구조에 대한 자세한 내용은 `docs/` 디렉토리를 참조하세요.
+시스템의 세부 아키텍처 및 도메인 지식은 `docs/` 폴더 내에 마크다운과 Mermaid 차트로 상세하게 작성되어 있습니다. **새로 합류하신 분들은 아래 순서대로 문서를 확인해 주세요.**
 
-1. **[docs/README.md](docs/README.md)**: 전체 문서 허브 (초보자 필독)
-2. **[docs/msa-execution-and-work-plan.md](docs/msa-execution-and-work-plan.md)**: MSA 실행 및 롤아웃 계획
-3. **[docs/infrastructure-guide.md](docs/infrastructure-guide.md)**: 인프라 구성 및 운영 가이드
+1. 🏛️ **[통합 아키텍처 명세서 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
+2. 🖥️ **[프론트엔드 설계서 (frontend-architecture.md)](docs/frontend-architecture.md)**: Next.js 기반 UI 설계, 상태 관리, 라우팅 및 폴더 구조
+3. ⚙️ **[인프라스트럭처 가이드 (infrastructure-guide.md)](docs/infrastructure-guide.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+4. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
-모든 비즈니스 모듈의 내부 폴더에도 별도의 문서를 유지하고 있습니다.
+각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
