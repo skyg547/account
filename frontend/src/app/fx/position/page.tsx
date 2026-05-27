@@ -9,21 +9,22 @@ export default function FxPositionPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
+    let active = true;
+    const fetchFxData = async () => {
+      try {
+        const res = await fxService.getDashboardData();
+        if (active) {
+          setData(res);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error(e);
+        if (active) setLoading(false);
+      }
+    };
+    fetchFxData();
+    return () => { active = false; };
   }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fxService.getDashboardData();
-      setData(res);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US').format(val);
 

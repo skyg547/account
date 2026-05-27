@@ -62,6 +62,7 @@ const menuItems: MenuGroup[] = [
       { icon: PieChart, label: '보조원장', href: '/journal/ledger/sl' },
       { icon: Zap, label: '자동 분개 설정', href: '/journal/rules', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
       { icon: CalendarDays, label: '결산/재무제표', href: '/closing', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'] },
+      { icon: FileText, label: '주석 마트 (Drill-down)', href: '/reports/disclosure-notes', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'] },
       { icon: Percent, label: '부가세 신고 관리', href: '/finance/tax', requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'] },
     ]
   },
