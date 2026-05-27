@@ -29,15 +29,47 @@
 ### 2.2 모듈 간 의존성 (Dependency Flow)
 모든 도메인 모듈은 하위 공통 모듈에만 의존해야 하며, **동위 도메인 모듈 간 직접 의존(JPA Entity 참조 등)은 엄격히 금지**됩니다.
 
-```text
-[ Domain Modules (loan, closing, payable 등) ] 
-       │ 
-       ▼ 
-[ Contracts (포트 인터페이스, DTO) ] 
-       │ 
-       ▼ 
-[ Shared-Kernel / Risk-Common (공통 유틸/예외) ]
+```mermaid
+flowchart TD
+    subgraph "Domain Modules (No direct cross-domain entity refs)"
+        APP[App: Execution & Integration]
+        LOAN[Loan]
+        CLOSING[Closing / Reporting]
+        PAYABLE[Payable / Receivable]
+        LEDGER[Journal & Ledger]
+    end
+    
+    subgraph "Contract Layer"
+        PORTS[Contracts: Ports & DTOs]
+    end
+    
+    subgraph "Base Modules"
+        MASTER[Master Data]
+        GOV[Governance / Auth]
+    end
+    
+    subgraph "Core Utilities"
+        SHARED[Shared Kernel / Risk Common]
+    end
+
+    APP --> LOAN
+    APP --> CLOSING
+    APP --> PAYABLE
+    APP --> LEDGER
+    APP --> MASTER
+
+    LOAN --> PORTS
+    CLOSING --> PORTS
+    PAYABLE --> PORTS
+    LEDGER --> PORTS
+    
+    PORTS --> SHARED
+    
+    LOAN -.-> MASTER
+    LEDGER -.-> MASTER
+    CLOSING -.-> MASTER
 ```
+
 * **의존성 룰:** 타 도메인 데이터가 필요할 경우 `contracts` 모듈에 정의된 `QueryPort`를 통해서만 접근. (예: `JournalQueryPort`)
 * **핵심 기반 모듈:** `master-data`와 `governance`는 모든 모듈의 기초가 됩니다. (자세한 분리 상태는 [Dependency Split Status](./archive/dependency-split-status.md) 참고)
 
@@ -82,4 +114,5 @@
 * ⚙️ **[Infrastructure Guide](./infrastructure-guide.md):** Docker 기반 실행 및 ELK, Kafka 운영 가이드
 * 🗄️ **[App Schema Guide](./schema.md):** 최상위 App 설정 및 환경별 Profile 관리 원칙
 * 📜 **[Development Policies](./principles_and_policies.md):** 코드 컨벤션, 네이밍 규칙, Anti-Skeleton 정책 상세
+* 🗃️ **[Archive](./archive):** 과거 모놀리식 전환기 및 2026-04 기준 의존성 분리 히스토리 보관소evelopment Policies](./principles_and_policies.md):** 코드 컨벤션, 네이밍 규칙, Anti-Skeleton 정책 상세
 * 🗃️ **[Archive](./archive):** 과거 모놀리식 전환기 및 2026-04 기준 의존성 분리 히스토리 보관소
