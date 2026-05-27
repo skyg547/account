@@ -106,7 +106,7 @@ function getMockTasks(): ClosingTaskDto[] {
     { id: 2, name: '은행 잔액 대조 (Reconciliation)', category: 'PRE_CLOSING', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-21', isMandatory: true },
     { id: 3, name: '외화 평가(FX Valuation) 배치', category: 'CLOSING_ENTRY', status: 'COMPLETED', assignedTo: '자금팀', dueDate: '2026-04-22', isMandatory: true },
     { id: 4, name: '감가상각비 계상', category: 'CLOSING_ENTRY', status: 'IN_PROGRESS', assignedTo: '고정자산팀', dueDate: '2026-04-23', isMandatory: true },
-    { id: 5, name: '기대신용손실(ECL) 충당금 산출 배치', category: 'CLOSING_ENTRY', status: 'FAILED', assignedTo: '리스크관리팀', dueDate: '2026-04-23', isMandatory: true, errorMessage: '대출채권 잔액 데이터 수신 지연으로 인한 타임아웃' },
+    { id: 5, name: 'IFRS9 기대신용손실(ECL) 충당금 산출 배치', category: 'CLOSING_ENTRY', status: 'FAILED', assignedTo: '리스크관리팀', dueDate: '2026-04-23', isMandatory: true, errorMessage: '대출채권 잔액 데이터 수신 지연으로 인한 타임아웃' },
     { id: 6, name: '이익잉여금 처분 계산', category: 'POST_CLOSING', status: 'PENDING', assignedTo: '재무기획팀', dueDate: '2026-04-24', isMandatory: true },
     { id: 7, name: '표준 재무제표 확정', category: 'REPORTING', status: 'PENDING', assignedTo: 'CFO', dueDate: '2026-04-25', isMandatory: true },
   ];

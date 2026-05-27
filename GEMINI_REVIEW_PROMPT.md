@@ -33,7 +33,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-27 "Closing ECL summary 포트 연동, ECL allowance_summary 생성 경로 추가, account-mart/ecl 루트 Gradle 편입 및 wiring 복구"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-27 "Closing ECL summary 포트 연동, ECL allowance_summary 생성 경로 추가, account-mart/ecl 루트 Gradle 편입 및 wiring 복구, allowance exposure snapshot 및 allowanceEclJob 추가"입니다.
 - `closing:core`에 `EclAllowanceResultPort`, `EclAllowanceSummary` 추가
 - `closing:batch`에 `JdbcEclAllowanceResultAdapter` 추가
 - `EclProvisionService`에서 대출채권 계정/KRW/1% 고정 산식 제거
@@ -49,12 +49,22 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - `ecl:ecl-batch` H2 통합 스키마에 summary 테이블과 샘플 계정 매핑 추가
 - `AllowanceSummaryServiceTest` 추가
 - 루트 `settings.gradle`에 `risk-common`, `account-mart:mart-*`, `ecl:ecl-*` 포함
-- `risk-common` 호환 모듈 추가: 기존 `com.risk.common` 엔티티/enum/event/DTO/예외/락 타입 제공
+- `risk-common` 호환 모듈 추가: 기존 `com.ho.account.shared.finance` 엔티티/enum/event/DTO/예외/락 타입 제공
 - `ecl`/`account-mart` Gradle 의존성, Kafka 의존성, stale import 정리
 - `account-mart` KAP/조기경보/계좌금리/수익률곡선/대사이력/등급마스터 포트 adapter 추가
 - `IntegratedPositionProcessor`의 KRW 환산 `marketValue` 보강
 - `mart-batch` demo SQL, JPA reader projection, ODS/GL MATCH/MISMATCH 대사 이력 보강
 - Kafka 없는 테스트를 위한 `mart.batch.cdm-event.enabled=false` 설정 추가
+- `account-mart:mart-core`에 `AllowanceExposureSnapshotBuildPort`, `AllowanceExposureSnapshotService`, `AllowanceExposureSnapshotBuildResult`, `JdbcAllowanceExposureSnapshotPersistenceAdapter` 추가
+- `allowance_exposure_snapshots` entity와 `account-mart:mart-api` `V2__add_allowance_exposure_snapshot.sql`, `account-mart/db/schema-mart.sql` 추가
+- `integratedPositionEtlJob`에 `allowanceExposureSnapshotStep` 추가 및 개별 `allowanceExposureSnapshotJob` 노출
+- `IntegratedPositionEtlJobTest`에서 snapshot 건수, 미사용한도, 회계 노출 계정코드 검증 추가
+- `ecl:ecl-core`에 `AllowanceExposureSyncService`/port/adapter 추가: `allowance_exposure_snapshots`에서 `cr_customers`, `cr_accounts` bulk upsert
+- `ecl:ecl-core`에 `AllowanceEclCompletionService`/port/adapter 추가: RWA 없는 ECL 전용 경로에서 weighted ECL 결과를 `COMPLETED`로 확정
+- `ecl:ecl-batch`에 `AllowanceExposureSyncTasklet`, `AllowanceEclCompletionTasklet`, `AllowanceEclBatchConfig`, `allowanceEclJob` 추가
+- `IndividualStepJobConfig`에 `standaloneAllowanceExposureSyncJob`, `standaloneAllowanceEclCompletionJob` 추가
+- `JobRunner`가 `spring.batch.job.enabled=false`와 `job.name`/`spring.batch.job.name` 선택 실행을 지원하도록 보강
+- `StressSimulatorService`의 깨진 baseline 식별자 복구
 - `docs/allowance-ecl-refocus-plan.md`, `closing/README.md`, `closing/docs/README.md`, `ecl/README.md`, `ecl/docs/*.md`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
@@ -108,12 +118,14 @@ Notes:
   - `.\gradlew projects --console=plain`: 성공. 루트 프로젝트 목록에 `risk-common`, `account-mart`, `ecl` 포함
   - `.\gradlew :risk-common:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava --console=plain`: 성공
   - `.\gradlew :account-mart:mart-batch:test --console=plain`: 성공
-  - `.\gradlew :ecl:ecl-core:test --tests com.risk.credit.core.application.service.allowance.AllowanceSummaryServiceTest :account-mart:mart-core:test --tests com.risk.mart.core.domain.mart.processor.IntegratedPositionProcessorTest --console=plain`: 성공
+  - `.\gradlew :ecl:ecl-core:test --tests com.ho.account.ecl.core.application.service.allowance.AllowanceSummaryServiceTest :account-mart:mart-core:test --tests com.ho.account.mart.core.domain.mart.processor.IntegratedPositionProcessorTest --console=plain`: 성공
   - `.\gradlew :account-mart:mart-core:compileTestJava :account-mart:mart-batch:compileTestJava :ecl:ecl-core:compileTestJava :ecl:ecl-batch:compileTestJava --console=plain`: 성공
+  - `.\gradlew :account-mart:mart-core:test --tests com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotServiceTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest :ecl:ecl-core:test --tests com.ho.account.ecl.core.application.service.allowance.AllowanceExposureSyncServiceTest --tests com.ho.account.ecl.core.application.service.allowance.AllowanceEclCompletionServiceTest :ecl:ecl-batch:compileJava --console=plain`: 성공
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.CreditRiskBatchIntegrationTest --console=plain`: 실패. `JobRunner` 비활성화 후 컨텍스트 로딩은 통과했으나 기존 Batch metadata table 미초기화(`BATCH_JOB_INSTANCE` 없음)로 job launch 단계 실패
   - 전체 diff check는 이번 범위 밖 기존 trailing whitespace가 섞여 있을 수 있으므로 범위 확인 필요
   - 결산 자동 승인/전기 통제는 기존 흐름을 유지하며, 별도 approval/reversal policy 포트 분리는 후속 리스크로 남음
   - `risk-common`은 임시 호환 계층이며 장기적으로 shared-kernel 또는 allowance 전용 공통 모델로 이관 필요
-  - `account-mart` allowance exposure snapshot과 `ecl`의 RWA 제외 `allowanceEclJob`은 후속 과제
+  - `JdbcAllowanceExposureSyncAdapter`는 PostgreSQL `ON CONFLICT` 기준이므로 H2 end-to-end 테스트에는 H2 호환 upsert 또는 fixture 보강 필요
 
 ## Review Handoff Checklist
 

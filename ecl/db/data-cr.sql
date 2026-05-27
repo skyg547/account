@@ -2,12 +2,12 @@
 -- Credit Risk Service Sample Data (data-cr.sql)
 -- 
 -- 💡 [초보자를 위한 가이드]
--- 이 파일은 신용 리스크 산출 엔진을 테스트하기 위한 시나리오 데이터를 생성합니다.
+-- 이 파일은 대손충당금(IFRS9) 산출 엔진을 테스트하기 위한 시나리오 데이터를 생성합니다.
 -- 차주(Customer) → 계좌(Account) → 담보(Collateral) 순으로 데이터가 구성됩니다.
 -- 기준일(Base Date): 2026-04-15
 -- =================================================================================
 
--- 1. 신용리스크 차주 마스터 (cr_customers)
+-- 1. 대손충당금(IFRS9) 차주 마스터 (cr_customers)
 INSERT INTO cr_customers (customer_code, customer_name, customer_type, internal_rating, industry_code, country_code, is_sme) VALUES
 ('CUST-001', '(주)삼성전자', 'CORPORATE', 'AAA', 'C262', 'KR', FALSE),
 ('CUST-002', '(주)현대자동차', 'CORPORATE', 'AA+', 'C301', 'KR', FALSE),

@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS cdm_dq_rule_master (
     is_active BOOLEAN DEFAULT TRUE
 );
 
--- 5. 리스크 산출 배치 세션 관리
+-- 5. 대손충당금(IFRS9) 산출 배치 세션 관리
 CREATE TABLE IF NOT EXISTS risk_calculation_session (
     session_id BIGSERIAL PRIMARY KEY,
     base_dt DATE NOT NULL,

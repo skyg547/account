@@ -1,6 +1,6 @@
-# 🌊 신용 리스크 배치 실행 흐름 상세 (Sequential Trace Flow)
+# 🌊 대손충당금(IFRS9) 배치 실행 흐름 상세 (Sequential Trace Flow)
 
-이 문서는 `CreditRiskMasterJobConfig`를 시작으로 전사 신용 리스크 산출 파이프라인이 어떤 클래스들을 거쳐 순차적으로 실행되는지 상세히 추적합니다.
+이 문서는 `CreditRiskMasterJobConfig`를 시작으로 전사 대손충당금(IFRS9) 산출 파이프라인이 어떤 클래스들을 거쳐 순차적으로 실행되는지 상세히 추적합니다.
 
 ---
 
@@ -9,6 +9,7 @@
 ```mermaid
 graph TD
     Master[<b>CreditRiskMasterJobConfig</b><br/>통합 마스터] --> Job1
+    AllowanceMaster[<b>AllowanceEclBatchConfig</b><br/>대손충당금 전용] --> ASync
     
     subgraph "Phase 1: 데이터 준비"
         Job1[PreProcessingBatchConfig] --> DQ[RiskDataQualityService]
@@ -45,6 +46,15 @@ graph TD
         ALW --> Cons[MonthlyAssetConsolidationService]
         Cons --> HHI[ConcentrationRiskService]
     end
+
+    subgraph "Allowance-only: RWA 제외"
+        ASync[AllowanceExposureSyncTasklet] --> ADQ[RiskDataQualityService]
+        ADQ --> AStage[StagingProcessor]
+        AStage --> AEad[EadCrmProcessor]
+        AEad --> AEcl[EclProcessor]
+        AEcl --> ADone[AllowanceEclCompletionTasklet]
+        ADone --> ASummary[AllowanceSummaryTasklet]
+    end
 ```
 
 ---
@@ -54,6 +64,11 @@ graph TD
 ### [STEP 0] 통합 지휘소 (Orchestrator)
 - **Class**: `CreditRiskMasterJobConfig`
 - **Role**: 5개의 전문 Job을 `JobStep` 형태로 래핑하여 순차적으로 기동합니다.
+
+### [STEP 0-A] 대손충당금 전용 지휘소
+- **Class**: `AllowanceEclBatchConfig`
+- **Role**: `allowance_exposure_snapshots`를 입력으로 `cr_customers`/`cr_accounts`를 동기화한 뒤 Stage, EAD/LGD, ECL, summary만 실행합니다.
+- **Excluded**: `RwaProcessor`, 월통합, 집중도/감독보고 Step은 실행하지 않습니다.
 
 ---
 
@@ -97,7 +112,7 @@ graph TD
 - **Config**: `MainReportingBatchConfig`
 - **실행 순서**:
     1.  **`eclManagerStep`**: `EclProcessor.java` **[Parallel]**
-        - 미래전망 정보를 결합하여 기대신용손실(ECL)을 최종 산출합니다.
+        - 미래전망 정보를 결합하여 IFRS9 기대신용손실(ECL)을 최종 산출합니다.
     2.  **`rwaManagerStep`**: `RwaProcessor.java` **[Parallel]**
         - 국제 금융 규제 수식을 적용하여 계좌별 위험가중자산(RWA)을 산출합니다.
     3.  **`allowanceSummaryStep`**: `AllowanceSummaryTasklet.java`
@@ -108,6 +123,17 @@ graph TD
     5.  **`concentrationAnalysisStep`**: `ConcentrationRiskService.java`
         - HHI 지수를 사용하여 특정 산업이나 고객에게 리스크가 쏠려 있는지 분석합니다.
 
+### [ALLOWANCE JOB] 대손충당금 전용 ECL
+- **Config**: `AllowanceEclBatchConfig`
+- **실행 순서**:
+    1. `allowanceExposureSyncStep`: `allowance_exposure_snapshots`를 읽어 `cr_customers`, `cr_accounts`를 bulk upsert합니다.
+    2. `dqStep`: 산출 대상 데이터 품질을 검증합니다.
+    3. `stagingManagerStep`: IFRS 9 Stage와 기초 PD를 산출합니다.
+    4. `eadCrmManagerStep`: CCF, EAD, LGD를 산출합니다.
+    5. `eclManagerStep`: 미래전망 weighted ECL을 산출합니다.
+    6. `allowanceEclCompletionStep`: RWA 없이도 산출 결과를 `COMPLETED`로 확정합니다.
+    7. `allowanceSummaryStep`: 회계 계정 매핑 기준으로 `allowance_summary`를 재생성합니다.
+
 ---
 
-[기획/팀장] -> [백엔드]: 리스크 산출의 모든 여정을 클래스 단위로 정리했습니다. 이 문서를 통해 개발자들은 특정 로직을 수정해야 할 때 어떤 Config에서 시작하여 어느 Service(또는 Processor)를 고쳐야 하는지 즉시 판단할 수 있습니다. 수고하셨습니다! _**YOLO!**_
+[기획/팀장] -> [백엔드]: 대손충당금(IFRS9) 산출의 모든 여정을 클래스 단위로 정리했습니다. 이 문서를 통해 개발자들은 특정 로직을 수정해야 할 때 어떤 Config에서 시작하여 어느 Service(또는 Processor)를 고쳐야 하는지 즉시 판단할 수 있습니다. 수고하셨습니다! _**YOLO!**_

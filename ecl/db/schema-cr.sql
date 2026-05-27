@@ -12,7 +12,7 @@
 -- 섹션 1: 핵심 비즈니스 테이블
 -- ─────────────────────────────────────────────────────────────
 
--- 1-1. 신용리스크 차주 마스터 (CrCustomer)
+-- 1-1. 대손충당금(IFRS9) 차주 마스터 (CrCustomer)
 -- 💡 [정합성 보정] id 타입을 SERIAL에서 BIGSERIAL로 확장 (Long 매핑)
 CREATE TABLE cr_customers (
     id BIGSERIAL PRIMARY KEY,
@@ -48,7 +48,7 @@ CREATE TABLE cr_product_masters (
     updated_by VARCHAR(255)
 );
 
--- 1-3. 신용리스크 익스포저 원장 (CrAccount)
+-- 1-3. 대손충당금(IFRS9) 익스포저 원장 (CrAccount)
 -- 💡 [정합성 보정] customer_id를 BIGINT로 선언하여 BIGSERIAL PK와 일치시킴
 CREATE TABLE cr_accounts (
     id BIGSERIAL PRIMARY KEY,
@@ -73,7 +73,7 @@ CREATE TABLE cr_accounts (
     updated_by VARCHAR(255)
 );
 
--- 1-4. 신용리스크 담보 마스터 (CrCollateral)
+-- 1-4. 대손충당금(IFRS9) 담보 마스터 (CrCollateral)
 CREATE TABLE cr_collaterals (
     id BIGSERIAL PRIMARY KEY,
     customer_id BIGINT REFERENCES cr_customers(id),
@@ -103,7 +103,7 @@ CREATE TABLE cr_account_collaterals (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1-6. 신용리스크 최종 산출 결과 (CrRiskResult)
+-- 1-6. 대손충당금(IFRS9) 최종 산출 결과 (CrRiskResult)
 -- 💡 [정합성 보정] id BIGINT로 수동 채번 지원 및 컬럼 정밀도 보강
 CREATE TABLE cr_risk_results (
     id BIGINT NOT NULL, -- 애플리케이션 수동 ID 할당 (Sequence 충돌 방지)

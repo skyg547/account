@@ -1,13 +1,13 @@
 # [초보자용] 리스크 데이터 마트(RDM) 및 mart-core 가이드 💡
 
-이 문서는 리스크 시스템에 처음 합류한 개발자를 위해 `mart-core` 모듈의 역할과 데이터 흐름을 쉽게 설명합니다.
+이 문서는 재무 결산 시스템에 처음 합류한 개발자를 위해 `mart-core` 모듈의 역할과 데이터 흐름을 쉽게 설명합니다.
 
 ## 1. 리스크 데이터 마트(RDM)란 무엇인가요?
 
 은행의 각 업무 시스템(예: 대출 시스템, 예금 시스템, 외환 시스템)은 각자의 목적에 맞게 데이터를 관리합니다. 하지만 **리스크 관리**를 하려면 이 파편화된 데이터를 하나로 모으고, 리스크만의 특별한 정보(고객 등급, 담보 가치 등)를 입혀야 합니다.
 
 *   **ODS (Operational Data Store):** 원천 시스템에서 넘어온 '날것'의 데이터 (원장 데이터)
-*   **RDM (Risk Data Mart):** 리스크 산출을 위해 가공되고 통합된 '완제품' 데이터
+*   **RDM (Risk Data Mart):** 대손충당금(IFRS9) 산출을 위해 가공되고 통합된 '완제품' 데이터
 
 > [!TIP]
 > **쉽게 비유하자면?**
@@ -27,15 +27,15 @@
 ## 3. 핵심 엔티티 및 클래스 설명
 
 ### 🏗️ IntegratedRiskPosition (통합 리스크 포지션)
-- **위치:** `com.risk.common.entity` (공통 모듈)
-- **설명:** 모든 리스크 산출의 '표준 입력 데이터'입니다. 대출이든 예금이든 모두 이 규격에 맞춰서 변환됩니다.
+- **위치:** `com.ho.account.shared.finance.entity` (공통 모듈)
+- **설명:** 모든 대손충당금(IFRS9) 산출의 '표준 입력 데이터'입니다. 대출이든 예금이든 모두 이 규격에 맞춰서 변환됩니다.
 
 ### ⚙️ IntegratedPositionProcessor
-- **위치:** `com.risk.mart.core.domain.mart.processor`
+- **위치:** `com.ho.account.mart.core.domain.mart.processor`
 - **설명:** ODS 데이터를 받아 `IntegratedRiskPosition`으로 변환하는 핵심 로직이 담긴 곳입니다.
 
 ### 📊 YieldCurve (수익률 곡선)
-- **위치:** `com.risk.mart.core.domain.marketdata.entity`
+- **위치:** `com.ho.account.mart.core.domain.marketdata.entity`
 - **설명:** 미래 시점별 금리 수준을 나타냅니다. 금리 리스크 평가 시 현재 가치를 계산(할인)하는 데 필수적입니다.
 
 ## 4. 데이터 흐름도

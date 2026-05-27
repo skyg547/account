@@ -2,7 +2,7 @@
 -- H2 Compatible Credit Risk Service Schema (CR)
 -- =================================================================================
 
--- 1-1. 신용리스크 차주 마스터 (CrCustomer)
+-- 1-1. 대손충당금(IFRS9) 차주 마스터 (CrCustomer)
 CREATE TABLE IF NOT EXISTS cr_customers (
     id SERIAL PRIMARY KEY,
     customer_code VARCHAR(50) NOT NULL UNIQUE,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS cr_product_masters (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1-3. 신용리스크 익스포저 원장 (CrAccount)
+-- 1-3. 대손충당금(IFRS9) 익스포저 원장 (CrAccount)
 CREATE TABLE IF NOT EXISTS cr_accounts (
     id SERIAL PRIMARY KEY,
     customer_id BIGINT REFERENCES cr_customers(id),
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS cr_accounts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1-4. 신용리스크 담보 마스터 (CrCollateral)
+-- 1-4. 대손충당금(IFRS9) 담보 마스터 (CrCollateral)
 CREATE TABLE IF NOT EXISTS cr_collaterals (
     id SERIAL PRIMARY KEY,
     customer_id BIGINT REFERENCES cr_customers(id),
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS cr_account_collaterals (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1-6. 신용리스크 최종 산출 결과 (CrRiskResult)
+-- 1-6. 대손충당금(IFRS9) 최종 산출 결과 (CrRiskResult)
 -- H2 doesn't support PARTITION BY RANGE in this syntax, using regular table.
 CREATE TABLE IF NOT EXISTS cr_risk_results (
     id SERIAL,

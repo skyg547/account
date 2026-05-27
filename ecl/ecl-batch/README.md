@@ -1,11 +1,11 @@
-# 💳 신용리스크 8단계 산출 배치 (credit-batch)
+# 💳 대손충당금(IFRS9) 8단계 산출 배치 (credit-batch)
 
 > **Role**: [백엔드 개발자]
 > **Metaphor**: [대용량 데이터 공장 라인]
 
 ## 💡 초보자를 위한 개념 설명
-본 모듈은 리스크 시스템의 **'거대한 자동화 공장'**입니다.
-- 은행의 수백만 개 계좌 데이터를 컨베이어 벨트에 올려두고, 8단계의 가공 공정(Sync -> Allocation -> Calculation 등)을 거쳐 최종 리스크 지표를 찍어냅니다.
+본 모듈은 재무 결산 시스템의 **'거대한 자동화 공장'**입니다.
+- 은행의 수백만 개 계좌 데이터를 컨베이어 벨트에 올려두고, 8단계의 가공 공정(Sync -> Allocation -> Calculation 등)을 거쳐 최종 대손충당금 지표를 찍어냅니다.
 - 한 번에 대량의 데이터를 처리해야 하므로, 메모리 효율성과 처리 속도가 매우 중요합니다.
 
 ## 🏗️ 아키텍처 원칙: Hexagonal Architecture (Port/Adapter)
@@ -18,7 +18,7 @@
 
 ## 🔄 단계별 재수행 가이드 (Recovery Guide)
 
-신용리스크 산출은 담보 배분 및 IRB 엔진 계산 등 매우 복잡한 공정으로 이루어져 있습니다. 특정 단계에서 중단된 경우, 해당 지점부터 수동으로 재개할 수 있습니다.
+대손충당금(IFRS9) 산출은 담보 배분 및 IRB 엔진 계산 등 매우 복잡한 공정으로 이루어져 있습니다. 특정 단계에서 중단된 경우, 해당 지점부터 수동으로 재개할 수 있습니다.
 
 | 단계 | Job ID | 설명 | 비즈니스 의미 |
 |:---:|:---|:---|:---|
@@ -29,10 +29,10 @@
 | **5** | `crSpecialCollateralJob` | 부동산 특화 담보 배분 | 아파트/부동산 담보의 시세 및 헤어컷 특화 배분 수행 |
 | **6** | `crCalculationJob` | RWA/ECL 본산출 (Chunk) | 대용량(500 Chunk) 멀티스레드 기반 RWA, ECL 산출 |
 | **7** | `crMonthlyConsolidationJob` | 월통합 계약/자산 생성 | 산출 완료된 계약의 월별 마감 데이터 영속화 |
-| **8** | `crConcentrationAnalysisJob` | 집중 리스크 분석 | 산업별/차주별 집중도(HHI 지수) 분석 수행 |
+| **8** | `crConcentrationAnalysisJob` | 집중 대손충당금(IFRS9) 분석 | 산업별/차주별 집중도(HHI 지수) 분석 수행 |
 
 ### 🚀 실행 방법 (추천)
-전체 신용리스크 산출 공정(End-to-End)을 한 번에 실행하려면 `creditRiskMasterJob`을 사용하세요.
+전체 대손충당금(IFRS9) 산출 공정(End-to-End)을 한 번에 실행하려면 `creditRiskMasterJob`을 사용하세요.
 ```bash
 ./gradlew :credit-risk-service:credit-batch:bootRun --args="--spring.profiles.active=docker --spring.batch.job.name=creditRiskMasterJob baseDate=2026-04-18 --spring.batch.job.enabled=true timestamp=$(date +%s)"
 ```

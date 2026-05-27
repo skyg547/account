@@ -11,6 +11,48 @@
 **총계정원장(GL)**과 **보조원장(SL)**을 생성하고, 최종적으로 **재무제표(결산) 및 규제 보고서**를 산출하는 것을 목표로 합니다.
 
 ### 1.1 하이레벨 아키텍처 (High-level Architecture)
+
+```mermaid
+graph TD
+    User([User / Browser])
+    UI[Frontend: Next.js 15]
+    Gateway[API Gateway]
+    
+    subgraph "Backend (Spring Boot MSA)"
+      Auth[Governance / Auth]
+      Master[Master Data]
+      Finance[Finance Domain: AP, AR, FA, Loan]
+      Ledger[Journal & Ledger]
+      Closing[Closing & Reporting]
+      Ecl[IFRS9 / Finance Mart]
+    end
+
+    subgraph "Infrastructure"
+      DB[(PostgreSQL / H2)]
+      Kafka[[Kafka Event Stream]]
+      ELK{{ELK Stack: Logs/Audit}}
+    end
+
+    User -->|HTTPS| UI
+    UI -->|REST API| Gateway
+    Gateway --> Auth
+    Gateway --> Finance
+    Gateway --> Ledger
+    Gateway --> Closing
+    Gateway --> Ecl
+    
+    Auth -.-> Master
+    Finance -.-> Master
+    Ledger -.-> Master
+    
+    Finance -.-> DB
+    Ledger -.-> DB
+    Master -.-> DB
+    
+    Ledger -.-> Kafka
+    Ecl -.-> Kafka
+```
+
 * **Frontend:** Next.js 15 기반, React Query 및 Zustand 적용 (자세한 구조는 [Frontend Architecture](./frontend-architecture.md) 참조)
 * **Backend:** Spring Boot 3.4 (Java 21), Hexagonal Architecture 기반의 멀티 모듈 구조
 * **Infrastructure:** PostgreSQL(원장/마스터), H2(테스트/배치), Kafka(이벤트 스트리밍), ELK(감사 로그)
@@ -49,7 +91,7 @@ flowchart TD
     end
     
     subgraph "Core Utilities"
-        SHARED[Shared Kernel / Risk Common]
+        SHARED[Shared Kernel]
     end
 
     APP --> LOAN
@@ -114,5 +156,4 @@ flowchart TD
 * ⚙️ **[Infrastructure Guide](./infrastructure-guide.md):** Docker 기반 실행 및 ELK, Kafka 운영 가이드
 * 🗄️ **[App Schema Guide](./schema.md):** 최상위 App 설정 및 환경별 Profile 관리 원칙
 * 📜 **[Development Policies](./principles_and_policies.md):** 코드 컨벤션, 네이밍 규칙, Anti-Skeleton 정책 상세
-* 🗃️ **[Archive](./archive):** 과거 모놀리식 전환기 및 2026-04 기준 의존성 분리 히스토리 보관소evelopment Policies](./principles_and_policies.md):** 코드 컨벤션, 네이밍 규칙, Anti-Skeleton 정책 상세
 * 🗃️ **[Archive](./archive):** 과거 모놀리식 전환기 및 2026-04 기준 의존성 분리 히스토리 보관소

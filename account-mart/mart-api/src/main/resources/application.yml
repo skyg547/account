@@ -18,4 +18,4 @@ eureka:
 
 logging:
   level:
-    com.risk.mart: DEBUG
+    com.ho.account.mart: DEBUG

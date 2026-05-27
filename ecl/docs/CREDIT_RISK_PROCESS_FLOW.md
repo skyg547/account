@@ -1,15 +1,15 @@
-# 🏦 엔터프라이즈급 신용리스크 산출 프로세스 (Credit Risk Pipeline)
+# 🏦 엔터프라이즈급 대손충당금(IFRS9) 산출 프로세스 (Credit Risk Pipeline)
 
 > 이 문서는 은행의 계정계 원장 데이터가 최종 위험가중자산(RWA) 및 리스크 결과로 변환되기까지의 **모듈형 멀티-Job 아키텍처**를 상세히 정의합니다.
 
 ---
 
 ## 🏗️ 모듈형 멀티-Job 오케스트레이션 (Multi-Job Architecture)
-대규모 리스크 시스템의 유연한 운영을 위해, 전체 공정을 5개의 **독립 전문 Job**과 이를 통합하는 1개의 **Master Job**으로 구성하였습니다.
+대규모 재무 결산 시스템의 유연한 운영을 위해, 전체 공정을 5개의 **독립 전문 Job**과 이를 통합하는 1개의 **Master Job**으로 구성하였습니다.
 
 ### 0. 통합 마스터 Job (Master Orchestration)
 - **Job ID**: `creditRiskMasterJob`
-- **역할**: 아래 정의된 5개의 전문 Job을 순차적으로 호출하여 전체 리스크 산출을 완결합니다.
+- **역할**: 아래 정의된 5개의 전문 Job을 순차적으로 호출하여 전체 대손충당금(IFRS9) 산출을 완결합니다.
 
 ---
 
@@ -33,7 +33,7 @@
 - **포함 단계**:
     - `resultPreparationStep`: 기존 산출 결과 초기화 (재실행 가능성 확보)
     - `stagingManagerStep` (Phase 1): IFRS 9 스테이지 판정 및 기초 PD 매핑
-- **비즈니스 목적**: 산출 대상 계좌를 확정하고 최초 리스크 산출 결과(`CrRiskResult`)를 생성합니다.
+- **비즈니스 목적**: 산출 대상 계좌를 확정하고 최초 대손충당금(IFRS9) 산출 결과(`CrRiskResult`)를 생성합니다.
 
 ### 4. 노출액 및 파라미터 확정 Job (Exposure & LGD)
 - **Job ID**: `exposureLgdJob`
@@ -44,7 +44,7 @@
 ### 5. 본산출 및 리포팅 Job (Main Calculation & Reporting)
 - **Job ID**: `mainReportingJob`
 - **포함 단계**:
-    - `eclManagerStep` (Phase 3): 미래전망 기대신용손실(ECL) 산출
+    - `eclManagerStep` (Phase 3): 미래전망 IFRS9 기대신용손실(ECL) 산출
     - `rwaManagerStep` (Phase 4): 최종 위험가중자산(RWA) 및 K-Value 산출
     - `consolidationStep`: 차주/그룹 단위 자산 통합
     - `concentrationAnalysisStep`: 자산 집중도 분석 (HHI 지수)
@@ -80,9 +80,9 @@ graph TD
 
 ---
 
-## 🌊 리스크 산출의 논리적 폭포 (Calculation Cascade)
+## 🌊 대손충당금(IFRS9) 산출의 논리적 폭포 (Calculation Cascade)
 
-리스크 파라미터 산출은 앞 단계의 결과가 다음 단계의 필수 입력값이 되는 **연쇄적 종속 관계**를 가집니다. 따라서 아래의 순서를 엄격히 준수해야 정확한 리스크 지표가 산출됩니다.
+리스크 파라미터 산출은 앞 단계의 결과가 다음 단계의 필수 입력값이 되는 **연쇄적 종속 관계**를 가집니다. 따라서 아래의 순서를 엄격히 준수해야 정확한 대손충당금 지표가 산출됩니다.
 
 ### 1. 단계별 실행 논리 및 의존성
 

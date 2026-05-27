@@ -1,9 +1,9 @@
 # 🏦 차세대 재무 시스템 (Modern Financial System)
 
-> **"금융 데이터의 정합성과 확장성을 극대화한 MSA 기반 엔터프라이즈 재무/리스크 시스템"**
+> **"금융 데이터의 정합성과 확장성을 극대화한 MSA 기반 엔터프라이즈 재무/재무 결산 시스템"**
 
 이 저장소는 기존의 거대한 모놀리식 회계 시스템을 **도메인 주도 설계(DDD) 및 헥사고날 아키텍처(Hexagonal Architecture)** 기반의 마이크로서비스(MSA)로 전환하여 구축한 차세대 플랫폼입니다. 
-데이터 발생부터 전표 생성, 결산, 그리고 신용 리스크 산출(IFRS 9)에 이르는 전 과정을 End-to-End로 지원합니다.
+데이터 발생부터 전표 생성, 결산, 그리고 대손충당금(IFRS9) 산출(IFRS 9)에 이르는 전 과정을 End-to-End로 지원합니다.
 
 ---
 
@@ -44,11 +44,11 @@ flowchart TD
         CL[결산 통제\nclosing] -- "4. 마감 잠금" --> JL_USE
     end
 
-    subgraph "Phase 5: 리스크 분석 및 마트 (Risk & Mart)"
+    subgraph "Phase 5: 대손충당금(IFRS9) 분석 및 재무 마트"
         GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart\nODS / CDM)]
         LN -- "여신 기초 데이터" --> MART
         
-        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 리스크 엔진\nECL & RWA]
+        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 결산 대손 엔진\nECL & RWA]
         ECL_ENG -- "7. 대손충당금 산출" --> ECL_SUM[Allowance Summary]
         
         ECL_SUM -- "결산 자동 분개" --> CL
@@ -77,7 +77,7 @@ flowchart TD
 ### ⚙️ 기반 모듈 (Foundation)
 * **`app/`**: 전체 Spring Boot 애플리케이션의 실행 진입점(Main)이자 전체 환경 설정(`application.yml`)을 담당합니다.
 * **`contracts/`**: 도메인 모듈 간 직접적인 엔티티 참조를 막기 위한 공통 인터페이스(Port)와 DTO(Data Transfer Object)가 정의된 통신 규약 모듈입니다.
-* **`shared-kernel/` & `risk-common/`**: 여러 서비스가 공유하는 핵심 공통 로직(식별자, 예외 처리, 메타데이터 등)을 담고 있는 최소한의 뼈대입니다.
+* **`shared-kernel/`**: 여러 서비스가 공유하는 핵심 공통 로직(식별자, 예외 처리, 메타데이터 등)을 담고 있는 최소한의 뼈대입니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
 * **`governance/`**: 시스템 내 역할(Role) 및 권한 관리, 데이터 마스킹, 결재/승인 프로세스, 그리고 전사 감사 로그(Audit)를 기록합니다.
 
@@ -90,13 +90,13 @@ flowchart TD
 
 ### ⚖️ 회계 엔진 및 결산 (Core Accounting)
 * **`journal-ledger/`**: 서브레저에서 발생한 이벤트를 바탕으로 회계 룰 엔진을 돌려 전표를 생성하고, 총계정원장(GL) 및 보조원장(SL)을 생성합니다.
-* **`closing/`**: 월말/연말 결산 마감(Closing Lock) 통제, 외화평가(FX), 대손충당금(ECL) 분개 등 결산 전용 프로세스를 수행합니다.
+* **`closing/`**: 월말/연말 결산 마감(Closing Lock) 통제, 외화평가(FX), IFRS9 기대신용손실(ECL) 분개 등 결산 전용 프로세스를 수행합니다.
 * **`reconciliation/`**: 내부 원장(Target)과 외부 데이터(은행/PG사 등, Source) 간의 금액과 거래 내역을 대사하고, 차이(Variance) 발생 시 조정 전표를 생성합니다.
 * **`tax/`**: 부가가치세 매입/매출, 원천세 신고 등 세무 관련 회계 데이터를 집계합니다.
 
-### 📊 리스크 분석 및 보고 (Risk & Reporting)
-* **`account-mart/`**: 분산된 원장 및 거래 데이터를 긁어와(ETL), 데이터 품질(DQ)을 검증하고 리스크 분석용 통합 데이터 모델(CDM)로 제공하는 ODS/Mart 시스템입니다.
-* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 및 국제 금융 규제에 따른 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 기대신용손실(ECL)과 RWA를 산출합니다.
+### 📊 대손충당금(IFRS9) 분석 및 보고 (Finance Mart & Reporting)
+* **`account-mart/`**: 분산된 원장 및 거래 데이터를 긁어와(ETL), 데이터 품질(DQ)을 검증하고 대손충당금(IFRS9) 분석용 통합 데이터 모델(CDM)로 제공하는 ODS/Mart 시스템입니다.
+* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 및 국제 금융 규제에 따른 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 IFRS9 기대신용손실(ECL)과 RWA를 산출합니다.
 * **`reporting/`**: 최종 확정된 원장 데이터를 기반으로 대차대조표(BS), 손익계산서(PL) 등 재무제표와 주석 마트(Disclosure Note Mart)를 생성하며, 원천 전표로의 역추적(Drill-through) API를 제공합니다.
 
 ### 🌐 프론트엔드 및 인프라 (Frontend & Infra)

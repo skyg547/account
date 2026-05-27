@@ -1,6 +1,6 @@
-# 🛡️ 신용 리스크 관리 서비스 (Credit Risk Service)
+# 🛡️ 대손충당금(IFRS9) 관리 서비스 (Credit Risk Service)
 
-> **Architect's Vision**: "은행의 건전성을 지탱하는 가장 견고한 방패로서, IFRS 9 및 국제 금융 규제를 완벽히 준수하여 정밀한 리스크 자본을 산출하는 엔진입니다."
+> **Architect's Vision**: "은행의 건전성을 지탱하는 가장 견고한 방패로서, IFRS 9 및 국제 금융 규제를 완벽히 준수하여 정밀한 대손충당금(IFRS9)을 산출하는 엔진입니다."
 
 본 서비스는 전사의 여신 포지션 데이터를 기반으로 **신용등급(PD)**, **부도 시 손실률(LGD)**, **부도 시 노출액(EAD)**을 결합하여, 회계적 **기대손실(ECL)**과 규제적 **위험가중자산(RWA)**을 산출합니다.
 
@@ -8,26 +8,26 @@
 
 ## 👥 담당 역할 (Roles)
 - **[백엔드 개발자]**: 고성능 배치 파이프라인 구축, Hexagonal Architecture 기반의 도메인 보호, 외부 시스템(ODS, Eureka) 연동 및 API 설계.
-- **[리스크 모델러]**: 국제 금융 규제 산식 구현, 최적화 알고리즘(`Simplex`) 설계, `BigDecimal` 기반의 정밀한 리스크 엔진 로직 검증.
+- **[재무 모델러]**: 국제 금융 규제 산식 구현, 최적화 알고리즘(`Simplex`) 설계, `BigDecimal` 기반의 정밀한 결산 대손 엔진 로직 검증.
 
 ---
 
 ## 🏗️ 서비스 아키텍처 및 모듈 구성
 
-본 서비스는 **Hexagonal Architecture(Port/Adapter 분리)** 원칙을 준수하여, 핵심 리스크 산출 로직(Core)이 외부 기술(DB, Framework)의 변화에 오염되지 않도록 격리되어 있습니다.
+본 서비스는 **Hexagonal Architecture(Port/Adapter 분리)** 원칙을 준수하여, 핵심 대손충당금(IFRS9) 산출 로직(Core)이 외부 기술(DB, Framework)의 변화에 오염되지 않도록 격리되어 있습니다.
 
 *   **`credit-api` [고객 응대 창구]**: 외부 시스템 및 프론트엔드 대시보드를 위한 REST API 계층.
-*   **`credit-batch` [대용량 데이터 공장 라인]**: Spring Batch 기반 대용량 산출 엔진. **야간 정산(EOB)**을 통해 전사 리스크 지표를 확정합니다.
-*   **`credit-core` [수식 계산기 및 핵심 장부 관리]**: 신용 리스크의 핵심 도메인 로직. 필드 정밀도 유지를 위해 모든 계산은 `BigDecimal` 중심의 수치 산술을 수행합니다.
+*   **`credit-batch` [대용량 데이터 공장 라인]**: Spring Batch 기반 대용량 산출 엔진. **야간 정산(EOB)**을 통해 전사 대손충당금 지표를 확정합니다.
+*   **`credit-core` [수식 계산기 및 핵심 장부 관리]**: 대손충당금(IFRS9)의 핵심 도메인 로직. 필드 정밀도 유지를 위해 모든 계산은 `BigDecimal` 중심의 수치 산술을 수행합니다.
 
 ---
 
 ## 💡 [초보자를 위한 개념 설명] 이 엔진이 하는 일
 
-금융 리스크 시스템은 주니어 개발자에게 "외계어"처럼 느껴질 수 있습니다. 핵심 개념을 비유를 통해 설명해 드립니다.
+금융 재무 결산 시스템은 주니어 개발자에게 "외계어"처럼 느껴질 수 있습니다. 핵심 개념을 비유를 통해 설명해 드립니다.
 
 1.  **Batch (공장 라인)**: 수백만 명의 대출 데이터를 하나씩 처리하는 것은 불가능합니다. 마치 거대한 컨베이어 벨트(공장 라인)에 데이터를 올려두고, 정해진 순서대로 가공하여 결과물을 만들어내는 과정입니다.
-2.  **Core (계산기 & 장부)**: 리스크 산출의 '심장'입니다. 복잡한 수학 공식(계산기)이 들어있고, 은행의 가장 소중한 자산 정보(장부)를 안전하게 관리합니다.
+2.  **Core (계산기 & 장부)**: 대손충당금(IFRS9) 산출의 '심장'입니다. 복잡한 수학 공식(계산기)이 들어있고, 은행의 가장 소중한 자산 정보(장부)를 안전하게 관리합니다.
 3.  **API (응대 창구)**: 공장에서 만들어진 리스크 결과물을 보고 싶어 하는 사람들에게 친절하게 정보를 보여주는 은행 창구와 같습니다.
 
 ---
@@ -47,14 +47,17 @@
 
 ### 0. 대손충당금 연동 상태
 
-2026-05-27 기준으로 `ecl`에는 `closing`이 읽는 `allowance_summary`를 생성하는 최소 경로가 추가되어 있습니다.
+2026-05-27 기준으로 `ecl`에는 `account-mart`의 `allowance_exposure_snapshots`를 입력으로 삼아 `closing`이 읽는 `allowance_summary`를 생성하는 대손충당금 전용 경로가 추가되어 있습니다.
 
-- `MainReportingBatchConfig`는 ECL/RWA 산출 후 `allowanceSummaryStep`을 실행합니다.
+- `allowanceEclJob`은 RWA/집중도/감독보고를 건너뛰고 `allowanceExposureSyncStep -> DQ -> Stage -> EAD/LGD -> ECL -> allowanceEclCompletionStep -> allowanceSummaryStep` 순서로 실행합니다.
+- `AllowanceExposureSyncService`는 `allowance_exposure_snapshots`에서 `cr_customers`, `cr_accounts`를 SQL bulk upsert합니다.
+- `allowanceEclCompletionStep`은 RWA를 수행하지 않는 전용 경로에서도 산출 완료 상태를 확정해 summary 집계 대상이 되도록 합니다.
+- 레거시 `MainReportingBatchConfig`는 ECL/RWA 산출 후 `allowanceSummaryStep`을 실행합니다.
 - `AllowanceSummaryService`는 기준일의 완료된 ECL 결과를 회계 summary로 재생성합니다.
 - 실제 대량 집계는 `JdbcAllowanceSummaryPersistenceAdapter`의 SQL bulk `INSERT ... SELECT`로 처리합니다.
 - `allowance_account_mappings`에 상품/사업부/통화별 회계 계정 매핑이 없으면 기존 summary를 지우지 않고 실패합니다.
 - 루트 `settings.gradle`에 `:ecl:ecl-core`, `:ecl:ecl-api`, `:ecl:ecl-batch`가 포함되어 저장소 기준 컴파일/테스트를 실행할 수 있습니다.
-- 기존 `com.risk.common` 참조는 `:risk-common` 호환 모듈을 통해 우선 복구했습니다.
+- 기존 `com.ho.account.shared.finance` 참조는 `:risk-common` 호환 모듈을 통해 우선 복구했습니다.
 
 ### 1. DB 환경 준비
 배치 프로세스를 돌려보기 전, 기초 마스터 데이터와 거래 데이터를 생성해야 합니다.
@@ -67,7 +70,7 @@ psql -U admin -d credit_risk_db -f db/data-cr.sql
 ```
 
 ### 2. 8단계 규제 오케스트레이션 파이프라인
-`creditRiskCalculationJob`은 아래 8단계를 순차적으로 수행하여 최종 리스크 지표를 산출합니다. 상세 내용은 [process-flow.md](docs/process-flow.md)를 참고하세요.
+`creditRiskCalculationJob`은 아래 8단계를 순차적으로 수행하여 최종 대손충당금 지표를 산출합니다. 상세 내용은 [process-flow.md](docs/process-flow.md)를 참고하세요.
 
 ```mermaid
 flowchart LR
@@ -104,8 +107,11 @@ flowchart LR
 
 ### 3. 배치 실행 (Gradle)
 ```bash
-# 특정 기준일(baseDate)에 대한 전체 리스크 산출 배치 실행
+# 특정 기준일(baseDate)에 대한 전체 대손충당금(IFRS9) 산출 배치 실행
 ./gradlew :ecl:ecl-batch:bootRun --args='--spring.batch.job.name=creditRiskCalculationJob baseDate=2026-04-15'
+
+# 대손충당금 전용 ECL 산출 실행
+./gradlew :ecl:ecl-batch:bootRun --args='job.name=allowanceEclJob baseDate=2026-04-30 modelVersion=v1'
 ```
 
 ---

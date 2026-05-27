@@ -2,7 +2,7 @@
 -- Risk Data Mart Service Schema (ODS & CDM) - v5.0 (IRRBB Enhancement)
 -- 
 -- 💡 [초보자를 위한 가이드]
--- 이 SQL 파일은 은행 원천 데이터(ODS)를 리스크 산출용 통합 데이터(CDM)로 변환하기 위한 저장소입니다.
+-- 이 SQL 파일은 은행 원천 데이터(ODS)를 대손충당금(IFRS9) 산출용 통합 데이터(CDM)로 변환하기 위한 저장소입니다.
 -- v5.0 고도화: 금리리스크(IRRBB)의 정밀 산출을 위해 상환 스케줄, 금리 상/하한, 
 -- 참조 인덱스 매핑 정보를 추가하여 데이터 품질을 극대화했습니다.
 -- =================================================================================
@@ -119,7 +119,7 @@ CREATE TABLE ods_collateral_mst (
 
 -- Section 1.5 행동 모델링용 이력 테이블 (NEW)
 -- 💡 [초보자를 위한 가이드]
--- 리스크 시스템의 '기억 장치'입니다. 
+-- 재무 결산 시스템의 '기억 장치'입니다. 
 -- 통계적으로 고객이 언제 돈을 뺄지(NMD), 언제 대출을 미리 갚을지(CPR)를 예측하려면 
 -- 최소 3~5년치 과거 데이터가 필요합니다. 이 테이블은 그 분석을 위한 시계열 데이터를 저장합니다.
 CREATE TABLE ods_behavioral_history (
@@ -172,7 +172,7 @@ CREATE TABLE ods_dq_audit (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Section 4. 통합 리스크 마트 (Integrated Risk Mart - CDM)
+-- Section 4. 통합 재무 마트 (Integrated Risk Mart - CDM)
 CREATE TABLE dim_integrated_position_master (
     base_dt DATE NOT NULL,
     acc_no VARCHAR(50) NOT NULL,
@@ -237,7 +237,12 @@ CREATE TABLE allowance_exposure_snapshots (
     source_system VARCHAR(30) NOT NULL,
     source_account_no VARCHAR(50) NOT NULL,
     customer_code VARCHAR(50) NOT NULL,
+    customer_type VARCHAR(30),
+    is_sme BOOLEAN DEFAULT FALSE,
+    country_code VARCHAR(10),
+    industry_code VARCHAR(20),
     product_code VARCHAR(20),
+    product_category VARCHAR(30),
     legal_entity_code VARCHAR(20) NOT NULL,
     branch_code VARCHAR(20),
     currency_code VARCHAR(3) NOT NULL,
@@ -248,6 +253,7 @@ CREATE TABLE allowance_exposure_snapshots (
     open_date DATE,
     maturity_date DATE,
     delinquent_days INTEGER DEFAULT 0,
+    staging VARCHAR(20),
     original_rating VARCHAR(20),
     current_rating VARCHAR(20),
     warning_level VARCHAR(20),

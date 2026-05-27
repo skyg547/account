@@ -20,4 +20,4 @@ eureka:
 # 로깅 설정
 logging:
   level:
-    com.risk.credit: DEBUG
+    com.ho.account.ecl: DEBUG

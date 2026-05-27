@@ -1,6 +1,6 @@
 -- H2 Compatible Sample Data for Credit Risk Service Integration Test
 
--- 1. 신용리스크 차주 마스터 (cr_customers)
+-- 1. 대손충당금(IFRS9) 차주 마스터 (cr_customers)
 INSERT INTO cr_customers (customer_code, customer_name, customer_type, internal_rating, industry_code, country_code, is_sme, annual_sales) VALUES
 ('CUST-001', '(주)삼성전자', 'CORPORATE', 'AAA', 'C262', 'KR', FALSE, 20000.0),
 ('CUST-002', '(주)현대자동차', 'CORPORATE', 'AA+', 'C301', 'KR', FALSE, 15000.0),

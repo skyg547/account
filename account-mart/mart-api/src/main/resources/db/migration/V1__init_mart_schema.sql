@@ -129,7 +129,7 @@ CREATE TABLE ods_dq_audit (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Section 4. 통합 리스크 마트 (Integrated Risk Mart - CDM)
+-- Section 4. 통합 재무 마트 (Integrated Risk Mart - CDM)
 CREATE TABLE dim_integrated_position_master (
     base_dt DATE NOT NULL,
     acc_no VARCHAR(50) NOT NULL,

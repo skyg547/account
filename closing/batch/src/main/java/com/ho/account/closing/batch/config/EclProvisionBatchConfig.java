@@ -21,7 +21,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * [배치 처리 (Batch Processing) - 기대신용손실(ECL) 충당금 산출]
+ * [배치 처리 (Batch Processing) - IFRS9 기대신용손실(ECL) 충당금 산출]
  *
  * 🐣 [초보자를 위한 설명]
  * 결산 시점(월말)에 실행되는 '대손충당금 자동화 공장'입니다.

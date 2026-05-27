@@ -2,7 +2,7 @@
 
 ## 1. 결론
 
-`account-mart`와 `ecl`은 대손충당금 산출에 활용할 수 있다. 다만 현재 상태는 기존 신용리스크/규제자본 시스템을 통째로 가져온 구조라서, 그대로 결산 모듈에 붙이면 빌드 좌표, 패키지, 공통 모듈, 산출 범위가 모두 충돌한다.
+`account-mart`와 `ecl`은 대손충당금 산출에 활용할 수 있다. 다만 현재 상태는 기존 대손충당금(IFRS9)/규제자본 시스템을 통째로 가져온 구조라서, 그대로 결산 모듈에 붙이면 빌드 좌표, 패키지, 공통 모듈, 산출 범위가 모두 충돌한다.
 
 전환 방향은 다음과 같다.
 
@@ -133,7 +133,12 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 - `source_system`
 - `source_account_no`
 - `customer_code`
+- `customer_type`
+- `is_sme`
+- `country_code`
+- `industry_code`
 - `product_code`
+- `product_category`
 - `legal_entity_code`
 - `branch_code`
 - `currency_code`
@@ -147,6 +152,7 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 - `open_date`
 - `maturity_date`
 - `delinquent_days`
+- `staging`
 - `original_rating`
 - `current_rating`
 - `warning_level`
@@ -276,8 +282,8 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 ## 7. 우선순위
 
 1. `closing`의 1% 고정 산식을 제거할 수 있는 최소 포트와 summary 테이블 설계. (완료)
-2. `ecl`의 ECL 전용 job 생성.
-3. `account-mart`의 ECL 입력 스냅샷 생성.
+2. `ecl`의 ECL 전용 job 생성. (1차 구현 완료)
+3. `account-mart`의 ECL 입력 스냅샷 생성. (1차 구현 완료)
 4. RWA/규제자본 기능 비활성화 또는 별도 archive 분리.
 5. reporting drill-through 연결.
 
@@ -311,9 +317,9 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 
 ### 9.3 남은 통합 과제
 
-- `ecl`과 `account-mart`는 루트 `settings.gradle`에 편입했고, `risk-common` 호환 모듈을 통해 기존 `com.risk.common` 좌표를 최소 복구했다.
-- `account-mart`가 회계 계정 매핑까지 포함한 allowance exposure snapshot을 생성하는 경로는 아직 필요하다.
-- 대손충당금 전용 운영에서는 RWA/집중도/감독보고 step을 기본 실행 경로에서 제외하는 별도 `allowanceEclJob`이 필요하다.
+- `ecl`과 `account-mart`는 루트 `settings.gradle`에 편입했고, `risk-common` 호환 모듈을 통해 기존 `com.ho.account.shared.finance` 좌표를 최소 복구했다.
+- `account-mart`가 회계 계정 매핑까지 포함한 allowance exposure snapshot을 생성하는 경로는 1차 구현했다.
+- 대손충당금 전용 운영에서 RWA/집중도/감독보고 step을 제외하는 `allowanceEclJob`을 1차 구현했다.
 
 ### 9.4 루트 Gradle 편입 및 account-mart wiring
 
@@ -324,3 +330,17 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 - `IntegratedPositionProcessor`는 외화 포지션의 `marketValue`를 환율 포트로 KRW 환산해 채운다.
 - `account-mart` demo batch는 테스트에서 Kafka 이벤트 발행을 끌 수 있도록 `mart.batch.cdm-event.enabled=false`를 지원한다.
 - 검증: `account-mart:mart-batch:test`, `account-mart:mart-core` 프로세서 테스트, `ecl:ecl-core` allowance summary 테스트, 신규 편입 모듈 compile이 통과했다.
+
+### 9.5 allowance exposure snapshot 및 allowanceEclJob
+
+- `account-mart:mart-core`에 `AllowanceExposureSnapshotService`, `AllowanceExposureSnapshotBuildPort`, `JdbcAllowanceExposureSnapshotPersistenceAdapter`를 추가했다.
+- `allowance_exposure_snapshots`는 CDM `dim_integrated_position_master`와 `ods_product_mst`를 조인해 기준일별로 재생성한다.
+- 스냅샷에는 고객 속성, 상품 속성, 통화, 잔액, 미사용한도, 연체일수, Stage, 등급, 조기경보, 담보금액, 회계 노출 계정코드를 포함한다.
+- `account-mart:mart-batch`의 `integratedPositionEtlJob`은 `cdmLoadStep` 직후 `allowanceExposureSnapshotStep`을 실행한다.
+- 개별 재수행용 `allowanceExposureSnapshotJob`을 추가했다.
+- `account-mart:mart-api`에는 `V2__add_allowance_exposure_snapshot.sql`을 추가했다.
+- `ecl:ecl-core`에 `AllowanceExposureSyncService`와 `JdbcAllowanceExposureSyncAdapter`를 추가해 `allowance_exposure_snapshots`에서 `cr_customers`, `cr_accounts`를 bulk upsert한다.
+- `ecl:ecl-batch`에 `allowanceEclJob`을 추가했다. 실행 순서는 `allowanceExposureSyncStep -> dqStep -> staging -> EAD/LGD -> ECL -> allowanceEclCompletionStep -> allowanceSummaryStep`이다.
+- `allowanceEclCompletionStep`은 RWA를 수행하지 않는 전용 경로에서 weighted ECL 산출 결과를 `COMPLETED`로 마킹해 `allowance_summary` 집계 대상이 되도록 한다.
+- `JobRunner`는 `spring.batch.job.enabled=false`를 존중하고, CLI `job.name` 또는 `spring.batch.job.name`으로 `allowanceEclJob`을 선택 실행할 수 있도록 보강했다.
+- `StressSimulatorService`의 깨진 baseline 식별자를 복구해 `account-mart:mart-core` 컴파일 차단을 해소했다.
