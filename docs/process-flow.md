@@ -34,6 +34,8 @@ flowchart LR
     A --> M[tax]
     A --> N[expenditure-resolution]
     A --> O[reporting]
+    A --> P[account-mart]
+    A --> Q[ecl]
 ```
 
 설명:

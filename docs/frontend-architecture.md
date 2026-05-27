@@ -29,8 +29,54 @@
 
 ---
 
-## 3. 디렉토리 구조 (Proposed)
+## 3. 디렉토리 구조 및 아키텍처 다이어그램 (Architecture Diagram)
 
+프론트엔드의 컴포넌트 및 레이어 간의 의존성은 다음과 같습니다. Page 기반의 라우팅에서 공통 Layout과 전역 상태(Zustand)를 참조하고, 데이터 패칭은 React Query와 Service Layer를 거쳐 백엔드(Gateway)로 향합니다.
+
+```mermaid
+flowchart TD
+    subgraph "Next.js App Router (UI Layer)"
+        LAYOUT[app/layout.tsx\n(Global Shell)]
+        PAGE[app/**/page.tsx\n(Route Segments)]
+        
+        LAYOUT --> PAGE
+    end
+
+    subgraph "Components Layer"
+        COMMON[components/common/\n(UI Primitives)]
+        DOMAIN[components/domain/\n(Business Widgets)]
+        
+        PAGE --> COMMON
+        PAGE --> DOMAIN
+        DOMAIN --> COMMON
+    end
+
+    subgraph "State & Logic Layer"
+        STORE[(store/\nZustand)]
+        HOOKS[hooks/\nReact Query & Custom Hooks]
+        
+        PAGE --> STORE
+        PAGE --> HOOKS
+        DOMAIN --> HOOKS
+    end
+
+    subgraph "Service Layer"
+        SVC[services/\n(Axios / Fetch)]
+        
+        HOOKS --> SVC
+        PAGE --> SVC
+    end
+
+    subgraph "Backend API (Gateway)"
+        API[Gateway (Port: 8080)]
+        SVC -.->|REST API / HTTPS| API
+    end
+
+    style STORE fill:#f9f,stroke:#333,stroke-width:2px
+    style SVC fill:#bbf,stroke:#333,stroke-width:2px
+```
+
+### 상세 디렉토리 설명
 ```text
 frontend/
 ├── src/

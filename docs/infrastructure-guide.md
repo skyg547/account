@@ -1,6 +1,83 @@
 # 🏗️ 모던 재무 시스템 인프라 완벽 가이드 (초보자용)
 
-우리가 구축한 MSA 인프라가 각각 어떤 역할을 하는지, 왜 도입했는지 한눈에 파악할 수 있도록 비유를 통해 정리했습니다.
+우리가 구축한 MSA 인프라가 각각 어떤 역할을 하는지, 왜 도입했는지 한눈에 파악할 수 있도록 비유와 시각화 다이어그램을 통해 정리했습니다.
+
+---
+
+## 0. MSA 인프라 토폴로지 (Infrastructure Topology)
+
+```mermaid
+flowchart TD
+    subgraph "External Clients"
+        UI[Frontend App / Browser]
+    end
+
+    subgraph "API Gateway Layer"
+        GW[API Gateway\n(Port: 8080)]
+        CB[Resilience4j\n(Circuit Breaker)]
+        GW -.-> CB
+    end
+
+    subgraph "Service Discovery & Config"
+        EUREKA((Eureka Server\nPort: 8761))
+        CONFIG[Config Server\nPort: 8888]
+    end
+
+    subgraph "Backend Microservices"
+        MS1[Master Data Service]
+        MS2[Journal Ledger Service]
+        MS3[Closing & Reporting]
+        MS4[Finance Subledgers]
+    end
+
+    subgraph "Data & Messaging"
+        DB[(PostgreSQL)]
+        KAFKA[[Apache Kafka\nMessage Broker]]
+        REDIS[(Redis\nCache & Lock)]
+    end
+
+    subgraph "Observability (모니터링 & 로깅)"
+        ZIPKIN[Zipkin\nTrace ID]
+        ELK{{ELK Stack\nElasticsearch, Logstash, Kibana}}
+        PROM[Prometheus & Grafana]
+    end
+
+    UI -->|HTTPS Request| GW
+    
+    GW -.->|Routing| MS1
+    GW -.->|Routing| MS2
+    GW -.->|Routing| MS3
+    GW -.->|Routing| MS4
+    
+    MS1 <-->|Register & Fetch| EUREKA
+    MS2 <-->|Register & Fetch| EUREKA
+    MS3 <-->|Register & Fetch| EUREKA
+    MS4 <-->|Register & Fetch| EUREKA
+    
+    CONFIG -.->|Push Properties| MS1
+    CONFIG -.->|Push Properties| MS2
+    CONFIG -.->|Push Properties| MS3
+    CONFIG -.->|Push Properties| MS4
+
+    MS1 --> DB
+    MS2 --> DB
+    MS3 --> DB
+    MS4 --> DB
+    
+    MS1 -.-> KAFKA
+    MS2 -.-> KAFKA
+    
+    MS1 -.-> REDIS
+    MS2 -.-> REDIS
+
+    MS1 -.->|Logs & Metrics| ELK
+    MS2 -.->|Traces| ZIPKIN
+    MS3 -.->|Metrics| PROM
+    
+    style EUREKA fill:#ff9,stroke:#333,stroke-width:2px
+    style GW fill:#bbf,stroke:#333,stroke-width:2px
+    style KAFKA fill:#dfd,stroke:#333,stroke-width:2px
+```
 
 ---
 
