@@ -24,7 +24,7 @@
 ```yaml
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
 ```
 *엔터프라이즈 환경에서는 `docker-compose.yml` 또는 Vault를 통해 환경변수로 운영값을 주입받습니다.*

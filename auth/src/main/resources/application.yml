@@ -12,7 +12,7 @@ auth:
   master-data:
     base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
   jwt:
-    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:3600}
   users:

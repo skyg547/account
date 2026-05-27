@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "auth.jwt")
 public class JwtProperties {
 
-    private String secret = "kbank-account-system-super-secret-key-1234567890";
+    private String secret = "modern-account-system-super-secret-key-1234567890";
     private String issuer = "auth-service";
 
     public String getSecret() {

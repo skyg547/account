@@ -1,4 +1,4 @@
-# 🏦 K-Bank 차세대 재무 시스템 (Modern Financial System)
+# 🏦 차세대 재무 시스템 (Modern Financial System)
 
 > **"금융 데이터의 정합성과 확장성을 극대화한 MSA 기반 엔터프라이즈 재무/리스크 시스템"**
 

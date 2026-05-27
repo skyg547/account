@@ -6,5 +6,5 @@ spring:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:kbank-account-system-super-secret-key-1234567890}
+    secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}

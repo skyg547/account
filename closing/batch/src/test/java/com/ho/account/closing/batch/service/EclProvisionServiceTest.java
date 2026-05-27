@@ -147,7 +147,7 @@ class EclProvisionServiceTest {
                 baseDate,
                 runId,
                 "IFRS9-2026.05",
-                "KBANK",
+                "MODERN",
                 currencyCode,
                 exposureAccountCode,
                 allowanceAccountCode,

@@ -1,4 +1,4 @@
-﻿-- K-Bank 차세대 재무 시스템 스키마 설계 (Oracle/PostgreSQL 호환)
+﻿-- 차세대 재무 시스템 스키마 설계 (Oracle/PostgreSQL 호환)
 
 -- 1. ACCOUNT_SUBJECT (계정과목)
 CREATE TABLE ACCOUNT_SUBJECT

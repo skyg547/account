@@ -54,7 +54,7 @@ public class AuthModuleProperties {
     }
 
     public static class Jwt {
-        private String secret = "kbank-account-system-super-secret-key-1234567890";
+        private String secret = "modern-account-system-super-secret-key-1234567890";
         private String issuer = "auth-service";
         private long expirationSeconds = 3600L;
 
