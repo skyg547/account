@@ -1,6 +1,6 @@
 package com.risk.mart.batch.job.kap;
 
-import com.risk.mart.core.domain.external.kap.entity.KapExternalRating;
+import com.risk.mart.core.domain.external.kap.KapExternalRating;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,7 @@ public class KapDataEtlJobTest {
     @DisplayName("KAP 외부 신용등급 CSV 파일이 DB 테이블에 정상적으로 적재되는지 테스트")
     public void testKapDataEtlJob() throws Exception {
         // [Given] 0. 기존 데이터 초기화
-        jdbcTemplate.execute("DELETE FROM kap_external_rating");
+        jdbcTemplate.execute("DELETE FROM kap_external_ratings");
 
         // [Given] 1. 테스트용 CSV 파일 경로 및 중복 실행 방지를 위한 랜덤 파라미터 설정
         JobParameters jobParameters = new JobParametersBuilder()

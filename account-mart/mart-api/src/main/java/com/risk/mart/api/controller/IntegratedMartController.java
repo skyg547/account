@@ -2,9 +2,9 @@ package com.risk.mart.api.controller;
 
 import com.risk.common.dto.ApiResponse;
 import com.risk.common.entity.IntegratedRiskPosition;
-import com.risk.mart.core.domain.mart.repository.IntegratedRiskPositionRepository;
-import com.risk.mart.core.domain.ods.common.entity.OdsCustomerMst;
-import com.risk.mart.core.domain.ods.common.repository.OdsCustomerMstRepository;
+import com.risk.mart.core.application.port.out.IntegratedRiskPositionRepository;
+import com.risk.mart.core.application.port.out.OdsCustomerMstRepository;
+import com.risk.mart.core.domain.ods.common.OdsCustomerMst;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

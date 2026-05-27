@@ -1,7 +1,7 @@
 package com.risk.mart.api.controller;
 
-import com.risk.common.entity.RiskAuditLog;
-import com.risk.mart.core.domain.governance.repository.RiskAuditLogRepository;
+import com.risk.mart.core.application.port.out.RiskAuditLogRepository;
+import com.risk.mart.core.domain.governance.RiskAuditLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;

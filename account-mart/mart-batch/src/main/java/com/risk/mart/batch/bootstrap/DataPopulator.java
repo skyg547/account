@@ -1,14 +1,14 @@
 package com.risk.mart.batch.bootstrap;
 
 import com.risk.common.enums.*;
-import com.risk.mart.core.domain.ods.common.entity.OdsCustomerMst;
-import com.risk.mart.core.domain.ods.common.entity.OdsProductMst;
-import com.risk.mart.core.domain.ods.loan.entity.OdsAccountLedger;
-import com.risk.mart.core.domain.ods.loan.entity.OdsCollateralMst;
-import com.risk.mart.core.domain.ods.common.repository.OdsCustomerMstRepository;
-import com.risk.mart.core.domain.ods.common.repository.OdsProductMstRepository;
-import com.risk.mart.core.domain.ods.loan.repository.OdsAccountLedgerRepository;
-import com.risk.mart.core.domain.ods.loan.repository.OdsCollateralMstRepository;
+import com.risk.mart.core.application.port.out.OdsAccountLedgerRepository;
+import com.risk.mart.core.application.port.out.OdsCollateralMstRepository;
+import com.risk.mart.core.application.port.out.OdsCustomerMstRepository;
+import com.risk.mart.core.application.port.out.OdsProductMstRepository;
+import com.risk.mart.core.domain.ods.common.OdsCustomerMst;
+import com.risk.mart.core.domain.ods.common.OdsProductMst;
+import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
+import com.risk.mart.core.domain.ods.loan.OdsCollateralMst;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -51,22 +51,20 @@ public class DataPopulator {
             // 1. 상품 마스터 생성 (표준 상품군 정의)
             List<OdsProductMst> productMasts = new ArrayList<>();
             productMasts.add(OdsProductMst.builder()
-                    .productCode("RETAIL_LOAN").productName("개인 신용대출").productCategory("LOAN")
-                    .rateType("FLOATING").paymentFreq(1).isExcluded(false).defaultCcf(BigDecimal.ZERO).build());
+                    .productCode("RETAIL_LOAN").productName("개인 신용대출").productType("LOAN")
+                    .assetLiabilityType("ASSET").isActive(true).build());
 
             productMasts.add(OdsProductMst.builder()
-                    .productCode("CORP_LOAN").productName("기업 운전자금대출").productCategory("LOAN")
-                    .rateType("FLOATING").paymentFreq(3).isExcluded(false).defaultCcf(BigDecimal.ZERO).build());
+                    .productCode("CORP_LOAN").productName("기업 운전자금대출").productType("LOAN")
+                    .assetLiabilityType("ASSET").isActive(true).build());
 
             productMasts.add(OdsProductMst.builder()
-                    .productCode("CREDIT_CARD").productName("프리미엄 신용카드").productCategory("CARD")
-                    .rateType("FLOATING").paymentFreq(1).isExcluded(false).defaultCcf(new BigDecimal("0.2000"))
-                    .build());
+                    .productCode("CREDIT_CARD").productName("프리미엄 신용카드").productType("CARD")
+                    .assetLiabilityType("ASSET").isActive(true).build());
 
             productMasts.add(OdsProductMst.builder()
-                    .productCode("CORP_LIMIT").productName("기업 약대한도").productCategory("OFF_BALANCE")
-                    .rateType("FLOATING").paymentFreq(1).isExcluded(false).defaultCcf(new BigDecimal("0.5000"))
-                    .build());
+                    .productCode("CORP_LIMIT").productName("기업 약정한도").productType("OFF_BALANCE")
+                    .assetLiabilityType("ASSET").isActive(true).build());
 
             productRepository.saveAll(productMasts);
 
@@ -122,11 +120,14 @@ public class DataPopulator {
                 if (random.nextDouble() > 0.4) {
                     BigDecimal collAmt = outstdAmt.multiply(new BigDecimal("1.2"));
                     collaterals.add(OdsCollateralMst.builder()
-                            .collateralId("COLL-" + i)
+                            .collateralNo("COLL-" + i)
                             .customerCode(cust.getCustomerCode())
                             .collateralType(random.nextDouble() > 0.8 ? "CASH_DEPOSIT" : "REAL_ESTATE")
-                            .collateralAmount(collAmt)
-                            .haircutRatio(new BigDecimal("0.3"))
+                            .currency("KRW")
+                            .appraisedValue(collAmt)
+                            .pledgedAmount(collAmt.multiply(new BigDecimal("0.7")))
+                            .valuationDate(LocalDate.now())
+                            .isActive(true)
                             .build());
                 }
             }

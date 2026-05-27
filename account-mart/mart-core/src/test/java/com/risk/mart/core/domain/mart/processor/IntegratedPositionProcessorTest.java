@@ -2,13 +2,13 @@ package com.risk.mart.core.domain.mart.processor;
 
 import com.risk.common.entity.IntegratedRiskPosition;
 import com.risk.common.enums.CrStaging;
-import com.risk.mart.core.domain.ods.common.entity.OdsCustomerMst;
-import com.risk.mart.core.domain.ods.loan.entity.OdsAccountLedger;
-import com.risk.mart.core.domain.ods.common.repository.OdsBalanceHistRepository;
-import com.risk.mart.core.domain.ods.common.repository.OdsCustomerMstRepository;
-import com.risk.mart.core.domain.ods.common.repository.OdsProductMstRepository;
-import com.risk.mart.core.domain.ods.loan.repository.OdsCollateralMstRepository;
-import com.risk.mart.core.domain.ods.audit.service.DataQualityService;
+import com.risk.mart.core.application.port.out.OdsAccountRateRepository;
+import com.risk.mart.core.application.port.out.OdsCustomerMstRepository;
+import com.risk.mart.core.application.port.out.OdsEarlyWarningRepository;
+import com.risk.mart.core.domain.ods.audit.service.OdsDataQualityService;
+import com.risk.mart.core.domain.ods.common.OdsCustomerMst;
+import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -32,28 +33,30 @@ import static org.mockito.Mockito.when;
 class IntegratedPositionProcessorTest {
 
     @Mock
-    private OdsCustomerMstRepository customerRepository;
+    private OdsEarlyWarningRepository earlyWarningRepository;
     @Mock
-    private OdsProductMstRepository productRepository;
+    private OdsAccountRateRepository accountRateRepository;
     @Mock
-    private OdsCollateralMstRepository collateralRepository;
+    private OdsCustomerMstRepository customerMstRepository;
     @Mock
-    private OdsBalanceHistRepository balanceHistRepository;
-    @Mock
-    private DataQualityService dqService;
+    private OdsDataQualityService dqService;
 
     @InjectMocks
     private IntegratedPositionProcessor processor;
+
+    @BeforeEach
+    void setUp() {
+        when(earlyWarningRepository.findTopByCustomerCodeAndBaseDateOrderByBaseDateDesc(
+                anyString(), nullable(LocalDate.class))).thenReturn(Optional.empty());
+        when(accountRateRepository.findById(anyString())).thenReturn(Optional.empty());
+        when(customerMstRepository.findByCustomerCode(anyString())).thenReturn(Optional.empty());
+    }
 
     @Test
     @DisplayName("정상 계좌 데이터가 STAGE 1으로 올바르게 분류되는지 확인")
     void shouldClassifyAsStage1WhenDelinquentDaysIsZero() throws Exception {
         // given
         OdsAccountLedger ledger = createBaseLedger("ACC001", 0);
-        when(dqService.validateAccountLedger(any(), any())).thenReturn(true);
-        when(customerRepository.findById(anyString())).thenReturn(Optional.empty());
-        when(productRepository.findById(anyString())).thenReturn(Optional.empty());
-        when(collateralRepository.findFirstByCustomerCode(anyString())).thenReturn(Optional.empty());
 
         // when
         IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
@@ -61,7 +64,7 @@ class IntegratedPositionProcessorTest {
         // then
         assertNotNull(result);
         assertEquals(CrStaging.STAGE1, result.getStaging());
-        assertEquals("ACC001", result.getAccountNo());
+        assertEquals("ACC001", result.getAccNo());
     }
 
     @Test
@@ -69,7 +72,6 @@ class IntegratedPositionProcessorTest {
     void shouldClassifyAsStage2WhenDelinquentDaysIs35() throws Exception {
         // given
         OdsAccountLedger ledger = createBaseLedger("ACC002", 35);
-        when(dqService.validateAccountLedger(any(), any())).thenReturn(true);
 
         // when
         IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
@@ -84,7 +86,6 @@ class IntegratedPositionProcessorTest {
     void shouldClassifyAsStage3WhenDelinquentDaysIs95() throws Exception {
         // given
         OdsAccountLedger ledger = createBaseLedger("ACC003", 95);
-        when(dqService.validateAccountLedger(any(), any())).thenReturn(true);
 
         // when
         IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
@@ -101,12 +102,11 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC004", 0);
         OdsCustomerMst customer = OdsCustomerMst.builder()
                 .customerCode("CUST001")
-                .ratingCode("AA")
+                .internalRating("AA")
                 .countryCode("US")
                 .build();
 
-        when(dqService.validateAccountLedger(any(), any())).thenReturn(true);
-        when(customerRepository.findById("CUST001")).thenReturn(Optional.of(customer));
+        when(customerMstRepository.findByCustomerCode("CUST001")).thenReturn(Optional.of(customer));
 
         // when
         IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));

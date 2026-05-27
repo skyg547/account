@@ -4,7 +4,7 @@ import com.risk.common.dto.ApiResponse;
 import com.risk.common.enums.CurrencyCode;
 import com.risk.mart.api.marketdata.dto.ExchangeRateRequest;
 import com.risk.mart.api.marketdata.dto.ExchangeRateResponse;
-import com.risk.mart.core.domain.marketdata.entity.ExchangeRate;
+import com.risk.mart.core.domain.marketdata.ExchangeRate;
 import com.risk.mart.core.domain.marketdata.service.ExchangeRateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,11 +44,6 @@ public class ExchangeRateController {
                 .baseCurrency(request.getBaseCurrency())
                 .quoteCurrency(request.getQuoteCurrency())
                 .baseRate(request.getRate())
-                .bidRate(request.getBidRate())
-                .askRate(request.getAskRate())
-                .changeAmount(request.getChangeAmount())
-                .changeRate(request.getChangePercent())
-                .source(request.getSource())
                 .build());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(toResponse(saved)));
     }
@@ -110,11 +105,6 @@ public class ExchangeRateController {
                 .baseCurrency(rate.getBaseCurrency())
                 .quoteCurrency(rate.getQuoteCurrency())
                 .rate(rate.getBaseRate())
-                .bidRate(rate.getBidRate())
-                .askRate(rate.getAskRate())
-                .changeAmount(rate.getChangeAmount())
-                .changePercent(rate.getChangeRate())
-                .source(rate.getSource())
                 .build();
     }
 }

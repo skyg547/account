@@ -102,7 +102,8 @@ public class CreditRiskBatchIntegrationTest {
 
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
-        List<CrRiskResult> results = riskResultRepository.findAll();
+        LocalDate baseDate = LocalDate.parse("2026-04-15");
+        List<CrRiskResult> results = riskResultRepository.findAllByBaseDate(baseDate);
         assertThat(results).isNotEmpty();
         
         // 상세 에러 확인을 위해 실제 상태값 목록을 비교
@@ -118,7 +119,7 @@ public class CreditRiskBatchIntegrationTest {
         Integer summaryCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM cr_monthly_summaries WHERE base_date = ?",
                 Integer.class,
-                LocalDate.parse("2026-04-15"));
+                baseDate);
         assertThat(summaryCount).isNotNull();
         assertThat(summaryCount).isGreaterThan(0);
     }

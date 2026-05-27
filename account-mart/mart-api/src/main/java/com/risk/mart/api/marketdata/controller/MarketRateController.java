@@ -3,7 +3,7 @@ package com.risk.mart.api.marketdata.controller;
 import com.risk.common.dto.ApiResponse;
 import com.risk.mart.api.marketdata.dto.MarketRateRequest;
 import com.risk.mart.api.marketdata.dto.MarketRateResponse;
-import com.risk.mart.core.domain.marketdata.entity.MarketRate;
+import com.risk.mart.core.domain.marketdata.MarketRate;
 import com.risk.mart.core.domain.marketdata.service.MarketRateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -109,14 +109,12 @@ public class MarketRateController {
                 .tenorMonths(request.getTenor())
                 .tenorLabel(request.getTenorLabel())
                 .rate(request.getRate())
-                .changeBp(request.getChangeBp())
-                .source(request.getSource())
                 .build();
     }
 
     private MarketRateResponse toResponse(MarketRate rate) {
         return MarketRateResponse.builder()
-                .id(rate.getId())
+                .id(toLong(rate.getRateCode()))
                 .baseDate(rate.getBaseDate())
                 .rateName(rate.getRateName())
                 .rateType(rate.getRateType())
@@ -124,9 +122,18 @@ public class MarketRateController {
                 .tenor(rate.getTenorMonths())
                 .tenorLabel(rate.getTenorLabel())
                 .rate(rate.getRate())
-                .changeBp(rate.getChangeBp())
-                .source(rate.getSource())
-                .isActive(rate.getIsActive())
+                .isActive(true)
                 .build();
+    }
+
+    private Long toLong(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 }

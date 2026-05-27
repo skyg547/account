@@ -1,7 +1,9 @@
 package com.risk.mart.core.domain.ods.loan;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -10,6 +12,8 @@ import java.time.LocalDate;
  */
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OdsAccountLedger {
     private String accountNo;
     private String customerCode;

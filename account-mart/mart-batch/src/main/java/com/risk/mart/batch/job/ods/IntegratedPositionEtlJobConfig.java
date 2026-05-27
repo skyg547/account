@@ -1,17 +1,18 @@
 package com.risk.mart.batch.job.ods;
 
 import com.risk.mart.batch.config.MartBatchExecutionConfig;
+import com.risk.mart.batch.tasklet.CdmEventPublishTasklet;
 import com.risk.mart.core.domain.ods.audit.processor.CollateralDataQualityProcessor;
 import com.risk.mart.core.domain.ods.audit.processor.LedgerDataQualityProcessor;
-import com.risk.mart.core.domain.ods.loan.repository.OdsAccountLedgerRepository;
-import com.risk.mart.core.domain.ods.loan.repository.OdsCollateralMstRepository;
+import com.risk.mart.core.infrastructure.persistence.jpa.JpaOdsAccountLedgerRepository;
+import com.risk.mart.core.infrastructure.persistence.jpa.JpaOdsCollateralMstRepository;
 import com.risk.mart.batch.tasklet.OdsReconcileTasklet;
 import com.risk.mart.batch.tasklet.RegulatoryDataTasklet;
 import com.risk.common.entity.IntegratedRiskPosition;
 import com.risk.mart.core.domain.mart.processor.IntegratedPositionProcessor;
-import com.risk.mart.core.domain.ods.audit.entity.OdsDqAudit;
-import com.risk.mart.core.domain.ods.loan.entity.OdsAccountLedger;
-import com.risk.mart.core.domain.ods.loan.entity.OdsCollateralMst;
+import com.risk.mart.core.domain.ods.audit.OdsDqAudit;
+import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
+import com.risk.mart.core.domain.ods.loan.OdsCollateralMst;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
@@ -53,6 +54,7 @@ public class IntegratedPositionEtlJobConfig {
     private final OdsReconcileTasklet reconcileTasklet;
     private final RegulatoryDataTasklet regulatoryDataTasklet;
     private final com.risk.mart.batch.tasklet.MartReportingTasklet martReportingTasklet;
+    private final CdmEventPublishTasklet cdmEventPublishTasklet;
     private final IntegratedPositionProcessor integratedPositionProcessor;
     
     @Qualifier("coreLedgerDataQualityProcessor")
@@ -247,7 +249,7 @@ public class IntegratedPositionEtlJobConfig {
         return new JpaPagingItemReaderBuilder<OdsAccountLedger>()
                 .name("rawOdsLedgerReader")
                 .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
-                .queryString(OdsAccountLedgerRepository.QUERY_FOR_CDM_LOAD)
+                .queryString(JpaOdsAccountLedgerRepository.QUERY_FOR_CDM_LOAD)
                 .pageSize(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE)
                 .saveState(false)
                 .build();
@@ -265,7 +267,7 @@ public class IntegratedPositionEtlJobConfig {
         return new JpaPagingItemReaderBuilder<OdsAccountLedger>()
                 .name("ledgerDataQualityReader")
                 .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
-                .queryString(OdsAccountLedgerRepository.QUERY_FOR_DQ_CHECK)
+                .queryString(JpaOdsAccountLedgerRepository.QUERY_FOR_DQ_CHECK)
                 .pageSize(MartBatchExecutionConfig.DQ_CHUNK_SIZE)
                 .build();
     }
@@ -275,7 +277,7 @@ public class IntegratedPositionEtlJobConfig {
         return new JpaPagingItemReaderBuilder<OdsCollateralMst>()
                 .name("collateralDataQualityReader")
                 .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
-                .queryString(OdsCollateralMstRepository.QUERY_FOR_DQ_CHECK)
+                .queryString(JpaOdsCollateralMstRepository.QUERY_FOR_DQ_CHECK)
                 .pageSize(MartBatchExecutionConfig.DQ_CHUNK_SIZE)
                 .build();
     }

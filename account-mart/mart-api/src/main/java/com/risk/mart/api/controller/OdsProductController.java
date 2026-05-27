@@ -1,7 +1,7 @@
 package com.risk.mart.api.controller;
 
-import com.risk.mart.core.domain.ods.common.entity.OdsProductMst;
-import com.risk.mart.core.domain.ods.common.repository.OdsProductMstRepository;
+import com.risk.mart.core.application.port.out.OdsProductMstRepository;
+import com.risk.mart.core.domain.ods.common.OdsProductMst;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
@@ -42,11 +42,9 @@ public class OdsProductController {
     public OdsProductMst updateProduct(@PathVariable @NonNull String code, @RequestBody @NonNull OdsProductMst product) {
         OdsProductMst existing = repository.findById(code).orElseThrow();
         existing.setProductName(product.getProductName());
-        existing.setProductCategory(product.getProductCategory());
-        existing.setRateType(product.getRateType());
-        existing.setPaymentFreq(product.getPaymentFreq());
-        existing.setIsExcluded(product.getIsExcluded());
-        existing.setDefaultCcf(product.getDefaultCcf());
+        existing.setProductType(product.getProductType());
+        existing.setAssetLiabilityType(product.getAssetLiabilityType());
+        existing.setIsActive(product.getIsActive());
         return repository.save(existing);
     }
 }

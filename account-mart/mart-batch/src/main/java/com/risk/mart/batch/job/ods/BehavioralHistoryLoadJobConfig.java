@@ -1,7 +1,7 @@
 package com.risk.mart.batch.job.ods;
 
-import com.risk.mart.core.domain.ods.loan.entity.OdsBehavioralHistory;
-import com.risk.mart.core.domain.ods.loan.repository.OdsBehavioralHistoryRepository;
+import com.risk.mart.core.application.port.out.OdsBehavioralHistoryRepository;
+import com.risk.mart.core.domain.ods.loan.OdsBehavioralHistory;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

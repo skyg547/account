@@ -1,6 +1,6 @@
 package com.risk.mart.batch.job.kap;
 
-import com.risk.mart.core.domain.external.kap.entity.KapExternalRating;
+import com.risk.mart.core.domain.external.kap.KapExternalRating;
 import com.risk.mart.core.domain.external.kap.service.KapRatingGradeResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.ItemProcessor;

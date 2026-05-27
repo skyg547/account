@@ -57,23 +57,23 @@ public class IntegratedPositionEtlJobTest {
         assertThat(jobExecution.getExitStatus()).isEqualTo(ExitStatus.COMPLETED);
 
         List<IntegratedRiskPosition> results = entityManager.createQuery(
-                "SELECT p FROM IntegratedRiskPosition p WHERE p.baseDate = :baseDate ORDER BY p.accountNo",
+                "SELECT p FROM IntegratedRiskPosition p WHERE p.baseDt = :baseDate ORDER BY p.accNo",
                 IntegratedRiskPosition.class)
                 .setParameter("baseDate", baseDate)
                 .getResultList();
 
         assertThat(results).hasSize(5);
-        assertThat(results).extracting(IntegratedRiskPosition::getAccountNo)
+        assertThat(results).extracting(IntegratedRiskPosition::getAccNo)
                 .containsExactly("DEMO-ACC001", "DEMO-ACC002", "DEMO-ACC003", "DEMO-ACC004", "DEMO-ACC005");
 
         IntegratedRiskPosition defaultedCard = results.stream()
-                .filter(position -> "DEMO-ACC004".equals(position.getAccountNo()))
+                .filter(position -> "DEMO-ACC004".equals(position.getAccNo()))
                 .findFirst()
                 .orElseThrow();
         assertThat(defaultedCard.getStaging().name()).isEqualTo("STAGE3");
 
         IntegratedRiskPosition usdExposure = results.stream()
-                .filter(position -> "DEMO-ACC005".equals(position.getAccountNo()))
+                .filter(position -> "DEMO-ACC005".equals(position.getAccNo()))
                 .findFirst()
                 .orElseThrow();
         assertThat(usdExposure.getMarketValue()).isEqualByComparingTo(new BigDecimal("13500000.0000"));

@@ -447,6 +447,7 @@ public class ReconciliationService {
     }
 
     private ReconciliationSnapshot buildTargetSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
+        // @todo Reconciliation policy: target snapshot currently aggregates DEBIT only and relies on repository status semantics; align account/currency/status filters per unit.
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
 

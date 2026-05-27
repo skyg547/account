@@ -4,8 +4,8 @@ import com.risk.common.dto.ApiResponse;
 import com.risk.common.enums.CurrencyCode;
 import com.risk.mart.api.marketdata.dto.YieldCurveRequest;
 import com.risk.mart.api.marketdata.dto.YieldCurveResponse;
-import com.risk.mart.core.domain.marketdata.entity.YieldCurve;
-import com.risk.mart.core.domain.marketdata.entity.YieldCurvePoint;
+import com.risk.mart.core.domain.marketdata.YieldCurve;
+import com.risk.mart.core.domain.marketdata.YieldCurvePoint;
 import com.risk.mart.core.domain.marketdata.service.YieldCurveService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,29 +44,34 @@ public class YieldCurveController {
                                 YieldCurve.builder()
                                                 .curveName(request.getCurveName())
                                                 .baseDate(request.getBaseDate())
-                                                .currency(request.getCurrency())
-                                                .description(request.getDescription())
+                                                .currency(request.getCurrency().name())
+                                                .curveDescription(request.getDescription())
                                                 .build(),
                                 request.getPoints() == null ? List.of()
                                                 : request.getPoints().stream()
                                                                 .map(point -> YieldCurvePoint.builder()
-                                                                                .tenorMonths(point.getTenor())
-                                                                                .tenorLabel(point.getTenorLabel())
-                                                                                .rate(point.getRate())
-                                                                                .discountFactor(point
-                                                                                                .getDiscountFactor())
+                                                                                .tenorCode(point.getTenorLabel() == null
+                                                                                                ? point.getTenor() + "M"
+                                                                                                : point.getTenorLabel())
+                                                                                .tenorYear(point.getTenor() == null
+                                                                                                ? null
+                                                                                                : point.getTenor() / 12.0d)
+                                                                                .rateValue(point.getRate())
                                                                                 .build())
                                                                 .collect(Collectors.toList()));
                 return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(toResponse(saved)));
         }
 
         /**
-         * ID 기반 수익률 곡선 상세 정보 조회.
+         * 곡선명과 기준일 기반 수익률 곡선 상세 정보 조회.
          */
-        @GetMapping("/{id}")
-        public ResponseEntity<ApiResponse<YieldCurveResponse>> getById(@PathVariable Long id) {
+        @GetMapping("/{curveName}")
+        public ResponseEntity<ApiResponse<YieldCurveResponse>> getById(
+                        @PathVariable String curveName,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate) {
                 return ResponseEntity.ok(ApiResponse
-                                .success(yieldCurveService.getCurve(id).map(this::toResponse).orElseThrow()));
+                                .success(yieldCurveService.getCurve(curveName, baseDate).map(this::toResponse)
+                                                .orElseThrow()));
         }
 
         /**
@@ -86,7 +91,7 @@ public class YieldCurveController {
         @GetMapping("/by-currency")
         public ResponseEntity<ApiResponse<List<YieldCurveResponse>>> getByCurrency(
                         @RequestParam CurrencyCode currency) {
-                return ResponseEntity.ok(ApiResponse.success(yieldCurveService.getCurvesByCurrency(currency).stream()
+                return ResponseEntity.ok(ApiResponse.success(yieldCurveService.getCurvesByCurrency(currency.name()).stream()
                                 .map(this::toResponse)
                                 .collect(Collectors.toList())));
         }
@@ -102,23 +107,24 @@ public class YieldCurveController {
 
         private YieldCurveResponse toResponse(YieldCurve curve) {
                 return YieldCurveResponse.builder()
-                                .id(curve.getId())
                                 .curveName(curve.getCurveName())
                                 .baseDate(curve.getBaseDate())
-                                .currency(curve.getCurrency())
-                                .description(curve.getDescription())
-                                .isActive(curve.getIsActive())
+                                .currency(curve.getCurrency() == null ? null
+                                                : CurrencyCode.valueOf(curve.getCurrency()))
+                                .description(curve.getCurveDescription())
+                                .isActive(true)
                                 .points(curve.getPoints() == null ? List.of()
                                                 : curve.getPoints().stream()
                                                                 .map(point -> YieldCurveResponse.PointResponse.builder()
-                                                                                .id(point.getId())
-                                                                                .tenor(point.getTenorMonths())
-                                                                                .tenorLabel(point.getTenorLabel())
-                                                                                .rate(point.getRate())
-                                                                                .discountFactor(point
-                                                                                                .getDiscountFactor())
+                                                                                .tenor(toTenorMonths(point))
+                                                                                .tenorLabel(point.getTenorCode())
+                                                                                .rate(point.getRateValue())
                                                                                 .build())
                                                                 .collect(Collectors.toList()))
                                 .build();
+        }
+
+        private Integer toTenorMonths(YieldCurvePoint point) {
+                return point.getTenorYear() == null ? null : (int) Math.round(point.getTenorYear() * 12.0d);
         }
 }

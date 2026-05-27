@@ -13,8 +13,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootApplication(scanBasePackages = "com.risk.mart")
 @EnableDiscoveryClient
-@EntityScan(basePackages = {"com.risk.mart.core.domain", "com.risk.common.entity"})
-@EnableJpaRepositories(basePackages = "com.risk.mart.core.domain")
+@EntityScan(basePackages = {
+        "com.risk.mart.core.domain",
+        "com.risk.mart.core.infrastructure.persistence.entity",
+        "com.risk.common.entity"
+})
+@EnableJpaRepositories(basePackages = {
+        "com.risk.mart.core.infrastructure.persistence.jpa"
+})
 public class RiskDataMartBatchApplication {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(RiskDataMartBatchApplication.class);

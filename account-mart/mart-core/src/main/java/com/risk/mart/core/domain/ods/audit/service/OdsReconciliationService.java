@@ -74,4 +74,47 @@ public class OdsReconciliationService {
             }
         }
     }
+
+    public void reconcileGlVsSl(LocalDate baseDate) {
+        reconcileGlToSl(baseDate);
+    }
+
+    public void reconcileMartVsGl(LocalDate baseDate) {
+        log.info("🔍 [대사 시작] GL vs MART 정합성 검증 (기준일: {})", baseDate);
+
+        Map<String, OdsGeneralLedgerRepository.SubjectCurrencyBalanceSummary> glMap = Objects.requireNonNull(
+                glRepository.getBalanceSummaryByBaseDate(baseDate))
+                .stream()
+                .collect(Collectors.toMap(
+                        gl -> gl.getSubjectCode() + "_" + gl.getCurrencyCode(),
+                        gl -> gl,
+                        (left, right) -> left
+                ));
+
+        for (IntegratedRiskPositionRepository.ProductCurrencyBalanceSummary mart
+                : Objects.requireNonNull(martRepository.getBalanceSummaryByBaseDate(baseDate))) {
+            String key = mart.getProductCode() + "_" + mart.getCurrencyCode();
+            BigDecimal glAmt = glMap.containsKey(key) ? glMap.get(key).getBalanceAmount() : BigDecimal.ZERO;
+            BigDecimal martAmt = mart.getBalanceAmount() != null ? mart.getBalanceAmount() : BigDecimal.ZERO;
+            BigDecimal diff = glAmt.subtract(martAmt);
+
+            if (diff.abs().compareTo(new BigDecimal("0.01")) > 0) {
+                log.warn("🚨 [대사 불일치] 키: {}, GL: {}, MART: {}, 차이: {}", key, glAmt, martAmt, diff);
+
+                OdsReconcileHist hist = OdsReconcileHist.builder()
+                        .baseDate(baseDate)
+                        .sourceSystem("GL")
+                        .targetSystem("MART")
+                        .reconcileType("GL_MART_AUDIT")
+                        .reconcileItem(key)
+                        .sourceAmount(glAmt)
+                        .targetAmount(martAmt)
+                        .diffAmount(diff)
+                        .status("MISMATCH")
+                        .auditTimestamp(LocalDateTime.now())
+                        .build();
+                reconcileRepository.save(hist);
+            }
+        }
+    }
 }

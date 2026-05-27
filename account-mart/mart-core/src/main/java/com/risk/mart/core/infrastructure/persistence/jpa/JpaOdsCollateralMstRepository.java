@@ -11,5 +11,19 @@ import java.util.Optional;
  */
 @Repository
 public interface JpaOdsCollateralMstRepository extends JpaRepository<OdsCollateralMstEntity, String> {
+    String QUERY_FOR_DQ_CHECK = """
+            SELECT new com.risk.mart.core.domain.ods.loan.OdsCollateralMst(
+                c.collateralNo,
+                c.customerCode,
+                c.collateralType,
+                c.currency,
+                c.appraisalAmount,
+                c.pledgeAmount,
+                c.appraisalDate,
+                c.isActive)
+            FROM OdsCollateralMstEntity c
+            ORDER BY c.collateralNo
+            """;
+
     Optional<OdsCollateralMstEntity> findFirstByCustomerCode(String customerCode);
 }

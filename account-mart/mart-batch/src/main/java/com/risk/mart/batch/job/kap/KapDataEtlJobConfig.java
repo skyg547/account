@@ -1,7 +1,7 @@
 package com.risk.mart.batch.job.kap;
 
 import com.risk.mart.batch.config.MartBatchExecutionConfig;
-import com.risk.mart.core.domain.external.kap.entity.KapExternalRating;
+import com.risk.mart.core.domain.external.kap.KapExternalRating;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

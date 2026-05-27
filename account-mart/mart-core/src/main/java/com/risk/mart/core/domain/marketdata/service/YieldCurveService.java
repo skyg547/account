@@ -1,6 +1,5 @@
 package com.risk.mart.core.domain.marketdata.service;
 
-import com.risk.common.enums.CurrencyCode;
 import com.risk.mart.core.domain.marketdata.YieldCurve;
 import com.risk.mart.core.domain.marketdata.YieldCurvePoint;
 import com.risk.mart.core.application.port.out.YieldCurveRepository;
@@ -49,5 +48,20 @@ public class YieldCurveService {
     @Transactional(readOnly = true)
     public Optional<YieldCurve> getCurve(String curveName, LocalDate baseDate) {
         return repository.findByCurveNameAndBaseDate(curveName, baseDate);
+    }
+
+    @Transactional(readOnly = true)
+    public List<YieldCurve> getCurvesByDate(LocalDate baseDate) {
+        return repository.findByBaseDate(baseDate);
+    }
+
+    @Transactional(readOnly = true)
+    public List<YieldCurve> getCurvesByCurrency(String currency) {
+        return repository.findByCurrency(currency);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<YieldCurve> getLatestCurve(String curveName) {
+        return repository.findLatestByCurveName(curveName);
     }
 }

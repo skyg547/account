@@ -78,12 +78,12 @@ public class RegulatoryDataTasklet implements Tasklet {
     }
 
     private void deleteDemoData(LocalDate baseDt) {
-        jdbcTemplate.update("DELETE FROM ods_balance_hist WHERE base_dt = ? AND acc_no LIKE 'DEMO-ACC%'", baseDt);
-        jdbcTemplate.update("DELETE FROM ods_general_ledger WHERE base_dt = ? AND br_cd = ?", baseDt, DEMO_BRANCH_CODE);
+        jdbcTemplate.update("DELETE FROM ods_balance_hist WHERE base_dt = ? AND account_no LIKE 'DEMO-ACC%'", baseDt);
+        jdbcTemplate.update("DELETE FROM ods_general_ledger WHERE base_dt = ? AND branch_cd = ?", baseDt, DEMO_BRANCH_CODE);
         jdbcTemplate.update("DELETE FROM market_exchange_rate WHERE base_dt = ? AND base_currency = 'USD' AND quote_currency = 'KRW'", baseDt);
         jdbcTemplate.update("DELETE FROM ods_base_rate WHERE base_dt = ? AND rate_cd IN ('KORIBOR_3M', 'USD_LIBOR_3M')", baseDt);
         jdbcTemplate.update("DELETE FROM ods_biz_day WHERE base_dt = ?", baseDt);
-        jdbcTemplate.update("DELETE FROM ods_coll_mst WHERE coll_id IN ('DEMO-COLL001', 'DEMO-COLL002')");
+        jdbcTemplate.update("DELETE FROM ods_coll_mst WHERE collateral_no IN ('DEMO-COLL001', 'DEMO-COLL002')");
         jdbcTemplate.update("DELETE FROM ods_acc_ledger WHERE acc_no IN ('DEMO-ACC001', 'DEMO-ACC002', 'DEMO-ACC003', 'DEMO-ACC004', 'DEMO-ACC005')");
         jdbcTemplate.update("DELETE FROM ods_customer_mst WHERE customer_code IN ('DEMO-CUST001', 'DEMO-CUST002', 'DEMO-CUST003', 'DEMO-CUST004')");
         jdbcTemplate.update("DELETE FROM ods_product_mst WHERE prod_cd IN ('DEMO-L001', 'DEMO-L002', 'DEMO-C001')");
@@ -128,26 +128,26 @@ public class RegulatoryDataTasklet implements Tasklet {
                         new Object[] { "DEMO-ACC005", "DEMO-CUST001", "DEMO-L001", "USD", new java.math.BigDecimal("10000"), new java.math.BigDecimal("10000"), new java.math.BigDecimal("0.0350"), "USD_LIBOR_3M", new java.math.BigDecimal("0.0050"), java.sql.Date.valueOf(LocalDate.of(2025, 3, 1)), java.sql.Date.valueOf(LocalDate.of(2026, 3, 1)), 0, "BULLET", DEMO_BRANCH_CODE, "IB", true }));
 
         jdbcTemplate.batchUpdate(
-                "INSERT INTO ods_balance_hist (acc_no, base_dt, cur_bal, fx_rate) VALUES (?, ?, ?, ?)",
+                "INSERT INTO ods_balance_hist (account_no, base_dt, balance, currency) VALUES (?, ?, ?, ?)",
                 java.util.List.of(
-                        new Object[] { "DEMO-ACC001", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("100000000"), java.math.BigDecimal.ONE },
-                        new Object[] { "DEMO-ACC002", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("50000000"), java.math.BigDecimal.ONE },
-                        new Object[] { "DEMO-ACC003", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("500000000"), java.math.BigDecimal.ONE },
-                        new Object[] { "DEMO-ACC004", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("10000000"), java.math.BigDecimal.ONE },
-                        new Object[] { "DEMO-ACC005", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("10000"), new java.math.BigDecimal("1350.0000") }));
+                        new Object[] { "DEMO-ACC001", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("100000000"), "KRW" },
+                        new Object[] { "DEMO-ACC002", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("50000000"), "KRW" },
+                        new Object[] { "DEMO-ACC003", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("500000000"), "KRW" },
+                        new Object[] { "DEMO-ACC004", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("10000000"), "KRW" },
+                        new Object[] { "DEMO-ACC005", java.sql.Date.valueOf(baseDt), new java.math.BigDecimal("10000"), "USD" }));
     }
 
     private void insertDemoCollateral() {
         jdbcTemplate.batchUpdate(
-                "INSERT INTO ods_coll_mst (coll_id, cust_cd, coll_type, coll_amt, haircut_ratio) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO ods_coll_mst (collateral_no, customer_code, collateral_type, currency, appraisal_amount, pledge_amount, appraisal_date, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 java.util.List.of(
-                        new Object[] { "DEMO-COLL001", "DEMO-CUST001", "REAL_ESTATE", new java.math.BigDecimal("150000000"), new java.math.BigDecimal("0.2000") },
-                        new Object[] { "DEMO-COLL002", "DEMO-CUST003", "GUARANTEE", new java.math.BigDecimal("400000000"), new java.math.BigDecimal("0.1000") }));
+                        new Object[] { "DEMO-COLL001", "DEMO-CUST001", "REAL_ESTATE", "KRW", new java.math.BigDecimal("150000000"), new java.math.BigDecimal("120000000"), java.sql.Date.valueOf(LocalDate.now()), true },
+                        new Object[] { "DEMO-COLL002", "DEMO-CUST003", "GUARANTEE", "KRW", new java.math.BigDecimal("400000000"), new java.math.BigDecimal("360000000"), java.sql.Date.valueOf(LocalDate.now()), true }));
     }
 
     private void insertDemoGeneralLedger(LocalDate baseDt) {
         jdbcTemplate.batchUpdate(
-                "INSERT INTO ods_general_ledger (base_dt, subj_cd, br_cd, curr_cd, net_bal) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO ods_general_ledger (base_dt, gl_code, branch_cd, currency, balance) VALUES (?, ?, ?, ?, ?)",
                 java.util.List.of(
                         new Object[] { java.sql.Date.valueOf(baseDt), "L001", DEMO_BRANCH_CODE, "KRW", new java.math.BigDecimal("150000000") },
                         new Object[] { java.sql.Date.valueOf(baseDt), "L002", DEMO_BRANCH_CODE, "KRW", new java.math.BigDecimal("500000000") },

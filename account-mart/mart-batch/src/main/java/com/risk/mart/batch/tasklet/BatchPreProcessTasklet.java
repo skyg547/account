@@ -1,6 +1,6 @@
 package com.risk.mart.batch.tasklet;
 
-import com.risk.mart.core.domain.mart.repository.IntegratedRiskPositionRepository;
+import com.risk.mart.core.application.port.out.IntegratedRiskPositionRepository;
 import com.risk.mart.core.support.BatchParameterUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -3,7 +3,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
-    implementation project(':credit-risk-service:credit-core')
+    implementation project(':ecl:ecl-core')
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'

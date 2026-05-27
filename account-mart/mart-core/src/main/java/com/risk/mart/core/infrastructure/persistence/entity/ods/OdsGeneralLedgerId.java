@@ -16,9 +16,9 @@ import java.util.Objects;
 @AllArgsConstructor
 public class OdsGeneralLedgerId implements Serializable {
     private LocalDate baseDate;
-    private String subjectCode;
+    private String glCode;
     private String branchCode;
-    private String currencyCode;
+    private String currency;
 
     @Override
     public boolean equals(Object o) {
@@ -26,13 +26,13 @@ public class OdsGeneralLedgerId implements Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         OdsGeneralLedgerId that = (OdsGeneralLedgerId) o;
         return Objects.equals(baseDate, that.baseDate) &&
-               Objects.equals(subjectCode, that.subjectCode) &&
+               Objects.equals(glCode, that.glCode) &&
                Objects.equals(branchCode, that.branchCode) &&
-               Objects.equals(currencyCode, that.currencyCode);
+               Objects.equals(currency, that.currency);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(baseDate, subjectCode, branchCode, currencyCode);
+        return Objects.hash(baseDate, glCode, branchCode, currency);
     }
 }

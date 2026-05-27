@@ -6,6 +6,11 @@ plugins {
 group = 'com.ho'
 version = '0.0.1-SNAPSHOT'
 
+ext {
+    springCloudVersion = '2023.0.1'
+    querydslVersion = '5.0.0'
+}
+
 subprojects {
     apply plugin: 'java'
 

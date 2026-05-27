@@ -11,5 +11,7 @@ import java.util.Optional;
 public interface YieldCurveRepository {
     Optional<YieldCurve> findByCurveNameAndBaseDate(String curveName, LocalDate baseDate);
     List<YieldCurve> findByBaseDate(LocalDate baseDate);
+    List<YieldCurve> findByCurrency(String currency);
+    Optional<YieldCurve> findLatestByCurveName(String curveName);
     YieldCurve save(YieldCurve yieldCurve);
 }

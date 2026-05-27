@@ -5,7 +5,7 @@ import com.risk.mart.batch.config.MartBatchExecutionConfig;
 import com.risk.mart.batch.tasklet.BatchPreProcessTasklet;
 import com.risk.mart.batch.tasklet.BatchReconcileTasklet;
 import com.risk.mart.core.domain.mart.processor.IntegratedPositionProcessor;
-import com.risk.mart.core.domain.ods.loan.entity.OdsAccountLedger;
+import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

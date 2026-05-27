@@ -1,9 +1,9 @@
 package com.risk.mart.api.controller;
 
-import com.risk.mart.core.domain.ods.audit.entity.OdsDqAudit;
-import com.risk.mart.core.domain.ods.audit.entity.OdsReconcileHist;
-import com.risk.mart.core.domain.ods.audit.repository.OdsDqAuditRepository;
-import com.risk.mart.core.domain.ods.audit.repository.OdsReconcileHistRepository;
+import com.risk.mart.core.application.port.out.OdsDqAuditRepository;
+import com.risk.mart.core.application.port.out.OdsReconcileHistRepository;
+import com.risk.mart.core.domain.ods.audit.OdsDqAudit;
+import com.risk.mart.core.domain.ods.audit.OdsReconcileHist;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;

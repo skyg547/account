@@ -22,12 +22,14 @@ public class OdsGeneralLedgerEntity {
     @Column(name = "gl_code", length = 20)
     private String glCode;
 
+    @Id
     @Column(name = "currency", length = 3)
     private String currency;
 
     @Column(name = "balance", precision = 19, scale = 4)
     private BigDecimal balance;
 
+    @Id
     @Column(name = "branch_cd", length = 10)
     private String branchCode;
 }
