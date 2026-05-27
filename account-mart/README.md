@@ -28,6 +28,9 @@
 ---
 
 ## 🏗️ 최신 아키텍처 및 확장 기능 (V2.0)
+*   **루트 Gradle 편입**: 현재 저장소에서는 `:account-mart:mart-core`, `:account-mart:mart-api`, `:account-mart:mart-batch` 경로로 빌드합니다.
+*   **대손충당금 입력 마트 전환 준비**: CDM 포지션 생성, ODS/GL 대사, DQ 경로를 유지하되 ECL 입력 스냅샷 마트로 축소하는 설계를 진행 중입니다.
+*   **현재 통합 상태**: `risk-common` 호환 모듈을 통해 기존 `com.risk.common` 타입을 복구했고, batch/API stale 패키지 좌표를 현재 포트/도메인 구조로 정리했습니다.
 *   **미래전망 시나리오 (IFRS 9)**: GDP, 실업률 등 거시경제 변수를 관리하여 미래 손실을 예측하는 기반을 마련했습니다.
 *   **룩스루(Look-through) 대응**: 펀드나 신탁 등 복합 상품의 기초자산(Stock, Bond 등)을 상세히 관리하여 정확한 위험가중치를 산출합니다.
 *   **전이행렬(Transition Matrix)**: 신용등급 간의 이동 확률을 관리하여 Lifetime PD 산출 로직을 지원합니다.
@@ -41,17 +44,17 @@
 ### 1단계: 프로젝트 빌드 (JAR 생성)
 멀티 모듈 구조이므로 루트 디렉토리에서 마운트된 전체 모듈을 빌드하거나 특정 모듈만 빌드합니다.
 ```powershell
-./gradlew :risk-data-mart-service:build -x test
+./gradlew :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava
 ```
 
 ### 2단계: 데이터베이스 초기화 및 테스트 데이터 삽입
 ```powershell
 # 1. 스키마 생성 (Core & Advanced)
-psql -f risk-data-mart-service/db/schema-mart.sql
-psql -f risk-data-mart-service/db/schema-risk-advanced.sql
+psql -f account-mart/db/schema-mart.sql
+psql -f account-mart/db/schema-risk-advanced.sql
 
 # 2. 테스트 데이터셋 삽입 (종합 시나리오)
-psql -f risk-data-mart-service/db/data-mart-test-full.sql
+psql -f account-mart/db/data-mart-test-full.sql
 ```
 
 ### 3단계: 컨테이너 실행

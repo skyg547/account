@@ -55,10 +55,12 @@ public class OdsReconciliationService {
             BigDecimal slAmt = sl.getBalanceAmount();
             BigDecimal diff = glAmt.subtract(slAmt);
 
-            if (diff.abs().compareTo(new BigDecimal("0.01")) > 0) {
+            boolean mismatched = diff.abs().compareTo(new BigDecimal("0.01")) > 0;
+            if (mismatched) {
                 log.warn("🚨 [대사 불일치] 키: {}, GL: {}, SL: {}, 차이: {}", key, glAmt, slAmt, diff);
-                
-                OdsReconcileHist hist = OdsReconcileHist.builder()
+            }
+
+            OdsReconcileHist hist = OdsReconcileHist.builder()
                     .baseDate(baseDate)
                     .sourceSystem("GL")
                     .targetSystem("SL")
@@ -67,11 +69,10 @@ public class OdsReconciliationService {
                     .sourceAmount(glAmt)
                     .targetAmount(slAmt)
                     .diffAmount(diff)
-                    .status("MISMATCH")
+                    .status(mismatched ? "MISMATCH" : "정상(MATCH)")
                     .auditTimestamp(LocalDateTime.now())
                     .build();
-                reconcileRepository.save(hist);
-            }
+            reconcileRepository.save(hist);
         }
     }
 

@@ -98,6 +98,19 @@ public class ReportingController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/disclosure-notes/drill-down")
+    public ResponseEntity<java.util.List<com.ho.account.contracts.journal.JournalDetailSummary>> drillDownDisclosureNote(
+            @RequestParam("type") FinancialStatement.StatementType type,
+            @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime baseDate,
+            @RequestParam("entryId") String entryId) {
+        DisclosureNoteMartUseCase.DrillDownQuery query = new DisclosureNoteMartUseCase.DrillDownQuery(type, baseDate, entryId);
+        try {
+            return ResponseEntity.ok(disclosureNoteMartUseCase.drillDown(query));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping("/regulatory-filings/submit")
     public RegulatoryFiling submitRegulatoryFiling(
             @RequestParam("type") FinancialStatement.StatementType type,

@@ -18,11 +18,19 @@
 ---
 
 ## 📂 패키지 구조
-- `domain/ods`: 원천 데이터를 담는 ODS 엔티티 및 리포지토리.
-- `domain/mart`: 통합 포지션 가공용 프로세서(`IntegratedPositionProcessor`) 및 마트 리포지토리.
+- `domain/ods`: 원천 데이터를 표현하는 순수 도메인 모델과 DQ/대사 규칙.
+- `application/port/out`: 영속성/외부 시스템 접근을 숨기는 outbound port.
+- `infrastructure/persistence`: JPA/JDBC 기반 adapter. ODS/CDM 대량 조회는 projection 또는 bulk SQL을 우선 사용.
+- `domain/mart`: 통합 포지션 가공용 프로세서(`IntegratedPositionProcessor`).
 - `domain/marketdata`: 시장 데이터 엔티티와 보간(Interpolation) 서비스.
 - `domain/governance`: 감사(Audit) 및 운영 제어 데이터.
 - `domain/external`: 외부 기관(KAP 등) 연동 데이터.
+
+## 2026-05-27 통합 상태
+- `IntegratedPositionProcessor`는 고객/조기경보/계좌금리/환율 포트를 통해 CDM 포지션을 보강합니다.
+- 외화 포지션은 기준일 환율로 `marketValue`를 KRW 환산합니다.
+- ODS 잔액 대사는 계좌 잔액을 상품의 GL 계정코드로 집계해 `ods_reconcile_hist`에 MATCH/MISMATCH를 모두 남깁니다.
+- 조기경보, 계좌금리, 수익률곡선, 대사이력, KAP 등급 마스터 포트는 실제 adapter가 연결되어 batch context가 기동됩니다.
 
 ## 기술 스택
 - Java 21 / Spring Boot 3.4

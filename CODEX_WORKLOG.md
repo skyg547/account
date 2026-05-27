@@ -264,3 +264,38 @@
   - `ecl`/`account-mart`는 루트 Gradle 미편입 및 stale `com.risk.common`/`project(':common')` 좌표 때문에 신규 ECL 단위 테스트를 Gradle로 실행하지 못했다.
   - 전체 `git diff --check`는 이번 범위 밖 `FxValuationService.java`의 기존 trailing whitespace로 실패한다.
   - account-mart의 allowance exposure snapshot 생성과 ECL 전용 `allowanceEclJob` 분리는 다음 단계로 남아 있다.
+
+## 2026-05-27 (account-mart/ecl 루트 Gradle 편입 및 wiring 복구)
+- 사용자 요청: "다음단계 진행해줘".
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `build.gradle`, `settings.gradle` 확인.
+  - `ecl`, `account-mart`, 기존 `com.risk.common` 참조와 stale package import 확인.
+  - 기존 미해결 변경(`FxValuationService`, `contracts`, `journal-ledger`, `reconciliation` 등)은 범위 밖으로 보고 미수정.
+- 수정 내용:
+  - 루트 `settings.gradle`에 `risk-common`, `account-mart:mart-core/api/batch`, `ecl:ecl-core/api/batch` 포함.
+  - `risk-common` 모듈 추가: 기존 `com.risk.common` 엔티티/enum/event/DTO/예외/락 호환 타입 제공.
+  - `ecl`/`account-mart` Gradle 의존성을 현재 프로젝트 좌표로 정리하고 Kafka 의존성 누락 보강.
+  - `account-mart` batch/API/test의 예전 `domain.*.repository/entity` import를 현재 `application.port.out`/순수 도메인 위치로 수정.
+  - KAP 외부등급, 조기경보, 계좌금리, 수익률곡선, 대사이력, 등급마스터 포트 adapter 추가.
+  - JPA reader가 entity를 core processor에 직접 넘기지 않도록 도메인 projection 쿼리로 변경.
+  - `IntegratedPositionProcessor`에 환율 기반 KRW `marketValue` 보강.
+  - `RegulatoryDataTasklet` demo SQL을 현재 JPA entity 컬럼명에 맞게 수정.
+  - ODS/GL 대사 집계를 계좌번호가 아니라 상품 GL 계정코드 기준으로 수행하고 MATCH/MISMATCH 이력을 남기도록 수정.
+  - 테스트에서 Kafka 없이 batch를 검증할 수 있도록 `mart.batch.cdm-event.enabled=false` 지원 추가.
+  - 관련 README, 설계 문서, worklog, Gemini handoff 갱신.
+- 실행 명령:
+  - `.\gradlew :ecl:ecl-api:compileJava --console=plain`
+  - `.\gradlew :account-mart:mart-api:compileJava --console=plain`
+  - `.\gradlew :risk-common:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava --console=plain`
+  - `.\gradlew :account-mart:mart-batch:test --console=plain`
+  - `.\gradlew :ecl:ecl-core:test --tests com.risk.credit.core.application.service.allowance.AllowanceSummaryServiceTest :account-mart:mart-core:test --tests com.risk.mart.core.domain.mart.processor.IntegratedPositionProcessorTest --console=plain`
+  - `.\gradlew :account-mart:mart-core:compileTestJava :account-mart:mart-batch:compileTestJava :ecl:ecl-core:compileTestJava :ecl:ecl-batch:compileTestJava --console=plain`
+  - `.\gradlew projects --console=plain`
+- 결과:
+  - 루트 Gradle 프로젝트 목록에 `risk-common`, `account-mart`, `ecl` 포함 확인.
+  - 신규 편입 모듈 compile 성공.
+  - `account-mart:mart-batch:test`, `AllowanceSummaryServiceTest`, `IntegratedPositionProcessorTest` 성공.
+- 남은 리스크:
+  - `risk-common`은 수입 모듈 호환을 위한 임시 성격이므로 장기적으로 `shared-kernel` 또는 allowance 전용 공통 모델로 이관 필요.
+  - `account-mart`의 allowance exposure snapshot 생성과 `ecl`의 RWA 제외 `allowanceEclJob`은 아직 다음 단계.
+  - `mart-batch` 테스트 종료 시 step-scope reader close 경고가 남아 있으나 테스트 결과는 성공.

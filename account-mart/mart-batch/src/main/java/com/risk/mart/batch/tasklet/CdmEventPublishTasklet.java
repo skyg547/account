@@ -7,6 +7,7 @@ import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -21,10 +22,18 @@ public class CdmEventPublishTasklet implements Tasklet {
 
     private final CdmEventPublisher eventPublisher;
 
+    @Value("${mart.batch.cdm-event.enabled:true}")
+    private boolean eventPublishEnabled;
+
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         String baseDateStr = (String) chunkContext.getStepContext().getJobParameters().get("baseDate");
         LocalDate baseDate = LocalDate.parse(baseDateStr);
+
+        if (!eventPublishEnabled) {
+            log.info("📢 [Batch] CDM 이벤트 발행이 비활성화되어 건너뜁니다. (기준일: {})", baseDate);
+            return RepeatStatus.FINISHED;
+        }
         
         log.info("📢 [Batch] CDM 데이터 적재 완료 감지. 이벤트를 발행합니다. (기준일: {})", baseDate);
         

@@ -30,24 +30,26 @@
 ### 🚀 실행 방법 (추천)
 전체 마트 ETL 공정을 한 번에 실행하려면 `integratedPositionEtlJob`을 사용하세요.
 ```bash
-./gradlew :risk-data-mart-service:mart-batch:bootRun --args="--spring.profiles.active=docker --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-18 --spring.batch.job.enabled=true timestamp=$(date +%s)"
+./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=docker --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-18 --spring.batch.job.enabled=true timestamp=$(date +%s)"
 ```
 
 ### 🧪 demo 실행 방법
 임시 원천 데이터를 자동 생성하고 `integratedRiskEtlJob` 전체 단계를 검증하려면 `demo` 프로필을 사용합니다.
 
 ```bash
-./gradlew :risk-data-mart-service:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedRiskEtlJob baseDate=2026-04-18 --spring.batch.job.enabled=true"
+./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-18 --spring.batch.job.enabled=true"
 ```
 
 - `demo` 프로필은 H2 파일 DB를 사용하고 `RegulatoryDataTasklet`이 기준일 샘플 ODS/GL/FX 데이터를 자동 생성합니다.
 - `MartBatchJobRunner`가 `time` 파라미터를 자동 추가하므로 같은 `baseDate`로 재실행해도 `JobInstanceAlreadyCompleteException` 없이 다시 돌릴 수 있습니다.
+- Kafka 브로커가 없는 테스트/로컬 검증에서는 `mart.batch.cdm-event.enabled=false`로 CDM 완료 이벤트 발행을 끌 수 있습니다.
 
 ## 대용량 처리 고도화 현황
 - `kapDataEtlJob`: `FlatFileItemReader -> KapExternalRatingProcessor -> JpaItemWriter` 구조로 전환했고, `chunk=1000`, `SynchronizedItemStreamReader`, 공용 `ThreadPoolTaskExecutor`를 사용합니다.
 - `integratedPositionEtlJob`: `ledgerDataQualityStep`, `collateralDataQualityStep`, `odsReconcileStep`, `cdmLoadStep`로 분리했습니다. DQ는 `JpaPagingItemReader` 기반 `chunk=500`이며, CDM 적재는 기본값을 재시작 안전한 단일 스레드로 두고 필요 시 `mart.batch.cdm-load.parallel-enabled=true`로 병렬 처리할 수 있습니다.
 - `odsReconcileStep`와 구형 `BatchReconcileTasklet` 모두 집계를 DB 프로젝션으로 수행해 전체 포지션을 메모리에 적재하지 않습니다.
 - ODS/CDM 계열 잡은 `baseDate` 또는 `baseDt` Job Parameter를 필수로 사용합니다. `LocalDate.now()`에 의존하지 않아야 기준일 재현성과 재실행성이 보장됩니다.
+- JPA reader는 entity를 그대로 core processor에 넘기지 않고 도메인 projection으로 읽어 Port/Adapter 경계를 유지합니다.
 
 ## 남은 고도화 우선순위
 - `IntegratedPositionProcessor`는 캐시로 반복 조회를 줄였지만, 여전히 고객/상품/담보/환율 보강에 리포지토리 호출이 남아 있습니다. 대량 처리 구간은 DTO 프로젝션 리더 또는 조인 기반 조회로 한 번 더 줄이는 것이 다음 단계입니다.

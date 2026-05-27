@@ -311,6 +311,16 @@ ECL 산출 입력 스냅샷. `account-mart`가 생성하고 `ecl`이 읽는다.
 
 ### 9.3 남은 통합 과제
 
-- `ecl`과 `account-mart`는 아직 루트 `settings.gradle`에 포함되지 않았고, 기존 `com.risk.common`/`project(':common')` 좌표가 현 저장소 구조와 맞지 않는다.
+- `ecl`과 `account-mart`는 루트 `settings.gradle`에 편입했고, `risk-common` 호환 모듈을 통해 기존 `com.risk.common` 좌표를 최소 복구했다.
 - `account-mart`가 회계 계정 매핑까지 포함한 allowance exposure snapshot을 생성하는 경로는 아직 필요하다.
 - 대손충당금 전용 운영에서는 RWA/집중도/감독보고 step을 기본 실행 경로에서 제외하는 별도 `allowanceEclJob`이 필요하다.
+
+### 9.4 루트 Gradle 편입 및 account-mart wiring
+
+- 루트 `settings.gradle`에 `risk-common`, `account-mart:*`, `ecl:*`를 포함했다.
+- `risk-common`에는 기존 수입 모듈이 참조하던 공통 엔티티/enum/event/API 응답/예외/락 애노테이션을 최소 호환 타입으로 추가했다.
+- `ecl`/`account-mart`의 stale `project(':common')`, 예전 `domain.*.repository/entity` import, Kafka 의존성 누락을 정리했다.
+- `account-mart` batch/API가 현재 순수 도메인 모델과 JPA entity 분리를 지키도록 JPA reader projection과 persistence adapter를 보강했다.
+- `IntegratedPositionProcessor`는 외화 포지션의 `marketValue`를 환율 포트로 KRW 환산해 채운다.
+- `account-mart` demo batch는 테스트에서 Kafka 이벤트 발행을 끌 수 있도록 `mart.batch.cdm-event.enabled=false`를 지원한다.
+- 검증: `account-mart:mart-batch:test`, `account-mart:mart-core` 프로세서 테스트, `ecl:ecl-core` allowance summary 테스트, 신규 편입 모듈 compile이 통과했다.

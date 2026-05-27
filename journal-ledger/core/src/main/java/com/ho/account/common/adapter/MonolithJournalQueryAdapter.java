@@ -48,6 +48,16 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
     }
 
     @Override
+    public List<JournalDetailSummary> getJournalDetailsByAccountCodes(LocalDate startDate, LocalDate endDate, List<String> accountCodes) {
+        if (accountCodes == null || accountCodes.isEmpty()) {
+            return List.of();
+        }
+        return journalDetailRepository.findByAccountCodesAndDateRange(accountCodes, startDate, endDate).stream()
+                .map(this::mapToDetailSummary)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public JournalDetailAggregateSummary getJournalDetailAggregate(LocalDate startDate, LocalDate endDate,
             JournalSide side) {
         JournalDetailRepository.JournalDetailAggregateProjection projection =

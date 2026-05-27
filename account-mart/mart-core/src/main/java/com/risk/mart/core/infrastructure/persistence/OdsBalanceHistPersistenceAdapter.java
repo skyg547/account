@@ -5,6 +5,7 @@ import com.risk.mart.core.domain.ods.common.OdsBalanceHist;
 import com.risk.mart.core.infrastructure.persistence.entity.ods.OdsBalanceHistEntity;
 import com.risk.mart.core.infrastructure.persistence.jpa.JpaOdsBalanceHistRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 public class OdsBalanceHistPersistenceAdapter implements OdsBalanceHistRepository {
 
     private final JpaOdsBalanceHistRepository jpaRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public Optional<OdsBalanceHist> findTopByAccountNoOrderByBaseDateDesc(String accountNo) {
@@ -46,15 +48,39 @@ public class OdsBalanceHistPersistenceAdapter implements OdsBalanceHistRepositor
 
     @Override
     public List<BalanceSummary> findBalanceSummaryByBaseDate(LocalDate baseDate) {
-        // [임시 구현] 요약 인터페이스 익명 클래스 구현
-        return jpaRepository.findAll().stream() // 필터링은 리포지토리 보강 권장
-                .filter(e -> e.getBaseDate().equals(baseDate))
-                .map(e -> new BalanceSummary() {
-                    @Override public String getSubjectCode() { return e.getAccountNo(); }
-                    @Override public String getCurrencyCode() { return e.getCurrency(); }
-                    @Override public java.math.BigDecimal getBalanceAmount() { return e.getBalance(); }
-                })
-                .collect(Collectors.toList());
+        return jdbcTemplate.query("""
+                        SELECT p.subj_cd AS subject_code,
+                               b.currency AS currency_code,
+                               SUM(b.balance) AS balance_amount
+                          FROM ods_balance_hist b
+                          JOIN ods_acc_ledger a ON a.acc_no = b.account_no
+                          JOIN ods_product_mst p ON p.prod_cd = a.prod_cd
+                         WHERE b.base_dt = ?
+                         GROUP BY p.subj_cd, b.currency
+                         ORDER BY p.subj_cd, b.currency
+                        """,
+                (rs, rowNum) -> {
+                    String subjectCode = rs.getString("subject_code");
+                    String currencyCode = rs.getString("currency_code");
+                    java.math.BigDecimal balanceAmount = rs.getBigDecimal("balance_amount");
+                    return new BalanceSummary() {
+                    @Override
+                    public String getSubjectCode() {
+                        return subjectCode;
+                    }
+
+                    @Override
+                    public String getCurrencyCode() {
+                        return currencyCode;
+                    }
+
+                    @Override
+                    public java.math.BigDecimal getBalanceAmount() {
+                        return balanceAmount;
+                    }
+                    };
+                },
+                java.sql.Date.valueOf(baseDate));
     }
 
     private OdsBalanceHist toDomain(OdsBalanceHistEntity entity) {

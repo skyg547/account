@@ -27,7 +27,9 @@ class DisclosureNoteMartServiceTest {
         DisclosureNoteMartService service = new DisclosureNoteMartService(
                 historyPort,
                 disclosureMartPort,
-                disclosureMartPort);
+                disclosureMartPort,
+                (type, date) -> java.util.List.of(),
+                null);
 
         DisclosureNoteMart mart = service.generate(new GenerateCommand(
                 FinancialStatement.StatementType.BALANCE_SHEET,
@@ -49,7 +51,9 @@ class DisclosureNoteMartServiceTest {
                 (type, date) -> Optional.empty(),
                 mart -> {
                 },
-                (type, date) -> Optional.empty());
+                (type, date) -> Optional.empty(),
+                (type, date) -> java.util.List.of(),
+                null);
 
         assertThatThrownBy(() -> service.generate(new GenerateCommand(
                         FinancialStatement.StatementType.BALANCE_SHEET,
@@ -71,7 +75,9 @@ class DisclosureNoteMartServiceTest {
         DisclosureNoteMartService service = new DisclosureNoteMartService(
                 (type, date) -> Optional.empty(),
                 disclosureMartPort,
-                disclosureMartPort);
+                disclosureMartPort,
+                (type, date) -> java.util.List.of(),
+                null);
 
         Optional<DisclosureNoteMart> result = service.find(new com.ho.account.reporting.application.port.in.DisclosureNoteMartUseCase.FindQuery(
                 FinancialStatement.StatementType.BALANCE_SHEET,

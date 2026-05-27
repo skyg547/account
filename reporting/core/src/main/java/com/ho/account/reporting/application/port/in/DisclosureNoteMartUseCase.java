@@ -1,8 +1,10 @@
 package com.ho.account.reporting.application.port.in;
 
+import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.reporting.domain.model.DisclosureNoteMart;
 import com.ho.account.reporting.domain.model.FinancialStatement;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface DisclosureNoteMartUseCase {
@@ -10,6 +12,8 @@ public interface DisclosureNoteMartUseCase {
     DisclosureNoteMart generate(GenerateCommand command);
 
     Optional<DisclosureNoteMart> find(FindQuery query);
+
+    List<JournalDetailSummary> drillDown(DrillDownQuery query);
 
     record GenerateCommand(
             FinancialStatement.StatementType type,
@@ -20,5 +24,11 @@ public interface DisclosureNoteMartUseCase {
     record FindQuery(
             FinancialStatement.StatementType type,
             LocalDateTime baseDate) {
+    }
+
+    record DrillDownQuery(
+            FinancialStatement.StatementType type,
+            LocalDateTime baseDate,
+            String entryId) {
     }
 }

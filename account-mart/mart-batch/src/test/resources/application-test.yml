@@ -38,3 +38,5 @@ mart:
       enabled: false
     demo-seed:
       enabled: true
+    cdm-event:
+      enabled: false

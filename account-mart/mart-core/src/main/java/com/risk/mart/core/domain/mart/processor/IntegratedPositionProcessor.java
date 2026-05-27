@@ -8,6 +8,8 @@ import com.risk.mart.core.domain.ods.audit.service.OdsDataQualityService;
 import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
 import com.risk.mart.core.domain.ods.loan.OdsAccountRate;
 import com.risk.mart.core.domain.ods.loan.OdsEarlyWarning;
+import com.risk.mart.core.domain.marketdata.ExchangeRate;
+import com.risk.mart.core.application.port.out.ExchangeRateRepository;
 import com.risk.mart.core.domain.ods.common.OdsCustomerMst;
 import com.risk.mart.core.application.port.out.OdsEarlyWarningRepository;
 import com.risk.mart.core.application.port.out.OdsAccountRateRepository;
@@ -21,6 +23,7 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -35,6 +38,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
     private final OdsEarlyWarningRepository earlyWarningRepository;
     private final OdsAccountRateRepository accountRateRepository;
     private final OdsCustomerMstRepository customerMstRepository;
+    private final ExchangeRateRepository exchangeRateRepository;
     private final OdsDataQualityService dqService;
     private LocalDate baseDate;
 
@@ -56,6 +60,8 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
         Optional<OdsCustomerMst> customerInfo = customerMstRepository.findByCustomerCode(ledger.getCustomerCode());
         Optional<OdsAccountRate> rateInfo = accountRateRepository.findById(ledger.getAccountNo());
         Optional<OdsEarlyWarning> ew = earlyWarningRepository.findTopByCustomerCodeAndBaseDateOrderByBaseDateDesc(ledger.getCustomerCode(), baseDate);
+        BigDecimal outstandingAmount = ledger.getOutstandingAmount() != null ? ledger.getOutstandingAmount() : BigDecimal.ZERO;
+        BigDecimal marketValue = convertToKrw(ledger.getCurrency(), outstandingAmount);
 
         IntegratedRiskPosition.IntegratedRiskPositionBuilder builder = IntegratedRiskPosition.builder()
                 .baseDt(baseDate)
@@ -64,9 +70,10 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
                 .customerName(customerInfo.map(OdsCustomerMst::getCustomerName).orElse("Unknown"))
                 .productCode(ledger.getProductCode())
                 .currency(CurrencyCode.valueOf(ledger.getCurrency()))
-                .currentBalance(ledger.getOutstandingAmount() != null ? ledger.getOutstandingAmount() : BigDecimal.ZERO)
-                .outstandingAmount(ledger.getOutstandingAmount() != null ? ledger.getOutstandingAmount() : BigDecimal.ZERO)
+                .currentBalance(outstandingAmount)
+                .outstandingAmount(outstandingAmount)
                 .limitAmount(ledger.getLimitAmount() != null ? ledger.getLimitAmount() : BigDecimal.ZERO)
+                .marketValue(marketValue)
                 .interestRate(ledger.getInterestRate())
                 .spread(ledger.getSpread())
                 .baseRateCode(ledger.getBaseRateCode())
@@ -113,6 +120,21 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
         builder.repricingFreq(0);
 
         return builder.build();
+    }
+
+    private BigDecimal convertToKrw(String currency, BigDecimal amount) {
+        if (currency == null || CurrencyCode.KRW.name().equals(currency) || baseDate == null) {
+            return amount.setScale(4, RoundingMode.HALF_UP);
+        }
+
+        CurrencyCode baseCurrency = CurrencyCode.valueOf(currency);
+        return exchangeRateRepository.findByBaseDateAndBaseCurrencyAndQuoteCurrency(
+                        baseDate,
+                        baseCurrency,
+                        CurrencyCode.KRW)
+                .map(ExchangeRate::getBaseRate)
+                .map(rate -> amount.multiply(rate).setScale(4, RoundingMode.HALF_UP))
+                .orElseGet(() -> amount.setScale(4, RoundingMode.HALF_UP));
     }
 
     @Override

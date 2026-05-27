@@ -21,6 +21,12 @@ public interface JournalQueryPort {
     List<JournalDetailSummary> getJournalDetails(Long journalEntryId);
 
     /**
+     * 특정 기간과 계정코드 목록에 해당하는 전표 상세 내역을 조회합니다.
+     * (주석 마트 Drill-through용)
+     */
+    List<JournalDetailSummary> getJournalDetailsByAccountCodes(LocalDate startDate, LocalDate endDate, List<String> accountCodes);
+
+    /**
      * 특정 기간의 전표 상세를 DB 집계 기준으로 요약합니다.
      */
     JournalDetailAggregateSummary getJournalDetailAggregate(LocalDate startDate, LocalDate endDate, JournalSide side);

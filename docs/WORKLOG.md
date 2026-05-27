@@ -277,3 +277,25 @@
   - `ecl`/`account-mart`는 아직 루트 Gradle에 편입되지 않아 ECL 신규 단위 테스트를 Gradle로 실행하지 못했다.
   - 기존 `com.risk.common`/`project(':common')` 좌표를 현 저장소의 `shared-kernel`/`contracts` 구조로 이관해야 통합 빌드 가능하다.
   - 대손충당금 전용 운영 경로에서는 RWA/집중도 분석을 제외한 별도 `allowanceEclJob` 분리가 필요하다.
+
+### 📅 2026-05-27 (Codex 구현)
+### [통합] account-mart/ecl 루트 Gradle 편입 및 batch wiring 복구
+- **수정 범위**:
+  - 루트 `settings.gradle`에 `risk-common`, `account-mart:mart-*`, `ecl:ecl-*` 모듈을 포함.
+  - `risk-common` 호환 모듈을 추가해 기존 수입 모듈의 `com.risk.common` 엔티티/enum/event/API 응답/예외/락 타입 참조를 복구.
+  - `ecl`/`account-mart`의 stale Gradle 의존성, Kafka 의존성 누락, 예전 `domain.*.repository/entity` import를 현재 포트/도메인 패키지로 정리.
+  - `account-mart` batch/API 컴파일을 위해 KAP 등급, 조기경보, 계좌금리, 수익률곡선, 대사이력 포트 adapter를 보강.
+  - `IntegratedPositionProcessor`가 외화 포지션 `marketValue`를 환율 포트로 KRW 환산하도록 보강.
+  - ODS/GL 대사는 계좌 잔액을 상품 GL 계정코드로 집계하고 MATCH/MISMATCH 이력을 모두 남기도록 수정.
+  - `mart-batch` demo/test에서 Kafka 없이 검증할 수 있도록 `mart.batch.cdm-event.enabled=false` 설정을 추가.
+- **검증**:
+  - `.\gradlew projects --console=plain` 성공. 루트 프로젝트 목록에 `risk-common`, `account-mart`, `ecl` 포함 확인.
+  - `.\gradlew :risk-common:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava --console=plain` 성공.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain` 성공.
+  - `.\gradlew :ecl:ecl-core:test --tests com.risk.credit.core.application.service.allowance.AllowanceSummaryServiceTest :account-mart:mart-core:test --tests com.risk.mart.core.domain.mart.processor.IntegratedPositionProcessorTest --console=plain` 성공.
+  - `.\gradlew :account-mart:mart-core:compileTestJava :account-mart:mart-batch:compileTestJava :ecl:ecl-core:compileTestJava :ecl:ecl-batch:compileTestJava --console=plain` 성공.
+- **남은 리스크**:
+  - `risk-common`은 호환 계층이므로 장기적으로는 `shared-kernel`/명시적 allowance 공통 모델로 축소 이관해야 한다.
+  - `account-mart`의 allowance exposure snapshot 테이블과 ECL 전용 입력 생성 job은 아직 별도 구현이 필요하다.
+  - `ecl`의 RWA/집중도/감독보고 step은 여전히 기본 레거시 경로에 남아 있어 `allowanceEclJob` 분리가 다음 단계다.
+  - `mart-batch` 테스트 종료 시 일부 step-scope reader close 경고가 출력되지만 테스트 실패는 아니며, reader bean lifecycle 정리는 후속 개선 대상이다.

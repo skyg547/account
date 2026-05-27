@@ -35,6 +35,20 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("endDate") LocalDate endDate);
 
        /**
+        * 다수의 계정과목에 대해 기간별 상세 내역 조회 (회계일자 기준)
+        */
+       @Query("SELECT jd FROM JournalDetail jd " +
+                     "JOIN jd.journalEntry je " +
+                     "WHERE jd.accountCode IN :accountCodes " +
+                     "AND je.accountingDate BETWEEN :startDate AND :endDate " +
+                     "AND je.status IN ('APPROVED', 'POSTED') " +
+                     "ORDER BY je.accountingDate ASC, je.slipNo ASC")
+       List<JournalDetail> findByAccountCodesAndDateRange(
+                     @Param("accountCodes") List<String> accountCodes,
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate);
+
+       /**
         * 특정 계정과목의 전기 이월분 조회 (시작일 이전 합계 산출용)
         */
        @Query("SELECT jd FROM JournalDetail jd " +

@@ -17,7 +17,10 @@ public class OdsReconcileHistEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "base_dt")
     private LocalDate baseDate;
+
     private String sourceSystem;
     private String targetSystem;
     private String reconcileItem;

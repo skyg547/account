@@ -2,9 +2,11 @@ package com.risk.mart.core.domain.mart.processor;
 
 import com.risk.common.entity.IntegratedRiskPosition;
 import com.risk.common.enums.CrStaging;
+import com.risk.common.enums.CurrencyCode;
 import com.risk.mart.core.application.port.out.OdsAccountRateRepository;
 import com.risk.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.risk.mart.core.application.port.out.OdsEarlyWarningRepository;
+import com.risk.mart.core.application.port.out.ExchangeRateRepository;
 import com.risk.mart.core.domain.ods.audit.service.OdsDataQualityService;
 import com.risk.mart.core.domain.ods.common.OdsCustomerMst;
 import com.risk.mart.core.domain.ods.loan.OdsAccountLedger;
@@ -38,6 +40,8 @@ class IntegratedPositionProcessorTest {
     private OdsAccountRateRepository accountRateRepository;
     @Mock
     private OdsCustomerMstRepository customerMstRepository;
+    @Mock
+    private ExchangeRateRepository exchangeRateRepository;
     @Mock
     private OdsDataQualityService dqService;
 
