@@ -148,11 +148,32 @@ flowchart TD
 ```
 
 ### 기술 스택 (Tech Stack)
-* **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS (Glassmorphism UI)
-* **Backend:** Spring Boot 3.4 (Java 21), Spring Data JPA, QueryDSL, Spring Batch
-* **Architecture:** MSA, Hexagonal Architecture, Domain-Driven Design (DDD)
-* **Infrastructure:** PostgreSQL, H2, Redis, Apache Kafka, ELK Stack, Prometheus & Grafana
-* **Deployment:** Docker, Docker Compose
+
+**1. Frontend (사용자 인터페이스)**
+* **Next.js 15 (App Router):** SSR/CSR 하이브리드 렌더링으로 초기 로딩 속도를 최적화하고, 대용량 재무 데이터 조회 시 뛰어난 라우팅 성능을 제공합니다.
+* **React Query:** 서버 상태 관리 및 캐싱, 낙관적 업데이트를 통해 수많은 재무 대시보드와 마트 데이터의 실시간 동기화를 지원합니다.
+* **Zustand:** 가볍고 직관적인 클라이언트 전역 상태 관리 도구로, 전역 테마 및 사용자 세션을 빠르고 안정적으로 관리합니다.
+* **Tailwind CSS (Glassmorphism UI):** Utility-first CSS를 통해 개발 생산성을 극대화하며, 기존 금융 시스템의 딱딱함을 탈피한 프리미엄 글래스모피즘(Glassmorphism) 디자인을 구현했습니다.
+
+**2. Backend (코어 비즈니스 로직)**
+* **Spring Boot 3.4 (Java 21):** Java 21의 Virtual Threads 등 최신 생태계를 활용하여 고성능 동시성 처리와 엔터프라이즈급 애플리케이션 안정성을 보장합니다.
+* **Spring Data JPA & QueryDSL:** 복잡한 재무/회계 도메인 모델을 객체 지향적으로 매핑(ORM)하고, 대사(Recon) 및 마트 집계를 위한 타입 세이프(Type-safe)한 동적 쿼리를 작성합니다.
+* **Spring Batch:** 대용량 원장 데이터 이관, ECL(기대신용손실) 산출, 결산 평가 등 야간 정산(EOB)의 핵심인 대용량 청크(Chunk) 기반 파이프라인을 구축합니다.
+
+**3. Architecture (아키텍처 및 설계 원칙)**
+* **MSA (Microservices Architecture):** 원장(Ledger), 대출(Loan), 리스크(Risk) 등 도메인별로 서비스를 물리적으로 분리하여, 단일 장애점(SPOF)을 제거하고 독립적 확장 및 배포가 가능하게 합니다.
+* **Hexagonal Architecture:** 비즈니스 로직(Domain)을 인프라스트럭처(Web, DB)로부터 완벽히 격리(Port/Adapter 패턴)하여, 핵심 금융 로직의 테스트 용이성과 유지보수성을 극대화합니다.
+* **Domain-Driven Design (DDD):** 매우 복잡한 회계/리스크 비즈니스를 유비쿼터스 언어(Ubiquitous Language)로 모델링하여, 기획자(현업)와 개발자 간의 간극을 최소화합니다.
+
+**4. Infrastructure (데이터 및 메시징, 관제)**
+* **PostgreSQL / H2:** ACID 트랜잭션이 필수적인 금융 원장과 마스터 데이터의 메인 영구 저장소로 활용합니다 (H2는 인메모리 테스트 및 로컬 배치용).
+* **Redis:** 분산 락(Distributed Lock)을 구현하여 전표 중복 발행 등의 동시성 이슈를 원천 차단하고, 고속 캐싱 처리를 돕습니다.
+* **Apache Kafka:** 마이크로서비스 간 비동기 이벤트 스트리밍(예: 전표 승인 알림, 마트 적재 완료 이벤트)을 통해 서비스 간 결합도를 최소화합니다.
+* **ELK Stack (Elasticsearch, Logstash, Kibana):** 수십 개의 분산된 컨테이너에서 발생하는 로그를 중앙 집중식으로 수집하고, 실시간 에러 트래킹을 수행합니다.
+* **Prometheus & Grafana:** 시스템 리소스 및 비즈니스 메트릭(API 응답시간, 배치 처리 건수 등)을 실시간 대시보드로 관제합니다.
+
+**5. Deployment (배포 및 오케스트레이션)**
+* **Docker & Docker Compose:** 모든 마이크로서비스와 인프라 자원을 컨테이너화하여 '로컬-테스트-운영' 환경의 100% 일치성을 보장하며, 복잡한 시스템을 명령어 한 줄로 손쉽게 구동합니다.
 
 ---
 
