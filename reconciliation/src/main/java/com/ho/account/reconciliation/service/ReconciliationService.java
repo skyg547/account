@@ -362,7 +362,7 @@ public class ReconciliationService {
 
         try {
             ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit);
-            ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationDate);
+            ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationUnit, reconciliationDate);
 
             BigDecimal sourceAmount = sourceSnapshot.amount();
             BigDecimal targetAmount = targetSnapshot.amount();
@@ -446,12 +446,16 @@ public class ReconciliationService {
         return new ReconciliationSnapshot(count, amount);
     }
 
-    private ReconciliationSnapshot buildTargetSnapshot(LocalDate reconciliationDate) {
-        // @todo Reconciliation policy: target snapshot currently aggregates DEBIT only and relies on repository status semantics; align account/currency/status filters per unit.
-        JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregate(
+    private ReconciliationSnapshot buildTargetSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
+        JsonNode root = parseCriteriaJson(reconciliationUnit);
+        String targetAccountCode = readText(root, "targetAccountCode");
+
+        JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
                 reconciliationDate,
                 reconciliationDate,
-                JournalSide.DEBIT);
+                JournalSide.DEBIT,
+                targetAccountCode);
+
         if (aggregate == null) {
             return new ReconciliationSnapshot(0, BigDecimal.ZERO);
         }

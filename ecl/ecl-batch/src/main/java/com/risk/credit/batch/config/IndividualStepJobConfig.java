@@ -44,6 +44,7 @@ public class IndividualStepJobConfig {
     // --- Phase 5 ---
     @Qualifier("eclManagerStep") private final Step eclManagerStep;
     @Qualifier("rwaManagerStep") private final Step rwaManagerStep;
+    @Qualifier("allowanceSummaryStep") private final Step allowanceSummaryStep;
     @Qualifier("consolidationStep") private final Step consolidationStep;
     @Qualifier("concentrationAnalysisStep") private final Step concentrationAnalysisStep;
 
@@ -62,6 +63,7 @@ public class IndividualStepJobConfig {
     
     @Bean public Job standaloneEclJob() { return wrapStep("standaloneEclJob", eclManagerStep); }
     @Bean public Job standaloneRwaJob() { return wrapStep("standaloneRwaJob", rwaManagerStep); }
+    @Bean public Job standaloneAllowanceSummaryJob() { return wrapStep("standaloneAllowanceSummaryJob", allowanceSummaryStep); }
     @Bean public Job standaloneConsolidationJob() { return wrapStep("standaloneConsolidationJob", consolidationStep); }
     @Bean public Job standaloneConcentrationAnalysisJob() { return wrapStep("standaloneConcentrationAnalysisJob", concentrationAnalysisStep); }
 

@@ -45,6 +45,16 @@
 
 ## 🚀 배치 프로세스 수행 가이드
 
+### 0. 대손충당금 연동 상태
+
+2026-05-27 기준으로 `ecl`에는 `closing`이 읽는 `allowance_summary`를 생성하는 최소 경로가 추가되어 있습니다.
+
+- `MainReportingBatchConfig`는 ECL/RWA 산출 후 `allowanceSummaryStep`을 실행합니다.
+- `AllowanceSummaryService`는 기준일의 완료된 ECL 결과를 회계 summary로 재생성합니다.
+- 실제 대량 집계는 `JdbcAllowanceSummaryPersistenceAdapter`의 SQL bulk `INSERT ... SELECT`로 처리합니다.
+- `allowance_account_mappings`에 상품/사업부/통화별 회계 계정 매핑이 없으면 기존 summary를 지우지 않고 실패합니다.
+- 루트 `settings.gradle`에는 아직 `ecl` 모듈이 포함되어 있지 않아 저장소 통합 빌드 편입은 별도 후속 작업입니다.
+
 ### 1. DB 환경 준비
 배치 프로세스를 돌려보기 전, 기초 마스터 데이터와 거래 데이터를 생성해야 합니다.
 ```bash

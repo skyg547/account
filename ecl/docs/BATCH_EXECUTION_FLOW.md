@@ -41,7 +41,8 @@ graph TD
     subgraph "Phase 5: 본산출 및 분석"
         Job5[MainReportingBatchConfig] --> ECL[EclProcessor]
         ECL --> RWA[RwaProcessor]
-        RWA --> Cons[MonthlyAssetConsolidationService]
+        RWA --> ALW[AllowanceSummaryTasklet]
+        ALW --> Cons[MonthlyAssetConsolidationService]
         Cons --> HHI[ConcentrationRiskService]
     end
 ```
@@ -99,9 +100,12 @@ graph TD
         - 미래전망 정보를 결합하여 기대신용손실(ECL)을 최종 산출합니다.
     2.  **`rwaManagerStep`**: `RwaProcessor.java` **[Parallel]**
         - 바젤 III 규제 수식을 적용하여 계좌별 위험가중자산(RWA)을 산출합니다.
-    3.  **`consolidationStep`**: `MonthlyAssetConsolidationService.java`
+    3.  **`allowanceSummaryStep`**: `AllowanceSummaryTasklet.java`
+        - 완료된 ECL 결과를 `allowance_account_mappings`와 결합해 `allowance_summary`를 재생성합니다.
+        - 이 결과는 `closing`의 대손충당금 전표 생성 입력으로 사용됩니다.
+    4.  **`consolidationStep`**: `MonthlyAssetConsolidationService.java`
         - 미시적 건별 리스크 데이터를 월간 집계 데이터로 통합(Mart 생성)합니다.
-    4.  **`concentrationAnalysisStep`**: `ConcentrationRiskService.java`
+    5.  **`concentrationAnalysisStep`**: `ConcentrationRiskService.java`
         - HHI 지수를 사용하여 특정 산업이나 고객에게 리스크가 쏠려 있는지 분석합니다.
 
 ---

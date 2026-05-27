@@ -40,6 +40,13 @@ CREATE TABLE IF NOT EXISTS cr_accounts (
     product_code VARCHAR(20) NOT NULL,
     outstanding_amt NUMERIC(19,4) NOT NULL DEFAULT 0,
     notional_amt NUMERIC(19,4) NOT NULL DEFAULT 0,
+    prod_category VARCHAR(30),
+    int_rate NUMERIC(19,6),
+    repayment_method VARCHAR(30),
+    grace_period INTEGER,
+    repayment_freq INTEGER,
+    branch_cd VARCHAR(20),
+    biz_unit_cd VARCHAR(20),
     currency VARCHAR(3) NOT NULL DEFAULT 'KRW',
     open_date DATE NOT NULL,
     maturity_date DATE,
@@ -210,6 +217,48 @@ CREATE TABLE IF NOT EXISTS cr_monthly_summaries (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS allowance_account_mappings (
+    id SERIAL PRIMARY KEY,
+    product_code VARCHAR(20) NOT NULL,
+    biz_unit_code VARCHAR(20),
+    currency_code VARCHAR(3),
+    legal_entity_code VARCHAR(20) NOT NULL DEFAULT 'DEFAULT',
+    exposure_account_code VARCHAR(20) NOT NULL,
+    allowance_account_code VARCHAR(20) NOT NULL,
+    bad_debt_expense_account_code VARCHAR(20) NOT NULL,
+    reversal_income_account_code VARCHAR(20) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_allowance_account_mappings_lookup
+    ON allowance_account_mappings(product_code, biz_unit_code, currency_code, active);
+
+CREATE TABLE IF NOT EXISTS allowance_summary (
+    id SERIAL PRIMARY KEY,
+    base_date DATE NOT NULL,
+    run_id VARCHAR(80) NOT NULL,
+    model_version VARCHAR(80) NOT NULL,
+    legal_entity_code VARCHAR(20) NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
+    exposure_account_code VARCHAR(20) NOT NULL,
+    allowance_account_code VARCHAR(20) NOT NULL,
+    bad_debt_expense_account_code VARCHAR(20) NOT NULL,
+    reversal_income_account_code VARCHAR(20) NOT NULL,
+    target_allowance_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    source_exposure_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    stage1_allowance_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    stage2_allowance_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    stage3_allowance_amount NUMERIC(19,4) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (base_date, run_id, legal_entity_code, currency_code, exposure_account_code, allowance_account_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_allowance_summary_base_date
+    ON allowance_summary(base_date);
+
 -- Initial Data
 DELETE FROM cr_grade_masters;
 INSERT INTO cr_grade_masters (rating_code, pd_value, notch_order, description) VALUES
@@ -298,6 +347,21 @@ INSERT INTO cr_sa_rw_masters (customer_type, rating_code, risk_weight, descripti
 ('FINANCIAL_INSTITUTION', 'BBB-', 0.5000, '은행 보통등급'),
 ('FINANCIAL_INSTITUTION', 'UNRATED', 0.5000, '은행 무등급(기본)'),
 ('PUBLIC_SECTOR', 'ALL', 0.0000, '공공기관/정부/국책은행 익스포저 무위험');
+
+DELETE FROM allowance_account_mappings;
+INSERT INTO allowance_account_mappings (
+    product_code,
+    legal_entity_code,
+    exposure_account_code,
+    allowance_account_code,
+    bad_debt_expense_account_code,
+    reversal_income_account_code
+) VALUES
+('LN-CORP', 'DEFAULT', '110101', '110191', '550101', '450101'),
+('LN-MTG',  'DEFAULT', '110102', '110192', '550101', '450101'),
+('LN-RETL', 'DEFAULT', '110103', '110193', '550101', '450101'),
+('LC-CORP', 'DEFAULT', '110104', '110194', '550101', '450101'),
+('OD-CORP', 'DEFAULT', '110105', '110195', '550101', '450101');
 
 -- Sample Data
 DELETE FROM cr_customers;

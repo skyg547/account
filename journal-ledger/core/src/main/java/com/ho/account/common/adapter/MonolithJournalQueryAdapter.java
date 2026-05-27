@@ -63,6 +63,21 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
     }
 
     @Override
+    public JournalDetailAggregateSummary getJournalDetailAggregateByAccount(LocalDate startDate, LocalDate endDate,
+            JournalSide side, String accountCode) {
+        JournalDetailRepository.JournalDetailAggregateProjection projection =
+                journalDetailRepository.summarizeByAccountingDateBetweenAndSideAndAccountCode(startDate, endDate, mapJournalSide(side), accountCode);
+        if (projection == null) {
+            return new JournalDetailAggregateSummary(0, BigDecimal.ZERO);
+        }
+        Long detailCount = projection.getDetailCount();
+        BigDecimal totalAmount = projection.getTotalAmount();
+        return new JournalDetailAggregateSummary(
+                detailCount == null ? 0L : detailCount,
+                totalAmount == null ? BigDecimal.ZERO : totalAmount);
+    }
+
+    @Override
     public JournalSummary getJournalSummary(Long journalEntryId) {
         return journalUseCase.getJournalEntry(journalEntryId)
                 .map(this::mapToSummary)

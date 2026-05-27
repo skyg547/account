@@ -152,25 +152,17 @@ public class ReconManagerService {
     }
 
     private StageSnapshot buildJournalSnapshot(ReconUnitDefinition unit, LocalDate date) {
-        BigDecimal amount = BigDecimal.ZERO;
-        long count = 0L;
         String accountCode = readText(parseMatchingRules(unit), "journalAccountCode");
 
-        // @todo High performance: this loads journal summaries/details through application loops; push filtered aggregation to an outbound query port for 100M+ rows.
-        for (var summary : journalQueryPort.getJournalSummaries(date, date)) {
-            if (summary.getId() == null) {
-                continue;
-            }
-            for (JournalDetailSummary detail : journalQueryPort.getJournalDetails(summary.getId())) {
-                if (detail.getSide() == com.ho.account.contracts.journal.JournalSide.DEBIT
-                        && matchesAccount(detail.getAccountCode(), accountCode)) {
-                    amount = amount.add(resolveJournalAmount(detail));
-                    count++;
-                }
-            }
+        // DB 직접 집계 호출 (대용량 성능 최적화)
+        com.ho.account.contracts.journal.JournalDetailAggregateSummary aggregate = 
+                journalQueryPort.getJournalDetailAggregateByAccount(date, date, com.ho.account.contracts.journal.JournalSide.DEBIT, accountCode);
+
+        if (aggregate == null) {
+            return new StageSnapshot(0L, BigDecimal.ZERO);
         }
 
-        return new StageSnapshot(count, amount);
+        return new StageSnapshot(aggregate.getDetailCount(), safe(aggregate.getTotalAmount()));
     }
 
     private StageSnapshot buildLedgerSnapshot(ReconUnitDefinition unit, LocalDate date) {

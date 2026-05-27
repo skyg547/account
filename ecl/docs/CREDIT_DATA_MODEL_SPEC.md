@@ -100,5 +100,39 @@
 | param_key | 규제 상수 키 | PD Floor, Correlation Base 등 |
 | param_value | 상수값 | 하드코딩 대체용 파라미터 |
 
+### 2.6 AllowanceAccountMapping (충당금 회계 계정 매핑)
+
+`allowance_account_mappings`는 ECL 산출 결과를 회계 전표로 넘기기 위한 상품/사업부/통화별 계정 매핑입니다. 매핑이 없으면 `allowance_summary`를 재생성하지 않아 잘못된 계정 전표 생성을 차단합니다.
+
+| 물리 컬럼명 | 설명 | 비즈니스 용도 |
+|:---|:---|:---|
+| product_code | 상품 코드 | `cr_accounts.product_code` 기준 매핑 키 |
+| biz_unit_code | 사업 단위 코드 | 사업부별 계정 차등 적용, null이면 공통 매핑 |
+| currency_code | 통화 코드 | 통화별 계정 차등 적용, null이면 공통 매핑 |
+| legal_entity_code | 법인 코드 | closing summary 집계 키 |
+| exposure_account_code | 원장 노출 계정 | 원천 익스포저 계정 추적 |
+| allowance_account_code | 대손충당금 계정 | 보충/환입 전표 상대 계정 |
+| bad_debt_expense_account_code | 대손상각비 계정 | 보충 전표 차변 계정 |
+| reversal_income_account_code | 대손충당금환입 계정 | 환입 전표 대변 계정 |
+
+### 2.7 AllowanceSummary (회계 대손충당금 Summary)
+
+`allowance_summary`는 `closing`이 직접 조회하는 ECL 산출 결과 집계 테이블입니다. 기준일별 완료된 `cr_risk_results`를 DB bulk SQL로 집계해 생성합니다.
+
+| 물리 컬럼명 | 설명 | 비즈니스 용도 |
+|:---|:---|:---|
+| base_date | 기준일 | 결산 배치 조회 키 |
+| run_id | ECL 실행 ID | lineage 및 재현성 추적 |
+| model_version | 모델 버전 | 산출 모델 변경 이력 |
+| legal_entity_code | 법인 코드 | 법인별 전표 분리 |
+| currency_code | 통화 코드 | 통화별 전표 분리 |
+| exposure_account_code | 노출 계정 | 원천 계정 추적 |
+| allowance_account_code | 대손충당금 계정 | 기존 GL 잔액 비교 대상 |
+| bad_debt_expense_account_code | 대손상각비 계정 | 보충 전표 계정 |
+| reversal_income_account_code | 대손충당금환입 계정 | 환입 전표 계정 |
+| target_allowance_amount | 목표 충당금 | ECL 가중평균 결과 합계 |
+| source_exposure_amount | 원천 익스포저 금액 | 검증 및 대사 합계 |
+| stage1/2/3_allowance_amount | Stage별 충당금 | 공시 및 검증용 분해 금액 |
+
 ---
 *Senior Fintech Engineer Agent: Antigravity*

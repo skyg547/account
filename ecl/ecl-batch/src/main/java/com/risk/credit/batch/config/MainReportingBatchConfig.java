@@ -2,6 +2,7 @@ package com.risk.credit.batch.config;
 
 import com.risk.credit.batch.processor.EclProcessor;
 import com.risk.credit.batch.processor.RwaProcessor;
+import com.risk.credit.batch.job.tasklet.AllowanceSummaryTasklet;
 import com.risk.credit.batch.support.BatchParameterUtils;
 import com.risk.credit.batch.support.CacheWarmingTasklet;
 import com.risk.credit.batch.support.ColumnRangePartitioner;
@@ -55,6 +56,7 @@ public class MainReportingBatchConfig {
     private final ConcentrationRiskService concentrationRiskService;
     private final CrRiskResultRepository riskResultRepository;
     private final CacheWarmingTasklet cacheWarmingTasklet;
+    private final AllowanceSummaryTasklet allowanceSummaryTasklet;
 
     // Infrastructure Beans (병렬 처리 인프라)
     private final TaskExecutor creditRiskTaskExecutor;
@@ -71,8 +73,9 @@ public class MainReportingBatchConfig {
                 .start(reportingWarmingStep())         // 0. 캐시 워밍업
                 .next(eclManagerStep())               // 1. 기대손실(ECL) 산출
                 .next(rwaManagerStep())                // 2. 위험가중자산(RWA) 산출
-                .next(consolidationStep())             // 3. 월별 데이터 마감 처리 (RDM 적재)
-                .next(concentrationAnalysisStep())     // 4. 리스크 편중도 분석
+                .next(allowanceSummaryStep())          // 3. 회계 대손충당금 summary 생성
+                .next(consolidationStep())             // 4. 월별 데이터 마감 처리 (RDM 적재)
+                .next(concentrationAnalysisStep())     // 5. 리스크 편중도 분석
                 .build();
     }
 
@@ -143,6 +146,13 @@ public class MainReportingBatchConfig {
                 .reader(pagingResultReader)
                 .processor(rwaProcessor)
                 .writer(chunk -> riskResultRepository.saveAll(new ArrayList<CrRiskResult>(chunk.getItems())))
+                .build();
+    }
+
+    @Bean
+    public Step allowanceSummaryStep() {
+        return new StepBuilder("allowanceSummaryStep", jobRepository)
+                .tasklet(allowanceSummaryTasklet, transactionManager)
                 .build();
     }
 

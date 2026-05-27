@@ -33,18 +33,22 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-22 "결산 배치 재실행 정합성 및 대사 매칭 정합성/성능 보강"입니다.
-- Closing Batch `ClosingSlipNoFactory` 추가
-- FX/ECL 배치 자동 전표번호를 기준일, 배치 ID, 계정 식별자 해시 기반 20자 결정적 값으로 변경
-- FX/ECL 배치 ID 파라미터가 없을 때 현재시각 대신 기준일(`yyyyMMdd`)을 기본값으로 사용
-- `closing:batch` 테스트 의존성을 `org.springframework.batch:spring-batch-test`로 수정
-- `ClosingSlipNoFactoryTest` 추가
-- `AutomatedMatchingEngine`이 한 번 매칭한 전표 라인을 같은 실행에서 재사용하지 않도록 변경
-- 은행 출금과 전표 `CREDIT` 라인을 음수로 비교해 반대방향 금액 매칭을 방지
-- 전표 라인을 부호 반영 금액 기준 `TreeMap` 인덱스로 구성하고, 은행 거래 금액의 허용오차 범위 후보만 평가하도록 변경
-- `AutomatedMatchingEngineTest`에 중복 매칭 및 방향성 테스트 추가
-- 허용오차 내 후보 평가 시 기존 전표 라인 입력 순서가 유지되는 테스트 추가
-- 관련 README/docs/worklog 갱신
+3. 리뷰 대상 변경 범위는 Codex의 2026-05-27 "Closing ECL summary 포트 연동 및 ECL allowance_summary 생성 경로 추가"입니다.
+- `closing:core`에 `EclAllowanceResultPort`, `EclAllowanceSummary` 추가
+- `closing:batch`에 `JdbcEclAllowanceResultAdapter` 추가
+- `EclProvisionService`에서 대출채권 계정/KRW/1% 고정 산식 제거
+- `EclProvisionService`가 `EclAllowanceResultPort`의 기준일별 summary를 조회해 목표 충당금과 GL 기존 대손충당금 잔액 차이만 보충/환입 전표로 처리하도록 변경
+- 통화, 충당금 계정, 비용 계정, 환입 수익 계정을 summary/설정 기반으로 resolve하도록 변경
+- 환입 시 비용 계정 재사용 대신 `reversalIncomeAccountCode` 사용
+- `EclProvisionServiceTest` 추가: 보충, 환입, summary 없음 케이스 검증
+- `ecl:ecl-core`에 `AllowanceSummaryBuildPort`, `AllowanceSummaryService`, `AllowanceSummaryBuildResult`, `JdbcAllowanceSummaryPersistenceAdapter` 추가
+- 완료된 `cr_risk_results`를 `allowance_account_mappings`와 조인해 `allowance_summary`를 SQL bulk 집계로 재생성
+- mapping 누락 시 기존 summary를 보존하고 실패시키며, 성공 시 기준일 summary를 교체해 closing 중복 조회를 방지
+- `ecl:ecl-batch`에 `AllowanceSummaryTasklet`, `allowanceSummaryStep`, `standaloneAllowanceSummaryJob` 추가
+- `ecl:ecl-api`에 `V3__add_allowance_summary.sql` 추가
+- `ecl:ecl-batch` H2 통합 스키마에 summary 테이블과 샘플 계정 매핑 추가
+- `AllowanceSummaryServiceTest` 추가
+- `docs/allowance-ecl-refocus-plan.md`, `closing/README.md`, `closing/docs/README.md`, `ecl/README.md`, `ecl/docs/*.md`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 갱신
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -94,10 +98,12 @@ Notes:
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
   - `.\gradlew :closing:batch:test --console=plain`: 성공
-  - `.\gradlew :reconciliation:test --console=plain`: 성공(대사 매칭 정합성 보강 후 1회, 후보 인덱싱 후 1회)
-  - 이번 범위는 closing batch, reconciliation backend, 문서 변경이며 frontend 변경은 없음
-  - 변경 범위 `git diff --check`: 성공(CRLF 경고만 출력)
-  - 전체 `git diff --check`: 이번 범위 밖 프론트엔드 파일 trailing whitespace로 실패
+  - `.\gradlew projects --console=plain`: 성공. 루트 프로젝트 목록에 `ecl`, `account-mart`는 아직 포함되지 않음
+  - 변경 대상 파일 diff check: 성공(CRLF 경고만 출력)
+  - 신규 ECL 파일 trailing whitespace 점검: 성공
+  - 전체 diff check는 이번 범위 밖 `closing/batch/.../FxValuationService.java`의 기존 trailing whitespace로 실패
+  - `ecl`/`account-mart`는 루트 Gradle 미편입 및 stale `com.risk.common`/`project(':common')` 좌표 때문에 신규 ECL 단위 테스트를 Gradle로 실행하지 못함
+  - 결산 자동 승인/전기 통제는 기존 흐름을 유지하며, 별도 approval/reversal policy 포트 분리는 후속 리스크로 남음
 
 ## Review Handoff Checklist
 

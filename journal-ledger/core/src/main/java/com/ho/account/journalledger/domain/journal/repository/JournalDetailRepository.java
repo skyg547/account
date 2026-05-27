@@ -69,15 +69,32 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      @Param("endDate") LocalDate endDate);
 
        /**
-        * 기간과 차대변 방향 기준의 전표 상세 금액을 DB에서 직접 집계합니다.
+        * 기간과 차대변 방향, 그리고 계정코드 기준의 전기(POSTED) 완료된 전표 상세 금액을 DB에서 직접 집계합니다.
         */
-       // @todo Reconciliation consistency: this aggregate has no posting-status filter; align it with posted ledger basis before using it as a recon target.
        @Query("SELECT COUNT(jd) AS detailCount, " +
                      "COALESCE(SUM(COALESCE(jd.baseAmount, jd.amount)), 0) AS totalAmount " +
                      "FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
-                     "AND jd.side = :side")
+                     "AND jd.side = :side " +
+                     "AND je.status = 'POSTED' " +
+                     "AND (:accountCode IS NULL OR jd.accountCode = :accountCode)")
+       JournalDetailAggregateProjection summarizeByAccountingDateBetweenAndSideAndAccountCode(
+                     @Param("startDate") LocalDate startDate,
+                     @Param("endDate") LocalDate endDate,
+                     @Param("side") JournalSide side,
+                     @Param("accountCode") String accountCode);
+
+       /**
+        * 기간과 차대변 방향 기준의 전표 상세 금액을 DB에서 직접 집계합니다. (하위 호환성 유지)
+        */
+       @Query("SELECT COUNT(jd) AS detailCount, " +
+                     "COALESCE(SUM(COALESCE(jd.baseAmount, jd.amount)), 0) AS totalAmount " +
+                     "FROM JournalDetail jd " +
+                     "JOIN jd.journalEntry je " +
+                     "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
+                     "AND jd.side = :side " +
+                     "AND je.status = 'POSTED'")
        JournalDetailAggregateProjection summarizeByAccountingDateBetweenAndSide(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate,

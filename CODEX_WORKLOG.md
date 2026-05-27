@@ -187,3 +187,80 @@
 - 남은 리스크:
   - 전체 `git diff --check`는 이번 범위 밖 프론트엔드 파일의 trailing whitespace로 실패한다.
   - 1억 건 이상 대사에는 인메모리 인덱스 외에 DB/배치 파티셔닝 기반 후보 조회와 청크 상태 저장이 필요하다.
+
+## 2026-05-26 (account-mart/ecl 대손충당금 전용화 설계)
+- 사용자 요청: "account-mart랑 ecl 새로 들여 왔는데 대손충당금 산출에 활용할지 분석하고, 대손충당금 산출만을 위한 변경 계획/설계와 업무기록을 남겨줘".
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/todo.md` 확인.
+  - `account-mart/README.md`, `account-mart/docs/DATA_MART_SPEC.md`, `account-mart/docs/ETL_INTERFACE_SPEC.md` 확인.
+  - `ecl/README.md`, `ecl/docs/process-flow.md`, `ecl/docs/CREDIT_DATA_MODEL_SPEC.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md` 확인.
+  - `closing/README.md`, `closing/docs/README.md`, `closing/batch/.../EclProvisionService.java`, `EclProvisionBatchConfig.java` 확인.
+- 분석 내용:
+  - `account-mart`는 ODS 계좌/고객/상품/담보/잔액을 CDM으로 만드는 구조라 ECL 입력 스냅샷 마트로 재사용 가능.
+  - `ecl`은 `CreditRiskCalculator.calculateEcl`, `ForwardLookingEclService`, `EclProcessor`, `StagingService`, `EadCrmProcessor`가 대손충당금 산출 핵심으로 재사용 가능.
+  - RWA/SA/IRB/감독보고/집중도/스트레스 기능은 대손충당금 전용 흐름에서는 기본 실행 경로에서 제외해야 함.
+  - 신규 모듈은 현재 루트 `settings.gradle`에 포함되지 않았고, `project(':common')`, `com.risk.common`, `credit-risk-service`, `risk-data-mart-service` 좌표가 현 저장소 구조와 맞지 않아 이관 작업이 필요.
+- 수정 내용:
+  - `docs/allowance-ecl-refocus-plan.md` 신규 작성.
+  - `docs/WORKLOG.md`에 설계/분석 기록 추가.
+- 실행 명령:
+  - 문서 설계 작업이라 빌드/테스트는 실행하지 않음.
+- 남은 리스크:
+  - `closing`의 기존 ECL 배치는 하드코딩 대출채권 계정, KRW, 1% 산식, 환입 계정 임시 처리, 자동 승인/전기 통제가 남아 있다.
+  - 다음 구현 단계에서는 `closing`이 ECL 산출 결과 summary를 포트로 조회하도록 바꾸고, `account-mart/ecl`은 ECL 전용 빌드 가능한 최소 경로부터 정리해야 한다.
+
+## 2026-05-27 (Closing ECL summary 포트 연동)
+- 사용자 요청: "진행해".
+- 선확인:
+  - `git status --short`: 직전 설계 문서 변경만 미커밋 상태 확인.
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `closing/README.md`, `closing/docs/README.md`, `docs/allowance-ecl-refocus-plan.md` 확인.
+  - `closing/batch/.../EclProvisionService.java`, `EclProvisionBatchConfig.java`, `ClosingSlipNoFactoryTest.java`, `JournalUseCase`, `GlAccountBalanceRepository` 확인.
+- 수정 내용:
+  - `closing:core`에 `EclAllowanceSummary`와 `EclAllowanceResultPort` 추가.
+  - `closing:batch`에 `JdbcEclAllowanceResultAdapter` 추가. 기준일별 `allowance_summary` row를 읽어 ECL 충당 summary로 변환.
+  - `EclProvisionService`에서 대출채권 계정/KRW/1% 고정 산식을 제거.
+  - `EclProvisionService`가 ECL summary의 목표 충당금과 GL 기존 대손충당금 잔액 차이만 보충/환입 전표로 처리하도록 변경.
+  - 환입 시 summary의 `reversalIncomeAccountCode`를 사용하도록 변경해 비용 계정 재사용을 제거.
+  - `EclProvisionServiceTest` 추가: 보충, 환입, summary 없음 케이스 검증.
+  - `docs/allowance-ecl-refocus-plan.md`, `closing/README.md`, `closing/docs/README.md`, `docs/WORKLOG.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :closing:batch:test --console=plain`
+  - 변경 범위 `git diff --check -- closing docs\allowance-ecl-refocus-plan.md docs\WORKLOG.md CODEX_WORKLOG.md GEMINI_REVIEW_PROMPT.md`
+- 결과:
+  - Closing batch 테스트 성공.
+  - 변경 범위 diff check 성공(CRLF 경고만 출력).
+- 남은 리스크:
+  - `allowance_summary` 테이블 생성과 적재는 아직 `account-mart/ecl`에서 구현되지 않았다.
+  - 결산 자동 승인/전기 통제는 기존 흐름을 유지한다. 후속으로 closing approval/reversal policy 포트 분리가 필요하다.
+
+## 2026-05-27 (ECL allowance_summary 생성 경로 추가)
+- 사용자 요청: "다음 작업 진행해줘".
+- 선확인:
+  - `settings.gradle`: `ecl`, `account-mart`가 아직 루트 Gradle 프로젝트에 포함되지 않음 확인.
+  - `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, `ecl/docs/CREDIT_DATA_MODEL_SPEC.md` 확인.
+  - `CrRiskResult`, `CrAccount`, `MainReportingBatchConfig`, `EclProcessor`, `RwaProcessor`, 기존 Flyway migration 확인.
+  - 현재 작업트리에 `FxValuationService`, `contracts`, `journal-ledger`, `reconciliation` 등 이번 범위 밖 미커밋 변경이 있음을 확인하고 미수정.
+- 수정 내용:
+  - `ecl:ecl-core`에 `AllowanceSummaryBuildPort`, `AllowanceSummaryService`, `AllowanceSummaryBuildResult` 추가.
+  - `JdbcAllowanceSummaryPersistenceAdapter`를 추가해 완료된 `cr_risk_results`와 `allowance_account_mappings`를 조인하고 `allowance_summary`를 SQL bulk 집계로 재생성.
+  - mapping 누락 시 기존 summary를 보존하고 실패하도록 서비스 검증 추가.
+  - 같은 기준일 이전 run summary가 `closing`에 중복 조회되지 않도록 mapping 검증 통과 후 기준일 summary를 교체하도록 처리.
+  - `AllowanceSummaryTasklet`, `allowanceSummaryStep`, `standaloneAllowanceSummaryJob` 추가.
+  - `V3__add_allowance_summary.sql` 추가.
+  - `h2-combined-cr.sql`에 summary 테이블, 샘플 계정 매핑, `cr_accounts.biz_unit_cd` 등 런타임 보강 컬럼 추가.
+  - `AllowanceSummaryServiceTest` 추가.
+  - `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, `ecl/docs/CREDIT_DATA_MODEL_SPEC.md`, `docs/allowance-ecl-refocus-plan.md`, `docs/WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :closing:batch:test --console=plain`
+  - `.\gradlew projects --console=plain`
+  - 변경 대상 파일 `git diff --check`
+  - 신규 ECL 파일 trailing whitespace `rg` 점검
+- 결과:
+  - Closing batch 테스트 성공.
+  - Gradle 프로젝트 목록 확인 성공. `ecl`, `account-mart` 미편입 상태 확인.
+  - 변경 대상 파일 diff check 성공(CRLF 경고만 출력).
+  - 신규 ECL 파일 trailing whitespace 없음.
+- 남은 리스크:
+  - `ecl`/`account-mart`는 루트 Gradle 미편입 및 stale `com.risk.common`/`project(':common')` 좌표 때문에 신규 ECL 단위 테스트를 Gradle로 실행하지 못했다.
+  - 전체 `git diff --check`는 이번 범위 밖 `FxValuationService.java`의 기존 trailing whitespace로 실패한다.
+  - account-mart의 allowance exposure snapshot 생성과 ECL 전용 `allowanceEclJob` 분리는 다음 단계로 남아 있다.

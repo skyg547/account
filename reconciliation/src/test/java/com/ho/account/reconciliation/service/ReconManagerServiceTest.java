@@ -99,11 +99,8 @@ class ReconManagerServiceTest {
                     }
                     return ExternalReconSnapshot.zero();
                 });
-        when(journalQueryPort.getJournalSummaries(reconDate, reconDate)).thenReturn(List.of(journalSummary));
-        when(journalQueryPort.getJournalDetails(99L)).thenReturn(List.of(
-                journalDetail(JournalSide.DEBIT, "11000", "980.00"),
-                journalDetail(JournalSide.CREDIT, "21000", "980.00")
-        ));
+        when(journalQueryPort.getJournalDetailAggregateByAccount(reconDate, reconDate, JournalSide.DEBIT, "11000"))
+                .thenReturn(new com.ho.account.contracts.journal.JournalDetailAggregateSummary(1L, new BigDecimal("980.00")));
         when(ledgerQueryPort.getGlBalanceSummaries(reconDate, reconDate, "11000", "KRW"))
                 .thenReturn(List.of(ledgerBalance("11000", "KRW", "950.00")));
 

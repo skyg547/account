@@ -3,6 +3,39 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-05-27 (Codex 구현)
+### [고도화] Closing ECL 충당 배치의 ECL 산출 결과 포트 연동
+- **수정 범위**:
+  - Closing Core: `EclAllowanceResultPort`, `EclAllowanceSummary`를 추가해 확정된 IFRS 9 ECL 산출 결과를 외부 포트로 조회할 수 있게 함.
+  - Closing Batch: `JdbcEclAllowanceResultAdapter`를 추가해 `allowance_summary` 테이블의 기준일별 summary를 읽는 기본 어댑터를 구현.
+  - Closing Batch: `EclProvisionService`에서 대출채권 잔액에 1%를 곱하던 고정 산식을 제거하고, ECL summary의 목표 충당금과 기존 GL 대손충당금 잔액 차이만 보충/환입 전표로 처리하도록 변경.
+  - Closing Batch: 통화와 계정은 summary/설정 기반으로 resolve하고, 환입 시 별도 `reversalIncomeAccountCode`를 사용하도록 변경.
+- **문서 갱신**:
+  - `docs/allowance-ecl-refocus-plan.md`, `closing/README.md`, `closing/docs/README.md`
+- **검증**:
+  - `.\gradlew :closing:batch:test --console=plain` 성공.
+  - 변경 범위 `git diff --check -- closing docs\allowance-ecl-refocus-plan.md docs\WORKLOG.md CODEX_WORKLOG.md GEMINI_REVIEW_PROMPT.md` 성공(CRLF 경고만 출력).
+- **남은 리스크**:
+  - `allowance_summary` 테이블을 실제로 생성/적재하는 `account-mart`/`ecl` 전용 마이그레이션과 배치 job은 후속 구현이 필요하다.
+  - 결산 자동 승인/전기 통제는 아직 기존 흐름을 유지하며, 별도 결산 승인 정책 포트로 분리하는 보강이 남아 있다.
+
+### 📅 2026-05-26 (Codex 설계)
+### [설계] account-mart / ecl 대손충당금 산출 전용화 계획
+- **검토 범위**:
+  - 신규 유입된 `account-mart`, `ecl` 모듈의 README/docs, 주요 배치/산출 클래스, 현재 `closing` ECL 충당 배치 구조를 확인.
+  - `account-mart`의 ODS→CDM 변환 역할과 `ecl`의 Stage/PD/LGD/EAD/ECL/RWA 혼합 산출 흐름을 대손충당금 관점에서 재분류.
+- **설계 결과**:
+  - `account-mart`는 ECL 입력 스냅샷/원천-GL 대사/DQ 전용 마트로 축소하는 방향을 제안.
+  - `ecl`은 IFRS 9 Stage, Lifetime PD, EAD/LGD, 미래전망 가중평균 ECL 산출 전용 엔진으로 축소하고 RWA/감독보고/집중도 기능은 기본 실행 경로에서 제외하는 방향을 제안.
+  - `closing`은 현재 고정 1% 산식 대신 ECL 산출 결과 summary를 포트로 조회해 보충/환입 전표만 생성하도록 역할을 조정하는 설계를 정리.
+- **문서 갱신**:
+  - `docs/allowance-ecl-refocus-plan.md`
+- **검증**:
+  - 문서 설계 작업이라 빌드/테스트는 실행하지 않음.
+- **남은 리스크**:
+  - 신규 모듈은 아직 루트 `settings.gradle`에 포함되지 않았고, 기존 `project(':common')`, `com.risk.common`, `credit-risk-service`, `risk-data-mart-service` 좌표를 현재 저장소 구조에 맞게 이관해야 한다.
+  - `closing`의 기존 ECL 배치는 하드코딩 계정/KRW/1% 산식이 남아 있어 후속 구현에서 ECL 결과 포트 기반으로 교체해야 한다.
+
 ### 📅 2026-05-21 (Gemini YOLO 모드 - 12차)
 ### [프론트엔드]
 - **Frontend (Next.js) 재무운영(AR, AP) 관리 화면 API 연동**:
@@ -221,3 +254,26 @@
 - **남은 리스크**:
   - 전체 `git diff --check`는 이번 범위 밖 프론트엔드 파일의 trailing whitespace로 실패한다.
   - 인메모리 후보 인덱싱은 단일 실행 내 매칭 비용을 줄이지만, 1억 건 이상에서는 DB/배치 파티셔닝 기반 후보 조회와 청크 단위 상태 저장이 추가로 필요하다.
+
+### 📅 2026-05-27 (Codex 구현)
+### [고도화] ECL 대손충당금 summary 생성 경로 추가
+- **수정 범위**:
+  - ECL Core: `AllowanceSummaryService`, `AllowanceSummaryBuildPort`, `AllowanceSummaryBuildResult`를 추가해 기준일 ECL 결과를 회계 summary로 재생성하는 유즈케이스를 분리.
+  - ECL Core Adapter: `JdbcAllowanceSummaryPersistenceAdapter`를 추가해 완료된 `cr_risk_results`를 `allowance_account_mappings`와 조인하고 `allowance_summary`를 SQL bulk 집계로 생성.
+  - ECL Batch: `AllowanceSummaryTasklet`과 `allowanceSummaryStep`, `standaloneAllowanceSummaryJob`을 추가해 ECL/RWA 완료 후 closing 입력 summary를 생성.
+  - ECL API Migration: `V3__add_allowance_summary.sql`로 `allowance_account_mappings`, `allowance_summary` 테이블 추가.
+  - ECL Batch Demo: H2 통합 스키마에 summary 테이블과 샘플 계정 매핑을 추가하고 `cr_accounts.biz_unit_cd` 컬럼을 보강.
+  - 문서: `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, `ecl/docs/CREDIT_DATA_MODEL_SPEC.md`, `docs/allowance-ecl-refocus-plan.md` 갱신.
+- **정합성 포인트**:
+  - 회계 계정 매핑 누락 시 기존 summary를 삭제하지 않고 실패하도록 설계.
+  - 같은 기준일 이전 run summary가 `closing`에 중복 조회되지 않도록 mapping 검증 통과 후 기준일 summary를 교체.
+  - 대량 처리는 application/batch 루프가 아니라 JDBC adapter의 bulk `INSERT ... SELECT`로 수행.
+- **검증**:
+  - `.\gradlew :closing:batch:test --console=plain` 성공.
+  - `.\gradlew projects --console=plain` 성공. 현재 루트 프로젝트 목록에 `ecl`, `account-mart`는 포함되지 않음을 확인.
+  - 변경 대상 파일 diff check 성공(CRLF 경고만 출력). 전체 범위 diff check는 이번 범위 밖 `closing/batch/.../FxValuationService.java` 기존 trailing whitespace로 실패.
+  - 신규 ECL 파일 및 H2 스키마 trailing whitespace 점검 성공.
+- **남은 리스크**:
+  - `ecl`/`account-mart`는 아직 루트 Gradle에 편입되지 않아 ECL 신규 단위 테스트를 Gradle로 실행하지 못했다.
+  - 기존 `com.risk.common`/`project(':common')` 좌표를 현 저장소의 `shared-kernel`/`contracts` 구조로 이관해야 통합 빌드 가능하다.
+  - 대손충당금 전용 운영 경로에서는 RWA/집중도 분석을 제외한 별도 `allowanceEclJob` 분리가 필요하다.

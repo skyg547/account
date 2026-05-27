@@ -1,6 +1,8 @@
 package com.ho.account.closing.batch.service;
 
+import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
+import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
@@ -16,8 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -28,7 +30,7 @@ import java.util.Optional;
  * 
  * 예를 들어:
  * 1. 은행이 고객들에게 빌려준 대출금(대출채권) 잔액이 총 100억 원이라고 가정합시다.
- * 2. 과거 통계를 보니, 이 중 1%인 1억 원은 결국 못 받을 것(부도)으로 예상됩니다. (ECL: Expected Credit Loss)
+ * 2. ECL 엔진이 Stage/PD/LGD/EAD와 미래전망 시나리오를 반영해 목표 충당금을 산출합니다.
  * 3. 그런데 이미 기존에 8천만 원을 떼일 것에 대비해 적립(충당금)해 두었습니다.
  * 4. 그렇다면 이번 달에는 추가로 2천만 원만 더 쌓으면 됩니다. (1억 - 8천만)
  * 5. 이 서비스는 그 2천만 원에 대해 "비용(대손상각비) 2천 / 부채(대손충당금) 2천" 이라는 전표를 자동으로 끊어줍니다.
@@ -41,71 +43,71 @@ public class EclProvisionService {
     private final GlAccountBalanceRepository glAccountBalanceRepository;
     private final JournalUseCase journalUseCase;
     private final ClosingAccountingProperties accountingProperties;
-
-    // @todo ECL policy: replace the hardcoded loan receivable account with product/account metadata from master data.
-    // 대출채권 계정 (평가 대상 원본) - 하드코딩된 예시이며, 실제로는 마스터 메타데이터에서 관리해야 함
-    private static final String LOAN_RECEIVABLE_ACCOUNT = "12000"; 
-    // @todo IFRS9 model: replace the fixed 1% rate with Stage/PD/LGD/EAD model output and versioned assumptions.
-    // 기대신용손실률 (1%) - IFRS 9 모델러가 산출한 Stage별 확률이라고 가정
-    private static final BigDecimal ECL_RATE = new BigDecimal("0.01");
+    private final EclAllowanceResultPort eclAllowanceResultPort;
 
     @Transactional
     public void processEclProvision(LocalDate closingDate, Long provisionBatchId) {
         log.info("Starting ECL Provision calculation for closing date: {}", closingDate);
 
-        // 1. 회계 정책 속성(Properties)에서 충당금 분개 룰을 가져옵니다.
-        // application.yml 등에 account.closing.accounting.provision-rules.ECL = ... 형태로 정의됨
-        ClosingAccountingProperties.AutomatedJournalRule eclRule = 
-            accountingProperties.requireProvisionRule(ProvisionBatch.ProvisionType.ECL);
-
-        String badDebtExpenseAccount = eclRule.getDebitAccountCode(); // 예: 83000 (대손상각비)
-        String allowanceForDoubtfulAccounts = eclRule.getCreditAccountCode(); // 예: 12001 (대손충당금)
-
-        // 2. 기말 대출채권 잔액 조회 (간소화를 위해 특정 계정 하나만 조회)
-        // @todo Accounting policy: resolve reporting currency from legal-entity policy instead of hardcoding KRW.
-        Optional<GlAccountBalance> loanBalanceOpt = glAccountBalanceRepository
-                .findByAccountCodeAndCurrencyCodeAndBalanceDateAndBalanceType(
-                        LOAN_RECEIVABLE_ACCOUNT, "KRW", closingDate, GlBalanceType.DEBIT);
-
-        if (loanBalanceOpt.isEmpty()) {
-            log.warn("No Loan Receivable balance found for {} to calculate ECL.", closingDate);
+        List<EclAllowanceSummary> summaries = eclAllowanceResultPort.loadSummaries(closingDate);
+        if (summaries.isEmpty()) {
+            log.warn("No finalized ECL allowance summary found for {}. No provision journal will be created.", closingDate);
             return;
         }
 
-        BigDecimal loanPrincipal = loanBalanceOpt.get().getEndingBalance();
-        if (loanPrincipal.signum() <= 0) {
-            log.info("Loan Receivable balance is zero or negative. No provision required.");
-            return;
+        ClosingAccountingProperties.AutomatedJournalRule eclRule =
+                accountingProperties.requireProvisionRule(ProvisionBatch.ProvisionType.ECL);
+
+        for (EclAllowanceSummary summary : summaries) {
+            processSummary(summary, closingDate, provisionBatchId, eclRule);
         }
+    }
 
-        // 3. 기대신용손실(목표 충당금) 산출 = 대출채권 잔액 * 1%
-        BigDecimal targetAllowance = loanPrincipal.multiply(ECL_RATE).setScale(2, RoundingMode.HALF_UP);
+    private void processSummary(EclAllowanceSummary summary,
+                                LocalDate closingDate,
+                                Long provisionBatchId,
+                                ClosingAccountingProperties.AutomatedJournalRule eclRule) {
+        String badDebtExpenseAccount = resolveRequiredAccount(
+                summary.badDebtExpenseAccountCode(),
+                eclRule.getDebitAccountCode(),
+                "bad debt expense account");
+        String allowanceForDoubtfulAccounts = resolveRequiredAccount(
+                summary.allowanceAccountCode(),
+                eclRule.getCreditAccountCode(),
+                "allowance account");
+        String currencyCode = requireText(summary.currencyCode(), "currencyCode");
 
-        // 4. 기존에 쌓여있는 대손충당금 잔액 조회
+        // ECL 산출 엔진이 계산한 목표 충당금과 GL의 기존 충당금 잔액 차이만 회계처리한다.
         BigDecimal existingAllowance = BigDecimal.ZERO;
         Optional<GlAccountBalance> existingAllowanceOpt = glAccountBalanceRepository
                 .findByAccountCodeAndCurrencyCodeAndBalanceDateAndBalanceType(
-                        allowanceForDoubtfulAccounts, "KRW", closingDate, GlBalanceType.CREDIT);
+                        allowanceForDoubtfulAccounts, currencyCode, closingDate, GlBalanceType.CREDIT);
         
         if (existingAllowanceOpt.isPresent()) {
             existingAllowance = existingAllowanceOpt.get().getEndingBalance();
         }
 
-        // 5. 추가로 적립해야 할 금액 계산 (보충법)
-        // 목표액보다 기존 잔액이 적으면 추가 적립(비용 발생), 많으면 환입(수익 발생) 처리.
-        BigDecimal difference = targetAllowance.subtract(existingAllowance);
+        BigDecimal difference = summary.targetAllowanceAmount().subtract(existingAllowance);
 
         if (difference.signum() == 0) {
-            log.info("ECL provision target equals existing allowance. No journal required.");
+            log.info("ECL provision target equals existing allowance. No journal required. summary={}",
+                    summary.lineageSourceId(provisionBatchId));
             return;
         }
 
-        // 6. 충당금 전표(Journal Entry) 생성
-        createProvisionJournalEntry(difference, closingDate, provisionBatchId, badDebtExpenseAccount, allowanceForDoubtfulAccounts);
+        createProvisionJournalEntry(
+                difference,
+                closingDate,
+                provisionBatchId,
+                badDebtExpenseAccount,
+                allowanceForDoubtfulAccounts,
+                currencyCode,
+                summary);
     }
 
     private void createProvisionJournalEntry(BigDecimal amount, LocalDate closingDate, Long batchId, 
-                                             String expenseAccount, String allowanceAccount) {
+                                             String expenseAccount, String allowanceAccount,
+                                             String currencyCode, EclAllowanceSummary summary) {
         boolean isAdditionalProvision = amount.signum() > 0;
         BigDecimal absAmount = amount.abs();
 
@@ -118,9 +120,8 @@ public class EclProvisionService {
         entry.setCreatedBy("BATCH");
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType("ECL_PROVISION");
-        entry.setLineageSourceId(batchId.toString());
-        // @todo Accounting policy: journal currency should follow the ECL valuation currency, not a hardcoded KRW value.
-        entry.setCurrencyCode("KRW");
+        entry.setLineageSourceId(summary.lineageSourceId(batchId));
+        entry.setCurrencyCode(currencyCode);
 
         JournalDetail debitDetail = new JournalDetail();
         debitDetail.setAmount(absAmount);
@@ -142,23 +143,29 @@ public class EclProvisionService {
             creditDetail.setAccountCode(allowanceAccount);
             creditDetail.setDetailDescription("Allowance for Doubtful Accounts (ECL Addition)");
         } else {
+            String reversalIncomeAccount = requireText(
+                    summary.reversalIncomeAccountCode(),
+                    "reversalIncomeAccountCode");
+
             // 환입 (수익 인식)
             // 차변: 대손충당금
             debitDetail.setSide(JournalSide.DEBIT);
             debitDetail.setAccountCode(allowanceAccount);
             debitDetail.setDetailDescription("Allowance for Doubtful Accounts (ECL Reversal)");
             
-            // 대변: 대손충당금환입 (수익) -> 예제를 위해 임시로 expenseAccount를 반대로 씀. (실무는 별도 수익 계정)
-            // @todo Accounting policy: use a configured impairment reversal income account instead of reusing the expense account.
+            // 대변: 대손충당금환입 (수익)
             creditDetail.setSide(JournalSide.CREDIT);
-            creditDetail.setAccountCode(expenseAccount); 
-            creditDetail.setDetailDescription("Bad Debt Expense Reversal (Income)");
+            creditDetail.setAccountCode(reversalIncomeAccount);
+            creditDetail.setDetailDescription("Allowance Reversal Income (ECL Reversal)");
         }
 
         entry.addDetail(debitDetail);
         entry.addDetail(creditDetail);
 
-        entry.setSlipNo(ClosingSlipNoFactory.eclProvision(closingDate, allowanceAccount, batchId));
+        entry.setSlipNo(ClosingSlipNoFactory.eclProvision(
+                closingDate,
+                summary.slipDiscriminator(allowanceAccount),
+                batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
         // 배치이므로 자동 승인 및 전기
@@ -167,5 +174,23 @@ public class EclProvisionService {
         journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
         
         log.info("Successfully posted ECL provision journal entry. SlipNo: {}, Amount: {}", savedEntry.getSlipNo(), absAmount);
+    }
+
+    private String resolveRequiredAccount(String primary, String fallback, String fieldName) {
+        if (hasText(primary)) {
+            return primary.trim();
+        }
+        return requireText(fallback, fieldName);
+    }
+
+    private String requireText(String value, String fieldName) {
+        if (!hasText(value)) {
+            throw new IllegalStateException("Missing ECL " + fieldName);
+        }
+        return value.trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
