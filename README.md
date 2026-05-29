@@ -14,50 +14,50 @@
 ```mermaid
 flowchart TD
     subgraph "Phase 1: 기반 시스템 (Foundation)"
-        MD[(Master Data)] -- "기준정보 제공\n(SCD2 이력관리)" --> SL
+        MD[(Master Data)] -- "기준정보 제공 (SCD2 이력관리)" --> SL
         MD -- "ID 기반 검증" --> JL
     end
 
     subgraph "Phase 2: 업무 서브레저 (Subledgers)"
         SL[Subledger Modules]
-        EX[지출\nexpenditure] --> SL
-        LN[여신\nloan] --> SL
-        AR[매출채권\nreceivable] --> SL
-        AP[매입채무\npayable] --> SL
-        AS[자산/리스\nasset-lease] --> SL
+        EX[지출 expenditure] --> SL
+        LN[여신 loan] --> SL
+        AR[매출채권 receivable] --> SL
+        AP[매입채무 payable] --> SL
+        AS[자산/리스 asset-lease] --> SL
     end
 
     subgraph "Phase 3: 회계 엔진 (Core Accounting)"
         SL -- "1. 전표 생성 요청" --> JL_USE[JournalUseCase]
-        JL_USE --> RE[자동 분개 엔진\nRule Engine]
+        JL_USE --> RE[자동 분개 엔진 Rule Engine]
         RE --> DRAFT[DRAFT 전표]
-        DRAFT --> APP[전표 승인\nAPPROVED]
+        DRAFT --> APP[전표 승인 APPROVED]
         APP -- "2. 전기 실행" --> POST[PostingService]
         POST --> GL_SL[(GL / SL 원장)]
     end
 
     subgraph "Phase 4: 결산 및 대사 (Closing & Recon)"
-        GL_SL -- "3. 잔액 대조" --> RC[대사 엔진\nreconciliation]
+        GL_SL -- "3. 잔액 대조" --> RC[대사 엔진 reconciliation]
         RC -- "차이 발견 시" --> ADJ[조정 전표 생성]
         ADJ --> JL_USE
 
-        CL[결산 통제\nclosing] -- "4. 마감 잠금" --> JL_USE
+        CL[결산 통제 closing] -- "4. 마감 잠금" --> JL_USE
     end
 
     subgraph "Phase 5: 대손충당금(IFRS9) 분석 및 재무 마트"
-        GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart\nODS / CDM)]
+        GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart ODS / CDM)]
         LN -- "여신 기초 데이터" --> MART
         
-        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 결산 대손 엔진\nIFRS 9 ECL]
+        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 결산 대손 엔진 IFRS 9 ECL]
         ECL_ENG -- "7. 대손충당금 산출" --> ECL_SUM[Allowance Summary]
         
         ECL_SUM -- "결산 자동 분개" --> CL
     end
 
     subgraph "Phase 6: 보고 및 역추적 (Reporting)"
-        GL_SL -- "8. 최종 잔액 집계" --> RP[보고서 엔진\nreporting]
-        RP --> FS[재무제표 & 주석 마트\nFinancial Statements]
-        FS --> DT[드릴스루\nDrill-through]
+        GL_SL -- "8. 최종 잔액 집계" --> RP[보고서 엔진 reporting]
+        RP --> FS[재무제표 & 주석 마트 Financial Statements]
+        FS --> DT[드릴스루 Drill-through]
         DT -- "9. 전표 상세 역추적" --> GL_SL
     end
 
@@ -116,8 +116,8 @@ flowchart TD
     end
 
     subgraph "API Gateway Layer"
-        GW[API Gateway\n(Port: 8080)]
-        CB[Resilience4j\n(Circuit Breaker)]
+        GW[API Gateway (Port: 8080)]
+        CB[Resilience4j (Circuit Breaker)]
         GW -.-> CB
     end
 
@@ -140,8 +140,8 @@ flowchart TD
     end
 
     subgraph "Observability (모니터링 & 로깅)"
-        ZIPKIN[Zipkin\nTrace ID]
-        ELK{{ELK Stack\nElasticsearch, Logstash, Kibana}}
+        ZIPKIN[Zipkin Trace ID]
+        ELK{{ELK Stack Elasticsearch, Logstash, Kibana}}
         PROM[Prometheus & Grafana]
     end
 
@@ -256,4 +256,3 @@ docker-compose logs -f
 4. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
-
