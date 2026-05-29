@@ -116,7 +116,7 @@ flowchart TD
     end
 
     subgraph "API Gateway Layer"
-        GW[API Gateway (Port: 8080)]
+        GW["API Gateway (Port: 8080)"]
         CB[Resilience4j (Circuit Breaker)]
         GW -.-> CB
     end
