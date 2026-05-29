@@ -7,6 +7,7 @@ import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.CollectionUseCase;
 import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
+import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
 import com.ho.account.receivable.domain.*;
@@ -25,17 +26,20 @@ public class CollectionService implements CollectionUseCase {
     private final SalesInvoicePersistencePort salesInvoicePersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
+    private final ReceivableAccountMappingPort receivableAccountMappingPort;
 
     public CollectionService(CollectionPersistencePort collectionPersistencePort,
                              ReceivablePersistencePort receivablePersistencePort,
                              SalesInvoicePersistencePort salesInvoicePersistencePort,
                              MasterDataQueryPort masterDataQueryPort,
-                             JournalPostingPort journalPostingPort) {
+                             JournalPostingPort journalPostingPort,
+                             ReceivableAccountMappingPort receivableAccountMappingPort) {
         this.collectionPersistencePort = collectionPersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
+        this.receivableAccountMappingPort = receivableAccountMappingPort;
     }
 
     @Override
@@ -134,9 +138,9 @@ public class CollectionService implements CollectionUseCase {
     }
 
     private void postCollectionRecognitionJournal(Collection collection, BusinessPartnerRef customer) {
-        // @todo Accounting policy: replace hardcoded cash/clearing accounts with bank clearing policy or JournalRuleEngine mapping.
-        requireAccount("10100", "Cash account missing");
-        requireAccount("21100", "AR Clearing account missing");
+        ReceivableAccountMappingPort.CollectionRecognitionAccounts accounts =
+                receivableAccountMappingPort.resolveCollectionRecognitionAccounts(collection);
+        requireAccounts(accounts.requiredAccountCodes());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 collection.getCollectionDate(),
@@ -146,16 +150,16 @@ public class CollectionService implements CollectionUseCase {
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION", collection.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "10100", collection.getAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.cashAccountCode(), collection.getAmount(), null, null,
                                 customer.code(), "Cash/Bank Increase"),
-                        new JournalLineCommand("CREDIT", "21100", collection.getAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.arClearingAccountCode(), collection.getAmount(), null, null,
                                 customer.code(), "AR Clearing recognized"))));
     }
 
     private void postMatchJournal(Collection collection, Receivable receivable, BigDecimal amount, BusinessPartnerRef customer) {
-        // @todo Accounting policy: replace hardcoded clearing/AR accounts with configured receivable clearing policy.
-        requireAccount("21100", "AR Clearing account missing");
-        requireAccount("11100", "Accounts Receivable account missing");
+        ReceivableAccountMappingPort.CollectionMatchAccounts accounts =
+                receivableAccountMappingPort.resolveCollectionMatchAccounts(collection, receivable);
+        requireAccounts(accounts.requiredAccountCodes());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 collection.getCollectionDate(),
@@ -165,14 +169,16 @@ public class CollectionService implements CollectionUseCase {
                 null, null, "SYSTEM", "SYSTEM",
                 "COLLECTION_MATCH", collection.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "21100", amount, null, null,
+                        new JournalLineCommand("DEBIT", accounts.arClearingAccountCode(), amount, null, null,
                                 customer.code(), "AR Clearing decrease"),
-                        new JournalLineCommand("CREDIT", "11100", amount, null, null,
+                        new JournalLineCommand("CREDIT", accounts.accountsReceivableAccountCode(), amount, null, null,
                                 customer.code(), "Accounts Receivable decrease"))));
     }
 
-    private void requireAccount(String accountCode, String message) {
-        masterDataQueryPort.findAccountSubject(accountCode)
-                .orElseThrow(() -> new IllegalStateException(message));
+    private void requireAccounts(List<String> accountCodes) {
+        for (String accountCode : accountCodes) {
+            masterDataQueryPort.findAccountSubject(accountCode)
+                    .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
     }
 }

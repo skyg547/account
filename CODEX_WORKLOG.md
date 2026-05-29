@@ -467,6 +467,60 @@
   - 전체 TODO 재검색은 출력이 많아 중간에 timeout 되었지만, account-mart 범위의 T01 제거는 확인했다.
   - 다음 단계는 Phase 2의 policy/account-mapping 항목부터 진행하면 된다.
 
+## 2026-05-29 (@todo Phase 2 payable T11-T15 수정)
+- 사용자 요청: 다음 단계 진행.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `payable/README.md`, `payable/docs/README.md` 확인.
+  - `payable/docs/README.md`가 가리키는 상세 docs 3개는 현재 파일이 없어 README 범위까지만 확인.
+  - `PurchaseService`, `PaymentService`, payable 테스트 구조, 관련 port/contract 확인.
+- 수정 내용:
+  - `PayableAccountMappingPort` 추가: 매입 인식, 지급 실행, 선급금, 선급금 상계 계정 매핑을 application port로 분리.
+  - `ConfiguredPayableAccountMappingAdapter` 추가: 기본 계정 코드를 Spring property로 설정 가능하게 하고 기존 기본값은 adapter에 격리.
+  - `PurchaseService`의 `createdBy` 기본 `SYSTEM` 대입을 제거하고 요청 actor가 없으면 저장 전에 실패하도록 변경.
+  - `PurchaseService`/`PaymentService`의 AP, 비용, VAT, 현금, 선급금 계정 코드를 account mapping port로 대체.
+  - 지급 실행 전표는 지급런의 `createdBy`를 actor로 전파하도록 보강.
+  - `PurchaseServiceTest`, `PaymentServiceTest` 추가.
+  - 계획 문서에 T11-T15 완료 상태와 현재 코드 TODO 29건을 반영.
+- 실행 명령:
+  - `.\gradlew :payable:test --console=plain`
+  - `rg -n "@todo|TODO:" payable/src/main/java payable/src/test/java -g "*.java"`
+  - `(rg -n "@todo|TODO:" closing reporting deposit ecl reconciliation receivable journal-ledger payable account-mart -g "*.java" -g "!**/build/**" | Measure-Object).Count`
+- 결과:
+  - `payable:test` 성공.
+  - payable 범위에는 지급 gateway/mock(T19)와 open-item 매칭(T20) TODO만 남음.
+  - 전체 코드 TODO count는 29건.
+- 남은 확인사항:
+  - 다음 단계는 같은 패턴으로 `receivable` T16-T18 계정 매핑 분리부터 진행하는 것이 가장 작다.
+
+## 2026-05-29 (@todo Phase 2 receivable T16-T18 수정)
+- 사용자 요청: 다음 단계 진행 및 git 동기화.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `receivable/README.md`, `receivable/docs/README.md` 확인.
+  - `receivable/docs/README.md`가 가리키는 상세 docs 3개는 현재 파일이 없어 README 범위까지만 확인.
+  - `git fetch origin` 성공, 작업 시작 시 `main...origin/main` ahead/behind 없음 확인.
+  - `SalesService`, `CollectionService`, receivable 도메인/port/test 구조 확인.
+- 수정 내용:
+  - `ReceivableAccountMappingPort` 추가: 매출 인식, 수납 인식, 수납 매칭 계정 매핑을 application port로 분리.
+  - `ConfiguredReceivableAccountMappingAdapter` 추가: AR, 매출, output VAT, 현금, AR clearing 기본 계정 코드를 property 기반으로 격리.
+  - `SalesService`의 AR/매출/VAT 계정 코드 하드코딩을 account mapping port로 대체.
+  - `CollectionService`의 수납 인식 cash/clearing 및 매칭 clearing/AR 계정 코드 하드코딩을 account mapping port로 대체.
+  - `SalesServiceTest`, `CollectionServiceTest` 추가.
+  - 계획 문서에 T16-T18 완료 상태와 현재 코드 TODO 26건을 반영.
+- 실행 명령:
+  - `git fetch origin`
+  - `.\gradlew :receivable:test --console=plain`
+  - `.\gradlew :payable:test :receivable:test --console=plain`
+  - `rg -n "@todo|TODO:" receivable/src/main/java receivable/src/test/java -g "*.java"`
+  - `(rg -n "@todo|TODO:" closing reporting deposit ecl reconciliation receivable journal-ledger payable account-mart -g "*.java" -g "!**/build/**" | Measure-Object).Count`
+- 결과:
+  - `receivable:test` 성공.
+  - `payable:test :receivable:test` 성공.
+  - receivable 범위에는 matching policy(T21)와 partial residual(T22) TODO만 남음.
+  - 전체 코드 TODO count는 26건.
+- 남은 확인사항:
+  - `docs/msa_roadmap.md` 변경이 별도로 감지되어 이번 커밋 대상에서는 제외한다.
+  - 다음 단계는 Phase 2 잔여 T07-T10(deposit/closing 정책 경계) 또는 Phase 3 matching 항목으로 이어갈 수 있다.
+
 ## 2026-05-29 (IFRS 9 대손충당금 아키텍처/설계 흐름도 추가)
 - 사용자 요청: 아키텍처와 설계 흐름도 추가.
 - 선확인:

@@ -6,7 +6,7 @@
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
 - Initial code TODO count: 40
-- Current code TODO count: 34
+- Current code TODO count: 26
 
 ## Execution Strategy
 
@@ -94,7 +94,7 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 ## Current Execution Order
 
 1. Phase 1 is complete.
-2. Continue with Phase 2 policy/account-mapping work, starting with the smallest module boundary that already has tests.
+2. Continue with the remaining Phase 2 items T07-T10, starting with the smallest policy boundary that already has usable tests.
 3. Re-run the TODO search after every phase and update this document with completed IDs.
 
 ## Progress
@@ -107,3 +107,11 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T04 | Done | Journal lines inherit the resolved entry audit actor. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
 | T05 | Done | Currency resolves from event data or nested company/accounting policy before the default fallback. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
 | T06 | Done | DSL value lookup now uses a typed internal result so required missing values fail clearly and optional values can be skipped deliberately. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T11 | Done | `PurchaseService` now requires a caller-provided `createdBy` actor and trims it before persistence/journal posting. | `.\gradlew :payable:test --console=plain` passed. |
+| T12 | Done | Purchase recognition accounts now come from `PayableAccountMappingPort` with a configurable adapter instead of service-level fixed codes. | `.\gradlew :payable:test --console=plain` passed. |
+| T13 | Done | Payment execution AP/cash accounts now come from `PayableAccountMappingPort`; payment journals inherit the payment-run actor when available. | `.\gradlew :payable:test --console=plain` passed. |
+| T14 | Done | Advance-payment advance/cash accounts now come from `PayableAccountMappingPort`. | `.\gradlew :payable:test --console=plain` passed. |
+| T15 | Done | AP/advance offset accounts now come from `PayableAccountMappingPort`. | `.\gradlew :payable:test --console=plain` passed. |
+| T16 | Done | Sales recognition AR/revenue/VAT accounts now come from `ReceivableAccountMappingPort` with a configurable adapter. | `.\gradlew :receivable:test --console=plain` passed. |
+| T17 | Done | Collection recognition cash/clearing accounts now come from `ReceivableAccountMappingPort`. | `.\gradlew :receivable:test --console=plain` passed. |
+| T18 | Done | Collection match clearing/AR accounts now come from `ReceivableAccountMappingPort`. | `.\gradlew :receivable:test --console=plain` passed. |

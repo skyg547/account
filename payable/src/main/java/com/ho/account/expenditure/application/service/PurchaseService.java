@@ -5,6 +5,7 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.PurchaseUseCase;
+import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
 import com.ho.account.expenditure.application.port.out.PurchaseInvoicePersistencePort;
 import com.ho.account.expenditure.domain.*;
@@ -30,17 +31,20 @@ public class PurchaseService implements PurchaseUseCase {
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
+    private final PayableAccountMappingPort payableAccountMappingPort;
 
     public PurchaseService(PurchaseInvoicePersistencePort purchaseInvoicePersistencePort,
                            PayablePersistencePort payablePersistencePort,
                            BusinessPartnerPersistencePort businessPartnerPersistencePort,
                            MasterDataQueryPort masterDataQueryPort,
-                           JournalPostingPort journalPostingPort) {
+                           JournalPostingPort journalPostingPort,
+                           PayableAccountMappingPort payableAccountMappingPort) {
         this.purchaseInvoicePersistencePort = purchaseInvoicePersistencePort;
         this.payablePersistencePort = payablePersistencePort;
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
+        this.payableAccountMappingPort = payableAccountMappingPort;
     }
 
     @Override
@@ -59,10 +63,7 @@ public class PurchaseService implements PurchaseUseCase {
         if (invoice.getStatus() == null) {
             invoice.setStatus(PurchaseInvoiceStatus.RECEIVED);
         }
-        if (invoice.getCreatedBy() == null) {
-            // @todo Audit consistency: default actor must come from request/security context instead of SYSTEM.
-            invoice.setCreatedBy("SYSTEM");
-        }
+        invoice.setCreatedBy(requireActor(invoice.getCreatedBy()));
 
         PurchaseInvoice savedInvoice = purchaseInvoicePersistencePort.save(invoice);
 
@@ -108,10 +109,9 @@ public class PurchaseService implements PurchaseUseCase {
     }
 
     private void postPurchaseJournal(PurchaseInvoice invoice, String vendorName) {
-        // @todo Accounting policy: replace hardcoded AP/expense/VAT accounts with product/vendor/tax profile mapping or JournalRuleEngine.
-        requireAccount("21100", "Accounts Payable account missing");
-        requireAccount("50100", "Expense account missing");
-        requireAccount("13500", "VAT account missing");
+        PayableAccountMappingPort.PurchaseRecognitionAccounts accounts =
+                payableAccountMappingPort.resolvePurchaseRecognitionAccounts(invoice);
+        requireAccounts(accounts.requiredAccountCodes());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 invoice.getIssueDate(),
@@ -125,16 +125,25 @@ public class PurchaseService implements PurchaseUseCase {
                 "PURCHASE_INVOICE",
                 invoice.getInvoiceNo() + "_" + invoice.getVendorCode(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "50100", invoice.getNetAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.expenseAccountCode(), invoice.getNetAmount(), null, null,
                                 invoice.getVendorCode(), "Purchase Expense"),
-                        new JournalLineCommand("DEBIT", "13500", invoice.getTaxAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.inputVatAccountCode(), invoice.getTaxAmount(), null, null,
                                 invoice.getVendorCode(), "Input VAT"),
-                        new JournalLineCommand("CREDIT", "21100", invoice.getTotalAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.accountsPayableAccountCode(), invoice.getTotalAmount(), null, null,
                                 invoice.getVendorCode(), "Accounts Payable"))));
     }
 
-    private void requireAccount(String accountCode, String message) {
-        masterDataQueryPort.findAccountSubject(accountCode)
-                .orElseThrow(() -> new IllegalStateException(message));
+    private void requireAccounts(List<String> accountCodes) {
+        for (String accountCode : accountCodes) {
+            masterDataQueryPort.findAccountSubject(accountCode)
+                    .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
+    }
+
+    private String requireActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("createdBy is required for purchase invoice creation");
+        }
+        return actor.trim();
     }
 }

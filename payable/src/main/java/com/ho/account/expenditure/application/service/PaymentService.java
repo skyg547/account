@@ -39,6 +39,7 @@ public class PaymentService implements PaymentUseCase {
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
+    private final PayableAccountMappingPort payableAccountMappingPort;
 
     public PaymentService(PaymentPersistencePort paymentPersistencePort,
                           PayablePersistencePort payablePersistencePort,
@@ -46,7 +47,8 @@ public class PaymentService implements PaymentUseCase {
                           AdvancePaymentPersistencePort advancePaymentPersistencePort,
                           BusinessPartnerPersistencePort businessPartnerPersistencePort,
                           MasterDataQueryPort masterDataQueryPort,
-                          JournalPostingPort journalPostingPort) {
+                          JournalPostingPort journalPostingPort,
+                          PayableAccountMappingPort payableAccountMappingPort) {
         this.paymentPersistencePort = paymentPersistencePort;
         this.payablePersistencePort = payablePersistencePort;
         this.paymentRunPersistencePort = paymentRunPersistencePort;
@@ -54,6 +56,7 @@ public class PaymentService implements PaymentUseCase {
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
+        this.payableAccountMappingPort = payableAccountMappingPort;
     }
 
     @Override
@@ -153,32 +156,33 @@ public class PaymentService implements PaymentUseCase {
     }
 
     private void postPaymentJournal(Payment payment) {
-        // @todo Accounting policy: replace hardcoded cash/AP accounts with bank account/payment method/account mapping policy.
-        requireAccount("21100", "AP account missing");
-        requireAccount("10100", "Cash account missing");
+        PayableAccountMappingPort.PaymentExecutionAccounts accounts =
+                payableAccountMappingPort.resolvePaymentExecutionAccounts(payment);
+        requireAccounts(accounts.requiredAccountCodes());
 
         String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payment.getVendorCode())
                 .map(BusinessPartner::getBusinessPartnerName)
                 .orElse(payment.getVendorCode());
+        String actor = resolveActor(payment);
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 payment.getPaymentDate(),
                 payment.getPaymentDate(),
                 "Payment: " + vendorName + " - " + payment.getAmount(),
                 "PAYMENT_EXECUTION",
-                null, null, "SYSTEM", "SYSTEM",
+                null, null, actor, actor,
                 "PAYMENT", payment.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "21100", payment.getAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), payment.getAmount(), null, null,
                                 payment.getVendorCode(), "AP Decrease"),
-                        new JournalLineCommand("CREDIT", "10100", payment.getAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.cashAccountCode(), payment.getAmount(), null, null,
                                 payment.getVendorCode(), "Cash/Bank Decrease"))));
     }
 
     private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
-        // @todo Accounting policy: replace hardcoded advance/cash accounts with vendor advance policy and bank account mapping.
-        requireAccount("13100", "Advance account missing");
-        requireAccount("10100", "Cash account missing");
+        PayableAccountMappingPort.AdvancePaymentAccounts accounts =
+                payableAccountMappingPort.resolveAdvancePaymentAccounts(advance);
+        requireAccounts(accounts.requiredAccountCodes());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 advance.getPaymentDate(),
@@ -188,16 +192,16 @@ public class PaymentService implements PaymentUseCase {
                 null, null, "SYSTEM", "SYSTEM",
                 "ADVANCE_PAYMENT", advance.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "13100", advance.getAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.advanceAccountCode(), advance.getAmount(), null, null,
                                 advance.getVendorCode(), "Advance recognized"),
-                        new JournalLineCommand("CREDIT", "10100", advance.getAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.cashAccountCode(), advance.getAmount(), null, null,
                                 advance.getVendorCode(), "Cash Decrease"))));
     }
 
     private void postOffsetJournal(Payable payable, BigDecimal amount) {
-        // @todo Accounting policy: replace hardcoded AP/advance offset accounts with configured clearing policy.
-        requireAccount("21100", "AP account missing");
-        requireAccount("13100", "Advance account missing");
+        PayableAccountMappingPort.AdvanceOffsetAccounts accounts =
+                payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable);
+        requireAccounts(accounts.requiredAccountCodes());
 
         String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payable.getVendorCode())
                 .map(BusinessPartner::getBusinessPartnerName)
@@ -210,14 +214,25 @@ public class PaymentService implements PaymentUseCase {
                 null, null, "SYSTEM", "SYSTEM",
                 "PAYABLE_OFFSET", payable.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "21100", amount, null, null,
+                        new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "AP Offset"),
-                        new JournalLineCommand("CREDIT", "13100", amount, null, null,
+                        new JournalLineCommand("CREDIT", accounts.advanceAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "Advance Offset"))));
     }
 
-    private void requireAccount(String accountCode, String message) {
-        masterDataQueryPort.findAccountSubject(accountCode)
-                .orElseThrow(() -> new IllegalStateException(message));
+    private void requireAccounts(List<String> accountCodes) {
+        for (String accountCode : accountCodes) {
+            masterDataQueryPort.findAccountSubject(accountCode)
+                    .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
+    }
+
+    private String resolveActor(Payment payment) {
+        if (payment.getPaymentRun() != null
+                && payment.getPaymentRun().getCreatedBy() != null
+                && !payment.getPaymentRun().getCreatedBy().isBlank()) {
+            return payment.getPaymentRun().getCreatedBy().trim();
+        }
+        return "SYSTEM";
     }
 }

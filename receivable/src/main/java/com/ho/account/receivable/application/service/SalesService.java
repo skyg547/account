@@ -6,6 +6,7 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.SalesUseCase;
+import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
 import com.ho.account.receivable.domain.*;
@@ -33,15 +34,18 @@ public class SalesService implements SalesUseCase {
     private final ReceivablePersistencePort receivablePersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
+    private final ReceivableAccountMappingPort receivableAccountMappingPort;
 
     public SalesService(SalesInvoicePersistencePort salesInvoicePersistencePort,
                         ReceivablePersistencePort receivablePersistencePort,
                         MasterDataQueryPort masterDataQueryPort,
-                        JournalPostingPort journalPostingPort) {
+                        JournalPostingPort journalPostingPort,
+                        ReceivableAccountMappingPort receivableAccountMappingPort) {
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
+        this.receivableAccountMappingPort = receivableAccountMappingPort;
     }
 
     @Override
@@ -92,10 +96,9 @@ public class SalesService implements SalesUseCase {
     }
 
     private void postSalesJournal(SalesInvoice invoice, BusinessPartnerRef customer) {
-        // @todo Accounting policy: resolve AR/revenue/VAT accounts from product/customer/tax profile or JournalRuleEngine instead of fixed codes.
-        requireAccount("11100", "Accounts Receivable account missing");
-        requireAccount("40100", "Sales Revenue account missing");
-        requireAccount("22100", "VAT Payable account missing");
+        ReceivableAccountMappingPort.SalesRecognitionAccounts accounts =
+                receivableAccountMappingPort.resolveSalesRecognitionAccounts(invoice);
+        requireAccounts(accounts.requiredAccountCodes());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(
                 invoice.getIssueDate(),
@@ -105,16 +108,18 @@ public class SalesService implements SalesUseCase {
                 null, null, "SYSTEM", "SYSTEM",
                 "SALES_INVOICE", invoice.getId().toString(),
                 List.of(
-                        new JournalLineCommand("DEBIT", "11100", invoice.getTotalAmount(), null, null,
+                        new JournalLineCommand("DEBIT", accounts.accountsReceivableAccountCode(), invoice.getTotalAmount(), null, null,
                                 customer.code(), "Accounts Receivable"),
-                        new JournalLineCommand("CREDIT", "40100", invoice.getNetAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.revenueAccountCode(), invoice.getNetAmount(), null, null,
                                 customer.code(), "Sales Revenue"),
-                        new JournalLineCommand("CREDIT", "22100", invoice.getTaxAmount(), null, null,
+                        new JournalLineCommand("CREDIT", accounts.outputVatAccountCode(), invoice.getTaxAmount(), null, null,
                                 customer.code(), "Output VAT"))));
     }
 
-    private void requireAccount(String accountCode, String message) {
-        masterDataQueryPort.findAccountSubject(accountCode)
-                .orElseThrow(() -> new IllegalStateException(message));
+    private void requireAccounts(List<String> accountCodes) {
+        for (String accountCode : accountCodes) {
+            masterDataQueryPort.findAccountSubject(accountCode)
+                    .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
     }
 }
