@@ -87,29 +87,29 @@ graph TD
 ```mermaid
 flowchart TD
     subgraph "Next.js App Router"
-        LAYOUT[app/layout.tsx\n(Global Shell)]
-        PAGE[app/**/page.tsx\n(Route Segments)]
+        LAYOUT[app/layout.tsx (Global Shell)]
+        PAGE[app/**/page.tsx (Route Segments)]
         LAYOUT --> PAGE
     end
 
     subgraph "Components Layer"
-        COMMON[components/common\n(UI Primitives)]
-        DOMAIN[components/domain\n(Business Widgets)]
+        COMMON[components/common (UI Primitives)]
+        DOMAIN[components/domain (Business Widgets)]
         PAGE --> COMMON
         PAGE --> DOMAIN
         DOMAIN --> COMMON
     end
 
     subgraph "Logic & State"
-        STORE[(store/\nZustand)]
-        HOOKS[hooks/\nTanStack Query]
+        STORE[(store/ Zustand)]
+        HOOKS[hooks/ TanStack Query]
         PAGE --> STORE
         PAGE --> HOOKS
         DOMAIN --> HOOKS
     end
 
     subgraph "Backend Connectivity"
-        SVC[services/\n(API Clients)]
+        SVC[services/ (API Clients)]
         HOOKS --> SVC
         PAGE --> SVC
     end
