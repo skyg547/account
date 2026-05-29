@@ -15,14 +15,14 @@ flowchart TD
     end
 
     subgraph "API Gateway Layer"
-        GW[API Gateway\n(Port: 8080/8000)]
-        CB[Resilience4j\n(Circuit Breaker)]
+        GW["API Gateway (Port: 8080/8000)"]
+        CB["Resilience4j (Circuit Breaker)"]
         GW -.-> CB
     end
 
     subgraph "Service Discovery & Config"
-        EUREKA((Eureka Server\nPort: 8761))
-        CONFIG[Config Server\nPort: 8888]
+        EUREKA(("Eureka Server Port: 8761"))
+        CONFIG["Config Server Port: 8888"]
     end
 
     subgraph "Backend Microservices"
@@ -33,14 +33,14 @@ flowchart TD
     end
 
     subgraph "Data & Messaging"
-        DB[(PostgreSQL)]
-        KAFKA[[Apache Kafka\nMessage Broker]]
-        REDIS[(Redis\nCache & Lock)]
+        DB[("PostgreSQL")]
+        KAFKA[["Apache Kafka Message Broker"]]
+        REDIS[("Redis Cache & Lock")]
     end
 
     subgraph "Observability (관제)"
         ZIPKIN[Zipkin Trace ID]
-        ELK{{ELK Stack\nElasticsearch, Logstash, Kibana}}
+        ELK{{"ELK Stack Elasticsearch, Logstash, Kibana"}}
         PROM[Prometheus & Grafana]
     end
 
