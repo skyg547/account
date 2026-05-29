@@ -11,38 +11,38 @@
 ```mermaid
 flowchart TD
     subgraph "Phase 1: 기반 시스템 (Foundation)"
-        MD[(Master Data)] -- "기준정보 제공\n(SCD2 이력관리)" --> SL
+        MD[(Master Data)] -- "기준정보 제공 (SCD2 이력관리)" --> SL
         MD -- "ID 기반 검증" --> JL
     end
 
     subgraph "Phase 2: 업무 서브레저 (Subledgers)"
         SL[Subledger Modules]
-        EX[지출\nexpenditure] --> SL
-        LN[여신\nloan] --> SL
-        AR[매출채권\nreceivable] --> SL
-        AP[매입채무\npayable] --> SL
-        AS[자산/리스\nasset-lease] --> SL
+        EX[지출 expenditure] --> SL
+        LN[여신 loan] --> SL
+        AR[매출채권 receivable] --> SL
+        AP[매입채무 payable] --> SL
+        AS[자산/리스 asset-lease] --> SL
     end
 
     subgraph "Phase 3: 회계 엔진 (Core Accounting)"
         SL -- "1. 전표 생성 요청" --> JL_USE[JournalUseCase]
-        JL_USE --> RE[자동 분개 엔진\nRule Engine]
+        JL_USE --> RE[자동 분개 엔진 Rule Engine]
         RE --> DRAFT[DRAFT 전표]
-        DRAFT --> APP[전표 승인\nAPPROVED]
+        DRAFT --> APP[전표 승인 APPROVED]
         APP -- "2. 전기 실행" --> POST[PostingService]
         POST --> GL_SL[(GL / SL 원장)]
     end
 
     subgraph "Phase 4: 결산 및 대사 (Closing & Recon)"
-        GL_SL -- "3. 잔액 대조" --> RC[대사 엔진\nreconciliation]
+        GL_SL -- "3. 잔액 대조" --> RC[대사 엔진 reconciliation]
         RC -- "차이 발견 시" --> ADJ[조정 전표 생성]
         ADJ --> JL_USE
 
-        CL[결산 통제\nclosing] -- "4. 마감 잠금" --> JL_USE
+        CL[결산 통제 closing] -- "4. 마감 잠금" --> JL_USE
     end
 
     subgraph "Phase 5: 대손충당금(IFRS9) 분석 및 마트 (Risk & Mart)"
-        GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart\nODS / CDM)]
+        GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart ODS / CDM)]
         LN -- "여신 기초 데이터" --> MART
         
         MART -- "6. 통합 데이터 제공" --> ECL_ENG[IFRS9 ECL 엔진]
@@ -52,9 +52,9 @@ flowchart TD
     end
 
     subgraph "Phase 6: 보고 및 역추적 (Reporting)"
-        GL_SL -- "8. 최종 잔액 집계" --> RP[보고서 엔진\nreporting]
+        GL_SL -- "8. 최종 잔액 집계" --> RP[보고서 엔진 reporting]
         RP --> FS[재무제표 & 주석 마트]
-        FS --> DT[드릴스루\nDrill-through]
+        FS --> DT[드릴스루 Drill-through]
         DT -- "9. 전표 상세 역추적" --> GL_SL
     end
 

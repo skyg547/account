@@ -431,6 +431,42 @@
 - 남은 확인사항:
   - 문서 변경만 수행했으므로 애플리케이션 기동이나 Docker 이미지 빌드는 실행하지 않았다.
 
+## 2026-05-29 (@todo 정리 계획 및 1단계 T01 수정)
+- 사용자 요청: `@todo`를 모두 검색하고, 수정 계획을 파일로 만든 뒤 단계별로 진행.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 확인.
+  - `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`로 코드 TODO와 문서 기록을 분리 확인.
+  - 관련 모듈 README/docs 및 TODO 위치 주변 코드를 확인.
+- 수정 내용:
+  - `docs/todo_remediation_plan.md` 추가: 코드 TODO 40건을 6개 단계로 분류하고 파일/라인/수정 방향/검증 명령을 기록.
+  - T01 처리: `IntegratedPositionProcessor`의 연체일수 기반 staging 분기를 제거하고 `OdsAccountLedger.determineStaging()` 도메인 메서드로 이동.
+  - `OdsAccountLedgerTest` 추가: null, 29, 30, 89, 90일 경계값 검증.
+  - T02 처리: `EclProcessor`의 잔존만기 계산을 `CrAccount.resolveMaturityYears()`로 이동하고, `AllowanceCalculationService`도 같은 도메인 메서드를 사용하도록 정리.
+  - `CrAccountTest` 추가: 만기일 없음, 최소 1년, 일수 기반 연환산 경계 검증.
+  - 기존 `AllowanceCalculationServiceTest`는 도메인 메서드가 산출한 잔존만기 값을 기준으로 stub 하도록 보정.
+  - T03-T06 처리: `JournalRuleEngine`이 이벤트 데이터에서 actor/currency를 해석하고, 라인은 entry audit actor를 상속하도록 변경.
+  - DSL 값 조회를 내부 typed result로 바꿔 required 누락 값은 명확한 예외를 반환하고 optional 누락 값은 의도적으로 skip 되도록 정리.
+  - `JournalRuleEngineTest`에 actor/currency 전파와 DSL missing-value 예외 검증 추가.
+  - 계획 문서에 Phase 1(T01-T06) 완료 상태와 현재 코드 TODO 34건을 반영.
+- 실행 명령:
+  - `.\gradlew :account-mart:mart-core:test --console=plain`
+  - `rg -n "@todo|TODO:" account-mart/mart-core/src/main/java account-mart/mart-core/src/test/java -g "*.java"`
+  - `.\gradlew :ecl:ecl-core:test --console=plain`
+  - `.\gradlew :ecl:ecl-batch:test --console=plain`
+  - `rg -n "@todo|TODO:" ecl/ecl-batch/src/main/java ecl/ecl-core/src/main/java -g "*.java"`
+  - `.\gradlew :journal-ledger:core:test --console=plain`
+  - `rg -n "@todo|TODO:" journal-ledger/core/src/main/java journal-ledger/core/src/test/java -g "*.java"`
+- 결과:
+  - `account-mart:mart-core:test` 성공.
+  - `account-mart/mart-core` 코드 TODO 검색 결과 없음.
+  - `ecl:ecl-core:test`, `ecl:ecl-batch:test` 성공.
+  - ECL 코드 TODO 검색 결과 `JdbcAllowanceSummaryPersistenceAdapter`의 T39만 남음.
+  - `journal-ledger:core:test` 성공.
+  - `journal-ledger/core` 코드 TODO 검색 결과 `JournalDetailRepository`의 T40만 남음.
+- 남은 확인사항:
+  - 전체 TODO 재검색은 출력이 많아 중간에 timeout 되었지만, account-mart 범위의 T01 제거는 확인했다.
+  - 다음 단계는 Phase 2의 policy/account-mapping 항목부터 진행하면 된다.
+
 ## 2026-05-29 (IFRS 9 대손충당금 아키텍처/설계 흐름도 추가)
 - 사용자 요청: 아키텍처와 설계 흐름도 추가.
 - 선확인:

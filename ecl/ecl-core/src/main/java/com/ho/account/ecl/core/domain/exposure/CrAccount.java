@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 /**
  * [Entity] 대손충당금(IFRS9) 익스포저 계좌(Account) 원장 엔티티
@@ -26,6 +27,10 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class CrAccount extends BaseEntity {
+
+    private static final double DEFAULT_MATURITY_YEARS = 2.5d;
+    private static final double MINIMUM_MATURITY_YEARS = 1.0d;
+    private static final double DAYS_PER_YEAR = 365.0d;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -124,6 +129,14 @@ public class CrAccount extends BaseEntity {
     /** 데이터 품질 점검 오류 메시지 */
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
+
+    public double resolveMaturityYears(LocalDate baseDate) {
+        if (maturityDate == null) {
+            return DEFAULT_MATURITY_YEARS;
+        }
+        long remainingDays = ChronoUnit.DAYS.between(baseDate, maturityDate);
+        return Math.max(remainingDays / DAYS_PER_YEAR, MINIMUM_MATURITY_YEARS);
+    }
 }
 
 

@@ -102,8 +102,9 @@ class AllowanceCalculationServiceTest {
         when(eadCrmCalculationService.calculateEadCrm(account, new BigDecimal("0.500000"), params)).thenReturn(ead);
         when(lgdCalculationService.calculateLgd("CORPORATE", "UNSECURED", false, params))
                 .thenReturn(new BigDecimal("0.45000000"));
+        double maturityYears = account.resolveMaturityYears(baseDate);
         when(lifetimePdService.generateMarginalPdCurve(
-                new BigDecimal("0.02000000"), 2.0d, "A", baseDate))
+                new BigDecimal("0.02000000"), maturityYears, "A", baseDate))
                 .thenReturn(List.of(new BigDecimal("0.01000000"), new BigDecimal("0.02000000")));
         when(forwardLookingEclService.calculateWeightedEcl(
                 CrStaging.STAGE2,

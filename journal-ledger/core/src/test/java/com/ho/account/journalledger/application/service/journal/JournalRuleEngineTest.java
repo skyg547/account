@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -81,13 +82,19 @@ class JournalRuleEngineTest {
                 Map.of(
                         "transactionType", "ASSET_ACQUISITION",
                         "amount", new BigDecimal("120000"),
-                        "assetCode", "FA-0001"),
+                        "assetCode", "FA-0001",
+                        "requestedBy", "asset-user",
+                        "accountingPolicy", Map.of("defaultCurrencyCode", "USD")),
                 LocalDate.of(2026, 4, 30));
 
         assertThat(generated).isPresent();
         JournalEntry entry = generated.orElseThrow();
+        assertThat(entry.getCreatedBy()).isEqualTo("asset-user");
+        assertThat(entry.getAuditUser()).isEqualTo("asset-user");
+        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
         assertThat(entry.getDetails()).hasSize(2);
         assertThat(entry.getDetails().get(0).getAmount()).isEqualByComparingTo("120000");
+        assertThat(entry.getDetails().get(0).getAuditUser()).isEqualTo("asset-user");
         assertThat(entry.getDetails().get(0).getDetailDescription()).isEqualTo("취득-FA-0001");
         assertThat(entry.getDetails().get(1).getAmount()).isEqualByComparingTo("120000");
     }
@@ -142,6 +149,28 @@ class JournalRuleEngineTest {
         assertThat(entry.getDetails()).hasSize(2);
         assertThat(entry.getDetails().get(0).getAmount()).isEqualByComparingTo("10000");
         assertThat(entry.getDetails().get(1).getAmount()).isEqualByComparingTo("10000");
+    }
+
+    @Test
+    @DisplayName("필수 DSL 값이 누락되면 명확한 예외를 반환한다.")
+    void throwsWhenRequiredDslValueIsMissing() {
+        JournalRule rule = createRule(4L, "MISSING_VALUE_RULE");
+
+        JournalRuleDetail debit = new JournalRuleDetail();
+        debit.setId(20L);
+        debit.setDrcrType("DEBIT");
+        debit.setAccountSubjectCodeExpression("13500");
+        debit.setAmountExpression("${transaction.amount}");
+
+        when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
+        when(journalRuleConditionRepository.findByJournalRuleId(4L)).thenReturn(List.of());
+        when(journalRuleDetailRepository.findByJournalRuleId(4L)).thenReturn(List.of(debit));
+
+        assertThatThrownBy(() -> engine.generateJournalEntry(
+                Map.of("ruleCode", "MISSING_VALUE_RULE", "transaction", Map.of("memo", "missing amount")),
+                LocalDate.of(2026, 4, 30)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing event value: transaction.amount");
     }
 
     private JournalRule createRule(Long id, String ruleCode) {

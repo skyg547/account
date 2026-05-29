@@ -5,7 +5,8 @@
 - Date: 2026-05-29
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
-- Code TODO count: 40
+- Initial code TODO count: 40
+- Current code TODO count: 34
 
 ## Execution Strategy
 
@@ -92,7 +93,17 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 
 ## Current Execution Order
 
-1. Start with T01 because it is local, domain-oriented, and has no API or database contract change.
-2. Continue with T02 after T01 is verified.
-3. Handle T03-T06 together because they belong to the same journal rule-engine flow.
-4. Re-run the TODO search after every phase and update this document with completed IDs.
+1. Phase 1 is complete.
+2. Continue with Phase 2 policy/account-mapping work, starting with the smallest module boundary that already has tests.
+3. Re-run the TODO search after every phase and update this document with completed IDs.
+
+## Progress
+
+| ID | Status | Change | Verification |
+| --- | --- | --- | --- |
+| T01 | Done | Added `OdsAccountLedger.determineStaging()` and changed `IntegratedPositionProcessor` to delegate IFRS 9 staging to the domain object. | `.\gradlew :account-mart:mart-core:test --console=plain` passed. |
+| T02 | Done | Added `CrAccount.resolveMaturityYears()` and changed both batch ECL processing and core allowance calculation to share the domain maturity rule. | `.\gradlew :ecl:ecl-core:test --console=plain` and `.\gradlew :ecl:ecl-batch:test --console=plain` passed. |
+| T03 | Done | `JournalRuleEngine` now resolves the entry actor from event data instead of forcing `SYSTEM`. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T04 | Done | Journal lines inherit the resolved entry audit actor. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T05 | Done | Currency resolves from event data or nested company/accounting policy before the default fallback. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T06 | Done | DSL value lookup now uses a typed internal result so required missing values fail clearly and optional values can be skipped deliberately. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |

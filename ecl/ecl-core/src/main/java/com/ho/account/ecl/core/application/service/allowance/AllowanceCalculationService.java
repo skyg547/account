@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -117,7 +116,7 @@ public class AllowanceCalculationService {
                 eadCrm.getTotalCollateralAmt().compareTo(BigDecimal.ZERO) > 0,
                 modelParams);
 
-        double maturityYears = resolveMaturityYears(account, baseDate);
+        double maturityYears = account.resolveMaturityYears(baseDate);
         List<BigDecimal> marginalPds = lifetimePdService.generateMarginalPdCurve(
                 pd,
                 maturityYears,
@@ -183,14 +182,6 @@ public class AllowanceCalculationService {
                 "targetAllowanceAmount", totalAllowance,
                 "avgPd", avgPd,
                 "stageSummary", stageSummary);
-    }
-
-    private double resolveMaturityYears(CrAccount account, LocalDate baseDate) {
-        if (account.getMaturityDate() == null) {
-            return 2.5d;
-        }
-        long remainingDays = ChronoUnit.DAYS.between(baseDate, account.getMaturityDate());
-        return Math.max(remainingDays / 365.0d, 1.0d);
     }
 
     private String resolveRating(CrAccount account) {

@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -62,13 +61,8 @@ public class EclProcessor implements ItemProcessor<AllowanceEclResult, Allowance
         AllowanceModelParams modelParams = parameterService.getParameters();
 
         // 1. 잔존 만기 산출 (최소 1년)
-        // @todo [아키텍처 위반] 배치 ItemProcessor(인프라) 내부에 잔존 만기(maturityYears)를 계산하는 핵심 비즈니스 로직(2.5d 기본값, 최소 1년 등)이 하드코딩되어 있습니다. 이를 도메인 모델이나 도메인 서비스(예: Account 도메인 객체의 메서드)로 위임해야 합니다.
         // 💡 [만기] 대출이 끝날 때까지 남은 기간을 계산합니다. 최소 1년은 유지되도록 설정합니다.
-        double maturityYears = 2.5d;
-        if (result.getAccount().getMaturityDate() != null) {
-            long remainingDays = ChronoUnit.DAYS.between(baseDate, result.getAccount().getMaturityDate());
-            maturityYears = Math.max(remainingDays / 365.0d, 1.0d);
-        }
+        double maturityYears = result.getAccount().resolveMaturityYears(baseDate);
 
         // 2. Marginal PD 곡선 생성 (전이행렬 활용)
         String resolvedRating = result.getAccount().getInternalRating() != null 

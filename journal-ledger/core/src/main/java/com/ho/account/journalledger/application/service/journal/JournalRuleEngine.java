@@ -44,6 +44,26 @@ public class JournalRuleEngine {
 
     private static final Pattern BRACED_PLACEHOLDER = Pattern.compile("\\$\\{([^}]+)}");
     private static final Pattern HASH_PLACEHOLDER = Pattern.compile("#([A-Za-z0-9_.]+)");
+    private static final String SYSTEM_ACTOR = "SYSTEM";
+    private static final String DEFAULT_CURRENCY_CODE = "KRW";
+    private static final List<String> ACTOR_REFERENCES = List.of(
+            "auditUser",
+            "createdBy",
+            "requestedBy",
+            "requester",
+            "approver",
+            "actor",
+            "userId");
+    private static final List<String> CURRENCY_REFERENCES = List.of(
+            "currencyCode",
+            "currency",
+            "functionalCurrency",
+            "reportingCurrency",
+            "company.currencyCode",
+            "company.functionalCurrency",
+            "accountingPolicy.currencyCode",
+            "accountingPolicy.functionalCurrency",
+            "accountingPolicy.defaultCurrencyCode");
 
     private final JournalRuleRepository journalRuleRepository;
     private final JournalRuleConditionRepository journalRuleConditionRepository;
@@ -107,31 +127,31 @@ public class JournalRuleEngine {
     }
 
     private boolean matchesCondition(JournalRuleCondition condition, Map<String, Object> eventData) {
-        Object actual = resolveEventValue(eventData, condition.getField());
+        EventValueResolution actual = resolveEventValue(eventData, condition.getField());
         String expected = condition.getValue();
 
-        if (condition.getOperator() == ConditionOperator.NOT_EQUALS && actual == null) {
+        if (condition.getOperator() == ConditionOperator.NOT_EQUALS && actual.isMissing()) {
             return expected != null && !expected.isBlank();
         }
 
-        if (actual == null) {
+        if (actual.isMissing()) {
             return false;
         }
 
         return switch (condition.getOperator()) {
-            case EQUALS -> compareAsNumber(actual, expected)
+            case EQUALS -> compareAsNumber(actual.value(), expected)
                     .map(result -> result == 0)
-                    .orElseGet(() -> String.valueOf(actual).equals(expected));
-            case NOT_EQUALS -> compareAsNumber(actual, expected)
+                    .orElseGet(() -> String.valueOf(actual.value()).equals(expected));
+            case NOT_EQUALS -> compareAsNumber(actual.value(), expected)
                     .map(result -> result != 0)
-                    .orElseGet(() -> !String.valueOf(actual).equals(expected));
-            case STARTS_WITH -> String.valueOf(actual).startsWith(expected);
-            case ENDS_WITH -> String.valueOf(actual).endsWith(expected);
-            case CONTAINS -> String.valueOf(actual).contains(expected);
-            case GREATER_THAN -> compareAsNumber(actual, expected).map(result -> result > 0).orElse(false);
-            case GREATER_THAN_OR_EQUAL -> compareAsNumber(actual, expected).map(result -> result >= 0).orElse(false);
-            case LESS_THAN -> compareAsNumber(actual, expected).map(result -> result < 0).orElse(false);
-            case LESS_THAN_OR_EQUAL -> compareAsNumber(actual, expected).map(result -> result <= 0).orElse(false);
+                    .orElseGet(() -> !String.valueOf(actual.value()).equals(expected));
+            case STARTS_WITH -> String.valueOf(actual.value()).startsWith(expected);
+            case ENDS_WITH -> String.valueOf(actual.value()).endsWith(expected);
+            case CONTAINS -> String.valueOf(actual.value()).contains(expected);
+            case GREATER_THAN -> compareAsNumber(actual.value(), expected).map(result -> result > 0).orElse(false);
+            case GREATER_THAN_OR_EQUAL -> compareAsNumber(actual.value(), expected).map(result -> result >= 0).orElse(false);
+            case LESS_THAN -> compareAsNumber(actual.value(), expected).map(result -> result < 0).orElse(false);
+            case LESS_THAN_OR_EQUAL -> compareAsNumber(actual.value(), expected).map(result -> result <= 0).orElse(false);
         };
     }
 
@@ -166,9 +186,9 @@ public class JournalRuleEngine {
         entry.setAccountingDate(accountingDate);
         entry.setStatus(JournalEntryStatus.DRAFT);
         entry.setDescription(resolveEntryDescription(rule, eventData));
-        // @todo Audit consistency: propagate requester/approver from eventData or security context instead of hardcoding SYSTEM.
-        entry.setCreatedBy("SYSTEM");
-        entry.setAuditUser("SYSTEM");
+        String actor = resolveActor(eventData);
+        entry.setCreatedBy(actor);
+        entry.setAuditUser(actor);
         entry.setLineageSourceType(firstNonBlankValue(eventData, "lineageSourceType").orElse(rule.getRuleCode()));
         entry.setLineageSourceId(firstNonBlankValue(eventData, "lineageSourceId", "sourceId", "documentId", "assetCode", "contractNo").orElse(null));
         
@@ -196,8 +216,7 @@ public class JournalRuleEngine {
             detail.setAmount(amount);
             detail.setBaseAmount(amount);
             detail.setDetailDescription(resolveLineDescription(ruleDetail, entry, eventData));
-            // @todo Audit consistency: journal lines should inherit the same actor as the entry, not a separate hardcoded SYSTEM value.
-            detail.setAuditUser("SYSTEM");
+            detail.setAuditUser(entry.getAuditUser());
 
             String departmentCode = resolveStringExpression(ruleDetail.getDepartmentCodeExpression(), eventData, false);
             if (departmentCode != null && !departmentCode.isBlank()) {
@@ -216,8 +235,11 @@ public class JournalRuleEngine {
     }
 
     private String resolveCurrencyCode(Map<String, Object> eventData) {
-        // @todo Master-data consistency: resolve default currency from company/accounting policy instead of forcing KRW.
-        return firstNonBlankValue(eventData, "currencyCode", "currency").orElse("KRW");
+        return firstResolvedStringValue(eventData, CURRENCY_REFERENCES).orElse(DEFAULT_CURRENCY_CODE);
+    }
+
+    private String resolveActor(Map<String, Object> eventData) {
+        return firstResolvedStringValue(eventData, ACTOR_REFERENCES).orElse(SYSTEM_ACTOR);
     }
 
     private String resolveEntryDescription(JournalRule rule, Map<String, Object> eventData) {
@@ -275,14 +297,14 @@ public class JournalRuleEngine {
                 continue;
             }
 
-            Object value = resolveEventValue(eventData, trimmed);
-            if (value == null) {
+            EventValueResolution value = resolveEventValue(eventData, trimmed);
+            if (value.isMissing()) {
                 if (required) {
                     throw new IllegalArgumentException("Missing event value: " + trimmed);
                 }
                 continue;
             }
-            builder.append(value);
+            builder.append(value.value());
         }
         return builder.toString();
     }
@@ -297,15 +319,15 @@ public class JournalRuleEngine {
         StringBuffer buffer = new StringBuffer();
         while (matcher.find()) {
             String placeholder = matcher.group(1).trim();
-            Object value = resolveEventValue(eventData, placeholder);
-            if (value == null) {
+            EventValueResolution value = resolveEventValue(eventData, placeholder);
+            if (value.isMissing()) {
                 if (required) {
                     throw new IllegalArgumentException("Missing event value: " + placeholder);
                 }
                 matcher.appendReplacement(buffer, "");
                 continue;
             }
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(String.valueOf(value)));
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(String.valueOf(value.value())));
         }
         matcher.appendTail(buffer);
         return buffer.toString();
@@ -316,68 +338,72 @@ public class JournalRuleEngine {
         StringBuffer buffer = new StringBuffer();
         while (matcher.find()) {
             String placeholder = matcher.group(1).trim();
-            Object value = resolveEventValue(eventData, placeholder);
-            if (value == null) {
+            EventValueResolution value = resolveEventValue(eventData, placeholder);
+            if (value.isMissing()) {
                 if (required) {
                     throw new IllegalArgumentException("Missing event value: " + placeholder);
                 }
                 matcher.appendReplacement(buffer, "");
                 continue;
             }
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(String.valueOf(value)));
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(String.valueOf(value.value())));
         }
         matcher.appendTail(buffer);
         return buffer.toString();
     }
 
-    private Object resolveEventValue(Map<String, Object> eventData, String reference) {
+    private EventValueResolution resolveEventValue(Map<String, Object> eventData, String reference) {
         if (reference == null || reference.isBlank()) {
-            return null;
+            return EventValueResolution.missing(reference);
         }
 
         String normalizedReference = normalizeReference(reference);
-        Object value = lookupValue(eventData, normalizedReference);
-        if (value != null) {
+        EventValueResolution value = lookupValue(eventData, normalizedReference);
+        if (value.isPresent()) {
             return value;
         }
 
-        // @todo Rule DSL hardening: return a typed missing-value result instead of null so optional dimensions and invalid expressions are distinguishable.
         if (normalizedReference.startsWith("transaction.")) {
             value = lookupValue(eventData, normalizedReference.substring("transaction.".length()));
-            if (value != null) {
+            if (value.isPresent()) {
                 return value;
             }
         }
 
         if (normalizedReference.startsWith("eventData.")) {
             value = lookupValue(eventData, normalizedReference.substring("eventData.".length()));
-            if (value != null) {
+            if (value.isPresent()) {
                 return value;
             }
         }
 
-        return null;
+        return EventValueResolution.missing(normalizedReference);
     }
 
-    private Object lookupValue(Map<String, Object> eventData, String reference) {
+    private EventValueResolution lookupValue(Map<String, Object> eventData, String reference) {
         if (reference == null || reference.isBlank()) {
-            return null;
+            return EventValueResolution.missing(reference);
         }
 
         if (eventData.containsKey(reference)) {
-            return eventData.get(reference);
+            Object value = eventData.get(reference);
+            return value == null
+                    ? EventValueResolution.missing(reference)
+                    : EventValueResolution.present(reference, value);
         }
 
         String[] path = reference.split("\\.");
         Object current = eventData;
         for (String pathSegment : path) {
             if (!(current instanceof Map<?, ?> currentMap) || !currentMap.containsKey(pathSegment)) {
-                return null;
+                return EventValueResolution.missing(reference);
             }
             current = currentMap.get(pathSegment);
         }
 
-        return current;
+        return current == null
+                ? EventValueResolution.missing(reference)
+                : EventValueResolution.present(reference, current);
     }
 
     private String normalizeReference(String reference) {
@@ -405,6 +431,20 @@ public class JournalRuleEngine {
         return Optional.empty();
     }
 
+    private Optional<String> firstResolvedStringValue(Map<String, Object> source, List<String> references) {
+        for (String reference : references) {
+            EventValueResolution resolved = resolveEventValue(source, reference);
+            if (resolved.isMissing()) {
+                continue;
+            }
+            String stringValue = String.valueOf(resolved.value()).trim();
+            if (!stringValue.isBlank()) {
+                return Optional.of(stringValue);
+            }
+        }
+        return Optional.empty();
+    }
+
     private String stripQuotes(String value) {
         if (value == null || value.length() < 2) {
             return value;
@@ -416,6 +456,25 @@ public class JournalRuleEngine {
         }
 
         return value;
+    }
+
+    private record EventValueResolution(String reference, Object value, boolean present) {
+
+        private static EventValueResolution present(String reference, Object value) {
+            return new EventValueResolution(reference, value, true);
+        }
+
+        private static EventValueResolution missing(String reference) {
+            return new EventValueResolution(reference, null, false);
+        }
+
+        private boolean isPresent() {
+            return present;
+        }
+
+        private boolean isMissing() {
+            return !present;
+        }
     }
 
     private static final class BigDecimalExpressionParser {
