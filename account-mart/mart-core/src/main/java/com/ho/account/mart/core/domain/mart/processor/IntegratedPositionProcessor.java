@@ -1,7 +1,6 @@
 package com.ho.account.mart.core.domain.mart.processor;
 
 import com.ho.account.shared.finance.entity.AllowanceInputPosition;
-import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.shared.finance.enums.CustomerType;
 import com.ho.account.mart.core.domain.ods.audit.service.OdsDataQualityService;
@@ -90,12 +89,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
                 .warningLevel(ew.map(OdsEarlyWarning::getWarningLevel).orElse("NORMAL"))
                 .isDebtRestructured(false);
 
-        // 스테이징 판정
-        // @todo [DDD 위반] 연체 일수에 따른 Staging(STAGE1, STAGE2, STAGE3) 판정은 핵심 도메인 규칙입니다. 배치 프로세서 내의 if-else 분기가 아닌, 도메인 객체(예: OdsAccountLedger.determineStaging()) 내부로 응집되어야 합니다.
-        int days = ledger.getDelinquentDays() != null ? ledger.getDelinquentDays() : 0;
-        if (days >= 90) builder.staging(CrStaging.STAGE3);
-        else if (days >= 30) builder.staging(CrStaging.STAGE2);
-        else builder.staging(CrStaging.STAGE1);
+        builder.staging(ledger.determineStaging());
 
         // [정규화] 고객 정보 매핑 및 Enum 타입 변환
         customerInfo.ifPresent(ci -> {

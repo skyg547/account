@@ -1,9 +1,11 @@
 package com.ho.account.mart.core.domain.ods.loan;
 
+import com.ho.account.shared.finance.enums.CrStaging;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -34,4 +36,15 @@ public class OdsAccountLedger {
     private String branchCd;
     private String bizUnitCd;
     private Boolean isActive;
+
+    public CrStaging determineStaging() {
+        int days = delinquentDays != null ? delinquentDays : 0;
+        if (days >= 90) {
+            return CrStaging.STAGE3;
+        }
+        if (days >= 30) {
+            return CrStaging.STAGE2;
+        }
+        return CrStaging.STAGE1;
+    }
 }
