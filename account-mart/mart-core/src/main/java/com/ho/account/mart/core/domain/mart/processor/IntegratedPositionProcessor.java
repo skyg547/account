@@ -1,6 +1,6 @@
 package com.ho.account.mart.core.domain.mart.processor;
 
-import com.ho.account.shared.finance.entity.IntegratedRiskPosition;
+import com.ho.account.shared.finance.entity.AllowanceInputPosition;
 import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.shared.finance.enums.CustomerType;
@@ -28,12 +28,12 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 /**
- * [마트 프로세서] 통합 리스크 포지션 변환 프로세서 (정규화 버전)
+ * [마트 프로세서] 대손충당금 입력 포지션 변환 프로세서.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedger, IntegratedRiskPosition>, StepExecutionListener {
+public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedger, AllowanceInputPosition>, StepExecutionListener {
 
     private final OdsEarlyWarningRepository earlyWarningRepository;
     private final OdsAccountRateRepository accountRateRepository;
@@ -46,11 +46,11 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
     public void beforeStep(StepExecution stepExecution) {
         String baseDateStr = stepExecution.getJobParameters().getString("baseDate");
         this.baseDate = LocalDate.parse(baseDateStr);
-        log.info("🚀 [CDM] 통합 포지션 변환 공정을 시작합니다. (기준일: {})", baseDate);
+        log.info("🚀 [CDM] 대손충당금 입력 포지션 변환 공정을 시작합니다. (기준일: {})", baseDate);
     }
 
     @Override
-    public IntegratedRiskPosition process(OdsAccountLedger ledger) {
+    public AllowanceInputPosition process(OdsAccountLedger ledger) {
         if (ledger.getAccountNo() == null || ledger.getCurrency() == null) {
             log.warn("⚠️ [DQ Failure] 계좌 {}의 필수 데이터 누락. 매핑을 건너뜁니다.", ledger.getAccountNo());
             return null;
@@ -63,7 +63,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
         BigDecimal outstandingAmount = ledger.getOutstandingAmount() != null ? ledger.getOutstandingAmount() : BigDecimal.ZERO;
         BigDecimal marketValue = convertToKrw(ledger.getCurrency(), outstandingAmount);
 
-        IntegratedRiskPosition.IntegratedRiskPositionBuilder builder = IntegratedRiskPosition.builder()
+        AllowanceInputPosition.AllowanceInputPositionBuilder builder = AllowanceInputPosition.builder()
                 .baseDt(baseDate)
                 .accNo(ledger.getAccountNo())
                 .customerCode(ledger.getCustomerCode())
@@ -91,6 +91,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
                 .isDebtRestructured(false);
 
         // 스테이징 판정
+        // @todo [DDD 위반] 연체 일수에 따른 Staging(STAGE1, STAGE2, STAGE3) 판정은 핵심 도메인 규칙입니다. 배치 프로세서 내의 if-else 분기가 아닌, 도메인 객체(예: OdsAccountLedger.determineStaging()) 내부로 응집되어야 합니다.
         int days = ledger.getDelinquentDays() != null ? ledger.getDelinquentDays() : 0;
         if (days >= 90) builder.staging(CrStaging.STAGE3);
         else if (days >= 30) builder.staging(CrStaging.STAGE2);
@@ -139,7 +140,8 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        log.info("✅ [CDM] 통합 포지션 변환 완료. (Status: {})", stepExecution.getStatus());
+        log.info("✅ [CDM] 대손충당금 입력 포지션 변환 완료. (Status: {})", stepExecution.getStatus());
         return null;
     }
 }
+

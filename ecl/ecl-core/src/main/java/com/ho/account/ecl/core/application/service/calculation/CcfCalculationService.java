@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 
  * 예시: 
  * 고객이 1억 원짜리 마이너스 통장을 만들고 2천만 원만 썼다면, 남은 8천만 원은 아직 은행 돈입니다. 
- * 하지만 고객이 언제든 뽑아 쓸 수 있으므로, 은행은 이 8천만 원도 리스크가 있다고 보고 
+ * 하지만 고객이 언제든 뽑아 쓸 수 있으므로, 은행은 이 8천만 원도 예상 손실 가능성이 있다고 보고 
  * 일정 비율(예: 75%)을 곱해서 '가상의 대출금'으로 간주하고 관리합니다.
  */
 @Slf4j
@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class CcfCalculationService {
 
-    /** 💡 [초보자 가이드] 상품별로 정해진 규제 CCF 비율을 찾기 위한 마스터 저장소입니다. */
+    /** 💡 [초보자 가이드] 상품별로 정해진 모델 CCF 비율을 찾기 위한 마스터 저장소입니다. */
     private final CrProductMasterRepository productMasterRepository;
     
     /** 💡 [초보자 가이드] 수백만 건의 연산 속도를 높이기 위해, 상품별 CCF를 메모리에 미리 담아두는 바구니입니다. */
@@ -45,15 +45,15 @@ public class CcfCalculationService {
     }
 
     /**
-     * 상품 마스터 정보를 기반으로 규제 준수 CCF를 조회합니다.
+     * 상품 마스터 정보를 기반으로 모델 기준 CCF를 조회합니다.
      *
      * 💡 [비즈니스 시뮬레이션]
      * 일반 신용대출은 이미 돈이 다 나갔으므로 CCF가 의미 없지만, 
      * '유동성 라인'이나 '약정 대출'은 고객이 언제든 돈을 찾을 수 있는 권리가 있습니다.
-     * 따라서 상품 코드별로 사전에 정의된 규제 비율(CCF)을 적용합니다.
+     * 따라서 상품 코드별로 사전에 정의된 모델 비율(CCF)을 적용합니다.
      *
      * @param productCode 상품 코드 (마스터 조회 키)
-     * @return 상품별 규제 CCF 비율 (0.0 ~ 1.0)
+     * @return 상품별 모델 CCF 비율 (0.0 ~ 1.0)
      */
     public BigDecimal calculateCcf(String productCode) {
         if (productCode == null) return new BigDecimal("0.75");
@@ -70,8 +70,10 @@ public class CcfCalculationService {
         return productMasterRepository.findByProductCode(productCode)
                 .map(CrProductMaster::getCcfRate)
                 .orElseGet(() -> {
-                    log.warn("⚠️ [CCF 산출] 상품코드 '{}'의 CCF 설정을 찾을 수 없습니다. 기본 규제 비율(75%) 적용", productCode);
+                    log.warn("⚠️ [CCF 산출] 상품코드 '{}'의 CCF 설정을 찾을 수 없습니다. 기본 모델 비율(75%) 적용", productCode);
                     return new BigDecimal("0.75");
                 });
     }
 }
+
+

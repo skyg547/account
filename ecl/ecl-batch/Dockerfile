@@ -2,25 +2,21 @@
 FROM docker.io/library/gradle:8.7-jdk21-alpine AS builder
 WORKDIR /app
 
-# 모든 모듈 복제
+# 대손충당금 배치와 공통 모듈 복제
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
-COPY common common
-COPY discovery-service discovery-service
-COPY gateway-service gateway-service
-COPY risk-data-mart-service risk-data-mart-service
-COPY interest-rate-risk-service interest-rate-risk-service
-COPY credit-risk-service credit-risk-service
+COPY shared-kernel shared-kernel
+COPY ecl ecl
 
-RUN ./gradlew :credit-risk-service:credit-batch:bootJar -x test
+RUN ./gradlew :ecl:ecl-batch:bootJar -x test
 
 # Stage 2: Runtime
 FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-COPY --from=builder /app/credit-risk-service/credit-batch/build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /app/ecl/ecl-batch/build/libs/*-SNAPSHOT.jar app.jar
 
 ENV SPRING_PROFILES_ACTIVE=docker
 

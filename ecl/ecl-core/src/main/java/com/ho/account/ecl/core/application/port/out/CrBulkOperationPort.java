@@ -18,11 +18,6 @@ public interface CrBulkOperationPort {
     void clearBatchResults(LocalDate baseDate);
 
     /**
-     * 특정 기준일자의 산출 결과를 집계하여 리스크 요약 마트(Result Mart)를 생성합니다.
-     */
-    int aggregateMonthlyRiskMart(LocalDate baseDate);
-
-    /**
      * 특정 계좌에 배분된 총 담보 가액을 합산합니다.
      */
     java.math.BigDecimal sumAllocationByAccountId(Long accountId);
@@ -42,13 +37,4 @@ public interface CrBulkOperationPort {
      */
     void deleteAllResult();
 
-    /**
-     * 모든 월간 요약 테이블을 비웁니다. (테스트 및 초기화 전용)
-     */
-    void deleteAllMonthlySummary();
-
-    /**
-     * 월간 요약 엔터티 리스트를 저장합니다.
-     */
-    void saveMonthlySummary(java.util.List<com.ho.account.ecl.core.domain.result.CrMonthlySummary> summaries);
 }

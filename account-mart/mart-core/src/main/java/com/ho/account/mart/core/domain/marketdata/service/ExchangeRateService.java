@@ -21,7 +21,7 @@ import java.util.Optional;
  * 재무 결산 시스템에서 환율은 매우 중요합니다.
  * 은행이 미국 기업에 100만 달러를 빌려줬다면, 환율이 1,000원일 때는 자산이 10억 원이지만
  * 환율이 1,300원이 되면 13억 원으로 가치가 변합니다. 
- * 이렇게 환율 변동에 따라 은행 자산의 가치가 출렁이는 '환리스크'를 측정하기 위해 매일의 정확한 환율 정보가 필요합니다.
+ * 이렇게 환율 변동에 따라 은행 자산의 가치가 출렁이는 '환산손익 민감도'를 측정하기 위해 매일의 정확한 환율 정보가 필요합니다.
  */
 @Slf4j
 @Service
@@ -93,4 +93,5 @@ public class ExchangeRateService {
     public List<ExchangeRate> getHistorical(CurrencyCode baseCurrency, CurrencyCode quoteCurrency, LocalDate startDate, LocalDate endDate) {
         return repository.findHistorical(baseCurrency, quoteCurrency, startDate, endDate);
     }
-}
+}
+

@@ -1,0 +1,2 @@
+-- Demo data is intentionally loaded by dedicated scenarios or integration tests.
+-- Keep this file empty so demo profile schema creation is not coupled to stale fixtures.

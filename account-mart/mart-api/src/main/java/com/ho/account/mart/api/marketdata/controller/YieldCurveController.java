@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 /**
  * 🏦 [API] 수익률 곡선(Yield Curve) 관리 컨트롤러.
- * 통화별, 만기별 금리 구조인 수익률 곡선을 관리하며 가치평가 및 리스크 시뮬레이션의 기초 데이터를 제공합니다.
+ * 통화별, 만기별 금리 구조인 수익률 곡선을 관리하며 가치평가 및 대손충당금 민감도 분석의 기초 데이터를 제공합니다.
  *
  * 💡 [초보자를 위한 개념 설명]
  * 이 컨트롤러는 재무 결산 시스템의 '미래 금리 예측지도'를 관리합니다.
@@ -128,3 +128,5 @@ public class YieldCurveController {
                 return point.getTenorYear() == null ? null : (int) Math.round(point.getTenorYear() * 12.0d);
         }
 }
+
+

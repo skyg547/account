@@ -10,5 +10,5 @@ public interface AllowanceSummaryBuildPort {
 
     void deleteByBaseDate(LocalDate baseDate);
 
-    int insertSummariesFromRiskResults(LocalDate baseDate, String runId, String modelVersion);
+    int insertSummariesFromAllowanceResults(LocalDate baseDate, String runId, String modelVersion);
 }

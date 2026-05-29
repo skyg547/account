@@ -2,7 +2,7 @@ package com.ho.account.ecl.core.application.service.calculation;
 
 import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.ecl.core.application.port.out.CrMacroScenarioRepository;
-import com.ho.account.ecl.core.domain.calculator.CreditRiskCalculator;
+import com.ho.account.ecl.core.domain.calculator.IfrsEclCalculator;
 import com.ho.account.ecl.core.domain.model.CrMacroScenario;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class ForwardLookingEclService {
 
     private final CrMacroScenarioRepository macroScenarioRepository;
-    private final CreditRiskCalculator riskCalculator;
+    private final IfrsEclCalculator eclCalculator;
 
     /**
      * 거시경제 시나리오 캐시 (ApplyYear -> List of CrMacroScenario)
@@ -84,7 +84,7 @@ public class ForwardLookingEclService {
 
         if (scenarios.isEmpty()) {
             log.warn("⚠️ [미래전망] {}년도 거시경제 시나리오가 없습니다. 단일 시나리오로 산출합니다.", applyYear);
-            BigDecimal ecl = riskCalculator.calculateEcl(stage, marginalPds, lgd, ead, discountRate);
+            BigDecimal ecl = eclCalculator.calculateEcl(stage, marginalPds, lgd, ead, discountRate);
             return FlEclResult.builder()
                     .weightedEcl(ecl).eclBase(ecl).eclBoom(ecl).eclRecession(ecl).build();
         }
@@ -102,7 +102,7 @@ public class ForwardLookingEclService {
                     .toList();
 
             // 2. 시나리오별 ECL 산출
-            BigDecimal scenarioEcl = riskCalculator.calculateEcl(stage, adjustedPds, lgd, ead, discountRate);
+            BigDecimal scenarioEcl = eclCalculator.calculateEcl(stage, adjustedPds, lgd, ead, discountRate);
 
             // 3. 가중평균 합산
             totalWeightedEcl = totalWeightedEcl.add(scenarioEcl.multiply(scenario.getProbabilityWeight()));

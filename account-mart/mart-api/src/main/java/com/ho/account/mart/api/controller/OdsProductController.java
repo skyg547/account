@@ -36,7 +36,7 @@ public class OdsProductController {
     }
 
     /**
-     * 상품의 리스크 속성(금리 유형, CCF 등)을 업데이트한다.
+     * 상품의 대손충당금 산출 속성(금리 유형, CCF 등)을 업데이트한다.
      */
     @PutMapping("/{code}")
     public OdsProductMst updateProduct(@PathVariable @NonNull String code, @RequestBody @NonNull OdsProductMst product) {
@@ -48,3 +48,5 @@ public class OdsProductController {
         return repository.save(existing);
     }
 }
+
+

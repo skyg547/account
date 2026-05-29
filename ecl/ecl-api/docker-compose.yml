@@ -1,27 +1,27 @@
 version: '3.8'
 
 services:
-  risk-credit-api:
+  allowance-ecl-api:
     build:
       context: ./
       dockerfile: Dockerfile.simple
-    container_name: risk-credit-api
+    container_name: allowance-ecl-api
     ports:
       - "8083:8083"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_MAIN_ALLOW_BEAN_DEFINITION_OVERRIDING=true
       - SPRING_BATCH_JOB_ENABLED=false
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/credit_risk_db
-      - SPRING_DATASOURCE_USERNAME=risk_user
-      - SPRING_DATASOURCE_PASSWORD=risk_password
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ifrs9_allowance_db
+      - SPRING_DATASOURCE_USERNAME=allowance_user
+      - SPRING_DATASOURCE_PASSWORD=allowance_password
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
     networks:
-      - risk-network
+      - allowance-network
 
 networks:
-  risk-network:
+  allowance-network:
     external: true
-    name: risk-network
+    name: allowance-network

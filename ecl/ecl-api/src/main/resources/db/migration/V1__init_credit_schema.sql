@@ -1,5 +1,5 @@
 -- =================================================================================
--- V1__init_credit_schema.sql (Initial Credit Risk Schema)
+-- V1__init_credit_schema.sql (Initial IFRS 9 Allowance Schema)
 -- =================================================================================
 
 -- 1-1. 대손충당금(IFRS9) 차주 마스터 (CrCustomer)
@@ -23,13 +23,12 @@ CREATE TABLE cr_customers (
     updated_by VARCHAR(255)
 );
 
--- 1-2. 상품별 리스크 규제 파라미터 (CrProductMaster)
+-- 1-2. 대손충당금(IFRS9) 상품 파라미터 (CrProductMaster)
 CREATE TABLE cr_product_masters (
     id BIGSERIAL PRIMARY KEY,
     product_code VARCHAR(20) NOT NULL UNIQUE,
     product_name VARCHAR(200) NOT NULL,
     ccf_rate NUMERIC(10,6) NOT NULL DEFAULT 0,
-    standard_rw NUMERIC(10,6) NOT NULL DEFAULT 0,
     description VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -99,8 +98,8 @@ CREATE TABLE cr_account_collaterals (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1-6. 대손충당금(IFRS9) 최종 산출 결과 (CrRiskResult)
-CREATE TABLE cr_risk_results (
+-- 1-6. 대손충당금(IFRS9) 최종 산출 결과
+CREATE TABLE allowance_ecl_results (
     id BIGINT NOT NULL,
     base_date DATE NOT NULL,
     account_id BIGINT NOT NULL REFERENCES cr_accounts(id),
@@ -110,19 +109,12 @@ CREATE TABLE cr_risk_results (
     pd NUMERIC(15,10),
     lgd NUMERIC(15,10),
     expected_loss NUMERIC(19,4),
-    unexpected_loss NUMERIC(19,4),
     ecl_boom NUMERIC(19,4),
     ecl_base NUMERIC(19,4),
     ecl_recession NUMERIC(19,4),
     weighted_ecl NUMERIC(19,4),
-    k_value NUMERIC(15,10),
-    r_value NUMERIC(15,10),
-    maturity_adj NUMERIC(15,10),
     ead_star NUMERIC(19,4),
     crm_deduction NUMERIC(19,4),
-    applied_rw NUMERIC(10,6),
-    rwa_sa NUMERIC(19,4),
-    rwa_irb NUMERIC(19,4),
     status VARCHAR(20) NOT NULL,
     error_message TEXT,
     calculation_completed_at TIMESTAMP,
@@ -133,7 +125,7 @@ CREATE TABLE cr_risk_results (
     PRIMARY KEY (base_date, id)
 ) PARTITION BY RANGE (base_date);
 
-CREATE TABLE cr_risk_results_2026m04 PARTITION OF cr_risk_results 
+CREATE TABLE allowance_ecl_results_2026m04 PARTITION OF allowance_ecl_results 
     FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
 
 -- 2-1. 신용등급 마스터 (CrGradeMaster)
@@ -157,33 +149,15 @@ CREATE TABLE cr_lgd_segment_masters (
     UNIQUE(customer_type, collateral_type)
 );
 
--- 2-3. 규제 파라미터 컨피그
-CREATE TABLE cr_regulatory_parameters (
+-- 2-3. 대손충당금 모델 파라미터 컨피그
+CREATE TABLE allowance_model_parameters (
     param_key VARCHAR(50) PRIMARY KEY,
     param_value NUMERIC(19,10) NOT NULL,
     description VARCHAR(200),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2-8. 월간 리스크 요약 마트
-CREATE TABLE cr_monthly_summaries (
-    id BIGSERIAL PRIMARY KEY,
-    base_date DATE NOT NULL,
-    product_group VARCHAR(50),
-    customer_type VARCHAR(30),
-    staging VARCHAR(20),
-    total_count INTEGER DEFAULT 0,
-    total_ead NUMERIC(19,4) DEFAULT 0,
-    total_ead_star NUMERIC(19,4) DEFAULT 0,
-    total_rwa_sa NUMERIC(19,4) DEFAULT 0,
-    total_rwa_irb NUMERIC(19,4) DEFAULT 0,
-    total_expected_loss NUMERIC(19,4) DEFAULT 0,
-    avg_pd NUMERIC(15,10),
-    avg_lgd NUMERIC(15,10),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE INDEX idx_cr_acc_cust ON cr_accounts(customer_id);
-CREATE INDEX idx_cr_res_date ON cr_risk_results(base_date);
-CREATE INDEX idx_cr_res_acc ON cr_risk_results(account_id);
-CREATE INDEX idx_cr_monthly_date ON cr_monthly_summaries(base_date);
+CREATE INDEX idx_cr_res_date ON allowance_ecl_results(base_date);
+CREATE INDEX idx_cr_res_acc ON allowance_ecl_results(account_id);
+

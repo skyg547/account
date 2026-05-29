@@ -1,28 +1,27 @@
 # Stage 1: Build - Gradle 빌드 환경 구성
-# 리스크 시스템은 멀티 모듈 구조이므로 전체 컨텍스트를 활용하여 빌드합니다.
 FROM docker.io/library/gradle:8.7-jdk21-alpine AS builder
 WORKDIR /app
 
-# 루트 및 의존성 프로젝트 복제 (의존성 전이를 위해 common 및 core 모듈 포함 필수)
+# 루트 및 의존성 프로젝트 복제
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
-COPY common common
-COPY credit-risk-service credit-risk-service
+COPY shared-kernel shared-kernel
+COPY ecl ecl
 
-# 리스크 API 모듈만 타겟팅하여 실행 가능한 JAR 생성
-RUN ./gradlew :credit-risk-service:credit-api:bootJar -x test
+# 대손충당금 API 모듈만 타겟팅하여 실행 가능한 JAR 생성
+RUN ./gradlew :ecl:ecl-api:bootJar -x test
 
 # Stage 2: Runtime - 경량화된 실행 환경
 FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# 빌드 단계에서 생성된 최신 JAR 파일만 복사 (이미지 크기 최적화)
-COPY --from=builder /app/credit-risk-service/credit-api/build/libs/*-SNAPSHOT.jar app.jar
+# 빌드 단계에서 생성된 최신 JAR 파일만 복사
+COPY --from=builder /app/ecl/ecl-api/build/libs/*-SNAPSHOT.jar app.jar
 
 # 컨테이너 환경 변수 및 포트 설정
-# 8083: 신용 리스크 API 서비스 기본 포트
+# 8083: IFRS 9 대손충당금 API 서비스 기본 포트
 ENV SPRING_PROFILES_ACTIVE=docker
 EXPOSE 8083
 

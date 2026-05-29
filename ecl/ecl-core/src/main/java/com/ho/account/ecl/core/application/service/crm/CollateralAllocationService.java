@@ -27,10 +27,9 @@ import java.util.List;
  * 💡 [초보자를 위한 개념 설명]
  * 은행에는 여러 개의 대출을 가진 고객이 하나의 아파트나 보증서를 여러 대출에
  * 동시에 담보로 잡는 경우가 많습니다.
- * 이때 "어떤 대출에 담보를 얼마나 나눠줘야 전체 은행의 위험도(RWA)가 가장 낮아질까?"를
- * 사람이 일일이 계산하기는 매우 어렵습니다.
+ * 이때 "어떤 대출에 담보를 얼마나 나눠줘야 전체 기대손실이 줄어들까?"를 사람이 일일이 계산하기는 매우 어렵습니다.
  * 본 서비스는 '선형계획법(LP)'이라는 수학적 기법을 사용하여,
- * 제약 조건(담보 한도, 대출 잔액) 내에서 RWA를 최소화하는 최적의 배분 비율을 자동으로 찾아냅니다.
+ * 제약 조건(담보 한도, 대출 잔액) 내에서 EAD/LGD 개선 효과가 큰 배분 비율을 자동으로 찾아냅니다.
  */
 @Slf4j
 @Service
@@ -68,7 +67,7 @@ public class CollateralAllocationService {
     }
 
     /**
-     * [고도화] 선형계획법(LP Solver)을 사용하여 고객의 담보를 RWA 최소화 관점에서 최적 배분한다.
+     * [고도화] 선형계획법(LP Solver)을 사용하여 고객의 담보를 기대손실 절감 관점에서 최적 배분한다.
      */
     @Transactional
     public void allocateCollateralsForCustomer(Long customerId) {
@@ -98,12 +97,11 @@ public class CollateralAllocationService {
     }
 
     /**
-     * [Mathematical Optimization] 심플렉스 솔버(Simplex Solver)를 사용하여 리스크 가중자산(RWA) 최소화
-     * 문제를 해결한다.
+     * [Mathematical Optimization] 심플렉스 솔버(Simplex Solver)를 사용하여 담보 배분 우선순위를 계산한다.
      * 
      * 💡 [비즈니스 심화 설명]
-     * 이 로직의 핵심은 '가장 비싼(위험가중치가 높은) 대출'에 '담보'라는 소중한 자원을 우선 배정하는 것입니다.
-     * 수학적으로는 "Σ (배분액_ij * 위험가중치_i)"를 최대화하여, 결과적으로 담보 반영 후의 전체 RWA를 최소화합니다.
+     * 이 로직의 핵심은 손실률 개선 효과가 큰 대출에 담보를 우선 배정하는 것입니다.
+     * 수학적으로는 "Σ (배분액_ij * 우선순위_i)"를 최대화합니다.
      */
     private void executeLinearProgrammingOptimization(List<CrAccount> accounts, List<CrCollateral> collaterals) {
         int totalAccountCount = accounts.size();
@@ -114,20 +112,20 @@ public class CollateralAllocationService {
         int totalDecisionVariables = totalAccountCount * totalCollateralCount;
 
         // 1. 목적 함수(Objective Function) 정의
-        // 각 변수의 가중치(Coefficients)는 해당 대출 계좌의 '위험가중치(Risk Weight)'입니다.
-        double[] rwaReductionWeights = new double[totalDecisionVariables];
+        // 각 변수의 가중치(Coefficients)는 해당 대출 계좌의 손실 절감 우선순위입니다.
+        double[] lossReductionWeights = new double[totalDecisionVariables];
         for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-            double riskWeight = estimateRiskWeight(accounts.get(accountIdx));
+            double priorityWeight = estimateLossPriorityWeight(accounts.get(accountIdx));
 
             for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
                 // 선형 배열 내에서 (계좌, 담보) 조합의 고유 인덱스를 계산합니다.
                 int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                rwaReductionWeights[variableIdx] = riskWeight;
+                lossReductionWeights[variableIdx] = priorityWeight;
             }
         }
 
-        // 상수항 0인 선형 목적 함수 생성 (위험 절감액 최대화가 목표)
-        LinearObjectiveFunction rwaMinimizationGoal = new LinearObjectiveFunction(rwaReductionWeights, 0);
+        // 상수항 0인 선형 목적 함수 생성 (손실 절감 효과 최대화가 목표)
+        LinearObjectiveFunction lossReductionGoal = new LinearObjectiveFunction(lossReductionWeights, 0);
 
         // 2. 제약 조건(Constraints) 설정
         List<LinearConstraint> constraintList = new ArrayList<>();
@@ -157,11 +155,11 @@ public class CollateralAllocationService {
         }
 
         // 3. 최적화 엔진(Simplex Solver) 기동
-        // 목표: rwaMinimizationGoal을 최대화(MAXIMIZE) 하면서 모든 제약을 만족하는 '해'를 찾음
+        // 목표: lossReductionGoal을 최대화(MAXIMIZE) 하면서 모든 제약을 만족하는 '해'를 찾음
         SimplexSolver solver = new SimplexSolver();
         PointValuePair optimalSolution = solver.optimize(
                 new MaxIter(1000), // 최대 반복 횟수 (안전장치)
-                rwaMinimizationGoal, // 최적화 목표
+                lossReductionGoal, // 최적화 목표
                 new LinearConstraintSet(constraintList), // 준수해야 할 제약 조건들
                 GoalType.MAXIMIZE, // 절감 효과 최대화 선택
                 new NonNegativeConstraint(true) // 모든 배분액은 0 이상이어야 함 (음수 배분 방지)
@@ -211,13 +209,13 @@ public class CollateralAllocationService {
      * 
      * 💡 [초보자를 위한 개념 설명]
      * 수학적 최적화 엔진(Simplex)이 예상치 못한 이유로 실패할 경우를 대비한 '비상용' 로직입니다.
-     * 1. 우선순위: 가장 위험한 대출(위험가중치가 높은 대출)을 1순위로 보호합니다.
+     * 1. 우선순위: 손실 절감 효과가 큰 대출을 1순위로 보호합니다.
      * 2. 배분방식: 마치 폭포수가 위에서 아래로 흐르듯, 1순위 대출에 담보를 꽉 채우고
      * 남은 담보가 있다면 다음 순위 대출로 넘겨주는 단순하지만 확실한 방식입니다.
      */
     private void runSimpleWaterfallAllocation(List<CrAccount> accounts, List<CrCollateral> collaterals) {
-        // 1. 대출 계좌를 위험도(Risk Weight)가 높은 순서대로 정렬합니다. (위험한 놈부터 먼저 방어!)
-        accounts.sort((a, b) -> Integer.compare(estimateRiskWeight(b), estimateRiskWeight(a)));
+        // 1. 대출 계좌를 손실 절감 우선순위가 높은 순서대로 정렬합니다.
+        accounts.sort((a, b) -> Integer.compare(estimateLossPriorityWeight(b), estimateLossPriorityWeight(a)));
 
         for (CrCollateral collateral : collaterals) {
             // 해당 담보가 가진 실제 가용 금액을 계산합니다.
@@ -251,9 +249,9 @@ public class CollateralAllocationService {
     }
 
     /**
-     * 계좌의 예상 위험가중치(Risk Weight)를 산출한다.
+     * 계좌의 담보 배분 우선순위를 산출한다.
      */
-    private int estimateRiskWeight(CrAccount account) {
+    private int estimateLossPriorityWeight(CrAccount account) {
         String prod = (account.getProductCode() != null) ? account.getProductCode().toUpperCase() : "";
         if (prod.contains("CORP"))
             return 100;

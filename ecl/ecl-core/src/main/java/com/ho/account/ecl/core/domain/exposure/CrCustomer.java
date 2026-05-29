@@ -10,7 +10,7 @@ import lombok.*;
  * 대손충당금(IFRS9) 산출 대상이 되는 고객(개인, 기업 등)의 기본 정보를 관리합니다.
  *
  * [초보자를 위한 개념 설명]
- * 리스크 관리에서 '차주'란 은행에서 돈을 빌려간 사람이나 기업을 말합니다. 
+ * 대손충당금 산출에서 '차주'란 은행에서 돈을 빌려간 사람이나 기업을 말합니다. 
  * 차주의 신용등급(Internal/External Rating)과 산업 분류는 
  * "이 고객이 부도날 확률(PD)이 얼마인가"를 결정하는 가장 중요한 기초 데이터가 됩니다.
  */
@@ -63,7 +63,7 @@ public class CrCustomer extends BaseEntity {
 
     /** 
      * 금융기관 여부 및 세부 업권 코드 (BANK, SECURITIES, INSURANCE 등)
-     * 💡 [비즈니스 가이드] 금융기관 간의 거래는 서로 리스크가 전염되기 쉬워 
+     * 💡 [비즈니스 가이드] 금융기관 간의 거래는 서로 손실이 전이되기 쉬워 
      * 상관계수를 1.25배 할증하여 자본을 더 많이 쌓게 합니다.
      */
     @Column(name = "fin_sector_cd", length = 20)
@@ -83,3 +83,5 @@ public class CrCustomer extends BaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 }
+
+

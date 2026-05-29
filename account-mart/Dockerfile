@@ -7,21 +7,21 @@ COPY gradlew .
 COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
-COPY common common
-COPY risk-data-mart-service risk-data-mart-service
+COPY shared-kernel shared-kernel
+COPY account-mart account-mart
 
 # 마트 API 모듈 빌드 (기본 실행 유닛)
-RUN ./gradlew :risk-data-mart-service:mart-api:bootJar -x test
+RUN ./gradlew :account-mart:mart-api:bootJar -x test
 
 # Stage 2: Runtime - 경량 실행 환경
 FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # 빌드 결과물(JAR) 복사
-COPY --from=builder /app/risk-data-mart-service/mart-api/build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /app/account-mart/mart-api/build/libs/*-SNAPSHOT.jar app.jar
 
 # 환경 변수 및 포트 설정
-# 8085: 리스크 데이터 마트 API 서비스 포트
+# 8085: IFRS 9 대손충당금 입력 마트 API 서비스 포트
 ENV SPRING_PROFILES_ACTIVE=docker
 EXPOSE 8085
 

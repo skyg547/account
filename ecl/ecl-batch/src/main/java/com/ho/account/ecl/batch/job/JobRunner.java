@@ -37,11 +37,11 @@ public class JobRunner implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         if (!batchJobEnabled) {
-            log.info(">> [Credit Risk Batch] spring.batch.job.enabled=false, CommandLineRunner 실행을 건너뜁니다.");
+            log.info(">> [IFRS9 Allowance Batch] spring.batch.job.enabled=false, CommandLineRunner 실행을 건너뜁니다.");
             return;
         }
 
-        log.info(">> [Credit Risk Batch] CommandLineRunner 시작...");
+        log.info(">> [IFRS9 Allowance Batch] CommandLineRunner 시작...");
 
         // 커맨드라인 인자에서 baseDate 추출 (없으면 오늘 날짜)
         String baseDateStr = Arrays.stream(args)
@@ -54,19 +54,36 @@ public class JobRunner implements CommandLineRunner {
                 .filter(arg -> arg.startsWith("job.name=") || arg.startsWith("spring.batch.job.name="))
                 .map(arg -> arg.substring(arg.indexOf('=') + 1))
                 .findFirst()
-                .orElse("creditRiskMasterJob");
+                .orElse("allowanceEclJob");
+        String runId = getArgumentValue(args, "runId");
+        String modelVersion = getArgumentValue(args, "modelVersion");
 
         Job targetJob = jobs.get(jobName);
         if (targetJob == null) {
-            throw new IllegalArgumentException("Unknown credit risk batch job: " + jobName);
+            throw new IllegalArgumentException("Unknown IFRS9 allowance batch job: " + jobName);
         }
 
-        JobParameters jobParameters = new JobParametersBuilder()
+        JobParametersBuilder jobParametersBuilder = new JobParametersBuilder()
                 .addString("baseDate", baseDateStr)
-                .addString("runId", String.valueOf(System.currentTimeMillis())) // 중복 실행 방지 및 인스턴스 고유화
-                .toJobParameters();
+                .addString("runId", hasText(runId) ? runId.trim() : String.valueOf(System.currentTimeMillis()));
+        if (hasText(modelVersion)) {
+            jobParametersBuilder.addString("modelVersion", modelVersion.trim());
+        }
 
         log.info(">> [대손충당금(IFRS9) 배치] 실행 시도 (Job: {}, 기준일: {})", jobName, baseDateStr);
-        jobLauncher.run(targetJob, jobParameters);
+        jobLauncher.run(targetJob, jobParametersBuilder.toJobParameters());
+    }
+
+    private static String getArgumentValue(String[] args, String key) {
+        String prefix = key + "=";
+        return Arrays.stream(args)
+                .filter(arg -> arg.startsWith(prefix))
+                .map(arg -> arg.substring(prefix.length()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

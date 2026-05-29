@@ -19,7 +19,7 @@ import java.time.LocalDate;
  * 이 태스크릿은 두 가지 중요한 일을 합니다:
  * 1. 데이터 품질(DQ) 체크: "이름이 비어있는 고객이 있는가 ", "금액이 말도 안 되게 큰가 " 등을 검사합니다.
  * 2. 원천 시스템 대사: "원천 시스템 파일의 합계"와 "우리 DB에 들어온 합계"가 일치하는지 최종 확인합니다.
- * 이 과정이 통과되어야 리스크 핵심 산출(Credit, Interest Rate)을 시작할 수 있습니다.
+ * 이 과정이 통과되어야 대손충당금 핵심 산출(EAD, PD, LGD, ECL)을 시작할 수 있습니다.
  */
 @Slf4j
 @Component
@@ -41,3 +41,5 @@ public class OdsReconcileTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 }
+
+

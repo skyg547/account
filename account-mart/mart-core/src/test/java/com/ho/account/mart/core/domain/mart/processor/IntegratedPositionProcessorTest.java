@@ -1,6 +1,6 @@
 package com.ho.account.mart.core.domain.mart.processor;
 
-import com.ho.account.shared.finance.entity.IntegratedRiskPosition;
+import com.ho.account.shared.finance.entity.AllowanceInputPosition;
 import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.mart.core.application.port.out.OdsAccountRateRepository;
@@ -63,7 +63,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC001", 0);
 
         // when
-        IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
 
         // then
         assertNotNull(result);
@@ -78,7 +78,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC002", 35);
 
         // when
-        IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
 
         // then
         assertNotNull(result);
@@ -92,7 +92,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC003", 95);
 
         // when
-        IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
 
         // then
         assertNotNull(result);
@@ -113,7 +113,7 @@ class IntegratedPositionProcessorTest {
         when(customerMstRepository.findByCustomerCode("CUST001")).thenReturn(Optional.of(customer));
 
         // when
-        IntegratedRiskPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
 
         // then
         assertNotNull(result);
@@ -134,3 +134,4 @@ class IntegratedPositionProcessorTest {
                 .build();
     }
 }
+

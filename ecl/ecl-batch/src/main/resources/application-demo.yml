@@ -5,7 +5,7 @@ spring:
   main:
     web-application-type: none
   datasource:
-    url: jdbc:h2:mem:credit_risk_demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    url: jdbc:h2:mem:ifrs9_allowance_demo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -26,7 +26,7 @@ spring:
   sql:
     init:
       mode: always
-      data-locations: classpath:/demo/credit-batch-demo-data.sql
+      data-locations: classpath:/demo/allowance-batch-demo-data.sql
   cloud:
     discovery:
       enabled: false
@@ -37,4 +37,4 @@ eureka:
 
 logging:
   level:
-    com.risk: INFO
+    com.ho.account.ecl: INFO

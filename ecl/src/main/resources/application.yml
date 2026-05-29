@@ -3,9 +3,9 @@ server:
 
 spring:
   application:
-    name: credit-risk-service
+    name: ifrs9-allowance-service
   datasource:
-    url: jdbc:h2:mem:credit_risk_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    url: jdbc:h2:mem:ifrs9_allowance_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -39,7 +39,7 @@ management:
 
 logging:
   level:
-    com.risk: DEBUG
+    com.ho.account.ecl: DEBUG
 
 ---
 spring:
@@ -47,9 +47,9 @@ spring:
     activate:
       on-profile: postgres
   datasource:
-    url: jdbc:postgresql://localhost:5432/credit_risk_db
-    username: risk_user
-    password: risk_password
+    url: jdbc:postgresql://localhost:5432/ifrs9_allowance_db
+    username: allowance_user
+    password: allowance_password
     driver-class-name: org.postgresql.Driver
   jpa:
     properties:
@@ -62,7 +62,7 @@ spring:
     activate:
       on-profile: docker
   datasource:
-    url: jdbc:postgresql://postgres:5432/credit_risk_db
+    url: jdbc:postgresql://postgres:5432/ifrs9_allowance_db
 
 eureka:
   client:
@@ -75,7 +75,7 @@ spring:
     activate:
       on-profile: test
   datasource:
-    url: jdbc:h2:mem:test_credit_risk
+    url: jdbc:h2:mem:test_ifrs9_allowance
     driver-class-name: org.h2.Driver
     username: sa
     password:

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /**
  * [Source] 원천 계정과목 마스터 (Chart of Accounts) 엔티티.
- * 은행 내부의 전 계정과목에 대한 분류 정보 및 리스크 관리 기준을 정의합니다.
+ * 은행 내부의 전 계정과목에 대한 분류 정보 및 대손충당금 산출 기준을 정의합니다.
  *
  * 💡 [초보자를 위한 개념 설명]
  * 이 테이블은 은행의 모든 통장에 붙는 '꼬리표' 같은 것입니다.
@@ -52,3 +52,4 @@ public class OdsAccountMstEntity {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+

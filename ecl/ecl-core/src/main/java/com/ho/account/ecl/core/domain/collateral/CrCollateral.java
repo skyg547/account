@@ -44,7 +44,7 @@ public class CrCollateral extends BaseEntity {
     @Column(name = "appraisal_amt", nullable = false, precision = 19, scale = 4)
     private BigDecimal appraisalAmount;
 
-    /** 규제 기본 헤어컷 (Hc, 0.0 ~ 1.0) */
+    /** 모델 기본 헤어컷 (Hc, 0.0 ~ 1.0) */
     @Column(name = "base_haircut", nullable = false, precision = 5, scale = 4)
     @Builder.Default
     private BigDecimal baseHaircut = BigDecimal.ZERO;
@@ -73,3 +73,4 @@ public class CrCollateral extends BaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 }
+

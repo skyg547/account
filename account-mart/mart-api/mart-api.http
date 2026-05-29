@@ -3,7 +3,6 @@
 @productCode = LOAN_MORTGAGE_001
 @curveId = 1
 @curveName = KRW_GOVT
-@scenario = SEVERE_CRISIS
 
 ### Mart - customers
 GET {{host}}/api/v1/mart/customers
@@ -70,10 +69,6 @@ Accept: application/json
 
 ### Governance - seed demo logs
 POST {{host}}/api/v1/mart/governance/audit-logs/seed
-Accept: application/json
-
-### Stress simulator
-GET {{host}}/api/v1/mart/simulate/stress?baseDate={{baseDate}}&scenario={{scenario}}
 Accept: application/json
 
 ### Exchange rates - create

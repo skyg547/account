@@ -14,7 +14,7 @@ public class JdbcAllowanceExposureSnapshotPersistenceAdapter implements Allowanc
 
     private static final String COUNT_SOURCE_POSITIONS = """
             SELECT COUNT(*)
-              FROM dim_integrated_position_master
+              FROM allowance_input_positions
              WHERE base_dt = ?
             """;
 
@@ -94,7 +94,7 @@ public class JdbcAllowanceExposureSnapshotPersistenceAdapter implements Allowanc
                    NULL,
                    CURRENT_TIMESTAMP,
                    CURRENT_TIMESTAMP
-              FROM dim_integrated_position_master p
+              FROM allowance_input_positions p
               LEFT JOIN ods_product_mst product
                 ON product.prod_cd = p.prod_cd
              WHERE p.base_dt = ?
@@ -118,3 +118,4 @@ public class JdbcAllowanceExposureSnapshotPersistenceAdapter implements Allowanc
         return jdbcTemplate.update(INSERT_FROM_INTEGRATED_POSITIONS, Date.valueOf(baseDate));
     }
 }
+

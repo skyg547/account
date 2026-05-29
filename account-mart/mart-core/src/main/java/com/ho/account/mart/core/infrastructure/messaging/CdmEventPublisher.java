@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * 
  * 💡 [초보자를 위한 개념 설명]
  * 이 컴포넌트는 '우체국' 역할을 합니다. 
- * 데이터 적재가 완료되었다는 소식을 'risk-cdm-events'라는 전용 우편함(Kafka Topic)에 넣습니다.
+ * 데이터 적재가 완료되었다는 소식을 'allowance-cdm-events'라는 전용 Kafka Topic에 넣습니다.
  */
 @Slf4j
 @Component
@@ -21,7 +21,7 @@ import java.time.LocalDate;
 public class CdmEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private static final String TOPIC = "risk-cdm-events";
+    private static final String TOPIC = "allowance-cdm-events";
 
     public void publishDataReady(LocalDate baseDate, String traceId) {
         CdmDataReadyEvent event = new CdmDataReadyEvent(baseDate, traceId);

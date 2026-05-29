@@ -237,12 +237,12 @@
                                                                                                                                                                                                  
    ✅ DoD: 차이는 “원인코드+조정전표 링크”로 반드시 수렴 o
                                                                                                                                                                                                  
-   14. 재무보고/공시/감독보고 (공통) o
+   14. 재무보고/공시/외부보고 (공통) o
    중분류
                                                                                                                                                                                                  
    14.1 재무제표(BS/IS/CF) 라인 매핑 o
-   14.2 주석 마트(만기/금리/통화/리스크) o
-   14.3 감독보고 매핑/제출 o
+   14.2 주석 마트(만기/금리/통화/대손충당금) o
+   14.3 외부보고 매핑/제출 o
    14.4 제출본 버전/정정 o
    14.5 검증(합계/논리/전기대비) o
                                                                                                                                                                                                  
@@ -270,4 +270,21 @@
    계좌/개인정보 마스킹 정책 o
    
    ✅ DoD: 역할/권한 및 감사로그 검증 완료 o
-                                                                                                                        
+
+---
+## [Gemini Inspection] 대손충당금(ECL) 및 데이터 마트(account-mart) 아키텍처 검수 결과 (2026-05-28)
+
+**점검 목적:** ECL 및 account-mart 모듈의 정합성, DDD, 헥사고날 아키텍처 준수 여부 확인.
+**점검 결과:** 아래 3건의 아키텍처 위반 사항을 발견하여 코드 내에 `@todo` 주석을 남겼습니다. 향후 리팩토링 시 개선이 필요합니다.
+
+1. **`account-mart` - `IntegratedPositionProcessor.java`**
+   - **이유:** Spring Batch의 `ItemProcessor` 인터페이스와 `@StepScope` 등 인프라스트럭처 프레임워크 기술이 `domain` 패키지에 강하게 결합되어 있습니다. 또한 연체 일수(days)에 따른 Staging(STAGE1, STAGE2, STAGE3) 판정 등 핵심 도메인 비즈니스 룰이 배치 프로세서 내부에 하드코딩되어 있습니다.
+   - **조치:** 클래스 선언부 및 Staging 판정 로직에 `@todo [DDD 위반 / 아키텍처 위반]` 주석을 추가했습니다. 해당 클래스는 `application/batch` 등으로 이동하고 로직은 도메인 엔티티(예: `OdsAccountLedger`)로 위임해야 합니다.
+
+2. **`ecl-batch` - `EclProcessor.java`**
+   - **이유:** 미래전망 기대손실 산출 과정에서 잔존 만기(`maturityYears`)를 계산하는 로직(기본값 2.5d, 최소 1년 등)이 배치 ItemProcessor 내부에 하드코딩되어 있습니다. 인프라 계층이 비즈니스 정책을 직접 다루고 있습니다.
+   - **조치:** `maturityYears` 변수 선언부에 `@todo [아키텍처 위반]` 주석을 추가했습니다. 도메인 서비스나 도메인 객체 내부로 로직을 이동시켜야 합니다.
+
+3. **`ecl-core` - `JdbcAllowanceSummaryPersistenceAdapter.java`**
+   - **이유:** 대량 데이터 처리를 위한 `INSERT INTO ... SELECT` 쿼리 내부에 `ROW_NUMBER() OVER (...)`를 사용하여 `biz_unit_code` 및 `currency_code` 일치 여부에 따른 매핑 우선순위를 결정하고 있습니다. 이는 명백한 비즈니스 룰이지만 SQL(인프라)에 묻혀 있어 DDD 관점에서 정책을 파악하기 어렵게 만듭니다.
+   - **조치:** `INSERT_SUMMARIES` 쿼리 상수 선언 위에 `@todo [DDD 위반 / 성능 트레이드오프]` 주석을 추가하여, 추후 문서화 보강이나 도메인 룰로의 추출을 검토하도록 안내했습니다.

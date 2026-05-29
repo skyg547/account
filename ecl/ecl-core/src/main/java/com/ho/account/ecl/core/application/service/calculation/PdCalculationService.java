@@ -1,7 +1,7 @@
 package com.ho.account.ecl.core.application.service.calculation;
 
 import com.ho.account.ecl.core.application.port.out.CrGradeMasterRepository;
-import com.ho.account.ecl.core.domain.calculator.IrbRegulatoryParams;
+import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.exposure.CrCustomer;
 import com.ho.account.ecl.core.domain.model.CrGradeMaster;
@@ -21,9 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * PD (Probability of Default)란 고객이 돈을 갚지 못하고 '부도(망함)'를 낼 확률(0~100%)을 말합니다.
  * 은행은 모든 고객에게 '신용 등급'을 매기고, 그 등급에 따라 "과거 통계상 이 등급 고객은 내년에 몇 %나 망했는가"를 수치로 관리합니다.
  * 
- * 규제적 관점:
+ * IFRS 9 모델 관점:
  * - PD는 아무리 신용이 좋아도 금융당국이 정한 최저 한도(PD Floor, 예: 0.03%)를 밑돌 수 없습니다. 
- * - 만약 고객이 연체 중이라면, 시스템은 이 PD를 평소보다 높게 올려서 보수적으로 리스크를 관리합니다.
+ * - 만약 고객이 연체 중이라면, 시스템은 이 PD를 평소보다 높게 올려서 보수적으로 대손충당금을 보수적으로 산출합니다.
  */
 @Slf4j
 @Service
@@ -49,17 +49,17 @@ public class PdCalculationService {
     }
 
     /**
-     * 계좌 및 차주 정보를 기반으로 규제 준수 PD를 산출합니다.
+     * 계좌 및 차주 정보를 기반으로 모델 기준 PD를 산출합니다.
      *
      * 💡 [비즈니스 시나리오]
      * A 고객이 평소 1등급(PD: 0.05%)이라도, 현재 40일째 연체 중이라면 이 고객의 PD는 더 이상 0.05%가 아닙니다.
-     * 시스템은 이를 감지하여 PD를 대폭 할증(예: 2배)함으로써 은행의 리스크 관리 수준을 높입니다.
+     * 시스템은 이를 감지하여 PD를 대폭 할증(예: 2배)함으로써 은행의 대손충당금 산출 보수성을 높입니다.
      *
      * @param account   산출 대상 계좌 (연체 정보 포함)
-     * @param irbParams 규제 파라미터 (PD Floor 정보)
+     * @param modelParams 모델 파라미터 (PD Floor 정보)
      * @return 보정 및 Floor가 적용된 최종 PD
      */
-    public BigDecimal calculatePd(CrAccount account, IrbRegulatoryParams irbParams) {
+    public BigDecimal calculatePd(CrAccount account, AllowanceModelParams modelParams) {
         // 💡 [데이터 준비] 계좌의 주인(고객) 정보를 가져옵니다.
         CrCustomer customer = account.getCustomer();
         
@@ -71,12 +71,12 @@ public class PdCalculationService {
 
         // 2. 기초 PD 조회 (캐시 연동)
         // 💡 [최적화] Repository 직접 조회 대신 메모리에 로드된 pdCache를 활용합니다.
-        BigDecimal basePd = getBasePdFromCache(resolvedRating, irbParams.getPdFloor());
+        BigDecimal basePd = getBasePdFromCache(resolvedRating, modelParams.getPdFloor());
 
         // 3. 동적 PD 보정 (Penalty / 할증 로직)
         BigDecimal penalizedPd = basePd;
         
-        // 💡 [위험 보정] 연체 30일 이상이거나 시스템에서 '주의/심각' 경보가 뜬 고객은 부도 확률을 2배로 높여 리스크를 대비합니다.
+        // 💡 [위험 보정] 연체 30일 이상이거나 시스템에서 '주의/심각' 경보가 뜬 고객은 부도 확률을 2배로 높여 대손충당금을 대비합니다.
         if (account.getDelinquentDays() >= 30 || 
             "WARNING".equals(customer.getWarningLevel()) || 
             "CRITICAL".equals(customer.getWarningLevel())) {
@@ -84,14 +84,14 @@ public class PdCalculationService {
             log.info("📢 [PD 동적 할증 적용] 계좌 {} - 연체일수({}) 또는 신용경보 상태", 
                     account.getAccountNo(), account.getDelinquentDays());
             
-            // 단순 할증 로직: 기존 PD의 2배 할증하며, 규제 Floor의 10배를 하한선으로 두어 보수적으로 산출합니다.
+            // 단순 할증 로직: 기존 PD의 2배 할증하며, 모델 Floor의 10배를 하한선으로 두어 보수적으로 산출합니다.
             penalizedPd = basePd.multiply(new BigDecimal("2.0"))
-                    .max(irbParams.getPdFloor().multiply(new BigDecimal("10.0")));
+                    .max(modelParams.getPdFloor().multiply(new BigDecimal("10.0")));
         }
 
-        // 4. 최종 규제 PD Floor 적용
-        // 💡 [국제 금융 규제] PD는 아무리 낮아도 규제 당국이 정한 최소선(PD Floor, 예: 0.03%)보다 낮을 수 없습니다.
-        BigDecimal finalPd = penalizedPd.max(irbParams.getPdFloor());
+        // 4. 최종 모델 PD Floor 적용
+        // 💡 [IFRS 9 모델] PD는 아무리 낮아도 모델이 정한 최소선(PD Floor, 예: 0.03%)보다 낮을 수 없습니다.
+        BigDecimal finalPd = penalizedPd.max(modelParams.getPdFloor());
         
         log.debug("📊 [PD 산출 최종] 계좌번호: {}, 적용등급: {}, 최종 PD: {}", 
                 account.getAccountNo(), resolvedRating, finalPd);
@@ -120,3 +120,5 @@ public class PdCalculationService {
         return pdValue;
     }
 }
+
+

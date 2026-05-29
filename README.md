@@ -48,7 +48,7 @@ flowchart TD
         GL_SL -- "5. 원장 데이터 적재" --> MART[(Account Mart\nODS / CDM)]
         LN -- "여신 기초 데이터" --> MART
         
-        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 결산 대손 엔진\nECL & RWA]
+        MART -- "6. 통합 데이터 제공" --> ECL_ENG[신용 결산 대손 엔진\nIFRS 9 ECL]
         ECL_ENG -- "7. 대손충당금 산출" --> ECL_SUM[Allowance Summary]
         
         ECL_SUM -- "결산 자동 분개" --> CL
@@ -96,7 +96,7 @@ flowchart TD
 
 ### 📊 대손충당금(IFRS9) 분석 및 보고 (Finance Mart & Reporting)
 * **`account-mart/`**: 분산된 원장 및 거래 데이터를 긁어와(ETL), 데이터 품질(DQ)을 검증하고 대손충당금(IFRS9) 분석용 통합 데이터 모델(CDM)로 제공하는 ODS/Mart 시스템입니다.
-* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 및 국제 금융 규제에 따른 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 IFRS9 기대신용손실(ECL)과 RWA를 산출합니다.
+* **`ecl/`**: 마트 데이터를 기반으로 IFRS 9 신용등급(PD), 부도시손실률(LGD), 부도시노출액(EAD)을 결합하여 기대신용손실(ECL)과 대손충당금 summary를 산출합니다.
 * **`reporting/`**: 최종 확정된 원장 데이터를 기반으로 대차대조표(BS), 손익계산서(PL) 등 재무제표와 주석 마트(Disclosure Note Mart)를 생성하며, 원천 전표로의 역추적(Drill-through) API를 제공합니다.
 
 ### 🌐 프론트엔드 및 인프라 (Frontend & Infra)
@@ -189,16 +189,21 @@ flowchart TD
 * **React Query:** 서버 상태 관리 및 캐싱, 낙관적 업데이트를 통해 수많은 재무 대시보드와 마트 데이터의 실시간 동기화를 지원합니다.
 * **Zustand:** 가볍고 직관적인 클라이언트 전역 상태 관리 도구로, 전역 테마 및 사용자 세션을 빠르고 안정적으로 관리합니다.
 * **Tailwind CSS (Glassmorphism UI):** Utility-first CSS를 통해 개발 생산성을 극대화하며, 기존 금융 시스템의 딱딱함을 탈피한 프리미엄 글래스모피즘(Glassmorphism) 디자인을 구현했습니다.
+* **Recharts:** 대손충당금 변동 추이와 결산 지표를 시각화하기 위한 고성능 차트 라이브러리입니다.
 
 **2. Backend (코어 비즈니스 로직)**
 * **Spring Boot 3.4 (Java 21):** Java 21의 Virtual Threads 등 최신 생태계를 활용하여 고성능 동시성 처리와 엔터프라이즈급 애플리케이션 안정성을 보장합니다.
 * **Spring Data JPA & QueryDSL:** 복잡한 재무/회계 도메인 모델을 객체 지향적으로 매핑(ORM)하고, 대사(Recon) 및 마트 집계를 위한 타입 세이프(Type-safe)한 동적 쿼리를 작성합니다.
 * **Spring Batch:** 대용량 원장 데이터 이관, ECL(기대신용손실) 산출, 결산 평가 등 야간 정산(EOB)의 핵심인 대용량 청크(Chunk) 기반 파이프라인을 구축합니다.
+* **Flyway:** DB 스키마 버전 관리 및 자동 마이그레이션을 통해 운영 환경의 DB 형상을 안전하게 관리합니다.
+* **Spring Doc / OpenAPI (Swagger):** MSA 환경에서 모듈 간 API 명세서를 자동으로 생성하고 테스트할 수 있는 인터페이스 제공 도구입니다.
+* **Spring Cloud OpenFeign:** 서비스 간 선언적 HTTP 호출을 통해 복잡한 네트워크 통신 코드를 단순화합니다.
 
 **3. Architecture (아키텍처 및 설계 원칙)**
-* **MSA (Microservices Architecture):** 원장(Ledger), 대출(Loan), 리스크(Risk) 등 도메인별로 서비스를 물리적으로 분리하여, 단일 장애점(SPOF)을 제거하고 독립적 확장 및 배포가 가능하게 합니다.
+* **MSA (Microservices Architecture):** 원장(Ledger), 대출(Loan), 대손충당금(ECL) 등 도메인별로 서비스를 물리적으로 분리하여, 단일 장애점(SPOF)을 제거하고 독립적 확장 및 배포가 가능하게 합니다.
 * **Hexagonal Architecture:** 비즈니스 로직(Domain)을 인프라스트럭처(Web, DB)로부터 완벽히 격리(Port/Adapter 패턴)하여, 핵심 금융 로직의 테스트 용이성과 유지보수성을 극대화합니다.
-* **Domain-Driven Design (DDD):** 매우 복잡한 회계/리스크 비즈니스를 유비쿼터스 언어(Ubiquitous Language)로 모델링하여, 기획자(현업)와 개발자 간의 간극을 최소화합니다.
+* **Domain-Driven Design (DDD):** 매우 복잡한 회계/대손충당금 비즈니스를 유비쿼터스 언어(Ubiquitous Language)로 모델링하여, 기획자(현업)와 개발자 간의 간극을 최소화합니다.
+* **Resilience4j (Circuit Breaker):** 특정 마이크로서비스의 장애가 전체 시스템으로 전파되는 것을 방지하는 결함 내성 설계를 적용했습니다.
 
 **4. Infrastructure (데이터 및 메시징, 관제)**
 * **PostgreSQL / H2:** ACID 트랜잭션이 필수적인 금융 원장과 마스터 데이터의 메인 영구 저장소로 활용합니다 (H2는 인메모리 테스트 및 로컬 배치용).
@@ -206,6 +211,8 @@ flowchart TD
 * **Apache Kafka:** 마이크로서비스 간 비동기 이벤트 스트리밍(예: 전표 승인 알림, 마트 적재 완료 이벤트)을 통해 서비스 간 결합도를 최소화합니다.
 * **ELK Stack (Elasticsearch, Logstash, Kibana):** 수십 개의 분산된 컨테이너에서 발생하는 로그를 중앙 집중식으로 수집하고, 실시간 에러 트래킹을 수행합니다.
 * **Prometheus & Grafana:** 시스템 리소스 및 비즈니스 메트릭(API 응답시간, 배치 처리 건수 등)을 실시간 대시보드로 관제합니다.
+* **Spring Cloud Vault:** API 키, DB 비밀번호 등 민감한 정보를 암호화하여 관리하는 보안 서버입니다.
+* **Micrometer Tracing (Zipkin):** 분산 환경에서 사용자 요청이 어떤 서비스들을 거쳐갔는지 전체 경로(Trace)를 추적합니다.
 
 **5. Deployment (배포 및 오케스트레이션)**
 * **Docker & Docker Compose:** 모든 마이크로서비스와 인프라 자원을 컨테이너화하여 '로컬-테스트-운영' 환경의 100% 일치성을 보장하며, 복잡한 시스템을 명령어 한 줄로 손쉽게 구동합니다.
@@ -243,9 +250,9 @@ docker-compose logs -f
 
 시스템의 세부 아키텍처 및 도메인 지식은 `docs/` 폴더 내에 마크다운과 Mermaid 차트로 상세하게 작성되어 있습니다. **새로 합류하신 분들은 아래 순서대로 문서를 확인해 주세요.**
 
-1. 🏛️ **[통합 아키텍처 명세서 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
-2. 🖥️ **[프론트엔드 설계서 (frontend-architecture.md)](docs/frontend-architecture.md)**: Next.js 기반 UI 설계, 상태 관리, 라우팅 및 폴더 구조
-3. ⚙️ **[인프라스트럭처 가이드 (infrastructure-guide.md)](docs/infrastructure-guide.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
+2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
+3. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
 4. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.

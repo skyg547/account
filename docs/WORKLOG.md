@@ -323,3 +323,90 @@
   - `JdbcAllowanceExposureSyncAdapter`는 PostgreSQL `ON CONFLICT` 기준이다. H2 end-to-end 테스트에는 H2 호환 upsert 또는 테스트 fixture 보강이 필요하다.
   - 기존 ECL 통합 테스트의 Batch metadata 초기화 문제는 별도 수정이 필요하다.
   - RWA/감독보고 코드는 legacy 경로에 남아 있으므로 운영 실행 Job을 `allowanceEclJob`로 명시해야 한다.
+
+### 📅 2026-05-28 (Codex 구현)
+### [정리] ECL 실행 기본값 및 문서/설정 IFRS 9 대손충당금 중심화
+- **수정 범위**:
+  - ECL Batch: `JobRunner` 기본 실행 Job을 `creditRiskMasterJob`에서 `allowanceEclJob`으로 변경하고 로그/오류 문구를 IFRS 9 대손충당금 기준으로 정리.
+  - ECL Core Adapter: `JdbcAllowanceExposureSyncAdapter`가 DB 제품명을 감지해 PostgreSQL은 `INSERT ... ON CONFLICT`, H2는 `MERGE INTO ... KEY`를 사용하도록 보강.
+  - ECL Core Test: `JdbcAllowanceExposureSyncAdapterTest`를 추가해 H2 환경에서 snapshot -> customer/account upsert와 재실행 멱등 업데이트를 검증.
+  - ECL Batch 설정: `application.yml`의 애플리케이션명, 로컬 H2 DB명, 로그 패키지, PostgreSQL 예시 계정을 allowance/IFRS 9 명칭으로 변경.
+  - 문서: `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`를 재무 결산용 IFRS 9 대손충당금 표준 경로(`allowanceEclJob`) 중심으로 재작성.
+- **정합성 포인트**:
+  - Gemini가 진행 중인 risk 관련 삭제/이관 작업은 외부 변경으로 보고 되돌리지 않았다.
+  - Batch 모듈은 기본 Job 선택과 Step 실행만 담당하며, H2/PostgreSQL upsert 분기는 core infrastructure adapter 내부에 유지했다.
+  - 문서의 주 경로에서 규제자본/감독보고/집중도 분석을 제거하고 `allowance_exposure_snapshots -> ECL -> allowance_summary -> closing` 경로만 표준으로 명시했다.
+- **검증**:
+  - `.\gradlew :ecl:ecl-core:test --tests com.ho.account.ecl.core.infrastructure.adapter.persistence.JdbcAllowanceExposureSyncAdapterTest --tests com.ho.account.ecl.core.application.service.allowance.AllowanceExposureSyncServiceTest :ecl:ecl-batch:compileJava --rerun-tasks --console=plain` 성공.
+  - 변경 대상 파일 `git diff --check` 성공(CRLF 변환 경고만 출력).
+  - 변경/신규 파일 trailing whitespace 점검 성공.
+- **남은 리스크**:
+  - 기존 ECL 통합 테스트의 Batch metadata 초기화 문제는 여전히 별도 후속 작업이다.
+  - 코드 내부 일부 레거시 클래스명(`RiskDataQualityService` 등)은 Gemini 정리 작업 이후 문서/호출부를 함께 재점검해야 한다.
+  - PostgreSQL 운영 DB명/계정 변경은 환경 설정과 배포 secret에 맞춰 별도 확인이 필요하다.
+
+### 📅 2026-05-28 (Codex 구현)
+### [검증] allowanceEclJob 통합 테스트 및 배포/문서 참조 정리
+- **수정 범위**:
+  - ECL Batch: JPA writer가 실제 트랜잭션에서 flush되도록 `BatchInfrastructureConfig`의 기본 transaction manager를 `JpaTransactionManager`로 변경.
+  - ECL Core Adapter: `CrRiskResult` 복합키에 맞춰 `JpaCrRiskResultRepository` ID 타입을 `CrRiskResultId`로 수정하고, chunk 저장 후 `flush()`를 수행.
+  - ECL Core Adapter: `JdbcAllowanceSummaryPersistenceAdapter`의 summary 생성 SQL을 H2/PostgreSQL 양쪽에서 동작하는 `INSERT INTO ... SELECT` derived-table 형태로 변경.
+  - ECL Batch Test: `CreditRiskBatchIntegrationTest`를 `allowanceEclJob` 기준으로 재구성하고, H2 batch metadata/allowance table fixture와 snapshot -> ECL -> `allowance_summary` 검증을 추가.
+  - ECL Batch Test 설정: 테스트 프로필에서 Flyway/Vault/Discovery를 비활성화.
+  - ECL Batch Runner: CLI `runId`, `modelVersion` 인자를 JobParameters로 전달하도록 보강.
+  - 문서/배포 참조: `ecl/Dockerfile`, `ecl/ecl-batch/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, 루트 `README.md`, `account-mart/README.md`의 stale credit/risk 경로를 IFRS 9 allowance 기준으로 정리.
+- **정합성 포인트**:
+  - Batch 모듈은 writer/runner/step wiring만 담당하고 ECL/summary 계산은 core service/adapter에 유지.
+  - `allowance_summary` 집계는 application loop가 아니라 DB bulk SQL로 처리.
+  - 테스트는 `allowance_exposure_snapshots -> allowanceEclJob -> cr_risk_results -> allowance_summary` 운영 경로를 end-to-end로 확인.
+- **검증**:
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.CreditRiskBatchIntegrationTest :ecl:ecl-api:bootJar --console=plain` 성공.
+- **남은 리스크**:
+  - `ecl/Dockerfile`의 대상인 `:ecl:ecl-api:bootJar`는 검증했지만 Docker 이미지 빌드는 실행하지 않았다.
+  - PostgreSQL 운영 DB/secret 값은 실제 배포 환경에서 별도 확인이 필요하다.
+  - legacy RWA/감독보고 코드는 표준 `allowanceEclJob` 경로 밖에 남아 있으므로 운영 실행 Job을 계속 명시해야 한다.
+
+### 📅 2026-05-28 (Codex 구현)
+### [전환] IFRS 9 대손충당금 전용 account-mart/ecl 정리
+- **수정 범위**:
+  - `shared-kernel`, `account-mart`, `ecl`의 CDM 입력 모델을 `AllowanceInputPosition` / `allowance_input_positions` 기준으로 정리.
+  - ECL 산출 결과 모델을 `AllowanceEclResult` / `allowance_ecl_results` 기준으로 정리.
+  - 모델 파라미터 저장을 `AllowanceModelParameter` / `allowance_model_parameters` 기준으로 정리.
+  - allowance 범위 밖 컨트롤러, 서비스, 배치 설정, processor, 테스트, 샘플 DB 파일을 제거.
+  - README, docs, HTTP 샘플, Docker/run 스크립트를 IFRS 9 대손충당금 실행 경로 기준으로 갱신.
+  - `IntegratedPositionEtlJobTest`에 deterministic DEMO fixture를 추가해 ODS -> CDM -> allowance snapshot 경로를 검증.
+- **정합성 포인트**:
+  - Batch 모듈은 Step wiring과 Tasklet 호출만 담당하고, snapshot/ECL/summary 처리는 core service/adapter에 유지.
+  - schema, JPA entity, repository, SQL, 테스트 fixture의 물리 테이블명을 allowance 기준으로 일치.
+  - 대상 모듈과 활성 핸드오프 문서에서 비-allowance 실행 경로 표현이 남지 않았는지 검색 확인.
+- **검증**:
+  - `.\gradlew :shared-kernel:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava --console=plain` 성공.
+  - `.\gradlew :ecl:ecl-core:testClasses :ecl:ecl-batch:testClasses :account-mart:mart-core:testClasses :account-mart:mart-batch:testClasses --console=plain` 성공.
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.AllowanceEclBatchIntegrationTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest :account-mart:mart-core:test --tests com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotServiceTest --console=plain` 성공.
+  - `account-mart`, `ecl`, `shared-kernel`, 루트 README/todo, Gemini handoff 문서에서 비-allowance 실행 경로 표현 검색 결과 없음.
+- **남은 확인사항**:
+  - Docker 이미지 빌드는 실행하지 않았다.
+  - `mart-batch` 테스트 종료 시 일부 step-scope reader close 경고가 출력되지만 테스트 결과는 성공이다.
+
+### 📅 2026-05-29 (Codex 문서)
+### [문서] IFRS 9 대손충당금 단독 서비스 런북 추가
+- **수정 범위**:
+  - `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`를 추가해 대손충당금 모듈만 먼저 서비스할 때의 최소 구성, DB 준비, 시드 데이터, API/배치 실행, 검증 SQL을 정리.
+  - `ecl/README.md`, `ecl/ecl-batch/README.md`, `ecl/docs/SERVICE_ONBOARDING.md`, `ecl/docs/BATCH_EXECUTION_GUIDE.md`에 런북 링크와 현재 `JobRunner` 인자 형식을 반영.
+  - `ecl/docs/ALLOWANCE_DATA_MODEL_SPEC.md`의 오래된 물리명 설명을 현재 allowance 결과 테이블 기준으로 정리.
+- **검증**:
+  - 변경 문서 대상 `git diff --check` 성공(CRLF 변환 경고만 출력).
+  - 대손충당금 단독 서비스 문서에서 비-allowance 실행 경로 표현 검색 결과 없음.
+- **남은 확인사항**:
+  - 문서 변경만 수행했으므로 애플리케이션 기동이나 Docker 이미지 빌드는 실행하지 않았다.
+
+### 📅 2026-05-29 (Codex 문서)
+### [문서] IFRS 9 대손충당금 아키텍처/설계 흐름도 추가
+- **수정 범위**:
+  - `ecl/docs/ALLOWANCE_ARCHITECTURE.md`를 추가해 단독 서비스 구성도, 헥사고날 레이어, 런타임 산출 흐름, 실행 시퀀스, 데이터 설계 흐름, 배포 확대 단계를 Mermaid 다이어그램으로 정리.
+  - `ecl/README.md`, `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`, `ecl/docs/SERVICE_ONBOARDING.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`에 아키텍처 문서 링크를 추가.
+- **검증**:
+  - 변경 문서 대상 `git diff --check` 성공(CRLF 변환 경고만 출력).
+  - 새 아키텍처/런북/온보딩 문서에서 비-allowance 실행 경로 표현 검색 결과 없음.
+- **남은 확인사항**:
+  - 문서 변경만 수행했으므로 애플리케이션 기동이나 Docker 이미지 빌드는 실행하지 않았다.

@@ -3,10 +3,10 @@ package com.ho.account.ecl.core.infrastructure.adapter.persistence;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.ho.account.ecl.core.domain.exposure.QCrAccount;
-import com.ho.account.ecl.core.domain.result.QCrRiskResult;
+import com.ho.account.ecl.core.domain.result.QAllowanceEclResult;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.exposure.CrCustomer;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import com.ho.account.ecl.core.domain.exposure.QCrCustomer;
 
 import java.util.function.BiFunction;
@@ -31,16 +31,16 @@ public class CrBatchQueryProvider {
     }
 
     /**
-     * [Phase 2~4] 리스크 파라미터(EAD/LGD/RWA) 업데이트용 결과 레코드 조회 쿼리 생성 함수
+     * [Phase 2~4] EAD/LGD/ECL 업데이트용 결과 레코드 조회 쿼리 생성 함수.
      */
-    public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<CrRiskResult>> resultPagingQuery() {
+    public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<AllowanceEclResult>> resultPagingQuery() {
         return (queryFactory, range) -> queryFactory
-                .selectFrom(QCrRiskResult.crRiskResult)
-                .join(QCrRiskResult.crRiskResult.account).fetchJoin()
-                .join(QCrRiskResult.crRiskResult.account.customer).fetchJoin()
-                .where(QCrRiskResult.crRiskResult.id.goe(range.min()),
-                       QCrRiskResult.crRiskResult.id.loe(range.max()))
-                .orderBy(QCrRiskResult.crRiskResult.id.asc());
+                .selectFrom(QAllowanceEclResult.allowanceEclResult)
+                .join(QAllowanceEclResult.allowanceEclResult.account).fetchJoin()
+                .join(QAllowanceEclResult.allowanceEclResult.account.customer).fetchJoin()
+                .where(QAllowanceEclResult.allowanceEclResult.id.goe(range.min()),
+                       QAllowanceEclResult.allowanceEclResult.id.loe(range.max()))
+                .orderBy(QAllowanceEclResult.allowanceEclResult.id.asc());
     }
 
     /**
@@ -79,9 +79,9 @@ public class CrBatchQueryProvider {
             WHERE (account_no IS NULL OR customer_id IS NULL) AND is_active = true
             """;
 
-    /** [Account] 데이터 품질 오류 마킹 (리스크 파라미터 누락) */
-    public static final String MARK_INVALID_RISK_PARAM_SQL = """
-            UPDATE cr_accounts SET error_message = 'CR002: Missing Risk Params', is_active = false
+    /** [Account] 데이터 품질 오류 마킹 (필수 산출 파라미터 누락) */
+    public static final String MARK_INVALID_MODEL_PARAM_SQL = """
+            UPDATE cr_accounts SET error_message = 'ALW002: Missing Allowance Model Params', is_active = false
             WHERE customer_id IN (SELECT id FROM cr_customers WHERE internal_rating IS NULL OR customer_type IS NULL)
               AND is_active = true
             """;
@@ -166,3 +166,4 @@ public class CrBatchQueryProvider {
     private CrBatchQueryProvider() {
     }
 }
+

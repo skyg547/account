@@ -1,9 +1,9 @@
 server:
-  port: 8084 # 신용 리스크 배치 제어 포트
+  port: 8084 # IFRS 9 대손충당금 배치 제어 포트
 
 spring:
   application:
-    name: credit-risk-batch
+    name: ifrs9-allowance-batch
   # 💡 로컬 환경 Redis 미기동 시 Redisson 연결 시도 방지
   redisson:
     enabled: false
@@ -12,7 +12,7 @@ spring:
     baseline-on-migrate: true
   datasource:
     # 배치 메타데이터 및 산출 데이터를 위한 H2 설정 (PostgreSQL 모드)
-    url: jdbc:h2:file:./data/credit_risk_db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    url: jdbc:h2:file:./data/ifrs9_allowance_db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -22,8 +22,8 @@ spring:
       path: /h2-console
   
   # JPA 및 Hibernate 설정
-  # 리스크 시스템은 복잡한 수치 연산을 수행하므로 정밀도 유지가 핵심입니다.
-  # 모든 리스크 산식(ECL, RWA)에는 BigDecimal을 사용합니다.
+  # IFRS 9 대손충당금 산식은 정밀도 유지가 핵심입니다.
+  # EAD, LGD, PD, ECL 금액/비율 계산에는 BigDecimal을 사용합니다.
   jpa:
     hibernate:
       ddl-auto: update
@@ -55,7 +55,7 @@ eureka:
 
 logging:
   level:
-    com.risk: DEBUG
+    com.ho.account.ecl: DEBUG
 
 ---
 # 실운영 환경용 프로파일 (PostgreSQL)
@@ -64,9 +64,9 @@ spring:
     activate:
       on-profile: postgres
   datasource:
-    url: jdbc:postgresql://192.168.0.104:5432/credit_risk_db
-    username: risk_user
-    password: risk_password
+    url: jdbc:postgresql://192.168.0.104:5432/ifrs9_allowance_db
+    username: allowance_user
+    password: allowance_password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -86,9 +86,9 @@ spring:
     activate:
       on-profile: docker
   datasource:
-    url: jdbc:postgresql://postgres:5432/credit_risk_db
-    username: risk_user
-    password: risk_password
+    url: jdbc:postgresql://postgres:5432/ifrs9_allowance_db
+    username: allowance_user
+    password: allowance_password
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

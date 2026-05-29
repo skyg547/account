@@ -4,7 +4,7 @@ import com.ho.account.mart.core.application.port.out.OdsBalanceHistRepository;
 import com.ho.account.mart.core.application.port.out.OdsGeneralLedgerRepository;
 import com.ho.account.mart.core.application.port.out.OdsReconcileHistRepository;
 import com.ho.account.mart.core.domain.ods.audit.OdsReconcileHist;
-import com.ho.account.mart.core.application.port.out.IntegratedRiskPositionRepository;
+import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,7 +30,7 @@ public class OdsReconciliationService {
     private final OdsGeneralLedgerRepository glRepository;
     private final OdsBalanceHistRepository balanceRepository;
     private final OdsReconcileHistRepository reconcileRepository;
-    private final IntegratedRiskPositionRepository martRepository;
+    private final AllowanceInputPositionRepository martRepository;
 
     /**
      * 특정 기준일의 총계정원장(GL)과 보조원장(SL, 잔액이력)을 비교 대사한다.
@@ -92,7 +92,7 @@ public class OdsReconciliationService {
                         (left, right) -> left
                 ));
 
-        for (IntegratedRiskPositionRepository.ProductCurrencyBalanceSummary mart
+        for (AllowanceInputPositionRepository.ProductCurrencyBalanceSummary mart
                 : Objects.requireNonNull(martRepository.getBalanceSummaryByBaseDate(baseDate))) {
             String key = mart.getProductCode() + "_" + mart.getCurrencyCode();
             BigDecimal glAmt = glMap.containsKey(key) ? glMap.get(key).getBalanceAmount() : BigDecimal.ZERO;
@@ -119,3 +119,4 @@ public class OdsReconciliationService {
         }
     }
 }
+

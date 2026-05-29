@@ -28,12 +28,6 @@ public class IndividualStepJobConfig {
 
     // --- Phase 1 ---
     @Qualifier("dqStep") private final Step dqStep;
-    @Qualifier("monitoringStep") private final Step monitoringStep;
-    @Qualifier("regulatoryContractStep") private final Step regulatoryContractStep;
-
-    // --- Phase 2 ---
-    @Qualifier("collateralAllocationManagerStep") private final Step collateralAllocationManagerStep;
-    @Qualifier("apartmentCollateralManagerStep") private final Step apartmentCollateralManagerStep;
 
     // --- Phase 3 ---
     @Qualifier("resultPreparationStep") private final Step resultPreparationStep;
@@ -44,31 +38,19 @@ public class IndividualStepJobConfig {
 
     // --- Phase 5 ---
     @Qualifier("eclManagerStep") private final Step eclManagerStep;
-    @Qualifier("rwaManagerStep") private final Step rwaManagerStep;
     @Qualifier("allowanceEclCompletionStep") private final Step allowanceEclCompletionStep;
     @Qualifier("allowanceSummaryStep") private final Step allowanceSummaryStep;
-    @Qualifier("consolidationStep") private final Step consolidationStep;
-    @Qualifier("concentrationAnalysisStep") private final Step concentrationAnalysisStep;
 
     // --- Job 등록 ---
     @Bean public Job standaloneDqJob() { return wrapStep("standaloneDqJob", dqStep); }
-    @Bean public Job standaloneMonitoringJob() { return wrapStep("standaloneMonitoringJob", monitoringStep); }
-    @Bean public Job standaloneRegulatoryContractJob() { return wrapStep("standaloneRegulatoryContractJob", regulatoryContractStep); }
-    
-    @Bean public Job standaloneCollateralAllocationJob() { return wrapStep("standaloneCollateralAllocationJob", collateralAllocationManagerStep); }
-    @Bean public Job standaloneApartmentCollateralJob() { return wrapStep("standaloneApartmentCollateralJob", apartmentCollateralManagerStep); }
-    
     @Bean public Job standaloneResultPreparationJob() { return wrapStep("standaloneResultPreparationJob", resultPreparationStep); }
     @Bean public Job standaloneStagingJob() { return wrapStep("standaloneStagingJob", stagingManagerStep); }
     
     @Bean public Job standaloneEadCrmJob() { return wrapStep("standaloneEadCrmJob", eadCrmManagerStep); }
     
     @Bean public Job standaloneEclJob() { return wrapStep("standaloneEclJob", eclManagerStep); }
-    @Bean public Job standaloneRwaJob() { return wrapStep("standaloneRwaJob", rwaManagerStep); }
     @Bean public Job standaloneAllowanceEclCompletionJob() { return wrapStep("standaloneAllowanceEclCompletionJob", allowanceEclCompletionStep); }
     @Bean public Job standaloneAllowanceSummaryJob() { return wrapStep("standaloneAllowanceSummaryJob", allowanceSummaryStep); }
-    @Bean public Job standaloneConsolidationJob() { return wrapStep("standaloneConsolidationJob", consolidationStep); }
-    @Bean public Job standaloneConcentrationAnalysisJob() { return wrapStep("standaloneConcentrationAnalysisJob", concentrationAnalysisStep); }
 
     @Bean public Job standaloneCdmSyncJob() { return wrapStep("standaloneCdmSyncJob", cdmSyncStep); }
     @Bean public Job standaloneAllowanceExposureSyncJob() { return wrapStep("standaloneAllowanceExposureSyncJob", allowanceExposureSyncStep); }

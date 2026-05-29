@@ -10,13 +10,13 @@ import java.time.LocalDate;
 
 /**
  * [Entity] 대손충당금(IFRS9) 익스포저 계좌(Account) 원장 엔티티
- * 개별 대출, 채권, 보증 등 리스크가 발생하는 모든 계약 거래 정보를 관리합니다.
+ * 개별 대출, 채권, 보증 등 대손충당금 산출 대상이 되는 모든 계약 거래 정보를 관리합니다.
  *
  * [초보자를 위한 개념 설명]
  * '계좌'는 대손충당금(IFRS9) 산출의 가장 기본 단위입니다. 
  * 고객(차주) 한 명이 여러 개의 대출(계좌)을 가질 수 있으며, 
  * 각 계좌마다 전체 한도, 잔액, 담보 설정 현황이 다르기 때문에 
- * 개별적으로 리스크를 정밀하게 측정해야 합니다.
+ * 개별적으로 예상손실을 정밀하게 산출해야 합니다.
  */
 @Entity
 @Table(name = "cr_accounts")
@@ -125,3 +125,5 @@ public class CrAccount extends BaseEntity {
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
 }
+
+

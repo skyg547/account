@@ -24,9 +24,9 @@ public interface CrAccountBulkPort {
     int markInvalidIdentityAccounts();
 
     /**
-     * 데이터 품질 오류 계좌 일괄 마킹 (리스크 파라미터 누락)
+     * 데이터 품질 오류 계좌 일괄 마킹 (모델 파라미터 누락)
      */
-    int markInvalidRiskParamAccounts();
+    int markInvalidModelParamAccounts();
 
     /**
      * 데이터 품질 오류 계좌 일괄 마킹 (비정상 가액)

@@ -1,8 +1,8 @@
 package com.ho.account.mart.api.controller;
 
 import com.ho.account.shared.finance.dto.ApiResponse;
-import com.ho.account.shared.finance.entity.IntegratedRiskPosition;
-import com.ho.account.mart.core.application.port.out.IntegratedRiskPositionRepository;
+import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * [API Controller] 통합 리스크 데이터 마트 제공 서비스
+ * [API Controller] 통합 대손충당금 입력 마트 제공 서비스
  */
 @Slf4j
 @RestController
@@ -27,7 +27,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class IntegratedMartController {
 
-    private final IntegratedRiskPositionRepository martRepository;
+    private final AllowanceInputPositionRepository martRepository;
     private final OdsCustomerMstRepository customerRepository;
 
     @GetMapping("/customers")
@@ -36,7 +36,7 @@ public class IntegratedMartController {
     }
 
     @GetMapping("/explorer")
-    public ResponseEntity<ApiResponse<Page<IntegratedRiskPosition>>> getMartData(
+    public ResponseEntity<ApiResponse<Page<AllowanceInputPosition>>> getMartData(
             @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
@@ -53,14 +53,16 @@ public class IntegratedMartController {
     }
 
     @GetMapping("/charts/staging")
-    public ResponseEntity<ApiResponse<List<IntegratedRiskPositionRepository.StagingDistribution>>> getStagingData(
+    public ResponseEntity<ApiResponse<List<AllowanceInputPositionRepository.StagingDistribution>>> getStagingData(
             @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate) {
         return ResponseEntity.ok(ApiResponse.success(martRepository.getStagingDistribution(baseDate)));
     }
 
     @GetMapping("/charts/sector")
-    public ResponseEntity<ApiResponse<List<IntegratedRiskPositionRepository.SectorDistribution>>> getSectorData(
+    public ResponseEntity<ApiResponse<List<AllowanceInputPositionRepository.SectorDistribution>>> getSectorData(
             @RequestParam("baseDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate) {
         return ResponseEntity.ok(ApiResponse.success(martRepository.getSectorDistribution(baseDate)));
     }
 }
+
+

@@ -7,22 +7,20 @@ COPY gradlew .
 COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
-COPY common common
+COPY shared-kernel shared-kernel
 COPY discovery-service discovery-service
 COPY gateway-service gateway-service
-COPY risk-data-mart-service risk-data-mart-service
-COPY interest-rate-risk-service interest-rate-risk-service
-COPY credit-risk-service credit-risk-service
+COPY account-mart account-mart
 
 # 마트 배치 모듈 빌드
-RUN ./gradlew :risk-data-mart-service:mart-batch:bootJar -x test
+RUN ./gradlew :account-mart:mart-batch:bootJar -x test
 
 # Stage 2: Runtime - 고성능 배치 실행 환경
 FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # 빌드된 JAR 파일 복사
-COPY --from=builder /app/risk-data-mart-service/mart-batch/build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /app/account-mart/mart-batch/build/libs/*-SNAPSHOT.jar app.jar
 
 # 컨테이너 환경 변수 설정
 ENV SPRING_PROFILES_ACTIVE=docker

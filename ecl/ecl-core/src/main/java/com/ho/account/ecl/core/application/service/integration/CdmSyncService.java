@@ -1,9 +1,9 @@
 package com.ho.account.ecl.core.application.service.integration;
 
-import com.ho.account.shared.finance.entity.IntegratedRiskPosition;
+import com.ho.account.shared.finance.entity.AllowanceInputPosition;
 import com.ho.account.ecl.core.application.port.out.CrAccountBulkPort;
 import com.ho.account.ecl.core.application.port.out.CrCustomerBulkPort;
-import com.ho.account.ecl.core.application.port.out.IntegratedRiskPositionRepository;
+import com.ho.account.ecl.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.exposure.CrCustomer;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CdmSyncService {
 
-    private final IntegratedRiskPositionRepository cdmRepository;
+    private final AllowanceInputPositionRepository cdmRepository;
     private final CrCustomerBulkPort customerBulkPort;
     private final CrAccountBulkPort accountBulkPort;
 
@@ -41,7 +41,7 @@ public class CdmSyncService {
         log.info("🔄 [CDM Bulk Sync] 대손충당금(IFRS9) 데이터 동기화 시작 (기준일: {})", baseDate);
 
         // 1. 통합 마트에서 해당 날짜의 모든 포지션 조회
-        List<IntegratedRiskPosition> cdmPositions = cdmRepository.findByBaseDt(baseDate);
+        List<AllowanceInputPosition> cdmPositions = cdmRepository.findByBaseDt(baseDate);
         log.info("📥 [CDM Bulk Sync] 마트 데이터 로드 완료: {} 건", cdmPositions.size());
 
         if (cdmPositions.isEmpty()) {
@@ -58,11 +58,11 @@ public class CdmSyncService {
         log.info("✅ [CDM Bulk Sync] 대손충당금(IFRS9) 데이터 동기화 완료.");
     }
 
-    private void syncCustomersBulk(List<IntegratedRiskPosition> positions) {
+    private void syncCustomersBulk(List<AllowanceInputPosition> positions) {
         // 중복 제거된 고객 정보 생성
         List<CrCustomer> customers = positions.stream()
                 .collect(Collectors.toMap(
-                        IntegratedRiskPosition::getCustomerCode,
+                        AllowanceInputPosition::getCustomerCode,
                         p -> CrCustomer.builder()
                                 .customerCode(p.getCustomerCode())
                                 .customerName(p.getCustomerName() != null ? p.getCustomerName() : "Unknown-" + p.getCustomerCode())
@@ -81,7 +81,7 @@ public class CdmSyncService {
         log.info("👤 [CDM Bulk Sync] 차주 정보 Upsert 완료: {} 건", customers.size());
     }
 
-    private void syncAccountsBulk(List<IntegratedRiskPosition> positions) {
+    private void syncAccountsBulk(List<AllowanceInputPosition> positions) {
         List<CrAccount> accounts = positions.stream()
                 .map(p -> CrAccount.builder()
                         .accountNo(p.getAccNo())
@@ -109,3 +109,4 @@ public class CdmSyncService {
         log.info("💳 [CDM Bulk Sync] 계좌 정보 Upsert 완료: {} 건", accounts.size());
     }
 }
+

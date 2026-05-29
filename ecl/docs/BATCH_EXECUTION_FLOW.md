@@ -1,139 +1,96 @@
-# 🌊 대손충당금(IFRS9) 배치 실행 흐름 상세 (Sequential Trace Flow)
+# 대손충당금(IFRS 9) 배치 실행 흐름
 
-이 문서는 `CreditRiskMasterJobConfig`를 시작으로 전사 대손충당금(IFRS9) 산출 파이프라인이 어떤 클래스들을 거쳐 순차적으로 실행되는지 상세히 추적합니다.
+이 문서는 재무 결산용 IFRS 9 대손충당금 산출 경로를 클래스 단위로 추적한다. 표준 실행 Job은 `AllowanceEclBatchConfig`의 `allowanceEclJob`이며, 결과는 `closing` 모듈이 읽는 `allowance_summary`로 이어진다.
 
----
+이 문서의 기준은 결산 대손충당금 산출에 필요한 IFRS 9 흐름이다.
 
-## 📌 전체 실행 개요 (High-Level flow)
+서비스 구성과 레이어 설계도는 [ALLOWANCE_ARCHITECTURE.md](ALLOWANCE_ARCHITECTURE.md)를 함께 본다.
+
+## 전체 흐름
 
 ```mermaid
 graph TD
-    Master[<b>CreditRiskMasterJobConfig</b><br/>통합 마스터] --> Job1
-    AllowanceMaster[<b>AllowanceEclBatchConfig</b><br/>대손충당금 전용] --> ASync
-    
-    subgraph "Phase 1: 데이터 준비"
-        Job1[PreProcessingBatchConfig] --> DQ[RiskDataQualityService]
-        DQ --> Mon[CreditMonitoringService]
-        Mon --> Reg[RegulatoryContractTasklet]
+    Snapshot[account-mart<br/>allowance_exposure_snapshots] --> Sync
+
+    subgraph "AllowanceEclBatchConfig"
+        Sync[allowanceExposureSyncStep<br/>AllowanceExposureSyncTasklet]
+        Sync --> DQ[dqStep<br/>데이터 품질 검증]
+        DQ --> Stage[stagingManagerStep<br/>IFRS 9 Stage / PD]
+        Stage --> Ead[eadCrmManagerStep<br/>EAD / LGD]
+        Ead --> Ecl[eclManagerStep<br/>Weighted ECL]
+        Ecl --> Done[allowanceEclCompletionStep<br/>COMPLETED 확정]
+        Done --> Summary[allowanceSummaryStep<br/>allowance_summary 재생성]
     end
 
-    Job1 --> Job2
-
-    subgraph "Phase 2: 담보 최적화"
-        Job2[CollateralBatchConfig] --> Alloc[CollateralAllocationService]
-        Alloc --> Apt[ApartmentCollateralService]
-    end
-
-    Job2 --> Job3
-
-    subgraph "Phase 3: 스테이징 (결과 생성)"
-        Job3[RiskStagingBatchConfig] --> Prep[CreditRiskService]
-        Prep --> Staging[StagingProcessor]
-    end
-
-    Job3 --> Job4
-
-    subgraph "Phase 4: 노출액 및 파라미터"
-        Job4[ExposureLgdBatchConfig] --> EadCrm[EadCrmProcessor]
-    end
-
-    Job4 --> Job5
-
-    subgraph "Phase 5: 본산출 및 분석"
-        Job5[MainReportingBatchConfig] --> ECL[EclProcessor]
-        ECL --> RWA[RwaProcessor]
-        RWA --> ALW[AllowanceSummaryTasklet]
-        ALW --> Cons[MonthlyAssetConsolidationService]
-        Cons --> HHI[ConcentrationRiskService]
-    end
-
-    subgraph "Allowance-only: RWA 제외"
-        ASync[AllowanceExposureSyncTasklet] --> ADQ[RiskDataQualityService]
-        ADQ --> AStage[StagingProcessor]
-        AStage --> AEad[EadCrmProcessor]
-        AEad --> AEcl[EclProcessor]
-        AEcl --> ADone[AllowanceEclCompletionTasklet]
-        ADone --> ASummary[AllowanceSummaryTasklet]
-    end
+    Summary --> Closing[closing<br/>대손충당금 전표]
 ```
 
----
+## 단계별 추적
 
-## 🔍 단계별 상세 실행 추적 (Class Trace)
+### STEP 1. Snapshot 동기화
 
-### [STEP 0] 통합 지휘소 (Orchestrator)
-- **Class**: `CreditRiskMasterJobConfig`
-- **Role**: 5개의 전문 Job을 `JobStep` 형태로 래핑하여 순차적으로 기동합니다.
+- **Step**: `allowanceExposureSyncStep`
+- **Tasklet**: `AllowanceExposureSyncTasklet`
+- **Core Service**: `AllowanceExposureSyncService`
+- **Adapter**: `JdbcAllowanceExposureSyncAdapter`
 
-### [STEP 0-A] 대손충당금 전용 지휘소
-- **Class**: `AllowanceEclBatchConfig`
-- **Role**: `allowance_exposure_snapshots`를 입력으로 `cr_customers`/`cr_accounts`를 동기화한 뒤 Stage, EAD/LGD, ECL, summary만 실행합니다.
-- **Excluded**: `RwaProcessor`, 월통합, 집중도/감독보고 Step은 실행하지 않습니다.
+`account-mart`가 생성한 `allowance_exposure_snapshots`를 읽어 ECL 산출 입력 테이블인 `cr_customers`, `cr_accounts`에 bulk upsert한다. PostgreSQL은 `INSERT ... ON CONFLICT`, H2 테스트는 `MERGE INTO ... KEY`를 사용한다.
 
----
+### STEP 2. 데이터 품질 검증
 
-### [STEP 1] 데이터 전처리 (Pre-Processing)
-- **Config**: `PreProcessingBatchConfig`
-- **실행 순서**:
-    1.  **`dqStep`**: `RiskDataQualityService.java`
-        - 원천 데이터(계좌, 고객)에 비어 있거나 잘못된 값(DQ Error)이 있는지 SQL 기반으로 검증합니다.
-    2.  **`monitoringStep`**: `CreditMonitoringService.java`
-        - 리스크 한도 관리 및 일일 변동성 체크를 수행합니다.
-    3.  **`regulatoryContractStep`**: `RegulatoryContractTasklet.java`
-        - 국제 금융 규제 기준에 따른 계약 분류 코드를 매핑합니다.
+- **Step**: `dqStep`
+- **Service**: `AllowanceDataQualityService`
 
-### [STEP 2] 담보 배분 및 최적화 (Collateral Optimization)
-- **Config**: `CollateralBatchConfig`
-- **실행 순서**:
-    1.  **`collateralAllocationStep`**: `CollateralAllocationService.java`
-        - 자본금을 최소화할 수 있도록 대출 건에 담보를 최적으로 배분(Optimization)합니다.
-    2.  **`apartmentCollateralStep`**: `ApartmentCollateralService.java`
-        - 부동산 담보물에 대해 실거래가 시세를 반영하여 담보 가치를 재계산합니다.
+기준일의 고객/계좌 입력값 누락, 상태값 오류, 산출 불가 데이터를 사전에 차단한다.
 
-### [STEP 3] 리스크 스테이징 (Risk Staging)
-- **Config**: `RiskStagingBatchConfig`
-- **실행 순서**:
-    1.  **`resultPreparationStep`**: `CreditRiskService.java`
-        - 이번 달 산출을 시작하기 전, 기존 결과 테이블을 정리(Clean-up)합니다.
-    2.  **`stagingManagerStep`**: `StagingProcessor.java` **[Parallel]**
-        - **Reader**: `QuerydslPagingItemReader` (계좌 정보 로드)
-        - **Processor**: IFRS 9 스테이지 판정 및 초기 부도 확률(PD) 매핑을 수행합니다.
-        - **Writer**: `CrRiskResult` 레코드를 최초 생성하여 DB에 저장합니다.
+### STEP 3. IFRS 9 Stage 및 PD 산출
 
-### [STEP 4] 노출액 및 파라미터 확정 (Exposure & LGD)
-- **Config**: `ExposureLgdBatchConfig`
-- **실행 순서**:
-    1.  **`eadCrmManagerStep`**: `EadCrmProcessor.java` **[Parallel]**
-        - **Reader**: `QuerydslPagingItemReader` (생성된 결과 레코드 로드)
-        - **Processor**: CCF를 적용한 부도시 노출액(EAD)과 담보 효과가 반영된 부도시 손실률(LGD)을 산출합니다.
-        - **Writer**: 산출된 EAD, LGD 파라미터를 DB에 업데이트합니다.
+- **Step**: `stagingManagerStep`
+- **Processor**: `StagingProcessor`
 
-### [STEP 5] 본산출 및 리포팅 (Main Calculation & Reporting)
-- **Config**: `MainReportingBatchConfig`
-- **실행 순서**:
-    1.  **`eclManagerStep`**: `EclProcessor.java` **[Parallel]**
-        - 미래전망 정보를 결합하여 IFRS9 기대신용손실(ECL)을 최종 산출합니다.
-    2.  **`rwaManagerStep`**: `RwaProcessor.java` **[Parallel]**
-        - 국제 금융 규제 수식을 적용하여 계좌별 위험가중자산(RWA)을 산출합니다.
-    3.  **`allowanceSummaryStep`**: `AllowanceSummaryTasklet.java`
-        - 완료된 ECL 결과를 `allowance_account_mappings`와 결합해 `allowance_summary`를 재생성합니다.
-        - 이 결과는 `closing`의 대손충당금 전표 생성 입력으로 사용됩니다.
-    4.  **`consolidationStep`**: `MonthlyAssetConsolidationService.java`
-        - 미시적 건별 리스크 데이터를 월간 집계 데이터로 통합(Mart 생성)합니다.
-    5.  **`concentrationAnalysisStep`**: `ConcentrationRiskService.java`
-        - HHI 지수를 사용하여 특정 산업이나 고객에게 리스크가 쏠려 있는지 분석합니다.
+계좌별 IFRS 9 Stage와 기초 PD를 산출하고 결과 레코드를 생성한다. Batch config는 reader/processor/writer 연결만 담당하며, 판정 규칙은 core 영역에 둔다.
 
-### [ALLOWANCE JOB] 대손충당금 전용 ECL
-- **Config**: `AllowanceEclBatchConfig`
-- **실행 순서**:
-    1. `allowanceExposureSyncStep`: `allowance_exposure_snapshots`를 읽어 `cr_customers`, `cr_accounts`를 bulk upsert합니다.
-    2. `dqStep`: 산출 대상 데이터 품질을 검증합니다.
-    3. `stagingManagerStep`: IFRS 9 Stage와 기초 PD를 산출합니다.
-    4. `eadCrmManagerStep`: CCF, EAD, LGD를 산출합니다.
-    5. `eclManagerStep`: 미래전망 weighted ECL을 산출합니다.
-    6. `allowanceEclCompletionStep`: RWA 없이도 산출 결과를 `COMPLETED`로 확정합니다.
-    7. `allowanceSummaryStep`: 회계 계정 매핑 기준으로 `allowance_summary`를 재생성합니다.
+### STEP 4. EAD/LGD 산출
 
----
+- **Step**: `eadCrmManagerStep`
+- **Processor**: `EadCrmProcessor`
 
-[기획/팀장] -> [백엔드]: 대손충당금(IFRS9) 산출의 모든 여정을 클래스 단위로 정리했습니다. 이 문서를 통해 개발자들은 특정 로직을 수정해야 할 때 어떤 Config에서 시작하여 어느 Service(또는 Processor)를 고쳐야 하는지 즉시 판단할 수 있습니다. 수고하셨습니다! _**YOLO!**_
+CCF를 반영한 EAD와 회수 가능성을 반영한 LGD를 확정한다. 산출 금액과 비율은 `BigDecimal` 기반 정밀도 정책을 따른다.
+
+### STEP 5. Weighted ECL 산출
+
+- **Step**: `eclManagerStep`
+- **Processor**: `EclProcessor`
+
+미래전망 시나리오 가중치를 반영해 IFRS 9 기대신용손실을 산출한다. 이 결과가 대손충당금 summary의 원천이 된다.
+
+### STEP 6. 산출 완료 상태 확정
+
+- **Step**: `allowanceEclCompletionStep`
+- **Tasklet**: `AllowanceEclCompletionTasklet`
+- **Core Service**: `AllowanceEclCompletionService`
+- **Adapter**: `JdbcAllowanceEclCompletionAdapter`
+
+weighted ECL이 완료된 결과를 `COMPLETED`로 확정해 summary 집계 대상이 되도록 한다.
+
+### STEP 7. 회계 summary 재생성
+
+- **Step**: `allowanceSummaryStep`
+- **Tasklet**: `AllowanceSummaryTasklet`
+- **Core Service**: `AllowanceSummaryService`
+- **Adapter**: `JdbcAllowanceSummaryPersistenceAdapter`
+
+완료된 ECL 결과를 `allowance_account_mappings`와 결합해 `allowance_summary`를 기준일 단위로 재생성한다. 계정 매핑 누락 시 기존 summary를 삭제하지 않고 실패하며, 검증 통과 후 기존 기준일 데이터를 교체한다.
+
+## 단독 실행 Job
+
+- `standaloneAllowanceExposureSyncJob`: snapshot 동기화만 실행한다.
+- `standaloneAllowanceEclCompletionJob`: weighted ECL 결과 완료 확정만 실행한다.
+- `standaloneAllowanceSummaryJob`: 회계 summary만 재생성한다.
+
+## 운영 주의사항
+
+- 실행 기본 Job은 `allowanceEclJob`이다.
+- 필수 파라미터는 `baseDate`, 권장 파라미터는 `modelVersion`이다.
+- 재실행 가능성을 위해 기준일 단위 delete/insert 또는 upsert가 adapter에서 멱등적으로 처리되어야 한다.
+- Batch 모듈에는 산식, 반복 집계, 금액 계산을 넣지 않는다.

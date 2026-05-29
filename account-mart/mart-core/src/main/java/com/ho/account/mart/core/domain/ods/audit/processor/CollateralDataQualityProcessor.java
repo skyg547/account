@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 
 /**
  * [Pipeline/Processor] 담보 데이터 품질 검증용 프로세서 (Core 이동)
- * 💡 [비즈니스 의미] 담보 가액이나 헤어컷 비율 등을 검증하여 
- *    RWA 산출 시 담보 인정 가액이 누락되는 것을 방지합니다.
+ * 💡 [비즈니스 의미] 담보 가액이나 헤어컷 비율 등을 검증하여
+ *    LGD/ECL 산출 시 담보 인정 가액이 누락되는 것을 방지합니다.
  */
 @Component("coreCollateralDataQualityProcessor")
 @StepScope

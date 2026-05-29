@@ -45,8 +45,8 @@ class CollateralAllocationServicePriorityTest {
     private CollateralAllocationService allocationService;
 
     @Test
-    @DisplayName("✅ RWA가 높은 계좌가 담보를 우선 배정받아야 한다")
-    void allocateCollaterals_ShouldPrioritizeHighRiskWeightAccount() {
+    @DisplayName("✅ 손실완화 우선순위가 높은 계좌가 담보를 우선 배정받아야 한다")
+    void allocateCollaterals_ShouldPrioritizeHighLossMitigationAccount() {
         Long customerId = 1001L;
 
         CrAccount mortgageAcc = CrAccount.builder()

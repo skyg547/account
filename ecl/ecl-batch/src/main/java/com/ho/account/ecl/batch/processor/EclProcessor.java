@@ -2,10 +2,10 @@ package com.ho.account.ecl.batch.processor;
 
 import com.ho.account.ecl.batch.support.BatchParameterUtils;
 import com.ho.account.ecl.core.application.service.calculation.ForwardLookingEclService;
-import com.ho.account.ecl.core.application.service.calculation.IrbParameterService;
+import com.ho.account.ecl.core.application.service.calculation.AllowanceParameterService;
 import com.ho.account.ecl.core.application.service.calculation.LifetimePdService;
-import com.ho.account.ecl.core.domain.calculator.IrbRegulatoryParams;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -29,7 +29,7 @@ import java.util.List;
 @Component
 @StepScope
 @RequiredArgsConstructor
-public class EclProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
+public class EclProcessor implements ItemProcessor<AllowanceEclResult, AllowanceEclResult> {
 
     /** 💡 [초보자 가이드] 평생 동안 부도날 확률의 곡선(Lifetime PD Curve)을 그려주는 서비스입니다. */
     private final LifetimePdService lifetimePdService;
@@ -37,8 +37,8 @@ public class EclProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
     /** 💡 [초보자 가이드] 거시경제 시나리오별로 가중평균된 최종 충당금을 계산해줍니다. */
     private final ForwardLookingEclService forwardLookingEclService;
     
-    /** 💡 [초보자 가이드] 규제 파라미터(할인율 등)를 제공하는 서비스입니다. */
-    private final IrbParameterService irbParameterService;
+    /** 💡 [초보자 가이드] 대손충당금 모델 파라미터(할인율 등)를 제공하는 서비스입니다. */
+    private final AllowanceParameterService parameterService;
 
     /** 💡 [초보자 가이드] 배치 실행 시 입력받는 '기준 일자'입니다. */
     @Value("#{jobParameters['baseDate'] ?: jobParameters['baseDt']}")
@@ -51,17 +51,18 @@ public class EclProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
      * @return ECL 산출 결과가 반영된 객체
      */
     @Override
-    public CrRiskResult process(CrRiskResult result) {
+    public AllowanceEclResult process(AllowanceEclResult result) {
         // 💡 [로그] 현재 처리 중인 계좌 번호와 상태를 기록하여 추적 가능하게 합니다.
         log.info("🚀 [Step 3] ECL 산출 시작 - 계좌: {}, 기존상태: {}", result.getAccount().getAccountNo(), result.getStatus());
         
         // 💡 [날짜 처리] 배치 파라미터로 전달된 문자열 날짜를 실제 LocalDate 객체로 변환합니다.
         LocalDate baseDate = BatchParameterUtils.resolveBaseDate(baseDateStr, null);
         
-        // 💡 [파라미터] 규제 당국이 정한 할인율 등 계산에 필요한 기본 설정값을 가져옵니다.
-        IrbRegulatoryParams irbParams = irbParameterService.getParameters();
+        // 💡 [파라미터] ECL 계산에 필요한 기본 설정값을 가져옵니다.
+        AllowanceModelParams modelParams = parameterService.getParameters();
 
         // 1. 잔존 만기 산출 (최소 1년)
+        // @todo [아키텍처 위반] 배치 ItemProcessor(인프라) 내부에 잔존 만기(maturityYears)를 계산하는 핵심 비즈니스 로직(2.5d 기본값, 최소 1년 등)이 하드코딩되어 있습니다. 이를 도메인 모델이나 도메인 서비스(예: Account 도메인 객체의 메서드)로 위임해야 합니다.
         // 💡 [만기] 대출이 끝날 때까지 남은 기간을 계산합니다. 최소 1년은 유지되도록 설정합니다.
         double maturityYears = 2.5d;
         if (result.getAccount().getMaturityDate() != null) {
@@ -87,7 +88,7 @@ public class EclProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
                 marginalPds,
                 result.getLgd(),
                 result.getEadStar(),
-                irbParams.getDefaultDiscountRate(),
+                modelParams.getDefaultDiscountRate(),
                 baseDate.getYear()
         );
 
@@ -101,3 +102,4 @@ public class EclProcessor implements ItemProcessor<CrRiskResult, CrRiskResult> {
         return result;
     }
 }
+

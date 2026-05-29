@@ -15,20 +15,20 @@ import java.math.RoundingMode;
  * 2. CCF (신용전환계수): 아직 빌려주지 않은 약정 한도(예: 마이너스 통장 미사용 한도) 중
  *    부도 직전에 고객이 실제로 뽑아 쓸 것으로 예상되는 비율입니다.
  * 3. CRM (신용위험완화): 담보(예: 예금 담보)를 잡고 있다면 떼일 돈이 줄어들겠죠?
- *    이처럼 리스크를 줄이는 기법을 의미합니다.
+ *    이처럼 예상손실을 줄이는 기법을 의미합니다.
  * 4. Haircut (헤어컷): 담보의 가치가 나중에 떨어질 것을 대비해,
  *    미래 가치에서 일정 비율을 깎고 인정해주는 것입니다.
  * 5. EAD* (보정 EAD): CRM(담보)을 반영하여 최종 보정된 위험 금액입니다.
  *
  * 🔧 [v2.0 고도화 내역]
  * - 기존: 담보부 LGD(0.20), 무담보부 LGD(0.40) 하드코딩
- * - 변경: {@link IrbRegulatoryParams}에서 로드한 securedLgdFloor/unsecuredLgdFloor 사용
+ * - 변경: {@link AllowanceModelParams}에서 로드한 securedLgdFloor/unsecuredLgdFloor 사용
  */
 @Component
 public class EadCalculator {
 
     /**
-     * [고도화] 국제 금융 규제기반 고도화된 EAD* (보정 EAD) 산출.
+     * [고도화] IFRS 9 모델 기반 고도화된 EAD* (보정 EAD) 산출.
      *
      * 💡 [산출 흐름 요약]
      * ① 미사용 잔액 = 약정 한도 - 현재 잔액
@@ -42,8 +42,8 @@ public class EadCalculator {
      * @param ccfRate          상품별 신용전환계수 (CCF)
      * @param collateralAmt    배분된 담보 가치 합산액
      * @param totalHaircut     가중평균 헤어컷 (Hc + Hfx)
-     * @param securedLgd       담보부(Secured) 익스포저 LGD (규제 파라미터에서 로드)
-     * @param unsecuredLgd     무담보부(Unsecured) 익스포저 LGD (규제 파라미터에서 로드)
+     * @param securedLgd       담보부(Secured) 익스포저 LGD (모델 파라미터에서 로드)
+     * @param unsecuredLgd     무담보부(Unsecured) 익스포저 LGD (모델 파라미터에서 로드)
      * @return [보정 EAD*, 적용 CCF, 원시 EAD, CRM 공제액, 가중 LGD]
      */
     public Object[] calculateAdvancedEAD(BigDecimal outstandingAmt,
@@ -102,7 +102,7 @@ public class EadCalculator {
 
         // ── 5단계: 최종 보정 EAD* 산출 ──
         // EAD* = EAD - CRM 공제액
-        // 💡 이것이 규제 자본 산출의 최종 입력값이 됩니다.
+        // 💡 이것이 대손충당금 산출의 보정 입력값이 됩니다.
         BigDecimal eadStar = ead.subtract(crmDeduction).setScale(4, RoundingMode.HALF_UP);
 
         return new Object[]{eadStar, ccfRate, ead, crmDeduction, weightedLgd};
@@ -124,6 +124,8 @@ public class EadCalculator {
         return calculateAdvancedEAD(outstandingAmt, notionalAmt, ccfRate,
                 collateralAmt, totalHaircut,
                 new BigDecimal("0.20"),   // securedLgd (기존 하드코딩 값)
-                new BigDecimal("0.45")); // unsecuredLgd (기존 하드코딩 값 보정: 0.40→0.45 규제 기준)
+                new BigDecimal("0.45")); // unsecuredLgd (기존 하드코딩 값 보정: 0.40→0.45 모델 기준)
     }
 }
+
+

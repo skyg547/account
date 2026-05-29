@@ -1,7 +1,7 @@
 package com.ho.account.ecl.api.controller;
 
 import com.ho.account.ecl.core.application.service.calculation.EadBatchService;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import com.ho.account.shared.finance.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,12 +33,11 @@ import java.util.List;
  * ============================================================
  *
  * 🔗 API 라우팅:
- *   - POST /api/v1/credit-risk/ead/batch         → 표준 EAD 배치 실행
- *   - POST /api/v1/credit-risk/batch/run-ead     → 프론트엔드 호환용 별칭 (동일한 비즈니스 로직 수행)
- *   - GET  /api/v1/credit-risk/ead/verification  → 산출 결과 검증 목록 조회
+ *   - POST /api/v1/ifrs/allowance/ead/batch         → 표준 EAD 배치 실행
+ *   - GET  /api/v1/ifrs/allowance/ead/verification  → 산출 결과 검증 목록 조회
  */
 @RestController
-@RequestMapping("/api/v1/credit-risk/ead")
+@RequestMapping("/api/v1/ifrs/allowance/ead")
 @RequiredArgsConstructor
 public class EadController {
 
@@ -53,35 +52,31 @@ public class EadController {
      *   POST = "실행해줘" (새로운 작업을 시작함)
      *   이 엔드포인트는 배치를 '실행'하므로 POST를 사용합니다.
      *
-     * 기본 경로: /api/v1/credit-risk/ead/batch
+     * 기본 경로: /api/v1/ifrs/allowance/ead/batch
      *
      * @param baseDate 기준일자 (YYYY-MM-DD 형식, 예: 2026-04-18)
      * @return 산출된 EAD 결과 목록
      */
     @PostMapping("/batch")
-    public ResponseEntity<ApiResponse<List<CrRiskResult>>> triggerBatch(
+    public ResponseEntity<ApiResponse<List<AllowanceEclResult>>> triggerBatch(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate) {
         // batchService.executeBatch: 해당 날짜의 모든 활성 계좌에 대해 EAD를 계산합니다.
         return ResponseEntity.ok(ApiResponse.success(batchService.executeBatch(baseDate)));
     }
 
     /**
-     * [POST] /api/v1/credit-risk/batch/run-ead - 프론트엔드 호환용 별칭 엔드포인트.
+     * [POST] /api/v1/ifrs/allowance/ead/run-ead-alt - 별칭 엔드포인트.
      *
      * 💡 [왕초보 가이드] 왜 이 엔드포인트가 따로 필요한가?
      *   프론트엔드(Next.js)에서 배치 실행 버튼을 클릭하면
-     *   '/api/v1/credit-risk/batch/run-ead' 경로로 요청을 보냅니다.
+     *   대손충당금 화면에서 별칭 경로로 요청을 보낼 수 있습니다.
      *   이 경로를 여기에 추가하여 같은 비즈니스 로직(/ead/batch)을 수행하도록 연결합니다.
      *   실제 서비스 로직을 복사하지 않고 기존 서비스를 재사용하므로 중복 코드가 없습니다.
      *
-     * ⚠️ [아키텍처 노트] 이 메서드는 URL 매핑 경로(_RequestMapping_)가 다른 클래스
-     *   (CrBatchController)에 속하는 것이 더 어울립니다.
-     *   현재는 프론트엔드 URL 불일치 문제를 신속히 해결하기 위한 임시 조치입니다.
-     *
      * @param baseDate 기준일자 (YYYY-MM-DD 형식)
      */
-    @PostMapping({"/run-ead-alt"}) // 별칭: CrBatchController의 /batch/run-ead에서 호출됨
-    public ResponseEntity<ApiResponse<List<CrRiskResult>>> triggerBatchAlias(
+    @PostMapping({"/run-ead-alt"})
+    public ResponseEntity<ApiResponse<List<AllowanceEclResult>>> triggerBatchAlias(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate) {
         return ResponseEntity.ok(ApiResponse.success(batchService.executeBatch(baseDate)));
     }
@@ -100,7 +95,7 @@ public class EadController {
      * @return 페이징된 EAD 결과 목록
      */
     @GetMapping("/verification")
-    public ResponseEntity<ApiResponse<Page<CrRiskResult>>> getVerificationData(
+    public ResponseEntity<ApiResponse<Page<AllowanceEclResult>>> getVerificationData(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baseDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -111,3 +106,4 @@ public class EadController {
                 batchService.getResultsForVerification(baseDate, pageRequest)));
     }
 }
+

@@ -2,7 +2,7 @@ package com.ho.account.ecl.core.application.service.calculation;
 
 import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.ecl.core.application.port.out.CrMacroScenarioRepository;
-import com.ho.account.ecl.core.domain.calculator.CreditRiskCalculator;
+import com.ho.account.ecl.core.domain.calculator.IfrsEclCalculator;
 import com.ho.account.ecl.core.domain.model.CrMacroScenario;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
@@ -23,7 +22,7 @@ import static org.mockito.Mockito.when;
 class ForwardLookingEclServiceTest {
 
     @Mock private CrMacroScenarioRepository macroScenarioRepository;
-    @Mock private CreditRiskCalculator riskCalculator;
+    @Mock private IfrsEclCalculator eclCalculator;
 
     @InjectMocks
     private ForwardLookingEclService flEclService;
@@ -40,7 +39,7 @@ class ForwardLookingEclServiceTest {
         when(macroScenarioRepository.findByApplyYear(2026)).thenReturn(List.of(boom, base, recession));
         
         // Mock ECL values for each scenario
-        when(riskCalculator.calculateEcl(any(), anyList(), any(), any(), any()))
+        when(eclCalculator.calculateEcl(any(), anyList(), any(), any(), any()))
             .thenReturn(new BigDecimal("80"))  // Boom
             .thenReturn(new BigDecimal("100")) // Base
             .thenReturn(new BigDecimal("150"));// Recession

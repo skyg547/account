@@ -5,13 +5,13 @@ import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.ecl.core.application.port.out.CrAccountCollateralRepository;
 import com.ho.account.ecl.core.application.port.out.CrAccountRepository;
 import com.ho.account.ecl.core.application.port.out.CrProductMasterRepository;
-import com.ho.account.ecl.core.application.port.out.CrRiskResultRepository;
+import com.ho.account.ecl.core.application.port.out.AllowanceEclResultRepository;
 import com.ho.account.ecl.core.domain.calculator.EadCalculator;
-import com.ho.account.ecl.core.domain.calculator.IrbRegulatoryParams;
+import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.model.CrProductMaster;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -39,19 +39,19 @@ import java.util.List;
  * 🔧 [v2.0 고도화 내역]
  * - 기존: CCF(0.75), 헤어컷(0.20), 담보금액(ZERO) 하드코딩
  * - 변경: 상품 마스터(CrProductMaster), 담보 배분(CrAccountCollateral)에서 실제 값 조회
- * - 추가: IrbRegulatoryParams를 통한 LGD 파라미터 주입
+ * - 추가: AllowanceModelParams를 통한 LGD 파라미터 주입
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EadBatchService {
 
-    private final CrRiskResultRepository resultRepository;
+    private final AllowanceEclResultRepository resultRepository;
     private final CrAccountRepository accountRepository;
     private final CrProductMasterRepository productMasterRepository;
     private final CrAccountCollateralRepository accountCollateralRepository;
     private final EadCalculator calculator;
-    private final IrbParameterService irbParameterService;
+    private final AllowanceParameterService parameterService;
 
     /**
      * 전사 EAD 배치 산출을 실행합니다.
@@ -65,16 +65,16 @@ public class EadBatchService {
      * @return 산출 결과 목록
      */
     @Transactional
-    public List<CrRiskResult> executeBatch(LocalDate baseDate) {
+    public List<AllowanceEclResult> executeBatch(LocalDate baseDate) {
         log.info("🚀 [EAD 배치] 고도화 EAD/CRM 배치 산출 시작 - 기준일: {}", baseDate);
 
-        // 규제 파라미터 로드 (배치 전체에서 한 번만 조회)
-        IrbRegulatoryParams params = irbParameterService.getParameters();
+        // 모델 파라미터 로드 (배치 전체에서 한 번만 조회)
+        AllowanceModelParams params = parameterService.getParameters();
         BigDecimal securedLgd = params.getSecuredLgdFloor();
         BigDecimal unsecuredLgd = params.getUnsecuredLgdFloor();
 
         List<CrAccount> accounts = accountRepository.findByIsActiveTrue();
-        List<CrRiskResult> results = new ArrayList<>();
+        List<AllowanceEclResult> results = new ArrayList<>();
 
         int successCount = 0;
         int failCount = 0;
@@ -125,7 +125,7 @@ public class EadBatchService {
                 BigDecimal eadStar = (BigDecimal) advResult[0];
                 BigDecimal appliedCcf = (BigDecimal) advResult[1];
 
-                CrRiskResult result = CrRiskResult.builder()
+                AllowanceEclResult result = AllowanceEclResult.builder()
                         .baseDate(baseDate)
                         .account(account)
                         .staging(account.getStaging() != null ? account.getStaging() : CrStaging.STAGE1)
@@ -140,7 +140,7 @@ public class EadBatchService {
 
             } catch (Exception e) {
                 log.error("❌ [EAD 배치] 계좌 '{}' 산출 중 오류 발생: {}", account.getAccountNo(), e.getMessage());
-                results.add(CrRiskResult.builder()
+                results.add(AllowanceEclResult.builder()
                         .baseDate(baseDate)
                         .account(account)
                         .staging(CrStaging.STAGE1)
@@ -162,7 +162,9 @@ public class EadBatchService {
      * 특정 기준일의 산출 결과를 페이징 조회합니다.
      * 검증 및 모니터링 용도입니다.
      */
-    public Page<CrRiskResult> getResultsForVerification(LocalDate baseDate, Pageable pageable) {
+    public Page<AllowanceEclResult> getResultsForVerification(LocalDate baseDate, Pageable pageable) {
         return resultRepository.findByBaseDate(baseDate, pageable);
     }
 }
+
+

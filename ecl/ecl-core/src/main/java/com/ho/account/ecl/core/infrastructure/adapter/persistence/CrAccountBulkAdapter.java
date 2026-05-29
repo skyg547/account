@@ -56,8 +56,8 @@ public class CrAccountBulkAdapter implements CrAccountBulkPort {
     }
 
     @Override
-    public int markInvalidRiskParamAccounts() {
-        return jdbcTemplate.update(CrBatchQueryProvider.MARK_INVALID_RISK_PARAM_SQL, Map.of());
+    public int markInvalidModelParamAccounts() {
+        return jdbcTemplate.update(CrBatchQueryProvider.MARK_INVALID_MODEL_PARAM_SQL, Map.of());
     }
 
     @Override

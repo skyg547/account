@@ -332,3 +332,118 @@
   - `JdbcAllowanceExposureSyncAdapter`의 `INSERT ... ON CONFLICT`는 PostgreSQL 기준 bulk upsert다. H2에서 `allowanceEclJob` end-to-end 테스트를 돌리려면 H2 호환 upsert 또는 테스트용 스키마 보강이 필요하다.
   - 기존 ECL 통합 테스트는 Batch metadata 초기화 정리가 필요하다.
   - RWA/감독보고 코드는 legacy 경로에 보관되어 있으므로 기본 운영 Job 선택 정책을 배포 설정에서 명확히 해야 한다.
+
+## 2026-05-28 (ECL 실행 기본값 및 IFRS 9 문서/설정 정리)
+- 사용자 요청: "다음 작업 진행 해줘 그리고 제미나이가 risk 관련된 부분을 삭제 중이고 또 이 시스템은 재무모듈이야 ifrs 위주로만 하구".
+- 선확인:
+  - `Agents.md`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, `ecl/ecl-batch/src/main/resources/application.yml` 확인.
+  - 현재 워킹트리에 Gemini/사용자 작업으로 보이는 `com/risk` 삭제 및 `com/ho/account` 추가/이관 변경이 대량 존재함을 확인하고 되돌리지 않음.
+- 수정 내용:
+  - `JobRunner` 기본 Job을 `allowanceEclJob`으로 변경하고 실행 로그/unknown job 오류 문구를 IFRS 9 대손충당금 기준으로 정리.
+  - `JdbcAllowanceExposureSyncAdapter`에 DB 제품명 감지와 H2 `MERGE INTO ... KEY` upsert SQL을 추가해 PostgreSQL/H2를 모두 지원.
+  - `JdbcAllowanceExposureSyncAdapterTest` 추가: H2에서 snapshot count, customer/account merge, notional amount, 재실행 업데이트 멱등성 검증.
+  - `ecl/ecl-batch/src/main/resources/application.yml`의 애플리케이션명, H2 DB명, 로그 패키지, PostgreSQL 예시 DB/계정을 allowance/IFRS 9 기준으로 변경.
+  - `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`를 `allowance_exposure_snapshots -> allowanceEclJob -> allowance_summary -> closing` 중심으로 재작성하고 규제자본/감독보고/집중도 분석을 표준 경로에서 제외.
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md` 갱신.
+- 실행 명령:
+  - `.\gradlew :ecl:ecl-core:test --tests com.ho.account.ecl.core.infrastructure.adapter.persistence.JdbcAllowanceExposureSyncAdapterTest --tests com.ho.account.ecl.core.application.service.allowance.AllowanceExposureSyncServiceTest :ecl:ecl-batch:compileJava --console=plain`
+  - `.\gradlew :ecl:ecl-core:test --tests com.ho.account.ecl.core.infrastructure.adapter.persistence.JdbcAllowanceExposureSyncAdapterTest --tests com.ho.account.ecl.core.application.service.allowance.AllowanceExposureSyncServiceTest :ecl:ecl-batch:compileJava --rerun-tasks --console=plain`
+  - `git diff --check -- ecl\README.md ecl\docs\BATCH_EXECUTION_FLOW.md ecl\ecl-batch\src\main\resources\application.yml ecl\ecl-batch\src\main\java\com\ho\account\ecl\batch\job\JobRunner.java ecl\ecl-core\src\main\java\com\ho\account\ecl\core\infrastructure\adapter\persistence\JdbcAllowanceExposureSyncAdapter.java`
+  - `rg -n "[ \t]+$" ...`로 변경/신규 파일 trailing whitespace 점검
+- 결과:
+  - ECL core 대상 테스트와 ecl-batch compile 성공.
+  - 강제 재실행(`--rerun-tasks`) 성공.
+  - 변경 대상 diff check 성공(CRLF 변환 경고만 출력).
+  - 변경/신규 파일 trailing whitespace 없음.
+- 남은 리스크:
+  - 기존 ECL 통합 테스트의 Batch metadata table 초기화 문제는 후속 작업으로 남아 있다.
+  - 코드 내부 일부 레거시 클래스명은 Gemini의 risk 제거 작업 완료 후 호출부/문서 재점검이 필요하다.
+  - PostgreSQL 운영 DB명/계정 변경은 실제 배포 secret과 맞춰 확인해야 한다.
+
+## 2026-05-28 (allowanceEclJob 통합 테스트 복구 및 문서/배포 참조 정리)
+- 사용자 요청: "작업하던거 진행해줘".
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `ecl/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, `account-mart/README.md` 확인.
+  - 워킹트리에 Gemini/사용자 작업으로 보이는 risk -> allowance 명칭 전환 변경이 다수 있음을 확인하고 되돌리지 않음.
+- 수정 내용:
+  - `CreditRiskBatchIntegrationTest`를 `allowanceEclJob` end-to-end 검증으로 재구성.
+  - H2 테스트에서 Spring Batch metadata, `allowance_exposure_snapshots`, `allowance_account_mappings`, `allowance_summary` fixture를 생성하고 snapshot -> ECL -> summary 생성을 검증.
+  - `application-test.yml`에서 Flyway/Vault/Discovery를 비활성화해 외부 인프라 없이 테스트되도록 조정.
+  - `BatchInfrastructureConfig`의 transaction manager를 `JpaTransactionManager`로 바꿔 JPA writer가 step transaction에서 실제 flush/commit되도록 수정.
+  - `JpaCrRiskResultRepository` ID 타입을 `CrRiskResultId`로 수정하고 `CrRiskResultPersistenceAdapter.saveAll`에서 chunk 저장 후 flush.
+  - `JdbcAllowanceSummaryPersistenceAdapter` summary insert SQL을 H2/PostgreSQL 호환 derived-table `INSERT INTO ... SELECT` 형태로 변경.
+  - `JobRunner`가 CLI `runId`, `modelVersion`을 JobParameters로 전달하도록 보강.
+  - `ecl/Dockerfile`을 현재 `:ecl:ecl-api:bootJar` 경로와 `shared-kernel`/`ecl` 모듈 구조에 맞게 갱신.
+  - `ecl/ecl-batch/README.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`, 루트 `README.md`, `account-mart/README.md`의 stale credit/risk 실행 참조를 allowance 기준으로 정리.
+- 실행 명령:
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.CreditRiskBatchIntegrationTest --console=plain`
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.CreditRiskBatchIntegrationTest :ecl:ecl-api:bootJar --console=plain`
+- 결과:
+  - `allowanceEclJob` 통합 테스트가 통과했고, 로그에서 `cr_risk_results` 1건 완료 및 `allowance_summary` 1건 생성 확인.
+  - `:ecl:ecl-api:bootJar` 성공.
+- 남은 리스크:
+  - Docker 이미지 빌드는 실행하지 않았고, Dockerfile 대상 Gradle bootJar까지만 검증했다.
+  - PostgreSQL 운영 DB/secret 값은 실제 배포 환경과 별도 대조가 필요하다.
+  - legacy RWA/감독보고 코드는 표준 `allowanceEclJob` 외부에 남아 있어 운영 실행 Job 선택을 계속 명시해야 한다.
+
+## 2026-05-28 (IFRS 9 대손충당금 전용 account-mart/ecl 정리)
+- 사용자 요청: IFRS 9 대손충당금 전용으로 정리.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md`, 루트 README, `docs/todo.md` 확인.
+  - `account-mart`, `ecl`, `shared-kernel`의 allowance 전환 상태와 검색 결과를 확인.
+- 수정 내용:
+  - `shared-kernel`, `account-mart`, `ecl`의 CDM 입력 모델을 `AllowanceInputPosition` / `allowance_input_positions` 기준으로 정리.
+  - ECL 산출 결과 모델을 `AllowanceEclResult` / `allowance_ecl_results` 기준으로 정리.
+  - 모델 파라미터 저장을 `AllowanceModelParameter` / `allowance_model_parameters` 기준으로 정리.
+  - allowance 범위 밖 컨트롤러, 서비스, 배치 설정, processor, 테스트, 샘플 DB 파일 제거.
+  - README, docs, HTTP 샘플, Docker/run 스크립트를 IFRS 9 대손충당금 경로 기준으로 갱신.
+  - `IntegratedPositionEtlJobTest`에 deterministic DEMO fixture를 추가해 ODS -> CDM -> allowance snapshot 경로 검증.
+  - `GEMINI_REVIEW_PROMPT.md`, 루트 `README.md`, `docs/todo.md`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 최신 항목 갱신.
+- 실행 명령:
+  - `.\gradlew :shared-kernel:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava --console=plain`
+  - `.\gradlew :ecl:ecl-core:testClasses :ecl:ecl-batch:testClasses :account-mart:mart-core:testClasses :account-mart:mart-batch:testClasses --console=plain`
+  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.AllowanceEclBatchIntegrationTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest :account-mart:mart-core:test --tests com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotServiceTest --console=plain`
+  - 대상 모듈과 활성 문서의 비-allowance 실행 경로 표현 검색
+- 결과:
+  - compile/testClasses/targeted integration test 모두 성공.
+  - 대상 모듈과 활성 핸드오프 문서에서 비-allowance 실행 경로 표현 검색 결과 없음.
+- 남은 확인사항:
+  - Docker 이미지 빌드는 실행하지 않았다.
+  - `mart-batch` 테스트 종료 시 일부 step-scope reader close 경고가 출력되지만 테스트 결과는 성공이다.
+
+## 2026-05-29 (IFRS 9 대손충당금 단독 서비스 런북 추가)
+- 사용자 요청: 대손충당금 모듈만 먼저 서비스하는 방법을 모듈 docs에 남기기.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `ecl/README.md`, `ecl/ecl-api/README.md`, `ecl/ecl-batch/README.md`, `ecl/docs/*.md` 확인.
+  - `ecl-api`/`ecl-batch` 설정, `JobRunner`, `AllowanceEclBatchConfig`, snapshot sync adapter, account-mart snapshot DDL을 확인.
+- 수정 내용:
+  - `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md` 추가.
+  - 최소 구성: PostgreSQL, `ecl-api`, `ecl-batch`, `allowance_exposure_snapshots` 공급 계약으로 정리.
+  - ECL migration SQL, snapshot DDL, 기준월 partition, 모델 마스터, 회계 계정 매핑, snapshot 최소 시드 예시 추가.
+  - API 실행, 배치 CLI 실행, 개별 재실행, 검증 SQL, 자주 막히는 지점을 문서화.
+  - `ecl/README.md`, `ecl/ecl-batch/README.md`, `ecl/docs/SERVICE_ONBOARDING.md`, `ecl/docs/BATCH_EXECUTION_GUIDE.md`, `ecl/docs/ALLOWANCE_DATA_MODEL_SPEC.md` 갱신.
+- 실행 명령:
+  - 대손충당금 단독 서비스 문서의 비-allowance 실행 경로 표현 검색
+  - `git diff --check -- ecl\docs\ALLOWANCE_SERVICE_RUNBOOK.md ecl\README.md ecl\ecl-batch\README.md ecl\docs\SERVICE_ONBOARDING.md ecl\docs\BATCH_EXECUTION_GUIDE.md ecl\docs\ALLOWANCE_DATA_MODEL_SPEC.md`
+- 결과:
+  - 대손충당금 단독 서비스 문서에서 비-allowance 실행 경로 표현 검색 결과 없음.
+  - 문서 diff check 성공(CRLF 변환 경고만 출력).
+- 남은 확인사항:
+  - 문서 변경만 수행했으므로 애플리케이션 기동이나 Docker 이미지 빌드는 실행하지 않았다.
+
+## 2026-05-29 (IFRS 9 대손충당금 아키텍처/설계 흐름도 추가)
+- 사용자 요청: 아키텍처와 설계 흐름도 추가.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md` 확인.
+- 수정 내용:
+  - `ecl/docs/ALLOWANCE_ARCHITECTURE.md` 추가.
+  - 단독 서비스 구성도, 헥사고날 레이어, 런타임 산출 흐름, 실행 시퀀스, 데이터 설계 흐름, 배포 확대 단계를 Mermaid 다이어그램으로 정리.
+  - `ecl/README.md`, `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`, `ecl/docs/SERVICE_ONBOARDING.md`, `ecl/docs/BATCH_EXECUTION_FLOW.md`에 새 문서 링크 추가.
+- 실행 명령:
+  - 대손충당금 아키텍처/런북/온보딩 문서의 비-allowance 실행 경로 표현 검색
+  - `git diff --check -- ecl\docs\ALLOWANCE_ARCHITECTURE.md ecl\docs\ALLOWANCE_SERVICE_RUNBOOK.md ecl\README.md ecl\docs\BATCH_EXECUTION_FLOW.md ecl\docs\SERVICE_ONBOARDING.md docs\WORKLOG.md CODEX_WORKLOG.md`
+- 결과:
+  - 검색 결과 없음.
+  - 문서 diff check 성공(CRLF 변환 경고만 출력).
+- 남은 확인사항:
+  - 문서 변경만 수행했으므로 애플리케이션 기동이나 Docker 이미지 빌드는 실행하지 않았다.

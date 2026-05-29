@@ -20,10 +20,14 @@ spring:
       enabled: false
     jdbc:
       initialize-schema: always
+  flyway:
+    enabled: false
   sql:
     init:
       mode: never
   cloud:
+    vault:
+      enabled: false
     discovery:
       enabled: false
 

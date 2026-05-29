@@ -1,12 +1,12 @@
 server:
-  port: 8086 # 리스크 데이터 마트 배치 제어 포트
+  port: 8086 # IFRS 9 대손충당금 입력 마트 배치 제어 포트
 
 spring:
   application:
-    name: risk-data-mart-batch
+    name: ifrs9-allowance-mart-batch
   datasource:
     # 로컬 개발용 H2 파일 DB 설정
-    url: jdbc:h2:file:./db/risk_data_mart_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    url: jdbc:h2:file:./db/ifrs9_allowance_mart_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -44,7 +44,7 @@ management:
 
 logging:
   level:
-    com.risk: DEBUG
+    com.ho.account.mart: DEBUG
 
 # 마트 배치 상세 설정
 mart:
@@ -63,9 +63,9 @@ spring:
     activate:
       on-profile: postgres
   datasource:
-    url: jdbc:postgresql://localhost:5432/market_data_db
-    username: risk_user
-    password: risk_password
+    url: jdbc:postgresql://localhost:5432/ifrs9_allowance_mart_db
+    username: allowance_user
+    password: allowance_password
     driver-class-name: org.postgresql.Driver
   jpa:
     properties:
@@ -83,9 +83,9 @@ spring:
     activate:
       on-profile: docker
   datasource:
-    url: jdbc:postgresql://postgres:5432/market_data_db
-    username: risk_user
-    password: risk_password
+    url: jdbc:postgresql://postgres:5432/ifrs9_allowance_mart_db
+    username: allowance_user
+    password: allowance_password
     driver-class-name: org.postgresql.Driver
   jpa:
     properties:

@@ -84,7 +84,7 @@ public class StagingService {
 
         // ──────────────────────────────────────────
         // 1. Stage 3 (손상) 판정
-        // 💡 연체 90일 이상이면 국제 금융 규제상 "부도(Default)"로 간주합니다.
+        // 💡 연체 90일 이상이면 IFRS 9 모델 기준 "부도(Default)"로 간주합니다.
         //    채권재조정(Debt Restructured)은 이미 상환에 문제가 있어 조건을 변경한 것이므로
         //    역시 손상 자산으로 분류합니다.
         // ──────────────────────────────────────────
@@ -96,7 +96,7 @@ public class StagingService {
 
         // ──────────────────────────────────────────
         // 2. Stage 2 (위험 증가, SICR) 판정
-        // 💡 SICR = Significant Increase in Credit Risk (신용위험의 유의미한 증가)
+        // 💡 SICR = Significant Increase in Credit Loss (신용위험의 유의미한 증가)
         //    아래 조건 중 하나라도 해당하면 "위험이 크게 증가했다"고 판단합니다.
         // ──────────────────────────────────────────
 
@@ -231,3 +231,5 @@ public class StagingService {
         log.info("✅ [스테이징] 등급 순서 캐시 갱신 완료: 총 {}개 등급", ratingRankCache.size());
     }
 }
+
+

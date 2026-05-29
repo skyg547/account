@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * 💡 [초보자를 위한 개념 설명]
  * 보통 부도율(PD)은 1년치 기준(12개월)으로 산정합니다.
- * 하지만 IFRS 9에서는 건전성이 악화된 대출에 대해 대출 실행일부터 만기일까지(생애주기) 리스크를 미리 예측해야 합니다.
+ * 하지만 IFRS 9에서는 건전성이 악화된 대출에 대해 대출 실행일부터 만기일까지(생애주기) 예상손실을 미리 추정해야 합니다.
  * 이 프로세스는 현재의 1년치 부도율을 바탕으로 2년차, 3년차 등 미래 각 시점의 부도 확률을 계산하여 '곡선' 형태로 만듭니다.
  *
  * 🔧 [v2.0 고도화 내역]
@@ -150,7 +150,7 @@ public class LifetimePdService {
         BigDecimal transitionPd = transMap.getOrDefault("D", initialPd12m);
 
         // 전이행렬 기반 PD와 등급 마스터 PD 중 보수적인(더 큰) 값을 사용
-        // 💡 규제 관점에서 '보수적 추정'(Conservative Estimation) 원칙 적용
+        // 💡 IFRS 9 모델 관점에서 '보수적 추정'(Conservative Estimation) 원칙 적용
         double pd1 = Math.max(
                 transitionPd.doubleValue(),
                 (initialPd12m != null) ? initialPd12m.doubleValue() : 0.05
@@ -234,3 +234,5 @@ public class LifetimePdService {
         return curve;
     }
 }
+
+

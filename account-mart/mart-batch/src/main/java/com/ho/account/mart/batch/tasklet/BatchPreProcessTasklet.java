@@ -1,6 +1,6 @@
 package com.ho.account.mart.batch.tasklet;
 
-import com.ho.account.mart.core.application.port.out.IntegratedRiskPositionRepository;
+import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.mart.core.support.BatchParameterUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BatchPreProcessTasklet implements Tasklet {
 
-    private final IntegratedRiskPositionRepository martRepository;
+    private final AllowanceInputPositionRepository martRepository;
 
     @Override
     @org.springframework.lang.Nullable
@@ -39,3 +39,4 @@ public class BatchPreProcessTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 }
+

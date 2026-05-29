@@ -1,0 +1,95 @@
+@host = http://localhost:8083
+@baseDate = 2026-04-25
+@accountId = 1
+@accountNo = CR-ACC-10001
+@jobName = allowanceEclJob
+
+### Allowance exposures - list
+GET {{host}}/api/v1/ifrs/allowance/exposures
+Accept: application/json
+
+### Allowance exposures - get by id
+GET {{host}}/api/v1/ifrs/allowance/exposures/{{accountId}}
+Accept: application/json
+
+### Allowance exposures - create
+POST {{host}}/api/v1/ifrs/allowance/exposures
+Content-Type: application/json
+Accept: application/json
+
+{
+  "accountNo": "CR-ACC-90001",
+  "customer": {
+    "id": 1
+  },
+  "productCode": "CORP_LOAN",
+  "currency": "KRW",
+  "notionalAmount": 100000000,
+  "outstandingAmount": 75000000,
+  "productCategory": "LOAN",
+  "interestRate": 0.045,
+  "repaymentMethod": "AMORTIZATION",
+  "repaymentFreq": 1,
+  "openDate": "2024-01-15",
+  "maturityDate": "2027-01-15",
+  "staging": "STAGE1",
+  "originalRating": "A",
+  "internalRating": "A",
+  "isDebtRestructured": false,
+  "isActive": true
+}
+
+### Allowance exposures - collaterals by account number
+GET {{host}}/api/v1/ifrs/allowance/exposures/{{accountNo}}/collaterals
+Accept: application/json
+
+### Allowance results - summary
+GET {{host}}/api/v1/ifrs/allowance/results/summary?baseDate={{baseDate}}
+Accept: application/json
+
+### Allowance results - calculate single account
+POST {{host}}/api/v1/ifrs/allowance/results/calculate/{{accountId}}?baseDate={{baseDate}}
+Accept: application/json
+
+### Allowance batch - latest status
+GET {{host}}/api/v1/ifrs/allowance/batch/status
+Accept: application/json
+
+### Allowance batch - run job
+POST {{host}}/api/v1/ifrs/allowance/batch/run?jobName={{jobName}}
+Accept: application/json
+
+### Allowance batch - run EAD
+POST {{host}}/api/v1/ifrs/allowance/batch/run-ead?baseDate={{baseDate}}
+Accept: application/json
+
+### EAD - run batch
+POST {{host}}/api/v1/ifrs/allowance/ead/batch?baseDate={{baseDate}}
+Accept: application/json
+
+### EAD - verification page
+GET {{host}}/api/v1/ifrs/allowance/ead/verification?baseDate={{baseDate}}&page=0&size=20
+Accept: application/json
+
+### Metadata - grades
+GET {{host}}/api/v1/ifrs/allowance/metadata/grades
+Accept: application/json
+
+### Metadata - LGD segments
+GET {{host}}/api/v1/ifrs/allowance/metadata/lgd-segments
+Accept: application/json
+
+### Metadata - parameters
+GET {{host}}/api/v1/ifrs/allowance/metadata/parameters
+Accept: application/json
+
+### Metadata - upsert parameter
+POST {{host}}/api/v1/ifrs/allowance/metadata/parameters
+Content-Type: application/json
+Accept: application/json
+
+{
+  "paramKey": "PD_FLOOR",
+  "paramValue": 0.00050000,
+  "description": "Minimum PD floor for allowance calculation"
+}

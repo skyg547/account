@@ -8,8 +8,7 @@ import com.ho.account.mart.core.domain.ods.audit.processor.LedgerDataQualityProc
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsAccountLedgerRepository;
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsCollateralMstRepository;
 import com.ho.account.mart.batch.tasklet.OdsReconcileTasklet;
-import com.ho.account.mart.batch.tasklet.RegulatoryDataTasklet;
-import com.ho.account.shared.finance.entity.IntegratedRiskPosition;
+import com.ho.account.shared.finance.entity.AllowanceInputPosition;
 import com.ho.account.mart.core.domain.mart.processor.IntegratedPositionProcessor;
 import com.ho.account.mart.core.domain.ods.audit.OdsDqAudit;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
@@ -39,7 +38,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.util.Objects;
 
 /**
- * [CDM] 통합 리스크 포지션 마트(CDM) 적재 배치 설정.
+ * [CDM] 통합 대손충당금 입력 포지션 마트(CDM) 적재 배치 설정.
  * 💡 [금융 전문가 가이드] CDM(Common Data Model)은 신용, 금리, 유동성 등 각기 다른 결산 대손 엔진이 
  *    공통으로 사용할 수 있는 표준화된 데이터 구조입니다. 이 단계에서 데이터의 정합성을 
  *    확보하지 못하면 모든 대손충당금(IFRS9) 산출 결과가 왜곡될 수 있습니다.
@@ -53,8 +52,6 @@ public class IntegratedPositionEtlJobConfig {
     private final EntityManagerFactory entityManagerFactory;
     private final com.ho.account.mart.batch.tasklet.BatchPreProcessTasklet preProcessTasklet;
     private final OdsReconcileTasklet reconcileTasklet;
-    private final RegulatoryDataTasklet regulatoryDataTasklet;
-    private final com.ho.account.mart.batch.tasklet.MartReportingTasklet martReportingTasklet;
     private final CdmEventPublishTasklet cdmEventPublishTasklet;
     private final AllowanceExposureSnapshotTasklet allowanceExposureSnapshotTasklet;
     private final IntegratedPositionProcessor integratedPositionProcessor;
@@ -75,13 +72,11 @@ public class IntegratedPositionEtlJobConfig {
         return new JobBuilder("integratedPositionEtlJob", Objects.requireNonNull(jobRepository))
                 .incrementer(new RunIdIncrementer())
                 .start(Objects.requireNonNull(preProcessStep()))
-                .next(Objects.requireNonNull(regulatorySyncStep()))
                 .next(Objects.requireNonNull(ledgerDataQualityStep()))
                 .next(Objects.requireNonNull(collateralDataQualityStep()))
                 .next(Objects.requireNonNull(odsReconcileStep()))
                 .next(Objects.requireNonNull(cdmLoadStep()))
                 .next(Objects.requireNonNull(allowanceExposureSnapshotStep()))
-                .next(Objects.requireNonNull(martReportingStep()))
                 .next(cdmEventPublishStep()) // [v7.0 추가] EDA 알림 발행
                 .build();
     }
@@ -100,14 +95,6 @@ public class IntegratedPositionEtlJobConfig {
         return new JobBuilder("preProcessJob", Objects.requireNonNull(jobRepository))
                 .incrementer(new RunIdIncrementer())
                 .start(Objects.requireNonNull(preProcessStep()))
-                .build();
-    }
-
-    @Bean
-    public Job regulatorySyncJob() {
-        return new JobBuilder("regulatorySyncJob", Objects.requireNonNull(jobRepository))
-                .incrementer(new RunIdIncrementer())
-                .start(Objects.requireNonNull(regulatorySyncStep()))
                 .build();
     }
 
@@ -162,21 +149,6 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
-    public Job martReportingJob() {
-        return new JobBuilder("martReportingJob", Objects.requireNonNull(jobRepository))
-                .incrementer(new RunIdIncrementer())
-                .start(Objects.requireNonNull(martReportingStep()))
-                .build();
-    }
-
-    @Bean
-    public Step regulatorySyncStep() {
-        return new StepBuilder("regulatorySyncStep", Objects.requireNonNull(jobRepository))
-                .tasklet(Objects.requireNonNull(regulatoryDataTasklet), Objects.requireNonNull(transactionManager))
-                .build();
-    }
-
-    @Bean
     public Step odsReconcileStep() {
         return new StepBuilder("odsReconcileStep", Objects.requireNonNull(jobRepository))
                 .tasklet(Objects.requireNonNull(reconcileTasklet), Objects.requireNonNull(transactionManager))
@@ -210,13 +182,6 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
-    public Step martReportingStep() {
-        return new StepBuilder("martReportingStep", Objects.requireNonNull(jobRepository))
-                .tasklet(Objects.requireNonNull(martReportingTasklet), Objects.requireNonNull(transactionManager))
-                .build();
-    }
-
-    @Bean
     public Step allowanceExposureSnapshotStep() {
         return new StepBuilder("allowanceExposureSnapshotStep", Objects.requireNonNull(jobRepository))
                 .tasklet(Objects.requireNonNull(allowanceExposureSnapshotTasklet), Objects.requireNonNull(transactionManager))
@@ -239,7 +204,7 @@ public class IntegratedPositionEtlJobConfig {
     public Step cdmLoadStep() {
         StepBuilder builder = new StepBuilder("cdmLoadStep", Objects.requireNonNull(jobRepository));
         var chunkStep = builder
-                .<OdsAccountLedger, IntegratedRiskPosition>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
+                .<OdsAccountLedger, AllowanceInputPosition>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
                 .reader(Objects.requireNonNull(odsLedgerReader()))
                 .processor(integratedPositionProcessor) 
                 .writer(Objects.requireNonNull(cdmWriter()))
@@ -274,8 +239,8 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
-    public JpaItemWriter<IntegratedRiskPosition> cdmWriter() {
-        return new JpaItemWriterBuilder<IntegratedRiskPosition>()
+    public JpaItemWriter<AllowanceInputPosition> cdmWriter() {
+        return new JpaItemWriterBuilder<AllowanceInputPosition>()
                 .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
                 .build();
     }
@@ -307,3 +272,5 @@ public class IntegratedPositionEtlJobConfig {
                 .build();
     }
 }
+
+

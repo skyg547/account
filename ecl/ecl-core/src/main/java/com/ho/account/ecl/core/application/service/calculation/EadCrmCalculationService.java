@@ -2,7 +2,7 @@ package com.ho.account.ecl.core.application.service.calculation;
 
 import com.ho.account.ecl.core.application.port.out.CrAccountCollateralRepository;
 import com.ho.account.ecl.core.domain.calculator.EadCalculator;
-import com.ho.account.ecl.core.domain.calculator.IrbRegulatoryParams;
+import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import java.util.List;
  * 1. EAD (Exposure At Default)란?
  *    - 고객이 부도난 시점에 은행이 노출된 '총 위험 금액'입니다.
  *    - 현재 대출 잔액에 더해, 미래에 더 빌려갈 금액(난외 자산 * CCF)을 합쳐서 구합니다.
- * 2. CRM (Credit Risk Mitigation, 신용위험완화)이란?
+ * 2. CRM (Collateral Mitigation, 신용위험완화)이란?
  *    - 담보를 잡음으로써 실제 위험 금액을 줄이는 기법입니다.
  * 3. EAD* (EAD Star)란?
  *    - CRM 기법(담보 배분 등)을 적용하여 '위험이 경감된 최종 익스포저'를 말합니다.
@@ -38,15 +38,15 @@ public class EadCrmCalculationService {
      *
      * ⚙️ [산출 프로세스 요약]
      * 1. 계좌에 연결된 모든 담보를 조회하여 총 가액과 '가중평균 헤어컷'을 구합니다.
-     * 2. 규제 엔진(EadCalculator)을 호출하여 아래 공식에 따라 EAD*를 도출합니다.
+     * 2. ECL 엔진(EadCalculator)을 호출하여 아래 공식에 따라 EAD*를 도출합니다.
      *    - 公式: EAD* = max(0, [EAD Raw - 담보가액 * (1 - Haircut)])
      *
      * @param account   산출 대상 계좌
      * @param ccfRate   적용 CCF 비율
-     * @param irbParams 규제 파라미터 (LGD Floor 등)
+     * @param modelParams 모델 파라미터 (LGD Floor 등)
      * @return EAD 및 CRM 산출 결과 통합 객체
      */
-    public EadCrmResult calculateEadCrm(CrAccount account, BigDecimal ccfRate, IrbRegulatoryParams irbParams) {
+    public EadCrmResult calculateEadCrm(CrAccount account, BigDecimal ccfRate, AllowanceModelParams modelParams) {
         
         // 1. 배분된 담보(CRM) 집계 및 헤어컷 계산
         // 💡 [비즈니스 설명] 담보가 여러 개(예: 주식+부동산)일 경우, 각 담보의 변동성(Haircut)을 반영한 
@@ -76,16 +76,16 @@ public class EadCrmCalculationService {
                 ? weightedHaircutSum.divide(totalCollateralAmt, 8, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // 2. 전문 규제 엔진(EadCalculator) 호출
-        // 💡 EadCalculator는 국제 금융 규제표준방법/내부등급법의 복잡한 EAD 산식을 코드화한 핵심 모듈입니다.
+        // 2. 전문 ECL 엔진(EadCalculator) 호출
+        // 💡 EadCalculator는 IFRS 9 모델표준방법/내부등급법의 복잡한 EAD 산식을 코드화한 핵심 모듈입니다.
         Object[] rawResult = eadCalculator.calculateAdvancedEAD(
                 account.getOutstandingAmount(), 
                 account.getNotionalAmount(),
                 ccfRate, 
                 totalCollateralAmt, 
                 effectiveHaircut,
-                irbParams.getSecuredLgdFloor(),
-                irbParams.getUnsecuredLgdFloor()
+                modelParams.getSecuredLgdFloor(),
+                modelParams.getUnsecuredLgdFloor()
         );
 
         // 3. 결과 래핑 및 반환
@@ -112,3 +112,5 @@ public class EadCrmCalculationService {
         String majorCollateralType;
     }
 }
+
+

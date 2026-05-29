@@ -1,48 +1,33 @@
 package com.ho.account.ecl.batch.config;
 
 import com.ho.account.ecl.batch.processor.EclProcessor;
-import com.ho.account.ecl.batch.processor.RwaProcessor;
 import com.ho.account.ecl.batch.job.tasklet.AllowanceSummaryTasklet;
-import com.ho.account.ecl.batch.support.BatchParameterUtils;
 import com.ho.account.ecl.batch.support.CacheWarmingTasklet;
 import com.ho.account.ecl.batch.support.ColumnRangePartitioner;
 import com.ho.account.ecl.batch.support.QuerydslPagingItemReader;
-import com.ho.account.ecl.core.application.pipeline.MonthlyAssetConsolidationService;
-import com.ho.account.ecl.core.application.service.monitoring.ConcentrationRiskService;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
-import com.ho.account.ecl.core.application.port.out.CrRiskResultRepository;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
+import com.ho.account.ecl.core.application.port.out.AllowanceEclResultRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 
 /**
- * [Phase 5] RWA/ECL 본산출 및 마감 리포팅 배치 (Final Calculation & Reporting)
+ * [Phase 5] IFRS 9 ECL 본산출 및 회계 summary 생성 배치.
  * 
  * 💡 [초보자를 위한 개념 설명]
- * 이 단계는 대손충당금(IFRS9) 산출의 '최종 결산' 과정입니다. 앞에서 구한 모든 파라미터(PD, EAD, LGD)를 
- * 하나로 합쳐서 은행의 운명을 결정짓는 두 가지 핵심 숫자를 뽑아냅니다.
- * 
- * 1. ECL (Expected Credit Loss): "우리가 앞으로 얼마나 손해를 볼까?"에 대한 대답입니다. 
- *    이 금액만큼을 '대손충당금'이라는 이름으로 통장에 따로 떼어놓아야 합니다.
- * 2. RWA (Risk Weighted Asset): "위험을 고려했을 때 우리 자산은 실제 얼마인가?"에 대한 대답입니다.
- *    이 숫자가 클수록 은행은 더 많은 '자기자본'을 보유해야 합니다 (BIS 비율의 분모가 됩니다).
- * 3. 마감 및 편중분석: 한 달치 성적표를 확정하고, 특정 업종이나 고객에게 위험이 너무 쏠려있지는 않은지 검사합니다.
+ * 이 단계는 앞에서 확정한 PD, EAD, LGD를 미래전망 시나리오와 결합해
+ * 결산에 필요한 기대신용손실(ECL)을 산출하고 `allowance_summary`를 재생성합니다.
  */
-@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class MainReportingBatchConfig {
@@ -51,20 +36,17 @@ public class MainReportingBatchConfig {
     private final PlatformTransactionManager transactionManager;
 
     private final EclProcessor eclProcessor;
-    private final RwaProcessor rwaProcessor;
-    private final MonthlyAssetConsolidationService consolidationService;
-    private final ConcentrationRiskService concentrationRiskService;
-    private final CrRiskResultRepository riskResultRepository;
+    private final AllowanceEclResultRepository allowanceResultRepository;
     private final CacheWarmingTasklet cacheWarmingTasklet;
     private final AllowanceSummaryTasklet allowanceSummaryTasklet;
 
     // Infrastructure Beans (병렬 처리 인프라)
-    private final TaskExecutor creditRiskTaskExecutor;
+    private final TaskExecutor allowanceTaskExecutor;
     private final ColumnRangePartitioner partitioner;
-    private final QuerydslPagingItemReader<CrRiskResult> pagingResultReader;
+    private final QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader;
 
     /**
-     * Phase 5 마스터 Job: ECL/RWA 본산출 후 자산 마감 및 편중대손충당금(IFRS9) 분석을 수행합니다.
+     * Phase 5 Job: 미래전망 ECL 본산출을 수행합니다.
      */
     @Bean
     public Job mainReportingJob() {
@@ -72,10 +54,7 @@ public class MainReportingBatchConfig {
                 .incrementer(new RunIdIncrementer())
                 .start(reportingWarmingStep())         // 0. 캐시 워밍업
                 .next(eclManagerStep())               // 1. 기대손실(ECL) 산출
-                .next(rwaManagerStep())                // 2. 위험가중자산(RWA) 산출
-                .next(allowanceSummaryStep())          // 3. 회계 대손충당금 summary 생성
-                .next(consolidationStep())             // 4. 월별 데이터 마감 처리 (RDM 적재)
-                .next(concentrationAnalysisStep())     // 5. 리스크 편중도 분석
+                .next(allowanceSummaryStep())          // 2. 회계 대손충당금 summary 생성
                 .build();
     }
 
@@ -102,7 +81,7 @@ public class MainReportingBatchConfig {
                 .partitioner("eclWorkerStep", partitioner) // ID 범위별로 구역 나누기
                 .step(eclWorkerStep())
                 .gridSize(4)
-                .taskExecutor(creditRiskTaskExecutor)      // 비동기 스레드 풀 사용
+                .taskExecutor(allowanceTaskExecutor)       // 비동기 스레드 풀 사용
                 .build();
     }
 
@@ -112,40 +91,10 @@ public class MainReportingBatchConfig {
     @Bean
     public Step eclWorkerStep() {
         return new StepBuilder("eclWorkerStep", jobRepository)
-                .<CrRiskResult, CrRiskResult>chunk(200, transactionManager) // 200건마다 DB에 커밋
+                .<AllowanceEclResult, AllowanceEclResult>chunk(200, transactionManager) // 200건마다 DB에 커밋
                 .reader(pagingResultReader)
                 .processor(eclProcessor)
-                .writer(chunk -> riskResultRepository.saveAll(new ArrayList<CrRiskResult>(chunk.getItems())))
-                .build();
-    }
-
-    /**
-     * [RWA Manager Step] 위험가중자산(Risk Weighted Asset) 산출 단계
-     * 
-     * 💡 [초보자를 위한 개념 설명]
-     * 똑같은 1억 대출이라도 삼성전자에 빌려준 돈과 담보 없는 개인에게 빌려준 돈의 '위험 무게'는 다릅니다.
-     * 국제 금융 규제 수식에 따라 이 '위험 가중치'를 적용하여 자산의 무게를 재조정하는 단계입니다.
-     */
-    @Bean
-    public Step rwaManagerStep() {
-        return new StepBuilder("rwaManagerStep", jobRepository)
-                .partitioner("rwaWorkerStep", partitioner)
-                .step(rwaWorkerStep())
-                .gridSize(4)
-                .taskExecutor(creditRiskTaskExecutor)
-                .build();
-    }
-
-    /**
-     * [RWA Worker Step] RWA 연산 워커
-     */
-    @Bean
-    public Step rwaWorkerStep() {
-        return new StepBuilder("rwaWorkerStep", jobRepository)
-                .<CrRiskResult, CrRiskResult>chunk(200, transactionManager)
-                .reader(pagingResultReader)
-                .processor(rwaProcessor)
-                .writer(chunk -> riskResultRepository.saveAll(new ArrayList<CrRiskResult>(chunk.getItems())))
+                .writer(chunk -> allowanceResultRepository.saveAll(new ArrayList<AllowanceEclResult>(chunk.getItems())))
                 .build();
     }
 
@@ -155,48 +104,5 @@ public class MainReportingBatchConfig {
                 .tasklet(allowanceSummaryTasklet, transactionManager)
                 .build();
     }
-
-    /**
-     * [Consolidation Step] 월별 통합 마감 단계
-     * 
-     * 💡 [초보자를 위한 개념 설명]
-     * 한 달 동안 고생해서 계산한 결과물들을 '박스에 담아 창고(RDM: Risk Data Mart)에 넣는' 과정입니다.
-     * 이 데이터는 나중에 금융감독원 보고서나 경영진 보고용 지표로 활용됩니다.
-     */
-    @Bean
-    public Step consolidationStep() {
-        return new StepBuilder("consolidationStep", jobRepository)
-                .tasklet((contribution, chunkContext) -> {
-                    LocalDate baseDate = BatchParameterUtils.resolveBaseDate(contribution.getStepExecution());
-                    consolidationService.consolidateMonthlyAssets(baseDate);
-                    return RepeatStatus.FINISHED;
-                }, transactionManager)
-                .build();
-    }
-
-    /**
-     * [Concentration Analysis Step] 리스크 편중도 분석 단계
-     * 
-     * 💡 [초보자를 위한 개념 설명]
-     * 계란을 한 바구니에 담았는지 검사하는 단계입니다. 
-     * **HHI(Herfindahl-Hirschman Index)** 지수를 사용하는데, 이 숫자가 0에 가까우면 골고루 분산된 것이고, 
-     * 1에 가까우면 특정 산업(예: 부동산)에 위험이 몰려있다는 뜻입니다.
-     */
-    @Bean
-    public Step concentrationAnalysisStep() {
-        return new StepBuilder("concentrationAnalysisStep", jobRepository)
-                .tasklet((contribution, chunkContext) -> {
-                    BigDecimal industryHhi = concentrationRiskService.calculateIndustryHhi();
-                    BigDecimal counterpartyHhi = concentrationRiskService.calculateCounterpartyHhi();
-
-                    log.info("✅ [리스크 편중도 분석 결과] 산업별 HHI 지수={} ({})",
-                            industryHhi,
-                            concentrationRiskService.getIndustryConcentrationStatus(industryHhi));
-                    log.info("✅ [리스크 편중도 분석 결과] 거래상대방별 HHI 지수={} ({})",
-                            counterpartyHhi,
-                            concentrationRiskService.getCounterpartyConcentrationStatus(counterpartyHhi));
-                    return RepeatStatus.FINISHED;
-                }, transactionManager)
-                .build();
-    }
 }
+

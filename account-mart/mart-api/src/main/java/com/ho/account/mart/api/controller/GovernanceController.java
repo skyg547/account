@@ -1,7 +1,7 @@
 package com.ho.account.mart.api.controller;
 
-import com.ho.account.mart.core.application.port.out.RiskAuditLogRepository;
-import com.ho.account.mart.core.domain.governance.RiskAuditLog;
+import com.ho.account.mart.core.application.port.out.AllowanceAuditLogRepository;
+import com.ho.account.mart.core.domain.governance.AllowanceAuditLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -26,13 +26,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GovernanceController {
 
-    private final RiskAuditLogRepository auditLogRepository;
+    private final AllowanceAuditLogRepository auditLogRepository;
 
     /**
      * 관제 센터를 위한 최근 시스템 감사 로그를 조회한다.
      */
     @GetMapping("/audit-logs")
-    public List<RiskAuditLog> getRecentLogs() {
+    public List<AllowanceAuditLog> getRecentLogs() {
         return auditLogRepository.findTop10ByOrderByCreatedAtDesc();
     }
 
@@ -45,15 +45,14 @@ public class GovernanceController {
 
         services.add(createStatus("Discovery-Service", "정상(UP)", "0ms"));
         services.add(createStatus("Gateway-Service", "정상(UP)", "2ms"));
-        services.add(createStatus("Credit-Risk-Service", "정상(UP)", "15ms"));
-        services.add(createStatus("Interest-Rate-Risk-Service", "정상(UP)", "8ms"));
-        services.add(createStatus("Risk-Data-Mart-Service", "정상(UP)", "0ms"));
+        services.add(createStatus("IFRS9-Allowance-ECL-Service", "정상(UP)", "15ms"));
+        services.add(createStatus("IFRS9-Allowance-Mart-Service", "정상(UP)", "0ms"));
 
         return services;
     }
 
     /**
-     * 시스템 통합 리스크 요약 스냅샷을 조회한다.
+     * IFRS 9 대손충당금 요약 스냅샷을 조회한다.
      */
     @GetMapping("/snapshot")
     public Map<String, Object> getGovernanceSnapshot() {
@@ -61,8 +60,8 @@ public class GovernanceController {
         snapshot.put("lastCalculationDate", LocalDateTime.now());
         snapshot.put("complianceStatus", "정상(COMPLIANT)");
         snapshot.put("totalExposure", 2485000000L);
-        snapshot.put("regulatoryCapital", 215000000L);
-        snapshot.put("capitalAdequacyRatio", 12.45);
+        snapshot.put("targetAllowanceAmount", 215000000L);
+        snapshot.put("coverageRatio", 12.45);
         snapshot.put("activeAlarms", 2);
         return snapshot;
     }
@@ -81,13 +80,13 @@ public class GovernanceController {
      */
     @PostMapping("/audit-logs/seed")
     @SuppressWarnings("null")
-    public RiskAuditLog seedLog() {
-        RiskAuditLog log = RiskAuditLog.builder()
-                .serviceName("CREDIT_RISK")
-                .actionType("STRESS_TEST")
+    public AllowanceAuditLog seedLog() {
+        AllowanceAuditLog log = AllowanceAuditLog.builder()
+                .serviceName("IFRS9_ALLOWANCE")
+                .actionType("ALLOWANCE_ECL_JOB")
                 .status("SUCCESS")
-                .executionParam("{\"scenario\":\"SEVERE_CRISIS\",\"baseDate\":\"2026-04-13\"}")
-                .executedBy("admin_risk")
+                .executionParam("{\"baseDate\":\"2026-04-13\",\"modelVersion\":\"v1\"}")
+                .executedBy("admin_allowance")
                 .durationMs(1450L)
                 .build();
         auditLogRepository.save(log);

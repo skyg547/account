@@ -9,8 +9,8 @@
 
 모든 문서를 처음부터 다 읽을 필요는 없습니다. 아래 순서대로 파악하는 것을 권장합니다.
 
-1. **[../BEGINNER_GUIDE.md](../BEGINNER_GUIDE.md):** 프로젝트 최상단에 있는 왕초보용 통합 가이드. 시스템의 큰 그림을 잡아줍니다.
-2. **[infrastructure-guide.md](./infrastructure-guide.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
+1. **[beginner_guide.md](./beginner_guide.md):** 프로젝트 통합 가이드. 시스템의 큰 그림을 잡아줍니다.
+2. **[infrastructure_runbook.md](./infrastructure_runbook.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
 3. **[business_workflow.md](./business_workflow.md):** 지출결의부터 전표 생성, 마감까지 실제 돈이 어떻게 흘러가는지 업무 시나리오를 다룹니다.
 4. **[domain-catalog.md](./domain-catalog.md):** 우리 시스템에 어떤 도메인(업무)들이 있는지 한눈에 보는 카탈로그입니다.
 
@@ -20,9 +20,10 @@
 
 시스템의 설계 원칙과 MSA 구조에 대해 심도 있게 알고 싶다면 아래 문서를 참고하세요.
 
+- **[architecture.md](./architecture.md):** 백엔드(헥사고날/MSA) 및 프론트엔드(Next.js) 통합 아키텍처 명세.
 - **[principles_and_policies.md](./principles_and_policies.md):** 헥사고날 아키텍처 원칙, SCD2 적용 기준 등 전사 개발 정책.
 - **[service-discovery-model.md](./service-discovery-model.md):** MSA 간 서비스 디스커버리 연동 모델.
-- **[msa-execution-and-work-plan.md](./msa-execution-and-work-plan.md):** MSA 전환 로드맵 및 운영 적용 순서.
+- **[msa_roadmap.md](./msa_roadmap.md):** MSA 전환 로드맵 및 운영 적용 순서.
 
 ---
 

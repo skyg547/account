@@ -2,11 +2,13 @@ package com.ho.account.ecl.core.infrastructure.adapter.persistence;
 
 import com.ho.account.ecl.core.application.port.out.AllowanceExposureSyncPort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.Locale;
 
 @Repository
 @RequiredArgsConstructor
@@ -18,7 +20,7 @@ public class JdbcAllowanceExposureSyncAdapter implements AllowanceExposureSyncPo
              WHERE base_date = ?
             """;
 
-    private static final String UPSERT_CUSTOMERS_FROM_SNAPSHOT = """
+    private static final String UPSERT_CUSTOMERS_FROM_SNAPSHOT_POSTGRESQL = """
             WITH ranked_customers AS (
                 SELECT customer_code,
                        customer_type,
@@ -71,7 +73,51 @@ public class JdbcAllowanceExposureSyncAdapter implements AllowanceExposureSyncPo
                    updated_at = CURRENT_TIMESTAMP
             """;
 
-    private static final String UPSERT_ACCOUNTS_FROM_SNAPSHOT = """
+    private static final String UPSERT_CUSTOMERS_FROM_SNAPSHOT_H2 = """
+            MERGE INTO cr_customers (
+                   customer_code,
+                   customer_name,
+                   customer_type,
+                   internal_rating,
+                   industry_code,
+                   country_code,
+                   is_sme,
+                   warning_level,
+                   is_active,
+                   created_at,
+                   updated_at
+            )
+            KEY (customer_code)
+            SELECT customer_code,
+                   'Allowance-' || customer_code,
+                   COALESCE(NULLIF(customer_type, ''), 'CORPORATE'),
+                   current_rating,
+                   industry_code,
+                   COALESCE(NULLIF(country_code, ''), 'KR'),
+                   COALESCE(is_sme, FALSE),
+                   COALESCE(NULLIF(warning_level, ''), 'NORMAL'),
+                   TRUE,
+                   CURRENT_TIMESTAMP,
+                   CURRENT_TIMESTAMP
+              FROM (
+                    SELECT customer_code,
+                           customer_type,
+                           is_sme,
+                           country_code,
+                           industry_code,
+                           current_rating,
+                           warning_level,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY customer_code
+                               ORDER BY exposure_id
+                           ) AS row_number
+                      FROM allowance_exposure_snapshots
+                     WHERE base_date = ?
+              ) ranked_customers
+             WHERE row_number = 1
+            """;
+
+    private static final String UPSERT_ACCOUNTS_FROM_SNAPSHOT_POSTGRESQL = """
             INSERT INTO cr_accounts (
                    account_no,
                    customer_id,
@@ -139,6 +185,56 @@ public class JdbcAllowanceExposureSyncAdapter implements AllowanceExposureSyncPo
                    updated_at = CURRENT_TIMESTAMP
             """;
 
+    private static final String UPSERT_ACCOUNTS_FROM_SNAPSHOT_H2 = """
+            MERGE INTO cr_accounts (
+                   account_no,
+                   customer_id,
+                   product_code,
+                   currency,
+                   notional_amt,
+                   outstanding_amt,
+                   prod_category,
+                   int_rate,
+                   branch_cd,
+                   biz_unit_cd,
+                   staging,
+                   delinquent_days,
+                   open_date,
+                   maturity_date,
+                   original_rating,
+                   internal_rating,
+                   is_debt_restructured,
+                   is_active,
+                   created_at,
+                   updated_at
+            )
+            KEY (account_no)
+            SELECT s.source_account_no,
+                   c.id,
+                   s.product_code,
+                   COALESCE(NULLIF(s.currency_code, ''), 'KRW'),
+                   COALESCE(s.outstanding_amount, 0) + COALESCE(s.undrawn_amount, 0),
+                   COALESCE(s.outstanding_amount, 0),
+                   s.product_category,
+                   s.interest_rate,
+                   s.branch_code,
+                   s.legal_entity_code,
+                   COALESCE(NULLIF(s.staging, ''), 'STAGE1'),
+                   COALESCE(s.delinquent_days, 0),
+                   COALESCE(s.open_date, s.base_date),
+                   s.maturity_date,
+                   s.original_rating,
+                   s.current_rating,
+                   COALESCE(s.debt_restructured, FALSE),
+                   TRUE,
+                   CURRENT_TIMESTAMP,
+                   CURRENT_TIMESTAMP
+              FROM allowance_exposure_snapshots s
+              JOIN cr_customers c
+                ON c.customer_code = s.customer_code
+             WHERE s.base_date = ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -149,11 +245,24 @@ public class JdbcAllowanceExposureSyncAdapter implements AllowanceExposureSyncPo
 
     @Override
     public int upsertCustomersFromSnapshot(LocalDate baseDate) {
-        return jdbcTemplate.update(UPSERT_CUSTOMERS_FROM_SNAPSHOT, Date.valueOf(baseDate));
+        return jdbcTemplate.update(
+                isH2() ? UPSERT_CUSTOMERS_FROM_SNAPSHOT_H2 : UPSERT_CUSTOMERS_FROM_SNAPSHOT_POSTGRESQL,
+                Date.valueOf(baseDate));
     }
 
     @Override
     public int upsertAccountsFromSnapshot(LocalDate baseDate) {
-        return jdbcTemplate.update(UPSERT_ACCOUNTS_FROM_SNAPSHOT, Date.valueOf(baseDate));
+        return jdbcTemplate.update(
+                isH2() ? UPSERT_ACCOUNTS_FROM_SNAPSHOT_H2 : UPSERT_ACCOUNTS_FROM_SNAPSHOT_POSTGRESQL,
+                Date.valueOf(baseDate));
+    }
+
+    private boolean isH2() {
+        Boolean h2 = jdbcTemplate.execute((ConnectionCallback<Boolean>) connection ->
+                connection.getMetaData()
+                        .getDatabaseProductName()
+                        .toLowerCase(Locale.ROOT)
+                        .contains("h2"));
+        return Boolean.TRUE.equals(h2);
     }
 }

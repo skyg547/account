@@ -9,10 +9,10 @@ import java.time.LocalDateTime;
 
 /**
  * [ODS] 금리 상세 정보 (Rate Info) 엔티티.
- * 금리 리스크(IRRBB) 산출을 위한 VaR, 민감도, 갭 분석 등의 핵심 입력 금리 데이터를 관리합니다.
+ * IFRS 9 대손충당금 산출에 필요한 금리 입력 데이터를 관리합니다.
  * 
  * 💡 [초보자를 위한 개념 설명]
- * 이 테이블은 금리 리스크를 계산할 때 쓰는 '금리 명부'입니다.
+ * 이 테이블은 대손충당금 할인율과 금리 속성을 계산할 때 쓰는 '금리 명부'입니다.
  * 시장에서 공시되는 각종 기준금리뿐만 아니라, 은행 내부에서 정의한 가중평균금리 등을
  * 일별/만기별(Tenor)로 관리합니다. 이 금리 정보가 정확해야
  * 현재 우리 은행이 금리 변화에 얼마나 취약한지(VaR)를 비로소 계산할 수 있습니다.
@@ -65,3 +65,5 @@ public class OdsRateInfoEntity {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+
+

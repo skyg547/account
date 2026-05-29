@@ -40,7 +40,7 @@ public class OdsCustomerMstEntity {
     private String customerType;
 
     @Column(name = "country_cd", length = 3) 
-    @Comment("국가코드: ISO 국가 코드 (국가리스크 측정 시 사용)")
+    @Comment("국가코드: ISO 국가 코드 (국가별 대손요소 측정 시 사용)")
     private String countryCode;
 
     @Column(name = "internal_rating", length = 10) 
@@ -56,7 +56,7 @@ public class OdsCustomerMstEntity {
     private String externalRating;
 
     @Column(name = "industry_cd", length = 20) 
-    @Comment("산업분류코드: 특정 산업군에 대한 집중도 대손충당금(IFRS9) 분석 시 사용")
+    @Comment("산업분류코드: 특정 산업군에 대한 산업군별 대손충당금(IFRS9) 분석 시 사용")
     private String industryCode;
 
     @Column(name = "industry_nm", length = 100) 
@@ -64,7 +64,7 @@ public class OdsCustomerMstEntity {
     private String industryName;
 
     @Column(name = "is_sme")
-    @Comment("중소기업여부: 국제 금융 규제상 SME 차주에 대한 기업규모 보정(Size Adjustment) 적용 여부 결정")
+    @Comment("중소기업여부: IFRS 9 모델 기준 SME 차주에 대한 기업규모 보정(Size Adjustment) 적용 여부 결정")
     private Boolean isSme;
 
     @Column(name = "branch_cd", length = 10)
@@ -75,3 +75,4 @@ public class OdsCustomerMstEntity {
     @Comment("채무상태코드: 정상, 연체, 부도(Default) 상태 분류")
     private String creditStatusCd;
 }
+

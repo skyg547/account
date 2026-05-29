@@ -6,7 +6,7 @@ import com.ho.account.ecl.core.infrastructure.adapter.persistence.CrBatchQueryPr
 import com.ho.account.ecl.core.infrastructure.adapter.persistence.CrBatchQueryProvider.LongRange;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import com.ho.account.ecl.core.domain.exposure.CrCustomer;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -15,12 +15,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcOperations;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import javax.sql.DataSource;
 
 /**
@@ -64,7 +64,9 @@ public class BatchInfrastructureConfig {
      */
     @Bean
     public PlatformTransactionManager transactionManager() {
-        return new DataSourceTransactionManager(dataSource);
+        JpaTransactionManager transactionManager = new JpaTransactionManager(entityManagerFactory);
+        transactionManager.setDataSource(dataSource);
+        return transactionManager;
     }
 
     /**
@@ -73,7 +75,7 @@ public class BatchInfrastructureConfig {
      *    여러 명의 일꾼(스레드)이 동시에 나누어 일할 수 있게 해줍니다.
      */
     @Bean
-    public TaskExecutor creditRiskTaskExecutor(
+    public TaskExecutor allowanceTaskExecutor(
             @Value("${spring.profiles.active:default}") String activeProfile) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         
@@ -87,7 +89,7 @@ public class BatchInfrastructureConfig {
         }
         
         executor.setQueueCapacity(100);
-        executor.setThreadNamePrefix("CR-Worker-");
+        executor.setThreadNamePrefix("ALW-Worker-");
         executor.initialize();
         return executor;
     }
@@ -129,11 +131,11 @@ public class BatchInfrastructureConfig {
 
     /**
      * [QuerydslPagingItemReader] 대손충당금(IFRS9) 산출 결과 조회용 리더
-     * 이미 생성된 산출 결과 레코드(CrRiskResult)를 읽어와서 후속 연산(EAD/LGD/RWA)을 수행할 때 사용합니다.
+     * 이미 생성된 산출 결과 레코드(AllowanceEclResult)를 읽어와서 후속 연산(EAD/LGD/ECL)을 수행할 때 사용합니다.
      */
     @Bean
     @StepScope
-    public QuerydslPagingItemReader<CrRiskResult> pagingResultReader(
+    public QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader(
             @Value("#{stepExecutionContext['minValue']}") Long minValue,
             @Value("#{stepExecutionContext['maxValue']}") Long maxValue) {
 
@@ -169,3 +171,4 @@ public class BatchInfrastructureConfig {
         );
     }
 }
+

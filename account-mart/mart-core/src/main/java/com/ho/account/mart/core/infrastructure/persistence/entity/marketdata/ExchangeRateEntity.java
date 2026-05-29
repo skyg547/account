@@ -11,11 +11,11 @@ import java.time.LocalDateTime;
 
 /**
  * [Entity] 환율 (Exchange Rate) 엔티티.
- * 기준 통화(Base) 대비 상대 통화(Quote)의 환율 정보를 저장하며, 다통화 기반 리스크 포지션 통합 시 필수적인 데이터입니다.
+ * 기준 통화(Base) 대비 상대 통화(Quote)의 환율 정보를 저장하며, 다통화 기반 대손충당금 입력 포지션 통합 시 필수적인 데이터입니다.
  *
  * 💡 [초보자를 위한 개념 설명]
  * 이 테이블은 "1달러가 한국 돈으로 얼마인가 "를 알려주는 기준표입니다.
- * 은행은 전 세계 다양한 통화로 대출을 해주기 때문에, 리스크를 통합해서 관리하려면
+ * 은행은 전 세계 다양한 통화로 대출을 해주기 때문에, 대손충당금 입력을 표준화하려면
  * 모든 돈을 하나의 통화(예: KRW)로 환산해서 합산해야 합니다.
  * 이때 사용하는 것이 환율 정보이며, 매일매일 시장 정보를 수신하여 업데이트합니다.
  */
@@ -75,3 +75,5 @@ public class ExchangeRateEntity {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+
+

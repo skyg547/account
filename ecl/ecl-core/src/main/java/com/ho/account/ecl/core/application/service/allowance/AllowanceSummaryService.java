@@ -42,7 +42,7 @@ public class AllowanceSummaryService {
         }
 
         allowanceSummaryBuildPort.deleteByBaseDate(baseDate);
-        int summaryRowCount = allowanceSummaryBuildPort.insertSummariesFromRiskResults(baseDate, runId, modelVersion);
+        int summaryRowCount = allowanceSummaryBuildPort.insertSummariesFromAllowanceResults(baseDate, runId, modelVersion);
 
         log.info("[Allowance Summary] rebuilt. baseDate={}, runId={}, sourceResults={}, summaryRows={}",
                 baseDate, runId, sourceResultCount, summaryRowCount);

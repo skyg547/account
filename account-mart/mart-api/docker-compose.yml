@@ -1,26 +1,26 @@
 version: '3.8'
 
 services:
-  risk-data-mart-api:
+  ifrs9-allowance-mart-api:
     build:
       context: ./
       dockerfile: Dockerfile.simple
-    container_name: risk-data-mart-api
+    container_name: ifrs9-allowance-mart-api
     ports:
       - "8085:8085"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/market_data_db
-      - SPRING_DATASOURCE_USERNAME=risk_user
-      - SPRING_DATASOURCE_PASSWORD=risk_password
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ifrs9_allowance_mart_db
+      - SPRING_DATASOURCE_USERNAME=allowance_user
+      - SPRING_DATASOURCE_PASSWORD=allowance_password
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
       - SPRING_BATCH_JDBC_PLATFORM=postgresql
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
     networks:
-      - risk-network
+      - allowance-network
 
 networks:
-  risk-network:
+  allowance-network:
     external: true
-    name: risk-network
+    name: allowance-network

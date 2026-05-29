@@ -129,8 +129,8 @@ CREATE TABLE ods_dq_audit (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Section 4. 통합 재무 마트 (Integrated Risk Mart - CDM)
-CREATE TABLE dim_integrated_position_master (
+-- Section 4. 대손충당금 입력 포지션 마트 (Allowance CDM)
+CREATE TABLE allowance_input_positions (
     base_dt DATE NOT NULL,
     acc_no VARCHAR(50) NOT NULL,
     customer_code VARCHAR(50) NOT NULL,
@@ -175,9 +175,6 @@ CREATE TABLE dim_integrated_position_master (
     pd NUMERIC(10,8),
     lgd NUMERIC(10,8),
     expected_loss NUMERIC(19,4),
-    unexpected_loss NUMERIC(19,4),
-    rwa_sa NUMERIC(19,4),
-    rwa_irb NUMERIC(19,4),
     branch_cd VARCHAR(10),
     biz_unit_cd VARCHAR(10),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -185,7 +182,7 @@ CREATE TABLE dim_integrated_position_master (
     PRIMARY KEY (base_dt, acc_no)
 ) PARTITION BY RANGE (base_dt);
 
-CREATE TABLE dim_integrated_position_master_2026m04 PARTITION OF dim_integrated_position_master 
+CREATE TABLE allowance_input_positions_2026m04 PARTITION OF allowance_input_positions 
     FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
 
 CREATE TABLE batch_job_audit (
@@ -199,6 +196,7 @@ CREATE TABLE batch_job_audit (
     end_time TIMESTAMP
 );
 
-CREATE INDEX idx_mart_base_dt ON dim_integrated_position_master(base_dt);
-CREATE INDEX idx_mart_acc_no ON dim_integrated_position_master(acc_no);
+CREATE INDEX idx_mart_base_dt ON allowance_input_positions(base_dt);
+CREATE INDEX idx_mart_acc_no ON allowance_input_positions(acc_no);
 CREATE INDEX idx_dq_base_dt ON ods_dq_audit(base_dt);
+

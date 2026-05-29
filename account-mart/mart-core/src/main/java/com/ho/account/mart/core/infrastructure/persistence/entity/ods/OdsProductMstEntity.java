@@ -42,7 +42,7 @@ public class OdsProductMstEntity {
     @Column(name = "default_rate_type", length = 10) 
     private String defaultRateType;
 
-    /** 금리 유형 (리스크 관리용) */
+    /** 금리 유형 (대손충당금 산출용) */
     @Column(name = "rate_type", length = 10)
     private String rateType;
 
@@ -50,7 +50,7 @@ public class OdsProductMstEntity {
     @Column(name = "default_payment_freq") 
     private Integer defaultPaymentFreq;
 
-    /** 이자 지급 주기 (리스크 관리용) */
+    /** 이자 지급 주기 (대손충당금 산출용) */
     @Column(name = "payment_freq")
     private Integer paymentFreq;
 
@@ -75,3 +75,4 @@ public class OdsProductMstEntity {
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+

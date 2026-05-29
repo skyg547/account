@@ -4,8 +4,8 @@ import com.ho.account.ecl.batch.processor.EadCrmProcessor;
 import com.ho.account.ecl.batch.support.CacheWarmingTasklet;
 import com.ho.account.ecl.batch.support.ColumnRangePartitioner;
 import com.ho.account.ecl.batch.support.QuerydslPagingItemReader;
-import com.ho.account.ecl.core.application.port.out.CrRiskResultRepository;
-import com.ho.account.ecl.core.domain.result.CrRiskResult;
+import com.ho.account.ecl.core.application.port.out.AllowanceEclResultRepository;
+import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -21,12 +21,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.util.ArrayList;
 
 /**
- * [Phase 4] 노출액(EAD) 및 리스크 완화(CRM/LGD) 산출 배치 (Exposure & Loss Phase)
+ * [Phase 4] 노출액(EAD) 및 손실 완화(CRM/LGD) 산출 배치 (Exposure & Loss Phase)
  * 
  * 💡 [초보자를 위한 개념 설명]
  * 이 단계에서는 고객이 부도가 났을 때 실제로 은행이 얼마를 떼일지(위험액)를 계산합니다.
  * 1. EAD: 부도 시점에 고객이 빌려 쓰고 있을 총금액(노출액)을 추정합니다.
- * 2. CRM: 담보가 있다면 그만큼 위험이 줄어듭니다(리스크 완율).
+ * 2. CRM: 담보가 있다면 그만큼 예상손실이 줄어듭니다(손실 완화).
  * 3. LGD: 부도가 나더라도 담보 처분 등을 통해 회수하지 못하고 최종적으로 손실을 볼 비율을 정합니다.
  * 
  * 💡 [멀티스레드 처리 가이드]
@@ -46,21 +46,21 @@ public class ExposureLgdBatchConfig {
     /** 💡 [초보자 가이드] EAD(노출액)와 CRM(담보효과)을 계산하는 핵심 비즈니스 로직입니다. */
     private final EadCrmProcessor eadCrmProcessor;
     
-    /** 💡 [초보자 가이드] 최종 산출된 리스크 결과를 DB에 저장하는 저장소입니다. */
-    private final CrRiskResultRepository riskResultRepository;
+    /** 💡 [초보자 가이드] 최종 산출된 대손충당금 결과를 DB에 저장하는 저장소입니다. */
+    private final AllowanceEclResultRepository allowanceResultRepository;
     
     /** 💡 [초보자 가이드] 배치 시작 전, 자주 쓰이는 데이터를 메모리에 미리 올려두는 작업입니다. */
     private final CacheWarmingTasklet cacheWarmingTasklet;
 
     // Infrastructure Beans (병렬 처리를 위한 동적 파티셔닝 빈)
     /** 💡 [초보자 가이드] 여러 작업을 동시에 실행하기 위한 스레드 풀(일꾼 그룹)입니다. */
-    private final TaskExecutor creditRiskTaskExecutor;
+    private final TaskExecutor allowanceTaskExecutor;
     
     /** 💡 [초보자 가이드] 전체 데이터를 ID 범위별로 쪼개어 여러 워커에게 배분하는 분할기입니다. */
     private final ColumnRangePartitioner partitioner;
     
     /** 💡 [초보자 가이드] DB에서 대손충당금(IFRS9) 산출 대상 데이터를 페이지 단위로 읽어오는 도구입니다. */
-    private final QuerydslPagingItemReader<CrRiskResult> pagingResultReader;
+    private final QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader;
 
     /**
      * Phase 4 마스터 Job: EAD와 LGD를 병렬로 산출합니다.
@@ -96,7 +96,7 @@ public class ExposureLgdBatchConfig {
                 .partitioner("eadCrmWorkerStep", partitioner)
                 .step(eadCrmWorkerStep())
                 .gridSize(4)
-                .taskExecutor(creditRiskTaskExecutor)
+                .taskExecutor(allowanceTaskExecutor)
                 .build();
     }
 
@@ -107,10 +107,12 @@ public class ExposureLgdBatchConfig {
     @Bean
     public Step eadCrmWorkerStep() {
         return new StepBuilder("eadCrmWorkerStep", jobRepository)
-                .<CrRiskResult, CrRiskResult>chunk(200, transactionManager) // 200건 단위 처리
+                .<AllowanceEclResult, AllowanceEclResult>chunk(200, transactionManager) // 200건 단위 처리
                 .reader(pagingResultReader)                                  // 이전 단계 결과를 읽기
                 .processor(eadCrmProcessor)                                  // 핵심 연산(EAD/LGD)
-                .writer(chunk -> riskResultRepository.saveAll(new ArrayList<CrRiskResult>(chunk.getItems())))
+                .writer(chunk -> allowanceResultRepository.saveAll(new ArrayList<AllowanceEclResult>(chunk.getItems())))
                 .build();
     }
 }
+
+

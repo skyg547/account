@@ -16,7 +16,7 @@ import java.time.LocalDate;
  * [CDM Sync Tasklet] 통합 마트 데이터 동기화 태스크릿
  * 
  * 💡 [초보자를 위한 가이드]
- * 본격적인 리스크 계산 요리를 시작하기 전에, 마트(CDM)라는 공용 창고에서 
+ * 본격적인 대손충당금 계산 요리를 시작하기 전에, 마트(CDM)라는 공용 창고에서 
  * 오늘 쓸 재료들을 우리 주방(신용결산 대손 엔진 DB)으로 옮겨오는 작업을 수행합니다.
  */
 @Slf4j
@@ -38,3 +38,5 @@ public class CdmSyncTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 }
+
+

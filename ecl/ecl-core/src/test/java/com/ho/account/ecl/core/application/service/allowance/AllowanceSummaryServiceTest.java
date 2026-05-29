@@ -81,7 +81,7 @@ class AllowanceSummaryServiceTest {
         }
 
         @Override
-        public int insertSummariesFromRiskResults(LocalDate baseDate, String runId, String modelVersion) {
+        public int insertSummariesFromAllowanceResults(LocalDate baseDate, String runId, String modelVersion) {
             inserted = true;
             return insertedCount;
         }

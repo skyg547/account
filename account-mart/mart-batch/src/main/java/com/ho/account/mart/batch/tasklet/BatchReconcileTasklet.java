@@ -17,7 +17,7 @@ import java.time.LocalDate;
  * 
  * 💡 [초보자를 위한 개념 설명]
  * 대사(Reconciliation)란 마치 가계부를 맞추는 것과 같습니다.
- * "은행 전체 장부"(총계정원장, GL)와 우리가 리스크 측정을 위해 만든 "상세 내역"(리스크 데이터 마트, SL)을
+ * "은행 전체 장부"(총계정원장, GL)와 우리가 대손충당금 산출을 위해 만든 "상세 내역"(대손충당금 입력 마트, SL)을
  * 비교하여 모든 수치가 정확히 일치하는지 확인하는 과정입니다.
  * 만약 원장에는 100억인데 마트에는 99억뿐이라면, 데이터 누락이나 가공 오류가 있음을 의미하므로 즉시 조치가 필요합니다.
  */
@@ -41,3 +41,5 @@ public class BatchReconcileTasklet implements Tasklet {
         return RepeatStatus.FINISHED;
     }
 }
+
+

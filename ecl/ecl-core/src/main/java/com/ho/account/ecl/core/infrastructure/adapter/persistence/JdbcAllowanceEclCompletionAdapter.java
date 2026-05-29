@@ -13,7 +13,7 @@ import java.time.LocalDate;
 public class JdbcAllowanceEclCompletionAdapter implements AllowanceEclCompletionPort {
 
     private static final String CALCULATED_ECL_PREDICATE = """
-            FROM cr_risk_results
+            FROM allowance_ecl_results
            WHERE base_date = ?
              AND COALESCE(weighted_ecl, expected_loss) IS NOT NULL
             """;
@@ -21,7 +21,7 @@ public class JdbcAllowanceEclCompletionAdapter implements AllowanceEclCompletion
     private static final String COUNT_CALCULATED_ECL_RESULTS = "SELECT COUNT(*) " + CALCULATED_ECL_PREDICATE;
 
     private static final String MARK_CALCULATED_ECL_COMPLETED = """
-            UPDATE cr_risk_results
+            UPDATE allowance_ecl_results
                SET status = 'COMPLETED',
                    calculation_completed_at = CURRENT_TIMESTAMP
              WHERE base_date = ?
@@ -44,3 +44,4 @@ public class JdbcAllowanceEclCompletionAdapter implements AllowanceEclCompletion
         return jdbcTemplate.update(MARK_CALCULATED_ECL_COMPLETED, Date.valueOf(baseDate));
     }
 }
+
