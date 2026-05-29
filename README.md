@@ -112,37 +112,37 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph "External Clients"
-        UI[Frontend App / Browser]
+        UI["Frontend App / Browser"]
     end
 
     subgraph "API Gateway Layer"
         GW["API Gateway (Port: 8080)"]
-        CB[Resilience4j (Circuit Breaker)]
+        CB["Resilience4j (Circuit Breaker)"]
         GW -.-> CB
     end
 
     subgraph "Service Discovery & Config"
-        EUREKA((Eureka Server Port: 8761))
-        CONFIG[Config Server Port: 8888]
+        EUREKA(("Eureka Server Port: 8761"))
+        CONFIG["Config Server Port: 8888"]
     end
 
     subgraph "Backend Microservices"
-        MS1[Master Data Service]
-        MS2[Journal Ledger Service]
-        MS3[Closing & Reporting]
-        MS4[Finance Subledgers]
+        MS1["Master Data Service"]
+        MS2["Journal Ledger Service"]
+        MS3["Closing & Reporting"]
+        MS4["Finance Subledgers"]
     end
 
     subgraph "Data & Messaging"
-        DB[(PostgreSQL)]
-        KAFKA[[Apache Kafka Message Broker]]
-        REDIS[(Redis Cache & Lock)]
+        DB[("PostgreSQL")]
+        KAFKA[["Apache Kafka Message Broker"]]
+        REDIS[("Redis Cache & Lock")]
     end
 
     subgraph "Observability (모니터링 & 로깅)"
-        ZIPKIN[Zipkin Trace ID]
-        ELK{{ELK Stack Elasticsearch, Logstash, Kibana}}
-        PROM[Prometheus & Grafana]
+        ZIPKIN["Zipkin Trace ID"]
+        ELK{{"ELK Stack Elasticsearch, Logstash, Kibana"}}
+        PROM["Prometheus & Grafana"]
     end
 
     UI -->|HTTPS Request| GW
