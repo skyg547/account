@@ -138,6 +138,68 @@ sequenceDiagram
 - **과정**: 대출 실행 -> 부대비용 발생 -> EIR 기반 상각 스케줄 생성 -> 매월 이자 수익 및 비용 상각 배치
 - **통제**: 중도 상환 시 상각 스케줄 재계산 및 멱등성 보장.
 
+### 3.4 대손충당금(IFRS9) 산출 E2E 프로세스 (Frontend to DB)
+재무 담당자가 프론트엔드 대시보드에서 대손충당금 산출을 실행하고, 최종 결과를 조회하기까지의 전체 아키텍처 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 재무 담당자
+    participant UI as Frontend (Next.js)
+    participant GW as API Gateway
+    participant ECL_API as ECL Service (API)
+    participant BATCH as Spring Batch (allowanceEclJob)
+    participant MART as Account Mart (ODS/CDM)
+    participant DB as PostgreSQL DB
+    
+    rect rgb(240, 248, 255)
+        Note right of User: 1. 산출 실행 요청 (Batch Trigger)
+        User->>UI: 대손충당금 산출 버튼 클릭
+        UI->>GW: POST /api/v1/ecl/run
+        GW->>ECL_API: API 라우팅
+        ECL_API->>BATCH: JobLauncher.run(allowanceEclJob)
+    end
+    
+    rect rgb(255, 240, 245)
+        Note right of BATCH: 2. 데이터 적재 및 정합성 검증 (Phase 1)
+        BATCH->>MART: 여신/고객 기초 데이터 스냅샷 동기화 요청
+        MART-->>BATCH: ODS/CDM Data 반환
+        BATCH->>DB: allowance_exposure_snapshots 테이블 적재
+        BATCH->>BATCH: Data Quality (DQ) 룰 검증
+    end
+    
+    rect rgb(255, 250, 205)
+        Note right of BATCH: 3. IFRS9 대손충당금 모델 산출 (Phase 2)
+        BATCH->>BATCH: Stage 판정 (연체일수 기반 1,2,3 단계)
+        BATCH->>BATCH: 부도율(PD), 부도시손실률(LGD), 부도시노출액(EAD) 계산
+        BATCH->>BATCH: 거시경제 미래전망 가중평균 ECL 산출
+        BATCH->>DB: cr_risk_results 테이블에 최종 산출 내역 저장
+    end
+    
+    rect rgb(240, 255, 240)
+        Note right of BATCH: 4. 회계 결산 집계 (Phase 3)
+        BATCH->>DB: INSERT INTO allowance_summary SELECT ...
+        Note right of DB: 산출 결과를 회계 계정과 매핑하여 요약본 생성
+        BATCH-->>ECL_API: Batch Status (COMPLETED) 반환
+        ECL_API-->>GW: 200 OK (JobId)
+        GW-->>UI: 실행 성공 응답
+        UI-->>User: 산출 완료 알림
+    end
+    
+    rect rgb(245, 245, 255)
+        Note right of User: 5. 대손충당금 대시보드 조회
+        User->>UI: 결과 대시보드 페이지 진입
+        UI->>GW: GET /api/v1/ecl/summary
+        GW->>ECL_API: API 라우팅
+        ECL_API->>DB: SELECT * FROM allowance_summary
+        DB-->>ECL_API: 집계 데이터 반환
+        ECL_API-->>GW: JSON Response
+        GW-->>UI: JSON Response
+        UI->>UI: Recharts 기반 시각화 렌더링
+        UI-->>User: IFRS9 분석 대시보드 제공
+    end
+```
+
 ---
 
 ## 4. 운영 및 예외 정책
