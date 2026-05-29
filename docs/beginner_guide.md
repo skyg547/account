@@ -1,0 +1,85 @@
+# 🐣 모던 재무 시스템 초보자 가이드 (Beginner Guide)
+
+이 문서는 처음 합류한 개발자와 업무 담당자가 **"무엇을 먼저 읽고, 어떤 순서로 변경하고, 어떻게 검증할지"**를 빠르게 이해하도록 만든 입문 가이드입니다. 시스템 전체 컨텍스트와 핵심 실행 모듈인 `app`에 대한 설명을 포함합니다.
+
+---
+
+## 1. 시스템 전체 이해 (System Overview)
+
+우리 프로젝트는 회계/재무 업무를 도메인 단위로 분리한 **멀티모듈 기반의 마이크로서비스 지향 시스템**입니다.
+
+### 1.1 핵심 설계 원칙
+- **헥사고날 아키텍처 (Hexagonal Architecture):** Port/Adapter 패턴을 준수하여 비즈니스 로직과 기술을 격리합니다.
+- **DDD (Domain-Driven Design):** 도메인 규칙은 `domain` 패키지에, 유즈케이스 조합은 `application/service`에 배치합니다.
+- **의존성 격리:** 외부 기술(JPA, API, 메시징)은 `adapter` 또는 `infrastructure` 계층으로 격리합니다.
+- **정밀도 보장:** 모든 금액 계산은 반드시 `BigDecimal`을 사용합니다.
+
+### 1.2 `app` 모듈의 역할
+`app` 모듈은 전체 시스템의 **"실행 껍데기"**이자 본체입니다. 
+- 각 업무 모듈(부품)을 조립하여 실제로 구동시키는 역할을 합니다.
+- 시스템의 메인 클래스(`AccountApplication.java`)와 공통 설정(`application.yml`)을 관리합니다.
+- `app`이 빠지면 각 모듈은 독립적인 라이브러리일 뿐, 통합된 시스템으로 실행되지 않습니다.
+
+---
+
+## 2. 모듈을 읽는 권장 순서
+
+새로운 모듈을 파악할 때는 아래 순서를 따르는 것이 가장 효율적입니다.
+
+1.  **`README.md`**: 모듈의 목적과 개요 확인
+2.  **`docs/beginner_guide.md`**: 해당 모듈 전용 가이드
+3.  **`docs/process-flow.md`**: 비즈니스 흐름도 (Mermaid)
+4.  **`docs/schema.md`**: 데이터베이스 설계도
+5.  **코드 계층**: `domain` (규칙) -> `application/port` (계약) -> `application/service` (흐름) -> `adapter` (구현)
+
+---
+
+## 3. 개발자 작업 및 검증 순서
+
+### 3.1 작업 프로세스
+1.  변경하려는 모듈의 문서를 먼저 정독합니다.
+2.  **API 변경 시**: `Controller -> DTO -> Service -> Test` 순으로 영향 범위를 파악합니다.
+3.  **배치 변경 시**: 파라미터, 재실행 가능성(멱등성), 정합성 검증 포인트를 정리합니다.
+4.  **코드 수정**: 헥사고날 레이어 원칙을 준수하여 코딩합니다.
+5.  **문서 갱신**: 코드 수정과 동시에 관련 마크다운 문서를 최신화합니다.
+
+### 3.2 필수 실행 및 검증 명령
+```bash
+# 전체 프로젝트 목록 확인
+./gradlew projects --console=plain
+
+# 특정 모듈 빌드 및 테스트 (예: 세무, 지출결의)
+./gradlew :tax:build --console=plain
+./gradlew :expenditure-resolution:build --console=plain
+
+# 거버넌스 및 내부 통제 테스트
+./gradlew :governance:test --console=plain
+```
+
+---
+
+## 4. 환경 설정 및 프로파일 (Spring Profile)
+
+`app` 모듈의 `src/main/resources` 하위 설정을 통해 실행 환경을 제어합니다.
+
+- **기본 (`application.yml`)**: 공통 베이스 설정.
+- **개발 (`dev`)**: `application-dev.yml` 사용. H2 메모리 DB, H2 콘솔, 상세 SQL 로그, Actuator 전체 노출 등 디버깅 편의성 위주.
+- **운영 (`prod`)**: `application-prod.yml` 사용. MySQL 연동, 환경변수 기반 보안 설정, 스키마 검증(`validate`) 모드 등 안정성 위주.
+
+> **💡 주의:** 현재 기본 활성 프로파일은 `local`로 설정되어 있으나, 별도의 `application-local.yml`이 없을 수 있습니다. 이 경우 `application.yml`의 기본값이 적용됩니다.
+
+---
+
+## 5. 변경 전/후 체크리스트
+
+### 🏁 변경 전
+- [ ] 비즈니스 규칙이 도메인/서비스 경계에 맞게 위치하는가?
+- [ ] 금액 계산 로직이 포함된다면 `BigDecimal`을 사용했는가?
+- [ ] 타 모듈 엔티티를 직접 참조하지 않고 ID나 Port를 사용하는가?
+
+### ✅ 변경 후
+- [ ] 관련 단위/통합 테스트를 통과했는가?
+- [ ] 문서(`README`, `docs/*.md`)를 코드와 일치하게 수정했는가?
+- [ ] 남은 리스크(미구현 어댑터, 정책 미확정 등)를 `WORKLOG.md` 또는 `@todo`로 남겼는가?
+
+이 가이드를 준수함으로써 신규 인원도 시스템의 품질을 유지하며 빠르게 협업에 참여할 수 있습니다.

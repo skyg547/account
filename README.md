@@ -122,8 +122,8 @@ flowchart TD
     end
 
     subgraph "Service Discovery & Config"
-        EUREKA((Eureka Server\nPort: 8761))
-        CONFIG[Config Server\nPort: 8888]
+        EUREKA((Eureka Server Port: 8761))
+        CONFIG[Config Server Port: 8888]
     end
 
     subgraph "Backend Microservices"
@@ -256,3 +256,4 @@ docker-compose logs -f
 4. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
+
