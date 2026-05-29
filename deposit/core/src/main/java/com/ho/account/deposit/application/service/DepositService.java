@@ -1,13 +1,20 @@
 package com.ho.account.deposit.application.service;
 
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.deposit.application.port.in.OpenAccountUseCase;
+import com.ho.account.deposit.application.port.out.DepositAccountMappingPort;
 import com.ho.account.deposit.application.port.out.DepositAccountPersistencePort;
 import com.ho.account.deposit.domain.DepositAccount;
 import com.ho.account.deposit.domain.DepositStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -27,11 +34,15 @@ public class DepositService implements OpenAccountUseCase {
 
     // JPA Repository 대신 아웃바운드 포트(인터페이스)에 의존합니다. (DIP: 의존성 역전 원칙)
     private final DepositAccountPersistencePort depositAccountPersistencePort;
+    private final DepositAccountMappingPort depositAccountMappingPort;
+    private final MasterDataQueryPort masterDataQueryPort;
+    private final JournalPostingPort journalPostingPort;
 
     @Override
     @Transactional
     public String openAccount(OpenAccountCommand command) {
         String accountNumber = generateAccountNumber();
+        LocalDate openedAt = LocalDate.now();
         
         DepositAccount account = new DepositAccount();
         account.setAccountNumber(accountNumber);
@@ -39,22 +50,64 @@ public class DepositService implements OpenAccountUseCase {
         account.setProductCode(command.productCode());
         account.setCurrencyCode(command.currencyCode());
         account.setInterestRate(command.interestRate());
+        account.setStatus(DepositStatus.ACTIVE);
+        account.setOpenedAt(openedAt);
+        account.setValidFrom(openedAt);
+        account.setValidTo(LocalDate.of(9999, 12, 31));
         
         // 초기 입금액 처리를 도메인 메서드를 통해 수행하여 무결성 보장
-        if (command.initialDeposit() != null && command.initialDeposit().signum() > 0) {
+        if (hasInitialDeposit(command.initialDeposit())) {
             account.deposit(command.initialDeposit());
         }
         
-        account.setStatus(DepositStatus.ACTIVE);
-        account.setOpenedAt(LocalDate.now());
-        account.setValidFrom(LocalDate.now());
-        account.setValidTo(LocalDate.of(9999, 12, 31));
-        
-        depositAccountPersistencePort.save(account);
-        
-        // TODO: Create Journal Entry for initial deposit via JournalUseCase Port
+        DepositAccount savedAccount = depositAccountPersistencePort.save(account);
+
+        if (hasInitialDeposit(command.initialDeposit())) {
+            postInitialDepositJournal(savedAccount, command.initialDeposit());
+        }
         
         return accountNumber;
+    }
+
+    private boolean hasInitialDeposit(BigDecimal amount) {
+        return amount != null && amount.signum() > 0;
+    }
+
+    private void postInitialDepositJournal(DepositAccount account, BigDecimal amount) {
+        DepositAccountMappingPort.InitialDepositAccounts accounts =
+                depositAccountMappingPort.resolveInitialDepositAccounts(account);
+        requireAccounts(accounts.requiredAccountCodes());
+
+        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+                account.getOpenedAt(),
+                account.getOpenedAt(),
+                "Initial deposit: " + account.getAccountNumber(),
+                "DEPOSIT_INITIAL_DEPOSIT",
+                account.getCurrencyCode(),
+                null,
+                resolveActor(account),
+                resolveActor(account),
+                "DEPOSIT_ACCOUNT",
+                account.getAccountNumber(),
+                List.of(
+                        new JournalLineCommand("DEBIT", accounts.cashAccountCode(), amount, amount, null,
+                                account.getCustomerCode(), "Initial cash deposit"),
+                        new JournalLineCommand("CREDIT", accounts.depositLiabilityAccountCode(), amount, amount, null,
+                                account.getCustomerCode(), "Deposit liability recognized"))));
+    }
+
+    private void requireAccounts(List<String> accountCodes) {
+        for (String accountCode : accountCodes) {
+            masterDataQueryPort.findAccountSubject(accountCode)
+                    .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
+    }
+
+    private String resolveActor(DepositAccount account) {
+        if (account.getCreatedBy() != null && !account.getCreatedBy().isBlank()) {
+            return account.getCreatedBy().trim();
+        }
+        return "SYSTEM";
     }
 
     private String generateAccountNumber() {

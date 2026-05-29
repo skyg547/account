@@ -6,7 +6,7 @@
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
 - Initial code TODO count: 40
-- Current code TODO count: 26
+- Current code TODO count: 22
 
 ## Execution Strategy
 
@@ -94,7 +94,7 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 ## Current Execution Order
 
 1. Phase 1 is complete.
-2. Continue with the remaining Phase 2 items T07-T10, starting with the smallest policy boundary that already has usable tests.
+2. Phase 2 is complete. Continue with Phase 3 open-item and matching correctness items T19-T26.
 3. Re-run the TODO search after every phase and update this document with completed IDs.
 
 ## Progress
@@ -107,6 +107,10 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T04 | Done | Journal lines inherit the resolved entry audit actor. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
 | T05 | Done | Currency resolves from event data or nested company/accounting policy before the default fallback. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
 | T06 | Done | DSL value lookup now uses a typed internal result so required missing values fail clearly and optional values can be skipped deliberately. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T07 | Done | Initial deposit journal posting now uses `JournalPostingPort` and configurable deposit account mapping after the account is saved. | `.\gradlew :deposit:core:test --console=plain` passed. |
+| T08 | Done | FX valuation now resolves reporting currency from `ClosingAccountingProperties` instead of forcing `KRW`. | `.\gradlew :closing:batch:test --console=plain` passed. |
+| T09 | Done | `GlAccountBalance` now carries `baseEndingBalance`; FX valuation uses it and skips valuation when the base amount is missing instead of inventing a book rate. | `.\gradlew :closing:batch:test --console=plain` passed. |
+| T10 | Done | FX valuation journal currency now follows the closing reporting-currency policy. | `.\gradlew :closing:batch:test --console=plain` passed. |
 | T11 | Done | `PurchaseService` now requires a caller-provided `createdBy` actor and trims it before persistence/journal posting. | `.\gradlew :payable:test --console=plain` passed. |
 | T12 | Done | Purchase recognition accounts now come from `PayableAccountMappingPort` with a configurable adapter instead of service-level fixed codes. | `.\gradlew :payable:test --console=plain` passed. |
 | T13 | Done | Payment execution AP/cash accounts now come from `PayableAccountMappingPort`; payment journals inherit the payment-run actor when available. | `.\gradlew :payable:test --console=plain` passed. |

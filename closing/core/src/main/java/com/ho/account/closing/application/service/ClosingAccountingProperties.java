@@ -17,6 +17,22 @@ public class ClosingAccountingProperties {
 
     private String fxTranslationGainAccountCode = "72000"; // Default: 외화환산이익
     private String fxTranslationLossAccountCode = "92000"; // Default: 외화환산손실
+    private String fxValuationReportingCurrencyCode = "KRW";
+
+    public String requireFxValuationReportingCurrencyCode() {
+        if (!hasText(fxValuationReportingCurrencyCode)) {
+            throw new IllegalStateException("FX valuation reporting currency is not configured: account.closing.accounting.fx-valuation-reporting-currency-code");
+        }
+        return fxValuationReportingCurrencyCode.trim().toUpperCase();
+    }
+
+    public String getFxValuationReportingCurrencyCode() {
+        return fxValuationReportingCurrencyCode;
+    }
+
+    public void setFxValuationReportingCurrencyCode(String fxValuationReportingCurrencyCode) {
+        this.fxValuationReportingCurrencyCode = fxValuationReportingCurrencyCode;
+    }
 
     public String getFxTranslationGainAccountCode() {
         return fxTranslationGainAccountCode;
@@ -64,6 +80,10 @@ public class ClosingAccountingProperties {
         }
         rule.validate(rulePath);
         return rule;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     public static class AutomatedJournalRule {

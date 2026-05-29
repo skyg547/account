@@ -521,6 +521,56 @@
   - `docs/msa_roadmap.md` 변경이 별도로 감지되어 이번 커밋 대상에서는 제외한다.
   - 다음 단계는 Phase 2 잔여 T07-T10(deposit/closing 정책 경계) 또는 Phase 3 matching 항목으로 이어갈 수 있다.
 
+## 2026-05-29 (@todo Phase 2 deposit T07 수정)
+- 사용자 요청: 작업하던 TODO 계속 진행 및 완료 여부 확인.
+- 선확인:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md` 확인.
+  - `deposit` 루트 README 및 `deposit/docs/*.md`는 현재 없음.
+  - `DepositService`, `OpenAccountUseCase`, `DepositAccount`, deposit Gradle 설정 확인.
+- 수정 내용:
+  - `DepositAccountMappingPort` 추가: 초기입금 전표의 현금/예금부채 계정 매핑을 application port로 분리.
+  - `ConfiguredDepositAccountMappingAdapter` 추가: 현금 계정 및 예금부채 계정을 Spring property로 설정 가능하게 구성.
+  - `DepositService`가 양수 초기입금 계좌 개설 시 계좌 저장 후 `JournalPostingPort`로 초기입금 전표를 생성하도록 변경.
+  - 기존 흐름에서 초기입금 전에 `DepositStatus.ACTIVE`가 설정되지 않아 도메인 `deposit()`이 실패할 수 있던 순서를 수정.
+  - `DepositServiceTest` 추가: 초기입금 전표 생성 및 초기입금 없음 시 전표 미생성 검증.
+  - `deposit/core/build.gradle`에 Spring Boot BOM을 추가해 `spring-boot-starter-*` 의존성 버전 해석을 정상화.
+  - 계획 문서에 T07 완료 상태와 현재 코드 TODO 25건을 반영.
+- 실행 명령:
+  - `.\gradlew :deposit:core:test --console=plain`
+  - `rg -n "@todo|TODO:" deposit/core/src/main/java deposit/core/src/test/java -g "*.java"`
+  - `(rg -n "@todo|TODO:" closing reporting deposit ecl reconciliation receivable journal-ledger payable account-mart -g "*.java" -g "!**/build/**" | Measure-Object).Count`
+- 결과:
+  - 첫 `deposit:core:test`는 `deposit/core/build.gradle`의 Spring Boot BOM 누락으로 compile classpath 해석 실패.
+  - BOM 추가 후 `deposit:core:test` 성공.
+  - deposit/core 범위 TODO 검색 결과 없음.
+  - 전체 코드 TODO count는 25건.
+- 남은 확인사항:
+  - 전체 TODO는 아직 완료되지 않았고, 다음 단계는 Phase 2 closing T08-T10이다.
+
+## 2026-05-29 (@todo Phase 2 closing T08-T10 수정)
+- 사용자 요청: 작업하던 TODO 계속 진행.
+- 선확인:
+  - `closing/README.md`, `closing/docs/README.md`, `FxValuationService`, `ClosingAccountingProperties`, `GlAccountBalance`, closing batch 테스트 구조 확인.
+  - `closing/docs/README.md`가 가리키는 상세 docs 3개는 현재 파일이 없어 README 범위까지만 확인.
+- 수정 내용:
+  - `ClosingAccountingProperties`에 `fxValuationReportingCurrencyCode`와 필수 설정 검증 메서드 추가.
+  - `FxValuationService`가 환율 조회와 전표 통화를 closing reporting currency 정책으로 처리하도록 변경.
+  - `GlAccountBalance`에 `baseEndingBalance`를 추가하고, FX 평가 시 실제 장부 기준통화 잔액과 재평가 금액의 차이만 전표화하도록 변경.
+  - 기준통화 장부 잔액이 없으면 가상 book rate를 만들지 않고 평가를 건너뛰도록 변경.
+  - `FxValuationServiceTest` 추가: 정책 reporting currency, base ending balance 기반 평가, base amount 누락 시 skip 검증.
+  - 계획 문서에 T08-T10 완료 상태와 현재 코드 TODO 22건을 반영.
+- 실행 명령:
+  - `.\gradlew :closing:batch:test --console=plain`
+  - `rg -n "@todo|TODO:" closing/batch/src/main/java closing/core/src/main/java journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/ledger/domain/GlAccountBalance.java -g "*.java"`
+  - `(rg -n "@todo|TODO:" closing reporting deposit ecl reconciliation receivable journal-ledger payable account-mart -g "*.java" -g "!**/build/**" | Measure-Object).Count`
+- 결과:
+  - 첫 `closing:batch:test`는 `ClosingAccountingProperties` 외부 클래스의 `hasText` 헬퍼 누락으로 컴파일 실패.
+  - 헬퍼 추가 후 `closing:batch:test` 성공.
+  - closing FX valuation 정책/정확도 TODO는 제거됐고 closing 범위에는 자동 승인/전기 통제 TODO 2건만 남음.
+  - 전체 코드 TODO count는 22건.
+- 남은 확인사항:
+  - Phase 2는 완료됐고, 다음 단계는 Phase 3의 지급/수납/open-item/matching 항목이다.
+
 ## 2026-05-29 (IFRS 9 대손충당금 아키텍처/설계 흐름도 추가)
 - 사용자 요청: 아키텍처와 설계 흐름도 추가.
 - 선확인:

@@ -43,6 +43,7 @@ public class GlAccountBalance {
     private BigDecimal debitAmount = BigDecimal.ZERO;
     private BigDecimal creditAmount = BigDecimal.ZERO;
     private BigDecimal endingBalance = BigDecimal.ZERO;
+    private BigDecimal baseEndingBalance;
 
     public void updateBalance(BigDecimal debit, BigDecimal credit) {
         this.debitAmount = this.debitAmount.add(debit);

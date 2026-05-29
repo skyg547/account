@@ -44,12 +44,16 @@ public class FxValuationService {
     @Transactional
     public void processFxValuationForAccount(GlAccountBalance balance, LocalDate valuationDate, Long valuationBatchId) {
         String currencyCode = balance.getCurrencyCode();
+        String reportingCurrencyCode = accountingProperties.requireFxValuationReportingCurrencyCode();
+        if (currencyCode.equalsIgnoreCase(reportingCurrencyCode)) {
+            return;
+        }
         
-        // 1. 기말 환율 조회 (외화 -> KRW)
-        // @todo Accounting policy: resolve functional/reporting currency from legal-entity policy instead of hardcoding KRW.
-        Optional<ExchangeRate> rateOpt = exchangeRateRepository.findExchangeRate(currencyCode, "KRW", valuationDate);
+        // 1. 기말 환율 조회 (외화 -> 보고통화)
+        Optional<ExchangeRate> rateOpt = exchangeRateRepository.findExchangeRate(currencyCode, reportingCurrencyCode, valuationDate);
         if (rateOpt.isEmpty()) {
-            log.warn("FX Rate not found for {} to KRW on {}. Skipping valuation for account: {}", currencyCode, valuationDate, balance.getAccountCode());
+            log.warn("FX Rate not found for {} to {} on {}. Skipping valuation for account: {}",
+                    currencyCode, reportingCurrencyCode, valuationDate, balance.getAccountCode());
             return;
         }
         
@@ -61,28 +65,26 @@ public class FxValuationService {
             return; // 잔액이 0이면 평가할 필요 없음
         }
 
-        // @todo Closing accuracy: GL 잔액 테이블(GlAccountBalance)에 장부상 원화 잔액(Base Ending Balance) 필드가 없어서
-        // 현재로서는 평가만 진행하도록 처리합니다. 
-        // 완벽한 구현을 위해서는 GlAccountBalance에 baseEndingBalance(KRW) 필드가 존재하고 
-        // 평가 시 (외화금액 * 기말환율) - 장부상 원화 잔액 = 평가손익 으로 계산해야 합니다.
-        // 현재는 시뮬레이션을 위해 장부상 잔액을 외화금액 * (기말환율 - 50원) 정도로 가정한 차액 전표를 생성합니다.
+        BigDecimal bookReportingAmount = balance.getBaseEndingBalance();
+        if (bookReportingAmount == null) {
+            log.warn("Base ending balance is missing. Skipping FX valuation for account: {}, currency: {}, date: {}",
+                    balance.getAccountCode(), currencyCode, valuationDate);
+            return;
+        }
         
-        BigDecimal bookRate = currentRate.subtract(new BigDecimal("50")); // 가상의 기존 평균 장부 환율
-        if (bookRate.signum() <= 0) bookRate = currentRate.multiply(new BigDecimal("0.9"));
+        BigDecimal revaluedReportingAmount = foreignAmount.multiply(currentRate).setScale(2, RoundingMode.HALF_UP);
         
-        BigDecimal bookKrwAmount = foreignAmount.multiply(bookRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal revaluedKrwAmount = foreignAmount.multiply(currentRate).setScale(2, RoundingMode.HALF_UP);
-        
-        BigDecimal difference = revaluedKrwAmount.subtract(bookKrwAmount);
+        BigDecimal difference = revaluedReportingAmount.subtract(bookReportingAmount);
         if (difference.signum() == 0) {
             return; // 차이 없음
         }
         
         // 2. 평가 전표(Journal Entry) 생성
-        createValuationJournalEntry(balance.getAccountCode(), difference, valuationDate, valuationBatchId);
+        createValuationJournalEntry(balance.getAccountCode(), difference, valuationDate, valuationBatchId, reportingCurrencyCode);
     }
 
-    private void createValuationJournalEntry(String accountCode, BigDecimal difference, LocalDate valuationDate, Long batchId) {
+    private void createValuationJournalEntry(String accountCode, BigDecimal difference, LocalDate valuationDate, Long batchId,
+                                             String reportingCurrencyCode) {
         boolean isGain = difference.signum() > 0;
         BigDecimal absDiff = difference.abs();
         
@@ -96,8 +98,7 @@ public class FxValuationService {
         entry.setAuditUser("SYSTEM");
         entry.setLineageSourceType("FX_VALUATION");
         entry.setLineageSourceId(batchId.toString());
-        // @todo Accounting policy: journal currency should follow closing valuation policy, not a hardcoded KRW value.
-        entry.setCurrencyCode("KRW");
+        entry.setCurrencyCode(reportingCurrencyCode);
 
         JournalDetail accountDetail = new JournalDetail();
         accountDetail.setAccountCode(accountCode);
