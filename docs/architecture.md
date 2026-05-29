@@ -12,24 +12,24 @@
 
 ```mermaid
 graph TD
-    User([User / Browser])
-    UI[Frontend: Next.js 15]
-    Gateway[API Gateway]
+    User(["User / Browser"])
+    UI["Frontend: Next.js 15"]
+    Gateway["API Gateway"]
     
     subgraph "Backend Microservices (Spring Boot 3.4)"
-      Auth[Governance / Auth]
-      Master[Master Data]
-      Finance[Finance Domain: AP, AR, FA, Loan]
-      Ledger[Journal & Ledger]
-      Closing[Closing & Reporting]
-      Ecl[IFRS9 / Finance Mart]
+      Auth["Governance / Auth"]
+      Master["Master Data"]
+      Finance["Finance Domain: AP, AR, FA, Loan"]
+      Ledger["Journal & Ledger"]
+      Closing["Closing & Reporting"]
+      Ecl["IFRS9 / Finance Mart"]
     end
 
     subgraph "Infrastructure Layer"
-      DB[(PostgreSQL / H2)]
-      Kafka[[Kafka Event Stream]]
-      ELK{{ELK Stack: Logs/Audit}}
-      Redis[(Redis: Cache/Lock)]
+      DB[("PostgreSQL / H2")]
+      Kafka[["Kafka Event Stream"]]
+      ELK{{"ELK Stack: Logs/Audit"}}
+      Redis[("Redis: Cache/Lock")]
     end
 
     User -->|HTTPS| UI
@@ -87,34 +87,34 @@ graph TD
 ```mermaid
 flowchart TD
     subgraph "Next.js App Router"
-        LAYOUT[app/layout.tsx (Global Shell)]
-        PAGE[app/**/page.tsx (Route Segments)]
+        LAYOUT["app/layout.tsx (Global Shell)"]
+        PAGE["app/**/page.tsx (Route Segments)"]
         LAYOUT --> PAGE
     end
 
     subgraph "Components Layer"
-        COMMON[components/common (UI Primitives)]
-        DOMAIN[components/domain (Business Widgets)]
+        COMMON["components/common (UI Primitives)"]
+        DOMAIN["components/domain (Business Widgets)"]
         PAGE --> COMMON
         PAGE --> DOMAIN
         DOMAIN --> COMMON
     end
 
     subgraph "Logic & State"
-        STORE[(store/ Zustand)]
-        HOOKS[hooks/ TanStack Query]
+        STORE[("store/ Zustand")]
+        HOOKS["hooks/ TanStack Query"]
         PAGE --> STORE
         PAGE --> HOOKS
         DOMAIN --> HOOKS
     end
 
     subgraph "Backend Connectivity"
-        SVC[services/ (API Clients)]
+        SVC["services/ (API Clients)"]
         HOOKS --> SVC
         PAGE --> SVC
     end
 
-    SVC -.->|REST API| Gateway[API Gateway: 8080]
+    SVC -.->|REST API| Gateway["API Gateway: 8080"]
 ```
 
 ---
