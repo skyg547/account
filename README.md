@@ -135,8 +135,8 @@ flowchart TD
 
     subgraph "Data & Messaging"
         DB[(PostgreSQL)]
-        KAFKA[[Apache Kafka\nMessage Broker]]
-        REDIS[(Redis\nCache & Lock)]
+        KAFKA[[Apache Kafka Message Broker]]
+        REDIS[(Redis Cache & Lock)]
     end
 
     subgraph "Observability (모니터링 & 로깅)"
