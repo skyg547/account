@@ -39,7 +39,7 @@ flowchart TD
     end
 
     subgraph "Observability (관제)"
-        ZIPKIN[Zipkin\nTrace ID]
+        ZIPKIN[Zipkin Trace ID]
         ELK{{ELK Stack\nElasticsearch, Logstash, Kibana}}
         PROM[Prometheus & Grafana]
     end
