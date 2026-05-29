@@ -18,6 +18,13 @@
 4.  **`receivable / income`**: 매출 청구 및 수납 자동 매칭.
 5.  **`ecl / account-mart`**: IFRS 9 대손충당금 산출 및 재무 데이터 마트.
 
+### 1.3 해결해야 할 기술 부채 및 강결합 지점 (Technical Debts)
+아카이브된 아키텍처 분석(26년 4월 기준)에 따르면, 완전한 MSA 분리를 위해 다음 결합 지점을 우선 해소해야 합니다.
+1. **마스터 조회 직접 의존**: 다수 도메인이 `AccountSubject`, `BusinessPartner`, `Department` 등 JPA 엔티티를 직접 참조하고 있습니다. 이를 점진적으로 `contracts`의 조회 Port 및 Ref DTO로 변경해야 합니다.
+2. **전표 생성 직접 의존**: 여러 도메인이 `JournalService`와 `JournalEntry`를 직접 참조합니다. `JournalPostingPort`로 대체하여 캡슐화해야 합니다.
+3. **`SourceDocumentService` 결합**: 여러 도메인 리포지토리를 직접 묶고 있는 공통 서비스를 통합 어댑터 레이어로 정리해야 합니다.
+4. **병렬 모델 공존**: `closing`, `loan`, `reconciliation` 모듈 내부의 구/신규 병렬 모델(Legacy vs New) 정리가 필요합니다.
+
 ---
 
 ## 2. 운영 및 개발 로드맵
