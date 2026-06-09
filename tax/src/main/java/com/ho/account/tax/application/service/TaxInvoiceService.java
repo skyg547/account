@@ -26,6 +26,9 @@ import java.util.Optional;
 @Transactional
 public class TaxInvoiceService implements TaxInvoiceUseCase {
 
+    // @todo [DDD/Bounded Context] The service stores only a partner code, but validation still imports a
+    // master-data internal port. Query partner validity through a contracts-level port so the tax use case
+    // remains independent of master-data persistence and domain implementation details.
     private final TaxInvoicePersistencePort taxInvoicePersistencePort;
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
 
@@ -113,6 +116,7 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
             throw new IllegalArgumentException("삭제 대상 세금계산서가 PURCHASE 타입이 아닙니다.");
         }
 
+        // @todo [업무 프로세스] (see docs/todo_remediation_plan.md) 세금계산서와 같은 증빙 문서는 물리적 삭제(delete)보다 수정 세금계산서 발행 또는 취소(Cancel) 상태로의 논리적 삭제 및 이력 보존이 회계 원칙에 부합합니다.
         taxInvoicePersistencePort.delete(existingInvoice);
     }
 }

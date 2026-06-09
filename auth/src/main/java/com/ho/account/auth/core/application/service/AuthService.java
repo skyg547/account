@@ -41,6 +41,7 @@ public class AuthService implements AuthUseCase {
         AuthUser user = authUserQueryPort.findByUsername(username)
                 .orElseThrow(InvalidCredentialsException::new);
 
+        // @todo [보안 / 업무 프로세스] (see docs/todo_remediation_plan.md) 로그인 성공 및 실패 시(비밀번호 오류 등) 감사 로그(Audit Log) 이벤트 발행이 누락되어 있습니다. 또한, 지정된 횟수 이상 비밀번호 실패 시 계정을 잠그는(Lockout) 정책 구현이 필요합니다.
         if (!passwordVerifierPort.matches(password, user.getStoredPassword())) {
             throw new InvalidCredentialsException();
         }

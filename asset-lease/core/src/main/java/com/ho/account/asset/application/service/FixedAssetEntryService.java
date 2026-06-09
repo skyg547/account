@@ -138,7 +138,11 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         history.setNewStatus(newStatus);
         history.setDescription(desc);
         history.setEventAt(LocalDateTime.now());
+        // @todo [보안 / 업무 프로세스] (see docs/todo_remediation_plan.md) 감사 사용자(Audit User)가 SYSTEM으로 하드코딩되어 있습니다. 컨텍스트에서 실제 실행 주체(사용자/배치ID)를 주입받아 추적 가능성을 보장해야 합니다.
         history.setAuditUser("SYSTEM");
         persistencePort.saveHistory(history);
+    }
+}
+History(history);
     }
 }

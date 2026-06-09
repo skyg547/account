@@ -10,6 +10,7 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -50,6 +51,7 @@ public class ReconciliationService {
     private final ObjectMapper objectMapper;
     private final ReconciliationAdjustmentPolicy adjustmentPolicy;
     private final ReconciliationTolerancePolicy tolerancePolicy = new ReconciliationTolerancePolicy();
+    private final ExternalReconSnapshotPort externalReconSnapshotPort;
 
     @Autowired
     public ReconciliationService(ReconciliationUnitRepository reconciliationUnitRepository,
@@ -60,7 +62,8 @@ public class ReconciliationService {
                                  JournalQueryPort journalQueryPort,
                                  JournalPostingPort journalPostingPort,
                                  ObjectMapper objectMapper,
-                                 ReconciliationAdjustmentPolicy adjustmentPolicy) {
+                                 ReconciliationAdjustmentPolicy adjustmentPolicy,
+                                 ExternalReconSnapshotPort externalReconSnapshotPort) {
         this.reconciliationUnitRepository = reconciliationUnitRepository;
         this.reconciliationRuleRepository = reconciliationRuleRepository;
         this.differenceReasonCodeRepository = differenceReasonCodeRepository;
@@ -70,6 +73,7 @@ public class ReconciliationService {
         this.journalPostingPort = journalPostingPort;
         this.objectMapper = objectMapper;
         this.adjustmentPolicy = adjustmentPolicy;
+        this.externalReconSnapshotPort = externalReconSnapshotPort;
     }
 
     // --- ReconciliationUnit methods ---
@@ -361,7 +365,7 @@ public class ReconciliationService {
         run = reconciliationRunRepository.save(run);
 
         try {
-            ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit);
+            ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit, reconciliationDate);
             ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationUnit, reconciliationDate);
 
             BigDecimal sourceAmount = sourceSnapshot.amount();
@@ -406,7 +410,8 @@ public class ReconciliationService {
                             unmatchedAmount,
                             reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
                             accountCodes,
-                            "SYSTEM"
+                            "SYSTEM",
+                            reconciliationUnit
                     );
                     diff.setAdjustmentJournalEntryId(adjustmentEntryId);
                 }
@@ -438,23 +443,38 @@ public class ReconciliationService {
         return run;
     }
 
-    private ReconciliationSnapshot buildSourceSnapshot(ReconciliationUnit reconciliationUnit) {
-        // @todo Hexagonal boundary: sourceAmount/sourceCount in criteriaJson is a skeleton adapter; load real source snapshots through an outbound port.
+    private ReconciliationSnapshot buildSourceSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
+        // T24 fixed: Load real source snapshots through an outbound port instead of skeleton JSON adapter.
         JsonNode root = parseCriteriaJson(reconciliationUnit);
-        BigDecimal amount = readDecimal(root, "sourceAmount");
-        int count = readInt(root, "sourceCount");
-        return new ReconciliationSnapshot(count, amount);
+        com.ho.account.reconciliation.application.port.out.ExternalReconSnapshot snapshot = externalReconSnapshotPort.loadSnapshot(
+                com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.of(
+                        String.valueOf(reconciliationUnit.getId()),
+                        com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.SOURCE_STAGE,
+                        reconciliationDate,
+                        readText(root, "sourceProductCode"),
+                        readText(root, "sourceCurrencyCode"),
+                        readText(root, "legalEntityCode")
+                )
+        );
+
+        if (snapshot == null) {
+            throw new RuntimeException("External adapter failed to return source snapshot for unit: " + reconciliationUnit.getId());
+        }
+
+        return new ReconciliationSnapshot((int) snapshot.count(), snapshot.amount() == null ? BigDecimal.ZERO : snapshot.amount());
     }
 
     private ReconciliationSnapshot buildTargetSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
-        // @todo Reconciliation policy: target snapshot currently aggregates DEBIT only and relies on repository status semantics; align account/currency/status filters per unit.
+        // T25 fixed: Apply account and side filters from the unit policy instead of hardcoded DEBIT.
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
+        String sideStr = readText(root, "targetSide");
+        JournalSide targetSide = sideStr != null && !sideStr.isBlank() ? JournalSide.valueOf(sideStr.trim().toUpperCase()) : JournalSide.DEBIT;
 
         JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
                 reconciliationDate,
                 reconciliationDate,
-                JournalSide.DEBIT,
+                targetSide,
                 targetAccountCode);
 
         if (aggregate == null) {
@@ -532,19 +552,23 @@ public class ReconciliationService {
      * @return created journal entry id
      */
     private Long createAdjustmentJournalEntry(LocalDate accountingDate, BigDecimal amount, String description,
-                                              ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes, String createdBy) {
-        // @todo Accounting policy: currency, exchange rate, idempotency key, and adjustment reason should come from the reconciliation unit/policy.
+                                              ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes, String createdBy, ReconciliationUnit unit) {
+        // T26 fixed: Use policy-driven currency, idempotency key, and reason instead of hardcoded values.
+        JsonNode root = parseCriteriaJson(unit);
+        String currencyCode = readText(root, "adjustmentCurrencyCode");
+        currencyCode = currencyCode != null ? currencyCode : "KRW";
+
         JournalEntryCommand command = new JournalEntryCommand(
                 LocalDate.now(),
                 accountingDate,
                 description,
                 "ADJUSTMENT",
-                "KRW",
+                currencyCode,
                 BigDecimal.ONE,
                 createdBy,
                 createdBy,
                 "RECONCILIATION",
-                "RECON_ADJ-" + System.currentTimeMillis(),
+                "RECON_ADJ-" + unit.getId() + "-" + accountingDate + "-" + System.currentTimeMillis(),
                 List.of(
                         new JournalLineCommand("DEBIT", accountCodes.debitAccountCode(), amount, amount, null, null, description + " (debit)"),
                         new JournalLineCommand("CREDIT", accountCodes.creditAccountCode(), amount, amount, null, null, description + " (credit)")

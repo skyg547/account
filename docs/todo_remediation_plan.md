@@ -6,7 +6,7 @@
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
 - Initial code TODO count: 40
-- Current code TODO count: 22
+- Current code TODO count: 18
 
 ## Execution Strategy
 
@@ -91,11 +91,23 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T39 | ecl | `ecl/ecl-core/src/main/java/com/ho/account/ecl/core/infrastructure/adapter/persistence/JdbcAllowanceSummaryPersistenceAdapter.java:47` | SQL decides duplicate mapping precedence with `ROW_NUMBER()`. | Extract the precedence rule into named domain policy or document it with focused adapter tests. | `.\gradlew :ecl:ecl-core:test --console=plain` |
 | T40 | journal-ledger | `journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/repository/JournalDetailRepository.java:21` | Query mixes hardcoded approval/posting statuses. | Accept `JournalEntryStatus` parameters or a named query policy. | `.\gradlew :journal-ledger:core:test --console=plain` |
 
+## Phase 7 - Cross-Module Boundaries & Accounting Integrity
+
+| ID | Module | File | Current Issue | Fix Direction | Verification |
+| --- | --- | --- | --- | --- | --- |
+| T41 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Direct injection of `BusinessPartnerPersistencePort` from `master-data` module. | Use a designated inter-module port like `MasterDataQueryPort` from the `contracts` layer. | `.\gradlew :tax:test --console=plain` |
+| T42 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Missing audit actor information on creation. | Pass actor/user context to `createAPInvoice` from the inbound adapter/API. | `.\gradlew :tax:test --console=plain` |
+| T43 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Physical deletion of `TaxInvoice`. | Implement logical deletion (Cancellation/Reversal) status to preserve accounting audit trails. | `.\gradlew :tax:test --console=plain` |
+| T44 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Synchronous loop processing for monthly depreciation. | Delegate bulk processing to a Spring Batch job to avoid transaction timeouts and OOM. | `.\gradlew :asset-lease:test --console=plain` |
+| T45 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Hardcoded `SYSTEM` audit user for asset history. | Pass the actual actor/batch ID to the application service. | `.\gradlew :asset-lease:test --console=plain` |
+| T46 | auth | `auth/src/main/java/com/ho/account/auth/core/application/service/AuthService.java` | Missing failed login audit events and account lockout policy. | Publish audit events and implement a lockout policy (e.g. after 5 failed attempts). | `.\gradlew :auth:test --console=plain` |
+
 ## Current Execution Order
 
 1. Phase 1 is complete.
-2. Phase 2 is complete. Continue with Phase 3 open-item and matching correctness items T19-T26.
-3. Re-run the TODO search after every phase and update this document with completed IDs.
+2. Phase 3 is complete (T19-T26).
+3. Continue Phase 4 with Approval and External Integration Hardening items T27-T32.
+4. Re-run the TODO search after every phase and update this document with completed IDs.
 
 ## Progress
 
@@ -119,3 +131,11 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T16 | Done | Sales recognition AR/revenue/VAT accounts now come from `ReceivableAccountMappingPort` with a configurable adapter. | `.\gradlew :receivable:test --console=plain` passed. |
 | T17 | Done | Collection recognition cash/clearing accounts now come from `ReceivableAccountMappingPort`. | `.\gradlew :receivable:test --console=plain` passed. |
 | T18 | Done | Collection match clearing/AR accounts now come from `ReceivableAccountMappingPort`. | `.\gradlew :receivable:test --console=plain` passed. |
+| T19 | Done | Payment execution now goes through `PaymentExecutionPort` with deterministic idempotency key, retry attempts, failure status handling, and a local adapter boundary. | `.\gradlew :payable:test --console=plain` passed. |
+| T20 | Done | Payment run now stores `payableId` on each `Payment`; execution settles the exact payable by ID instead of vendor+amount matching. | `.\gradlew :payable:test --console=plain` passed. |
+| T21 | Done | Auto matching now uses `CollectionMatchingPolicy` with reference-number priority, due-date tolerance, and duplicate-candidate fail-closed behavior. | `.\gradlew :receivable:test --console=plain` passed. |
+| T22 | Done | Collection matching now persists `CollectionAllocation` rows with matched amount, residual collection amount, and residual receivable amount. | `.\gradlew :receivable:test --console=plain` passed. |
+ now properly throws an exception to fail the reconciliation run rather than silently mapping to zero amounts. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T24 | Done | `ReconciliationService` now loads source snapshot data directly from an outbound port (`ExternalReconSnapshotPort`) rather than using skeleton values. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T25 | Done | Target snapshot correctly applies account code and side filter values extracted from the `reconciliationUnit` policy definition. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T26 | Done | `ReconciliationService` adjustment journals now use policy-driven currency, idempotency keys, and default reasons rather than hardcoded logic. | `.\gradlew :reconciliation:test --console=plain` passed. |

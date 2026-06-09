@@ -145,8 +145,9 @@ public class ReconManagerService {
                 unit.getLegalEntityCode()
         ));
         if (snapshot == null) {
-            // @todo Integration consistency: distinguish "no source rows" from adapter failure; returning zero can hide broken upstream feeds.
-            return new StageSnapshot(0L, BigDecimal.ZERO);
+            // T23 fixed: Missing snapshot means adapter failed to read/find the source feed, 
+            // which should fail the reconciliation process instead of silently returning 0.
+            throw new RuntimeException("External adapter failed to return snapshot for stage: " + stageCode + " on date: " + date);
         }
         return new StageSnapshot(snapshot.count(), safe(snapshot.amount()));
     }

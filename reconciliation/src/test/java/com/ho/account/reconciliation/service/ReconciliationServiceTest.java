@@ -33,6 +33,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshot;
+import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,6 +65,9 @@ class ReconciliationServiceTest {
     @Mock
     private JournalQueryPort journalQueryPort;
 
+    @Mock
+    private ExternalReconSnapshotPort externalReconSnapshotPort;
+
     private ReconciliationService reconciliationService;
 
     @BeforeEach
@@ -76,7 +82,8 @@ class ReconciliationServiceTest {
                 journalQueryPort,
                 journalPostingPort,
                 objectMapper,
-                new ReconciliationAdjustmentPolicy(objectMapper)
+                new ReconciliationAdjustmentPolicy(objectMapper),
+                externalReconSnapshotPort
         );
     }
 
@@ -91,6 +98,7 @@ class ReconciliationServiceTest {
         stubRunAndDifferenceSaves();
         when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
         stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
 
         ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate);
 
@@ -125,6 +133,7 @@ class ReconciliationServiceTest {
         when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of(rule));
         stubRunSave();
         stubJournalTarget(reconciliationDate, "995.00");
+        stubExternalSnapshot(2, "1000.00");
 
         ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate);
 
@@ -152,6 +161,7 @@ class ReconciliationServiceTest {
         when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.empty());
         when(differenceReasonCodeRepository.save(any(DifferenceReasonCode.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
 
         reconciliationService.performReconciliation(10L, reconciliationDate);
 
@@ -179,6 +189,7 @@ class ReconciliationServiceTest {
         stubRunAndDifferenceSaves();
         when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
         stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
                 .thenReturn(new JournalPostingResult(77L, "JE-20260511-0001", "DRAFT"));
 
@@ -220,6 +231,7 @@ class ReconciliationServiceTest {
         stubRunSave();
         when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
         stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
 
         assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate))
                 .isInstanceOf(RuntimeException.class)
@@ -273,6 +285,11 @@ class ReconciliationServiceTest {
                 .thenReturn(new JournalDetailAggregateSummary(1L, new BigDecimal(debitAmount)));
     }
 
+    private void stubExternalSnapshot(long count, String amount) {
+        when(externalReconSnapshotPort.loadSnapshot(any(ExternalReconSnapshotRequest.class))).thenReturn(
+                new ExternalReconSnapshot(count, new BigDecimal(amount)));
+    }
+
     private ReconciliationUnit reconciliationUnit(String criteriaJson) {
         ReconciliationUnit unit = new ReconciliationUnit();
         unit.setId(10L);
@@ -298,5 +315,4 @@ class ReconciliationServiceTest {
         rule.setActive(active);
         return rule;
     }
-
 }
