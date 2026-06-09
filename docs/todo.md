@@ -288,3 +288,21 @@
 3. **`ecl-core` - `JdbcAllowanceSummaryPersistenceAdapter.java`**
    - **이유:** 대량 데이터 처리를 위한 `INSERT INTO ... SELECT` 쿼리 내부에 `ROW_NUMBER() OVER (...)`를 사용하여 `biz_unit_code` 및 `currency_code` 일치 여부에 따른 매핑 우선순위를 결정하고 있습니다. 이는 명백한 비즈니스 룰이지만 SQL(인프라)에 묻혀 있어 DDD 관점에서 정책을 파악하기 어렵게 만듭니다.
    - **조치:** `INSERT_SUMMARIES` 쿼리 상수 선언 위에 `@todo [DDD 위반 / 성능 트레이드오프]` 주석을 추가하여, 추후 문서화 보강이나 도메인 룰로의 추출을 검토하도록 안내했습니다.
+
+---
+## [Gemini Inspection] 모듈 전반 교차 정합성 및 무결성 검수 (2026-06-08)
+
+**점검 목적:** Phase 3 (대사 모듈 등) 완료 후 잔여 모듈(`tax`, `asset-lease`, `auth` 등)의 보안, DDD 경계 침범, 데이터 무결성 검토.
+**점검 결과:** 아래 아키텍처 및 업무 프로세스 위반 사항을 식별하여 `@todo` 주석을 남기고 `todo_remediation_plan.md`의 Phase 7로 편입했습니다.
+
+1. **`tax` - `TaxInvoiceService.java`**
+   - **위반 사항:** `BusinessPartnerPersistencePort`를 타 모듈(`master-data`)에서 직접 주입받음 (DDD/Hexagonal 위반). 또한 증빙 문서인 세금계산서의 물리 삭제(`delete`)를 허용 중임.
+   - **조치 방향:** `contracts` 계층의 `MasterDataQueryPort` 사용으로 전환 및 취소/수정 세금계산서를 통한 논리 삭제로 변경.
+
+2. **`asset-lease` - `FixedAssetEntryService.java`**
+   - **위반 사항:** 월 감가상각 시 대용량 루프를 동기(Synchronous) 방식으로 처리하여 메모리 및 타임아웃 위험 유발. 감사 작성자(Audit User)가 "SYSTEM"으로 하드코딩됨.
+   - **조치 방향:** 대량 처리를 Spring Batch 등의 별도 배치 잡으로 분리하고, 실제 작업자/스케줄러 Actor를 컨텍스트에서 주입.
+
+3. **`auth` - `AuthService.java`**
+   - **위반 사항:** 로그인 실패(비밀번호 오류 등)에 대한 감사 로그 발행 누락 및 특정 횟수 이상 실패 시 계정 잠금(Lockout) 정책 부재.
+   - **조치 방향:** 보안 이벤트 로깅 및 재무 시스템 표준 보안 요구사항(Lockout) 구현.

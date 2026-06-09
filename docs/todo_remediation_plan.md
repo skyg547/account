@@ -6,7 +6,7 @@
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
 - Initial code TODO count: 40
-- Current code TODO count: 18
+- Current code TODO count: 43
 
 ## Execution Strategy
 
@@ -106,7 +106,7 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 
 1. Phase 1 is complete.
 2. Phase 3 is complete (T19-T26).
-3. Continue Phase 4 with Approval and External Integration Hardening items T27-T32.
+3. Continue Phase 4 with remaining Approval and External Integration Hardening items T29-T32.
 4. Re-run the TODO search after every phase and update this document with completed IDs.
 
 ## Progress
@@ -139,3 +139,16 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T24 | Done | `ReconciliationService` now loads source snapshot data directly from an outbound port (`ExternalReconSnapshotPort`) rather than using skeleton values. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T25 | Done | Target snapshot correctly applies account code and side filter values extracted from the `reconciliationUnit` policy definition. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T26 | Done | `ReconciliationService` adjustment journals now use policy-driven currency, idempotency keys, and default reasons rather than hardcoded logic. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T27 | Done | FX valuation journals now remain `DRAFT_ONLY` by default and auto-approve/post only when the closing adjustment posting policy explicitly allows it. | `.\gradlew :closing:batch:test --console=plain` passed. |
+| T28 | Done | ECL provision journals now remain `DRAFT_ONLY` by default and auto-approve/post only when the closing adjustment posting policy explicitly allows it. | `.\gradlew :closing:batch:test --console=plain` passed. |
+
+## 2026-06-09 Additional High-Risk Remediation
+
+- Expenditure budget control now fails closed when no budget is registered and uses code-based references plus `MasterDataQueryPort`.
+- Governance approval now separates approval decision from external apply status, records apply failures/retries, and uses a master-data source-reference idempotency key.
+- Master-data marks a request `APPLIED` only after a typed applier succeeds; the default missing-handler path fails closed instead of reporting false success.
+- Audit AOP masks secret/token/password fields and limits oversized payloads.
+- Auth/Gateway no longer provide executable default secrets; bootstrap user seeding is explicit and encoded-password controlled.
+- Gateway validates JWT `roleVersion` against Auth with a short success cache and removes all client-supplied `X-Auth-*` headers.
+- Auth role-assignment callbacks use `approvalTraceId` as a persisted idempotency key.
+- FX valuation resolves debit/credit direction from the account normal balance side, including liability loss scenarios.

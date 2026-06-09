@@ -430,8 +430,75 @@
   - 통합 문서 내 Mermaid 차트 문법 오류 교정 및 렌더링 확인.
 - **상태 업데이트**: `docs/todo.md` 하단에 검수 결과 기록 및 작업 이력 갱신.
 
+### 📅 2026-06-08 (Gemini 리팩토링 및 룰 점검)
+### [리팩토링] 대사(Reconciliation) 모듈 정합성 강화 (Phase 3 마무리) 및 신규 @todo 점검 (Phase 7)
+- **수정 범위**:
+  - `docs/todo_remediation_plan.md`: Phase 7 (Cross-Module Boundaries & Accounting Integrity) 신규 식별 내역 추가.
+  - `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java`: DDD 위반 및 삭제 정책 결함 식별 (@todo 추가).
+  - `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java`: 대용량 배치 누락 및 감사 추적 결함 식별 (@todo 추가).
+  - `auth/src/main/java/com/ho/account/auth/core/application/service/AuthService.java`: 보안/로그인 Lockout 정책 누락 식별 (@todo 추가).
+  - `reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconManagerService.java`: External adapter 예외 처리 (T23 해결).
+  - `reconciliation/src/main/java/com/ho/account/reconciliation/service/ReconciliationService.java`: ExternalReconSnapshotPort 연동(T24), Target Snapshot 필터 적용(T25), 조정 전표 통화/멱등성 키 적용(T26 해결).
+  - `reconciliation/src/test/java/com/ho/account/reconciliation/service/ReconciliationServiceTest.java`: Mocking 수정 및 테스트 통과 확인.
+- **검증**: `.\gradlew :reconciliation:test` 100% 통과 완료.
+- **상태 업데이트**: `docs/todo_remediation_plan.md` Progress 테이블 T23~T26 `Done` 처리 완료. 코드 커밋 및 푸시 완료.
+
 ### 🚀 다음 할 일
-- 통합된 문서들의 세부 내용 중 현재 코드와 미세하게 다른 부분이 있는지 상시 검토.
-- `@todo` 주석이 달린 아키텍처 위반 사항들에 대한 리팩토링 계획 수립.
-- 프론트엔드 화면에서 ECL 산출 결과의 실시간 대시보드 반영 상태 확인.
+- Phase 4 (Approval and External Integration Hardening) 진행: `closing` 모듈의 결산 전표 자동 승인 통제, `journal-ledger`의 Kafka 에러 핸들링, `reporting`의 로컬 Gateway 실제 프로토콜 어댑터 전환 등.
+
+### 📅 2026-06-08 (Codex 순차 모듈 코드 검수)
+### [검수] DDD/헥사고날/업무 프로세스 개선 TODO 식별
+- **검수 범위**:
+  - `shared-kernel`, `auth`, `gateway`, `master-data`, `governance`
+  - `expenditure-resolution`, `tax`, `closing`, `loan`
+  - `ecl`, `account-mart`, `reporting`, `journal-ledger`
+- **검수 결과**:
+  - 실제 구현과 모듈 문서를 대조해 38개 코드 파일에 신규 `@todo` 47건을 추가했다.
+  - 기존 초보자용 설명 주석은 삭제하지 않고, 위험 원인과 목표 구조를 함께 이해할 수 있도록 유지했다.
+  - 주요 개선 축은 bounded context 간 내부 모델 직접 참조, application/service의 persistence 직접 의존, API의 도메인 엔티티 노출, 배치 모듈의 비즈니스 연산, 승인/감사/멱등성, 대량 조회와 금융 계산 재현성이다.
+- **우선 처리 권고**:
+  - 예산 미등록 시 지출을 허용하는 fail-open 정책과 FX 부채 계정의 차대 방향 가정은 회계 통제 오류 가능성이 있어 우선 정책을 확정해야 한다.
+  - 결산 FX/ECL 및 대출 이자 배치의 비즈니스 로직은 core pipeline/service로 이동하고, 실패 이력과 재실행 정합성을 보강해야 한다.
+  - 실행 가능한 기본 secret/token, JWT 역할 폐기 검증 누락, 원본 감사 데이터 직렬화는 보안 운영 기준으로 먼저 제거해야 한다.
+- **검증**:
+  - `git diff --check -- shared-kernel auth gateway master-data governance expenditure-resolution tax closing loan ecl account-mart reporting journal-ledger` 성공(CRLF 경고만 출력).
+  - `:shared-kernel`, `:auth`, `:gateway`, `:master-data`, `:governance`, `:closing:batch` 컴파일 성공.
+  - `:ecl:ecl-core`, `:account-mart:mart-core`, `:account-mart:mart-api`, `:reporting:api`, `:journal-ledger:api`, `:tax` 묶음 컴파일 성공.
+- **남은 리스크**:
+  - 이번 변경은 검수 주석만 추가했으며 TODO 구현은 후속 순차 작업이 필요하다.
+  - `:expenditure-resolution:compileJava` 경로는 별도 변경 중인 `asset-lease/core/.../FixedAssetEntryService.java` 146행 구문 오류로 중단됐다.
+  - `:loan:core:compileJava`는 단독 compileClasspath에서 Spring/Jakarta 의존성 버전을 해석하지 못해 중단됐다.
+  - 전체 `git diff --check`는 별도 변경 중인 `reconciliation/.../ReconManagerService.java` 148행 trailing whitespace 때문에 실패했다.
+
+### 📅 2026-06-09 (Codex 1차 고위험 TODO 리팩터링)
+### [리팩터링] 지출 통제, 승인 반영, 인증 경계, 결산 FX/자동전기 고도화
+- **지출결의/예산**:
+  - `Budget` aggregate와 persistence port를 부서/계정 코드 기반으로 전환하고 `master-data` 엔티티 직접 참조를 제거했다.
+  - `ExpenditureResolutionService`가 `MasterDataQueryPort` 계약으로 부서/계정/거래처를 검증하도록 변경했다.
+  - 미등록 예산은 지출을 허용하지 않는 fail-closed 정책으로 변경했다.
+  - 반려 요청을 검증 DTO/command로 전환하고 반려 사유, 검토자, 승인 추적값, 처리 시각을 aggregate에 보존한다.
+- **Governance/Master-data**:
+  - 승인 상태를 `APPROVED_AWAITING_APPLY`, `APPLIED`, `APPLY_FAILED`로 분리하고 적용 시도 횟수/실패 사유/재시도 흐름을 추가했다.
+  - 적용 어댑터가 없거나 여러 개인 승인 요청은 승인 전에 fail-closed로 거절한다.
+  - Governance 승인 ID를 master-data `sourceReference` 멱등키로 전달해 재시도 중복 요청을 방지한다.
+  - Master-data는 typed applier가 성공한 뒤에만 `APPLIED`로 전이하며, 기본 handler 미구현 경로는 거짓 성공 대신 실패한다.
+  - 감사 AOP에 민감 필드 마스킹과 payload 크기 제한을 적용했다.
+- **Auth/Gateway**:
+  - JWT/internal API token의 실행 가능한 기본값과 기본 관리자 seed를 제거했다.
+  - 사용자 seed는 명시적 bootstrap 설정과 인코딩 비밀번호 정책을 통과할 때만 실행한다.
+  - Gateway가 클라이언트 제공 `X-Auth-*` 헤더를 제거하고 검증된 claims만 전달하도록 변경했다.
+  - Gateway가 Auth의 현재 `roleVersion`을 짧은 TTL 캐시와 fail-closed 정책으로 검증한다.
+  - Auth 역할 승인 콜백은 `approvalTraceId` 처리 이력을 저장해 중복 콜백이 `roleVersion`을 반복 증가시키지 않게 했다.
+- **Closing/Contracts**:
+  - `AccountSubjectRef`에 정상 잔액 방향을 추가하고 FX 차대/손익 판단을 closing core 정책으로 분리했다.
+  - 외화 부채 증가를 손실로 처리하는 대변 잔액 시나리오를 보강했다.
+  - FX/ECL 조정 전표는 기본 `DRAFT_ONLY`이며 명시적 정책에서만 자동 승인/전기한다.
+- **검증**:
+  - `.\gradlew :contracts:compileJava :expenditure-resolution:test :master-data:test :governance:test :auth:test :gateway:test :closing:batch:test :payable:compileJava :receivable:compileJava :deposit:core:compileJava --console=plain` 성공.
+  - 대상 범위 `git diff --check` 성공(CRLF 경고만 출력).
+- **남은 리스크**:
+  - 코드 TODO는 43건 남아 있으며, closing batch business logic의 core pipeline 이동, Auth 로그인 감사/lockout, master-data 유형별 typed applier 구현 등이 후속 범위다.
+  - typed master-data applier가 아직 없는 유형은 의도적으로 `APPLY_FAILED`가 되므로 운영 적용 전 유형별 handler가 필요하다.
+  - Gateway roleVersion 검증은 Auth 장애 시 요청을 거절하는 fail-closed 정책이며, 운영 환경에서 Auth 가용성과 `AUTH_VALIDATION_BASE_URL`을 확인해야 한다.
+  - Docker 이미지 빌드와 서비스 smoke 기동은 실행하지 않았다.
 

@@ -29,25 +29,31 @@
 
 ## 2. 운영 및 개발 로드맵
 
-### Phase 1: 기반 구축 및 핵심 엔진 (진행 완료)
+### Phase 1: 기반 구축 및 핵심 엔진 (완료)
 - `contracts`, `shared-kernel`, `master-data`, `governance` 분리 완료.
 - `journal-ledger` 자동 분개 룰 엔진 구축.
 - `account-mart` 및 `ecl` 모듈을 통한 IFRS 9 산출 체계 통합.
 
-### Phase 2: ERP 서브레저 고도화 (현재 단계)
+### Phase 2: ERP 서브레저 고도화 (완료)
 - **목표**: `payable`, `receivable` 모듈의 완전 독립 실행 및 ID 기반 참조 전환.
 - **핵심 작업**: 
     - 세금계산서(`tax`) 연계 강화.
     - 지출 결의(`expenditure-resolution`) 승인 프로세스 내 예산 통제 실현.
 
-### Phase 3: 특수 회계 및 금융 분석
+### Phase 3: 특수 회계 및 대사 정합성 (완료)
 - **대출 회계 (`loan`)**: EIR 기반 이연대출부대손익 상각 로직 완성 및 재계산 런(Run) 이력 관리.
 - **자산 및 리스 (`asset-lease`)**: 고정자산 감가상각 및 IFRS 16 리스 부채/사용권자산 평가 자동화.
+- **대사 정합성 (`reconciliation`)**: 원천-회계 대사를 위한 외부 데이터 스냅샷 포트 도입 및 매칭 고도화 (완료).
 
-### Phase 4: 결산 통제 및 보고 체계 확립
+### Phase 4: 결산 통제 및 보고 체계 확립 (진행 중)
 - **결산 (`closing`)**: 마감 캘린더 게이트웨이 및 재오픈 승인 워크플로우.
-- **대사 (`reconciliation`)**: 대용량 원천-회계 대사 성능 최적화 및 차이 조정 전표 자동화.
 - **보고 (`reporting`)**: 재무제표 스냅샷 버전 관리 및 공시 주석 마트 구축.
+- **거버넌스 연계**: 전표 자동 승인 통제 및 외부 기관 연동 (Gateway) 등 안정성 강화 작업 진행.
+
+### Phase 7: 모듈 간 경계 및 회계 무결성 강화 (진행 중)
+- **보안 및 논리 삭제**: `tax`, `asset-lease`, `auth` 모듈에서 물리 삭제 금지, 대량 처리 배치 분리, 실패 로그 추적 및 계정 잠금(Lockout) 등의 세부 정책 구현.
+
+*(참고: 과거의 `dependency-split-status` 및 `msa-modularization` 내역은 `docs/archive/` 및 `docs/history/`에 보존되어 있으며, 이 로드맵에 그 방향성이 모두 통합되었습니다.)*
 
 ---
 
