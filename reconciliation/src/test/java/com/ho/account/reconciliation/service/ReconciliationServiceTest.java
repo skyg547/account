@@ -233,7 +233,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate))
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Reconciliation failed")
                 .cause()
@@ -314,5 +314,8 @@ class ReconciliationServiceTest {
         rule.setToleranceValue(new BigDecimal(toleranceValue));
         rule.setActive(active);
         return rule;
+    }
+}
+ule;
     }
 }

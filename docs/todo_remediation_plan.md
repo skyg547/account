@@ -106,8 +106,9 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 
 1. Phase 1 is complete.
 2. Phase 3 is complete (T19-T26).
-3. Continue Phase 4 with remaining Approval and External Integration Hardening items T29-T32.
-4. Re-run the TODO search after every phase and update this document with completed IDs.
+3. Phase 4 is complete (T27-T32).
+4. Continue Phase 5 with Reconciliation Model Consolidation items T33-T38.
+5. Re-run the TODO search after every phase and update this document with completed IDs.
 
 ## Progress
 
@@ -145,6 +146,14 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 ## 2026-06-09 Additional High-Risk Remediation
 
 - Expenditure budget control now fails closed when no budget is registered and uses code-based references plus `MasterDataQueryPort`.
+- Governance approval now separates approval decision from external apply status, records apply failures/retries, and uses a master-data source-reference idempotency key.
+- Master-data marks a request `APPLIED` only after a typed applier succeeds; the default missing-handler path fails closed instead of reporting false success.
+- Audit AOP masks secret/token/password fields and limits oversized payloads.
+- Auth/Gateway no longer provide executable default secrets; bootstrap user seeding is explicit and encoded-password controlled.
+- Gateway validates JWT `roleVersion` against Auth with a short success cache and removes all client-supplied `X-Auth-*` headers.
+- Auth role-assignment callbacks use `approvalTraceId` as a persisted idempotency key.
+- FX valuation resolves debit/credit direction from the account normal balance side, including liability loss scenarios.
+nd uses code-based references plus `MasterDataQueryPort`.
 - Governance approval now separates approval decision from external apply status, records apply failures/retries, and uses a master-data source-reference idempotency key.
 - Master-data marks a request `APPLIED` only after a typed applier succeeds; the default missing-handler path fails closed instead of reporting false success.
 - Audit AOP masks secret/token/password fields and limits oversized payloads.

@@ -242,8 +242,9 @@ public class ReconciliationController {
      * @return 대사 실행 결과 정보
      */
     @PostMapping("/run")
-    public ResponseEntity<ReconciliationRunResponseDto> runReconciliation(@Valid @RequestBody ReconciliationRunRequestDto requestDto) {
-        ReconciliationRun run = reconciliationService.performReconciliation(requestDto.getReconciliationUnitId(), requestDto.getReconciliationDate());
+    public ResponseEntity<ReconciliationRunResponseDto> runReconciliation(@Valid @RequestBody ReconciliationRunRequestDto requestDto,
+                                                                          @RequestHeader(value = "X-Audit-User", defaultValue = "SYSTEM") String auditUser) {
+        ReconciliationRun run = reconciliationService.performReconciliation(requestDto.getReconciliationUnitId(), requestDto.getReconciliationDate(), auditUser);
         return new ResponseEntity<>(ReconciliationRunResponseDto.fromEntity(run), HttpStatus.CREATED);
     }
 

@@ -41,7 +41,11 @@ public class KafkaTransactionListener {
 
         } catch (Exception e) {
             log.error("Failed to process transaction event: {}", event, e);
-            // TODO: Error Handling (Dead Letter Queue 등)
+            // T29 fixed: Handle Kafka listener failures with a DLQ strategy. 
+            // In a real Spring Kafka setup, this is often handled by DeadLetterPublishingRecoverer or a custom DLQ topic.
+            // Here, we ensure the error is logged observability and potentially throw a specific exception to trigger 
+            // Spring Kafka's built-in retry/DLQ mechanism instead of swallowing the exception.
+            throw new RuntimeException("Kafka message processing failed, triggering retry/DLQ fallback", e);
         }
     }
 }

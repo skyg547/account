@@ -351,7 +351,7 @@ public class ReconciliationService {
      * @return created reconciliation run
      * @throws EntityNotFoundException when no unit exists for the id
      */
-    public ReconciliationRun performReconciliation(Long unitId, LocalDate reconciliationDate) {
+    public ReconciliationRun performReconciliation(Long unitId, LocalDate reconciliationDate, String runBy) {
         ReconciliationUnit reconciliationUnit = findReconciliationUnitById(unitId);
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 
@@ -360,8 +360,8 @@ public class ReconciliationService {
         run.setReconciliationDate(reconciliationDate);
         run.setRunStartTime(LocalDateTime.now());
         run.setStatus(ReconciliationRunStatus.RUNNING);
-        // @todo Audit consistency: pass the real scheduler/user actor into the use case instead of hardcoding SYSTEM.
-        run.setRunBy("SYSTEM");
+        // T32 fixed: Propagate the real scheduler/user actor into the use case.
+        run.setRunBy(runBy);
         run = reconciliationRunRepository.save(run);
 
         try {
@@ -595,14 +595,4 @@ public class ReconciliationService {
     private record ReconciliationSnapshot(int count, BigDecimal amount) {
     }
 
-    private DifferenceReasonCode createDefaultReasonCode() {
-        // @todo Master-data consistency: seed and manage reason codes as reference data instead of creating GENERIC_MISMATCH during runtime.
-        DifferenceReasonCode defaultReason = new DifferenceReasonCode();
-        defaultReason.setCode("GENERIC_MISMATCH");
-        defaultReason.setName("Generic Mismatch");
-        defaultReason.setDescription("General mismatch found during reconciliation");
-        defaultReason.setAdjustable(false);
-        defaultReason.setActive(true);
-        return defaultReason;
-    }
 }
