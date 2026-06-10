@@ -25,6 +25,22 @@ flowchart LR
 ./gradlew :account-mart:mart-batch:bootRun --args="--spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --spring.batch.job.enabled=true"
 ```
 
+IntelliJ에서 처음 실행할 때는 루트 [docs/local-development.md](../docs/local-development.md)를 먼저 확인합니다.
+`mart-batch`는 CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다.
+H2 demo seed까지 같이 확인하려면 아래처럼 실행합니다.
+
+```powershell
+./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30"
+```
+
 스키마는 `account-mart/db/schema-mart.sql`을 기준으로 관리합니다.
 
 `allowance_input_positions`의 쓰기 소유권과 JPA 엔티티는 `account-mart`에 있습니다. 다른 모듈은 이 엔티티를 공유하지 않고 스냅샷/조회 계약을 통해 데이터를 읽습니다.
+
+## 문서
+
+- 문서 인덱스: [docs/README.md](docs/README.md)
+- 입문 가이드: [docs/DATA_MART_BEGINNER_GUIDE.md](docs/DATA_MART_BEGINNER_GUIDE.md)
+- ETL 인터페이스: [docs/ETL_INTERFACE_SPEC.md](docs/ETL_INTERFACE_SPEC.md)
+- 데이터 마트 명세: [docs/DATA_MART_SPEC.md](docs/DATA_MART_SPEC.md)
+- Batch 학습 가이드: [docs/BATCH_LEARNING_GUIDE.md](docs/BATCH_LEARNING_GUIDE.md)

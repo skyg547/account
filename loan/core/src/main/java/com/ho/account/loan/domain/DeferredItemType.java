@@ -5,8 +5,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * ?댁뿰 ??ぉ ?좏삎 (Deferred Item Type) ?뷀떚??
- * ?댁뿰 ??곸씠 ?섎뒗 ?섏닔猷뚮굹 鍮꾩슜 ?깆쓽 ?좏삎???뺤쓽?섍퀬, 愿???뚭퀎 怨꾩젙??留ㅽ븨?⑸땲??
+ * 이연 항목 유형(Deferred Item Type) 엔티티.
+ *
+ * <p>대출 실행 수수료나 부대비용처럼 한 번에 손익 처리하지 않고 기간에 걸쳐 인식할
+ * 항목의 유형과 회계 계정 매핑을 정의합니다.
  */
 @Entity
 @Table(name = "deferred_item_types")
@@ -17,25 +19,25 @@ public class DeferredItemType {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
-    private String code; // ?댁뿰 ??ぉ 肄붾뱶 (?? LOAN_ORIGINATION_FEE)
+    private String code; // 이연 항목 코드 (예: LOAN_ORIGINATION_FEE)
 
     @Column(nullable = false, length = 200)
-    private String name; // ?댁뿰 ??ぉ紐?
+    private String name; // 이연 항목명
 
     @Column(length = 500)
     private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private DeferralMethod deferralMethod; // ?댁뿰 諛⑸쾿 (STRAIGHT_LINE, EIR_METHOD ??
+    private DeferralMethod deferralMethod; // 이연 방식 (STRAIGHT_LINE, EIR_METHOD 등)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deferred_asset_account_code")
-    private AccountSubject deferredAssetAccount; // ?댁뿰 ?먯궛 怨꾩젙 (?? ?댁뿰?異쒕???먯씡 ?먯궛)
+    private AccountSubject deferredAssetAccount; // 이연자산 계정
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recognized_income_account_code")
-    private AccountSubject recognizedIncomeAccount; // ?몄떇 ?먯씡 怨꾩젙 (?? ?댁옄?섏씡)
+    private AccountSubject recognizedIncomeAccount; // 수익 인식 계정
 
     @Column(nullable = false)
     private boolean isActive = true;
@@ -49,7 +51,7 @@ public class DeferredItemType {
     private String auditUser;
 
     public enum DeferralMethod {
-        STRAIGHT_LINE, EIR_METHOD, EFFECTIVE_INTEREST_METHOD // EIR_METHOD? EFFECTIVE_INTEREST_METHOD???숈씪 媛쒕뀗?댁?留?紐낆떆?곸쑝濡?援щ텇
+        STRAIGHT_LINE, EIR_METHOD, EFFECTIVE_INTEREST_METHOD // EIR_METHOD와 EFFECTIVE_INTEREST_METHOD는 같은 개념이지만 명시적으로 구분합니다.
     }
 
     @PrePersist
@@ -65,7 +67,7 @@ public class DeferredItemType {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

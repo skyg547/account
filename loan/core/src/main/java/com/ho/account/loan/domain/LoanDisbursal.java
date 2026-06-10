@@ -6,8 +6,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?異??ㅽ뻾 (Loan Disbursal) ?뷀떚??
- * ?異쒓툑??理쒖큹 ?ㅽ뻾 ?댁뿭??湲곕줉?섎ŉ, 愿??遺꾧컻 ?꾪몴? ?곌껐?⑸땲??
+ * 대출 실행(Loan Disbursal) 엔티티.
+ *
+ * <p>대출금이 실제로 지급된 이력을 기록하고, 관련 전표 ID와 전표번호를 값으로 연결합니다.
  */
 @Entity
 @Table(name = "loan_disbursals")
@@ -22,10 +23,10 @@ public class LoanDisbursal {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate disbursalDate; // ?ㅼ젣 ?ㅽ뻾??
+    private LocalDate disbursalDate; // 실제 실행일
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal disbursedAmount; // ?ㅽ뻾 湲덉븸
+    private BigDecimal disbursedAmount; // 실행 금액
 
     @Column(name = "journal_entry_id")
     private Long journalEntryId; // 타 bounded context 전표는 ID로 참조합니다.
@@ -54,7 +55,7 @@ public class LoanDisbursal {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

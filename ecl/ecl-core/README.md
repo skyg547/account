@@ -25,3 +25,11 @@
 - `application/service/allowance`: 회계 대손충당금 유즈케이스 테스트.
 - `application/service/calculation`: PD, LGD, EAD, 미래전망 ECL 단위 테스트.
 - `domain/calculator`: 순수 산식 테스트.
+
+## 로컬 검증
+
+```powershell
+.\gradlew :ecl:ecl-core:test --console=plain --max-workers=1 --no-daemon
+```
+
+계산 정책을 바꾸면 `EadCalculatorTest`, `AllowanceParameterServiceTest`처럼 순수 계산/정책 테스트를 먼저 보강한 뒤 batch/API 검증으로 넓힙니다.

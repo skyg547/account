@@ -3,6 +3,88 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-10 (Codex 문서)
+### [문서] Loan 문서 5차 통합 및 EIR/Batch 실행 가이드 정리
+- **수정 범위**:
+  - 깨진 `loan/docs/README.md` 원문을 `loan/docs/archive/README_legacy_corrupt_2026-06-10.md`로 이동해 보존.
+  - `loan/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 대출 생성, 실행, 이연 항목, EIR 스케줄, 재계산, 일일 이자 Batch 흐름을 현재 코드 기준으로 통합.
+  - `loan/README.md`에 문서 읽기 순서, IntelliJ/Gradle 실행 예시, 필수 `account.loan.accounting.*` 설정을 보강.
+  - Loan용 IntelliJ 공유 Gradle Run Configuration `.run/Loan API bootRun.run.xml`, `.run/Loan Batch Context.run.xml` 추가.
+  - `DeferredItemType`, `DeferredItem`, `EIRAmortizationSchedule`, `RecalculationRun`, `LoanEvent`, `LoanDisbursal`, `LoanJdbcAdapter`의 깨진 한글 주석을 초보자용 업무 설명으로 복구.
+  - `EIRCalculator`에 이연 수수료/비용 부호 정책 보강 필요 지점을 `@todo`로 명시.
+- **검증**:
+  - `.\gradlew :loan:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - EIR 계산은 현재 수수료/비용 부호 정책을 단순화하고 있어 운영 회계 정책 반영 전 보강이 필요하다.
+  - 일일 이자 Batch 실제 전표 생성은 ACTIVE 대출, `loan_amortization_schedule_entries`, master-data 계정 seed가 준비된 환경에서 별도 확인해야 한다.
+
+### 📅 2026-06-10 (Codex 문서)
+### [문서] Closing 문서 4차 통합 및 결산 실행 가이드 정리
+- **수정 범위**:
+  - 깨진 `closing/docs/README.md` 원문을 `closing/docs/archive/README_legacy_corrupt_2026-06-10.md`로 이동해 보존.
+  - `closing/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 결산 캘린더, 태스크, 게이트, 기간 잠금, 재오픈, FX/ECL 배치 흐름을 현재 코드 기준으로 통합.
+  - `closing/README.md`에 문서 읽기 순서, IntelliJ/Gradle 실행 예시, ECL 충당 Job 선행 조건을 보강.
+  - Closing용 IntelliJ 공유 Gradle Run Configuration `.run/Closing API bootRun.run.xml`, `.run/Closing Batch Context.run.xml` 추가.
+  - `ClosingCalendar`, `ClosingTask`, `ClosingGate`, `ClosingPeriod`, `DailyClosingStatus`의 깨진 한글 주석을 초보자용 업무 설명으로 복구.
+  - `FxValuationBatchConfig`, `FxValuationService`에 대량 외화 잔액 처리와 자산/부채 계정 차대변 판정 개선 필요 지점을 `@todo`로 명시.
+- **검증**:
+  - `.\gradlew :closing:core:test :closing:api:compileJava :closing:batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - FX 평가 전표는 현재 자산 계정 중심의 차대변 처리를 전제로 하며, 부채 계정은 계정 성격 기반 판정 보강이 필요하다.
+  - FX 평가 Reader는 현재 집계 잔액 메모리 로딩 구조이며, 운영 대량 계정 환경에서는 Paging/Partition 전환 검토가 필요하다.
+
+### 📅 2026-06-10 (Codex 문서)
+### [문서] Journal Ledger 문서 3차 통합 및 계층 가이드 정리
+- **수정 범위**:
+  - 소스 트리 하위 legacy README 3개를 `journal-ledger/docs/archive`로 이동해 보존.
+  - `journal-ledger/docs/layer-guide.md`를 추가해 application/domain/adapter/infrastructure 책임과 출력 포트 경계를 현재 코드 기준으로 통합.
+  - `journal-ledger/README.md`, `docs/README.md`, `docs/beginner-guide.md`, `docs/process-flow.md`에 로컬 실행, JDBC bulk 모드, 계층 가이드 링크를 보강.
+  - Journal Ledger용 IntelliJ 공유 Gradle Run Configuration `.run/Journal Ledger API bootRun.run.xml`, `.run/Journal Ledger API JDBC Bulk.run.xml` 추가.
+  - `docs/module-documentation-sequence.md`에 Journal Ledger 완료와 다음 `closing` 순서를 기록.
+- **검증**:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - JDBC bulk 운영 모드는 실제 PostgreSQL/MySQL 환경에서 배치 크기, 인덱스, 락 대기 부하 검증이 필요하다.
+
+### 📅 2026-06-10 (Codex 문서)
+### [문서] ECL 문서 2차 통합 및 IntelliJ 실행 설정
+- **수정 범위**:
+  - `ecl/README.md` 실행 예시를 Windows PowerShell/IntelliJ 기준으로 보강.
+  - ECL 문서 인덱스, 입문, 배치 실행 가이드에 `account-mart` snapshot 선행 조건과 demo profile의 한계를 명확히 기록.
+  - `ecl-api`, `ecl-batch`, `ecl-core` README에 로컬 실행/검증 명령을 추가.
+  - ECL용 IntelliJ 공유 Gradle Run Configuration `.run/ECL API bootRun.run.xml`, `.run/ECL Batch Context.run.xml` 추가.
+  - `docs/module-documentation-sequence.md`에 ECL 완료와 다음 `journal-ledger` 순서를 기록.
+- **검증**:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - 실제 `allowanceEclJob` 산출 실행은 `allowance_exposure_snapshots`, 모델 마스터, 계정 매핑 seed가 준비된 환경에서 별도 확인해야 한다.
+
+### 📅 2026-06-10 (Codex 문서)
+### [문서] 공통 로컬 실행 가이드 및 account-mart 문서 1차 통합
+- **수정 범위**:
+  - 깨진 레거시 `docs/beginner_guide.md` 원문을 `docs/archive/beginner_guide_legacy_corrupt_2026-06-10.md`로 이동해 보존.
+  - 새 `docs/beginner_guide.md`와 `docs/local-development.md`를 작성해 IntelliJ, JDK 17, Gradle JVM, 모듈별 Spring Boot 실행 기준을 정리.
+  - 루트 `README.md`, `docs/README.md`에 로컬 실행 문서와 모듈별 문서 통합 진행표를 연결.
+  - `account-mart/docs/README.md`를 추가하고 기존 account-mart 문서들의 읽기 순서, Batch Job 목록, 재실행 체크, IntelliJ/Gradle 실행 예시를 통합.
+  - account-mart용 IntelliJ 공유 Gradle Run Configuration `.run/Account Mart API bootRun.run.xml`, `.run/Account Mart Batch Demo.run.xml` 추가.
+- **검증**:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - 문서 통합은 모듈별 순차 작업으로 진행 중이며, 다음 대상은 `journal-ledger` 문서다.
+
 ### 📅 2026-06-10 (Codex 구현)
 ### [고도화] ECL 계산 정책·Journal 미결/자동분개 경계 및 상세 문서 통합
 - **수정 범위**:

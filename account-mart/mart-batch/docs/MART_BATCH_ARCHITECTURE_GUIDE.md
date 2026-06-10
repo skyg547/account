@@ -17,3 +17,36 @@ flowchart LR
 - Job/Step은 오케스트레이션만 담당합니다.
 - 원장 검증, 대사, snapshot 생성 규칙은 `mart-core`에 둡니다.
 - 기준일 파라미터는 필수이며, 같은 기준일 재실행 시 기존 산출물을 정리한 뒤 다시 생성합니다.
+
+## 실행 Job
+
+| Job | 목적 |
+| --- | --- |
+| `integratedPositionEtlJob` | 전체 ETL 표준 경로 |
+| `preProcessJob` | 전처리만 재실행 |
+| `ledgerDqJob` | 원장 DQ만 재실행 |
+| `collateralDqJob` | 담보 DQ만 재실행 |
+| `odsReconcileJob` | DQ 후 ODS-GL 대사 재실행 |
+| `cdmLoadJob` | CDM 포지션 적재 재실행 |
+| `allowanceExposureSnapshotJob` | ECL 입력 snapshot 재생성 |
+| `cdmEventPublishJob` | downstream 이벤트 발행 |
+
+## 로컬 실행
+
+```powershell
+./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30" --console=plain
+```
+
+Kafka가 없는 로컬 환경에서는 필요에 따라 아래 옵션을 같이 넣습니다.
+
+```text
+--mart.batch.cdm-event.enabled=false
+```
+
+## 재실행 안전성 체크
+
+1. `baseDate`가 원하는 회계 기준일인지 확인합니다.
+2. 전처리 Step이 같은 기준일의 중간 산출물을 정리하는지 확인합니다.
+3. DQ skip 건수가 허용 범위인지 확인합니다.
+4. ODS-GL 대사 결과를 확인합니다.
+5. snapshot 건수와 잔액 합계를 ECL 실행 전 확인합니다.

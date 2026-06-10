@@ -5,8 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?異??대깽??(Loan Event) ?뷀떚??
- * ?異?怨꾩빟???앹븷 二쇨린 ?숈븞 諛쒖깮?섎뒗 二쇱슂 ?대깽??以묐룄?곹솚, 議곌굔 蹂寃???瑜?湲곕줉?⑸땲??
+ * 대출 이벤트(Loan Event) 엔티티.
+ *
+ * <p>대출 계약의 생명주기 동안 발생하는 중도상환, 조건 변경, 리스케줄 등 주요 이벤트를 기록합니다.
  */
 @Entity
 @Table(name = "loan_events")
@@ -22,10 +23,10 @@ public class LoanEvent {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private EventType eventType; // EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE ??
+    private EventType eventType; // EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE 등
 
     @Column(nullable = false)
-    private LocalDate eventDate; // ?대깽??諛쒖깮??
+    private LocalDate eventDate; // 이벤트 발생일
 
     @Column(length = 1000)
     private String description;
@@ -33,7 +34,7 @@ public class LoanEvent {
     @Column(name = "journal_entry_id")
     private Long relatedJournalEntryId;
 
-    // ?ш퀎?곗씠 ?꾩슂???대깽?몄쓽 寃쎌슦 RecalculationRun怨??곌껐
+    // 재계산이 필요한 이벤트인 경우 RecalculationRun과 연결합니다.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculation_run_id")
     private RecalculationRun recalculationRun;
@@ -63,7 +64,7 @@ public class LoanEvent {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

@@ -23,5 +23,12 @@
 - **Port**: 8083
 - **Main 기술**: Spring Boot, Spring Web, Eureka Client
 
+```powershell
+.\gradlew :ecl:ecl-api:bootRun --console=plain
+```
+
+IntelliJ에서는 공유 실행 설정 `ECL API bootRun` 또는 `AllowanceEclApiApplication`을 사용합니다.
+Config Server는 `optional:` import이므로 단독 기동은 가능하지만, 외부 설정과 Eureka 등록 상태는 로컬 인프라 기동 여부에 영향을 받습니다.
+
 ## 🧪 IntelliJ HTTP Client
 - IntelliJ에서 바로 호출할 수 있는 샘플 요청 파일: `allowance-api.http`

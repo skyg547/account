@@ -5,10 +5,16 @@
 ## 실행
 
 ```powershell
-./gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=IFRS9_BASE_2026"
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=IFRS9_BASE_2026" --console=plain
 ```
 
 대손충당금 모듈만 단독으로 띄울 때 필요한 DB 준비와 최소 시드 데이터는 [ALLOWANCE_SERVICE_RUNBOOK.md](ALLOWANCE_SERVICE_RUNBOOK.md)를 따른다.
+
+IntelliJ에서 Job 실행 없이 batch 컨텍스트만 확인하려면 공유 실행 설정 `ECL Batch Context`를 사용하거나 아래 명령을 실행합니다.
+
+```powershell
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false" --console=plain
+```
 
 ## 주요 파라미터
 
@@ -17,6 +23,15 @@
 | `baseDate` | Y | 산출 기준일 |
 | `modelVersion` | N | 산출 모델 버전 |
 | `runId` | N | 실행 식별자. 없으면 Job runner가 생성 |
+
+## 선행 데이터
+
+- `account-mart`가 만든 `allowance_exposure_snapshots`
+- `allowance_model_parameters`의 필수 PD/LGD/CCF 정책값
+- 등급, 상품, LGD 세그먼트, 거시시나리오, 전이행렬 마스터
+- `allowance_account_mappings` 회계 계정 매핑
+
+계정 매핑이 누락되면 summary 교체를 중단해 기존 `allowance_summary`를 보호합니다.
 
 ## 검증 SQL
 

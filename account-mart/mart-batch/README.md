@@ -22,8 +22,24 @@
 
 Kafka 없이 로컬 검증할 때는 `mart.batch.cdm-event.enabled=false`를 사용합니다.
 
+IntelliJ에서는 `AllowanceMartBatchApplication`을 실행 클래스로 선택하고, Program arguments에 아래 값을 넣습니다.
+
+```text
+--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30
+```
+
+CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다. 포트 충돌 없이 Job만 확인하고 싶을 때 이 방식을 사용합니다.
+
 ## 대용량 처리
 
 - DQ와 CDM 적재는 chunk 기반으로 처리합니다.
 - CDM 적재 병렬화는 `mart.batch.cdm-load.parallel-enabled=true`로 켤 수 있습니다.
 - 배치 설정은 reader/processor/writer 연결과 chunk/task executor 설정만 담당합니다.
+
+## 검증
+
+```powershell
+./gradlew :account-mart:mart-batch:test --console=plain --max-workers=1 --no-daemon
+```
+
+문서와 Job 설정을 함께 바꿨다면 `account-mart/docs/README.md`의 흐름과 `IntegratedPositionEtlJobConfig`의 실제 Step 순서가 일치하는지 확인합니다.

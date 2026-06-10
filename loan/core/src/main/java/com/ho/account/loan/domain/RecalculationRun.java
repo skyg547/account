@@ -6,8 +6,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?ш퀎???ㅽ뻾 (Recalculation Run) ?뷀떚??
- * 以묐룄?곹솚, 議곌굔 蹂寃??깆쑝濡??명빐 ?좏슚?댁옄??EIR) ?ㅼ?以꾩씠 ?ш퀎?곕맂 ?대젰??愿由ы빀?덈떎.
+ * 재계산 실행(Recalculation Run) 엔티티.
+ *
+ * <p>중도상환, 조건 변경, 리스케줄 등으로 EIR과 상각 스케줄을 다시 계산한 이력을 관리합니다.
  */
 @Entity
 @Table(name = "recalculation_runs")
@@ -22,28 +23,28 @@ public class RecalculationRun {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate recalculationDate; // ?ш퀎???ㅽ뻾??
+    private LocalDate recalculationDate; // 재계산 실행일
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private RecalculationReason reason; // ?ш퀎???ъ쑀 (EARLY_REPAYMENT, CONDITION_CHANGE ??
+    private RecalculationReason reason; // 재계산 사유 (EARLY_REPAYMENT, CONDITION_CHANGE 등)
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal oldEIR; // ?댁쟾 ?좏슚?댁옄??
+    private BigDecimal oldEIR; // 이전 유효이자율
 
     @Column(precision = 5, scale = 4)
-    private BigDecimal newEIR; // ?덈줈???좏슚?댁옄??
+    private BigDecimal newEIR; // 새로운 유효이자율
 
-    private LocalDate oldMaturityDate; // ?댁쟾 留뚭린??
+    private LocalDate oldMaturityDate; // 이전 만기일
 
-    private LocalDate newMaturityDate; // ?덈줈??留뚭린??
+    private LocalDate newMaturityDate; // 새로운 만기일
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recalculated_amortization_schedule_start_id")
-    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // ?ш퀎?곕맂 ?ㅼ?以꾩쓽 ?쒖옉 ??ぉ
+    private EIRAmortizationSchedule recalculatedAmortizationScheduleStart; // 재계산된 스케줄의 시작 항목
 
     @Column(columnDefinition = "TEXT")
-    private String impactAnalysis; // ?ш퀎???곹뼢 遺꾩꽍 (JSON ?먮뒗 ?띿뒪??
+    private String impactAnalysis; // 재계산 영향 분석(JSON 또는 텍스트)
 
     @Column(name = "adjustment_journal_entry_id")
     private Long adjustmentJournalEntryId;
@@ -76,7 +77,7 @@ public class RecalculationRun {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

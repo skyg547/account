@@ -33,7 +33,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합"과 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan"입니다.
 - Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
 - Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
 - Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
@@ -42,7 +42,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - Reconciliation 표준 `Unit -> Run -> Difference` Aggregate 및 단계 결과 연결
 - Allowance input JPA 쓰기 소유권의 account-mart 이동과 ECL 자체 읽기 모델
 - Closing 조정 전표 기본 DRAFT 통제, Tax 논리 취소/actor/계약 포트, Asset actor 전달
-- Java 코드 `@todo` 0건과 README/WORKLOG/리뷰 문서의 실제 코드 일치 여부
+- 2026-06-09 구현 종료 시점의 Java 코드 `@todo` 0건 기록과, 이후 문서 통합에서 의도적으로 추가한 운영 개선용 `@todo`의 실제 리스크 일치 여부
 - ECL `EadCalculationResult`, 모델 비율 fail-closed 검증, 이름 있는 기본 CCF 정책
 - ECL 모델 파라미터 기술 독립 포트와 JPA 어댑터 빈 구성
 - ECL 등급·상품·LGD·담보배분·거시시나리오·전이행렬 기술 독립 포트와 JPA/캐시 어댑터
@@ -50,6 +50,14 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - Journal `JournalPersistencePort`/`LedgerEntryPersistencePort`/`LedgerBalancePersistencePort` 전기·잔액 경계와 DB 조건 필터
 - Journal `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정 기반 JDBC batch insert/upsert 어댑터, `YearMonthAttributeConverter`, 잔액 재집계 bulk 저장 경로
 - ECL/Journal docs 인덱스, 입문·프로세스·스키마 문서의 실제 코드 일치 여부
+- 공통 docs `beginner_guide.md`, `local-development.md`, `module-documentation-sequence.md`가 실제 settings.gradle/실행 클래스/Gradle 명령과 맞는지
+- account-mart 문서 인덱스, batch/API/core README, Batch Job 목록, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
+- ECL README/docs/API/batch/core 문서, account-mart 선행 데이터 조건, demo profile 설명, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
+- Journal Ledger README/docs/layer-guide, legacy README archive 이동, JDBC bulk 실행 설정, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
+- Closing README/docs, legacy README archive 이동, FX/ECL Batch 실행 조건, IntelliJ `.run` Gradle 설정, 깨진 한글 주석 복구가 실제 코드와 맞는지
+- Closing에 새로 남긴 `@todo` 2건이 실제 운영 리스크(대량 FX Reader, 부채 계정 차대변 판정)를 정확히 가리키는지
+- Loan README/docs, legacy README archive 이동, EIR/일일 이자 Batch 실행 조건, IntelliJ `.run` Gradle 설정, 깨진 한글 주석 복구가 실제 코드와 맞는지
+- Loan에 새로 남긴 `@todo` 1건이 실제 운영 리스크(이연 수수료/비용 부호 정책)를 정확히 가리키는지
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -104,9 +112,16 @@ Notes:
   - Auth/Payable/Receivable/Asset/Tax 집중 테스트 성공.
   - Closing/Journal/Reconciliation/ECL 집중 테스트 및 API 컴파일 성공.
   - Loan/Account-Mart/Allowance 소유권 경계 테스트 및 API 컴파일 성공.
-  - Java 소스 `@todo` 검색 결과 0건, 변경 범위 diff check 성공.
+  - 2026-06-09 구현 종료 시점의 Java 소스 `@todo` 검색 결과는 0건이었다.
   - ECL core/API/batch와 Journal core/API 통합 검증 성공.
   - Journal T53 구현 후 core 테스트와 H2 기반 JDBC batch insert/upsert 집중 테스트 성공.
+  - 문서 통합 1차 후 account-mart core/test, mart-api compileJava, mart-batch test 성공.
+  - 문서 통합 2차 후 ecl core test, ecl-api compileJava, ecl-batch test 성공.
+  - 문서 통합 3차 후 journal-ledger core/api test 성공.
+  - 문서 통합 4차 후 closing core test, closing-api compileJava, closing-batch test 성공.
+  - 문서 통합 4차에서 Closing 주석 복구와 함께 운영 개선용 Java `@todo` 2건을 의도적으로 추가했다.
+  - 문서 통합 5차 후 loan core test, loan-api compileJava, loan-batch compileJava 성공.
+  - 문서 통합 5차에서 Loan 주석 복구와 함께 운영 개선용 Java `@todo` 1건을 의도적으로 추가했다.
 - Docker 이미지 빌드는 실행하지 않았다.
 - Auth 기본 잠금 어댑터와 Payable 로컬 지급 어댑터는 운영용 공유/외부 어댑터 교체가 필요하다.
 - Journal 전기·잔액 Repository 직접 의존과 ECL 마스터 포트의 JPA 기술 누수는 제거했다.

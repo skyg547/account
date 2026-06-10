@@ -6,8 +6,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * ?댁뿰 ??ぉ (Deferred Item) ?뷀떚??
- * ?異쒓낵 愿?⑤맂 媛쒕퀎 ?댁뿰 ?섏닔猷? 鍮꾩슜 ?깆쓣 愿由ы븯硫??곴컖 ?ㅼ?以꾩쓽 湲곗큹媛 ?⑸땲??
+ * 이연 항목(Deferred Item) 엔티티.
+ *
+ * <p>대출과 관련된 개별 이연 수수료 또는 비용을 관리하며,
+ * 이후 상각 스케줄과 전표 생성의 기초 금액이 됩니다.
  */
 @Entity
 @Table(name = "deferred_items")
@@ -26,19 +28,19 @@ public class DeferredItem {
     private DeferredItemType deferredItemType;
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 珥??댁뿰 湲덉븸
+    private BigDecimal amount; // 총 이연 금액
 
     @Column(nullable = false)
-    private LocalDate deferralDate; // ?댁뿰 諛쒖깮??
+    private LocalDate deferralDate; // 이연 발생일
 
     @Column(nullable = false)
-    private LocalDate amortizationStartDate; // ?곴컖 ?쒖옉??
+    private LocalDate amortizationStartDate; // 상각 시작일
 
     @Column(nullable = false)
-    private LocalDate amortizationEndDate; // ?곴컖 醫낅즺??
+    private LocalDate amortizationEndDate; // 상각 종료일
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal remainingAmount; // ?붿뿬 ?댁뿰 湲덉븸
+    private BigDecimal remainingAmount; // 잔여 이연 금액
 
     @Column(name = "initial_journal_entry_id")
     private Long initialJournalEntryId;
@@ -77,7 +79,7 @@ public class DeferredItem {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

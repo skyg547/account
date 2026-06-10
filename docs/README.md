@@ -9,10 +9,12 @@
 
 모든 문서를 처음부터 다 읽을 필요는 없습니다. 아래 순서대로 파악하는 것을 권장합니다.
 
-1. **[beginner_guide.md](./beginner_guide.md):** 프로젝트 통합 가이드. 시스템의 큰 그림을 잡아줍니다.
-2. **[infrastructure_runbook.md](./infrastructure_runbook.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
-3. **[business_workflow.md](./business_workflow.md):** 지출결의부터 전표 생성, 마감까지 실제 돈이 어떻게 흘러가는지 업무 시나리오를 다룹니다.
-4. **[domain-catalog.md](./domain-catalog.md):** 우리 시스템에 어떤 도메인(업무)들이 있는지 한눈에 보는 카탈로그입니다.
+1. **[beginner_guide.md](./beginner_guide.md):** 프로젝트 통합 가이드. 시스템의 큰 그림과 문서 읽는 순서를 잡아줍니다.
+2. **[local-development.md](./local-development.md):** IntelliJ IDEA, JDK 17, Gradle, 로컬 Spring Boot 실행 방법을 설명합니다.
+3. **[infrastructure_runbook.md](./infrastructure_runbook.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
+4. **[business_workflow.md](./business_workflow.md):** 지출결의부터 전표 생성, 마감까지 실제 돈이 어떻게 흘러가는지 업무 시나리오를 다룹니다.
+5. **[domain-catalog.md](./domain-catalog.md):** 우리 시스템에 어떤 도메인(업무)들이 있는지 한눈에 보는 카탈로그입니다.
+6. **[module-documentation-sequence.md](./module-documentation-sequence.md):** 모듈별 문서 통합 진행 순서와 완료/대기 상태.
 
 ---
 
@@ -22,7 +24,6 @@
 
 - **[architecture.md](./architecture.md):** 백엔드(헥사고날/MSA) 및 프론트엔드(Next.js) 통합 아키텍처 명세.
 - **[principles_and_policies.md](./principles_and_policies.md):** 헥사고날 아키텍처 원칙, SCD2 적용 기준 등 전사 개발 정책.
-- **[service-discovery-model.md](./service-discovery-model.md):** MSA 간 서비스 디스커버리 연동 모델.
 - **[msa_roadmap.md](./msa_roadmap.md):** MSA 전환 로드맵 및 운영 적용 순서.
 
 ---
@@ -40,23 +41,31 @@
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제
 - `payable/README.md` & `receivable/README.md`: 매입채무/매출채권 관리
 - `tax/README.md`: 세금계산서 관리
-- `asset-lease/README.md` & `loan/README.md`: IFRS16 리스 및 대출
+- `asset-lease/README.md`: IFRS16 리스
+- `loan/README.md`와 `loan/docs/README.md`: 대출 실행, EIR, 일일 이자 발생 Batch
 
 ### 3.3 핵심 회계 엔진 (결산 부서)
 - `journal-ledger/README.md`: 전표 기록 및 원장(GL/SL) 관리
-- `closing/README.md`: 월마감 및 자동 분개
+- `closing/README.md`와 `closing/docs/README.md`: 월마감, 기간 잠금, FX/ECL 결산 배치
 - `reconciliation/README.md`: 외부 데이터와의 자동 대사
 - `reporting/README.md`: B/S, I/S 재무제표 생성
+
+### 3.4 대손충당금 입력/산출
+- `account-mart/README.md`와 `account-mart/docs/README.md`: ECL 입력 snapshot 생성
+- `ecl/README.md`와 `ecl/docs/README.md`: IFRS 9 ECL/대손충당금 산출
 
 ---
 
 ## 4. 🗄️ 아카이브 (Archive)
 
 과거 MSA 분리 이전의 히스토리나 완료된 작업 마일스톤 문서는 `archive/` 폴더 내에 보관되어 있습니다. (예: `msa-modularization-*.md`, `dependency-split-status.md` 등)
+깨진 레거시 문서도 삭제하지 않고 `archive/`로 이동해 보존합니다.
 과거 아키텍처의 의사결정 과정이 궁금할 때 열어보세요.
 
 ---
 
 ## 5. 🤖 AI Agent 연동 규칙
 
-- **[GEMINI.md](./GEMINI.md) & [GEMINI_SKILL.md](./GEMINI_SKILL.md):** Gemini/Claude 등 AI 에이전트가 코드를 작성하거나 리뷰할 때 반드시 지켜야 하는 도메인 제약사항 및 핸드오프 규칙입니다.
+- 루트 **[../Agents.md](../Agents.md):** Codex 작업 규칙.
+- 루트 **[../GEMINI.md](../GEMINI.md):** Gemini 작업 규칙.
+- 과거 Gemini 관련 자료는 [history/](./history/)에 보관되어 있습니다.

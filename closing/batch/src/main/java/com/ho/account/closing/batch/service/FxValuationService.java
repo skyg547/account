@@ -113,7 +113,8 @@ public class FxValuationService {
 
         if (isGain) {
             // 이익: 차변(자산/부채 계정) / 대변(외화환산이익)
-            // (주의: 부채의 경우 차대변이 반대가 되어야 하나, 여기서는 자산 계정이라고 가정)
+            // 현재는 자산 계정을 기준으로 처리합니다.
+            // @todo 계정 성격(자산/부채)을 master-data 계정 속성으로 조회해 부채 계정의 차대변 반전까지 반영해야 합니다.
             accountDetail.setSide(JournalSide.DEBIT);
             
             pnlDetail.setSide(JournalSide.CREDIT);

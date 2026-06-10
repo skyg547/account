@@ -33,24 +33,24 @@ public class ClosingTask {
     @Column(length = 50)
     private ClosingTaskCategory category; // PRE_CLOSING, CLOSING_ENTRY, POST_CLOSING
 
-    private LocalDateTime dueDate; // ?쒖뒪??湲고븳
+    private LocalDateTime dueDate; // 태스크 완료 기한
 
     @Column(length = 50)
-    private String assignedTo; // ?대떦??
+    private String assignedTo; // 담당자
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private ClosingTaskStatus status; // PENDING, IN_PROGRESS, COMPLETED, FAILED
 
-    // ?쒖뒪???꾨즺 議곌굔 (?? ?뱀젙 ReconciliationUnit??ReconciliationRun??SUCCESS ?곹깭 ??
+    // 태스크 완료 조건(JSON). 예: 특정 대사 실행이 SUCCESS 상태인지 확인하는 조건.
     @Column(columnDefinition = "TEXT")
     private String completionConditionJson;
 
     @Column(nullable = false)
-    private boolean isMandatory; // ?꾩닔 ?쒖뒪???щ?
+    private boolean isMandatory; // 필수 태스크 여부
 
     @Column(nullable = false)
-    private Integer taskOrder; // ?쒖뒪???쒖꽌
+    private Integer taskOrder; // 태스크 실행 순서
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -86,7 +86,7 @@ public class ClosingTask {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

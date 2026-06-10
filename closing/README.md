@@ -4,6 +4,20 @@
 
 ---
 
+## 0. 📚 문서 읽기 순서
+
+세부 문서는 `closing/docs`에 모았습니다.
+
+1. [문서 인덱스](docs/README.md)
+2. [입문 가이드](docs/beginner-guide.md)
+3. [업무 흐름](docs/process-flow.md)
+4. [데이터 모델](docs/schema.md)
+5. [IntelliJ/Gradle 로컬 실행](docs/local-run.md)
+
+IntelliJ에서는 `.run`의 `Closing API bootRun`, `Closing Batch Context` 실행 설정을 사용할 수 있습니다.
+
+---
+
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
 **결산 마감은 '가계부 한 달 치를 확정하고 테이프로 봉인하는 것'과 같습니다.**
@@ -79,11 +93,30 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 설정 방법
+## 4. 🧪 로컬 실행 및 설정 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d closing
+먼저 테스트와 컴파일로 모듈 상태를 확인합니다.
+
+```powershell
+.\gradlew :closing:core:test :closing:api:compileJava :closing:batch:test --console=plain --max-workers=1 --no-daemon
+```
+
+API 컨텍스트 실행:
+
+```powershell
+.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+```
+
+Batch 컨텍스트만 실행:
+
+```powershell
+.\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+```
+
+ECL 충당 Job 예시:
+
+```powershell
+.\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=eclProvisionJob closingDate=2026-04-30 provisionBatchId=20260430 --spring.batch.jdbc.initialize-schema=always" --console=plain
 ```
 
 **설정 주의사항:**
@@ -92,3 +125,4 @@ docker-compose up -d closing
 - FX/ECL 배치 전표번호는 기준일, 배치 ID, 계정 식별자를 조합해 20자 이내로 결정적으로 생성됩니다. 배치 ID 파라미터가 없으면 기준일(`yyyyMMdd`)을 기본값으로 사용해 같은 기준일 재실행이 중복 전표번호로 감지될 수 있게 합니다.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
+- Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

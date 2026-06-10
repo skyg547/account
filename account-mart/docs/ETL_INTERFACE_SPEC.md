@@ -13,3 +13,22 @@
 
 ETL 결과는 `allowance_input_positions`를 거쳐 `allowance_exposure_snapshots`로 고정됩니다.
 
+## 필수 Job 파라미터
+
+| 파라미터 | 예시 | 설명 |
+| --- | --- | --- |
+| `baseDate` | `2026-04-30` | snapshot 기준일 |
+| `spring.batch.job.name` | `integratedPositionEtlJob` | 실행할 Spring Batch Job 이름 |
+
+CLI 실행 예시는 다음과 같습니다.
+
+```powershell
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30" --console=plain
+```
+
+## 인터페이스 정합성 포인트
+
+- 원천 계좌와 고객 기준정보는 같은 기준일 기준으로 맞춰야 합니다.
+- 외화 익스포저는 환율 누락 시 snapshot 생성 전에 실패 또는 격리되어야 합니다.
+- ODS와 GL 대사는 잔액 총액뿐 아니라 통화/계정 축을 함께 확인해야 합니다.
+- ETL 완료 후 ECL 모듈이 읽는 snapshot은 더 이상 원천 변경에 흔들리지 않는 고정 입력이어야 합니다.

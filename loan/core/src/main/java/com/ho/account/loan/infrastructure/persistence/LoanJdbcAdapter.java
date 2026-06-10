@@ -13,7 +13,8 @@ import java.sql.PreparedStatement;
 import java.util.List;
 
 /**
- * JDBC 湲곕컲??怨좎꽦????⑸웾 泥섎━ ?대뙌?? */
+ * JDBC 기반 고성능 대량 처리 어댑터.
+ */
 @Repository
 @RequiredArgsConstructor
 public class LoanJdbcAdapter implements LoanPort {

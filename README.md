@@ -222,6 +222,9 @@ flowchart TD
 ## 🚀 빠른 시작 (Getting Started)
 
 모든 개별 MSA 모듈 및 인프라스트럭처에 대해 독립적으로 실행 가능한 `Dockerfile`과 `docker-compose.yml`이 구성되어 있습니다.
+IntelliJ IDEA에서 로컬 실행을 먼저 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
+
+> 현재 루트 `app/`는 실행 소스가 없는 빌드 산출물 디렉터리입니다. 통합 실행은 `app`이 아니라 `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 기준으로 합니다.
 
 ### 인프라 및 기반 시스템 구동
 ```bash
@@ -235,6 +238,9 @@ flowchart TD
 ```bash
 # 전체 모듈 빌드
 ./gradlew build -x test
+
+# IntelliJ/로컬에서 먼저 확인할 Gradle 목록
+./gradlew projects --console=plain
 
 # 예시: master-data 모듈 구동
 cd master-data
@@ -252,7 +258,8 @@ docker-compose logs -f
 
 1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
 2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
-3. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
-4. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
+3. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/local-development.md)**: IntelliJ, JDK 17, Gradle, 모듈별 bootRun 설정
+4. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+5. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.

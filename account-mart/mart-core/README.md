@@ -16,3 +16,16 @@
 - 계산 금액과 비율은 `BigDecimal`을 유지합니다.
 - core는 도메인 규칙과 port만 정의하고, JPA/JDBC 세부사항은 infrastructure에 둡니다.
 - 기준일 재실행이 가능하도록 snapshot 생성은 기준일 단위로 멱등 처리합니다.
+
+## 로컬 검증
+
+```powershell
+./gradlew :account-mart:mart-core:test --console=plain --max-workers=1 --no-daemon
+```
+
+IntelliJ에서 테스트를 실행할 때도 Gradle runner를 사용하면 멀티모듈 classpath와 annotation processing 설정이 일관됩니다.
+
+## 함께 읽을 문서
+
+- 상위 문서 인덱스: [../docs/README.md](../docs/README.md)
+- core 입문 가이드: [docs/MART_CORE_GUIDE_FOR_BEGINNERS.md](docs/MART_CORE_GUIDE_FOR_BEGINNERS.md)

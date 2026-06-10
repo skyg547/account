@@ -43,18 +43,21 @@ flowchart LR
 
 ## 실행 예시
 
-```bash
+Windows PowerShell 또는 IntelliJ Gradle Run Configuration 기준입니다.
+
+```powershell
 # 대손충당금 전용 ECL 산출
-./gradlew :ecl:ecl-batch:bootRun --args='--spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1'
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1" --console=plain
 
 # snapshot 동기화만 단독 실행
-./gradlew :ecl:ecl-batch:bootRun --args='--spring.batch.job.enabled=true job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-30 runId=SYNC-20260430'
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-30 runId=SYNC-20260430" --console=plain
 
 # allowance summary만 단독 재생성
-./gradlew :ecl:ecl-batch:bootRun --args='--spring.batch.job.enabled=true job.name=standaloneAllowanceSummaryJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1'
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=standaloneAllowanceSummaryJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1" --console=plain
 ```
 
 `JobRunner`는 `spring.batch.job.enabled=false`를 기본으로 존중하며, `job.name` 또는 `spring.batch.job.name`이 없으면 `allowanceEclJob`을 실행한다.
+IntelliJ에서 컨텍스트만 먼저 띄워볼 때는 공유 실행 설정 `ECL Batch Context`를 사용합니다.
 
 ## 데이터 준비
 
@@ -63,6 +66,16 @@ flowchart LR
 대손충당금 모듈만 단독으로 서비스할 때는 ECL 스키마, `allowance_exposure_snapshots` 입력 테이블, 모델 마스터, 회계 계정 매핑을 먼저 준비해야 한다. 상세 절차는 [ALLOWANCE_SERVICE_RUNBOOK.md](docs/ALLOWANCE_SERVICE_RUNBOOK.md)를 따른다.
 
 `allowance_account_mappings`에 상품/사업부/통화별 회계 계정 매핑이 없으면 summary 재생성은 기존 데이터를 삭제하지 않고 실패한다.
+
+## IntelliJ 로컬 실행
+
+루트 [docs/local-development.md](../docs/local-development.md)를 먼저 확인합니다.
+
+- API 실행: `ECL API bootRun` 공유 실행 설정 또는 `AllowanceEclApiApplication`
+- Batch 컨텍스트 확인: `ECL Batch Context` 공유 실행 설정 또는 `AllowanceEclBatchApplication`
+- 실제 산출 Job 실행: `allowance_exposure_snapshots`, 모델 마스터, 계정 매핑 시드가 준비된 뒤 위 PowerShell 명령을 사용
+
+`demo` 프로파일의 `allowance-batch-demo-data.sql`은 오래된 fixture와 결합되지 않도록 비워져 있습니다. 즉, demo profile은 빠른 컨텍스트 확인용이고, 실제 산출 결과 검증은 integration test fixture나 별도 시드 데이터를 준비한 뒤 실행합니다.
 
 ## 검증 기준
 

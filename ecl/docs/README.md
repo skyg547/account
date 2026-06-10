@@ -11,6 +11,7 @@
 4. [BATCH_EXECUTION_FLOW.md](BATCH_EXECUTION_FLOW.md): 실제 Job/Step과 클래스 호출 순서를 추적합니다.
 5. [ALLOWANCE_DATA_MODEL_SPEC.md](ALLOWANCE_DATA_MODEL_SPEC.md): 입력·모델 파라미터·산출 테이블을 확인합니다.
 6. [ALLOWANCE_SERVICE_RUNBOOK.md](ALLOWANCE_SERVICE_RUNBOOK.md): 로컬 실행, 재실행, 장애 확인 절차를 따릅니다.
+7. 루트 [docs/local-development.md](../../docs/local-development.md): IntelliJ, JDK 17, Gradle Run Configuration 기준을 확인합니다.
 
 ## 문서별 책임
 
@@ -34,6 +35,16 @@
 - 배치 변경: `baseDate`, `runId`, `modelVersion`, 재실행 멱등성을 확인합니다.
 - summary 변경: 계정 매핑 누락 시 기존 `allowance_summary`가 보존되는지 확인합니다.
 - 외부 연동 변경: `account-mart -> ecl -> closing` 데이터 계약을 함께 확인합니다.
+
+## 로컬 실행 요약
+
+```powershell
+.\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :ecl:ecl-api:bootRun --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false" --console=plain
+```
+
+실제 산출 Job은 `account-mart`의 `allowance_exposure_snapshots`와 ECL 모델 마스터/계정 매핑이 준비된 뒤 실행합니다.
 
 ## 영속성 경계
 

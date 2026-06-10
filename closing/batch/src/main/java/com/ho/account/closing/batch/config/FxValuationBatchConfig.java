@@ -69,7 +69,10 @@ public class FxValuationBatchConfig {
 
     /**
      * [Reader] 평가일 기준 최신 외화 잔액 조회
-     * (Paging 대신 ListItemReader 사용 - 통화별/계정별 잔액 그룹이므로 데이터 건수가 메모리에 충분히 적재 가능하다고 가정)
+     * (현재는 통화별/계정별 집계 잔액을 읽기 때문에 ListItemReader를 사용합니다.)
+     *
+     * @todo 외화 잔액 계정 수가 대량으로 늘어나는 운영 환경에서는 Paging Reader와 Partition Step으로 전환해
+     *       메모리 사용량과 재시작 지점을 명확히 분리해야 합니다.
      */
     @Bean
     @StepScope

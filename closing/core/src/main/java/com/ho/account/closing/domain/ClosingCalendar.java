@@ -4,8 +4,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 寃곗궛 罹섎┛??(Closing Calendar) ?뷀떚??
- * ?뱀젙 ?뚭퀎?곕룄 諛??뚭퀎湲곌컙??寃곗궛 ?쇱젙??愿由ы빀?덈떎.
+ * 결산 캘린더(Closing Calendar) 엔티티.
+ *
+ * <p>특정 회계연도와 회계기간의 결산 진행 상태를 관리합니다.
+ * 초보자 관점에서는 "이번 달 마감표"라고 이해하면 됩니다.
  */
 @Entity
 @Table(name = "closing_calendars", uniqueConstraints = {
@@ -20,7 +22,7 @@ public class ClosingCalendar {
     @Column(name = "fiscal_year", nullable = false, length = 4)
     private String fiscalYear;
 
-    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR ??
+    @Column(name = "fiscal_period", nullable = false, length = 20) // MM, Q1, H1, YEAR 등 기간 코드
     private String fiscalPeriod;
 
     @Enumerated(EnumType.STRING)
@@ -43,7 +45,7 @@ public class ClosingCalendar {
     private LocalDateTime reopenedAt;
 
     @Column(nullable = false)
-    private boolean isCurrentPeriod; // ?꾩옱 ?쒖꽦 寃곗궛 湲곌컙 ?щ?
+    private boolean isCurrentPeriod; // 현재 활성 결산 기간 여부
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -75,7 +77,7 @@ public class ClosingCalendar {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

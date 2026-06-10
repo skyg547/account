@@ -100,6 +100,15 @@ erDiagram
 docker-compose up -d journal-ledger
 ```
 
+**로컬 실행 (PowerShell / IntelliJ Gradle):**
+```powershell
+.\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :journal-ledger:api:bootRun --console=plain
+.\gradlew :journal-ledger:api:bootRun --args="--journal-ledger.ledger.persistence-mode=jdbc-bulk" --console=plain
+```
+
+IntelliJ에서는 공유 실행 설정 `Journal Ledger API bootRun` 또는 `Journal Ledger API JDBC Bulk`를 사용할 수 있습니다.
+
 ---
 
 ## 5. 상세 문서
@@ -109,3 +118,4 @@ docker-compose up -d journal-ledger
 - 전표·원장·미결 업무 및 데이터 흐름: [docs/process-flow.md](docs/process-flow.md)
 - 핵심 테이블과 소유권: [docs/schema.md](docs/schema.md)
 - 원장 잔액 이월: [docs/ledger-carry-forward.md](docs/ledger-carry-forward.md)
+- 계층/포트 가이드: [docs/layer-guide.md](docs/layer-guide.md)

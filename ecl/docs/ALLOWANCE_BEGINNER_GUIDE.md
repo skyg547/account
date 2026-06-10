@@ -51,3 +51,20 @@
 - 같은 `baseDate`, `runId`, `modelVersion`으로 재실행해도 중복 결과가 생기지 않아야 합니다.
 
 상세 업무 단계는 [ALLOWANCE_PROCESS_FLOW.md](ALLOWANCE_PROCESS_FLOW.md), 실행 절차는 [ALLOWANCE_SERVICE_RUNBOOK.md](ALLOWANCE_SERVICE_RUNBOOK.md)를 참고합니다.
+
+## 로컬에서 처음 실행할 때
+
+1. 먼저 `account-mart`의 `integratedPositionEtlJob` 또는 테스트 fixture로 `allowance_exposure_snapshots`를 준비합니다.
+2. ECL API는 IntelliJ의 `ECL API bootRun` 또는 아래 명령으로 실행합니다.
+
+```powershell
+.\gradlew :ecl:ecl-api:bootRun --console=plain
+```
+
+3. ECL Batch는 컨텍스트만 먼저 확인합니다.
+
+```powershell
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false" --console=plain
+```
+
+4. 실제 `allowanceEclJob`은 snapshot, 모델 파라미터, 계정 매핑을 준비한 뒤 실행합니다.

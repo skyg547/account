@@ -7,8 +7,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * EIR ?곴컖 ?ㅼ?以?(EIR Amortization Schedule) ?뷀떚??
- * ?좏슚?댁옄??EIR) 諛⑸쾿???곕씪 怨꾩궛???異쒖쓽 湲곌컙蹂??곴컖 ?ㅼ?以꾩쓣 湲곕줉?⑸땲??
+ * EIR 상각 스케줄(EIR Amortization Schedule) 엔티티.
+ *
+ * <p>유효이자율(EIR) 방식에 따라 계산한 대출의 기간별 이자수익,
+ * 원금상환, 이연 항목 상각 금액을 기록합니다.
  */
 @Entity
 @Table(name = "eir_amortization_schedules")
@@ -23,32 +25,32 @@ public class EIRAmortizationSchedule {
     private Loan loan;
 
     @Column(nullable = false)
-    private LocalDate scheduleDate; // ?대떦 ?ㅼ?以꾩쓽 湲곗???(?쇰퀎/?붾퀎 ??
+    private LocalDate scheduleDate; // 해당 스케줄의 기준일(월말/일자 등)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal beginningBalance; // 湲곗큹 ?붿븸
+    private BigDecimal beginningBalance; // 기초 잔액
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal interestIncome; // ?댁옄 ?섏씡 (EIR ?곸슜)
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal principalRepayment; // ?먭툑 ?곹솚??
+    private BigDecimal principalRepayment; // 원금 상환액
 
     @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal endingBalance; // 湲곕쭚 ?붿븸
+    private BigDecimal endingBalance; // 기말 잔액
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal deferredItemAmortization; // ?댁뿰 ??ぉ ?곴컖??(?섏닔猷? 鍮꾩슜 ??
+    private BigDecimal deferredItemAmortization; // 이연 항목 상각액(수수료/비용 등)
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal cashFlow; // ?대떦 湲곌컙 ?꾧툑 ?먮쫫
+    private BigDecimal cashFlow; // 해당 기간 현금흐름
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "amortization_journal_entry_id")
-    private JournalEntry amortizationJournalEntry; // ?곴컖 愿??遺꾧컻 ?꾪몴
+    private JournalEntry amortizationJournalEntry; // 상각 관련 분개 전표
 
     @Column(nullable = false)
-    private boolean isRecalculated = false; // ?ш퀎?곕맂 ?ㅼ?以???ぉ?몄? ?щ?
+    private boolean isRecalculated = false; // 재계산된 스케줄 항목인지 여부
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -71,7 +73,7 @@ public class EIRAmortizationSchedule {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getter 諛?Setter
+    // Getter and Setter
     public Long getId() {
         return id;
     }

@@ -43,6 +43,7 @@ HTTP/Kafka Adapter
 - 자동분개 엔진도 `JournalRuleQueryPort`만 사용하고, 세부 Spring Data 저장소 조회는 `JournalRuleQueryAdapter`가 담당합니다.
 - 전기 서비스는 `LedgerEntryPersistencePort`, 잔액 서비스는 `LedgerBalancePersistencePort`를 사용하므로 애플리케이션 서비스가 JPA Repository를 직접 알지 않습니다.
 - 기본 저장은 JPA 어댑터가 맡고, 운영 대용량 경로는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch/upsert 어댑터를 사용할 수 있습니다.
+- 계층별 책임과 레거시 README 아카이브는 [layer-guide.md](layer-guide.md)를 기준으로 확인합니다.
 
 ## 미결 반제를 읽는 방법
 
@@ -63,3 +64,18 @@ HTTP/Kafka Adapter
 - 애플리케이션 서비스가 JPA 저장소를 직접 참조하지 않는가?
 
 상세 호출 흐름은 [process-flow.md](process-flow.md), 테이블 관계는 [schema.md](schema.md)를 참고합니다.
+
+## 로컬 실행
+
+```powershell
+.\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :journal-ledger:api:bootRun --console=plain
+```
+
+JDBC bulk 모드 확인:
+
+```powershell
+.\gradlew :journal-ledger:api:bootRun --args="--journal-ledger.ledger.persistence-mode=jdbc-bulk" --console=plain
+```
+
+IntelliJ에서는 `Journal Ledger API bootRun`, `Journal Ledger API JDBC Bulk` 공유 실행 설정을 사용합니다.

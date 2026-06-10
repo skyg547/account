@@ -30,7 +30,7 @@ public class EIRCalculator {
         BigDecimal principal = loan.getPrincipalAmount();
         
         // 이연 항목 합계 계산 (수익은 +, 비용은 -로 처리되어야 함)
-        // DeferredItemType의 성격에 따라 부호를 결정해야 하지만, 여기서는 단순 합산으로 가정
+        // @todo DeferredItemType에 수수료/비용 성격을 명시하고, EIR 현금흐름 부호를 회계 정책별로 결정해야 합니다.
         BigDecimal fees = deferredItems.stream()
                 .map(DeferredItem::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

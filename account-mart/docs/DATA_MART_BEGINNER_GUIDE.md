@@ -2,6 +2,10 @@
 
 대손충당금 엔진은 원천 원장을 그대로 사용하지 않습니다. `account-mart`가 원장, 고객, 상품, 담보, 환율 데이터를 정리해 기준일 snapshot을 만들고, `ecl` 모듈이 그 snapshot으로 ECL을 계산합니다.
 
+## 초보자를 위한 비유
+
+`account-mart`는 회계 데이터의 "검수대"입니다. 여러 시스템에서 온 원천 데이터를 바로 계산기에 넣지 않고, 날짜와 필수값을 맞추고, 원장 잔액과 대사한 뒤, ECL 엔진이 읽을 수 있는 표준 상자(`allowance_exposure_snapshots`)에 담습니다.
+
 ## 흐름
 
 1. 원천 데이터를 읽습니다.
@@ -14,3 +18,24 @@
 - `IntegratedPositionEtlJobConfig`: 표준 ETL Job 구성.
 - `IntegratedPositionProcessor`: 원천 계좌를 CDM 포지션으로 변환.
 - `AllowanceExposureSnapshotService`: ECL 입력 snapshot 생성.
+
+## 실행해 보는 순서
+
+```powershell
+.\gradlew :account-mart:mart-core:test --console=plain
+.\gradlew :account-mart:mart-batch:test --console=plain
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30" --console=plain
+```
+
+IntelliJ에서는 `AllowanceMartBatchApplication`을 선택하고 Program arguments에 아래 값을 넣으면 같은 흐름을 실행할 수 있습니다.
+
+```text
+--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30
+```
+
+## 데이터 흐름에서 중요한 점
+
+- batch 모듈은 Job/Step 흐름을 조립합니다.
+- Stage 판정, 만기 계산, 금액 검증 같은 규칙은 core/domain에 둡니다.
+- snapshot은 기준일 재실행을 고려해 멱등하게 다시 만들 수 있어야 합니다.
+- `allowance_input_positions`는 account-mart가 쓰기 소유권을 갖고, ECL은 snapshot/조회 계약으로 읽습니다.

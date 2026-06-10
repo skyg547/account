@@ -4,6 +4,20 @@
 
 ---
 
+## 0. 📚 문서 읽기 순서
+
+세부 문서는 `loan/docs`에 모았습니다.
+
+1. [문서 인덱스](docs/README.md)
+2. [입문 가이드](docs/beginner-guide.md)
+3. [업무 흐름](docs/process-flow.md)
+4. [데이터 모델](docs/schema.md)
+5. [IntelliJ/Gradle 로컬 실행](docs/local-run.md)
+
+IntelliJ에서는 `.run`의 `Loan API bootRun`, `Loan Batch Context` 실행 설정을 사용할 수 있습니다.
+
+---
+
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
 대출 업무는 '친구에게 돈을 빌려주고 매달 이자를 받는 것'과 비슷하지만, 회계적으로는 훨씬 정교합니다.
@@ -78,7 +92,7 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 설정 방법
+## 4. 🧪 로컬 실행 및 설정 방법
 
 **필수 설정 (YAML):**
 자동 전표 생성을 위해 다음 계정 코드 설정이 반드시 필요합니다.
@@ -86,15 +100,32 @@ erDiagram
 account.loan.accounting:
   cash-account-code: "101000"
   loan-receivable-account-code: "131000"
+  deferred-asset-account-code: "118000"
+  recognized-income-account-code: "410000"
   accrued-interest-receivable-account-code: "11501"
+  interest-income-account-code: "410100"
 ```
 
-**실행 방법:**
-```bash
-docker-compose up -d loan
+먼저 테스트와 컴파일로 모듈 상태를 확인합니다.
+
+```powershell
+.\gradlew :loan:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+API 컨텍스트 실행:
+
+```powershell
+.\gradlew :loan:api:bootRun --args="--server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
+```
+
+Batch 컨텍스트만 실행:
+
+```powershell
+.\gradlew :loan:batch:bootRun --args="--spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
 ```
 
 ### 헥사고날 경계
 - `LoanService`는 `LoanPersistencePort`, `LoanReferenceDataPort`, `LoanJournalPort`에만 의존합니다.
 - JPA 저장소, 기준정보 구현체, journal-ledger 내부 모델은 인프라 어댑터가 감춥니다.
 - 외부 전표 연결은 엔티티 연관관계 대신 전표 ID와 전표번호 값으로 저장하여 대출 Aggregate의 생명주기를 독립적으로 유지합니다.
+- Docker 실행이 필요하면 `loan/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.
