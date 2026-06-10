@@ -10,6 +10,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * [헥사고날 아키텍처 - 인바운드 웹 어댑터]
+ * 고객 입금 수신, 자동 매칭, 수동 매칭 요청을 CollectionUseCase로 전달합니다.
+ *
+ * <p>초보자용 설명: 이 컨트롤러는 은행 입금 자료나 화면 입력을 받아
+ * "입금 기록", "청구서와 짝 맞추기", "미매칭 조회" 같은 업무 요청으로 바꿔주는 입구입니다.
+ * 금액 차감과 상태 변경은 도메인 객체와 서비스에서 처리하므로 컨트롤러에는 계산 로직을 두지 않습니다.</p>
+ */
 @RestController
 @RequestMapping("/api/collections")
 public class CollectionController {

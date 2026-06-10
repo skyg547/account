@@ -4,6 +4,25 @@
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
 ### 📅 2026-06-10 (Codex 문서)
+### [문서] Payable/Receivable 문서 6차 통합 및 library 모듈 실행 가이드 정리
+- **수정 범위**:
+  - 기존 `payable/docs/README.md`, `receivable/docs/README.md` 인덱스를 각각 `docs/archive/README_legacy_index_2026-06-10.md`로 이동해 보존.
+  - `payable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매입 인보이스, 매입채무, 지급 런, 지급 실행, 선급금, 상계 흐름을 현재 코드 기준으로 통합.
+  - `receivable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매출 인보이스, 매출채권, 수납, 자동/수동 매칭, 부분 매칭 흐름을 현재 코드 기준으로 통합.
+  - `payable/README.md`, `receivable/README.md`, `docs/README.md`, `docs/module-documentation-sequence.md`에 새 문서 읽기 순서와 IntelliJ/Gradle 검증 방식을 연결.
+  - Payable/Receivable용 IntelliJ 공유 Gradle Run Configuration `.run/Payable Module Tests.run.xml`, `.run/Receivable Module Tests.run.xml` 추가.
+  - `PurchaseInvoiceId`의 깨진 한글 주석을 초보자용 업무 식별자 설명으로 복구.
+  - `PurchaseController`, `PaymentController`에 인바운드 DTO/Bean Validation 분리 필요 지점을 `@todo`로 명시하고, `CollectionController`에 수납/매칭 인바운드 어댑터 역할 주석을 추가.
+- **검증**:
+  - `.\gradlew :payable:test :receivable:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - `payable`, `receivable`은 현재 standalone `bootRun` 앱이 아니므로 실제 HTTP API 호출은 호스트 Spring Boot 애플리케이션 또는 별도 통합 실행 앱에서 검증해야 한다.
+  - Payable 컨트롤러는 일부 요청에서 raw `Map` 또는 JPA 엔티티 직접 바인딩을 사용하므로 DTO/Bean Validation 분리가 필요하다. 관련 `@todo`는 4건이다.
+
+### 📅 2026-06-10 (Codex 문서)
 ### [문서] Loan 문서 5차 통합 및 EIR/Batch 실행 가이드 정리
 - **수정 범위**:
   - 깨진 `loan/docs/README.md` 원문을 `loan/docs/archive/README_legacy_corrupt_2026-06-10.md`로 이동해 보존.

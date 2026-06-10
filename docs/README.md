@@ -39,7 +39,8 @@
 
 ### 3.2 업무 서브레저 (현업 부서)
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제
-- `payable/README.md` & `receivable/README.md`: 매입채무/매출채권 관리
+- `payable/README.md`와 `payable/docs/README.md`: 매입채무, 지급 런, 선급금, 상계 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
+- `receivable/README.md`와 `receivable/docs/README.md`: 매출채권, 수납, 자동/수동 매칭 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `tax/README.md`: 세금계산서 관리
 - `asset-lease/README.md`: IFRS16 리스
 - `loan/README.md`와 `loan/docs/README.md`: 대출 실행, EIR, 일일 이자 발생 Batch

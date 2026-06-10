@@ -4,8 +4,12 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * PurchaseInvoice ?뷀떚?곗쓽 蹂듯빀 ?ㅻ? ?뺤쓽?섎뒗 ?대옒??
- * 인보이스 번호와 공급업체 코드만 조합하여 외부 모듈 엔티티에 의존하지 않고 식별합니다.
+ * PurchaseInvoice 엔티티의 복합 키를 정의하는 클래스입니다.
+ *
+ * <p>초보자용 설명: 같은 인보이스 번호라도 공급업체가 다르면 다른 청구서일 수 있습니다.
+ * 그래서 인보이스 번호와 공급업체 코드를 함께 묶어 하나의 업무 식별자로 사용합니다.
+ * 공급업체 엔티티를 직접 연결하지 않고 코드만 보관하면 master-data 모듈 내부 구조와
+ * payable 도메인을 느슨하게 분리할 수 있습니다.</p>
  */
 public class PurchaseInvoiceId implements Serializable {
 

@@ -20,8 +20,8 @@
 | 3 | `journal-ledger` | Done | 원장/전기/JDBC bulk 문서 보강, 소스 트리 README archive 이동, 계층 가이드 추가 |
 | 4 | `closing` | Done | ECL summary 연동, FX/ECL 결산 실행 가이드, 깨진 주석 복구, IntelliJ `.run` 설정 추가 |
 | 5 | `loan` | Done | EIR/전표 포트/배치 실행 흐름, 깨진 주석 복구, IntelliJ `.run` 설정 추가 |
-| 6 | `payable`, `receivable` | Next | AP/AR 수금·지급/반제 흐름과 API 실행 가이드 정리 |
-| 7 | `asset-lease`, `tax` | Pending | 자산/리스/세금계산서 실행·검증 흐름 정리 |
+| 6 | `payable`, `receivable` | Done | AP/AR 수금·지급/반제 흐름, library 모듈 실행 가이드, IntelliJ 테스트 설정 정리 |
+| 7 | `asset-lease`, `tax` | Next | 자산/리스/세금계산서 실행·검증 흐름 정리 |
 | 8 | `reconciliation`, `reporting` | Pending | 대사/보고 문서와 감독보고 흐름 정리 |
 | 9 | foundation/infra | Pending | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 
@@ -145,3 +145,30 @@ git diff --check
 - 변경 문서 상대 링크 검사 성공
 - `git diff --check` 오류 없음, CRLF 안내만 출력
 - 다음 순서는 `payable`, `receivable` 문서 통합입니다.
+
+## 6차 완료 상세
+
+### payable, receivable
+
+- `payable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매입채무, 지급 런, 지급 실행, 선급금, 상계 흐름을 통합했습니다.
+- `receivable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매출채권, 수납, 자동/수동 매칭, 부분 매칭 흐름을 통합했습니다.
+- 기존 모듈 docs 인덱스는 각각 `docs/archive/README_legacy_index_2026-06-10.md`로 이동해 보존했습니다.
+- `payable/README.md`, `receivable/README.md`, 전사 `docs/README.md`에서 새 문서와 IntelliJ/Gradle 검증 방식을 연결했습니다.
+- `payable`과 `receivable`은 현재 `java-library` 모듈이라 standalone `bootRun` 대신 `:payable:test`, `:receivable:test` 실행 흐름을 명시했습니다.
+- `.run/Payable Module Tests.run.xml`, `.run/Receivable Module Tests.run.xml`을 추가했습니다.
+- `PurchaseInvoiceId`의 깨진 한글 주석을 복구하고, payable 인바운드 DTO 분리 필요 지점은 `@todo`로 표시했습니다.
+- `CollectionController`에 수납/매칭 인바운드 어댑터 역할 주석을 추가했습니다.
+
+## 6차 검증
+
+```powershell
+.\gradlew :payable:test :receivable:test --console=plain --max-workers=1 --no-daemon
+git diff --check
+```
+
+결과:
+- payable/receivable 테스트 성공
+- IntelliJ `.run` XML 파싱 성공
+- 변경 문서 상대 링크 검사 성공
+- `git diff --check` 오류 없음, CRLF 안내만 출력
+- 다음 순서는 `asset-lease`, `tax` 문서 통합입니다.

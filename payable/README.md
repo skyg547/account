@@ -2,6 +2,8 @@
 
 `payable` 모듈은 회사가 물건이나 서비스를 구매하고 발생한 빚(매입채무)을 관리하며, 약속된 날짜에 대금을 지급하고 선급금을 정산하는 프로세스를 담당합니다.
 
+상세 문서는 [payable/docs/README.md](./docs/README.md)에서 순서대로 읽을 수 있습니다. 기존 문서 인덱스는 삭제하지 않고 `payable/docs/archive`에 보존했습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
@@ -75,12 +77,27 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 연동 방법
+## 4. 로컬 실행 및 검증 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d payable
+`payable`은 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:payable:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+
+**PowerShell 검증 명령:**
+
+```powershell
+.\gradlew :payable:test --console=plain --max-workers=1 --no-daemon
 ```
+
+**빠른 컴파일 확인:**
+
+```powershell
+.\gradlew :payable:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**IntelliJ 실행 순서:**
+1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
+2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
+3. 상단 Run Configuration에서 `Payable Module Tests`를 선택해 실행합니다.
+4. 실제 HTTP API를 호출하려면 payable 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
 
 **연동 주의사항:**
 - 모든 지급 거래는 `journal-ledger`의 전표 생성을 동반하므로, `JournalPostingPort`의 가용성을 확인해야 합니다.
@@ -88,3 +105,10 @@ docker-compose up -d payable
 - 지급 런은 각 `Payment`에 `payableId`를 저장합니다. 실행 시 공급업체/금액으로 다시 찾지 않고 해당 채무만 차감합니다.
 - 실제 송금은 `PaymentExecutionPort`를 호출하며 `PAYMENT:{paymentId}` 멱등 키를 사용합니다. 실패 시 채무는 차감하지 않고 실패 사유와 시도 횟수를 남겨 재시도할 수 있습니다.
 - 거래처 조회는 `contracts`의 `MasterDataQueryPort`만 사용하므로 payable 애플리케이션 계층은 master-data 내부 저장소에 의존하지 않습니다.
+
+## 5. 문서 읽기 순서
+
+- [docs/beginner-guide.md](./docs/beginner-guide.md): 매입채무/지급/선급금 개념.
+- [docs/process-flow.md](./docs/process-flow.md): API, 서비스, 도메인, 전표 포트 흐름.
+- [docs/schema.md](./docs/schema.md): 테이블, 상태, 계정 매핑 설정.
+- [docs/local-run.md](./docs/local-run.md): IntelliJ와 Gradle 로컬 검증 방법.

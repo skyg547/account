@@ -38,6 +38,7 @@ public class PaymentController {
      */
     @PostMapping("/run")
     public ResponseEntity<PaymentRun> initiatePaymentRun(@RequestBody Map<String, Object> request) {
+        // @todo raw Map 대신 PaymentRunRequest DTO와 Bean Validation을 사용해 API 계약을 명확히 한다.
         LocalDate runDate = LocalDate.parse((String) request.get("runDate"));
         String description = (String) request.get("description");
         String createdBy = (String) request.get("createdBy");
@@ -49,6 +50,7 @@ public class PaymentController {
      */
     @PostMapping("/execute")
     public ResponseEntity<Payment> executePayment(@RequestBody Map<String, Object> request) {
+        // @todo ExecutePaymentRequest DTO로 전환해 paymentId/bankAccount 필수값 검증을 컨트롤러 경계에서 수행한다.
         Long paymentId = Long.valueOf(request.get("paymentId").toString());
         String bankAccount = (String) request.get("bankAccount");
         return ResponseEntity.ok(paymentUseCase.executePayment(paymentId, bankAccount));
@@ -67,6 +69,7 @@ public class PaymentController {
      */
     @PostMapping("/offset-payable")
     public ResponseEntity<Payable> offsetPayableWithAdvancePayment(@RequestBody Map<String, Object> request) {
+        // @todo OffsetPayableRequest DTO를 사용해 상계 금액 형식과 필수 ID를 명시적으로 검증한다.
         Long payableId = Long.valueOf(request.get("payableId").toString());
         Long advancePaymentId = Long.valueOf(request.get("advancePaymentId").toString());
         BigDecimal offsetAmount = new BigDecimal(request.get("offsetAmount").toString());

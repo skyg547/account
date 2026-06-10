@@ -2,6 +2,8 @@
 
 `receivable` 모듈은 회사가 물건을 팔고 아직 받지 못한 돈(외상값)을 관리하고, 고객의 입금(수납) 내역과 짝을 맞춰 채권을 지워나가는(매칭) 프로세스를 담당합니다.
 
+상세 문서는 [receivable/docs/README.md](./docs/README.md)에서 순서대로 읽을 수 있습니다. 기존 문서 인덱스는 삭제하지 않고 `receivable/docs/archive`에 보존했습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
@@ -81,15 +83,37 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 연동 방법
+## 4. 로컬 실행 및 검증 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d receivable
+`receivable`은 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:receivable:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+
+**PowerShell 검증 명령:**
+
+```powershell
+.\gradlew :receivable:test --console=plain --max-workers=1 --no-daemon
 ```
+
+**빠른 컴파일 확인:**
+
+```powershell
+.\gradlew :receivable:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**IntelliJ 실행 순서:**
+1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
+2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
+3. 상단 Run Configuration에서 `Receivable Module Tests`를 선택해 실행합니다.
+4. 실제 HTTP API를 호출하려면 receivable 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
 
 **연동 주의사항:**
 - 수납(Collection) 기록 시 `journal-ledger`의 전표 생성이 동반됩니다.
 - 채권 연령 분석(Aging) 등 대량 조회 시 `LedgerQueryPort`를 활용하여 원장 데이터와 대조하세요.
 - 자동 매칭은 참조번호를 우선하고, 만기일 허용 범위와 금액을 보조 조건으로 사용합니다. 같은 신뢰도의 후보가 여러 건이면 임의 매칭하지 않고 수동 확인 상태로 남깁니다.
 - 부분 매칭은 `Collection.matchedAmount`와 `CollectionAllocation`에 누적 배분액 및 양쪽 잔액을 명시적으로 기록합니다.
+
+## 5. 문서 읽기 순서
+
+- [docs/beginner-guide.md](./docs/beginner-guide.md): 매출채권/수납/매칭 개념.
+- [docs/process-flow.md](./docs/process-flow.md): API, 서비스, 도메인, 자동 매칭 정책, 전표 포트 흐름.
+- [docs/schema.md](./docs/schema.md): 테이블, 상태, 계정 매핑 설정.
+- [docs/local-run.md](./docs/local-run.md): IntelliJ와 Gradle 로컬 검증 방법.

@@ -3,6 +3,32 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-10 (문서 통합 6차: payable/receivable)
+- Payable 문서:
+  - 기존 `payable/docs/README.md`를 `payable/docs/archive/README_legacy_index_2026-06-10.md`로 이동해 원문 보존.
+  - `payable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매입 인보이스/채무/지급 런/지급 실행/선급금/상계 흐름을 통합했다.
+  - `payable/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 모듈 기준의 Gradle 테스트/컴파일 안내로 교체했다.
+- Receivable 문서:
+  - 기존 `receivable/docs/README.md`를 `receivable/docs/archive/README_legacy_index_2026-06-10.md`로 이동해 원문 보존.
+  - `receivable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매출채권/수납/자동·수동 매칭/부분 매칭 흐름을 통합했다.
+  - `receivable/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 모듈 기준의 Gradle 테스트/컴파일 안내로 교체했다.
+- 실행 설정:
+  - `.run/Payable Module Tests.run.xml`, `.run/Receivable Module Tests.run.xml`을 추가했다.
+- 주석 최신화:
+  - `PurchaseInvoiceId`의 깨진 한글 주석을 복구했다.
+  - Payable 인바운드 DTO/Bean Validation 분리 필요 지점 4건은 `@todo`로 남겼다.
+  - `CollectionController`에 수납/매칭 인바운드 어댑터 역할 설명을 추가했다.
+- 진행표:
+  - `docs/module-documentation-sequence.md`에서 payable/receivable을 Done으로 전환하고 다음 순서를 `asset-lease`, `tax`로 지정했다.
+- 검증:
+  - `.\gradlew :payable:test :receivable:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- 남은 리스크:
+  - 실제 HTTP API smoke는 payable/receivable을 스캔하는 호스트 Boot 앱에서 별도 검증해야 한다.
+  - Payable 컨트롤러 DTO 분리 4건은 후속 리팩토링 대상으로 남겼다.
+
 ## 2026-06-10 (문서 통합 5차: loan)
 - Loan 문서:
   - 깨진 `loan/docs/README.md`를 `loan/docs/archive/README_legacy_corrupt_2026-06-10.md`로 이동해 원문 보존.
