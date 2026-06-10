@@ -1,4 +1,4 @@
-package com.ho.account.shared.finance.entity;
+package com.ho.account.mart.core.domain.mart;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

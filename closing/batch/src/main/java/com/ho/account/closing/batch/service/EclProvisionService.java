@@ -168,10 +168,12 @@ public class EclProvisionService {
                 batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
-        // 배치이므로 자동 승인 및 전기
-        // @todo Closing control: auto approve/post should pass through a closing adjustment approval policy or reversal workflow.
-        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
-        journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
+        // ECL 보충/환입 전표도 기본은 DRAFT입니다. 자동 전기는 명시적으로 승인된 운영 설정에서만
+        // 허용하여 결산 검토, 재실행, 역분개 흐름을 보존합니다.
+        if (accountingProperties.isAutoPostAdjustments()) {
+            journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
+            journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
+        }
         
         log.info("Successfully posted ECL provision journal entry. SlipNo: {}, Amount: {}", savedEntry.getSlipNo(), absAmount);
     }

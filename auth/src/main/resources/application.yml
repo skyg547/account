@@ -11,6 +11,9 @@ auth:
     token: ${AUTH_INTERNAL_API_TOKEN:local-internal-auth-token}
   master-data:
     base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
+  login-security:
+    max-failures: ${AUTH_LOGIN_MAX_FAILURES:5}
+    lock-duration-minutes: ${AUTH_LOGIN_LOCK_DURATION_MINUTES:15}
   jwt:
     secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}

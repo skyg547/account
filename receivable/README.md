@@ -53,6 +53,8 @@ flowchart LR
 erDiagram
     SALES_INVOICES ||--o| RECEIVABLES : "originates"
     COLLECTIONS ||--o| UNMATCHED_COLLECTIONS : "overflows"
+    COLLECTIONS ||--o{ COLLECTION_ALLOCATIONS : "allocated_to"
+    RECEIVABLES ||--o{ COLLECTION_ALLOCATIONS : "settled_by"
 
     RECEIVABLES {
         Long id PK
@@ -68,6 +70,13 @@ erDiagram
         String customer_code "ID Reference"
         String journal_entry_id "전표 ID"
     }
+
+    COLLECTION_ALLOCATIONS {
+        Long id PK
+        BigDecimal matched_amount "이번 매칭액"
+        BigDecimal residual_collection_amount "남은 입금액"
+        BigDecimal residual_receivable_amount "남은 채권액"
+    }
 ```
 
 ---
@@ -82,3 +91,5 @@ docker-compose up -d receivable
 **연동 주의사항:**
 - 수납(Collection) 기록 시 `journal-ledger`의 전표 생성이 동반됩니다.
 - 채권 연령 분석(Aging) 등 대량 조회 시 `LedgerQueryPort`를 활용하여 원장 데이터와 대조하세요.
+- 자동 매칭은 참조번호를 우선하고, 만기일 허용 범위와 금액을 보조 조건으로 사용합니다. 같은 신뢰도의 후보가 여러 건이면 임의 매칭하지 않고 수동 확인 상태로 남깁니다.
+- 부분 매칭은 `Collection.matchedAmount`와 `CollectionAllocation`에 누적 배분액 및 양쪽 잔액을 명시적으로 기록합니다.

@@ -44,7 +44,8 @@ public class JdbcAllowanceSummaryPersistenceAdapter implements AllowanceSummaryB
              WHERE base_date = ?
             """;
 
-    // @todo [DDD 위반 / 성능 트레이드오프] INSERT_SUMMARIES 쿼리 내부에 `ROW_NUMBER() OVER (...)`를 통해 매핑 우선순위(biz_unit_code, currency_code 일치 여부)를 결정하는 핵심 비즈니스 룰이 SQL로 하드코딩되어 있습니다. 대량 처리 성능을 위한 타협일 수 있으나, 비즈니스 정책이 인프라 계층에 숨겨지게 되므로 도메인 규칙으로 추출하거나 명시적인 문서화가 필요합니다.
+    // 1억 건급 집계를 DB에서 처리하기 위해 ROW_NUMBER를 사용합니다. 정렬 순서는
+    // AllowanceAccountMappingPriorityPolicy(업무단위 정확 일치 -> 통화 정확 일치 -> 공통 매핑)를 그대로 미러링합니다.
     private static final String INSERT_SUMMARIES = """
             INSERT INTO allowance_summary (
                    base_date,

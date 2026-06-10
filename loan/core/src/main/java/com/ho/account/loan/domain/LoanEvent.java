@@ -1,6 +1,5 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,9 +30,8 @@ public class LoanEvent {
     @Column(length = 1000)
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry relatedJournalEntry; // ?대깽??愿??遺꾧컻 ?꾪몴
+    @Column(name = "journal_entry_id")
+    private Long relatedJournalEntryId;
 
     // ?ш퀎?곗씠 ?꾩슂???대깽?몄쓽 寃쎌슦 RecalculationRun怨??곌껐
     @ManyToOne(fetch = FetchType.LAZY)
@@ -106,12 +104,12 @@ public class LoanEvent {
         this.description = description;
     }
 
-    public JournalEntry getRelatedJournalEntry() {
-        return relatedJournalEntry;
+    public Long getRelatedJournalEntryId() {
+        return relatedJournalEntryId;
     }
 
-    public void setRelatedJournalEntry(JournalEntry relatedJournalEntry) {
-        this.relatedJournalEntry = relatedJournalEntry;
+    public void setRelatedJournalEntryId(Long relatedJournalEntryId) {
+        this.relatedJournalEntryId = relatedJournalEntryId;
     }
 
     public RecalculationRun getRecalculationRun() {

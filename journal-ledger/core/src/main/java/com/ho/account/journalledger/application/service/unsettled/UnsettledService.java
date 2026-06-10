@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.application.service.unsettled;
 
-import com.ho.account.journalledger.adapter.out.persistence.unsettled.UnsettledItemRepository;
+import com.ho.account.journalledger.application.port.in.UnsettledItemUseCase;
+import com.ho.account.journalledger.application.port.out.UnsettledItemPersistencePort;
 import com.ho.account.journalledger.domain.unsettled.UnsettledItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -8,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 미결 항목 관리 서비스 (Unsettled Service).
@@ -36,8 +36,9 @@ import java.util.stream.Collectors;
  *
  * ─────────────────────────────────────────────────
  * [개발 설명]
- * - UnsettledItemRepository (JPA)를 직접 사용합니다.
- *   (현재 Outbound Port 패턴 미적용 — 추후 헥사고날 전환 시 Port 추가 권장)
+ * - 외부 HTTP 어댑터는 UnsettledItemUseCase 인바운드 포트에만 의존합니다.
+ * - 이 서비스는 UnsettledItemPersistencePort 출력 포트에만 의존하며,
+ *   실제 JPA 조회와 저장은 UnsettledItemPersistenceAdapter가 담당합니다.
  * - 반제 로직은 UnsettledItem.settle() 도메인 메서드에 캡슐화되어 있습니다 (Rich Domain Model).
  *   서비스는 조회 → 도메인 메서드 호출 → 저장의 흐름만 담당합니다.
  * - resolved=false 필터: 미결 항목 목록 조회 시 findByResolvedFalse()를 사용하여
@@ -46,13 +47,13 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-public class UnsettledService {
+public class UnsettledService implements UnsettledItemUseCase {
 
     /**
-     * 미결 항목 JPA 저장소.
-     * unsettled_items 테이블에 접근합니다.
+     * 미결 항목 영속성 출력 포트.
+     * 서비스는 DB 기술을 모르고 미결 항목의 저장·조회 의도만 전달합니다.
      */
-    private final UnsettledItemRepository unsettledItemRepository;
+    private final UnsettledItemPersistencePort unsettledItemPersistencePort;
 
     /**
      * 미결 항목을 신규 등록합니다.
@@ -71,7 +72,7 @@ public class UnsettledService {
      */
     @Transactional
     public void registerUnsettledItem(UnsettledItem item) {
-        unsettledItemRepository.save(item);
+        unsettledItemPersistencePort.save(item);
     }
 
     /**
@@ -92,22 +93,25 @@ public class UnsettledService {
      * 반제 처리 로직은 UnsettledItem.settle() 도메인 메서드 내부에 구현됩니다.
      * 반제 금액이 잔액보다 크면 도메인 메서드에서 IllegalArgumentException이 발생합니다.
      *
-     * @param id     반제할 미결 항목의 내부 PK
-     * @param amount 반제할 금액 (양수여야 하며, 잔액 이하여야 함)
+     * @param id                  반제할 미결 항목의 내부 PK
+     * @param amount              반제할 금액 (양수여야 하며, 잔액 이하여야 함)
+     * @param actor               실제 반제 처리자
+     * @param settlementReference 은행 거래번호 등 재요청 중복을 판별할 참조번호
      * @throws IllegalArgumentException 존재하지 않는 미결 항목 ID, 또는 반제 금액 > 잔액
      */
     @Transactional
-    public void settleItem(Long id, BigDecimal amount) {
+    @Override
+    public void settleItem(Long id, BigDecimal amount, String actor, String settlementReference) {
         // 1. 미결 항목 조회 (없으면 즉시 예외)
-        UnsettledItem item = unsettledItemRepository.findById(id)
+        UnsettledItem item = unsettledItemPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unsettled item not found: " + id));
 
         // 2. 도메인 메서드에 반제 처리 위임 (Rich Domain Model)
         //    settle() 내부에서: settledAmount 누적, remainingAmount 차감, 상태 전환
-        item.settle(amount);
+        item.settle(amount, actor, settlementReference);
 
         // 3. 변경된 상태 저장
-        unsettledItemRepository.save(item);
+        unsettledItemPersistencePort.save(item);
     }
 
     /**
@@ -125,8 +129,9 @@ public class UnsettledService {
      *
      * @return 미결(OPEN/PARTIAL) 상태의 모든 미결 항목 목록
      */
+    @Transactional(readOnly = true)
     public List<UnsettledItem> getActiveUnsettledItems() {
-        return unsettledItemRepository.findByResolvedFalse();
+        return unsettledItemPersistencePort.findActive();
     }
 
     /**
@@ -137,20 +142,19 @@ public class UnsettledService {
      * 예: 거래처A에게 받아야 할 미수금 목록 조회
      *
      * [개발 설명]
-     * 현재 전체 미결 조회 후 인-메모리 필터 방식입니다.
-     * 거래처가 많아지면 DB 레벨 필터(JPA 쿼리 추가)로 최적화를 권장합니다.
-     * businessPartnerCode가 null이면 전체 미결 항목을 반환합니다.
+     * 거래처 코드가 있으면 출력 포트가 DB 조건으로 해당 거래처의 미결 항목만 조회합니다.
+     * 따라서 거래처가 많아져도 전체 미결 데이터를 애플리케이션 메모리에 올리지 않습니다.
+     * businessPartnerCode가 null 또는 공백이면 전체 미결 항목을 반환합니다.
      *
      * @param businessPartnerCode 거래처 코드 (null이면 전체 반환)
      * @return 해당 거래처의 미결 항목 목록
      */
+    @Override
+    @Transactional(readOnly = true)
     public List<UnsettledItem> getUnsettledItems(String businessPartnerCode) {
-        List<UnsettledItem> all = unsettledItemRepository.findByResolvedFalse();
-        if (businessPartnerCode == null) return all;
-
-        // 거래처 코드로 인-메모리 필터
-        return all.stream()
-                .filter(item -> businessPartnerCode.equals(item.getBusinessPartnerCode()))
-                .collect(Collectors.toList());
+        if (businessPartnerCode == null || businessPartnerCode.isBlank()) {
+            return unsettledItemPersistencePort.findActive();
+        }
+        return unsettledItemPersistencePort.findActiveByBusinessPartnerCode(businessPartnerCode.trim());
     }
 }

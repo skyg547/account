@@ -72,3 +72,5 @@ docker-compose up -d tax
 **연동 주의사항:**
 - 세금계산서는 회계 전표(`journal-ledger`)와 긴밀히 연동되어야 합니다.
 - 금액 검증 실패 시 전표 생성이 차단되므로 도메인 내 `validateAmounts()` 로직을 반드시 확인하세요.
+- 거래처 검증은 `contracts`의 `MasterDataQueryPort`를 사용하며 master-data 내부 저장소에 직접 의존하지 않습니다.
+- 발행된 세금계산서는 물리 삭제하지 않습니다. 취소 처리자와 사유를 받아 `CANCELLED` 상태로 전환해 증빙 감사 이력을 보존합니다.

@@ -40,10 +40,11 @@ public class AllowanceParameterService {
                 .securedLgdFloor(paramMap.get("SECURED_LGD_FLOOR"))
                 .unsecuredLgdFloor(paramMap.get("UNSECURED_LGD_FLOOR"))
                 .defaultDiscountRate(paramMap.getOrDefault("DEFAULT_DISCOUNT_RATE", new BigDecimal("0.05")))
+                .defaultCcfRate(paramMap.getOrDefault("DEFAULT_CCF_RATE", new BigDecimal("0.75")))
                 .build();
 
-        log.info("✅ [Allowance] 모델 파라미터 로드 완료 (PD Floor: {}, Unsecured LGD Floor: {})",
-                cachedParams.getPdFloor(), cachedParams.getUnsecuredLgdFloor());
+        log.info("✅ [Allowance] 모델 파라미터 로드 완료 (PD Floor: {}, Unsecured LGD Floor: {}, Default CCF: {})",
+                cachedParams.getPdFloor(), cachedParams.getUnsecuredLgdFloor(), cachedParams.getDefaultCcfRate());
     }
 
     private void validateModelParams(Map<String, BigDecimal> paramMap) {
@@ -59,6 +60,16 @@ public class AllowanceParameterService {
                 log.error("❌ [Allowance] 모델 파라미터 '{}'의 값이 0 이하입니다: {}", key, value);
                 throw new IllegalArgumentException("유효하지 않은 모델 파라미터 값: " + key);
             }
+        }
+
+        validateOptionalRate(paramMap, "DEFAULT_DISCOUNT_RATE");
+        validateOptionalRate(paramMap, "DEFAULT_CCF_RATE");
+    }
+
+    private void validateOptionalRate(Map<String, BigDecimal> paramMap, String key) {
+        BigDecimal value = paramMap.get(key);
+        if (value != null && (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(BigDecimal.ONE) > 0)) {
+            throw new IllegalArgumentException("유효하지 않은 모델 비율 파라미터 값: " + key);
         }
     }
 

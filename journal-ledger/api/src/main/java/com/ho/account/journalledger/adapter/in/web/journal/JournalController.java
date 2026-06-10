@@ -1,7 +1,7 @@
 package com.ho.account.journalledger.adapter.in.web.journal;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * [헥사고날 아키텍처 - 인바운드 어댑터 (Inbound Web Adapter)]
@@ -32,10 +30,12 @@ public class JournalController {
      * 수동 전표 생성
      */
     @PostMapping
-    public ResponseEntity<JournalEntry> createJournalEntry(@RequestBody JournalEntry journalEntry) {
+    public ResponseEntity<JournalApiDto.View> createJournalEntry(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody JournalApiDto.CreateRequest request) {
         try {
-            JournalEntry createdEntry = journalUseCase.createJournalEntry(journalEntry);
-            return ResponseEntity.ok(createdEntry);
+            return ResponseEntity.ok(JournalApiDto.View.from(
+                    journalUseCase.createJournalEntry(request.toDomain(actor))));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
@@ -45,11 +45,14 @@ public class JournalController {
      * 이벤트에 의한 전표 자동 생성 (룰 엔진 사용)
      */
     @PostMapping("/from-event")
-    public ResponseEntity<JournalEntry> createJournalEntryFromEvent(@RequestBody Map<String, Object> eventData,
+    public ResponseEntity<JournalApiDto.View> createJournalEntryFromEvent(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody JournalApiDto.EventRequest request,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate accountingDate) {
         try {
-            Optional<JournalEntry> createdEntry = journalUseCase.createJournalEntryFromEvent(eventData, accountingDate);
-            return createdEntry.map(ResponseEntity::ok)
+            return journalUseCase.createJournalEntryFromEvent(request.eventDataWithActor(actor), accountingDate)
+                    .map(JournalApiDto.View::from)
+                    .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.noContent().build());
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -60,18 +63,21 @@ public class JournalController {
      * 기간별 전표 목록 조회
      */
     @GetMapping
-    public List<JournalEntry> getJournalEntries(
+    public List<JournalApiDto.View> getJournalEntries(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return journalUseCase.getJournalEntriesByDate(startDate, endDate);
+        return journalUseCase.getJournalEntriesByDate(startDate, endDate).stream()
+                .map(JournalApiDto.View::from)
+                .toList();
     }
 
     /**
      * 전표 번호로 상세 조회
      */
     @GetMapping("/{slipNo}")
-    public ResponseEntity<JournalEntry> getJournalEntry(@PathVariable String slipNo) {
+    public ResponseEntity<JournalApiDto.View> getJournalEntry(@PathVariable String slipNo) {
         return journalUseCase.getJournalEntryBySlipNo(slipNo)
+                .map(JournalApiDto.View::from)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -80,9 +86,11 @@ public class JournalController {
      * 전표 승인
      */
     @PostMapping("/{id}/approve")
-    public ResponseEntity<Void> approveJournalEntry(@PathVariable Long id, @RequestParam(defaultValue = "ADMIN") String user) {
+    public ResponseEntity<Void> approveJournalEntry(
+            @PathVariable Long id,
+            @RequestHeader("X-User-ID") String actor) {
         try {
-            journalUseCase.approveJournalEntry(id, user);
+            journalUseCase.approveJournalEntry(id, actor);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -93,9 +101,11 @@ public class JournalController {
      * 전표 전기 (원장 반영)
      */
     @PostMapping("/{id}/post")
-    public ResponseEntity<Void> postJournalEntry(@PathVariable Long id, @RequestParam(defaultValue = "ADMIN") String user) {
+    public ResponseEntity<Void> postJournalEntry(
+            @PathVariable Long id,
+            @RequestHeader("X-User-ID") String actor) {
         try {
-            journalUseCase.postJournalEntry(id, user);
+            journalUseCase.postJournalEntry(id, actor);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();

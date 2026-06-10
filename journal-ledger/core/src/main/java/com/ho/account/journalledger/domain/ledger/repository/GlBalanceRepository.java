@@ -2,6 +2,8 @@ package com.ho.account.journalledger.domain.ledger.repository;
 
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -23,4 +25,14 @@ public interface GlBalanceRepository extends JpaRepository<GlBalance, Long> {
 
     Optional<GlBalance> findFirstByAccountCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(
             String accountCode, String currencyCode, LocalDate balanceDate);
+
+    @Query("SELECT g FROM GlBalance g " +
+            "WHERE g.balanceDate BETWEEN :startDate AND :endDate " +
+            "AND (:accountCode IS NULL OR g.accountCode = :accountCode) " +
+            "AND (:currencyCode IS NULL OR g.currencyCode = :currencyCode)")
+    List<GlBalance> findForQuery(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("accountCode") String accountCode,
+            @Param("currencyCode") String currencyCode);
 }

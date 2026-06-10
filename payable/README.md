@@ -65,8 +65,10 @@ erDiagram
     
     PAYMENTS {
         Long id PK
+        Long payable_id "정확한 채무 참조"
         BigDecimal amount "지급액"
         String vendor_code "ID Reference"
+        String reference_no "은행 지급 참조"
         String journal_entry_id "전표 ID"
     }
 ```
@@ -83,3 +85,6 @@ docker-compose up -d payable
 **연동 주의사항:**
 - 모든 지급 거래는 `journal-ledger`의 전표 생성을 동반하므로, `JournalPostingPort`의 가용성을 확인해야 합니다.
 - 거래처별 지급 현황이나 Aging 분석 시 `LedgerQueryPort`를 활용하세요.
+- 지급 런은 각 `Payment`에 `payableId`를 저장합니다. 실행 시 공급업체/금액으로 다시 찾지 않고 해당 채무만 차감합니다.
+- 실제 송금은 `PaymentExecutionPort`를 호출하며 `PAYMENT:{paymentId}` 멱등 키를 사용합니다. 실패 시 채무는 차감하지 않고 실패 사유와 시도 횟수를 남겨 재시도할 수 있습니다.
+- 거래처 조회는 `contracts`의 `MasterDataQueryPort`만 사용하므로 payable 애플리케이션 계층은 master-data 내부 저장소에 의존하지 않습니다.

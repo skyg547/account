@@ -153,6 +153,13 @@ public class Loan {
         this.businessPartner = businessPartner;
     }
 
+    public Long getBusinessPartnerId() {
+        if (businessPartner == null || businessPartner.getId() == null) {
+            throw new IllegalArgumentException("businessPartnerId is required");
+        }
+        return businessPartner.getId();
+    }
+
     public LoanType getLoanType() {
         return loanType;
     }
@@ -167,6 +174,13 @@ public class Loan {
 
     public void setCurrency(Currency currency) {
         this.currency = currency;
+    }
+
+    public String getCurrencyCode() {
+        if (currency == null || currency.getCurrencyCode() == null || currency.getCurrencyCode().isBlank()) {
+            throw new IllegalArgumentException("currencyCode is required");
+        }
+        return currency.getCurrencyCode();
     }
 
     public BigDecimal getPrincipalAmount() {

@@ -114,12 +114,20 @@ public class DeferredItemType {
         this.deferredAssetAccount = deferredAssetAccount;
     }
 
+    public String getDeferredAssetAccountCode() {
+        return deferredAssetAccount == null ? null : deferredAssetAccount.getCode();
+    }
+
     public AccountSubject getRecognizedIncomeAccount() {
         return recognizedIncomeAccount;
     }
 
     public void setRecognizedIncomeAccount(AccountSubject recognizedIncomeAccount) {
         this.recognizedIncomeAccount = recognizedIncomeAccount;
+    }
+
+    public String getRecognizedIncomeAccountCode() {
+        return recognizedIncomeAccount == null ? null : recognizedIncomeAccount.getCode();
     }
 
     public boolean isActive() {

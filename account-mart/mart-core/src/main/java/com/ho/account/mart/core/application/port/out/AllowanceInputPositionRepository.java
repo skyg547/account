@@ -1,6 +1,6 @@
 package com.ho.account.mart.core.application.port.out;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;

@@ -2,11 +2,9 @@ package com.ho.account.journalledger.application.service.ledger;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +21,18 @@ import java.util.stream.Collectors;
 
 /**
  * 원장 잔액 서비스 (Ledger Service).
+ *
+ * <p>전기된 전표 라인을 날짜·계정·통화·거래처·부서 단위 잔액으로 집계합니다.
+ * 과거 날짜 전표가 들어오면 지정 기간의 POSTED 라인을 다시 읽어 잔액을 재집계할 수 있습니다.</p>
+ *
+ * <p>잔액 저장·조회·재집계 대상 로딩은 `LedgerBalancePersistencePort` 출력 포트에 위임합니다.
+ * 조회 필터는 DB 어댑터에서 적용하므로 전체 기간 데이터를 애플리케이션 메모리에 올리지 않습니다.</p>
  */
 @Service
 @RequiredArgsConstructor
 public class LedgerService {
 
-    private final GlBalanceRepository glBalanceRepository;
-    private final SlBalanceRepository slBalanceRepository;
-    private final JournalDetailRepository journalDetailRepository;
+    private final LedgerBalancePersistencePort ledgerBalancePersistencePort;
 
     @Transactional
     public void updateLedgerBalances(JournalDetail journalDetail, LocalDate accountingDate) {
@@ -52,7 +54,7 @@ public class LedgerService {
                                  LocalDate accountingDate) {
         YearMonth period = YearMonth.from(accountingDate);
 
-        Optional<GlBalance> optionalGlBalance = glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+        Optional<GlBalance> optionalGlBalance = ledgerBalancePersistencePort.findGlBalance(
                 accountCode, currencyCode, accountingDate, period);
 
         GlBalance glBalance = optionalGlBalance.orElseGet(() -> {
@@ -62,7 +64,7 @@ public class LedgerService {
             newGlBalance.setBalanceDate(accountingDate);
             newGlBalance.setPeriod(period);
 
-            glBalanceRepository.findFirstByAccountCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(
+            ledgerBalancePersistencePort.findPreviousGlBalance(
                     accountCode, currencyCode, accountingDate)
                 .ifPresent(prev -> newGlBalance.setBeginningBalance(prev.getEndingBalance()));
 
@@ -75,7 +77,7 @@ public class LedgerService {
             glBalance.addCredit(amount);
         }
 
-        glBalanceRepository.save(glBalance);
+        ledgerBalancePersistencePort.saveGlBalance(glBalance);
     }
 
     private void updateSlBalance(String accountCode,
@@ -88,7 +90,7 @@ public class LedgerService {
         YearMonth period = YearMonth.from(accountingDate);
 
         Optional<SlBalance> optionalSlBalance =
-                slBalanceRepository.findByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateAndPeriod(
+                ledgerBalancePersistencePort.findSlBalance(
                         accountCode, businessPartnerCode, departmentCode, currencyCode, accountingDate, period);
 
         SlBalance slBalance = optionalSlBalance.orElseGet(() -> {
@@ -100,7 +102,7 @@ public class LedgerService {
             newSlBalance.setBalanceDate(accountingDate);
             newSlBalance.setPeriod(period);
 
-            slBalanceRepository.findFirstByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(
+            ledgerBalancePersistencePort.findPreviousSlBalance(
                     accountCode, businessPartnerCode, departmentCode, currencyCode, accountingDate)
                 .ifPresent(prev -> newSlBalance.setBeginningBalance(prev.getEndingBalance()));
 
@@ -113,16 +115,15 @@ public class LedgerService {
             slBalance.addCredit(amount);
         }
 
-        slBalanceRepository.save(slBalance);
+        ledgerBalancePersistencePort.saveSlBalance(slBalance);
     }
 
     @Transactional
     public void reaggregateLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
-        glBalanceRepository.deleteAllInBatch(glBalanceRepository.findByBalanceDateBetween(startDate, endDate));
-        slBalanceRepository.deleteAllInBatch(slBalanceRepository.findByBalanceDateBetween(startDate, endDate));
+        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
 
         List<JournalDetail> postedJournalDetails =
-                journalDetailRepository.findPostedJournalDetailsByAccountingDateBetween(startDate, endDate);
+                ledgerBalancePersistencePort.findPostedJournalDetailsBetween(startDate, endDate);
 
         updateLedgerBalancesBulk(postedJournalDetails);
     }
@@ -176,42 +177,57 @@ public class LedgerService {
             }
         }
 
+        List<GlBalance> glBalancesToSave = new ArrayList<>();
         for (Map.Entry<String, GlBalanceKey> entry : glKeys.entrySet()) {
             GlBalanceKey key = entry.getValue();
             BigDecimal debitSum = glDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
             BigDecimal creditSum = glCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
-            updateGlBalanceWithSums(key.accountCode(), key.currencyCode(), debitSum, creditSum, date);
+            glBalancesToSave.add(createOrUpdateGlBalanceWithSums(
+                    key.accountCode(), key.currencyCode(), debitSum, creditSum, date));
         }
 
+        if (!glBalancesToSave.isEmpty()) {
+            ledgerBalancePersistencePort.saveGlBalances(glBalancesToSave);
+        }
+
+        List<SlBalance> slBalancesToSave = new ArrayList<>();
         for (Map.Entry<String, SlBalanceKey> entry : slKeys.entrySet()) {
             SlBalanceKey key = entry.getValue();
             BigDecimal debitSum = slDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
             BigDecimal creditSum = slCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
-            updateSlBalanceWithSums(key.accountCode(), key.partnerCode(), key.deptCode(), key.currencyCode(), debitSum, creditSum, date);
+            slBalancesToSave.add(createOrUpdateSlBalanceWithSums(
+                    key.accountCode(), key.partnerCode(), key.deptCode(), key.currencyCode(), debitSum, creditSum, date));
+        }
+
+        if (!slBalancesToSave.isEmpty()) {
+            ledgerBalancePersistencePort.saveSlBalances(slBalancesToSave);
         }
     }
 
-    private void updateGlBalanceWithSums(String accountCode, String currencyCode, BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
+    private GlBalance createOrUpdateGlBalanceWithSums(
+            String accountCode, String currencyCode, BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
         YearMonth period = YearMonth.from(date);
-        GlBalance glBalance = glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(accountCode, currencyCode, date, period)
+        GlBalance glBalance = ledgerBalancePersistencePort.findGlBalance(accountCode, currencyCode, date, period)
                 .orElseGet(() -> {
                     GlBalance newBal = new GlBalance();
                     newBal.setAccountCode(accountCode);
                     newBal.setCurrencyCode(currencyCode);
                     newBal.setBalanceDate(date);
                     newBal.setPeriod(period);
-                    glBalanceRepository.findFirstByAccountCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(accountCode, currencyCode, date)
+                    ledgerBalancePersistencePort.findPreviousGlBalance(accountCode, currencyCode, date)
                             .ifPresent(prev -> newBal.setBeginningBalance(prev.getEndingBalance()));
                     return newBal;
                 });
         glBalance.addDebit(debitSum);
         glBalance.addCredit(creditSum);
-        glBalanceRepository.save(glBalance);
+        return glBalance;
     }
 
-    private void updateSlBalanceWithSums(String accountCode, String partnerCode, String deptCode, String currencyCode, BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
+    private SlBalance createOrUpdateSlBalanceWithSums(
+            String accountCode, String partnerCode, String deptCode, String currencyCode,
+            BigDecimal debitSum, BigDecimal creditSum, LocalDate date) {
         YearMonth period = YearMonth.from(date);
-        SlBalance slBalance = slBalanceRepository.findByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateAndPeriod(accountCode, partnerCode, deptCode, currencyCode, date, period)
+        SlBalance slBalance = ledgerBalancePersistencePort.findSlBalance(accountCode, partnerCode, deptCode, currencyCode, date, period)
                 .orElseGet(() -> {
                     SlBalance newBal = new SlBalance();
                     newBal.setAccountCode(accountCode);
@@ -220,13 +236,13 @@ public class LedgerService {
                     newBal.setCurrencyCode(currencyCode);
                     newBal.setBalanceDate(date);
                     newBal.setPeriod(period);
-                    slBalanceRepository.findFirstByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(accountCode, partnerCode, deptCode, currencyCode, date)
+                    ledgerBalancePersistencePort.findPreviousSlBalance(accountCode, partnerCode, deptCode, currencyCode, date)
                             .ifPresent(prev -> newBal.setBeginningBalance(prev.getEndingBalance()));
                     return newBal;
                 });
         slBalance.addDebit(debitSum);
         slBalance.addCredit(creditSum);
-        slBalanceRepository.save(slBalance);
+        return slBalance;
     }
 
     private record GlBalanceKey(String accountCode, String currencyCode) {}
@@ -237,21 +253,8 @@ public class LedgerService {
                                          LocalDate endDate,
                                          String accountCode,
                                          String currencyCode) {
-        List<GlBalance> balances;
-        if (accountCode != null && currencyCode != null) {
-            balances = glBalanceRepository.findByBalanceDateBetweenAndAccountCodeAndCurrencyCode(
-                    startDate, endDate, accountCode, currencyCode);
-        } else if (accountCode != null) {
-            balances = glBalanceRepository.findByBalanceDateBetween(startDate, endDate).stream()
-                    .filter(balance -> accountCode.equals(balance.getAccountCode()))
-                    .collect(Collectors.toList());
-        } else if (currencyCode != null) {
-            balances = glBalanceRepository.findByBalanceDateBetween(startDate, endDate).stream()
-                    .filter(balance -> currencyCode.equals(balance.getCurrencyCode()))
-                    .collect(Collectors.toList());
-        } else {
-            balances = glBalanceRepository.findByBalanceDateBetween(startDate, endDate);
-        }
+        List<GlBalance> balances =
+                ledgerBalancePersistencePort.findGlBalances(startDate, endDate, accountCode, currencyCode);
         return aggregateGlBalances(balances, startDate);
     }
 
@@ -262,29 +265,8 @@ public class LedgerService {
                                          String businessPartnerCode,
                                          String departmentCode,
                                          String currencyCode) {
-        List<SlBalance> results = slBalanceRepository.findByBalanceDateBetween(startDate, endDate);
-
-        if (accountCode != null) {
-            results = results.stream()
-                    .filter(balance -> accountCode.equals(balance.getAccountCode()))
-                    .collect(Collectors.toList());
-        }
-        if (businessPartnerCode != null) {
-            results = results.stream()
-                    .filter(balance -> businessPartnerCode.equals(balance.getBusinessPartnerCode()))
-                    .collect(Collectors.toList());
-        }
-        if (departmentCode != null) {
-            results = results.stream()
-                    .filter(balance -> departmentCode.equals(balance.getDepartmentCode()))
-                    .collect(Collectors.toList());
-        }
-        if (currencyCode != null) {
-            results = results.stream()
-                    .filter(balance -> currencyCode.equals(balance.getCurrencyCode()))
-                    .collect(Collectors.toList());
-        }
-
+        List<SlBalance> results = ledgerBalancePersistencePort.findSlBalances(
+                startDate, endDate, accountCode, businessPartnerCode, departmentCode, currencyCode);
         return aggregateSlBalances(results, startDate);
     }
 

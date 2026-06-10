@@ -33,18 +33,23 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-05-28 "IFRS 9 대손충당금 전용 account-mart/ecl 전환"입니다.
-- `shared-kernel`의 CDM 입력 엔티티를 `AllowanceInputPosition`/`AllowanceInputPositionId`로 전환
-- CDM 입력 물리 테이블을 `allowance_input_positions`로 전환
-- ECL 산출 결과 엔티티를 `AllowanceEclResult`/`AllowanceEclResultId`로 전환
-- ECL 산출 결과 물리 테이블을 `allowance_ecl_results`로 전환
-- 모델 파라미터 저장소를 `AllowanceModelParameter`/`allowance_model_parameters`로 전환
-- `account-mart` ODS -> CDM -> `allowance_exposure_snapshots` 생성 경로 유지
-- `ecl` snapshot sync -> staging -> EAD/LGD -> ECL -> completion -> `allowance_summary` 경로 유지
-- allowance 범위 밖 컨트롤러, 서비스, 배치 설정, processor, 테스트, 샘플 DB 파일 제거
-- `account-mart`/`ecl` README, docs, HTTP 샘플, Docker/run 스크립트의 실행 명칭을 allowance 기준으로 갱신
-- `IntegratedPositionEtlJobTest`에 deterministic DEMO fixture를 추가해 5건 CDM, 4건 GL/SL 대사, 5건 allowance snapshot을 검증
-- `AllowanceEclBatchIntegrationTest`가 `allowance_exposure_snapshots -> allowance_ecl_results -> allowance_summary` end-to-end 경로를 검증
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합"과 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합"입니다.
+- Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
+- Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
+- Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
+- Journal/Unsettled HTTP DTO, 필수 `X-User-ID`, 미결 인바운드 포트, 반제 참조번호 멱등/감사 필드
+- Loan 소유 출력 포트와 외부 전표 값 참조
+- Reconciliation 표준 `Unit -> Run -> Difference` Aggregate 및 단계 결과 연결
+- Allowance input JPA 쓰기 소유권의 account-mart 이동과 ECL 자체 읽기 모델
+- Closing 조정 전표 기본 DRAFT 통제, Tax 논리 취소/actor/계약 포트, Asset actor 전달
+- Java 코드 `@todo` 0건과 README/WORKLOG/리뷰 문서의 실제 코드 일치 여부
+- ECL `EadCalculationResult`, 모델 비율 fail-closed 검증, 이름 있는 기본 CCF 정책
+- ECL 모델 파라미터 기술 독립 포트와 JPA 어댑터 빈 구성
+- ECL 등급·상품·LGD·담보배분·거시시나리오·전이행렬 기술 독립 포트와 JPA/캐시 어댑터
+- Journal `UnsettledItemPersistencePort`, 거래처별 DB 필터, `JournalRuleQueryPort`, `JournalSide` 규칙 타입
+- Journal `JournalPersistencePort`/`LedgerEntryPersistencePort`/`LedgerBalancePersistencePort` 전기·잔액 경계와 DB 조건 필터
+- Journal `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정 기반 JDBC batch insert/upsert 어댑터, `YearMonthAttributeConverter`, 잔액 재집계 bulk 저장 경로
+- ECL/Journal docs 인덱스, 입문·프로세스·스키마 문서의 실제 코드 일치 여부
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -59,10 +64,12 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - 문서/WORKLOG/todo 완료 표기와 실제 코드 상태 불일치
 
 5. 가능하면 아래 검증을 재실행하세요.
-- .\gradlew :shared-kernel:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava --console=plain
-- .\gradlew :ecl:ecl-core:testClasses :ecl:ecl-batch:testClasses :account-mart:mart-core:testClasses :account-mart:mart-batch:testClasses --console=plain
-- .\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.AllowanceEclBatchIntegrationTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest :account-mart:mart-core:test --tests com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotServiceTest --console=plain
-- 대상 모듈과 활성 문서에서 비-allowance 실행 경로 표현이 남아 있는지 검색하세요.
+- .\gradlew :auth:test :payable:test :receivable:test :asset-lease:test :tax:test --console=plain
+- .\gradlew :closing:batch:test :journal-ledger:core:test :journal-ledger:api:compileJava :reconciliation:test --console=plain
+- .\gradlew :loan:core:test :loan:api:compileJava :shared-kernel:compileJava :account-mart:mart-core:test :account-mart:mart-batch:test :ecl:ecl-core:test :ecl:ecl-api:compileJava --console=plain
+- .\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test :journal-ledger:core:test :journal-ledger:api:test --console=plain
+- .\gradlew :journal-ledger:core:test :journal-ledger:api:test :loan:core:test --console=plain
+- rg -ni "@todo" --glob "*.java" .
 
 6. 출력 형식은 반드시 아래 순서를 따르세요.
 
@@ -90,16 +97,20 @@ Notes:
 ## Current Handoff Context
 
 - 현재 로컬 워킹트리에는 Codex 변경 외에 사용자/Gemini가 남긴 문서 이동/삭제 및 기타 미커밋 변경이 섞여 있을 수 있다.
-- 이번 핸드오프의 기준은 IFRS 9 대손충당금 전용 경로다.
+- 이번 핸드오프의 기준은 2026-06-09 잔여 TODO 통합과 2026-06-10 ECL·Journal 추가 경계/문서 통합이다.
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
-  - `.\gradlew :shared-kernel:compileJava :ecl:ecl-core:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava --console=plain`: 성공
-  - `.\gradlew :ecl:ecl-core:testClasses :ecl:ecl-batch:testClasses :account-mart:mart-core:testClasses :account-mart:mart-batch:testClasses --console=plain`: 성공
-  - `.\gradlew :ecl:ecl-batch:test --tests com.ho.account.ecl.batch.AllowanceEclBatchIntegrationTest :account-mart:mart-batch:test --tests com.ho.account.mart.batch.job.ods.IntegratedPositionEtlJobTest :account-mart:mart-core:test --tests com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotServiceTest --console=plain`: 성공
-  - 대상 모듈과 활성 핸드오프 문서에서 비-allowance 실행 경로 표현 검색 결과 없음
+  - Auth/Payable/Receivable/Asset/Tax 집중 테스트 성공.
+  - Closing/Journal/Reconciliation/ECL 집중 테스트 및 API 컴파일 성공.
+  - Loan/Account-Mart/Allowance 소유권 경계 테스트 및 API 컴파일 성공.
+  - Java 소스 `@todo` 검색 결과 0건, 변경 범위 diff check 성공.
+  - ECL core/API/batch와 Journal core/API 통합 검증 성공.
+  - Journal T53 구현 후 core 테스트와 H2 기반 JDBC batch insert/upsert 집중 테스트 성공.
 - Docker 이미지 빌드는 실행하지 않았다.
-- `mart-batch` 테스트 종료 시 일부 step-scope reader close 경고가 출력되지만 테스트 결과는 성공이다.
+- Auth 기본 잠금 어댑터와 Payable 로컬 지급 어댑터는 운영용 공유/외부 어댑터 교체가 필요하다.
+- Journal 전기·잔액 Repository 직접 의존과 ECL 마스터 포트의 JPA 기술 누수는 제거했다.
+- Journal JDBC bulk 구현은 설정 기반으로 추가했으며, 운영 DB 기준 배치 크기·인덱스·락 대기·동시 재집계 부하 검증은 남아 있다.
 
 ## Review Handoff Checklist
 

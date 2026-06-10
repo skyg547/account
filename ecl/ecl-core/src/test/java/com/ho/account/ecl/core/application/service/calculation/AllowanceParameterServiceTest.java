@@ -41,6 +41,7 @@ class AllowanceParameterServiceTest {
         // then
         assertThat(parameterService.getParameters().getPdFloor()).isEqualTo(new BigDecimal("0.0005"));
         assertThat(parameterService.getParameters().getUnsecuredLgdFloor()).isEqualTo(new BigDecimal("0.45"));
+        assertThat(parameterService.getParameters().getDefaultCcfRate()).isEqualTo(new BigDecimal("0.75"));
     }
 
     @Test
@@ -72,5 +73,20 @@ class AllowanceParameterServiceTest {
         assertThatThrownBy(() -> parameterService.refreshCache())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("유효하지 않은 모델 파라미터 값: PD_FLOOR");
+    }
+
+    @Test
+    @DisplayName("선택 모델 비율이 1을 초과하면 로드를 차단해야 함")
+    void should_ThrowException_When_OptionalRateExceedsOne() {
+        given(parameterRepository.findAll()).willReturn(List.of(
+                new AllowanceModelParameter("PD_FLOOR", new BigDecimal("0.0005"), "PD 하한선", null),
+                new AllowanceModelParameter("SECURED_LGD_FLOOR", new BigDecimal("0.20"), "담보부 LGD 하한선", null),
+                new AllowanceModelParameter("UNSECURED_LGD_FLOOR", new BigDecimal("0.45"), "무담보부 LGD 하한선", null),
+                new AllowanceModelParameter("DEFAULT_CCF_RATE", new BigDecimal("1.20"), "잘못된 기본 CCF", null)
+        ));
+
+        assertThatThrownBy(() -> parameterService.refreshCache())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("DEFAULT_CCF_RATE");
     }
 }

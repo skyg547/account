@@ -11,8 +11,6 @@ import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
 import com.ho.account.expenditure.application.port.out.PurchaseInvoicePersistencePort;
 import com.ho.account.expenditure.domain.PurchaseInvoice;
 import com.ho.account.expenditure.domain.PurchaseInvoiceStatus;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,8 +38,6 @@ class PurchaseServiceTest {
     @Mock
     private PayablePersistencePort payablePersistencePort;
     @Mock
-    private BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    @Mock
     private MasterDataQueryPort masterDataQueryPort;
     @Mock
     private JournalPostingPort journalPostingPort;
@@ -55,7 +51,6 @@ class PurchaseServiceTest {
         service = new PurchaseService(
                 purchaseInvoicePersistencePort,
                 payablePersistencePort,
-                businessPartnerPersistencePort,
                 masterDataQueryPort,
                 journalPostingPort,
                 payableAccountMappingPort);
@@ -66,11 +61,8 @@ class PurchaseServiceTest {
     void createPurchaseInvoiceUsesActorAndMappedAccounts() {
         PurchaseInvoice invoice = createInvoice();
         invoice.setCreatedBy(" buyer-user ");
-        BusinessPartner vendor = vendor();
-
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("V001")).thenReturn(Optional.of(vendor));
         when(purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode("PI-001", "V001")).thenReturn(Optional.empty());
         when(purchaseInvoicePersistencePort.save(any(PurchaseInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(payablePersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -103,7 +95,6 @@ class PurchaseServiceTest {
 
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("V001")).thenReturn(Optional.of(vendor()));
         when(purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode("PI-001", "V001")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.createPurchaseInvoice(invoice))
@@ -124,10 +115,4 @@ class PurchaseServiceTest {
         return invoice;
     }
 
-    private BusinessPartner vendor() {
-        BusinessPartner vendor = new BusinessPartner();
-        vendor.setBusinessPartnerCode("V001");
-        vendor.setBusinessPartnerName("Vendor One");
-        return vendor;
-    }
 }

@@ -26,3 +26,5 @@ flowchart LR
 ```
 
 스키마는 `account-mart/db/schema-mart.sql`을 기준으로 관리합니다.
+
+`allowance_input_positions`의 쓰기 소유권과 JPA 엔티티는 `account-mart`에 있습니다. 다른 모듈은 이 엔티티를 공유하지 않고 스냅샷/조회 계약을 통해 데이터를 읽습니다.

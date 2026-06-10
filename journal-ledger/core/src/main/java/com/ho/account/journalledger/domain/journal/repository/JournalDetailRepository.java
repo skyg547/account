@@ -18,8 +18,8 @@ import java.util.List;
 @Repository
 public interface JournalDetailRepository extends JpaRepository<JournalDetail, Long> {
 
-       // @todo DDD/consistency: these repository queries hardcode financial status strings and mix APPROVED with POSTED.
-       // Move the status boundary to JournalEntryStatus parameters/policies so GL, SL, reporting, and reconciliation read the same posting state.
+       // 재무 조회에는 원장 반영이 완료된 POSTED 전표만 포함합니다.
+       // APPROVED는 결재가 끝났지만 아직 원장에 반영되지 않은 상태이므로 잔액/보고 수치에서 제외합니다.
        /**
         * 특정 계정과목의 기간별 상세 내역 조회 (회계일자 기준)
         */
@@ -27,7 +27,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      "JOIN jd.journalEntry je " +
                      "WHERE jd.accountCode = :accountCode " +
                      "AND je.accountingDate BETWEEN :startDate AND :endDate " +
-                     "AND je.status = 'APPROVED' " +
+                     "AND je.status = 'POSTED' " +
                      "ORDER BY je.accountingDate ASC, je.slipNo ASC")
        List<JournalDetail> findByAccountAndDateRange(
                      @Param("accountCode") String accountCode,
@@ -41,7 +41,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      "JOIN jd.journalEntry je " +
                      "WHERE jd.accountCode IN :accountCodes " +
                      "AND je.accountingDate BETWEEN :startDate AND :endDate " +
-                     "AND je.status IN ('APPROVED', 'POSTED') " +
+                     "AND je.status = 'POSTED' " +
                      "ORDER BY je.accountingDate ASC, je.slipNo ASC")
        List<JournalDetail> findByAccountCodesAndDateRange(
                      @Param("accountCodes") List<String> accountCodes,
@@ -55,7 +55,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
                      "JOIN jd.journalEntry je " +
                      "WHERE jd.accountCode = :accountCode " +
                      "AND je.accountingDate < :startDate " +
-                     "AND je.status = 'APPROVED'")
+                     "AND je.status = 'POSTED'")
        List<JournalDetail> findPreviousDetails(
                      @Param("accountCode") String accountCode,
                      @Param("startDate") LocalDate startDate);
@@ -66,7 +66,7 @@ public interface JournalDetailRepository extends JpaRepository<JournalDetail, Lo
        @Query("SELECT jd FROM JournalDetail jd " +
                      "JOIN jd.journalEntry je " +
                      "WHERE je.accountingDate BETWEEN :startDate AND :endDate " +
-                     "AND je.status = 'APPROVED'")
+                     "AND je.status = 'POSTED'")
        List<JournalDetail> findByAccountAndDateRangeForIS(
                      @Param("startDate") LocalDate startDate,
                      @Param("endDate") LocalDate endDate);

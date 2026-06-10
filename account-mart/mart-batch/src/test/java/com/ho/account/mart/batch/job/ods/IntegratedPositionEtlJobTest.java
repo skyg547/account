@@ -1,6 +1,6 @@
 package com.ho.account.mart.batch.job.ods;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

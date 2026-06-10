@@ -90,8 +90,22 @@ erDiagram
 **연동 주의사항:**
 - 전표 생성 전 반드시 `contracts` 모듈의 Port를 통해 계정 코드와 마감 여부를 확인해야 합니다.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
+- 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 작성·승인·전기 요청에는 실제 처리자를 담은 `X-User-ID` 헤더가 필요합니다.
+- 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
+- 재무 잔액과 기간 집계 조회에는 원장 반영이 끝난 `POSTED` 전표만 포함됩니다. `APPROVED` 전표는 아직 재무제표 금액이 아닙니다.
+- 운영 대량 전기/재집계는 `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정으로 JDBC batch insert/upsert 어댑터를 사용할 수 있습니다. 기본값은 JPA입니다.
 
 **실행 방법 (Docker):**
 ```bash
 docker-compose up -d journal-ledger
 ```
+
+---
+
+## 5. 상세 문서
+
+- 문서 안내와 추천 읽기 순서: [docs/README.md](docs/README.md)
+- 초보자 개념과 코드 탐색: [docs/beginner-guide.md](docs/beginner-guide.md)
+- 전표·원장·미결 업무 및 데이터 흐름: [docs/process-flow.md](docs/process-flow.md)
+- 핵심 테이블과 소유권: [docs/schema.md](docs/schema.md)
+- 원장 잔액 이월: [docs/ledger-carry-forward.md](docs/ledger-carry-forward.md)

@@ -2,13 +2,13 @@ package com.ho.account.ecl.core.application.port.out;
 
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import java.math.BigDecimal;
 import java.util.List;
 
-public interface CrAccountCollateralRepository extends JpaRepository<CrAccountCollateral, Long> {
+/**
+ * 계좌별 담보 배분 조회·저장 출력 포트입니다.
+ */
+public interface CrAccountCollateralRepository {
+    CrAccountCollateral save(CrAccountCollateral allocation);
     List<CrAccountCollateral> findByAccount(CrAccount account);
     List<CrAccountCollateral> findByAccountIn(List<CrAccount> accounts);
 }

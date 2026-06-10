@@ -1,12 +1,11 @@
 package com.ho.account.expenditure.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * PurchaseInvoice ?뷀떚?곗쓽 蹂듯빀 ?ㅻ? ?뺤쓽?섎뒗 ?대옒??
- * invoiceNo? vendor(BusinessPartner)瑜?議고빀?섏뿬 ?좊땲?ы븳 ?몃낫?댁뒪瑜??앸퀎?⑸땲??
+ * 인보이스 번호와 공급업체 코드만 조합하여 외부 모듈 엔티티에 의존하지 않고 식별합니다.
  */
 public class PurchaseInvoiceId implements Serializable {
 

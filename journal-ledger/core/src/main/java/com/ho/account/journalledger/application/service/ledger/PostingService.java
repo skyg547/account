@@ -3,11 +3,10 @@ package com.ho.account.journalledger.application.service.ledger;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
 import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
-import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +23,17 @@ import java.math.BigDecimal;
  * 🐣 [초보자를 위한 설명]
  * 전기(Posting)란 승인된 '전표(영수증)'의 내용을 바탕으로 실제 '총계정원장(GL)'과 '보조원장(SL)'이라는 큰 장부에 기록을 옮겨 적는 행위입니다.
  * 이 클래스는 전표 승인 이후, 해당 전표의 상세 라인(차변/대변)을 하나씩 읽어서 원장 엔티티(GlEntry, SlEntry)로 변환하고
- * 영속성 포트를 통해 DB에 저장하는 중추적인 역할을 합니다.
+ * 원장 엔트리를 저장하고 잔액 갱신 서비스에 전달하는 중추적인 역할을 합니다.
+ *
+ * 전표와 GL/SL 엔트리 저장은 출력 포트에 위임하며, 서비스는 승인 전표를 원장 엔트리로 변환하고
+ * 잔액 갱신을 조정하는 업무 흐름에 집중합니다.
  */
 @Service
 @RequiredArgsConstructor
 public class PostingService {
 
-    private final JournalEntryRepository journalEntryRepository;
-    private final GlEntryRepository glEntryRepository;
-    private final SlEntryRepository slEntryRepository;
+    private final JournalPersistencePort journalPersistencePort;
+    private final LedgerEntryPersistencePort ledgerEntryPersistencePort;
     private final LedgerService ledgerService;
 
     @Transactional
@@ -42,11 +43,11 @@ public class PostingService {
 
     @Transactional
     public void postJournalEntry(Long journalEntryId, String poster) {
-        JournalEntry journalEntry = journalEntryRepository.findById(journalEntryId)
+        JournalEntry journalEntry = journalPersistencePort.findByIdWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 
         journalEntry.post(poster);
-        journalEntryRepository.save(journalEntry);
+        journalPersistencePort.save(journalEntry);
 
         LocalDate accountingDate = journalEntry.getAccountingDate();
         String fiscalYear = String.valueOf(accountingDate.getYear());
@@ -108,8 +109,8 @@ public class PostingService {
             slEntries.add(slEntry);
         }
 
-        glEntryRepository.saveAll(glEntries);
-        slEntryRepository.saveAll(slEntries);
+        ledgerEntryPersistencePort.saveGlEntries(glEntries);
+        ledgerEntryPersistencePort.saveSlEntries(slEntries);
         
         ledgerService.updateLedgerBalancesBulk(details);
     }

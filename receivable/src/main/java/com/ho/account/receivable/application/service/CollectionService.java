@@ -7,6 +7,8 @@ import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.CollectionUseCase;
 import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
+import com.ho.account.receivable.application.port.out.CollectionAllocationPersistencePort;
+import com.ho.account.receivable.application.port.out.CollectionMatchingPolicyPort;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
@@ -27,19 +29,25 @@ public class CollectionService implements CollectionUseCase {
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final ReceivableAccountMappingPort receivableAccountMappingPort;
+    private final CollectionMatchingPolicyPort collectionMatchingPolicyPort;
+    private final CollectionAllocationPersistencePort collectionAllocationPersistencePort;
 
     public CollectionService(CollectionPersistencePort collectionPersistencePort,
                              ReceivablePersistencePort receivablePersistencePort,
                              SalesInvoicePersistencePort salesInvoicePersistencePort,
                              MasterDataQueryPort masterDataQueryPort,
                              JournalPostingPort journalPostingPort,
-                             ReceivableAccountMappingPort receivableAccountMappingPort) {
+                             ReceivableAccountMappingPort receivableAccountMappingPort,
+                             CollectionMatchingPolicyPort collectionMatchingPolicyPort,
+                             CollectionAllocationPersistencePort collectionAllocationPersistencePort) {
         this.collectionPersistencePort = collectionPersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.receivableAccountMappingPort = receivableAccountMappingPort;
+        this.collectionMatchingPolicyPort = collectionMatchingPolicyPort;
+        this.collectionAllocationPersistencePort = collectionAllocationPersistencePort;
     }
 
     @Override
@@ -68,18 +76,14 @@ public class CollectionService implements CollectionUseCase {
             return;
         }
 
-        // @todo Matching policy: exact amount-only matching ignores reference number, virtual account, due-date tolerance, and duplicate candidates.
-        // 단순 자동 매칭 로직 (참조번호 기반)
-        List<Receivable> openReceivables = receivablePersistencePort.findByCustomerCodeAndStatus(
-                collection.getCustomerCode(), ReceivableStatus.OPEN);
+        // 자동 매칭은 참조번호, 만기일 허용 범위, 금액을 차례로 확인하며 중복 후보는 수동 확인으로 남깁니다.
+        List<Receivable> openReceivables = receivablePersistencePort.findOpenItemsByCustomerCode(
+                collection.getCustomerCode());
 
-        Receivable match = openReceivables.stream()
-                .filter(r -> r.getOriginalAmount().compareTo(collection.getAmount()) == 0)
-                .findFirst()
-                .orElse(null);
+        Receivable match = collectionMatchingPolicyPort.selectMatch(collection, openReceivables).orElse(null);
 
         if (match != null) {
-            processMatch(collection, match, collection.getAmount());
+            processMatch(collection, match, collection.getUnallocatedAmount());
         } else {
             collection.markAsUnmatched();
             collectionPersistencePort.save(collection);
@@ -93,7 +97,8 @@ public class CollectionService implements CollectionUseCase {
         Receivable receivable = receivablePersistencePort.findById(receivableId)
                 .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + receivableId));
 
-        if (amount.compareTo(collection.getAmount()) > 0 || amount.compareTo(receivable.getOutstandingAmount()) > 0) {
+        if (amount.compareTo(collection.getUnallocatedAmount()) > 0
+                || amount.compareTo(receivable.getOutstandingAmount()) > 0) {
             throw new IllegalArgumentException("Invalid match amount.");
         }
 
@@ -108,17 +113,12 @@ public class CollectionService implements CollectionUseCase {
     private void processMatch(Collection collection, Receivable receivable, BigDecimal amount) {
         // DDD: 엔티티 내부 로직 호출
         receivable.applyCollection(amount);
-        
-        if (amount.compareTo(collection.getAmount()) == 0) {
-            collection.markAsMatched();
-        } else {
-            collection.markAsPartialMatched();
-            // @todo Open-item consistency: persist residual collection/open receivable split explicitly instead of leaving partial matching implied.
-            // 부분 매칭 시 잔액 처리 로직 (생략 가능 또는 별도 Collection 생성)
-        }
+        collection.applyAllocation(amount);
 
         receivablePersistencePort.save(receivable);
         collectionPersistencePort.save(collection);
+        // 매칭 결과와 양쪽 잔액을 별도 이력으로 남겨 부분 매칭과 후속 매칭을 추적할 수 있습니다.
+        collectionAllocationPersistencePort.save(CollectionAllocation.record(collection, receivable, amount));
 
         // 연관 인보이스 상태 업데이트
         if (receivable.getSalesInvoice() != null) {

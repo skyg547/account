@@ -44,24 +44,29 @@ public class EadCalculator {
      * @param totalHaircut     가중평균 헤어컷 (Hc + Hfx)
      * @param securedLgd       담보부(Secured) 익스포저 LGD (모델 파라미터에서 로드)
      * @param unsecuredLgd     무담보부(Unsecured) 익스포저 LGD (모델 파라미터에서 로드)
-     * @return [보정 EAD*, 적용 CCF, 원시 EAD, CRM 공제액, 가중 LGD]
+     * @return 각 금액의 업무 의미가 이름으로 구분된 EAD/CRM 산출 결과
      */
-    public Object[] calculateAdvancedEAD(BigDecimal outstandingAmt,
-                                         BigDecimal notionalAmt,
-                                         BigDecimal ccfRate,
-                                         BigDecimal collateralAmt,
-                                         BigDecimal totalHaircut,
-                                         BigDecimal securedLgd,
-                                         BigDecimal unsecuredLgd) {
+    public EadCalculationResult calculateAdvancedEAD(BigDecimal outstandingAmt,
+                                                     BigDecimal notionalAmt,
+                                                     BigDecimal ccfRate,
+                                                     BigDecimal collateralAmt,
+                                                     BigDecimal totalHaircut,
+                                                     BigDecimal securedLgd,
+                                                     BigDecimal unsecuredLgd) {
 
-        // ── null 방어 처리 ──
+        // ── 입력 정규화 및 모델 정책 검증 ──
+        // 금액 누락은 0으로 정규화할 수 있지만, 계산 비율 누락은 결과를 왜곡하므로 즉시 실패합니다.
         if (outstandingAmt == null) outstandingAmt = BigDecimal.ZERO;
         if (notionalAmt == null) notionalAmt = outstandingAmt;
-        if (ccfRate == null) ccfRate = BigDecimal.ZERO;
         if (collateralAmt == null) collateralAmt = BigDecimal.ZERO;
         if (totalHaircut == null) totalHaircut = BigDecimal.ZERO;
-        if (securedLgd == null) securedLgd = new BigDecimal("0.20");
-        if (unsecuredLgd == null) unsecuredLgd = new BigDecimal("0.45");
+        requireNonNegative("outstandingAmt", outstandingAmt);
+        requireNonNegative("notionalAmt", notionalAmt);
+        requireNonNegative("collateralAmt", collateralAmt);
+        requireRate("ccfRate", ccfRate);
+        requireRate("totalHaircut", totalHaircut);
+        requireRate("securedLgd", securedLgd);
+        requireRate("unsecuredLgd", unsecuredLgd);
 
         // ── 1단계: 미사용 잔액 계산 ──
         // 미사용 잔액 = 약정 한도 - 현재 잔액 (음수가 되면 0 처리)
@@ -105,26 +110,19 @@ public class EadCalculator {
         // 💡 이것이 대손충당금 산출의 보정 입력값이 됩니다.
         BigDecimal eadStar = ead.subtract(crmDeduction).setScale(4, RoundingMode.HALF_UP);
 
-        return new Object[]{eadStar, ccfRate, ead, crmDeduction, weightedLgd};
+        return new EadCalculationResult(eadStar, ccfRate, ead, crmDeduction, weightedLgd);
     }
 
-    /**
-     * [레거시 호환] 기존 시그니처 유지.
-     * 새 코드에서는 반드시 7-파라미터 버전을 사용하세요.
-     *
-     * @deprecated v2.0부터 securedLgd/unsecuredLgd 파라미터를 받는 오버로드 메서드를 사용하세요.
-     */
-    @Deprecated(since = "2.0", forRemoval = false)
-    public Object[] calculateAdvancedEAD(BigDecimal outstandingAmt,
-                                         BigDecimal notionalAmt,
-                                         BigDecimal ccfRate,
-                                         BigDecimal collateralAmt,
-                                         BigDecimal totalHaircut) {
-        // 기존 하드코딩 LGD 값으로 신규 메서드에 위임
-        return calculateAdvancedEAD(outstandingAmt, notionalAmt, ccfRate,
-                collateralAmt, totalHaircut,
-                new BigDecimal("0.20"),   // securedLgd (기존 하드코딩 값)
-                new BigDecimal("0.45")); // unsecuredLgd (기존 하드코딩 값 보정: 0.40→0.45 모델 기준)
+    private void requireNonNegative(String fieldName, BigDecimal value) {
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(fieldName + " must be zero or positive");
+        }
+    }
+
+    private void requireRate(String fieldName, BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(BigDecimal.ONE) > 0) {
+            throw new IllegalArgumentException(fieldName + " must be between 0 and 1");
+        }
     }
 }
 

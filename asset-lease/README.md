@@ -84,3 +84,4 @@ docker-compose up -d asset-lease
 **연동 주의사항:**
 - 감가상각 및 리스 전표 생성 시 `contracts` 모듈의 `JournalPostingPort`를 통해 회계 코어와 통신합니다.
 - 부서나 거래처 정보 조회 시 `MasterDataQueryPort`를 사용하세요.
+- 고정자산 등록, 감가상각, 처분, 부서 변경 요청은 실제 사용자 또는 배치 실행자 ID를 서비스에 전달하며 자산 이력과 이벤트 감사 정보에 같은 actor를 기록합니다.

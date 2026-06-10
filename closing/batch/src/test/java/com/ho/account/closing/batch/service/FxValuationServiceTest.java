@@ -48,6 +48,7 @@ class FxValuationServiceTest {
     @Test
     @DisplayName("FX 평가는 정책 보고통화와 장부 기준통화 잔액으로 차액 전표를 생성한다")
     void processFxValuationUsesPolicyCurrencyAndBaseEndingBalance() {
+        accountingProperties.setAutoPostAdjustments(true);
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);
         GlAccountBalance balance = balance("113000", "EUR", "100.00", "110.00");
 

@@ -1,6 +1,6 @@
 package com.ho.account.ecl.core.application.service.integration;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.ecl.core.application.port.out.AllowanceInputPositionSnapshot;
 import com.ho.account.ecl.core.application.port.out.CrAccountBulkPort;
 import com.ho.account.ecl.core.application.port.out.CrCustomerBulkPort;
 import com.ho.account.ecl.core.application.port.out.AllowanceInputPositionRepository;
@@ -41,7 +41,7 @@ public class CdmSyncService {
         log.info("🔄 [CDM Bulk Sync] 대손충당금(IFRS9) 데이터 동기화 시작 (기준일: {})", baseDate);
 
         // 1. 통합 마트에서 해당 날짜의 모든 포지션 조회
-        List<AllowanceInputPosition> cdmPositions = cdmRepository.findByBaseDt(baseDate);
+        List<AllowanceInputPositionSnapshot> cdmPositions = cdmRepository.findByBaseDt(baseDate);
         log.info("📥 [CDM Bulk Sync] 마트 데이터 로드 완료: {} 건", cdmPositions.size());
 
         if (cdmPositions.isEmpty()) {
@@ -58,20 +58,20 @@ public class CdmSyncService {
         log.info("✅ [CDM Bulk Sync] 대손충당금(IFRS9) 데이터 동기화 완료.");
     }
 
-    private void syncCustomersBulk(List<AllowanceInputPosition> positions) {
+    private void syncCustomersBulk(List<AllowanceInputPositionSnapshot> positions) {
         // 중복 제거된 고객 정보 생성
         List<CrCustomer> customers = positions.stream()
                 .collect(Collectors.toMap(
-                        AllowanceInputPosition::getCustomerCode,
+                        AllowanceInputPositionSnapshot::customerCode,
                         p -> CrCustomer.builder()
-                                .customerCode(p.getCustomerCode())
-                                .customerName(p.getCustomerName() != null ? p.getCustomerName() : "Unknown-" + p.getCustomerCode())
-                                .customerType(p.getCustomerType())
-                                .internalRating(p.getInternalRating())
-                                .industryCode(p.getIndustryCode())
-                                .countryCode(p.getCountryCode())
-                                .isSme(p.getIsSme() != null ? p.getIsSme() : false)
-                                .warningLevel(p.getWarningLevel() != null ? p.getWarningLevel() : "NORMAL")
+                                .customerCode(p.customerCode())
+                                .customerName(p.customerName() != null ? p.customerName() : "Unknown-" + p.customerCode())
+                                .customerType(p.customerType())
+                                .internalRating(p.internalRating())
+                                .industryCode(p.industryCode())
+                                .countryCode(p.countryCode())
+                                .isSme(p.isSme() != null ? p.isSme() : false)
+                                .warningLevel(p.warningLevel() != null ? p.warningLevel() : "NORMAL")
                                 .build(),
                         (existing, replacement) -> existing
                 ))
@@ -81,27 +81,27 @@ public class CdmSyncService {
         log.info("👤 [CDM Bulk Sync] 차주 정보 Upsert 완료: {} 건", customers.size());
     }
 
-    private void syncAccountsBulk(List<AllowanceInputPosition> positions) {
+    private void syncAccountsBulk(List<AllowanceInputPositionSnapshot> positions) {
         List<CrAccount> accounts = positions.stream()
                 .map(p -> CrAccount.builder()
-                        .accountNo(p.getAccNo())
-                        .productCode(p.getProductCode())
-                        .currency(p.getCurrency().name())
-                        .notionalAmount(p.getLimitAmount())
-                        .outstandingAmount(p.getOutstandingAmount())
-                        .productCategory(p.getProductCategory() != null ? p.getProductCategory().name() : null)
-                        .interestRate(p.getInterestRate())
-                        .repaymentMethod(p.getRepaymentMethod())
-                        .gracePeriod(p.getGracePeriod())
-                        .repaymentFreq(p.getRepaymentFreq())
-                        .branchCode(p.getBranchCd())
-                        .bizUnitCode(p.getBizUnitCd())
-                        .staging(p.getStaging())
-                        .delinquentDays(p.getDelinquentDays())
-                        .openDate(p.getOpenDate())
-                        .maturityDate(p.getMaturityDate())
-                        .internalRating(p.getInternalRating())
-                        .isDebtRestructured(p.getIsDebtRestructured() != null ? p.getIsDebtRestructured() : false)
+                        .accountNo(p.accountNo())
+                        .productCode(p.productCode())
+                        .currency(p.currency().name())
+                        .notionalAmount(p.limitAmount())
+                        .outstandingAmount(p.outstandingAmount())
+                        .productCategory(p.productCategory() != null ? p.productCategory().name() : null)
+                        .interestRate(p.interestRate())
+                        .repaymentMethod(p.repaymentMethod())
+                        .gracePeriod(p.gracePeriod())
+                        .repaymentFreq(p.repaymentFrequency())
+                        .branchCode(p.branchCode())
+                        .bizUnitCode(p.businessUnitCode())
+                        .staging(p.staging())
+                        .delinquentDays(p.delinquentDays())
+                        .openDate(p.openDate())
+                        .maturityDate(p.maturityDate())
+                        .internalRating(p.internalRating())
+                        .isDebtRestructured(p.isDebtRestructured() != null ? p.isDebtRestructured() : false)
                         .build())
                 .toList();
 

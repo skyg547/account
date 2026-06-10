@@ -38,6 +38,12 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 - 요청의 `username`, `roleVersion`이 현재 DB의 사용자 `roleVersion`과 정확히 일치할 때만 유효로 판단합니다.
 - 역할 변경으로 DB의 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
+### 📌 로그인 실패 감사와 임시 잠금
+- 로그인 성공/실패는 `LoginAttemptPort`를 통해 감사 이벤트로 기록됩니다.
+- 기본 정책은 연속 5회 실패 시 15분 동안 임시 잠금입니다.
+- `AUTH_LOGIN_MAX_FAILURES`, `AUTH_LOGIN_LOCK_DURATION_MINUTES`로 정책을 조정할 수 있습니다.
+- 기본 어댑터는 단일 인스턴스용 인메모리 구현입니다. 다중 인스턴스 운영에서는 Redis/DB 기반 어댑터로 교체해야 모든 서버가 같은 잠금 상태를 공유합니다.
+
 ### 📌 내부 역할 할당 반영 API
 - `POST /api/auth/internal/users/{username}/role-assignments`
 - Governance 승인 완료 후 호출되는 내부 API입니다.

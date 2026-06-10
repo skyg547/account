@@ -7,6 +7,7 @@ import com.ho.account.ecl.core.application.port.out.CrAccountRepository;
 import com.ho.account.ecl.core.application.port.out.CrProductMasterRepository;
 import com.ho.account.ecl.core.application.port.out.AllowanceEclResultRepository;
 import com.ho.account.ecl.core.domain.calculator.EadCalculator;
+import com.ho.account.ecl.core.domain.calculator.EadCalculationResult;
 import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
@@ -87,9 +88,9 @@ public class EadBatchService {
                         .findByProductCode(account.getProductCode())
                         .map(CrProductMaster::getCcfRate)
                         .orElseGet(() -> {
-                            log.warn("⚠️ [EAD 배치] 상품코드 '{}'의 CCF를 찾을 수 없습니다. 기본값 0.75 적용",
-                                    account.getProductCode());
-                            return new BigDecimal("0.75"); // 보수적 기본값
+                            log.warn("⚠️ [EAD 배치] 상품코드 '{}'의 CCF를 찾을 수 없습니다. 모델 기본값 {} 적용",
+                                    account.getProductCode(), params.getDefaultCcfRate());
+                            return params.getDefaultCcfRate();
                         });
 
                 // ── 2단계: 배분된 담보 정보 조회 ──
@@ -112,7 +113,7 @@ public class EadBatchService {
                         : BigDecimal.ZERO;
 
                 // ── 3단계: 고도화 EAD 산출 ──
-                Object[] advResult = calculator.calculateAdvancedEAD(
+                EadCalculationResult calculation = calculator.calculateAdvancedEAD(
                         account.getOutstandingAmount(),
                         account.getNotionalAmount(),
                         ccfRate,
@@ -122,15 +123,12 @@ public class EadBatchService {
                         unsecuredLgd   // DB에서 로드한 무담보부 LGD
                 );
 
-                BigDecimal eadStar = (BigDecimal) advResult[0];
-                BigDecimal appliedCcf = (BigDecimal) advResult[1];
-
                 AllowanceEclResult result = AllowanceEclResult.builder()
                         .baseDate(baseDate)
                         .account(account)
                         .staging(account.getStaging() != null ? account.getStaging() : CrStaging.STAGE1)
-                        .ead(eadStar)
-                        .appliedCcf(appliedCcf)
+                        .ead(calculation.eadStar())
+                        .appliedCcf(calculation.appliedCcf())
                         .status(CalculationStatus.COMPLETED)
                         .calculationCompletedAt(LocalDateTime.now())
                         .build();

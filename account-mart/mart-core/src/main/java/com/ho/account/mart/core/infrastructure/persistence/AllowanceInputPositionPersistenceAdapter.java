@@ -1,6 +1,6 @@
 package com.ho.account.mart.core.infrastructure.persistence;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaAllowanceInputPositionRepository;
 import lombok.RequiredArgsConstructor;

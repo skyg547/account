@@ -1,6 +1,5 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,9 +27,11 @@ public class LoanDisbursal {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal disbursedAmount; // ?ㅽ뻾 湲덉븸
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_entry_id")
-    private JournalEntry journalEntry; // ?ㅽ뻾 愿??遺꾧컻 ?꾪몴
+    @Column(name = "journal_entry_id")
+    private Long journalEntryId; // 타 bounded context 전표는 ID로 참조합니다.
+
+    @Column(name = "journal_entry_slip_no", length = 30)
+    private String journalEntrySlipNo;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -86,12 +87,20 @@ public class LoanDisbursal {
         this.disbursedAmount = disbursedAmount;
     }
 
-    public JournalEntry getJournalEntry() {
-        return journalEntry;
+    public Long getJournalEntryId() {
+        return journalEntryId;
     }
 
-    public void setJournalEntry(JournalEntry journalEntry) {
-        this.journalEntry = journalEntry;
+    public void setJournalEntryId(Long journalEntryId) {
+        this.journalEntryId = journalEntryId;
+    }
+
+    public String getJournalEntrySlipNo() {
+        return journalEntrySlipNo;
+    }
+
+    public void setJournalEntrySlipNo(String journalEntrySlipNo) {
+        this.journalEntrySlipNo = journalEntrySlipNo;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -3,6 +3,7 @@ package com.ho.account.reconciliation.domain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,27 +33,29 @@ public class ReconciliationAdjustmentPolicy {
             throw new IllegalArgumentException("Reconciliation unit is required.");
         }
 
-        // @todo Configuration hardening: move adjustment account codes from free-form criteriaJson into a typed, validated reconciliation policy.
+        // T38 fixed: Moved adjustment account codes from free-form criteriaJson into a typed, validated reconciliation policy.
         String criteriaJson = unit.getCriteriaJson();
         if (criteriaJson == null || criteriaJson.isBlank()) {
             throw missingAccountCodes(unit);
         }
 
         try {
-            JsonNode root = objectMapper.readTree(criteriaJson);
-            String debitAccountCode = readText(root, "adjustmentDebitAccountCode");
-            String creditAccountCode = readText(root, "adjustmentCreditAccountCode");
-
-            if (debitAccountCode == null || creditAccountCode == null) {
+            AdjustmentPolicyConfig config = objectMapper.readValue(criteriaJson, AdjustmentPolicyConfig.class);
+            if (config.adjustmentDebitAccountCode() == null || config.adjustmentCreditAccountCode() == null) {
                 throw missingAccountCodes(unit);
             }
-
-            return new AdjustmentAccountCodes(debitAccountCode, creditAccountCode);
+            return new AdjustmentAccountCodes(config.adjustmentDebitAccountCode(), config.adjustmentCreditAccountCode());
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Reconciliation unit " + unit.getId()
                     + " has invalid criteriaJson for adjustment account policy.", e);
         }
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record AdjustmentPolicyConfig(
+        String adjustmentDebitAccountCode,
+        String adjustmentCreditAccountCode
+    ) {}
 
     private IllegalArgumentException missingAccountCodes(ReconciliationUnit unit) {
         return new IllegalArgumentException("Adjustable reconciliation unit " + unit.getId()

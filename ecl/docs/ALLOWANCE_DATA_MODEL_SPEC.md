@@ -22,6 +22,21 @@
 
 ## 산출 결과
 
+### `allowance_model_parameters`
+
+모델 계산 정책을 코드 하드코딩 대신 데이터로 관리합니다.
+
+| 키 | 필수 여부 | 의미 |
+| --- | --- | --- |
+| `PD_FLOOR` | 필수 | 최소 PD |
+| `SECURED_LGD_FLOOR` | 필수 | 담보부 최소 LGD |
+| `UNSECURED_LGD_FLOOR` | 필수 | 무담보부 최소 LGD |
+| `DEFAULT_DISCOUNT_RATE` | 선택 | 별도 할인율이 없을 때 사용할 기본 할인율 |
+| `DEFAULT_CCF_RATE` | 선택 | 상품 CCF 마스터가 없을 때 사용할 보수적 기본 CCF |
+
+비율 값은 0~1 범위여야 합니다. 필수 값이 없으면 산출을 중단하며, 선택 값이 없으면
+`AllowanceModelParams`에 이름이 부여된 기본 정책을 사용합니다.
+
 ### `allowance_ecl_results`
 
 계좌별 ECL 산출 결과 테이블입니다. 신규 로직은 PD, LGD, EAD, weighted ECL을 사용합니다.
@@ -37,6 +52,9 @@
 | `ecl_boom`, `ecl_base`, `ecl_recession` | 시나리오별 ECL |
 | `weighted_ecl` | 최종 가중 ECL |
 | `status` | 산출 상태 |
+
+애플리케이션 내부 EAD/CRM 계산 결과는 `EadCalculationResult` 값 객체로 전달합니다.
+필드명으로 `eadStar`, `eadRaw`, `crmDeduction`, `weightedLgd`를 구분하여 배열 인덱스 오사용을 방지합니다.
 
 ## 회계 summary
 

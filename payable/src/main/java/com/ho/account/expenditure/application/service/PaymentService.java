@@ -3,12 +3,11 @@ package com.ho.account.expenditure.application.service;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.PaymentUseCase;
 import com.ho.account.expenditure.application.port.out.*;
 import com.ho.account.expenditure.domain.*;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,27 +35,27 @@ public class PaymentService implements PaymentUseCase {
     private final PayablePersistencePort payablePersistencePort;
     private final PaymentRunPersistencePort paymentRunPersistencePort;
     private final AdvancePaymentPersistencePort advancePaymentPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final PayableAccountMappingPort payableAccountMappingPort;
+    private final PaymentExecutionPort paymentExecutionPort;
 
     public PaymentService(PaymentPersistencePort paymentPersistencePort,
                           PayablePersistencePort payablePersistencePort,
                           PaymentRunPersistencePort paymentRunPersistencePort,
                           AdvancePaymentPersistencePort advancePaymentPersistencePort,
-                          BusinessPartnerPersistencePort businessPartnerPersistencePort,
                           MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort,
-                          PayableAccountMappingPort payableAccountMappingPort) {
+                          PayableAccountMappingPort payableAccountMappingPort,
+                          PaymentExecutionPort paymentExecutionPort) {
         this.paymentPersistencePort = paymentPersistencePort;
         this.payablePersistencePort = payablePersistencePort;
         this.paymentRunPersistencePort = paymentRunPersistencePort;
         this.advancePaymentPersistencePort = advancePaymentPersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.payableAccountMappingPort = payableAccountMappingPort;
+        this.paymentExecutionPort = paymentExecutionPort;
     }
 
     @Override
@@ -72,9 +71,13 @@ public class PaymentService implements PaymentUseCase {
                 runDate.plusDays(1), PayableStatus.PAID);
 
         for (Payable payable : duePayables) {
+            if (payable.getId() == null) {
+                throw new IllegalStateException("Persisted payable must have an ID before payment run creation");
+            }
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);
             payment.setVendorCode(payable.getVendorCode()); // ID 기반 참조로 변경
+            payment.setPayableId(payable.getId());
             payment.setAmount(payable.getOutstandingAmount());
             payment.setStatus(PaymentStatus.INITIATED);
             payment.setPaymentRun(savedPaymentRun);
@@ -90,27 +93,41 @@ public class PaymentService implements PaymentUseCase {
         Payment payment = paymentPersistencePort.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
 
+        // 완료된 지급을 다시 호출하면 외부 송금과 채무 차감을 반복하지 않고 기존 결과를 반환합니다.
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            return payment;
+        }
         if (!payment.canExecute()) {
             throw new IllegalStateException("Payment cannot be executed in current status: " + payment.getStatus());
         }
+        if (payment.getPayableId() == null) {
+            throw new IllegalStateException("Payment is not linked to a payable: " + paymentId);
+        }
 
-        // @todo Integration: replace mock-success payment execution with outbound bank/payment gateway port, idempotency key, retry, and failure-state handling.
-        // 실제 지급 실행 (Mock 성공)
-        payment.markAsCompleted(bankAccount);
-        Payment completedPayment = paymentPersistencePort.save(payment);
+        // 같은 Payment ID는 항상 같은 멱등 키를 사용하므로, 장애 후 재시도해도 중복 송금을 방지할 수 있습니다.
+        payment.beginExecutionAttempt();
+        PaymentExecutionPort.PaymentExecutionResult executionResult = paymentExecutionPort.execute(
+                new PaymentExecutionPort.PaymentExecutionCommand(
+                        "PAYMENT:" + payment.getId(),
+                        payment.getId(),
+                        payment.getPayableId(),
+                        payment.getVendorCode(),
+                        payment.getAmount(),
+                        bankAccount));
+        if (!executionResult.successful()) {
+            payment.markAsFailed(executionResult.failureReason());
+            return paymentPersistencePort.save(payment);
+        }
 
         // 채무 잔액 차감 (ID 기반 조회 및 DDD 로직 호출)
-        // @todo Open-item consistency: Payment should carry payableId/open-item key from the payment run; vendor+amount matching can settle the wrong payable.
-        Payable payable = payablePersistencePort.findByVendorCodeAndOutstandingAmountGreaterThan(
-                        payment.getVendorCode(), BigDecimal.ZERO)
-                .stream()
-                .filter(candidate -> candidate.getOutstandingAmount().compareTo(payment.getAmount()) >= 0)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Matching payable not found for vendor: " + payment.getVendorCode()));
+        Payable payable = payablePersistencePort.findById(payment.getPayableId())
+                .orElseThrow(() -> new IllegalStateException("Linked payable not found: " + payment.getPayableId()));
 
         payable.applyPayment(payment.getAmount());
         payablePersistencePort.save(payable);
 
+        payment.markAsCompleted(bankAccount, executionResult.referenceNo());
+        Payment completedPayment = paymentPersistencePort.save(payment);
         postPaymentJournal(completedPayment);
 
         return completedPayment;
@@ -119,14 +136,11 @@ public class PaymentService implements PaymentUseCase {
     @Override
     public AdvancePayment recordAdvancePayment(AdvancePayment advancePayment) {
         String vendorCode = advancePayment.getVendorCode();
-        validateVendor(vendorCode);
-        
-        BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
-                .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
+        BusinessPartnerRef vendor = validateVendor(vendorCode);
 
         AdvancePayment savedAdvancePayment = advancePaymentPersistencePort.save(advancePayment);
 
-        postAdvanceJournal(savedAdvancePayment, vendor.getBusinessPartnerName());
+        postAdvanceJournal(savedAdvancePayment, vendor.name());
 
         return savedAdvancePayment;
     }
@@ -150,8 +164,8 @@ public class PaymentService implements PaymentUseCase {
         return payable;
     }
 
-    private void validateVendor(String vendorCode) {
-        masterDataQueryPort.findBusinessPartner(vendorCode)
+    private BusinessPartnerRef validateVendor(String vendorCode) {
+        return masterDataQueryPort.findBusinessPartner(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing: " + vendorCode));
     }
 
@@ -160,8 +174,8 @@ public class PaymentService implements PaymentUseCase {
                 payableAccountMappingPort.resolvePaymentExecutionAccounts(payment);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payment.getVendorCode())
-                .map(BusinessPartner::getBusinessPartnerName)
+        String vendorName = masterDataQueryPort.findBusinessPartner(payment.getVendorCode())
+                .map(BusinessPartnerRef::name)
                 .orElse(payment.getVendorCode());
         String actor = resolveActor(payment);
 
@@ -203,8 +217,8 @@ public class PaymentService implements PaymentUseCase {
                 payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable);
         requireAccounts(accounts.requiredAccountCodes());
 
-        String vendorName = businessPartnerPersistencePort.findByBusinessPartnerCode(payable.getVendorCode())
-                .map(BusinessPartner::getBusinessPartnerName)
+        String vendorName = masterDataQueryPort.findBusinessPartner(payable.getVendorCode())
+                .map(BusinessPartnerRef::name)
                 .orElse(payable.getVendorCode());
 
         journalPostingPort.createDraftEntry(new JournalEntryCommand(

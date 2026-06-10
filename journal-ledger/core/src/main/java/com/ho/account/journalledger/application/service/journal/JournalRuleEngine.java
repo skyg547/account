@@ -1,8 +1,6 @@
 package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleConditionRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -10,7 +8,6 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,9 +62,7 @@ public class JournalRuleEngine {
             "accountingPolicy.functionalCurrency",
             "accountingPolicy.defaultCurrencyCode");
 
-    private final JournalRuleRepository journalRuleRepository;
-    private final JournalRuleConditionRepository journalRuleConditionRepository;
-    private final JournalRuleDetailRepository journalRuleDetailRepository;
+    private final JournalRuleQueryPort journalRuleQueryPort;
 
     @Transactional(readOnly = true)
     public Optional<JournalEntry> generateJournalEntry(Map<String, Object> eventData, LocalDate accountingDate) {
@@ -81,7 +76,7 @@ public class JournalRuleEngine {
                 continue;
             }
 
-            List<JournalRuleDetail> ruleDetails = journalRuleDetailRepository.findByJournalRuleId(rule.getId());
+            List<JournalRuleDetail> ruleDetails = journalRuleQueryPort.findDetails(rule.getId());
             if (ruleDetails.isEmpty()) {
                 continue;
             }
@@ -98,7 +93,7 @@ public class JournalRuleEngine {
     private List<JournalRule> loadCandidateRules(Map<String, Object> eventData, LocalDate accountingDate) {
         Optional<String> requestedRuleCode = firstNonBlankValue(eventData, "ruleCode", "journalRuleCode");
 
-        return journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc().stream()
+        return journalRuleQueryPort.findActiveRules().stream()
                 .filter(JournalRule::isActive)
                 .filter(rule -> isValidAt(rule, accountingDate))
                 .filter(rule -> requestedRuleCode
@@ -118,7 +113,7 @@ public class JournalRuleEngine {
     }
 
     private boolean matchesRuleConditions(JournalRule rule, Map<String, Object> eventData) {
-        List<JournalRuleCondition> conditions = journalRuleConditionRepository.findByJournalRuleId(rule.getId());
+        List<JournalRuleCondition> conditions = journalRuleQueryPort.findConditions(rule.getId());
         if (conditions.isEmpty()) {
             return true;
         }
@@ -211,7 +206,7 @@ public class JournalRuleEngine {
                 throw new IllegalArgumentException("Rule detail amount must be positive: " + ruleDetail.getId());
             }
 
-            detail.setSide(parseSide(ruleDetail.getDrcrType()));
+            detail.setSide(ruleDetail.getSide());
             detail.setAccountCode(accountCode);
             detail.setAmount(amount);
             detail.setBaseAmount(amount);
@@ -253,13 +248,6 @@ public class JournalRuleEngine {
             return entry.getDescription();
         }
         return resolved;
-    }
-
-    private JournalSide parseSide(String drcrType) {
-        if (drcrType == null || drcrType.isBlank()) {
-            throw new IllegalArgumentException("drcrType is required");
-        }
-        return JournalSide.valueOf(drcrType.trim().toUpperCase());
     }
 
     private BigDecimal evaluateAmountExpression(String expression, Map<String, Object> eventData) {

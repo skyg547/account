@@ -12,4 +12,5 @@ public interface ReceivablePersistencePort {
     Optional<Receivable> findById(Long id);
     List<Receivable> findByDueDateBeforeAndStatusNot(LocalDate date, ReceivableStatus status);
     List<Receivable> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status);
+    List<Receivable> findOpenItemsByCustomerCode(String customerCode);
 }

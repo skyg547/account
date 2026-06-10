@@ -31,7 +31,9 @@ public class FixedAssetController {
     private final FixedAssetUseCase fixedAssetUseCase;
 
     @PostMapping
-    public ResponseEntity<FixedAsset> registerFixedAsset(@Valid @RequestBody FixedAssetRequest request) {
+    public ResponseEntity<FixedAsset> registerFixedAsset(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody FixedAssetRequest request) {
         FixedAsset fixedAsset = new FixedAsset();
         fixedAsset.setAssetCode(request.getAssetCode());
         fixedAsset.setAssetName(request.getAssetName());
@@ -46,22 +48,27 @@ public class FixedAssetController {
         fixedAsset.setExpenseAccountCode(request.getExpenseAccountCode());
         fixedAsset.setDepartmentCode(request.getDepartmentCode());
 
-        FixedAsset registeredAsset = fixedAssetUseCase.registerAsset(fixedAsset);
+        FixedAsset registeredAsset = fixedAssetUseCase.registerAsset(fixedAsset, actor);
         return new ResponseEntity<>(registeredAsset, HttpStatus.CREATED);
     }
 
     @PostMapping("/depreciate/{processDate}")
-    public ResponseEntity<String> runMonthlyDepreciation(@PathVariable("processDate") LocalDate processDate) {
-        fixedAssetUseCase.processMonthlyDepreciation(processDate);
+    public ResponseEntity<String> runMonthlyDepreciation(
+            @PathVariable("processDate") LocalDate processDate,
+            @RequestHeader("X-User-ID") String actor) {
+        fixedAssetUseCase.processMonthlyDepreciation(processDate, actor);
         return ResponseEntity.ok("Monthly depreciation processed for " + processDate);
     }
 
     @PostMapping("/dispose")
-    public ResponseEntity<FixedAsset> disposeFixedAsset(@Valid @RequestBody FixedAssetDisposalRequest request) {
+    public ResponseEntity<FixedAsset> disposeFixedAsset(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody FixedAssetDisposalRequest request) {
         FixedAsset disposedAsset = fixedAssetUseCase.disposeFixedAsset(
                 request.getAssetId(),
                 request.getDisposalDate(),
-                request.getSalePrice()
+                request.getSalePrice(),
+                actor
         );
         return ResponseEntity.ok(disposedAsset);
     }

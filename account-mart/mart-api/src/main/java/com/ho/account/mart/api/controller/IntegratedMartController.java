@@ -1,7 +1,7 @@
 package com.ho.account.mart.api.controller;
 
 import com.ho.account.shared.finance.dto.ApiResponse;
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;

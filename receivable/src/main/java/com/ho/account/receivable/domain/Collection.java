@@ -26,6 +26,9 @@ public class Collection {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount; // 수금액
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal matchedAmount = BigDecimal.ZERO; // 지금까지 채권에 배분한 누적 금액
+
     @Column(length = 100)
     private String bankAccount; // 입금된 당행 계좌 (이름 또는 번호)
 
@@ -49,6 +52,9 @@ public class Collection {
         if (status == null) {
             status = CollectionStatus.RECEIVED; // 초기 상태는 RECEIVED (수신됨)
         }
+        if (matchedAmount == null) {
+            matchedAmount = BigDecimal.ZERO;
+        }
     }
 
     public void markAsMatched() {
@@ -65,6 +71,32 @@ public class Collection {
 
     public boolean canMatch() {
         return status == CollectionStatus.RECEIVED || status == CollectionStatus.UNMATCHED || status == CollectionStatus.PARTIAL_MATCHED;
+    }
+
+    /**
+     * 채권에 금액을 배분하고 남은 수금액에 맞춰 상태를 변경합니다.
+     */
+    public void applyAllocation(BigDecimal allocationAmount) {
+        if (allocationAmount == null || allocationAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("매칭 금액은 0보다 커야 합니다.");
+        }
+        if (allocationAmount.compareTo(getUnallocatedAmount()) > 0) {
+            throw new IllegalArgumentException("매칭 금액이 남은 수금액보다 클 수 없습니다.");
+        }
+        matchedAmount = effectiveMatchedAmount().add(allocationAmount);
+        if (getUnallocatedAmount().compareTo(BigDecimal.ZERO) == 0) {
+            markAsMatched();
+        } else {
+            markAsPartialMatched();
+        }
+    }
+
+    public BigDecimal getUnallocatedAmount() {
+        return amount.subtract(effectiveMatchedAmount());
+    }
+
+    private BigDecimal effectiveMatchedAmount() {
+        return matchedAmount == null ? BigDecimal.ZERO : matchedAmount;
     }
 
     // Getter 및 Setter
@@ -98,6 +130,14 @@ public class Collection {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public BigDecimal getMatchedAmount() {
+        return effectiveMatchedAmount();
+    }
+
+    public void setMatchedAmount(BigDecimal matchedAmount) {
+        this.matchedAmount = matchedAmount;
     }
 
     public String getBankAccount() {

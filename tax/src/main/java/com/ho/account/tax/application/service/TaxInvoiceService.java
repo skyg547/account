@@ -1,6 +1,6 @@
 package com.ho.account.tax.application.service;
 
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.tax.application.port.in.TaxInvoiceUseCase;
 import com.ho.account.tax.application.port.out.TaxInvoicePersistencePort;
 import com.ho.account.tax.domain.TaxInvoice;
@@ -26,16 +26,13 @@ import java.util.Optional;
 @Transactional
 public class TaxInvoiceService implements TaxInvoiceUseCase {
 
-    // @todo [DDD/Bounded Context] The service stores only a partner code, but validation still imports a
-    // master-data internal port. Query partner validity through a contracts-level port so the tax use case
-    // remains independent of master-data persistence and domain implementation details.
     private final TaxInvoicePersistencePort taxInvoicePersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final MasterDataQueryPort masterDataQueryPort;
 
     public TaxInvoiceService(TaxInvoicePersistencePort taxInvoicePersistencePort,
-                             BusinessPartnerPersistencePort businessPartnerPersistencePort) {
+                             MasterDataQueryPort masterDataQueryPort) {
         this.taxInvoicePersistencePort = taxInvoicePersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.masterDataQueryPort = masterDataQueryPort;
     }
 
     @Override
@@ -45,7 +42,7 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
         }
 
         // 거래처 존재 여부 검증 (모듈 간 정합성 체크)
-        businessPartnerPersistencePort.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
+        masterDataQueryPort.findBusinessPartner(requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다: " + requestDto.getBusinessPartnerCode()));
 
         TaxInvoice taxInvoice = TaxInvoice.create(
@@ -92,7 +89,7 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
             throw new IllegalArgumentException("AP Invoice는 PURCHASE 타입만 수정할 수 있습니다.");
         }
 
-        businessPartnerPersistencePort.findByBusinessPartnerCode(requestDto.getBusinessPartnerCode())
+        masterDataQueryPort.findBusinessPartner(requestDto.getBusinessPartnerCode())
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다: " + requestDto.getBusinessPartnerCode()));
 
         existingInvoice.updateInfo(
@@ -108,7 +105,7 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
     }
 
     @Override
-    public void deleteAPInvoice(Long id) {
+    public void cancelAPInvoice(Long id, String actor, String reason) {
         TaxInvoice existingInvoice = taxInvoicePersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("매입 세금계산서를 찾을 수 없습니다. ID: " + id));
 
@@ -116,7 +113,7 @@ public class TaxInvoiceService implements TaxInvoiceUseCase {
             throw new IllegalArgumentException("삭제 대상 세금계산서가 PURCHASE 타입이 아닙니다.");
         }
 
-        // @todo [업무 프로세스] (see docs/todo_remediation_plan.md) 세금계산서와 같은 증빙 문서는 물리적 삭제(delete)보다 수정 세금계산서 발행 또는 취소(Cancel) 상태로의 논리적 삭제 및 이력 보존이 회계 원칙에 부합합니다.
-        taxInvoicePersistencePort.delete(existingInvoice);
+        existingInvoice.cancel(actor, reason);
+        taxInvoicePersistencePort.save(existingInvoice);
     }
 }

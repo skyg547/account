@@ -26,9 +26,8 @@ import java.time.LocalDateTime;
  * [개발 설명]
  * - journal_rule_details 테이블에 매핑됩니다.
  * - JournalRule과 @ManyToOne 관계입니다.
- * - drcrType은 String으로 저장됩니다 ("DEBIT" 또는 "CREDIT").
- *   추후 JournalSide 열거형으로 교체를 고려할 수 있습니다.
- * - 표현식 평가 로직은 JournalRuleEngine에서 구현합니다 (현재 stub 상태).
+ * - 차대변 값은 JournalSide 열거형으로 제한하고 DB에는 "DEBIT" 또는 "CREDIT" 문자열로 저장합니다.
+ * - 표현식 평가는 JournalRuleEngine이 필수값 누락, 문자열 결합, 금액 수식을 구분하여 수행합니다.
  * ─────────────────────────────────────────────────
  */
 @Entity
@@ -53,8 +52,9 @@ public class JournalRuleDetail {
      * "DEBIT" 또는 "CREDIT" 문자열로 저장됩니다.
      * JournalRuleEngine이 이 값을 JournalSide 열거형으로 변환하여 JournalDetail에 설정합니다.
      */
-    @Column(nullable = false, length = 10)
-    private String drcrType;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "drcr_type", nullable = false, length = 10)
+    private JournalSide side;
 
     /**
      * 계정과목 코드 표현식.
@@ -134,8 +134,17 @@ public class JournalRuleDetail {
     public JournalRule getJournalRule() { return journalRule; }
     public void setJournalRule(JournalRule journalRule) { this.journalRule = journalRule; }
 
-    public String getDrcrType() { return drcrType; }
-    public void setDrcrType(String drcrType) { this.drcrType = drcrType; }
+    public JournalSide getSide() { return side; }
+    public void setSide(JournalSide side) { this.side = side; }
+
+    /**
+     * 기존 규칙 등록 코드와의 호환용 문자열 접근자입니다.
+     * 내부 상태는 JournalSide이므로 잘못된 차대변 값은 저장 전에 즉시 차단됩니다.
+     */
+    public String getDrcrType() { return side == null ? null : side.name(); }
+    public void setDrcrType(String drcrType) {
+        this.side = drcrType == null ? null : JournalSide.valueOf(drcrType.trim().toUpperCase());
+    }
 
     public String getAccountSubjectCodeExpression() { return accountSubjectCodeExpression; }
     public void setAccountSubjectCodeExpression(String expr) { this.accountSubjectCodeExpression = expr; }

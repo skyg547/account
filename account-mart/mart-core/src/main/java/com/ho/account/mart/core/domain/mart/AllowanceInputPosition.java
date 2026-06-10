@@ -1,4 +1,4 @@
-package com.ho.account.shared.finance.entity;
+package com.ho.account.mart.core.domain.mart;
 
 import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.shared.finance.enums.CurrencyCode;
@@ -20,6 +20,12 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+/**
+ * Account Mart가 소유하는 IFRS 9 대손충당금 입력 포지션.
+ *
+ * <p>ODS 원천 데이터를 ECL 계산기가 읽기 좋은 한 행으로 정리한 마트 결과입니다. 테이블 적재와
+ * 스키마 변경 책임은 Account Mart에 있고, ECL은 자기 읽기 어댑터를 통해 필요한 값만 조회합니다.
+ */
 @Entity
 @Table(name = "allowance_input_positions")
 @IdClass(AllowanceInputPositionId.class)

@@ -85,3 +85,5 @@ docker-compose up -d reconciliation
 **연동 주의사항:**
 - 대사 대상 데이터 조회 시 `JournalQueryPort`를 사용합니다.
 - 조정 분개 생성 시 `ReconciliationAdjustmentPolicy`가 적용된 `JournalPostingPort`를 통해 처리됩니다.
+- 표준 실행 생명주기는 `ReconciliationUnit -> ReconciliationRun -> ReconciliationDifference`입니다.
+- 단계별 진단 결과는 `ReconciliationStageResult`로 표준 Run에 연결되며, 과거의 병렬 Aggregate 모델은 사용하지 않습니다.

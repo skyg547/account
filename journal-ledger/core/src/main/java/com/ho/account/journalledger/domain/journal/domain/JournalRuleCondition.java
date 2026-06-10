@@ -27,7 +27,8 @@ import jakarta.persistence.*;
  * - JournalRule과 @ManyToOne 관계입니다.
  * - JournalRuleEngine에서 이벤트 데이터(Map<String, Object>)와 이 조건을 비교하여
  *   규칙 적용 여부를 결정합니다.
- * - 현재 JournalRuleEngine 구현은 stub 상태입니다.
+ * - JournalRuleEngine은 문자열 비교와 BigDecimal 숫자 비교를 지원하며,
+ *   필수 이벤트 값이 없으면 규칙이 일치하지 않은 것으로 안전하게 처리합니다.
  * ─────────────────────────────────────────────────
  */
 @Entity

@@ -2,6 +2,7 @@ package com.ho.account.ecl.core.application.service.calculation;
 
 import com.ho.account.ecl.core.application.port.out.CrAccountCollateralRepository;
 import com.ho.account.ecl.core.domain.calculator.EadCalculator;
+import com.ho.account.ecl.core.domain.calculator.EadCalculationResult;
 import com.ho.account.ecl.core.domain.calculator.AllowanceModelParams;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
@@ -78,7 +79,7 @@ public class EadCrmCalculationService {
 
         // 2. 전문 ECL 엔진(EadCalculator) 호출
         // 💡 EadCalculator는 IFRS 9 모델표준방법/내부등급법의 복잡한 EAD 산식을 코드화한 핵심 모듈입니다.
-        Object[] rawResult = eadCalculator.calculateAdvancedEAD(
+        EadCalculationResult calculation = eadCalculator.calculateAdvancedEAD(
                 account.getOutstandingAmount(), 
                 account.getNotionalAmount(),
                 ccfRate, 
@@ -90,11 +91,11 @@ public class EadCrmCalculationService {
 
         // 3. 결과 래핑 및 반환
         return EadCrmResult.builder()
-                .eadStar((BigDecimal) rawResult[0])      // 담보 반영 후 최종 위험액
-                .appliedCcf((BigDecimal) rawResult[1])   // 적용된 CCF
-                .eadRaw((BigDecimal) rawResult[2])       // 담보 반영 전 순수 노출액
-                .crmDeduction((BigDecimal) rawResult[3]) // 담보로 인해 줄어든 금액
-                .weightedLgd((BigDecimal) rawResult[4])  // 담보 비중에 따른 가중평균 LGD
+                .eadStar(calculation.eadStar())           // 담보 반영 후 최종 위험액
+                .appliedCcf(calculation.appliedCcf())     // 적용된 CCF
+                .eadRaw(calculation.eadRaw())             // 담보 반영 전 순수 노출액
+                .crmDeduction(calculation.crmDeduction()) // 담보로 인해 줄어든 금액
+                .weightedLgd(calculation.weightedLgd())   // 담보 비중에 따른 가중평균 LGD
                 .totalCollateralAmt(totalCollateralAmt)
                 .majorCollateralType(majorCollateralType)
                 .build();

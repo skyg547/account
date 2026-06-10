@@ -1,6 +1,6 @@
 package com.ho.account.mart.core.domain.mart.processor;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.shared.finance.enums.CustomerType;
 import com.ho.account.mart.core.domain.ods.audit.service.OdsDataQualityService;

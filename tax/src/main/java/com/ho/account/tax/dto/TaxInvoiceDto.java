@@ -3,6 +3,7 @@ package com.ho.account.tax.dto;
 import com.ho.account.tax.domain.TaxInvoice;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * [TaxInvoiceDto]
@@ -19,6 +20,10 @@ public class TaxInvoiceDto {
     private BigDecimal supplyAmount;
     private BigDecimal taxAmount;
     private BigDecimal totalAmount;
+    private TaxInvoice.TaxInvoiceStatus status;
+    private String cancelledBy;
+    private String cancellationReason;
+    private LocalDateTime cancelledAt;
 
     public TaxInvoiceDto() {
     }
@@ -36,7 +41,7 @@ public class TaxInvoiceDto {
     }
 
     public static TaxInvoiceDto fromEntity(TaxInvoice taxInvoice) {
-        return new TaxInvoiceDto(
+        TaxInvoiceDto dto = new TaxInvoiceDto(
                 taxInvoice.getId(),
                 taxInvoice.getIssueId(),
                 taxInvoice.getType(),
@@ -45,8 +50,12 @@ public class TaxInvoiceDto {
                 null, // 이름 정보는 필요 시 Service 레이어에서 매핑 권장
                 taxInvoice.getSupplyAmount(),
                 taxInvoice.getTaxAmount(),
-                taxInvoice.getTotalAmount()
-        );
+                taxInvoice.getTotalAmount());
+        dto.status = taxInvoice.getStatus();
+        dto.cancelledBy = taxInvoice.getCancelledBy();
+        dto.cancellationReason = taxInvoice.getCancellationReason();
+        dto.cancelledAt = taxInvoice.getCancelledAt();
+        return dto;
     }
 
     // Getter
@@ -59,4 +68,8 @@ public class TaxInvoiceDto {
     public BigDecimal getSupplyAmount() { return supplyAmount; }
     public BigDecimal getTaxAmount() { return taxAmount; }
     public BigDecimal getTotalAmount() { return totalAmount; }
+    public TaxInvoice.TaxInvoiceStatus getStatus() { return status; }
+    public String getCancelledBy() { return cancelledBy; }
+    public String getCancellationReason() { return cancellationReason; }
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
 }

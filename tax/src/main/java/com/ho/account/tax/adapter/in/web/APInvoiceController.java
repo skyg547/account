@@ -68,8 +68,11 @@ public class APInvoiceController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAPInvoice(@PathVariable("id") Long id) {
-        taxInvoiceUseCase.deleteAPInvoice(id);
+    public ResponseEntity<Void> deleteAPInvoice(
+            @PathVariable("id") Long id,
+            @RequestHeader("X-User-ID") String actor,
+            @RequestParam String reason) {
+        taxInvoiceUseCase.cancelAPInvoice(id, actor, reason);
         return ResponseEntity.noContent().build();
     }
 }

@@ -17,6 +17,7 @@ public interface ReceivableRepository extends JpaRepository<Receivable, Long> {
     List<Receivable> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status);
     List<Receivable> findByDueDateBeforeAndStatusNot(LocalDate dueDate, ReceivableStatus status);
     List<Receivable> findByCustomerCodeAndOutstandingAmountGreaterThan(String customerCode, BigDecimal amount);
+    List<Receivable> findByCustomerCodeAndStatusIn(String customerCode, List<ReceivableStatus> statuses);
 
     // For matching
     List<Receivable> findByCustomerCodeAndOutstandingAmountBetween(String customerCode, BigDecimal minAmount, BigDecimal maxAmount);

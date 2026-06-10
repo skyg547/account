@@ -100,7 +100,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate);
+        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
 
         assertThat(run.getTotalAmountSource()).isEqualByComparingTo("1000.00");
         assertThat(run.getTotalItemsSource()).isEqualTo(2L);
@@ -135,7 +135,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "995.00");
         stubExternalSnapshot(2, "1000.00");
 
-        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate);
+        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
 
         assertThat(run.getTotalAmountSource()).isEqualByComparingTo("1000.00");
         assertThat(run.getTotalAmountTarget()).isEqualByComparingTo("995.00");
@@ -151,24 +151,23 @@ class ReconciliationServiceTest {
     }
 
     @Test
-    void defaultReasonCodeDoesNotCreateAdjustmentJournalByDefault() {
+    void defaultReasonCodeThrowsExceptionWhenMissing() {
         LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
         ReconciliationUnit unit = reconciliationUnit("{\"sourceAmount\":\"1000.00\",\"sourceCount\":2}");
 
         when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
         when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
-        stubRunAndDifferenceSaves();
+        stubRunSave();
         when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.empty());
-        when(differenceReasonCodeRepository.save(any(DifferenceReasonCode.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        reconciliationService.performReconciliation(10L, reconciliationDate);
-
-        ArgumentCaptor<DifferenceReasonCode> reasonCaptor = ArgumentCaptor.forClass(DifferenceReasonCode.class);
-        verify(differenceReasonCodeRepository).save(reasonCaptor.capture());
-        assertThat(reasonCaptor.getValue().isAdjustable()).isFalse();
-        verify(journalPostingPort, never()).createDraftEntry(any());
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Reconciliation failed for unit 10")
+                .cause()
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Required generic mismatch reason code is missing");
     }
 
     @Test
@@ -193,7 +192,7 @@ class ReconciliationServiceTest {
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
                 .thenReturn(new JournalPostingResult(77L, "JE-20260511-0001", "DRAFT"));
 
-        reconciliationService.performReconciliation(10L, reconciliationDate);
+        reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -314,8 +313,5 @@ class ReconciliationServiceTest {
         rule.setToleranceValue(new BigDecimal(toleranceValue));
         rule.setActive(active);
         return rule;
-    }
-}
-ule;
     }
 }

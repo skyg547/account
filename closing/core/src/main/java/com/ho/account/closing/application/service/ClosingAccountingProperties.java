@@ -18,6 +18,7 @@ public class ClosingAccountingProperties {
     private String fxTranslationGainAccountCode = "72000"; // Default: 외화환산이익
     private String fxTranslationLossAccountCode = "92000"; // Default: 외화환산손실
     private String fxValuationReportingCurrencyCode = "KRW";
+    private boolean autoPostAdjustments;
 
     public String requireFxValuationReportingCurrencyCode() {
         if (!hasText(fxValuationReportingCurrencyCode)) {
@@ -48,6 +49,18 @@ public class ClosingAccountingProperties {
 
     public void setFxTranslationLossAccountCode(String fxTranslationLossAccountCode) {
         this.fxTranslationLossAccountCode = fxTranslationLossAccountCode;
+    }
+
+    /**
+     * 결산 자동분개는 기본적으로 DRAFT로 남겨 검토받습니다.
+     * 운영 통제가 별도로 승인한 환경에서만 true로 설정해 자동 승인/전기를 허용합니다.
+     */
+    public boolean isAutoPostAdjustments() {
+        return autoPostAdjustments;
+    }
+
+    public void setAutoPostAdjustments(boolean autoPostAdjustments) {
+        this.autoPostAdjustments = autoPostAdjustments;
     }
 
     public AutomatedJournalRule requireValuationRule(ValuationBatch.ValuationType valuationType) {

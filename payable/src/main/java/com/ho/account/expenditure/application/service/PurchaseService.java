@@ -3,14 +3,13 @@ package com.ho.account.expenditure.application.service;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.PurchaseUseCase;
 import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
 import com.ho.account.expenditure.application.port.out.PurchaseInvoicePersistencePort;
 import com.ho.account.expenditure.domain.*;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,20 +27,17 @@ public class PurchaseService implements PurchaseUseCase {
 
     private final PurchaseInvoicePersistencePort purchaseInvoicePersistencePort;
     private final PayablePersistencePort payablePersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final PayableAccountMappingPort payableAccountMappingPort;
 
     public PurchaseService(PurchaseInvoicePersistencePort purchaseInvoicePersistencePort,
                            PayablePersistencePort payablePersistencePort,
-                           BusinessPartnerPersistencePort businessPartnerPersistencePort,
                            MasterDataQueryPort masterDataQueryPort,
                            JournalPostingPort journalPostingPort,
                            PayableAccountMappingPort payableAccountMappingPort) {
         this.purchaseInvoicePersistencePort = purchaseInvoicePersistencePort;
         this.payablePersistencePort = payablePersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.payableAccountMappingPort = payableAccountMappingPort;
@@ -50,14 +46,11 @@ public class PurchaseService implements PurchaseUseCase {
     @Override
     public PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice) {
         String vendorCode = invoice.getVendorCode();
-        validateVendor(vendorCode);
-        
-        BusinessPartner vendor = businessPartnerPersistencePort.findByBusinessPartnerCode(vendorCode)
-                .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + vendorCode));
+        BusinessPartnerRef vendor = validateVendor(vendorCode);
 
         if (purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode(
-                invoice.getInvoiceNo(), vendor.getBusinessPartnerCode()).isPresent()) {
-            throw new IllegalArgumentException("Duplicate invoice number for vendor: " + vendor.getBusinessPartnerName());
+                invoice.getInvoiceNo(), vendor.code()).isPresent()) {
+            throw new IllegalArgumentException("Duplicate invoice number for vendor: " + vendor.name());
         }
 
         if (invoice.getStatus() == null) {
@@ -79,7 +72,7 @@ public class PurchaseService implements PurchaseUseCase {
         payablePersistencePort.save(payable);
 
         // 2. 전표 발행
-        postPurchaseJournal(savedInvoice, vendor.getBusinessPartnerName());
+        postPurchaseJournal(savedInvoice, vendor.name());
 
         return savedInvoice;
     }
@@ -103,8 +96,8 @@ public class PurchaseService implements PurchaseUseCase {
         }
     }
 
-    private void validateVendor(String vendorCode) {
-        masterDataQueryPort.findBusinessPartner(vendorCode)
+    private BusinessPartnerRef validateVendor(String vendorCode) {
+        return masterDataQueryPort.findBusinessPartner(vendorCode)
                 .orElseThrow(() -> new IllegalArgumentException("Vendor info missing in master data: " + vendorCode));
     }
 

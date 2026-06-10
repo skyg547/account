@@ -3,233 +3,233 @@ package com.ho.account.reconciliation.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
 import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshot;
 import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
 import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest;
-import com.ho.account.reconciliation.domain.*;
-import com.ho.account.reconciliation.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ho.account.reconciliation.domain.ReconciliationDifference;
+import com.ho.account.reconciliation.domain.ReconciliationRun;
+import com.ho.account.reconciliation.domain.ReconciliationStageResult;
+import com.ho.account.reconciliation.domain.ReconciliationUnit;
+import com.ho.account.reconciliation.repository.ReconciliationDifferenceRepository;
+import com.ho.account.reconciliation.repository.ReconciliationRunRepository;
+import com.ho.account.reconciliation.repository.ReconciliationStageResultRepository;
+import com.ho.account.reconciliation.repository.ReconciliationUnitRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-
+/**
+ * 원천 → 인터페이스 → 전표 → 원장의 4단계 Deep reconciliation 서비스.
+ *
+ * <p>표준 aggregate 생명주기는 {@code ReconciliationUnit -> ReconciliationRun ->
+ * ReconciliationDifference} 하나입니다. 단계별 결과는 Run의 진단 정보로만 저장되고, 차이의 담당자 지정,
+ * 원인 분석, 조정 전표 연결은 표준 Difference 흐름에서 계속 처리됩니다.
+ */
 @Service
 @Transactional
 public class ReconManagerService {
 
-    private final ReconUnitDefinitionRepository unitRepository;
-    private final ReconStageResultRepository stageResultRepository;
-    private final ReconciliationResultRepository resultRepository;
-    private final ReconciliationVarianceRepository varianceRepository;
+    private final ReconciliationUnitRepository unitRepository;
+    private final ReconciliationRunRepository runRepository;
+    private final ReconciliationDifferenceRepository differenceRepository;
+    private final ReconciliationStageResultRepository stageResultRepository;
     private final ExternalReconSnapshotPort externalReconSnapshotPort;
     private final JournalQueryPort journalQueryPort;
     private final LedgerQueryPort ledgerQueryPort;
     private final ObjectMapper objectMapper;
 
-    @Autowired
-    public ReconManagerService(ReconUnitDefinitionRepository unitRepository,
-            ReconStageResultRepository stageResultRepository,
-            ReconciliationResultRepository resultRepository,
-            ReconciliationVarianceRepository varianceRepository,
+    public ReconManagerService(
+            ReconciliationUnitRepository unitRepository,
+            ReconciliationRunRepository runRepository,
+            ReconciliationDifferenceRepository differenceRepository,
+            ReconciliationStageResultRepository stageResultRepository,
             ExternalReconSnapshotPort externalReconSnapshotPort,
             JournalQueryPort journalQueryPort,
             LedgerQueryPort ledgerQueryPort,
             ObjectMapper objectMapper) {
         this.unitRepository = unitRepository;
+        this.runRepository = runRepository;
+        this.differenceRepository = differenceRepository;
         this.stageResultRepository = stageResultRepository;
-        this.resultRepository = resultRepository;
-        this.varianceRepository = varianceRepository;
         this.externalReconSnapshotPort = externalReconSnapshotPort;
         this.journalQueryPort = journalQueryPort;
         this.ledgerQueryPort = ledgerQueryPort;
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * 특정 대사 단위에 대해 4단계 대사를 수행합니다.
-     */
-    public ReconciliationResult performDeepReconciliation(String unitId, LocalDate reconDate, String runBy) {
-        // @todo Domain model boundary: this advanced ReconUnitDefinition/ReconciliationResult flow coexists with ReconciliationUnit/ReconciliationRun; define one aggregate lifecycle.
-        ReconUnitDefinition unit = unitRepository.findById(unitId)
-                .orElseThrow(() -> new IllegalArgumentException("Unit not found"));
+    public ReconciliationRun performDeepReconciliation(Long unitId, LocalDate reconDate, String runBy) {
+        ReconciliationUnit unit = unitRepository.findById(unitId)
+                .filter(ReconciliationUnit::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Active reconciliation unit not found: " + unitId));
+        DeepReconciliationPolicy policy = parsePolicy(unit);
 
-        ReconciliationResult result = new ReconciliationResult();
-        result.setReconciliationDate(reconDate);
-        result.setReconciliationType(unit.getReconType());
-        result.setRunBy(runBy);
-        result.setStatus(ReconciliationStatus.IN_PROGRESS);
-        result.setTotalCountSource(0L);
-        result.setTotalAmountSource(BigDecimal.ZERO);
-        result.setTotalCountTarget(0L);
-        result.setTotalAmountTarget(BigDecimal.ZERO);
-        result.setVarianceCount(0L);
-        result.setVarianceAmount(BigDecimal.ZERO);
-        result.setAuditUser(runBy);
-        ReconciliationResult savedResult = resultRepository.save(result);
+        ReconciliationRun run = new ReconciliationRun();
+        run.setReconciliationUnit(unit);
+        run.setReconciliationDate(reconDate);
+        run.setRunStartTime(LocalDateTime.now());
+        run.setStatus(ReconciliationRun.ReconciliationRunStatus.RUNNING);
+        run.setRunBy(requireText(runBy, "runBy"));
+        run.setAuditUser(run.getRunBy());
+        ReconciliationRun savedRun = runRepository.save(run);
 
-        // 1. 단계별 집계 (Source -> Interface -> Journal -> Ledger)
-        List<ReconStageResult> stages = new ArrayList<>();
-        StageSnapshot sourceSnapshot = buildExternalSnapshot(unit, ExternalReconSnapshotRequest.SOURCE_STAGE, reconDate);
-        StageSnapshot interfaceSnapshot = buildExternalSnapshot(unit, ExternalReconSnapshotRequest.INTERFACE_STAGE, reconDate);
-        StageSnapshot journalSnapshot = buildJournalSnapshot(unit, reconDate);
-        StageSnapshot ledgerSnapshot = buildLedgerSnapshot(unit, reconDate);
+        StageSnapshot source = buildExternalSnapshot(unit, policy, ExternalReconSnapshotRequest.SOURCE_STAGE, reconDate);
+        StageSnapshot interfaceStage = buildExternalSnapshot(
+                unit, policy, ExternalReconSnapshotRequest.INTERFACE_STAGE, reconDate);
+        StageSnapshot journal = buildJournalSnapshot(policy, reconDate);
+        StageSnapshot ledger = buildLedgerSnapshot(policy, reconDate);
+        stageResultRepository.saveAll(List.of(
+                createStageResult(savedRun, "SOURCE", source),
+                createStageResult(savedRun, "INTERFACE", interfaceStage),
+                createStageResult(savedRun, "JOURNAL", journal),
+                createStageResult(savedRun, "LEDGER", ledger)));
 
-        stages.add(createStageResult(savedResult, "SOURCE", sourceSnapshot));
-        stages.add(createStageResult(savedResult, "INTERFACE", interfaceSnapshot));
-        stages.add(createStageResult(savedResult, "JOURNAL", journalSnapshot));
-        stages.add(createStageResult(savedResult, "LEDGER", ledgerSnapshot));
+        BigDecimal differenceAmount = source.amount().subtract(ledger.amount()).abs();
+        savedRun.setTotalItemsSource(source.count());
+        savedRun.setTotalAmountSource(source.amount());
+        savedRun.setTotalItemsTarget(ledger.count());
+        savedRun.setTotalAmountTarget(ledger.amount());
+        savedRun.setMatchedItemsCount(Math.min(source.count(), ledger.count()));
+        savedRun.setMatchedAmount(source.amount().min(ledger.amount()));
+        savedRun.setUnmatchedItemsCount(differenceAmount.signum() == 0 ? 0L : 1L);
+        savedRun.setUnmatchedAmount(differenceAmount);
+        savedRun.setRunEndTime(LocalDateTime.now());
 
-        stageResultRepository.saveAll(stages);
-
-        // 2. 차이 분석 및 결과 업데이트
-        BigDecimal sourceAmt = stages.get(0).getTotalAmount();
-        BigDecimal ledgerAmt = stages.get(3).getTotalAmount();
-        BigDecimal diff = sourceAmt.subtract(ledgerAmt).abs();
-
-        savedResult.setTotalAmountSource(sourceAmt);
-        savedResult.setTotalCountSource(sourceSnapshot.count());
-        savedResult.setTotalAmountTarget(ledgerAmt);
-        savedResult.setTotalCountTarget(ledgerSnapshot.count());
-        savedResult.setVarianceAmount(diff);
-        savedResult.setVarianceCount(diff.compareTo(BigDecimal.ZERO) == 0 ? 0L : 1L);
-
-        BigDecimal toleranceAmount = unit.getToleranceAmount() == null ? BigDecimal.ZERO : unit.getToleranceAmount();
-        if (diff.compareTo(toleranceAmount) <= 0) {
-            savedResult.setStatus(ReconciliationStatus.SUCCESS);
+        if (differenceAmount.compareTo(policy.toleranceAmount()) <= 0) {
+            savedRun.setStatus(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
         } else {
-            savedResult.setStatus(ReconciliationStatus.VARIANCE_FOUND);
-            createVariance(savedResult, unit, "DEEP_MISMATCH", "Source to Ledger mismatch: " + diff, diff);
+            savedRun.setStatus(ReconciliationRun.ReconciliationRunStatus.PARTIAL);
+            differenceRepository.save(createDifference(savedRun, reconDate, policy, source.amount(), ledger.amount()));
         }
-
-        return resultRepository.save(savedResult);
+        return runRepository.save(savedRun);
     }
 
-    private ReconStageResult createStageResult(ReconciliationResult result, String stage, StageSnapshot snapshot) {
-        ReconStageResult sr = new ReconStageResult();
-        sr.setReconciliationResult(result);
-        sr.setStageCode(stage);
-        sr.setTotalCount(snapshot.count());
-        sr.setTotalAmount(snapshot.amount());
-        return sr;
+    private ReconciliationStageResult createStageResult(
+            ReconciliationRun run, String stageCode, StageSnapshot snapshot) {
+        ReconciliationStageResult result = new ReconciliationStageResult();
+        result.setReconciliationRun(run);
+        result.setStageCode(stageCode);
+        result.setTotalCount(snapshot.count());
+        result.setTotalAmount(snapshot.amount());
+        result.setAuditUser(run.getRunBy());
+        return result;
     }
 
-    private void createVariance(ReconciliationResult result, ReconUnitDefinition unit, String code, String desc,
-            BigDecimal amt) {
-        ReconciliationVariance v = new ReconciliationVariance();
-        v.setReconciliationResult(result);
-        v.setVarianceCode(code);
-        v.setDescription(desc);
-        v.setAmount(amt);
-        v.setStatus(VarianceStatus.OPEN);
-        // @todo SLA policy: default SLA days must come from reconciliation policy/master data, not a hidden service-level fallback.
-        int slaDays = unit.getSlaDays() == null ? 3 : unit.getSlaDays();
-        v.setSlaDueDate(LocalDate.now().plusDays(slaDays));
-        varianceRepository.save(v);
+    private ReconciliationDifference createDifference(
+            ReconciliationRun run,
+            LocalDate reconDate,
+            DeepReconciliationPolicy policy,
+            BigDecimal expected,
+            BigDecimal actual) {
+        ReconciliationDifference difference = new ReconciliationDifference();
+        difference.setReconciliationRun(run);
+        difference.setDifferenceType(ReconciliationDifference.DifferenceType.AMOUNT_MISMATCH);
+        difference.setAmountExpected(expected);
+        difference.setAmountActual(actual);
+        difference.setDifferenceAmount(expected.subtract(actual).abs());
+        difference.setDescription("Deep reconciliation source-to-ledger mismatch");
+        difference.setSourceItemRef("{\"stage\":\"SOURCE\"}");
+        difference.setTargetItemRef("{\"stage\":\"LEDGER\"}");
+        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING);
+        difference.setSlaDueDate(reconDate.plusDays(policy.slaDays()).atStartOfDay());
+        difference.setAuditUser(run.getRunBy());
+        return difference;
     }
 
-    private StageSnapshot buildExternalSnapshot(ReconUnitDefinition unit, String stageCode, LocalDate date) {
+    private StageSnapshot buildExternalSnapshot(
+            ReconciliationUnit unit, DeepReconciliationPolicy policy, String stageCode, LocalDate date) {
         ExternalReconSnapshot snapshot = externalReconSnapshotPort.loadSnapshot(ExternalReconSnapshotRequest.of(
-                unit.getUnitId(),
+                unit.getId().toString(),
                 stageCode,
                 date,
-                unit.getProductCode(),
-                unit.getCurrencyCode(),
-                unit.getLegalEntityCode()
-        ));
+                policy.productCode(),
+                policy.currencyCode(),
+                policy.legalEntityCode()));
         if (snapshot == null) {
-            // T23 fixed: Missing snapshot means adapter failed to read/find the source feed, 
-            // which should fail the reconciliation process instead of silently returning 0.
-            throw new RuntimeException("External adapter failed to return snapshot for stage: " + stageCode + " on date: " + date);
+            throw new IllegalStateException("External adapter failed for stage " + stageCode + " on " + date);
         }
         return new StageSnapshot(snapshot.count(), safe(snapshot.amount()));
     }
 
-    private StageSnapshot buildJournalSnapshot(ReconUnitDefinition unit, LocalDate date) {
-        String accountCode = readText(parseMatchingRules(unit), "journalAccountCode");
-
-        // DB 직접 집계 호출 (대용량 성능 최적화)
-        com.ho.account.contracts.journal.JournalDetailAggregateSummary aggregate = 
-                journalQueryPort.getJournalDetailAggregateByAccount(date, date, com.ho.account.contracts.journal.JournalSide.DEBIT, accountCode);
-
-        if (aggregate == null) {
-            return new StageSnapshot(0L, BigDecimal.ZERO);
-        }
-
-        return new StageSnapshot(aggregate.getDetailCount(), safe(aggregate.getTotalAmount()));
+    private StageSnapshot buildJournalSnapshot(DeepReconciliationPolicy policy, LocalDate date) {
+        var aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
+                date, date, JournalSide.DEBIT, policy.journalAccountCode());
+        return aggregate == null
+                ? new StageSnapshot(0L, BigDecimal.ZERO)
+                : new StageSnapshot(aggregate.getDetailCount(), safe(aggregate.getTotalAmount()));
     }
 
-    private StageSnapshot buildLedgerSnapshot(ReconUnitDefinition unit, LocalDate date) {
-        JsonNode rules = parseMatchingRules(unit);
-        String accountCode = readText(rules, "ledgerAccountCode");
-        String currencyCode = readText(rules, "ledgerCurrencyCode");
-        String amountBasis = readText(rules, "ledgerAmountBasis");
-
+    private StageSnapshot buildLedgerSnapshot(DeepReconciliationPolicy policy, LocalDate date) {
         BigDecimal amount = BigDecimal.ZERO;
         long count = 0L;
-        for (LedgerBalanceSummary summary : ledgerQueryPort.getGlBalanceSummaries(date, date, accountCode, currencyCode)) {
-            amount = amount.add(resolveLedgerAmount(summary, amountBasis));
+        for (LedgerBalanceSummary summary : ledgerQueryPort.getGlBalanceSummaries(
+                date, date, policy.ledgerAccountCode(), policy.ledgerCurrencyCode())) {
+            amount = amount.add(resolveLedgerAmount(summary, policy.ledgerAmountBasis()));
             count++;
         }
-
         return new StageSnapshot(count, amount);
     }
 
-    private BigDecimal resolveJournalAmount(JournalDetailSummary detail) {
-        if (detail.getBaseAmount() != null) {
-            return detail.getBaseAmount();
-        }
-        if (detail.getAmount() != null) {
-            return detail.getAmount();
-        }
-        return BigDecimal.ZERO;
-    }
-
-    private BigDecimal resolveLedgerAmount(LedgerBalanceSummary summary, String amountBasis) {
-        String basis = amountBasis == null ? "DEBIT" : amountBasis.trim().toUpperCase();
+    private BigDecimal resolveLedgerAmount(LedgerBalanceSummary summary, LedgerAmountBasis basis) {
         return switch (basis) {
-            case "CREDIT" -> safe(summary.getCreditAmount());
-            case "ENDING_BALANCE" -> safe(summary.getEndingBalance());
-            case "ABS_ENDING_BALANCE" -> safe(summary.getEndingBalance()).abs();
-            default -> safe(summary.getDebitAmount());
+            case CREDIT -> safe(summary.getCreditAmount());
+            case ENDING_BALANCE -> safe(summary.getEndingBalance());
+            case ABS_ENDING_BALANCE -> safe(summary.getEndingBalance()).abs();
+            case DEBIT -> safe(summary.getDebitAmount());
         };
     }
 
-    private boolean matchesAccount(String actualAccountCode, String expectedAccountCode) {
-        return expectedAccountCode == null || expectedAccountCode.equals(actualAccountCode);
-    }
-
-    private JsonNode parseMatchingRules(ReconUnitDefinition unit) {
-        // @todo DDD hardening: replace untyped matchingRulesJson keys with a validated policy object so account/currency/basis errors fail early.
-        String matchingRulesJson = unit.getMatchingRulesJson();
-        if (matchingRulesJson == null || matchingRulesJson.isBlank()) {
-            return objectMapper.createObjectNode();
-        }
-
+    private DeepReconciliationPolicy parsePolicy(ReconciliationUnit unit) {
         try {
-            return objectMapper.readTree(matchingRulesJson);
+            JsonNode root = objectMapper.readTree(requireText(unit.getCriteriaJson(), "criteriaJson"));
+            return new DeepReconciliationPolicy(
+                    readText(root, "productCode"),
+                    readText(root, "currencyCode"),
+                    readText(root, "legalEntityCode"),
+                    requireText(root, "journalAccountCode", unit),
+                    requireText(root, "ledgerAccountCode", unit),
+                    readText(root, "ledgerCurrencyCode"),
+                    LedgerAmountBasis.from(readText(root, "ledgerAmountBasis")),
+                    readDecimal(root, "toleranceAmount", BigDecimal.ZERO),
+                    readPositiveInt(root, "slaDays"));
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("Invalid matchingRulesJson for unit " + unit.getUnitId(), e);
+            throw new IllegalArgumentException("Invalid criteriaJson for unit " + unit.getId(), e);
         }
     }
 
-    private String readText(JsonNode root, String fieldName) {
-        JsonNode node = root.get(fieldName);
-        if (node == null || node.isNull()) {
-            return null;
+    private String requireText(JsonNode root, String field, ReconciliationUnit unit) {
+        String value = readText(root, field);
+        if (value == null) throw new IllegalArgumentException(field + " is required for unit " + unit.getId());
+        return value;
+    }
+
+    private String readText(JsonNode root, String field) {
+        JsonNode value = root.get(field);
+        return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText().trim();
+    }
+
+    private BigDecimal readDecimal(JsonNode root, String field, BigDecimal defaultValue) {
+        JsonNode value = root.get(field);
+        return value == null || value.isNull() ? defaultValue : value.decimalValue();
+    }
+
+    private int readPositiveInt(JsonNode root, String field) {
+        JsonNode value = root.get(field);
+        if (value == null || !value.canConvertToInt() || value.asInt() < 1) {
+            throw new IllegalArgumentException("Positive " + field + " is required.");
         }
-        String text = node.asText();
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        return text.trim();
+        return value.asInt();
+    }
+
+    private String requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required.");
+        return value.trim();
     }
 
     private BigDecimal safe(BigDecimal amount) {
@@ -237,5 +237,30 @@ public class ReconManagerService {
     }
 
     private record StageSnapshot(long count, BigDecimal amount) {
+    }
+
+    private record DeepReconciliationPolicy(
+            String productCode,
+            String currencyCode,
+            String legalEntityCode,
+            String journalAccountCode,
+            String ledgerAccountCode,
+            String ledgerCurrencyCode,
+            LedgerAmountBasis ledgerAmountBasis,
+            BigDecimal toleranceAmount,
+            int slaDays) {
+    }
+
+    private enum LedgerAmountBasis {
+        DEBIT, CREDIT, ENDING_BALANCE, ABS_ENDING_BALANCE;
+
+        private static LedgerAmountBasis from(String value) {
+            if (value == null) return DEBIT;
+            try {
+                return valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unsupported ledgerAmountBasis: " + value, e);
+            }
+        }
     }
 }

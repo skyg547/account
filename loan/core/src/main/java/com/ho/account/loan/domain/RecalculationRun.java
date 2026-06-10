@@ -1,6 +1,5 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,9 +45,11 @@ public class RecalculationRun {
     @Column(columnDefinition = "TEXT")
     private String impactAnalysis; // ?ш퀎???곹뼢 遺꾩꽍 (JSON ?먮뒗 ?띿뒪??
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "adjustment_journal_entry_id")
-    private JournalEntry adjustmentJournalEntry; // ?ш퀎?곗쑝濡??명븳 議곗젙 遺꾧컻 ?꾪몴
+    @Column(name = "adjustment_journal_entry_id")
+    private Long adjustmentJournalEntryId;
+
+    @Column(name = "adjustment_journal_entry_slip_no", length = 30)
+    private String adjustmentJournalEntrySlipNo;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -156,12 +157,20 @@ public class RecalculationRun {
         this.impactAnalysis = impactAnalysis;
     }
 
-    public JournalEntry getAdjustmentJournalEntry() {
-        return adjustmentJournalEntry;
+    public Long getAdjustmentJournalEntryId() {
+        return adjustmentJournalEntryId;
     }
 
-    public void setAdjustmentJournalEntry(JournalEntry adjustmentJournalEntry) {
-        this.adjustmentJournalEntry = adjustmentJournalEntry;
+    public void setAdjustmentJournalEntryId(Long adjustmentJournalEntryId) {
+        this.adjustmentJournalEntryId = adjustmentJournalEntryId;
+    }
+
+    public String getAdjustmentJournalEntrySlipNo() {
+        return adjustmentJournalEntrySlipNo;
+    }
+
+    public void setAdjustmentJournalEntrySlipNo(String adjustmentJournalEntrySlipNo) {
+        this.adjustmentJournalEntrySlipNo = adjustmentJournalEntrySlipNo;
     }
 
     public LocalDateTime getCreatedAt() {

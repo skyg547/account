@@ -8,7 +8,7 @@ import com.ho.account.mart.core.domain.ods.audit.processor.LedgerDataQualityProc
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsAccountLedgerRepository;
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsCollateralMstRepository;
 import com.ho.account.mart.batch.tasklet.OdsReconcileTasklet;
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.mart.core.domain.mart.processor.IntegratedPositionProcessor;
 import com.ho.account.mart.core.domain.ods.audit.OdsDqAudit;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;

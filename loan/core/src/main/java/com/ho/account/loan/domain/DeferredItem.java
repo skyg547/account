@@ -1,6 +1,5 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -41,9 +40,11 @@ public class DeferredItem {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal remainingAmount; // ?붿뿬 ?댁뿰 湲덉븸
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "initial_journal_entry_id")
-    private JournalEntry initialJournalEntry; // 理쒖큹 ?댁뿰 泥섎━ 遺꾧컻 ?꾪몴
+    @Column(name = "initial_journal_entry_id")
+    private Long initialJournalEntryId;
+
+    @Column(name = "initial_journal_entry_slip_no", length = 30)
+    private String initialJournalEntrySlipNo;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -141,12 +142,20 @@ public class DeferredItem {
         this.remainingAmount = remainingAmount;
     }
 
-    public JournalEntry getInitialJournalEntry() {
-        return initialJournalEntry;
+    public Long getInitialJournalEntryId() {
+        return initialJournalEntryId;
     }
 
-    public void setInitialJournalEntry(JournalEntry initialJournalEntry) {
-        this.initialJournalEntry = initialJournalEntry;
+    public void setInitialJournalEntryId(Long initialJournalEntryId) {
+        this.initialJournalEntryId = initialJournalEntryId;
+    }
+
+    public String getInitialJournalEntrySlipNo() {
+        return initialJournalEntrySlipNo;
+    }
+
+    public void setInitialJournalEntrySlipNo(String initialJournalEntrySlipNo) {
+        this.initialJournalEntrySlipNo = initialJournalEntrySlipNo;
     }
 
     public DeferredItemStatus getStatus() {

@@ -35,4 +35,11 @@ public class AllowanceModelParams {
      */
     @Builder.Default
     private final BigDecimal defaultDiscountRate = new BigDecimal("0.05");
+
+    /**
+     * 상품별 CCF 마스터가 없을 때 적용하는 보수적 기본 신용전환계수.
+     * 서비스 코드에 숫자를 직접 두지 않고 모델 정책으로 이름을 부여합니다.
+     */
+    @Builder.Default
+    private final BigDecimal defaultCcfRate = new BigDecimal("0.75");
 }

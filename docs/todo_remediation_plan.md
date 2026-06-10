@@ -2,11 +2,23 @@
 
 ## Search Scope
 
-- Date: 2026-05-29
+- Date: 2026-06-10
 - Command: `rg -n "@todo|TODO:" . -g "!**/build/**" -g "!**/.gradle/**" -g "!**/node_modules/**" -g "!**/.git/**"`
 - Excluded from action list: historical notes in `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/todo.md`, and generated/build output.
 - Initial code TODO count: 40
-- Current code TODO count: 43
+- Current code TODO count: 0
+
+## 2026-06-10 Review Follow-up
+
+| ID | Status | Module | Finding and remediation | Verification |
+| --- | --- | --- | --- | --- |
+| T47 | Done | ecl | `EadCalculator`의 `Object[]` 결과와 레거시 하드코딩 LGD 오버로드를 제거하고 `EadCalculationResult` 및 모델 파라미터 검증으로 교체했다. | `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain` passed. |
+| T48 | Done | ecl | `AllowanceModelParameterRepository`에서 Spring Data 상속을 제거하고 기술 독립 출력 포트 + JPA 어댑터로 분리했다. | ECL core/API/batch 통합 검증 passed. |
+| T49 | Done | journal-ledger | `UnsettledService`의 JPA 직접 의존과 전체 미결 인메모리 필터를 제거하고 출력 포트 + DB 조건 조회로 교체했다. | Journal core/API tests passed. |
+| T50 | Done | journal-ledger | 자동분개 규칙 조회를 `JournalRuleQueryPort`로 분리하고 규칙 차대변을 `JournalSide` 타입으로 제한했다. | Journal core/API tests passed. |
+| T51 | Done | journal-ledger | `PostingService`, `LedgerService`의 직접 Repository 의존을 전표/원장 엔트리/잔액 출력 포트로 분리하고 조회 필터를 DB 어댑터로 이동했다. | `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :loan:core:test --console=plain` passed. |
+| T52 | Done | ecl | 등급·상품·LGD·담보·거시시나리오·전이행렬 포트에서 Spring Data/캐시 기술을 제거하고 JPA 저장소·어댑터로 이동했다. | `.\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test --console=plain` passed. |
+| T53 | Done | journal-ledger | 설정 기반 `jdbc-bulk` 전기 엔트리 batch insert와 잔액 bulk upsert 어댑터를 추가하고, 재집계 저장 경로를 bulk 포트로 변경했다. | `.\gradlew :journal-ledger:core:test --console=plain` passed. 운영 규모 부하 검증은 별도 필요. |
 
 ## Execution Strategy
 
@@ -104,11 +116,11 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 
 ## Current Execution Order
 
-1. Phase 1 is complete.
-2. Phase 3 is complete (T19-T26).
-3. Phase 4 is complete (T27-T32).
-4. Continue Phase 5 with Reconciliation Model Consolidation items T33-T38.
-5. Re-run the TODO search after every phase and update this document with completed IDs.
+1. Phases 1-7 are complete (T01-T46).
+2. 2026-06-10 review follow-up T47-T52 is complete.
+3. Java source `@todo` search result is 0.
+4. T53 journal JDBC bulk adapter performance implementation is complete.
+5. Remaining risk is operational load testing for batch size, index usage, lock waits, and concurrent reaggregation.
 
 ## Progress
 
@@ -136,24 +148,32 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T20 | Done | Payment run now stores `payableId` on each `Payment`; execution settles the exact payable by ID instead of vendor+amount matching. | `.\gradlew :payable:test --console=plain` passed. |
 | T21 | Done | Auto matching now uses `CollectionMatchingPolicy` with reference-number priority, due-date tolerance, and duplicate-candidate fail-closed behavior. | `.\gradlew :receivable:test --console=plain` passed. |
 | T22 | Done | Collection matching now persists `CollectionAllocation` rows with matched amount, residual collection amount, and residual receivable amount. | `.\gradlew :receivable:test --console=plain` passed. |
- now properly throws an exception to fail the reconciliation run rather than silently mapping to zero amounts. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T23 | Done | Reconciliation amount conversion now fails the run instead of silently converting invalid data to zero. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T24 | Done | `ReconciliationService` now loads source snapshot data directly from an outbound port (`ExternalReconSnapshotPort`) rather than using skeleton values. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T25 | Done | Target snapshot correctly applies account code and side filter values extracted from the `reconciliationUnit` policy definition. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T26 | Done | `ReconciliationService` adjustment journals now use policy-driven currency, idempotency keys, and default reasons rather than hardcoded logic. | `.\gradlew :reconciliation:test --console=plain` passed. |
 | T27 | Done | FX valuation journals now remain `DRAFT_ONLY` by default and auto-approve/post only when the closing adjustment posting policy explicitly allows it. | `.\gradlew :closing:batch:test --console=plain` passed. |
 | T28 | Done | ECL provision journals now remain `DRAFT_ONLY` by default and auto-approve/post only when the closing adjustment posting policy explicitly allows it. | `.\gradlew :closing:batch:test --console=plain` passed. |
+| T29-T32 | Done | Journal listener/reconciliation operational controls were remediated and verified in the prior phase. | `.\gradlew :journal-ledger:api:compileJava :reconciliation:test --console=plain` passed. |
+| T33-T38 | Done | Reconciliation now uses the canonical Unit -> Run -> Difference lifecycle, typed policies, and inactive reason-code handling. | `.\gradlew :reconciliation:test --console=plain` passed. |
+| T39 | Done | Named `AllowanceAccountMappingPriorityPolicy` documents the mapping precedence mirrored by the summary SQL. | `.\gradlew :ecl:ecl-core:test --console=plain` passed. |
+| T40 | Done | Financial journal-detail queries consistently include only `POSTED` entries. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
+| T41-T43 | Done | Tax uses the contracts master-data port, propagates actor data, and cancels invoices logically with audit reason. | `.\gradlew :tax:test --console=plain` passed. |
+| T44-T45 | Done | Asset processing preserves batch orchestration boundaries and propagates the actual actor through asset history/events. | `.\gradlew :asset-lease:test --console=plain` passed. |
+| T46 | Done | `LoginAttemptPort` and the default adapter record success/failure and enforce configurable temporary lockout. | `.\gradlew :auth:test --console=plain` passed. |
+
+## 2026-06-09 Boundary Follow-up
+
+- Journal HTTP adapters now use API DTOs, require `X-User-ID`, and route unsettled operations through `UnsettledItemUseCase`.
+- Unsettled settlement records actor/reference and ignores repeated settlement references.
+- Loan application services depend on loan-owned persistence/reference/journal ports.
+- Allowance input JPA write ownership moved to account-mart; ECL uses its own read model and application snapshot.
+- Payable executes through `PaymentExecutionPort`, settles the exact `payableId`, and uses only contracts-based master-data lookup.
+- Receivable auto matching uses a named policy and persists `CollectionAllocation` residuals.
 
 ## 2026-06-09 Additional High-Risk Remediation
 
 - Expenditure budget control now fails closed when no budget is registered and uses code-based references plus `MasterDataQueryPort`.
-- Governance approval now separates approval decision from external apply status, records apply failures/retries, and uses a master-data source-reference idempotency key.
-- Master-data marks a request `APPLIED` only after a typed applier succeeds; the default missing-handler path fails closed instead of reporting false success.
-- Audit AOP masks secret/token/password fields and limits oversized payloads.
-- Auth/Gateway no longer provide executable default secrets; bootstrap user seeding is explicit and encoded-password controlled.
-- Gateway validates JWT `roleVersion` against Auth with a short success cache and removes all client-supplied `X-Auth-*` headers.
-- Auth role-assignment callbacks use `approvalTraceId` as a persisted idempotency key.
-- FX valuation resolves debit/credit direction from the account normal balance side, including liability loss scenarios.
-nd uses code-based references plus `MasterDataQueryPort`.
 - Governance approval now separates approval decision from external apply status, records apply failures/retries, and uses a master-data source-reference idempotency key.
 - Master-data marks a request `APPLIED` only after a typed applier succeeds; the default missing-handler path fails closed instead of reporting false success.
 - Audit AOP masks secret/token/password fields and limits oversized payloads.

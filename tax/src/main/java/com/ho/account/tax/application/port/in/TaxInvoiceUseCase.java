@@ -12,5 +12,5 @@ public interface TaxInvoiceUseCase {
     Optional<TaxInvoice> getAPInvoiceByIssueId(String issueId);
     List<TaxInvoice> getAPInvoicesBetweenDates(LocalDate startDate, LocalDate endDate);
     TaxInvoice updateAPInvoice(Long id, TaxInvoiceRequestDto requestDto);
-    void deleteAPInvoice(Long id);
+    void cancelAPInvoice(Long id, String actor, String reason);
 }

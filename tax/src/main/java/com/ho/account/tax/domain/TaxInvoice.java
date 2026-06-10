@@ -3,6 +3,7 @@ package com.ho.account.tax.domain;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * [DDD(도메인 주도 설계) - Aggregate Root]
@@ -49,6 +50,22 @@ public class TaxInvoice {
      */
     @Column(name = "journal_entry_id")
     private Long journalEntryId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaxInvoiceStatus status = TaxInvoiceStatus.ACTIVE;
+
+    @Column(length = 50)
+    private String cancelledBy;
+
+    @Column(length = 500)
+    private String cancellationReason;
+
+    private LocalDateTime cancelledAt;
+
+    public enum TaxInvoiceStatus {
+        ACTIVE, CANCELLED
+    }
 
     protected TaxInvoice() {}
 
@@ -103,6 +120,22 @@ public class TaxInvoice {
         this.journalEntryId = journalEntryId;
     }
 
+    /**
+     * 공식 증빙은 삭제하지 않고 취소 상태와 사유를 남깁니다.
+     */
+    public void cancel(String actor, String reason) {
+        if (status == TaxInvoiceStatus.CANCELLED) {
+            throw new IllegalStateException("이미 취소된 세금계산서입니다.");
+        }
+        if (actor == null || actor.isBlank() || reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("취소 실행자와 사유는 필수입니다.");
+        }
+        status = TaxInvoiceStatus.CANCELLED;
+        cancelledBy = actor.trim();
+        cancellationReason = reason.trim();
+        cancelledAt = LocalDateTime.now();
+    }
+
     // Getter
     public Long getId() { return id; }
     public String getIssueId() { return issueId; }
@@ -113,4 +146,8 @@ public class TaxInvoice {
     public BigDecimal getTaxAmount() { return taxAmount; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public Long getJournalEntryId() { return journalEntryId; }
+    public TaxInvoiceStatus getStatus() { return status; }
+    public String getCancelledBy() { return cancelledBy; }
+    public String getCancellationReason() { return cancellationReason; }
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
 }

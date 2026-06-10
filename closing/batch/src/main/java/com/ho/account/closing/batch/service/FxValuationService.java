@@ -132,9 +132,11 @@ public class FxValuationService {
         entry.setSlipNo(ClosingSlipNoFactory.fxValuation(valuationDate, accountCode, batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
-        // 배치이므로 자동 승인 및 전기
-        // @todo Closing control: auto approve/post should pass through a closing adjustment approval policy or compensating reversal process.
-        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
-        journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
+        // 결산 배치는 전표 초안 생성까지만 수행하는 것이 기본입니다. 별도 운영 통제가 자동 전기를
+        // 허용한 환경에서만 승인/전기하여, 오류 시 검토와 역분개 절차를 거칠 수 있게 합니다.
+        if (accountingProperties.isAutoPostAdjustments()) {
+            journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
+            journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
+        }
     }
 }

@@ -38,6 +38,8 @@ flowchart LR
 - `AllowanceEclCompletionService`: weighted ECL 산출 결과를 `COMPLETED`로 확정한다.
 - `AllowanceSummaryService`: 완료된 ECL 결과와 `allowance_account_mappings`를 조인해 `allowance_summary`를 기준일 단위로 재생성한다.
 - summary 재생성은 계정 매핑 검증이 통과한 뒤 기존 기준일 데이터를 교체해 재실행 멱등성을 유지한다.
+- `allowance_input_positions`는 ECL 소유 엔티티가 아니다. ECL은 자체 읽기 JPA 모델을 `AllowanceInputPositionSnapshot`으로 변환해 애플리케이션 계층에 전달한다.
+- 중복 계정 매핑 우선순위는 `AllowanceAccountMappingPriorityPolicy`에 이름을 부여하고, JDBC summary SQL이 동일한 순서를 따르도록 문서화한다.
 
 ## 실행 예시
 
@@ -71,6 +73,9 @@ flowchart LR
 
 ## 참고
 
+- 문서 전체 안내와 추천 읽기 순서: [docs/README.md](docs/README.md)
+- 초보자 입문과 코드 탐색: [ALLOWANCE_BEGINNER_GUIDE.md](docs/ALLOWANCE_BEGINNER_GUIDE.md)
+- 업무·데이터 흐름: [ALLOWANCE_PROCESS_FLOW.md](docs/ALLOWANCE_PROCESS_FLOW.md)
 - 상세 흐름: [BATCH_EXECUTION_FLOW.md](docs/BATCH_EXECUTION_FLOW.md)
 - 아키텍처/설계 흐름도: [ALLOWANCE_ARCHITECTURE.md](docs/ALLOWANCE_ARCHITECTURE.md)
 - 단독 서비스 런북: [ALLOWANCE_SERVICE_RUNBOOK.md](docs/ALLOWANCE_SERVICE_RUNBOOK.md)

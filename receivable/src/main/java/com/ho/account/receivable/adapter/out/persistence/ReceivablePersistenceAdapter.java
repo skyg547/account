@@ -38,4 +38,11 @@ public class ReceivablePersistenceAdapter implements ReceivablePersistencePort {
     public List<Receivable> findByCustomerCodeAndStatus(String customerCode, ReceivableStatus status) {
         return receivableRepository.findByCustomerCodeAndStatus(customerCode, status);
     }
+
+    @Override
+    public List<Receivable> findOpenItemsByCustomerCode(String customerCode) {
+        return receivableRepository.findByCustomerCodeAndStatusIn(
+                customerCode,
+                List.of(ReceivableStatus.OPEN, ReceivableStatus.PARTIAL_PAID, ReceivableStatus.OVERDUE));
+    }
 }

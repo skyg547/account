@@ -10,6 +10,7 @@ import com.ho.account.expenditure.application.port.out.AdvancePaymentPersistence
 import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
 import com.ho.account.expenditure.application.port.out.PaymentPersistencePort;
+import com.ho.account.expenditure.application.port.out.PaymentExecutionPort;
 import com.ho.account.expenditure.application.port.out.PaymentRunPersistencePort;
 import com.ho.account.expenditure.domain.AdvancePayment;
 import com.ho.account.expenditure.domain.Payable;
@@ -17,8 +18,6 @@ import com.ho.account.expenditure.domain.PayableStatus;
 import com.ho.account.expenditure.domain.Payment;
 import com.ho.account.expenditure.domain.PaymentRun;
 import com.ho.account.expenditure.domain.PaymentStatus;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,13 +49,13 @@ class PaymentServiceTest {
     @Mock
     private AdvancePaymentPersistencePort advancePaymentPersistencePort;
     @Mock
-    private BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    @Mock
     private MasterDataQueryPort masterDataQueryPort;
     @Mock
     private JournalPostingPort journalPostingPort;
     @Mock
     private PayableAccountMappingPort payableAccountMappingPort;
+    @Mock
+    private PaymentExecutionPort paymentExecutionPort;
 
     private PaymentService service;
 
@@ -67,10 +66,10 @@ class PaymentServiceTest {
                 payablePersistencePort,
                 paymentRunPersistencePort,
                 advancePaymentPersistencePort,
-                businessPartnerPersistencePort,
                 masterDataQueryPort,
                 journalPostingPort,
-                payableAccountMappingPort);
+                payableAccountMappingPort,
+                paymentExecutionPort);
     }
 
     @Test
@@ -80,15 +79,17 @@ class PaymentServiceTest {
         Payable payable = payable();
 
         when(paymentPersistencePort.findById(10L)).thenReturn(Optional.of(payment));
+        when(paymentExecutionPort.execute(any())).thenReturn(
+                PaymentExecutionPort.PaymentExecutionResult.completed("BANK-REF-10"));
         when(paymentPersistencePort.save(payment)).thenReturn(payment);
-        when(payablePersistencePort.findByVendorCodeAndOutstandingAmountGreaterThan("V001", BigDecimal.ZERO))
-                .thenReturn(List.of(payable));
+        when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
         when(payablePersistencePort.save(payable)).thenReturn(payable);
         when(payableAccountMappingPort.resolvePaymentExecutionAccounts(payment))
                 .thenReturn(new PayableAccountMappingPort.PaymentExecutionAccounts("AP-002", "CASH-002"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("V001")).thenReturn(Optional.of(vendor()));
+        when(masterDataQueryPort.findBusinessPartner("V001"))
+                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(20L, "SLIP-2", "DRAFT"));
 
@@ -102,6 +103,26 @@ class PaymentServiceTest {
         assertThat(command.auditUser()).isEqualTo("payment-user");
         assertThat(command.lines()).extracting("accountCode")
                 .containsExactly("AP-002", "CASH-002");
+        assertThat(payment.getReferenceNo()).isEqualTo("BANK-REF-10");
+        assertThat(payment.getExecutionAttempts()).isEqualTo(1);
+        assertThat(payable.getOutstandingAmount()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    @DisplayName("외부 지급 실패 시 채무를 차감하지 않고 실패 사유를 보존한다")
+    void executePaymentPreservesFailureWithoutSettlingPayable() {
+        Payment payment = payment();
+        when(paymentPersistencePort.findById(10L)).thenReturn(Optional.of(payment));
+        when(paymentExecutionPort.execute(any())).thenReturn(
+                PaymentExecutionPort.PaymentExecutionResult.failed("BANK_TIMEOUT"));
+        when(paymentPersistencePort.save(payment)).thenReturn(payment);
+
+        Payment result = service.executePayment(10L, "BANK-001");
+
+        assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(result.getFailureReason()).isEqualTo("BANK_TIMEOUT");
+        assertThat(result.getExecutionAttempts()).isEqualTo(1);
+        verify(paymentPersistencePort).save(payment);
     }
 
     @Test
@@ -111,7 +132,6 @@ class PaymentServiceTest {
 
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("V001")).thenReturn(Optional.of(vendor()));
         when(advancePaymentPersistencePort.save(advance)).thenReturn(advance);
         when(payableAccountMappingPort.resolveAdvancePaymentAccounts(advance))
                 .thenReturn(new PayableAccountMappingPort.AdvancePaymentAccounts("ADV-003", "CASH-003"));
@@ -143,7 +163,8 @@ class PaymentServiceTest {
                 .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("V001")).thenReturn(Optional.of(vendor()));
+        when(masterDataQueryPort.findBusinessPartner("V001"))
+                .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"));
 
@@ -164,6 +185,7 @@ class PaymentServiceTest {
         payment.setId(10L);
         payment.setPaymentDate(LocalDate.of(2026, 5, 29));
         payment.setVendorCode("V001");
+        payment.setPayableId(100L);
         payment.setAmount(new BigDecimal("100.00"));
         payment.setStatus(PaymentStatus.INITIATED);
         payment.setPaymentRun(run);
@@ -193,10 +215,4 @@ class PaymentServiceTest {
         return advance;
     }
 
-    private BusinessPartner vendor() {
-        BusinessPartner vendor = new BusinessPartner();
-        vendor.setBusinessPartnerCode("V001");
-        vendor.setBusinessPartnerName("Vendor One");
-        return vendor;
-    }
 }

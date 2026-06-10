@@ -93,3 +93,8 @@ account.loan.accounting:
 ```bash
 docker-compose up -d loan
 ```
+
+### 헥사고날 경계
+- `LoanService`는 `LoanPersistencePort`, `LoanReferenceDataPort`, `LoanJournalPort`에만 의존합니다.
+- JPA 저장소, 기준정보 구현체, journal-ledger 내부 모델은 인프라 어댑터가 감춥니다.
+- 외부 전표 연결은 엔티티 연관관계 대신 전표 ID와 전표번호 값으로 저장하여 대출 Aggregate의 생명주기를 독립적으로 유지합니다.

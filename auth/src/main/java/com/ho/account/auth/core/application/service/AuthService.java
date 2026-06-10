@@ -6,6 +6,7 @@ import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
+import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
@@ -35,35 +36,49 @@ public class AuthService implements AuthUseCase {
     private final DepartmentValidationPort departmentValidationPort;
     private final PasswordVerifierPort passwordVerifierPort;
     private final TokenIssuerPort tokenIssuerPort;
+    private final LoginAttemptPort loginAttemptPort;
 
     @Override
     public LoginResponse login(String username, String password) {
-        AuthUser user = authUserQueryPort.findByUsername(username)
-                .orElseThrow(InvalidCredentialsException::new);
+        // 먼저 임시 잠금을 확인하여 반복 대입 공격이 사용자 조회/비밀번호 검증까지 도달하지 않게 합니다.
+        if (loginAttemptPort.isLocked(username)) {
+            throw new UserAccessDeniedException("User account is temporarily locked after repeated login failures");
+        }
 
-        // @todo [보안 / 업무 프로세스] (see docs/todo_remediation_plan.md) 로그인 성공 및 실패 시(비밀번호 오류 등) 감사 로그(Audit Log) 이벤트 발행이 누락되어 있습니다. 또한, 지정된 횟수 이상 비밀번호 실패 시 계정을 잠그는(Lockout) 정책 구현이 필요합니다.
+        AuthUser user = authUserQueryPort.findByUsername(username)
+                .orElseThrow(() -> {
+                    loginAttemptPort.recordFailure(username, "USER_NOT_FOUND");
+                    return new InvalidCredentialsException();
+                });
+
         if (!passwordVerifierPort.matches(password, user.getStoredPassword())) {
+            loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
             throw new InvalidCredentialsException();
         }
 
         if (!user.isActive()) {
+            loginAttemptPort.recordFailure(username, "INACTIVE_ACCOUNT");
             throw new UserAccessDeniedException("User account is inactive");
         }
 
         if (user.isLocked()) {
+            loginAttemptPort.recordFailure(username, "ADMINISTRATIVELY_LOCKED");
             throw new UserAccessDeniedException("User account is locked");
         }
 
         if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()
                 && !departmentValidationPort.existsDepartmentCode(user.getDepartmentCode())) {
+            loginAttemptPort.recordFailure(username, "INVALID_DEPARTMENT");
             throw new UserAccessDeniedException("Department code is invalid: " + user.getDepartmentCode());
         }
 
         if (user.getRoles().isEmpty()) {
+            loginAttemptPort.recordFailure(username, "NO_EFFECTIVE_ROLE");
             throw new UserAccessDeniedException("User has no approved effective roles");
         }
 
         TokenIssuerPort.IssuedToken issuedToken = tokenIssuerPort.issue(user);
+        loginAttemptPort.recordSuccess(username);
         return new LoginResponse(
                 issuedToken.token(),
                 "Bearer",

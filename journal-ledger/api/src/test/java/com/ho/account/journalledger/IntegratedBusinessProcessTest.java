@@ -116,6 +116,7 @@ public class IntegratedBusinessProcessTest {
         purchaseInvoice.setNetAmount(taxInvoice.getSupplyAmount());
         purchaseInvoice.setTaxAmount(taxInvoice.getTaxAmount());
         purchaseInvoice.setTotalAmount(taxInvoice.getTotalAmount());
+        purchaseInvoice.setCreatedBy("integration-user");
         
         PurchaseInvoice savedPurchase = purchaseUseCase.createPurchaseInvoice(purchaseInvoice);
         assertThat(savedPurchase.getId()).isNotNull();

@@ -41,11 +41,11 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
     @Override
     @Transactional
-    public FixedAsset registerAsset(FixedAsset asset) {
+    public FixedAsset registerAsset(FixedAsset asset, String actor) {
         asset.setStatus("ACTIVE");
         FixedAsset savedAsset = persistencePort.save(asset);
 
-        createHistory(savedAsset, "ACQUISITION", null, asset.getDepartmentCode(), null, "ACTIVE", "Initial acquisition");
+        createHistory(savedAsset, "ACQUISITION", null, asset.getDepartmentCode(), null, "ACTIVE", "Initial acquisition", actor);
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "ASSET_ACQUISITION");
@@ -53,6 +53,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         event.put("amount", savedAsset.getAcquisitionCost());
         event.put("accountingDate", savedAsset.getAcquisitionDate().toString());
         event.put("deptCode", savedAsset.getDepartmentCode());
+        event.put("actor", requireActor(actor));
         
         eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
@@ -60,12 +61,12 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
     @Override
     @Transactional
-    public void processMonthlyDepreciation(LocalDate processDate) {
+    public void processMonthlyDepreciation(LocalDate processDate, String actor) {
         persistencePort.findByStatus("ACTIVE").forEach(asset -> {
             BigDecimal amount = asset.depreciate(processDate);
             if (amount.compareTo(BigDecimal.ZERO) > 0) {
                 persistencePort.save(asset);
-                createHistory(asset, "DEPRECIATION", null, null, null, asset.getStatus(), "Monthly depreciation");
+                createHistory(asset, "DEPRECIATION", null, null, null, asset.getStatus(), "Monthly depreciation", actor);
                 
                 Map<String, Object> event = new HashMap<>();
                 event.put("transactionType", "ASSET_DEPRECIATION");
@@ -73,6 +74,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
                 event.put("amount", amount);
                 event.put("accountingDate", processDate.toString());
                 event.put("deptCode", asset.getDepartmentCode());
+                event.put("actor", requireActor(actor));
                 eventPort.sendAssetEvent(TOPIC, event);
             }
         });
@@ -80,7 +82,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
     @Override
     @Transactional
-    public FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice) {
+    public FixedAsset disposeFixedAsset(Long assetId, LocalDate disposalDate, BigDecimal salePrice, String actor) {
         FixedAsset asset = persistencePort.findById(assetId)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
         
@@ -88,7 +90,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         asset.setStatus("DISPOSED");
         FixedAsset savedAsset = persistencePort.save(asset);
 
-        createHistory(savedAsset, "DISPOSAL", null, null, oldStatus, "DISPOSED", "Asset disposal");
+        createHistory(savedAsset, "DISPOSAL", null, null, oldStatus, "DISPOSED", "Asset disposal", actor);
 
         Map<String, Object> event = new HashMap<>();
         event.put("transactionType", "ASSET_DISPOSAL");
@@ -97,6 +99,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         event.put("bookValue", savedAsset.getCurrentBookValue());
         event.put("accountingDate", disposalDate.toString());
         event.put("deptCode", savedAsset.getDepartmentCode());
+        event.put("actor", requireActor(actor));
         
         eventPort.sendAssetEvent(TOPIC, event);
         return savedAsset;
@@ -104,7 +107,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
 
     @Override
     @Transactional
-    public void changeDepartment(Long assetId, String newDeptCode, String reason) {
+    public void changeDepartment(Long assetId, String newDeptCode, String reason, String actor) {
         FixedAsset asset = persistencePort.findById(assetId)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));
         
@@ -112,7 +115,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         asset.setDepartmentCode(newDeptCode);
         persistencePort.save(asset);
 
-        createHistory(asset, "TRANSFER", oldDeptCode, newDeptCode, null, null, reason);
+        createHistory(asset, "TRANSFER", oldDeptCode, newDeptCode, null, null, reason, actor);
     }
 
     @Override
@@ -128,7 +131,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         return persistencePort.findById(id);
     }
 
-    private void createHistory(FixedAsset asset, String type, String oldDeptCode, String newDeptCode, String oldStatus, String newStatus, String desc) {
+    private void createHistory(FixedAsset asset, String type, String oldDeptCode, String newDeptCode, String oldStatus, String newStatus, String desc, String actor) {
         AssetHistory history = new AssetHistory();
         history.setFixedAsset(asset);
         history.setHistoryType(type);
@@ -138,11 +141,14 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         history.setNewStatus(newStatus);
         history.setDescription(desc);
         history.setEventAt(LocalDateTime.now());
-        // @todo [보안 / 업무 프로세스] (see docs/todo_remediation_plan.md) 감사 사용자(Audit User)가 SYSTEM으로 하드코딩되어 있습니다. 컨텍스트에서 실제 실행 주체(사용자/배치ID)를 주입받아 추적 가능성을 보장해야 합니다.
-        history.setAuditUser("SYSTEM");
+        history.setAuditUser(requireActor(actor));
         persistencePort.saveHistory(history);
     }
-}
-History(history);
+
+    private String requireActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("asset operation actor is required");
+        }
+        return actor.trim();
     }
 }

@@ -58,6 +58,7 @@ class EclProvisionServiceTest {
 
     @Test
     void processEclProvisionUsesFinalizedAllowanceSummaryInsteadOfFixedRate() {
+        accountingProperties.setAutoPostAdjustments(true);
         LocalDate closingDate = LocalDate.of(2026, 5, 31);
         EclAllowanceSummary summary = summary(
                 closingDate,

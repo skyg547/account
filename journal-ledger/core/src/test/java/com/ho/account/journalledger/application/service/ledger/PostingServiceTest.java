@@ -4,11 +4,10 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
 import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
-import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
-import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,11 +29,9 @@ import static org.mockito.Mockito.when;
 class PostingServiceTest {
 
     @Mock
-    private JournalEntryRepository journalEntryRepository;
+    private JournalPersistencePort journalPersistencePort;
     @Mock
-    private GlEntryRepository glEntryRepository;
-    @Mock
-    private SlEntryRepository slEntryRepository;
+    private LedgerEntryPersistencePort ledgerEntryPersistencePort;
     @Mock
     private LedgerService ledgerService;
 
@@ -42,28 +39,28 @@ class PostingServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PostingService(journalEntryRepository, glEntryRepository, slEntryRepository, ledgerService);
+        service = new PostingService(journalPersistencePort, ledgerEntryPersistencePort, ledgerService);
     }
 
     @Test
     @DisplayName("승인된 전표를 POSTED로 전환하고 GL/SL 엔트리와 잔액을 생성한다.")
     void postsApprovedJournalEntry() {
         JournalEntry entry = approvedEntry();
-        when(journalEntryRepository.findById(1L)).thenReturn(Optional.of(entry));
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
 
         service.postJournalEntry(1L, "poster-1");
 
         assertThat(entry.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
         assertThat(entry.getAuditUser()).isEqualTo("poster-1");
-        verify(journalEntryRepository).save(entry);
+        verify(journalPersistencePort).save(entry);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<GlEntry>> glEntriesCaptor = ArgumentCaptor.forClass(List.class);
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<SlEntry>> slEntriesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(glEntryRepository).saveAll(glEntriesCaptor.capture());
-        verify(slEntryRepository).saveAll(slEntriesCaptor.capture());
+        verify(ledgerEntryPersistencePort).saveGlEntries(glEntriesCaptor.capture());
+        verify(ledgerEntryPersistencePort).saveSlEntries(slEntriesCaptor.capture());
         verify(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
 
         List<GlEntry> glEntries = glEntriesCaptor.getValue();

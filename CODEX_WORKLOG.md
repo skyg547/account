@@ -3,6 +3,58 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-10 (ECL·Journal 잔여 경계 및 문서 통합)
+- ECL:
+  - `EadCalculator`의 배열 결과와 레거시 하드코딩 LGD 오버로드를 `EadCalculationResult` 값 객체로 교체했다.
+  - 필수 LGD/CCF 비율을 fail-closed 검증하고, 상품 CCF 누락 시 `AllowanceModelParams.defaultCcfRate` 정책을 사용하도록 변경했다.
+  - `AllowanceModelParameterRepository`에서 Spring Data 상속을 제거하고 JPA 저장소/영속성 어댑터를 infrastructure로 분리했다.
+  - 등급·상품·LGD·담보배분·거시시나리오·전이행렬 포트에서도 Spring Data/캐시 기술을 제거하고 전용 JPA 어댑터로 이동했다.
+- Journal Ledger:
+  - `UnsettledItemPersistencePort`와 JPA 어댑터를 추가해 `UnsettledService`의 Repository 직접 의존과 거래처별 인메모리 필터를 제거했다.
+  - `JournalRuleQueryPort`와 어댑터를 추가하고 자동분개 규칙 차대변을 `JournalSide` 타입으로 제한했다.
+  - 전기·잔액 서비스를 `JournalPersistencePort`, `LedgerEntryPersistencePort`, `LedgerBalancePersistencePort` 경계로 분리하고 GL/SL 조건 필터를 DB 조회로 이동했다.
+  - `journal-ledger.ledger.persistence-mode=jdbc-bulk` 설정 기반 JDBC bulk 어댑터를 추가했다.
+    - 엔트리는 `JdbcLedgerEntryBulkPersistenceAdapter`에서 batch insert로 저장한다.
+    - GL 잔액은 DB 방언별 upsert로 저장한다.
+    - SL 잔액은 거래처·부서가 `null`인 키도 처리하도록 bulk update 후 insert로 저장한다.
+  - `LedgerService` 재집계 저장 경로를 일별 집계 후 bulk 포트 저장으로 변경했다.
+  - JPA/JDBC가 같은 잔액 기간 키를 사용하도록 `YearMonthAttributeConverter`를 추가했다.
+  - 구현 완료 후 남아 있던 `stub`, 향후 포트 분리, 인메모리 필터 안내 주석을 실제 구현 기준으로 최신화했다.
+- 문서:
+  - `ecl/docs/README.md`를 문서 진입점으로 추가하고 입문·업무 흐름·데이터 모델 문서를 상세화했다.
+  - 누락되어 있던 `journal-ledger/docs/beginner-guide.md`, `process-flow.md`, `schema.md`를 추가하고 README 중복 설명을 상세 문서로 연결했다.
+  - 완료 T47-T53을 `docs/todo_remediation_plan.md`에 기록했다.
+- 검증:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :loan:core:test --console=plain --max-workers=1 --no-daemon` 성공. 첫 실행에서 누락된 `Collectors` import를 발견해 보정 후 재실행했다.
+  - T53 구현 후 `.\gradlew :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon` 성공. H2 기반 JDBC batch insert/upsert 집중 테스트를 포함한다.
+  - 대상 코드의 오래된 TODO/stub/인메모리 필터/배열 결과 검색 0건, 문서 링크 누락 0건, 변경 범위 `git diff --check` 성공.
+- 남은 리스크:
+  - Journal JDBC bulk 경로는 H2 SQL 동작까지 검증했으며, 운영 DB 기준 배치 크기·인덱스·락 대기·동시 재집계 부하 검증이 필요하다.
+
+## 2026-06-09 (잔여 TODO 최종 경계 통합)
+- Java 소스의 잔여 `@todo`를 0건으로 정리하고, 완료 표기와 실제 코드가 어긋난 인증/지급/수금/전표 경계를 복구했다.
+- Auth: `LoginAttemptPort`와 설정 기반 임시 잠금/감사 어댑터를 추가했다.
+- Payable: `PaymentExecutionPort`, 멱등 실행 결과, 정확한 `payableId`, 실패/재시도 상태를 추가하고 master-data 내부 의존을 제거했다.
+- Receivable: 참조번호 우선 자동 매칭 정책과 `CollectionAllocation` 잔액 이력을 추가했다.
+- Journal/Unsettled: API DTO, 필수 actor, 미결 인바운드 포트, 반제 참조번호 멱등성과 감사 필드를 추가했다.
+- 기존 변경인 Loan 출력 포트, Reconciliation Aggregate 통합, allowance JPA 소유권, Closing 초안 통제, Tax 논리 취소, Asset actor 전달을 함께 검증했다.
+- 문서: 관련 모듈 README, `docs/todo_remediation_plan.md`, 통합 워크로그, Gemini 리뷰 프롬프트를 갱신했다.
+- 검증:
+  - `.\gradlew :auth:test :payable:test :receivable:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :asset-lease:test :tax:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :closing:batch:test :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :reconciliation:test :ecl:ecl-core:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :journal-ledger:api:compileJava :loan:core:test :loan:api:compileJava --console=plain --max-workers=1 --no-daemon` 성공.
+  - `.\gradlew :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon` 성공. 최초 실행에서 Flyway V2 중복과 통합 테스트 구매 actor 누락을 발견해 전용 V10 마이그레이션/테스트 계약으로 보정했다.
+  - `.\gradlew :shared-kernel:compileJava :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test :ecl:ecl-api:compileJava --console=plain --max-workers=1 --no-daemon` 성공.
+  - 최종 변경 모듈 통합 명령(68 tasks) 성공: Auth, Payable, Receivable, Asset, Tax, Closing, Journal API/Core, Reconciliation, Loan, Account-Mart, ECL.
+- 남은 리스크:
+  - Auth 기본 로그인 시도 어댑터는 인메모리이므로 다중 인스턴스 운영에서는 공유 저장 어댑터가 필요하다.
+  - Payable의 로컬 지급 실행 어댑터는 운영 은행 API 어댑터로 교체해야 한다.
+  - 신규 payable/receivable 컬럼과 allocation 테이블은 배포 환경의 통합 스키마 관리 정책에 맞춘 마이그레이션 확인이 필요하다.
+
 ### 📅 초기화
 - 작업 이력 정리 및 초기화 완료.
 

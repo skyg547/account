@@ -3,6 +3,50 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-10 (Codex 구현)
+### [고도화] ECL 계산 정책·Journal 미결/자동분개 경계 및 상세 문서 통합
+- **수정 범위**:
+  - ECL EAD/CRM 배열 결과를 `EadCalculationResult` 값 객체로 교체하고 모델 비율 검증 및 이름 있는 기본 CCF 정책을 적용.
+  - ECL 모델 파라미터 영속성을 기술 독립 출력 포트와 JPA 어댑터로 분리.
+  - ECL 등급·상품·LGD·담보배분·거시시나리오·전이행렬 포트의 Spring Data/캐시 기술을 infrastructure 어댑터로 이동.
+  - Journal 미결 영속성 출력 포트, 거래처별 DB 조건 조회, 자동분개 규칙 조회 포트, `JournalSide` 규칙 타입 적용.
+  - Journal 전기·잔액 서비스의 직접 Repository 의존 제거, 전표/엔트리/잔액 출력 포트 적용, GL/SL 조건 조회 DB 필터 적용.
+  - Journal 운영 대용량 저장 경로로 설정 기반 JDBC bulk 엔트리 insert와 GL/SL 잔액 upsert 어댑터 추가.
+  - 잔액 재집계 저장 흐름을 일별 집계 후 bulk 포트 저장으로 변경하고 `YearMonth` 기간 저장 표현을 `yyyy-MM`으로 고정.
+  - 구현 완료 후 남아 있던 오래된 stub/향후 개선/인메모리 필터 주석을 실제 업무·데이터 흐름 기준으로 최신화.
+- **문서 갱신**:
+  - ECL 문서 인덱스와 입문·업무 흐름·데이터 모델 상세화.
+  - Journal Ledger 입문·프로세스·스키마 문서 신규 작성 및 README 연결.
+  - `docs/todo_remediation_plan.md`에 완료 T47-T53 기록.
+- **검증**:
+  - ECL core/API/batch 통합 테스트·컴파일 성공.
+  - Journal Ledger core/API 통합 테스트 성공.
+  - Loan core의 journal 전기 조립 통합 테스트 성공.
+  - Journal JDBC bulk insert/upsert H2 집중 테스트 성공.
+  - 대상 코드 오래된 표현 검색, 문서 링크 검사, 변경 범위 diff check 성공.
+- **남은 리스크**:
+  - Journal JDBC bulk 모드는 H2 SQL 동작까지 검증했으며, 운영 DB 기준 배치 크기·인덱스·락 대기·동시 재집계 부하 검증이 남아 있다.
+
+### 📅 2026-06-09 (Codex 구현)
+### [고도화] 잔여 TODO 0건 및 DDD/헥사고날 경계 통합
+- **수정 범위**:
+  - Auth 로그인 성공/실패 감사와 설정 기반 임시 잠금 출력 포트/어댑터 추가.
+  - Payable 외부 지급 실행 포트, 멱등 키, 실패/재시도 상태, 정확한 payable ID 연결 및 contracts 기반 기준정보 경계 적용.
+  - Receivable 참조번호 우선 자동 매칭 정책, 중복 후보 실패 폐쇄, 수금 배분/잔액 이력 추가.
+  - Journal/Unsettled API DTO, 실제 actor 헤더, 미결 인바운드 포트, 반제 참조번호 멱등/감사 정보 추가.
+  - Loan 출력 포트, Reconciliation 표준 Aggregate, allowance JPA 소유권, Closing 조정 전표 통제, Tax 논리 취소, Asset actor 전달 변경 검증.
+- **문서 갱신**:
+  - 관련 모듈 README, `docs/todo_remediation_plan.md`, `CODEX_WORKLOG.md`, `GEMINI_REVIEW_PROMPT.md`
+- **검증**:
+  - 변경 모듈 집중 테스트 및 컴파일 명령 성공.
+  - `journal-ledger:api:test` 통합 검증 중 발견한 Flyway 버전 충돌과 구매 actor 누락을 수정한 뒤 재실행 성공.
+  - 최종 변경 모듈 통합 테스트/컴파일 68개 task 성공.
+  - Java 소스 `rg -ni "@todo" --glob "*.java" .` 결과 0건.
+  - 변경 범위 `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - Auth 임시 잠금과 Payable 로컬 지급 실행은 운영 환경에서 공유/실제 외부 어댑터로 교체해야 한다.
+  - 신규 지급/수금 영속 필드는 운영 통합 스키마 마이그레이션 정책 확인이 필요하다.
+
 ### 📅 2026-05-27 (Codex 구현)
 ### [고도화] Closing ECL 충당 배치의 ECL 산출 결과 포트 연동
 - **수정 범위**:
@@ -501,4 +545,27 @@
   - typed master-data applier가 아직 없는 유형은 의도적으로 `APPLY_FAILED`가 되므로 운영 적용 전 유형별 handler가 필요하다.
   - Gateway roleVersion 검증은 Auth 장애 시 요청을 거절하는 fail-closed 정책이며, 운영 환경에서 Auth 가용성과 `AUTH_VALIDATION_BASE_URL`을 확인해야 한다.
   - Docker 이미지 빌드와 서비스 smoke 기동은 실행하지 않았다.
+
+### 📅 2026-06-09 (Gemini 리팩토링 및 룰 점검)
+### [리팩토링] 승인 통제 및 외부 시스템 연동 강화 (Phase 4 마무리)
+- **수정 범위**:
+  - `journal-ledger/api/.../KafkaTransactionListener.java`: 단순 로깅 예외를 `RuntimeException`으로 전환, Spring Kafka DLQ 재처리 기반 마련 (T29).
+  - `reporting/core/.../LocalRegulatoryFilingGatewayAdapter.java`: 외부 규제기관 규제 프로토콜 연동 경계 설정 (가상 인증, 랜덤 실패 처리, UUID 포맷 준수) (T30).
+  - `reconciliation/.../ReconciliationService.java`: 마스터 데이터 정합성을 해치는 사유 코드 자동 생성을 제거, 예외 처리로 데이터 품질 통제 (T31).
+  - `reconciliation/.../ReconciliationController.java` & `ReconciliationService.java`: `X-Audit-User` 헤더를 통해 실제 실행자(Actor)를 전파, `SYSTEM` 하드코딩 제거 (T32).
+- **검증**: `.\gradlew :reconciliation:test`, `.\gradlew :journal-ledger:api:test`, `.\gradlew :reporting:core:test` 100% 통과 완료.
+- **상태 업데이트**: `docs/todo_remediation_plan.md` Progress T29~T32 `Done` 처리.
+
+### [리팩토링] 대사(Reconciliation) 모델 통폐합 및 정책 타입화 (Phase 5 마무리)
+- **수정 범위**:
+  - `ReconManagerService.java`: `performDeepReconciliation` 흐름을 `ReconciliationService`로 통폐합 유도 (Deprecated 처리) (T33).
+  - `ReconManagerService.java`: 하드코딩 SLA 3일을 `ReconUnitDefinition.getSlaDays()` 정책으로 변경 (T34).
+  - `ReconManagerService.java`: Untyped JSON `matchingRules`를 `ReconMatchingPolicy` Record로 타입 검증화 (T35).
+  - `ReconciliationService.java`: `ReconciliationUnit` 및 `DifferenceReasonCode` 삭제 시 논리 삭제(Archive, `setActive(false)`)를 적용 (T36, T37).
+  - `ReconciliationAdjustmentPolicy.java`: `AdjustmentPolicyConfig` Record와 Jackson `ObjectMapper`를 사용하여 Typed Policy로 변경 (T38).
+- **검증**: `.\gradlew :reconciliation:test` 100% 통과 완료.
+- **상태 업데이트**: `docs/todo_remediation_plan.md` Progress T33~T38 `Done` 처리 완료.
+
+### 🚀 다음 할 일
+- Phase 6 (ECL Summary Mapping Policy) 진행: `ecl` 모듈의 중복 맵핑 처리 정책 추출 및 `journal-ledger`의 하드코딩 상태 쿼리 제거.
 

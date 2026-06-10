@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EadCalculatorTest {
 
@@ -24,16 +25,13 @@ class EadCalculatorTest {
         BigDecimal limit = new BigDecimal("50000000");       // 5,000만
         BigDecimal ccf = new BigDecimal("0.10");             // UCCR 10%
 
-        // public Object[] calculateAdvancedEAD(BigDecimal outstandingAmt, BigDecimal notionalAmt, BigDecimal ccfRate, BigDecimal collateralAmt, BigDecimal totalHaircut)
-        // returns [eadStar, ccfRate, ead, crmDeduction, weightedLgd]
-        Object[] result = eadCalculator.calculateAdvancedEAD(outstanding, limit, ccf, BigDecimal.ZERO, BigDecimal.ZERO);
-        
-        BigDecimal eadStar = (BigDecimal) result[0];
-        BigDecimal eadRaw = (BigDecimal) result[2];
+        EadCalculationResult result = eadCalculator.calculateAdvancedEAD(
+                outstanding, limit, ccf, BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("0.20"), new BigDecimal("0.45"));
 
         // EAD = 10,000,000 + (40,000,000 * 0.1) = 14,000,000
-        assertEquals(0, new BigDecimal("14000000").compareTo(eadRaw));
-        assertEquals(0, new BigDecimal("14000000").compareTo(eadStar));
+        assertEquals(0, new BigDecimal("14000000").compareTo(result.eadRaw()));
+        assertEquals(0, new BigDecimal("14000000").compareTo(result.eadStar()));
     }
 
     @Test
@@ -45,17 +43,23 @@ class EadCalculatorTest {
         BigDecimal collateral = new BigDecimal("10000000");   
         BigDecimal baseHaircut = new BigDecimal("0.30");      
 
-        Object[] result = eadCalculator.calculateAdvancedEAD(outstanding, limit, ccf, collateral, baseHaircut);
-        
-        BigDecimal eadStar = (BigDecimal) result[0];
-        BigDecimal eadRaw = (BigDecimal) result[2];
-        BigDecimal crmDeduction = (BigDecimal) result[3];
+        EadCalculationResult result = eadCalculator.calculateAdvancedEAD(
+                outstanding, limit, ccf, collateral, baseHaircut,
+                new BigDecimal("0.20"), new BigDecimal("0.45"));
 
         // Raw EAD = 10M + (10M * 0.5) = 15M
         // Deduction = 10M * (1 - 0.3) = 7M
         // EAD* = 15M - 7M = 8M
-        assertEquals(0, new BigDecimal("15000000").compareTo(eadRaw));
-        assertEquals(0, new BigDecimal("7000000").compareTo(crmDeduction));
-        assertEquals(0, new BigDecimal("8000000").compareTo(eadStar));
+        assertEquals(0, new BigDecimal("15000000").compareTo(result.eadRaw()));
+        assertEquals(0, new BigDecimal("7000000").compareTo(result.crmDeduction()));
+        assertEquals(0, new BigDecimal("8000000").compareTo(result.eadStar()));
+    }
+
+    @Test
+    @DisplayName("모델 비율이 누락되면 임의 기본값으로 계산하지 않고 실패한다")
+    void failClosedWhenModelRateIsMissing() {
+        assertThrows(IllegalArgumentException.class, () -> eadCalculator.calculateAdvancedEAD(
+                new BigDecimal("100"), new BigDecimal("120"), new BigDecimal("0.50"),
+                BigDecimal.ZERO, BigDecimal.ZERO, null, new BigDecimal("0.45")));
     }
 }

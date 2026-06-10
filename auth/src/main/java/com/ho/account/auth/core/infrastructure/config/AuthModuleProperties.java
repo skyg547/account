@@ -11,6 +11,7 @@ public class AuthModuleProperties {
     private MasterData masterData = new MasterData();
     private Persistence persistence = new Persistence();
     private InternalApi internalApi = new InternalApi();
+    private LoginSecurity loginSecurity = new LoginSecurity();
     private List<User> users = new ArrayList<>();
 
     public Jwt getJwt() {
@@ -43,6 +44,14 @@ public class AuthModuleProperties {
 
     public void setInternalApi(InternalApi internalApi) {
         this.internalApi = internalApi;
+    }
+
+    public LoginSecurity getLoginSecurity() {
+        return loginSecurity;
+    }
+
+    public void setLoginSecurity(LoginSecurity loginSecurity) {
+        this.loginSecurity = loginSecurity;
     }
 
     public List<User> getUsers() {
@@ -116,6 +125,27 @@ public class AuthModuleProperties {
 
         public void setToken(String token) {
             this.token = token;
+        }
+    }
+
+    public static class LoginSecurity {
+        private int maxFailures = 5;
+        private long lockDurationMinutes = 15L;
+
+        public int getMaxFailures() {
+            return maxFailures;
+        }
+
+        public void setMaxFailures(int maxFailures) {
+            this.maxFailures = maxFailures;
+        }
+
+        public long getLockDurationMinutes() {
+            return lockDurationMinutes;
+        }
+
+        public void setLockDurationMinutes(long lockDurationMinutes) {
+            this.lockDurationMinutes = lockDurationMinutes;
         }
     }
 

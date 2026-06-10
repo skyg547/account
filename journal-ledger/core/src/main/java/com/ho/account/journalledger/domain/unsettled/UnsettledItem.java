@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "unsettled_items")
@@ -50,6 +51,14 @@ public class UnsettledItem {
     @Column(nullable = false)
     private boolean resolved = false;
 
+    @Column(length = 50)
+    private String lastSettledBy;
+
+    @Column(length = 100)
+    private String lastSettlementReference;
+
+    private LocalDateTime lastSettledAt;
+
     @PrePersist
     protected void onCreate() {
         if (status == null) status = "OPEN";
@@ -64,7 +73,19 @@ public class UnsettledItem {
         this.resolved = "CLEARED".equals(this.status);
     }
 
-    public void settle(BigDecimal amount) {
+    public void settle(BigDecimal amount, String actor, String settlementReference) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("반제 처리자는 필수입니다.");
+        }
+        if (settlementReference == null || settlementReference.isBlank()) {
+            throw new IllegalArgumentException("반제 참조번호는 필수입니다.");
+        }
+        if (settlementReference.trim().equals(this.lastSettlementReference)) {
+            return;
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("반제 금액은 0보다 커야 합니다.");
+        }
         if (remainingAmount.compareTo(amount) < 0) {
             throw new IllegalArgumentException("반제 금액이 잔액보다 클 수 없습니다. 잔액: " + remainingAmount + ", 반제요청: " + amount);
         }
@@ -76,6 +97,9 @@ public class UnsettledItem {
         } else {
             this.status = "PARTIAL";
         }
+        this.lastSettledBy = actor.trim();
+        this.lastSettlementReference = settlementReference.trim();
+        this.lastSettledAt = LocalDateTime.now();
         updateResolvedStatus();
     }
 }

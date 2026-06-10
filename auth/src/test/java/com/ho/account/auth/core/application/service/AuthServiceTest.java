@@ -5,6 +5,7 @@ import com.ho.account.auth.core.application.exception.InvalidCredentialsExceptio
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
+import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
@@ -26,7 +27,7 @@ class AuthServiceTest {
         PasswordVerifierPort passwordVerifierPort = (raw, stored) -> "{noop}".concat(raw).equals(stored);
         TokenIssuerPort tokenIssuerPort = user -> new TokenIssuerPort.IssuedToken("token-123", 3600L);
         AuthService authService = new AuthService(
-                userQueryPort, departmentValidationPort, passwordVerifierPort, tokenIssuerPort);
+                userQueryPort, departmentValidationPort, passwordVerifierPort, tokenIssuerPort, new RecordingLoginAttemptPort());
 
         LoginResponse response = authService.login("admin", "1234");
 
@@ -45,7 +46,8 @@ class AuthServiceTest {
                 new InMemoryUserQueryPort(Map.of()),
                 code -> true,
                 (raw, stored) -> true,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThatThrownBy(() -> authService.login("missing", "1234"))
                 .isInstanceOf(InvalidCredentialsException.class);
@@ -59,7 +61,8 @@ class AuthServiceTest {
                 userQueryPort,
                 code -> true,
                 (raw, stored) -> false,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThatThrownBy(() -> authService.login("admin", "wrong"))
                 .isInstanceOf(InvalidCredentialsException.class);
@@ -73,7 +76,8 @@ class AuthServiceTest {
                 userQueryPort,
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThatThrownBy(() -> authService.login("admin", "1234"))
                 .isInstanceOf(UserAccessDeniedException.class)
@@ -88,7 +92,8 @@ class AuthServiceTest {
                 userQueryPort,
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThatThrownBy(() -> authService.login("admin", "1234"))
                 .isInstanceOf(UserAccessDeniedException.class)
@@ -104,7 +109,8 @@ class AuthServiceTest {
                 userQueryPort,
                 departmentValidationPort,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThatThrownBy(() -> authService.login("admin", "1234"))
                 .isInstanceOf(UserAccessDeniedException.class)
@@ -120,12 +126,46 @@ class AuthServiceTest {
                 userQueryPort,
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L));
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                new RecordingLoginAttemptPort());
 
         assertThat(authService.validateTokenVersion("admin", 1L)).isTrue();
         assertThat(authService.validateTokenVersion("admin", 0L)).isFalse();
         assertThat(authService.validateTokenVersion("admin", 2L)).isFalse();
         assertThat(authService.validateTokenVersion("missing", 1L)).isFalse();
+    }
+
+    @Test
+    void blocksLoginBeforePasswordVerificationWhenAttemptPolicyIsLocked() {
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        attempts.locked = true;
+        AuthService authService = new AuthService(
+                new InMemoryUserQueryPort(Map.of()),
+                code -> true,
+                (raw, stored) -> true,
+                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                attempts);
+
+        assertThatThrownBy(() -> authService.login("admin", "1234"))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("temporarily locked");
+    }
+
+    private static final class RecordingLoginAttemptPort implements LoginAttemptPort {
+        private boolean locked;
+
+        @Override
+        public boolean isLocked(String username) {
+            return locked;
+        }
+
+        @Override
+        public void recordFailure(String username, String reason) {
+        }
+
+        @Override
+        public void recordSuccess(String username) {
+        }
     }
 
     private record InMemoryUserQueryPort(Map<String, AuthUser> users) implements AuthUserQueryPort {

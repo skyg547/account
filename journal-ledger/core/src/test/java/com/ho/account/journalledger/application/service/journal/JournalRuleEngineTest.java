@@ -1,8 +1,6 @@
 package com.ho.account.journalledger.application.service.journal;
 
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleConditionRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleDetailRepository;
-import com.ho.account.journalledger.domain.journal.repository.JournalRuleRepository;
+import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
@@ -29,20 +27,13 @@ import static org.mockito.Mockito.when;
 class JournalRuleEngineTest {
 
     @Mock
-    private JournalRuleRepository journalRuleRepository;
-    @Mock
-    private JournalRuleConditionRepository journalRuleConditionRepository;
-    @Mock
-    private JournalRuleDetailRepository journalRuleDetailRepository;
+    private JournalRuleQueryPort journalRuleQueryPort;
 
     private JournalRuleEngine engine;
 
     @BeforeEach
     void setUp() {
-        engine = new JournalRuleEngine(
-                journalRuleRepository,
-                journalRuleConditionRepository,
-                journalRuleDetailRepository);
+        engine = new JournalRuleEngine(journalRuleQueryPort);
     }
 
     @Test
@@ -74,9 +65,9 @@ class JournalRuleEngineTest {
         credit.setAmountExpression("${amount}");
         credit.setDescriptionExpression("'현금지급'");
 
-        when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
-        when(journalRuleConditionRepository.findByJournalRuleId(1L)).thenReturn(List.of(typeCondition, amountCondition));
-        when(journalRuleDetailRepository.findByJournalRuleId(1L)).thenReturn(List.of(debit, credit));
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(1L)).thenReturn(List.of(typeCondition, amountCondition));
+        when(journalRuleQueryPort.findDetails(1L)).thenReturn(List.of(debit, credit));
 
         Optional<JournalEntry> generated = engine.generateJournalEntry(
                 Map.of(
@@ -109,8 +100,8 @@ class JournalRuleEngineTest {
         typeCondition.setOperator(ConditionOperator.EQUALS);
         typeCondition.setValue("ASSET_DEPRECIATION");
 
-        when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
-        when(journalRuleConditionRepository.findByJournalRuleId(2L)).thenReturn(List.of(typeCondition));
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(2L)).thenReturn(List.of(typeCondition));
 
         Optional<JournalEntry> generated = engine.generateJournalEntry(
                 Map.of("transactionType", "ASSET_ACQUISITION", "amount", new BigDecimal("30000")),
@@ -136,9 +127,9 @@ class JournalRuleEngineTest {
         credit.setAccountSubjectCodeExpression("21100");
         credit.setAmountExpression("${transaction.totalAmount} / 11");
 
-        when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
-        when(journalRuleConditionRepository.findByJournalRuleId(3L)).thenReturn(List.of());
-        when(journalRuleDetailRepository.findByJournalRuleId(3L)).thenReturn(List.of(debit, credit));
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(3L)).thenReturn(List.of());
+        when(journalRuleQueryPort.findDetails(3L)).thenReturn(List.of(debit, credit));
 
         Optional<JournalEntry> generated = engine.generateJournalEntry(
                 Map.of("ruleCode", "VAT_RULE", "transaction", Map.of("totalAmount", new BigDecimal("110000"))),
@@ -162,9 +153,9 @@ class JournalRuleEngineTest {
         debit.setAccountSubjectCodeExpression("13500");
         debit.setAmountExpression("${transaction.amount}");
 
-        when(journalRuleRepository.findByIsActiveTrueOrderByPriorityAscVersionDesc()).thenReturn(List.of(rule));
-        when(journalRuleConditionRepository.findByJournalRuleId(4L)).thenReturn(List.of());
-        when(journalRuleDetailRepository.findByJournalRuleId(4L)).thenReturn(List.of(debit));
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(4L)).thenReturn(List.of());
+        when(journalRuleQueryPort.findDetails(4L)).thenReturn(List.of(debit));
 
         assertThatThrownBy(() -> engine.generateJournalEntry(
                 Map.of("ruleCode", "MISSING_VALUE_RULE", "transaction", Map.of("memo", "missing amount")),

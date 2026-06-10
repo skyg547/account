@@ -1,7 +1,7 @@
 package com.ho.account.mart.core.infrastructure.persistence.jpa;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
-import com.ho.account.shared.finance.entity.AllowanceInputPositionId;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
+import com.ho.account.mart.core.domain.mart.AllowanceInputPositionId;
 import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

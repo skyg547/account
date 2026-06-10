@@ -138,8 +138,10 @@ public class ReconciliationService {
      * @param id reconciliation unit id
      */
     public void deleteReconciliationUnit(Long id) {
-        // @todo DDD consistency: define cleanup/archive policy for related rules, runs, and differences before allowing unit deletion.
-        reconciliationUnitRepository.deleteById(id);
+        // T36 fixed: DDD consistency: Units with historical data should be soft-deleted (archived) rather than hard-deleted.
+        ReconciliationUnit existingUnit = findReconciliationUnitById(id);
+        existingUnit.setActive(false);
+        reconciliationUnitRepository.save(existingUnit);
     }
 
     // --- ReconciliationRule methods ---
@@ -259,8 +261,11 @@ public class ReconciliationService {
      * @param id reason code id
      */
     public void deleteDifferenceReasonCode(Long id) {
-        // @todo DDD consistency: prevent deleting reason codes referenced by historical differences, or introduce SCD2/inactive versioning.
-        differenceReasonCodeRepository.deleteById(id);
+        DifferenceReasonCode reasonCode = differenceReasonCodeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("DifferenceReasonCode not found with id: " + id));
+        // 과거 차이가 참조하는 사유 코드는 삭제하지 않고 신규 사용만 막습니다.
+        reasonCode.setActive(false);
+        differenceReasonCodeRepository.save(reasonCode);
     }
 
     /**
@@ -396,7 +401,7 @@ public class ReconciliationService {
                 diff.setTargetItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
 
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
-                        .orElseGet(() -> differenceReasonCodeRepository.save(createDefaultReasonCode()));
+                        .orElseThrow(() -> new IllegalStateException("Required generic mismatch reason code is missing. Please seed reference data."));
 
                 diff.setReasonCode(defaultReason);
                 diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING);

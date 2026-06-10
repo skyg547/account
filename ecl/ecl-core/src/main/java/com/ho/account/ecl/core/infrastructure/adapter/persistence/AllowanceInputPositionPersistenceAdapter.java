@@ -1,6 +1,6 @@
 package com.ho.account.ecl.core.infrastructure.adapter.persistence;
 
-import com.ho.account.shared.finance.entity.AllowanceInputPosition;
+import com.ho.account.ecl.core.application.port.out.AllowanceInputPositionSnapshot;
 import com.ho.account.ecl.core.application.port.out.AllowanceInputPositionRepository;
 import com.ho.account.ecl.core.infrastructure.adapter.persistence.jpa.JpaAllowanceInputPositionRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +19,18 @@ public class AllowanceInputPositionPersistenceAdapter implements AllowanceInputP
     private final JpaAllowanceInputPositionRepository jpaRepository;
 
     @Override
-    public List<AllowanceInputPosition> findByBaseDt(LocalDate baseDt) {
-        return jpaRepository.findByBaseDt(baseDt);
+    public List<AllowanceInputPositionSnapshot> findByBaseDt(LocalDate baseDt) {
+        return jpaRepository.findByBaseDt(baseDt).stream()
+                .map(entity -> new AllowanceInputPositionSnapshot(
+                        entity.getBaseDt(), entity.getAccNo(), entity.getCustomerCode(), entity.getCustomerName(),
+                        entity.getCustomerType(), entity.getIsSme(), entity.getCountryCode(), entity.getProductCode(),
+                        entity.getProductCategory(), entity.getCurrency(), entity.getOutstandingAmount(),
+                        entity.getLimitAmount(), entity.getInterestRate(), entity.getOpenDate(), entity.getMaturityDate(),
+                        entity.getRepaymentMethod(), entity.getGracePeriod(), entity.getRepaymentFreq(),
+                        entity.getInternalRating(), entity.getIndustryCode(), entity.getWarningLevel(),
+                        entity.getIsDebtRestructured(), entity.getDelinquentDays(), entity.getStaging(),
+                        entity.getBranchCode(), entity.getBusinessUnitCode()))
+                .toList();
     }
 }
 

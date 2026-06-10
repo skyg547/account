@@ -60,6 +60,7 @@ flowchart TB
         Customer[CrCustomer]
         Result[AllowanceEclResult]
         Params[AllowanceModelParams]
+        EadResult[EadCalculationResult]
     end
 
     subgraph Outbound[Outbound Port]
@@ -67,6 +68,7 @@ flowchart TB
         ResultRepo[AllowanceEclResultRepository]
         SummaryPort[AllowanceSummaryBuildPort]
         MasterRepo[Model Master Repositories]
+        ParamPort[AllowanceModelParameterRepository Port]
     end
 
     subgraph Infra[Infrastructure Adapter]
@@ -74,6 +76,7 @@ flowchart TB
         ResultJpa[JpaAllowanceEclResultRepository]
         SummaryJdbc[JdbcAllowanceSummaryPersistenceAdapter]
         MasterJpa[JPA Master Repositories]
+        ParamJpa[AllowanceModelParameterPersistenceAdapter]
     end
 
     Db[(PostgreSQL / H2)]
@@ -86,6 +89,7 @@ flowchart TB
     Application --> Domain
     Application --> Outbound
     Outbound --> Infra
+    ParamPort --> ParamJpa
     Infra --> Db
 ```
 

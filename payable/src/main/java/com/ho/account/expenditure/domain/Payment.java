@@ -27,6 +27,13 @@ public class Payment {
     @Column(name = "vendor_code", nullable = false, length = 20)
     private String vendorCode;
 
+    /**
+     * 이 지급으로 차감할 정확한 매입채무 ID입니다.
+     * 공급업체와 금액만으로 찾으면 같은 금액의 다른 채무를 잘못 갚을 수 있습니다.
+     */
+    @Column(name = "payable_id")
+    private Long payableId;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount; // 지급액
 
@@ -35,6 +42,12 @@ public class Payment {
 
     @Column(length = 100)
     private String referenceNo; // 외부 추적 번호
+
+    @Column(nullable = false)
+    private int executionAttempts;
+
+    @Column(length = 500)
+    private String failureReason;
 
     @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
@@ -62,19 +75,32 @@ public class Payment {
     }
 
     public boolean canExecute() {
-        return status == PaymentStatus.INITIATED || status == PaymentStatus.APPROVED;
+        return status == PaymentStatus.INITIATED
+                || status == PaymentStatus.APPROVED
+                || status == PaymentStatus.FAILED;
     }
 
-    public void markAsCompleted(String bankAccount) {
+    public void beginExecutionAttempt() {
+        if (!canExecute()) {
+            throw new IllegalStateException("현재 상태에서는 지급을 실행할 수 없습니다: " + status);
+        }
+        this.executionAttempts++;
+        this.failureReason = null;
+    }
+
+    public void markAsCompleted(String bankAccount, String referenceNo) {
         if (!canExecute()) {
             throw new IllegalStateException("현재 상태에서는 지급 완료 처리를 할 수 없습니다: " + status);
         }
         this.status = PaymentStatus.COMPLETED;
         this.bankAccount = bankAccount;
+        this.referenceNo = referenceNo;
+        this.failureReason = null;
     }
 
-    public void markAsFailed() {
+    public void markAsFailed(String failureReason) {
         this.status = PaymentStatus.FAILED;
+        this.failureReason = failureReason;
     }
 
     // Getter 및 Setter
@@ -87,6 +113,9 @@ public class Payment {
     public String getVendorCode() { return vendorCode; }
     public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
 
+    public Long getPayableId() { return payableId; }
+    public void setPayableId(Long payableId) { this.payableId = payableId; }
+
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
 
@@ -95,6 +124,12 @@ public class Payment {
 
     public String getReferenceNo() { return referenceNo; }
     public void setReferenceNo(String referenceNo) { this.referenceNo = referenceNo; }
+
+    public int getExecutionAttempts() { return executionAttempts; }
+    public void setExecutionAttempts(int executionAttempts) { this.executionAttempts = executionAttempts; }
+
+    public String getFailureReason() { return failureReason; }
+    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
 
     public PaymentStatus getStatus() { return status; }
     public void setStatus(PaymentStatus status) { this.status = status; }

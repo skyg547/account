@@ -7,10 +7,13 @@ import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
+import com.ho.account.receivable.application.port.out.CollectionAllocationPersistencePort;
+import com.ho.account.receivable.application.port.out.CollectionMatchingPolicyPort;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
 import com.ho.account.receivable.domain.Collection;
+import com.ho.account.receivable.domain.CollectionAllocation;
 import com.ho.account.receivable.domain.CollectionStatus;
 import com.ho.account.receivable.domain.Receivable;
 import com.ho.account.receivable.domain.ReceivableStatus;
@@ -47,6 +50,10 @@ class CollectionServiceTest {
     private JournalPostingPort journalPostingPort;
     @Mock
     private ReceivableAccountMappingPort receivableAccountMappingPort;
+    @Mock
+    private CollectionMatchingPolicyPort collectionMatchingPolicyPort;
+    @Mock
+    private CollectionAllocationPersistencePort collectionAllocationPersistencePort;
 
     private CollectionService service;
 
@@ -58,7 +65,9 @@ class CollectionServiceTest {
                 salesInvoicePersistencePort,
                 masterDataQueryPort,
                 journalPostingPort,
-                receivableAccountMappingPort);
+                receivableAccountMappingPort,
+                collectionMatchingPolicyPort,
+                collectionAllocationPersistencePort);
     }
 
     @Test
@@ -109,6 +118,11 @@ class CollectionServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CLR-002", "AR-002");
+        ArgumentCaptor<CollectionAllocation> allocationCaptor = ArgumentCaptor.forClass(CollectionAllocation.class);
+        verify(collectionAllocationPersistencePort).save(allocationCaptor.capture());
+        assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo("100.00");
+        assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo("0.00");
+        assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo("400.00");
     }
 
     private Collection collection() {

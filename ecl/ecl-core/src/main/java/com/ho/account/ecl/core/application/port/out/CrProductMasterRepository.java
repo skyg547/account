@@ -1,8 +1,7 @@
 package com.ho.account.ecl.core.application.port.out;
 
 import com.ho.account.ecl.core.domain.model.CrProductMaster;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -12,7 +11,7 @@ import java.util.Optional;
  * 은행의 모든 대출 상품 종류(예: 주택담보대출, 전세자금대출 등)를 관리하는 창구입니다.
  * 각 상품별로 부도가 났을 때 한도 대비 얼마나 더 인출될지(CCF) 등의 기준 정보를 가져올 때 사용됩니다.
  */
-public interface CrProductMasterRepository extends JpaRepository<CrProductMaster, Long> {
-    @Cacheable(value = "productMaster", key = "#productCode")
+public interface CrProductMasterRepository {
+    List<CrProductMaster> findAll();
     Optional<CrProductMaster> findByProductCode(String productCode);
 }
