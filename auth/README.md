@@ -58,7 +58,14 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 🧭 실행 방법 (Docker & Local)
+
+상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+
+**IntelliJ 로컬 실행:**
+1. `Config Server bootRun`을 먼저 실행합니다.
+2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
+3. `Auth bootRun`을 실행합니다.
 
 **최신 엔터프라이즈 Docker 환경 (권장):**
 이 모듈은 멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
@@ -66,12 +73,17 @@ MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `
 docker-compose up -d auth
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :auth:bootRun
+**PowerShell 로컬 실행:**
+```powershell
+.\gradlew :auth:bootRun --console=plain
+```
+
+**PowerShell 검증:**
+```powershell
+.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon
 ```
 
 **내부 API 토큰 설정:**
-```bash
-AUTH_INTERNAL_API_TOKEN=local-internal-auth-token
+```powershell
+$env:AUTH_INTERNAL_API_TOKEN='local-internal-auth-token'
 ```

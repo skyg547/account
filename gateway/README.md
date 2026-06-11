@@ -31,9 +31,17 @@ auth:
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 🧭 실행 방법 (Docker & Local)
+
+상세 문서는 [docs/README.md](./docs/README.md)에서 `concept`, `local-run` 순서로 확인합니다.
 
 **실행 순서:** Eureka(`discovery`)와 Config(`config-server`)가 켜진 후에 실행되어야 합니다.
+
+**IntelliJ 로컬 실행:**
+1. `Config Server bootRun`을 먼저 실행합니다.
+2. `Discovery bootRun`을 실행합니다.
+3. 필요한 뒤쪽 서비스(`Auth bootRun`, `Master Data bootRun`, `Journal Ledger API bootRun`)를 실행합니다.
+4. `Gateway bootRun`을 실행합니다.
 
 **최신 엔터프라이즈 Docker 환경 (권장):**
 루트 디렉토리의 통합 `docker-compose.yml`을 통해 헬스체크 및 의존성이 보장된 상태로 실행됩니다.
@@ -41,7 +49,12 @@ auth:
 docker-compose up -d gateway
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :gateway:bootRun
+**PowerShell 로컬 실행:**
+```powershell
+.\gradlew :gateway:bootRun --console=plain
+```
+
+**PowerShell 검증:**
+```powershell
+.\gradlew :gateway:test --console=plain --max-workers=1 --no-daemon
 ```

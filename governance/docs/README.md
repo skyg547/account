@@ -7,6 +7,7 @@
 - [process-flow.md](./process-flow.md): 감사, 승인, 권한 체크 흐름을 설명합니다.
 - [schema.md](./schema.md): audit/security 영역의 주요 엔티티와 관계를 정리합니다.
 - [beginner-guide.md](./beginner-guide.md): 초보자가 거버넌스 모듈의 목적을 이해할 수 있도록 쉽게 설명합니다.
+- [local-run.md](./local-run.md): IntelliJ와 Gradle에서 governance를 실행/검증하는 방법.
 
 ## 이 모듈이 하는 일
 
@@ -79,3 +80,4 @@
 - `audit` 패키지와 `security` 패키지가 함께 있지만, 목표 경계에서 사용자/메뉴/권한(IAM) 책임은 `auth` 모듈입니다.
 - `security` 패키지 모델은 이관 대상(legacy)으로 보고 신규 기능은 `governance`가 아닌 `auth`에서 확장해야 합니다.
 - `DataMaskingService`는 패턴별 문자열 마스킹만 제공합니다.
+- 로컬 실행은 `.run/Governance bootRun.run.xml`과 `.\gradlew :governance:test` 기준으로 확인합니다.

@@ -41,3 +41,13 @@ MSA(마이크로서비스 아키텍처)의 가장 큰 규칙은 "남의 폴더(�
 - ⭕ **되는 것:** "모든 부서가 DB를 쓸 때 공통으로 날짜를 기록하는 `BaseTimeEntity.java`" 같은 순수 기술 뼈대.
 
 > **명심하세요:** `shared-kernel`이 무거워지고 뚱뚱해지면 MSA의 장점(가볍고 독립적임)이 통째로 날아갑니다. 정말로 10개 서비스가 **'모두, 예외 없이'** 쓰는 기술적인 뼈대만 이곳에 넣어야 합니다.
+
+## 4. 🧭 문서와 로컬 검증
+
+- 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+- `shared-kernel`은 `java-library` 모듈이라 `bootRun`으로 실행하지 않습니다.
+- IntelliJ에서는 `Foundation Library Compile` 실행 구성을 사용합니다.
+
+```powershell
+.\gradlew :shared-kernel:compileJava --console=plain --max-workers=1 --no-daemon
+```

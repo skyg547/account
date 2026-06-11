@@ -33,9 +33,14 @@
 각 모듈의 세부 기능, IntelliJ 로컬 실행, Gradle 검증 방법은 **해당 모듈 디렉토리의 `README.md`**를 열어보세요. standalone Boot 앱이 아닌 library 모듈은 `bootRun` 대신 테스트/컴파일 중심으로 검증합니다.
 
 ### 3.1 코어 및 기준 정보 (기초)
-- `shared-kernel/README.md`: 공통 타입과 유틸리티
-- `contracts/README.md`: 모듈 간 통신(포트, DTO) 서식지
-- `master-data/README.md`: 계정, 부서, 거래처 등 기준 정보 센터
+- `shared-kernel/README.md`와 `shared-kernel/docs/README.md`: 공통 타입과 유틸리티. 현재 library 모듈이라 IntelliJ/Gradle 컴파일 중심으로 검증
+- `contracts/README.md`와 `contracts/docs/README.md`: 모듈 간 통신 포트와 DTO. 현재 library 모듈이라 IntelliJ/Gradle 컴파일 중심으로 검증
+- `master-data/README.md`와 `master-data/docs/README.md`: 계정, 부서, 거래처, 상품 등 기준 정보와 SCD2 흐름. Spring Boot 앱으로 IntelliJ `Master Data bootRun` 제공
+- `governance/README.md`와 `governance/docs/README.md`: 감사 로그, 승인, SOD, Auth 역할 반영 흐름. Spring Boot 앱으로 IntelliJ `Governance bootRun` 제공
+- `auth/README.md`와 `auth/docs/README.md`: 로그인, JWT, 역할 버전, 내부 역할 반영 API. Spring Boot 앱으로 IntelliJ `Auth bootRun` 제공
+- `config-server/README.md`와 `config-server/docs/README.md`: 중앙 설정 서버와 `config-repo` 로컬 설정 흐름. IntelliJ `Config Server bootRun` 제공
+- `discovery/README.md`와 `discovery/docs/README.md`: Eureka 서비스 레지스트리. IntelliJ `Discovery bootRun` 제공
+- `gateway/README.md`와 `gateway/docs/README.md`: API Gateway 라우팅, JWT 검증, fallback. IntelliJ `Gateway bootRun` 제공
 
 ### 3.2 업무 서브레저 (현업 부서)
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제

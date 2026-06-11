@@ -95,11 +95,24 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 연동 방법
+## 4. 🧭 실행 및 연동 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d governance
+상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+
+**IntelliJ 실행 순서:**
+1. `Config Server bootRun`을 먼저 실행합니다.
+2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
+3. Auth 역할 반영까지 확인하려면 `Auth bootRun`을 실행합니다.
+4. `Governance bootRun`을 실행합니다.
+
+**PowerShell 검증 명령:**
+```powershell
+.\gradlew :governance:test --console=plain --max-workers=1 --no-daemon
+```
+
+**로컬 실행 명령:**
+```powershell
+.\gradlew :governance:bootRun --console=plain
 ```
 
 **연동 주의사항:**

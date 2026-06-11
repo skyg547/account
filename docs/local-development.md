@@ -46,6 +46,7 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 | `gateway` | `com.ho.account.gateway.GatewayApplication` | 설정 파일 기준 | API Gateway |
 | `auth` | `com.ho.account.auth.AuthApplication` | 설정 파일 기준 | 인증 |
 | `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
+| `governance` | `com.ho.account.governance.GovernanceApplication` | 설정 파일 기준 | 감사/승인 |
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
 | `account-mart:mart-api` | `com.ho.account.mart.api.AllowanceMartApiApplication` | 8085 | ECL 입력 마트 API |
 | `account-mart:mart-batch` | `com.ho.account.mart.batch.AllowanceMartBatchApplication` | 8086 또는 CLI | ECL 입력 마트 배치 |
@@ -66,6 +67,14 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 | `ECL Batch Context` | `:ecl:ecl-batch:bootRun` | demo profile로 ECL batch 컨텍스트 기동, Job 자동 실행 없음 |
 | `Journal Ledger API bootRun` | `:journal-ledger:api:bootRun` | 전표/원장 API 로컬 실행 |
 | `Journal Ledger API JDBC Bulk` | `:journal-ledger:api:bootRun` | JDBC bulk 원장 저장 어댑터 모드로 실행 |
+| `Config Server bootRun` | `:config-server:bootRun` | 중앙 설정 서버 로컬 실행 |
+| `Discovery bootRun` | `:discovery:bootRun` | Eureka 서버 로컬 실행 |
+| `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
+| `Master Data bootRun` | `:master-data:bootRun` | 기준정보 API 로컬 실행 |
+| `Governance bootRun` | `:governance:bootRun` | 감사/승인 API 로컬 실행 |
+| `Gateway bootRun` | `:gateway:bootRun` | Gateway 로컬 실행 |
+| `Foundation Library Compile` | `:contracts:compileJava`, `:shared-kernel:compileJava` | 공통 library 모듈 컴파일 |
+| `Foundation Infra Tests` | foundation/infra 테스트·assemble 묶음 | 마지막 foundation/infra 문서 배치 검증 |
 
 Spring Boot 앱:
 1. `Run > Edit Configurations > + > Spring Boot`
@@ -81,6 +90,12 @@ Gradle task로 실행:
 ```
 
 ## 6. 인프라 실행
+
+IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서를 따릅니다.
+
+```text
+Config Server bootRun -> Discovery bootRun -> Auth/Master Data/Governance/Journals -> Gateway bootRun
+```
 
 전체 인프라를 한 번에 띄울 때:
 

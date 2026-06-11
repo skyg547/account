@@ -80,13 +80,26 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 방법 (Docker)
+## 4. 🧭 실행 및 연동 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d master-data
+상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+
+**IntelliJ 실행 순서:**
+1. `Config Server bootRun`을 먼저 실행합니다.
+2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
+3. `Master Data bootRun`을 실행합니다.
+
+**PowerShell 검증 명령:**
+```powershell
+.\gradlew :master-data:test --console=plain --max-workers=1 --no-daemon
+```
+
+**로컬 실행 명령:**
+```powershell
+.\gradlew :master-data:bootRun --console=plain
 ```
 
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
 - 데이터 수정 시 `terminate()` 메서드를 호출하여 SCD2 정책을 준수해야 합니다.
+- 운영에서는 `config-repo/master-data.yml`의 `ddl-auto: update`를 그대로 쓰지 말고 Flyway 기준으로 검증해야 합니다.

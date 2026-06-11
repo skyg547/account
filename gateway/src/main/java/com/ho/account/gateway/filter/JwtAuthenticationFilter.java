@@ -68,6 +68,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             try {
                 // 4. 비밀키를 이용해 토큰의 진위 여부 및 만료일을 검사합니다.
                 Claims claims = jwtParser.parseClaimsJws(token).getBody();
+                // @todo 역할 변경 직후 기존 JWT 차단이 필요한 경로는 Auth의 token-version 검증 API 또는 캐시된 roleVersion 정책과 연동한다.
                 ServerHttpRequest requestWithPrincipal = request.mutate()
                         .header("X-Auth-User", claims.getSubject())
                         .header("X-Auth-Roles", resolveRolesHeader(claims))

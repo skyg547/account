@@ -22,6 +22,7 @@ public class InMemoryLoginAttemptAdapter implements LoginAttemptPort {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryLoginAttemptAdapter.class);
 
+    // @todo 다중 인스턴스 운영에서는 Redis/DB 기반 LoginAttemptPort 어댑터로 교체해 모든 Auth 서버가 같은 잠금 상태를 공유해야 한다.
     private final ConcurrentMap<String, AttemptState> attempts = new ConcurrentHashMap<>();
     private final int maxFailures;
     private final long lockDurationMinutes;

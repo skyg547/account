@@ -22,7 +22,14 @@ MSA 환경에서는 트래픽에 따라 서버(지점)가 수십 개로 늘어�
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 🧭 실행 방법 (Docker & Local)
+
+상세 문서는 [docs/README.md](./docs/README.md)에서 `concept`, `local-run` 순서로 확인합니다.
+
+**IntelliJ 로컬 실행:**
+1. `Config Server bootRun`을 먼저 실행합니다.
+2. `Discovery bootRun`을 실행합니다.
+3. 브라우저에서 `http://localhost:8761`을 확인합니다.
 
 **최신 엔터프라이즈 Docker 환경 (권장):**
 멀티스테이지 Dockerfile이 적용되어 있으며, 루트 디렉토리의 통합 `docker-compose.yml`을 이용하면 다른 서비스와의 의존성에 맞춰 자동으로 실행됩니다.
@@ -31,7 +38,12 @@ docker-compose up -d discovery
 ```
 실행 후 브라우저에서 `http://localhost:8761`에 접속하면, 현재 우리 시스템에 어떤 마이크로서비스들이 살아있는지 한눈에 볼 수 있는 대시보드가 열립니다.
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :discovery:bootRun
+**PowerShell 로컬 실행:**
+```powershell
+.\gradlew :discovery:bootRun --console=plain
+```
+
+**PowerShell 검증:**
+```powershell
+.\gradlew :discovery:test --console=plain --max-workers=1 --no-daemon
 ```

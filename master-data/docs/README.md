@@ -35,3 +35,10 @@ Controllers must not expose JPA entities directly. Application services must dep
 1. [beginner-guide.md](beginner-guide.md)
 2. [process-flow.md](process-flow.md)
 3. [schema.md](schema.md)
+4. [local-run.md](local-run.md)
+
+## Local Verification
+
+- `master-data`는 Spring Boot 앱입니다.
+- 로컬 실행 설정은 `.run/Master Data bootRun.run.xml`을 사용합니다.
+- 단위 검증은 `.\gradlew :master-data:test --console=plain --max-workers=1 --no-daemon`로 수행합니다.

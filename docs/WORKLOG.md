@@ -4,6 +4,29 @@
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
 ### 📅 2026-06-11 (Codex 문서)
+### [문서] Foundation/Infra 문서 9차 통합 및 IntelliJ 실행 설정 정리
+- **수정 범위**:
+  - `contracts/docs/local-run.md`, `shared-kernel/docs/local-run.md`를 추가하고 `README.md`/docs 인덱스에서 library 모듈 컴파일 검증 흐름을 연결.
+  - `master-data/docs/beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 SCD2 기준정보, 변경 요청 승인/반영, 포트/어댑터 흐름을 현재 코드 기준으로 통합.
+  - `governance/docs/beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 감사 로그, 승인, SOD, Auth 역할 반영 흐름을 현재 코드 기준으로 통합.
+  - `auth/docs`, `config-server/docs`, `gateway/docs/README.md`, `gateway/docs/local-run.md`, `discovery/docs/README.md`, `discovery/docs/local-run.md`를 추가.
+  - 깨진 `discovery/docs/concept.md` 원문을 `discovery/docs/archive/concept_legacy_corrupt_2026-06-11.md`로 이동해 보존하고, 새 `concept.md`를 현재 Eureka 흐름 기준으로 작성.
+  - `auth`, `gateway`, `discovery`, `config-server`, `master-data`, `governance` README에 IntelliJ 실행 순서와 PowerShell Gradle 명령을 보강.
+  - `config-repo/README.md`, `docs/README.md`, `docs/local-development.md`, `docs/module-documentation-sequence.md`에 foundation/infra 실행 순서와 IntelliJ `.run` 설정을 반영.
+  - Foundation/Infra용 IntelliJ 공유 Gradle Run Configuration `.run/Config Server bootRun.run.xml`, `.run/Discovery bootRun.run.xml`, `.run/Auth bootRun.run.xml`, `.run/Master Data bootRun.run.xml`, `.run/Governance bootRun.run.xml`, `.run/Gateway bootRun.run.xml`, `.run/Foundation Library Compile.run.xml`, `.run/Foundation Infra Tests.run.xml` 추가.
+  - `InMemoryLoginAttemptAdapter`, `JwtAuthenticationFilter`, `MasterDataChangeRequestService`, `MasterApprovalService`에 운영 개선 필요 지점을 `@todo`로 명시. 총 5건.
+- **검증**:
+  - `.\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - `auth` 로그인 실패/잠금은 운영 다중 인스턴스에서 Redis/DB 기반 공유 어댑터가 필요하다.
+  - `gateway`는 JWT 서명 검증 후 roleVersion을 전달하지만, 역할 변경 직후 기존 JWT 차단은 Auth token-version 검증 또는 캐시 정책과 연동해야 한다.
+  - `master-data` 변경 요청 반영은 targetType별 실제 도메인 applier와 대량 예약 반영 chunk 처리가 필요하다.
+  - `governance` 승인 흐름은 미지원 masterType을 조용히 승인하지 않는 fail-closed 정책이 필요하다.
+
+### 📅 2026-06-11 (Codex 문서)
 ### [문서] Reconciliation/Reporting 문서 8차 통합 및 로컬 실행 가이드 정리
 - **수정 범위**:
   - 기존 `reconciliation/docs/README.md` 인덱스를 `reconciliation/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 보존.

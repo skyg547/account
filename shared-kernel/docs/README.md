@@ -45,3 +45,9 @@
 - **Masked (Annotation):** `pattern` 속성 지원 (`REG_NO`, `ACCOUNT`, `EMAIL`, `DEFAULT`).
 
 ---
+
+## 4. 로컬 검증
+
+- `shared-kernel`은 `java-library` 모듈이며 standalone Boot 앱이 아닙니다.
+- IntelliJ에서는 `Foundation Library Compile` 또는 `Foundation Infra Tests` 실행 구성을 사용합니다.
+- 상세 실행 순서는 [local-run.md](./local-run.md)를 참고합니다.

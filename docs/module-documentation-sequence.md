@@ -23,7 +23,7 @@
 | 6 | `payable`, `receivable` | Done | AP/AR 수금·지급/반제 흐름, library 모듈 실행 가이드, IntelliJ 테스트 설정 정리 |
 | 7 | `asset-lease`, `tax` | Done | 자산/리스/세금계산서 실행·검증 흐름, archive 보존, IntelliJ 실행 설정 정리 |
 | 8 | `reconciliation`, `reporting` | Done | 대사/보고 문서와 감독보고 흐름 정리 |
-| 9 | foundation/infra | Next | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
+| 9 | foundation/infra | Done | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 
 ## 1차 완료 상세
 
@@ -223,3 +223,32 @@ git diff --check
 - 변경 문서 상대 링크 검사 성공
 - `git diff --check` 오류 없음, CRLF 안내만 출력
 - 다음 순서는 foundation/infra 문서 통합입니다.
+
+## 9차 완료 상세
+
+### foundation/infra
+
+- `contracts`, `shared-kernel`에 `local-run.md`를 추가하고 library 모듈 컴파일 검증 흐름을 README/docs에 연결했습니다.
+- `master-data/docs`에 `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 SCD2 기준정보, 변경 요청 승인/반영, 포트/어댑터 흐름을 통합했습니다.
+- `governance/docs`에 `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 감사 로그, 승인, SOD, Auth 역할 반영 흐름을 통합했습니다.
+- `auth/docs`를 신설해 로그인, JWT, roleVersion, 내부 역할 반영 API, 로컬 실행 설정을 정리했습니다.
+- `config-server/docs`를 신설해 `config-repo` 기반 중앙 설정 조회 흐름과 로컬 실행 방법을 정리했습니다.
+- `gateway/docs/README.md`, `local-run.md`를 추가하고 `concept.md`를 현재 `config-repo/gateway-service.yml` 라우트 기준으로 보강했습니다.
+- 깨진 `discovery/docs/concept.md` 원문은 `discovery/docs/archive/concept_legacy_corrupt_2026-06-11.md`로 이동해 보존하고, 새 `concept.md`, `README.md`, `local-run.md`를 작성했습니다.
+- `auth`, `gateway`, `discovery`, `config-server`, `master-data`, `governance` README에 IntelliJ 실행 순서와 PowerShell Gradle 명령을 보강했습니다.
+- `.run/Config Server bootRun.run.xml`, `.run/Discovery bootRun.run.xml`, `.run/Auth bootRun.run.xml`, `.run/Master Data bootRun.run.xml`, `.run/Governance bootRun.run.xml`, `.run/Gateway bootRun.run.xml`, `.run/Foundation Library Compile.run.xml`, `.run/Foundation Infra Tests.run.xml`을 추가했습니다.
+- `InMemoryLoginAttemptAdapter`, `JwtAuthenticationFilter`, `MasterDataChangeRequestService`, `MasterApprovalService`에 운영 개선 필요 지점을 `@todo`로 명시했습니다.
+
+## 9차 검증
+
+```powershell
+.\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain --max-workers=1 --no-daemon
+git diff --check
+```
+
+결과:
+- foundation/infra Gradle 검증 성공
+- IntelliJ `.run` XML 파싱 성공
+- 변경 문서 상대 링크 검사 성공
+- `git diff --check` 오류 없음, CRLF 안내만 출력
+- 모듈별 문서 통합 진행표 기준 0~9차 완료

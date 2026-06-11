@@ -36,3 +36,13 @@
    - 예: `LoanApprovedEvent` (대출 승인 이벤트 껍데기)
 3. **Port (인터페이스 명세서):** 
    - "저쪽 부서에 이런 기능이 있으니 호출할 수 있다"는 연락처 명세서입니다. 구현체(진짜 코드)는 없고 껍데기만 있습니다.
+
+## 🧭 문서와 로컬 검증
+
+- 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+- `contracts`는 `java-library` 모듈이라 `bootRun`으로 실행하지 않습니다.
+- IntelliJ에서는 `Foundation Library Compile` 실행 구성을 사용합니다.
+
+```powershell
+.\gradlew :contracts:compileJava --console=plain --max-workers=1 --no-daemon
+```

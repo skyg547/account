@@ -24,3 +24,14 @@ MSA 환경에서는 서비스가 10~20개씩 됩니다. 만약 데이터베이�
 
 - 이 모듈은 단독 실행되는 서버가 아닙니다.
 - `docker-compose` 환경에서는 `config-server`가 로컬 볼륨이나 깃허브를 통해 이 저장소의 파일들을 읽어가도록 세팅되어 있습니다.
+
+## 4. 로컬 확인
+
+`config-server`를 루트 디렉터리에서 실행한 뒤 아래 URL로 설정이 내려오는지 확인합니다.
+
+```powershell
+Invoke-WebRequest http://localhost:8888/master-data/default
+Invoke-WebRequest http://localhost:8888/gateway-service/default
+```
+
+IntelliJ에서는 `Config Server bootRun` 실행 구성을 사용합니다.

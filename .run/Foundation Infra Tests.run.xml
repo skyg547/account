@@ -1,0 +1,31 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Foundation Infra Tests" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="--console=plain --max-workers=1" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":contracts:compileJava" />
+          <option value=":shared-kernel:compileJava" />
+          <option value=":master-data:test" />
+          <option value=":governance:test" />
+          <option value=":auth:test" />
+          <option value=":gateway:test" />
+          <option value=":discovery:test" />
+          <option value=":config-server:assemble" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <method v="2" />
+  </configuration>
+</component>

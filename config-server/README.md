@@ -20,7 +20,14 @@
 
 ---
 
-## 3. 🐳 실행 방법 (Docker & Local)
+## 3. 🧭 실행 방법 (Docker & Local)
+
+상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `local-run` 순서로 확인합니다.
+
+**IntelliJ 로컬 실행:**
+1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
+2. `Config Server bootRun`을 실행합니다.
+3. `http://localhost:8888/master-data/default`로 설정 조회를 확인합니다.
 
 **최신 엔터프라이즈 Docker 환경 (권장):**
 이 모듈은 멀티스테이지 Dockerfile을 통해 소스코드 빌드부터 실행까지 통합되어 있습니다.
@@ -29,7 +36,12 @@
 docker-compose up -d config-server
 ```
 
-**로컬 개발 환경 (전통적 방식):**
-```bash
-./gradlew :config-server:bootRun
+**PowerShell 로컬 실행:**
+```powershell
+.\gradlew :config-server:bootRun --console=plain
+```
+
+**PowerShell 검증:**
+```powershell
+.\gradlew :config-server:assemble --console=plain --max-workers=1 --no-daemon
 ```
