@@ -197,6 +197,7 @@ public class ReconciliationService {
      * @param id reconciliation rule id
      */
     public void deleteReconciliationRule(Long id) {
+        // @todo 대사 실행 이력이 참조할 수 있는 규칙은 물리 삭제 대신 active=false 논리 비활성화로 전환한다.
         reconciliationRuleRepository.deleteById(id);
     }
 
@@ -563,6 +564,7 @@ public class ReconciliationService {
         String currencyCode = readText(root, "adjustmentCurrencyCode");
         currencyCode = currencyCode != null ? currencyCode : "KRW";
 
+        // @todo 시간 기반 sourceDocumentId는 재시도 시 다른 조정전표를 만들 수 있으므로 run/difference 기준 멱등 키로 교체한다.
         JournalEntryCommand command = new JournalEntryCommand(
                 LocalDate.now(),
                 accountingDate,

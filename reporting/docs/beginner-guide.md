@@ -20,3 +20,13 @@
 5. 보고서를 FINAL 상태로 확정하고 `RPT_SNAPSHOT_*` 테이블에 저장합니다.
 6. 주석 마트가 필요하면 FINAL 스냅샷의 note 번호가 있는 라인을 `RPT_DISCLOSURE_NOTE_MART`에 전개합니다.
 7. 감독보고 제출 시 `RPT_REGULATORY_REPORT_MAPPING`으로 주석 마트 금액을 제출 필드에 매핑하고 `RPT_REGULATORY_FILING`에 접수 결과를 저장합니다.
+
+## 모듈 구조
+
+`reporting`은 한 모듈처럼 보이지만 실제 코드는 세 하위 모듈로 나뉩니다.
+
+- `reporting:core`: 보고서 생성, 스냅샷, 주석 마트, 감독보고 제출 도메인과 서비스.
+- `reporting:api`: HTTP 컨트롤러.
+- `reporting:batch`: 월말 보고서 생성을 호출하는 배치 인바운드 어댑터.
+
+현재 세 하위 모듈은 standalone Boot 앱이 아니라 `java-library` 모듈입니다. API를 실제 HTTP로 호출하려면 reporting 컴포넌트를 스캔하는 호스트 Spring Boot 애플리케이션이 필요합니다.

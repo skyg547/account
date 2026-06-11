@@ -1,0 +1,106 @@
+# Reconciliation Module Docs
+
+`reconciliation` 모듈은 대사 단위 정의, 대사 규칙 관리, 대사 실행, 차이 추적, 차이 해소를 담당합니다.
+
+## 문서 목록
+
+- [process-flow.md](./process-flow.md): 대사 실행과 차이 처리 흐름을 설명합니다.
+- [schema.md](./schema.md): 주요 엔티티와 관계, 필드를 정리합니다.
+- [beginner-guide.md](./beginner-guide.md): 초보자가 대사 업무를 이해할 수 있도록 쉽게 설명합니다.
+
+## 이 모듈이 하는 일
+
+1. 어떤 대사를 할지 `ReconciliationUnit`으로 정의합니다.
+2. 자동 매칭 규칙을 `ReconciliationRule`로 등록합니다.
+3. 실행 결과를 `ReconciliationRun`으로 남깁니다.
+4. 차이가 나면 `ReconciliationDifference`로 기록합니다.
+5. 사유코드, 담당자, SLA, 조정분개를 연결해 해소합니다.
+
+## 핵심 진입점
+
+- `ReconciliationController`
+- `ReconciliationService`
+- `AutomatedMatchingEngine`
+- `ReconManagerService` (Deprecated)
+
+## 현재 아키텍처 및 구현 기준 (Phase 5 반영)
+
+- **대사 모델 통합**: 과거 두 세트로 나뉘어 있던 대사 라이프사이클(`ReconManagerService` vs `ReconciliationService`)을 `ReconciliationService` 중심으로 단일화 및 통합(`ReconManagerService` Deprecated)하여 비즈니스 일관성을 높였습니다.
+- **원천 스냅샷 수집**: 원천 값은 더미나 `criteriaJson`이 아니라, `ExternalReconSnapshotPort`를 통해 실제 데이터 소스나 외부 어댑터로부터 런타임에 동적으로 조회합니다. 어댑터 실패 시 무음 처리(Silently zero)되지 않고 명시적으로 실패(Fail-Closed) 처리됩니다.
+- **대상 전표 집계**: 타겟 원장 금액은 하드코딩된 차변(`DEBIT`)이 아닌, 대사 단위(Unit) 정책에 정의된 대상 계정코드와 정상 잔액 방향(`targetSide`) 필터를 적용해 `JournalQueryPort`로 집계합니다.
+- **자동 매칭 성능 및 규칙**:
+  - `AutomatedMatchingEngine`는 전표 라인을 부호 반영 금액 기준으로 인덱싱하고 허용오차 범위 내 후보만 스캔하여 처리 속도를 높입니다.
+  - 한 번 매칭된 전표는 재사용되지 않으며 반대 방향 금액 매칭이 방지됩니다.
+- **조정 전표(Adjustment) 및 Typed Policy**:
+  - 차이(Variance) 발생 시 자동 조정분개를 만들기 위한 통화(Currency), 멱등성 키, 사유 코드는 정책 기반으로 동작합니다.
+  - JSON의 `adjustmentDebitAccountCode`, `adjustmentCreditAccountCode` 파싱은 구조체(`AdjustmentPolicyConfig`) 레벨의 검증(Typed Policy)을 거쳐 오입력을 초기에 방지합니다.
+- **안전한 데이터 보존 (논리 삭제 및 통제)**:
+  - 대사 단위(`ReconciliationUnit`)나 사유 코드(`DifferenceReasonCode`) 삭제 시 시스템에서 물리적으로 삭제(`delete`)하지 않고 비활성화(`setActive(false)`) 처리하여 기존 감사 기록과 연관성을 영구 보존합니다.
+  - `GENERIC_MISMATCH` 사유코드 등 필수 기준정보 누락 시 런타임에 쓰레기 데이터를 만들지 않고 즉시 예외를 발생시켜 마스터 데이터 정합성을 강제합니다.
+  - SLA 기한은 하드코딩(3일)되지 않고 대사 단위 마스터 정보(`slaDays`)를 따릅니다.
+  - API 통신 시 `X-Audit-User`를 명시적으로 넘겨 실제 결산/대사 담당자의 Actor 정보를 보존합니다 (`SYSTEM` 하드코딩 제거).
+
+---
+
+## Architecture
+
+The reconciliation module follows the layered architecture of the existing Spring Boot application:
+
+*   **`domain` package:** Contains the JPA entities for `ReconciliationUnit`, `ReconciliationRule`, `ReconciliationRun`, `ReconciliationDifference`, and `DifferenceReasonCode`.
+*   **`repository` package:** Contains Spring Data JPA repositories for the domain entities.
+*   **`service` package:** Contains the core business logic in `ReconciliationService`.
+*   **`dto` package:** Contains Data Transfer Objects for request and response payloads.
+*   **`web` package:** Contains `ReconciliationController` which exposes REST endpoints.
+
+## Entities
+
+### `ReconciliationUnit`
+Defines what is being reconciled.
+*   `id`: Primary Key
+*   `name`: Unique name
+*   `description`: Description of the unit
+*   `frequency`: `DAILY`, `MONTHLY`, etc.
+*   `reconciliationType`: `BANK_BOOK`, `GL_SUBLEDGER`, etc.
+*   `criteriaJson`: JSON string defining dynamic criteria (e.g., `{"bankAccount":"123-456", "currency":"KRW"}`)
+*   `isActive`: Boolean
+
+### `ReconciliationRule`
+Defines matching logic for a `ReconciliationUnit`.
+*   `id`: Primary Key
+*   `reconciliationUnit`: Many-to-one relationship
+*   `name`: Rule name
+*   `toleranceType`: `NONE`, `ABSOLUTE`, `PERCENTAGE`
+*   `toleranceValue`: Value for tolerance
+*   `priority`: Order of rule application
+*   `isActive`: Boolean
+
+### `DifferenceReasonCode`
+Categorizes reasons for discrepancies.
+*   `id`: Primary Key
+*   `code`: Unique code
+*   `name`: Display name
+*   `isAdjustable`: Boolean, indicates if an adjustment entry is needed
+*   `isActive`: Boolean
+
+### `ReconciliationRun`
+Records each execution of a reconciliation.
+*   `id`: Primary Key
+*   `reconciliationUnit`: Many-to-one relationship
+*   `status`: `RUNNING`, `SUCCESS`, `FAILED`, `PARTIAL`
+*   Statistics: total source/target items, matched/unmatched amounts, etc.
+*   `runBy`: User who initiated the run
+
+### `ReconciliationDifference`
+Details specific discrepancies.
+*   `id`: Primary Key
+*   `reconciliationRun`: Many-to-one relationship
+*   `amountExpected`, `amountActual`, `differenceAmount`: Financial details
+*   `reasonCode`: Many-to-one relationship
+*   `adjustmentJournalEntry`: Linked JournalEntry
+*   `status`: `PENDING`, `ASSIGNED`, `RESOLVED`, `IGNORED`
+*   `assignedToUser`: User assigned to resolve
+*   `slaDueDate`: Service Level Agreement due date
+
+## API Endpoints
+
+The `ReconciliationController` (`/api/reconciliation`) provides endpoints for Units, Rules, Reason Codes, Runs, and Differences.

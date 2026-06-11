@@ -30,7 +30,7 @@
 
 ## 3. 📦 모듈별 상세 문서 학습 가이드
 
-각 모듈의 세부적인 기능과 도커 실행 방법은 **해당 모듈 디렉토리의 `README.md`**를 열어보세요. (모든 모듈의 `README.md`에 초보자 설명이 추가되어 있습니다.)
+각 모듈의 세부 기능, IntelliJ 로컬 실행, Gradle 검증 방법은 **해당 모듈 디렉토리의 `README.md`**를 열어보세요. standalone Boot 앱이 아닌 library 모듈은 `bootRun` 대신 테스트/컴파일 중심으로 검증합니다.
 
 ### 3.1 코어 및 기준 정보 (기초)
 - `shared-kernel/README.md`: 공통 타입과 유틸리티
@@ -48,8 +48,8 @@
 ### 3.3 핵심 회계 엔진 (결산 부서)
 - `journal-ledger/README.md`: 전표 기록 및 원장(GL/SL) 관리
 - `closing/README.md`와 `closing/docs/README.md`: 월마감, 기간 잠금, FX/ECL 결산 배치
-- `reconciliation/README.md`: 외부 데이터와의 자동 대사
-- `reporting/README.md`: B/S, I/S 재무제표 생성
+- `reconciliation/README.md`와 `reconciliation/docs/README.md`: 외부 데이터와의 자동 대사, 차이/조정 전표 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
+- `reporting/README.md`와 `reporting/docs/README.md`: B/S, I/S 재무제표 생성, 주석 마트, 감독보고 제출. 현재 `core/api/batch` library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 
 ### 3.4 대손충당금 입력/산출
 - `account-mart/README.md`와 `account-mart/docs/README.md`: ECL 입력 snapshot 생성

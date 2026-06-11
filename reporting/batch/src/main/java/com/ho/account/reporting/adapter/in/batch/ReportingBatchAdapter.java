@@ -25,6 +25,7 @@ public class ReportingBatchAdapter {
      * 초보자 가이드: 실제로는 Spring Batch의 Job/Step 구조를 사용하여 구현됩니다.
      */
     public void runMonthlyClosingBatch(int year, int month) {
+        // @todo 운영 대량 실행은 Spring Batch Job/Step과 JobParameter(baseDate/requester)로 전환해 재실행 가능성을 보장한다.
         log.info("Starting Monthly Closing Batch for {}-{}", year, month);
 
         // 보고서 생성 기준일 설정 (해당 월의 말일)

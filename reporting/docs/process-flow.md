@@ -90,3 +90,26 @@ sequenceDiagram
 - `application.port.out`: 원장 조회, 매핑 조회, 스냅샷 저장 계약만 정의합니다.
 - `domain.model`: 보고서, 라인, 매핑 유효성 같은 비즈니스 규칙을 보유합니다.
 - `infrastructure.persistence`: JPA/Flyway 기반 DB 접근과 인메모리 데모 어댑터를 구현합니다.
+
+## 문서 Export와 Drill-through
+
+- `POST /api/v1/reporting/generate/document`: 보고서 생성 후 PDF 또는 CSV 형식으로 렌더링합니다.
+- `GET /api/v1/reporting/disclosure-notes/drill-down`: 주석 마트 엔트리의 원천 계정코드를 찾아 해당 월의 전표 상세를 `JournalQueryPort`로 조회합니다.
+
+## Batch Adapter 흐름
+
+```mermaid
+flowchart TD
+    A[ReportingBatchAdapter.runMonthlyClosingBatch] --> B[월말 baseDate 계산]
+    B --> C[Generate BALANCE_SHEET]
+    B --> D[Generate INCOME_STATEMENT]
+    C --> E[ReportingService.generate]
+    D --> E
+```
+
+현재 Batch Adapter는 Spring Batch Job/Step이 아니라 유즈케이스 호출 래퍼입니다. 운영 배치로 확장할 때는 `baseDate`, `requester`, `statementType`을 JobParameter로 받아 재실행 가능하게 만들어야 합니다.
+
+## 현재 고도화 후보
+
+- `ReportingBatchAdapter`는 운영 배치 전환 시 Spring Batch `Job`/`Step`과 `JobParameter` 기반 재실행 구조로 분리해야 합니다. 이 지점은 코드에 `@todo`로 남겼습니다.
+- `LocalRegulatoryFilingGatewayAdapter`의 랜덤 반려 시뮬레이션은 운영/테스트 재현성을 위해 profile 또는 설정값으로 제어해야 합니다. 이 지점도 코드에 `@todo`로 남겼습니다.

@@ -3,6 +3,33 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-11 (문서 통합 8차: reconciliation/reporting)
+- Reconciliation 문서:
+  - 기존 `reconciliation/docs/README.md`를 `reconciliation/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 원문 보존.
+  - `reconciliation/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 대사 단위, 대사 규칙, 실행 이력, 차이 배정/해소, 외부 단계 집계, 조정 전표 흐름을 통합했다.
+  - `reconciliation/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 모듈 기준의 Gradle 테스트/컴파일 안내로 교체했다.
+- Reporting 문서:
+  - `reporting/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `local-run.md`를 현재 `reporting:core`, `reporting:api`, `reporting:batch` 하위 모듈 구조와 감독보고/주석 마트 흐름 기준으로 보강했다.
+  - `reporting/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 하위 모듈 기준의 Gradle 테스트/컴파일 안내로 교체했다.
+- 실행 설정:
+  - `.run/Reconciliation Module Tests.run.xml`, `.run/Reporting Module Tests.run.xml`을 추가했다.
+- 주석 최신화:
+  - `ReconciliationService`에 대사 규칙 물리 삭제와 조정 전표 멱등 키 개선 필요 지점 2건을 `@todo`로 남겼다.
+  - `ReportingBatchAdapter`에 운영 Spring Batch Job/Step 전환 필요 지점 1건을 `@todo`로 남겼다.
+  - `LocalRegulatoryFilingGatewayAdapter`에 랜덤 반려 시뮬레이션 설정화 필요 지점 1건을 `@todo`로 남겼다.
+- 진행표:
+  - `docs/module-documentation-sequence.md`에서 reconciliation/reporting을 Done으로 전환하고 다음 순서를 foundation/infra로 지정했다.
+- 검증:
+  - `.\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- 남은 리스크:
+  - Reconciliation 규칙 삭제는 현재 물리 삭제라 과거 대사 이력 감사 관점에서 논리 비활성화 전환이 필요하다.
+  - Reconciliation 자동 조정 전표 source document id는 시간 기반이라 장애 재시도 시 멱등 키 보강이 필요하다.
+  - Reporting Batch Adapter는 운영 대량 배치 전환 시 Job/Step/JobParameter 구조가 필요하다.
+  - Reporting 로컬 감독보고 게이트웨이의 랜덤 반려는 테스트 재현성을 위해 설정화가 필요하다.
+
 ## 2026-06-11 (문서 통합 7차: asset-lease/tax)
 - Asset-Lease 문서:
   - 기존 `asset-lease/docs/README.md`를 `asset-lease/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 원문 보존.

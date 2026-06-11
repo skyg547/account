@@ -4,6 +4,26 @@
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
 ### 📅 2026-06-11 (Codex 문서)
+### [문서] Reconciliation/Reporting 문서 8차 통합 및 로컬 실행 가이드 정리
+- **수정 범위**:
+  - 기존 `reconciliation/docs/README.md` 인덱스를 `reconciliation/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 보존.
+  - `reconciliation/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 대사 단위, 대사 규칙, 실행 이력, 차이 배정/해소, 외부 단계 집계, 조정 전표 흐름을 현재 코드 기준으로 통합.
+  - `reporting/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `local-run.md`를 현재 `reporting:core`, `reporting:api`, `reporting:batch` 하위 모듈 구조와 감독보고/주석 마트 흐름 기준으로 보강.
+  - `reconciliation/README.md`, `reporting/README.md`, `docs/README.md`, `docs/module-documentation-sequence.md`에서 잘못된 standalone Docker 실행 안내를 현재 library 모듈 기준의 IntelliJ/Gradle 검증 방식으로 교체.
+  - Reconciliation/Reporting용 IntelliJ 공유 Gradle Run Configuration `.run/Reconciliation Module Tests.run.xml`, `.run/Reporting Module Tests.run.xml` 추가.
+  - `ReconciliationService`, `ReportingBatchAdapter`, `LocalRegulatoryFilingGatewayAdapter`에 운영 개선 필요 지점을 `@todo`로 명시. reconciliation 2건, reporting 2건.
+- **검증**:
+  - `.\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - `reconciliation` 규칙 삭제는 현재 물리 삭제라 과거 대사 이력 감사 관점에서 논리 비활성화 전환이 필요하다.
+  - `reconciliation` 자동 조정 전표 source document id는 시간 기반이라 장애 재시도 시 멱등 키 보강이 필요하다.
+  - `reporting` Batch Adapter는 운영 대량 배치 전환 시 Spring Batch `Job`/`Step`/`JobParameter` 구조가 필요하다.
+  - `reporting` 로컬 감독보고 게이트웨이의 랜덤 반려는 테스트 재현성을 위해 설정화가 필요하다.
+
+### 📅 2026-06-11 (Codex 문서)
 ### [문서] Asset-Lease/Tax 문서 7차 통합 및 로컬 실행 가이드 정리
 - **수정 범위**:
   - 기존 `asset-lease/docs/README.md`, `tax/docs/README.md` 인덱스를 각각 `docs/archive/README_legacy_index_2026-06-11.md`로 이동해 보존.

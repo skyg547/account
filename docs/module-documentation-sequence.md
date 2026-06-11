@@ -22,8 +22,8 @@
 | 5 | `loan` | Done | EIR/전표 포트/배치 실행 흐름, 깨진 주석 복구, IntelliJ `.run` 설정 추가 |
 | 6 | `payable`, `receivable` | Done | AP/AR 수금·지급/반제 흐름, library 모듈 실행 가이드, IntelliJ 테스트 설정 정리 |
 | 7 | `asset-lease`, `tax` | Done | 자산/리스/세금계산서 실행·검증 흐름, archive 보존, IntelliJ 실행 설정 정리 |
-| 8 | `reconciliation`, `reporting` | Next | 대사/보고 문서와 감독보고 흐름 정리 |
-| 9 | foundation/infra | Pending | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
+| 8 | `reconciliation`, `reporting` | Done | 대사/보고 문서와 감독보고 흐름 정리 |
+| 9 | foundation/infra | Next | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 
 ## 1차 완료 상세
 
@@ -198,3 +198,28 @@ git diff --check
 - 변경 문서 상대 링크 검사 성공
 - `git diff --check` 오류 없음, CRLF 안내만 출력
 - 다음 순서는 `reconciliation`, `reporting` 문서 통합입니다.
+
+## 8차 완료 상세
+
+### reconciliation, reporting
+
+- 기존 `reconciliation/docs/README.md`를 `reconciliation/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 원문을 보존했습니다.
+- `reconciliation/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 대사 단위/규칙/실행/차이/사유 코드/조정 전표 흐름을 현재 코드 기준으로 통합했습니다.
+- `reporting/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `local-run.md`를 보강해 재무제표 생성, 제출본 버전, 주석 마트, 감독보고 제출, 하위 모듈 구조, 로컬 Gradle 검증 흐름을 연결했습니다.
+- `reconciliation/README.md`, `reporting/README.md`, 전사 `docs/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 모듈 기준의 IntelliJ/Gradle 검증 방식으로 교체했습니다.
+- `.run/Reconciliation Module Tests.run.xml`, `.run/Reporting Module Tests.run.xml`을 추가했습니다.
+- `ReconciliationService`, `ReportingBatchAdapter`, `LocalRegulatoryFilingGatewayAdapter`에 운영 개선 필요 지점을 `@todo`로 명시했습니다.
+
+## 8차 검증
+
+```powershell
+.\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon
+git diff --check
+```
+
+결과:
+- reconciliation/reporting 테스트 성공
+- IntelliJ `.run` XML 파싱 성공
+- 변경 문서 상대 링크 검사 성공
+- `git diff --check` 오류 없음, CRLF 안내만 출력
+- 다음 순서는 foundation/infra 문서 통합입니다.

@@ -7,6 +7,14 @@
 - [beginner-guide.md](./beginner-guide.md)
 - [process-flow.md](./process-flow.md)
 - [schema.md](./schema.md)
+- [local-run.md](./local-run.md)
+
+## 현재 실행 전제
+
+- `reporting`은 상위 집계 프로젝트이고 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있다.
+- 세 하위 모듈은 현재 `java-library` 모듈이다.
+- 별도 `SpringBootApplication`이나 `:reporting:api:bootRun` 태스크가 없다.
+- 로컬에서는 IntelliJ Gradle 실행 구성 또는 `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test`로 모듈 단위 검증을 수행한다.
 
 ## 주요 특징 및 구현 기준 (Phase 4 반영)
 
@@ -89,3 +97,9 @@ X-User-ID: tester
 Response:
 - `filingId`, `submissionId`, `targetAgency`, `status`, `regulatorReceiptId`, `regulatorMessage`
 - `lines[]`: `reportCode`, `fieldCode`, `fieldLabel`, `sourceNoteNumber`, `sourceLineCode`, `currentAmount`, `previousAmount`
+
+## Batch Adapter
+
+- `reporting:batch`에는 `ReportingBatchAdapter`가 있다.
+- 현재는 Spring Batch Job/Step이 아니라 월말 기준일을 만들어 BS/IS 생성 유즈케이스를 호출하는 인바운드 배치 어댑터다.
+- 운영 대량 실행은 Job/Step과 JobParameter 기반 재실행 구조가 필요하며, 이 지점은 코드에 `@todo`로 남겼다.

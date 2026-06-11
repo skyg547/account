@@ -27,6 +27,7 @@ public class LocalRegulatoryFilingGatewayAdapter implements SubmitRegulatoryFili
             // Simulate network/protocol submission
             log.info("Transmitting filing package [Version: {}]", filingPackage.submissionVersion());
             
+            // @todo 랜덤 실패는 테스트 재현성을 해치므로 profile/설정 기반 실패 시뮬레이터로 분리한다.
             // Simulate random rejection for resilience testing (e.g., 5% chance)
             if (Math.random() < 0.05) {
                 throw new IllegalStateException("Gateway rejected filing due to schema validation failure.");
