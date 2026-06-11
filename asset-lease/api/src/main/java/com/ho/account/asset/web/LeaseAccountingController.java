@@ -25,6 +25,7 @@ public class LeaseAccountingController {
 
     @PostMapping
     public ResponseEntity<LeaseContract> createLeaseContract(@Valid @RequestBody LeaseContractRequest request) {
+        // @todo 고정자산 API처럼 X-User-ID를 받아 리스 등록/재측정 이벤트에도 실행자 감사를 남긴다.
         LeaseContract contract = new LeaseContract();
         contract.setContractNo(request.getContractNo());
         contract.setContractName(request.getContractName());

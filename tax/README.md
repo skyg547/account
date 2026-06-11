@@ -2,6 +2,8 @@
 
 `tax` 모듈은 회사의 공식 증빙인 세금계산서(VAT Invoice)를 관리하고, 국세청 신고 및 매입/매출 전표와의 정합성을 보장하는 모듈입니다.
 
+상세 문서는 [tax/docs/README.md](./docs/README.md)에서 순서대로 읽을 수 있습니다. 기존 문서 인덱스는 삭제하지 않고 `tax/docs/archive`에 보존했습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
@@ -62,15 +64,38 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 연동 방법
+## 4. 로컬 실행 및 연동 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d tax
+`tax`는 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:tax:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+
+**PowerShell 검증 명령:**
+
+```powershell
+.\gradlew :tax:test --console=plain --max-workers=1 --no-daemon
 ```
+
+**빠른 컴파일 확인:**
+
+```powershell
+.\gradlew :tax:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**IntelliJ 실행 순서:**
+1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
+2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
+3. 상단 Run Configuration에서 `Tax Module Tests`를 선택해 실행합니다.
+4. 실제 HTTP API를 호출하려면 tax 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
 
 **연동 주의사항:**
 - 세금계산서는 회계 전표(`journal-ledger`)와 긴밀히 연동되어야 합니다.
 - 금액 검증 실패 시 전표 생성이 차단되므로 도메인 내 `validateAmounts()` 로직을 반드시 확인하세요.
 - 거래처 검증은 `contracts`의 `MasterDataQueryPort`를 사용하며 master-data 내부 저장소에 직접 의존하지 않습니다.
 - 발행된 세금계산서는 물리 삭제하지 않습니다. 취소 처리자와 사유를 받아 `CANCELLED` 상태로 전환해 증빙 감사 이력을 보존합니다.
+- 현재 웹 API는 `/api/ap/invoices` 매입 세금계산서(`PURCHASE`) 중심입니다. 매출 세금계산서 API는 별도 확장이 필요합니다.
+
+## 5. 문서 읽기 순서
+
+- [docs/beginner-guide.md](./docs/beginner-guide.md): 세금계산서와 금액 검증 개념.
+- [docs/process-flow.md](./docs/process-flow.md): AP Invoice 생성, 수정, 취소, 외부 조회 포트 흐름.
+- [docs/schema.md](./docs/schema.md): 테이블, 상태, 논리 취소 필드.
+- [docs/local-run.md](./docs/local-run.md): IntelliJ와 Gradle 로컬 검증 방법.

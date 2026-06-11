@@ -14,3 +14,11 @@
 - 배치는 절대 직접 계산하지 않는다. (`DepreciationPipeline` 호출)
 - JPA 단건 저장을 지양하고 `JDBC Bulk` 어댑터를 사용한다.
 - 모든 금액 계산은 `BigDecimal.ROUND_HALF_UP` (소수점 2자리) 원칙을 고수한다.
+
+## 4. 현재 구현 점검 결과 (2026-06-11)
+
+- `AssetDepreciationBatchConfig`는 `DepreciationPipeline`을 주입하지만 processor에서 `FixedAsset.depreciate`를 직접 호출하고 있다. Batch 계층이 순수 오케스트레이터가 되도록 코드에 `@todo`를 남겼다.
+- Batch 회계월은 현재 `LocalDate.now().minusMonths(1)`로 결정된다. 재실행 가능성을 위해 `targetDate` JobParameter로 분리해야 한다.
+- 고정자산 API는 `X-User-ID`를 받아 이력과 이벤트에 실행자를 남긴다.
+- 리스 API는 아직 실행자 감사를 받지 않아 `@todo`로 남겼다.
+- 리스 회계 계정 `25100`, `93100`, `21100`은 현재 서비스 상수다. 운영에서는 회사별 회계 정책에 맞게 설정 기반 AccountMappingPort로 분리해야 한다.

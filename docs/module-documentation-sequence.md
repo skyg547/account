@@ -21,8 +21,8 @@
 | 4 | `closing` | Done | ECL summary 연동, FX/ECL 결산 실행 가이드, 깨진 주석 복구, IntelliJ `.run` 설정 추가 |
 | 5 | `loan` | Done | EIR/전표 포트/배치 실행 흐름, 깨진 주석 복구, IntelliJ `.run` 설정 추가 |
 | 6 | `payable`, `receivable` | Done | AP/AR 수금·지급/반제 흐름, library 모듈 실행 가이드, IntelliJ 테스트 설정 정리 |
-| 7 | `asset-lease`, `tax` | Next | 자산/리스/세금계산서 실행·검증 흐름 정리 |
-| 8 | `reconciliation`, `reporting` | Pending | 대사/보고 문서와 감독보고 흐름 정리 |
+| 7 | `asset-lease`, `tax` | Done | 자산/리스/세금계산서 실행·검증 흐름, archive 보존, IntelliJ 실행 설정 정리 |
+| 8 | `reconciliation`, `reporting` | Next | 대사/보고 문서와 감독보고 흐름 정리 |
 | 9 | foundation/infra | Pending | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 
 ## 1차 완료 상세
@@ -172,3 +172,29 @@ git diff --check
 - 변경 문서 상대 링크 검사 성공
 - `git diff --check` 오류 없음, CRLF 안내만 출력
 - 다음 순서는 `asset-lease`, `tax` 문서 통합입니다.
+
+## 7차 완료 상세
+
+### asset-lease, tax
+
+- `asset-lease/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 고정자산 등록/상각/처분, 감가상각 Batch, IFRS 16 리스 최초 인식/월별 처리/재측정, Kafka 이벤트, 리스 지급결의 포트 흐름을 통합했습니다.
+- `tax/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 AP 세금계산서 생성/조회/수정/논리 취소, 금액 정합성, 외부 조회 포트 흐름을 통합했습니다.
+- 기존 `asset-lease/docs/README.md`, `tax/docs/README.md`는 각각 `docs/archive/README_legacy_index_2026-06-11.md`로 이동해 보존했습니다.
+- `asset-lease/docs/api-spec.md`, `requirements.md`에 현재 API 필드, `X-User-ID`, 로컬 실행 전제, Batch/리스 계정 고도화 필요 지점을 보강했습니다.
+- `asset-lease/README.md`, `tax/README.md`, 전사 `docs/README.md`에서 새 문서와 IntelliJ/Gradle 실행 방식을 연결했습니다.
+- `.run/Asset Lease API bootRun.run.xml`, `.run/Asset Lease Tests.run.xml`, `.run/Tax Module Tests.run.xml`을 추가했습니다.
+- `AssetDepreciationBatchConfig`, `LeaseEntryService`, `LeaseAccountingController`, `TaxInvoiceQueryAdapter`에 운영 개선 필요 지점을 `@todo`로 명시했습니다.
+
+## 7차 검증
+
+```powershell
+.\gradlew :asset-lease:test :tax:test --console=plain --max-workers=1 --no-daemon
+git diff --check
+```
+
+결과:
+- asset-lease/tax 테스트 성공
+- IntelliJ `.run` XML 파싱 성공
+- 변경 문서 상대 링크 검사 성공
+- `git diff --check` 오류 없음, CRLF 안내만 출력
+- 다음 순서는 `reconciliation`, `reporting` 문서 통합입니다.

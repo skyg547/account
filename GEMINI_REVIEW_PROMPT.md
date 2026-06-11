@@ -33,7 +33,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax"입니다.
 - Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
 - Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
 - Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
@@ -62,6 +62,12 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - Receivable README/docs, legacy README archive 이동, 매출채권/수납/자동·수동 매칭/부분 매칭 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
 - Payable/Receivable이 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
 - Payable에 새로 남긴 `@todo` 4건이 실제 고도화 리스크(인바운드 DTO/Bean Validation 분리)를 정확히 가리키는지
+- Asset-Lease README/docs, legacy README archive 이동, 고정자산/감가상각 Batch/IFRS 16 리스/이벤트/지급결의 포트 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
+- Asset-Lease가 standalone Boot 앱이라는 문서 설명과 Config/Eureka/Batch 비활성화 실행 인자가 실제 `build.gradle`, `AssetLeaseApplication`, `application.yml`과 맞는지
+- Asset-Lease에 새로 남긴 `@todo` 4건이 실제 운영 리스크(Batch targetDate/파이프라인 분리, 리스 actor 감사, 리스 계정 매핑 포트 분리)를 정확히 가리키는지
+- Tax README/docs, legacy README archive 이동, AP 세금계산서/금액 검증/논리 취소/외부 조회 포트 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
+- Tax가 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
+- Tax에 새로 남긴 `@todo` 1건이 실제 운영 리스크(취소 증빙 외부 조회 정책)를 정확히 가리키는지
 
 4. 리뷰 기준은 아래 순서로 우선순위를 둡니다.
 - 컴파일/테스트/bootJar/smoke 기동 실패를 유발하는 결함
@@ -128,6 +134,8 @@ Notes:
   - 문서 통합 5차에서 Loan 주석 복구와 함께 운영 개선용 Java `@todo` 1건을 의도적으로 추가했다.
   - 문서 통합 6차 후 payable/receivable test 성공.
   - 문서 통합 6차에서 Payable 주석 복구와 함께 인바운드 DTO/Bean Validation 분리용 Java `@todo` 4건을 의도적으로 추가했다.
+  - 문서 통합 7차 후 asset-lease/tax test 성공.
+  - 문서 통합 7차에서 Asset-Lease 운영 개선용 Java `@todo` 4건과 Tax 외부 조회 정책 `@todo` 1건을 의도적으로 추가했다.
 - Docker 이미지 빌드는 실행하지 않았다.
 - Auth 기본 잠금 어댑터와 Payable 로컬 지급 어댑터는 운영용 공유/외부 어댑터 교체가 필요하다.
 - Journal 전기·잔액 Repository 직접 의존과 ECL 마스터 포트의 JPA 기술 누수는 제거했다.

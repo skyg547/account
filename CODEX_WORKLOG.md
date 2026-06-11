@@ -3,6 +3,33 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-11 (문서 통합 7차: asset-lease/tax)
+- Asset-Lease 문서:
+  - 기존 `asset-lease/docs/README.md`를 `asset-lease/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 원문 보존.
+  - `asset-lease/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 고정자산/감가상각 Batch/IFRS 16 리스/이벤트/지급결의 포트 흐름을 통합했다.
+  - `asset-lease/docs/api-spec.md`, `requirements.md`를 현재 API 필드와 구현 리스크 기준으로 보강했다.
+  - `asset-lease/README.md`에서 standalone Boot 실행 방법과 IntelliJ 실행 순서를 갱신했다.
+- Tax 문서:
+  - 기존 `tax/docs/README.md`를 `tax/docs/archive/README_legacy_index_2026-06-11.md`로 이동해 원문 보존.
+  - `tax/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 AP 세금계산서/금액 검증/논리 취소/외부 조회 포트 흐름을 통합했다.
+  - `tax/README.md`에서 잘못된 standalone Docker 실행 안내를 현재 `java-library` 모듈 기준의 Gradle 테스트/컴파일 안내로 교체했다.
+- 실행 설정:
+  - `.run/Asset Lease API bootRun.run.xml`, `.run/Asset Lease Tests.run.xml`, `.run/Tax Module Tests.run.xml`을 추가했다.
+- 주석 최신화:
+  - Asset-Lease 운영 개선 지점 4건을 `@todo`로 남겼다: Batch targetDate/파이프라인 분리 2건, 리스 실행자 감사 1건, 리스 계정 매핑 포트 분리 1건.
+  - Tax 외부 조회 포트의 취소 증빙 정책 확정 필요 지점 1건을 `@todo`로 남겼다.
+  - `LeaseContractRequest`의 사용하지 않는 master-data 엔티티 import를 제거했다.
+- 진행표:
+  - `docs/module-documentation-sequence.md`에서 asset-lease/tax를 Done으로 전환하고 다음 순서를 `reconciliation`, `reporting`으로 지정했다.
+- 검증:
+  - `.\gradlew :asset-lease:test :tax:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- 남은 리스크:
+  - asset-lease Batch는 `targetDate` JobParameter와 `DepreciationPipeline` 중심으로 추가 정리해야 한다.
+  - 리스 계정 매핑과 tax 취소 증빙 외부 조회 정책은 후속 설계 결정이 필요하다.
+
 ## 2026-06-10 (문서 통합 6차: payable/receivable)
 - Payable 문서:
   - 기존 `payable/docs/README.md`를 `payable/docs/archive/README_legacy_index_2026-06-10.md`로 이동해 원문 보존.

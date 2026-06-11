@@ -34,6 +34,7 @@ public class LeaseEntryService implements LeaseUseCase {
     private final LeasePaymentResolutionPort leasePaymentResolutionPort;
 
     private static final String TOPIC = "transaction-events";
+    // @todo 리스 회계 계정은 회사별 회계 정책에 따라 달라지므로 설정 기반 AccountMappingPort로 분리한다.
     private static final String LEASE_LIABILITY_ACCOUNT_CODE = "25100";
     private static final String LEASE_INTEREST_EXPENSE_ACCOUNT_CODE = "93100";
     private static final String ACCOUNTS_PAYABLE_ACCOUNT_CODE = "21100";

@@ -72,6 +72,7 @@ public class AssetDepreciationBatchConfig {
     @Bean
     public ItemProcessor<FixedAsset, Map<Long, BigDecimal>> assetProcessor() {
         return asset -> {
+            // @todo 배치 오케스트레이터가 날짜 결정과 도메인 계산을 직접 수행하지 않도록 JobParameter targetDate와 DepreciationPipeline 호출로 분리한다.
             LocalDate lastDay = LocalDate.now().minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
             BigDecimal amount = asset.depreciate(lastDay);
             return amount.compareTo(BigDecimal.ZERO) > 0 ? Map.of(asset.getId(), amount) : null;
@@ -81,6 +82,7 @@ public class AssetDepreciationBatchConfig {
     @Bean
     public ItemWriter<Map<Long, BigDecimal>> assetBulkWriter() {
         return items -> {
+            // @todo processor와 같은 targetDate JobParameter를 사용해 재실행 시점이 바뀌어도 같은 회계월을 갱신하도록 보강한다.
             LocalDate lastDay = LocalDate.now().minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
             for (Map<Long, BigDecimal> result : items) {
                 assetPersistencePort.updateDepreciationBulk(result, lastDay);

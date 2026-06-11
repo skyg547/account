@@ -1,43 +1,34 @@
-# Asset-Lease Module Docs
+# asset-lease docs
 
-`asset-lease` 모듈은 두 가지 영역을 함께 다룹니다.
+`asset-lease` 모듈은 고정자산 취득/상각/처분과 IFRS 16 리스 계약, 사용권자산, 리스부채, 지급 스케줄을 함께 관리한다.
+기존 인덱스 문서는 내용을 보존하기 위해 [archive/README_legacy_index_2026-06-11.md](./archive/README_legacy_index_2026-06-11.md)로 이동했다.
 
-- 고정자산 취득, 감가상각, 처분
-- IFRS 16 리스 계약 등록, 초기 인식, 월별 회계처리, 재측정
+## 읽기 순서
 
-## 아키텍처 현대화 (2026-04-29)
+1. [beginner-guide.md](./beginner-guide.md) - 고정자산, 감가상각, 사용권자산, 리스부채를 초보자 관점에서 설명한다.
+2. [process-flow.md](./process-flow.md) - API, 서비스, 도메인, Batch, Kafka 이벤트, 지급결의 포트 흐름을 정리한다.
+3. [schema.md](./schema.md) - 핵심 엔티티와 테이블, 상태, migration 주의사항을 코드 기준으로 정리한다.
+4. [local-run.md](./local-run.md) - IntelliJ IDEA와 Gradle에서 API와 테스트를 실행하는 방법.
 
-`asset-lease` 모듈은 타 모듈과의 결합도를 낮추기 위해 다음과 같은 현대화 작업을 수행했습니다.
+## 보존한 기존 문서
 
-- **외부 엔티티 참조 제거**: `FixedAsset`, `LeaseContract`, `AssetHistory` 도메인 엔티티에서 `master-data` 모듈의 `AccountSubject`, `Department`, `BusinessPartner` 엔티티 직접 참조를 제거했습니다.
-- **코드 기반 참조 도입**: 엔티티 대신 `String` 타입의 코드(ID) 필드를 사용하며, 필요 시 `MasterDataQueryPort`를 통해 데이터를 검증하거나 조회합니다.
-- **포트 중심 설계**: `JournalPostingPort`를 통해 `journal-ledger` 모듈과 통신하며, 물리적으로 분리된 마이크로서비스 환경으로의 전환이 용이하도록 설계되었습니다.
+- [api-spec.md](./api-spec.md) - 기존 REST API 명세. 새 흐름 문서와 함께 확인한다.
+- [requirements.md](./requirements.md) - 대용량 감가상각, 감사 추적, IFRS 16 요구사항.
+- [db/schema.sql](./db/schema.sql) - 과거 단순화된 DB 스케치. 실제 기준은 JPA 엔티티와 `core/src/main/resources/db/migration`을 함께 확인한다.
 
-### 초보자를 위한 개념 설명 (Mandatory)
-- **엔티티 참조 제거란?**: 이전에는 '자산'이 '부서'라는 실제 객체를 직접 들고 있었다면, 이제는 '부서 코드(예: DEPT-001)'라는 이름표만 가지고 있는 것과 같습니다. 이렇게 하면 '부서' 정보가 바뀌거나 부서 관리 시스템이 따로 떨어져 나가더라도 '자산' 시스템은 큰 영향을 받지 않고 독립적으로 움직일 수 있습니다. 이를 전문 용어로 **'느슨한 결합(Loose Coupling)'**이라고 합니다.
+## 현재 실행 전제
 
-## 문서 목록
+- `asset-lease`는 `org.springframework.boot` 플러그인을 사용하는 단독 실행 가능 모듈이다.
+- 실행 클래스는 `com.ho.account.asset.AssetLeaseApplication`이다.
+- 로컬 API 실행 시 Config Server와 Eureka는 끄고 실행하는 편이 안정적이다.
+- 자산 등록/상각/처분은 `AssetEventPort`를 통해 Kafka `transaction-events` 이벤트를 발행한다.
+- 리스료 지급결의는 `LeasePaymentResolutionPort`가 필요하다. 포트가 없으면 fallback 어댑터가 예외를 던진다.
 
-- [process-flow.md](./process-flow.md): 고정자산과 리스의 처리 흐름을 단계별로 설명합니다.
-- [schema.md](./schema.md): 주요 엔티티, 관계, 핵심 필드를 정리합니다.
-- [beginner-guide.md](./beginner-guide.md): 초보자가 자산회계를 이해할 수 있도록 쉽게 설명합니다.
+## 핵심 코드 입구
 
-## 핵심 진입점
-
-- `FixedAssetController`
-- `FixedAssetService`
-- `LeaseAccountingController`
-- `LeaseService`
-- `LeaseAccountingService`
-- `AssetSourceDocumentProvider`
-
-## 현재 구현 기준에서 먼저 알아둘 점
-
-- 한 모듈 안에 `FIXED_ASSET`과 `IFRS16_LEASE` 두 업무가 같이 있습니다.
-- 고정자산은 취득 분개 생성 후 일부 경로에서 즉시 승인까지 진행합니다.
-- IFRS 16 리스는 예외 조건이 아니면 계약 등록 직후 사용권자산과 리스부채를 자동 인식합니다.
-- 계정과목이 일부 하드코딩되어 있습니다.
-  - 고정자산 취득/처분 현금: `10100`
-  - 처분이익/손실: `91100`, `92100`
-  - IFRS 16: `12300`, `12399`, `25100`, `51500`, `93100`, `10100`
-- 리스 월 지급 해소는 `LeasePaymentResolutionPort`를 통해 `expenditure-resolution`과 연계됩니다.
+- 인바운드 어댑터: `api/src/main/java/com/ho/account/asset/web/FixedAssetController`, `LeaseAccountingController`
+- 유즈케이스 서비스: `core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService`, `LeaseEntryService`
+- Batch 오케스트레이터: `batch/src/main/java/com/ho/account/asset/batch/AssetDepreciationBatchConfig`
+- Batch 계산 파이프라인: `core/src/main/java/com/ho/account/asset/application/pipeline/DepreciationPipeline`
+- 도메인 모델: `FixedAsset`, `AssetHistory`, `LeaseContract`, `RightOfUseAsset`, `LeaseLiability`, `LeasePaymentSchedule`
+- 기술 어댑터: `AssetJdbcAdapter`, `AssetEventAdapter`, `AssetSourceDocumentProvider`

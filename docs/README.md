@@ -41,8 +41,8 @@
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제
 - `payable/README.md`와 `payable/docs/README.md`: 매입채무, 지급 런, 선급금, 상계 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `receivable/README.md`와 `receivable/docs/README.md`: 매출채권, 수납, 자동/수동 매칭 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
-- `tax/README.md`: 세금계산서 관리
-- `asset-lease/README.md`: IFRS16 리스
+- `asset-lease/README.md`와 `asset-lease/docs/README.md`: 고정자산, 감가상각 Batch, IFRS 16 리스, 사용권자산/리스부채 흐름. 단독 Boot 실행과 IntelliJ `.run` 설정 제공
+- `tax/README.md`와 `tax/docs/README.md`: 매입 세금계산서, 금액 정합성, 논리 취소 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `loan/README.md`와 `loan/docs/README.md`: 대출 실행, EIR, 일일 이자 발생 Batch
 
 ### 3.3 핵심 회계 엔진 (결산 부서)

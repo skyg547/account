@@ -3,6 +3,28 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-11 (Codex 문서)
+### [문서] Asset-Lease/Tax 문서 7차 통합 및 로컬 실행 가이드 정리
+- **수정 범위**:
+  - 기존 `asset-lease/docs/README.md`, `tax/docs/README.md` 인덱스를 각각 `docs/archive/README_legacy_index_2026-06-11.md`로 이동해 보존.
+  - `asset-lease/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 고정자산 등록/상각/처분, 감가상각 Batch, IFRS 16 리스 최초 인식/월별 처리/재측정, Kafka 이벤트, 리스 지급결의 포트 흐름을 현재 코드 기준으로 통합.
+  - `tax/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 AP 세금계산서 생성/조회/수정/논리 취소, 금액 정합성, 외부 조회 포트 흐름을 현재 코드 기준으로 통합.
+  - `asset-lease/docs/api-spec.md`, `requirements.md`에 현재 API 필드, `X-User-ID`, 로컬 실행 전제, Batch/리스 계정 고도화 필요 지점을 보강.
+  - `asset-lease/README.md`, `tax/README.md`, `docs/README.md`, `docs/module-documentation-sequence.md`에 새 문서와 IntelliJ/Gradle 실행 방식을 연결.
+  - Asset-Lease/Tax용 IntelliJ 공유 Gradle Run Configuration `.run/Asset Lease API bootRun.run.xml`, `.run/Asset Lease Tests.run.xml`, `.run/Tax Module Tests.run.xml` 추가.
+  - `LeaseContractRequest`의 사용하지 않는 master-data 엔티티 import를 제거.
+  - `AssetDepreciationBatchConfig`, `LeaseEntryService`, `LeaseAccountingController`, `TaxInvoiceQueryAdapter`에 운영 개선 필요 지점을 `@todo`로 명시. asset-lease 4건, tax 1건.
+- **검증**:
+  - `.\gradlew :asset-lease:test :tax:test --console=plain --max-workers=1 --no-daemon` 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - 변경 문서 상대 링크 검사 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - `asset-lease` Batch는 현재 날짜 결정과 도메인 계산 일부가 Batch Config 안에 남아 있어 JobParameter와 `DepreciationPipeline` 중심으로 보강해야 한다.
+  - 리스 회계 계정 코드는 현재 서비스 상수이므로 운영 회계 정책별 설정/포트 분리가 필요하다.
+  - `tax`는 standalone `bootRun` 앱이 아니므로 실제 HTTP API 호출은 호스트 Spring Boot 애플리케이션 또는 별도 통합 실행 앱에서 검증해야 한다.
+  - 취소된 세금계산서를 외부 조회 포트에서 반환할지 정책 확정이 필요하다.
+
 ### 📅 2026-06-10 (Codex 문서)
 ### [문서] Payable/Receivable 문서 6차 통합 및 library 모듈 실행 가이드 정리
 - **수정 범위**:

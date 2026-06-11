@@ -18,6 +18,7 @@ public class TaxInvoiceQueryAdapter implements TaxInvoiceQueryPort {
 
     @Override
     public Optional<TaxInvoiceRef> findById(Long taxInvoiceId) {
+        // @todo 논리 취소된 세금계산서를 외부 모듈 참조에서 제외할지 정책을 확정하고 TaxInvoiceRef에 상태를 포함한다.
         return taxInvoiceRepository.findById(taxInvoiceId)
                 .map(taxInvoice -> new TaxInvoiceRef(
                         taxInvoice.getId(),

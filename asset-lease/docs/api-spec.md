@@ -1,6 +1,7 @@
 # 📑 Asset-Lease API Specification
 
 이 문서는 고정자산 관리 및 IFRS 16 리스 회계 모듈의 REST API 명세서입니다. 모든 금액 계산은 `BigDecimal`을 사용하여 정밀도를 보장하며, 헥사고날 아키텍처 원칙에 따라 설계되었습니다.
+상세 업무 흐름은 [process-flow.md](./process-flow.md), 로컬 실행 방법은 [local-run.md](./local-run.md)를 함께 확인하세요.
 
 ---
 
@@ -10,25 +11,32 @@
 ### [POST] 고정자산 등록 및 초기 인식
 - **URL:** `/api/fixed-assets`
 - **목적:** 새로운 자산을 등록하고 시스템에 초기 취득 원가를 반영합니다. (회계 전표 생성 이벤트 포함)
+- **Required Header:** `X-User-ID` (자산 이력과 이벤트에 기록되는 실행자)
 - **Request Body (FixedAssetRequest):**
   - `assetCode` (String): 자산 고유 코드
   - `assetName` (String): 자산 명칭
   - `accountSubjectCode` (String): 자산 계정 과목 코드
   - `acquisitionDate` (LocalDate): 취득 일자
   - `acquisitionCost` (BigDecimal): 취득 원가
-  - `useful_life` (int): 내용 연수 (월 단위)
+  - `usefulLife` (int): 내용 연수
   - `depreciationMethod` (String): 상각 방법 (STRAIGHT_LINE 등)
+  - `accumulatedAccountCode` (String): 감가상각누계액 계정 코드
+  - `expenseAccountCode` (String): 감가상각비 계정 코드
+  - `residualValue` (BigDecimal): 잔존가치
+  - `departmentCode` (String): 관리 부서 코드
 - **Success Response:** `201 Created` (등록된 FixedAsset 엔티티)
 
 ### [POST] 월별 감가상각 실행
 - **URL:** `/api/fixed-assets/depreciate/{processDate}`
 - **목적:** 특정 날짜 기준으로 감가상각비를 산출하고 자산의 장부 가액을 갱신합니다.
+- **Required Header:** `X-User-ID`
 - **Path Variable:** `processDate` (LocalDate, e.g., 2026-04-30)
 - **Success Response:** `200 OK`
 
 ### [POST] 고정자산 처분
 - **URL:** `/api/fixed-assets/dispose`
 - **목적:** 자산을 매각하거나 폐기하여 장부에서 제거하고 처분 손익을 계산합니다.
+- **Required Header:** `X-User-ID`
 - **Request Body (FixedAssetDisposalRequest):**
   - `assetId` (Long): 대상 자산 ID
   - `disposalDate` (LocalDate): 처분 일자
@@ -47,8 +55,12 @@
   - `contractNo` (String): 리스 계약 번호
   - `startDate` / `endDate` (LocalDate): 리스 기간
   - `monthlyPayment` (BigDecimal): 월 리스료
+  - `paymentDay` (int): 매월 지급일
   - `discountRate` (BigDecimal): 증분차입이자율 (%)
   - `ifrs16Applicable` (boolean): IFRS 16 적용 대상 여부
+  - `shortTermLease` / `lowValueLease` (boolean): 단기/소액 리스 예외 여부
+  - `initialRightOfUseAssetValue` / `initialLeaseLiabilityValue` (BigDecimal): 최초 사용권자산/리스부채 인식 금액
+  - `lessorBusinessPartnerCode`, `departmentCode`, `expenseAccountCode`: 거래처/부서/비용 계정 코드
 - **Success Response:** `201 Created` (생성된 LeaseContract 엔티티 및 스케줄)
 
 ### [GET] 리스 계약 목록 조회
@@ -65,6 +77,13 @@
   - `newEndDate` (LocalDate): 변경된 종료일
   - `newDiscountRate` (BigDecimal): 변경된 이자율
 - **Success Response:** `200 OK` (재측정 결과가 반영된 엔티티)
+
+## 3. 현재 구현 주의사항
+
+- `asset-lease`는 단독 Boot 실행이 가능한 모듈이지만, 로컬에서는 Config Server/Eureka를 끄고 실행하는 것을 권장합니다.
+- 고정자산 API는 `X-User-ID`를 필수로 받지만, 리스 API는 아직 실행자 헤더를 받지 않습니다. 이 보강 지점은 코드에 `@todo`로 남겼습니다.
+- 자산/리스 이벤트는 `transaction-events` Kafka 토픽으로 발행됩니다.
+- 리스료 지급결의는 `LeasePaymentResolutionPort` 구현이 필요합니다. 단독 실행에서 구현이 없으면 fallback 어댑터가 예외를 던집니다.
 
 ---
 
