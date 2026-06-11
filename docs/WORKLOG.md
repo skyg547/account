@@ -3,6 +3,32 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-11 (Codex 검수)
+### [검수] Gemini standalone API/Batch Application 추가 작업 검토
+- **검수 범위**:
+  - 로컬 미추적 Application 파일: `asset-lease`, `deposit`, `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `reporting`, `tax`의 API/Batch Spring Boot Application 후보.
+  - 기존 정상 standalone 구조 비교: `loan`, `closing`, `journal-ledger`, `account-mart`, `ecl`, `master-data`, `governance`, `auth`, `gateway`, `discovery`, `config-server`.
+- **Git 동기화**:
+  - `git fetch origin` 실행.
+  - `main...origin/main` 차이 `0 0` 확인.
+- **주요 검수 결과**:
+  - `asset-lease`는 기존 `AssetLeaseApplication`이 있는데 Gemini가 `AssetLeaseApiApplication`, `AssetLeaseBatchApplication`을 추가해 main class 후보가 3개가 되었고 `:asset-lease:bootJar`가 실패한다.
+  - `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 `java-library` 모듈인데 Batch Application이 `@EnableBatchProcessing`을 사용한다. 해당 모듈 build.gradle에는 `spring-boot-starter-batch`가 없어 `compileJava`가 실패한다.
+  - `reporting:api`, `reporting:batch`는 Application 클래스 컴파일은 가능하지만 하위 모듈이 `java-library`라 `bootRun`/`bootJar` 태스크가 없다. 단독 실행 앱으로는 아직 불완전하다.
+  - `deposit:api`는 기존 `DepositApplication`과 Spring Boot 플러그인이 있어 API 단독 실행 구조가 이미 있다. `deposit:batch`는 `java-library`라 새 Batch Application만으로는 단독 실행 구조가 완성되지 않는다.
+- **검증 명령**:
+  - `.\gradlew :asset-lease:compileJava :expenditure-resolution:compileJava :payable:compileJava :receivable:compileJava :reconciliation:compileJava :reporting:api:compileJava :reporting:batch:compileJava :tax:compileJava :deposit:batch:compileJava --console=plain --max-workers=1 --no-daemon --continue`
+  - `.\gradlew :asset-lease:bootJar :deposit:api:bootJar :reporting:api:tasks :reporting:batch:tasks :payable:tasks :reconciliation:tasks --console=plain --max-workers=1 --no-daemon --continue`
+- **검증 결과**:
+  - `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`, `deposit:batch` 실패.
+  - `asset-lease:bootJar` 실패: main class 후보가 `AssetLeaseApplication`, `AssetLeaseApiApplication`, `AssetLeaseBatchApplication` 3개라 단일 main class를 결정하지 못함.
+  - `deposit:api:bootJar` 성공.
+  - `reporting:api`, `reporting:batch`, `payable`, `reconciliation` task 목록에는 `bootRun`/`bootJar`가 없음.
+- **권고**:
+  - API/Batch 단독 실행을 하려면 기존 정상 모듈처럼 `:module:api`, `:module:batch`, `:module:core` 하위 프로젝트로 분리하고 각 실행 모듈에 Spring Boot 플러그인을 적용해야 한다.
+  - 단일 `java-library` 모듈에 Application 클래스만 추가하는 방식은 bootRun 태스크를 만들지 못하고, batch 의존성/컴포넌트 스캔 문제를 유발한다.
+  - `scanBasePackages = "com.ho.account"`는 과도하게 넓어 다른 모듈 Bean까지 스캔할 수 있으므로 실행 모듈별 소유 패키지로 제한해야 한다.
+
 ### 📅 2026-06-11 (Codex 문서)
 ### [문서] Foundation/Infra 문서 9차 통합 및 IntelliJ 실행 설정 정리
 - **수정 범위**:

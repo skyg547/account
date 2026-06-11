@@ -3,6 +3,25 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-11 (검수: Gemini standalone API/Batch Application)
+- Git 동기화:
+  - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.
+- 검수 대상:
+  - Gemini가 로컬 미추적 파일로 추가한 `asset-lease`, `deposit`, `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `reporting`, `tax`의 API/Batch Spring Boot Application 후보.
+- 주요 결과:
+  - `asset-lease:bootJar` 실패. 기존 `AssetLeaseApplication`에 더해 `AssetLeaseApiApplication`, `AssetLeaseBatchApplication`이 추가되어 main class 후보가 3개가 됨.
+  - `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 `spring-boot-starter-batch` 없이 `@EnableBatchProcessing`을 사용해 `compileJava` 실패.
+  - `deposit:batch`는 dependency management에 Spring Boot BOM이 없어 batch/shared-kernel 의존성 버전을 해석하지 못해 `compileJava` 실패.
+  - `reporting:api`, `reporting:batch`는 컴파일은 가능하지만 `java-library`라 `bootRun`/`bootJar` 태스크가 없음.
+  - `deposit:api:bootJar`는 기존 추적 파일 `DepositApplication` 기준으로 성공.
+- 검증:
+  - 영향 모듈 `compileJava --continue` 실행.
+  - 대표 boot/task 확인: `:asset-lease:bootJar`, `:deposit:api:bootJar`, `:reporting:api:tasks`, `:reporting:batch:tasks`, `:payable:tasks`, `:reconciliation:tasks`.
+- 권고:
+  - 단독 API/Batch 실행은 기존 `loan`, `closing`, `journal-ledger`, `account-mart`, `ecl`처럼 `core/api/batch` 하위 프로젝트와 Spring Boot 플러그인 적용이 필요하다.
+  - 단일 `java-library` 모듈에는 Application 클래스만 추가하지 말고, 별도 실행 모듈이나 통합 호스트 앱 전략을 먼저 정해야 한다.
+  - `scanBasePackages = "com.ho.account"`는 과도하게 넓으므로 각 실행 모듈의 소유 패키지와 필요한 adapter/core 패키지로 제한해야 한다.
+
 ## 2026-06-11 (문서 통합 9차: foundation/infra)
 - Foundation library 문서:
   - `contracts/docs/local-run.md`, `shared-kernel/docs/local-run.md`를 추가하고 `README.md`/docs 인덱스에서 library 모듈 컴파일 검증 흐름을 연결했다.
