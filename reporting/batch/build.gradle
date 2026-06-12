@@ -1,5 +1,5 @@
 plugins {
-    id 'java-library'
+    id 'org.springframework.boot'
     id 'io.spring.dependency-management'
 }
 
@@ -18,15 +18,21 @@ dependencyManagement {
 }
 
 dependencies {
-    api project(':reporting:core')
+    implementation project(':reporting:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+    runtimeOnly 'com.h2database:h2'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
     testImplementation 'org.springframework.batch:spring-batch-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+bootJar {
+    enabled = true
+    mainClass = 'com.ho.account.reporting.batch.ReportingBatchApplication'
 }
 
 jar {

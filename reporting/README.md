@@ -138,18 +138,26 @@ erDiagram
 ## 4. 🧭 로컬 실행 및 연동 방법
 
 현재 `reporting`은 상위 집계 프로젝트이고 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있습니다.
-세 하위 모듈은 standalone Spring Boot 앱이 아니라 `java-library` 모듈이므로 `docker-compose up -d reporting`이나 `:reporting:api:bootRun`으로 바로 띄우는 구조가 아닙니다.
+`reporting:core`는 도메인/유즈케이스/어댑터를 담는 library 모듈이고, `reporting:api`와 `reporting:batch`는 standalone Spring Boot 앱입니다.
+
+**PowerShell 로컬 실행 명령:**
+```powershell
+.\gradlew :reporting:api:bootRun --args="--server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+
+.\gradlew :reporting:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+```
 
 **PowerShell 검증 명령:**
 ```powershell
 .\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :reporting:api:bootJar :reporting:batch:bootJar --console=plain --max-workers=1 --no-daemon
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 연다.
 2. Gradle JVM을 JDK 17로 맞춘다.
-3. Run Configuration에서 `Reporting Module Tests`를 실행한다.
-4. API를 HTTP로 호출하려면 reporting api/core 패키지를 스캔하는 호스트 Spring Boot 앱을 별도로 구성한다.
+3. Run Configuration에서 `Reporting API bootRun`, `Reporting Batch Context`, `Reporting Module Tests` 중 목적에 맞는 구성을 실행한다.
+4. 처음에는 공유 실행 설정에 포함된 `account.reporting.persistence.mode=memory`로 샘플 GL 잔액과 인메모리 어댑터 흐름을 확인한다.
 
 **연동 주의사항:**
 - 실시간 집계 시 `LoadLedgerPort`를 통해 `journal-ledger` 모듈의 최신 잔액을 가져옵니다.
@@ -159,5 +167,5 @@ erDiagram
 - 주석 마트는 `RPT_DISCLOSURE_NOTE_MART`에 note 번호, 공시 범주, 만기/금리/통화/리스크 분류와 금액을 저장합니다.
 - 감독보고 매핑과 제출 이력은 `RPT_REGULATORY_REPORT_MAPPING`, `RPT_REGULATORY_FILING`에 저장합니다.
 - Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블, `V62__reporting_disclosure_note_mart.sql`은 주석 마트 테이블, `V63__reporting_regulatory_filing.sql`은 감독보고 매핑/제출 테이블을 생성합니다.
-- 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다.
+- 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다. 운영형 JPA 모드는 실제 `LedgerQueryPort` 구현과 보고 라인 매핑 seed가 필요합니다.
 - 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.

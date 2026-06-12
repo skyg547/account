@@ -24,6 +24,7 @@
 | 7 | `asset-lease`, `tax` | Done | 자산/리스/세금계산서 실행·검증 흐름, archive 보존, IntelliJ 실행 설정 정리 |
 | 8 | `reconciliation`, `reporting` | Done | 대사/보고 문서와 감독보고 흐름 정리 |
 | 9 | foundation/infra | Done | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
+| 10 | standalone Application 검토 반영 | Done | Gemini 실행 클래스 검수 결과 반영, `deposit:batch`/`reporting` Boot 앱 정리 |
 
 ## 1차 완료 상세
 
@@ -252,3 +253,25 @@ git diff --check
 - 변경 문서 상대 링크 검사 성공
 - `git diff --check` 오류 없음, CRLF 안내만 출력
 - 모듈별 문서 통합 진행표 기준 0~9차 완료
+
+## 10차 후속 상세
+
+### standalone Application 검토 반영
+
+- `asset-lease`는 기존 추적 `AssetLeaseApplication`이 정식 실행 앱이므로, Gemini가 추가한 API/BATCH Application 후보로 생긴 main class 중복을 제거했습니다.
+- `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 현재 단일 `java-library` 모듈이므로 Application 클래스만 추가하지 않고 기존 library 검증 흐름을 유지했습니다.
+- `deposit:batch`는 실제 하위 프로젝트이므로 Spring Boot 플러그인, Boot BOM, `bootJar` mainClass, H2 runtime, Batch test 의존성을 추가했습니다.
+- `reporting:api`, `reporting:batch`는 실제 하위 프로젝트이므로 Spring Boot 플러그인과 mainClass를 추가하고 `scanBasePackages`를 `com.ho.account.reporting`으로 제한했습니다.
+- `reporting` memory 모드용 `InMemoryLedgerBalanceAdapter`를 추가해 journal-ledger 없이 로컬 API/BATCH 컨텍스트를 기동할 수 있게 했습니다.
+- `deposit` 로컬 학습용 `LocalDepositMasterDataAdapter`, `LocalDepositJournalPostingAdapter`를 추가해 외부 master-data/journal-ledger 없이 단독 실행을 확인할 수 있게 했습니다.
+- `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Context.run.xml`, `.run/Reporting API bootRun.run.xml`, `.run/Reporting Batch Context.run.xml`을 추가했습니다.
+
+## 10차 검증
+
+```powershell
+.\gradlew :asset-lease:bootJar :deposit:api:bootJar :deposit:batch:bootJar :reporting:api:bootJar :reporting:batch:bootJar --console=plain --max-workers=1 --no-daemon
+.\gradlew :expenditure-resolution:compileJava :payable:compileJava :receivable:compileJava :reconciliation:compileJava :tax:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+결과:
+- 검증 결과는 2026-06-12 작업 워크로그에 최신 기록합니다.

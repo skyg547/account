@@ -3,6 +3,36 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-12 (Codex 수정)
+### [수정] Gemini standalone API/Batch 검수 결과 반영 및 로컬 실행 정리
+- **수정 범위**:
+  - `asset-lease`는 기존 `AssetLeaseApplication`이 정식 실행 앱이므로 Gemini가 추가한 미추적 `AssetLeaseApiApplication`, `AssetLeaseBatchApplication`을 제거해 `bootJar` main class 충돌을 해소.
+  - `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 현재 단일 `java-library` 모듈이므로 잘못 추가된 API/BATCH Application 후보를 제거하고 기존 테스트/컴파일 검증 흐름 유지.
+  - `deposit:batch`에 Spring Boot 플러그인, Boot BOM, `bootJar` mainClass, H2 runtime, Batch test 의존성을 추가해 실제 Batch 컨텍스트 앱으로 전환.
+  - `reporting:api`, `reporting:batch`에 Spring Boot 플러그인, `bootJar` mainClass, H2 runtime을 추가하고 `scanBasePackages`를 `com.ho.account.reporting`으로 제한.
+  - `deposit` 로컬 단독 실행용 `LocalDepositMasterDataAdapter`, `LocalDepositJournalPostingAdapter`를 추가. `account.deposit.local-adapters.enabled=true`일 때만 master-data/journal-ledger 외부 포트를 학습용으로 대체.
+  - `reporting` memory 모드용 `InMemoryLedgerBalanceAdapter`, `InMemoryJournalQueryAdapter`를 추가. `account.reporting.persistence.mode=memory`일 때 journal-ledger 없이 보고서 생성/주석 drill-through 컨텍스트를 기동.
+  - `deposit:batch`, `reporting:batch`에 `@EntityScan`, `@EnableJpaRepositories`를 명시해 batch main class 패키지와 core 영속성 패키지 간 스캔 범위를 정렬.
+  - `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Context.run.xml`, `.run/Reporting API bootRun.run.xml`, `.run/Reporting Batch Context.run.xml` 추가.
+  - `deposit/README.md`, `deposit/docs/README.md`, `deposit/docs/local-run.md`를 추가하고, `reporting` 및 전사 로컬 실행 문서를 최신 실행 구조로 갱신.
+- **검증 명령**:
+  - `.\gradlew :asset-lease:bootJar :deposit:core:test :deposit:api:bootJar :deposit:batch:bootJar :reporting:core:test :reporting:api:bootJar :reporting:batch:bootJar :expenditure-resolution:compileJava :payable:compileJava :receivable:compileJava :reconciliation:compileJava :tax:compileJava --console=plain --max-workers=1 --no-daemon --continue`
+  - `.\gradlew :deposit:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :deposit:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - IntelliJ `.run` XML 파싱 확인.
+  - `git diff --check`
+- **검증 결과**:
+  - 전체 대상 `bootJar`/`compileJava`/`deposit:core:test`/`reporting:core:test` 성공.
+  - `deposit:api`, `deposit:batch`, `reporting:api`, `reporting:batch` 개별 bootRun 컨텍스트 스모크 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - 로컬 bootRun 시 logstash 수집기(`localhost:5000`)가 없으면 연결 경고와 종료 지연이 발생한다. 기능 실패는 아니지만 로컬 profile에서 logstash appender 비활성화 설정이 필요하다.
+  - `deposit` 로컬 어댑터는 운영 전표를 저장하지 않으므로 운영에서는 master-data/journal-ledger 실제 어댑터로 교체해야 한다.
+  - `reporting` memory 모드는 샘플 GL 잔액과 빈 drill-through를 반환하므로 운영형 검증은 실제 `LedgerQueryPort`, DB, Flyway seed가 필요하다.
+
 ### 📅 2026-06-11 (Codex 검수)
 ### [검수] Gemini standalone API/Batch Application 추가 작업 검토
 - **검수 범위**:

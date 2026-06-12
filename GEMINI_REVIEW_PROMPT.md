@@ -33,7 +33,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax", 2026-06-11 "문서 통합 8차: reconciliation/reporting", 2026-06-11 "문서 통합 9차: foundation/infra"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax", 2026-06-11 "문서 통합 8차: reconciliation/reporting", 2026-06-11 "문서 통합 9차: foundation/infra", 2026-06-12 "Gemini standalone API/Batch 검수 결과 반영"입니다.
 - Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
 - Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
 - Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
@@ -72,7 +72,9 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - Reconciliation이 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
 - Reconciliation에 새로 남긴 `@todo` 2건이 실제 운영 리스크(규칙 물리 삭제, 조정 전표 멱등 키)를 정확히 가리키는지
 - Reporting README/docs, 재무제표 생성, 제출본 버전, 주석 마트, 감독보고 제출, batch adapter 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
-- Reporting의 `core/api/batch`가 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
+- Reporting의 `core`는 `java-library`, `api`/`batch`는 standalone Boot 앱이라는 문서 설명이 `build.gradle`, Application 클래스, `.run` 설정과 맞는지
+- Deposit의 `core`는 library, `api`/`batch`는 standalone Boot 앱이라는 문서 설명과 로컬 어댑터 설정이 실제 코드와 맞는지
+- `asset-lease`, `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`에 잘못된 미추적 API/BATCH Application 후보가 남아 있지 않은지
 - Reporting에 새로 남긴 `@todo` 2건이 실제 운영 리스크(Spring Batch Job/Step 전환, 랜덤 반려 설정화)를 정확히 가리키는지
 - Contracts/Shared-Kernel README/docs/local-run이 실제 `java-library` build.gradle 및 컴파일 검증 흐름과 맞는지
 - Master-Data README/docs, SCD2 기준정보, 변경 요청 승인/반영, 포트/어댑터 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
@@ -131,7 +133,7 @@ Notes:
 ## Current Handoff Context
 
 - 현재 로컬 워킹트리에는 Codex 변경 외에 사용자/Gemini가 남긴 문서 이동/삭제 및 기타 미커밋 변경이 섞여 있을 수 있다.
-- 이번 핸드오프의 기준은 2026-06-09 잔여 TODO 통합부터 2026-06-11 문서 통합 9차 foundation/infra까지의 누적 변경이다.
+- 이번 핸드오프의 기준은 2026-06-09 잔여 TODO 통합부터 2026-06-12 standalone API/Batch 검수 결과 반영까지의 누적 변경이다.
 - 루트 `WORKLOG.md`는 현재 작업트리에 없고, 추적된 최신 작업 이력은 `docs/WORKLOG.md`에 있다.
 - Codex 작업 로그는 루트 `CODEX_WORKLOG.md`에 최신 항목을 추가했다.
 - 최종 검증 결과:
@@ -156,7 +158,11 @@ Notes:
   - 문서 통합 8차에서 Reconciliation 운영 개선용 Java `@todo` 2건과 Reporting 운영 개선용 Java `@todo` 2건을 의도적으로 추가했다.
   - 문서 통합 9차 후 contracts/shared-kernel compileJava, master-data/governance/auth/gateway/discovery test, config-server assemble 성공.
   - 문서 통합 9차에서 Auth/Gateway/Master-Data/Governance 운영 개선용 Java `@todo` 5건을 의도적으로 추가했다.
+  - 2026-06-12 검수 반영 후 `asset-lease:bootJar`, `deposit:api:bootJar`, `deposit:batch:bootJar`, `reporting:api:bootJar`, `reporting:batch:bootJar`, 영향 library 모듈 compileJava 성공.
+  - 2026-06-12 검수 반영 후 `deposit:api`, `deposit:batch`, `reporting:api`, `reporting:batch` 개별 bootRun 컨텍스트 스모크 성공.
+  - 2026-06-12 검수 반영에서 Deposit/Reporting IntelliJ `.run` 설정과 로컬 실행 문서를 추가했다.
 - Docker 이미지 빌드는 실행하지 않았다.
+- 로컬 bootRun 스모크는 성공했지만 logstash 수집기(`localhost:5000`)가 없으면 연결 경고와 종료 지연이 발생한다.
 - Auth 기본 잠금 어댑터와 Payable 로컬 지급 어댑터는 운영용 공유/외부 어댑터 교체가 필요하다.
 - Journal 전기·잔액 Repository 직접 의존과 ECL 마스터 포트의 JPA 기술 누수는 제거했다.
 - Journal JDBC bulk 구현은 설정 기반으로 추가했으며, 운영 DB 기준 배치 크기·인덱스·락 대기·동시 재집계 부하 검증은 남아 있다.

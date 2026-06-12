@@ -26,7 +26,7 @@
 `reporting`은 한 모듈처럼 보이지만 실제 코드는 세 하위 모듈로 나뉩니다.
 
 - `reporting:core`: 보고서 생성, 스냅샷, 주석 마트, 감독보고 제출 도메인과 서비스.
-- `reporting:api`: HTTP 컨트롤러.
-- `reporting:batch`: 월말 보고서 생성을 호출하는 배치 인바운드 어댑터.
+- `reporting:api`: HTTP 컨트롤러와 `ReportingApiApplication` 실행 앱.
+- `reporting:batch`: 월말 보고서 생성을 호출하는 배치 인바운드 어댑터와 `ReportingBatchApplication` 실행 앱.
 
-현재 세 하위 모듈은 standalone Boot 앱이 아니라 `java-library` 모듈입니다. API를 실제 HTTP로 호출하려면 reporting 컴포넌트를 스캔하는 호스트 Spring Boot 애플리케이션이 필요합니다.
+현재 `reporting:core`는 library 모듈이고, `reporting:api`와 `reporting:batch`는 standalone Boot 앱입니다. 로컬에서 먼저 실행 흐름을 확인할 때는 `account.reporting.persistence.mode=memory`를 사용하면 journal-ledger나 운영 DB 없이 샘플 원장 잔액으로 보고서 흐름을 볼 수 있습니다.

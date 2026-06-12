@@ -3,6 +3,28 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-12 (수정: standalone API/Batch 검수 결과 반영)
+- Git 동기화:
+  - 작업 시작 시 `main...origin/main` 차이 없음 확인.
+- 수정 대상:
+  - Gemini가 로컬 미추적 파일로 추가한 standalone Application 후보와, 이전 Codex 검수에서 실패로 기록한 `asset-lease`, `deposit:batch`, `reporting:api`, `reporting:batch`, `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`.
+- 수정 내용:
+  - `asset-lease` 중복 API/BATCH Application 후보 제거.
+  - 단일 `java-library` 모듈인 `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`의 잘못된 Application 후보 제거.
+  - `deposit:batch`를 Spring Boot Batch 컨텍스트 앱으로 정리하고 `bootJar` mainClass, Boot BOM, H2 runtime, JPA repository/entity scan을 추가.
+  - `reporting:api`, `reporting:batch`를 Spring Boot 앱으로 정리하고 mainClass, H2 runtime, 좁은 component scan, Batch JPA scan을 추가.
+  - `deposit` 로컬 단독 실행용 master-data/journal 포트 어댑터를 명시 속성(`account.deposit.local-adapters.enabled=true`) 기반으로 추가.
+  - `reporting` memory 모드용 GL 잔액/전표 상세 조회 어댑터를 추가.
+  - Deposit/Reporting IntelliJ `.run` 설정과 README/docs/local-run 문서를 최신화.
+- 검증:
+  - 대상 전체 `bootJar`/`compileJava`/`deposit:core:test`/`reporting:core:test` 성공.
+  - `deposit:api`, `deposit:batch`, `reporting:api`, `reporting:batch` 개별 `bootRun` 컨텍스트 스모크 성공.
+  - IntelliJ `.run` XML 파싱 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- 남은 리스크:
+  - 로컬 logstash appender가 `localhost:5000`에 연결을 시도해 수집기가 없으면 경고와 종료 지연이 발생한다.
+  - deposit/reporting 로컬 memory 어댑터는 학습/기동 확인용이며 운영 데이터 검증을 대체하지 않는다.
+
 ## 2026-06-11 (검수: Gemini standalone API/Batch Application)
 - Git 동기화:
   - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.

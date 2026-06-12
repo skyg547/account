@@ -7,19 +7,33 @@
 - 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
-`reporting` 상위 프로젝트는 실행 코드가 없고, 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있다. 현재 세 하위 모듈은 standalone Boot 앱이 아니므로 모듈 테스트와 컴파일로 검증한다.
+`reporting` 상위 프로젝트는 실행 코드가 없고, 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있다. `reporting:core`는 library 모듈이며, `reporting:api`와 `reporting:batch`는 standalone Boot 앱으로 실행한다.
 
 ## IntelliJ에서 실행하기
 
 1. IntelliJ에서 루트 프로젝트를 연다.
 2. 오른쪽 Gradle 창에서 아래 태스크를 실행한다.
-3. 또는 상단 Run Configuration에서 `Reporting Module Tests`를 선택한다.
+3. 상단 Run Configuration에서 API 실행, Batch 컨텍스트 실행, 모듈 테스트 중 하나를 선택한다.
 
 추가된 실행 구성:
 
 - `.run/Reporting Module Tests.run.xml`
+- `.run/Reporting API bootRun.run.xml`
+- `.run/Reporting Batch Context.run.xml`
 
 ## PowerShell에서 실행하기
+
+API 앱 실행:
+
+```powershell
+.\gradlew :reporting:api:bootRun --args="--server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+```
+
+Batch 컨텍스트 실행:
+
+```powershell
+.\gradlew :reporting:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+```
 
 전체 reporting 테스트:
 
@@ -33,13 +47,24 @@
 .\gradlew :reporting:core:compileJava :reporting:api:compileJava :reporting:batch:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
+bootJar 확인:
+
+```powershell
+.\gradlew :reporting:api:bootJar :reporting:batch:bootJar --console=plain --max-workers=1 --no-daemon
+```
+
 ## HTTP API를 로컬에서 호출하려면
 
-현재 `reporting:api`에는 `SpringBootApplication`이 없다. 따라서 아래 중 하나가 필요하다.
+로컬 학습용 실행은 `account.reporting.persistence.mode=memory`를 사용한다. 이 모드에서는 `InMemoryLedgerBalanceAdapter`가 샘플 GL 잔액을 제공하고, reporting의 인메모리 매핑/스냅샷 어댑터가 사용된다.
 
-1. 기존 호스트 애플리케이션이 reporting api/core 패키지를 컴포넌트 스캔하도록 구성한다.
-2. 테스트 전용 또는 통합 실행용 Boot 앱 모듈을 별도로 만든다.
-3. `ReportingControllerTest`처럼 컨트롤러 단위 테스트로 API 계약을 검증한다.
+예시:
+
+```http
+POST http://localhost:8090/api/v1/reporting/generate?type=BALANCE_SHEET&baseDate=2026-03-31T00:00:00
+X-User-ID: tester
+```
+
+운영형 JPA 모드는 `account.reporting.persistence.mode=jpa` 또는 기본값을 사용한다. 이때는 `LedgerQueryPort` 실제 구현, DB, Flyway migration, 보고 라인 매핑 seed가 준비되어야 한다.
 
 ## 데이터 준비 순서
 
@@ -51,4 +76,4 @@
 4. 주석 마트 생성을 위한 `noteNumber`가 있는 보고 라인.
 5. 감독보고 제출을 위한 `RPT_REGULATORY_REPORT_MAPPING` seed.
 
-로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory` 설정을 사용하는 구성이 필요하다.
+로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory` 설정을 사용한다.

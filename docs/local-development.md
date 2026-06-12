@@ -48,10 +48,14 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 | `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
 | `governance` | `com.ho.account.governance.GovernanceApplication` | 설정 파일 기준 | 감사/승인 |
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
+| `deposit:api` | `com.ho.account.deposit.DepositApplication` | 8087 | 예금 API |
+| `deposit:batch` | `com.ho.account.deposit.batch.DepositBatchApplication` | CLI 또는 설정 기준 | 예금 배치 컨텍스트 |
 | `account-mart:mart-api` | `com.ho.account.mart.api.AllowanceMartApiApplication` | 8085 | ECL 입력 마트 API |
 | `account-mart:mart-batch` | `com.ho.account.mart.batch.AllowanceMartBatchApplication` | 8086 또는 CLI | ECL 입력 마트 배치 |
 | `ecl:ecl-api` | `com.ho.account.ecl.api.AllowanceEclApiApplication` | 설정 파일 기준 | ECL API |
 | `ecl:ecl-batch` | `com.ho.account.ecl.batch.AllowanceEclBatchApplication` | CLI 또는 설정 기준 | ECL 배치 |
+| `reporting:api` | `com.ho.account.reporting.ReportingApiApplication` | 8090 | 재무보고 API |
+| `reporting:batch` | `com.ho.account.reporting.batch.ReportingBatchApplication` | CLI 또는 설정 기준 | 재무보고 배치 컨텍스트 |
 
 ## 5. IntelliJ Run Configuration 만들기
 
@@ -67,6 +71,10 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 | `ECL Batch Context` | `:ecl:ecl-batch:bootRun` | demo profile로 ECL batch 컨텍스트 기동, Job 자동 실행 없음 |
 | `Journal Ledger API bootRun` | `:journal-ledger:api:bootRun` | 전표/원장 API 로컬 실행 |
 | `Journal Ledger API JDBC Bulk` | `:journal-ledger:api:bootRun` | JDBC bulk 원장 저장 어댑터 모드로 실행 |
+| `Deposit API bootRun` | `:deposit:api:bootRun` | 로컬 어댑터 기반 예금 API 실행 |
+| `Deposit Batch Context` | `:deposit:batch:bootRun` | 로컬 어댑터 기반 예금 batch 컨텍스트 기동 |
+| `Reporting API bootRun` | `:reporting:api:bootRun` | memory 모드 재무보고 API 실행 |
+| `Reporting Batch Context` | `:reporting:batch:bootRun` | memory 모드 재무보고 batch 컨텍스트 기동 |
 | `Config Server bootRun` | `:config-server:bootRun` | 중앙 설정 서버 로컬 실행 |
 | `Discovery bootRun` | `:discovery:bootRun` | Eureka 서버 로컬 실행 |
 | `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
@@ -87,6 +95,8 @@ Gradle task로 실행:
 ```powershell
 .\gradlew :account-mart:mart-api:bootRun --console=plain
 .\gradlew :account-mart:mart-batch:bootRun --console=plain
+.\gradlew :reporting:api:bootRun --args="--server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :deposit:api:bootRun --args="--server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 ## 6. 인프라 실행

@@ -12,9 +12,10 @@
 ## 현재 실행 전제
 
 - `reporting`은 상위 집계 프로젝트이고 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있다.
-- 세 하위 모듈은 현재 `java-library` 모듈이다.
-- 별도 `SpringBootApplication`이나 `:reporting:api:bootRun` 태스크가 없다.
-- 로컬에서는 IntelliJ Gradle 실행 구성 또는 `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test`로 모듈 단위 검증을 수행한다.
+- `reporting:core`는 현재 `java-library` 모듈이다.
+- `reporting:api`와 `reporting:batch`는 standalone Spring Boot 앱이며 각각 `:reporting:api:bootRun`, `:reporting:batch:bootRun`으로 실행한다.
+- 로컬 학습 실행은 `account.reporting.persistence.mode=memory`를 사용해 journal-ledger 없이 샘플 GL 잔액으로 기동한다.
+- 검증은 IntelliJ Gradle 실행 구성 또는 `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test`로 수행한다.
 
 ## 주요 특징 및 구현 기준 (Phase 4 반영)
 

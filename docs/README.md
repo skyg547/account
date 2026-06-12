@@ -46,6 +46,7 @@
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제
 - `payable/README.md`와 `payable/docs/README.md`: 매입채무, 지급 런, 선급금, 상계 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `receivable/README.md`와 `receivable/docs/README.md`: 매출채권, 수납, 자동/수동 매칭 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
+- `deposit/README.md`와 `deposit/docs/README.md`: 예금 계좌 개설, 초기입금 전표, 수신 로컬 어댑터 흐름. API/Batch standalone Boot 실행과 IntelliJ `.run` 설정 제공
 - `asset-lease/README.md`와 `asset-lease/docs/README.md`: 고정자산, 감가상각 Batch, IFRS 16 리스, 사용권자산/리스부채 흐름. 단독 Boot 실행과 IntelliJ `.run` 설정 제공
 - `tax/README.md`와 `tax/docs/README.md`: 매입 세금계산서, 금액 정합성, 논리 취소 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `loan/README.md`와 `loan/docs/README.md`: 대출 실행, EIR, 일일 이자 발생 Batch
@@ -54,7 +55,7 @@
 - `journal-ledger/README.md`: 전표 기록 및 원장(GL/SL) 관리
 - `closing/README.md`와 `closing/docs/README.md`: 월마감, 기간 잠금, FX/ECL 결산 배치
 - `reconciliation/README.md`와 `reconciliation/docs/README.md`: 외부 데이터와의 자동 대사, 차이/조정 전표 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
-- `reporting/README.md`와 `reporting/docs/README.md`: B/S, I/S 재무제표 생성, 주석 마트, 감독보고 제출. 현재 `core/api/batch` library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
+- `reporting/README.md`와 `reporting/docs/README.md`: B/S, I/S 재무제표 생성, 주석 마트, 감독보고 제출. `core`는 library, `api`/`batch`는 standalone Boot 실행과 IntelliJ `.run` 설정 제공
 
 ### 3.4 대손충당금 입력/산출
 - `account-mart/README.md`와 `account-mart/docs/README.md`: ECL 입력 snapshot 생성

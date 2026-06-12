@@ -1,5 +1,5 @@
 plugins {
-    id 'java-library'
+    id 'org.springframework.boot'
     id 'io.spring.dependency-management'
 }
 
@@ -12,6 +12,7 @@ base {
 
 dependencyManagement {
     imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
     }
 }
@@ -19,11 +20,18 @@ dependencyManagement {
 dependencies {
     implementation project(':deposit:core')
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+    runtimeOnly 'com.h2database:h2'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-batch-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+}
+
+bootJar {
+    enabled = true
+    mainClass = 'com.ho.account.deposit.batch.DepositBatchApplication'
 }
 
 jar { enabled = true }
