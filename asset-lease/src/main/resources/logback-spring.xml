@@ -5,18 +5,27 @@
 
     <springProperty scope="context" name="springAppName" source="spring.application.name"/>
 
-    <!-- Logstash로 로그를 JSON 형태로 전송하는 Appender -->
-    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>localhost:5000</destination>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"service_name":"${springAppName}"}</customFields>
-        </encoder>
-    </appender>
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <logger name="com.ho.account" level="DEBUG"/>
+    </springProfile>
 
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="LOGSTASH"/>
-    </root>
+    <springProfile name="!local">
+        <!-- Logstash로 로그를 JSON 형태로 전송하는 Appender -->
+        <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>localhost:5000</destination>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>{"service_name":"${springAppName}"}</customFields>
+            </encoder>
+        </appender>
 
-    <logger name="com.ho.account" level="DEBUG"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+
+        <logger name="com.ho.account" level="DEBUG"/>
+    </springProfile>
 </configuration>

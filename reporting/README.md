@@ -142,9 +142,9 @@ erDiagram
 
 **PowerShell 로컬 실행 명령:**
 ```powershell
-.\gradlew :reporting:api:bootRun --args="--server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 
-.\gradlew :reporting:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 **PowerShell 검증 명령:**
@@ -157,7 +157,7 @@ erDiagram
 1. 루트 프로젝트를 Gradle 프로젝트로 연다.
 2. Gradle JVM을 JDK 17로 맞춘다.
 3. Run Configuration에서 `Reporting API bootRun`, `Reporting Batch Context`, `Reporting Module Tests` 중 목적에 맞는 구성을 실행한다.
-4. 처음에는 공유 실행 설정에 포함된 `account.reporting.persistence.mode=memory`로 샘플 GL 잔액과 인메모리 어댑터 흐름을 확인한다.
+4. 처음에는 공유 실행 설정에 포함된 `spring.profiles.active=local`, `account.reporting.persistence.mode=memory`로 logstash 없이 샘플 GL 잔액과 인메모리 어댑터 흐름을 확인한다.
 
 **연동 주의사항:**
 - 실시간 집계 시 `LoadLedgerPort`를 통해 `journal-ledger` 모듈의 최신 잔액을 가져옵니다.

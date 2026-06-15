@@ -26,13 +26,13 @@
 API 앱 실행:
 
 ```powershell
-.\gradlew :reporting:api:bootRun --args="--server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 Batch 컨텍스트 실행:
 
 ```powershell
-.\gradlew :reporting:batch:bootRun --args="--spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 전체 reporting 테스트:
@@ -55,7 +55,7 @@ bootJar 확인:
 
 ## HTTP API를 로컬에서 호출하려면
 
-로컬 학습용 실행은 `account.reporting.persistence.mode=memory`를 사용한다. 이 모드에서는 `InMemoryLedgerBalanceAdapter`가 샘플 GL 잔액을 제공하고, reporting의 인메모리 매핑/스냅샷 어댑터가 사용된다.
+로컬 학습용 실행은 `spring.profiles.active=local`과 `account.reporting.persistence.mode=memory`를 함께 사용한다. `local` profile은 logstash 전송을 끄고 콘솔 로그만 남기며, memory 모드에서는 `InMemoryLedgerBalanceAdapter`가 샘플 GL 잔액을 제공하고 reporting의 인메모리 매핑/스냅샷 어댑터가 사용된다.
 
 예시:
 

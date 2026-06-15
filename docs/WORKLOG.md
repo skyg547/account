@@ -3,6 +3,34 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-15 (Codex 수정)
+### [수정] 로컬 bootRun logstash 연결 경고 제거
+- **수정 범위**:
+  - `account-mart:mart-api`, `ecl:ecl-api`, `gateway`, `discovery`, `master-data`, `journal-ledger`, `journal-ledger:api`, `journal-ledger:batch`, `asset-lease`의 `logback-spring.xml`을 `local` profile 기준으로 분기.
+  - `spring.profiles.active=local`일 때는 `LOGSTASH` appender를 만들거나 root logger에 연결하지 않고 콘솔 로그만 사용하도록 정리.
+  - 운영/일반 profile(`!local`)에서는 기존 logstash JSON 전송 구조와 custom field를 유지.
+  - `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Context.run.xml`, `.run/Reporting API bootRun.run.xml`, `.run/Reporting Batch Context.run.xml`에 `--spring.profiles.active=local` 추가.
+  - `deposit/README.md`, `deposit/docs/local-run.md`, `reporting/README.md`, `reporting/docs/local-run.md`, `docs/local-development.md`의 로컬 실행 명령을 `local` profile 기준으로 갱신.
+- **검증 명령**:
+  - `git fetch origin`
+  - `git rev-list --left-right --count main...origin/main`
+  - `.\gradlew :deposit:api:bootRun --args="--spring.main.web-application-type=none --spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :deposit:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:api:bootRun --args="--spring.main.web-application-type=none --spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - 모든 `logback-spring.xml` XML 파싱 확인.
+  - Deposit/Reporting IntelliJ `.run` XML 파싱 확인.
+  - `git diff --check`
+- **검증 결과**:
+  - 원격 동기화 확인: `main...origin/main` 차이 `0 0`.
+  - Deposit/Reporting API/BATCH 네 가지 bootRun 컨텍스트 스모크 성공.
+  - 이전처럼 `LogstashTcpSocketAppender`의 `localhost:5000` 연결 실패 경고가 발생하지 않음.
+  - logback XML, `.run` XML 파싱 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- **남은 리스크**:
+  - `local` profile이 아닌 운영/일반 profile에서는 logstash 수집기가 떠 있어야 한다.
+  - Spring Cloud LoadBalancer 기본 캐시 경고는 남아 있으며, 운영 profile에서는 Caffeine cache 적용 여부를 별도 판단해야 한다.
+
 ### 📅 2026-06-12 (Codex 수정)
 ### [수정] Gemini standalone API/Batch 검수 결과 반영 및 로컬 실행 정리
 - **수정 범위**:

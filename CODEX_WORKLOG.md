@@ -3,6 +3,23 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-15 (수정: local profile logstash 비활성화)
+- Git 동기화:
+  - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.
+- 수정 내용:
+  - logstash appender가 있는 모든 `logback-spring.xml`에 `local`/`!local` profile 분기를 추가했다.
+  - `local` profile에서는 console appender만 root logger에 연결하고 `LOGSTASH` appender를 생성하지 않도록 정리했다.
+  - Deposit/Reporting IntelliJ `.run` 설정과 README/docs/local-run 명령에 `--spring.profiles.active=local`을 추가했다.
+- 검증:
+  - `deposit:api`, `deposit:batch`, `reporting:api`, `reporting:batch` bootRun 컨텍스트 스모크 성공.
+  - 네 가지 bootRun 모두 logstash `localhost:5000` 연결 실패 경고 없이 종료.
+  - 모든 `logback-spring.xml` XML 파싱 성공.
+  - Deposit/Reporting `.run` XML 파싱 성공.
+  - `git diff --check` 성공(CRLF 안내만 출력).
+- 남은 리스크:
+  - 운영/일반 profile에서는 기존 logstash 전송이 유지되므로 수집기 기동이 필요하다.
+  - Spring Cloud LoadBalancer 기본 캐시 경고는 별도 운영 튜닝 대상이다.
+
 ## 2026-06-12 (수정: standalone API/Batch 검수 결과 반영)
 - Git 동기화:
   - 작업 시작 시 `main...origin/main` 차이 없음 확인.
