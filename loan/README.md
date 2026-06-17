@@ -115,7 +115,7 @@ account.loan.accounting:
 API 컨텍스트 실행:
 
 ```powershell
-.\gradlew :loan:api:bootRun --args="--server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
+.\gradlew :loan:api:bootRun --args="--server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
 ```
 
 Batch 컨텍스트만 실행:

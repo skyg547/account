@@ -29,7 +29,7 @@ Batch Job은 선행 데이터가 필요하므로 기본 Run Configuration은 컨
 ## API 실행
 
 ```powershell
-.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확인합니다.

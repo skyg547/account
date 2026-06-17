@@ -45,6 +45,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 - LoadBalancer는 주소록에서 받은 여러 인스턴스 중 어디로 요청을 보낼지 고릅니다.
 - Caffeine은 그 인스턴스 목록을 짧게 캐시해 매번 새로 계산하지 않도록 돕는 로컬 캐시입니다.
 - `local` profile에서 Eureka를 꺼도 클래스패스에는 LoadBalancer가 남아 있을 수 있으므로, Caffeine 의존성은 로컬 기동 경고를 줄이는 데도 도움이 됩니다.
+- H2와 로컬 어댑터만으로 단독 실행할 때는 `--spring.cloud.discovery.enabled=false`와 함께 `--spring.cloud.loadbalancer.enabled=false`를 넣어 LoadBalancer 자동 구성 자체를 끕니다. 이 경우 서비스 디스커버리와 외부 서비스 라우팅을 쓰지 않겠다는 뜻입니다.
 
 ## 5. Spring Boot 실행 모듈
 
@@ -106,8 +107,8 @@ Gradle task로 실행:
 ```powershell
 .\gradlew :account-mart:mart-api:bootRun --console=plain
 .\gradlew :account-mart:mart-batch:bootRun --console=plain
-.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
-.\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 ## 7. 인프라 실행

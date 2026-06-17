@@ -142,9 +142,9 @@ erDiagram
 
 **PowerShell 로컬 실행 명령:**
 ```powershell
-.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 
-.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 **PowerShell 검증 명령:**

@@ -33,7 +33,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax", 2026-06-11 "문서 통합 8차: reconciliation/reporting", 2026-06-11 "문서 통합 9차: foundation/infra", 2026-06-12 "Gemini standalone API/Batch 검수 결과 반영", 2026-06-15 "local profile logstash 비활성화", 2026-06-17 "Spring Cloud LoadBalancer Caffeine 캐시 반영"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax", 2026-06-11 "문서 통합 8차: reconciliation/reporting", 2026-06-11 "문서 통합 9차: foundation/infra", 2026-06-12 "Gemini standalone API/Batch 검수 결과 반영", 2026-06-15 "local profile logstash 비활성화", 2026-06-17 "Spring Cloud LoadBalancer Caffeine 캐시 반영", 2026-06-17 "local standalone LoadBalancer 자동 구성 비활성화"입니다.
 - Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
 - Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
 - Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
@@ -77,6 +77,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - `asset-lease`, `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`에 잘못된 미추적 API/BATCH Application 후보가 남아 있지 않은지
 - local profile에서 logback `LOGSTASH` appender가 생성/참조되지 않고, 일반 profile에서는 기존 logstash 전송 구조가 유지되는지
 - Eureka/Gateway/OpenFeign 실행 모듈에 `com.github.ben-manes.caffeine:caffeine` 의존성이 누락 없이 추가되어 Spring Cloud LoadBalancer 기본 캐시 경고를 제거하는지
+- 로컬 H2/메모리/로컬 어댑터 실행 명령에서 `spring.cloud.discovery.enabled=false`와 `spring.cloud.loadbalancer.enabled=false`가 함께 적용되어 불필요한 LoadBalancer 자동 구성을 피하는지
 - Reporting에 새로 남긴 `@todo` 2건이 실제 운영 리스크(Spring Batch Job/Step 전환, 랜덤 반려 설정화)를 정확히 가리키는지
 - Contracts/Shared-Kernel README/docs/local-run이 실제 `java-library` build.gradle 및 컴파일 검증 흐름과 맞는지
 - Master-Data README/docs, SCD2 기준정보, 변경 요청 승인/반영, 포트/어댑터 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지

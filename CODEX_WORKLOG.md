@@ -3,6 +3,22 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-17 (수정: local standalone LoadBalancer 자동 구성 비활성화)
+- Git 동기화:
+  - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.
+- 수정 내용:
+  - 로컬 H2/메모리/로컬 어댑터 실행에서 discovery/Eureka를 끄는 명령에 `--spring.cloud.loadbalancer.enabled=false`를 추가했다.
+  - Deposit, Loan, Closing, Asset-Lease, Reporting의 `.run` 설정과 README/local-run 문서를 같은 기준으로 정리했다.
+  - `docs/local-development.md`에 단독 실행 시 LoadBalancer 자동 구성을 끄는 이유를 보강했다.
+- 검증:
+  - Deposit API/BATCH, Reporting API/BATCH 로컬 profile bootRun 스모크 성공.
+  - Deposit API에서 Spring Cloud LoadBalancer BeanPostProcessor 경고가 재현되지 않음을 확인했다.
+  - 수정한 `.run` XML 파싱 성공.
+  - 활성 로컬 실행 문서와 `.run` 설정 기준 LoadBalancer 비활성화 인자 누락 없음.
+- 남은 리스크:
+  - Batch 컨텍스트의 Spring Batch `jobRegistry` BeanPostProcessor 경고는 별도 경고로 남아 있다.
+  - 운영/일반 profile에서는 기존 logstash 수집기 의존성이 유지된다.
+
 ## 2026-06-17 (수정: Spring Cloud LoadBalancer Caffeine 캐시 반영)
 - Git 동기화:
   - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.

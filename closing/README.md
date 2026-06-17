@@ -104,7 +104,7 @@ erDiagram
 API 컨텍스트 실행:
 
 ```powershell
-.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 Batch 컨텍스트만 실행:

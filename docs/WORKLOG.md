@@ -4,6 +4,31 @@
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
 ### 📅 2026-06-17 (Codex 수정)
+### [수정] 로컬 standalone 실행 시 LoadBalancer 자동 구성 비활성화
+- **Git 동기화**:
+  - `git fetch origin` 실행.
+  - `main...origin/main` 차이 `0 0` 확인 후 작업 시작.
+- **수정 범위**:
+  - 로컬 H2/메모리/로컬 어댑터 실행 명령에서 외부 서비스 디스커버리를 끄는 경우 `--spring.cloud.loadbalancer.enabled=false`를 함께 사용하도록 정리.
+  - `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Context.run.xml`, `.run/Loan API bootRun.run.xml`, `.run/Closing API bootRun.run.xml`, `.run/Asset Lease API bootRun.run.xml`, `.run/Reporting API bootRun.run.xml`, `.run/Reporting Batch Context.run.xml` 갱신.
+  - `deposit`, `loan`, `closing`, `asset-lease`, `reporting`의 README/local-run 문서와 `docs/local-development.md` 실행 예시를 동일한 기준으로 맞춤.
+- **검증 명령**:
+  - `.\gradlew :deposit:api:bootRun --args="--spring.main.web-application-type=none --spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :deposit:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:api:bootRun --args="--spring.main.web-application-type=none --spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - 수정한 IntelliJ `.run` XML 파싱 확인.
+  - 활성 로컬 실행 문서와 `.run` 설정에서 `spring.cloud.discovery.enabled=false` 사용 시 `spring.cloud.loadbalancer.enabled=false` 누락 여부 확인.
+- **검증 결과**:
+  - Deposit API/BATCH, Reporting API/BATCH 로컬 기동 성공.
+  - Deposit API에서 남아 있던 Spring Cloud LoadBalancer BeanPostProcessor 경고는 `spring.cloud.loadbalancer.enabled=false` 적용 후 재현되지 않음.
+  - 수정한 `.run` XML 파싱 성공.
+  - 활성 로컬 실행 문서와 `.run` 설정 기준 누락 없음.
+- **남은 리스크**:
+  - Batch 컨텍스트에서는 Spring Batch `jobRegistry` 관련 BeanPostProcessor 경고가 남아 있다. LoadBalancer 경고와 별도이며 현재 기동 실패를 유발하지 않는다.
+  - 운영/일반 profile에서는 기존 logstash 전송이 유지되므로 수집기가 필요하다.
+
+### 📅 2026-06-17 (Codex 수정)
 ### [수정] Spring Cloud LoadBalancer Caffeine 캐시 의존성 반영
 - **Git 동기화**:
   - `git fetch origin` 실행.
