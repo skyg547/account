@@ -3,6 +3,23 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-17 (수정: Spring Cloud LoadBalancer Caffeine 캐시 반영)
+- Git 동기화:
+  - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.
+- 수정 내용:
+  - Eureka/Gateway/OpenFeign을 직접 쓰는 실행 모듈에 `com.github.ben-manes.caffeine:caffeine` 의존성을 추가했다.
+  - 대상 모듈: `account-mart:mart-api`, `account-mart:mart-batch`, `asset-lease`, `auth`, `deposit:api`, `ecl:ecl-api`, `ecl:ecl-batch`, `gateway`, `governance`, `journal-ledger:api`, `journal-ledger:core`, `loan:api`, `master-data`.
+  - `docs/local-development.md`에 LoadBalancer/Eureka/Caffeine 역할과 로컬 실행 시 의미를 보강했다.
+- 검증:
+  - Spring Cloud 클라이언트를 직접 쓰는 build 파일의 Caffeine 누락 여부를 확인했다.
+  - Caffeine 의존성을 추가한 전체 대상 모듈의 `compileJava`가 성공했다.
+  - `deposit:api:compileJava` 성공.
+  - `deposit:api:bootRun` 로컬 profile 스모크 성공.
+  - 대표 기동 로그에서 Spring Cloud LoadBalancer 기본 캐시/Caffeine 권고 경고가 재현되지 않음을 확인했다.
+- 남은 리스크:
+  - Spring Cloud 내부 BeanPostProcessor 경고는 별도 성격으로 남아 있다.
+  - 운영/일반 profile에서는 기존 logstash 수집기 의존성이 유지된다.
+
 ## 2026-06-15 (수정: local profile logstash 비활성화)
 - Git 동기화:
   - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.

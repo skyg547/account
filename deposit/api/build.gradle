@@ -20,6 +20,7 @@ dependencies {
     implementation project(':deposit:core')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
     runtimeOnly 'com.h2database:h2'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'

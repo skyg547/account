@@ -35,7 +35,18 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 
 전체 테스트는 오래 걸립니다. 모듈을 수정할 때는 해당 모듈과 직접 연관 모듈부터 확인합니다.
 
-## 4. Spring Boot 실행 모듈
+## 4. Spring Cloud LoadBalancer 캐시
+
+Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBalancer를 함께 사용합니다. 이 저장소는 해당 모듈의 Gradle 의존성에 `com.github.ben-manes.caffeine:caffeine`을 명시해 기본 캐시 대신 Caffeine 기반 캐시를 사용하도록 맞췄습니다.
+
+초보자 관점에서는 아래처럼 이해하면 됩니다.
+
+- Eureka는 서비스 이름으로 실제 인스턴스를 찾는 주소록입니다.
+- LoadBalancer는 주소록에서 받은 여러 인스턴스 중 어디로 요청을 보낼지 고릅니다.
+- Caffeine은 그 인스턴스 목록을 짧게 캐시해 매번 새로 계산하지 않도록 돕는 로컬 캐시입니다.
+- `local` profile에서 Eureka를 꺼도 클래스패스에는 LoadBalancer가 남아 있을 수 있으므로, Caffeine 의존성은 로컬 기동 경고를 줄이는 데도 도움이 됩니다.
+
+## 5. Spring Boot 실행 모듈
 
 현재 루트 `app`는 실행 소스가 없으므로 IntelliJ에서 아래 실행 클래스를 기준으로 Run Configuration을 만듭니다.
 
@@ -57,7 +68,7 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 | `reporting:api` | `com.ho.account.reporting.ReportingApiApplication` | 8090 | 재무보고 API |
 | `reporting:batch` | `com.ho.account.reporting.batch.ReportingBatchApplication` | CLI 또는 설정 기준 | 재무보고 배치 컨텍스트 |
 
-## 5. IntelliJ Run Configuration 만들기
+## 6. IntelliJ Run Configuration 만들기
 
 이 저장소에는 일부 공통 실행 설정을 `.run/`에 공유합니다. IntelliJ가 자동으로 읽지 않으면 `Run > Edit Configurations`에서 Gradle 설정을 직접 만들면 됩니다.
 
@@ -99,7 +110,7 @@ Gradle task로 실행:
 .\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
-## 6. 인프라 실행
+## 7. 인프라 실행
 
 IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서를 따릅니다.
 
@@ -122,7 +133,7 @@ docker compose ps
 
 로컬 단위 테스트와 H2 기반 모듈 실행만 확인할 때는 인프라를 모두 띄우지 않아도 됩니다.
 
-## 7. 문서 작업 검증
+## 8. 문서 작업 검증
 
 문서만 고쳤더라도 아래를 확인합니다.
 

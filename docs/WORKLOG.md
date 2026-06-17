@@ -3,6 +3,31 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-17 (Codex 수정)
+### [수정] Spring Cloud LoadBalancer Caffeine 캐시 의존성 반영
+- **Git 동기화**:
+  - `git fetch origin` 실행.
+  - `main...origin/main` 차이 `0 0` 확인 후 작업 시작.
+- **수정 범위**:
+  - Eureka/Gateway/OpenFeign을 직접 사용하는 실행 모듈에 `com.github.ben-manes.caffeine:caffeine` 의존성을 추가.
+  - 대상: `account-mart:mart-api`, `account-mart:mart-batch`, `asset-lease`, `auth`, `deposit:api`, `ecl:ecl-api`, `ecl:ecl-batch`, `gateway`, `governance`, `journal-ledger:api`, `journal-ledger:core`, `loan:api`, `master-data`.
+  - `docs/local-development.md`에 LoadBalancer, Eureka, Caffeine의 역할과 로컬 실행 시 의미를 초보자 기준으로 보강.
+- **검증 명령**:
+  - Spring Cloud 클라이언트 build 파일 검색으로 Caffeine 누락 여부 확인.
+  - `.\gradlew :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava :asset-lease:compileJava :ecl:ecl-api:compileJava :ecl:ecl-batch:compileJava --console=plain --max-workers=1 --no-daemon --continue`
+  - `.\gradlew :auth:compileJava :deposit:api:compileJava :gateway:compileJava :governance:compileJava :journal-ledger:api:compileJava :journal-ledger:core:compileJava :loan:api:compileJava :master-data:compileJava --console=plain --max-workers=1 --no-daemon --continue`
+  - `.\gradlew :deposit:api:compileJava --console=plain --max-workers=1 --no-daemon --stacktrace`
+  - `.\gradlew :deposit:api:bootRun --args="--spring.main.web-application-type=none --spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+- **검증 결과**:
+  - Spring Cloud 클라이언트를 직접 쓰는 build 파일에는 Caffeine 의존성이 모두 존재함을 확인.
+  - Caffeine 의존성을 추가한 전체 대상 모듈의 `compileJava` 성공.
+  - 대표 모듈 `deposit:api:compileJava` 성공.
+  - 대표 로컬 기동 `deposit:api:bootRun` 성공.
+  - 이전 남은 리스크였던 Spring Cloud LoadBalancer 기본 캐시/Caffeine 권고 경고는 대표 기동 로그에서 재현되지 않음.
+- **남은 리스크**:
+  - Spring Cloud 내부 `BeanPostProcessorChecker` 경고는 Caffeine 캐시 경고와 별개로 대표 기동 로그에 남아 있다. 기능 실패는 아니지만, Spring Cloud 버전 업그레이드 또는 관련 자동 구성 조건 정리 시 별도 검토가 필요하다.
+  - 운영/일반 profile에서는 기존 logstash 전송이 유지되므로 수집기가 필요하다.
+
 ### 📅 2026-06-15 (Codex 수정)
 ### [수정] 로컬 bootRun logstash 연결 경고 제거
 - **수정 범위**:
