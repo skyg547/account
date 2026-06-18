@@ -3,6 +3,21 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+## 2026-06-18 (수정: Batch JobRegistry 조기 초기화 경고 제거)
+- Git 동기화:
+  - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.
+- 수정 내용:
+  - `deposit:batch`, `reporting:batch`에 JobRegistry 등록 설정을 추가했다.
+  - Spring Batch 기본 `jobRegistryBeanPostProcessor`를 제거하고 `JobRegistrySmartInitializingSingleton`으로 Job 등록 시점을 모든 singleton 생성 이후로 옮겼다.
+  - Deposit/Reporting local-run 문서와 전사 local-development 문서에 설정 의미를 설명했다.
+- 검증:
+  - Deposit Batch 로컬 profile bootRun 성공.
+  - Reporting Batch 로컬 profile bootRun 성공.
+  - 두 Batch 기동 로그에서 `jobRegistryBeanPostProcessor` 관련 BeanPostProcessorChecker 경고가 재현되지 않았다.
+- 남은 리스크:
+  - 운영/일반 profile에서는 기존 logstash 수집기 의존성이 유지된다.
+  - H2/Flyway 버전 권고 경고는 로컬 H2 조합의 별도 경고로 남아 있다.
+
 ## 2026-06-17 (수정: local standalone LoadBalancer 자동 구성 비활성화)
 - Git 동기화:
   - `git fetch origin` 실행 후 `main...origin/main` 차이 `0 0` 확인.

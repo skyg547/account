@@ -3,6 +3,26 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+### 📅 2026-06-18 (Codex 수정)
+### [수정] Batch JobRegistry 조기 초기화 경고 제거
+- **Git 동기화**:
+  - `git fetch origin` 실행.
+  - `main...origin/main` 차이 `0 0` 확인 후 작업 시작.
+- **수정 범위**:
+  - `deposit:batch`, `reporting:batch`에 Batch Job 등록 전용 설정을 추가.
+  - Spring Batch 기본 `jobRegistryBeanPostProcessor` BeanDefinition을 제거하고, Spring Batch 5.1.1의 대체 경로인 `JobRegistrySmartInitializingSingleton`으로 Job 등록 시점을 모든 singleton 생성 이후로 이동.
+  - `deposit/docs/local-run.md`, `reporting/docs/local-run.md`, `docs/local-development.md`에 Batch JobRegistry 설정 의미를 초보자 기준으로 설명.
+- **검증 명령**:
+  - `.\gradlew :deposit:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+  - `.\gradlew :reporting:batch:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain --max-workers=1 --no-daemon`
+- **검증 결과**:
+  - Deposit Batch, Reporting Batch 로컬 기동 성공.
+  - 기존 남은 리스크였던 `jobRegistryBeanPostProcessor` 관련 BeanPostProcessorChecker 경고가 두 Batch 기동 로그에서 재현되지 않음.
+  - Batch 앱에는 업무 if/for/math 로직을 추가하지 않았고, JobRegistry 등록 인프라만 조정.
+- **남은 리스크**:
+  - 운영/일반 profile에서는 기존 logstash 전송이 유지되므로 수집기가 필요하다.
+  - H2/Flyway 버전 권고 경고는 로컬 H2 조합에서 남아 있으며, 운영 DB 검증과 별도이다.
+
 ### 📅 2026-06-17 (Codex 수정)
 ### [수정] 로컬 standalone 실행 시 LoadBalancer 자동 구성 비활성화
 - **Git 동기화**:

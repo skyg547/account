@@ -111,6 +111,8 @@ Gradle task로 실행:
 .\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
+Deposit/Reporting Batch 컨텍스트는 Spring Batch Job 목록을 모든 Bean 생성 뒤에 등록하도록 `JobRegistrySmartInitializingSingleton`을 사용한다. 이 설정은 로컬 기동 중 `jobRegistryBeanPostProcessor` 관련 조기 초기화 경고를 줄이기 위한 Batch 인프라 설정이며, 업무 계산 로직을 Batch 앱에 넣는 변경은 아니다.
+
 ## 7. 인프라 실행
 
 IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서를 따릅니다.
