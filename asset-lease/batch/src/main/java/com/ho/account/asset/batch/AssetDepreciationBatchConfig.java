@@ -15,6 +15,8 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
@@ -22,7 +24,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,12 +50,14 @@ public class AssetDepreciationBatchConfig {
     }
 
     @Bean
-    public Step fixedAssetBulkStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    public Step fixedAssetBulkStep(JobRepository jobRepository,
+                                   PlatformTransactionManager transactionManager,
+                                   ItemWriter<FixedAsset> assetBulkWriter) {
         return new StepBuilder("fixedAssetBulkStep", jobRepository)
-                .<FixedAsset, Map<Long, BigDecimal>>chunk(1000, transactionManager) // 1,000건 단위 Chunk 처리
+                .<FixedAsset, FixedAsset>chunk(1000, transactionManager) // 1,000건 단위 Chunk 처리
                 .reader(assetReader())
                 .processor(assetProcessor())
-                .writer(assetBulkWriter())
+                .writer(assetBulkWriter)
                 .build();
     }
 
@@ -70,24 +74,31 @@ public class AssetDepreciationBatchConfig {
     }
 
     @Bean
-    public ItemProcessor<FixedAsset, Map<Long, BigDecimal>> assetProcessor() {
-        return asset -> {
-            // @todo 배치 오케스트레이터가 날짜 결정과 도메인 계산을 직접 수행하지 않도록 JobParameter targetDate와 DepreciationPipeline 호출로 분리한다.
-            LocalDate lastDay = LocalDate.now().minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
-            BigDecimal amount = asset.depreciate(lastDay);
-            return amount.compareTo(BigDecimal.ZERO) > 0 ? Map.of(asset.getId(), amount) : null;
-        };
+    public ItemProcessor<FixedAsset, FixedAsset> assetProcessor() {
+        return asset -> asset;
     }
 
     @Bean
-    public ItemWriter<Map<Long, BigDecimal>> assetBulkWriter() {
+    @StepScope
+    public ItemWriter<FixedAsset> assetBulkWriter(
+            @Value("#{jobParameters['targetDate']}") String targetDateParameter) {
+        LocalDate targetDate = requireTargetDate(targetDateParameter);
         return items -> {
-            // @todo processor와 같은 targetDate JobParameter를 사용해 재실행 시점이 바뀌어도 같은 회계월을 갱신하도록 보강한다.
-            LocalDate lastDay = LocalDate.now().minusMonths(1).with(TemporalAdjusters.lastDayOfMonth());
-            for (Map<Long, BigDecimal> result : items) {
-                assetPersistencePort.updateDepreciationBulk(result, lastDay);
-                // 여기서 Kafka 전송 유즈케이스 호출 가능 (비동기)
+            List<FixedAsset> assets = new ArrayList<>();
+            for (FixedAsset item : items) {
+                assets.add(item);
+            }
+            Map<Long, BigDecimal> result = depreciationPipeline.calculateBatch(assets, targetDate);
+            if (!result.isEmpty()) {
+                assetPersistencePort.updateDepreciationBulk(result, targetDate);
             }
         };
+    }
+
+    private LocalDate requireTargetDate(String targetDateParameter) {
+        if (targetDateParameter == null || targetDateParameter.isBlank()) {
+            throw new IllegalArgumentException("JobParameter targetDate(yyyy-MM-dd) is required for assetDepreciationJob");
+        }
+        return LocalDate.parse(targetDateParameter);
     }
 }

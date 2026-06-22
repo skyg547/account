@@ -106,7 +106,9 @@ erDiagram
 
 - `ReconciliationUnit` 삭제 API는 실제 삭제가 아니라 `isActive=false`로 바꾼다.
 - `DifferenceReasonCode` 삭제 API도 `isActive=false`로 바꾼다.
-- `ReconciliationRule` 삭제 API는 현재 물리 삭제이며, 대사 실행 이력 추적을 위해 논리 비활성화로 전환해야 한다. 코드에 `@todo`로 남겼다.
+- `ReconciliationRule` 삭제 API도 `isActive=false`로 바꾼다.
+
+초보자 관점에서는 "사용 중지"와 "삭제"를 구분해야 한다. 대사 실행 이력은 과거에 어떤 단위, 규칙, 사유 코드로 판단했는지 나중에 감사할 수 있어야 하므로 기준정보를 DB에서 없애지 않는다. 새 실행에서만 쓰지 못하게 `isActive=false`로 닫는다.
 
 ## 외부 참조
 
@@ -114,4 +116,4 @@ erDiagram
 - `JournalQueryPort`: 대상 원장 집계와 조정 전표 존재 확인.
 - `JournalPostingPort`: 조정 전표 초안 생성.
 
-조정 전표 생성 시 현재 source document id가 시간 기반이다. 장애 재시도 시 중복 조정 전표가 생길 수 있어 run/difference 기준 멱등 키로 바꿔야 한다.
+조정 전표 생성 시 `lineageSourceId`는 `RECON_ADJ-RUN-{runId}-DIFF-{differenceId}-DR-{debitAccount}-CR-{creditAccount}` 형식이다. 시간값을 넣지 않기 때문에 같은 대사 실행/차이에 대한 재시도는 같은 외부 참조 키를 사용한다.

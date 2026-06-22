@@ -6,6 +6,7 @@ import com.ho.account.reporting.domain.model.RegulatoryFilingReceipt;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,15 @@ public class LocalRegulatoryFilingGatewayAdapter implements SubmitRegulatoryFili
 
     private static final Logger log = LoggerFactory.getLogger(LocalRegulatoryFilingGatewayAdapter.class);
     private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private final boolean failureSimulationEnabled;
+    private final String failureSimulationMessage;
+
+    public LocalRegulatoryFilingGatewayAdapter(
+            @Value("${account.reporting.regulatory-filing.failure-simulation.enabled:false}") boolean failureSimulationEnabled,
+            @Value("${account.reporting.regulatory-filing.failure-simulation.message:Gateway rejected filing due to schema validation failure.}") String failureSimulationMessage) {
+        this.failureSimulationEnabled = failureSimulationEnabled;
+        this.failureSimulationMessage = failureSimulationMessage;
+    }
 
     @Override
     public RegulatoryFilingReceipt submit(RegulatoryFilingPackage filingPackage) {
@@ -27,10 +37,9 @@ public class LocalRegulatoryFilingGatewayAdapter implements SubmitRegulatoryFili
             // Simulate network/protocol submission
             log.info("Transmitting filing package [Version: {}]", filingPackage.submissionVersion());
             
-            // @todo 랜덤 실패는 테스트 재현성을 해치므로 profile/설정 기반 실패 시뮬레이터로 분리한다.
-            // Simulate random rejection for resilience testing (e.g., 5% chance)
-            if (Math.random() < 0.05) {
-                throw new IllegalStateException("Gateway rejected filing due to schema validation failure.");
+            // 로컬 실패 시뮬레이션은 확률이 아니라 설정값으로 제어해 테스트와 재실행 결과가 흔들리지 않게 합니다.
+            if (failureSimulationEnabled) {
+                throw new IllegalStateException(failureSimulationMessage);
             }
 
             String receiptId = "EXT-%s-%s-%s-V%d-%s".formatted(

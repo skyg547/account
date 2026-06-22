@@ -1,6 +1,7 @@
 package com.ho.account.asset.application.service;
 
 import com.ho.account.asset.application.port.out.AssetEventPort;
+import com.ho.account.asset.application.port.out.LeaseAccountMappingPort;
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.domain.LeaseLiability;
@@ -31,7 +32,8 @@ class LeaseEntryServiceTest {
         LeaseEntryService service = new LeaseEntryService(
                 persistencePort,
                 new NoOpAssetEventPort(),
-                leasePaymentResolutionPort);
+                leasePaymentResolutionPort,
+                new StaticLeaseAccountMappingPort());
 
         service.processMonthlyLeasePayment(LocalDate.of(2026, 5, 25));
 
@@ -43,6 +45,14 @@ class LeaseEntryServiceTest {
         assertEquals(new BigDecimal("200.00"), command.debitLines().get(0).amount());
         assertEquals("25100", command.debitLines().get(1).debitAccountCode());
         assertEquals(new BigDecimal("1000.00"), command.debitLines().get(1).amount());
+    }
+
+    private static class StaticLeaseAccountMappingPort implements LeaseAccountMappingPort {
+
+        @Override
+        public LeasePaymentAccounts resolvePaymentAccounts(LeaseContract contract) {
+            return new LeasePaymentAccounts("25100", "93100", "21100");
+        }
     }
 
     private LeaseContract createIfrs16LeaseContract() {

@@ -42,10 +42,15 @@ flowchart TD
     C --> D[POST /{id}/approve]
     D --> E[APPROVED]
     E --> F[POST /{id}/apply 또는 /apply-due]
-    F --> G[APPLIED]
+    F --> G{targetType별 Applier 존재}
+    G -->|Yes| H[SCD2 도메인 반영]
+    H --> I[APPLIED]
+    G -->|No| J[fail-closed 예외]
 ```
 
-현재 `MasterDataChangeRequestService.applyApprovedChange`는 승인 요청 상태를 `APPLIED`로 바꾸는 기본 흐름입니다. 실제 targetType별 SCD2 도메인 반영까지 한 트랜잭션으로 묶는 작업은 코드에 `@todo`로 남겼습니다.
+`MasterDataChangeRequestService.applyApprovedChange`는 targetType별 `MasterDataChangeApplier`를 호출한 뒤에만 승인 요청 상태를 `APPLIED`로 바꿉니다. 현재 `DEPARTMENT`는 `DepartmentMasterDataChangeApplier`가 `DepartmentService`를 호출해 SCD2 생성, 수정, 비활성화를 처리합니다. typed applier가 없는 targetType은 조용히 성공시키지 않고 fail-closed 예외로 중단합니다.
+
+예약 반영인 `/apply-due`는 `findAll()` 후 메모리 필터를 하지 않습니다. `status=APPROVED`, `effectiveDate <= today` 조건으로 최대 500건씩 조회해 적용합니다.
 
 ## 타 모듈 조회 흐름
 
@@ -61,5 +66,4 @@ flowchart LR
 
 ## 현재 고도화 후보
 
-- 변경 요청 반영은 targetType별 도메인 applier를 호출해야 합니다. 현재 코드는 상태 변경 중심이라 코드에 `@todo`를 남겼습니다.
-- 예약 반영은 `findAll()` 후 메모리 필터가 아니라 `status`와 `effectiveDate` 조건 조회 및 chunk 처리로 전환해야 합니다.
+- `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `PRODUCT`, `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`도 운영 적용 전 typed applier를 추가해야 합니다. 구현 전에는 fail-closed로 중단됩니다.

@@ -13,6 +13,7 @@
 - 라우트와 포트는 주로 `config-repo/gateway-service.yml`에서 관리합니다.
 - Config Server import는 optional이지만, 실제 라우트 테스트는 Config Server를 먼저 띄우는 편이 안전합니다.
 - 로컬 실행 설정은 `.run/Gateway bootRun.run.xml`을 사용합니다.
+- 보호 라우트 JWT 검증은 Auth의 token-version API를 호출합니다. Auth를 함께 띄우지 않는 단독 smoke 실행에서는 `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=false`를 설정합니다.
 
 ## 핵심 코드 입구
 

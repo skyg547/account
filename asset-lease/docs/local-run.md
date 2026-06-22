@@ -81,4 +81,14 @@ Content-Type: application/json
 | Eureka 등록 오류 | `--eureka.client.enabled=false` 인자가 들어갔는지 확인 |
 | Kafka 연결 오류 | API 호출로 이벤트를 발행했다면 로컬 Kafka 또는 테스트 대체 어댑터가 필요 |
 | 리스료 지급결의 예외 | `LeasePaymentResolutionPort` 구현이 없는 단독 실행인지 확인 |
-| Batch 재실행 월이 달라짐 | 현재 Batch가 `LocalDate.now()` 기준이라 targetDate JobParameter 보강 필요 |
+| Batch targetDate 오류 | `assetDepreciationJob` 실행 시 `targetDate=YYYY-MM-DD` JobParameter를 넣었는지 확인 |
+
+## Batch JobParameter 예시
+
+감가상각 배치를 실제로 실행할 때는 처리 기준일을 명시한다.
+
+```powershell
+.\gradlew :asset-lease:bootRun --args="--spring.batch.job.name=assetDepreciationJob targetDate=2026-06-30 --spring.cloud.config.enabled=false --eureka.client.enabled=false" --console=plain
+```
+
+초보자 관점에서는 `targetDate`가 "이번 배치가 어느 회계월의 상각을 처리하는지"를 고정하는 값이다. 재실행해도 같은 `targetDate`를 넣으면 같은 회계월 기준으로 처리된다.

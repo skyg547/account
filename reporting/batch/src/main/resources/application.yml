@@ -1,0 +1,6 @@
+spring:
+  batch:
+    job:
+      # 로컬에서 bootRun만 했을 때 파라미터 없는 배치가 자동 실행되어 실패하지 않게 기본값은 false입니다.
+      # 실제 배치 실행은 아래 문서 예시처럼 enabled=true와 JobParameter를 명시해서 수행합니다.
+      enabled: false

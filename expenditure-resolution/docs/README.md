@@ -7,6 +7,7 @@
 1. [beginner-guide.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/beginner-guide.md)
 2. [process-flow.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/process-flow.md)
 3. [schema.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/schema.md)
+4. [local-run.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/local-run.md)
 
 ## 패키지 구조 (헥사고날 아키텍처)
 
@@ -48,3 +49,16 @@ expenditure/
 ├── repository/                      # Spring Data JPA Repository 인터페이스
 └── dto/                             # 요청/응답 DTO
 ```
+
+## 로컬 실행
+
+현재 구조는 `expenditure-resolution:core`, `expenditure-resolution:api`, `expenditure-resolution:batch`로 분리되어 있다.
+API와 Batch 실행 모듈은 Spring Boot 진입점을 제공하고, Batch는 `expenditureResolutionApprovalJob`으로 지출결의 승인 대상을 core 유즈케이스에 위임한다. 지출결의/예산/AP 지급 업무 판단은 core를 참조한다.
+
+```powershell
+.\gradlew :expenditure-resolution:core:test --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:api:bootRun --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:batch:bootRun --console=plain --max-workers=1
+```
+
+자세한 IntelliJ/H2 실행 순서는 [local-run.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/local-run.md)를 따른다.

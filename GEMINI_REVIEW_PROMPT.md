@@ -15,6 +15,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 ```text
 당신은 account 저장소의 독립 코드 리뷰어입니다.
 이번 리뷰에서는 코드를 직접 수정하지 말고, Codex가 작업한 변경분을 Findings 중심으로 검수하세요.
+이번 추가 리뷰 범위에는 2026-06-19 Codex의 업무 모듈 API/BATCH 실행 구조 재점검과 누락 Batch Job 보강이 포함됩니다. 특히 `deposit`, `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`에 추가한 Spring Batch `Job/Step`, core batch use case, local-run 문서, `deposit:batch` Boot Batch auto-run 설정을 우선 검수하세요.
 
 1. 먼저 아래 문서를 읽어 현재 프로젝트 규칙과 최근 작업 이력을 확인하세요.
 - GEMINI.md
@@ -33,7 +34,16 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - git diff
 - 새 파일이 있으면 해당 파일도 확인
 
-3. 리뷰 대상 변경 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합", 2026-06-10 "ECL·Journal 잔여 경계 및 문서 통합", 2026-06-10 "문서 통합 1차: 공통 + account-mart", 2026-06-10 "문서 통합 2차: ecl", 2026-06-10 "문서 통합 3차: journal-ledger", 2026-06-10 "문서 통합 4차: closing", 2026-06-10 "문서 통합 5차: loan", 2026-06-10 "문서 통합 6차: payable/receivable", 2026-06-11 "문서 통합 7차: asset-lease/tax", 2026-06-11 "문서 통합 8차: reconciliation/reporting", 2026-06-11 "문서 통합 9차: foundation/infra", 2026-06-12 "Gemini standalone API/Batch 검수 결과 반영", 2026-06-15 "local profile logstash 비활성화", 2026-06-17 "Spring Cloud LoadBalancer Caffeine 캐시 반영", 2026-06-17 "local standalone LoadBalancer 자동 구성 비활성화", 2026-06-18 "Batch JobRegistry 조기 초기화 경고 제거"입니다.
+3. 리뷰 대상 변경 범위는 Codex의 2026-06-19 "업무 모듈 API/BATCH 실행 구조 재점검 및 누락 Spring Batch Job 보강"입니다. 이전 누적 변경도 워킹트리에 섞여 있을 수 있으나, 우선순위는 아래 신규 파일/수정 파일입니다.
+- `deposit:core/batch`: `DepositBatchUseCase`, `DepositBatchService`, `depositAccountIntegrityJob`, batch `application.yml`, `DepositBatchApplication`
+- `payable:batch`: `payablePaymentRunJob`
+- `receivable:core/batch`: `ReceivableBatchUseCase`, `ReceivableBatchService`, `CollectionPersistencePort` 후보 조회, `receivableAutoMatchingJob`
+- `reconciliation:core/batch`: `ReconciliationBatchUseCase`, `ReconciliationBatchService`, `reconciliationDailyJob`
+- `tax:core/batch`: `TaxInvoiceBatchUseCase`, `TaxInvoiceBatchService`, `taxInvoiceValidationJob`
+- `expenditure-resolution:core/batch`: `ExpenditureResolutionBatchUseCase`, `ExpenditureResolutionBatchService`, `expenditureResolutionApprovalJob`
+- 각 모듈 README 및 `docs/local-run.md`의 Job 실행 명령
+
+이전 누적 검토 참고 범위는 Codex의 2026-06-09 "잔여 TODO 최종 경계 통합"부터 2026-06-19 "전체 API/BATCH bootRun smoke 및 build 검증 반영"까지입니다.
 - Auth 로그인 성공/실패 감사, 설정 기반 임시 잠금, `LoginAttemptPort`/기본 어댑터
 - Payable `PaymentExecutionPort`, 지급 멱등 키, 실패/재시도 상태, 정확한 `payableId`, master-data 내부 의존 제거
 - Receivable 참조번호 우선/만기일 허용/중복 실패 폐쇄 자동 매칭과 `CollectionAllocation` 잔액 이력
@@ -102,6 +112,15 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - 문서/WORKLOG/todo 완료 표기와 실제 코드 상태 불일치
 
 5. 가능하면 아래 검증을 재실행하세요.
+- .\gradlew :deposit:core:test :payable:core:test :receivable:core:test :reconciliation:core:test :tax:core:test :expenditure-resolution:core:test :deposit:batch:compileJava :payable:batch:compileJava :receivable:batch:compileJava :reconciliation:batch:compileJava :tax:batch:compileJava :expenditure-resolution:batch:compileJava --console=plain --max-workers=1
+- .\gradlew build --console=plain --max-workers=1
+- .\gradlew :deposit:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=depositAccountIntegrityJob asOfDate=2026-06-19" --console=plain --max-workers=1
+- .\gradlew :payable:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=payablePaymentRunJob runDate=2026-06-19 createdBy=SMOKE description=Smoke" --console=plain --max-workers=1
+- .\gradlew :receivable:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=receivableAutoMatchingJob" --console=plain --max-workers=1
+- .\gradlew :reconciliation:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=reconciliationDailyJob reconciliationDate=2026-06-19 runBy=SMOKE deepMode=false" --console=plain --max-workers=1
+- .\gradlew :tax:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=taxInvoiceValidationJob startDate=2026-06-19 endDate=2026-06-19" --console=plain --max-workers=1
+- .\gradlew :expenditure-resolution:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=expenditureResolutionApprovalJob startDate=2026-06-19 endDate=2026-06-19 paymentDueDate=2026-06-19" --console=plain --max-workers=1
+- rg -n "\bJob\s+\w+\s*\(" --glob "*.java" --glob "!**/build/**" account-mart\mart-batch asset-lease\batch closing\batch deposit\batch ecl\ecl-batch expenditure-resolution\batch journal-ledger\batch loan\batch payable\batch receivable\batch reconciliation\batch reporting\batch tax\batch
 - .\gradlew :auth:test :payable:test :receivable:test :asset-lease:test :tax:test --console=plain
 - .\gradlew :closing:batch:test :journal-ledger:core:test :journal-ledger:api:compileJava :reconciliation:test --console=plain
 - .\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain

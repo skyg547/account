@@ -1,6 +1,8 @@
 package com.ho.account.deposit.application.port.out;
 
 import com.ho.account.deposit.domain.DepositAccount;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -14,4 +16,5 @@ import java.util.Optional;
 public interface DepositAccountPersistencePort {
     DepositAccount save(DepositAccount depositAccount);
     Optional<DepositAccount> findByAccountNumber(String accountNumber);
+    List<DepositAccount> findActiveAccounts(LocalDate asOfDate);
 }

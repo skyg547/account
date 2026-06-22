@@ -31,6 +31,10 @@ public class DeferredItemType {
     @Column(nullable = false, length = 50)
     private DeferralMethod deferralMethod; // 이연 방식 (STRAIGHT_LINE, EIR_METHOD 등)
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private EirCashFlowTreatment eirCashFlowTreatment = EirCashFlowTreatment.CUSTOMER_FEE_INFLOW;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deferred_asset_account_code")
     private AccountSubject deferredAssetAccount; // 이연자산 계정
@@ -54,10 +58,19 @@ public class DeferredItemType {
         STRAIGHT_LINE, EIR_METHOD, EFFECTIVE_INTEREST_METHOD // EIR_METHOD와 EFFECTIVE_INTEREST_METHOD는 같은 개념이지만 명시적으로 구분합니다.
     }
 
+    public enum EirCashFlowTreatment {
+        CUSTOMER_FEE_INFLOW,       // 고객이 낸 수수료: 대출자의 순투자액을 줄여 EIR을 높입니다.
+        ORIGINATION_COST_OUTFLOW,  // 회사가 부담한 직접 비용: 순투자액을 늘려 EIR을 낮춥니다.
+        EXCLUDED_FROM_EIR          // 세금/대납 등 EIR 현금흐름에서 제외할 항목입니다.
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        if (this.eirCashFlowTreatment == null) {
+            this.eirCashFlowTreatment = EirCashFlowTreatment.CUSTOMER_FEE_INFLOW;
+        }
         if (this.auditUser == null)
             this.auditUser = "SYSTEM";
     }
@@ -106,6 +119,14 @@ public class DeferredItemType {
 
     public void setDeferralMethod(DeferralMethod deferralMethod) {
         this.deferralMethod = deferralMethod;
+    }
+
+    public EirCashFlowTreatment getEirCashFlowTreatment() {
+        return eirCashFlowTreatment;
+    }
+
+    public void setEirCashFlowTreatment(EirCashFlowTreatment eirCashFlowTreatment) {
+        this.eirCashFlowTreatment = eirCashFlowTreatment;
     }
 
     public AccountSubject getDeferredAssetAccount() {

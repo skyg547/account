@@ -85,25 +85,38 @@ erDiagram
 
 ## 4. 로컬 실행 및 검증 방법
 
-`receivable`은 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:receivable:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+`receivable`은 `core/api/batch` 구조로 실행됩니다. `core`가 매출채권/수납/매칭 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 
 ```powershell
-.\gradlew :receivable:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :receivable:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 **빠른 컴파일 확인:**
 
 ```powershell
-.\gradlew :receivable:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :receivable:core:compileJava :receivable:api:compileJava :receivable:batch:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**H2 local 실행:**
+
+```powershell
+.\gradlew :receivable:api:bootRun --console=plain --max-workers=1
+.\gradlew :receivable:batch:bootRun --console=plain --max-workers=1
+```
+
+**실제 Spring Batch Job 실행:**
+
+```powershell
+.\gradlew :receivable:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=receivableAutoMatchingJob" --console=plain --max-workers=1
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
 2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
-3. 상단 Run Configuration에서 `Receivable Module Tests`를 선택해 실행합니다.
-4. 실제 HTTP API를 호출하려면 receivable 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
+3. 테스트는 `receivable > core > Tasks > verification > test`를 실행합니다.
+4. API 서버는 Gradle task `:receivable:api:bootRun`, Batch 컨텍스트는 `:receivable:batch:bootRun`을 실행합니다.
 
 **연동 주의사항:**
 - 수납(Collection) 기록 시 `journal-ledger`의 전표 생성이 동반됩니다.

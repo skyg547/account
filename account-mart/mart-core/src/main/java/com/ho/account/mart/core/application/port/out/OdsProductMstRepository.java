@@ -1,13 +1,19 @@
 package com.ho.account.mart.core.application.port.out;
 
 import com.ho.account.mart.core.domain.ods.common.OdsProductMst;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * OdsProductMst 엔티티에 대한 데이터 액세스를 담당하는 리포지토리입니다.
- * 은행의 금융 상품 마스터 정보를 관리합니다.
+ * [Outbound Port] 상품 마스터 데이터 접근 인터페이스입니다.
  */
-@Repository
-public interface OdsProductMstRepository extends JpaRepository<OdsProductMst, String> {
+public interface OdsProductMstRepository {
+
+    Optional<OdsProductMst> findById(String productCode);
+
+    List<OdsProductMst> findAll();
+
+    OdsProductMst save(OdsProductMst productMst);
+
+    void saveAll(Iterable<OdsProductMst> productMsts);
 }

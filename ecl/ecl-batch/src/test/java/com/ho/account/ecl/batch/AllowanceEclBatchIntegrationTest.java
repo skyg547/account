@@ -180,6 +180,12 @@ public class AllowanceEclBatchIntegrationTest {
     }
 
     private void createBatchMetadataTables() {
+        Integer existingTables = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'BATCH_JOB_INSTANCE'",
+                Integer.class);
+        if (existingTables != null && existingTables > 0) {
+            return;
+        }
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
                 new ClassPathResource("org/springframework/batch/core/schema-h2.sql"));
         populator.execute(dataSource);

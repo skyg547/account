@@ -1,6 +1,7 @@
 package com.ho.account.loan.service;
 
 import com.ho.account.loan.domain.DeferredItem;
+import com.ho.account.loan.domain.DeferredItemType;
 import com.ho.account.loan.domain.Loan;
 import org.springframework.stereotype.Component;
 
@@ -29,14 +30,13 @@ public class EIRCalculator {
     public BigDecimal calculateEIR(Loan loan, List<DeferredItem> deferredItems) {
         BigDecimal principal = loan.getPrincipalAmount();
         
-        // 이연 항목 합계 계산 (수익은 +, 비용은 -로 처리되어야 함)
-        // @todo DeferredItemType에 수수료/비용 성격을 명시하고, EIR 현금흐름 부호를 회계 정책별로 결정해야 합니다.
-        BigDecimal fees = deferredItems.stream()
-                .map(DeferredItem::getAmount)
+        // 이연 항목은 유형별 EIR 현금흐름 정책에 따라 순투자액을 늘리거나 줄입니다.
+        BigDecimal initialInvestmentAdjustment = deferredItems.stream()
+                .map(this::resolveInitialInvestmentAdjustment)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 순 현금 유출액 (투자액) = 원금 - 수수료 (Fee가 수익이면 투자금이 줄어듦)
-        double initialInvestment = principal.subtract(fees).doubleValue();
+        // 순 현금 유출액(투자액) = 원금 + 고객수수료/직접비용 정책별 조정액
+        double initialInvestment = principal.add(initialInvestmentAdjustment).doubleValue();
 
         // 총 회차 (개월 수)
         int totalPeriods = Period.between(loan.getDisbursalDate(), loan.getMaturityDate()).getYears() * 12 
@@ -71,5 +71,30 @@ public class EIRCalculator {
         }
 
         return loan.getInterestRate().multiply(BigDecimal.valueOf(100)); // 수렴 실패 시 명목 이자율 반환
+    }
+
+    private BigDecimal resolveInitialInvestmentAdjustment(DeferredItem item) {
+        if (item == null || item.getAmount() == null) {
+            return BigDecimal.ZERO;
+        }
+        DeferredItem.DeferredItemStatus status = item.getStatus();
+        if (status == DeferredItem.DeferredItemStatus.CANCELLED) {
+            return BigDecimal.ZERO;
+        }
+        DeferredItemTypePolicy policy = DeferredItemTypePolicy.from(item);
+        return switch (policy.treatment()) {
+            case CUSTOMER_FEE_INFLOW -> item.getAmount().negate();
+            case ORIGINATION_COST_OUTFLOW -> item.getAmount();
+            case EXCLUDED_FROM_EIR -> BigDecimal.ZERO;
+        };
+    }
+
+    private record DeferredItemTypePolicy(DeferredItemType.EirCashFlowTreatment treatment) {
+        private static DeferredItemTypePolicy from(DeferredItem item) {
+            if (item.getDeferredItemType() == null || item.getDeferredItemType().getEirCashFlowTreatment() == null) {
+                return new DeferredItemTypePolicy(DeferredItemType.EirCashFlowTreatment.CUSTOMER_FEE_INFLOW);
+            }
+            return new DeferredItemTypePolicy(item.getDeferredItemType().getEirCashFlowTreatment());
+        }
     }
 }

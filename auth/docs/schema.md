@@ -7,6 +7,7 @@ Flyway `V70__auth_user_role_schema.sql` 기준으로 Auth는 사용자와 역할
 ```mermaid
 erDiagram
     AUTH_USERS ||--o{ AUTH_ROLE_ASSIGNMENTS : has
+    AUTH_LOGIN_ATTEMPTS ||--|| AUTH_USERS : username_ref
     AUTH_USERS {
         Long id PK
         String username
@@ -25,6 +26,14 @@ erDiagram
         Instant valid_from
         Instant valid_to
     }
+    AUTH_LOGIN_ATTEMPTS {
+        String username PK
+        Integer failure_count
+        Instant locked_until
+        String last_failure_reason
+        Instant last_failure_at
+        Instant updated_at
+    }
 ```
 
 ## 주요 설정
@@ -36,6 +45,7 @@ erDiagram
 | `AUTH_MASTER_DATA_BASE_URL` | `http://localhost:8082` | 부서 코드 검증용 master-data 주소 |
 | `AUTH_LOGIN_MAX_FAILURES` | `5` | 잠금 전 연속 실패 횟수 |
 | `AUTH_LOGIN_LOCK_DURATION_MINUTES` | `15` | 임시 잠금 시간 |
+| `AUTH_LOGIN_SECURITY_STORE` | `memory` | 로그인 실패/잠금 저장소. 로컬 단일 인스턴스는 `memory`, 다중 인스턴스 운영은 `jpa` |
 | `AUTH_JWT_SECRET` | 로컬 기본값 | JWT 서명키. HS256 기준 32바이트 이상 필요 |
 | `AUTH_JWT_ISSUER` | `auth-service` | JWT issuer |
 | `AUTH_JWT_EXPIRATION_SECONDS` | `3600` | 토큰 만료 시간 |
@@ -44,5 +54,6 @@ erDiagram
 
 - 로그인 성공 시 실패 횟수를 초기화합니다.
 - 연속 실패 횟수가 기준을 넘으면 일정 시간 잠급니다.
+- `auth.login-security.store=jpa`이면 `AUTH_LOGIN_ATTEMPTS` 테이블을 사용해 여러 Auth 서버가 같은 잠금 상태를 공유합니다.
 - 승인되지 않았거나 유효기간 밖의 역할은 JWT에 넣지 않습니다.
 - 역할 교체 시 `roleVersion`을 증가시킵니다.

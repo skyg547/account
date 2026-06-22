@@ -24,8 +24,9 @@ public class LeaseAccountingController {
     private final LeaseUseCase leaseUseCase;
 
     @PostMapping
-    public ResponseEntity<LeaseContract> createLeaseContract(@Valid @RequestBody LeaseContractRequest request) {
-        // @todo 고정자산 API처럼 X-User-ID를 받아 리스 등록/재측정 이벤트에도 실행자 감사를 남긴다.
+    public ResponseEntity<LeaseContract> createLeaseContract(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody LeaseContractRequest request) {
         LeaseContract contract = new LeaseContract();
         contract.setContractNo(request.getContractNo());
         contract.setContractName(request.getContractName());
@@ -46,7 +47,7 @@ public class LeaseAccountingController {
         contract.setInitialRightOfUseAssetValue(request.getInitialRightOfUseAssetValue());
         contract.setInitialLeaseLiabilityValue(request.getInitialLeaseLiabilityValue());
 
-        LeaseContract createdContract = leaseUseCase.registerLeaseContract(contract);
+        LeaseContract createdContract = leaseUseCase.registerLeaseContract(contract, actor);
         return new ResponseEntity<>(createdContract, HttpStatus.CREATED);
     }
 
@@ -74,14 +75,17 @@ public class LeaseAccountingController {
     }
 
     @PostMapping("/remeasure")
-    public ResponseEntity<LeaseContract> remeasureLease(@Valid @RequestBody LeaseRemeasurementRequest request) {
+    public ResponseEntity<LeaseContract> remeasureLease(
+            @RequestHeader("X-User-ID") String actor,
+            @Valid @RequestBody LeaseRemeasurementRequest request) {
         try {
             LeaseContract updatedContract = leaseUseCase.remeasureLease(
                     request.getContractId(),
                     request.getRemeasurementDate(),
                     request.getNewMonthlyPayment(),
                     request.getNewEndDate(),
-                    request.getNewDiscountRate()
+                    request.getNewDiscountRate(),
+                    actor
             );
             return ResponseEntity.ok(updatedContract);
         } catch (IllegalArgumentException e) {

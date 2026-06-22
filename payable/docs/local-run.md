@@ -7,14 +7,20 @@
 - 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
-`payable`은 현재 독립 실행 애플리케이션이 아니므로 `bootRun`으로 바로 띄우는 모듈이 아니다. 모듈 단위에서는 테스트와 컴파일로 업무 흐름을 검증한다.
+`payable`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
+
+- `payable:core`: 매입채무/지급 도메인, UseCase, persistence adapter, local 외부 포트 adapter.
+- `payable:api`: Spring Boot HTTP 실행 진입점. 업무 판단은 core를 참조한다.
+- `payable:batch`: Spring Boot Batch 실행 진입점. Job/Step 오케스트레이션만 담당하고 업무 계산은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
 
 1. IntelliJ에서 루트 프로젝트를 연다.
-2. 오른쪽 Gradle 창에서 `account > payable > Tasks > verification > test`를 실행한다.
+2. 오른쪽 Gradle 창에서 `account > payable > core > Tasks > verification > test`를 실행한다.
 3. 또는 상단 Run Configuration에서 `Payable Module Tests`를 선택한다.
 4. 실행 후 `BUILD SUCCESSFUL`을 확인한다.
+5. HTTP API를 직접 띄울 때는 Gradle task `:payable:api:bootRun`을 실행한다.
+6. Batch 컨텍스트만 확인할 때는 Gradle task `:payable:batch:bootRun`을 실행한다.
 
 추가된 실행 구성:
 
@@ -23,22 +29,42 @@
 ## PowerShell에서 실행하기
 
 ```powershell
-.\gradlew :payable:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :payable:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 빠른 컴파일만 확인할 때:
 
 ```powershell
-.\gradlew :payable:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :payable:core:compileJava :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
-## HTTP API를 로컬에서 호출하려면
+API 서버 실행:
 
-현재 payable 모듈에는 `SpringBootApplication`이 없다. 따라서 아래 중 하나가 필요하다.
+```powershell
+.\gradlew :payable:api:bootRun --console=plain --max-workers=1
+```
 
-1. 기존 호스트 애플리케이션이 payable 패키지를 컴포넌트 스캔하도록 구성한다.
-2. 테스트 전용 또는 통합 실행용 Boot 앱 모듈을 별도로 만든다.
-3. 컨트롤러 테스트를 추가해 `@WebMvcTest` 또는 `@SpringBootTest`로 웹 계약을 검증한다.
+Batch 컨텍스트 실행:
+
+```powershell
+.\gradlew :payable:batch:bootRun --console=plain --max-workers=1
+```
+
+실제 Batch Job 실행:
+
+```powershell
+.\gradlew :payable:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=payablePaymentRunJob runDate=2026-06-19 createdBy=LOCAL description=LocalPaymentRun" --console=plain --max-workers=1
+```
+
+`payablePaymentRunJob`은 `runDate`까지 지급기일이 도래한 미지급 채무를 core `PaymentUseCase`의 지급런 생성 흐름으로 넘긴다.
+
+API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
+
+```powershell
+.\gradlew :payable:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1
+```
+
+## local profile 동작
 
 호스트 앱에서 사용할 수 있는 대표 설정값:
 

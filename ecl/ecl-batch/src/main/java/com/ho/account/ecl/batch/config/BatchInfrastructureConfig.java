@@ -9,11 +9,14 @@ import com.ho.account.ecl.core.domain.exposure.CrCustomer;
 import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.repository.JobRepository;
@@ -22,6 +25,9 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 
 /**
  * [Infrastructure] 대손충당금(IFRS9) 배치 공통 인프라 설정 (Batch Infrastructure)
@@ -58,6 +64,33 @@ public class BatchInfrastructureConfig {
         return factory.getObject();
     }
 
+    @Bean
+    public InitializingBean batchMetadataSchemaInitializer(
+            @Value("${spring.batch.jdbc.initialize-schema:embedded}") String initializeSchema) {
+        return () -> {
+            String mode = initializeSchema == null ? "embedded" : initializeSchema.trim().toLowerCase();
+            if ("never".equals(mode)) {
+                return;
+            }
+            try (Connection connection = dataSource.getConnection()) {
+                DatabaseMetaData metaData = connection.getMetaData();
+                String productName = metaData.getDatabaseProductName();
+                boolean embedded = isEmbeddedDatabase(productName);
+                if (!"always".equals(mode) && !embedded) {
+                    return;
+                }
+                if (batchMetadataExists(metaData)) {
+                    return;
+                }
+
+                String platform = batchSchemaPlatform(productName);
+                ResourceDatabasePopulator populator = new ResourceDatabasePopulator(
+                        new ClassPathResource("org/springframework/batch/core/schema-" + platform + ".sql"));
+                populator.execute(dataSource);
+            }
+        };
+    }
+
     /**
      * [TransactionManager] 데이터의 일관성을 관리하는 관리자입니다.
      * 💡 [초보자 가이드] 여러 작업을 하나로 묶어, 하나라도 실패하면 전체를 처음 상태로 되돌리는(Rollback) 중요한 역할을 합니다.
@@ -67,6 +100,38 @@ public class BatchInfrastructureConfig {
         JpaTransactionManager transactionManager = new JpaTransactionManager(entityManagerFactory);
         transactionManager.setDataSource(dataSource);
         return transactionManager;
+    }
+
+    private boolean batchMetadataExists(DatabaseMetaData metaData) throws Exception {
+        try (ResultSet tables = metaData.getTables(null, null, "BATCH_JOB_INSTANCE", null)) {
+            if (tables.next()) {
+                return true;
+            }
+        }
+        try (ResultSet tables = metaData.getTables(null, null, "batch_job_instance", null)) {
+            return tables.next();
+        }
+    }
+
+    private boolean isEmbeddedDatabase(String productName) {
+        String normalized = productName == null ? "" : productName.toLowerCase();
+        return normalized.contains("h2")
+                || normalized.contains("hsql")
+                || normalized.contains("derby");
+    }
+
+    private String batchSchemaPlatform(String productName) {
+        String normalized = productName == null ? "" : productName.toLowerCase();
+        if (normalized.contains("postgres")) {
+            return "postgresql";
+        }
+        if (normalized.contains("hsql")) {
+            return "hsqldb";
+        }
+        if (normalized.contains("derby")) {
+            return "derby";
+        }
+        return "h2";
     }
 
     /**

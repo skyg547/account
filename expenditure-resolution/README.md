@@ -81,13 +81,30 @@ erDiagram
 
 ---
 
-## 4. 🐳 실행 및 연동 방법
+## 4. 🧭 로컬 실행 및 연동 방법
 
-**실행 명령:**
-```bash
-docker-compose up -d expenditure-resolution
+`expenditure-resolution`은 `core/api/batch` 구조로 실행됩니다. `core`가 지출결의, 예산 통제, AP 지급 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
+
+**PowerShell 검증 명령:**
+```powershell
+.\gradlew :expenditure-resolution:core:test --console=plain --max-workers=1 --no-daemon
+```
+
+**H2 local 실행:**
+```powershell
+.\gradlew :expenditure-resolution:api:bootRun --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:batch:bootRun --console=plain --max-workers=1
+```
+
+**실제 Spring Batch Job 실행:**
+
+```powershell
+.\gradlew :expenditure-resolution:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=expenditureResolutionApprovalJob startDate=2026-06-19 endDate=2026-06-19 paymentDueDate=2026-06-19" --console=plain --max-workers=1
 ```
 
 **연동 주의사항:**
 - 지출 승인 시 `JournalPostingPort`를 통해 전표가 생성되므로, 회계 엔진 모듈이 구동 중이어야 합니다.
 - 예산 통제 규칙은 `BudgetControlPort` 구현체에 따라 달라질 수 있습니다.
+- local profile에서는 master-data, tax, asset, journal 외부 경계를 local adapter가 대체하므로 외부 서버 없이 H2로 컨텍스트를 확인할 수 있습니다.
+- `expenditureResolutionApprovalJob`은 REQUESTED 상태이고 지급 예정일이 `paymentDueDate` 이내인 결의서를 core 승인 유즈케이스로 넘깁니다.
+- 상세 실행 순서는 [docs/local-run.md](./docs/local-run.md)를 참고합니다.

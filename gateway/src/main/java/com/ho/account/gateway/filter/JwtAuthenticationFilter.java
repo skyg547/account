@@ -1,6 +1,7 @@
 package com.ho.account.gateway.filter;
 
 import com.ho.account.gateway.config.JwtProperties;
+import com.ho.account.gateway.security.TokenVersionValidator;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.JwtParser;
@@ -25,9 +26,11 @@ import reactor.core.publisher.Mono;
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
     private final JwtParser jwtParser;
+    private final TokenVersionValidator tokenVersionValidator;
 
-    public JwtAuthenticationFilter(JwtProperties jwtProperties) {
+    public JwtAuthenticationFilter(JwtProperties jwtProperties, TokenVersionValidator tokenVersionValidator) {
         super(Config.class);
+        this.tokenVersionValidator = tokenVersionValidator;
 
         byte[] secretBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         if (secretBytes.length < 32) {
@@ -68,7 +71,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             try {
                 // 4. 비밀키를 이용해 토큰의 진위 여부 및 만료일을 검사합니다.
                 Claims claims = jwtParser.parseClaimsJws(token).getBody();
-                // @todo 역할 변경 직후 기존 JWT 차단이 필요한 경로는 Auth의 token-version 검증 API 또는 캐시된 roleVersion 정책과 연동한다.
                 ServerHttpRequest requestWithPrincipal = request.mutate()
                         .header("X-Auth-User", claims.getSubject())
                         .header("X-Auth-Roles", resolveRolesHeader(claims))
@@ -80,15 +82,16 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             }
                         })
                         .build();
-                exchange = exchange.mutate().request(requestWithPrincipal).build();
+                var authenticatedExchange = exchange.mutate().request(requestWithPrincipal).build();
+                return tokenVersionValidator.validate(claims.getSubject(), resolveRoleVersion(claims))
+                        .flatMap(valid -> valid
+                                ? chain.filter(authenticatedExchange)
+                                : onError(authenticatedExchange.getResponse(), "역할 정보가 변경되어 다시 로그인이 필요합니다.", HttpStatus.UNAUTHORIZED));
 
             } catch (Exception e) {
                 // 토큰이 위조되었거나 유효기간이 지났다면 쫓아냅니다!
                 return onError(exchange.getResponse(), "출입증이 위조되었거나 만료되었습니다.", HttpStatus.UNAUTHORIZED);
             }
-
-            // 무사히 검문을 통과했으면 다음 단계(라우팅)로 보냅니다.
-            return chain.filter(exchange);
         };
     }
 
@@ -115,7 +118,17 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     }
 
     private String resolveRoleVersionHeader(Claims claims) {
+        return String.valueOf(resolveRoleVersion(claims));
+    }
+
+    private long resolveRoleVersion(Claims claims) {
         Object roleVersion = claims.get("roleVersion");
-        return roleVersion == null ? "1" : String.valueOf(roleVersion);
+        if (roleVersion == null) {
+            return 1L;
+        }
+        if (roleVersion instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(String.valueOf(roleVersion));
     }
 }

@@ -166,6 +166,7 @@ erDiagram
 - 감독보고 제출본은 `RPT_REGULATORY_SUBMISSION`에 기준일별 버전과 정정 사유를 저장합니다.
 - 주석 마트는 `RPT_DISCLOSURE_NOTE_MART`에 note 번호, 공시 범주, 만기/금리/통화/리스크 분류와 금액을 저장합니다.
 - 감독보고 매핑과 제출 이력은 `RPT_REGULATORY_REPORT_MAPPING`, `RPT_REGULATORY_FILING`에 저장합니다.
+- 로컬 감독보고 게이트웨이 반려 시뮬레이션은 `account.reporting.regulatory-filing.failure-simulation.enabled` 설정으로 켜고 끕니다. 기본값은 `false`이며 랜덤 실패는 사용하지 않습니다.
 - Flyway `V60__reporting_persistence_schema.sql`은 기본 BS/IS 매핑 데이터를 함께 적재하고, `V61__reporting_regulatory_submission.sql`은 제출본 테이블, `V62__reporting_disclosure_note_mart.sql`은 주석 마트 테이블, `V63__reporting_regulatory_filing.sql`은 감독보고 매핑/제출 테이블을 생성합니다.
 - 로컬 데모처럼 DB 없이 인메모리 어댑터를 쓰려면 `account.reporting.persistence.mode=memory`를 설정합니다. 운영형 JPA 모드는 실제 `LedgerQueryPort` 구현과 보고 라인 매핑 seed가 필요합니다.
 - 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.

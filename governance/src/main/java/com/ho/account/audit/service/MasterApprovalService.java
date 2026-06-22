@@ -46,12 +46,14 @@ public class MasterApprovalService implements MasterApprovalUseCase {
         MasterApproval approval = masterApprovalPersistencePort.findById(command.approvalId())
                 .orElseThrow(() -> new IllegalArgumentException("Approval request not found. ID: " + command.approvalId()));
 
-        approval.approve(command.approverUser(), command.remarks(), LocalDateTime.now());
-        // @todo 승인 대상 masterType을 처리할 ApplyPort가 없으면 조용히 승인하지 말고 fail-closed로 중단해 미반영 승인을 방지한다.
-        masterDataChangeApplyPorts.stream()
+        MasterDataChangeApplyPort applyPort = masterDataChangeApplyPorts.stream()
                 .filter(port -> port.supports(approval.getMasterType()))
                 .findFirst()
-                .ifPresent(port -> port.applyApprovedChange(approval));
+                .orElseThrow(() -> new IllegalStateException(
+                        "No MasterDataChangeApplyPort supports masterType: " + approval.getMasterType()));
+
+        approval.approve(command.approverUser(), command.remarks(), LocalDateTime.now());
+        applyPort.applyApprovedChange(approval);
 
         return masterApprovalPersistencePort.save(approval);
     }

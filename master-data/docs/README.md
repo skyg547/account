@@ -9,6 +9,7 @@ This directory documents the `master-data` module after the DDD and hexagonal pa
 - `core.application.command`: use-case input commands.
 - `core.application.pipeline`: batch-specific transformation/report pipelines.
 - `core.application.service`: use-case flow, validation coordination, and transaction boundary.
+- `core.application.service.MasterDataChangeApplier`: 승인된 변경 요청을 targetType별 실제 SCD2 반영으로 연결한다.
 - `core.domain.model`: master-data domain entities.
 - `core.domain.changerequest`: controlled change request aggregate.
 - `core.domain.policy`: shared domain policies such as validity windows.
@@ -42,3 +43,4 @@ Controllers must not expose JPA entities directly. Application services must dep
 - `master-data`는 Spring Boot 앱입니다.
 - 로컬 실행 설정은 `.run/Master Data bootRun.run.xml`을 사용합니다.
 - 단위 검증은 `.\gradlew :master-data:test --console=plain --max-workers=1 --no-daemon`로 수행합니다.
+- 변경 요청 반영은 typed applier 성공 후에만 `APPLIED`가 되며, 예약 반영은 `status/effectiveDate` 조건으로 chunk 조회합니다.

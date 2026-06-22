@@ -131,6 +131,7 @@ public class AuthModuleProperties {
     public static class LoginSecurity {
         private int maxFailures = 5;
         private long lockDurationMinutes = 15L;
+        private String store = "memory";
 
         public int getMaxFailures() {
             return maxFailures;
@@ -146,6 +147,14 @@ public class AuthModuleProperties {
 
         public void setLockDurationMinutes(long lockDurationMinutes) {
             this.lockDurationMinutes = lockDurationMinutes;
+        }
+
+        public String getStore() {
+            return store;
+        }
+
+        public void setStore(String store) {
+            this.store = store;
         }
     }
 

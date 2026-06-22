@@ -17,6 +17,7 @@ public class DeferredItemTypeDto {
     private String name;
     private String description;
     private DeferredItemType.DeferralMethod deferralMethod;
+    private DeferredItemType.EirCashFlowTreatment eirCashFlowTreatment;
     private String deferredAssetAccountCode;
     private String deferredAssetAccountName;
     private String recognizedIncomeAccountCode;
@@ -33,6 +34,7 @@ public class DeferredItemTypeDto {
                 .name(entity.getName())
                 .description(entity.getDescription())
                 .deferralMethod(entity.getDeferralMethod())
+                .eirCashFlowTreatment(entity.getEirCashFlowTreatment())
                 .deferredAssetAccountCode(entity.getDeferredAssetAccount() != null ? entity.getDeferredAssetAccount().getCode() : null)
                 .deferredAssetAccountName(entity.getDeferredAssetAccount() != null ? entity.getDeferredAssetAccount().getName() : null)
                 .recognizedIncomeAccountCode(entity.getRecognizedIncomeAccount() != null ? entity.getRecognizedIncomeAccount().getCode() : null)

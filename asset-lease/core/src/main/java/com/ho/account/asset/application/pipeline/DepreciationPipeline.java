@@ -28,9 +28,8 @@ public class DepreciationPipeline {
     public Map<Long, BigDecimal> calculateBatch(List<FixedAsset> assets, LocalDate targetDate) {
         return assets.stream()
                 .filter(asset -> "ACTIVE".equals(asset.getStatus()))
-                .collect(Collectors.toMap(
-                        FixedAsset::getId,
-                        asset -> asset.depreciate(targetDate)
-                ));
+                .map(asset -> Map.entry(asset.getId(), asset.depreciate(targetDate)))
+                .filter(entry -> entry.getValue().signum() > 0)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

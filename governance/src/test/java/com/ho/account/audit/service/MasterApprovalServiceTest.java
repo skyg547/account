@@ -3,6 +3,7 @@ package com.ho.account.audit.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,11 +67,32 @@ class MasterApprovalServiceTest {
 
         MasterApproval approval = pendingApproval("requester01");
         when(approvalPort.findById(1L)).thenReturn(Optional.of(approval));
+        when(applyPort.supports("DEPARTMENT")).thenReturn(true);
 
         assertThatThrownBy(() -> service.approve(new MasterApprovalUseCase.ApproveCommand(
                 1L, "requester01", "self approve")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Self-approval");
+    }
+
+    @Test
+    void approve_failsClosedWhenNoApplyPortSupportsMasterType() {
+        MasterApprovalPersistencePort approvalPort = Mockito.mock(MasterApprovalPersistencePort.class);
+        MasterDataChangeApplyPort applyPort = Mockito.mock(MasterDataChangeApplyPort.class);
+        MasterApprovalService service = new MasterApprovalService(approvalPort, List.of(applyPort));
+
+        MasterApproval approval = pendingApproval("requester01");
+        when(approvalPort.findById(1L)).thenReturn(Optional.of(approval));
+        when(applyPort.supports("DEPARTMENT")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.approve(new MasterApprovalUseCase.ApproveCommand(
+                1L, "approver01", "unsupported")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No MasterDataChangeApplyPort supports masterType: DEPARTMENT");
+
+        assertThat(approval.getStatus()).isEqualTo(MasterApproval.ApprovalStatus.PENDING);
+        verify(applyPort, never()).applyApprovedChange(any());
+        verify(approvalPort, never()).save(any());
     }
 
     private MasterApproval pendingApproval(String requester) {

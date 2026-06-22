@@ -50,4 +50,4 @@
 - master-data에 통화, 거래처, 계정과목이 존재해야 합니다.
 - 일일 이자 Batch는 ACTIVE 대출만 읽습니다.
 - 일일 이자 전표는 `loan_amortization_schedule_entries`에 해당 `payment_date`가 있을 때만 생성됩니다.
-- EIR 계산은 현재 수수료/비용 부호 정책을 단순화한 상태이므로 운영 적용 전 검증이 필요합니다.
+- EIR 계산은 `DeferredItemType.eirCashFlowTreatment` 정책을 사용합니다. 고객이 낸 수수료는 순투자액을 줄이고, 회사가 부담한 직접 비용은 순투자액을 늘리며, 제외 항목은 EIR 계산에서 빼고 봅니다.

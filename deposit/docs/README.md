@@ -10,7 +10,7 @@
 
 - `deposit:core`는 도메인/애플리케이션/어댑터를 담는 library 모듈입니다.
 - `deposit:api`는 `DepositApplication`을 main class로 갖는 Spring Boot API 앱입니다.
-- `deposit:batch`는 `DepositBatchApplication`을 main class로 갖는 Spring Boot Batch 컨텍스트 앱입니다.
+- `deposit:batch`는 `DepositBatchApplication`을 main class로 갖는 Spring Boot Batch 앱이며, `depositAccountIntegrityJob`을 실행할 수 있습니다.
 - 로컬 단독 실행은 `account.deposit.local-adapters.enabled=true`를 켜서 master-data/journal-ledger 외부 포트를 학습용 어댑터로 대체합니다.
 
 ## 운영 연결 시 주의사항

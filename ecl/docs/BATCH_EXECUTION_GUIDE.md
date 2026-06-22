@@ -5,8 +5,10 @@
 ## 실행
 
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=IFRS9_BASE_2026" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=IFRS9_BASE_2026" --console=plain
 ```
+
+`spring.batch.job.enabled=false`는 Boot 기본 자동 실행을 끄는 설정입니다. 실제 실행은 `job.name`을 읽는 ECL `JobRunner`가 담당합니다.
 
 대손충당금 모듈만 단독으로 띄울 때 필요한 DB 준비와 최소 시드 데이터는 [ALLOWANCE_SERVICE_RUNBOOK.md](ALLOWANCE_SERVICE_RUNBOOK.md)를 따른다.
 

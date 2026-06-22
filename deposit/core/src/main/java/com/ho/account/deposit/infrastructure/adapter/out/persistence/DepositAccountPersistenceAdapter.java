@@ -2,9 +2,12 @@ package com.ho.account.deposit.infrastructure.adapter.out.persistence;
 
 import com.ho.account.deposit.application.port.out.DepositAccountPersistencePort;
 import com.ho.account.deposit.domain.DepositAccount;
+import com.ho.account.deposit.domain.DepositStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -30,5 +33,11 @@ public class DepositAccountPersistenceAdapter implements DepositAccountPersisten
     @Override
     public Optional<DepositAccount> findByAccountNumber(String accountNumber) {
         return repository.findByAccountNumber(accountNumber);
+    }
+
+    @Override
+    public List<DepositAccount> findActiveAccounts(LocalDate asOfDate) {
+        return repository.findByStatusAndValidFromLessThanEqualAndValidToGreaterThanEqual(
+                DepositStatus.ACTIVE, asOfDate, asOfDate);
     }
 }

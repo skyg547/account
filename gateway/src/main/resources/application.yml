@@ -8,3 +8,8 @@ auth:
   jwt:
     secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
+  token-version-validation:
+    enabled: ${AUTH_TOKEN_VERSION_VALIDATION_ENABLED:true}
+    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://localhost:8084}
+    cache-ttl-seconds: ${AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS:30}
+    timeout-millis: ${AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS:500}

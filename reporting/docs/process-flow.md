@@ -100,16 +100,20 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[ReportingBatchAdapter.runMonthlyClosingBatch] --> B[월말 baseDate 계산]
-    B --> C[Generate BALANCE_SHEET]
-    B --> D[Generate INCOME_STATEMENT]
-    C --> E[ReportingService.generate]
-    D --> E
+    A[reportingStatementGenerationJob] --> B[reportingStatementGenerationStep]
+    B --> C[JobParameter 검증: baseDate/requester]
+    C --> D[ReportingBatchAdapter.runStatementGenerationBatch]
+    D --> E[Generate BALANCE_SHEET]
+    D --> F[Generate INCOME_STATEMENT]
+    E --> G[ReportingService.generate]
+    F --> G
 ```
 
-현재 Batch Adapter는 Spring Batch Job/Step이 아니라 유즈케이스 호출 래퍼입니다. 운영 배치로 확장할 때는 `baseDate`, `requester`, `statementType`을 JobParameter로 받아 재실행 가능하게 만들어야 합니다.
+현재 Batch Adapter는 Spring Batch Step에서 호출하는 인바운드 어댑터입니다.
+운영자는 `reportingStatementGenerationJob`을 실행할 때 `baseDate=yyyy-MM-dd`, `requester=사용자ID` JobParameter를 넘겨 재실행 이력을 남깁니다.
+초보자 관점에서는 `Job`이 실행 이력의 단위, `Step`이 실제 처리 단위, `JobParameter`가 같은 배치를 구분하는 실행 조건입니다.
 
 ## 현재 고도화 후보
 
-- `ReportingBatchAdapter`는 운영 배치 전환 시 Spring Batch `Job`/`Step`과 `JobParameter` 기반 재실행 구조로 분리해야 합니다. 이 지점은 코드에 `@todo`로 남겼습니다.
-- `LocalRegulatoryFilingGatewayAdapter`의 랜덤 반려 시뮬레이션은 운영/테스트 재현성을 위해 profile 또는 설정값으로 제어해야 합니다. 이 지점도 코드에 `@todo`로 남겼습니다.
+- `LocalRegulatoryFilingGatewayAdapter`의 반려 시뮬레이션은 랜덤이 아니라 설정값으로 제어합니다.
+- `account.reporting.regulatory-filing.failure-simulation.enabled=true`이면 항상 같은 반려 메시지로 실패하고, 기본값은 `false`라 로컬/테스트 제출은 재현 가능하게 성공합니다.

@@ -27,13 +27,13 @@ flowchart TD
     B --> C[승인자 검토]
     C --> D{요청자와 승인자가 같은가}
     D -->|Yes| E[SOD 위반 예외]
-    D -->|No| F[APPROVED]
-    F --> G{masterType 지원 ApplyPort 존재}
-    G -->|Yes| H[대상 모듈 반영]
-    G -->|No| I[현재는 승인만 저장, @todo fail-closed]
+    D -->|No| F{masterType 지원 ApplyPort 존재}
+    F -->|No| G[fail-closed 예외]
+    F -->|Yes| H[APPROVED]
+    H --> I[대상 모듈 반영]
 ```
 
-`MasterApprovalService`는 승인 후 `MasterDataChangeApplyPort` 구현체를 찾아 대상 모듈에 반영합니다. 지원 포트가 없는 masterType이 조용히 승인되는 문제는 운영 리스크라 코드에 `@todo`로 남겼습니다.
+`MasterApprovalService`는 승인 상태로 전이하기 전에 `MasterDataChangeApplyPort` 구현체를 찾습니다. 지원 포트가 없는 `masterType`은 조용히 승인하지 않고 fail-closed 예외로 중단합니다. 초보자 관점에서는 "결재 도장은 찍었는데 실제 기준정보는 안 바뀐" 상태를 만들지 않기 위한 안전장치입니다.
 
 ## Auth 역할 승인 흐름
 

@@ -25,6 +25,10 @@ public class DeferredItemTypeRequestDto {
     @NotNull
     private DeferredItemType.DeferralMethod deferralMethod;
 
+    @NotNull
+    private DeferredItemType.EirCashFlowTreatment eirCashFlowTreatment =
+            DeferredItemType.EirCashFlowTreatment.CUSTOMER_FEE_INFLOW;
+
     @NotBlank
     private String deferredAssetAccountCode;
 
@@ -39,6 +43,7 @@ public class DeferredItemTypeRequestDto {
         type.setName(this.name);
         type.setDescription(this.description);
         type.setDeferralMethod(this.deferralMethod);
+        type.setEirCashFlowTreatment(this.eirCashFlowTreatment);
         type.setActive(this.isActive);
         // AccountSubject는 서비스에서 설정
         return type;

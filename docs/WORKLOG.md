@@ -4,6 +4,42 @@
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
 ### 📅 2026-06-18 (Codex 수정)
+### [구조화] Payable/Receivable/Reconciliation/Tax/Expenditure Resolution core/api/batch 실행 모듈 분리
+- **작업 배경**:
+  - 기존 `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`은 주로 `compileJava/test` 검증 대상이었고 단독 Spring Boot API/BATCH 실행 진입점이 없었다.
+  - 사용자 요청에 따라 업무 로직은 `core`가 소유하고, `api`/`batch` 실행 모듈은 반드시 `core`를 참조하도록 구조를 정리했다.
+- **수정 범위**:
+  - `settings.gradle`에 `:module:core`, `:module:api`, `:module:batch` 하위 프로젝트를 추가하고 기존 `:module` 경로는 호환 alias로 유지했다.
+  - 기존 `src` 소스와 테스트를 각 `core/src`로 이동했다.
+  - `api`/`batch` Spring Boot main class와 H2 local `application.yml`을 추가했다.
+  - local profile용 외부 포트 어댑터를 core의 infrastructure/local 경계에 추가해 master-data, journal, ledger, tax, asset 외부 서버 없이 H2 컨텍스트를 올릴 수 있게 했다.
+  - Gradle 하위 프로젝트의 group/archive 식별자를 고유하게 지정해 `com.ho:core` capability 충돌을 방지했다.
+  - `tax:core`의 사용되지 않는 `journal-ledger:core` 직접 의존을 제거했다.
+  - `expenditure-resolution`의 master-data 코드 기반 JPA 참조를 DB FK 대신 포트 검증 중심으로 맞추고 H2 기동 가능한 매핑으로 보정했다.
+  - 각 모듈 README/local-run 문서와 `docs/local-development.md`를 새 실행 구조 기준으로 갱신했다.
+- **검증 명령**:
+  - `.\gradlew projects --console=plain`
+  - `.\gradlew :payable:core:compileJava :payable:api:compileJava :payable:batch:compileJava :receivable:core:compileJava :receivable:api:compileJava :receivable:batch:compileJava :reconciliation:core:compileJava :reconciliation:api:compileJava :reconciliation:batch:compileJava :tax:core:compileJava :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:compileJava :expenditure-resolution:api:compileJava :expenditure-resolution:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :payable:core:test :receivable:core:test :reconciliation:core:test :tax:core:test :expenditure-resolution:core:test --console=plain --max-workers=1`
+  - `.\gradlew :payable:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1`
+  - `.\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1`
+  - `.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1`
+  - `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1`
+  - `.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1`
+  - `.\gradlew :payable:batch:bootRun :receivable:batch:bootRun :reconciliation:batch:bootRun :tax:batch:bootRun :expenditure-resolution:batch:bootRun --console=plain --max-workers=1`
+  - `.\gradlew --stop`, `jps -lv`로 프로젝트 Gradle/BootRun 프로세스 정리 확인.
+- **검증 결과**:
+  - 5개 대상 모듈의 core/api/batch 컴파일 성공.
+  - 5개 대상 모듈의 core 테스트 성공.
+  - 5개 API 실행 진입점이 H2/local 컨텍스트로 기동 후 종료되는 스모크 검증 성공.
+  - 5개 Batch 실행 진입점이 H2/local 컨텍스트로 기동 후 종료되는 스모크 검증 성공.
+  - 작업 후 Gradle daemon은 남아 있지 않고, 프로젝트 BootRun Java 프로세스도 남아 있지 않음을 확인했다.
+- **남은 리스크**:
+  - 이번 검증은 H2/local adapter 기준이며 PostgreSQL profile과 실제 외부 서비스 연동은 별도 검증이 필요하다.
+  - 새 Batch 실행 모듈 일부에서 Spring Batch `jobRegistryBeanPostProcessor` 관련 BeanPostProcessorChecker 경고가 남아 있다. deposit/reporting에 적용한 JobRegistry 지연 등록 패턴을 후속으로 이식할 수 있다.
+  - `expenditure-resolution`은 아직 master-data 내부 엔티티를 JPA 연관으로 직접 참조하는 구간이 남아 있어, 장기적으로는 코드 값과 `MasterDataQueryPort` 검증 중심으로 더 분리하는 것이 DDD/헥사고날 방향에 맞다.
+
+### 📅 2026-06-18 (Codex 수정)
 ### [수정] Batch JobRegistry 조기 초기화 경고 제거
 - **Git 동기화**:
   - `git fetch origin` 실행.
@@ -888,4 +924,68 @@
 
 ### 🚀 다음 할 일
 - Phase 6 (ECL Summary Mapping Policy) 진행: `ecl` 모듈의 중복 맵핑 처리 정책 추출 및 `journal-ledger`의 하드코딩 상태 쿼리 제거.
+
+### 📅 2026-06-18 (Codex 잔여 Java @todo 리팩터링 완료)
+### [리팩터링] Auth/Gateway/Reporting/Closing 잔여 TODO 제거 및 배치 실행 구조 보강
+- **수정 범위**:
+  - `auth`: `auth.login-security.store=jpa` 운영 모드를 추가하고 `AUTH_LOGIN_ATTEMPTS` 테이블 기반 `JpaLoginAttemptAdapter`를 구현했다. 기본값은 기존 로컬 인메모리 모드로 유지했다.
+  - `gateway`: JWT 서명 검증 후 Auth `/api/auth/validate-token-version`을 호출하는 `TokenVersionValidator`를 추가했다. 짧은 Caffeine TTL 캐시와 fail-closed 장애 정책을 적용했다.
+  - `reporting:batch`: `reportingStatementGenerationJob`/`reportingStatementGenerationStep`을 추가해 `baseDate`, `requester` JobParameter 기반으로 재무제표 생성 배치를 실행하게 했다.
+  - `closing:batch`: FX 평가가 master-data 계정과목 정상잔액 방향을 조회해 자산/부채 차대 반전을 반영하도록 수정했다. 외화 잔액 Reader는 계정코드 Partition과 JPA Paging Reader 구조로 전환했다.
+  - `contracts/master-data/journal-ledger`: `AccountSubjectRef.normalBalanceSide`와 GL 외화 잔액 paging/partition용 repository query를 보강했다.
+- **문서**:
+  - `auth`, `gateway`, `reporting`, `closing` 문서에 신규 설정, JobParameter, roleVersion 검증, FX partition/paging 흐름을 반영했다.
+- **검증**:
+  - `.\gradlew :reporting:batch:test :reporting:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :auth:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :gateway:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :contracts:compileJava :master-data:compileJava :journal-ledger:core:compileJava :closing:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew compileJava --console=plain --max-workers=1` 성공.
+  - `rg -n "@todo|TODO:" ... --glob "*.java" --glob "!**/build/**"` 결과 없음.
+- **남은 리스크**:
+  - Spring Boot API/BATCH 모듈의 컴파일과 주요 테스트는 통과했지만, 전체 모듈을 동시에 장시간 기동하는 검증은 메모리 부담 때문에 수행하지 않았다.
+  - Batch 모듈은 컨텍스트/Job/Step 빌드가 가능하며, 실제 업무 데이터 실행은 각 JobParameter와 H2/PostgreSQL 데이터 준비가 필요하다.
+
+### 📅 2026-06-19 (Codex API/BATCH bootRun 및 전체 build 검증 완료)
+### [검증/수정] 전체 build, API 단독 기동, Batch Spring Batch 실행 경로 확인
+- **수정 범위**:
+  - `account-mart:mart-api`: Boot 3.2 호환 springdoc 버전으로 정렬하고, 누락된 audit log/product master 포트 어댑터와 Flyway schema를 추가했다.
+  - `auth`: 로그인 시도 어댑터 생성자 주입을 명시해 bootRun 빈 생성 실패를 제거했다.
+  - `closing:batch`: journal-ledger/master-data 연동 빈을 필요한 범위로 스캔하도록 조정했다.
+  - `ecl:batch`: `job.name` 기반 Runner 실행, 실패 Job 상태 전파, Batch 메타 스키마 초기화, demo profile 컨텍스트 기본값을 보강했다.
+  - `.run` 및 ECL 실행 문서를 실제 smoke 검증 인자에 맞게 갱신했다.
+- **검증**:
+  - `.\gradlew build --console=plain --max-workers=1` 성공.
+  - Java 소스 `rg -n "@todo|TODO:" --glob "*.java" --glob "!**/build/**" .` 결과 없음.
+  - API bootRun smoke 성공: account-mart, ecl, asset-lease, auth, closing, deposit, loan, journal-ledger, payable, receivable, reconciliation, tax, expenditure-resolution, reporting, master-data, governance, config-server.
+  - 서버형 smoke 성공: gateway, discovery는 실제 서버 모드로 시작 로그 확인 후 종료.
+  - Batch context smoke 성공: account-mart, ecl, closing, deposit, journal-ledger, loan, payable, receivable, reconciliation, tax, expenditure-resolution, reporting.
+  - 대표 Spring Batch Job smoke 성공: account-mart `integratedPositionEtlJob`, ecl `standaloneDqJob`, reporting `reportingStatementGenerationJob`.
+- **남은 리스크**:
+  - 이번 검증은 모듈별 단독 로컬 H2/메모리 smoke 기준이며, 모든 서비스를 동시에 띄운 MSA end-to-end 검증은 별도 환경에서 수행해야 한다.
+  - 실제 업무 Job은 선행 데이터와 운영 DB/Kafka/외부 API 준비 후 재실행성, 멱등성, 회계 금액 결과를 추가 검증해야 한다.
+
+### 📅 2026-06-19 (Codex 업무 모듈 Batch Job 누락 보강)
+### [검증/수정] split 업무 모듈 API/BATCH 실행 구조 재점검 및 Spring Batch Job 추가
+- **선확인**:
+  - 루트 `WORKLOG.md`는 없고 `docs/WORKLOG.md`가 실제 기록 파일임을 재확인했다.
+  - `settings.gradle`과 변경 대상 모듈 README 및 `docs/README.md`/`docs/local-run.md`를 확인했다.
+  - API `@SpringBootApplication` 검색과 업무 batch `Job` 정의 검색으로 누락 후보를 확인했다.
+- **수정 범위**:
+  - `deposit:batch`: `depositAccountIntegrityJob`과 core `DepositBatchUseCase`를 추가하고, batch local `application.yml`과 Boot Batch auto-run 설정을 보강했다.
+  - `payable:batch`: `payablePaymentRunJob`을 추가했다.
+  - `receivable:core/batch`: 자동 매칭 후보 조회 포트, `ReceivableBatchUseCase`, `receivableAutoMatchingJob`을 추가했다.
+  - `reconciliation:core/batch`: `ReconciliationBatchUseCase`, `reconciliationDailyJob`을 추가했다.
+  - `tax:core/batch`: `TaxInvoiceBatchUseCase`, `taxInvoiceValidationJob`을 추가했다.
+  - `expenditure-resolution:core/batch`: `ExpenditureResolutionBatchUseCase`, `expenditureResolutionApprovalJob`을 추가했다.
+  - 각 모듈 README 및 `docs/local-run.md`에 실제 Job 실행 명령과 파라미터를 반영했다.
+- **검증**:
+  - 영향 모듈 core 테스트와 batch compileJava 성공.
+  - `.\gradlew build --console=plain --max-workers=1` 성공.
+  - 추가한 6개 Job 모두 `JobLauncherApplicationRunner`/`SimpleJobLauncher` 경로에서 `COMPLETED` 확인.
+  - 모든 업무 batch 프로젝트에서 `Job` 정의 검색 결과 확인.
+  - 모든 split API 및 standalone 업무 앱에서 `@SpringBootApplication` 검색 결과 확인.
+- **남은 리스크**:
+  - smoke는 local H2와 빈 업무 데이터 기준이다. 운영 데이터 기준 대량 처리 성능, 재실행성, 멱등성, 회계 금액 결과는 별도 검증이 필요하다.
+  - 일부 batch 앱의 Spring Batch `jobRegistryBeanPostProcessor` 조기 초기화 경고는 남아 있으나, 이번 범위에서는 Job 실행 성공 여부만 확인했다.
 

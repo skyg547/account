@@ -8,16 +8,19 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MasterDataChangeRequestServiceTest {
 
     private final InMemoryPort port = new InMemoryPort();
-    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port);
+    private final RecordingApplier applier = new RecordingApplier();
+    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port, List.of(applier));
 
     @Test
     void requestsAndApprovesMasterDataChange() {
@@ -64,6 +67,7 @@ class MasterDataChangeRequestServiceTest {
         MasterDataChangeRequest applied = service.applyApprovedChange(requested.getId());
 
         assertThat(applied.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+        assertThat(applier.appliedRequests).containsExactly(requested.getId());
     }
 
     @Test
@@ -80,6 +84,27 @@ class MasterDataChangeRequestServiceTest {
         assertThat(service.applyDueApprovedChanges())
                 .extracting(MasterDataChangeRequest::getId)
                 .containsExactly(due.getId());
+        assertThat(applier.appliedRequests).containsExactly(due.getId());
+    }
+
+    @Test
+    void applyApprovedChangeFailsClosedWhenNoApplierSupportsTargetType() {
+        MasterDataChangeRequestService unsupportedService = new MasterDataChangeRequestService(port, List.of());
+        MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
+                MasterDataType.CURRENCY,
+                "KRW",
+                ChangeType.UPDATE,
+                LocalDate.now(),
+                1,
+                "operator",
+                "Unsupported type",
+                "{}"));
+        service.approve(requested.getId(), "manager");
+
+        assertThatThrownBy(() -> unsupportedService.applyApprovedChange(requested.getId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No MasterDataChangeApplier supports targetType: CURRENCY");
+        assertThat(requested.getStatus()).isEqualTo(ChangeStatus.APPROVED);
     }
 
     private MasterDataChangeRequestCommand command(String key) {
@@ -107,6 +132,17 @@ class MasterDataChangeRequestServiceTest {
         }
 
         @Override
+        public List<MasterDataChangeRequest> findReadyToApply(LocalDate effectiveDate, int limit) {
+            return store.stream()
+                    .filter(request -> request.getStatus() == ChangeStatus.APPROVED)
+                    .filter(request -> !request.getEffectiveDate().isAfter(effectiveDate))
+                    .sorted(Comparator.comparing(MasterDataChangeRequest::getEffectiveDate)
+                            .thenComparing(MasterDataChangeRequest::getRequestedAt))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
         public MasterDataChangeRequest save(MasterDataChangeRequest request) {
             if (request.getId() == null) {
                 setId(request, sequence++);
@@ -123,6 +159,20 @@ class MasterDataChangeRequestServiceTest {
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException(e);
             }
+        }
+    }
+
+    private static final class RecordingApplier implements MasterDataChangeApplier {
+        private final List<Long> appliedRequests = new ArrayList<>();
+
+        @Override
+        public boolean supports(MasterDataType targetType) {
+            return targetType == MasterDataType.DEPARTMENT;
+        }
+
+        @Override
+        public void apply(MasterDataChangeRequest request) {
+            appliedRequests.add(request.getId());
         }
     }
 }

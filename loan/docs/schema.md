@@ -22,7 +22,7 @@ erDiagram
 | --- | --- | --- |
 | `loans` | `Loan` | 대출 계약 조건, 원금, 이율, 통화, 상태 |
 | `loan_disbursals` | `LoanDisbursal` | 실제 실행일, 실행금액, 실행 전표 ID/전표번호 |
-| `deferred_item_types` | `DeferredItemType` | 이연 항목 유형과 계정 매핑 |
+| `deferred_item_types` | `DeferredItemType` | 이연 항목 유형, EIR 현금흐름 정책, 계정 매핑 |
 | `deferred_items` | `DeferredItem` | 대출별 이연 금액, 상각기간, 초기 전표 |
 | `eir_amortization_schedules` | `EIRAmortizationSchedule` | EIR 기준 월별 상각 스케줄 |
 | `recalculation_runs` | `RecalculationRun` | EIR/만기/원금 변경 전후 값과 영향 분석 |

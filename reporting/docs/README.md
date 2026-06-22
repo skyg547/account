@@ -21,7 +21,8 @@
 
 - **외부 규제기관 연동 아키텍처 (Gateway Adapter)**:
   - `LocalRegulatoryFilingGatewayAdapter`를 통해 감독기관 전송 프로토콜을 캡슐화합니다.
-  - 가상의 MTLS 인증 흐름, 5% 확률의 랜덤 실패 시뮬레이션을 내장하여, 실제 운영 환경과 유사한 네트워크 불안정성과 반려 응답 처리를 테스트할 수 있게 합니다.
+  - 가상의 MTLS 인증 흐름과 설정 기반 실패 시뮬레이션을 제공합니다.
+  - 실패 시뮬레이션은 `account.reporting.regulatory-filing.failure-simulation.enabled=true`일 때만 항상 같은 메시지로 동작하므로 테스트 재현성을 해치지 않습니다.
   - 생성된 접수증(Receipt)은 로컬의 단순 시퀀스가 아닌 UUID 포맷을 포함한 규제 표준 형태로 반환됩니다.
 - **Fail-Closed 데이터 생성 제어**:
   - 주석 마트(Disclosure Note Mart) 및 감독보고 매핑 데이터 추출 시 필드가 불일치하거나 누락된 항목은 강제로 0으로 대체하지 않고 명시적인 실패/거절을 유발하여 보고 데이터의 무결성을 유지합니다.
@@ -102,5 +103,12 @@ Response:
 ## Batch Adapter
 
 - `reporting:batch`에는 `ReportingBatchAdapter`가 있다.
-- 현재는 Spring Batch Job/Step이 아니라 월말 기준일을 만들어 BS/IS 생성 유즈케이스를 호출하는 인바운드 배치 어댑터다.
-- 운영 대량 실행은 Job/Step과 JobParameter 기반 재실행 구조가 필요하며, 이 지점은 코드에 `@todo`로 남겼다.
+- `ReportingStatementBatchConfig`가 Spring Batch `reportingStatementGenerationJob`과 `reportingStatementGenerationStep`을 제공한다.
+- JobParameter는 `baseDate=yyyy-MM-dd`, `requester=사용자ID` 두 개가 필수다.
+- 배치 모듈은 파라미터 검증과 실행 흐름만 담당하고, 재무제표 생성 규칙은 core의 `GenerateStatementUseCase`가 처리한다.
+- 기본 `spring.batch.job.enabled=false`라서 단순 `bootRun`은 컨텍스트 기동 검증용으로만 실행된다.
+- 실제 배치 실행 예:
+
+```powershell
+.\gradlew :reporting:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=reportingStatementGenerationJob baseDate=2026-03-31 requester=local-batch"
+```

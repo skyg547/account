@@ -1,7 +1,10 @@
 package com.ho.account.deposit.infrastructure.adapter.out.persistence;
 
 import com.ho.account.deposit.domain.DepositAccount;
+import com.ho.account.deposit.domain.DepositStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -12,4 +15,8 @@ import java.util.Optional;
  */
 public interface SpringDataDepositAccountRepository extends JpaRepository<DepositAccount, Long> {
     Optional<DepositAccount> findByAccountNumber(String accountNumber);
+    List<DepositAccount> findByStatusAndValidFromLessThanEqualAndValidToGreaterThanEqual(
+            DepositStatus status,
+            LocalDate validFrom,
+            LocalDate validTo);
 }

@@ -1,6 +1,8 @@
 package com.ho.account.closing.batch.service;
 
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
@@ -32,6 +34,8 @@ class FxValuationServiceTest {
     private ExchangeRateRepository exchangeRateRepository;
     @Mock
     private JournalUseCase journalUseCase;
+    @Mock
+    private MasterDataQueryPort masterDataQueryPort;
 
     private ClosingAccountingProperties accountingProperties;
     private FxValuationService service;
@@ -42,7 +46,7 @@ class FxValuationServiceTest {
         accountingProperties.setFxValuationReportingCurrencyCode("USD");
         accountingProperties.setFxTranslationGainAccountCode("720100");
         accountingProperties.setFxTranslationLossAccountCode("920100");
-        service = new FxValuationService(exchangeRateRepository, journalUseCase, accountingProperties);
+        service = new FxValuationService(exchangeRateRepository, journalUseCase, accountingProperties, masterDataQueryPort);
     }
 
     @Test
@@ -54,6 +58,8 @@ class FxValuationServiceTest {
 
         when(exchangeRateRepository.findExchangeRate("EUR", "USD", valuationDate))
                 .thenReturn(Optional.of(exchangeRate("EUR", "USD", "1.20000000", valuationDate)));
+        when(masterDataQueryPort.findAccountSubjectAt("113000", valuationDate))
+                .thenReturn(Optional.of(new AccountSubjectRef("113000", "EUR Cash", false, false, "DEBIT")));
         when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
             JournalEntry entry = invocation.getArgument(0);
             entry.setId(501L);
@@ -77,6 +83,30 @@ class FxValuationServiceTest {
         assertThat(entry.getDetails().get(1).getAmount()).isEqualByComparingTo("10.00");
         verify(journalUseCase).approveJournalEntry(501L, "SYSTEM");
         verify(journalUseCase).postJournalEntry(501L, "SYSTEM");
+    }
+
+    @Test
+    @DisplayName("대변 정상잔액 계정은 평가 증가를 손실로 보고 계정 라인을 대변에 기록한다")
+    void processFxValuationReversesSideForCreditNormalBalanceAccount() {
+        LocalDate valuationDate = LocalDate.of(2026, 5, 31);
+        GlAccountBalance balance = balance("221000", "EUR", "100.00", "110.00");
+
+        when(exchangeRateRepository.findExchangeRate("EUR", "USD", valuationDate))
+                .thenReturn(Optional.of(exchangeRate("EUR", "USD", "1.20000000", valuationDate)));
+        when(masterDataQueryPort.findAccountSubjectAt("221000", valuationDate))
+                .thenReturn(Optional.of(new AccountSubjectRef("221000", "EUR Borrowing", false, false, "CREDIT")));
+        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.processFxValuationForAccount(balance, valuationDate, 77L);
+
+        ArgumentCaptor<JournalEntry> captor = ArgumentCaptor.forClass(JournalEntry.class);
+        verify(journalUseCase).createJournalEntry(captor.capture());
+        JournalEntry entry = captor.getValue();
+
+        assertThat(entry.getDetails().get(0).getSide()).isEqualTo(JournalSide.CREDIT);
+        assertThat(entry.getDetails().get(0).getAccountCode()).isEqualTo("221000");
+        assertThat(entry.getDetails().get(1).getSide()).isEqualTo(JournalSide.DEBIT);
+        assertThat(entry.getDetails().get(1).getAccountCode()).isEqualTo("920100");
     }
 
     @Test

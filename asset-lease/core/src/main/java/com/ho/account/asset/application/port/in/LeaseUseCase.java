@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LeaseUseCase {
-    LeaseContract registerLeaseContract(LeaseContract contract);
+    LeaseContract registerLeaseContract(LeaseContract contract, String actor);
     void processMonthlyLeaseAccounting(LocalDate processDate);
     void processMonthlyLeasePayment(LocalDate paymentDate);
-    LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate);
+    LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate, String actor);
     Optional<LeaseContract> getLeaseContract(Long id);
     List<LeaseContract> getAllActiveLeaseContracts();
 }

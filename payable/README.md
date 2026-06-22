@@ -79,25 +79,38 @@ erDiagram
 
 ## 4. 로컬 실행 및 검증 방법
 
-`payable`은 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:payable:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+`payable`은 `core/api/batch` 구조로 실행됩니다. `core`가 매입채무/지급 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 
 ```powershell
-.\gradlew :payable:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :payable:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 **빠른 컴파일 확인:**
 
 ```powershell
-.\gradlew :payable:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :payable:core:compileJava :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**H2 local 실행:**
+
+```powershell
+.\gradlew :payable:api:bootRun --console=plain --max-workers=1
+.\gradlew :payable:batch:bootRun --console=plain --max-workers=1
+```
+
+**실제 Spring Batch Job 실행:**
+
+```powershell
+.\gradlew :payable:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=payablePaymentRunJob runDate=2026-06-19 createdBy=LOCAL description=LocalPaymentRun" --console=plain --max-workers=1
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
 2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
-3. 상단 Run Configuration에서 `Payable Module Tests`를 선택해 실행합니다.
-4. 실제 HTTP API를 호출하려면 payable 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
+3. 테스트는 `payable > core > Tasks > verification > test`를 실행합니다.
+4. API 서버는 Gradle task `:payable:api:bootRun`, Batch 컨텍스트는 `:payable:batch:bootRun`을 실행합니다.
 
 **연동 주의사항:**
 - 모든 지급 거래는 `journal-ledger`의 전표 생성을 동반하므로, `JournalPostingPort`의 가용성을 확인해야 합니다.

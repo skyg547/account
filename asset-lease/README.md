@@ -102,6 +102,8 @@ erDiagram
 - 감가상각 및 리스 전표 생성은 현재 직접 `JournalPostingPort` 호출이 아니라 `AssetEventPort`의 `transaction-events` 이벤트와 리스 지급결의 포트를 통해 후속 처리됩니다.
 - 부서나 거래처 정보는 엔티티 직접 참조 대신 코드 기반으로 저장합니다.
 - 고정자산 등록, 감가상각, 처분, 부서 변경 요청은 실제 사용자 또는 배치 실행자 ID를 서비스에 전달하며 자산 이력과 이벤트 감사 정보에 같은 actor를 기록합니다.
+- 리스 등록과 재측정 API도 `X-User-ID`를 받아 IFRS 16 이벤트의 `actor`로 기록합니다.
+- 리스 지급결의 계정은 `account.asset-lease.lease-accounting.*` 설정을 통해 바꿀 수 있습니다. 기본값은 리스부채 `25100`, 리스 이자비용 `93100`, 미지급금 `21100`입니다.
 - 리스료 지급결의는 `LeasePaymentResolutionPort` 구현이 필요하며, 단독 실행에서 구현이 없으면 fallback 어댑터가 예외를 던집니다.
 
 ## 5. 문서 읽기 순서

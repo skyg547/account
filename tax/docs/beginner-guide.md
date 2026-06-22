@@ -24,11 +24,13 @@
 
 `APInvoiceController`는 HTTP 요청을 DTO로 받고 유즈케이스를 호출한다. 요청 검증은 `TaxInvoiceRequestDto`의 Bean Validation과 도메인 금액 검증으로 나뉜다.
 
-`TaxInvoiceQueryAdapter`는 다른 모듈이 세금계산서 참조 정보를 조회할 때 사용하는 출력 어댑터다. 현재는 취소 상태까지 포함해 조회될 수 있으므로, 취소 증빙을 외부 참조에서 제외할지 정책 결정을 `@todo`로 남겼다.
+`TaxInvoiceQueryAdapter`는 다른 모듈이 세금계산서 참조 정보를 조회할 때 사용하는 출력 어댑터다. 참조값에는 `status`가 포함되므로, 다른 모듈은 세금계산서가 `ACTIVE`인지 `CANCELLED`인지 확인한 뒤 업무에 연결해야 한다.
 
 ## 취소가 삭제가 아닌 이유
 
 세금계산서는 공식 증빙이므로 물리 삭제하면 감사 추적이 끊긴다. 현재 `DELETE /api/ap/invoices/{id}`는 실제 DB delete가 아니라 `TaxInvoice.cancel(actor, reason)`을 호출해 상태를 `CANCELLED`로 바꾸고 취소자, 사유, 시각을 남긴다.
+
+취소된 세금계산서는 조회 자체를 막지 않는다. 다만 지출결의나 AP 지급처럼 새 업무 처리에 연결하는 흐름에서는 `ACTIVE` 상태만 허용한다.
 
 ## 처음 볼 때 체크할 파일
 

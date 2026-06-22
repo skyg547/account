@@ -2,7 +2,7 @@
 
 ## API 입구
 
-현재 `tax`는 library 모듈이므로 아래 API는 tax 컴포넌트를 포함하는 호스트 Spring Boot 애플리케이션에서 노출될 때 사용할 수 있다.
+현재 `tax`는 `core/api/batch` 구조다. 아래 API는 `tax:api` Spring Boot 애플리케이션에서 노출되고, 실제 세무 검증과 상태 변경은 `tax:core`가 처리한다.
 
 | 컨트롤러 | 메서드 | 경로 | 역할 |
 | --- | --- | --- | --- |
@@ -70,4 +70,6 @@ flowchart TD
 
 `TaxInvoiceQueryAdapter`는 `contracts`의 `TaxInvoiceQueryPort`를 구현한다. 다른 모듈은 tax 내부 Repository가 아니라 이 계약을 통해 `TaxInvoiceRef`를 얻어야 한다.
 
-현재 `TaxInvoiceRef`에는 상태가 없어 취소된 증빙을 외부 모듈에서 어떻게 다룰지 판단하기 어렵다. 코드에 `@todo`로 남긴 것처럼 상태 포함 또는 취소 건 제외 정책을 확정해야 한다.
+`TaxInvoiceRef`는 `id`, `issueId`, `type`, `status`를 반환한다. 정책은 "조회는 가능하지만 소비 모듈이 `ACTIVE`만 업무 연결에 사용"하는 방식이다.
+
+초보자 관점에서는 취소 세금계산서를 영수증 보관함에서 없애지는 않지만, 새 지출결의나 AP 지급에는 붙이지 못하게 막는다고 이해하면 된다. `expenditure-resolution`은 `PURCHASE` 타입이면서 `ACTIVE` 상태인 세금계산서만 연결한다.

@@ -1,6 +1,8 @@
 package com.ho.account.closing.batch.service;
 
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
@@ -40,6 +42,7 @@ public class FxValuationService {
     private final ExchangeRateRepository exchangeRateRepository;
     private final JournalUseCase journalUseCase;
     private final ClosingAccountingProperties accountingProperties;
+    private final MasterDataQueryPort masterDataQueryPort;
 
     @Transactional
     public void processFxValuationForAccount(GlAccountBalance balance, LocalDate valuationDate, Long valuationBatchId) {
@@ -79,13 +82,22 @@ public class FxValuationService {
             return; // 차이 없음
         }
         
+        AccountSubjectRef accountSubject = masterDataQueryPort.findAccountSubjectAt(balance.getAccountCode(), valuationDate)
+                .orElse(null);
+        if (accountSubject == null) {
+            log.warn("Account subject is missing. Skipping FX valuation for account: {}, date: {}",
+                    balance.getAccountCode(), valuationDate);
+            return;
+        }
+
         // 2. 평가 전표(Journal Entry) 생성
-        createValuationJournalEntry(balance.getAccountCode(), difference, valuationDate, valuationBatchId, reportingCurrencyCode);
+        createValuationJournalEntry(accountSubject, difference, valuationDate, valuationBatchId, reportingCurrencyCode);
     }
 
-    private void createValuationJournalEntry(String accountCode, BigDecimal difference, LocalDate valuationDate, Long batchId,
+    private void createValuationJournalEntry(AccountSubjectRef accountSubject, BigDecimal difference, LocalDate valuationDate, Long batchId,
                                              String reportingCurrencyCode) {
-        boolean isGain = difference.signum() > 0;
+        boolean debitNormalBalance = accountSubject.debitNormalBalance();
+        boolean isGain = debitNormalBalance ? difference.signum() > 0 : difference.signum() < 0;
         BigDecimal absDiff = difference.abs();
         
         JournalEntry entry = new JournalEntry();
@@ -101,7 +113,7 @@ public class FxValuationService {
         entry.setCurrencyCode(reportingCurrencyCode);
 
         JournalDetail accountDetail = new JournalDetail();
-        accountDetail.setAccountCode(accountCode);
+        accountDetail.setAccountCode(accountSubject.code());
         accountDetail.setAmount(absDiff);
         accountDetail.setBaseAmount(absDiff);
         accountDetail.setDetailDescription("FX Revaluation adjustment");
@@ -111,18 +123,18 @@ public class FxValuationService {
         pnlDetail.setBaseAmount(absDiff);
         pnlDetail.setDetailDescription("FX Translation Gain/Loss");
 
+        if (difference.signum() > 0) {
+            // 장부가를 늘리는 평가입니다. 차변 정상 계정(자산 등)은 차변, 대변 정상 계정(부채 등)은 대변으로 늘립니다.
+            accountDetail.setSide(debitNormalBalance ? JournalSide.DEBIT : JournalSide.CREDIT);
+        } else {
+            // 장부가를 줄이는 평가입니다. 정상잔액 방향의 반대편에 계정 라인을 기록합니다.
+            accountDetail.setSide(debitNormalBalance ? JournalSide.CREDIT : JournalSide.DEBIT);
+        }
+
         if (isGain) {
-            // 이익: 차변(자산/부채 계정) / 대변(외화환산이익)
-            // 현재는 자산 계정을 기준으로 처리합니다.
-            // @todo 계정 성격(자산/부채)을 master-data 계정 속성으로 조회해 부채 계정의 차대변 반전까지 반영해야 합니다.
-            accountDetail.setSide(JournalSide.DEBIT);
-            
             pnlDetail.setSide(JournalSide.CREDIT);
             pnlDetail.setAccountCode(accountingProperties.getFxTranslationGainAccountCode());
         } else {
-            // 손실: 차변(외화환산손실) / 대변(자산/부채 계정)
-            accountDetail.setSide(JournalSide.CREDIT);
-            
             pnlDetail.setSide(JournalSide.DEBIT);
             pnlDetail.setAccountCode(accountingProperties.getFxTranslationLossAccountCode());
         }
@@ -130,7 +142,7 @@ public class FxValuationService {
         entry.addDetail(accountDetail);
         entry.addDetail(pnlDetail);
 
-        entry.setSlipNo(ClosingSlipNoFactory.fxValuation(valuationDate, accountCode, batchId));
+        entry.setSlipNo(ClosingSlipNoFactory.fxValuation(valuationDate, accountSubject.code(), batchId));
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
         // 결산 배치는 전표 초안 생성까지만 수행하는 것이 기본입니다. 별도 운영 통제가 자동 전기를

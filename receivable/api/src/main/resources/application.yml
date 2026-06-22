@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: receivable-api
+  profiles:
+    default: local
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:receivable;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false
+
+server:
+  port: 8092
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

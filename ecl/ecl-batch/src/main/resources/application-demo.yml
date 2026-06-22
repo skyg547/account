@@ -20,13 +20,12 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   batch:
     job:
-      enabled: true
+      enabled: false
     jdbc:
       initialize-schema: always
   sql:
     init:
-      mode: always
-      data-locations: classpath:/demo/allowance-batch-demo-data.sql
+      mode: never
   cloud:
     discovery:
       enabled: false

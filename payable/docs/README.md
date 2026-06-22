@@ -12,10 +12,10 @@
 
 ## 현재 실행 전제
 
-- `payable`은 현재 `java-library` 모듈이다.
-- 별도 `SpringBootApplication`이나 `:payable:bootRun` 태스크가 없다.
-- 로컬에서는 IntelliJ Gradle 실행 구성 또는 `.\gradlew :payable:test`로 모듈 단위 검증을 수행한다.
-- API를 실제 HTTP로 호출하려면 payable 컴포넌트를 스캔하는 호스트 Spring Boot 애플리케이션이 필요하다.
+- `payable:core`는 업무 규칙과 persistence/local adapter를 담는 Java library 모듈이다.
+- `payable:api`는 `PayableApiApplication`으로 H2 local API 서버를 실행한다.
+- `payable:batch`는 `PayableBatchApplication`으로 Batch 컨텍스트를 실행하고, `payablePaymentRunJob`으로 지급런을 생성한다.
+- 로컬에서는 `.\gradlew :payable:core:test`, `.\gradlew :payable:api:bootRun`, `.\gradlew :payable:batch:bootRun`으로 검증한다.
 
 ## 핵심 코드 입구
 

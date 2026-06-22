@@ -2,11 +2,12 @@ package com.ho.account.ecl.batch.job;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -31,32 +32,24 @@ public class JobRunner implements CommandLineRunner {
     private final JobLauncher jobLauncher;
     private final Map<String, Job> jobs;
 
-    @Value("${spring.batch.job.enabled:true}")
-    private boolean batchJobEnabled;
-
     @Override
     public void run(String... args) throws Exception {
-        if (!batchJobEnabled) {
-            log.info(">> [IFRS9 Allowance Batch] spring.batch.job.enabled=false, CommandLineRunner 실행을 건너뜁니다.");
+        String jobName = findArgumentValue(args, "job.name", "spring.batch.job.name");
+        if (!hasText(jobName)) {
+            log.info(">> [IFRS9 Allowance Batch] job.name이 없어 CommandLineRunner 실행을 건너뜁니다.");
             return;
         }
 
         log.info(">> [IFRS9 Allowance Batch] CommandLineRunner 시작...");
 
         // 커맨드라인 인자에서 baseDate 추출 (없으면 오늘 날짜)
-        String baseDateStr = Arrays.stream(args)
-                .filter(arg -> arg.startsWith("baseDate="))
-                .map(arg -> arg.substring("baseDate=".length()))
-                .findFirst()
-                .orElse(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
+        String baseDateStr = findArgumentValue(args, "baseDate");
+        if (!hasText(baseDateStr)) {
+            baseDateStr = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        }
 
-        String jobName = Arrays.stream(args)
-                .filter(arg -> arg.startsWith("job.name=") || arg.startsWith("spring.batch.job.name="))
-                .map(arg -> arg.substring(arg.indexOf('=') + 1))
-                .findFirst()
-                .orElse("allowanceEclJob");
-        String runId = getArgumentValue(args, "runId");
-        String modelVersion = getArgumentValue(args, "modelVersion");
+        String runId = findArgumentValue(args, "runId");
+        String modelVersion = findArgumentValue(args, "modelVersion");
 
         Job targetJob = jobs.get(jobName);
         if (targetJob == null) {
@@ -71,16 +64,26 @@ public class JobRunner implements CommandLineRunner {
         }
 
         log.info(">> [대손충당금(IFRS9) 배치] 실행 시도 (Job: {}, 기준일: {})", jobName, baseDateStr);
-        jobLauncher.run(targetJob, jobParametersBuilder.toJobParameters());
+        JobExecution execution = jobLauncher.run(targetJob, jobParametersBuilder.toJobParameters());
+        if (!BatchStatus.COMPLETED.equals(execution.getStatus())) {
+            throw new IllegalStateException("IFRS9 allowance batch job failed: " + execution.getExitStatus());
+        }
     }
 
-    private static String getArgumentValue(String[] args, String key) {
-        String prefix = key + "=";
+    private static String findArgumentValue(String[] args, String... keys) {
         return Arrays.stream(args)
-                .filter(arg -> arg.startsWith(prefix))
-                .map(arg -> arg.substring(prefix.length()))
+                .map(JobRunner::stripOptionPrefix)
+                .filter(arg -> Arrays.stream(keys).anyMatch(key -> arg.startsWith(key + "=")))
+                .map(arg -> arg.substring(arg.indexOf('=') + 1))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static String stripOptionPrefix(String arg) {
+        if (arg == null) {
+            return "";
+        }
+        return arg.startsWith("--") ? arg.substring(2) : arg;
     }
 
     private static boolean hasText(String value) {

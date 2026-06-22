@@ -6,7 +6,7 @@
 
 - `deposit:core`: 예금 계좌 도메인, 계좌 개설 유즈케이스, 초기입금 전표 생성 포트, JPA 영속성 어댑터.
 - `deposit:api`: HTTP API 실행 앱. `DepositApplication`을 main class로 사용합니다.
-- `deposit:batch`: Batch 컨텍스트 실행 앱. 현재는 Job/Step 구현 전 단계이므로 컨텍스트 기동과 Batch 인프라 확인 용도입니다.
+- `deposit:batch`: Batch 컨텍스트 실행 앱. `depositAccountIntegrityJob`으로 활성 예금 계좌의 잔액/이자율/유효기간 무결성을 점검합니다.
 
 ## 로컬 실행
 
@@ -19,6 +19,12 @@
 ```
 
 IntelliJ에서는 `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Context.run.xml` 실행 구성을 사용할 수 있습니다.
+
+실제 Spring Batch Job 실행:
+
+```powershell
+.\gradlew :deposit:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=depositAccountIntegrityJob asOfDate=2026-06-19" --console=plain --max-workers=1
+```
 
 ## 업무/데이터 흐름
 

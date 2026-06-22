@@ -28,6 +28,8 @@ sequenceDiagram
     Service-->>API: LoginResponse
 ```
 
+`LoginAttemptPort`는 저장 기술을 숨기는 출력 포트입니다. 기본 로컬 실행은 `InMemoryLoginAttemptAdapter`가 실패 횟수를 JVM 메모리에 보관합니다. 운영처럼 Auth 서버가 여러 대이면 `auth.login-security.store=jpa`로 바꿔 `JpaLoginAttemptAdapter`가 `AUTH_LOGIN_ATTEMPTS` 테이블에 실패 횟수와 `locked_until`을 저장하게 합니다.
+
 ## 역할 변경 반영 흐름
 
 ```mermaid
@@ -47,4 +49,4 @@ sequenceDiagram
 
 ## Gateway와의 관계
 
-Gateway는 JWT의 서명과 issuer를 검증하고 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Gateway가 Auth의 token-version 검증 또는 캐시 정책과 연동해야 하며, 이 지점은 Gateway 코드에 `@todo`로 남겼습니다.
+Gateway는 JWT의 서명과 issuer를 검증하고 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Gateway가 Auth의 token-version 검증 또는 캐시 정책과 연동합니다.

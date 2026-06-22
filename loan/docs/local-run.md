@@ -64,4 +64,4 @@ API가 정상 기동되면 아래 순서로 업무 흐름을 확인합니다.
 
 - 로컬 H2 `create-drop`은 빠른 컨텍스트 확인용입니다. 운영 스키마 검증은 Flyway migration과 실제 DB로 확인해야 합니다.
 - `LoanInterestAccrualBatchConfig`는 ACTIVE 대출을 paging으로 읽지만, 실제 전표 금액은 `LoanAmortizationScheduleEntry`의 `interestAmount`를 사용합니다.
-- EIR 계산은 현재 구현상 수수료/비용 부호 정책을 단순화하고 있으므로, 실제 IFRS 9/IFRS 회계 정책 적용 전 검증이 필요합니다.
+- EIR 계산은 `DeferredItemType.eirCashFlowTreatment`에 따라 수수료/비용 부호를 결정합니다. 운영 전에는 상품별 이연 항목 유형이 `CUSTOMER_FEE_INFLOW`, `ORIGINATION_COST_OUTFLOW`, `EXCLUDED_FROM_EIR` 중 맞는 정책으로 등록됐는지 확인합니다.

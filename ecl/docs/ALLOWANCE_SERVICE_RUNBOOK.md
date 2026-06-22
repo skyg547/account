@@ -194,20 +194,20 @@ curl -X POST "http://localhost:8083/api/v1/ifrs/allowance/batch/run?jobName=allo
 ## 배치 실행
 
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none --spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect job.name=allowanceEclJob baseDate=2026-04-15 runId=LOCAL-20260415 modelVersion=LOCAL-V1"
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none --spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect job.name=allowanceEclJob baseDate=2026-04-15 runId=LOCAL-20260415 modelVersion=LOCAL-V1"
 ```
 
 개별 재실행:
 
 ```powershell
 # snapshot -> cr_customers/cr_accounts 동기화만 실행
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-15 runId=SYNC-20260415"
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-15 runId=SYNC-20260415"
 
 # 완료된 ECL 결과로 summary만 재생성
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=true --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none job.name=standaloneAllowanceSummaryJob baseDate=2026-04-15 runId=LOCAL-20260415 modelVersion=LOCAL-V1"
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false --spring.flyway.enabled=false --spring.cloud.discovery.enabled=false --eureka.client.enabled=false --spring.datasource.url=jdbc:postgresql://localhost:5432/ifrs9_allowance_db --spring.datasource.username=allowance_user --spring.datasource.password=allowance_password --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none job.name=standaloneAllowanceSummaryJob baseDate=2026-04-15 runId=LOCAL-20260415 modelVersion=LOCAL-V1"
 ```
 
-`job.name`, `baseDate`, `runId`, `modelVersion`은 `JobRunner`가 읽는 일반 인자다. `--spring...` 형태의 Spring 설정 인자와 구분한다.
+`spring.batch.job.enabled=false`는 Boot 기본 자동 실행을 막는 설정이고, `job.name`, `baseDate`, `runId`, `modelVersion`은 `JobRunner`가 읽는 일반 인자다. `--spring...` 형태의 Spring 설정 인자와 구분한다.
 
 ## 검증 SQL
 

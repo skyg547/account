@@ -15,7 +15,7 @@
 | `LeaseAccountingController` | `POST` | `/api/ifrs16/leases/process-monthly/{processDate}` | 리스 월별 회계처리를 실행한다. |
 | `LeaseAccountingController` | `POST` | `/api/ifrs16/leases/remeasure` | 리스료, 종료일, 할인율 변경을 반영한다. |
 
-고정자산 변경 API는 `X-User-ID` 헤더가 필요하다. 이 값은 `AssetHistory.auditUser`와 Kafka 이벤트의 `actor`에 기록된다. 리스 API는 아직 같은 실행자 감사가 없어서 코드에 `@todo`로 표시했다.
+고정자산 변경 API와 리스 등록/재측정 API는 `X-User-ID` 헤더가 필요하다. 고정자산은 `AssetHistory.auditUser`와 Kafka 이벤트에, 리스는 IFRS 16 최초 인식/재측정 이벤트의 `actor`에 기록된다.
 
 ## 고정자산 등록 흐름
 
@@ -62,7 +62,7 @@ flowchart TD
     E --> F[AssetJdbcAdapter batchUpdate]
 ```
 
-현재 Batch Config는 `DepreciationPipeline`을 주입하지만 processor에서 `FixedAsset.depreciate`를 직접 호출하고 날짜도 `LocalDate.now().minusMonths(1)`로 결정한다. 이 부분은 Batch 모듈이 순수 오케스트레이터 역할에 집중하도록 `@todo`로 남겼다.
+Batch Config는 `targetDate=YYYY-MM-DD` JobParameter를 필수로 받아 chunk를 `DepreciationPipeline`에 넘긴다. Batch 모듈은 Reader/Processor/Writer 흐름만 조립하고, 상각 계산과 0원 상각 제외 판단은 core pipeline이 맡는다.
 
 ## IFRS 16 리스 등록 흐름
 
@@ -83,7 +83,7 @@ flowchart TD
 
 월별 회계처리는 해당 월의 스케줄을 찾아 사용권자산을 상각하고 리스부채를 원금 상환액만큼 줄인다. 별도의 `processMonthlyLeasePayment(paymentDate)` 유즈케이스는 지급일이 맞는 계약을 찾아 `LeasePaymentResolutionPort`로 지급결의를 만든다.
 
-IFRS 16 자본화 리스는 지급결의 차변을 이자비용 `93100`과 리스부채 `25100`으로 분리하고, 대변은 미지급금 `21100`을 사용한다. 단기/소액 리스나 스케줄이 없는 경우에는 비용 계정과 미지급금의 단순 지급결의 경로를 유지한다.
+IFRS 16 자본화 리스는 지급결의 차변을 이자비용과 리스부채로 분리하고, 대변은 미지급금을 사용한다. 계정 코드는 `LeaseAccountMappingPort`를 통해 설정 기반으로 조회한다. 기본값은 이자비용 `93100`, 리스부채 `25100`, 미지급금 `21100`이다. 단기/소액 리스나 스케줄이 없는 경우에는 비용 계정과 미지급금의 단순 지급결의 경로를 유지한다.
 
 ## 외부 연동
 

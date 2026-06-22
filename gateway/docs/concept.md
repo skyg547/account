@@ -19,12 +19,24 @@
 - 요청 메서드, 경로, 상태, 지연 시간 로깅
 - JWT 서명/issuer 검증 (`auth.jwt.*` 설정 기반)
 - JWT 검증 후 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더 전달
+- Auth의 `/api/auth/validate-token-version` API와 연동해 JWT의 `roleVersion`을 검증
 
 ## 다음 확장 포인트
 
 - 도메인별 서비스 ID 라우트 분리
-- 역할 변경 직후 기존 JWT 차단을 위한 Auth token-version 검증 또는 캐시 연동
+- roleVersion 검증 캐시 TTL/장애 정책의 운영값 튜닝
 - rate limiting, circuit breaker, fallback 정책의 라우트별 세분화
+
+## JWT Role Version 검증
+
+역할 변경 승인 후 Auth는 사용자 `roleVersion`을 증가시킵니다. 기존 JWT에는 예전 `roleVersion`이 들어 있으므로, Gateway는 보호 라우트에서 Auth의 token-version 검증 API를 호출해 오래된 토큰을 거절합니다.
+
+- 기본 설정: `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=true`
+- 로컬 Auth 주소: `AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://localhost:8084`
+- 캐시 TTL: `AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS=30`
+- Auth 호출 timeout: `AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS=500`
+
+Auth 호출 실패는 보안 기준상 fail-closed로 처리합니다. Gateway만 단독 smoke 기동할 때는 요청 검증 테스트가 목적이 아니므로 `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=false`로 끌 수 있습니다.
 
 ## 로컬 실행
 

@@ -7,5 +7,7 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
  */
 public interface MasterDataChangeApplier {
 
+    boolean supports(MasterDataChangeRequest.MasterDataType targetType);
+
     void apply(MasterDataChangeRequest request);
 }

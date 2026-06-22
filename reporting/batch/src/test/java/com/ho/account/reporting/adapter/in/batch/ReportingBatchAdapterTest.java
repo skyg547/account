@@ -48,4 +48,19 @@ class ReportingBatchAdapterTest {
         assertThat(commands.get(1).baseDate()).isEqualTo(expectedBaseDate);
         assertThat(commands.get(1).requesterId()).isEqualTo("SYSTEM_BATCH");
     }
+
+    @Test
+    void runStatementGenerationBatch_usesProvidedBaseDateAndRequester() {
+        reportingBatchAdapter.runStatementGenerationBatch(java.time.LocalDate.of(2026, 6, 30), "batch-user");
+
+        ArgumentCaptor<GenerateCommand> captor = ArgumentCaptor.forClass(GenerateCommand.class);
+        verify(generateStatementUseCase, times(2)).generate(captor.capture());
+
+        List<GenerateCommand> commands = captor.getAllValues();
+
+        assertThat(commands.get(0).baseDate()).isEqualTo(LocalDateTime.of(2026, 6, 30, 0, 0));
+        assertThat(commands.get(0).requesterId()).isEqualTo("batch-user");
+        assertThat(commands.get(1).baseDate()).isEqualTo(LocalDateTime.of(2026, 6, 30, 0, 0));
+        assertThat(commands.get(1).requesterId()).isEqualTo("batch-user");
+    }
 }

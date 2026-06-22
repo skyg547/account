@@ -1,27 +1,30 @@
 package com.ho.account.closing.batch;
 
+import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = {
     "com.ho.account.closing.batch",
-    "com.ho.account.closing.application.service", // Closing properties
-    "com.ho.account.journalledger.application.port", // Journal UseCase 
-    "com.ho.account.masterdata.core.infrastructure.persistence" // Exchange rates
+    "com.ho.account.journalledger.application.service",
+    "com.ho.account.journalledger.infrastructure",
+    "com.ho.account.common.adapter",
+    "com.ho.account.masterdata.core.infrastructure.adapter"
 })
 @EntityScan(basePackages = {
     "com.ho.account.closing.domain",
-    "com.ho.account.journalledger.domain.ledger.domain",
-    "com.ho.account.journalledger.domain.journal.domain",
-    "com.ho.account.masterdata.core.domain.model"
+    "com.ho.account.journalledger.domain",
+    "com.ho.account.masterdata.core.domain"
 })
 @EnableJpaRepositories(basePackages = {
-    "com.ho.account.closing.infrastructure.persistence",
-    "com.ho.account.journalledger.domain.ledger.repository",
+    "com.ho.account.journalledger.domain",
+    "com.ho.account.journalledger.adapter.out.persistence",
     "com.ho.account.masterdata.core.infrastructure.persistence.repository"
 })
+@EnableConfigurationProperties(ClosingAccountingProperties.class)
 public class ClosingBatchApplication {
     public static void main(String[] args) {
         SpringApplication.run(ClosingBatchApplication.class, args);

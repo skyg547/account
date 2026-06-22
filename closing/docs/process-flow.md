@@ -67,8 +67,11 @@ sequenceDiagram
     participant JL as JournalUseCase
 
     Job->>GL: 기준일 외화 GL 잔액 조회
+    Job->>Job: 계정코드 단위 Partition 생성
+    Job->>GL: Partition별 Paging Reader로 잔액 조회
     Job->>FX: 잔액별 평가 요청
     FX->>MD: 외화 -> 보고통화 환율 조회
+    FX->>MD: 계정과목 정상잔액 방향 조회
     FX->>FX: 평가금액과 장부금액 차이 계산
     FX->>JL: DRAFT 결산 조정 전표 생성
 ```
@@ -80,6 +83,8 @@ sequenceDiagram
 | `spring.batch.job.name` | `fxValuationJob` | 실행할 Job |
 | `valuationDate` | `2026-04-30` | 평가 기준일 |
 | `valuationBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
+
+FX 평가는 계정과목의 정상잔액 방향을 함께 봅니다. 자산처럼 차변 정상잔액인 계정은 평가 증가를 차변 계정/대변 이익으로 처리하고, 부채처럼 대변 정상잔액인 계정은 평가 증가를 대변 계정/차변 손실로 처리합니다. 배치 Reader는 전체 외화 잔액을 한 번에 메모리에 올리지 않고 계정코드 파티션과 JPA Paging Reader로 나누어 읽습니다.
 
 ## ECL 충당 Batch
 

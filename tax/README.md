@@ -66,32 +66,47 @@ erDiagram
 
 ## 4. 로컬 실행 및 연동 방법
 
-`tax`는 현재 독립 Spring Boot 앱이 아니라 `java-library` 모듈입니다. 별도 `SpringBootApplication`과 `:tax:bootRun` 태스크가 없으므로 IntelliJ에서는 Gradle 테스트 실행 구성을 사용합니다.
+`tax`는 `core/api/batch` 구조로 실행됩니다. `core`가 세금계산서 금액 검증과 취소 정책을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 
 ```powershell
-.\gradlew :tax:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :tax:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 **빠른 컴파일 확인:**
 
 ```powershell
-.\gradlew :tax:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :tax:core:compileJava :tax:api:compileJava :tax:batch:compileJava --console=plain --max-workers=1 --no-daemon
+```
+
+**H2 local 실행:**
+
+```powershell
+.\gradlew :tax:api:bootRun --console=plain --max-workers=1
+.\gradlew :tax:batch:bootRun --console=plain --max-workers=1
+```
+
+**실제 Spring Batch Job 실행:**
+
+```powershell
+.\gradlew :tax:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=taxInvoiceValidationJob startDate=2026-06-19 endDate=2026-06-19" --console=plain --max-workers=1
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
 2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
-3. 상단 Run Configuration에서 `Tax Module Tests`를 선택해 실행합니다.
-4. 실제 HTTP API를 호출하려면 tax 컴포넌트를 스캔하는 호스트 Spring Boot 앱이 필요합니다.
+3. 테스트는 `tax > core > Tasks > verification > test`를 실행합니다.
+4. API 서버는 Gradle task `:tax:api:bootRun`, Batch 컨텍스트는 `:tax:batch:bootRun`을 실행합니다.
 
 **연동 주의사항:**
 - 세금계산서는 회계 전표(`journal-ledger`)와 긴밀히 연동되어야 합니다.
 - 금액 검증 실패 시 전표 생성이 차단되므로 도메인 내 `validateAmounts()` 로직을 반드시 확인하세요.
 - 거래처 검증은 `contracts`의 `MasterDataQueryPort`를 사용하며 master-data 내부 저장소에 직접 의존하지 않습니다.
 - 발행된 세금계산서는 물리 삭제하지 않습니다. 취소 처리자와 사유를 받아 `CANCELLED` 상태로 전환해 증빙 감사 이력을 보존합니다.
+- 외부 모듈 조회용 `TaxInvoiceRef`는 `status`를 포함합니다. 지출결의/AP 지급은 `PURCHASE`이면서 `ACTIVE`인 세금계산서만 연결합니다.
 - 현재 웹 API는 `/api/ap/invoices` 매입 세금계산서(`PURCHASE`) 중심입니다. 매출 세금계산서 API는 별도 확장이 필요합니다.
+- `taxInvoiceValidationJob`은 기간 내 매입 세금계산서의 금액 합계와 거래처 참조를 core 유즈케이스에서 검증합니다.
 
 ## 5. 문서 읽기 순서
 

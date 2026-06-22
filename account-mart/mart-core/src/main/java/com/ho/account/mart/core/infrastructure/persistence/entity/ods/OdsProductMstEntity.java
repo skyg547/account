@@ -34,6 +34,13 @@ public class OdsProductMstEntity {
     @Column(name = "prod_category", length = 30) 
     private String productCategory;
 
+    @Column(name = "asset_liability_type", length = 20)
+    private String assetLiabilityType;
+
+    @Builder.Default
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
     /** 회계 계정 코드 - 원장과 연계되는 계정 코드 */
     @Column(name = "subj_cd", length = 20)
     private String subjectCode;

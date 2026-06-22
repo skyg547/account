@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management'
+}
+
+description = 'account-payable-core'
+group = "${rootProject.group}.payable"
+
+base {
+    archivesName = 'account-payable-core'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
+    }
+}
+
+dependencies {
+    api project(':contracts')
+    implementation project(':shared-kernel')
+
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

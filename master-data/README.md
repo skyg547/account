@@ -102,4 +102,6 @@ erDiagram
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
 - 데이터 수정 시 `terminate()` 메서드를 호출하여 SCD2 정책을 준수해야 합니다.
+- 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `DEPARTMENT` typed applier가 구현되어 있고, 미지원 유형은 fail-closed로 중단됩니다.
+- 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 chunk 조회해 메모리 사용량을 제한합니다.
 - 운영에서는 `config-repo/master-data.yml`의 `ddl-auto: update`를 그대로 쓰지 말고 Flyway 기준으로 검증해야 합니다.

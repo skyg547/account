@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS deferred_item_types (
     name VARCHAR(200) NOT NULL,
     description VARCHAR(500),
     deferral_method VARCHAR(50) NOT NULL,
+    eir_cash_flow_treatment VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER_FEE_INFLOW',
     deferred_asset_account_code BIGINT,
     recognized_income_account_code BIGINT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,

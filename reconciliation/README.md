@@ -77,23 +77,36 @@ erDiagram
 
 ## 4. 🧭 로컬 실행 및 연동 방법
 
-현재 `reconciliation`은 standalone Spring Boot 애플리케이션이 아니라 `java-library` 모듈입니다.
-따라서 `docker-compose up -d reconciliation`이나 `:reconciliation:bootRun`으로 바로 띄우는 구조가 아니며, 로컬에서는 Gradle 테스트와 컴파일로 모듈 단위 검증을 합니다.
+현재 `reconciliation`은 `core/api/batch` 구조로 실행됩니다.
+`core`가 대사 기준, 실행, 차이 해소 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 ```powershell
-.\gradlew :reconciliation:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :reconciliation:core:test --console=plain --max-workers=1 --no-daemon
+```
+
+**H2 local 실행:**
+```powershell
+.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --console=plain --max-workers=1
+```
+
+**실제 Spring Batch Job 실행:**
+
+```powershell
+.\gradlew :reconciliation:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=reconciliationDailyJob reconciliationDate=2026-06-19 runBy=LOCAL deepMode=false" --console=plain --max-workers=1
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 연다.
 2. Gradle JVM을 JDK 17로 맞춘다.
-3. Run Configuration에서 `Reconciliation Module Tests`를 실행한다.
-4. API를 HTTP로 호출하려면 reconciliation 패키지를 스캔하는 호스트 Spring Boot 앱을 별도로 구성한다.
+3. 테스트는 `reconciliation > core > Tasks > verification > test`를 실행한다.
+4. API 서버는 Gradle task `:reconciliation:api:bootRun`, Batch 컨텍스트는 `:reconciliation:batch:bootRun`을 실행한다.
 
 **연동 주의사항:**
 - 대사 대상 데이터 조회 시 `JournalQueryPort`를 사용합니다.
 - 조정 분개 생성 시 `ReconciliationAdjustmentPolicy`가 적용된 `JournalPostingPort`를 통해 처리됩니다.
 - 표준 실행 생명주기는 `ReconciliationUnit -> ReconciliationRun -> ReconciliationDifference`입니다.
 - 단계별 진단 결과는 `ReconciliationStageResult`로 표준 Run에 연결되며, 과거의 병렬 Aggregate 모델은 사용하지 않습니다.
+- `reconciliationDailyJob`은 활성 대사 단위를 찾아 core 대사 실행 서비스에 위임하며, `deepMode=true`이면 Deep reconciliation 흐름을 사용합니다.
 - 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.

@@ -2,6 +2,7 @@ package com.ho.account.asset.application.service;
 
 import com.ho.account.asset.application.port.in.LeaseUseCase;
 import com.ho.account.asset.application.port.out.AssetEventPort;
+import com.ho.account.asset.application.port.out.LeaseAccountMappingPort;
 import com.ho.account.asset.application.port.out.LeasePersistencePort;
 import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.domain.LeaseLiability;
@@ -32,25 +33,22 @@ public class LeaseEntryService implements LeaseUseCase {
     private final LeasePersistencePort persistencePort;
     private final AssetEventPort eventPort;
     private final LeasePaymentResolutionPort leasePaymentResolutionPort;
+    private final LeaseAccountMappingPort leaseAccountMappingPort;
 
     private static final String TOPIC = "transaction-events";
-    // @todo 리스 회계 계정은 회사별 회계 정책에 따라 달라지므로 설정 기반 AccountMappingPort로 분리한다.
-    private static final String LEASE_LIABILITY_ACCOUNT_CODE = "25100";
-    private static final String LEASE_INTEREST_EXPENSE_ACCOUNT_CODE = "93100";
-    private static final String ACCOUNTS_PAYABLE_ACCOUNT_CODE = "21100";
 
     @Override
     @Transactional
-    public LeaseContract registerLeaseContract(LeaseContract contract) {
+    public LeaseContract registerLeaseContract(LeaseContract contract, String actor) {
         LeaseContract savedContract = persistencePort.saveContract(contract);
 
         if (savedContract.isIfrs16Applicable() && !savedContract.isShortTermLease() && !savedContract.isLowValueLease()) {
-            recognizeInitialLease(savedContract);
+            recognizeInitialLease(savedContract, requireActor(actor));
         }
         return savedContract;
     }
 
-    private void recognizeInitialLease(LeaseContract contract) {
+    private void recognizeInitialLease(LeaseContract contract, String actor) {
         RightOfUseAsset rouAsset = new RightOfUseAsset();
         rouAsset.setLeaseContract(contract);
         rouAsset.setAssetName(contract.getContractName() + " - ROU");
@@ -79,6 +77,7 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("liabilityAmount", contract.getInitialLeaseLiabilityValue());
         event.put("accountingDate", contract.getStartDate().toString());
         event.put("deptCode", contract.getDepartmentCode());
+        event.put("actor", actor);
         
         eventPort.sendAssetEvent(TOPIC, event);
     }
@@ -106,7 +105,7 @@ public class LeaseEntryService implements LeaseUseCase {
 
     @Override
     @Transactional
-    public LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate) {
+    public LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate, String actor) {
         LeaseContract contract = persistencePort.findContractById(contractId)
                 .orElseThrow(() -> new IllegalArgumentException("Contract not found: " + contractId));
         
@@ -121,6 +120,7 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("contractId", updated.getId());
         event.put("accountingDate", remeasureDate.toString());
         event.put("deptCode", updated.getDepartmentCode());
+        event.put("actor", requireActor(actor));
         eventPort.sendAssetEvent(TOPIC, event);
         
         return updated;
@@ -201,10 +201,11 @@ public class LeaseEntryService implements LeaseUseCase {
     }
 
     private void createLeaseExpenditure(LeaseContract contract, LocalDate date) {
+        LeaseAccountMappingPort.LeasePaymentAccounts accounts = leaseAccountMappingPort.resolvePaymentAccounts(contract);
         if (isCapitalizedIfrs16Lease(contract)) {
             Optional<LeasePaymentSchedule> schedule = findLeasePaymentScheduleForMonth(contract, date);
             if (schedule.isPresent()) {
-                createIfrs16LeasePaymentResolution(contract, date, schedule.get());
+                createIfrs16LeasePaymentResolution(contract, date, schedule.get(), accounts);
                 return;
             }
         }
@@ -216,7 +217,7 @@ public class LeaseEntryService implements LeaseUseCase {
                 date,
                 contract.getDepartmentCode(),
                 contract.getExpenseAccountCode(), // 차변: 리스부채 또는 비용 계정
-                ACCOUNTS_PAYABLE_ACCOUNT_CODE,    // 대변: 미지급금 (표준)
+                accounts.accountsPayableAccountCode(), // 대변: 미지급금
                 contract.getLessorCode(),
                 contract.getMonthlyPayment(),
                 "월 리스료"
@@ -246,16 +247,17 @@ public class LeaseEntryService implements LeaseUseCase {
     private void createIfrs16LeasePaymentResolution(
             LeaseContract contract,
             LocalDate date,
-            LeasePaymentSchedule schedule) {
+            LeasePaymentSchedule schedule,
+            LeaseAccountMappingPort.LeasePaymentAccounts accounts) {
         List<LeasePaymentResolutionLineCommand> debitLines = new ArrayList<>();
         addDebitLine(
                 debitLines,
-                LEASE_INTEREST_EXPENSE_ACCOUNT_CODE,
+                accounts.leaseInterestExpenseAccountCode(),
                 schedule.getInterestPortion(),
                 "리스 이자비용");
         addDebitLine(
                 debitLines,
-                LEASE_LIABILITY_ACCOUNT_CODE,
+                accounts.leaseLiabilityAccountCode(),
                 schedule.getPrincipalPortion(),
                 "리스부채 원금 상환");
 
@@ -269,7 +271,7 @@ public class LeaseEntryService implements LeaseUseCase {
                 date,
                 date,
                 contract.getDepartmentCode(),
-                ACCOUNTS_PAYABLE_ACCOUNT_CODE,
+                accounts.accountsPayableAccountCode(),
                 contract.getLessorCode(),
                 debitLines));
     }
@@ -282,5 +284,12 @@ public class LeaseEntryService implements LeaseUseCase {
         if (amount != null && amount.signum() > 0) {
             debitLines.add(new LeasePaymentResolutionLineCommand(accountCode, amount, description));
         }
+    }
+
+    private String requireActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("X-User-ID is required for lease accounting audit");
+        }
+        return actor.trim();
     }
 }

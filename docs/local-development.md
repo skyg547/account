@@ -62,6 +62,16 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
 | `deposit:api` | `com.ho.account.deposit.DepositApplication` | 8087 | 예금 API |
 | `deposit:batch` | `com.ho.account.deposit.batch.DepositBatchApplication` | CLI 또는 설정 기준 | 예금 배치 컨텍스트 |
+| `payable:api` | `com.ho.account.expenditure.payable.api.PayableApiApplication` | 8091 | 매입채무/지급 API |
+| `payable:batch` | `com.ho.account.expenditure.payable.batch.PayableBatchApplication` | CLI 또는 설정 기준 | 매입채무/지급 배치 컨텍스트 |
+| `receivable:api` | `com.ho.account.receivable.api.ReceivableApiApplication` | 8092 | 매출채권/수납 API |
+| `receivable:batch` | `com.ho.account.receivable.batch.ReceivableBatchApplication` | CLI 또는 설정 기준 | 매출채권/수납 배치 컨텍스트 |
+| `reconciliation:api` | `com.ho.account.reconciliation.api.ReconciliationApiApplication` | 8093 | 대사 API |
+| `reconciliation:batch` | `com.ho.account.reconciliation.batch.ReconciliationBatchApplication` | CLI 또는 설정 기준 | 대사 배치 컨텍스트 |
+| `tax:api` | `com.ho.account.tax.api.TaxApiApplication` | 8094 | 세금계산서 API |
+| `tax:batch` | `com.ho.account.tax.batch.TaxBatchApplication` | CLI 또는 설정 기준 | 세금계산서 배치 컨텍스트 |
+| `expenditure-resolution:api` | `com.ho.account.expenditure.resolution.api.ExpenditureResolutionApiApplication` | 8095 | 지출결의 API |
+| `expenditure-resolution:batch` | `com.ho.account.expenditure.resolution.batch.ExpenditureResolutionBatchApplication` | CLI 또는 설정 기준 | 지출결의 배치 컨텍스트 |
 | `account-mart:mart-api` | `com.ho.account.mart.api.AllowanceMartApiApplication` | 8085 | ECL 입력 마트 API |
 | `account-mart:mart-batch` | `com.ho.account.mart.batch.AllowanceMartBatchApplication` | 8086 또는 CLI | ECL 입력 마트 배치 |
 | `ecl:ecl-api` | `com.ho.account.ecl.api.AllowanceEclApiApplication` | 설정 파일 기준 | ECL API |
@@ -106,12 +116,22 @@ Spring Boot 앱:
 Gradle task로 실행:
 ```powershell
 .\gradlew :account-mart:mart-api:bootRun --console=plain
-.\gradlew :account-mart:mart-batch:bootRun --console=plain
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain
 .\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 .\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :payable:api:bootRun --console=plain --max-workers=1
+.\gradlew :receivable:api:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
+.\gradlew :tax:api:bootRun --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:api:bootRun --console=plain --max-workers=1
 ```
 
 Deposit/Reporting Batch 컨텍스트는 Spring Batch Job 목록을 모든 Bean 생성 뒤에 등록하도록 `JobRegistrySmartInitializingSingleton`을 사용한다. 이 설정은 로컬 기동 중 `jobRegistryBeanPostProcessor` 관련 조기 초기화 경고를 줄이기 위한 Batch 인프라 설정이며, 업무 계산 로직을 Batch 앱에 넣는 변경은 아니다.
+
+Payable/Receivable/Reconciliation/Tax/Expenditure Resolution도 같은 원칙을 따른다. API/BATCH 모듈은 Spring Boot 진입점과 로컬 H2 설정을 제공하고, 업무 상태 전이와 금액 계산은 각 `core` 모듈의 domain/application 계층을 참조한다.
+
+ECL Batch는 `spring.batch.job.enabled=false`로 Boot 기본 자동 실행을 막고, `job.name`을 받은 `JobRunner`가 명시 Job을 한 번 실행한다. Job 상태가 `COMPLETED`가 아니면 프로세스가 실패하므로, CLI 검증에서 실패 Job을 성공으로 오인하지 않는다.
 
 ## 7. 인프라 실행
 

@@ -9,6 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,16 +20,18 @@ import org.springframework.stereotype.Component;
  * 정해진 횟수만큼 연속 실패하면 잠금 시간이 끝날 때까지 로그인을 차단합니다.</p>
  */
 @Component
+@ConditionalOnProperty(prefix = "auth.login-security", name = "store", havingValue = "memory", matchIfMissing = true)
 public class InMemoryLoginAttemptAdapter implements LoginAttemptPort {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryLoginAttemptAdapter.class);
 
-    // @todo 다중 인스턴스 운영에서는 Redis/DB 기반 LoginAttemptPort 어댑터로 교체해 모든 Auth 서버가 같은 잠금 상태를 공유해야 한다.
+    // 단일 인스턴스/로컬 학습 기본값입니다. 다중 인스턴스 운영은 auth.login-security.store=jpa로 공유 DB 어댑터를 사용합니다.
     private final ConcurrentMap<String, AttemptState> attempts = new ConcurrentHashMap<>();
     private final int maxFailures;
     private final long lockDurationMinutes;
     private final Clock clock;
 
+    @Autowired
     public InMemoryLoginAttemptAdapter(AuthModuleProperties properties) {
         this(properties.getLoginSecurity().getMaxFailures(),
                 properties.getLoginSecurity().getLockDurationMinutes(),

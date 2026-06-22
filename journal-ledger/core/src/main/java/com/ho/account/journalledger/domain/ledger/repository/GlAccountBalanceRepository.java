@@ -3,6 +3,8 @@ package com.ho.account.journalledger.domain.ledger.repository;
 import com.ho.account.journalledger.domain.ledger.domain.GlAccountBalance;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalanceType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -31,4 +33,47 @@ public interface GlAccountBalanceRepository extends JpaRepository<GlAccountBalan
               )
             """)
     List<GlAccountBalance> findLatestForeignCurrencyBalances(String baseCurrency, LocalDate targetDate);
+
+    @Query("""
+            SELECT DISTINCT g.accountCode FROM GlAccountBalance g
+            WHERE g.currencyCode != :baseCurrency
+              AND g.balanceDate = (
+                  SELECT MAX(sub.balanceDate)
+                  FROM GlAccountBalance sub
+                  WHERE sub.accountCode = g.accountCode
+                    AND sub.currencyCode = g.currencyCode
+                    AND sub.balanceDate <= :targetDate
+              )
+            """)
+    List<String> findDistinctForeignCurrencyAccountCodes(String baseCurrency, LocalDate targetDate);
+
+    @Query(value = """
+            SELECT g FROM GlAccountBalance g
+            WHERE g.accountCode = :accountCode
+              AND g.currencyCode != :baseCurrency
+              AND g.balanceDate = (
+                  SELECT MAX(sub.balanceDate)
+                  FROM GlAccountBalance sub
+                  WHERE sub.accountCode = g.accountCode
+                    AND sub.currencyCode = g.currencyCode
+                    AND sub.balanceDate <= :targetDate
+              )
+            """,
+            countQuery = """
+            SELECT COUNT(g) FROM GlAccountBalance g
+            WHERE g.accountCode = :accountCode
+              AND g.currencyCode != :baseCurrency
+              AND g.balanceDate = (
+                  SELECT MAX(sub.balanceDate)
+                  FROM GlAccountBalance sub
+                  WHERE sub.accountCode = g.accountCode
+                    AND sub.currencyCode = g.currencyCode
+                    AND sub.balanceDate <= :targetDate
+              )
+            """)
+    Page<GlAccountBalance> findLatestForeignCurrencyBalancesForAccount(
+            String accountCode,
+            String baseCurrency,
+            LocalDate targetDate,
+            Pageable pageable);
 }
