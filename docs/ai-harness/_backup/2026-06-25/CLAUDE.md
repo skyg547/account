@@ -1,11 +1,5 @@
 # Claude 역할: Codex 작업물 헥사고날 DDD 검수 리뷰어
 
-## 공통 AI Harness 참조
-
-- Claude/Antigravity/기타 리뷰 에이전트도 공통 브랜치, 보안, worklog, handoff 규칙은 `docs/ai-harness/`를 따른다.
-- 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`와 `30-agents.md`를 우선 확인한다.
-- 리뷰 결과나 handoff가 필요한 경우 `CLAUDE_WORKLOG.md`와 함께 `docs/ai-harness/agent-status.md` 또는 `handoff.md`를 갱신한다.
-
 ## 역할 정의
 
 나(Claude)는 Codex가 작업한 코드를 **검수하고 리뷰**하는 역할이다.

@@ -989,3 +989,23 @@
   - smoke는 local H2와 빈 업무 데이터 기준이다. 운영 데이터 기준 대량 처리 성능, 재실행성, 멱등성, 회계 금액 결과는 별도 검증이 필요하다.
   - 일부 batch 앱의 Spring Batch `jobRegistryBeanPostProcessor` 조기 초기화 경고는 남아 있으나, 이번 범위에서는 Job 실행 성공 여부만 확인했다.
 
+### 📅 2026-06-25 (AI 하네스 업그레이드)
+### [문서/운영체계] 다중 에이전트 하네스 문서 및 루트 지침 보강
+- **선확인**:
+  - 기존 `Agents.md`, `CLAUDE.md`, `GEMINI.md`, `.clinerules`, `SKILL.md`, `.agent/`, `.claude/`, `.github/workflows`, `docs/` 구조를 확인했다.
+  - `docs/ai-harness/`는 신규 디렉터리임을 확인했다.
+- **수정 범위**:
+  - `Agents.md`: 프로젝트 목적, AI 기본 원칙, 금지 사항, 작업 시작/완료 산출물, 하네스 문서 참조, worklog/handoff/conflict-log 의무, 직접 push 금지, Draft MR/PR 리뷰 원칙을 추가했다.
+  - `CLAUDE.md`, `GEMINI.md`: 기존 역할을 유지하고 공통 `docs/ai-harness/` 참조와 상태 기록 규칙을 보강했다.
+  - `docs/ai-harness/`: overview, rules, workflow, agents, test checklist, worktree guide, rebase/merge policy, model assignment, file ownership, 운영 로그 문서를 추가했다.
+  - `.gitignore`: worktree 로컬 폴더 `.worktrees/`, `.claude/worktrees/`를 제외했다.
+  - 기존 하네스 파일 백업을 `docs/ai-harness/_backup/2026-06-25/`에 남겼다.
+- **검증**:
+  - 필수 하네스 문서 파일 존재 확인 성공.
+  - conflict marker 검색 결과 없음.
+  - trailing whitespace 검색 결과 없음.
+  - `git diff --check -- .gitignore Agents.md CLAUDE.md GEMINI.md`는 CRLF 변환 경고만 있고 오류 없음.
+- **남은 리스크**:
+  - 문서-only 변경이라 Gradle 빌드는 실행하지 않았다.
+  - 로컬 Git ref 제한으로 slash prefix branch 대신 `ai-harness-upgrade-20260625` 브랜치에서 작업했다.
+
