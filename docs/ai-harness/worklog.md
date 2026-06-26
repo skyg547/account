@@ -48,5 +48,6 @@
   - `main` updated from `origin/main`.
   - Source branch merged into `main` with `--no-ff`.
   - No merge conflicts occurred.
-- Remaining action:
-  - Push `main` to origin and verify clean synchronization.
+- Final sync:
+  - `main` pushed to origin.
+  - Clean synchronization check expected after this log commit is pushed.

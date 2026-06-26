@@ -4,7 +4,7 @@
 
 - Branch: `main`
 - Base branch: `main`
-- Push status: main merge completed locally; origin push pending
+- Push status: `main` pushed to `origin/main`
 - Current owner: Codex
 - Verification: required document check, conflict marker check, trailing whitespace check, and diff check passed.
 
@@ -19,9 +19,9 @@
 
 ## Next Recommended Steps
 
-1. Push `main` to `origin/main`.
-2. Verify `main...origin/main` is clean.
-3. Use `docs/ai-harness/90-beginner-ai-agent-git-guide.md` as the beginner onboarding guide.
+1. Use `docs/ai-harness/90-beginner-ai-agent-git-guide.md` as the beginner onboarding guide.
+2. For the next AI task, start from updated `main` and create a new task branch.
+3. Keep using Draft PR/MR for non-trivial follow-up work.
 
 ## Known Risks
 

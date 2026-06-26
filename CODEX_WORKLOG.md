@@ -1088,4 +1088,5 @@
   - `ai-harness-upgrade-20260625` 브랜치 push 완료.
   - `main` 최신화 후 `git merge --no-ff ai-harness-upgrade-20260625`로 병합 완료.
   - merge conflict 없음.
-  - `main` push 및 최종 동기화 확인 예정.
+  - `main` push 완료.
+  - 최종 동기화 확인은 이 로그 커밋 push 직후 수행한다.
