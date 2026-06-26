@@ -33,6 +33,7 @@ This harness defines how AI agents work safely in the account project. The proje
 - `60-rebase-merge-policy.md`: rebase, merge, conflict policy.
 - `70-model-assignment-policy.md`: model capability assignment.
 - `80-file-ownership.md`: role-based file ownership.
+- `90-beginner-ai-agent-git-guide.md`: beginner guide for AI agent coding with Git and multiple agents.
 - `worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: operating records.
 
 ## Operating Loop
@@ -47,4 +48,3 @@ This harness defines how AI agents work safely in the account project. The proje
 8. Create a Draft MR/PR.
 9. Receive human review.
 10. Merge only after verified approval.
-

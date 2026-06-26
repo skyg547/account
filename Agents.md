@@ -53,6 +53,7 @@
 - `docs/ai-harness/60-rebase-merge-policy.md`: rebase/merge/conflict 정책.
 - `docs/ai-harness/70-model-assignment-policy.md`: 역할/능력 기준 모델 배치.
 - `docs/ai-harness/80-file-ownership.md`: 역할별 수정 가능 영역.
+- `docs/ai-harness/90-beginner-ai-agent-git-guide.md`: 초보자를 위한 AI 에이전트 + Git 협업 설명서.
 - `docs/ai-harness/worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: 운영 기록.
 
 ## Codex Only Rule

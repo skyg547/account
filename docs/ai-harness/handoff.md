@@ -4,9 +4,9 @@
 
 - Branch: `ai-harness-upgrade-20260625`
 - Base branch: `main`
-- Push status: not pushed
+- Push status: branch previously pushed; new guide commit ready for push and main integration
 - Current owner: Codex
-- Verification: required document check, conflict marker check, trailing whitespace check, and tracked-file diff check passed.
+- Verification: required document check, conflict marker check, trailing whitespace check, and diff check passed.
 
 ## What Changed
 
@@ -14,13 +14,14 @@
 - New AI harness documents were added under `docs/ai-harness/`.
 - Backups of existing harness files were created under `docs/ai-harness/_backup/2026-06-25/`.
 - `.gitignore` now excludes local worktree folders.
+- Beginner guide for AI agent coding with Git was added as `90-beginner-ai-agent-git-guide.md`.
 
 ## Next Recommended Steps
 
-1. Review `docs/ai-harness/10-rules.md` and `20-workflow.md`.
-2. Confirm whether Antigravity needs a dedicated root config file or only this shared harness.
-3. Create a Draft PR from `ai-harness-upgrade-20260625` after human review.
-4. Do not push directly to `main`, `master`, or `develop`.
+1. Verify the new beginner guide.
+2. Push `ai-harness-upgrade-20260625`.
+3. Merge into `main` because the user explicitly requested mainstream integration.
+4. Push and sync `main`.
 
 ## Known Risks
 

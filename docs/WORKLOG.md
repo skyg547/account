@@ -1009,3 +1009,17 @@
   - 문서-only 변경이라 Gradle 빌드는 실행하지 않았다.
   - 로컬 Git ref 제한으로 slash prefix branch 대신 `ai-harness-upgrade-20260625` 브랜치에서 작업했다.
 
+### 📅 2026-06-26 (AI 에이전트 Git 초보자 가이드 추가)
+### [문서/운영체계] 여러 AI 에이전트와 Git을 함께 쓰는 초보자 설명서 작성
+- **수정 범위**:
+  - `docs/ai-harness/90-beginner-ai-agent-git-guide.md`: AI 에이전트 코딩 흐름, Git 기본 용어, 역할별 에이전트 분리, worktree 병렬 작업, PR/MR 작성, 안전 금지 사항, prompt template을 정리했다.
+  - `Agents.md`, `docs/ai-harness/00-overview.md`: 신규 가이드 참조를 추가했다.
+  - `docs/ai-harness` 운영 로그에 작업 상태와 main 병합 계획을 기록했다.
+- **검증**:
+  - 필수 문서 존재 확인 성공.
+  - conflict marker 검색 결과 없음.
+  - trailing whitespace 검색 결과 없음.
+  - `git diff --check`는 CRLF 변환 경고만 있고 오류 없음.
+- **통합 계획**:
+  - 사용자 명시 요청에 따라 작업 브랜치를 push하고 `main`에 병합 후 원격 동기화한다.
+

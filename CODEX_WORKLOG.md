@@ -1069,3 +1069,18 @@
 - 남은 리스크:
   - 현재 브랜치는 로컬 Git ref 제한으로 slash prefix가 아닌 `ai-harness-upgrade-20260625`를 사용한다.
   - 문서-only 변경이라 Gradle 빌드는 실행하지 않았다.
+
+## 2026-06-26 (AI 에이전트 Git 초보자 가이드 추가)
+- 사용자 요청: AI 에이전트 코딩 방법을 초보자 기준으로 설명하고, Git과 여러 AI 에이전트가 함께 작업하는 최신 흐름을 문서화한 뒤 push/main 병합/동기화.
+- 수정 내용:
+  - `docs/ai-harness/90-beginner-ai-agent-git-guide.md`를 추가했다.
+  - `Agents.md`와 `docs/ai-harness/00-overview.md`에 신규 가이드 참조를 추가했다.
+  - `docs/ai-harness/worklog.md`, `agent-status.md`, `handoff.md`, `integration-log.md`에 작업 상태를 반영했다.
+- 검증:
+  - 필수 파일 존재 확인 성공.
+  - conflict marker 검색 결과 없음.
+  - trailing whitespace 검색 결과 없음.
+  - `git diff --check`는 CRLF 변환 경고만 있고 오류 없음.
+- 통합 계획:
+  - `ai-harness-upgrade-20260625` 브랜치 push.
+  - 사용자 명시 요청에 따라 `main` 병합 및 push.
