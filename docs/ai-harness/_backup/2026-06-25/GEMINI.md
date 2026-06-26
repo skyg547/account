@@ -4,14 +4,11 @@
 이 문서는 `account` 저장소에서 Gemini 전용으로 사용하는 작업 설정 파일이다.
 
 ## Read Order
-1. `docs/ai-harness/00-overview.md`
-2. `docs/ai-harness/10-rules.md`
-3. `docs/ai-harness/20-workflow.md`
-4. `docs/GEMINI.md`
-5. `docs/GEMINI_SKILL.md`
-6. `WORKLOG.md` 또는 실제 기록 파일 `docs/WORKLOG.md`
-7. `docs/todo.md`
-8. `GEMINI_REVIEW_PROMPT.md`
+1. `docs/GEMINI.md`
+2. `docs/GEMINI_SKILL.md`
+3. `WORKLOG.md`
+4. `docs/todo.md`
+5. `GEMINI_REVIEW_PROMPT.md`
 
 ## Gemini Working Rule
 - 공통 아키텍처/검증/안전 원칙은 루트 `Agents.md`를 따른다.
@@ -21,7 +18,6 @@
 - 리뷰 결과는 파일/라인 근거와 함께 작성하고, 재현 가능한 빌드/테스트 명령을 포함한다.
 - 리뷰 기록을 남기라는 요청이 있으면 `WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
 - 테스트 미실행 항목은 원인과 영향 범위를 반드시 기록한다.
-- 다중 에이전트 상태와 handoff는 필요 시 `docs/ai-harness/agent-status.md`와 `docs/ai-harness/handoff.md`에도 남긴다.
 
 ## Gemini Review Handoff
 - Codex가 구현을 맡고 Gemini가 리뷰하는 표준 절차는 루트 `GEMINI_REVIEW_PROMPT.md`를 따른다.

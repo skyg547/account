@@ -49,6 +49,8 @@ Thumbs.db
 *.log
 tmp/
 temp/
+.worktrees/
+.claude/worktrees/
 
 # Spring Boot Local Properties
 application-local.properties
