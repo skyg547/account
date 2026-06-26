@@ -26,3 +26,13 @@
 - Reason: user explicitly requested push, mainstream merge, and git synchronization.
 - Branch verification status: required file check, conflict marker check, trailing whitespace check, and diff check passed.
 - Conflict status: no conflicts before final merge.
+
+## 2026-06-26 - Mainstream Integration Completed
+
+- Integrator: Codex.
+- Source branch: `ai-harness-upgrade-20260625`.
+- Target branch: `main`.
+- Merge command: `git merge --no-ff ai-harness-upgrade-20260625`.
+- Merge commit before final log update: `de6e5dc`.
+- Conflict status: none.
+- Push status: pending `origin/main` push at the time of this log entry.

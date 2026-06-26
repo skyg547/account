@@ -1022,4 +1022,9 @@
   - `git diff --check`는 CRLF 변환 경고만 있고 오류 없음.
 - **통합 계획**:
   - 사용자 명시 요청에 따라 작업 브랜치를 push하고 `main`에 병합 후 원격 동기화한다.
+- **통합 결과**:
+  - `ai-harness-upgrade-20260625` 브랜치 push 완료.
+  - `main` 최신화 후 `--no-ff` 병합 완료.
+  - merge conflict 없음.
+  - `main` push 및 최종 동기화 확인 예정.
 

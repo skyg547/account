@@ -37,3 +37,16 @@
   - Push current branch.
   - Merge into `main` because the user explicitly requested mainstream merge.
   - Push `main` and verify clean sync.
+
+## 2026-06-26 - Mainstream Merge
+
+- Owner: Codex acting as Integrator Agent.
+- Source branch: `ai-harness-upgrade-20260625`.
+- Target branch: `main`.
+- Result:
+  - Source branch pushed to origin.
+  - `main` updated from `origin/main`.
+  - Source branch merged into `main` with `--no-ff`.
+  - No merge conflicts occurred.
+- Remaining action:
+  - Push `main` to origin and verify clean synchronization.
