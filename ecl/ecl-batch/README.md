@@ -33,13 +33,13 @@
 ### 🚀 실행 방법 (추천)
 전체 대손충당금(IFRS 9) 산출 공정(End-to-End)을 한 번에 실행하려면 `allowanceEclJob`을 사용하세요.
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=docker --spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-18 runId=RUN-20260418 modelVersion=v1" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=docker --spring.main.web-application-type=none --spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-18 runId=RUN-20260418 modelVersion=v1" --console=plain --max-workers=1
 ```
 
 ### 🧪 H2 데모 실행
 `demo` 프로필은 H2 메모리 DB와 Spring Batch 메타데이터를 빠르게 띄우기 위한 용도입니다. 현재 demo SQL은 오래된 fixture와 결합되지 않도록 비워 두었으므로, 실제 산출까지 보려면 `allowance_exposure_snapshots`와 모델 마스터를 먼저 적재해야 합니다. 단독 서비스 검증 절차는 `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`를 따르세요.
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-18 runId=DEMO-20260418 modelVersion=demo" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 ### IntelliJ 컨텍스트 기동
@@ -47,10 +47,10 @@
 산출 fixture를 준비하기 전에는 Job 없이 batch 컨텍스트만 먼저 확인합니다.
 
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
-공유 실행 설정 `ECL Batch Context`도 같은 용도입니다.
+공유 실행 설정 `ECL Batch Context`도 같은 용도입니다. `spring.batch.job.enabled=false`는 Spring Boot의 기본 Job 자동 실행을 막기 위한 값이고, 실제 실행은 `job.name`을 읽는 ECL `JobRunner`가 담당합니다.
 
 ## 💡 초보자를 위한 금융 용어
 - **ECL(기대신용손실)**: 빌려준 돈 중 못 받을 것으로 예상되는 금액 (대손충당금).

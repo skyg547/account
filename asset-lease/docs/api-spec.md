@@ -80,7 +80,7 @@
 
 ## 3. 현재 구현 주의사항
 
-- `asset-lease`는 단독 Boot 실행이 가능한 모듈이지만, 로컬에서는 Config Server/Eureka를 끄고 실행하는 것을 권장합니다.
+- `asset-lease`는 `core`/`api`/`batch`로 분리되어 있으며, API는 `:asset-lease:api:bootRun`, Batch는 `:asset-lease:batch:bootRun`으로 실행합니다. 로컬에서는 Config Server/Eureka를 끄고 실행하는 것을 권장합니다.
 - 고정자산 API는 `X-User-ID`를 필수로 받지만, 리스 API는 아직 실행자 헤더를 받지 않습니다. 이 보강 지점은 코드에 `@todo`로 남겼습니다.
 - 자산/리스 이벤트는 `transaction-events` Kafka 토픽으로 발행됩니다.
 - 리스료 지급결의는 `LeasePaymentResolutionPort` 구현이 필요합니다. 단독 실행에서 구현이 없으면 fallback 어댑터가 예외를 던집니다.

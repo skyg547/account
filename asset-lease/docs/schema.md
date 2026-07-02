@@ -118,7 +118,7 @@ erDiagram
 - `lessorCode`: 리스 제공자 거래처 코드.
 - `AssetSourceDocumentProvider`: `FIXED_ASSET`, `IFRS16_LEASE` 원천 문서 조회를 제공한다.
 
-도메인 엔티티는 master-data 엔티티를 직접 들고 있지 않고 코드만 저장한다. 다만 `AssetLeaseApplication`은 현재 master-data repository/entity를 함께 스캔하도록 설정되어 있어, 독립 MSA 분리 전 로컬 통합 실행 성격이 남아 있다.
+도메인 엔티티는 master-data 엔티티를 직접 들고 있지 않고 코드만 저장한다. 실행 앱은 `AssetLeaseApiApplication`과 `AssetLeaseBatchApplication`으로 분리되어 있으며, 두 앱은 로컬 통합 실행을 위해 master-data repository/entity를 함께 스캔한다.
 
 ## migration 주의사항
 

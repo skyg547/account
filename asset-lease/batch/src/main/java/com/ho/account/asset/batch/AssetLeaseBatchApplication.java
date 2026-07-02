@@ -1,4 +1,4 @@
-package com.ho.account.mart.batch;
+package com.ho.account.asset.batch;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -8,34 +8,31 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-/**
- * [IFRS 9 Allowance Mart Batch Service]
- */
-@SpringBootApplication(scanBasePackages = "com.ho.account.mart")
+@SpringBootApplication(scanBasePackages = {
+        "com.ho.account.asset",
+        "com.ho.account.masterdata.core"
+})
 @EnableDiscoveryClient
 @EntityScan(basePackages = {
-        "com.ho.account.mart.core.domain",
-        "com.ho.account.mart.core.infrastructure.persistence.entity",
-        "com.ho.account.shared.finance.entity"
+        "com.ho.account.asset.domain",
+        "com.ho.account.masterdata.core.domain"
 })
 @EnableJpaRepositories(basePackages = {
-        "com.ho.account.mart.core.infrastructure.persistence.jpa"
+        "com.ho.account.asset.repository",
+        "com.ho.account.masterdata.core.infrastructure.persistence"
 })
-public class AllowanceMartBatchApplication {
+public class AssetLeaseBatchApplication {
     public static void main(String[] args) {
-        SpringApplication application = new SpringApplication(AllowanceMartBatchApplication.class);
+        SpringApplication application = new SpringApplication(AssetLeaseBatchApplication.class);
         application.setWebApplicationType(WebApplicationType.NONE);
 
-        // [초보 가이드] Batch 모듈은 API 서버가 아니므로 내장 WAS를 띄우지 않습니다.
-        // Job 이름을 넘긴 CLI 실행에서는 Job 완료 후 Gradle/Java 프로세스도 함께 종료합니다.
+        // [초보 가이드] Batch 실행은 API 서버가 아니므로 Tomcat을 띄우지 않습니다.
+        // Job 이름을 명시한 실행은 Job 완료 상태를 Gradle 종료 코드로 전달합니다.
+        ConfigurableApplicationContext context = application.run(args);
         if (containsJobName(args)) {
-            ConfigurableApplicationContext context = application.run(args);
             int exitCode = SpringApplication.exit(context);
             System.exit(exitCode);
-            return;
         }
-
-        application.run(args);
     }
 
     private static boolean containsJobName(String[] args) {

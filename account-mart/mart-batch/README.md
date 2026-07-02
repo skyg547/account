@@ -17,15 +17,15 @@
 ## 실행
 
 ```powershell
-./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --spring.batch.job.enabled=true"
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain --max-workers=1
 ```
 
-Kafka 없이 로컬 검증할 때는 `mart.batch.cdm-event.enabled=false`를 사용합니다.
+Kafka 없이 로컬 검증할 때는 `mart.batch.cdm-event.enabled=false`를 사용합니다. Vault, Config Server, Eureka가 없는 단독 로컬 실행에서는 `spring.cloud.vault.enabled=false`, `spring.cloud.config.enabled=false`, `eureka.client.enabled=false`도 함께 넣습니다.
 
 IntelliJ에서는 `AllowanceMartBatchApplication`을 실행 클래스로 선택하고, Program arguments에 아래 값을 넣습니다.
 
 ```text
---spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30
+--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false
 ```
 
 CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다. 포트 충돌 없이 Job만 확인하고 싶을 때 이 방식을 사용합니다.

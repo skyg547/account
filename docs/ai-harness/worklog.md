@@ -51,3 +51,41 @@
 - Final sync:
   - `main` pushed to origin.
   - Clean synchronization check expected after this log commit is pushed.
+
+## 2026-06-30 - Asset Lease Split
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Split `asset-lease` into `core`, `api`, and `batch` Gradle subprojects.
+  - Kept `:asset-lease` as a compatibility wrapper for `:asset-lease:core`.
+  - Added separate API and Batch Spring Boot entry points.
+  - Updated run configs, Dockerfile, local docs, and dependent module reference.
+- Verification:
+  - `.\gradlew projects --console=plain` passed.
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :expenditure-resolution:core:compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew :asset-lease:test :asset-lease:compileJava --console=plain --max-workers=1` passed.
+- Risks:
+  - Long-running bootRun smoke and real `assetDepreciationJob` execution are not run yet.
+## 2026-07-02 - Full Local Build/API/BATCH Verification
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Verified current Gradle project graph, full build, API bootRun smoke, Batch context smoke, and representative Spring Batch Jobs.
+  - Fixed Batch bootstrap behavior for asset-lease, account-mart, and ecl so Batch apps run non-web in local CLI mode.
+  - Fixed asset-lease batch paging reader repository signature.
+  - Updated local development and module run documents with H2/PostgreSQL separation and verified local flags.
+- Verification:
+  - `.\gradlew projects --console=plain` passed.
+  - `.\gradlew compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew build --console=plain --max-workers=1` passed.
+  - API bootRun smoke passed for all current API/server modules.
+  - Batch context smoke passed for all current Batch modules.
+  - Representative Job smoke passed for all current Job-bearing Batch modules; journal-ledger batch remains context-only because no Job definition exists.
+  - Java TODO search returned no matches.
+- Risks:
+  - PostgreSQL path is documented but not executed against a live local PostgreSQL instance in this pass.
+  - Smoke data is empty/demo H2, so business-result correctness under production-like volume still needs seeded integration tests.
+- Rollback:
+  - Revert the batch bootstrap files and docs changed in this verification pass if the non-web CLI behavior is rejected.

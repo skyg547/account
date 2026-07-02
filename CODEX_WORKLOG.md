@@ -1090,3 +1090,42 @@
   - merge conflict 없음.
   - `main` push 완료.
   - 최종 동기화 확인은 이 로그 커밋 push 직후 수행한다.
+
+## 2026-06-30 (asset-lease API/BATCH split)
+- 사용자 요청: `asset-lease`도 다른 업무 모듈처럼 `core`, `api`, `batch`로 나누고 API/BATCH가 core를 참조하게 변경.
+- 선확인:
+  - `docs/WORKLOG.md`, `docs/ai-harness/10-rules.md`, `asset-lease/README.md`, `asset-lease/docs/README.md`, `asset-lease/docs/local-run.md` 확인.
+  - 기존 `asset-lease`는 단일 Gradle 프로젝트가 `core/api/batch` 소스셋을 모두 포함하는 구조였고, `expenditure-resolution:core`가 `:asset-lease`를 참조 중임을 확인.
+- 수정 내용:
+  - `settings.gradle`에 `asset-lease:core`, `asset-lease:api`, `asset-lease:batch` 하위 프로젝트를 추가.
+  - 기존 `:asset-lease`는 `:asset-lease:core`를 노출하는 호환 wrapper로 전환.
+  - `asset-lease:core`는 library 모듈로 분리하고, 기존 core 실행 클래스는 `AssetLeaseCoreModule` marker로 정리.
+  - `asset-lease:api`에 `AssetLeaseApiApplication`, `asset-lease:batch`에 `AssetLeaseBatchApplication`을 추가.
+  - `expenditure-resolution:core` 의존성을 `:asset-lease:core`로 변경.
+  - `.run`, Dockerfile, asset-lease 문서, 로컬 개발 문서, Gemini 리뷰 프롬프트를 split 경로로 갱신.
+- 검증:
+  - `.\gradlew projects --console=plain` 성공.
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :expenditure-resolution:core:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :asset-lease:test :asset-lease:compileJava --console=plain --max-workers=1` 성공.
+- 남은 리스크:
+  - API/BATCH bootRun 장시간 smoke는 아직 실행하지 않았다.
+  - Batch 실제 Job 실행은 `targetDate`와 업무 데이터 준비 후 별도 확인이 필요하다.
+## 2026-07-02 (전체 Gradle/API/BATCH 실행 재검증)
+- 사용자 요청: 모든 모듈의 Gradle build, API Spring Boot 내장 WAS 실행, Spring Batch context/Job 실행, H2/PostgreSQL 로컬 실행 경로를 점검하고 문서화.
+- 수정 내용:
+  - `AssetLeaseBatchApplication`, `AllowanceMartBatchApplication`, `AllowanceEclBatchApplication`을 Batch 성격에 맞게 non-web 실행으로 정리했다.
+  - `FixedAssetRepository`에 Pageable 조회를 추가해 `assetDepreciationJob`의 `RepositoryItemReader` 호출 실패를 수정했다.
+  - `docs/local-development.md`에 전체 모듈 순차 실행 매트릭스, H2 공통 옵션, PostgreSQL datasource 옵션, 대표 Spring Batch Job 표를 추가했다.
+  - `asset-lease`, `account-mart`, `ecl` 실행 문서의 Vault/Config/Eureka 비활성화, Batch non-web, Job 파라미터 예시를 최신화했다.
+- 검증:
+  - `.\gradlew projects --console=plain` 성공.
+  - `.\gradlew compileJava --console=plain --max-workers=1` 성공.
+  - API bootRun smoke 19개 실행 대상 기동 성공.
+  - Batch context smoke 13개 실행 대상 기동 성공.
+  - 실제 Spring Batch Job 13개 smoke 성공: `assetDepreciationJob`, `fxValuationJob`, `eclProvisionJob`, `loanInterestAccrualJob`, `depositAccountIntegrityJob`, `payablePaymentRunJob`, `receivableAutoMatchingJob`, `reconciliationDailyJob`, `taxInvoiceValidationJob`, `expenditureResolutionApprovalJob`, `reportingStatementGenerationJob`, `integratedPositionEtlJob`, `standaloneDqJob`.
+  - Java `@todo`/`TODO:` 검색 결과 없음.
+  - `git diff --check` 통과.
+  - `.\gradlew build --console=plain --max-workers=1` 성공.
+- 남은 리스크:
+  - PostgreSQL은 명령/설정 경로를 문서화했지만, 이번 실행 검증은 H2/demo/memory 기준이다.
+  - 운영 데이터 기준 대량 처리, 재실행 멱등성, 외부 인프라 연동은 별도 seed/통합 환경 검증이 필요하다.

@@ -47,7 +47,7 @@
 - `payable/README.md`와 `payable/docs/README.md`: 매입채무, 지급 런, 선급금, 상계 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `receivable/README.md`와 `receivable/docs/README.md`: 매출채권, 수납, 자동/수동 매칭 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `deposit/README.md`와 `deposit/docs/README.md`: 예금 계좌 개설, 초기입금 전표, 수신 로컬 어댑터 흐름. API/Batch standalone Boot 실행과 IntelliJ `.run` 설정 제공
-- `asset-lease/README.md`와 `asset-lease/docs/README.md`: 고정자산, 감가상각 Batch, IFRS 16 리스, 사용권자산/리스부채 흐름. 단독 Boot 실행과 IntelliJ `.run` 설정 제공
+- `asset-lease/README.md`와 `asset-lease/docs/README.md`: 고정자산, 감가상각 Batch, IFRS 16 리스, 사용권자산/리스부채 흐름. `core`는 library, `api`/`batch`는 standalone Boot 실행과 IntelliJ `.run` 설정 제공
 - `tax/README.md`와 `tax/docs/README.md`: 매입 세금계산서, 금액 정합성, 논리 취소 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `loan/README.md`와 `loan/docs/README.md`: 대출 실행, EIR, 일일 이자 발생 Batch
 

@@ -110,8 +110,8 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T41 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Direct injection of `BusinessPartnerPersistencePort` from `master-data` module. | Use a designated inter-module port like `MasterDataQueryPort` from the `contracts` layer. | `.\gradlew :tax:test --console=plain` |
 | T42 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Missing audit actor information on creation. | Pass actor/user context to `createAPInvoice` from the inbound adapter/API. | `.\gradlew :tax:test --console=plain` |
 | T43 | tax | `tax/src/main/java/com/ho/account/tax/application/service/TaxInvoiceService.java` | Physical deletion of `TaxInvoice`. | Implement logical deletion (Cancellation/Reversal) status to preserve accounting audit trails. | `.\gradlew :tax:test --console=plain` |
-| T44 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Synchronous loop processing for monthly depreciation. | Delegate bulk processing to a Spring Batch job to avoid transaction timeouts and OOM. | `.\gradlew :asset-lease:test --console=plain` |
-| T45 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Hardcoded `SYSTEM` audit user for asset history. | Pass the actual actor/batch ID to the application service. | `.\gradlew :asset-lease:test --console=plain` |
+| T44 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Synchronous loop processing for monthly depreciation. | Delegate bulk processing to a Spring Batch job to avoid transaction timeouts and OOM. | `.\gradlew :asset-lease:core:test --console=plain` |
+| T45 | asset-lease | `asset-lease/core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService.java` | Hardcoded `SYSTEM` audit user for asset history. | Pass the actual actor/batch ID to the application service. | `.\gradlew :asset-lease:core:test --console=plain` |
 | T46 | auth | `auth/src/main/java/com/ho/account/auth/core/application/service/AuthService.java` | Missing failed login audit events and account lockout policy. | Publish audit events and implement a lockout policy (e.g. after 5 failed attempts). | `.\gradlew :auth:test --console=plain` |
 
 ## Current Execution Order
@@ -159,7 +159,7 @@ TODOs are split by coupling level. Each phase should be handled as a separate ch
 | T39 | Done | Named `AllowanceAccountMappingPriorityPolicy` documents the mapping precedence mirrored by the summary SQL. | `.\gradlew :ecl:ecl-core:test --console=plain` passed. |
 | T40 | Done | Financial journal-detail queries consistently include only `POSTED` entries. | `.\gradlew :journal-ledger:core:test --console=plain` passed. |
 | T41-T43 | Done | Tax uses the contracts master-data port, propagates actor data, and cancels invoices logically with audit reason. | `.\gradlew :tax:test --console=plain` passed. |
-| T44-T45 | Done | Asset processing preserves batch orchestration boundaries and propagates the actual actor through asset history/events. | `.\gradlew :asset-lease:test --console=plain` passed. |
+| T44-T45 | Done | Asset processing preserves batch orchestration boundaries and propagates the actual actor through asset history/events. | `.\gradlew :asset-lease:core:test --console=plain` passed. |
 | T46 | Done | `LoginAttemptPort` and the default adapter record success/failure and enforce configurable temporary lockout. | `.\gradlew :auth:test --console=plain` passed. |
 
 ## 2026-06-09 Boundary Follow-up

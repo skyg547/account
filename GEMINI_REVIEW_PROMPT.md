@@ -73,7 +73,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - Payable/Receivable이 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
 - Payable에 새로 남긴 `@todo` 4건이 실제 고도화 리스크(인바운드 DTO/Bean Validation 분리)를 정확히 가리키는지
 - Asset-Lease README/docs, legacy README archive 이동, 고정자산/감가상각 Batch/IFRS 16 리스/이벤트/지급결의 포트 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
-- Asset-Lease가 standalone Boot 앱이라는 문서 설명과 Config/Eureka/Batch 비활성화 실행 인자가 실제 `build.gradle`, `AssetLeaseApplication`, `application.yml`과 맞는지
+- Asset-Lease가 `core`/`api`/`batch`로 분리되어 있고 API/BATCH 실행 문서와 Config/Eureka/Batch 비활성화 실행 인자가 실제 `build.gradle`, `AssetLeaseApiApplication`, `AssetLeaseBatchApplication`, `application.yml`과 맞는지
 - Asset-Lease에 새로 남긴 `@todo` 4건이 실제 운영 리스크(Batch targetDate/파이프라인 분리, 리스 actor 감사, 리스 계정 매핑 포트 분리)를 정확히 가리키는지
 - Tax README/docs, legacy README archive 이동, AP 세금계산서/금액 검증/논리 취소/외부 조회 포트 흐름, IntelliJ `.run` Gradle 설정이 실제 코드와 맞는지
 - Tax가 현재 standalone Boot 앱이 아니라 `java-library` 모듈이라는 문서 설명이 `build.gradle` 및 소스 구조와 맞는지
@@ -121,7 +121,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - .\gradlew :tax:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=taxInvoiceValidationJob startDate=2026-06-19 endDate=2026-06-19" --console=plain --max-workers=1
 - .\gradlew :expenditure-resolution:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=expenditureResolutionApprovalJob startDate=2026-06-19 endDate=2026-06-19 paymentDueDate=2026-06-19" --console=plain --max-workers=1
 - rg -n "\bJob\s+\w+\s*\(" --glob "*.java" --glob "!**/build/**" account-mart\mart-batch asset-lease\batch closing\batch deposit\batch ecl\ecl-batch expenditure-resolution\batch journal-ledger\batch loan\batch payable\batch receivable\batch reconciliation\batch reporting\batch tax\batch
-- .\gradlew :auth:test :payable:test :receivable:test :asset-lease:test :tax:test --console=plain
+- .\gradlew :auth:test :payable:test :receivable:test :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :tax:test --console=plain
 - .\gradlew :closing:batch:test :journal-ledger:core:test :journal-ledger:api:compileJava :reconciliation:test --console=plain
 - .\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain
 - .\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain

@@ -22,15 +22,15 @@ flowchart LR
 
 ```powershell
 ./gradlew :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava
-./gradlew :account-mart:mart-batch:bootRun --args="--spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --spring.batch.job.enabled=true"
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain --max-workers=1
 ```
 
 IntelliJ에서 처음 실행할 때는 루트 [docs/local-development.md](../docs/local-development.md)를 먼저 확인합니다.
-`mart-batch`는 CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다.
+`mart-batch`는 CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다. 로컬에서 Vault, Eureka, Config Server 없이 단독 실행할 때는 위 예시처럼 `spring.cloud.vault.enabled=false`, `spring.cloud.config.enabled=false`, `eureka.client.enabled=false`를 함께 넣습니다.
 H2 demo seed까지 같이 확인하려면 아래처럼 실행합니다.
 
 ```powershell
-./gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30"
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain --max-workers=1
 ```
 
 스키마는 `account-mart/db/schema-mart.sql`을 기준으로 관리합니다.

@@ -189,7 +189,7 @@ git diff --check
 ## 7차 검증
 
 ```powershell
-.\gradlew :asset-lease:test :tax:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :asset-lease:core:test :tax:test --console=plain --max-workers=1 --no-daemon
 git diff --check
 ```
 
@@ -269,9 +269,34 @@ git diff --check
 ## 10차 검증
 
 ```powershell
-.\gradlew :asset-lease:bootJar :deposit:api:bootJar :deposit:batch:bootJar :reporting:api:bootJar :reporting:batch:bootJar --console=plain --max-workers=1 --no-daemon
+.\gradlew :asset-lease:api:bootJar :asset-lease:batch:bootJar :deposit:api:bootJar :deposit:batch:bootJar :reporting:api:bootJar :reporting:batch:bootJar --console=plain --max-workers=1 --no-daemon
 .\gradlew :expenditure-resolution:compileJava :payable:compileJava :receivable:compileJava :reconciliation:compileJava :tax:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
 결과:
 - 검증 결과는 2026-06-12 작업 워크로그에 최신 기록합니다.
+
+## 11차 후속 상세
+
+### asset-lease split 실행 구조 반영
+
+- `asset-lease`를 `core`, `api`, `batch` Gradle 하위 프로젝트로 분리했습니다.
+- 기존 `:asset-lease`는 `:asset-lease:core`를 노출하는 호환 wrapper로 유지했습니다.
+- API 실행 클래스는 `com.ho.account.asset.api.AssetLeaseApiApplication`, Batch 실행 클래스는 `com.ho.account.asset.batch.AssetLeaseBatchApplication`입니다.
+- `asset-lease:core`는 업무 규칙, 포트, JPA/Kafka 어댑터를 담는 library 모듈입니다.
+- `asset-lease:api`와 `asset-lease:batch`는 각각 core를 참조하는 standalone Boot 실행 모듈입니다.
+- `.run/Asset Lease API bootRun.run.xml`은 `:asset-lease:api:bootRun`, `.run/Asset Lease Batch Context.run.xml`은 `:asset-lease:batch:bootRun`, `.run/Asset Lease Tests.run.xml`은 `:asset-lease:core:test`를 실행합니다.
+
+## 11차 검증
+
+```powershell
+.\gradlew projects --console=plain
+.\gradlew :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :expenditure-resolution:core:compileJava --console=plain --max-workers=1
+.\gradlew :asset-lease:test :asset-lease:compileJava --console=plain --max-workers=1
+```
+
+결과:
+- asset-lease core 테스트 성공
+- asset-lease API/BATCH bootJar 성공
+- expenditure-resolution core compileJava 성공
+- 기존 호환 경로 `:asset-lease:test`, `:asset-lease:compileJava` 성공

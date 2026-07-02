@@ -47,17 +47,17 @@ Windows PowerShell 또는 IntelliJ Gradle Run Configuration 기준입니다.
 
 ```powershell
 # 대손충당금 전용 ECL 산출
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1 --spring.flyway.enabled=false" --console=plain --max-workers=1
 
 # snapshot 동기화만 단독 실행
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-30 runId=SYNC-20260430" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneAllowanceExposureSyncJob baseDate=2026-04-30 runId=SYNC-20260430 --spring.flyway.enabled=false" --console=plain --max-workers=1
 
 # allowance summary만 단독 재생성
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.batch.job.enabled=false job.name=standaloneAllowanceSummaryJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneAllowanceSummaryJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1 --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 `spring.batch.job.enabled=false`는 Spring Boot 기본 Job 자동 실행을 막기 위한 값이다. `JobRunner`는 `job.name` 또는 `spring.batch.job.name`이 명시된 경우에만 해당 Job을 한 번 실행하고, Job 상태가 `COMPLETED`가 아니면 프로세스를 실패시킨다.
-IntelliJ에서 컨텍스트만 먼저 띄워볼 때는 공유 실행 설정 `ECL Batch Context`를 사용합니다.
+IntelliJ에서 컨텍스트만 먼저 띄워볼 때는 공유 실행 설정 `ECL Batch Context`를 사용합니다. 로컬 단독 검증에서는 Vault/Config/Eureka를 끄고 `spring.main.web-application-type=none`으로 Batch를 API 서버와 분리합니다. 이번 smoke에서는 `job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430` 경로를 H2 demo 기준으로 확인했습니다.
 
 ## 데이터 준비
 

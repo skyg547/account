@@ -17,28 +17,29 @@
 추가된 실행 구성:
 
 - `.run/Asset Lease API bootRun.run.xml`
+- `.run/Asset Lease Batch Context.run.xml`
 - `.run/Asset Lease Tests.run.xml`
 
-`Asset Lease API bootRun`은 로컬 단독 실행을 위해 Config Server, Eureka, Discovery Client를 끄고, Batch Job 자동 실행도 끈다.
+`Asset Lease API bootRun`은 `:asset-lease:api:bootRun`을 실행하고, `Asset Lease Batch Context`는 `:asset-lease:batch:bootRun`을 실행한다. 둘 다 로컬 단독 실행을 위해 Config Server, Eureka, Discovery Client를 끄고, 기본 Batch Job 자동 실행도 끈다.
 
 ## PowerShell에서 실행하기
 
 테스트:
 
 ```powershell
-.\gradlew :asset-lease:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :asset-lease:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 API 실행:
 
 ```powershell
-.\gradlew :asset-lease:bootRun --args="--server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :asset-lease:api:bootRun --args="--spring.profiles.active=local --server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 컴파일만 빠르게 확인:
 
 ```powershell
-.\gradlew :asset-lease:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :asset-lease:core:compileJava :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
 ## Kafka와 지급결의 포트 주의사항
@@ -88,7 +89,7 @@ Content-Type: application/json
 감가상각 배치를 실제로 실행할 때는 처리 기준일을 명시한다.
 
 ```powershell
-.\gradlew :asset-lease:bootRun --args="--spring.batch.job.name=assetDepreciationJob targetDate=2026-06-30 --spring.cloud.config.enabled=false --eureka.client.enabled=false" --console=plain
+.\gradlew :asset-lease:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=assetDepreciationJob targetDate=2026-06-30" --console=plain --max-workers=1
 ```
 
-초보자 관점에서는 `targetDate`가 "이번 배치가 어느 회계월의 상각을 처리하는지"를 고정하는 값이다. 재실행해도 같은 `targetDate`를 넣으면 같은 회계월 기준으로 처리된다.
+초보자 관점에서는 `targetDate`가 "이번 배치가 어느 회계월의 상각을 처리하는지"를 고정하는 값이다. 재실행해도 같은 `targetDate`를 넣으면 같은 회계월 기준으로 처리된다. Batch 앱은 API 서버가 아니므로 `spring.main.web-application-type=none`으로 Tomcat을 띄우지 않고, Job 완료 상태를 Gradle 종료 코드로 확인한다.
