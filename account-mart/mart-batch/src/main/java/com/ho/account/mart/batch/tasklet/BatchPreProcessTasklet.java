@@ -1,7 +1,7 @@
 package com.ho.account.mart.batch.tasklet;
 
 import com.ho.account.mart.core.application.port.out.AllowanceInputPositionRepository;
-import com.ho.account.mart.core.support.BatchParameterUtils;
+import com.ho.account.mart.batch.support.BatchStepParameterUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -29,7 +29,7 @@ public class BatchPreProcessTasklet implements Tasklet {
     @org.springframework.lang.Nullable
     public RepeatStatus execute(@org.springframework.lang.NonNull StepContribution contribution, 
                               @org.springframework.lang.NonNull ChunkContext chunkContext) throws Exception {
-        java.time.LocalDate baseDate = BatchParameterUtils.resolveBaseDate(contribution.getStepExecution());
+        java.time.LocalDate baseDate = BatchStepParameterUtils.resolveBaseDate(contribution.getStepExecution());
 
         log.info("🛡️ [배치 전처리] 기준일자({})의 기존 마트 데이터를 정리합니다.", baseDate);
 

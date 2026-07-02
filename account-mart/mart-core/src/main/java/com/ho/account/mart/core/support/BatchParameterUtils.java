@@ -1,14 +1,14 @@
 package com.ho.account.mart.core.support;
 
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.StepExecution;
-
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 배치 공통 Job Parameter 해석 유틸리티.
+ * 배치 기준일 파라미터 해석 유틸리티.
  * ODS/CDM 배치는 baseDate(or baseDt) 파라미터를 필수로 사용한다.
+ *
+ * <p>초보자 설명: core는 Spring Batch의 StepExecution 같은 기술 객체를 직접 알지 않는다.
+ * Batch adapter가 문자열 파라미터만 넘기고, core는 "어떤 기준일로 업무 판단을 할지"만 해석한다.</p>
  */
 public final class BatchParameterUtils {
 
@@ -17,20 +17,12 @@ public final class BatchParameterUtils {
     private BatchParameterUtils() {
     }
 
-    public static LocalDate resolveBaseDate(StepExecution stepExecution) {
-        return resolveBaseDate(stepExecution.getJobParameters());
-    }
-
-    public static LocalDate resolveBaseDate(JobParameters jobParameters) {
-        String baseDate = firstNonBlank(
-                jobParameters.getString("baseDt"),
-                jobParameters.getString("baseDate"));
-
-        if (baseDate == null) {
+    public static LocalDate resolveBaseDate(String baseDt, String baseDate) {
+        String resolvedBaseDate = firstNonBlank(baseDt, baseDate);
+        if (resolvedBaseDate == null) {
             throw new IllegalStateException("baseDate(or baseDt) job parameter is required");
         }
-
-        return LocalDate.parse(baseDate, DEFAULT_DATE_FORMAT);
+        return LocalDate.parse(resolvedBaseDate, DEFAULT_DATE_FORMAT);
     }
 
     private static String firstNonBlank(String... candidates) {

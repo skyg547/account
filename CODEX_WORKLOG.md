@@ -1129,3 +1129,23 @@
 - 남은 리스크:
   - PostgreSQL은 명령/설정 경로를 문서화했지만, 이번 실행 검증은 H2/demo/memory 기준이다.
   - 운영 데이터 기준 대량 처리, 재실행 멱등성, 외부 인프라 연동은 별도 seed/통합 환경 검증이 필요하다.
+
+## 2026-07-02 (account-mart core/batch boundary refactor)
+- 사용자 요청: 모듈별 순차 검수 결과를 바탕으로 `@todo` 처리/리팩토링을 진행하고, 커밋/푸시까지 수행.
+- 수정 내용:
+  - `IntegratedPositionProcessor`, `LedgerDataQualityProcessor`, `CollateralDataQualityProcessor`를 core 업무 컴포넌트로 정리했다.
+  - `mart-batch`에 Spring Batch 전용 processor adapter와 `BatchStepParameterUtils`를 추가했다.
+  - tasklet과 Job config가 batch adapter를 통해 core 업무 로직을 호출하게 변경했다.
+  - core의 `spring-batch-core` API 의존을 제거하고, 미사용 `OdsApartCollDetailRepository`를 삭제했다.
+  - ODS-GL 대사 조회를 계정/통화 합계 기준 JPA query로 보정했다.
+  - account-mart 문서에 core/batch 헥사고날 경계 설명을 추가했다.
+- 검증:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
+  - core Spring Batch 타입 직접 참조 검색 결과 없음(설명 주석 제외).
+  - 미사용 skeleton 포트/테스트 mock 잔존 검색 결과 없음.
+- 리스크:
+  - shutdown 시 기존 step-scope reader close WARN은 남아 있으나 테스트는 성공.
+  - ODS-GL 합계 대사는 H2/test 기준 검증이며 PostgreSQL 대량 데이터 플랜 검증은 남아 있음.
+- 롤백:
+  - `git revert <이번 커밋>` 또는 `account-mart` 하위 변경 파일을 이전 커밋으로 되돌린다.

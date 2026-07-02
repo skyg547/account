@@ -89,3 +89,24 @@
   - Smoke data is empty/demo H2, so business-result correctness under production-like volume still needs seeded integration tests.
 - Rollback:
   - Revert the batch bootstrap files and docs changed in this verification pass if the non-web CLI behavior is rejected.
+
+## 2026-07-02 - Account Mart Core/Batch Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed direct Spring Batch interface usage from `mart-core` processors.
+  - Added `mart-batch` processor adapters and a StepExecution-to-core parameter helper.
+  - Removed a JPA-leaking unused application port skeleton.
+  - Corrected ODS-GL reconciliation balance summary to aggregate by base date, subject/account, and currency.
+  - Updated account-mart docs with beginner-friendly core/batch responsibility boundaries.
+- Verification:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` passed.
+  - Core Spring Batch type search returned only explanatory comments, no imports or implemented interfaces.
+  - Unused skeleton port search returned no matches.
+- Risks:
+  - Batch test shutdown still logs existing step-scope reader close warnings.
+  - PostgreSQL high-volume reconciliation plan is not verified in this pass.
+- Rollback:
+  - Revert this account-mart commit if the boundary refactor is rejected.

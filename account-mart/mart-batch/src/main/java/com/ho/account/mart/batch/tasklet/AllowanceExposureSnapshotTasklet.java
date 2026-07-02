@@ -2,7 +2,7 @@ package com.ho.account.mart.batch.tasklet;
 
 import com.ho.account.mart.core.application.service.allowance.AllowanceExposureSnapshotService;
 import com.ho.account.mart.core.domain.allowance.AllowanceExposureSnapshotBuildResult;
-import com.ho.account.mart.core.support.BatchParameterUtils;
+import com.ho.account.mart.batch.support.BatchStepParameterUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -22,7 +22,7 @@ public class AllowanceExposureSnapshotTasklet implements Tasklet {
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        LocalDate baseDate = BatchParameterUtils.resolveBaseDate(contribution.getStepExecution());
+        LocalDate baseDate = BatchStepParameterUtils.resolveBaseDate(contribution.getStepExecution());
 
         log.info("[Allowance Exposure Snapshot] rebuild started. baseDate={}", baseDate);
         AllowanceExposureSnapshotBuildResult result = snapshotService.rebuildSnapshot(baseDate);

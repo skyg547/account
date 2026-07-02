@@ -1,3 +1,20 @@
+# 2026-07-02 account-mart core/batch boundary review
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `account-mart`의 `mart-core` Spring Batch 의존 제거, `mart-batch` processor adapter 추가, 미사용 JPA-leaking application port 삭제, ODS-GL 대사 합계 조회 보정, account-mart 문서 보강.
+- 우선 확인:
+  - `mart-core`가 Spring Batch 타입을 import/구현하지 않는지.
+  - `mart-batch`가 Job/Step/Reader/Writer/Chunk/adapter 책임만 갖고 업무 판단을 core에 위임하는지.
+  - `OdsGeneralLedgerPersistenceAdapter.getBalanceSummaryByBaseDate()`가 기준일+계정+통화 합계 기준으로 대사에 충분한지.
+  - `OdsApartCollDetail`에 남긴 `@todo`가 실제 후속 LGD/DQ 연결 리스크를 정확히 설명하는지.
+  - account-mart README/docs 설명이 실제 Gradle 모듈과 실행 흐름에 맞는지.
+- 재실행 권장:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:test --console=plain --max-workers=1`
+  - `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|StepExecutionListener|ExitStatus|StepScope" account-mart\mart-core\src\main\java account-mart\mart-core\src\test\java account-mart\mart-core\build.gradle`
+
+기존 장기 리뷰 프롬프트는 아래 내용을 참고하세요.
 # Gemini Review Prompt
 
 이 파일은 Codex가 구현을 맡고 Gemini가 독립 리뷰를 맡는 표준 핸드오프 프롬프트다.

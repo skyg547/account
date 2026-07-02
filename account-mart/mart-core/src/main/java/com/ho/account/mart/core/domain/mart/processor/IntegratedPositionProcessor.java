@@ -1,24 +1,19 @@
 package com.ho.account.mart.core.domain.mart.processor;
 
+import com.ho.account.mart.core.application.port.out.ExchangeRateRepository;
+import com.ho.account.mart.core.application.port.out.OdsAccountRateRepository;
+import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
+import com.ho.account.mart.core.application.port.out.OdsEarlyWarningRepository;
+import com.ho.account.mart.core.domain.marketdata.ExchangeRate;
 import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
-import com.ho.account.shared.finance.enums.CurrencyCode;
-import com.ho.account.shared.finance.enums.CustomerType;
-import com.ho.account.mart.core.domain.ods.audit.service.OdsDataQualityService;
+import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountRate;
 import com.ho.account.mart.core.domain.ods.loan.OdsEarlyWarning;
-import com.ho.account.mart.core.domain.marketdata.ExchangeRate;
-import com.ho.account.mart.core.application.port.out.ExchangeRateRepository;
-import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
-import com.ho.account.mart.core.application.port.out.OdsEarlyWarningRepository;
-import com.ho.account.mart.core.application.port.out.OdsAccountRateRepository;
-import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
+import com.ho.account.shared.finance.enums.CurrencyCode;
+import com.ho.account.shared.finance.enums.CustomerType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.ExitStatus;
-import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.StepExecutionListener;
-import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -27,29 +22,23 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 /**
- * [마트 프로세서] 대손충당금 입력 포지션 변환 프로세서.
+ * [마트 프로세서] 대손충당금 입력 포지션 변환 규칙.
+ *
+ * <p>초보자 설명: 이 클래스는 ODS 계좌 원장을 IFRS 9 ECL 산출 입력값으로 바꾸는
+ * 업무 규칙을 담는다. Spring Batch가 한 건씩 호출하는 기술 흐름은 mart-batch adapter가 담당하고,
+ * 이 core 클래스는 기준일과 원장 데이터를 받아 순수하게 업무 데이터를 만든다.</p>
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedger, AllowanceInputPosition>, StepExecutionListener {
+public class IntegratedPositionProcessor {
 
     private final OdsEarlyWarningRepository earlyWarningRepository;
     private final OdsAccountRateRepository accountRateRepository;
     private final OdsCustomerMstRepository customerMstRepository;
     private final ExchangeRateRepository exchangeRateRepository;
-    private final OdsDataQualityService dqService;
-    private LocalDate baseDate;
 
-    @Override
-    public void beforeStep(StepExecution stepExecution) {
-        String baseDateStr = stepExecution.getJobParameters().getString("baseDate");
-        this.baseDate = LocalDate.parse(baseDateStr);
-        log.info("🚀 [CDM] 대손충당금 입력 포지션 변환 공정을 시작합니다. (기준일: {})", baseDate);
-    }
-
-    @Override
-    public AllowanceInputPosition process(OdsAccountLedger ledger) {
+    public AllowanceInputPosition process(OdsAccountLedger ledger, LocalDate baseDate) {
         if (ledger.getAccountNo() == null || ledger.getCurrency() == null) {
             log.warn("⚠️ [DQ Failure] 계좌 {}의 필수 데이터 누락. 매핑을 건너뜁니다.", ledger.getAccountNo());
             return null;
@@ -60,7 +49,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
         Optional<OdsAccountRate> rateInfo = accountRateRepository.findById(ledger.getAccountNo());
         Optional<OdsEarlyWarning> ew = earlyWarningRepository.findTopByCustomerCodeAndBaseDateOrderByBaseDateDesc(ledger.getCustomerCode(), baseDate);
         BigDecimal outstandingAmount = ledger.getOutstandingAmount() != null ? ledger.getOutstandingAmount() : BigDecimal.ZERO;
-        BigDecimal marketValue = convertToKrw(ledger.getCurrency(), outstandingAmount);
+        BigDecimal marketValue = convertToKrw(ledger.getCurrency(), outstandingAmount, baseDate);
 
         AllowanceInputPosition.AllowanceInputPositionBuilder builder = AllowanceInputPosition.builder()
                 .baseDt(baseDate)
@@ -117,7 +106,7 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
         return builder.build();
     }
 
-    private BigDecimal convertToKrw(String currency, BigDecimal amount) {
+    private BigDecimal convertToKrw(String currency, BigDecimal amount, LocalDate baseDate) {
         if (currency == null || CurrencyCode.KRW.name().equals(currency) || baseDate == null) {
             return amount.setScale(4, RoundingMode.HALF_UP);
         }
@@ -131,11 +120,4 @@ public class IntegratedPositionProcessor implements ItemProcessor<OdsAccountLedg
                 .map(rate -> amount.multiply(rate).setScale(4, RoundingMode.HALF_UP))
                 .orElseGet(() -> amount.setScale(4, RoundingMode.HALF_UP));
     }
-
-    @Override
-    public ExitStatus afterStep(StepExecution stepExecution) {
-        log.info("✅ [CDM] 대손충당금 입력 포지션 변환 완료. (Status: {})", stepExecution.getStatus());
-        return null;
-    }
 }
-

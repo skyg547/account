@@ -12,6 +12,9 @@
 
 - 원천 테이블 접근은 repository port 뒤에 숨깁니다.
 - DQ와 대사 규칙은 core에 두고 batch는 호출만 합니다.
+- Spring Batch의 `ItemProcessor`, `StepExecution` 같은 기술 타입은 core가 직접 구현하지 않습니다. batch 모듈이 어댑터로 감싸고 core는 `process`/`inspect`처럼 테스트하기 쉬운 일반 메서드만 제공합니다.
+- application port는 기술 독립 계약입니다. JPA Repository 같은 구현 기술은 infrastructure adapter에 둡니다.
+- ODS-GL 대사는 기준일, 계정, 통화 단위 합계를 비교해야 합니다. 원장 한 줄씩 비교하면 같은 계정/통화의 여러 거래가 있는 날에 차이가 잘못 계산될 수 있습니다.
 - 금액 계산은 `BigDecimal`로 처리합니다.
 
 ## 코드 읽는 순서

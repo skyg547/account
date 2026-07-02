@@ -14,6 +14,15 @@
 | 6 | `allowanceExposureSnapshotStep` | ECL 입력 snapshot 재생성 |
 | 7 | `cdmEventPublishStep` | downstream 이벤트 발행 |
 
+## Core와 Batch 경계
+
+초보자 관점에서는 `mart-batch`를 "Spring Batch 실행 껍데기"로 보면 된다. Job/Step은 reader, processor, writer, chunk, 병렬 실행, 재시작 단위를 연결하고, Stage 판정이나 DQ 같은 업무 판단은 `mart-core`가 맡는다.
+
+- `batch.processor.*ItemProcessor`: Spring Batch의 `ItemProcessor`/`StepExecutionListener`를 구현하는 어댑터입니다.
+- `core.domain.*processor`: 실제 업무 규칙을 담는 일반 Spring 컴포넌트입니다. 테스트에서는 Spring Batch 없이 직접 호출할 수 있습니다.
+- `BatchStepParameterUtils`: `StepExecution`에서 `baseDate`/`baseDt`를 읽어 core가 이해하는 `LocalDate`로 넘기는 경계 변환기입니다.
+
+이 구조를 유지하면 배치 프레임워크를 바꿔도 core 업무 규칙 테스트는 흔들리지 않습니다.
 ## 실행
 
 ```powershell

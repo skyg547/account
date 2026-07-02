@@ -1067,3 +1067,28 @@
   - 검증은 H2/demo/memory adapter와 빈 업무 데이터 중심 smoke 기준이다. PostgreSQL 실 DB, 대량 seed, 외부 Kafka/Vault/Eureka/Config Server 연동, 모든 MSA 동시 장시간 기동은 별도 환경에서 검증해야 한다.
   - Gradle 9 호환성 deprecation warning은 남아 있다.
   - 일부 Batch 테스트/종료 로그에 Step scope reader close 경고가 남지만 이번 검증에서는 실패를 유발하지 않았다.
+
+### 📅 2026-07-02 (account-mart core/batch 경계 리팩토링)
+### [검수/리팩토링] mart-core Spring Batch 의존 제거 및 ODS-GL 합계 대사 보정
+- **선확인**:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness/*`, `account-mart/README.md`, `account-mart/docs/README.md`를 확인했다.
+  - `mart-core`의 domain processor가 Spring Batch `ItemProcessor`/`StepExecutionListener`를 직접 구현하고, application port에 JPA Repository 타입이 노출된 구조를 확인했다.
+- **수정 범위**:
+  - `mart-core`: DQ/CDM processor를 Spring Batch 타입이 없는 일반 core 컴포넌트로 정리하고, `BatchParameterUtils`를 문자열 기반 기준일 파서로 축소했다.
+  - `mart-batch`: Spring Batch processor adapter와 `BatchStepParameterUtils`를 추가해 StepExecution 해석 책임을 batch에 둔다.
+  - `mart-core/build.gradle`: core의 `spring-batch-core` API 의존을 제거했다.
+  - `OdsApartCollDetailRepository`: 사용되지 않고 application port가 JPA를 직접 상속하던 skeleton 포트를 삭제했다.
+  - `OdsGeneralLedgerPersistenceAdapter`/`JpaOdsGeneralLedgerRepository`: ODS-GL 대사를 기준일+계정+통화 합계 기준으로 조회하도록 보정했다.
+  - `OdsApartCollDetail`: 실제 담보 DQ/LGD 흐름 연결이 필요한 지점을 `@todo`로 남겼다.
+  - account-mart README/docs: core/batch 헥사고날 경계와 초보자용 실행/데이터 흐름 설명을 보강했다.
+- **검증**:
+  - `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|StepExecutionListener|ExitStatus|StepScope" account-mart\mart-core\src\main\java account-mart\mart-core\src\test\java account-mart\mart-core\build.gradle` 결과 실제 타입 참조 없음(설명 주석 1건만 존재).
+  - `rg -n "OdsDataQualityService dqService|OdsApartCollDetailRepository" account-mart` 결과 없음.
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - `mart-batch:test` shutdown 시 기존 step-scope reader close WARN이 출력되지만 테스트 실패는 아니다.
+  - 신규 `@todo`는 `OdsApartCollDetail`을 실제 담보 DQ/LGD 흐름에 연결하는 후속 고도화 항목이다.
+  - PostgreSQL/대량 seed 기준의 ODS-GL 대사 합계 성능 검증은 별도 통합 환경에서 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `account-mart` 하위 변경 파일과 관련 WORKLOG/handoff 항목을 revert한다.

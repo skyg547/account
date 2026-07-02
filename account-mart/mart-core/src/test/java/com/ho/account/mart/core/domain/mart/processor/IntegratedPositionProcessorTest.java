@@ -2,12 +2,10 @@ package com.ho.account.mart.core.domain.mart.processor;
 
 import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.shared.finance.enums.CrStaging;
-import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.mart.core.application.port.out.OdsAccountRateRepository;
 import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.ho.account.mart.core.application.port.out.OdsEarlyWarningRepository;
 import com.ho.account.mart.core.application.port.out.ExchangeRateRepository;
-import com.ho.account.mart.core.domain.ods.audit.service.OdsDataQualityService;
 import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,8 +40,6 @@ class IntegratedPositionProcessorTest {
     private OdsCustomerMstRepository customerMstRepository;
     @Mock
     private ExchangeRateRepository exchangeRateRepository;
-    @Mock
-    private OdsDataQualityService dqService;
 
     @InjectMocks
     private IntegratedPositionProcessor processor;
@@ -51,7 +47,7 @@ class IntegratedPositionProcessorTest {
     @BeforeEach
     void setUp() {
         when(earlyWarningRepository.findTopByCustomerCodeAndBaseDateOrderByBaseDateDesc(
-                anyString(), nullable(LocalDate.class))).thenReturn(Optional.empty());
+                anyString(), eq(LocalDate.of(2026, 4, 30)))).thenReturn(Optional.empty());
         when(accountRateRepository.findById(anyString())).thenReturn(Optional.empty());
         when(customerMstRepository.findByCustomerCode(anyString())).thenReturn(Optional.empty());
     }
@@ -63,7 +59,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC001", 0);
 
         // when
-        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger), LocalDate.of(2026, 4, 30));
 
         // then
         assertNotNull(result);
@@ -78,7 +74,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC002", 35);
 
         // when
-        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger), LocalDate.of(2026, 4, 30));
 
         // then
         assertNotNull(result);
@@ -92,7 +88,7 @@ class IntegratedPositionProcessorTest {
         OdsAccountLedger ledger = createBaseLedger("ACC003", 95);
 
         // when
-        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger), LocalDate.of(2026, 4, 30));
 
         // then
         assertNotNull(result);
@@ -113,7 +109,7 @@ class IntegratedPositionProcessorTest {
         when(customerMstRepository.findByCustomerCode("CUST001")).thenReturn(Optional.of(customer));
 
         // when
-        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger));
+        AllowanceInputPosition result = processor.process(Objects.requireNonNull(ledger), LocalDate.of(2026, 4, 30));
 
         // then
         assertNotNull(result);
