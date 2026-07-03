@@ -148,3 +148,24 @@
   - Spring Cloud/Batch BeanPostProcessor WARN remains during bootRun; it did not block Job completion.
 - Rollback:
   - Revert the combined ECL/journal-ledger refactor commit if the boundary changes are rejected.
+## 2026-07-03 - Closing Core/Batch Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Moved FX valuation and ECL provision business decisions from `closing:batch` into `closing:core` application services.
+  - Added core outbound ports for FX rate lookup, allowance balance lookup, and closing journal creation.
+  - Added batch adapters for master-data exchange rates, journal-ledger GL balances, and journal-ledger journal creation.
+  - Updated closing docs and beginner comments to describe the core/batch boundary.
+- Verification:
+  - `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` passed.
+  - Closing core Spring Batch type search returned no matches.
+  - Closing TODO/mojibake search returned no matches.
+- Risks:
+  - PostgreSQL high-volume FX/ECL closing run and operational skip/retry policy are not verified in this pass.
+- Rollback:
+  - Revert the closing refactor files and worklog/handoff updates if the boundary change is rejected.
+- Additional verification:
+  - `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` passed.
+  - Added closing API/BATCH local logback settings so local runs avoid Logstash connection warnings.

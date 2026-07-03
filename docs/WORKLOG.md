@@ -1139,3 +1139,29 @@
   - Batch bootRun 중 Spring Cloud/Batch 조기 BeanPostProcessor 경고가 출력되지만 Job 실행 실패를 유발하지 않았다. 운영 실행 최적화 시 Batch 모듈 starter 축소나 auto-configuration 정리를 검토한다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `journal-ledger` 하위 batch/docs 변경, `.run/Journal Ledger Batch Reaggregation.run.xml`, 관련 WORKLOG/handoff 항목을 revert한다.
+### 📅 2026-07-03 (closing core/batch 경계 리팩토링)
+### [검수/리팩토링] FX 평가/ECL 충당 업무 로직을 closing:core로 이동
+- **선확인**:
+  - `closing/README.md`, `closing/docs/README.md`, `process-flow.md`, `local-run.md`를 확인했다.
+  - `closing:batch`의 `FxValuationService`, `EclProvisionService`가 환율 적용, 목표 충당금-기존 충당금 차이, 차대변 판단, 전표 생성 command를 직접 소유하고 있어 Batch adapter 책임이 과한 구조를 확인했다.
+- **수정 범위**:
+  - `closing:core/application/service`: `FxValuationService`, `EclProvisionService`, `FxValuationBalance`, `ClosingSlipNoFactory`를 추가해 FX/ECL 결산 업무 판단을 core로 이동했다.
+  - `closing:core/application/port/out`: `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort`와 전표 command/result 타입을 추가했다.
+  - `closing:batch/adapter/out`: master-data 환율 조회, journal-ledger GL 충당금 조회, journal-ledger 전표 생성 어댑터를 추가했다.
+  - `FxValuationBatchConfig`, `EclProvisionBatchConfig`: Batch는 Job/Step/Reader/Tasklet과 core 위임만 담당하도록 정리했다.
+  - 기존 batch service 테스트를 core service 테스트로 이동해 금액/차대변/자동전기 여부를 core 기준으로 검증했다.
+  - `closing` README/docs/local-run/process-flow와 Batch 주석을 core/batch 경계 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` 성공.
+  - `rg -n "org\.springframework\.batch|ItemProcessor|Tasklet|StepExecution|JobParameters|StepScope|JobScope" closing\core\src\main\java closing\core\build.gradle --glob "*.java" --glob "*.gradle"` 결과 없음.
+  - `rg -n "@todo|TODO:|FIXME|�|\?\?\?" closing --glob "*.java" --glob "*.md" --glob "!**/build/**"` 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL 대량 GL 잔액/allowance_summary 기준 성능, skip/retry 정책, 전표 중복 감지 운영 검증은 별도 통합 환경에서 필요하다.
+  - `FxValuationBatchConfig`의 계정 단위 skip은 현재 로깅 후 계속 진행한다. 운영에서는 skip-limit, 재처리 큐, 실패 계정 리포트 정책을 더 엄격히 둘 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `closing/core/application/service`, `closing/core/application/port/out`, `closing/batch/adapter/out`, `closing/batch/config`, `closing/docs`, 관련 WORKLOG/handoff 항목을 revert한다.
+
+#### 추가 검증
+- `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` 성공.
+- `closing/api`와 `closing/batch`에 `local` profile용 `logback-spring.xml`을 추가해 로컬 실행 시 Logstash 연결 경고를 피하도록 했다.

@@ -1,3 +1,42 @@
+# Latest Handoff - 2026-07-03 Closing
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope in progress: `closing` core/batch boundary refactor after ECL and Journal Ledger were pushed.
+- Working tree: local uncommitted closing changes exist.
+
+## What Changed
+
+- FX valuation and ECL provision business decisions moved from `closing:batch` into `closing:core` application services.
+- Core outbound ports now hide FX rate lookup, allowance GL balance lookup, and closing journal creation.
+- Batch adapters now map master-data/journal-ledger technology APIs to core ports.
+- Batch configs now focus on Job/Step/Reader/Tasklet orchestration and delegate accounting decisions to core.
+- Closing docs and beginner comments were updated for the new responsibility boundary.
+
+## Verification Summary
+
+- `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :closing:api:compileJava --console=plain --max-workers=1`: passed.
+- `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1`: passed.
+- closing API/BATCH local logback XML parsing: passed.
+- Closing core Spring Batch type search: no matches.
+- Closing TODO/mojibake search: no matches.
+
+## Known Risks
+
+- PostgreSQL high-volume FX/ECL closing run is not verified in this pass.
+- FX valuation writer currently logs account-level failures and continues; production skip-limit/retry/reporting policy may need a stricter adapter configuration.
+- Batch BeanPostProcessor WARN remains during local context boot; it did not block startup.
+
+## Rollback
+
+- Before commit: restore `closing`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` carefully.
+- After commit: revert the closing boundary refactor commit.
+
+---
 # Latest Handoff - 2026-07-03 ECL + Journal Ledger
 
 ## Current State

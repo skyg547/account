@@ -1186,3 +1186,24 @@
   - Batch bootRun의 Spring Cloud/Batch 조기 BeanPostProcessor WARN은 기존 의존성 조합 영향으로 남아 있다.
 - 롤백:
   - 커밋 후에는 이번 커밋을 revert한다.
+## 2026-07-03 (closing core/batch boundary refactor)
+- 사용자 목표: 모듈을 순차 검수하면서 헥사고날/DDD/업무 프로세스 기준으로 리팩토링하고, 기존 주석과 초보자 문서를 보존·개선.
+- 수정 내용:
+  - `closing:batch`의 FX 평가/ECL 충당 업무 서비스와 전표번호 팩토리를 `closing:core`로 이동했다.
+  - core outbound port(`FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort`)와 전표 command/result 타입을 추가했다.
+  - batch adapter에서 master-data 환율, journal-ledger GL 잔액, journal-ledger 전표 생성 기술 구현을 담당하게 했다.
+  - Batch config는 Job/Step/Reader/Tasklet과 core 위임만 담당하도록 정리했다.
+  - 기존 batch service 테스트를 core service 테스트로 이동했다.
+  - closing 문서와 주석에 core/batch 책임 경계를 최신화했다.
+- 검증:
+  - `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` 성공.
+  - closing core Spring Batch 타입 직접 참조 검색 결과 없음.
+  - closing Java/문서 TODO 및 깨진문자 검색 결과 없음.
+- 리스크:
+  - PostgreSQL 대량 데이터 기준 FX/ECL 결산 전표 성능과 skip/retry 운영 정책 검증은 남아 있다.
+- 롤백:
+  - 커밋 전이면 `git restore -- closing docs/WORKLOG.md CODEX_WORKLOG.md docs/ai-harness docs/module-documentation-sequence.md GEMINI_REVIEW_PROMPT.md` 범위로 되돌릴 수 있다.
+- 추가 검증:
+  - `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` 성공.
+  - closing API/BATCH local logback 설정을 추가해 로컬 실행에서 Logstash 연결 경고를 제거했다.

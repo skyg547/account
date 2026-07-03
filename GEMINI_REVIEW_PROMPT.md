@@ -1,3 +1,32 @@
+# Latest Review Target - 2026-07-03 Closing
+
+Gemini는 이번 Codex 변경에서 `closing` 모듈을 우선 검토하세요.
+
+1. Architecture / DDD
+- `closing:core/application/service/FxValuationService`가 FX 평가 금액, 정상잔액 방향, 차대변 판단을 core 업무 로직으로 적절히 소유하는지 확인하세요.
+- `closing:core/application/service/EclProvisionService`가 확정 `allowance_summary`와 기존 GL 충당금 잔액 차이만 처리하고 Stage/PD/LGD/EAD를 재계산하지 않는지 확인하세요.
+- `closing:core/application/port/out`의 `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort`가 기술 독립 포트로 충분한지 확인하세요.
+
+2. Batch Boundary
+- `closing:batch`가 Spring Batch Job/Step/Reader/Tasklet, 외부 Repository/JournalUseCase adapter 책임만 갖고 업무 산식과 차대변 판단을 직접 구현하지 않는지 확인하세요.
+- `FxValuationBatchConfig`의 partition/reader/writer 흐름이 core DTO 변환과 위임만 수행하는지 확인하세요.
+- `EclProvisionBatchConfig` Tasklet이 기준일/batch ID를 core 서비스에 전달하는 실행 어댑터로 충분한지 확인하세요.
+
+3. Codex 검증 결과
+- `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` 성공.
+- `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` 성공.
+- `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` 성공.
+- closing API/BATCH local logback XML 파싱 성공.
+- closing core Spring Batch 타입 직접 참조 검색 결과 없음.
+- closing Java/문서 TODO 및 깨진문자 검색 결과 없음.
+
+4. 알려진 리스크
+- PostgreSQL 대량 GL 잔액/allowance_summary 기준 성능, skip/retry, 중복 전표 감지 운영 검증은 아직 수행하지 않았습니다.
+- FX valuation writer는 현재 계정별 실패를 로깅하고 계속 진행합니다. 운영 정책상 fail-fast 또는 skip-limit/reporting이 더 적절한지 검토가 필요합니다.
+
+아래 기존 리뷰 지침도 함께 따르세요.
+
+---
 # Latest Review Target - 2026-07-03 ECL + Journal Ledger
 
 Gemini는 이번 Codex 변경에서 아래 범위를 우선 검토하세요.

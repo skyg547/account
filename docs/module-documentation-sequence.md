@@ -343,3 +343,29 @@ git diff --check
 - `dailyBalanceReaggregationJob` H2 local 실행 성공, Job status `COMPLETED`
 - ecl/journal-ledger Java TODO 및 깨진문자 검색 결과 없음
 - `git diff --check` 오류 없음(CRLF 안내만 출력)
+## 14차 후속 상세
+
+### closing core/batch 경계 리팩토링
+
+- `closing:batch`의 `FxValuationService`, `EclProvisionService`, `ClosingSlipNoFactory`를 `closing:core/application/service`로 이동했습니다.
+- `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort`를 추가해 core가 master-data/journal-ledger 기술 구현을 직접 알지 않게 했습니다.
+- `closing:batch/adapter/out`에 환율 조회, 기존 충당금 잔액 조회, 전표 생성 어댑터를 추가했습니다.
+- `FxValuationBatchConfig`, `EclProvisionBatchConfig`는 Job/Step/Reader/Tasklet과 core 위임만 담당하도록 정리했습니다.
+- closing README/docs/local-run/process-flow와 초보자용 주석을 core/batch 책임 경계 기준으로 최신화했습니다.
+
+## 14차 검증
+
+```powershell
+.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1
+.\gradlew :closing:api:compileJava --console=plain --max-workers=1
+```
+
+결과:
+- closing core/batch 테스트 성공
+- closing api compileJava 성공
+- closing core Spring Batch 타입 직접 참조 검색 결과 없음
+- closing Java/문서 TODO 및 깨진문자 검색 결과 없음
+
+추가 결과:
+- `closing:batch:bootRun` local profile 컨텍스트 기동 성공
+- closing API/BATCH local logback XML 파싱 성공

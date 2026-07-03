@@ -11,6 +11,8 @@
 
 | 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | ECL core pipeline and Journal Ledger Batch reaggregation refactor verified; commit/push requested. |
 
+| 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | In progress | Closing core/batch boundary refactor verified locally; not committed yet in this continuation. |
+
 ## Status Values
 
 - Planned

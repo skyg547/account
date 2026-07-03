@@ -7,9 +7,9 @@
 | 계층 | 책임 | 예시 |
 | --- | --- | --- |
 | Inbound Adapter | 외부 요청을 유즈케이스 호출로 변환 | `ClosingController` |
-| Application Service | 트랜잭션 경계, 도메인 협업, 외부 포트 호출 | `ClosingService`, `AnnualClosingService` |
+| Application Service | 트랜잭션 경계, 도메인 협업, 외부 포트 호출 | `ClosingService`, `AnnualClosingService`, `FxValuationService`, `EclProvisionService` |
 | Domain | 상태 변경 규칙과 검증 | `ClosingCalendar.validateReadyToClose`, `ClosingCalendar.close` |
-| Outbound Port | 기술 독립 외부 인터페이스 | `ClosingCalendarPersistencePort`, `EclAllowanceResultPort` |
+| Outbound Port | 기술 독립 외부 인터페이스 | `ClosingCalendarPersistencePort`, `EclAllowanceResultPort`, `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort` |
 | Infrastructure Adapter | JPA/JDBC/외부 시스템 실제 구현 | `ClosingCalendarRepository`, `JdbcEclAllowanceResultAdapter` |
 
 ## 월말 결산 기본 흐름
@@ -84,7 +84,7 @@ sequenceDiagram
 | `valuationDate` | `2026-04-30` | 평가 기준일 |
 | `valuationBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
 
-FX 평가는 계정과목의 정상잔액 방향을 함께 봅니다. 자산처럼 차변 정상잔액인 계정은 평가 증가를 차변 계정/대변 이익으로 처리하고, 부채처럼 대변 정상잔액인 계정은 평가 증가를 대변 계정/차변 손실로 처리합니다. 배치 Reader는 전체 외화 잔액을 한 번에 메모리에 올리지 않고 계정코드 파티션과 JPA Paging Reader로 나누어 읽습니다.
+FX 평가는 계정과목의 정상잔액 방향을 함께 봅니다. 자산처럼 차변 정상잔액인 계정은 평가 증가를 차변 계정/대변 이익으로 처리하고, 부채처럼 대변 정상잔액인 계정은 평가 증가를 대변 계정/차변 손실로 처리합니다. 이 판단은 `closing:core`의 `FxValuationService`가 담당하고, Batch는 외화 GL 잔액을 계정코드 파티션과 JPA Paging Reader로 나누어 읽은 뒤 core 입력 DTO로 변환합니다.
 
 ## ECL 충당 Batch
 
@@ -103,7 +103,7 @@ sequenceDiagram
     Service->>JL: 보충 또는 환입 DRAFT 전표 생성
 ```
 
-ECL 충당 배치는 Stage/PD/LGD/EAD를 계산하지 않습니다. 그 계산은 `ecl`에서 끝난 뒤 `allowance_summary`로 확정되어야 합니다.
+ECL 충당 배치는 Stage/PD/LGD/EAD를 계산하지 않습니다. 그 계산은 `ecl`에서 끝난 뒤 `allowance_summary`로 확정되어야 합니다. `closing:core`의 `EclProvisionService`는 확정 summary와 기존 GL 충당금 잔액의 차이만 계산하고, `closing:batch`는 `JdbcEclAllowanceResultAdapter`, `GlAllowanceBalanceLookupAdapter`, `JournalLedgerClosingJournalEntryAdapter`로 외부 기술을 연결합니다.
 
 실행 파라미터:
 

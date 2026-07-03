@@ -30,6 +30,12 @@ IntelliJ에서는 `.run`의 `Closing API bootRun`, `Closing Batch Context` 실�
 
 ## 2. 🔄 프로세스 흐름 (Process Flow)
 
+### 🧭 Core/Batch 책임 경계
+
+FX 평가와 ECL 충당의 금액 산출, 차대변 판단, 전표 라인 구성은 `closing:core`의 application service가 담당합니다. `closing:batch`는 Spring Batch Job/Step, Reader/Writer/Tasklet, 외부 Repository/JournalUseCase 어댑터만 담당합니다.
+
+초보자 설명: Batch는 "공장 컨베이어 벨트"이고 core는 "회계 규칙을 판단하는 업무 담당자"입니다. 컨베이어가 어떤 순서로 데이터를 흘릴지는 batch가 정하지만, 어떤 금액을 차변/대변에 놓을지는 core가 결정해야 테스트와 API/Batch 흐름이 같은 규칙을 공유할 수 있습니다.
+
 ### 📌 결산 캘린더 및 마감 파이프라인
 마감 시작부터 태스크 검증, 최종 기간 잠금까지의 헥사고날 아키텍처 흐름입니다.
 
@@ -104,13 +110,13 @@ erDiagram
 API 컨텍스트 실행:
 
 ```powershell
-.\gradlew :closing:api:bootRun --args="--server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :closing:api:bootRun --args="--spring.profiles.active=local --server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 Batch 컨텍스트만 실행:
 
 ```powershell
-.\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain
 ```
 
 ECL 충당 Job 예시:

@@ -1,16 +1,14 @@
-package com.ho.account.closing.batch.service;
+package com.ho.account.closing.application.service;
 
+import com.ho.account.closing.application.port.out.AllowanceBalanceLookupPort;
+import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
+import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
+import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
+import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
-import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.journalledger.domain.ledger.domain.GlAccountBalance;
-import com.ho.account.journalledger.domain.ledger.domain.GlBalanceType;
-import com.ho.account.journalledger.domain.ledger.repository.GlAccountBalanceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +20,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,9 +31,9 @@ import static org.mockito.Mockito.when;
 class EclProvisionServiceTest {
 
     @Mock
-    private GlAccountBalanceRepository glAccountBalanceRepository;
+    private AllowanceBalanceLookupPort allowanceBalanceLookupPort;
     @Mock
-    private JournalUseCase journalUseCase;
+    private ClosingJournalEntryPort closingJournalEntryPort;
     @Mock
     private EclAllowanceResultPort eclAllowanceResultPort;
 
@@ -50,8 +47,8 @@ class EclProvisionServiceTest {
                 ProvisionBatch.ProvisionType.ECL,
                 rule("550100", "129100")));
         service = new EclProvisionService(
-                glAccountBalanceRepository,
-                journalUseCase,
+                allowanceBalanceLookupPort,
+                closingJournalEntryPort,
                 accountingProperties,
                 eclAllowanceResultPort);
     }
@@ -70,28 +67,23 @@ class EclProvisionServiceTest {
                 "480100",
                 "1000.00");
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(summary));
-        when(glAccountBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndBalanceType(
-                "129100", "USD", closingDate, GlBalanceType.CREDIT))
-                .thenReturn(Optional.of(balance("800.00")));
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
-            entry.setId(901L);
-            return entry;
-        });
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "USD", closingDate))
+                .thenReturn(new BigDecimal("800.00"));
+        when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
+                .thenReturn(new ClosingJournalEntryResult(901L, "ECL2026053144ABC"));
 
         service.processEclProvision(closingDate, 44L);
 
-        ArgumentCaptor<JournalEntry> captor = ArgumentCaptor.forClass(JournalEntry.class);
-        verify(journalUseCase).createJournalEntry(captor.capture());
-        JournalEntry entry = captor.getValue();
-        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
-        assertThat(entry.getLineageSourceId()).isEqualTo("44|RUN-202605");
-        assertThat(entry.getSlipNo()).startsWith("ECL20260531").hasSize(20);
-        assertThat(entry.getDetails()).hasSize(2);
-        assertLine(entry.getDetails().get(0), JournalSide.DEBIT, "550100", "200.00");
-        assertLine(entry.getDetails().get(1), JournalSide.CREDIT, "129100", "200.00");
-        verify(journalUseCase).approveJournalEntry(901L, "SYSTEM");
-        verify(journalUseCase).postJournalEntry(901L, "SYSTEM");
+        ArgumentCaptor<ClosingJournalEntryCommand> captor = ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
+        verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
+        ClosingJournalEntryCommand command = captor.getValue();
+        assertThat(command.currencyCode()).isEqualTo("USD");
+        assertThat(command.lineageSourceId()).isEqualTo("44|RUN-202605");
+        assertThat(command.slipNo()).startsWith("ECL20260531").hasSize(20);
+        assertThat(command.lines()).hasSize(2);
+        assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00");
+        assertLine(command.lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00");
+        verify(closingJournalEntryPort).approveAndPost(901L, "SYSTEM");
     }
 
     @Test
@@ -107,23 +99,19 @@ class EclProvisionServiceTest {
                 "480100",
                 "800.00");
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(summary));
-        when(glAccountBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndBalanceType(
-                "129100", "KRW", closingDate, GlBalanceType.CREDIT))
-                .thenReturn(Optional.of(balance("1000.00")));
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
-            entry.setId(902L);
-            return entry;
-        });
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", closingDate))
+                .thenReturn(new BigDecimal("1000.00"));
+        when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
+                .thenReturn(new ClosingJournalEntryResult(902L, "ECL2026053145DEF"));
 
         service.processEclProvision(closingDate, 45L);
 
-        ArgumentCaptor<JournalEntry> captor = ArgumentCaptor.forClass(JournalEntry.class);
-        verify(journalUseCase).createJournalEntry(captor.capture());
-        JournalEntry entry = captor.getValue();
-        assertThat(entry.getDetails()).hasSize(2);
-        assertLine(entry.getDetails().get(0), JournalSide.DEBIT, "129100", "200.00");
-        assertLine(entry.getDetails().get(1), JournalSide.CREDIT, "480100", "200.00");
+        ArgumentCaptor<ClosingJournalEntryCommand> captor = ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
+        verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
+        ClosingJournalEntryCommand command = captor.getValue();
+        assertThat(command.lines()).hasSize(2);
+        assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "129100", "200.00");
+        assertLine(command.lines().get(1), ClosingJournalSide.CREDIT, "480100", "200.00");
     }
 
     @Test
@@ -133,7 +121,7 @@ class EclProvisionServiceTest {
 
         service.processEclProvision(closingDate, 44L);
 
-        verifyNoInteractions(glAccountBalanceRepository, journalUseCase);
+        verifyNoInteractions(allowanceBalanceLookupPort, closingJournalEntryPort);
     }
 
     private static EclAllowanceSummary summary(LocalDate baseDate,
@@ -161,12 +149,6 @@ class EclProvisionServiceTest {
                 new BigDecimal("300.00"));
     }
 
-    private static GlAccountBalance balance(String amount) {
-        GlAccountBalance balance = new GlAccountBalance();
-        balance.setEndingBalance(new BigDecimal(amount));
-        return balance;
-    }
-
     private static ClosingAccountingProperties.AutomatedJournalRule rule(
             String debitAccountCode,
             String creditAccountCode) {
@@ -178,10 +160,10 @@ class EclProvisionServiceTest {
         return rule;
     }
 
-    private static void assertLine(JournalDetail line, JournalSide side, String accountCode, String amount) {
-        assertThat(line.getSide()).isEqualTo(side);
-        assertThat(line.getAccountCode()).isEqualTo(accountCode);
-        assertThat(line.getAmount()).isEqualByComparingTo(amount);
-        assertThat(line.getBaseAmount()).isEqualByComparingTo(amount);
+    private static void assertLine(ClosingJournalLineCommand line, ClosingJournalSide side, String accountCode, String amount) {
+        assertThat(line.side()).isEqualTo(side);
+        assertThat(line.accountCode()).isEqualTo(accountCode);
+        assertThat(line.amount()).isEqualByComparingTo(amount);
+        assertThat(line.baseAmount()).isEqualByComparingTo(amount);
     }
 }
