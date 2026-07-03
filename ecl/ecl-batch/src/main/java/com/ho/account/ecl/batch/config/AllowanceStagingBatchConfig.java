@@ -47,7 +47,7 @@ public class AllowanceStagingBatchConfig {
     /** 💡 [초보자 가이드] 대손충당금(IFRS9) 산출의 전반적인 흐름을 제어하는 비즈니스 서비스입니다. */
     private final AllowanceCalculationService allowanceCalculationService;
     
-    /** 💡 [초보자 가이드] 개별 계좌의 스테이징을 실제로 판정하는 로직이 들어있는 프로세서입니다. */
+    /** 💡 [초보자 가이드] Spring Batch ItemProcessor 어댑터입니다. 실제 Stage/PD 판단은 core pipeline이 수행합니다. */
     private final StagingProcessor stagingProcessor;
     
     /** 💡 [초보자 가이드] 산출된 대손충당금 결과를 DB에 저장하는 통로입니다. */
@@ -121,15 +121,15 @@ public class AllowanceStagingBatchConfig {
     }
 
     /**
-     * [Staging Worker Step] 실제 스테이징 산출 로직 실행 (Worker Step)
-     * 💡 [초보자 가이드] "실제 일꾼"입니다. 200건씩 끊어서(Chunk) 읽고, PD/스테이지를 계산하여 저장합니다.
+     * [Staging Worker Step] 계좌 chunk를 core Stage/PD pipeline으로 전달하는 Worker Step
+     * 💡 [초보자 가이드] "실제 일꾼"입니다. 200건씩 끊어서 읽고, batch adapter가 core pipeline에 계산을 맡긴 뒤 저장합니다.
      */
     @Bean
     public Step stagingWorkerStep() {
         return new StepBuilder("stagingWorkerStep", jobRepository)
                 .<CrAccount, AllowanceEclResult>chunk(200, transactionManager) // 200건 단위 처리
                 .reader(pagingAccountReader)                             // QueryDSL로 똑똑하게 읽기
-                .processor(stagingProcessor)                             // 비즈니스 로직(Stage 분류 및 PD 매핑)
+                .processor(stagingProcessor)                             // batch adapter -> core StagingCalculationPipeline 위임
                 .writer(chunk -> allowanceResultRepository.saveAll(new ArrayList<AllowanceEclResult>(chunk.getItems()))) // 계산 결과 저장
                 .build();
     }

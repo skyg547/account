@@ -25,6 +25,7 @@
 | 8 | `reconciliation`, `reporting` | Done | 대사/보고 문서와 감독보고 흐름 정리 |
 | 9 | foundation/infra | Done | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 | 10 | standalone Application 검토 반영 | Done | Gemini 실행 클래스 검수 결과 반영, `deposit:batch`/`reporting` Boot 앱 정리 |
+| 12 | `ecl` core pipeline 경계 리팩토링 | Done | batch processor를 adapter로 축소하고 Stage/PD, EAD/LGD, ECL 순서를 core pipeline으로 이동 |
 
 ## 1차 완료 상세
 
@@ -300,3 +301,45 @@ git diff --check
 - asset-lease API/BATCH bootJar 성공
 - expenditure-resolution core compileJava 성공
 - 기존 호환 경로 `:asset-lease:test`, `:asset-lease:compileJava` 성공
+## 12차 후속 상세
+
+### ecl core pipeline 경계 리팩토링
+
+- `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`을 `ecl-core/application/pipeline`에 추가했습니다.
+- `ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`는 Spring Batch adapter로 축소하고 실제 업무 산출 순서는 core pipeline이 담당하게 했습니다.
+- `AllowanceCalculationService`도 같은 core pipeline을 재사용해 API/단건 산출과 batch 산출의 업무 순서를 맞췄습니다.
+- `ecl` README/docs와 batch config 주석에 core pipeline / batch adapter 경계를 보강했습니다.
+
+## 12차 검증
+
+```powershell
+.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1
+```
+
+결과:
+- ecl core 테스트 성공
+- ecl batch 테스트 성공
+- batch processor의 계산 서비스/금액 산식 직접 참조 검색 결과 없음
+- ecl Java TODO 검색 결과 없음
+## 13차 후속 상세
+
+### journal-ledger balance reaggregation Batch 전환
+
+- `BalanceReaggregationBatchConfig`는 Spring Batch Job/Step wiring만 담당하도록 정리했습니다.
+- `BalanceReaggregationTasklet`을 추가해 Step 실행 시 core `LedgerService.reaggregateLedgerBalancesForPeriod`를 호출합니다.
+- `BatchDateRangeParameterUtils`를 추가해 `startDate/endDate`, `fromDate/toDate`, `baseDate`, `targetDate` JobParameter를 업무 기간으로 변환합니다.
+- `journal-ledger:batch` H2 local datasource/JPA/Batch YAML 계층과 Batch test 의존성을 보정했습니다.
+- `journal-ledger` 문서, `docs/local-development.md`, IntelliJ `.run` 설정에 `dailyBalanceReaggregationJob` 실행 명령을 추가했습니다.
+
+## 13차 검증
+
+```powershell
+.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1
+.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1
+```
+
+결과:
+- journal-ledger core/api/batch 테스트 성공
+- `dailyBalanceReaggregationJob` H2 local 실행 성공, Job status `COMPLETED`
+- ecl/journal-ledger Java TODO 및 깨진문자 검색 결과 없음
+- `git diff --check` 오류 없음(CRLF 안내만 출력)

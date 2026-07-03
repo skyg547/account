@@ -48,6 +48,13 @@ domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항�
 - 차대변 문자열은 가능하면 `JournalSide` 같은 타입으로 제한합니다.
 - 금액은 `BigDecimal`을 사용합니다.
 
+## Batch 계층
+
+`journal-ledger:batch`는 inbound adapter입니다. Job/Step과 Tasklet은 Spring Batch 기술 객체를 다루지만, 전표·원장 업무 규칙은 core application service에 둡니다.
+
+- `BalanceReaggregationBatchConfig`: Job/Step wiring만 담당합니다.
+- `BalanceReaggregationTasklet`: JobParameter를 기간으로 변환하고 `LedgerService`를 호출합니다.
+- `BatchDateRangeParameterUtils`: Spring Batch `JobParameters`를 `LocalDate` 범위로 바꿉니다.
 ## adapter/in 계층
 
 adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층입니다.

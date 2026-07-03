@@ -43,7 +43,7 @@ public class ExposureLgdBatchConfig {
     /** 💡 [초보자 가이드] 데이터베이스 작업 시 오류가 나면 원상복구(Rollback)를 담당하는 관리자입니다. */
     private final PlatformTransactionManager transactionManager;
 
-    /** 💡 [초보자 가이드] EAD(노출액)와 CRM(담보효과)을 계산하는 핵심 비즈니스 로직입니다. */
+    /** 💡 [초보자 가이드] Spring Batch ItemProcessor 어댑터입니다. 실제 EAD/CRM/LGD 판단은 core pipeline이 수행합니다. */
     private final EadCrmProcessor eadCrmProcessor;
     
     /** 💡 [초보자 가이드] 최종 산출된 대손충당금 결과를 DB에 저장하는 저장소입니다. */
@@ -109,7 +109,7 @@ public class ExposureLgdBatchConfig {
         return new StepBuilder("eadCrmWorkerStep", jobRepository)
                 .<AllowanceEclResult, AllowanceEclResult>chunk(200, transactionManager) // 200건 단위 처리
                 .reader(pagingResultReader)                                  // 이전 단계 결과를 읽기
-                .processor(eadCrmProcessor)                                  // 핵심 연산(EAD/LGD)
+                .processor(eadCrmProcessor)                                  // batch adapter -> core EadCrmCalculationPipeline 위임
                 .writer(chunk -> allowanceResultRepository.saveAll(new ArrayList<AllowanceEclResult>(chunk.getItems())))
                 .build();
     }

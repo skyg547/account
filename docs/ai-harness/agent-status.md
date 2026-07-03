@@ -7,6 +7,9 @@
 | 2026-06-30 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | asset-lease split into core/api/batch; compile/test/bootJar verification passed. |
 | 2026-07-02 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Full Gradle/API/BATCH H2 smoke and representative Spring Batch Job verification passed; PostgreSQL path documented but not live-tested. |
 | 2026-07-02 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Account Mart core/batch boundary refactor verified; commit/push requested. |
+| 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | ECL core pipeline boundary refactor verified; not committed yet in this continuation. |
+
+| 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | ECL core pipeline and Journal Ledger Batch reaggregation refactor verified; commit/push requested. |
 
 ## Status Values
 

@@ -86,14 +86,14 @@ public class MainReportingBatchConfig {
     }
 
     /**
-     * [ECL Worker Step] 실제 ECL 연산 워커
+     * [ECL Worker Step] 결과 chunk를 core 미래전망 ECL pipeline으로 전달하는 워커
      */
     @Bean
     public Step eclWorkerStep() {
         return new StepBuilder("eclWorkerStep", jobRepository)
                 .<AllowanceEclResult, AllowanceEclResult>chunk(200, transactionManager) // 200건마다 DB에 커밋
                 .reader(pagingResultReader)
-                .processor(eclProcessor)
+                .processor(eclProcessor)                    // batch adapter -> core ForwardLookingEclCalculationPipeline 위임
                 .writer(chunk -> allowanceResultRepository.saveAll(new ArrayList<AllowanceEclResult>(chunk.getItems())))
                 .build();
     }

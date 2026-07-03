@@ -96,7 +96,8 @@ flowchart TB
 설계 기준:
 
 - `ecl-batch`는 Job/Step 흐름 제어만 담당한다.
-- 산식, 상태 판단, summary 생성 검증은 `ecl-core`의 service/domain/adapter에 둔다.
+- 산식, 상태 판단, summary 생성 검증은 `ecl-core`의 pipeline/service/domain/adapter에 둔다.
+- `ecl-batch`의 `ItemProcessor`는 `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`을 호출하는 어댑터로 제한한다.
 - 대량 입력과 summary 생성은 JDBC bulk SQL로 처리한다.
 - 금액과 비율 계산은 `BigDecimal` 중심으로 유지한다.
 

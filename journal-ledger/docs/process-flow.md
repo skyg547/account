@@ -89,6 +89,27 @@ sequenceDiagram
 | 거래처별 미결 조회 | `GET /api/unsettled/businesspartner/{businessPartnerCode}` | 거래처 코드 |
 | 반제 | `POST /api/unsettled/{id}/settle` | 금액, `settlementReference`, `X-User-ID` |
 
+## 잔액 재집계 Batch 흐름
+
+```mermaid
+sequenceDiagram
+    participant Scheduler as 운영자/스케줄러
+    participant Batch as dailyBalanceReaggregationJob
+    participant Tasklet as BalanceReaggregationTasklet
+    participant Service as LedgerService
+    participant Port as LedgerBalancePersistencePort
+    participant DB as GL/SL Balance
+
+    Scheduler->>Batch: startDate/endDate 또는 baseDate 전달
+    Batch->>Tasklet: reaggregateStep 실행
+    Tasklet->>Service: reaggregateLedgerBalancesForPeriod(startDate, endDate)
+    Service->>Port: 기존 기간 잔액 삭제
+    Service->>Port: POSTED 전표 라인 재조회
+    Service->>Port: GL/SL 잔액 재생성
+    Port->>DB: 기간 잔액 저장
+```
+
+초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. Batch는 날짜 파라미터를 해석하고 core 서비스를 호출할 뿐이며, 실제 잔액 계산과 저장 순서는 `LedgerService`와 출력 포트가 담당합니다.
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.

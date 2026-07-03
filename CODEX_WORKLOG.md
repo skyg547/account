@@ -1149,3 +1149,40 @@
   - ODS-GL 합계 대사는 H2/test 기준 검증이며 PostgreSQL 대량 데이터 플랜 검증은 남아 있음.
 - 롤백:
   - `git revert <이번 커밋>` 또는 `account-mart` 하위 변경 파일을 이전 커밋으로 되돌린다.
+
+## 2026-07-03 (ecl core pipeline boundary refactor)
+- 사용자 목표: 모듈을 순차 검수하면서 헥사고날/DDD/업무 프로세스 기준으로 리팩토링하고, 기존 주석과 초보자 문서를 보존·개선.
+- 수정 내용:
+  - `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`을 `ecl-core/application/pipeline`에 추가했다.
+  - `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`를 Spring Batch adapter로 축소했다.
+  - `AllowanceCalculationService`가 batch와 같은 core pipeline을 재사용하도록 변경했다.
+  - pipeline 단위 테스트 3개와 유즈케이스 서비스 테스트를 갱신했다.
+  - ecl 문서와 batch config 주석에 core pipeline / batch adapter 경계를 반영했다.
+- 검증:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` 성공.
+  - ecl-batch processor 내 계산 서비스/BigDecimal 직접 참조 검색 결과 없음.
+  - ecl-core Spring Batch 타입 직접 참조 검색 결과 없음(설명 주석 제외).
+  - ecl Java TODO 검색 결과 없음.
+- 리스크:
+  - PostgreSQL 대량 seed 기준 성능/실데이터 금액 검증은 남아 있다.
+- 롤백:
+  - 변경 커밋 생성 전이면 `git restore -- ecl docs/WORKLOG.md CODEX_WORKLOG.md docs/ai-harness/* docs/module-documentation-sequence.md GEMINI_REVIEW_PROMPT.md` 범위로 되돌릴 수 있다.
+## 2026-07-03 (journal-ledger balance reaggregation batch refactor)
+- 사용자 요청: 커밋/푸시 전까지 남은 모듈 순차 검수 결과를 반영하고, Spring Boot Batch 실행 경로를 실제 검증.
+- 수정 내용:
+  - `journal-ledger:batch`에 `dailyBalanceReaggregationJob` 실행 Tasklet과 JobParameter 기간 변환 유틸을 추가했다.
+  - `BalanceReaggregationBatchConfig`는 Job/Step 구성만 담당하도록 축소하고 core `LedgerService` 호출은 Tasklet adapter로 이동했다.
+  - `application.yml`의 H2 datasource/JPA/Batch 설정 계층을 수정하고, Batch test 의존성을 `spring-batch-test`로 보정했다.
+  - IntelliJ 실행 설정과 `journal-ledger`/전사 local-development 문서를 H2 local Batch Job 실행 기준으로 최신화했다.
+  - `Money` 값 객체의 깨진 초보자용 주석을 BigDecimal 금액 규칙 설명으로 복구했다.
+- 검증:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` 성공, `dailyBalanceReaggregationJob` COMPLETED.
+  - ecl/journal-ledger Java TODO/깨진문자 검색 결과 없음.
+  - 문서 literal `` `r`n`` 검색 결과 없음.
+  - `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
+- 리스크:
+  - PostgreSQL 대량 데이터 기준 잔액 재집계 성능/락/재실행 검증은 남아 있다.
+  - Batch bootRun의 Spring Cloud/Batch 조기 BeanPostProcessor WARN은 기존 의존성 조합 영향으로 남아 있다.
+- 롤백:
+  - 커밋 후에는 이번 커밋을 revert한다.

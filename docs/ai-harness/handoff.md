@@ -1,3 +1,41 @@
+# Latest Handoff - 2026-07-03 ECL + Journal Ledger
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: ECL core pipeline boundary refactor and Journal Ledger balance reaggregation Batch Job refactor.
+- Working tree intent: commit and push this combined refactor by explicit user request.
+
+## What Changed
+
+- `ecl-core` owns Stage/PD, EAD/LGD, and forward-looking ECL processing order through application pipelines.
+- `ecl-batch` processors now act as Spring Batch adapters and delegate to core pipelines.
+- `AllowanceCalculationService` reuses the same ECL core pipelines used by batch.
+- `journal-ledger:batch` now has `dailyBalanceReaggregationJob` with a Tasklet adapter and JobParameter date-range resolver.
+- `journal-ledger:batch` local H2 datasource/JPA/Batch YAML and Batch test dependency were corrected.
+- `journal-ledger` docs, `docs/local-development.md`, IntelliJ run config, and beginner comments were updated.
+
+## Verification Summary
+
+- `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1`: passed, Job status `COMPLETED`.
+- ECL/Journal Ledger Java TODO and mojibake search returned no matches.
+- `git diff --check`: no whitespace errors, CRLF conversion warnings only.
+
+## Known Risks
+
+- PostgreSQL high-volume seeded ECL and Journal Ledger balance reaggregation runs are not verified in this pass.
+- Journal Ledger Batch bootRun still logs Spring Cloud/Batch BeanPostProcessor warnings; they did not block Job completion.
+
+## Rollback
+
+- After commit: `git revert <commit>` for the combined ECL/Journal Ledger refactor.
+- Before commit: restore the changed `ecl`, `journal-ledger`, `.run`, docs, worklog, and Gemini prompt files carefully, preserving unrelated user changes.
+
+---
 # AI Harness Handoff
 
 ## Current State
@@ -6,36 +44,40 @@
 - Base branch: `main`
 - Push target: `origin/agent/asset-lease-split`
 - Current owner: Codex
-- Verification: account-mart core/batch boundary refactor passed focused Gradle test/compile checks.
+- Working tree: ecl core pipeline refactor is implemented and verified locally, but not committed in this continuation.
+- Verification: ecl core/batch focused tests passed.
 
 ## What Changed
 
-- `account-mart:mart-core` no longer implements Spring Batch `ItemProcessor`/`StepExecutionListener` in domain processors.
-- `account-mart:mart-batch` owns Spring Batch processor adapters and converts `StepExecution` job parameters through `BatchStepParameterUtils` before calling core.
-- Core `BatchParameterUtils` is now technology-neutral and accepts plain job parameter strings.
-- Removed unused `OdsApartCollDetailRepository`, which leaked JPA Repository into the application port layer.
-- ODS-GL reconciliation balance summary now aggregates by base date, account/subject, and currency instead of returning row-level balances.
-- Account-mart docs now explain the core/batch/API boundary for beginners and local reviewers.
+- `ecl-core` now owns Stage/PD, EAD/LGD, and forward-looking ECL processing order through application pipelines:
+  - `StagingCalculationPipeline`
+  - `EadCrmCalculationPipeline`
+  - `ForwardLookingEclCalculationPipeline`
+- `ecl-batch` processors are Spring Batch adapters only. They resolve job parameters or receive chunk items, then delegate to core pipelines.
+- `AllowanceCalculationService` reuses the same core pipelines so API/manual single-account calculation and batch calculation share the business sequence.
+- ecl README/docs and batch config beginner comments now describe the core pipeline / batch adapter boundary.
+- ecl pipeline tests were added, and the allowance use-case service test now verifies pipeline call order.
 
 ## Verification Summary
 
-- `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1`: passed.
-- `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1`: passed.
-- `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|StepExecutionListener|ExitStatus|StepScope" account-mart\mart-core\src\main\java account-mart\mart-core\src\test\java account-mart\mart-core\build.gradle`: only explanatory comment remains.
-- `rg -n "OdsDataQualityService dqService|OdsApartCollDetailRepository" account-mart`: no matches.
+- `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1`: passed.
+- `rg -n "AllowanceParameterService|PdCalculationService|LgdCalculationService|CcfCalculationService|EadCrmCalculationService|LifetimePdService|ForwardLookingEclService|BigDecimal|resolveMaturityYears|AllowanceEclResult\.builder" ecl\ecl-batch\src\main\java\com\ho\account\ecl\batch\processor`: no matches.
+- `rg -n "org\.springframework\.batch|ItemProcessor|StepExecution|JobParameters|StepScope" ecl\ecl-core\src\main\java ecl\ecl-core\build.gradle`: only explanatory comment remains.
+- `rg -n "@todo|TODO:" ecl --glob "*.java" --glob "!**/build/**"`: no matches.
 
 ## Known Risks
 
-- `mart-batch:test` logs existing shutdown WARNs from step-scope readers, but the Gradle task succeeds.
-- The `OdsApartCollDetail` domain object still has a follow-up `@todo` to connect it to the real collateral DQ/LGD flow.
-- PostgreSQL and high-volume ODS-GL reconciliation performance are not verified in this pass.
+- PostgreSQL high-volume seeded ECL run is not verified in this pass.
+- Gradle 9 deprecation warning remains from existing build configuration.
+- Current changes are local and uncommitted unless the user asks for commit/push.
 
 ## Rollback
 
-- Revert the account-mart commit produced by this handoff, or revert the changed `account-mart` files plus the corresponding worklog/handoff entries.
+- Before commit: use `git restore -- ecl docs/WORKLOG.md CODEX_WORKLOG.md docs/ai-harness docs/module-documentation-sequence.md GEMINI_REVIEW_PROMPT.md` with care for any unrelated user changes.
+- After commit: revert the ecl boundary refactor commit.
 
 ## Next Recommended Steps
 
-1. Have Gemini or a human reviewer inspect the account-mart boundary refactor against the DDD/hexagonal rules.
-2. Run PostgreSQL-backed reconciliation tests when a seeded local PostgreSQL dataset is available.
-3. Continue the sequential module review from the next module after account-mart.
+1. Run `git diff --check` before committing.
+2. Commit/push the ecl boundary refactor if requested.
+3. Continue the sequential module review with `journal-ledger` after ecl.

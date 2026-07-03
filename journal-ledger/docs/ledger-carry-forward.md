@@ -38,4 +38,4 @@
 
 ## 4. 주의사항 (Developer Tips)
 - **SCD2 연동:** 계정과목이나 부서가 변경되어도 원장의 이력은 보존되어야 하므로, 잔액 데이터 생성 시점의 마스터 데이터 정보를 정확히 참조합니다.
-- **역날짜 전표(Back-dated):** 과거 날짜의 전표를 입력할 경우, 그 이후 모든 날짜의 잔액을 다시 계산(Re-aggregation)해야 합니다. 현재는 `reaggregateLedgerBalancesForPeriod` 기능을 통해 이를 지원합니다.
+- **역날짜 전표(Back-dated):** 과거 날짜의 전표를 입력할 경우, 그 이후 모든 날짜의 잔액을 다시 계산(Re-aggregation)해야 합니다. 현재는 `reaggregateLedgerBalancesForPeriod`와 `journal-ledger:batch`의 `dailyBalanceReaggregationJob`으로 이를 지원합니다. JobParameter는 `startDate/endDate` 또는 단일 `baseDate`를 사용합니다.

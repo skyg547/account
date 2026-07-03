@@ -110,3 +110,41 @@
   - PostgreSQL high-volume reconciliation plan is not verified in this pass.
 - Rollback:
   - Revert this account-mart commit if the boundary refactor is rejected.
+
+## 2026-07-03 - ECL Core Pipeline Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Moved Stage/PD, EAD/LGD, and forward-looking ECL processing order from `ecl-batch` processors into `ecl-core` application pipelines.
+  - Reduced Spring Batch processors to adapter delegation.
+  - Reused the same core pipelines from `AllowanceCalculationService` so API/manual calculation and batch share the same business sequence.
+  - Updated ecl docs and beginner comments to describe the pipeline boundary.
+- Verification:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` passed.
+  - Batch processor search found no direct calculation service, `BigDecimal`, maturity, or builder logic.
+  - Core Spring Batch type search found no imports or implemented interfaces, only explanatory comments.
+  - ECL Java TODO search returned no matches.
+- Risks:
+  - PostgreSQL high-volume seeded ECL run is not verified in this pass.
+- Rollback:
+  - Revert the ecl files and worklog/handoff updates from this pass if the boundary refactor is rejected.
+## 2026-07-03 - Journal Ledger Batch Reaggregation Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added `dailyBalanceReaggregationJob` Tasklet adapter and JobParameter-to-date-range support.
+  - Kept journal-ledger core business work in `LedgerService`; batch now wires and delegates.
+  - Fixed batch H2 datasource/JPA YAML structure and Batch test dependency.
+  - Updated journal-ledger docs, local development guide, IntelliJ run config, and beginner comments.
+- Verification:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` passed with Job status `COMPLETED`.
+  - ECL and journal-ledger Java TODO/mojibake search returned no matches.
+  - `git diff --check` reported no whitespace errors, only CRLF conversion warnings.
+- Risks:
+  - PostgreSQL high-volume balance reaggregation is not verified in this pass.
+  - Spring Cloud/Batch BeanPostProcessor WARN remains during bootRun; it did not block Job completion.
+- Rollback:
+  - Revert the combined ECL/journal-ledger refactor commit if the boundary changes are rejected.

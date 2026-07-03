@@ -6,8 +6,8 @@
 
 ## 모듈 구성
 
-- `ecl-core`: IFRS 9 Stage, PD/LGD/EAD/ECL, summary 재생성 유즈케이스와 JDBC bulk adapter를 포함한다.
-- `ecl-batch`: Spring Batch Job/Step 오케스트레이션만 담당한다. 산식, 검증, bulk SQL 로직은 core service/adapter에 둔다.
+- `ecl-core`: IFRS 9 Stage, PD/LGD/EAD/ECL core pipeline, summary 재생성 유즈케이스와 JDBC bulk adapter를 포함한다.
+- `ecl-batch`: Spring Batch Job/Step 오케스트레이션과 ItemProcessor 어댑터만 담당한다. 산식, 상태 판단, bulk SQL 로직은 core pipeline/service/adapter에 둔다.
 - `ecl-api`: 스키마 마이그레이션과 외부 조회 API 계층이다.
 
 ## 주요 개념

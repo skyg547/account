@@ -16,6 +16,15 @@
 
 ---
 
+## Core pipeline 호출 구조
+
+`ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`는 Spring Batch의 `ItemProcessor` 어댑터입니다. 산식과 상태 판단은 아래 core pipeline이 담당합니다.
+
+- `StagingCalculationPipeline`: Stage 판정과 기초 PD 산출, 초기 `AllowanceEclResult` 생성
+- `EadCrmCalculationPipeline`: CCF, EAD, CRM 공제, LGD 확정
+- `ForwardLookingEclCalculationPipeline`: 잔존 만기, Lifetime PD, 거시 시나리오 가중 ECL 산출
+
+초보자 관점에서는 batch를 "일을 나눠 주는 실행 장치", core pipeline을 "업무 계산 순서가 들어 있는 처리 라인"으로 이해하면 됩니다.
 ## 🔄 단계별 재수행 가이드 (Recovery Guide)
 
 대손충당금(IFRS 9) 산출은 기준일 snapshot 동기화부터 회계 summary 생성까지 여러 단계로 이루어져 있습니다. 특정 단계에서 중단된 경우, 필요한 단독 Job으로 해당 지점부터 재개할 수 있습니다.

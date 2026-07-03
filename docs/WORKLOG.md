@@ -1092,3 +1092,50 @@
   - PostgreSQL/대량 seed 기준의 ODS-GL 대사 합계 성능 검증은 별도 통합 환경에서 필요하다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `account-mart` 하위 변경 파일과 관련 WORKLOG/handoff 항목을 revert한다.
+
+### 📅 2026-07-03 (ecl core pipeline 경계 리팩토링)
+### [검수/리팩토링] ecl-batch 업무 산출 순서 core pipeline 이동
+- **선확인**:
+  - `ecl/README.md`, `ecl/docs/README.md`, `ALLOWANCE_ARCHITECTURE.md`, `BATCH_EXECUTION_FLOW.md`, `ecl-core/README.md`, `ecl-batch/README.md`를 확인했다.
+  - `ecl-core`에는 Spring Batch 타입 직접 참조가 없고, JPA Repository는 infrastructure adapter 아래에만 있음을 확인했다.
+  - `ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`가 Stage/PD, EAD/LGD, 미래전망 ECL 산출 호출 순서를 직접 갖고 있어 batch adapter 책임이 과해진 부분을 확인했다.
+- **수정 범위**:
+  - `ecl-core/application/pipeline`: `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`을 추가했다.
+  - `ecl-batch/processor`: Spring Batch `ItemProcessor`는 기준일 파라미터 해석과 core pipeline 위임만 수행하도록 축소했다.
+  - `AllowanceCalculationService`: API/단건 산출도 동일한 core pipeline을 재사용하도록 정리해 batch/API 산출 순서 중복을 줄였다.
+  - `ecl-core` 테스트: core pipeline 테스트 3개를 추가하고, 유즈케이스 서비스 테스트를 pipeline 호출 순서 중심으로 갱신했다.
+  - ecl README/docs와 batch config 주석: batch adapter와 core pipeline 책임 분리를 초보자용 설명으로 최신화했다.
+- **검증**:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` 성공.
+  - `rg -n "AllowanceParameterService|PdCalculationService|LgdCalculationService|CcfCalculationService|EadCrmCalculationService|LifetimePdService|ForwardLookingEclService|BigDecimal|resolveMaturityYears|AllowanceEclResult\.builder" ecl\ecl-batch\src\main\java\com\ho\account\ecl\batch\processor` 결과 없음.
+  - `rg -n "org\.springframework\.batch|ItemProcessor|StepExecution|JobParameters|StepScope" ecl\ecl-core\src\main\java ecl\ecl-core\build.gradle` 결과 설명 주석 1건 외 실제 타입 참조 없음.
+  - `rg -n "@todo|TODO:" ecl --glob "*.java" --glob "!**/build/**"` 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL 대량 seed 기준 ECL 성능 검증은 이번 범위에서 수행하지 않았다.
+  - Gradle 9 deprecation warning은 기존과 동일하게 남아 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `ecl` 하위 변경 파일과 관련 WORKLOG/handoff 항목을 revert한다.
+### 📅 2026-07-03 (journal-ledger 잔액 재집계 Batch 경계 리팩토링)
+### [검수/리팩토링] Balance Reaggregation Job을 Spring Batch 실행 단위로 전환하고 local/H2 실행 경로 검증
+- **선확인**:
+  - `journal-ledger/README.md`, `journal-ledger/docs/README.md`, `process-flow.md`, `ledger-carry-forward.md`, `layer-guide.md`를 확인했다.
+  - 기존 `journal-ledger:batch`는 실행 모듈은 있었지만 문서상 실제 Job이 없고, `BalanceReaggregationBatchConfig`에 기준일 기본값과 실행 로직이 직접 섞여 있었다.
+- **수정 범위**:
+  - `BalanceReaggregationBatchConfig`: Job/Step wiring만 담당하도록 축소했다.
+  - `BalanceReaggregationTasklet`: Spring Batch Step에서 core `LedgerService.reaggregateLedgerBalancesForPeriod`를 호출하는 adapter로 추가했다.
+  - `BatchDateRangeParameterUtils`: `startDate/endDate`, `fromDate/toDate`, `baseDate`, `targetDate` JobParameter를 `LocalDate` 기간으로 변환하도록 추가했다.
+  - `journal-ledger/batch/application.yml`: H2 memory datasource와 Batch non-web/local 실행 기본값을 올바른 YAML 계층으로 정리했다.
+  - `journal-ledger/batch/build.gradle`: 잘못된 Batch test starter 좌표를 `org.springframework.batch:spring-batch-test`로 보정했다.
+  - `Money` 값 객체의 깨진 한글 주석을 BigDecimal/소수점 2자리 도메인 규칙 설명으로 복구했다.
+  - `journal-ledger` README/docs, `docs/local-development.md`, IntelliJ `.run/Journal Ledger Batch Reaggregation.run.xml`에 H2 local 실행 명령과 Job 파라미터를 반영했다.
+- **검증**:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` 성공, Job status `COMPLETED`.
+  - `rg -n "\?\?\?|�|@todo|TODO:" ecl journal-ledger --glob "*.java" --glob "!**/build/**"` 결과 없음.
+  - `Select-String -Path journal-ledger\README.md,journal-ledger\docs\README.md,journal-ledger\docs\process-flow.md,journal-ledger\docs\layer-guide.md,docs\local-development.md -SimpleMatch '`r`n'` 결과 없음.
+  - `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
+- **남은 리스크**:
+  - H2 빈 데이터 기준 smoke 검증이며, PostgreSQL 대량 seed 기준 잔액 재집계 성능/락/멱등성 검증은 별도 환경에서 필요하다.
+  - Batch bootRun 중 Spring Cloud/Batch 조기 BeanPostProcessor 경고가 출력되지만 Job 실행 실패를 유발하지 않았다. 운영 실행 최적화 시 Batch 모듈 starter 축소나 auto-configuration 정리를 검토한다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `journal-ledger` 하위 batch/docs 변경, `.run/Journal Ledger Batch Reaggregation.run.xml`, 관련 WORKLOG/handoff 항목을 revert한다.

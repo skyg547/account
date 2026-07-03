@@ -1,3 +1,48 @@
+# Latest Review Target - 2026-07-03 ECL + Journal Ledger
+
+Gemini는 이번 Codex 변경에서 아래 범위를 우선 검토하세요.
+
+1. ECL
+- `ecl-core/application/pipeline`의 `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`이 IFRS 9 Stage/PD, EAD/LGD, 미래전망 ECL 산출 순서를 올바르게 core에 두는지 확인하세요.
+- `ecl-batch` processor가 Spring Batch adapter 책임만 갖고 업무 산식/순서를 직접 구현하지 않는지 확인하세요.
+- `AllowanceCalculationService`와 Batch가 같은 core pipeline을 공유하면서 API/단건 산출과 Batch 산출의 업무 순서가 어긋나지 않는지 확인하세요.
+
+2. Journal Ledger
+- `dailyBalanceReaggregationJob`이 Job/Step wiring, Tasklet adapter, core `LedgerService` 호출로 책임이 나뉘어 있는지 확인하세요.
+- `BatchDateRangeParameterUtils`의 `startDate/endDate`, `fromDate/toDate`, `baseDate`, `targetDate` 해석과 기간 역전 검증이 재실행/운영 파라미터 관점에서 충분한지 확인하세요.
+- `journal-ledger/batch/application.yml`의 H2 local datasource/JPA/Batch 계층과 `spring.batch.job.enabled=false` 기본값이 로컬/운영 실행에 문제를 만들지 않는지 확인하세요.
+- `journal-ledger` docs와 `.run/Journal Ledger Batch Reaggregation.run.xml`의 명령이 실제 Gradle 실행 경로와 일치하는지 확인하세요.
+
+3. Codex 검증 결과
+- `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` 성공.
+- `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` 성공.
+- `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` 성공, Job status `COMPLETED`.
+- ECL/Journal Ledger Java TODO 및 깨진문자 검색 결과 없음.
+- `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
+
+4. 알려진 리스크
+- PostgreSQL 대량 seed 기준 성능/락/재실행 검증은 아직 수행하지 않았습니다.
+- Journal Ledger Batch bootRun에서 Spring Cloud/Batch BeanPostProcessor WARN은 남아 있으나 Job 실패는 유발하지 않았습니다.
+
+아래 기존 리뷰 지침도 함께 따르세요.
+
+---
+# 2026-07-03 ecl core pipeline boundary review
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `ecl`의 batch processor 업무 산출 순서를 `ecl-core/application/pipeline`으로 이동하고, `ecl-batch` processor를 Spring Batch adapter로 축소한 변경.
+- 우선 확인:
+  - `ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`가 산식/상태 판단/BigDecimal 계산을 직접 수행하지 않는지.
+  - `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`이 DDD/헥사고날 기준으로 core 업무 순서를 적절히 소유하는지.
+  - `AllowanceCalculationService`와 batch가 같은 core pipeline을 재사용해 API/Batch 산출 순서가 불일치하지 않는지.
+  - ecl README/docs와 batch config 주석이 실제 코드 흐름과 맞는지.
+- 재실행 권장:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1`
+  - `rg -n "AllowanceParameterService|PdCalculationService|LgdCalculationService|CcfCalculationService|EadCrmCalculationService|LifetimePdService|ForwardLookingEclService|BigDecimal|resolveMaturityYears|AllowanceEclResult\.builder" ecl\ecl-batch\src\main\java\com\ho\account\ecl\batch\processor`
+
+기존 장기 리뷰 프롬프트는 아래 내용을 참고하세요.
 # 2026-07-02 account-mart core/batch boundary review
 
 Gemini는 아래 최신 변경을 우선 리뷰하세요.
