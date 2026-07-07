@@ -1,18 +1,20 @@
 package com.ho.account.mart.batch.bootstrap;
 
-import com.ho.account.shared.finance.enums.*;
 import com.ho.account.mart.core.application.port.out.OdsAccountLedgerRepository;
+import com.ho.account.mart.core.application.port.out.OdsApartCollDetailRepository;
 import com.ho.account.mart.core.application.port.out.OdsCollateralMstRepository;
 import com.ho.account.mart.core.application.port.out.OdsCustomerMstRepository;
 import com.ho.account.mart.core.application.port.out.OdsProductMstRepository;
 import com.ho.account.mart.core.domain.ods.common.OdsCustomerMst;
 import com.ho.account.mart.core.domain.ods.common.OdsProductMst;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
+import com.ho.account.mart.core.domain.ods.loan.OdsApartCollDetail;
 import com.ho.account.mart.core.domain.ods.loan.OdsCollateralMst;
+import com.ho.account.shared.finance.enums.CustomerType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -36,6 +38,7 @@ public class DataPopulator {
     private final OdsCustomerMstRepository customerRepository;
     private final OdsProductMstRepository productRepository;
     private final OdsCollateralMstRepository collateralRepository;
+    private final OdsApartCollDetailRepository apartmentCollateralRepository;
 
     @Bean
     public CommandLineRunner initData() {
@@ -88,6 +91,7 @@ public class DataPopulator {
             // 3. 계정 원장 및 담보 데이터 생성
             List<OdsAccountLedger> accounts = new ArrayList<>();
             List<OdsCollateralMst> collaterals = new ArrayList<>();
+            List<OdsApartCollDetail> apartmentDetails = new ArrayList<>();
 
             for (int i = 1; i <= 2000; i++) {
                 OdsCustomerMst cust = customers.get(random.nextInt(customers.size()));
@@ -119,22 +123,40 @@ public class DataPopulator {
                 // 담보 설정 (60% 확률로 담보 설정)
                 if (random.nextDouble() > 0.4) {
                     BigDecimal collAmt = outstdAmt.multiply(new BigDecimal("1.2"));
+                    String collateralNo = "COLL-" + i;
+                    String collateralType = random.nextDouble() > 0.8 ? "CASH_DEPOSIT" : "REAL_ESTATE";
+
                     collaterals.add(OdsCollateralMst.builder()
-                            .collateralNo("COLL-" + i)
+                            .collateralNo(collateralNo)
                             .customerCode(cust.getCustomerCode())
-                            .collateralType(random.nextDouble() > 0.8 ? "CASH_DEPOSIT" : "REAL_ESTATE")
+                            .collateralType(collateralType)
                             .currency("KRW")
                             .appraisedValue(collAmt)
                             .pledgedAmount(collAmt.multiply(new BigDecimal("0.7")))
                             .valuationDate(LocalDate.now())
                             .isActive(true)
                             .build());
+
+                    // 부동산 담보는 DQ/LGD 선행 검증에 필요한 아파트 상세 시세를 함께 생성합니다.
+                    if ("REAL_ESTATE".equals(collateralType)) {
+                        apartmentDetails.add(OdsApartCollDetail.builder()
+                                .collateralId(collateralNo)
+                                .districtCode(String.format("D%04d", random.nextInt(250)))
+                                .kbMarketPrice(collAmt.multiply(new BigDecimal("1.05")))
+                                .houseType("APARTMENT")
+                                .exclusiveArea(BigDecimal.valueOf(59 + random.nextInt(85)))
+                                .floorNo(1 + random.nextInt(30))
+                                .isSpeculativeArea(random.nextDouble() > 0.9)
+                                .build());
+                    }
                 }
             }
 
             accountRepository.saveAll(accounts);
             collateralRepository.saveAll(collaterals);
-            log.info("✅ [데이터 생성] 고정밀 ODS 데이터 생성 완료: {}개 계좌가 생성되었습니다.", accounts.size());
+            apartmentCollateralRepository.saveAll(apartmentDetails);
+            log.info("✅ [데이터 생성] 고정밀 ODS 데이터 생성 완료: {}개 계좌, {}개 담보, {}개 아파트 상세가 생성되었습니다.",
+                    accounts.size(), collaterals.size(), apartmentDetails.size());
         };
     }
 }

@@ -12,10 +12,10 @@
 | `LeaseAccountingController` | `POST` | `/api/ifrs16/leases` | 리스 계약을 등록하고 IFRS 16 대상이면 최초 인식을 수행한다. |
 | `LeaseAccountingController` | `GET` | `/api/ifrs16/leases` | 활성 리스 계약 목록을 조회한다. |
 | `LeaseAccountingController` | `GET` | `/api/ifrs16/leases/{id}` | 리스 계약 단건을 조회한다. |
-| `LeaseAccountingController` | `POST` | `/api/ifrs16/leases/process-monthly/{processDate}` | 리스 월별 회계처리를 실행한다. |
+| `LeaseAccountingController` | `POST` | `/api/ifrs16/leases/process-monthly/{processDate}` | 실행자 헤더를 받아 리스 월별 회계처리를 실행한다. |
 | `LeaseAccountingController` | `POST` | `/api/ifrs16/leases/remeasure` | 리스료, 종료일, 할인율 변경을 반영한다. |
 
-고정자산 변경 API와 리스 등록/재측정 API는 `X-User-ID` 헤더가 필요하다. 고정자산은 `AssetHistory.auditUser`와 Kafka 이벤트에, 리스는 IFRS 16 최초 인식/재측정 이벤트의 `actor`에 기록된다.
+고정자산 변경 API와 리스 등록/월별 처리/재측정 API는 `X-User-ID` 헤더가 필요하다. 고정자산은 `AssetHistory.auditUser`와 Kafka 이벤트에, 리스는 IFRS 16 최초 인식/월별 처리/재측정 이벤트의 `actor`에 기록된다.
 
 ## 고정자산 등록 흐름
 
@@ -57,12 +57,13 @@ flowchart TD
 flowchart TD
     A[assetDepreciationJob] --> B[fixedAssetBulkStep]
     B --> C[RepositoryItemReader: ACTIVE 자산 1000건 단위 조회]
-    C --> D[ItemProcessor: 상각 결과 생성]
-    D --> E[ItemWriter: AssetPersistencePort.updateDepreciationBulk]
-    E --> F[AssetJdbcAdapter batchUpdate]
+    C --> D[ItemProcessor: row 전달]
+    D --> E[ItemWriter: DepreciationPipeline 계산]
+    E --> F[AssetPersistencePort.updateDepreciationBulk]
+    F --> G[AssetJdbcAdapter batchUpdate]
 ```
 
-Batch Config는 `targetDate=YYYY-MM-DD` JobParameter를 필수로 받아 chunk를 `DepreciationPipeline`에 넘긴다. Batch 모듈은 Reader/Processor/Writer 흐름만 조립하고, 상각 계산과 0원 상각 제외 판단은 core pipeline이 맡는다.
+Batch Config는 `targetDate=YYYY-MM-DD` JobParameter를 필수로 받아 chunk를 `DepreciationPipeline`에 넘긴다. Batch 모듈은 Reader/Processor/Writer 흐름만 조립하고, 상각 계산과 0원 상각 제외 판단은 core pipeline이 맡는다. core pipeline은 `FixedAsset.calculateDepreciation()`으로 결과 값 객체만 만들며 엔티티를 변경하지 않는다. 실제 DB 반영은 `AssetJdbcAdapter`의 JDBC bulk update가 한 번만 수행한다.
 
 ## IFRS 16 리스 등록 흐름
 

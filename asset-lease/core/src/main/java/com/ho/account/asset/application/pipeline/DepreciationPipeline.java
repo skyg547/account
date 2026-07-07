@@ -1,14 +1,13 @@
 package com.ho.account.asset.application.pipeline;
 
 import com.ho.account.asset.domain.FixedAsset;
+import com.ho.account.asset.domain.FixedAssetDepreciationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -22,14 +21,18 @@ import java.util.stream.Collectors;
 public class DepreciationPipeline {
 
     /**
-     * 자산 목록을 받아 당월 감가상각비를 산출합니다.
-     * @return 자산ID별 상각액 결과 맵
+     * 자산 목록을 받아 당월 감가상각 결과를 산출합니다.
+     *
+     * <p>초보자 설명: 이 파이프라인은 계산 결과만 만들고 자산 엔티티를 직접 변경하지 않습니다.
+     * 실제 DB 반영은 `AssetPersistencePort`의 JDBC bulk adapter가 담당합니다.</p>
+     *
+     * @return 자산ID별 상각액, 장부가, 상태 결과 목록
      */
-    public Map<Long, BigDecimal> calculateBatch(List<FixedAsset> assets, LocalDate targetDate) {
+    public List<FixedAssetDepreciationResult> calculateBatch(List<FixedAsset> assets, LocalDate targetDate) {
         return assets.stream()
                 .filter(asset -> "ACTIVE".equals(asset.getStatus()))
-                .map(asset -> Map.entry(asset.getId(), asset.depreciate(targetDate)))
-                .filter(entry -> entry.getValue().signum() > 0)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .map(asset -> asset.calculateDepreciation(targetDate))
+                .filter(FixedAssetDepreciationResult::shouldPersist)
+                .collect(Collectors.toList());
     }
 }

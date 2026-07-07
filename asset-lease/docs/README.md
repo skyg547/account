@@ -30,5 +30,6 @@
 - 유즈케이스 서비스: `core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService`, `LeaseEntryService`
 - Batch 오케스트레이터: `batch/src/main/java/com/ho/account/asset/batch/AssetDepreciationBatchConfig`
 - Batch 계산 파이프라인: `core/src/main/java/com/ho/account/asset/application/pipeline/DepreciationPipeline`
+- Batch 감가상각 결과 값: `FixedAssetDepreciationResult`
 - 도메인 모델: `FixedAsset`, `AssetHistory`, `LeaseContract`, `RightOfUseAsset`, `LeaseLiability`, `LeasePaymentSchedule`
 - 기술 어댑터: `AssetJdbcAdapter`, `AssetEventAdapter`, `AssetSourceDocumentProvider`

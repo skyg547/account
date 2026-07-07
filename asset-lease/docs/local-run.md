@@ -92,4 +92,4 @@ Content-Type: application/json
 .\gradlew :asset-lease:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=assetDepreciationJob targetDate=2026-06-30" --console=plain --max-workers=1
 ```
 
-초보자 관점에서는 `targetDate`가 "이번 배치가 어느 회계월의 상각을 처리하는지"를 고정하는 값이다. 재실행해도 같은 `targetDate`를 넣으면 같은 회계월 기준으로 처리된다. Batch 앱은 API 서버가 아니므로 `spring.main.web-application-type=none`으로 Tomcat을 띄우지 않고, Job 완료 상태를 Gradle 종료 코드로 확인한다.
+초보자 관점에서는 `targetDate`가 "이번 배치가 어느 회계월의 상각을 처리하는지"를 고정하는 값이다. 재실행해도 같은 `targetDate`를 넣으면 같은 회계월 기준으로 처리된다. Batch 앱은 API 서버가 아니므로 `spring.main.web-application-type=none`으로 Tomcat을 띄우지 않고, Job 완료 상태를 Gradle 종료 코드로 확인한다. 대량 감가상각은 core pipeline이 결과 값만 계산하고 `AssetJdbcAdapter`가 JDBC bulk update로 한 번만 반영하므로, 단건 API처럼 JPA 엔티티를 저장하는 흐름과 구분해서 본다.

@@ -1,3 +1,36 @@
+# 2026-07-07 asset-lease 감가상각 Batch 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `asset-lease` 대량 감가상각 batch에서 JPA 엔티티 mutation과 JDBC bulk update가 동시에 발생할 수 있는 경계 수정.
+- 우선 확인:
+  - `FixedAsset.calculateDepreciation()`이 상태를 변경하지 않고 `FixedAssetDepreciationResult`만 반환하는지.
+  - 단건 API 경로의 `FixedAsset.depreciate()`는 기존처럼 도메인 상태 전이를 수행하는지.
+  - `DepreciationPipeline`이 batch chunk를 결과 값 객체로 변환하고 엔티티를 변경하지 않는지.
+  - `AssetJdbcAdapter.updateDepreciationBulk()`가 상각누계액, 장부가액, 상태, 최종상각일을 결과 값 기준으로 한 번만 반영하는지.
+  - `AssetDepreciationBatchConfig`가 Job/Step/Reader/Writer orchestration만 담당하고 업무 계산은 core pipeline에 위임하는지.
+- 재실행 권장:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`
+  - `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|Tasklet|JobParameters|StepScope|JobScope" asset-lease\core\src\main\java asset-lease\core\src\test\java asset-lease\core\build.gradle --glob "*.java" --glob "*.gradle"`
+
+# 2026-07-07 account-mart 담보 DQ/LGD 상세 연결 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `account-mart`의 아파트/부동산 담보 상세(`OdsApartCollDetail`)를 실제 DQ/LGD 선행 흐름에 연결.
+- 우선 확인:
+  - `CollateralDataQualityInspectionService`가 application service로서 `OdsApartCollDetailRepository` port 조회와 domain processor 호출 순서만 조정하는지.
+  - `CollateralDataQualityProcessor`가 DB/JPA를 알지 않고 담보 마스터 평가액, 부동산/아파트 상세 존재 여부, KB 시세/지역/전용면적 필수값만 판단하는지.
+  - `OdsApartCollDetailPersistenceAdapter`와 `JpaOdsApartCollDetailRepository`가 infrastructure adapter 경계에 머무르는지.
+  - `CollateralDataQualityItemProcessor`가 Spring Batch adapter로서 기준일과 row 전달만 담당하는지.
+  - `DataPopulator`가 부동산 담보 seed 생성 시 `ods_apart_coll_detail` 상세를 함께 만들어 demo DQ 흐름을 깨지 않는지.
+  - `V5__add_ods_apart_coll_detail.sql`이 PostgreSQL/H2 호환 DDL로 충분한지.
+- 재실행 권장:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`
+  - `rg -n "@todo|TODO|FIXME" account-mart --glob "*.java" --glob "!**/build/**"`
+
 # Latest Review Target - 2026-07-03 Loan
 
 Gemini는 이번 Codex 변경에서 `loan` 모듈을 우선 검토하세요.

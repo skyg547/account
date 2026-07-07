@@ -1,3 +1,30 @@
+## 2026-07-07 (수정: asset-lease 감가상각 Batch 계산/반영 경계 분리)
+- 수정 내용:
+  - `FixedAssetDepreciationResult` 값 객체를 추가했다.
+  - `FixedAsset.calculateDepreciation()`은 mutation 없는 batch preview 계산으로 추가하고, `depreciate()`는 단건 API 상태 전이 경로로 유지했다.
+  - `DepreciationPipeline`이 엔티티를 변경하지 않고 결과 값 목록을 반환하도록 변경했다.
+  - `AssetPersistencePort`/`AssetJdbcAdapter`가 결과 값 기준으로 상각누계액, 장부가액, 상태, 최종상각일을 JDBC bulk update로 한 번만 반영하도록 변경했다.
+  - `AssetDepreciationBatchConfig`와 asset-lease 문서를 최신화했다.
+  - 리스 월별 회계처리 API/유즈케이스도 `X-User-ID`를 받아 IFRS 16 월별 처리 이벤트의 actor로 기록하도록 보강했다.
+- 검증:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1` 성공.
+- 남은 리스크:
+  - PostgreSQL/H2 실제 대량 Job 실행과 `updated_at = NOW()` 운영 DDL 정합성은 추가 확인이 필요하다.
+
+## 2026-07-07 (수정: account-mart 담보 상세 DQ/LGD 연결)
+- 수정 내용:
+  - `OdsApartCollDetail`의 `@todo`를 실제 구현으로 전환하고 LGD 필수 입력값 검증 메서드를 추가했다.
+  - `OdsApartCollDetailRepository` port, JPA repository, persistence adapter를 추가했다.
+  - `CollateralDataQualityInspectionService`가 application service에서 상세 port 조회와 domain processor 호출을 조정하도록 추가했다.
+  - `CollateralDataQualityProcessor`는 담보 마스터 평가액과 아파트 상세 필수값을 판단하는 순수 DQ 규칙으로 보강했다.
+  - `CollateralDataQualityItemProcessor`는 batch adapter로 축소하고, `DataPopulator`는 부동산 담보 상세 seed를 함께 생성하도록 보강했다.
+  - `V5__add_ods_apart_coll_detail.sql`과 account-mart 문서/Gemini prompt를 갱신했다.
+- 검증:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
+  - account-mart Java TODO 검색 결과 없음.
+- 남은 리스크:
+  - PostgreSQL Flyway 적용과 운영 대량 담보 상세 조회 성능은 아직 검증하지 않았다.
+
 # CODEX WORKLOG
 
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
@@ -1155,7 +1182,7 @@
   - ODS-GL 대사 조회를 계정/통화 합계 기준 JPA query로 보정했다.
   - account-mart 문서에 core/batch 헥사고날 경계 설명을 추가했다.
 - 검증:
-  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
   - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
   - core Spring Batch 타입 직접 참조 검색 결과 없음(설명 주석 제외).
   - 미사용 skeleton 포트/테스트 mock 잔존 검색 결과 없음.

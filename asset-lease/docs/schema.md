@@ -129,12 +129,13 @@ erDiagram
 - `LeaseContract` 엔티티의 `paymentDay`, `expenseAccountCode`, `shortTermLease`, `lowValueLease` 컬럼 반영 여부.
 - `RightOfUseAsset`, `LeaseLiability` 테이블 생성 migration 존재 여부.
 - `LeasePaymentSchedule`의 join column 명칭과 migration의 `contract_id` 명칭 일치 여부.
-- `AssetJdbcAdapter`가 갱신하는 `updated_at` 컬럼이 실제 운영 테이블에 존재하는지 여부.
+- `AssetJdbcAdapter`가 갱신하는 `updated_at` 컬럼과 `status` 컬럼이 실제 운영 테이블에 존재하는지 여부.
 
 ## 정합성 체크 포인트
 
 - 금액 계산은 `BigDecimal`을 사용한다.
-- 고정자산 상각은 장부가액이 잔존가치 아래로 내려가지 않도록 `FixedAsset.depreciate`에서 보정한다.
+- 고정자산 상각은 장부가액이 잔존가치 아래로 내려가지 않도록 `FixedAsset.calculateDepreciation`과 `FixedAsset.depreciate`에서 보정한다.
+- 단건 API의 `depreciate`는 엔티티 상태를 변경하고, 대량 Batch의 `calculateDepreciation`은 결과 값만 만들어 JDBC bulk update가 한 번만 반영한다.
 - 자산 변경은 `AssetHistory`에 감사 이력을 남긴다.
 - 리스 지급 스케줄은 이자, 원금, 잔여 리스부채를 회차별로 보관한다.
-- 리스 회계 계정 코드는 현재 `LeaseEntryService` 상수로 관리되며, 설정 기반 포트 분리가 필요해 `@todo`로 표시했다.
+- 리스 회계 계정 코드는 `LeaseAccountMappingPort` 뒤로 분리되어 설정/정책 어댑터에서 가져온다.

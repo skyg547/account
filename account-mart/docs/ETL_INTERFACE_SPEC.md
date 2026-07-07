@@ -7,7 +7,8 @@
 | `ods_account_ledger` | 잔액, 한도, 만기, 연체일수 기반 EAD/Stage 입력 |
 | `ods_customer_mst` | 고객 유형, 등급, 산업, 국가 코드 |
 | `ods_product_mst` | 상품 코드와 회계 계정 매핑 보조 |
-| `ods_collateral_mst` | 담보 유형과 평가액 |
+| `ods_collateral_mst` / `ods_coll_mst` | 담보 유형과 평가액 |
+| `ods_apart_coll_detail` | 부동산/아파트 담보의 지역 코드, KB 시세, 전용면적 기반 LGD 선행 입력 검증 |
 | `ods_general_ledger` | ODS 잔액 대사 |
 | `exchange_rate` | 외화 익스포저 원화 환산 |
 
@@ -29,6 +30,7 @@ CLI 실행 예시는 다음과 같습니다.
 ## 인터페이스 정합성 포인트
 
 - 원천 계좌와 고객 기준정보는 같은 기준일 기준으로 맞춰야 합니다.
+- 부동산/아파트 담보는 마스터와 상세 데이터가 같은 담보번호로 연결되어야 합니다.
 - 외화 익스포저는 환율 누락 시 snapshot 생성 전에 실패 또는 격리되어야 합니다.
 - ODS와 GL 대사는 잔액 총액뿐 아니라 통화/계정 축을 함께 확인해야 합니다.
 - ETL 완료 후 ECL 모듈이 읽는 snapshot은 더 이상 원천 변경에 흔들리지 않는 고정 입력이어야 합니다.

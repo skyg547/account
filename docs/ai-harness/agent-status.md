@@ -14,6 +14,8 @@
 | 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Closing core/batch boundary refactor committed and pushed. |
 
 | 2026-07-03 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Loan journal port boundary, Batch JobRegistry, and local H2 API/BATCH smoke verified. |
+| 2026-07-07 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Account Mart collateral detail DQ/LGD prerequisite flow connected and core tests passed. |
+| 2026-07-07 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Asset Lease depreciation batch calculation/persistence boundary separated and core tests passed. |
 
 ## Status Values
 

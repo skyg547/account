@@ -1,3 +1,73 @@
+# Latest Handoff - 2026-07-07 Asset Lease
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: `asset-lease` depreciation batch calculation/persistence boundary.
+- Working tree: local uncommitted account-mart and asset-lease changes exist.
+
+## What Changed
+
+- `FixedAssetDepreciationResult` now carries depreciation amount, resulting accumulated depreciation, resulting book value, and resulting status.
+- `FixedAsset.calculateDepreciation()` calculates without mutating the entity; `FixedAsset.depreciate()` still performs the single-asset state transition for API/service paths.
+- `DepreciationPipeline` returns result values and avoids JPA entity mutation in batch chunks.
+- `AssetJdbcAdapter.updateDepreciationBulk()` writes calculated values and status once through JDBC bulk update.
+- `AssetDepreciationBatchConfig` remains orchestration-only and delegates calculation to core pipeline.
+- asset-lease docs were updated for the new batch flow.
+
+## Verification Summary
+
+- `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`: passed.
+
+## Known Risks
+
+- Actual large seeded `assetDepreciationJob` execution was not run in this pass.
+- `updated_at = NOW()` compatibility with the final production PostgreSQL/Flyway DDL should be checked when Flyway is enabled.
+
+## Rollback
+
+- Before commit: restore `asset-lease` and related `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` changes carefully.
+- After commit: revert the asset-lease depreciation boundary commit.
+
+---
+# Latest Handoff - 2026-07-07 Account Mart
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: `account-mart` collateral detail DQ/LGD prerequisite flow.
+- Working tree: local uncommitted account-mart changes exist.
+
+## What Changed
+
+- `OdsApartCollDetail` now contains LGD required-input validation and no longer carries the previous implementation `@todo`.
+- `OdsApartCollDetailRepository` outbound port, `JpaOdsApartCollDetailRepository`, and `OdsApartCollDetailPersistenceAdapter` connect apartment collateral detail through hexagonal boundaries.
+- `CollateralDataQualityInspectionService` loads apartment detail through the port and delegates business judgement to `CollateralDataQualityProcessor`.
+- `CollateralDataQualityProcessor` now checks collateral master appraisal, real-estate/apartment detail existence, and district/KB market price/exclusive-area input quality.
+- `CollateralDataQualityItemProcessor` remains a Spring Batch adapter and delegates to the core application service.
+- `DataPopulator` creates apartment collateral details for generated real-estate collateral rows.
+- `V5__add_ods_apart_coll_detail.sql` and account-mart docs were updated.
+
+## Verification Summary
+
+- `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`: passed.
+- `rg -n "@todo|TODO|FIXME" account-mart --glob "*.java" --glob "!**/build/**"`: no matches.
+
+## Known Risks
+
+- PostgreSQL Flyway execution was not run in this pass.
+- High-volume collateral detail lookup performance and final LGD formula integration require separate integration verification.
+
+## Rollback
+
+- Before commit: restore `account-mart` and related `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` changes carefully.
+- After commit: revert the account-mart collateral DQ/LGD commit.
+
+---
 # Latest Handoff - 2026-07-03 Loan
 
 ## Current State

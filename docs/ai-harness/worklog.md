@@ -1,3 +1,33 @@
+## 2026-07-07 - Asset Lease depreciation batch boundary
+- Branch: `agent/asset-lease-split`
+- Scope: `asset-lease` core/domain/pipeline/port/adapter/batch/docs
+- Changes:
+  - Added `FixedAssetDepreciationResult` for batch-safe depreciation results.
+  - Added mutation-free `FixedAsset.calculateDepreciation()` and kept `depreciate()` as the single-asset state transition path.
+  - Updated `DepreciationPipeline` to return result values without mutating JPA entities.
+  - Updated `AssetJdbcAdapter` to persist calculated accumulated depreciation, book value, status, and last depreciation date once through JDBC bulk update.
+  - Updated asset-lease docs and Gemini review prompt.
+- Verification:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`: passed.
+- Risk:
+  - Actual high-volume PostgreSQL/H2 job execution and production Flyway DDL compatibility need integration verification.
+
+## 2026-07-07 - Account Mart 담보 상세 DQ/LGD 연결
+- Branch: `agent/asset-lease-split`
+- Scope: `account-mart` core/application/domain/infrastructure/batch/docs/migration
+- Changes:
+  - Connected `OdsApartCollDetail` to the real collateral DQ/LGD prerequisite flow.
+  - Added `OdsApartCollDetailRepository` outbound port and JPA persistence adapter.
+  - Added `CollateralDataQualityInspectionService` so application service coordinates port lookup and domain processor invocation.
+  - Updated batch item processor to delegate to the core application service.
+  - Added demo/bootstrap apartment collateral detail seed and Flyway V5 table DDL.
+  - Updated account-mart beginner/business-flow docs and Gemini handoff prompt.
+- Verification:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`: passed.
+  - account-mart Java TODO search: no matches.
+- Risk:
+  - PostgreSQL Flyway execution, high-volume collateral detail lookup performance, and final LGD formula integration still require integration environment verification.
+
 
 ## 2026-07-03 - Loan 전표 포트 경계 및 실행 문서 최신화
 - Branch: `agent/asset-lease-split`
@@ -118,7 +148,7 @@
   - Corrected ODS-GL reconciliation balance summary to aggregate by base date, subject/account, and currency.
   - Updated account-mart docs with beginner-friendly core/batch responsibility boundaries.
 - Verification:
-  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` passed.
   - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` passed.
   - Core Spring Batch type search returned only explanatory comments, no imports or implemented interfaces.
   - Unused skeleton port search returned no matches.

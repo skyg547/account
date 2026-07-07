@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface LeaseUseCase {
     LeaseContract registerLeaseContract(LeaseContract contract, String actor);
-    void processMonthlyLeaseAccounting(LocalDate processDate);
+    void processMonthlyLeaseAccounting(LocalDate processDate, String actor);
     void processMonthlyLeasePayment(LocalDate paymentDate);
     LeaseContract remeasureLease(Long contractId, LocalDate remeasureDate, BigDecimal newPayment, LocalDate newEndDate, BigDecimal newRate, String actor);
     Optional<LeaseContract> getLeaseContract(Long id);

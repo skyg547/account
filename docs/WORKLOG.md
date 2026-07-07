@@ -1,3 +1,48 @@
+### 📅 2026-07-07 (Codex 수정)
+### [수정] asset-lease 대량 감가상각 Batch 계산/반영 경계 분리
+- **작업 배경**:
+  - `assetDepreciationJob`이 core `DepreciationPipeline`을 사용하고 있었지만, pipeline이 `FixedAsset.depreciate()`를 호출해 JPA 엔티티 상태를 먼저 변경한 뒤 writer가 다시 JDBC bulk update를 수행했다.
+  - 이 구조는 JPA flush 조건에 따라 감가상각이 이중 반영될 수 있고, JDBC bulk update가 `FULLY_DEPRECIATED` 상태를 저장하지 못하는 리스크가 있었다.
+- **수정 범위**:
+  - `FixedAssetDepreciationResult` 값 객체를 추가해 상각액, 반영 후 상각누계액, 장부가액, 상태를 명시했다.
+  - `FixedAsset.calculateDepreciation()`은 상태를 변경하지 않는 preview 계산으로 추가하고, 기존 `depreciate()`는 단건 API용 상태 전이 메서드로 유지했다.
+  - `DepreciationPipeline`은 batch chunk를 `FixedAssetDepreciationResult` 목록으로 변환하고 엔티티를 변경하지 않게 했다.
+  - `AssetPersistencePort`와 `AssetJdbcAdapter`는 결과 값 기준으로 상각누계액, 장부가액, 상태, 최종상각일을 JDBC bulk update로 한 번만 반영하도록 변경했다.
+  - `AssetDepreciationBatchConfig`는 Reader/Processor/Writer orchestration만 유지하고 writer에서 core pipeline과 port를 호출하도록 정리했다.
+  - 리스 월별 회계처리 API/유즈케이스도 `X-User-ID`를 받아 IFRS 16 월별 처리 이벤트의 actor로 기록하도록 보강했다.
+  - asset-lease README/docs와 Gemini prompt/운영 로그를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :asset-lease:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1`
+- **검증 결과**:
+  - asset-lease core 테스트, api 컴파일, batch 컴파일 성공.
+  - `:asset-lease:batch:bootRun` local/H2 context smoke 성공. 로컬 JPA DDL의 `fixed_assets`에 `created_at`, `updated_at` 컬럼이 생성됨을 확인했다.
+- **남은 리스크**:
+  - PostgreSQL/H2 실제 대량 Job 실행에서 `updated_at = NOW()`와 운영 테이블 컬럼 정합성은 별도 확인이 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `asset-lease` 하위 감가상각 domain/pipeline/port/adapter/batch/docs 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-07 (Codex 수정)
+### [수정] account-mart 담보 상세 DQ/LGD 선행 데이터 연결
+- **작업 배경**:
+  - `OdsApartCollDetail`가 도메인 객체와 JPA Entity만 있고 실제 담보 DQ/LGD 선행 검증 흐름에는 연결되지 않아 `@todo`로 남아 있었다.
+  - 부동산/아파트 담보는 마스터 평가액뿐 아니라 지역 코드, KB 시세, 전용면적 같은 상세 입력값이 있어야 ECL LGD 산출 전 데이터 품질을 판단할 수 있다.
+- **수정 범위**:
+  - `OdsApartCollDetail`에 LGD 필수 입력값 검증 메서드와 초보자용 업무 설명을 추가하고 기존 `@todo`를 제거했다.
+  - `OdsApartCollDetailRepository` port, `JpaOdsApartCollDetailRepository`, `OdsApartCollDetailPersistenceAdapter`를 추가해 헥사고날 조회 경계를 연결했다.
+  - `CollateralDataQualityInspectionService`를 추가해 application service가 상세 port 조회와 domain processor 호출 순서를 조정하게 했다.
+  - `CollateralDataQualityProcessor`는 DB를 알지 않고 담보 마스터 평가액, 부동산/아파트 상세 존재 여부, KB 시세/지역/전용면적 DQ만 판단하도록 보강했다.
+  - `CollateralDataQualityItemProcessor`는 Spring Batch adapter로 축소하고 core application service에 위임하도록 정리했다.
+  - demo/bootstrap `DataPopulator`가 부동산 담보 생성 시 아파트 상세 seed를 함께 저장하도록 보강했다.
+  - `V5__add_ods_apart_coll_detail.sql`과 account-mart README/docs/Gemini prompt/운영 로그를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`
+- **검증 결과**:
+  - account-mart core 테스트, mart-api 컴파일, mart-batch 테스트 성공.
+  - Java TODO 검색에서 account-mart 내 `@todo/TODO/FIXME` 잔여 항목 없음.
+- **남은 리스크**:
+  - PostgreSQL 실제 Flyway 적용, 운영 대량 담보 상세 조회 성능, LGD 본 산출식과의 정량 연결은 별도 통합 검증이 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `account-mart` 하위 담보 DQ/adapter/migration/docs 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
 # WORKLOG (Source of Truth)
 
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
@@ -1107,7 +1152,7 @@
 - **검증**:
   - `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|StepExecutionListener|ExitStatus|StepScope" account-mart\mart-core\src\main\java account-mart\mart-core\src\test\java account-mart\mart-core\build.gradle` 결과 실제 타입 참조 없음(설명 주석 1건만 존재).
   - `rg -n "OdsDataQualityService dqService|OdsApartCollDetailRepository" account-mart` 결과 없음.
-  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
   - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
 - **남은 리스크**:
   - `mart-batch:test` shutdown 시 기존 step-scope reader close WARN이 출력되지만 테스트 실패는 아니다.

@@ -84,10 +84,11 @@ public class LeaseEntryService implements LeaseUseCase {
 
     @Override
     @Transactional
-    public void processMonthlyLeaseAccounting(LocalDate processDate) {
+    public void processMonthlyLeaseAccounting(LocalDate processDate, String actor) {
+        String auditActor = requireActor(actor);
         List<LeaseContract> activeContracts = persistencePort.findIfrs16ApplicableActiveContracts();
         for (LeaseContract contract : activeContracts) {
-            processContractMonthlyAccounting(contract, processDate);
+            processContractMonthlyAccounting(contract, processDate, auditActor);
         }
     }
 
@@ -136,7 +137,7 @@ public class LeaseEntryService implements LeaseUseCase {
         return persistencePort.findActiveContracts("ACTIVE");
     }
 
-    private void processContractMonthlyAccounting(LeaseContract contract, LocalDate processDate) {
+    private void processContractMonthlyAccounting(LeaseContract contract, LocalDate processDate, String actor) {
         LeasePaymentSchedule schedule = persistencePort.findSchedulesByContract(contract)
                 .stream()
                 .filter(s -> s.getPaymentDate().getYear() == processDate.getYear() && s.getPaymentDate().getMonth() == processDate.getMonth())
@@ -171,7 +172,8 @@ public class LeaseEntryService implements LeaseUseCase {
         event.put("totalPayment", schedule.getScheduledPaymentAmount());
         event.put("accountingDate", processDate.toString());
         event.put("deptCode", contract.getDepartmentCode());
-        
+        event.put("actor", actor);
+
         eventPort.sendAssetEvent(TOPIC, event);
     }
 
