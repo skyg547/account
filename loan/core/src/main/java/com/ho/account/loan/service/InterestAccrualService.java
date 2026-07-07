@@ -1,12 +1,9 @@
 package com.ho.account.loan.service;
 
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.loan.domain.LoanAccrualLog;
+import com.ho.account.loan.application.port.out.LoanJournalPort;
+import com.ho.account.loan.application.port.out.LoanJournalPort.PostedJournal;
 import com.ho.account.loan.domain.Loan;
+import com.ho.account.loan.domain.LoanAccrualLog;
 import com.ho.account.loan.infrastructure.persistence.LoanAccrualLogRepository;
 import com.ho.account.loan.infrastructure.persistence.LoanAmortizationScheduleEntryRepository;
 import com.ho.account.loan.infrastructure.persistence.LoanRepository;
@@ -21,14 +18,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Daily interest accrual service for active loan contracts.
+ *
+ * <p>이 서비스는 일일 이자 발생이라는 업무 유즈케이스의 순서를 책임집니다.
+ * 스케줄 조회, 중복 로그 확인, 계정 검증, 전표 요청, 처리 로그 저장을 한 트랜잭션 흐름으로 묶되,
+ * journal-ledger의 엔티티 생성/승인/전기 방식은 {@link LoanJournalPort} 출력 포트 뒤로 숨깁니다.
  */
 @Service
 public class InterestAccrualService {
 
+    private static final String SYSTEM_ACTOR = "SYSTEM";
+    private static final String LINEAGE_SOURCE_TYPE = "LOAN";
+
     private final LoanRepository loanRepository;
     private final LoanAmortizationScheduleEntryRepository amortizationRepository;
     private final LoanAccrualLogRepository accrualLogRepository;
-    private final JournalUseCase journalUseCase;
+    private final LoanJournalPort journalPort;
     private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final LoanAccountingProperties accountingProperties;
 
@@ -36,13 +40,13 @@ public class InterestAccrualService {
             LoanRepository loanRepository,
             LoanAmortizationScheduleEntryRepository amortizationRepository,
             LoanAccrualLogRepository accrualLogRepository,
-            JournalUseCase journalUseCase,
+            LoanJournalPort journalPort,
             AccountSubjectPersistencePort accountSubjectPersistencePort,
             LoanAccountingProperties accountingProperties) {
         this.loanRepository = loanRepository;
         this.amortizationRepository = amortizationRepository;
         this.accrualLogRepository = accrualLogRepository;
-        this.journalUseCase = journalUseCase;
+        this.journalPort = journalPort;
         this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.accountingProperties = accountingProperties;
     }
@@ -68,12 +72,12 @@ public class InterestAccrualService {
                     log.setLoan(loan);
                     log.setAccrualDate(accrualDate);
                     log.setAccruedAmount(interestAmount);
-                    log.setAuditUser("SYSTEM");
+                    log.setAuditUser(SYSTEM_ACTOR);
 
                     try {
-                        JournalEntry journalEntry = createAccrualJournal(loan, interestAmount, accrualDate);
-                        JournalEntry savedJournal = createAndPostJournal(journalEntry);
-                        log.setJournalNo(savedJournal.getSlipNo());
+                        PostedJournal postedJournal = postAccrualJournal(loan, interestAmount, accrualDate);
+                        log.setJournalEntryId(postedJournal.journalEntryId());
+                        log.setJournalNo(postedJournal.slipNo());
                         log.setStatus("SUCCESS");
                     } catch (Exception e) {
                         log.setStatus("FAILED");
@@ -84,55 +88,37 @@ public class InterestAccrualService {
                 });
     }
 
-    private JournalEntry createAccrualJournal(Loan loan, BigDecimal amount, LocalDate date) {
+    private PostedJournal postAccrualJournal(Loan loan, BigDecimal amount, LocalDate date) {
         AccountSubject accruedInterestReceivable = resolveAccount(
                 accountingProperties.getAccruedInterestReceivableAccountCode());
         AccountSubject interestIncome = resolveAccount(
                 accountingProperties.getInterestIncomeAccountCode());
 
-        JournalEntry entry = new JournalEntry();
-        entry.setSlipNo(date + "-LOAN-ACCRUAL-" + System.currentTimeMillis());
-        entry.setSlipDate(LocalDate.now());
-        entry.setAccountingDate(date);
-        entry.setDescription("Loan daily interest accrual: " + loan.getLoanNumber());
-        entry.setStatus(JournalEntryStatus.DRAFT);
-        entry.setEntryType("NORMAL");
-        entry.setCreatedBy("SYSTEM");
-        entry.setAuditUser("SYSTEM");
-        entry.setLineageSourceType("LOAN");
-        entry.setCurrencyCode(resolveLoanCurrencyCode(loan));
-        if (loan.getId() != null) {
-            entry.setLineageSourceId(loan.getId().toString());
-        }
-
-        JournalDetail debit = new JournalDetail();
-        debit.setSide(JournalSide.DEBIT);
-        debit.setAmount(amount);
-        debit.setBaseAmount(amount);
-        debit.setDetailDescription("Accrued interest receivable");
-        debit.setAccountCode(accruedInterestReceivable.getCode());
-
-        JournalDetail credit = new JournalDetail();
-        credit.setSide(JournalSide.CREDIT);
-        credit.setAmount(amount);
-        credit.setBaseAmount(amount);
-        credit.setDetailDescription("Interest income accrual");
-        credit.setAccountCode(interestIncome.getCode());
-
-        entry.addDetail(debit);
-        entry.addDetail(credit);
-
-        return entry;
+        return journalPort.post(new LoanJournalPort.LoanJournalCommand(
+                date,
+                "Loan daily interest accrual: " + loan.getLoanNumber(),
+                SYSTEM_ACTOR,
+                LINEAGE_SOURCE_TYPE,
+                requireLoanId(loan),
+                resolveLoanCurrencyCode(loan),
+                List.of(
+                        new LoanJournalPort.LoanJournalLine(
+                                "DEBIT",
+                                accruedInterestReceivable.getCode(),
+                                amount,
+                                "Accrued interest receivable"),
+                        new LoanJournalPort.LoanJournalLine(
+                                "CREDIT",
+                                interestIncome.getCode(),
+                                amount,
+                                "Interest income accrual"))));
     }
 
-    private JournalEntry createAndPostJournal(JournalEntry journalEntry) {
-        JournalEntry savedEntry = journalUseCase.createJournalEntry(journalEntry);
-        if (savedEntry == null || savedEntry.getId() == null) {
-            throw new IllegalStateException("Loan accrual journal entry was not persisted with an id.");
+    private String requireLoanId(Loan loan) {
+        if (loan.getId() == null) {
+            throw new IllegalStateException("Loan id is required for accrual journal lineage.");
         }
-        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
-        journalUseCase.postJournalEntry(savedEntry.getId(), "SYSTEM");
-        return journalUseCase.getJournalEntry(savedEntry.getId()).orElse(savedEntry);
+        return loan.getId().toString();
     }
 
     private String resolveLoanCurrencyCode(Loan loan) {

@@ -35,7 +35,7 @@ public class LoanEventDto {
                 .eventDate(entity.getEventDate())
                 .description(entity.getDescription())
                 .relatedJournalEntryId(entity.getRelatedJournalEntryId())
-                .relatedJournalEntrySlipNo(null)
+                .relatedJournalEntrySlipNo(entity.getRelatedJournalEntrySlipNo())
                 .recalculationRunId(entity.getRecalculationRun() != null ? entity.getRecalculationRun().getId() : null)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

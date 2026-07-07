@@ -1,3 +1,20 @@
+
+## 2026-07-03 - Loan 전표 포트 경계 및 실행 문서 최신화
+- Branch: `agent/asset-lease-split`
+- Scope: `loan` core/service/domain/batch/docs/run configs
+- Changes:
+  - `InterestAccrualService` now posts accrual journals through `LoanJournalPort` instead of journal-ledger internal types.
+  - Loan accrual/event/EIR schedule journal references are stored as ID/slipNo values.
+  - `V32__loan_accrual_journal_reference.sql` and migration assertions were added.
+  - `LoanBatchJobRegistryConfiguration` removes the Spring Batch JobRegistry early BeanPostProcessor warning.
+  - Loan local-run docs and IntelliJ `.run` configs now set app name and disable Redis repository scanning for local smoke.
+- Verification:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks`: passed.
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`: passed.
+  - `:loan:api:bootRun` local/H2 context smoke: passed.
+  - `:loan:batch:bootRun` local/H2 context smoke: passed; JobRegistry warning not reproduced.
+- Risk:
+  - PostgreSQL and high-volume seeded accrual Job were not verified.
 # AI Harness Worklog
 
 ## 2026-06-25 - Harness Upgrade Bootstrap

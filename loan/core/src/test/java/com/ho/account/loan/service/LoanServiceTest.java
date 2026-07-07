@@ -12,9 +12,12 @@ import com.ho.account.loan.application.port.out.LoanPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanDisbursal;
+import com.ho.account.loan.domain.LoanEvent;
+import com.ho.account.loan.domain.RecalculationRun;
 import com.ho.account.loan.dto.LoanRequestDto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -90,6 +93,43 @@ class LoanServiceTest {
                 .containsExactly("131999", "101999");
         assertThat(disbursal.getJournalEntryId()).isEqualTo(77L);
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo("JE-LOAN-1");
+    }
+
+
+    @Test
+    @DisplayName("중도상환 재계산은 조정 전표 참조값을 이벤트 이력에도 남긴다.")
+    void recalculateLoanCopiesAdjustmentJournalReferenceToLoanEvent() {
+        Loan loan = loan();
+        loan.setCurrentEIR(new BigDecimal("0.0450"));
+        LocalDate recalculationDate = LocalDate.of(2026, 8, 10);
+
+        when(persistencePort.findLoan(1L)).thenReturn(Optional.of(loan));
+        when(persistencePort.findDeferredItems(loan)).thenReturn(List.of());
+        when(eirCalculator.calculateEIR(loan, List.of())).thenReturn(new BigDecimal("0.0400"));
+        when(persistencePort.saveLoan(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(persistencePort.findSchedulesFrom(loan, recalculationDate)).thenReturn(List.of());
+        when(persistencePort.findSchedulesOrdered(loan)).thenReturn(List.of());
+        when(referenceDataPort.requireAccountCode("101999")).thenReturn("101999");
+        when(referenceDataPort.requireAccountCode("131999")).thenReturn("131999");
+        when(journalPort.post(any())).thenReturn(new LoanJournalPort.PostedJournal(88L, "JE-ADJ-88"));
+        when(persistencePort.saveRecalculationRun(any(RecalculationRun.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(persistencePort.saveLoanEvent(any(LoanEvent.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.recalculateLoan(
+                1L,
+                recalculationDate,
+                RecalculationRun.RecalculationReason.EARLY_REPAYMENT,
+                "loan-user",
+                Optional.of(new BigDecimal("4000000.00")),
+                Optional.empty());
+
+        ArgumentCaptor<LoanEvent> eventCaptor = ArgumentCaptor.forClass(LoanEvent.class);
+        verify(persistencePort).saveLoanEvent(eventCaptor.capture());
+        LoanEvent event = eventCaptor.getValue();
+        assertThat(event.getRelatedJournalEntryId()).isEqualTo(88L);
+        assertThat(event.getRelatedJournalEntrySlipNo()).isEqualTo("JE-ADJ-88");
     }
 
     @Test

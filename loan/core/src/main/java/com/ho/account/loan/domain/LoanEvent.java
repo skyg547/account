@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
  * 대출 이벤트(Loan Event) 엔티티.
  *
  * <p>대출 계약의 생명주기 동안 발생하는 중도상환, 조건 변경, 리스케줄 등 주요 이벤트를 기록합니다.
+ * 전표는 별도 journal-ledger Aggregate가 소유하므로 이벤트에는 ID와 전표번호만 값으로 남깁니다.
  */
 @Entity
 @Table(name = "loan_events")
@@ -33,6 +34,9 @@ public class LoanEvent {
 
     @Column(name = "journal_entry_id")
     private Long relatedJournalEntryId;
+
+    @Column(name = "journal_entry_slip_no", length = 50)
+    private String relatedJournalEntrySlipNo;
 
     // 재계산이 필요한 이벤트인 경우 RecalculationRun과 연결합니다.
     @ManyToOne(fetch = FetchType.LAZY)
@@ -111,6 +115,14 @@ public class LoanEvent {
 
     public void setRelatedJournalEntryId(Long relatedJournalEntryId) {
         this.relatedJournalEntryId = relatedJournalEntryId;
+    }
+
+    public String getRelatedJournalEntrySlipNo() {
+        return relatedJournalEntrySlipNo;
+    }
+
+    public void setRelatedJournalEntrySlipNo(String relatedJournalEntrySlipNo) {
+        this.relatedJournalEntrySlipNo = relatedJournalEntrySlipNo;
     }
 
     public RecalculationRun getRecalculationRun() {

@@ -306,6 +306,7 @@ public class LoanService {
         event.setDescription("Loan recalculation triggered by " + reason);
         event.setRecalculationRun(savedRun);
         event.setRelatedJournalEntryId(savedRun.getAdjustmentJournalEntryId());
+        event.setRelatedJournalEntrySlipNo(savedRun.getAdjustmentJournalEntrySlipNo());
         event.setAuditUser(user);
         persistencePort.saveLoanEvent(event);
 

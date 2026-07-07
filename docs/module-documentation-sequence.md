@@ -26,6 +26,7 @@
 | 9 | foundation/infra | Done | `contracts`, `shared-kernel`, `master-data`, `governance`, `auth`, gateway/discovery/config 등 |
 | 10 | standalone Application 검토 반영 | Done | Gemini 실행 클래스 검수 결과 반영, `deposit:batch`/`reporting` Boot 앱 정리 |
 | 12 | `ecl` core pipeline 경계 리팩토링 | Done | batch processor를 adapter로 축소하고 Stage/PD, EAD/LGD, ECL 순서를 core pipeline으로 이동 |
+| 13 | `loan` journal port 경계 리팩토링 | Review ready | 일일 이자 전표 포트화, 전표 값 참조 정합성, Batch JobRegistry/local-run 정리 |
 
 ## 1차 완료 상세
 

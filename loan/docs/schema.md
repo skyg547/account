@@ -44,7 +44,8 @@ erDiagram
 | 파일 | 역할 |
 | --- | --- |
 | `V30__init_loan_schema.sql` | 통합 대출 스키마 생성 |
-| `V31__loan_owned_journal_references.sql` | 대출 소유 전표번호 값 컬럼 추가 |
+| `V31__loan_owned_journal_references.sql` | 대출 실행/이연/재계산 전표번호 값 컬럼 추가 |
+| `V32__loan_accrual_journal_reference.sql` | 일일 이자 발생 로그, 이벤트, EIR 상각 스케줄 전표 참조값 보강 |
 
 `V30`처럼 높은 버전을 쓰는 이유는 여러 모듈의 Flyway migration이 같은 classpath에서 실행될 수 있기 때문입니다. 낮은 `V1`을 각 모듈이 동시에 쓰면 충돌할 수 있어, loan은 후순번 버전을 사용합니다.
 
@@ -60,6 +61,12 @@ erDiagram
 | `deferred_items.initial_journal_entry_slip_no` | 이연 항목 초기 전표번호 |
 | `recalculation_runs.adjustment_journal_entry_id` | 중도상환/원금 조정 전표 ID |
 | `recalculation_runs.adjustment_journal_entry_slip_no` | 중도상환/원금 조정 전표번호 |
+| `loan_events.journal_entry_id` | 이벤트와 연결된 전표 ID |
+| `loan_events.journal_entry_slip_no` | 이벤트와 연결된 전표번호 |
+| `loan_accrual_log.journal_entry_id` | 일일 이자 발생 전표 ID |
+| `loan_accrual_log.journal_no` | 일일 이자 발생 전표번호 |
+| `eir_amortization_schedules.amortization_journal_entry_id` | EIR 상각 전표 ID |
+| `eir_amortization_schedules.amortization_journal_entry_slip_no` | EIR 상각 전표번호 |
 
 ## 설정 키
 
@@ -87,7 +94,7 @@ WHERE payment_date = DATE '2026-04-30';
 ```
 
 ```sql
-SELECT loan_id, accrual_date, accrued_amount, journal_no, status, error_message
+SELECT loan_id, accrual_date, accrued_amount, journal_entry_id, journal_no, status, error_message
 FROM loan_accrual_log
 ORDER BY accrual_date DESC, loan_id;
 ```

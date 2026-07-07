@@ -3,6 +3,21 @@
 > Codex 에이전트의 전용 작업 이력 관리 문서입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+
+## 2026-07-03 (수정: Loan 전표 포트 경계 및 로컬 실행 정리)
+- 수정 내용:
+  - `InterestAccrualService`의 journal-ledger 직접 의존을 제거하고 `LoanJournalPort` 전표 명령으로 전환했다.
+  - `EIRAmortizationSchedule`, `LoanEvent`, `LoanAccrualLog`가 전표 엔티티 대신 전표 ID/전표번호 값 참조를 보관하도록 정리했다.
+  - `V32__loan_accrual_journal_reference.sql`과 Flyway 테스트를 추가했다.
+  - `LoanBatchJobRegistryConfiguration`을 추가해 Batch JobRegistry 조기 초기화 경고를 제거했다.
+  - Loan README/docs/local-run/process-flow/schema 및 IntelliJ `.run` 설정을 local/H2 실행 기준으로 갱신했다.
+- 검증:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks` 성공.
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `:loan:api:bootRun` local/H2 context smoke 성공, 로그 app name `loan-api` 확인.
+  - `:loan:batch:bootRun` local/H2 context smoke 성공, JobRegistry 경고 미재현.
+- 남은 리스크:
+  - PostgreSQL migration 적용과 대량 대출 이자 발생 Job의 실제 데이터 성능은 아직 검증하지 않았다.
 ## 2026-06-18 (구조화: library형 업무 모듈 core/api/batch 분리)
 - 사용자 요청:
   - `contracts`, `shared-kernel` 같은 공통 라이브러리는 제외하고, 기존 compile/test 중심 업무 모듈을 Spring Boot Gradle 실행 구조로 정리.

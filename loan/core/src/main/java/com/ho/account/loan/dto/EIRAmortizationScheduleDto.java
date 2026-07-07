@@ -1,15 +1,16 @@
 package com.ho.account.loan.dto;
 
 import com.ho.account.loan.domain.EIRAmortizationSchedule;
-import lombok.Builder;
-import lombok.Data;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Data;
 
 /**
- * EIR 상각 스케줄 (EIRAmortizationSchedule) 응답 DTO
+ * EIR 상각 스케줄(EIRAmortizationSchedule) 응답 DTO.
+ *
+ * <p>화면/API에는 전표 엔티티 전체가 아니라 추적 가능한 전표 ID와 전표번호만 노출합니다.
  */
 @Data
 @Builder
@@ -43,8 +44,8 @@ public class EIRAmortizationScheduleDto {
                 .endingBalance(entity.getEndingBalance())
                 .deferredItemAmortization(entity.getDeferredItemAmortization())
                 .cashFlow(entity.getCashFlow())
-                .amortizationJournalEntryId(entity.getAmortizationJournalEntry() != null ? entity.getAmortizationJournalEntry().getId() : null)
-                .amortizationJournalEntrySlipNo(entity.getAmortizationJournalEntry() != null ? entity.getAmortizationJournalEntry().getSlipNo() : null)
+                .amortizationJournalEntryId(entity.getAmortizationJournalEntryId())
+                .amortizationJournalEntrySlipNo(entity.getAmortizationJournalEntrySlipNo())
                 .isRecalculated(entity.isRecalculated())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

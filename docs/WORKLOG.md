@@ -3,6 +3,29 @@
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+
+### 📅 2026-07-03 (Codex 수정)
+### [수정] Loan 일일 이자 발생 전표 포트 경계와 로컬 실행 정리
+- **작업 배경**:
+  - `loan` 문서는 전표를 `LoanJournalPort` 뒤로 숨긴다고 설명했지만, `InterestAccrualService`가 journal-ledger `JournalUseCase`와 `JournalEntry`를 직접 생성하고 있었다.
+  - `EIRAmortizationSchedule`도 journal-ledger 전표 엔티티를 직접 연관으로 들고 있어 대출 Aggregate가 외부 Aggregate 생명주기에 묶이는 문제가 있었다.
+- **수정 범위**:
+  - `InterestAccrualService`를 `LoanJournalPort` 기반 전표 명령 생성으로 변경하고, 일일 이자 발생 로그에 전표 ID/전표번호를 함께 저장하도록 보강했다.
+  - `EIRAmortizationSchedule`, `LoanEvent`는 전표 엔티티 연관 대신 전표 ID/전표번호 값 참조만 보관하도록 정리했다.
+  - `V32__loan_accrual_journal_reference.sql`을 추가해 이자 발생 로그, EIR 상각 스케줄, 대출 이벤트 전표 참조 컬럼을 보강했다.
+  - `LoanBatchJobRegistryConfiguration`을 추가해 Batch JobRegistry 등록 시점을 늦추고 로컬 batch context 경고를 제거했다.
+  - Loan README/local-run/process-flow/schema와 IntelliJ `.run` 설정을 local/H2, app name, Redis repository 비활성화 옵션 기준으로 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-api --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --server.port=0 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1`
+  - `.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1`
+- **검증 결과**:
+  - Loan core 테스트, API/BATCH 컴파일, API/BATCH local H2 context smoke 성공.
+  - API/BATCH 로그가 `loan-api`, `loan-batch`로 식별되고 Redis repository 스캔 로그가 사라짐을 확인했다.
+  - Batch context에서 `jobRegistryBeanPostProcessor` 조기 초기화 경고가 재현되지 않았다.
+- **남은 리스크**:
+  - PostgreSQL 실제 migration 적용, 대량 ACTIVE 대출 기준 성능, 실제 master-data/journal-ledger 연동 데이터 검증은 별도 필요하다.
 ### 📅 2026-06-18 (Codex 수정)
 ### [구조화] Payable/Receivable/Reconciliation/Tax/Expenditure Resolution core/api/batch 실행 모듈 분리
 - **작업 배경**:

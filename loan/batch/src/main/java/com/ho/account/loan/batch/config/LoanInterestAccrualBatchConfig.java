@@ -33,8 +33,8 @@ import java.util.Map;
  * 
  * 1. Reader (읽기): DB에서 현재 상태가 'ACTIVE(정상)'인 대출(Loan) 건을 100건씩 끊어서 가져옵니다.
  *    -> 왜 한 번에 다 안 가져오나요? 수십만 건의 대출을 한 번에 메모리에 올리면 서버가 터지니까요! (Paging)
- * 2. Processor (가공): 가져온 대출 건에 대해 "오늘 자 기준의 상각(Amortization) 금액"을 계산합니다.
- * 3. Writer (쓰기): 계산된 결과를 바탕으로 회계 전표(Journal)를 자동으로 끊어줍니다.
+ * 2. Processor (가공): 가져온 대출을 그대로 넘깁니다. 금액 계산과 전표 요청은 core 서비스가 담당합니다.
+ * 3. Writer (쓰기): core의 InterestAccrualService를 호출해 스케줄 조회, 중복 체크, 전표 포트 호출, 로그 저장을 수행합니다.
  * 
  * 실행 시 파라미터로 `accrualDate=2026-05-21` 과 같이 처리 일자를 넘겨줄 수 있습니다.
  */
@@ -86,8 +86,8 @@ public class LoanInterestAccrualBatchConfig {
     }
 
     /**
-     * [Processor] 특별한 가공 없이 대상만 패스 처리 
-     * (상세 로직은 Service에 위임)
+     * [Processor] 특별한 가공 없이 대상만 패스 처리
+     * (업무 규칙과 전표 요청은 core Service에 위임)
      */
     @Bean
     @StepScope
@@ -113,7 +113,7 @@ public class LoanInterestAccrualBatchConfig {
 
             for (Loan loan : loans) {
                 try {
-                    // InterestAccrualService 내부에서 해당 Loan에 대해 단건 전표 발행 및 로그 저장 수행
+                    // InterestAccrualService 내부에서 스케줄 조회, LoanJournalPort 호출, 로그 저장을 수행
                     interestAccrualService.processIndividualAccrual(loan, accrualDate);
                 } catch (Exception e) {
                     log.error("Failed to process loan accrual for {}: {}", loan.getLoanNumber(), e.getMessage());

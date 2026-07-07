@@ -33,6 +33,9 @@ class LoanFlywayMigrationTest {
             assertThat(columnExists(statement, "loans", "current_eir")).isTrue();
             assertThat(columnExists(statement, "loan_amortization_schedule_entries", "loan_id")).isTrue();
             assertThat(columnExists(statement, "loan_accrual_log", "loan_id")).isTrue();
+            assertThat(columnExists(statement, "loan_accrual_log", "journal_entry_id")).isTrue();
+            assertThat(columnExists(statement, "eir_amortization_schedules", "amortization_journal_entry_slip_no")).isTrue();
+            assertThat(columnExists(statement, "loan_events", "journal_entry_slip_no")).isTrue();
             assertThat(tableExists(statement, "loan_contracts")).isFalse();
         }
     }

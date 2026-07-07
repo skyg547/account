@@ -23,8 +23,11 @@ public class LoanAccrualLog {
     @Column(name = "ACCRUED_AMOUNT", nullable = false, precision = 19, scale = 2)
     private BigDecimal accruedAmount;
 
+    @Column(name = "JOURNAL_ENTRY_ID")
+    private Long journalEntryId; // journal-ledger 전표 ID 값 참조
+
     @Column(name = "JOURNAL_NO", length = 20)
-    private String journalNo;
+    private String journalNo; // journal-ledger 전표번호 값 참조
 
     @Column(name = "STATUS", nullable = false, length = 20)
     private String status; // SUCCESS, FAILED
@@ -85,6 +88,14 @@ public class LoanAccrualLog {
 
     public void setAccruedAmount(BigDecimal accruedAmount) {
         this.accruedAmount = accruedAmount;
+    }
+
+    public Long getJournalEntryId() {
+        return journalEntryId;
+    }
+
+    public void setJournalEntryId(Long journalEntryId) {
+        this.journalEntryId = journalEntryId;
     }
 
     public String getJournalNo() {

@@ -76,14 +76,14 @@ sequenceDiagram
     participant Reader as JpaPagingItemReader
     participant Service as InterestAccrualService
     participant Schedule as LoanAmortizationScheduleEntryRepository
-    participant Journal as JournalUseCase
+    participant Journal as LoanJournalPort
     participant Log as LoanAccrualLogRepository
 
     Job->>Reader: ACTIVE Loan을 pageSize 100으로 조회
     Reader->>Service: Loan별 processIndividualAccrual
     Service->>Schedule: loanId + accrualDate 스케줄 엔트리 조회
     alt 스케줄 엔트리 있음
-        Service->>Journal: 이자 발생 전표 생성/승인/전기
+        Service->>Journal: 이자 발생 전표 명령 전달
         Service->>Log: SUCCESS 로그 저장
     else 스케줄 엔트리 없음
         Service-->>Job: 처리 없음
@@ -115,4 +115,4 @@ Batch 실행 파라미터:
 - 계정 코드 설정이 없으면 자동 전표 생성 전에 실패합니다.
 - 대출 실행 전표, 이연 전표, 재계산 전표는 전표 ID와 전표번호를 대출 쪽에 값으로 저장합니다.
 - 일일 이자 발생은 같은 대출/기준일 로그가 있으면 중복 처리하지 않습니다.
-- Batch는 개별 대출 처리 실패를 로그로 남기고 다음 대출로 넘어갑니다.
+- Batch는 개별 대출 처리 실패를 로그로 남기고 다음 대출로 넘어갑니다. 전표 생성/승인/전기 순서는 `LoanJournalPort` 구현체가 journal-ledger에 위임합니다.

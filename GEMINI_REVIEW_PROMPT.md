@@ -1,3 +1,30 @@
+# Latest Review Target - 2026-07-03 Loan
+
+Gemini는 이번 Codex 변경에서 `loan` 모듈을 우선 검토하세요.
+
+1. Architecture / DDD
+- `InterestAccrualService`가 journal-ledger `JournalUseCase`/`JournalEntry`를 직접 알지 않고 `LoanJournalPort` 명령만 생성하는지 확인하세요.
+- `LoanAccrualLog`, `LoanEvent`, `EIRAmortizationSchedule`이 전표 엔티티 연관 대신 전표 ID/전표번호 값 참조만 보관하는지 확인하세요.
+- `LoanEventDto`가 전표번호를 null로 버리지 않고 이벤트 이력의 값 참조를 그대로 반환하는지 확인하세요.
+
+2. Batch / Local Execution
+- `LoanInterestAccrualBatchConfig`가 Reader/Processor/Writer/Chunk 실행 책임만 갖고 이자 금액, 중복 처리, 전표 명령 생성은 core `InterestAccrualService`에 위임하는지 확인하세요.
+- `LoanBatchJobRegistryConfiguration`이 Spring Batch 인프라 초기화 순서만 조정하고 업무 로직을 포함하지 않는지 확인하세요.
+- Loan README/local-run 문서와 `.run` 설정의 `spring.application.name`, Redis repository 비활성화, H2/local 옵션이 실제 bootRun 명령과 일치하는지 확인하세요.
+
+3. Codex 검증 결과
+- `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks` 성공.
+- `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1` 성공.
+- `:loan:api:bootRun` local/H2 context smoke 성공, 로그 app name `loan-api` 확인, Redis repository 스캔 로그 미재현.
+- `:loan:batch:bootRun` local/H2 context smoke 성공, 로그 app name `loan-batch` 확인, Redis repository 스캔 로그 및 Batch JobRegistry 경고 미재현.
+
+4. 알려진 리스크
+- PostgreSQL migration 적용과 대량 ACTIVE 대출 이자 발생 Job은 아직 seeded 데이터로 검증하지 않았습니다.
+- `spring.data.redis.repositories.enabled=false`는 local smoke 옵션입니다. 향후 loan에 Redis repository가 실제로 추가되면 문서 옵션을 재검토해야 합니다.
+
+아래 기존 리뷰 지침도 함께 따르세요.
+
+---
 # Latest Review Target - 2026-07-03 Closing
 
 Gemini는 이번 Codex 변경에서 `closing` 모듈을 우선 검토하세요.
