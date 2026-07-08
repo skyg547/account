@@ -20,6 +20,20 @@
 → handoff 업데이트
 ```
 
+
+## GitHub Issue Managed Flow
+
+When a task has a GitHub Issue, treat the issue as the source of truth for scope and completion criteria.
+
+1. Create or select the issue.
+2. Confirm labels, module, layer, risk, and expected agent roles.
+3. Create `agent/{issue-number}-{short-slug}` from the base branch.
+4. Use a separate worktree if the current checkout is dirty or parallel agent work is expected.
+5. Keep implementation comments, test results, and blockers linked back to the issue or Draft PR.
+6. Open a Draft PR with `Refs #issue-number` while review is pending.
+7. Switch to `Fixes #issue-number` only when the PR should close the issue after merge.
+
+Use `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml` for new issue intake and `.github/PULL_REQUEST_TEMPLATE/ai-agent-loop.md` for Draft PR review.
 초보자 설명: 이 흐름은 "바로 고치기"가 아니라 "무엇을 고칠지 확인하고, 안전한 공간에서 나눠 작업하고, 검증 후 합치는" 절차다.
 
 ## Step Details

@@ -1090,3 +1090,17 @@
   - merge conflict 없음.
   - `main` push 완료.
   - 최종 동기화 확인은 이 로그 커밋 push 직후 수행한다.
+
+## 2026-07-03 (GitHub Issue Agent Loop Harness)
+- 사용자 요청: GitHub Issue 기반 Agent Loop 코딩 관리 하네스 작성, branch/worktree 선택 기준 정리, GitHub CLI 설치.
+- 작업 방식: 기존 작업트리와 분리하기 위해 `C:\tmp\account-gh-issue-harness` worktree와 `agent/github-issue-agent-loop-harness` 브랜치를 사용했다.
+- 수정 내용: `85-github-issue-agent-loop.md`, GitHub Issue Form, Draft PR 템플릿, 관련 하네스 문서 링크 보강.
+- 설치: GitHub CLI `gh` 2.96.0 설치 확인. 현재 GitHub 인증은 없음.
+- 검증: conflict marker 없음, `git diff --check` 오류 없음(CRLF 경고만 있음), `gh --version` 성공.
+- 주의: worktree는 elevated 생성으로 인해 `safe.directory` 옵션이 필요할 수 있다.
+
+## 2026-07-07 (GH-1 Issue Branch Worktree PR Harness Hardening)
+- Issue #1 본문을 `gh issue view 1 --comments --json ...`로 확인했다.
+- 기존 하네스 적용 상태를 점검하고 `docs/ai-harness/05-issue-1-compliance-audit.md`에 gap/remediation을 기록했다.
+- 앞으로 AI 작업을 Issue/Branch/Worktree/Draft PR 단위로 운영할 수 있도록 `85-github-issue-agent-loop.md`, worklog/status/handoff/integration templates, Issue Form, PR templates를 보강했다.
+- 코드 변경은 없고 문서/템플릿 변경만 있다.

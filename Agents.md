@@ -30,6 +30,8 @@
 - 테스트 없이 merge 완료로 판단하지 않는다.
 
 ## Standard Start Order
+
+GitHub Issue가 지정된 작업이면 먼저 `gh issue view <number> --comments`로 issue 목적, 범위, 댓글, 완료 조건을 확인한다. 이후 Issue 번호, branch, worktree, Draft PR 식별자를 `worklog.md`, `agent-status.md`, `handoff.md`에 함께 기록한다.
 1. `docs/WORKLOG.md`와 현재 에이전트 전용 worklog를 확인한다.
 2. `docs/ai-harness/00-overview.md`, `10-rules.md`, `20-workflow.md`를 확인한다.
 3. 변경 대상 모듈의 `README.md`와 `docs/*.md`를 읽는다.
@@ -37,6 +39,7 @@
 5. 영향 범위와 수정/생성 파일 계획을 먼저 제시한다.
 
 ## Required Completion Artifacts
+- Issue/Branch/Worktree/PR 식별자.
 - 변경 파일 목록과 영향 범위.
 - 실행한 테스트/검증 명령과 결과.
 - 롤백 방법 또는 되돌릴 파일 범위.
@@ -45,6 +48,7 @@
 
 ## AI Harness Documents
 - `docs/ai-harness/00-overview.md`: 하네스 목적과 사용 도구.
+- `docs/ai-harness/05-issue-1-compliance-audit.md`: GitHub Issue #1 적용 점검표.
 - `docs/ai-harness/10-rules.md`: 공통 금지/보안/브랜치/리뷰 규칙.
 - `docs/ai-harness/20-workflow.md`: 요구사항부터 Draft MR/PR까지의 루프.
 - `docs/ai-harness/30-agents.md`: Planner, Explorer, Coder, Reviewer, Integrator 등 역할.
@@ -53,6 +57,7 @@
 - `docs/ai-harness/60-rebase-merge-policy.md`: rebase/merge/conflict 정책.
 - `docs/ai-harness/70-model-assignment-policy.md`: 역할/능력 기준 모델 배치.
 - `docs/ai-harness/80-file-ownership.md`: 역할별 수정 가능 영역.
+- `docs/ai-harness/85-github-issue-agent-loop.md`: GitHub Issue 기반 Agent Loop, branch/worktree 선택, Issue/PR 템플릿.
 - `docs/ai-harness/90-beginner-ai-agent-git-guide.md`: 초보자를 위한 AI 에이전트 + Git 협업 설명서.
 - `docs/ai-harness/worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: 운영 기록.
 
