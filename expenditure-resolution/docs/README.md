@@ -4,61 +4,46 @@
 
 읽기 순서:
 
-1. [beginner-guide.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/beginner-guide.md)
-2. [process-flow.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/process-flow.md)
-3. [schema.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/schema.md)
-4. [local-run.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/local-run.md)
+1. [beginner-guide.md](./beginner-guide.md)
+2. [process-flow.md](./process-flow.md)
+3. [schema.md](./schema.md)
+4. [local-run.md](./local-run.md)
 
-## 패키지 구조 (헥사고날 아키텍처)
+## 패키지 구조
 
+```text
+expenditure-resolution/
+├── core
+│   └── src/main/java/com/ho/account/expenditure
+│       ├── domain/                  # ExpenditureResolution, ExpenditureDetail, APPayment, Budget
+│       ├── application/port/in      # UseCase와 Command
+│       ├── application/port/out     # Persistence Port
+│       ├── application/service      # 지출결의, 예산, AP 지급 업무 흐름
+│       ├── adapter/in/contract      # contracts 포트 구현체
+│       ├── adapter/out/persistence  # JPA Repository 래핑 어댑터
+│       └── resolution/infrastructure/local # local profile 외부 포트 더블
+├── api
+│   └── src/main/java/.../api
+│       ├── adapter/in/web           # REST Controller와 DTO assembler
+│       └── dto                      # HTTP 요청/응답 DTO
+└── batch
+    └── src/main/java/.../batch      # Batch Job/Step 실행 구성
 ```
-expenditure/
-├── domain/                          # 핵심 도메인 모델 (순수 Java)
-│   ├── ExpenditureResolution        # Aggregate Root – 상태전이 메서드 포함
-│   ├── ExpenditureDetail            # 지출 상세 라인
-│   ├── APPayment                    # AP 지급 엔티티 – 도메인 상태전이 포함
-│   ├── APPaymentStatus              # 지급 상태 Enum (PENDING/COMPLETED/FAILED/PARTIALLY_APPLIED)
-│   ├── Budget                       # 예산 엔티티 – useBudget() 도메인 로직 포함
-│   └── ExpenditureResolutionStatus  # 결의서 상태 Enum
-├── application/
-│   ├── port/
-│   │   ├── in/                      # UseCase 인터페이스 (인바운드 포트)
-│   │   │   ├── ExpenditureResolutionUseCase
-│   │   │   └── APPaymentUseCase
-│   │   └── out/                     # 영속성 포트 (아웃바운드 포트)
-│   │       ├── ExpenditureResolutionPersistencePort
-│   │       ├── APPaymentPersistencePort
-│   │       └── BudgetPersistencePort
-│   └── service/                     # UseCase 구현체 (Port/Out 의존)
-│       ├── ExpenditureResolutionService
-│       ├── APPaymentService
-│       └── BudgetService
-├── adapter/
-│   ├── in/
-│   │   ├── web/                     # REST 컨트롤러 (UseCase 인터페이스 의존)
-│   │   │   ├── ExpenditureController
-│   │   │   └── APPaymentController
-│   │   └── contract/                # 타 모듈 contracts 포트 구현체
-│   │       ├── BudgetControlAdapter
-│   │       └── MonolithLeasePaymentResolutionAdapter
-│   └── out/
-│       └── persistence/             # JPA Repository 래핑 어댑터
-│           ├── ExpenditureResolutionPersistenceAdapter
-│           ├── APPaymentPersistenceAdapter
-│           └── BudgetPersistenceAdapter
-├── repository/                      # Spring Data JPA Repository 인터페이스
-└── dto/                             # 요청/응답 DTO
-```
+
+## 핵심 경계
+
+- `core`는 HTTP DTO와 Controller를 소유하지 않는다.
+- `api` 요청 DTO는 `ExpenditureResolutionCommand`, `APPaymentCommand`로 변환한 뒤 core UseCase를 호출한다.
+- `core`는 master-data 내부 Repository/Entity가 아니라 `MasterDataQueryPort`로 부서, 계정, 거래처를 확인한다.
+- `Budget`은 `deptCode`, `accountCode` 값을 저장해 기준정보 Aggregate와 생명주기를 분리한다.
+- Batch 모듈은 Job/Step/Tasklet orchestration만 담당한다.
 
 ## 로컬 실행
 
-현재 구조는 `expenditure-resolution:core`, `expenditure-resolution:api`, `expenditure-resolution:batch`로 분리되어 있다.
-API와 Batch 실행 모듈은 Spring Boot 진입점을 제공하고, Batch는 `expenditureResolutionApprovalJob`으로 지출결의 승인 대상을 core 유즈케이스에 위임한다. 지출결의/예산/AP 지급 업무 판단은 core를 참조한다.
-
 ```powershell
-.\gradlew :expenditure-resolution:core:test --console=plain --max-workers=1
-.\gradlew :expenditure-resolution:api:bootRun --console=plain --max-workers=1
-.\gradlew :expenditure-resolution:batch:bootRun --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:core:test :expenditure-resolution:api:test --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
-자세한 IntelliJ/H2 실행 순서는 [local-run.md](/C:/Users/skyg547/IdeaProjects/account/expenditure-resolution/docs/local-run.md)를 따른다.
+자세한 IntelliJ/H2 실행 순서는 [local-run.md](./local-run.md)를 따른다.

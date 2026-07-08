@@ -216,3 +216,43 @@
 - Additional verification:
   - `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` passed.
   - Added closing API/BATCH local logback settings so local runs avoid Logstash connection warnings.
+## 2026-07-08 - Tax API/Core Command Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP DTO/Controller ownership from `tax:core`.
+  - Added `TaxInvoiceCommand` as the application input boundary.
+  - Moved AP invoice Controller/DTO classes to `tax:api`.
+  - Added `TaxInvoiceRef` purchase/active/usable helper methods and updated expenditure-resolution validation to use the contract methods.
+  - Updated tax docs with beginner-friendly API DTO -> core command -> domain flow.
+- Verification:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+- `.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL seeded execution and real `taxInvoiceValidationJob` high-volume run are not verified in this pass. Local context smoke is verified with H2/create-drop.
+  - Cross-module API integration test still lives under `expenditure-resolution:core`; this was preserved to avoid a broad test layout move.
+- Rollback:
+  - Revert the tax/contracts/expenditure-resolution changes and associated docs/log updates from this pass if the boundary refactor is rejected.
+## 2026-07-08 - Expenditure Resolution API/Core Command Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: gent/asset-lease-split.
+- Scope:
+  - Moved expenditure-resolution HTTP Controller/DTO/assembler ownership from core to api.
+  - Added ExpenditureResolutionCommand and APPaymentCommand as core application input boundaries.
+  - Replaced service-level master-data repository/entity dependency with MasterDataQueryPort.
+  - Converted Budget and legacy Invoice master-data entity references to code values.
+  - Moved cross-module API integration test to expenditure-resolution:api tests.
+  - Added Batch JobRegistry delayed registration configuration.
+- Verification:
+  - $compile passed.
+  - $verify passed.
+  - $apiRun passed.
+  - $batchRun passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL migration/data compatibility for code-based budget/invoice columns is not verified in this pass.
+  - Real high-volume expenditureResolutionApprovalJob execution is not verified in this pass.
+- Rollback:
+  - Revert the expenditure-resolution/tax/contracts changes and associated docs/log updates from this pass if rejected.

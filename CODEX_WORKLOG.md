@@ -1,3 +1,32 @@
+## 2026-07-08 (expenditure-resolution API/core command boundary)
+- 요청 목표: 모듈 순차 점검 중 expenditure-resolution의 헥사고날/DDD 경계, master-data 내부 참조, API DTO/core command 분리, 문서 최신화.
+- 변경:
+  - ExpenditureResolutionCommand, APPaymentCommand를 추가하고 core use case/service 입력을 command로 전환했다.
+  - Controller/DTO/assembler를 expenditure-resolution:api로 이동하고 core Web/Validation 의존을 제거했다.
+  - ExpenditureResolutionService는 MasterDataQueryPort와 TaxInvoiceRef 계약 메서드로 외부 참조를 검증한다.
+  - Budget/Invoice와 예산 포트를 코드 기반으로 전환해 master-data 엔티티 JPA 연관을 제거했다.
+  - API 통합 테스트를 api 테스트 소스로 이동하고 Batch JobRegistry 지연 등록 설정을 추가했다.
+- 검증:
+  - $compile 성공.
+  - $verify 성공.
+  - $apiRun 성공.
+  - $batchRun 성공.
+- 리스크:
+  - PostgreSQL migration 및 실제 대량 approval Job은 별도 검증 필요.
+## 2026-07-08 (tax API/core command boundary)
+- 요청 목표: 모듈 순차 점검 중 tax의 헥사고날/DDD 경계, 취소 세금계산서 외부 참조 정책, 초보자 문서 최신화.
+- 변경:
+  - `tax:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했다.
+  - `TaxInvoiceCommand`를 추가하고 `TaxInvoiceService`가 command 기반으로 생성/수정 유즈케이스를 처리하게 했다.
+  - `APInvoiceController`, `TaxInvoiceRequestDto`, `TaxInvoiceDto`를 `tax:api`로 이동했다.
+  - `TaxInvoiceRef`에 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 추가하고 expenditure 검증에서 계약 메서드를 사용하게 했다.
+  - tax 서비스/외부 조회 adapter 테스트와 docs/worklog/handoff/Gemini prompt를 갱신했다.
+- 검증:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+- `.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` 성공.
+- 리스크:
+  - PostgreSQL/Flyway 및 실제 대량 Job 실행은 이번 pass에서 미검증.
 ## 2026-07-07 (수정: asset-lease 감가상각 Batch 계산/반영 경계 분리)
 - 수정 내용:
   - `FixedAssetDepreciationResult` 값 객체를 추가했다.

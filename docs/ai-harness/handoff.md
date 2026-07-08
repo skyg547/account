@@ -1,4 +1,72 @@
-# Latest Handoff - 2026-07-07 Asset Lease
+# Latest Handoff - 2026-07-08 Expenditure Resolution API/Core Boundary
+
+## Current State
+
+- Branch: gent/asset-lease-split
+- Push target: origin/agent/asset-lease-split
+- Current owner: Codex
+- Scope ready for review: expenditure-resolution API/core command boundary, master-data code reference cleanup, and Batch JobRegistry cleanup.
+
+## What Changed
+
+- expenditure-resolution:core no longer owns HTTP Controller/DTO classes.
+- ExpenditureResolutionCommand and APPaymentCommand are the core use case inputs.
+- ExpenditureResolutionService uses MasterDataQueryPort instead of master-data internal persistence ports/entities.
+- Budget and Invoice store master-data references as code values.
+- API integration test moved to expenditure-resolution:api tests.
+- Batch JobRegistry registration is delayed via ExpenditureResolutionBatchJobRegistryConfiguration.
+
+## Verification Summary
+
+- $compile: passed.
+- $verify: passed.
+- $apiRun: passed.
+- $batchRun: passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+
+## Known Risks
+
+- PostgreSQL migration/data compatibility for code-based budget/invoice mappings is not verified.
+- Real high-volume approval Job execution is not verified.
+
+## Rollback
+
+- Before commit: restore expenditure-resolution, 	ax, contracts, docs/worklog/handoff/Gemini prompt carefully.
+- After commit: revert the expenditure-resolution boundary refactor commit.
+
+---# Latest Handoff - 2026-07-08 Tax API/Core Command Boundary
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: tax API/core command boundary and cancelled tax invoice external reference policy.
+
+## What Changed
+
+- `tax:core` now owns `TaxInvoiceCommand`, use case/service, domain, persistence/local adapters, and no longer owns HTTP DTO/Controller classes.
+- `tax:api` owns `APInvoiceController`, `TaxInvoiceRequestDto`, and `TaxInvoiceDto`; request DTOs convert to core commands before invoking the use case.
+- `TaxInvoiceRef` now exposes `purchase()`, `active()`, and `usableForPurchaseSettlement()` so consumers do not duplicate raw string policy checks.
+- `expenditure-resolution` validation now uses `TaxInvoiceRef.purchase()` and `active()` for 지출결의/AP 지급 세금계산서 연결 정책.
+- tax docs explain API DTO -> core command -> domain validation and cancelled invoice lookup policy.
+
+## Verification Summary
+
+- `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+- `.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`: passed.
+
+## Known Risks
+
+- PostgreSQL migration and high-volume `taxInvoiceValidationJob` execution are not verified in this pass.
+- `expenditure-resolution:core` still contains a cross-module API integration test importing tax API/controller classes; this was preserved and test dependencies were updated explicitly.
+
+## Rollback
+
+- Before commit: restore `tax`, `contracts`, `expenditure-resolution`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` carefully.
+- After commit: revert the tax boundary refactor commit.
+
+---# Latest Handoff - 2026-07-07 Asset Lease
 
 ## Current State
 

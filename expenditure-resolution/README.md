@@ -83,11 +83,11 @@ erDiagram
 
 ## 4. 🧭 로컬 실행 및 연동 방법
 
-`expenditure-resolution`은 `core/api/batch` 구조로 실행됩니다. `core`가 지출결의, 예산 통제, AP 지급 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
+`expenditure-resolution`은 `core/api/batch` 구조로 실행됩니다. `core`가 지출결의, 예산 통제, AP 지급 업무 규칙과 command/use case를 갖고, `api`는 HTTP DTO를 command로 변환하며, `batch`는 Spring Boot Batch 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 ```powershell
-.\gradlew :expenditure-resolution:core:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :expenditure-resolution:core:test :expenditure-resolution:api:test --console=plain --max-workers=1
 ```
 
 **H2 local 실행:**
@@ -105,6 +105,9 @@ erDiagram
 **연동 주의사항:**
 - 지출 승인 시 `JournalPostingPort`를 통해 전표가 생성되므로, 회계 엔진 모듈이 구동 중이어야 합니다.
 - 예산 통제 규칙은 `BudgetControlPort` 구현체에 따라 달라질 수 있습니다.
-- local profile에서는 master-data, tax, asset, journal 외부 경계를 local adapter가 대체하므로 외부 서버 없이 H2로 컨텍스트를 확인할 수 있습니다.
+- local profile에서는 master-data, tax, asset, journal 외부 경계를 contracts 기반 local adapter가 대체하므로 외부 서버 없이 H2로 컨텍스트를 확인할 수 있습니다.
 - `expenditureResolutionApprovalJob`은 REQUESTED 상태이고 지급 예정일이 `paymentDueDate` 이내인 결의서를 core 승인 유즈케이스로 넘깁니다.
 - 상세 실행 순서는 [docs/local-run.md](./docs/local-run.md)를 참고합니다.
+
+- core는 master-data 내부 Repository/Entity를 직접 참조하지 않고 MasterDataQueryPort로 부서, 계정, 거래처를 확인합니다.
+- 예산은 deptCode, ccountCode 코드 기준으로 저장되어 기준정보 Aggregate와 생명주기를 분리합니다.

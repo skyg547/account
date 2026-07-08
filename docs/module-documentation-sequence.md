@@ -27,8 +27,10 @@
 | 10 | standalone Application 검토 반영 | Done | Gemini 실행 클래스 검수 결과 반영, `deposit:batch`/`reporting` Boot 앱 정리 |
 | 12 | `ecl` core pipeline 경계 리팩토링 | Done | batch processor를 adapter로 축소하고 Stage/PD, EAD/LGD, ECL 순서를 core pipeline으로 이동 |
 | 13 | `loan` journal port 경계 리팩토링 | Done | 일일 이자 전표 포트화, 전표 값 참조 정합성, Batch JobRegistry/local-run 정리 |
-| 14 | `account-mart` 담보 상세 DQ/LGD 연결 | Review ready | `OdsApartCollDetail`을 port/adapter/application service로 실제 담보 DQ 흐름에 연결 |
-| 15 | `asset-lease` 감가상각 Batch 경계 리팩토링 | Review ready | Batch preview 계산과 JDBC bulk 반영을 분리해 이중 상각/완료 상태 누락 리스크 제거 |
+| 14 | `account-mart` 담보 상세 DQ/LGD 연결 | Done | `OdsApartCollDetail`을 port/adapter/application service로 실제 담보 DQ 흐름에 연결 |
+| 15 | `asset-lease` 감가상각 Batch 경계 리팩토링 | Done | Batch preview 계산과 JDBC bulk 반영을 분리해 이중 상각/완료 상태 누락 리스크 제거 |
+| 16 | `tax` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 `TaxInvoiceCommand`/도메인 규칙만 소유 |
+| 17 | `expenditure-resolution` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/port/master-data code 참조만 소유 |
 
 ## 1차 완료 상세
 
@@ -372,3 +374,45 @@ git diff --check
 추가 결과:
 - `closing:batch:bootRun` local profile 컨텍스트 기동 성공
 - closing API/BATCH local logback XML 파싱 성공
+
+### tax API/core command 경계 리팩토링
+
+- `tax:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거하고, `TaxInvoiceCommand` 기반 유즈케이스 경계로 정리했습니다.
+- `tax:api`로 `APInvoiceController`, `TaxInvoiceRequestDto`, `TaxInvoiceDto`를 이동해 HTTP 요청 검증과 응답 매핑을 API adapter 책임으로 분리했습니다.
+- `TaxInvoiceRef`에 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 추가해 외부 모듈이 취소/매입 정책을 명시적으로 판단하도록 했습니다.
+- `expenditure-resolution`의 지출결의/AP 지급 검증은 문자열 직접 비교 대신 계약 객체 메서드를 사용하도록 보강했습니다.
+- tax README/docs/local-run/process-flow/schema와 운영 로그를 새 경계 기준으로 최신화했습니다.
+
+검증:
+
+```powershell
+.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1
+```
+
+결과:
+- tax core 테스트, api 컴파일, batch 컴파일 성공
+- tax API/BATCH local context smoke 성공
+- tax batch JobRegistry 조기 초기화 경고 제거 확인
+- expenditure-resolution core 테스트 성공
+### expenditure-resolution API/core command 경계 리팩토링
+
+- expenditure-resolution:core에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했습니다.
+- ExpenditureResolutionCommand, APPaymentCommand를 추가해 API DTO와 core 업무 입력을 분리했습니다.
+- ExpenditureResolutionService는 master-data 내부 Repository/Entity 대신 MasterDataQueryPort를 사용합니다.
+- Budget과 Invoice는 master-data 엔티티 JPA 연관 대신 코드 값을 저장합니다.
+- API 통합 테스트를 expenditure-resolution:api 테스트로 이동했고 Batch JobRegistry 지연 등록 설정을 추가했습니다.
+
+검증:
+
+`powershell
+.\gradlew :expenditure-resolution:core:compileJava :expenditure-resolution:api:compileJava :expenditure-resolution:batch:compileJava --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:core:test :expenditure-resolution:api:test --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+`
+
+결과:
+- expenditure-resolution core/api/batch 컴파일 성공
+- expenditure-resolution core/api 테스트 성공
+- API/BATCH local H2 context smoke 성공
+- Batch JobRegistry 조기 초기화 경고 제거 확인

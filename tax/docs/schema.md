@@ -59,6 +59,6 @@ supplyAmount + taxAmount == totalAmount
 - `TaxInvoiceQueryPort`: 다른 모듈이 세금계산서 참조를 조회할 때 사용한다.
 - `JournalEntryId`: 전표 연결 확장 필드지만 현재 세금계산서 생성 시 전표 생성까지 수행하지 않는다.
 
-외부 조회 포트는 취소 세금계산서도 반환하되 `TaxInvoiceRef.status`에 `ACTIVE` 또는 `CANCELLED`를 함께 담는다. 이렇게 하면 감사 추적용 조회는 가능하고, 소비 모듈은 상태를 보고 업무 연결 여부를 결정할 수 있다.
+외부 조회 포트는 취소 세금계산서도 반환하되 `TaxInvoiceRef.status`에 `ACTIVE` 또는 `CANCELLED`를 함께 담는다. `TaxInvoiceRef`는 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 제공하므로 소비 모듈은 tax 내부 enum을 몰라도 업무 연결 가능 여부를 결정할 수 있다. 이렇게 하면 감사 추적용 조회는 가능하고, 소비 모듈은 상태를 보고 업무 연결 여부를 결정할 수 있다.
 
 현재 소비 정책은 fail-closed다. `expenditure-resolution`의 지출결의와 AP 지급은 `PURCHASE` 타입이면서 `ACTIVE` 상태인 세금계산서만 연결하고, `CANCELLED` 상태는 예외로 차단한다.

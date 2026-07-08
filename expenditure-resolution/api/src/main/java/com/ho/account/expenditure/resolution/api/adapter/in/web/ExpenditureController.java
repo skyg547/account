@@ -1,16 +1,22 @@
-package com.ho.account.expenditure.adapter.in.web;
+package com.ho.account.expenditure.resolution.api.adapter.in.web;
 
 import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCase;
-import com.ho.account.expenditure.dto.ExpenditureResolutionDto;
-import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
+import com.ho.account.expenditure.resolution.api.dto.ExpenditureResolutionDto;
+import com.ho.account.expenditure.resolution.api.dto.ExpenditureResolutionRequestDto;
 import jakarta.validation.Valid;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/expenditures")
@@ -30,14 +36,14 @@ public class ExpenditureController {
     public ResponseEntity<ExpenditureResolutionDto> createResolution(
             @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
         return ResponseEntity.ok(dtoAssembler.toDto(
-                expenditureResolutionUseCase.createResolution(requestDto)));
+                expenditureResolutionUseCase.createResolution(requestDto.toCommand())));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ExpenditureResolutionDto> updateResolution(
             @PathVariable("id") Long id, @Valid @RequestBody ExpenditureResolutionRequestDto requestDto) {
         return ResponseEntity.ok(dtoAssembler.toDto(
-                expenditureResolutionUseCase.updateResolution(id, requestDto)));
+                expenditureResolutionUseCase.updateResolution(id, requestDto.toCommand())));
     }
 
     @PostMapping("/{id}/request")

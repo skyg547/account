@@ -11,14 +11,7 @@ import com.ho.account.contracts.tax.TaxInvoiceRef;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Department;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,109 +48,6 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
             @Override
             public Optional<DepartmentRef> findDepartment(String departmentCode) {
                 return Optional.of(new DepartmentRef(departmentCode, "Local department " + departmentCode, "COST_CENTER"));
-            }
-        };
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    AccountSubjectPersistencePort expenditureLocalAccountSubjectPersistencePort() {
-        return new AccountSubjectPersistencePort() {
-            @Override
-            public boolean existsByCode(String code) {
-                return true;
-            }
-
-            @Override
-            public Optional<AccountSubject> findByCode(String code) {
-                return Optional.of(localAccountSubject(code));
-            }
-
-            @Override
-            public List<AccountSubject> findAll() {
-                return List.of(localAccountSubject("LOCAL-EXP"));
-            }
-
-            @Override
-            public AccountSubject save(AccountSubject accountSubject) {
-                return accountSubject;
-            }
-        };
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    DepartmentPersistencePort expenditureLocalDepartmentPersistencePort() {
-        return new DepartmentPersistencePort() {
-            @Override
-            public boolean existsByCode(String code) {
-                return true;
-            }
-
-            @Override
-            public Optional<Department> findById(Long id) {
-                return Optional.of(localDepartment("LOCAL-DEPT"));
-            }
-
-            @Override
-            public Optional<Department> findActiveByCode(String code) {
-                return Optional.of(localDepartment(code));
-            }
-
-            @Override
-            public List<Department> findAll() {
-                return List.of(localDepartment("LOCAL-DEPT"));
-            }
-
-            @Override
-            public List<Department> findAllActive() {
-                return findAll();
-            }
-
-            @Override
-            public Department save(Department department) {
-                return department;
-            }
-        };
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    BusinessPartnerPersistencePort expenditureLocalBusinessPartnerPersistencePort() {
-        return new BusinessPartnerPersistencePort() {
-            @Override
-            public boolean existsByBusinessPartnerCode(String businessPartnerCode) {
-                return true;
-            }
-
-            @Override
-            public Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode) {
-                return Optional.of(localBusinessPartner(businessPartnerCode));
-            }
-
-            @Override
-            public Optional<BusinessPartner> findById(Long id) {
-                return Optional.of(localBusinessPartner("LOCAL-BP"));
-            }
-
-            @Override
-            public List<BusinessPartner> findAll() {
-                return List.of(localBusinessPartner("LOCAL-BP"));
-            }
-
-            @Override
-            public List<BusinessPartner> findByUseYnTrue() {
-                return findAll();
-            }
-
-            @Override
-            public List<BusinessPartner> findByBusinessPartnerNameContaining(String name) {
-                return findAll();
-            }
-
-            @Override
-            public BusinessPartner save(BusinessPartner businessPartner) {
-                return businessPartner;
             }
         };
     }
@@ -246,45 +136,5 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
                 return createJournalEntry(reversal);
             }
         };
-    }
-
-    private AccountSubject localAccountSubject(String code) {
-        AccountSubject subject = new AccountSubject();
-        subject.setCode(code);
-        subject.setName("Local account " + code);
-        subject.setBalanceType(AccountSubject.BalanceType.DEBIT);
-        subject.setUnsettled(false);
-        subject.setFixedAsset(false);
-        subject.setValidFrom(LocalDate.of(2020, 1, 1));
-        subject.setValidTo(LocalDate.of(9999, 12, 31));
-        subject.setAuditUser("LOCAL");
-        return subject;
-    }
-
-    private Department localDepartment(String code) {
-        Department department = new Department();
-        department.setCode(code);
-        department.setName("Local department " + code);
-        department.setType(Department.DepartmentType.COST_CENTER);
-        department.setValidFrom(LocalDate.of(2020, 1, 1));
-        department.setValidTo(LocalDate.of(9999, 12, 31));
-        department.setCreatedAt(LocalDateTime.now());
-        department.setUpdatedAt(LocalDateTime.now());
-        department.setAuditUser("LOCAL");
-        return department;
-    }
-
-    private BusinessPartner localBusinessPartner(String code) {
-        BusinessPartner partner = new BusinessPartner();
-        partner.setBusinessPartnerCode(code);
-        partner.setBusinessPartnerName("Local partner " + code);
-        partner.setPartnerType(BusinessPartner.PartnerType.VENDOR);
-        partner.setUseYn(true);
-        partner.setKycStatus(BusinessPartner.KycStatus.APPROVED);
-        partner.setRiskRating(BusinessPartner.RiskRating.LOW);
-        partner.setValidFrom(LocalDate.of(2020, 1, 1));
-        partner.setValidTo(LocalDate.of(9999, 12, 31));
-        partner.setAuditUser("LOCAL");
-        return partner;
     }
 }

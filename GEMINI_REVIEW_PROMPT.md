@@ -1,3 +1,41 @@
+# 2026-07-08 expenditure-resolution API/core command 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: gent/asset-lease-split
+- 주요 범위: expenditure-resolution:core에서 HTTP Controller/DTO와 master-data 내부 참조를 제거하고, API DTO -> core command -> domain/service 흐름으로 정리한 변경.
+- 우선 확인:
+  - expenditure-resolution:core가 spring-boot-starter-web, spring-boot-starter-validation, Controller/DTO를 더 이상 소유하지 않는지.
+  - ExpenditureResolutionUseCase, APPaymentUseCase가 command 기반 입력만 받는지.
+  - ExpenditureResolutionService가 MasterDataQueryPort와 TaxInvoiceRef.purchase()/active()로 외부 참조를 검증하는지.
+  - Budget과 Invoice가 master-data Entity 연관 대신 코드 값을 저장하는지.
+  - API 통합 테스트가 expenditure-resolution:api 테스트 소스로 이동했고 기존 지출결의 -> tax -> AP 지급 시나리오가 유지되는지.
+  - ExpenditureResolutionBatchJobRegistryConfiguration이 Batch Job 등록 순서만 조정하고 업무 로직을 포함하지 않는지.
+- 재실행 권장:
+  - $compile
+  - $verify
+  - $apiRun
+  - $batchRun
+  -
+g -n "spring-boot-starter-web|spring-boot-starter-validation|@RestController|jakarta\.validation|com\.ho\.account\.expenditure\.resolution\.api|masterdata\.core|AccountSubjectPersistencePort|DepartmentPersistencePort|BusinessPartnerPersistencePort" expenditure-resolution\core --glob "*.java" --glob "*.gradle" --glob "!**/build/**"
+# 2026-07-08 tax API/core command 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `tax:core`에서 HTTP Controller/DTO를 제거하고 `tax:api`가 API DTO를 core `TaxInvoiceCommand`로 변환하도록 정리한 변경.
+- 우선 확인:
+  - `tax:core`가 `spring-boot-starter-web`, `spring-boot-starter-validation`, API DTO/Controller를 더 이상 소유하지 않는지.
+  - `TaxInvoiceUseCase`와 `TaxInvoiceService`가 `TaxInvoiceCommand`를 기준으로 업무 흐름을 처리하는지.
+  - `APInvoiceController`와 `TaxInvoiceRequestDto`가 `tax:api`에 있고, HTTP 요청 검증 후 command로 변환하는지.
+  - `TaxInvoiceRef.purchase()`, `active()`, `usableForPurchaseSettlement()`가 외부 모듈이 취소/매입 정책을 명시적으로 판단하기에 충분한지.
+  - `expenditure-resolution`의 지출결의/AP 지급 검증이 `TaxInvoiceRef` 계약 메서드를 사용하고 기존 SALES/CANCELLED 차단 테스트가 유지되는지.
+  - `TaxBatchJobRegistryConfiguration`이 Batch Job 등록 순서만 조정하고 업무 로직을 포함하지 않는지.
+- 재실행 권장:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+  - `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `rg -n "spring-boot-starter-web|spring-boot-starter-validation|@RestController|jakarta\.validation|com\.ho\.account\.tax\.api" tax\core --glob "*.java" --glob "*.gradle" --glob "!**/build/**"`
 # 2026-07-07 asset-lease 감가상각 Batch 경계 리뷰
 
 Gemini는 아래 최신 변경을 우선 리뷰하세요.

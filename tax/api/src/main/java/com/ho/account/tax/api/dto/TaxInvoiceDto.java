@@ -1,4 +1,4 @@
-package com.ho.account.tax.dto;
+package com.ho.account.tax.api.dto;
 
 import com.ho.account.tax.domain.TaxInvoice;
 import java.math.BigDecimal;
@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /**
  * [TaxInvoiceDto]
- * 세금계산서 정보를 전달하기 위한 데이터 전송 객체입니다.
+ * 세금계산서 정보를 HTTP 응답으로 전달하기 위한 API 전용 DTO입니다.
  */
 public class TaxInvoiceDto {
 
@@ -28,7 +28,9 @@ public class TaxInvoiceDto {
     public TaxInvoiceDto() {
     }
 
-    public TaxInvoiceDto(Long id, String issueId, String type, LocalDate issueDate, String businessPartnerCode, String businessPartnerName, BigDecimal supplyAmount, BigDecimal taxAmount, BigDecimal totalAmount) {
+    public TaxInvoiceDto(Long id, String issueId, String type, LocalDate issueDate, String businessPartnerCode,
+                         String businessPartnerName, BigDecimal supplyAmount, BigDecimal taxAmount,
+                         BigDecimal totalAmount) {
         this.id = id;
         this.issueId = issueId;
         this.type = type;
@@ -46,8 +48,8 @@ public class TaxInvoiceDto {
                 taxInvoice.getIssueId(),
                 taxInvoice.getType(),
                 taxInvoice.getIssueDate(),
-                taxInvoice.getBusinessPartnerCode(), // ID 기반 필드 사용
-                null, // 이름 정보는 필요 시 Service 레이어에서 매핑 권장
+                taxInvoice.getBusinessPartnerCode(),
+                null,
                 taxInvoice.getSupplyAmount(),
                 taxInvoice.getTaxAmount(),
                 taxInvoice.getTotalAmount());
@@ -58,7 +60,6 @@ public class TaxInvoiceDto {
         return dto;
     }
 
-    // Getter
     public Long getId() { return id; }
     public String getIssueId() { return issueId; }
     public String getType() { return type; }

@@ -1,4 +1,4 @@
-package com.ho.account.expenditure.adapter.in.web;
+package com.ho.account.expenditure.resolution.api.adapter.in.web;
 
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
@@ -6,10 +6,9 @@ import com.ho.account.contracts.masterdata.DepartmentRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
-import com.ho.account.expenditure.dto.ExpenditureResolutionDto;
-import org.springframework.stereotype.Component;
-
+import com.ho.account.expenditure.resolution.api.dto.ExpenditureResolutionDto;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ExpenditureResolutionDtoAssembler {

@@ -1,3 +1,51 @@
+### 📅 2026-07-08 (Codex 수정)
+### [수정] expenditure-resolution API/core command 경계와 master-data 참조 분리
+- **작업 배경**:
+  - expenditure-resolution:core가 HTTP Controller/DTO, Bean Validation, Web 의존을 함께 소유해 core/api/batch 분리 설명과 맞지 않았다.
+  - 지출결의 서비스와 예산 도메인이 master-data 내부 Repository/Entity를 직접 참조해 모듈 경계가 약했다.
+- **수정 범위**:
+  - ExpenditureResolutionCommand, APPaymentCommand를 추가하고 core UseCase/Service가 API DTO 대신 command를 받도록 변경했다.
+  - ExpenditureController, APPaymentController, 요청/응답 DTO, DTO assembler를 expenditure-resolution:api로 이동했다.
+  - ExpenditureResolutionService는 MasterDataQueryPort로 부서/계정/거래처를 확인하고, TaxInvoiceRef.purchase()/active()로 세금계산서 정책을 검증한다.
+  - Budget과 Invoice는 master-data 엔티티 JPA 연관 대신 코드 값(deptCode, ccountCode, endorCode, currencyCode)을 저장하도록 변경했다.
+  - BudgetService, BudgetPersistencePort, BudgetRepository, BudgetControlAdapter를 코드 기반 조회로 변경했다.
+  - API 통합 테스트를 pi/src/test로 이동하고, Batch JobRegistry 지연 등록 설정을 추가했다.
+  - expenditure-resolution README/docs/local-run/process-flow/schema와 운영 로그를 최신화했다.
+- **검증 명령**:
+  - $compile
+  - $verify
+  - $apiRun
+  - $batchRun
+- **검증 결과**:
+  - expenditure-resolution core/api/batch 컴파일 성공.
+  - core 테스트와 API 통합 테스트 성공.
+  - API/BATCH local H2 context smoke 성공.
+  - Batch JobRegistry 조기 초기화 경고 미재현.
+- **남은 리스크**:
+  - PostgreSQL 기존 테이블이 master-data FK형 컬럼으로 운영 중이라면 코드 기반 매핑 변경에 맞춘 migration 검증이 필요하다.
+  - 실제 expenditureResolutionApprovalJob 대량 실행과 승인/전표 생성 통합 환경 검증은 별도 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 expenditure-resolution, contracts, 	ax 연계 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-08 (Codex 수정)
+### [수정] tax API/core command 경계와 취소 세금계산서 외부 참조 정책 보강
+- **작업 배경**:
+  - `tax:core`가 HTTP Controller/DTO와 Web/Validation 의존을 함께 들고 있어 문서의 "core가 업무 규칙을 소유하고 api가 실행 진입점"이라는 설명과 어긋났다.
+  - 취소 세금계산서 외부 참조 정책은 소비 모듈 테스트로 방어되고 있었지만, `TaxInvoiceRef` 계약 자체에는 `PURCHASE + ACTIVE` 업무 판단 메서드가 부족했다.
+- **수정 범위**:
+  - `TaxInvoiceCommand`를 추가하고 `TaxInvoiceUseCase`/`TaxInvoiceService`가 API DTO 대신 command를 받도록 변경했다.
+  - `APInvoiceController`, `TaxInvoiceRequestDto`, `TaxInvoiceDto`를 `tax:api`로 이동해 HTTP 검증과 응답 매핑을 API adapter 책임으로 분리했다.
+  - `tax:core` Gradle 의존성에서 Web/Validation 및 불필요한 master-data 직접 의존을 제거했다.
+  - `TaxInvoiceRef`에 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 추가하고, `expenditure-resolution` 검증은 계약 메서드를 사용하도록 바꿨다.
+  - tax 서비스/외부 조회 어댑터 테스트를 추가하고 tax/expenditure 문서를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- **검증 결과**:
+  - tax core 테스트, tax api 컴파일, tax batch 컴파일, expenditure-resolution core 테스트 성공.
+- **남은 리스크**:
+  - PostgreSQL 실제 마이그레이션/대량 세금계산서 검증 Job 실행은 별도 환경에서 확인이 필요하다.
+  - `expenditure-resolution:core` 테스트가 cross-module API 통합 시나리오를 직접 포함하는 구조는 유지했다. 장기적으로 별도 integration-test 모듈로 이동할 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `tax`, `contracts`, `expenditure-resolution` 하위 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
 ### 📅 2026-07-07 (Codex 수정)
 ### [수정] asset-lease 대량 감가상각 Batch 계산/반영 경계 분리
 - **작업 배경**:

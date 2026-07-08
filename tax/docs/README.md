@@ -12,15 +12,17 @@
 
 ## 현재 실행 전제
 
-- `tax:core`는 업무 규칙과 persistence/local adapter를 담는 Java library 모듈이다.
-- `tax:api`는 `TaxApiApplication`으로 H2 local API 서버를 실행한다.
+- `tax:core`는 업무 규칙, application command/use case, persistence/local adapter를 담는 Java library 모듈이다. HTTP DTO와 Controller는 포함하지 않는다.
+- `tax:api`는 `TaxApiApplication`으로 H2 local API 서버를 실행하고, 요청 DTO를 core `TaxInvoiceCommand`로 변환한다.
 - `tax:batch`는 `TaxBatchApplication`으로 Batch 컨텍스트를 실행하고, `taxInvoiceValidationJob`으로 매입 세금계산서 대량 검증을 수행한다.
 - 로컬에서는 `.\gradlew :tax:core:test`, `.\gradlew :tax:api:bootRun`, `.\gradlew :tax:batch:bootRun`으로 검증한다.
 
 ## 핵심 코드 입구
 
-- 인바운드 어댑터: `adapter/in/web/APInvoiceController`
-- 유즈케이스 서비스: `application/service/TaxInvoiceService`
+- API 인바운드 어댑터: `tax/api/.../api/adapter/in/web/APInvoiceController`
+- API DTO: `tax/api/.../api/dto/TaxInvoiceRequestDto`, `TaxInvoiceDto`
+- core command/use case: `tax/core/.../application/port/in/TaxInvoiceCommand`, `TaxInvoiceUseCase`
+- core 유즈케이스 서비스: `tax/core/.../application/service/TaxInvoiceService`
 - 도메인 모델: `domain/TaxInvoice`
 - 출력 포트: `application/port/out/TaxInvoicePersistencePort`
 - 기술 어댑터: `adapter/out/persistence/TaxInvoicePersistenceAdapter`, `adapter/out/external/TaxInvoiceQueryAdapter`

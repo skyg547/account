@@ -1,4 +1,4 @@
-package com.ho.account.expenditure.dto;
+package com.ho.account.expenditure.resolution.api.dto;
 
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;

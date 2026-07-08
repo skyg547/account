@@ -66,7 +66,7 @@ erDiagram
 
 ## 4. 로컬 실행 및 연동 방법
 
-`tax`는 `core/api/batch` 구조로 실행됩니다. `core`가 세금계산서 금액 검증과 취소 정책을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
+`tax`는 `core/api/batch` 구조로 실행됩니다. `core`가 세금계산서 금액 검증, 취소 정책, `TaxInvoiceCommand` 유즈케이스를 갖고, `api`는 HTTP DTO/Controller를 통해 command로 변환하며, `batch`는 Spring Boot Batch 실행 진입점으로 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 
@@ -104,7 +104,7 @@ erDiagram
 - 금액 검증 실패 시 전표 생성이 차단되므로 도메인 내 `validateAmounts()` 로직을 반드시 확인하세요.
 - 거래처 검증은 `contracts`의 `MasterDataQueryPort`를 사용하며 master-data 내부 저장소에 직접 의존하지 않습니다.
 - 발행된 세금계산서는 물리 삭제하지 않습니다. 취소 처리자와 사유를 받아 `CANCELLED` 상태로 전환해 증빙 감사 이력을 보존합니다.
-- 외부 모듈 조회용 `TaxInvoiceRef`는 `status`를 포함합니다. 지출결의/AP 지급은 `PURCHASE`이면서 `ACTIVE`인 세금계산서만 연결합니다.
+- 외부 모듈 조회용 `TaxInvoiceRef`는 `type`, `status`와 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 포함합니다. 지출결의/AP 지급은 `PURCHASE`이면서 `ACTIVE`인 세금계산서만 연결합니다.
 - 현재 웹 API는 `/api/ap/invoices` 매입 세금계산서(`PURCHASE`) 중심입니다. 매출 세금계산서 API는 별도 확장이 필요합니다.
 - `taxInvoiceValidationJob`은 기간 내 매입 세금계산서의 금액 합계와 거래처 참조를 core 유즈케이스에서 검증합니다.
 
