@@ -43,3 +43,34 @@
 - Result:
   - `origin/main` updated with AI harness documentation, beginner guide, and integration logs.
   - Final clean sync verification is expected immediately after this log commit is pushed.
+
+## Issue Branch Worktree PR Integration Template
+
+Use this entry for every integration event tied to a GitHub Issue.
+
+```md
+## YYYY-MM-DD - GH-<issue-number> Integration
+
+- Issue:
+- Source branch:
+- Source worktree:
+- Target branch:
+- Draft PR:
+- Integrator Agent:
+- Merge/rebase command:
+- Conflict status:
+- Conflict log ID:
+- Test command:
+- Test result:
+- Result:
+- Notes:
+```
+
+Recommended integration order remains:
+
+1. docs/test document branches
+2. SQL/Query XML branches
+3. Service logic branches
+4. Controller/UI connection branches
+5. Logging/environment branches
+6. Final review/cleanup branches

@@ -15,6 +15,14 @@
 
 초보자 설명: 기준 브랜치는 모두가 공유하는 원본이다. AI가 바로 밀어 넣으면 다른 사람 작업까지 깨질 수 있으므로, 먼저 작업 브랜치에서 검증하고 Draft PR로 리뷰를 받는다.
 
+
+## GitHub Issue Loop Rules
+
+- Use a GitHub Issue as the task contract when work is planned, reviewed, or split across agents.
+- Link each AI task branch and Draft PR to its issue with `Refs #issue-number` until merge readiness is confirmed.
+- Use `Fixes #issue-number` only when the PR is intended to close the issue after merge.
+- Prefer a separate worktree for issue loops when the current checkout is dirty, multiple agents are active, or module-by-module inspection is running.
+- The issue must include scope, acceptance criteria, verification commands, rollback plan, and safety notes before implementation starts.
 ## Security Rules
 
 - Do not read or print production/development DB credentials, passwords, tokens, personal information, private keys, or production URLs.

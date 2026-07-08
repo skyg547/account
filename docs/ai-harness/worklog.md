@@ -1,5 +1,63 @@
 # AI Harness Worklog
 
+## Reusable Issue Loop Worklog Template
+
+Use this template for every GitHub Issue based AI task.
+
+```md
+## YYYY-MM-DD - GH-<issue-number> <task-name>
+
+- Current summary:
+- Work ID: GH-<issue-number>
+- Issue: #<issue-number> <url>
+- Base branch:
+- Working branch:
+- Worktree path:
+- Draft PR:
+- Owner agent:
+- Supporting agents:
+- Current status: 대기 | 진행 | 충돌 | 리뷰필요 | 완료 | 중단
+- Last updated:
+
+### Requirement
+-
+
+### Impact Scope
+-
+
+### Expected Files
+-
+
+### Actual Changed Files
+-
+
+### Progress
+| Time | Agent | Action | Result |
+| --- | --- | --- | --- |
+| | | | |
+
+### Decisions
+-
+
+### Open Issues
+-
+
+### Verification
+- Command:
+- Result:
+- Skipped tests and reason:
+
+### Rollback
+-
+
+### Handoff
+-
+
+### Draft PR
+- Title:
+- Body file or summary:
+```
+
 ## 2026-06-25 - Harness Upgrade Bootstrap
 
 - Owner: Codex acting as AI Harness Architect and Integrator Agent.
@@ -51,3 +109,67 @@
 - Final sync:
   - `main` pushed to origin.
   - Clean synchronization check expected after this log commit is pushed.
+
+## 2026-07-03 - GitHub Issue Agent Loop Harness
+
+- Owner: Codex acting as AI Harness Architect and Integrator Agent.
+- Branch/worktree: `agent/github-issue-agent-loop-harness` at `C:\tmp\account-gh-issue-harness`.
+- Scope:
+  - Added GitHub Issue based agent loop guidance in `85-github-issue-agent-loop.md`.
+  - Added GitHub Issue Form and Draft PR templates under `.github/`.
+  - Linked the new loop from `Agents.md`, `00-overview.md`, `10-rules.md`, `20-workflow.md`, and `50-git-worktree-guide.md`.
+  - Installed GitHub CLI `gh` 2.96.0 from the official GitHub CLI release MSI after user approval.
+- Verification:
+  - Conflict marker search returned no matches.
+  - `git diff --check` passed with CRLF conversion warnings only.
+  - `gh --version` returned 2.96.0.
+  - `gh auth status` reports no GitHub host login yet.
+- Risks:
+  - Because the worktree was created with elevated permissions, Git requires `-c safe.directory=C:/tmp/account-gh-issue-harness` for commands unless the user approves a global safe.directory setting or recreates the worktree with normal ownership.
+  - Actual issue creation requires `gh auth login` or another approved GitHub authentication path.
+- Rollback:
+  - Revert this branch or remove the added `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE/`, and `docs/ai-harness/85-github-issue-agent-loop.md` files plus related document links.
+
+## 2026-07-07 - GH-1 Issue Branch Worktree PR Harness Hardening
+
+- Current summary: GitHub Issue #1 was reviewed and the harness was hardened for Issue -> Branch -> Worktree -> Draft PR traceability.
+- Work ID: GH-1
+- Issue: #1 https://github.com/skyg547/account/issues/1
+- Base branch: `origin/main`
+- Working branch: `agent/github-issue-agent-loop-harness`
+- Worktree path: `C:\tmp\account-gh-issue-harness`
+- Draft PR: not created yet
+- Owner agent: Codex as AI Harness Architect / Integrator Agent
+- Current status: 리뷰필요
+- Last updated: 2026-07-07
+
+### Requirement
+- Confirm whether Issue #1 is properly applied.
+- Upgrade the harness so future work can be managed by GitHub Issue, branch, worktree, and PR.
+
+### Impact Scope
+- AI harness documents and GitHub templates only.
+
+### Actual Changed Files
+- `.github/pull_request_template.md`
+- `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml`
+- `.github/PULL_REQUEST_TEMPLATE/ai-agent-loop.md`
+- `Agents.md`
+- `docs/ai-harness/00-overview.md`
+- `docs/ai-harness/05-issue-1-compliance-audit.md`
+- `docs/ai-harness/85-github-issue-agent-loop.md`
+- `docs/ai-harness/worklog.md`
+- `docs/ai-harness/agent-status.md`
+- `docs/ai-harness/handoff.md`
+- `docs/ai-harness/integration-log.md`
+
+### Verification
+- `gh issue view 1 --comments --json ...` succeeded and confirmed Issue #1 is open.
+- Conflict marker check passed.
+- `git diff --check` pending final run after this log update.
+
+### Rollback
+- Revert this branch or remove the Issue loop templates/audit and the new sections added to harness records.
+
+### Handoff
+- Commit/push/Draft PR were not performed in this turn because the user did not explicitly request push or PR creation.

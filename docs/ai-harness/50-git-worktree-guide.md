@@ -9,6 +9,13 @@
 
 초보자 설명: branch는 책갈피이고, worktree는 같은 책을 다른 책상에 펼쳐 놓는 것이다.
 
+
+## Decision Rule
+
+- Use a branch only when the current checkout is clean and one small task is being handled.
+- Use a branch plus a worktree when the current checkout has unrelated changes, multiple agents are active, or a GitHub Issue loop needs isolation.
+- For GitHub Issue work, prefer `agent/{issue-number}-{short-slug}` and a worktree outside the project root.
+- Worktree does not replace review. It only isolates files while the branch, tests, Draft PR, and human review still control merge safety.
 ## What Worktree Does Not Do
 
 - A worktree does not eliminate merge conflicts.

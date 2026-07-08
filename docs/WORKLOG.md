@@ -1029,3 +1029,40 @@
   - `main` push 완료.
   - 최종 동기화 확인은 이 로그 커밋 push 직후 수행한다.
 
+## 2026-07-03 (GitHub Issue Agent Loop Harness)
+- 사용자 요청: GitHub Issue로 AI Agent Loop 코딩을 관리하는 하네스를 만들고, branch/worktree 선택 기준을 정리하며, GitHub CLI를 설치.
+- 작업 위치: `agent/github-issue-agent-loop-harness` branch, `C:\tmp\account-gh-issue-harness` worktree.
+- 수정 내용:
+  - `docs/ai-harness/85-github-issue-agent-loop.md` 추가.
+  - `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml` 추가.
+  - `.github/PULL_REQUEST_TEMPLATE/ai-agent-loop.md` 추가.
+  - `Agents.md`, `00-overview.md`, `10-rules.md`, `20-workflow.md`, `50-git-worktree-guide.md`에 GitHub Issue 루프와 branch/worktree 정책을 연결.
+  - GitHub CLI `gh` 2.96.0 설치 확인.
+- 검증:
+  - conflict marker 검색 결과 없음.
+  - `git diff --check`는 CRLF 변환 경고만 있고 오류 없음.
+  - `gh --version` 성공.
+  - `gh auth status`는 아직 로그인 없음.
+- 남은 리스크:
+  - 실제 GitHub Issue 발행은 `gh auth login` 후 가능하다.
+  - 승인 권한으로 만든 worktree라 Git 명령에는 `-c safe.directory=C:/tmp/account-gh-issue-harness`가 필요할 수 있다.
+
+## 2026-07-07 (GH-1 Issue Branch Worktree PR Harness Hardening)
+- 사용자 요청: GitHub Issue #1을 확인하고 하네스 적용 여부를 점검한 뒤, 앞으로 Issue/Branch/Worktree/PR 단위로 작업할 수 있도록 하네스를 고도화.
+- 작업 위치: `agent/github-issue-agent-loop-harness` branch, `C:\tmp\account-gh-issue-harness` worktree.
+- 점검 결과:
+  - Issue #1은 `하네스구성` 제목의 OPEN 이슈이며, 기존 하네스 업그레이드 요구사항을 담고 있다.
+  - 기본 하네스 문서와 역할/규칙/워크플로우는 대부분 반영되어 있다.
+  - 부족했던 부분은 Issue -> Branch -> Worktree -> Draft PR 추적성과 기본 `.github/pull_request_template.md`였다.
+- 수정 내용:
+  - Issue #1 적용 점검표 `docs/ai-harness/05-issue-1-compliance-audit.md` 추가.
+  - 기본 GitHub PR 템플릿 `.github/pull_request_template.md` 추가.
+  - `85-github-issue-agent-loop.md`에 추적 모델, naming rule, command recipe, status sync checkpoint, Issue #1 적용 상태를 추가.
+  - worklog, agent-status, handoff, integration-log에 Issue/Branch/Worktree/PR 템플릿을 추가.
+  - Issue Form과 전용 PR 템플릿에 traceability 필드를 보강.
+- 검증:
+  - GitHub Issue #1 조회 성공.
+  - conflict marker 및 `git diff --check`는 최종 검증에서 확인한다.
+- 남은 리스크:
+  - 브랜치 push와 Draft PR 생성은 아직 하지 않았다.
+  - Issue #1에는 아직 label이 없다. label 생성/적용은 별도 승인 후 진행하는 것이 안전하다.

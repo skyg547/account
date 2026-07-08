@@ -1,0 +1,181 @@
+name: AI Agent Loop Task
+description: Create a scoped task for Codex, Gemini, or another AI agent.
+title: "[AI][module] "
+labels: ["agent-loop", "status:ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for GitHub Issue based AI coding loops. Keep the issue small enough for one branch and one Draft PR.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should the agent accomplish?
+      placeholder: "Example: Split asset-lease into api/batch/core follow-up checks."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Target module
+      multiple: true
+      options:
+        - account-mart
+        - app
+        - asset-lease
+        - auth
+        - closing
+        - config-server
+        - contracts
+        - deposit
+        - discovery
+        - ecl
+        - expenditure-resolution
+        - gateway
+        - governance
+        - journal-ledger
+        - loan
+        - master-data
+        - payable
+        - receivable
+        - reconciliation
+        - reporting
+        - shared-kernel
+        - tax
+        - docs/harness
+        - other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: layers
+    attributes:
+      label: Target layer
+      options:
+        - label: api
+        - label: batch
+        - label: core
+        - label: docs
+        - label: build/gradle
+        - label: infra/config
+        - label: tests
+
+  - type: checkboxes
+    id: agent_roles
+    attributes:
+      label: Expected agent roles
+      options:
+        - label: Planner Agent
+        - label: Explorer Agent
+        - label: Coder Agent
+        - label: Test Agent
+        - label: Reviewer Agent
+        - label: Integrator Agent
+        - label: Documentation Agent
+
+  - type: textarea
+    id: parent_dependencies
+    attributes:
+      label: Parent issue and dependencies
+      value: |
+        Parent issue:
+        Depends on:
+        Blocks:
+      description: Link parent/sub-issues and blockers when this task is part of a larger agent loop.
+    validations:
+      required: false
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: List included and excluded work.
+      value: |
+        Included:
+        -
+
+        Excluded:
+        -
+    validations:
+      required: true
+
+  - type: textarea
+    id: branch_worktree
+    attributes:
+      label: Branch or worktree plan
+      value: |
+        Branch:
+        Worktree:
+        Base branch:
+      description: Use a worktree when the current checkout is dirty or multiple agents work in parallel.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pr_plan
+    attributes:
+      label: Draft PR plan
+      value: |
+        Draft PR title:
+        PR link:
+        Use Refs or Fixes:
+      description: Use `Refs #issue` while review is pending. Use `Fixes #issue` only when the PR should close the issue after merge.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] Change implemented inside approved scope
+        - [ ] Tests or documented alternative verification completed
+        - [ ] docs/ai-harness/worklog.md updated
+        - [ ] docs/ai-harness/agent-status.md updated
+        - [ ] docs/ai-harness/handoff.md updated
+        - [ ] Draft PR body prepared
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification commands
+      placeholder: |
+        ./gradlew :module:test --console=plain
+        ./gradlew :module:bootJar --console=plain
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback plan
+      placeholder: "Revert the task commit or restore the listed files."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: local_harness_sync
+    attributes:
+      label: Local harness sync
+      options:
+        - label: worklog.md must include Issue, Branch, Worktree, and Draft PR fields.
+        - label: agent-status.md must include current agent status.
+        - label: handoff.md must include next steps and known risks.
+        - label: conflict-log.md must be updated if conflicts occur.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety acknowledgement
+      options:
+        - label: Do not push directly to main, master, or develop.
+          required: true
+        - label: Do not read or print secrets, credentials, tokens, personal information, or production URLs.
+          required: true
+        - label: Do not commit conflict markers.
+          required: true
+        - label: Do not install packages or run external scripts without explicit approval.
+          required: true
+
