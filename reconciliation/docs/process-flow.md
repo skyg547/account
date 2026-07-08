@@ -2,7 +2,7 @@
 
 ## API 입구
 
-현재 `reconciliation`은 library 모듈이므로 아래 API는 reconciliation 컴포넌트를 포함하는 호스트 Spring Boot 애플리케이션에서 노출될 때 사용할 수 있다.
+현재 `reconciliation`은 `core/api/batch` 구조다. 아래 API는 `reconciliation:api`의 `ReconciliationController`가 노출하고, 요청 DTO는 Bean Validation 후 core command로 변환된다. core 서비스는 HTTP request/response 타입을 직접 알지 않는다.
 
 | 컨트롤러 | 메서드 | 경로 | 역할 |
 | --- | --- | --- | --- |
@@ -14,7 +14,7 @@
 | `ReconciliationController` | `POST` | `/api/reconciliation/rules` | 대사 규칙을 생성한다. |
 | `ReconciliationController` | `GET` | `/api/reconciliation/units/{unitId}/rules` | 단위별 규칙을 조회한다. |
 | `ReconciliationController` | `PUT` | `/api/reconciliation/rules/{id}` | 대사 규칙을 수정한다. |
-| `ReconciliationController` | `DELETE` | `/api/reconciliation/rules/{id}` | 대사 규칙을 삭제한다. 현재 물리 삭제이며 `@todo`로 개선 표시했다. |
+| `ReconciliationController` | `DELETE` | `/api/reconciliation/rules/{id}` | 대사 규칙을 `isActive=false`로 논리 비활성화한다. 과거 실행 이력의 판단 근거를 보존한다. |
 | `ReconciliationController` | `POST` | `/api/reconciliation/reason-codes` | 차이 사유 코드를 생성한다. |
 | `ReconciliationController` | `GET` | `/api/reconciliation/reason-codes` | 차이 사유 코드 목록을 조회한다. |
 | `ReconciliationController` | `GET` | `/api/reconciliation/reason-codes/{id}` | 차이 사유 코드를 단건 조회한다. |
@@ -25,27 +25,38 @@
 | `ReconciliationController` | `POST` | `/api/reconciliation/differences/resolve` | 차이를 해결 또는 무시 처리한다. |
 | `ReconciliationController` | `GET` | `/api/reconciliation/runs/{runId}/differences` | 실행별 차이 목록을 조회한다. |
 
+
+## API/core command 경계
+
+초보자 관점에서는 HTTP 요청과 업무 명령을 분리해서 보면 쉽다.
+
+1. API 계층은 JSON 요청을 DTO로 받고 Bean Validation으로 필수값과 형식을 먼저 확인한다.
+2. DTO는 `RunReconciliationCommand`, `ReconciliationUnitCommand`, `ReconciliationRuleCommand`, `DifferenceReasonCodeCommand`, `AssignDifferenceCommand`, `ResolveDifferenceCommand` 중 하나로 변환된다.
+3. core `ReconciliationService`는 command만 받아 도메인 엔티티를 만들거나 상태를 바꾼다. 그래서 core는 `@RestController`, `@RequestBody`, `jakarta.validation` 같은 HTTP 기술을 몰라도 된다.
+4. Batch도 같은 command를 사용하므로 API 실행과 Batch 실행의 업무 입력 모양이 크게 어긋나지 않는다.
+
 ## 대사 실행 흐름
 
 ```mermaid
 flowchart TD
-    A[POST /api/reconciliation/run] --> B[ReconciliationController]
-    B --> C[ReconciliationService.performReconciliation]
-    C --> D[ReconciliationUnit 조회]
-    D --> E[ReconciliationRule 우선순위 조회]
-    E --> F[ReconciliationRun RUNNING 저장]
-    F --> G[ExternalReconSnapshotPort로 SOURCE 집계 조회]
-    F --> H[JournalQueryPort로 TARGET 원장 집계 조회]
-    G --> I[허용오차 계산]
-    H --> I
-    I --> J{차이가 허용오차 초과인가}
-    J -->|아니오| K[Run SUCCESS]
-    J -->|예| L[ReconciliationDifference 생성]
-    L --> M{사유코드 adjustable?}
-    M -->|예| N[JournalPostingPort로 조정 전표 초안 생성]
-    M -->|아니오| O[PENDING 차이 저장]
-    N --> O
-    O --> K
+    A[POST /api/reconciliation/run] --> B[API DTO Bean Validation]
+    B --> C[RunReconciliationCommand]
+    C --> D[core ReconciliationService.performReconciliation]
+    D --> E[ReconciliationUnit 조회]
+    E --> F[ReconciliationRule 우선순위 조회]
+    F --> G[ReconciliationRun RUNNING 저장]
+    G --> H[ExternalReconSnapshotPort로 SOURCE 집계 조회]
+    G --> I[JournalQueryPort로 TARGET 원장 집계 조회]
+    H --> J[허용오차 계산]
+    I --> J
+    J --> K{차이가 허용오차 초과인가}
+    K -->|아니오| L[Run SUCCESS]
+    K -->|예| M[ReconciliationDifference 생성]
+    M --> N{사유코드 adjustable?}
+    N -->|예| O[JournalPostingPort로 조정 전표 초안 생성]
+    N -->|아니오| P[PENDING 차이 저장]
+    O --> P
+    P --> L
 ```
 
 원천 집계는 `RECON_EXTERNAL_STAGE_RECORD`를 기준으로 `unitId`, `stageCode`, `reconciliationDate`, 상품, 통화, 법인 조건을 적용한다. 대상 집계는 `criteriaJson`의 `targetAccountCode`와 `targetSide`를 읽어 원장 상세 집계를 조회한다.

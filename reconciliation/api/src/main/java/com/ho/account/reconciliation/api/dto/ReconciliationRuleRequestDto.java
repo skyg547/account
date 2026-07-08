@@ -1,16 +1,19 @@
-package com.ho.account.reconciliation.dto;
+package com.ho.account.reconciliation.api.dto;
 
+import com.ho.account.reconciliation.application.port.in.ReconciliationRuleCommand;
 import com.ho.account.reconciliation.domain.ReconciliationRule;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
 /**
- * 대사 규칙 (ReconciliationRule) 요청 DTO
+ * 대사 규칙(ReconciliationRule) HTTP 요청 DTO입니다.
+ *
+ * <p>초보자용 설명: API는 단위 ID만 받습니다. core 서비스가 해당 단위를 조회한 뒤 규칙을 연결하므로,
+ * 컨트롤러가 JPA 엔티티를 직접 조립하지 않습니다.</p>
  */
 @Data
 public class ReconciliationRuleRequestDto {
@@ -34,5 +37,14 @@ public class ReconciliationRuleRequestDto {
 
     private boolean isActive = true;
 
-    // Method to convert DTO to Entity can be useful, but requires fetching ReconciliationUnit
+    public ReconciliationRuleCommand toCommand() {
+        return new ReconciliationRuleCommand(
+                reconciliationUnitId,
+                name,
+                ruleDefinitionJson,
+                toleranceType,
+                toleranceValue,
+                priority,
+                isActive);
+    }
 }

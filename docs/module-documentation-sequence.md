@@ -433,3 +433,23 @@ git diff --check
 .\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 .\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
+### reconciliation API/core command 경계 리팩토링
+
+- `reconciliation:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했습니다.
+- `AssignDifferenceCommand`, `DifferenceReasonCodeCommand`, `ReconciliationRuleCommand`, `ReconciliationUnitCommand`, `ResolveDifferenceCommand`, `RunReconciliationCommand`를 추가해 API/BATCH 공통 업무 입력을 core command로 통일했습니다.
+- `reconciliation:api`가 `ReconciliationController`, 요청/응답 DTO, Bean Validation을 소유하고 request DTO는 command로 변환합니다.
+- `reconciliation:batch`에는 `ReconciliationBatchJobRegistryConfiguration`을 추가해 local/H2 Batch 컨텍스트의 JobRegistry 조기 초기화 경고를 제거했습니다.
+- reconciliation README/docs/local-run/process-flow/beginner-guide를 API DTO -> core command -> domain/service 흐름 기준으로 최신화했습니다.
+
+검증:
+
+```powershell
+.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+결과:
+- reconciliation core 테스트, api 컴파일, batch 컴파일 성공
+- API/BATCH local H2 context smoke 성공
+- Batch JobRegistry 조기 초기화 경고 제거 확인

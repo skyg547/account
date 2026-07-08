@@ -20,6 +20,8 @@
 
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Payable API/core command boundary, API response DTOs, and Batch JobRegistry verified. |
 
+| 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Reconciliation API/core command boundary, API DTO relocation, and Batch JobRegistry verified. |
+
 ## Status Values
 
 - Planned

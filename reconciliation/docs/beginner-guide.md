@@ -41,6 +41,6 @@
 
 1. `ReconciliationController`: 대사 단위, 규칙, 사유 코드, 실행, 차이 처리 API.
 2. `ReconciliationService`: 요약 대사 실행과 차이 해소 흐름.
-3. `AutomatedMatchingEngine`: 은행 명세와 전표 상세 자동 매칭 알고리즘.
-4. `ReconciliationAdjustmentPolicy`: 조정 전표 계정코드 정책 검증.
-5. `ExternalReconStageSnapshotAdapter`: 외부 원천 단계 집계 조회 어댑터.
+5. `AutomatedMatchingEngine`: 은행 명세와 전표 상세 자동 매칭 알고리즘.
+6. `ReconciliationAdjustmentPolicy`: 조정 전표 계정코드 정책 검증.
+7. `ExternalReconStageSnapshotAdapter`: 외부 원천 단계 집계 조회 어댑터.

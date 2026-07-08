@@ -1,5 +1,6 @@
-package com.ho.account.reconciliation.dto;
+package com.ho.account.reconciliation.api.dto;
 
+import com.ho.account.reconciliation.application.port.in.ReconciliationUnitCommand;
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -7,7 +8,10 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 대사 단위 (ReconciliationUnit) 요청 DTO
+ * 대사 단위(ReconciliationUnit) HTTP 요청 DTO입니다.
+ *
+ * <p>초보자용 설명: 이 DTO는 화면/HTTP JSON 입력값을 검증합니다. 검증 후에는 core 업무 입력인
+ * {@link ReconciliationUnitCommand}로 바꿔 서비스에 전달합니다.</p>
  */
 @Data
 public class ReconciliationUnitRequestDto {
@@ -28,16 +32,7 @@ public class ReconciliationUnitRequestDto {
 
     private boolean isActive = true;
 
-    // Entity to DTO conversion is not typically needed for a request DTO,
-    // but a method to convert DTO to Entity can be useful.
-    public ReconciliationUnit toEntity() {
-        ReconciliationUnit unit = new ReconciliationUnit();
-        unit.setName(this.name);
-        unit.setDescription(this.description);
-        unit.setFrequency(this.frequency);
-        unit.setReconciliationType(this.reconciliationType);
-        unit.setCriteriaJson(this.criteriaJson);
-        unit.setActive(this.isActive);
-        return unit;
+    public ReconciliationUnitCommand toCommand() {
+        return new ReconciliationUnitCommand(name, description, frequency, reconciliationType, criteriaJson, isActive);
     }
 }

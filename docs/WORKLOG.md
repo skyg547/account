@@ -1329,3 +1329,25 @@
   - 수납 actor/감사 필드 세분화는 현재 범위 밖이며, 운영 감사 정책 확정 시 command 확장을 검토한다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `receivable`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-08 (reconciliation API/core command 경계 리팩토링)
+### [검수/리팩토링] 대사 HTTP DTO/Controller를 API로 분리하고 core command 경계로 정리
+- **선확인**:
+  - `reconciliation/README.md`, `reconciliation/docs/README.md`, `reconciliation/docs/local-run.md`, `reconciliation/docs/process-flow.md`를 확인했다.
+  - `reconciliation:core`가 Controller/DTO/Web/Validation 의존을 함께 소유하고 있어 API 계약과 core 업무 입력이 섞인 상태를 확인했다.
+- **수정 범위**:
+  - `ReconciliationController`와 요청/응답 DTO를 `reconciliation:api`로 이동했다.
+  - `AssignDifferenceCommand`, `DifferenceReasonCodeCommand`, `ReconciliationRuleCommand`, `ReconciliationUnitCommand`, `ResolveDifferenceCommand`, `RunReconciliationCommand`를 core application input boundary로 추가했다.
+  - `ReconciliationService`와 `ReconciliationBatchService`는 command를 받아 도메인 객체 생성, 대사 실행, 차이 배정/해결을 수행한다.
+  - `reconciliation:core`에서 Web/Validation 의존을 제거하고 API DTO의 Bean Validation은 `reconciliation:api`에만 남겼다.
+  - `ReconciliationBatchJobRegistryConfiguration`을 추가해 Batch Job 등록 시점을 singleton 초기화 이후로 늦췄다.
+  - reconciliation README/docs와 Gemini 리뷰 프롬프트를 API DTO -> core command -> domain/service 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `reconciliation:api:bootRun` local/H2 context smoke 성공.
+  - `reconciliation:batch:bootRun` local/H2 context smoke 성공, JobRegistry BeanPostProcessor 경고 미재현.
+  - reconciliation Java TODO/FIXME 검색 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 런타임 호환과 실제 대량 `reconciliationDailyJob` 실행은 별도 통합 환경에서 검증해야 한다.
+  - 실제 외부 원천 스냅샷과 journal-ledger 전표 생성 포트의 운영 데이터 정합성은 H2 smoke 범위 밖이다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `reconciliation`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.

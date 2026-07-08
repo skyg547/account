@@ -1309,3 +1309,20 @@
   - PostgreSQL/Flyway 및 실제 대량 `receivableAutoMatchingJob` 실행은 별도 검증 필요.
 - 롤백:
   - 커밋 후에는 이번 receivable/payable boundary refactor 커밋을 revert한다.
+## 2026-07-08 (reconciliation API/core command boundary refactor)
+- 사용자 요청: 커밋/푸시 전까지 남은 API/core command 경계 정리와 검증을 완료.
+- 수정 내용:
+  - `reconciliation:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했다.
+  - `AssignDifferenceCommand`, `DifferenceReasonCodeCommand`, `ReconciliationRuleCommand`, `ReconciliationUnitCommand`, `ResolveDifferenceCommand`, `RunReconciliationCommand`를 core application input boundary로 추가했다.
+  - `reconciliation:api`가 Controller, 요청/응답 DTO, Bean Validation을 소유하도록 이동했다.
+  - `ReconciliationService`와 `ReconciliationBatchService`는 command를 받아 domain 객체 생성, 대사 실행, 차이 배정/해결을 수행한다.
+  - `ReconciliationBatchJobRegistryConfiguration`으로 Batch Job 등록 순서를 늦춰 local/H2 context 경고를 제거했다.
+  - reconciliation 문서와 Gemini 리뷰 프롬프트를 API DTO -> core command -> domain/service 흐름 기준으로 최신화했다.
+- 검증:
+  - `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `reconciliation:api:bootRun` local/H2 context smoke 성공.
+  - `reconciliation:batch:bootRun` local/H2 context smoke 성공, JobRegistry BeanPostProcessor warning 미재현.
+- 리스크:
+  - PostgreSQL/Flyway 및 실제 대량 `reconciliationDailyJob` 실행은 별도 검증 필요.
+- 롤백:
+  - 커밋 후에는 이번 reconciliation boundary refactor 커밋을 revert한다.

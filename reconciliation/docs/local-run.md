@@ -9,9 +9,9 @@
 
 `reconciliation`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
 
-- `reconciliation:core`: 대사 단위, 실행, 차이, 조정 정책과 persistence adapter.
-- `reconciliation:api`: Spring Boot HTTP 실행 진입점. 업무 판단은 core를 참조한다.
-- `reconciliation:batch`: Spring Boot Batch 실행 진입점. 대량 대사 Job/Step 제어만 담당하고 비교 규칙은 core를 참조한다.
+- `reconciliation:core`: command, 대사 단위, 실행, 차이, 조정 정책, persistence adapter, outbound port를 담는다.
+- `reconciliation:api`: Spring Boot HTTP 실행 진입점. Controller/DTO/Bean Validation을 소유하고 DTO를 core command로 변환한다.
+- `reconciliation:batch`: Spring Boot Batch 실행 진입점. Job/Step 제어와 파라미터 전달만 담당하고 비교 규칙은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
 
@@ -29,25 +29,25 @@
 ## PowerShell에서 실행하기
 
 ```powershell
-.\gradlew :reconciliation:core:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1
 ```
 
 빠른 컴파일만 확인할 때:
 
 ```powershell
-.\gradlew :reconciliation:core:compileJava :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :reconciliation:core:compileJava :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1
 ```
 
 API 서버 실행:
 
 ```powershell
-.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 Batch 컨텍스트 실행:
 
 ```powershell
-.\gradlew :reconciliation:batch:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 실제 Batch Job 실행:
@@ -56,12 +56,14 @@ Batch 컨텍스트 실행:
 .\gradlew :reconciliation:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=reconciliationDailyJob reconciliationDate=2026-06-19 runBy=LOCAL deepMode=false" --console=plain --max-workers=1
 ```
 
-`reconciliationDailyJob`은 활성 대사 단위를 core 서비스로 넘긴다. `deepMode=true`를 주면 원천/인터페이스/전표/원장 단계별 Deep reconciliation을 실행한다.
+`reconciliationDailyJob`은 활성 대사 단위를 `RunReconciliationCommand`로 core 서비스에 넘긴다. `deepMode=true`를 주면 원천/인터페이스/전표/원장 단계별 Deep reconciliation을 실행한다. `ReconciliationBatchJobRegistryConfiguration`은 Batch Job 등록 시점을 늦추는 인프라 설정이며 업무 판단을 넣지 않는다.
 
 API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
 
+> 위 API 실행 명령은 `web-application-type=none`으로 컨텍스트만 확인한다. 실제 HTTP 서버를 띄워 API를 호출하려면 해당 옵션을 빼고 `:reconciliation:api:bootRun`을 실행한다.
+
 ```powershell
-.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 ## 테스트 데이터 주의사항

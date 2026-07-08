@@ -8,6 +8,8 @@ import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
+import com.ho.account.reconciliation.application.port.in.ResolveDifferenceCommand;
+import com.ho.account.reconciliation.application.port.in.RunReconciliationCommand;
 import com.ho.account.reconciliation.domain.DifferenceReasonCode;
 import com.ho.account.reconciliation.domain.ReconciliationAdjustmentPolicy;
 import com.ho.account.reconciliation.domain.ReconciliationDifference;
@@ -101,7 +103,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
+        ReconciliationRun run = reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER"));
 
         assertThat(run.getTotalAmountSource()).isEqualByComparingTo("1000.00");
         assertThat(run.getTotalItemsSource()).isEqualTo(2L);
@@ -136,7 +138,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "995.00");
         stubExternalSnapshot(2, "1000.00");
 
-        ReconciliationRun run = reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
+        ReconciliationRun run = reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER"));
 
         assertThat(run.getTotalAmountSource()).isEqualByComparingTo("1000.00");
         assertThat(run.getTotalAmountTarget()).isEqualByComparingTo("995.00");
@@ -163,7 +165,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER"))
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER")))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Reconciliation failed for unit 10")
                 .cause()
@@ -193,7 +195,7 @@ class ReconciliationServiceTest {
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
                 .thenReturn(new JournalPostingResult(77L, "JE-20260511-0001", "DRAFT"));
 
-        reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER");
+        reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER"));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -248,7 +250,7 @@ class ReconciliationServiceTest {
         stubJournalTarget(reconciliationDate, "950.00");
         stubExternalSnapshot(2, "1000.00");
 
-        assertThatThrownBy(() -> reconciliationService.performReconciliation(10L, reconciliationDate, "TEST_USER"))
+        assertThatThrownBy(() -> reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER")))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Reconciliation failed")
                 .cause()
@@ -272,13 +274,7 @@ class ReconciliationServiceTest {
         when(journalQueryPort.getJournalSummary(77L)).thenReturn(journalSummary);
         when(reconciliationDifferenceRepository.save(any(ReconciliationDifference.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ReconciliationDifference resolved = reconciliationService.resolveDifference(
-                30L,
-                40L,
-                77L,
-                ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED,
-                "resolver"
-        );
+        ReconciliationDifference resolved = reconciliationService.resolveDifference(new ResolveDifferenceCommand(30L, 40L, 77L, ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED, "resolver"));
 
         assertThat(resolved.getAdjustmentJournalEntryId()).isEqualTo(77L);
         assertThat(resolved.getReasonCode()).isSameAs(reasonCode);

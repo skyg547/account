@@ -1,4 +1,4 @@
-package com.ho.account.reconciliation.dto;
+package com.ho.account.reconciliation.api.dto;
 
 import com.ho.account.reconciliation.domain.ReconciliationDifference;
 import com.ho.account.reconciliation.domain.ReconciliationDifference.DifferenceType;

@@ -12,14 +12,16 @@
 
 ## 현재 실행 전제
 
-- `reconciliation:core`는 업무 규칙과 persistence/local adapter를 담는 Java library 모듈이다.
-- `reconciliation:api`는 `ReconciliationApiApplication`으로 H2 local API 서버를 실행한다.
-- `reconciliation:batch`는 `ReconciliationBatchApplication`으로 Batch 컨텍스트를 실행하고, `reconciliationDailyJob`으로 활성 대사 단위를 일괄 실행한다.
-- 로컬에서는 `.\gradlew :reconciliation:core:test`, `.\gradlew :reconciliation:api:bootRun`, `.\gradlew :reconciliation:batch:bootRun`으로 검증한다.
+- `reconciliation:core`는 command, 유즈케이스 서비스, 도메인 규칙, persistence/local adapter, outbound port를 담는 Java library 모듈이다.
+- `reconciliation:api`는 `ReconciliationApiApplication`으로 H2 local API 서버를 실행하고 Controller/DTO/Bean Validation을 소유한다.
+- `reconciliation:batch`는 `ReconciliationBatchApplication`으로 Batch 컨텍스트를 실행하고, `reconciliationDailyJob`으로 활성 대사 단위를 core command에 위임한다.
+- 로컬에서는 `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava`로 기본 검증하고, 필요 시 API/BATCH `bootRun`으로 컨텍스트를 확인한다.
 
 ## 핵심 코드 입구
 
-- 인바운드 어댑터: `web/ReconciliationController`
+- API 인바운드 어댑터: `reconciliation:api/src/main/java/com/ho/account/reconciliation/api/adapter/in/web/ReconciliationController.java`
+- API DTO/검증: `reconciliation:api/src/main/java/com/ho/account/reconciliation/api/dto`
+- Core command 입력: `AssignDifferenceCommand`, `DifferenceReasonCodeCommand`, `ReconciliationRuleCommand`, `ReconciliationUnitCommand`, `ResolveDifferenceCommand`, `RunReconciliationCommand`
 - 유즈케이스 서비스: `service/ReconciliationService`
 - 매칭 컴포넌트: `service/AutomatedMatchingEngine`
 - 도메인 모델: `ReconciliationUnit`, `ReconciliationRule`, `ReconciliationRun`, `ReconciliationDifference`, `DifferenceReasonCode`, `ReconciliationStageResult`

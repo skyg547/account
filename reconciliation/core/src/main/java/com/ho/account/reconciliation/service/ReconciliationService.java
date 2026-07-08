@@ -10,6 +10,12 @@ import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
+import com.ho.account.reconciliation.application.port.in.AssignDifferenceCommand;
+import com.ho.account.reconciliation.application.port.in.DifferenceReasonCodeCommand;
+import com.ho.account.reconciliation.application.port.in.ReconciliationRuleCommand;
+import com.ho.account.reconciliation.application.port.in.ReconciliationUnitCommand;
+import com.ho.account.reconciliation.application.port.in.ResolveDifferenceCommand;
+import com.ho.account.reconciliation.application.port.in.RunReconciliationCommand;
 import com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotPort;
 import com.ho.account.reconciliation.domain.*;
 import com.ho.account.reconciliation.repository.*;
@@ -81,10 +87,11 @@ public class ReconciliationService {
     /**
      * Creates a reconciliation unit.
      *
-     * @param reconciliationUnit reconciliation unit to create
+     * @param command API/Batch 공통 입력을 담은 대사 단위 생성 command
      * @return created reconciliation unit
      */
-    public ReconciliationUnit createReconciliationUnit(ReconciliationUnit reconciliationUnit) {
+    public ReconciliationUnit createReconciliationUnit(ReconciliationUnitCommand command) {
+        ReconciliationUnit reconciliationUnit = toReconciliationUnit(command);
         return reconciliationUnitRepository.save(reconciliationUnit);
     }
 
@@ -115,23 +122,34 @@ public class ReconciliationService {
      * Updates a reconciliation unit.
      *
      * @param id reconciliation unit id
-     * @param updatedUnit new unit values
+     * @param command API/Batch 공통 입력을 담은 대사 단위 수정 command
      * @return updated reconciliation unit
      * @throws EntityNotFoundException when no unit exists for the id
      */
-    public ReconciliationUnit updateReconciliationUnit(Long id, ReconciliationUnit updatedUnit) {
+    public ReconciliationUnit updateReconciliationUnit(Long id, ReconciliationUnitCommand command) {
         ReconciliationUnit existingUnit = reconciliationUnitRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationUnit not found with id: " + id));
 
-        existingUnit.setName(updatedUnit.getName());
-        existingUnit.setDescription(updatedUnit.getDescription());
-        existingUnit.setFrequency(updatedUnit.getFrequency());
-        existingUnit.setReconciliationType(updatedUnit.getReconciliationType());
-        existingUnit.setCriteriaJson(updatedUnit.getCriteriaJson());
-        existingUnit.setActive(updatedUnit.isActive());
+        existingUnit.setName(command.name());
+        existingUnit.setDescription(command.description());
+        existingUnit.setFrequency(command.frequency());
+        existingUnit.setReconciliationType(command.reconciliationType());
+        existingUnit.setCriteriaJson(command.criteriaJson());
+        existingUnit.setActive(command.active());
         return reconciliationUnitRepository.save(existingUnit);
     }
 
+
+    private ReconciliationUnit toReconciliationUnit(ReconciliationUnitCommand command) {
+        ReconciliationUnit unit = new ReconciliationUnit();
+        unit.setName(command.name());
+        unit.setDescription(command.description());
+        unit.setFrequency(command.frequency());
+        unit.setReconciliationType(command.reconciliationType());
+        unit.setCriteriaJson(command.criteriaJson());
+        unit.setActive(command.active());
+        return unit;
+    }
     /**
      * Deletes a reconciliation unit.
      *
@@ -149,10 +167,11 @@ public class ReconciliationService {
     /**
      * Creates a reconciliation rule.
      *
-     * @param reconciliationRule reconciliation rule to create
+     * @param command API/Batch 공통 입력을 담은 대사 규칙 생성 command
      * @return created reconciliation rule
      */
-    public ReconciliationRule createReconciliationRule(ReconciliationRule reconciliationRule) {
+    public ReconciliationRule createReconciliationRule(ReconciliationRuleCommand command) {
+        ReconciliationRule reconciliationRule = toReconciliationRule(command);
         return reconciliationRuleRepository.save(reconciliationRule);
     }
 
@@ -173,24 +192,38 @@ public class ReconciliationService {
      * Updates a reconciliation rule.
      *
      * @param id reconciliation rule id
-     * @param updatedRule new rule values
+     * @param command API/Batch 공통 입력을 담은 대사 규칙 수정 command
      * @return updated reconciliation rule
      * @throws EntityNotFoundException when no rule exists for the id
      */
-    public ReconciliationRule updateReconciliationRule(Long id, ReconciliationRule updatedRule) {
+    public ReconciliationRule updateReconciliationRule(Long id, ReconciliationRuleCommand command) {
         ReconciliationRule existingRule = reconciliationRuleRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationRule not found with id: " + id));
+        ReconciliationUnit reconciliationUnit = findReconciliationUnitById(command.reconciliationUnitId());
 
-        existingRule.setName(updatedRule.getName());
-        existingRule.setRuleDefinitionJson(updatedRule.getRuleDefinitionJson());
-        existingRule.setToleranceType(updatedRule.getToleranceType());
-        existingRule.setToleranceValue(updatedRule.getToleranceValue());
-        existingRule.setPriority(updatedRule.getPriority());
-        existingRule.setActive(updatedRule.isActive());
-        existingRule.setReconciliationUnit(updatedRule.getReconciliationUnit());
+        existingRule.setName(command.name());
+        existingRule.setRuleDefinitionJson(command.ruleDefinitionJson());
+        existingRule.setToleranceType(command.toleranceType());
+        existingRule.setToleranceValue(command.toleranceValue());
+        existingRule.setPriority(command.priority());
+        existingRule.setActive(command.active());
+        existingRule.setReconciliationUnit(reconciliationUnit);
         return reconciliationRuleRepository.save(existingRule);
     }
 
+
+    private ReconciliationRule toReconciliationRule(ReconciliationRuleCommand command) {
+        ReconciliationUnit reconciliationUnit = findReconciliationUnitById(command.reconciliationUnitId());
+        ReconciliationRule rule = new ReconciliationRule();
+        rule.setReconciliationUnit(reconciliationUnit);
+        rule.setName(command.name());
+        rule.setRuleDefinitionJson(command.ruleDefinitionJson());
+        rule.setToleranceType(command.toleranceType());
+        rule.setToleranceValue(command.toleranceValue());
+        rule.setPriority(command.priority());
+        rule.setActive(command.active());
+        return rule;
+    }
     /**
      * Deletes a reconciliation rule.
      *
@@ -209,10 +242,11 @@ public class ReconciliationService {
     /**
      * Creates a difference reason code.
      *
-     * @param reasonCode reason code to create
+     * @param command API/Batch 공통 입력을 담은 차이 사유 코드 생성 command
      * @return created reason code
      */
-    public DifferenceReasonCode createDifferenceReasonCode(DifferenceReasonCode reasonCode) {
+    public DifferenceReasonCode createDifferenceReasonCode(DifferenceReasonCodeCommand command) {
+        DifferenceReasonCode reasonCode = toDifferenceReasonCode(command);
         return differenceReasonCodeRepository.save(reasonCode);
     }
 
@@ -243,22 +277,32 @@ public class ReconciliationService {
      * Updates a difference reason code.
      *
      * @param id reason code id
-     * @param updatedReasonCode new reason code values
+     * @param command API/Batch 공통 입력을 담은 차이 사유 코드 수정 command
      * @return updated reason code
      * @throws EntityNotFoundException when no reason code exists for the id
      */
-    public DifferenceReasonCode updateDifferenceReasonCode(Long id, DifferenceReasonCode updatedReasonCode) {
+    public DifferenceReasonCode updateDifferenceReasonCode(Long id, DifferenceReasonCodeCommand command) {
         DifferenceReasonCode existingCode = differenceReasonCodeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("DifferenceReasonCode not found with id: " + id));
 
-        existingCode.setCode(updatedReasonCode.getCode());
-        existingCode.setName(updatedReasonCode.getName());
-        existingCode.setDescription(updatedReasonCode.getDescription());
-        existingCode.setAdjustable(updatedReasonCode.isAdjustable());
-        existingCode.setActive(updatedReasonCode.isActive());
+        existingCode.setCode(command.code());
+        existingCode.setName(command.name());
+        existingCode.setDescription(command.description());
+        existingCode.setAdjustable(command.adjustable());
+        existingCode.setActive(command.active());
         return differenceReasonCodeRepository.save(existingCode);
     }
 
+
+    private DifferenceReasonCode toDifferenceReasonCode(DifferenceReasonCodeCommand command) {
+        DifferenceReasonCode reasonCode = new DifferenceReasonCode();
+        reasonCode.setCode(command.code());
+        reasonCode.setName(command.name());
+        reasonCode.setDescription(command.description());
+        reasonCode.setAdjustable(command.adjustable());
+        reasonCode.setActive(command.active());
+        return reasonCode;
+    }
     /**
      * Deletes a difference reason code.
      *
@@ -275,18 +319,16 @@ public class ReconciliationService {
     /**
      * Assigns a reconciliation difference and sets its SLA due date.
      *
-     * @param differenceId difference id
-     * @param assignedToUser assignee id or name
-     * @param slaDueDate SLA due date
+     * @param command 담당자와 SLA를 포함한 차이 배정 command
      * @return updated difference
      * @throws EntityNotFoundException when no difference exists for the id
      */
-    public ReconciliationDifference assignDifference(Long differenceId, String assignedToUser, LocalDateTime slaDueDate) {
-        ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
-                .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + differenceId));
+    public ReconciliationDifference assignDifference(AssignDifferenceCommand command) {
+        ReconciliationDifference difference = reconciliationDifferenceRepository.findById(command.differenceId())
+                .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + command.differenceId()));
 
-        difference.setAssignedToUser(assignedToUser);
-        difference.setSlaDueDate(slaDueDate);
+        difference.setAssignedToUser(command.assignedToUser());
+        difference.setSlaDueDate(command.slaDueDate());
         difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED);
         return reconciliationDifferenceRepository.save(difference);
     }
@@ -295,16 +337,15 @@ public class ReconciliationService {
      * Finalizes a reconciliation difference as resolved or ignored.
      * Adjustable reason codes require an adjustment journal entry id.
      *
-     * @param differenceId difference id
-     * @param reasonCodeId reason code id
-     * @param adjustmentJournalEntryId adjustment journal entry id
-     * @param status final status, RESOLVED or IGNORED
-     * @param resolvedBy resolver id or name
+     * @param command 사유 코드, 조정 전표, 해결자, 최종 상태를 포함한 차이 해결 command
      * @return updated difference
      */
-    public ReconciliationDifference resolveDifference(Long differenceId, Long reasonCodeId, Long adjustmentJournalEntryId,
-                                                      ReconciliationDifference.ReconciliationDifferenceStatus status,
-                                                      String resolvedBy) {
+    public ReconciliationDifference resolveDifference(ResolveDifferenceCommand command) {
+        Long differenceId = command.differenceId();
+        Long reasonCodeId = command.reasonCodeId();
+        Long adjustmentJournalEntryId = command.adjustmentJournalEntryId();
+        ReconciliationDifference.ReconciliationDifferenceStatus status = command.status();
+        String resolvedBy = command.resolvedBy();
         ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + differenceId));
         DifferenceReasonCode reasonCode = differenceReasonCodeRepository.findById(reasonCodeId)
@@ -355,12 +396,14 @@ public class ReconciliationService {
     /**
      * Executes reconciliation for a unit and date.
      *
-     * @param unitId reconciliation unit id
-     * @param reconciliationDate reconciliation basis date
+     * @param command 대사 단위, 기준일, 실행자를 포함한 대사 실행 command
      * @return created reconciliation run
      * @throws EntityNotFoundException when no unit exists for the id
      */
-    public ReconciliationRun performReconciliation(Long unitId, LocalDate reconciliationDate, String runBy) {
+    public ReconciliationRun performReconciliation(RunReconciliationCommand command) {
+        Long unitId = command.reconciliationUnitId();
+        LocalDate reconciliationDate = command.reconciliationDate();
+        String runBy = command.runBy();
         ReconciliationUnit reconciliationUnit = findReconciliationUnitById(unitId);
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 

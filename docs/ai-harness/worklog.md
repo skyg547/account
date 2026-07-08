@@ -289,3 +289,21 @@
   - PostgreSQL/Flyway compatibility and high-volume auto-matching Job execution are not verified in this pass.
 - Rollback:
   - Revert the receivable/payable boundary refactor commit if rejected.
+## 2026-07-08 - Reconciliation API/Core Command Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP Controller/DTO ownership from `reconciliation:core`.
+  - Added command records for reconciliation unit/rule/reason code/run/difference assignment/difference resolution input boundaries.
+  - Moved `ReconciliationController`, request/response DTOs, and Bean Validation to `reconciliation:api`.
+  - Added `ReconciliationBatchJobRegistryConfiguration` so Batch Job registration happens after singleton initialization.
+  - Updated reconciliation docs and Gemini review prompt for the API DTO -> core command -> domain/service flow.
+- Verification:
+  - `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1` passed.
+  - `reconciliation:api:bootRun` local/H2 context smoke passed.
+  - `reconciliation:batch:bootRun` local/H2 context smoke passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume `reconciliationDailyJob` execution are not verified in this pass.
+- Rollback:
+  - Revert the reconciliation boundary refactor commit if rejected.

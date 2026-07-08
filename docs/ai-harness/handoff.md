@@ -1,3 +1,39 @@
+# AI Harness Handoff
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: Reconciliation API/core command boundary refactor.
+- Working tree intent: commit and push this refactor by explicit user request.
+
+## What Changed
+
+- `reconciliation:core` no longer owns HTTP Controller/DTO/Web/Validation dependencies.
+- `reconciliation:api` owns `ReconciliationController`, request/response DTOs, and Bean Validation.
+- Core input is now command-based: `ReconciliationUnitCommand`, `ReconciliationRuleCommand`, `DifferenceReasonCodeCommand`, `RunReconciliationCommand`, `AssignDifferenceCommand`, `ResolveDifferenceCommand`.
+- `reconciliation:batch` delegates to the same core command/service path and uses delayed JobRegistry registration.
+- Reconciliation docs and Gemini review prompt were updated to match the new boundary.
+
+## Verification Summary
+
+- `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1`: passed.
+- `reconciliation:api:bootRun` local/H2 context smoke: passed.
+- `reconciliation:batch:bootRun` local/H2 context smoke: passed; JobRegistry warning no longer appeared.
+- Reconciliation Java TODO/FIXME search returned no matches.
+
+## Known Risks
+
+- PostgreSQL/Flyway runtime compatibility and high-volume reconciliation job execution are not verified in this pass.
+- External source snapshot and journal-ledger posting integration were not exercised beyond local/H2 context smoke.
+
+## Rollback
+
+- After commit: `git revert <commit>` for the reconciliation boundary refactor.
+- Before commit: restore the changed `reconciliation`, docs, worklog, handoff, and Gemini prompt files carefully, preserving unrelated user changes.
+
+---
 # Latest Handoff - 2026-07-08 Payable + Receivable API/Core Command Boundary
 
 ## Current State
@@ -101,7 +137,8 @@
 - Before commit: restore expenditure-resolution, 	ax, contracts, docs/worklog/handoff/Gemini prompt carefully.
 - After commit: revert the expenditure-resolution boundary refactor commit.
 
----# Latest Handoff - 2026-07-08 Tax API/Core Command Boundary
+---
+# Latest Handoff - 2026-07-08 Tax API/Core Command Boundary
 
 ## Current State
 
@@ -134,7 +171,8 @@
 - Before commit: restore `tax`, `contracts`, `expenditure-resolution`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` carefully.
 - After commit: revert the tax boundary refactor commit.
 
----# Latest Handoff - 2026-07-07 Asset Lease
+---
+# Latest Handoff - 2026-07-07 Asset Lease
 
 ## Current State
 
