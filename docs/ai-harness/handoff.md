@@ -1,3 +1,71 @@
+# Latest Handoff - 2026-07-08 Payable + Receivable API/Core Command Boundary
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: payable and receivable API/core command boundaries, API DTO separation, and Batch JobRegistry cleanup.
+
+## What Changed
+
+- `payable:core` and `receivable:core` no longer own HTTP Controller/DTO classes or Web/Validation dependencies.
+- Payable core inputs are `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand`, `AdvancePaymentCommand`, and `OffsetPayableCommand`.
+- Receivable core inputs are `SalesInvoiceCommand`, `CollectionCommand`, and `ManualMatchingCommand`.
+- `payable:api` and `receivable:api` own controllers, request DTOs, Bean Validation, response DTOs, and controller tests.
+- `payable:batch` and `receivable:batch` keep Spring Batch orchestration/JobRegistry infrastructure only and delegate business decisions to core use cases.
+
+## Verification Summary
+
+- `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`: passed.
+- `payable:api:bootRun` and `payable:batch:bootRun` local/H2 context smoke: passed.
+- `.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1`: passed.
+- `receivable:api:bootRun` and `receivable:batch:bootRun` local/H2 context smoke: passed; Batch JobRegistry warning no longer appeared after configuration.
+
+## Known Risks
+
+- PostgreSQL/Flyway runtime compatibility was not tested in this pass.
+- Real payment gateway/bank statement integrations and high-volume payable/receivable batch runs still need integration verification.
+
+## Rollback
+
+- After commit: revert the payable/receivable boundary refactor commit.
+
+---
+# Latest Handoff - 2026-07-08 Payable API/Core Command Boundary
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: payable API/core command boundary, API response DTO separation, and Batch JobRegistry cleanup.
+
+## What Changed
+
+- `payable:core` no longer owns HTTP Controller/DTO classes or Web/Validation dependencies.
+- `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand`, `AdvancePaymentCommand`, and `OffsetPayableCommand` are the core use case inputs.
+- `payable:api` owns controllers, request DTOs, Bean Validation, and response DTOs.
+- `payable:batch` creates `PaymentRunCommand` and delegates business flow to core `PaymentUseCase`.
+- `PayableBatchJobRegistryConfiguration` delays Spring Batch Job registration until singleton initialization is complete.
+
+## Verification Summary
+
+- `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`: passed.
+- `:payable:api:bootRun` local/H2 context smoke: passed.
+- `:payable:batch:bootRun` local/H2 context smoke: passed; JobRegistry BeanPostProcessor warning no longer appeared.
+
+## Known Risks
+
+- PostgreSQL/Flyway runtime compatibility was not tested in this pass.
+- Real bank/payment gateway adapter and high-volume payment run performance still need integration verification.
+
+## Rollback
+
+- Before commit: restore `payable`, `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness`, `docs/module-documentation-sequence.md`, and `GEMINI_REVIEW_PROMPT.md` carefully.
+- After commit: revert the payable boundary refactor commit.
+
+---
 # Latest Handoff - 2026-07-08 Expenditure Resolution API/Core Boundary
 
 ## Current State

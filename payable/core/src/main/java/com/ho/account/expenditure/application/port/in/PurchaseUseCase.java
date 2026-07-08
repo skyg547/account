@@ -4,6 +4,6 @@ import com.ho.account.expenditure.domain.PurchaseInvoice;
 import java.time.LocalDate;
 
 public interface PurchaseUseCase {
-    PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice);
+    PurchaseInvoice createPurchaseInvoice(PurchaseInvoiceCommand command);
     void updatePayableStatus(LocalDate asOfDate);
 }

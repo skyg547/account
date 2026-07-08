@@ -1,3 +1,41 @@
+# 2026-07-08 payable + receivable API/core command 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `payable:core`, `receivable:core`에서 HTTP Controller/DTO/Web/Validation 의존을 제거하고, 각 API 모듈이 요청 DTO/응답 DTO를 core command로 연결하도록 정리한 변경.
+- 우선 확인:
+  - `payable:core`, `receivable:core`가 `spring-boot-starter-web`, `spring-boot-starter-validation`, Controller/DTO를 더 이상 소유하지 않는지.
+  - `PurchaseUseCase`, `PaymentUseCase`, `SalesUseCase`, `CollectionUseCase`가 command 기반 입력만 받는지.
+  - `SalesInvoiceCommand`, `CollectionCommand`, `ManualMatchingCommand`가 API/Batch 공통 업무 입력값으로 충분한지.
+  - `receivable:api` 요청 DTO가 Bean Validation 후 command로 변환하고, 응답 DTO가 domain/JPA 엔티티 직접 직렬화를 막는지.
+  - `SalesService`가 매출 전표 actor를 `createdBy` 기준으로 전달하고, `CollectionService`가 수납/매칭 금액 상태 전이를 기존 도메인 규칙으로 유지하는지.
+  - `PayableBatchJobRegistryConfiguration`, `ReceivableBatchJobRegistryConfiguration`이 Batch Job 등록 순서만 조정하고 업무 로직을 포함하지 않는지.
+- 재실행 권장:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `.\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `rg -n "spring-boot-starter-web|spring-boot-starter-validation|@RestController|@RequestMapping|jakarta\.validation|com\.ho\.account\.receivable\.api" receivable\core --glob "*.java" --glob "*.gradle" --glob "!**/build/**"`
+
+# 2026-07-08 payable API/core command 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `payable:core`에서 HTTP Controller/DTO/Web/Validation 의존을 제거하고, `payable:api`가 요청 DTO/응답 DTO를 core command로 연결하도록 정리한 변경.
+- 우선 확인:
+  - `payable:core`가 `spring-boot-starter-web`, `spring-boot-starter-validation`, Controller/DTO를 더 이상 소유하지 않는지.
+  - `PurchaseUseCase`, `PaymentUseCase`가 command 기반 입력만 받는지.
+  - `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand`, `AdvancePaymentCommand`, `OffsetPayableCommand`가 API/Batch 공통 업무 입력값으로 충분한지.
+  - `payable:api` 요청 DTO가 Bean Validation 후 command로 변환하고, 응답 DTO가 JPA/domain 엔티티 직접 직렬화를 막는지.
+  - `PayablePaymentRunBatchConfig`가 Job/Step orchestration만 담당하고 업무 판단은 core `PaymentUseCase`에 위임하는지.
+  - `PayableBatchJobRegistryConfiguration`이 Batch Job 등록 순서만 조정하고 업무 로직을 포함하지 않는지.
+- 재실행 권장:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :payable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `.\gradlew :payable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `rg -n "spring-boot-starter-web|spring-boot-starter-validation|@RestController|@RequestMapping|jakarta\.validation|com\.ho\.account\.expenditure\.payable\.api" payable\core --glob "*.java" --glob "*.gradle" --glob "!**/build/**"`
+
 # 2026-07-08 expenditure-resolution API/core command 경계 리뷰
 
 Gemini는 아래 최신 변경을 우선 리뷰하세요.

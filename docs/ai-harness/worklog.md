@@ -1,3 +1,19 @@
+## 2026-07-08 - Payable API/core command boundary
+- Branch: `agent/asset-lease-split`
+- Scope: `payable` core/api/batch/docs
+- Changes:
+  - Moved HTTP controllers and request DTOs from `payable:core` to `payable:api`.
+  - Added core use case commands for purchase invoice, payment run, payment execution, advance payment, and offset.
+  - Added API response DTOs so JPA/domain entities are not serialized directly as the external contract.
+  - Removed Web/Validation dependencies from `payable:core`.
+  - Updated payable batch to call core through `PaymentRunCommand` and delayed Batch JobRegistry registration.
+  - Updated payable beginner/process/schema/local-run docs.
+- Verification:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`: passed.
+  - `:payable:api:bootRun` local/H2 context smoke: passed.
+  - `:payable:batch:bootRun` local/H2 context smoke: passed; JobRegistry BeanPostProcessor warning not reproduced.
+- Risk:
+  - PostgreSQL migration/runtime, real payment gateway adapter, and high-volume payment run performance need integration verification.
 ## 2026-07-07 - Asset Lease depreciation batch boundary
 - Branch: `agent/asset-lease-split`
 - Scope: `asset-lease` core/domain/pipeline/port/adapter/batch/docs
@@ -256,3 +272,20 @@
   - Real high-volume expenditureResolutionApprovalJob execution is not verified in this pass.
 - Rollback:
   - Revert the expenditure-resolution/tax/contracts changes and associated docs/log updates from this pass if rejected.
+## 2026-07-08 - Receivable API/Core Command Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP Controller/DTO ownership from `receivable:core`.
+  - Added `SalesInvoiceCommand`, `CollectionCommand`, and `ManualMatchingCommand` as core use case input boundaries.
+  - Moved controllers, request/response DTOs, Bean Validation, and controller tests to `receivable:api`.
+  - Added `ReceivableBatchJobRegistryConfiguration` so Batch Job registration happens after singleton initialization.
+- Verification:
+  - `.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1` passed.
+  - `receivable:api:bootRun` local/H2 context smoke passed.
+  - `receivable:batch:bootRun` local/H2 context smoke passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume auto-matching Job execution are not verified in this pass.
+- Rollback:
+  - Revert the receivable/payable boundary refactor commit if rejected.

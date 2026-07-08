@@ -5,6 +5,7 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.receivable.application.port.in.SalesInvoiceCommand;
 import com.ho.account.receivable.application.port.in.SalesUseCase;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
@@ -49,7 +50,8 @@ public class SalesService implements SalesUseCase {
     }
 
     @Override
-    public SalesInvoice createSalesInvoice(SalesInvoice invoice) {
+    public SalesInvoice createSalesInvoice(SalesInvoiceCommand command) {
+        SalesInvoice invoice = toInvoice(command);
         String customerCode = invoice.getCustomerCode();
         BusinessPartnerRef customer = validateCustomer(customerCode);
 
@@ -90,6 +92,18 @@ public class SalesService implements SalesUseCase {
         }
     }
 
+    private SalesInvoice toInvoice(SalesInvoiceCommand command) {
+        return SalesInvoice.create(
+                command.invoiceNo(),
+                command.customerCode(),
+                command.issueDate(),
+                command.dueDate(),
+                command.netAmount(),
+                command.taxAmount(),
+                command.createdBy(),
+                command.description());
+    }
+
     private BusinessPartnerRef validateCustomer(String customerCode) {
         return masterDataQueryPort.findBusinessPartner(customerCode)
                 .orElseThrow(() -> new IllegalArgumentException("Customer info missing in master data: " + customerCode));
@@ -105,7 +119,7 @@ public class SalesService implements SalesUseCase {
                 invoice.getIssueDate(),
                 "Sales: " + invoice.getInvoiceNo() + " - " + customer.name(),
                 "SALES_RECOGNITION",
-                null, null, "SYSTEM", "SYSTEM",
+                null, null, invoice.getCreatedBy(), invoice.getCreatedBy(),
                 "SALES_INVOICE", invoice.getId().toString(),
                 List.of(
                         new JournalLineCommand("DEBIT", accounts.accountsReceivableAccountCode(), invoice.getTotalAmount(), null, null,

@@ -79,7 +79,7 @@ erDiagram
 
 ## 4. 로컬 실행 및 검증 방법
 
-`payable`은 `core/api/batch` 구조로 실행됩니다. `core`가 매입채무/지급 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
+`payable`은 `core/api/batch` 구조로 실행됩니다. `core`가 매입채무/지급 업무 규칙과 command를 갖고, `api`는 HTTP DTO/Bean Validation/응답 DTO를, `batch`는 Spring Batch Job/Step 오케스트레이션을 담당하며 둘 다 `core`를 참조합니다.
 
 **PowerShell 검증 명령:**
 

@@ -5,6 +5,7 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.expenditure.application.port.in.PurchaseInvoiceCommand;
 import com.ho.account.expenditure.application.port.in.PurchaseUseCase;
 import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
@@ -44,7 +45,8 @@ public class PurchaseService implements PurchaseUseCase {
     }
 
     @Override
-    public PurchaseInvoice createPurchaseInvoice(PurchaseInvoice invoice) {
+    public PurchaseInvoice createPurchaseInvoice(PurchaseInvoiceCommand command) {
+        PurchaseInvoice invoice = toInvoice(command);
         String vendorCode = invoice.getVendorCode();
         BusinessPartnerRef vendor = validateVendor(vendorCode);
 
@@ -94,6 +96,20 @@ public class PurchaseService implements PurchaseUseCase {
                     }
                 });
         }
+    }
+
+    private PurchaseInvoice toInvoice(PurchaseInvoiceCommand command) {
+        PurchaseInvoice invoice = new PurchaseInvoice();
+        invoice.setInvoiceNo(command.invoiceNo());
+        invoice.setVendorCode(command.vendorCode());
+        invoice.setIssueDate(command.issueDate());
+        invoice.setDueDate(command.dueDate());
+        invoice.setTotalAmount(command.totalAmount());
+        invoice.setTaxAmount(command.taxAmount());
+        invoice.setNetAmount(command.netAmount());
+        invoice.setCreatedBy(command.createdBy());
+        invoice.setDescription(command.description());
+        return invoice;
     }
 
     private BusinessPartnerRef validateVendor(String vendorCode) {

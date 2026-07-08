@@ -1,3 +1,18 @@
+## 2026-07-08 (payable API/core command boundary)
+- 요청 목표: 모듈 순차 점검 중 payable의 헥사고날/DDD 경계, API DTO/core command 분리, Batch 실행 경고 정리, 초보자 문서 최신화.
+- 변경:
+  - `payable:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했다.
+  - `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand`, `AdvancePaymentCommand`, `OffsetPayableCommand`를 core 유즈케이스 입력으로 추가했다.
+  - `PurchaseController`, `PaymentController`, 요청 DTO를 `payable:api`로 이동하고 응답 DTO를 추가했다.
+  - Batch 지급런 Tasklet이 `PaymentRunCommand`로 core 유즈케이스를 호출하도록 변경했다.
+  - `PayableBatchJobRegistryConfiguration`을 추가해 Batch JobRegistry 조기 초기화 경고를 제거했다.
+  - payable README/docs/process-flow/schema/local-run과 handoff/Gemini prompt를 갱신했다.
+- 검증:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `:payable:api:bootRun` local/H2 context smoke 성공.
+  - `:payable:batch:bootRun` local/H2 context smoke 성공, JobRegistry 경고 미재현.
+- 리스크:
+  - PostgreSQL/Flyway와 실제 은행 지급 어댑터, 대량 지급런 성능은 별도 검증 필요.
 ## 2026-07-08 (expenditure-resolution API/core command boundary)
 - 요청 목표: 모듈 순차 점검 중 expenditure-resolution의 헥사고날/DDD 경계, master-data 내부 참조, API DTO/core command 분리, 문서 최신화.
 - 변경:
@@ -1250,7 +1265,7 @@
   - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` 성공.
   - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` 성공, `dailyBalanceReaggregationJob` COMPLETED.
   - ecl/journal-ledger Java TODO/깨진문자 검색 결과 없음.
-  - 문서 literal `` `r`n`` 검색 결과 없음.
+  - 문서 literal 검색 결과 없음.
   - `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
 - 리스크:
   - PostgreSQL 대량 데이터 기준 잔액 재집계 성능/락/재실행 검증은 남아 있다.
@@ -1278,3 +1293,19 @@
 - 추가 검증:
   - `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` 성공.
   - closing API/BATCH local logback 설정을 추가해 로컬 실행에서 Logstash 연결 경고를 제거했다.
+## 2026-07-08 (receivable API/core command boundary refactor)
+- 사용자 요청: 커밋/푸시 전까지 남은 API/core command 경계 정리와 검증을 완료.
+- 수정 내용:
+  - `receivable:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했다.
+  - `SalesInvoiceCommand`, `CollectionCommand`, `ManualMatchingCommand`를 core application input boundary로 추가했다.
+  - `receivable:api`가 Controller, 요청/응답 DTO, Bean Validation, controller tests를 소유하도록 이동했다.
+  - `SalesService`와 `CollectionService`는 command를 받아 domain 객체를 생성하고 기존 업무 규칙과 전표 포트 호출을 유지한다.
+  - `ReceivableBatchJobRegistryConfiguration`으로 Batch Job 등록 순서를 늦춰 local/H2 context 경고를 제거했다.
+- 검증:
+  - `.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `receivable:api:bootRun` local/H2 context smoke 성공.
+  - `receivable:batch:bootRun` local/H2 context smoke 성공, JobRegistry BeanPostProcessor warning 미재현.
+- 리스크:
+  - PostgreSQL/Flyway 및 실제 대량 `receivableAutoMatchingJob` 실행은 별도 검증 필요.
+- 롤백:
+  - 커밋 후에는 이번 receivable/payable boundary refactor 커밋을 revert한다.

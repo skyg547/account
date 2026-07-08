@@ -31,6 +31,8 @@
 | 15 | `asset-lease` 감가상각 Batch 경계 리팩토링 | Done | Batch preview 계산과 JDBC bulk 반영을 분리해 이중 상각/완료 상태 누락 리스크 제거 |
 | 16 | `tax` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 `TaxInvoiceCommand`/도메인 규칙만 소유 |
 | 17 | `expenditure-resolution` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/port/master-data code 참조만 소유 |
+| 18 | `payable` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/use case/domain 규칙만 소유, Batch JobRegistry 정리 |
+| 19 | `receivable` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/use case/domain 규칙만 소유, Batch JobRegistry 정리 |
 
 ## 1차 완료 상세
 
@@ -161,7 +163,7 @@ git diff --check
 - `receivable/docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 추가해 매출채권, 수납, 자동/수동 매칭, 부분 매칭 흐름을 통합했습니다.
 - 기존 모듈 docs 인덱스는 각각 `docs/archive/README_legacy_index_2026-06-10.md`로 이동해 보존했습니다.
 - `payable/README.md`, `receivable/README.md`, 전사 `docs/README.md`에서 새 문서와 IntelliJ/Gradle 검증 방식을 연결했습니다.
-- `payable`과 `receivable`은 현재 `java-library` 모듈이라 standalone `bootRun` 대신 `:payable:test`, `:receivable:test` 실행 흐름을 명시했습니다.
+- 당시 `payable`과 `receivable`은 `java-library` 검증 흐름을 기준으로 문서화했습니다. 이후 `payable`은 `core/api/batch` 실행 구조와 API/core command 경계로 갱신했습니다.
 - `.run/Payable Module Tests.run.xml`, `.run/Receivable Module Tests.run.xml`을 추가했습니다.
 - `PurchaseInvoiceId`의 깨진 한글 주석을 복구하고, payable 인바운드 DTO 분리 필요 지점은 `@todo`로 표시했습니다.
 - `CollectionController`에 수납/매칭 인바운드 어댑터 역할 주석을 추가했습니다.
@@ -265,7 +267,7 @@ git diff --check
 ### standalone Application 검토 반영
 
 - `asset-lease`는 기존 추적 `AssetLeaseApplication`이 정식 실행 앱이므로, Gemini가 추가한 API/BATCH Application 후보로 생긴 main class 중복을 제거했습니다.
-- `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 현재 단일 `java-library` 모듈이므로 Application 클래스만 추가하지 않고 기존 library 검증 흐름을 유지했습니다.
+- 당시 `expenditure-resolution`, `payable`, `receivable`, `reconciliation`, `tax`는 단일 `java-library` 흐름을 기준으로 검토했습니다. 이후 `tax`, `expenditure-resolution`, `payable`은 `core/api/batch` 실행 구조와 API/core command 경계로 갱신했습니다.
 - `deposit:batch`는 실제 하위 프로젝트이므로 Spring Boot 플러그인, Boot BOM, `bootJar` mainClass, H2 runtime, Batch test 의존성을 추가했습니다.
 - `reporting:api`, `reporting:batch`는 실제 하위 프로젝트이므로 Spring Boot 플러그인과 mainClass를 추가하고 `scanBasePackages`를 `com.ho.account.reporting`으로 제한했습니다.
 - `reporting` memory 모드용 `InMemoryLedgerBalanceAdapter`를 추가해 journal-ledger 없이 로컬 API/BATCH 컨텍스트를 기동할 수 있게 했습니다.
@@ -416,3 +418,18 @@ git diff --check
 - expenditure-resolution core/api 테스트 성공
 - API/BATCH local H2 context smoke 성공
 - Batch JobRegistry 조기 초기화 경고 제거 확인
+
+### receivable API/core command 경계 리팩토링
+
+- `receivable:core`에서 HTTP Controller/DTO와 Web/Validation 의존을 제거했습니다.
+- `SalesInvoiceCommand`, `CollectionCommand`, `ManualMatchingCommand`를 추가해 API/Batch/내부 호출이 같은 core 업무 입력을 사용하게 했습니다.
+- `receivable:api`가 Controller, 요청 DTO, 응답 DTO, Bean Validation을 소유하고 request DTO는 command로 변환합니다.
+- `receivable:batch`에는 JobRegistry 지연 등록 설정을 추가해 local/H2 Batch 컨텍스트의 조기 초기화 경고를 제거했습니다.
+
+검증:
+
+```powershell
+.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1
+.\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```

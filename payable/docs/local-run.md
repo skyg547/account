@@ -9,8 +9,8 @@
 
 `payable`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
 
-- `payable:core`: 매입채무/지급 도메인, UseCase, persistence adapter, local 외부 포트 adapter.
-- `payable:api`: Spring Boot HTTP 실행 진입점. 업무 판단은 core를 참조한다.
+- `payable:core`: 매입채무/지급 도메인, command, UseCase, persistence adapter, local 외부 포트 adapter. HTTP/Web/Bean Validation은 포함하지 않는다.
+- `payable:api`: Spring Boot HTTP 실행 진입점. Controller, 요청 DTO, Bean Validation, 응답 DTO를 소유하고 업무 판단은 core를 참조한다.
 - `payable:batch`: Spring Boot Batch 실행 진입점. Job/Step 오케스트레이션만 담당하고 업무 계산은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
@@ -35,7 +35,7 @@
 빠른 컴파일만 확인할 때:
 
 ```powershell
-.\gradlew :payable:core:compileJava :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
 API 서버 실행:

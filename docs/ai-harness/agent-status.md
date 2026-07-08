@@ -18,6 +18,8 @@
 | 2026-07-07 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Asset Lease depreciation batch calculation/persistence boundary separated and core tests passed. |
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Tax API/core command boundary and cancelled tax invoice external reference policy verified. |
 
+| 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Payable API/core command boundary, API response DTOs, and Batch JobRegistry verified. |
+
 ## Status Values
 
 - Planned
@@ -28,3 +30,4 @@
 - Done
 
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Expenditure Resolution API/core command boundary, master-data code references, and Batch JobRegistry verified. |
+| 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Receivable API/core command boundary, API DTO relocation, and Batch JobRegistry verified. |
