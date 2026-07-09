@@ -74,3 +74,18 @@ Recommended integration order remains:
 4. Controller/UI connection branches
 5. Logging/environment branches
 6. Final review/cleanup branches
+
+## 2026-07-08 - GH-1 PR Merge And Issue Close
+
+- Issue: `#1 하네스구성`
+- Source branch: `agent/github-issue-agent-loop-harness`
+- Source worktree: `C:\tmp\account-gh-issue-harness`
+- Target branch: `main`
+- Draft PR: `#2 [#1] Harden issue based agent loop harness`
+- Integrator Agent: Codex
+- Merge command: `gh pr ready 2`, then `gh pr merge 2 --merge`
+- Conflict status: none; PR mergeability was `MERGEABLE` and merge state was `CLEAN` before merge.
+- Test command: `git diff --check`, changed-file conflict marker scan.
+- Test result: passed with CRLF conversion warnings only.
+- Result: PR `#2` merged, then Issue `#1` manually closed because the PR used `Refs #1`.
+- Notes: branch cleanup was not performed because the merged branch is still attached to an existing worktree.

@@ -34,3 +34,5 @@ Status codes:
 - 중단: stopped by user decision or unresolved external blocker.
 
 For English-only tools, map these to `Planned`, `In progress`, `Blocked`, `Review ready`, `Done`, and `Stopped`.
+
+| 2026-07-08 | Codex | AI Harness Architect / Integrator Agent | `agent/gh-1-close-harness-update` / `C:\tmp\account-gh-1-close-update` | In progress | Issue #1 closed after PR #2 merge; documenting the merge and issue-close runbook. |

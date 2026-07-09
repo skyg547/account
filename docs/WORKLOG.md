@@ -1066,3 +1066,14 @@
 - 남은 리스크:
   - 브랜치 push와 Draft PR 생성은 아직 하지 않았다.
   - Issue #1에는 아직 label이 없다. label 생성/적용은 별도 승인 후 진행하는 것이 안전하다.
+
+## 2026-07-08 (GH-1 PR Merge And Issue Close Runbook Update)
+- 사용자 요청: PR #2 merge 이후 Issue #1을 닫고, 실제 처리 방식을 하네스에 반영.
+- 처리 결과:
+  - Issue #1 `하네스구성`을 수동 close 처리했다.
+  - PR #2는 이미 GitHub PR merge 방식으로 `main`에 병합되었다.
+  - `docs/ai-harness/85-github-issue-agent-loop.md`에 Draft PR ready 전환, merge, issue close, 상태 확인, branch/worktree cleanup 기준을 추가했다.
+  - `05-issue-1-compliance-audit.md`, `integration-log.md`, `worklog.md`, `agent-status.md`, `handoff.md`에 실제 처리 결과를 기록했다.
+- 남은 리스크:
+  - 후속 문서 업데이트 브랜치는 아직 commit/push/PR 전이다.
+  - 병합된 이전 branch/worktree cleanup은 사용자가 확인한 뒤 진행해야 한다.
