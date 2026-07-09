@@ -53,4 +53,16 @@ The remaining gap was operational depth for GitHub Issue driven work: the harnes
 - Confirm whether Issue #1 should be closed only after this branch is committed, pushed, reviewed, and merged.
 - Decide whether to create repository labels such as `agent-loop`, `status:ready`, and `agent:integrator`.
 - Decide whether to add this worktree path as a global Git safe.directory entry or recreate the worktree with normal ownership.
+## Closure Verification
 
+- PR `#2` was marked ready from Draft after the user explicitly requested merge.
+- PR `#2` was merged into `main` through GitHub PR merge, not by direct push to `main`.
+- Issue `#1` was closed manually after merge because the PR body used `Refs #1` instead of `Fixes #1`.
+- This follow-up update records the actual closure process in `85-github-issue-agent-loop.md`.
+
+## Final State
+
+- Issue `#1`: closed.
+- PR `#2`: merged.
+- Main branch: updated through PR merge.
+- Remaining action: optional cleanup of merged branch/worktree after the user confirms no follow-up work is needed.

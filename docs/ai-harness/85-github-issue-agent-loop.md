@@ -247,3 +247,76 @@ Issue `#1` is the parent issue for AI harness setup. This branch applies it as:
 - Draft PR target: `origin/main`
 - Local audit: `docs/ai-harness/05-issue-1-compliance-audit.md`
 - Close condition: only after the branch is committed, pushed, reviewed, merged, and the user confirms Issue #1 can be closed.
+
+## PR Merge And Issue Close Runbook
+
+Use this runbook when the user explicitly approves merge after a Draft PR is ready.
+
+1. Check PR state and mergeability.
+
+```powershell
+gh pr view <pr-number> --repo <owner>/<repo> --json number,state,isDraft,mergeable,mergeStateStatus,statusCheckRollup,baseRefName,headRefName
+```
+
+2. If the PR is still Draft and the user asked to merge, mark it ready first.
+
+```powershell
+gh pr ready <pr-number> --repo <owner>/<repo>
+```
+
+3. Merge through GitHub, not by direct push to `main`.
+
+```powershell
+gh pr merge <pr-number> --repo <owner>/<repo> --merge --subject "Merge pull request #<pr-number> from <head-branch>" --body "GH-<issue-number>: <summary>"
+```
+
+4. Verify the merge result.
+
+```powershell
+gh pr view <pr-number> --repo <owner>/<repo> --json number,state,mergedAt,mergedBy,url
+```
+
+5. Close the issue only after the merge is verified. If the PR body used `Fixes #<issue-number>`, GitHub may close it automatically. If the PR body used `Refs #<issue-number>`, close it manually with a short comment.
+
+```powershell
+gh issue close <issue-number> --repo <owner>/<repo> --comment "Closed after PR #<pr-number> merged <summary>."
+```
+
+6. Verify the issue state.
+
+```powershell
+gh issue view <issue-number> --repo <owner>/<repo> --json number,title,state,url
+```
+
+7. Update local records.
+
+- `docs/ai-harness/worklog.md`
+- `docs/ai-harness/agent-status.md`
+- `docs/ai-harness/integration-log.md`
+- `docs/ai-harness/handoff.md`
+- `docs/ai-harness/conflict-log.md` when conflicts occurred
+
+8. Clean up branches and worktrees only after confirming no follow-up work is needed.
+
+```powershell
+git worktree list
+git worktree remove <worktree-path>
+git worktree prune
+git push origin --delete <merged-branch>
+```
+
+Do not delete a branch that is still checked out by an active worktree.
+
+## Issue #1 Closure Result
+
+Issue `#1` was handled using the current GitHub Issue Agent Loop:
+
+- Source issue: `#1 하네스구성`
+- Work branch: `agent/github-issue-agent-loop-harness`
+- Worktree: `C:\tmp\account-gh-issue-harness`
+- Draft PR: `#2 [#1] Harden issue based agent loop harness`
+- PR transition: Draft -> Ready for review
+- Merge command type: GitHub PR merge commit via `gh pr merge --merge`
+- Merge result: PR `#2` merged into `main`
+- Issue closure: Issue `#1` manually closed after merge because PR used `Refs #1`
+- Follow-up documentation branch: `agent/gh-1-close-harness-update`

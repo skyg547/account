@@ -173,3 +173,39 @@ Use this template for every GitHub Issue based AI task.
 
 ### Handoff
 - Commit/push/Draft PR were not performed in this turn because the user did not explicitly request push or PR creation.
+
+## 2026-07-08 - GH-1 PR Merge And Issue Close Runbook Update
+
+- Current summary: Recorded the actual PR #2 merge and Issue #1 close process in the AI harness.
+- Work ID: GH-1-followup
+- Issue: #1 https://github.com/skyg547/account/issues/1
+- Base branch: `origin/main`
+- Working branch: `agent/gh-1-close-harness-update`
+- Worktree path: `C:\tmp\account-gh-1-close-update`
+- Draft PR: not created yet
+- Owner agent: Codex as AI Harness Architect / Integrator Agent
+- Current status: 진행
+- Last updated: 2026-07-08
+
+### Requirement
+- Close Issue #1 after PR #2 merge.
+- Update the harness with the actual handling method used in this session.
+
+### Impact Scope
+- AI harness docs and operating logs only.
+
+### Actual Changed Files
+- `docs/ai-harness/85-github-issue-agent-loop.md`
+- `docs/ai-harness/05-issue-1-compliance-audit.md`
+- `docs/ai-harness/integration-log.md`
+- `docs/ai-harness/worklog.md`
+- `docs/ai-harness/agent-status.md`
+- `docs/ai-harness/handoff.md`
+- `CODEX_WORKLOG.md`
+- `docs/WORKLOG.md`
+
+### Verification
+- Pending final conflict marker and `git diff --check` verification after this log update.
+
+### Rollback
+- Revert this follow-up commit or remove the new runbook/closure result sections.

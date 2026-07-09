@@ -115,3 +115,32 @@ Use this template before stopping or transferring an issue-driven task.
 ### Risks
 - Worktree still may require `git -c safe.directory=C:/tmp/account-gh-issue-harness` because it was created under elevated permissions.
 - The main workspace has unrelated dirty changes and should not be mixed with this harness branch.
+
+## 2026-07-08 Handoff - GH-1 Close And Runbook Update
+
+- Current state: Issue #1 closed; PR #2 merged; follow-up harness update in progress.
+- Issue: #1 https://github.com/skyg547/account/issues/1
+- Merged PR: #2 https://github.com/skyg547/account/pull/2
+- Branch: `agent/gh-1-close-harness-update`
+- Worktree: `C:\tmp\account-gh-1-close-update`
+- Base branch: `origin/main`
+- Owner agent: Codex
+
+### Done
+- Confirmed PR #2 was mergeable and clean.
+- Marked PR #2 ready from Draft.
+- Merged PR #2 into `main` through GitHub PR merge.
+- Closed Issue #1 manually with a comment.
+- Added PR merge and issue close runbook to `85-github-issue-agent-loop.md`.
+
+### Not Done
+- This follow-up branch is not committed, pushed, or merged yet.
+- Merged branch/worktree cleanup was not performed.
+
+### Next Steps
+- Run final verification.
+- Commit this follow-up update.
+- Push and create a small PR, or merge after user approval.
+
+### Risks
+- Do not delete `agent/github-issue-agent-loop-harness` while `C:\tmp\account-gh-issue-harness` is still checked out on that branch.

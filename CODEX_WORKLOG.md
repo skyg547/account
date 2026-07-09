@@ -1104,3 +1104,12 @@
 - 기존 하네스 적용 상태를 점검하고 `docs/ai-harness/05-issue-1-compliance-audit.md`에 gap/remediation을 기록했다.
 - 앞으로 AI 작업을 Issue/Branch/Worktree/Draft PR 단위로 운영할 수 있도록 `85-github-issue-agent-loop.md`, worklog/status/handoff/integration templates, Issue Form, PR templates를 보강했다.
 - 코드 변경은 없고 문서/템플릿 변경만 있다.
+
+## 2026-07-08 (GH-1 PR Merge And Issue Close Runbook Update)
+- 사용자 요청: Issue #1을 닫고, 이번에 실제 처리한 PR merge/issue close 방식을 하네스에 업데이트.
+- 처리 결과:
+  - `gh issue close 1`로 Issue #1을 닫았다.
+  - 최신 `origin/main` 기준 `agent/gh-1-close-harness-update` worktree를 만들었다.
+  - `85-github-issue-agent-loop.md`에 PR ready/merge/issue close runbook을 추가했다.
+  - audit, integration-log, worklog, agent-status, handoff에 PR #2 merge 및 Issue #1 close 결과를 반영했다.
+- 검증: 최종 conflict marker 및 `git diff --check` 예정.
