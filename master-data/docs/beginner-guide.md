@@ -35,5 +35,7 @@
 1. `MasterDataApplication`: Spring Boot 실행 진입점.
 2. `AccountSubjectController`, `DepartmentController`, `BusinessPartnerController`, `ProductController`: 기준정보 API.
 3. `MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
-4. `MasterDataChangeRequestService`: 변경 승인 흐름.
-5. `MasterDataValidityPolicy`: 유효기간 판단 공통 정책.
+4. `MasterDataChangeRequestService`: 변경 요청, 승인, 반려, 예약 반영 흐름.
+5. `AccountSubjectMasterDataChangeApplier` 등 typed applier: 승인 요청을 실제 SCD2 생성/수정/비활성화로 연결.
+6. `MasterDataValidityReportPipeline`: 기준일을 고정하고 DB 통계 포트의 네 집계 결과를 하나의 core 보고 모델로 조립.
+7. `MasterDataValidityPolicy`: 유효기간과 종료일 정합성 공통 정책.

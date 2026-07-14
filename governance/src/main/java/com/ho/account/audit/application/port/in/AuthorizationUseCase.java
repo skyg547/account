@@ -2,6 +2,7 @@ package com.ho.account.audit.application.port.in;
 
 import com.ho.account.audit.domain.AccessType;
 import com.ho.account.audit.domain.Authorization;
+import com.ho.account.audit.domain.MasterApproval;
 import com.ho.account.audit.domain.SystemRole;
 import java.util.List;
 
@@ -15,7 +16,10 @@ public interface AuthorizationUseCase {
 
     Authorization grantAuthorization(GrantAuthorizationCommand command);
 
-    void revokeAuthorization(Long authorizationId);
+    /**
+     * 권한을 즉시 삭제하지 않고 승인 요청으로 등록합니다.
+     */
+    MasterApproval revokeAuthorization(Long authorizationId);
 
     List<Authorization> getAuthorizationsByRole(String roleCode);
 
@@ -34,4 +38,3 @@ public interface AuthorizationUseCase {
             String dataScope) {
     }
 }
-

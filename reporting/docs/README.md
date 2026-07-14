@@ -14,6 +14,7 @@
 - `reporting`은 상위 집계 프로젝트이고 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있다.
 - `reporting:core`는 현재 `java-library` 모듈이다.
 - `reporting:api`와 `reporting:batch`는 standalone Spring Boot 앱이며 각각 `:reporting:api:bootRun`, `:reporting:batch:bootRun`으로 실행한다.
+- `reporting:api`는 HTTP 응답 DTO를 소유한다. Controller는 core command를 호출하고, core 도메인 결과를 response DTO로 변환해 외부 JSON 계약을 고정한다.
 - 로컬 학습 실행은 `account.reporting.persistence.mode=memory`를 사용해 journal-ledger 없이 샘플 GL 잔액으로 기동한다.
 - 검증은 IntelliJ Gradle 실행 구성 또는 `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test`로 수행한다.
 
@@ -27,6 +28,13 @@
 - **Fail-Closed 데이터 생성 제어**:
   - 주석 마트(Disclosure Note Mart) 및 감독보고 매핑 데이터 추출 시 필드가 불일치하거나 누락된 항목은 강제로 0으로 대체하지 않고 명시적인 실패/거절을 유발하여 보고 데이터의 무결성을 유지합니다.
 
+
+## API Response DTO Boundary
+
+- `ReportingController`는 요청 파라미터와 `X-User-ID`를 core command로 변환한다.
+- `FinancialStatementResponseDto`, `DisclosureNoteMartResponseDto`, `RegulatoryReportSubmissionResponseDto`, `RegulatoryFilingResponseDto`가 외부 JSON 응답을 담당한다.
+- `JournalDetailSummaryResponseDto`는 drill-down 응답에서 journal-ledger contract 객체가 HTTP 응답으로 직접 새는 것을 막는다.
+- 초보자 관점에서는 core 도메인 객체는 "업무 상태와 규칙", API DTO는 "화면/외부 시스템에 보여줄 모양"으로 구분하면 된다.
 ## Document Export API
 
 - Endpoint: `POST /api/v1/reporting/generate/document`

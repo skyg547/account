@@ -48,7 +48,9 @@ flowchart TD
     G -->|No| J[fail-closed 예외]
 ```
 
-`MasterDataChangeRequestService.applyApprovedChange`는 targetType별 `MasterDataChangeApplier`를 호출한 뒤에만 승인 요청 상태를 `APPLIED`로 바꿉니다. 현재 `DEPARTMENT`는 `DepartmentMasterDataChangeApplier`가 `DepartmentService`를 호출해 SCD2 생성, 수정, 비활성화를 처리합니다. typed applier가 없는 targetType은 조용히 성공시키지 않고 fail-closed 예외로 중단합니다.
+`MasterDataChangeRequestService.applyApprovedChange`는 targetType별 `MasterDataChangeApplier`를 호출한 뒤에만 승인 요청 상태를 `APPLIED`로 바꿉니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT`는 각 typed applier가 기존 유즈케이스를 호출해 SCD2 생성, 수정, 비활성화를 처리합니다.
+
+CREATE/UPDATE payload의 업무 코드는 승인 대상 `targetKey`와 같아야 합니다. DEACTIVATE는 변경 필드가 없으므로 payload를 요구하지 않고 승인된 `effectiveDate`를 종료일로 사용합니다. typed applier가 없는 targetType은 조용히 성공시키지 않고 fail-closed 예외로 중단합니다.
 
 예약 반영인 `/apply-due`는 `findAll()` 후 메모리 필터를 하지 않습니다. `status=APPROVED`, `effectiveDate <= today` 조건으로 최대 500건씩 조회해 적용합니다.
 
@@ -64,6 +66,22 @@ flowchart LR
 
 업무 모듈은 `master-data` JPA 엔티티를 직접 참조하지 않습니다. 코드나 ID만 저장하고, 상세 이름/속성은 포트 또는 API로 조회합니다.
 
+## 일일 유효성 보고 흐름
+
+```mermaid
+flowchart LR
+    A[Batch Orchestrator] --> B[Core Validity Report Pipeline]
+    B --> C[MasterDataValidityStatisticsPort]
+    C --> D[JPA Statistics Adapter]
+    D --> E[(DB COUNT queries)]
+    E --> F[Core Report]
+    F --> G[Batch Report DTO]
+```
+
+core pipeline은 batch DTO를 참조하지 않습니다. 기준일 `asOfDate`가 없으면 현재 날짜로 조용히 대체하지 않고 실패합니다. 네 기준정보의 전체 행을 Java 메모리에 올리지 않고 DB 집계 쿼리로 활성 건수만 가져옵니다.
+
 ## 현재 고도화 후보
 
-- `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `PRODUCT`, `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`도 운영 적용 전 typed applier를 추가해야 합니다. 구현 전에는 fail-closed로 중단됩니다.
+- `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 운영 적용 전 도메인 서비스/포트와 typed applier를 추가해야 합니다. 구현 전에는 fail-closed로 중단됩니다.
+- `requestedVersion`은 양수 검증만 있고 targetType/targetKey별 현재 버전 충돌 검사는 아직 없습니다. 오래된 승인 요청의 덮어쓰기를 막는 낙관적 버전 정책이 필요합니다.
+- `batch.application`은 현재 패키지 수준 orchestrator이며 독립 Spring Batch Job/Step 실행 모듈은 아닙니다. 운영 배치가 필요하면 별도 `master-data:batch` 실행 모듈과 결과 저장/모니터링 포트를 추가해야 합니다.

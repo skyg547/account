@@ -1,7 +1,8 @@
 package com.ho.account.masterdata.core.application.port.in;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.application.command.BusinessPartnerCommand;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,4 +27,9 @@ public interface BusinessPartnerUseCase {
     BusinessPartner updateBusinessPartner(Long id, BusinessPartnerCommand command);
 
     void deleteBusinessPartner(Long id);
+
+    /**
+     * 승인 워크플로에서 정한 종료일로 현재 SCD2 버전을 비활성화합니다.
+     */
+    void deleteBusinessPartner(Long id, LocalDate effectiveDate);
 }

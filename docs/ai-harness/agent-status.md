@@ -22,6 +22,10 @@
 
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Reconciliation API/core command boundary, API DTO relocation, and Batch JobRegistry verified. |
 
+| 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Reporting API response DTO boundary verified; uncommitted until user requests commit/push. |
+
+| 2026-07-09 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Reporting API DTO boundary and Deposit command/Batch asOfDate boundary verified; uncommitted until user requests commit/push. |
+
 ## Status Values
 
 - Planned
@@ -33,3 +37,6 @@
 
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Expenditure Resolution API/core command boundary, master-data code references, and Batch JobRegistry verified. |
 | 2026-07-08 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Receivable API/core command boundary, API DTO relocation, and Batch JobRegistry verified. |
+| 2026-07-14 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Master-data typed appliers, SCD2 effectiveDate policy, core/batch report boundary, and H2 DB COUNT statistics verified; reporting/deposit changes remain uncommitted. |
+
+| 2026-07-14 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Governance real-bean scanning, authorization revocation approval, fail-closed adapter, H2 bootRun, tests, and bootJar verified; commit/push requested. |

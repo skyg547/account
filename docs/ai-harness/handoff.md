@@ -1,4 +1,148 @@
+# AI Harness Handoff - 2026-07-14 Governance Completion
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review and user-requested commit/push: reporting response DTO boundary, deposit command/Batch date policy, master-data typed applier/statistics boundary, and governance approval/runtime boundary.
+
+## Governance Changes
+
+- The executable now scans real audit features and the required master-data approval adapters instead of starting an empty server.
+- Authorization DELETE creates a PENDING approval and returns HTTP 202; approved DELETE performs the physical removal.
+- Unsupported role/authorization request types fail closed.
+- H2 standalone API execution is available through IntelliJ and Gradle; PostgreSQL JDBC is packaged and a disposable local smoke command is documented.
+
+## Verification Summary
+
+- `:governance:compileJava`: passed.
+- `:governance:test :governance:bootJar`: passed.
+- Local H2 non-web `bootRun`: passed; 12 JPA repositories and actual feature beans loaded.
+- Earlier reporting, deposit, and master-data verification remains valid as recorded below.
+
+## Known Risks
+
+- PostgreSQL/Flyway was not live-tested.
+- Governance role/authorization create responses still return preview domains instead of a unified approval receipt.
+- External Auth application still needs an approvalId-based outbox/inbox boundary.
+- Master-data currency/exchange-rate/fiscal-period appliers and requestedVersion conflict enforcement remain pending.
+
+## Rollback
+
+- After commit, revert the combined boundary-refactor commit. Avoid restoring individual files over newer user changes.
+
+---
+
+# AI Harness Handoff - 2026-07-14
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: reporting response DTO boundary, deposit command/Batch date policy, and master-data typed applier/statistics boundary.
+- Working tree intent: local uncommitted changes; do not commit or push until the user explicitly requests it.
+
+## What Changed
+
+- Reporting API maps core domain results to response DTOs.
+- Deposit account opening command validates required codes and non-negative values; deposit Batch requires explicit `asOfDate`.
+- Master-data core no longer depends on a batch DTO.
+- Master-data validity statistics use a dedicated output port and four database COUNT queries.
+- Account subject, business partner, department, and product change requests have typed appliers.
+- Master-data JSON payload decoding is behind an output port/Jackson adapter.
+- Deactivation uses the approved effectiveDate and does not require a JSON payload.
+- IntelliJ `Master Data bootRun` starts a standalone local/H2 API with external infrastructure disabled.
+
+## Verification Summary
+
+- `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1`: passed.
+- `.\gradlew :master-data:test --console=plain --max-workers=1`: passed.
+- Master-data H2 JPA COUNT integration test: passed.
+- Master-data local/H2 non-web bootRun: passed.
+- Core-to-batch reverse dependency and batch business-loop searches: no matches.
+
+## Known Risks
+
+- Master-data CURRENCY, EXCHANGE_RATE, and FISCAL_PERIOD typed appliers remain fail-closed.
+- Master-data requestedVersion conflict enforcement remains a code `@todo`.
+- Master-data batch is currently a package-level orchestrator, not an independent Spring Batch Job/Step executable module.
+- PostgreSQL/Flyway and high-volume seeded runs were not verified for these uncommitted changes.
+- The master-data Flyway V1 file remains an intentionally empty baseline and is not a production schema.
+
+## Rollback
+
+- Before commit: restore only `reporting`, `deposit`, `master-data`, `.run/Master Data bootRun.run.xml`, and the related docs/worklog/Gemini prompt changes after checking for overlapping user edits.
+- After commit: revert the relevant boundary refactor commit.
+
+---
+
 # AI Harness Handoff
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: Reporting API response DTO boundary and Deposit command/Batch asOfDate boundary.
+- Working tree intent: uncommitted local changes unless the user asks for commit/push.
+
+## What Changed
+
+- Reporting API maps core domain results to response DTOs instead of returning domain objects directly.
+- Deposit `OpenAccountCommand` now validates required codes, currency normalization, non-negative initial deposit, and non-negative interest rate.
+- Deposit `depositAccountIntegrityJob` requires explicit `asOfDate=yyyy-MM-dd` and fails fast if missing or malformed.
+- Reporting/deposit docs and Gemini review prompt were updated.
+
+## Verification Summary
+
+- `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1`: passed.
+
+## Known Risks
+
+- PostgreSQL/Flyway runtime compatibility and high-volume Batch execution are not verified in this pass.
+- Deposit real master-data/journal-ledger adapters were not exercised beyond existing local/test doubles.
+
+## Rollback
+
+- Before commit: restore `reporting`, `deposit`, docs/worklog/handoff, and Gemini prompt changes carefully.
+- After commit: revert the relevant boundary refactor commit.
+
+---# AI Harness Handoff
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: Reporting API response DTO boundary refactor.
+- Working tree intent: uncommitted local changes unless the user asks for commit/push.
+
+## What Changed
+
+- `ReportingController` no longer returns core domain objects directly for JSON responses.
+- `reporting:api/.../dto` owns response DTOs for financial statements, disclosure note marts, regulatory submissions, regulatory filings, and drill-down rows.
+- Core use cases and domain rules remain unchanged; Controller maps core results to API DTOs.
+- Reporting docs and Gemini review prompt were updated to match the new boundary.
+
+## Verification Summary
+
+- `.\gradlew :reporting:api:test --console=plain --max-workers=1`: passed.
+- `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1`: passed.
+
+## Known Risks
+
+- PostgreSQL/Flyway runtime compatibility and high-volume reporting batch execution are not verified in this pass.
+
+## Rollback
+
+- Before commit: restore `reporting`, docs/worklog/handoff, and Gemini prompt changes carefully.
+- After commit: revert the reporting API DTO boundary commit.
+
+---# AI Harness Handoff
 
 ## Current State
 

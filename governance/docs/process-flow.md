@@ -64,3 +64,37 @@ sequenceDiagram
 - `POST /api/audit/approvals/requests`
 - `POST /api/audit/approvals/{approvalId}/approve`
 - `POST /api/audit/approvals/{approvalId}/reject`
+## 역할/권한 승인 반영 표
+
+| masterType | requestType | 실제 반영 | 정책 |
+| --- | --- | --- | --- |
+| `SYSTEM_ROLE` | `CREATE` | 역할 저장 | 지원 |
+| `SYSTEM_ROLE` | `UPDATE`, `DELETE` | 반영하지 않음 | fail-closed 예외 |
+| `AUTHORIZATION` | `CREATE` | 역할·충돌·중복 확인 후 권한 저장 | 지원 |
+| `AUTHORIZATION` | `DELETE` | 승인 payload의 권한 ID로 삭제 | 지원 |
+| `AUTHORIZATION` | `UPDATE` | 반영하지 않음 | fail-closed 예외 |
+
+## 권한 회수 데이터 흐름
+
+```mermaid
+sequenceDiagram
+    participant Client as API 호출자
+    participant API as AuditController
+    participant Service as AuditService
+    participant Approval as MasterApprovalService
+    participant Adapter as SystemRoleApprovalApplyAdapter
+    participant DB as Governance DB
+
+    Client->>API: DELETE /authorizations/{id}
+    API->>Service: revokeAuthorization(id)
+    Service->>DB: 현재 권한과 역할 조회
+    Service->>Approval: AUTHORIZATION DELETE 승인 요청
+    Approval->>DB: PENDING 저장
+    API-->>Client: 202 + approvalId/status
+    Client->>Approval: 다른 사용자가 approve
+    Approval->>Adapter: 승인 변경 반영
+    Adapter->>DB: authorization deleteById
+    Approval->>DB: APPROVED 저장
+```
+
+`DELETE` API 호출 시점에는 권한이 유지됩니다. 승인 완료 시점에만 실제 삭제되므로, 요청자는 반환된 승인 ID로 처리 상태를 추적해야 합니다.

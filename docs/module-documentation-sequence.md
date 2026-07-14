@@ -33,6 +33,10 @@
 | 17 | `expenditure-resolution` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/port/master-data code 참조만 소유 |
 | 18 | `payable` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/use case/domain 규칙만 소유, Batch JobRegistry 정리 |
 | 19 | `receivable` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/use case/domain 규칙만 소유, Batch JobRegistry 정리 |
+| 20 | `reconciliation` API/core command 경계 리팩토링 | Review ready | HTTP DTO/Controller를 api로 이동하고 core는 command/use case/domain 규칙만 소유, Batch JobRegistry 정리 |
+| 21 | `reporting` API response DTO 경계 리팩토링 | Review ready | API가 core 도메인 객체를 직접 반환하지 않고 response DTO로 외부 JSON 계약을 고정 |
+| 22 | `deposit` command/Batch 기준일 경계 리팩토링 | Review ready | 계좌 개설 command 입력 검증과 Batch `asOfDate` fail-fast로 업무 재실행성 강화 |
+| 23 | `master-data` typed applier/대량 통계 경계 리팩토링 | Review ready | 4개 기준정보 typed applier, effectiveDate 정합성, core→batch 역참조 제거, DB COUNT 집계 |
 
 ## 1차 완료 상세
 
@@ -453,3 +457,88 @@ git diff --check
 - reconciliation core 테스트, api 컴파일, batch 컴파일 성공
 - API/BATCH local H2 context smoke 성공
 - Batch JobRegistry 조기 초기화 경고 제거 확인
+### reporting API response DTO 경계 리팩토링
+
+- `ReportingController`가 `FinancialStatement`, `DisclosureNoteMart`, `RegulatoryReportSubmission`, `RegulatoryFiling` 도메인 객체를 직접 반환하지 않도록 정리했습니다.
+- `reporting:api/.../dto`에 `FinancialStatementResponseDto`, `ReportLineResponseDto`, `DisclosureNoteMartResponseDto`, `DisclosureNoteMartEntryResponseDto`, `RegulatoryReportSubmissionResponseDto`, `RegulatoryFilingResponseDto`, `RegulatoryFilingLineResponseDto`, `JournalDetailSummaryResponseDto`를 추가했습니다.
+- Drill-down 응답도 `JournalDetailSummaryResponseDto`로 감싸 journal-ledger contract 객체가 HTTP 응답 계약에 직접 노출되지 않게 했습니다.
+- reporting README/docs/process-flow/beginner-guide를 core domain -> API response DTO 흐름 기준으로 최신화했습니다.
+
+검증:
+
+```powershell
+.\gradlew :reporting:api:test --console=plain --max-workers=1
+```
+
+결과:
+- reporting API 테스트 성공
+- 기존 JSON 필드명 계약 유지 확인
+### deposit command/Batch 기준일 경계 리팩토링
+
+- `OpenAccountCommand`에 고객/상품/통화 코드 필수값, 통화 코드 `Locale.ROOT` 대문자 정규화, 초기입금/금리 음수 방어를 추가했습니다.
+- `DepositAccountIntegrityBatchConfig`가 `asOfDate` 누락 시 현재 날짜로 대체하지 않고 fail-fast 하도록 변경했습니다.
+- `DepositAccountIntegrityBatchConfigTest`를 추가해 `asOfDate=yyyy-MM-dd` 파라미터 정책을 검증했습니다.
+- `DepositServiceTest`에 계좌 개설 command 입력 검증 테스트를 추가했습니다.
+- deposit README/docs/local-run에 API DTO -> core command, Batch 기준일 필수 정책을 초보자용 업무 흐름으로 보강했습니다.
+
+검증:
+
+```powershell
+.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1
+```
+
+결과:
+- deposit core/batch 테스트 성공
+- deposit api/batch bootJar 성공
+
+## 23차 후속 상세
+
+### master-data typed applier와 일일 유효성 통계 경계 리팩토링
+
+- `MasterDataValidityReportPipeline`이 batch DTO를 반환하던 역방향 참조를 제거하고 core `MasterDataValidityReport`를 반환하도록 변경했습니다.
+- `MasterDataValidityStatisticsPort`와 JPA 통계 어댑터를 추가해 계정과목/부서/상품/거래처 전체 행 조회와 Java stream 집계를 DB `COUNT` 쿼리로 전환했습니다.
+- 기준일 `asOfDate`가 없으면 현재 날짜로 대체하지 않고 fail-fast 하도록 재실행 정책을 고정했습니다.
+- `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` typed applier를 구현했습니다.
+- 변경 payload JSON 파싱은 `MasterDataChangePayloadDecoder` 출력 포트와 Jackson 어댑터로 분리했습니다.
+- CREATE/UPDATE payload key와 승인 `targetKey`가 다르면 거부하며, DEACTIVATE는 payload 없이 승인 `effectiveDate`를 종료일로 사용합니다.
+- IntelliJ `Master Data bootRun`과 local-run 문서를 Config/Discovery/Vault 없이 H2 단독 실행 가능한 설정으로 최신화했습니다.
+- 남은 `@todo`는 미지원 통화/환율/회계기간 typed applier와 `requestedVersion` 충돌 검사입니다.
+
+검증:
+
+```powershell
+.\gradlew :master-data:test --console=plain --max-workers=1
+.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1
+.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+결과:
+- master-data 전체 테스트 성공
+- H2에서 네 기준정보 DB `COUNT` 집계 테스트 성공
+- local/H2 Spring Boot 컨텍스트 기동 성공
+- core의 batch 패키지/DTO 역참조 검색 결과 없음
+- batch 패키지의 if/for/math/stream 업무 연산 검색 결과 없음
+
+## 24차 후속 상세
+
+### governance 승인 경계와 단독 실행 보강
+
+- `GovernanceApplication`이 실제 `com.ho.account.audit` 기능과 승인 반영에 필요한 master-data service/adapter/repository/entity를 명시적으로 스캔하도록 수정했습니다.
+- `GovernanceApplicationContextTest`가 `AuditController`, 감사/승인 유스케이스, master-data 변경 요청 유스케이스 Bean을 확인해 빈 서버 회귀를 차단합니다.
+- 권한 회수 API는 즉시 삭제 대신 `AUTHORIZATION / DELETE` 승인 요청을 만들고 `202 Accepted` 승인 접수 정보를 반환합니다.
+- `SystemRoleApprovalApplyAdapter`는 역할 CREATE, 권한 CREATE/DELETE만 지원하고 나머지 조합과 알 수 없는 masterType을 fail-closed로 거부합니다.
+- H2와 PostgreSQL JDBC 런타임 의존성을 추가하고 IntelliJ `Governance bootRun`, README/docs를 H2 단독 API 실행과 폐기 가능한 PostgreSQL smoke 절차 기준으로 최신화했습니다.
+- 남은 `@todo`는 역할/권한 생성 API의 preview 응답을 승인 접수 DTO로 통일하는 작업과 외부 Auth 반영 outbox/inbox 원자성 경계입니다.
+
+검증:
+
+```powershell
+.\gradlew :governance:compileJava --console=plain --max-workers=1
+.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1
+.\gradlew :governance:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+결과:
+- governance 컴파일, 전체 테스트, bootJar 성공
+- local/H2 Spring Boot 컨텍스트 기동 성공, JPA Repository 12개와 실제 audit/master-data Bean 등록 확인
+- PostgreSQL 드라이버 패키징은 완료했으나 실제 PostgreSQL/Flyway 실행은 미검증

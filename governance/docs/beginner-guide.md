@@ -20,7 +20,7 @@
 
 - `web`: 감사/승인/권한 API를 제공하는 인바운드 어댑터.
 - `service`: 감사 저장, 승인, 권한 정책 확인 유즈케이스.
-- `domain`: `AuditLog`, `MasterApproval`, `SystemRole`, `RoleAuthorization` 같은 통제 모델.
+- `domain`: `AuditLog`, `MasterApproval`, `SystemRole`, `Authorization` 같은 통제 모델.
 - `application.port.out`: 감사 저장, 승인 저장, Auth/master-data 연동 계약.
 - `infrastructure`: JPA 저장, 요청 컨텍스트 해석, Auth 내부 API 호출 어댑터.
 
@@ -31,3 +31,8 @@
 3. `MasterApprovalService`: 승인 요청, 승인, 반려 흐름.
 4. `RestClientAuthUserRoleAssignmentAdapter`: Governance 승인 결과를 Auth 내부 API로 반영.
 5. `RequestAuditActorAdapter`: 요청 헤더와 principal에서 감사 actor를 해석.
+## 권한 회수도 왜 승인을 받아야 하나요?
+
+권한을 새로 주는 것뿐 아니라 기존 권한을 없애는 행위도 업무 중단과 통제 증적에 영향을 줍니다. 그래서 `DELETE /api/audit/authorizations/{authorizationId}`는 곧바로 행을 삭제하지 않고 `AUTHORIZATION / DELETE` 승인 요청을 만들며 HTTP `202 Accepted`와 승인 접수 정보를 반환합니다.
+
+승인자가 별도 계정으로 승인해야 `SystemRoleApprovalApplyAdapter`가 실제 권한 행을 삭제합니다. 지원하지 않는 역할 수정/삭제 또는 권한 수정 요청은 조용히 넘어가지 않고 예외로 중단됩니다. 이는 결재 상태와 실제 데이터가 서로 달라지는 상황을 막는 fail-closed 원칙입니다.

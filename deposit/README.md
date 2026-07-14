@@ -4,7 +4,7 @@
 
 ## 모듈 구조
 
-- `deposit:core`: 예금 계좌 도메인, 계좌 개설 유즈케이스, 초기입금 전표 생성 포트, JPA 영속성 어댑터.
+- `deposit:core`: 예금 계좌 도메인, 계좌 개설 유즈케이스, 초기입금 전표 생성 포트, JPA 영속성 어댑터. `OpenAccountCommand`가 고객/상품/통화 코드와 금액/금리 기본 무결성을 먼저 검증합니다.
 - `deposit:api`: HTTP API 실행 앱. `DepositApplication`을 main class로 사용합니다.
 - `deposit:batch`: Batch 컨텍스트 실행 앱. `depositAccountIntegrityJob`으로 활성 예금 계좌의 잔액/이자율/유효기간 무결성을 점검합니다.
 
@@ -22,19 +22,22 @@ IntelliJ에서는 `.run/Deposit API bootRun.run.xml`, `.run/Deposit Batch Contex
 
 실제 Spring Batch Job 실행:
 
+`asOfDate`는 재실행과 감사 기준일이므로 필수입니다. 누락하거나 `yyyy-MM-dd` 형식이 아니면 배치를 시작하지 않습니다.
+
 ```powershell
 .\gradlew :deposit:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=depositAccountIntegrityJob asOfDate=2026-06-19" --console=plain --max-workers=1
 ```
 
 ## 업무/데이터 흐름
 
-1. 사용자가 예금 계좌 개설 요청을 보냅니다.
-2. `DepositService`가 계좌번호를 만들고 `DepositAccount` 도메인 객체를 활성 상태로 생성합니다.
-3. 초기입금액이 있으면 도메인 메서드로 잔액을 증가시킵니다.
-4. `DepositAccountPersistencePort`를 통해 계좌를 저장합니다.
-5. `DepositAccountMappingPort`에서 현금 계정과 예금부채 계정을 해석합니다.
-6. `MasterDataQueryPort`로 계정과목 존재를 검증합니다.
-7. `JournalPostingPort`로 초기입금 전표 초안을 생성합니다.
+1. 사용자가 예금 계좌 개설 요청을 보냅니다. API는 요청 DTO를 core `OpenAccountCommand`로 변환합니다.
+2. `OpenAccountCommand`가 필수 코드, 통화 코드 대문자 정규화, 초기입금/금리 음수 금지를 검증합니다.
+3. `DepositService`가 계좌번호를 만들고 `DepositAccount` 도메인 객체를 활성 상태로 생성합니다.
+4. 초기입금액이 있으면 도메인 메서드로 잔액을 증가시킵니다.
+5. `DepositAccountPersistencePort`를 통해 계좌를 저장합니다.
+6. `DepositAccountMappingPort`에서 현금 계정과 예금부채 계정을 해석합니다.
+7. `MasterDataQueryPort`로 계정과목 존재를 검증합니다.
+8. `JournalPostingPort`로 초기입금 전표 초안을 생성합니다.
 
 운영에서는 로컬 어댑터 대신 master-data와 journal-ledger의 실제 어댑터를 연결해야 합니다.
 

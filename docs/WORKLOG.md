@@ -1351,3 +1351,92 @@
   - 실제 외부 원천 스냅샷과 journal-ledger 전표 생성 포트의 운영 데이터 정합성은 H2 smoke 범위 밖이다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `reconciliation`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-08 (reporting API response DTO 경계 리팩토링)
+### [검수/리팩토링] reporting API 응답에서 core 도메인 직접 노출 제거
+- **선확인**:
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/local-run.md`, `reporting/docs/process-flow.md`를 확인했다.
+  - `reporting:core`에는 Web/Spring Batch 타입이 직접 섞여 있지 않았고, Batch 모듈은 Job/Step/Tasklet과 core 위임 구조를 유지하고 있음을 확인했다.
+  - `ReportingController`가 `FinancialStatement`, `DisclosureNoteMart`, `RegulatoryReportSubmission`, `RegulatoryFiling` 도메인 객체를 HTTP 응답으로 직접 반환하는 API 계약 결합 지점을 확인했다.
+- **수정 범위**:
+  - `reporting:api/.../dto`에 재무제표, 주석 마트, 감독보고 제출본, 감독보고 제출 결과, drill-down 응답 DTO를 추가했다.
+  - `ReportingController`는 core command를 호출한 뒤 도메인 결과를 response DTO로 변환한다.
+  - Drill-down 응답도 `JournalDetailSummaryResponseDto`로 감싸 journal-ledger contract 객체가 HTTP 응답 계약에 직접 노출되지 않게 했다.
+  - reporting README/docs와 Gemini 리뷰 프롬프트를 core domain -> API response DTO 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 및 실제 대량 reportingStatementGenerationJob 실행은 별도 통합 환경에서 검증해야 한다.
+  - 이번 범위는 API 응답 경계 정리이며, reporting core의 persistence adapter 분리나 DB 성능 검증은 포함하지 않았다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `reporting/api`, `reporting/README.md`, `reporting/docs`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-09 (deposit command/Batch 기준일 경계 리팩토링)
+### [검수/리팩토링] 예금 계좌 개설 입력 검증과 Batch 재실행 기준일 fail-fast 보강
+- **선확인**:
+  - `deposit/README.md`, `deposit/docs/README.md`, `deposit/docs/local-run.md`를 확인했다.
+  - `DepositController`는 도메인을 직접 반환하지 않고 문자열 계좌번호 계약을 유지하고 있음을 확인했다.
+  - `OpenAccountCommand`에는 필수 코드/금액/금리 검증이 없고, `depositAccountIntegrityJob`은 `asOfDate` 누락 시 현재 날짜로 조용히 실행되어 재실행성이 약한 지점을 확인했다.
+- **수정 범위**:
+  - `OpenAccountCommand`에 고객/상품/통화 코드 필수값, 통화 코드 `Locale.ROOT` 대문자 정규화, 초기입금/금리 음수 방어를 추가했다.
+  - `DepositAccountIntegrityBatchConfig`는 `asOfDate`가 없거나 `yyyy-MM-dd` 형식이 아니면 fail-fast 하도록 변경했다.
+  - 계좌 개설 command 검증 테스트와 Batch `asOfDate` 파라미터 테스트를 추가했다.
+  - deposit README/docs에 API DTO -> core command 흐름과 Batch 기준일 필수 정책을 초보자용 설명으로 최신화했다.
+- **검증**:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 및 실제 master-data/journal-ledger adapter 연결은 별도 통합 환경에서 검증해야 한다.
+  - API 응답은 기존 문자열 계좌번호 계약을 유지했다. 외부 계약 버전업 시 계좌번호/전표ID를 포함한 response DTO 전환을 검토할 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `deposit`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (master-data typed applier/대량 통계 경계 리팩토링)
+### [검수/리팩토링] 승인 변경 반영 정합성과 일일 유효성 보고 성능 보강
+- **선확인**:
+  - `master-data/README.md`와 `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - core `MasterDataValidityReportPipeline`이 batch `MasterDataBatchReport`를 역참조하고, 네 기준정보 `findAll()` 결과를 메모리 stream으로 집계하는 계층/성능 문제를 확인했다.
+  - 변경 요청은 DEPARTMENT만 typed applier가 있었고, DEACTIVATE도 payload를 먼저 파싱하며 승인 `effectiveDate` 대신 실행일로 종료하는 재실행 정합성 문제를 확인했다.
+- **수정 범위**:
+  - core `MasterDataValidityReport`와 `MasterDataValidityStatisticsPort`를 추가하고, batch orchestrator는 core 결과를 batch DTO로 매핑만 하도록 정리했다.
+  - `JpaMasterDataValidityStatisticsAdapter`와 네 JPA `COUNT` 쿼리를 추가해 전체 행 메모리 집계를 제거했다.
+  - 일일 보고 `asOfDate`를 필수값으로 만들어 동일 기준일 재실행 결과를 고정했다.
+  - ACCOUNT_SUBJECT/BUSINESS_PARTNER/DEPARTMENT/PRODUCT typed applier를 구현하고, payload JSON 기술은 `MasterDataChangePayloadDecoder` 포트와 Jackson 어댑터 뒤로 이동했다.
+  - payload 업무 키와 승인 `targetKey` 불일치를 거부하고, DEACTIVATE는 payload 없이 승인 `effectiveDate`를 SCD2 종료일로 전달한다.
+  - `MasterDataValidityPolicy`에 종료일이 기존 기간을 뒤집거나 연장하지 않는 공통 검증을 추가했다.
+  - IntelliJ `Master Data bootRun`과 master-data 문서를 standalone H2 실행 및 현재 실제 패키지/Gradle 경계 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1` 성공. H2에 엔티티를 저장하고 네 DB `COUNT` 결과를 확인했다.
+  - `.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` 성공.
+  - 최초 bootRun은 Vault 비활성화 인자 누락으로 실패했고, 표준 local 인자를 보완한 재실행에서 성공했다.
+  - 최초 JPA slice는 빈 Flyway baseline 때문에 테이블이 없어 실패했고, 집계 쿼리 검증 목적에 맞게 Flyway 비활성화/Hibernate create-drop을 명시한 뒤 성공했다.
+  - core의 batch 패키지/DTO 역참조와 batch 패키지의 if/for/math/stream 업무 연산 검색 결과 없음.
+- **남은 리스크**:
+  - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` typed applier는 아직 없으며 fail-closed 상태다.
+  - `requestedVersion`은 양수 검증만 있고 현재 target 버전과의 충돌 검사가 없어 코드 `@todo`로 남겼다.
+  - `batch.application`은 package-level orchestrator이며 독립 Spring Batch Job/Step 실행 모듈이 아니다.
+  - `V1__init_baseline.sql`은 빈 baseline이므로 PostgreSQL 운영 DDL/Flyway 검증과 대량 실행 계획 검증이 별도로 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `master-data`, `.run/Master Data bootRun.run.xml`, 관련 WORKLOG/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (governance 승인 경계/단독 실행 리팩토링)
+### [검수/리팩토링] 빈 Spring Boot 서버 방지와 권한 회수 승인 일관성 보강
+- **선확인**:
+  - `governance/README.md`, `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - 실행 클래스 패키지와 실제 audit 기능 패키지가 달라 기본 컴포넌트 스캔으로는 기능 Bean이 등록되지 않는 문제를 확인했다.
+  - 권한 회수는 승인을 거치지 않고 즉시 삭제됐고, 역할/권한 승인 어댑터의 미지원 requestType이 조용히 무시되는 fail-open 문제를 확인했다.
+- **수정 범위**:
+  - `GovernanceApplication`에 audit와 필요한 master-data service/adapter/repository/entity 스캔 범위를 명시했다.
+  - 컨텍스트 테스트를 추가해 Controller, 감사/승인 유스케이스, master-data 변경 요청 유스케이스가 실제로 등록되는지 검증한다.
+  - 권한 회수를 `PENDING` 승인 요청으로 전환하고 API는 `202 Accepted` 승인 접수 DTO를 반환하도록 변경했다.
+  - `SystemRoleApprovalApplyAdapter`는 역할 CREATE와 권한 CREATE/DELETE만 처리하며 미지원 조합은 fail-closed 예외를 발생시킨다.
+  - H2/PostgreSQL JDBC 런타임과 IntelliJ H2 단독 실행 설정을 추가하고 초보자 문서를 업무/데이터 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :governance:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1` 성공.
+  - H2/local non-web `bootRun` 성공. JPA Repository 12개와 실제 기능 컨텍스트가 기동됐다.
+- **남은 리스크**:
+  - 역할 생성/권한 부여 API는 아직 저장 전 preview 도메인을 반환하며 승인 접수 DTO 전환 `@todo`가 남아 있다.
+  - Auth 외부 반영과 Governance DB 트랜잭션 사이에는 outbox/inbox 원자성 `@todo`가 남아 있다.
+  - 실제 PostgreSQL/Flyway와 운영 스키마는 이번 범위에서 검증하지 않았다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 governance 코드/테스트/docs, `.run/Governance bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.

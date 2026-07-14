@@ -33,6 +33,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Override
     @Transactional
     public MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command) {
+        // @todo requestedVersion을 targetType/targetKey별 현재 버전과 비교해 오래된 변경 요청이
+        // 최신 SCD2 버전을 덮어쓰지 못하도록 낙관적 충돌 검사를 추가해야 한다.
         MasterDataChangeRequest request = new MasterDataChangeRequest(
                 command.targetType(),
                 command.targetKey(),

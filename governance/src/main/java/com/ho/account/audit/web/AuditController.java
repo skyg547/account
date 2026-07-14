@@ -109,9 +109,9 @@ public class AuditController {
     }
 
     @DeleteMapping("/authorizations/{authorizationId}")
-    public ResponseEntity<Void> revokeAuthorization(@PathVariable Long authorizationId) {
-        authorizationUseCase.revokeAuthorization(authorizationId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<MasterApprovalResponse> revokeAuthorization(@PathVariable Long authorizationId) {
+        MasterApproval approval = authorizationUseCase.revokeAuthorization(authorizationId);
+        return ResponseEntity.accepted().body(MasterApprovalResponse.from(approval));
     }
 
     @GetMapping("/permissions/check")

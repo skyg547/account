@@ -1,3 +1,81 @@
+# 2026-07-14 governance 승인 경계/실행 구조 리뷰
+
+Codex가 누적 reporting/deposit/master-data 변경에 이어 governance 실행 및 승인 경계를 보강했습니다. 아래 항목을 독립적으로 검수해 주세요.
+
+## 핵심 검수 항목
+
+1. `GovernanceApplication`의 명시적 component/entity/repository scan이 필요한 Bean만 등록하고 legacy `com.ho.account.security`를 의도대로 제외하는지 확인해 주세요.
+2. 권한 회수 API가 즉시 삭제하지 않고 `AUTHORIZATION / DELETE` 승인 요청과 HTTP 202 접수 정보를 반환하는지 확인해 주세요.
+3. `SystemRoleApprovalApplyAdapter`가 역할 CREATE, 권한 CREATE/DELETE 외 조합을 반드시 fail-closed 처리하는지 확인해 주세요.
+4. 승인 상태 전이와 실제 apply 호출의 트랜잭션 실패 시 정합성, 외부 Auth 호출의 outbox/inbox `@todo`가 적절한지 확인해 주세요.
+5. 역할/권한 생성 API가 preview 도메인을 반환하는 기존 계약과 승인 접수 DTO 전환 `@todo`의 호환성 리스크를 검토해 주세요.
+6. H2 단독 실행 설정, PostgreSQL 드라이버/문서, 초보자 설명이 실제 Gradle/Spring Boot 구조와 일치하는지 확인해 주세요.
+
+## Codex 검증 결과
+
+```powershell
+.\gradlew :governance:compileJava --console=plain --max-workers=1
+.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1
+.\gradlew :governance:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+세 명령 모두 성공했습니다. 실제 PostgreSQL/Flyway 실행은 하지 않았으므로 해당 부분은 미검증 리스크로 남아 있습니다.
+
+---
+
+# 2026-07-14 master-data typed applier/대량 통계 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `master-data` 변경 요청 typed applier, SCD2 effectiveDate 정합성, core/batch 보고 모델 경계, DB COUNT 집계.
+- 우선 확인:
+  - `MasterDataValidityReportPipeline`이 batch 패키지/DTO를 참조하지 않고 core `MasterDataValidityReport`만 반환하는지.
+  - `MasterDataValidityStatisticsPort`와 JPA 어댑터가 네 전체 테이블을 메모리에 올리지 않고 기준일 DB COUNT를 호출하는지.
+  - `MasterDataBatchOrchestrator`가 core pipeline 호출과 DTO 매핑만 수행하고 if/for/math 업무 연산을 갖지 않는지.
+  - ACCOUNT_SUBJECT/BUSINESS_PARTNER/DEPARTMENT/PRODUCT typed applier가 기존 use case를 재사용하는지.
+  - CREATE/UPDATE payload key가 승인 targetKey와 다르면 실패하고, DEACTIVATE는 payload 없이 승인 effectiveDate를 종료일로 전달하는지.
+  - Jackson `ObjectMapper`가 core application service에서 제거되고 `MasterDataChangePayloadDecoder` 출력 포트 뒤 infrastructure adapter에 있는지.
+  - `MasterDataValidityPolicy.requireTerminationDate`가 기간 역전/연장을 막는지.
+  - 미지원 CURRENCY/EXCHANGE_RATE/FISCAL_PERIOD가 APPLIED로 조용히 바뀌지 않고 fail-closed인지.
+  - 현재 남은 `@todo`인 requestedVersion 충돌 검사와 미지원 typed applier의 우선순위가 적절한지.
+- 재실행 권장:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1`
+  - `.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1`
+  - `rg -n "com\\.ho\\.account\\.masterdata\\.batch|MasterDataBatchReport" master-data/src/main/java/com/ho/account/masterdata/core --glob "*.java"`
+  - `rg -n "\\b(if|for|while)\\s*\\(|BigDecimal|\\.stream\\(" master-data/src/main/java/com/ho/account/masterdata/batch --glob "*.java"`
+- 알려진 리스크:
+  - 독립 `master-data:batch` Spring Batch Job/Step 실행 모듈은 아직 없다.
+  - PostgreSQL Flyway DDL과 대량 실행 계획은 이번 H2 검증 범위 밖이다.
+
+# 2026-07-09 deposit command/Batch 기준일 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `deposit:core` 계좌 개설 command 검증과 `deposit:batch` `asOfDate` JobParameter fail-fast 보강.
+- 우선 확인:
+  - `OpenAccountCommand`가 고객/상품/통화 코드 필수값, 통화 코드 정규화, 초기입금/금리 음수 방어를 수행하는지.
+  - `DepositService`는 기존처럼 command -> domain 생성 -> 도메인 입금 메서드 -> persistence port -> 계정 매핑/master-data 검증 -> journal posting 순서를 유지하는지.
+  - `DepositAccountIntegrityBatchConfig`가 `asOfDate` 누락 시 현재 날짜로 대체하지 않고 실패해 배치 재실행 기준일을 명확히 남기는지.
+  - Batch 모듈은 Job/Step/Tasklet orchestration과 core use case 위임만 담당하고 업무 검증은 core `DepositBatchUseCase`가 수행하는지.
+- 재실행 권장:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1`
+  - `rg -n "@todo|TODO|FIXME" deposit --glob "*.java" --glob "!**/build/**"`
+# 2026-07-08 reporting API response DTO 경계 리뷰
+
+Gemini는 아래 최신 변경을 우선 리뷰하세요.
+
+- 대상 브랜치: `agent/asset-lease-split`
+- 주요 범위: `reporting:api`에서 core 도메인 객체를 HTTP 응답으로 직접 반환하지 않고, response DTO로 외부 JSON 계약을 고정한 변경.
+- 우선 확인:
+  - `ReportingController`가 `FinancialStatement`, `DisclosureNoteMart`, `RegulatoryReportSubmission`, `RegulatoryFiling`, `JournalDetailSummary`를 직접 반환하지 않는지.
+  - `reporting:api/.../dto`의 response DTO가 기존 JSON 필드명과 필요한 감사/제출 정보를 유지하는지.
+  - Controller는 요청 파라미터를 core command/query로 바꾸고, 보고서 합산/제출 검증/주석 분류/감독보고 매핑 업무 판단은 core에 남아 있는지.
+  - `reporting:batch`는 Job/Step/Tasklet orchestration과 core 위임만 담당하는지.
+- 재실행 권장:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1`
+  - `rg -n "public (FinancialStatement|DisclosureNoteMart|RegulatoryReportSubmission|RegulatoryFiling)|ResponseEntity<DisclosureNoteMart|ResponseEntity<RegulatoryFiling|JournalDetailSummary>" reporting\api\src\main\java --glob "*.java"`
 # 2026-07-08 reconciliation API/core command 경계 리뷰
 
 Gemini는 아래 최신 변경을 우선 리뷰하세요.

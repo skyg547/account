@@ -104,10 +104,17 @@ public class ProductService implements ProductUseCase {
      * 상품을 비활성화(종료) 처리합니다.
      */
     public void deactivateProduct(Long id) {
+        deactivateProduct(id, LocalDate.now());
+    }
+
+    @Override
+    public void deactivateProduct(Long id, LocalDate effectiveDate) {
         Product product = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        MasterDataValidityPolicy.closeIfActive(product::getValidTo, product::setValidTo);
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, product.getValidFrom(), product.getValidTo());
+        product.terminate(terminationDate);
         product.setUpdatedAt(LocalDateTime.now());
         product.setAuditUser("system");
         productPersistencePort.save(product);

@@ -1326,3 +1326,70 @@
   - PostgreSQL/Flyway 및 실제 대량 `reconciliationDailyJob` 실행은 별도 검증 필요.
 - 롤백:
   - 커밋 후에는 이번 reconciliation boundary refactor 커밋을 revert한다.
+## 2026-07-08 (reporting API response DTO boundary refactor)
+- 사용자 요청: 모듈 순차 점검을 이어가며 헥사고날/DDD/API 경계, 업무 흐름, 문서 최신화를 진행.
+- 수정 내용:
+  - `ReportingController`가 core 도메인 객체를 HTTP 응답으로 직접 반환하지 않도록 response DTO를 추가했다.
+  - `FinancialStatementResponseDto`, `DisclosureNoteMartResponseDto`, `RegulatoryReportSubmissionResponseDto`, `RegulatoryFilingResponseDto`, drill-down DTO 등을 `reporting:api`에 추가했다.
+  - Controller는 core command/use case 호출 후 DTO로 변환하고, 보고서 생성/제출/주석 분류 업무 판단은 core에 유지했다.
+  - reporting README/docs와 Gemini 리뷰 프롬프트를 API DTO 경계 기준으로 최신화했다.
+- 검증:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1` 성공.
+- 리스크:
+  - PostgreSQL/Flyway 및 실제 대량 Batch Job 실행은 별도 검증 필요.
+- 롤백:
+  - 커밋 전이면 `git restore -- reporting docs/WORKLOG.md CODEX_WORKLOG.md docs/ai-harness docs/module-documentation-sequence.md GEMINI_REVIEW_PROMPT.md` 범위로 되돌릴 수 있다.
+## 2026-07-09 (deposit command and Batch asOfDate boundary refactor)
+- 사용자 요청: 모듈 순차 점검을 이어가며 헥사고날/DDD/업무 프로세스 기준으로 경계와 문서를 보강.
+- 수정 내용:
+  - `OpenAccountCommand`에 필수 코드, 통화 코드 정규화, 초기입금/금리 음수 방어를 추가했다.
+  - `DepositAccountIntegrityBatchConfig`가 `asOfDate` 누락 시 현재 날짜로 대체하지 않고 실패하도록 변경했다.
+  - core command 검증 테스트와 batch JobParameter 테스트를 추가했다.
+  - deposit README/docs와 Gemini 리뷰 프롬프트를 API DTO -> core command, Batch 기준일 필수 정책 기준으로 최신화했다.
+- 검증:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1` 성공.
+- 리스크:
+  - PostgreSQL/Flyway 및 실제 외부 포트 연결은 별도 통합 검증 필요.
+- 롤백:
+  - 커밋 전이면 `git restore -- deposit docs/WORKLOG.md CODEX_WORKLOG.md docs/ai-harness docs/module-documentation-sequence.md GEMINI_REVIEW_PROMPT.md` 범위로 되돌릴 수 있다.
+
+## 2026-07-14 (master-data typed applier and validity statistics boundary)
+
+- 사용자 목표: 모듈을 순차 검수하면서 헥사고날/DDD/업무 정합성/대량 처리 기준으로 리팩토링하고 초보자 문서와 `@todo`를 최신화.
+- 수정 내용:
+  - core pipeline의 batch DTO 역참조를 제거하고 `MasterDataValidityReport`를 core 모델로 추가했다.
+  - `MasterDataValidityStatisticsPort`와 JPA 통계 어댑터/COUNT 쿼리로 전체 행 메모리 집계를 제거했다.
+  - 일일 보고 기준일을 필수화해 재실행 시 현재 날짜에 따라 결과가 달라지지 않게 했다.
+  - 계정과목/거래처/부서/상품 typed change applier를 구현했다.
+  - JSON payload 파싱을 `MasterDataChangePayloadDecoder` 포트와 Jackson 어댑터로 분리했다.
+  - targetKey 일치, 승인 effectiveDate 전달, 비활성화 payload 불필요, SCD2 종료 기간 검증을 보강했다.
+  - IntelliJ/H2 standalone 실행 설정과 master-data 문서를 실제 코드 경계 기준으로 갱신했다.
+- 검증:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1` 성공.
+  - H2 JPA COUNT 통합 테스트 성공.
+  - local/H2 non-web bootRun 성공.
+  - core→batch 역참조 및 batch 업무 연산 검색 결과 없음.
+- 남은 리스크:
+  - 통화/환율/회계기간 typed applier와 target 버전 충돌 검사는 코드 `@todo`로 남아 있다.
+  - master-data batch는 독립 Spring Batch Job/Step 모듈이 아니다.
+  - PostgreSQL Flyway DDL과 대량 실행 계획은 별도 검증이 필요하다.
+- 롤백:
+  - 커밋 전에는 `master-data`, `.run/Master Data bootRun.run.xml`, 관련 문서/하네스/Gemini prompt 파일을 기존 사용자 변경과 구분해 되돌린다.
+
+## 2026-07-14 (governance approval boundary and standalone runtime)
+- 요청 목표: 누적 변경을 커밋/푸시하기 전에 governance 모듈의 DDD/헥사고날 승인 경계와 H2/PostgreSQL 실행 문서를 완성한다.
+- 변경:
+  - 실제 audit/master-data 승인 Bean을 명시적으로 스캔해 빈 Spring Boot 서버 기동 문제를 제거했다.
+  - 권한 회수를 즉시 삭제에서 승인 요청으로 전환하고 API가 `202 Accepted` 접수 정보를 반환하게 했다.
+  - 역할/권한 Apply adapter의 지원 조합을 명시하고 모든 미지원 조합을 fail-closed 처리했다.
+  - 서비스/어댑터/컨텍스트 테스트, H2/PostgreSQL 런타임 의존성, IntelliJ 단독 실행 설정과 초보자 문서를 보강했다.
+- 검증:
+  - `.\gradlew :governance:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1` 성공.
+  - H2/local non-web `bootRun` 성공.
+- 리스크:
+  - PostgreSQL/Flyway 실제 실행은 미검증이다.
+  - preview API 응답과 외부 Auth outbox/inbox `@todo`가 남아 있다.
+- 롤백:
+  - governance와 관련 문서/Run Configuration 변경이 포함된 이번 커밋을 revert한다.

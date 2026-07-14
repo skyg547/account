@@ -110,10 +110,17 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
      * 거래처를 논리적으로 삭제(비활성화)합니다.
      */
     public void deleteBusinessPartner(Long id) {
+        deleteBusinessPartner(id, LocalDate.now());
+    }
+
+    @Override
+    public void deleteBusinessPartner(Long id, LocalDate effectiveDate) {
         BusinessPartner businessPartner = businessPartnerPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("거래처를 찾을 수 없습니다. ID: " + id));
-        
-        businessPartner.terminate(LocalDate.now());
+
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, businessPartner.getValidFrom(), businessPartner.getValidTo());
+        businessPartner.terminate(terminationDate);
         businessPartnerPersistencePort.save(businessPartner);
     }
 

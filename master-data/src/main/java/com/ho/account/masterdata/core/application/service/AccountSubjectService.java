@@ -131,10 +131,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public void deactivateAccountSubject(String code) {
+        deactivateAccountSubject(code, LocalDate.now());
+    }
+
+    @Override
+    public void deactivateAccountSubject(String code, LocalDate effectiveDate) {
         AccountSubject account = accountSubjectPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        MasterDataValidityPolicy.closeIfActive(account::getValidTo, account::setValidTo);
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, account.getValidFrom(), account.getValidTo());
+        account.terminate(terminationDate);
         accountSubjectPersistencePort.save(account);
     }
 

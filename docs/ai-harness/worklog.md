@@ -307,3 +307,79 @@
   - PostgreSQL/Flyway compatibility and high-volume `reconciliationDailyJob` execution are not verified in this pass.
 - Rollback:
   - Revert the reconciliation boundary refactor commit if rejected.
+## 2026-07-08 - Reporting API Response DTO Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added reporting API response DTOs for statements, disclosure note marts, regulatory submissions, regulatory filings, and drill-down rows.
+  - Updated `ReportingController` to call core use cases and map domain results to API DTOs.
+  - Kept business aggregation, validation, note classification, and filing mapping in core.
+  - Updated reporting docs and Gemini review prompt for the core domain -> API response DTO flow.
+- Verification:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume reporting Batch execution are not verified in this pass.
+- Rollback:
+  - Revert the reporting API DTO boundary changes if rejected.
+## 2026-07-09 - Deposit Command and Batch asOfDate Boundary Refactor
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added validation to `OpenAccountCommand` for required codes, currency normalization, non-negative initial deposit, and non-negative interest rate.
+  - Made `depositAccountIntegrityJob` require explicit `asOfDate=yyyy-MM-dd` instead of defaulting to the current date.
+  - Added command validation and Batch JobParameter tests.
+  - Updated deposit docs and Gemini review prompt.
+- Verification:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL/Flyway compatibility and real master-data/journal-ledger adapter integration are not verified in this pass.
+- Rollback:
+  - Revert the deposit boundary changes if rejected.
+
+## 2026-07-14 - Master Data Typed Applier and Statistics Boundary
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed the core pipeline dependency on the batch report DTO.
+  - Added a core validity report model and statistics output port.
+  - Replaced four full-table Java stream counts with JPA COUNT queries.
+  - Added typed change appliers for account subjects, business partners, departments, and products.
+  - Moved JSON decoding behind a core output port and Jackson infrastructure adapter.
+  - Enforced targetKey/payload-key consistency and approved effectiveDate for SCD2 deactivation.
+  - Updated master-data local H2/IntelliJ documentation and run configuration.
+- Verification:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1` passed.
+  - H2 JPA statistics integration test passed.
+  - Local/H2 non-web `bootRun` passed after disabling Config, Discovery, Vault, tracing, Flyway, and using Hibernate create-drop.
+  - Core-to-batch dependency and batch business-loop searches returned no matches.
+- Risks:
+  - Currency, exchange-rate, and fiscal-period typed appliers remain fail-closed.
+  - requestedVersion conflict enforcement remains an explicit code `@todo`.
+  - The package-level batch orchestrator is not yet an independent Spring Batch Job/Step application.
+  - PostgreSQL Flyway DDL and high-volume execution plans remain unverified.
+- Rollback:
+  - Revert the master-data files, IntelliJ run configuration, and related docs/handoff entries for this pass.
+
+## 2026-07-14 - Governance Approval Boundary and Standalone Runtime
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Fixed Governance component/entity/repository scanning so the executable loads real audit and master-data approval beans.
+  - Changed authorization revocation from immediate deletion to an approval request and HTTP 202 receipt.
+  - Made unsupported system-role/authorization approval combinations fail closed.
+  - Added service, adapter, and Spring context regression tests.
+  - Added H2/PostgreSQL runtime drivers, standalone IntelliJ configuration, and beginner-focused runtime/process documentation.
+- Verification:
+  - `:governance:compileJava` passed.
+  - `:governance:test :governance:bootJar` passed.
+  - Local H2 non-web `bootRun` passed and loaded 12 JPA repositories.
+- Risks:
+  - PostgreSQL/Flyway runtime was documented but not live-tested.
+  - Approval receipt API unification and Auth outbox/inbox atomicity remain code `@todo` items.
+- Rollback:
+  - Revert the governance/runtime/docs changes in the pending combined commit if rejected.

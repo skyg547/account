@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MasterDataValidityPolicyTest {
 
@@ -24,6 +25,33 @@ class MasterDataValidityPolicyTest {
         MasterDataValidityPolicy.closeIfActive(holder::getDate, holder::setDate);
 
         assertThat(holder.getDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void acceptsTerminationDateInsideCurrentValidityWindow() {
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(9999, 12, 31));
+
+        assertThat(terminationDate).isEqualTo(LocalDate.of(2026, 7, 1));
+    }
+
+    @Test
+    void rejectsTerminationDateThatWouldReverseOrExtendHistory() {
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2025, 12, 31),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(9999, 12, 31)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("before validFrom");
+
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2026, 7, 2),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 7, 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot extend");
     }
 
     private static final class Holder {

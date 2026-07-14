@@ -123,6 +123,8 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
                 command,
                 actor);
 
+        // @todo 역할/권한 생성 API는 아직 저장되지 않은 preview 도메인 객체를 반환한다.
+        // 외부 계약을 승인 접수증(approvalId/status) 응답으로 전환해 오해를 없애야 한다.
         return SystemRole.create(command.roleCode(), command.roleName(), command.description(), actor.userId());
     }
 
@@ -183,8 +185,23 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
     }
 
     @Override
-    public void revokeAuthorization(Long authorizationId) {
-        authorizationPersistencePort.deleteById(authorizationId);
+    public MasterApproval revokeAuthorization(Long authorizationId) {
+        Authorization authorization = authorizationPersistencePort.findById(authorizationId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Authorization not found. ID: " + authorizationId));
+        SystemRole role = authorization.getRole();
+        if (role == null) {
+            throw new IllegalStateException(
+                    "Authorization has no role. ID: " + authorizationId);
+        }
+
+        AuditActor actor = auditActorProviderPort.currentActor();
+        return requestGovernanceApproval(
+                AUTHORIZATION_MASTER_TYPE,
+                role.getRoleCode() + ":" + authorization.getFunctionCode() + ":" + authorization.getAccessType(),
+                MasterApproval.ChangeRequestType.DELETE,
+                authorizationId,
+                actor);
     }
 
     @Override
@@ -211,14 +228,14 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
         return decision.granted();
     }
 
-    private void requestGovernanceApproval(
+    private MasterApproval requestGovernanceApproval(
             String masterType,
             String masterKey,
             MasterApproval.ChangeRequestType requestType,
             Object payload,
             AuditActor actor) {
         try {
-            masterApprovalUseCase.requestApproval(new MasterApprovalUseCase.RequestApprovalCommand(
+            return masterApprovalUseCase.requestApproval(new MasterApprovalUseCase.RequestApprovalCommand(
                     masterType,
                     masterKey,
                     requestType,

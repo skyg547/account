@@ -18,3 +18,9 @@
 - 계정과목 검증은 `MasterDataQueryPort`의 실제 구현으로 교체해야 합니다.
 - 초기입금 전표 생성은 `JournalPostingPort`의 실제 journal-ledger 어댑터로 교체해야 합니다.
 - 로컬 어댑터는 운영 회계 전표를 저장하지 않고 식별자만 반환합니다.
+
+## API/Batch 입력 경계
+
+- API는 HTTP 요청 DTO를 core `OpenAccountCommand`로 변환한다.
+- `OpenAccountCommand`는 `customerCode`, `productCode`, `currencyCode` 필수값을 확인하고, `initialDeposit`과 `interestRate`가 음수가 아닌지 검증한다.
+- `depositAccountIntegrityJob`은 기준일이 실행 결과를 바꾸는 배치이므로 `asOfDate`를 기본값으로 대체하지 않는다. 누락 시 실패시켜 운영자가 재실행 조건을 명확히 남기게 한다.

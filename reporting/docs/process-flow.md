@@ -19,7 +19,8 @@ sequenceDiagram
     Mapping-->>Service: effective SCD2 mappings
     Service->>Service: line amount aggregation
     Service->>Snapshot: saveFinalized(statement)
-    Service-->>API: FINAL statement
+    Service-->>API: FINAL statement domain result
+    API-->>API: FinancialStatementResponseDto 변환
 ```
 
 ## 감독보고 제출본 등록
@@ -38,7 +39,8 @@ sequenceDiagram
     Submission-->>Service: version
     Service->>Service: validate lines and correction policy
     Service->>Submission: save(READY submission)
-    Service-->>API: submission id/version/status
+    Service-->>API: submission domain result
+    API-->>API: RegulatoryReportSubmissionResponseDto 변환
 ```
 
 ## 주석 마트 생성
@@ -55,7 +57,8 @@ sequenceDiagram
     Snapshot-->>Service: FINAL statement snapshot
     Service->>Service: classify note lines by maturity/rate/currency/risk
     Service->>Mart: replace(mart)
-    Service-->>API: mart entries
+    Service-->>API: mart domain result
+    API-->>API: DisclosureNoteMartResponseDto 변환
 ```
 
 ## 감독보고 매핑 및 제출
@@ -81,7 +84,8 @@ sequenceDiagram
     Service->>Gateway: submit(package)
     Gateway-->>Service: receipt id
     Service->>Store: save(filing lines + receipt)
-    Service-->>API: filing result
+    Service-->>API: filing domain result
+    API-->>API: RegulatoryFilingResponseDto 변환
 ```
 
 ## 계층 책임
@@ -89,6 +93,7 @@ sequenceDiagram
 - `application.service`: 유즈케이스 흐름, 트랜잭션, 포트 협업을 담당합니다.
 - `application.port.out`: 원장 조회, 매핑 조회, 스냅샷 저장 계약만 정의합니다.
 - `domain.model`: 보고서, 라인, 매핑 유효성 같은 비즈니스 규칙을 보유합니다.
+- `api/.../dto`: 외부 HTTP 응답 모양을 고정합니다. 도메인 모델을 그대로 직렬화하지 않고 response DTO로 변환합니다.
 - `infrastructure.persistence`: JPA/Flyway 기반 DB 접근과 인메모리 데모 어댑터를 구현합니다.
 
 ## 문서 Export와 Drill-through
