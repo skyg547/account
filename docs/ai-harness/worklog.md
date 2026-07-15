@@ -209,3 +209,42 @@ Use this template for every GitHub Issue based AI task.
 
 ### Rollback
 - Revert this follow-up commit or remove the new runbook/closure result sections.
+
+## 2026-07-14 - GH-4 Skills And Custom Subagents
+
+- Work ID: GH-4
+- Issue: #4 `[AI Harness] Split AGENTS into skills and custom subagents`
+- Base branch: `origin/main`
+- Branch: `agent/4-harness-skills-subagents`
+- Worktree: `C:\tmp\account-harness-skills`
+- Status: Review ready; no remote push or PR.
+
+### Scope
+
+- Reduced the always-loaded root agent guide and canonicalized it as `AGENTS.md`.
+- Added three repository skills under `.agents/skills/`.
+- Added project custom agent definitions and concurrency limits under `.codex/`.
+- Updated workflow, ownership, model assignment, legacy entry points, and active links.
+- Kept historical logs and backups unchanged.
+
+### Verification
+
+- GitHub Issue #4 is OPEN and its goal, scope, and acceptance criteria match the diff.
+- `codex debug prompt-input` discovered the canonical `AGENTS.md` and all three repository skills.
+- Skill structure validation passed for 3 skills; the checks mirror `quick_validate.py` rules.
+- Official `quick_validate.py` could not run because no Python interpreter is installed. No package was installed.
+- Custom agent structure validation passed for 11 unique TOML files with required fields, narrow sandbox modes, and no pinned vendor model.
+- `codex --strict-config --help` accepted `.codex/config.toml`; multi-agent support is reported stable by the installed CLI.
+- A new `codex exec` discovery run timed out; the current in-process orchestrator also cannot hot-load the newly added `planner` type. Start a new Codex session to use custom agents.
+- Independent `$account-review-handoff` forward test identified missing logs and scope review; those findings were addressed.
+- `git diff --check HEAD`, trailing-whitespace scan, placeholder scan, and conflict-marker scan passed.
+- No Gradle tests were run because the change affects documentation and Codex harness configuration only.
+
+### Rollback
+
+Revert the eventual GH-4 commit. Before commit, restore the changed harness files from `origin/main`, remove the new `.agents/`, `.codex/`, and `95-codex-skills-subagents.md`, and restore `Agents.md`.
+
+### Risks
+
+- Custom agent runtime spawn still needs confirmation in a fresh Codex session.
+- The official Python validator remains unexecuted until Python and PyYAML are available through an approved environment.

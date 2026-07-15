@@ -1113,3 +1113,15 @@
   - `85-github-issue-agent-loop.md`에 PR ready/merge/issue close runbook을 추가했다.
   - audit, integration-log, worklog, agent-status, handoff에 PR #2 merge 및 Issue #1 close 결과를 반영했다.
 - 검증: 최종 conflict marker 및 `git diff --check` 예정.
+
+## 2026-07-14 (GH-4 Harness Skills And Custom Subagents)
+
+- Created GitHub Issue #4 and isolated work in `agent/4-harness-skills-subagents` at `C:\tmp\account-harness-skills`.
+- Canonicalized `Agents.md` to auto-discovered `AGENTS.md` and reduced it from 124 to 61 lines.
+- Added three repository skills and 11 project custom agent personas with disjoint ownership and a read-only advisory Integrator.
+- Updated harness workflow, model policy, ownership, active documentation links, and legacy compatibility entries.
+- Verified `AGENTS.md` and all skills are discovered by `codex debug prompt-input`.
+- Skill/TOML structural checks, strict config load, diff check, whitespace/placeholder scans, and conflict-marker scan passed.
+- Python is not installed, so the bundled `quick_validate.py` did not run; an equivalent rules check passed.
+- A separate `codex exec` runtime discovery timed out, and this already-running parent session cannot hot-load new custom agent types. Fresh-session spawn remains a handoff item.
+- No production code or dependency changed; Gradle tests were not run.

@@ -21,7 +21,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - GEMINI.md
 - docs/GEMINI.md
 - docs/GEMINI_SKILL.md
-- Agents.md
+- AGENTS.md
 - docs/WORKLOG.md 최신 항목
 - CODEX_WORKLOG.md 최신 항목
 - MODULE_REVIEW_2026-05-06.md 최신 항목

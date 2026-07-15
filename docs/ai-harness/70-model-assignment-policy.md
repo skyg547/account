@@ -1,56 +1,41 @@
 # Model Assignment Policy
 
-Models are assigned by capability, not by vendor name.
+Assign models by capability and task risk, not by vendor name. Project custom agent files specify reasoning effort only and inherit the available parent model.
 
-## High Reasoning Model
-
-Use for:
-
-- Planner Agent
-- SQL Agent
-- Reviewer Agent
-- Integrator Agent
-
-Best for:
-
-- architecture judgment
-- conflict resolution
-- security review
-- performance review
-- accounting correctness review
-- large impact analysis
-
-## Fast/Cheap Model
+## High Reasoning Capacity
 
 Use for:
 
-- Explorer Agent
-- Coder Agent
-- Test Agent
-- Documentation Agent
+- Planner, SQL, Reviewer, and advisory Integrator roles;
+- architecture or cross-module changes;
+- financial calculations and state transitions;
+- conflict resolution, security, accounting correctness, and performance review;
+- batch restartability, partitioning, and high-volume persistence decisions.
 
-Best for:
-
-- repetitive code search
-- code draft within approved scope
-- test draft
-- documentation draft
-- summarizing non-sensitive logs
-
-## Local/Open Model
+## Balanced Capacity
 
 Use for:
 
-- non-sensitive local code exploration
-- simple refactoring candidate extraction
-- log pattern grouping
-- draft summaries that do not include secrets
+- bounded Coder, Controller, Service, Batch, Test, and Documentation work with clear acceptance criteria;
+- implementation inside an explicit allowlist;
+- focused test and documentation updates.
 
-Rules:
+Escalate a normally balanced role to high reasoning when ambiguity, financial risk, concurrency, migration risk, or broad blast radius is present.
 
-- Do not send data that is prohibited from external transfer.
-- Do not process secrets, credentials, personal information, or production URLs.
+## Fast/Low-Cost Capacity
+
+Use for:
+
+- read-heavy exploration and candidate-file searches;
+- repetitive summaries of non-sensitive code or logs;
+- mechanical draft generation that will receive independent review.
+
+Do not use lower-capacity execution for high-risk core logic solely because the role is named Coder.
+
+## Local/Open Capacity
+
+Use for non-sensitive local exploration, simple refactoring candidates, log pattern grouping, and draft summaries.
+
+- Never process secrets, credentials, personal data, or production URLs.
+- Do not send data prohibited from external transfer.
 - Escalate to a human when data classification is unclear.
-
-초보자 설명: 모델 이름보다 "무슨 일을 맡길 수 있는 능력인가"가 중요하다. 어려운 판단은 높은 추론 모델, 반복 작업은 빠른 모델, 외부 전송 금지 데이터는 로컬 도구를 우선 사용한다.
-
