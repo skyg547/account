@@ -121,7 +121,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   auth:
     build:
@@ -144,7 +144,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   closing:
     build:
@@ -167,7 +167,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   config-server:
     build:
@@ -201,6 +201,11 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SERVER_PORT=8761
+      - EUREKA_INSTANCE_HOSTNAME=discovery
+      - LOGSTASH_HOST=logstash
+      - LOGSTASH_PORT=5000
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
@@ -229,7 +234,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   gateway:
     build:
@@ -245,6 +250,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SERVER_PORT=8000
+      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
@@ -252,6 +259,8 @@ services:
       config-server:
         condition: service_started
       discovery:
+        condition: service_healthy
+      auth:
         condition: service_started
 
   governance:
@@ -275,7 +284,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   journal-ledger:
     build:
@@ -298,7 +307,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   loan:
     build:
@@ -321,7 +330,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   master-data:
     build:
@@ -344,7 +353,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   payable:
     build:
@@ -367,7 +376,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   receivable:
     build:
@@ -390,7 +399,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   reconciliation:
     build:
@@ -413,7 +422,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   reporting:
     build:
@@ -436,7 +445,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   tax:
     build:
@@ -459,7 +468,7 @@ services:
       config-server:
         condition: service_started
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   frontend-node:
     build:

@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8000
 
 spring:
   cloud:
@@ -21,21 +21,23 @@ spring:
               - "*"
             exposedHeaders:
               - X-Request-Id
+              - X-Auth-Error
             allowCredentials: true
       routes:
-        # Auth Service (출입증 발급 센터) - 여기는 검문소 필터 없이 무조건 통과시켜야 합니다!
-        - id: auth-api
+        # Auth 로그인만 외부 공개합니다. validate/internal 경로는 Gateway 전역 정책에서 차단합니다.
+        - id: auth-login-api
           uri: lb://auth-service
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/auth/login
+            - Method=POST
 
+        # JwtAuthenticationFilter 전역 필터가 모든 /api/**를 먼저 검증한 뒤 아래 라우트로 보냅니다.
         # Master Data Service 라우팅
         - id: master-data-api
           uri: lb://master-data
           predicates:
             - Path=/api/basic/**
           filters:
-            - name: JwtAuthenticationFilter # 1차 검문소: 출입증 검사
             - name: CircuitBreaker # 2차 방어막: 뒷단 죽었는지 검사
               args:
                 name: masterDataCircuitBreaker
@@ -47,7 +49,6 @@ spring:
           predicates:
             - Path=/api/journals/**,/api/ledgers/**,/api/unsettled/**,/api/gl-sl/**,/api/drilldown/**
           filters:
-            - name: JwtAuthenticationFilter
             - name: CircuitBreaker
               args:
                 name: journalLedgerCircuitBreaker
@@ -73,6 +74,8 @@ spring:
           filters:
             - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
             
+        # @todo 구 모놀리식 API가 모두 도메인 서비스로 이전되면 이 catch-all 라우트를 제거합니다.
+        # 현재도 전역 JWT 필터가 적용되므로 새 API가 무인증으로 우회하지는 않습니다.
         # 구 모놀리식 폴백용
         - id: account-api
           uri: lb://account

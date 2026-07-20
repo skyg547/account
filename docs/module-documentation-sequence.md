@@ -39,6 +39,8 @@
 | 23 | `master-data` typed applier/대량 통계 경계 리팩토링 | Review ready | 4개 기준정보 typed applier, effectiveDate 정합성, core→batch 역참조 제거, DB COUNT 집계 |
 | 24 | `governance` 승인 경계/단독 실행 리팩토링 | Review ready | 실제 기능 Bean 스캔, 권한 회수 승인, fail-closed apply, H2 단독 실행 |
 | 25 | `auth` 인증/역할 승인 멱등 경계 리팩토링 | Review ready | API/core DTO 분리, 역할 시점 고정, memory/JPA 정합성, approvalTraceId 멱등 반영 |
+| 26 | `gateway` 전역 인증/신뢰 헤더 경계 리팩토링 | Review ready | 모든 API 기본 인증, 내부 Auth 차단, JWT 포트 분리, roleVersion 401/503 구분, 8000/Docker 정합화 |
+| 27 | `discovery` registry/readiness/컨테이너 경계 리팩토링 | Review ready | 8761 standalone, 실제 Config Client/actuator, register 생명주기, Docker health/service_healthy, 보안·HA TODO |
 
 ## 1차 완료 상세
 
@@ -573,3 +575,63 @@ git diff --check
 - core의 `auth.api` 참조 검색 결과 없음
 - PostgreSQL/Flyway와 동시 승인/로그인 실패 부하는 실제 PostgreSQL 환경에서 미검증
 - 남은 코드 `@todo`는 평문 비밀번호 해시 승격, 최초 로그인 실패 원자적 upsert, 멱등 이력 archive/retention 정책 3건
+
+## 26차 후속 상세
+
+### gateway 전역 인증과 런타임 경계 리팩토링
+
+- 라우트마다 선택 적용하던 `JwtAuthenticationFilter`를 모든 `/api/**`에 기본 적용하는 `GlobalFilter`로 전환했습니다.
+- 외부 `X-Auth-*`를 항상 제거하고 JWT/roleVersion 검증이 모두 성공한 뒤 `AuthenticatedPrincipal`에서 신뢰 헤더를 다시 생성합니다.
+- `/api/auth/login`의 POST만 공개하고 token-version/internal Auth 경로는 라우트 설정과 무관하게 외부에서 차단합니다.
+- `AccessTokenVerifier` 포트와 `JjwtAccessTokenVerifier` 어댑터를 추가해 JJWT 기술을 HTTP 필터에서 분리했습니다.
+- 누락된 roleVersion을 1로 가정하지 않고, 필수 iat/exp/roles와 양의 정수 roleVersion, 헤더 안전 코드를 fail-closed 검증합니다.
+- token-version 결과를 `VALID/REJECTED/UNAVAILABLE`로 나눠 권한 변경은 401, Auth timeout/빈 응답/장애는 503으로 반환합니다.
+- 정상 결과만 canonical username 기준으로 캐시하고 request ID 길이/문자 검증을 추가했습니다.
+- Gateway/Config/Docker 포트를 8000으로 통일하고 Docker 내부 Auth 주소를 `http://auth:8084`로 설정했습니다.
+- Dockerfile을 프로젝트 기준 JDK 17과 단일 bootJar 복사 구조로 수정하고 standalone IntelliJ 실행 설정을 추가했습니다.
+- README/docs/process-flow/local-run을 전역 인증과 실제 데이터 흐름, 종료/메모리 관리 기준으로 최신화했습니다.
+- 남은 `@todo`는 JWKS 키 회전, 역할 변경 이벤트 기반 다중 노드 cache 무효화, Auth 내부 API 서비스 인증, 레거시 account catch-all 제거입니다.
+
+검증:
+
+```powershell
+.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon
+.\gradlew :gateway:bootRun --args="--spring.profiles.active=local --server.port=8000 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --auth.token-version-validation.enabled=false" --console=plain --no-daemon
+Invoke-RestMethod http://localhost:8000/actuator/health
+```
+
+결과:
+- gateway 전체 30개 테스트 성공, 실패/오류/skip 0건
+- `bootJar` 성공
+- local standalone Netty 서버 포트 8000 기동 및 actuator health `UP`
+- Config/Compose YAML 파싱 테스트로 로그인 단일 공개 경로, 8000 포트, Auth 컨테이너 주소와 의존 순서 확인
+- Docker CLI가 설치되어 있지 않아 실제 `docker compose config`와 이미지 빌드/실행은 미검증
+- live Config/Discovery/Auth 라우팅 통합과 다중 노드 cache 무효화는 별도 환경 검증 필요
+## 27차 후속 상세
+
+### discovery registry 생명주기와 readiness 경계 리팩토링
+
+- Config Server가 없으면 8080으로 뜨고 자신을 Eureka client로 등록/fetch하려던 기본값을 8761 단일 노드 server 정책으로 고정했습니다.
+- 문서에만 있던 Config/health/prometheus/tracing 설정을 실제 Config Client, actuator, Prometheus, Brave/Zipkin 의존성과 연결했습니다.
+- `DiscoveryApplicationTests`는 actuator readiness와 임시 instance register -> lookup -> cancel 생명주기를 검증합니다.
+- `DiscoveryConfigurationPolicyTest`는 local/config YAML, 루트/모듈 Compose, JDK 17 Dockerfile/readiness와 모든 Discovery 의존 서비스의 `service_healthy` 조건을 검증합니다.
+- Dockerfile의 JDK 21/다중 wildcard COPY를 JDK 17 단일 bootJar로 바꾸고 image readiness healthcheck를 추가했습니다.
+- 루트 Compose는 Discovery container 주소/Logstash/Zipkin 값을 주입하고 14개 의존 서비스가 readiness healthy를 기다리게 했습니다.
+- 테스트 전용 console Logback과 `Discovery standalone bootRun` IntelliJ 설정을 추가했습니다.
+- 기존 전화번호부 비유와 archive 이력을 유지하면서 README/docs에 register/heartbeat/fetch/cancel/eviction/self-preservation 흐름을 상세화했습니다.
+- 운영 인증 방식과 peer 주소가 확정되지 않아 private network+mTLS/인증, multi-AZ peer sync/장애 전환을 Config 코드 `@todo`로 남겼습니다.
+
+검증:
+
+```powershell
+.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon
+.\gradlew :discovery:bootRun --args="--spring.profiles.active=local --server.port=8761 --spring.cloud.config.enabled=false --eureka.client.register-with-eureka=false --eureka.client.fetch-registry=false --management.tracing.enabled=false" --console=plain --no-daemon
+```
+
+결과:
+- discovery 전체 6개 테스트 성공, 실패/오류/skip 0건
+- `bootJar` 성공
+- standalone 8761 readiness `UP`, Dashboard/registry/Prometheus HTTP 200, JVM metric 노출 확인
+- runtime 종료 후 Discovery/Gradle 프로세스가 남지 않음을 확인
+- Docker CLI가 설치되어 있지 않아 실제 image/Compose 실행은 미검증
+- live Config Server와 실제 여러 서비스 heartbeat/load-balancing, 운영 self-preservation 임계값은 별도 통합/부하 환경 검증 필요

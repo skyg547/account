@@ -55,7 +55,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | --- | --- | ---: | --- |
 | `discovery` | `com.ho.account.discovery.DiscoveryApplication` | 8761 | Eureka |
 | `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 설정 파일 기준 | Config Server |
-| `gateway` | `com.ho.account.gateway.GatewayApplication` | 설정 파일 기준 | API Gateway |
+| `gateway` | `com.ho.account.gateway.GatewayApplication` | 8000 | API Gateway |
 | `auth` | `com.ho.account.auth.AuthApplication` | 설정 파일 기준 | 인증 |
 | `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
 | `governance` | `com.ho.account.governance.GovernanceApplication` | 설정 파일 기준 | 감사/승인 |
@@ -103,11 +103,13 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `Reporting API bootRun` | `:reporting:api:bootRun` | memory 모드 재무보고 API 실행 |
 | `Reporting Batch Context` | `:reporting:batch:bootRun` | memory 모드 재무보고 batch 컨텍스트 기동 |
 | `Config Server bootRun` | `:config-server:bootRun` | 중앙 설정 서버 로컬 실행 |
-| `Discovery bootRun` | `:discovery:bootRun` | Eureka 서버 로컬 실행 |
+| `Discovery bootRun` | `:discovery:bootRun` | Config Server 연동 Eureka 실행 |
+| `Discovery standalone bootRun` | `:discovery:bootRun` | 8761/readiness/registry 단독 smoke |
 | `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
 | `Master Data bootRun` | `:master-data:bootRun` | 기준정보 API 로컬 실행 |
 | `Governance bootRun` | `:governance:bootRun` | 감사/승인 API 로컬 실행 |
-| `Gateway bootRun` | `:gateway:bootRun` | Gateway 로컬 실행 |
+| `Gateway bootRun` | `:gateway:bootRun` | Config/Discovery/Auth 연동 Gateway 실행 |
+| `Gateway standalone bootRun` | `:gateway:bootRun` | 외부 의존성을 끈 포트/컨텍스트 smoke |
 | `Foundation Library Compile` | `:contracts:compileJava`, `:shared-kernel:compileJava` | 공통 library 모듈 컴파일 |
 | `Foundation Infra Tests` | foundation/infra 테스트·assemble 묶음 | 마지막 foundation/infra 문서 배치 검증 |
 
@@ -196,7 +198,7 @@ PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰�
 IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서를 따릅니다.
 
 ```text
-Config Server bootRun -> Discovery bootRun -> Auth/Master Data/Governance/Journals -> Gateway bootRun
+Config Server bootRun -> Discovery bootRun (readiness UP) -> Auth/Master Data/Governance/Journals -> Gateway bootRun (8000)
 ```
 
 전체 인프라를 한 번에 띄울 때:

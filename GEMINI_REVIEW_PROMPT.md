@@ -549,3 +549,38 @@ Notes:
 - Findings는 요약보다 먼저 작성한다.
 - 각 Finding은 파일/라인 근거를 포함한다.
 - Gemini는 코드를 수정하지 않는다.
+
+## Current Review Request - 2026-07-20 Discovery
+
+- Review branch: `agent/asset-lease-split`.
+- Review only; do not modify code. Report findings first with severity and exact file/line evidence.
+- The working tree contains the previous Gateway pass plus the new Discovery pass; root Compose overlaps both and must be reviewed cumulatively.
+
+### Discovery Changed Scope
+
+- `discovery`: Config/actuator/observability dependencies, 8761 server-only defaults, registry/readiness tests, JDK 17 Dockerfile, module Compose, standalone run config, and docs.
+- `config-repo/discovery-service.yml`: server-only policy, readiness/Prometheus/tracing, security/HA TODOs.
+- root `docker-compose.yml`: Discovery container addresses and all 14 dependent services changed to `service_healthy`.
+- common local-development/module-sequence/worklog/handoff documents.
+
+### Required Review Focus
+
+1. Does Discovery start correctly with and without Config Server on 8761, and are `register-with-eureka`/`fetch-registry` always false for the server?
+2. Are Config Client, actuator, Prometheus, Brave/Zipkin dependencies justified and aligned with configuration?
+3. Does `DiscoveryApplicationTests` safely test register -> lookup -> cancel without leaking registry state or depending on test order?
+4. Do readiness and `registry.shouldAllowAccess` prove the intended startup condition without masking peer-sync behavior?
+5. Did root Compose change only Discovery environment and intended `depends_on.discovery.condition` values, preserving Gateway edits and all other service settings?
+6. Will the Alpine image contain a compatible `wget`, and do JDK 17, bootJar selection, build context, and healthcheck work together?
+7. Are self-preservation defaults and operational explanations correct? Is any recommendation likely to cause stale or prematurely evicted instances?
+8. Are unauthenticated Dashboard/registration API and single-node availability adequately marked as TODOs rather than claimed production-ready?
+9. Recheck the previous Gateway global-filter, JWT claim, trusted-header, 401/503, and Docker changes because they remain uncommitted.
+
+### Verification Evidence
+
+- `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon`: passed.
+- XML results: 6 tests, 0 failures, 0 errors, 0 skipped.
+- Registry integration: temporary instance register, lookup, cancel, cleanup passed.
+- standalone local bootRun: readiness `UP`; Dashboard, registry API, Prometheus HTTP 200; JVM metric present.
+- Runtime cleanup: no Discovery/Gradle process remained.
+- Docker CLI is not installed; actual image build and Compose execution were not run.
+- Live Config/multiple Eureka clients/heartbeat/LoadBalancer and production load were not run.

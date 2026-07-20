@@ -1466,3 +1466,56 @@
   - H2 2.2.224가 현재 Flyway 9.22.3의 명시 지원 상한보다 새 버전이라는 경고가 있으나 마이그레이션과 validate는 성공했다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `auth`, `.run/Auth bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-20 (gateway 전역 인증/신뢰 헤더 경계 리팩토링)
+### [검수/리팩토링] 인증 우회 차단, JWT 포트 분리, roleVersion 장애 의미와 실행 설정 정합화
+- **선확인**:
+  - `gateway/README.md`, `docs/README.md`, `concept.md`, `local-run.md`와 실제 filter/security/config/test를 확인했다.
+  - JWT 필터가 일부 라우트에만 선택 적용되어 레거시 `/api/**` catch-all이 무인증으로 전달되고, `/api/auth/**` 전체가 외부 공개되는 우회 경로를 확인했다.
+  - 토큰에 부서가 없을 때 클라이언트 `X-Auth-Department`가 남고, 누락 roleVersion을 1로 가정하며, Auth 빈 응답은 응답 없이 끝날 수 있는 정합성 문제를 확인했다.
+  - Config 포트 8080과 README/Docker 포트 8000, Docker의 localhost Auth 주소, 멀티모듈 Docker build context/JDK가 서로 다른 실행 문제를 확인했다.
+- **수정 범위**:
+  - `JwtAuthenticationFilter`를 모든 `/api/**`에 기본 적용하는 WebFlux `GlobalFilter`로 전환했다.
+  - 로그인 POST/CORS만 공개하고 Auth validate/internal 경로는 404로 차단하며, 모든 외부 `X-Auth-*`를 제거한 뒤 검증 성공 시에만 다시 만든다.
+  - `AccessTokenVerifier` 포트, `JjwtAccessTokenVerifier` 어댑터, `AuthenticatedPrincipal` 값 객체로 HTTP/JJWT/내부 신원 책임을 분리했다.
+  - iat/exp/subject/roles/양의 정수 roleVersion/헤더 안전 코드를 필수 검증하고 누락 roleVersion 기본값을 제거했다.
+  - token-version 결과를 `VALID`, `REJECTED`, `UNAVAILABLE`로 나눠 권한 변경은 401, Auth timeout/빈 응답/장애는 503으로 구분했다.
+  - 정상 결과만 캐시하고 canonical username의 대소문자를 임의 변경하지 않으며 request ID 길이/문자 검증을 추가했다.
+  - 포트 8000, Docker Auth 주소/의존 순서, JDK 17 Dockerfile, standalone IntelliJ 설정과 테스트 전용 console logging을 정리했다.
+  - gateway와 공통 로컬 실행 문서를 실제 보안/업무/데이터 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon` 성공. XML 기준 30개 테스트, 실패/오류/skip 0건.
+  - local standalone `bootRun`으로 Netty 포트 8000을 기동하고 `/actuator/health`의 `UP`을 확인한 뒤 Gradle/Gateway 프로세스를 종료했다.
+  - Gateway route/루트·모듈 Compose YAML 파싱 테스트로 로그인 단일 공개 경로, 포트, Docker Auth 주소, build context를 확인했다.
+  - Docker CLI가 설치되어 있지 않아 실제 `docker compose config`, 이미지 빌드/실행은 수행하지 못했다.
+- **남은 리스크**:
+  - live Config/Discovery/Auth/업무 API 라우팅 통합과 실제 Docker 이미지는 별도 환경에서 검증해야 한다.
+  - JWKS 키 회전, 역할 변경 이벤트 기반 다중 노드 cache 무효화, Auth 내부 API mTLS/서비스 자격 증명, 레거시 catch-all 제거를 코드 `@todo`로 남겼다.
+  - 저장소의 공용 HS256 기본값은 로컬 호환용이므로 운영에서는 외부 비밀 저장소 주입이 필수다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `gateway`, `config-repo/gateway-service.yml`, 루트/gateway Compose, `.run/Gateway standalone bootRun.run.xml`, 관련 공통 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-20 (discovery registry/readiness/컨테이너 경계 리팩토링)
+### [검수/리팩토링] 단일 노드 기본 계약, 실제 registry 생명주기, readiness 기반 기동 순서 보강
+- **선확인**:
+  - `discovery/README.md`, `docs/README.md`, `concept.md`, `local-run.md`와 Application/build/config/Compose/Docker/test를 확인했다.
+  - Config Server가 없으면 기본 8080으로 뜨고 Eureka Server 자신이 client 기본값으로 등록/fetch를 시도하는 문서-실행 불일치를 확인했다.
+  - Config import resolver, actuator, prometheus, tracing 의존성 없이 관련 설정만 존재해 중앙 설정/health/관측 계약이 실제 Bean으로 연결되지 않은 문제를 확인했다.
+  - module Compose의 잘못된 build context, Dockerfile JDK 21/다중 wildcard COPY, 루트 Compose의 `service_started` 의존으로 registry 준비 전 서비스가 시작될 수 있는 문제를 확인했다.
+- **수정 범위**:
+  - `application.yml`에 8761, 자기 register/fetch 비활성, optional Config, actuator readiness 기본 계약을 추가했다.
+  - Config Client, actuator, Prometheus, Brave/Zipkin 런타임 의존성을 실제로 추가했다.
+  - readiness와 registry register/lookup/cancel 통합 테스트, local/config/Compose/Docker 정책 테스트를 추가했다.
+  - JDK 17 단일 bootJar Dockerfile, readiness healthcheck, 저장소 루트 build context와 Docker 서비스 주소를 정리했다.
+  - 루트 Compose의 Discovery 의존 서비스 14개를 `service_healthy`로 통일했다.
+  - local/test Logstash 외부 의존을 제거하고 standalone IntelliJ 실행 설정을 추가했다.
+  - Discovery 시작 클래스 주석과 README/docs를 전화번호부 비유, lease, self-preservation, 재시작, 데이터 흐름 기준으로 상세화했다.
+- **검증**:
+  - `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon` 성공. XML 기준 6개 테스트, 실패/오류/skip 0건.
+  - standalone local bootRun으로 8761 readiness `UP`, Dashboard/registry/Prometheus HTTP 200과 JVM metric을 확인했다.
+  - runtime 종료 후 `jps`에 Discovery/Gradle 프로세스가 없고 IntelliJ/SonarLint만 남음을 확인했다.
+  - Docker CLI가 설치되어 있지 않아 실제 `docker compose config`, image 빌드/실행은 수행하지 못했다.
+- **남은 리스크**:
+  - live Config Server, 실제 여러 서비스 heartbeat/lease/LoadBalancer 통합과 운영 self-preservation 임계값은 미검증이다.
+  - 운영 private network+mTLS/서비스 인증과 multi-AZ peer 동기화/장애 전환을 Config 코드 `@todo`로 남겼다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `discovery`, `config-repo/discovery-service.yml`, 루트 Compose의 Discovery env/health dependency, `.run/Discovery standalone bootRun.run.xml`, 관련 공통 docs/worklog/handoff/Gemini prompt 변경을 revert한다.

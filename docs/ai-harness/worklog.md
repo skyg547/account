@@ -405,3 +405,51 @@
   - Plain-password migration, first-failure atomic upsert, and idempotency-log retention remain explicit code TODOs.
 - Rollback:
   - Revert the auth, IntelliJ run configuration, and related docs/harness changes for this pass.
+
+## 2026-07-20 - Gateway Global Authentication and Runtime Boundary
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Replaced route-by-route JWT opt-in with a default global `/api/**` authentication policy.
+  - Exposed only POST login and blocked Auth validation/internal callback paths at ingress.
+  - Removed all client-provided identity headers and regenerated them from an immutable verified principal.
+  - Split token verification and token-version checks into ports with JJWT and WebClient/Caffeine adapters.
+  - Required iat, exp, subject, roles, positive integral roleVersion, and header-safe identity codes.
+  - Distinguished Auth rejection (401) from timeout/error/empty response (503) while remaining fail-closed.
+  - Added request-id bounds, configuration validation, test-only console logging, and route/Compose YAML tests.
+  - Aligned port 8000, Docker Auth service URL/dependency, JDK 17 image, repository-root build context, and standalone IntelliJ execution.
+  - Updated Gateway and shared beginner/runtime documentation with code and data flows.
+- Verification:
+  - `.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon` passed.
+  - Authoritative XML result: 30 tests, 0 failures, 0 errors, 0 skipped.
+  - Standalone local-profile Netty bootRun listened on port 8000 and `/actuator/health` returned `UP`; Gateway/Gradle processes were then stopped.
+  - Route and root/module Compose YAML parsing tests passed.
+  - Docker CLI was unavailable, so live Compose/image execution was not run.
+- Risks:
+  - Live Config/Discovery/Auth/business-route integration remains unverified.
+  - JWKS rotation, event-driven multi-node cache invalidation, Auth service authentication, and legacy catch-all removal remain explicit `@todo` items.
+  - The repository default HS256 key remains local-development compatibility only; production must inject a managed secret.
+- Rollback:
+  - Revert Gateway, external route config, root/module Compose, standalone run configuration, and related documentation/harness files for this pass.
+## 2026-07-20 - Discovery Registry Lifecycle and Readiness Boundary
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added standalone port 8761 and server-only Eureka client defaults.
+  - Connected Config Client, actuator, Prometheus, Brave, and Zipkin runtime dependencies to existing configuration.
+  - Replaced a context-only test with readiness and register/lookup/cancel registry lifecycle coverage.
+  - Added local/config/Compose/Docker policy tests.
+  - Rebuilt the Docker path around JDK 17, one bootJar, repository-root context, and readiness healthcheck.
+  - Changed all 14 root Compose Discovery dependencies to `service_healthy` and added container addresses.
+  - Added standalone IntelliJ execution, test-only console logging, and beginner registry/lease/self-preservation documentation.
+- Verification:
+  - `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon` passed with 6 tests and no failures/errors/skips.
+  - Standalone local-profile port 8761 returned readiness `UP`; Dashboard, registry API, and Prometheus returned HTTP 200; JVM metrics were present.
+  - Discovery and Gradle processes were stopped after runtime smoke.
+- Risks:
+  - Docker CLI/image execution and live Config/multi-client heartbeat/load-balancing were not verified.
+  - Registry authentication/private networking and multi-AZ peer synchronization remain explicit Config `@todo` items.
+- Rollback:
+  - Revert Discovery, external config, root Compose Discovery env/dependency conditions, standalone run configuration, and related documentation/harness files.

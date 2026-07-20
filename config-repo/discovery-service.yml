@@ -1,27 +1,42 @@
 server:
-  port: 8761
+  port: ${SERVER_PORT:8761}
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
   client:
     register-with-eureka: false
     fetch-registry: false
     service-url:
-      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
 
-# --- Monitoring: 프로메테우스 및 Zipkin ---
+  # 단일 노드의 self-preservation 기본값(true)을 유지합니다. 일시적인 heartbeat 손실로 대량 삭제되는 것을 막습니다.
+  # @todo 운영 외부 노출 전에 Eureka dashboard/registration API를 private network와 mTLS/인증으로 보호한다.
+  # @todo 멀티 AZ 운영 전 peer Eureka URL과 장애 전환/registry 동기화 정책을 정의하고 부하 검증한다.
+
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus
+        include: health,info,prometheus
   endpoint:
+    health:
+      probes:
+        enabled: true
     prometheus:
+      enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
       enabled: true
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:1.0}
   zipkin:
     tracing:
-      endpoint: "http://localhost:9411/api/v2/spans"
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+logging:
+  level:
+    com.ho.account.discovery: INFO

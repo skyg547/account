@@ -39,8 +39,8 @@
 - `governance/README.md`와 `governance/docs/README.md`: 감사 로그, 승인, SOD, Auth 역할 반영 흐름. Spring Boot 앱으로 IntelliJ `Governance bootRun` 제공
 - `auth/README.md`와 `auth/docs/README.md`: 로그인, JWT, 역할 버전, 내부 역할 반영 API. Spring Boot 앱으로 IntelliJ `Auth bootRun` 제공
 - `config-server/README.md`와 `config-server/docs/README.md`: 중앙 설정 서버와 `config-repo` 로컬 설정 흐름. IntelliJ `Config Server bootRun` 제공
-- `discovery/README.md`와 `discovery/docs/README.md`: Eureka 서비스 레지스트리. IntelliJ `Discovery bootRun` 제공
-- `gateway/README.md`와 `gateway/docs/README.md`: API Gateway 라우팅, JWT 검증, fallback. IntelliJ `Gateway bootRun` 제공
+- `discovery/README.md`와 `discovery/docs/README.md`: Eureka register/heartbeat/lookup/cancel, readiness, self-preservation. IntelliJ standalone/통합 `bootRun` 제공
+- `gateway/README.md`와 `gateway/docs/README.md`: API Gateway 전역 JWT/roleVersion, 신뢰 헤더, fallback. IntelliJ standalone/통합 `bootRun` 제공
 
 ### 3.2 업무 서브레저 (현업 부서)
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제

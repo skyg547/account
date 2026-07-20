@@ -1,5 +1,33 @@
+server:
+  port: ${SERVER_PORT:8761}
+
 spring:
   application:
     name: discovery-service
   config:
     import: "optional:configserver:http://localhost:8888/"
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+  client:
+    # Discovery Server 자체는 업무 서비스가 아니므로 자기 자신을 client로 등록하거나 registry를 내려받지 않습니다.
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

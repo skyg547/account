@@ -1,3 +1,81 @@
+# AI Harness Handoff - 2026-07-20 Discovery Review
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target when explicitly requested: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for independent review: Discovery standalone/config runtime, registry lifecycle, readiness, Docker/Compose ordering, and beginner documentation.
+- Working tree intent: Gateway and Discovery changes are local and uncommitted; do not commit or push until the user explicitly requests it.
+
+## What Changed
+
+- Discovery starts on 8761 without Config Server and does not register/fetch itself as a client.
+- Config Client, actuator, Prometheus, Brave, and Zipkin settings now have real runtime dependencies.
+- Tests cover readiness, registry register/lookup/cancel, local/config YAML, root/module Compose, and Dockerfile policy.
+- Docker uses JDK 17, a single bootJar, repository-root context, and image readiness healthcheck.
+- All 14 root Compose services that depend on Discovery wait for `service_healthy`.
+- Standalone IntelliJ execution and beginner lease/self-preservation/security/HA docs were added.
+
+## Verification Summary
+
+- `:discovery:test :discovery:bootJar`: passed, 6 tests with no failures/errors/skips.
+- Standalone 8761: readiness `UP`; Dashboard, registry API, Prometheus HTTP 200; JVM metric present.
+- Registry test registered, looked up, canceled, and cleaned a temporary instance.
+- Discovery/Gradle runtime processes were stopped after smoke.
+
+## Known Risks And Next Review
+
+- Docker CLI is unavailable, so image and live Compose execution are unverified.
+- Live Config Server plus multiple Eureka clients, heartbeat/lease timing, LoadBalancer routing, and production self-preservation thresholds are unverified.
+- Review whether private network+mTLS/authentication and multi-AZ peer sync TODOs are sufficient and correctly located.
+- Gateway changes from the previous pass remain in the same uncommitted worktree and must be reviewed together for root Compose overlap.
+
+## Rollback
+
+- Revert only `discovery`, `config-repo/discovery-service.yml`, root Compose Discovery environment/dependency conditions, `.run/Discovery standalone bootRun.run.xml`, and related docs/harness files after checking the overlapping Gateway Compose edits.
+
+---
+# AI Harness Handoff - 2026-07-20 Gateway Review
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target when explicitly requested: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for independent review: Gateway global authentication, trusted headers, JWT/token-version ports, route and runtime configuration.
+- Working tree intent: Gateway changes are local and uncommitted; do not commit or push until the user explicitly requests it.
+
+## What Changed
+
+- All `/api/**` routes now use one global authentication policy; POST login/CORS are the only API exceptions.
+- Auth validate/internal paths are blocked before routing.
+- Client identity headers are removed and regenerated only from a verified immutable principal.
+- JJWT and Auth WebClient/Caffeine concerns sit behind separate verifier ports.
+- Missing/fractional roleVersion and incomplete time/role claims fail closed.
+- Auth rejection returns 401; timeout/error/empty response returns 503.
+- Port 8000, Docker Auth service URL/dependencies, JDK 17 Dockerfile, and standalone IntelliJ run configuration are aligned.
+- Gateway and shared beginner/process/local-run docs reflect the current code path.
+
+## Verification Summary
+
+- `:gateway:test :gateway:bootJar`: passed, 30 tests with no failures/errors/skips.
+- Local standalone Netty bootRun: port 8000 and actuator health `UP`.
+- Route and root/module Compose YAML parsing tests: passed.
+- All Gateway/Gradle runtime processes were stopped after smoke verification.
+
+## Known Risks And Next Review
+
+- Docker CLI is not installed, so image build and live Compose execution are unverified.
+- Live Config/Discovery/Auth/business API routing is unverified.
+- Review header canonicalization, global-filter ordering, JJWT time semantics, and the 401/503 contract.
+- Remaining code TODOs: JWKS/key rotation, event-driven distributed cache invalidation, Auth service authentication, legacy catch-all removal.
+
+## Rollback
+
+- Revert only `gateway`, `config-repo/gateway-service.yml`, root/gateway Compose, `.run/Gateway standalone bootRun.run.xml`, and the related docs/harness files after checking for overlapping user edits.
+
+---
 # AI Harness Handoff - 2026-07-14 Auth Review
 
 ## Current State
@@ -583,3 +661,11 @@
 1. Run `git diff --check` before committing.
 2. Commit/push the ecl boundary refactor if requested.
 3. Continue the sequential module review with `journal-ledger` after ecl.
+
+## 2026-07-20 Gateway Handoff
+
+- Branch/push target: agent/asset-lease-split -> origin/agent/asset-lease-split.
+- Scope: Gateway global JWT filter, JJWT verifier adapter, trusted identity-header regeneration, token-version result split, request-id validation, route/port/Docker/IntelliJ settings.
+- Verification: :gateway:test --rerun-tasks passed under the local profile; :gateway:test :gateway:bootJar passed.
+- Remaining risk: live Auth/Config/Discovery and Docker image execution were not verified; shared HS256 to JWKS migration remains open.
+- Rollback: revert the Gateway commit as one unit.

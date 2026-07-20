@@ -42,3 +42,8 @@
 | 2026-07-14 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Governance real-bean scanning, authorization revocation approval, fail-closed adapter, H2 bootRun, tests, and bootJar verified; commit/push requested. |
 
 | 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Integrated | Auth API/core boundary, Clock role snapshot, token-version state checks, memory/JPA approval idempotency, Flyway V72, H2 bootRun, and 32 tests verified; commit/push requested. |
+| 2026-07-20 | Codex | Coder / Integrator Agent | agent/asset-lease-split | Review ready | Gateway global JWT trust boundary, header sanitization, role-version fail-closed results, runtime config, and tests verified; commit/push requested. |
+
+| 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Gateway global API auth, trusted-header regeneration, JWT verifier ports, roleVersion 401/503 semantics, port 8000, standalone bootRun, and 30 tests verified. |
+
+| 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Discovery port 8761, Config/actuator runtime, registry lifecycle, readiness health, Compose service_healthy, standalone bootRun, and 6 tests verified. |

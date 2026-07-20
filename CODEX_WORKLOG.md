@@ -1410,3 +1410,47 @@
   - 평문 비밀번호 승격, 최초 실패 원자화, 멱등 이력 보존 `@todo` 3건이 남아 있다.
 - 롤백:
   - auth, Run Configuration, 관련 문서/하네스 변경을 되돌린다.
+
+## 2026-07-20 (gateway global authentication and trusted-header boundary)
+- 요청 목표: auth 다음 순차 모듈인 gateway를 헥사고날/업무 정합성/함수형 WebFlux/스켈레톤/실행 문서 기준으로 검수하고 고도화한다.
+- 변경:
+  - 선택적 route filter를 모든 `/api/**`의 전역 인증 정책으로 바꿔 legacy catch-all 인증 우회를 제거했다.
+  - 로그인 POST만 공개하고 Auth validate/internal 경로를 외부에서 차단했다.
+  - 클라이언트 `X-Auth-*`를 제거하고 검증된 `AuthenticatedPrincipal` 값으로만 재생성한다.
+  - `AccessTokenVerifier`/`TokenVersionValidator` 포트와 JJWT/WebClient 어댑터를 분리했다.
+  - 필수 JWT claim과 양의 정수 roleVersion을 fail-closed 검증하고 권한 거절 401과 Auth 장애 503을 구분했다.
+  - 빈 Auth response publisher도 503으로 고정하고 정상 결과만 case-sensitive canonical username 기준으로 캐시한다.
+  - request ID 검증, 설정 Bean Validation, test console logging, route/Compose YAML 회귀 테스트를 추가했다.
+  - Gateway/Config/Docker 포트 8000, Docker Auth 서비스 주소, JDK 17 Dockerfile과 standalone IntelliJ 설정을 정합화했다.
+  - gateway README/docs와 공통 실행/순차 문서를 실제 코드/데이터 흐름으로 최신화했다.
+- 검증:
+  - `.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon` 성공, 30개 테스트 통과.
+  - local standalone bootRun의 Netty 8000 및 actuator health `UP` 확인 후 프로세스 종료.
+  - route/Compose YAML 파싱 테스트 성공.
+- 리스크:
+  - Docker CLI가 없어 실제 compose config/image 실행은 미검증이다.
+  - live Config/Discovery/Auth 라우팅 통합은 미검증이다.
+  - JWKS 키 회전, 이벤트 기반 cache 무효화, Auth 내부 API 서비스 인증, legacy catch-all 제거 `@todo`가 남아 있다.
+- 롤백:
+  - gateway/config-repo/Compose/run configuration 및 관련 문서·하네스 변경을 한 묶음으로 revert한다.
+## 2026-07-20 (discovery registry lifecycle and readiness boundary)
+- 요청 목표: gateway 다음 discovery 모듈을 인프라 책임, 정합성, 스켈레톤 여부, 실행/문서 기준으로 순차 검수하고 고도화한다.
+- 변경:
+  - Config가 없어도 8761, register/fetch=false로 기동하는 Eureka Server 기본 계약을 추가했다.
+  - Config Client, actuator, Prometheus, Brave/Zipkin 설정을 실제 의존성과 연결했다.
+  - readiness와 register -> lookup -> cancel registry 생명주기 통합 테스트를 추가했다.
+  - local/config/루트·모듈 Compose/Dockerfile 정책 테스트를 추가했다.
+  - Dockerfile을 JDK 17 단일 bootJar/readiness healthcheck로 정리하고 module Compose build context를 루트로 수정했다.
+  - root Compose의 Discovery 의존 14개 서비스를 `service_healthy`로 전환하고 container Logstash/Zipkin 주소를 주입했다.
+  - standalone IntelliJ 설정과 test console logging을 추가했다.
+  - 기존 전화번호부 설명과 archive를 보존하면서 lease/self-preservation/재시작/보안·HA 데이터 흐름 문서를 상세화했다.
+- 검증:
+  - `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon` 성공, 6개 테스트 통과.
+  - local standalone 8761 readiness UP, Dashboard/registry/Prometheus 200, JVM metric 확인.
+  - 종료 후 Discovery/Gradle 프로세스 없음.
+- 리스크:
+  - Docker CLI가 없어 실제 Compose/image 실행은 미검증이다.
+  - live Config/다중 서비스 heartbeat/LoadBalancer와 운영 self-preservation 부하는 미검증이다.
+  - private network+mTLS/인증, multi-AZ peer sync/장애 전환 `@todo`가 남아 있다.
+- 롤백:
+  - discovery/config-repo/root Compose/run configuration 및 관련 문서·하네스 변경을 한 묶음으로 revert한다.

@@ -1,134 +1,167 @@
 package com.ho.account.gateway.filter;
 
-import com.ho.account.gateway.config.JwtProperties;
+import com.ho.account.gateway.security.AccessTokenVerifier;
+import com.ho.account.gateway.security.AuthenticatedPrincipal;
+import com.ho.account.gateway.security.InvalidAccessTokenException;
+import com.ho.account.gateway.security.TokenVersionValidationResult;
 import com.ho.account.gateway.security.TokenVersionValidator;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.security.Keys;
-import java.security.Key;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import java.util.Optional;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * JWT 검문소 (Gateway Filter)
- * 대문(Gateway)을 통과하려는 모든 API 요청의 헤더를 검사하여 출입증(JWT 토큰)이 있는지, 진짜인지 확인합니다.
+ * JWT 검문소 (Gateway 전역 필터)
+ * 대문(Gateway)을 통과하는 API 요청의 출입증을 검사하고 검증된 내부 신원 헤더만 다시 만듭니다.
+ *
+ * <p>초보자/업무 흐름: 클라이언트 헤더 제거 -> 공개/내부 경로 정책 확인 -> JWT 검증 -> Auth의
+ * roleVersion 확인 -> 신뢰 가능한 {@code X-Auth-*} 헤더 생성 -> 뒤쪽 업무 서비스 전달 순서입니다.
+ * 라우트마다 필터를 빠뜨릴 수 없도록 모든 {@code /api/**} 요청에 기본 적용합니다.</p>
  */
 @Component
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
+public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
-    private final JwtParser jwtParser;
+    static final String AUTH_ERROR_HEADER = "X-Auth-Error";
+    static final String AUTH_USER_HEADER = "X-Auth-User";
+    static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
+    static final String AUTH_ROLE_VERSION_HEADER = "X-Auth-Role-Version";
+    static final String AUTH_DEPARTMENT_HEADER = "X-Auth-Department";
+
+    private static final String LOGIN_PATH = "/api/auth/login";
+    private static final String TOKEN_VERSION_PATH = "/api/auth/validate-token-version";
+    private static final String INTERNAL_AUTH_PATH_PREFIX = "/api/auth/internal/";
+    private static final List<String> TRUSTED_IDENTITY_HEADERS = List.of(
+            AUTH_USER_HEADER,
+            AUTH_ROLES_HEADER,
+            AUTH_ROLE_VERSION_HEADER,
+            AUTH_DEPARTMENT_HEADER);
+
+    private final AccessTokenVerifier accessTokenVerifier;
     private final TokenVersionValidator tokenVersionValidator;
 
-    public JwtAuthenticationFilter(JwtProperties jwtProperties, TokenVersionValidator tokenVersionValidator) {
-        super(Config.class);
+    public JwtAuthenticationFilter(
+            AccessTokenVerifier accessTokenVerifier,
+            TokenVersionValidator tokenVersionValidator) {
+        this.accessTokenVerifier = accessTokenVerifier;
         this.tokenVersionValidator = tokenVersionValidator;
-
-        byte[] secretBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
-        if (secretBytes.length < 32) {
-            throw new IllegalStateException("auth.jwt.secret must be at least 32 bytes for HS256");
-        }
-        Key key = Keys.hmacShaKeyFor(secretBytes);
-
-        var parserBuilder = Jwts.parserBuilder().setSigningKey(key);
-        if (jwtProperties.getIssuer() != null && !jwtProperties.getIssuer().isBlank()) {
-            parserBuilder.requireIssuer(jwtProperties.getIssuer());
-        }
-        this.jwtParser = parserBuilder.build();
     }
 
     @Override
-    public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            ServerHttpRequest request = exchange.getRequest();
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerWebExchange sanitizedExchange = removeUntrustedIdentityHeaders(exchange);
+        String path = sanitizedExchange.getRequest().getURI().getPath();
 
-            // 1. 헤더에 'Authorization' 이라는 이름의 출입증이 있는지 확인
-            if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                return onError(exchange.getResponse(), "출입증(Authorization Header)이 없습니다.", HttpStatus.UNAUTHORIZED);
-            }
+        if (isInternalAuthPath(path)) {
+            return onError(sanitizedExchange.getResponse(), "INTERNAL_AUTH_ROUTE_NOT_EXPOSED", HttpStatus.NOT_FOUND);
+        }
+        if (isPublicRequest(sanitizedExchange.getRequest(), path) || !isApiPath(path)) {
+            return chain.filter(sanitizedExchange);
+        }
 
-            String authorizationHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-            if (authorizationHeader == null || authorizationHeader.isBlank()) {
-                return onError(exchange.getResponse(), "출입증(Authorization Header)이 없습니다.", HttpStatus.UNAUTHORIZED);
-            }
+        Optional<String> token = resolveBearerToken(sanitizedExchange.getRequest());
+        if (token.isEmpty()) {
+            return onError(sanitizedExchange.getResponse(), "BEARER_TOKEN_REQUIRED", HttpStatus.UNAUTHORIZED);
+        }
 
-            // 2. 출입증이 "Bearer " 로 시작하는지 확인
-            if (!authorizationHeader.startsWith("Bearer ")) {
-                return onError(exchange.getResponse(), "잘못된 형태의 출입증입니다.", HttpStatus.UNAUTHORIZED);
-            }
+        final AuthenticatedPrincipal principal;
+        try {
+            principal = accessTokenVerifier.verify(token.orElseThrow());
+        } catch (InvalidAccessTokenException | IllegalArgumentException exception) {
+            return onError(sanitizedExchange.getResponse(), "ACCESS_TOKEN_INVALID", HttpStatus.UNAUTHORIZED);
+        }
 
-            // 3. 토큰만 쏙 빼냅니다.
-            String token = authorizationHeader.substring(7);
+        return Mono.defer(() -> tokenVersionValidator.validate(principal.username(), principal.roleVersion()))
+                .switchIfEmpty(Mono.just(TokenVersionValidationResult.UNAVAILABLE))
+                .onErrorReturn(TokenVersionValidationResult.UNAVAILABLE)
+                .flatMap(result -> handleValidationResult(sanitizedExchange, chain, principal, result));
+    }
 
-            try {
-                // 4. 비밀키를 이용해 토큰의 진위 여부 및 만료일을 검사합니다.
-                Claims claims = jwtParser.parseClaimsJws(token).getBody();
-                ServerHttpRequest requestWithPrincipal = request.mutate()
-                        .header("X-Auth-User", claims.getSubject())
-                        .header("X-Auth-Roles", resolveRolesHeader(claims))
-                        .header("X-Auth-Role-Version", resolveRoleVersionHeader(claims))
-                        .headers(headers -> {
-                            String departmentCode = claims.get("departmentCode", String.class);
-                            if (departmentCode != null && !departmentCode.isBlank()) {
-                                headers.set("X-Auth-Department", departmentCode);
-                            }
-                        })
-                        .build();
-                var authenticatedExchange = exchange.mutate().request(requestWithPrincipal).build();
-                return tokenVersionValidator.validate(claims.getSubject(), resolveRoleVersion(claims))
-                        .flatMap(valid -> valid
-                                ? chain.filter(authenticatedExchange)
-                                : onError(authenticatedExchange.getResponse(), "역할 정보가 변경되어 다시 로그인이 필요합니다.", HttpStatus.UNAUTHORIZED));
-
-            } catch (Exception e) {
-                // 토큰이 위조되었거나 유효기간이 지났다면 쫓아냅니다!
-                return onError(exchange.getResponse(), "출입증이 위조되었거나 만료되었습니다.", HttpStatus.UNAUTHORIZED);
-            }
+    private Mono<Void> handleValidationResult(
+            ServerWebExchange exchange,
+            GatewayFilterChain chain,
+            AuthenticatedPrincipal principal,
+            TokenVersionValidationResult result) {
+        return switch (result) {
+            case VALID -> chain.filter(addAuthenticatedPrincipal(exchange, principal));
+            case REJECTED -> onError(
+                    exchange.getResponse(),
+                    "TOKEN_ROLE_VERSION_REJECTED",
+                    HttpStatus.UNAUTHORIZED);
+            case UNAVAILABLE -> onError(
+                    exchange.getResponse(),
+                    "AUTH_VALIDATION_UNAVAILABLE",
+                    HttpStatus.SERVICE_UNAVAILABLE);
         };
     }
 
-    private Mono<Void> onError(ServerHttpResponse response, String errMessage, HttpStatus httpStatus) {
-        response.setStatusCode(httpStatus);
-        response.getHeaders().add("X-Auth-Error", errMessage);
+    private ServerWebExchange removeUntrustedIdentityHeaders(ServerWebExchange exchange) {
+        ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate()
+                .headers(headers -> TRUSTED_IDENTITY_HEADERS.forEach(headers::remove))
+                .build();
+        return exchange.mutate().request(sanitizedRequest).build();
+    }
+
+    private ServerWebExchange addAuthenticatedPrincipal(
+            ServerWebExchange exchange,
+            AuthenticatedPrincipal principal) {
+        ServerHttpRequest authenticatedRequest = exchange.getRequest().mutate()
+                .headers(headers -> {
+                    headers.set(AUTH_USER_HEADER, principal.username());
+                    headers.set(AUTH_ROLES_HEADER, String.join(",", principal.roles()));
+                    headers.set(AUTH_ROLE_VERSION_HEADER, Long.toString(principal.roleVersion()));
+                    if (principal.departmentCode() != null) {
+                        headers.set(AUTH_DEPARTMENT_HEADER, principal.departmentCode());
+                    }
+                })
+                .build();
+        return exchange.mutate().request(authenticatedRequest).build();
+    }
+
+    private Optional<String> resolveBearerToken(ServerHttpRequest request) {
+        List<String> authorizationHeaders = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
+        if (authorizationHeaders == null || authorizationHeaders.size() != 1) {
+            return Optional.empty();
+        }
+        String authorization = authorizationHeaders.get(0);
+        if (authorization == null
+                || authorization.length() <= 7
+                || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return Optional.empty();
+        }
+        String token = authorization.substring(7).trim();
+        return token.isEmpty() ? Optional.empty() : Optional.of(token);
+    }
+
+    private boolean isPublicRequest(ServerHttpRequest request, String path) {
+        return request.getMethod() == HttpMethod.OPTIONS
+                || (request.getMethod() == HttpMethod.POST && LOGIN_PATH.equals(path));
+    }
+
+    private boolean isApiPath(String path) {
+        return "/api".equals(path) || path.startsWith("/api/");
+    }
+
+    private boolean isInternalAuthPath(String path) {
+        return TOKEN_VERSION_PATH.equals(path) || path.startsWith(INTERNAL_AUTH_PATH_PREFIX);
+    }
+
+    private Mono<Void> onError(ServerHttpResponse response, String errorCode, HttpStatus status) {
+        response.setStatusCode(status);
+        response.getHeaders().set(AUTH_ERROR_HEADER, errorCode);
         return response.setComplete();
     }
 
-    public static class Config {
-        // 필터에 추가적인 설정값을 넣고 싶을 때 사용 (현재는 비워둠)
-    }
-
-    private String resolveRolesHeader(Claims claims) {
-        Object rolesClaim = claims.get("roles");
-        if (rolesClaim instanceof List<?> roles) {
-            return roles.stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .reduce((left, right) -> left + "," + right)
-                    .orElse("");
-        }
-        return "";
-    }
-
-    private String resolveRoleVersionHeader(Claims claims) {
-        return String.valueOf(resolveRoleVersion(claims));
-    }
-
-    private long resolveRoleVersion(Claims claims) {
-        Object roleVersion = claims.get("roleVersion");
-        if (roleVersion == null) {
-            return 1L;
-        }
-        if (roleVersion instanceof Number number) {
-            return number.longValue();
-        }
-        return Long.parseLong(String.valueOf(roleVersion));
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE + 20;
     }
 }
