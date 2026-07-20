@@ -6,7 +6,7 @@
 - Push target when explicitly requested: `origin/agent/asset-lease-split`
 - Current owner: Codex
 - Scope ready for independent review: Discovery standalone/config runtime, registry lifecycle, readiness, Docker/Compose ordering, and beginner documentation.
-- Working tree intent: Gateway and Discovery changes are local and uncommitted; do not commit or push until the user explicitly requests it.
+- Commit/push state: the user explicitly requested one cumulative Gateway and Discovery commit and push to `origin/agent/asset-lease-split` after final verification.
 
 ## What Changed
 
@@ -29,7 +29,7 @@
 - Docker CLI is unavailable, so image and live Compose execution are unverified.
 - Live Config Server plus multiple Eureka clients, heartbeat/lease timing, LoadBalancer routing, and production self-preservation thresholds are unverified.
 - Review whether private network+mTLS/authentication and multi-AZ peer sync TODOs are sufficient and correctly located.
-- Gateway changes from the previous pass remain in the same uncommitted worktree and must be reviewed together for root Compose overlap.
+- Gateway changes from the previous pass are included in the same cumulative review and commit because root Compose overlaps both modules.
 
 ## Rollback
 
@@ -44,7 +44,7 @@
 - Push target when explicitly requested: `origin/agent/asset-lease-split`
 - Current owner: Codex
 - Scope ready for independent review: Gateway global authentication, trusted headers, JWT/token-version ports, route and runtime configuration.
-- Working tree intent: Gateway changes are local and uncommitted; do not commit or push until the user explicitly requests it.
+- Commit/push state: Gateway is included in the user-requested cumulative Gateway and Discovery commit after final verification.
 
 ## What Changed
 

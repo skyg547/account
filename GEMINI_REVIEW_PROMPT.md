@@ -573,7 +573,7 @@ Notes:
 6. Will the Alpine image contain a compatible `wget`, and do JDK 17, bootJar selection, build context, and healthcheck work together?
 7. Are self-preservation defaults and operational explanations correct? Is any recommendation likely to cause stale or prematurely evicted instances?
 8. Are unauthenticated Dashboard/registration API and single-node availability adequately marked as TODOs rather than claimed production-ready?
-9. Recheck the previous Gateway global-filter, JWT claim, trusted-header, 401/503, and Docker changes because they remain uncommitted.
+9. Recheck the previous Gateway global-filter, JWT claim, trusted-header, 401/503, and Docker changes because they are included in the same cumulative commit.
 
 ### Verification Evidence
 
