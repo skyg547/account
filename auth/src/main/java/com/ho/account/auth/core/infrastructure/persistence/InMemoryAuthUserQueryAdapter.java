@@ -37,23 +37,21 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
         return new ArrayList<>(usersByUsername.values());
     }
 
-    public void updateRole(String username, List<String> newRoles) {
+    synchronized AuthUser replaceRoleAssignments(String username, List<RoleAssignment> newAssignments) {
         AuthUser existing = usersByUsername.get(username);
-        if (existing != null) {
-            AuthUser updated = new AuthUser(
-                    existing.getUsername(),
-                    existing.getStoredPassword(),
-                    existing.getDepartmentCode(),
-                    existing.isActive(),
-                    existing.isLocked(),
-                    newRoles == null ? List.of() : newRoles.stream()
-                            .filter(role -> role != null && !role.isBlank())
-                            .map(RoleAssignment::approved)
-                            .toList(),
-                    existing.getRoleVersion() + 1L
-            );
-            usersByUsername.put(username, updated);
+        if (existing == null) {
+            throw new IllegalArgumentException("Auth user not found: " + username);
         }
+        AuthUser updated = new AuthUser(
+                existing.getUsername(),
+                existing.getStoredPassword(),
+                existing.getDepartmentCode(),
+                existing.isActive(),
+                existing.isLocked(),
+                newAssignments,
+                existing.getRoleVersion() + 1L);
+        usersByUsername.put(username, updated);
+        return updated;
     }
 
     private AuthUser toDomain(AuthModuleProperties.User user) {

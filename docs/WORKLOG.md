@@ -1440,3 +1440,29 @@
   - 실제 PostgreSQL/Flyway와 운영 스키마는 이번 범위에서 검증하지 않았다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 governance 코드/테스트/docs, `.run/Governance bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (auth 인증/역할 승인 멱등 경계 리팩토링)
+### [검수/리팩토링] API/core 분리, 역할 스냅샷 정합성, Governance 승인 재시도 안전성 보강
+- **선확인**:
+  - `auth/README.md`와 `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - core `AuthService`/`AuthUseCase`가 API `LoginResponse`를 역참조하고, 역할 유효성을 여러 번 `Instant.now()`로 평가해 응답/JWT가 달라질 수 있는 문제를 확인했다.
+  - memory 역할 교체가 역할 코드만 저장해 dataScope/유효기간을 잃고, `approvalTraceId`가 무시되어 외부 재시도마다 roleVersion이 증가하는 문제를 확인했다.
+- **수정 범위**:
+  - core `LoginCommand`, `AuthenticationResult`, `TokenSubject` 경계를 추가하고 Controller에서 API DTO로 매핑한다.
+  - 공용 Clock 시점의 유효 역할 목록을 응답과 JWT에 공통 사용하며 token-version 검증에 계정/역할 상태를 포함한다.
+  - 로그인 application service의 광범위한 readOnly 트랜잭션을 제거하고 조회/실패 기록 JPA 어댑터가 짧은 트랜잭션을 소유하게 했다.
+  - memory/JPA 역할 교체가 동일한 역할 메타데이터를 보존하도록 맞췄다.
+  - 승인 trace/fingerprint 멱등 계약, JPA apply log 엔티티/Repository, 사용자별 비관적 lock, Flyway V72를 구현했다.
+  - 같은 승인 재시도는 무변경으로 반환하고 같은 trace의 다른 내용은 fail-closed 처리한다.
+  - Auth IntelliJ Run Configuration과 문서를 H2/Flyway/JPA validate 및 PostgreSQL 명령 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1` 성공. 총 32개 테스트가 통과했다.
+  - H2/local non-web `bootRun` 성공. Flyway V70~V72 적용과 Hibernate schema validate를 확인했다.
+  - core의 API 패키지 역참조 검색 결과 없음.
+  - 첫 컴파일의 apply-log import 누락과 신규 경계 테스트의 길이/만료 시각 실패는 수정 후 재검증했다.
+- **남은 리스크**:
+  - 레거시 평문 비밀번호의 해시 승격/운영 차단, 다중 노드 최초 실패 원자화, 멱등 이력 보존 정책을 코드 `@todo`로 남겼다.
+  - PostgreSQL 실제 Flyway/비관적 lock/동시성 부하는 이번 범위에서 검증하지 않았다.
+  - H2 2.2.224가 현재 Flyway 9.22.3의 명시 지원 상한보다 새 버전이라는 경고가 있으나 마이그레이션과 validate는 성공했다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `auth`, `.run/Auth bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.

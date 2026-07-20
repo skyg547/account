@@ -2,6 +2,7 @@ package com.ho.account.auth.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 
@@ -11,5 +12,5 @@ public record RoleAssignmentApplyRequest(
         Instant validFrom,
         Instant validTo,
         @NotBlank String approvedBy,
-        String approvalTraceId) {
+        @NotBlank @Size(max = 160) String approvalTraceId) {
 }

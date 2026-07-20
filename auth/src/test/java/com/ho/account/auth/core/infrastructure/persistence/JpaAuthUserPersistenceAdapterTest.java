@@ -1,11 +1,15 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersistencePort.RoleAssignmentReplacement;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,7 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
@@ -22,6 +27,8 @@ import org.springframework.test.context.ContextConfiguration;
 @ContextConfiguration(classes = JpaAuthUserPersistenceAdapterTest.JpaTestConfiguration.class)
 class JpaAuthUserPersistenceAdapterTest {
 
+    private static final Instant NOW = Instant.parse("2026-07-14T00:00:00Z");
+
     @Autowired
     private JpaAuthUserQueryAdapter adapter;
 
@@ -29,12 +36,15 @@ class JpaAuthUserPersistenceAdapterTest {
     private JpaAuthUserRoleAssignmentAdapter roleAssignmentAdapter;
 
     @Autowired
-    private AuthUserJpaRepository repository;
+    private AuthUserJpaRepository userRepository;
+
+    @Autowired
+    private RoleAssignmentApplyLogJpaRepository applyLogRepository;
 
     @Test
-    void findByUsername_loadsApprovedEffectiveRoleAssignments() {
-        repository.save(userWithRoles());
-        repository.flush();
+    void findByUsernameLoadsApprovedEffectiveRoleAssignments() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
 
         AuthUser user = adapter.findByUsername(" teller ")
                 .orElseThrow();
@@ -44,11 +54,11 @@ class JpaAuthUserPersistenceAdapterTest {
         assertThat(user.getDepartmentCode()).isEqualTo("BR001");
         assertThat(user.getRoleVersion()).isEqualTo(3L);
         assertThat(user.getRoleAssignments()).hasSize(3);
-        assertThat(user.getRoles()).containsExactly("ROLE_TELLER");
+        assertThat(user.effectiveRolesAt(NOW)).containsExactly("ROLE_TELLER");
     }
 
     @Test
-    void seedRunner_persistsConfiguredUsersOnlyWhenMissing() throws Exception {
+    void seedRunnerPersistsConfiguredUsersOnlyWhenMissing() throws Exception {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User configured = new AuthModuleProperties.User();
         configured.setUsername("ops");
@@ -57,39 +67,94 @@ class JpaAuthUserPersistenceAdapterTest {
         configured.setRoles(List.of("ROLE_OPS", "ROLE_AUDITOR"));
         properties.setUsers(List.of(configured));
 
-        AuthUserSeedRunner seedRunner = new AuthUserSeedRunner(properties, repository);
+        AuthUserSeedRunner seedRunner = new AuthUserSeedRunner(properties, userRepository);
         seedRunner.run(null);
         seedRunner.run(null);
 
         AuthUser user = adapter.findByUsername("ops")
                 .orElseThrow();
 
-        assertThat(repository.count()).isEqualTo(1L);
-        assertThat(user.getRoles()).containsExactly("ROLE_OPS", "ROLE_AUDITOR");
+        assertThat(userRepository.count()).isEqualTo(1L);
+        assertThat(user.effectiveRolesAt(NOW)).containsExactly("ROLE_OPS", "ROLE_AUDITOR");
         assertThat(user.getRoleVersion()).isEqualTo(1L);
     }
 
     @Test
-    void replaceRoleAssignments_replacesRolesAndIncrementsRoleVersion() {
-        repository.save(userWithRoles());
-        repository.flush();
+    void replaceRoleAssignmentsPreservesMetadataAndIncrementsRoleVersion() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
+        RoleAssignment assignment = new RoleAssignment(
+                "ROLE_AUDITOR",
+                "BR001",
+                NOW.minusSeconds(1),
+                NOW.plusSeconds(60),
+                true);
 
-        AuthUser updated = roleAssignmentAdapter.replaceRoleAssignments(
-                "teller",
-                List.of(new RoleAssignment("ROLE_AUDITOR", "GLOBAL", null, null, true)),
-                "approver01");
+        AuthUser updated = roleAssignmentAdapter.replaceRoleAssignments(replacement(
+                "governance-approval-id=1",
+                "a".repeat(64),
+                List.of(assignment)));
 
         assertThat(updated.getRoleVersion()).isEqualTo(4L);
-        assertThat(updated.getRoles()).containsExactly("ROLE_AUDITOR");
+        assertThat(updated.getRoleAssignments()).containsExactly(assignment);
+        assertThat(updated.effectiveRolesAt(NOW)).containsExactly("ROLE_AUDITOR");
 
         AuthUser reloaded = adapter.findByUsername("teller").orElseThrow();
-        assertThat(reloaded.getRoleAssignments()).hasSize(1);
-        assertThat(reloaded.getRoles()).containsExactly("ROLE_AUDITOR");
+        assertThat(reloaded.getRoleAssignments()).containsExactly(assignment);
         assertThat(reloaded.getRoleVersion()).isEqualTo(4L);
     }
 
+    @Test
+    void duplicateApprovalTraceIsIdempotentAndDoesNotIncrementRoleVersionAgain() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
+        RoleAssignmentReplacement replacement = replacement(
+                "governance-approval-id=2",
+                "b".repeat(64),
+                List.of(RoleAssignment.approved("ROLE_AUDITOR")));
+
+        AuthUser first = roleAssignmentAdapter.replaceRoleAssignments(replacement);
+        AuthUser retried = roleAssignmentAdapter.replaceRoleAssignments(replacement);
+
+        assertThat(first.getRoleVersion()).isEqualTo(4L);
+        assertThat(retried.getRoleVersion()).isEqualTo(4L);
+        assertThat(applyLogRepository.count()).isEqualTo(1L);
+    }
+
+    @Test
+    void reusedApprovalTraceWithDifferentPayloadFailsClosed() {
+        userRepository.save(userWithRoles());
+        userRepository.flush();
+        roleAssignmentAdapter.replaceRoleAssignments(replacement(
+                "governance-approval-id=3",
+                "c".repeat(64),
+                List.of(RoleAssignment.approved("ROLE_AUDITOR"))));
+
+        assertThatThrownBy(() -> roleAssignmentAdapter.replaceRoleAssignments(replacement(
+                "governance-approval-id=3",
+                "d".repeat(64),
+                List.of(RoleAssignment.approved("ROLE_ADMIN")))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("different role assignment request");
+
+        AuthUser reloaded = adapter.findByUsername("teller").orElseThrow();
+        assertThat(reloaded.getRoleVersion()).isEqualTo(4L);
+        assertThat(reloaded.effectiveRolesAt(NOW)).containsExactly("ROLE_AUDITOR");
+    }
+
+    private RoleAssignmentReplacement replacement(
+            String traceId,
+            String fingerprint,
+            List<RoleAssignment> assignments) {
+        return new RoleAssignmentReplacement(
+                "teller",
+                assignments,
+                "approver01",
+                traceId,
+                fingerprint);
+    }
+
     private AuthUserJpaEntity userWithRoles() {
-        Instant now = Instant.now();
         AuthUserJpaEntity user = new AuthUserJpaEntity(
                 "teller",
                 "{noop}1234",
@@ -100,8 +165,8 @@ class JpaAuthUserPersistenceAdapterTest {
         user.addRoleAssignment(RoleAssignmentJpaEntity.from(new RoleAssignment(
                 "ROLE_TELLER",
                 "BR001",
-                now.minus(1, ChronoUnit.DAYS),
-                now.plus(1, ChronoUnit.DAYS),
+                NOW.minus(1, ChronoUnit.DAYS),
+                NOW.plus(1, ChronoUnit.DAYS),
                 true)));
         user.addRoleAssignment(RoleAssignmentJpaEntity.from(new RoleAssignment(
                 "ROLE_PENDING",
@@ -112,8 +177,8 @@ class JpaAuthUserPersistenceAdapterTest {
         user.addRoleAssignment(RoleAssignmentJpaEntity.from(new RoleAssignment(
                 "ROLE_EXPIRED",
                 "BR001",
-                now.minus(5, ChronoUnit.DAYS),
-                now.minus(1, ChronoUnit.DAYS),
+                NOW.minus(5, ChronoUnit.DAYS),
+                NOW.minus(1, ChronoUnit.DAYS),
                 true)));
         return user;
     }
@@ -123,12 +188,18 @@ class JpaAuthUserPersistenceAdapterTest {
     @EnableJpaRepositories(basePackageClasses = AuthUserJpaRepository.class)
     @EntityScan(basePackageClasses = {
             AuthUserJpaEntity.class,
-            RoleAssignmentJpaEntity.class
+            RoleAssignmentJpaEntity.class,
+            RoleAssignmentApplyLogJpaEntity.class
     })
     @Import({
             JpaAuthUserQueryAdapter.class,
             JpaAuthUserRoleAssignmentAdapter.class
     })
     static class JpaTestConfiguration {
+
+        @Bean
+        Clock authClock() {
+            return Clock.fixed(NOW, ZoneOffset.UTC);
+        }
     }
 }

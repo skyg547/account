@@ -383,3 +383,25 @@
   - Approval receipt API unification and Auth outbox/inbox atomicity remain code `@todo` items.
 - Rollback:
   - Revert the governance/runtime/docs changes in the pending combined commit if rejected.
+
+## 2026-07-14 - Auth Authentication Snapshot and Approval Idempotency
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed the Auth core dependency on API login DTOs.
+  - Reused one Clock-based effective-role snapshot for the core result and JWT claims.
+  - Hardened token-version validation for inactive, administratively locked, and role-less users.
+  - Preserved role metadata in memory mode.
+  - Added approvalTraceId plus SHA-256 fingerprint idempotency to memory/JPA role assignment adapters.
+  - Added a pessimistic user lock, apply-log entity/repository, Flyway V72, and regression tests.
+  - Updated standalone H2/Flyway/IntelliJ and PostgreSQL documentation.
+- Verification:
+  - `:auth:test :auth:bootJar` passed with 32 tests.
+  - Local H2 non-web bootRun applied V70-V72 and passed Hibernate schema validation.
+  - Auth core-to-API dependency search returned no matches.
+- Risks:
+  - PostgreSQL locking/concurrency was not live-tested.
+  - Plain-password migration, first-failure atomic upsert, and idempotency-log retention remain explicit code TODOs.
+- Rollback:
+  - Revert the auth, IntelliJ run configuration, and related docs/harness changes for this pass.

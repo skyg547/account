@@ -40,3 +40,5 @@
 | 2026-07-14 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Master-data typed appliers, SCD2 effectiveDate policy, core/batch report boundary, and H2 DB COUNT statistics verified; reporting/deposit changes remain uncommitted. |
 
 | 2026-07-14 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Governance real-bean scanning, authorization revocation approval, fail-closed adapter, H2 bootRun, tests, and bootJar verified; commit/push requested. |
+
+| 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Integrated | Auth API/core boundary, Clock role snapshot, token-version state checks, memory/JPA approval idempotency, Flyway V72, H2 bootRun, and 32 tests verified; commit/push requested. |

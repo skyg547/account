@@ -1,3 +1,40 @@
+# AI Harness Handoff - 2026-07-14 Auth Review
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Push target: `origin/agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for review: auth API/core login boundary, deterministic role snapshot, token-version account policy, Governance role approval idempotency, and H2/Flyway runtime.
+- Working tree intent: auth changes passed local verification and are included in the user-requested commit/push.
+
+## What Changed
+
+- Auth core returns `AuthenticationResult`; the API maps it to `LoginResponse`.
+- One Clock instant determines effective roles for both the response and JWT.
+- Disabled, administratively locked, or role-less users fail token-version validation.
+- Memory role replacement preserves dataScope and effective dates.
+- approvalTraceId plus request fingerprint prevents duplicate role replacement and roleVersion increments.
+- JPA uses a user write lock and V72 apply-log table; trace payload conflicts fail closed.
+
+## Verification Summary
+
+- `:auth:test :auth:bootJar`: passed, 32 tests.
+- Local H2/Flyway/JPA validate non-web bootRun: passed through migration V72.
+- Core API-package reverse dependency search: no matches.
+
+## Known Risks
+
+- PostgreSQL lock/concurrency and Flyway execution are not live-tested.
+- Plain-password hash migration, concurrent first-failure upsert, and apply-log retention remain code TODOs.
+- H2 emits a Flyway support-version warning, although migration and schema validation pass.
+
+## Rollback
+
+- Restore only `auth`, `.run/Auth bootRun.run.xml`, and related docs/harness files after checking for overlapping user edits.
+
+---
+
 # AI Harness Handoff - 2026-07-14 Governance Completion
 
 ## Current State

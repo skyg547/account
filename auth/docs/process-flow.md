@@ -5,8 +5,8 @@
 | 메서드 | 경로 | 역할 |
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | username/password로 로그인하고 JWT를 발급합니다. |
-| `POST` | `/api/auth/validate-token-version` | JWT 안의 roleVersion이 현재 사용자 roleVersion과 같은지 확인합니다. |
-| `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 교체합니다. |
+| `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
+| `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 
 ## 로그인 흐름
 
@@ -16,37 +16,67 @@ sequenceDiagram
     participant Service as AuthService
     participant UserPort as AuthUserQueryPort
     participant Attempt as LoginAttemptPort
+    participant Domain as AuthUser/RoleAssignment
     participant Token as TokenIssuerPort
 
-    API->>Service: login(username, password)
+    API->>Service: LoginCommand
     Service->>Attempt: isLocked(username)
     Service->>UserPort: findByUsername(username)
-    Service->>Service: password/active/role validity check
-    Service->>Attempt: recordSuccess or recordFailure
-    Service->>Token: issue(AuthUser)
-    Token-->>Service: JWT
-    Service-->>API: LoginResponse
+    Service->>Service: password/active/admin-lock/department 검사
+    Service->>Domain: effectiveRoleAssignmentsAt(authenticatedAt)
+    Domain-->>Service: 한 시점의 역할 스냅샷
+    Service->>Token: TokenSubject + authenticatedAt
+    Token-->>Service: IssuedToken
+    Service->>Attempt: recordSuccess
+    Service-->>API: AuthenticationResult
+    API-->>API: LoginResponse 매핑
 ```
 
-`LoginAttemptPort`는 저장 기술을 숨기는 출력 포트입니다. 기본 로컬 실행은 `InMemoryLoginAttemptAdapter`가 실패 횟수를 JVM 메모리에 보관합니다. 운영처럼 Auth 서버가 여러 대이면 `auth.login-security.store=jpa`로 바꿔 `JpaLoginAttemptAdapter`가 `AUTH_LOGIN_ATTEMPTS` 테이블에 실패 횟수와 `locked_until`을 저장하게 합니다.
+core는 `api.dto`를 참조하지 않습니다. 역할 유효성 계산 시각을 서비스가 한 번 만들고 JWT 어댑터에 전달하므로 응답과 claim이 같은 스냅샷을 사용합니다.
 
-## 역할 변경 반영 흐름
+`AuthService`는 사용자 조회, master-data 원격 확인, 로그인 실패 저장 전체를 하나의 DB 트랜잭션으로 묶지 않습니다. JPA 조회/실패 기록 어댑터가 각각 짧은 read/write 트랜잭션을 소유해 외부 호출 중 DB 연결을 오래 잡거나 실패 기록이 readOnly 경계에 묻히는 일을 막습니다.
+
+## 역할 변경 멱등 반영 흐름
 
 ```mermaid
 sequenceDiagram
     participant Gov as Governance
     participant API as AuthController
     participant Service as AuthUserRoleAssignmentService
-    participant Port as Persistence Port
+    participant Adapter as JPA/Memory Adapter
+    participant User as Auth User Store
+    participant Log as Apply Log
 
-    Gov->>API: POST internal role assignments
+    Gov->>API: role assignments + approvalTraceId
     Note over Gov,API: X-Internal-Auth-Token 필요
-    API->>Service: replaceRoleAssignments
-    Service->>Port: replace roles
-    Port-->>Service: roleVersion + 1
-    Service-->>API: username, roleVersion, roles
+    API->>Service: ReplaceRoleAssignmentsCommand
+    Service->>Service: 역할 정규화 + SHA-256 fingerprint
+    Service->>Adapter: RoleAssignmentReplacement
+    Adapter->>User: 사용자별 쓰기 lock/조회
+    Adapter->>Log: approvalTraceId 조회
+    alt 처음 보는 trace
+        Adapter->>User: 역할 메타데이터 교체 + roleVersion 증가
+        Adapter->>Log: trace/fingerprint/version 저장
+    else 같은 trace, 같은 fingerprint
+        Adapter-->>Service: 현재 사용자 반환, 재반영 없음
+    else 같은 trace, 다른 fingerprint
+        Adapter-->>Service: fail-closed 예외
+    end
+```
+
+JPA 모드는 사용자 행의 비관적 쓰기 lock으로 서로 다른 승인 요청의 버전 증가 순서를 직렬화합니다. apply log는 외부 호출 성공 후 응답 유실로 같은 요청이 재전송되는 상황을 막습니다.
+
+## Token Version 검증
+
+```text
+username 존재
+AND roleVersion 일치
+AND account_active = true
+AND account_locked = false
+AND 검증 시점의 유효 역할이 1개 이상
+=> valid = true
 ```
 
 ## Gateway와의 관계
 
-Gateway는 JWT의 서명과 issuer를 검증하고 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Gateway가 Auth의 token-version 검증 또는 캐시 정책과 연동합니다.
+Gateway는 JWT 서명과 issuer를 검증하고 인증 헤더를 뒤쪽 서비스로 전달합니다. 역할 변경 직후 기존 JWT를 강하게 차단해야 하는 경로는 Auth token-version API를 호출하거나 동일 의미의 캐시 정책을 사용해야 합니다.

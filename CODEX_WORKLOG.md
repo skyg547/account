@@ -1393,3 +1393,20 @@
   - preview API 응답과 외부 Auth outbox/inbox `@todo`가 남아 있다.
 - 롤백:
   - governance와 관련 문서/Run Configuration 변경이 포함된 이번 커밋을 revert한다.
+
+## 2026-07-14 (auth authentication snapshot and approval idempotency)
+- 요청 목표: 모듈 순차 점검 중 auth의 DDD/헥사고날 경계, 인증 시점 정합성, Governance 역할 승인 재시도, 로컬 실행 문서를 고도화한다.
+- 변경:
+  - core의 API DTO 역참조를 제거하고 LoginCommand/AuthenticationResult로 분리했다.
+  - 단일 Clock 시점의 역할 스냅샷을 응답/JWT에 공통 사용하고 token-version 상태 검사를 강화했다.
+  - memory 역할 메타데이터 손실을 수정하고 memory/JPA 양쪽에 approvalTraceId/fingerprint 멱등성을 구현했다.
+  - JPA 사용자 lock, apply log, Flyway V72, 도메인 기간/길이 검증과 회귀 테스트를 추가했다.
+  - H2/Flyway/JPA validate 단독 실행 및 PostgreSQL 로컬 명령을 문서화했다.
+- 검증:
+  - `.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1` 성공, 32개 테스트 통과.
+  - H2 local non-web bootRun 성공, Flyway V70~V72 및 Hibernate validate 성공.
+- 리스크:
+  - PostgreSQL 동시성/Flyway 실환경은 미검증이다.
+  - 평문 비밀번호 승격, 최초 실패 원자화, 멱등 이력 보존 `@todo` 3건이 남아 있다.
+- 롤백:
+  - auth, Run Configuration, 관련 문서/하네스 변경을 되돌린다.

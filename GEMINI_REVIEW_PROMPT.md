@@ -1,3 +1,29 @@
+# 2026-07-14 auth 인증/역할 승인 멱등 경계 리뷰
+
+Codex가 auth 모듈의 API/core 경계와 Governance 역할 승인 재시도 정합성을 보강했습니다. 아래 항목을 독립 검수해 주세요.
+
+## 핵심 검수 항목
+
+1. `AuthUseCase`/`AuthService`가 더 이상 `auth.api.dto`를 참조하지 않고 Controller가 `LoginCommand`와 `AuthenticationResult`를 올바르게 매핑하는지 확인해 주세요.
+2. 로그인 응답과 JWT의 roles/roleAssignments가 같은 Clock 시점 스냅샷을 사용하며 역할 만료 경계가 `[validFrom, validTo)`인지 확인해 주세요.
+3. token-version 검증이 roleVersion 외에 inactive/admin-lock/no-effective-role 상태를 fail-closed 처리하는지 확인해 주세요.
+4. memory 역할 교체가 dataScope/validFrom/validTo를 JPA와 동일하게 보존하는지 확인해 주세요.
+5. approvalTraceId와 fingerprint 멱등성, JPA 사용자 비관적 lock, V72 apply log가 외부 응답 유실 재시도에서 roleVersion 중복 증가를 막는지 검토해 주세요.
+6. 같은 trace의 다른 payload가 memory/JPA 모두 fail-closed인지, 동시 요청에서 트랜잭션/unique key rollback이 안전한지 검토해 주세요.
+7. 평문 비밀번호, 최초 로그인 실패 upsert, apply-log retention `@todo`가 실제 남은 운영 리스크를 정확히 가리키는지 확인해 주세요.
+8. H2/IntelliJ/PostgreSQL 실행 문서가 Gradle/Flyway 설정과 일치하는지 확인해 주세요.
+
+## Codex 검증 결과
+
+```powershell
+.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1
+.\gradlew :auth:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
+```
+
+최종 실행은 모두 성공했고 auth 테스트 32개, Flyway V70~V72, Hibernate schema validate를 확인했습니다. 실제 PostgreSQL 동시성 검증은 미수행입니다.
+
+---
+
 # 2026-07-14 governance 승인 경계/실행 구조 리뷰
 
 Codex가 누적 reporting/deposit/master-data 변경에 이어 governance 실행 및 승인 경계를 보강했습니다. 아래 항목을 독립적으로 검수해 주세요.

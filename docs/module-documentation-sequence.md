@@ -37,6 +37,8 @@
 | 21 | `reporting` API response DTO 경계 리팩토링 | Review ready | API가 core 도메인 객체를 직접 반환하지 않고 response DTO로 외부 JSON 계약을 고정 |
 | 22 | `deposit` command/Batch 기준일 경계 리팩토링 | Review ready | 계좌 개설 command 입력 검증과 Batch `asOfDate` fail-fast로 업무 재실행성 강화 |
 | 23 | `master-data` typed applier/대량 통계 경계 리팩토링 | Review ready | 4개 기준정보 typed applier, effectiveDate 정합성, core→batch 역참조 제거, DB COUNT 집계 |
+| 24 | `governance` 승인 경계/단독 실행 리팩토링 | Review ready | 실제 기능 Bean 스캔, 권한 회수 승인, fail-closed apply, H2 단독 실행 |
+| 25 | `auth` 인증/역할 승인 멱등 경계 리팩토링 | Review ready | API/core DTO 분리, 역할 시점 고정, memory/JPA 정합성, approvalTraceId 멱등 반영 |
 
 ## 1차 완료 상세
 
@@ -542,3 +544,32 @@ git diff --check
 - governance 컴파일, 전체 테스트, bootJar 성공
 - local/H2 Spring Boot 컨텍스트 기동 성공, JPA Repository 12개와 실제 audit/master-data Bean 등록 확인
 - PostgreSQL 드라이버 패키징은 완료했으나 실제 PostgreSQL/Flyway 실행은 미검증
+
+## 25차 후속 상세
+
+### auth 인증 결과 경계와 역할 승인 멱등성 리팩토링
+
+- `AuthService`가 API `LoginResponse`를 직접 반환하던 역참조를 제거하고 core `LoginCommand`/`AuthenticationResult` 경계로 전환했습니다.
+- 공용 `Clock`의 한 시점에서 유효 역할을 확정하고 같은 역할 스냅샷을 로그인 응답과 JWT claim에 사용합니다.
+- token-version 검증은 버전뿐 아니라 계정 활성, 관리 잠금, 유효 역할 존재 여부도 확인합니다.
+- 로그인 오케스트레이터의 광범위한 readOnly 트랜잭션을 제거하고 각 JPA 출력 어댑터가 짧은 읽기/쓰기 경계를 소유하도록 정리했습니다.
+- memory 역할 교체 어댑터가 버리던 `dataScope`, `validFrom`, `validTo`를 보존하도록 수정했습니다.
+- Governance `approvalTraceId`와 SHA-256 request fingerprint를 실제 멱등 경계로 연결했습니다.
+- JPA 어댑터는 사용자별 비관적 lock과 `AUTH_ROLE_ASSIGNMENT_APPLY_LOG` 이력으로 같은 승인 재시도의 역할 재교체/roleVersion 중복 증가를 막습니다.
+- 같은 trace가 다른 사용자/역할 내용으로 재사용되면 memory/JPA 모두 fail-closed 처리합니다.
+- `RoleAssignment`은 DB 길이와 `[validFrom, validTo)` 기간 규칙을 도메인 생성 시 검증합니다.
+- IntelliJ `Auth bootRun`과 문서를 Config/Eureka 없이 H2 + Flyway + JPA validate로 단독 실행하도록 최신화했습니다.
+
+검증:
+
+```powershell
+.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1
+.\gradlew :auth:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
+```
+
+결과:
+- auth 전체 32개 테스트와 bootJar 성공
+- H2에서 Flyway V70~V72 적용, JPA Repository 3개 등록, Hibernate schema validate, Spring Boot 컨텍스트 기동 성공
+- core의 `auth.api` 참조 검색 결과 없음
+- PostgreSQL/Flyway와 동시 승인/로그인 실패 부하는 실제 PostgreSQL 환경에서 미검증
+- 남은 코드 `@todo`는 평문 비밀번호 해시 승격, 최초 로그인 실패 원자적 upsert, 멱등 이력 archive/retention 정책 3건
