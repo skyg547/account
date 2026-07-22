@@ -1,0 +1,4 @@
+policy:
+  owner: config-server-test
+  retry:
+    max-attempts: 3

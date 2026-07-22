@@ -1,20 +1,23 @@
 package com.ho.account.ecl.api.infrastructure.messaging;
 
 import com.ho.account.shared.finance.event.CdmDataReadyEvent;
-import com.ho.account.shared.finance.lock.DistributedLock;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import java.time.format.DateTimeFormatter;
-
 /**
  * [Event Consumer] CDM 데이터 완료 알림 수신기
+ *
+ * <p>같은 eventId가 재전달되면 같은 Spring Batch JobInstance로 식별됩니다. 이미 완료된 이벤트는
+ * 정상 중복으로 종료하고, 그 밖의 Job 실패는 Kafka listener까지 전파해 재시도/DLT 정책이
+ * 동작하게 합니다.</p>
  */
 @Slf4j
 @Component
@@ -26,26 +29,45 @@ public class CdmDataReadyConsumer {
 
     /**
      * Kafka Topic으로부터 이벤트를 수신합니다.
-     * 💡 [분산 락 적용] 전사적으로 동일한 기준일의 배치가 중복 실행되지 않도록 '자물쇠'를 겁니다.
+     *
+     * <p>@todo 운영 전 baseDate/eventId 멱등 키를 사용하는 분산락 포트와 Redis/JDBC 어댑터를 연결하고,
+     * owner token 기반 안전 해제와 lease 갱신을 통합 테스트합니다.</p>
      */
     @KafkaListener(topics = "allowance-cdm-events", groupId = "ifrs9-allowance-group")
-    @DistributedLock(key = "allowance-batch-trigger", waitTime = 1, leaseTime = 3600) // 1시간 동안 락 유지 (충분한 배치 시간 확보)
     public void handleCdmDataReady(CdmDataReadyEvent event) {
-        log.info("📩 [Event Consumer] CDM 완료 이벤트 수신 (락 획득 성공): {}", event);
+        log.info(
+                "CDM 완료 이벤트 수신: eventId={}, baseDate={}",
+                event.getEventId(),
+                event.getBaseDate());
+
+        JobParameters parameters = new JobParametersBuilder()
+                .addString(
+                        "baseDate",
+                        event.getBaseDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                .addString("traceId", event.getTraceId())
+                .addString("eventId", event.getEventId())
+                .toJobParameters();
 
         try {
-            // 💡 배치를 실행할 때 사용할 파라미터를 생성합니다. (기준일, Trace ID 등)
-            JobParameters params = new JobParametersBuilder()
-                    .addString("baseDate", event.getBaseDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                    .addString("traceId", event.getTraceId())
-                    .addLong("timestamp", System.currentTimeMillis()) // 중복 실행 방지 및 고유성 확보
-                    .toJobParameters();
-
-            log.info("🚀 [Event Consumer] 대손충당금(IFRS9) 산출 배치를 자동 실행합니다. (기준일: {})", event.getBaseDate());
-            jobLauncher.run(allowanceEclJob, params);
-            
-        } catch (Exception e) {
-            log.error("🛑 [Event Consumer] 배치 자동 실행 중 오류 발생", e);
+            log.info(
+                    "IFRS 9 대손충당금 배치 실행: eventId={}, baseDate={}",
+                    event.getEventId(),
+                    event.getBaseDate());
+            jobLauncher.run(allowanceEclJob, parameters);
+        } catch (JobInstanceAlreadyCompleteException duplicate) {
+            log.info(
+                    "이미 완료된 CDM 이벤트 재전달 무시: eventId={}, baseDate={}",
+                    event.getEventId(),
+                    event.getBaseDate());
+        } catch (Exception exception) {
+            log.error(
+                    "IFRS 9 대손충당금 배치 실행 실패: eventId={}, baseDate={}",
+                    event.getEventId(),
+                    event.getBaseDate(),
+                    exception);
+            throw new IllegalStateException(
+                    "Allowance ECL batch failed for eventId=" + event.getEventId(),
+                    exception);
         }
     }
 }

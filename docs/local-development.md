@@ -30,7 +30,7 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 
 ```powershell
 .\gradlew projects --console=plain
-.\gradlew :contracts:compileJava :shared-kernel:compileJava --console=plain
+.\gradlew :contracts:test :shared-kernel:test --console=plain --max-workers=1 --no-daemon
 ```
 
 전체 테스트는 오래 걸립니다. 모듈을 수정할 때는 해당 모듈과 직접 연관 모듈부터 확인합니다.
@@ -54,7 +54,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | 모듈 | 실행 클래스 | 기본 포트 | 용도 |
 | --- | --- | ---: | --- |
 | `discovery` | `com.ho.account.discovery.DiscoveryApplication` | 8761 | Eureka |
-| `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 설정 파일 기준 | Config Server |
+| `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 8888 | native Config Server, strict repository readiness |
 | `gateway` | `com.ho.account.gateway.GatewayApplication` | 8000 | API Gateway |
 | `auth` | `com.ho.account.auth.AuthApplication` | 설정 파일 기준 | 인증 |
 | `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
@@ -102,7 +102,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `Asset Lease Batch Context` | `:asset-lease:batch:bootRun` | 자산 감가상각 batch 컨텍스트 기동 |
 | `Reporting API bootRun` | `:reporting:api:bootRun` | memory 모드 재무보고 API 실행 |
 | `Reporting Batch Context` | `:reporting:batch:bootRun` | memory 모드 재무보고 batch 컨텍스트 기동 |
-| `Config Server bootRun` | `:config-server:bootRun` | 중앙 설정 서버 로컬 실행 |
+| `Config Server bootRun` | `:config-server:bootRun` | native `config-repo` + 8888 + readiness 로컬 실행 |
 | `Discovery bootRun` | `:discovery:bootRun` | Config Server 연동 Eureka 실행 |
 | `Discovery standalone bootRun` | `:discovery:bootRun` | 8761/readiness/registry 단독 smoke |
 | `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
@@ -200,6 +200,15 @@ IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서�
 ```text
 Config Server bootRun -> Discovery bootRun (readiness UP) -> Auth/Master Data/Governance/Journals -> Gateway bootRun (8000)
 ```
+
+Config Server는 DB가 필요하지 않습니다. 다음 상태가 모두 확인된 뒤 Discovery를 실행합니다.
+
+```powershell
+(Invoke-WebRequest http://localhost:8888/actuator/health/readiness).StatusCode
+(Invoke-WebRequest http://localhost:8888/master-data/default).StatusCode
+```
+
+두 요청은 HTTP 200이어야 하며 Config 응답 본문은 민감 설정을 포함할 수 있으므로 공유 로그에 붙이지 않습니다.
 
 전체 인프라를 한 번에 띄울 때:
 

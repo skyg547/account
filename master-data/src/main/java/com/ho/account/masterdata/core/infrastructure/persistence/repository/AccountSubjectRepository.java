@@ -10,10 +10,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface AccountSubjectRepository extends JpaRepository<AccountSubject, Long> {
 
-    Optional<AccountSubject> findFirstByCodeOrderByValidFromDesc(String code);
+    @Query("""
+            SELECT a FROM AccountSubject a
+            WHERE a.code = :code
+              AND a.validFrom <= :date
+              AND a.validTo >= :date
+            ORDER BY a.validFrom DESC
+            """)
+    Optional<AccountSubject> findActiveByCode(String code, LocalDate date);
 
     default Optional<AccountSubject> findByCode(String code) {
-        return findFirstByCodeOrderByValidFromDesc(code);
+        return findActiveByCode(code, LocalDate.now());
     }
 
     boolean existsByCode(String code);

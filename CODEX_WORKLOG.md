@@ -1454,3 +1454,51 @@
   - private network+mTLS/인증, multi-AZ peer sync/장애 전환 `@todo`가 남아 있다.
 - 롤백:
   - discovery/config-repo/root Compose/run configuration 및 관련 문서·하네스 변경을 한 묶음으로 revert한다.
+## 2026-07-22 (config-server repository availability boundary)
+- Branch: `agent/asset-lease-split`
+- Scope: `config-server`, `config-repo/README.md`, Config Server root Compose dependencies, shared docs/harness.
+- Findings:
+  - Baseline had `test NO-SOURCE`, a runtime-missing native repository in Docker, JDK 21 drift, and `service_started` ordering.
+  - Spring default Config health accepts an empty Environment, which was too weak for downstream startup.
+- Changes:
+  - Added a strict repository health indicator behind `EnvironmentRepository` and configurable representative application/profile.
+  - Added HTTP/config/health/policy tests, JDK 17 Docker packaging, read-only repository mounts, and Config health dependency ordering.
+  - Preserved and expanded beginner recipe-headquarters comments and documented application/profile/property-source/client-binding flow.
+- Verification:
+  - Initial `:config-server:test :config-server:bootJar` passed with 9 tests and no failures/errors/skips.
+  - The later health-detail sanitization sources produced newer main/test class outputs, but the targeted test rerun stalled before producing a new report because the Windows paging file was exhausted; the Gradle JVMs were stopped.
+  - The initial standalone `java -jar` on 8888 returned readiness UP, one property source for `master-data/default`, and Prometheus JVM metrics.
+- Risk:
+  - Docker image/Compose could not be run because Docker CLI is unavailable.
+  - Rerun `ConfigRepositoryHealthIndicatorTest` after restoring paging-file headroom.
+  - Production service authentication/mTLS and Git-backed reviewed version/refresh/rollback remain explicit TODOs.
+- Rollback:
+  - Revert only Config Server/config-repo/root Compose condition changes and associated docs/log entries after checking Discovery dependency overlap.
+
+## 2026-07-22 (contracts/shared-kernel second-pass boundary review)
+
+- Branch: `agent/asset-lease-split`
+- Findings:
+  - Dated Master Data contract silently fell back to current data.
+  - `@Masked` had no Jackson serializer binding.
+  - Local capability lookup used ApplicationContext as a service locator.
+  - `@DistributedLock` had no interceptor, while the ECL consumer claimed lock acquisition.
+  - CDM timestamp parameters defeated Spring Batch idempotency and failures were swallowed.
+  - Library Docker/Compose files were explicit no-op skeletons.
+  - shared-kernel exposes broad infrastructure dependencies and ECL/account-mart-specific types.
+- Changes:
+  - Added immutable/validated journal contracts and strict normal-balance values.
+  - Implemented dated account/partner/department SCD2 lookup in the master-data adapter.
+  - Connected and hardened masking; refactored the local registry to immutable constructor injection and duplicate-name failure.
+  - Removed the inert lock usage; used eventId for Batch identity, ignored only completed duplicates, and propagated other failures.
+  - Added 15 focused tests and archived four no-op runtime skeletons.
+  - Rewrote module docs while preserving beginner analogies and documenting business/data flow.
+- Verification:
+  - `git diff --check` passed; no `DistributedLock` Java usage remains.
+  - Gradle and direct javac verification could not start/finish under the exhausted Windows paging file, even with 64-128 MB heaps.
+  - Spawned JVMs and the temporary javac directory were cleaned up.
+- Risk:
+  - All new tests and affected module compilation remain pending; do not represent this pass as green before rerun.
+  - Dependency extraction, dated-port default removal, versioned source DTOs, allowance contract ownership, and real distributed locking remain TODO.
+- Rollback:
+  - Revert contracts/shared-kernel, dated master-data adapter/repository, ECL event consumer/build/tests, archived skeleton moves, and this pass's docs/harness entries.

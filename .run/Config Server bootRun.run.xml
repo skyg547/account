@@ -4,7 +4,7 @@
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />
-      <option name="scriptParameters" value="--console=plain" />
+      <option name="scriptParameters" value="--args=&quot;--spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo&quot; --console=plain --no-daemon" />
       <option name="taskDescriptions">
         <list />
       </option>

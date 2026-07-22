@@ -1,34 +1,64 @@
-# contracts 초보자 가이드 (Beginner Guide)
+# Contracts 초보자 가이드
 
-`contracts` 모듈은 헥사고날 아키텍처에서 **"모듈 간의 약속(인터페이스)"**만을 정의하는 특별한 모듈입니다. 이 안에는 실제 동작하는 코드가 없으며, 오직 DTO(데이터 전달 객체)와 Port(인터페이스)만 존재합니다.
+## 1. 공용 결재 양식 비유
 
-## 🌟 초보자를 위한 개념 설명
+회사에서 자산 부서가 지출 부서에 리스료 지급을 요청한다고 가정합니다. 자산 부서가 지출 부서의
+DB 테이블을 직접 수정하면 승인, 예산, 감사 흐름을 우회하게 됩니다. 대신 정해진 결재 양식인
+`LeasePaymentResolutionCommand`를 작성하고 `LeasePaymentResolutionPort`로 요청합니다.
 
-* **포트(Port)와 계약(Contract):** 벽에 있는 콘센트 구멍과 같습니다. 220V 구멍 모양(계약)만 맞으면 선풍기든 냉장고든 꽂아서(Adapter 구현) 쓸 수 있습니다. 다른 모듈들은 서로가 어떻게 만들어졌는지 몰라도 콘센트 구멍 모양만 보고 데이터를 주고받습니다.
-* **ID 기반 참조의 도우미:** 다른 모듈의 데이터를 가져오고 싶을 때 엔티티를 통째로 가져오면 에러가 나기 쉽습니다. 그래서 "코드랑 이름만 줘"라고 가볍게 정의해 둔 객체(DTO)들이 모여있습니다.
+포트는 콘센트 모양, Command는 콘센트에 전달하는 표준 입력이라고 생각하면 됩니다. 실제 전기를
+공급하는 구현은 각 업무 모듈의 Adapter입니다.
 
-## 1. 이 모듈은 왜 필요한가요
+## 2. 계약이 스켈레톤 코드가 아닌 이유
 
-MSA(마이크로서비스 아키텍처)나 헥사고날 모듈형 구조에서는 "다른 모듈의 내부 클래스(Entity)를 직접 참조하다가 의존성이 꼬이는 것"이 가장 큰 문제(스파게티 코드)입니다.
-이를 방지하기 위해:
-- 실제 로직 구현은 각자의 모듈(adapter 계층)에 둡니다.
-- 서로 부를 때 사용할 약속(인터페이스와 DTO)은 `contracts` 모듈에 모아둡니다.
+인터페이스만 보면 구현이 없어 보이지만 이 모듈의 책임은 **컴파일 가능한 경계 정의**입니다.
+완성 여부는 다음 세 부분을 함께 확인해야 합니다.
 
-## 2. 직접 호출하면 안 되는 이유
+1. 호출 모듈이 Port만 의존한다.
+2. 제공 모듈에 실제 Adapter 구현이 있다.
+3. 제공 모듈 Domain/Application이 업무 규칙을 수행한다.
 
-예를 들어 `asset-lease`가 `expenditure-resolution`의 내부 서비스 클래스를 바로 호출하면:
-- 구현 변경 시 에러가 퍼집니다. (강결합)
-- 순환 참조 에러가 발생하기 쉽습니다.
-- 멀티 스테이지 Docker 환경에서 독립적인 컨테이너 구동 시 연결할 수 없게 됩니다.
+세 번째 단계가 없는 단순 빈 구현은 스켈레톤입니다. 반대로 계약 모듈에 DB 처리나 업무 계산을
+넣는 것도 잘못입니다.
 
-따라서 `LeasePaymentResolutionPort` 같은 인터페이스만 보고 호출해야 합니다.
+## 3. 현재 데이터 흐름 예시
 
-## 3. 대표적인 계약 예시
+전표 생성:
 
-* **전표 생성:** 호출하는 모듈은 `JournalPostingPort` 인터페이스만 압니다. 실제 전표 생성은 `journal-ledger` 쪽에 구현된 Adapter가 합니다.
-* **마스터 정보 조회:** `MasterDataQueryPort`를 통해 계정코드나 거래처코드를 넣고, 가벼운 `Reference DTO`만 돌려받습니다.
+```text
+Payable/Receivable/Closing Service
+  -> JournalEntryCommand 생성
+  -> JournalPostingPort.createDraftEntry()
+  -> journal-ledger Adapter
+  -> journal-ledger 전표 도메인 검증
+  -> 저장 및 JournalPostingResult 반환
+```
 
-## 4. 모듈 개발 시 주의사항
+기준일 기준정보 조회:
 
-- 이곳에 새로운 계약을 추가하거나 필드를 바꿀 때는, 이 계약을 구현하고 있는 모든 모듈들이 영향을 받게 됩니다.
-- 항상 특정 기술(JPA 엔티티, 특정 DB 어노테이션)에 종속되지 않은 순수한 Java 객체로만 정의해야 합니다.
+```text
+Closing FX 평가일
+  -> MasterDataQueryPort.findAccountSubjectAt(code, valuationDate)
+  -> master-data MonolithMasterDataQueryAdapter
+  -> validFrom <= valuationDate <= validTo JPA 조회
+  -> AccountSubjectRef 반환
+```
+
+현재 조회와 과거 기준일 조회는 결과가 다를 수 있습니다. 결산은 반드시 평가일 기준 버전을
+사용해야 합니다.
+
+## 4. 변경할 때 확인할 질문
+
+- 이 필드는 모든 호출자와 제공자가 같은 뜻으로 이해하는가?
+- String 코드가 허용하는 값이 명확한가?
+- 금액은 `BigDecimal`인가?
+- List/Set은 외부에서 변경할 수 없게 복사했는가?
+- 기준일을 현재 날짜로 조용히 바꾸지 않는가?
+- 원격 호출이 필요하면 timeout, 오류 의미, 버전 호환을 Adapter에서 정의했는가?
+- 기존 생성자/JSON 필드 변경이 하위 호환성을 깨지 않는가?
+
+## 5. 남은 TODO를 읽는 방법
+
+코드의 `@todo`는 빈 구현을 허용한다는 뜻이 아닙니다. 현재 호환 경로와 목표 구조 사이의
+마이그레이션 조건을 적습니다. 예를 들어 기준일 조회 default 제거 TODO는 모든 어댑터가 실제
+SCD2 조회를 구현했다는 증거가 갖춰져야 완료할 수 있습니다.

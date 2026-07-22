@@ -1,69 +1,54 @@
-# contracts 스키마 (Schema)
+# Contracts 코드 스키마
 
-## 1. 개념적 스키마 (DTO 및 Port 구조)
+이 모듈에는 DB 테이블이 없습니다. 여기서 스키마는 Java Port와 전달 객체의 공개 필드/메서드를
+뜻합니다.
 
-`contracts` 모듈은 물리적인 데이터베이스 테이블을 가지지 않습니다. 이곳의 스키마는 **데이터 교환을 위한 순수 객체(Command, Reference DTO)** 구조를 의미합니다. 다른 모듈의 멀티 스테이지 환경 배포를 위해 REST API 페이로드 또는 Kafka 이벤트 메시지로 직렬화/역직렬화하기 좋은 형태로 유지해야 합니다.
-
-```mermaid
-classDiagram
-    class MasterDataQueryPort {
-        <<Interface>>
-        +findAccountSubject(code) AccountSubjectRef
-        +findBusinessPartner(code) BusinessPartnerRef
-    }
-    class FiscalPeriodControlPort {
-        <<Interface>>
-        +findFiscalPeriodById(id) FiscalPeriodRef
-        +findFiscalPeriod(year, period) FiscalPeriodRef
-        +updateClosingStatus(id, status, auditUser) FiscalPeriodRef
-    }
-    class JournalPostingPort {
-        <<Interface>>
-        +createDraftEntry(JournalEntryCommand) JournalPostingResult
-    }
-    class BudgetControlPort {
-        <<Interface>>
-        +checkBudgetAvailability(yearMonth, dept, acc, amount)
-    }
-```
-
-## 2. 주요 Reference DTO (읽기 전용 계약)
-
-다른 모듈의 데이터를 참조할 때 사용하는 가벼운 객체입니다. Entity가 아님에 주의합니다.
-
-### `AccountSubjectRef`
-- `code` (String, 식별자)
-- `name` (String)
-- `unsettled` (Boolean, 미결 여부)
-
-### `BusinessPartnerRef`
-- `code` (String)
-- `name` (String)
-
-### `FiscalPeriodRef`
-- `id` (Long)
-- `fiscalYear` (String)
-- `fiscalPeriod` (String)
-- `startDate` / `endDate` (LocalDate)
-- `closingStatus` (String)
-
-## 3. 주요 Command DTO (쓰기/명령 계약)
-
-다른 모듈에 작업을 지시할 때 사용하는 객체입니다.
+## 전표 계약
 
 ### `JournalEntryCommand`
-- `slipDate` (LocalDate)
-- `accountingDate` (LocalDate)
-- `lineageSourceType` (String - 이력 추적용)
-- `lineageSourceId` (String - 이력 추적용)
-- `lines` (List&lt;JournalLineCommand&gt;)
+
+- `slipDate`, `accountingDate`: 필수
+- `description`, `entryType`, `currencyCode`
+- `exchangeRate`: `BigDecimal`
+- `createdBy`, `auditUser`
+- `lineageSourceType`, `lineageSourceId`
+- `lines`: 비어 있지 않은 불변 `List<JournalLineCommand>`
 
 ### `JournalLineCommand`
-- `drcrType` (Enum: DEBIT/CREDIT)
-- `accountCode` (String)
-- `amount` (BigDecimal)
-- `departmentCode` (String)
 
-## 4. 헥사고날/MSA 환경에서의 원칙
-- **결합도 최소화:** 이 모듈 안에는 `@Entity`나 `@Table`, JPA 관련 어노테이션이 절대 포함되어서는 안 됩니다.
-- **불변성(Immutability):** 가급적 Record 클래스나 final 필드를 사용하여 전달 중 값이 오염되지 않도록 합니다.
+- `drcrType`: `DEBIT` 또는 `CREDIT`로 정규화
+- `accountCode`: 공백 불가
+- `amount`: 필수 `BigDecimal`
+- `baseAmount`: 선택 `BigDecimal`
+- `departmentCode`, `businessPartnerCode`, `detailDescription`
+
+`JournalSide` enum이 이미 있지만 기존 생성자 호환을 위해 `drcrType` 필드는 아직 String입니다.
+향후 모든 JSON/호출자를 함께 마이그레이션할 때 enum으로 통일해야 합니다.
+
+## 기준정보 계약
+
+- `AccountSubjectRef`: 코드, 이름, 미결/고정자산 여부, 정상잔액 방향
+- `BusinessPartnerRef`: 코드, 이름, 거래처 유형, 활성 여부
+- `DepartmentRef`: 코드, 이름, 부서 유형
+- `FiscalPeriodRef`: 회계연도/기간, 시작일/종료일, 마감 상태
+- `MasterDataQueryPort`: 현재 및 기준일 조회
+
+정상잔액 방향은 `DEBIT/CREDIT`만 허용합니다. 기존 4개 인자 생성자는 호환상 `DEBIT`를
+사용하지만 부채/자본/수익 계정 오류를 막기 위해 제거 TODO가 있습니다.
+
+## 조회 결과 계약
+
+`JournalSummary`, `JournalDetailSummary`, `LedgerBalanceSummary`는 기존 projection/직렬화
+호환을 위해 mutable JavaBean 형태입니다. 새 코드에서 도메인 엔티티로 사용하면 안 됩니다.
+불변 DTO 전환은 모든 setter 기반 매핑 사용처를 확인한 뒤 진행합니다.
+
+## 변경 호환성 체크
+
+- record 필드 순서와 JSON 이름
+- enum/코드 값 추가·삭제
+- 생성자 호환
+- nullable 여부
+- 금액 scale/rounding 책임
+- 날짜와 timezone 의미
+- 호출 모듈 컴파일
+- 제공 Adapter 및 계약 테스트

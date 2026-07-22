@@ -453,3 +453,38 @@
   - Registry authentication/private networking and multi-AZ peer synchronization remain explicit Config `@todo` items.
 - Rollback:
   - Revert Discovery, external config, root Compose Discovery env/dependency conditions, standalone run configuration, and related documentation/harness files.
+
+## 2026-07-22 - Config Server strict repository readiness
+- Branch: `agent/asset-lease-split`
+- Scope: Config Server runtime/config/tests/Docker/Compose/docs.
+- Changes:
+  - Added strict property-source availability health through `EnvironmentRepository`.
+  - Added 9 HTTP/unit/policy tests and Prometheus/test dependencies.
+  - Aligned native repository path, JDK 17 image, read-only Compose mounts, and 15 Config Server health dependencies.
+  - Updated beginner, process, local-run, shared sequence, handoff, and review documents.
+- Verification:
+  - Initial `.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon`: passed with 9 tests.
+  - Later health-detail sanitization main/test classes compiled, but the targeted test rerun produced no new report because the Windows paging file was exhausted; spawned Gradle JVMs were stopped.
+  - Initial runtime 8888 readiness/config/Prometheus smoke: passed without printing config values.
+- Risk:
+  - Docker CLI unavailable; image/Compose runtime unverified.
+  - Rerun `ConfigRepositoryHealthIndicatorTest` after restoring paging-file headroom.
+  - Production endpoint protection and Git-backed change governance remain TODO.
+
+## 2026-07-22 - Contracts/shared-kernel second-pass boundary hardening
+- Branch: `agent/asset-lease-split`
+- Scope: contracts, shared-kernel, master-data dated integration adapter, ECL CDM consumer, docs/harness.
+- Changes:
+  - Immutable journal contracts and strict normal-balance values.
+  - Real SCD2 effective-date lookup in master-data.
+  - Actual Jackson masking binding and fail-closed policies.
+  - Immutable deterministic local capability registry.
+  - eventId-based Spring Batch idempotency and failure propagation.
+  - Four no-op library runtime skeletons archived; 15 tests added.
+- Verification:
+  - Static diff/usage checks passed.
+  - JVM tests/compile pending because the Windows paging file could not start 64-128 MB Gradle/javac work.
+  - Spawned JVMs and temporary outputs were cleaned.
+- Next:
+  - Rerun Config Server health test plus shared-kernel/contracts/master-data/closing/ECL tests after memory recovery.
+  - Continue with Master Data provider/default closure and shared dependency extraction.

@@ -1,15 +1,26 @@
 package com.ho.account.masterdata.core.infrastructure.adapter;
 
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.DepartmentRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
+import com.ho.account.masterdata.core.domain.model.Department;
+import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
+import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
+import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
+import java.time.LocalDate;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
+/**
+ * 같은 프로세스에서 contracts 조회 포트를 master-data JPA 저장소에 연결하는 어댑터입니다.
+ *
+ * <p>현재 조회와 기준일 조회를 분리해 Closing처럼 과거 시점이 중요한 업무가 오늘의 기준정보를
+ * 잘못 사용하는 것을 막습니다.</p>
+ */
 @Component
 public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
 
@@ -28,31 +39,70 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
 
     @Override
     public Optional<AccountSubjectRef> findAccountSubject(String accountCode) {
-        return accountSubjectRepository.findByCode(accountCode)
-                .map(account -> new AccountSubjectRef(
-                        account.getCode(),
-                        account.getName(),
-                        account.isUnsettled(),
-                        account.isFixedAsset(),
-                        account.getBalanceType() != null ? account.getBalanceType().name() : "DEBIT"));
+        return findAccountSubjectAt(accountCode, LocalDate.now());
+    }
+
+    @Override
+    public Optional<AccountSubjectRef> findAccountSubjectAt(
+            String accountCode,
+            LocalDate effectiveDate) {
+        Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
+        return accountSubjectRepository.findActiveByCode(accountCode, effectiveDate)
+                .map(this::toAccountSubjectRef);
     }
 
     @Override
     public Optional<BusinessPartnerRef> findBusinessPartner(String businessPartnerCode) {
-        return businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode)
-                .map(partner -> new BusinessPartnerRef(
-                        partner.getBusinessPartnerCode(),
-                        partner.getBusinessPartnerName(),
-                        partner.getPartnerType().name(),
-                        partner.getUseYn()));
+        return findBusinessPartnerAt(businessPartnerCode, LocalDate.now());
+    }
+
+    @Override
+    public Optional<BusinessPartnerRef> findBusinessPartnerAt(
+            String businessPartnerCode,
+            LocalDate effectiveDate) {
+        Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
+        return businessPartnerRepository
+                .findActiveByBusinessPartnerCode(businessPartnerCode, effectiveDate)
+                .stream()
+                .findFirst()
+                .map(this::toBusinessPartnerRef);
     }
 
     @Override
     public Optional<DepartmentRef> findDepartment(String departmentCode) {
-        return departmentRepository.findCurrentByCode(departmentCode)
-                .map(department -> new DepartmentRef(
-                        department.getCode(),
-                        department.getName(),
-                        department.getType() != null ? department.getType().name() : null));
+        return findDepartmentAt(departmentCode, LocalDate.now());
+    }
+
+    @Override
+    public Optional<DepartmentRef> findDepartmentAt(
+            String departmentCode,
+            LocalDate effectiveDate) {
+        Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
+        return departmentRepository.findActiveByCode(departmentCode, effectiveDate)
+                .map(this::toDepartmentRef);
+    }
+
+    private AccountSubjectRef toAccountSubjectRef(AccountSubject account) {
+        return new AccountSubjectRef(
+                account.getCode(),
+                account.getName(),
+                account.isUnsettled(),
+                account.isFixedAsset(),
+                account.getBalanceType() != null ? account.getBalanceType().name() : "DEBIT");
+    }
+
+    private BusinessPartnerRef toBusinessPartnerRef(BusinessPartner partner) {
+        return new BusinessPartnerRef(
+                partner.getBusinessPartnerCode(),
+                partner.getBusinessPartnerName(),
+                partner.getPartnerType().name(),
+                partner.getUseYn());
+    }
+
+    private DepartmentRef toDepartmentRef(Department department) {
+        return new DepartmentRef(
+                department.getCode(),
+                department.getName(),
+                department.getType() != null ? department.getType().name() : null);
     }
 }

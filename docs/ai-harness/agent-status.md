@@ -47,3 +47,7 @@
 | 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Gateway global API auth, trusted-header regeneration, JWT verifier ports, roleVersion 401/503 semantics, port 8000, standalone bootRun, and 30 tests verified. |
 
 | 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Discovery port 8761, Config/actuator runtime, registry lifecycle, readiness health, Compose service_healthy, standalone bootRun, and 6 tests verified. |
+
+| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / rerun pending | Config Server strict repository readiness, native HTTP contract, JDK 17/read-only config-repo Compose, initial 9 tests, and 8888 runtime verified; latest health-detail test rerun awaits paging-file headroom. |
+
+| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Verification pending | Contracts/shared-kernel second pass: immutable journal contracts, dated SCD2 adapter, real masking binding, local registry hardening, CDM eventId idempotency, 15 tests added; JVM verification blocked by paging-file exhaustion. |

@@ -1,3 +1,94 @@
+# AI Harness Handoff - 2026-07-22 Contracts/Shared-Kernel Review
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Owner: Codex
+- Working tree: cumulative uncommitted Config Server plus contracts/shared-kernel pass; no commit or push was requested.
+- Review state: implementation and static checks complete; JVM verification pending because Windows cannot currently start a 64-128 MB Java process reliably.
+
+## What Changed
+
+- Contracts validate/copy journal commands and reject invalid normal-balance values.
+- Master Data's monolith adapter performs actual account/partner/department SCD2 effective-date lookup.
+- `@Masked` now invokes Jackson serialization and masks registration/account/email values fail-closed.
+- Local capability discovery uses an immutable injected service snapshot and fails on duplicate names.
+- Inert `@DistributedLock` usage was removed from ECL.
+- CDM event JSON identity is preserved; eventId identifies the Batch JobInstance; completed duplicates are ignored and other failures propagate.
+- Added 15 focused tests and archived four no-op library Docker/Compose skeletons.
+- Beginner, architecture, business-flow, data-flow, schema, and local-run documents were updated.
+
+## Verification Summary
+
+- `git diff --check`: passed.
+- Java `DistributedLock` usages: none outside the deprecated declaration.
+- Config Server target test, Gradle module tests, and direct contracts javac could not complete because the Windows paging file is exhausted.
+- No spawned Gradle/javac/application JVM remains; the temporary javac directory was removed.
+- Do not mark this pass green until tests are rerun.
+
+## Required Rerun
+
+```powershell
+.gradlew :config-server:test --tests "com.ho.account.configserver.health.ConfigRepositoryHealthIndicatorTest" --console=plain --max-workers=1 --no-daemon
+.gradlew :shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test --console=plain --max-workers=1 --no-daemon
+```
+
+## Known Risks And Next Review
+
+- Verify Spring/Jackson/Batch behavior from the new tests once memory is available.
+- Live Kafka redelivery/DLT and PostgreSQL overlapping SCD2 versions remain unverified.
+- Next sequential focus: implement/remove remaining dated Master Data defaults, then extract shared-kernel infrastructure dependencies and allowance-specific types.
+- Remaining TODOs cover versioned source-document DTOs, local capability SPI naming/ownership, shared dependency extraction, ECL type/event ownership, and real distributed locking.
+
+## Rollback
+
+- Revert `contracts` and `shared-kernel` changes including archive moves.
+- Revert master-data dated adapter/repository and its test.
+- Revert ECL API event consumer/build/test changes.
+- Revert this pass's common docs, logs, handoff, and Gemini review prompt.
+
+---
+# AI Harness Handoff - 2026-07-22 Config Server Review
+
+## Current State
+
+- Branch: `agent/asset-lease-split`
+- Current owner: Codex
+- Scope ready for independent review: Config Server repository availability, native config HTTP contract, Docker/Compose startup ordering, and beginner documentation.
+- Working tree intent: local uncommitted Config Server changes; do not commit or push until the user explicitly requests it.
+
+## What Changed
+
+- Added configurable `ConfigRepositoryHealthIndicator` that fails readiness on empty property sources or repository errors.
+- Added 9 HTTP, health, and configuration policy tests.
+- Aligned local/native path, 8888, Prometheus, JDK 17 single bootJar, no embedded config repository, and read-only Compose mounts.
+- Changed all 15 Config Server dependents from `service_started` to `service_healthy`.
+- Corrected documentation around profile/property-source precedence, optional fallback, client restart/refresh, startup, and shutdown.
+
+## Verification Summary
+
+- Initial `:config-server:test :config-server:bootJar`: passed, 9 tests with no failures/errors/skips.
+- The later repository-error detail sanitization produced newer main/test class outputs. Its targeted test rerun stalled before creating a new report because the Windows paging file was exhausted, so rerun it after restoring memory headroom.
+- Initial standalone JAR 8888: readiness UP; `master-data/default` HTTP 200 with one property source; Prometheus HTTP 200 and JVM metric present.
+- Config response values were not printed.
+- Config Server runtime was stopped after smoke.
+
+## Known Risks And Next Review
+
+- Docker CLI is unavailable, so actual image build and live Compose startup are unverified.
+- Rerun `ConfigRepositoryHealthIndicatorTest` before merge to close the final verification gap.
+- After that rerun, continue the second-pass module audit with `contracts` and then `shared-kernel`, focusing on public contracts, money/code value objects, and dependency direction.
+- Config API private network+mTLS/service authentication remains an explicit TODO.
+- Reviewed Git backend, immutable label, multi-node refresh and rollback governance remain an explicit TODO.
+- Review root Compose overlap with the already committed Discovery `service_healthy` changes.
+
+## Rollback
+
+- Revert `config-server` and `config-repo/README.md` changes.
+- Revert only the Config Server service block and `depends_on.config-server` conditions in root Compose.
+- Revert `.run/Config Server bootRun.run.xml` and this pass's common docs/harness entries.
+
+---
 # AI Harness Handoff - 2026-07-20 Discovery Review
 
 ## Current State

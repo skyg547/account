@@ -10,8 +10,12 @@ dependencyManagement {
 }
 
 dependencies {
+    // @todo SourceDocumentProvider가 shared-kernel 타입을 public API에 노출하지만 현재 implementation이다.
+    // 로컬 capability SPI를 contracts로 이동하거나 최소 SPI 모듈로 분리한 뒤 Gradle API 경계를 명시한다.
     implementation project(':shared-kernel')
-    
+
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

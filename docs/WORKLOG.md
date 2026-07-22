@@ -1519,3 +1519,66 @@
   - 운영 private network+mTLS/서비스 인증과 multi-AZ peer 동기화/장애 전환을 Config 코드 `@todo`로 남겼다.
 - **롤백 범위**:
   - 이번 변경을 되돌리려면 `discovery`, `config-repo/discovery-service.yml`, 루트 Compose의 Discovery env/health dependency, `.run/Discovery standalone bootRun.run.xml`, 관련 공통 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-22 (config-server native 저장소/readiness/컨테이너 경계 리팩토링)
+- **작업 배경**:
+  - `config-server`는 실행 JAR만 만들 수 있었고 테스트가 `NO-SOURCE`라 실제 중앙 설정 조회를 증명하지 못했다.
+  - Docker가 프로젝트 기준과 다른 JDK 21, wildcard 중복 JAR 복사, 런타임에 없는 `/app/config-repo` 경로를 사용했다.
+  - root Compose는 Config Server가 시작됐다는 사실만 기다렸고, 대표 설정을 제공할 수 있는지는 확인하지 않았다.
+- **수정 범위**:
+  - `ConfigRepositoryProbeProperties`와 `ConfigRepositoryHealthIndicator`를 추가해 대표 설정 source가 비어 있거나 조회가 실패하면 readiness를 DOWN 처리했다.
+  - 실제 native `Environment` HTTP 조회, health 성공/빈 결과/예외, YAML/IntelliJ/Docker/Compose 정책 테스트 9개를 추가했다.
+  - application 설정을 8888/native/외부화 저장소/Prometheus/repository readiness로 정리했다.
+  - Dockerfile을 JDK 17 단일 `bootJar`와 readiness healthcheck로 변경하고 설정 원본은 이미지에 포함하지 않았다.
+  - 모듈/루트 Compose는 `config-repo`를 read-only mount하고, 15개 의존 서비스가 Config Server `service_healthy`를 기다리게 했다.
+  - Config Server/config-repo/common docs를 profile 병합, property source 우선순위, `optional` fallback, 변경 전파와 종료 흐름 기준으로 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon`
+  - 최신 `bootJar`를 `java -jar`로 실행하고 readiness, `master-data/default`, Prometheus를 값 노출 없이 HTTP 검증.
+- **검증 결과**:
+  - 1차 전체 검증에서 9 tests, failures 0, errors 0, skipped 0 및 `bootJar` 성공을 확인했다.
+  - 이후 repository 예외 경로/URL을 health detail에 노출하지 않도록 보강한 최신 main/test 소스는 소스보다 새로운 class 산출물 생성을 확인했다.
+  - 최신 보안 테스트 단독 재실행은 Windows 페이지 파일 부족으로 Gradle이 테스트 산출물을 만들지 못한 채 정지해 중단했다. 남은 Gradle JVM은 종료했으며 메모리 회복 후 재실행이 필요하다.
+  - 1차 산출 JAR로 실제 8888 readiness `UP`, 설정 조회 HTTP 200/property source 1개, Prometheus HTTP 200/JVM 지표를 확인했다.
+- **남은 리스크**:
+  - Docker CLI가 없어 실제 이미지 빌드와 전체 Compose 실행은 검증하지 못했다.
+  - 최종 health 오류 상세 비노출 테스트는 페이지 파일 여유가 있는 환경에서 다시 실행해야 한다.
+  - 운영 Config API 인증/mTLS와 Git backend 고정 label, 승인/refresh/rollback은 `@todo`로 남았다.
+- **롤백 범위**:
+  - `config-server`, `config-repo/README.md`, root Compose의 Config Server block/15개 의존 조건, `.run/Config Server bootRun.run.xml` 및 이번 docs/harness 항목을 함께 되돌린다.
+
+### 📅 2026-07-22 (contracts/shared-kernel 2차 계약·공유 경계 리팩토링)
+### [검수/리팩토링] 전표 불변 계약, SCD2 기준일, 실제 마스킹, CDM 배치 멱등성 보강
+
+- **선확인**:
+  - `contracts`/`shared-kernel` README와 docs 전체, Java 공개 타입, build.gradle, 전 저장소 소비처를 확인했다.
+  - `MasterDataQueryPort.find*At` default가 `effectiveDate`를 무시해 Closing 과거 평가가 현재 기준정보를 사용할 수 있었다.
+  - `@Masked`가 `MaskingSerializer`와 연결되지 않아 애노테이션을 붙여도 JSON 마스킹이 실행되지 않았다.
+  - `SpringServiceDiscoveryRegistry`가 매 조회마다 `ApplicationContext`를 탐색하고, 중복 이름과 결과 순서를 통제하지 않았다.
+  - `@DistributedLock`은 처리 AOP/Redis 구현이 없는데 ECL 소비자가 락 획득 성공으로 설명했다.
+  - CDM 소비자는 매 수신 timestamp를 Batch 식별자로 넣어 같은 이벤트를 반복 실행하고 Job 실패를 삼켰다.
+  - library 루트 Dockerfile/Compose 4개가 안내 문구만 출력하는 명시적 skeleton이었다.
+  - shared-kernel은 최소 커널 설명과 달리 JPA/Kafka/Redis/Vault/관측/Swagger 및 ECL 전용 타입을 전이한다.
+- **수정 범위**:
+  - 전표 Command에 필수 날짜/라인, 차대 코드/계정/금액 검증과 불변 List 복사를 추가했다.
+  - 계정과목 정상잔액 방향을 명시값에서는 `DEBIT/CREDIT`만 허용했다.
+  - master-data JPA 어댑터가 계정과목/거래처/부서를 실제 기준일 SCD2 조회하도록 구현했다.
+  - `@Masked`에 Jackson meta annotation을 연결하고 사업자번호/계좌번호/이메일 마스킹과 미지원 패턴 fail-closed를 구현했다.
+  - 로컬 capability registry를 생성자 주입 불변 스냅샷, 이름순 결과, 중복 이름 fail-fast로 리팩토링했다.
+  - 구현 없는 분산락 애노테이션 사용을 제거하고 실제 포트/owner token/lease 갱신 TODO를 남겼다.
+  - CDM 이벤트 JSON 생성자/필수값을 보강하고 `eventId`를 Batch 멱등 키로 사용했다. 완료 이벤트 중복은 정상 종료하고 다른 실패는 Kafka로 전파한다.
+  - 단위 테스트 15개를 추가해 계약 불변성, 마스킹, 레지스트리, 이벤트 JSON, Batch 멱등성/실패 전파, SCD2 날짜 전달을 검증하도록 구성했다.
+  - 빈 Docker/Compose는 각 module docs archive로 이동해 이력을 보존했다.
+  - 초보자 비유와 기존 설명을 살리면서 JVM Port/원격 Adapter, SCD2, JSON 마스킹, 이벤트/Batch 데이터 흐름으로 문서를 최신화했다.
+- **검증**:
+  - `git diff --check` 성공.
+  - Java 사용처 기준 `DistributedLock` 검색은 선언 자체 외 0건.
+  - Config Server 대상 테스트 재실행과 contracts 직접 `javac`는 Windows 페이지 파일 부족으로 64~128MB JVM도 진행되지 않아 중단했다.
+  - 생성된 Gradle/javac JVM과 임시 디렉터리는 모두 정리했고, `jps`에는 IntelliJ/SonarLint만 남았다.
+  - 따라서 새 단위 테스트와 영향 모듈 컴파일은 아직 통과로 기록하지 않는다.
+- **남은 리스크/TODO**:
+  - 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test`와 Config Server 대상 테스트를 반드시 재실행한다.
+  - shared-kernel 전이 의존성은 소비 모듈 직접 선언을 먼저 완료한 뒤 단계적으로 제거해야 한다.
+  - Master Data 호환 default, Source Document Map, ECL 전용 공통 타입/이벤트, 실제 분산락 구현이 남았다.
+  - 실제 Kafka redelivery/DLT와 PostgreSQL SCD2 중복 기간 제약은 별도 통합 환경에서 확인해야 한다.
+- **롤백 범위**:
+  - `contracts`, `shared-kernel`, master-data 기준일 adapter/repository, ECL CDM consumer/build/test, archive 이동, 이번 공통 docs/harness 항목을 함께 되돌린다.

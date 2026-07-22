@@ -584,3 +584,58 @@ Notes:
 - Runtime cleanup: no Discovery/Gradle process remained.
 - Docker CLI is not installed; actual image build and Compose execution were not run.
 - Live Config/multiple Eureka clients/heartbeat/LoadBalancer and production load were not run.
+
+## Current Review Request - 2026-07-22 Config Server
+
+- Review branch: `agent/asset-lease-split`.
+- Review only; do not modify code. Report findings first with severity and exact file/line evidence.
+- Scope: current uncommitted Config Server pass only, while checking root Compose overlap with committed Discovery changes.
+
+### Required Review Focus
+
+1. Does `ConfigRepositoryHealthIndicator` correctly fail closed for empty/error results without exposing property values or repository URLs?
+2. Is direct use of Spring Cloud `EnvironmentRepository` appropriate for this infrastructure application, without inventing a false business-domain layer?
+3. Do application/profile/label binding and ordered `propertySources` tests reflect Spring Config semantics?
+4. Does readiness include the custom `configRepository` component and prove representative configuration availability?
+5. Do root/module Compose mount `config-repo` read-only at the configured path, and do exactly 15 clients wait for `service_healthy`?
+6. Does the JDK 17 Docker image select one non-plain bootJar, avoid embedding config-repo, require a read-only runtime mount, and use a compatible Alpine healthcheck?
+7. Were unrelated root Compose service settings preserved, especially Discovery and Gateway changes?
+8. Do docs avoid the incorrect claims that local settings are ignored or that file edits instantly rebind running clients?
+9. Are private network+mTLS/service auth and reviewed Git backend/label/refresh/rollback TODOs sufficient for the currently unknown production policy?
+
+### Verification Evidence
+
+- Initial `.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon`: passed.
+- Initial XML results: 9 tests, 0 failures, 0 errors, 0 skipped.
+- A later change removed repository exception messages from health details and added a sensitive-path assertion. The main/test classes compiled, but the targeted rerun stalled before producing a new report because the Windows paging file was exhausted; treat this as a verification gap, not as a passing test.
+- Initial standalone JAR: readiness UP; `master-data/default` HTTP 200/property source 1; Prometheus HTTP 200/JVM metric present.
+- Config values were not printed and runtime was stopped.
+- Docker CLI is unavailable; actual image/Compose execution was not run.
+
+## Current Review Request - 2026-07-22 Contracts/Shared-Kernel
+
+- Review branch: `agent/asset-lease-split`.
+- Review only; do not modify code. Report findings first with severity and exact file/line evidence.
+- Scope: current uncommitted contracts/shared-kernel pass plus the directly affected master-data and ECL integration files.
+
+### Required Review Focus
+
+1. Do JournalEntryCommand/JournalLineCommand validations preserve valid callers while preventing mutable lists, missing dates, invalid side codes, and null amounts?
+2. Does AccountSubjectRef fail closed for explicit invalid normal-balance values without breaking the legacy four-argument constructor?
+3. Does MonolithMasterDataQueryAdapter use the requested effectiveDate for account, partner, and department SCD2 lookup, and can overlapping versions cause a useful fail-fast result?
+4. Is `@Masked` now actually connected to Jackson, and do REG_NO/ACCOUNT/EMAIL policies avoid overexposure and fail closed for malformed values?
+5. Does SpringServiceDiscoveryRegistry constructor injection avoid service-locator behavior, return deterministic immutable results, and reject duplicate service names safely?
+6. Is removing the inert `@DistributedLock` usage correct, and are the remaining lock TODOs explicit enough not to imply production safety?
+7. Does CdmDataReadyEvent preserve event identity over JSON, and does CdmDataReadyConsumer use eventId as Batch identity, ignore only already-completed duplicates, and propagate other failures for Kafka retry/DLT?
+8. Are broad shared-kernel infrastructure dependencies and ECL/account-mart-specific types correctly identified as staged migration work rather than removed unsafely?
+9. Are the archived Docker/Compose files truly unused no-op skeletons, and do docs accurately state that these modules are libraries?
+10. Recheck the cumulative Config Server changes because they remain in the same uncommitted working tree.
+
+### Verification Evidence And Gap
+
+- `git diff --check` passed.
+- `DistributedLock` has no Java usage outside its deprecated declaration.
+- 15 focused tests were added.
+- Gradle tests and direct javac were not completed: Windows paging-file exhaustion prevented even 64-128 MB JVM work.
+- Spawned Java processes and temporary outputs were cleaned.
+- Treat all JVM behavior as verification pending and rerun the commands in `docs/ai-harness/handoff.md` before merge.

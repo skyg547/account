@@ -76,8 +76,8 @@ flowchart TD
 
 ### ⚙️ 기반 모듈 (Foundation)
 * **`app/`**: 전체 Spring Boot 애플리케이션의 실행 진입점(Main)이자 전체 환경 설정(`application.yml`)을 담당합니다.
-* **`contracts/`**: 도메인 모듈 간 직접적인 엔티티 참조를 막기 위한 공통 인터페이스(Port)와 DTO(Data Transfer Object)가 정의된 통신 규약 모듈입니다.
-* **`shared-kernel/`**: 여러 서비스가 공유하는 핵심 공통 로직(식별자, 예외 처리, 메타데이터 등)을 담고 있는 최소한의 뼈대입니다.
+* **`contracts/`**: 모듈 간 Entity 직접 참조를 막는 Java Port/Command/Ref 계약입니다. 자체 서버가 아니며 같은 프로세스는 Bean, 원격 MSA는 별도 REST/Kafka 어댑터로 연결합니다.
+* **`shared-kernel/`**: 로컬 capability 메타정보와 JSON 마스킹 등 최소 공통 규칙을 담습니다. 현재 인프라 전이 의존성과 ECL/account-mart 전용 타입은 단계적 분리 TODO가 있습니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
 * **`governance/`**: 시스템 내 역할(Role) 및 권한 관리, 데이터 마스킹, 결재/승인 프로세스, 그리고 전사 감사 로그(Audit)를 기록합니다.
 
@@ -101,7 +101,7 @@ flowchart TD
 
 ### 🌐 프론트엔드 및 인프라 (Frontend & Infra)
 * **`frontend/`**: Next.js 기반으로 구축된 도메인 특화 대시보드 화면 및 사용자 인터페이스 모듈입니다.
-* **`gateway/`, `discovery/`, `config-server/`, `auth/`**: 요청 라우팅(Gateway), 서비스 위치 식별(Eureka), 설정 중앙화(Config), JWT 보안 토큰 발급(Auth) 등 MSA를 지탱하는 핵심 인프라 마이크로서비스들입니다.
+* **`gateway/`, `discovery/`, `config-server/`, `auth/`**: 요청 라우팅(Gateway), 서비스 위치 식별(Eureka), 중앙 설정과 저장소 readiness(Config), JWT 보안 토큰 발급(Auth) 등 MSA를 지탱하는 핵심 인프라 마이크로서비스들입니다.
 
 ---
 

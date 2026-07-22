@@ -41,6 +41,8 @@
 | 25 | `auth` 인증/역할 승인 멱등 경계 리팩토링 | Review ready | API/core DTO 분리, 역할 시점 고정, memory/JPA 정합성, approvalTraceId 멱등 반영 |
 | 26 | `gateway` 전역 인증/신뢰 헤더 경계 리팩토링 | Review ready | 모든 API 기본 인증, 내부 Auth 차단, JWT 포트 분리, roleVersion 401/503 구분, 8000/Docker 정합화 |
 | 27 | `discovery` registry/readiness/컨테이너 경계 리팩토링 | Review ready | 8761 standalone, 실제 Config Client/actuator, register 생명주기, Docker health/service_healthy, 보안·HA TODO |
+| 28 | `config-server` native 저장소/readiness/컨테이너 경계 리팩토링 | Review ready / rerun pending | strict property-source probe, 8888 standalone, JDK 17/read-only config-repo, 15개 service_healthy, 보안·Git TODO |
+| 29 | `contracts`/`shared-kernel` 2차 계약·공유 경계 리팩토링 | Verification pending | 전표 불변 계약, SCD2 기준일 Adapter, 실제 Jackson 마스킹, 로컬 capability registry, CDM eventId 멱등성, 빈 Docker archive |
 
 ## 1차 완료 상세
 
@@ -635,3 +637,62 @@ Invoke-RestMethod http://localhost:8000/actuator/health
 - runtime 종료 후 Discovery/Gradle 프로세스가 남지 않음을 확인
 - Docker CLI가 설치되어 있지 않아 실제 image/Compose 실행은 미검증
 - live Config Server와 실제 여러 서비스 heartbeat/load-balancing, 운영 self-preservation 임계값은 별도 통합/부하 환경 검증 필요
+## 28차 후속 상세
+
+### config-server native 저장소와 strict readiness 경계 리팩토링
+
+- 테스트가 없던 Config Server에 실제 `/{application}/{profile}` HTTP 조회와 설정 정책 테스트를 추가했습니다.
+- Spring 기본 health가 빈 Environment를 UP으로 볼 수 있는 한계를 보완해, 대표 `master-data/default`의 property source가 하나 이상일 때만 UP인 `ConfigRepositoryHealthIndicator`를 추가했습니다.
+- 정상 source, 빈 source, 조회 예외를 각각 UP/DOWN으로 검증하고 health 응답에는 설정 값/URL을 노출하지 않습니다.
+- native 저장소 위치를 `CONFIG_REPO_LOCATION`으로 외부화하고 로컬은 `file:./config-repo`, Docker는 `file:/config-repo`를 사용합니다.
+- Dockerfile을 JDK 17 단일 `bootJar`와 readiness healthcheck로 통일하고, 설정 원본을 이미지에 포함하지 않고 Compose read-only volume으로만 연결했습니다.
+- root Compose의 Config Server 자체에서 불필요한 Eureka/Config/Kafka/Redis 환경을 제거하고 15개 의존 서비스가 `service_healthy`를 기다리게 했습니다.
+- 기존 레시피 본사 비유를 유지하면서 profile/property source 우선순위, `optional` fallback, 클라이언트 재시작/refresh, 종료 절차를 문서화했습니다.
+- 남은 `@todo`는 Config 조회 API private network+mTLS/서비스 인증과 승인된 Git backend/고정 label/refresh/rollback 정책입니다.
+
+검증:
+
+```powershell
+.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon
+java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo
+```
+
+결과:
+- 1차 config-server 전체 검증에서 9개 테스트 성공, 실패/오류/skip 0건
+- 이후 health 오류 상세 비노출 보강 소스와 테스트 class 생성은 확인했으나, 대상 테스트 재실행은 Windows 페이지 파일 부족으로 새 결과를 만들지 못해 메모리 회복 후 재검증 필요
+- 1차 `bootJar` 성공
+- 1차 산출 JAR로 실제 8888 readiness UP, `master-data/default` HTTP 200/property source 1개, Prometheus HTTP 200/JVM 지표 확인
+- runtime 종료 후 Config Server/Gradle 프로세스가 남지 않음을 확인
+- Docker CLI가 없어 실제 image/Compose 실행은 미검증
+
+## 29차 후속 상세
+
+### contracts/shared-kernel 계약과 공용 경계 리팩토링
+
+- `JournalEntryCommand`가 일자와 비어 있지 않은 라인을 검증하고 List를 불변 복사하도록 보강했습니다.
+- `JournalLineCommand`가 `DEBIT/CREDIT`, 계정 코드, 금액 필수 형식을 생성 시점에 검증합니다.
+- `AccountSubjectRef`는 명시적인 정상잔액 방향에서 `DEBIT/CREDIT` 외 값을 fail-closed 처리합니다.
+- master-data `MonolithMasterDataQueryAdapter`가 계정과목/거래처/부서를 실제 기준일 SCD2 쿼리로 조회해 Closing 평가일 정합성을 보강했습니다.
+- `@Masked`를 Jackson serializer에 실제 연결하고 사업자번호/계좌번호/이메일 마스킹과 미지원 패턴 fail-closed를 구현했습니다.
+- Spring ApplicationContext 서비스 로케이터를 생성자 주입 불변 목록과 중복 이름 fail-fast 방식으로 변경했습니다.
+- 구현 없는 `@DistributedLock` 사용을 ECL 소비자에서 제거했습니다.
+- CDM 이벤트는 생산자의 `eventId`를 Spring Batch JobInstance 키로 사용하고, 완료 이벤트 재전달은 정상 중복으로 종료하며 다른 실패는 Kafka 정책으로 전파합니다.
+- library 루트의 빈 Dockerfile/Compose 4개는 삭제하지 않고 각 `docs/archive/legacy-runtime-skeleton`로 이동했습니다.
+- 기존 초보자 비유를 유지하면서 JVM 내부 Port 호출, 원격 Adapter, SCD2, 마스킹, 멱등 데이터 흐름을 실제 코드 기준으로 최신화했습니다.
+
+남은 코드 TODO:
+
+- 모든 Master Data 제공자의 기준일 조회 구현 후 호환 default 제거
+- Source Document Map을 versioned DTO로 변경
+- contracts/shared-kernel public API와 로컬 capability SPI 분리
+- shared-kernel의 JPA/Kafka/Redis/Vault/관측/Swagger 전이 의존성을 convention/platform과 각 Adapter로 이동
+- ECL 전용 BaseEntity/enum/event 계약 이동
+- owner token/lease 갱신을 갖춘 실제 분산락 포트 구현
+
+검증 상태:
+
+- `git diff --check` 성공.
+- 구현 없는 `DistributedLock` 사용 검색 0건.
+- Config Server 대상 테스트, contracts 직접 `javac` 모두 64~128MB JVM도 시작하지 못할 정도의 Windows 페이지 파일 부족으로 중단했습니다.
+- 생성된 Gradle/javac JVM과 임시 디렉터리는 정리했으며 IntelliJ/SonarLint 외 Java 프로세스는 남지 않았습니다.
+- 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test` 재실행이 필요합니다.
