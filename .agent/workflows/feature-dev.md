@@ -1,25 +1,30 @@
 ---
-description: role-based feature development workflow
+description: issue-driven role-based feature development workflow
 ---
+
 # Feature Development Workflow
 
-This workflow follows the roles defined in `.clinerules`.
+Follow `AGENTS.md` and `docs/ai-harness/10-rules.md`. Treat legacy `.clinerules` as supplemental persona context only when it does not conflict with the current harness.
 
-1. **[PM] Requirement Analysis**
-   - Review project requirements.
-   - Update `docs/requirements.md`.
+1. **Planner / Explorer**
+   - Confirm the Issue or task contract, acceptance criteria, affected module/layer, and candidate files.
+   - Do not edit code.
 
-2. **[DA] Schema Design**
-   - Create or update `docs/db/schema.sql`.
-   - Update `docs/db/table_spec.md`.
+2. **Branch / Worktree**
+   - Create a non-base branch.
+   - Use an external worktree for dirty checkouts or parallel writers.
+   - Record Issue, branch, worktree, and base branch.
 
-3. **[Backend] Implementation**
-   - Create JPA Entities based on schema.
-   - Implement Service and Controller logic.
+3. **Role-Based Implementation**
+   - Assign disjoint allowlists to Controller, Service, Batch, SQL, Test, and Documentation roles.
+   - Preserve API/core/batch and port/adapter boundaries.
+   - Keep shared logs with the parent Integrator.
 
-4. **[QA] Verification**
-   - Run `./gradlew test`.
-   - Verify API endpoints.
+4. **Verification / Review**
+   - Run targeted tests, affected builds, diff checks, and conflict-marker checks.
+   - Use an independent read-only Reviewer.
 
-5. **[SRE] Deployment Prep**
-   - Update `docker-compose.yml` if necessary.
+5. **Integration**
+   - Let the parent Integrator update shared records and prepare the Draft PR.
+   - Merge only through the approved PR gate.
+   - Update Issue and handoff before cleanup.

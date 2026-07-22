@@ -1,0 +1,7 @@
+interface:
+  display_name: "Account Hexagonal Change"
+  short_description: "API, core, batch, and SQL architecture workflow"
+  default_prompt: "Use $account-hexagonal-change to implement this module change while preserving API, core, batch, and persistence boundaries."
+
+policy:
+  allow_implicit_invocation: true

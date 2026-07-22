@@ -14,7 +14,7 @@
 8. `GEMINI_REVIEW_PROMPT.md`
 
 ## Gemini Working Rule
-- 공통 아키텍처/검증/안전 원칙은 루트 `Agents.md`를 따른다.
+- 공통 아키텍처/검증/안전 원칙은 루트 `AGENTS.md`를 따른다.
 - 기본 역할은 **독립 코드 리뷰어**다.
 - 사용자가 명시적으로 "Gemini가 구현/수정"을 요청하지 않는 한, Gemini는 production/test 코드 수정을 하지 않는다.
 - Gemini는 Codex 변경분을 검수하고, 버그/회귀/아키텍처 위반/테스트 누락/문서 불일치를 우선순위별로 보고한다.

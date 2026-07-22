@@ -1,0 +1,7 @@
+interface:
+  display_name: "Account Review And Handoff"
+  short_description: "Diff review, verification, logs, and PR handoff"
+  default_prompt: "Use $account-review-handoff to verify this branch, review the diff, update harness records, and prepare the handoff."
+
+policy:
+  allow_implicit_invocation: true

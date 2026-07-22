@@ -1077,3 +1077,24 @@
 - 남은 리스크:
   - 후속 문서 업데이트 브랜치는 아직 commit/push/PR 전이다.
   - 병합된 이전 branch/worktree cleanup은 사용자가 확인한 뒤 진행해야 한다.
+
+### 2026-07-14 (GH-4 AI Harness Progressive Disclosure)
+
+### [문서/운영체계] AGENTS 경량화, 저장소 스킬, Codex 서브 에이전트 구성
+
+- **작업 추적**:
+  - GitHub Issue #4, `agent/4-harness-skills-subagents`, `C:\tmp\account-harness-skills` worktree를 사용했다.
+- **수정 범위**:
+  - 루트 `Agents.md`를 Codex 공식 자동 탐색 이름 `AGENTS.md`로 변경하고 124줄에서 61줄로 경량화했다.
+  - Issue/worktree/PR, 헥사고날 API/core/batch 변경, 검증/handoff 절차를 세 개의 `.agents/skills/` 스킬로 분리했다.
+  - Planner, Explorer, Coder, Controller, Service, Batch, SQL, Test, Reviewer, Integrator, Documentation 역할을 `.codex/agents/`에 정의했다.
+  - 공유 로그와 Git/GitHub 변경은 부모 Integrator만 수행하도록 workflow와 ownership 정책을 정리했다.
+- **검증**:
+  - `codex debug prompt-input`에서 `AGENTS.md`와 세 스킬 자동 탐색을 확인했다.
+  - 스킬 3개와 custom agent 11개의 구조 검사를 통과했다.
+  - Python이 없어 공식 `quick_validate.py`는 실행하지 못했고 동일 규칙 검사로 대체했다.
+  - diff, trailing whitespace, placeholder, conflict marker 검사에 이상이 없었다.
+  - 문서/설정 변경이므로 Gradle 테스트는 실행하지 않았다.
+- **남은 리스크**:
+  - custom agent 실제 spawn은 새 Codex 세션에서 다시 확인해야 한다.
+  - branch push, Draft PR, merge, Issue close는 아직 수행하지 않았다.

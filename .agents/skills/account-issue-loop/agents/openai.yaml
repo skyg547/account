@@ -1,0 +1,7 @@
+interface:
+  display_name: "Account Issue Worktree Loop"
+  short_description: "Issue-to-PR workflow with isolated Git worktrees"
+  default_prompt: "Use $account-issue-loop to run this change through an Issue, isolated worktree, verification, and Draft PR handoff."
+
+policy:
+  allow_implicit_invocation: true

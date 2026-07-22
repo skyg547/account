@@ -20,7 +20,7 @@ The remaining gap was operational depth for GitHub Issue driven work: the harnes
 | Requirement Area | Status | Evidence |
 | --- | --- | --- |
 | Preserve existing guidance | Done | Existing root guidance and backups are retained under `docs/ai-harness/_backup/2026-06-25/`. |
-| Root agent guide | Done | `Agents.md` contains project purpose, principles, prohibitions, start order, completion artifacts, and harness links. |
+| Root agent guide | Done | `AGENTS.md` contains project purpose, principles, prohibitions, start order, completion artifacts, and harness links. |
 | `docs/ai-harness` core files | Done | `00` through `80`, logs, and handoff files exist. |
 | Rules document | Done | `10-rules.md` covers branch, review, security, dangerous command, architecture, completion, and commit rules. |
 | Workflow document | Done | `20-workflow.md` covers requirement intake through branch/worktree cleanup and handoff. |

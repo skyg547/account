@@ -144,3 +144,45 @@ Use this template before stopping or transferring an issue-driven task.
 
 ### Risks
 - Do not delete `agent/github-issue-agent-loop-harness` while `C:\tmp\account-gh-issue-harness` is still checked out on that branch.
+
+## 2026-07-14 Handoff - GH-4 Skills And Custom Subagents
+
+- Current state: Review ready on the local feature branch.
+- Issue: #4 https://github.com/skyg547/account/issues/4
+- Branch: `agent/4-harness-skills-subagents`
+- Worktree: `C:\tmp\account-harness-skills`
+- Base branch: `origin/main`
+- Draft PR: not created
+- Owner: Codex parent Integrator
+
+### Done
+
+- Canonicalized and reduced `AGENTS.md` from 124 to 61 lines.
+- Added `account-issue-loop`, `account-hexagonal-change`, and `account-review-handoff` skills.
+- Added 11 project custom agent personas and one-level/six-thread concurrency policy.
+- Updated current harness workflow, ownership, model policy, active links, and legacy compatibility entries.
+- Verified skill discovery and root instruction discovery with `codex debug prompt-input`.
+- Completed structural, diff, whitespace, placeholder, and conflict checks.
+
+### Not Done
+
+- No push, Draft PR, merge, Issue close, or cleanup has been performed.
+- Official Python `quick_validate.py` and a fresh-session custom agent spawn remain unverified.
+
+### Next Steps
+
+1. Review the local commit and diff.
+2. Push the feature branch only after user approval.
+3. Create a Draft PR with `Refs #4` after the push gate.
+4. Start a fresh Codex session in this worktree and spawn `planner` or `reviewer` for runtime smoke.
+5. Merge, close Issue #4, and clean the worktree only through later approved gates.
+
+### Risks
+
+- The current Codex thread started before `.codex/agents/` existed and cannot hot-load those custom types.
+- Python is absent, so only the equivalent structural validator was run.
+
+### Rollback
+
+- Before commit: restore the changed harness files from `origin/main`, remove the new `.agents/`, `.codex/`, and `docs/ai-harness/95-codex-skills-subagents.md`, then restore `Agents.md`.
+- After commit: revert the GH-4 commit through the feature branch and review the revert diff before any PR merge.

@@ -60,7 +60,7 @@ Every meaningful change must document:
 - rollback method
 - remaining risks
 
-Also update:
+The parent Integrator updates shared records once after collecting subagent results:
 
 - `docs/ai-harness/worklog.md`
 - `docs/ai-harness/agent-status.md`
