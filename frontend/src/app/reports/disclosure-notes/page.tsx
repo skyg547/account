@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Database, Search, FileText, Activity, ShieldAlert, Coins } from 'lucide-react';
 import { DisclosureNoteMartDto, DisclosureNoteMartEntryDto, JournalDetailSummaryDto, reportingService, StatementType } from '@/services/reportingService';
 
@@ -35,11 +35,9 @@ export default function DisclosureNotesPage() {
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-  const fetchMart = async () => {
+  const loadMart = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       let data;
       try {
@@ -47,21 +45,32 @@ export default function DisclosureNotesPage() {
       } catch {
         data = await reportingService.generateDisclosureNoteMart(statementType, baseDate);
       }
-      if (!cancelled) setMart(data);
+      setMart(data);
     } catch (err) {
-      if (!cancelled) setError(err instanceof Error ? err.message : '주석 마트 로드 중 오류가 발생했습니다.');
+      setError(err instanceof Error ? err.message : '주석 마트 로드 중 오류가 발생했습니다.');
     } finally {
-      if (!cancelled) setLoading(false);
+      setLoading(false);
     }
-  };
+  }, [statementType, baseDate]);
 
-  fetchMart();
-
-  return () => {
-    cancelled = true;
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  useEffect(() => {
+    let ignore = false;
+    const run = async () => {
+      try {
+        let data;
+        try {
+          data = await reportingService.getDisclosureNoteMart(statementType, baseDate);
+        } catch {
+          data = await reportingService.generateDisclosureNoteMart(statementType, baseDate);
+        }
+        if (!ignore) setMart(data);
+      } catch (err) {
+        if (!ignore) setError(err instanceof Error ? err.message : '주석 마트 로드 중 오류가 발생했습니다.');
+      }
+    };
+    run();
+    return () => { ignore = true; };
+  }, [statementType, baseDate]);
 
   return (
     <div className="flex flex-col gap-10">
