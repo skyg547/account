@@ -4,15 +4,16 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 /**
  * [내비게이션 카테고리 정의]
- * 상단 헤더에서 선택할 수 있는 대분류입니다.
+ * 상단 헤더에서 선택할 수 있는 7개 대분류입니다.
  */
 export type NavCategory = 
-  | 'DASHBOARD'   // 대시보드
-  | 'ACCOUNTING'  // 재무업무 (전표, 원장, 결산)
-  | 'OPERATIONS'  // 재무운영 (기업 실무, 채권/채무)
-  | 'BANKING'     // 은행특화
-  | 'MASTER'      // 기준관리
-  | 'ADMIN';      // 시스템관리
+  | 'DASHBOARD'    // 대시보드
+  | 'ACCOUNTING'   // 재무회계 (원장, 결산, 보고서)
+  | 'OPERATIONS'   // 자금운영 (지출, 세무)
+  | 'CREDIT'       // 여신·자산 (대출/이연, 공정가치)
+  | 'RISK'         // 리스크·데이터 (ECL, 마트/대사)
+  | 'MASTER'       // 기준정보 (계정과목, 거래처)
+  | 'SYSTEM';      // 시스템관리 (내부회계, 사용자/부서)
 
 /**
  * [보안 역할 정의]
@@ -22,6 +23,7 @@ export type UserRole =
   | 'SYSTEM_ADMIN'
   | 'ACCOUNTING_ADMIN'
   | 'RISK_MANAGER'
+  | 'RISK_ANALYST'
   | 'MASTER_MANAGER'
   | 'AUDITOR'
   | 'USER';
@@ -31,7 +33,6 @@ interface NavContextType {
   setActiveCategory: (category: NavCategory) => void;
   isCollapsed: boolean;
   toggleSidebar: () => void;
-  // 권한 관련 추가
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
 }
