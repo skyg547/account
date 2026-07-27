@@ -19,8 +19,8 @@ public class AccountSubjectMasterDataChangeApplier implements MasterDataChangeAp
     private final MasterDataChangePayloadDecoder payloadDecoder;
 
     @Override
-    public boolean supports(MasterDataType targetType) {
-        return targetType == MasterDataType.ACCOUNT_SUBJECT;
+    public MasterDataType targetType() {
+        return MasterDataType.ACCOUNT_SUBJECT;
     }
 
     @Override

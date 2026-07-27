@@ -1,3 +1,57 @@
+# AI Harness Handoff - 2026-07-27 Master Data Review Ready
+
+## Active Goal
+
+모듈을 순차적으로 점검하면서 헥사고날 아키텍처, DDD, 실제 업무 프로세스,
+스켈레톤 코드 여부, 데이터 정합성, 메서드 호출 순서, 객체지향/함수형 설계를
+검수한다. 구현 가능한 항목은 고도화하고, 즉시 구현할 수 없는 운영 설계는
+근거 있는 `@todo`로 남긴다. 기존 초보자용 주석과 업무 설명은 최대한 보존하고
+코드 흐름에 맞춰 문서도 최신화한다.
+
+## Current State
+
+- Branch/push target: `agent/asset-lease-split` -> `origin/agent/asset-lease-split`.
+- Scope: Master Data SCD2 version/approval/apply boundary, locking, runtime packaging, tests, and docs.
+- Review state: focused implementation and verification complete; commit/push requested by the user.
+- Other four worktrees are clean and their feature commits are already in `main`; do not merge them individually.
+
+## What Changed
+
+- Added repository-backed SCD2 requested-version policy and rechecks at request/approve/apply boundaries.
+- Added immutable fail-closed applier registry and duplicate ownership validation.
+- Added pessimistic decision lookup, optimistic request lock version, and V3 migration.
+- Added Governance approval source-reference idempotency, conflict detection, applied timestamp lineage, and V5 migration.
+- Added API validation, HTTP 409 conflict mapping, runtime dependency/port/readiness alignment, and JDK 17 packaging.
+- Preserved V2 checksum, added V4 forward payload type correction, and documented the clean PostgreSQL bootstrap gap.
+- Preserved beginner explanations and updated README, local run, process, schema, archive, worklogs, and review prompt.
+
+## Verification
+
+- `:master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar`: passed.
+- Master Data 17 suites/57 tests and Governance 10 suites/25 tests: total 82 with 0 failures, errors, or skips; both bootJars passed.
+- `git diff --check`, conflict/placeholder scan, and changed Markdown relative-link validation passed.
+- The initial incremental compile failed on stale module class outputs; the clean full compile passed and is the authoritative result.
+
+## Known Risks And TODO
+
+- Live PostgreSQL migration and Docker/Compose image execution were not run.
+- Historical V2 declares `CLOB`; a clean PostgreSQL database needs a vendor-specific pre-V2 baseline before production certification.
+- Same-key multi-node requests need key/advisory locking; concurrent first source-reference inserts need atomic conflict recovery; bulk apply needs per-request transactions, SKIP LOCKED, and execution history.
+- Trusted actor extraction, payload masking/authorization, direct-write governance, and three unsupported typed appliers remain.
+
+## Integration Order
+
+1. Commit and push this verified Master Data pass on `agent/asset-lease-split`.
+2. Merge current `origin/main` into the feature branch rather than rebasing published history.
+3. Resolve harness/docs conflicts, rerun affected checks, push the merge commit, and open/review a PR to `main`.
+4. Do not push directly to `main` and do not remove clean worktrees until PR integration is confirmed.
+
+## Rollback
+
+- Revert the Master Data governance/runtime commit as one unit.
+- Keep V3/V4/V5 aligned with the entity fields when reverting; partial migration rollback is unsafe.
+
+---
 # AI Harness Handoff - 2026-07-22 Contracts/Shared-Kernel Review
 
 ## Current State

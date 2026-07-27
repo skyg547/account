@@ -43,6 +43,8 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
 
     List<BusinessPartner> findByBusinessPartnerNameContaining(String name);
 
+    long countByBusinessPartnerCode(String businessPartnerCode);
+
     @Query("""
             SELECT COUNT(bp) FROM BusinessPartner bp
             WHERE bp.useYn = true

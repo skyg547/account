@@ -2,6 +2,7 @@
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Master Data SCD2 version/approval/runtime refactor verified with 82 Master Data/Governance tests and both bootJars; commit/push requested. Merge `origin/main` only after preserving this verified commit. |
 | 2026-06-25 | Codex | AI Harness Architect / Integrator Agent | `ai-harness-upgrade-20260625` | Review ready | Harness docs created, root guidance preserved, verification checks passed. |
 | 2026-06-26 | Codex | AI Harness Architect / Integrator Agent | `ai-harness-upgrade-20260625` -> `main` | Done | Beginner AI agent Git guide added, branch pushed, and merged into `main` by explicit user request. |
 | 2026-06-30 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | asset-lease split into core/api/batch; compile/test/bootJar verification passed. |

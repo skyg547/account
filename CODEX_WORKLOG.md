@@ -1502,3 +1502,25 @@
   - Dependency extraction, dated-port default removal, versioned source DTOs, allowance contract ownership, and real distributed locking remain TODO.
 - Rollback:
   - Revert contracts/shared-kernel, dated master-data adapter/repository, ECL event consumer/build/tests, archived skeleton moves, and this pass's docs/harness entries.
+
+## 2026-07-27 (Master Data change governance and runtime boundary)
+
+- Branch: `agent/asset-lease-split`.
+- Scope: Master Data change-request domain/application/persistence/API boundaries, migrations, runtime packaging, tests, and beginner documentation.
+- Changes:
+  - Added SCD2 requested-version policy and repository-backed version query port.
+  - Added immutable fail-closed applier registry with duplicate ownership detection.
+  - Added pessimistic decision lookup, optimistic request lock version, and version rechecks at request/approve/apply boundaries.
+  - Added Governance approval sourceReference idempotency, payload conflict detection, applied timestamp lineage, and V5 migration; UPDATE/DELETE now require an explicit requested version.
+  - Added Bean Validation, HTTP 409 conflict mapping, runtime dependency/port/readiness alignment, JDK 17 bootJar Docker packaging, and focused tests.
+  - Preserved V2 checksum; added V3/V4/V5 forward migrations and documented the clean PostgreSQL bootstrap gap caused by historical V2 `CLOB`.
+  - Preserved beginner comments and updated business/data flow, schema, local run, archive, and handoff documents.
+- Verification:
+  - `.\gradlew :master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"`: passed.
+  - Master Data: 17 suites / 57 tests. Governance: 10 suites / 25 tests. Total: 82 tests with 0 failures, errors, or skips; both bootJars passed.
+  - `git diff --check`, conflict/placeholder scan, and changed Markdown relative-link check passed.
+- Risk:
+  - Live PostgreSQL migration and Docker/Compose execution were not run.
+  - Same-business-key distributed serialization, atomic concurrent source-reference recovery, per-request chunk transactions/SKIP LOCKED, trusted actor extraction, payload masking, direct-write governance, and three typed appliers remain explicit TODOs.
+- Rollback:
+  - Revert the Master Data governance/runtime commit as one unit; do not partially remove V3/V4/V5 while retaining the entity fields they support.

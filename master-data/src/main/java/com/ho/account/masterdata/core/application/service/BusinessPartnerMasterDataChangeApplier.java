@@ -20,8 +20,8 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
     private final MasterDataChangePayloadDecoder payloadDecoder;
 
     @Override
-    public boolean supports(MasterDataType targetType) {
-        return targetType == MasterDataType.BUSINESS_PARTNER;
+    public MasterDataType targetType() {
+        return MasterDataType.BUSINESS_PARTNER;
     }
 
     @Override

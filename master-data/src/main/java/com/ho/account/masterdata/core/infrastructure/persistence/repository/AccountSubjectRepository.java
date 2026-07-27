@@ -25,6 +25,8 @@ public interface AccountSubjectRepository extends JpaRepository<AccountSubject, 
 
     boolean existsByCode(String code);
 
+    long countByCode(String code);
+
     @Query("SELECT COUNT(a) FROM AccountSubject a WHERE a.validFrom <= :date AND a.validTo >= :date")
     long countActiveAt(LocalDate date);
 }

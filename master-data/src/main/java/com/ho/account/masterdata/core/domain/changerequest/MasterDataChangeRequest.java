@@ -8,8 +8,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Controlled master-data change request.
@@ -41,6 +44,14 @@ public class MasterDataChangeRequest {
     @Column(nullable = false, length = 30)
     private ChangeStatus status;
 
+    /**
+     * 같은 변경 요청을 두 노드가 동시에 승인하거나 반영하는 기술적 충돌을 감지합니다.
+     * 업무상의 SCD2 순번은 requestedVersion과 별도로 검증합니다.
+     */
+    @Version
+    @Column(nullable = false)
+    private long lockVersion;
+
     @Column(nullable = false)
     private LocalDate effectiveDate;
 
@@ -61,29 +72,46 @@ public class MasterDataChangeRequest {
     @Column(length = 500)
     private String reason;
 
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "TEXT")
     private String payloadJson;
+
+    /**
+     * 외부 승인/이벤트의 안정적인 식별자입니다. 같은 승인 재시도가 새 요청을 만들지 않게 합니다.
+     */
+    @Column(length = 120, unique = true)
+    private String sourceReference;
+
+    private LocalDateTime appliedAt;
 
     protected MasterDataChangeRequest() {
     }
 
     public MasterDataChangeRequest(MasterDataType targetType, String targetKey, ChangeType changeType,
             LocalDate effectiveDate, Integer requestedVersion, String requestedBy, String reason, String payloadJson) {
+        this(targetType, targetKey, changeType, effectiveDate, requestedVersion,
+                requestedBy, reason, payloadJson, null);
+    }
+
+    public MasterDataChangeRequest(MasterDataType targetType, String targetKey, ChangeType changeType,
+            LocalDate effectiveDate, Integer requestedVersion, String requestedBy, String reason,
+            String payloadJson, String sourceReference) {
         this.targetType = require(targetType, "Target type is required.");
-        this.targetKey = requireText(targetKey, "Target key is required.");
+        this.targetKey = requireText(targetKey, 100, "Target key is required.");
         this.changeType = require(changeType, "Change type is required.");
         this.effectiveDate = require(effectiveDate, "Effective date is required.");
         this.requestedVersion = requirePositiveVersion(requestedVersion);
-        this.requestedBy = requireText(requestedBy, "Requester is required.");
-        this.reason = reason;
-        this.payloadJson = payloadJson;
+        this.requestedBy = requireText(requestedBy, 80, "Requester is required.");
+        this.reason = normalizeNullableText(reason, 500, "Reason must be 500 characters or fewer.");
+        this.payloadJson = requirePayload(changeType, payloadJson);
+        this.sourceReference = normalizeNullableText(
+                sourceReference, 120, "Source reference must be 120 characters or fewer.");
         this.status = ChangeStatus.REQUESTED;
         this.requestedAt = LocalDateTime.now();
     }
 
     public void approve(String approver) {
         ensureRequested("Only REQUESTED changes can be approved.");
-        String normalizedApprover = requireText(approver, "Approver is required.");
+        String normalizedApprover = requireText(approver, 80, "Approver is required.");
         if (requestedBy.equals(normalizedApprover)) {
             throw new IllegalStateException("Requester and approver must be different users.");
         }
@@ -94,9 +122,13 @@ public class MasterDataChangeRequest {
 
     public void reject(String approver, String rejectReason) {
         ensureRequested("Only REQUESTED changes can be rejected.");
-        this.approvedBy = requireText(approver, "Rejecter is required.");
+        String normalizedApprover = requireText(approver, 80, "Rejecter is required.");
+        if (requestedBy.equals(normalizedApprover)) {
+            throw new IllegalStateException("Requester and rejecter must be different users.");
+        }
+        this.approvedBy = normalizedApprover;
         this.approvedAt = LocalDateTime.now();
-        this.reason = rejectReason;
+        this.reason = requireText(rejectReason, 500, "Reject reason is required.");
         this.status = ChangeStatus.REJECTED;
     }
 
@@ -105,6 +137,25 @@ public class MasterDataChangeRequest {
             throw new IllegalStateException("Only APPROVED changes can be applied.");
         }
         this.status = ChangeStatus.APPLIED;
+        this.appliedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 같은 sourceReference가 다른 업무 명령에 재사용되는 사고를 차단합니다.
+     */
+    public void verifySameChange(MasterDataChangeRequest candidate) {
+        if (sourceReference == null || candidate == null
+                || !Objects.equals(sourceReference, candidate.sourceReference)
+                || targetType != candidate.targetType
+                || !Objects.equals(targetKey, candidate.targetKey)
+                || changeType != candidate.changeType
+                || !Objects.equals(effectiveDate, candidate.effectiveDate)
+                || !Objects.equals(requestedVersion, candidate.requestedVersion)
+                || !Objects.equals(requestedBy, candidate.requestedBy)
+                || !Objects.equals(reason, candidate.reason)
+                || !Objects.equals(payloadJson, candidate.payloadJson)) {
+            throw new MasterDataIdempotencyConflictException(sourceReference);
+        }
     }
 
     public boolean isReadyToApply(LocalDate today) {
@@ -124,11 +175,35 @@ public class MasterDataChangeRequest {
         return value;
     }
 
-    private static String requireText(String value, String message) {
+    private static String requireText(String value, int maxLength, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);
         }
-        return value;
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(message);
+        }
+        return normalized;
+    }
+
+    private static String requirePayload(ChangeType changeType, String payloadJson) {
+        if (changeType == ChangeType.DEACTIVATE) {
+            // 종료는 승인된 effectiveDate만 사용하므로 불필요한 원문을 저장하지 않습니다.
+            return null;
+        }
+        return requireText(payloadJson, Integer.MAX_VALUE,
+                "Payload is required for CREATE and UPDATE changes.");
+    }
+
+    private static String normalizeNullableText(String value, int maxLength, String message) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(message);
+        }
+        return normalized;
     }
 
     private static Integer requirePositiveVersion(Integer version) {
@@ -151,6 +226,8 @@ public class MasterDataChangeRequest {
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public String getReason() { return reason; }
     public String getPayloadJson() { return payloadJson; }
+    public String getSourceReference() { return sourceReference; }
+    public LocalDateTime getAppliedAt() { return appliedAt; }
 
     public enum MasterDataType {
         ACCOUNT_SUBJECT, BUSINESS_PARTNER, DEPARTMENT, PRODUCT, CURRENCY, EXCHANGE_RATE, FISCAL_PERIOD

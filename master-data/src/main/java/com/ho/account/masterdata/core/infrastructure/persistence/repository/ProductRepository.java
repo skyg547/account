@@ -18,6 +18,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     boolean existsByProductCode(String productCode);
 
+    long countByProductCode(String productCode);
+
     @Query("SELECT COUNT(p) FROM Product p WHERE p.validFrom <= :date AND p.validTo >= :date")
     long countActiveAt(LocalDate date);
 }

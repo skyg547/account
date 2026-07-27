@@ -488,3 +488,11 @@
 - Next:
   - Rerun Config Server health test plus shared-kernel/contracts/master-data/closing/ECL tests after memory recovery.
   - Continue with Master Data provider/default closure and shared dependency extraction.
+
+## 2026-07-27 - Master Data SCD2 approval/version boundary
+
+- Branch: `agent/asset-lease-split`.
+- Scope: Master Data approval aggregate, SCD2 version policy, Governance source-reference idempotency, applier registry, locking, API validation, runtime packaging, tests, and docs.
+- Verification: clean Master Data/Governance test and bootJar passed with 82 tests (57 + 25); diff, marker, and Markdown link checks passed.
+- Known risk: live PostgreSQL and Docker were not run; historical V2 `CLOB` and concurrent source-reference recovery require a vendor-specific clean PostgreSQL bootstrap strategy before production.
+- Next: independent Gemini review, then merge current `origin/main` into the feature branch and rerun affected checks before PR integration.

@@ -1582,3 +1582,37 @@
   - 실제 Kafka redelivery/DLT와 PostgreSQL SCD2 중복 기간 제약은 별도 통합 환경에서 확인해야 한다.
 - **롤백 범위**:
   - `contracts`, `shared-kernel`, master-data 기준일 adapter/repository, ECL CDM consumer/build/test, archive 이동, 이번 공통 docs/harness 항목을 함께 되돌린다.
+
+### 📅 2026-07-27 (master-data 변경 승인·버전·런타임 경계 고도화)
+### [검수/리팩토링] SCD2 업무 버전, fail-closed 반영 전략, 동시 승인 잠금과 단독 실행 정합화
+
+- **선확인**:
+  - 변경 요청의 `requestedVersion`은 양수만 확인해 오래된 요청이 최신 SCD2 이력을 덮을 수 있었다.
+  - 반영 전략은 매 호출마다 목록을 순회했고, 담당 전략 중복과 미지원 유형을 시작 시점에 검증하지 않았다.
+  - 승인/반영 조회에 요청 행 잠금이 없어 같은 요청을 여러 노드가 동시에 상태 전이할 수 있었다.
+  - API actor를 요청 본문에서 받고 raw payload를 그대로 반환하며, 직접 쓰기 API와 승인 API가 함께 열려 있다.
+  - Master Data Docker/Compose/IntelliJ 포트와 JDK, Actuator readiness, PostgreSQL/Flyway 의존성이 서로 달랐다.
+- **수정 범위**:
+  - `MasterDataChangeVersionPolicy`와 `MasterDataVersionQueryPort`를 추가해 CREATE=1, UPDATE=이력 수+1, DEACTIVATE=현재 이력 수 규칙을 요청/승인/반영 직전에 검증한다.
+  - 네 SCD2 UPDATE 서비스가 기존 행 종료 후 신규 행을 생성함을 확인하고 Repository COUNT 어댑터를 연결했다.
+  - applier registry를 불변 Map으로 만들고 중복 담당은 시작 시 실패, 미지원 유형은 접수 단계에서 fail-closed 처리한다.
+  - 요청 행에 JPA `@Version`과 비관적 조회 포트를 추가하고 V3 forward migration으로 `lock_version`을 반영했다.
+  - Governance 승인 ID를 `sourceReference` 멱등 키로 전달하고 같은 명령 재시도는 기존 요청을 반환하며, 다른 명령 재사용은 409로 차단한다. V5는 멱등 키와 `appliedAt`을 보존한다.
+  - Governance UPDATE/DELETE는 실제 SCD2 목표 `requestedVersion`을 필수로 받아 잘못된 기본 버전 1 반영을 차단한다.
+  - DTO Bean Validation, 409 버전 충돌 응답, payload/actor/직접 쓰기 경계 TODO를 추가했다.
+  - 8082 포트, JDK 17 단일 bootJar, Actuator DB readiness, PostgreSQL/Flyway/Prometheus/Tracing 의존성, Docker/Compose/IntelliJ 설정을 맞췄다.
+  - 기존 초보자 설명을 유지하면서 README, 실행, 업무 흐름, 스키마 문서를 실제 요청→승인→반영 데이터 흐름으로 최신화하고 사용되지 않던 Kafka 설정은 archive에 보존했다.
+  - 기존 V2 체크섬은 보존하고 V3/V4/V5 forward migration을 추가했다. 신규 PostgreSQL의 V2 `CLOB` 선행 문제는 명시적 TODO와 운영 리스크로 남겼다.
+- **검증**:
+  - `.\gradlew :master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 17 suites/57 tests와 Governance 10 suites/25 tests, 총 82 tests가 실패/오류/skip 0건이며 두 `bootJar`가 성공했다.
+  - 최초 증분 컴파일은 오래된 출력 상태 때문에 같은 모듈 클래스를 찾지 못했지만 clean 전체 컴파일로 정상 통과했다.
+  - `git diff --check`, conflict marker/placeholder 검색, 변경 문서 상대 링크 검증 성공.
+- **남은 리스크/TODO**:
+  - 실제 PostgreSQL 신규 DB migration과 Docker 이미지/Compose 실행은 미검증이다.
+  - 동일 업무 키의 다중 요청은 key lock/advisory lock, 대량 반영은 요청별 `REQUIRES_NEW`/`SKIP LOCKED`/실행 이력이 필요하다.
+  - 같은 `sourceReference`의 동시 최초 저장은 unique 충돌 후 기존 요청을 재조회·검증하는 원자적 저장 포트가 필요하다.
+  - actor는 Gateway/Spring Security principal에서 파생하고 raw payload는 권한별 마스킹/요약 응답으로 분리해야 한다.
+  - 직접 쓰기 API와 승인 흐름의 운영 권한 정책, CURRENCY/EXCHANGE_RATE/FISCAL_PERIOD typed applier가 남아 있다.
+- **롤백 범위**:
+  - 이번 커밋의 `master-data`, Governance 어댑터, root/module Compose, Config Repository, IntelliJ run 설정과 관련 docs/harness 변경을 한 단위로 revert한다.

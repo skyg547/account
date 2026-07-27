@@ -11,8 +11,8 @@ import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeReque
 public interface MasterDataChangeApplier {
 
     // @todo CURRENCY, EXCHANGE_RATE, FISCAL_PERIOD도 도메인 서비스와 영속성 포트를 완성한 뒤
-    // typed applier를 연결해야 한다. 구현 전까지는 의도적으로 fail-closed 상태를 유지한다.
-    boolean supports(MasterDataChangeRequest.MasterDataType targetType);
+    // typed applier와 버전 조회 어댑터를 함께 연결해야 한다. 구현 전에는 요청 접수부터 fail-closed한다.
+    MasterDataChangeRequest.MasterDataType targetType();
 
     void apply(MasterDataChangeRequest request);
 }

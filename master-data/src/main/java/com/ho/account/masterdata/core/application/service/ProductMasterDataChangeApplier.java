@@ -20,8 +20,8 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
     private final MasterDataChangePayloadDecoder payloadDecoder;
 
     @Override
-    public boolean supports(MasterDataType targetType) {
-        return targetType == MasterDataType.PRODUCT;
+    public MasterDataType targetType() {
+        return MasterDataType.PRODUCT;
     }
 
     @Override

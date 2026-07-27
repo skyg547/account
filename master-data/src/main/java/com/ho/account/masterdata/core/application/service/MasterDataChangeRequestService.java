@@ -1,28 +1,45 @@
 package com.ho.account.masterdata.core.application.service;
 
-import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
-import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.application.port.in.MasterDataChangeRequestUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
+import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
+import com.ho.account.masterdata.core.domain.policy.MasterDataChangeVersionPolicy;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 마스터 데이터 변경 요청 서비스
+ *
+ * <p>작성자가 요청한 변경을 승인자와 실제 SCD2 반영 전략 사이에서 조정하는 애플리케이션
+ * 서비스입니다. 요청 상태만 바꾸지 않고, 지원 전략과 업무 버전을 확인한 뒤 실제 반영이
+ * 성공한 경우에만 {@code APPLIED}로 전환합니다.</p>
+ *
+ * <p>🐣 초보자 설명: 결재 문서에 적힌 대상, 순번, 시행일을 확인하고 실제 기준정보 담당자에게
+ * 전달하는 결재 담당자입니다. 실제 데이터 수정 공식은 각 도메인 서비스가 담당합니다.</p>
  */
 @Service
-@RequiredArgsConstructor
 public class MasterDataChangeRequestService implements MasterDataChangeRequestUseCase {
 
     private static final int APPLY_CHUNK_SIZE = 500;
 
     private final MasterDataChangeRequestPersistencePort persistencePort;
-    private final List<MasterDataChangeApplier> appliers;
+    private final MasterDataVersionQueryPort versionQueryPort;
+    private final MasterDataChangeApplierRegistry applierRegistry;
+
+    public MasterDataChangeRequestService(
+            MasterDataChangeRequestPersistencePort persistencePort,
+            MasterDataVersionQueryPort versionQueryPort,
+            List<MasterDataChangeApplier> appliers) {
+        this.persistencePort = persistencePort;
+        this.versionQueryPort = versionQueryPort;
+        this.applierRegistry = new MasterDataChangeApplierRegistry(appliers);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -33,8 +50,6 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Override
     @Transactional
     public MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command) {
-        // @todo requestedVersion을 targetType/targetKey별 현재 버전과 비교해 오래된 변경 요청이
-        // 최신 SCD2 버전을 덮어쓰지 못하도록 낙관적 충돌 검사를 추가해야 한다.
         MasterDataChangeRequest request = new MasterDataChangeRequest(
                 command.targetType(),
                 command.targetKey(),
@@ -43,22 +58,43 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
                 command.requestedVersion(),
                 command.requestedBy(),
                 command.reason(),
-                command.payloadJson()
+                command.payloadJson(),
+                command.sourceReference()
         );
+
+        if (request.getSourceReference() != null) {
+            MasterDataChangeRequest existing = persistencePort
+                    .findBySourceReference(request.getSourceReference())
+                    .orElse(null);
+            if (existing != null) {
+                existing.verifySameChange(request);
+                return existing;
+            }
+        }
+
+        // 구현되지 않은 전략은 접수 후 장기간 방치하지 않고 입구에서 바로 차단합니다.
+        applierRegistry.require(request.getTargetType());
+        verifyCurrentVersion(request);
+
+        // @todo 다중 노드에서 같은 targetType/targetKey 요청이 동시에 들어오는 경쟁은
+        // 업무 키 잠금 테이블 또는 PostgreSQL advisory lock 어댑터로 직렬화해야 한다.
+        // @todo 두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
+        // 저장 포트가 충돌 후 기존 요청을 다시 읽어 동일 명령인지 검증하는 원자적 멱등 연산을 제공해야 합니다.
         return persistencePort.save(request);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MasterDataChangeRequest> findPendingRequests() {
-        return persistencePort.findByStatus(MasterDataChangeRequest.ChangeStatus.REQUESTED);
+        return persistencePort.findByStatus(ChangeStatus.REQUESTED);
     }
 
     @Override
     @Transactional
     public MasterDataChangeRequest approve(Long requestId, String approver) {
-        MasterDataChangeRequest request = persistencePort.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Change request not found. ID: " + requestId));
+        MasterDataChangeRequest request = findForDecision(requestId);
+        applierRegistry.require(request.getTargetType());
+        verifyCurrentVersion(request);
         request.approve(approver);
         return persistencePort.save(request);
     }
@@ -66,8 +102,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Override
     @Transactional
     public MasterDataChangeRequest reject(Long requestId, String approver, String reason) {
-        MasterDataChangeRequest request = persistencePort.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Change request not found. ID: " + requestId));
+        MasterDataChangeRequest request = findForDecision(requestId);
         request.reject(approver, reason);
         return persistencePort.save(request);
     }
@@ -75,9 +110,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Override
     @Transactional
     public MasterDataChangeRequest applyApprovedChange(Long requestId) {
-        MasterDataChangeRequest request = persistencePort.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("Change request not found. ID: " + requestId));
-        return applyAndSave(request);
+        MasterDataChangeRequest request = findForDecision(requestId);
+        return applyAndSave(request, LocalDate.now());
     }
 
     @Override
@@ -85,24 +119,48 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     public List<MasterDataChangeRequest> applyDueApprovedChanges() {
         LocalDate today = LocalDate.now();
         List<MasterDataChangeRequest> dueChanges = persistencePort.findReadyToApply(today, APPLY_CHUNK_SIZE);
-        List<MasterDataChangeRequest> applied = new ArrayList<>();
-        for (MasterDataChangeRequest request : dueChanges) {
-            applied.add(applyAndSave(request));
+        List<MasterDataChangeRequest> applied = new ArrayList<>(dueChanges.size());
+
+        // 부수효과와 실패 순서가 중요한 승인 반영이므로 stream보다 순서가 드러나는 반복을 사용합니다.
+        for (MasterDataChangeRequest candidate : dueChanges) {
+            MasterDataChangeRequest locked = findForDecision(candidate.getId());
+            if (locked.isReadyToApply(today)) {
+                applied.add(applyAndSave(locked, today));
+            }
         }
-        return applied;
+
+        // @todo 운영 대량 반영은 요청별 REQUIRES_NEW 트랜잭션과 DB SKIP LOCKED 파티셔닝으로
+        // 분리해 한 건의 실패가 같은 chunk 전체를 롤백하지 않도록 고도화해야 한다.
+        return List.copyOf(applied);
     }
 
-    private MasterDataChangeRequest applyAndSave(MasterDataChangeRequest request) {
-        if (!request.isReadyToApply(LocalDate.now())) {
+    private MasterDataChangeRequest applyAndSave(MasterDataChangeRequest request, LocalDate today) {
+        if (!request.isReadyToApply(today)) {
             throw new IllegalStateException("Change request is not ready to apply. ID: " + request.getId());
         }
-        MasterDataChangeApplier applier = appliers.stream()
-                .filter(candidate -> candidate.supports(request.getTargetType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No MasterDataChangeApplier supports targetType: " + request.getTargetType()));
+
+        MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        verifyCurrentVersion(request);
         applier.apply(request);
         request.markApplied();
         return persistencePort.save(request);
+    }
+
+    private MasterDataChangeRequest findForDecision(Long requestId) {
+        if (requestId == null) {
+            throw new IllegalArgumentException("Change request ID is required.");
+        }
+        return persistencePort.findByIdForUpdate(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Change request not found. ID: " + requestId));
+    }
+
+    private void verifyCurrentVersion(MasterDataChangeRequest request) {
+        long persistedVersionCount = versionQueryPort.countPersistedVersions(
+                request.getTargetType(),
+                request.getTargetKey());
+        MasterDataChangeVersionPolicy.verify(
+                request.getChangeType(),
+                request.getRequestedVersion(),
+                persistedVersionCount);
     }
 }

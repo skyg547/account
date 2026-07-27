@@ -43,6 +43,7 @@
 | 27 | `discovery` registry/readiness/컨테이너 경계 리팩토링 | Review ready | 8761 standalone, 실제 Config Client/actuator, register 생명주기, Docker health/service_healthy, 보안·HA TODO |
 | 28 | `config-server` native 저장소/readiness/컨테이너 경계 리팩토링 | Review ready / rerun pending | strict property-source probe, 8888 standalone, JDK 17/read-only config-repo, 15개 service_healthy, 보안·Git TODO |
 | 29 | `contracts`/`shared-kernel` 2차 계약·공유 경계 리팩토링 | Verification pending | 전표 불변 계약, SCD2 기준일 Adapter, 실제 Jackson 마스킹, 로컬 capability registry, CDM eventId 멱등성, 빈 Docker archive |
+| 30 | `master-data` 변경 승인·버전·런타임 경계 리팩토링 | Review ready | SCD2 requestedVersion 검증, Governance 멱등 계보, applier registry fail-closed, 요청 잠금, 8082/JDK17/Docker 정합화, 82 tests/2 bootJars |
 
 ## 1차 완료 상세
 
@@ -696,3 +697,15 @@ java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.pro
 - Config Server 대상 테스트, contracts 직접 `javac` 모두 64~128MB JVM도 시작하지 못할 정도의 Windows 페이지 파일 부족으로 중단했습니다.
 - 생성된 Gradle/javac JVM과 임시 디렉터리는 정리했으며 IntelliJ/SonarLint 외 Java 프로세스는 남지 않았습니다.
 - 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test` 재실행이 필요합니다.
+
+## 30차 후속 상세
+
+### master-data 변경 승인·버전·런타임 경계 리팩토링
+
+- CREATE/UPDATE/DEACTIVATE 요청 버전을 실제 SCD2 이력 수와 요청·승인·반영 직전에 대조합니다.
+- target type별 applier를 불변 registry로 고정하고 중복 담당과 미지원 유형을 fail-closed 처리합니다.
+- 승인/반영 조회에 비관적 잠금, 요청 aggregate에 낙관적 `lockVersion`을 적용했습니다.
+- API Bean Validation과 버전 충돌 409 응답을 추가하고 신뢰 actor/payload 마스킹/직접 쓰기 정책은 구체적인 TODO로 남겼습니다.
+- 8082, JDK 17, 단일 bootJar, DB readiness, Config/Compose/IntelliJ 설정과 초보자 문서를 실제 실행 구조에 맞췄습니다.
+- 기존 V2 체크섬을 보존하면서 V3/V4/V5 forward migration을 추가하고 Governance 승인 `sourceReference`와 `appliedAt` 계보를 연결했습니다. 실제 신규 PostgreSQL은 V2 `CLOB` 선행 문제를 해결할 vendor별 baseline이 필요합니다.
+- clean Gradle 검증에서 Master Data 57개와 Governance 25개, 총 82개 테스트 및 두 `bootJar`가 성공했고 정적/문서 링크 검사도 통과했습니다.

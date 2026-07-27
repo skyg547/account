@@ -22,8 +22,8 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
     private final MasterDataChangePayloadDecoder payloadDecoder;
 
     @Override
-    public boolean supports(MasterDataType targetType) {
-        return targetType == MasterDataType.DEPARTMENT;
+    public MasterDataType targetType() {
+        return MasterDataType.DEPARTMENT;
     }
 
     @Override

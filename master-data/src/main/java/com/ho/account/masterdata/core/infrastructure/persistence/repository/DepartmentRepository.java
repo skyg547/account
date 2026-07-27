@@ -21,6 +21,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     @Query("SELECT d FROM Department d WHERE d.validFrom <= :date AND d.validTo >= :date")
     List<Department> findActiveVersions(LocalDate date);
 
+    long countByCode(String code);
+
     @Query("SELECT COUNT(d) FROM Department d WHERE d.validFrom <= :date AND d.validTo >= :date")
     long countActiveAt(LocalDate date);
 }

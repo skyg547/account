@@ -1,3 +1,32 @@
+# 2026-07-27 master-data 변경 승인·버전·런타임 경계 리뷰
+
+Codex가 Master Data 변경 요청의 업무 버전, 승인 잠금, 실제 반영 전략과 단독 실행 구성을 보강했습니다. 아래 항목을 독립 검수해 주세요.
+
+## 핵심 검수 항목
+
+1. `MasterDataChangeVersionPolicy`의 CREATE=1, UPDATE=이력 수+1, DEACTIVATE=현재 이력 수가 네 SCD2 서비스의 실제 신규 행/종료 동작과 일치하는지 확인해 주세요.
+2. 요청, 승인, 반영 직전 재검증과 `findByIdForUpdate`/`@Version` 조합이 같은 요청의 중복 상태 전이를 막는지 검토해 주세요.
+3. `MasterDataChangeApplierRegistry`가 중복 담당을 시작 시 실패시키고 미지원 유형을 접수 단계에서 fail-closed 처리하는지 확인해 주세요.
+4. `applyDueApprovedChanges`의 단일 트랜잭션 한계와 `REQUIRES_NEW`/`SKIP LOCKED`/실행 이력 TODO가 운영 대량 반영 위험을 정확히 설명하는지 확인해 주세요.
+5. DTO Bean Validation, 409 예외 응답, 요청 본문 actor 및 raw payload/직접 쓰기 API TODO가 신뢰 경계를 충분히 드러내는지 검토해 주세요.
+6. Governance 승인 `sourceReference` 재시도가 같은 요청을 반환하고 다른 payload 재사용을 409로 차단하는지, APPLIED 재시도가 no-op이며 미래 시행일은 승인 후 예약 상태로 남는지 확인해 주세요.
+7. V2 체크섬 보존과 V3/V4/V5 forward migration이 H2에서는 안전한지, 신규 PostgreSQL에서 V2 `CLOB`보다 먼저 필요한 vendor baseline 리스크가 정확히 문서화됐는지 확인해 주세요.
+8. 8082 포트, JDK 17 단일 bootJar, Actuator DB readiness, root/module Compose와 IntelliJ 설정이 일치하는지 확인해 주세요.
+9. 기존 초보자 설명이 보존되면서 요청→승인→시행일 반영의 업무/데이터 흐름과 실제 코드가 일치하는지 확인해 주세요.
+
+## Codex 검증 결과
+
+```powershell
+.\gradlew :master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"
+```
+
+- Master Data 57개 + Governance 25개, 총 82개 테스트, 실패/오류/skip 0건
+- 두 모듈 `bootJar` 성공
+- `git diff --check`, conflict marker/placeholder 검색, 변경 Markdown 상대 링크 검사 성공
+- 실제 PostgreSQL 및 Docker/Compose 실행은 미검증
+
+---
+
 # 2026-07-14 auth 인증/역할 승인 멱등 경계 리뷰
 
 Codex가 auth 모듈의 API/core 경계와 Governance 역할 승인 재시도 정합성을 보강했습니다. 아래 항목을 독립 검수해 주세요.

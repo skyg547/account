@@ -15,5 +15,19 @@ public record MasterDataChangeRequestCommand(
         Integer requestedVersion,
         String requestedBy,
         String reason,
-        String payloadJson) {
+        String payloadJson,
+        String sourceReference) {
+
+    public MasterDataChangeRequestCommand(
+            MasterDataType targetType,
+            String targetKey,
+            ChangeType changeType,
+            LocalDate effectiveDate,
+            Integer requestedVersion,
+            String requestedBy,
+            String reason,
+            String payloadJson) {
+        this(targetType, targetKey, changeType, effectiveDate, requestedVersion,
+                requestedBy, reason, payloadJson, null);
+    }
 }
