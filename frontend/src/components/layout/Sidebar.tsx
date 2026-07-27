@@ -13,8 +13,9 @@ import { allMenus, MenuGroup } from './menus';
  * 이 함수가 실제 컴포넌트로 변환합니다.
  */
 function getIcon(name: string): React.ElementType {
-  const icons = LucideIcons as Record<string, React.ElementType>;
-  return icons[name] || LucideIcons.FileText;
+  const iconMap = LucideIcons as Record<string, unknown>;
+  const Component = iconMap[name] as React.ElementType;
+  return Component || LucideIcons.FileText;
 }
 
 export default function Sidebar() {
