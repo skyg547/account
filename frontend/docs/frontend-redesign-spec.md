@@ -1,6 +1,6 @@
 # 은행 재무회계 프론트엔드 업무 설계서
 
-> **Issue**: #TBD (프론트엔드 전면 재설계)  
+> **Issue**: #7 (프론트엔드 업무별 도메인 13개 리뉴얼)  
 > **브랜치**: `feature/frontend-ui-update`  
 > **기술 스택**: Next.js 15 (App Router) · React 19 · TypeScript 5.9 · Tailwind CSS 4 · Recharts  
 > **접근 방식**: Mock 데이터 우선 → UI/UX 검증 → 백엔드 API 연동 (후속)
