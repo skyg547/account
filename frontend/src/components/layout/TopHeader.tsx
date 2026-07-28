@@ -65,18 +65,18 @@ export default function TopHeader() {
           </button>
         </div>
 
-        <div className="flex items-center gap-4 pl-6 border-l border-white/5 cursor-pointer group">
+        <a href="/login" className="flex items-center gap-4 pl-6 border-l border-white/5 cursor-pointer group">
           <div className="text-right flex flex-col items-end">
-            <div className="text-sm font-black text-white tracking-tighter group-hover:text-blue-400 transition-colors leading-none italic uppercase">Kim J.M.</div>
-            <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mt-1">Financial Lead</div>
+            <div className="text-sm font-black text-blue-400 tracking-tighter group-hover:text-blue-300 transition-colors leading-none italic uppercase">JWT Auth 연동</div>
+            <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-1">백엔드 연동 🔑</div>
           </div>
           <div className="relative">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-slate-400 group-hover:border-blue-500/50 group-hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all overflow-hidden">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-900/40 to-slate-900 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:border-blue-400 transition-all overflow-hidden">
                <User size={22} className="group-hover:scale-110 transition-transform duration-500" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#020617] rounded-full" />
           </div>
-        </div>
+        </a>
       </div>
     </header>
   );

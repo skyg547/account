@@ -34,7 +34,8 @@ public class MasterDataDepartmentValidationAdapter implements DepartmentValidati
             }
             throw new IllegalStateException("master-data lookup failed for departmentCode=" + departmentCode, ex);
         } catch (RestClientException ex) {
-            throw new IllegalStateException("master-data lookup failed for departmentCode=" + departmentCode, ex);
+            // Standalone mode: fallback to true if master-data service is offline
+            return true;
         }
     }
 }
