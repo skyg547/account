@@ -1692,3 +1692,13 @@
 - **롤백 범위**:
   - `loan/**`, Loan용 Master Data 날짜 조회 포트/어댑터/repository, 루트 Compose Loan 설정과 이번 공통 문서/로그 항목을 함께 되돌린다. V33이 공유 DB에 적용됐다면 삭제 대신 forward corrective migration을 사용한다.
 - **상태**: review-ready, uncommitted. 사용자 명시 승인 전 commit/push/merge 금지.
+
+### [2026-07-28 ~ 2026-07-29] Auth Module / Frontend Authentication & PAT Features
+
+- **주요 작업 내역**:
+  - uth 모듈 내 개인용 액세스 토큰 (PAT) 발급, 조회, 폐기 API (PersonalAccessTokenController) 구현 완료.
+  - 전사 PAT 토큰 관리 화면(Admin) 및 마이페이지 발급(User) 화면 연동 완료. (Issue #30)
+  - governance 모듈의 내부회계통제 API(/api/audit/roles/{role}/authorizations)를 재사용하여 프론트엔드 동적 메뉴 권한 통제 매트릭스 UI(system/menus/page.tsx) 구축 및 Sidebar 연동. (Issue #31)
+  - 다중 인증(MFA) 아키텍처 도입: AuthService.java 및 login/page.tsx 개편을 통해 SSO 자동 로그인과 LDAP+OTP (하드코딩 2FA) 인증 방식을 분기하여 처리하도록 구현 완료. (Issue #32)
+- **추가 사항**:
+  - NavContext.tsx, login/page.tsx, system/menus/page.tsx 등 핵심 파일들에 초보자(주니어)를 위한 친절한 설명 주석 🐣 추가 완료.

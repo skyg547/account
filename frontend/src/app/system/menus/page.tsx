@@ -22,6 +22,16 @@ interface Authorization {
   accessType: string;
 }
 
+/**
+ * 🐣 [초보자를 위한 가이드: 시스템 메뉴 권한 관리 매트릭스]
+ * 
+ * 이 페이지는 백엔드의 `governance` 모듈(내부회계통제 인프라)과 통신하여,
+ * 프론트엔드의 각 메뉴에 어떤 역할(Role)이 접근 가능한지 실시간으로 조회하고 제어하는 곳입니다.
+ * 
+ * - `SystemRole`: 시스템에 등록된 역할 (예: ACCOUNTING_ADMIN, RISK_MANAGER)
+ * - `Authorization`: 특정 역할이 특정 기능(functionCode)에 대해 가지는 권한
+ * - `functionCode`: 프론트엔드에서는 `MENU:/system/menus` 처럼 "MENU:경로" 형태로 약속하여 사용합니다.
+ */
 export default function SystemMenusPage() {
   const [roles, setRoles] = useState<SystemRole[]>([]);
   const [authorizations, setAuthorizations] = useState<Record<string, Authorization[]>>({}); // roleCode -> auths
@@ -65,6 +75,8 @@ export default function SystemMenusPage() {
   };
 
   const getAuthorizationId = (roleCode: string, href: string) => {
+    // 💡 [초보자용 팁] 특정 역할이 특정 메뉴에 대한 권한 레코드 ID를 가지고 있는지 찾습니다.
+    // 권한을 취소(DELETE)할 때 이 ID가 필요하기 때문입니다.
     const roleAuths = authorizations[roleCode] || [];
     const auth = roleAuths.find(a => a.functionCode === `MENU:${href}`);
     return auth ? auth.id : null;

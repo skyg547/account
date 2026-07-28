@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle, Fingerprint, LockKeyhole } from 'lucide-react';
 import { authService, LoginResponse } from '@/services/authService';
 
+/**
+ * 🐣 [초보자를 위한 가이드: 다중 인증(MFA) 로그인 페이지]
+ * 
+ * 이 컴포넌트는 사용자의 로그인 방식을 2가지(SSO 자동 로그인, 사내 LDAP+OTP 로그인)로 분기하여
+ * 백엔드(`auth` 모듈)로 전달하는 역할을 합니다.
+ * 
+ * - SSO (Single Sign-On): 사번(username)만으로 인증을 위임받아 빠르게 로그인합니다.
+ * - LDAP + OTP: 사번과 패스워드, 그리고 모바일 인증 앱 등에서 생성되는 6자리 OTP 코드를 함께 검증하는 강력한 보안 방식입니다.
+ */
 export default function LoginPage() {
   const router = useRouter();
   const [loginType, setLoginType] = useState<'SSO' | 'LDAP'>('SSO');

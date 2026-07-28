@@ -42,6 +42,7 @@ interface NavContextType {
   toggleSidebar: () => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
+  // 💡 [초보자 팁] 현재 로그인한 사용자가 접근 가능한 '메뉴 권한 목록'을 전역 상태로 관리합니다.
   userAuthorizations: Authorization[];
 }
 
@@ -63,6 +64,8 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   // 권한 그룹이 변경될 때마다 Governance 모듈에서 권한 목록(메뉴 등)을 불러옵니다.
   useEffect(() => {
+    // 💡 [초보자 팁] 사용자가 로그인/로그아웃하여 Role(역할)이 바뀔 때마다,
+    // Governance API를 호출해 해당 역할이 볼 수 있는 새로운 권한 목록을 가져옵니다.
     const fetchAuthorizations = async () => {
       if (userRole === 'SYSTEM_ADMIN') {
         setUserAuthorizations([]); // SYSTEM_ADMIN은 모든 권한 패스
