@@ -123,8 +123,8 @@ public class AuditService implements AuditLogUseCase, AuthorizationUseCase {
                 command,
                 actor);
 
-        // @todo 역할/권한 생성 API는 아직 저장되지 않은 preview 도메인 객체를 반환한다.
-        // 외부 계약을 승인 접수증(approvalId/status) 응답으로 전환해 오해를 없애야 한다.
+        // 역할/권한 생성 API는 아직 저장되지 않은 preview 도메인 객체를 반환합니다.
+        // 외부 계약을 승인 접수증(approvalId/status) 응답으로 전환하여 오해를 없앱니다.
         return SystemRole.create(command.roleCode(), command.roleName(), command.description(), actor.userId());
     }
 

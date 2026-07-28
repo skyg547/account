@@ -41,6 +41,6 @@ public class JpaRegulatoryReportSubmissionAdapter
                         type.name(),
                         baseDate,
                         RegulatoryReportSubmission.SubmissionStatus.READY.name())
-                .map(RegulatoryReportSubmissionJpaEntity::toDomain);
+                .map(RegulatoryReportSubmissionJpaEntity::main);
     }
 }

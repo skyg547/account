@@ -34,7 +34,7 @@ public class JpaReportLineMappingAdapter implements LoadReportLineMappingPort {
                         Collectors.toList()));
 
         return grouped.entrySet().stream()
-                .map(entry -> entry.getKey().toDomain(entry.getValue()))
+                .map(entry -> entry.getKey().main(entry.getValue()))
                 .toList();
     }
 
@@ -58,11 +58,11 @@ public class JpaReportLineMappingAdapter implements LoadReportLineMappingPort {
                     entity.getValidTo());
         }
 
-        private ReportLineMapping toDomain(List<ReportLineMappingJpaEntity> rows) {
+        private ReportLineMapping main(List<ReportLineMappingJpaEntity> rows) {
             List<String> accountCodes = rows.stream()
                     .map(ReportLineMappingJpaEntity::getAccountCode)
                     .toList();
-            return rows.get(0).toDomain(accountCodes);
+            return rows.get(0).main(accountCodes);
         }
     }
 }

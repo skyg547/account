@@ -26,7 +26,7 @@ public class JpaReportSnapshotAdapter implements LoadReportHistoryPort, StoreRep
                         type.name(),
                         date,
                         FinancialStatement.StatementStatus.FINAL.name())
-                .map(ReportSnapshotHeaderJpaEntity::toDomain);
+                .map(ReportSnapshotHeaderJpaEntity::main);
     }
 
     @Override

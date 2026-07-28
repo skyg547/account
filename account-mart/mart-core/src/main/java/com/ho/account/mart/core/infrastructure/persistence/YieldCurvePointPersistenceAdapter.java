@@ -22,13 +22,13 @@ public class YieldCurvePointPersistenceAdapter implements YieldCurvePointReposit
     @Override
     public List<YieldCurvePoint> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .collect(Collectors.toList());
     }
 
     @Override
     public YieldCurvePoint save(YieldCurvePoint point) {
-        return toDomain(jpaRepository.save(toEntity(point)));
+        return main(jpaRepository.save(toEntity(point)));
     }
 
     @Override
@@ -41,7 +41,7 @@ public class YieldCurvePointPersistenceAdapter implements YieldCurvePointReposit
                 .collect(Collectors.toList()));
     }
 
-    private YieldCurvePoint toDomain(YieldCurvePointEntity entity) {
+    private YieldCurvePoint main(YieldCurvePointEntity entity) {
         if (entity == null) {
             return null;
         }

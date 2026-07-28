@@ -18,23 +18,23 @@ public class AllowanceAuditLogPersistenceAdapter implements AllowanceAuditLogRep
     @Override
     public List<AllowanceAuditLog> findTop10ByOrderByCreatedAtDesc() {
         return jpaRepository.findTop10ByOrderByCreatedAtDesc().stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .toList();
     }
 
     @Override
     public List<AllowanceAuditLog> findByServiceNameOrderByCreatedAtDesc(String serviceName) {
         return jpaRepository.findByServiceNameOrderByCreatedAtDesc(serviceName).stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .toList();
     }
 
     @Override
     public AllowanceAuditLog save(AllowanceAuditLog auditLog) {
-        return toDomain(jpaRepository.save(toEntity(auditLog)));
+        return main(jpaRepository.save(toEntity(auditLog)));
     }
 
-    private AllowanceAuditLog toDomain(AllowanceAuditLogEntity entity) {
+    private AllowanceAuditLog main(AllowanceAuditLogEntity entity) {
         if (entity == null) {
             return null;
         }

@@ -23,25 +23,25 @@ public class OdsCollateralMstPersistenceAdapter implements OdsCollateralMstRepos
 
     @Override
     public Optional<OdsCollateralMst> findById(String collateralNo) {
-        return jpaRepository.findById(collateralNo).map(this::toDomain);
+        return jpaRepository.findById(collateralNo).map(this::main);
     }
 
     @Override
     public Optional<OdsCollateralMst> findFirstByCustomerCode(String customerCode) {
-        return jpaRepository.findFirstByCustomerCode(customerCode).map(this::toDomain);
+        return jpaRepository.findFirstByCustomerCode(customerCode).map(this::main);
     }
 
     @Override
     public List<OdsCollateralMst> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsCollateralMst save(OdsCollateralMst domain) {
         OdsCollateralMstEntity entity = toEntity(domain);
-        return toDomain(jpaRepository.save(entity));
+        return main(jpaRepository.save(entity));
     }
 
     @Override
@@ -53,7 +53,7 @@ public class OdsCollateralMstPersistenceAdapter implements OdsCollateralMstRepos
         jpaRepository.saveAll(entities);
     }
 
-    private OdsCollateralMst toDomain(OdsCollateralMstEntity entity) {
+    private OdsCollateralMst main(OdsCollateralMstEntity entity) {
         if (entity == null) return null;
         return OdsCollateralMst.builder()
                 .collateralNo(entity.getCollateralNo())

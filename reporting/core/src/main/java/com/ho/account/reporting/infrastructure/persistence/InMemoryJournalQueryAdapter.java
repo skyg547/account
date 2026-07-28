@@ -59,6 +59,6 @@ public class InMemoryJournalQueryAdapter implements JournalQueryPort {
 
     @Override
     public JournalSummary getJournalSummary(Long journalEntryId) {
-        return null;
+        throw new UnsupportedOperationException("Memory mode does not support single journal lookup");
     }
 }

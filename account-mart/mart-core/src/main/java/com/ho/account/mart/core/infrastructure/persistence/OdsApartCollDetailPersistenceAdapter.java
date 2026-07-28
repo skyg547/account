@@ -29,12 +29,12 @@ public class OdsApartCollDetailPersistenceAdapter implements OdsApartCollDetailR
         if (collateralId == null || collateralId.isBlank()) {
             return Optional.empty();
         }
-        return jpaRepository.findById(collateralId).map(this::toDomain);
+        return jpaRepository.findById(collateralId).map(this::main);
     }
 
     @Override
     public OdsApartCollDetail save(OdsApartCollDetail detail) {
-        return toDomain(jpaRepository.save(toEntity(detail)));
+        return main(jpaRepository.save(toEntity(detail)));
     }
 
     @Override
@@ -48,7 +48,7 @@ public class OdsApartCollDetailPersistenceAdapter implements OdsApartCollDetailR
         jpaRepository.saveAll(entities);
     }
 
-    private OdsApartCollDetail toDomain(OdsApartCollDetailEntity entity) {
+    private OdsApartCollDetail main(OdsApartCollDetailEntity entity) {
         if (entity == null) {
             return null;
         }

@@ -59,13 +59,13 @@ class ReportSnapshotHeaderJpaEntity {
         return header;
     }
 
-    FinancialStatement toDomain() {
+    FinancialStatement main() {
         FinancialStatement statement = new FinancialStatement(
                 statementId,
                 FinancialStatement.StatementType.valueOf(statementType),
                 baseDate);
         details.stream()
-                .map(ReportSnapshotDetailJpaEntity::toDomain)
+                .map(ReportSnapshotDetailJpaEntity::main)
                 .forEach(statement::addLine);
 
         if (FinancialStatement.StatementStatus.FINAL.name().equals(status)) {

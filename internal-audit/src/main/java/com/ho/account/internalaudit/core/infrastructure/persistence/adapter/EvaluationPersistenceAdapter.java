@@ -34,7 +34,7 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .remarks(evaluation.remarks())
                 .build();
         DesignEvaluationJpaEntity saved = designEvaluationRepository.save(entity);
-        return toDomain(saved);
+        return main(saved);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .remarks(evaluation.remarks())
                 .build();
         OperatingEvaluationJpaEntity saved = operatingEvaluationRepository.save(entity);
-        return toDomain(saved);
+        return main(saved);
     }
 
     @Override
@@ -64,20 +64,20 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .status(deficiency.status())
                 .build();
         DeficiencyJpaEntity saved = deficiencyRepository.save(entity);
-        return toDomain(saved);
+        return main(saved);
     }
 
     @Override
     public List<DesignEvaluation> findDesignEvaluationsByControlId(String controlId) {
-        return designEvaluationRepository.findByControlId(controlId).stream().map(this::toDomain).collect(Collectors.toList());
+        return designEvaluationRepository.findByControlId(controlId).stream().map(this::main).collect(Collectors.toList());
     }
 
     @Override
     public List<OperatingEvaluation> findOperatingEvaluationsByControlId(String controlId) {
-        return operatingEvaluationRepository.findByControlId(controlId).stream().map(this::toDomain).collect(Collectors.toList());
+        return operatingEvaluationRepository.findByControlId(controlId).stream().map(this::main).collect(Collectors.toList());
     }
 
-    private DesignEvaluation toDomain(DesignEvaluationJpaEntity entity) {
+    private DesignEvaluation main(DesignEvaluationJpaEntity entity) {
         return DesignEvaluation.builder()
                 .evaluationId(entity.getEvaluationId())
                 .controlId(entity.getControlId())
@@ -88,7 +88,7 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .build();
     }
 
-    private OperatingEvaluation toDomain(OperatingEvaluationJpaEntity entity) {
+    private OperatingEvaluation main(OperatingEvaluationJpaEntity entity) {
         return OperatingEvaluation.builder()
                 .evaluationId(entity.getEvaluationId())
                 .controlId(entity.getControlId())
@@ -102,7 +102,7 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .build();
     }
 
-    private Deficiency toDomain(DeficiencyJpaEntity entity) {
+    private Deficiency main(DeficiencyJpaEntity entity) {
         return Deficiency.builder()
                 .deficiencyId(entity.getDeficiencyId())
                 .evaluationId(entity.getEvaluationId())

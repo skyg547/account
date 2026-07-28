@@ -31,7 +31,7 @@ public class JpaAuthUserRoleAssignmentAdapter implements AuthUserRoleAssignmentP
                 .orElse(null);
         if (applied != null) {
             applied.validateSameRequest(replacement);
-            return user.toDomain();
+            return user.main();
         }
 
         Instant appliedAt = clock.instant();
@@ -39,7 +39,7 @@ public class JpaAuthUserRoleAssignmentAdapter implements AuthUserRoleAssignmentP
                 .map(assignment -> RoleAssignmentJpaEntity.approvedBy(
                         assignment, replacement.approvedBy(), appliedAt))
                 .toList());
-        AuthUser updated = userRepository.saveAndFlush(user).toDomain();
+        AuthUser updated = userRepository.saveAndFlush(user).main();
         applyLogRepository.saveAndFlush(new RoleAssignmentApplyLogJpaEntity(
                 replacement.approvalTraceId(),
                 replacement.username(),

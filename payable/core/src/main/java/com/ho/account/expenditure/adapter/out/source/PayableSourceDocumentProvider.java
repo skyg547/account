@@ -37,7 +37,7 @@ public class PayableSourceDocumentProvider implements SourceDocumentProvider {
         return parseInvoiceKey(lineageSourceId)
                 .flatMap(key -> purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode(
                         key.invoiceNo(), key.vendorCode()))
-                .map(this::toDocument);
+                .map(this::cument);
     }
 
     @Override
@@ -70,7 +70,7 @@ public class PayableSourceDocumentProvider implements SourceDocumentProvider {
                 lineageSourceId.substring(separator + 1)));
     }
 
-    private Map<String, Object> toDocument(PurchaseInvoice invoice) {
+    private Map<String, Object> cument(PurchaseInvoice invoice) {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("type", PURCHASE_INVOICE);
         document.put("id", invoice.getId());
