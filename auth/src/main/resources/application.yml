@@ -4,11 +4,12 @@ spring:
   cloud:
     vault:
       enabled: false
+  config:
+    import: "optional:configserver:http://localhost:8888/"
+
 eureka:
   client:
     enabled: false
-  config:
-    import: "optional:configserver:http://localhost:8888/"
 
 auth:
   persistence:
