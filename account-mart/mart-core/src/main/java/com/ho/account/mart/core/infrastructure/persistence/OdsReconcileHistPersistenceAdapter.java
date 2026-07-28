@@ -20,20 +20,20 @@ public class OdsReconcileHistPersistenceAdapter implements OdsReconcileHistRepos
     @Override
     public List<OdsReconcileHist> findByBaseDate(LocalDate baseDate) {
         return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<OdsReconcileHist> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsReconcileHist save(OdsReconcileHist reconcileHist) {
-        return main(jpaRepository.save(toEntity(reconcileHist)));
+        return toDomain(jpaRepository.save(toEntity(reconcileHist)));
     }
 
     @Override
@@ -46,7 +46,7 @@ public class OdsReconcileHistPersistenceAdapter implements OdsReconcileHistRepos
                 .collect(Collectors.toList()));
     }
 
-    private OdsReconcileHist main(OdsReconcileHistEntity entity) {
+    private OdsReconcileHist toDomain(OdsReconcileHistEntity entity) {
         if (entity == null) {
             return null;
         }

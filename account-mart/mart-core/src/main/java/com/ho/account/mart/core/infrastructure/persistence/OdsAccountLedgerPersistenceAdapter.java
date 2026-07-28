@@ -23,13 +23,13 @@ public class OdsAccountLedgerPersistenceAdapter implements OdsAccountLedgerRepos
 
     @Override
     public Optional<OdsAccountLedger> findById(String accountNo) {
-        return jpaRepository.findById(accountNo).map(this::main);
+        return jpaRepository.findById(accountNo).map(this::toDomain);
     }
 
     @Override
     public List<OdsAccountLedger> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -37,7 +37,7 @@ public class OdsAccountLedgerPersistenceAdapter implements OdsAccountLedgerRepos
     public OdsAccountLedger save(OdsAccountLedger domain) {
         OdsAccountLedgerEntity entity = toEntity(domain);
         OdsAccountLedgerEntity savedEntity = jpaRepository.save(entity);
-        return main(savedEntity);
+        return toDomain(savedEntity);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class OdsAccountLedgerPersistenceAdapter implements OdsAccountLedgerRepos
     /**
      * Entity -> Domain POJO Mapper
      */
-    private OdsAccountLedger main(OdsAccountLedgerEntity entity) {
+    private OdsAccountLedger toDomain(OdsAccountLedgerEntity entity) {
         if (entity == null) return null;
         return OdsAccountLedger.builder()
                 .accountNo(entity.getAccountNo())

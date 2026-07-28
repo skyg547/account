@@ -25,19 +25,19 @@ public class OdsEarlyWarningPersistenceAdapter implements OdsEarlyWarningReposit
         Optional<OdsEarlyWarningEntity> entity = baseDate == null
                 ? jpaRepository.findTopByCustomerCodeOrderByBaseDateDesc(customerCode)
                 : jpaRepository.findTopByCustomerCodeAndBaseDateLessThanEqualOrderByBaseDateDesc(customerCode, baseDate);
-        return entity.map(this::main);
+        return entity.map(this::toDomain);
     }
 
     @Override
     public List<OdsEarlyWarning> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsEarlyWarning save(OdsEarlyWarning warning) {
-        return main(jpaRepository.save(toEntity(warning)));
+        return toDomain(jpaRepository.save(toEntity(warning)));
     }
 
     @Override
@@ -50,7 +50,7 @@ public class OdsEarlyWarningPersistenceAdapter implements OdsEarlyWarningReposit
         jpaRepository.saveAll(entities);
     }
 
-    private OdsEarlyWarning main(OdsEarlyWarningEntity entity) {
+    private OdsEarlyWarning toDomain(OdsEarlyWarningEntity entity) {
         if (entity == null) {
             return null;
         }

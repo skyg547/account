@@ -42,7 +42,7 @@ class AllowanceAuditLogPersistenceAdapterTest {
     }
 
     @Test
-    void findRecentLogsMapsEntitymain() {
+    void findRecentLogsMapsEntityToDomain() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 4, 30, 12, 0);
         when(jpaRepository.findTop10ByOrderByCreatedAtDesc()).thenReturn(List.of(AllowanceAuditLogEntity.builder()
                 .id(1L)

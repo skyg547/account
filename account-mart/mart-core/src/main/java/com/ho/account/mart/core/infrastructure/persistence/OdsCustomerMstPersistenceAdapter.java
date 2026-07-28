@@ -20,18 +20,18 @@ public class OdsCustomerMstPersistenceAdapter implements OdsCustomerMstRepositor
 
     @Override
     public Optional<OdsCustomerMst> findById(String customerCode) {
-        return jpaRepository.findById(customerCode).map(e -> this.main(e));
+        return jpaRepository.findById(customerCode).map(e -> this.toDomain(e));
     }
 
     @Override
     public Optional<OdsCustomerMst> findByCustomerCode(String customerCode) {
-        return jpaRepository.findByCustomerCode(customerCode).map(e -> this.main(e));
+        return jpaRepository.findByCustomerCode(customerCode).map(e -> this.toDomain(e));
     }
 
     @Override
     public List<OdsCustomerMst> findAll() {
         return jpaRepository.findAll().stream()
-                .map(e -> this.main(e))
+                .map(e -> this.toDomain(e))
                 .collect(Collectors.toList());
     }
 
@@ -39,7 +39,7 @@ public class OdsCustomerMstPersistenceAdapter implements OdsCustomerMstRepositor
     public OdsCustomerMst save(OdsCustomerMst domain) {
         OdsCustomerMstEntity entity = toEntity(domain);
         OdsCustomerMstEntity savedEntity = jpaRepository.save(entity);
-        return main(savedEntity);
+        return toDomain(savedEntity);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class OdsCustomerMstPersistenceAdapter implements OdsCustomerMstRepositor
         jpaRepository.saveAll(entities);
     }
 
-    private OdsCustomerMst main(OdsCustomerMstEntity entity) {
+    private OdsCustomerMst toDomain(OdsCustomerMstEntity entity) {
         if (entity == null) return null;
         return OdsCustomerMst.builder()
                 .customerCode(entity.getCustomerCode())

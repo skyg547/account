@@ -21,34 +21,34 @@ public class MarketRatePersistenceAdapter implements MarketRateRepository {
     @Override
     public List<MarketRate> findByBaseDateAndIsActiveTrue(LocalDate baseDate) {
         return jpaRepository.findByBaseDateAndIsActiveTrue(baseDate).stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<MarketRate> findByBaseDateAndRateTypeAndIsActiveTrue(LocalDate baseDate, String rateType) {
         return jpaRepository.findByBaseDateAndRateTypeAndIsActiveTrue(baseDate, rateType).stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<MarketRate> findByRateNameAndIsActiveTrue(String rateName) {
         return jpaRepository.findByRateNameAndIsActiveTrue(rateName).stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
     @Override
     public Optional<MarketRate> findByBaseDateAndRateNameAndTenorMonths(LocalDate baseDate, String rateName, Integer tenorMonths) {
         return jpaRepository.findByBaseDateAndRateNameAndTenorMonths(baseDate, rateName, tenorMonths)
-                .map(e -> main(e));
+                .map(e -> toDomain(e));
     }
 
     @Override
     public List<MarketRate> findHistorical(String rateName, Integer tenorMonths, LocalDate startDate, LocalDate endDate) {
         return jpaRepository.findHistorical(rateName, tenorMonths, startDate, endDate).stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
@@ -59,7 +59,7 @@ public class MarketRatePersistenceAdapter implements MarketRateRepository {
 
     @Override
     public MarketRate save(MarketRate domain) {
-        return main(jpaRepository.save(toEntity(domain)));
+        return toDomain(jpaRepository.save(toEntity(domain)));
     }
 
     @Override
@@ -69,11 +69,11 @@ public class MarketRatePersistenceAdapter implements MarketRateRepository {
                 .map(d -> toEntity(d))
                 .collect(Collectors.toList());
         return jpaRepository.saveAll(entities).stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
-    private MarketRate main(MarketRateEntity entity) {
+    private MarketRate toDomain(MarketRateEntity entity) {
         if (entity == null) return null;
         return MarketRate.builder()
                 .rateCode(entity.getId() != null ? String.valueOf(entity.getId()) : null) // id를 rateCode로 매핑

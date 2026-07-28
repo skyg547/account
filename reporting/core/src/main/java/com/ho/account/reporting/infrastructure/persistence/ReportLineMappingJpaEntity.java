@@ -70,7 +70,7 @@ class ReportLineMappingJpaEntity {
         this.validTo = validTo;
     }
 
-    ReportLineMapping main(List<String> accountCodes) {
+    ReportLineMapping toDomain(List<String> accountCodes) {
         return new ReportLineMapping(
                 FinancialStatement.StatementType.valueOf(statementType),
                 lineCode,

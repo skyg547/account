@@ -22,19 +22,19 @@ public class OdsBalanceHistPersistenceAdapter implements OdsBalanceHistRepositor
 
     @Override
     public Optional<OdsBalanceHist> findTopByAccountNoOrderByBaseDateDesc(String accountNo) {
-        return jpaRepository.findTopByAccountNoOrderByBaseDateDesc(accountNo).map(e -> main(e));
+        return jpaRepository.findTopByAccountNoOrderByBaseDateDesc(accountNo).map(e -> toDomain(e));
     }
 
     @Override
     public List<OdsBalanceHist> findAll() {
         return jpaRepository.findAll().stream()
-                .map(e -> main(e))
+                .map(e -> toDomain(e))
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsBalanceHist save(OdsBalanceHist domain) {
-        return main(jpaRepository.save(toEntity(domain)));
+        return toDomain(jpaRepository.save(toEntity(domain)));
     }
 
     @Override
@@ -83,7 +83,7 @@ public class OdsBalanceHistPersistenceAdapter implements OdsBalanceHistRepositor
                 java.sql.Date.valueOf(baseDate));
     }
 
-    private OdsBalanceHist main(OdsBalanceHistEntity entity) {
+    private OdsBalanceHist toDomain(OdsBalanceHistEntity entity) {
         if (entity == null) return null;
         return OdsBalanceHist.builder()
                 .baseDate(entity.getBaseDate())

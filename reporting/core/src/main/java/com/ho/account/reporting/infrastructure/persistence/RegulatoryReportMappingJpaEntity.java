@@ -58,7 +58,7 @@ class RegulatoryReportMappingJpaEntity {
     protected RegulatoryReportMappingJpaEntity() {
     }
 
-    RegulatoryReportMapping main() {
+    RegulatoryReportMapping toDomain() {
         return new RegulatoryReportMapping(
                 FinancialStatement.StatementType.valueOf(statementType),
                 targetAgency,
