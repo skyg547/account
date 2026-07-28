@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: internal-audit-service
+  config:
+    import: "optional:configserver:http://localhost:8888/"
+
+internal-audit:
+  integrations:
+    auth:
+      base-url: ${INTERNAL_AUDIT_AUTH_BASE_URL:http://localhost:8081}
+      internal-token: ${INTERNAL_AUDIT_AUTH_INTERNAL_TOKEN:local-internal-auth-token}

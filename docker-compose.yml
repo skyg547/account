@@ -261,11 +261,11 @@ services:
       auth:
         condition: service_started
 
-  governance:
+  internal-audit:
     build:
       context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
-      dockerfile: governance/Dockerfile
-    container_name: governance
+      dockerfile: internal-audit/Dockerfile
+    container_name: internal-audit
     ports:
       - "8087:8087"
     networks:
