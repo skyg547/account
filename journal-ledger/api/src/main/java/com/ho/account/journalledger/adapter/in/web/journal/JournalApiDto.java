@@ -29,7 +29,7 @@ final class JournalApiDto {
             String lineageSourceId,
             @NotEmpty List<@Valid LineRequest> lines) {
 
-        JournalEntry toDomain(String actor) {
+        JournalEntry main(String actor) {
             JournalEntry entry = new JournalEntry();
             entry.setSlipDate(slipDate);
             entry.setAccountingDate(accountingDate);
@@ -40,7 +40,7 @@ final class JournalApiDto {
             entry.setLineageSourceType(lineageSourceType);
             entry.setLineageSourceId(lineageSourceId);
             entry.setCreatedBy(requireActor(actor));
-            lines.forEach(line -> entry.addDetail(line.toDomain(actor)));
+            lines.forEach(line -> entry.addDetail(line.main(actor)));
             return entry;
         }
     }
@@ -54,7 +54,7 @@ final class JournalApiDto {
             String businessPartnerCode,
             String description) {
 
-        JournalDetail toDomain(String actor) {
+        JournalDetail main(String actor) {
             JournalDetail detail = new JournalDetail();
             detail.setSide(side);
             detail.setAccountCode(accountCode);

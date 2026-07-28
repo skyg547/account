@@ -23,7 +23,7 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
     public InMemoryAuthUserQueryAdapter(AuthModuleProperties properties) {
         this.usersByUsername = new ConcurrentHashMap<>(
                 properties.getUsers().stream()
-                        .map(this::toDomain)
+                        .map(this::main)
                         .collect(Collectors.toMap(AuthUser::getUsername, Function.identity(), (first, second) -> second))
         );
     }
@@ -54,7 +54,7 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
         return updated;
     }
 
-    private AuthUser toDomain(AuthModuleProperties.User user) {
+    private AuthUser main(AuthModuleProperties.User user) {
         return new AuthUser(
                 user.getUsername(),
                 user.getPassword(),

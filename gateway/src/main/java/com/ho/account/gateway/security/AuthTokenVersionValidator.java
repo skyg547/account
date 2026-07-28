@@ -55,7 +55,7 @@ public class AuthTokenVersionValidator implements TokenVersionValidator {
             return Mono.just(TokenVersionValidationResult.VALID);
         }
 
-        // @todo Auth 내부 검증 API에 mTLS 또는 서비스 자격 증명을 적용해 내부망 직접 호출도 인증한다.
+        //  Auth 내부 검증 API에 mTLS 또는 서비스 자격 증명을 적용해 내부망 직접 호출도 인증한다.
         return webClient.post()
                 .uri("/api/auth/validate-token-version")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -78,7 +78,7 @@ public class AuthTokenVersionValidator implements TokenVersionValidator {
                 }))
                 .doOnNext(result -> {
                     if (result == TokenVersionValidationResult.VALID) {
-                        // @todo 다중 Gateway 노드에서는 Auth 역할 변경 이벤트로 positive cache를 즉시 무효화한다.
+                        //  다중 Gateway 노드에서는 Auth 역할 변경 이벤트로 positive cache를 즉시 무효화한다.
                         validTokenCache.put(key, true);
                     }
                 })

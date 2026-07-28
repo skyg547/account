@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  * 부가세(VAT), 원천세 등 세금 유형별 세율 및 회계 연결 정보를 관리합니다.
  * SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 세율 변동 이력을 추적합니다.
  *
- * <p>@todo 현재 이 엔티티에는 repository, application use case, 승인 applier, 소비 계약이 없습니다.
+ * <p> 현재 이 엔티티에는 repository, application use case, 승인 applier, 소비 계약이 없습니다.
  * 완료 조건은 Tax 모듈과 소유권을 먼저 결정한 뒤, Master Data 소유라면 SCD2 포트/어댑터/승인 전략과
  * 기준일 조회 통합 테스트를 모두 구현하고, Tax 소유라면 이 중복 엔티티를 이관·제거하는 것입니다.</p>
  */

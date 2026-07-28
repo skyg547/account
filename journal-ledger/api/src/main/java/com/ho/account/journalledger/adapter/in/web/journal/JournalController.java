@@ -35,7 +35,7 @@ public class JournalController {
             @Valid @RequestBody JournalApiDto.CreateRequest request) {
         try {
             return ResponseEntity.ok(JournalApiDto.View.from(
-                    journalUseCase.createJournalEntry(request.toDomain(actor))));
+                    journalUseCase.createJournalEntry(request.main(actor))));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }

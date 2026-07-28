@@ -70,7 +70,7 @@ class RegulatoryReportSubmissionJpaEntity {
         return entity;
     }
 
-    RegulatoryReportSubmission toDomain() {
+    RegulatoryReportSubmission main() {
         return RegulatoryReportSubmission.restored(
                 submissionId,
                 statementId,

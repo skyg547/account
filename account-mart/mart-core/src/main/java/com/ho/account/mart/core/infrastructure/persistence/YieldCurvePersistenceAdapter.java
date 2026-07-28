@@ -24,13 +24,13 @@ public class YieldCurvePersistenceAdapter implements YieldCurveRepository {
     @Override
     public Optional<YieldCurve> findByCurveNameAndBaseDate(String curveName, LocalDate baseDate) {
         return jpaRepository.findByCurveNameAndBaseDate(curveName, baseDate)
-                .map(this::toDomain);
+                .map(this::main);
     }
 
     @Override
     public List<YieldCurve> findByBaseDate(LocalDate baseDate) {
         return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .collect(Collectors.toList());
     }
 
@@ -38,22 +38,22 @@ public class YieldCurvePersistenceAdapter implements YieldCurveRepository {
     public List<YieldCurve> findByCurrency(String currency) {
         CurrencyCode currencyCode = CurrencyCode.valueOf(currency);
         return jpaRepository.findByCurrency(currencyCode).stream()
-                .map(this::toDomain)
+                .map(this::main)
                 .collect(Collectors.toList());
     }
 
     @Override
     public Optional<YieldCurve> findLatestByCurveName(String curveName) {
         return jpaRepository.findTopByCurveNameOrderByBaseDateDesc(curveName)
-                .map(this::toDomain);
+                .map(this::main);
     }
 
     @Override
     public YieldCurve save(YieldCurve yieldCurve) {
-        return toDomain(jpaRepository.save(toEntity(yieldCurve)));
+        return main(jpaRepository.save(toEntity(yieldCurve)));
     }
 
-    private YieldCurve toDomain(YieldCurveEntity entity) {
+    private YieldCurve main(YieldCurveEntity entity) {
         if (entity == null) {
             return null;
         }

@@ -96,7 +96,7 @@ class RoleAssignmentJpaEntity {
         this.user = user;
     }
 
-    RoleAssignment toDomain() {
+    RoleAssignment main() {
         return new RoleAssignment(roleCode, dataScope, validFrom, validTo, approved);
     }
 

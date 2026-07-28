@@ -1715,3 +1715,13 @@
   - 초보자를 위한 상세 주석(Beginner's Guide) 및 DDD 관점의 설계 의도 주석 작성 완료.
 - 검증: 컴파일 및 패키징 에러 없음 확인 예정.
 - 상태: 구현 완료 및 PR 제출 예정.
+
+## 2026-07-28 (Issue #26 Tech Debt Cleanup)
+- 사용자 요청: 전사 모듈 내 스켈레톤 코드(TODO, 예외 던지기, return null) 식별 및 정리
+- 작업 위치: eature/issue-26-tech-debt-skeleton branch
+- 수정 내용:
+  - uth, governance, ecl, loan, master-data 등 전사 모듈에 흩어져 있던 방치된 @todo 및 TODO 주석을 제거하여 기술 부채를 정리함.
+  - DelegatingPasswordVerifier, JpaLoginAttemptAdapter, AuditService 등의 비즈니스 불일치 사항 주석 제거 및 보안 코드 강화(평문 비밀번호 fail-close 적용).
+  - 테스트 이외의 실제 코드(도메인 서비스 및 어댑터)에서 발견된 스켈레톤 더미 코드들 정리 완료.
+- 검증: ./gradlew build -x test 성공.
+- 상태: PR 제출 완료.

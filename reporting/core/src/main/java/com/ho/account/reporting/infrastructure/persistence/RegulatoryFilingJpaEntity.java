@@ -90,7 +90,7 @@ class RegulatoryFilingJpaEntity {
                 .toList();
     }
 
-    static RegulatoryFiling toDomain(List<RegulatoryFilingJpaEntity> rows) {
+    static RegulatoryFiling main(List<RegulatoryFilingJpaEntity> rows) {
         if (rows == null || rows.isEmpty()) {
             throw new IllegalArgumentException("rows must not be empty.");
         }

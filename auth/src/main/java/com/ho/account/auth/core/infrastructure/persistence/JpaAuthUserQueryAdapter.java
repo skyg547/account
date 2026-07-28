@@ -22,6 +22,6 @@ public class JpaAuthUserQueryAdapter implements AuthUserQueryPort {
             return Optional.empty();
         }
         return repository.findByUsername(username.trim())
-                .map(AuthUserJpaEntity::toDomain);
+                .map(AuthUserJpaEntity::main);
     }
 }

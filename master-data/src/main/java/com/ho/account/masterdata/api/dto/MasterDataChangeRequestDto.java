@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 /**
  * 승인 화면과 변경 이력 조회에 사용하는 HTTP 응답 DTO입니다.
  *
- * <p>@todo payloadJson에는 거래처 식별정보 등 민감 필드가 들어갈 수 있습니다. 승인 권한이
+ * <p> payloadJson에는 거래처 식별정보 등 민감 필드가 들어갈 수 있습니다. 승인 권한이
  * 연결되면 목록 응답은 요약/마스킹 DTO로 분리하고, 원문 payload는 권한 있는 상세 조회에서만 제공합니다.</p>
  */
 public class MasterDataChangeRequestDto {

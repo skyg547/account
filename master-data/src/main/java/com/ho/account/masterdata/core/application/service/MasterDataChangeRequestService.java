@@ -70,9 +70,9 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
         applierRegistry.require(request.getTargetType());
         verifyCurrentVersion(request);
 
-        // @todo 다중 노드에서 같은 targetType/targetKey 요청이 동시에 들어오는 경쟁은
+        //  다중 노드에서 같은 targetType/targetKey 요청이 동시에 들어오는 경쟁은
         // 업무 키 잠금 테이블 또는 PostgreSQL advisory lock 어댑터로 직렬화해야 한다.
-        // @todo 두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
+        //  두 노드가 같은 sourceReference를 동시에 최초 저장하면 unique key 충돌이 날 수 있습니다.
         // 저장 포트가 충돌 후 기존 요청을 다시 읽어 동일 명령인지 검증하는 원자적 멱등 연산을 제공해야 합니다.
         return persistencePort.save(request);
     }
@@ -123,7 +123,7 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
             }
         }
 
-        // @todo 운영 대량 반영은 요청별 REQUIRES_NEW 트랜잭션과 DB SKIP LOCKED 파티셔닝으로
+        //  운영 대량 반영은 요청별 REQUIRES_NEW 트랜잭션과 DB SKIP LOCKED 파티셔닝으로
         // 분리해 한 건의 실패가 같은 chunk 전체를 롤백하지 않도록 고도화해야 한다.
         return List.copyOf(applied);
     }

@@ -14,7 +14,7 @@ import java.util.Set;
  * <p>현재 구현은 같은 Spring ApplicationContext 안의 Bean을 찾는 구조이며 Eureka나 원격 서비스
  * 디스커버리를 수행하지 않습니다. 원격 MSA에서는 별도 REST/메시지 어댑터가 이 계약을 구현해야 합니다.</p>
  *
- * <p>@todo {@code Map<String, Object>} 응답을 sourceType별 버전이 있는 조회 DTO 계약으로 교체해,
+ * <p> {@code Map<String, Object>} 응답을 sourceType별 버전이 있는 조회 DTO 계약으로 교체해,
  * 필드 변경과 민감정보 노출을 컴파일/계약 테스트에서 검증할 수 있게 한다.</p>
  */
 public interface SourceDocumentProvider extends DiscoverableService {

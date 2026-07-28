@@ -21,7 +21,7 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             """)
     Optional<BusinessPartner> findActiveByBusinessPartnerCode(String businessPartnerCode, LocalDate date);
 
-    // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
+    //  운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
     // 완료 조건: 겹치는 SCD2 행 저장 자체를 거부하는 forward migration과 PostgreSQL 통합 테스트를 함께 둡니다.
     @Query("""
             SELECT bp FROM BusinessPartner bp

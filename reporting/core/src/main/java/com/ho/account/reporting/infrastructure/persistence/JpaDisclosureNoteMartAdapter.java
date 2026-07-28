@@ -26,7 +26,7 @@ public class JpaDisclosureNoteMartAdapter implements LoadDisclosureNoteMartPort,
         List<DisclosureNoteMartEntry> entries = repository
                 .findByStatementTypeAndBaseDateOrderByNoteNumberAscSourceLineCodeAsc(type.name(), baseDate)
                 .stream()
-                .map(DisclosureNoteMartJpaEntity::toDomain)
+                .map(DisclosureNoteMartJpaEntity::main)
                 .toList();
         if (entries.isEmpty()) {
             return Optional.empty();
