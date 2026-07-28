@@ -2,12 +2,13 @@ spring:
   application:
     name: auth-service
   cloud:
+    config:
+      enabled: false
     vault:
       enabled: false
-  config:
-    import: "optional:configserver:http://localhost:8888/"
 
 eureka:
+
   client:
     enabled: false
 
