@@ -64,7 +64,7 @@ class ReportSnapshotDetailJpaEntity {
         this.header = header;
     }
 
-    ReportLine main() {
+    ReportLine toDomain() {
         return new ReportLine(
                 lineCode,
                 label,

@@ -18,20 +18,20 @@ public class OdsProductMstPersistenceAdapter implements OdsProductMstRepository 
 
     @Override
     public Optional<OdsProductMst> findById(String productCode) {
-        return jpaRepository.findById(productCode).map(this::main);
+        return jpaRepository.findById(productCode).map(this::toDomain);
     }
 
     @Override
     public List<OdsProductMst> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .toList();
     }
 
     @Override
     public OdsProductMst save(OdsProductMst productMst) {
         OdsProductMstEntity entity = toEntityForSave(productMst);
-        return main(jpaRepository.save(entity));
+        return toDomain(jpaRepository.save(entity));
     }
 
     @Override
@@ -45,7 +45,7 @@ public class OdsProductMstPersistenceAdapter implements OdsProductMstRepository 
         jpaRepository.saveAll(entities);
     }
 
-    private OdsProductMst main(OdsProductMstEntity entity) {
+    private OdsProductMst toDomain(OdsProductMstEntity entity) {
         if (entity == null) {
             return null;
         }

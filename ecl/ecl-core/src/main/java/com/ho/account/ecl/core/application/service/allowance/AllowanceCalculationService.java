@@ -121,7 +121,7 @@ public class AllowanceCalculationService {
                 .map(result -> result.getWeightedEcl() != null ? result.getWeightedEcl() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         double avgPd = results.stream()
-                .mapuble(result -> result.getPd() != null ? result.getPd().doubleValue() : 0.0)
+                .mapToDouble(result -> result.getPd() != null ? result.getPd().doubleValue() : 0.0)
                 .average()
                 .orElse(0.0);
         java.util.Map<String, Long> stageSummary = results.stream()

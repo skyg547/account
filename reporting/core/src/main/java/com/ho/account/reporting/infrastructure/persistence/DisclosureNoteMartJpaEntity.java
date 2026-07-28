@@ -99,7 +99,7 @@ class DisclosureNoteMartJpaEntity {
         return entity;
     }
 
-    DisclosureNoteMartEntry main() {
+    DisclosureNoteMartEntry toDomain() {
         return new DisclosureNoteMartEntry(
                 entryId,
                 martId,

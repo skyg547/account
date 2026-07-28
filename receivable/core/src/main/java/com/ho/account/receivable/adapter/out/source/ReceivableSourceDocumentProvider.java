@@ -37,7 +37,7 @@ public class ReceivableSourceDocumentProvider implements SourceDocumentProvider 
 
         return parseInvoiceId(lineageSourceId)
                 .flatMap(salesInvoicePersistencePort::findById)
-                .map(this::cument);
+                .map(this::toDocument);
     }
 
     @Override
@@ -66,7 +66,7 @@ public class ReceivableSourceDocumentProvider implements SourceDocumentProvider 
         }
     }
 
-    private Map<String, Object> cument(SalesInvoice invoice) {
+    private Map<String, Object> toDocument(SalesInvoice invoice) {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("type", SALES_INVOICE);
         document.put("id", invoice.getId());

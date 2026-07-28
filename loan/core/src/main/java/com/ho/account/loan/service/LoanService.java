@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>🐣 이 클래스는 대출 업무의 지휘자입니다. 도메인 객체가 금액·상태 규칙을 지키게 하고,
  * 기준정보·영속성·전표는 Loan이 소유한 출력 포트 뒤로 숨긴 채 호출 순서와 트랜잭션 경계를 관리합니다.</p>
  *
- * <p> 현재 전표 POST와 Loan DB commit은 동기 호출 두 트랜잭션이라, 전표 전기 후 Loan 저장이
+ * <p>@todo 현재 전표 POST와 Loan DB commit은 동기 호출 두 트랜잭션이라, 전표 전기 후 Loan 저장이
  * 실패하면 불일치가 생길 수 있습니다. 완료 조건은 업무 lineage idempotency key, Loan outbox,
  * Journal inbox/중복 응답, 재처리·보상 실행 이력을 함께 구현하고 장애 주입 통합 테스트를 통과하는 것입니다.</p>
  */

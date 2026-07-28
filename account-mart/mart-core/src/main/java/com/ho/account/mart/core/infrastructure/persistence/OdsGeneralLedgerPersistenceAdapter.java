@@ -20,20 +20,20 @@ public class OdsGeneralLedgerPersistenceAdapter implements OdsGeneralLedgerRepos
     @Override
     public List<OdsGeneralLedger> findByBaseDate(LocalDate baseDate) {
         return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<OdsGeneralLedger> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsGeneralLedger save(OdsGeneralLedger domain) {
-        return main(jpaRepository.save(toEntity(domain)));
+        return toDomain(jpaRepository.save(toEntity(domain)));
     }
 
     @Override
@@ -54,7 +54,7 @@ public class OdsGeneralLedgerPersistenceAdapter implements OdsGeneralLedgerRepos
         return jpaRepository.getBalanceSummaryByBaseDate(baseDate);
     }
 
-    private OdsGeneralLedger main(OdsGeneralLedgerEntity entity) {
+    private OdsGeneralLedger toDomain(OdsGeneralLedgerEntity entity) {
         if (entity == null) {
             return null;
         }

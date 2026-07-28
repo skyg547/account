@@ -33,7 +33,7 @@ public class RcmPersistenceAdapter implements RcmPersistencePort {
                 .ownerId(process.ownerId())
                 .build();
         RcmProcessJpaEntity saved = processRepository.save(entity);
-        return main(saved);
+        return toDomain(saved);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class RcmPersistenceAdapter implements RcmPersistencePort {
                 .likelihood(risk.likelihood())
                 .build();
         RcmRiskJpaEntity saved = riskRepository.save(entity);
-        return main(saved);
+        return toDomain(saved);
     }
 
     @Override
@@ -61,40 +61,40 @@ public class RcmPersistenceAdapter implements RcmPersistencePort {
                 .ownerId(controlActivity.ownerId())
                 .build();
         ControlActivityJpaEntity saved = controlActivityRepository.save(entity);
-        return main(saved);
+        return toDomain(saved);
     }
 
     @Override
     public Optional<RcmProcess> findProcessById(String processId) {
-        return processRepository.findById(processId).map(this::main);
+        return processRepository.findById(processId).map(this::toDomain);
     }
 
     @Override
     public Optional<RcmRisk> findRiskById(String riskId) {
-        return riskRepository.findById(riskId).map(this::main);
+        return riskRepository.findById(riskId).map(this::toDomain);
     }
 
     @Override
     public Optional<ControlActivity> findControlActivityById(String controlId) {
-        return controlActivityRepository.findById(controlId).map(this::main);
+        return controlActivityRepository.findById(controlId).map(this::toDomain);
     }
 
     @Override
     public List<RcmProcess> findAllProcesses() {
-        return processRepository.findAll().stream().map(this::main).collect(Collectors.toList());
+        return processRepository.findAll().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
     public List<RcmRisk> findRisksByProcessId(String processId) {
-        return riskRepository.findByProcessId(processId).stream().map(this::main).collect(Collectors.toList());
+        return riskRepository.findByProcessId(processId).stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
     public List<ControlActivity> findControlActivitiesByRiskId(String riskId) {
-        return controlActivityRepository.findByRiskId(riskId).stream().map(this::main).collect(Collectors.toList());
+        return controlActivityRepository.findByRiskId(riskId).stream().map(this::toDomain).collect(Collectors.toList());
     }
 
-    private RcmProcess main(RcmProcessJpaEntity entity) {
+    private RcmProcess toDomain(RcmProcessJpaEntity entity) {
         return RcmProcess.builder()
                 .processId(entity.getProcessId())
                 .processName(entity.getProcessName())
@@ -103,7 +103,7 @@ public class RcmPersistenceAdapter implements RcmPersistencePort {
                 .build();
     }
 
-    private RcmRisk main(RcmRiskJpaEntity entity) {
+    private RcmRisk toDomain(RcmRiskJpaEntity entity) {
         return RcmRisk.builder()
                 .riskId(entity.getRiskId())
                 .processId(entity.getProcessId())
@@ -113,7 +113,7 @@ public class RcmPersistenceAdapter implements RcmPersistencePort {
                 .build();
     }
 
-    private ControlActivity main(ControlActivityJpaEntity entity) {
+    private ControlActivity toDomain(ControlActivityJpaEntity entity) {
         return ControlActivity.builder()
                 .controlId(entity.getControlId())
                 .riskId(entity.getRiskId())

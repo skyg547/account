@@ -19,19 +19,19 @@ public class OdsAccountRatePersistenceAdapter implements OdsAccountRateRepositor
 
     @Override
     public Optional<OdsAccountRate> findById(String accountNo) {
-        return jpaRepository.findById(accountNo).map(this::main);
+        return jpaRepository.findById(accountNo).map(this::toDomain);
     }
 
     @Override
     public List<OdsAccountRate> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsAccountRate save(OdsAccountRate rate) {
-        return main(jpaRepository.save(toEntity(rate)));
+        return toDomain(jpaRepository.save(toEntity(rate)));
     }
 
     @Override
@@ -44,7 +44,7 @@ public class OdsAccountRatePersistenceAdapter implements OdsAccountRateRepositor
         jpaRepository.saveAll(entities);
     }
 
-    private OdsAccountRate main(OdsAccountRateEntity entity) {
+    private OdsAccountRate toDomain(OdsAccountRateEntity entity) {
         if (entity == null) {
             return null;
         }

@@ -30,7 +30,7 @@ public class CdmDataReadyConsumer {
     /**
      * Kafka Topic으로부터 이벤트를 수신합니다.
      *
-     * <p> 운영 전 baseDate/eventId 멱등 키를 사용하는 분산락 포트와 Redis/JDBC 어댑터를 연결하고,
+     * <p>@todo 운영 전 baseDate/eventId 멱등 키를 사용하는 분산락 포트와 Redis/JDBC 어댑터를 연결하고,
      * owner token 기반 안전 해제와 lease 갱신을 통합 테스트합니다.</p>
      */
     @KafkaListener(topics = "allowance-cdm-events", groupId = "ifrs9-allowance-group")

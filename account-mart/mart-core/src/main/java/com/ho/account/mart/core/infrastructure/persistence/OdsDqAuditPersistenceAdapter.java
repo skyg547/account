@@ -20,20 +20,20 @@ public class OdsDqAuditPersistenceAdapter implements OdsDqAuditRepository {
     @Override
     public List<OdsDqAudit> findByBaseDate(LocalDate baseDate) {
         return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<OdsDqAudit> findAll() {
         return jpaRepository.findAll().stream()
-                .map(this::main)
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public OdsDqAudit save(OdsDqAudit domain) {
-        return main(jpaRepository.save(toEntity(domain)));
+        return toDomain(jpaRepository.save(toEntity(domain)));
     }
 
     @Override
@@ -45,7 +45,7 @@ public class OdsDqAuditPersistenceAdapter implements OdsDqAuditRepository {
         jpaRepository.saveAll(entities);
     }
 
-    private OdsDqAudit main(OdsDqAuditEntity entity) {
+    private OdsDqAudit toDomain(OdsDqAuditEntity entity) {
         if (entity == null) return null;
         return OdsDqAudit.builder()
                 .id(entity.getId())

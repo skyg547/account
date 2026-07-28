@@ -23,7 +23,7 @@ public class JpaRegulatoryReportMappingAdapter implements LoadRegulatoryReportMa
             FinancialStatement.StatementType type,
             LocalDateTime baseDate) {
         return repository.findEffectiveMappings(type.name(), baseDate.toLocalDate()).stream()
-                .map(RegulatoryReportMappingJpaEntity::main)
+                .map(RegulatoryReportMappingJpaEntity::toDomain)
                 .toList();
     }
 }

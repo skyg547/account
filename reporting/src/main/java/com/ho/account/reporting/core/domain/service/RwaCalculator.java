@@ -56,7 +56,7 @@ public class RwaCalculator {
         BigDecimal expectedLoss = exposureAmount.multiply(pd).multiply(lgd);
         
         // 실제 규제자본(Unexpected Loss) 계산 로직이 이 위치에 추가되어야 합니다.
-        // (Epic-27): 바젤 III 규제 기반의 상관계수(R) 및 만기조정(M) 수식 적용 필요
+        // TODO(Epic-27): 바젤 III 규제 기반의 상관계수(R) 및 만기조정(M) 수식 적용 필요
         
         return expectedLoss.multiply(new BigDecimal("1.5")); // 임의의 가중치 적용
     }

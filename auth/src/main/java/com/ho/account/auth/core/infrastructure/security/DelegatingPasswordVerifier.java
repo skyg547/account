@@ -25,9 +25,9 @@ public class DelegatingPasswordVerifier implements PasswordVerifierPort {
             }
         }
 
-        // 레거시 평문 비밀번호 허용 코드를 제거하고 보안을 강화합니다.
-        // 모든 비밀번호는 Spring Security의 포맷팅(예: {bcrypt})을 준수해야 합니다.
-        return false;
+        // @todo 레거시 평문 비밀번호를 일회성 로그인 시 해시로 승격하는 저장 포트를 추가한 뒤,
+        // 운영 profile에서는 접두사 없는 storedPassword를 fail-closed로 거부해야 한다.
+        return Objects.equals(rawPassword, storedPassword);
     }
 }
 

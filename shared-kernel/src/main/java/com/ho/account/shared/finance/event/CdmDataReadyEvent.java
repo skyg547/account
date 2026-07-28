@@ -14,7 +14,7 @@ import lombok.Getter;
  * <p>eventId는 같은 Kafka 이벤트의 재전달을 같은 Spring Batch JobInstance로 식별하는 멱등 키입니다.
  * JSON 역직렬화 시 생산자가 만든 ID와 발생 시각을 보존합니다.</p>
  *
- * <p> account-mart/ECL 전용 통합 계약 모듈로 이동하고 schemaVersion과 producer를 명시한다.
+ * <p>@todo account-mart/ECL 전용 통합 계약 모듈로 이동하고 schemaVersion과 producer를 명시한다.
  * 실제 분산락은 baseDate/eventId 정책을 사용하는 별도 포트와 Redis/JDBC 어댑터로 구현한다.</p>
  */
 @Getter

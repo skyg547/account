@@ -87,7 +87,7 @@ class AuthUserJpaEntity {
         return entity;
     }
 
-    AuthUser main() {
+    AuthUser toDomain() {
         return new AuthUser(
                 username,
                 storedPassword,
@@ -95,7 +95,7 @@ class AuthUserJpaEntity {
                 active,
                 locked,
                 roleAssignments.stream()
-                        .map(RoleAssignmentJpaEntity::main)
+                        .map(RoleAssignmentJpaEntity::toDomain)
                         .toList(),
                 roleVersion);
     }

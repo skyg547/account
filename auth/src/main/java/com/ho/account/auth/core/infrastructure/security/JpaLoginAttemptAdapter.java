@@ -74,8 +74,8 @@ public class JpaLoginAttemptAdapter implements LoginAttemptPort {
     @Transactional
     public void recordFailure(String username, String reason) {
         String key = normalize(username);
-        // 여러 노드가 같은 사용자의 "첫 실패"를 동시에 기록하면 find 후 insert가 경합할 수 있으므로
-        // PostgreSQL/H2 양쪽에서 검증된 원자적 upsert 또는 사용자별 DB lock 경계로 전환해야 합니다.
+        // @todo 여러 노드가 같은 사용자의 "첫 실패"를 동시에 기록하면 find 후 insert가 경합할 수 있다.
+        // PostgreSQL/H2 양쪽에서 검증된 원자적 upsert 또는 사용자별 DB lock 경계로 전환해야 한다.
         LoginAttemptJpaEntity state = repository.findById(key)
                 .orElseGet(() -> new LoginAttemptJpaEntity(key));
         state.recordFailure(reason, maxFailures, lockDurationMinutes, clock);

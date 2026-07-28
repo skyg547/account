@@ -30,6 +30,6 @@ public class JpaRegulatoryFilingAdapter implements StoreRegulatoryFilingPort, Lo
         return repository.findTopByStatementTypeAndBaseDateOrderBySubmittedAtDesc(type.name(), baseDate)
                 .map(RegulatoryFilingJpaEntity::filingId)
                 .map(repository::findByFilingIdOrderByDisplayOrderAsc)
-                .map(RegulatoryFilingJpaEntity::main);
+                .map(RegulatoryFilingJpaEntity::toDomain);
     }
 }
