@@ -9,9 +9,13 @@ import org.springframework.web.client.RestClientResponseException;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "auth.master-data.enabled", havingValue = "true")
 public class MasterDataDepartmentValidationAdapter implements DepartmentValidationPort {
+
 
     private final RestClient masterDataRestClient;
 
