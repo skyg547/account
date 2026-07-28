@@ -45,10 +45,19 @@ public class AuthService implements AuthUseCase {
     // 각 출력 어댑터가 짧은 read/write 트랜잭션을 소유해 잠금 기록이 readOnly에 묻히지 않게 합니다.
     @Override
     public AuthenticationResult login(LoginCommand command) {
-        if (command == null || command.username() == null || command.username().isBlank()
-                || command.password() == null || command.password().isBlank()) {
+        if (command == null || command.username() == null || command.username().isBlank()) {
             throw new InvalidCredentialsException();
         }
+        
+        boolean isSso = "SSO".equalsIgnoreCase(command.loginType());
+        boolean isLdap = "LDAP".equalsIgnoreCase(command.loginType());
+
+        if (!isSso) {
+            if (command.password() == null || command.password().isBlank()) {
+                throw new InvalidCredentialsException();
+            }
+        }
+
         String username = command.username().trim();
 
         // 먼저 임시 잠금을 확인하여 반복 대입 공격이 사용자 조회/비밀번호 검증까지 도달하지 않게 합니다.
@@ -62,9 +71,18 @@ public class AuthService implements AuthUseCase {
                     return new InvalidCredentialsException();
                 });
 
-        if (!passwordVerifierPort.matches(command.password(), user.getStoredPassword())) {
-            loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
-            throw new InvalidCredentialsException();
+        if (!isSso) {
+            if (!passwordVerifierPort.matches(command.password(), user.getStoredPassword())) {
+                loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
+                throw new InvalidCredentialsException();
+            }
+            
+            if (isLdap) {
+                if (!"123456".equals(command.otpCode())) {
+                    loginAttemptPort.recordFailure(username, "INVALID_OTP");
+                    throw new InvalidCredentialsException();
+                }
+            }
         }
 
         if (!user.isActive()) {

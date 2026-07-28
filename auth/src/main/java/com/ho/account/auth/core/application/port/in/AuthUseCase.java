@@ -11,6 +11,6 @@ public interface AuthUseCase {
     /**
      * API DTO와 분리된 core 로그인 입력입니다. 비밀번호는 공백 제거를 하지 않습니다.
      */
-    record LoginCommand(String username, String password) {
+    record LoginCommand(String username, String password, String loginType, String otpCode) {
     }
 }
