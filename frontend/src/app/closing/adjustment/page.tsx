@@ -5,20 +5,11 @@ import {
   FileSpreadsheet, 
   Plus, 
   Trash2, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowRight, 
-  Send, 
-  Calculator, 
-  BookOpen, 
-  FileText,
-  Search,
-  Filter
+  Calculator
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
-import EmptyState from '@/components/ui/EmptyState';
 
 interface AdjustmentLine {
   id: string;
@@ -105,7 +96,7 @@ export default function ClosingAdjustmentPage() {
     setLines(lines.filter(l => l.id !== id));
   };
 
-  const handleLineChange = (id: string, field: keyof AdjustmentLine, val: any) => {
+  const handleLineChange = (id: string, field: keyof AdjustmentLine, val: string | number) => {
     setLines(lines.map(l => l.id === id ? { ...l, [field]: val } : l));
   };
 
@@ -215,7 +206,6 @@ export default function ClosingAdjustmentPage() {
               </div>
             </div>
 
-            {/* Lines Sub-table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
@@ -263,7 +253,7 @@ export default function ClosingAdjustmentPage() {
                   <label className="text-xs font-bold text-slate-400">조정 유형</label>
                   <select
                     value={entryType}
-                    onChange={(e) => setEntryType(e.target.value as any)}
+                    onChange={(e) => setEntryType(e.target.value as AdjustmentEntry['type'])}
                     className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white outline-none"
                   >
                     <option value="감가상각" className="bg-slate-900">감가상각비 조정</option>
@@ -352,7 +342,6 @@ export default function ClosingAdjustmentPage() {
                   ))}
                 </div>
 
-                {/* Balance validation bar */}
                 <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold ${
                   isBalanced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
                 }`}>
