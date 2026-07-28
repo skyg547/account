@@ -19,21 +19,21 @@ function getIcon(name: string): React.ElementType {
 }
 
 export default function Sidebar() {
-  const { activeCategory, isCollapsed, toggleSidebar, userRole } = useNav();
+  const { activeCategory, isCollapsed, toggleSidebar, userRole, userAuthorizations } = useNav();
   const pathname = usePathname();
 
-  // 권한 체크
-  const hasAccess = (requiredRoles?: UserRole[]) => {
-    if (!requiredRoles || userRole === 'SYSTEM_ADMIN') return true;
-    return requiredRoles.includes(userRole);
+  // 개별 메뉴 아이템 접근 권한 체크 (Governance API 기준)
+  const hasItemAccess = (href: string) => {
+    if (userRole === 'SYSTEM_ADMIN') return true;
+    return userAuthorizations.some(auth => auth.functionCode === `MENU:${href}`);
   };
 
-  // 현재 카테고리 + 권한 기준 필터링
+  // 현재 카테고리 필터링 및 권한 체크
   const filteredMenuItems: MenuGroup[] = allMenus
-    .filter(group => group.category === activeCategory && hasAccess(group.requiredRoles))
+    .filter(group => group.category === activeCategory)
     .map(group => ({
       ...group,
-      items: group.items.filter(item => hasAccess(item.requiredRoles))
+      items: group.items.filter(item => hasItemAccess(item.href))
     }))
     .filter(group => group.items.length > 0);
 
