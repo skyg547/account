@@ -1,6 +1,8 @@
 export interface LoginRequest {
   username: string;
   password?: string;
+  loginType?: string;
+  otpCode?: string;
 }
 
 export interface LoginResponse {
@@ -25,6 +27,8 @@ export const authService = {
       body: JSON.stringify({
         username: credentials.username,
         password: credentials.password || '1234',
+        loginType: credentials.loginType || 'LDAP',
+        otpCode: credentials.otpCode,
       }),
     });
 
