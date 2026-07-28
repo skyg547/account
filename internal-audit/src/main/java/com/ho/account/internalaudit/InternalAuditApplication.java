@@ -22,11 +22,13 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @EntityScan(basePackages = {
         "com.ho.account.audit.domain",
-        "com.ho.account.masterdata.core.domain"
+        "com.ho.account.masterdata.core.domain",
+        "com.ho.account.internalaudit.core.infrastructure.persistence.entity"
 })
 @EnableJpaRepositories(basePackages = {
         "com.ho.account.audit.repository",
-        "com.ho.account.masterdata.core.infrastructure.persistence"
+        "com.ho.account.masterdata.core.infrastructure.persistence",
+        "com.ho.account.internalaudit.core.infrastructure.persistence.repository"
 })
 @EnableDiscoveryClient
 public class InternalAuditApplication {
