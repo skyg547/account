@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /**
  * [내비게이션 카테고리 정의]
@@ -28,6 +28,13 @@ export type UserRole =
   | 'AUDITOR'
   | 'USER';
 
+export interface Authorization {
+  id: number;
+  roleCode: string;
+  functionCode: string;
+  accessType: string;
+}
+
 interface NavContextType {
   activeCategory: NavCategory;
   setActiveCategory: (category: NavCategory) => void;
@@ -35,9 +42,12 @@ interface NavContextType {
   toggleSidebar: () => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
+  userAuthorizations: Authorization[];
 }
 
 const NavContext = createContext<NavContextType | undefined>(undefined);
+
+const GOVERNANCE_API_BASE_URL = process.env.NEXT_PUBLIC_GOVERNANCE_API_URL || 'http://localhost:8083';
 
 /**
  * [내비게이션 상태 제공자]
@@ -47,8 +57,32 @@ export function NavProvider({ children }: { children: ReactNode }) {
   const [activeCategory, setActiveCategory] = useState<NavCategory>('ACCOUNTING');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('ACCOUNTING_ADMIN');
+  const [userAuthorizations, setUserAuthorizations] = useState<Authorization[]>([]);
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+
+  // 권한 그룹이 변경될 때마다 Governance 모듈에서 권한 목록(메뉴 등)을 불러옵니다.
+  useEffect(() => {
+    const fetchAuthorizations = async () => {
+      if (userRole === 'SYSTEM_ADMIN') {
+        setUserAuthorizations([]); // SYSTEM_ADMIN은 모든 권한 패스
+        return;
+      }
+      try {
+        const res = await fetch(`${GOVERNANCE_API_BASE_URL}/api/audit/roles/${userRole}/authorizations`);
+        if (res.ok) {
+          const data = await res.json();
+          setUserAuthorizations(data);
+        } else {
+          setUserAuthorizations([]);
+        }
+      } catch (e) {
+        console.error('Failed to fetch authorizations', e);
+        setUserAuthorizations([]);
+      }
+    };
+    fetchAuthorizations();
+  }, [userRole]);
 
   return (
     <NavContext.Provider value={{ 
@@ -57,7 +91,8 @@ export function NavProvider({ children }: { children: ReactNode }) {
       isCollapsed, 
       toggleSidebar,
       userRole,
-      setUserRole
+      setUserRole,
+      userAuthorizations
     }}>
       {children}
     </NavContext.Provider>
