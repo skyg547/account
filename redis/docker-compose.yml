@@ -7,10 +7,10 @@ version: '3.8' # Docker Compose 파일의 문법 버전
 services:
   redis:
     # 사용할 미리 만들어진 도커 이미지를 지정합니다. (도커 허브에서 다운로드 받습니다)
-    image: redis:alpine
+    image: docker.io/library/redis:alpine
     
     # 컨테이너의 이름을 지정합니다.
-    container_name: redis
+    container_name: account-redis
     
     # 포트 연결 (내 PC의 포트 : 컨테이너의 포트)
     # 내 PC에서 6379 포트로 접속하면, 이 인프라 컨테이너의 6379 포트로 연결됩니다.

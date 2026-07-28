@@ -1,6 +1,6 @@
 # [초보자를 위한 멀티스테이지 빌드]
 # 1단계는 루트 Gradle 멀티모듈에서 Eureka 실행 JAR을 만들고, 2단계는 JRE와 JAR만 남깁니다.
-FROM gradle:8.7-jdk17-alpine AS builder
+FROM docker.io/library/gradle:8.7-jdk17-alpine AS builder
 WORKDIR /build
 
 # discovery도 루트 settings.gradle/build.gradle을 사용하므로 저장소 루트가 Docker build context여야 합니다.
@@ -9,7 +9,8 @@ RUN ./gradlew :discovery:bootJar --no-daemon && \
     find discovery/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' \
     -exec cp {} /build/discovery-app.jar \;
 
-FROM eclipse-temurin:17-jre-alpine
+FROM docker.io/library/eclipse-temurin:17-jre-alpine
+
 WORKDIR /app
 
 RUN apk add --no-cache tzdata && \
