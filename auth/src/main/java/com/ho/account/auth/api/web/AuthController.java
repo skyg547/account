@@ -17,13 +17,24 @@ import java.security.MessageDigest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * 🐣 [초보자를 위한 AuthController 개념 가이드]
+ * 
+ * 1. CORS (Cross-Origin Resource Sharing) 해결:
+ *    - 웹 브라우저(Next.js: localhost:3000, 3001)에서 다른 도메인/포트의 백엔드(localhost:8080)로
+ *      API 요청을 보낼 때 보안상 브라우저가 교차 출처 요청을 차단하는 것이 'CORS 에러'입니다.
+ *    - `@CrossOrigin(origins = "*", allowedHeaders = "*")` 어노테이션을 추가하여
+ *      프론트엔드 브라우저의 접근 요청을 허용합니다.
+ * 
+ * 2. 다중 권한(Roles)과 JWT 토큰:
+ *    - 사용자는 "지출 결의 승인자(ROLE_EXPENDITURE_APPROVER)", "거래처 관리자(ROLE_PARTNER_MANAGER)" 등
+ *      여러 개의 권한을 동시에 가질 수 있습니다.
+ *    - JWT 토큰 내부(Payload)는 JSON 구조이므로 `roles: ["ROLE_ADMIN", "ROLE_EXPENDITURE_APPROVER"]`처럼
+ *      배열(List) 형태로 사용자의 모든 권한 목록을 실어서 발급합니다.
+ */
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor

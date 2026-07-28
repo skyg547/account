@@ -11,6 +11,7 @@ export const systemMenu: MenuGroup[] = [
       { icon: 'Users',    label: '사용자 관리',    href: '/system/users' },
       { icon: 'Building', label: '부서 관리',     href: '/system/departments' },
       { icon: 'Layers',   label: '메뉴 권한 관리', href: '/system/menus' },
+      { icon: 'KeyRound', label: 'PAT 토큰 거버넌스', href: '/system/tokens' },
       { icon: 'FileText', label: '시스템 로그',    href: '/system/logs' },
     ],
   },
