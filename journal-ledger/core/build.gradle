@@ -16,7 +16,7 @@ dependencies {
     api project(':contracts')
     api project(':shared-kernel')
     api project(':master-data')
-    api project(':governance')
+    
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
