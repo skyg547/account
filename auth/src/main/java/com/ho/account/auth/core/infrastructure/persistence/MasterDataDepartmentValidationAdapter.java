@@ -7,6 +7,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class MasterDataDepartmentValidationAdapter implements DepartmentValidationPort {
 
@@ -32,10 +35,13 @@ public class MasterDataDepartmentValidationAdapter implements DepartmentValidati
             if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return false;
             }
-            throw new IllegalStateException("master-data lookup failed for departmentCode=" + departmentCode, ex);
+            log.warn("master-data service returned non-200 status for departmentCode={}, fallback to allow", departmentCode, ex);
+            return true;
         } catch (RestClientException ex) {
-            throw new IllegalStateException("master-data lookup failed for departmentCode=" + departmentCode, ex);
+            log.warn("master-data service unreachable for departmentCode={}, fallback to allow standalone auth", departmentCode);
+            return true;
         }
     }
 }
+
 

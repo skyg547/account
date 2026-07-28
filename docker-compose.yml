@@ -483,3 +483,21 @@ services:
     depends_on:
       - frontend-node
       - gateway
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - account-network
+    environment:
+      - POSTGRES_DB=account_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:
+

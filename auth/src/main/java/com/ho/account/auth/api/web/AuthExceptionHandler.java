@@ -4,6 +4,7 @@ import com.ho.account.auth.api.dto.ErrorResponse;
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import java.time.LocalDateTime;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class AuthExceptionHandler {
 
@@ -45,7 +47,9 @@ public class AuthExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        log.error("Unexpected error occurred during authentication request processing", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("INTERNAL_SERVER_ERROR", "Unexpected server error", LocalDateTime.now()));
+                .body(new ErrorResponse("INTERNAL_SERVER_ERROR", "Unexpected server error: " + ex.getMessage(), LocalDateTime.now()));
     }
 }
+
