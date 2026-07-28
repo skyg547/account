@@ -42,12 +42,6 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<MasterDataChangeRequest> getAllChangeRequests() {
-        return persistencePort.findAll();
-    }
-
-    @Override
     @Transactional
     public MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command) {
         MasterDataChangeRequest request = new MasterDataChangeRequest(

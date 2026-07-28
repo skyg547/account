@@ -19,10 +19,21 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
               AND bp.validTo >= :date
             ORDER BY bp.validFrom DESC
             """)
-    List<BusinessPartner> findActiveByBusinessPartnerCode(String businessPartnerCode, LocalDate date);
+    Optional<BusinessPartner> findActiveByBusinessPartnerCode(String businessPartnerCode, LocalDate date);
+
+    // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.
+    // 완료 조건: 겹치는 SCD2 행 저장 자체를 거부하는 forward migration과 PostgreSQL 통합 테스트를 함께 둡니다.
+    @Query("""
+            SELECT bp FROM BusinessPartner bp
+            WHERE bp.businessPartnerCode = :businessPartnerCode
+              AND bp.validFrom <= :date
+              AND bp.validTo >= :date
+            ORDER BY bp.validFrom DESC
+            """)
+    Optional<BusinessPartner> findEffectiveByBusinessPartnerCode(String businessPartnerCode, LocalDate date);
 
     default Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode) {
-        return findActiveByBusinessPartnerCode(businessPartnerCode, LocalDate.now()).stream().findFirst();
+        return findActiveByBusinessPartnerCode(businessPartnerCode, LocalDate.now());
     }
 
     @Query("""
@@ -41,7 +52,15 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
         return findByBusinessPartnerCode(businessPartnerCode).isPresent();
     }
 
-    List<BusinessPartner> findByBusinessPartnerNameContaining(String name);
+    @Query("""
+            SELECT bp FROM BusinessPartner bp
+            WHERE bp.useYn = true
+              AND bp.validFrom <= :date
+              AND bp.validTo >= :date
+              AND LOWER(bp.businessPartnerName) LIKE LOWER(CONCAT('%', :name, '%'))
+            ORDER BY bp.businessPartnerCode, bp.validFrom
+            """)
+    List<BusinessPartner> searchActiveByName(String name, LocalDate date);
 
     long countByBusinessPartnerCode(String businessPartnerCode);
 

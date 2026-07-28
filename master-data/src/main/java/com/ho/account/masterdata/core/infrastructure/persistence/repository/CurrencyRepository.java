@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -18,9 +17,9 @@ public interface CurrencyRepository extends JpaRepository<Currency, Long> {
               AND c.validTo >= :date
             ORDER BY c.validFrom DESC
             """)
-    List<Currency> findActiveByCurrencyCode(String currencyCode, LocalDate date);
+    Optional<Currency> findActiveByCurrencyCode(String currencyCode, LocalDate date);
 
     default Optional<Currency> findByCurrencyCode(String currencyCode) {
-        return findActiveByCurrencyCode(currencyCode, LocalDate.now()).stream().findFirst();
+        return findActiveByCurrencyCode(currencyCode, LocalDate.now());
     }
 }

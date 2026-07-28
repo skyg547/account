@@ -4,6 +4,7 @@ import jakarta.persistence.ManyToOne;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
 
@@ -28,8 +29,8 @@ class CurrencyExchangeRateTest {
     @Test
     void exchangeRateUsesCurrencyCodesInsteadOfCurrencyEntityReferences() {
         ExchangeRate exchangeRate = new ExchangeRate();
-        exchangeRate.setFromCurrencyCode("USD");
-        exchangeRate.setToCurrencyCode("KRW");
+        exchangeRate.setFromCurrencyCode(" usd ");
+        exchangeRate.setToCurrencyCode("krw");
 
         assertThat(exchangeRate.getFromCurrencyCode()).isEqualTo("USD");
         assertThat(exchangeRate.getToCurrencyCode()).isEqualTo("KRW");
@@ -37,5 +38,15 @@ class CurrencyExchangeRateTest {
                 .filter(field -> field.isAnnotationPresent(ManyToOne.class))
                 .map(Field::getName))
                 .isEmpty();
+    }
+
+    @Test
+    void exchangeRateRejectsNonPositiveRate() {
+        ExchangeRate exchangeRate = new ExchangeRate();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> exchangeRate.setRate(BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("greater than zero");
     }
 }

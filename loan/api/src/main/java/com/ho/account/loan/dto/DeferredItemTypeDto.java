@@ -1,5 +1,7 @@
 package com.ho.account.loan.dto;
 
+// HTTP 응답 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
 import com.ho.account.loan.domain.DeferredItemType;
 import lombok.Builder;
 import lombok.Data;
@@ -35,10 +37,10 @@ public class DeferredItemTypeDto {
                 .description(entity.getDescription())
                 .deferralMethod(entity.getDeferralMethod())
                 .eirCashFlowTreatment(entity.getEirCashFlowTreatment())
-                .deferredAssetAccountCode(entity.getDeferredAssetAccount() != null ? entity.getDeferredAssetAccount().getCode() : null)
-                .deferredAssetAccountName(entity.getDeferredAssetAccount() != null ? entity.getDeferredAssetAccount().getName() : null)
-                .recognizedIncomeAccountCode(entity.getRecognizedIncomeAccount() != null ? entity.getRecognizedIncomeAccount().getCode() : null)
-                .recognizedIncomeAccountName(entity.getRecognizedIncomeAccount() != null ? entity.getRecognizedIncomeAccount().getName() : null)
+                .deferredAssetAccountCode(entity.getDeferredAssetAccountCode())
+                .deferredAssetAccountName(entity.getDeferredAssetAccountName())
+                .recognizedIncomeAccountCode(entity.getRecognizedIncomeAccountCode())
+                .recognizedIncomeAccountName(entity.getRecognizedIncomeAccountName())
                 .isActive(entity.isActive())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

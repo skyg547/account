@@ -19,15 +19,6 @@ class MasterDataValidityPolicyTest {
     }
 
     @Test
-    void closesValidityWindowUsingTodayWhenStillOpen() {
-        Holder holder = new Holder(LocalDate.of(9999, 12, 31));
-
-        MasterDataValidityPolicy.closeIfActive(holder::getDate, holder::setDate);
-
-        assertThat(holder.getDate()).isEqualTo(LocalDate.now());
-    }
-
-    @Test
     void acceptsTerminationDateInsideCurrentValidityWindow() {
         LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
                 LocalDate.of(2026, 7, 1),
@@ -54,19 +45,12 @@ class MasterDataValidityPolicyTest {
                 .hasMessageContaining("cannot extend");
     }
 
-    private static final class Holder {
-        private LocalDate date;
-
-        private Holder(LocalDate date) {
-            this.date = date;
-        }
-
-        private LocalDate getDate() {
-            return date;
-        }
-
-        private void setDate(LocalDate date) {
-            this.date = date;
-        }
+    @Test
+    void rejectsReversedScd2WindowBeforePersistence() {
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireValidityWindow(
+                LocalDate.of(2026, 7, 2),
+                LocalDate.of(2026, 7, 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("validTo cannot be before validFrom");
     }
 }

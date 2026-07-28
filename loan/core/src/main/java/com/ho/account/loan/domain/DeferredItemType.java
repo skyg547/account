@@ -1,6 +1,5 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -35,13 +34,17 @@ public class DeferredItemType {
     @Column(nullable = false, length = 50)
     private EirCashFlowTreatment eirCashFlowTreatment = EirCashFlowTreatment.CUSTOMER_FEE_INFLOW;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "deferred_asset_account_code")
-    private AccountSubject deferredAssetAccount; // 이연자산 계정
+    @Column(name = "deferred_asset_account_ref", length = 20)
+    private String deferredAssetAccountCode; // Master Data 엔티티 대신 계정코드 값만 소유합니다.
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recognized_income_account_code")
-    private AccountSubject recognizedIncomeAccount; // 수익 인식 계정
+    @Column(name = "recognized_income_account_ref", length = 20)
+    private String recognizedIncomeAccountCode; // Master Data 엔티티 대신 계정코드 값만 소유합니다.
+
+    @Transient
+    private String deferredAssetAccountName;
+
+    @Transient
+    private String recognizedIncomeAccountName;
 
     @Column(nullable = false)
     private boolean isActive = true;
@@ -129,28 +132,33 @@ public class DeferredItemType {
         this.eirCashFlowTreatment = eirCashFlowTreatment;
     }
 
-    public AccountSubject getDeferredAssetAccount() {
-        return deferredAssetAccount;
-    }
-
-    public void setDeferredAssetAccount(AccountSubject deferredAssetAccount) {
-        this.deferredAssetAccount = deferredAssetAccount;
-    }
-
     public String getDeferredAssetAccountCode() {
-        return deferredAssetAccount == null ? null : deferredAssetAccount.getCode();
+        return deferredAssetAccountCode;
     }
 
-    public AccountSubject getRecognizedIncomeAccount() {
-        return recognizedIncomeAccount;
+    public void setDeferredAssetAccountCode(String deferredAssetAccountCode) {
+        this.deferredAssetAccountCode = normalizeNullableCode(deferredAssetAccountCode);
     }
 
-    public void setRecognizedIncomeAccount(AccountSubject recognizedIncomeAccount) {
-        this.recognizedIncomeAccount = recognizedIncomeAccount;
+    public String getDeferredAssetAccountName() {
+        return deferredAssetAccountName;
     }
 
     public String getRecognizedIncomeAccountCode() {
-        return recognizedIncomeAccount == null ? null : recognizedIncomeAccount.getCode();
+        return recognizedIncomeAccountCode;
+    }
+
+    public void setRecognizedIncomeAccountCode(String recognizedIncomeAccountCode) {
+        this.recognizedIncomeAccountCode = normalizeNullableCode(recognizedIncomeAccountCode);
+    }
+
+    public String getRecognizedIncomeAccountName() {
+        return recognizedIncomeAccountName;
+    }
+
+    public void attachAccountDescriptions(String deferredAssetAccountName, String recognizedIncomeAccountName) {
+        this.deferredAssetAccountName = normalizeNullableText(deferredAssetAccountName, 100);
+        this.recognizedIncomeAccountName = normalizeNullableText(recognizedIncomeAccountName, 100);
     }
 
     public boolean isActive() {
@@ -183,5 +191,51 @@ public class DeferredItemType {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public static DeferredItemType create(
+            String code,
+            String name,
+            String description,
+            DeferralMethod deferralMethod,
+            EirCashFlowTreatment treatment,
+            String deferredAssetAccountCode,
+            String recognizedIncomeAccountCode,
+            boolean active,
+            String actor) {
+        DeferredItemType type = new DeferredItemType();
+        type.code = requireText(code, "code", 100);
+        type.name = requireText(name, "name", 200);
+        type.description = normalizeNullableText(description, 500);
+        type.deferralMethod = java.util.Objects.requireNonNull(deferralMethod, "deferralMethod is required.");
+        type.eirCashFlowTreatment = java.util.Objects.requireNonNull(treatment, "eirCashFlowTreatment is required.");
+        type.deferredAssetAccountCode = normalizeNullableCode(deferredAssetAccountCode);
+        type.recognizedIncomeAccountCode = normalizeNullableCode(recognizedIncomeAccountCode);
+        type.isActive = active;
+        type.auditUser = requireText(actor, "actor", 50);
+        return type;
+    }
+
+    private static String normalizeNullableCode(String value) {
+        return normalizeNullableText(value, 20);
+    }
+
+    private static String normalizeNullableText(String value, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException("value must not exceed " + maxLength + " characters.");
+        }
+        return normalized;
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        String normalized = normalizeNullableText(value, maxLength);
+        if (normalized == null) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        return normalized;
     }
 }

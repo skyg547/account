@@ -1,5 +1,7 @@
 package com.ho.account.loan.dto;
 
+// HTTP 응답 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
 import com.ho.account.loan.domain.RecalculationRun;
 import lombok.Builder;
 import lombok.Data;

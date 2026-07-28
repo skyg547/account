@@ -117,7 +117,7 @@ class MasterDataChangeRequestServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No MasterDataChangeApplier supports targetType: CURRENCY");
 
-        assertThat(port.findAll()).isEmpty();
+        assertThat(port.allRequests()).isEmpty();
     }
 
     @Test
@@ -129,7 +129,7 @@ class MasterDataChangeRequestServiceTest {
                 .hasMessageContaining("expected=3")
                 .hasMessageContaining("requested=2");
 
-        assertThat(port.findAll()).isEmpty();
+        assertThat(port.allRequests()).isEmpty();
     }
 
     @Test
@@ -164,7 +164,7 @@ class MasterDataChangeRequestServiceTest {
         MasterDataChangeRequest retried = service.requestChange(command);
 
         assertThat(retried).isSameAs(first);
-        assertThat(port.findAll()).containsExactly(first);
+        assertThat(port.allRequests()).containsExactly(first);
     }
 
     @Test
@@ -175,7 +175,7 @@ class MasterDataChangeRequestServiceTest {
                 createCommand("D-OTHER", "governance-approval-id=55")))
                 .isInstanceOf(MasterDataIdempotencyConflictException.class)
                 .hasMessageContaining("governance-approval-id=55");
-        assertThat(port.findAll()).hasSize(1);
+        assertThat(port.allRequests()).hasSize(1);
     }
 
     private MasterDataChangeRequestCommand updateCommand(String key, int requestedVersion) {
@@ -245,8 +245,7 @@ class MasterDataChangeRequestServiceTest {
                     .findFirst();
         }
 
-        @Override
-        public List<MasterDataChangeRequest> findAll() {
+        private List<MasterDataChangeRequest> allRequests() {
             return new ArrayList<>(store);
         }
 

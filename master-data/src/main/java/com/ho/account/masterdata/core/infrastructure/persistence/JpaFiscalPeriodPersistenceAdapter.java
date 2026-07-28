@@ -20,6 +20,11 @@ public class JpaFiscalPeriodPersistenceAdapter implements FiscalPeriodPersistenc
     }
 
     @Override
+    public Optional<FiscalPeriod> findByIdForUpdate(Long id) {
+        return fiscalPeriodRepository.findByIdForUpdate(id);
+    }
+
+    @Override
     public Optional<FiscalPeriod> findByFiscalYearAndFiscalPeriod(String fiscalYear, String fiscalPeriod) {
         return fiscalPeriodRepository.findByFiscalYearAndFiscalPeriod(fiscalYear, fiscalPeriod);
     }

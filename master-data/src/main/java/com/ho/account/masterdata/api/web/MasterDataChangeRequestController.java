@@ -23,6 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>@todo 현재 requestedBy/approver를 요청 본문이 정합니다. Gateway가 검증한 사용자 정보를
  * Spring Security principal로 연결한 뒤 신뢰된 사용자 ID를 서버에서 주입해야 합니다.</p>
+ *
+ * <p>@todo pending 목록도 요청이 누적되면 무제한 List가 됩니다. 완료 조건은 status/requestedAt/id
+ * 기반 pagination과 최대 page size를 포트부터 HTTP 계약까지 연결하고, 실제 DB query limit를
+ * 통합 테스트로 검증하는 것입니다.</p>
  */
 @RestController
 @RequestMapping("/api/master-data/change-requests")
@@ -73,4 +77,3 @@ public class MasterDataChangeRequestController {
                 .toList();
     }
 }
-

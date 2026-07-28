@@ -125,6 +125,7 @@ PostgreSQL 로컬 실행과 H2 콘솔 설정은 [local-run.md](./docs/local-run.
 
 **연동 주의사항:**
 - 다른 모듈에서 `@AuditLoggable` 어노테이션을 사용하여 감사 로그 작성을 트리거할 수 있습니다.
+- Master Data 승인 반영은 Governance 승인 ID를 멱등키로 사용합니다. 미래 시행일은 Master Data 승인 상태로 대기하며 시행일 도래 후 예약 반영됩니다.
 - `AuditController`의 웹 어댑터는 도메인 엔티티를 직접 노출하지 않고 전용 DTO로 변환하여 응답합니다.
 - Auth 연동 기본 주소는 `GOVERNANCE_AUTH_BASE_URL` 환경변수로 조정합니다. 기본값은 `http://localhost:8081`입니다.
 - Auth 내부 역할 반영 API 호출 토큰은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 조정합니다. Auth의 `AUTH_INTERNAL_API_TOKEN`과 같은 값을 사용해야 합니다.

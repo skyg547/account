@@ -38,6 +38,20 @@ erDiagram
 
 SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니다. `account_subjects`, `business_partners`, `departments`, `products`에는 업무 코드와 유효 기간을 앞부분으로 하는 인덱스가 있어 기준일 조회와 버전 개수 집계를 지원합니다. 단순히 업무 코드만 unique로 묶으면 과거 버전을 보존할 수 없습니다.
 
+활성 계정과목/상품 목록과 거래처 검색은 이 기간 조건을 DB query에서 처리합니다. 거래처는
+legacy `useYn=true`도 함께 확인합니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
+임의 선택하지 않고 실패하지만, PostgreSQL 저장 단계의 날짜 범위 exclusion constraint는 아직 필요합니다.
+
+## 환율과 회계기간
+
+| 모델 | 핵심 제약/조회 |
+| --- | --- |
+| `exchange_rates` | `(from_currency_code, to_currency_code, effective_date)` unique. 요청일 이하 중 최신 날짜 1건을 조회합니다. rate는 양수입니다. |
+| `fiscal_periods` | `(fiscal_year, fiscal_period)` unique. Closing 상태 변경은 대상 행 비관적 잠금과 도메인 전이를 사용합니다. |
+
+`FiscalPeriod`는 `OPEN -> CLOSED -> PERMANENTLY_CLOSED` 순서를 지키며, `CLOSED -> OPEN`은
+승인된 재오픈 흐름에서만 호출됩니다. 영구 마감은 terminal 상태입니다.
+
 ## 변경 요청 상태
 
 | 상태 | 의미 |
@@ -73,6 +87,7 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 - `V4__master_data_change_request_payload_text.sql`: 적용 이력이 있는 V2를 수정하지 않고 `payload_json`을 `TEXT`로 보정합니다. H2 PostgreSQL 모드에서는 검증했지만, 신규 PostgreSQL은 V2의 `CLOB`보다 먼저 실행할 vendor별 baseline이 필요하므로 아직 운영 부트스트랩 완료로 보지 않습니다.
 - `V5__master_data_change_request_lineage.sql`: Governance 재시도 멱등 키 `source_reference`, 실제 반영 시각 `applied_at`, source reference unique index를 추가합니다.
 - 기준정보 본 테이블의 전체 운영 DDL은 아직 baseline에 없습니다. 로컬 학습 실행은 Hibernate `create-drop`을 사용하지만 운영 PostgreSQL은 전체 Flyway DDL을 완성하고 `ddl-auto=validate`로 전환해야 합니다.
+- 완료 판정은 빈 PostgreSQL에서 모든 entity table/index/constraint를 Flyway만으로 만들고 `ddl-auto=validate` 부팅과 migration 통합 테스트를 통과하는 것입니다.
 
 ## 포트와 어댑터
 
@@ -80,4 +95,5 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 - `MasterDataVersionQueryPort`: targetType/targetKey별 저장된 SCD2 이력 수를 조회하는 출력 포트.
 - `JpaMasterDataVersionQueryAdapter`: targetType을 실제 Repository `COUNT` 메서드에 연결하는 JPA 어댑터.
 - `MasterDataQueryPort`: 다른 모듈이 기준일 기준정보를 이름표 DTO로 조회하는 계약.
+- `FiscalPeriodPersistencePort`: 외부 Closing 계약 어댑터가 JPA Repository를 직접 호출하지 않고 조회/잠금/저장을 요청하는 출력 포트.
 - JPA 어댑터는 `core.infrastructure.persistence` 아래에 두고 core application은 Spring Data Repository를 직접 참조하지 않습니다.

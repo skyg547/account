@@ -1,33 +1,31 @@
 # Loan 문서 인덱스
 
-`loan` 모듈은 대출 계약 생성, 실행, 이연 수수료/비용, EIR 상각 스케줄, 중도상환 재계산, 일일 이자 발생분 전표화를 담당합니다.
+`loan`은 대출 계약 생성·실행, 이연 항목, EIR 상각 스케줄, 상태 이벤트, 조건 변경 재계산, 이자 발생 전표화를 담당합니다.
 
-초보자는 아래 순서로 읽으면 업무 흐름과 코드 위치를 함께 이해하기 쉽습니다.
+1. [beginner-guide.md](beginner-guide.md): 용어와 상태 전이
+2. [process-flow.md](process-flow.md): API·core·Batch·전표 호출 순서
+3. [schema.md](schema.md): 테이블, 값 참조, 마이그레이션
+4. [local-run.md](local-run.md): 테스트, API, Batch, Docker 실행
 
-1. [beginner-guide.md](beginner-guide.md): 대출 회계 용어와 모듈 역할
-2. [process-flow.md](process-flow.md): API, Batch, EIR, 전표 수렴 흐름
-3. [schema.md](schema.md): 주요 테이블과 데이터 연결 기준
-4. [local-run.md](local-run.md): IntelliJ/Gradle 로컬 실행 방법
+## 코드 지도
 
-## 현재 기준
+| 관심사 | 위치 |
+| --- | --- |
+| REST/DTO/예외 변환 | `loan:api` |
+| 인바운드 포트 | `core/application/port/in/LoanUseCase` |
+| 유즈케이스 | `core/service/LoanService`, `InterestAccrualService` |
+| Batch 대량 변환 | `core/application/pipeline/LoanInterestAccrualPipeline` |
+| 업무 규칙 | `core/domain` |
+| 출력 포트 | `core/application/port/out` |
+| JPA/Master/Journal 어댑터 | `core/infrastructure` |
+| Job/Step/Reader/Writer 구성 | `loan:batch` |
 
-- API 엔트리포인트: `loan:api`, `com.ho.account.loan.LoanApplication`
-- Batch 엔트리포인트: `loan:batch`, `com.ho.account.loan.LoanBatchApplication`
-- Core 책임:
-  - `service`: 대출 실행, 이연 항목, EIR 스케줄, 재계산, 일일 이자 발생 유즈케이스
-  - `application.port.out`: 대출 영속성, 기준정보, 전표 출력 포트
-  - `domain`: 대출, 실행, 이연, EIR 스케줄, 이벤트, 재계산 실행 이력
-  - `infrastructure`: JPA/JDBC 저장소, journal-ledger/master-data 어댑터
-- Batch Job: `loanInterestAccrualJob`
-
-## 보존한 이전 문서
-
-기존 `loan/docs/README.md`는 앞부분에 유효한 최신 설명이 있었지만 뒤쪽에 인코딩이 깨진 레거시 문서가 붙어 있었습니다. 원문은 삭제하지 않고 [archive/README_legacy_corrupt_2026-06-10.md](archive/README_legacy_corrupt_2026-06-10.md)에 보존했습니다.
+API DTO는 API 경계에만 있고 core는 웹·DTO 타입을 알지 않습니다. Batch는 paging/chunk 흐름만 구성하며 대출별 반복과 실패 집계는 core 파이프라인이 수행합니다.
 
 ## 빠른 검증
 
 ```powershell
-.\gradlew :loan:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1 --no-daemon
+.\gradlew :loan:core:test :loan:api:bootJar :loan:batch:bootJar --console=plain --max-workers=1 --no-daemon
 ```
 
-IntelliJ에서는 `.run` 아래의 `Loan API bootRun`, `Loan Batch Context` 설정을 사용할 수 있습니다.
+기존 문서의 인코딩 손상 원문은 [archive/README_legacy_corrupt_2026-06-10.md](archive/README_legacy_corrupt_2026-06-10.md)에 보존되어 있습니다.

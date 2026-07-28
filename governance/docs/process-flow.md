@@ -30,10 +30,16 @@ flowchart TD
     D -->|No| F{masterType 지원 ApplyPort 존재}
     F -->|No| G[fail-closed 예외]
     F -->|Yes| H[APPROVED]
-    H --> I[대상 모듈 반영]
+    H --> I{Master Data 미래 시행일인가}
+    I -->|No| J[대상 모듈 즉시 반영]
+    I -->|Yes| K[Master Data APPROVED 예약 대기]
 ```
 
-`MasterApprovalService`는 승인 상태로 전이하기 전에 `MasterDataChangeApplyPort` 구현체를 찾습니다. 지원 포트가 없는 `masterType`은 조용히 승인하지 않고 fail-closed 예외로 중단합니다. 초보자 관점에서는 "결재 도장은 찍었는데 실제 기준정보는 안 바뀐" 상태를 만들지 않기 위한 안전장치입니다.
+`MasterApprovalService`는 승인 상태로 전이하기 전에 `MasterDataChangeApplyPort` 구현체를 찾습니다. 지원 포트가 없는 `masterType`은 조용히 승인하지 않고 fail-closed 예외로 중단합니다. 즉시 반영 대상에서 "결재 도장은 찍었는데 실제 기준정보는 안 바뀐" 상태를 만들지 않기 위한 안전장치입니다. 미래 시행일의 예약 대기는 승인된 날짜 정책에 따른 의도적인 상태입니다.
+
+Master Data 연동은 Governance `approvalId`를 `sourceReference`로 전달합니다. 동일 승인 재시도는
+기존 변경 요청의 상태를 이어가며, 이미 반영됐으면 아무 작업도 반복하지 않습니다. 미래
+`effectiveDate`는 Master Data의 `APPROVED` 상태로 저장되고 `/apply-due` 경로가 시행일 도래 후 반영합니다.
 
 ## Auth 역할 승인 흐름
 

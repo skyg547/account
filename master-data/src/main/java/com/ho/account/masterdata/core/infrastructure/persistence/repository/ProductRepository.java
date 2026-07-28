@@ -16,6 +16,14 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.productCode = :productCode AND p.validFrom <= :date AND p.validTo >= :date")
     Optional<Product> findActiveByProductCode(String productCode, LocalDate date);
 
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.validFrom <= :date
+              AND p.validTo >= :date
+            ORDER BY p.productCode, p.validFrom
+            """)
+    List<Product> findActiveVersions(LocalDate date);
+
     boolean existsByProductCode(String productCode);
 
     long countByProductCode(String productCode);

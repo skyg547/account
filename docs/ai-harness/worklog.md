@@ -496,3 +496,40 @@
 - Verification: clean Master Data/Governance test and bootJar passed with 82 tests (57 + 25); diff, marker, and Markdown link checks passed.
 - Known risk: live PostgreSQL and Docker were not run; historical V2 `CLOB` and concurrent source-reference recovery require a vendor-specific clean PostgreSQL bootstrap strategy before production.
 - Next: independent Gemini review, then merge current `origin/main` into the feature branch and rerun affected checks before PR integration.
+
+## 2026-07-27 - Master Data SCD2 validity/historical lookup follow-up
+
+- Branch: `agent/asset-lease-split`; base HEAD `5d55704` is already present on the remote feature branch.
+- Scope: validity-first SCD2 update ordering, historical Business Partner lookup, overlap fail-closed behavior, focused tests, and beginner/handoff docs.
+- Changes:
+  - Validate every new Account Subject, Business Partner, Department, and Product SCD2 window before closing the current row; resolve Account/Department parent references first as well.
+  - Separate current-active Business Partner lookup from historical effective-date lookup.
+  - Return single-key queries as `Optional` so overlapping rows raise an incorrect-result exception instead of being silently selected.
+  - Add unit and H2 JPA regression tests; document PostgreSQL exclusion-constraint and legacy `useYn` follow-ups with completion criteria.
+- Verification: Master Data 18 suites/63 tests plus Governance 10 suites/25 tests passed; both bootJars, diff, marker, and changed Markdown link checks passed.
+- Risk: live PostgreSQL/Docker remain unverified; historical `BusinessPartnerRef.active` still reflects legacy `useYn` rather than a fully separated temporal activation model.
+- State: this follow-up is uncommitted; do not commit, push, or merge it without explicit user direction.
+
+## 2026-07-27 - Master Data lookup/fiscal-period second pass
+
+- Branch: `agent/asset-lease-split`; base HEAD `5d55704` is already present on the remote feature branch.
+- Scope: DB-side current lookup/search, deterministic as-of FX selection, Fiscal Period port/lock/domain transitions, dead-skeleton cleanup, tests, and docs.
+- Changes:
+  - Push Account Subject/Product active lists and Business Partner active-name search into validity-aware DB queries.
+  - Select the latest eligible exchange rate; validate ISO codes/positive rates and fail closed on overlapping active Currency rows.
+  - Change Fiscal Period through a pessimistically locked application port and audited domain transition rules.
+  - Remove unused full-list change-request contracts and no-op/synthetic compatibility methods after repository-wide usage checks.
+  - Record concrete PostgreSQL baseline, pagination, TaxProfile ownership, and Loan/Closing provider-boundary follow-ups.
+- Verification: Master Data 73 + Governance 25 + Closing Core 19 + Journal Ledger Core 19 = 136 tests passed; Closing Batch compile and two bootJars passed.
+- Risk: live PostgreSQL/Flyway and Docker remain unverified; pagination, exclusion constraints, TaxProfile completion, and two cross-module dependency exceptions remain.
+- State: cumulative local follow-up is review-ready and uncommitted; explicit user authorization is required before commit/push/merge.
+
+## 2026-07-27 - Loan value boundary and executable accounting workflow
+
+- Isolated Business Partner/Currency/Account provider models behind Loan-owned dated reference ports and scalar aggregate values.
+- Added inbound use-case boundary, API-owned DTO validation, pending/full-disbursal lifecycle, rich recalculation/default/recovery behavior and concurrency/idempotency controls.
+- Replaced double/percent EIR and disconnected duplicate schedule flow with BigDecimal decimal EIR and one EIR schedule consumed by Batch.
+- Added retryable accrual logs, locked per-loan processing, required business date, core chunk failure aggregation and independent Journal transaction isolation.
+- Added V33, Java 17 exact API bootJar Docker/8088 Compose alignment, focused core/API tests and workflow/schema/beginner docs.
+- Verified 169 affected tests and two Loan bootJars; static boundary/diff/marker/link checks passed. Docker/Compose and PostgreSQL remain environment follow-ups.
+- Review-ready and uncommitted; explicit user authorization is required before commit/push/merge.

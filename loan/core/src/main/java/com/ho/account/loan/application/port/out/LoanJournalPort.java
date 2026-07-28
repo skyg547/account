@@ -3,6 +3,7 @@ package com.ho.account.loan.application.port.out;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 대출 회계 이벤트를 전표 모듈로 전달하는 출력 포트.
@@ -31,10 +32,18 @@ public interface LoanJournalPort {
             actor = requireText(actor, "actor");
             lineageSourceType = requireText(lineageSourceType, "lineageSourceType");
             lineageSourceId = requireText(lineageSourceId, "lineageSourceId");
-            currencyCode = requireText(currencyCode, "currencyCode");
+            currencyCode = requireText(currencyCode, "currencyCode").toUpperCase(Locale.ROOT);
+            if (currencyCode.length() != 3) {
+                throw new IllegalArgumentException("currencyCode must be a 3-letter ISO code.");
+            }
             lines = lines == null ? List.of() : List.copyOf(lines);
             if (lines.size() < 2) {
                 throw new IllegalArgumentException("Loan journal requires at least two lines.");
+            }
+            BigDecimal debits = total(lines, "DEBIT");
+            BigDecimal credits = total(lines, "CREDIT");
+            if (debits.compareTo(credits) != 0) {
+                throw new IllegalArgumentException("Loan journal debits and credits must balance.");
             }
         }
     }
@@ -66,5 +75,12 @@ public interface LoanJournalPort {
             throw new IllegalArgumentException(field + " is required.");
         }
         return value.trim();
+    }
+
+    private static BigDecimal total(List<LoanJournalLine> lines, String side) {
+        return lines.stream()
+                .filter(line -> side.equals(line.side()))
+                .map(LoanJournalLine::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

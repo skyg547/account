@@ -1,18 +1,18 @@
 package com.ho.account.loan.batch.config;
 
 import com.ho.account.loan.domain.Loan;
-import com.ho.account.loan.service.InterestAccrualService;
+import com.ho.account.loan.application.pipeline.LoanInterestAccrualPipeline;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParametersValidator;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.DefaultJobParametersValidator;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
@@ -22,8 +22,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * [배치 처리 (Batch Processing) - 대출 EIR 기반 상각 및 이자 발생]
@@ -33,12 +33,11 @@ import java.util.Map;
  * 
  * 1. Reader (읽기): DB에서 현재 상태가 'ACTIVE(정상)'인 대출(Loan) 건을 100건씩 끊어서 가져옵니다.
  *    -> 왜 한 번에 다 안 가져오나요? 수십만 건의 대출을 한 번에 메모리에 올리면 서버가 터지니까요! (Paging)
- * 2. Processor (가공): 가져온 대출을 그대로 넘깁니다. 금액 계산과 전표 요청은 core 서비스가 담당합니다.
- * 3. Writer (쓰기): core의 InterestAccrualService를 호출해 스케줄 조회, 중복 체크, 전표 포트 호출, 로그 저장을 수행합니다.
+ * 2. Writer (쓰기): chunk를 core 파이프라인에 넘깁니다. 반복 처리, 금액 판단, 전표 요청, 실패 집계는 core가 담당합니다.
  * 
- * 실행 시 파라미터로 `accrualDate=2026-05-21` 과 같이 처리 일자를 넘겨줄 수 있습니다.
+ * 실행 시 `accrualDate=2026-05-21` 형식의 처리 일자를 반드시 넘겨야 합니다. 성공 로그는 재실행 시
+ * 건너뛰고 실패 로그는 재시도하며, 하나라도 실패하면 Step은 성공으로 위장하지 않고 실패합니다.
  */
-@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class LoanInterestAccrualBatchConfig {
@@ -46,7 +45,7 @@ public class LoanInterestAccrualBatchConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
-    private final InterestAccrualService interestAccrualService;
+    private final LoanInterestAccrualPipeline accrualPipeline;
 
     public static final String JOB_NAME = "loanInterestAccrualJob";
     private static final String STEP_NAME = "loanInterestAccrualStep";
@@ -55,8 +54,14 @@ public class LoanInterestAccrualBatchConfig {
     @Bean
     public Job loanInterestAccrualJob() {
         return new JobBuilder(JOB_NAME, jobRepository)
+                .validator(loanInterestAccrualJobParametersValidator())
                 .start(loanInterestAccrualStep())
                 .build();
+    }
+
+    @Bean
+    public JobParametersValidator loanInterestAccrualJobParametersValidator() {
+        return new DefaultJobParametersValidator(new String[]{"accrualDate"}, new String[]{});
     }
 
     @Bean
@@ -65,7 +70,6 @@ public class LoanInterestAccrualBatchConfig {
         return new StepBuilder(STEP_NAME, jobRepository)
                 .<Loan, Loan>chunk(CHUNK_SIZE, transactionManager)
                 .reader(loanItemReader())
-                .processor(loanItemProcessor(null))
                 .writer(loanItemWriter(null))
                 .build();
     }
@@ -79,24 +83,10 @@ public class LoanInterestAccrualBatchConfig {
         return new JpaPagingItemReaderBuilder<Loan>()
                 .name("loanItemReader")
                 .entityManagerFactory(entityManagerFactory)
-                .queryString("SELECT l FROM Loan l WHERE l.status = :status")
+                .queryString("SELECT l FROM Loan l WHERE l.status = :status ORDER BY l.id")
                 .parameterValues(Map.of("status", Loan.LoanStatus.ACTIVE))
                 .pageSize(CHUNK_SIZE)
                 .build();
-    }
-
-    /**
-     * [Processor] 특별한 가공 없이 대상만 패스 처리
-     * (업무 규칙과 전표 요청은 core Service에 위임)
-     */
-    @Bean
-    @StepScope
-    public ItemProcessor<Loan, Loan> loanItemProcessor(
-            @Value("#{jobParameters['accrualDate']}") String accrualDateStr) {
-        return loan -> {
-            log.debug("Processing Loan: {}", loan.getLoanNumber());
-            return loan;
-        };
     }
 
     /**
@@ -106,21 +96,8 @@ public class LoanInterestAccrualBatchConfig {
     @StepScope
     public ItemWriter<Loan> loanItemWriter(
             @Value("#{jobParameters['accrualDate']}") String accrualDateStr) {
-        return loans -> {
-            LocalDate accrualDate = (accrualDateStr != null) 
-                    ? LocalDate.parse(accrualDateStr, DateTimeFormatter.ISO_DATE) 
-                    : LocalDate.now();
-
-            for (Loan loan : loans) {
-                try {
-                    // InterestAccrualService 내부에서 스케줄 조회, LoanJournalPort 호출, 로그 저장을 수행
-                    interestAccrualService.processIndividualAccrual(loan, accrualDate);
-                } catch (Exception e) {
-                    log.error("Failed to process loan accrual for {}: {}", loan.getLoanNumber(), e.getMessage());
-                    // Batch 운영 정책에 따라 예외를 던지거나(실패처리), 로그만 남기고 Skip 가능.
-                    // 현재는 Skip & 로깅으로 타 대출건에 영향이 가지 않도록 함.
-                }
-            }
-        };
+        LocalDate accrualDate = LocalDate.parse(
+                Objects.requireNonNull(accrualDateStr, "accrualDate job parameter is required."));
+        return loans -> accrualPipeline.processChunk(loans.getItems(), accrualDate);
     }
 }

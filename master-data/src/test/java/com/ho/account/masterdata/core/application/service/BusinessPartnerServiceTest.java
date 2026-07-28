@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -132,6 +134,30 @@ class BusinessPartnerServiceTest {
         assertThat(current.getValidTo()).isEqualTo(LocalDate.now());
         assertThat(current.getUseYn()).isFalse();
         verify(businessPartnerPersistencePort).save(current);
+    }
+
+    @Test
+    void searchBusinessPartnersUsesTrimmedKeywordAndCurrentActiveQuery() {
+        LocalDate today = LocalDate.now();
+        BusinessPartner active = partner(
+                10L, "BP001", "Active partner", null,
+                BusinessPartner.PartnerType.VENDOR,
+                today.minusDays(10), LocalDate.of(9999, 12, 31));
+        when(businessPartnerPersistencePort.searchActiveByName("partner", today))
+                .thenReturn(List.of(active));
+
+        assertThat(service.searchBusinessPartnersByName("  partner  ")).containsExactly(active);
+
+        verify(businessPartnerPersistencePort).searchActiveByName("partner", today);
+    }
+
+    @Test
+    void searchBusinessPartnersRejectsBlankKeywordBeforePersistence() {
+        assertThatThrownBy(() -> service.searchBusinessPartnersByName("   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("검색어");
+
+        verifyNoInteractions(businessPartnerPersistencePort);
     }
 
     private BusinessPartner partner(

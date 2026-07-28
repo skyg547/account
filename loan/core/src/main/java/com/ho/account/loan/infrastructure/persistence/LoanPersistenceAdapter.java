@@ -28,6 +28,8 @@ public class LoanPersistenceAdapter implements LoanPersistencePort {
 
     @Override public Loan saveLoan(Loan loan) { return loanRepository.save(loan); }
     @Override public Optional<Loan> findLoan(Long id) { return loanRepository.findById(id); }
+    @Override public Optional<Loan> findLoanForUpdate(Long id) { return loanRepository.findByIdForUpdate(id); }
+    @Override public boolean existsDisbursal(Long loanId) { return loanDisbursalRepository.existsByLoanId(loanId); }
     @Override public LoanDisbursal saveDisbursal(LoanDisbursal disbursal) { return loanDisbursalRepository.save(disbursal); }
     @Override public Optional<DeferredItemType> findDeferredItemType(Long id) { return deferredItemTypeRepository.findById(id); }
     @Override public Optional<DeferredItemType> findDeferredItemType(String code) { return deferredItemTypeRepository.findByCode(code); }
@@ -39,7 +41,9 @@ public class LoanPersistenceAdapter implements LoanPersistencePort {
     @Override public List<EIRAmortizationSchedule> findSchedulesFrom(Loan loan, LocalDate startDate) {
         return scheduleRepository.findByLoanAndScheduleDateGreaterThanEqualOrderByScheduleDateAsc(loan, startDate);
     }
-    @Override public EIRAmortizationSchedule saveSchedule(EIRAmortizationSchedule schedule) { return scheduleRepository.save(schedule); }
+    @Override public List<EIRAmortizationSchedule> saveSchedules(List<EIRAmortizationSchedule> schedules) {
+        return scheduleRepository.saveAll(schedules);
+    }
     @Override public List<EIRAmortizationSchedule> findSchedulesOrdered(Loan loan) {
         return scheduleRepository.findByLoanOrderByScheduleDateAsc(loan);
     }

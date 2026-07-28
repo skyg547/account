@@ -2,6 +2,9 @@
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | Loan value-reference boundary, pending-to-active lifecycle, BigDecimal decimal EIR, single runtime schedule, locked/idempotent accrual, API DTO boundary and JDK 17 packaging verified with 169 affected tests and 2 Loan bootJars; explicit authorization required before commit/push/merge. |
+| 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | Master Data DB active lookup/search, deterministic as-of FX, locked Fiscal Period domain transition and skeleton cleanup verified with 136 affected tests, Closing Batch compile and 2 bootJars; explicit authorization required before commit/push/merge. |
+| 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | SCD2 validity/reference-first ordering, historical Business Partner lookup, overlap fail-closed and 88 Master Data/Governance tests verified on base `5d55704`; explicit authorization required before commit/push/merge. |
 | 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Master Data SCD2 version/approval/runtime refactor verified with 82 Master Data/Governance tests and both bootJars; commit/push requested. Merge `origin/main` only after preserving this verified commit. |
 | 2026-06-25 | Codex | AI Harness Architect / Integrator Agent | `ai-harness-upgrade-20260625` | Review ready | Harness docs created, root guidance preserved, verification checks passed. |
 | 2026-06-26 | Codex | AI Harness Architect / Integrator Agent | `ai-harness-upgrade-20260625` -> `main` | Done | Beginner AI agent Git guide added, branch pushed, and merged into `main` by explicit user request. |

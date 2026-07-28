@@ -197,4 +197,52 @@ public class RecalculationRun {
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
+
+    public static RecalculationRun record(
+            Loan loan,
+            LocalDate recalculationDate,
+            RecalculationReason reason,
+            BigDecimal oldEir,
+            BigDecimal newEir,
+            LocalDate oldMaturityDate,
+            LocalDate newMaturityDate,
+            EIRAmortizationSchedule firstRecalculatedSchedule,
+            String impactAnalysis,
+            String actor) {
+        if (loan == null || loan.getId() == null) {
+            throw new IllegalArgumentException("A persisted loan is required.");
+        }
+        RecalculationRun run = new RecalculationRun();
+        run.loan = loan;
+        run.recalculationDate = java.util.Objects.requireNonNull(
+                recalculationDate, "recalculationDate is required.");
+        run.reason = java.util.Objects.requireNonNull(reason, "reason is required.");
+        run.oldEIR = oldEir;
+        run.newEIR = java.util.Objects.requireNonNull(newEir, "newEIR is required.");
+        run.oldMaturityDate = oldMaturityDate;
+        run.newMaturityDate = java.util.Objects.requireNonNull(newMaturityDate, "newMaturityDate is required.");
+        run.recalculatedAmortizationScheduleStart = firstRecalculatedSchedule;
+        run.impactAnalysis = requireText(impactAnalysis, "impactAnalysis", 4000);
+        run.auditUser = requireText(actor, "actor", 50);
+        return run;
+    }
+
+    public void linkAdjustmentJournal(Long journalEntryId, String slipNo) {
+        if (journalEntryId == null || journalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive.");
+        }
+        adjustmentJournalEntryId = journalEntryId;
+        adjustmentJournalEntrySlipNo = requireText(slipNo, "slipNo", 30);
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " must not exceed " + maxLength + " characters.");
+        }
+        return normalized;
+    }
 }

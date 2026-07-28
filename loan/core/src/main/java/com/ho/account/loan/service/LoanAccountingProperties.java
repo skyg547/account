@@ -66,6 +66,6 @@ public class LoanAccountingProperties {
         if (value == null || value.isBlank()) {
             throw new IllegalStateException("account.loan.accounting." + key + " must be configured");
         }
-        return value;
+        return value.trim();
     }
 }

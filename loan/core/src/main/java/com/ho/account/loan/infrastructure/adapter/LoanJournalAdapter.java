@@ -6,8 +6,9 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
-import java.time.LocalDate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Loan 전표 명령을 현재 모놀리스 journal-ledger 유즈케이스로 번역하는 출력 어댑터.
@@ -22,9 +23,10 @@ public class LoanJournalAdapter implements LoanJournalPort {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PostedJournal post(LoanJournalCommand command) {
         JournalEntry entry = new JournalEntry();
-        entry.setSlipDate(LocalDate.now());
+        entry.setSlipDate(command.accountingDate());
         entry.setAccountingDate(command.accountingDate());
         entry.setDescription(command.description());
         entry.setStatus(JournalEntryStatus.DRAFT);

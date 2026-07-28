@@ -2,6 +2,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,6 +23,14 @@ public interface AccountSubjectRepository extends JpaRepository<AccountSubject, 
     default Optional<AccountSubject> findByCode(String code) {
         return findActiveByCode(code, LocalDate.now());
     }
+
+    @Query("""
+            SELECT a FROM AccountSubject a
+            WHERE a.validFrom <= :date
+              AND a.validTo >= :date
+            ORDER BY a.code, a.validFrom
+            """)
+    List<AccountSubject> findActiveVersions(LocalDate date);
 
     boolean existsByCode(String code);
 

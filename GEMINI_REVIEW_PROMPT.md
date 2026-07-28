@@ -1,6 +1,44 @@
-# 2026-07-27 master-data 변경 승인·버전·런타임 경계 리뷰
+# 2026-07-27 Loan 헥사고날·DDD·회계 흐름 리뷰
 
-Codex가 Master Data 변경 요청의 업무 버전, 승인 잠금, 실제 반영 전략과 단독 실행 구성을 보강했습니다. 아래 항목을 독립 검수해 주세요.
+Branch: `agent/asset-lease-split`. Review only; do not modify code. Report findings first, ordered by severity, with exact file/line evidence. The working tree contains the prior uncommitted Master Data follow-up plus the new Loan pass; review overlapping Master Data dated-port and root Compose changes cumulatively.
+
+## Changed Scope
+
+- `loan/core`: inbound/outbound ports, aggregate value references, lifecycle/concurrency rules, BigDecimal EIR, unified schedule, accrual pipeline, Journal/Master adapters, persistence, V33, tests.
+- `loan/api`: DTO ownership and Bean Validation, `LoanUseCase` controller dependency, event-result response, exception mapping, tests.
+- `loan/batch`: required-date paging/chunk orchestration with core pipeline.
+- `master-data`: dated account/currency query methods required by the Loan adapter.
+- `loan/Dockerfile`, module/root Compose, Loan README/docs and common worklogs/handoff.
+
+## Required Review Focus
+
+1. Do Loan and DeferredItemType own only stable IDs/codes, with Master Data entities confined to the local infrastructure adapter?
+2. Are `PENDING_DISBURSEMENT`, one full disbursal, pessimistic lookup, optimistic version and unique index sufficient and ordered before state mutation/journal calls?
+3. Does recalculation preserve original principal, validate date/maturity/current balance, calculate proposed EIR before mutation, and retain event/journal lineage?
+4. Are DEFAULT/RECOVERY/OTHER handled without invalid `RecalculationReason.valueOf` conversion or accidental recalculation fields?
+5. Is the BigDecimal EIR solver's decimal-rate unit, convergence policy, cash-flow signs, scale and fail-closed behavior correct for financial use?
+6. Does `EIRAmortizationSchedule.generateMonthly` fully amortize principal/deferred amounts, handle final maturity, and avoid deleting old rows before successful calculation?
+7. Does accrual lock the Loan, skip only SUCCESS, retry FAILED, use the unified EIR schedule, save failure details, and make the Step fail after processing the chunk?
+8. Does `LoanJournalAdapter` REQUIRES_NEW isolation achieve failure-log durability without hiding the larger Loan/Journal distributed consistency gap?
+9. Do Journal commands balance, use the accounting date as slip date, normalize ISO currency, and use correct debit/credit directions for disbursal, deferred recognition, repayment and accrual?
+10. Are API DTOs truly outside core, validations/HTTP mappings complete, and state-event responses useful without leaking raw JPA entities?
+11. Is V33 safe as a forward migration, and are duplicate preflight plus legacy schedule-table retirement conditions adequate?
+12. Do Java 17 Docker, exact API bootJar COPY, build context, 8088 Compose port, and docs align? Recheck that no unrelated root Compose service changed.
+13. Identify any remaining skeleton/dead paths, missing domain collaboration, transaction-order issue, N+1/load risk, or beginner documentation claim that does not match code.
+
+## Verification Evidence
+
+- Final affected command passed: Master Data 73, Governance 25, Closing Core 19, Journal Ledger Core 19, Loan Core 30, Loan API 3 = 169 tests; failures/errors/skips 0.
+- Loan API and Batch bootJars passed; exact artifacts were generated.
+- `git diff --check`, conflict markers, core boundary imports, Batch business logic, legacy schedule runtime consumers and current Markdown link checks passed.
+- Docker CLI and local YAML parser are unavailable; image build, Compose execution and automated Compose parsing remain unverified.
+- No commit/push/merge has been performed for this cumulative local pass.
+
+---
+
+# 2026-07-27 master-data 변경 승인·SCD2 조회·회계기간 경계 리뷰
+
+Codex가 Master Data 변경 요청의 업무 버전, 승인 잠금, 실제 반영 전략, 기준일 조회, 환율 선택과 회계기간 상태 경계를 보강했습니다. 아래 누적 변경을 독립 검수해 주세요.
 
 ## 핵심 검수 항목
 
@@ -13,16 +51,24 @@ Codex가 Master Data 변경 요청의 업무 버전, 승인 잠금, 실제 반�
 7. V2 체크섬 보존과 V3/V4/V5 forward migration이 H2에서는 안전한지, 신규 PostgreSQL에서 V2 `CLOB`보다 먼저 필요한 vendor baseline 리스크가 정확히 문서화됐는지 확인해 주세요.
 8. 8082 포트, JDK 17 단일 bootJar, Actuator DB readiness, root/module Compose와 IntelliJ 설정이 일치하는지 확인해 주세요.
 9. 기존 초보자 설명이 보존되면서 요청→승인→시행일 반영의 업무/데이터 흐름과 실제 코드가 일치하는지 확인해 주세요.
+10. 네 SCD2 UPDATE 서비스가 신규 `validFrom/validTo`를 검증한 뒤에만 현재 행을 종료하고, 계정과목/부서는 상위 참조 확인과 신규 버전 조립도 먼저 끝내 잘못된 입력이 기존 상태를 변경하지 않는지 확인해 주세요.
+11. 거래처 현재 조회는 `useYn`과 유효기간을, 과거 조회는 유효기간을 사용하며, `Optional` 단건 조회가 겹치는 기간을 임의 선택하지 않고 fail-closed 처리하는지 검토해 주세요.
+12. PostgreSQL exclusion constraint와 legacy `useYn` 상태 분리 `@todo`의 완료 조건이 충분한지, 특히 과거 `BusinessPartnerRef.active`의 현재 한계가 과장 없이 문서화됐는지 확인해 주세요.
+13. 계정과목/상품 활성 목록과 거래처명 검색이 전체 메모리 필터 대신 기준일·활성 조건이 있는 DB 쿼리를 사용하고, 빈 검색어를 거부하는지 확인해 주세요.
+14. 환율이 `effectiveDate <= 기준일` 중 최신 한 건을 결정적으로 선택하고 ISO 통화 코드/양수 환율을 검증하는지, 활성 통화 기간 중복은 임의 선택하지 않고 fail-closed인지 검토해 주세요.
+15. 회계기간 변경이 JPA Repository 직접 접근 대신 application port와 비관적 잠금을 사용하며, 감사 actor 필수·OPEN에서 영구 마감으로 건너뛰기 금지·영구 마감 최종 상태를 도메인이 보장하는지 확인해 주세요.
+16. 사용되지 않는 변경요청 전체 조회, no-op 활성 setter, 가짜 분리 Currency를 만들던 호환 메서드, 미사용 유효기간 helper 제거가 실제 사용처 검색과 컴파일 결과에 비춰 안전한지 검토해 주세요.
+17. PostgreSQL 전체 baseline, 목록/검색 pagination, `TaxProfile` 소유권, Loan Core/Closing Batch의 Master Data 내부 직접 의존 TODO가 현재 코드의 남은 운영·아키텍처 위험을 정확히 설명하는지 확인해 주세요.
 
 ## Codex 검증 결과
 
 ```powershell
-.\gradlew :master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"
+.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"
 ```
 
-- Master Data 57개 + Governance 25개, 총 82개 테스트, 실패/오류/skip 0건
-- 두 모듈 `bootJar` 성공
-- `git diff --check`, conflict marker/placeholder 검색, 변경 Markdown 상대 링크 검사 성공
+- Master Data 73개 + Governance 25개 + Closing Core 19개 + Journal Ledger Core 19개, 총 136개 테스트, 실패/오류/skip 0건
+- Closing Batch 컴파일과 Master Data/Governance `bootJar` 성공
+- 최종 `git diff --check`, conflict marker/placeholder·아키텍처 검색, 변경 Markdown 상대 링크 검사 성공
 - 실제 PostgreSQL 및 Docker/Compose 실행은 미검증
 
 ---

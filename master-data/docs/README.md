@@ -14,6 +14,7 @@ This directory documents the `master-data` module after the DDD and hexagonal pa
 - `core.application.port.out.MasterDataChangePayloadDecoder`: core에서 Jackson 기술을 숨기는 payload 역직렬화 포트.
 - `core.application.port.out.MasterDataVersionQueryPort`: 애플리케이션 계층이 JPA를 모르고 업무 키별 SCD2 이력 수를 조회하는 포트.
 - `core.application.port.out.MasterDataValidityStatisticsPort`: 전체 엔티티 조회 없이 기준일 활성 건수를 요청하는 대량 집계 포트.
+- `core.application.port.out.FiscalPeriodPersistencePort`: Closing 상태 변경용 조회/행 잠금/저장을 숨기는 포트.
 - `core.domain.model`: master-data domain entities.
 - `core.domain.changerequest`: controlled change request aggregate.
 - `core.domain.policy`: 유효기간과 변경 요청 목표 버전처럼 여러 엔티티가 공유하는 순수 업무 정책.
@@ -54,3 +55,6 @@ Controllers must not expose JPA entities directly. Application services must dep
 - 예약 반영은 `status/effectiveDate` 조건으로 최대 500건을 조회합니다. 요청별 독립 트랜잭션과 `SKIP LOCKED` 파티셔닝은 코드 TODO로 남아 있습니다.
 - `Master Data bootRun` IntelliJ 설정은 Config/Discovery/Vault 없이 `local` H2 API를 단독 기동하도록 표준화되어 있습니다.
 - 일일 유효성 보고서는 필수 `asOfDate`와 DB `COUNT` 집계를 사용합니다. 별도 Spring Batch Job/Step 실행 모듈은 아직 없습니다.
+- 활성 계정과목/상품 목록과 거래처 이름 검색도 DB 기준일 query를 사용하며, 환율은 요청일 이하 최신 한 건을 선택합니다.
+- 회계기간 변경은 비관적 행 잠금과 `FiscalPeriod.changeClosingStatus` 불변식을 거칩니다.
+- 전체 PostgreSQL Flyway baseline, API pagination, TaxProfile 소유권, Loan/Closing의 Master Data 직접 의존은 완료 조건이 명시된 TODO입니다.

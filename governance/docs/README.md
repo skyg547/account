@@ -51,7 +51,7 @@
 - 승인 대상 미지원: ApplyPort 또는 requestType이 지원되지 않으면 fail-closed 예외
 - 권한 부여: role + function + accessType 조합 중복과 정책 충돌 차단
 - 권한 회수: DELETE API에서 즉시 삭제하지 않고 승인 요청을 저장한 후 승인 시 실제 삭제
-- master-data 반영: `MasterApproval` 승인 후 master-data 변경 요청 생성, 승인, 적용까지 연결
+- master-data 반영: `approvalId`를 `sourceReference`로 전달해 재시도를 멱등 처리하고, 시행일이 오늘 이전이면 즉시 적용하며 미래면 Master Data `APPROVED` 상태로 대기
 - Auth 역할 반영: `AUTH_USER_ROLE` 승인 후 Auth 내부 API를 호출해 사용자 역할과 `roleVersion` 갱신
 - Auth 내부 인증: `GOVERNANCE_AUTH_INTERNAL_TOKEN`과 Auth의 `AUTH_INTERNAL_API_TOKEN`이 일치해야 함
 - 추적성 조회: `TracingService`는 Repository가 아니라 `AuditLogPersistencePort`를 사용
@@ -85,4 +85,5 @@
 - `.run/Governance bootRun.run.xml`은 H2 단독 API 실행용이며 포트 `8083`을 사용합니다.
 - 역할 생성/권한 부여 API는 승인 요청을 만들면서 저장 전 preview 도메인을 반환합니다. 승인 접수 DTO로 통일하는 코드 `@todo`가 남아 있습니다.
 - Auth 외부 반영은 Governance DB 트랜잭션과 원자적이지 않습니다. `approvalId` 멱등키 기반 outbox/inbox 전환 코드 `@todo`가 남아 있습니다.
+- Master Data 연동의 순차 재시도는 `approvalId` 멱등키로 보호되지만, 두 노드의 동시 최초 저장 충돌 복구와 외부 Auth 연동은 outbox/inbox가 여전히 필요합니다.
 - PostgreSQL 드라이버는 포함되어 있지만 운영 Flyway DDL과 실제 PostgreSQL 통합 검증은 아직 필요합니다.

@@ -31,11 +31,18 @@ class LoanFlywayMigrationTest {
             assertThat(tableExists(statement, "loan_accrual_log")).isTrue();
             assertThat(columnExists(statement, "loans", "loan_number")).isTrue();
             assertThat(columnExists(statement, "loans", "current_eir")).isTrue();
+            assertThat(columnExists(statement, "loans", "lock_version")).isTrue();
+            assertThat(columnExists(statement, "deferred_item_types", "deferred_asset_account_ref")).isTrue();
+            assertThat(columnExists(statement, "deferred_item_types", "recognized_income_account_ref")).isTrue();
             assertThat(columnExists(statement, "loan_amortization_schedule_entries", "loan_id")).isTrue();
             assertThat(columnExists(statement, "loan_accrual_log", "loan_id")).isTrue();
             assertThat(columnExists(statement, "loan_accrual_log", "journal_entry_id")).isTrue();
             assertThat(columnExists(statement, "eir_amortization_schedules", "amortization_journal_entry_slip_no")).isTrue();
             assertThat(columnExists(statement, "loan_events", "journal_entry_slip_no")).isTrue();
+            assertThat(indexExists(statement, "uq_loan_disbursal_loan")).isTrue();
+            assertThat(indexExists(statement, "uq_eir_schedule_loan_date")).isTrue();
+            assertThat(indexExists(statement, "uq_loan_accrual_log_loan_date")).isTrue();
+            assertThat(indexExists(statement, "ix_loans_status_id")).isTrue();
             assertThat(tableExists(statement, "loan_contracts")).isFalse();
         }
     }
@@ -60,6 +67,14 @@ class LoanFlywayMigrationTest {
         try (ResultSet resultSet = statement.executeQuery(
                 "select count(*) from information_schema.columns where table_name = '" + tableName
                         + "' and column_name = '" + columnName + "'")) {
+            resultSet.next();
+            return resultSet.getInt(1) > 0;
+        }
+    }
+
+    private boolean indexExists(Statement statement, String indexName) throws Exception {
+        try (ResultSet resultSet = statement.executeQuery(
+                "select count(*) from information_schema.indexes where index_name = '" + indexName + "'")) {
             resultSet.next();
             return resultSet.getInt(1) > 0;
         }

@@ -1524,3 +1524,58 @@
   - Same-business-key distributed serialization, atomic concurrent source-reference recovery, per-request chunk transactions/SKIP LOCKED, trusted actor extraction, payload masking, direct-write governance, and three typed appliers remain explicit TODOs.
 - Rollback:
   - Revert the Master Data governance/runtime commit as one unit; do not partially remove V3/V4/V5 while retaining the entity fields they support.
+
+## 2026-07-27 (Master Data SCD2 validity and historical-partner follow-up)
+
+- 요청 목표: Master Data 검수 후속으로 SCD2 상태 변경 순서, 과거 거래처 조회, 중복 기간 fail-closed와 초보자 문서를 실제 코드와 일치시킨다.
+- 변경:
+  - 네 UPDATE 서비스가 신규 `validFrom/validTo`를 먼저 검증하고 현재 버전을 종료하도록 정리했다.
+  - 계정과목/부서의 상위 참조 확인과 신규 버전 조립을 기존 행 종료보다 먼저 수행하도록 순서를 고정했다.
+  - 거래처 현재 활성 조회와 과거 유효기간 조회를 분리하고 단건 결과를 `Optional`로 고정해 중복 행을 숨기지 않게 했다.
+  - H2 JPA 통합 테스트로 종료된 과거 거래처 조회와 겹치는 기간의 예외를 검증했다.
+  - Governance 승인 ID 멱등키/미래 시행일 예약 설명과 Master Data 과거 조회/호출 순서 문서를 보강했다.
+  - PostgreSQL 기간 exclusion constraint와 거래처 `useYn` 상태 분리의 완료 조건을 코드 `@todo`로 남겼다.
+- 검증:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 63 + Governance 25 = 88 tests, 실패/오류/skip 0건, 두 bootJar 성공.
+  - `git diff --check`, conflict marker 검색, 변경 Markdown 상대 링크 검증 성공.
+- 리스크:
+  - PostgreSQL exclusion constraint/migration과 Docker/Compose는 실환경에서 검증하지 않았다.
+  - 과거 `BusinessPartnerRef.active`는 legacy `useYn` 때문에 기준일 당시 의미가 완전하지 않다.
+- 상태:
+  - 기준 커밋 `5d55704`는 현재 원격 feature branch에 존재하며, 이 후속 변경은 로컬 working tree에 커밋되지 않았다.
+
+## 2026-07-27 (Master Data lookup and fiscal-period boundary second pass)
+
+- Branch: `agent/asset-lease-split`; base HEAD `5d55704` is already on the remote feature branch.
+- Scope: database-side active lookup/search, as-of exchange-rate selection, fiscal-period domain/port locking, dead-skeleton cleanup, tests, and beginner documentation.
+- Changes:
+  - Moved Account Subject/Product active lists and Business Partner active-name search into validity-aware repository queries; blank searches fail fast.
+  - Selected the latest exchange rate not after the requested date, validated ISO codes and positive rates, and made overlapping active Currency rows fail closed.
+  - Added a locked Fiscal Period persistence port and domain transition method with actor validation, no OPEN-to-permanent jump, and terminal permanent close.
+  - Removed unused change-request `getAll`, no-op active setters, synthetic detached Currency compatibility methods, and unused validity helpers after usage scans.
+  - Added explicit TODOs for a complete PostgreSQL baseline, pagination, TaxProfile ownership, and current Loan/Closing direct Master Data dependencies.
+- Verification:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"`: passed.
+  - Master Data 73 + Governance 25 + Closing Core 19 + Journal Ledger Core 19 = 136 tests, with 0 failures/errors/skips; Closing Batch compiled and both bootJars passed.
+- Risk:
+  - Live PostgreSQL/Flyway and Docker/Compose remain unverified; pagination and temporal exclusion constraints are not implemented yet.
+  - TaxProfile has no complete application/persistence flow. Loan and Closing still contain direct provider-internal dependencies documented for the next sequential pass.
+- State:
+  - The cumulative follow-up remains uncommitted. No commit, push, or merge is authorized.
+
+## 2026-07-27 (Loan boundary, lifecycle, EIR and accrual workflow pass)
+
+- Branch/base: `agent/asset-lease-split` on remote base `5d55704`; cumulative Master Data and Loan changes remain uncommitted.
+- Findings: provider entities leaked into the aggregate, HTTP DTOs lived in core, API/runtime schedules diverged, EIR mixed double/percent units, lifecycle events shared an invalid enum conversion, and disbursal/accrual concurrency and retry contracts were incomplete.
+- Implementation:
+  - Introduced Loan-owned inbound/outbound ports and scalar reference snapshots; confined Master Data and Journal provider types to infrastructure adapters.
+  - Moved DTO/validation to API and added stable event response plus 404/400/409 mapping.
+  - Added pending/full-disbursal/active/default/recovery domain transitions, current-balance recalculation, locks, version and idempotency constraints.
+  - Replaced EIR with fail-closed BigDecimal decimal-rate calculation and one monthly runtime schedule used by both API and Batch.
+  - Added locked accrual persistence, success skip, failed retry, required date, core chunk pipeline and Step failure aggregation.
+  - Added V33, JDK 17 exact bootJar Docker/8088 Compose alignment, tests and current workflow documentation.
+- Verification: 58 affected suites/169 tests passed with 0 failures/errors/skips; Loan API and Batch bootJars passed. Static architecture, whitespace, marker, legacy consumer and current Markdown link checks passed.
+- Gaps: Docker/YAML runtime validation unavailable locally; PostgreSQL migration, V33 duplicate preflight, outbox/inbox, trusted actor, daily day-count/calendar and remote MSA adapters remain.
+- Rollback: revert the Loan tree, six dated Master Data account/currency port-adapter-repository files, root Loan Compose environment, and matching docs/log entries. Never roll back an applied V33 by deleting migration history.
+- State: review-ready and uncommitted; no commit, push or merge without explicit user authorization.

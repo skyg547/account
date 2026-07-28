@@ -1,11 +1,12 @@
 package com.ho.account.loan.infrastructure.adapter;
 
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
-import com.ho.account.loan.domain.Loan;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort;
 import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDate;
+import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,22 +29,50 @@ public class LoanReferenceDataAdapter implements LoanReferenceDataPort {
     }
 
     @Override
-    public void attachValidatedLoanReferences(Loan loan) {
-        Long partnerId = loan.getBusinessPartnerId();
-        String currencyCode = loan.getCurrencyCode();
-        loan.setBusinessPartner(businessPartnerPort.findById(partnerId)
-                .orElseThrow(() -> new EntityNotFoundException("BusinessPartner not found: " + partnerId)));
-        loan.setCurrency(currencyPort.findByCode(currencyCode)
-                .orElseThrow(() -> new EntityNotFoundException("Currency not found: " + currencyCode)));
+    public LoanReferenceSnapshot requireLoanReferences(
+            Long businessPartnerId,
+            String currencyCode,
+            LocalDate effectiveDate) {
+        if (businessPartnerId == null || businessPartnerId < 1) {
+            throw new IllegalArgumentException("businessPartnerId must be positive.");
+        }
+        if (effectiveDate == null) {
+            throw new IllegalArgumentException("effectiveDate is required.");
+        }
+        var partner = businessPartnerPort.findById(businessPartnerId)
+                .filter(candidate -> Boolean.TRUE.equals(candidate.getUseYn()))
+                .filter(candidate -> !candidate.getValidFrom().isAfter(effectiveDate))
+                .filter(candidate -> !candidate.getValidTo().isBefore(effectiveDate))
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "BusinessPartner is not effective on " + effectiveDate + ": " + businessPartnerId));
+
+        String normalizedCurrencyCode = requireText(currencyCode, "currencyCode").toUpperCase(Locale.ROOT);
+        var currency = currencyPort.findByCodeAt(normalizedCurrencyCode, effectiveDate)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Currency is not effective on " + effectiveDate + ": " + normalizedCurrencyCode));
+
+        return new LoanReferenceSnapshot(
+                partner.getId(),
+                partner.getBusinessPartnerName(),
+                currency.getCurrencyCode());
     }
 
     @Override
-    public String requireAccountCode(String accountCode) {
-        if (accountCode == null || accountCode.isBlank()) {
-            throw new IllegalArgumentException("accountCode is required.");
+    public AccountReference requireAccount(String accountCode, LocalDate effectiveDate) {
+        String normalizedCode = requireText(accountCode, "accountCode");
+        if (effectiveDate == null) {
+            throw new IllegalArgumentException("effectiveDate is required.");
         }
-        return accountSubjectPort.findByCode(accountCode.trim())
-                .orElseThrow(() -> new EntityNotFoundException("Account not found: " + accountCode))
-                .getCode();
+        var account = accountSubjectPort.findByCodeAt(normalizedCode, effectiveDate)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Account is not effective on " + effectiveDate + ": " + normalizedCode));
+        return new AccountReference(account.getCode(), account.getName());
+    }
+
+    private String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        return value.trim();
     }
 }

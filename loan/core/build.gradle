@@ -18,13 +18,12 @@ dependencyManagement {
 }
 
 dependencies {
-    api project(':contracts')
-    api project(':shared-kernel')
-    api project(':master-data')
-    api project(':journal-ledger:core')
+    implementation project(':contracts')
+    implementation project(':shared-kernel')
+    implementation project(':master-data')
+    implementation project(':journal-ledger:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'

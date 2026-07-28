@@ -1,11 +1,13 @@
 package com.ho.account.loan.dto;
 
+// HTTP 요청 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
 import com.ho.account.loan.domain.Loan;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Currency;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -22,6 +24,7 @@ public class LoanRequestDto {
     private String loanNumber;
 
     @NotNull
+    @Positive
     private Long businessPartnerId;
 
     @NotBlank
@@ -37,6 +40,7 @@ public class LoanRequestDto {
 
     @NotNull
     @DecimalMin(value = "0.0", inclusive = true)
+    @DecimalMax(value = "1.0", inclusive = true)
     private BigDecimal interestRate;
 
     @NotNull
@@ -48,26 +52,17 @@ public class LoanRequestDto {
     @NotNull
     private Loan.PaymentFrequency paymentFrequency;
 
-    private BigDecimal initialEIR; // 선택값이며 서비스에서 계산 가능
-
     public Loan toEntity() {
-        Loan loan = new Loan();
-        loan.setLoanNumber(this.loanNumber);
-        BusinessPartner businessPartner = new BusinessPartner();
-        businessPartner.setId(this.businessPartnerId);
-        loan.setBusinessPartner(businessPartner);
-
-        Currency currency = new Currency();
-        currency.setCurrencyCode(this.currencyCode);
-        loan.setCurrency(currency);
-
-        loan.setLoanType(this.loanType);
-        loan.setPrincipalAmount(this.principalAmount);
-        loan.setInterestRate(this.interestRate);
-        loan.setDisbursalDate(this.disbursalDate);
-        loan.setMaturityDate(this.maturityDate);
-        loan.setPaymentFrequency(this.paymentFrequency);
-        loan.setInitialEIR(this.initialEIR);
-        return loan;
+        return Loan.create(
+                loanNumber,
+                businessPartnerId,
+                currencyCode,
+                loanType,
+                principalAmount,
+                interestRate,
+                disbursalDate,
+                maturityDate,
+                paymentFrequency,
+                "SYSTEM");
     }
 }

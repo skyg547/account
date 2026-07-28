@@ -68,7 +68,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
      */
     @Transactional(readOnly = true)
     public List<BusinessPartner> searchBusinessPartnersByName(String name) {
-        return businessPartnerPersistencePort.findByBusinessPartnerNameContaining(name);
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("거래처 검색어는 필수입니다.");
+        }
+        return businessPartnerPersistencePort.searchActiveByName(name.trim(), LocalDate.now());
     }
 
     /**
@@ -80,6 +83,10 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
 
         // SCD2: 기존 활성 버전 종료
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate newValidTo = command.validTo() != null
+                ? command.validTo()
+                : LocalDate.of(9999, 12, 31);
+        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
         
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
@@ -101,7 +108,7 @@ public class BusinessPartnerService implements BusinessPartnerUseCase {
         BusinessPartner newVersion = buildNextVersion(currentActive, command);
         newVersion.setBusinessPartnerCode(currentActive.getBusinessPartnerCode());
         newVersion.setValidFrom(newValidFrom);
-        newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        newVersion.setValidTo(newValidTo);
         
         return businessPartnerPersistencePort.save(newVersion);
     }

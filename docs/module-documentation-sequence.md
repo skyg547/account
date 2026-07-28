@@ -44,6 +44,9 @@
 | 28 | `config-server` native 저장소/readiness/컨테이너 경계 리팩토링 | Review ready / rerun pending | strict property-source probe, 8888 standalone, JDK 17/read-only config-repo, 15개 service_healthy, 보안·Git TODO |
 | 29 | `contracts`/`shared-kernel` 2차 계약·공유 경계 리팩토링 | Verification pending | 전표 불변 계약, SCD2 기준일 Adapter, 실제 Jackson 마스킹, 로컬 capability registry, CDM eventId 멱등성, 빈 Docker archive |
 | 30 | `master-data` 변경 승인·버전·런타임 경계 리팩토링 | Review ready | SCD2 requestedVersion 검증, Governance 멱등 계보, applier registry fail-closed, 요청 잠금, 8082/JDK17/Docker 정합화, 82 tests/2 bootJars |
+| 31 | `master-data` SCD2 유효기간·과거 거래처 조회 후속 보강 | Review ready / uncommitted | 신규 기간/상위 참조 선검증, 현재/과거 거래처 쿼리 분리, 중복 기간 fail-closed, 88 tests/2 bootJars |
+| 32 | `master-data` 조회·회계기간 경계 2차 점검 | Review ready / uncommitted | DB 활성 조회/검색, 최신 기준일 환율, 회계기간 포트·잠금·상태 규칙, 미사용 스켈레톤 정리, 영향 범위 136 tests/2 bootJars |
+| 33 | `loan` 값 참조·상태 전이·EIR·발생 Batch 정합성 점검 | Review ready / uncommitted | provider 값 경계, PENDING→ACTIVE, BigDecimal EIR, 단일 스케줄, 발생 재실행, 169 affected tests/2 Loan bootJars |
 
 ## 1차 완료 상세
 
@@ -709,3 +712,34 @@ java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.pro
 - 8082, JDK 17, 단일 bootJar, DB readiness, Config/Compose/IntelliJ 설정과 초보자 문서를 실제 실행 구조에 맞췄습니다.
 - 기존 V2 체크섬을 보존하면서 V3/V4/V5 forward migration을 추가하고 Governance 승인 `sourceReference`와 `appliedAt` 계보를 연결했습니다. 실제 신규 PostgreSQL은 V2 `CLOB` 선행 문제를 해결할 vendor별 baseline이 필요합니다.
 - clean Gradle 검증에서 Master Data 57개와 Governance 25개, 총 82개 테스트 및 두 `bootJar`가 성공했고 정적/문서 링크 검사도 통과했습니다.
+
+## 31차 후속 상세
+
+### master-data SCD2 유효기간·과거 거래처 조회 후속 보강
+
+- 신규 SCD2 기간과 계정과목/부서 상위 참조를 먼저 검증·조립한 뒤 현재 행을 종료하도록 호출 순서를 고정했습니다.
+- 거래처 현재 조회와 과거 기준일 조회를 분리하고 기간 중복을 임의 선택하지 않도록 단건 쿼리를 fail-closed 처리했습니다.
+- Master Data 63개와 Governance 25개, 총 88개 테스트 및 두 `bootJar`가 성공했습니다.
+
+## 32차 후속 상세
+
+### master-data 조회·환율·회계기간 경계 2차 점검
+
+- 계정과목/상품 활성 목록과 거래처명 검색을 기준일·활성 조건이 있는 DB 쿼리로 옮겼습니다.
+- 기준일 이전 최신 환율 한 건을 명시적으로 선택하고 ISO 통화 코드/양수 환율 및 활성 통화 중복을 fail-closed 검증합니다.
+- 회계기간 변경을 비관적 잠금 애플리케이션 포트와 감사 actor/상태 전이 규칙을 가진 도메인 행위로 변경했습니다.
+- 사용되지 않는 변경요청 전체 조회와 no-op/synthetic 호환 메서드를 제거하고 PostgreSQL baseline, pagination, TaxProfile, Loan/Closing 직접 의존을 후속 항목으로 기록했습니다.
+- Master Data 73개, Governance 25개, Closing Core 19개, Journal Ledger Core 19개로 총 136개 테스트가 성공했고 Closing Batch 컴파일과 두 `bootJar`가 통과했습니다.
+
+## 33차 후속 상세
+
+### loan 값 참조·상태 전이·EIR·발생 Batch 정합성 점검
+
+- Loan Aggregate의 Master Data 엔티티 관계를 거래처 ID, 통화/계정 코드 값으로 바꾸고 provider 타입은 로컬 인프라 어댑터에 격리했습니다.
+- HTTP DTO/검증을 API로 이동하고 `LoanUseCase`, 예외 상태, 이벤트+선택적 재계산 응답을 추가했습니다.
+- PENDING 계약, 1회 원금 전액 실행, ACTIVE/DEFAULTED/RECOVERY 상태 전이와 잠금·버전·멱등 제약을 구현했습니다.
+- EIR을 BigDecimal 소수 단위로 통일하고 현재 잔액 기준 재계산과 단일 월별 EIR 스케줄 생성/Batch 소비 흐름을 연결했습니다.
+- Batch는 필수 `accrualDate`, 안정 정렬/chunk만 담당하고 core pipeline이 성공 skip·실패 retry·실패 ID 집계를 수행합니다.
+- V33, Java 17 API bootJar Docker, 8088 Compose, 실제 스키마/호출 순서/운영 TODO 기준 문서를 추가했습니다.
+- Master Data 73 + Governance 25 + Closing 19 + Journal Ledger 19 + Loan Core 30 + Loan API 3 = 총 169개 테스트와 Loan API/Batch bootJar가 성공했습니다.
+- 다음 순차 후보는 Closing Batch의 Master Data Repository 직접 의존 경계이며, 현재 Loan pass의 독립 리뷰와 사용자 승인 전에는 commit/push/merge하지 않습니다.

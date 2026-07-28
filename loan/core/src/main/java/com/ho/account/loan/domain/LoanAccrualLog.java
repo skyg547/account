@@ -6,7 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "LOAN_ACCRUAL_LOG")
+@Table(
+        name = "LOAN_ACCRUAL_LOG",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_loan_accrual_log_loan_date",
+                columnNames = {"LOAN_ID", "ACCRUAL_DATE"}))
 public class LoanAccrualLog {
 
     @Id
@@ -29,8 +33,9 @@ public class LoanAccrualLog {
     @Column(name = "JOURNAL_NO", length = 20)
     private String journalNo; // journal-ledger 전표번호 값 참조
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "STATUS", nullable = false, length = 20)
-    private String status; // SUCCESS, FAILED
+    private AccrualStatus status;
 
     @Column(name = "ERROR_MESSAGE", length = 1000)
     private String errorMessage;
@@ -43,6 +48,10 @@ public class LoanAccrualLog {
 
     @Column(name = "AUDIT_USER", nullable = false, length = 50)
     private String auditUser;
+
+    public enum AccrualStatus {
+        PENDING, SUCCESS, FAILED
+    }
 
     @PrePersist
     protected void onCreate() {
@@ -106,11 +115,11 @@ public class LoanAccrualLog {
         this.journalNo = journalNo;
     }
 
-    public String getStatus() {
+    public AccrualStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(AccrualStatus status) {
         this.status = status;
     }
 
@@ -144,5 +153,74 @@ public class LoanAccrualLog {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public static LoanAccrualLog start(
+            Loan loan,
+            LocalDate accrualDate,
+            BigDecimal accruedAmount,
+            String actor) {
+        if (loan == null || loan.getId() == null) {
+            throw new IllegalArgumentException("A persisted loan is required.");
+        }
+        if (accrualDate == null) {
+            throw new IllegalArgumentException("accrualDate is required.");
+        }
+        if (accruedAmount == null || accruedAmount.signum() <= 0) {
+            throw new IllegalArgumentException("accruedAmount must be positive.");
+        }
+        LoanAccrualLog log = new LoanAccrualLog();
+        log.loan = loan;
+        log.accrualDate = accrualDate;
+        log.accruedAmount = accruedAmount;
+        log.status = AccrualStatus.PENDING;
+        log.auditUser = requireActor(actor);
+        return log;
+    }
+
+    public void prepareRetry(BigDecimal amount, String actor) {
+        if (status == AccrualStatus.SUCCESS) {
+            throw new IllegalStateException("A successful accrual cannot be retried.");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("accruedAmount must be positive.");
+        }
+        accruedAmount = amount;
+        journalEntryId = null;
+        journalNo = null;
+        errorMessage = null;
+        status = AccrualStatus.PENDING;
+        auditUser = requireActor(actor);
+    }
+
+    public void markSuccess(Long postedJournalEntryId, String postedSlipNo) {
+        if (postedJournalEntryId == null || postedJournalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive.");
+        }
+        if (postedSlipNo == null || postedSlipNo.isBlank()) {
+            throw new IllegalArgumentException("journalNo is required.");
+        }
+        journalEntryId = postedJournalEntryId;
+        journalNo = postedSlipNo.trim();
+        errorMessage = null;
+        status = AccrualStatus.SUCCESS;
+    }
+
+    public void markFailed(RuntimeException failure) {
+        if (failure == null) {
+            throw new IllegalArgumentException("failure is required.");
+        }
+        String message = failure.getMessage();
+        errorMessage = message == null || message.isBlank()
+                ? failure.getClass().getSimpleName()
+                : message.substring(0, Math.min(message.length(), 1000));
+        status = AccrualStatus.FAILED;
+    }
+
+    private static String requireActor(String actor) {
+        if (actor == null || actor.isBlank() || actor.trim().length() > 50) {
+            throw new IllegalArgumentException("actor is required and must not exceed 50 characters.");
+        }
+        return actor.trim();
     }
 }

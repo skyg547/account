@@ -1616,3 +1616,79 @@
   - 직접 쓰기 API와 승인 흐름의 운영 권한 정책, CURRENCY/EXCHANGE_RATE/FISCAL_PERIOD typed applier가 남아 있다.
 - **롤백 범위**:
   - 이번 커밋의 `master-data`, Governance 어댑터, root/module Compose, Config Repository, IntelliJ run 설정과 관련 docs/harness 변경을 한 단위로 revert한다.
+
+### 📅 2026-07-27 (master-data SCD2 유효기간·과거 거래처 조회 후속 보강)
+### [검수/리팩토링] 상태 변경 순서와 과거 기준일 조회 정합성 강화
+
+- **선확인**:
+  - 네 SCD2 UPDATE 서비스가 새 기간을 검증하기 전에 현재 행을 종료해, 잘못된 `validTo < validFrom` 입력이 현재 상태를 먼저 변경할 수 있었다.
+  - 거래처는 버전 종료 시 `useYn=false`가 되지만 과거 기준일 조회도 `useYn=true`를 요구해, 과거 전표에서 당시 거래처명을 찾지 못했다.
+  - 거래처 단건 조회가 `List.stream().findFirst()`로 겹치는 SCD2 행 하나를 임의 선택해 데이터 손상을 숨길 수 있었다.
+- **수정 범위**:
+  - `MasterDataValidityPolicy.requireValidityWindow`를 추가하고 계정과목/거래처/부서/상품 UPDATE가 신규 기간을 먼저 검증한 뒤 현재 버전을 종료하도록 호출 순서를 바꿨다.
+  - 계정과목/부서는 신규 상위 항목 조회와 새 버전 조립까지 성공한 뒤 현재 행을 종료하도록 참조 검증 순서도 앞당겼다.
+  - 거래처 현재 조회(`useYn` + 유효기간)와 과거 기준일 조회(유효기간)를 분리했다.
+  - 단건 거래처 조회를 `Optional`로 바꿔 기간 중복 시 한 행을 고르지 않고 fail-closed 처리했다.
+  - 정책/서비스/어댑터 단위 테스트와 H2 JPA SCD2 통합 테스트를 추가하고 Master Data/Governance 초보자 문서를 실제 멱등·예약·과거 조회 흐름으로 맞췄다.
+- **검증**:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 18 suites/63 tests, Governance 10 suites/25 tests, 총 88 tests가 실패/오류/skip 0건이고 두 실행 JAR가 생성됐다.
+  - `git diff --check`, 충돌 표식 검색, 변경 Markdown 상대 링크 검증이 성공했다.
+- **남은 리스크/TODO**:
+  - H2에서는 중복 기간 감지만 검증했다. 운영 PostgreSQL에서 SCD2 날짜 범위 exclusion constraint와 실제 migration 통합 테스트가 필요하다.
+  - 거래처 `useYn`은 현재 사용 가능 여부와 과거 버전 종료를 겸하므로 `BusinessPartnerRef.active`의 기준일 의미를 완전히 재현하지 못한다. 버전 종료/업무 비활성 상태 분리와 데이터 이관이 필요하다.
+  - 실제 PostgreSQL migration과 Docker/Compose 실행은 이번 후속 검증에서도 수행하지 않았다.
+- **롤백 범위**:
+  - 이번 후속 변경의 네 서비스, 유효기간 정책, 거래처 repository/adapter, 세 테스트, 신규 JPA 테스트와 Master Data/Governance 문서·운영 로그를 함께 되돌린다.
+
+### 📅 2026-07-27 (master-data 조회·회계기간 경계 2차 점검)
+### [검수/리팩토링] DB 기준일 조회, 환율 선택, 회계기간 상태 전이와 미사용 스켈레톤 정리
+
+- **선확인**:
+  - 계정과목/상품 활성 목록과 거래처명 검색이 전체 행을 읽은 뒤 애플리케이션 메모리에서 필터링해 대용량 기준정보에 적합하지 않았다.
+  - 환율 단건 조회가 기준일 이전의 여러 이력 행을 `Optional` 쿼리로 받아 최신 한 건을 보장하지 못했고, 통화 활성 조회는 겹치는 행 중 첫 행을 숨길 수 있었다.
+  - 회계기간 변경 어댑터가 JPA Repository를 직접 사용하고 setter로 상태를 바꿔 애플리케이션 포트, 잠금, 도메인 상태 규칙과 감사 주체 검증을 우회했다.
+  - 사용처 없는 변경요청 전체 조회와 no-op setter/가짜 연관 엔티티 생성 호환 메서드가 실제 구현처럼 남아 있었다.
+- **수정 범위**:
+  - 계정과목/상품 활성 목록과 거래처명 검색을 유효기간·활성 상태 조건을 포함한 DB 쿼리로 옮기고 빈 거래처 검색어를 거부했다.
+  - 환율은 `effectiveDate <= 기준일` 중 최신 한 건만 조회하고, ISO 통화 코드와 양수 환율을 도메인 생성 시 검증하도록 보강했다. 통화 활성 단건 중복도 fail-closed 처리한다.
+  - 회계기간 저장 포트에 비관적 잠금 조회를 추가하고 어댑터가 포트와 도메인 행위를 통해 변경하도록 정리했다. 영구 마감은 최종 상태이며 OPEN에서 영구 마감으로 건너뛰지 못하고 감사 actor를 필수로 한다.
+  - 사용되지 않는 변경요청 전체 조회 계약, no-op 활성 setter, 분리된 통화를 임시 생성하던 환율 호환 메서드, 미사용 유효기간 helper를 제거했다.
+  - PostgreSQL 전체 baseline, 목록/검색 pagination, `TaxProfile` 소유권·SCD2 구현, Loan/Closing의 Master Data 직접 의존을 코드/문서의 구체적 `@todo`와 현행 예외로 남겼다.
+  - 조회·환율·회계기간 단위/JPA 회귀 테스트를 추가하고 Master Data 초보자 문서를 실제 포트/잠금/기준일 흐름에 맞췄다.
+- **검증**:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 73개, Governance 25개, Closing Core 19개, Journal Ledger Core 19개로 총 136개 테스트가 실패/오류/skip 0건이며 Closing Batch 컴파일과 두 `bootJar`가 성공했다.
+- **남은 리스크/TODO**:
+  - 실제 PostgreSQL 신규 DB migration, 날짜 범위 exclusion constraint와 Docker/Compose 실행은 미검증이다.
+  - 전체/검색 API는 아직 pagination이 없어 운영 데이터 규모에서 응답 상한과 안정 정렬/cursor가 필요하다.
+  - `TaxProfile`은 저장소/use case/applier/소비처가 없으므로 Tax 모듈과 소유권을 확정한 뒤 완전한 SCD2 기능을 구현하거나 이동·제거해야 한다.
+  - Loan core의 Master Data 엔티티/포트 직접 의존과 Closing Batch의 `ExchangeRateRepository` 직접 의존은 다음 순차 점검에서 계약 포트로 분리해야 한다.
+- **롤백 범위**:
+  - 이번 2차 변경의 활성 조회/검색 포트·repository·adapter, 환율/통화 도메인과 repository, 회계기간 포트·adapter·도메인, 제거한 미사용 계약/호환 메서드, 신규 테스트와 Master Data 문서·운영 로그를 함께 되돌린다.
+
+### 📅 2026-07-27 (loan 헥사고날·DDD·회계 흐름 고도화)
+### [구현/검수] 값 참조 경계, 상태 전이, EIR, 단일 스케줄, Batch 재실행 정합성
+
+- **선확인**:
+  - Loan 도메인이 Master Data 엔티티를 직접 소유했고 API DTO/Bean Validation이 core에 있었다.
+  - API가 만든 EIR 스케줄과 Batch가 읽는 별도 스케줄 테이블이 달라 실제 업무 흐름이 연결되지 않았다.
+  - EIR은 `double`과 percent 반환을 사용했고, DEFAULT/RECOVERY 이벤트는 존재하지 않는 재계산 enum 변환으로 실패했다.
+  - 생성 즉시 ACTIVE, 실행 중복/잠금 부재, 재계산 시 약정 원금 덮어쓰기, 발생 FAILED 영구 skip, Batch 기본 오늘 날짜/예외 은폐 문제가 있었다.
+- **수정 범위**:
+  - 거래처 ID·통화/계정 코드 값 참조와 Loan 소유 포트로 경계를 분리하고 Master/Journal 타입은 인프라 어댑터에만 격리했다.
+  - `LoanUseCase`, API DTO/검증/예외 매핑, PENDING→1회 전액 실행→ACTIVE 상태와 잠금/버전/고유 제약을 구현했다.
+  - BigDecimal 소수 단위 EIR, 현재 잔액 기준 재계산, 단일 EIR 스케줄 생성/소비, 상태 이벤트 분기를 구현했다.
+  - 발생 성공 skip/실패 retry, Loan 잠금, 필수 `accrualDate`, core chunk 파이프라인과 Step 실패 집계를 구현했다.
+  - V33 forward migration, Java 17 API bootJar Docker, 8088 Compose와 실제 코드 기준 초보자 문서를 보강했다.
+- **검증**:
+  - 최종 영향 명령에서 Master Data 73, Governance 25, Closing Core 19, Journal Ledger Core 19, Loan Core 30, Loan API 3으로 총 169 tests가 실패/오류/skip 0건이었다.
+  - Loan API/Batch bootJar, `git diff --check`, 충돌 표식, core 경계, Batch 비즈니스 로직, 레거시 runtime 소비처, 현행 Markdown 링크 검사가 통과했다.
+  - Docker CLI/YAML parser가 없어 실제 image/Compose 실행과 자동 YAML parse는 수행하지 못했다.
+- **남은 리스크/TODO**:
+  - Loan–Journal outbox/inbox·lineage 멱등·보상/대사, 인증 principal actor, 일별 day-count/휴일 정책, PostgreSQL V33 중복 사전 정리와 migration 검증이 필요하다.
+  - 레거시 스케줄 테이블은 데이터 이관·소비처 0·복구 리허설 뒤 별도 migration으로 제거한다.
+  - 로컬 모놀리스 어댑터의 provider compile dependency는 원격 계약/장애 정책을 갖춘 MSA adapter로 교체해야 한다.
+- **롤백 범위**:
+  - `loan/**`, Loan용 Master Data 날짜 조회 포트/어댑터/repository, 루트 Compose Loan 설정과 이번 공통 문서/로그 항목을 함께 되돌린다. V33이 공유 DB에 적용됐다면 삭제 대신 forward corrective migration을 사용한다.
+- **상태**: review-ready, uncommitted. 사용자 명시 승인 전 commit/push/merge 금지.

@@ -16,6 +16,6 @@ import java.util.Optional;
 public interface EIRAmortizationScheduleRepository extends JpaRepository<EIRAmortizationSchedule, Long> {
     List<EIRAmortizationSchedule> findByLoan(Loan loan);
     List<EIRAmortizationSchedule> findByLoanOrderByScheduleDateAsc(Loan loan);
-    Optional<EIRAmortizationSchedule> findFirstByLoanOrderByScheduleDateDesc(Loan loan);
     List<EIRAmortizationSchedule> findByLoanAndScheduleDateGreaterThanEqualOrderByScheduleDateAsc(Loan loan, LocalDate scheduleDate);
+    Optional<EIRAmortizationSchedule> findByLoanIdAndScheduleDate(Long loanId, LocalDate scheduleDate);
 }

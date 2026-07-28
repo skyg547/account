@@ -1,5 +1,7 @@
 package com.ho.account.loan.dto;
 
+// HTTP 요청 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
 import com.ho.account.loan.domain.DeferredItemType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -30,22 +32,25 @@ public class DeferredItemTypeRequestDto {
             DeferredItemType.EirCashFlowTreatment.CUSTOMER_FEE_INFLOW;
 
     @NotBlank
+    @Size(max = 20)
     private String deferredAssetAccountCode;
 
     @NotBlank
+    @Size(max = 20)
     private String recognizedIncomeAccountCode;
 
     private boolean isActive = true;
 
     public DeferredItemType toEntity() {
-        DeferredItemType type = new DeferredItemType();
-        type.setCode(this.code);
-        type.setName(this.name);
-        type.setDescription(this.description);
-        type.setDeferralMethod(this.deferralMethod);
-        type.setEirCashFlowTreatment(this.eirCashFlowTreatment);
-        type.setActive(this.isActive);
-        // AccountSubject는 서비스에서 설정
-        return type;
+        return DeferredItemType.create(
+                code,
+                name,
+                description,
+                deferralMethod,
+                eirCashFlowTreatment,
+                deferredAssetAccountCode,
+                recognizedIncomeAccountCode,
+                isActive,
+                "SYSTEM");
     }
 }

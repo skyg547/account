@@ -8,7 +8,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
@@ -53,5 +55,22 @@ class MonolithMasterDataQueryAdapterTest {
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("effectiveDate");
         verifyNoInteractions(accountSubjectRepository);
+    }
+
+    @Test
+    void historicalPartnerLookupUsesValidityWindowEvenAfterCurrentFlagWasClosed() {
+        LocalDate invoiceDate = LocalDate.of(2025, 12, 31);
+        BusinessPartner historical = new BusinessPartner();
+        historical.setBusinessPartnerCode("BP-001");
+        historical.setBusinessPartnerName("Historical vendor");
+        historical.setPartnerType(BusinessPartner.PartnerType.VENDOR);
+        historical.setUseYn(false);
+        when(businessPartnerRepository.findEffectiveByBusinessPartnerCode("BP-001", invoiceDate))
+                .thenReturn(Optional.of(historical));
+
+        BusinessPartnerRef result = adapter.findBusinessPartnerAt("BP-001", invoiceDate).orElseThrow();
+
+        assertThat(result.name()).isEqualTo("Historical vendor");
+        verify(businessPartnerRepository).findEffectiveByBusinessPartnerCode("BP-001", invoiceDate);
     }
 }

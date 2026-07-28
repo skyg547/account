@@ -23,6 +23,10 @@ public interface LoanPersistencePort {
 
     Optional<Loan> findLoan(Long id);
 
+    Optional<Loan> findLoanForUpdate(Long id);
+
+    boolean existsDisbursal(Long loanId);
+
     LoanDisbursal saveDisbursal(LoanDisbursal disbursal);
 
     Optional<DeferredItemType> findDeferredItemType(Long id);
@@ -41,7 +45,7 @@ public interface LoanPersistencePort {
 
     List<EIRAmortizationSchedule> findSchedulesFrom(Loan loan, LocalDate startDate);
 
-    EIRAmortizationSchedule saveSchedule(EIRAmortizationSchedule schedule);
+    List<EIRAmortizationSchedule> saveSchedules(List<EIRAmortizationSchedule> schedules);
 
     List<EIRAmortizationSchedule> findSchedulesOrdered(Loan loan);
 

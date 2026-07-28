@@ -1,8 +1,12 @@
 package com.ho.account.loan.dto;
 
+// HTTP 요청 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -15,6 +19,7 @@ import java.time.LocalDate;
 @Data
 public class AmortizationScheduleGenerateRequestDto {
     @NotNull
+    @Positive
     private Long loanId;
 
     @NotNull
@@ -22,6 +27,7 @@ public class AmortizationScheduleGenerateRequestDto {
 
     @NotNull
     @DecimalMin(value = "0.0", inclusive = true)
+    @DecimalMax(value = "1.0", inclusive = true)
     private BigDecimal newEIR; // 적용할 새로운 EIR
 
     @NotBlank

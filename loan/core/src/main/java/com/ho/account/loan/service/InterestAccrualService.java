@@ -2,18 +2,16 @@ package com.ho.account.loan.service;
 
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import com.ho.account.loan.application.port.out.LoanJournalPort.PostedJournal;
+import com.ho.account.loan.application.port.out.LoanAccrualPersistencePort;
+import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
+import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanAccrualLog;
-import com.ho.account.loan.infrastructure.persistence.LoanAccrualLogRepository;
-import com.ho.account.loan.infrastructure.persistence.LoanAmortizationScheduleEntryRepository;
-import com.ho.account.loan.infrastructure.persistence.LoanRepository;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -29,70 +27,79 @@ public class InterestAccrualService {
     private static final String SYSTEM_ACTOR = "SYSTEM";
     private static final String LINEAGE_SOURCE_TYPE = "LOAN";
 
-    private final LoanRepository loanRepository;
-    private final LoanAmortizationScheduleEntryRepository amortizationRepository;
-    private final LoanAccrualLogRepository accrualLogRepository;
+    private final LoanAccrualPersistencePort persistencePort;
     private final LoanJournalPort journalPort;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
+    private final LoanReferenceDataPort referenceDataPort;
     private final LoanAccountingProperties accountingProperties;
 
     public InterestAccrualService(
-            LoanRepository loanRepository,
-            LoanAmortizationScheduleEntryRepository amortizationRepository,
-            LoanAccrualLogRepository accrualLogRepository,
+            LoanAccrualPersistencePort persistencePort,
             LoanJournalPort journalPort,
-            AccountSubjectPersistencePort accountSubjectPersistencePort,
+            LoanReferenceDataPort referenceDataPort,
             LoanAccountingProperties accountingProperties) {
-        this.loanRepository = loanRepository;
-        this.amortizationRepository = amortizationRepository;
-        this.accrualLogRepository = accrualLogRepository;
+        this.persistencePort = persistencePort;
         this.journalPort = journalPort;
-        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
+        this.referenceDataPort = referenceDataPort;
         this.accountingProperties = accountingProperties;
     }
 
-    @Transactional
-    public void processDailyAccrual(LocalDate accrualDate) {
-        List<Loan> activeLoans = loanRepository.findByStatus(Loan.LoanStatus.ACTIVE);
-        for (Loan loan : activeLoans) {
-            processIndividualAccrual(loan, accrualDate);
-        }
+    public enum AccrualResult {
+        SUCCESS,
+        FAILED,
+        ALREADY_SUCCESSFUL,
+        NOT_DUE,
+        INACTIVE
     }
 
-    public void processIndividualAccrual(Loan loan, LocalDate accrualDate) {
-        if (accrualLogRepository.findByLoanIdAndAccrualDate(loan.getId(), accrualDate).isPresent()) {
-            return;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AccrualResult processIndividualAccrual(Long loanId, LocalDate accrualDate) {
+        if (loanId == null || loanId < 1) {
+            throw new IllegalArgumentException("loanId must be positive.");
+        }
+        if (accrualDate == null) {
+            throw new IllegalArgumentException("accrualDate is required.");
         }
 
-        amortizationRepository.findByLoanIdAndPaymentDate(loan.getId(), accrualDate)
-                .ifPresent(scheduleEntry -> {
-                    BigDecimal interestAmount = scheduleEntry.getInterestAmount();
+        Loan loan = persistencePort.findLoanForUpdate(loanId)
+                .orElseThrow(() -> new IllegalStateException("Loan not found for accrual: " + loanId));
+        if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
+            return AccrualResult.INACTIVE;
+        }
 
-                    LoanAccrualLog log = new LoanAccrualLog();
-                    log.setLoan(loan);
-                    log.setAccrualDate(accrualDate);
-                    log.setAccruedAmount(interestAmount);
-                    log.setAuditUser(SYSTEM_ACTOR);
+        var existingLog = persistencePort.findAccrualLog(loanId, accrualDate);
+        if (existingLog.filter(log -> log.getStatus() == LoanAccrualLog.AccrualStatus.SUCCESS).isPresent()) {
+            return AccrualResult.ALREADY_SUCCESSFUL;
+        }
 
-                    try {
-                        PostedJournal postedJournal = postAccrualJournal(loan, interestAmount, accrualDate);
-                        log.setJournalEntryId(postedJournal.journalEntryId());
-                        log.setJournalNo(postedJournal.slipNo());
-                        log.setStatus("SUCCESS");
-                    } catch (Exception e) {
-                        log.setStatus("FAILED");
-                        log.setErrorMessage(e.getMessage());
-                    }
+        var schedule = persistencePort.findSchedule(loanId, accrualDate);
+        if (schedule.isEmpty() || schedule.get().getInterestIncome().signum() <= 0) {
+            return AccrualResult.NOT_DUE;
+        }
 
-                    accrualLogRepository.save(log);
-                });
+        BigDecimal interestAmount = schedule.get().getInterestIncome();
+        LoanAccrualLog log = existingLog.orElseGet(
+                () -> LoanAccrualLog.start(loan, accrualDate, interestAmount, SYSTEM_ACTOR));
+        if (existingLog.isPresent()) {
+            log.prepareRetry(interestAmount, SYSTEM_ACTOR);
+        }
+
+        try {
+            PostedJournal postedJournal = postAccrualJournal(loan, interestAmount, accrualDate);
+            log.markSuccess(postedJournal.journalEntryId(), postedJournal.slipNo());
+            persistencePort.saveAccrualLog(log);
+            return AccrualResult.SUCCESS;
+        } catch (RuntimeException failure) {
+            log.markFailed(failure);
+            persistencePort.saveAccrualLog(log);
+            return AccrualResult.FAILED;
+        }
     }
 
     private PostedJournal postAccrualJournal(Loan loan, BigDecimal amount, LocalDate date) {
-        AccountSubject accruedInterestReceivable = resolveAccount(
-                accountingProperties.getAccruedInterestReceivableAccountCode());
-        AccountSubject interestIncome = resolveAccount(
-                accountingProperties.getInterestIncomeAccountCode());
+        AccountReference accruedInterestReceivable = referenceDataPort.requireAccount(
+                accountingProperties.getAccruedInterestReceivableAccountCode(), date);
+        AccountReference interestIncome = referenceDataPort.requireAccount(
+                accountingProperties.getInterestIncomeAccountCode(), date);
 
         return journalPort.post(new LoanJournalPort.LoanJournalCommand(
                 date,
@@ -104,12 +111,12 @@ public class InterestAccrualService {
                 List.of(
                         new LoanJournalPort.LoanJournalLine(
                                 "DEBIT",
-                                accruedInterestReceivable.getCode(),
+                                accruedInterestReceivable.code(),
                                 amount,
                                 "Accrued interest receivable"),
                         new LoanJournalPort.LoanJournalLine(
                                 "CREDIT",
-                                interestIncome.getCode(),
+                                interestIncome.code(),
                                 amount,
                                 "Interest income accrual"))));
     }
@@ -122,14 +129,10 @@ public class InterestAccrualService {
     }
 
     private String resolveLoanCurrencyCode(Loan loan) {
-        return Optional.ofNullable(loan.getCurrency())
-                .map(currency -> currency.getCurrencyCode())
-                .filter(code -> !code.isBlank())
-                .orElseThrow(() -> new IllegalStateException("Loan currencyCode is required for journal posting."));
-    }
-
-    private AccountSubject resolveAccount(String accountCode) {
-        return accountSubjectPersistencePort.findByCode(accountCode)
-                .orElseThrow(() -> new IllegalStateException("Account not found: " + accountCode));
+        String currencyCode = loan.getCurrencyCode();
+        if (currencyCode == null || currencyCode.isBlank()) {
+            throw new IllegalStateException("Loan currencyCode is required for journal posting.");
+        }
+        return currencyCode;
     }
 }

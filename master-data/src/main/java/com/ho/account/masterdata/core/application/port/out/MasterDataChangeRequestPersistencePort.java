@@ -20,8 +20,6 @@ public interface MasterDataChangeRequestPersistencePort {
 
     Optional<MasterDataChangeRequest> findBySourceReference(String sourceReference);
 
-    List<MasterDataChangeRequest> findAll();
-
     List<MasterDataChangeRequest> findByStatus(ChangeStatus status);
 
     List<MasterDataChangeRequest> findReadyToApply(LocalDate effectiveDate, int limit);

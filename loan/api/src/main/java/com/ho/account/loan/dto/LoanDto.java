@@ -1,5 +1,7 @@
 package com.ho.account.loan.dto;
 
+// HTTP 응답 계약은 loan:api 인바운드 어댑터가 소유합니다.
+
 import com.ho.account.loan.domain.Loan;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +29,7 @@ public class LoanDto {
     private Loan.PaymentFrequency paymentFrequency;
     private BigDecimal initialEIR;
     private BigDecimal currentEIR;
+    private BigDecimal currentPrincipalBalance;
     private Loan.LoanStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -36,9 +39,9 @@ public class LoanDto {
         return LoanDto.builder()
                 .id(entity.getId())
                 .loanNumber(entity.getLoanNumber())
-                .businessPartnerId(entity.getBusinessPartner() != null ? entity.getBusinessPartner().getId() : null)
-                .businessPartnerName(entity.getBusinessPartner() != null ? entity.getBusinessPartner().getBusinessPartnerName() : null)
-                .currencyCode(entity.getCurrency() != null ? entity.getCurrency().getCurrencyCode() : null)
+                .businessPartnerId(entity.getBusinessPartnerId())
+                .businessPartnerName(entity.getBusinessPartnerName())
+                .currencyCode(entity.getCurrencyCode())
                 .loanType(entity.getLoanType())
                 .principalAmount(entity.getPrincipalAmount())
                 .interestRate(entity.getInterestRate())
@@ -47,6 +50,7 @@ public class LoanDto {
                 .paymentFrequency(entity.getPaymentFrequency())
                 .initialEIR(entity.getInitialEIR())
                 .currentEIR(entity.getCurrentEIR())
+                .currentPrincipalBalance(entity.getOutstandingPrincipal())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

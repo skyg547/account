@@ -156,4 +156,47 @@ public class LoanEvent {
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
+
+    public static LoanEvent record(
+            Loan loan,
+            EventType eventType,
+            LocalDate eventDate,
+            String description,
+            RecalculationRun recalculationRun,
+            String actor) {
+        if (loan == null || loan.getId() == null) {
+            throw new IllegalArgumentException("A persisted loan is required.");
+        }
+        LoanEvent event = new LoanEvent();
+        event.loan = loan;
+        event.eventType = java.util.Objects.requireNonNull(eventType, "eventType is required.");
+        event.eventDate = java.util.Objects.requireNonNull(eventDate, "eventDate is required.");
+        event.description = normalizeNullableText(description, 1000);
+        event.recalculationRun = recalculationRun;
+        if (recalculationRun != null) {
+            event.relatedJournalEntryId = recalculationRun.getAdjustmentJournalEntryId();
+            event.relatedJournalEntrySlipNo = recalculationRun.getAdjustmentJournalEntrySlipNo();
+        }
+        event.auditUser = requireText(actor, "actor", 50);
+        return event;
+    }
+
+    private static String normalizeNullableText(String value, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException("description must not exceed " + maxLength + " characters.");
+        }
+        return normalized;
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        String normalized = normalizeNullableText(value, maxLength);
+        if (normalized == null) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        return normalized;
+    }
 }

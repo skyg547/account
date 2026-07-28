@@ -1,4 +1,58 @@
-# AI Harness Handoff - 2026-07-27 Master Data Review Ready
+# AI Harness Handoff - 2026-07-27 Loan Boundary/Workflow Review Ready
+
+## Active Goal And State
+
+- Sequentially audit modules for hexagonal architecture, DDD, executable workflow, skeleton code, consistency, call order, and object/functional design.
+- Branch: `agent/asset-lease-split`; remote base HEAD remains `5d55704`.
+- The cumulative Master Data follow-up and this Loan pass are local, review-ready, and uncommitted.
+- Do not commit, push, merge, rebase, or touch `main` without explicit user authorization.
+
+## Loan Changes
+
+- Replaced Master Data entity relationships in Loan aggregates with Business Partner ID, ISO currency code, and account-code values. Effective-dated provider access is isolated in `LoanReferenceDataAdapter`.
+- Added `LoanUseCase`; moved HTTP DTOs/validation to `loan:api`; added stable 404/400/409 exception mapping and event-result response.
+- Added `PENDING_DISBURSEMENT`, one full disbursal rule, pessimistic load, optimistic version, unique disbursal protection, and rich domain state methods.
+- Preserved original principal while recalculation changes current outstanding balance; separated DEFAULT/RECOVERY lifecycle events from recalculation enum mapping.
+- Rewrote EIR calculation with `BigDecimal` and a decimal annual-rate contract; it now fails closed on missing policy/non-convergence.
+- Consolidated runtime scheduling on `EIRAmortizationSchedule`; removed the unused duplicate Java entity/repository/JDBC port path while preserving the V30 table for controlled migration.
+- Added locked accrual persistence port, success-skip/failed-retry log states, core chunk pipeline, required `accrualDate`, stable reader ordering, and Step failure aggregation.
+- Validated balanced journal commands and accounting dates. Journal adapter work runs in an independent transaction so a failed Journal call does not erase the Loan FAILED log.
+- Added V33 lock/reference/idempotency indexes without changing V30-V32 checksums.
+- Aligned Docker with Java 17, the actual API bootJar, repository-root context, and Compose `SERVER_PORT=8088` while keeping standalone local API example 8087.
+- Updated Loan README/docs to the actual state transition, schedule table, retry semantics, value boundaries, migration, and operational risks.
+
+## Verification Evidence
+
+```powershell
+.\gradlew :master-data:test :governance:test :closing:core:test :journal-ledger:core:test :loan:core:test :loan:api:test :loan:api:bootJar :loan:batch:bootJar --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx384m' --console=plain
+```
+
+- Master Data 22 suites/73 tests, Governance 10/25, Closing Core 4/19, Journal Ledger Core 11/19, Loan Core 9/30, Loan API 2/3.
+- Total: 58 suites/169 tests; failures 0, errors 0, skipped 0.
+- Loan API `api-0.0.1-SNAPSHOT.jar` and Batch `batch-0.0.1-SNAPSHOT.jar` were generated; Docker COPY matches the API artifact.
+- `git diff --check`, conflict marker scan, core web/DTO/provider leakage scan, Batch business-logic scan, legacy schedule usage scan, and current Loan Markdown relative-link validation passed.
+- Docker CLI and a local YAML parser are unavailable, so live image/Compose execution and automated Compose parse were not performed.
+
+## Known Risks And Completion Criteria
+
+- Loan DB and Journal commits are not distributed-atomic. Complete with outbox/inbox, lineage idempotency response, retry/compensation history, reconciliation, and failure-injection integration tests.
+- HTTP audit actor still comes from request data. Complete by deriving it from verified security principal and proving forged body actors cannot enter audit/lineage.
+- Generated EIR schedules are monthly. Products needing daily recognition require approved day-count convention, holiday calendar, daily schedule policy, accounting golden values, and scale/load tests.
+- V33 unique indexes require production duplicate preflight and remediation. Validate all migrations on supported PostgreSQL before deployment.
+- The legacy `loan_amortization_schedule_entries` table remains intentionally. Remove only after data reconciliation/migration report, zero consumers, backup/restore rehearsal, and a later forward migration.
+- Core still has compile-time provider dependencies because local monolith adapters translate Master Data and Journal ports. MSA extraction needs remote adapters, contracts, timeout/retry/circuit-breaker behavior, and reference snapshot policy.
+- Docker/Compose build and runtime smoke remain for a Docker-enabled environment.
+
+## Rollback And Next Handoff
+
+- Before commit, roll back only `loan/**`, the six dated Master Data account/currency port-adapter-repository files, root Loan Compose line, and this pass's common log/review entries.
+- If V33 has been applied to a shared database, do not delete migration history; create a reviewed forward corrective migration.
+- Independent Gemini review should use the new top section of `GEMINI_REVIEW_PROMPT.md` and report findings before summaries.
+- Next sequential candidate is the remaining Closing Batch direct Master Data repository boundary after this Loan pass is reviewed.
+
+---
+
+# AI Harness Handoff - 2026-07-27 Master Data Lookup/Fiscal-Period Review Ready
 
 ## Active Goal
 
@@ -11,8 +65,9 @@
 ## Current State
 
 - Branch/push target: `agent/asset-lease-split` -> `origin/agent/asset-lease-split`.
-- Scope: Master Data SCD2 version/approval/apply boundary, locking, runtime packaging, tests, and docs.
-- Review state: focused implementation and verification complete; commit/push requested by the user.
+- Base: `5d55704 Harden master data approval and versioning` is already present on the remote feature branch.
+- Scope: prior Master Data approval/runtime pass plus local SCD2 ordering, historical lookup, DB active search, as-of FX, Fiscal Period boundary, skeleton cleanup, tests, and docs.
+- Review state: implementation and affected-module verification are complete; the cumulative follow-up working-tree changes are uncommitted and require explicit authorization before commit/push/merge.
 - Other four worktrees are clean and their feature commits are already in `main`; do not merge them individually.
 
 ## What Changed
@@ -23,33 +78,46 @@
 - Added Governance approval source-reference idempotency, conflict detection, applied timestamp lineage, and V5 migration.
 - Added API validation, HTTP 409 conflict mapping, runtime dependency/port/readiness alignment, and JDK 17 packaging.
 - Preserved V2 checksum, added V4 forward payload type correction, and documented the clean PostgreSQL bootstrap gap.
+- Validated new SCD2 windows before terminating current Account Subject, Business Partner, Department, and Product rows.
+- Resolved Account Subject and Department parent references and assembled new versions before mutating current rows.
+- Split current-active and historical-effective Business Partner queries; duplicate effective rows now fail closed instead of selecting the first row.
+- Moved Account Subject/Product active lists and Business Partner active-name search into validity-aware DB queries; blank searches fail fast.
+- Selected the latest Exchange Rate not after the requested date, validated ISO codes/positive rates, and made overlapping active Currency rows fail closed.
+- Routed Fiscal Period changes through a pessimistically locked application port and audited domain transition rules.
+- Removed unused change-request full-list contracts, no-op active setters, synthetic detached-Currency compatibility methods, and unused validity helpers after usage scans.
+- Added policy/service/domain/adapter tests and H2 JPA regression tests.
 - Preserved beginner explanations and updated README, local run, process, schema, archive, worklogs, and review prompt.
 
 ## Verification
 
-- `:master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar`: passed.
-- Master Data 17 suites/57 tests and Governance 10 suites/25 tests: total 82 with 0 failures, errors, or skips; both bootJars passed.
-- `git diff --check`, conflict/placeholder scan, and changed Markdown relative-link validation passed.
-- The initial incremental compile failed on stale module class outputs; the clean full compile passed and is the authoritative result.
+- `:master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test`: passed.
+- Master Data 22 suites/73 tests, Governance 10/25, Closing Core 4/19, and Journal Ledger Core 11/19: total 136 with 0 failures, errors, or skips.
+- Closing Batch compilation and both bootJars passed.
+- Final `git diff --check`, conflict-marker/TODO review, architecture scan, and changed Markdown relative-link validation passed after this handoff/log update.
 
 ## Known Risks And TODO
 
 - Live PostgreSQL migration and Docker/Compose image execution were not run.
 - Historical V2 declares `CLOB`; a clean PostgreSQL database needs a vendor-specific pre-V2 baseline before production certification.
 - Same-key multi-node requests need key/advisory locking; concurrent first source-reference inserts need atomic conflict recovery; bulk apply needs per-request transactions, SKIP LOCKED, and execution history.
+- Business Partner overlap is detected at lookup but not prevented at write time; production needs a PostgreSQL date-range exclusion constraint and migration test.
+- Historical `BusinessPartnerRef.active` still reflects legacy `useYn`; version closure and business activation require separate temporal modeling and data migration.
+- Full-list and name-search APIs still need page-size limits and stable pagination/cursors.
+- `TaxProfile` has no repository/use case/applier/consumer; decide ownership with Tax, then implement full SCD2 or migrate/remove it.
+- Loan Core directly imports Master Data entities/ports, and Closing Batch directly imports `ExchangeRateRepository`; these documented exceptions are the next sequential provider-boundary candidates.
 - Trusted actor extraction, payload masking/authorization, direct-write governance, and three unsupported typed appliers remain.
 
 ## Integration Order
 
-1. Commit and push this verified Master Data pass on `agent/asset-lease-split`.
-2. Merge current `origin/main` into the feature branch rather than rebasing published history.
-3. Resolve harness/docs conflicts, rerun affected checks, push the merge commit, and open/review a PR to `main`.
-4. Do not push directly to `main` and do not remove clean worktrees until PR integration is confirmed.
+1. Perform an independent review of the cumulative Master Data follow-up and its 136-test affected-module evidence.
+2. Commit/push the cumulative follow-up only when the user explicitly requests it.
+3. Merge current `origin/main` into the feature branch only after the follow-up is preserved and integration is explicitly authorized; do not rebase published history.
+4. Resolve harness/docs conflicts, rerun affected checks, and use a reviewed PR to `main`; never push directly to `main`.
 
 ## Rollback
 
-- Revert the Master Data governance/runtime commit as one unit.
-- Keep V3/V4/V5 aligned with the entity fields when reverting; partial migration rollback is unsafe.
+- Before commit, discard only the listed cumulative follow-up service/policy/repository/adapter/domain/test/doc/log paths to roll back the local pass.
+- To roll back the base, revert the Master Data governance/runtime commit as one unit and keep V3/V4/V5 aligned with their entity fields.
 
 ---
 # AI Harness Handoff - 2026-07-22 Contracts/Shared-Kernel Review

@@ -1,9 +1,10 @@
 package com.ho.account.loan.service;
 
 import com.ho.account.contracts.source.SourceDocumentProvider;
+import com.ho.account.loan.application.port.out.LoanPersistencePort;
+import com.ho.account.loan.domain.Loan;
 import com.ho.account.shared.BoundedContext;
-import com.ho.account.loan.infrastructure.persistence.LoanRepository;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -16,10 +17,10 @@ public class LoanSourceDocumentProvider implements SourceDocumentProvider {
 
     private static final Set<String> SUPPORTED_TYPES = Set.of("LOAN");
 
-    private final LoanRepository loanRepository;
+    private final LoanPersistencePort persistencePort;
 
-    public LoanSourceDocumentProvider(LoanRepository loanRepository) {
-        this.loanRepository = loanRepository;
+    public LoanSourceDocumentProvider(LoanPersistencePort persistencePort) {
+        this.persistencePort = persistencePort;
     }
 
     @Override
@@ -29,17 +30,40 @@ public class LoanSourceDocumentProvider implements SourceDocumentProvider {
 
     @Override
     public Optional<Map<String, Object>> getSourceDocument(String lineageSourceType, String lineageSourceId) {
+        if (!SUPPORTED_TYPES.contains(lineageSourceType)) {
+            return Optional.empty();
+        }
         try {
             Long id = Long.valueOf(lineageSourceId);
-            Map<String, Object> documentDetails = new HashMap<>();
-            return loanRepository.findById(id).map(contract -> {
-                documentDetails.put("type", "Loan");
-                documentDetails.put("data", contract);
-                return documentDetails;
-            });
+            if (id < 1) {
+                return Optional.empty();
+            }
+            return persistencePort.findLoan(id).map(this::toVersionedDocument);
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }
+    }
+
+    private Map<String, Object> toVersionedDocument(Loan loan) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", loan.getId());
+        data.put("loanNumber", loan.getLoanNumber());
+        data.put("businessPartnerId", loan.getBusinessPartnerId());
+        data.put("currencyCode", loan.getCurrencyCode());
+        data.put("loanType", loan.getLoanType().name());
+        data.put("principalAmount", loan.getPrincipalAmount());
+        data.put("outstandingPrincipal", loan.getOutstandingPrincipal());
+        data.put("interestRate", loan.getInterestRate());
+        data.put("disbursalDate", loan.getDisbursalDate());
+        data.put("maturityDate", loan.getMaturityDate());
+        data.put("status", loan.getStatus().name());
+        if (loan.getCurrentEIR() != null) {
+            data.put("currentEIR", loan.getCurrentEIR());
+        }
+        return Map.of(
+                "type", "Loan",
+                "schemaVersion", 1,
+                "data", Map.copyOf(data));
     }
 
     @Override

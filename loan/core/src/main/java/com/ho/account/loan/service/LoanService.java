@@ -1,25 +1,26 @@
 package com.ho.account.loan.service;
 
+import com.ho.account.loan.application.port.in.LoanUseCase;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import com.ho.account.loan.application.port.out.LoanJournalPort.PostedJournal;
 import com.ho.account.loan.application.port.out.LoanPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
+import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
+import com.ho.account.loan.application.port.out.LoanReferenceDataPort.LoanReferenceSnapshot;
 import com.ho.account.loan.domain.DeferredItem;
 import com.ho.account.loan.domain.DeferredItemType;
+import com.ho.account.loan.domain.DeferredItemType.DeferralMethod;
 import com.ho.account.loan.domain.EIRAmortizationSchedule;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanDisbursal;
 import com.ho.account.loan.domain.LoanEvent;
-import com.ho.account.loan.domain.RecalculationRun;
-import com.ho.account.loan.domain.DeferredItemType.DeferralMethod;
-import com.ho.account.loan.domain.Loan.LoanStatus;
 import com.ho.account.loan.domain.LoanEvent.EventType;
+import com.ho.account.loan.domain.RecalculationRun;
 import com.ho.account.loan.domain.RecalculationRun.RecalculationReason;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -28,20 +29,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
- * 
- * 🐣 [초보자를 위한 설명]
- * 이 클래스는 대출 모듈의 '지휘자' 역할을 합니다.
- * "대출을 실행해줘(disburseLoan)!", "대출 조건을 변경해줘(recalculateLoan)!" 라는 외부 요청이 들어오면,
- * 1. 대출 도메인(Loan) 객체를 불러와 핵심 계산(EIR 상각 스케줄 생성 등)을 맡기고,
- * 2. 결과를 영속성 출력 포트를 통해 DB에 저장한 뒤,
- * 3. 대출 소유 회계 포트를 통해 '대출 전표'를 자동으로 발행합니다.
- * 
- * 타 모듈(Master Data, Journal Ledger)과는 In/Out Port를 통해서만 약하게 결합(Loose Coupling)하여 유지보수성을 높입니다.
+ *
+ * <p>🐣 이 클래스는 대출 업무의 지휘자입니다. 도메인 객체가 금액·상태 규칙을 지키게 하고,
+ * 기준정보·영속성·전표는 Loan이 소유한 출력 포트 뒤로 숨긴 채 호출 순서와 트랜잭션 경계를 관리합니다.</p>
+ *
+ * <p>@todo 현재 전표 POST와 Loan DB commit은 동기 호출 두 트랜잭션이라, 전표 전기 후 Loan 저장이
+ * 실패하면 불일치가 생길 수 있습니다. 완료 조건은 업무 lineage idempotency key, Loan outbox,
+ * Journal inbox/중복 응답, 재처리·보상 실행 이력을 함께 구현하고 장애 주입 통합 테스트를 통과하는 것입니다.</p>
  */
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class LoanService {
+public class LoanService implements LoanUseCase {
+
+    private static final String SYSTEM_ACTOR = "SYSTEM";
 
     private final LoanPersistencePort persistencePort;
     private final EIRCalculator eirCalculator;
@@ -49,70 +50,107 @@ public class LoanService {
     private final LoanAccountingProperties accountingProperties;
     private final LoanJournalPort journalPort;
 
+    @Override
     public Loan createLoan(Loan loan) {
-        referenceDataPort.attachValidatedLoanReferences(loan);
-
-        loan.setInitialEIR(loan.getInterestRate());
-        loan.setCurrentEIR(loan.getInitialEIR());
-        loan.setStatus(LoanStatus.ACTIVE);
+        if (loan == null) {
+            throw new IllegalArgumentException("loan is required.");
+        }
+        String actor = loan.getAuditUser() == null ? SYSTEM_ACTOR : loan.getAuditUser();
+        loan.prepareForCreation(actor);
+        LoanReferenceSnapshot references = referenceDataPort.requireLoanReferences(
+                loan.getBusinessPartnerId(),
+                loan.getCurrencyCode(),
+                loan.getDisbursalDate());
+        loan.setBusinessPartnerId(references.businessPartnerId());
+        loan.setCurrencyCode(references.currencyCode());
+        loan.attachBusinessPartnerName(references.businessPartnerName());
         return persistencePort.saveLoan(loan);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public Loan findLoanById(Long id) {
-        return persistencePort.findLoan(id)
+        Loan loan = persistencePort.findLoan(id)
                 .orElseThrow(() -> new EntityNotFoundException("Loan not found with id: " + id));
+        attachReferenceDescription(loan);
+        return loan;
     }
 
-    public LoanDisbursal disburseLoan(Long loanId, LocalDate disbursalDate, BigDecimal disbursedAmount, String user) {
-        Loan loan = findLoanById(loanId);
+    @Override
+    public LoanDisbursal disburseLoan(
+            Long loanId,
+            LocalDate disbursalDate,
+            BigDecimal disbursedAmount,
+            String user) {
+        Loan loan = findLoanForUpdate(loanId);
+        if (persistencePort.existsDisbursal(loanId)) {
+            throw new IllegalStateException("Loan has already been disbursed: " + loanId);
+        }
 
-        LoanDisbursal disbursal = new LoanDisbursal();
-        disbursal.setLoan(loan);
-        disbursal.setDisbursalDate(disbursalDate);
-        disbursal.setDisbursedAmount(disbursedAmount);
-        disbursal.setAuditUser(user);
+        LoanDisbursal disbursal = LoanDisbursal.recordDisbursal(
+                loan, disbursalDate, disbursedAmount, user);
+        String cashAccountCode = resolveAccountCode(
+                accountingProperties.getCashAccountCode(), disbursalDate);
+        String loanReceivableAccountCode = resolveAccountCode(
+                accountingProperties.getLoanReceivableAccountCode(), disbursalDate);
 
-        String cashAccountCode = resolveAccountCode(accountingProperties.getCashAccountCode());
-        String loanReceivableAccountCode = resolveAccountCode(accountingProperties.getLoanReceivableAccountCode());
-
-        PostedJournal disbursalJournal = createAutomatedJournalEntry(
+        loan.activateAfterDisbursal(disbursalDate, disbursedAmount, user);
+        PostedJournal journal = createAutomatedJournalEntry(
                 disbursalDate,
                 loan.getLoanNumber() + " loan disbursal",
                 user,
                 "LOAN_DISBURSAL",
                 loanId.toString(),
-                resolveLoanCurrencyCode(loan),
+                requireLoanCurrencyCode(loan),
                 disbursedAmount,
-                cashAccountCode,
-                loanReceivableAccountCode
-        );
-        disbursal.setJournalEntryId(disbursalJournal.journalEntryId());
-        disbursal.setJournalEntrySlipNo(disbursalJournal.slipNo());
-
+                loanReceivableAccountCode,
+                cashAccountCode);
+        disbursal.linkPostedJournal(journal.journalEntryId(), journal.slipNo());
+        persistencePort.saveLoan(loan);
         return persistencePort.saveDisbursal(disbursal);
     }
 
+    @Override
     public DeferredItemType createDeferredItemType(DeferredItemType itemType) {
-        persistencePort.findDeferredItemType(itemType.getCode())
-                .ifPresent(existing -> {
-                    throw new IllegalStateException("Deferred item type already exists: " + itemType.getCode());
-                });
-        if (itemType.getDeferralMethod() == null) {
-            itemType.setDeferralMethod(DeferralMethod.STRAIGHT_LINE);
+        if (itemType == null) {
+            throw new IllegalArgumentException("deferredItemType is required.");
         }
-        if (itemType.getAuditUser() == null) {
-            itemType.setAuditUser("SYSTEM");
-        }
-        return persistencePort.saveDeferredItemType(itemType);
+        persistencePort.findDeferredItemType(itemType.getCode()).ifPresent(existing -> {
+            throw new IllegalStateException("Deferred item type already exists: " + itemType.getCode());
+        });
+
+        LocalDate effectiveDate = LocalDate.now();
+        DeferredAccounts accounts = resolveDeferredAccounts(itemType, effectiveDate);
+        DeferredItemType normalized = DeferredItemType.create(
+                itemType.getCode(),
+                itemType.getName(),
+                itemType.getDescription(),
+                itemType.getDeferralMethod() == null ? DeferralMethod.STRAIGHT_LINE : itemType.getDeferralMethod(),
+                itemType.getEirCashFlowTreatment() == null
+                        ? DeferredItemType.EirCashFlowTreatment.CUSTOMER_FEE_INFLOW
+                        : itemType.getEirCashFlowTreatment(),
+                accounts.deferredAsset().code(),
+                accounts.recognizedIncome().code(),
+                itemType.isActive(),
+                itemType.getAuditUser() == null ? SYSTEM_ACTOR : itemType.getAuditUser());
+        normalized.attachAccountDescriptions(
+                accounts.deferredAsset().name(),
+                accounts.recognizedIncome().name());
+        return persistencePort.saveDeferredItemType(normalized);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public DeferredItemType findDeferredItemTypeByCode(String code) {
-        return persistencePort.findDeferredItemType(code)
-                .orElseThrow(() -> new EntityNotFoundException("DeferredItemType not found with code: " + code));
+        DeferredItemType itemType = persistencePort.findDeferredItemType(code)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "DeferredItemType not found with code: " + code));
+        DeferredAccounts accounts = resolveDeferredAccounts(itemType, LocalDate.now());
+        itemType.attachAccountDescriptions(accounts.deferredAsset().name(), accounts.recognizedIncome().name());
+        return itemType;
     }
 
+    @Override
     public DeferredItem createDeferredItem(
             Long loanId,
             Long deferredItemTypeId,
@@ -120,123 +158,42 @@ public class LoanService {
             LocalDate deferralDate,
             LocalDate amortizationEndDate,
             String user) {
-        Loan loan = findLoanById(loanId);
-        DeferredItemType deferredItemType = persistencePort.findDeferredItemType(deferredItemTypeId)
-                .orElseThrow(() -> new EntityNotFoundException("DeferredItemType not found with id: " + deferredItemTypeId));
-
-        if (!deferredItemType.isActive()) {
-            throw new IllegalStateException("DeferredItemType is inactive: " + deferredItemType.getCode());
+        Loan loan = findLoanForUpdate(loanId);
+        if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
+            throw new IllegalStateException("Deferred items require an active loan: " + loan.getStatus());
         }
-        if (amortizationEndDate.isBefore(deferralDate)) {
-            throw new IllegalArgumentException("amortizationEndDate must be on or after deferralDate");
-        }
+        DeferredItemType itemType = persistencePort.findDeferredItemType(deferredItemTypeId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "DeferredItemType not found with id: " + deferredItemTypeId));
+        DeferredAccounts accounts = resolveDeferredAccounts(itemType, deferralDate);
 
-        DeferredItem deferredItem = new DeferredItem();
-        deferredItem.setLoan(loan);
-        deferredItem.setDeferredItemType(deferredItemType);
-        deferredItem.setAmount(amount);
-        deferredItem.setDeferralDate(deferralDate);
-        deferredItem.setAmortizationStartDate(deferralDate);
-        deferredItem.setAmortizationEndDate(amortizationEndDate);
-        deferredItem.setRemainingAmount(amount);
-        deferredItem.setStatus(DeferredItem.DeferredItemStatus.DEFERRED);
-        deferredItem.setAuditUser(user);
-
-        PostedJournal initialEntry = createDeferredItemInitialJournalEntry(loan, deferredItemType, amount, deferralDate, user);
-        deferredItem.setInitialJournalEntryId(initialEntry.journalEntryId());
-        deferredItem.setInitialJournalEntrySlipNo(initialEntry.slipNo());
-
+        DeferredItem deferredItem = DeferredItem.create(
+                loan, itemType, amount, deferralDate, amortizationEndDate, user);
+        PostedJournal initialEntry = createAutomatedJournalEntry(
+                deferralDate,
+                loan.getLoanNumber() + " deferred item recognition",
+                user,
+                "LOAN_DEFERRED_ITEM",
+                loan.getId().toString(),
+                requireLoanCurrencyCode(loan),
+                amount,
+                accounts.deferredAsset().code(),
+                accounts.recognizedIncome().code());
+        deferredItem.linkInitialJournal(initialEntry.journalEntryId(), initialEntry.slipNo());
         return persistencePort.saveDeferredItem(deferredItem);
     }
 
+    @Override
     public List<EIRAmortizationSchedule> generateAmortizationSchedule(
             Long loanId,
             LocalDate recalculationDate,
             BigDecimal newEIR,
             String user) {
-        Loan loan = findLoanById(loanId);
-        LocalDate scheduleStartDate = recalculationDate != null ? recalculationDate : loan.getDisbursalDate();
-        if (scheduleStartDate.isAfter(loan.getMaturityDate())) {
-            throw new IllegalArgumentException("schedule start date is after maturity date");
-        }
-
-        boolean recalculated = !scheduleStartDate.equals(loan.getDisbursalDate());
-        if (recalculated) {
-            List<EIRAmortizationSchedule> schedulesToDelete = persistencePort.findSchedulesFrom(loan, scheduleStartDate);
-            if (!schedulesToDelete.isEmpty()) {
-                persistencePort.deleteSchedules(schedulesToDelete);
-            }
-        } else {
-            List<EIRAmortizationSchedule> schedulesToDelete = persistencePort.findSchedules(loan);
-            if (!schedulesToDelete.isEmpty()) {
-                persistencePort.deleteSchedules(schedulesToDelete);
-            }
-        }
-
-        BigDecimal annualEir = newEIR != null
-                ? newEIR
-                : (loan.getCurrentEIR() != null ? loan.getCurrentEIR() : loan.getInterestRate());
-        loan.setCurrentEIR(annualEir);
-        persistencePort.saveLoan(loan);
-
-        long monthSpan = ChronoUnit.MONTHS.between(scheduleStartDate, loan.getMaturityDate()) + 1;
-        int periods = (int) Math.max(monthSpan, 1L);
-
-        BigDecimal monthlyRate = normalizeAnnualRate(annualEir)
-                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-        BigDecimal principalBalance = loan.getPrincipalAmount();
-        BigDecimal regularPrincipalRepayment = principalBalance
-                .divide(BigDecimal.valueOf(periods), 2, RoundingMode.HALF_UP);
-
-        BigDecimal totalDeferredAmount = persistencePort.findDeferredItems(loan).stream()
-                .map(DeferredItem::getRemainingAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal remainingDeferredAmount = totalDeferredAmount;
-        BigDecimal regularDeferredAmortization = totalDeferredAmount.signum() == 0
-                ? BigDecimal.ZERO
-                : totalDeferredAmount.divide(BigDecimal.valueOf(periods), 2, RoundingMode.HALF_UP);
-
-        for (int i = 0; i < periods; i++) {
-            LocalDate scheduleDate = scheduleStartDate.plusMonths(i);
-            if (scheduleDate.isAfter(loan.getMaturityDate())) {
-                break;
-            }
-
-            boolean lastPeriod = i == periods - 1 || scheduleDate.equals(loan.getMaturityDate());
-            BigDecimal beginningBalance = principalBalance;
-            BigDecimal interestIncome = beginningBalance.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal principalRepayment = lastPeriod
-                    ? beginningBalance
-                    : regularPrincipalRepayment.min(beginningBalance);
-            BigDecimal endingBalance = beginningBalance.subtract(principalRepayment).max(BigDecimal.ZERO);
-
-            BigDecimal deferredAmortization = BigDecimal.ZERO;
-            if (remainingDeferredAmount.signum() > 0) {
-                deferredAmortization = lastPeriod
-                        ? remainingDeferredAmount
-                        : regularDeferredAmortization.min(remainingDeferredAmount);
-                remainingDeferredAmount = remainingDeferredAmount.subtract(deferredAmortization);
-            }
-
-            EIRAmortizationSchedule schedule = new EIRAmortizationSchedule();
-            schedule.setLoan(loan);
-            schedule.setScheduleDate(scheduleDate);
-            schedule.setBeginningBalance(beginningBalance);
-            schedule.setInterestIncome(interestIncome);
-            schedule.setPrincipalRepayment(principalRepayment);
-            schedule.setEndingBalance(endingBalance);
-            schedule.setDeferredItemAmortization(deferredAmortization);
-            schedule.setCashFlow(principalRepayment.add(interestIncome));
-            schedule.setRecalculated(recalculated);
-            schedule.setAuditUser(user);
-            persistencePort.saveSchedule(schedule);
-
-            principalBalance = endingBalance;
-        }
-
-        return persistencePort.findSchedulesOrdered(loan);
+        Loan loan = findLoanForUpdate(loanId);
+        return generateAmortizationScheduleForLoan(loan, recalculationDate, newEIR, user);
     }
 
+    @Override
     public RecalculationRun recalculateLoan(
             Long loanId,
             LocalDate recalculationDate,
@@ -244,96 +201,69 @@ public class LoanService {
             String user,
             Optional<BigDecimal> newPrincipal,
             Optional<LocalDate> newMaturityDate) {
-        Loan loan = findLoanById(loanId);
-
-        BigDecimal oldPrincipal = loan.getPrincipalAmount();
-        BigDecimal oldEir = loan.getCurrentEIR();
-        LocalDate oldMaturityDate = loan.getMaturityDate();
-
-        newPrincipal.ifPresent(loan::setPrincipalAmount);
-        newMaturityDate.ifPresent(loan::setMaturityDate);
-
-        BigDecimal recalculatedEir = eirCalculator.calculateEIR(loan, persistencePort.findDeferredItems(loan));
-        loan.setCurrentEIR(recalculatedEir);
-        loan.setAuditUser(user);
-        persistencePort.saveLoan(loan);
-
-        List<EIRAmortizationSchedule> recalculatedSchedules =
-                generateAmortizationSchedule(loan.getId(), recalculationDate, recalculatedEir, user);
-
-        RecalculationRun run = new RecalculationRun();
-        run.setLoan(loan);
-        run.setRecalculationDate(recalculationDate);
-        run.setReason(reason);
-        run.setOldEIR(oldEir);
-        run.setNewEIR(recalculatedEir);
-        run.setOldMaturityDate(oldMaturityDate);
-        run.setNewMaturityDate(loan.getMaturityDate());
-        if (!recalculatedSchedules.isEmpty()) {
-            run.setRecalculatedAmortizationScheduleStart(recalculatedSchedules.get(0));
-        }
-        run.setImpactAnalysis(String.format(
-                "{\"oldPrincipal\":%s,\"newPrincipal\":%s,\"oldEIR\":%s,\"newEIR\":%s}",
-                oldPrincipal, loan.getPrincipalAmount(), oldEir, recalculatedEir));
-        run.setAuditUser(user);
-
-        BigDecimal principalDelta = oldPrincipal.subtract(loan.getPrincipalAmount());
-        if (reason == RecalculationReason.EARLY_REPAYMENT && principalDelta.signum() > 0) {
-            String cashAccountCode = resolveAccountCode(accountingProperties.getCashAccountCode());
-            String loanReceivableAccountCode = resolveAccountCode(accountingProperties.getLoanReceivableAccountCode());
-
-            PostedJournal adjustmentEntry = createAutomatedJournalEntry(
-                    recalculationDate,
-                    loan.getLoanNumber() + " principal adjustment",
-                    user,
-                    "LOAN_RECALCULATION",
-                    loanId.toString(),
-                    resolveLoanCurrencyCode(loan),
-                    principalDelta,
-                    loanReceivableAccountCode,
-                    cashAccountCode
-            );
-            run.setAdjustmentJournalEntryId(adjustmentEntry.journalEntryId());
-            run.setAdjustmentJournalEntrySlipNo(adjustmentEntry.slipNo());
-        }
-
-        RecalculationRun savedRun = persistencePort.saveRecalculationRun(run);
-
-        LoanEvent event = new LoanEvent();
-        event.setLoan(loan);
-        event.setEventDate(recalculationDate);
-        event.setEventType(mapReasonToEventType(reason));
-        event.setDescription("Loan recalculation triggered by " + reason);
-        event.setRecalculationRun(savedRun);
-        event.setRelatedJournalEntryId(savedRun.getAdjustmentJournalEntryId());
-        event.setRelatedJournalEntrySlipNo(savedRun.getAdjustmentJournalEntrySlipNo());
-        event.setAuditUser(user);
-        persistencePort.saveLoanEvent(event);
-
-        return savedRun;
+        return recalculateLoanWithEvent(
+                loanId,
+                recalculationDate,
+                reason,
+                mapReasonToEventType(reason),
+                "Loan recalculation triggered by " + reason,
+                user,
+                safeOptional(newPrincipal),
+                safeOptional(newMaturityDate)).recalculationRun().orElseThrow();
     }
 
+    @Override
+    public LoanEventResult processLoanEvent(
+            Long loanId,
+            EventType eventType,
+            LocalDate eventDate,
+            String description,
+            String user,
+            Optional<BigDecimal> newPrincipal,
+            Optional<LocalDate> newMaturityDate) {
+        if (eventType == null) {
+            throw new IllegalArgumentException("eventType is required.");
+        }
+        Optional<BigDecimal> principal = safeOptional(newPrincipal);
+        Optional<LocalDate> maturity = safeOptional(newMaturityDate);
+        return switch (eventType) {
+            case EARLY_REPAYMENT -> recalculateLoanWithEvent(
+                    loanId, eventDate, RecalculationReason.EARLY_REPAYMENT, eventType,
+                    description, user, principal, maturity);
+            case CONDITION_CHANGE -> recalculateLoanWithEvent(
+                    loanId, eventDate, RecalculationReason.CONDITION_CHANGE, eventType,
+                    description, user, principal, maturity);
+            case RESCHEDULE -> recalculateLoanWithEvent(
+                    loanId, eventDate, RecalculationReason.RESCHEDULE, eventType,
+                    description, user, principal, maturity);
+            case DEFAULT, RECOVERY, OTHER -> recordLifecycleEvent(
+                    loanId, eventType, eventDate, description, user, principal, maturity);
+        };
+    }
+
+    @Override
     public RecalculationRun reproduceDoDScenario(Long loanId, String user) {
         Loan loan = findLoanById(loanId);
-
-        DeferredItemType deferredItemType = persistencePort.findDeferredItemType("DOD_DEFERRED_FEE")
-                .orElseGet(() -> {
-                    DeferredItemType type = new DeferredItemType();
-                    type.setCode("DOD_DEFERRED_FEE");
-                    type.setName("DoD Deferred Fee");
-                    type.setDescription("Deferred fee for DoD loan scenario");
-                    type.setDeferralMethod(DeferralMethod.EIR_METHOD);
-                    type.setActive(true);
-                    type.setAuditUser(user);
-                    return persistencePort.saveDeferredItemType(type);
-                });
-
-        LocalDate deferralDate = loan.getDisbursalDate();
-        LocalDate amortizationEndDate = deferralDate.plusMonths(12);
-        if (amortizationEndDate.isAfter(loan.getMaturityDate())) {
-            amortizationEndDate = loan.getMaturityDate();
+        if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
+            throw new IllegalStateException("DoD scenario requires an active loan.");
         }
 
+        DeferredItemType deferredItemType = persistencePort.findDeferredItemType("DOD_DEFERRED_FEE")
+                .orElseGet(() -> createDeferredItemType(DeferredItemType.create(
+                        "DOD_DEFERRED_FEE",
+                        "DoD Deferred Fee",
+                        "Deferred fee for DoD loan scenario",
+                        DeferralMethod.EIR_METHOD,
+                        DeferredItemType.EirCashFlowTreatment.CUSTOMER_FEE_INFLOW,
+                        accountingProperties.getDeferredAssetAccountCode(),
+                        accountingProperties.getRecognizedIncomeAccountCode(),
+                        true,
+                        user)));
+
+        LocalDate deferralDate = loan.getDisbursalDate();
+        LocalDate amortizationEndDate = deferralDate.plusMonths(12).isAfter(loan.getMaturityDate())
+                ? loan.getMaturityDate()
+                : deferralDate.plusMonths(12);
         BigDecimal deferredAmount = loan.getPrincipalAmount()
                 .multiply(new BigDecimal("0.01"))
                 .setScale(2, RoundingMode.HALF_UP);
@@ -343,59 +273,200 @@ public class LoanService {
                 deferredAmount,
                 deferralDate,
                 amortizationEndDate,
-                user
-        );
+                user);
 
         generateAmortizationSchedule(
                 loanId,
                 loan.getDisbursalDate(),
-                loan.getCurrentEIR() != null ? loan.getCurrentEIR() : loan.getInterestRate(),
-                user
-        );
+                loan.getCurrentEIR(),
+                user);
 
         LocalDate recalculationDate = loan.getDisbursalDate().plusMonths(3);
-        if (recalculationDate.isAfter(loan.getMaturityDate())) {
-            recalculationDate = loan.getMaturityDate();
+        if (!recalculationDate.isBefore(loan.getMaturityDate())) {
+            throw new IllegalStateException("DoD scenario requires a loan term longer than three months.");
         }
-
-        BigDecimal newPrincipal = loan.getPrincipalAmount()
+        BigDecimal newPrincipal = loan.getOutstandingPrincipal()
                 .multiply(new BigDecimal("0.70"))
                 .setScale(2, RoundingMode.HALF_UP);
-
         return recalculateLoan(
                 loanId,
                 recalculationDate,
                 RecalculationReason.EARLY_REPAYMENT,
                 user,
                 Optional.of(newPrincipal),
-                Optional.empty()
-        );
+                Optional.empty());
     }
 
-    private PostedJournal createDeferredItemInitialJournalEntry(
-            Loan loan,
-            DeferredItemType deferredItemType,
-            BigDecimal amount,
-            LocalDate deferralDate,
-            String user) {
-        String deferredAssetAccountCode = resolveAccountCode(
-                Optional.ofNullable(deferredItemType.getDeferredAssetAccountCode())
-                        .orElse(accountingProperties.getDeferredAssetAccountCode()));
-        String recognizedIncomeAccountCode = resolveAccountCode(
-                Optional.ofNullable(deferredItemType.getRecognizedIncomeAccountCode())
-                        .orElse(accountingProperties.getRecognizedIncomeAccountCode()));
+    private LoanEventResult recalculateLoanWithEvent(
+            Long loanId,
+            LocalDate recalculationDate,
+            RecalculationReason reason,
+            EventType eventType,
+            String description,
+            String user,
+            Optional<BigDecimal> newPrincipal,
+            Optional<LocalDate> newMaturityDate) {
+        if (reason == null || recalculationDate == null) {
+            throw new IllegalArgumentException("recalculationDate and reason are required.");
+        }
+        Loan loan = findLoanForUpdate(loanId);
+        BigDecimal oldOutstanding = loan.getOutstandingPrincipal();
+        BigDecimal oldEir = loan.getCurrentEIR();
+        LocalDate oldMaturityDate = loan.getMaturityDate();
+        BigDecimal proposedOutstanding = newPrincipal.orElse(oldOutstanding);
+        LocalDate proposedMaturityDate = newMaturityDate.orElse(oldMaturityDate);
 
-        return createAutomatedJournalEntry(
-                deferralDate,
-                loan.getLoanNumber() + " deferred item recognition",
-                user,
-                "LOAN_DEFERRED_ITEM",
-                loan.getId().toString(),
-                resolveLoanCurrencyCode(loan),
-                amount,
-                recognizedIncomeAccountCode,
-                deferredAssetAccountCode
-        );
+        if (reason == RecalculationReason.EARLY_REPAYMENT
+                && (newPrincipal.isEmpty() || proposedOutstanding.compareTo(oldOutstanding) >= 0)) {
+            throw new IllegalArgumentException(
+                    "EARLY_REPAYMENT requires a lower newPrincipal outstanding balance.");
+        }
+
+        List<DeferredItem> deferredItems = persistencePort.findDeferredItems(loan);
+        BigDecimal recalculatedEir = eirCalculator.calculateEIR(
+                loan, proposedOutstanding, proposedMaturityDate, deferredItems);
+
+        AdjustmentAccounts adjustmentAccounts = null;
+        BigDecimal principalDelta = oldOutstanding.subtract(proposedOutstanding);
+        if (reason == RecalculationReason.EARLY_REPAYMENT && principalDelta.signum() > 0) {
+            adjustmentAccounts = new AdjustmentAccounts(
+                    resolveAccountCode(accountingProperties.getCashAccountCode(), recalculationDate),
+                    resolveAccountCode(accountingProperties.getLoanReceivableAccountCode(), recalculationDate));
+        }
+
+        loan.applyRecalculatedTerms(
+                proposedOutstanding,
+                proposedMaturityDate,
+                recalculatedEir,
+                recalculationDate,
+                user);
+        persistencePort.saveLoan(loan);
+        List<EIRAmortizationSchedule> schedules = generateAmortizationScheduleForLoan(
+                loan, recalculationDate, recalculatedEir, user);
+
+        String impactAnalysis = """
+                {"oldOutstandingPrincipal":%s,"newOutstandingPrincipal":%s,"oldEIR":%s,"newEIR":%s}
+                """.formatted(oldOutstanding, proposedOutstanding, oldEir, recalculatedEir).trim();
+        RecalculationRun run = RecalculationRun.record(
+                loan,
+                recalculationDate,
+                reason,
+                oldEir,
+                recalculatedEir,
+                oldMaturityDate,
+                proposedMaturityDate,
+                schedules.isEmpty() ? null : schedules.get(0),
+                impactAnalysis,
+                user);
+
+        if (adjustmentAccounts != null) {
+            PostedJournal adjustmentJournal = createAutomatedJournalEntry(
+                    recalculationDate,
+                    loan.getLoanNumber() + " principal adjustment",
+                    user,
+                    "LOAN_RECALCULATION",
+                    loanId.toString(),
+                    requireLoanCurrencyCode(loan),
+                    principalDelta,
+                    adjustmentAccounts.cashAccountCode(),
+                    adjustmentAccounts.loanReceivableAccountCode());
+            run.linkAdjustmentJournal(adjustmentJournal.journalEntryId(), adjustmentJournal.slipNo());
+        }
+
+        RecalculationRun savedRun = persistencePort.saveRecalculationRun(run);
+        LoanEvent event = LoanEvent.record(
+                loan,
+                eventType,
+                recalculationDate,
+                defaultDescription(description, "Loan recalculation triggered by " + reason),
+                savedRun,
+                user);
+        LoanEvent savedEvent = persistencePort.saveLoanEvent(event);
+        return new LoanEventResult(savedEvent, Optional.of(savedRun));
+    }
+
+    private LoanEventResult recordLifecycleEvent(
+            Long loanId,
+            EventType eventType,
+            LocalDate eventDate,
+            String description,
+            String user,
+            Optional<BigDecimal> newPrincipal,
+            Optional<LocalDate> newMaturityDate) {
+        if (newPrincipal.isPresent() || newMaturityDate.isPresent()) {
+            throw new IllegalArgumentException(
+                    eventType + " does not accept recalculation fields.");
+        }
+        Loan loan = findLoanForUpdate(loanId);
+        if (eventDate == null || eventDate.isBefore(loan.getDisbursalDate())) {
+            throw new IllegalArgumentException("eventDate must not be before the loan disbursal date.");
+        }
+        if (eventType == EventType.DEFAULT) {
+            loan.markDefaulted(user);
+            persistencePort.saveLoan(loan);
+        } else if (eventType == EventType.RECOVERY) {
+            loan.recoverFromDefault(user);
+            persistencePort.saveLoan(loan);
+        }
+        LoanEvent event = LoanEvent.record(
+                loan,
+                eventType,
+                eventDate,
+                defaultDescription(description, "Loan event: " + eventType),
+                null,
+                user);
+        return new LoanEventResult(persistencePort.saveLoanEvent(event), Optional.empty());
+    }
+
+    private List<EIRAmortizationSchedule> generateAmortizationScheduleForLoan(
+            Loan loan,
+            LocalDate recalculationDate,
+            BigDecimal newEir,
+            String user) {
+        if (loan.getStatus() != Loan.LoanStatus.ACTIVE) {
+            throw new IllegalStateException("Amortization schedules require an active loan: " + loan.getStatus());
+        }
+        LocalDate scheduleStartDate = recalculationDate == null
+                ? loan.getDisbursalDate()
+                : recalculationDate;
+        BigDecimal annualEir = newEir == null
+                ? Optional.ofNullable(loan.getCurrentEIR()).orElse(loan.getInterestRate())
+                : newEir;
+        BigDecimal totalDeferredAmount = persistencePort.findDeferredItems(loan).stream()
+                .filter(item -> item.getStatus() != DeferredItem.DeferredItemStatus.CANCELLED)
+                .map(DeferredItem::getRemainingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean recalculated = !scheduleStartDate.equals(loan.getDisbursalDate());
+
+        List<EIRAmortizationSchedule> newSchedules = EIRAmortizationSchedule.generateMonthly(
+                loan,
+                scheduleStartDate,
+                annualEir,
+                totalDeferredAmount,
+                recalculated,
+                user);
+
+        List<EIRAmortizationSchedule> oldSchedules = recalculated
+                ? persistencePort.findSchedulesFrom(loan, scheduleStartDate)
+                : persistencePort.findSchedules(loan);
+        if (!oldSchedules.isEmpty()) {
+            persistencePort.deleteSchedules(oldSchedules);
+        }
+        loan.updateCurrentEir(annualEir, user);
+        persistencePort.saveLoan(loan);
+        persistencePort.saveSchedules(newSchedules);
+        return persistencePort.findSchedulesOrdered(loan);
+    }
+
+    private DeferredAccounts resolveDeferredAccounts(DeferredItemType itemType, LocalDate effectiveDate) {
+        String deferredCode = Optional.ofNullable(itemType.getDeferredAssetAccountCode())
+                .orElse(accountingProperties.getDeferredAssetAccountCode());
+        String incomeCode = Optional.ofNullable(itemType.getRecognizedIncomeAccountCode())
+                .orElse(accountingProperties.getRecognizedIncomeAccountCode());
+        AccountReference deferredAsset = referenceDataPort.requireAccount(deferredCode, effectiveDate);
+        AccountReference recognizedIncome = referenceDataPort.requireAccount(incomeCode, effectiveDate);
+        itemType.attachAccountDescriptions(deferredAsset.name(), recognizedIncome.name());
+        return new DeferredAccounts(deferredAsset, recognizedIncome);
     }
 
     private PostedJournal createAutomatedJournalEntry(
@@ -406,8 +477,8 @@ public class LoanService {
             String lineageSourceId,
             String currencyCode,
             BigDecimal amount,
-            String creditAccountCode,
-            String debitAccountCode) {
+            String debitAccountCode,
+            String creditAccountCode) {
         return journalPort.post(new LoanJournalPort.LoanJournalCommand(
                 accountingDate,
                 description,
@@ -416,34 +487,67 @@ public class LoanService {
                 lineageSourceId,
                 currencyCode,
                 List.of(
-                        new LoanJournalPort.LoanJournalLine("DEBIT", debitAccountCode, amount, description + " (DEBIT)"),
-                        new LoanJournalPort.LoanJournalLine("CREDIT", creditAccountCode, amount, description + " (CREDIT)"))));
+                        new LoanJournalPort.LoanJournalLine(
+                                "DEBIT", debitAccountCode, amount, description + " (DEBIT)"),
+                        new LoanJournalPort.LoanJournalLine(
+                                "CREDIT", creditAccountCode, amount, description + " (CREDIT)"))));
     }
 
-    private String resolveAccountCode(String accountCode) {
-        return referenceDataPort.requireAccountCode(accountCode);
+    private Loan findLoanForUpdate(Long loanId) {
+        if (loanId == null || loanId < 1) {
+            throw new IllegalArgumentException("loanId must be positive.");
+        }
+        return persistencePort.findLoanForUpdate(loanId)
+                .orElseThrow(() -> new EntityNotFoundException("Loan not found with id: " + loanId));
     }
 
-    private String resolveLoanCurrencyCode(Loan loan) {
-        return loan.getCurrencyCode();
+    private void attachReferenceDescription(Loan loan) {
+        LoanReferenceSnapshot references = referenceDataPort.requireLoanReferences(
+                loan.getBusinessPartnerId(),
+                loan.getCurrencyCode(),
+                loan.getDisbursalDate());
+        loan.attachBusinessPartnerName(references.businessPartnerName());
     }
 
-    private LoanEvent.EventType mapReasonToEventType(RecalculationReason reason) {
+    private String resolveAccountCode(String accountCode, LocalDate effectiveDate) {
+        return referenceDataPort.requireAccount(accountCode, effectiveDate).code();
+    }
+
+    private String requireLoanCurrencyCode(Loan loan) {
+        String code = loan.getCurrencyCode();
+        if (code == null || code.isBlank()) {
+            throw new IllegalStateException("Loan currencyCode is required for journal posting.");
+        }
+        return code;
+    }
+
+    private EventType mapReasonToEventType(RecalculationReason reason) {
+        if (reason == null) {
+            throw new IllegalArgumentException("reason is required.");
+        }
         return switch (reason) {
             case EARLY_REPAYMENT -> EventType.EARLY_REPAYMENT;
             case CONDITION_CHANGE -> EventType.CONDITION_CHANGE;
             case RESCHEDULE -> EventType.RESCHEDULE;
-            default -> EventType.OTHER;
+            case OTHER -> EventType.OTHER;
         };
     }
 
-    private BigDecimal normalizeAnnualRate(BigDecimal annualRate) {
-        if (annualRate == null) {
-            return BigDecimal.ZERO;
-        }
-        if (annualRate.compareTo(BigDecimal.ONE) > 0) {
-            return annualRate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-        }
-        return annualRate;
+    private String defaultDescription(String description, String fallback) {
+        return description == null || description.isBlank() ? fallback : description.trim();
+    }
+
+    private <T> Optional<T> safeOptional(Optional<T> value) {
+        return value == null ? Optional.empty() : value;
+    }
+
+    private record DeferredAccounts(
+            AccountReference deferredAsset,
+            AccountReference recognizedIncome) {
+    }
+
+    private record AdjustmentAccounts(
+            String cashAccountCode,
+            String loanReceivableAccountCode) {
     }
 }

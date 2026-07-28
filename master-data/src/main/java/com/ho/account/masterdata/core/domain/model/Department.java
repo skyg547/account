@@ -84,11 +84,6 @@ public class Department {
         this.updatedAt = LocalDateTime.now();
     }
 
-    @Deprecated
-    public void setUseYn(boolean useYn) {
-        // Compatibility shim for legacy tests.
-    }
-
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

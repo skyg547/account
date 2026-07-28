@@ -318,6 +318,7 @@ services:
       - account-network
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
+      - SERVER_PORT=8088
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/

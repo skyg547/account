@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.Currency;
+import java.time.LocalDate;
 import java.util.Optional;
 
 /**
@@ -9,4 +10,5 @@ import java.util.Optional;
 public interface CurrencyPersistencePort {
     Currency save(Currency currency);
     Optional<Currency> findByCode(String code);
+    Optional<Currency> findByCodeAt(String code, LocalDate asOfDate);
 }

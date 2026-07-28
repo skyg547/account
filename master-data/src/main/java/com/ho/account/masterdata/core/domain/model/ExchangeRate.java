@@ -52,7 +52,7 @@ public class ExchangeRate {
     }
 
     public void setFromCurrencyCode(String fromCurrencyCode) {
-        this.fromCurrencyCode = fromCurrencyCode;
+        this.fromCurrencyCode = normalizeCurrencyCode(fromCurrencyCode, "From currency code");
     }
 
     public String getToCurrencyCode() {
@@ -60,31 +60,7 @@ public class ExchangeRate {
     }
 
     public void setToCurrencyCode(String toCurrencyCode) {
-        this.toCurrencyCode = toCurrencyCode;
-    }
-
-    @Deprecated
-    public Currency getFromCurrency() {
-        Currency currency = new Currency();
-        currency.setCurrencyCode(fromCurrencyCode);
-        return currency;
-    }
-
-    @Deprecated
-    public void setFromCurrency(Currency fromCurrency) {
-        this.fromCurrencyCode = fromCurrency != null ? fromCurrency.getCurrencyCode() : null;
-    }
-
-    @Deprecated
-    public Currency getToCurrency() {
-        Currency currency = new Currency();
-        currency.setCurrencyCode(toCurrencyCode);
-        return currency;
-    }
-
-    @Deprecated
-    public void setToCurrency(Currency toCurrency) {
-        this.toCurrencyCode = toCurrency != null ? toCurrency.getCurrencyCode() : null;
+        this.toCurrencyCode = normalizeCurrencyCode(toCurrencyCode, "To currency code");
     }
 
     public BigDecimal getRate() {
@@ -92,6 +68,9 @@ public class ExchangeRate {
     }
 
     public void setRate(BigDecimal rate) {
+        if (rate == null || rate.signum() <= 0) {
+            throw new IllegalArgumentException("Exchange rate must be greater than zero.");
+        }
         this.rate = rate;
     }
 
@@ -100,6 +79,9 @@ public class ExchangeRate {
     }
 
     public void setEffectiveDate(LocalDate effectiveDate) {
+        if (effectiveDate == null) {
+            throw new IllegalArgumentException("Exchange rate effective date is required.");
+        }
         this.effectiveDate = effectiveDate;
     }
 
@@ -109,5 +91,16 @@ public class ExchangeRate {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    private String normalizeCurrencyCode(String currencyCode, String fieldName) {
+        if (currencyCode == null || currencyCode.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required.");
+        }
+        String normalized = currencyCode.trim().toUpperCase(java.util.Locale.ROOT);
+        if (normalized.length() != 3) {
+            throw new IllegalArgumentException(fieldName + " must be a 3-letter ISO code.");
+        }
+        return normalized;
     }
 }

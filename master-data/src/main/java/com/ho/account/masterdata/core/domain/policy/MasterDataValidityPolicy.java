@@ -2,8 +2,6 @@ package com.ho.account.masterdata.core.domain.policy;
 
 import java.time.LocalDate;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -14,13 +12,6 @@ public final class MasterDataValidityPolicy {
     private static final LocalDate OPEN_ENDED_DATE = LocalDate.of(9999, 12, 31);
 
     private MasterDataValidityPolicy() {
-    }
-
-    public static <T> Predicate<T> isActiveNow(
-            Function<T, LocalDate> validFromExtractor,
-            Function<T, LocalDate> validToExtractor) {
-        LocalDate today = LocalDate.now();
-        return candidate -> isActiveAt(today, validFromExtractor.apply(candidate), validToExtractor.apply(candidate));
     }
 
     public static boolean isActiveAt(LocalDate date, LocalDate validFrom, LocalDate validTo) {
@@ -38,14 +29,7 @@ public final class MasterDataValidityPolicy {
         if (validToSupplier.get() == null) {
             validToSetter.accept(OPEN_ENDED_DATE);
         }
-    }
-
-    public static void closeIfActive(Supplier<LocalDate> validToSupplier, Consumer<LocalDate> validToSetter) {
-        LocalDate today = LocalDate.now();
-        LocalDate validTo = validToSupplier.get();
-        if (validTo == null || validTo.isAfter(today)) {
-            validToSetter.accept(today);
-        }
+        requireValidityWindow(validFromSupplier.get(), validToSupplier.get());
     }
 
     /**
@@ -68,6 +52,18 @@ public final class MasterDataValidityPolicy {
             throw new IllegalArgumentException("Termination effective date cannot extend the current validity window.");
         }
         return requestedEndDate;
+    }
+
+    /**
+     * 신규 SCD2 버전의 시작일과 종료일이 뒤집히지 않았는지 저장 전에 확인합니다.
+     */
+    public static void requireValidityWindow(LocalDate validFrom, LocalDate validTo) {
+        if (validFrom == null || validTo == null) {
+            throw new IllegalArgumentException("SCD2 validFrom and validTo are required.");
+        }
+        if (validTo.isBefore(validFrom)) {
+            throw new IllegalArgumentException("SCD2 validTo cannot be before validFrom.");
+        }
     }
 
     private static boolean isActive(LocalDate date, LocalDate validFrom, LocalDate validTo) {
