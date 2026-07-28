@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * 서비스의 처리 결과를 다시 외부 포맷(JSON)으로 응답합니다.
  * 이를 통해 핵심 비즈니스 로직은 HTTP, REST 같은 웹 기술에 종속되지 않고 순수하게 유지될 수 있습니다.
  *
- * <p>@todo 현재 요청 DTO의 user 값을 감사 주체로 신뢰합니다. 완료 조건은 Gateway가 검증한 principal을
+ * <p>현재 요청 DTO의 user 값을 감사 주체로 신뢰합니다. 완료 조건은 Gateway가 검증한 principal을
  * 보안 컨텍스트에서 추출하고, 요청 본문의 user 필드를 제거하며, 위조 actor가 저장·전표 lineage에
  * 들어가지 않는 API 통합 테스트를 추가하는 것입니다.</p>
  */

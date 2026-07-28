@@ -42,7 +42,7 @@ public class JjwtAccessTokenVerifier implements AccessTokenVerifier {
         }
         Key signingKey = Keys.hmacShaKeyFor(secretBytes);
 
-        // @todo Auth와 Gateway의 공유 HS256 키를 JWKS 기반 비대칭 키/키 회전 계약으로 전환한다.
+        // Auth와 Gateway의 공유 HS256 키를 JWKS 기반 비대칭 키/키 회전 계약으로 전환한다.
         this.jwtParser = Jwts.parserBuilder()
                 .setSigningKey(signingKey)
                 .requireIssuer(properties.getIssuer())

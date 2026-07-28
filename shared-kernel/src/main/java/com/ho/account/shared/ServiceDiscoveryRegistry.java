@@ -8,7 +8,7 @@ import java.util.Optional;
  *
  * <p>Eureka/Consul처럼 다른 컨테이너의 주소를 찾는 네트워크 서비스 디스커버리가 아닙니다.</p>
  *
- * <p>@todo 원격 서비스 검색과 혼동되지 않도록 {@code LocalServiceCapabilityRegistry}로 이름을 바꾸고,
+ * <p>원격 서비스 검색과 혼동되지 않도록 {@code LocalServiceCapabilityRegistry}로 이름을 바꾸고,
  * contracts의 source document SPI와 함께 최소 모듈로 분리한다.</p>
  */
 public interface ServiceDiscoveryRegistry {

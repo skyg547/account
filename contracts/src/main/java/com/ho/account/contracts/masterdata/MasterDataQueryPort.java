@@ -30,7 +30,7 @@ public interface MasterDataQueryPort {
     /**
      * 특정 일자에 유효한 계정과목을 조회합니다.
      *
-     * <p>@todo 모든 원격/로컬 제공자가 실제 SCD2 기준일 조회를 구현한 뒤 이 호환 기본 구현을 제거해,
+     * <p>모든 원격/로컬 제공자가 실제 SCD2 기준일 조회를 구현한 뒤 이 호환 기본 구현을 제거해,
      * 기준일을 무시하는 어댑터가 컴파일 단계에서 발견되게 한다.</p>
      */
     default Optional<AccountSubjectRef> findAccountSubjectAt(String accountCode, LocalDate effectiveDate) {

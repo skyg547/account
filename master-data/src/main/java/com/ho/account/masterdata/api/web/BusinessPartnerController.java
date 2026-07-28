@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 거래처 관리 컨트롤러
  *
- * <p>@todo 전체 이력/이름 검색 응답은 아직 List를 한 번에 반환합니다. 완료 조건은 최대 page size,
+ * <p>전체 이력/이름 검색 응답은 아직 List를 한 번에 반환합니다. 완료 조건은 최대 page size,
  * 안정적인 {@code businessPartnerCode, validFrom, id} 정렬과 cursor/page 계약을 추가하고 대량 API
  * 통합 테스트에서 제한 없는 조회가 발생하지 않음을 검증하는 것입니다.</p>
  */
