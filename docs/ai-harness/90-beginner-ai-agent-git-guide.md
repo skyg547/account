@@ -79,7 +79,7 @@ git switch -c agent/my-small-task
 Ask the agent to work only on the task:
 
 ```text
-Read Agents.md and docs/ai-harness first.
+Read AGENTS.md and docs/ai-harness first.
 Summarize the requirement.
 List files you plan to change.
 Make the smallest safe change.
@@ -163,7 +163,7 @@ Important: worktrees reduce workspace collisions, but they do not remove merge c
 ```text
 You are Planner Agent.
 Do not edit code.
-Read Agents.md and docs/ai-harness.
+Read AGENTS.md and docs/ai-harness.
 Summarize the request, affected modules, risk, and proposed task split.
 Return a file ownership plan for each agent.
 ```
@@ -233,7 +233,7 @@ git pull --ff-only
 
 Then:
 
-1. Read `Agents.md`.
+1. Read `AGENTS.md`.
 2. Read `docs/ai-harness/10-rules.md`.
 3. Make or switch to a task branch.
 4. Ask the AI to summarize before editing.

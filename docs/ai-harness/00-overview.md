@@ -6,45 +6,56 @@ This harness defines how AI agents work safely in the account project. The proje
 
 초보자 설명: "하네스"는 여러 AI가 동시에 일해도 서로 충돌하지 않도록 작업 순서, 역할, 기록 위치, 금지 사항을 정해 둔 안전벨트다.
 
+## Instruction Layers
+
+1. `AGENTS.md`: short, always-loaded repository contract.
+2. `.agents/skills/`: task-specific reusable workflows loaded only when triggered.
+3. `.codex/agents/`: project-scoped custom subagent personas and sandbox boundaries.
+4. `docs/ai-harness/`: detailed policy, runbooks, and operating records.
+5. Module `README.md` and `docs/*.md`: local domain and execution context.
+
 ## Primary Tools
 
-- Codex CLI: implementation, integration, verification, and repository-aware edits.
-- Gemini CLI: independent review, risk finding, and prompt-based handoff review.
-- Antigravity: planning, UI/IDE-assisted exploration, or human-supervised agent orchestration.
-- Other local/open tools: non-sensitive local code search and draft generation only.
+- Codex: implementation, integration, verification, repository skills, and custom subagents.
+- Gemini: independent review through `GEMINI.md` and `GEMINI_REVIEW_PROMPT.md`.
+- Antigravity/Cline-compatible workflow: `.agent/workflows/feature-dev.md`, subordinate to the common harness.
+- GitHub Issues/Projects and `gh`: task contract, traceability, Draft PR, and review gates.
+- Local/open tools: non-sensitive local exploration and draft generation only.
 
 ## Existing Project Guidance
 
-- `Agents.md`: Codex-specific rules and common architecture rules.
-- `GEMINI.md`: Gemini review role and read order.
-- `CLAUDE.md`: Claude review role.
-- `.clinerules`: legacy persona/R&R guidance.
-- `SKILL.md`: repository-specific working sequence.
-- `docs/WORKLOG.md`: project work history.
+- `AGENTS.md`: Codex repository contract and architecture invariants.
+- `.agents/skills/`: Issue loop, architecture change, and review/handoff skills.
+- `.codex/agents/`: Planner, Explorer, implementation, test, review, and integration personas.
+- `GEMINI.md`: Gemini independent review role.
+- `CLAUDE.md`: Claude role guidance.
+- `.clinerules`: legacy persona guidance; common safety and architecture rules in `AGENTS.md` take precedence.
+- `SKILL.md`: compatibility pointer to the discoverable repository skills.
+- `docs/WORKLOG.md`: durable project milestones.
 - `CODEX_WORKLOG.md`, `CLAUDE_WORKLOG.md`: agent-specific history.
 
 ## Harness Documents
 
+- `05-issue-1-compliance-audit.md`: Issue #1 compliance audit and remediation notes.
 - `10-rules.md`: mandatory rules.
 - `20-workflow.md`: end-to-end loop.
 - `30-agents.md`: agent roles.
 - `40-test-checklist.md`: verification checklist.
 - `50-git-worktree-guide.md`: branch/worktree guide.
 - `60-rebase-merge-policy.md`: rebase, merge, conflict policy.
-- `70-model-assignment-policy.md`: model capability assignment.
+- `70-model-assignment-policy.md`: capability and risk based model assignment.
 - `80-file-ownership.md`: role-based file ownership.
-- `90-beginner-ai-agent-git-guide.md`: beginner guide for AI agent coding with Git and multiple agents.
+- `85-github-issue-agent-loop.md`: Issue/branch/worktree/PR runbook.
+- `90-beginner-ai-agent-git-guide.md`: beginner guide.
+- `95-codex-skills-subagents.md`: skill and custom subagent map.
 - `worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: operating records.
 
 ## Operating Loop
 
-1. Read current worklog and module docs.
-2. Summarize the requirement.
-3. Analyze impact.
-4. Split work by agent role.
-5. Work on a separate branch or worktree.
-6. Update worklog and status.
-7. Test and integrate.
-8. Create a Draft MR/PR.
-9. Receive human review.
-10. Merge only after verified approval.
+1. Select or create an Issue when durable tracking is appropriate.
+2. Use `$account-issue-loop` to establish branch/worktree traceability.
+3. Read the target module docs and use `$account-hexagonal-change` for code work.
+4. Delegate disjoint exploration, implementation, test, and review tasks to `.codex/agents/`.
+5. Let the parent Integrator collect results and update shared records once.
+6. Use `$account-review-handoff` for verification and handoff.
+7. Open a Draft PR, receive human review, merge through the PR gate, then synchronize the Issue and cleanup.

@@ -73,6 +73,6 @@
 
 ## 5. 🤖 AI Agent 연동 규칙
 
-- 루트 **[../Agents.md](../Agents.md):** Codex 작업 규칙.
+- 루트 **[../AGENTS.md](../AGENTS.md):** Codex 작업 규칙.
 - 루트 **[../GEMINI.md](../GEMINI.md):** Gemini 작업 규칙.
 - 과거 Gemini 관련 자료는 [history/](./history/)에 보관되어 있습니다.
