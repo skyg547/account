@@ -118,7 +118,7 @@ erDiagram
 - `lessorCode`: 리스 제공자 거래처 코드.
 - `AssetSourceDocumentProvider`: `FIXED_ASSET`, `IFRS16_LEASE` 원천 문서 조회를 제공한다.
 
-도메인 엔티티는 master-data 엔티티를 직접 들고 있지 않고 코드만 저장한다. 다만 `AssetLeaseApplication`은 현재 master-data repository/entity를 함께 스캔하도록 설정되어 있어, 독립 MSA 분리 전 로컬 통합 실행 성격이 남아 있다.
+도메인 엔티티는 master-data 엔티티를 직접 들고 있지 않고 코드만 저장한다. 실행 앱은 `AssetLeaseApiApplication`과 `AssetLeaseBatchApplication`으로 분리되어 있으며, 두 앱은 로컬 통합 실행을 위해 master-data repository/entity를 함께 스캔한다.
 
 ## migration 주의사항
 
@@ -129,12 +129,13 @@ erDiagram
 - `LeaseContract` 엔티티의 `paymentDay`, `expenseAccountCode`, `shortTermLease`, `lowValueLease` 컬럼 반영 여부.
 - `RightOfUseAsset`, `LeaseLiability` 테이블 생성 migration 존재 여부.
 - `LeasePaymentSchedule`의 join column 명칭과 migration의 `contract_id` 명칭 일치 여부.
-- `AssetJdbcAdapter`가 갱신하는 `updated_at` 컬럼이 실제 운영 테이블에 존재하는지 여부.
+- `AssetJdbcAdapter`가 갱신하는 `updated_at` 컬럼과 `status` 컬럼이 실제 운영 테이블에 존재하는지 여부.
 
 ## 정합성 체크 포인트
 
 - 금액 계산은 `BigDecimal`을 사용한다.
-- 고정자산 상각은 장부가액이 잔존가치 아래로 내려가지 않도록 `FixedAsset.depreciate`에서 보정한다.
+- 고정자산 상각은 장부가액이 잔존가치 아래로 내려가지 않도록 `FixedAsset.calculateDepreciation`과 `FixedAsset.depreciate`에서 보정한다.
+- 단건 API의 `depreciate`는 엔티티 상태를 변경하고, 대량 Batch의 `calculateDepreciation`은 결과 값만 만들어 JDBC bulk update가 한 번만 반영한다.
 - 자산 변경은 `AssetHistory`에 감사 이력을 남긴다.
 - 리스 지급 스케줄은 이자, 원금, 잔여 리스부채를 회차별로 보관한다.
-- 리스 회계 계정 코드는 현재 `LeaseEntryService` 상수로 관리되며, 설정 기반 포트 분리가 필요해 `@todo`로 표시했다.
+- 리스 회계 계정 코드는 `LeaseAccountMappingPort` 뒤로 분리되어 설정/정책 어댑터에서 가져온다.

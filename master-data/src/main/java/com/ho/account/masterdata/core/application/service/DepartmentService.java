@@ -81,16 +81,17 @@ public class DepartmentService implements DepartmentUseCase {
 
         // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate newValidTo = command.validTo() != null
+                ? command.validTo()
+                : LocalDate.of(9999, 12, 31);
+        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
         
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
             throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
         }
         
-        currentActive.terminate(oldValidTo);
-        departmentPersistencePort.save(currentActive);
-
-        // SCD2: 새로운 버전 생성
+        // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
         Department newVersion = new Department();
         newVersion.setCode(code);
         newVersion.setName(command.name() != null ? command.name() : currentActive.getName());
@@ -105,7 +106,10 @@ public class DepartmentService implements DepartmentUseCase {
         }
         
         newVersion.setValidFrom(newValidFrom);
-        newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        newVersion.setValidTo(newValidTo);
+
+        currentActive.terminate(oldValidTo);
+        departmentPersistencePort.save(currentActive);
 
         return departmentPersistencePort.save(newVersion);
     }
@@ -113,11 +117,19 @@ public class DepartmentService implements DepartmentUseCase {
     @Override
     @Transactional
     public void deactivateDepartment(String code) {
+        deactivateDepartment(code, LocalDate.now());
+    }
+
+    @Override
+    @Transactional
+    public void deactivateDepartment(String code, LocalDate effectiveDate) {
         Department department = departmentPersistencePort.findActiveByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 부서를 찾을 수 없습니다: " + code));
-        
-        // SCD2: 현재 활성 버전을 오늘 날짜로 종료
-        department.terminate(java.time.LocalDate.now());
+
+        // SCD2: API 직접 호출은 오늘, 승인 요청 반영은 승인된 effectiveDate를 종료일로 사용합니다.
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, department.getValidFrom(), department.getValidTo());
+        department.terminate(terminationDate);
         departmentPersistencePort.save(department);
     }
 }

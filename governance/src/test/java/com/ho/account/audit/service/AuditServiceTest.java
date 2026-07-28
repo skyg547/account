@@ -3,21 +3,27 @@ package com.ho.account.audit.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ho.account.audit.application.model.AuditActor;
 import com.ho.account.audit.application.port.in.AuditLogUseCase;
 import com.ho.account.audit.application.port.in.AuthorizationUseCase;
 import com.ho.account.audit.application.port.in.MasterApprovalUseCase;
-import com.ho.account.audit.application.model.AuditActor;
 import com.ho.account.audit.application.port.out.AuditActorProviderPort;
 import com.ho.account.audit.application.port.out.AuditLogPersistencePort;
 import com.ho.account.audit.application.port.out.AuthorizationPersistencePort;
 import com.ho.account.audit.application.port.out.SystemRolePersistencePort;
+import com.ho.account.audit.domain.AccessType;
 import com.ho.account.audit.domain.AuditLog;
+import com.ho.account.audit.domain.Authorization;
+import com.ho.account.audit.domain.MasterApproval;
 import com.ho.account.audit.domain.SystemRole;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class AuditServiceTest {
@@ -81,6 +87,45 @@ class AuditServiceTest {
         assertThat(created.getRoleCode()).isEqualTo("FIN_APPROVER");
         assertThat(created.getRoleName()).isEqualTo("Finance Approver");
         verify(approvalUseCase).requestApproval(any());
+    }
+
+    @Test
+    void revokeAuthorizationCreatesApprovalRequestWithoutDeletingImmediately() {
+        AuditLogPersistencePort auditLogPort = Mockito.mock(AuditLogPersistencePort.class);
+        SystemRolePersistencePort rolePort = Mockito.mock(SystemRolePersistencePort.class);
+        AuthorizationPersistencePort authPort = Mockito.mock(AuthorizationPersistencePort.class);
+        MasterApprovalUseCase approvalUseCase = Mockito.mock(MasterApprovalUseCase.class);
+        AuditService service = service(auditLogPort, rolePort, authPort, approvalUseCase);
+
+        SystemRole role = SystemRole.create("FIN_APPROVER", "Finance Approver", "approval role", "admin");
+        role.setId(10L);
+        Authorization authorization = Authorization.grant(
+                role,
+                "JOURNAL_APPROVE",
+                AccessType.EXECUTE,
+                "GLOBAL",
+                "admin");
+        authorization.setId(77L);
+        MasterApproval approval = new MasterApproval();
+        approval.setId(100L);
+
+        when(authPort.findById(77L)).thenReturn(Optional.of(authorization));
+        when(approvalUseCase.requestApproval(any())).thenReturn(approval);
+
+        MasterApproval result = service.revokeAuthorization(77L);
+
+        ArgumentCaptor<MasterApprovalUseCase.RequestApprovalCommand> commandCaptor =
+                ArgumentCaptor.forClass(MasterApprovalUseCase.RequestApprovalCommand.class);
+        verify(approvalUseCase).requestApproval(commandCaptor.capture());
+        MasterApprovalUseCase.RequestApprovalCommand command = commandCaptor.getValue();
+
+        assertThat(result).isSameAs(approval);
+        assertThat(command.masterType()).isEqualTo("AUTHORIZATION");
+        assertThat(command.masterKey()).isEqualTo("FIN_APPROVER:JOURNAL_APPROVE:EXECUTE");
+        assertThat(command.requestType()).isEqualTo(MasterApproval.ChangeRequestType.DELETE);
+        assertThat(command.payload()).isEqualTo("77");
+        assertThat(command.requestUser()).isEqualTo("tester");
+        verify(authPort, never()).deleteById(any());
     }
 
     private AuditService service(

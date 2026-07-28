@@ -1,72 +1,76 @@
-# contracts 프로세스 흐름 (Process Flow)
+# Contracts 업무 및 데이터 흐름
 
-## 1. 헥사고날 아키텍처의 포트(Port) 중심 호출 흐름
-
-```mermaid
-flowchart TD
-    A[호출 모듈\n(예: expenditure-resolution)] --> B[Outbound Port\n(contracts 정의)]
-    B --> C[수신 모듈\n(예: journal-ledger) Inbound Adapter]
-    C --> D[수신 모듈\nApplication Service]
-```
-
-`contracts` 모듈 자체는 프로세스를 실행하지 않습니다. 시스템의 전체적인 흐름이 "어떻게 연결되는지"에 대한 규약을 제공할 뿐입니다.
-
-## 2. 마스터 데이터 ID 기반 참조 흐름 (조회 계약)
+## 1. 전체 호출 순서
 
 ```mermaid
-sequenceDiagram
-    participant Caller as 호출 모듈 (Application Service)
-    participant Port as MasterDataQueryPort (contracts)
-    participant Adapter as master-data Outbound Adapter
-    participant DB as master-data DB
-
-    Caller->>Port: findAccountSubject(accountId)
-    Port->>Adapter: 구현체 위임 (REST/RPC/Local)
-    Adapter->>DB: 조회
-    Adapter-->>Port: AccountSubjectRef (순수 DTO)
-    Port-->>Caller: 데이터 반환
+flowchart LR
+    A[호출 모듈 Application Service] --> B[Command/Query 생성]
+    B --> C[contracts Port]
+    C --> D[제공 모듈 Adapter]
+    D --> E[제공 모듈 Application/Domain]
+    E --> F[(DB 또는 외부 시스템)]
+    F --> E
+    E --> D
+    D --> G[Result/Ref 반환]
 ```
-호출 모듈은 `master-data` 엔티티 구조를 모르며, SCD2 등 내부 이력 관리 방식에도 영향을 받지 않습니다.
 
-## 3. 전표 생성 계약 흐름 (명령 계약)
+`contracts`는 C 지점의 의미와 입력/출력 형식을 소유합니다. 트랜잭션, 승인, 계산, 저장은 제공
+모듈이 소유합니다.
 
-```mermaid
-sequenceDiagram
-    participant Caller as Calling Module
-    participant Port as JournalPostingPort
-    participant Impl as Journal Adapter (journal-ledger)
+## 2. 전표 생성
 
-    Caller->>Port: createDraftEntry(JournalEntryCommand)
-    Port->>Impl: 구현체 위임
-    Impl-->>Caller: JournalPostingResult 반환
-```
-전표를 발행하고자 하는 모든 모듈(자산, 지출, 마감 등)은 오직 이 Command 규약에 맞춰 데이터를 조립합니다.
+1. 호출 서비스가 업무 엔티티의 승인/상태를 확인합니다.
+2. `JournalLineCommand`를 생성하면서 차대 코드, 계정 코드, 금액 필수 형식을 검증합니다.
+3. `JournalEntryCommand`가 일자와 비어 있지 않은 라인 목록을 확인하고 List를 불변 복사합니다.
+4. `JournalPostingPort.createDraftEntry()`를 호출합니다.
+5. journal-ledger Adapter가 계약을 도메인 전표로 변환합니다.
+6. journal-ledger가 차변/대변 합계, 회계기간, 계정 사용 가능 여부를 검증합니다.
+7. 저장 결과를 `JournalPostingResult`로 반환합니다.
 
-## 4. 원장 잔액 조회 계약 흐름
+계약 검증과 도메인 검증을 분리하는 이유는 “필드가 없음”과 “업무상 전기 불가”를 서로 다른
+책임으로 처리하기 위해서입니다.
+
+## 3. 기준정보 SCD2 조회
 
 ```mermaid
 sequenceDiagram
-    participant Caller as Calling Module
-    participant Port as LedgerQueryPort
-    participant Impl as Ledger Adapter (journal-ledger)
+    participant Closing
+    participant Contract as MasterDataQueryPort
+    participant Adapter as MonolithMasterDataQueryAdapter
+    participant Repository as MasterData JPA Repository
 
-    Caller->>Port: getGlBalanceSummaries(...)
-    Caller->>Port: getSlBalanceSummaries(...)
-    Port->>Impl: 구현체 위임
-    Impl-->>Caller: LedgerBalanceSummary 목록 반환
+    Closing->>Contract: findAccountSubjectAt(code, valuationDate)
+    Contract->>Adapter: 기준일 포함 조회
+    Adapter->>Repository: validFrom <= date <= validTo
+    Repository-->>Adapter: 기준일 버전
+    Adapter-->>Closing: AccountSubjectRef
 ```
 
-GL 조회는 계정/통화 기준, SL 조회는 계정/거래처/부서/통화 기준으로 잔액을 조회할 수 있습니다.
+실제 master-data 어댑터는 계정과목, 거래처, 부서의 기준일 조회를 구현합니다. 호환용 default는
+아직 일부 로컬/원격 어댑터를 위해 남아 있으며 제거 TODO가 있습니다.
 
-## 5. 소스문서 드릴다운 (Lineage) 추적 흐름
+## 4. 원문서 드릴다운
 
-```mermaid
-flowchart TD
-    A[조회 API / UI] --> B[SourceDocumentProvider 포트]
-    B --> C{supports(lineageSourceType)?}
-    C -- loan --> D[loan 모듈 제공자]
-    C -- asset --> E[asset-lease 모듈 제공자]
-    D --> F[원문서 JSON Map 반환]
-    E --> F
+`SourceDocumentProvider`는 같은 Spring 프로세스의 제공 Bean을 capability로 찾습니다. 이는
+Eureka 주소 검색이 아닙니다.
+
+```text
+Journal UI/API
+  -> SourceDocumentService
+  -> 로컬 ServiceDiscoveryRegistry
+  -> SourceDocumentProvider.supports(sourceType)
+  -> 제공 모듈 원문서 조회
+  -> Map 응답
 ```
-`journal-ledger`에서 전표를 볼 때, 해당 전표가 어디서 왔는지(원문서) 추적할 수 있도록 돕는 다형성 계약입니다. 각 모듈은 자신만의 Provider를 구현합니다.
+
+현재 Map 응답은 필드 버전과 민감정보 통제가 약하므로 sourceType별 DTO로 교체할 TODO가 있습니다.
+
+## 5. 원격 MSA로 분리할 때
+
+Port 메서드가 자동으로 네트워크 호출로 바뀌지 않습니다. 별도 어댑터에서 다음을 결정합니다.
+
+- REST/Feign/Kafka 중 어떤 전송을 사용할지
+- timeout/retry/circuit breaker
+- 404, 업무 거절, 일시 장애의 오류 의미
+- 계약 version과 하위 호환성
+- 민감정보와 감사 추적

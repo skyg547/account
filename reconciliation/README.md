@@ -78,17 +78,17 @@ erDiagram
 ## 4. 🧭 로컬 실행 및 연동 방법
 
 현재 `reconciliation`은 `core/api/batch` 구조로 실행됩니다.
-`core`가 대사 기준, 실행, 차이 해소 업무 규칙을 갖고, `api`와 `batch`는 Spring Boot 실행 진입점으로 `core`를 참조합니다.
+`core`는 command, 유즈케이스 서비스, 도메인 규칙, persistence/outbound port를 갖고, `api`는 Controller/DTO/Bean Validation을 담당합니다. `batch`는 Spring Batch Job/Step 실행 진입점이며 실제 대사 판단은 core command와 서비스를 호출합니다.
 
 **PowerShell 검증 명령:**
 ```powershell
-.\gradlew :reconciliation:core:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1
 ```
 
 **H2 local 실행:**
 ```powershell
-.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
-.\gradlew :reconciliation:batch:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 **실제 Spring Batch Job 실행:**
@@ -102,11 +102,13 @@ erDiagram
 2. Gradle JVM을 JDK 17로 맞춘다.
 3. 테스트는 `reconciliation > core > Tasks > verification > test`를 실행한다.
 4. API 서버는 Gradle task `:reconciliation:api:bootRun`, Batch 컨텍스트는 `:reconciliation:batch:bootRun`을 실행한다.
+5. API 요청 DTO는 `api/dto`에서 Bean Validation 후 core command로 변환되고, core 서비스는 HTTP 타입을 직접 알지 않는다.
 
 **연동 주의사항:**
 - 대사 대상 데이터 조회 시 `JournalQueryPort`를 사용합니다.
 - 조정 분개 생성 시 `ReconciliationAdjustmentPolicy`가 적용된 `JournalPostingPort`를 통해 처리됩니다.
 - 표준 실행 생명주기는 `ReconciliationUnit -> ReconciliationRun -> ReconciliationDifference`입니다.
 - 단계별 진단 결과는 `ReconciliationStageResult`로 표준 Run에 연결되며, 과거의 병렬 Aggregate 모델은 사용하지 않습니다.
-- `reconciliationDailyJob`은 활성 대사 단위를 찾아 core 대사 실행 서비스에 위임하며, `deepMode=true`이면 Deep reconciliation 흐름을 사용합니다.
+- `reconciliationDailyJob`은 활성 대사 단위를 찾아 `RunReconciliationCommand`로 core 대사 실행 서비스에 위임하며, `deepMode=true`이면 Deep reconciliation 흐름을 사용합니다.
+- `ReconciliationBatchJobRegistryConfiguration`은 Batch Job 등록 시점만 늦춰 로컬/H2 컨텍스트 경고를 줄이며 업무 로직은 포함하지 않습니다.
 - 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.

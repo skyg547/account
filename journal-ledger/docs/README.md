@@ -12,6 +12,19 @@
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
 
+## 잔액 재집계 Batch
+
+`journal-ledger:batch`는 API 서버가 아니라 Spring Batch 실행 모듈입니다. 현재 대표 Job은 `dailyBalanceReaggregationJob`이며, 과거 전표 수정이나 누락 전표 전기 후 GL/SL 잔액을 특정 기간 기준으로 다시 계산할 때 사용합니다.
+
+- batch config: Job/Step 연결만 담당합니다.
+- `BalanceReaggregationTasklet`: `startDate`, `endDate`, `baseDate`, `targetDate` JobParameter를 기간으로 변환합니다.
+- `LedgerService.reaggregateLedgerBalancesForPeriod`: 실제 POSTED 전표 기준 잔액 재집계 업무 흐름을 수행합니다.
+
+```powershell
+.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
+```
+
+IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 사용할 수 있습니다.
 ## 주요 특징 및 구현 기준 (Phase 1, 4 반영)
 
 - **Kafka 기반 비동기 전표 처리**:

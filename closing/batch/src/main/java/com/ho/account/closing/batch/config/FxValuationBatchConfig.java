@@ -1,7 +1,8 @@
 package com.ho.account.closing.batch.config;
 
-import com.ho.account.closing.batch.service.FxValuationService;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
+import com.ho.account.closing.application.service.FxValuationBalance;
+import com.ho.account.closing.application.service.FxValuationService;
 import com.ho.account.journalledger.domain.ledger.domain.GlAccountBalance;
 import com.ho.account.journalledger.domain.ledger.repository.GlAccountBalanceRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,10 +39,10 @@ import java.util.Map;
  *
  * 🐣 [초보자를 위한 설명]
  * 결산 시점(보통 월말)에 실행되는 '외화 자산/부채 평가 자동화 공장'입니다.
- * 
- * 1. Reader (읽기): 원장(GL)에서 기준 통화(KRW)가 아닌 모든 '외화 잔액(USD, EUR 등)' 목록을 가져옵니다.
- * 2. Processor (가공): 대상 검증 및 로깅만 수행하고 실제 처리는 Writer에게 넘깁니다.
- * 3. Writer (쓰기): 기말 환율을 적용하여 기존 장부 금액과의 차액을 계산하고, "외화환산손익" 전표를 자동으로 생성합니다.
+ *
+ * 1. Reader (읽기): 원장(GL)에서 기준 통화(KRW)가 아닌 모든 외화 잔액 목록을 페이지 단위로 가져옵니다.
+ * 2. Processor (가공): Spring Batch chunk 흐름을 유지하기 위해 대상 검증 및 로깅만 수행합니다.
+ * 3. Writer (쓰기): GL 엔티티를 core 입력 DTO로 변환하고, 실제 환율 적용/차대변 판단/전표 생성은 core 서비스에 위임합니다.
  */
 @Slf4j
 @Configuration
@@ -149,7 +150,7 @@ public class FxValuationBatchConfig {
     @StepScope
     public ItemProcessor<GlAccountBalance, GlAccountBalance> fxValuationItemProcessor() {
         return balance -> {
-            log.debug("Processing FX Valuation for Account: {}, Currency: {}, Balance: {}", 
+            log.debug("Processing FX Valuation for Account: {}, Currency: {}, Balance: {}",
                     balance.getAccountCode(), balance.getCurrencyCode(), balance.getEndingBalance());
             return balance;
         };
@@ -162,15 +163,14 @@ public class FxValuationBatchConfig {
             @Value("#{jobParameters['valuationBatchId']}") Long valuationBatchId) {
         return balances -> {
             LocalDate valuationDate = resolveValuationDate(valuationDateStr);
-            
             Long batchId = resolveBatchId(valuationDate, valuationBatchId);
 
             for (GlAccountBalance balance : balances) {
                 try {
-                    fxValuationService.processFxValuationForAccount(balance, valuationDate, batchId);
+                    fxValuationService.processFxValuationForAccount(toCoreBalance(balance), valuationDate, batchId);
                 } catch (Exception e) {
-                    log.error("Failed to process FX valuation for account {}: {}", balance.getAccountCode(), e.getMessage());
-                    // 배치 특성상 에러 로깅 후 계속 진행 (Skip)
+                    log.error("Failed to process FX valuation for account {}: {}", balance.getAccountCode(), e.getMessage(), e);
+                    // 배치 특성상 계정별 실패를 로깅하고 나머지 계정 처리를 계속한다. 운영에서는 skip-limit/재처리 정책과 함께 관리한다.
                 }
             }
         };
@@ -181,6 +181,14 @@ public class FxValuationBatchConfig {
         SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor("fx-valuation-");
         taskExecutor.setConcurrencyLimit(GRID_SIZE);
         return taskExecutor;
+    }
+
+    private FxValuationBalance toCoreBalance(GlAccountBalance balance) {
+        return new FxValuationBalance(
+                balance.getAccountCode(),
+                balance.getCurrencyCode(),
+                balance.getEndingBalance(),
+                balance.getBaseEndingBalance());
     }
 
     private LocalDate resolveValuationDate(String valuationDateStr) {

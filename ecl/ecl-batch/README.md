@@ -16,6 +16,15 @@
 
 ---
 
+## Core pipeline 호출 구조
+
+`ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`는 Spring Batch의 `ItemProcessor` 어댑터입니다. 산식과 상태 판단은 아래 core pipeline이 담당합니다.
+
+- `StagingCalculationPipeline`: Stage 판정과 기초 PD 산출, 초기 `AllowanceEclResult` 생성
+- `EadCrmCalculationPipeline`: CCF, EAD, CRM 공제, LGD 확정
+- `ForwardLookingEclCalculationPipeline`: 잔존 만기, Lifetime PD, 거시 시나리오 가중 ECL 산출
+
+초보자 관점에서는 batch를 "일을 나눠 주는 실행 장치", core pipeline을 "업무 계산 순서가 들어 있는 처리 라인"으로 이해하면 됩니다.
 ## 🔄 단계별 재수행 가이드 (Recovery Guide)
 
 대손충당금(IFRS 9) 산출은 기준일 snapshot 동기화부터 회계 summary 생성까지 여러 단계로 이루어져 있습니다. 특정 단계에서 중단된 경우, 필요한 단독 Job으로 해당 지점부터 재개할 수 있습니다.
@@ -33,13 +42,13 @@
 ### 🚀 실행 방법 (추천)
 전체 대손충당금(IFRS 9) 산출 공정(End-to-End)을 한 번에 실행하려면 `allowanceEclJob`을 사용하세요.
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=docker --spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-18 runId=RUN-20260418 modelVersion=v1" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=docker --spring.main.web-application-type=none --spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-18 runId=RUN-20260418 modelVersion=v1" --console=plain --max-workers=1
 ```
 
 ### 🧪 H2 데모 실행
 `demo` 프로필은 H2 메모리 DB와 Spring Batch 메타데이터를 빠르게 띄우기 위한 용도입니다. 현재 demo SQL은 오래된 fixture와 결합되지 않도록 비워 두었으므로, 실제 산출까지 보려면 `allowance_exposure_snapshots`와 모델 마스터를 먼저 적재해야 합니다. 단독 서비스 검증 절차는 `ecl/docs/ALLOWANCE_SERVICE_RUNBOOK.md`를 따르세요.
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=true job.name=allowanceEclJob baseDate=2026-04-18 runId=DEMO-20260418 modelVersion=demo" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 ### IntelliJ 컨텍스트 기동
@@ -47,10 +56,10 @@
 산출 fixture를 준비하기 전에는 Job 없이 batch 컨텍스트만 먼저 확인합니다.
 
 ```powershell
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
-공유 실행 설정 `ECL Batch Context`도 같은 용도입니다.
+공유 실행 설정 `ECL Batch Context`도 같은 용도입니다. `spring.batch.job.enabled=false`는 Spring Boot의 기본 Job 자동 실행을 막기 위한 값이고, 실제 실행은 `job.name`을 읽는 ECL `JobRunner`가 담당합니다.
 
 ## 💡 초보자를 위한 금융 용어
 - **ECL(기대신용손실)**: 빌려준 돈 중 못 받을 것으로 예상되는 금액 (대손충당금).

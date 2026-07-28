@@ -1,34 +1,52 @@
-# shared-kernel local run
+# Shared-Kernel 로컬 검증
 
 ## 전제 조건
 
 - JDK 17
-- IntelliJ IDEA Gradle JVM도 JDK 17
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 열기
+- IntelliJ Gradle JVM 17
+- 저장소 루트를 Gradle 프로젝트로 열기
 
-`shared-kernel`은 공통 타입, 공통 예외, 마스킹, 서비스 메타정보 같은 기술 공통 부품을 담는 `java-library` 모듈입니다.
-서버로 실행하지 않고 컴파일과 테스트로 검증합니다.
+`shared-kernel`은 `java-library`라서 `bootRun`, 내장 WAS, H2, PostgreSQL, Docker로 실행하지
+않습니다.
 
-## IntelliJ에서 확인하기
+## IntelliJ
 
-1. 오른쪽 Gradle 창에서 `account > shared-kernel > Tasks > build > compileJava`를 실행합니다.
-2. 또는 상단 Run Configuration에서 `Foundation Library Compile`을 선택합니다.
-3. 관련 Boot 앱까지 함께 확인할 때는 `Foundation Infra Tests`를 실행합니다.
+1. `Foundation Library Compile` Run Configuration을 실행합니다.
+2. 또는 Gradle 창에서 `shared-kernel > verification > test`를 실행합니다.
+3. 공개 enum/타입을 바꿨다면 account-mart와 ECL 테스트까지 확인합니다.
+4. 마스킹 변경 시 governance/master-data JSON 응답 테스트도 확인합니다.
 
-## PowerShell 명령
+## Gradle
 
-```powershell
-.\gradlew :shared-kernel:compileJava --console=plain --max-workers=1 --no-daemon
-```
-
-`contracts`와 함께 확인하려면:
+집중 검증:
 
 ```powershell
-.\gradlew :contracts:compileJava :shared-kernel:compileJava --console=plain --max-workers=1 --no-daemon
+.gradlew :shared-kernel:test :contracts:test --console=plain --max-workers=1 --no-daemon
 ```
 
-## 변경할 때 주의할 점
+영향 모듈 포함:
 
-- 모든 모듈이 함께 물고 들어가는 모듈이므로 비즈니스 규칙을 넣지 않습니다.
-- 공통 enum을 바꾸면 직렬화, DB 값, 문서 예시가 같이 영향을 받습니다.
-- 공통 예외 응답 형식을 바꾸면 API 테스트와 프론트 처리가 영향을 받습니다.
+```powershell
+.gradlew :shared-kernel:test :contracts:test :master-data:test :closing:core:test :journal-ledger:core:test :account-mart:mart-core:test :ecl:ecl-core:test --console=plain --max-workers=1 --no-daemon
+```
+
+## 테스트가 확인하는 내용
+
+- 마스킹 형식과 미지원 패턴 fail-closed
+- 로컬 서비스 목록의 불변성/결정적 순서
+- capability/context/type 필터
+- 중복/공백 서비스 이름 fail-fast
+- contracts 전표 명령 불변성 및 필수값
+- Master Data 기준일 SCD2 조회 소비 흐름
+
+## 메모리 부족 시
+
+Gradle이 테스트 보고서를 만들기 전에 멈추면 성공으로 기록하지 않습니다.
+
+```powershell
+jps -l
+.gradlew --stop
+```
+
+현재 작업 환경에서는 Windows 페이지 파일 부족이 반복되고 있으므로 최신 테스트 보고서 시각과
+소스 시각을 비교하고, 자원이 회복된 뒤 같은 명령을 재실행해야 합니다.

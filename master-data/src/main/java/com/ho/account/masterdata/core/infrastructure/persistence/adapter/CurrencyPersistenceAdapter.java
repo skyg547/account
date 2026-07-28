@@ -6,6 +6,7 @@ import com.ho.account.masterdata.core.infrastructure.persistence.repository.Curr
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Component
@@ -22,5 +23,10 @@ public class CurrencyPersistenceAdapter implements CurrencyPersistencePort {
     @Override
     public Optional<Currency> findByCode(String code) {
         return currencyRepository.findByCurrencyCode(code);
+    }
+
+    @Override
+    public Optional<Currency> findByCodeAt(String code, LocalDate asOfDate) {
+        return currencyRepository.findActiveByCurrencyCode(code, asOfDate);
     }
 }

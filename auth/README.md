@@ -1,90 +1,110 @@
 # 🔑 Auth Service (인증 및 권한 모듈)
 
-`auth` 모듈은 사용자의 로그인을 처리하고, 다른 모든 서비스에서 통용되는 '출입증(JWT 토큰)'을 발급하는 센터입니다.
+`auth` 모듈은 사용자의 로그인을 처리하고, 다른 모든 서비스에서 통용되는 출입증인 JWT를 발급하는 센터입니다.
 
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-MSA 시스템에서는 서버가 10개로 쪼개져 있습니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 또 로그인하게 할 수는 없습니다.
+MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `master-data`에 접근할 때 로그인하고, `journal-ledger`에 접근할 때 다시 로그인하게 할 수는 없습니다.
 
-그래서 사용자는 **딱 한 번 `auth` 모듈에 로그인**합니다.
-성공하면 `auth` 모듈은 위조가 불가능한 **JWT(JSON Web Token)**라는 전자 출입증을 만들어 줍니다. 사용자는 이후 모든 요청마다 이 출입증을 보여주고, 다른 서버들은 "아, `auth` 부서에서 도장 찍어준 출입증이구나!" 하고 믿고 통과시켜 줍니다.
+그래서 사용자는 **한 번 `auth` 모듈에 로그인**합니다. 성공하면 `auth`는 서명된 **JWT(JSON Web Token)**를 발급합니다. 사용자는 이후 요청마다 이 출입증을 보내고, Gateway와 각 서비스는 서명·issuer·역할 버전을 검사해 접근을 결정합니다.
 
 ---
 
 ## 2. 🔄 처리 흐름 및 모듈 경계 (Process Flow)
 
 ### 📌 로그인 API
-- `POST /api/auth/login`
-- 사용자 이름(`username`)과 비밀번호를 받아, 맞으면 JWT 토큰(`roles`, `departmentCode`, `roleVersion`, 승인된 역할 할당 정보)을 반환합니다.
-- 역할은 단순 문자열이 아니라 `RoleAssignment` 값 객체로 관리하며, 승인 여부와 유효기간을 통과한 역할만 토큰과 응답에 포함합니다.
 
-### 📌 헥사고날 아키텍처 (DDD)
-- **Controller:** 로그인 요청 수신
-- **UseCase -> Service:** 로그인 흐름 제어
-- **Infrastructure:** JPA 기반 사용자/역할 할당 조회, 설정 기반 초기 사용자 seed, 비밀번호 검증(Bcrypt 등), JWT 발급 어댑터 구현
+- `POST /api/auth/login`
+- API의 `LoginRequest`는 core `LoginCommand`로 변환됩니다.
+- `AuthService`는 사용자, 비밀번호, 활성/잠금, 부서, 유효 역할을 순서대로 확인합니다.
+- 로그인 한 시점의 유효 역할을 확정해 같은 목록을 `AuthenticationResult`, JWT `roles`, JWT `roleAssignments`에 사용합니다.
+- Controller가 core 결과를 `LoginResponse`로 변환하므로 core는 HTTP DTO를 참조하지 않습니다.
+
+### 📌 헥사고날 아키텍처와 DDD
+
+- **Inbound Adapter:** `AuthController`, request/response DTO, Bean Validation
+- **Input Port / Application:** `AuthUseCase`, `AuthUserRoleAssignmentUseCase`, `AuthService`, `AuthUserRoleAssignmentService`
+- **Domain:** `AuthUser`, `RoleAssignment`과 유효기간/승인 역할 계산
+- **Output Port:** 사용자 조회, 비밀번호 검증, 로그인 실패 저장, 부서 검증, JWT 발급, 역할 교체
+- **Transaction Boundary:** 로그인 서비스는 원격 호출까지 감싸는 장기 트랜잭션을 열지 않고 JPA 어댑터가 짧은 읽기/쓰기 경계를 소유
+- **Infrastructure Adapter:** JPA/메모리 저장소, master-data RestClient, JWT, 로그인 실패 저장소
 
 ### 📌 사용자/역할 영속화
+
 - 기본 모드는 `auth.persistence.mode=jpa`입니다.
-- `AUTH_PERSISTENCE_MODE=memory`로 설정하면 로컬 데모용 설정 기반 인메모리 사용자 저장소를 사용합니다.
-- 운영 기본 테이블은 Flyway `V70__auth_user_role_schema.sql`이 생성합니다.
-  - `AUTH_USERS`: 사용자 식별자, 저장 비밀번호, 부서 코드, 활성/잠금 상태, `roleVersion`
-  - `AUTH_ROLE_ASSIGNMENTS`: 승인 상태, 유효기간, 데이터 범위를 포함한 역할 할당
-- 초기 사용자는 DB에 없을 때만 `auth.users` 설정에서 seed합니다. 비밀번호는 마이그레이션에 하드코딩하지 않고 환경변수/설정값을 따릅니다.
+- `AUTH_PERSISTENCE_MODE=memory`는 로컬 데모용 인메모리 사용자 저장소입니다.
+- Flyway 마이그레이션:
+  - `V70__auth_user_role_schema.sql`: 사용자와 역할 할당
+  - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
+  - `V72__auth_role_assignment_apply_log.sql`: Governance 승인 반영 멱등 이력
+- memory와 JPA 모드 모두 역할의 `dataScope`, `validFrom`, `validTo`를 보존합니다.
 
 ### 📌 토큰 Role Version 검증
+
 - `POST /api/auth/validate-token-version`
-- 요청의 `username`, `roleVersion`이 현재 DB의 사용자 `roleVersion`과 정확히 일치할 때만 유효로 판단합니다.
-- 역할 변경으로 DB의 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
+- 현재 DB의 `roleVersion`과 JWT 값이 같아야 합니다.
+- 사용자가 비활성, 관리 잠금 또는 유효 역할 없음 상태이면 버전이 같아도 `valid=false`입니다.
+- 역할 변경으로 `roleVersion`이 증가하면 기존 JWT는 재로그인이 필요합니다.
 
 ### 📌 로그인 실패 감사와 임시 잠금
-- 로그인 성공/실패는 `LoginAttemptPort`를 통해 감사 이벤트로 기록됩니다.
-- 기본 정책은 연속 5회 실패 시 15분 동안 임시 잠금입니다.
-- `AUTH_LOGIN_MAX_FAILURES`, `AUTH_LOGIN_LOCK_DURATION_MINUTES`로 정책을 조정할 수 있습니다.
-- 기본 어댑터는 단일 인스턴스용 인메모리 구현입니다.
-- 다중 인스턴스 운영에서는 `AUTH_LOGIN_SECURITY_STORE=jpa`로 전환해 `AUTH_LOGIN_ATTEMPTS` 테이블을 공유 잠금 저장소로 사용합니다.
 
-### 📌 내부 역할 할당 반영 API
+- 로그인 성공/실패는 `LoginAttemptPort`로 기록합니다.
+- 기본 정책은 연속 5회 실패 시 15분 잠금입니다.
+- 단일 인스턴스는 memory, 다중 인스턴스는 `AUTH_LOGIN_SECURITY_STORE=jpa`를 사용합니다.
+- 기존 행의 공유 저장은 구현되어 있지만 여러 노드의 최초 실패 동시 insert를 원자화하는 후속 `@todo`가 남아 있습니다.
+
+### 📌 Governance 역할 할당 반영과 멱등성
+
 - `POST /api/auth/internal/users/{username}/role-assignments`
-- Governance 승인 완료 후 호출되는 내부 API입니다.
-- 요청 헤더 `X-Internal-Auth-Token`이 `auth.internal-api.token`과 일치해야만 처리합니다.
-- 요청 본문은 `roleCodes`, `dataScope`, `validFrom`, `validTo`, `approvedBy`, `approvalTraceId`를 받습니다.
-- 기존 역할 할당을 승인된 새 목록으로 교체하고 `roleVersion`을 1 증가시켜 기존 JWT를 만료 대상으로 만듭니다.
+- `X-Internal-Auth-Token`이 일치해야 하며 `approvalTraceId`는 필수입니다.
+- 최초 요청은 현재 역할 목록을 교체하고 `roleVersion`을 1 증가시킵니다.
+- 같은 trace와 같은 내용의 재시도는 이미 적용된 요청으로 판단해 역할과 버전을 다시 바꾸지 않습니다.
+- 같은 trace를 다른 사용자나 역할 내용에 재사용하면 fail-closed 예외로 중단합니다.
 
-### 🚨 모듈 경계 (중요!)
-- 사용자 식별과 권한 부여는 `auth`가 담당합니다.
-- 하지만 **부서 정보(조직 구조)**는 `auth`가 소유하지 않습니다. 부서는 `master-data` 모듈의 소유입니다.
-- `auth`는 사용자의 `departmentCode`만 글자(참조값)로 보관하며, 상세 정보가 필요할 때는 `master-data`(`GET /api/basic/departments/{departmentCode}`)를 호출하여 확인합니다.
+### 🚨 모듈 경계
+
+- 사용자 식별, 인증 상태, 역할 할당은 `auth`가 소유합니다.
+- 부서 조직 구조는 `master-data`가 소유합니다.
+- `auth`는 `departmentCode`만 참조값으로 저장하고 로그인 시 master-data 출력 어댑터로 존재 여부를 확인합니다.
 
 ---
 
-## 3. 🧭 실행 방법 (Docker & Local)
+## 3. 🧭 실행 방법
 
 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
 
-**IntelliJ 로컬 실행:**
-1. `Config Server bootRun`을 먼저 실행합니다.
-2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
-3. `Auth bootRun`을 실행합니다.
+**IntelliJ H2 단독 실행:**
+1. Gradle JVM을 JDK 17로 설정하고 Gradle Reload를 실행합니다.
+2. `Auth bootRun`을 실행합니다.
+3. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
+4. Flyway V70~V72 적용 후 Hibernate가 스키마를 검증합니다.
 
-**최신 엔터프라이즈 Docker 환경 (권장):**
-이 모듈은 멀티스테이지 Dockerfile을 통해 빌드되며, 통합 환경에서 Eureka/Config 의존성을 물고 자동으로 구동됩니다.
+**PowerShell 검증:**
+
+```powershell
+.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1
+```
+
+**통합 Docker 실행 기록:**
+
+기존 통합 환경에서는 멀티스테이지 Dockerfile과 Eureka/Config 구성을 사용합니다.
+
 ```bash
 docker-compose up -d auth
 ```
 
-**PowerShell 로컬 실행:**
-```powershell
-.\gradlew :auth:bootRun --console=plain
-```
-
-**PowerShell 검증:**
-```powershell
-.\gradlew :auth:test --console=plain --max-workers=1 --no-daemon
-```
+현재 변경의 실제 검증 기준은 H2 단독 Gradle 실행입니다. Docker와 실제 PostgreSQL/Flyway는 별도 통합 환경에서 확인해야 합니다.
 
 **내부 API 토큰 설정:**
+
 ```powershell
 $env:AUTH_INTERNAL_API_TOKEN='local-internal-auth-token'
 ```
+
+## 4. 남은 운영 고도화
+
+- 레거시 접두사 없는 평문 비밀번호를 해시로 승격한 뒤 운영에서 평문 비교를 제거해야 합니다.
+- 다중 노드 최초 로그인 실패 insert를 원자적 upsert 또는 DB lock으로 바꿔야 합니다.
+- 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.

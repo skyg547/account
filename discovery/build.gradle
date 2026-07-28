@@ -5,8 +5,16 @@ plugins {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
+
+    // 운영 관측: readiness/Prometheus와 분산 추적 설정이 실제 런타임 Bean으로 연결됩니다.
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    implementation 'io.zipkin.reporter2:zipkin-reporter-brave'
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 

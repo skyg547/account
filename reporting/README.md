@@ -138,7 +138,7 @@ erDiagram
 ## 4. 🧭 로컬 실행 및 연동 방법
 
 현재 `reporting`은 상위 집계 프로젝트이고 실제 코드는 `reporting:core`, `reporting:api`, `reporting:batch`에 있습니다.
-`reporting:core`는 도메인/유즈케이스/어댑터를 담는 library 모듈이고, `reporting:api`와 `reporting:batch`는 standalone Spring Boot 앱입니다.
+`reporting:core`는 도메인/유즈케이스/어댑터를 담는 library 모듈이고, `reporting:api`와 `reporting:batch`는 standalone Spring Boot 앱입니다. `reporting:api`는 Controller에서 core command를 호출한 뒤 응답 전용 DTO로 변환하므로, `FinancialStatement`, `DisclosureNoteMart`, `RegulatoryFiling` 같은 도메인 객체를 HTTP JSON 계약으로 직접 노출하지 않습니다.
 
 **PowerShell 로컬 실행 명령:**
 ```powershell
@@ -161,6 +161,7 @@ erDiagram
 
 **연동 주의사항:**
 - 실시간 집계 시 `LoadLedgerPort`를 통해 `journal-ledger` 모듈의 최신 잔액을 가져옵니다.
+- API 응답은 `reporting:api/.../dto`의 response DTO가 담당합니다. 초보자는 "core는 업무 판단, api는 외부 JSON 모양"으로 나눠 보면 됩니다.
 - 보고서 서식 변경 시 SCD2 정책에 따라 기존 매핑의 `valid_to`를 닫고 새 버전을 생성해야 합니다.
 - 현재 기본 구현은 `JpaReportLineMappingAdapter`와 `JpaReportSnapshotAdapter`가 `RPT_LINE_MAPPING`, `RPT_SNAPSHOT_HEADER`, `RPT_SNAPSHOT_DETAIL` 테이블을 사용합니다.
 - 감독보고 제출본은 `RPT_REGULATORY_SUBMISSION`에 기준일별 버전과 정정 사유를 저장합니다.

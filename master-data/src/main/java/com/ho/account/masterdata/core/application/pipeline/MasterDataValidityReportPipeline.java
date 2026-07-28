@@ -1,56 +1,33 @@
 package com.ho.account.masterdata.core.application.pipeline;
 
-import com.ho.account.masterdata.batch.application.MasterDataBatchReport;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
-import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import com.ho.account.masterdata.core.application.port.out.MasterDataValidityStatisticsPort;
 import java.time.LocalDate;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * 마스터 데이터 유효성 보고서 파이프라인
+ *
+ * <p>초보자 설명: 이 파이프라인은 "어떤 기준일의 활성 건수를 모을지"만 결정합니다.
+ * 실제 대용량 집계는 출력 포트 뒤의 DB 어댑터가 COUNT 쿼리로 처리합니다.</p>
  */
 @Service
 @RequiredArgsConstructor
 public class MasterDataValidityReportPipeline {
 
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
-    private final ProductPersistencePort productPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final MasterDataValidityStatisticsPort statisticsPort;
 
-    public MasterDataBatchReport createDailyValidityReport(LocalDate asOfDate) {
-        LocalDate reportDate = asOfDate != null ? asOfDate : LocalDate.now();
+    public MasterDataValidityReport createDailyValidityReport(LocalDate asOfDate) {
+        LocalDate reportDate = Objects.requireNonNull(
+                asOfDate,
+                "asOfDate is required so that the validity report can be reproduced.");
 
-        long activeAccountSubjects = accountSubjectPersistencePort.findAll().stream()
-                .filter(subject -> MasterDataValidityPolicy.isActiveAt(
-                        reportDate, subject.getValidFrom(), subject.getValidTo()))
-                .count();
-
-        long activeDepartments = departmentPersistencePort.findAll().stream()
-                .filter(department -> MasterDataValidityPolicy.isActiveAt(
-                        reportDate, department.getValidFrom(), department.getValidTo()))
-                .count();
-
-        long activeProducts = productPersistencePort.findAll().stream()
-                .filter(product -> MasterDataValidityPolicy.isActiveAt(
-                        reportDate, product.getValidFrom(), product.getValidTo()))
-                .count();
-
-        long activeBusinessPartners = businessPartnerPersistencePort.findAll().stream()
-                .filter(partner -> Boolean.TRUE.equals(partner.getUseYn()))
-                .filter(partner -> MasterDataValidityPolicy.isActiveAt(
-                        reportDate, partner.getValidFrom(), partner.getValidTo()))
-                .count();
-
-        return new MasterDataBatchReport(
+        return new MasterDataValidityReport(
                 reportDate,
-                activeAccountSubjects,
-                activeDepartments,
-                activeProducts,
-                activeBusinessPartners);
+                statisticsPort.countActiveAccountSubjects(reportDate),
+                statisticsPort.countActiveDepartments(reportDate),
+                statisticsPort.countActiveProducts(reportDate),
+                statisticsPort.countActiveBusinessPartners(reportDate));
     }
 }

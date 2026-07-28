@@ -1,53 +1,56 @@
 # Loan 입문 가이드
 
-대출 회계는 "고객에게 돈을 빌려주고, 시간이 지나며 이자와 수수료를 회계 장부에 나누어 반영하는 업무"입니다. 단순히 원금과 이자를 저장하는 것을 넘어, 전표 생성과 재계산 이력을 함께 남겨야 합니다.
+대출 회계는 고객에게 돈을 빌려준 계약과 실제 지급, 시간이 지나며 인식할 이자·수수료, 조건 변경 이력을 함께 관리하는 업무입니다.
 
 ## 핵심 용어
 
 | 용어 | 코드 | 쉬운 설명 |
 | --- | --- | --- |
-| 대출 | `Loan` | 고객에게 빌려준 돈의 계약 조건입니다. |
-| 대출 실행 | `LoanDisbursal` | 실제로 돈이 지급된 기록입니다. |
-| 이연 항목 | `DeferredItem` | 수수료/비용처럼 한 번에 손익 처리하지 않고 기간에 걸쳐 나눠 인식할 금액입니다. |
-| 이연 항목 유형 | `DeferredItemType` | 이연 항목의 계정 매핑과 상각 방법을 정의합니다. |
-| EIR | `EIRCalculator` | 수수료와 현금흐름까지 반영한 유효이자율입니다. |
-| EIR 상각 스케줄 | `EIRAmortizationSchedule` | 기간별 이자수익, 원금상환, 이연 항목 상각 계획입니다. |
-| 대출 이벤트 | `LoanEvent` | 중도상환, 조건 변경, 리스케줄처럼 계약에 영향을 주는 사건입니다. |
-| 재계산 실행 | `RecalculationRun` | 이벤트 때문에 EIR과 스케줄을 다시 계산한 이력입니다. |
-| 이자 발생 로그 | `LoanAccrualLog` | 일별 이자 발생 전표 성공/실패 기록입니다. |
+| 대출 계약 | `Loan` | 약정 원금·금리·만기와 현재 미상환 잔액을 보관합니다. |
+| 대출 실행 | `LoanDisbursal` | 실제 지급과 연결 전표를 기록합니다. 현재 모델은 원금 전액 1회 실행입니다. |
+| 이연 항목 | `DeferredItem` | 수수료/직접 비용처럼 기간에 나눠 인식할 금액입니다. |
+| 이연 유형 | `DeferredItemType` | EIR 현금흐름 정책과 계정 코드 매핑입니다. |
+| EIR | `EIRCalculator` | 원금과 포함 대상 수수료·비용을 함께 반영한 유효이자율입니다. |
+| EIR 스케줄 | `EIRAmortizationSchedule` | 월별 기초잔액, 이자수익, 원금상환, 이연상각 계획입니다. |
+| 이벤트 | `LoanEvent` | 중도상환, 조건 변경, 부도, 회복 같은 사건입니다. |
+| 재계산 실행 | `RecalculationRun` | 변경 전후 EIR·만기와 조정 전표 계보입니다. |
+| 발생 로그 | `LoanAccrualLog` | 대출/기준일별 `PENDING`, `SUCCESS`, `FAILED` 결과입니다. |
 
-## 초보자가 봐야 할 업무 흐름
+## 상태 전이
 
-1. 대출 계약을 생성합니다.
-2. 대출 실행 요청이 들어오면 대출채권/현금 전표를 만들고 전기합니다.
-3. 대출 실행 수수료가 있으면 이연 항목으로 등록하고 초기 전표를 만듭니다.
-4. EIR 상각 스케줄을 생성합니다.
-5. 매일 Batch가 ACTIVE 대출을 읽고, 해당 일자의 상각 스케줄 엔트리를 찾아 이자 발생 전표를 만듭니다.
-6. 중도상환이나 조건 변경이 발생하면 EIR과 스케줄을 다시 계산하고 재계산 이력을 남깁니다.
+```text
+계약 생성 → PENDING_DISBURSEMENT
+원금 전액 1회 실행 → ACTIVE
+부도 → DEFAULTED
+회복 → ACTIVE
+```
 
-## 왜 전표 포트가 필요한가
+원래 약정 원금(`principalAmount`)과 현재 미상환 잔액(`currentPrincipalBalance`)은 다릅니다. 중도상환은 약정 원금을 덮어쓰지 않고 현재 잔액만 줄입니다.
 
-`loan`은 전표를 직접 소유하지 않습니다. 전표 생성/승인/전기는 `journal-ledger`가 담당합니다. 그래서 `LoanService`는 `LoanJournalPort`를 호출하고, 실제 구현인 `LoanJournalAdapter`가 `JournalUseCase`로 번역합니다.
+## EIR 숫자를 읽는 법
 
-이 구조는 대출 도메인이 journal-ledger 내부 JPA 모델에 묶이지 않게 하려는 헥사고날 경계입니다. 대출 Aggregate에는 전표 엔티티를 직접 연결하지 않고 `journalEntryId`, `slipNo` 같은 값만 저장합니다.
+- `0.0450`은 연 4.50%입니다.
+- `4.50`을 넣으면 450%가 되므로 허용하지 않습니다.
+- 계산은 `double` 대신 `BigDecimal`로 수행하며, 수렴하지 않거나 정책 입력이 부족하면 임의 금리로 대체하지 않고 실패합니다.
 
-## 코드 위치
+## 왜 값 참조와 포트를 쓰는가
 
-| 관심사 | 위치 |
-| --- | --- |
-| REST API | `loan/api/src/main/java/com/ho/account/loan/web/LoanController.java` |
-| 대출 유즈케이스 | `loan/core/src/main/java/com/ho/account/loan/service/LoanService.java` |
-| 일일 이자 발생 | `loan/core/src/main/java/com/ho/account/loan/service/InterestAccrualService.java` |
-| EIR 계산 | `loan/core/src/main/java/com/ho/account/loan/service/EIRCalculator.java` |
-| 출력 포트 | `loan/core/src/main/java/com/ho/account/loan/application/port/out` |
-| 전표 어댑터 | `loan/core/src/main/java/com/ho/account/loan/infrastructure/adapter/LoanJournalAdapter.java` |
-| 기준정보 어댑터 | `loan/core/src/main/java/com/ho/account/loan/infrastructure/adapter/LoanReferenceDataAdapter.java` |
-| 일일 이자 Batch | `loan/batch/src/main/java/com/ho/account/loan/batch/config/LoanInterestAccrualBatchConfig.java` |
+Loan은 Master Data의 `BusinessPartner`, `Currency`, `AccountSubject` 엔티티를 직접 소유하지 않습니다. 거래처 ID, 통화 코드, 계정 코드만 저장하고 `LoanReferenceDataPort`로 업무일 유효성을 확인합니다.
+
+전표도 같은 방식입니다. `LoanJournalPort`가 요청을 번역하고 Loan에는 `journalEntryId`, `slipNo`만 남깁니다. 따라서 다른 모듈의 엔티티 생명주기가 Loan Aggregate에 전파되지 않습니다.
+
+## Batch 재실행 규칙
+
+- `accrualDate`는 필수입니다. 서버 오늘 날짜를 암묵적으로 쓰지 않습니다.
+- `(loan_id, accrual_date)`가 멱등 키입니다.
+- `SUCCESS`는 재실행 시 건너뜁니다.
+- `FAILED`는 스케줄 금액을 다시 읽고 재시도합니다.
+- 한 건이라도 실패하면 chunk 처리 후 Step이 실패하여 운영자가 성공으로 오인하지 않습니다.
+- 현재 스케줄은 월별이므로 스케줄 날짜가 아닌 날은 `NOT_DUE`입니다.
 
 ## 운영 전에 확인할 것
 
-- `account.loan.accounting.*` 계정 코드 설정이 모두 있어야 합니다.
-- master-data에 통화, 거래처, 계정과목이 존재해야 합니다.
-- 일일 이자 Batch는 ACTIVE 대출만 읽습니다.
-- 일일 이자 전표는 `loan_amortization_schedule_entries`에 해당 `payment_date`가 있을 때만 생성됩니다.
-- EIR 계산은 `DeferredItemType.eirCashFlowTreatment` 정책을 사용합니다. 고객이 낸 수수료는 순투자액을 줄이고, 회사가 부담한 직접 비용은 순투자액을 늘리며, 제외 항목은 EIR 계산에서 빼고 봅니다.
+- 거래처·통화·계정이 업무일에 유효한지 확인합니다.
+- 상품별 이연 유형의 `CUSTOMER_FEE_INFLOW`, `ORIGINATION_COST_OUTFLOW`, `EXCLUDED_FROM_EIR` 정책을 확인합니다.
+- V33 멱등 인덱스 적용 전에 기존 중복 데이터를 조회하고 정리합니다.
+- Loan–Journal 장애 복구는 outbox/inbox가 구현되기 전까지 수동 대사 절차가 필요합니다.

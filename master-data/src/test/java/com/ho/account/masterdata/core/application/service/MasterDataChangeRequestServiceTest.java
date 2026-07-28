@@ -1,15 +1,19 @@
 package com.ho.account.masterdata.core.application.service;
 
 import com.ho.account.masterdata.core.application.command.MasterDataChangeRequestCommand;
+import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.MasterDataVersionQueryPort;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeStatus;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.ChangeType;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
-import com.ho.account.masterdata.core.application.port.out.MasterDataChangeRequestPersistencePort;
+import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -19,20 +23,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MasterDataChangeRequestServiceTest {
 
     private final InMemoryPort port = new InMemoryPort();
+    private final InMemoryVersionQueryPort versionQueryPort = new InMemoryVersionQueryPort();
     private final RecordingApplier applier = new RecordingApplier();
-    private final MasterDataChangeRequestService service = new MasterDataChangeRequestService(port, List.of(applier));
+    private final MasterDataChangeRequestService service =
+            new MasterDataChangeRequestService(port, versionQueryPort, List.of(applier));
 
     @Test
-    void requestsAndApprovesMasterDataChange() {
+    void requestsAndApprovesFirstMasterDataVersion() {
         MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
-                MasterDataType.BUSINESS_PARTNER,
-                "BP-001",
+                MasterDataType.DEPARTMENT,
+                "D-NEW",
                 ChangeType.CREATE,
                 LocalDate.now().plusDays(3),
                 1,
                 "operator",
-                "Create vendor partner",
-                "{\"businessPartnerName\":\"Acme Vendor\"}"));
+                "Create department",
+                """
+                {"name":"New Department"}
+                """));
 
         MasterDataChangeRequest approved = service.approve(requested.getId(), "manager");
 
@@ -42,8 +50,10 @@ class MasterDataChangeRequestServiceTest {
 
     @Test
     void findsOnlyPendingRequests() {
-        MasterDataChangeRequest first = service.requestChange(command("D-001"));
-        MasterDataChangeRequest second = service.requestChange(command("D-002"));
+        prepareExistingVersion("D-001", 1);
+        prepareExistingVersion("D-002", 1);
+        MasterDataChangeRequest first = service.requestChange(updateCommand("D-001", 2));
+        MasterDataChangeRequest second = service.requestChange(updateCommand("D-002", 2));
         service.approve(second.getId(), "manager");
 
         assertThat(service.findPendingRequests())
@@ -53,12 +63,13 @@ class MasterDataChangeRequestServiceTest {
 
     @Test
     void appliesApprovedChangeAndMarksApplied() {
+        prepareExistingVersion("D-APPLY", 1);
         MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.DEPARTMENT,
                 "D-APPLY",
                 ChangeType.UPDATE,
                 LocalDate.now(),
-                1,
+                2,
                 "operator",
                 "Update department name",
                 "{}"));
@@ -72,11 +83,13 @@ class MasterDataChangeRequestServiceTest {
 
     @Test
     void appliesOnlyApprovedChangesWhoseEffectiveDateHasArrived() {
+        prepareExistingVersion("D-DUE", 1);
+        prepareExistingVersion("D-FUTURE", 1);
         MasterDataChangeRequest due = service.requestChange(new MasterDataChangeRequestCommand(
-                MasterDataType.DEPARTMENT, "D-DUE", ChangeType.UPDATE, LocalDate.now(), 1,
+                MasterDataType.DEPARTMENT, "D-DUE", ChangeType.UPDATE, LocalDate.now(), 2,
                 "operator", "Due change", "{}"));
         MasterDataChangeRequest future = service.requestChange(new MasterDataChangeRequestCommand(
-                MasterDataType.DEPARTMENT, "D-FUTURE", ChangeType.UPDATE, LocalDate.now().plusDays(1), 1,
+                MasterDataType.DEPARTMENT, "D-FUTURE", ChangeType.UPDATE, LocalDate.now().plusDays(1), 2,
                 "operator", "Future change", "{}"));
         service.approve(due.getId(), "manager");
         service.approve(future.getId(), "manager");
@@ -88,28 +101,127 @@ class MasterDataChangeRequestServiceTest {
     }
 
     @Test
-    void applyApprovedChangeFailsClosedWhenNoApplierSupportsTargetType() {
-        MasterDataChangeRequestService unsupportedService = new MasterDataChangeRequestService(port, List.of());
-        MasterDataChangeRequest requested = service.requestChange(new MasterDataChangeRequestCommand(
+    void requestFailsClosedWhenNoApplierSupportsTargetType() {
+        MasterDataChangeRequestService unsupportedService =
+                new MasterDataChangeRequestService(port, versionQueryPort, List.of());
+
+        assertThatThrownBy(() -> unsupportedService.requestChange(new MasterDataChangeRequestCommand(
                 MasterDataType.CURRENCY,
                 "KRW",
-                ChangeType.UPDATE,
+                ChangeType.CREATE,
                 LocalDate.now(),
                 1,
                 "operator",
                 "Unsupported type",
-                "{}"));
-        service.approve(requested.getId(), "manager");
-
-        assertThatThrownBy(() -> unsupportedService.applyApprovedChange(requested.getId()))
-                .isInstanceOf(IllegalStateException.class)
+                "{}")))
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No MasterDataChangeApplier supports targetType: CURRENCY");
-        assertThat(requested.getStatus()).isEqualTo(ChangeStatus.APPROVED);
+
+        assertThat(port.allRequests()).isEmpty();
     }
 
-    private MasterDataChangeRequestCommand command(String key) {
-        return new MasterDataChangeRequestCommand(MasterDataType.DEPARTMENT, key, ChangeType.UPDATE,
-                LocalDate.now().plusDays(1), 1, "operator", "Routine department change", "{}");
+    @Test
+    void rejectsRequestWhoseVersionDoesNotFollowPersistedScd2History() {
+        prepareExistingVersion("D-STALE", 2);
+
+        assertThatThrownBy(() -> service.requestChange(updateCommand("D-STALE", 2)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected=3")
+                .hasMessageContaining("requested=2");
+
+        assertThat(port.allRequests()).isEmpty();
+    }
+
+    @Test
+    void approvalRechecksVersionAfterAnotherChangeWasApplied() {
+        prepareExistingVersion("D-CONFLICT", 1);
+        MasterDataChangeRequest requested = service.requestChange(updateCommand("D-CONFLICT", 2));
+        prepareExistingVersion("D-CONFLICT", 2);
+
+        assertThatThrownBy(() -> service.approve(requested.getId(), "manager"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected=3");
+        assertThat(requested.getStatus()).isEqualTo(ChangeStatus.REQUESTED);
+    }
+
+    @Test
+    void duplicateApplierOwnershipFailsAtServiceConstruction() {
+        assertThatThrownBy(() -> new MasterDataChangeRequestService(
+                port,
+                versionQueryPort,
+                List.of(new RecordingApplier(), new RecordingApplier())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Multiple MasterDataChangeAppliers")
+                .hasMessageContaining("DEPARTMENT");
+    }
+
+    @Test
+    void sequentialRetryWithSameSourceReferenceReturnsExistingRequest() {
+        MasterDataChangeRequestCommand command = createCommand(
+                "D-IDEMPOTENT", "governance-approval-id=55");
+
+        MasterDataChangeRequest first = service.requestChange(command);
+        MasterDataChangeRequest retried = service.requestChange(command);
+
+        assertThat(retried).isSameAs(first);
+        assertThat(port.allRequests()).containsExactly(first);
+    }
+
+    @Test
+    void sameSourceReferenceCannotBeReusedForDifferentChange() {
+        service.requestChange(createCommand("D-FIRST", "governance-approval-id=55"));
+
+        assertThatThrownBy(() -> service.requestChange(
+                createCommand("D-OTHER", "governance-approval-id=55")))
+                .isInstanceOf(MasterDataIdempotencyConflictException.class)
+                .hasMessageContaining("governance-approval-id=55");
+        assertThat(port.allRequests()).hasSize(1);
+    }
+
+    private MasterDataChangeRequestCommand updateCommand(String key, int requestedVersion) {
+        return new MasterDataChangeRequestCommand(
+                MasterDataType.DEPARTMENT,
+                key,
+                ChangeType.UPDATE,
+                LocalDate.now().plusDays(1),
+                requestedVersion,
+                "operator",
+                "Routine department change",
+                "{}");
+    }
+
+    private MasterDataChangeRequestCommand createCommand(String key, String sourceReference) {
+        return new MasterDataChangeRequestCommand(
+                MasterDataType.DEPARTMENT,
+                key,
+                ChangeType.CREATE,
+                LocalDate.now().plusDays(1),
+                1,
+                "operator",
+                "Create department",
+                "{}",
+                sourceReference);
+    }
+
+    private void prepareExistingVersion(String key, long versionCount) {
+        versionQueryPort.put(MasterDataType.DEPARTMENT, key, versionCount);
+    }
+
+    private static final class InMemoryVersionQueryPort implements MasterDataVersionQueryPort {
+        private final Map<String, Long> versions = new HashMap<>();
+
+        @Override
+        public long countPersistedVersions(MasterDataType targetType, String targetKey) {
+            return versions.getOrDefault(key(targetType, targetKey), 0L);
+        }
+
+        private void put(MasterDataType targetType, String targetKey, long versionCount) {
+            versions.put(key(targetType, targetKey), versionCount);
+        }
+
+        private static String key(MasterDataType targetType, String targetKey) {
+            return targetType + ":" + targetKey;
+        }
     }
 
     private static final class InMemoryPort implements MasterDataChangeRequestPersistencePort {
@@ -122,7 +234,18 @@ class MasterDataChangeRequestServiceTest {
         }
 
         @Override
-        public List<MasterDataChangeRequest> findAll() {
+        public Optional<MasterDataChangeRequest> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
+        public Optional<MasterDataChangeRequest> findBySourceReference(String sourceReference) {
+            return store.stream()
+                    .filter(request -> sourceReference.equals(request.getSourceReference()))
+                    .findFirst();
+        }
+
+        private List<MasterDataChangeRequest> allRequests() {
             return new ArrayList<>(store);
         }
 
@@ -166,8 +289,8 @@ class MasterDataChangeRequestServiceTest {
         private final List<Long> appliedRequests = new ArrayList<>();
 
         @Override
-        public boolean supports(MasterDataType targetType) {
-            return targetType == MasterDataType.DEPARTMENT;
+        public MasterDataType targetType() {
+            return MasterDataType.DEPARTMENT;
         }
 
         @Override
@@ -176,4 +299,3 @@ class MasterDataChangeRequestServiceTest {
         }
     }
 }
-

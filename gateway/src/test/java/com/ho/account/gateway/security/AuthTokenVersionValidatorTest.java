@@ -13,35 +13,80 @@ import reactor.core.publisher.Mono;
 class AuthTokenVersionValidatorTest {
 
     @Test
-    void validate_returnsTrueAndCachesValidResponse() {
+    void validate_returnsValidAndCachesOnlyValidResponse() {
         AtomicInteger calls = new AtomicInteger();
         WebClient webClient = WebClient.builder()
                 .exchangeFunction(request -> {
                     calls.incrementAndGet();
                     assertThat(request.url().getPath()).isEqualTo("/api/auth/validate-token-version");
-                    return Mono.just(ClientResponse.create(HttpStatus.OK)
-                            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                            .body("{\"valid\":true,\"reason\":\"OK\"}")
-                            .build());
+                    return jsonResponse("{\"valid\":true,\"reason\":\"OK\"}");
                 })
                 .build();
 
         AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
 
-        assertThat(validator.validate("Admin", 3L).block()).isTrue();
-        assertThat(validator.validate("admin", 3L).block()).isTrue();
+        assertThat(validator.validate("Admin", 3L).block()).isEqualTo(TokenVersionValidationResult.VALID);
+        assertThat(validator.validate("Admin", 3L).block()).isEqualTo(TokenVersionValidationResult.VALID);
         assertThat(calls).hasValue(1);
     }
 
     @Test
-    void validate_failsClosedWhenAuthCallFails() {
+    void validate_doesNotMergeCaseSensitiveCanonicalUsernamesInCache() {
+        AtomicInteger calls = new AtomicInteger();
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> {
+                    calls.incrementAndGet();
+                    return jsonResponse("{\"valid\":true,\"reason\":\"OK\"}");
+                })
+                .build();
+        AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
+
+        assertThat(validator.validate("Admin", 3L).block()).isEqualTo(TokenVersionValidationResult.VALID);
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.VALID);
+        assertThat(calls).hasValue(2);
+    }
+
+    @Test
+    void validate_returnsRejectedWhenAuthRejectsCurrentSnapshot() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> jsonResponse("{\"valid\":false,\"reason\":\"ROLE_VERSION_MISMATCH\"}"))
+                .build();
+
+        AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
+
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.REJECTED);
+    }
+
+    @Test
+    void validate_returnsUnavailableWhenAuthCallFails() {
         WebClient webClient = WebClient.builder()
                 .exchangeFunction(request -> Mono.error(new IllegalStateException("auth unavailable")))
                 .build();
 
         AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
 
-        assertThat(validator.validate("admin", 3L).block()).isFalse();
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.UNAVAILABLE);
+    }
+
+    @Test
+    void validate_returnsUnavailableWhenAuthResponseOmitsValidField() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> jsonResponse("{}"))
+                .build();
+
+        AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
+
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.UNAVAILABLE);
+    }
+    @Test
+    void validate_returnsUnavailableWhenAuthResponseBodyIsEmpty() {
+        WebClient webClient = WebClient.builder()
+                .exchangeFunction(request -> Mono.just(ClientResponse.create(HttpStatus.OK).build()))
+                .build();
+
+        AuthTokenVersionValidator validator = new AuthTokenVersionValidator(webClient, properties());
+
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.UNAVAILABLE);
     }
 
     @Test
@@ -50,7 +95,15 @@ class AuthTokenVersionValidatorTest {
         properties.setEnabled(false);
         AuthTokenVersionValidator validator = new AuthTokenVersionValidator(WebClient.create(), properties);
 
-        assertThat(validator.validate("admin", 3L).block()).isTrue();
+        assertThat(validator.validate("admin", 3L).block()).isEqualTo(TokenVersionValidationResult.VALID);
+        assertThat(validator.validate(" ", 0L).block()).isEqualTo(TokenVersionValidationResult.REJECTED);
+    }
+
+    private Mono<ClientResponse> jsonResponse(String body) {
+        return Mono.just(ClientResponse.create(HttpStatus.OK)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .body(body)
+                .build());
     }
 
     private TokenVersionValidationProperties properties() {

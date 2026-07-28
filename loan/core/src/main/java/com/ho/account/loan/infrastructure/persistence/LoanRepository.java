@@ -1,11 +1,13 @@
 package com.ho.account.loan.infrastructure.persistence;
 
 import com.ho.account.loan.domain.Loan;
-import com.ho.account.loan.domain.Loan.LoanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import jakarta.persistence.LockModeType;
+
 import java.util.Optional;
 
 /**
@@ -13,6 +15,7 @@ import java.util.Optional;
  */
 @Repository
 public interface LoanRepository extends JpaRepository<Loan, Long> {
-    Optional<Loan> findByLoanNumber(String loanNumber);
-    List<Loan> findByStatus(LoanStatus status);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Loan l WHERE l.id = :id")
+    Optional<Loan> findByIdForUpdate(Long id);
 }

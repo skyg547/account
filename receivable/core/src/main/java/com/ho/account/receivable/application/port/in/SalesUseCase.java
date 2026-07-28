@@ -4,6 +4,6 @@ import com.ho.account.receivable.domain.SalesInvoice;
 import java.time.LocalDate;
 
 public interface SalesUseCase {
-    SalesInvoice createSalesInvoice(SalesInvoice invoice);
+    SalesInvoice createSalesInvoice(SalesInvoiceCommand command);
     void updateReceivableStatus(LocalDate asOfDate);
 }

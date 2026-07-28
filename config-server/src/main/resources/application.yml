@@ -1,5 +1,5 @@
 server:
-  port: 8888
+  port: ${SERVER_PORT:8888}
 
 spring:
   application:
@@ -9,9 +9,35 @@ spring:
       server:
         native:
           # Git 저장소 대신, 로컬 PC의 'config-repo' 폴더를 바라보도록 설정합니다.
-          # 나중에 운영(Prod) 환경으로 갈 때는 이 부분을 Git URL로 바꾸면 됩니다.
-          search-locations: file://${user.dir}/config-repo
+          # 루트에서 실행하면 기본 경로를 쓰고, Docker는 CONFIG_REPO_LOCATION=file:/config-repo를 주입합니다.
+          search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo}
+        health:
+          repositories:
+            master-data:
+              name: master-data
+              profiles: default
+
+        # @todo 운영 외부 노출 전 Config 조회 API를 private network와 mTLS/서비스 인증으로 보호한다.
+        # @todo 다중 노드 운영 전 native 폴더를 검토/승인된 Git backend와 고정 label로 전환하고 refresh/rollback 절차를 검증한다.
 
   profiles:
     # 로컬 파일 시스템을 사용하겠다는 선언입니다.
-    active: native
+    active: ${SPRING_PROFILES_ACTIVE:native}
+
+config-server:
+  repository-probe:
+    application: master-data
+    profile: default
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        # 프로세스만 살아 있고 config-repo를 읽지 못하는 상태는 준비 완료가 아닙니다.
+        readiness:
+          include: readinessState,configRepository

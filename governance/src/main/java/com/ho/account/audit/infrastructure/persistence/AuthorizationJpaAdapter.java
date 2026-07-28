@@ -5,6 +5,7 @@ import com.ho.account.audit.domain.AccessType;
 import com.ho.account.audit.domain.Authorization;
 import com.ho.account.audit.repository.AuthorizationRepository;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,11 @@ public class AuthorizationJpaAdapter implements AuthorizationPersistencePort {
     @Override
     public Authorization save(Authorization authorization) {
         return authorizationRepository.save(authorization);
+    }
+
+    @Override
+    public Optional<Authorization> findById(Long authorizationId) {
+        return authorizationRepository.findById(authorizationId);
     }
 
     @Override

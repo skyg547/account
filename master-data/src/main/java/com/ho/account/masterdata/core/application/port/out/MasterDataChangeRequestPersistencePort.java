@@ -13,7 +13,12 @@ public interface MasterDataChangeRequestPersistencePort {
 
     Optional<MasterDataChangeRequest> findById(Long id);
 
-    List<MasterDataChangeRequest> findAll();
+    /**
+     * 승인, 반려, 반영처럼 상태를 바꾸는 흐름에서 동일 요청을 직렬화합니다.
+     */
+    Optional<MasterDataChangeRequest> findByIdForUpdate(Long id);
+
+    Optional<MasterDataChangeRequest> findBySourceReference(String sourceReference);
 
     List<MasterDataChangeRequest> findByStatus(ChangeStatus status);
 

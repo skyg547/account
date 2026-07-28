@@ -191,4 +191,59 @@ public class DeferredItem {
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
+
+    public static DeferredItem create(
+            Loan loan,
+            DeferredItemType deferredItemType,
+            BigDecimal amount,
+            LocalDate deferralDate,
+            LocalDate amortizationEndDate,
+            String actor) {
+        if (loan == null) {
+            throw new IllegalArgumentException("loan is required.");
+        }
+        if (deferredItemType == null || !deferredItemType.isActive()) {
+            throw new IllegalArgumentException("An active deferredItemType is required.");
+        }
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("amount must be positive.");
+        }
+        if (deferralDate == null || amortizationEndDate == null
+                || amortizationEndDate.isBefore(deferralDate)) {
+            throw new IllegalArgumentException("amortizationEndDate must be on or after deferralDate.");
+        }
+        if (deferralDate.isBefore(loan.getDisbursalDate())
+                || amortizationEndDate.isAfter(loan.getMaturityDate())) {
+            throw new IllegalArgumentException("Deferred-item dates must be within the loan term.");
+        }
+        DeferredItem item = new DeferredItem();
+        item.loan = loan;
+        item.deferredItemType = deferredItemType;
+        item.amount = amount;
+        item.deferralDate = deferralDate;
+        item.amortizationStartDate = deferralDate;
+        item.amortizationEndDate = amortizationEndDate;
+        item.remainingAmount = amount;
+        item.status = DeferredItemStatus.DEFERRED;
+        item.auditUser = requireActor(actor);
+        return item;
+    }
+
+    public void linkInitialJournal(Long journalEntryId, String slipNo) {
+        if (journalEntryId == null || journalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive.");
+        }
+        if (slipNo == null || slipNo.isBlank()) {
+            throw new IllegalArgumentException("journal slipNo is required.");
+        }
+        initialJournalEntryId = journalEntryId;
+        initialJournalEntrySlipNo = slipNo.trim();
+    }
+
+    private static String requireActor(String actor) {
+        if (actor == null || actor.isBlank() || actor.trim().length() > 50) {
+            throw new IllegalArgumentException("actor is required and must not exceed 50 characters.");
+        }
+        return actor.trim();
+    }
 }

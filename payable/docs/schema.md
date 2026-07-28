@@ -119,6 +119,12 @@ erDiagram
 
 각 계정 코드는 `MasterDataQueryPort.findAccountSubject`로 존재 여부를 확인한다. 로컬 테스트나 호스트 앱 실행 시 master-data 테스트 데이터에 위 계정이 없으면 전표 생성 단계에서 실패한다.
 
+## API/Core 입력 경계
+
+- 요청 DTO는 `payable:api`에 있으며 HTTP JSON 필드와 Bean Validation 메시지를 표현한다.
+- core command는 `payable:core/application/port/in`에 있으며 API와 Batch가 공통으로 사용하는 업무 입력값이다.
+- 응답 DTO는 API 계약을 안정화하기 위해 도메인/JPA 엔티티를 그대로 외부에 노출하지 않는다.
+
 ## 정합성 체크 포인트
 
 - 금액 필드는 `BigDecimal`이며 도메인 메서드에서 0 이하 금액과 잔액 초과 금액을 막는다.

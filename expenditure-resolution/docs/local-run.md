@@ -11,8 +11,8 @@
 
 `expenditure-resolution`은 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
 
-- `expenditure-resolution:core`: 지출결의, 예산 차감, AP 지급, 세금계산서/자산/전표 연계 업무 흐름.
-- `expenditure-resolution:api`: Spring Boot HTTP 실행 진입점. 상태 전이와 검증은 core를 참조한다.
+- `expenditure-resolution:core`: 지출결의, 예산 차감, AP 지급, 세금계산서/자산/전표 연계 업무 흐름. HTTP DTO/Controller 없이 command와 port 중심으로 동작한다.
+- `expenditure-resolution:api`: Spring Boot HTTP 실행 진입점. 요청 DTO를 core command로 변환한다.
 - `expenditure-resolution:batch`: Spring Boot Batch 실행 진입점. 승인/정산 대상 조회와 Job/Step 제어를 맡고 업무 판단은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
@@ -24,6 +24,12 @@
 5. 실행 후 `BUILD SUCCESSFUL` 또는 Spring Boot `Started ...Application` 로그를 확인한다.
 
 ## PowerShell에서 실행하기
+
+core/api 테스트:
+
+```powershell
+.\gradlew :expenditure-resolution:core:test :expenditure-resolution:api:test --console=plain --max-workers=1
+```
 
 core 테스트:
 
@@ -60,7 +66,13 @@ Batch 컨텍스트 실행:
 API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
 
 ```powershell
-.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1
+.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+Batch 스모크만 확인하고 Job은 실행하지 않을 때:
+
+```powershell
+.\gradlew :expenditure-resolution:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 ## local profile 동작
@@ -82,3 +94,6 @@ local profile은 H2 메모리 DB를 사용하고, Config Server, Eureka, Vault, 
 | `예산이 부족합니다` | 테스트 데이터의 예산 배정액과 지출 상세 금액을 확인 |
 | H2 DDL 경고 | master-data SCD2 코드 컬럼은 유니크가 아니므로 DB FK 대신 포트 검증을 사용해야 함 |
 | Batch가 바로 종료됨 | local 기본 설정은 Job 자동 실행이 꺼져 있다. 실제 Job 검증은 Job 이름과 파라미터를 별도로 준다 |
+
+
+ExpenditureResolutionBatchJobRegistryConfiguration은 Spring Batch Job 등록 시점을 늦춰 JobRegistry 조기 초기화 경고를 줄인다. 이 설정은 인프라 초기화 순서만 다루고 업무 로직은 포함하지 않는다.

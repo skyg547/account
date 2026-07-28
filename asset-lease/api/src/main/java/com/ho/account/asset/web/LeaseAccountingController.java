@@ -64,10 +64,12 @@ public class LeaseAccountingController {
     }
 
     @PostMapping("/process-monthly/{processDate}")
-    public ResponseEntity<String> triggerMonthlyProcess(@PathVariable String processDate) {
+    public ResponseEntity<String> triggerMonthlyProcess(
+            @PathVariable String processDate,
+            @RequestHeader("X-User-ID") String actor) {
         try {
             LocalDate date = LocalDate.parse(processDate);
-            leaseUseCase.processMonthlyLeaseAccounting(date);
+            leaseUseCase.processMonthlyLeaseAccounting(date, actor);
             return ResponseEntity.ok("Monthly lease accounting process triggered for " + processDate);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing monthly lease accounting: " + e.getMessage());

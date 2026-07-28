@@ -6,6 +6,9 @@ import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.expenditure.application.port.in.AdvancePaymentCommand;
+import com.ho.account.expenditure.application.port.in.ExecutePaymentCommand;
+import com.ho.account.expenditure.application.port.in.OffsetPayableCommand;
 import com.ho.account.expenditure.application.port.out.AdvancePaymentPersistencePort;
 import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
@@ -93,7 +96,7 @@ class PaymentServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(20L, "SLIP-2", "DRAFT"));
 
-        service.executePayment(10L, "BANK-001");
+        service.executePayment(new ExecutePaymentCommand(10L, "BANK-001"));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -117,7 +120,7 @@ class PaymentServiceTest {
                 PaymentExecutionPort.PaymentExecutionResult.failed("BANK_TIMEOUT"));
         when(paymentPersistencePort.save(payment)).thenReturn(payment);
 
-        Payment result = service.executePayment(10L, "BANK-001");
+        Payment result = service.executePayment(new ExecutePaymentCommand(10L, "BANK-001"));
 
         assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED);
         assertThat(result.getFailureReason()).isEqualTo("BANK_TIMEOUT");
@@ -132,15 +135,19 @@ class PaymentServiceTest {
 
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
-        when(advancePaymentPersistencePort.save(advance)).thenReturn(advance);
-        when(payableAccountMappingPort.resolveAdvancePaymentAccounts(advance))
+        when(advancePaymentPersistencePort.save(any(AdvancePayment.class))).thenAnswer(invocation -> {
+            AdvancePayment saved = invocation.getArgument(0);
+            saved.setId(200L);
+            return saved;
+        });
+        when(payableAccountMappingPort.resolveAdvancePaymentAccounts(any(AdvancePayment.class)))
                 .thenReturn(new PayableAccountMappingPort.AdvancePaymentAccounts("ADV-003", "CASH-003"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(30L, "SLIP-3", "DRAFT"));
 
-        service.recordAdvancePayment(advance);
+        service.recordAdvancePayment(new AdvancePaymentCommand("V001", LocalDate.of(2026, 5, 29), new BigDecimal("200.00"), null));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -158,7 +165,11 @@ class PaymentServiceTest {
         when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
         when(advancePaymentPersistencePort.findById(200L)).thenReturn(Optional.of(advance));
         when(payablePersistencePort.save(payable)).thenReturn(payable);
-        when(advancePaymentPersistencePort.save(advance)).thenReturn(advance);
+        when(advancePaymentPersistencePort.save(any(AdvancePayment.class))).thenAnswer(invocation -> {
+            AdvancePayment saved = invocation.getArgument(0);
+            saved.setId(200L);
+            return saved;
+        });
         when(payableAccountMappingPort.resolveAdvanceOffsetAccounts(payable))
                 .thenReturn(new PayableAccountMappingPort.AdvanceOffsetAccounts("AP-004", "ADV-004"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
@@ -168,7 +179,7 @@ class PaymentServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(40L, "SLIP-4", "DRAFT"));
 
-        service.offsetPayableWithAdvancePayment(100L, 200L, new BigDecimal("100.00"));
+        service.offsetPayableWithAdvancePayment(new OffsetPayableCommand(100L, 200L, new BigDecimal("100.00")));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());

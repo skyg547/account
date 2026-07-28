@@ -2,7 +2,6 @@ package com.ho.account.loan.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,10 +19,10 @@ import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
 import com.ho.account.loan.application.port.out.LoanPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
+import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanDisbursal;
 import com.ho.account.loan.infrastructure.adapter.LoanJournalAdapter;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -65,23 +64,38 @@ class LoanJournalPostingFlowTest {
                 properties,
                 new LoanJournalAdapter(journalUseCase));
 
-        Loan loan = new Loan();
+        LocalDate disbursalDate = LocalDate.of(2026, 5, 18);
+        Loan loan = Loan.create(
+                "LN-E2E-001",
+                100L,
+                "KRW",
+                Loan.LoanType.TERM_LOAN,
+                new BigDecimal("2500000.00"),
+                new BigDecimal("0.0450"),
+                disbursalDate,
+                LocalDate.of(2027, 5, 18),
+                Loan.PaymentFrequency.MONTHLY,
+                "loan-e2e");
         loan.setId(7L);
-        loan.setLoanNumber("LN-E2E-001");
-        loan.setCurrency(currency("KRW"));
-        when(persistencePort.findLoan(7L)).thenReturn(Optional.of(loan));
-        when(referenceDataPort.requireAccountCode("101900")).thenReturn("101900");
-        when(referenceDataPort.requireAccountCode("131900")).thenReturn("131900");
+        when(persistencePort.findLoanForUpdate(7L)).thenReturn(Optional.of(loan));
+        when(persistencePort.existsDisbursal(7L)).thenReturn(false);
+        when(referenceDataPort.requireAccount("101900", disbursalDate))
+                .thenReturn(new AccountReference("101900", "Cash"));
+        when(referenceDataPort.requireAccount("131900", disbursalDate))
+                .thenReturn(new AccountReference("131900", "Loan receivable"));
+        when(persistencePort.saveLoan(loan)).thenReturn(loan);
         when(persistencePort.saveDisbursal(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         LoanDisbursal disbursal = loanService.disburseLoan(
                 7L,
-                LocalDate.of(2026, 5, 18),
+                disbursalDate,
                 new BigDecimal("2500000.00"),
                 "loan-e2e");
 
         JournalEntry postedEntry = journalStore.findById(disbursal.getJournalEntryId()).orElseThrow();
         assertThat(postedEntry.getStatus().name()).isEqualTo("POSTED");
+        assertThat(postedEntry.getSlipDate()).isEqualTo(disbursalDate);
+        assertThat(postedEntry.getAccountingDate()).isEqualTo(disbursalDate);
         assertThat(postedEntry.getLineageSourceType()).isEqualTo("LOAN_DISBURSAL");
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo(postedEntry.getSlipNo());
 
@@ -92,12 +106,6 @@ class LoanJournalPostingFlowTest {
         verify(ledgerEntryPersistencePort).saveSlEntries(slCaptor.capture());
         assertThat(slCaptor.getValue()).hasSize(2);
         verify(ledgerService).updateLedgerBalancesBulk(postedEntry.getDetails());
-    }
-
-    private Currency currency(String code) {
-        Currency currency = new Currency();
-        currency.setCurrencyCode(code);
-        return currency;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

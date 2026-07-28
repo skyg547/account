@@ -1,8 +1,12 @@
 package com.ho.account.ecl.batch;
 
+import java.util.Map;
+
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -18,7 +22,24 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class AllowanceEclBatchApplication {
 
     public static void main(String[] args) {
-        System.setProperty("spring.batch.job.enabled", "false"); 
-        SpringApplication.run(AllowanceEclBatchApplication.class, args);
+        SpringApplication application = new SpringApplication(AllowanceEclBatchApplication.class);
+        application.setWebApplicationType(WebApplicationType.NONE);
+        application.setDefaultProperties(Map.of("spring.batch.job.enabled", "false"));
+
+        // [초보 가이드] 기본 bootRun은 컨텍스트만 확인하고, 실제 Job 실행은 CLI 인자로 명시합니다.
+        ConfigurableApplicationContext context = application.run(args);
+        if (containsJobName(args)) {
+            int exitCode = SpringApplication.exit(context);
+            System.exit(exitCode);
+        }
+    }
+
+    private static boolean containsJobName(String[] args) {
+        for (String arg : args) {
+            if (arg.contains("spring.batch.job.name") || arg.contains("job.name")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

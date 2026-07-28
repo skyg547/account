@@ -81,7 +81,7 @@ class RoleAssignmentJpaEntity {
                 assignment.approved() ? Instant.now() : null);
     }
 
-    static RoleAssignmentJpaEntity approvedBy(RoleAssignment assignment, String approvedBy) {
+    static RoleAssignmentJpaEntity approvedBy(RoleAssignment assignment, String approvedBy, Instant approvedAt) {
         return new RoleAssignmentJpaEntity(
                 assignment.roleCode(),
                 assignment.dataScope(),
@@ -89,7 +89,7 @@ class RoleAssignmentJpaEntity {
                 assignment.validTo(),
                 true,
                 approvedBy,
-                Instant.now());
+                approvedAt);
     }
 
     void assignUser(AuthUserJpaEntity user) {

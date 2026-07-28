@@ -1,14 +1,22 @@
 package com.ho.account.receivable.application.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
-import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
+import com.ho.account.receivable.application.port.in.CollectionCommand;
+import com.ho.account.receivable.application.port.in.ManualMatchingCommand;
 import com.ho.account.receivable.application.port.out.CollectionAllocationPersistencePort;
 import com.ho.account.receivable.application.port.out.CollectionMatchingPolicyPort;
+import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
@@ -17,6 +25,9 @@ import com.ho.account.receivable.domain.CollectionAllocation;
 import com.ho.account.receivable.domain.CollectionStatus;
 import com.ho.account.receivable.domain.Receivable;
 import com.ho.account.receivable.domain.ReceivableStatus;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,16 +35,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
@@ -73,18 +74,20 @@ class CollectionServiceTest {
     @Test
     @DisplayName("수납 인식 전표 생성 시 수납 계정 매핑 정책을 반영한다")
     void receivePaymentUsesMappedAccounts() {
-        Collection collection = collection();
-
         when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
-        when(collectionPersistencePort.save(collection)).thenReturn(collection);
-        when(receivableAccountMappingPort.resolveCollectionRecognitionAccounts(collection))
+        when(collectionPersistencePort.save(any(Collection.class))).thenAnswer(invocation -> {
+            Collection saved = invocation.getArgument(0);
+            saved.setId(20L);
+            return saved;
+        });
+        when(receivableAccountMappingPort.resolveCollectionRecognitionAccounts(any(Collection.class)))
                 .thenReturn(new ReceivableAccountMappingPort.CollectionRecognitionAccounts("CASH-001", "CLR-001"));
         when(masterDataQueryPort.findAccountSubject(anyString()))
                 .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(200L, "SLIP-200", "DRAFT"));
 
-        service.receivePayment(collection);
+        service.receivePayment(collectionCommand());
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -111,7 +114,7 @@ class CollectionServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(300L, "SLIP-300", "DRAFT"));
 
-        service.manualMatchCollection(20L, 30L, new BigDecimal("100.00"));
+        service.manualMatchCollection(new ManualMatchingCommand(20L, 30L, new BigDecimal("100.00")));
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -123,6 +126,16 @@ class CollectionServiceTest {
         assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo("100.00");
         assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo("0.00");
         assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo("400.00");
+    }
+
+    private CollectionCommand collectionCommand() {
+        return new CollectionCommand(
+                LocalDate.of(2026, 5, 29),
+                "C001",
+                new BigDecimal("100.00"),
+                null,
+                null,
+                null);
     }
 
     private Collection collection() {

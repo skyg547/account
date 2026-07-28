@@ -5,7 +5,7 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
-import com.ho.account.receivable.application.port.in.CollectionUseCase;
+import com.ho.account.receivable.application.port.in.*;
 import com.ho.account.receivable.application.port.out.CollectionPersistencePort;
 import com.ho.account.receivable.application.port.out.CollectionAllocationPersistencePort;
 import com.ho.account.receivable.application.port.out.CollectionMatchingPolicyPort;
@@ -51,7 +51,8 @@ public class CollectionService implements CollectionUseCase {
     }
 
     @Override
-    public Collection receivePayment(Collection collection) {
+    public Collection receivePayment(CollectionCommand command) {
+        Collection collection = toCollection(command);
         String customerCode = collection.getCustomerCode();
         BusinessPartnerRef customer = validateCustomer(customerCode);
 
@@ -91,7 +92,10 @@ public class CollectionService implements CollectionUseCase {
     }
 
     @Override
-    public void manualMatchCollection(Long collectionId, Long receivableId, BigDecimal amount) {
+    public void manualMatchCollection(ManualMatchingCommand command) {
+        Long collectionId = command.collectionId();
+        Long receivableId = command.receivableId();
+        BigDecimal amount = command.matchingAmount();
         Collection collection = collectionPersistencePort.findById(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
         Receivable receivable = receivablePersistencePort.findById(receivableId)
@@ -130,6 +134,17 @@ public class CollectionService implements CollectionUseCase {
         // 매칭 전표 발행 (AR Clearing -> AR)
         BusinessPartnerRef customer = validateCustomer(collection.getCustomerCode());
         postMatchJournal(collection, receivable, amount, customer);
+    }
+
+    private Collection toCollection(CollectionCommand command) {
+        Collection collection = new Collection();
+        collection.setCollectionDate(command.collectionDate());
+        collection.setCustomerCode(command.customerCode());
+        collection.setAmount(command.amount());
+        collection.setBankAccount(command.bankAccount());
+        collection.setVirtualAccount(command.virtualAccount());
+        collection.setReferenceNo(command.referenceNo());
+        return collection;
     }
 
     private BusinessPartnerRef validateCustomer(String customerCode) {

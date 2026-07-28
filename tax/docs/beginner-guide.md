@@ -22,9 +22,9 @@
 
 `TaxInvoiceService`는 업무 순서를 조율한다. 매입 세금계산서 타입인지 확인하고, `MasterDataQueryPort`로 거래처가 존재하는지 확인한 뒤, `TaxInvoicePersistencePort`로 저장한다.
 
-`APInvoiceController`는 HTTP 요청을 DTO로 받고 유즈케이스를 호출한다. 요청 검증은 `TaxInvoiceRequestDto`의 Bean Validation과 도메인 금액 검증으로 나뉜다.
+`APInvoiceController`는 `tax:api`에 있고 HTTP 요청을 DTO로 받는다. `TaxInvoiceRequestDto`는 Bean Validation으로 필수값과 0 이상 금액을 먼저 검사한 뒤 `TaxInvoiceCommand`로 변환한다. `tax:core`의 `TaxInvoiceService`는 DTO를 모르고 command만 받아 거래처 검증, 금액 정합성, 취소 정책을 처리한다.
 
-`TaxInvoiceQueryAdapter`는 다른 모듈이 세금계산서 참조 정보를 조회할 때 사용하는 출력 어댑터다. 참조값에는 `status`가 포함되므로, 다른 모듈은 세금계산서가 `ACTIVE`인지 `CANCELLED`인지 확인한 뒤 업무에 연결해야 한다.
+`TaxInvoiceQueryAdapter`는 다른 모듈이 세금계산서 참조 정보를 조회할 때 사용하는 출력 어댑터다. 참조값에는 `type`과 `status`가 포함되고, `TaxInvoiceRef.purchase()`, `active()`, `usableForPurchaseSettlement()`로 소비 모듈이 매입/유효 상태를 명시적으로 판단할 수 있다.
 
 ## 취소가 삭제가 아닌 이유
 
@@ -37,5 +37,5 @@
 1. `APInvoiceController`: 매입 세금계산서 등록, 조회, 수정, 취소 API.
 2. `TaxInvoiceService`: PURCHASE 타입 제한, 거래처 검증, 저장 흐름.
 3. `TaxInvoice`: 금액 검증과 논리 취소 도메인 규칙.
-4. `TaxInvoiceRequestDto`: 요청 필수값과 금액 0 이상 검증.
+4. `tax/api/.../TaxInvoiceRequestDto`: 요청 필수값과 금액 0 이상 검증, core `TaxInvoiceCommand` 변환.
 5. `TaxInvoiceQueryAdapter`: 다른 모듈이 세금계산서 참조를 조회하는 경계.

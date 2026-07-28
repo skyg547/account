@@ -1,7 +1,7 @@
 package com.ho.account.mart.batch.tasklet;
 
 import com.ho.account.mart.core.domain.ods.audit.service.OdsReconciliationService;
-import com.ho.account.mart.core.support.BatchParameterUtils;
+import com.ho.account.mart.batch.support.BatchStepParameterUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -32,7 +32,7 @@ public class BatchReconcileTasklet implements Tasklet {
     @org.springframework.lang.Nullable
     public RepeatStatus execute(@org.springframework.lang.NonNull StepContribution contribution, 
                               @org.springframework.lang.NonNull ChunkContext chunkContext) throws Exception {
-        LocalDate baseDate = BatchParameterUtils.resolveBaseDate(contribution.getStepExecution());
+        LocalDate baseDate = BatchStepParameterUtils.resolveBaseDate(contribution.getStepExecution());
         log.info("🛡️ [데이터 대사] 기준일자({})에 대한 회계 정합성 검증을 시작합니다.", baseDate);
 
         reconciliationService.reconcileMartVsGl(baseDate);

@@ -119,9 +119,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   auth:
     build:
@@ -142,9 +142,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   closing:
     build:
@@ -165,13 +165,13 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   config-server:
     build:
-      context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
+      context: . # 루트 Gradle 멀티모듈과 config-repo를 함께 Docker build context에 넣습니다.
       dockerfile: config-server/Dockerfile
     container_name: config-server
     ports:
@@ -180,13 +180,11 @@ services:
       - account-network
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-
+      - SERVER_PORT=8888
+      - SPRING_PROFILES_ACTIVE=native
+      - CONFIG_REPO_LOCATION=file:/config-repo
+    volumes:
+      - ./config-repo:/config-repo:ro
   discovery:
     build:
       context: . # 최상단에서 빌드하여 멀티모듈 참조를 가능하게 함
@@ -201,12 +199,17 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SERVER_PORT=8761
+      - EUREKA_INSTANCE_HOSTNAME=discovery
+      - LOGSTASH_HOST=logstash
+      - LOGSTASH_PORT=5000
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
 
   expenditure-resolution:
     build:
@@ -227,9 +230,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   gateway:
     build:
@@ -245,13 +248,17 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - SERVER_PORT=8000
+      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
+        condition: service_healthy
+      auth:
         condition: service_started
 
   governance:
@@ -273,9 +280,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   journal-ledger:
     build:
@@ -296,9 +303,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   loan:
     build:
@@ -311,6 +318,7 @@ services:
       - account-network
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
+      - SERVER_PORT=8088
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
@@ -319,9 +327,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   master-data:
     build:
@@ -329,22 +337,23 @@ services:
       dockerfile: master-data/Dockerfile
     container_name: master-data
     ports:
-      - "8089:8089"
+      - "8082:8082"
     networks:
       - account-network
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
+      - SERVER_PORT=8082
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - LOGSTASH_HOST=logstash
+      - LOGSTASH_PORT=5000
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   payable:
     build:
@@ -365,9 +374,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   receivable:
     build:
@@ -388,9 +397,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   reconciliation:
     build:
@@ -411,9 +420,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   reporting:
     build:
@@ -434,9 +443,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   tax:
     build:
@@ -457,9 +466,9 @@ services:
       - SPRING_REDIS_PORT=6379
     depends_on:
       config-server:
-        condition: service_started
+        condition: service_healthy
       discovery:
-        condition: service_started
+        condition: service_healthy
 
   frontend-node:
     build:

@@ -1,8 +1,150 @@
+### 📅 2026-07-08 (Codex 수정)
+### [수정] payable API/core command 경계와 Batch JobRegistry 정리
+- **작업 배경**:
+  - `payable:core`가 HTTP Controller/DTO, Bean Validation, Web 의존을 함께 소유해 `core/api/batch` 실행 구조와 헥사고날 경계가 맞지 않았다.
+  - API 응답도 JPA 도메인 엔티티를 그대로 반환해 외부 계약과 내부 도메인 모델이 강하게 묶일 수 있었다.
+  - `payable:batch` local 기동 시 Spring Batch `jobRegistryBeanPostProcessor` 조기 초기화 경고가 재현됐다.
+- **수정 범위**:
+  - `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand`, `AdvancePaymentCommand`, `OffsetPayableCommand`를 추가했다.
+  - `PurchaseUseCase`/`PaymentUseCase`와 `PurchaseService`/`PaymentService`가 API DTO나 원시 파라미터 대신 core command를 받도록 변경했다.
+  - `PurchaseController`, `PaymentController`, 요청 DTO를 `payable:api`로 이동하고, API 응답 DTO를 추가했다.
+  - `payable:core` Gradle 의존성에서 `spring-boot-starter-web`, `spring-boot-starter-validation`을 제거했다.
+  - `PayablePaymentRunBatchConfig`는 `PaymentRunCommand`로 core 유즈케이스를 호출하고, `PayableBatchJobRegistryConfiguration`으로 Batch Job 등록 시점을 늦췄다.
+  - payable README/docs/local-run/process-flow/schema와 운영 로그를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :payable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+  - `.\gradlew :payable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+- **검증 결과**:
+  - payable core 테스트, api 컴파일, batch 컴파일 성공.
+  - payable API local H2 context smoke 성공.
+  - payable Batch local H2 context smoke 성공, JobRegistry BeanPostProcessor 경고 미재현.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 실제 schema 적용, 운영 은행 지급 어댑터, 대량 지급런 데이터 성능은 별도 검증이 필요하다.
+  - API 응답 DTO는 현재 핵심 필드 중심이며, 외부 공개 API 확정 시 에러 응답 표준과 pagination/search 계약을 추가로 정리해야 한다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `payable` 하위 core/api/batch/docs 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-08 (Codex 수정)
+### [수정] expenditure-resolution API/core command 경계와 master-data 참조 분리
+- **작업 배경**:
+  - expenditure-resolution:core가 HTTP Controller/DTO, Bean Validation, Web 의존을 함께 소유해 core/api/batch 분리 설명과 맞지 않았다.
+  - 지출결의 서비스와 예산 도메인이 master-data 내부 Repository/Entity를 직접 참조해 모듈 경계가 약했다.
+- **수정 범위**:
+  - ExpenditureResolutionCommand, APPaymentCommand를 추가하고 core UseCase/Service가 API DTO 대신 command를 받도록 변경했다.
+  - ExpenditureController, APPaymentController, 요청/응답 DTO, DTO assembler를 expenditure-resolution:api로 이동했다.
+  - ExpenditureResolutionService는 MasterDataQueryPort로 부서/계정/거래처를 확인하고, TaxInvoiceRef.purchase()/active()로 세금계산서 정책을 검증한다.
+  - Budget과 Invoice는 master-data 엔티티 JPA 연관 대신 코드 값(deptCode, ccountCode, endorCode, currencyCode)을 저장하도록 변경했다.
+  - BudgetService, BudgetPersistencePort, BudgetRepository, BudgetControlAdapter를 코드 기반 조회로 변경했다.
+  - API 통합 테스트를 pi/src/test로 이동하고, Batch JobRegistry 지연 등록 설정을 추가했다.
+  - expenditure-resolution README/docs/local-run/process-flow/schema와 운영 로그를 최신화했다.
+- **검증 명령**:
+  - $compile
+  - $verify
+  - $apiRun
+  - $batchRun
+- **검증 결과**:
+  - expenditure-resolution core/api/batch 컴파일 성공.
+  - core 테스트와 API 통합 테스트 성공.
+  - API/BATCH local H2 context smoke 성공.
+  - Batch JobRegistry 조기 초기화 경고 미재현.
+- **남은 리스크**:
+  - PostgreSQL 기존 테이블이 master-data FK형 컬럼으로 운영 중이라면 코드 기반 매핑 변경에 맞춘 migration 검증이 필요하다.
+  - 실제 expenditureResolutionApprovalJob 대량 실행과 승인/전표 생성 통합 환경 검증은 별도 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 expenditure-resolution, contracts, 	ax 연계 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-08 (Codex 수정)
+### [수정] tax API/core command 경계와 취소 세금계산서 외부 참조 정책 보강
+- **작업 배경**:
+  - `tax:core`가 HTTP Controller/DTO와 Web/Validation 의존을 함께 들고 있어 문서의 "core가 업무 규칙을 소유하고 api가 실행 진입점"이라는 설명과 어긋났다.
+  - 취소 세금계산서 외부 참조 정책은 소비 모듈 테스트로 방어되고 있었지만, `TaxInvoiceRef` 계약 자체에는 `PURCHASE + ACTIVE` 업무 판단 메서드가 부족했다.
+- **수정 범위**:
+  - `TaxInvoiceCommand`를 추가하고 `TaxInvoiceUseCase`/`TaxInvoiceService`가 API DTO 대신 command를 받도록 변경했다.
+  - `APInvoiceController`, `TaxInvoiceRequestDto`, `TaxInvoiceDto`를 `tax:api`로 이동해 HTTP 검증과 응답 매핑을 API adapter 책임으로 분리했다.
+  - `tax:core` Gradle 의존성에서 Web/Validation 및 불필요한 master-data 직접 의존을 제거했다.
+  - `TaxInvoiceRef`에 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 추가하고, `expenditure-resolution` 검증은 계약 메서드를 사용하도록 바꿨다.
+  - tax 서비스/외부 조회 어댑터 테스트를 추가하고 tax/expenditure 문서를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- **검증 결과**:
+  - tax core 테스트, tax api 컴파일, tax batch 컴파일, expenditure-resolution core 테스트 성공.
+- **남은 리스크**:
+  - PostgreSQL 실제 마이그레이션/대량 세금계산서 검증 Job 실행은 별도 환경에서 확인이 필요하다.
+  - `expenditure-resolution:core` 테스트가 cross-module API 통합 시나리오를 직접 포함하는 구조는 유지했다. 장기적으로 별도 integration-test 모듈로 이동할 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `tax`, `contracts`, `expenditure-resolution` 하위 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-07 (Codex 수정)
+### [수정] asset-lease 대량 감가상각 Batch 계산/반영 경계 분리
+- **작업 배경**:
+  - `assetDepreciationJob`이 core `DepreciationPipeline`을 사용하고 있었지만, pipeline이 `FixedAsset.depreciate()`를 호출해 JPA 엔티티 상태를 먼저 변경한 뒤 writer가 다시 JDBC bulk update를 수행했다.
+  - 이 구조는 JPA flush 조건에 따라 감가상각이 이중 반영될 수 있고, JDBC bulk update가 `FULLY_DEPRECIATED` 상태를 저장하지 못하는 리스크가 있었다.
+- **수정 범위**:
+  - `FixedAssetDepreciationResult` 값 객체를 추가해 상각액, 반영 후 상각누계액, 장부가액, 상태를 명시했다.
+  - `FixedAsset.calculateDepreciation()`은 상태를 변경하지 않는 preview 계산으로 추가하고, 기존 `depreciate()`는 단건 API용 상태 전이 메서드로 유지했다.
+  - `DepreciationPipeline`은 batch chunk를 `FixedAssetDepreciationResult` 목록으로 변환하고 엔티티를 변경하지 않게 했다.
+  - `AssetPersistencePort`와 `AssetJdbcAdapter`는 결과 값 기준으로 상각누계액, 장부가액, 상태, 최종상각일을 JDBC bulk update로 한 번만 반영하도록 변경했다.
+  - `AssetDepreciationBatchConfig`는 Reader/Processor/Writer orchestration만 유지하고 writer에서 core pipeline과 port를 호출하도록 정리했다.
+  - 리스 월별 회계처리 API/유즈케이스도 `X-User-ID`를 받아 IFRS 16 월별 처리 이벤트의 actor로 기록하도록 보강했다.
+  - asset-lease README/docs와 Gemini prompt/운영 로그를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :asset-lease:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1`
+- **검증 결과**:
+  - asset-lease core 테스트, api 컴파일, batch 컴파일 성공.
+  - `:asset-lease:batch:bootRun` local/H2 context smoke 성공. 로컬 JPA DDL의 `fixed_assets`에 `created_at`, `updated_at` 컬럼이 생성됨을 확인했다.
+- **남은 리스크**:
+  - PostgreSQL/H2 실제 대량 Job 실행에서 `updated_at = NOW()`와 운영 테이블 컬럼 정합성은 별도 확인이 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `asset-lease` 하위 감가상각 domain/pipeline/port/adapter/batch/docs 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
+### 📅 2026-07-07 (Codex 수정)
+### [수정] account-mart 담보 상세 DQ/LGD 선행 데이터 연결
+- **작업 배경**:
+  - `OdsApartCollDetail`가 도메인 객체와 JPA Entity만 있고 실제 담보 DQ/LGD 선행 검증 흐름에는 연결되지 않아 `@todo`로 남아 있었다.
+  - 부동산/아파트 담보는 마스터 평가액뿐 아니라 지역 코드, KB 시세, 전용면적 같은 상세 입력값이 있어야 ECL LGD 산출 전 데이터 품질을 판단할 수 있다.
+- **수정 범위**:
+  - `OdsApartCollDetail`에 LGD 필수 입력값 검증 메서드와 초보자용 업무 설명을 추가하고 기존 `@todo`를 제거했다.
+  - `OdsApartCollDetailRepository` port, `JpaOdsApartCollDetailRepository`, `OdsApartCollDetailPersistenceAdapter`를 추가해 헥사고날 조회 경계를 연결했다.
+  - `CollateralDataQualityInspectionService`를 추가해 application service가 상세 port 조회와 domain processor 호출 순서를 조정하게 했다.
+  - `CollateralDataQualityProcessor`는 DB를 알지 않고 담보 마스터 평가액, 부동산/아파트 상세 존재 여부, KB 시세/지역/전용면적 DQ만 판단하도록 보강했다.
+  - `CollateralDataQualityItemProcessor`는 Spring Batch adapter로 축소하고 core application service에 위임하도록 정리했다.
+  - demo/bootstrap `DataPopulator`가 부동산 담보 생성 시 아파트 상세 seed를 함께 저장하도록 보강했다.
+  - `V5__add_ods_apart_coll_detail.sql`과 account-mart README/docs/Gemini prompt/운영 로그를 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`
+- **검증 결과**:
+  - account-mart core 테스트, mart-api 컴파일, mart-batch 테스트 성공.
+  - Java TODO 검색에서 account-mart 내 `@todo/TODO/FIXME` 잔여 항목 없음.
+- **남은 리스크**:
+  - PostgreSQL 실제 Flyway 적용, 운영 대량 담보 상세 조회 성능, LGD 본 산출식과의 정량 연결은 별도 통합 검증이 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `account-mart` 하위 담보 DQ/adapter/migration/docs 변경과 관련 WORKLOG/handoff/Gemini prompt 항목을 revert한다.
 # WORKLOG (Source of Truth)
 
 > 이 문서는 프로젝트의 전체 작업 이력과 컨텍스트를 유지하기 위한 통합 워크로그입니다.
 > 이전 작업 내역은 사용자 요청에 의해 초기화되었습니다.
 
+
+### 📅 2026-07-03 (Codex 수정)
+### [수정] Loan 일일 이자 발생 전표 포트 경계와 로컬 실행 정리
+- **작업 배경**:
+  - `loan` 문서는 전표를 `LoanJournalPort` 뒤로 숨긴다고 설명했지만, `InterestAccrualService`가 journal-ledger `JournalUseCase`와 `JournalEntry`를 직접 생성하고 있었다.
+  - `EIRAmortizationSchedule`도 journal-ledger 전표 엔티티를 직접 연관으로 들고 있어 대출 Aggregate가 외부 Aggregate 생명주기에 묶이는 문제가 있었다.
+- **수정 범위**:
+  - `InterestAccrualService`를 `LoanJournalPort` 기반 전표 명령 생성으로 변경하고, 일일 이자 발생 로그에 전표 ID/전표번호를 함께 저장하도록 보강했다.
+  - `EIRAmortizationSchedule`, `LoanEvent`는 전표 엔티티 연관 대신 전표 ID/전표번호 값 참조만 보관하도록 정리했다.
+  - `V32__loan_accrual_journal_reference.sql`을 추가해 이자 발생 로그, EIR 상각 스케줄, 대출 이벤트 전표 참조 컬럼을 보강했다.
+  - `LoanBatchJobRegistryConfiguration`을 추가해 Batch JobRegistry 등록 시점을 늦추고 로컬 batch context 경고를 제거했다.
+  - Loan README/local-run/process-flow/schema와 IntelliJ `.run` 설정을 local/H2, app name, Redis repository 비활성화 옵션 기준으로 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks`
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`
+  - `.\gradlew :loan:api:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-api --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --server.port=0 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1`
+  - `.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1`
+- **검증 결과**:
+  - Loan core 테스트, API/BATCH 컴파일, API/BATCH local H2 context smoke 성공.
+  - API/BATCH 로그가 `loan-api`, `loan-batch`로 식별되고 Redis repository 스캔 로그가 사라짐을 확인했다.
+  - Batch context에서 `jobRegistryBeanPostProcessor` 조기 초기화 경고가 재현되지 않았다.
+- **남은 리스크**:
+  - PostgreSQL 실제 migration 적용, 대량 ACTIVE 대출 기준 성능, 실제 master-data/journal-ledger 연동 데이터 검증은 별도 필요하다.
 ### 📅 2026-06-18 (Codex 수정)
 ### [구조화] Payable/Receivable/Reconciliation/Tax/Expenditure Resolution core/api/batch 실행 모듈 분리
 - **작업 배경**:
@@ -1029,72 +1171,524 @@
   - `main` push 완료.
   - 최종 동기화 확인은 이 로그 커밋 push 직후 수행한다.
 
-## 2026-07-03 (GitHub Issue Agent Loop Harness)
-- 사용자 요청: GitHub Issue로 AI Agent Loop 코딩을 관리하는 하네스를 만들고, branch/worktree 선택 기준을 정리하며, GitHub CLI를 설치.
-- 작업 위치: `agent/github-issue-agent-loop-harness` branch, `C:\tmp\account-gh-issue-harness` worktree.
-- 수정 내용:
-  - `docs/ai-harness/85-github-issue-agent-loop.md` 추가.
-  - `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml` 추가.
-  - `.github/PULL_REQUEST_TEMPLATE/ai-agent-loop.md` 추가.
-  - `Agents.md`, `00-overview.md`, `10-rules.md`, `20-workflow.md`, `50-git-worktree-guide.md`에 GitHub Issue 루프와 branch/worktree 정책을 연결.
-  - GitHub CLI `gh` 2.96.0 설치 확인.
-- 검증:
-  - conflict marker 검색 결과 없음.
-  - `git diff --check`는 CRLF 변환 경고만 있고 오류 없음.
-  - `gh --version` 성공.
-  - `gh auth status`는 아직 로그인 없음.
-- 남은 리스크:
-  - 실제 GitHub Issue 발행은 `gh auth login` 후 가능하다.
-  - 승인 권한으로 만든 worktree라 Git 명령에는 `-c safe.directory=C:/tmp/account-gh-issue-harness`가 필요할 수 있다.
 
-## 2026-07-07 (GH-1 Issue Branch Worktree PR Harness Hardening)
-- 사용자 요청: GitHub Issue #1을 확인하고 하네스 적용 여부를 점검한 뒤, 앞으로 Issue/Branch/Worktree/PR 단위로 작업할 수 있도록 하네스를 고도화.
-- 작업 위치: `agent/github-issue-agent-loop-harness` branch, `C:\tmp\account-gh-issue-harness` worktree.
-- 점검 결과:
-  - Issue #1은 `하네스구성` 제목의 OPEN 이슈이며, 기존 하네스 업그레이드 요구사항을 담고 있다.
-  - 기본 하네스 문서와 역할/규칙/워크플로우는 대부분 반영되어 있다.
-  - 부족했던 부분은 Issue -> Branch -> Worktree -> Draft PR 추적성과 기본 `.github/pull_request_template.md`였다.
-- 수정 내용:
-  - Issue #1 적용 점검표 `docs/ai-harness/05-issue-1-compliance-audit.md` 추가.
-  - 기본 GitHub PR 템플릿 `.github/pull_request_template.md` 추가.
-  - `85-github-issue-agent-loop.md`에 추적 모델, naming rule, command recipe, status sync checkpoint, Issue #1 적용 상태를 추가.
-  - worklog, agent-status, handoff, integration-log에 Issue/Branch/Worktree/PR 템플릿을 추가.
-  - Issue Form과 전용 PR 템플릿에 traceability 필드를 보강.
-- 검증:
-  - GitHub Issue #1 조회 성공.
-  - conflict marker 및 `git diff --check`는 최종 검증에서 확인한다.
-- 남은 리스크:
-  - 브랜치 push와 Draft PR 생성은 아직 하지 않았다.
-  - Issue #1에는 아직 label이 없다. label 생성/적용은 별도 승인 후 진행하는 것이 안전하다.
-
-## 2026-07-08 (GH-1 PR Merge And Issue Close Runbook Update)
-- 사용자 요청: PR #2 merge 이후 Issue #1을 닫고, 실제 처리 방식을 하네스에 반영.
-- 처리 결과:
-  - Issue #1 `하네스구성`을 수동 close 처리했다.
-  - PR #2는 이미 GitHub PR merge 방식으로 `main`에 병합되었다.
-  - `docs/ai-harness/85-github-issue-agent-loop.md`에 Draft PR ready 전환, merge, issue close, 상태 확인, branch/worktree cleanup 기준을 추가했다.
-  - `05-issue-1-compliance-audit.md`, `integration-log.md`, `worklog.md`, `agent-status.md`, `handoff.md`에 실제 처리 결과를 기록했다.
-- 남은 리스크:
-  - 후속 문서 업데이트 브랜치는 아직 commit/push/PR 전이다.
-  - 병합된 이전 branch/worktree cleanup은 사용자가 확인한 뒤 진행해야 한다.
-
-### 2026-07-14 (GH-4 AI Harness Progressive Disclosure)
-
-### [문서/운영체계] AGENTS 경량화, 저장소 스킬, Codex 서브 에이전트 구성
-
-- **작업 추적**:
-  - GitHub Issue #4, `agent/4-harness-skills-subagents`, `C:\tmp\account-harness-skills` worktree를 사용했다.
+### 📅 2026-06-30 (asset-lease API/BATCH split)
+### [구조 변경] asset-lease를 core/api/batch Gradle 하위 프로젝트로 분리
 - **수정 범위**:
-  - 루트 `Agents.md`를 Codex 공식 자동 탐색 이름 `AGENTS.md`로 변경하고 124줄에서 61줄로 경량화했다.
-  - Issue/worktree/PR, 헥사고날 API/core/batch 변경, 검증/handoff 절차를 세 개의 `.agents/skills/` 스킬로 분리했다.
-  - Planner, Explorer, Coder, Controller, Service, Batch, SQL, Test, Reviewer, Integrator, Documentation 역할을 `.codex/agents/`에 정의했다.
-  - 공유 로그와 Git/GitHub 변경은 부모 Integrator만 수행하도록 workflow와 ownership 정책을 정리했다.
+  - `settings.gradle`: `asset-lease:core`, `asset-lease:api`, `asset-lease:batch` 추가.
+  - `asset-lease/build.gradle`: 기존 단일 Boot 앱을 `:asset-lease:core` 호환 wrapper로 전환.
+  - `asset-lease/core/build.gradle`, `api/build.gradle`, `batch/build.gradle`: core library, API Boot, Batch Boot 구성 추가.
+  - `AssetLeaseApiApplication`, `AssetLeaseBatchApplication` 실행 진입점 추가, 기존 core 실행 클래스는 `AssetLeaseCoreModule` marker로 정리.
+  - `expenditure-resolution:core`: `:asset-lease:core` 의존으로 변경.
+  - `.run`, Dockerfile, asset-lease 문서, 전사 로컬 개발 문서, Gemini 리뷰 프롬프트를 새 실행 경로로 갱신.
 - **검증**:
-  - `codex debug prompt-input`에서 `AGENTS.md`와 세 스킬 자동 탐색을 확인했다.
-  - 스킬 3개와 custom agent 11개의 구조 검사를 통과했다.
-  - Python이 없어 공식 `quick_validate.py`는 실행하지 못했고 동일 규칙 검사로 대체했다.
-  - diff, trailing whitespace, placeholder, conflict marker 검사에 이상이 없었다.
-  - 문서/설정 변경이므로 Gradle 테스트는 실행하지 않았다.
+  - `.\gradlew projects --console=plain` 성공.
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :expenditure-resolution:core:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :asset-lease:test :asset-lease:compileJava --console=plain --max-workers=1` 성공.
 - **남은 리스크**:
-  - custom agent 실제 spawn은 새 Codex 세션에서 다시 확인해야 한다.
-  - branch push, Draft PR, merge, Issue close는 아직 수행하지 않았다.
+  - API/BATCH bootRun 장시간 smoke는 아직 실행하지 않았다.
+  - 실제 감가상각 Job 실행은 `targetDate`와 업무 데이터 준비 후 별도 확인이 필요하다.
+### 📅 2026-07-02 (전체 모듈 Gradle/API/BATCH 실행 재검증)
+### [검증/수정] H2 로컬 기준 API bootRun, Batch context, 대표 Spring Batch Job 실행 경로 확인
+- **수정 범위**:
+  - `asset-lease:batch`: Batch 앱을 non-web 실행으로 고정하고, Job 이름이 있으면 완료 상태를 Gradle 종료 코드로 전달하게 했다.
+  - `asset-lease:core`: `FixedAssetRepository.findByStatus(String, Pageable)`을 추가해 `RepositoryItemReader`가 ACTIVE 자산을 페이지 단위로 읽게 했다.
+  - `account-mart:mart-batch`: Servlet 모드 강제를 제거하고 Batch CLI 실행은 non-web + Job 완료 후 종료되도록 정리했다.
+  - `ecl:ecl-batch`: `System.setProperty` 대신 non-web 실행과 기본 Job 자동 실행 비활성화 기본값을 사용하고, `job.name` 실행 후 종료 상태를 전달하게 했다.
+  - `docs/local-development.md`, `asset-lease/docs/local-run.md`, `account-mart/README.md`, `account-mart/mart-batch/README.md`, `ecl/README.md`, `ecl/ecl-batch/README.md`에 H2/API/Batch/PostgreSQL 실행 옵션을 최신화했다.
+- **검증**:
+  - `.\gradlew projects --console=plain` 성공.
+  - `.\gradlew compileJava --console=plain --max-workers=1` 성공.
+  - API bootRun smoke 성공: `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance`, `asset-lease:api`, `journal-ledger:api`, `closing:api`, `loan:api`, `deposit:api`, `payable:api`, `receivable:api`, `reconciliation:api`, `tax:api`, `expenditure-resolution:api`, `reporting:api`, `account-mart:mart-api`, `ecl:ecl-api`.
+  - Batch context smoke 성공: `asset-lease:batch`, `closing:batch`, `deposit:batch`, `journal-ledger:batch`, `loan:batch`, `payable:batch`, `receivable:batch`, `reconciliation:batch`, `tax:batch`, `expenditure-resolution:batch`, `reporting:batch`, `account-mart:mart-batch`, `ecl:ecl-batch`.
+  - 실제 Spring Batch Job smoke 성공: `assetDepreciationJob`, `fxValuationJob`, `eclProvisionJob`, `loanInterestAccrualJob`, `depositAccountIntegrityJob`, `payablePaymentRunJob`, `receivableAutoMatchingJob`, `reconciliationDailyJob`, `taxInvoiceValidationJob`, `expenditureResolutionApprovalJob`, `reportingStatementGenerationJob`, `integratedPositionEtlJob`, `standaloneDqJob`.
+  - `rg -n "@todo|TODO:" --glob "*.java" --glob "!**/build/**" .` 결과 Java TODO 없음.
+  - `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
+  - `.\gradlew build --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - 검증은 H2/demo/memory adapter와 빈 업무 데이터 중심 smoke 기준이다. PostgreSQL 실 DB, 대량 seed, 외부 Kafka/Vault/Eureka/Config Server 연동, 모든 MSA 동시 장시간 기동은 별도 환경에서 검증해야 한다.
+  - Gradle 9 호환성 deprecation warning은 남아 있다.
+  - 일부 Batch 테스트/종료 로그에 Step scope reader close 경고가 남지만 이번 검증에서는 실패를 유발하지 않았다.
+
+### 📅 2026-07-02 (account-mart core/batch 경계 리팩토링)
+### [검수/리팩토링] mart-core Spring Batch 의존 제거 및 ODS-GL 합계 대사 보정
+- **선확인**:
+  - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness/*`, `account-mart/README.md`, `account-mart/docs/README.md`를 확인했다.
+  - `mart-core`의 domain processor가 Spring Batch `ItemProcessor`/`StepExecutionListener`를 직접 구현하고, application port에 JPA Repository 타입이 노출된 구조를 확인했다.
+- **수정 범위**:
+  - `mart-core`: DQ/CDM processor를 Spring Batch 타입이 없는 일반 core 컴포넌트로 정리하고, `BatchParameterUtils`를 문자열 기반 기준일 파서로 축소했다.
+  - `mart-batch`: Spring Batch processor adapter와 `BatchStepParameterUtils`를 추가해 StepExecution 해석 책임을 batch에 둔다.
+  - `mart-core/build.gradle`: core의 `spring-batch-core` API 의존을 제거했다.
+  - `OdsApartCollDetailRepository`: 사용되지 않고 application port가 JPA를 직접 상속하던 skeleton 포트를 삭제했다.
+  - `OdsGeneralLedgerPersistenceAdapter`/`JpaOdsGeneralLedgerRepository`: ODS-GL 대사를 기준일+계정+통화 합계 기준으로 조회하도록 보정했다.
+  - `OdsApartCollDetail`: 실제 담보 DQ/LGD 흐름 연결이 필요한 지점을 `@todo`로 남겼다.
+  - account-mart README/docs: core/batch 헥사고날 경계와 초보자용 실행/데이터 흐름 설명을 보강했다.
+- **검증**:
+  - `rg -n "org\.springframework\.batch|StepExecution|ItemProcessor|StepExecutionListener|ExitStatus|StepScope" account-mart\mart-core\src\main\java account-mart\mart-core\src\test\java account-mart\mart-core\build.gradle` 결과 실제 타입 참조 없음(설명 주석 1건만 존재).
+  - `rg -n "OdsDataQualityService dqService|OdsApartCollDetailRepository" account-mart` 결과 없음.
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - `mart-batch:test` shutdown 시 기존 step-scope reader close WARN이 출력되지만 테스트 실패는 아니다.
+  - 신규 `@todo`는 `OdsApartCollDetail`을 실제 담보 DQ/LGD 흐름에 연결하는 후속 고도화 항목이다.
+  - PostgreSQL/대량 seed 기준의 ODS-GL 대사 합계 성능 검증은 별도 통합 환경에서 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `account-mart` 하위 변경 파일과 관련 WORKLOG/handoff 항목을 revert한다.
+
+### 📅 2026-07-03 (ecl core pipeline 경계 리팩토링)
+### [검수/리팩토링] ecl-batch 업무 산출 순서 core pipeline 이동
+- **선확인**:
+  - `ecl/README.md`, `ecl/docs/README.md`, `ALLOWANCE_ARCHITECTURE.md`, `BATCH_EXECUTION_FLOW.md`, `ecl-core/README.md`, `ecl-batch/README.md`를 확인했다.
+  - `ecl-core`에는 Spring Batch 타입 직접 참조가 없고, JPA Repository는 infrastructure adapter 아래에만 있음을 확인했다.
+  - `ecl-batch`의 `StagingProcessor`, `EadCrmProcessor`, `EclProcessor`가 Stage/PD, EAD/LGD, 미래전망 ECL 산출 호출 순서를 직접 갖고 있어 batch adapter 책임이 과해진 부분을 확인했다.
+- **수정 범위**:
+  - `ecl-core/application/pipeline`: `StagingCalculationPipeline`, `EadCrmCalculationPipeline`, `ForwardLookingEclCalculationPipeline`을 추가했다.
+  - `ecl-batch/processor`: Spring Batch `ItemProcessor`는 기준일 파라미터 해석과 core pipeline 위임만 수행하도록 축소했다.
+  - `AllowanceCalculationService`: API/단건 산출도 동일한 core pipeline을 재사용하도록 정리해 batch/API 산출 순서 중복을 줄였다.
+  - `ecl-core` 테스트: core pipeline 테스트 3개를 추가하고, 유즈케이스 서비스 테스트를 pipeline 호출 순서 중심으로 갱신했다.
+  - ecl README/docs와 batch config 주석: batch adapter와 core pipeline 책임 분리를 초보자용 설명으로 최신화했다.
+- **검증**:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` 성공.
+  - `rg -n "AllowanceParameterService|PdCalculationService|LgdCalculationService|CcfCalculationService|EadCrmCalculationService|LifetimePdService|ForwardLookingEclService|BigDecimal|resolveMaturityYears|AllowanceEclResult\.builder" ecl\ecl-batch\src\main\java\com\ho\account\ecl\batch\processor` 결과 없음.
+  - `rg -n "org\.springframework\.batch|ItemProcessor|StepExecution|JobParameters|StepScope" ecl\ecl-core\src\main\java ecl\ecl-core\build.gradle` 결과 설명 주석 1건 외 실제 타입 참조 없음.
+  - `rg -n "@todo|TODO:" ecl --glob "*.java" --glob "!**/build/**"` 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL 대량 seed 기준 ECL 성능 검증은 이번 범위에서 수행하지 않았다.
+  - Gradle 9 deprecation warning은 기존과 동일하게 남아 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `ecl` 하위 변경 파일과 관련 WORKLOG/handoff 항목을 revert한다.
+### 📅 2026-07-03 (journal-ledger 잔액 재집계 Batch 경계 리팩토링)
+### [검수/리팩토링] Balance Reaggregation Job을 Spring Batch 실행 단위로 전환하고 local/H2 실행 경로 검증
+- **선확인**:
+  - `journal-ledger/README.md`, `journal-ledger/docs/README.md`, `process-flow.md`, `ledger-carry-forward.md`, `layer-guide.md`를 확인했다.
+  - 기존 `journal-ledger:batch`는 실행 모듈은 있었지만 문서상 실제 Job이 없고, `BalanceReaggregationBatchConfig`에 기준일 기본값과 실행 로직이 직접 섞여 있었다.
+- **수정 범위**:
+  - `BalanceReaggregationBatchConfig`: Job/Step wiring만 담당하도록 축소했다.
+  - `BalanceReaggregationTasklet`: Spring Batch Step에서 core `LedgerService.reaggregateLedgerBalancesForPeriod`를 호출하는 adapter로 추가했다.
+  - `BatchDateRangeParameterUtils`: `startDate/endDate`, `fromDate/toDate`, `baseDate`, `targetDate` JobParameter를 `LocalDate` 기간으로 변환하도록 추가했다.
+  - `journal-ledger/batch/application.yml`: H2 memory datasource와 Batch non-web/local 실행 기본값을 올바른 YAML 계층으로 정리했다.
+  - `journal-ledger/batch/build.gradle`: 잘못된 Batch test starter 좌표를 `org.springframework.batch:spring-batch-test`로 보정했다.
+  - `Money` 값 객체의 깨진 한글 주석을 BigDecimal/소수점 2자리 도메인 규칙 설명으로 복구했다.
+  - `journal-ledger` README/docs, `docs/local-development.md`, IntelliJ `.run/Journal Ledger Batch Reaggregation.run.xml`에 H2 local 실행 명령과 Job 파라미터를 반영했다.
+- **검증**:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` 성공, Job status `COMPLETED`.
+  - `rg -n "\?\?\?|�|@todo|TODO:" ecl journal-ledger --glob "*.java" --glob "!**/build/**"` 결과 없음.
+  - `Select-String -Path journal-ledger\README.md,journal-ledger\docs\README.md,journal-ledger\docs\process-flow.md,journal-ledger\docs\layer-guide.md,docs\local-development.md -SimpleMatch '
+'` 결과 없음.
+  - `git diff --check` 오류 없음(CRLF 변환 경고만 출력).
+- **남은 리스크**:
+  - H2 빈 데이터 기준 smoke 검증이며, PostgreSQL 대량 seed 기준 잔액 재집계 성능/락/멱등성 검증은 별도 환경에서 필요하다.
+  - Batch bootRun 중 Spring Cloud/Batch 조기 BeanPostProcessor 경고가 출력되지만 Job 실행 실패를 유발하지 않았다. 운영 실행 최적화 시 Batch 모듈 starter 축소나 auto-configuration 정리를 검토한다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `journal-ledger` 하위 batch/docs 변경, `.run/Journal Ledger Batch Reaggregation.run.xml`, 관련 WORKLOG/handoff 항목을 revert한다.
+### 📅 2026-07-03 (closing core/batch 경계 리팩토링)
+### [검수/리팩토링] FX 평가/ECL 충당 업무 로직을 closing:core로 이동
+- **선확인**:
+  - `closing/README.md`, `closing/docs/README.md`, `process-flow.md`, `local-run.md`를 확인했다.
+  - `closing:batch`의 `FxValuationService`, `EclProvisionService`가 환율 적용, 목표 충당금-기존 충당금 차이, 차대변 판단, 전표 생성 command를 직접 소유하고 있어 Batch adapter 책임이 과한 구조를 확인했다.
+- **수정 범위**:
+  - `closing:core/application/service`: `FxValuationService`, `EclProvisionService`, `FxValuationBalance`, `ClosingSlipNoFactory`를 추가해 FX/ECL 결산 업무 판단을 core로 이동했다.
+  - `closing:core/application/port/out`: `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort`와 전표 command/result 타입을 추가했다.
+  - `closing:batch/adapter/out`: master-data 환율 조회, journal-ledger GL 충당금 조회, journal-ledger 전표 생성 어댑터를 추가했다.
+  - `FxValuationBatchConfig`, `EclProvisionBatchConfig`: Batch는 Job/Step/Reader/Tasklet과 core 위임만 담당하도록 정리했다.
+  - 기존 batch service 테스트를 core service 테스트로 이동해 금액/차대변/자동전기 여부를 core 기준으로 검증했다.
+  - `closing` README/docs/local-run/process-flow와 Batch 주석을 core/batch 경계 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` 성공.
+  - `rg -n "org\.springframework\.batch|ItemProcessor|Tasklet|StepExecution|JobParameters|StepScope|JobScope" closing\core\src\main\java closing\core\build.gradle --glob "*.java" --glob "*.gradle"` 결과 없음.
+  - `rg -n "@todo|TODO:|FIXME|�|\?\?\?" closing --glob "*.java" --glob "*.md" --glob "!**/build/**"` 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL 대량 GL 잔액/allowance_summary 기준 성능, skip/retry 정책, 전표 중복 감지 운영 검증은 별도 통합 환경에서 필요하다.
+  - `FxValuationBatchConfig`의 계정 단위 skip은 현재 로깅 후 계속 진행한다. 운영에서는 skip-limit, 재처리 큐, 실패 계정 리포트 정책을 더 엄격히 둘 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `closing/core/application/service`, `closing/core/application/port/out`, `closing/batch/adapter/out`, `closing/batch/config`, `closing/docs`, 관련 WORKLOG/handoff 항목을 revert한다.
+
+#### 추가 검증
+- `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` 성공.
+- `closing/api`와 `closing/batch`에 `local` profile용 `logback-spring.xml`을 추가해 로컬 실행 시 Logstash 연결 경고를 피하도록 했다.
+### 📅 2026-07-08 (receivable API/core command 경계 리팩토링)
+### [검수/리팩토링] 매출채권 HTTP DTO/Controller를 API로 분리하고 core command 경계로 정리
+- **선확인**:
+  - `receivable/README.md`, `receivable/docs/README.md`, `receivable/docs/local-run.md`를 확인했다.
+  - `receivable:core`가 Controller/DTO/Web/Validation 의존을 함께 소유하고 있어 API 계약과 core 업무 입력이 섞인 상태를 확인했다.
+- **수정 범위**:
+  - `SalesController`, `CollectionController`, 요청/응답 DTO와 컨트롤러 테스트를 `receivable:api`로 이동했다.
+  - `SalesInvoiceCommand`, `CollectionCommand`, `ManualMatchingCommand`를 추가하고 `SalesUseCase`, `CollectionUseCase`, `SalesService`, `CollectionService`를 command 기반 입력으로 변경했다.
+  - `receivable:core`에서 Web/Validation 의존을 제거하고, API DTO의 Bean Validation은 `receivable:api`에만 남겼다.
+  - `SalesService`의 매출 전표 actor는 더 이상 `SYSTEM` 고정값이 아니라 command에서 전달된 `createdBy`를 사용한다.
+  - `ReceivableBatchJobRegistryConfiguration`을 추가해 Batch Job 등록 시점을 singleton 초기화 이후로 늦췄다.
+  - receivable 문서와 Gemini 리뷰 프롬프트를 API DTO -> core command -> domain/service 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` 성공.
+  - `.\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` 성공, JobRegistry BeanPostProcessor 경고 미재현.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 런타임 호환과 대량 자동 매칭 Job 성능은 별도 통합 환경에서 검증해야 한다.
+  - 수납 actor/감사 필드 세분화는 현재 범위 밖이며, 운영 감사 정책 확정 시 command 확장을 검토한다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `receivable`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-08 (reconciliation API/core command 경계 리팩토링)
+### [검수/리팩토링] 대사 HTTP DTO/Controller를 API로 분리하고 core command 경계로 정리
+- **선확인**:
+  - `reconciliation/README.md`, `reconciliation/docs/README.md`, `reconciliation/docs/local-run.md`, `reconciliation/docs/process-flow.md`를 확인했다.
+  - `reconciliation:core`가 Controller/DTO/Web/Validation 의존을 함께 소유하고 있어 API 계약과 core 업무 입력이 섞인 상태를 확인했다.
+- **수정 범위**:
+  - `ReconciliationController`와 요청/응답 DTO를 `reconciliation:api`로 이동했다.
+  - `AssignDifferenceCommand`, `DifferenceReasonCodeCommand`, `ReconciliationRuleCommand`, `ReconciliationUnitCommand`, `ResolveDifferenceCommand`, `RunReconciliationCommand`를 core application input boundary로 추가했다.
+  - `ReconciliationService`와 `ReconciliationBatchService`는 command를 받아 도메인 객체 생성, 대사 실행, 차이 배정/해결을 수행한다.
+  - `reconciliation:core`에서 Web/Validation 의존을 제거하고 API DTO의 Bean Validation은 `reconciliation:api`에만 남겼다.
+  - `ReconciliationBatchJobRegistryConfiguration`을 추가해 Batch Job 등록 시점을 singleton 초기화 이후로 늦췄다.
+  - reconciliation README/docs와 Gemini 리뷰 프롬프트를 API DTO -> core command -> domain/service 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1` 성공.
+  - `reconciliation:api:bootRun` local/H2 context smoke 성공.
+  - `reconciliation:batch:bootRun` local/H2 context smoke 성공, JobRegistry BeanPostProcessor 경고 미재현.
+  - reconciliation Java TODO/FIXME 검색 결과 없음.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 런타임 호환과 실제 대량 `reconciliationDailyJob` 실행은 별도 통합 환경에서 검증해야 한다.
+  - 실제 외부 원천 스냅샷과 journal-ledger 전표 생성 포트의 운영 데이터 정합성은 H2 smoke 범위 밖이다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `reconciliation`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-08 (reporting API response DTO 경계 리팩토링)
+### [검수/리팩토링] reporting API 응답에서 core 도메인 직접 노출 제거
+- **선확인**:
+  - `reporting/README.md`, `reporting/docs/README.md`, `reporting/docs/local-run.md`, `reporting/docs/process-flow.md`를 확인했다.
+  - `reporting:core`에는 Web/Spring Batch 타입이 직접 섞여 있지 않았고, Batch 모듈은 Job/Step/Tasklet과 core 위임 구조를 유지하고 있음을 확인했다.
+  - `ReportingController`가 `FinancialStatement`, `DisclosureNoteMart`, `RegulatoryReportSubmission`, `RegulatoryFiling` 도메인 객체를 HTTP 응답으로 직접 반환하는 API 계약 결합 지점을 확인했다.
+- **수정 범위**:
+  - `reporting:api/.../dto`에 재무제표, 주석 마트, 감독보고 제출본, 감독보고 제출 결과, drill-down 응답 DTO를 추가했다.
+  - `ReportingController`는 core command를 호출한 뒤 도메인 결과를 response DTO로 변환한다.
+  - Drill-down 응답도 `JournalDetailSummaryResponseDto`로 감싸 journal-ledger contract 객체가 HTTP 응답 계약에 직접 노출되지 않게 했다.
+  - reporting README/docs와 Gemini 리뷰 프롬프트를 core domain -> API response DTO 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 및 실제 대량 reportingStatementGenerationJob 실행은 별도 통합 환경에서 검증해야 한다.
+  - 이번 범위는 API 응답 경계 정리이며, reporting core의 persistence adapter 분리나 DB 성능 검증은 포함하지 않았다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `reporting/api`, `reporting/README.md`, `reporting/docs`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-09 (deposit command/Batch 기준일 경계 리팩토링)
+### [검수/리팩토링] 예금 계좌 개설 입력 검증과 Batch 재실행 기준일 fail-fast 보강
+- **선확인**:
+  - `deposit/README.md`, `deposit/docs/README.md`, `deposit/docs/local-run.md`를 확인했다.
+  - `DepositController`는 도메인을 직접 반환하지 않고 문자열 계좌번호 계약을 유지하고 있음을 확인했다.
+  - `OpenAccountCommand`에는 필수 코드/금액/금리 검증이 없고, `depositAccountIntegrityJob`은 `asOfDate` 누락 시 현재 날짜로 조용히 실행되어 재실행성이 약한 지점을 확인했다.
+- **수정 범위**:
+  - `OpenAccountCommand`에 고객/상품/통화 코드 필수값, 통화 코드 `Locale.ROOT` 대문자 정규화, 초기입금/금리 음수 방어를 추가했다.
+  - `DepositAccountIntegrityBatchConfig`는 `asOfDate`가 없거나 `yyyy-MM-dd` 형식이 아니면 fail-fast 하도록 변경했다.
+  - 계좌 개설 command 검증 테스트와 Batch `asOfDate` 파라미터 테스트를 추가했다.
+  - deposit README/docs에 API DTO -> core command 흐름과 Batch 기준일 필수 정책을 초보자용 설명으로 최신화했다.
+- **검증**:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1` 성공.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 및 실제 master-data/journal-ledger adapter 연결은 별도 통합 환경에서 검증해야 한다.
+  - API 응답은 기존 문자열 계좌번호 계약을 유지했다. 외부 계약 버전업 시 계좌번호/전표ID를 포함한 response DTO 전환을 검토할 수 있다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `deposit`, 관련 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (master-data typed applier/대량 통계 경계 리팩토링)
+### [검수/리팩토링] 승인 변경 반영 정합성과 일일 유효성 보고 성능 보강
+- **선확인**:
+  - `master-data/README.md`와 `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - core `MasterDataValidityReportPipeline`이 batch `MasterDataBatchReport`를 역참조하고, 네 기준정보 `findAll()` 결과를 메모리 stream으로 집계하는 계층/성능 문제를 확인했다.
+  - 변경 요청은 DEPARTMENT만 typed applier가 있었고, DEACTIVATE도 payload를 먼저 파싱하며 승인 `effectiveDate` 대신 실행일로 종료하는 재실행 정합성 문제를 확인했다.
+- **수정 범위**:
+  - core `MasterDataValidityReport`와 `MasterDataValidityStatisticsPort`를 추가하고, batch orchestrator는 core 결과를 batch DTO로 매핑만 하도록 정리했다.
+  - `JpaMasterDataValidityStatisticsAdapter`와 네 JPA `COUNT` 쿼리를 추가해 전체 행 메모리 집계를 제거했다.
+  - 일일 보고 `asOfDate`를 필수값으로 만들어 동일 기준일 재실행 결과를 고정했다.
+  - ACCOUNT_SUBJECT/BUSINESS_PARTNER/DEPARTMENT/PRODUCT typed applier를 구현하고, payload JSON 기술은 `MasterDataChangePayloadDecoder` 포트와 Jackson 어댑터 뒤로 이동했다.
+  - payload 업무 키와 승인 `targetKey` 불일치를 거부하고, DEACTIVATE는 payload 없이 승인 `effectiveDate`를 SCD2 종료일로 전달한다.
+  - `MasterDataValidityPolicy`에 종료일이 기존 기간을 뒤집거나 연장하지 않는 공통 검증을 추가했다.
+  - IntelliJ `Master Data bootRun`과 master-data 문서를 standalone H2 실행 및 현재 실제 패키지/Gradle 경계 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1` 성공.
+  - `.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1` 성공. H2에 엔티티를 저장하고 네 DB `COUNT` 결과를 확인했다.
+  - `.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` 성공.
+  - 최초 bootRun은 Vault 비활성화 인자 누락으로 실패했고, 표준 local 인자를 보완한 재실행에서 성공했다.
+  - 최초 JPA slice는 빈 Flyway baseline 때문에 테이블이 없어 실패했고, 집계 쿼리 검증 목적에 맞게 Flyway 비활성화/Hibernate create-drop을 명시한 뒤 성공했다.
+  - core의 batch 패키지/DTO 역참조와 batch 패키지의 if/for/math/stream 업무 연산 검색 결과 없음.
+- **남은 리스크**:
+  - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` typed applier는 아직 없으며 fail-closed 상태다.
+  - `requestedVersion`은 양수 검증만 있고 현재 target 버전과의 충돌 검사가 없어 코드 `@todo`로 남겼다.
+  - `batch.application`은 package-level orchestrator이며 독립 Spring Batch Job/Step 실행 모듈이 아니다.
+  - `V1__init_baseline.sql`은 빈 baseline이므로 PostgreSQL 운영 DDL/Flyway 검증과 대량 실행 계획 검증이 별도로 필요하다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `master-data`, `.run/Master Data bootRun.run.xml`, 관련 WORKLOG/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (governance 승인 경계/단독 실행 리팩토링)
+### [검수/리팩토링] 빈 Spring Boot 서버 방지와 권한 회수 승인 일관성 보강
+- **선확인**:
+  - `governance/README.md`, `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - 실행 클래스 패키지와 실제 audit 기능 패키지가 달라 기본 컴포넌트 스캔으로는 기능 Bean이 등록되지 않는 문제를 확인했다.
+  - 권한 회수는 승인을 거치지 않고 즉시 삭제됐고, 역할/권한 승인 어댑터의 미지원 requestType이 조용히 무시되는 fail-open 문제를 확인했다.
+- **수정 범위**:
+  - `GovernanceApplication`에 audit와 필요한 master-data service/adapter/repository/entity 스캔 범위를 명시했다.
+  - 컨텍스트 테스트를 추가해 Controller, 감사/승인 유스케이스, master-data 변경 요청 유스케이스가 실제로 등록되는지 검증한다.
+  - 권한 회수를 `PENDING` 승인 요청으로 전환하고 API는 `202 Accepted` 승인 접수 DTO를 반환하도록 변경했다.
+  - `SystemRoleApprovalApplyAdapter`는 역할 CREATE와 권한 CREATE/DELETE만 처리하며 미지원 조합은 fail-closed 예외를 발생시킨다.
+  - H2/PostgreSQL JDBC 런타임과 IntelliJ H2 단독 실행 설정을 추가하고 초보자 문서를 업무/데이터 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :governance:compileJava --console=plain --max-workers=1` 성공.
+  - `.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1` 성공.
+  - H2/local non-web `bootRun` 성공. JPA Repository 12개와 실제 기능 컨텍스트가 기동됐다.
+- **남은 리스크**:
+  - 역할 생성/권한 부여 API는 아직 저장 전 preview 도메인을 반환하며 승인 접수 DTO 전환 `@todo`가 남아 있다.
+  - Auth 외부 반영과 Governance DB 트랜잭션 사이에는 outbox/inbox 원자성 `@todo`가 남아 있다.
+  - 실제 PostgreSQL/Flyway와 운영 스키마는 이번 범위에서 검증하지 않았다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 governance 코드/테스트/docs, `.run/Governance bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-14 (auth 인증/역할 승인 멱등 경계 리팩토링)
+### [검수/리팩토링] API/core 분리, 역할 스냅샷 정합성, Governance 승인 재시도 안전성 보강
+- **선확인**:
+  - `auth/README.md`와 `docs/README.md`, `beginner-guide.md`, `process-flow.md`, `schema.md`, `local-run.md`를 확인했다.
+  - core `AuthService`/`AuthUseCase`가 API `LoginResponse`를 역참조하고, 역할 유효성을 여러 번 `Instant.now()`로 평가해 응답/JWT가 달라질 수 있는 문제를 확인했다.
+  - memory 역할 교체가 역할 코드만 저장해 dataScope/유효기간을 잃고, `approvalTraceId`가 무시되어 외부 재시도마다 roleVersion이 증가하는 문제를 확인했다.
+- **수정 범위**:
+  - core `LoginCommand`, `AuthenticationResult`, `TokenSubject` 경계를 추가하고 Controller에서 API DTO로 매핑한다.
+  - 공용 Clock 시점의 유효 역할 목록을 응답과 JWT에 공통 사용하며 token-version 검증에 계정/역할 상태를 포함한다.
+  - 로그인 application service의 광범위한 readOnly 트랜잭션을 제거하고 조회/실패 기록 JPA 어댑터가 짧은 트랜잭션을 소유하게 했다.
+  - memory/JPA 역할 교체가 동일한 역할 메타데이터를 보존하도록 맞췄다.
+  - 승인 trace/fingerprint 멱등 계약, JPA apply log 엔티티/Repository, 사용자별 비관적 lock, Flyway V72를 구현했다.
+  - 같은 승인 재시도는 무변경으로 반환하고 같은 trace의 다른 내용은 fail-closed 처리한다.
+  - Auth IntelliJ Run Configuration과 문서를 H2/Flyway/JPA validate 및 PostgreSQL 명령 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1` 성공. 총 32개 테스트가 통과했다.
+  - H2/local non-web `bootRun` 성공. Flyway V70~V72 적용과 Hibernate schema validate를 확인했다.
+  - core의 API 패키지 역참조 검색 결과 없음.
+  - 첫 컴파일의 apply-log import 누락과 신규 경계 테스트의 길이/만료 시각 실패는 수정 후 재검증했다.
+- **남은 리스크**:
+  - 레거시 평문 비밀번호의 해시 승격/운영 차단, 다중 노드 최초 실패 원자화, 멱등 이력 보존 정책을 코드 `@todo`로 남겼다.
+  - PostgreSQL 실제 Flyway/비관적 lock/동시성 부하는 이번 범위에서 검증하지 않았다.
+  - H2 2.2.224가 현재 Flyway 9.22.3의 명시 지원 상한보다 새 버전이라는 경고가 있으나 마이그레이션과 validate는 성공했다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `auth`, `.run/Auth bootRun.run.xml`, 관련 worklog/handoff/Gemini prompt 변경을 revert한다.
+
+### 📅 2026-07-20 (gateway 전역 인증/신뢰 헤더 경계 리팩토링)
+### [검수/리팩토링] 인증 우회 차단, JWT 포트 분리, roleVersion 장애 의미와 실행 설정 정합화
+- **선확인**:
+  - `gateway/README.md`, `docs/README.md`, `concept.md`, `local-run.md`와 실제 filter/security/config/test를 확인했다.
+  - JWT 필터가 일부 라우트에만 선택 적용되어 레거시 `/api/**` catch-all이 무인증으로 전달되고, `/api/auth/**` 전체가 외부 공개되는 우회 경로를 확인했다.
+  - 토큰에 부서가 없을 때 클라이언트 `X-Auth-Department`가 남고, 누락 roleVersion을 1로 가정하며, Auth 빈 응답은 응답 없이 끝날 수 있는 정합성 문제를 확인했다.
+  - Config 포트 8080과 README/Docker 포트 8000, Docker의 localhost Auth 주소, 멀티모듈 Docker build context/JDK가 서로 다른 실행 문제를 확인했다.
+- **수정 범위**:
+  - `JwtAuthenticationFilter`를 모든 `/api/**`에 기본 적용하는 WebFlux `GlobalFilter`로 전환했다.
+  - 로그인 POST/CORS만 공개하고 Auth validate/internal 경로는 404로 차단하며, 모든 외부 `X-Auth-*`를 제거한 뒤 검증 성공 시에만 다시 만든다.
+  - `AccessTokenVerifier` 포트, `JjwtAccessTokenVerifier` 어댑터, `AuthenticatedPrincipal` 값 객체로 HTTP/JJWT/내부 신원 책임을 분리했다.
+  - iat/exp/subject/roles/양의 정수 roleVersion/헤더 안전 코드를 필수 검증하고 누락 roleVersion 기본값을 제거했다.
+  - token-version 결과를 `VALID`, `REJECTED`, `UNAVAILABLE`로 나눠 권한 변경은 401, Auth timeout/빈 응답/장애는 503으로 구분했다.
+  - 정상 결과만 캐시하고 canonical username의 대소문자를 임의 변경하지 않으며 request ID 길이/문자 검증을 추가했다.
+  - 포트 8000, Docker Auth 주소/의존 순서, JDK 17 Dockerfile, standalone IntelliJ 설정과 테스트 전용 console logging을 정리했다.
+  - gateway와 공통 로컬 실행 문서를 실제 보안/업무/데이터 흐름 기준으로 최신화했다.
+- **검증**:
+  - `.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon` 성공. XML 기준 30개 테스트, 실패/오류/skip 0건.
+  - local standalone `bootRun`으로 Netty 포트 8000을 기동하고 `/actuator/health`의 `UP`을 확인한 뒤 Gradle/Gateway 프로세스를 종료했다.
+  - Gateway route/루트·모듈 Compose YAML 파싱 테스트로 로그인 단일 공개 경로, 포트, Docker Auth 주소, build context를 확인했다.
+  - Docker CLI가 설치되어 있지 않아 실제 `docker compose config`, 이미지 빌드/실행은 수행하지 못했다.
+- **남은 리스크**:
+  - live Config/Discovery/Auth/업무 API 라우팅 통합과 실제 Docker 이미지는 별도 환경에서 검증해야 한다.
+  - JWKS 키 회전, 역할 변경 이벤트 기반 다중 노드 cache 무효화, Auth 내부 API mTLS/서비스 자격 증명, 레거시 catch-all 제거를 코드 `@todo`로 남겼다.
+  - 저장소의 공용 HS256 기본값은 로컬 호환용이므로 운영에서는 외부 비밀 저장소 주입이 필수다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `gateway`, `config-repo/gateway-service.yml`, 루트/gateway Compose, `.run/Gateway standalone bootRun.run.xml`, 관련 공통 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-20 (discovery registry/readiness/컨테이너 경계 리팩토링)
+### [검수/리팩토링] 단일 노드 기본 계약, 실제 registry 생명주기, readiness 기반 기동 순서 보강
+- **선확인**:
+  - `discovery/README.md`, `docs/README.md`, `concept.md`, `local-run.md`와 Application/build/config/Compose/Docker/test를 확인했다.
+  - Config Server가 없으면 기본 8080으로 뜨고 Eureka Server 자신이 client 기본값으로 등록/fetch를 시도하는 문서-실행 불일치를 확인했다.
+  - Config import resolver, actuator, prometheus, tracing 의존성 없이 관련 설정만 존재해 중앙 설정/health/관측 계약이 실제 Bean으로 연결되지 않은 문제를 확인했다.
+  - module Compose의 잘못된 build context, Dockerfile JDK 21/다중 wildcard COPY, 루트 Compose의 `service_started` 의존으로 registry 준비 전 서비스가 시작될 수 있는 문제를 확인했다.
+- **수정 범위**:
+  - `application.yml`에 8761, 자기 register/fetch 비활성, optional Config, actuator readiness 기본 계약을 추가했다.
+  - Config Client, actuator, Prometheus, Brave/Zipkin 런타임 의존성을 실제로 추가했다.
+  - readiness와 registry register/lookup/cancel 통합 테스트, local/config/Compose/Docker 정책 테스트를 추가했다.
+  - JDK 17 단일 bootJar Dockerfile, readiness healthcheck, 저장소 루트 build context와 Docker 서비스 주소를 정리했다.
+  - 루트 Compose의 Discovery 의존 서비스 14개를 `service_healthy`로 통일했다.
+  - local/test Logstash 외부 의존을 제거하고 standalone IntelliJ 실행 설정을 추가했다.
+  - Discovery 시작 클래스 주석과 README/docs를 전화번호부 비유, lease, self-preservation, 재시작, 데이터 흐름 기준으로 상세화했다.
+- **검증**:
+  - `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon` 성공. XML 기준 6개 테스트, 실패/오류/skip 0건.
+  - standalone local bootRun으로 8761 readiness `UP`, Dashboard/registry/Prometheus HTTP 200과 JVM metric을 확인했다.
+  - runtime 종료 후 `jps`에 Discovery/Gradle 프로세스가 없고 IntelliJ/SonarLint만 남음을 확인했다.
+  - Docker CLI가 설치되어 있지 않아 실제 `docker compose config`, image 빌드/실행은 수행하지 못했다.
+- **남은 리스크**:
+  - live Config Server, 실제 여러 서비스 heartbeat/lease/LoadBalancer 통합과 운영 self-preservation 임계값은 미검증이다.
+  - 운영 private network+mTLS/서비스 인증과 multi-AZ peer 동기화/장애 전환을 Config 코드 `@todo`로 남겼다.
+- **롤백 범위**:
+  - 이번 변경을 되돌리려면 `discovery`, `config-repo/discovery-service.yml`, 루트 Compose의 Discovery env/health dependency, `.run/Discovery standalone bootRun.run.xml`, 관련 공통 docs/worklog/handoff/Gemini prompt 변경을 revert한다.
+### 📅 2026-07-22 (config-server native 저장소/readiness/컨테이너 경계 리팩토링)
+- **작업 배경**:
+  - `config-server`는 실행 JAR만 만들 수 있었고 테스트가 `NO-SOURCE`라 실제 중앙 설정 조회를 증명하지 못했다.
+  - Docker가 프로젝트 기준과 다른 JDK 21, wildcard 중복 JAR 복사, 런타임에 없는 `/app/config-repo` 경로를 사용했다.
+  - root Compose는 Config Server가 시작됐다는 사실만 기다렸고, 대표 설정을 제공할 수 있는지는 확인하지 않았다.
+- **수정 범위**:
+  - `ConfigRepositoryProbeProperties`와 `ConfigRepositoryHealthIndicator`를 추가해 대표 설정 source가 비어 있거나 조회가 실패하면 readiness를 DOWN 처리했다.
+  - 실제 native `Environment` HTTP 조회, health 성공/빈 결과/예외, YAML/IntelliJ/Docker/Compose 정책 테스트 9개를 추가했다.
+  - application 설정을 8888/native/외부화 저장소/Prometheus/repository readiness로 정리했다.
+  - Dockerfile을 JDK 17 단일 `bootJar`와 readiness healthcheck로 변경하고 설정 원본은 이미지에 포함하지 않았다.
+  - 모듈/루트 Compose는 `config-repo`를 read-only mount하고, 15개 의존 서비스가 Config Server `service_healthy`를 기다리게 했다.
+  - Config Server/config-repo/common docs를 profile 병합, property source 우선순위, `optional` fallback, 변경 전파와 종료 흐름 기준으로 최신화했다.
+- **검증 명령**:
+  - `.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon`
+  - 최신 `bootJar`를 `java -jar`로 실행하고 readiness, `master-data/default`, Prometheus를 값 노출 없이 HTTP 검증.
+- **검증 결과**:
+  - 1차 전체 검증에서 9 tests, failures 0, errors 0, skipped 0 및 `bootJar` 성공을 확인했다.
+  - 이후 repository 예외 경로/URL을 health detail에 노출하지 않도록 보강한 최신 main/test 소스는 소스보다 새로운 class 산출물 생성을 확인했다.
+  - 최신 보안 테스트 단독 재실행은 Windows 페이지 파일 부족으로 Gradle이 테스트 산출물을 만들지 못한 채 정지해 중단했다. 남은 Gradle JVM은 종료했으며 메모리 회복 후 재실행이 필요하다.
+  - 1차 산출 JAR로 실제 8888 readiness `UP`, 설정 조회 HTTP 200/property source 1개, Prometheus HTTP 200/JVM 지표를 확인했다.
+- **남은 리스크**:
+  - Docker CLI가 없어 실제 이미지 빌드와 전체 Compose 실행은 검증하지 못했다.
+  - 최종 health 오류 상세 비노출 테스트는 페이지 파일 여유가 있는 환경에서 다시 실행해야 한다.
+  - 운영 Config API 인증/mTLS와 Git backend 고정 label, 승인/refresh/rollback은 `@todo`로 남았다.
+- **롤백 범위**:
+  - `config-server`, `config-repo/README.md`, root Compose의 Config Server block/15개 의존 조건, `.run/Config Server bootRun.run.xml` 및 이번 docs/harness 항목을 함께 되돌린다.
+
+### 📅 2026-07-22 (contracts/shared-kernel 2차 계약·공유 경계 리팩토링)
+### [검수/리팩토링] 전표 불변 계약, SCD2 기준일, 실제 마스킹, CDM 배치 멱등성 보강
+
+- **선확인**:
+  - `contracts`/`shared-kernel` README와 docs 전체, Java 공개 타입, build.gradle, 전 저장소 소비처를 확인했다.
+  - `MasterDataQueryPort.find*At` default가 `effectiveDate`를 무시해 Closing 과거 평가가 현재 기준정보를 사용할 수 있었다.
+  - `@Masked`가 `MaskingSerializer`와 연결되지 않아 애노테이션을 붙여도 JSON 마스킹이 실행되지 않았다.
+  - `SpringServiceDiscoveryRegistry`가 매 조회마다 `ApplicationContext`를 탐색하고, 중복 이름과 결과 순서를 통제하지 않았다.
+  - `@DistributedLock`은 처리 AOP/Redis 구현이 없는데 ECL 소비자가 락 획득 성공으로 설명했다.
+  - CDM 소비자는 매 수신 timestamp를 Batch 식별자로 넣어 같은 이벤트를 반복 실행하고 Job 실패를 삼켰다.
+  - library 루트 Dockerfile/Compose 4개가 안내 문구만 출력하는 명시적 skeleton이었다.
+  - shared-kernel은 최소 커널 설명과 달리 JPA/Kafka/Redis/Vault/관측/Swagger 및 ECL 전용 타입을 전이한다.
+- **수정 범위**:
+  - 전표 Command에 필수 날짜/라인, 차대 코드/계정/금액 검증과 불변 List 복사를 추가했다.
+  - 계정과목 정상잔액 방향을 명시값에서는 `DEBIT/CREDIT`만 허용했다.
+  - master-data JPA 어댑터가 계정과목/거래처/부서를 실제 기준일 SCD2 조회하도록 구현했다.
+  - `@Masked`에 Jackson meta annotation을 연결하고 사업자번호/계좌번호/이메일 마스킹과 미지원 패턴 fail-closed를 구현했다.
+  - 로컬 capability registry를 생성자 주입 불변 스냅샷, 이름순 결과, 중복 이름 fail-fast로 리팩토링했다.
+  - 구현 없는 분산락 애노테이션 사용을 제거하고 실제 포트/owner token/lease 갱신 TODO를 남겼다.
+  - CDM 이벤트 JSON 생성자/필수값을 보강하고 `eventId`를 Batch 멱등 키로 사용했다. 완료 이벤트 중복은 정상 종료하고 다른 실패는 Kafka로 전파한다.
+  - 단위 테스트 15개를 추가해 계약 불변성, 마스킹, 레지스트리, 이벤트 JSON, Batch 멱등성/실패 전파, SCD2 날짜 전달을 검증하도록 구성했다.
+  - 빈 Docker/Compose는 각 module docs archive로 이동해 이력을 보존했다.
+  - 초보자 비유와 기존 설명을 살리면서 JVM Port/원격 Adapter, SCD2, JSON 마스킹, 이벤트/Batch 데이터 흐름으로 문서를 최신화했다.
+- **검증**:
+  - `git diff --check` 성공.
+  - Java 사용처 기준 `DistributedLock` 검색은 선언 자체 외 0건.
+  - Config Server 대상 테스트 재실행과 contracts 직접 `javac`는 Windows 페이지 파일 부족으로 64~128MB JVM도 진행되지 않아 중단했다.
+  - 생성된 Gradle/javac JVM과 임시 디렉터리는 모두 정리했고, `jps`에는 IntelliJ/SonarLint만 남았다.
+  - 따라서 새 단위 테스트와 영향 모듈 컴파일은 아직 통과로 기록하지 않는다.
+- **남은 리스크/TODO**:
+  - 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test`와 Config Server 대상 테스트를 반드시 재실행한다.
+  - shared-kernel 전이 의존성은 소비 모듈 직접 선언을 먼저 완료한 뒤 단계적으로 제거해야 한다.
+  - Master Data 호환 default, Source Document Map, ECL 전용 공통 타입/이벤트, 실제 분산락 구현이 남았다.
+  - 실제 Kafka redelivery/DLT와 PostgreSQL SCD2 중복 기간 제약은 별도 통합 환경에서 확인해야 한다.
+- **롤백 범위**:
+  - `contracts`, `shared-kernel`, master-data 기준일 adapter/repository, ECL CDM consumer/build/test, archive 이동, 이번 공통 docs/harness 항목을 함께 되돌린다.
+
+### 📅 2026-07-27 (master-data 변경 승인·버전·런타임 경계 고도화)
+### [검수/리팩토링] SCD2 업무 버전, fail-closed 반영 전략, 동시 승인 잠금과 단독 실행 정합화
+
+- **선확인**:
+  - 변경 요청의 `requestedVersion`은 양수만 확인해 오래된 요청이 최신 SCD2 이력을 덮을 수 있었다.
+  - 반영 전략은 매 호출마다 목록을 순회했고, 담당 전략 중복과 미지원 유형을 시작 시점에 검증하지 않았다.
+  - 승인/반영 조회에 요청 행 잠금이 없어 같은 요청을 여러 노드가 동시에 상태 전이할 수 있었다.
+  - API actor를 요청 본문에서 받고 raw payload를 그대로 반환하며, 직접 쓰기 API와 승인 API가 함께 열려 있다.
+  - Master Data Docker/Compose/IntelliJ 포트와 JDK, Actuator readiness, PostgreSQL/Flyway 의존성이 서로 달랐다.
+- **수정 범위**:
+  - `MasterDataChangeVersionPolicy`와 `MasterDataVersionQueryPort`를 추가해 CREATE=1, UPDATE=이력 수+1, DEACTIVATE=현재 이력 수 규칙을 요청/승인/반영 직전에 검증한다.
+  - 네 SCD2 UPDATE 서비스가 기존 행 종료 후 신규 행을 생성함을 확인하고 Repository COUNT 어댑터를 연결했다.
+  - applier registry를 불변 Map으로 만들고 중복 담당은 시작 시 실패, 미지원 유형은 접수 단계에서 fail-closed 처리한다.
+  - 요청 행에 JPA `@Version`과 비관적 조회 포트를 추가하고 V3 forward migration으로 `lock_version`을 반영했다.
+  - Governance 승인 ID를 `sourceReference` 멱등 키로 전달하고 같은 명령 재시도는 기존 요청을 반환하며, 다른 명령 재사용은 409로 차단한다. V5는 멱등 키와 `appliedAt`을 보존한다.
+  - Governance UPDATE/DELETE는 실제 SCD2 목표 `requestedVersion`을 필수로 받아 잘못된 기본 버전 1 반영을 차단한다.
+  - DTO Bean Validation, 409 버전 충돌 응답, payload/actor/직접 쓰기 경계 TODO를 추가했다.
+  - 8082 포트, JDK 17 단일 bootJar, Actuator DB readiness, PostgreSQL/Flyway/Prometheus/Tracing 의존성, Docker/Compose/IntelliJ 설정을 맞췄다.
+  - 기존 초보자 설명을 유지하면서 README, 실행, 업무 흐름, 스키마 문서를 실제 요청→승인→반영 데이터 흐름으로 최신화하고 사용되지 않던 Kafka 설정은 archive에 보존했다.
+  - 기존 V2 체크섬은 보존하고 V3/V4/V5 forward migration을 추가했다. 신규 PostgreSQL의 V2 `CLOB` 선행 문제는 명시적 TODO와 운영 리스크로 남겼다.
+- **검증**:
+  - `.\gradlew :master-data:clean :governance:clean :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 17 suites/57 tests와 Governance 10 suites/25 tests, 총 82 tests가 실패/오류/skip 0건이며 두 `bootJar`가 성공했다.
+  - 최초 증분 컴파일은 오래된 출력 상태 때문에 같은 모듈 클래스를 찾지 못했지만 clean 전체 컴파일로 정상 통과했다.
+  - `git diff --check`, conflict marker/placeholder 검색, 변경 문서 상대 링크 검증 성공.
+- **남은 리스크/TODO**:
+  - 실제 PostgreSQL 신규 DB migration과 Docker 이미지/Compose 실행은 미검증이다.
+  - 동일 업무 키의 다중 요청은 key lock/advisory lock, 대량 반영은 요청별 `REQUIRES_NEW`/`SKIP LOCKED`/실행 이력이 필요하다.
+  - 같은 `sourceReference`의 동시 최초 저장은 unique 충돌 후 기존 요청을 재조회·검증하는 원자적 저장 포트가 필요하다.
+  - actor는 Gateway/Spring Security principal에서 파생하고 raw payload는 권한별 마스킹/요약 응답으로 분리해야 한다.
+  - 직접 쓰기 API와 승인 흐름의 운영 권한 정책, CURRENCY/EXCHANGE_RATE/FISCAL_PERIOD typed applier가 남아 있다.
+- **롤백 범위**:
+  - 이번 커밋의 `master-data`, Governance 어댑터, root/module Compose, Config Repository, IntelliJ run 설정과 관련 docs/harness 변경을 한 단위로 revert한다.
+
+### 📅 2026-07-27 (master-data SCD2 유효기간·과거 거래처 조회 후속 보강)
+### [검수/리팩토링] 상태 변경 순서와 과거 기준일 조회 정합성 강화
+
+- **선확인**:
+  - 네 SCD2 UPDATE 서비스가 새 기간을 검증하기 전에 현재 행을 종료해, 잘못된 `validTo < validFrom` 입력이 현재 상태를 먼저 변경할 수 있었다.
+  - 거래처는 버전 종료 시 `useYn=false`가 되지만 과거 기준일 조회도 `useYn=true`를 요구해, 과거 전표에서 당시 거래처명을 찾지 못했다.
+  - 거래처 단건 조회가 `List.stream().findFirst()`로 겹치는 SCD2 행 하나를 임의 선택해 데이터 손상을 숨길 수 있었다.
+- **수정 범위**:
+  - `MasterDataValidityPolicy.requireValidityWindow`를 추가하고 계정과목/거래처/부서/상품 UPDATE가 신규 기간을 먼저 검증한 뒤 현재 버전을 종료하도록 호출 순서를 바꿨다.
+  - 계정과목/부서는 신규 상위 항목 조회와 새 버전 조립까지 성공한 뒤 현재 행을 종료하도록 참조 검증 순서도 앞당겼다.
+  - 거래처 현재 조회(`useYn` + 유효기간)와 과거 기준일 조회(유효기간)를 분리했다.
+  - 단건 거래처 조회를 `Optional`로 바꿔 기간 중복 시 한 행을 고르지 않고 fail-closed 처리했다.
+  - 정책/서비스/어댑터 단위 테스트와 H2 JPA SCD2 통합 테스트를 추가하고 Master Data/Governance 초보자 문서를 실제 멱등·예약·과거 조회 흐름으로 맞췄다.
+- **검증**:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx320m -XX:MaxMetaspaceSize=224m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 18 suites/63 tests, Governance 10 suites/25 tests, 총 88 tests가 실패/오류/skip 0건이고 두 실행 JAR가 생성됐다.
+  - `git diff --check`, 충돌 표식 검색, 변경 Markdown 상대 링크 검증이 성공했다.
+- **남은 리스크/TODO**:
+  - H2에서는 중복 기간 감지만 검증했다. 운영 PostgreSQL에서 SCD2 날짜 범위 exclusion constraint와 실제 migration 통합 테스트가 필요하다.
+  - 거래처 `useYn`은 현재 사용 가능 여부와 과거 버전 종료를 겸하므로 `BusinessPartnerRef.active`의 기준일 의미를 완전히 재현하지 못한다. 버전 종료/업무 비활성 상태 분리와 데이터 이관이 필요하다.
+  - 실제 PostgreSQL migration과 Docker/Compose 실행은 이번 후속 검증에서도 수행하지 않았다.
+- **롤백 범위**:
+  - 이번 후속 변경의 네 서비스, 유효기간 정책, 거래처 repository/adapter, 세 테스트, 신규 JPA 테스트와 Master Data/Governance 문서·운영 로그를 함께 되돌린다.
+
+### 📅 2026-07-27 (master-data 조회·회계기간 경계 2차 점검)
+### [검수/리팩토링] DB 기준일 조회, 환율 선택, 회계기간 상태 전이와 미사용 스켈레톤 정리
+
+- **선확인**:
+  - 계정과목/상품 활성 목록과 거래처명 검색이 전체 행을 읽은 뒤 애플리케이션 메모리에서 필터링해 대용량 기준정보에 적합하지 않았다.
+  - 환율 단건 조회가 기준일 이전의 여러 이력 행을 `Optional` 쿼리로 받아 최신 한 건을 보장하지 못했고, 통화 활성 조회는 겹치는 행 중 첫 행을 숨길 수 있었다.
+  - 회계기간 변경 어댑터가 JPA Repository를 직접 사용하고 setter로 상태를 바꿔 애플리케이션 포트, 잠금, 도메인 상태 규칙과 감사 주체 검증을 우회했다.
+  - 사용처 없는 변경요청 전체 조회와 no-op setter/가짜 연관 엔티티 생성 호환 메서드가 실제 구현처럼 남아 있었다.
+- **수정 범위**:
+  - 계정과목/상품 활성 목록과 거래처명 검색을 유효기간·활성 상태 조건을 포함한 DB 쿼리로 옮기고 빈 거래처 검색어를 거부했다.
+  - 환율은 `effectiveDate <= 기준일` 중 최신 한 건만 조회하고, ISO 통화 코드와 양수 환율을 도메인 생성 시 검증하도록 보강했다. 통화 활성 단건 중복도 fail-closed 처리한다.
+  - 회계기간 저장 포트에 비관적 잠금 조회를 추가하고 어댑터가 포트와 도메인 행위를 통해 변경하도록 정리했다. 영구 마감은 최종 상태이며 OPEN에서 영구 마감으로 건너뛰지 못하고 감사 actor를 필수로 한다.
+  - 사용되지 않는 변경요청 전체 조회 계약, no-op 활성 setter, 분리된 통화를 임시 생성하던 환율 호환 메서드, 미사용 유효기간 helper를 제거했다.
+  - PostgreSQL 전체 baseline, 목록/검색 pagination, `TaxProfile` 소유권·SCD2 구현, Loan/Closing의 Master Data 직접 의존을 코드/문서의 구체적 `@todo`와 현행 예외로 남겼다.
+  - 조회·환율·회계기간 단위/JPA 회귀 테스트를 추가하고 Master Data 초보자 문서를 실제 포트/잠금/기준일 흐름에 맞췄다.
+- **검증**:
+  - `.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"` 성공.
+  - Master Data 73개, Governance 25개, Closing Core 19개, Journal Ledger Core 19개로 총 136개 테스트가 실패/오류/skip 0건이며 Closing Batch 컴파일과 두 `bootJar`가 성공했다.
+- **남은 리스크/TODO**:
+  - 실제 PostgreSQL 신규 DB migration, 날짜 범위 exclusion constraint와 Docker/Compose 실행은 미검증이다.
+  - 전체/검색 API는 아직 pagination이 없어 운영 데이터 규모에서 응답 상한과 안정 정렬/cursor가 필요하다.
+  - `TaxProfile`은 저장소/use case/applier/소비처가 없으므로 Tax 모듈과 소유권을 확정한 뒤 완전한 SCD2 기능을 구현하거나 이동·제거해야 한다.
+  - Loan core의 Master Data 엔티티/포트 직접 의존과 Closing Batch의 `ExchangeRateRepository` 직접 의존은 다음 순차 점검에서 계약 포트로 분리해야 한다.
+- **롤백 범위**:
+  - 이번 2차 변경의 활성 조회/검색 포트·repository·adapter, 환율/통화 도메인과 repository, 회계기간 포트·adapter·도메인, 제거한 미사용 계약/호환 메서드, 신규 테스트와 Master Data 문서·운영 로그를 함께 되돌린다.
+
+### 📅 2026-07-27 (loan 헥사고날·DDD·회계 흐름 고도화)
+### [구현/검수] 값 참조 경계, 상태 전이, EIR, 단일 스케줄, Batch 재실행 정합성
+
+- **선확인**:
+  - Loan 도메인이 Master Data 엔티티를 직접 소유했고 API DTO/Bean Validation이 core에 있었다.
+  - API가 만든 EIR 스케줄과 Batch가 읽는 별도 스케줄 테이블이 달라 실제 업무 흐름이 연결되지 않았다.
+  - EIR은 `double`과 percent 반환을 사용했고, DEFAULT/RECOVERY 이벤트는 존재하지 않는 재계산 enum 변환으로 실패했다.
+  - 생성 즉시 ACTIVE, 실행 중복/잠금 부재, 재계산 시 약정 원금 덮어쓰기, 발생 FAILED 영구 skip, Batch 기본 오늘 날짜/예외 은폐 문제가 있었다.
+- **수정 범위**:
+  - 거래처 ID·통화/계정 코드 값 참조와 Loan 소유 포트로 경계를 분리하고 Master/Journal 타입은 인프라 어댑터에만 격리했다.
+  - `LoanUseCase`, API DTO/검증/예외 매핑, PENDING→1회 전액 실행→ACTIVE 상태와 잠금/버전/고유 제약을 구현했다.
+  - BigDecimal 소수 단위 EIR, 현재 잔액 기준 재계산, 단일 EIR 스케줄 생성/소비, 상태 이벤트 분기를 구현했다.
+  - 발생 성공 skip/실패 retry, Loan 잠금, 필수 `accrualDate`, core chunk 파이프라인과 Step 실패 집계를 구현했다.
+  - V33 forward migration, Java 17 API bootJar Docker, 8088 Compose와 실제 코드 기준 초보자 문서를 보강했다.
+- **검증**:
+  - 최종 영향 명령에서 Master Data 73, Governance 25, Closing Core 19, Journal Ledger Core 19, Loan Core 30, Loan API 3으로 총 169 tests가 실패/오류/skip 0건이었다.
+  - Loan API/Batch bootJar, `git diff --check`, 충돌 표식, core 경계, Batch 비즈니스 로직, 레거시 runtime 소비처, 현행 Markdown 링크 검사가 통과했다.
+  - Docker CLI/YAML parser가 없어 실제 image/Compose 실행과 자동 YAML parse는 수행하지 못했다.
+- **남은 리스크/TODO**:
+  - Loan–Journal outbox/inbox·lineage 멱등·보상/대사, 인증 principal actor, 일별 day-count/휴일 정책, PostgreSQL V33 중복 사전 정리와 migration 검증이 필요하다.
+  - 레거시 스케줄 테이블은 데이터 이관·소비처 0·복구 리허설 뒤 별도 migration으로 제거한다.
+  - 로컬 모놀리스 어댑터의 provider compile dependency는 원격 계약/장애 정책을 갖춘 MSA adapter로 교체해야 한다.
+- **롤백 범위**:
+  - `loan/**`, Loan용 Master Data 날짜 조회 포트/어댑터/repository, 루트 Compose Loan 설정과 이번 공통 문서/로그 항목을 함께 되돌린다. V33이 공유 DB에 적용됐다면 삭제 대신 forward corrective migration을 사용한다.
+- **상태**: review-ready, uncommitted. 사용자 명시 승인 전 commit/push/merge 금지.

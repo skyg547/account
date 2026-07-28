@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.Product;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,8 @@ public interface ProductPersistencePort {
     Optional<Product> findActiveByProductCode(String productCode);
 
     List<Product> findAll();
+
+    List<Product> findAllActive(LocalDate asOfDate);
 
     Product save(Product product);
 }

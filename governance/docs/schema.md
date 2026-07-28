@@ -49,6 +49,9 @@ erDiagram
 | `APPROVED` | 승인 완료 |
 | `REJECTED` | 반려 |
 
+Master Data로 전달할 때는 `MASTER_APPROVAL.id`를 `governance-approval-id={id}` 형식의
+`sourceReference`로 사용합니다. 이 값은 Governance 재시도와 Master Data 변경 계보를 연결합니다.
+
 ## 감사 actor 우선순위
 
 `RequestAuditActorAdapter`는 사용자 식별자를 아래 순서로 해석합니다.

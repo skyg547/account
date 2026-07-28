@@ -114,16 +114,6 @@ public class AccountSubject {
     }
 
     @Deprecated
-    public void setUseYn(boolean useYn) {
-        // Current model uses validFrom/validTo instead of useYn.
-    }
-
-    @Deprecated
-    public void setActive(boolean active) {
-        // Current model uses validFrom/validTo instead of active flag.
-    }
-
-    @Deprecated
     public void setDescription(String description) {
         this.reportLine = description;
     }

@@ -1,7 +1,7 @@
 package com.ho.account.auth.core.infrastructure.security;
 
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
-import com.ho.account.auth.core.domain.model.AuthUser;
+import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -29,31 +30,36 @@ public class JwtTokenIssuer implements TokenIssuerPort {
     }
 
     @Override
-    public IssuedToken issue(AuthUser user) {
+    public IssuedToken issue(TokenSubject subject, Instant issuedAt) {
+        if (issuedAt == null) {
+            throw new IllegalArgumentException("issuedAt is required.");
+        }
         long expirationSeconds = properties.getJwt().getExpirationSeconds();
-        Instant now = Instant.now();
-        Instant expiresAt = now.plusSeconds(expirationSeconds);
+        Instant expiresAt = issuedAt.plusSeconds(expirationSeconds);
+        List<RoleAssignment> assignments = subject.effectiveRoleAssignments();
+        List<String> roles = assignments.stream()
+                .map(RoleAssignment::roleCode)
+                .distinct()
+                .toList();
 
         var builder = Jwts.builder()
-                .setSubject(user.getUsername())
-                .claim("roles", user.getRoles())
-                .claim("roleVersion", user.getRoleVersion())
-                .claim("roleAssignments", user.getRoleAssignments().stream()
-                        .filter(assignment -> assignment.isEffectiveAt(now))
+                .setSubject(subject.username())
+                .claim("roles", roles)
+                .claim("roleVersion", subject.roleVersion())
+                .claim("roleAssignments", assignments.stream()
                         .map(assignment -> Map.of(
                                 "roleCode", assignment.roleCode(),
                                 "dataScope", assignment.dataScope()))
                         .toList())
                 .setIssuer(properties.getJwt().getIssuer())
-                .setIssuedAt(Date.from(now))
+                .setIssuedAt(Date.from(issuedAt))
                 .setExpiration(Date.from(expiresAt));
 
-        if (user.getDepartmentCode() != null && !user.getDepartmentCode().isBlank()) {
-            builder.claim("departmentCode", user.getDepartmentCode());
+        if (subject.departmentCode() != null && !subject.departmentCode().isBlank()) {
+            builder.claim("departmentCode", subject.departmentCode());
         }
 
         String token = builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
-
         return new IssuedToken(token, expirationSeconds);
     }
 }

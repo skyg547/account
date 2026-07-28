@@ -30,3 +30,10 @@
 - `reporting:batch`: 월말 보고서 생성을 호출하는 배치 인바운드 어댑터와 `ReportingBatchApplication` 실행 앱.
 
 현재 `reporting:core`는 library 모듈이고, `reporting:api`와 `reporting:batch`는 standalone Boot 앱입니다. 로컬에서 먼저 실행 흐름을 확인할 때는 `account.reporting.persistence.mode=memory`를 사용하면 journal-ledger나 운영 DB 없이 샘플 원장 잔액으로 보고서 흐름을 볼 수 있습니다.
+## API DTO를 따로 두는 이유
+
+초보자 입장에서는 도메인 객체와 API 응답 객체가 비슷해 보여도 역할이 다르다.
+
+- 도메인 객체는 업무 규칙과 상태 전이를 지킨다. 예를 들어 `FinancialStatement.finalizeStatement()`는 항목 없는 보고서를 확정하지 못하게 막는다.
+- API response DTO는 외부에 보여줄 JSON 필드를 고정한다. 화면이나 외부 시스템은 이 DTO 계약을 보고 연동한다.
+- 따라서 Controller가 도메인 객체를 그대로 반환하지 않고 DTO로 바꾸면, 나중에 도메인 내부 구조를 바꿔도 HTTP 계약을 더 안정적으로 유지할 수 있다.

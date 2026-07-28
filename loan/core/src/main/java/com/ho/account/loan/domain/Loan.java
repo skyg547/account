@@ -1,14 +1,10 @@
 package com.ho.account.loan.domain;
 
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Currency;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Locale;
 
 /**
  * Loan master aggregate.
@@ -34,9 +30,11 @@ public class Loan {
     @Column(name = "loan_number", nullable = false, unique = true, length = 50)
     private String loanNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "business_partner_id", nullable = false)
-    private BusinessPartner businessPartner;
+    @Column(name = "business_partner_id", nullable = false)
+    private Long businessPartnerId;
+
+    @Transient
+    private String businessPartnerName;
 
     @Column(name = "LOAN_PRODUCT", length = 100)
     private String loanProduct;
@@ -45,9 +43,8 @@ public class Loan {
     @Column(nullable = false, length = 50)
     private LoanType loanType;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "currency_code", nullable = false)
-    private Currency currency;
+    @Column(name = "currency_code", nullable = false, length = 3)
+    private String currencyCode;
 
     @Column(name = "principal_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal principalAmount;
@@ -90,8 +87,9 @@ public class Loan {
     @Column(name = "TOTAL_PRINCIPAL_PAID", precision = 19, scale = 2)
     private BigDecimal totalPrincipalPaid = BigDecimal.ZERO;
 
-    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<LoanAmortizationScheduleEntry> amortizationSchedule = new ArrayList<>();
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    private long lockVersion;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -111,17 +109,27 @@ public class Loan {
     }
 
     public enum LoanStatus {
-        ACTIVE, REPAID, DEFAULTED, WRITTEN_OFF, CANCELLED
+        PENDING_DISBURSEMENT, ACTIVE, REPAID, DEFAULTED, WRITTEN_OFF, CANCELLED
     }
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
-            this.status = LoanStatus.ACTIVE;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
+        if (this.status == null) {
+            this.status = LoanStatus.PENDING_DISBURSEMENT;
+        }
+        if (this.currentPrincipalBalance == null) {
+            this.currentPrincipalBalance = this.principalAmount;
+        }
+        if (this.totalInterestPaid == null) {
+            this.totalInterestPaid = BigDecimal.ZERO;
+        }
+        if (this.totalPrincipalPaid == null) {
+            this.totalPrincipalPaid = BigDecimal.ZERO;
+        }
+        this.auditUser = requireActor(this.auditUser == null ? "SYSTEM" : this.auditUser);
+        validateContractTerms();
     }
 
     @PreUpdate
@@ -145,19 +153,20 @@ public class Loan {
         this.loanNumber = loanNumber;
     }
 
-    public BusinessPartner getBusinessPartner() {
-        return businessPartner;
-    }
-
-    public void setBusinessPartner(BusinessPartner businessPartner) {
-        this.businessPartner = businessPartner;
-    }
-
     public Long getBusinessPartnerId() {
-        if (businessPartner == null || businessPartner.getId() == null) {
-            throw new IllegalArgumentException("businessPartnerId is required");
-        }
-        return businessPartner.getId();
+        return businessPartnerId;
+    }
+
+    public void setBusinessPartnerId(Long businessPartnerId) {
+        this.businessPartnerId = businessPartnerId;
+    }
+
+    public String getBusinessPartnerName() {
+        return businessPartnerName;
+    }
+
+    public void attachBusinessPartnerName(String businessPartnerName) {
+        this.businessPartnerName = requireText(businessPartnerName, "businessPartnerName", 100);
     }
 
     public LoanType getLoanType() {
@@ -168,19 +177,12 @@ public class Loan {
         this.loanType = loanType;
     }
 
-    public Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Currency currency) {
-        this.currency = currency;
-    }
-
     public String getCurrencyCode() {
-        if (currency == null || currency.getCurrencyCode() == null || currency.getCurrencyCode().isBlank()) {
-            throw new IllegalArgumentException("currencyCode is required");
-        }
-        return currency.getCurrencyCode();
+        return currencyCode;
+    }
+
+    public void setCurrencyCode(String currencyCode) {
+        this.currencyCode = normalizeCurrencyCode(currencyCode);
     }
 
     public BigDecimal getPrincipalAmount() {
@@ -280,6 +282,10 @@ public class Loan {
     public BigDecimal getCurrentPrincipalBalance() { return currentPrincipalBalance; }
     public void setCurrentPrincipalBalance(BigDecimal currentPrincipalBalance) { this.currentPrincipalBalance = currentPrincipalBalance; }
 
+    public BigDecimal getOutstandingPrincipal() {
+        return currentPrincipalBalance == null ? principalAmount : currentPrincipalBalance;
+    }
+
     public BigDecimal getDeferredLoanFee() { return deferredLoanFee; }
     public void setDeferredLoanFee(BigDecimal deferredLoanFee) { this.deferredLoanFee = deferredLoanFee; }
 
@@ -289,78 +295,174 @@ public class Loan {
     public BigDecimal getTotalPrincipalPaid() { return totalPrincipalPaid; }
     public void setTotalPrincipalPaid(BigDecimal totalPrincipalPaid) { this.totalPrincipalPaid = totalPrincipalPaid; }
 
-    public List<LoanAmortizationScheduleEntry> getAmortizationSchedule() { return amortizationSchedule; }
-    public void setAmortizationSchedule(List<LoanAmortizationScheduleEntry> amortizationSchedule) { this.amortizationSchedule = amortizationSchedule; }
-
-    /**
-     * [Rich Domain Model] 상환 스케줄 생성 로직
-     * 외부 서비스 클래스가 아닌, 대출 도메인 자신이 원금과 이자율을 바탕으로 월별 상환 스케줄을 직접 계산합니다.
-     */
-    public List<LoanAmortizationScheduleEntry> generateAmortizationSchedule(int totalPeriods) {
-        validateScheduleInputs(totalPeriods);
-
-        BigDecimal periodicRate = this.interestRate.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-        BigDecimal payment = calculatePeriodicPayment(periodicRate, totalPeriods);
-
-        BigDecimal remainingBalance = principalAmount;
-        List<LoanAmortizationScheduleEntry> entries = new ArrayList<>();
-
-        for (int i = 1; i <= totalPeriods; i++) {
-            BigDecimal interest = remainingBalance.multiply(periodicRate).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal principal = payment.subtract(interest);
-
-            if (i == totalPeriods) {
-                principal = remainingBalance;
-                payment = principal.add(interest);
-                remainingBalance = BigDecimal.ZERO;
-            } else {
-                remainingBalance = remainingBalance.subtract(principal);
-            }
-
-            LoanAmortizationScheduleEntry entry = new LoanAmortizationScheduleEntry();
-            entry.setLoan(this);
-            entry.setPeriodNumber(i);
-            entry.setPaymentDate(disbursalDate.plusMonths(i));
-            entry.setStartingBalance(remainingBalance.add(principal));
-            entry.setInterestAmount(interest);
-            entry.setPrincipalAmount(principal);
-            entry.setScheduledPaymentAmount(payment);
-            entry.setEndingBalance(remainingBalance);
-            entry.setEntryType("REPAYMENT");
-
-            entries.add(entry);
-        }
-        this.amortizationSchedule = entries;
-        return entries;
+    public long getLockVersion() {
+        return lockVersion;
     }
 
-    public void addAmortizationEntry(LoanAmortizationScheduleEntry entry) {
-        this.amortizationSchedule.add(entry);
-        entry.setLoan(this);
+    public static Loan create(
+            String loanNumber,
+            Long businessPartnerId,
+            String currencyCode,
+            LoanType loanType,
+            BigDecimal principalAmount,
+            BigDecimal interestRate,
+            LocalDate disbursalDate,
+            LocalDate maturityDate,
+            PaymentFrequency paymentFrequency,
+            String actor) {
+        Loan loan = new Loan();
+        loan.loanNumber = requireText(loanNumber, "loanNumber", 50);
+        loan.businessPartnerId = requirePositiveId(businessPartnerId, "businessPartnerId");
+        loan.currencyCode = normalizeCurrencyCode(currencyCode);
+        loan.loanType = java.util.Objects.requireNonNull(loanType, "loanType is required.");
+        loan.principalAmount = requirePositiveAmount(principalAmount, "principalAmount");
+        loan.interestRate = requireRate(interestRate, "interestRate");
+        loan.disbursalDate = java.util.Objects.requireNonNull(disbursalDate, "disbursalDate is required.");
+        loan.maturityDate = java.util.Objects.requireNonNull(maturityDate, "maturityDate is required.");
+        loan.paymentFrequency = java.util.Objects.requireNonNull(paymentFrequency, "paymentFrequency is required.");
+        loan.initialEIR = loan.interestRate;
+        loan.currentEIR = loan.interestRate;
+        loan.currentPrincipalBalance = loan.principalAmount;
+        loan.status = LoanStatus.PENDING_DISBURSEMENT;
+        loan.auditUser = requireActor(actor);
+        loan.validateContractTerms();
+        return loan;
     }
 
-    private void validateScheduleInputs(int totalPeriods) {
-        if (totalPeriods <= 0) {
-            throw new IllegalArgumentException("totalPeriods must be positive");
+    public void prepareForCreation(String actor) {
+        validateContractTerms();
+        initialEIR = interestRate;
+        currentEIR = interestRate;
+        currentPrincipalBalance = principalAmount;
+        status = LoanStatus.PENDING_DISBURSEMENT;
+        auditUser = requireActor(actor);
+    }
+
+    public void activateAfterDisbursal(LocalDate actualDate, BigDecimal amount, String actor) {
+        if (status != LoanStatus.PENDING_DISBURSEMENT) {
+            throw new IllegalStateException("Only a pending loan can be disbursed: " + status);
         }
-        if (principalAmount == null || principalAmount.signum() <= 0) {
-            throw new IllegalStateException("principalAmount must be positive");
+        if (actualDate == null || actualDate.isBefore(disbursalDate) || actualDate.isAfter(maturityDate)) {
+            throw new IllegalArgumentException("disbursalDate must be within the loan contract period.");
         }
-        if (interestRate == null || interestRate.signum() < 0) {
-            throw new IllegalStateException("interestRate must not be negative");
+        BigDecimal normalizedAmount = requirePositiveAmount(amount, "disbursedAmount");
+        if (normalizedAmount.compareTo(principalAmount) != 0) {
+            throw new IllegalArgumentException(
+                    "This loan model supports one full disbursal equal to principalAmount.");
         }
-        if (disbursalDate == null) {
-            throw new IllegalStateException("disbursalDate is required");
+        status = LoanStatus.ACTIVE;
+        currentPrincipalBalance = principalAmount;
+        auditUser = requireActor(actor);
+    }
+
+    public void applyRecalculatedTerms(
+            BigDecimal newOutstandingPrincipal,
+            LocalDate newMaturityDate,
+            BigDecimal newEir,
+            LocalDate recalculationDate,
+            String actor) {
+        requireActive("recalculate");
+        if (recalculationDate == null
+                || recalculationDate.isBefore(disbursalDate)
+                || recalculationDate.isAfter(maturityDate)) {
+            throw new IllegalArgumentException("recalculationDate must be within the current loan period.");
+        }
+        BigDecimal outstanding = requirePositiveAmount(newOutstandingPrincipal, "newOutstandingPrincipal");
+        if (outstanding.compareTo(getOutstandingPrincipal()) > 0) {
+            throw new IllegalArgumentException("newOutstandingPrincipal cannot increase the outstanding balance.");
+        }
+        LocalDate maturity = java.util.Objects.requireNonNull(newMaturityDate, "newMaturityDate is required.");
+        if (!maturity.isAfter(recalculationDate)) {
+            throw new IllegalArgumentException("newMaturityDate must be after recalculationDate.");
+        }
+        currentPrincipalBalance = outstanding;
+        maturityDate = maturity;
+        currentEIR = requireRate(newEir, "newEIR");
+        auditUser = requireActor(actor);
+    }
+
+    public void markDefaulted(String actor) {
+        requireActive("mark defaulted");
+        status = LoanStatus.DEFAULTED;
+        auditUser = requireActor(actor);
+    }
+
+    public void recoverFromDefault(String actor) {
+        if (status != LoanStatus.DEFAULTED) {
+            throw new IllegalStateException("Only a defaulted loan can recover: " + status);
+        }
+        status = LoanStatus.ACTIVE;
+        auditUser = requireActor(actor);
+    }
+
+    public void updateCurrentEir(BigDecimal annualEir, String actor) {
+        requireActive("update EIR");
+        currentEIR = requireRate(annualEir, "annualEIR");
+        auditUser = requireActor(actor);
+    }
+
+    private void validateContractTerms() {
+        loanNumber = requireText(loanNumber, "loanNumber", 50);
+        businessPartnerId = requirePositiveId(businessPartnerId, "businessPartnerId");
+        currencyCode = normalizeCurrencyCode(currencyCode);
+        java.util.Objects.requireNonNull(loanType, "loanType is required.");
+        principalAmount = requirePositiveAmount(principalAmount, "principalAmount");
+        interestRate = requireRate(interestRate, "interestRate");
+        java.util.Objects.requireNonNull(disbursalDate, "disbursalDate is required.");
+        java.util.Objects.requireNonNull(maturityDate, "maturityDate is required.");
+        java.util.Objects.requireNonNull(paymentFrequency, "paymentFrequency is required.");
+        if (!maturityDate.isAfter(disbursalDate)) {
+            throw new IllegalArgumentException("maturityDate must be after disbursalDate.");
         }
     }
 
-    private BigDecimal calculatePeriodicPayment(BigDecimal periodicRate, int totalPeriods) {
-        if (periodicRate.signum() == 0) {
-            return principalAmount.divide(BigDecimal.valueOf(totalPeriods), 2, RoundingMode.HALF_UP);
+    private void requireActive(String action) {
+        if (status != LoanStatus.ACTIVE) {
+            throw new IllegalStateException("Only an active loan can " + action + ": " + status);
         }
+    }
 
-        BigDecimal onePlusRPowerN = periodicRate.add(BigDecimal.ONE).pow(totalPeriods);
-        return principalAmount.multiply(periodicRate).multiply(onePlusRPowerN)
-                .divide(onePlusRPowerN.subtract(BigDecimal.ONE), 2, RoundingMode.HALF_UP);
+    private static Long requirePositiveId(Long value, String field) {
+        if (value == null || value < 1) {
+            throw new IllegalArgumentException(field + " must be positive.");
+        }
+        return value;
+    }
+
+    private static BigDecimal requirePositiveAmount(BigDecimal value, String field) {
+        if (value == null || value.signum() <= 0) {
+            throw new IllegalArgumentException(field + " must be positive.");
+        }
+        return value;
+    }
+
+    private static BigDecimal requireRate(BigDecimal value, String field) {
+        if (value == null || value.signum() < 0 || value.compareTo(BigDecimal.ONE) > 0) {
+            throw new IllegalArgumentException(field + " must be a decimal rate between 0 and 1.");
+        }
+        return value;
+    }
+
+    private static String normalizeCurrencyCode(String value) {
+        String normalized = requireText(value, "currencyCode", 3).toUpperCase(Locale.ROOT);
+        if (normalized.length() != 3) {
+            throw new IllegalArgumentException("currencyCode must be a 3-letter ISO code.");
+        }
+        return normalized;
+    }
+
+    private static String requireActor(String actor) {
+        return requireText(actor, "actor", 50);
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " must not exceed " + maxLength + " characters.");
+        }
+        return normalized;
     }
 }

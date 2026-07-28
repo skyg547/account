@@ -1,42 +1,42 @@
 package com.ho.account.expenditure.application.service;
 
-import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.contracts.asset.AssetAcquisitionCommand;
 import com.ho.account.contracts.asset.AssetRegistrationPort;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
+import com.ho.account.contracts.masterdata.DepartmentRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceRef;
+import com.ho.account.expenditure.application.port.in.ExpenditureResolutionCommand;
 import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCase;
 import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPersistencePort;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
-import com.ho.account.expenditure.dto.ExpenditureResolutionRequestDto;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
-import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
-import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.BusinessPartner;
-import com.ho.account.masterdata.core.domain.model.Department;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 지출결의 유즈케이스 서비스입니다.
+ *
+ * 초보자용 설명:
+ * 이 서비스는 지출결의 생성, 예산 사용, 승인 전표 생성의 업무 순서를 조율합니다.
+ * master-data 내부 Repository/Entity를 직접 쓰지 않고 `MasterDataQueryPort`로 코드의 유효성을 확인합니다.
+ */
 @Service
 @Transactional
 public class ExpenditureResolutionService implements ExpenditureResolutionUseCase {
 
     private final ExpenditureResolutionPersistencePort resolutionPersistencePort;
     private final JournalUseCase journalUseCase;
-    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
-    private final DepartmentPersistencePort departmentPersistencePort;
-    private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
+    private final MasterDataQueryPort masterDataQueryPort;
     private final BudgetService budgetService;
     private final AssetRegistrationPort assetRegistrationPort;
     private final TaxInvoiceQueryPort taxInvoiceQueryPort;
@@ -44,46 +44,37 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
     public ExpenditureResolutionService(
             ExpenditureResolutionPersistencePort resolutionPersistencePort,
             JournalUseCase journalUseCase,
-            AccountSubjectPersistencePort accountSubjectPersistencePort,
-            DepartmentPersistencePort departmentPersistencePort,
-            BusinessPartnerPersistencePort businessPartnerPersistencePort,
+            MasterDataQueryPort masterDataQueryPort,
             BudgetService budgetService,
             AssetRegistrationPort assetRegistrationPort,
             TaxInvoiceQueryPort taxInvoiceQueryPort) {
         this.resolutionPersistencePort = resolutionPersistencePort;
         this.journalUseCase = journalUseCase;
-        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
-        this.departmentPersistencePort = departmentPersistencePort;
-        this.businessPartnerPersistencePort = businessPartnerPersistencePort;
+        this.masterDataQueryPort = masterDataQueryPort;
         this.budgetService = budgetService;
         this.assetRegistrationPort = assetRegistrationPort;
         this.taxInvoiceQueryPort = taxInvoiceQueryPort;
     }
 
     @Override
-    public ExpenditureResolution createResolution(ExpenditureResolutionRequestDto requestDto) {
-        Department department = departmentPersistencePort.findActiveByCode(requestDto.getDepartmentCode())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + requestDto.getDepartmentCode()));
-
-        AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(requestDto.getPaymentAccountCode())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 지급 계정과목입니다. 코드: " + requestDto.getPaymentAccountCode()));
-
-        validatePurchaseTaxInvoice(requestDto.getTaxInvoiceId());
+    public ExpenditureResolution createResolution(ExpenditureResolutionCommand command) {
+        DepartmentRef department = requireDepartment(command.departmentCode());
+        AccountSubjectRef paymentAccount = requireAccountSubject(command.paymentAccountCode());
+        validatePurchaseTaxInvoice(command.taxInvoiceId());
 
         ExpenditureResolution resolution = ExpenditureResolution.create(
-                null, // No will be generated later
-                requestDto.getTitle(),
-                requestDto.getResolutionDate(),
-                requestDto.getPaymentDate(),
-                department.getCode(),
-                paymentAccount.getCode(),
-                "SYSTEM" // Default user for now
+                null,
+                command.title(),
+                command.resolutionDate(),
+                command.paymentDate(),
+                department.code(),
+                paymentAccount.code(),
+                "SYSTEM"
         );
-        resolution.setTaxInvoiceId(requestDto.getTaxInvoiceId());
+        resolution.setTaxInvoiceId(command.taxInvoiceId());
 
-        for (ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto : requestDto.getDetails()) {
-            ExpenditureDetail detail = buildDetail(detailDto);
+        for (ExpenditureResolutionCommand.DetailCommand detailCommand : command.details()) {
+            ExpenditureDetail detail = buildDetail(detailCommand);
             resolution.addDetail(detail);
         }
 
@@ -93,24 +84,20 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
     @Override
     public ExpenditureResolution createResolution(ExpenditureResolution resolution) {
         String yearMonth = resolution.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
-        
-        // 부서 정보 조회 (ID 기반)
-        Department department = departmentPersistencePort.findActiveByCode(resolution.getDeptCode())
-                .orElseThrow(() -> new IllegalStateException("Department not found: " + resolution.getDeptCode()));
+        DepartmentRef department = requireDepartment(resolution.getDeptCode());
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
-                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
-            budgetService.useBudget(yearMonth, department, accountSubject, detail.getAmount());
+            AccountSubjectRef accountSubject = requireAccountSubject(detail.getAccountCode());
+            budgetService.useBudget(yearMonth, department.code(), accountSubject.code(), detail.getAmount());
         }
         String resolutionNo = generateResolutionNo(resolution.getResolutionDate());
         resolution.setResolutionNo(resolutionNo);
-        
+
         return resolutionPersistencePort.save(resolution);
     }
 
     @Override
-    public ExpenditureResolution updateResolution(Long id, ExpenditureResolutionRequestDto requestDto) {
+    public ExpenditureResolution updateResolution(Long id, ExpenditureResolutionCommand command) {
         ExpenditureResolution existing = resolutionPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("지출결의서를 찾을 수 없습니다. ID: " + id));
 
@@ -119,27 +106,24 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
             throw new IllegalStateException("DRAFT 또는 REJECTED 상태의 결의서만 수정할 수 있습니다.");
         }
 
-        // 도메인 엔티티 업데이트 (ID 기반)
-        existing.updateInfo(requestDto.getTitle(), requestDto.getResolutionDate(), requestDto.getPaymentDate(),
-                requestDto.getDepartmentCode(), requestDto.getPaymentAccountCode());
+        DepartmentRef department = requireDepartment(command.departmentCode());
+        AccountSubjectRef paymentAccount = requireAccountSubject(command.paymentAccountCode());
+        validatePurchaseTaxInvoice(command.taxInvoiceId());
 
-        validatePurchaseTaxInvoice(requestDto.getTaxInvoiceId());
-        existing.setTaxInvoiceId(requestDto.getTaxInvoiceId());
+        existing.updateInfo(command.title(), command.resolutionDate(), command.paymentDate(),
+                department.code(), paymentAccount.code());
+        existing.setTaxInvoiceId(command.taxInvoiceId());
 
         existing.getDetails().clear();
-        for (ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto : requestDto.getDetails()) {
-            ExpenditureDetail detail = buildDetail(detailDto);
+        for (ExpenditureResolutionCommand.DetailCommand detailCommand : command.details()) {
+            ExpenditureDetail detail = buildDetail(detailCommand);
             existing.addDetail(detail);
         }
 
-        // 예산 확인
-        Department department = departmentPersistencePort.findActiveByCode(existing.getDeptCode())
-                .orElseThrow(() -> new IllegalStateException("Department not found: " + existing.getDeptCode()));
         String yearMonth = existing.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
         for (ExpenditureDetail detail : existing.getDetails()) {
-            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
-                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
-            budgetService.useBudget(yearMonth, department, accountSubject, detail.getAmount());
+            AccountSubjectRef accountSubject = requireAccountSubject(detail.getAccountCode());
+            budgetService.useBudget(yearMonth, department.code(), accountSubject.code(), detail.getAmount());
         }
 
         return resolutionPersistencePort.save(existing);
@@ -163,9 +147,8 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            AccountSubject accountSubject = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
-                    .orElseThrow(() -> new IllegalStateException("Account subject not found: " + detail.getAccountCode()));
-            if (Boolean.TRUE.equals(accountSubject.isFixedAsset())) {
+            AccountSubjectRef accountSubject = requireAccountSubject(detail.getAccountCode());
+            if (accountSubject.fixedAsset()) {
                 registerFixedAsset(detail, resolution, accountSubject);
             }
         }
@@ -199,12 +182,14 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         return resolutionPersistencePort.findByResolutionDateBetween(startDate, endDate);
     }
 
-    private ExpenditureDetail buildDetail(ExpenditureResolutionRequestDto.ExpenditureDetailRequestDto detailDto) {
+    private ExpenditureDetail buildDetail(ExpenditureResolutionCommand.DetailCommand detailCommand) {
+        requireAccountSubject(detailCommand.accountSubjectCode());
+        requireBusinessPartner(detailCommand.businessPartnerCode());
         return ExpenditureDetail.create(
-                detailDto.getAccountSubjectCode(),
-                detailDto.getAmount(),
-                detailDto.getBusinessPartnerCode(),
-                detailDto.getDescription()
+                detailCommand.accountSubjectCode(),
+                detailCommand.amount(),
+                detailCommand.businessPartnerCode(),
+                detailCommand.description()
         );
     }
 
@@ -216,48 +201,41 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         entry.setLineageSourceType("EXPENDITURE_RESOLUTION");
         entry.setLineageSourceId(resolution.getResolutionNo());
 
-        // 부서 정보 (결의서 헤더 부서)
-        Department department = departmentPersistencePort.findActiveByCode(resolution.getDeptCode())
-                .orElseThrow(() -> new IllegalStateException("부서 정보를 찾을 수 없습니다. 코드: " + resolution.getDeptCode()));
+        DepartmentRef department = requireDepartment(resolution.getDeptCode());
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
-            AccountSubject detailAccount = accountSubjectPersistencePort.findByCode(detail.getAccountCode())
-                    .orElseThrow(() -> new IllegalStateException("계정과목을 찾을 수 없습니다. 코드: " + detail.getAccountCode()));
-            
-            // 거래처는 선택 사항일 수 있으나, 지출결의 상세에서는 보통 필수임. 여기서는 필수인 것으로 간주하여 예외 처리.
-            BusinessPartner businessPartner = businessPartnerPersistencePort.findByBusinessPartnerCode(detail.getBusinessPartnerCode())
-                    .orElseThrow(() -> new IllegalStateException("거래처 정보를 찾을 수 없습니다. 코드: " + detail.getBusinessPartnerCode()));
+            AccountSubjectRef detailAccount = requireAccountSubject(detail.getAccountCode());
+            BusinessPartnerRef businessPartner = requireBusinessPartner(detail.getBusinessPartnerCode());
 
             JournalDetail debitLine = new JournalDetail();
             debitLine.setSide(JournalSide.DEBIT);
-            debitLine.setAccountCode(detailAccount.getCode());
+            debitLine.setAccountCode(detailAccount.code());
             debitLine.setAmount(detail.getAmount());
             debitLine.setBaseAmount(detail.getAmount());
-            debitLine.setDepartmentCode(department.getCode());
-            debitLine.setBusinessPartnerCode(businessPartner.getBusinessPartnerCode());
+            debitLine.setDepartmentCode(department.code());
+            debitLine.setBusinessPartnerCode(businessPartner.code());
             debitLine.setDetailDescription(detail.getDescription());
             entry.addDetail(debitLine);
         }
 
         JournalDetail creditLine = new JournalDetail();
         creditLine.setSide(JournalSide.CREDIT);
-        AccountSubject paymentAccount = accountSubjectPersistencePort.findByCode(resolution.getPaymentAccountCode())
-                .orElseThrow(() -> new IllegalStateException("지급 계정과목을 찾을 수 없습니다. 코드: " + resolution.getPaymentAccountCode()));
-        creditLine.setAccountCode(paymentAccount.getCode());
+        AccountSubjectRef paymentAccount = requireAccountSubject(resolution.getPaymentAccountCode());
+        creditLine.setAccountCode(paymentAccount.code());
         creditLine.setAmount(resolution.getTotalAmount());
         creditLine.setBaseAmount(resolution.getTotalAmount());
-        creditLine.setDepartmentCode(department.getCode());
+        creditLine.setDepartmentCode(department.code());
         creditLine.setDetailDescription("Expenditure payment");
         entry.addDetail(creditLine);
 
         return entry;
     }
 
-    private void registerFixedAsset(ExpenditureDetail detail, ExpenditureResolution resolution, AccountSubject accountSubject) {
+    private void registerFixedAsset(ExpenditureDetail detail, ExpenditureResolution resolution, AccountSubjectRef accountSubject) {
         assetRegistrationPort.registerAcquiredAsset(new AssetAcquisitionCommand(
                 "FA-" + resolution.getResolutionNo() + "-" + detail.getId(),
-                detail.getDescription() != null ? detail.getDescription() : accountSubject.getName(),
-                accountSubject.getCode(),
+                detail.getDescription() != null ? detail.getDescription() : accountSubject.name(),
+                accountSubject.code(),
                 resolution.getPaymentDate(),
                 detail.getAmount(),
                 resolution.getDeptCode(),
@@ -273,11 +251,30 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         return String.format("REQ-%s-%03d", dateStr, seq);
     }
 
+    private DepartmentRef requireDepartment(String departmentCode) {
+        return masterDataQueryPort.findDepartment(departmentCode)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 부서입니다. 코드: " + departmentCode));
+    }
+
+    private AccountSubjectRef requireAccountSubject(String accountCode) {
+        return masterDataQueryPort.findAccountSubject(accountCode)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 계정과목입니다. 코드: " + accountCode));
+    }
+
+    private BusinessPartnerRef requireBusinessPartner(String businessPartnerCode) {
+        BusinessPartnerRef partner = masterDataQueryPort.findBusinessPartner(businessPartnerCode)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 거래처입니다. 코드: " + businessPartnerCode));
+        if (Boolean.FALSE.equals(partner.active())) {
+            throw new IllegalArgumentException("비활성 거래처는 지출결의에 사용할 수 없습니다. 코드: " + businessPartnerCode);
+        }
+        return partner;
+    }
+
     private void validatePurchaseTaxInvoice(Long taxInvoiceId) {
         if (taxInvoiceId == null) return;
         TaxInvoiceRef taxInvoice = taxInvoiceQueryPort.findById(taxInvoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("세금계산서를 찾을 수 없습니다. ID: " + taxInvoiceId));
-        if (!"PURCHASE".equals(taxInvoice.type())) {
+        if (!taxInvoice.purchase()) {
             throw new IllegalArgumentException("지출결의서에 연결하는 세금계산서는 PURCHASE 타입이어야 합니다.");
         }
         if (!taxInvoice.active()) {

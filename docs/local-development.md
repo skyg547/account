@@ -30,7 +30,7 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 
 ```powershell
 .\gradlew projects --console=plain
-.\gradlew :contracts:compileJava :shared-kernel:compileJava --console=plain
+.\gradlew :contracts:test :shared-kernel:test --console=plain --max-workers=1 --no-daemon
 ```
 
 전체 테스트는 오래 걸립니다. 모듈을 수정할 때는 해당 모듈과 직접 연관 모듈부터 확인합니다.
@@ -54,14 +54,16 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | 모듈 | 실행 클래스 | 기본 포트 | 용도 |
 | --- | --- | ---: | --- |
 | `discovery` | `com.ho.account.discovery.DiscoveryApplication` | 8761 | Eureka |
-| `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 설정 파일 기준 | Config Server |
-| `gateway` | `com.ho.account.gateway.GatewayApplication` | 설정 파일 기준 | API Gateway |
+| `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 8888 | native Config Server, strict repository readiness |
+| `gateway` | `com.ho.account.gateway.GatewayApplication` | 8000 | API Gateway |
 | `auth` | `com.ho.account.auth.AuthApplication` | 설정 파일 기준 | 인증 |
 | `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
 | `governance` | `com.ho.account.governance.GovernanceApplication` | 설정 파일 기준 | 감사/승인 |
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
 | `deposit:api` | `com.ho.account.deposit.DepositApplication` | 8087 | 예금 API |
 | `deposit:batch` | `com.ho.account.deposit.batch.DepositBatchApplication` | CLI 또는 설정 기준 | 예금 배치 컨텍스트 |
+| `asset-lease:api` | `com.ho.account.asset.api.AssetLeaseApiApplication` | 8083 | 고정자산/리스 API |
+| `asset-lease:batch` | `com.ho.account.asset.batch.AssetLeaseBatchApplication` | CLI 또는 설정 기준 | 고정자산 감가상각 배치 컨텍스트 |
 | `payable:api` | `com.ho.account.expenditure.payable.api.PayableApiApplication` | 8091 | 매입채무/지급 API |
 | `payable:batch` | `com.ho.account.expenditure.payable.batch.PayableBatchApplication` | CLI 또는 설정 기준 | 매입채무/지급 배치 컨텍스트 |
 | `receivable:api` | `com.ho.account.receivable.api.ReceivableApiApplication` | 8092 | 매출채권/수납 API |
@@ -93,16 +95,21 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `ECL Batch Context` | `:ecl:ecl-batch:bootRun` | demo profile로 ECL batch 컨텍스트 기동, Job 자동 실행 없음 |
 | `Journal Ledger API bootRun` | `:journal-ledger:api:bootRun` | 전표/원장 API 로컬 실행 |
 | `Journal Ledger API JDBC Bulk` | `:journal-ledger:api:bootRun` | JDBC bulk 원장 저장 어댑터 모드로 실행 |
+| `Journal Ledger Batch Reaggregation` | `:journal-ledger:batch:bootRun` | GL/SL 잔액 재집계 Job 실행 |
 | `Deposit API bootRun` | `:deposit:api:bootRun` | 로컬 어댑터 기반 예금 API 실행 |
 | `Deposit Batch Context` | `:deposit:batch:bootRun` | 로컬 어댑터 기반 예금 batch 컨텍스트 기동 |
+| `Asset Lease API bootRun` | `:asset-lease:api:bootRun` | 자산/리스 API 로컬 실행 |
+| `Asset Lease Batch Context` | `:asset-lease:batch:bootRun` | 자산 감가상각 batch 컨텍스트 기동 |
 | `Reporting API bootRun` | `:reporting:api:bootRun` | memory 모드 재무보고 API 실행 |
 | `Reporting Batch Context` | `:reporting:batch:bootRun` | memory 모드 재무보고 batch 컨텍스트 기동 |
-| `Config Server bootRun` | `:config-server:bootRun` | 중앙 설정 서버 로컬 실행 |
-| `Discovery bootRun` | `:discovery:bootRun` | Eureka 서버 로컬 실행 |
+| `Config Server bootRun` | `:config-server:bootRun` | native `config-repo` + 8888 + readiness 로컬 실행 |
+| `Discovery bootRun` | `:discovery:bootRun` | Config Server 연동 Eureka 실행 |
+| `Discovery standalone bootRun` | `:discovery:bootRun` | 8761/readiness/registry 단독 smoke |
 | `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
 | `Master Data bootRun` | `:master-data:bootRun` | 기준정보 API 로컬 실행 |
 | `Governance bootRun` | `:governance:bootRun` | 감사/승인 API 로컬 실행 |
-| `Gateway bootRun` | `:gateway:bootRun` | Gateway 로컬 실행 |
+| `Gateway bootRun` | `:gateway:bootRun` | Config/Discovery/Auth 연동 Gateway 실행 |
+| `Gateway standalone bootRun` | `:gateway:bootRun` | 외부 의존성을 끈 포트/컨텍스트 smoke |
 | `Foundation Library Compile` | `:contracts:compileJava`, `:shared-kernel:compileJava` | 공통 library 모듈 컴파일 |
 | `Foundation Infra Tests` | foundation/infra 테스트·assemble 묶음 | 마지막 foundation/infra 문서 배치 검증 |
 
@@ -116,10 +123,13 @@ Spring Boot 앱:
 Gradle task로 실행:
 ```powershell
 .\gradlew :account-mart:mart-api:bootRun --console=plain
-.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain
-.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain
+.\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain
+.\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain
+.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain
 .\gradlew :reporting:api:bootRun --args="--spring.profiles.active=local --server.port=8090 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.reporting.persistence.mode=memory --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 .\gradlew :deposit:api:bootRun --args="--spring.profiles.active=local --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --account.deposit.local-adapters.enabled=true --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :asset-lease:api:bootRun --args="--spring.profiles.active=local --server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :asset-lease:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 .\gradlew :payable:api:bootRun --console=plain --max-workers=1
 .\gradlew :receivable:api:bootRun --console=plain --max-workers=1
 .\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
@@ -133,13 +143,72 @@ Payable/Receivable/Reconciliation/Tax/Expenditure Resolution도 같은 원칙을
 
 ECL Batch는 `spring.batch.job.enabled=false`로 Boot 기본 자동 실행을 막고, `job.name`을 받은 `JobRunner`가 명시 Job을 한 번 실행한다. Job 상태가 `COMPLETED`가 아니면 프로세스가 실패하므로, CLI 검증에서 실패 Job을 성공으로 오인하지 않는다.
 
+
+## 6-1. 전체 모듈 순차 실행 매트릭스
+
+이 표는 2026-07-02 기준 로컬 H2/메모리 어댑터로 검증한 실행 단위입니다. 메모리 부족을 피하려면 아래 순서로 하나씩 실행하고, 다음 모듈을 띄우기 전에 이전 Java 프로세스를 종료합니다.
+
+| 구분 | 실행 대상 | Gradle 기준 | 로컬 검증 방식 |
+| --- | --- | --- | --- |
+| Foundation | `contracts`, `shared-kernel` | `compileJava`, `test` | Spring Boot 앱이 아닌 공통 계약/커널 모듈 |
+| 독립/인프라 API | `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance` | `:<module>:bootRun` | 필요 시 순차 기동, local smoke는 Config/Eureka 의존 비활성화 |
+| 업무 API | `asset-lease`, `journal-ledger`, `closing`, `loan`, `deposit`, `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`, `reporting` | `:<module>:api:bootRun` | 내장 WAS + H2 또는 memory adapter |
+| Mart/ECL API | `account-mart`, `ecl` | `:account-mart:mart-api:bootRun`, `:ecl:ecl-api:bootRun` | 내장 WAS + demo/local datasource |
+| 업무 Batch | `asset-lease`, `closing`, `deposit`, `journal-ledger`, `loan`, `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`, `reporting` | `:<module>:batch:bootRun` | `spring.main.web-application-type=none`, Spring Batch context 또는 Job 실행 |
+| Mart/ECL Batch | `account-mart`, `ecl` | `:account-mart:mart-batch:bootRun`, `:ecl:ecl-batch:bootRun` | demo profile + 명시 Job 실행 |
+
+공통 H2 API smoke 옵션:
+
+```powershell
+--spring.profiles.active=local --server.port=0 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always
+```
+
+공통 H2 Batch context 옵션:
+
+```powershell
+--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always
+```
+
+PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰지 않습니다. 로컬 PostgreSQL을 직접 띄운 뒤 아래 datasource 값을 모듈 DB명에 맞춰 바꿉니다.
+
+```powershell
+--spring.datasource.url=jdbc:postgresql://localhost:5432/account_local --spring.datasource.username=account --spring.datasource.password=account --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none --spring.flyway.enabled=true
+```
+
+대표 Spring Batch Job smoke 명령은 아래 기준으로 검증했습니다. 빈 H2 데이터 기준이므로 Job 성공은 "엔트리포인트와 메타 테이블, 파라미터, core 위임 경로가 정상"이라는 뜻이고, 운영 금액 결과 검증은 별도 seed data가 필요합니다.
+
+| 모듈 | 대표 Job | 필수 파라미터 예시 |
+| --- | --- | --- |
+| `asset-lease:batch` | `assetDepreciationJob` | `targetDate=2026-06-30` |
+| `closing:batch` | `fxValuationJob` | `valuationDate=2026-04-30 valuationBatchId=20260430` |
+| `closing:batch` | `eclProvisionJob` | `closingDate=2026-04-30 provisionBatchId=20260430` |
+| `loan:batch` | `loanInterestAccrualJob` | `accrualDate=2026-04-30` + 계정 매핑 옵션 |
+| `deposit:batch` | `depositAccountIntegrityJob` | `asOfDate=2026-06-19` |
+| `payable:batch` | `payablePaymentRunJob` | `runDate=2026-06-19 createdBy=SMOKE description=Smoke` |
+| `receivable:batch` | `receivableAutoMatchingJob` | 없음 |
+| `reconciliation:batch` | `reconciliationDailyJob` | `reconciliationDate=2026-06-19 runBy=SMOKE deepMode=false` |
+| `tax:batch` | `taxInvoiceValidationJob` | `startDate=2026-06-19 endDate=2026-06-19` |
+| `expenditure-resolution:batch` | `expenditureResolutionApprovalJob` | `startDate=2026-06-19 endDate=2026-06-19 paymentDueDate=2026-06-19` |
+| `reporting:batch` | `reportingStatementGenerationJob` | `baseDate=2026-03-31 requester=local-batch` |
+| `account-mart:mart-batch` | `integratedPositionEtlJob` | `baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false` |
+| `ecl:ecl-batch` | `standaloneDqJob` | `job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430` |
+| `journal-ledger:batch` | `dailyBalanceReaggregationJob` | `startDate=2026-04-01 endDate=2026-04-30` 또는 `baseDate=2026-04-30` |
 ## 7. 인프라 실행
 
 IntelliJ에서 MSA 인프라를 순서대로 직접 띄울 때는 아래 순서를 따릅니다.
 
 ```text
-Config Server bootRun -> Discovery bootRun -> Auth/Master Data/Governance/Journals -> Gateway bootRun
+Config Server bootRun -> Discovery bootRun (readiness UP) -> Auth/Master Data/Governance/Journals -> Gateway bootRun (8000)
 ```
+
+Config Server는 DB가 필요하지 않습니다. 다음 상태가 모두 확인된 뒤 Discovery를 실행합니다.
+
+```powershell
+(Invoke-WebRequest http://localhost:8888/actuator/health/readiness).StatusCode
+(Invoke-WebRequest http://localhost:8888/master-data/default).StatusCode
+```
+
+두 요청은 HTTP 200이어야 하며 Config 응답 본문은 민감 설정을 포함할 수 있으므로 공유 로그에 붙이지 않습니다.
 
 전체 인프라를 한 번에 띄울 때:
 

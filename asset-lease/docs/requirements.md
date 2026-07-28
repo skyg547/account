@@ -11,14 +11,16 @@
 - **[P1] IFRS 16 준수:** 리스부채 및 사용권자산의 현재가치 재측정 및 상환 스케줄을 관리한다.
 
 ## 3. 기술적 제약 사항 (Agents.md 규율)
-- 배치는 절대 직접 계산하지 않는다. (`DepreciationPipeline` 호출)
-- JPA 단건 저장을 지양하고 `JDBC Bulk` 어댑터를 사용한다.
-- 모든 금액 계산은 `BigDecimal.ROUND_HALF_UP` (소수점 2자리) 원칙을 고수한다.
+- 배치는 직접 계산하지 않고 `DepreciationPipeline`을 호출한다.
+- Batch pipeline은 JPA 엔티티를 변경하지 않고 `FixedAssetDepreciationResult` 값 객체만 만든다.
+- 실제 대량 반영은 `AssetJdbcAdapter`의 JDBC bulk update가 한 번만 수행한다.
+- 모든 금액 계산은 `BigDecimal`을 사용하고, 소수점 정책은 도메인 규칙에서 명시한다.
 
-## 4. 현재 구현 점검 결과 (2026-06-11)
+## 4. 현재 구현 점검 결과 (2026-07-07)
 
-- `AssetDepreciationBatchConfig`는 `DepreciationPipeline`을 주입하지만 processor에서 `FixedAsset.depreciate`를 직접 호출하고 있다. Batch 계층이 순수 오케스트레이터가 되도록 코드에 `@todo`를 남겼다.
-- Batch 회계월은 현재 `LocalDate.now().minusMonths(1)`로 결정된다. 재실행 가능성을 위해 `targetDate` JobParameter로 분리해야 한다.
-- 고정자산 API는 `X-User-ID`를 받아 이력과 이벤트에 실행자를 남긴다.
-- 리스 API는 아직 실행자 감사를 받지 않아 `@todo`로 남겼다.
-- 리스 회계 계정 `25100`, `93100`, `21100`은 현재 서비스 상수다. 운영에서는 회사별 회계 정책에 맞게 설정 기반 AccountMappingPort로 분리해야 한다.
+- `AssetDepreciationBatchConfig`는 Reader/Processor/Writer와 `targetDate` JobParameter orchestration만 담당한다.
+- `DepreciationPipeline`은 `FixedAsset.calculateDepreciation()`으로 mutation 없는 batch preview 결과를 만든다.
+- `FixedAsset.depreciate()`는 단건 API/서비스 경로에서만 상태 전이를 수행한다.
+- `AssetJdbcAdapter`는 상각누계액, 장부가액, 상태, 최종상각일을 bulk update로 반영한다.
+- 고정자산 API와 리스 등록/월별 처리/재측정 API는 `X-User-ID`를 받아 감사 이벤트에 실행자를 남긴다.
+- 리스 회계 계정 `25100`, `93100`, `21100` 기본값은 `LeaseAccountMappingPort`와 설정 기반 어댑터로 분리되어 있다.

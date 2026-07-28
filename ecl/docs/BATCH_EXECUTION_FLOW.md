@@ -46,23 +46,26 @@ graph TD
 ### STEP 3. IFRS 9 Stage 및 PD 산출
 
 - **Step**: `stagingManagerStep`
-- **Processor**: `StagingProcessor`
+- **Processor Adapter**: `StagingProcessor`
+- **Core Pipeline**: `StagingCalculationPipeline`
 
-계좌별 IFRS 9 Stage와 기초 PD를 산출하고 결과 레코드를 생성한다. Batch config는 reader/processor/writer 연결만 담당하며, 판정 규칙은 core 영역에 둔다.
+계좌별 IFRS 9 Stage와 기초 PD를 산출하고 결과 레코드를 생성한다. Batch config는 reader/processor/writer 연결만 담당하며, processor adapter는 core pipeline에 위임한다.
 
 ### STEP 4. EAD/LGD 산출
 
 - **Step**: `eadCrmManagerStep`
-- **Processor**: `EadCrmProcessor`
+- **Processor Adapter**: `EadCrmProcessor`
+- **Core Pipeline**: `EadCrmCalculationPipeline`
 
-CCF를 반영한 EAD와 회수 가능성을 반영한 LGD를 확정한다. 산출 금액과 비율은 `BigDecimal` 기반 정밀도 정책을 따른다.
+CCF를 반영한 EAD와 회수 가능성을 반영한 LGD를 확정한다. 산출 금액과 비율은 core pipeline/service의 `BigDecimal` 기반 정밀도 정책을 따른다.
 
 ### STEP 5. Weighted ECL 산출
 
 - **Step**: `eclManagerStep`
-- **Processor**: `EclProcessor`
+- **Processor Adapter**: `EclProcessor`
+- **Core Pipeline**: `ForwardLookingEclCalculationPipeline`
 
-미래전망 시나리오 가중치를 반영해 IFRS 9 기대신용손실을 산출한다. 이 결과가 대손충당금 summary의 원천이 된다.
+미래전망 시나리오 가중치를 반영해 IFRS 9 기대신용손실을 산출한다. batch adapter는 기준일만 넘기고, 잔존 만기와 Lifetime PD, weighted ECL 산출은 core pipeline이 수행한다.
 
 ### STEP 6. 산출 완료 상태 확정
 

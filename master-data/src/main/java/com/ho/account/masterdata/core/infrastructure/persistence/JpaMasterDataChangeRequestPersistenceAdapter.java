@@ -24,8 +24,13 @@ public class JpaMasterDataChangeRequestPersistenceAdapter implements MasterDataC
     }
 
     @Override
-    public List<MasterDataChangeRequest> findAll() {
-        return repository.findAll();
+    public Optional<MasterDataChangeRequest> findByIdForUpdate(Long id) {
+        return repository.findByIdForUpdate(id);
+    }
+
+    @Override
+    public Optional<MasterDataChangeRequest> findBySourceReference(String sourceReference) {
+        return repository.findBySourceReference(sourceReference);
     }
 
     @Override

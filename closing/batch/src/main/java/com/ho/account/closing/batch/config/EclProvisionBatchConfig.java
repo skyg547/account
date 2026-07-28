@@ -1,6 +1,6 @@
 package com.ho.account.closing.batch.config;
 
-import com.ho.account.closing.batch.service.EclProvisionService;
+import com.ho.account.closing.application.service.EclProvisionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -26,9 +26,9 @@ import java.time.format.DateTimeFormatter;
  * 🐣 [초보자를 위한 설명]
  * 결산 시점(월말)에 실행되는 '대손충당금 자동화 공장'입니다.
  * 
- * 대손충당금 산출은 데이터 건건이 처리하기보다, 기말 원장(GL) 잔액을 통째로 읽어와
- * 포트폴리오 수준에서 계산하는 것이 효율적이므로 ItemReader/Writer 구조 대신 단일 Tasklet으로 구성했습니다.
- * 
+ * Tasklet은 기준일과 batch ID를 core 서비스에 넘기는 실행 어댑터입니다.
+ * ECL 목표 충당금, 기존 GL 잔액 차이, 보충/환입 차대변 판단은 `closing:core`의 `EclProvisionService`가 담당합니다.
+ *
  * 실행 시 파라미터로 `closingDate=2026-05-31` 과 같이 처리 일자를 넘겨줄 수 있습니다.
  */
 @Slf4j

@@ -1,6 +1,6 @@
 # 🛡️ Governance Service (감사 및 승인 통제)
 
-`governance` 모듈은 회계 플랫폼의 "감사, 통제, 승인"을 담당합니다. "누가 무엇을 했는지 남기고, 누가 무엇을 할 수 있는지 통제하고, 중요한 변경은 승인받게 만드는" 역할을 합니다. 
+`governance` 모듈은 회계 플랫폼의 "감사, 통제, 승인"을 담당합니다. "누가 무엇을 했는지 남기고, 누가 무엇을 할 수 있는지 통제하고, 중요한 변경은 승인받게 만드는" 역할을 합니다.
 
 ---
 
@@ -29,7 +29,7 @@ sequenceDiagram
     Caller->>Aspect: 기능 실행 요청
     Aspect->>Aspect: 실행 전 데이터 직렬화 (Before)
     Aspect->>Service: 실제 기능 수행
-    
+
     alt 성공
         Service-->>Aspect: 결과 반환
         Aspect->>Aspect: 실행 후 데이터 직렬화 (After)
@@ -38,7 +38,7 @@ sequenceDiagram
         Service-->>Aspect: 예외 발생
         Aspect->>AuditPort: 실패 로그 저장 요청
     end
-    
+
     AuditPort->>DB: 영구 기록
 ```
 
@@ -58,11 +58,12 @@ flowchart TD
 ### 📌 역할/권한 변경 흐름
 역할 생성과 권한 부여는 즉시 DB에 반영하지 않고 `MasterApproval` 요청으로 먼저 등록합니다. 승인자가 승인하면 `SystemRoleApprovalApplyAdapter`가 역할 또는 권한 변경을 반영합니다. 권한 부여 전에는 `AuthorizationPolicy`가 WRITE/EXECUTE 충돌, 데이터 범위 기본값, 중복 권한을 검증합니다.
 
+권한 회수도 즉시 삭제하지 않습니다. `DELETE /api/audit/authorizations/{authorizationId}`는 `AUTHORIZATION / DELETE` 승인 요청을 만들고 `202 Accepted`를 반환하며, 승인 완료 시 실제 권한이 삭제됩니다. 지원하지 않는 역할 수정/삭제 또는 권한 수정은 결재 상태와 실제 데이터 불일치를 막기 위해 fail-closed 예외로 중단합니다.
+
 ### 📌 사용자 역할 변경 승인 후 Auth 반영
-사용자에게 부여된 Auth 역할 변경은 `AUTH_USER_ROLE` 승인 요청으로 관리합니다.
-승인 완료 시 `AuthUserRoleApprovalApplyAdapter`가 payload의 `username`과 `role/roleCode/roles`를 해석하고, `RestClientAuthUserRoleAssignmentAdapter`가 Auth 내부 API(`/api/auth/internal/users/{username}/role-assignments`)를 호출합니다.
-Auth는 기존 역할 할당을 승인된 목록으로 교체하고 `roleVersion`을 증가시켜 기존 JWT 재사용을 차단합니다.
-이 호출은 `X-Internal-Auth-Token` 헤더를 포함하며, 값은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 설정합니다.
+사용자에게 부여된 Auth 역할 변경은 `AUTH_USER_ROLE` 승인 요청으로 관리합니다. 승인 완료 시 `AuthUserRoleApprovalApplyAdapter`가 payload의 `username`과 `role/roleCode/roles`를 해석하고, `RestClientAuthUserRoleAssignmentAdapter`가 Auth 내부 API(`/api/auth/internal/users/{username}/role-assignments`)를 호출합니다.
+
+Auth는 기존 역할 할당을 승인된 목록으로 교체하고 `roleVersion`을 증가시켜 기존 JWT 재사용을 차단합니다. 이 호출은 `X-Internal-Auth-Token` 헤더를 포함하며, 값은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 설정합니다.
 
 ---
 
@@ -99,24 +100,33 @@ erDiagram
 
 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
 
-**IntelliJ 실행 순서:**
+**IntelliJ H2 단독 실행:**
+1. Gradle JVM을 JDK 17로 설정하고 Gradle Reload를 실행합니다.
+2. `Governance bootRun`을 실행합니다.
+3. Config Server, Eureka, PostgreSQL 없이 내장 WAS가 `8083` 포트에서 시작됩니다.
+
+**통합 실행 순서:**
 1. `Config Server bootRun`을 먼저 실행합니다.
 2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
 3. Auth 역할 반영까지 확인하려면 `Auth bootRun`을 실행합니다.
-4. `Governance bootRun`을 실행합니다.
+4. 통합 DB와 토큰을 설정한 뒤 `Governance bootRun`을 실행합니다.
 
 **PowerShell 검증 명령:**
 ```powershell
-.\gradlew :governance:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :governance:test :governance:bootJar --console=plain --max-workers=1
 ```
 
-**로컬 실행 명령:**
+**H2 API 실행 명령:**
 ```powershell
-.\gradlew :governance:bootRun --console=plain
+.\gradlew :governance:bootRun --args="--spring.profiles.active=local --server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
+
+PostgreSQL 로컬 실행과 H2 콘솔 설정은 [local-run.md](./docs/local-run.md)를 따릅니다.
 
 **연동 주의사항:**
 - 다른 모듈에서 `@AuditLoggable` 어노테이션을 사용하여 감사 로그 작성을 트리거할 수 있습니다.
+- Master Data 승인 반영은 Governance 승인 ID를 멱등키로 사용합니다. 미래 시행일은 Master Data 승인 상태로 대기하며 시행일 도래 후 예약 반영됩니다.
 - `AuditController`의 웹 어댑터는 도메인 엔티티를 직접 노출하지 않고 전용 DTO로 변환하여 응답합니다.
 - Auth 연동 기본 주소는 `GOVERNANCE_AUTH_BASE_URL` 환경변수로 조정합니다. 기본값은 `http://localhost:8081`입니다.
 - Auth 내부 역할 반영 API 호출 토큰은 `GOVERNANCE_AUTH_INTERNAL_TOKEN`으로 조정합니다. Auth의 `AUTH_INTERNAL_API_TOKEN`과 같은 값을 사용해야 합니다.
+- 외부 Auth 반영과 Governance DB 승인은 아직 단일 원자 트랜잭션이 아니므로 outbox/inbox 후속 `@todo`를 확인합니다.

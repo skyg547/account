@@ -1,48 +1,71 @@
-# 🤝 Contracts 모듈 (통신 규약집 및 서식지)
+# Contracts 모듈: 모듈 간 결재 양식과 연결 규칙
 
-## 📌 왕초보를 위한 개념 설명
+## 왕초보를 위한 개념
 
-> **Q. `contracts` 모듈이 대체 뭔가요?**  
-> 쉽고 간단하게 말해서, **"서로 다른 부서(서비스)들이 서로 대화할 때 쓰는 공용 A4 결재 서류 양식"** 입니다.
->
-> 🏢 은행에 가서 대출 업무를 본다고 상상해 보세요. 대출 창구 부서(`loan` 모듈)가 회계 부서(`journal-ledger` 모듈)에게 **"이 100만 원, 회계 장부에 좀 이체 기록으로 적어주세요!"**라고 부탁을 해야 합니다.
-> 이때, 포스트잇에 아무렇게나 글씨를 휘갈겨서 주면 회계 부서가 못 알아보고 에러가 나겠죠?
-> 
-> 그래서 아키텍트(은행장)가 강력하게 규칙을 정했습니다! 
-> **"앞으로 다른 부서에 데이터를 넘길 때는, 반드시 내가 만들어둔 공식 A4 결재 서류 양식(DTO)에 빈칸을 예쁘게 채워서 넘겨라!"**
->
-> 이 **'공식 결재 서류 양식(데이터 객체)'**만을 모아둔 공용 책자가 바로 `contracts` 모듈입니다!
+`contracts`는 서로 다른 업무 부서가 협업할 때 사용하는 **공용 결재 양식**입니다.
 
----
+예를 들어 대출 업무가 회계 원장에 전표 생성을 요청할 때 journal-ledger 내부 엔티티를 직접
+가져오지 않습니다. 대신 `JournalEntryCommand`라는 양식을 채워 `JournalPostingPort`에
+전달합니다. 이 방식은 상대 모듈의 DB/JPA 구조가 바뀌어도 호출 모듈이 함께 무너지는 것을 막습니다.
 
-## 🚀 왜 이 모듈이 따로 분리되어 있나요? (중요)
+다만 한 가지를 구분해야 합니다.
 
-마이크로서비스(MSA)의 핵심은 **"남의 폴더를 훔쳐보지 않는다"** 입니다. 
-`loan` 개발자는 `journal-ledger` 폴더 안에 무슨 자바 코드가 있는지 알 필요도 없고, 알아서도 안 됩니다.
+- `contracts`의 Java 인터페이스는 그 자체로 REST나 Kafka를 호출하지 않습니다.
+- 같은 Spring 프로세스에서는 구현 Bean을 주입받아 JVM 메서드로 호출합니다.
+- 서비스를 별도 컨테이너로 분리하면 Feign/REST/Kafka 어댑터가 같은 계약 의미를 구현해야 합니다.
+- 따라서 이 모듈은 네트워크 서버도, 실행 가능한 Spring Boot 애플리케이션도 아닙니다.
 
-하지만 둘이 대화는 해야 하니까, **양쪽 모두가 참조할 수 있는 중간 지대(중립국)**가 필요했습니다.
-1. `journal-ledger` 개발자는 "우리한테 전표를 보내려면 이 양식(`JournalEntryCommand`)에 맞춰서 주세요" 라고 `contracts` 폴더에 빈 양식을 올려둡니다.
-2. `loan` 개발자는 남의 코드를 볼 필요 없이, `contracts` 폴더에 있는 `JournalEntryCommand` 양식만 가져다가 빈칸을 채워서 카프카나 API로 슝~ 던집니다.
+## 헥사고날 관점
 
-이렇게 하면 **오타와 실수(타입 에러)를 원천 차단**할 수 있고, 두 부서가 완벽하게 독립적으로 일할 수 있습니다!
+```text
+호출 Application Service
+    -> contracts Port/Command
+        -> 제공 모듈 Adapter
+            -> 제공 모듈 Application/Domain
+                -> DB 또는 외부 시스템
+```
 
-## 📦 이 모듈 안에 들어가는 3가지 알맹이
+호출 모듈에서는 포트를 아웃바운드 포트로 사용합니다. 제공 모듈에서는 어댑터가 그 계약을
+구현합니다. 계약에는 JPA 엔티티, Controller, Repository 같은 기술 타입을 넣지 않습니다.
 
-1. **DTO (Data Transfer Object):** 
-   - API 통신을 주고받을 때 사용하는 "요청/응답" 데이터 박스 형틀입니다.
-   - 예: `AccountSubjectResponse` (계정과목 정보 껍데기)
-2. **Event Schema (이벤트 규격):** 
-   - "나 대출 승인냈어!" 하고 카프카(대형 전광판)에 소리칠 때 쓰는 메세지의 규격입니다.
-   - 예: `LoanApprovedEvent` (대출 승인 이벤트 껍데기)
-3. **Port (인터페이스 명세서):** 
-   - "저쪽 부서에 이런 기능이 있으니 호출할 수 있다"는 연락처 명세서입니다. 구현체(진짜 코드)는 없고 껍데기만 있습니다.
+현재 주요 계약:
 
-## 🧭 문서와 로컬 검증
+- 전표: `JournalPostingPort`, `JournalQueryPort`, `JournalEntryCommand`
+- 원장: `LedgerQueryPort`, `LedgerBalanceSummary`
+- 기준정보: `MasterDataQueryPort`, `AccountSubjectRef`, `FiscalPeriodControlPort`
+- 지출/리스: `BudgetControlPort`, `LeasePaymentResolutionPort`
+- 자산: `AssetRegistrationPort`
+- 세금/마감: `TaxInvoiceQueryPort`, `AccountingPeriodStatusPort`
+- 원문서 추적: `SourceDocumentProvider`
 
-- 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
-- `contracts`는 `java-library` 모듈이라 `bootRun`으로 실행하지 않습니다.
-- IntelliJ에서는 `Foundation Library Compile` 실행 구성을 사용합니다.
+## 이번 점검에서 강화한 정합성
+
+- 전표 일자는 필수이며 라인 목록은 비어 있을 수 없습니다.
+- 전표 라인은 `DEBIT/CREDIT`, 계정 코드, 금액을 생성 시점에 검증합니다.
+- 라인 목록을 불변 복사하여 호출자가 원본 List를 바꿔 전표 내용이 변하지 않게 했습니다.
+- 계정과목 정상잔액 방향은 `DEBIT/CREDIT` 외 값을 거부합니다.
+- master-data의 실제 어댑터가 기준일 SCD2 조회를 수행하도록 연결했습니다.
+
+## 남은 구조 개선 TODO
+
+- 모든 Master Data 제공자가 기준일 조회를 구현하면 현재 호환용 default 메서드를 제거합니다.
+- `SourceDocumentProvider`의 `Map<String, Object>`를 버전이 있는 DTO 계약으로 교체합니다.
+- shared-kernel 타입을 public API에서 노출하는 로컬 capability SPI를 최소 계약 모듈로 분리합니다.
+- 기존 mutable 조회 DTO는 소비처/직렬화 호환성을 확인한 뒤 record/불변 projection으로 전환합니다.
+
+## 문서와 검증
+
+문서는 [docs/README.md](./docs/README.md)에서 다음 순서로 읽습니다.
+
+1. `beginner-guide.md`
+2. `process-flow.md`
+3. `schema.md`
+4. `local-run.md`
 
 ```powershell
-.\gradlew :contracts:compileJava --console=plain --max-workers=1 --no-daemon
+.gradlew :contracts:test :contracts:compileJava --console=plain --max-workers=1 --no-daemon
 ```
+
+IntelliJ에서는 `Foundation Library Compile`을 사용합니다. H2/PostgreSQL이나 내장 WAS는 필요하지
+않습니다. 과거 빈 Dockerfile/Compose는 삭제하지 않고
+[docs/archive/legacy-runtime-skeleton](./docs/archive/legacy-runtime-skeleton/README.md)에 보존했습니다.

@@ -9,8 +9,8 @@
 
 `tax`는 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
 
-- `tax:core`: 세금계산서 도메인, UseCase, persistence adapter, local master-data adapter.
-- `tax:api`: Spring Boot HTTP 실행 진입점. 금액 검증과 취소 정책은 core를 참조한다.
+- `tax:core`: 세금계산서 도메인, `TaxInvoiceCommand`/UseCase, persistence adapter, local master-data adapter. HTTP DTO와 Controller는 두지 않는다.
+- `tax:api`: Spring Boot HTTP 실행 진입점. 요청 DTO와 Controller를 갖고, 금액 검증과 취소 정책은 core를 참조한다.
 - `tax:batch`: Spring Boot Batch 실행 진입점. 신고/대량 검증 Job/Step 제어만 담당하고 세무 규칙은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
@@ -50,6 +50,15 @@ Batch 컨텍스트 실행:
 .\gradlew :tax:batch:bootRun --console=plain --max-workers=1
 ```
 
+
+Batch 컨텍스트는 `TaxBatchJobRegistryConfiguration`으로 Spring Batch Job 등록 시점을 늦춘다. 이 설정은 `jobRegistryBeanPostProcessor` 조기 초기화 경고를 막기 위한 인프라 설정이며, 세금계산서 검증 업무 로직은 포함하지 않는다.
+
+API/BATCH context smoke를 명시적으로 확인할 때:
+
+```powershell
+.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
 실제 Batch Job 실행:
 
 ```powershell

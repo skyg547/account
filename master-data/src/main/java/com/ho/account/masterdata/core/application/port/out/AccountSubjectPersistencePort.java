@@ -1,6 +1,7 @@
 package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,7 +17,11 @@ public interface AccountSubjectPersistencePort {
 
     Optional<AccountSubject> findByCode(String code);
 
+    Optional<AccountSubject> findByCodeAt(String code, LocalDate asOfDate);
+
     List<AccountSubject> findAll();
+
+    List<AccountSubject> findAllActive(LocalDate asOfDate);
 
     AccountSubject save(AccountSubject accountSubject);
 }

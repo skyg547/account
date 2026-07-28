@@ -36,10 +36,8 @@ public class ProductService implements ProductUseCase {
         product.setUpdatedAt(LocalDateTime.now());
         product.setAuditUser("system");
         
-        if (product.getValidFrom() == null || product.getValidTo() == null) {
-            MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
-                    product::getValidTo, product::setValidTo);
-        }
+        MasterDataValidityPolicy.applyDefaultWindow(product::getValidFrom, product::setValidFrom,
+                product::getValidTo, product::setValidTo);
 
         return productPersistencePort.save(product);
     }
@@ -56,9 +54,7 @@ public class ProductService implements ProductUseCase {
 
     @Transactional(readOnly = true)
     public List<Product> getAllActiveProducts() {
-        return productPersistencePort.findAll().stream()
-                .filter(MasterDataValidityPolicy.isActiveNow(Product::getValidFrom, Product::getValidTo))
-                .toList();
+        return productPersistencePort.findAllActive(LocalDate.now());
     }
 
     /**
@@ -76,6 +72,10 @@ public class ProductService implements ProductUseCase {
 
         // SCD2: 기존 활성 버전 종료 (새로운 버전 시작일의 전날로 종료)
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate newValidTo = command.validTo() != null
+                ? command.validTo()
+                : LocalDate.of(9999, 12, 31);
+        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
 
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
@@ -94,7 +94,7 @@ public class ProductService implements ProductUseCase {
         newVersion.setPrice(command.price() != null ? command.price() : currentActive.getPrice());
         newVersion.setProductType(command.productType() != null ? command.productType() : currentActive.getProductType());
         newVersion.setValidFrom(newValidFrom);
-        newVersion.setValidTo(command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+        newVersion.setValidTo(newValidTo);
         newVersion.setAuditUser("system");
 
         return productPersistencePort.save(newVersion);
@@ -104,10 +104,17 @@ public class ProductService implements ProductUseCase {
      * 상품을 비활성화(종료) 처리합니다.
      */
     public void deactivateProduct(Long id) {
+        deactivateProduct(id, LocalDate.now());
+    }
+
+    @Override
+    public void deactivateProduct(Long id, LocalDate effectiveDate) {
         Product product = productPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다. ID: " + id));
 
-        MasterDataValidityPolicy.closeIfActive(product::getValidTo, product::setValidTo);
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, product.getValidFrom(), product.getValidTo());
+        product.terminate(terminationDate);
         product.setUpdatedAt(LocalDateTime.now());
         product.setAuditUser("system");
         productPersistencePort.save(product);

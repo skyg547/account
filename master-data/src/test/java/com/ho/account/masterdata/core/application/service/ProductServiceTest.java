@@ -110,6 +110,19 @@ class ProductServiceTest {
         assertThat(found).contains(active);
     }
 
+    @Test
+    void getAllActiveProductsDelegatesValidityFilteringToPersistence() {
+        LocalDate today = LocalDate.now();
+        Product active = product(11L, "LN-PROD", "Active", null, "EA",
+                BigDecimal.TEN, Product.ProductType.LOAN,
+                today.minusDays(1), LocalDate.of(9999, 12, 31));
+        when(productPersistencePort.findAllActive(today)).thenReturn(List.of(active));
+
+        assertThat(service.getAllActiveProducts()).containsExactly(active);
+
+        verify(productPersistencePort).findAllActive(today);
+    }
+
     private Product product(Long id, String code, String name, String description, String unitOfMeasure,
             BigDecimal price, Product.ProductType type, LocalDate validFrom, LocalDate validTo) {
         Product product = new Product();

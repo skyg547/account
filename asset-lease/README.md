@@ -65,7 +65,7 @@ erDiagram
         decimal current_book_value "장부가액"
         boolean is_current "SCD2"
     }
-    
+
     LEASE_CONTRACTS {
         uuid id PK
         uuid lessor_id FK "거래처 ID"
@@ -78,24 +78,24 @@ erDiagram
 
 ## 4. 로컬 실행 및 연동 방법
 
-`asset-lease`는 `org.springframework.boot` 플러그인을 사용하는 단독 실행 가능 모듈입니다. 로컬에서는 Config Server와 Eureka를 끄고 실행하는 구성을 사용합니다.
+`asset-lease`는 이제 `core`, `api`, `batch` Gradle 하위 프로젝트로 분리됩니다. `core`는 업무 규칙/포트/어댑터를 담는 라이브러리이고, `api`와 `batch`가 각각 Spring Boot 실행 앱입니다. 로컬에서는 Config Server와 Eureka를 끄고 실행하는 구성을 사용합니다.
 
 **PowerShell 테스트 명령:**
 
 ```powershell
-.\gradlew :asset-lease:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :asset-lease:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 **PowerShell API 실행 명령:**
 
 ```powershell
-.\gradlew :asset-lease:bootRun --args="--server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :asset-lease:api:bootRun --args="--server.port=8083 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
 ```
 
 **IntelliJ 실행 순서:**
 1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
 2. Project SDK와 Gradle JVM을 JDK 17로 맞춥니다.
-3. 상단 Run Configuration에서 `Asset Lease API bootRun` 또는 `Asset Lease Tests`를 선택합니다.
+3. 상단 Run Configuration에서 `Asset Lease API bootRun`, `Asset Lease Batch Context`, 또는 `Asset Lease Tests`를 선택합니다.
 4. 자산 등록/상각/처분 API를 호출하려면 Kafka 이벤트 발행 경로도 함께 고려합니다.
 
 **연동 주의사항:**
@@ -103,7 +103,7 @@ erDiagram
 - 부서나 거래처 정보는 엔티티 직접 참조 대신 코드 기반으로 저장합니다.
 - 고정자산 등록, 감가상각, 처분, 부서 변경 요청은 실제 사용자 또는 배치 실행자 ID를 서비스에 전달하며 자산 이력과 이벤트 감사 정보에 같은 actor를 기록합니다.
 - 리스 등록과 재측정 API도 `X-User-ID`를 받아 IFRS 16 이벤트의 `actor`로 기록합니다.
-- 리스 지급결의 계정은 `account.asset-lease.lease-accounting.*` 설정을 통해 바꿀 수 있습니다. 기본값은 리스부채 `25100`, 리스 이자비용 `93100`, 미지급금 `21100`입니다.
+- 리스 지급결의 계정은 `LeaseAccountMappingPort`와 `account.asset-lease.lease-accounting.*` 설정을 통해 바꿀 수 있습니다. 기본값은 리스부채 `25100`, 리스 이자비용 `93100`, 미지급금 `21100`입니다.
 - 리스료 지급결의는 `LeasePaymentResolutionPort` 구현이 필요하며, 단독 실행에서 구현이 없으면 fallback 어댑터가 예외를 던집니다.
 
 ## 5. 문서 읽기 순서

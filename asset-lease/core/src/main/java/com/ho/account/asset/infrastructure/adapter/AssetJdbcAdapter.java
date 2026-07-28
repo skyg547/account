@@ -1,15 +1,14 @@
 package com.ho.account.asset.infrastructure.adapter;
 
 import com.ho.account.asset.application.port.out.AssetPersistencePort;
+import com.ho.account.asset.domain.FixedAssetDepreciationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * <h3>JDBC 기반 고성능 어댑터</h3>
@@ -22,22 +21,35 @@ public class AssetJdbcAdapter implements AssetPersistencePort {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    public void updateDepreciationBulk(Map<Long, BigDecimal> results, LocalDate lastDate) {
+    public void updateDepreciationBulk(List<FixedAssetDepreciationResult> results, LocalDate lastDate) {
+        if (results == null || results.isEmpty()) {
+            return;
+        }
+
         String sql = "UPDATE fixed_assets SET " +
-                     "accumulated_depreciation = accumulated_depreciation + ?, " +
-                     "current_book_value = current_book_value - ?, " +
+                     "accumulated_depreciation = ?, " +
+                     "current_book_value = ?, " +
+                     "status = ?, " +
                      "last_depreciation_date = ?, " +
                      "updated_at = NOW() " +
                      "WHERE id = ?";
 
         List<Object[]> batchArgs = new ArrayList<>();
-        results.forEach((id, amount) -> {
-            if (amount.compareTo(BigDecimal.ZERO) > 0) {
-                batchArgs.add(new Object[]{amount, amount, lastDate, id});
+        for (FixedAssetDepreciationResult result : results) {
+            if (result.shouldPersist()) {
+                batchArgs.add(new Object[]{
+                        result.accumulatedDepreciation(),
+                        result.currentBookValue(),
+                        result.status(),
+                        lastDate,
+                        result.assetId()
+                });
             }
-        });
+        }
 
         // 1,000건 단위로 나누어 실행 (성능 최적화)
-        jdbcTemplate.batchUpdate(sql, batchArgs);
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(sql, batchArgs);
+        }
     }
 }

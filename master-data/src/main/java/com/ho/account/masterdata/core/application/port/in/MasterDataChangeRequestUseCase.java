@@ -8,8 +8,6 @@ import java.util.List;
  * 마스터 데이터 변경 요청 유즈케이스
  */
 public interface MasterDataChangeRequestUseCase {
-    List<MasterDataChangeRequest> getAllChangeRequests();
-    
     MasterDataChangeRequest requestChange(MasterDataChangeRequestCommand command);
     
     List<MasterDataChangeRequest> findPendingRequests();

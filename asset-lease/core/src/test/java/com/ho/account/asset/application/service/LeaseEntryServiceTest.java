@@ -25,10 +25,8 @@ class LeaseEntryServiceTest {
     void processMonthlyLeasePaymentSplitsIfrs16PaymentIntoInterestAndPrincipal() {
         LeaseContract contract = createIfrs16LeaseContract();
         LeasePaymentSchedule schedule = createSchedule(contract);
-        FakeLeasePersistencePort persistencePort =
-                new FakeLeasePersistencePort(List.of(contract), List.of(schedule));
-        RecordingLeasePaymentResolutionPort leasePaymentResolutionPort =
-                new RecordingLeasePaymentResolutionPort();
+        FakeLeasePersistencePort persistencePort = new FakeLeasePersistencePort(List.of(contract), List.of(schedule));
+        RecordingLeasePaymentResolutionPort leasePaymentResolutionPort = new RecordingLeasePaymentResolutionPort();
         LeaseEntryService service = new LeaseEntryService(
                 persistencePort,
                 new NoOpAssetEventPort(),
@@ -45,6 +43,31 @@ class LeaseEntryServiceTest {
         assertEquals(new BigDecimal("200.00"), command.debitLines().get(0).amount());
         assertEquals("25100", command.debitLines().get(1).debitAccountCode());
         assertEquals(new BigDecimal("1000.00"), command.debitLines().get(1).amount());
+    }
+
+    @Test
+    void processMonthlyLeaseAccountingAddsActorToAuditEvent() {
+        LeaseContract contract = createIfrs16LeaseContract();
+        LeasePaymentSchedule schedule = createSchedule(contract);
+        RightOfUseAsset rouAsset = createRightOfUseAsset(contract);
+        LeaseLiability liability = createLeaseLiability(contract);
+        FakeLeasePersistencePort persistencePort = new FakeLeasePersistencePort(
+                List.of(contract),
+                List.of(schedule),
+                rouAsset,
+                liability);
+        RecordingAssetEventPort eventPort = new RecordingAssetEventPort();
+        LeaseEntryService service = new LeaseEntryService(
+                persistencePort,
+                eventPort,
+                new RecordingLeasePaymentResolutionPort(),
+                new StaticLeaseAccountMappingPort());
+
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 5, 31), "lease-user");
+
+        assertEquals("lease-user", eventPort.eventData.get("actor"));
+        assertEquals("PAID", schedule.getStatus());
+        assertEquals(new BigDecimal("9000.00"), liability.getCurrentValue());
     }
 
     private static class StaticLeaseAccountMappingPort implements LeaseAccountMappingPort {
@@ -84,16 +107,44 @@ class LeaseEntryServiceTest {
         return schedule;
     }
 
+    private RightOfUseAsset createRightOfUseAsset(LeaseContract contract) {
+        RightOfUseAsset asset = new RightOfUseAsset();
+        asset.setLeaseContract(contract);
+        asset.setInitialValue(new BigDecimal("12000.00"));
+        asset.setCurrentBookValue(new BigDecimal("12000.00"));
+        asset.setAccumulatedDepreciation(BigDecimal.ZERO);
+        asset.setDepreciationAmountPerPeriod(new BigDecimal("1000.00"));
+        return asset;
+    }
+
+    private LeaseLiability createLeaseLiability(LeaseContract contract) {
+        LeaseLiability liability = new LeaseLiability();
+        liability.setLeaseContract(contract);
+        liability.setInitialValue(new BigDecimal("10000.00"));
+        liability.setCurrentValue(new BigDecimal("10000.00"));
+        return liability;
+    }
+
     private static class FakeLeasePersistencePort implements LeasePersistencePort {
 
         private final List<LeaseContract> activeContracts;
         private final List<LeasePaymentSchedule> schedules;
+        private final RightOfUseAsset rouAsset;
+        private final LeaseLiability liability;
+
+        private FakeLeasePersistencePort(List<LeaseContract> activeContracts, List<LeasePaymentSchedule> schedules) {
+            this(activeContracts, schedules, null, null);
+        }
 
         private FakeLeasePersistencePort(
                 List<LeaseContract> activeContracts,
-                List<LeasePaymentSchedule> schedules) {
+                List<LeasePaymentSchedule> schedules,
+                RightOfUseAsset rouAsset,
+                LeaseLiability liability) {
             this.activeContracts = activeContracts;
             this.schedules = schedules;
+            this.rouAsset = rouAsset;
+            this.liability = liability;
         }
 
         @Override
@@ -115,27 +166,30 @@ class LeaseEntryServiceTest {
 
         @Override
         public List<LeaseContract> findIfrs16ApplicableActiveContracts() {
-            return List.of();
+            return activeContracts.stream()
+                    .filter(LeaseContract::isIfrs16Applicable)
+                    .filter(contract -> "ACTIVE".equals(contract.getStatus()))
+                    .toList();
         }
 
         @Override
         public RightOfUseAsset saveROUAsset(RightOfUseAsset asset) {
-            throw new UnsupportedOperationException();
+            return asset;
         }
 
         @Override
         public Optional<RightOfUseAsset> findROUAssetByContract(LeaseContract contract) {
-            return Optional.empty();
+            return Optional.ofNullable(rouAsset);
         }
 
         @Override
         public LeaseLiability saveLiability(LeaseLiability liability) {
-            throw new UnsupportedOperationException();
+            return liability;
         }
 
         @Override
         public Optional<LeaseLiability> findLiabilityByContract(LeaseContract contract) {
-            return Optional.empty();
+            return Optional.ofNullable(liability);
         }
 
         @Override
@@ -145,7 +199,7 @@ class LeaseEntryServiceTest {
 
         @Override
         public void savePaymentSchedule(LeasePaymentSchedule schedule) {
-            throw new UnsupportedOperationException();
+            schedule.setStatus(schedule.getStatus());
         }
 
         @Override
@@ -160,6 +214,16 @@ class LeaseEntryServiceTest {
 
         @Override
         public void sendAssetEvent(String topic, Map<String, Object> eventData) {
+        }
+    }
+
+    private static class RecordingAssetEventPort implements AssetEventPort {
+
+        private Map<String, Object> eventData;
+
+        @Override
+        public void sendAssetEvent(String topic, Map<String, Object> eventData) {
+            this.eventData = eventData;
         }
     }
 

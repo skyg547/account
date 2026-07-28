@@ -4,7 +4,10 @@
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
     <springProperty scope="context" name="appName" source="spring.application.name"/>
+    <springProperty scope="context" name="logstashHost" source="LOGSTASH_HOST" defaultValue="localhost"/>
+    <springProperty scope="context" name="logstashPort" source="LOGSTASH_PORT" defaultValue="5000"/>
 
+    <!-- local은 외부 로그 수집기 없이 실행되어 초보자 PC와 테스트가 재연결 대기 상태가 되지 않습니다. -->
     <springProfile name="local">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
@@ -13,7 +16,7 @@
 
     <springProfile name="!local">
         <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-            <destination>localhost:5000</destination>
+            <destination>${logstashHost}:${logstashPort}</destination>
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <customFields>{"service":"${appName}"}</customFields>
             </encoder>

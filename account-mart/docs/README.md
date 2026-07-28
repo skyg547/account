@@ -23,6 +23,12 @@
 | `mart-api` | 마트 조회 API | Spring Boot API |
 | `mart-batch` | 기준일 ETL, DQ, 대사, snapshot 재생성 | Spring Boot Batch |
 
+## 헥사고날 경계 요약
+
+- `mart-core`는 업무 규칙의 중심입니다. DQ, ODS-GL 대사, CDM 변환, snapshot 생성 규칙은 Spring Batch 없이도 테스트할 수 있어야 합니다.
+- `mart-batch`는 Spring Batch 어댑터입니다. Job/Step/Reader/Writer/Chunk 설정과 `StepExecution` 파라미터 해석을 담당하고, 실제 판단은 core 컴포넌트에 위임합니다.
+- `mart-api`는 조회 API 어댑터입니다. 외부 호출자는 API/조회 계약을 통해 마트 결과를 읽고, core 도메인 객체를 직접 공유하지 않습니다.
+- application port는 JPA, JDBC, Kafka 같은 기술 이름을 숨기는 계약이어야 합니다. 구현체는 infrastructure에 둡니다.
 ## 표준 데이터 흐름
 
 ```mermaid

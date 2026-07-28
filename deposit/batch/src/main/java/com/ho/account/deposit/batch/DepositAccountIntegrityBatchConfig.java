@@ -2,6 +2,7 @@ package com.ho.account.deposit.batch;
 
 import com.ho.account.deposit.application.port.in.DepositBatchUseCase;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.Step;
@@ -33,15 +34,22 @@ public class DepositAccountIntegrityBatchConfig {
         return new StepBuilder("depositAccountIntegrityStep", jobRepository)
                 .tasklet((contribution, chunkContext) -> {
                     JobParameters parameters = contribution.getStepExecution().getJobParameters();
-                    LocalDate asOfDate = localDate(parameters, "asOfDate", LocalDate.now());
+                    LocalDate asOfDate = requiredLocalDate(parameters, "asOfDate");
                     depositBatchUseCase.validateActiveAccounts(asOfDate);
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();
     }
 
-    private LocalDate localDate(JobParameters parameters, String key, LocalDate defaultValue) {
+    static LocalDate requiredLocalDate(JobParameters parameters, String key) {
         String value = parameters.getString(key);
-        return value == null || value.isBlank() ? defaultValue : LocalDate.parse(value.trim());
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(key + " job parameter is required. Use yyyy-MM-dd format.");
+        }
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException(key + " must use yyyy-MM-dd format.", ex);
+        }
     }
 }

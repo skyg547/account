@@ -2,29 +2,31 @@
 
 ## 핵심 테이블
 
-Flyway `V70__auth_user_role_schema.sql` 기준으로 Auth는 사용자와 역할 할당을 저장합니다.
+Flyway V70~V72 기준으로 Auth는 사용자, 역할, 로그인 실패, 승인 반영 이력을 저장합니다.
 
 ```mermaid
 erDiagram
     AUTH_USERS ||--o{ AUTH_ROLE_ASSIGNMENTS : has
-    AUTH_LOGIN_ATTEMPTS ||--|| AUTH_USERS : username_ref
+    AUTH_USERS ||--o| AUTH_LOGIN_ATTEMPTS : login_failure_state
+    AUTH_USERS ||--o{ AUTH_ROLE_ASSIGNMENT_APPLY_LOG : approval_history
     AUTH_USERS {
-        Long id PK
-        String username
-        String password_hash
+        String username PK
+        String stored_password
         String department_code
-        boolean active
-        boolean locked
+        boolean account_active
+        boolean account_locked
         Long role_version
     }
     AUTH_ROLE_ASSIGNMENTS {
         Long id PK
-        Long user_id
+        String username FK
         String role_code
-        String approval_status
         String data_scope
         Instant valid_from
         Instant valid_to
+        boolean approved
+        String approved_by
+        Instant approved_at
     }
     AUTH_LOGIN_ATTEMPTS {
         String username PK
@@ -32,28 +34,42 @@ erDiagram
         Instant locked_until
         String last_failure_reason
         Instant last_failure_at
-        Instant updated_at
+    }
+    AUTH_ROLE_ASSIGNMENT_APPLY_LOG {
+        String approval_trace_id PK
+        String username
+        String request_fingerprint
+        Long applied_role_version
+        Instant applied_at
     }
 ```
+
+## 마이그레이션 책임
+
+| 버전 | 책임 |
+| --- | --- |
+| `V70` | `auth_users`, `auth_role_assignments`와 조회 인덱스 |
+| `V71` | 여러 Auth 인스턴스가 공유하는 로그인 실패/잠금 상태 |
+| `V72` | Governance 역할 승인 재시도를 막는 멱등 수신 이력 |
 
 ## 주요 설정
 
 | 설정 | 기본값 | 의미 |
 | --- | --- | --- |
-| `AUTH_PERSISTENCE_MODE` | `jpa` | JPA 또는 memory 어댑터 선택 |
-| `AUTH_INTERNAL_API_TOKEN` | `local-internal-auth-token` | 내부 역할 반영 API 토큰 |
+| `AUTH_PERSISTENCE_MODE` | `jpa` | JPA 또는 memory 사용자/역할 어댑터 |
+| `AUTH_INTERNAL_API_TOKEN` | 로컬 기본값 | 내부 역할 반영 API 토큰 |
 | `AUTH_MASTER_DATA_BASE_URL` | `http://localhost:8082` | 부서 코드 검증용 master-data 주소 |
 | `AUTH_LOGIN_MAX_FAILURES` | `5` | 잠금 전 연속 실패 횟수 |
 | `AUTH_LOGIN_LOCK_DURATION_MINUTES` | `15` | 임시 잠금 시간 |
-| `AUTH_LOGIN_SECURITY_STORE` | `memory` | 로그인 실패/잠금 저장소. 로컬 단일 인스턴스는 `memory`, 다중 인스턴스 운영은 `jpa` |
+| `AUTH_LOGIN_SECURITY_STORE` | `memory` | 로그인 실패 저장소. 운영 다중 인스턴스는 `jpa` |
 | `AUTH_JWT_SECRET` | 로컬 기본값 | JWT 서명키. HS256 기준 32바이트 이상 필요 |
 | `AUTH_JWT_ISSUER` | `auth-service` | JWT issuer |
 | `AUTH_JWT_EXPIRATION_SECONDS` | `3600` | 토큰 만료 시간 |
 
-## 상태와 정책
+## 상태와 정합성 정책
 
-- 로그인 성공 시 실패 횟수를 초기화합니다.
-- 연속 실패 횟수가 기준을 넘으면 일정 시간 잠급니다.
-- `auth.login-security.store=jpa`이면 `AUTH_LOGIN_ATTEMPTS` 테이블을 사용해 여러 Auth 서버가 같은 잠금 상태를 공유합니다.
-- 승인되지 않았거나 유효기간 밖의 역할은 JWT에 넣지 않습니다.
-- 역할 교체 시 `roleVersion`을 증가시킵니다.
+- 역할 교체는 기존 행을 새 승인 목록으로 바꾸고 `roleVersion`을 1 증가시킵니다.
+- 같은 `approvalTraceId`와 fingerprint 재시도는 버전을 증가시키지 않습니다.
+- 같은 trace의 내용이 달라지면 승인 오염으로 보고 거부합니다.
+- `validFrom`은 포함, `validTo`는 제외하는 반개구간으로 역할 유효성을 판단합니다.
+- token-version 검증은 버전뿐 아니라 계정 활성/관리 잠금/유효 역할도 확인합니다.

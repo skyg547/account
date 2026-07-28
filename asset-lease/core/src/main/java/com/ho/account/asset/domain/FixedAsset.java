@@ -6,13 +6,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * [DDD(도메인 주도 설계) - Aggregate Root]
  * 고정자산(Fixed Asset) 엔티티 — 회사가 소유한 유형자산의 가치와 상각 상태를 관리합니다.
- * 
+ *
  * 🐣 [초보자를 위한 설명]
  * 고정자산은 회사에서 오래 쓸 목적으로 산 물건(컴퓨터, 자동차, 건물 등)을 말합니다.
  * 이 클래스는 이 물건을 "얼마에 샀는지(취득가액)", "지금까지 가치가 얼마나 깎였는지(감가상각누계액)",
@@ -26,6 +26,9 @@ import java.time.LocalDate;
 @Getter @Setter
 @NoArgsConstructor
 public class FixedAsset {
+
+    private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String STATUS_FULLY_DEPRECIATED = "FULLY_DEPRECIATED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -73,21 +76,87 @@ public class FixedAsset {
     @Column(name = "dept_code", length = 20)
     private String departmentCode;
 
-    public BigDecimal depreciate(LocalDate processDate) {
-        if (!"ACTIVE".equals(status)) return BigDecimal.ZERO;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
-        BigDecimal amount = depreciationAmountPerPeriod;
-        BigDecimal remainingValue = currentBookValue.subtract(residualValue);
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-        if (amount.compareTo(remainingValue) >= 0) {
-            amount = remainingValue;
-            this.status = "FULLY_DEPRECIATED";
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 감가상각 결과를 미리 계산합니다. 이 메서드는 자산 상태를 바꾸지 않습니다.
+     *
+     * <p>초보자 설명: 단건 API는 `depreciate`로 객체를 바로 바꾸지만, Batch는 계산값만 모아
+     * JDBC bulk update로 DB에 한 번에 반영합니다. 그래서 대량 처리에서는 이 preview 메서드를 사용해
+     * JPA 변경 감지와 JDBC bulk update가 동시에 실행되는 이중 반영 위험을 피합니다.</p>
+     */
+    public FixedAssetDepreciationResult calculateDepreciation(LocalDate processDate) {
+        BigDecimal accumulated = defaultZero(accumulatedDepreciation);
+        BigDecimal bookValue = defaultZero(currentBookValue);
+
+        if (!STATUS_ACTIVE.equals(status)) {
+            return FixedAssetDepreciationResult.noChange(id, accumulated, bookValue, status);
         }
 
-        this.accumulatedDepreciation = this.accumulatedDepreciation.add(amount);
-        this.currentBookValue = this.currentBookValue.subtract(amount);
+        BigDecimal residual = defaultZero(residualValue);
+        BigDecimal remainingValue = bookValue.subtract(residual);
+        if (remainingValue.compareTo(BigDecimal.ZERO) <= 0) {
+            return new FixedAssetDepreciationResult(
+                    id,
+                    BigDecimal.ZERO,
+                    accumulated,
+                    bookValue,
+                    STATUS_FULLY_DEPRECIATED);
+        }
+
+        BigDecimal configuredAmount = defaultZero(depreciationAmountPerPeriod);
+        if (configuredAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return FixedAssetDepreciationResult.noChange(id, accumulated, bookValue, status);
+        }
+
+        BigDecimal amount = configuredAmount.compareTo(remainingValue) >= 0
+                ? remainingValue
+                : configuredAmount;
+        BigDecimal bookValueAfter = bookValue.subtract(amount);
+        String statusAfter = amount.compareTo(remainingValue) >= 0 ? STATUS_FULLY_DEPRECIATED : STATUS_ACTIVE;
+
+        return new FixedAssetDepreciationResult(
+                id,
+                amount,
+                accumulated.add(amount),
+                bookValueAfter,
+                statusAfter);
+    }
+
+    public BigDecimal depreciate(LocalDate processDate) {
+        FixedAssetDepreciationResult result = calculateDepreciation(processDate);
+        if (!result.shouldPersist()) {
+            return result.depreciationAmount();
+        }
+
+        this.accumulatedDepreciation = result.accumulatedDepreciation();
+        this.currentBookValue = result.currentBookValue();
+        this.status = result.status();
         this.lastDepreciationDate = processDate;
 
-        return amount;
+        return result.depreciationAmount();
+    }
+
+    private static BigDecimal defaultZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

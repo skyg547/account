@@ -3,6 +3,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -42,8 +43,8 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
     }
 
     @Override
-    public List<BusinessPartner> findByBusinessPartnerNameContaining(String name) {
-        return businessPartnerRepository.findByBusinessPartnerNameContaining(name);
+    public List<BusinessPartner> searchActiveByName(String name, LocalDate asOfDate) {
+        return businessPartnerRepository.searchActiveByName(name, asOfDate);
     }
 
     @Override

@@ -53,6 +53,9 @@ public class MasterApprovalService implements MasterApprovalUseCase {
                         "No MasterDataChangeApplyPort supports masterType: " + approval.getMasterType()));
 
         approval.approve(command.approverUser(), command.remarks(), LocalDateTime.now());
+
+        // @todo Auth처럼 외부 시스템에 반영하는 포트는 DB 트랜잭션과 원자적으로 묶이지 않는다.
+        // approvalId 멱등키를 사용하는 outbox/inbox 재시도 경계로 전환해야 한다.
         applyPort.applyApprovedChange(approval);
 
         return masterApprovalPersistencePort.save(approval);

@@ -3,11 +3,13 @@ package com.ho.account.asset.batch;
 import com.ho.account.asset.application.pipeline.DepreciationPipeline;
 import com.ho.account.asset.application.port.out.AssetPersistencePort;
 import com.ho.account.asset.domain.FixedAsset;
+import com.ho.account.asset.domain.FixedAssetDepreciationResult;
 import com.ho.account.asset.repository.FixedAssetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -15,19 +17,16 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
-import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * <h3>고속 감가상각 배치 오케스트레이터</h3>
@@ -88,7 +87,7 @@ public class AssetDepreciationBatchConfig {
             for (FixedAsset item : items) {
                 assets.add(item);
             }
-            Map<Long, BigDecimal> result = depreciationPipeline.calculateBatch(assets, targetDate);
+            List<FixedAssetDepreciationResult> result = depreciationPipeline.calculateBatch(assets, targetDate);
             if (!result.isEmpty()) {
                 assetPersistencePort.updateDepreciationBulk(result, targetDate);
             }

@@ -3,6 +3,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -27,8 +28,18 @@ public class JpaAccountSubjectPersistenceAdapter implements AccountSubjectPersis
     }
 
     @Override
+    public Optional<AccountSubject> findByCodeAt(String code, LocalDate asOfDate) {
+        return accountSubjectRepository.findActiveByCode(code, asOfDate);
+    }
+
+    @Override
     public List<AccountSubject> findAll() {
         return accountSubjectRepository.findAll();
+    }
+
+    @Override
+    public List<AccountSubject> findAllActive(LocalDate asOfDate) {
+        return accountSubjectRepository.findActiveVersions(asOfDate);
     }
 
     @Override

@@ -26,16 +26,21 @@ sequenceDiagram
     participant Master as MasterDataService
     participant DB as 데이터베이스
 
-    Requester->>Master: 기준정보 변경 요청
+    Requester->>Master: 기준정보 변경 요청 + requestedVersion
+    Master->>Master: 지원 전략과 현재 SCD2 버전 확인
     Master->>DB: 변경 요청 저장 (REQUESTED)
-    Governance->>Master: 승인 처리 (APPROVED)
-    
+    Governance->>Master: 승인 처리
+    Master->>Master: 버전 재확인
+    Master->>DB: 승인 상태 저장 (APPROVED)
+
     rect rgb(240, 240, 240)
         Note over Master, DB: SCD2 반영 프로세스 (Apply)
+        Master->>DB: 요청 행 잠금과 버전 재확인
         Master->>DB: 기존 활성 데이터 종료 (validTo 업데이트)
-        Master->>DB: 신규 버전 데이터 삽입 (validFrom = 오늘)
+        Master->>DB: 신규 버전 데이터 삽입 (validFrom = approved effectiveDate)
+        Master->>DB: 실제 반영 성공 후 APPLIED
     end
-    
+
     Master-->>Requester: 최종 반영 완료
 ```
 
@@ -62,11 +67,11 @@ erDiagram
     CURRENCIES ||--o{ EXCHANGE_RATES : "from/to"
 
     ACCOUNT_SUBJECTS {
-        String code PK
+        Long id PK "기술 키"
+        String code "업무 식별자"
         String name
         LocalDate valid_from "SCD2 시작"
         LocalDate valid_to "SCD2 종료"
-        Boolean is_current "현재 여부"
     }
     
     BUSINESS_PARTNERS {
@@ -96,12 +101,21 @@ erDiagram
 
 **로컬 실행 명령:**
 ```powershell
-.\gradlew :master-data:bootRun --console=plain
+.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
 - 데이터 수정 시 `terminate()` 메서드를 호출하여 SCD2 정책을 준수해야 합니다.
-- 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `DEPARTMENT` typed applier가 구현되어 있고, 미지원 유형은 fail-closed로 중단됩니다.
-- 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 chunk 조회해 메모리 사용량을 제한합니다.
+- 승인된 변경 요청은 targetType별 applier가 실제 SCD2 반영을 수행한 뒤에만 `APPLIED`가 됩니다. 현재 `ACCOUNT_SUBJECT`, `BUSINESS_PARTNER`, `DEPARTMENT`, `PRODUCT` typed applier가 구현되어 있습니다.
+- `requestedVersion`은 CREATE=1, UPDATE=현재 저장 이력 수+1, DEACTIVATE=현재 저장 이력 수입니다. 요청·승인·반영 직전에 반복 검증하므로 대기 중 다른 버전이 먼저 반영되면 오래된 요청은 실패합니다.
+- `DEACTIVATE`는 JSON payload 없이 실행되며 승인된 `effectiveDate`를 SCD2 종료일로 사용합니다. `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD`는 typed applier와 버전 어댑터가 생기기 전까지 접수 단계에서 fail-closed 됩니다.
+- 승인/반려/반영은 변경 요청 행을 잠그고 `lockVersion`으로 동시 갱신도 감지합니다. 예약 반영은 `APPROVED` 상태와 `effectiveDate` 조건으로 최대 500건을 조회합니다.
+- Governance 승인 ID는 `sourceReference`로 저장해 동일 명령 재시도는 기존 요청을 반환하고 다른 명령 재사용은 충돌로 차단합니다. 실제 반영 완료 시각은 `appliedAt`에 기록합니다.
+- 직접 쓰기 CRUD API도 아직 공존하므로 운영에서는 관리자 보정 전용으로 제한하거나 일반 변경을 승인 API로 통합해야 합니다.
+- 일일 유효성 보고서는 core pipeline이 기준일을 필수로 받고, JPA 통계 어댑터가 네 테이블의 활성 건수를 DB `COUNT`로 계산합니다.
+- 계정과목/상품 활성 목록과 거래처 이름 검색도 전체 행을 Java에서 필터링하지 않고 기준일 조건을 DB query에 전달합니다. 거래처 검색은 빈 검색어를 거부하고 현재 활성 버전만 반환합니다.
+- 환율 조회는 요청일 이하의 데이터 중 가장 최근 `effectiveDate` 1건을 DB에서 선택합니다. 환율은 양수이고 통화 코드는 3자리 ISO 형식이어야 합니다.
+- Closing이 회계기간 상태를 바꿀 때는 `FiscalPeriodPersistencePort` 뒤에서 대상 행을 잠그고, 영구 마감 불변식과 감사 사용자를 `FiscalPeriod` 도메인 메서드가 검증합니다.
 - 운영에서는 `config-repo/master-data.yml`의 `ddl-auto: update`를 그대로 쓰지 말고 Flyway 기준으로 검증해야 합니다.
+- 현재 Loan core의 거래처/통화 엔티티 연관과 Closing Batch의 환율 Repository 직접 참조는 위 contracts 원칙의 예외입니다. 다음 순차 리팩터링에서 코드/ID 저장과 소비 모듈 소유 포트 + contracts 조회로 분리해야 합니다.

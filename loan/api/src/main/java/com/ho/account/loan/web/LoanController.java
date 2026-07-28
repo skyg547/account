@@ -1,12 +1,12 @@
 package com.ho.account.loan.web;
 
+import com.ho.account.loan.application.port.in.LoanUseCase;
 import com.ho.account.loan.domain.DeferredItemType;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanDisbursal;
 import com.ho.account.loan.domain.LoanEvent;
 import com.ho.account.loan.domain.RecalculationRun;
 import com.ho.account.loan.dto.*;
-import com.ho.account.loan.service.LoanService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -27,16 +28,20 @@ import java.util.stream.Collectors;
  * 애플리케이션 서비스(LoanService)가 이해할 수 있는 형태의 객체(Dto)로 변환하여 전달하고,
  * 서비스의 처리 결과를 다시 외부 포맷(JSON)으로 응답합니다.
  * 이를 통해 핵심 비즈니스 로직은 HTTP, REST 같은 웹 기술에 종속되지 않고 순수하게 유지될 수 있습니다.
+ *
+ * <p>@todo 현재 요청 DTO의 user 값을 감사 주체로 신뢰합니다. 완료 조건은 Gateway가 검증한 principal을
+ * 보안 컨텍스트에서 추출하고, 요청 본문의 user 필드를 제거하며, 위조 actor가 저장·전표 lineage에
+ * 들어가지 않는 API 통합 테스트를 추가하는 것입니다.</p>
  */
 @RestController
 @RequestMapping("/api/loan")
 public class LoanController {
 
-    private final LoanService loanService;
+    private final LoanUseCase loanUseCase;
 
     @Autowired
-    public LoanController(LoanService loanService) {
-        this.loanService = loanService;
+    public LoanController(LoanUseCase loanUseCase) {
+        this.loanUseCase = loanUseCase;
     }
 
     // --- Loan (대출) API ---
@@ -49,7 +54,7 @@ public class LoanController {
     @PostMapping("/loans")
     public ResponseEntity<LoanDto> createLoan(@Valid @RequestBody LoanRequestDto requestDto) {
         Loan loan = requestDto.toEntity();
-        Loan createdLoan = loanService.createLoan(loan);
+        Loan createdLoan = loanUseCase.createLoan(loan);
         return new ResponseEntity<>(LoanDto.fromEntity(createdLoan), HttpStatus.CREATED);
     }
 
@@ -60,7 +65,7 @@ public class LoanController {
      */
     @GetMapping("/loans/{id}")
     public ResponseEntity<LoanDto> getLoanById(@PathVariable("id") Long id) {
-        Loan loan = loanService.findLoanById(id);
+        Loan loan = loanUseCase.findLoanById(id);
         return ResponseEntity.ok(LoanDto.fromEntity(loan));
     }
 
@@ -73,7 +78,7 @@ public class LoanController {
      */
     @PostMapping("/disbursals")
     public ResponseEntity<LoanDisbursalDto> disburseLoan(@Valid @RequestBody LoanDisbursalRequestDto requestDto) {
-        LoanDisbursal disbursal = loanService.disburseLoan(
+        LoanDisbursal disbursal = loanUseCase.disburseLoan(
                 requestDto.getLoanId(),
                 requestDto.getDisbursalDate(),
                 requestDto.getDisbursedAmount(),
@@ -92,7 +97,7 @@ public class LoanController {
     @PostMapping("/deferred-item-types")
     public ResponseEntity<DeferredItemTypeDto> createDeferredItemType(@Valid @RequestBody DeferredItemTypeRequestDto requestDto) {
         DeferredItemType itemType = requestDto.toEntity();
-        DeferredItemType createdItemType = loanService.createDeferredItemType(itemType);
+        DeferredItemType createdItemType = loanUseCase.createDeferredItemType(itemType);
         return new ResponseEntity<>(DeferredItemTypeDto.fromEntity(createdItemType), HttpStatus.CREATED);
     }
 
@@ -103,7 +108,7 @@ public class LoanController {
      */
     @GetMapping("/deferred-item-types/by-code/{code}")
     public ResponseEntity<DeferredItemTypeDto> getDeferredItemTypeByCode(@PathVariable("code") String code) {
-        DeferredItemType itemType = loanService.findDeferredItemTypeByCode(code);
+        DeferredItemType itemType = loanUseCase.findDeferredItemTypeByCode(code);
         return ResponseEntity.ok(DeferredItemTypeDto.fromEntity(itemType));
     }
 
@@ -116,7 +121,7 @@ public class LoanController {
      */
     @PostMapping("/deferred-items")
     public ResponseEntity<DeferredItemDto> createDeferredItem(@Valid @RequestBody DeferredItemRequestDto requestDto) {
-        com.ho.account.loan.domain.DeferredItem deferredItem = loanService.createDeferredItem(
+        com.ho.account.loan.domain.DeferredItem deferredItem = loanUseCase.createDeferredItem(
                 requestDto.getLoanId(),
                 requestDto.getDeferredItemTypeId(),
                 requestDto.getAmount(),
@@ -136,7 +141,7 @@ public class LoanController {
      */
     @PostMapping("/amortization-schedules/generate")
     public ResponseEntity<List<EIRAmortizationScheduleDto>> generateAmortizationSchedule(@Valid @RequestBody AmortizationScheduleGenerateRequestDto requestDto) {
-        List<com.ho.account.loan.domain.EIRAmortizationSchedule> schedule = loanService.generateAmortizationSchedule(
+        List<com.ho.account.loan.domain.EIRAmortizationSchedule> schedule = loanUseCase.generateAmortizationSchedule(
                 requestDto.getLoanId(),
                 requestDto.getRecalculationDate(),
                 requestDto.getNewEIR(),
@@ -156,18 +161,16 @@ public class LoanController {
      * @return 재계산 실행 기록 (재계산이 발생한 경우)
      */
     @PostMapping("/events")
-    public ResponseEntity<RecalculationRunDto> processLoanEvent(@Valid @RequestBody LoanEventRequestDto requestDto) {
-        // LoanEvent를 먼저 기록 (여기서는 서비스에서 처리한다고 가정)
-        // RecalculationRun은 재계산이 필요한 이벤트에 대해서만 반환
-        RecalculationRun run = loanService.recalculateLoan(
+    public ResponseEntity<LoanEventResultDto> processLoanEvent(@Valid @RequestBody LoanEventRequestDto requestDto) {
+        LoanUseCase.LoanEventResult result = loanUseCase.processLoanEvent(
                 requestDto.getLoanId(),
+                requestDto.getEventType(),
                 requestDto.getEventDate(),
-                RecalculationRun.RecalculationReason.valueOf(requestDto.getEventType().name()), // 이벤트 유형을 재계산 사유로 매핑
+                requestDto.getDescription(),
                 requestDto.getUser(),
-                requestDto.getNewPrincipal(),
-                requestDto.getNewMaturityDate()
-        );
-        return new ResponseEntity<>(RecalculationRunDto.fromEntity(run), HttpStatus.CREATED);
+                Optional.ofNullable(requestDto.getNewPrincipal()),
+                Optional.ofNullable(requestDto.getNewMaturityDate()));
+        return new ResponseEntity<>(LoanEventResultDto.from(result), HttpStatus.CREATED);
     }
 
     // --- DoD 시나리오 재현 API ---
@@ -179,7 +182,7 @@ public class LoanController {
      */
     @PostMapping("/dod-scenario")
     public ResponseEntity<RecalculationRunDto> reproduceDoDScenario(@Valid @RequestBody DoDScenarioRequestDto requestDto) {
-        RecalculationRun run = loanService.reproduceDoDScenario(requestDto.getLoanId(), requestDto.getUser());
+        RecalculationRun run = loanUseCase.reproduceDoDScenario(requestDto.getLoanId(), requestDto.getUser());
         return ResponseEntity.ok(RecalculationRunDto.fromEntity(run));
     }
 }

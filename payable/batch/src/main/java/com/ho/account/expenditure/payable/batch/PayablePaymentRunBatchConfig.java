@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.payable.batch;
 
+import com.ho.account.expenditure.application.port.in.PaymentRunCommand;
 import com.ho.account.expenditure.application.port.in.PaymentUseCase;
 import java.time.LocalDate;
 import org.springframework.batch.core.Job;
@@ -36,7 +37,7 @@ public class PayablePaymentRunBatchConfig {
                     LocalDate runDate = localDate(parameters, "runDate", LocalDate.now());
                     String createdBy = text(parameters, "createdBy", "PAYABLE_BATCH");
                     String description = text(parameters, "description", "Scheduled payable payment run");
-                    paymentUseCase.initiatePaymentRun(runDate, description, createdBy);
+                    paymentUseCase.initiatePaymentRun(new PaymentRunCommand(runDate, description, createdBy));
                     return RepeatStatus.FINISHED;
                 }, transactionManager)
                 .build();

@@ -1,0 +1,98 @@
+# Gateway 업무/데이터 흐름
+
+## 1. 로그인 요청
+
+```text
+Client
+  -> POST /api/auth/login
+  -> RequestIdFilter: X-Request-Id 확인/발급
+  -> JwtAuthenticationFilter: 외부 X-Auth-* 제거, 로그인 공개 경로 확인
+  -> auth-login-api route
+  -> Auth: 계정/비밀번호/잠금/역할 확인 후 JWT 발급
+  -> Client
+```
+
+로그인은 JWT를 발급받기 위한 시작점이므로 기존 JWT를 요구하지 않습니다. 공개 경로라도 클라이언트가 넣은 `X-Auth-User` 같은 내부 신원 헤더는 Auth에 전달하지 않습니다.
+
+## 2. 보호 업무 API 요청
+
+예: `GET /api/basic/account-subjects`
+
+```text
+1. RequestIdFilter
+   - 안전한 X-Request-Id면 보존
+   - 누락/129자 이상/허용하지 않은 문자면 UUID 재발급
+
+2. JwtAuthenticationFilter
+   - 클라이언트 X-Auth-* 모두 삭제
+   - Authorization 헤더가 정확히 하나인지 확인
+   - Bearer token 추출
+
+3. JjwtAccessTokenVerifier
+   - HS256 서명과 issuer 확인
+   - iat/exp 필수 및 시간 순서 확인
+   - subject, roles, roleVersion 필수 타입 확인
+   - 헤더에 안전한 코드인지 확인
+
+4. AuthTokenVersionValidator
+   - (username, roleVersion) positive cache 조회
+   - miss이면 Auth /api/auth/validate-token-version 호출
+   - VALID/REJECTED/UNAVAILABLE로 변환
+
+5. JwtAuthenticationFilter
+   - VALID: 검증된 X-Auth-* 생성
+   - REJECTED: 401
+   - UNAVAILABLE: 503
+
+6. Spring Cloud Gateway route
+   - Eureka에서 대상 서비스 인스턴스 선택
+   - 요청 전달
+```
+
+뒤쪽 서비스는 Gateway가 만든 헤더를 인증 컨텍스트로 사용할 수 있지만, 서비스가 Gateway를 우회해 직접 노출되지 않도록 네트워크 정책을 함께 적용해야 합니다.
+
+## 3. 역할 변경 뒤 기존 JWT
+
+```text
+Governance 승인
+  -> Auth 역할 교체
+  -> Auth roleVersion 증가 (예: 7 -> 8)
+  -> 기존 JWT 요청(roleVersion=7)
+  -> Gateway가 Auth 현재 버전 확인
+  -> REJECTED
+  -> 401 TOKEN_ROLE_VERSION_REJECTED
+  -> 사용자는 다시 로그인해 roleVersion=8 JWT 발급
+```
+
+정상 결과 캐시 TTL 안에는 이전 `VALID` 결과가 남을 수 있습니다. 현재 기본 TTL은 30초이며, 운영에서는 역할 변경 이벤트 기반 즉시 무효화가 필요합니다.
+
+## 4. Auth 장애
+
+```text
+Gateway -> Auth token-version API
+             timeout / 5xx / 빈 body / 필수 필드 누락
+Gateway <- UNAVAILABLE
+Client  <- 503 AUTH_VALIDATION_UNAVAILABLE
+```
+
+Auth 장애를 401로 반환하면 사용자가 반복 로그인해도 해결되지 않고 부하만 늘어납니다. 503은 호출자가 잠시 후 재시도하고 운영자가 Auth 상태를 확인해야 한다는 뜻입니다. 경로 전달은 계속하지 않으므로 보안은 fail-closed입니다.
+
+## 5. 내부 Auth 경로 차단
+
+```text
+외부 Client -> /api/auth/internal/** 또는 /api/auth/validate-token-version
+Gateway     -> 라우트 선택 전에 404 INTERNAL_AUTH_ROUTE_NOT_EXPOSED
+```
+
+Config 파일이 실수로 `/api/auth/**`를 다시 공개해도 전역 필터가 한 번 더 차단합니다. 그러나 Auth 서비스의 8084 포트를 외부에 직접 공개하면 이 보호를 우회할 수 있으므로 운영 방화벽, private network, mTLS/서비스 자격 증명이 필요합니다.
+
+## 6. 뒤쪽 서비스 장애와 fallback
+
+Master Data나 Journal Ledger 호출이 timeout 또는 circuit open 상태가 되면 `FallbackController`가 503과 사용자 안내 메시지를 반환합니다. 이 흐름은 인증 성공 뒤에 발생하므로 인증 장애의 503과 다음 값으로 구분할 수 있습니다.
+
+- 인증 인프라 장애: `X-Auth-Error=AUTH_VALIDATION_UNAVAILABLE`
+- 업무 서비스 circuit breaker: fallback JSON의 `status=503`
+
+## 7. 종료와 재시작
+
+Gateway는 자체 DB 상태를 갖지 않으므로 프로세스를 재시작해도 업무 데이터가 유실되지 않습니다. 다만 메모리 Caffeine cache는 비워져 재시작 직후 Auth 확인 호출이 일시적으로 늘어납니다.

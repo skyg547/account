@@ -32,10 +32,10 @@ public class InMemoryLoginAttemptAdapter implements LoginAttemptPort {
     private final Clock clock;
 
     @Autowired
-    public InMemoryLoginAttemptAdapter(AuthModuleProperties properties) {
+    public InMemoryLoginAttemptAdapter(AuthModuleProperties properties, Clock clock) {
         this(properties.getLoginSecurity().getMaxFailures(),
                 properties.getLoginSecurity().getLockDurationMinutes(),
-                Clock.systemUTC());
+                clock);
     }
 
     InMemoryLoginAttemptAdapter(int maxFailures, long lockDurationMinutes, Clock clock) {

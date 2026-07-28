@@ -12,7 +12,10 @@ import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.tax.application.port.in.TaxInvoiceUseCase;
 import com.ho.account.tax.domain.TaxInvoice;
-import com.ho.account.tax.dto.TaxInvoiceRequestDto;
+import com.ho.account.tax.application.port.in.TaxInvoiceCommand;
+import com.ho.account.expenditure.application.port.in.PurchaseInvoiceCommand;
+import com.ho.account.expenditure.application.port.in.PaymentRunCommand;
+import com.ho.account.expenditure.application.port.in.ExecutePaymentCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,30 +98,33 @@ public class IntegratedBusinessProcessTest {
     @Test
     void testFullBusinessProcess() {
         // Step 1: 세금계산서 수취 (AP Tax Invoice)
-        TaxInvoiceRequestDto taxRequest = new TaxInvoiceRequestDto();
-        taxRequest.setIssueId("TAX-2026-001");
-        taxRequest.setType("PURCHASE");
-        taxRequest.setIssueDate(LocalDate.now());
-        taxRequest.setBusinessPartnerCode("VEND-001");
-        taxRequest.setSupplyAmount(new BigDecimal("1000000"));
-        taxRequest.setTaxAmount(new BigDecimal("100000"));
-        taxRequest.setTotalAmount(new BigDecimal("1100000"));
+        TaxInvoiceCommand taxCommand = new TaxInvoiceCommand(
+                "TAX-2026-001",
+                "PURCHASE",
+                LocalDate.now(),
+                "VEND-001",
+                new BigDecimal("1000000"),
+                new BigDecimal("100000"),
+                new BigDecimal("1100000")
+        );
 
-        TaxInvoice taxInvoice = taxInvoiceUseCase.createAPInvoice(taxRequest);
+        TaxInvoice taxInvoice = taxInvoiceUseCase.createAPInvoice(taxCommand);
         assertThat(taxInvoice.getId()).isNotNull();
 
         // Step 2: 매입 인식 (Purchase Invoice & Payable 생성)
-        PurchaseInvoice purchaseInvoice = new PurchaseInvoice();
-        purchaseInvoice.setInvoiceNo(taxInvoice.getIssueId());
-        purchaseInvoice.setVendorCode("VEND-001"); // 엔티티 직접 참조 대신 Code 사용
-        purchaseInvoice.setIssueDate(taxInvoice.getIssueDate());
-        purchaseInvoice.setDueDate(taxInvoice.getIssueDate()); // 만기일을 오늘로 설정 (즉시 지급 대상)
-        purchaseInvoice.setNetAmount(taxInvoice.getSupplyAmount());
-        purchaseInvoice.setTaxAmount(taxInvoice.getTaxAmount());
-        purchaseInvoice.setTotalAmount(taxInvoice.getTotalAmount());
-        purchaseInvoice.setCreatedBy("integration-user");
+        PurchaseInvoiceCommand purchaseCommand = new PurchaseInvoiceCommand(
+                taxInvoice.getIssueId(),
+                "VEND-001",
+                taxInvoice.getIssueDate(),
+                taxInvoice.getIssueDate(),
+                taxInvoice.getTotalAmount(),
+                taxInvoice.getTaxAmount(),
+                taxInvoice.getSupplyAmount(),
+                "integration-user",
+                "Integration Test Purchase"
+        );
         
-        PurchaseInvoice savedPurchase = purchaseUseCase.createPurchaseInvoice(purchaseInvoice);
+        PurchaseInvoice savedPurchase = purchaseUseCase.createPurchaseInvoice(purchaseCommand);
         assertThat(savedPurchase.getId()).isNotNull();
 
         // Step 3: Payable 검증
@@ -134,7 +140,8 @@ public class IntegratedBusinessProcessTest {
         assertThat(payable.getVendorCode()).isEqualTo("VEND-001");
 
         // Step 4: 지급 실행 (Payment)
-        var paymentRun = paymentUseCase.initiatePaymentRun(LocalDate.now(), "Monthly Payment", "ADMIN");
+        PaymentRunCommand paymentRunCommand = new PaymentRunCommand(LocalDate.now(), "Monthly Payment", "ADMIN");
+        var paymentRun = paymentUseCase.initiatePaymentRun(paymentRunCommand);
         assertThat(paymentRun.getStatus().name()).isEqualTo("PROCESSING");
 
         // 생성된 Payment 찾기
@@ -142,7 +149,8 @@ public class IntegratedBusinessProcessTest {
         assertThat(payments).isNotEmpty();
         var payment = payments.get(0);
         
-        paymentUseCase.executePayment(payment.getId(), "KOOKMIN-123-456");
+        ExecutePaymentCommand executeCommand = new ExecutePaymentCommand(payment.getId(), "KOOKMIN-123-456");
+        paymentUseCase.executePayment(executeCommand);
 
         // Step 5: 최종 검증 (Payable 상태 및 잔액)
         Payable updatedPayable = payablePersistencePort.findById(payable.getId()).orElseThrow();

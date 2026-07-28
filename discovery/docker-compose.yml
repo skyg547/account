@@ -1,27 +1,25 @@
-# [초보자를 위한 개념 설명]
-# docker-compose.yml은 복잡한 도커 실행 명령어(docker run ...)를 쉽게 설정 파일로 만들어둔 것입니다.
-# 'docker-compose up -d' 명령어 하나로 아래 설정된 컨테이너를 한 번에 띄울 수 있습니다.
-
-version: '3.8' # Docker Compose 파일의 문법 버전입니다.
-
-services: # 실행할 서비스(컨테이너)들의 목록을 정의합니다.
+# 이미 account-network에 Config Server, Logstash, Zipkin이 떠 있는 개발 환경에서 Discovery만 추가하는 보조 Compose입니다.
+services:
   discovery:
-    # build: '.' 은 현재 폴더(.)에 있는 Dockerfile을 읽어서 새로운 이미지를 굽겠다는 의미입니다.
-    build: .
-    
-    # 컨테이너의 이름을 지정합니다. (터미널에서 docker ps 로 볼 때 나타나는 이름)
+    # 루트 Gradle 멀티모듈 파일이 필요하므로 저장소 루트를 build context로 사용합니다.
+    build:
+      context: ..
+      dockerfile: discovery/Dockerfile
     container_name: discovery
-    
-    # 포트 연결 (호스트_포트:컨테이너_내부_포트)
-    # 내 PC의 8761 포트로 접속하면, 가상 컴퓨터(컨테이너)의 8761 포트로 연결해달라는 뜻입니다.
     ports:
       - "8761:8761"
-      
-    # 네트워크 설정: 다른 MSA 모듈들과 통신하기 위해 공통 네트워크망에 합류합니다.
+    environment:
+      - SERVER_PORT=8761
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - EUREKA_INSTANCE_HOSTNAME=discovery
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      - LOGSTASH_HOST=logstash
+      - LOGSTASH_PORT=5000
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
     networks:
       - account-network
 
-# 사용할 공통 네트워크를 정의합니다.
 networks:
   account-network:
-    external: true # 이 네트워크는 외부(다른 곳)에서 이미 생성되어 있다는 뜻입니다. (docker network create account-network 로 미리 생성 필요)
+    external: true

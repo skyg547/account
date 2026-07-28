@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
  * 대출 이벤트(Loan Event) 엔티티.
  *
  * <p>대출 계약의 생명주기 동안 발생하는 중도상환, 조건 변경, 리스케줄 등 주요 이벤트를 기록합니다.
+ * 전표는 별도 journal-ledger Aggregate가 소유하므로 이벤트에는 ID와 전표번호만 값으로 남깁니다.
  */
 @Entity
 @Table(name = "loan_events")
@@ -33,6 +34,9 @@ public class LoanEvent {
 
     @Column(name = "journal_entry_id")
     private Long relatedJournalEntryId;
+
+    @Column(name = "journal_entry_slip_no", length = 50)
+    private String relatedJournalEntrySlipNo;
 
     // 재계산이 필요한 이벤트인 경우 RecalculationRun과 연결합니다.
     @ManyToOne(fetch = FetchType.LAZY)
@@ -113,6 +117,14 @@ public class LoanEvent {
         this.relatedJournalEntryId = relatedJournalEntryId;
     }
 
+    public String getRelatedJournalEntrySlipNo() {
+        return relatedJournalEntrySlipNo;
+    }
+
+    public void setRelatedJournalEntrySlipNo(String relatedJournalEntrySlipNo) {
+        this.relatedJournalEntrySlipNo = relatedJournalEntrySlipNo;
+    }
+
     public RecalculationRun getRecalculationRun() {
         return recalculationRun;
     }
@@ -143,5 +155,48 @@ public class LoanEvent {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public static LoanEvent record(
+            Loan loan,
+            EventType eventType,
+            LocalDate eventDate,
+            String description,
+            RecalculationRun recalculationRun,
+            String actor) {
+        if (loan == null || loan.getId() == null) {
+            throw new IllegalArgumentException("A persisted loan is required.");
+        }
+        LoanEvent event = new LoanEvent();
+        event.loan = loan;
+        event.eventType = java.util.Objects.requireNonNull(eventType, "eventType is required.");
+        event.eventDate = java.util.Objects.requireNonNull(eventDate, "eventDate is required.");
+        event.description = normalizeNullableText(description, 1000);
+        event.recalculationRun = recalculationRun;
+        if (recalculationRun != null) {
+            event.relatedJournalEntryId = recalculationRun.getAdjustmentJournalEntryId();
+            event.relatedJournalEntrySlipNo = recalculationRun.getAdjustmentJournalEntrySlipNo();
+        }
+        event.auditUser = requireText(actor, "actor", 50);
+        return event;
+    }
+
+    private static String normalizeNullableText(String value, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException("description must not exceed " + maxLength + " characters.");
+        }
+        return normalized;
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        String normalized = normalizeNullableText(value, maxLength);
+        if (normalized == null) {
+            throw new IllegalArgumentException(field + " is required.");
+        }
+        return normalized;
     }
 }

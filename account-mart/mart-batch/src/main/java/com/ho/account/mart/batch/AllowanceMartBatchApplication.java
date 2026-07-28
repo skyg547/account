@@ -24,24 +24,26 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class AllowanceMartBatchApplication {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(AllowanceMartBatchApplication.class);
+        application.setWebApplicationType(WebApplicationType.NONE);
 
-        // [초보 가이드] CLI 인자가 있으면 웹 서버를 끄고 배치 종료 후 프로세스를 종료합니다.
-        boolean isCliMode = false;
-        for (String arg : args) {
-            if (arg.contains("spring.batch.job.name") || arg.contains("job.name")) {
-                isCliMode = true;
-                break;
-            }
-        }
-
-        if (isCliMode) {
-            application.setWebApplicationType(WebApplicationType.NONE);
+        // [초보 가이드] Batch 모듈은 API 서버가 아니므로 내장 WAS를 띄우지 않습니다.
+        // Job 이름을 넘긴 CLI 실행에서는 Job 완료 후 Gradle/Java 프로세스도 함께 종료합니다.
+        if (containsJobName(args)) {
             ConfigurableApplicationContext context = application.run(args);
             int exitCode = SpringApplication.exit(context);
             System.exit(exitCode);
-        } else {
-            application.setWebApplicationType(WebApplicationType.SERVLET);
-            application.run(args);
+            return;
         }
+
+        application.run(args);
+    }
+
+    private static boolean containsJobName(String[] args) {
+        for (String arg : args) {
+            if (arg.contains("spring.batch.job.name") || arg.contains("job.name")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -1,43 +1,96 @@
 # Gateway Module Concept
 
-## 개요
+## 1. 모듈 목적
 
-`gateway`는 분리된 서비스들 앞단의 단일 진입점이다. 현재는 `account` 애플리케이션으로 요청을 전달하지만, 이후 도메인별 서비스가 나뉘면 라우트만 확장해 같은 진입점을 유지한다.
+`gateway`는 분리된 서비스 앞단의 단일 진입점입니다. 외부 계약과 내부 서비스 위치를 분리하고, 인증·추적·장애 대응처럼 모든 API에 공통인 기술 흐름을 한 곳에서 적용합니다.
 
-## 현재 라우팅 모델
+Gateway가 하지 않는 일도 중요합니다.
 
-- `gateway-service`가 Eureka에 등록된다.
-- 백엔드 `app`은 `account`라는 서비스 ID로 Eureka에 등록된다.
-- `config-repo/gateway-service.yml`에는 `auth-service`, `master-data`, `journal-ledger`, 구 모놀리식 `account` 라우트가 함께 정의되어 있다.
-- 게이트웨이는 `lb://...` 라우트를 사용하므로 Eureka에서 각 서비스 ID를 찾는다.
+- 분개 가능 여부, 금액 계산, 마감 상태 전이 같은 도메인 규칙을 판단하지 않습니다.
+- 사용자 역할을 생성하거나 변경하지 않습니다.
+- 사용자·권한 데이터를 자체 DB에 복제해 원장처럼 관리하지 않습니다.
 
-## 기본 필터
+이 업무는 Auth나 각 업무 모듈의 `core/domain`이 소유합니다. Gateway는 검증 결과를 전달하는 오케스트레이터입니다.
 
-- CORS 허용 규칙
-- `X-Request-Id` 생성 및 전달
-- 기본 응답 헤더 추가
-- 요청 메서드, 경로, 상태, 지연 시간 로깅
-- JWT 서명/issuer 검증 (`auth.jwt.*` 설정 기반)
-- JWT 검증 후 `X-Auth-User`, `X-Auth-Roles`, `X-Auth-Role-Version`, `X-Auth-Department` 헤더 전달
-- Auth의 `/api/auth/validate-token-version` API와 연동해 JWT의 `roleVersion`을 검증
+## 2. 현재 라우팅 모델
 
-## 다음 확장 포인트
+- `gateway-service`는 포트 `8000`으로 실행되고 Eureka에 등록됩니다.
+- `config-repo/gateway-service.yml`이 `lb://auth-service`, `lb://master-data`, `lb://journal-ledger`, 레거시 `lb://account` 라우트를 정의합니다.
+- Auth 외부 공개 라우트는 `/api/auth/login`의 POST 하나입니다.
+- `/api/auth/validate-token-version`과 `/api/auth/internal/**`는 서비스 간 통신용이므로 전역 필터가 외부 요청을 차단합니다.
+- `/api/**`는 라우트 목록과 무관하게 전역 JWT 필터가 기본 보호합니다.
+- OpenAPI 문서 경로와 actuator처럼 `/api` 밖의 경로는 JWT 필터 대상이 아닙니다. 운영에서는 별도 네트워크/관리 포트 정책으로 제한해야 합니다.
 
-- 도메인별 서비스 ID 라우트 분리
-- roleVersion 검증 캐시 TTL/장애 정책의 운영값 튜닝
-- rate limiting, circuit breaker, fallback 정책의 라우트별 세분화
+레거시 `account-api` catch-all은 이전 기간 호환을 위한 임시 라우트입니다. 전역 필터 덕분에 인증 우회는 막지만, 도메인별 서비스 이전이 끝나면 제거해야 합니다.
 
-## JWT Role Version 검증
+## 3. 헥사고날 구조
 
-역할 변경 승인 후 Auth는 사용자 `roleVersion`을 증가시킵니다. 기존 JWT에는 예전 `roleVersion`이 들어 있으므로, Gateway는 보호 라우트에서 Auth의 token-version 검증 API를 호출해 오래된 토큰을 거절합니다.
+```text
+HTTP request
+  -> JwtAuthenticationFilter (inbound adapter/orchestrator)
+       -> AccessTokenVerifier (port)
+            -> JjwtAccessTokenVerifier (JWT technology adapter)
+       -> TokenVersionValidator (port)
+            -> AuthTokenVersionValidator (WebClient + Caffeine adapter)
+  -> verified headers
+  -> route target service
+```
 
-- 기본 설정: `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=true`
-- 로컬 Auth 주소: `AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://localhost:8084`
-- 캐시 TTL: `AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS=30`
-- Auth 호출 timeout: `AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS=500`
+### 객체별 책임
 
-Auth 호출 실패는 보안 기준상 fail-closed로 처리합니다. Gateway만 단독 smoke 기동할 때는 요청 검증 테스트가 목적이 아니므로 `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=false`로 끌 수 있습니다.
+- `AuthenticatedPrincipal`은 사용자, 역할, 권한 버전, 부서 코드를 불변 값으로 묶고 HTTP 헤더에 안전한 값인지 검증합니다.
+- `JjwtAccessTokenVerifier`는 서명, issuer, 발급/만료 시각, 필수 claim 타입을 확인합니다.
+- `AuthTokenVersionValidator`는 Auth 응답을 `VALID`, `REJECTED`, `UNAVAILABLE`로 변환합니다.
+- `JwtAuthenticationFilter`는 HTTP 상태와 헤더를 선택하고 체인을 이어갈지만 결정합니다.
 
-## 로컬 실행
+이 분리는 필터가 JJWT JSON 구조나 WebClient 응답 기술에 직접 결합되지 않게 합니다.
 
-상세 실행 순서는 [local-run.md](./local-run.md)를 참고한다.
+## 4. 인증과 신뢰 헤더 정책
+
+클라이언트는 다음 헤더를 신뢰 값으로 직접 지정할 수 없습니다.
+
+- `X-Auth-User`
+- `X-Auth-Roles`
+- `X-Auth-Role-Version`
+- `X-Auth-Department`
+
+Gateway는 모든 요청에서 위 헤더를 먼저 제거합니다. 보호 API의 JWT와 roleVersion이 모두 검증된 경우에만 `AuthenticatedPrincipal`에서 새로 생성합니다. 토큰에 부서가 없으면 기존 부서 헤더도 남기지 않습니다.
+
+역할은 쉼표로 연결해 전달하므로 사용자/역할/부서 코드는 제어 문자, 공백, 쉼표가 없는 ASCII 코드여야 합니다. 이는 다운스트림 헤더 파싱이 사용자 입력에 의해 달라지지 않게 하는 경계 규칙입니다.
+
+## 5. roleVersion 결과 모델
+
+역할 변경 승인 후 Auth는 `roleVersion`을 올립니다. 기존 JWT에는 이전 버전이 있으므로 Gateway가 Auth에 현재 스냅샷을 확인합니다.
+
+| 결과 | 의미 | Gateway 응답 |
+|---|---|---|
+| `VALID` | 현재 계정/역할과 JWT 버전 일치 | 라우팅 계속 |
+| `REJECTED` | 역할 변경, 계정 잠금/비활성 등 | 401 |
+| `UNAVAILABLE` | Auth timeout, HTTP 장애, 빈/구조 불완전 응답 | 503 |
+
+기존의 단순 boolean은 권한 변경과 시스템 장애를 모두 `false`로 만들었습니다. 현재 모델은 사용자가 재로그인해야 할지, 운영자가 Auth를 복구해야 할지 구분합니다.
+
+## 6. 캐시와 재실행 정합성
+
+- `VALID`만 Caffeine에 캐시합니다.
+- 기본 TTL은 30초, 최대 항목은 10,000개입니다.
+- `REJECTED`와 `UNAVAILABLE`은 캐시하지 않습니다.
+- username은 Auth가 JWT에 발급한 canonical 값을 그대로 사용하며 임의 소문자 변환을 하지 않습니다.
+
+TTL 동안 역할 회수 반영이 늦어질 수 있습니다. 운영 다중 노드에서는 Auth 역할 변경 이벤트를 구독해 해당 사용자 cache key를 즉시 무효화하는 방식이 다음 고도화 대상입니다.
+
+## 7. WebFlux/함수형 흐름
+
+Gateway 이벤트 루프에서 네트워크 호출을 `block()`하면 적은 수의 스레드가 모두 멈출 수 있습니다. 따라서 토큰 버전 검증은 `Mono<TokenVersionValidationResult>`로 이어집니다.
+
+- 정상 값은 `flatMap`으로 다음 필터 체인에 전달합니다.
+- 빈 publisher는 `UNAVAILABLE`로 바꿔 조용히 200으로 끝나는 상황을 막습니다.
+- 예외도 `UNAVAILABLE`로 바꿔 fail-closed 처리합니다.
+
+## 8. 다음 확장 포인트
+
+- HS256 공유 비밀을 JWKS 기반 비대칭 서명과 키 회전으로 전환.
+- Auth 내부 API에 mTLS/서비스 자격 증명 적용.
+- 역할 변경 이벤트 기반 다중 노드 cache 즉시 무효화.
+- rate limiting과 circuit breaker를 업무 중요도별로 세분화.
+- 레거시 `account-api` catch-all 제거.

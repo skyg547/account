@@ -41,11 +41,13 @@ Batch 컨텍스트:
 .\gradlew :deposit:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=depositAccountIntegrityJob asOfDate=2026-06-19" --console=plain --max-workers=1
 ```
 
-`depositAccountIntegrityJob`은 `asOfDate` 기준 활성 계좌의 필수 식별자, 잔액, 이자율, SCD2 유효기간을 core 유즈케이스에서 검증한다.
+`depositAccountIntegrityJob`은 `asOfDate` 기준 활성 계좌의 필수 식별자, 잔액, 이자율, SCD2 유효기간을 core 유즈케이스에서 검증한다. `asOfDate`는 재실행 기준일이므로 필수이며, 누락되면 현재 날짜로 대체하지 않고 실패한다.
 
 Batch 앱은 Spring Batch의 `JobRegistry`에 Job을 등록할 때 `JobRegistrySmartInitializingSingleton`을 사용한다. 초보자 관점에서는 "애플리케이션이 모든 Bean을 만든 뒤 Batch Job 목록을 등록한다"는 뜻이며, 로컬 기동 중 `jobRegistryBeanPostProcessor`가 다른 Bean을 너무 일찍 깨우면서 내는 경고를 줄이기 위한 설정이다.
 
 빌드 검증:
+
+계좌 개설 command 검증과 Batch `asOfDate` 파라미터 검증까지 함께 확인한다.
 
 ```powershell
 .\gradlew :deposit:core:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1 --no-daemon

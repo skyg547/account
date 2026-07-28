@@ -5,7 +5,7 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
-import com.ho.account.expenditure.application.port.in.PaymentUseCase;
+import com.ho.account.expenditure.application.port.in.*;
 import com.ho.account.expenditure.application.port.out.*;
 import com.ho.account.expenditure.domain.*;
 import org.springframework.stereotype.Service;
@@ -59,7 +59,10 @@ public class PaymentService implements PaymentUseCase {
     }
 
     @Override
-    public PaymentRun initiatePaymentRun(LocalDate runDate, String description, String createdBy) {
+    public PaymentRun initiatePaymentRun(PaymentRunCommand command) {
+        LocalDate runDate = command.runDate();
+        String description = command.description();
+        String createdBy = command.createdBy();
         PaymentRun paymentRun = new PaymentRun();
         paymentRun.setRunDate(runDate);
         paymentRun.setDescription(description);
@@ -89,7 +92,9 @@ public class PaymentService implements PaymentUseCase {
     }
 
     @Override
-    public Payment executePayment(Long paymentId, String bankAccount) {
+    public Payment executePayment(ExecutePaymentCommand command) {
+        Long paymentId = command.paymentId();
+        String bankAccount = command.bankAccount();
         Payment payment = paymentPersistencePort.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
 
@@ -134,7 +139,8 @@ public class PaymentService implements PaymentUseCase {
     }
 
     @Override
-    public AdvancePayment recordAdvancePayment(AdvancePayment advancePayment) {
+    public AdvancePayment recordAdvancePayment(AdvancePaymentCommand command) {
+        AdvancePayment advancePayment = toAdvancePayment(command);
         String vendorCode = advancePayment.getVendorCode();
         BusinessPartnerRef vendor = validateVendor(vendorCode);
 
@@ -146,7 +152,10 @@ public class PaymentService implements PaymentUseCase {
     }
 
     @Override
-    public Payable offsetPayableWithAdvancePayment(Long payableId, Long advancePaymentId, BigDecimal offsetAmount) {
+    public Payable offsetPayableWithAdvancePayment(OffsetPayableCommand command) {
+        Long payableId = command.payableId();
+        Long advancePaymentId = command.advancePaymentId();
+        BigDecimal offsetAmount = command.offsetAmount();
         Payable payable = payablePersistencePort.findById(payableId)
                 .orElseThrow(() -> new IllegalArgumentException("Payable not found: " + payableId));
         AdvancePayment advancePayment = advancePaymentPersistencePort.findById(advancePaymentId)
@@ -162,6 +171,15 @@ public class PaymentService implements PaymentUseCase {
         postOffsetJournal(payable, offsetAmount);
 
         return payable;
+    }
+
+    private AdvancePayment toAdvancePayment(AdvancePaymentCommand command) {
+        AdvancePayment advancePayment = new AdvancePayment();
+        advancePayment.setVendorCode(command.vendorCode());
+        advancePayment.setPaymentDate(command.paymentDate());
+        advancePayment.setAmount(command.amount());
+        advancePayment.setDescription(command.description());
+        return advancePayment;
     }
 
     private BusinessPartnerRef validateVendor(String vendorCode) {

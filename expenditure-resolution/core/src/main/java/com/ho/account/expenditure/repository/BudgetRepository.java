@@ -1,14 +1,11 @@
 package com.ho.account.expenditure.repository;
 
-import com.ho.account.masterdata.core.domain.model.AccountSubject;
-import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.expenditure.domain.Budget;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-
 @Repository
 public interface BudgetRepository extends JpaRepository<Budget, Long> {
-    Optional<Budget> findByYearMonthAndDepartmentAndAccountSubject(String yearMonth, Department department, AccountSubject accountSubject);
+    Optional<Budget> findByYearMonthAndDeptCodeAndAccountCode(String yearMonth, String deptCode, String accountCode);
 }

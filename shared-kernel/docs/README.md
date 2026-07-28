@@ -1,53 +1,23 @@
-# Shared-Kernel Module Docs
+# Shared-Kernel 문서 인덱스
 
-`shared-kernel` 모듈은 여러 마이크로서비스가 공통으로 의존하는 타입, 직렬화 규칙, 유틸리티를 제공합니다.
+`shared-kernel`은 직접 업무를 실행하지 않고 여러 모듈이 합의한 최소 타입과 기술 독립 규칙을
+제공하는 라이브러리입니다. 현재는 역사적으로 인프라 의존성과 ECL/account-mart 타입도 함께
+들어 있어 축소 TODO가 있습니다.
 
----
+## 읽는 순서
 
-## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
+1. [beginner-guide.md](./beginner-guide.md): 공유 커널에 넣을 것과 넣지 않을 것
+2. [process-flow.md](./process-flow.md): 로컬 capability 검색과 JSON 마스킹 흐름
+3. [schema.md](./schema.md): 현재 타입과 소유권/이동 계획
+4. [local-run.md](./local-run.md): IntelliJ와 Gradle 검증
+5. [archive/legacy-runtime-skeleton/README.md](./archive/legacy-runtime-skeleton/README.md): 빈 Docker 이력
 
-**Q. shared-kernel은 무엇인가요?**
-모든 모듈이 공통으로 사용하는 '아주 작은 공용 부품 상자' 또는 'DNA'라고 보면 됩니다.
-각 모듈이 같은 enum, 같은 어노테이션, 같은 직렬화 규칙을 제각각 만들면 중복이 생기고 유지보수가 어려워지므로, 최소한의 공용 요소만 이곳에 둡니다.
+## 판단 기준
 
-**현재 포함된 주요 부품:**
-- `BoundedContext`: 서비스가 어느 업무 그룹(예: `MASTER_DATA`, `JOURNAL_LEDGER`)에 속하는가?
-- `ServiceCapability`: 서비스가 무엇을 제공하는가? (예: `JOURNAL_POSTING`)
-- `ServiceDescriptor`: 서비스를 소개하는 명함 구조.
-- `@Masked`: 민감정보(이메일, 계좌번호 등) 가리기 규칙.
+공유 후보는 다음 질문을 모두 통과해야 합니다.
 
-> ⚠️ **주의:** 이 모듈은 단독으로 실행되는 서버(Spring Boot 애플리케이션)가 아니므로, `docker-compose`나 컨테이너 실행 대상이 아닙니다. 비즈니스 로직(돈 계산 등)도 이곳에 포함되어선 안 됩니다.
-
----
-
-## 2. 🔄 처리 흐름 (Process Flow)
-
-`shared-kernel`은 직접 비즈니스를 처리하지 않으며, 타 모듈이 같은 언어와 규칙을 공유하도록 돕습니다.
-
-### 서비스 메타정보 흐름
-1. **모듈 서비스** -> `BoundedContext` 선택 -> `ServiceCapability` 선택 -> `ServiceDescriptor` 생성 -> `ServiceDiscoveryRegistry` 등록
-2. 이를 통해 중앙에서 어느 모듈이 어떤 능력을 가지고 있는지 식별할 수 있습니다.
-
-### 데이터 마스킹 흐름 (Jackson Serializer)
-1. 엔티티/DTO 필드에 `@Masked(pattern="EMAIL")` 부착.
-2. JSON 응답 직렬화 시 `MaskingSerializer`가 개입하여 패턴에 맞게 가림 처리.
-3. 예: `abc@example.com` -> `ab****@example.com`
-
----
-
-## 3. 💾 데이터 스키마 및 핵심 타입 (Schema)
-
-이 모듈은 DB 스키마가 아니라 **"코드 레벨 공통 계약 모음"**입니다.
-
-- **BoundedContext (Enum):** `MASTER_DATA`, `GOVERNANCE`, `JOURNAL_LEDGER`, `LOAN` 등.
-- **ServiceCapability (Enum):** `SOURCE_DOCUMENT_LOOKUP`, `JOURNAL_POSTING`, `BUDGET_CONTROL` 등.
-- **ServiceDescriptor (Record):** `serviceName`, `context`, `capabilities`, `description`
-- **Masked (Annotation):** `pattern` 속성 지원 (`REG_NO`, `ACCOUNT`, `EMAIL`, `DEFAULT`).
-
----
-
-## 4. 로컬 검증
-
-- `shared-kernel`은 `java-library` 모듈이며 standalone Boot 앱이 아닙니다.
-- IntelliJ에서는 `Foundation Library Compile` 또는 `Foundation Infra Tests` 실행 구성을 사용합니다.
-- 상세 실행 순서는 [local-run.md](./local-run.md)를 참고합니다.
+- 둘 이상의 바운디드 컨텍스트가 같은 의미로 사용하는가?
+- 변경 승인자를 명확히 정할 수 있는가?
+- 특정 DB, 메시지 브로커, 웹 프레임워크가 없어도 의미가 있는가?
+- 특정 업무 계산이나 상태 전이를 포함하지 않는가?
+- 직렬화/DB 값 호환 정책이 문서화되어 있는가?

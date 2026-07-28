@@ -17,6 +17,11 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-config-server'
     // 상태 및 헬스체크용 Actuator
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Prometheus가 Config Server 자체의 JVM/HTTP 상태를 수집할 수 있게 합니다.
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+    // 실제 HTTP 설정 조회와 readiness를 검증합니다. 테스트가 없으면 빈 서버 회귀를 발견할 수 없습니다.
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 bootJar {

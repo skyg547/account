@@ -1,30 +1,46 @@
-# contracts local run
+# Contracts 로컬 검증
 
 ## 전제 조건
 
 - JDK 17
-- IntelliJ IDEA Gradle JVM도 JDK 17
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 열기
+- IntelliJ Gradle JVM 17
+- 저장소 루트를 Gradle 프로젝트로 열기
 
-`contracts`는 포트와 DTO만 담는 `java-library` 모듈입니다. 서버 포트가 없고 `bootRun` 대상도 아닙니다.
+`contracts`는 서버가 아니므로 `bootRun`, 내장 WAS, H2, PostgreSQL, Docker가 필요하지 않습니다.
 
-## IntelliJ에서 확인하기
+## IntelliJ
 
-1. 오른쪽 Gradle 창에서 `account > contracts > Tasks > build > compileJava`를 실행합니다.
-2. 또는 상단 Run Configuration에서 `Foundation Library Compile`을 선택합니다.
-3. 전체 foundation/infra 묶음을 함께 확인하려면 `Foundation Infra Tests`를 사용합니다.
+1. Run Configuration에서 `Foundation Library Compile`을 선택합니다.
+2. 또는 Gradle 창에서 `contracts > verification > test`를 실행합니다.
+3. 계약을 변경했다면 구현/호출 모듈 테스트도 함께 실행합니다.
 
-## PowerShell 명령
+## Gradle
 
 ```powershell
-.\gradlew :contracts:compileJava --console=plain --max-workers=1 --no-daemon
+.gradlew :contracts:test :contracts:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
-`contracts`에는 테스트 소스가 없을 수 있으므로 보통 컴파일 성공 여부가 계약 깨짐 여부를 빠르게 보여줍니다.
+Master Data 기준일 계약까지 변경했을 때:
 
-## 변경할 때 주의할 점
+```powershell
+.gradlew :contracts:test :master-data:test :closing:core:test --console=plain --max-workers=1 --no-daemon
+```
 
-- 기존 필드명을 바꾸면 여러 업무 모듈의 컴파일이 동시에 깨질 수 있습니다.
-- 포트는 구현체가 아니라 계약입니다. JPA, RestClient, Kafka 같은 기술 선택은 구현 모듈의 adapter에 둡니다.
-- 금액 필드는 가능한 `BigDecimal`을 유지합니다.
-- 새 계약을 추가하면 실제 구현 모듈과 호출 모듈의 문서도 함께 갱신합니다.
+## 실패를 읽는 순서
+
+1. `contracts:compileJava`: 계약 자체 문법/타입 오류
+2. 소비 모듈 `compileJava`: 공개 메서드·생성자 호환 오류
+3. 제공 모듈 테스트: Adapter 구현/업무 의미 오류
+4. 통합 테스트: 실제 Spring Bean 연결 오류
+
+## 메모리 정리
+
+검증 후 애플리케이션을 띄울 필요가 없습니다. Gradle JVM이 남으면 먼저 확인합니다.
+
+```powershell
+jps -l
+.gradlew --stop
+```
+
+현재 Windows 페이지 파일 여유가 부족한 환경에서는 Gradle이 시작 전에 멈출 수 있습니다.
+이 경우 테스트 성공으로 기록하지 말고 시스템 자원을 회복한 뒤 같은 명령을 다시 실행합니다.

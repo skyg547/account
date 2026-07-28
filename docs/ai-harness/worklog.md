@@ -1,62 +1,67 @@
+## 2026-07-08 - Payable API/core command boundary
+- Branch: `agent/asset-lease-split`
+- Scope: `payable` core/api/batch/docs
+- Changes:
+  - Moved HTTP controllers and request DTOs from `payable:core` to `payable:api`.
+  - Added core use case commands for purchase invoice, payment run, payment execution, advance payment, and offset.
+  - Added API response DTOs so JPA/domain entities are not serialized directly as the external contract.
+  - Removed Web/Validation dependencies from `payable:core`.
+  - Updated payable batch to call core through `PaymentRunCommand` and delayed Batch JobRegistry registration.
+  - Updated payable beginner/process/schema/local-run docs.
+- Verification:
+  - `.\gradlew :payable:core:test :payable:api:compileJava :payable:batch:compileJava --console=plain --max-workers=1`: passed.
+  - `:payable:api:bootRun` local/H2 context smoke: passed.
+  - `:payable:batch:bootRun` local/H2 context smoke: passed; JobRegistry BeanPostProcessor warning not reproduced.
+- Risk:
+  - PostgreSQL migration/runtime, real payment gateway adapter, and high-volume payment run performance need integration verification.
+## 2026-07-07 - Asset Lease depreciation batch boundary
+- Branch: `agent/asset-lease-split`
+- Scope: `asset-lease` core/domain/pipeline/port/adapter/batch/docs
+- Changes:
+  - Added `FixedAssetDepreciationResult` for batch-safe depreciation results.
+  - Added mutation-free `FixedAsset.calculateDepreciation()` and kept `depreciate()` as the single-asset state transition path.
+  - Updated `DepreciationPipeline` to return result values without mutating JPA entities.
+  - Updated `AssetJdbcAdapter` to persist calculated accumulated depreciation, book value, status, and last depreciation date once through JDBC bulk update.
+  - Updated asset-lease docs and Gemini review prompt.
+- Verification:
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:compileJava :asset-lease:batch:compileJava --console=plain --max-workers=1`: passed.
+- Risk:
+  - Actual high-volume PostgreSQL/H2 job execution and production Flyway DDL compatibility need integration verification.
+
+## 2026-07-07 - Account Mart 담보 상세 DQ/LGD 연결
+- Branch: `agent/asset-lease-split`
+- Scope: `account-mart` core/application/domain/infrastructure/batch/docs/migration
+- Changes:
+  - Connected `OdsApartCollDetail` to the real collateral DQ/LGD prerequisite flow.
+  - Added `OdsApartCollDetailRepository` outbound port and JPA persistence adapter.
+  - Added `CollateralDataQualityInspectionService` so application service coordinates port lookup and domain processor invocation.
+  - Updated batch item processor to delegate to the core application service.
+  - Added demo/bootstrap apartment collateral detail seed and Flyway V5 table DDL.
+  - Updated account-mart beginner/business-flow docs and Gemini handoff prompt.
+- Verification:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1`: passed.
+  - account-mart Java TODO search: no matches.
+- Risk:
+  - PostgreSQL Flyway execution, high-volume collateral detail lookup performance, and final LGD formula integration still require integration environment verification.
+
+
+## 2026-07-03 - Loan 전표 포트 경계 및 실행 문서 최신화
+- Branch: `agent/asset-lease-split`
+- Scope: `loan` core/service/domain/batch/docs/run configs
+- Changes:
+  - `InterestAccrualService` now posts accrual journals through `LoanJournalPort` instead of journal-ledger internal types.
+  - Loan accrual/event/EIR schedule journal references are stored as ID/slipNo values.
+  - `V32__loan_accrual_journal_reference.sql` and migration assertions were added.
+  - `LoanBatchJobRegistryConfiguration` removes the Spring Batch JobRegistry early BeanPostProcessor warning.
+  - Loan local-run docs and IntelliJ `.run` configs now set app name and disable Redis repository scanning for local smoke.
+- Verification:
+  - `.\gradlew :loan:core:test --console=plain --max-workers=1 --rerun-tasks`: passed.
+  - `.\gradlew :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1`: passed.
+  - `:loan:api:bootRun` local/H2 context smoke: passed.
+  - `:loan:batch:bootRun` local/H2 context smoke: passed; JobRegistry warning not reproduced.
+- Risk:
+  - PostgreSQL and high-volume seeded accrual Job were not verified.
 # AI Harness Worklog
-
-## Reusable Issue Loop Worklog Template
-
-Use this template for every GitHub Issue based AI task.
-
-```md
-## YYYY-MM-DD - GH-<issue-number> <task-name>
-
-- Current summary:
-- Work ID: GH-<issue-number>
-- Issue: #<issue-number> <url>
-- Base branch:
-- Working branch:
-- Worktree path:
-- Draft PR:
-- Owner agent:
-- Supporting agents:
-- Current status: 대기 | 진행 | 충돌 | 리뷰필요 | 완료 | 중단
-- Last updated:
-
-### Requirement
--
-
-### Impact Scope
--
-
-### Expected Files
--
-
-### Actual Changed Files
--
-
-### Progress
-| Time | Agent | Action | Result |
-| --- | --- | --- | --- |
-| | | | |
-
-### Decisions
--
-
-### Open Issues
--
-
-### Verification
-- Command:
-- Result:
-- Skipped tests and reason:
-
-### Rollback
--
-
-### Handoff
--
-
-### Draft PR
-- Title:
-- Body file or summary:
-```
 
 ## 2026-06-25 - Harness Upgrade Bootstrap
 
@@ -110,141 +115,421 @@ Use this template for every GitHub Issue based AI task.
   - `main` pushed to origin.
   - Clean synchronization check expected after this log commit is pushed.
 
-## 2026-07-03 - GitHub Issue Agent Loop Harness
+## 2026-06-30 - Asset Lease Split
 
-- Owner: Codex acting as AI Harness Architect and Integrator Agent.
-- Branch/worktree: `agent/github-issue-agent-loop-harness` at `C:\tmp\account-gh-issue-harness`.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
 - Scope:
-  - Added GitHub Issue based agent loop guidance in `85-github-issue-agent-loop.md`.
-  - Added GitHub Issue Form and Draft PR templates under `.github/`.
-  - Linked the new loop from `Agents.md`, `00-overview.md`, `10-rules.md`, `20-workflow.md`, and `50-git-worktree-guide.md`.
-  - Installed GitHub CLI `gh` 2.96.0 from the official GitHub CLI release MSI after user approval.
+  - Split `asset-lease` into `core`, `api`, and `batch` Gradle subprojects.
+  - Kept `:asset-lease` as a compatibility wrapper for `:asset-lease:core`.
+  - Added separate API and Batch Spring Boot entry points.
+  - Updated run configs, Dockerfile, local docs, and dependent module reference.
 - Verification:
-  - Conflict marker search returned no matches.
-  - `git diff --check` passed with CRLF conversion warnings only.
-  - `gh --version` returned 2.96.0.
-  - `gh auth status` reports no GitHub host login yet.
+  - `.\gradlew projects --console=plain` passed.
+  - `.\gradlew :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :expenditure-resolution:core:compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew :asset-lease:test :asset-lease:compileJava --console=plain --max-workers=1` passed.
 - Risks:
-  - Because the worktree was created with elevated permissions, Git requires `-c safe.directory=C:/tmp/account-gh-issue-harness` for commands unless the user approves a global safe.directory setting or recreates the worktree with normal ownership.
-  - Actual issue creation requires `gh auth login` or another approved GitHub authentication path.
+  - Long-running bootRun smoke and real `assetDepreciationJob` execution are not run yet.
+## 2026-07-02 - Full Local Build/API/BATCH Verification
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Verified current Gradle project graph, full build, API bootRun smoke, Batch context smoke, and representative Spring Batch Jobs.
+  - Fixed Batch bootstrap behavior for asset-lease, account-mart, and ecl so Batch apps run non-web in local CLI mode.
+  - Fixed asset-lease batch paging reader repository signature.
+  - Updated local development and module run documents with H2/PostgreSQL separation and verified local flags.
+- Verification:
+  - `.\gradlew projects --console=plain` passed.
+  - `.\gradlew compileJava --console=plain --max-workers=1` passed.
+  - `.\gradlew build --console=plain --max-workers=1` passed.
+  - API bootRun smoke passed for all current API/server modules.
+  - Batch context smoke passed for all current Batch modules.
+  - Representative Job smoke passed for all current Job-bearing Batch modules; journal-ledger batch remains context-only because no Job definition exists.
+  - Java TODO search returned no matches.
+- Risks:
+  - PostgreSQL path is documented but not executed against a live local PostgreSQL instance in this pass.
+  - Smoke data is empty/demo H2, so business-result correctness under production-like volume still needs seeded integration tests.
 - Rollback:
-  - Revert this branch or remove the added `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE/`, and `docs/ai-harness/85-github-issue-agent-loop.md` files plus related document links.
+  - Revert the batch bootstrap files and docs changed in this verification pass if the non-web CLI behavior is rejected.
 
-## 2026-07-07 - GH-1 Issue Branch Worktree PR Harness Hardening
+## 2026-07-02 - Account Mart Core/Batch Boundary Refactor
 
-- Current summary: GitHub Issue #1 was reviewed and the harness was hardened for Issue -> Branch -> Worktree -> Draft PR traceability.
-- Work ID: GH-1
-- Issue: #1 https://github.com/skyg547/account/issues/1
-- Base branch: `origin/main`
-- Working branch: `agent/github-issue-agent-loop-harness`
-- Worktree path: `C:\tmp\account-gh-issue-harness`
-- Draft PR: not created yet
-- Owner agent: Codex as AI Harness Architect / Integrator Agent
-- Current status: 리뷰필요
-- Last updated: 2026-07-07
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed direct Spring Batch interface usage from `mart-core` processors.
+  - Added `mart-batch` processor adapters and a StepExecution-to-core parameter helper.
+  - Removed a JPA-leaking unused application port skeleton.
+  - Corrected ODS-GL reconciliation balance summary to aggregate by base date, subject/account, and currency.
+  - Updated account-mart docs with beginner-friendly core/batch responsibility boundaries.
+- Verification:
+  - `.\gradlew :account-mart:mart-core:test :account-mart:mart-api:compileJava :account-mart:mart-batch:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :account-mart:mart-batch:test --console=plain --max-workers=1` passed.
+  - Core Spring Batch type search returned only explanatory comments, no imports or implemented interfaces.
+  - Unused skeleton port search returned no matches.
+- Risks:
+  - Batch test shutdown still logs existing step-scope reader close warnings.
+  - PostgreSQL high-volume reconciliation plan is not verified in this pass.
+- Rollback:
+  - Revert this account-mart commit if the boundary refactor is rejected.
 
-### Requirement
-- Confirm whether Issue #1 is properly applied.
-- Upgrade the harness so future work can be managed by GitHub Issue, branch, worktree, and PR.
+## 2026-07-03 - ECL Core Pipeline Boundary Refactor
 
-### Impact Scope
-- AI harness documents and GitHub templates only.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Moved Stage/PD, EAD/LGD, and forward-looking ECL processing order from `ecl-batch` processors into `ecl-core` application pipelines.
+  - Reduced Spring Batch processors to adapter delegation.
+  - Reused the same core pipelines from `AllowanceCalculationService` so API/manual calculation and batch share the same business sequence.
+  - Updated ecl docs and beginner comments to describe the pipeline boundary.
+- Verification:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test --console=plain --max-workers=1` passed.
+  - Batch processor search found no direct calculation service, `BigDecimal`, maturity, or builder logic.
+  - Core Spring Batch type search found no imports or implemented interfaces, only explanatory comments.
+  - ECL Java TODO search returned no matches.
+- Risks:
+  - PostgreSQL high-volume seeded ECL run is not verified in this pass.
+- Rollback:
+  - Revert the ecl files and worklog/handoff updates from this pass if the boundary refactor is rejected.
+## 2026-07-03 - Journal Ledger Batch Reaggregation Refactor
 
-### Actual Changed Files
-- `.github/pull_request_template.md`
-- `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml`
-- `.github/PULL_REQUEST_TEMPLATE/ai-agent-loop.md`
-- `Agents.md`
-- `docs/ai-harness/00-overview.md`
-- `docs/ai-harness/05-issue-1-compliance-audit.md`
-- `docs/ai-harness/85-github-issue-agent-loop.md`
-- `docs/ai-harness/worklog.md`
-- `docs/ai-harness/agent-status.md`
-- `docs/ai-harness/handoff.md`
-- `docs/ai-harness/integration-log.md`
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added `dailyBalanceReaggregationJob` Tasklet adapter and JobParameter-to-date-range support.
+  - Kept journal-ledger core business work in `LedgerService`; batch now wires and delegates.
+  - Fixed batch H2 datasource/JPA YAML structure and Batch test dependency.
+  - Updated journal-ledger docs, local development guide, IntelliJ run config, and beginner comments.
+- Verification:
+  - `.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob baseDate=2026-04-30" --console=plain --max-workers=1` passed with Job status `COMPLETED`.
+  - ECL and journal-ledger Java TODO/mojibake search returned no matches.
+  - `git diff --check` reported no whitespace errors, only CRLF conversion warnings.
+- Risks:
+  - PostgreSQL high-volume balance reaggregation is not verified in this pass.
+  - Spring Cloud/Batch BeanPostProcessor WARN remains during bootRun; it did not block Job completion.
+- Rollback:
+  - Revert the combined ECL/journal-ledger refactor commit if the boundary changes are rejected.
+## 2026-07-03 - Closing Core/Batch Boundary Refactor
 
-### Verification
-- `gh issue view 1 --comments --json ...` succeeded and confirmed Issue #1 is open.
-- Conflict marker check passed.
-- `git diff --check` pending final run after this log update.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Moved FX valuation and ECL provision business decisions from `closing:batch` into `closing:core` application services.
+  - Added core outbound ports for FX rate lookup, allowance balance lookup, and closing journal creation.
+  - Added batch adapters for master-data exchange rates, journal-ledger GL balances, and journal-ledger journal creation.
+  - Updated closing docs and beginner comments to describe the core/batch boundary.
+- Verification:
+  - `.\gradlew :closing:core:test :closing:batch:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :closing:api:compileJava --console=plain --max-workers=1` passed.
+  - Closing core Spring Batch type search returned no matches.
+  - Closing TODO/mojibake search returned no matches.
+- Risks:
+  - PostgreSQL high-volume FX/ECL closing run and operational skip/retry policy are not verified in this pass.
+- Rollback:
+  - Revert the closing refactor files and worklog/handoff updates if the boundary change is rejected.
+- Additional verification:
+  - `.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain --max-workers=1` passed.
+  - Added closing API/BATCH local logback settings so local runs avoid Logstash connection warnings.
+## 2026-07-08 - Tax API/Core Command Boundary Refactor
 
-### Rollback
-- Revert this branch or remove the Issue loop templates/audit and the new sections added to harness records.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP DTO/Controller ownership from `tax:core`.
+  - Added `TaxInvoiceCommand` as the application input boundary.
+  - Moved AP invoice Controller/DTO classes to `tax:api`.
+  - Added `TaxInvoiceRef` purchase/active/usable helper methods and updated expenditure-resolution validation to use the contract methods.
+  - Updated tax docs with beginner-friendly API DTO -> core command -> domain flow.
+- Verification:
+  - `.\gradlew :tax:core:test :tax:api:compileJava :tax:batch:compileJava :expenditure-resolution:core:test --console=plain --max-workers=1`
+- `.\gradlew :tax:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1`
+- `.\gradlew :tax:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL seeded execution and real `taxInvoiceValidationJob` high-volume run are not verified in this pass. Local context smoke is verified with H2/create-drop.
+  - Cross-module API integration test still lives under `expenditure-resolution:core`; this was preserved to avoid a broad test layout move.
+- Rollback:
+  - Revert the tax/contracts/expenditure-resolution changes and associated docs/log updates from this pass if the boundary refactor is rejected.
+## 2026-07-08 - Expenditure Resolution API/Core Command Boundary Refactor
 
-### Handoff
-- Commit/push/Draft PR were not performed in this turn because the user did not explicitly request push or PR creation.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: gent/asset-lease-split.
+- Scope:
+  - Moved expenditure-resolution HTTP Controller/DTO/assembler ownership from core to api.
+  - Added ExpenditureResolutionCommand and APPaymentCommand as core application input boundaries.
+  - Replaced service-level master-data repository/entity dependency with MasterDataQueryPort.
+  - Converted Budget and legacy Invoice master-data entity references to code values.
+  - Moved cross-module API integration test to expenditure-resolution:api tests.
+  - Added Batch JobRegistry delayed registration configuration.
+- Verification:
+  - $compile passed.
+  - $verify passed.
+  - $apiRun passed.
+  - $batchRun passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL migration/data compatibility for code-based budget/invoice columns is not verified in this pass.
+  - Real high-volume expenditureResolutionApprovalJob execution is not verified in this pass.
+- Rollback:
+  - Revert the expenditure-resolution/tax/contracts changes and associated docs/log updates from this pass if rejected.
+## 2026-07-08 - Receivable API/Core Command Boundary Refactor
 
-## 2026-07-08 - GH-1 PR Merge And Issue Close Runbook Update
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP Controller/DTO ownership from `receivable:core`.
+  - Added `SalesInvoiceCommand`, `CollectionCommand`, and `ManualMatchingCommand` as core use case input boundaries.
+  - Moved controllers, request/response DTOs, Bean Validation, and controller tests to `receivable:api`.
+  - Added `ReceivableBatchJobRegistryConfiguration` so Batch Job registration happens after singleton initialization.
+- Verification:
+  - `.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1` passed.
+  - `receivable:api:bootRun` local/H2 context smoke passed.
+  - `receivable:batch:bootRun` local/H2 context smoke passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume auto-matching Job execution are not verified in this pass.
+- Rollback:
+  - Revert the receivable/payable boundary refactor commit if rejected.
+## 2026-07-08 - Reconciliation API/Core Command Boundary Refactor
 
-- Current summary: Recorded the actual PR #2 merge and Issue #1 close process in the AI harness.
-- Work ID: GH-1-followup
-- Issue: #1 https://github.com/skyg547/account/issues/1
-- Base branch: `origin/main`
-- Working branch: `agent/gh-1-close-harness-update`
-- Worktree path: `C:\tmp\account-gh-1-close-update`
-- Draft PR: not created yet
-- Owner agent: Codex as AI Harness Architect / Integrator Agent
-- Current status: 진행
-- Last updated: 2026-07-08
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed HTTP Controller/DTO ownership from `reconciliation:core`.
+  - Added command records for reconciliation unit/rule/reason code/run/difference assignment/difference resolution input boundaries.
+  - Moved `ReconciliationController`, request/response DTOs, and Bean Validation to `reconciliation:api`.
+  - Added `ReconciliationBatchJobRegistryConfiguration` so Batch Job registration happens after singleton initialization.
+  - Updated reconciliation docs and Gemini review prompt for the API DTO -> core command -> domain/service flow.
+- Verification:
+  - `.\gradlew :reconciliation:core:test :reconciliation:api:compileJava :reconciliation:batch:compileJava --console=plain --max-workers=1` passed.
+  - `reconciliation:api:bootRun` local/H2 context smoke passed.
+  - `reconciliation:batch:bootRun` local/H2 context smoke passed; JobRegistry BeanPostProcessor WARN no longer appeared.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume `reconciliationDailyJob` execution are not verified in this pass.
+- Rollback:
+  - Revert the reconciliation boundary refactor commit if rejected.
+## 2026-07-08 - Reporting API Response DTO Boundary Refactor
 
-### Requirement
-- Close Issue #1 after PR #2 merge.
-- Update the harness with the actual handling method used in this session.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added reporting API response DTOs for statements, disclosure note marts, regulatory submissions, regulatory filings, and drill-down rows.
+  - Updated `ReportingController` to call core use cases and map domain results to API DTOs.
+  - Kept business aggregation, validation, note classification, and filing mapping in core.
+  - Updated reporting docs and Gemini review prompt for the core domain -> API response DTO flow.
+- Verification:
+  - `.\gradlew :reporting:api:test --console=plain --max-workers=1` passed.
+  - `.\gradlew :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL/Flyway compatibility and high-volume reporting Batch execution are not verified in this pass.
+- Rollback:
+  - Revert the reporting API DTO boundary changes if rejected.
+## 2026-07-09 - Deposit Command and Batch asOfDate Boundary Refactor
 
-### Impact Scope
-- AI harness docs and operating logs only.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added validation to `OpenAccountCommand` for required codes, currency normalization, non-negative initial deposit, and non-negative interest rate.
+  - Made `depositAccountIntegrityJob` require explicit `asOfDate=yyyy-MM-dd` instead of defaulting to the current date.
+  - Added command validation and Batch JobParameter tests.
+  - Updated deposit docs and Gemini review prompt.
+- Verification:
+  - `.\gradlew :deposit:core:test :deposit:batch:test :deposit:api:bootJar :deposit:batch:bootJar --console=plain --max-workers=1` passed.
+- Risks:
+  - PostgreSQL/Flyway compatibility and real master-data/journal-ledger adapter integration are not verified in this pass.
+- Rollback:
+  - Revert the deposit boundary changes if rejected.
 
-### Actual Changed Files
-- `docs/ai-harness/85-github-issue-agent-loop.md`
-- `docs/ai-harness/05-issue-1-compliance-audit.md`
-- `docs/ai-harness/integration-log.md`
-- `docs/ai-harness/worklog.md`
-- `docs/ai-harness/agent-status.md`
-- `docs/ai-harness/handoff.md`
-- `CODEX_WORKLOG.md`
-- `docs/WORKLOG.md`
+## 2026-07-14 - Master Data Typed Applier and Statistics Boundary
 
-### Verification
-- Pending final conflict marker and `git diff --check` verification after this log update.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed the core pipeline dependency on the batch report DTO.
+  - Added a core validity report model and statistics output port.
+  - Replaced four full-table Java stream counts with JPA COUNT queries.
+  - Added typed change appliers for account subjects, business partners, departments, and products.
+  - Moved JSON decoding behind a core output port and Jackson infrastructure adapter.
+  - Enforced targetKey/payload-key consistency and approved effectiveDate for SCD2 deactivation.
+  - Updated master-data local H2/IntelliJ documentation and run configuration.
+- Verification:
+  - `.\gradlew :master-data:test --console=plain --max-workers=1` passed.
+  - H2 JPA statistics integration test passed.
+  - Local/H2 non-web `bootRun` passed after disabling Config, Discovery, Vault, tracing, Flyway, and using Hibernate create-drop.
+  - Core-to-batch dependency and batch business-loop searches returned no matches.
+- Risks:
+  - Currency, exchange-rate, and fiscal-period typed appliers remain fail-closed.
+  - requestedVersion conflict enforcement remains an explicit code `@todo`.
+  - The package-level batch orchestrator is not yet an independent Spring Batch Job/Step application.
+  - PostgreSQL Flyway DDL and high-volume execution plans remain unverified.
+- Rollback:
+  - Revert the master-data files, IntelliJ run configuration, and related docs/handoff entries for this pass.
 
-### Rollback
-- Revert this follow-up commit or remove the new runbook/closure result sections.
+## 2026-07-14 - Governance Approval Boundary and Standalone Runtime
 
-## 2026-07-14 - GH-4 Skills And Custom Subagents
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Fixed Governance component/entity/repository scanning so the executable loads real audit and master-data approval beans.
+  - Changed authorization revocation from immediate deletion to an approval request and HTTP 202 receipt.
+  - Made unsupported system-role/authorization approval combinations fail closed.
+  - Added service, adapter, and Spring context regression tests.
+  - Added H2/PostgreSQL runtime drivers, standalone IntelliJ configuration, and beginner-focused runtime/process documentation.
+- Verification:
+  - `:governance:compileJava` passed.
+  - `:governance:test :governance:bootJar` passed.
+  - Local H2 non-web `bootRun` passed and loaded 12 JPA repositories.
+- Risks:
+  - PostgreSQL/Flyway runtime was documented but not live-tested.
+  - Approval receipt API unification and Auth outbox/inbox atomicity remain code `@todo` items.
+- Rollback:
+  - Revert the governance/runtime/docs changes in the pending combined commit if rejected.
 
-- Work ID: GH-4
-- Issue: #4 `[AI Harness] Split AGENTS into skills and custom subagents`
-- Base branch: `origin/main`
-- Branch: `agent/4-harness-skills-subagents`
-- Worktree: `C:\tmp\account-harness-skills`
-- Status: Review ready; no remote push or PR.
+## 2026-07-14 - Auth Authentication Snapshot and Approval Idempotency
 
-### Scope
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Removed the Auth core dependency on API login DTOs.
+  - Reused one Clock-based effective-role snapshot for the core result and JWT claims.
+  - Hardened token-version validation for inactive, administratively locked, and role-less users.
+  - Preserved role metadata in memory mode.
+  - Added approvalTraceId plus SHA-256 fingerprint idempotency to memory/JPA role assignment adapters.
+  - Added a pessimistic user lock, apply-log entity/repository, Flyway V72, and regression tests.
+  - Updated standalone H2/Flyway/IntelliJ and PostgreSQL documentation.
+- Verification:
+  - `:auth:test :auth:bootJar` passed with 32 tests.
+  - Local H2 non-web bootRun applied V70-V72 and passed Hibernate schema validation.
+  - Auth core-to-API dependency search returned no matches.
+- Risks:
+  - PostgreSQL locking/concurrency was not live-tested.
+  - Plain-password migration, first-failure atomic upsert, and idempotency-log retention remain explicit code TODOs.
+- Rollback:
+  - Revert the auth, IntelliJ run configuration, and related docs/harness changes for this pass.
 
-- Reduced the always-loaded root agent guide and canonicalized it as `AGENTS.md`.
-- Added three repository skills under `.agents/skills/`.
-- Added project custom agent definitions and concurrency limits under `.codex/`.
-- Updated workflow, ownership, model assignment, legacy entry points, and active links.
-- Kept historical logs and backups unchanged.
+## 2026-07-20 - Gateway Global Authentication and Runtime Boundary
 
-### Verification
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Replaced route-by-route JWT opt-in with a default global `/api/**` authentication policy.
+  - Exposed only POST login and blocked Auth validation/internal callback paths at ingress.
+  - Removed all client-provided identity headers and regenerated them from an immutable verified principal.
+  - Split token verification and token-version checks into ports with JJWT and WebClient/Caffeine adapters.
+  - Required iat, exp, subject, roles, positive integral roleVersion, and header-safe identity codes.
+  - Distinguished Auth rejection (401) from timeout/error/empty response (503) while remaining fail-closed.
+  - Added request-id bounds, configuration validation, test-only console logging, and route/Compose YAML tests.
+  - Aligned port 8000, Docker Auth service URL/dependency, JDK 17 image, repository-root build context, and standalone IntelliJ execution.
+  - Updated Gateway and shared beginner/runtime documentation with code and data flows.
+- Verification:
+  - `.\gradlew :gateway:test :gateway:bootJar --console=plain --max-workers=1 --no-daemon` passed.
+  - Authoritative XML result: 30 tests, 0 failures, 0 errors, 0 skipped.
+  - Standalone local-profile Netty bootRun listened on port 8000 and `/actuator/health` returned `UP`; Gateway/Gradle processes were then stopped.
+  - Route and root/module Compose YAML parsing tests passed.
+  - Docker CLI was unavailable, so live Compose/image execution was not run.
+- Risks:
+  - Live Config/Discovery/Auth/business-route integration remains unverified.
+  - JWKS rotation, event-driven multi-node cache invalidation, Auth service authentication, and legacy catch-all removal remain explicit `@todo` items.
+  - The repository default HS256 key remains local-development compatibility only; production must inject a managed secret.
+- Rollback:
+  - Revert Gateway, external route config, root/module Compose, standalone run configuration, and related documentation/harness files for this pass.
+## 2026-07-20 - Discovery Registry Lifecycle and Readiness Boundary
 
-- GitHub Issue #4 is OPEN and its goal, scope, and acceptance criteria match the diff.
-- `codex debug prompt-input` discovered the canonical `AGENTS.md` and all three repository skills.
-- Skill structure validation passed for 3 skills; the checks mirror `quick_validate.py` rules.
-- Official `quick_validate.py` could not run because no Python interpreter is installed. No package was installed.
-- Custom agent structure validation passed for 11 unique TOML files with required fields, narrow sandbox modes, and no pinned vendor model.
-- `codex --strict-config --help` accepted `.codex/config.toml`; multi-agent support is reported stable by the installed CLI.
-- A new `codex exec` discovery run timed out; the current in-process orchestrator also cannot hot-load the newly added `planner` type. Start a new Codex session to use custom agents.
-- Independent `$account-review-handoff` forward test identified missing logs and scope review; those findings were addressed.
-- `git diff --check HEAD`, trailing-whitespace scan, placeholder scan, and conflict-marker scan passed.
-- No Gradle tests were run because the change affects documentation and Codex harness configuration only.
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch: `agent/asset-lease-split`.
+- Scope:
+  - Added standalone port 8761 and server-only Eureka client defaults.
+  - Connected Config Client, actuator, Prometheus, Brave, and Zipkin runtime dependencies to existing configuration.
+  - Replaced a context-only test with readiness and register/lookup/cancel registry lifecycle coverage.
+  - Added local/config/Compose/Docker policy tests.
+  - Rebuilt the Docker path around JDK 17, one bootJar, repository-root context, and readiness healthcheck.
+  - Changed all 14 root Compose Discovery dependencies to `service_healthy` and added container addresses.
+  - Added standalone IntelliJ execution, test-only console logging, and beginner registry/lease/self-preservation documentation.
+- Verification:
+  - `.\gradlew :discovery:test :discovery:bootJar --console=plain --max-workers=1 --no-daemon` passed with 6 tests and no failures/errors/skips.
+  - Standalone local-profile port 8761 returned readiness `UP`; Dashboard, registry API, and Prometheus returned HTTP 200; JVM metrics were present.
+  - Discovery and Gradle processes were stopped after runtime smoke.
+- Risks:
+  - Docker CLI/image execution and live Config/multi-client heartbeat/load-balancing were not verified.
+  - Registry authentication/private networking and multi-AZ peer synchronization remain explicit Config `@todo` items.
+- Rollback:
+  - Revert Discovery, external config, root Compose Discovery env/dependency conditions, standalone run configuration, and related documentation/harness files.
 
-### Rollback
+## 2026-07-22 - Config Server strict repository readiness
+- Branch: `agent/asset-lease-split`
+- Scope: Config Server runtime/config/tests/Docker/Compose/docs.
+- Changes:
+  - Added strict property-source availability health through `EnvironmentRepository`.
+  - Added 9 HTTP/unit/policy tests and Prometheus/test dependencies.
+  - Aligned native repository path, JDK 17 image, read-only Compose mounts, and 15 Config Server health dependencies.
+  - Updated beginner, process, local-run, shared sequence, handoff, and review documents.
+- Verification:
+  - Initial `.\gradlew :config-server:test :config-server:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon`: passed with 9 tests.
+  - Later health-detail sanitization main/test classes compiled, but the targeted test rerun produced no new report because the Windows paging file was exhausted; spawned Gradle JVMs were stopped.
+  - Initial runtime 8888 readiness/config/Prometheus smoke: passed without printing config values.
+- Risk:
+  - Docker CLI unavailable; image/Compose runtime unverified.
+  - Rerun `ConfigRepositoryHealthIndicatorTest` after restoring paging-file headroom.
+  - Production endpoint protection and Git-backed change governance remain TODO.
 
-Revert the eventual GH-4 commit. Before commit, restore the changed harness files from `origin/main`, remove the new `.agents/`, `.codex/`, and `95-codex-skills-subagents.md`, and restore `Agents.md`.
+## 2026-07-22 - Contracts/shared-kernel second-pass boundary hardening
+- Branch: `agent/asset-lease-split`
+- Scope: contracts, shared-kernel, master-data dated integration adapter, ECL CDM consumer, docs/harness.
+- Changes:
+  - Immutable journal contracts and strict normal-balance values.
+  - Real SCD2 effective-date lookup in master-data.
+  - Actual Jackson masking binding and fail-closed policies.
+  - Immutable deterministic local capability registry.
+  - eventId-based Spring Batch idempotency and failure propagation.
+  - Four no-op library runtime skeletons archived; 15 tests added.
+- Verification:
+  - Static diff/usage checks passed.
+  - JVM tests/compile pending because the Windows paging file could not start 64-128 MB Gradle/javac work.
+  - Spawned JVMs and temporary outputs were cleaned.
+- Next:
+  - Rerun Config Server health test plus shared-kernel/contracts/master-data/closing/ECL tests after memory recovery.
+  - Continue with Master Data provider/default closure and shared dependency extraction.
 
-### Risks
+## 2026-07-27 - Master Data SCD2 approval/version boundary
 
-- Custom agent runtime spawn still needs confirmation in a fresh Codex session.
-- The official Python validator remains unexecuted until Python and PyYAML are available through an approved environment.
+- Branch: `agent/asset-lease-split`.
+- Scope: Master Data approval aggregate, SCD2 version policy, Governance source-reference idempotency, applier registry, locking, API validation, runtime packaging, tests, and docs.
+- Verification: clean Master Data/Governance test and bootJar passed with 82 tests (57 + 25); diff, marker, and Markdown link checks passed.
+- Known risk: live PostgreSQL and Docker were not run; historical V2 `CLOB` and concurrent source-reference recovery require a vendor-specific clean PostgreSQL bootstrap strategy before production.
+- Next: independent Gemini review, then merge current `origin/main` into the feature branch and rerun affected checks before PR integration.
+
+## 2026-07-27 - Master Data SCD2 validity/historical lookup follow-up
+
+- Branch: `agent/asset-lease-split`; base HEAD `5d55704` is already present on the remote feature branch.
+- Scope: validity-first SCD2 update ordering, historical Business Partner lookup, overlap fail-closed behavior, focused tests, and beginner/handoff docs.
+- Changes:
+  - Validate every new Account Subject, Business Partner, Department, and Product SCD2 window before closing the current row; resolve Account/Department parent references first as well.
+  - Separate current-active Business Partner lookup from historical effective-date lookup.
+  - Return single-key queries as `Optional` so overlapping rows raise an incorrect-result exception instead of being silently selected.
+  - Add unit and H2 JPA regression tests; document PostgreSQL exclusion-constraint and legacy `useYn` follow-ups with completion criteria.
+- Verification: Master Data 18 suites/63 tests plus Governance 10 suites/25 tests passed; both bootJars, diff, marker, and changed Markdown link checks passed.
+- Risk: live PostgreSQL/Docker remain unverified; historical `BusinessPartnerRef.active` still reflects legacy `useYn` rather than a fully separated temporal activation model.
+- State: this follow-up is uncommitted; do not commit, push, or merge it without explicit user direction.
+
+## 2026-07-27 - Master Data lookup/fiscal-period second pass
+
+- Branch: `agent/asset-lease-split`; base HEAD `5d55704` is already present on the remote feature branch.
+- Scope: DB-side current lookup/search, deterministic as-of FX selection, Fiscal Period port/lock/domain transitions, dead-skeleton cleanup, tests, and docs.
+- Changes:
+  - Push Account Subject/Product active lists and Business Partner active-name search into validity-aware DB queries.
+  - Select the latest eligible exchange rate; validate ISO codes/positive rates and fail closed on overlapping active Currency rows.
+  - Change Fiscal Period through a pessimistically locked application port and audited domain transition rules.
+  - Remove unused full-list change-request contracts and no-op/synthetic compatibility methods after repository-wide usage checks.
+  - Record concrete PostgreSQL baseline, pagination, TaxProfile ownership, and Loan/Closing provider-boundary follow-ups.
+- Verification: Master Data 73 + Governance 25 + Closing Core 19 + Journal Ledger Core 19 = 136 tests passed; Closing Batch compile and two bootJars passed.
+- Risk: live PostgreSQL/Flyway and Docker remain unverified; pagination, exclusion constraints, TaxProfile completion, and two cross-module dependency exceptions remain.
+- State: cumulative local follow-up is review-ready and uncommitted; explicit user authorization is required before commit/push/merge.
+
+## 2026-07-27 - Loan value boundary and executable accounting workflow
+
+- Isolated Business Partner/Currency/Account provider models behind Loan-owned dated reference ports and scalar aggregate values.
+- Added inbound use-case boundary, API-owned DTO validation, pending/full-disbursal lifecycle, rich recalculation/default/recovery behavior and concurrency/idempotency controls.
+- Replaced double/percent EIR and disconnected duplicate schedule flow with BigDecimal decimal EIR and one EIR schedule consumed by Batch.
+- Added retryable accrual logs, locked per-loan processing, required business date, core chunk failure aggregation and independent Journal transaction isolation.
+- Added V33, Java 17 exact API bootJar Docker/8088 Compose alignment, focused core/API tests and workflow/schema/beginner docs.
+- Verified 169 affected tests and two Loan bootJars; static boundary/diff/marker/link checks passed. Docker/Compose and PostgreSQL remain environment follow-ups.
+- Review-ready and uncommitted; explicit user authorization is required before commit/push/merge.

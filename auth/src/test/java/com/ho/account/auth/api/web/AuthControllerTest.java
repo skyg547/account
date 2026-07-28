@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ho.account.auth.core.application.model.AuthenticationResult;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
@@ -48,7 +49,35 @@ class AuthControllerTest {
     }
 
     @Test
-    void replaceRoleAssignments_requiresInternalToken() throws Exception {
+    void loginMapsApiRequestToCoreCommandAndCoreResultToResponse() throws Exception {
+        when(authUseCase.login(any())).thenReturn(new AuthenticationResult(
+                "jwt-token",
+                3600L,
+                "admin",
+                "FIN",
+                List.of("ROLE_ADMIN"),
+                4L));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"admin","password":"1234"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt-token"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.roles[0]").value("ROLE_ADMIN"))
+                .andExpect(jsonPath("$.roleVersion").value(4));
+
+        ArgumentCaptor<AuthUseCase.LoginCommand> commandCaptor =
+                ArgumentCaptor.forClass(AuthUseCase.LoginCommand.class);
+        verify(authUseCase).login(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().username()).isEqualTo("admin");
+        assertThat(commandCaptor.getValue().password()).isEqualTo("1234");
+    }
+
+    @Test
+    void replaceRoleAssignmentsRequiresInternalToken() throws Exception {
         mockMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRoleAssignmentBody()))
@@ -59,7 +88,23 @@ class AuthControllerTest {
     }
 
     @Test
-    void replaceRoleAssignments_appliesWhenInternalTokenMatches() throws Exception {
+    void replaceRoleAssignmentsRequiresApprovalTraceId() throws Exception {
+        mockMvc.perform(post("/api/auth/internal/users/admin/role-assignments")
+                        .header(INTERNAL_AUTH_TOKEN_HEADER, "secret-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "roleCodes": ["ROLE_ACCOUNTING_ADMIN"],
+                                  "approvedBy": "approver01"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authUserRoleAssignmentUseCase);
+    }
+
+    @Test
+    void replaceRoleAssignmentsAppliesWhenInternalTokenMatches() throws Exception {
         when(authUserRoleAssignmentUseCase.replaceRoleAssignments(any()))
                 .thenReturn(new AuthUserRoleAssignmentUseCase.RoleAssignmentResult(
                         "admin",

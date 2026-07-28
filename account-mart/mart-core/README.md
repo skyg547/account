@@ -8,6 +8,7 @@
 - `domain/mart`: CDM 포지션 변환.
 - `domain/allowance`: allowance exposure snapshot 생성 결과.
 - `domain/marketdata`: 환율, 수익률곡선, 보간 서비스.
+- `application/service`: port 조회와 domain processor 호출 순서를 조정하는 유즈케이스.
 - `application/port/out`: 영속성/외부 시스템 접근 port.
 - `infrastructure/persistence`: JPA/JDBC adapter.
 
@@ -15,6 +16,7 @@
 
 - 계산 금액과 비율은 `BigDecimal`을 유지합니다.
 - core는 도메인 규칙과 port만 정의하고, JPA/JDBC 세부사항은 infrastructure에 둡니다.
+- 담보 상세 DQ는 `CollateralDataQualityInspectionService`가 `OdsApartCollDetailRepository` port로 상세를 조회하고, `CollateralDataQualityProcessor`가 업무 판단을 담당합니다.
 - 기준일 재실행이 가능하도록 snapshot 생성은 기준일 단위로 멱등 처리합니다.
 
 ## 로컬 검증

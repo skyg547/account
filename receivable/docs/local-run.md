@@ -9,9 +9,9 @@
 
 `receivable`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
 
-- `receivable:core`: 매출채권/수납/매칭 도메인, UseCase, persistence adapter, local 외부 포트 adapter.
-- `receivable:api`: Spring Boot HTTP 실행 진입점. 업무 판단은 core를 참조한다.
-- `receivable:batch`: Spring Boot Batch 실행 진입점. 대량 매칭 Job/Step 제어만 담당하고 업무 계산은 core를 참조한다.
+- `receivable:core`: 매출채권/수납/매칭 도메인, command 기반 UseCase, persistence adapter, local 외부 포트 adapter.
+- `receivable:api`: Spring Boot HTTP 실행 진입점. Controller/DTO/Bean Validation을 소유하고, 업무 판단은 core command/usecase를 참조한다.
+- `receivable:batch`: Spring Boot Batch 실행 진입점. 대량 매칭 Job/Step 제어와 JobRegistry 등록 순서만 담당하고 업무 계산은 core를 참조한다.
 
 ## IntelliJ에서 실행하기
 
@@ -29,7 +29,7 @@
 ## PowerShell에서 실행하기
 
 ```powershell
-.\gradlew :receivable:core:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :receivable:core:test :receivable:api:test :receivable:batch:compileJava --console=plain --max-workers=1 --no-daemon
 ```
 
 빠른 컴파일만 확인할 때:
@@ -64,6 +64,14 @@ API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
 .\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1
 ```
 
+
+Batch 스모크만 확인하고 Job을 자동 실행하지 않을 때:
+
+```powershell
+.\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+```
+
+위 실행에서는 `ReceivableBatchJobRegistryConfiguration`이 Job 등록을 singleton 초기화 이후로 늦춰 `jobRegistryBeanPostProcessor` 조기 초기화 경고를 피한다.
 ## local profile 동작
 
 호스트 앱에서 사용할 수 있는 대표 설정값:

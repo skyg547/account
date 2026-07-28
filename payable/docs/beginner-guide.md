@@ -26,6 +26,8 @@
 
 `domain`은 돈과 상태가 틀어지지 않게 지키는 곳이다. 예를 들어 `Payable.applyPayment`는 지급 금액이 0보다 큰지, 잔액보다 크지 않은지 확인한 뒤 잔액과 상태를 함께 변경한다. 이런 규칙을 컨트롤러나 DB 어댑터에 흩뿌리지 않는 것이 Rich Domain Model의 핵심이다.
 
+`application.port.in`의 command는 API나 Batch가 core에 넘기는 업무 입력값이다. `PurchaseInvoiceCommand`, `PaymentRunCommand`, `ExecutePaymentCommand` 같은 객체가 금액, 날짜, actor 정합성을 core 경계에서 한 번 더 확인한다.
+
 `application.service`는 업무 순서를 조율한다. `PurchaseService`는 거래처 검증, 중복 인보이스 확인, 채무 생성, 전표 포트 호출을 하나의 유즈케이스로 묶는다. `PaymentService`는 지급 런 생성, 지급 실행, 선급금 기록, 상계를 조율한다.
 
 `application.port.out`은 외부 의존성을 숨기는 인터페이스다. 서비스는 JPA, 은행 API, 원장 구현을 직접 알지 않는다. 대신 `PayablePersistencePort`, `PaymentExecutionPort`, `JournalPostingPort`, `MasterDataQueryPort` 같은 포트만 바라본다.
@@ -47,4 +49,6 @@
 2. `PaymentService`: 지급 런, 지급 실행, 선급금, 상계 흐름.
 3. `Payable`: 지급 또는 상계가 들어왔을 때 잔액과 상태를 바꾸는 도메인 규칙.
 4. `LocalPaymentExecutionAdapter`: 로컬에서 은행 API 없이 멱등 지급 결과를 만드는 테스트용 어댑터.
-5. `ConfiguredPayableAccountMappingAdapter`: 계정과목 코드를 설정값으로 바꾸는 어댑터.
+5. `payable/api/.../dto`: HTTP 요청/응답 계약을 core 도메인과 분리하는 DTO.
+6. `application/port/in/*Command`: API와 Batch가 같은 업무 유즈케이스를 호출할 때 쓰는 입력값.
+7. `ConfiguredPayableAccountMappingAdapter`: 계정과목 코드를 설정값으로 바꾸는 어댑터.

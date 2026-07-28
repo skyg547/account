@@ -10,7 +10,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":asset-lease:test" />
+          <option value=":asset-lease:core:test" />
         </list>
       </option>
       <option name="vmOptions" />

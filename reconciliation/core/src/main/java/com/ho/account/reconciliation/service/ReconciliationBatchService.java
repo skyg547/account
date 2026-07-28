@@ -1,6 +1,7 @@
 package com.ho.account.reconciliation.service;
 
 import com.ho.account.reconciliation.application.port.in.ReconciliationBatchUseCase;
+import com.ho.account.reconciliation.application.port.in.RunReconciliationCommand;
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,7 +35,7 @@ public class ReconciliationBatchService implements ReconciliationBatchUseCase {
             if (deepMode) {
                 reconManagerService.performDeepReconciliation(unit.getId(), reconciliationDate, runBy);
             } else {
-                reconciliationService.performReconciliation(unit.getId(), reconciliationDate, runBy);
+                reconciliationService.performReconciliation(new RunReconciliationCommand(unit.getId(), reconciliationDate, runBy));
             }
             runCount++;
         }

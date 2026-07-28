@@ -13,7 +13,7 @@
 
 - API 엔트리포인트: `closing:api`, `com.ho.account.closing.ClosingApplication`
 - Batch 엔트리포인트: `closing:batch`, `com.ho.account.closing.batch.ClosingBatchApplication`
-- Core 책임: `closing:core`의 `application.service`, `application.port`, `domain`, `infrastructure`
+- Core 책임: `closing:core`의 `application.service`, `application.port`, `domain`, `infrastructure`. FX 평가/ECL 충당의 금액 산출, 차대변 판단, 전표 command 구성도 core 책임입니다.
 - 외부 입력:
   - `master-data`: 회계기간 ID, 회계연도, 회계기간, 시작일/종료일, 마감 상태
   - `journal-ledger`: 전표 생성, 전표 조회, GL 잔액 조회

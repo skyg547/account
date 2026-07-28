@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
  * <p>대출금이 실제로 지급된 이력을 기록하고, 관련 전표 ID와 전표번호를 값으로 연결합니다.
  */
 @Entity
-@Table(name = "loan_disbursals")
+@Table(
+        name = "loan_disbursals",
+        uniqueConstraints = @UniqueConstraint(name = "uq_loan_disbursal_loan", columnNames = "loan_id"))
 public class LoanDisbursal {
 
     @Id
@@ -126,5 +128,45 @@ public class LoanDisbursal {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public static LoanDisbursal recordDisbursal(
+            Loan loan,
+            LocalDate disbursalDate,
+            BigDecimal disbursedAmount,
+            String actor) {
+        if (loan == null) {
+            throw new IllegalArgumentException("loan is required.");
+        }
+        if (disbursalDate == null) {
+            throw new IllegalArgumentException("disbursalDate is required.");
+        }
+        if (disbursedAmount == null || disbursedAmount.signum() <= 0) {
+            throw new IllegalArgumentException("disbursedAmount must be positive.");
+        }
+        LoanDisbursal disbursal = new LoanDisbursal();
+        disbursal.loan = loan;
+        disbursal.disbursalDate = disbursalDate;
+        disbursal.disbursedAmount = disbursedAmount;
+        disbursal.auditUser = requireActor(actor);
+        return disbursal;
+    }
+
+    public void linkPostedJournal(Long journalEntryId, String slipNo) {
+        if (journalEntryId == null || journalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive.");
+        }
+        if (slipNo == null || slipNo.isBlank()) {
+            throw new IllegalArgumentException("journal slipNo is required.");
+        }
+        this.journalEntryId = journalEntryId;
+        this.journalEntrySlipNo = slipNo.trim();
+    }
+
+    private static String requireActor(String actor) {
+        if (actor == null || actor.isBlank() || actor.trim().length() > 50) {
+            throw new IllegalArgumentException("actor is required and must not exceed 50 characters.");
+        }
+        return actor.trim();
     }
 }

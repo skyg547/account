@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MasterDataValidityPolicyTest {
 
@@ -18,27 +19,38 @@ class MasterDataValidityPolicyTest {
     }
 
     @Test
-    void closesValidityWindowUsingTodayWhenStillOpen() {
-        Holder holder = new Holder(LocalDate.of(9999, 12, 31));
+    void acceptsTerminationDateInsideCurrentValidityWindow() {
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(9999, 12, 31));
 
-        MasterDataValidityPolicy.closeIfActive(holder::getDate, holder::setDate);
-
-        assertThat(holder.getDate()).isEqualTo(LocalDate.now());
+        assertThat(terminationDate).isEqualTo(LocalDate.of(2026, 7, 1));
     }
 
-    private static final class Holder {
-        private LocalDate date;
+    @Test
+    void rejectsTerminationDateThatWouldReverseOrExtendHistory() {
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2025, 12, 31),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(9999, 12, 31)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("before validFrom");
 
-        private Holder(LocalDate date) {
-            this.date = date;
-        }
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireTerminationDate(
+                LocalDate.of(2026, 7, 2),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 7, 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot extend");
+    }
 
-        private LocalDate getDate() {
-            return date;
-        }
-
-        private void setDate(LocalDate date) {
-            this.date = date;
-        }
+    @Test
+    void rejectsReversedScd2WindowBeforePersistence() {
+        assertThatThrownBy(() -> MasterDataValidityPolicy.requireValidityWindow(
+                LocalDate.of(2026, 7, 2),
+                LocalDate.of(2026, 7, 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("validTo cannot be before validFrom");
     }
 }

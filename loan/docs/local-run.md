@@ -1,67 +1,67 @@
 # Loan 로컬 실행 가이드
 
-이 문서는 IntelliJ와 Gradle로 `loan` 모듈을 로컬에서 확인하는 순서를 정리합니다.
-
 ## 전제 조건
 
-- JDK 17
-- IntelliJ Gradle JVM: 17
-- 루트 프로젝트 `account`를 Gradle 프로젝트로 import
-- 전표 생성까지 확인하려면 `master-data` 계정/통화/거래처와 `journal-ledger` 구성이 필요합니다.
+- JDK/Gradle JVM 17
+- 저장소 루트를 Gradle 프로젝트로 import
+- 전표 흐름에는 Master Data의 유효 거래처·통화·계정과 Journal Ledger 구성이 필요
 
-먼저 테스트와 컴파일로 모듈 상태를 확인합니다.
-
-```powershell
-.\gradlew :loan:core:test :loan:api:compileJava :loan:batch:compileJava --console=plain --max-workers=1 --no-daemon
-```
-
-## IntelliJ Run Configuration
-
-공유 실행 설정은 `.run`에 있습니다.
-
-| 이름 | 역할 |
-| --- | --- |
-| `Loan API bootRun` | REST API 컨텍스트 기동 |
-| `Loan Batch Context` | Job을 실행하지 않고 Batch Bean 구성만 확인 |
-
-## API 실행
+## 테스트와 패키징
 
 ```powershell
-.\gradlew :loan:api:bootRun --args="--server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
+.\gradlew :loan:core:test :loan:api:bootJar :loan:batch:bootJar --console=plain --max-workers=1 --no-daemon
 ```
 
-API가 정상 기동되면 아래 순서로 업무 흐름을 확인합니다.
+Flyway 검증은 core 테스트의 `LoanFlywayMigrationTest`에 포함됩니다.
 
-1. `POST /api/loan/loans`로 대출 생성
-2. `POST /api/loan/disbursals`로 대출 실행 전표 생성
-3. `POST /api/loan/deferred-item-types`로 이연 항목 유형 생성
-4. `POST /api/loan/deferred-items`로 이연 항목 생성
-5. `POST /api/loan/amortization-schedules/generate`로 EIR 상각 스케줄 생성
-6. `POST /api/loan/events` 또는 `/api/loan/dod-scenario`로 재계산 흐름 확인
-
-## Batch 컨텍스트만 실행
+## API 컨텍스트
 
 ```powershell
-.\gradlew :loan:batch:bootRun --args="--spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
+.\gradlew :loan:api:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-api --spring.data.redis.repositories.enabled=false --server.port=8087 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
 ```
 
-이 명령은 Job을 실행하지 않고 Batch 설정과 Bean 로딩만 확인합니다.
+권장 확인 순서:
 
-## 일일 이자 발생 Job 실행
+1. `POST /api/loan/loans`: 계약 생성(`PENDING_DISBURSEMENT`)
+2. `POST /api/loan/disbursals`: 원금 전액 1회 실행(`ACTIVE`)
+3. `POST /api/loan/deferred-item-types`, `POST /api/loan/deferred-items`
+4. `POST /api/loan/amortization-schedules/generate`
+5. `POST /api/loan/events`: 중도상환/조건 변경 또는 부도/회복
+
+## Batch 컨텍스트만 확인
+
+```powershell
+.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
+```
+
+## 이자 발생 Job
 
 선행 조건:
 
-- ACTIVE 상태의 대출이 있어야 합니다.
-- `loan_amortization_schedule_entries`에 `accrualDate`와 같은 `payment_date`가 있어야 합니다.
-- 미수이자/이자수익 계정이 master-data에 있어야 합니다.
-- 같은 대출/기준일의 `loan_accrual_log`가 이미 있으면 중복 전표를 만들지 않습니다.
+- ACTIVE 대출
+- `eir_amortization_schedules.schedule_date = accrualDate`인 행
+- 해당 일자에 유효한 미수이자/이자수익 계정
+- `accrualDate` 필수 Job parameter
 
 ```powershell
-.\gradlew :loan:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=loanInterestAccrualJob accrualDate=2026-04-30 --spring.batch.jdbc.initialize-schema=always --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain
+.\gradlew :loan:batch:bootRun --args="--spring.profiles.active=local --spring.application.name=loan-batch --spring.data.redis.repositories.enabled=false --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.job.enabled=true --spring.batch.job.name=loanInterestAccrualJob accrualDate=2026-04-30 --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --account.loan.accounting.cash-account-code=101000 --account.loan.accounting.loan-receivable-account-code=131000 --account.loan.accounting.deferred-asset-account-code=118000 --account.loan.accounting.recognized-income-account-code=410000 --account.loan.accounting.accrued-interest-receivable-account-code=115010 --account.loan.accounting.interest-income-account-code=410100" --console=plain --max-workers=1 --no-daemon
 ```
 
-## 주의할 점
+성공 로그는 건너뛰고 실패 로그는 재시도합니다. 한 건이라도 다시 실패하면 Job Step이 실패합니다. 현재 생성 스케줄은 월별이므로 다른 날짜는 `NOT_DUE`가 정상입니다.
 
-- 로컬 H2 `create-drop`은 빠른 컨텍스트 확인용입니다. 운영 스키마 검증은 Flyway migration과 실제 DB로 확인해야 합니다.
-- `LoanInterestAccrualBatchConfig`는 ACTIVE 대출을 paging으로 읽지만, 실제 전표 금액은 `LoanAmortizationScheduleEntry`의 `interestAmount`를 사용합니다.
-- EIR 계산은 `DeferredItemType.eirCashFlowTreatment`에 따라 수수료/비용 부호를 결정합니다. 운영 전에는 상품별 이연 항목 유형이 `CUSTOMER_FEE_INFLOW`, `ORIGINATION_COST_OUTFLOW`, `EXCLUDED_FROM_EIR` 중 맞는 정책으로 등록됐는지 확인합니다.
+## Docker
+
+저장소 루트에서 전체 Compose를 실행하면 Loan은 8088을 사용합니다. `loan/docker-compose.yml`도 build context를 저장소 루트로 잡고 내부 `SERVER_PORT=8088`을 사용합니다.
+
+```powershell
+docker compose -f loan/docker-compose.yml build loan
+```
+
+Dockerfile은 Java 17 builder/runtime과 `:loan:api:bootJar`의 `api-0.0.1-SNAPSHOT.jar`를 사용합니다. 이미지 빌드는 패키지 다운로드가 필요할 수 있으므로 네트워크 가능한 CI에서 검증합니다.
+
+## 주의
+
+- `create-drop`과 Flyway 비활성화는 로컬 smoke 전용입니다.
+- 별도 `application.yml`이 없으므로 실행 명령에 application name, DB, discovery, 계정 설정을 명시합니다.
+- 로컬 API 8087은 단독 실행 예시입니다. 전체 Compose에서는 Governance가 8087을 사용하므로 Loan은 8088입니다.
+- HTTP actor 필드는 신뢰 경계가 아닙니다. 운영에서는 인증 principal에서 서버가 주입해야 합니다.

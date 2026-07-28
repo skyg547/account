@@ -18,8 +18,8 @@
 
 ## 현재 실행 전제
 
-- `asset-lease`는 `org.springframework.boot` 플러그인을 사용하는 단독 실행 가능 모듈이다.
-- 실행 클래스는 `com.ho.account.asset.AssetLeaseApplication`이다.
+- `asset-lease`는 `core`, `api`, `batch` Gradle 하위 프로젝트로 분리되어 있다.
+- API 실행 클래스는 `com.ho.account.asset.api.AssetLeaseApiApplication`, Batch 실행 클래스는 `com.ho.account.asset.batch.AssetLeaseBatchApplication`이다.
 - 로컬 API 실행 시 Config Server와 Eureka는 끄고 실행하는 편이 안정적이다.
 - 자산 등록/상각/처분은 `AssetEventPort`를 통해 Kafka `transaction-events` 이벤트를 발행한다.
 - 리스료 지급결의는 `LeasePaymentResolutionPort`가 필요하다. 포트가 없으면 fallback 어댑터가 예외를 던진다.
@@ -30,5 +30,6 @@
 - 유즈케이스 서비스: `core/src/main/java/com/ho/account/asset/application/service/FixedAssetEntryService`, `LeaseEntryService`
 - Batch 오케스트레이터: `batch/src/main/java/com/ho/account/asset/batch/AssetDepreciationBatchConfig`
 - Batch 계산 파이프라인: `core/src/main/java/com/ho/account/asset/application/pipeline/DepreciationPipeline`
+- Batch 감가상각 결과 값: `FixedAssetDepreciationResult`
 - 도메인 모델: `FixedAsset`, `AssetHistory`, `LeaseContract`, `RightOfUseAsset`, `LeaseLiability`, `LeasePaymentSchedule`
 - 기술 어댑터: `AssetJdbcAdapter`, `AssetEventAdapter`, `AssetSourceDocumentProvider`

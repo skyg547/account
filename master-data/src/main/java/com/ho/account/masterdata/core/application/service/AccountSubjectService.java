@@ -75,9 +75,7 @@ public class AccountSubjectService implements AccountSubjectUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<AccountSubject> findAllActiveAccountSubjects() {
-        return accountSubjectPersistencePort.findAll().stream()
-                .filter(MasterDataValidityPolicy.isActiveNow(AccountSubject::getValidFrom, AccountSubject::getValidTo))
-                .toList();
+        return accountSubjectPersistencePort.findAllActive(LocalDate.now());
     }
 
     /**
@@ -94,16 +92,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
 
         // SCD2: 기존 활성 버전 종료
         LocalDate newValidFrom = command.validFrom() != null ? command.validFrom() : LocalDate.now();
+        LocalDate newValidTo = command.validTo() != null
+                ? command.validTo()
+                : LocalDate.of(9999, 12, 31);
+        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
         
         if (oldValidTo.isBefore(currentActive.getValidFrom())) {
             throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
         }
         
-        currentActive.terminate(oldValidTo);
-        accountSubjectPersistencePort.save(currentActive);
-
-        // SCD2: 새로운 버전 생성
+        // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
         AccountSubject newVersion = command.toEntity();
         newVersion.setCode(code); // 코드는 동일하게 유지
 
@@ -116,11 +115,10 @@ public class AccountSubjectService implements AccountSubjectUseCase {
         }
         
         newVersion.setValidFrom(newValidFrom);
-        if (command.validTo() != null) {
-            newVersion.setValidTo(command.validTo());
-        } else {
-            newVersion.setValidTo(LocalDate.of(9999, 12, 31));
-        }
+        newVersion.setValidTo(newValidTo);
+
+        currentActive.terminate(oldValidTo);
+        accountSubjectPersistencePort.save(currentActive);
 
         return accountSubjectPersistencePort.save(newVersion);
     }
@@ -131,10 +129,17 @@ public class AccountSubjectService implements AccountSubjectUseCase {
      */
     @Override
     public void deactivateAccountSubject(String code) {
+        deactivateAccountSubject(code, LocalDate.now());
+    }
+
+    @Override
+    public void deactivateAccountSubject(String code, LocalDate effectiveDate) {
         AccountSubject account = accountSubjectPersistencePort.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("활성화된 계정과목을 찾을 수 없습니다. 코드: " + code));
 
-        MasterDataValidityPolicy.closeIfActive(account::getValidTo, account::setValidTo);
+        LocalDate terminationDate = MasterDataValidityPolicy.requireTerminationDate(
+                effectiveDate, account.getValidFrom(), account.getValidTo());
+        account.terminate(terminationDate);
         accountSubjectPersistencePort.save(account);
     }
 

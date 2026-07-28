@@ -3,13 +3,13 @@ package com.ho.account.mart.batch.job.ods;
 import com.ho.account.mart.batch.config.MartBatchExecutionConfig;
 import com.ho.account.mart.batch.tasklet.AllowanceExposureSnapshotTasklet;
 import com.ho.account.mart.batch.tasklet.CdmEventPublishTasklet;
-import com.ho.account.mart.core.domain.ods.audit.processor.CollateralDataQualityProcessor;
-import com.ho.account.mart.core.domain.ods.audit.processor.LedgerDataQualityProcessor;
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsAccountLedgerRepository;
 import com.ho.account.mart.core.infrastructure.persistence.jpa.JpaOdsCollateralMstRepository;
 import com.ho.account.mart.batch.tasklet.OdsReconcileTasklet;
+import com.ho.account.mart.batch.processor.CollateralDataQualityItemProcessor;
+import com.ho.account.mart.batch.processor.IntegratedPositionItemProcessor;
+import com.ho.account.mart.batch.processor.LedgerDataQualityItemProcessor;
 import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
-import com.ho.account.mart.core.domain.mart.processor.IntegratedPositionProcessor;
 import com.ho.account.mart.core.domain.ods.audit.OdsDqAudit;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
 import com.ho.account.mart.core.domain.ods.loan.OdsCollateralMst;
@@ -54,13 +54,9 @@ public class IntegratedPositionEtlJobConfig {
     private final OdsReconcileTasklet reconcileTasklet;
     private final CdmEventPublishTasklet cdmEventPublishTasklet;
     private final AllowanceExposureSnapshotTasklet allowanceExposureSnapshotTasklet;
-    private final IntegratedPositionProcessor integratedPositionProcessor;
-    
-    @Qualifier("coreLedgerDataQualityProcessor")
-    private final LedgerDataQualityProcessor ledgerDataQualityProcessor;
-    
-    @Qualifier("coreCollateralDataQualityProcessor")
-    private final CollateralDataQualityProcessor collateralDataQualityProcessor;
+    private final IntegratedPositionItemProcessor integratedPositionItemProcessor;
+    private final LedgerDataQualityItemProcessor ledgerDataQualityItemProcessor;
+    private final CollateralDataQualityItemProcessor collateralDataQualityItemProcessor;
 
     @Qualifier("martBatchTaskExecutor")
     private final TaskExecutor martBatchTaskExecutor;
@@ -160,7 +156,7 @@ public class IntegratedPositionEtlJobConfig {
         return new StepBuilder("ledgerDataQualityStep", Objects.requireNonNull(jobRepository))
                 .<OdsAccountLedger, OdsDqAudit>chunk(MartBatchExecutionConfig.DQ_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
                 .reader(Objects.requireNonNull(ledgerDataQualityReader()))
-                .processor(ledgerDataQualityProcessor)
+                .processor(ledgerDataQualityItemProcessor)
                 .writer(Objects.requireNonNull(dqAuditWriter()))
                 .faultTolerant() // 데이터 1건의 오류가 전체 배치를 멈추지 않도록 설정
                 .skip(DataAccessException.class)
@@ -173,7 +169,7 @@ public class IntegratedPositionEtlJobConfig {
         return new StepBuilder("collateralDataQualityStep", Objects.requireNonNull(jobRepository))
                 .<OdsCollateralMst, OdsDqAudit>chunk(MartBatchExecutionConfig.DQ_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
                 .reader(Objects.requireNonNull(collateralDataQualityReader()))
-                .processor(collateralDataQualityProcessor)
+                .processor(collateralDataQualityItemProcessor)
                 .writer(Objects.requireNonNull(dqAuditWriter()))
                 .faultTolerant()
                 .skip(DataAccessException.class)
@@ -206,7 +202,7 @@ public class IntegratedPositionEtlJobConfig {
         var chunkStep = builder
                 .<OdsAccountLedger, AllowanceInputPosition>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
                 .reader(Objects.requireNonNull(odsLedgerReader()))
-                .processor(integratedPositionProcessor) 
+                .processor(integratedPositionItemProcessor)
                 .writer(Objects.requireNonNull(cdmWriter()))
                 .faultTolerant()
                 .skip(DataAccessException.class)      // DB 정합성 오류 시 건너뜀

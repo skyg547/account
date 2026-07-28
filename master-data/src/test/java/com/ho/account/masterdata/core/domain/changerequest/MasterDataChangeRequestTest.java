@@ -51,6 +51,61 @@ class MasterDataChangeRequestTest {
         request.markApplied();
 
         assertThat(request.getStatus()).isEqualTo(ChangeStatus.APPLIED);
+        assertThat(request.getAppliedAt()).isNotNull();
+    }
+
+    @Test
+    void createAndUpdateRequirePayloadButDeactivateDoesNot() {
+        assertThatThrownBy(() -> new MasterDataChangeRequest(
+                MasterDataType.ACCOUNT_SUBJECT,
+                "101000",
+                ChangeType.UPDATE,
+                LocalDate.now(),
+                2,
+                "operator",
+                "Update account subject",
+                " "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Payload is required");
+
+        MasterDataChangeRequest deactivate = new MasterDataChangeRequest(
+                MasterDataType.ACCOUNT_SUBJECT,
+                "101000",
+                ChangeType.DEACTIVATE,
+                LocalDate.now(),
+                1,
+                "operator",
+                "Deactivate account subject",
+                "unused payload");
+        assertThat(deactivate.getPayloadJson()).isNull();
+    }
+
+    @Test
+    void enforcesPersistenceLengthsForNonHttpCallers() {
+        assertThatThrownBy(() -> new MasterDataChangeRequest(
+                MasterDataType.ACCOUNT_SUBJECT,
+                "K".repeat(101),
+                ChangeType.CREATE,
+                LocalDate.now(),
+                1,
+                "operator",
+                null,
+                "{}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Target key");
+    }
+
+    @Test
+    void requesterCannotRejectOwnRequestAndRejectReasonIsRequired() {
+        MasterDataChangeRequest ownDecision = sampleRequest();
+        assertThatThrownBy(() -> ownDecision.reject("operator", "No longer needed"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must be different");
+
+        MasterDataChangeRequest missingReason = sampleRequest();
+        assertThatThrownBy(() -> missingReason.reject("manager", " "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Reject reason is required");
     }
 
     private MasterDataChangeRequest sampleRequest() {

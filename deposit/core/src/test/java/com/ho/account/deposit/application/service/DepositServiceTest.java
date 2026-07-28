@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -97,6 +98,37 @@ class DepositServiceTest {
         verify(depositAccountMappingPort, never()).resolveInitialDepositAccounts(any());
     }
 
+
+    @Test
+    @DisplayName("계좌 개설 command는 필수 코드와 음수 금액을 먼저 거부한다")
+    void openAccountCommandRejectsInvalidInput() {
+        assertThatThrownBy(() -> new OpenAccountUseCase.OpenAccountCommand(
+                " ",
+                "DMD-001",
+                "KRW",
+                BigDecimal.ZERO,
+                new BigDecimal("0.02500000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("customerCode");
+
+        assertThatThrownBy(() -> new OpenAccountUseCase.OpenAccountCommand(
+                "CUST-001",
+                "DMD-001",
+                "KRW",
+                new BigDecimal("-1.00"),
+                new BigDecimal("0.02500000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("initialDeposit");
+
+        assertThatThrownBy(() -> new OpenAccountUseCase.OpenAccountCommand(
+                "CUST-001",
+                "DMD-001",
+                "KRW",
+                BigDecimal.ZERO,
+                new BigDecimal("-0.0001")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("interestRate");
+    }
     private OpenAccountUseCase.OpenAccountCommand command(BigDecimal initialDeposit) {
         return new OpenAccountUseCase.OpenAccountCommand(
                 "CUST-001",

@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
@@ -112,6 +113,51 @@ class DepartmentServiceTest {
         assertThatThrownBy(() -> service.updateDepartment("D001", command))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("부서 코드는");
+    }
+
+    @Test
+    void updateDepartmentValidatesNewWindowBeforeClosingCurrentVersion() {
+        Department current = department(10L, "D001", "Old department",
+                Department.DepartmentType.COST_CENTER,
+                LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31));
+        DepartmentCommand command = new DepartmentCommand(
+                "D001",
+                "Invalid window",
+                null,
+                null,
+                LocalDate.of(2026, 7, 2),
+                LocalDate.of(2026, 7, 1));
+        when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(current));
+
+        assertThatThrownBy(() -> service.updateDepartment("D001", command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("validTo cannot be before validFrom");
+
+        assertThat(current.getValidTo()).isEqualTo(LocalDate.of(9999, 12, 31));
+        verify(departmentPersistencePort, never()).save(any(Department.class));
+    }
+
+    @Test
+    void updateDepartmentResolvesParentBeforeClosingCurrentVersion() {
+        Department current = department(10L, "D001", "Old department",
+                Department.DepartmentType.COST_CENTER,
+                LocalDate.of(2026, 1, 1), LocalDate.of(9999, 12, 31));
+        DepartmentCommand command = new DepartmentCommand(
+                "D001",
+                "Invalid parent",
+                "MISSING",
+                null,
+                LocalDate.of(2026, 7, 1),
+                null);
+        when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(current));
+        when(departmentPersistencePort.findActiveByCode("MISSING")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.updateDepartment("D001", command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("상위 부서를 찾을 수 없습니다");
+
+        assertThat(current.getValidTo()).isEqualTo(LocalDate.of(9999, 12, 31));
+        verify(departmentPersistencePort, never()).save(any(Department.class));
     }
 
     private Department department(Long id, String code, String name, Department.DepartmentType type,

@@ -20,14 +20,14 @@ public class OdsGeneralLedgerPersistenceAdapter implements OdsGeneralLedgerRepos
     @Override
     public List<OdsGeneralLedger> findByBaseDate(LocalDate baseDate) {
         return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(e -> toDomain(e))
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<OdsGeneralLedger> findAll() {
         return jpaRepository.findAll().stream()
-                .map(e -> toDomain(e))
+                .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
@@ -38,27 +38,26 @@ public class OdsGeneralLedgerPersistenceAdapter implements OdsGeneralLedgerRepos
 
     @Override
     public void saveAll(List<OdsGeneralLedger> domains) {
-        if (domains == null) return;
+        if (domains == null) {
+            return;
+        }
         List<OdsGeneralLedgerEntity> entities = domains.stream()
-                .map(d -> toEntity(d))
+                .map(this::toEntity)
                 .collect(Collectors.toList());
         jpaRepository.saveAll(entities);
     }
 
     @Override
     public List<SubjectCurrencyBalanceSummary> getBalanceSummaryByBaseDate(LocalDate baseDate) {
-        // [임시 구현] 리포지토리에서 쿼리 지원 필요 시 추가. 여기서는 수동 그룹핑 처리 예시
-        return jpaRepository.findByBaseDate(baseDate).stream()
-                .map(e -> new SubjectCurrencyBalanceSummary() {
-                    @Override public String getSubjectCode() { return e.getGlCode(); }
-                    @Override public String getCurrencyCode() { return e.getCurrency(); }
-                    @Override public java.math.BigDecimal getBalanceAmount() { return e.getBalance(); }
-                })
-                .collect(Collectors.toList());
+        // [초보 가이드] GL/SL 대사는 계정+통화 단위 합계가 맞아야 한다.
+        // 행 단위 데이터를 그대로 넘기면 같은 계정/통화가 여러 지점에 나뉜 경우 차이가 왜곡되므로 DB에서 group-by 한다.
+        return jpaRepository.getBalanceSummaryByBaseDate(baseDate);
     }
 
     private OdsGeneralLedger toDomain(OdsGeneralLedgerEntity entity) {
-        if (entity == null) return null;
+        if (entity == null) {
+            return null;
+        }
         return OdsGeneralLedger.builder()
                 .baseDate(entity.getBaseDate())
                 .glCode(entity.getGlCode())
@@ -69,7 +68,9 @@ public class OdsGeneralLedgerPersistenceAdapter implements OdsGeneralLedgerRepos
     }
 
     private OdsGeneralLedgerEntity toEntity(OdsGeneralLedger domain) {
-        if (domain == null) return null;
+        if (domain == null) {
+            return null;
+        }
         return OdsGeneralLedgerEntity.builder()
                 .baseDate(domain.getBaseDate())
                 .glCode(domain.getGlCode())

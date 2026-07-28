@@ -1,137 +1,174 @@
 package com.ho.account.auth.core.application.service;
 
-import com.ho.account.auth.api.dto.LoginResponse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
+import com.ho.account.auth.core.application.model.AuthenticationResult;
+import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
 import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
+import com.ho.account.auth.core.domain.model.RoleAssignment;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AuthServiceTest {
 
+    private static final Instant AUTHENTICATED_AT = Instant.parse("2026-07-14T00:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(AUTHENTICATED_AT, ZoneOffset.UTC);
+
     @Test
-    void returnsBearerTokenWhenCredentialsAreValid() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "{noop}1234", "FIN", true, false, List.of("ROLE_ADMIN"))));
-        DepartmentValidationPort departmentValidationPort = code -> true;
-        PasswordVerifierPort passwordVerifierPort = (raw, stored) -> "{noop}".concat(raw).equals(stored);
-        TokenIssuerPort tokenIssuerPort = user -> new TokenIssuerPort.IssuedToken("token-123", 3600L);
-        AuthService authService = new AuthService(
-                userQueryPort, departmentValidationPort, passwordVerifierPort, tokenIssuerPort, new RecordingLoginAttemptPort());
+    void returnsCoreAuthenticationResultUsingOneRoleSnapshot() {
+        RoleAssignment effective = new RoleAssignment(
+                "ROLE_ADMIN", "FIN", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
+        RoleAssignment future = new RoleAssignment(
+                "ROLE_FUTURE", "FIN", AUTHENTICATED_AT.plusSeconds(1), null, true);
+        AuthUserQueryPort userQueryPort = users(Map.of(
+                "admin", new AuthUser(
+                        "admin", "{noop}1234", "FIN", true, false, List.of(effective, future), 3L)));
+        AtomicReference<TokenIssuerPort.TokenSubject> issuedSubject = new AtomicReference<>();
+        AtomicReference<Instant> issuedAt = new AtomicReference<>();
+        TokenIssuerPort tokenIssuerPort = (subject, instant) -> {
+            issuedSubject.set(subject);
+            issuedAt.set(instant);
+            return new TokenIssuerPort.IssuedToken("token-123", 3600L);
+        };
+        AuthService authService = service(
+                userQueryPort,
+                code -> true,
+                (raw, stored) -> "{noop}".concat(raw).equals(stored),
+                tokenIssuerPort,
+                new RecordingLoginAttemptPort());
 
-        LoginResponse response = authService.login("admin", "1234");
+        AuthenticationResult result = authService.login(new AuthUseCase.LoginCommand(" admin ", "1234"));
 
-        assertThat(response.token()).isEqualTo("token-123");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(3600L);
-        assertThat(response.username()).isEqualTo("admin");
-        assertThat(response.departmentCode()).isEqualTo("FIN");
-        assertThat(response.roles()).containsExactly("ROLE_ADMIN");
-        assertThat(response.roleVersion()).isEqualTo(1L);
+        assertThat(result.accessToken()).isEqualTo("token-123");
+        assertThat(result.expiresInSeconds()).isEqualTo(3600L);
+        assertThat(result.username()).isEqualTo("admin");
+        assertThat(result.departmentCode()).isEqualTo("FIN");
+        assertThat(result.roles()).containsExactly("ROLE_ADMIN");
+        assertThat(result.roleVersion()).isEqualTo(3L);
+        assertThat(issuedAt.get()).isEqualTo(AUTHENTICATED_AT);
+        assertThat(issuedSubject.get().effectiveRoleAssignments()).containsExactly(effective);
     }
 
     @Test
     void throwsWhenUserDoesNotExist() {
-        AuthService authService = new AuthService(
-                new InMemoryUserQueryPort(Map.of()),
+        AuthService authService = service(
+                users(Map.of()),
                 code -> true,
                 (raw, stored) -> true,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login("missing", "1234"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("missing", "1234")))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
     @Test
     void throwsWhenPasswordIsWrong() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "1234", true, false, List.of("ROLE_ADMIN"))));
-        AuthService authService = new AuthService(
-                userQueryPort,
+        AuthService authService = service(
+                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
                 code -> true,
                 (raw, stored) -> false,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login("admin", "wrong"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong")))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
     @Test
     void throwsWhenUserIsInactive() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "1234", false, false, List.of("ROLE_ADMIN"))));
-        AuthService authService = new AuthService(
-                userQueryPort,
+        AuthService authService = service(
+                users(Map.of("admin", user(false, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login("admin", "1234"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("inactive");
     }
 
     @Test
     void throwsWhenUserIsLocked() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "1234", true, true, List.of("ROLE_ADMIN"))));
-        AuthService authService = new AuthService(
-                userQueryPort,
+        AuthService authService = service(
+                users(Map.of("admin", user(true, true, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login("admin", "1234"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("locked");
     }
 
     @Test
     void throwsWhenDepartmentCodeDoesNotExistInMasterData() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "1234", "UNKNOWN", true, false, List.of("ROLE_ADMIN"))));
-        DepartmentValidationPort departmentValidationPort = code -> false;
-        AuthService authService = new AuthService(
-                userQueryPort,
-                departmentValidationPort,
+        AuthService authService = service(
+                users(Map.of("admin", new AuthUser(
+                        "admin", "1234", "UNKNOWN", true, false, List.of("ROLE_ADMIN")))),
+                code -> false,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login("admin", "1234"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("Department code is invalid");
     }
 
     @Test
-    void validateTokenVersion_returnsTrueOnlyWhenRoleVersionMatchesCurrentUserVersion() {
-        AuthUserQueryPort userQueryPort = new InMemoryUserQueryPort(Map.of(
-                "admin", new AuthUser("admin", "1234", "FIN", true, false, List.of("ROLE_ADMIN")),
-                "changed", new AuthUser("changed", "1234", "FIN", true, false, List.of("ROLE_ADMIN"))));
-        AuthService authService = new AuthService(
-                userQueryPort,
+    void throwsWhenNoRoleIsEffectiveAtAuthenticationTime() {
+        RoleAssignment expired = new RoleAssignment(
+                "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT, true);
+        AuthService authService = service(
+                users(Map.of("admin", user(true, false, List.of(expired)))),
                 code -> true,
                 String::equals,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThat(authService.validateTokenVersion("admin", 1L)).isTrue();
-        assertThat(authService.validateTokenVersion("admin", 0L)).isFalse();
-        assertThat(authService.validateTokenVersion("admin", 2L)).isFalse();
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("no approved effective roles");
+    }
+
+    @Test
+    void validateTokenVersionRequiresMatchingVersionAndAvailableAccount() {
+        Map<String, AuthUser> userMap = Map.of(
+                "active", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
+                "inactive", user(false, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
+                "locked", user(true, true, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
+                "expired", user(true, false, List.of(new RoleAssignment(
+                        "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT, true))));
+        AuthService authService = service(
+                users(userMap),
+                code -> true,
+                String::equals,
+                tokenIssuer(),
+                new RecordingLoginAttemptPort());
+
+        assertThat(authService.validateTokenVersion("active", 1L)).isTrue();
+        assertThat(authService.validateTokenVersion("active", 0L)).isFalse();
+        assertThat(authService.validateTokenVersion("active", 2L)).isFalse();
+        assertThat(authService.validateTokenVersion("inactive", 1L)).isFalse();
+        assertThat(authService.validateTokenVersion("locked", 1L)).isFalse();
+        assertThat(authService.validateTokenVersion("expired", 1L)).isFalse();
         assertThat(authService.validateTokenVersion("missing", 1L)).isFalse();
     }
 
@@ -139,16 +176,58 @@ class AuthServiceTest {
     void blocksLoginBeforePasswordVerificationWhenAttemptPolicyIsLocked() {
         RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
         attempts.locked = true;
-        AuthService authService = new AuthService(
-                new InMemoryUserQueryPort(Map.of()),
+        AuthService authService = service(
+                users(Map.of()),
                 code -> true,
                 (raw, stored) -> true,
-                user -> new TokenIssuerPort.IssuedToken("token", 1L),
+                tokenIssuer(),
                 attempts);
 
-        assertThatThrownBy(() -> authService.login("admin", "1234"))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("temporarily locked");
+    }
+
+    @Test
+    void rejectsMissingCoreLoginInputBeforeCallingAdapters() {
+        AuthService authService = service(
+                users(Map.of()),
+                code -> true,
+                (raw, stored) -> true,
+                tokenIssuer(),
+                new RecordingLoginAttemptPort());
+
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand(" ", "1234")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> authService.login(null))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    private AuthService service(
+            AuthUserQueryPort userQueryPort,
+            DepartmentValidationPort departmentValidationPort,
+            PasswordVerifierPort passwordVerifierPort,
+            TokenIssuerPort tokenIssuerPort,
+            LoginAttemptPort loginAttemptPort) {
+        return new AuthService(
+                userQueryPort,
+                departmentValidationPort,
+                passwordVerifierPort,
+                tokenIssuerPort,
+                loginAttemptPort,
+                CLOCK);
+    }
+
+    private TokenIssuerPort tokenIssuer() {
+        return (subject, issuedAt) -> new TokenIssuerPort.IssuedToken("token", 1L);
+    }
+
+    private AuthUser user(boolean active, boolean locked, List<RoleAssignment> assignments) {
+        return new AuthUser("admin", "1234", "FIN", active, locked, assignments, 1L);
+    }
+
+    private AuthUserQueryPort users(Map<String, AuthUser> users) {
+        return username -> Optional.ofNullable(users.get(username));
     }
 
     private static final class RecordingLoginAttemptPort implements LoginAttemptPort {
@@ -165,13 +244,6 @@ class AuthServiceTest {
 
         @Override
         public void recordSuccess(String username) {
-        }
-    }
-
-    private record InMemoryUserQueryPort(Map<String, AuthUser> users) implements AuthUserQueryPort {
-        @Override
-        public Optional<AuthUser> findByUsername(String username) {
-            return Optional.ofNullable(users.get(username));
         }
     }
 }
