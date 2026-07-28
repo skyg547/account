@@ -8,12 +8,8 @@ import {
   CheckCircle2, 
   TrendingUp, 
   TrendingDown, 
-  RefreshCw, 
   DollarSign, 
-  FileText,
-  AlertCircle,
-  Layers,
-  ArrowRight
+  Layers
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -22,9 +18,9 @@ import AmountDisplay from '@/components/ui/AmountDisplay';
 interface ExchangeRate {
   currency: string;
   currencyName: string;
-  bookRate: number; // 장부 환율
-  closingRate: number; // 기말 고시 환율
-  diff: number; // 차이
+  bookRate: number;
+  closingRate: number;
+  diff: number;
   diffPercent: number;
 }
 
@@ -57,7 +53,7 @@ export default function ForeignValuationPage() {
     { currency: 'CNY', currencyName: '중국 위안', bookRate: 184.20, closingRate: 182.10, diff: -2.10, diffPercent: -1.14 },
   ]);
 
-  const [foreignAccounts, setForeignAccounts] = useState<ForeignAccount[]>([
+  const [foreignAccounts] = useState<ForeignAccount[]>([
     {
       id: 'FA-001',
       accountCode: '1110300',
@@ -86,14 +82,14 @@ export default function ForeignValuationPage() {
       foreignAmount: 120000.00,
       bookKrwAmount: 174000000,
       evaluatedKrwAmount: 176700000,
-      unrealizedGainLoss: -2700000, // 부채 증가 = 미실현 손실
+      unrealizedGainLoss: -2700000,
     },
     {
       id: 'FA-004',
       accountCode: '2130100',
       accountName: 'JPY 외화단기차입금 (MUFG)',
       currency: 'JPY',
-      foreignAmount: 35000000.00, // 35,000,000 JPY
+      foreignAmount: 35000000.00,
       bookKrwAmount: 308000000,
       evaluatedKrwAmount: 313390000,
       unrealizedGainLoss: -5390000,
@@ -167,7 +163,6 @@ export default function ForeignValuationPage() {
 
       {/* Top Banner KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Net Gain/Loss */}
         <div className="p-6 rounded-3xl bg-slate-900/50 backdrop-blur-md border border-white/5 space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400">
             <span>당월 예상 평가 손익 총액</span>
@@ -189,7 +184,6 @@ export default function ForeignValuationPage() {
           </p>
         </div>
 
-        {/* Card 2: Foreign Account Count */}
         <div className="p-6 rounded-3xl bg-slate-900/50 backdrop-blur-md border border-white/5 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400">
             <span>평가 대상 계좌 수</span>
@@ -199,7 +193,6 @@ export default function ForeignValuationPage() {
           <p className="text-xs text-slate-400">USD, EUR, JPY 통화 포함</p>
         </div>
 
-        {/* Card 3: Batch Execution Status */}
         <div className="p-6 rounded-3xl bg-slate-900/50 backdrop-blur-md border border-white/5 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400">
             <span>최근 배치 상태</span>

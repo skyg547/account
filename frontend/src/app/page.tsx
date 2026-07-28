@@ -193,7 +193,7 @@ export default function DashboardPage() {
                     color: '#fff',
                     boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
                   }} 
-                  formatter={(val: number | string | undefined) => [`₩${Number(val || 0).toLocaleString()}`, '']}
+                  formatter={(value) => [`₩${Number(value || 0).toLocaleString()}`, '']}
                 />
                 <Area type="monotone" dataKey="assets" name="총 자산" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorAssets)" />
                 <Area type="monotone" dataKey="liabilities" name="총 부채" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorLiabilities)" />

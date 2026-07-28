@@ -4,17 +4,7 @@ import React, { useState } from 'react';
 import { 
   Award, 
   Play, 
-  CheckCircle2, 
-  AlertCircle, 
-  PieChart, 
-  Scale, 
-  TrendingUp, 
-  Lock, 
-  FileCheck2,
-  RefreshCw,
-  ArrowRight,
-  Sparkles,
-  ChevronRight
+  CheckCircle2
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -66,13 +56,12 @@ export default function AnnualClosingPage() {
 
   const [isExecutingStep, setIsExecutingStep] = useState(false);
 
-  // Financial Summary Data for Annual Closing
   const netRevenue = 4520000000;
   const netExpense = 3729700000;
-  const netIncome = netRevenue - netExpense; // 790,300,000
-  const legalReserve = Math.round(netIncome * 0.1); // 79,030,000
+  const netIncome = netRevenue - netExpense;
+  const legalReserve = Math.round(netIncome * 0.1);
   const cashDividends = 200000000;
-  const carriedForwardEarnings = netIncome - legalReserve - cashDividends; // 511,270,000
+  const carriedForwardEarnings = netIncome - legalReserve - cashDividends;
 
   const handleExecuteNextStep = () => {
     const readyStep = steps.find(s => s.status === 'READY');
@@ -258,7 +247,6 @@ export default function AnnualClosingPage() {
           </button>
         </div>
 
-        {/* Steps List */}
         <div className="space-y-4">
           {steps.map((st) => {
             const isDone = st.status === 'COMPLETED';
