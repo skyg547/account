@@ -1702,3 +1702,16 @@
   - 다중 인증(MFA) 아키텍처 도입: AuthService.java 및 login/page.tsx 개편을 통해 SSO 자동 로그인과 LDAP+OTP (하드코딩 2FA) 인증 방식을 분기하여 처리하도록 구현 완료. (Issue #32)
 - **추가 사항**:
   - NavContext.tsx, login/page.tsx, system/menus/page.tsx 등 핵심 파일들에 초보자(주니어)를 위한 친절한 설명 주석 🐣 추가 완료.
+
+## 2026-07-28 (Issue #27 Bank Accounting Core Processes)
+- 사용자 요청: 엔터프라이즈 은행 회계(Bank Accounting) 필수 코어 프로세스(EOD, Accrual, SPPI, RWA) 도입
+- 작업 위치: eature/issue-27-bank-accounting-core branch
+- 수정 내용:
+  - closing 모듈에 일일 마감 상태 머신을 통제하는 EodState 도메인 모델 생성.
+  - loan 및 deposit 모듈에 매일 자정 배치에서 사용하는 InterestAccrualService, DepositAccrualService 추가.
+  - master-data 모듈에 IFRS 9 분류 통과 여부를 판단하는 SppiTestRule 추가.
+  - journal-ledger 모듈에 다통화 외환 평가(Revaluation)를 위한 FxPosition 상태 추가.
+  - eporting 모듈에 바젤 III 규제 기반 자본 적정성 비율을 구하는 RwaCalculator 뼈대 추가.
+  - 초보자를 위한 상세 주석(Beginner's Guide) 및 DDD 관점의 설계 의도 주석 작성 완료.
+- 검증: 컴파일 및 패키징 에러 없음 확인 예정.
+- 상태: 구현 완료 및 PR 제출 예정.
