@@ -1841,3 +1841,5 @@
 
 - [x] Resolved Issue #55: [journal-ledger] 재무회계 일계표(Daily Trial Balance) 및 원장 마감(Ledger Closing) 배치 (Automated Loop)
 
+- [x] Resolved Issue #54: [journal-ledger] 은행회계 기준 이중통화(Dual Currency) 분개 처리 구조화 (Automated Loop)
+
