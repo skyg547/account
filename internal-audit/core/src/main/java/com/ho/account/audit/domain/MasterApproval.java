@@ -25,7 +25,8 @@ public class MasterApproval {
     @Column(nullable = false, length = 20)
     private ChangeRequestType requestType;
 
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "TEXT")
+
     private String payload; // 변경될 데이터 (JSON 형태 저장 권장)
 
     @Column(nullable = false, length = 50)

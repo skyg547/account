@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS master_data_change_requests (
     requested_at TIMESTAMP NOT NULL,
     approved_at TIMESTAMP,
     reason VARCHAR(500),
-    payload_json CLOB
+    payload_json TEXT
+
 );
 
 CREATE INDEX IF NOT EXISTS idx_mdc_status_requested_at

@@ -36,10 +36,11 @@ public class AuditLog {
     @Column(name = "TARGET_ID", nullable = false, length = 100)
     private String targetId;
 
-    @Column(name = "BEFORE_DATA", columnDefinition = "CLOB")
+    @Column(name = "BEFORE_DATA", columnDefinition = "TEXT")
     private String beforeData;
 
-    @Column(name = "AFTER_DATA", columnDefinition = "CLOB")
+    @Column(name = "AFTER_DATA", columnDefinition = "TEXT")
+
     private String afterData;
 
     @Column(name = "STATUS", length = 20)
