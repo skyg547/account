@@ -1835,3 +1835,5 @@
 
 - [x] Resolved Issue #58: [reporting] IFRS 기반 재무상태표(B/S) 및 포괄손익계산서(I/S) 집계 코어 로직 (Automated Loop)
 
+- [x] Resolved Issue #57: [reconciliation] 대내외 시스템 간 데이터 대사(Reconciliation) 도메인 설계 (Automated Loop)
+
