@@ -1,13 +1,15 @@
 package com.ho.account.closing.batch.config;
 
+import com.ho.account.closing.application.pipeline.FxValuationPipeline;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.FxValuationBalance;
-import com.ho.account.closing.application.service.FxValuationService;
-import com.ho.account.journalledger.domain.ledger.domain.GlAccountBalance;
-import com.ho.account.journalledger.domain.ledger.repository.GlAccountBalanceRepository;
+import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
+import com.ho.account.closing.batch.support.ClosingJobParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParametersInvalidException;
+import org.springframework.batch.core.JobParametersValidator;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
@@ -15,55 +17,53 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.partition.support.Partitioner;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.ExecutionContext;
-import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.data.RepositoryItemReader;
-import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.data.domain.Sort;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * [배치 처리 (Batch Processing) - 결산 외화 평가 (FX Valuation)]
+ * FX valuation Batch adapter.
  *
- * 🐣 [초보자를 위한 설명]
- * 결산 시점(보통 월말)에 실행되는 '외화 자산/부채 평가 자동화 공장'입니다.
- *
- * 1. Reader (읽기): 원장(GL)에서 기준 통화(KRW)가 아닌 모든 외화 잔액 목록을 페이지 단위로 가져옵니다.
- * 2. Processor (가공): Spring Batch chunk 흐름을 유지하기 위해 대상 검증 및 로깅만 수행합니다.
- * 3. Writer (쓰기): GL 엔티티를 core 입력 DTO로 변환하고, 실제 환율 적용/차대변 판단/전표 생성은 core 서비스에 위임합니다.
+ * <p>Batch owns stable parameters, fixed-range partitioning, chunk/checkpoint and concurrency.
+ * Signed balance calculation and journal construction remain in Closing core.</p>
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class FxValuationBatchConfig {
 
-    private final JobRepository jobRepository;
-    private final PlatformTransactionManager transactionManager;
-    private final GlAccountBalanceRepository glAccountBalanceRepository;
-    private final FxValuationService fxValuationService;
-    private final ClosingAccountingProperties accountingProperties;
-
     public static final String JOB_NAME = "fxValuationJob";
     private static final String STEP_NAME = "fxValuationStep";
     private static final String WORKER_STEP_NAME = "fxValuationWorkerStep";
-    private static final int CHUNK_SIZE = 100;
-    private static final int GRID_SIZE = 4;
+
+    private final JobRepository jobRepository;
+    private final PlatformTransactionManager transactionManager;
+    private final JournalFxValuationBalanceSource balanceSource;
+    private final FxValuationPipeline fxValuationPipeline;
+    private final ClosingAccountingProperties accountingProperties;
+
+    @Value("${account.closing.batch.fx.chunk-size:1000}")
+    private int chunkSize;
+
+    @Value("${account.closing.batch.fx.grid-size:4}")
+    private int gridSize;
+
+    @Bean
+    public JobParametersValidator fxValuationJobParametersValidator() {
+        return ClosingJobParameters.requiredDateAndPositiveId("valuationDate", "valuationBatchId");
+    }
 
     @Bean
     public Job fxValuationJob(Step fxValuationStep) {
         return new JobBuilder(JOB_NAME, jobRepository)
+                .validator(fxValuationJobParametersValidator())
                 .start(fxValuationStep)
                 .build();
     }
@@ -73,134 +73,93 @@ public class FxValuationBatchConfig {
         return new StepBuilder(STEP_NAME, jobRepository)
                 .partitioner(WORKER_STEP_NAME, fxValuationPartitioner)
                 .step(fxValuationWorkerStep)
-                .gridSize(GRID_SIZE)
+                .gridSize(requirePositive(gridSize, "gridSize"))
                 .taskExecutor(fxValuationTaskExecutor())
                 .build();
     }
 
     @Bean
-    public Step fxValuationWorkerStep() {
+    public Step fxValuationWorkerStep(
+            ItemReader<FxValuationBalance> fxValuationItemReader,
+            ItemWriter<FxValuationBalance> fxValuationItemWriter) {
         return new StepBuilder(WORKER_STEP_NAME, jobRepository)
-                .<GlAccountBalance, GlAccountBalance>chunk(CHUNK_SIZE, transactionManager)
-                .reader(fxValuationItemReader(null, null))
-                .processor(fxValuationItemProcessor())
-                .writer(fxValuationItemWriter(null, null))
+                .<FxValuationBalance, FxValuationBalance>chunk(
+                        requirePositive(chunkSize, "chunkSize"),
+                        transactionManager)
+                .reader(fxValuationItemReader)
+                .writer(fxValuationItemWriter)
                 .build();
     }
 
-    /**
-     * [Partitioner] 평가 대상 계정코드를 나눕니다.
-     * 초보자 가이드: Partition은 큰 작업을 계정코드 단위의 작은 작업 여러 개로 쪼개는 방식입니다.
-     */
     @Bean
     @JobScope
     public Partitioner fxValuationPartitioner(
-            @Value("#{jobParameters['valuationDate']}") String valuationDateStr) {
-        return gridSize -> {
-            LocalDate valuationDate = resolveValuationDate(valuationDateStr);
-            String reportingCurrencyCode = accountingProperties.requireFxValuationReportingCurrencyCode();
-            List<String> accountCodes = glAccountBalanceRepository
-                    .findDistinctForeignCurrencyAccountCodes(reportingCurrencyCode, valuationDate);
-            log.info("Found {} foreign currency accounts to evaluate on {}", accountCodes.size(), valuationDate);
-
-            Map<String, ExecutionContext> partitions = new HashMap<>();
-            if (accountCodes.isEmpty()) {
-                ExecutionContext context = new ExecutionContext();
-                context.putString("accountCode", "<none>");
-                context.putString("valuationDate", valuationDate.toString());
-                context.putString("reportingCurrencyCode", reportingCurrencyCode);
-                partitions.put("fx-empty", context);
-                return partitions;
-            }
-
-            for (int index = 0; index < accountCodes.size(); index++) {
-                ExecutionContext context = new ExecutionContext();
-                context.putString("accountCode", accountCodes.get(index));
-                context.putString("valuationDate", valuationDate.toString());
-                context.putString("reportingCurrencyCode", reportingCurrencyCode);
-                partitions.put("fx-account-" + index, context);
-            }
+            @Value("#{jobParameters['valuationDate']}") String valuationDateValue) {
+        return requestedGridSize -> {
+            LocalDate valuationDate = requiredDate(valuationDateValue, "valuationDate");
+            String reportingCurrency = accountingProperties.requireFxValuationReportingCurrencyCode();
+            int boundedGridSize = requirePositive(requestedGridSize, "requestedGridSize");
+            var partitions = balanceSource.createPartitions(
+                    valuationDate,
+                    reportingCurrency,
+                    boundedGridSize);
+            log.info("Created {} fixed FX account ranges for {}", partitions.size(), valuationDate);
             return partitions;
         };
     }
 
-    /**
-     * [Reader] 파티션으로 받은 계정코드의 외화 잔액을 페이지 단위로 읽습니다.
-     * 초보자 가이드: Paging Reader는 한 번에 전부 읽지 않고 100건씩 가져와 메모리 사용량과 재시작 지점을 안정화합니다.
-     */
     @Bean
     @StepScope
-    public RepositoryItemReader<GlAccountBalance> fxValuationItemReader(
-            @Value("#{stepExecutionContext['accountCode']}") String accountCode,
-            @Value("#{stepExecutionContext['valuationDate']}") String valuationDateStr) {
-        LocalDate valuationDate = resolveValuationDate(valuationDateStr);
-        String reportingCurrencyCode = accountingProperties.requireFxValuationReportingCurrencyCode();
-
-        return new RepositoryItemReaderBuilder<GlAccountBalance>()
-                .name("fxValuationItemReader-" + accountCode)
-                .repository(glAccountBalanceRepository)
-                .methodName("findLatestForeignCurrencyBalancesForAccount")
-                .arguments(List.of(accountCode, reportingCurrencyCode, valuationDate))
-                .pageSize(CHUNK_SIZE)
-                .sorts(Map.of("id", Sort.Direction.ASC))
-                .build();
+    public ItemReader<FxValuationBalance> fxValuationItemReader(
+            @Value("#{jobParameters['valuationDate']}") String valuationDateValue,
+            @Value("#{stepExecutionContext['startAccountCode']}") String startAccountCode,
+            @Value("#{stepExecutionContext['endAccountCode']}") String endAccountCode) {
+        return balanceSource.createReader(
+                requiredDate(valuationDateValue, "valuationDate"),
+                accountingProperties.requireFxValuationReportingCurrencyCode(),
+                startAccountCode,
+                endAccountCode,
+                requirePositive(chunkSize, "chunkSize"));
     }
 
     @Bean
     @StepScope
-    public ItemProcessor<GlAccountBalance, GlAccountBalance> fxValuationItemProcessor() {
-        return balance -> {
-            log.debug("Processing FX Valuation for Account: {}, Currency: {}, Balance: {}",
-                    balance.getAccountCode(), balance.getCurrencyCode(), balance.getEndingBalance());
-            return balance;
-        };
-    }
-
-    @Bean
-    @StepScope
-    public ItemWriter<GlAccountBalance> fxValuationItemWriter(
-            @Value("#{jobParameters['valuationDate']}") String valuationDateStr,
+    public ItemWriter<FxValuationBalance> fxValuationItemWriter(
+            @Value("#{jobParameters['valuationDate']}") String valuationDateValue,
             @Value("#{jobParameters['valuationBatchId']}") Long valuationBatchId) {
-        return balances -> {
-            LocalDate valuationDate = resolveValuationDate(valuationDateStr);
-            Long batchId = resolveBatchId(valuationDate, valuationBatchId);
-
-            for (GlAccountBalance balance : balances) {
-                try {
-                    fxValuationService.processFxValuationForAccount(toCoreBalance(balance), valuationDate, batchId);
-                } catch (Exception e) {
-                    log.error("Failed to process FX valuation for account {}: {}", balance.getAccountCode(), e.getMessage(), e);
-                    // 배치 특성상 계정별 실패를 로깅하고 나머지 계정 처리를 계속한다. 운영에서는 skip-limit/재처리 정책과 함께 관리한다.
-                }
-            }
-        };
+        return chunk -> fxValuationPipeline.processChunk(
+                chunk.getItems(),
+                requiredDate(valuationDateValue, "valuationDate"),
+                requiredPositiveLong(valuationBatchId, "valuationBatchId"));
     }
 
     @Bean
     public TaskExecutor fxValuationTaskExecutor() {
         SimpleAsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor("fx-valuation-");
-        taskExecutor.setConcurrencyLimit(GRID_SIZE);
+        taskExecutor.setConcurrencyLimit(requirePositive(gridSize, "gridSize"));
         return taskExecutor;
     }
 
-    private FxValuationBalance toCoreBalance(GlAccountBalance balance) {
-        return new FxValuationBalance(
-                balance.getAccountCode(),
-                balance.getCurrencyCode(),
-                balance.getEndingBalance(),
-                balance.getBaseEndingBalance());
-    }
-
-    private LocalDate resolveValuationDate(String valuationDateStr) {
-        return (valuationDateStr != null && !valuationDateStr.isBlank())
-                ? LocalDate.parse(valuationDateStr, DateTimeFormatter.ISO_DATE)
-                : LocalDate.now();
-    }
-
-    private Long resolveBatchId(LocalDate valuationDate, Long valuationBatchId) {
-        if (valuationBatchId != null) {
-            return valuationBatchId;
+    private LocalDate requiredDate(String value, String name) {
+        try {
+            return ClosingJobParameters.requireDate(value, name);
+        } catch (JobParametersInvalidException exception) {
+            throw new IllegalArgumentException(exception.getMessage(), exception);
         }
-        return Long.parseLong(valuationDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+    }
+
+    private Long requiredPositiveLong(Long value, String name) {
+        try {
+            return ClosingJobParameters.requirePositiveLong(value, name);
+        } catch (JobParametersInvalidException exception) {
+            throw new IllegalArgumentException(exception.getMessage(), exception);
+        }
+    }
+
+    private int requirePositive(int value, String name) {
+        if (value <= 0) {
+            throw new IllegalStateException(name + " must be positive");
+        }
+        return value;
     }
 }

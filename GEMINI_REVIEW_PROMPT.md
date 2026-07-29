@@ -1,3 +1,81 @@
+# 2026-07-29 Issue #20 최신 main 구조 충돌·Closing 누적 변경 리뷰
+
+Branch: `agent/20-closing-consistency` for Issue #20. Review only; do not modify code. Report findings first, ordered by severity, with exact file/line evidence. Base is `f3d33eae085a527fa1ae1905df6d0fa8dbaeb6bc`, equal to the latest `origin/main`; review the cumulative issue-scoped commit and Draft PR.
+
+## Required Review Focus
+
+1. Issue #29가 도입한 `internal-audit:core/api/batch` 구조와 이동된 shared-kernel 감사 패키지를 보존하고, 삭제된 standalone `InternalAuditApplication`/context test를 PR이 되살리지 않는지 확인해 주세요.
+2. `settings.gradle`이 새 internal-audit 세 프로젝트를 유지하면서 source-less phantom `:app`은 다시 추가하지 않는지 검토해 주세요.
+3. `shared-kernel/build.gradle`이 upstream servlet compileOnly와 로컬 Jackson BOM 정렬을 모두 보존하고 conflict marker나 단독 버전 pin을 남기지 않는지 확인해 주세요.
+4. `AccountSubjectRef`와 `MonolithMasterDataQueryAdapter` 자동 병합이 upstream 패키지 이동과 Closing이 필요한 normal balance/category 계약을 모두 보존하는지 확인해 주세요.
+5. 새 internal-audit 세 모듈의 API/Batch production source와 모든 test가 `NO-SOURCE`인 상태를 이번 Closing PR이 완료로 오표기하지 않는지, Issue #29 후속 위험으로 명확히 분리했는지 검토해 주세요.
+6. 두 번의 stash 적용과 손상된 외부 worktree 복구 과정에서 원본 Closing/Foundation 82개 경로가 누락·중복되지 않았는지 diff와 conflict log를 확인해 주세요.
+7. 아래 Foundation/Closing 검수 항목을 최신 main 기준으로 다시 검토하고, 특히 금융 정합성·재실행·대량 처리 위험을 findings-first로 보고해 주세요.
+
+## Verification Evidence
+
+- Issue #20 branch base와 최신 `origin/main`은 모두 `f3d33ea`; unmerged path는 0건입니다.
+- 두 이름 있는 stash가 유지되며 transfer stash의 82개 경로를 root issue branch에 재적용했습니다. 별도 나타난 `create-deep-issues.ps1`, `create-financial-issues.ps1`은 범위 밖이라 PR에서 제외합니다.
+- 최종 영향 범위 176 tests(Shared Kernel 6, Contracts 4, Master Data 74, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, ECL API 3, Config Server 9)가 failures/errors/skips 0건으로 통과했습니다.
+- `internal-audit:core/api/batch` compile/test task는 성공했지만 실제 test는 모두 `NO-SOURCE`이고 API/Batch production source도 `NO-SOURCE`입니다.
+- Closing API, Closing Batch, Config Server `bootJar`가 통과했습니다. 로컬 JDK 17은 `-Porg.gradle.java.installations.paths=C:\Java\jdk17`로 명시했습니다.
+- commit, push, Draft PR은 사용자 승인에 따라 이 검수 후 진행하며 merge와 Issue close는 수행하지 않습니다.
+
+---
+
+# 2026-07-28 Foundation 보류 검증·공통 의존성·phantom app 리뷰
+
+Branch: `agent/20-closing-consistency`. Review only; do not modify code. Report findings first, ordered by severity, with exact file/line evidence. This Foundation residual scope is part of the cumulative Issue #20 Draft PR above.
+
+## Required Review Focus
+
+1. `shared-kernel/build.gradle`에서 Jackson databind가 Spring Boot 3.2.5 BOM을 따르며 core/annotations와 동일한 2.15.4 family로 해석되는지 확인해 주세요.
+2. ECL consumer 실패 전파 테스트가 `JobLauncher.run`이 실제 선언한 checked exception을 사용하면서 duplicate-complete만 정상 멱등으로 처리하고 다른 실패는 Kafka listener에 전파한다는 의도를 유지하는지 검토해 주세요.
+3. `settings.gradle`에서 제거한 `:app`에 추적 소스·의존 소비처·실행 역할이 정말 없고, 다른 Gradle 프로젝트나 IntelliJ 실행 설정이 이를 전제로 하지 않는지 확인해 주세요.
+4. README, beginner guide, local development 문서가 통합 app이 아닌 서비스별 `@SpringBootApplication` 실행 구조를 일관되게 설명하는지 검토해 주세요.
+5. 과거 Config/contracts/shared-kernel pending 상태가 실제 재검증 결과와 일치하는지, shared-kernel 인프라 전이 의존성과 allowance 타입 분리를 완료로 과장하지 않는지 확인해 주세요.
+
+## Verification Evidence
+
+- Config repository health target passed with `--rerun-tasks`.
+- Shared Kernel 6 tests and ECL consumer 3 tests each passed with forced reruns.
+- Final affected command passed: Shared Kernel 6 + Contracts 4 + Master Data 74 + Closing Core 44 + ECL API 3 + Config Server 9 = 140 tests in 40 suites, failures/errors/skips 0; Config Server bootJar passed.
+- Gradle `projects` output no longer contains `:app` and retains the remaining modules.
+- Live Docker/Compose/PostgreSQL were not executed. No commit, push, merge, or PR action was performed.
+
+---
+
+# 2026-07-28 Closing 상태·FX/ECL·재실행·런타임 경계 리뷰
+
+Branch: `agent/20-closing-consistency`. Review only; do not modify code. Report findings first, ordered by severity, with exact file/line evidence. The original pre-sync base was `a06ebd6`; final PR base is latest main `f3d33ea` and the work is linked to Issue #20.
+
+## Required Review Focus
+
+1. Missing Fiscal Period가 Closing과 Journal validation 양쪽에서 fail-closed인지, `@Primary` 어댑터가 이를 우회하지 않는지 확인해 주세요.
+2. Calendar/Task/Gate/Reopen 전이가 유효 상태만 허용하고, mandatory task/gate 정의 부재·JSON evidence 미구현·자기 승인·중복 PENDING 요청을 통과시키지 않는지 확인해 주세요.
+3. Master Fiscal Period와 Closing Calendar 변경 순서/트랜잭션, 감사 로그 실패 전파, unlock 행 삭제 TODO가 실제 정합성 위험을 정확히 다루는지 검토해 주세요.
+4. API valuation/provision 실행 이력이 전표 실패에도 RUNNING/FAILED를 보존하고 DRAFT를 PENDING_APPROVAL로 기록하는지, status 갱신 실패 orphan DRAFT와 실행키 unique/outbox TODO를 평가해 주세요.
+5. FX signed balance가 debit positive/credit negative로 실제 POSTED `journal_entries/details`의 amount/base_amount를 집계하고 자산·부채/비정상 잔액의 차대 방향이 맞는지 확인해 주세요.
+6. FX 파티셔너가 metadata를 grid-size 이하로 제한하고 Cursor/chunk/checkpoint를 사용하며 한 항목 실패 시 chunk 전체를 rollback하는지, 1억 건 전 journal scan read-model TODO가 충분한지 검토해 주세요.
+7. Exchange Rate와 Account Subject 조회가 provider Repository/entity를 core에 노출하지 않고 기준일 최신 환율/SCD2 계정을 사용하며 null/비양수/비 ISO 값을 fail-closed 처리하는지 확인해 주세요.
+8. ECL JDBC 선집계와 core 재검증이 하나의 run/model/legal entity/date만 허용하고, 목표액을 합산한 뒤 `gl_balances`의 debit-credit 부호를 positive credit로 바꿔 그룹당 한 번만 차감하는지 검토해 주세요.
+9. ECL empty summary, null/negative target/stage/source, mixed mapping, 여러 법인이 성공/no-op으로 숨지 않는지 확인해 주세요.
+10. Closing journal amount/baseAmount 차대일치, 20자 explicit slip, account+currency lineage, 동일 fingerprint retry reuse와 DRAFT/APPROVED/POSTED 자동전기 멱등성이 충돌을 숨기지 않는지 확인해 주세요.
+11. Annual Closing이 POSTED·baseAmount·REVENUE/EXPENSES만 사용하고 안정 정렬/retained account slip identity를 가지는지, 현재 N+1 및 기존 lineage 제외 TODO를 지적해 주세요.
+12. API/Batch가 `com.ho.account` 전체나 provider Application 설정을 스캔하지 않고 필요한 adapter/entity/repository만 로드하는지, 배치 전용 서비스와 `closing-service`/`closing-batch` 이름이 격리되는지 확인해 주세요.
+13. Contracts record component 추가의 호환성, 로컬 모놀리스 compile dependency와 원격 MSA adapter 완료 조건을 검토해 주세요.
+14. 문서의 필수 Job parameter, DRAFT/PENDING_APPROVAL, 원장 원천, ECL 단일 snapshot, 알려진 schema/runtime 위험이 코드와 일치하는지 확인해 주세요.
+
+## Verification Evidence
+
+- Final command passed: Contracts 4 + Master Data 74 + Journal Ledger Core 23 + Closing Core 44 + Closing API 1 + Closing Batch 12 = 158 tests in 52 suites, failures/errors/skips 0.
+- Closing API and Batch bootJars passed. Both H2 ApplicationContext tests passed with their own application names and jobs disabled for Batch.
+- Final static checks will be rerun after harness synchronization.
+- Live PostgreSQL/Flyway and Docker/Compose were not executed.
+- No commit, push, merge, or PR action was performed.
+
+---
+
 # 2026-07-27 Loan 헥사고날·DDD·회계 흐름 리뷰
 
 Branch: `agent/asset-lease-split`. Review only; do not modify code. Report findings first, ordered by severity, with exact file/line evidence. The working tree contains the prior uncommitted Master Data follow-up plus the new Loan pass; review overlapping Master Data dated-port and root Compose changes cumulatively.

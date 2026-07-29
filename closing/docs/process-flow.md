@@ -42,6 +42,8 @@ sequenceDiagram
 
 마감 완료 판정은 단순히 상태값만 바꾸지 않습니다. 필수 태스크와 게이트를 조회한 뒤 도메인 메서드가 마감 가능 여부를 검증합니다. 이 구조 덕분에 API, Batch, 테스트가 같은 도메인 규칙을 공유할 수 있습니다.
 
+캘린더는 `OPEN -> IN_PROGRESS -> CLOSED -> OPEN(승인된 재오픈)` 순서만 허용합니다. 필수 태스크와 게이트가 최소 한 개씩 있어야 하며, JSON 조건 문자열이 설정된 태스크/게이트는 아직 typed evidence evaluator가 없으므로 fail-closed 처리합니다.
+
 ## 기간 잠금과 재오픈
 
 ```mermaid
@@ -61,15 +63,15 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant Job as fxValuationJob
-    participant GL as GlAccountBalanceRepository
+    participant GL as Posted Journal JDBC Source
     participant FX as FxValuationService
-    participant MD as ExchangeRateRepository
-    participant JL as JournalUseCase
+    participant MD as ExchangeRateQueryPort
+    participant JL as ClosingJournalEntryPort
 
-    Job->>GL: 기준일 외화 GL 잔액 조회
-    Job->>Job: 계정코드 단위 Partition 생성
-    Job->>GL: Partition별 Paging Reader로 잔액 조회
-    Job->>FX: 잔액별 평가 요청
+    Job->>GL: POSTED 원장의 외화/기준통화 금액 조회
+    Job->>Job: 최대 gridSize개 계정 범위 Partition 생성
+    Job->>GL: Partition별 Cursor Reader로 잔액 스트리밍
+    Job->>FX: Chunk 단위 평가 pipeline 호출
     FX->>MD: 외화 -> 보고통화 환율 조회
     FX->>MD: 계정과목 정상잔액 방향 조회
     FX->>FX: 평가금액과 장부금액 차이 계산
@@ -84,7 +86,9 @@ sequenceDiagram
 | `valuationDate` | `2026-04-30` | 평가 기준일 |
 | `valuationBatchId` | `20260430` | 전표 lineage와 전표번호 결정성에 사용 |
 
-FX 평가는 계정과목의 정상잔액 방향을 함께 봅니다. 자산처럼 차변 정상잔액인 계정은 평가 증가를 차변 계정/대변 이익으로 처리하고, 부채처럼 대변 정상잔액인 계정은 평가 증가를 대변 계정/차변 손실로 처리합니다. 이 판단은 `closing:core`의 `FxValuationService`가 담당하고, Batch는 외화 GL 잔액을 계정코드 파티션과 JPA Paging Reader로 나누어 읽은 뒤 core 입력 DTO로 변환합니다.
+FX 원천 잔액은 차변을 양수, 대변을 음수로 집계합니다. `FxValuationService`는 재평가 차이를 이 부호에 맞춰 계정 라인과 환산손익 반대 라인으로 구성합니다. Batch는 기술적인 범위 분할·Cursor·chunk/checkpoint만 맡고, 한 chunk 안의 어느 항목이라도 실패하면 실패 ID를 모아 예외를 던져 그 chunk 전체를 롤백합니다.
+
+현재 원장 집계는 정합성 우선의 과도기 구현입니다. 1억 건 운영 완료 조건은 전기 시 거래통화/기준통화 잔액을 bulk 갱신하는 read model, 계정·통화·일자 인덱스, 원장 대사, PostgreSQL 실행계획과 부하 테스트입니다.
 
 ## ECL 충당 Batch
 
@@ -92,7 +96,7 @@ FX 평가는 계정과목의 정상잔액 방향을 함께 봅니다. 자산처�
 sequenceDiagram
     participant Job as eclProvisionJob
     participant ECL as EclAllowanceResultPort
-    participant GL as GlAccountBalanceRepository
+    participant GL as GlAllowanceBalanceLookupAdapter
     participant Service as EclProvisionService
     participant JL as JournalUseCase
 
@@ -103,7 +107,7 @@ sequenceDiagram
     Service->>JL: 보충 또는 환입 DRAFT 전표 생성
 ```
 
-ECL 충당 배치는 Stage/PD/LGD/EAD를 계산하지 않습니다. 그 계산은 `ecl`에서 끝난 뒤 `allowance_summary`로 확정되어야 합니다. `closing:core`의 `EclProvisionService`는 확정 summary와 기존 GL 충당금 잔액의 차이만 계산하고, `closing:batch`는 `JdbcEclAllowanceResultAdapter`, `GlAllowanceBalanceLookupAdapter`, `JournalLedgerClosingJournalEntryAdapter`로 외부 기술을 연결합니다.
+ECL 충당 배치는 Stage/PD/LGD/EAD를 계산하지 않습니다. 그 계산은 `ecl`에서 끝난 뒤 `allowance_summary`로 확정되어야 합니다. JDBC 어댑터가 exposure 행을 전표 계정·통화·run/model/법인 단위로 먼저 합산해 메모리를 포트폴리오 건수가 아닌 전표 그룹 수에 비례하게 만들고, `EclProvisionService`는 하나의 run/model과 하나의 법인만 허용합니다. 이후 `gl_balances`의 최신 대변 잔액을 그룹당 한 번만 차감합니다. summary가 비어 있거나 목표액이 null이면 0으로 추정하지 않고 실패합니다.
 
 실행 파라미터:
 
@@ -115,7 +119,7 @@ ECL 충당 배치는 Stage/PD/LGD/EAD를 계산하지 않습니다. 그 계산�
 
 ## 연차 손익 대체
 
-`AnnualClosingService`는 해당 연도의 수익/비용 계정 잔액을 집계해 이익잉여금 계정으로 대체하는 DRAFT 전표를 생성합니다.
+`AnnualClosingService`는 해당 연도의 `POSTED` 수익/비용 기준통화 잔액만 집계해 이익잉여금 계정으로 대체하는 DRAFT 전표를 생성합니다. 연도·기준일·이익잉여금 계정으로 결정한 전표번호가 이미 있고 헤더가 같으면 기존 실행을 재사용하며, 다른 내용이나 반려/역분개 상태이면 실패합니다.
 
 API:
 
@@ -125,8 +129,9 @@ POST /api/closing/annual/perform-income-statement-closing?year=2026&retainedEarn
 
 ## 재실행과 정합성 체크
 
-- 동일 기준일과 동일 batch ID를 사용하면 전표번호가 결정적으로 생성되어 중복 실행을 추적하기 쉽습니다.
-- ECL summary가 없으면 ECL 충당 전표는 생성되지 않습니다.
+- 기준일과 양수 batch ID는 필수이며, 동일 입력은 결정적 전표번호와 lineage를 생성합니다.
+- ECL summary가 없으면 정상 무처리로 간주하지 않고 실패합니다. 0건 포트폴리오를 성공 처리하려면 향후 명시적인 zero-portfolio 완료 마커가 필요합니다.
+- API 평가/충당 실행 이력은 전표 트랜잭션과 분리해 `RUNNING -> PENDING_APPROVAL` 또는 `FAILED`를 보존합니다. DRAFT 전표 생성만으로 `COMPLETED`가 되지 않습니다.
 - 결산 조정 등록은 전표 회계일자가 대상 회계기간 안에 있는지 검증합니다.
 - 결산 조정 등록은 전표 상세의 차변/대변 합계가 같은지 검증합니다.
 - 운영 자동 전기는 `account.closing.accounting.auto-post-adjustments=true`일 때만 허용합니다.

@@ -75,7 +75,7 @@ flowchart TD
 본 시스템은 철저한 도메인 주도 설계(DDD)를 바탕으로, 각 기능별로 완전히 분리된 마이크로서비스 모듈로 구성되어 있습니다.
 
 ### ⚙️ 기반 모듈 (Foundation)
-* **`app/`**: 전체 Spring Boot 애플리케이션의 실행 진입점(Main)이자 전체 환경 설정(`application.yml`)을 담당합니다.
+* **서비스별 실행 모듈**: 통합 `app` 모듈은 제거되었으며, `auth`, `master-data`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 모듈이 각자 실행 진입점과 설정을 소유합니다.
 * **`contracts/`**: 모듈 간 Entity 직접 참조를 막는 Java Port/Command/Ref 계약입니다. 자체 서버가 아니며 같은 프로세스는 Bean, 원격 MSA는 별도 REST/Kafka 어댑터로 연결합니다.
 * **`shared-kernel/`**: 로컬 capability 메타정보와 JSON 마스킹 등 최소 공통 규칙을 담습니다. 현재 인프라 전이 의존성과 ECL/account-mart 전용 타입은 단계적 분리 TODO가 있습니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
@@ -224,7 +224,7 @@ flowchart TD
 모든 개별 MSA 모듈 및 인프라스트럭처에 대해 독립적으로 실행 가능한 `Dockerfile`과 `docker-compose.yml`이 구성되어 있습니다.
 IntelliJ IDEA에서 로컬 실행을 먼저 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
 
-> 현재 루트 `app/`는 실행 소스가 없는 빌드 산출물 디렉터리입니다. 통합 실행은 `app`이 아니라 `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 기준으로 합니다.
+> 통합 `app` Gradle 프로젝트는 제거되었습니다. 로컬에 `app/build`만 남아 있다면 과거 빌드의 무시된 산출물이며, 실행 대상이 아닙니다. 통합 실행 대신 `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
 
 ### 인프라 및 기반 시스템 구동
 ```bash

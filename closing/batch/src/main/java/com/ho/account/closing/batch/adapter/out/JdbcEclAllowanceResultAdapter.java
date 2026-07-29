@@ -11,7 +11,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * JDBC adapter for finalized ECL allowance summary rows.
+ * JDBC adapter for finalized ECL allowance summaries.
+ *
+ * <p>The database aggregates exposure-account rows by the ledger posting key before they cross the
+ * core port. This keeps memory proportional to distinct posting groups rather than portfolio size.
+ * Run/model/legal-entity dimensions remain in the result so core can reject mixed snapshots.</p>
  */
 @Repository
 @RequiredArgsConstructor
@@ -23,18 +27,26 @@ public class JdbcEclAllowanceResultAdapter implements EclAllowanceResultPort {
                    model_version,
                    legal_entity_code,
                    currency_code,
-                   exposure_account_code,
+                   MIN(exposure_account_code) AS exposure_account_code,
                    allowance_account_code,
                    bad_debt_expense_account_code,
                    reversal_income_account_code,
-                   target_allowance_amount,
-                   source_exposure_amount,
-                   stage1_allowance_amount,
-                   stage2_allowance_amount,
-                   stage3_allowance_amount
+                   SUM(target_allowance_amount) AS target_allowance_amount,
+                   SUM(source_exposure_amount) AS source_exposure_amount,
+                   SUM(stage1_allowance_amount) AS stage1_allowance_amount,
+                   SUM(stage2_allowance_amount) AS stage2_allowance_amount,
+                   SUM(stage3_allowance_amount) AS stage3_allowance_amount
               FROM allowance_summary
              WHERE base_date = ?
-             ORDER BY legal_entity_code, currency_code, exposure_account_code, allowance_account_code
+             GROUP BY base_date,
+                      run_id,
+                      model_version,
+                      legal_entity_code,
+                      currency_code,
+                      allowance_account_code,
+                      bad_debt_expense_account_code,
+                      reversal_income_account_code
+             ORDER BY legal_entity_code, currency_code, allowance_account_code
             """;
 
     private final JdbcTemplate jdbcTemplate;

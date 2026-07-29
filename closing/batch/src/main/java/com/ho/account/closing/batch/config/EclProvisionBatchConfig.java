@@ -1,16 +1,18 @@
 package com.ho.account.closing.batch.config;
 
 import com.ho.account.closing.application.service.EclProvisionService;
+import com.ho.account.closing.batch.support.ClosingJobParameters;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParametersInvalidException;
+import org.springframework.batch.core.JobParametersValidator;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -18,34 +20,34 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 /**
- * [배치 처리 (Batch Processing) - IFRS9 기대신용손실(ECL) 충당금 산출]
+ * ECL provision Batch adapter.
  *
- * 🐣 [초보자를 위한 설명]
- * 결산 시점(월말)에 실행되는 '대손충당금 자동화 공장'입니다.
- * 
- * Tasklet은 기준일과 batch ID를 core 서비스에 넘기는 실행 어댑터입니다.
- * ECL 목표 충당금, 기존 GL 잔액 차이, 보충/환입 차대변 판단은 `closing:core`의 `EclProvisionService`가 담당합니다.
- *
- * 실행 시 파라미터로 `closingDate=2026-05-31` 과 같이 처리 일자를 넘겨줄 수 있습니다.
+ * <p>The date and lineage ID are mandatory identifying parameters. Missing parameters never fall
+ * back to the system clock, so a restarted JobInstance cannot silently process a different period.</p>
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class EclProvisionBatchConfig {
 
+    public static final String JOB_NAME = "eclProvisionJob";
+    private static final String STEP_NAME = "eclProvisionStep";
+
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EclProvisionService eclProvisionService;
 
-    public static final String JOB_NAME = "eclProvisionJob";
-    private static final String STEP_NAME = "eclProvisionStep";
+    @Bean
+    public JobParametersValidator eclProvisionJobParametersValidator() {
+        return ClosingJobParameters.requiredDateAndPositiveId("closingDate", "provisionBatchId");
+    }
 
     @Bean
     public Job eclProvisionJob() {
         return new JobBuilder(JOB_NAME, jobRepository)
+                .validator(eclProvisionJobParametersValidator())
                 .start(eclProvisionStep())
                 .build();
     }
@@ -60,32 +62,31 @@ public class EclProvisionBatchConfig {
 
     @Bean
     @StepScope
-    public Tasklet eclProvisionTasklet(
-            @Value("#{jobParameters['closingDate']}") String closingDateStr,
+    public org.springframework.batch.core.step.tasklet.Tasklet eclProvisionTasklet(
+            @Value("#{jobParameters['closingDate']}") String closingDateValue,
             @Value("#{jobParameters['provisionBatchId']}") Long provisionBatchId) {
         return (contribution, chunkContext) -> {
-            LocalDate closingDate = (closingDateStr != null) 
-                    ? LocalDate.parse(closingDateStr, DateTimeFormatter.ISO_DATE) 
-                    : LocalDate.now();
-            
-            Long batchId = resolveBatchId(closingDate, provisionBatchId);
-
-            try {
-                eclProvisionService.processEclProvision(closingDate, batchId);
-                log.info("ECL Provision Job completed successfully for date: {}", closingDate);
-            } catch (Exception e) {
-                log.error("Failed to process ECL provision: {}", e.getMessage(), e);
-                throw e; // 배치 실패 처리를 위해 예외 던짐
-            }
-
+            LocalDate closingDate = requiredDate(closingDateValue, "closingDate");
+            Long batchId = requiredPositiveLong(provisionBatchId, "provisionBatchId");
+            eclProvisionService.processEclProvision(closingDate, batchId);
+            log.info("ECL Provision Job completed successfully for date: {}", closingDate);
             return RepeatStatus.FINISHED;
         };
     }
 
-    private Long resolveBatchId(LocalDate closingDate, Long provisionBatchId) {
-        if (provisionBatchId != null) {
-            return provisionBatchId;
+    private LocalDate requiredDate(String value, String name) {
+        try {
+            return ClosingJobParameters.requireDate(value, name);
+        } catch (JobParametersInvalidException exception) {
+            throw new IllegalArgumentException(exception.getMessage(), exception);
         }
-        return Long.parseLong(closingDate.format(DateTimeFormatter.BASIC_ISO_DATE));
+    }
+
+    private Long requiredPositiveLong(Long value, String name) {
+        try {
+            return ClosingJobParameters.requirePositiveLong(value, name);
+        } catch (JobParametersInvalidException exception) {
+            throw new IllegalArgumentException(exception.getMessage(), exception);
+        }
     }
 }

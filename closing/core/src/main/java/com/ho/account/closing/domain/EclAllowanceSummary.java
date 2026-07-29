@@ -2,6 +2,7 @@ package com.ho.account.closing.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -28,42 +29,35 @@ public record EclAllowanceSummary(
 
     public EclAllowanceSummary {
         Objects.requireNonNull(baseDate, "baseDate must not be null");
-        Objects.requireNonNull(currencyCode, "currencyCode must not be null");
+        runId = requireText(runId, "runId");
+        modelVersion = requireText(modelVersion, "modelVersion");
+        legalEntityCode = requireText(legalEntityCode, "legalEntityCode");
+        currencyCode = requireText(currencyCode, "currencyCode").toUpperCase(Locale.ROOT);
+        if (!currencyCode.matches("[A-Z]{3}")) {
+            throw new IllegalArgumentException("currencyCode must be a 3-letter currency code");
+        }
         targetAllowanceAmount = requireNonNegative(targetAllowanceAmount, "targetAllowanceAmount");
-        sourceExposureAmount = zeroIfNull(sourceExposureAmount);
-        stage1AllowanceAmount = zeroIfNull(stage1AllowanceAmount);
-        stage2AllowanceAmount = zeroIfNull(stage2AllowanceAmount);
-        stage3AllowanceAmount = zeroIfNull(stage3AllowanceAmount);
-    }
-
-    public String slipDiscriminator(String resolvedAllowanceAccountCode) {
-        return String.join("|",
-                valueOrBlank(legalEntityCode),
-                currencyCode,
-                valueOrBlank(exposureAccountCode),
-                valueOrBlank(resolvedAllowanceAccountCode),
-                valueOrBlank(runId));
-    }
-
-    public String lineageSourceId(Long provisionBatchId) {
-        String runPart = isBlank(runId) ? "no-run" : runId.trim();
-        return provisionBatchId + "|" + runPart;
+        sourceExposureAmount = requireNonNegative(sourceExposureAmount, "sourceExposureAmount");
+        stage1AllowanceAmount = requireNonNegative(stage1AllowanceAmount, "stage1AllowanceAmount");
+        stage2AllowanceAmount = requireNonNegative(stage2AllowanceAmount, "stage2AllowanceAmount");
+        stage3AllowanceAmount = requireNonNegative(stage3AllowanceAmount, "stage3AllowanceAmount");
     }
 
     private static BigDecimal requireNonNegative(BigDecimal value, String fieldName) {
-        BigDecimal normalized = zeroIfNull(value);
-        if (normalized.signum() < 0) {
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " must not be null");
+        }
+        if (value.signum() < 0) {
             throw new IllegalArgumentException(fieldName + " must not be negative");
         }
-        return normalized;
+        return value;
     }
 
-    private static BigDecimal zeroIfNull(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
-    }
-
-    private static String valueOrBlank(String value) {
-        return value == null ? "" : value.trim();
+    private static String requireText(String value, String fieldName) {
+        if (isBlank(value)) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
     }
 
     private static boolean isBlank(String value) {

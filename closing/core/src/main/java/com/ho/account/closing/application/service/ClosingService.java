@@ -7,9 +7,7 @@ import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePor
 import com.ho.account.closing.application.port.out.ClosingGatePersistencePort;
 import com.ho.account.closing.application.port.out.ClosingTaskPersistencePort;
 import com.ho.account.closing.application.port.out.PeriodLockPersistencePort;
-import com.ho.account.closing.application.port.out.ProvisionBatchPersistencePort;
 import com.ho.account.closing.application.port.out.ReopenApprovalPersistencePort;
-import com.ho.account.closing.application.port.out.ValuationBatchPersistencePort;
 import com.ho.account.closing.domain.ClosingAdjustment;
 import com.ho.account.closing.domain.ClosingAuditLog;
 import com.ho.account.closing.domain.ClosingCalendar;
@@ -39,9 +37,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -63,8 +63,7 @@ public class ClosingService implements ClosingUseCase {
     private final ClosingGatePersistencePort closingGatePersistencePort;
     private final PeriodLockPersistencePort periodLockPersistencePort;
     private final ReopenApprovalPersistencePort reopenApprovalPersistencePort;
-    private final ValuationBatchPersistencePort valuationBatchPersistencePort;
-    private final ProvisionBatchPersistencePort provisionBatchPersistencePort;
+    private final ClosingBatchExecutionRecorder batchExecutionRecorder;
     private final ClosingAdjustmentPersistencePort closingAdjustmentPersistencePort;
     private final ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     
@@ -79,9 +78,10 @@ public class ClosingService implements ClosingUseCase {
         String fiscalYear = String.valueOf(date.getYear());
         String fiscalPeriodStr = String.format("%02d", date.getMonthValue());
 
-        return fiscalPeriodControlPort.findFiscalPeriod(fiscalYear, fiscalPeriodStr)
-                .map(this::isClosedPeriod)
-                .orElse(false);
+        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriod(fiscalYear, fiscalPeriodStr)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Fiscal period is missing for accounting date " + date));
+        return isClosedPeriod(fiscalPeriod);
     }
 
     @Override
@@ -110,15 +110,17 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingCalendar updateClosingCalendarStatus(Long id, ClosingCalendarStatus newStatus, String user) {
+        Objects.requireNonNull(newStatus, "newStatus must not be null");
+        if (newStatus == ClosingCalendarStatus.CLOSED) {
+            return determineClosingStatus(id, user);
+        }
+        if (newStatus != ClosingCalendarStatus.IN_PROGRESS) {
+            throw new IllegalStateException(
+                    "Direct calendar status update only supports IN_PROGRESS; close and reopen use controlled flows.");
+        }
         ClosingCalendar calendar = findClosingCalendarById(id);
         String prevStatus = calendar.getStatus().name();
-        
-        calendar.setStatus(newStatus);
-        if (newStatus == ClosingCalendarStatus.CLOSED) {
-            calendar.setClosedBy(user);
-            calendar.setClosedAt(LocalDateTime.now());
-        }
-        calendar.setAuditUser(user);
+        calendar.start(user);
         ClosingCalendar saved = closingCalendarPersistencePort.save(calendar);
 
         // 감사 로그 기록
@@ -143,14 +145,13 @@ public class ClosingService implements ClosingUseCase {
         String prevStatus = task.getStatus().name();
         
         // 도메인 메서드 활용
-        if (newStatus == ClosingTaskStatus.COMPLETED) {
-            task.complete(user);
-        } else if (newStatus == ClosingTaskStatus.IN_PROGRESS) {
-            task.start(user);
-        } else {
-            task.setStatus(newStatus);
-            task.setAuditUser(user);
+        if (newStatus == ClosingTaskStatus.COMPLETED && hasText(task.getCompletionConditionJson())) {
+            // @todo Replace JSON text with a typed evidence port. Completion means an evaluator
+            // verifies the referenced run/status and persists immutable evidence with this task.
+            throw new IllegalStateException(
+                    "Configured task completion conditions require a typed evidence evaluator.");
         }
+        task.changeStatus(newStatus, user);
 
         ClosingTask saved = closingTaskPersistencePort.save(task);
 
@@ -174,10 +175,14 @@ public class ClosingService implements ClosingUseCase {
     public ClosingGate checkAndPassClosingGate(Long gateId, String user) {
         ClosingGate gate = closingGatePersistencePort.findById(gateId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingGate not found"));
-        gate.setStatus(ClosingGateStatus.PASSED);
-        gate.setPassedBy(user);
-        gate.setPassedAt(LocalDateTime.now());
-        gate.setAuditUser(user);
+        if (hasText(gate.getCheckConditionJson())) {
+            // @todo Introduce a typed ClosingGateEvidencePort. The gate may pass only after the
+            // external evidence is verified and stored with source ID, result and verification time.
+            throw new IllegalStateException(
+                    "Configured gate conditions require a typed evidence evaluator.");
+        }
+        List<ClosingTask> tasks = closingTaskPersistencePort.findByClosingCalendar(gate.getClosingCalendar());
+        gate.pass(user, tasks);
         ClosingGate saved = closingGatePersistencePort.save(gate);
 
         // 감사 로그 기록
@@ -192,6 +197,11 @@ public class ClosingService implements ClosingUseCase {
     public PeriodLock lockPeriod(Long fiscalPeriodId, PeriodLock.PeriodLockType lockType, String user, String reason) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        if (periodLockPersistencePort.findByFiscalPeriodId(fiscalPeriod.id()).isPresent()) {
+            throw new IllegalStateException("Fiscal period is already locked.");
+        }
+        requireActor(user, "user");
+        Objects.requireNonNull(lockType, "lockType must not be null");
 
         PeriodLock periodLock = new PeriodLock();
         periodLock.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
@@ -199,9 +209,18 @@ public class ClosingService implements ClosingUseCase {
         periodLock.setLockedBy(user);
         periodLock.setLockedAt(LocalDateTime.now());
         periodLock.setReason(reason);
+        periodLock.setAuditUser(user);
         PeriodLock saved = periodLockPersistencePort.save(periodLock);
 
-        // 로그는 Calendar 기반이므로 Calendar를 찾아야 함 (현재는 생략하거나 FP 기반 로그 구현 필요)
+        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
+                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
+        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                calendar,
+                ActionType.PERIOD_LOCK,
+                fiscalPeriod.closingStatus(),
+                "LOCKED:" + lockType,
+                user,
+                reason));
         return saved;
     }
 
@@ -209,29 +228,46 @@ public class ClosingService implements ClosingUseCase {
     public void unlockPeriod(Long fiscalPeriodId, String user) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-
-        periodLockPersistencePort.findByFiscalPeriodId(fiscalPeriod.id()).ifPresent(periodLockPersistencePort::delete);
+        requireActor(user, "user");
+        PeriodLock lock = periodLockPersistencePort.findByFiscalPeriodId(fiscalPeriod.id())
+                .orElseThrow(() -> new IllegalStateException("Fiscal period is not locked."));
+        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
+                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
+        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                calendar,
+                ActionType.PERIOD_UNLOCK,
+                "LOCKED:" + lock.getLockType(),
+                fiscalPeriod.closingStatus(),
+                user,
+                "Period lock released"));
+        // @todo Preserve the row with active=false, unlockedBy/At/reason after a forward migration.
+        // The immutable audit log above is the current recovery trail; deleting it is not allowed.
+        periodLockPersistencePort.delete(lock);
     }
 
     @Override
     public ReopenApproval requestPeriodReopen(Long fiscalPeriodId, String requestedBy, String reason) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        if (!"CLOSED".equals(fiscalPeriod.closingStatus())) {
+            throw new IllegalStateException(
+                    "Only a CLOSED fiscal period can request reopen. Current status: "
+                            + fiscalPeriod.closingStatus());
+        }
+        if (reopenApprovalPersistencePort.existsByFiscalPeriodIdAndStatus(
+                fiscalPeriod.id(), ReopenApprovalStatus.PENDING)) {
+            throw new IllegalStateException("A pending reopen request already exists for the fiscal period.");
+        }
 
         ReopenApproval approval = new ReopenApproval();
         approval.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-        approval.setRequestedBy(requestedBy);
-        approval.setRequestedAt(LocalDateTime.now());
-        approval.setReason(reason);
-        approval.setStatus(ReopenApprovalStatus.PENDING);
+        approval.request(requestedBy, reason);
         ReopenApproval saved = reopenApprovalPersistencePort.save(approval);
 
-        // 감사 로그 (재오픈 요청)
-        try {
-            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                    calendar, ActionType.REOPEN_REQUEST, "CLOSED", "REOPEN_PENDING", requestedBy, reason));
-        } catch (Exception e) { /* ignore if calendar not found */ }
+        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
+                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
+        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                calendar, ActionType.REOPEN_REQUEST, "CLOSED", "REOPEN_PENDING", requestedBy, reason));
 
         return saved;
     }
@@ -240,43 +276,54 @@ public class ClosingService implements ClosingUseCase {
     public ReopenApproval updateReopenApprovalStatus(Long approvalId, ReopenApprovalStatus newStatus, String approvedBy) {
         ReopenApproval approval = reopenApprovalPersistencePort.findById(approvalId)
                 .orElseThrow(() -> new EntityNotFoundException("ReopenApproval not found"));
-        approval.setStatus(newStatus);
-        approval.setApprovedBy(approvedBy);
-        approval.setApprovedAt(LocalDateTime.now());
-        
+        Objects.requireNonNull(newStatus, "newStatus must not be null");
         if (newStatus == ReopenApprovalStatus.APPROVED) {
             FiscalPeriodRef fp = fiscalPeriodControlPort.findFiscalPeriodById(approval.getFiscalPeriodId())
                     .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+            if (!"CLOSED".equals(fp.closingStatus())) {
+                throw new IllegalStateException("Only a CLOSED fiscal period can be reopened.");
+            }
             approval.assignFiscalPeriod(fp.id(), fp.fiscalYear(), fp.fiscalPeriod());
+            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fp.fiscalYear(), fp.fiscalPeriod());
+            approval.approve(approvedBy);
+            calendar.reopen(approvedBy);
             FiscalPeriodRef reopenedPeriod = fiscalPeriodControlPort.updateClosingStatus(fp.id(), "OPEN", approvedBy);
-
-            // 감사 로그 (재오픈 승인)
-            try {
-                ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(reopenedPeriod.fiscalYear(), reopenedPeriod.fiscalPeriod());
-                calendar.setStatus(ClosingCalendarStatus.OPEN);
-                closingCalendarPersistencePort.save(calendar);
-                closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                        calendar, ActionType.REOPEN_APPROVED, "CLOSED", "OPEN", approvedBy, "Reopen approved"));
-            } catch (Exception e) { /* ignore */ }
+            if (!"OPEN".equals(reopenedPeriod.closingStatus())) {
+                throw new IllegalStateException("Master fiscal period did not transition to OPEN.");
+            }
+            closingCalendarPersistencePort.save(calendar);
+            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                    calendar, ActionType.REOPEN_APPROVED, "CLOSED", "OPEN", approvedBy, "Reopen approved"));
+        } else if (newStatus == ReopenApprovalStatus.REJECTED) {
+            approval.reject(approvedBy);
+            FiscalPeriodRef fp = fiscalPeriodControlPort.findFiscalPeriodById(approval.getFiscalPeriodId())
+                    .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fp.fiscalYear(), fp.fiscalPeriod());
+            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                    calendar,
+                    ActionType.REOPEN_REJECTED,
+                    "REOPEN_PENDING",
+                    "CLOSED",
+                    approvedBy,
+                    "Reopen rejected"));
+        } else {
+            throw new IllegalStateException("Reopen decision must be APPROVED or REJECTED.");
         }
         return reopenApprovalPersistencePort.save(approval);
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ValuationBatch runValuationBatch(Long fiscalPeriodId, ValuationBatch.ValuationType valuationType, String runBy) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         ClosingAccountingProperties.AutomatedJournalRule accountingRule =
                 closingAccountingProperties.requireValuationRule(valuationType);
 
-        ValuationBatch batch = new ValuationBatch();
-        batch.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-        batch.setValuationType(valuationType);
-        batch.setRunDateTime(LocalDateTime.now());
-        batch.setStatus(ValuationBatch.ValuationBatchStatus.RUNNING);
-        batch.setRunBy(runBy);
-        batch.setAuditUser(runBy);
-        batch = valuationBatchPersistencePort.save(batch);
+        // @todo Add an explicit execution key with a unique constraint. Completion requires
+        // period/type/business-date/key lookup plus duplicate-request and crash-recovery tests.
+        ValuationBatch batch = batchExecutionRecorder.startValuation(
+                fiscalPeriod, valuationType, runBy);
 
         try {
             JournalPostingResult result = createAutomatedJournalEntry(
@@ -287,30 +334,27 @@ public class ClosingService implements ClosingUseCase {
                     batch.getId().toString(),
                     accountingRule
             );
-            batch.setGeneratedJournalEntryId(result.journalEntryId());
-            batch.setStatus(ValuationBatch.ValuationBatchStatus.COMPLETED);
-            batch.setReportLink("/reports/valuation/" + batch.getId());
+            return batchExecutionRecorder.markValuationPendingApproval(
+                    batch.getId(),
+                    result.journalEntryId(),
+                    "/reports/valuation/" + batch.getId(),
+                    runBy);
         } catch (Exception e) {
-            batch.setStatus(ValuationBatch.ValuationBatchStatus.FAILED);
+            markValuationFailedPreservingCause(batch.getId(), runBy, e);
             throw new RuntimeException("Valuation batch failed", e);
         }
-        return valuationBatchPersistencePort.save(batch);
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProvisionBatch runProvisionBatch(Long fiscalPeriodId, ProvisionBatch.ProvisionType provisionType, String runBy) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         ClosingAccountingProperties.AutomatedJournalRule accountingRule =
                 closingAccountingProperties.requireProvisionRule(provisionType);
 
-        ProvisionBatch batch = new ProvisionBatch();
-        batch.assignFiscalPeriod(fiscalPeriod.id(), fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-        batch.setProvisionType(provisionType);
-        batch.setRunDateTime(LocalDateTime.now());
-        batch.setStatus(ProvisionBatch.ProvisionBatchStatus.RUNNING);
-        batch.setRunBy(runBy);
-        batch = provisionBatchPersistencePort.save(batch);
+        ProvisionBatch batch = batchExecutionRecorder.startProvision(
+                fiscalPeriod, provisionType, runBy);
 
         try {
             JournalPostingResult result = createAutomatedJournalEntry(
@@ -321,13 +365,14 @@ public class ClosingService implements ClosingUseCase {
                     batch.getId().toString(),
                     accountingRule
             );
-            batch.setGeneratedJournalEntryId(result.journalEntryId());
-            batch.setStatus(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
+            return batchExecutionRecorder.markProvisionPendingApproval(
+                    batch.getId(),
+                    result.journalEntryId(),
+                    runBy);
         } catch (Exception e) {
-            batch.setStatus(ProvisionBatch.ProvisionBatchStatus.FAILED);
+            markProvisionFailedPreservingCause(batch.getId(), runBy, e);
             throw new RuntimeException("Provision batch failed", e);
         }
-        return provisionBatchPersistencePort.save(batch);
     }
 
     @Override
@@ -378,12 +423,15 @@ public class ClosingService implements ClosingUseCase {
         adjustment.setAuditUser(approvedBy);
         ClosingAdjustment saved = closingAdjustmentPersistencePort.save(adjustment);
 
-        // 감사 로그 기록
-        try {
-            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
-            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                    calendar, ActionType.ADJUSTMENT_CREATED, null, "CREATED", approvedBy, "Adjustment Entry ID: " + journalEntryId));
-        } catch (Exception e) { /* ignore */ }
+        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
+                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
+        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
+                calendar,
+                ActionType.ADJUSTMENT_CREATED,
+                null,
+                "CREATED",
+                approvedBy,
+                "Adjustment Entry ID: " + journalEntryId));
 
         return saved;
     }
@@ -398,11 +446,22 @@ public class ClosingService implements ClosingUseCase {
         List<ClosingGate> gates = closingGatePersistencePort.findByClosingCalendar(calendar);
         calendar.validateReadyToClose(tasks, gates);
 
+        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort
+                .findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
+                .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        if (!"OPEN".equals(fiscalPeriod.closingStatus())) {
+            throw new IllegalStateException(
+                    "Only an OPEN fiscal period can be closed. Current status: "
+                            + fiscalPeriod.closingStatus());
+        }
+
         // 2. 도메인 메서드에 상태 변경 위임
         calendar.close(user);
-        
-        fiscalPeriodControlPort.findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
-                .ifPresent(fp -> fiscalPeriodControlPort.updateClosingStatus(fp.id(), "CLOSED", user));
+        FiscalPeriodRef closedPeriod =
+                fiscalPeriodControlPort.updateClosingStatus(fiscalPeriod.id(), "CLOSED", user);
+        if (!"CLOSED".equals(closedPeriod.closingStatus())) {
+            throw new IllegalStateException("Master fiscal period did not transition to CLOSED.");
+        }
 
         ClosingCalendar saved = closingCalendarPersistencePort.save(calendar);
 
@@ -460,5 +519,31 @@ public class ClosingService implements ClosingUseCase {
     private boolean isClosedPeriod(FiscalPeriodRef fiscalPeriod) {
         return "CLOSED".equals(fiscalPeriod.closingStatus())
                 || "PERMANENTLY_CLOSED".equals(fiscalPeriod.closingStatus());
+    }
+
+    private void requireActor(String value, String fieldName) {
+        if (!hasText(value)) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private void markValuationFailedPreservingCause(Long batchId, String actor, Exception cause) {
+        try {
+            batchExecutionRecorder.markValuationFailed(batchId, actor);
+        } catch (RuntimeException recorderFailure) {
+            cause.addSuppressed(recorderFailure);
+        }
+    }
+
+    private void markProvisionFailedPreservingCause(Long batchId, String actor, Exception cause) {
+        try {
+            batchExecutionRecorder.markProvisionFailed(batchId, actor);
+        } catch (RuntimeException recorderFailure) {
+            cause.addSuppressed(recorderFailure);
+        }
     }
 }

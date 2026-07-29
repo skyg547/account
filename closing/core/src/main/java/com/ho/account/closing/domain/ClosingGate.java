@@ -2,6 +2,7 @@ package com.ho.account.closing.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 결산 게이트(Closing Gate) 엔티티.
@@ -157,6 +158,26 @@ public class ClosingGate {
 
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
+    }
+
+    public void pass(String user, List<ClosingTask> tasks) {
+        if (user == null || user.isBlank()) {
+            throw new IllegalArgumentException("user must not be blank");
+        }
+        if (this.status != ClosingGateStatus.PENDING) {
+            throw new IllegalStateException("Only a PENDING closing gate can pass.");
+        }
+        List<ClosingTask> safeTasks = tasks == null ? List.of() : tasks;
+        boolean mandatoryTasksCompleted = safeTasks.stream()
+                .filter(ClosingTask::isMandatory)
+                .allMatch(task -> task.getStatus() == ClosingTask.ClosingTaskStatus.COMPLETED);
+        if (safeTasks.stream().noneMatch(ClosingTask::isMandatory) || !mandatoryTasksCompleted) {
+            throw new IllegalStateException("All mandatory closing tasks must be completed before passing a gate.");
+        }
+        this.status = ClosingGateStatus.PASSED;
+        this.passedBy = user.trim();
+        this.passedAt = LocalDateTime.now();
+        this.auditUser = user.trim();
     }
 
     @Deprecated

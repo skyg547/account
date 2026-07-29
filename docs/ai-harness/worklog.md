@@ -533,3 +533,49 @@
 - Added V33, Java 17 exact API bootJar Docker/8088 Compose alignment, focused core/API tests and workflow/schema/beginner docs.
 - Verified 169 affected tests and two Loan bootJars; static boundary/diff/marker/link checks passed. Docker/Compose and PostgreSQL remain environment follow-ups.
 - Review-ready and uncommitted; explicit user authorization is required before commit/push/merge.
+
+## 2026-07-28 - Closing consistency, batch and runtime boundary pass
+
+- Branch/base: `agent/closing-consistency-pass` from `a06ebd6`; no Issue/PR, no commit/push/merge.
+- Replaced fail-open period lookup and setter-driven closing/reopen/task/gate changes with fail-closed domain transitions, mandatory definitions, maker-checker approval and durable audit behavior.
+- Preserved API batch RUNNING/FAILED history in independent transactions and represented generated DRAFT journals as PENDING_APPROVAL.
+- Replaced unwritten FX balance/provider-repository paths with posted-journal signed balance Cursor ranges and an Exchange Rate contract adapter; chunk failures roll back the checkpoint.
+- Aggregated ECL in SQL, fixed GL credit sign and group subtraction, enforced one run/model/legal entity/date, and rejected empty or incomplete results.
+- Added deterministic explicit slips, same-content retry reuse, state-aware auto-post, annual closing base-currency/category handling and application-name/runtime scan isolation.
+- Updated Closing beginner/process/schema/local-run docs and added focused domain, pipeline, JDBC, adapter, parameter, idempotency and ApplicationContext tests.
+- Final verification: 52 suites/158 tests passed with 0 failures/errors/skips; Closing API/Batch bootJars passed.
+- Risks: dual-currency read model/load test, annual aggregate port, batch execution-key/outbox reconciliation, GL legal-entity dimension, unlock history migration, typed evidence evaluator, PostgreSQL/Docker verification and remote MSA adapters remain.
+- Rollback: revert the Closing tree, named contracts/Master Data/Journal Ledger bridge files and this pass's docs/harness entries. State is review-ready and uncommitted.
+
+## 2026-07-28 - Foundation pending verification and phantom app cleanup
+
+- Recovered the Config Server and contracts/shared-kernel verification that had been blocked by paging-file exhaustion.
+- Forced the Config repository health test and shared-kernel/ECL focused tests; all passed after two test-infrastructure fixes.
+- Aligned Jackson databind with the Spring Boot 3.2.5 BOM to eliminate a 2.17.1 databind / 2.15.4 core `NoSuchMethodError`.
+- Replaced an invalid Mockito checked exception with `JobExecutionAlreadyRunningException` while preserving the ECL Kafka retry assertion.
+- Removed the source-less `:app` include and corrected root/onboarding/local-run documentation; no local build artifacts were deleted.
+- Final affected verification passed 40 suites/140 tests with no failures/errors/skips, Config Server bootJar, and a Gradle project listing without `:app`.
+- Remaining work: staged shared-kernel infrastructure/allowance ownership extraction, Config Git/security controls, and live Docker/PostgreSQL integration.
+- State: review-ready and uncommitted on `agent/closing-consistency-pass`; no commit/push/merge is authorized.
+
+## 2026-07-29 - Git synchronization and Issue #20 latest-main integration
+
+- Issue/branch/worktree: `#20`, `agent/20-closing-consistency`, repository root.
+- Backed up tracked and untracked local work in a named stash, fast-forwarded the branch to `origin/main@b7c8aaa`, and restored every one of the 77 backup paths without dropping the stash.
+- Resolved the only conflict in `docs/WORKLOG.md` by preserving the latest upstream records and local Closing/Foundation entries; recorded the decision in `conflict-log.md`.
+- Preserved 82 transfer-stash paths after an external C:\tmp worktree disappeared, then reapplied them to the clean repository-root issue branch.
+- Integrated latest main `f3d33ea` by preserving Issue #29's internal-audit split and upstream AuditAspect API, not resurrecting deleted standalone runtime files, and retaining the Jackson BOM alignment rationale.
+- Verification: 176 affected tests passed with no failures/errors/skips; Closing API, Closing Batch, and Config Server bootJars passed. Internal-audit core/api/batch tasks pass but all tests and API/Batch production source are `NO-SOURCE`.
+- Local JDK 17 was selected per command because current `JAVA_HOME` is JDK 21 and the synchronized Gradle properties no longer select the installed JDK path.
+- State: user authorized commit/push/Draft PR; named recovery stashes remain. Merge, Issue close, and stash deletion are not authorized.
+
+## 2026-07-29 - Issue #20 Closing main parity and integration preparation
+
+- Fetched `origin/main@ce35ce5` and compared the resolved 82-path transfer snapshot against it.
+- Confirmed that every Closing production/test/module-doc change and its contracts, Master Data, Journal Ledger, ECL, settings, and Jackson support already exists in main through commit `31be6f1`; no duplicate code delta remains.
+- Preserved the comparison state as `codex-post-main-comparison-gh-20-2026-07-29`, then fast-forwarded `agent/20-closing-consistency` from `f3d33ea` to `ce35ce5`.
+- Final successful verification covered 98 tests: Shared Kernel 6, Contracts 4, targeted Closing-facing Master Data adapters 5, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, and ECL API 3. Closing API/Batch and Config Server bootJars passed.
+- A broader attempt exposed two pre-existing latest-main policy failures: root Compose no longer contains active Master Data/Config Server services after Issue #66, while their configuration policy tests still require them. The Closing branch does not modify this unrelated infrastructure contract.
+- Issue #20 was already CLOSED before this integration request. The user authorized main integration; the harness-only reconciliation uses the feature branch and PR merge path.
+- Draft PR `#101` was opened against `main` with `Refs #20`.
+- Rollback: revert only the harness reconciliation commit. Code rollback for the already-main Closing implementation requires a separately reviewed revert of `31be6f1`, not applying the retained stale snapshot over current main.

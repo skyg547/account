@@ -41,12 +41,15 @@
 | 25 | `auth` 인증/역할 승인 멱등 경계 리팩토링 | Review ready | API/core DTO 분리, 역할 시점 고정, memory/JPA 정합성, approvalTraceId 멱등 반영 |
 | 26 | `gateway` 전역 인증/신뢰 헤더 경계 리팩토링 | Review ready | 모든 API 기본 인증, 내부 Auth 차단, JWT 포트 분리, roleVersion 401/503 구분, 8000/Docker 정합화 |
 | 27 | `discovery` registry/readiness/컨테이너 경계 리팩토링 | Review ready | 8761 standalone, 실제 Config Client/actuator, register 생명주기, Docker health/service_healthy, 보안·HA TODO |
-| 28 | `config-server` native 저장소/readiness/컨테이너 경계 리팩토링 | Review ready / rerun pending | strict property-source probe, 8888 standalone, JDK 17/read-only config-repo, 15개 service_healthy, 보안·Git TODO |
-| 29 | `contracts`/`shared-kernel` 2차 계약·공유 경계 리팩토링 | Verification pending | 전표 불변 계약, SCD2 기준일 Adapter, 실제 Jackson 마스킹, 로컬 capability registry, CDM eventId 멱등성, 빈 Docker archive |
+| 28 | `config-server` native 저장소/readiness/컨테이너 경계 리팩토링 | Review ready | strict property-source probe 대상 강제 재실행 및 전체 9 tests/bootJar 재검증, 8888 standalone, 보안·Git TODO |
+| 29 | `contracts`/`shared-kernel` 2차 계약·공유 경계 리팩토링 | Review ready | Jackson BOM 정렬, 전표 불변 계약, 실제 마스킹, capability registry와 ECL eventId 경로를 영향 범위 140 tests로 재검증 |
 | 30 | `master-data` 변경 승인·버전·런타임 경계 리팩토링 | Review ready | SCD2 requestedVersion 검증, Governance 멱등 계보, applier registry fail-closed, 요청 잠금, 8082/JDK17/Docker 정합화, 82 tests/2 bootJars |
 | 31 | `master-data` SCD2 유효기간·과거 거래처 조회 후속 보강 | Review ready / uncommitted | 신규 기간/상위 참조 선검증, 현재/과거 거래처 쿼리 분리, 중복 기간 fail-closed, 88 tests/2 bootJars |
 | 32 | `master-data` 조회·회계기간 경계 2차 점검 | Review ready / uncommitted | DB 활성 조회/검색, 최신 기준일 환율, 회계기간 포트·잠금·상태 규칙, 미사용 스켈레톤 정리, 영향 범위 136 tests/2 bootJars |
 | 33 | `loan` 값 참조·상태 전이·EIR·발생 Batch 정합성 점검 | Review ready / uncommitted | provider 값 경계, PENDING→ACTIVE, BigDecimal EIR, 단일 스케줄, 발생 재실행, 169 affected tests/2 Loan bootJars |
+| 34 | `closing` 상태 전이·FX/ECL·재실행·런타임 경계 점검 | Review ready / uncommitted | fail-closed 마감, posted-journal FX, ECL DB 선집계, 멱등 slip, 최소 runtime scan, 158 affected tests/2 bootJars |
+| 35 | foundation 잔여 검증·phantom `app` 정리 | Review ready / uncommitted | Config 보류 해소, Jackson 버전 충돌과 ECL 예외 테스트 수정, 소스 없는 `:app` include 제거, 140 affected tests/Config bootJar |
+| 36 | `origin/main` 동기화·Issue #29 구조 충돌 해결 | Draft PR ready | `f3d33ea` 기준 internal-audit split 보존, 82개 transfer 경로 복구, 176 affected tests/3 bootJars; internal-audit source/test NO-SOURCE 위험 기록 |
 
 ## 1차 완료 상세
 
@@ -743,3 +746,37 @@ java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.pro
 - V33, Java 17 API bootJar Docker, 8088 Compose, 실제 스키마/호출 순서/운영 TODO 기준 문서를 추가했습니다.
 - Master Data 73 + Governance 25 + Closing 19 + Journal Ledger 19 + Loan Core 30 + Loan API 3 = 총 169개 테스트와 Loan API/Batch bootJar가 성공했습니다.
 - 다음 순차 후보는 Closing Batch의 Master Data Repository 직접 의존 경계이며, 현재 Loan pass의 독립 리뷰와 사용자 승인 전에는 commit/push/merge하지 않습니다.
+
+## 34차 후속 상세
+
+### Closing 상태 전이·FX/ECL·재실행·런타임 정합성 점검
+
+- 회계기간 누락과 미정의 태스크/게이트를 fail-closed 처리하고 캘린더·태스크·게이트·재오픈 상태 전이를 도메인에 고정했습니다.
+- API 평가/충당 이력의 독립 트랜잭션과 PENDING_APPROVAL/FAILED 상태를 구현했습니다.
+- FX는 실제 POSTED 전표 signed balance, bounded range/Cursor/chunk pipeline과 환율 계약 포트를 사용합니다.
+- ECL은 DB 선집계, 단일 run/model/법인/기준일, GL 대변 부호와 그룹당 기존 잔액 1회 차감을 사용합니다.
+- 결정적 explicit slip의 동일 내용 재사용, 상태별 자동전기, POSTED 기준통화 Annual Closing을 보강했습니다.
+- API/Batch의 provider Application 광역 스캔을 제거하고 필요한 로컬 어댑터만 조립했으며 자체 application name과 컨텍스트 테스트를 추가했습니다.
+- 52 suites/158 tests와 Closing API/Batch bootJar가 성공했습니다. PostgreSQL/Docker 및 대량 read model/집계 포트는 후속입니다.
+- 현재 브랜치는 `agent/closing-consistency-pass`, 변경은 review-ready/uncommitted이며 명시 승인 전 commit/push/merge하지 않습니다.
+
+## 36차 후속 상세
+
+### origin/main 동기화와 Issue #29 구조 충돌 해결
+
+- 이름 있는 stash로 기존 77개 변경 경로를 백업한 뒤 `agent/closing-consistency-pass`를 `origin/main@b7c8aaa`로 fast-forward하고 변경을 누락 없이 복원했습니다.
+- `docs/WORKLOG.md` 충돌은 최신 upstream 기록과 로컬 Closing/Foundation 기록을 모두 보존해 해결하고 conflict log에 남겼습니다.
+- commit/PR transfer stash의 82개 경로를 Issue #20 브랜치에 보존했습니다. 외부 `C:\tmp` worktree 소실 후 깨끗한 repository-root checkout에서 복구했습니다.
+- 최신 main `f3d33ea`의 Issue #29 internal-audit split과 감사 패키지 이동을 보존하고 삭제된 standalone Application/test를 되살리지 않았습니다. 중간 AuditAspect 수정은 최종 PR에서 제외했습니다.
+- 최신 기준 176 tests와 Closing API/Batch, Config Server의 3 bootJars가 성공했습니다. internal-audit 세 모듈의 test와 API/Batch production source가 `NO-SOURCE`인 상태는 별도 위험입니다.
+- Issue #20 전용 `agent/20-closing-consistency` 브랜치를 repository root에서 사용합니다. 복구용 stash는 유지하며 사용자 승인 범위는 commit/push/Draft PR까지이고 merge/Issue close는 포함하지 않습니다.
+
+## 37차 후속 상세
+
+### Closing 고도화 main 반영 확인과 브랜치 정합화
+
+- 최신 `origin/main@ce35ce5`와 82-path transfer snapshot을 비교해 Closing production/test/module docs 및 필수 bridge 변경이 모두 동일함을 확인했습니다.
+- 고도화는 `31be6f1`에 이미 포함되어 main에 병합됐으므로 중복 코드를 적용하지 않고 Issue #20 feature 브랜치를 fast-forward했습니다.
+- Shared Kernel/Contracts, Closing 연계 Master Data 어댑터, Journal Ledger, Closing core/api/batch, ECL의 98 tests와 3 bootJars가 성공했습니다.
+- Issue #66이 root Compose의 Master Data/Config Server 서비스를 제거·주석 처리한 뒤 기존 정책 테스트 2건이 실패하는 main 회귀는 Closing 범위 밖 후속으로 분리했습니다.
+- 세 recovery stash는 유지하고, 이번 feature branch에는 비교·검증·롤백 사실을 담은 하네스 기록만 커밋·PR merge합니다. Issue #20은 이미 CLOSED입니다.

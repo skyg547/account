@@ -205,8 +205,12 @@ public class ClosingTask {
      * @param user 처리자
      */
     public void complete(String user) {
+        requireActor(user);
+        if (this.status != ClosingTaskStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Only an IN_PROGRESS task can be completed.");
+        }
         this.status = ClosingTaskStatus.COMPLETED;
-        this.auditUser = user;
+        this.auditUser = user.trim();
     }
 
     /**
@@ -215,8 +219,46 @@ public class ClosingTask {
      * @param user 처리자
      */
     public void start(String user) {
+        requireActor(user);
+        if (this.status != ClosingTaskStatus.PENDING && this.status != ClosingTaskStatus.FAILED) {
+            throw new IllegalStateException("Only a PENDING or FAILED task can start.");
+        }
         this.status = ClosingTaskStatus.IN_PROGRESS;
-        this.auditUser = user;
+        this.auditUser = user.trim();
+    }
+
+    public void changeStatus(ClosingTaskStatus newStatus, String user) {
+        if (newStatus == null) {
+            throw new IllegalArgumentException("newStatus must not be null");
+        }
+        if (newStatus == ClosingTaskStatus.IN_PROGRESS) {
+            start(user);
+            return;
+        }
+        if (newStatus == ClosingTaskStatus.COMPLETED) {
+            complete(user);
+            return;
+        }
+        requireActor(user);
+        if (newStatus == ClosingTaskStatus.FAILED && this.status == ClosingTaskStatus.IN_PROGRESS) {
+            this.status = newStatus;
+            this.auditUser = user.trim();
+            return;
+        }
+        if (newStatus == ClosingTaskStatus.SKIPPED
+                && this.status == ClosingTaskStatus.PENDING
+                && !this.isMandatory) {
+            this.status = newStatus;
+            this.auditUser = user.trim();
+            return;
+        }
+        throw new IllegalStateException("Invalid closing task transition: " + this.status + " -> " + newStatus);
+    }
+
+    private void requireActor(String user) {
+        if (user == null || user.isBlank()) {
+            throw new IllegalArgumentException("user must not be blank");
+        }
     }
 
     @Deprecated

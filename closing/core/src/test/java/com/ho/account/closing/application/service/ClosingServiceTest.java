@@ -40,9 +40,11 @@ public class ClosingServiceTest {
     @Mock
     private ClosingAuditLogPersistencePort closingAuditLogPersistencePort;
     @Mock
-    private ValuationBatchPersistencePort valuationBatchPersistencePort;
+    private PeriodLockPersistencePort periodLockPersistencePort;
     @Mock
-    private ProvisionBatchPersistencePort provisionBatchPersistencePort;
+    private ReopenApprovalPersistencePort reopenApprovalPersistencePort;
+    @Mock
+    private ClosingBatchExecutionRecorder batchExecutionRecorder;
     @Mock
     private FiscalPeriodControlPort fiscalPeriodControlPort;
     @Mock
@@ -152,6 +154,11 @@ public class ClosingServiceTest {
         when(journalQueryPort.getJournalDetails(100L)).thenReturn(List.of(debit, credit));
         when(closingAdjustmentPersistencePort.save(any(ClosingAdjustment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
 
         // when
         ClosingAdjustment result = closingService.createClosingAdjustment(
@@ -175,13 +182,13 @@ public class ClosingServiceTest {
                 ValuationBatch.ValuationType.FX_RATE,
                 rule("510100", "110100", "1234.56")));
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
-        when(valuationBatchPersistencePort.save(any(ValuationBatch.class))).thenAnswer(invocation -> {
-            ValuationBatch batch = invocation.getArgument(0);
-            if (batch.getId() == null) {
-                batch.setId(77L);
-            }
-            return batch;
-        });
+        ValuationBatch runningBatch = valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING);
+        ValuationBatch pendingBatch = valuationBatch(77L, ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
+        pendingBatch.setGeneratedJournalEntryId(900L);
+        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .thenReturn(runningBatch);
+        when(batchExecutionRecorder.markValuationPendingApproval(77L, 900L, "/reports/valuation/77", "ADMIN"))
+                .thenReturn(pendingBatch);
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
                 .thenReturn(new JournalPostingResult(900L, "SLIP-900", "DRAFT"));
 
@@ -192,7 +199,7 @@ public class ClosingServiceTest {
                 "ADMIN");
 
         // then
-        assertThat(result.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.COMPLETED);
+        assertThat(result.getStatus()).isEqualTo(ValuationBatch.ValuationBatchStatus.PENDING_APPROVAL);
         assertThat(result.getGeneratedJournalEntryId()).isEqualTo(900L);
 
         ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
@@ -214,13 +221,13 @@ public class ClosingServiceTest {
                 ProvisionBatch.ProvisionType.BAD_DEBT,
                 rule("550100", "129100", "789.10")));
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
-        when(provisionBatchPersistencePort.save(any(ProvisionBatch.class))).thenAnswer(invocation -> {
-            ProvisionBatch batch = invocation.getArgument(0);
-            if (batch.getId() == null) {
-                batch.setId(88L);
-            }
-            return batch;
-        });
+        ProvisionBatch runningBatch = provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.RUNNING);
+        ProvisionBatch pendingBatch = provisionBatch(88L, ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
+        pendingBatch.setGeneratedJournalEntryId(901L);
+        when(batchExecutionRecorder.startProvision(openPeriod, ProvisionBatch.ProvisionType.BAD_DEBT, "ADMIN"))
+                .thenReturn(runningBatch);
+        when(batchExecutionRecorder.markProvisionPendingApproval(88L, 901L, "ADMIN"))
+                .thenReturn(pendingBatch);
         when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
                 .thenReturn(new JournalPostingResult(901L, "SLIP-901", "DRAFT"));
 
@@ -231,7 +238,7 @@ public class ClosingServiceTest {
                 "ADMIN");
 
         // then
-        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.COMPLETED);
+        assertThat(result.getStatus()).isEqualTo(ProvisionBatch.ProvisionBatchStatus.PENDING_APPROVAL);
         assertThat(result.getGeneratedJournalEntryId()).isEqualTo(901L);
 
         ArgumentCaptor<JournalEntryCommand> captor = ArgumentCaptor.forClass(JournalEntryCommand.class);
@@ -243,6 +250,30 @@ public class ClosingServiceTest {
                 .containsExactly("550100", "129100");
         assertThat(command.lines()).allSatisfy(line ->
                 assertThat(line.amount()).isEqualByComparingTo("789.10"));
+    }
+
+    @Test
+    @DisplayName("평가 전표 생성 실패 시 독립 이력에 FAILED를 기록한다")
+    void runValuationBatch_PostingFails_RecordsFailure() {
+        closingAccountingProperties.setValuationRules(Map.of(
+                ValuationBatch.ValuationType.FX_RATE,
+                rule("510100", "110100", "1234.56")));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(batchExecutionRecorder.startValuation(openPeriod, ValuationBatch.ValuationType.FX_RATE, "ADMIN"))
+                .thenReturn(valuationBatch(77L, ValuationBatch.ValuationBatchStatus.RUNNING));
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenThrow(new IllegalStateException("posting unavailable"));
+
+        assertThatThrownBy(() -> closingService.runValuationBatch(
+                1L,
+                ValuationBatch.ValuationType.FX_RATE,
+                "ADMIN"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Valuation batch failed")
+                .hasCauseInstanceOf(IllegalStateException.class);
+
+        verify(batchExecutionRecorder).markValuationFailed(77L, "ADMIN");
+        verify(batchExecutionRecorder, never()).markValuationPendingApproval(any(), any(), any(), any());
     }
 
     @Test
@@ -259,7 +290,7 @@ public class ClosingServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("account.closing.accounting.valuation-rules.FX_RATE");
 
-        verifyNoInteractions(valuationBatchPersistencePort, journalPostingPort);
+        verifyNoInteractions(batchExecutionRecorder, journalPostingPort);
     }
 
     @Test
@@ -313,6 +344,7 @@ public class ClosingServiceTest {
         calendar.setId(10L);
         calendar.setFiscalYear("2026");
         calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
         when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
 
         ClosingTask mandatoryTask = new ClosingTask();
@@ -344,6 +376,28 @@ public class ClosingServiceTest {
         verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "ADMIN");
     }
 
+    @Test
+    @DisplayName("회계기간 기준정보가 없으면 마감 여부를 OPEN으로 추정하지 않는다")
+    void isClosed_MissingFiscalPeriod_FailsClosed() {
+        LocalDate accountingDate = LocalDate.of(2026, 3, 15);
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "03")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> closingService.isClosed(accountingDate))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Fiscal period is missing");
+    }
+
+    @Test
+    @DisplayName("캘린더 상태는 OPEN으로 직접 되돌릴 수 없다")
+    void updateClosingCalendarStatus_DirectOpenRejected() {
+        assertThatThrownBy(() -> closingService.updateClosingCalendarStatus(
+                10L,
+                ClosingCalendar.ClosingCalendarStatus.OPEN,
+                "ADMIN"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("controlled flows");
+    }
+
     private ClosingAccountingProperties.AutomatedJournalRule rule(
             String debitAccountCode,
             String creditAccountCode,
@@ -353,5 +407,23 @@ public class ClosingServiceTest {
         rule.setCreditAccountCode(creditAccountCode);
         rule.setAmount(new BigDecimal(amount));
         return rule;
+    }
+
+    private ValuationBatch valuationBatch(
+            Long id,
+            ValuationBatch.ValuationBatchStatus status) {
+        ValuationBatch batch = new ValuationBatch();
+        batch.setId(id);
+        batch.setStatus(status);
+        return batch;
+    }
+
+    private ProvisionBatch provisionBatch(
+            Long id,
+            ProvisionBatch.ProvisionBatchStatus status) {
+        ProvisionBatch batch = new ProvisionBatch();
+        batch.setId(id);
+        batch.setStatus(status);
+        return batch;
     }
 }

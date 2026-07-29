@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres-db-prod}:5432/${DB_NAME:account_prod}
+    driverClassName: org.postgresql.Driver
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_HOST:kafka-prod}:9092
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis-prod}
+      port: 6379

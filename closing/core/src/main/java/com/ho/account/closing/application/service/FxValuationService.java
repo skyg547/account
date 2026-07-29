@@ -9,15 +9,13 @@ import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 
 /**
  * [결산 Core - 외화 평가 서비스 (FX Valuation Service)]
@@ -29,8 +27,6 @@ import java.util.Optional;
  * <p>헥사고날 기준: 환율 조회, 전표 생성, 계정과목 조회는 모두 포트로 호출합니다.
  * Spring Batch는 이 서비스를 호출하는 어댑터일 뿐이고, 차대변 판단과 금액 산출 순서는 core가 소유합니다.</p>
  */
-@Slf4j
-@Service
 @RequiredArgsConstructor
 public class FxValuationService {
 
@@ -44,78 +40,93 @@ public class FxValuationService {
 
     @Transactional
     public void processFxValuationForAccount(FxValuationBalance balance, LocalDate valuationDate, Long valuationBatchId) {
+        Objects.requireNonNull(balance, "balance must not be null");
+        Objects.requireNonNull(valuationDate, "valuationDate must not be null");
+        if (valuationBatchId == null || valuationBatchId <= 0) {
+            throw new IllegalArgumentException("valuationBatchId must be positive");
+        }
         String reportingCurrencyCode = accountingProperties.requireFxValuationReportingCurrencyCode();
         if (balance.currencyCode().equalsIgnoreCase(reportingCurrencyCode)) {
             return;
         }
 
-        Optional<BigDecimal> rateOpt = fxExchangeRateLookupPort.findRate(
-                balance.currencyCode(),
-                reportingCurrencyCode,
-                valuationDate);
-        if (rateOpt.isEmpty()) {
-            log.warn("FX Rate not found for {} to {} on {}. Skipping valuation for account: {}",
-                    balance.currencyCode(), reportingCurrencyCode, valuationDate, balance.accountCode());
-            return;
-        }
-
         BigDecimal foreignAmount = balance.foreignEndingBalance();
-        if (foreignAmount.signum() == 0) {
-            return;
-        }
-
         BigDecimal bookReportingAmount = balance.bookReportingAmount();
         if (bookReportingAmount == null) {
-            log.warn("Base ending balance is missing. Skipping FX valuation for account: {}, currency: {}, date: {}",
-                    balance.accountCode(), balance.currencyCode(), valuationDate);
+            throw new IllegalStateException("Base ending balance is missing for account "
+                    + balance.accountCode() + ", currency " + balance.currencyCode());
+        }
+        if (foreignAmount.signum() == 0 && bookReportingAmount.signum() == 0) {
             return;
         }
+        if (foreignAmount.signum() == 0 || bookReportingAmount.signum() == 0) {
+            throw new IllegalStateException("FX transaction and reporting balances are inconsistent for account "
+                    + balance.accountCode() + ", currency " + balance.currencyCode());
+        }
 
-        BigDecimal revaluedReportingAmount = foreignAmount.multiply(rateOpt.get()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rate = fxExchangeRateLookupPort.findRate(
+                balance.currencyCode(),
+                reportingCurrencyCode,
+                valuationDate)
+                .orElseThrow(() -> new IllegalStateException(
+                        "FX rate not found for " + balance.currencyCode() + " to "
+                                + reportingCurrencyCode + " on " + valuationDate));
+        if (rate.signum() <= 0) {
+            throw new IllegalStateException("FX rate must be positive for " + balance.currencyCode()
+                    + " to " + reportingCurrencyCode + " on " + valuationDate);
+        }
+
+        BigDecimal revaluedReportingAmount = foreignAmount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal difference = revaluedReportingAmount.subtract(bookReportingAmount);
         if (difference.signum() == 0) {
             return;
         }
 
         AccountSubjectRef accountSubject = masterDataQueryPort.findAccountSubjectAt(balance.accountCode(), valuationDate)
-                .orElse(null);
-        if (accountSubject == null) {
-            log.warn("Account subject is missing. Skipping FX valuation for account: {}, date: {}",
-                    balance.accountCode(), valuationDate);
-            return;
-        }
+                .orElseThrow(() -> new IllegalStateException(
+                        "Account subject is missing for " + balance.accountCode() + " on " + valuationDate));
 
-        createValuationJournalEntry(accountSubject, difference, valuationDate, valuationBatchId, reportingCurrencyCode);
+        createValuationJournalEntry(
+                accountSubject,
+                balance.currencyCode(),
+                difference,
+                valuationDate,
+                valuationBatchId,
+                reportingCurrencyCode);
     }
 
     private void createValuationJournalEntry(AccountSubjectRef accountSubject,
+                                             String sourceCurrencyCode,
                                              BigDecimal difference,
                                              LocalDate valuationDate,
                                              Long batchId,
                                              String reportingCurrencyCode) {
-        boolean debitNormalBalance = accountSubject.debitNormalBalance();
-        boolean isGain = debitNormalBalance ? difference.signum() > 0 : difference.signum() < 0;
         BigDecimal absDiff = difference.abs();
 
         ClosingJournalSide accountSide = difference.signum() > 0
-                ? normalBalanceSide(debitNormalBalance)
-                : oppositeNormalBalanceSide(debitNormalBalance);
-        ClosingJournalSide pnlSide = isGain ? ClosingJournalSide.CREDIT : ClosingJournalSide.DEBIT;
-        String pnlAccountCode = isGain
+                ? ClosingJournalSide.DEBIT
+                : ClosingJournalSide.CREDIT;
+        ClosingJournalSide pnlSide = accountSide == ClosingJournalSide.DEBIT
+                ? ClosingJournalSide.CREDIT
+                : ClosingJournalSide.DEBIT;
+        String pnlAccountCode = pnlSide == ClosingJournalSide.CREDIT
                 ? accountingProperties.getFxTranslationGainAccountCode()
                 : accountingProperties.getFxTranslationLossAccountCode();
 
         ClosingJournalEntryCommand command = new ClosingJournalEntryCommand(
-                LocalDate.now(),
+                valuationDate,
                 valuationDate,
                 "Month-end FX Valuation",
                 "CLOSING_ADJUSTMENT",
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
                 "FX_VALUATION",
-                batchId.toString(),
+                batchId + "|" + accountSubject.code() + "|" + sourceCurrencyCode,
                 reportingCurrencyCode,
-                ClosingSlipNoFactory.fxValuation(valuationDate, accountSubject.code(), batchId),
+                ClosingSlipNoFactory.fxValuation(
+                        valuationDate,
+                        accountSubject.code() + "|" + sourceCurrencyCode,
+                        batchId),
                 List.of(
                         new ClosingJournalLineCommand(
                                 accountSide,
@@ -134,13 +145,5 @@ public class FxValuationService {
         if (accountingProperties.isAutoPostAdjustments()) {
             closingJournalEntryPort.approveAndPost(result.journalEntryId(), SYSTEM_ACTOR);
         }
-    }
-
-    private ClosingJournalSide normalBalanceSide(boolean debitNormalBalance) {
-        return debitNormalBalance ? ClosingJournalSide.DEBIT : ClosingJournalSide.CREDIT;
-    }
-
-    private ClosingJournalSide oppositeNormalBalanceSide(boolean debitNormalBalance) {
-        return debitNormalBalance ? ClosingJournalSide.CREDIT : ClosingJournalSide.DEBIT;
     }
 }
