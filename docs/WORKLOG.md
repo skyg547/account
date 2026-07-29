@@ -1,3 +1,27 @@
+### 📅 2026-07-29 (Codex 수정)
+### [수정] Issue #40 Master Data API/Core/Batch 물리 모듈 분리
+- **작업 배경**:
+  - `settings.gradle`에는 `master-data:core`, `:api`, `:batch`가 등록돼 있었지만 Controller/DTO와 API 실행점, Batch orchestrator가 모두 core 소스에 남아 실제 배포 경계가 분리되지 않았다.
+  - API `bootJar`가 비활성화되고 문서·Docker·Run Configuration이 존재하지 않는 `:master-data` 실행 task를 가리켜 독립 실행이 불가능했다.
+- **수정 범위**:
+  - REST Controller/DTO와 `MasterDataApplication`을 `master-data:api`로, Batch orchestrator/report를 `master-data:batch`로 이동하고 core에는 application/domain/infrastructure만 남겼다.
+  - `masterDataValidityJob`/Tasklet Step을 추가해 필수 `asOfDate`를 검증한 뒤 core `MasterDataValidityReportPipeline`에 위임하도록 했다.
+  - API/Batch를 각각 실행 가능한 `bootJar`로 구성하고, Flyway migration은 core의 표준 `src/main/resources`에 두어 두 실행 모듈이 같은 스키마 계약을 사용하게 했다.
+  - Dockerfile, IntelliJ Run Configuration, Master Data README/docs와 공용 로컬 개발 문서를 실제 Gradle 경로로 갱신했다.
+  - 빈 aggregator `project(':master-data')`를 참조하던 Journal Ledger core 의존을 제거하고 이미 선언된 `contracts` 경계를 유지했다.
+- **검증 결과**:
+  - JDK 17 컨테이너에서 Master Data core 1, API 1, Batch 4, Journal Ledger core 23개로 총 29 tests가 실패·오류·skip 없이 통과했다.
+  - `:master-data:api:bootJar`, `:master-data:batch:bootJar`가 성공했다.
+  - populated H2에 네 기준정보의 활성/만료 행을 각각 저장하고 실제 `masterDataValidityJob`을 실행해 Step execution context의 활성 건수 4종이 각각 1임을 확인했다.
+  - Config Server가 없으면 기본 Batch가 `ConfigClientFailFastException`으로 실패하고, 명시적인 로컬 H2 예외 플래그에서는 같은 Job이 `COMPLETED`로 종료됨을 런타임으로 확인했다.
+  - core의 Web/Validation/API/Batch 역참조 검색, conflict marker 검색, `git diff --check`가 통과했다.
+- **남은 리스크**:
+  - PostgreSQL/Flyway 실DB 기동과 대량 기준정보 성능은 별도 통합 환경에서 검증해야 한다.
+  - Batch 보고 결과는 현재 Step execution context에만 남으므로 운영 장기 보관·메트릭·알림용 출력 포트가 필요하다.
+  - typed applier, `requestedVersion`, 요청 잠금/`lockVersion` production 경로의 회귀 테스트는 현재 test source에 없어 별도 복원이 필요하다.
+- **롤백 범위**:
+  - Issue #40 커밋을 revert하면 소스·리소스·실행 설정·문서 이동이 함께 복구된다. migration 내용이나 운영 DB는 변경하지 않았다.
+
 ### 📅 2026-07-08 (Codex 수정)
 ### [수정] payable API/core command 경계와 Batch JobRegistry 정리
 - **작업 배경**:

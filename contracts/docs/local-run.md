@@ -23,7 +23,7 @@
 Master Data 기준일 계약까지 변경했을 때:
 
 ```powershell
-.gradlew :contracts:test :master-data:test :closing:core:test --console=plain --max-workers=1 --no-daemon
+.gradlew :contracts:test :master-data:core:test :master-data:api:test :master-data:batch:test :closing:core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 ## 실패를 읽는 순서

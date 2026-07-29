@@ -11,9 +11,11 @@ dependencyManagement {
 }
 dependencies {
     implementation project(':master-data:core')
+    implementation project(':shared-kernel')
     
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'com.github.ben-manes.caffeine:caffeine'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -31,7 +33,7 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
-bootJar { enabled = false }
-
-
-
+// api is the HTTP executable. Keeping the plain library jar disabled makes it
+// difficult to deploy the wrong artifact by accident.
+bootJar { enabled = true }
+jar { enabled = false }

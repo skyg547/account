@@ -96,13 +96,22 @@ erDiagram
 
 **PowerShell 검증 명령:**
 ```powershell
-.\gradlew :master-data:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
-**로컬 실행 명령:**
+**API 로컬 실행 명령:**
 ```powershell
-.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
+
+**일일 유효성 Batch 실행 명령:**
+```powershell
+.\gradlew :master-data:batch:bootRun --args="--spring.profiles.active=local --spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29 --spring.cloud.config.enabled=false --spring.config.on-not-found=ignore --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1 --no-daemon
+```
+
+`spring.config.on-not-found=ignore`는 Config Server를 의도적으로 끈 이 학습용 H2
+명령에서만 사용합니다. 기본 Batch 설정은 Config Server와 공통 datasource 계약을
+받지 못하면 시작을 중단하므로, 운영 실행에 이 예외 플래그를 복사하면 안 됩니다.
 
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.

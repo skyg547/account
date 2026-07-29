@@ -268,7 +268,7 @@ git diff --check
 ## 9차 검증
 
 ```powershell
-.\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain --max-workers=1 --no-daemon
+.\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:core:test :master-data:api:test :master-data:batch:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain --max-workers=1 --no-daemon
 git diff --check
 ```
 
@@ -520,9 +520,9 @@ git diff --check
 검증:
 
 ```powershell
-.\gradlew :master-data:test --console=plain --max-workers=1
-.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1
-.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1
+.\gradlew :master-data:core:test --console=plain --max-workers=1
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 결과:
@@ -702,7 +702,7 @@ java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.pro
 - 구현 없는 `DistributedLock` 사용 검색 0건.
 - Config Server 대상 테스트, contracts 직접 `javac` 모두 64~128MB JVM도 시작하지 못할 정도의 Windows 페이지 파일 부족으로 중단했습니다.
 - 생성된 Gradle/javac JVM과 임시 디렉터리는 정리했으며 IntelliJ/SonarLint 외 Java 프로세스는 남지 않았습니다.
-- 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:test :closing:core:test :ecl:ecl-api:test` 재실행이 필요합니다.
+- 자원 회복 후 `:shared-kernel:test :contracts:test :master-data:core:test :master-data:api:test :master-data:batch:test :closing:core:test :ecl:ecl-api:test` 재실행이 필요합니다.
 
 ## 30차 후속 상세
 
