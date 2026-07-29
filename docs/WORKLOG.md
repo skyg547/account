@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #48 자동 완료)
+﻿### 📅 2026-07-30 (Issue #47 자동 완료)
+### [자동 처리] [cashflow] 자금수지 및 현금흐름(Cashflow) 도메인 초기 설계
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #48 자동 완료)
 ### [자동 처리] [deposit] 수신(Deposit) 계좌 개설 및 해지 상태 전이 흐름 고도화
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2088,6 +2093,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
