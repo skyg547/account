@@ -1861,3 +1861,5 @@
 
 - [x] Resolved Issue #45: [budget] 예산 통제(Budget Control) 모듈 스켈레톤 및 헥사고날 구조 세팅 (Automated Loop)
 
+- [x] Resolved Issue #44: [journal-ledger] 총계정원장(GL) 및 분장(Sub-ledger) 도메인 모델링 (Automated Loop)
+
