@@ -141,3 +141,18 @@ Recommended integration order remains:
 - Verification: 98 directly affected tests passed and Closing API/Batch plus Config Server bootJars passed.
 - Main regression found: `MasterDataConfigurationPolicyTest.rootAndModuleComposeUsePort8082AndRepositoryRootBuildContext` and `ConfigServerConfigurationPolicyTest.rootComposeMountsRepositoryAndAllClientsWaitForConfigHealth` fail because Issue #66 removed/commented those root Compose services. This is recorded but not changed in the Closing branch.
 - Safety: three named stashes remain; no stash, branch, worktree, Issue, or PR was deleted/closed/merged by this reconciliation.
+
+## 2026-07-30 - GH-41 BusinessPartner Domain/JPA Integration
+
+- Issue: `#41 [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용`.
+- Source branch/worktree: `agent/41-business-partner-ddd`, `C:\dev\account\.worktrees\account-41-business-partner-ddd`.
+- Target branch: `main@39dabd4e`.
+- Draft PR: `#232 [#41] Separate BusinessPartner domain and JPA persistence`, with `Fixes #41`.
+- Integrator Agent: Codex.
+- Merge command: `gh pr ready 232`, then `gh pr merge 232 --merge --delete-branch`.
+- Conflict status: PR mergeability `MERGEABLE`, merge state `CLEAN`; no unmerged entries or conflict markers. Rebase conflict resolutions are recorded in `conflict-log.md`.
+- Test command/result: Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, and Journal Ledger API 1 tests passed; Master Data API/Batch bootJars passed. Total 50 tests, failures/errors/skips 0.
+- Review result: independent reviewer reported no remaining P0-P3 findings after documentation corrections.
+- Result: PR #232 merged as `c720ae58`; Issue #41 closed automatically at merge; the remote source branch was deleted.
+- Rollback: revert merge commit `c720ae58`. No schema migration rollback is required.
+- Remaining risks: PostgreSQL exclusion constraint/integration coverage, bounded pagination for account entity graphs, and a second-save rollback integration test remain follow-ups.

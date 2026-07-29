@@ -4,7 +4,7 @@
 
 - PR #225의 문서 전용 커밋 `cdb892e4`가 Issue #41을 한 번 닫았지만, 실제 구현이 없다는 closure audit 결과에 따라 다시 열렸습니다.
 - 실제 구현은 `agent/41-business-partner-ddd`에서 `main@39dabd4e`를 기준으로 완료했습니다.
-- 구현 Draft PR #232는 `Fixes #41`로 연결하며 검증된 코드가 병합될 때 Issue를 닫습니다.
+- PR #232가 merge commit `c720ae58`로 병합됐고 `Fixes #41`가 Issue를 자동 종료했습니다. 원격 source branch 삭제도 확인했습니다.
 
 ## 경계와 책임
 
