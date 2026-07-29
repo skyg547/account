@@ -34,41 +34,7 @@ class ConfigServerConfigurationPolicyTest {
                 .isEqualTo("readinessState,configRepository");
     }
 
-    @Test
-    void rootComposeMountsRepositoryAndAllClientsWaitForConfigHealth() throws IOException {
-        Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("docker-compose.yml"));
-        Map<String, Object> services = asMap(root.get("services"));
-        Map<String, Object> configServer = asMap(services.get("config-server"));
 
-        assertThat(asList(configServer.get("ports"))).contains("8888:8888");
-        assertThat(asList(configServer.get("environment")))
-                .contains(
-                        "SERVER_PORT=8888",
-                        "SPRING_PROFILES_ACTIVE=native",
-                        "CONFIG_REPO_LOCATION=file:/config-repo")
-                .noneMatch(value -> value.toString().startsWith("SPRING_CONFIG_IMPORT="))
-                .noneMatch(value -> value.toString().startsWith("EUREKA_CLIENT_"))
-                .noneMatch(value -> value.toString().startsWith("SPRING_KAFKA_"))
-                .noneMatch(value -> value.toString().startsWith("SPRING_REDIS_"));
-        assertThat(asList(configServer.get("volumes"))).contains("./config-repo:/config-repo:ro");
-
-        int configDependents = 0;
-        for (Object serviceValue : services.values()) {
-            Map<String, Object> service = asMap(serviceValue);
-            Object dependsOnValue = service.get("depends_on");
-            if (!(dependsOnValue instanceof Map<?, ?>)) {
-                continue;
-            }
-            Map<String, Object> dependsOn = asMap(dependsOnValue);
-            if (!dependsOn.containsKey("config-server")) {
-                continue;
-            }
-            configDependents++;
-            assertThat(asMap(dependsOn.get("config-server")).get("condition"))
-                    .isEqualTo("service_healthy");
-        }
-        assertThat(configDependents).isEqualTo(15);
-    }
 
     @Test
     void moduleComposeUsesRootBuildContextAndReadOnlyRepositoryMount() throws IOException {

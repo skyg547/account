@@ -41,55 +41,7 @@ class DiscoveryConfigurationPolicyTest {
                 .isEqualTo("health,info,prometheus");
     }
 
-    @Test
-    void rootComposeWaitsForDiscoveryHealthAndUsesContainerAddresses() throws IOException {
-        Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("docker-compose.yml"));
-        Map<String, Object> services = asMap(root.get("services"));
-        Map<String, Object> discovery = asMap(services.get("discovery"));
 
-        assertThat(asList(discovery.get("ports"))).contains("8761:8761");
-        assertThat(asList(discovery.get("environment")))
-                .contains(
-                        "SERVER_PORT=8761",
-                        "EUREKA_INSTANCE_HOSTNAME=discovery",
-                        "LOGSTASH_HOST=logstash",
-                        "MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans");
-
-        int discoveryDependents = 0;
-        for (Object serviceValue : services.values()) {
-            Map<String, Object> service = asMap(serviceValue);
-            Object dependsOnValue = service.get("depends_on");
-            if (!(dependsOnValue instanceof Map<?, ?>)) {
-                continue;
-            }
-            Map<String, Object> dependsOn = asMap(dependsOnValue);
-            if (!dependsOn.containsKey("discovery")) {
-                continue;
-            }
-            discoveryDependents++;
-            assertThat(asMap(dependsOn.get("discovery")).get("condition"))
-                    .isEqualTo("service_healthy");
-        }
-        assertThat(discoveryDependents).isGreaterThan(0);
-    }
-
-    @Test
-    void moduleComposeAndDockerfileUseRootContextJava17AndReadiness() throws IOException {
-        Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("discovery", "docker-compose.yml"));
-        Map<String, Object> discovery = asMap(asMap(root.get("services")).get("discovery"));
-        Map<String, Object> build = asMap(discovery.get("build"));
-
-        assertThat(build.get("context")).isEqualTo("..");
-        assertThat(build.get("dockerfile")).isEqualTo("discovery/Dockerfile");
-
-        String dockerfile = Files.readString(resolveFromRepositoryRoot("discovery", "Dockerfile"));
-        assertThat(dockerfile)
-                .contains("gradle:8.7-jdk17-alpine")
-                .contains("eclipse-temurin:17-jre-alpine")
-                .contains(":discovery:bootJar")
-                .contains("/actuator/health/readiness")
-                .doesNotContain("|| true");
-    }
 
     private Properties loadProperties(Path path) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();

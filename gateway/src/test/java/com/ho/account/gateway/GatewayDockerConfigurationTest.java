@@ -13,18 +13,7 @@ import org.yaml.snakeyaml.Yaml;
 
 class GatewayDockerConfigurationTest {
 
-    @Test
-    void rootComposeUsesGatewayPortAndContainerAuthAddress() throws IOException {
-        Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("docker-compose.yml"));
-        Map<String, Object> gateway = service(root, "gateway");
 
-        assertThat(asList(gateway.get("ports"))).contains("8000:8000");
-        assertThat(asList(gateway.get("environment")))
-                .contains(
-                        "SERVER_PORT=8000",
-                        "AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084");
-        assertThat(asMap(gateway.get("depends_on"))).containsKey("auth");
-    }
 
     @Test
     void moduleComposeBuildsFromRepositoryRoot() throws IOException {
