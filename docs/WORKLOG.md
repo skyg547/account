@@ -1857,3 +1857,5 @@
 
 - [x] Resolved Issue #47: [cashflow] 자금수지 및 현금흐름(Cashflow) 도메인 초기 설계 (Automated Loop)
 
+- [x] Resolved Issue #46: [asset-lease] 고정자산 및 리스회계(IFRS16) 도메인 초기 설계 (Automated Loop)
+
