@@ -2,9 +2,9 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#43` is implemented on `agent/43-eod-state` in `C:\tmp\account-43-eod-state`.
-- Base is `origin/main@5fb9cb67`; implementation and full verification are complete, while independent review and remote PR gates remain.
-- The old docs-only closure note did not implement a callable lifecycle. This branch supplies the production domain, use case, persistence, migration, API, and Gateway path.
+- GitHub Issue `#43` was integrated by PR `#236`: source `86ebedf9`, merge `10d80939`. `Fixes #43` closed the Issue and the remote feature branch was deleted.
+- The integration-record branch is `agent/43-integration-record` in `C:\tmp\account-43-eod-state`, based on the merged `origin/main`.
+- The old docs-only closure note did not implement a callable lifecycle. The merged change supplies the production domain, use case, persistence, migration, API, and Gateway path.
 
 ## Changes And Boundaries
 
@@ -27,6 +27,7 @@
 - `:closing:api:bootJar` and `:closing:batch:bootJar`: passed.
 - Flyway baseline/V50 legacy backfill, JPA locked lookup/version increment, trusted API command mapping, and Gateway route order are covered by focused tests.
 - The first complete run failed on the pre-existing Closing Batch composition omission from Issue #41. After importing the BusinessPartner persistence adapter/entity, the full set passed with `--rerun-tasks`.
+- Independent review found shared Flyway-history and stale BOD predecessor risks. Both were fixed and the final read-only re-review passed with no P0-P3 findings.
 
 ## Known Risks And Rollback
 
@@ -36,7 +37,7 @@
 
 ## Next Gate
 
-- Run independent read-only review, resolve all P0-P3 findings, then create/merge the Issue-closing PR under the authorized gate and record its final hashes.
+- Merge this integration-record PR, remove the Issue #43 worktree/local branches, and fast-forward the root `main` while preserving the user's untracked `scratch/` directory.
 
 # AI Harness Handoff - 2026-07-30 Issue #42 Master Data Partner Approval
 

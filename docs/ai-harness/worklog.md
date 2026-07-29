@@ -3,7 +3,7 @@
 - Owner: Codex as Integrator with Service, Controller, SQL, Gateway, Test, and independent Reviewer roles.
 - Branch/worktree: `agent/43-eod-state` / `C:\tmp\account-43-eod-state`.
 - Base: `origin/main@5fb9cb67`.
-- State: implementation and full local verification complete; independent review and remote PR gates pending.
+- Integration: PR `#236` merged source `86ebedf9` as `10d80939`; `Fixes #43` closed the Issue and the remote feature branch was deleted.
 - Scope:
   - Replaced the orphan enum/Boolean holder with a versioned, audited daily aggregate and explicit lifecycle use case.
   - Preserved prior `CLOSED` rows and created explicitly dated next-business-day BOD rows atomically.
@@ -16,6 +16,7 @@
   - Flyway baseline 49 to V50 executed against a populated legacy H2 schema; Boolean state backfill and schema history were asserted.
   - JPA pessimistic lookup, optimistic version increment, API actor/role gate, and Gateway route ordering were asserted.
   - The first full run exposed the missing BusinessPartner persistence bean in Closing Batch; after composition repair the complete set passed with `--rerun-tasks`.
+  - Independent review findings for an isolated Closing Flyway history and direct BOD predecessor validation were fixed; re-review passed with no P0-P3 findings.
 - Risks:
   - Daily transaction allowance is not yet wired into Journal posting; the current accounting-period gate remains monthly.
   - PostgreSQL execution and live Auth/Gateway/Discovery routing were not run.
