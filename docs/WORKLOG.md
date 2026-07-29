@@ -1845,3 +1845,5 @@
 
 - [x] Resolved Issue #53: [frontend] 재무 상태표 및 손익계산서 대시보드 API 정합성 일치화 (Automated Loop)
 
+- [x] Resolved Issue #52: [receivable/payable] 미수금/미지급금 채권채무 도메인 구조화 (Automated Loop)
+
