@@ -1,3 +1,27 @@
+## 2026-07-30 - Issue #43 EOD/BOD daily lifecycle
+
+- Owner: Codex as Integrator with Service, Controller, SQL, Gateway, Test, and independent Reviewer roles.
+- Branch/worktree: `agent/43-eod-state` / `C:\tmp\account-43-eod-state`.
+- Base: `origin/main@5fb9cb67`.
+- State: implementation and full local verification complete; independent review and remote PR gates pending.
+- Scope:
+  - Replaced the orphan enum/Boolean holder with a versioned, audited daily aggregate and explicit lifecycle use case.
+  - Preserved prior `CLOSED` rows and created explicitly dated next-business-day BOD rows atomically.
+  - Added the output port, locked JPA adapter, trusted-header named-command API, Gateway route/fallback, and Closing-owned Flyway V50 with an isolated schema-history table.
+  - Removed the unused duplicate `ClosingPeriod` authority and documented `ClosingCalendar`/`FiscalPeriod`/`AnnualClosingService` as monthly/annual owners.
+  - Repaired Closing API/Batch composition after the BusinessPartner pure-domain/JPA split.
+- Verification:
+  - Closing Core 59, API 8, Batch 12, Gateway 31 tests passed; failures/errors/skipped 0.
+  - Closing API and Batch bootJars passed.
+  - Flyway baseline 49 to V50 executed against a populated legacy H2 schema; Boolean state backfill and schema history were asserted.
+  - JPA pessimistic lookup, optimistic version increment, API actor/role gate, and Gateway route ordering were asserted.
+  - The first full run exposed the missing BusinessPartner persistence bean in Closing Batch; after composition repair the complete set passed with `--rerun-tasks`.
+- Risks:
+  - Daily transaction allowance is not yet wired into Journal posting; the current accounting-period gate remains monthly.
+  - PostgreSQL execution and live Auth/Gateway/Discovery routing were not run.
+- Rollback:
+  - Revert the Issue #43 feature commit. V50 rollback requires a controlled data-preserving migration, not a destructive down migration.
+
 ## 2026-07-30 - Issue #42 Master Data partner approval UI/API
 
 - Owner: Codex acting as Integrator with Frontend, Controller-audit, Gateway, and Test roles.

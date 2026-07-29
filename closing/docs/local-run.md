@@ -46,8 +46,18 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 | 결산 조정 등록 | `POST /api/closing/adjustments` |
 | 마감 완료 판정 | `POST /api/closing/calendars/determine-status` |
 | 연차 손익 대체 | `POST /api/closing/annual/perform-income-statement-closing` |
+| 첫 영업일 초기화 | `POST /api/closing/eod/{businessDate}/bootstrap` |
+| EOD 준비/시작/완료 | `POST /api/closing/eod/{businessDate}/eod/{prepare\|start\|complete}` |
+| EOD 준비 취소 | `POST /api/closing/eod/{businessDate}/eod/cancel-preparation` |
+| 다음 영업일 BOD 시작 | `POST /api/closing/eod/{closedDate}/bod/{nextBusinessDate}/start` |
+| 다음 영업일 BOD 완료 | `POST /api/closing/eod/{businessDate}/bod/complete` |
+| 일마감 상태 조회 | `GET /api/closing/eod/{businessDate}` |
 
 로컬 API에서 실제 업무 데이터를 확인하려면 `master-data`의 회계기간과 `journal-ledger`의 전표/잔액 데이터가 함께 준비되어야 합니다.
+
+EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
+
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. 기존 스키마는 baseline 49, 일마감 상태 도입은 V50입니다.
 
 ## Batch 컨텍스트만 실행
 

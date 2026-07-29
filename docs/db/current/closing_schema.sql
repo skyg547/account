@@ -22,7 +22,32 @@ CREATE TABLE closing_calendars (
     UNIQUE (fiscal_year, fiscal_period)
 );
 
--- 3. 결산 태스크
+-- 3. 날짜별 EOD/BOD 상태
+-- 실행 가능한 forward migration은 closing:core의 db/closing-migration/V50을 기준으로 합니다.
+CREATE TABLE daily_closing_status (
+    date DATE PRIMARY KEY,
+    state VARCHAR(30) NOT NULL, -- OPEN, PRE_CLOSING, CLOSING_IN_PROGRESS, CLOSED, BOD_IN_PROGRESS
+    version BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL,
+    created_by VARCHAR(80) NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    updated_by VARCHAR(80) NOT NULL,
+    prepared_at TIMESTAMP,
+    prepared_by VARCHAR(80),
+    closing_started_at TIMESTAMP,
+    closing_started_by VARCHAR(80),
+    closed_at TIMESTAMP,
+    closed_by VARCHAR(80),
+    bod_started_at TIMESTAMP,
+    bod_started_by VARCHAR(80),
+    opened_at TIMESTAMP,
+    opened_by VARCHAR(80)
+);
+
+CREATE INDEX idx_daily_closing_status_state_date
+    ON daily_closing_status (state, date);
+
+-- 4. 결산 태스크
 CREATE TABLE closing_tasks (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     closing_calendar_id BIGINT NOT NULL,
@@ -43,7 +68,7 @@ CREATE TABLE closing_tasks (
     UNIQUE (closing_calendar_id, task_code)
 );
 
--- 4. 결산 게이트 (승인 지점)
+-- 5. 결산 게이트 (승인 지점)
 CREATE TABLE closing_gates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     closing_calendar_id BIGINT NOT NULL,
@@ -61,7 +86,7 @@ CREATE TABLE closing_gates (
     UNIQUE (closing_calendar_id, gate_code)
 );
 
--- 5. 기간 잠금
+-- 6. 기간 잠금
 CREATE TABLE period_locks (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     fiscal_period_id BIGINT NOT NULL,
@@ -75,7 +100,7 @@ CREATE TABLE period_locks (
     UNIQUE (fiscal_period_id, lock_type)
 );
 
--- 6. 재오픈 승인 요청
+-- 7. 재오픈 승인 요청
 CREATE TABLE reopen_approvals (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     fiscal_period_id BIGINT NOT NULL,
@@ -91,7 +116,7 @@ CREATE TABLE reopen_approvals (
     FOREIGN KEY (fiscal_period_id) REFERENCES fiscal_periods(id)
 );
 
--- 7. 평가 배치
+-- 8. 평가 배치
 CREATE TABLE valuation_batches (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     fiscal_period_id BIGINT NOT NULL,
@@ -106,7 +131,7 @@ CREATE TABLE valuation_batches (
     FOREIGN KEY (fiscal_period_id) REFERENCES fiscal_periods(id)
 );
 
--- 8. 충당/손상 배치
+-- 9. 충당/손상 배치
 CREATE TABLE provision_batches (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     fiscal_period_id BIGINT NOT NULL,
@@ -121,7 +146,7 @@ CREATE TABLE provision_batches (
     FOREIGN KEY (fiscal_period_id) REFERENCES fiscal_periods(id)
 );
 
--- 9. 결산 조정
+-- 10. 결산 조정
 CREATE TABLE closing_adjustments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     fiscal_period_id BIGINT NOT NULL,

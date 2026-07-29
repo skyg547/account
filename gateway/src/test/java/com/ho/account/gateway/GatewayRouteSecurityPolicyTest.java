@@ -49,6 +49,31 @@ class GatewayRouteSecurityPolicyTest {
                 .isEqualTo("Path=/api/**");
     }
 
+    @Test
+    void closingPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+        Properties properties = loadGatewayProperties();
+        int closingRouteIndex = routeIndex(properties, "closing-api");
+        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
+
+        assertThat(closingRouteIndex).isGreaterThanOrEqualTo(0);
+        assertThat(legacyCatchAllRouteIndex).isGreaterThan(closingRouteIndex);
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + closingRouteIndex + "].uri"))
+                .isEqualTo("lb://closing-service");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + closingRouteIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/closing/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + closingRouteIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + closingRouteIndex + "].filters[0].args.name"))
+                .isEqualTo("closingCircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + closingRouteIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/closing");
+    }
+
     private int routeIndex(Properties properties, String routeId) {
         for (int index = 0; index < properties.size(); index++) {
             if (routeId.equals(properties.getProperty(

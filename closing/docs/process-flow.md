@@ -6,11 +6,38 @@
 
 | 계층 | 책임 | 예시 |
 | --- | --- | --- |
-| Inbound Adapter | 외부 요청을 유즈케이스 호출로 변환 | `ClosingController` |
-| Application Service | 트랜잭션 경계, 도메인 협업, 외부 포트 호출 | `ClosingService`, `AnnualClosingService`, `FxValuationService`, `EclProvisionService` |
-| Domain | 상태 변경 규칙과 검증 | `ClosingCalendar.validateReadyToClose`, `ClosingCalendar.close` |
-| Outbound Port | 기술 독립 외부 인터페이스 | `ClosingCalendarPersistencePort`, `EclAllowanceResultPort`, `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort` |
-| Infrastructure Adapter | JPA/JDBC/외부 시스템 실제 구현 | `ClosingCalendarRepository`, `JdbcEclAllowanceResultAdapter` |
+| Inbound Adapter | 외부 요청을 유즈케이스 호출로 변환 | `ClosingController`, `EodLifecycleController` |
+| Application Service | 트랜잭션 경계, 도메인 협업, 외부 포트 호출 | `ClosingService`, `EodLifecycleService`, `AnnualClosingService`, `FxValuationService`, `EclProvisionService` |
+| Domain | 상태 변경 규칙과 검증 | `DailyClosingStatus`, `ClosingCalendar.validateReadyToClose`, `ClosingCalendar.close` |
+| Outbound Port | 기술 독립 외부 인터페이스 | `DailyClosingStatusPersistencePort`, `ClosingCalendarPersistencePort`, `EclAllowanceResultPort`, `FxExchangeRateLookupPort`, `AllowanceBalanceLookupPort`, `ClosingJournalEntryPort` |
+| Infrastructure Adapter | JPA/JDBC/외부 시스템 실제 구현 | `JpaDailyClosingStatusPersistenceAdapter`, `ClosingCalendarRepository`, `JdbcEclAllowanceResultAdapter` |
+
+## 일마감 EOD/BOD 흐름
+
+```mermaid
+sequenceDiagram
+    participant Operator as 결산 운영자
+    participant Gateway as Gateway/JWT
+    participant API as EodLifecycleController
+    participant Service as EodLifecycleService
+    participant Store as DailyClosingStatusPersistencePort
+
+    Operator->>Gateway: EOD prepare/start/complete
+    Gateway->>API: 검증된 X-Auth-User/Roles
+    API->>Service: 날짜별 명명된 명령
+    Service->>Store: 대상 날짜 PESSIMISTIC_WRITE 조회
+    Service->>Store: OPEN → PRE_CLOSING → CLOSING_IN_PROGRESS → CLOSED
+    Operator->>Gateway: 전일과 다음 영업일을 명시해 BOD 시작
+    API->>Service: startBod(closedDate, nextBusinessDate)
+    Service->>Store: 전일 CLOSED 잠금/검증
+    Service->>Store: 다음 날짜 BOD_IN_PROGRESS 신규 저장
+    API->>Service: completeBod(nextBusinessDate)
+    Service->>Store: 다음 날짜 OPEN
+```
+
+`CLOSED`는 같은 날짜에서 `BOD_IN_PROGRESS`로 전이하지 않습니다. 이 규칙은 전일 마감 이력을 보존하고, 주말·휴일을 포함한 다음 영업일 선택을 운영 캘린더가 명시하도록 합니다. 같은 목표 상태의 재시도는 멱등 처리하지만 중간 상태를 건너뛰는 명령은 실패합니다.
+
+현재 Journal의 `AccountingPeriodStatusPort`는 Master Data 월 회계기간을 기준으로 전표를 차단합니다. EOD 상태의 거래 허용 값을 Journal 생성 경로에 연결하는 것은 별도 통합 범위이며, 그 전까지 이 상태 머신 자체가 시스템 전체 거래를 차단하지는 않습니다.
 
 ## 월말 결산 기본 흐름
 

@@ -35,5 +35,11 @@ class ClosingApplicationContextTest {
     void contextLoadsWithOnlyClosingRuntimeBoundaries() {
         assertThat(environment.getProperty("spring.application.name"))
                 .isEqualTo("closing-service");
+        assertThat(environment.getProperty("spring.flyway.locations"))
+                .isEqualTo("classpath:db/closing-migration");
+        assertThat(environment.getProperty("spring.flyway.table"))
+                .isEqualTo("flyway_schema_history_closing");
+        assertThat(environment.getProperty("spring.flyway.baseline-version"))
+                .isEqualTo("49");
     }
 }
