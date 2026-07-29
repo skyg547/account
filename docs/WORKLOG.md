@@ -1833,3 +1833,5 @@
 
 - [x] Resolved Issue #59: [frontend] 재무/은행회계 전표(Journal Entry) 입력 및 승인 워크플로우 UI 구현 (Automated Loop)
 
+- [x] Resolved Issue #58: [reporting] IFRS 기반 재무상태표(B/S) 및 포괄손익계산서(I/S) 집계 코어 로직 (Automated Loop)
+
