@@ -16,7 +16,7 @@ Client
 
 ## 2. 보호 업무 API 요청
 
-예: `GET /api/basic/account-subjects`
+예: `GET /api/basic/account-subjects` 또는 `GET /api/master-data/change-requests/pending`
 
 ```text
 1. RequestIdFilter
@@ -45,7 +45,8 @@ Client
    - UNAVAILABLE: 503
 
 6. Spring Cloud Gateway route
-   - Eureka에서 대상 서비스 인스턴스 선택
+   - `/api/basic/**`와 `/api/master-data/**`는 레거시 catch-all보다 앞선 `master-data-api`를 선택
+   - Eureka에서 `lb://master-data` 서비스 인스턴스 선택
    - 요청 전달
 ```
 

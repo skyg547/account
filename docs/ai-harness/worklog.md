@@ -1,3 +1,29 @@
+## 2026-07-30 - Issue #42 Master Data partner approval UI/API
+
+- Owner: Codex acting as Integrator with Frontend, Controller-audit, Gateway, and Test roles.
+- Branch/worktree: `agent/42-master-data-approval` / `C:\tmp\account-42-master-data-approval`.
+- Base: `origin/main@c0fb871b`.
+- Scope:
+  - Added the `/master-data/partner` registration and approval screen with real backend DTOs and strict API failure handling.
+  - Connected BUSINESS_PARTNER change-request creation, pending lookup, approval, rejection, and current-partner lookup.
+  - Used the configured Gateway API base, trusted JWT-derived actor/role headers, role gates for every exposed change-request endpoint, and typed payload validation before request/approval state transitions.
+  - Corrected the legacy partner page DTO fields and approval menu route.
+  - Routed `/api/master-data/**` through the existing Master Data gateway route while preserving route ordering and circuit-breaker policy.
+  - Added controller contract tests and expanded the gateway route policy test.
+- Verification:
+  - Master Data Core 13, API 9, and Gateway 30 tests passed; failures/errors/skipped 0.
+  - Master Data API and Gateway bootJars passed.
+  - Focused frontend ESLint, `git diff --check`, conflict-marker scan, and API-path/header scans passed.
+  - Next source compilation passed; the repository-wide type check then stopped on two pre-existing `PageHeader.breadcrumbs` errors outside Issue #42.
+  - Independent re-review passed with no remaining P0-P3 findings after the API URL, trusted actor/role, and payload-review fixes.
+- Risks:
+  - Pending requests need server-side target filtering, pagination, and a payload projection instead of raw JSON.
+  - Trusted headers assume the Master Data service is reachable only behind Gateway; direct service-port exposure must remain prohibited.
+  - Browser visual QA was blocked by an unresponsive local Next dev server; the exact processes and temporary junction were removed.
+  - Docker CLI was unavailable, so Compose build-argument wiring received static review but no `docker compose config` execution.
+- Rollback:
+  - Revert the Issue #42 feature commit; no schema or live data was changed.
+
 ## 2026-07-29 - Issue #40 Master Data executable module split
 
 - Owner: Codex acting as Coder/Integrator Agent.

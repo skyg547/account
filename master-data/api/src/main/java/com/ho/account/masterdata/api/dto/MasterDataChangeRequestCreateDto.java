@@ -34,18 +34,15 @@ public class MasterDataChangeRequestCreateDto {
     @Positive
     private Integer requestedVersion;
 
-    @NotBlank
-    @Size(max = 80)
-    private String requestedBy;
-
     @Size(max = 500)
     private String reason;
 
     private String payloadJson;
 
-    public MasterDataChangeRequestCommand toCommand() {
+    public MasterDataChangeRequestCommand toCommand(String authenticatedRequester) {
         return new MasterDataChangeRequestCommand(
-                targetType, targetKey, changeType, effectiveDate, requestedVersion, requestedBy, reason, payloadJson);
+                targetType, targetKey, changeType, effectiveDate, requestedVersion,
+                authenticatedRequester, reason, payloadJson);
     }
 
     public MasterDataType getTargetType() { return targetType; }
@@ -58,8 +55,6 @@ public class MasterDataChangeRequestCreateDto {
     public void setEffectiveDate(LocalDate effectiveDate) { this.effectiveDate = effectiveDate; }
     public Integer getRequestedVersion() { return requestedVersion; }
     public void setRequestedVersion(Integer requestedVersion) { this.requestedVersion = requestedVersion; }
-    public String getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(String requestedBy) { this.requestedBy = requestedBy; }
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
     public String getPayloadJson() { return payloadJson; }

@@ -55,6 +55,16 @@ docker-compose up --build
 *   `src/styles`: 전역 디자인 규칙 (`globals.css`)
 *   `docs`: 여러분을 위한 상세 가이드 문서함
 
+## 🔗 거래처 등록·승인 API 연동
+
+- `/master-data/partner`는 거래처 목록과 `BUSINESS_PARTNER` 변경 요청의 승인 대기열을 실제 Master Data API에서 조회합니다.
+- 신규 거래처는 직접 저장 API를 호출하지 않고 `POST /api/master-data/change-requests`로 `REQUESTED` 요청을 만듭니다.
+- 승인과 반려는 각각 `POST /api/master-data/change-requests/{id}/approve`, `POST /api/master-data/change-requests/{id}/reject`를 사용합니다.
+- API 주소는 build-time `NEXT_PUBLIC_API_URL`을 사용합니다. `.env.local`은 Gateway `http://localhost:8000/api`, production 기본은 ingress/reverse proxy를 통과하는 same-origin `/api`입니다.
+- Docker build에서는 `NEXT_PUBLIC_API_URL` build argument를 주입해야 하며, 저장소 Compose는 로컬 Gateway 8000을 기본값으로 전달합니다.
+- 브라우저가 임의의 사용자 ID/역할 헤더를 만들지 않고 로그인 응답의 Bearer 토큰만 전달합니다. Backend actor와 권한은 Gateway의 검증된 JWT 정보에서 결정됩니다.
+- API 오류는 빈 목록이나 Mock 데이터로 숨기지 않고 화면에 표시합니다.
+
 ---
 **담당자: [프론트]**
 *마지막 수정: 2026-04-22*

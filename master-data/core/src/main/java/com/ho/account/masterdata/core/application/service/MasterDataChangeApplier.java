@@ -14,5 +14,12 @@ public interface MasterDataChangeApplier {
     // typed applier와 버전 조회 어댑터를 함께 연결해야 한다. 구현 전에는 요청 접수부터 fail-closed한다.
     MasterDataChangeRequest.MasterDataType targetType();
 
+    /**
+     * 상태 전이 전에 payload를 typed command/domain 규칙으로 검증합니다.
+     */
+    default void validate(MasterDataChangeRequest request) {
+        // Target-specific appliers opt in when their command/domain exposes validation.
+    }
+
     void apply(MasterDataChangeRequest request);
 }

@@ -9,7 +9,7 @@ export const partnerMenu: MenuGroup[] = [
     requiredRoles: ['MASTER_MANAGER', 'ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [
       { icon: 'Users',       label: '거래처 조회/등록',  href: '/partner/list' },
-      { icon: 'CheckCircle', label: '기준정보 변경 승인', href: '/partner/approval' },
+      { icon: 'CheckCircle', label: '기준정보 변경 승인', href: '/master-data/partner' },
     ],
   },
 ];

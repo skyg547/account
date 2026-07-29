@@ -15,10 +15,11 @@ Gateway 하나만 외부에 공개하면 클라이언트는 `http://localhost:80
 
 Gateway의 책임은 다음과 같습니다.
 
-- **주소 은닉과 라우팅**: `/api/basic/**`, `/api/journals/**` 같은 경로를 해당 서비스로 전달합니다.
+- **주소 은닉과 라우팅**: `/api/basic/**`, `/api/master-data/**`, `/api/journals/**` 같은 경로를 해당 서비스로 전달합니다.
 - **JWT 1차 검문**: 서명, issuer, 발급/만료 시각, 사용자, 역할, `roleVersion`을 검사합니다.
 - **권한 스냅샷 확인**: Auth의 현재 `roleVersion`과 JWT 값을 비교해 역할 변경 전 토큰을 거절합니다.
 - **신뢰 헤더 재생성**: 클라이언트가 보낸 `X-Auth-*`는 삭제하고 검증된 JWT 값으로 다시 만듭니다.
+- **Master Data 승인 권한**: 변경요청 API는 재생성된 사용자/역할 헤더를 사용해 관리 역할과 maker-checker actor를 검증합니다.
 - **추적 번호 관리**: 안전한 `X-Request-Id`를 요청과 응답에 전달합니다.
 - **서킷 브레이커**: 뒤쪽 서비스 장애가 전체 장애로 번지지 않게 503 fallback을 반환합니다.
 

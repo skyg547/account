@@ -1,3 +1,20 @@
+## 2026-07-30 (Issue #42 Master Data 거래처 승인 UI/API)
+- 요청 목표: 거래처 등록과 `REQUESTED` 변경요청의 승인·반려를 실제 Master Data API에 연결한다.
+- 변경:
+  - `/master-data/partner` 화면과 실제 Backend DTO 기반 `masterDataService`를 구현했다.
+  - 기존 거래처 화면 DTO와 메뉴 경로를 정정하고, Gateway가 `/api/master-data/**`를 Master Data로 라우팅하게 했다.
+  - `NEXT_PUBLIC_API_URL`을 실제 호출 기준으로 사용하고 로컬 기본값을 Gateway 8000으로 정렬했다.
+  - trusted `X-Auth-User`/`X-Auth-Roles`, 승인 역할 게이트, 접수·승인 전 BUSINESS_PARTNER payload 검증을 추가했다.
+  - 거래처 및 변경요청 Controller 계약과 Gateway route 정책 테스트를 추가·확장했다.
+- 검증:
+  - Master Data Core 13, API 9, Gateway 30, 총 52 tests와 API/Gateway bootJar가 통과했다.
+  - 변경 프런트 ESLint, diff/conflict/legacy-path 정적 검사가 통과했다.
+  - 전체 Next type check/build는 이번 변경과 무관한 기존 `PageHeader.breadcrumbs` 누락 2건에서 중단됐다.
+  - 독립 재검토는 P0-P3 finding 없이 PASS했다. Docker CLI 부재로 Compose 실행 검증은 미실행했다.
+- 리스크:
+  - pending API의 서버측 필터·pagination·payload projection과 Gateway-only 서비스 노출 보장이 후속 보안/확장성 범위다.
+  - 로컬 dev server 응답 지연으로 브라우저 시각 검증은 미완료다.
+
 ## 2026-07-29 (Issue #40 Master Data API/Core/Batch split)
 - 요청 목표: `master-data`를 실제 배포 가능한 `api`, `batch`와 재사용 library인 `core`로 물리 분리한다.
 - 통합: PR `#158`이 merge commit `178a7eb1`로 `main`에 병합됐고 `Fixes #40`으로 Issue가 닫혔다.
