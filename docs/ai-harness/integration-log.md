@@ -116,3 +116,13 @@ Recommended integration order remains:
 - Test result: 176 executed tests passed, failures/errors/skips 0; Closing API, Closing Batch, and Config Server bootJars passed. Internal-audit tests and API/Batch production sources are `NO-SOURCE`.
 - Result: ready for the user-authorized issue-scoped commit, push, and Draft PR. Merge and Issue close remain outside authorization.
 - Safety: both named stashes remain; unrelated untracked `create-deep-issues.ps1` and `create-financial-issues.ps1` are excluded from the commit.
+
+## 2026-07-29 - GH-20 Main Parity Reconciliation
+
+- Issue/branch/worktree: closed Issue `#20`, `agent/20-closing-consistency`, `C:\Users\skyg547\IdeaProjects\account-closing-20`.
+- Compared base: local `f3d33ea` snapshot against fetched `origin/main@ce35ce5`.
+- Result: Closing production, tests, contracts/Master Data/Journal bridge, and Closing module docs have no content difference from main. The implementation entered main in `31be6f1` together with Issue #60 changes.
+- Integration decision: retained main's Issue #29 audit split and subsequent Issue #60/#62/#64/#66 infrastructure; did not create a duplicate Closing code commit. Fast-forwarded the feature branch to `ce35ce5`.
+- Verification: 98 directly affected tests passed and Closing API/Batch plus Config Server bootJars passed.
+- Main regression found: `MasterDataConfigurationPolicyTest.rootAndModuleComposeUsePort8082AndRepositoryRootBuildContext` and `ConfigServerConfigurationPolicyTest.rootComposeMountsRepositoryAndAllClientsWaitForConfigHealth` fail because Issue #66 removed/commented those root Compose services. This is recorded but not changed in the Closing branch.
+- Safety: three named stashes remain; no stash, branch, worktree, Issue, or PR was deleted/closed/merged by this reconciliation.

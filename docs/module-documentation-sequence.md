@@ -770,3 +770,13 @@ java -jar config-server/build/libs/config-server-0.0.1-SNAPSHOT.jar --spring.pro
 - 최신 main `f3d33ea`의 Issue #29 internal-audit split과 감사 패키지 이동을 보존하고 삭제된 standalone Application/test를 되살리지 않았습니다. 중간 AuditAspect 수정은 최종 PR에서 제외했습니다.
 - 최신 기준 176 tests와 Closing API/Batch, Config Server의 3 bootJars가 성공했습니다. internal-audit 세 모듈의 test와 API/Batch production source가 `NO-SOURCE`인 상태는 별도 위험입니다.
 - Issue #20 전용 `agent/20-closing-consistency` 브랜치를 repository root에서 사용합니다. 복구용 stash는 유지하며 사용자 승인 범위는 commit/push/Draft PR까지이고 merge/Issue close는 포함하지 않습니다.
+
+## 37차 후속 상세
+
+### Closing 고도화 main 반영 확인과 브랜치 정합화
+
+- 최신 `origin/main@ce35ce5`와 82-path transfer snapshot을 비교해 Closing production/test/module docs 및 필수 bridge 변경이 모두 동일함을 확인했습니다.
+- 고도화는 `31be6f1`에 이미 포함되어 main에 병합됐으므로 중복 코드를 적용하지 않고 Issue #20 feature 브랜치를 fast-forward했습니다.
+- Shared Kernel/Contracts, Closing 연계 Master Data 어댑터, Journal Ledger, Closing core/api/batch, ECL의 98 tests와 3 bootJars가 성공했습니다.
+- Issue #66이 root Compose의 Master Data/Config Server 서비스를 제거·주석 처리한 뒤 기존 정책 테스트 2건이 실패하는 main 회귀는 Closing 범위 밖 후속으로 분리했습니다.
+- 세 recovery stash는 유지하고, 이번 feature branch에는 비교·검증·롤백 사실을 담은 하네스 기록만 커밋·PR merge합니다. Issue #20은 이미 CLOSED입니다.
