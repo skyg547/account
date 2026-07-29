@@ -1859,3 +1859,5 @@
 
 - [x] Resolved Issue #46: [asset-lease] 고정자산 및 리스회계(IFRS16) 도메인 초기 설계 (Automated Loop)
 
+- [x] Resolved Issue #45: [budget] 예산 통제(Budget Control) 모듈 스켈레톤 및 헥사고날 구조 세팅 (Automated Loop)
+
