@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #157 자동 완료)
+﻿### 📅 2026-07-30 (Issue #59 자동 완료)
+### [자동 처리] [frontend] 재무/은행회계 전표(Journal Entry) 입력 및 승인 워크플로우 UI 구현
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #157 자동 완료)
 ### [자동 처리] [보안-p0] application.yml 내 평문 비밀번호 제거 및 환경변수 전환
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2028,6 +2033,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
