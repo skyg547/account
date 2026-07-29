@@ -1,5 +1,6 @@
 ## 2026-07-30 (Issue #42 Master Data 거래처 승인 UI/API)
 - 요청 목표: 거래처 등록과 `REQUESTED` 변경요청의 승인·반려를 실제 Master Data API에 연결한다.
+- 통합: PR `#234`가 source commit `c8f2b81a`, merge commit `57aa1729`로 `main`에 병합됐고 `Fixes #42`로 Issue가 닫혔다. 원격 source branch도 삭제됐다.
 - 변경:
   - `/master-data/partner` 화면과 실제 Backend DTO 기반 `masterDataService`를 구현했다.
   - 기존 거래처 화면 DTO와 메뉴 경로를 정정하고, Gateway가 `/api/master-data/**`를 Master Data로 라우팅하게 했다.

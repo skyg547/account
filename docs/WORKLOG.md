@@ -1,5 +1,5 @@
 ### 📅 2026-07-30 (Codex Issue #42 실제 구현)
-### [리뷰 준비] 거래처 등록·심사 승인 화면과 Master Data 승인 API 연동
+### [통합 완료] 거래처 등록·심사 승인 화면과 Master Data 승인 API 연동
 
 - **작업 배경**:
   - 기존 자동화가 문서만 추가하고 Issue #42를 닫아 closure audit에서 실제 화면/API 연동 부재를 확인했다.
@@ -18,7 +18,7 @@
   - Next production source compilation은 성공했지만 전체 type check는 기존 `profile/pat`, `system/tokens`의 `PageHeader.breadcrumbs` 누락 2건으로 중단됐다.
   - 최초 독립 리뷰 finding을 보정한 뒤 재검토에서 P0-P3 없이 PASS했다. Docker CLI가 없어 Compose는 정적 구조까지만 확인했다.
 - **현재 상태와 위험**:
-  - Branch/worktree는 `agent/42-master-data-approval` / `C:\tmp\account-42-master-data-approval`이며 독립 리뷰와 PR 통합 전 상태다.
+  - PR #234가 merge commit `57aa1729`로 병합됐고 `Fixes #42`가 Issue를 자동 종료했다. 원격 source branch 삭제도 확인했다.
   - 대기 조회가 모든 target type과 raw `payloadJson`을 반환한 뒤 client가 필터링하므로 서버측 type filter, pagination, 응답 projection이 후속 과제다.
   - 신뢰 헤더 계약은 Master Data 서비스가 Gateway 뒤에서만 접근된다는 배포 경계를 전제로 하므로 서비스 포트를 외부에 직접 공개하면 안 된다.
   - 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload 승인 finding은 모두 코드와 회귀 테스트로 해소했고 재검토가 PASS했다.

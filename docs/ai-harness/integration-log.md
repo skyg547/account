@@ -1,5 +1,20 @@
 # Integration Log
 
+## 2026-07-30 - GH-42 Master Data Partner Approval Integration
+
+- Issue: `#42 [frontend] 거래처 심사 승인(Master Data Approval) 화면 구현 및 API 연동`; state `CLOSED`.
+- Source branch/worktree: `agent/42-master-data-approval` / `C:\tmp\account-42-master-data-approval`.
+- Target branch: `main`.
+- Pull request: `#234 feat: implement Master Data partner approval`.
+- Integrator Agent: Codex parent Integrator.
+- Merge command: `gh pr ready 234`, then `gh pr merge 234 --merge`.
+- Source/merge commits: `c8f2b81a` / `57aa1729dd7bab310542c3e0e0dcfd6f31c303b7`.
+- Conflict status: none; source branch was based on current `origin/main@c0fb871b` with ahead/behind `0/0` before commit.
+- Verification: Master Data Core 13, API 9, Gateway 30 tests; API/Gateway bootJars; focused frontend ESLint; diff/conflict/legacy trust scans; independent re-review PASS.
+- Result: PR merged at `2026-07-29T17:21:59Z`; `Fixes #42` closed the Issue at `2026-07-29T17:22:00Z`; remote source branch was deleted.
+- Residuals: repository-wide frontend type check has two pre-existing `PageHeader.breadcrumbs` errors; browser visual QA and Docker CLI validation were unavailable; pending APIs still need filter/pagination/projection.
+- Rollback: revert merge commit `57aa1729`; no schema or live data changed.
+
 ## 2026-07-29 - GH-40 Master Data Module Split Integration
 
 - Issue: `#40 [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리`; state `CLOSED`.

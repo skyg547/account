@@ -2,9 +2,10 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#42`의 거래처 등록·심사 승인 화면과 실제 API 연동 구현은 완료됐고 독립 리뷰 전 상태입니다.
+- GitHub Issue `#42`의 거래처 등록·심사 승인 화면과 실제 API 연동은 PR #234로 `main`에 병합됐고 Issue도 닫혔습니다.
 - Branch/worktree: `agent/42-master-data-approval`, `C:\tmp\account-42-master-data-approval`.
 - Base: `origin/main@c0fb871b`.
+- Integration: source `c8f2b81a`, merge `57aa1729`; 원격 source branch 삭제 확인.
 - Backend production Controller와 application/domain 전이는 이미 존재해 중복 구현하지 않았고, 사용을 막던 Gateway 경로를 실제 호출 범위에 맞췄습니다.
 
 ## Changes And Boundaries
@@ -35,8 +36,8 @@
 
 ## Next Gate
 
-- 최초 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload/P2 심사 표시 finding은 코드와 회귀 테스트로 해소했습니다.
-- 수정 diff 독립 재검토는 남은 P0-P3 없이 PASS했습니다. commit, Draft PR, Ready 전환, merge, Issue close, integration record 순으로 진행합니다.
+- 최초 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload/P2 심사 표시 finding은 코드와 회귀 테스트로 해소했고 수정 diff 재검토도 PASS했습니다.
+- 이 integration record PR을 병합한 뒤 구현/기록 worktree와 로컬 브랜치를 제거하고 root `main`을 fast-forward합니다.
 
 ---
 
