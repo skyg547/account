@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-29 (전사 모듈 전수 조사 및 이슈 생성)
+﻿### 📅 2026-07-30 (Issue #182 자동 완료)
+### [자동 처리] [reporting] InMemoryJournalQueryAdapter UnsupportedOperationException 제거
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-29 (전사 모듈 전수 조사 및 이슈 생성)
 ### [전수 조사] 51개 서브모듈 + 프론트엔드 전수 조사 완료 및 중복 없는 GitHub Issue 25건 생성
 - **작업 배경**:
   - ccount 저장소 내 전체 모듈(51개 서브모듈 + 프론트엔드)의 헥사고날 구조, 코드 품질, 테스트, 문서화, Application 설정, 빌드/의존성, 보안 상태 전수 검사 수행.
@@ -1908,6 +1913,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
