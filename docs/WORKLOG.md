@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #50 자동 완료)
+﻿### 📅 2026-07-30 (Issue #49 자동 완료)
+### [자동 처리] [loan] 여신(Loan) 실행 및 원리금 수납(Repayment) 도메인 주도 설계 적용
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #50 자동 완료)
 ### [자동 처리] [ecl] 대손충당금(ECL) 모델링 및 IFRS9 Stage 분류 로직 구현
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2078,6 +2083,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
