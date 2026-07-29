@@ -1863,3 +1863,5 @@
 
 - [x] Resolved Issue #44: [journal-ledger] 총계정원장(GL) 및 분장(Sub-ledger) 도메인 모델링 (Automated Loop)
 
+- [x] Resolved Issue #43: [closing] EOD/BOD 결산 상태 관리 도메인 설계 (EodState) (Automated Loop)
+
