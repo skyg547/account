@@ -2,9 +2,10 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#40`의 `master-data:api`, `:batch`, `:core` 헥사고날 멀티 프로젝트 분리를 구현하고 자동 PR/merge할 준비 단계입니다.
-- Branch/worktree: `agent/40-master-data-modules`, `/tmp/account-40-master-data-modules`.
-- Base: `origin/main@fbad9110`; final-record 작성 직전 ahead/behind는 `0/0`이었습니다.
+- GitHub Issue `#40`의 `master-data:api`, `:batch`, `:core` 헥사고날 멀티 프로젝트 분리는 완료·병합됐고 Issue도 닫혔습니다.
+- Implementation branch/worktree: `agent/40-master-data-modules`, `/tmp/account-40-master-data-modules`.
+- Integration: PR `#158`, source commit `20e49360`, merge commit `178a7eb19d7cb8890e87b0c3fcb8994e23ed5393`; Issue `CLOSED`.
+- Base: implementation 시작 시 `origin/main@fbad9110`; commit 직전 ahead/behind는 `0/0`이었습니다.
 - 원본 `/home/ho/dev/account` main checkout의 사용자 변경(`master-data/Dockerfile`, `master-data/docker-compose.yml`)은 건드리지 않았습니다.
 
 ## Changes And Boundaries
@@ -36,8 +37,8 @@
 
 ## Next Gate
 
-- 독립 Reviewer가 최종 diff와 테스트 근거를 findings-first로 확인합니다.
-- blocking finding이 없으면 commit/push, `Fixes #40` PR 생성, merge, Issue close 확인 후 worktree를 제거합니다.
+- 독립 Reviewer는 blocking/high/medium finding 없이 PASS했습니다.
+- 이 integration record 후속 PR을 병합한 뒤 두 Issue #40 worktree와 로컬/원격 후속 브랜치를 제거하고 최종 GitHub 상태를 확인합니다.
 
 ---
 

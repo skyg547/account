@@ -3,6 +3,7 @@
 - Owner: Codex acting as Coder/Integrator Agent.
 - Branch/worktree: `agent/40-master-data-modules` / `/tmp/account-40-master-data-modules`.
 - Base: `origin/main@fbad9110` (0 ahead / 0 behind before final records).
+- Integration: PR `#158` merged as `178a7eb1`; `Fixes #40` closed the Issue.
 - Scope:
   - Moved HTTP entry point/controllers/DTOs to `master-data:api`.
   - Moved scheduler orchestration and reporting to `master-data:batch`; added a required-`asOfDate` Spring Batch Job/Step that delegates business aggregation to core.

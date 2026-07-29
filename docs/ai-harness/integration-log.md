@@ -1,5 +1,19 @@
 # Integration Log
 
+## 2026-07-29 - GH-40 Master Data Module Split Integration
+
+- Issue: `#40 [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리`; state `CLOSED`.
+- Source branch/worktree: `agent/40-master-data-modules` / `/tmp/account-40-master-data-modules`.
+- Target branch: `main`.
+- Pull request: `#158 [#40] Split Master Data API, Batch, and Core modules`.
+- Integrator Agent: Codex parent Integrator.
+- Merge command: `gh pr merge 158 --merge --delete-branch`.
+- Source/merge commits: `20e49360` / `178a7eb19d7cb8890e87b0c3fcb8994e23ed5393`.
+- Conflict status: none; source branch was based on the current `origin/main` with ahead/behind `0/0` before commit.
+- Verification: JDK 17 Master Data core/API/Batch 6 tests plus Journal Ledger core 23 tests, two Master Data bootJars, populated-H2 Job counts, Config fail-fast/local runtime, static boundary checks, and independent Reviewer PASS.
+- Result: PR merged at `2026-07-29T14:43:28Z`; `Fixes #40` closed the Issue at `2026-07-29T14:43:29Z`.
+- Rollback: revert merge commit `178a7eb1`; no migration contents or live database state changed.
+
 ## 2026-06-25 - Harness Bootstrap Integration
 
 - Integrator: Codex.
