@@ -1,3 +1,43 @@
+# AI Harness Handoff - 2026-07-30 Issue #43 EOD/BOD Lifecycle
+
+## Active Goal And State
+
+- GitHub Issue `#43` is implemented on `agent/43-eod-state` in `C:\tmp\account-43-eod-state`.
+- Base is `origin/main@5fb9cb67`; implementation and full verification are complete, while independent review and remote PR gates remain.
+- The old docs-only closure note did not implement a callable lifecycle. This branch supplies the production domain, use case, persistence, migration, API, and Gateway path.
+
+## Changes And Boundaries
+
+- `DailyClosingStatus` is one aggregate per business date with canonical `EodState`, optimistic version, and stage-specific actor/timestamp audit fields.
+- Same-row transitions are `OPEN → PRE_CLOSING → CLOSING_IN_PROGRESS → CLOSED`, with preparation cancellation to `OPEN`; `CLOSED` is terminal.
+- `startBod(closedDate,nextBusinessDate)` locks and validates the latest prior `CLOSED`, preserves it, and creates a separate explicit next date in `BOD_IN_PROGRESS`. No calendar date is guessed.
+- `EodLifecycleUseCase` and its transactional service coordinate the domain through `DailyClosingStatusPersistencePort`; the JPA adapter owns locked reads and persistence conflict translation.
+- The HTTP adapter exposes only named commands and trusts JWT-derived Gateway actor/role headers. Gateway routes `/api/closing/**` to `closing-service` before the legacy catch-all with a dedicated circuit breaker/fallback.
+- Closing-owned Flyway V50 uses `flyway_schema_history_closing`, baselines existing schemas at 49, upgrades legacy Boolean rows, and removes `is_closed`.
+- Monthly/annual authority stays with `ClosingCalendar`, Master Data `FiscalPeriod`, and `AnnualClosingService`; unused `ClosingPeriod` classes/repository were removed.
+- Closing API and Batch now explicitly compose the BusinessPartner JPA entity/adapter required after Issue #41.
+
+## Verification Evidence
+
+- `:closing:core:test`: 59 tests.
+- `:closing:api:test`: 8 tests.
+- `:closing:batch:test`: 12 tests.
+- `:gateway:test`: 31 tests.
+- Total: 110 tests, failures/errors/skipped 0.
+- `:closing:api:bootJar` and `:closing:batch:bootJar`: passed.
+- Flyway baseline/V50 legacy backfill, JPA locked lookup/version increment, trusted API command mapping, and Gateway route order are covered by focused tests.
+- The first complete run failed on the pre-existing Closing Batch composition omission from Issue #41. After importing the BusinessPartner persistence adapter/entity, the full set passed with `--rerun-tasks`.
+
+## Known Risks And Rollback
+
+- Journal posting still checks monthly `FiscalPeriod` state, not `EodState.transactionAllowed`. Cross-service fail-closed integration is a separate change.
+- PostgreSQL migration execution and live Auth/Gateway/Discovery routing were not available in this local pass.
+- Roll back code with a normal feature-commit revert. Do not drop migrated audit data; a V50 schema rollback would need a separate reviewed forward migration.
+
+## Next Gate
+
+- Run independent read-only review, resolve all P0-P3 findings, then create/merge the Issue-closing PR under the authorized gate and record its final hashes.
+
 # AI Harness Handoff - 2026-07-30 Issue #42 Master Data Partner Approval
 
 ## Active Goal And State

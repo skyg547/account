@@ -1,3 +1,25 @@
+### 📅 2026-07-30 (Codex Issue #43 실제 구현)
+### [리뷰 준비] 날짜 이력을 보존하는 EOD/BOD 상태 머신
+
+- **작업 배경**:
+  - 기존 `EodState`는 호출자가 없는 잘못된 패키지의 enum이었고, `DailyClosingStatus`는 public setter와 `isClosed` Boolean만 가져 상태 전이·감사·동시성을 보장하지 못했다.
+  - 같은 날짜를 `CLOSED → BOD_IN_PROGRESS → OPEN`으로 순환시키면 전일 마감 이력이 사라지며, 사용되지 않던 `ClosingPeriod`는 실제 월/연 권위 모델과 상태를 이중화했다.
+- **변경 범위**:
+  - 날짜별 `DailyClosingStatus` aggregate와 canonical `EodState`, 명명된 EOD/BOD 유즈케이스, 잠금 조회 output port/JPA adapter를 구현했다.
+  - 전일 `CLOSED`는 terminal로 보존하고 운영자가 명시한 다음 영업일을 별도 `BOD_IN_PROGRESS → OPEN` 행으로 생성한다.
+  - actor/단계별 시각, `@Version`, pessimistic-write 조회, 멱등 재시도와 불법 skip 실패 규칙을 추가했다.
+  - 신뢰 헤더 기반 EOD API, Gateway 전용 route/CircuitBreaker/fallback, legacy Boolean backfill Flyway V50과 Closing 전용 schema-history 테이블을 추가했다.
+  - 실제 월/연 모델인 `ClosingCalendar`·Master Data `FiscalPeriod`·`AnnualClosingService`를 유지하고 미사용 `ClosingPeriod` 계열을 제거했다.
+  - #41 이후 누락된 BusinessPartner JPA 어댑터/엔티티 조립을 Closing API와 Batch 실행점에 보강했다.
+- **검증**:
+  - Closing Core 59, API 8, Batch 12, Gateway 31로 총 110 tests가 실패/오류/skip 없이 통과했다.
+  - Closing API/Batch `bootJar`, 실제 Flyway baseline 49 → V50 legacy backfill, JPA locked roundtrip/version 증가가 통과했다.
+  - 첫 전체 실행은 Closing Batch의 누락된 `BusinessPartnerPersistencePort` bean을 발견해 실패했고, composition root 수정 후 전체 세트를 `--rerun-tasks`로 재실행해 통과했다.
+- **현재 상태와 위험**:
+  - 독립 리뷰와 PR 게이트 전이며 branch/worktree는 `agent/43-eod-state` / `C:\tmp\account-43-eod-state`다.
+  - Journal 신규 전표 경로는 아직 Master Data 월 회계기간만 확인한다. `EodState.transactionAllowed`를 서비스 간 fail-closed 계약으로 연결하는 작업은 별도 범위다.
+  - PostgreSQL migration 실행과 live Gateway/Auth/Discovery 연동은 이 로컬 검증에서 수행하지 않았다.
+
 ### 📅 2026-07-30 (Codex Issue #42 실제 구현)
 ### [통합 완료] 거래처 등록·심사 승인 화면과 Master Data 승인 API 연동
 

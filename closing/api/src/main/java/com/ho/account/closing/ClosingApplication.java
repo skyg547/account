@@ -1,6 +1,7 @@
 package com.ho.account.closing;
 
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -18,7 +19,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = {
         "com.ho.account.closing.domain",
         "com.ho.account.journalledger.domain",
-        "com.ho.account.masterdata.core.domain"
+        "com.ho.account.masterdata.core.domain",
+        "com.ho.account.masterdata.core.infrastructure.persistence"
 })
 @EnableJpaRepositories(basePackages = {
         "com.ho.account.closing.infrastructure.persistence",
@@ -27,7 +29,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.ho.account.masterdata.core.infrastructure.persistence.repository"
 })
 @EnableDiscoveryClient
-@Import(JpaFiscalPeriodPersistenceAdapter.class)
+@Import({
+        JpaFiscalPeriodPersistenceAdapter.class,
+        JpaBusinessPartnerPersistenceAdapter.class
+})
 public class ClosingApplication {
 
     public static void main(String[] args) {

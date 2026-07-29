@@ -39,4 +39,13 @@ public class FallbackController {
         response.put("message", "현재 전표/원장(Journal/Ledger) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
     }
+
+    @RequestMapping("/closing")
+    public Mono<ResponseEntity<Map<String, Object>>> closingFallback() {
+        log.error("[서킷 브레이커 발생] Closing 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 결산(Closing) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
 }

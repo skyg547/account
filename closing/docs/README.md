@@ -1,6 +1,6 @@
 # Closing 문서 인덱스
 
-`closing` 모듈은 회계 기간을 닫기 전에 필요한 체크리스트, 게이트, 기간 잠금, 재오픈 승인, 결산 조정 전표, FX/ECL 결산 배치를 관리합니다.
+`closing` 모듈은 날짜별 EOD/BOD, 회계기간 체크리스트, 게이트, 기간 잠금, 재오픈 승인, 결산 조정 전표, FX/ECL 결산 배치를 관리합니다.
 
 초보자는 아래 순서로 읽으면 업무 흐름과 코드 위치를 함께 이해하기 쉽습니다.
 
@@ -15,6 +15,7 @@
 - Batch 엔트리포인트: `closing:batch`, `com.ho.account.closing.batch.ClosingBatchApplication`
 - Runtime 경계: API/Batch는 `com.ho.account` 전체를 스캔하지 않고 Closing과 필요한 Journal/Master Data 로컬 어댑터·저장소만 명시적으로 조립합니다. FX/ECL 대용량 서비스는 Batch에서만 import합니다.
 - Core 책임: `closing:core`의 `application.service`, `application.port`, `domain`, `infrastructure`. FX 평가/ECL 충당의 금액 산출, 차대변 판단, 전표 command 구성도 core 책임입니다.
+- 일/월/연 권위 모델: 일마감은 `DailyClosingStatus`, 월·연 기간 상태는 `ClosingCalendar`와 Master Data `FiscalPeriod`, 연차 손익 대체는 `AnnualClosingService`가 담당합니다. 별도 `ClosingPeriod` 병렬 모델은 사용하지 않습니다.
 - 외부 입력:
   - `master-data`: 회계기간 ID, 회계연도, 회계기간, 시작일/종료일, 마감 상태
   - `master-data`: 기준일 최신 환율과 기준일 유효 계정과목
@@ -27,6 +28,7 @@
 - 필수 태스크 또는 게이트 정의가 하나도 없거나 완료되지 않았으면 마감할 수 없습니다.
 - JSON 완료/게이트 조건이 설정되어 있지만 typed evidence evaluator가 없으면 통과시키지 않습니다.
 - 재오픈은 `CLOSED` 기간에 대해서만 요청할 수 있고 요청자와 승인자는 달라야 합니다.
+- 닫힌 영업일은 같은 행에서 BOD/OPEN으로 되돌리지 않습니다. 다음 영업일은 전일 `CLOSED`를 잠근 뒤 별도 `BOD_IN_PROGRESS` 행으로 생성합니다.
 - FX/ECL 날짜와 실행 ID, 환율, 계정, 확정 summary가 빠지면 배치를 실패시킵니다.
 
 ## 보존한 이전 문서

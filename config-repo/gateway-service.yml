@@ -53,6 +53,17 @@ spring:
               args:
                 name: journalLedgerCircuitBreaker
                 fallbackUri: forward:/fallback/journal-ledger
+
+        # Closing Service 라우팅. 구 모놀리식 catch-all보다 먼저 선언해 결산 명령이 전용 서비스로 갑니다.
+        - id: closing-api
+          uri: lb://closing-service
+          predicates:
+            - Path=/api/closing/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: closingCircuitBreaker
+                fallbackUri: forward:/fallback/closing
                 
         # OpenAPI (Swagger) 문서 긁어오기 라우팅
         - id: openapi-master-data

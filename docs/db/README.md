@@ -45,8 +45,8 @@
 
 ### 2. 결산
 
-- `closing_schema.sql`는 핵심 테이블은 맞지만 `daily_closing_status` 누락이 있다.
-- 결산 신규 작업 시 누락 테이블 보강 여부를 먼저 확인해야 한다.
+- `closing_schema.sql`는 `daily_closing_status`를 포함하며, 실행 migration은 `closing/core/src/main/resources/db/closing-migration/V50__daily_eod_lifecycle.sql`이다.
+- 월·연 기간 상태는 `ClosingCalendar`와 Master Data `FiscalPeriod`를 사용하며 별도 `ClosingPeriod` 병렬 모델은 제거했다.
 
 ### 3. O2C / AR
 
@@ -116,8 +116,7 @@
 | `valuation_batches` | `closing.ValuationBatch` | 대체로 일치 |
 | `provision_batches` | `closing.ProvisionBatch` | 대체로 일치 |
 | `closing_adjustments` | `closing.ClosingAdjustment` | 대체로 일치 |
-| 없음 | `closing.DailyClosingStatus` | 누락 |
-| 없음 | `closing.ClosingPeriod` | 누락/별도 모델 |
+| `daily_closing_status` | `closing.DailyClosingStatus` | V50 migration과 일치 |
 
 ### 4. `current/o2c_ar_schema.sql`
 

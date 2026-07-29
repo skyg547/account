@@ -14,6 +14,17 @@
 | 평가 배치 | `ValuationBatch` | 외화 평가처럼 결산 시점에 평가 조정이 필요한 실행 기록입니다. |
 | 충당 배치 | `ProvisionBatch` | ECL 등 충당금 보충/환입을 처리한 실행 기록입니다. |
 | 결산 조정 | `ClosingAdjustment` | 마감 중 승인된 조정 전표와 회계기간을 연결하는 기록입니다. |
+| 일마감 상태 | `DailyClosingStatus`, `EodState` | 영업일별 EOD/BOD 상태와 처리자·시각을 보존합니다. |
+
+## 일·월·연 결산 모델
+
+| 범위 | 권위 모델 | 설명 |
+| --- | --- | --- |
+| 일 | `DailyClosingStatus` | 날짜별 EOD/BOD 상태 머신과 감사 필드 |
+| 월/기간 | `ClosingCalendar` + Master Data `FiscalPeriod` | 태스크·게이트와 실제 회계기간 잠금 상태 |
+| 연 | `ClosingCalendar(fiscalPeriod=YEAR)` + `AnnualClosingService` | 연간 진행표와 손익 대체 전표 생성 |
+
+사용되지 않던 setter 기반 `ClosingPeriod`는 월/연 상태를 이중으로 저장하므로 제거했습니다.
 
 ## 초보자가 봐야 할 데이터 흐름
 
@@ -38,7 +49,9 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 | 관심사 | 위치 |
 | --- | --- |
 | REST API | `closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java` |
+| EOD/BOD REST API | `closing/api/src/main/java/com/ho/account/closing/web/EodLifecycleController.java` |
 | 유즈케이스 흐름 | `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingService.java` |
+| EOD/BOD 유즈케이스 | `closing/core/src/main/java/com/ho/account/closing/application/service/EodLifecycleService.java` |
 | 연차 손익 대체 | `closing/core/src/main/java/com/ho/account/closing/application/service/AnnualClosingService.java` |
 | 출력 포트 | `closing/core/src/main/java/com/ho/account/closing/application/port/out` |
 | 도메인 상태 규칙 | `closing/core/src/main/java/com/ho/account/closing/domain` |
@@ -55,3 +68,5 @@ FX 평가와 ECL 충당 배치는 기본적으로 `DRAFT` 전표를 생성합니
 - ECL 충당 전표 실행 전 동일 기준일·단일 run/model·단일 법인의 `allowance_summary`가 생성되어 있는지 확인합니다. 현재 GL에는 법인 차원이 없어서 여러 법인을 한 실행에 섞으면 실패합니다.
 - FX 평가 전 기준일 환율과 외화 GL 잔액이 준비되어 있는지 확인합니다.
 - 재오픈 요청자와 승인자가 다른지, 동일 기간에 대기 중인 요청이 없는지 확인합니다.
+- EOD 명령은 Gateway가 검증해 만든 actor/role 헤더를 통해서만 호출하고 서비스 포트를 외부에 노출하지 않습니다.
+- 일마감 상태의 `transactionAllowed=false`는 도메인 판단입니다. Journal 전표 생성 게이트에 연결되기 전까지는 월 회계기간 잠금과 별도로 운영 통제가 필요합니다.
