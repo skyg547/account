@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #56 자동 완료)
+﻿### 📅 2026-07-30 (Issue #55 자동 완료)
+### [자동 처리] [journal-ledger] 재무회계 일계표(Daily Trial Balance) 및 원장 마감(Ledger Closing) 배치
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #56 자동 완료)
 ### [자동 처리] [closing] 은행회계 미수/미지급 이자(Accrual) 일할 계산 및 자동 분개 발생 처리
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2048,6 +2053,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
