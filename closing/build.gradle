@@ -11,7 +11,7 @@ dependencies {
 
     implementation project(':contracts')
     implementation project(':shared-kernel')
-    implementation project(':master-data')
+    implementation project(':master-data:core')
     implementation project(':journal-ledger:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -23,3 +23,4 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
+

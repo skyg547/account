@@ -1,0 +1,1 @@
+package com.ho.account.masterdata.batch; import org.springframework.boot.SpringApplication; import org.springframework.boot.autoconfigure.SpringBootApplication; @SpringBootApplication public class MasterDataBatchApplication { public static void main(String[] args) { SpringApplication.run(MasterDataBatchApplication.class, args); } }

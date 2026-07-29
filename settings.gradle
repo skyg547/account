@@ -3,8 +3,8 @@ rootProject.name = 'account'
 include 'app',
         'contracts',
         'shared-kernel',
-        'master-data',
-        'internal-audit',
+        'master-data:core', 'master-data:api', 'master-data:batch',
+        'internal-audit:core', 'internal-audit:api', 'internal-audit:batch',
         'journal-ledger:core',
         'journal-ledger:api',
         'journal-ledger:batch',
@@ -54,4 +54,5 @@ include 'app',
         'discovery',
         'gateway',
         'config-server',
-        'auth'
+        'auth:core', 'auth:api', 'auth:batch'
+
