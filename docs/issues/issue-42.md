@@ -6,6 +6,7 @@
 - Branch: `agent/42-master-data-approval`
 - Worktree: `C:\tmp\account-42-master-data-approval`
 - 2026-07-29 closure audit에서 문서만 추가되고 실제 화면이 없음을 확인해 Issue가 다시 열렸습니다.
+- PR `#234`가 merge commit `57aa1729`로 병합됐고 `Fixes #42`로 Issue가 닫혔습니다.
 
 ## 요구사항
 

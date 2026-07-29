@@ -3,6 +3,7 @@
 - Owner: Codex acting as Integrator with Frontend, Controller-audit, Gateway, and Test roles.
 - Branch/worktree: `agent/42-master-data-approval` / `C:\tmp\account-42-master-data-approval`.
 - Base: `origin/main@c0fb871b`.
+- Integration: PR `#234` merged source `c8f2b81a` as `57aa1729`; `Fixes #42` closed the Issue and the remote source branch was deleted.
 - Scope:
   - Added the `/master-data/partner` registration and approval screen with real backend DTOs and strict API failure handling.
   - Connected BUSINESS_PARTNER change-request creation, pending lookup, approval, rejection, and current-partner lookup.
