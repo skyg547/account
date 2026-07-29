@@ -1843,3 +1843,5 @@
 
 - [x] Resolved Issue #54: [journal-ledger] 은행회계 기준 이중통화(Dual Currency) 분개 처리 구조화 (Automated Loop)
 
+- [x] Resolved Issue #53: [frontend] 재무 상태표 및 손익계산서 대시보드 API 정합성 일치화 (Automated Loop)
+
