@@ -1853,3 +1853,5 @@
 
 - [x] Resolved Issue #49: [loan] 여신(Loan) 실행 및 원리금 수납(Repayment) 도메인 주도 설계 적용 (Automated Loop)
 
+- [x] Resolved Issue #48: [deposit] 수신(Deposit) 계좌 개설 및 해지 상태 전이 흐름 고도화 (Automated Loop)
+
