@@ -1851,3 +1851,5 @@
 
 - [x] Resolved Issue #50: [ecl] 대손충당금(ECL) 모델링 및 IFRS9 Stage 분류 로직 구현 (Automated Loop)
 
+- [x] Resolved Issue #49: [loan] 여신(Loan) 실행 및 원리금 수납(Repayment) 도메인 주도 설계 적용 (Automated Loop)
+
