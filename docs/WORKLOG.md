@@ -1,5 +1,5 @@
 ### 📅 2026-07-30 (Codex Issue #43 실제 구현)
-### [리뷰 준비] 날짜 이력을 보존하는 EOD/BOD 상태 머신
+### [통합 완료] 날짜 이력을 보존하는 EOD/BOD 상태 머신
 
 - **작업 배경**:
   - 기존 `EodState`는 호출자가 없는 잘못된 패키지의 enum이었고, `DailyClosingStatus`는 public setter와 `isClosed` Boolean만 가져 상태 전이·감사·동시성을 보장하지 못했다.
@@ -16,7 +16,7 @@
   - Closing API/Batch `bootJar`, 실제 Flyway baseline 49 → V50 legacy backfill, JPA locked roundtrip/version 증가가 통과했다.
   - 첫 전체 실행은 Closing Batch의 누락된 `BusinessPartnerPersistencePort` bean을 발견해 실패했고, composition root 수정 후 전체 세트를 `--rerun-tasks`로 재실행해 통과했다.
 - **현재 상태와 위험**:
-  - 독립 리뷰와 PR 게이트 전이며 branch/worktree는 `agent/43-eod-state` / `C:\tmp\account-43-eod-state`다.
+  - 독립 리뷰는 P0-P3 finding 없이 PASS했고, PR #236이 source commit `86ebedf9`를 merge commit `10d80939`로 통합했다. `Fixes #43`으로 Issue가 닫혔고 원격 feature branch도 삭제됐다.
   - Journal 신규 전표 경로는 아직 Master Data 월 회계기간만 확인한다. `EodState.transactionAllowed`를 서비스 간 fail-closed 계약으로 연결하는 작업은 별도 범위다.
   - PostgreSQL migration 실행과 live Gateway/Auth/Discovery 연동은 이 로컬 검증에서 수행하지 않았다.
 

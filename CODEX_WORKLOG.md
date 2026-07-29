@@ -1,6 +1,6 @@
 ## 2026-07-30 (Issue #43 EOD/BOD 날짜 상태 머신)
 - 요청 목표: 일마감 상태를 실제 도메인·유즈케이스·영속성·API 흐름으로 연결하고 전일 마감 이력을 보존한다.
-- 상태: `agent/43-eod-state` / `C:\tmp\account-43-eod-state`에서 구현·전체 검증 완료, 독립 리뷰와 PR 게이트 전.
+- 통합: PR `#236`이 source commit `86ebedf9`, merge commit `10d80939`로 `main`에 병합됐고 `Fixes #43`으로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.
 - 변경:
   - `DailyClosingStatus`를 날짜별 상태 aggregate로 전환하고 `EodState`, 단계별 actor/시각, `@Version`을 추가했다.
   - EOD 준비/취소/시작/완료와 전일 `CLOSED`를 보존하는 별도 다음 날짜 BOD 생성/완료 유즈케이스를 구현했다.
@@ -10,6 +10,7 @@
 - 검증:
   - Closing Core 59, API 8, Batch 12, Gateway 31, 총 110 tests와 Closing API/Batch bootJar가 통과했다.
   - Flyway baseline/migration, legacy Boolean backfill, JPA lock/version, API role gate, Gateway route 순서를 회귀 테스트로 확인했다.
+  - 독립 리뷰에서 확인된 Closing 전용 Flyway history와 BOD 직전 선행일 검증을 보완했고, 재검토는 P0-P3 finding 없이 PASS했다.
 - 리스크:
   - Journal의 일마감 거래 차단 연동, PostgreSQL 실DB migration, live Gateway/Auth/Discovery 검증은 후속 범위다.
 
