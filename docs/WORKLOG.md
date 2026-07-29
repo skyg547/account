@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #179 자동 완료)
+﻿### 📅 2026-07-30 (Issue #178 자동 완료)
+### [자동 처리] [config-repo] 설정 리포 문서화 보강 — 모듈별 yml 설명 추가
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #179 자동 완료)
 ### [자동 처리] [frontend] 백엔드 API 정합성 전수 확인
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -1928,6 +1933,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
