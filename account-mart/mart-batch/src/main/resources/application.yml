@@ -65,7 +65,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/ifrs9_allowance_mart_db
     username: allowance_user
-    password: allowance_password
+    password: ${ALLOWANCE_DB_PASSWORD:allowance_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     properties:
@@ -85,7 +85,7 @@ spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/ifrs9_allowance_mart_db
     username: allowance_user
-    password: allowance_password
+    password: ${ALLOWANCE_DB_PASSWORD:allowance_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     properties:
