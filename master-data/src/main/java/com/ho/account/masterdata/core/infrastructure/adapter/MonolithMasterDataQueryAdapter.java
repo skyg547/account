@@ -62,7 +62,7 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
             String businessPartnerCode,
             LocalDate effectiveDate) {
         Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
-        // BusinessPartner.terminate가 과거 행의 legacy useYn도 false로 바꾸므로 Ref.active는
+        // @todo BusinessPartner.terminate가 과거 행의 legacy useYn도 false로 바꾸므로 Ref.active는
         // 기준일 당시의 활성 상태를 완전히 재현하지 못합니다. 버전 종료와 업무 비활성 상태를 분리하고
         // 기존 행을 이관한 뒤 UPDATE/DEACTIVATE 과거 조회 통합 테스트를 통과시키는 것이 완료 조건입니다.
         return businessPartnerRepository
