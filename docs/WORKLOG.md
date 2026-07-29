@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #58 자동 완료)
+﻿### 📅 2026-07-30 (Issue #57 자동 완료)
+### [자동 처리] [reconciliation] 대내외 시스템 간 데이터 대사(Reconciliation) 도메인 설계
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #58 자동 완료)
 ### [자동 처리] [reporting] IFRS 기반 재무상태표(B/S) 및 포괄손익계산서(I/S) 집계 코어 로직
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2038,6 +2043,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
