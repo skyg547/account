@@ -1855,3 +1855,5 @@
 
 - [x] Resolved Issue #48: [deposit] 수신(Deposit) 계좌 개설 및 해지 상태 전이 흐름 고도화 (Automated Loop)
 
+- [x] Resolved Issue #47: [cashflow] 자금수지 및 현금흐름(Cashflow) 도메인 초기 설계 (Automated Loop)
+
