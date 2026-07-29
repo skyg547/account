@@ -42,6 +42,21 @@ SCD2 테이블은 업무 식별 코드와 유효 기간이 함께 중요합니�
 legacy `useYn=true`도 함께 확인합니다. 단건 통화/거래처 조회는 중복 기간이 있으면 한 행을
 임의 선택하지 않고 실패하지만, PostgreSQL 저장 단계의 날짜 범위 exclusion constraint는 아직 필요합니다.
 
+## 거래처 도메인과 JPA 스키마 매핑
+
+| 업무 모델 | 저장 모델 | 테이블 |
+| --- | --- | --- |
+| `BusinessPartner` | `BusinessPartnerJpaEntity` | `business_partners` |
+| `BusinessPartnerAccount` | `BusinessPartnerAccountJpaEntity` | `business_partner_accounts` |
+
+도메인 클래스에는 `@Entity`, `@Table`, `@OneToMany` 같은 JPA annotation이 없습니다.
+`JpaBusinessPartnerPersistenceAdapter`가 ID, 코드, 유형, 등록번호, 유효기간, 감사 필드와
+계좌 목록을 양방향으로 전부 매핑합니다. JPA 모델은 기존 테이블명, 컬럼명, 인덱스,
+`business_partner_id` 외래키와 orphan removal 의미를 유지하므로 이번 리팩터링에는 migration이
+필요하지 않습니다. 도메인 계좌 목록은 방어적으로 복사되고 대표 계좌는 최대 한 개만 허용됩니다.
+SCD2 새 거래처 버전은 계좌의 은행·번호·예금주·SWIFT·대표 여부를 복제하되 계좌 PK는 비워
+새 행으로 저장합니다. 기존 자식 PK를 새 부모에 재사용해 과거 FK를 이동시키지 않습니다.
+
 ## 환율과 회계기간
 
 | 모델 | 핵심 제약/조회 |
@@ -91,9 +106,9 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 
 ## 포트와 어댑터
 
-- `AccountSubjectPersistencePort`, `DepartmentPersistencePort`, `BusinessPartnerPersistencePort`, `ProductPersistencePort`: 애플리케이션 서비스가 저장소 세부 구현을 모르게 하는 출력 포트.
+- `AccountSubjectPersistencePort`, `DepartmentPersistencePort`, `BusinessPartnerPersistencePort`, `ProductPersistencePort`: 애플리케이션 서비스가 저장소 세부 구현을 모르게 하는 출력 포트. 거래처 포트는 현재 버전뿐 아니라 명시적 기준일 버전 조회도 domain 타입으로 제공한다.
 - `MasterDataVersionQueryPort`: targetType/targetKey별 저장된 SCD2 이력 수를 조회하는 출력 포트.
 - `JpaMasterDataVersionQueryAdapter`: targetType을 실제 Repository `COUNT` 메서드에 연결하는 JPA 어댑터.
 - `MasterDataQueryPort`: 다른 모듈이 기준일 기준정보를 이름표 DTO로 조회하는 계약.
 - `FiscalPeriodPersistencePort`: 외부 Closing 계약 어댑터가 JPA Repository를 직접 호출하지 않고 조회/잠금/저장을 요청하는 출력 포트.
-- JPA 어댑터는 `core.infrastructure.persistence` 아래에 두고 core application은 Spring Data Repository를 직접 참조하지 않습니다.
+- JPA 어댑터와 `*JpaEntity`는 `core.infrastructure.persistence` 아래에 두고 core application/domain은 Spring Data와 JPA annotation을 직접 참조하지 않습니다.

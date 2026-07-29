@@ -1,3 +1,23 @@
+### 📅 2026-07-30 (Codex Issue #41 후속 구현)
+### [후속 구현/검증·리뷰 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리
+
+- **작업 배경**:
+  - 작업 중 병렬 자동화의 PR #225가 Issue #41을 문서만으로 닫았고, closure audit이 실제 구현 부재를 확인해 Issue를 다시 열었다.
+  - `BusinessPartner`와 `BusinessPartnerAccount`가 도메인 규칙과 JPA 매핑 책임을 동시에 가져 core가 infrastructure 기술에 결합돼 있었다.
+- **변경 범위**:
+  - 순수 도메인 모델과 `BusinessPartnerJpaEntity`/`BusinessPartnerAccountJpaEntity`를 분리하고 `JpaBusinessPartnerPersistenceAdapter`에서 명시적으로 양방향 매핑했다.
+  - `BusinessPartnerPersistencePort` 뒤로 current/as-of 조회와 저장을 모으고, 서비스는 신규 버전을 먼저 검증한 다음 `closeVersion`과 `terminate`를 의도에 맞게 구분한다.
+  - Controller 응답은 `BusinessPartnerDto.fromDomain`으로 조립하고 사업자등록번호 마스킹을 API 경계로 옮겼다.
+  - Issue #40의 물리 모듈 분리에 맞춰 API/Batch composition root가 영속성 엔티티를 등록하게 했고, 중복·BOM 오류가 있던 API 진입점을 제거했으며, Batch 통합 fixture는 output port로 거래처를 저장한다.
+  - 기존 테이블·컬럼·인덱스·FK와 REST 경로는 유지해 migration을 추가하지 않았다.
+- **검증**:
+  - `main@39dabd4e`의 Issue #40 API/Core/Batch 물리 분리를 통합한 뒤 Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, Journal Ledger 통합 1로 총 50 tests가 실패/오류/skip 없이 통과했다.
+  - Master Data API와 Batch `bootJar` 생성도 통과했다.
+  - 독립 리뷰와 diff/conflict marker/도메인 JPA 누수 정적 검사에서 남은 P0-P3 finding이 없음을 확인했다.
+- **현재 상태와 위험**:
+  - GitHub Issue #41은 현재 OPEN이다. 실제 구현은 `agent/41-business-partner-ddd`의 PR에서 `Fixes #41`로 통합하고 merge 후 자동 종료를 검증한다.
+  - PostgreSQL 실DB 실행, SCD2 기간 중첩 exclusion constraint, 무제한 목록 pagination은 후속 완료 조건이다.
+
 ﻿### 📅 2026-07-30 (Issue #41 자동 완료)
 ### [자동 처리] [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용
 - 헥사고날/DDD 원칙 및 교육적 주석 적용

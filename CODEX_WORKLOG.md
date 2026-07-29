@@ -1646,3 +1646,15 @@
 - The broader suite found two unrelated main regressions in Master Data and Config Server Compose policy tests after Issue #66 removed/commented their root Compose services. These were documented, not fixed in the Closing scope.
 - Issue #20 was already CLOSED. The user authorized main integration of this harness reconciliation through the PR path.
 - Rollback for this handoff is the harness-only reconciliation commit. The already-main Closing implementation is not rolled back by applying an old stash.
+## 2026-07-30 (Issue #41 BusinessPartner domain/JPA separation)
+
+- Issue/branch/worktree: `#41`, `agent/41-business-partner-ddd`, `C:\dev\account\.worktrees\account-41-business-partner-ddd`; rebased onto `main@39dabd4e` after Issue #40 physically split Master Data into API/Core/Batch.
+- PR #225 initially closed Issue #41 with documentation-only commit `cdb892e4`, but a closure audit reopened the Issue because production code was still missing. This branch is the verified implementation and its PR uses `Fixes #41`.
+- Replaced JPA-coupled `BusinessPartner`/`BusinessPartnerAccount` with pure domain models and separate `BusinessPartnerJpaEntity`/`BusinessPartnerAccountJpaEntity`; preserved the existing tables, columns, indexes, child FK and REST paths, so no migration was added.
+- Moved all domain↔JPA conversion into `JpaBusinessPartnerPersistenceAdapter`, kept application services behind `BusinessPartnerPersistencePort`, and changed cross-module query composition to consume that port rather than Spring Data.
+- Added explicit SCD2 `closeVersion` versus business `terminate` semantics, defensive child-account invariants, fail-closed current/as-of lookup, API DTO mapping and registration-number masking.
+- Updated the API and Batch composition roots to register the persistence-owned entity package, removed a duplicate/BOM-prefixed API entry point already superseded by `MasterDataApplication`, and changed the #40 batch integration fixture to persist Business Partners through the output port.
+- Verification: Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, and Journal Ledger integration 1 tests passed; API and Batch bootJars passed. Total observed: 50 tests, 0 failures/errors/skips.
+- Independent review found and drove one correctness fix: next SCD2 versions now copy account values into new child rows with new IDs, preserving both current payment accounts and historical FK ownership. Domain, service-order, child merge, and overlap fail-closed tests cover the corrected contract.
+- Independent post-rebase review and static checks found no remaining P0-P3 findings. The remaining remote gates are push and a follow-up PR/merge if the restricted environment can authenticate. PostgreSQL was not executed; overlap exclusion constraint and list pagination remain follow-ups.
+- Rollback: revert the Issue #41 follow-up implementation commit. No schema rollback is required.

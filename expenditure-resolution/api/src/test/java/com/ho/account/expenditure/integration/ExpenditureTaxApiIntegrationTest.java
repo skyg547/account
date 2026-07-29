@@ -33,7 +33,6 @@ import com.ho.account.tax.adapter.out.persistence.TaxInvoicePersistenceAdapter;
 import com.ho.account.tax.application.service.TaxInvoiceService;
 import com.ho.account.tax.domain.TaxInvoice;
 import com.ho.account.tax.repository.TaxInvoiceRepository;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,8 +101,6 @@ class ExpenditureTaxApiIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
-    private BusinessPartnerRepository businessPartnerRepository;
-    @Autowired
     private ExpenditureResolutionPersistencePort resolutionPersistencePort;
 
     @MockBean
@@ -135,17 +132,30 @@ class ExpenditureTaxApiIntegrationTest {
         expenseAccount.setCode("EXP001");
         expenseAccount.setName("복리후생비");
 
-        BusinessPartner partner = new BusinessPartner();
-        partner.setBusinessPartnerCode("BP001");
-        partner.setBusinessPartnerName("테스트거래처");
-
-        businessPartnerRepository.deleteAll();
-        BusinessPartner persistedPartner = businessPartnerRepository.save(partner);
+        /*
+         * 이 통합 테스트의 경계는 지출결의 API와 master-data outbound port 사이입니다.
+         * master-data JPA 엔티티를 스캔하거나 Repository에 fixture를 저장하면 다른 모듈의
+         * 테이블 매핑 변경만으로 이 테스트가 깨집니다. 따라서 순수 도메인 factory로 유효한
+         * 거래처 fixture를 만들고 port mock이 반환하게 해 저장 기술과 업무 시나리오를 분리합니다.
+         */
+        BusinessPartner partner = BusinessPartner.create(
+                "BP001",
+                "테스트거래처",
+                null,
+                null,
+                null,
+                null,
+                BusinessPartner.PartnerType.VENDOR,
+                true,
+                BusinessPartner.KycStatus.APPROVED,
+                BusinessPartner.RiskRating.LOW,
+                LocalDate.of(2026, 1, 1),
+                BusinessPartner.OPEN_ENDED_VALID_TO);
 
         when(departmentPersistencePort.findActiveByCode("D001")).thenReturn(Optional.of(department));
         when(accountSubjectPersistencePort.findByCode("PAY001")).thenReturn(Optional.of(paymentAccount));
         when(accountSubjectPersistencePort.findByCode("EXP001")).thenReturn(Optional.of(expenseAccount));
-        when(businessPartnerPersistencePort.findByBusinessPartnerCode("BP001")).thenReturn(Optional.of(persistedPartner));
+        when(businessPartnerPersistencePort.findByBusinessPartnerCode("BP001")).thenReturn(Optional.of(partner));
         when(masterDataQueryPort.findDepartment("D001"))
                 .thenReturn(Optional.of(new DepartmentRef("D001", "재무팀", null)));
         when(masterDataQueryPort.findAccountSubject("PAY001"))
@@ -258,8 +268,8 @@ class ExpenditureTaxApiIntegrationTest {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @EnableJpaRepositories(basePackageClasses = {TaxInvoiceRepository.class, BusinessPartnerRepository.class})
-    @EntityScan(basePackageClasses = {TaxInvoice.class, BusinessPartner.class, JournalEntry.class})
+    @EnableJpaRepositories(basePackageClasses = TaxInvoiceRepository.class)
+    @EntityScan(basePackageClasses = {TaxInvoice.class, JournalEntry.class})
     @Import({
             APInvoiceController.class,
             TaxInvoiceService.class,
