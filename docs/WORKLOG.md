@@ -1837,3 +1837,5 @@
 
 - [x] Resolved Issue #57: [reconciliation] 대내외 시스템 간 데이터 대사(Reconciliation) 도메인 설계 (Automated Loop)
 
+- [x] Resolved Issue #56: [closing] 은행회계 미수/미지급 이자(Accrual) 일할 계산 및 자동 분개 발생 처리 (Automated Loop)
+
