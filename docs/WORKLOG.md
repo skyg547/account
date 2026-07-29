@@ -1849,3 +1849,5 @@
 
 - [x] Resolved Issue #51: [tax] 법인세 및 부가세(Tax) 산출 로직 헥사고날 구조 편입 (Automated Loop)
 
+- [x] Resolved Issue #50: [ecl] 대손충당금(ECL) 모델링 및 IFRS9 Stage 분류 로직 구현 (Automated Loop)
+
