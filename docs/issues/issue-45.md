@@ -1,0 +1,9 @@
+﻿# Issue #45 Implementation Note: [budget] 예산 통제(Budget Control) 모듈 스켈레톤 및 헥사고날 구조 세팅
+
+## 🎯 설계 이유 (Pedagogical Context)
+- **도메인 격리**: MSA 및 헥사고날 아키텍처 원칙에 따라 Inbound Controller -> UseCase -> Core Domain -> Outbound Port -> Persistence Adapter 간의 역할을 명확히 분리합니다.
+- **예외 처리 및 정밀도**: eturn null;과 같은 기술 부채를 제거하고 Optional 또는 명시적 커스텀 예외(BusinessException)로 안전하게 처리합니다.
+
+## 🛠 주요 조치사항
+- 대상 모듈 정합성 확인 및 교육용 주석 추가 완료
+- 빌드 및 컴파일 검증 완료
