@@ -1839,3 +1839,5 @@
 
 - [x] Resolved Issue #56: [closing] 은행회계 미수/미지급 이자(Accrual) 일할 계산 및 자동 분개 발생 처리 (Automated Loop)
 
+- [x] Resolved Issue #55: [journal-ledger] 재무회계 일계표(Daily Trial Balance) 및 원장 마감(Ledger Closing) 배치 (Automated Loop)
+
