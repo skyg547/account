@@ -1016,3 +1016,42 @@
 - Verification: :gateway:test --rerun-tasks passed under the local profile; :gateway:test :gateway:bootJar passed.
 - Remaining risk: live Auth/Config/Discovery and Docker image execution were not verified; shared HS256 to JWKS migration remains open.
 - Rollback: revert the Gateway commit as one unit.
+# AI Harness Handoff - 2026-07-30 Issue #41 BusinessPartner DDD Separation
+
+## Active State
+
+- Issue: `#41`, selected after the user explicitly excluded #40. PR #225 closed it with documentation-only commit `cdb892e4`, then a closure audit reopened it because production code was missing. This branch is the verified implementation and closes the Issue through `Fixes #41`.
+- Branch/worktree: `agent/41-business-partner-ddd`, `C:\dev\account\.worktrees\account-41-business-partner-ddd`.
+- Base: `main@39dabd4e`, including the Issue #40 Master Data API/Core/Batch physical split and PR #225.
+- Draft PR: `#232`, using `Fixes #41`.
+- State: implementation, latest-main verification, independent post-rebase review, and static checks are complete. The local branch is ready for the remote gate.
+
+## Implemented Boundary
+
+- `BusinessPartner` and `BusinessPartnerAccount` are JPA-free domain models with creation/reconstitution factories, explicit validity rules, immutable SCD2 code, defensive account ownership, and one-main-account enforcement.
+- `BusinessPartnerJpaEntity` and `BusinessPartnerAccountJpaEntity` preserve the existing tables, columns, indexes, cascade/orphan behavior and child FK. No migration or HTTP path change was introduced.
+- `JpaBusinessPartnerPersistenceAdapter` owns explicit bidirectional mapping. `BusinessPartnerRepository` accepts only JPA entities, while application and cross-module adapters depend on `BusinessPartnerPersistencePort`.
+- `BusinessPartnerService` validates the future version before closing the current row in one transaction. `closeVersion` preserves business availability for version replacement; `terminate` performs actual deactivation.
+- Next-version account values are copied into new child rows with null IDs; the previous version retains its original child IDs/FKs, preventing current-account loss without rewriting history.
+- `BusinessPartnerDto` owns API mapping and registration-number masking. Expenditure integration setup now mocks the outbound port instead of writing a Master Data repository directly.
+- API and Batch composition roots explicitly register persistence-adapter JPA entities. The duplicate BOM-prefixed `MasterDataApiApplication` introduced after #40 was removed in favor of the documented `MasterDataApplication`, and the Batch integration fixture now saves Business Partners through the output port.
+
+## Verification Evidence
+
+- `:master-data:core:test --rerun-tasks`: 12 tests passed, including next-version account copy, service save order/no-write validation, distinct child rows, overlap fail-closed behavior, and the library-owned JPA slice.
+- `:master-data:api:test :master-data:api:bootJar --rerun-tasks`: 2 tests and executable packaging passed.
+- `:master-data:batch:test :master-data:batch:bootJar --rerun-tasks`: 4 tests and executable packaging passed.
+- `:expenditure-resolution:api:test --tests "com.ho.account.expenditure.integration.ExpenditureTaxApiIntegrationTest" --rerun-tasks`: 1 test passed.
+- `:loan:core:test --rerun-tasks`: 30 tests passed; the 4-test `LoanReferenceDataAdapterTest` compatibility class is included.
+- `:journal-ledger:api:test --tests "com.ho.account.journalledger.IntegratedBusinessProcessTest"` with external discovery/config disabled: 1 compatibility test passed.
+- Total observed: 50 tests, 0 failures, 0 errors, 0 skips.
+- One combined rerun initially stopped after the passing Expenditure test because the Loan filter incorrectly included `.core` in the Java package and matched no tests. The corrected `com.ho.account.loan.infrastructure.adapter.LoanReferenceDataAdapterTest` filter then passed; this was a command-selection error, not a product-test failure.
+- Static checks found no JPA annotations/imports in the BusinessPartner domain files and no Spring Data repository parameterized with the domain type.
+
+## Remote Gate, Risks, And Rollback
+
+- GitHub authentication, latest `main@39dabd4e`, PR #225, reopened Issue #41, and Draft PR #232 were reverified on 2026-07-30. Ready transition, merge, automatic Issue closure verification, and post-merge cleanup are the remaining remote gates.
+- PostgreSQL execution was not available. H2 verifies mapping behavior, but production overlap prevention still needs a PostgreSQL date-range exclusion constraint and integration test.
+- `@EntityGraph(accounts)` prevents per-row lazy queries but an unpaged list may expand result rows; bounded pagination remains a separate contract change.
+- Rollback after commit is a normal revert of the Issue #41 follow-up implementation commit. Existing schema and API contracts are retained, so no migration rollback is needed.
+- Keep the branch and worktree until the follow-up PR is merged. Local verification proves the code path, but does not remotely integrate the missing implementation.

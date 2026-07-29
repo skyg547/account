@@ -31,7 +31,7 @@ public class BusinessPartnerController {
     @PostMapping
     public ResponseEntity<BusinessPartnerDto> createBusinessPartner(@RequestBody BusinessPartnerRequestDto requestDto) {
         try {
-            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(
+            return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.createBusinessPartner(requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(null);
@@ -44,7 +44,7 @@ public class BusinessPartnerController {
     @GetMapping
     public List<BusinessPartnerDto> getAllBusinessPartners() {
         return businessPartnerUseCase.getAllBusinessPartners().stream()
-                .map(BusinessPartnerDto::fromEntity)
+                .map(BusinessPartnerDto::fromDomain)
                 .toList();
     }
 
@@ -54,7 +54,7 @@ public class BusinessPartnerController {
     @GetMapping("/active")
     public List<BusinessPartnerDto> getActiveBusinessPartners() {
         return businessPartnerUseCase.getActiveBusinessPartners().stream()
-                .map(BusinessPartnerDto::fromEntity)
+                .map(BusinessPartnerDto::fromDomain)
                 .toList();
     }
 
@@ -64,7 +64,7 @@ public class BusinessPartnerController {
     @GetMapping("/{businessPartnerCode}")
     public ResponseEntity<BusinessPartnerDto> getBusinessPartnerByCode(@PathVariable String businessPartnerCode) {
         return businessPartnerUseCase.getBusinessPartnerByCode(businessPartnerCode)
-                .map(BusinessPartnerDto::fromEntity)
+                .map(BusinessPartnerDto::fromDomain)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -75,7 +75,7 @@ public class BusinessPartnerController {
     @GetMapping("/search")
     public List<BusinessPartnerDto> searchBusinessPartners(@RequestParam String name) {
         return businessPartnerUseCase.searchBusinessPartnersByName(name).stream()
-                .map(BusinessPartnerDto::fromEntity)
+                .map(BusinessPartnerDto::fromDomain)
                 .toList();
     }
 
@@ -86,7 +86,7 @@ public class BusinessPartnerController {
     public ResponseEntity<BusinessPartnerDto> updateBusinessPartner(@PathVariable Long id,
             @RequestBody BusinessPartnerRequestDto requestDto) {
         try {
-            return ResponseEntity.ok(BusinessPartnerDto.fromEntity(
+            return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.updateBusinessPartner(id, requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

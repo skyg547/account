@@ -602,3 +602,14 @@
 - Issue #20 was already CLOSED before this integration request. The user authorized main integration; the harness-only reconciliation uses the feature branch and PR merge path.
 - Draft PR `#101` was opened against `main` with `Refs #20`.
 - Rollback: revert only the harness reconciliation commit. Code rollback for the already-main Closing implementation requires a separately reviewed revert of `31be6f1`, not applying the retained stale snapshot over current main.
+## 2026-07-30 - Issue #41 BusinessPartner DDD/persistence separation
+
+- Selected Issue #41 after explicitly skipping #40; work is isolated on `agent/41-business-partner-ddd` at `C:\dev\account\.worktrees\account-41-business-partner-ddd` and rebased onto `main@39dabd4e`.
+- Concurrent PR #225 initially closed Issue #41 using documentation-only commit `cdb892e4`. A closure audit reopened #41 because production code was still missing; this branch supplies the verified implementation and closes the Issue through `Fixes #41`.
+- Split the Business Partner aggregate into JPA-free domain models and infrastructure-owned JPA entities, with explicit adapter mapping and unchanged database/API contracts.
+- Preserved hexagonal direction through `BusinessPartnerPersistencePort`; the application service owns transaction ordering, the domain owns validity/account invariants, and the API DTO owns response masking.
+- Reconciled Issue #40's physical module split by registering persistence-owned entities in both composition roots, deleting the duplicate/BOM-prefixed API entry point, and moving Batch integration setup behind the output port.
+- Verification passed for Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, and Journal Ledger integration 1 tests. API and Batch bootJars also passed; 50 observed tests had no failures/errors/skips.
+- Independent review identified account loss on SCD2 replacement. The domain now clones account values with new child IDs, while tests prove old/new FK ownership, close-before-save ordering, invalid-update no-write behavior, and overlapping-row fail-closed lookup.
+- GitHub connectivity and authentication were reverified on 2026-07-30, Issue #41 is OPEN, and Draft PR #232 was opened with `Fixes #41`. The branch/worktree remains until Ready transition, merge, automatic Issue closure, and cleanup are verified.
+- Remaining risks: PostgreSQL execution was not run, overlapping SCD2 periods still need a database exclusion constraint, and unbounded list/query pagination remains outside this issue.

@@ -16,19 +16,21 @@
 sequenceDiagram
     participant API as Controller
     participant Service as Application Service
-    participant Policy as MasterDataValidityPolicy
+    participant Domain as Domain Aggregate
     participant Port as Persistence Port
-    participant DB as JPA Adapter
+    participant Adapter as JPA Adapter
+    participant DB as Database
 
     API->>Service: update(code, request)
     Service->>Port: find current active version
-    Port-->>Service: current entity
-    Service->>Policy: validate validity window
-    Service->>Port: resolve parent reference if required
-    Service->>Service: assemble new version
-    Service->>Service: terminate old version
+    Adapter->>DB: select current JPA entity + accounts
+    Adapter-->>Service: reconstituted domain
+    Service->>Domain: createNextVersion and validate
+    Service->>Domain: closeVersion old version
     Service->>Port: save old/new versions
-    Port->>DB: persist
+    Port->>Adapter: domain objects
+    Adapter->>Adapter: map to JPA entities
+    Adapter->>DB: persist both versions
     Service-->>API: new current version
 ```
 
@@ -36,6 +38,14 @@ sequenceDiagram
 신규 `validFrom/validTo` 기간이 뒤집히지 않았는지 먼저 검증하므로, 잘못된 신규 기간 때문에
 기존 활성 행만 먼저 종료되는 순서 오류를 막습니다. 계정과목과 부서는 상위 항목 조회와 신규
 버전 조립까지 끝낸 다음 현재 행을 종료하므로 잘못된 `parentCode`도 기존 행을 건드리지 않습니다.
+
+거래처에서는 `closeVersion()`과 `terminate()`를 구분합니다. 수정은 이전 SCD2 버전의 기간만
+닫고 `useYn`을 유지하지만, 비활성화는 종료일과 `useYn=false`를 함께 적용합니다. 저장소 조회는
+`BusinessPartnerJpaEntity`와 계좌를 한 aggregate로 읽은 뒤 포트 밖으로 순수 도메인만 반환합니다.
+다음 버전의 계좌는 업무 값만 복제하고 자식 ID를 비워 새 FK 행으로 저장하므로 과거 계좌가
+새 부모로 이동하지 않습니다.
+현재/기준일 단건 조회에서 기간이 겹친 행이 여러 개면 `Optional`로 임의 선택하지 않고 실패해
+데이터 이상을 숨기지 않습니다.
 
 ## 변경 요청 승인 흐름
 
@@ -94,9 +104,10 @@ SCD2 행도 유효기간으로 찾습니다. 따라서 거래처가 나중에 �
 거래처명을 복원할 수 있습니다. 단건 조회는 `Optional` 반환으로 겹치는 기간이 두 행이면
 한 행을 임의 선택하지 않고 예외로 중단합니다.
 
-과거 행의 legacy `useYn`은 버전 종료 시 false로 바뀌므로 `BusinessPartnerRef.active`가 기준일
-당시 상태를 완전히 표현하지는 않습니다. 현재 보장 범위는 당시 이름/유형 복원이며, 버전 종료와
-업무 비활성 상태를 분리한 뒤 계약의 `active` 의미를 확정해야 합니다.
+SCD2 교체용 `closeVersion`은 과거 행의 legacy `useYn`을 유지하지만, 업무 비활성화용
+`terminate`는 같은 행의 값을 false로 바꿉니다. 따라서 나중에 업무 종료된 거래처의
+`BusinessPartnerRef.active`는 그 이전 기준일 상태를 완전히 표현하지 않습니다. 현재 보장
+범위는 당시 이름/유형 복원이며, 계약의 `active`를 별도 이력 값으로 확정하는 작업은 후속입니다.
 
 ## 일일 유효성 보고 흐름
 
@@ -142,7 +153,7 @@ flowchart LR
 - 같은 업무 키의 동시 요청 접수는 조회와 저장 사이 경쟁이 남아 있습니다. 다중 노드 운영 전 업무 키 잠금 테이블 또는 PostgreSQL advisory lock 어댑터가 필요합니다.
 - 같은 sourceReference의 동시 최초 저장은 DB unique index가 중복 행을 막지만 한 요청이 충돌 예외를 받을 수 있습니다. 충돌 후 기존 요청을 재조회·검증하는 원자적 멱등 저장 포트가 필요합니다.
 - 단건 거래처 조회는 겹치는 SCD2 행을 감지해 fail-closed 하지만 저장을 원천 차단하지는 않습니다. PostgreSQL 날짜 범위 exclusion constraint와 실제 DB 통합 테스트가 필요합니다.
-- 거래처의 `useYn`은 현재 사용 가능 여부와 종료된 과거 버전 표시를 겸합니다. 버전 종료와 업무 비활성 상태를 분리하고 기존 데이터 이관 후 `BusinessPartnerRef.active`의 기준일 의미를 검증해야 합니다.
+- 거래처의 `useYn`은 업무 사용 가능 여부이지만 `terminate`가 현재 SCD2 행을 직접 false로 바꿉니다. 종료 전 기준일의 `BusinessPartnerRef.active`까지 재현하려면 별도 상태 이력과 기존 데이터 이관이 필요합니다.
 - Loan core의 Master Data 엔티티 연관과 Closing Batch의 Repository 직접 의존을 소비 모듈 소유 포트/contracts DTO로 교체해야 합니다.
 - `TaxProfile`은 엔티티만 있고 repository/use case/applier/소비 계약이 없습니다. Tax와 소유권을 정해 전체 SCD2 흐름을 구현하거나 중복 모델을 이관·제거해야 합니다.
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.

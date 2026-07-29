@@ -1,5 +1,6 @@
 package com.ho.account.masterdata.api.dto;
 
+import com.ho.account.common.Masked;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.time.LocalDate;
 
@@ -11,6 +12,13 @@ public class BusinessPartnerDto {
     private final Long id;
     private final String businessPartnerCode;
     private final String businessPartnerName;
+
+    /*
+     * 도메인은 사업자번호 원문으로 업무 규칙을 수행하고 영속성 계층은 그 값을 저장하는 책임만 가집니다.
+     * 마스킹은 외부 JSON을 만드는 순간의 표현 정책이므로 응답 DTO 경계에 두어, 내부 값은 훼손하지
+     * 않으면서 어떤 API 경로로 응답하더라도 동일한 개인정보 보호 규칙을 적용합니다.
+     */
+    @Masked(pattern = "REG_NO")
     private final String registrationNumber;
     private final String ceoName;
     private final String businessType;
@@ -41,21 +49,24 @@ public class BusinessPartnerDto {
         this.validTo = validTo;
     }
 
-    public static BusinessPartnerDto fromEntity(BusinessPartner entity) {
+    /**
+     * 영속성 엔티티가 아니라 유즈케이스가 반환한 순수 거래처 도메인을 API 응답으로 변환합니다.
+     */
+    public static BusinessPartnerDto fromDomain(BusinessPartner domain) {
         return new BusinessPartnerDto(
-                entity.getId(),
-                entity.getBusinessPartnerCode(),
-                entity.getBusinessPartnerName(),
-                entity.getRegistrationNumber(),
-                entity.getCeoName(),
-                entity.getBusinessType(),
-                entity.getBusinessItem(),
-                entity.getPartnerType(),
-                entity.getUseYn(),
-                entity.getKycStatus(),
-                entity.getRiskRating(),
-                entity.getValidFrom(),
-                entity.getValidTo());
+                domain.getId(),
+                domain.getBusinessPartnerCode(),
+                domain.getBusinessPartnerName(),
+                domain.getRegistrationNumber(),
+                domain.getCeoName(),
+                domain.getBusinessType(),
+                domain.getBusinessItem(),
+                domain.getPartnerType(),
+                domain.getUseYn(),
+                domain.getKycStatus(),
+                domain.getRiskRating(),
+                domain.getValidFrom(),
+                domain.getValidTo());
     }
 
     public Long getId() { return id; }

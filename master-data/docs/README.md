@@ -17,11 +17,11 @@ This directory documents the `master-data` module after the DDD and hexagonal pa
 - `core.application.port.out.MasterDataVersionQueryPort`: 애플리케이션 계층이 JPA를 모르고 업무 키별 SCD2 이력 수를 조회하는 포트.
 - `core.application.port.out.MasterDataValidityStatisticsPort`: 전체 엔티티 조회 없이 기준일 활성 건수를 요청하는 대량 집계 포트.
 - `core.application.port.out.FiscalPeriodPersistencePort`: Closing 상태 변경용 조회/행 잠금/저장을 숨기는 포트.
-- `core.domain.model`: master-data domain entities.
+- `core.domain.model`: master-data domain models. 이 중 `BusinessPartner`와 `BusinessPartnerAccount`는 JPA를 모르는 순수 모델이며 필수값, 유효기간, 대표 계좌 불변식을 소유한다. 다른 기존 기준정보 모델의 JPA 분리는 이번 범위가 아니다.
 - `core.domain.changerequest`: controlled change request aggregate.
 - `core.domain.policy`: 유효기간과 변경 요청 목표 버전처럼 여러 엔티티가 공유하는 순수 업무 정책.
 - `core.application.port.out`: output ports that hide persistence details from the core.
-- `core.infrastructure.persistence`: JPA persistence adapters.
+- `core.infrastructure.persistence`: JPA persistence adapters와 `*JpaEntity`. 거래처 도메인과 테이블 모델 사이의 명시적 매핑도 여기서만 수행한다.
 - `core.infrastructure.persistence.repository`: Spring Data repositories.
 - `core.infrastructure.adapter`: lookup adapters used by other modules.
 - `batch.application`: scheduler-facing orchestration and report mapping only.
@@ -39,6 +39,12 @@ core.infrastructure -> core.application.port.out and core.domain
 
 `api`와 `batch`는 서로 의존하지 않습니다. Controllers must not expose JPA entities directly. Application services must depend on `port.out` interfaces rather than Spring Data repositories.
 
+`BusinessPartnerController -> BusinessPartnerService -> BusinessPartnerPersistencePort`가 거래처
+유즈케이스의 주 경로입니다. 저장 시에는 포트 구현체인
+`JpaBusinessPartnerPersistenceAdapter`가 순수 도메인을 `BusinessPartnerJpaEntity`로 바꾸고,
+조회 시에는 반대로 재구성합니다. `BusinessPartnerRepository`는 이 JPA 엔티티만 다루므로
+Spring Data 타입이 domain package로 역류하지 않습니다.
+
 ## Documents
 
 1. [beginner-guide.md](beginner-guide.md)
@@ -49,7 +55,7 @@ core.infrastructure -> core.application.port.out and core.domain
 
 ## Local Verification
 
-- `master-data:api`와 `master-data:batch`는 각각 독립 Spring Boot 앱이고 `master-data:core`는 실행 진입점이 없는 library입니다.
+- `master-data:core`는 도메인·application·영속성 구현을 소유하는 실행 진입점 없는 library이고, `master-data:api`와 `master-data:batch`는 각각 독립 Spring Boot 실행·조립 경계입니다.
 - 로컬 실행 설정은 `.run/Master Data bootRun.run.xml`을 사용합니다.
 - 단위 검증은 `.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon`로 수행합니다.
 - 변경 요청은 지원 전략과 SCD2 목표 버전을 요청·승인·반영 단계마다 확인하고, typed applier 성공 후에만 `APPLIED`가 됩니다.
@@ -60,4 +66,5 @@ core.infrastructure -> core.application.port.out and core.domain
 - `Master Data Batch Validity` 설정은 필수 `asOfDate`를 받는 `masterDataValidityJob`을 실행하고, Job/Step은 집계 규칙을 재구현하지 않고 core pipeline에 위임합니다.
 - 활성 계정과목/상품 목록과 거래처 이름 검색도 DB 기준일 query를 사용하며, 환율은 요청일 이하 최신 한 건을 선택합니다.
 - 회계기간 변경은 비관적 행 잠금과 `FiscalPeriod.changeClosingStatus` 불변식을 거칩니다.
+- 거래처 JPA 왕복, 자식 계좌 FK/역참조, 현재·과거 SCD2 조회는 Core의 H2 영속성 테스트로 검증하고, API 사업자등록번호 마스킹은 API의 ObjectMapper 직렬화 테스트로 검증합니다.
 - 전체 PostgreSQL Flyway baseline, API pagination, TaxProfile 소유권, Loan/Closing의 Master Data 직접 의존은 완료 조건이 명시된 TODO입니다.

@@ -3,6 +3,7 @@ package com.ho.account.masterdata.batch.job;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.masterdata.batch.MasterDataBatchApplication;
+import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
@@ -81,6 +82,9 @@ class MasterDataValidityJobIntegrationTest {
     @Autowired
     private BusinessPartnerRepository businessPartnerRepository;
 
+    @Autowired
+    private BusinessPartnerPersistencePort businessPartnerPersistencePort;
+
     @BeforeEach
     void setUp() {
         jobRepositoryTestUtils.removeJobExecutions();
@@ -105,9 +109,12 @@ class MasterDataValidityJobIntegrationTest {
                 "PRODUCT-ACTIVE", AS_OF_DATE.minusDays(1), AS_OF_DATE.plusDays(1)));
         productRepository.save(product(
                 "PRODUCT-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
-        businessPartnerRepository.save(businessPartner(
+        // 거래처 aggregate는 순수 도메인 객체이므로 Spring Data repository에 직접
+        // 전달하지 않습니다. 운영 코드와 같은 output port를 거쳐 JPA entity 매핑까지
+        // 포함해야 이 통합 테스트가 헥사고날 경계를 실제로 검증합니다.
+        businessPartnerPersistencePort.save(businessPartner(
                 "PARTNER-ACTIVE", AS_OF_DATE.minusDays(1), AS_OF_DATE.plusDays(1)));
-        businessPartnerRepository.save(businessPartner(
+        businessPartnerPersistencePort.save(businessPartner(
                 "PARTNER-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
 
         JobExecution execution = jobLauncherTestUtils.launchJob(

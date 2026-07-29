@@ -28,7 +28,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = "com.ho.account.masterdata.core.infrastructure.persistence")
 @EntityScan(basePackages = {
         "com.ho.account.masterdata.core.domain.model",
-        "com.ho.account.masterdata.core.domain.changerequest"
+        "com.ho.account.masterdata.core.domain.changerequest",
+        // Pure domain aggregates intentionally carry no JPA annotations. The
+        // persistence adapter therefore owns separate entity classes here.
+        "com.ho.account.masterdata.core.infrastructure.persistence"
 })
 public class MasterDataApplication {
 

@@ -6,7 +6,11 @@
 - IntelliJ IDEA의 Gradle JVM도 JDK 17
 - 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 열기
 
-`master-data`는 `core`, `api`, `batch` 세 Gradle 하위 프로젝트입니다. `core`는 실행 진입점이 없는 업무 library이고, `api`와 `batch`가 각각 core를 의존하는 독립 Spring Boot 실행 모듈입니다. 두 실행 모듈은 서로 의존하지 않으므로 HTTP 서버와 스케줄 작업을 독립적으로 배포하고 확장할 수 있습니다.
+`master-data`는 `core`, `api`, `batch` Gradle 하위 프로젝트로 분리되어 있습니다.
+`core`는 실행 진입점이 없는 업무 library로 도메인·application·영속성 구현을 소유합니다.
+`api`와 `batch`는 core를 의존하는 독립 Spring Boot 실행 모듈이고 서로 의존하지 않으므로
+HTTP 서버와 스케줄 작업을 독립적으로 배포·확장할 수 있습니다. 일일 유효성 보고 계산은 core
+pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 ## IntelliJ에서 H2 단독 실행
 
@@ -63,11 +67,26 @@ Config Server 설정을 확인하는 통합 모드에서는 다음 순서로 실
 
 ## 검증 명령
 
+거래처 도메인/JPA 분리를 집중 검증하려면 다음 명령을 사용합니다.
+
+```powershell
+.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test :master-data:api:bootJar :master-data:batch:bootJar --rerun-tasks --console=plain --max-workers=1 --no-daemon
+.\gradlew :expenditure-resolution:api:test --tests "com.ho.account.expenditure.integration.ExpenditureTaxApiIntegrationTest" --rerun-tasks --console=plain --max-workers=1 --no-daemon
+.\gradlew :loan:core:test --tests "com.ho.account.loan.infrastructure.adapter.LoanReferenceDataAdapterTest" --rerun-tasks --console=plain --max-workers=1 --no-daemon
+```
+
+첫 번째 명령은 순수 거래처 불변식, 도메인↔JPA 왕복과 자식 FK, 현재/과거 SCD2 조회,
+API 마스킹, API/Batch composition root와 실행 JAR을 포함합니다. 두 번째와 세 번째 명령은
+소비 모듈이 JPA Repository 대신
+`BusinessPartnerPersistencePort` 또는 contracts 경계를 계속 사용하는지 확인합니다.
+이번 변경은 H2에서 검증했으며 PostgreSQL 실DB의 인덱스 실행계획과 exclusion constraint는
+별도 통합 환경 완료 조건입니다.
+
 ```powershell
 .\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
-현재 세 모듈에서 실행되는 자동화 테스트 6개는 다음을 확인합니다.
+현재 세 모듈에서 실행되는 자동화 테스트 18개(core 12, API 2, Batch 4)는 다음을 확인합니다.
 
 - core의 환율 조회 adapter가 요청일 이하 최신 환율을 선택하고 잘못된 요청을 거부하는지
 - API가 Batch 실행 모듈 없이 core service/JPA adapter를 포함한 Spring context를 구성하는지

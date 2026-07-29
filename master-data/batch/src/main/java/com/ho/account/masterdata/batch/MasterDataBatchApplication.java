@@ -21,7 +21,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories(basePackages = "com.ho.account.masterdata.core.infrastructure.persistence")
 @EntityScan(basePackages = {
         "com.ho.account.masterdata.core.domain.model",
-        "com.ho.account.masterdata.core.domain.changerequest"
+        "com.ho.account.masterdata.core.domain.changerequest",
+        // BusinessPartner is persistence-ignorant; its JPA entity belongs to
+        // the outbound adapter and must be registered by this composition root.
+        "com.ho.account.masterdata.core.infrastructure.persistence"
 })
 public class MasterDataBatchApplication {
 

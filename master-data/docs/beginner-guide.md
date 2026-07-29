@@ -28,8 +28,9 @@
 
 새 버전은 `validTo`가 `validFrom`보다 빠른지 먼저 검사한 뒤 기존 버전을 종료합니다. 거래처의
 현재 활성 조회는 legacy `useYn`도 확인하지만, 과거 기준일 조회는 유효기간으로 당시 버전을
-복원합니다. 다만 과거 행의 `useYn`은 버전 종료 시 함께 바뀌는 legacy 값이므로, 현재는 당시
-거래처명과 유형을 복원하는 데 사용하고 `active`의 과거 의미는 후속 상태 모델 분리가 필요합니다.
+복원합니다. SCD2 교체 마감인 `closeVersion`은 과거 행의 `useYn`을 유지하지만, 업무 종료
+`terminate`는 같은 행을 false로 바꿉니다. 따라서 나중에 업무 종료된 거래처는 종료 전 기준일의
+이름과 유형은 복원해도 `active`까지 당시 값으로 되돌리려면 별도 상태 이력이 필요합니다.
 
 ## DDD와 헥사고날 관점
 
@@ -42,6 +43,27 @@
 - `core.application.port.out`: 저장소 세부 기술을 숨기는 출력 포트입니다.
 - `core.infrastructure.persistence`: Spring Data JPA 기반 저장 어댑터입니다.
 
+### 거래처를 두 모델로 나눈 이유
+
+`BusinessPartner`는 "어떤 거래처가 유효한가"를 판단하는 업무 모델입니다. 반면
+`BusinessPartnerJpaEntity`는 "어떤 테이블과 컬럼에 저장할 것인가"를 설명하는 기술
+모델입니다. 하나의 클래스가 두 책임을 모두 가지면 지연 로딩 프록시나 기본 생성자 같은 JPA
+요구가 업무 규칙보다 우선하기 쉽습니다.
+
+그래서 애플리케이션 서비스는 `BusinessPartnerPersistencePort`만 호출하고, JPA 어댑터가
+다음 순서로 번역합니다.
+
+1. API 명령을 `BusinessPartner.create(...)` 또는 `createNextVersion(...)`으로 검증합니다.
+2. 수정이면 신규 버전이 먼저 유효한지 확인한 뒤 기존 버전에 `closeVersion(...)`을 적용합니다.
+3. 어댑터가 순수 도메인과 `BusinessPartnerJpaEntity`를 양방향으로 변환합니다.
+4. Controller는 도메인을 API DTO로 변환하며 사업자등록번호를 마스킹합니다.
+
+`closeVersion`과 `terminate`도 의도가 다릅니다. 전자는 새 SCD2 버전을 만들기 위해 과거
+버전의 기간만 닫고, 후자는 거래처 자체를 사용 중지합니다. 이 차이가 있어 미래 시행일 수정이
+예약되어도 기존 거래처가 그 전에 비활성화되지 않습니다. 계좌는 업무 값을 다음 버전에
+복사하되 자식 ID는 새로 발급합니다. 그래야 과거 버전의 계좌 FK를 현재 버전으로 옮기지 않고
+두 시점의 정산 계좌를 모두 재현할 수 있습니다.
+
 활성 계정과목/상품 목록과 거래처 이름 검색은 모든 이력을 애플리케이션 메모리로 가져오지
 않고 DB에 기준일 조건을 전달합니다. 거래처 검색은 과거 종료 버전을 섞지 않으며 빈 검색어로
 전체 목록을 우회 조회할 수도 없습니다.
@@ -52,7 +74,7 @@
 ## 처음 볼 파일
 
 1. `api/.../MasterDataApplication`: HTTP Spring Boot 실행 진입점.
-2. `api/.../AccountSubjectController`, `DepartmentController`, `BusinessPartnerController`, `ProductController`: 기준정보 API.
+2. `api/.../AccountSubjectController`, `DepartmentController`, `BusinessPartnerController`, `ProductController`: 기준정보 API. 거래처 Controller는 항상 `BusinessPartnerDto.fromDomain`으로 응답을 조립합니다.
 3. `api/.../MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
 4. `batch/.../MasterDataBatchApplication`: 웹 서버 없이 기동하는 Batch 실행 진입점.
 5. `batch/.../MasterDataValidityJobConfiguration`: `asOfDate`를 검증하고 core pipeline을 호출하는 Job/Step.
@@ -63,3 +85,4 @@
 10. `core/.../MasterDataValidityReportPipeline`: 기준일을 고정하고 DB 통계 포트의 네 집계 결과를 하나의 core 보고 모델로 조립.
 11. `core/.../MasterDataValidityPolicy`: 유효기간과 종료일 정합성 공통 정책.
 12. `core/.../MonolithFiscalPeriodControlAdapter`: Closing 계약을 회계기간 포트, 행 잠금, 도메인 상태 전이에 연결.
+13. `core/.../JpaBusinessPartnerPersistenceAdapter`: 순수 거래처 도메인과 두 JPA 엔티티를 명시적으로 변환.
