@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #44 자동 완료)
+﻿### 📅 2026-07-30 (Issue #43 자동 완료)
+### [자동 처리] [closing] EOD/BOD 결산 상태 관리 도메인 설계 (EodState)
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #44 자동 완료)
 ### [자동 처리] [journal-ledger] 총계정원장(GL) 및 분장(Sub-ledger) 도메인 모델링
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -2108,6 +2113,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
