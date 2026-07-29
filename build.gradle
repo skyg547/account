@@ -14,8 +14,12 @@ ext {
 subprojects {
     apply plugin: 'java'
 
-    group = rootProject.group
+    group = "${rootProject.group}.${project.parent ? project.parent.name : project.name}"
     version = rootProject.version
+
+    base {
+        archivesName = "${project.parent ? project.parent.name + '-' : ''}${project.name}"
+    }
 
     java {
         toolchain {

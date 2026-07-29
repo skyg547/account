@@ -9,9 +9,7 @@ dependencies {
     api project(':reconciliation:core')
 }
 
-tasks.named('compileJava') {
-    dependsOn ':reconciliation:core:compileJava'
-}
+
 
 tasks.named('test') {
     dependsOn ':reconciliation:core:test'
@@ -20,3 +18,4 @@ tasks.named('test') {
 tasks.named('check') {
     dependsOn ':reconciliation:core:check'
 }
+

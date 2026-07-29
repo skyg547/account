@@ -20,7 +20,7 @@ dependencyManagement {
 dependencies {
     api project(':contracts')
     api project(':shared-kernel')
-    api project(':master-data')
+    api project(':master-data:core')
     api project(':journal-ledger:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -35,3 +35,4 @@ dependencies {
 }
 
 jar { enabled = true }
+

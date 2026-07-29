@@ -1,0 +1,1 @@
+package com.ho.account.auth.batch; import org.springframework.boot.SpringApplication; import org.springframework.boot.autoconfigure.SpringBootApplication; @SpringBootApplication public class AuthBatchApplication { public static void main(String[] args) { SpringApplication.run(AuthBatchApplication.class, args); } }

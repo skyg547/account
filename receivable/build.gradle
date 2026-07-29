@@ -16,9 +16,7 @@ dependencies {
     api project(':receivable:core')
 }
 
-tasks.named('compileJava') {
-    dependsOn ':receivable:core:compileJava'
-}
+
 
 tasks.named('test') {
     dependsOn ':receivable:core:test'
@@ -27,3 +25,4 @@ tasks.named('test') {
 tasks.named('check') {
     dependsOn ':receivable:core:check'
 }
+
