@@ -120,6 +120,7 @@ Recommended integration order remains:
 ## 2026-07-29 - GH-20 Main Parity Reconciliation
 
 - Issue/branch/worktree: closed Issue `#20`, `agent/20-closing-consistency`, `C:\Users\skyg547\IdeaProjects\account-closing-20`.
+- Draft PR: `#101 [#20] Record Closing main parity and verification`.
 - Compared base: local `f3d33ea` snapshot against fetched `origin/main@ce35ce5`.
 - Result: Closing production, tests, contracts/Master Data/Journal bridge, and Closing module docs have no content difference from main. The implementation entered main in `31be6f1` together with Issue #60 changes.
 - Integration decision: retained main's Issue #29 audit split and subsequent Issue #60/#62/#64/#66 infrastructure; did not create a duplicate Closing code commit. Fast-forwarded the feature branch to `ce35ce5`.

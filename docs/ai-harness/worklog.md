@@ -577,4 +577,5 @@
 - Final successful verification covered 98 tests: Shared Kernel 6, Contracts 4, targeted Closing-facing Master Data adapters 5, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, and ECL API 3. Closing API/Batch and Config Server bootJars passed.
 - A broader attempt exposed two pre-existing latest-main policy failures: root Compose no longer contains active Master Data/Config Server services after Issue #66, while their configuration policy tests still require them. The Closing branch does not modify this unrelated infrastructure contract.
 - Issue #20 was already CLOSED before this integration request. The user authorized main integration; the harness-only reconciliation uses the feature branch and PR merge path.
+- Draft PR `#101` was opened against `main` with `Refs #20`.
 - Rollback: revert only the harness reconciliation commit. Code rollback for the already-main Closing implementation requires a separately reviewed revert of `31be6f1`, not applying the retained stale snapshot over current main.

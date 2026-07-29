@@ -6,7 +6,7 @@
 - Branch/worktree: `agent/20-closing-consistency`, `C:\Users\skyg547\IdeaProjects\account-closing-20`.
 - Current base: `ce35ce50` (`origin/main`과 fast-forward 동일). Closing production/test/module docs는 비교 차이 0건입니다.
 - Main integration: 고도화는 `31be6f1` (`Issue #60` 커밋)에 함께 포함되어 이미 `main`에 병합됐습니다. 중복 코드를 다시 적용하지 않고 최신 main을 보존했습니다.
-- Issue/PR: GitHub Issue `#20`은 이미 CLOSED입니다. 사용자가 main 반영을 승인했으므로 하네스 정합성 기록은 feature 브랜치 push와 PR merge 경로로 통합하고, 이미 닫힌 Issue에는 중복 close 호출을 하지 않습니다.
+- Issue/PR: GitHub Issue `#20`은 이미 CLOSED입니다. Draft PR `#101`로 하네스 정합성 기록을 main에 통합하고, 이미 닫힌 Issue에는 중복 close 호출을 하지 않습니다.
 - Recovery: 비교 직전 스냅샷 `codex-post-main-comparison-gh-20-2026-07-29`과 기존 두 stash를 유지합니다.
 
 ## Current Main Verification
