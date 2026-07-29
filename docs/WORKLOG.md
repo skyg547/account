@@ -1867,3 +1867,5 @@
 
 - [x] Resolved Issue #42: [frontend] 거래처 심사 승인(Master Data Approval) 화면 구현 및 API 연동 (Automated Loop)
 
+- [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
+
