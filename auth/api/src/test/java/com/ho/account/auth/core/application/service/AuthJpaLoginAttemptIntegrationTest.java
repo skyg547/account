@@ -48,7 +48,7 @@ class AuthJpaLoginAttemptIntegrationTest {
 
     @Test
     void failedLoginCommitsAttemptInAdapterOwnedTransaction() {
-        assertThatThrownBy(() -> authUseCase.login(new AuthUseCase.LoginCommand("admin", "wrong-password")))
+        assertThatThrownBy(() -> authUseCase.login(new AuthUseCase.LoginCommand("admin", "wrong-password", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(loginAttemptPort.isLocked("admin")).isTrue();
