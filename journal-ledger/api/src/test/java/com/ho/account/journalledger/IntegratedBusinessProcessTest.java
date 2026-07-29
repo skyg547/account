@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 전사 통합 비즈니스 프로세스(세금계산서 -> 매입 -> 채무 -> 지급)를 검증합니다.
  * 리팩토링된 ID 기반 참조 체계에서도 데이터 정합성이 유지되는지 확인합니다.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @Transactional
 public class IntegratedBusinessProcessTest {
 
@@ -61,6 +61,9 @@ public class IntegratedBusinessProcessTest {
     @Autowired
     private com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePort currencyPersistencePort;
 
+    @Autowired
+    private com.ho.account.masterdata.core.application.port.out.FiscalPeriodPersistencePort fiscalPeriodPersistencePort;
+
     private BusinessPartner vendor;
 
     @BeforeEach
@@ -82,6 +85,15 @@ public class IntegratedBusinessProcessTest {
         krw.setCurrencyName("Korean Won");
         krw.setSymbol("₩");
         currencyPersistencePort.save(krw);
+
+        LocalDate now = LocalDate.now();
+        com.ho.account.masterdata.core.domain.model.FiscalPeriod period = new com.ho.account.masterdata.core.domain.model.FiscalPeriod();
+        period.setFiscalYear(String.valueOf(now.getYear()));
+        period.setFiscalPeriod(String.format("%02d", now.getMonthValue()));
+        period.setStartDate(now.withDayOfMonth(1));
+        period.setEndDate(now.withDayOfMonth(now.lengthOfMonth()));
+        // Note: ClosingStatus is set to OPEN by default in @PrePersist
+        fiscalPeriodPersistencePort.save(period);
     }
 
     private void createAccount(String code, String name, AccountSubject.AccountCategory category, AccountSubject.BalanceType balanceType) {

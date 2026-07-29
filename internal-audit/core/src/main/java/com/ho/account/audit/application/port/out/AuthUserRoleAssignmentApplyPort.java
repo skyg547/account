@@ -1,6 +1,6 @@
 package com.ho.account.audit.application.port.out;
 
-import com.ho.account.audit.application.model.AuthUserRoleAssignmentChange;
+import com.ho.account.shared.infrastructure.security.application.model.AuthUserRoleAssignmentChange;
 
 public interface AuthUserRoleAssignmentApplyPort {
 

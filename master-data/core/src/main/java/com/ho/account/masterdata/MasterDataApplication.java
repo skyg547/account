@@ -1,4 +1,4 @@
-package com.ho.account;
+package com.ho.account.masterdata;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,8 +17,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableFeignClients
-@EnableJpaRepositories(basePackages = "com.ho.account")
-@EntityScan(basePackages = "com.ho.account")
+@EnableJpaRepositories(basePackages = "com.ho.account.masterdata")
+@EntityScan(basePackages = "com.ho.account.masterdata")
 public class MasterDataApplication {
     public static void main(String[] args) {
         SpringApplication.run(MasterDataApplication.class, args);

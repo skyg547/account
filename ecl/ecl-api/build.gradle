@@ -22,4 +22,5 @@ dependencies {
     // Contract Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-verifier'
+    testRuntimeOnly 'com.h2database:h2'
 }

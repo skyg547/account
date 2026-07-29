@@ -9,6 +9,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
 }
 bootJar { enabled = false }
 
+
+dependencies {
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}
