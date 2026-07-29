@@ -1831,3 +1831,5 @@
   
  - [x] Resolved Issue #69: [bug] config-server 로컬 실행 실패 (ApplicationContext 오류) (Automated Loop)
 
+- [x] Resolved Issue #59: [frontend] 재무/은행회계 전표(Journal Entry) 입력 및 승인 워크플로우 UI 구현 (Automated Loop)
+
