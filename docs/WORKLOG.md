@@ -1,5 +1,5 @@
 ### 📅 2026-07-30 (Codex Issue #41 후속 구현)
-### [후속 구현/검증·리뷰 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리
+### [후속 구현/통합 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리
 
 - **작업 배경**:
   - 작업 중 병렬 자동화의 PR #225가 Issue #41을 문서만으로 닫았고, closure audit이 실제 구현 부재를 확인해 Issue를 다시 열었다.
@@ -15,7 +15,7 @@
   - Master Data API와 Batch `bootJar` 생성도 통과했다.
   - 독립 리뷰와 diff/conflict marker/도메인 JPA 누수 정적 검사에서 남은 P0-P3 finding이 없음을 확인했다.
 - **현재 상태와 위험**:
-  - GitHub Issue #41은 현재 OPEN이고 구현 Draft PR #232가 `Fixes #41`로 연결돼 있다. Ready 전환과 merge 후 자동 종료를 검증한다.
+  - PR #232가 merge commit `c720ae58`로 병합됐고 `Fixes #41`가 Issue를 자동 종료했다. 원격 source branch 삭제도 확인했으며 구현 worktree는 정리 대상이다.
   - PostgreSQL 실DB 실행, SCD2 기간 중첩 exclusion constraint, 무제한 목록 pagination은 후속 완료 조건이다.
 
 ﻿### 📅 2026-07-30 (Issue #41 자동 완료)
