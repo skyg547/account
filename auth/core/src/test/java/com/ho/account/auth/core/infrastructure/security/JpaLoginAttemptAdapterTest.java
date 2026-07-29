@@ -14,7 +14,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 
-@DataJpaTest
+@DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @ContextConfiguration(classes = JpaLoginAttemptAdapterTest.JpaTestConfiguration.class)
 class JpaLoginAttemptAdapterTest {
 

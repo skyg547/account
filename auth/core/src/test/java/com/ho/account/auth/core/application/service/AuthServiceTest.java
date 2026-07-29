@@ -51,7 +51,7 @@ class AuthServiceTest {
                 tokenIssuerPort,
                 new RecordingLoginAttemptPort());
 
-        AuthenticationResult result = authService.login(new AuthUseCase.LoginCommand(" admin ", "1234"));
+        AuthenticationResult result = authService.login(new AuthUseCase.LoginCommand(" admin ", "1234", "NORMAL", null));
 
         assertThat(result.accessToken()).isEqualTo("token-123");
         assertThat(result.expiresInSeconds()).isEqualTo(3600L);
@@ -72,7 +72,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("missing", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("missing", "1234", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
@@ -85,7 +85,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
@@ -98,7 +98,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("inactive");
     }
@@ -112,7 +112,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("locked");
     }
@@ -127,7 +127,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("Department code is invalid");
     }
@@ -143,7 +143,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("no approved effective roles");
     }
@@ -183,7 +183,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 attempts);
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("temporarily locked");
     }
@@ -197,7 +197,7 @@ class AuthServiceTest {
                 tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand(" ", "1234")))
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand(" ", "1234", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
         assertThatThrownBy(() -> authService.login(null))
                 .isInstanceOf(InvalidCredentialsException.class);
