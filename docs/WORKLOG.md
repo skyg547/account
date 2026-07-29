@@ -1847,3 +1847,5 @@
 
 - [x] Resolved Issue #52: [receivable/payable] 미수금/미지급금 채권채무 도메인 구조화 (Automated Loop)
 
+- [x] Resolved Issue #51: [tax] 법인세 및 부가세(Tax) 산출 로직 헥사고날 구조 편입 (Automated Loop)
+
