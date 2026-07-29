@@ -1799,3 +1799,18 @@
   - GitHub Issue #20 실행 계약에 연결하고 repository root의 `agent/20-closing-consistency`에서 commit/push/Draft PR을 진행한다. merge/Issue close는 승인 범위가 아니다.
   - pre-sync와 PR transfer 복구용 stash는 유지한다.
   - 커밋 후 전체 롤백은 Issue #20 commit을 revert하며, 이번 pass에는 DB migration 변경이 없다.
+
+### 📅 2026-07-29 (Issue #20 Closing main 반영 확인)
+### [통합/검수] 최신 main과 Closing 고도화 파일 대조 및 feature 브랜치 정합화
+
+- **확인 결과**:
+  - `origin/main@ce35ce5`와 82-path transfer snapshot을 비교한 결과 Closing production/test/module docs와 contracts/Master Data/Journal Ledger 연계 변경의 차이는 0건이다.
+  - Closing 고도화는 `31be6f1` 커밋에 포함되어 이미 main에 병합된 상태다. 중복 코드 커밋을 만들지 않고 `agent/20-closing-consistency`를 최신 main으로 fast-forward했다.
+- **검증**:
+  - Shared Kernel 6, Contracts 4, Closing 연계 Master Data 어댑터 5, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, ECL API 3으로 총 98 tests가 성공했다.
+  - Closing API/Batch와 Config Server `bootJar` 3개가 성공했다.
+  - 전체 영향 검증에서 Issue #66 이후 root Compose 서비스 구성과 기존 Master Data/Config Server 정책 테스트가 어긋난 2건의 main 회귀를 확인했다. Closing 코드 실패가 아니므로 이 범위에서 수정하지 않았다.
+- **상태/롤백**:
+  - Issue #20은 이미 CLOSED이며 사용자가 main 반영을 승인했다. 정합성 기록은 feature branch와 PR merge 경로로 반영한다.
+  - 기존 2개 stash와 비교 직전 stash를 모두 유지한다.
+  - 이번 branch의 신규 변경은 정합성 기록뿐이며, 이미 main에 들어간 Closing 코드를 되돌리려면 `31be6f1`을 별도 검토 후 revert해야 한다.

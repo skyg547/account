@@ -2,6 +2,7 @@
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-07-29 | Codex | Integrator Agent | `agent/20-closing-consistency` / `C:\Users\skyg547\IdeaProjects\account-closing-20` | Draft PR #101 / main integration authorized | `origin/main@ce35ce5`와 대조 결과 Closing production/test/module docs 차이는 0건입니다. 고도화는 `31be6f1`을 통해 이미 main에 포함됐습니다. 영향 테스트 98개와 3 bootJars는 통과했고, Issue #66이 축소한 root Compose와 기존 Master Data/Config 정책 테스트 2건의 불일치는 별도 main 회귀로 기록했습니다. |
 | 2026-07-29 | Codex | Coder / Integrator Agent | `agent/20-closing-consistency` / repository root | Draft PR ready / commit authorized | Issue #20 연결, 최신 `origin/main@f3d33ea` 구조 충돌 해결, transfer stash 82개 경로 복구. 176 tests와 3 bootJars 통과. internal-audit 세 모듈의 source/test `NO-SOURCE`는 잔여 위험이며 merge/Issue close는 미승인. |
 | 2026-07-28 | Codex | Coder / Integrator Agent | `agent/closing-consistency-pass` | Review ready / uncommitted | Config Server 보류 재검증, shared-kernel Jackson BOM 정렬, ECL 실패 전파 테스트 수정, phantom `:app` 제거를 40 suites/140 tests와 Config bootJar로 검증; 명시 승인 전 commit/push/merge 금지. |
 | 2026-07-28 | Codex | Coder / Integrator Agent | `agent/closing-consistency-pass` | Review ready / uncommitted | Closing fail-closed 상태 전이, FX/ECL 원장 정합성·bounded batch, 멱등 전표, provider 계약, API/Batch runtime 경계를 52 suites/158 tests와 2 bootJars로 검증; 명시 승인 전 commit/push/merge 금지. |

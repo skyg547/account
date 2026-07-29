@@ -1,12 +1,20 @@
-# AI Harness Handoff - 2026-07-29 Issue #20 Closing/Foundation Draft PR Ready
+# AI Harness Handoff - 2026-07-29 Issue #20 Closing Main Parity And Feature Push
 
 ## Active Goal And State
 
-- 모듈을 순차 점검하며 헥사고날 경계, DDD 상태 규칙, 실제 업무 흐름, 금융 정합성, 대량 Batch와 재실행성을 검수하는 goal을 계속 진행 중입니다.
-- Branch/worktree: `agent/20-closing-consistency`, repository root `C:\Users\skyg547\IdeaProjects\account`.
-- Current base: `f3d33eae085a527fa1ae1905df6d0fa8dbaeb6bc`, 최신 `origin/main`과 동일한 Issue #29 통합 커밋입니다.
-- Issue/PR: GitHub Issue `#20`에 실행 계약을 기록했으며 Draft PR을 `main` 대상으로 생성합니다.
-- Working tree: Closing과 필요한 contracts/Master Data/Journal Ledger 변경, foundation 잔여 수정, 최신 main 구조 충돌 기록이 더해진 상태입니다. 사용자가 commit/push/PR을 승인했지만 merge, Issue close, branch/worktree 삭제는 승인하지 않았습니다.
+- 사용자 요청에 따라 Closing 고도화 스냅샷과 최신 `main`을 파일 단위로 대조하고 feature 브랜치에 반영·푸시하는 단계입니다.
+- Branch/worktree: `agent/20-closing-consistency`, `C:\Users\skyg547\IdeaProjects\account-closing-20`.
+- Current base: `ce35ce50` (`origin/main`과 fast-forward 동일). Closing production/test/module docs는 비교 차이 0건입니다.
+- Main integration: 고도화는 `31be6f1` (`Issue #60` 커밋)에 함께 포함되어 이미 `main`에 병합됐습니다. 중복 코드를 다시 적용하지 않고 최신 main을 보존했습니다.
+- Issue/PR: GitHub Issue `#20`은 이미 CLOSED입니다. Draft PR `#101`로 하네스 정합성 기록을 main에 통합하고, 이미 닫힌 Issue에는 중복 close 호출을 하지 않습니다.
+- Recovery: 비교 직전 스냅샷 `codex-post-main-comparison-gh-20-2026-07-29`과 기존 두 stash를 유지합니다.
+
+## Current Main Verification
+
+- 성공 게이트: Shared Kernel 6, Contracts 4, Closing 연계 Master Data 어댑터 5, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, ECL API 3으로 총 98 tests가 통과했습니다.
+- Closing API, Closing Batch, Config Server의 `bootJar` 3개가 성공했습니다.
+- 전체 영향 명령에서는 최신 Issue #66 root Compose가 `master-data`와 `config-server` 서비스를 제거/주석 처리한 반면 기존 정책 테스트가 이를 요구해 각 1건 실패했습니다. Closing 코드 실패가 아니며 이 feature 범위에서 인프라 정책을 임의 수정하지 않았습니다.
+- 아래 동기화/변경/위험 기록은 이번 main 대조 이전의 구현 이력으로 보존합니다.
 
 ## Git Synchronization And Latest Main Conflict Resolution
 
@@ -76,7 +84,7 @@
 - 최종 PR에는 AuditAspect/standalone InternalAuditApplication 변경이 없습니다. 전체 변경 롤백은 Issue #20 commit을 revert하고, commit 전 복구가 필요하면 유지 중인 두 이름 있는 stash를 기준으로 별도 안전 checkout에서 비교합니다.
 - DB migration은 변경하지 않았으므로 이번 pass의 DB rollback 작업은 없습니다.
 - Gemini는 `GEMINI_REVIEW_PROMPT.md` 최상단 Git Sync/Audit 섹션부터 Foundation과 Closing 섹션까지 findings-first로 검수해야 합니다.
-- 다음 단계는 Issue #20 전용 브랜치 commit/push와 Draft PR 생성 후 사람/독립 리뷰를 받는 것입니다. Ready 전환, merge, Issue close는 별도 승인 대상입니다.
+- 다음 단계는 이 정합성 기록을 `agent/20-closing-consistency`에 커밋·푸시하고 PR로 main에 병합한 뒤, Issue #20이 CLOSED로 유지되는지 검증하는 것입니다. root Compose 정책 테스트 2건은 Issue #66 후속에서 수정하거나 새 인프라 계약에 맞게 갱신합니다.
 
 ---
 

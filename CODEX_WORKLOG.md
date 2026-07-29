@@ -1618,3 +1618,13 @@
 - Local environment: upstream no longer selects the installed JDK 17 path while `JAVA_HOME` is JDK 21, so verification used `-Porg.gradle.java.installations.paths=C:\Java\jdk17` without committing a machine-specific path.
 - State: base equals latest origin/main at `f3d33ea`; user authorized commit/push/Draft PR. Merge and Issue close remain unapproved; two named backup stashes are retained.
 - Rollback: revert the Issue #20 commit after commit, or compare/apply the retained transfer stash in a clean safe checkout before commit. No DB migration was added in this pass.
+
+## 2026-07-29 (Issue #20 Closing main parity reconciliation)
+
+- Fetched `origin/main@ce35ce5` and compared the full Closing/Foundation transfer snapshot before applying any new code commit.
+- Found that commit `31be6f1` already contains all Closing production, test, module documentation, and required bridge changes; the feature branch therefore fast-forwarded to main without duplicating code.
+- Retained three recovery stashes, including `codex-post-main-comparison-gh-20-2026-07-29`.
+- Verified 98 affected tests plus Closing API/Batch and Config Server bootJars successfully.
+- The broader suite found two unrelated main regressions in Master Data and Config Server Compose policy tests after Issue #66 removed/commented their root Compose services. These were documented, not fixed in the Closing scope.
+- Issue #20 was already CLOSED. The user authorized main integration of this harness reconciliation through the PR path.
+- Rollback for this handoff is the harness-only reconciliation commit. The already-main Closing implementation is not rolled back by applying an old stash.
