@@ -611,5 +611,5 @@
 - Reconciled Issue #40's physical module split by registering persistence-owned entities in both composition roots, deleting the duplicate/BOM-prefixed API entry point, and moving Batch integration setup behind the output port.
 - Verification passed for Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, and Journal Ledger integration 1 tests. API and Batch bootJars also passed; 50 observed tests had no failures/errors/skips.
 - Independent review identified account loss on SCD2 replacement. The domain now clones account values with new child IDs, while tests prove old/new FK ownership, close-before-save ordering, invalid-update no-write behavior, and overlapping-row fail-closed lookup.
-- GitHub connectivity and authentication were reverified on 2026-07-30, and Issue #41 is OPEN. The branch/worktree remains until the implementation PR is pushed, merged, and its automatic Issue closure is verified.
+- GitHub connectivity and authentication were reverified on 2026-07-30, Issue #41 is OPEN, and Draft PR #232 was opened with `Fixes #41`. The branch/worktree remains until Ready transition, merge, automatic Issue closure, and cleanup are verified.
 - Remaining risks: PostgreSQL execution was not run, overlapping SCD2 periods still need a database exclusion constraint, and unbounded list/query pagination remains outside this issue.

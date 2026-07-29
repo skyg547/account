@@ -15,7 +15,7 @@
   - Master Data API와 Batch `bootJar` 생성도 통과했다.
   - 독립 리뷰와 diff/conflict marker/도메인 JPA 누수 정적 검사에서 남은 P0-P3 finding이 없음을 확인했다.
 - **현재 상태와 위험**:
-  - GitHub Issue #41은 현재 OPEN이다. 실제 구현은 `agent/41-business-partner-ddd`의 PR에서 `Fixes #41`로 통합하고 merge 후 자동 종료를 검증한다.
+  - GitHub Issue #41은 현재 OPEN이고 구현 Draft PR #232가 `Fixes #41`로 연결돼 있다. Ready 전환과 merge 후 자동 종료를 검증한다.
   - PostgreSQL 실DB 실행, SCD2 기간 중첩 exclusion constraint, 무제한 목록 pagination은 후속 완료 조건이다.
 
 ﻿### 📅 2026-07-30 (Issue #41 자동 완료)

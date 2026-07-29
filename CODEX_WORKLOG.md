@@ -1657,4 +1657,5 @@
 - Verification: Master Data Core 12, API 2, Batch 4, Expenditure API 1, Loan Core 30, and Journal Ledger integration 1 tests passed; API and Batch bootJars passed. Total observed: 50 tests, 0 failures/errors/skips.
 - Independent review found and drove one correctness fix: next SCD2 versions now copy account values into new child rows with new IDs, preserving both current payment accounts and historical FK ownership. Domain, service-order, child merge, and overlap fail-closed tests cover the corrected contract.
 - Independent post-rebase review and static checks found no remaining P0-P3 findings. The remaining remote gates are push and a follow-up PR/merge if the restricted environment can authenticate. PostgreSQL was not executed; overlap exclusion constraint and list pagination remain follow-ups.
+- Draft PR `#232` is the reviewed integration vehicle for the reopened Issue #41 and uses `Fixes #41`; Ready transition, merge, automatic Issue closure, and cleanup remain.
 - Rollback: revert the Issue #41 follow-up implementation commit. No schema rollback is required.

@@ -1023,6 +1023,7 @@
 - Issue: `#41`, selected after the user explicitly excluded #40. PR #225 closed it with documentation-only commit `cdb892e4`, then a closure audit reopened it because production code was missing. This branch is the verified implementation and closes the Issue through `Fixes #41`.
 - Branch/worktree: `agent/41-business-partner-ddd`, `C:\dev\account\.worktrees\account-41-business-partner-ddd`.
 - Base: `main@39dabd4e`, including the Issue #40 Master Data API/Core/Batch physical split and PR #225.
+- Draft PR: `#232`, using `Fixes #41`.
 - State: implementation, latest-main verification, independent post-rebase review, and static checks are complete. The local branch is ready for the remote gate.
 
 ## Implemented Boundary
@@ -1049,7 +1050,7 @@
 
 ## Remote Gate, Risks, And Rollback
 
-- GitHub authentication, latest `main@39dabd4e`, PR #225, and reopened Issue #41 were reverified on 2026-07-30. Push, implementation PR creation/merge, automatic Issue closure verification, and post-merge cleanup are the remaining remote gates.
+- GitHub authentication, latest `main@39dabd4e`, PR #225, reopened Issue #41, and Draft PR #232 were reverified on 2026-07-30. Ready transition, merge, automatic Issue closure verification, and post-merge cleanup are the remaining remote gates.
 - PostgreSQL execution was not available. H2 verifies mapping behavior, but production overlap prevention still needs a PostgreSQL date-range exclusion constraint and integration test.
 - `@EntityGraph(accounts)` prevents per-row lazy queries but an unpaged list may expand result rows; bounded pagination remains a separate contract change.
 - Rollback after commit is a normal revert of the Issue #41 follow-up implementation commit. Existing schema and API contracts are retained, so no migration rollback is needed.
