@@ -57,8 +57,8 @@
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |
 | :--- | :--- | :---: | :---: | :--- |
 | 계정 과목 관리 | `/master/account` | ✅ | [X] | 백엔드 API `/api/basic/account-subjects` 연동 완료 |
-| 거래처 관리 | `/master/partner` | ✅ | [X] | 백엔드 API `/api/basic/business-partners` 연동 완료 |
-| 기준 정보 승인 | `/master/approval` | 🎨 | [ ] | 승인 대기함 및 Diff 뷰어 |
+| 거래처 등록·승인 | `/master-data/partner` | ✅ | [X] | `/api/basic/businesspartners`, `/api/master-data/change-requests` 실제 연동 |
+| 기존 기준 정보 승인 Mock | `/master/approval` | 🎨 | [ ] | 통합 화면은 `/master-data/partner` 사용 |
 
 ## 6. 시스템 관리 (ADMIN)
 | 화면명 | 경로 | 상태 | API 연동 | 비고 |

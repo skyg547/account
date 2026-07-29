@@ -67,7 +67,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
         }
 
         // 구현되지 않은 전략은 접수 후 장기간 방치하지 않고 입구에서 바로 차단합니다.
-        applierRegistry.require(request.getTargetType());
+        MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        applier.validate(request);
         verifyCurrentVersion(request);
 
         // @todo 다중 노드에서 같은 targetType/targetKey 요청이 동시에 들어오는 경쟁은
@@ -87,7 +88,8 @@ public class MasterDataChangeRequestService implements MasterDataChangeRequestUs
     @Transactional
     public MasterDataChangeRequest approve(Long requestId, String approver) {
         MasterDataChangeRequest request = findForDecision(requestId);
-        applierRegistry.require(request.getTargetType());
+        MasterDataChangeApplier applier = applierRegistry.require(request.getTargetType());
+        applier.validate(request);
         verifyCurrentVersion(request);
         request.approve(approver);
         return persistencePort.save(request);

@@ -36,7 +36,7 @@ spring:
         - id: master-data-api
           uri: lb://master-data
           predicates:
-            - Path=/api/basic/**
+            - Path=/api/basic/**,/api/master-data/**
           filters:
             - name: CircuitBreaker # 2차 방어막: 뒷단 죽었는지 검사
               args:

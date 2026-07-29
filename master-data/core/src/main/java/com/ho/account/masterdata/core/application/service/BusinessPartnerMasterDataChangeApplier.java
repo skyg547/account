@@ -25,6 +25,13 @@ public class BusinessPartnerMasterDataChangeApplier implements MasterDataChangeA
     }
 
     @Override
+    public void validate(MasterDataChangeRequest request) {
+        if (request.getChangeType() != MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            command(request).toDomain();
+        }
+    }
+
+    @Override
     public void apply(MasterDataChangeRequest request) {
         switch (request.getChangeType()) {
             case CREATE -> businessPartnerUseCase.createBusinessPartner(command(request));

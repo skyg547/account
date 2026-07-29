@@ -1,3 +1,29 @@
+### 📅 2026-07-30 (Codex Issue #42 실제 구현)
+### [리뷰 준비] 거래처 등록·심사 승인 화면과 Master Data 승인 API 연동
+
+- **작업 배경**:
+  - 기존 자동화가 문서만 추가하고 Issue #42를 닫아 closure audit에서 실제 화면/API 연동 부재를 확인했다.
+  - Backend의 거래처·변경요청 Controller는 이미 application use case를 호출했지만, Gateway가 `/api/master-data/**`를 Master Data 서비스로 전달하지 않아 승인 API를 사용할 수 없었다.
+- **변경 범위**:
+  - `/master-data/partner`에 거래처 등록, 승인 대기 목록, 승인·반려 사유 입력, 기존 거래처 목록과 loading/error/empty/progress 상태를 구현했다.
+  - `masterDataService`를 실제 Backend DTO와 맞추고 `NEXT_PUBLIC_API_URL` 기반 Gateway 주소로 거래처 등록 변경요청, 대기 조회, 승인·반려 호출을 연결했다. 브라우저는 Bearer token만 전달하며 mock/fallback은 두지 않았다.
+  - Gateway가 JWT에서 재생성한 `X-Auth-User`/`X-Auth-Roles`만 Backend actor/권한으로 사용하고, 승인·반영 API 전체를 Master Data 관리 역할로 제한했다.
+  - BUSINESS_PARTNER payload는 접수와 승인 전에 typed command/domain 검증을 거치며, 화면도 심사 필드 전체를 표시하고 해석할 수 없는 요청의 승인 버튼을 차단한다.
+  - 기존 `/master/partner` 화면의 DTO 필드와 메뉴 경로를 정정했다.
+  - Gateway Master Data route가 `/api/basic/**`와 `/api/master-data/**`를 함께 전달하도록 정책 테스트와 문서를 갱신했다.
+  - Controller 경계 테스트로 거래처 조회/등록과 변경요청 생성/대기/승인/반려의 요청·응답·use case 위임을 고정했다.
+- **검증**:
+  - Master Data Core 13, API 9, Gateway 30으로 총 52 tests가 실패/오류/skip 없이 통과했고 Master Data API와 Gateway `bootJar`도 성공했다.
+  - 변경된 프런트 파일의 ESLint, `git diff --check`, conflict marker 및 잘못된 legacy 경로 정적 검사가 통과했다.
+  - Next production source compilation은 성공했지만 전체 type check는 기존 `profile/pat`, `system/tokens`의 `PageHeader.breadcrumbs` 누락 2건으로 중단됐다.
+  - 최초 독립 리뷰 finding을 보정한 뒤 재검토에서 P0-P3 없이 PASS했다. Docker CLI가 없어 Compose는 정적 구조까지만 확인했다.
+- **현재 상태와 위험**:
+  - Branch/worktree는 `agent/42-master-data-approval` / `C:\tmp\account-42-master-data-approval`이며 독립 리뷰와 PR 통합 전 상태다.
+  - 대기 조회가 모든 target type과 raw `payloadJson`을 반환한 뒤 client가 필터링하므로 서버측 type filter, pagination, 응답 projection이 후속 과제다.
+  - 신뢰 헤더 계약은 Master Data 서비스가 Gateway 뒤에서만 접근된다는 배포 경계를 전제로 하므로 서비스 포트를 외부에 직접 공개하면 안 된다.
+  - 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload 승인 finding은 모두 코드와 회귀 테스트로 해소했고 재검토가 PASS했다.
+  - 로컬 Next dev server가 요청에 응답하지 않아 브라우저 시각 검증은 완료하지 못했고 해당 프로세스와 임시 junction은 정리했다.
+
 ### 📅 2026-07-30 (Codex Issue #41 후속 구현)
 ### [후속 구현/통합 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리
 

@@ -27,6 +27,38 @@ class GatewayRouteSecurityPolicyTest {
                 .doesNotContain("JwtAuthenticationFilter");
     }
 
+    @Test
+    void masterDataPathsUseExplicitRouteBeforeLegacyCatchAll() {
+        Properties properties = loadGatewayProperties();
+        int masterDataRouteIndex = routeIndex(properties, "master-data-api");
+        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
+
+        assertThat(masterDataRouteIndex).isGreaterThanOrEqualTo(0);
+        assertThat(legacyCatchAllRouteIndex).isGreaterThan(masterDataRouteIndex);
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/basic/**,/api/master-data/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].filters[0].args.name"))
+                .isEqualTo("masterDataCircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + legacyCatchAllRouteIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/**");
+    }
+
+    private int routeIndex(Properties properties, String routeId) {
+        for (int index = 0; index < properties.size(); index++) {
+            if (routeId.equals(properties.getProperty(
+                    "spring.cloud.gateway.routes[" + index + "].id"))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
     private Properties loadGatewayProperties() {
         Path configurationPath = resolveConfigurationPath();
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();

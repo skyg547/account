@@ -99,24 +99,24 @@ export default function PartnerPage() {
                     <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-10 py-8">
                         <span className={`text-[10px] font-black px-3.5 py-1.5 rounded-xl border ${
-                          p.type === 'CORPORATE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                          p.type === 'FINANCIAL' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                          p.partnerType === 'CUSTOMER' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          p.partnerType === 'BANK' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                           'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}>
-                          {p.type}
+                          {p.partnerType}
                         </span>
                       </td>
                       <td className="px-6 py-8">
                         <div className="flex flex-col gap-1">
-                          <span className="text-base font-black text-white tracking-tight">{p.name}</span>
-                          <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{p.code}</span>
+                          <span className="text-base font-black text-white tracking-tight">{p.businessPartnerName}</span>
+                          <span className="text-[10px] text-slate-600 font-bold tracking-widest uppercase">{p.businessPartnerCode}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-8 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.taxRegistrationNumber || p.registrationNumber || '-'}</td>
+                      <td className="px-6 py-8 text-sm font-mono text-slate-400 font-bold tracking-tighter">{p.registrationNumber || '-'}</td>
                       <td className="px-6 py-8">
-                        <div className={`flex items-center gap-2 font-black ${p.status === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
-                          <span className="text-[10px] uppercase tracking-widest">{p.status}</span>
+                        <div className={`flex items-center gap-2 font-black ${p.useYn ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${p.useYn ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+                          <span className="text-[10px] uppercase tracking-widest">{p.useYn ? 'ACTIVE' : 'INACTIVE'}</span>
                         </div>
                       </td>
                       <td className="px-10 py-8 text-right">

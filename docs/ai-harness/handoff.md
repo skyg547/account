@@ -1,3 +1,45 @@
+# AI Harness Handoff - 2026-07-30 Issue #42 Master Data Partner Approval
+
+## Active Goal And State
+
+- GitHub Issue `#42`의 거래처 등록·심사 승인 화면과 실제 API 연동 구현은 완료됐고 독립 리뷰 전 상태입니다.
+- Branch/worktree: `agent/42-master-data-approval`, `C:\tmp\account-42-master-data-approval`.
+- Base: `origin/main@c0fb871b`.
+- Backend production Controller와 application/domain 전이는 이미 존재해 중복 구현하지 않았고, 사용을 막던 Gateway 경로를 실제 호출 범위에 맞췄습니다.
+
+## Changes And Boundaries
+
+- `/master-data/partner`는 거래처 등록, 승인 대기 조회, 승인·반려 사유, 현재 거래처 조회와 명시적인 loading/error/empty/progress 상태를 제공합니다.
+- Frontend API service는 실제 Backend DTO/경로와 `NEXT_PUBLIC_API_URL`의 Gateway 주소를 사용하며 BUSINESS_PARTNER 요청 생성과 `REQUESTED` 목록, 승인, 반려를 연결합니다. non-2xx는 오류로 전파하고 mock/fallback은 없습니다.
+- 기존 `/master/partner`의 잘못된 DTO 필드를 고치고 승인 메뉴가 새 화면을 가리키게 했습니다.
+- Gateway의 기존 Master Data route가 `/api/basic/**`와 `/api/master-data/**`를 함께 처리하며 legacy catch-all보다 앞선 순서와 circuit breaker를 유지합니다.
+- Gateway가 JWT에서 만든 `X-Auth-User`/`X-Auth-Roles`만 actor/권한으로 사용하고, 변경요청 생성·조회·결정·반영 API 전체를 Master Data 관리 역할로 제한합니다.
+- BUSINESS_PARTNER payload는 접수와 승인 전에 typed command/domain validation을 통과해야 하며, UI도 전체 심사 필드를 표시하고 malformed payload 승인을 차단합니다.
+- API 테스트는 trusted actor, 역할 차단, HTTP DTO 조립과 use case 위임을 검증하며 상태 전이는 domain/application 경계에 남습니다.
+
+## Verification Evidence
+
+- `:master-data:core:test`, `:master-data:api:test`, `:gateway:test`: 총 52 tests, failures/errors/skipped 0.
+- `:master-data:api:bootJar`, `:gateway:bootJar`: 성공.
+- 변경된 프런트 파일 ESLint, `git diff --check`, conflict marker 및 legacy API/header 정적 검사: 통과.
+- Next production source compilation은 성공했습니다. 전체 type check는 Issue #42 밖의 기존 `profile/pat/page.tsx`, `system/tokens/page.tsx`에서 `PageHeader.breadcrumbs`가 빠진 2건 때문에 실패했습니다.
+- 로컬 Next dev server가 30초 내 응답하지 않아 브라우저 시각 검증은 완료하지 못했습니다. 해당 PID와 임시 `node_modules` junction은 범위를 확인한 뒤 제거했습니다.
+- Docker CLI가 없어 Compose build argument 연결은 독립 정적 리뷰만 통과했고 `docker compose config`는 실행하지 못했습니다.
+
+## Known Risks And Rollback
+
+- pending API는 모든 target type과 raw `payloadJson`을 반환합니다. 서버측 type filter, pagination, 최소 응답 projection이 필요합니다.
+- trusted identity header는 Master Data가 Gateway 뒤에서만 접근된다는 배포 경계를 전제로 하므로 업무 서비스 포트를 직접 공개하면 안 됩니다.
+- missing ID/invalid transition의 404/409 표준화와 BusinessPartner Controller validation 일관성은 후속 API 품질 범위입니다.
+- 롤백은 Issue #42 feature commit revert이며 DB migration이나 운영 데이터 변경은 없습니다.
+
+## Next Gate
+
+- 최초 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload/P2 심사 표시 finding은 코드와 회귀 테스트로 해소했습니다.
+- 수정 diff 독립 재검토는 남은 P0-P3 없이 PASS했습니다. commit, Draft PR, Ready 전환, merge, Issue close, integration record 순으로 진행합니다.
+
+---
+
 # AI Harness Handoff - 2026-07-29 Issue #40 Master Data Module Split
 
 ## Active Goal And State

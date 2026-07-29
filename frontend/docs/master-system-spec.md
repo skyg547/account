@@ -15,7 +15,7 @@
 | 계정과목 코드 | `/account-code/manage` | 신규 등록 및 수정 Form, 활성/비활성 Toggle |
 | 계정과목 코드 | `/account-code/products` | 금융상품(수신/여신) Data Grid |
 | 거래처 관리 | `/partner/list` | 거래처(법인/개인) Data Grid, 상태 뱃지 |
-| 거래처 관리 | `/partner/approval` | 기준정보 변경 전/후 Diff 뷰어 (ApprovalWorkflow 적용) |
+| 거래처 관리 | `/master-data/partner` | 실제 거래처 목록, 신규 등록 요청, 승인/반려 대기열 (Master Data API 연동) |
 
 ### 2.2. 시스템 및 내부회계 (SYSTEM)
 | 업무 그룹 | 경로 | 화면 구성 및 주요 컴포넌트 |
@@ -37,14 +37,21 @@
 - `status`: 'ACTIVE' | 'INACTIVE'
 - `parentCode`: 부모 계정코드
 
-### 3.2. 거래처 (`PartnerDto`)
+### 3.2. 거래처 (`BusinessPartnerDto`)
 - `id`: 거래처 식별키
-- `type`: 'CORPORATE' | 'INDIVIDUAL'
-- `name`: 상호명 / 이름
-- `businessNumber`: 사업자/법인 번호
-- `status`: 'ACTIVE' | 'PENDING' | 'BLOCKED'
+- `partnerType`: 'CUSTOMER' | 'VENDOR' | 'BANK' | 'OTHER_BP'
+- `businessPartnerCode`, `businessPartnerName`: 거래처 코드와 상호명
+- `registrationNumber`: API 경계에서 마스킹된 사업자/법인 번호
+- `useYn`: 거래처 사용 여부. 승인 대기 상태는 변경 요청의 `REQUESTED`로 분리
+- `kycStatus`, `riskRating`, `validFrom`, `validTo`: 심사·위험·SCD2 유효기간
 
-### 3.3. 시스템 사용자 (`UserDto`)
+### 3.3. 거래처 변경 요청 (`MasterDataChangeRequestDto`)
+- `targetType`: 거래처 화면에서는 `BUSINESS_PARTNER`만 표시
+- `status`: 백엔드의 `REQUESTED`를 화면에서 `PENDING`으로 표시하고, 승인/반려 후 `APPROVED`/`REJECTED`로 전이
+- `requestedVersion`: 신규 거래처는 첫 SCD2 버전이므로 `1`
+- `payloadJson`: 접수·승인 전에 core typed applier가 `BusinessPartnerCommand`/도메인 규칙으로 검증하는 등록 값
+
+### 3.4. 시스템 사용자 (`UserDto`)
 - `userId`: 식별키
 - `name`: 이름
 - `department`: 부서명
