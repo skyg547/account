@@ -1,4 +1,9 @@
-﻿### 📅 2026-07-30 (Issue #181 자동 완료)
+﻿### 📅 2026-07-30 (Issue #180 자동 완료)
+### [자동 처리] [reconciliation] return null 14건 제거 — AutomatedMatchingEngine 및 ReconciliationService
+- 헥사고날/DDD 원칙 및 교육적 주석 적용
+- 빌드 및 검증 완료
+
+### 📅 2026-07-30 (Issue #181 자동 완료)
 ### [자동 처리] [expenditure-resolution] DtoAssembler return null 3건 제거
 - 헥사고날/DDD 원칙 및 교육적 주석 적용
 - 빌드 및 검증 완료
@@ -1918,6 +1923,7 @@
 - [x] Resolved Issue #41: [master-data] 도메인 엔티티(BusinessPartner)와 영속성 엔티티 분리 및 DDD 적용 (Automated Loop)
 
 - [x] Resolved Issue #40: [master-data] 모듈 헥사고날 멀티 프로젝트(api, batch, core) 분리 (Automated Loop)
+
 
 
 
