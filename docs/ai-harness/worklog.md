@@ -124,6 +124,30 @@
   - Docker CLI was unavailable, so Compose build-argument wiring received static review but no `docker compose config` execution.
 - Rollback:
   - Revert the Issue #42 feature commit; no schema or live data was changed.
+## 2026-07-30 - Issue #227 runtime execution parity audit
+
+- Owner: Codex Integrator with read-only Explorer/Planner/Reviewer agents.
+- Branch/worktree: `agent/227-runtime-parity-audit` / `C:\tmp\account-227-runtime-parity-audit`.
+- Base: rebased to `origin/main@c0fb871b`; root checkout user changes were not touched.
+- Scope:
+  - Classified all 70 Gradle subprojects and separated 35 executable targets from 34 library/aggregator targets and phantom `:app`.
+  - Added a dependency-free PowerShell audit for actual offline packaging, library tests/JARs, explicit in-memory-H2 executable JAR startup, and frontend contract inspection.
+  - Defined local H2, self-contained dev PostgreSQL, shared external-dev PostgreSQL, and production external PostgreSQL/container boundaries without storing host or credentials.
+- Verification:
+  - 33/35 executable targets produced executable JARs. Internal Audit API compile/bootJar and Batch bootJar remain non-executable.
+  - 34/34 library/aggregator projects passed isolated `test jar --offline`.
+  - 25/35 local JAR contexts passed, 8 failed, and 2 were blocked by packaging. Business Batch jobs were disabled and therefore not claimed as verified.
+  - After rebasing to `origin/main@36a1be4f`, all eight formerly failing targets repackaged; Closing Batch now passes local context startup through #43, leaving seven current failures and two packaging blocks.
+  - Frontend package/lock/scripts and `npm.cmd` exist; actual install/build/start was blocked by absent `node_modules` and the no-install-without-approval policy.
+  - Docker CLI was unavailable, so image and Compose behavior remains a static audit only.
+  - Script parse, `git diff --check`, conflict marker scan, sensitive-host-literal scan, and Markdown relative-link checks passed.
+- Issue routing:
+  - Runtime failures: #73-#80 and #89-#90; Master Data latest success evidence added to #72.
+  - Packaging/image #228, development DB #229, production overlay #230, Internal Audit/Auth boundary #231, root orchestration #66; coordination #60/#226.
+- Safety:
+  - Shared development endpoints received TCP reachability checks only. No login, schema, metadata, credential, remote container, migration, or volume mutation occurred.
+- Rollback:
+  - Revert Issue #227 documentation, `tools/runtime-smoke.ps1`, and these harness records. No database rollback is needed.
 
 ## 2026-07-29 - Issue #40 Master Data executable module split
 

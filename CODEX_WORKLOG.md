@@ -85,6 +85,25 @@
 - 리스크:
   - pending API의 서버측 필터·pagination·payload projection과 Gateway-only 서비스 노출 보장이 후속 보안/확장성 범위다.
   - 로컬 dev server 응답 지연으로 브라우저 시각 검증은 미완료다.
+## 2026-07-30 (Issue #227 runtime parity audit)
+
+- 목표: 모든 Gradle 실행 모듈과 frontend가 local에서는 직접 Gradle/JAR/NPM으로, dev/prod에서는 container/Compose와 PostgreSQL로 실행될 수 있는지 최신 main에서 재현 가능하게 감사한다.
+- branch/worktree: `agent/227-runtime-parity-audit` / `C:\tmp\account-227-runtime-parity-audit`; audit snapshot `origin/main@c0fb871b`, push-gate rebase `origin/main@36a1be4f`.
+- 변경:
+  - `tools/runtime-smoke.ps1`에 Inventory, dry-run TaskContract, 실제 Packaging, library/aggregator `test+jar`, executable LocalJar, Frontend 모드를 추가했다.
+  - LocalJar는 외부 Config/Eureka/Vault를 끄고 명시적 `jdbc:h2:mem:`을 강제하며 Spring `Started` marker가 있어야 성공으로 판정한다.
+  - README와 local development guide를 실제 70-subproject/phantom `:app` 구조에 맞추고 `docs/runtime-execution-matrix.md`에 환경/모듈/컨테이너 gap을 기록했다.
+- 검증:
+  - executable 35: packaging 33 PASS, 1 NON_EXECUTABLE, 1 NON_EXECUTABLE_COMPILE_FAILED.
+  - library/aggregator 34: 프로젝트별 `test+jar` 전부 PASS.
+  - local JAR 35: 25 PASS, 8 FAIL, 2 BLOCKED_BY_PACKAGING. Batch는 job-disabled context만 검증했고 대표 업무 Job은 실행하지 않았다.
+  - 최신 main에서 기존 실패 8개를 재패키징/재기동한 결과 Closing Batch가 PASS로 복구되어 현재는 26 PASS, 7 FAIL, 2 BLOCKED_BY_PACKAGING다.
+  - frontend scripts/lockfile/npm은 확인했으나 dependency installation 미승인과 `node_modules` 부재로 build/start는 미실행했다. Docker CLI도 없어 image/Compose runtime은 미실행했다.
+  - PowerShell parse, `git diff --check`, conflict marker 및 민감 host literal 검사가 통과했다.
+- 후속:
+  - 실패는 #73-#80, #89-#90; image는 #228, dev DB는 #229, prod overlay는 #230, Internal Audit/Auth 경계는 #231, root Compose는 #66에서 처리한다.
+  - 공유 개발 PostgreSQL은 `DEV_DB_HOST`/JDBC 환경변수 override로만 사용하고 self-contained dev DB와 동시에 실행하지 않는다.
+- 상태: 로컬 commit 후 review-ready. push/PR/merge/Issue close는 미실행.
 
 ## 2026-07-29 (Issue #40 Master Data API/Core/Batch split)
 - 요청 목표: `master-data`를 실제 배포 가능한 `api`, `batch`와 재사용 library인 `core`로 물리 분리한다.
