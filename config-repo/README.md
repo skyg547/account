@@ -42,6 +42,8 @@
 
 운영 비밀번호, JWT secret, 내부 token, 개인정보, 운영 URL은 평문으로 확정하거나 문서/로그에 출력하지 않습니다. 환경변수나 승인된 secret 관리 체계로 분리합니다.
 
+`dev` profile의 PostgreSQL database/owner, self-contained Compose와 공유 개발 DB 주입 계약은 [개발 PostgreSQL 가이드](../docs/development-postgresql.md)를 따릅니다. `application-dev.yml`은 datasource 환경변수가 없을 때 H2로 fallback하지 않고 시작을 실패시킵니다.
+
 ## Docker와 로컬
 
 설정 원본은 Config Server 이미지 레이어에 포함하지 않습니다. Compose에서만 이 폴더를 `/config-repo`에 읽기 전용으로 마운트합니다.

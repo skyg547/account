@@ -85,6 +85,17 @@
   - PostgreSQL execution and live Auth/Gateway/Discovery routing were not run.
 - Rollback:
   - Revert the Issue #43 feature commit. V50 rollback requires a controlled data-preserving migration, not a destructive down migration.
+## 2026-07-30 - Issue #229 development PostgreSQL ownership and health contract
+
+- Owner: Codex Integrator; independent read-only Reviewer.
+- Branch/worktree/base: `agent/229-dev-postgres` / `C:\tmp\account-229-dev-postgres` / `origin/main@5fb9cb67`.
+- Added opt-in self-contained PostgreSQL and external-dev authenticated probe Compose models, 16 database-specific owner roles, and a post-bootstrap manifest.
+- Dev Config now requires `DEV_DB_*`, PostgreSQL, Flyway validation and JPA validate with SQL init/H2/default credential fallback disabled.
+- Config Server offline tests, POSIX shell syntax/LF, diff, conflict, relative-link, private-host and legacy-password scans passed.
+- Reviewer findings for missing external override and early readiness were corrected with separate profiles/files and the completion manifest; final review had no findings.
+- Docker Compose provider and cached PostgreSQL image were unavailable, so live Compose/bootstrap/restart/idempotency remains a #66 gate.
+- No remote DB login, metadata, schema, credential, container, migration or volume mutation occurred.
+- Rollback reverts Issue #229 files and stops local Compose without `-v`; named volumes and remote DB state remain.
 
 ## 2026-07-30 - Issue #42 Master Data partner approval UI/API
 

@@ -1,36 +1,54 @@
-version: '3.8'
+name: ${COMPOSE_PROJECT_NAME:-account-dev-db}
+
+services:
+  postgres-db:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    profiles:
+      - self-contained-db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: "${POSTGRES_ADMIN_DB:-postgres}"
+      POSTGRES_USER: "${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER in an untracked env file}"
+      POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in an untracked env file}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:?Set ACCOUNT_DATABASES in an untracked env file}"
+      ACCOUNT_DB_PASSWORD: "${ACCOUNT_DB_PASSWORD:?Set ACCOUNT_DB_PASSWORD in an untracked env file}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - account-network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" && test "$$(psql --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --no-psqlrc --tuples-only --no-align --quiet --command "SELECT database_manifest FROM public.account_dev_bootstrap_status WHERE singleton = true AND completed = true")" = "$$ACCOUNT_DATABASES"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  pgadmin:
+    image: ${PGADMIN_IMAGE:-dpage/pgadmin4:8}
+    profiles:
+      - admin
+    restart: unless-stopped
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@example.invalid}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:?Set PGADMIN_DEFAULT_PASSWORD before enabling the admin profile}"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - account-network
 
 networks:
   account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
     driver: bridge
 
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: account-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: account_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - account-network
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: account-pgadmin
-    ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    depends_on:
-      - postgres
-    networks:
-      - account-network
-
 volumes:
-  postgres-data:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-account-dev-postgres-data}
