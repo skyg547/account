@@ -1865,3 +1865,5 @@
 
 - [x] Resolved Issue #43: [closing] EOD/BOD 결산 상태 관리 도메인 설계 (EodState) (Automated Loop)
 
+- [x] Resolved Issue #42: [frontend] 거래처 심사 승인(Master Data Approval) 화면 구현 및 API 연동 (Automated Loop)
+
