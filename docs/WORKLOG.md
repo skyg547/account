@@ -1725,3 +1725,77 @@
   - 테스트 이외의 실제 코드(도메인 서비스 및 어댑터)에서 발견된 스켈레톤 더미 코드들 정리 완료.
 - 검증: ./gradlew build -x test 성공.
 - 상태: PR 제출 완료.
+
+### 📅 2026-07-28 (Closing 정합성·Batch·런타임 경계 점검)
+### [구현/검수] 마감 상태 전이, FX/ECL 원장 정합성, 재실행과 실행 컨텍스트 보강
+
+- **선확인**:
+  - 회계기간 누락이 OPEN으로 처리되고 캘린더/태스크/게이트/재오픈 상태를 setter로 우회할 수 있었다.
+  - API 배치 실패 이력이 전표 트랜잭션과 함께 롤백되고 DRAFT 전표가 COMPLETED로 기록됐다.
+  - FX가 생산 writer 없는 잔액 모델과 Master Data 내부 Repository에 의존했고, ECL은 전체 summary 메모리 적재·그룹별 기존잔액 중복 차감·GL 부호 문제가 있었다.
+  - API가 `com.ho.account` 전체를 스캔하고 실행 모듈 설정 이름이 provider JAR에 의해 오염될 수 있었다.
+- **수정 범위**:
+  - fail-closed 기간 확인, 도메인 상태 전이, 필수 태스크/게이트, maker-checker, 감사 예외 전파를 구현했다.
+  - 실행 이력 독립 트랜잭션, PENDING_APPROVAL/FAILED 상태, 결정적 slip과 동일 내용 재사용을 구현했다.
+  - `POSTED` 전표 signed FX 원천, bounded range/Cursor/chunk pipeline, 환율 계약 포트를 연결했다.
+  - ECL DB 선집계, single snapshot/legal entity/date 검증, 실제 GL 대변 잔액과 그룹당 1회 차감을 구현했다.
+  - 연말 손익 대체의 POSTED/기준통화/계정분류와 반복 실행을 보강하고 API/Batch runtime scan·application name을 격리했다.
+  - Closing README/docs와 하네스/리뷰 문서를 실제 흐름과 TODO에 맞췄다.
+- **검증**:
+  - 최종 영향 명령에서 Contracts 4, Master Data 74, Journal Ledger Core 23, Closing Core 44, API 1, Batch 12로 총 158 tests/52 suites가 실패·오류·skip 0건이었다.
+  - Closing API/Batch `bootJar`, 두 ApplicationContext와 자체 application name 검증이 성공했다.
+- **남은 리스크/TODO**:
+  - FX 이중통화 read model/대사/대량 PostgreSQL 계획, Annual Closing 집계 포트, 실행키 unique/outbox 복구, GL 법인 차원, unlock 이력 migration, typed evidence evaluator가 필요하다.
+  - 실제 PostgreSQL/Flyway와 Docker/Compose는 미검증이다.
+- **롤백 범위**:
+  - `closing/**`, 이번 contracts/Master Data/Journal Ledger bridge 변경과 동기화한 docs/harness 항목을 함께 되돌린다. DB migration 변경은 없다.
+- **상태**: review-ready, uncommitted. 사용자 명시 승인 전 commit/push/merge 금지.
+
+### 📅 2026-07-28 (foundation 잔여 검증·phantom app 정리)
+### [구현/검수] Config 보류 해소, 공통 의존성 정렬과 Gradle 구조 정합화
+
+- **선확인**:
+  - Config Server 최신 health-detail 테스트와 contracts/shared-kernel 영향 검증이 Windows 페이지 파일 부족으로 보류되어 있었다.
+  - `shared-kernel`은 `jackson-databind`만 2.17.1로 고정해 Spring Boot 3.2.5 BOM의 `jackson-core` 2.15.4와 혼용했고, JSON 테스트가 `NoSuchMethodError`로 실패했다.
+  - ECL 실패 전파 테스트는 `JobLauncher.run`이 선언하지 않은 상위 checked 예외를 Mockito에 주입해 테스트 더블 생성 단계에서 실패했다.
+  - 추적 소스가 없는 `app`이 `settings.gradle`에 남아 빈 JAR 프로젝트로 노출됐고 README의 모듈 설명도 상충했다.
+- **수정 범위**:
+  - Jackson databind 버전을 직접 고정하지 않고 Spring Boot BOM에 맡겨 Jackson family를 2.15.4로 정렬했다.
+  - ECL 테스트는 실제 `JobLauncher.run` 선언 예외인 `JobExecutionAlreadyRunningException`으로 실패 전파를 검증한다.
+  - `settings.gradle`에서 phantom `:app`을 제거하고 루트/입문/로컬 실행 문서를 서비스별 실행 구조로 맞췄다.
+  - Config/공통 경계의 과거 pending 상태와 모듈 진행표를 실제 재검증 결과로 갱신했다.
+- **검증**:
+  - Config health indicator 대상 테스트를 `--rerun-tasks`로 강제 재실행해 성공했다.
+  - `shared-kernel` 전체 6 tests와 ECL consumer 대상 3 tests를 각각 강제 재실행해 성공했다.
+  - 최종 `projects + shared-kernel/contracts/master-data/closing-core/ecl-api/config-server` 명령에서 40 suites/140 tests가 실패·오류·skip 0건이었고 Config Server `bootJar`가 생성됐다.
+  - `projects` 출력에 `:app`이 없고 나머지 서비스/라이브러리 프로젝트가 유지됨을 확인했다.
+- **남은 리스크/TODO**:
+  - `shared-kernel`의 JPA/Kafka/Redis/Vault/관측/Swagger 전이 의존성과 allowance 전용 타입 분리는 소비 모듈의 직접 의존 선언과 함께 단계적으로 수행해야 한다.
+  - Config Server Git backend/변경 승인과 endpoint 보호, 실제 Docker/Compose/PostgreSQL 통합은 별도 운영 환경 검증이 필요하다.
+- **롤백 범위**:
+  - `shared-kernel/build.gradle`, ECL consumer 테스트, `settings.gradle`, 세 실행 안내 문서와 이번 로그/상태 항목을 함께 되돌린다. 로컬 `app/build`는 무시된 과거 산출물로 이번 변경에서 삭제하지 않았다.
+- **상태**: review-ready, uncommitted. 사용자 명시 승인 전 commit/push/merge 금지.
+
+### 📅 2026-07-29 (Git 동기화·Issue #20 최신 main 통합)
+### [통합/검수] 로컬 변경 보존, Issue #29 구조 충돌 해결, Draft PR 준비
+
+- **동기화**:
+  - tracked/untracked 로컬 변경을 이름 있는 stash로 백업하고 `agent/closing-consistency-pass`를 `origin/main@b7c8aaa`로 fast-forward했다.
+  - stash를 삭제하지 않고 적용했으며 백업 당시 77개 변경 경로가 현재 working tree에 모두 존재하고 누락은 0개다.
+  - `docs/WORKLOG.md` 충돌 1건은 최신 upstream Auth/Internal Audit/Issue 26-27 기록과 로컬 Closing/Foundation 기록을 모두 보존해 해결하고 conflict log에 남겼다.
+- **Issue #20 인계와 최신 main 충돌 해결**:
+  - commit/PR transfer용 두 번째 stash에 82개 경로를 보존하고 Issue #20 전용 `agent/20-closing-consistency` 브랜치를 만들었다.
+  - 외부 `C:\tmp` worktree가 검증 중 소실되어 해당 결과는 폐기하고, 깨끗한 repository-root checkout에 같은 stash를 재적용해 복구했다.
+  - 그 사이 main이 Issue #29 통합 `f3d33ea`로 전진해 standalone internal-audit Application/test modify-delete와 shared-kernel 충돌이 발생했다.
+  - 새 `internal-audit:core/api/batch`와 이동된 감사 API를 보존하고 삭제된 파일을 되살리지 않았다. 중간 `b7c8aaa` 기준 AuditAspect 조립 수정은 최종 PR에서 제외했다.
+  - `settings.gradle`, Master Data 어댑터와 Jackson BOM 정렬 의도를 의미 단위로 병합하고 conflict log에 기록했다.
+- **검증**:
+  - 최신 `f3d33ea` 기준 Shared Kernel 6, Contracts 4, Master Data 74, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, ECL API 3, Config Server 9로 총 176 tests가 실패/오류/skip 0건이다.
+  - Closing API/Batch와 Config Server의 세 `bootJar`가 성공했다.
+  - 새 internal-audit 세 모듈의 compile/test task는 성공했지만 test는 모두 `NO-SOURCE`이고 API/Batch production source도 `NO-SOURCE`다. Issue #29 후속 위험으로 남긴다.
+  - 최신 Gradle 설정과 로컬 `JAVA_HOME` JDK 21 차이 때문에 `-Porg.gradle.java.installations.paths=C:\Java\jdk17`로 저장소 요구 JDK 17을 명시했으며 머신 경로를 저장소에 기록하지 않았다.
+- **상태/롤백**:
+  - 브랜치 base와 최신 `origin/main`은 `f3d33eae085a527fa1ae1905df6d0fa8dbaeb6bc`로 같다.
+  - GitHub Issue #20 실행 계약에 연결하고 repository root의 `agent/20-closing-consistency`에서 commit/push/Draft PR을 진행한다. merge/Issue close는 승인 범위가 아니다.
+  - pre-sync와 PR transfer 복구용 stash는 유지한다.
+  - 커밋 후 전체 롤백은 Issue #20 commit을 revert하며, 이번 pass에는 DB migration 변경이 없다.

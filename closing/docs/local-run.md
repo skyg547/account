@@ -12,7 +12,7 @@
 먼저 컴파일과 테스트로 모듈 상태를 확인합니다.
 
 ```powershell
-.\gradlew :closing:core:test :closing:api:compileJava :closing:batch:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :closing:core:test :closing:api:test :closing:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
 ## IntelliJ Run Configuration
@@ -27,6 +27,8 @@
 Batch Job은 선행 데이터가 필요하므로 기본 Run Configuration은 컨텍스트 확인용으로 둡니다. 실제 Job 실행은 아래 Gradle 명령을 사용해 기준일과 batch ID를 명확히 넘기는 편이 좋습니다. FX/ECL의 업무 판단은 core 서비스가 맡고, Batch는 Reader/Tasklet과 외부 어댑터를 조립합니다.
 
 ## API 실행
+
+실행 모듈은 의존 JAR의 설정 이름을 상속하지 않도록 `spring.application.name=closing-service`, 기본 포트 `8086`을 자체 설정합니다.
 
 ```powershell
 .\gradlew :closing:api:bootRun --args="--spring.profiles.active=local --server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
@@ -49,6 +51,8 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 
 ## Batch 컨텍스트만 실행
 
+Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.
+
 ```powershell
 .\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain
 ```
@@ -59,7 +63,7 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 
 선행 조건:
 
-- `journal-ledger`에 기준일 외화 GL 잔액이 있어야 합니다.
+- `journal-ledger`에 기준일까지 전기된 외화 `journal_entries`/`journal_details`와 거래통화·기준통화 금액이 있어야 합니다.
 - `master-data`에 외화 -> 보고통화 환율이 있어야 합니다.
 - 외화환산손익 계정 코드 설정이 운영 계정 체계와 맞아야 합니다.
 
@@ -105,3 +109,5 @@ account:
 ```
 
 API의 `runValuationBatch`/`runProvisionBatch`는 설정 기반 자동분개 흐름을 확인하는 경량 경로입니다. 실제 FX/ECL 결산 전표는 Batch가 외부 잔액/환율/allowance_summary를 읽고 core `FxValuationService`/`EclProvisionService`가 금액과 차대변을 판단하는 경로를 우선 확인합니다.
+
+두 Job의 날짜와 batch ID는 생략할 수 없습니다. 누락·잘못된 ISO 날짜·0 이하 ID는 Job 시작 전에 실패하며, 시스템 날짜나 날짜 기반 임시 ID로 대체하지 않습니다. ECL summary가 비어 있는 경우도 성공으로 처리하지 않습니다.

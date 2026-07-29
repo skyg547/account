@@ -41,7 +41,8 @@ erDiagram
 | --- | --- | --- |
 | 회계기간 ID/기간/마감 상태 | `master-data` | 캘린더 생성, 마감 확정, 재오픈, 기간 잠금 |
 | 전표 요약/상세 | `journal-ledger` | 결산 조정 전표 검증, 연차 손익 대체 집계 |
-| GL 계정 잔액 | `journal-ledger` | FX 평가 대상 잔액과 기존 충당금 잔액 조회 |
+| `POSTED` 전표 라인 | `journal-ledger` | FX 거래통화/기준통화 잔액의 현재 원천 집계 |
+| `gl_balances` | `journal-ledger` | ECL 기존 충당금의 기준일 최신 대변 잔액 조회 |
 | 환율 | `master-data` | FX 평가 시 외화 금액을 보고통화로 재평가 |
 | `allowance_summary` | `ecl` | ECL 목표 충당금 조회 |
 
@@ -59,7 +60,7 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `reversal_income_account_code` | 환입 시 수익 계정 |
 | `target_allowance_amount` | 목표 충당금 |
 
-현재 배치는 `target_allowance_amount - 기존 GL 충당금 잔액`만 전표로 만듭니다. 즉, ECL 총액을 매번 전액 전표화하지 않습니다.
+현재 배치는 JDBC에서 동일 run/model·법인·계정/통화별 금액을 먼저 합산하고, 그룹당 기존 GL 충당금 잔액을 한 번만 차감합니다. GL 잔액은 `debit - credit` 부호로 저장되므로 충당금 조회 어댑터가 대변 잔액을 양수로 변환합니다. GL에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
 
 ## 설정 키
 
@@ -71,6 +72,14 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `account.closing.accounting.auto-post-adjustments` | `false` | 결산 조정 전표 자동 승인/전기 여부 |
 | `account.closing.accounting.valuation-rules.FX_RATE.*` | 운영 설정 필요 | API 평가 배치가 만들 자동분개 룰 |
 | `account.closing.accounting.provision-rules.ECL.*` | 운영 설정 필요 | API 충당 배치가 만들 자동분개 룰 |
+| `account.closing.batch.fx.chunk-size` | `1000` | FX Cursor 처리와 트랜잭션 checkpoint 단위 |
+| `account.closing.batch.fx.grid-size` | `4` | FX 병렬 계정 범위와 동시 실행 상한 |
+
+## 알려진 스키마 후속 작업
+
+- `period_locks`는 현재 unlock 시 감사 로그를 남기고 활성 행을 삭제합니다. `active`, `unlocked_by`, `unlocked_at`, `unlock_reason`을 추가하는 forward migration 후 이력 행 보존 방식으로 전환해야 합니다.
+- FX용 `gl_account_balances`에는 생산 writer가 없어서 사용하지 않습니다. 전기와 함께 갱신되는 이중통화 read model과 원장 대사 절차를 별도 migration으로 추가해야 합니다.
+- `valuation_batches`/`provision_batches`에는 기간·유형·기준일·요청 키의 멱등 unique key가 아직 없습니다. 중복 요청과 crash recovery를 포함한 migration이 필요합니다.
 
 ## 운영 점검 SQL 예시
 

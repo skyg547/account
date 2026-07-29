@@ -38,6 +38,9 @@ public class JournalPostingAdapter implements JournalPostingPort {
         entry.setAuditUser(command.auditUser());
         entry.setLineageSourceType(command.lineageSourceType());
         entry.setLineageSourceId(command.lineageSourceId());
+        if (command.slipNo() != null && !command.slipNo().isBlank()) {
+            entry.setSlipNo(command.slipNo().trim());
+        }
 
         // 기본 통화 KRW (Command에 없으면)
         String currencyCode = command.currencyCode() != null ? command.currencyCode() : "KRW";
@@ -60,6 +63,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             }
             
             detail.setDetailDescription(line.detailDescription());
+            detail.setAuditUser(command.auditUser());
             detail.setJournalEntry(entry);
             return detail;
         }).collect(Collectors.toList()));

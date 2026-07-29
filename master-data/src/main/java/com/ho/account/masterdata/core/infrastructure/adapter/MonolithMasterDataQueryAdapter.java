@@ -90,7 +90,8 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
                 account.getName(),
                 account.isUnsettled(),
                 account.isFixedAsset(),
-                account.getBalanceType() != null ? account.getBalanceType().name() : "DEBIT");
+                account.getBalanceType() != null ? account.getBalanceType().name() : null,
+                account.getCategory() != null ? account.getCategory().name() : null);
     }
 
     private BusinessPartnerRef toBusinessPartnerRef(BusinessPartner partner) {

@@ -49,7 +49,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 
 ## 5. Spring Boot 실행 모듈
 
-현재 루트 `app`는 실행 소스가 없으므로 IntelliJ에서 아래 실행 클래스를 기준으로 Run Configuration을 만듭니다.
+통합 `app` Gradle 프로젝트는 제거되었으므로 IntelliJ에서 아래 서비스별 실행 클래스를 기준으로 Run Configuration을 만듭니다. 로컬의 `app/build`는 과거 빌드 산출물일 수 있으며 실행 대상이 아닙니다.
 
 | 모듈 | 실행 클래스 | 기본 포트 | 용도 |
 | --- | --- | ---: | --- |

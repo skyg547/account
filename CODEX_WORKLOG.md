@@ -1579,3 +1579,42 @@
 - Gaps: Docker/YAML runtime validation unavailable locally; PostgreSQL migration, V33 duplicate preflight, outbox/inbox, trusted actor, daily day-count/calendar and remote MSA adapters remain.
 - Rollback: revert the Loan tree, six dated Master Data account/currency port-adapter-repository files, root Loan Compose environment, and matching docs/log entries. Never roll back an applied V33 by deleting migration history.
 - State: review-ready and uncommitted; no commit, push or merge without explicit user authorization.
+
+## 2026-07-28 (Closing consistency, batch and runtime pass)
+
+- Branch/base: `agent/closing-consistency-pass` at `a06ebd6`; no linked Issue/PR and no commit/push/merge.
+- Reviewed Closing core, batch, API runtime, Journal and Master Data bridge calls rather than treating the prior Closing documentation pass as complete.
+- Implemented fail-closed fiscal-period lookup, controlled calendar/task/gate/reopen transitions, maker-checker and non-swallowed audit writes.
+- Separated API execution history transactions, kept DRAFT as PENDING_APPROVAL, and added explicit FAILED persistence tests.
+- Moved FX to posted-journal signed balances with bounded range partition/Cursor/chunk rollback; hid exchange-rate repository behind a contracts port.
+- Moved ECL aggregation into SQL, corrected GL credit sign and per-group subtraction, and enforced finalized single snapshot/legal entity/date inputs.
+- Added deterministic explicit slips, same-content retry reuse, state-aware auto-post and annual closing idempotency/base-currency/category behavior.
+- Narrowed API/Batch runtime scans, imported only required provider adapters, isolated batch-only services and added executable-owned application names.
+- Verification: Contracts 4, Master Data 74, Journal Ledger Core 23, Closing Core 44, API 1, Batch 12 = 158 tests in 52 suites; failures/errors/skips 0. API/Batch bootJars passed.
+- Remaining risks: PostgreSQL/Docker not run; FX read model/load test, annual aggregate port, execution-key/outbox recovery, legal-entity GL key, unlock history migration, typed evidence and remote adapters remain.
+- Rollback: revert `closing/**`, this pass's contracts/Master Data/Journal Ledger bridge files, and synchronized docs/harness records.
+- State: review-ready and uncommitted; explicit user authorization is required before commit/push/merge.
+
+## 2026-07-28 (Foundation pending verification and phantom app cleanup)
+
+- Branch/base: `agent/closing-consistency-pass` at `a06ebd6`; cumulative Closing changes remain uncommitted.
+- Re-ran the previously resource-blocked Config Server health test and full Config test/bootJar successfully.
+- Found and fixed a real Jackson runtime mismatch: explicitly pinned databind 2.17.1 was paired with Boot-managed core 2.15.4. Databind now follows the Spring Boot 3.2.5 BOM.
+- Corrected the ECL consumer failure-propagation test to throw a checked exception actually declared by `JobLauncher.run`.
+- Removed the source-less `:app` Gradle include and aligned root/beginner/local-development guidance with service-owned applications; the ignored local `app/build` directory was not deleted.
+- Verification: Config target rerun passed; shared-kernel 6 and ECL target 3 tests were forced and passed; final affected run passed 40 suites/140 tests plus Config Server bootJar, and `projects` no longer lists `:app`.
+- Risks: shared-kernel infrastructure dependency extraction and allowance type ownership remain staged work; Config Git governance/security and live Docker/PostgreSQL integration remain unverified.
+- Rollback: revert `shared-kernel/build.gradle`, the ECL consumer test, `settings.gradle`, the three execution-guide edits, and synchronized harness entries.
+- State: review-ready and uncommitted; no commit, push, or merge without explicit user authorization.
+
+## 2026-07-29 (Git synchronization, Issue #20 transfer and latest-main conflict resolution)
+
+- Workspace/branch: Issue #20 전용 `agent/20-closing-consistency`, repository root `C:\Users\skyg547\IdeaProjects\account`.
+- Preserved all tracked and untracked local work in the named stash `codex-sync-backup-closing-foundation-2026-07-29`, fast-forwarded to `origin/main@b7c8aaa`, and applied the backup without dropping it.
+- Verified all 77 backup paths remain in the working tree; no path was lost. Resolved the sole `docs/WORKLOG.md` conflict by retaining both upstream and local records and documented it in the conflict log.
+- Created a second transfer stash with 82 paths. After the external C:\tmp worktree disappeared during verification, recovered the unchanged transfer stash into the clean repository-root issue branch.
+- Latest main advanced to `f3d33ea` with Issue #29. Resolved standalone internal-audit modify/delete and shared-kernel conflicts by preserving the new core/api/batch structure and upstream AuditAspect API; the interim b7 AuditAspect assembly fix is not in the final PR.
+- Verification on `f3d33ea`: 176 affected tests passed with 0 failures/errors/skips; Closing API, Closing Batch, and Config Server bootJars passed. Internal-audit submodule tasks pass but have no tests, and API/Batch have no production source.
+- Local environment: upstream no longer selects the installed JDK 17 path while `JAVA_HOME` is JDK 21, so verification used `-Porg.gradle.java.installations.paths=C:\Java\jdk17` without committing a machine-specific path.
+- State: base equals latest origin/main at `f3d33ea`; user authorized commit/push/Draft PR. Merge and Issue close remain unapproved; two named backup stashes are retained.
+- Rollback: revert the Issue #20 commit after commit, or compare/apply the retained transfer stash in a clean safe checkout before commit. No DB migration was added in this pass.

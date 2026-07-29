@@ -83,6 +83,8 @@ class JournalPostingAdapterTest {
         assertThat(entry.getLineageSourceType()).isEqualTo("RECONCILIATION");
         assertThat(entry.getLineageSourceId()).isEqualTo("RECON_ADJ-1");
         assertThat(entry.getDetails()).hasSize(2);
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getAuditUser()).isEqualTo("tester"));
         assertThat(entry.getDetails()).anySatisfy(detail -> {
             assertThat(detail.getSide()).isEqualTo(JournalSide.DEBIT);
             assertThat(detail.getAccountCode()).isEqualTo("131000");

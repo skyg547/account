@@ -22,6 +22,7 @@ public record JournalEntryCommand(
         String auditUser,
         String lineageSourceType,
         String lineageSourceId,
+        String slipNo,
         List<JournalLineCommand> lines) {
 
     public JournalEntryCommand {
@@ -31,5 +32,44 @@ public record JournalEntryCommand(
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("lines must not be empty");
         }
+        if (slipNo != null) {
+            slipNo = slipNo.trim();
+            if (slipNo.isEmpty()) {
+                throw new IllegalArgumentException("slipNo must not be blank when supplied");
+            }
+            if (slipNo.length() > 20) {
+                throw new IllegalArgumentException("slipNo must not exceed 20 characters");
+            }
+        }
+    }
+
+    /**
+     * Compatibility constructor for callers that let journal-ledger allocate a slip number.
+     */
+    public JournalEntryCommand(
+            LocalDate slipDate,
+            LocalDate accountingDate,
+            String description,
+            String entryType,
+            String currencyCode,
+            BigDecimal exchangeRate,
+            String createdBy,
+            String auditUser,
+            String lineageSourceType,
+            String lineageSourceId,
+            List<JournalLineCommand> lines) {
+        this(
+                slipDate,
+                accountingDate,
+                description,
+                entryType,
+                currencyCode,
+                exchangeRate,
+                createdBy,
+                auditUser,
+                lineageSourceType,
+                lineageSourceId,
+                null,
+                lines);
     }
 }

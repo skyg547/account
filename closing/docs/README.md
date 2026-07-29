@@ -13,11 +13,21 @@
 
 - API 엔트리포인트: `closing:api`, `com.ho.account.closing.ClosingApplication`
 - Batch 엔트리포인트: `closing:batch`, `com.ho.account.closing.batch.ClosingBatchApplication`
+- Runtime 경계: API/Batch는 `com.ho.account` 전체를 스캔하지 않고 Closing과 필요한 Journal/Master Data 로컬 어댑터·저장소만 명시적으로 조립합니다. FX/ECL 대용량 서비스는 Batch에서만 import합니다.
 - Core 책임: `closing:core`의 `application.service`, `application.port`, `domain`, `infrastructure`. FX 평가/ECL 충당의 금액 산출, 차대변 판단, 전표 command 구성도 core 책임입니다.
 - 외부 입력:
   - `master-data`: 회계기간 ID, 회계연도, 회계기간, 시작일/종료일, 마감 상태
-  - `journal-ledger`: 전표 생성, 전표 조회, GL 잔액 조회
+  - `master-data`: 기준일 최신 환율과 기준일 유효 계정과목
+  - `journal-ledger`: 전표 생성, 전표 조회, 실제 `POSTED` 원장과 GL 잔액 조회
   - `ecl`: `allowance_summary` 기준일별 확정 ECL 목표 충당금
+
+## Fail-closed 기준
+
+- 회계기간이 없으면 해당 날짜를 열린 기간으로 추정하지 않습니다.
+- 필수 태스크 또는 게이트 정의가 하나도 없거나 완료되지 않았으면 마감할 수 없습니다.
+- JSON 완료/게이트 조건이 설정되어 있지만 typed evidence evaluator가 없으면 통과시키지 않습니다.
+- 재오픈은 `CLOSED` 기간에 대해서만 요청할 수 있고 요청자와 승인자는 달라야 합니다.
+- FX/ECL 날짜와 실행 ID, 환율, 계정, 확정 summary가 빠지면 배치를 실패시킵니다.
 
 ## 보존한 이전 문서
 
@@ -26,7 +36,7 @@
 ## 빠른 검증
 
 ```powershell
-.\gradlew :closing:core:test :closing:api:compileJava :closing:batch:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :closing:core:test :closing:api:test :closing:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
 IntelliJ에서는 `.run` 아래의 `Closing API bootRun`, `Closing Batch Context` 설정을 사용할 수 있습니다.

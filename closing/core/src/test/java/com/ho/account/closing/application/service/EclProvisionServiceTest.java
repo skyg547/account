@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -78,7 +79,9 @@ class EclProvisionServiceTest {
         verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
         ClosingJournalEntryCommand command = captor.getValue();
         assertThat(command.currencyCode()).isEqualTo("USD");
-        assertThat(command.lineageSourceId()).isEqualTo("44|RUN-202605");
+        assertThat(command.slipDate()).isEqualTo(closingDate);
+        assertThat(command.accountingDate()).isEqualTo(closingDate);
+        assertThat(command.lineageSourceId()).isEqualTo("44|129100|USD");
         assertThat(command.slipNo()).startsWith("ECL20260531").hasSize(20);
         assertThat(command.lines()).hasSize(2);
         assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00");
@@ -115,13 +118,67 @@ class EclProvisionServiceTest {
     }
 
     @Test
-    void processEclProvisionSkipsWhenNoAllowanceSummaryExists() {
+    void processEclProvisionFailsWhenNoAllowanceSummaryExists() {
         LocalDate closingDate = LocalDate.of(2026, 5, 31);
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of());
 
-        service.processEclProvision(closingDate, 44L);
+        assertThatThrownBy(() -> service.processEclProvision(closingDate, 44L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("zero-portfolio completion marker");
 
         verifyNoInteractions(allowanceBalanceLookupPort, closingJournalEntryPort);
+    }
+
+    @Test
+    void processEclProvisionRejectsNonPositiveBatchIdBeforeReadingInput() {
+        assertThatThrownBy(() -> service.processEclProvision(LocalDate.of(2026, 5, 31), 0L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("provisionBatchId");
+
+        verifyNoInteractions(eclAllowanceResultPort, allowanceBalanceLookupPort, closingJournalEntryPort);
+    }
+
+    @Test
+    void processEclProvisionAggregatesTargetsBeforeSubtractingExistingAllowance() {
+        LocalDate closingDate = LocalDate.of(2026, 5, 31);
+        EclAllowanceSummary first = summary(
+                closingDate, "RUN-A", "USD", "12000", "129100", "550100", "480100", "600.00");
+        EclAllowanceSummary second = summary(
+                closingDate, "RUN-A", "USD", "12100", "129100", "550100", "480100", "400.00");
+        when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(first, second));
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "USD", closingDate))
+                .thenReturn(new BigDecimal("800.00"));
+        when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
+                .thenReturn(new ClosingJournalEntryResult(903L, "ECL20260531ABCDEF123"));
+
+        service.processEclProvision(closingDate, 46L);
+
+        ArgumentCaptor<ClosingJournalEntryCommand> captor =
+                ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
+        verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
+        assertLine(captor.getValue().lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00");
+        assertLine(captor.getValue().lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00");
+        verify(allowanceBalanceLookupPort)
+                .findCreditEndingBalance("129100", "USD", closingDate);
+    }
+
+    @Test
+    void processEclProvisionRejectsMismatchedSummaryDate() {
+        LocalDate closingDate = LocalDate.of(2026, 5, 31);
+        EclAllowanceSummary summary = summary(
+                closingDate.minusDays(1),
+                "RUN-A",
+                "USD",
+                "12000",
+                "129100",
+                "550100",
+                "480100",
+                "600.00");
+        when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(summary));
+
+        assertThatThrownBy(() -> service.processEclProvision(closingDate, 46L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("does not match closingDate");
     }
 
     private static EclAllowanceSummary summary(LocalDate baseDate,

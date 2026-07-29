@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: closing-service
+
+server:
+  port: 8086

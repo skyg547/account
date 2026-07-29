@@ -43,7 +43,7 @@
 4. Gradle Tool Window에서 `Tasks > verification > test` 또는 특정 모듈 task를 실행합니다.
 5. Spring Boot 실행 클래스가 있는 모듈은 Run Configuration을 만들어 실행합니다.
 
-현재 루트 `app` 디렉터리는 빌드 산출물만 있고 실행 소스가 없습니다. 통합 앱 하나를 실행하기보다 `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api`처럼 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행합니다.
+통합 `app` Gradle 프로젝트는 제거되었습니다. 로컬에 `app/build`만 보이면 과거 빌드의 무시된 산출물이며 실행 모듈이 아닙니다. `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api`처럼 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행합니다.
 
 ## 5. 자주 쓰는 Gradle 명령
 

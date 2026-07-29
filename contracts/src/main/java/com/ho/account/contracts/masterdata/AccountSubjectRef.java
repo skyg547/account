@@ -13,13 +13,17 @@ public record AccountSubjectRef(
         String name,
         boolean unsettled,
         boolean fixedAsset,
-        String normalBalanceSide) {
+        String normalBalanceSide,
+        String accountCategory) {
 
     private static final String DEBIT = "DEBIT";
     private static final String CREDIT = "CREDIT";
 
     public AccountSubjectRef {
         normalBalanceSide = normalizeNormalBalanceSide(normalBalanceSide);
+        accountCategory = accountCategory == null || accountCategory.isBlank()
+                ? null
+                : accountCategory.trim().toUpperCase(Locale.ROOT);
     }
 
     /**
@@ -29,7 +33,16 @@ public record AccountSubjectRef(
      * 부채/자본/수익 계정에 기본 DEBIT가 적용되면 결산 손익 방향이 반대로 계산될 수 있다.</p>
      */
     public AccountSubjectRef(String code, String name, boolean unsettled, boolean fixedAsset) {
-        this(code, name, unsettled, fixedAsset, DEBIT);
+        this(code, name, unsettled, fixedAsset, DEBIT, null);
+    }
+
+    public AccountSubjectRef(
+            String code,
+            String name,
+            boolean unsettled,
+            boolean fixedAsset,
+            String normalBalanceSide) {
+        this(code, name, unsettled, fixedAsset, normalBalanceSide, null);
     }
 
     public boolean debitNormalBalance() {

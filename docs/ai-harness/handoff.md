@@ -1,3 +1,85 @@
+# AI Harness Handoff - 2026-07-29 Issue #20 Closing/Foundation Draft PR Ready
+
+## Active Goal And State
+
+- 모듈을 순차 점검하며 헥사고날 경계, DDD 상태 규칙, 실제 업무 흐름, 금융 정합성, 대량 Batch와 재실행성을 검수하는 goal을 계속 진행 중입니다.
+- Branch/worktree: `agent/20-closing-consistency`, repository root `C:\Users\skyg547\IdeaProjects\account`.
+- Current base: `f3d33eae085a527fa1ae1905df6d0fa8dbaeb6bc`, 최신 `origin/main`과 동일한 Issue #29 통합 커밋입니다.
+- Issue/PR: GitHub Issue `#20`에 실행 계약을 기록했으며 Draft PR을 `main` 대상으로 생성합니다.
+- Working tree: Closing과 필요한 contracts/Master Data/Journal Ledger 변경, foundation 잔여 수정, 최신 main 구조 충돌 기록이 더해진 상태입니다. 사용자가 commit/push/PR을 승인했지만 merge, Issue close, branch/worktree 삭제는 승인하지 않았습니다.
+
+## Git Synchronization And Latest Main Conflict Resolution
+
+- 기존 작업을 untracked 파일까지 포함한 이름 있는 stash로 백업한 뒤 현재 브랜치를 `origin/main@b7c8aaa`로 fast-forward하고, stash를 pop하지 않고 apply했습니다.
+- 백업 당시 77개 변경 경로가 현재 working tree에 모두 존재하며 누락은 0개입니다. 백업 stash `codex-sync-backup-closing-foundation-2026-07-29`는 복구용으로 유지합니다.
+- `docs/WORKLOG.md` 한 파일의 whole-file/line-ending 충돌은 최신 upstream 기록을 기준으로 두고 로컬 Closing/Foundation 기록을 이어 붙여 해결했습니다. 상세 내용은 `conflict-log.md`에 남겼습니다.
+- commit/PR 인계용 두 번째 stash에는 82개 경로를 보존했습니다. 외부 `C:\tmp` worktree가 검증 중 소실되어 해당 시도의 결과를 폐기하고, 깨끗한 repository-root checkout을 Issue #20 브랜치로 전환해 같은 stash를 재적용했습니다.
+- 그 사이 `origin/main`이 Issue #29 통합 커밋 `f3d33ea`로 전진해 standalone internal-audit Application/test 삭제와 `shared-kernel/build.gradle` 충돌이 발생했습니다.
+- Issue #29의 `internal-audit:core/api/batch` 구조와 이동된 감사 API를 보존하고 삭제된 standalone 파일을 되살리지 않았습니다. 중간 `b7c8aaa` 기준 AuditAspect 조립 수정은 새 구조에 맞지 않아 최종 PR에는 포함하지 않았습니다.
+- `settings.gradle`, Master Data 어댑터, shared-kernel Jackson BOM 정렬 의도를 의미 단위로 병합하고 결정은 `conflict-log.md`에 기록했습니다.
+
+## Foundation Residual Changes
+
+- 과거 페이지 파일 부족으로 보류된 Config Server health-detail 테스트와 contracts/shared-kernel 영향 검증을 재실행했습니다.
+- `jackson-databind`만 2.17.1로 고정되어 Boot BOM의 `jackson-core` 2.15.4와 충돌하던 런타임 오류를 수정했습니다. databind도 Spring Boot 3.2.5 BOM을 따릅니다.
+- ECL Kafka 재시도 테스트가 `JobLauncher.run`에 선언되지 않은 상위 checked 예외를 Mockito에 주입하던 문제를 실제 선언 예외로 바로잡았습니다.
+- 추적 소스가 없는 `:app` Gradle include를 제거하고 README/입문/로컬 실행 문서를 서비스별 실행 구조와 일치시켰습니다. 로컬의 무시된 `app/build` 산출물은 삭제하지 않았습니다.
+
+## Closing Changes
+
+- 회계기간 누락을 OPEN으로 추정하지 않고 Closing과 Journal 양쪽에서 fail-closed 처리합니다.
+- 캘린더·태스크·게이트·재오픈을 도메인 상태 전이로 제한하고, 필수 정의가 없는 vacuous close, 자기 승인, 중복 대기 요청, 감사 실패 은폐를 차단했습니다.
+- JSON 태스크/게이트 조건은 typed evidence evaluator가 생기기 전까지 통과시키지 않습니다.
+- API 평가/충당 실행 이력을 전표 트랜잭션과 분리해 `RUNNING -> PENDING_APPROVAL` 또는 `FAILED`를 보존하고 DRAFT를 완료로 오표기하지 않습니다.
+- FX는 writer가 없는 `gl_account_balances` 대신 실제 `POSTED` 전표의 거래통화/기준통화 금액을 signed balance로 집계합니다. 최대 grid-size개의 계정 범위, JDBC Cursor, chunk atomic pipeline을 사용합니다.
+- 환율 provider 내부 Repository 의존을 `ExchangeRateQueryPort`/`ExchangeRateRef` 계약과 Master Data 로컬 어댑터 뒤로 이동했습니다.
+- ECL은 DB에서 exposure 행을 전표 그룹으로 선집계하고, 단일 run/model·법인·기준일만 허용합니다. 목표액을 먼저 합산한 뒤 실제 `gl_balances` 대변 잔액을 그룹당 한 번만 차감하며 빈 summary/null 금액은 실패합니다.
+- 결정적 20자 slip, 명시 slip 전달, 동일 업무 fingerprint 재사용, 상태별 멱등 자동전기를 구현했습니다. 연말 손익대체는 `POSTED` 기준통화 금액만 사용하고 이익잉여금 계정을 실행 식별자에 포함합니다.
+- `AccountSubjectRef`에 계정분류를 전달하고 Journal 조회가 전표 회계일자의 SCD2 계정정보를 사용하도록 했습니다. 세부 감사 actor도 command와 일치시켰습니다.
+- API/Batch의 광범위한 `com.ho.account` 스캔을 제거하고 필요한 로컬 어댑터·엔티티·Repository만 조립했습니다. 배치 전용 FX/ECL 서비스는 Batch에서만 import하며 애플리케이션 이름은 각각 `closing-service`, `closing-batch`로 고정했습니다.
+- Closing README와 beginner/process/schema/local-run 문서를 현재 파라미터, 원장 원천, 실패/재실행, 런타임 경계와 운영 TODO에 맞췄습니다.
+
+## Verification Evidence
+
+```powershell
+.\gradlew :shared-kernel:test :contracts:test :master-data:test :internal-audit:core:test :internal-audit:api:test :internal-audit:batch:test :journal-ledger:core:test :closing:core:test :closing:api:test :closing:batch:test :ecl:ecl-api:test :config-server:test :closing:api:bootJar :closing:batch:bootJar :config-server:bootJar --no-daemon --max-workers=1 '-Porg.gradle.java.installations.paths=C:\Java\jdk17' '-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8' --console=plain
+```
+
+- 최신 `f3d33ea` 기준 최종 영향 범위는 Shared Kernel 6, Contracts 4, Master Data 74, Journal Ledger Core 23, Closing Core 44, Closing API 1, Closing Batch 12, ECL API 3, Config Server 9로 총 176 tests이며 실패/오류/skip은 0건입니다.
+- 새 `internal-audit:core/api/batch`의 compile/test task는 성공했지만 세 모듈 모두 test `NO-SOURCE`이고 API/Batch production source도 `NO-SOURCE`입니다. 기존 25개 테스트는 Issue #29에서 삭제되어 최종 합계에 포함되지 않으며 별도 잔여 위험입니다.
+- Closing API, Closing Batch, Config Server의 세 `bootJar`가 성공했습니다.
+- 최신 upstream `gradle.properties`는 로컬 JDK 경로 설정이 주석 처리되어 있고 현재 `JAVA_HOME`은 JDK 21이므로, 저장소 요구 JDK 17은 위 명령의 프로젝트 속성으로 명시했습니다. 머신별 절대 경로는 저장소 설정에 기록하지 않았습니다.
+- Contracts 1 suite/4 tests, Master Data 23/74, Journal Ledger Core 12/23, Closing Core 9/44, Closing API 1/1, Closing Batch 6/12.
+- Total: 52 suites/158 tests; failures 0, errors 0, skipped 0.
+- Closing API와 Batch `bootJar` 생성 성공.
+- API/Batch ApplicationContext가 외부 Job 실행 없이 H2에서 로드되고 각각 자체 application name을 사용하는 것을 검증했습니다.
+- Foundation 최종 영향 범위는 40 suites/140 tests가 실패·오류·skip 0건이고 Config Server `bootJar`가 성공했습니다. Config health와 shared-kernel/ECL 대상 테스트는 별도로 `--rerun-tasks` 강제 실행했습니다.
+- `projects` 출력에서 `:app`이 제거되고 나머지 프로젝트가 유지됨을 확인했습니다.
+- `git diff --check`, 충돌 표식 검색과 변경 Markdown 상대 링크 검사가 최종 기록 갱신 후 통과했습니다.
+
+## Known Risks And Completion Criteria
+
+- FX의 posted-journal 집계는 정합성 우선 과도기 구현입니다. 1억 건 운영 전 전기 시 함께 bulk 갱신되는 이중통화 read model, 계정/통화/일자 인덱스, 원장 자동 대사, PostgreSQL 실행계획·부하 테스트가 필요합니다.
+- Annual Closing은 아직 전표별 N+1 조회입니다. provider-side `POSTED` 기준통화 계정/분류 집계, 기존 연말마감 lineage 제외와 대량 계획 테스트가 필요합니다.
+- `valuation_batches`/`provision_batches`에 업무 실행키 unique 제약과 outbox/reconciliation이 없습니다. 상태 갱신 실패 시 남을 수 있는 DRAFT를 찾아 복구하는 실행 이력과 실패 주입 테스트가 필요합니다.
+- GL에 법인 차원이 없어 ECL 실행을 한 법인으로 제한했습니다. 다법인 지원은 GL 키·migration·대사까지 함께 추가해야 합니다.
+- `period_locks` unlock은 현재 감사 로그 후 활성 행 삭제입니다. unlock actor/time/reason과 active 상태를 보존하는 forward migration이 필요합니다.
+- typed task/gate evidence evaluator는 미구현이며 조건이 설정된 경우 의도적으로 fail-closed입니다.
+- Closing 전용 Flyway/PostgreSQL migration과 실제 Docker/Compose 실행은 검증하지 않았습니다.
+- 로컬 모놀리스 provider 어댑터를 원격 MSA 어댑터로 바꿀 때 timeout/retry/circuit breaker와 기준정보 snapshot 정책이 필요합니다.
+- `shared-kernel`의 광범위한 인프라 전이 의존성과 allowance 전용 타입은 소비 모듈의 직접 의존 선언을 먼저 보강한 뒤 단계적으로 분리해야 합니다.
+- Config Server의 Git backend/변경 승인과 endpoint 보호, 실제 컨테이너 통합은 별도 운영 환경 검증이 필요합니다.
+
+## Rollback And Next Handoff
+
+- 커밋 전 롤백 범위는 `closing/**`, Closing 계약용 `contracts` 세 파일, Master Data 환율/계정 어댑터와 테스트, Journal 조회/전표/기간상태 어댑터와 테스트, foundation 잔여 수정(`shared-kernel/build.gradle`, ECL consumer test, `settings.gradle`, 세 실행 문서), 이번 docs/harness/review-prompt 항목입니다.
+- 최종 PR에는 AuditAspect/standalone InternalAuditApplication 변경이 없습니다. 전체 변경 롤백은 Issue #20 commit을 revert하고, commit 전 복구가 필요하면 유지 중인 두 이름 있는 stash를 기준으로 별도 안전 checkout에서 비교합니다.
+- DB migration은 변경하지 않았으므로 이번 pass의 DB rollback 작업은 없습니다.
+- Gemini는 `GEMINI_REVIEW_PROMPT.md` 최상단 Git Sync/Audit 섹션부터 Foundation과 Closing 섹션까지 findings-first로 검수해야 합니다.
+- 다음 단계는 Issue #20 전용 브랜치 commit/push와 Draft PR 생성 후 사람/독립 리뷰를 받는 것입니다. Ready 전환, merge, Issue close는 별도 승인 대상입니다.
+
+---
+
 # AI Harness Handoff - 2026-07-27 Loan Boundary/Workflow Review Ready
 
 ## Active Goal And State

@@ -188,4 +188,45 @@ public class ReopenApproval {
     public void setAuditUser(String auditUser) {
         this.auditUser = auditUser;
     }
+
+    public void request(String requestedBy, String reason) {
+        String actor = requireActor(requestedBy, "requestedBy");
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("reopen reason must not be blank");
+        }
+        this.requestedBy = actor;
+        this.requestedAt = LocalDateTime.now();
+        this.reason = reason.trim();
+        this.status = ReopenApprovalStatus.PENDING;
+        this.auditUser = actor;
+    }
+
+    public void approve(String approvedBy) {
+        decide(ReopenApprovalStatus.APPROVED, approvedBy);
+    }
+
+    public void reject(String approvedBy) {
+        decide(ReopenApprovalStatus.REJECTED, approvedBy);
+    }
+
+    private void decide(ReopenApprovalStatus decision, String approvedBy) {
+        String actor = requireActor(approvedBy, "approvedBy");
+        if (this.status != ReopenApprovalStatus.PENDING) {
+            throw new IllegalStateException("Only a PENDING reopen request can be decided.");
+        }
+        if (actor.equals(this.requestedBy)) {
+            throw new IllegalStateException("Reopen requester cannot approve or reject their own request.");
+        }
+        this.status = decision;
+        this.approvedBy = actor;
+        this.approvedAt = LocalDateTime.now();
+        this.auditUser = actor;
+    }
+
+    private String requireActor(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
 }

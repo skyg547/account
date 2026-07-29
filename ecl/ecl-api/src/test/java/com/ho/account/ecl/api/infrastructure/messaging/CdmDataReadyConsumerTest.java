@@ -19,6 +19,7 @@ import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionException;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 
 class CdmDataReadyConsumerTest {
@@ -58,7 +59,7 @@ class CdmDataReadyConsumerTest {
         JobLauncher jobLauncher = mock(JobLauncher.class);
         Job job = mock(Job.class);
         when(jobLauncher.run(eq(job), any(JobParameters.class)))
-                .thenThrow(new JobExecutionException("job failed"));
+                .thenThrow(new JobExecutionAlreadyRunningException("job failed"));
         CdmDataReadyConsumer consumer = new CdmDataReadyConsumer(jobLauncher, job);
 
         assertThatThrownBy(() -> consumer.handleCdmDataReady(event()))

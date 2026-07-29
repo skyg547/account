@@ -2,6 +2,9 @@
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-07-29 | Codex | Coder / Integrator Agent | `agent/20-closing-consistency` / repository root | Draft PR ready / commit authorized | Issue #20 연결, 최신 `origin/main@f3d33ea` 구조 충돌 해결, transfer stash 82개 경로 복구. 176 tests와 3 bootJars 통과. internal-audit 세 모듈의 source/test `NO-SOURCE`는 잔여 위험이며 merge/Issue close는 미승인. |
+| 2026-07-28 | Codex | Coder / Integrator Agent | `agent/closing-consistency-pass` | Review ready / uncommitted | Config Server 보류 재검증, shared-kernel Jackson BOM 정렬, ECL 실패 전파 테스트 수정, phantom `:app` 제거를 40 suites/140 tests와 Config bootJar로 검증; 명시 승인 전 commit/push/merge 금지. |
+| 2026-07-28 | Codex | Coder / Integrator Agent | `agent/closing-consistency-pass` | Review ready / uncommitted | Closing fail-closed 상태 전이, FX/ECL 원장 정합성·bounded batch, 멱등 전표, provider 계약, API/Batch runtime 경계를 52 suites/158 tests와 2 bootJars로 검증; 명시 승인 전 commit/push/merge 금지. |
 | 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | Loan value-reference boundary, pending-to-active lifecycle, BigDecimal decimal EIR, single runtime schedule, locked/idempotent accrual, API DTO boundary and JDK 17 packaging verified with 169 affected tests and 2 Loan bootJars; explicit authorization required before commit/push/merge. |
 | 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | Master Data DB active lookup/search, deterministic as-of FX, locked Fiscal Period domain transition and skeleton cleanup verified with 136 affected tests, Closing Batch compile and 2 bootJars; explicit authorization required before commit/push/merge. |
 | 2026-07-27 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / uncommitted | SCD2 validity/reference-first ordering, historical Business Partner lookup, overlap fail-closed and 88 Master Data/Governance tests verified on base `5d55704`; explicit authorization required before commit/push/merge. |
@@ -52,6 +55,6 @@
 
 | 2026-07-20 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready | Discovery port 8761, Config/actuator runtime, registry lifecycle, readiness health, Compose service_healthy, standalone bootRun, and 6 tests verified. |
 
-| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / rerun pending | Config Server strict repository readiness, native HTTP contract, JDK 17/read-only config-repo Compose, initial 9 tests, and 8888 runtime verified; latest health-detail test rerun awaits paging-file headroom. |
+| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / reverified 2026-07-28 | Config Server strict repository readiness, native HTTP contract, JDK 17/read-only config-repo Compose, 9 tests and bootJar verified; health-detail target rerun completed after resource recovery. |
 
-| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Verification pending | Contracts/shared-kernel second pass: immutable journal contracts, dated SCD2 adapter, real masking binding, local registry hardening, CDM eventId idempotency, 15 tests added; JVM verification blocked by paging-file exhaustion. |
+| 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / reverified 2026-07-28 | Contracts/shared-kernel second pass reverified after resource recovery; Jackson family mismatch and invalid ECL checked-exception test were corrected, with the 140-test affected set green. |

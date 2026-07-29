@@ -200,6 +200,9 @@ public class ClosingCalendar {
     public boolean isReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
         java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
         java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        if (safeTasks.stream().noneMatch(ClosingTask::isMandatory) || safeGates.isEmpty()) {
+            return false;
+        }
 
         // 1. 필수 태스크 완료 여부 확인
         boolean allMandatoryTasksCompleted = safeTasks.stream()
@@ -224,6 +227,9 @@ public class ClosingCalendar {
     public void validateReadyToClose(java.util.List<ClosingTask> tasks, java.util.List<ClosingGate> gates) {
         java.util.List<ClosingTask> safeTasks = tasks != null ? tasks : java.util.List.of();
         java.util.List<ClosingGate> safeGates = gates != null ? gates : java.util.List.of();
+        if (safeTasks.stream().noneMatch(ClosingTask::isMandatory)) {
+            throw new IllegalStateException("At least one mandatory closing task must be defined.");
+        }
 
         boolean allMandatoryTasksCompleted = safeTasks.stream()
                 .filter(ClosingTask::isMandatory)
@@ -232,6 +238,9 @@ public class ClosingCalendar {
             throw new IllegalStateException("Not all mandatory tasks are completed.");
         }
 
+        if (safeGates.isEmpty()) {
+            throw new IllegalStateException("At least one closing gate must be defined.");
+        }
         boolean allGatesPassed = safeGates.stream()
                 .allMatch(g -> g.getStatus() == ClosingGate.ClosingGateStatus.PASSED);
         if (!allGatesPassed) {
@@ -246,13 +255,42 @@ public class ClosingCalendar {
      * @throws IllegalStateException 완료 가능한 상태가 아닐 경우
      */
     public void close(String user) {
-        if (this.status == ClosingCalendarStatus.CLOSED || this.status == ClosingCalendarStatus.PERMANENTLY_CLOSED) {
-            throw new IllegalStateException("이미 마감된 회기입니다.");
+        requireActor(user);
+        if (this.status != ClosingCalendarStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Closing calendar must be IN_PROGRESS before it can be closed.");
         }
         this.status = ClosingCalendarStatus.CLOSED;
-        this.closedBy = user;
+        this.closedBy = user.trim();
         this.closedAt = LocalDateTime.now();
-        this.auditUser = user;
+        this.auditUser = user.trim();
+    }
+
+    public void start(String user) {
+        requireActor(user);
+        if (this.status != ClosingCalendarStatus.OPEN) {
+            throw new IllegalStateException("Only an OPEN closing calendar can start.");
+        }
+        this.status = ClosingCalendarStatus.IN_PROGRESS;
+        this.closeInitiatedBy = user.trim();
+        this.closeInitiatedAt = LocalDateTime.now();
+        this.auditUser = user.trim();
+    }
+
+    public void reopen(String user) {
+        requireActor(user);
+        if (this.status != ClosingCalendarStatus.CLOSED) {
+            throw new IllegalStateException("Only a CLOSED closing calendar can be reopened.");
+        }
+        this.status = ClosingCalendarStatus.OPEN;
+        this.reopenedBy = user.trim();
+        this.reopenedAt = LocalDateTime.now();
+        this.auditUser = user.trim();
+    }
+
+    private void requireActor(String user) {
+        if (user == null || user.isBlank()) {
+            throw new IllegalArgumentException("user must not be blank");
+        }
     }
 
     @Deprecated

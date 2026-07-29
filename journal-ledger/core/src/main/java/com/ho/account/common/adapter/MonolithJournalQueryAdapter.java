@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -113,15 +114,20 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
         String accountCode = detail.getAccountCode();
         summary.setAccountCode(accountCode);
         
-        masterDataQueryPort.findAccountSubject(accountCode).ifPresent(acc -> {
+        JournalEntry journalEntry = Objects.requireNonNull(
+                detail.getJournalEntry(),
+                "Journal detail must be attached to an entry for historical account lookup");
+        LocalDate effectiveDate = Objects.requireNonNull(
+                journalEntry.getAccountingDate(),
+                "Journal accountingDate is required for historical account lookup");
+        masterDataQueryPort.findAccountSubjectAt(accountCode, effectiveDate).ifPresent(acc -> {
             summary.setAccountName(acc.name());
+            summary.setAccountCategory(acc.accountCategory());
         });
 
-        if (detail.getJournalEntry() != null) {
-            summary.setAccountingDate(detail.getJournalEntry().getAccountingDate());
-            summary.setSlipNo(detail.getJournalEntry().getSlipNo());
-            summary.setHeaderDescription(detail.getJournalEntry().getDescription());
-        }
+        summary.setAccountingDate(journalEntry.getAccountingDate());
+        summary.setSlipNo(journalEntry.getSlipNo());
+        summary.setHeaderDescription(journalEntry.getDescription());
         summary.setAmount(detail.getAmount());
         summary.setBaseAmount(detail.getBaseAmount());
         summary.setDetailDescription(detail.getDetailDescription());

@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -35,12 +36,34 @@ public class AnnualClosingService implements AnnualClosingUseCase {
      */
     @Override
     public void performIncomeStatementClosing(int year, String retainedEarningsAccountCode) {
+        if (year < 1900 || year > 9999) {
+            throw new IllegalArgumentException("year must be between 1900 and 9999");
+        }
+        if (retainedEarningsAccountCode == null || retainedEarningsAccountCode.isBlank()) {
+            throw new IllegalArgumentException("retainedEarningsAccountCode must not be blank");
+        }
         LocalDate startDate = LocalDate.of(year, 1, 1);
         LocalDate endDate = LocalDate.of(year, 12, 31);
+        String annualSlipNo = ClosingSlipNoFactory.annualClosing(
+                endDate,
+                year,
+                retainedEarningsAccountCode.trim());
 
         // 1. 해당 연도의 모든 전표 내역 조회
         List<JournalSummary> summaries = journalQueryPort.getJournalSummaries(startDate, endDate);
+        JournalSummary existingClosing = summaries.stream()
+                .filter(summary -> annualSlipNo.equals(summary.getSlipNo()))
+                .findFirst()
+                .orElse(null);
+        if (existingClosing != null) {
+            requireReusableAnnualClosing(existingClosing, endDate, year);
+            return;
+        }
+        // @todo Replace the per-entry N+1 query with a posted base-currency aggregate port.
+        // Completion requires provider-side GROUP BY account/category, exclusion of prior annual
+        // closing lineage, stable pagination/streaming, and a 100M-row PostgreSQL plan/load test.
         List<JournalDetailSummary> details = summaries.stream()
+                .filter(summary -> "POSTED".equals(summary.getStatus()))
                 .flatMap(s -> journalQueryPort.getJournalDetails(s.getId()).stream())
                 .collect(Collectors.toList());
 
@@ -57,7 +80,9 @@ public class AnnualClosingService implements AnnualClosingUseCase {
         List<JournalLineCommand> lines = new ArrayList<>();
         BigDecimal netIncome = BigDecimal.ZERO;
 
-        for (Map.Entry<String, BigDecimal> entry : balanceMap.entrySet()) {
+        for (Map.Entry<String, BigDecimal> entry : balanceMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .toList()) {
             String accountCode = entry.getKey();
             BigDecimal balance = entry.getValue();
 
@@ -114,18 +139,40 @@ public class AnnualClosingService implements AnnualClosingUseCase {
                     "SYSTEM",
                     "ANNUAL_CLOSING",
                     String.valueOf(year),
+                    annualSlipNo,
                     lines
             );
             journalPostingPort.createDraftEntry(command);
         }
     }
 
+    private void requireReusableAnnualClosing(
+            JournalSummary existing,
+            LocalDate endDate,
+            int year) {
+        boolean sameHeader = Objects.equals(existing.getAccountingDate(), endDate)
+                && Objects.equals(existing.getDescription(), year + "년 손익 대체 분개")
+                && Objects.equals(existing.getEntryType(), "TRANSFER");
+        if (!sameHeader) {
+            throw new IllegalStateException(
+                    "Annual closing slip already exists with different business content: "
+                            + existing.getSlipNo());
+        }
+        if ("REJECTED".equals(existing.getStatus()) || "REVERSED".equals(existing.getStatus())) {
+            throw new IllegalStateException(
+                    "Annual closing slip exists in a non-reusable status " + existing.getStatus());
+        }
+    }
+
     private BigDecimal calculateSignedAmountForIS(JournalDetailSummary detail) {
         String category = detail.getAccountCategory();
+        BigDecimal baseAmount = Objects.requireNonNull(
+                detail.getBaseAmount(),
+                "Annual closing requires baseAmount for account " + detail.getAccountCode());
         if ("EXPENSES".equals(category)) {
-            return detail.getSide() == JournalSide.DEBIT ? detail.getAmount() : detail.getAmount().negate();
+            return detail.getSide() == JournalSide.DEBIT ? baseAmount : baseAmount.negate();
         } else if ("REVENUE".equals(category)) {
-            return detail.getSide() == JournalSide.CREDIT ? detail.getAmount().negate() : detail.getAmount();
+            return detail.getSide() == JournalSide.CREDIT ? baseAmount.negate() : baseAmount;
         }
         return BigDecimal.ZERO;
     }

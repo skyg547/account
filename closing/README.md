@@ -1,6 +1,6 @@
 # 🔒 Closing Service (결산 마감 관리)
 
-`closing` 모듈은 회계 기간의 종료를 통제하고, 장부를 봉인하여 과거 데이터의 임의 수정을 방지하는 시스템의 '안전 자물쇠' 역할을 합니다.
+`closing` 모듈은 회계 기간의 종료를 통제하고, 장부를 봉인하여 과거 데이터의 임의 수정을 방지하는 시스템의 '안전 자물쇠' 역할을 합니다. 상태 변경과 결산 전표 생성은 입력이나 기준정보가 빠지면 추정하지 않고 실패시키는 것을 원칙으로 합니다.
 
 ---
 
@@ -53,7 +53,7 @@ sequenceDiagram
     
     rect rgb(240, 240, 240)
         Note over Service, Journal: 기간 잠금 및 연동
-        Service->>DB: Period Lock 생성 (SCD2 이력 저장)
+        Service->>DB: 활성 Period Lock과 감사 로그 저장
         Service->>Journal: 해당 기간 전표 생성 차단 활성화
     end
     
@@ -104,7 +104,7 @@ erDiagram
 먼저 테스트와 컴파일로 모듈 상태를 확인합니다.
 
 ```powershell
-.\gradlew :closing:core:test :closing:api:compileJava :closing:batch:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :closing:core:test :closing:api:test :closing:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
 API 컨텍스트 실행:
@@ -128,7 +128,9 @@ ECL 충당 Job 예시:
 **설정 주의사항:**
 - 자동 평가/충당 분개 계정은 `account.closing.accounting.*` 설정을 통해 동적으로 할당됩니다.
 - ECL 충당 배치는 `allowance_summary`에 확정된 IFRS 9 산출 결과가 있을 때만 목표 충당금을 읽어 보충/환입 전표를 생성합니다. 더 이상 `대출채권 잔액 * 1%` 고정률로 목표 충당금을 계산하지 않습니다.
-- FX/ECL 배치 전표번호는 기준일, 배치 ID, 계정 식별자를 조합해 20자 이내로 결정적으로 생성됩니다. 배치 ID 파라미터가 없으면 기준일(`yyyyMMdd`)을 기본값으로 사용해 같은 기준일 재실행이 중복 전표번호로 감지될 수 있게 합니다.
+- FX/ECL 배치 전표번호는 기준일, 양수 배치 ID, 계정·통화 식별자를 조합해 20자 이내로 결정적으로 생성됩니다. 날짜와 배치 ID는 모두 필수이며 시스템 날짜나 임의 ID로 대체하지 않습니다.
+- FX 평가는 실제 전기 원장인 `journal_entries`/`journal_details`의 `POSTED` 전표를 고정 개수 계정 범위로 스트리밍합니다. 별도 이중통화 잔액 read model이 구축되기 전까지는 이 집계를 원장 기준으로 대사해야 합니다.
+- ECL은 하나의 확정 run/model, 하나의 법인, 동일 기준일의 summary만 허용하며 계정·통화별 목표액을 먼저 합산한 뒤 기존 충당금 잔액을 한 번만 차감합니다. summary가 비어 있으면 성공으로 처리하지 않습니다.
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

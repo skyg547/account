@@ -89,3 +89,30 @@ Recommended integration order remains:
 - Test result: passed with CRLF conversion warnings only.
 - Result: PR `#2` merged, then Issue `#1` manually closed because the PR used `Refs #1`.
 - Notes: branch cleanup was not performed because the merged branch is still attached to an existing worktree.
+
+## 2026-07-29 - Closing Feature Branch Main Synchronization
+
+- Integrator: Codex.
+- Working branch/worktree: `agent/closing-consistency-pass`, repository root worktree.
+- Target base: `origin/main@b7c8aaa451f6c01a92e74fbef419973d5f7e9f16`.
+- Integration command: named stash including untracked files, `git merge --ff-only origin/main`, then non-destructive stash apply.
+- Conflict status: one `docs/WORKLOG.md` text/whole-file line-ending conflict; latest upstream records and local Closing/Foundation sections were both retained. See `conflict-log.md`.
+- Preservation: all 77 paths from the backup stash are present in the restored working tree; missing paths 0.
+- Interim post-sync fix at `b7c8aaa`: moved shared-kernel `AuditAspect` assembly to the then-standalone internal-audit executable. This was later superseded and excluded after Issue #29 removed that executable and changed the audit API/package.
+- Test command: Gradle projects, ten affected test modules, and three bootJars with JDK 17 explicitly selected.
+- Test result: 201 tests passed, failures/errors/skips 0; Closing API, Closing Batch, and Config Server bootJars passed.
+- Result: HEAD equals `origin/main`, ahead/behind `0/0`; cumulative changes remain uncommitted/unstaged and the named backup stash remains available.
+- Notes: no commit, push, merge to a protected branch, PR, or stash deletion was performed.
+
+## 2026-07-29 - GH-20 Latest Main Integration And PR Preparation
+
+- Issue: `#20 [Enterprise Refinement] 총계정원장 및 결산 (GL & Closing) 세부 설계`.
+- Source branch/worktree: `agent/20-closing-consistency`, repository root.
+- Target base: `origin/main@f3d33eae085a527fa1ae1905df6d0fa8dbaeb6bc`.
+- Integration: reapplied the 82-path transfer stash to the latest main base after an external C:\tmp worktree disappeared during verification.
+- Conflict status: preserved Issue #29's `internal-audit:core/api/batch` split and moved audit API; did not resurrect deleted standalone application/test files. Resolved shared-kernel build conflict and verified automatic settings/Master Data merges.
+- Conflict log: 2026-07-29 `agent/20-closing-consistency` + `origin/main@f3d33ea` entry.
+- Test command: shared-kernel, contracts, master-data, internal-audit core/api/batch, Journal Ledger Core, Closing core/api/batch, ECL API, Config Server tests plus three bootJars with JDK 17 selected.
+- Test result: 176 executed tests passed, failures/errors/skips 0; Closing API, Closing Batch, and Config Server bootJars passed. Internal-audit tests and API/Batch production sources are `NO-SOURCE`.
+- Result: ready for the user-authorized issue-scoped commit, push, and Draft PR. Merge and Issue close remain outside authorization.
+- Safety: both named stashes remain; unrelated untracked `create-deep-issues.ps1` and `create-financial-issues.ps1` are excluded from the commit.
