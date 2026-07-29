@@ -3,14 +3,17 @@ version: '3.8'
 services:
   allowance-ecl-batch:
     build:
-      context: ../../
-      dockerfile: ./ecl/ecl-batch/Dockerfile
+      context: ../..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":ecl:ecl-batch"
+        JAR_DIRECTORY: ecl/ecl-batch
     container_name: allowance-ecl-batch
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ifrs9_allowance_db
-      - SPRING_DATASOURCE_USERNAME=allowance_user
-      - SPRING_DATASOURCE_PASSWORD=allowance_password
+      - SPRING_DATASOURCE_URL=${ECL_DB_URL:?set ECL_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${ECL_DB_USER:?set ECL_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${ECL_DB_PASSWORD:?set ECL_DB_PASSWORD}
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/

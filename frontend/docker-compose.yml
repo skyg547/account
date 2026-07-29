@@ -5,20 +5,16 @@ services:
   account-frontend:
     build:
       context: .
+      dockerfile: Containerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     # 브라우저에서 'http://localhost:4000' 이라고 치면 
     # 컨테이너 안의 3000번 포트로 연결해줍니다.
     ports:
       - "4000:3000"
-    # 소스 코드가 바뀌면 바로 반영되도록 설정 (개발용)
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
-    # 다크 모드 등 필요한 환경 변수가 있다면 여기에 적어줍니다.
+    # standalone production image를 그대로 실행합니다. 개발용 bind mount는 별도 Compose에서 정의합니다.
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
     networks:
       - account-network
 

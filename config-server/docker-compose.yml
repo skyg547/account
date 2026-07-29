@@ -7,7 +7,10 @@ services:
     # 루트 Gradle 멀티모듈과 config-repo가 모두 필요하므로 상위 폴더를 build context로 사용합니다.
     build:
       context: ..
-      dockerfile: config-server/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":config-server"
+        JAR_DIRECTORY: config-server
     container_name: config-server
     ports:
       - "8888:8888"

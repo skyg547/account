@@ -3,14 +3,17 @@ version: '3.8'
 services:
   ifrs9-allowance-mart-batch:
     build:
-      context: ../../
-      dockerfile: ./account-mart/mart-batch/Dockerfile
+      context: ../..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":account-mart:mart-batch"
+        JAR_DIRECTORY: account-mart/mart-batch
     container_name: ifrs9-allowance-mart-batch
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ifrs9_allowance_mart_db
-      - SPRING_DATASOURCE_USERNAME=allowance_user
-      - SPRING_DATASOURCE_PASSWORD=allowance_password
+      - SPRING_DATASOURCE_URL=${ACCOUNT_MART_DB_URL:?set ACCOUNT_MART_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${ACCOUNT_MART_DB_USER:?set ACCOUNT_MART_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${ACCOUNT_MART_DB_PASSWORD:?set ACCOUNT_MART_DB_PASSWORD}
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/

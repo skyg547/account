@@ -7,7 +7,10 @@ services:
     # Gateway는 루트 Gradle 멀티모듈 설정이 필요하므로 빌드 컨텍스트를 저장소 루트로 잡습니다.
     build:
       context: ..
-      dockerfile: gateway/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":gateway"
+        JAR_DIRECTORY: gateway
     container_name: gateway
     ports:
       - "8000:8000"

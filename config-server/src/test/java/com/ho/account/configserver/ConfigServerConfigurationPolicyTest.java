@@ -43,7 +43,10 @@ class ConfigServerConfigurationPolicyTest {
         Map<String, Object> build = asMap(configServer.get("build"));
 
         assertThat(build.get("context")).isEqualTo("..");
-        assertThat(build.get("dockerfile")).isEqualTo("config-server/Dockerfile");
+        assertThat(build.get("dockerfile")).isEqualTo("Containerfile");
+        assertThat(asMap(build.get("args")))
+                .containsEntry("GRADLE_PROJECT", ":config-server")
+                .containsEntry("JAR_DIRECTORY", "config-server");
         assertThat(asList(configServer.get("volumes"))).contains("../config-repo:/config-repo:ro");
         assertThat(asList(configServer.get("environment")))
                 .contains("SPRING_PROFILES_ACTIVE=native", "CONFIG_REPO_LOCATION=file:/config-repo");

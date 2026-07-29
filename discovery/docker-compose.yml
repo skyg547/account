@@ -4,7 +4,10 @@ services:
     # 루트 Gradle 멀티모듈 파일이 필요하므로 저장소 루트를 build context로 사용합니다.
     build:
       context: ..
-      dockerfile: discovery/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":discovery"
+        JAR_DIRECTORY: discovery
     container_name: discovery
     ports:
       - "8761:8761"

@@ -1710,3 +1710,16 @@
 - Independent post-rebase review and static checks found no remaining P0-P3 findings. PostgreSQL was not executed; overlap exclusion constraint and list pagination remain follow-ups.
 - PR `#232` merged as `c720ae58` after Ready/mergeability checks, `Fixes #41` closed the reopened Issue automatically, and GitHub deleted the remote source branch. The source worktree is cleanup-eligible.
 - Rollback: revert the Issue #41 follow-up implementation commit. No schema rollback is required.
+## 2026-07-30 (Issue #228 canonical container image packaging)
+
+- Worktree/branch: `C:\tmp\account-228-container-images`, `agent/228-container-images`, base `origin/main@5fb9cb67`.
+- Unified root Java images on Gradle 8.7/Java 17 builder and Java 17 JRE runtime with validated exact project/path arguments, deterministic single executable JAR selection, non-root users and exec-form startup.
+- Added `deploy/image-targets.json` for 35 Java runtime applications and one Next frontend. Internal Audit API/Batch remain disabled and linked to #73/#74/#231 rather than being represented as successful images.
+- Converted all 19 active module Compose build blocks from divergent module Dockerfiles to the canonical root Containerfile and exact API/Batch/infra target arguments.
+- Preserved the Next standalone runtime and same-origin `/api` default, removed bind mounts that hid its packaged `server.js`, and prevented recursive tracked `.env*`, ignored Spring local config and private-key/keystore files from entering image build contexts.
+- Removed tracked DB defaults from active Auth/Account Mart/ECL module Compose files, made datasource inputs required and changed Auth DDL policy to `validate`.
+- Added container package/build tooling, docs and policy tests. The verifier drains both output streams concurrently, emits a complete JSON report and returns non-zero when any enabled target fails.
+- Verification passed Config Server/Gateway tests and all 33 enabled Java `bootJar`/single-artifact checks offline; 2 targets reported expected `BLOCKED`, and the frontend static contract passed.
+- Actual Docker/Podman image build was not run: Docker is absent, Podman lacks required base images/Compose support, and no image pull or package install was authorized.
+- Independent review and re-review drove root/frontend secret-context, Compose credential, stream-capture and frontend URL corrections; no unresolved finding remains.
+- State: local Issue branch only. No push, PR, merge or Issue close.

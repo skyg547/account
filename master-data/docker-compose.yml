@@ -4,7 +4,10 @@ services:
     # 루트 Gradle 멀티모듈 파일과 contracts/shared-kernel이 필요하므로 저장소 루트를 사용합니다.
     build:
       context: ..
-      dockerfile: master-data/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":master-data:api"
+        JAR_DIRECTORY: master-data/api
     container_name: master-data
     ports:
       - "8082:8082"

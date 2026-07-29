@@ -4,18 +4,21 @@ services:
   auth:
     build:
       context: ..
-      dockerfile: auth/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":auth:api"
+        JAR_DIRECTORY: auth/api
     container_name: auth
     ports:
       - "8084:8084"
     environment:
       - SERVER_PORT=8084
       - SPRING_PROFILES_ACTIVE=postgres
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://account-postgres:5432/account_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_URL=${AUTH_DB_URL:?set AUTH_DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${AUTH_DB_USER:?set AUTH_DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - SPRING_CLOUD_CONFIG_ENABLED=false
       - SPRING_CLOUD_DISCOVERY_ENABLED=false
       - SPRING_CLOUD_LOADBALANCER_ENABLED=false
