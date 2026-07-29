@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -72,7 +73,9 @@ class FxValuationServiceTest {
         ClosingJournalEntryCommand command = captor.getValue();
 
         assertThat(command.currencyCode()).isEqualTo("USD");
-        assertThat(command.lineageSourceId()).isEqualTo("77");
+        assertThat(command.slipDate()).isEqualTo(valuationDate);
+        assertThat(command.accountingDate()).isEqualTo(valuationDate);
+        assertThat(command.lineageSourceId()).isEqualTo("77|113000|EUR");
         assertThat(command.lines()).hasSize(2);
         assertThat(command.lines().get(0).side()).isEqualTo(ClosingJournalSide.DEBIT);
         assertThat(command.lines().get(0).accountCode()).isEqualTo("113000");
@@ -87,7 +90,7 @@ class FxValuationServiceTest {
     @DisplayName("대변 정상잔액 계정은 평가 증가를 손실로 보고 계정 라인을 대변에 기록한다")
     void processFxValuationReversesSideForCreditNormalBalanceAccount() {
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);
-        FxValuationBalance balance = balance("221000", "EUR", "100.00", "110.00");
+        FxValuationBalance balance = balance("221000", "EUR", "-100.00", "-110.00");
 
         when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
                 .thenReturn(Optional.of(new BigDecimal("1.20000000")));
@@ -109,17 +112,44 @@ class FxValuationServiceTest {
     }
 
     @Test
-    @DisplayName("장부 기준통화 잔액이 없으면 가상 장부환율을 만들지 않고 평가를 건너뛴다")
-    void processFxValuationSkipsWhenBaseEndingBalanceIsMissing() {
+    @DisplayName("장부 기준통화 잔액이 없으면 평가를 성공으로 숨기지 않는다")
+    void processFxValuationFailsWhenBaseEndingBalanceIsMissing() {
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);
         FxValuationBalance balance = balance("113000", "EUR", "100.00", null);
 
-        when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
-                .thenReturn(Optional.of(new BigDecimal("1.20000000")));
-
-        service.processFxValuationForAccount(balance, valuationDate, 77L);
+        assertThatThrownBy(() -> service.processFxValuationForAccount(balance, valuationDate, 77L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Base ending balance is missing");
 
         verify(closingJournalEntryPort, never()).createDraftAdjustment(any());
+    }
+
+    @Test
+    @DisplayName("환율이 없으면 해당 chunk가 실패할 수 있도록 예외를 전파한다")
+    void processFxValuationFailsWhenRateIsMissing() {
+        LocalDate valuationDate = LocalDate.of(2026, 5, 31);
+        FxValuationBalance balance = balance("113000", "EUR", "100.00", "110.00");
+        when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.processFxValuationForAccount(balance, valuationDate, 77L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FX rate not found");
+    }
+
+    @Test
+    @DisplayName("기준일 계정과목이 없으면 전표 없이 실패한다")
+    void processFxValuationFailsWhenAccountSubjectIsMissing() {
+        LocalDate valuationDate = LocalDate.of(2026, 5, 31);
+        FxValuationBalance balance = balance("113000", "EUR", "100.00", "110.00");
+        when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
+                .thenReturn(Optional.of(new BigDecimal("1.20000000")));
+        when(masterDataQueryPort.findAccountSubjectAt("113000", valuationDate))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.processFxValuationForAccount(balance, valuationDate, 77L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Account subject is missing");
     }
 
     private static FxValuationBalance balance(String accountCode, String currencyCode, String foreignAmount,

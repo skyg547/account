@@ -11,12 +11,17 @@ import com.ho.account.closing.domain.EclAllowanceSummary;
 import com.ho.account.closing.domain.ProvisionBatch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * [결산 Core - IFRS9 기대신용손실(ECL) 기반 대손충당금 서비스]
@@ -29,7 +34,6 @@ import java.util.List;
  * Stage/PD/LGD/EAD 재계산은 이 서비스의 책임이 아니며, 확정된 allowance_summary만 소비합니다.</p>
  */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class EclProvisionService {
 
@@ -43,45 +47,44 @@ public class EclProvisionService {
 
     @Transactional
     public void processEclProvision(LocalDate closingDate, Long provisionBatchId) {
+        Objects.requireNonNull(closingDate, "closingDate must not be null");
+        if (provisionBatchId == null || provisionBatchId <= 0) {
+            throw new IllegalArgumentException("provisionBatchId must be positive");
+        }
         log.info("Starting ECL Provision calculation for closing date: {}", closingDate);
 
         List<EclAllowanceSummary> summaries = eclAllowanceResultPort.loadSummaries(closingDate);
         if (summaries.isEmpty()) {
-            log.warn("No finalized ECL allowance summary found for {}. No provision journal will be created.", closingDate);
-            return;
+            throw new IllegalStateException(
+                    "No finalized ECL allowance summary found for " + closingDate
+                            + "; a zero-portfolio completion marker is required before treating this as no-op");
         }
 
         ClosingAccountingProperties.AutomatedJournalRule eclRule =
                 accountingProperties.requireProvisionRule(ProvisionBatch.ProvisionType.ECL);
 
-        for (EclAllowanceSummary summary : summaries) {
-            processSummary(summary, closingDate, provisionBatchId, eclRule);
-        }
+        requireSingleSnapshotIdentity(summaries);
+        String legalEntityCode = requireSingleLegalEntity(summaries);
+        Map<ProvisionKey, ProvisionGroup> groups =
+                aggregateByLedgerBalanceKey(summaries, closingDate, legalEntityCode, eclRule);
+        groups.values().stream()
+                .sorted(Comparator.comparing(group -> group.key().stableValue()))
+                .forEach(group -> processGroup(group, closingDate, provisionBatchId));
     }
 
-    private void processSummary(EclAllowanceSummary summary,
-                                LocalDate closingDate,
-                                Long provisionBatchId,
-                                ClosingAccountingProperties.AutomatedJournalRule eclRule) {
-        String badDebtExpenseAccount = resolveRequiredAccount(
-                summary.badDebtExpenseAccountCode(),
-                eclRule.getDebitAccountCode(),
-                "bad debt expense account");
-        String allowanceForDoubtfulAccounts = resolveRequiredAccount(
-                summary.allowanceAccountCode(),
-                eclRule.getCreditAccountCode(),
-                "allowance account");
-        String currencyCode = requireText(summary.currencyCode(), "currencyCode");
-
+    private void processGroup(
+            ProvisionGroup group,
+            LocalDate closingDate,
+            Long provisionBatchId) {
         BigDecimal existingAllowance = allowanceBalanceLookupPort.findCreditEndingBalance(
-                allowanceForDoubtfulAccounts,
-                currencyCode,
+                group.key().allowanceAccountCode(),
+                group.key().currencyCode(),
                 closingDate);
-        BigDecimal difference = summary.targetAllowanceAmount().subtract(existingAllowance);
+        BigDecimal difference = group.targetAllowanceAmount().subtract(existingAllowance);
 
         if (difference.signum() == 0) {
-            log.info("ECL provision target equals existing allowance. No journal required. summary={}",
-                    summary.lineageSourceId(provisionBatchId));
+            log.info("ECL provision target equals existing allowance. No journal required. group={}",
+                    group.key().stableValue());
             return;
         }
 
@@ -89,39 +92,39 @@ public class EclProvisionService {
                 difference,
                 closingDate,
                 provisionBatchId,
-                badDebtExpenseAccount,
-                allowanceForDoubtfulAccounts,
-                currencyCode,
-                summary);
+                group);
     }
 
     private void createProvisionJournalEntry(BigDecimal amount,
                                              LocalDate closingDate,
                                              Long batchId,
-                                             String expenseAccount,
-                                             String allowanceAccount,
-                                             String currencyCode,
-                                             EclAllowanceSummary summary) {
+                                             ProvisionGroup group) {
         boolean isAdditionalProvision = amount.signum() > 0;
         BigDecimal absAmount = amount.abs();
 
         List<ClosingJournalLineCommand> lines = isAdditionalProvision
-                ? additionalProvisionLines(absAmount, expenseAccount, allowanceAccount)
-                : reversalLines(absAmount, allowanceAccount, summary);
+                ? additionalProvisionLines(
+                        absAmount,
+                        group.badDebtExpenseAccountCode(),
+                        group.key().allowanceAccountCode())
+                : reversalLines(
+                        absAmount,
+                        group.key().allowanceAccountCode(),
+                        requireText(group.reversalIncomeAccountCode(), "reversalIncomeAccountCode"));
 
         ClosingJournalEntryCommand command = new ClosingJournalEntryCommand(
-                LocalDate.now(),
+                closingDate,
                 closingDate,
                 "Month-end ECL Provision (Impairment)",
                 "CLOSING_ADJUSTMENT",
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
                 "ECL_PROVISION",
-                summary.lineageSourceId(batchId),
-                currencyCode,
+                group.lineageSourceId(batchId),
+                group.key().currencyCode(),
                 ClosingSlipNoFactory.eclProvision(
                         closingDate,
-                        summary.slipDiscriminator(allowanceAccount),
+                        group.key().stableValue(),
                         batchId),
                 lines);
 
@@ -153,10 +156,7 @@ public class EclProvisionService {
 
     private List<ClosingJournalLineCommand> reversalLines(BigDecimal amount,
                                                           String allowanceAccount,
-                                                          EclAllowanceSummary summary) {
-        String reversalIncomeAccount = requireText(
-                summary.reversalIncomeAccountCode(),
-                "reversalIncomeAccountCode");
+                                                          String reversalIncomeAccount) {
         return List.of(
                 new ClosingJournalLineCommand(
                         ClosingJournalSide.DEBIT,
@@ -188,5 +188,145 @@ public class EclProvisionService {
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String requireSingleLegalEntity(List<EclAllowanceSummary> summaries) {
+        Set<String> legalEntities = new TreeSet<>();
+        for (EclAllowanceSummary summary : summaries) {
+            legalEntities.add(requireText(summary.legalEntityCode(), "legalEntityCode"));
+        }
+        if (legalEntities.size() != 1) {
+            throw new IllegalStateException(
+                    "Closing GL has no legal-entity dimension; exactly one legal entity is required per ECL run: "
+                            + legalEntities);
+        }
+        return legalEntities.iterator().next();
+    }
+
+    private void requireSingleSnapshotIdentity(List<EclAllowanceSummary> summaries) {
+        Set<String> runIds = new TreeSet<>();
+        Set<String> modelVersions = new TreeSet<>();
+        for (EclAllowanceSummary summary : summaries) {
+            runIds.add(summary.runId());
+            modelVersions.add(summary.modelVersion());
+        }
+        if (runIds.size() != 1 || modelVersions.size() != 1) {
+            throw new IllegalStateException(
+                    "ECL closing input must come from one finalized run/model snapshot: runs="
+                            + runIds + ", models=" + modelVersions);
+        }
+    }
+
+    private Map<ProvisionKey, ProvisionGroup> aggregateByLedgerBalanceKey(
+            List<EclAllowanceSummary> summaries,
+            LocalDate closingDate,
+            String legalEntityCode,
+            ClosingAccountingProperties.AutomatedJournalRule eclRule) {
+        Map<ProvisionKey, ProvisionGroup> groups = new LinkedHashMap<>();
+        for (EclAllowanceSummary summary : summaries) {
+            if (!closingDate.equals(summary.baseDate())) {
+                throw new IllegalStateException(
+                        "ECL summary baseDate " + summary.baseDate() + " does not match closingDate " + closingDate);
+            }
+
+            String allowanceAccount = resolveRequiredAccount(
+                    summary.allowanceAccountCode(),
+                    eclRule.getCreditAccountCode(),
+                    "allowance account");
+            String expenseAccount = resolveRequiredAccount(
+                    summary.badDebtExpenseAccountCode(),
+                    eclRule.getDebitAccountCode(),
+                    "bad debt expense account");
+            String currencyCode = requireText(summary.currencyCode(), "currencyCode");
+            String reversalAccount = hasText(summary.reversalIncomeAccountCode())
+                    ? summary.reversalIncomeAccountCode().trim()
+                    : null;
+            ProvisionKey key = new ProvisionKey(legalEntityCode, currencyCode, allowanceAccount);
+            groups.compute(key, (ignored, current) -> current == null
+                    ? ProvisionGroup.first(key, summary, expenseAccount, reversalAccount)
+                    : current.add(summary, expenseAccount, reversalAccount));
+        }
+        return groups;
+    }
+
+    private record ProvisionKey(
+            String legalEntityCode,
+            String currencyCode,
+            String allowanceAccountCode) {
+
+        private String stableValue() {
+            return legalEntityCode + "|" + currencyCode + "|" + allowanceAccountCode;
+        }
+    }
+
+    private record ProvisionGroup(
+            ProvisionKey key,
+            BigDecimal targetAllowanceAmount,
+            String badDebtExpenseAccountCode,
+            String reversalIncomeAccountCode) {
+
+        private static ProvisionGroup first(
+                ProvisionKey key,
+                EclAllowanceSummary summary,
+                String expenseAccount,
+                String reversalAccount) {
+            return new ProvisionGroup(
+                    key,
+                    summary.targetAllowanceAmount(),
+                    expenseAccount,
+                    reversalAccount);
+        }
+
+        private ProvisionGroup add(
+                EclAllowanceSummary summary,
+                String expenseAccount,
+                String reversalAccount) {
+            requireSameMapping(
+                    badDebtExpenseAccountCode,
+                    expenseAccount,
+                    "bad debt expense",
+                    key);
+            String resolvedReversal = mergeOptionalMapping(
+                    reversalIncomeAccountCode,
+                    reversalAccount,
+                    "reversal income",
+                    key);
+            return new ProvisionGroup(
+                    key,
+                    targetAllowanceAmount.add(summary.targetAllowanceAmount()),
+                    badDebtExpenseAccountCode,
+                    resolvedReversal);
+        }
+
+        private String lineageSourceId(Long batchId) {
+            Objects.requireNonNull(batchId, "batchId must not be null");
+            return batchId + "|" + key.allowanceAccountCode() + "|" + key.currencyCode();
+        }
+
+        private static void requireSameMapping(
+                String current,
+                String candidate,
+                String mappingName,
+                ProvisionKey key) {
+            if (!Objects.equals(current, candidate)) {
+                throw new IllegalStateException(
+                        "Mixed " + mappingName + " account mapping for ECL group " + key.stableValue());
+            }
+        }
+
+        private static String mergeOptionalMapping(
+                String current,
+                String candidate,
+                String mappingName,
+                ProvisionKey key) {
+            if (current == null) {
+                return candidate;
+            }
+            if (candidate == null) {
+                return current;
+            }
+            requireSameMapping(current, candidate, mappingName, key);
+            return current;
+        }
     }
 }

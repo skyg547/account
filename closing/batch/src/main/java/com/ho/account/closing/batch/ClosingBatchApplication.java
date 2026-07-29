@@ -1,8 +1,10 @@
 package com.ho.account.closing.batch;
 
+import com.ho.account.closing.application.pipeline.FxValuationPipeline;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.application.service.FxValuationService;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -28,7 +30,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     "com.ho.account.masterdata.core.infrastructure.persistence.repository"
 })
 @EnableConfigurationProperties(ClosingAccountingProperties.class)
-@Import({FxValuationService.class, EclProvisionService.class})
+@Import({
+    FxValuationService.class,
+    FxValuationPipeline.class,
+    EclProvisionService.class,
+    JpaFiscalPeriodPersistenceAdapter.class
+})
 public class ClosingBatchApplication {
     public static void main(String[] args) {
         SpringApplication.run(ClosingBatchApplication.class, args);

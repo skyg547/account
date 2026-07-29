@@ -1,7 +1,7 @@
 package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.ExchangeRateRepository;
+import com.ho.account.contracts.masterdata.ExchangeRateQueryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -13,11 +13,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class MasterDataFxExchangeRateLookupAdapter implements FxExchangeRateLookupPort {
 
-    private final ExchangeRateRepository exchangeRateRepository;
+    private final ExchangeRateQueryPort exchangeRateQueryPort;
 
     @Override
     public Optional<BigDecimal> findRate(String fromCurrencyCode, String toCurrencyCode, LocalDate effectiveDate) {
-        return exchangeRateRepository.findExchangeRate(fromCurrencyCode, toCurrencyCode, effectiveDate)
-                .map(exchangeRate -> exchangeRate.getRate());
+        return exchangeRateQueryPort.findLatestRateAt(fromCurrencyCode, toCurrencyCode, effectiveDate)
+                .map(exchangeRate -> exchangeRate.rate());
     }
 }

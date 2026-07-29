@@ -1,7 +1,6 @@
 rootProject.name = 'account'
 
-include 'app',
-        'contracts',
+include 'contracts',
         'shared-kernel',
         'master-data',
         'internal-audit:core',
