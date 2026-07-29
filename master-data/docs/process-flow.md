@@ -102,15 +102,18 @@ SCD2 행도 유효기간으로 찾습니다. 따라서 거래처가 나중에 �
 
 ```mermaid
 flowchart LR
-    A[Batch Orchestrator] --> B[Core Validity Report Pipeline]
-    B --> C[MasterDataValidityStatisticsPort]
-    C --> D[JPA Statistics Adapter]
-    D --> E[(DB COUNT queries)]
-    E --> F[Core Report]
-    F --> G[Batch Report DTO]
+    A[Scheduler asOfDate] --> B[Spring Batch Job]
+    B --> C[Tasklet Step]
+    C --> D[Batch Orchestrator]
+    D --> E[Core Validity Report Pipeline]
+    E --> F[MasterDataValidityStatisticsPort]
+    F --> G[JPA Statistics Adapter]
+    G --> H[(DB COUNT queries)]
+    H --> I[Core Report]
+    I --> J[Batch Report DTO]
 ```
 
-core pipeline은 batch DTO를 참조하지 않습니다. 기준일 `asOfDate`가 없으면 현재 날짜로 조용히 대체하지 않고 실패합니다. 네 기준정보의 전체 행을 Java 메모리에 올리지 않고 DB 집계 쿼리로 활성 건수만 가져옵니다.
+`master-data:batch`의 Job/Step은 실행 흐름과 파라미터 변환만 소유하고 core pipeline은 batch DTO를 참조하지 않습니다. 기준일 `asOfDate`가 없으면 현재 날짜로 조용히 대체하지 않고 실패합니다. 네 기준정보의 전체 행을 Java 메모리에 올리지 않고 DB 집계 쿼리로 활성 건수만 가져옵니다. 실행 요약은 primitive 값으로 Step execution context에 기록해 Java record 직렬화에 재시작 메타데이터를 결합하지 않습니다.
 
 API 활성 계정과목/상품 목록도 같은 원칙으로 `validFrom <= 기준일 <= validTo`를 DB에서 필터링합니다.
 거래처 이름 검색은 `useYn=true`, 유효기간, 이름 조건을 한 쿼리에서 확인합니다.
@@ -145,4 +148,4 @@ flowchart LR
 - 전체 이력/검색/pending API는 아직 무제한 List 계약입니다. 안정 정렬, 최대 page size와 DB limit가 있는 pagination을 포트부터 HTTP까지 연결해야 합니다.
 - `/apply-due`는 최대 500건을 제한하지만 한 트랜잭션입니다. 요청별 재시작성과 병렬 처리를 위해 `REQUIRES_NEW` 실행기, `SKIP LOCKED`, 성공/실패 실행 이력 포트를 추가해야 합니다.
 - 계정과목/부서/거래처/상품의 직접 쓰기 API가 승인 API와 공존합니다. 운영 권한 정책에서 관리자 보정 전용으로 제한하거나 모든 일반 변경을 승인 흐름으로 통합해야 합니다.
-- `batch.application`은 현재 패키지 수준 orchestrator이며 독립 Spring Batch Job/Step 실행 모듈은 아닙니다. 운영 배치가 필요하면 별도 `master-data:batch` 실행 모듈과 결과 저장/모니터링 포트를 추가해야 합니다.
+- `master-data:batch`는 독립 Job/Step 실행 모듈이지만 현재 결과를 execution context에만 남깁니다. 운영 장기 보관과 관제를 위해 실행 이력 출력 포트와 메트릭/알림 어댑터를 추가해야 합니다.

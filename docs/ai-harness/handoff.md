@@ -1,3 +1,46 @@
+# AI Harness Handoff - 2026-07-29 Issue #40 Master Data Module Split
+
+## Active Goal And State
+
+- GitHub Issue `#40`의 `master-data:api`, `:batch`, `:core` 헥사고날 멀티 프로젝트 분리를 구현하고 자동 PR/merge할 준비 단계입니다.
+- Branch/worktree: `agent/40-master-data-modules`, `/tmp/account-40-master-data-modules`.
+- Base: `origin/main@fbad9110`; final-record 작성 직전 ahead/behind는 `0/0`이었습니다.
+- 원본 `/home/ho/dev/account` main checkout의 사용자 변경(`master-data/Dockerfile`, `master-data/docker-compose.yml`)은 건드리지 않았습니다.
+
+## Changes And Boundaries
+
+- API Spring Boot 진입점, REST Controller와 DTO, API 설정/로그 리소스를 `master-data:api`로 이동했습니다.
+- Batch Spring Boot 진입점, scheduler orchestration/report mapping을 `master-data:batch`로 이동하고 `masterDataValidityJob`과 Tasklet Step을 추가했습니다.
+- Job/Step은 `asOfDate` 파라미터와 실행 흐름만 소유하며, 유효기간 판단과 DB COUNT 집계는 `master-data:core`의 pipeline/port/adapter에 남습니다.
+- application/domain/persistence 코드와 Flyway migration은 표준 `master-data/core/src/main/resources`에 남아 API와 Batch가 동일한 core library를 소비합니다.
+- API와 Batch는 서로 의존하지 않고 각각 실행 가능한 bootJar를 생성합니다. core는 executable entry point가 없는 library jar입니다.
+- Dockerfile, 공용 IntelliJ Run Configuration, module README/docs와 `docs/local-development.md`를 실제 Gradle task에 맞췄습니다.
+- Journal Ledger core가 내용 없는 `project(':master-data')` aggregator를 참조하던 의존을 제거하고 기존 `contracts` 계약만 사용하게 했습니다.
+
+## Verification Evidence
+
+- JDK 17 Gradle: Master Data core 1 test, API context 1 test, Batch context/parameter/populated-Job 4 tests, Journal Ledger core 23 tests; 총 29 tests, failures/errors/skipped 0.
+- `:master-data:api:bootJar`와 `:master-data:batch:bootJar` 성공.
+- populated H2에 네 기준정보의 활성/만료 행을 저장한 통합 테스트가 실제 Job → core pipeline → port → JPA adapter를 실행하고 Step context 활성 건수 4종을 각각 1로 검증했습니다.
+- 네트워크 차단 상태에서 기본 Batch는 Config Server 부재를 `ConfigClientFailFastException`으로 차단했고, 문서화한 로컬 H2 예외 플래그에서는 `masterDataValidityJob asOfDate=2026-07-29`의 Job/Step 상태가 `COMPLETED`였습니다.
+- core Web/Validation 및 API/Batch 역참조 없음, Batch의 API 의존 없음, conflict marker 없음, `git diff --check` 통과.
+- 최초 offline test는 캐시 미보유로 중단되어 선언된 Gradle 테스트 의존성만 해석한 뒤 재검증했습니다. 존재하지 않던 `spring-boot-starter-batch-test` 좌표는 공식 `spring-batch-test`로 수정했습니다.
+
+## Known Risks And Rollback
+
+- PostgreSQL에서 Flyway 전체 부트스트랩과 실제 데이터 기준 대량 집계 실행계획은 검증하지 않았습니다.
+- Batch 결과는 현재 Step execution context의 primitive 요약으로만 보존됩니다. 운영 장기 이력, 메트릭, 알림은 출력 포트/어댑터가 필요합니다.
+- Spring Batch 기동 중 framework `jobRegistryBeanPostProcessor` 조기 초기화 경고가 있으나 실제 Job은 `COMPLETED`였습니다. 경고 제거는 별도 framework bootstrap 정리 범위입니다.
+- typed applier, `requestedVersion`, 요청 잠금/`lockVersion` production 경로는 현재 test source에 회귀 테스트가 없어 별도 품질 gap으로 남습니다.
+- 롤백은 Issue #40 커밋 revert입니다. migration 파일 내용과 운영 DB는 변경하지 않았습니다.
+
+## Next Gate
+
+- 독립 Reviewer가 최종 diff와 테스트 근거를 findings-first로 확인합니다.
+- blocking finding이 없으면 commit/push, `Fixes #40` PR 생성, merge, Issue close 확인 후 worktree를 제거합니다.
+
+---
+
 # AI Harness Handoff - 2026-07-29 Issue #20 Closing Main Parity And Feature Push
 
 ## Active Goal And State

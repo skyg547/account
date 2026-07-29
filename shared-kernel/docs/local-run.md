@@ -27,7 +27,7 @@
 영향 모듈 포함:
 
 ```powershell
-.gradlew :shared-kernel:test :contracts:test :master-data:test :closing:core:test :journal-ledger:core:test :account-mart:mart-core:test :ecl:ecl-core:test --console=plain --max-workers=1 --no-daemon
+.gradlew :shared-kernel:test :contracts:test :master-data:core:test :master-data:api:test :master-data:batch:test :closing:core:test :journal-ledger:core:test :account-mart:mart-core:test :ecl:ecl-core:test --console=plain --max-workers=1 --no-daemon
 ```
 
 ## 테스트가 확인하는 내용

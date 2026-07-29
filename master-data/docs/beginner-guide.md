@@ -33,7 +33,9 @@
 
 ## DDD와 헥사고날 관점
 
-- `api`: HTTP 요청을 받는 인바운드 어댑터입니다.
+- `master-data:api`: HTTP 요청만 받는 독립 실행 인바운드 어댑터입니다.
+- `master-data:batch`: 스케줄러 파라미터와 Spring Batch Job/Step 흐름만 소유하는 독립 실행 인바운드 어댑터입니다.
+- `master-data:core`: API와 Batch가 함께 사용하는 업무 library입니다.
 - `core.application.service`: 기준정보 생성, 수정, 승인 반영 같은 유즈케이스 흐름을 조율합니다.
 - `core.domain.model`: 계정과목, 거래처, 부서, 상품, 통화 같은 도메인 모델입니다.
 - `core.domain.policy`: 유효기간과 SCD2 기본 정책을 다룹니다.
@@ -49,13 +51,15 @@
 
 ## 처음 볼 파일
 
-1. `MasterDataApplication`: Spring Boot 실행 진입점.
-2. `AccountSubjectController`, `DepartmentController`, `BusinessPartnerController`, `ProductController`: 기준정보 API.
-3. `MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
-4. `MasterDataChangeRequestService`: 변경 요청, 승인, 반려, 예약 반영 흐름.
-5. `MasterDataChangeApplierRegistry`: 한 기준정보 유형에 반영 전략이 없거나 두 개 이상 연결되는 설정 오류를 차단.
-6. `AccountSubjectMasterDataChangeApplier` 등 typed applier: 승인 요청을 실제 SCD2 생성/수정/비활성화로 연결.
-7. `MasterDataChangeVersionPolicy`: CREATE/UPDATE/DEACTIVATE별 목표 버전과 저장된 SCD2 이력 수를 비교.
-8. `MasterDataValidityReportPipeline`: 기준일을 고정하고 DB 통계 포트의 네 집계 결과를 하나의 core 보고 모델로 조립.
-9. `MasterDataValidityPolicy`: 유효기간과 종료일 정합성 공통 정책.
-10. `MonolithFiscalPeriodControlAdapter`: Closing 계약을 회계기간 포트, 행 잠금, 도메인 상태 전이에 연결.
+1. `api/.../MasterDataApplication`: HTTP Spring Boot 실행 진입점.
+2. `api/.../AccountSubjectController`, `DepartmentController`, `BusinessPartnerController`, `ProductController`: 기준정보 API.
+3. `api/.../MasterDataChangeRequestController`: 변경 요청, 승인, 반려, 반영 API.
+4. `batch/.../MasterDataBatchApplication`: 웹 서버 없이 기동하는 Batch 실행 진입점.
+5. `batch/.../MasterDataValidityJobConfiguration`: `asOfDate`를 검증하고 core pipeline을 호출하는 Job/Step.
+6. `core/.../MasterDataChangeRequestService`: 변경 요청, 승인, 반려, 예약 반영 흐름.
+7. `core/.../MasterDataChangeApplierRegistry`: 한 기준정보 유형에 반영 전략이 없거나 두 개 이상 연결되는 설정 오류를 차단.
+8. `core/.../AccountSubjectMasterDataChangeApplier` 등 typed applier: 승인 요청을 실제 SCD2 생성/수정/비활성화로 연결.
+9. `core/.../MasterDataChangeVersionPolicy`: CREATE/UPDATE/DEACTIVATE별 목표 버전과 저장된 SCD2 이력 수를 비교.
+10. `core/.../MasterDataValidityReportPipeline`: 기준일을 고정하고 DB 통계 포트의 네 집계 결과를 하나의 core 보고 모델로 조립.
+11. `core/.../MasterDataValidityPolicy`: 유효기간과 종료일 정합성 공통 정책.
+12. `core/.../MonolithFiscalPeriodControlAdapter`: Closing 계약을 회계기간 포트, 행 잠금, 도메인 상태 전이에 연결.

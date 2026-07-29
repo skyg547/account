@@ -1,3 +1,25 @@
+## 2026-07-29 - Issue #40 Master Data executable module split
+
+- Owner: Codex acting as Coder/Integrator Agent.
+- Branch/worktree: `agent/40-master-data-modules` / `/tmp/account-40-master-data-modules`.
+- Base: `origin/main@fbad9110` (0 ahead / 0 behind before final records).
+- Scope:
+  - Moved HTTP entry point/controllers/DTOs to `master-data:api`.
+  - Moved scheduler orchestration and reporting to `master-data:batch`; added a required-`asOfDate` Spring Batch Job/Step that delegates business aggregation to core.
+  - Kept application/domain/persistence and standard-path Flyway resources in `master-data:core`.
+  - Enabled separate API/Batch bootJars and aligned Docker, run configurations, dependencies, and module documentation.
+- Verification:
+  - Master Data core 1, API 1, Batch 4 and Journal Ledger core 23 tests passed on JDK 17; both Master Data bootJars passed.
+  - The populated-H2 Job test stored active/expired rows for four Master Data types and asserted all four Step-context active counts as 1.
+  - The normal Batch runtime failed fast without Config Server; the explicit local-H2 exception path completed `masterDataValidityJob asOfDate=2026-07-29`.
+  - Architecture leakage scans, conflict-marker scan, and `git diff --check` passed.
+- Risks:
+  - PostgreSQL/Flyway runtime and high-volume plans were not executed.
+  - Batch output is restart metadata only; durable history and monitoring adapters remain follow-up work.
+  - Typed-applier, requested-version, and request-lock regression tests are absent from the current test source and remain a separate quality gap.
+- Rollback:
+  - Revert the Issue #40 commit; no migration content or live database was changed.
+
 ## 2026-07-08 - Payable API/core command boundary
 - Branch: `agent/asset-lease-split`
 - Scope: `payable` core/api/batch/docs

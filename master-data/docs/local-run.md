@@ -6,7 +6,7 @@
 - IntelliJ IDEA의 Gradle JVM도 JDK 17
 - 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 열기
 
-`master-data`는 현재 하나의 Spring Boot API 애플리케이션입니다. `core`, `api`, `batch`는 패키지 경계이며 별도 Gradle 하위 프로젝트는 아닙니다. 일일 유효성 보고 파이프라인은 core에 있고 batch orchestrator가 이를 호출하지만, 독립 Spring Batch Job/Step 실행 모듈은 아직 없습니다.
+`master-data`는 `core`, `api`, `batch` 세 Gradle 하위 프로젝트입니다. `core`는 실행 진입점이 없는 업무 library이고, `api`와 `batch`가 각각 core를 의존하는 독립 Spring Boot 실행 모듈입니다. 두 실행 모듈은 서로 의존하지 않으므로 HTTP 서버와 스케줄 작업을 독립적으로 배포하고 확장할 수 있습니다.
 
 ## IntelliJ에서 H2 단독 실행
 
@@ -21,13 +21,13 @@
 ## PowerShell H2 단독 실행
 
 ```powershell
-.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 API 서버를 열지 않고 Spring/JPA 빈 연결만 확인하려면 다음 smoke 명령을 사용합니다.
 
 ```powershell
-.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
 ```
 
 ## 폐기 가능한 PostgreSQL 로컬 검증
@@ -39,7 +39,7 @@ $env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/account_master_lo
 $env:SPRING_DATASOURCE_USERNAME = 'approved-local-user'
 # SPRING_DATASOURCE_PASSWORD는 터미널 기록에 평문으로 남기지 말고 IntelliJ 환경변수/승인된 비밀 주입 기능으로 설정합니다.
 
-.\gradlew :master-data:bootRun --args="--spring.profiles.active=local --server.port=8082 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=update --spring.flyway.enabled=true --spring.flyway.baseline-on-migrate=true --spring.flyway.baseline-version=0" --console=plain --max-workers=1 --no-daemon
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --server.port=8082 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=update --spring.flyway.enabled=true --spring.flyway.baseline-on-migrate=true --spring.flyway.baseline-version=0" --console=plain --max-workers=1 --no-daemon
 ```
 
 이 명령은 개발 중인 스키마를 확인하기 위한 폐기 가능한 smoke 경로입니다. 운영 기준은 전체 기준정보 테이블 Flyway DDL을 완성한 뒤 `ddl-auto=validate`를 사용하는 것입니다.
@@ -64,19 +64,37 @@ Config Server 설정을 확인하는 통합 모드에서는 다음 순서로 실
 ## 검증 명령
 
 ```powershell
-.\gradlew :master-data:test --console=plain --max-workers=1
+.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1 --no-daemon
 ```
 
-테스트는 다음을 함께 확인합니다.
+현재 세 모듈에서 실행되는 자동화 테스트 6개는 다음을 확인합니다.
 
-- ACCOUNT_SUBJECT/BUSINESS_PARTNER/DEPARTMENT/PRODUCT typed change applier와 중복 소유권 차단
-- CREATE/UPDATE/DEACTIVATE별 `requestedVersion`과 실제 SCD2 이력 수 정합성
-- 요청 후 다른 변경이 먼저 반영된 경우 승인 단계의 오래된 버전 차단
-- 미지원 targetType의 요청 접수 fail-closed
-- 승인된 `effectiveDate`가 SCD2 생성/수정/비활성화에 전달되는지
-- 변경 요청 JPA `lockVersion` 매핑과 Repository 초기화
-- 기준일 누락 시 일일 유효성 보고서가 fail-fast 하는지
-- H2에서 네 기준정보 활성 건수를 DB `COUNT`로 계산하는지
+- core의 환율 조회 adapter가 요청일 이하 최신 환율을 선택하고 잘못된 요청을 거부하는지
+- API가 Batch 실행 모듈 없이 core service/JPA adapter를 포함한 Spring context를 구성하는지
+- Batch가 API 없이 context를 구성하고 `master-data-batch` 실행 이름, 공통
+  `master-data,master-data-batch` Config 이름, 필수 Config import를 유지하는지
+- Batch가 `asOfDate` 누락과 형식 오류를 Job 실행 전에 거부하는지
+- populated H2에 네 기준정보의 활성/만료 행을 함께 넣었을 때 실제
+  Job → core pipeline → port → JPA adapter 경로가 활성 건수만 각각 1로 기록하는지
+
+typed change applier, `requestedVersion`, 요청 잠금/`lockVersion` 코드는 현재 production에
+존재하지만 이 브랜치의 실제 test source에는 해당 회귀 테스트가 없습니다. 따라서 위 명령의
+검증 범위로 과장하지 않으며, 그 상태 전이 테스트 복원은 별도 품질 gap으로 남깁니다.
+
+## 일일 유효성 Batch 실행
+
+`Master Data Batch Validity` Run Configuration 또는 아래 명령을 사용합니다. `asOfDate`는 Spring Batch의 식별 파라미터이므로 재실행할 회계 기준일을 반드시 명시합니다.
+
+```powershell
+.\gradlew :master-data:batch:bootRun --args="--spring.profiles.active=local --spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29 --spring.cloud.config.enabled=false --spring.config.on-not-found=ignore --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1 --no-daemon
+```
+
+Job/Step은 스케줄과 파라미터 매핑만 담당합니다. 활성 건수 계산과 유효기간 규칙은 `master-data:core`의 `MasterDataValidityReportPipeline`에 남아 있어 API와 Batch가 서로 다른 업무 규칙을 만들지 않습니다.
+
+기본 Batch 실행은 `master-data,master-data-batch` 원격 설정을 필수로 읽어 같은
+datasource/Flyway 계약을 사용합니다. 위 명령의 `spring.config.on-not-found=ignore`는
+Config Server 없이 폐기 가능한 H2를 쓰는 학습 실행만을 위한 예외입니다. 운영
+스케줄러에서는 이 값을 넣지 않아 Config 장애가 임시 빈 H2의 0건 성공으로 숨지 않게 합니다.
 
 ## 주요 엔드포인트
 

@@ -1,3 +1,20 @@
+## 2026-07-29 (Issue #40 Master Data API/Core/Batch split)
+- 요청 목표: `master-data`를 실제 배포 가능한 `api`, `batch`와 재사용 library인 `core`로 물리 분리한다.
+- 변경:
+  - Controller/DTO/API 실행점은 `master-data:api`, Batch orchestration/report/Job/Step은 `master-data:batch`로 이동했다.
+  - core에는 application/domain/infrastructure와 Flyway migration을 표준 resources 경로로 유지했다.
+  - API/Batch `bootJar`, Docker, IntelliJ Run Configuration, README와 실행 문서를 새 Gradle 경로에 맞췄다.
+  - 일일 유효성 Job은 필수 `asOfDate`를 검증하고 실제 집계 규칙을 core pipeline에 위임한다.
+  - Journal Ledger core의 빈 `:master-data` aggregator 의존을 제거했다.
+- 검증:
+  - JDK 17 컨테이너에서 Master Data core/API/Batch 6 tests와 Journal Ledger core 23 tests, 두 bootJar가 통과했다.
+  - populated H2 Job 통합 테스트에서 활성/만료 행을 구분해 Step context의 네 활성 건수가 각각 1임을 검증했다.
+  - Config Server 부재 시 기본 Batch는 fail-fast했고, 명시적인 로컬 H2 예외 플래그에서는 `masterDataValidityJob asOfDate=2026-07-29`가 `COMPLETED`로 종료됐다.
+  - 경계/충돌 표식 검색과 `git diff --check`가 통과했다.
+- 리스크:
+  - PostgreSQL/Flyway 통합 및 대량 성능, Batch 결과 장기 보관/관제 출력 포트는 후속 검증·구현이 필요하다.
+  - typed applier/version/lock production 흐름의 회귀 테스트는 현재 test source에 없어 별도 복원이 필요하다.
+
 ## 2026-07-08 (payable API/core command boundary)
 - 요청 목표: 모듈 순차 점검 중 payable의 헥사고날/DDD 경계, API DTO/core command 분리, Batch 실행 경고 정리, 초보자 문서 최신화.
 - 변경:

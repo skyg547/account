@@ -57,7 +57,8 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `config-server` | `com.ho.account.configserver.ConfigServerApplication` | 8888 | native Config Server, strict repository readiness |
 | `gateway` | `com.ho.account.gateway.GatewayApplication` | 8000 | API Gateway |
 | `auth` | `com.ho.account.auth.AuthApplication` | 설정 파일 기준 | 인증 |
-| `master-data` | `com.ho.account.MasterDataApplication` | 설정 파일 기준 | 기준정보 |
+| `master-data:api` | `com.ho.account.masterdata.MasterDataApplication` | 8082 | 기준정보 HTTP API |
+| `master-data:batch` | `com.ho.account.masterdata.batch.MasterDataBatchApplication` | CLI | 기준정보 유효성 Batch |
 | `governance` | `com.ho.account.governance.GovernanceApplication` | 설정 파일 기준 | 감사/승인 |
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
 | `deposit:api` | `com.ho.account.deposit.DepositApplication` | 8087 | 예금 API |
@@ -106,7 +107,8 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `Discovery bootRun` | `:discovery:bootRun` | Config Server 연동 Eureka 실행 |
 | `Discovery standalone bootRun` | `:discovery:bootRun` | 8761/readiness/registry 단독 smoke |
 | `Auth bootRun` | `:auth:bootRun` | Auth API 로컬 실행 |
-| `Master Data bootRun` | `:master-data:bootRun` | 기준정보 API 로컬 실행 |
+| `Master Data bootRun` | `:master-data:api:bootRun` | 기준정보 API 로컬 실행 |
+| `Master Data Batch Validity` | `:master-data:batch:bootRun` | 필수 `asOfDate` 기준 유효성 Job 실행 |
 | `Governance bootRun` | `:governance:bootRun` | 감사/승인 API 로컬 실행 |
 | `Gateway bootRun` | `:gateway:bootRun` | Config/Discovery/Auth 연동 Gateway 실행 |
 | `Gateway standalone bootRun` | `:gateway:bootRun` | 외부 의존성을 끈 포트/컨텍스트 smoke |
@@ -122,6 +124,8 @@ Spring Boot 앱:
 
 Gradle task로 실행:
 ```powershell
+.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain
+.\gradlew :master-data:batch:bootRun --args="--spring.profiles.active=local --spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29 --spring.cloud.config.enabled=false --spring.config.on-not-found=ignore --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain
 .\gradlew :account-mart:mart-api:bootRun --console=plain
 .\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain
 .\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=standaloneDqJob baseDate=2026-04-30 runId=DQ-20260430 --spring.flyway.enabled=false" --console=plain
@@ -151,10 +155,11 @@ ECL Batch는 `spring.batch.job.enabled=false`로 Boot 기본 자동 실행을 �
 | 구분 | 실행 대상 | Gradle 기준 | 로컬 검증 방식 |
 | --- | --- | --- | --- |
 | Foundation | `contracts`, `shared-kernel` | `compileJava`, `test` | Spring Boot 앱이 아닌 공통 계약/커널 모듈 |
-| 독립/인프라 API | `config-server`, `discovery`, `gateway`, `auth`, `master-data`, `governance` | `:<module>:bootRun` | 필요 시 순차 기동, local smoke는 Config/Eureka 의존 비활성화 |
+| 독립/인프라 API | `config-server`, `discovery`, `gateway`, `auth`, `master-data:api`, `governance` | 모듈별 `bootRun` | 필요 시 순차 기동, local smoke는 Config/Eureka 의존 비활성화 |
 | 업무 API | `asset-lease`, `journal-ledger`, `closing`, `loan`, `deposit`, `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`, `reporting` | `:<module>:api:bootRun` | 내장 WAS + H2 또는 memory adapter |
 | Mart/ECL API | `account-mart`, `ecl` | `:account-mart:mart-api:bootRun`, `:ecl:ecl-api:bootRun` | 내장 WAS + demo/local datasource |
 | 업무 Batch | `asset-lease`, `closing`, `deposit`, `journal-ledger`, `loan`, `payable`, `receivable`, `reconciliation`, `tax`, `expenditure-resolution`, `reporting` | `:<module>:batch:bootRun` | `spring.main.web-application-type=none`, Spring Batch context 또는 Job 실행 |
+| 기준정보 Batch | `master-data:batch` | `:master-data:batch:bootRun` | 필수 `asOfDate` + `masterDataValidityJob` |
 | Mart/ECL Batch | `account-mart`, `ecl` | `:account-mart:mart-batch:bootRun`, `:ecl:ecl-batch:bootRun` | demo profile + 명시 Job 실행 |
 
 공통 H2 API smoke 옵션:
@@ -179,6 +184,7 @@ PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰�
 
 | 모듈 | 대표 Job | 필수 파라미터 예시 |
 | --- | --- | --- |
+| `master-data:batch` | `masterDataValidityJob` | `asOfDate=2026-07-29` |
 | `asset-lease:batch` | `assetDepreciationJob` | `targetDate=2026-06-30` |
 | `closing:batch` | `fxValuationJob` | `valuationDate=2026-04-30 valuationBatchId=20260430` |
 | `closing:batch` | `eclProvisionJob` | `closingDate=2026-04-30 provisionBatchId=20260430` |

@@ -22,5 +22,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'
 }
+// core is consumed by the API, Batch, and local adapters. It deliberately
+// produces only a library jar and has no Spring Boot executable entry point.
 jar { enabled = true }
 

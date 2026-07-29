@@ -141,7 +141,7 @@ Codex가 Master Data 변경 요청의 업무 버전, 승인 잠금, 실제 반�
 ## Codex 검증 결과
 
 ```powershell
-.\gradlew :master-data:test :master-data:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"
+.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test :master-data:api:bootJar :master-data:batch:bootJar :governance:test :governance:bootJar :closing:core:test :closing:batch:compileJava :journal-ledger:core:test --console=plain --max-workers=1 --no-daemon "-Dorg.gradle.jvmargs=-Xmx384m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8"
 ```
 
 - Master Data 73개 + Governance 25개 + Closing Core 19개 + Journal Ledger Core 19개, 총 136개 테스트, 실패/오류/skip 0건
@@ -219,12 +219,12 @@ Gemini는 아래 최신 변경을 우선 리뷰하세요.
   - 미지원 CURRENCY/EXCHANGE_RATE/FISCAL_PERIOD가 APPLIED로 조용히 바뀌지 않고 fail-closed인지.
   - 현재 남은 `@todo`인 requestedVersion 충돌 검사와 미지원 typed applier의 우선순위가 적절한지.
 - 재실행 권장:
-  - `.\gradlew :master-data:test --console=plain --max-workers=1`
-  - `.\gradlew :master-data:test --tests "*JpaMasterDataValidityStatisticsAdapterTest" --console=plain --max-workers=1`
-  - `rg -n "com\\.ho\\.account\\.masterdata\\.batch|MasterDataBatchReport" master-data/src/main/java/com/ho/account/masterdata/core --glob "*.java"`
-  - `rg -n "\\b(if|for|while)\\s*\\(|BigDecimal|\\.stream\\(" master-data/src/main/java/com/ho/account/masterdata/batch --glob "*.java"`
+  - `.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test --console=plain --max-workers=1`
+  - `.\gradlew :master-data:core:test --console=plain --max-workers=1`
+  - `rg -n "com\\.ho\\.account\\.masterdata\\.batch|MasterDataBatchReport" master-data/core/src/main/java --glob "*.java"`
+  - `rg -n "\\b(if|for|while)\\s*\\(|BigDecimal|\\.stream\\(" master-data/batch/src/main/java --glob "*.java"`
 - 알려진 리스크:
-  - 독립 `master-data:batch` Spring Batch Job/Step 실행 모듈은 아직 없다.
+  - 독립 `master-data:batch` Job/Step은 실행되지만 durable 결과 이력과 관제 출력 포트는 아직 없다.
   - PostgreSQL Flyway DDL과 대량 실행 계획은 이번 H2 검증 범위 밖이다.
 
 # 2026-07-09 deposit command/Batch 기준일 경계 리뷰
@@ -626,7 +626,7 @@ Gemini에게 리뷰를 요청할 때 아래 프롬프트를 그대로 전달한�
 - .\gradlew :auth:test :payable:test :receivable:test :asset-lease:core:test :asset-lease:api:bootJar :asset-lease:batch:bootJar :tax:test --console=plain
 - .\gradlew :closing:batch:test :journal-ledger:core:test :journal-ledger:api:compileJava :reconciliation:test --console=plain
 - .\gradlew :reconciliation:test :reporting:core:test :reporting:api:test :reporting:batch:test --console=plain
-- .\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain
+- .\gradlew :contracts:compileJava :shared-kernel:compileJava :master-data:core:test :master-data:api:test :master-data:batch:test :governance:test :auth:test :gateway:test :discovery:test :config-server:assemble --console=plain
 - .\gradlew :loan:core:test :loan:api:compileJava :shared-kernel:compileJava :account-mart:mart-core:test :account-mart:mart-batch:test :ecl:ecl-core:test :ecl:ecl-api:compileJava --console=plain
 - .\gradlew :ecl:ecl-core:test :ecl:ecl-api:compileJava :ecl:ecl-batch:test :journal-ledger:core:test :journal-ledger:api:test --console=plain
 - .\gradlew :journal-ledger:core:test :journal-ledger:api:test :loan:core:test --console=plain
