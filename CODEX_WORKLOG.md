@@ -1,5 +1,6 @@
 ## 2026-07-29 (Issue #40 Master Data API/Core/Batch split)
 - 요청 목표: `master-data`를 실제 배포 가능한 `api`, `batch`와 재사용 library인 `core`로 물리 분리한다.
+- 통합: PR `#158`이 merge commit `178a7eb1`로 `main`에 병합됐고 `Fixes #40`으로 Issue가 닫혔다.
 - 변경:
   - Controller/DTO/API 실행점은 `master-data:api`, Batch orchestration/report/Job/Step은 `master-data:batch`로 이동했다.
   - core에는 application/domain/infrastructure와 Flyway migration을 표준 resources 경로로 유지했다.
