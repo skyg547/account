@@ -15,8 +15,9 @@ Gateway가 하지 않는 일도 중요합니다.
 ## 2. 현재 라우팅 모델
 
 - `gateway-service`는 포트 `8000`으로 실행되고 Eureka에 등록됩니다.
-- `config-repo/gateway-service.yml`이 `lb://auth-service`, `lb://master-data`, `lb://journal-ledger`, 레거시 `lb://account` 라우트를 정의합니다.
+- `config-repo/gateway-service.yml`이 `lb://auth-service`, `lb://master-data`, `lb://journal-ledger`, `lb://closing-service`, `lb://budget-api`, 레거시 `lb://account` 라우트를 정의합니다.
 - `/api/basic/**`와 `/api/master-data/**`는 레거시 `/api/**` catch-all보다 먼저 명시적인 `master-data-api` 라우트와 동일한 circuit breaker를 사용합니다.
+- `/api/budgets/**`는 전용 `budget-api` route와 circuit breaker를 거쳐 Budget 서비스로 전달됩니다.
 - Auth 외부 공개 라우트는 `/api/auth/login`의 POST 하나입니다.
 - `/api/auth/validate-token-version`과 `/api/auth/internal/**`는 서비스 간 통신용이므로 전역 필터가 외부 요청을 차단합니다.
 - `/api/**`는 라우트 목록과 무관하게 전역 JWT 필터가 기본 보호합니다.

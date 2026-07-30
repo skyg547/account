@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: budget-batch
+  profiles:
+    default: local
+  main:
+    web-application-type: none
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    # 로컬에서도 PostgreSQL의 식별자/NULL 정렬 특성에 가깝게 검증한다.
+    # driver를 고정하지 않아 운영 JDBC URL로 바꾸면 PostgreSQL driver를 자동 선택한다.
+    url: jdbc:h2:mem:budget_batch;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      # Budget 스키마의 권위는 Flyway V50이며 Hibernate가 임의로 테이블을 만들지 않는다.
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # 기존 스키마 또는 먼저 만들어진 Batch 메타데이터가 있어도 Budget V50부터 안전하게 이력을 시작한다.
+    baseline-on-migrate: true
+    baseline-version: 49
+    target: 50
+    validate-on-migrate: true
+  batch:
+    job:
+      # 명시적인 job name/parameter 없이 애플리케이션 시작만으로 마감이 실행되면 안 된다.
+      enabled: false
+    jdbc:
+      initialize-schema: always
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

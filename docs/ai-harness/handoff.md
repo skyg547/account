@@ -1,3 +1,43 @@
+# AI Harness Handoff - 2026-07-30 Issue #45 Budget Control
+
+## Active Goal And State
+
+- GitHub Issue `#45` is implemented on `agent/45-budget-control` in `C:\tmp\account-45-budget-control`, based on `origin/main@36a1be4f`.
+- Prior PRs #151/#221 supplied only a placeholder and generic completion note. This branch adds the actual bounded context.
+- The initial independent review reported four P1 and two P2 findings. Its follow-up checks also identified typed-empty-404, infrastructure-exception classification, bounded-string, and technology-neutral `yearMonth` gaps. All were corrected, and the same Reviewer reported no remaining P0-P3 findings.
+
+## Changes And Boundaries
+
+- `BudgetPlan` owns allocation, same-YYYYMM transfer collaboration, execution-date matching, derived availability, and `DRAFT → APPROVED → CLOSED`.
+- `BudgetTransfer` preserves request-key and source/target lineage through `REQUESTED → APPROVED`; approval changes both locked plans atomically.
+- `BudgetExecution` preserves unique external source lineage and explicit cancellation, releasing the exact executed amount.
+- `BudgetFiscalYearControl` is a durable OPEN/CLOSED authority. All mutations lock an idempotency shard when relevant, then fiscal year, then plans in ascending id order.
+- Output ports isolate JPA adapters. Flyway V50 creates 10,000 year controls, 256 idempotency shards, and three business tables with scalar foreign keys, checks, and unique keys.
+- API validates Auth-issued JWT signature/issuer and operation roles, derives audit actor only from JWT `sub`, and maps typed 400/404/409/422 failures. Gateway routes `/api/budgets/**` explicitly with a circuit breaker and 503 fallback.
+- The existing Expenditure Budget remains the compatibility authority. No legacy row is migrated or dual-written in this Issue.
+
+## Verification Evidence
+
+- Budget Core 31, API 9, Batch 11, Gateway 33 tests; failures/errors/skipped 0.
+- Existing Expenditure Core 10/API 1 tests; failures/errors/skipped 0.
+- Combined affected verification: 95 tests.
+- Budget API and Batch `bootJar`: passed.
+- Both bootJars contain `postgresql-42.6.2.jar`.
+- API/Batch composition tests exercised real JPA adapters, Flyway V50, five physical tables, exact seed counts, and Hibernate schema validation on H2 PostgreSQL mode.
+- H2 two-thread/separate-transaction tests prove first concurrent transfer/execution exactly-once, conflicting payload 409 semantics, and close-versus-approval serialization.
+- `git diff --check`, conflict-marker scan, dependency-direction scan, and lifecycle vocabulary scan: passed.
+
+## Known Risks And Rollback
+
+- Live PostgreSQL migration/locking and query plans were not available. Recheck shard distribution, fiscal-year prefix filtering, lock timeout translation, and contention before production rollout.
+- Year-end close is one transaction with row-level flushes; high cardinality needs a separately designed bulk/checkpoint port.
+- Expenditure reservation/commit/release migration and data reconciliation remain #17 scope.
+- Roll back by reverting the feature commit and removing the three module includes; existing Expenditure data is untouched.
+
+## Next Gate
+
+- Commit the reviewed staged diff, create the authorized Draft PR, promote it after checks, and merge it.
+
 # AI Harness Handoff - 2026-07-30 Issue #44 Journal/GL/Sub-ledger
 
 ## Active Goal And State

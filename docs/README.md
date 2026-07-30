@@ -44,6 +44,7 @@
 
 ### 3.2 업무 서브레저 (현업 부서)
 - `expenditure-resolution/README.md`: 지출 결의 및 예산 통제
+- `budget/README.md`와 `budget/docs/README.md`: 월별 BudgetPlan, 전용/집행 멱등성, 연말마감 API/Batch
 - `payable/README.md`와 `payable/docs/README.md`: 매입채무, 지급 런, 선급금, 상계 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `receivable/README.md`와 `receivable/docs/README.md`: 매출채권, 수납, 자동/수동 매칭 흐름. 현재 library 모듈이라 IntelliJ/Gradle 테스트 중심으로 검증
 - `deposit/README.md`와 `deposit/docs/README.md`: 예금 계좌 개설, 초기입금 전표, 수신 로컬 어댑터 흐름. API/Batch standalone Boot 실행과 IntelliJ `.run` 설정 제공

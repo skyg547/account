@@ -48,4 +48,18 @@ public class FallbackController {
         response.put("message", "현재 결산(Closing) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
     }
+
+    /**
+     * Gateway의 폴백은 예산 계산이나 상태 전이를 대신하지 않고, Budget API 장애를 HTTP 표현으로만
+     * 변환합니다. 따라서 업무 원장은 Budget 서비스에 그대로 남고 호출자는 503을 보고 안전하게
+     * 재시도 여부를 결정할 수 있습니다.
+     */
+    @RequestMapping("/budget")
+    public Mono<ResponseEntity<Map<String, Object>>> budgetFallback() {
+        log.error("[서킷 브레이커 발생] Budget 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 예산(Budget) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
 }

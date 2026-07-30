@@ -1,3 +1,28 @@
+### 📅 2026-07-30 (Codex Issue #45 실제 구현)
+### [재검토 완료] 실행 가능한 Budget Control bounded context
+
+- **작업 배경**:
+  - 기존 PR #151/#221은 placeholder와 일반 완료 문서만 추가했고 `budget/` 모듈이나 호출 가능한 예산 통제 흐름을 만들지 않았다.
+  - 기존 `expenditure-resolution`의 월 예산은 운영 호환 권위이므로 근거 없는 데이터 이전이나 이중 쓰기를 하지 않고 별도 `budget_*` 경계를 만들었다.
+- **변경 범위**:
+  - `budget:core`, `budget:api`, `budget:batch`와 `BudgetPlan`, `BudgetTransfer`, `BudgetExecution`, `BudgetFiscalYearControl` Aggregate 및 Port/Adapter를 구현했다.
+  - 전용은 동일 `YYYYMM`, 집행일은 계획 월과 일치해야 하며 저장 금액은 `DECIMAL(19,2)`에서 무음 반올림을 허용하지 않는다.
+  - 애플리케이션 서비스가 idempotency shard, 회계연도 제어, 계획 id 순서로 잠그고 생성·승인·전용·집행·취소·연말 마감을 조정한다.
+  - V50이 10,000개 회계연도 제어 행과 256개 멱등 잠금 shard를 사전 생성해 없는 결과 행의 첫 동시 요청과 마감/승인 경쟁을 직렬화한다.
+  - API가 Auth JWT 서명·issuer를 자체 검증하고 역할을 구분하며 actor를 JWT `sub`에서만 만든다. Gateway 전용 route/circuit breaker/fallback도 추가했다.
+  - 7개 HTTP endpoint의 400/401/403/404/409/422 계약과 core 마감 유즈케이스에 위임하는 Spring Batch Job을 추가했다.
+- **검증**:
+  - Budget Core 31, API 9, Batch 11, Gateway 33, Expenditure Core 10/API 1로 총 95 affected tests가 실패/오류/skip 없이 통과했다.
+  - API/Batch 전체 컨텍스트에서 실제 JPA Adapter, Flyway V50, 10,000 control/256 shard seed와 Hibernate validation을 검증했다.
+  - 두 스레드·별도 트랜잭션 테스트가 최초 동시 전용/집행 exactly-once와 close-vs-approval 직렬화를 검증했다.
+  - API/Batch `bootJar`가 통과했고 두 JAR에 `postgresql-42.6.2.jar`가 포함됨을 확인했다.
+  - 최초 독립 리뷰의 P1 4건/P2 2건과 재검토 중 확인한 typed 404, 인프라 예외 오분류, 문자열 길이, 기술중립 `yearMonth` 검증을 모두 보정했다.
+  - 같은 독립 리뷰어의 최종 재검토는 P0-P3 finding 없이 PASS했다.
+- **현재 상태와 위험**:
+  - `agent/45-budget-control`은 구현·회귀 검증·독립 재검토를 완료했고 Git/PR 통합 단계만 남았다.
+  - 실제 PostgreSQL migration/lock 경합은 실행하지 않았다. shard hotspot, 회계연도 `LIKE` 인덱스 효율, lock timeout 변환과 단건 `saveAndFlush` 기반 연말 마감 성능은 운영 규모에서 재검증해야 한다.
+  - 기존 Expenditure 예산의 reservation/commit/release 데이터 이전과 호출자 전환은 #17의 별도 조정 범위다.
+
 ### 📅 2026-07-30 (Codex Issue #44 실제 구현)
 ### [통합 완료] 불변 차대 VO와 GeneralLedger Aggregate
 

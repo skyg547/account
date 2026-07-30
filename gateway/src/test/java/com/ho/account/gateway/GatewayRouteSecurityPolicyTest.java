@@ -2,12 +2,16 @@ package com.ho.account.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ho.account.gateway.web.FallbackController;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.ResponseEntity;
 
 class GatewayRouteSecurityPolicyTest {
 
@@ -72,6 +76,42 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty(
                         "spring.cloud.gateway.routes[" + closingRouteIndex + "].filters[0].args.fallbackUri"))
                 .isEqualTo("forward:/fallback/closing");
+    }
+
+    @Test
+    void budgetPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+        Properties properties = loadGatewayProperties();
+        int budgetRouteIndex = routeIndex(properties, "budget-api");
+        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
+
+        assertThat(budgetRouteIndex).isGreaterThanOrEqualTo(0);
+        assertThat(legacyCatchAllRouteIndex).isGreaterThan(budgetRouteIndex);
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + budgetRouteIndex + "].uri"))
+                .isEqualTo("lb://budget-api");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + budgetRouteIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/budgets/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + budgetRouteIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + budgetRouteIndex + "].filters[0].args.name"))
+                .isEqualTo("budgetCircuitBreaker");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + budgetRouteIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/budget");
+    }
+
+    @Test
+    void budgetFallbackReturnsServiceUnavailableWithoutPretendingToProcessBudgetWork() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().budgetFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
     }
 
     private int routeIndex(Properties properties, String routeId) {
