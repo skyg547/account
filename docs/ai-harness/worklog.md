@@ -1,3 +1,28 @@
+## 2026-07-30 - Issue #45 executable Budget Control foundation
+
+- Owner: Codex as Integrator with Domain/Service, SQL, Controller, Batch, Gateway, Test, and independent Reviewer roles.
+- Source branch/worktree: `agent/45-budget-control` / `C:\tmp\account-45-budget-control`.
+- Base: `origin/main@36a1be4f`.
+- Scope:
+  - Added `budget:core`, `budget:api`, and `budget:batch` as an isolated bounded context.
+  - Implemented pure BudgetPlan/Transfer/Execution/FiscalYearControl aggregates, inbound commands/use cases, output ports, and a transactional service with shard/year/plan lock ordering.
+  - Added explicit JPA entities/mappers/adapters, 10,000 preseeded fiscal controls, 256 idempotency shards, unique business keys, version/locked reads, and Flyway V50.
+  - Added JWT signature/issuer and operation-role enforcement, JWT-sub audit identity, typed HTTP errors, seven HTTP operations, a dedicated Gateway route/fallback, and a restart-aware year-end close Job.
+  - Kept the existing Expenditure Budget unchanged and documented #17 as the migration/reconciliation boundary.
+- Verification:
+  - Budget Core 31, API 9, Batch 11, Gateway 33, and Expenditure Core 10/API 1 tests passed; 95 affected tests, failures/errors/skipped 0.
+  - Budget API and Batch bootJars passed and contain PostgreSQL JDBC 42.6.2.
+  - API and Batch composition tests used real adapters, Flyway V50 seeds, and Hibernate schema validation against H2 PostgreSQL mode.
+  - Separate-transaction two-thread tests prove first-call transfer/execution exactly-once, typed conflicting payloads, and close-vs-approval serialization.
+  - The initial four P1/two P2 findings plus typed-empty-404, infrastructure-exception classification, bounded-string, and technology-neutral `yearMonth` findings were fixed.
+  - The same independent Reviewer completed the final staged re-review with no remaining P0-P3 findings.
+- Risks:
+  - Live PostgreSQL migration, row-lock contention, shard distribution/lock timeouts, and fiscal-year query-plan behavior were not exercised.
+  - Year-end close currently uses one transaction and row-level `saveAndFlush`; a bulk/checkpoint output-port contract is required if cardinality outgrows that boundary.
+  - Legacy Expenditure Budget migration needs explicit reservation/commit/release reconciliation in #17.
+- Rollback:
+  - Revert the Issue #45 feature commit and remove the three module includes. Existing Expenditure schema/data is not mutated.
+
 ## 2026-07-30 - Issue #44 Journal/GL/Sub-ledger domain authority
 
 - Owner: Codex as Integrator with an independent read-only Reviewer. The initial three audit roles hit the account usage limit; the commit-review retry later succeeded.

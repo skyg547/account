@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: budget-api
+  profiles:
+    default: local
+  cloud:
+    config:
+      enabled: ${SPRING_CLOUD_CONFIG_ENABLED:false}
+    discovery:
+      enabled: ${BUDGET_DISCOVERY_ENABLED:false}
+    vault:
+      enabled: false
+  datasource:
+    # Local-only, in-memory database. PostgreSQL mode catches common dialect
+    # differences without placing any shared or production credential in Git.
+    # Driver/dialect are intentionally inferred from the overridden JDBC URL so
+    # a production PostgreSQL URL does not remain pinned to H2.
+    url: jdbc:h2:mem:budget;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    target: "50"
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks entity/schema agreement.
+      ddl-auto: validate
+    open-in-view: false
+
+auth:
+  jwt:
+    # A missing key must stop startup: a repository default would let a direct
+    # API caller forge a token with a publicly known development secret.
+    secret: ${AUTH_JWT_SECRET}
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+
+server:
+  # Expenditure Resolution API가 사용하는 8095와 충돌하지 않는 Budget 전용 포트입니다.
+  port: 8096
+
+eureka:
+  client:
+    enabled: ${BUDGET_EUREKA_ENABLED:false}
+    register-with-eureka: ${BUDGET_EUREKA_ENABLED:false}
+    fetch-registry: ${BUDGET_EUREKA_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+management:
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

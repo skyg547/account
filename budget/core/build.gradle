@@ -1,0 +1,30 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management'
+}
+
+description = 'account-budget-core'
+group = "${rootProject.group}.budget"
+
+base {
+    archivesName = 'account-budget-core'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.2.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+jar {
+    enabled = true
+}

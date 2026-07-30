@@ -1,3 +1,22 @@
+## 2026-07-30 (Issue #45 executable Budget Control foundation)
+- 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.
+- 상태: `agent/45-budget-control` / `C:\tmp\account-45-budget-control`에서 독립 리뷰 finding을 모두 수정했고, 같은 리뷰어의 최종 재검토는 P0-P3 finding 없이 PASS했다.
+- 변경:
+  - `budget:core`, `budget:api`, `budget:batch` 모듈과 실행 진입점·문서를 추가했다.
+  - 순수 계획·전용·집행·회계연도 제어 Aggregate, command/use case, output Port, 트랜잭션 application service를 구현했다.
+  - `idempotency shard → fiscal-year control → plan id` 잠금, 동일 월 규칙, 정밀도·잔액·상태 전이, 취소와 durable 회계연도 마감을 fail-closed로 강제했다.
+  - Flyway V50의 10,000 연도 제어, 256 lock shard, 세 업무 테이블과 명시적 JPA entity/mapper/adapter를 추가했다.
+  - JWT 서명·issuer/역할 검증, JWT `sub` actor, typed HTTP 오류, 7개 endpoint와 Gateway route/fallback을 추가했다.
+  - Batch는 core 유즈케이스에만 위임하고 API/Batch JAR에 PostgreSQL driver를 포함한다.
+- 검증:
+  - Budget Core 31, API 9, Batch 11, Gateway 33, Expenditure Core 10/API 1로 총 95 affected tests와 API/Batch bootJar가 통과했다.
+  - 실제 API/Batch composition root가 H2 PostgreSQL mode에서 Flyway V50 seed, JPA schema validate, 실제 Adapter를 함께 기동했다.
+  - 두 스레드 테스트가 첫 동시 요청 exactly-once와 close-vs-approval 직렬화를 검증했고, 두 bootJar의 PostgreSQL driver 포함도 확인했다.
+  - 최초 리뷰의 P1 4건/P2 2건과 재검토 중 발견한 typed 404, 인프라 예외 오분류, 문자열 길이, 기술중립 `yearMonth` 검증을 보정한 뒤 최종 P0-P3 finding 없이 통과했다.
+- 리스크:
+  - PostgreSQL 실DB migration/locking, shard hotspot/lock timeout과 연말 마감의 대량 `saveAndFlush` 비용은 미검증이다.
+  - 기존 Expenditure 예산 데이터와 reservation/commit/release 호출 흐름의 이전은 #17에서 별도 설계해야 한다.
+
 ## 2026-07-30 (Issue #44 GL/Sub-ledger domain authority)
 - 요청 목표: 차변/대변 VO, JournalEntry/GeneralLedger Aggregate, BigDecimal 정밀도 정책을 실제 전기 흐름에 연결한다.
 - 통합: PR `#238`이 source commit `d8c0504c`, merge commit `299746a7`로 `main`에 병합됐고 `Fixes #44`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.

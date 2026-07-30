@@ -1,9 +1,43 @@
-﻿# Issue #45 Implementation Note: [budget] 예산 통제(Budget Control) 모듈 스켈레톤 및 헥사고날 구조 세팅
+# Issue #45: executable Budget Control foundation
 
-## 🎯 설계 이유 (Pedagogical Context)
-- **도메인 격리**: MSA 및 헥사고날 아키텍처 원칙에 따라 Inbound Controller -> UseCase -> Core Domain -> Outbound Port -> Persistence Adapter 간의 역할을 명확히 분리합니다.
-- **예외 처리 및 정밀도**: eturn null;과 같은 기술 부채를 제거하고 Optional 또는 명시적 커스텀 예외(BusinessException)로 안전하게 처리합니다.
+## Background
 
-## 🛠 주요 조치사항
-- 대상 모듈 정합성 확인 및 교육용 주석 추가 완료
-- 빌드 및 컴파일 검증 완료
+PRs #151 and #221 did not create a Budget module; they added a placeholder and a generic completion
+note. This implementation adds real `budget:core`, `budget:api`, and `budget:batch` projects.
+
+## Domain and architecture
+
+- `BudgetPlan` owns monthly allocation, transfer-in/out, execution, availability, and
+  `DRAFT → APPROVED → CLOSED` transitions.
+- `BudgetTransfer` preserves a unique request key and source/target lineage.
+- `BudgetExecution` preserves a unique source triple and explicit cancellation.
+- `BudgetFiscalYearControl` durably gates all mutations after year-end close.
+- Application services own `idempotency shard → fiscal year → plan id` lock order,
+  same-month transfer/execution rules, and typed failure meaning.
+- Persistence adapters own JPA entity conversion, 10,000 preseeded year controls,
+  256 preseeded idempotency shards, pessimistic queries, and unique constraints.
+- API validates signed JWTs and operation roles, derives actor from JWT `sub`, owns transport/error
+  mapping, and is routed explicitly by Gateway. Batch owns required job-parameter parsing only.
+
+All stored amounts follow precision 19/scale 2 with `RoundingMode.UNNECESSARY`.
+
+## Compatibility boundary
+
+The legacy `expenditure-resolution` monthly Budget remains unchanged because its existing data
+contains no reliable reservation/commit/release lineage and has no repository migration. The new
+bounded context writes only `budget_*` tables. Cross-service migration and reconciliation are
+tracked in #17; this Issue does not claim a production-data cutover.
+
+## Verification and rollback
+
+Budget Core 31, API 9, Batch 11, Gateway 33, and existing Expenditure Core 10/API 1 tests pass:
+95 affected tests with no failures/errors/skips. Both executable bootJars pass and contain the
+PostgreSQL JDBC driver. API/Batch context tests exercise real adapters, Flyway V50, 10,000 year
+controls, 256 lock shards, and Hibernate validation; H2 two-thread tests prove first-call
+idempotency and close-versus-approval serialization. `git diff --check` and the conflict-marker
+scan pass. All independent-review findings were fixed, and the final staged re-review reported
+no remaining P0-P3 findings.
+
+Rollback is a normal feature revert; existing Expenditure schema/data is not mutated. Live
+PostgreSQL migration/locking and high-cardinality year-end close performance were not exercised
+in this local verification.

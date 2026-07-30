@@ -46,7 +46,8 @@ Client
 
 6. Spring Cloud Gateway route
    - `/api/basic/**`와 `/api/master-data/**`는 레거시 catch-all보다 앞선 `master-data-api`를 선택
-   - Eureka에서 `lb://master-data` 서비스 인스턴스 선택
+   - `/api/budgets/**`는 레거시 catch-all보다 앞선 `budget-api`를 선택
+   - Eureka에서 선택된 route의 `lb://master-data` 또는 `lb://budget-api` 인스턴스 확인
    - 요청 전달
 ```
 
