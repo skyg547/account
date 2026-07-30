@@ -14,9 +14,8 @@ import com.ho.account.journalledger.application.service.journal.validator.Balanc
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
+import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
-import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
 import com.ho.account.loan.application.port.out.LoanPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
@@ -25,7 +24,6 @@ import com.ho.account.loan.domain.LoanDisbursal;
 import com.ho.account.loan.infrastructure.adapter.LoanJournalAdapter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,18 +97,10 @@ class LoanJournalPostingFlowTest {
         assertThat(postedEntry.getLineageSourceType()).isEqualTo("LOAN_DISBURSAL");
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo(postedEntry.getSlipNo());
 
-        ArgumentCaptor<List<GlEntry>> glCaptor = listCaptor();
-        verify(ledgerEntryPersistencePort).saveGlEntries(glCaptor.capture());
-        assertThat(glCaptor.getValue()).hasSize(2);
-        ArgumentCaptor<List<SlEntry>> slCaptor = listCaptor();
-        verify(ledgerEntryPersistencePort).saveSlEntries(slCaptor.capture());
-        assertThat(slCaptor.getValue()).hasSize(2);
+        ArgumentCaptor<GeneralLedger> ledgerCaptor = ArgumentCaptor.forClass(GeneralLedger.class);
+        verify(ledgerEntryPersistencePort).save(ledgerCaptor.capture());
+        assertThat(ledgerCaptor.getValue().postings()).hasSize(2);
         verify(ledgerService).updateLedgerBalancesBulk(postedEntry.getDetails());
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <T> ArgumentCaptor<List<T>> listCaptor() {
-        return ArgumentCaptor.forClass((Class) List.class);
     }
 
     private static class InMemoryJournalPersistencePort implements JournalPersistencePort {
@@ -120,6 +110,12 @@ class LoanJournalPostingFlowTest {
         @Override
         public JournalEntry save(JournalEntry entry) {
             if (entry.getId() == null) entry.setId(sequence.incrementAndGet());
+            // 실제 JPA cascade 저장은 상세 PK도 발급합니다. 이 테스트 저장소도 같은 계약을
+            // 흉내 내야 GeneralLedger가 source lineage 없는 transient 라인을 허용하지 않습니다.
+            entry.getDetails().stream()
+                    .filter(detail -> detail.getId() == null)
+                    .forEach(detail -> detail.setId(sequence.incrementAndGet()));
+            if (entry.getStatus() == null) entry.initializeDraft();
             entries.put(entry.getId(), entry);
             return entry;
         }

@@ -10,7 +10,6 @@ import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceRef;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +82,7 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
                 long id = journalSequence.getAndIncrement();
                 journalEntry.setId(id);
                 journalEntry.setSlipNo("LOCAL-EXP-" + id);
-                journalEntry.setStatus(JournalEntryStatus.DRAFT);
+                journalEntry.initializeDraft();
                 return journalEntry;
             }
 

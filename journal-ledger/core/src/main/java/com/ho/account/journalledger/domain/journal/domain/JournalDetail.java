@@ -1,5 +1,8 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
+import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
+import com.ho.account.journalledger.domain.ledger.domain.Credit;
+import com.ho.account.journalledger.domain.ledger.domain.Debit;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -158,13 +161,19 @@ public class JournalDetail {
     public void setSide(JournalSide side) { this.side = side; }
 
     public String getAccountCode() { return accountCode; }
-    public void setAccountCode(String accountCode) { this.accountCode = accountCode; }
+    public void setAccountCode(String accountCode) {
+        this.accountCode = accountCode == null ? null : accountCode.trim();
+    }
 
     public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public void setAmount(BigDecimal amount) {
+        this.amount = AccountingPrecision.positiveLedgerAmount(amount);
+    }
 
     public BigDecimal getBaseAmount() { return baseAmount; }
-    public void setBaseAmount(BigDecimal baseAmount) { this.baseAmount = baseAmount; }
+    public void setBaseAmount(BigDecimal baseAmount) {
+        this.baseAmount = AccountingPrecision.positiveLedgerAmount(baseAmount);
+    }
 
     public String getDepartmentCode() { return departmentCode; }
     public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
@@ -181,6 +190,40 @@ public class JournalDetail {
 
     public String getAuditUser() { return auditUser; }
     public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
+
+    /**
+     * 전표 Aggregate가 이 라인의 필수값과 금액 정책을 한 번에 확인할 때 사용합니다.
+     *
+     * <p>setter마다 흩어진 검증만 믿으면 JPA가 과거 데이터를 읽었을 때나 reflection 기반
+     * 매핑을 사용할 때 규칙이 빠질 수 있습니다. 승인과 전기 직전에는 Aggregate가 전체
+     * 라인을 다시 검증해 fail-closed 합니다.</p>
+     */
+    public void validateAccountingLine() {
+        if (side == null) {
+            throw new IllegalStateException("전표 라인의 차대 구분은 필수입니다.");
+        }
+        if (accountCode == null || accountCode.isBlank()) {
+            throw new IllegalStateException("전표 라인의 계정 코드는 필수입니다.");
+        }
+        this.amount = AccountingPrecision.positiveLedgerAmount(amount);
+        this.baseAmount = AccountingPrecision.positiveLedgerAmount(baseAmount);
+    }
+
+    public Debit debit() {
+        return side == JournalSide.DEBIT ? Debit.of(amount) : Debit.ZERO;
+    }
+
+    public Credit credit() {
+        return side == JournalSide.CREDIT ? Credit.of(amount) : Credit.ZERO;
+    }
+
+    public Debit baseDebit() {
+        return side == JournalSide.DEBIT ? Debit.of(baseAmount) : Debit.ZERO;
+    }
+
+    public Credit baseCredit() {
+        return side == JournalSide.CREDIT ? Credit.of(baseAmount) : Credit.ZERO;
+    }
 
     /**
      * 현재 라인의 차대변 방향을 반전시킨 새로운 JournalDetail 객체를 생성합니다.

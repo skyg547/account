@@ -5,7 +5,6 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +41,7 @@ class JournalPostingAdapterTest {
             JournalEntry entry = invocation.getArgument(0);
             entry.setId(77L);
             entry.setSlipNo("JE-20260511-0001");
-            entry.setStatus(JournalEntryStatus.DRAFT);
+            entry.initializeDraft();
             return entry;
         });
 

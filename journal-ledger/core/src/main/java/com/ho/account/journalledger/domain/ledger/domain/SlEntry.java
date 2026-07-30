@@ -41,12 +41,16 @@ public class SlEntry {
 
     private LocalDate postingDate;
 
+    @Column(name = "dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal drAmount = BigDecimal.ZERO;
 
+    @Column(name = "cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal crAmount = BigDecimal.ZERO;
 
+    @Column(name = "base_dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseDrAmount = BigDecimal.ZERO;
 
+    @Column(name = "base_cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseCrAmount = BigDecimal.ZERO;
 
     private String summary;
@@ -54,4 +58,20 @@ public class SlEntry {
     private String lineageSourceType;
 
     private String lineageSourceId;
+
+    public void setDrAmount(BigDecimal drAmount) {
+        this.drAmount = AccountingPrecision.nonNegativeLedgerAmount(drAmount);
+    }
+
+    public void setCrAmount(BigDecimal crAmount) {
+        this.crAmount = AccountingPrecision.nonNegativeLedgerAmount(crAmount);
+    }
+
+    public void setBaseDrAmount(BigDecimal baseDrAmount) {
+        this.baseDrAmount = AccountingPrecision.nonNegativeLedgerAmount(baseDrAmount);
+    }
+
+    public void setBaseCrAmount(BigDecimal baseCrAmount) {
+        this.baseCrAmount = AccountingPrecision.nonNegativeLedgerAmount(baseCrAmount);
+    }
 }

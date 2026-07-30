@@ -1,3 +1,20 @@
+## 2026-07-30 (Issue #44 GL/Sub-ledger domain authority)
+- 요청 목표: 차변/대변 VO, JournalEntry/GeneralLedger Aggregate, BigDecimal 정밀도 정책을 실제 전기 흐름에 연결한다.
+- 상태: `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`에서 구현·전체 로컬 검증·독립 재리뷰 완료, PR 게이트 전.
+- 변경:
+  - `Debit`/`Credit`, `AccountingPrecision`, `GeneralLedger`를 추가하고 거래/기준통화 차대일치와 persisted-lineage 규칙을 구현했다.
+  - `JournalEntry`가 상세 컬렉션을 소유하고 임의 상태 setter 없이 의도 기반 전이를 사용하도록 보강했다.
+  - `LedgerEntryPersistencePort`를 Aggregate 입력으로 바꾸고 JPA/JDBC adapter가 같은 snapshot을 GL/SL 저장 형태로 변환하게 했다.
+  - 활성 `GlBalance`/`SlBalance`에 정밀도 정책을 적용하고 미사용 병렬 `Money`/`GlAccountBalance` 계열을 제거했다.
+  - 공용 Journal 상태 계약을 사용하던 Loan/Expenditure production/test 호출부를 함께 정렬했다.
+- 검증:
+  - Journal Ledger Core 35, API 2, Batch 3, Loan Core 30, Expenditure Core 10/API 1, Closing Batch 12로 총 93 tests가 실패/오류/skip 없이 통과했다.
+  - Journal Ledger API/Batch와 Closing Batch bootJar, JPA/JDBC mapping parity, diff/conflict 정적 게이트를 확인했다.
+  - 독립 리뷰의 Closing Batch 상태 fixture P1과 대형 분할 전표 합계 정밀도 P2를 수정했고, 재검토는 P0-P3 finding 없이 PASS했다.
+- 리스크:
+  - scale 2는 현재 DB 계약이며 통화별 minor unit 확장은 별도 migration/도메인 정책이 필요하다.
+  - PostgreSQL bulk 성능과 실제 lock 경합은 미검증이다.
+
 ## 2026-07-30 (Issue #43 EOD/BOD 날짜 상태 머신)
 - 요청 목표: 일마감 상태를 실제 도메인·유즈케이스·영속성·API 흐름으로 연결하고 전일 마감 이력을 보존한다.
 - 통합: PR `#236`이 source commit `86ebedf9`, merge commit `10d80939`로 `main`에 병합됐고 `Fixes #43`으로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.

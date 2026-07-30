@@ -1,5 +1,8 @@
 package com.ho.account.journalledger.domain.journal.domain;
 
+import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
+import com.ho.account.journalledger.domain.ledger.domain.Credit;
+import com.ho.account.journalledger.domain.ledger.domain.Debit;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 회계 전표(Journal Entry) — 분개 정보를 담는 핵심 Aggregate Root.
@@ -199,7 +203,7 @@ public class JournalEntry {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.status == null) {
-            this.status = JournalEntryStatus.DRAFT;
+            initializeDraft();
         }
         if (this.accountingDate == null) {
             // 회계 반영일 미입력 시 전표 작성일과 동일하게 처리
@@ -207,6 +211,10 @@ public class JournalEntry {
         }
         if (this.entryType == null) {
             this.entryType = "NORMAL";
+        }
+        if (this.currencyCode == null || this.currencyCode.isBlank()) {
+            // 통화가 없는 원장 키는 GL/SL 잔액을 재현할 수 없으므로 국내 기본통화로 명시합니다.
+            this.currencyCode = "KRW";
         }
         if (this.auditUser == null) {
             this.auditUser = this.createdBy != null ? this.createdBy : "SYSTEM";
@@ -255,8 +263,14 @@ public class JournalEntry {
      * @param reason   반려 사유 (작성자에게 표시됨)
      */
     public void reject(String approver, String reason) {
+        if (this.status != JournalEntryStatus.DRAFT && this.status != JournalEntryStatus.REQUESTED) {
+            throw new IllegalStateException("반려 가능한 상태가 아닙니다. 현재 상태: " + this.status);
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("반려 사유는 필수입니다.");
+        }
         this.status = JournalEntryStatus.REJECTED;
-        this.rejectionReason = reason;
+        this.rejectionReason = reason.trim();
         this.auditUser = approver;
     }
 
@@ -333,25 +347,49 @@ public class JournalEntry {
      * @throws IllegalStateException 정합성 검증 실패 시
      */
     public void validateBalance() {
-        if (details.isEmpty()) {
-            throw new IllegalStateException("전표 상세 내역이 없습니다.");
+        if (details.size() < 2) {
+            throw new IllegalStateException("복식부기 전표는 최소 두 개의 상세 라인이 필요합니다.");
         }
 
-        // 차변(DEBIT) 라인 금액 합계
-        BigDecimal debitSum = details.stream()
-                .filter(d -> JournalSide.DEBIT.equals(d.getSide()))
-                .map(JournalDetail::getAmount)
+        details.forEach(JournalDetail::validateAccountingLine);
+        if (details.stream().noneMatch(detail -> detail.getSide() == JournalSide.DEBIT)
+                || details.stream().noneMatch(detail -> detail.getSide() == JournalSide.CREDIT)) {
+            throw new IllegalStateException("전표에는 차변과 대변 라인이 각각 하나 이상 필요합니다.");
+        }
+
+        // 각 라인은 DECIMAL(19,2)에 저장되지만 전표 합계 자체는 한 컬럼에 저장되지 않습니다.
+        // 따라서 여러 개의 유효한 대형 라인을 더한 합계에 라인 저장 한도를 다시 적용하지
+        // 않고, BigDecimal의 임의 정밀도로 합산한 뒤 차대 일치만 비교합니다.
+        BigDecimal debitTotal = details.stream()
+                .map(JournalDetail::debit)
+                .map(Debit::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal creditTotal = details.stream()
+                .map(JournalDetail::credit)
+                .map(Credit::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal baseDebitTotal = details.stream()
+                .map(JournalDetail::baseDebit)
+                .map(Debit::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal baseCreditTotal = details.stream()
+                .map(JournalDetail::baseCredit)
+                .map(Credit::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 대변(CREDIT) 라인 금액 합계
-        BigDecimal creditSum = details.stream()
-                .filter(d -> JournalSide.CREDIT.equals(d.getSide()))
-                .map(JournalDetail::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (debitSum.compareTo(creditSum) != 0) {
+        if (debitTotal.compareTo(creditTotal) != 0) {
             throw new IllegalStateException(
-                    String.format("차대변 합계가 일치하지 않습니다. (차변: %s, 대변: %s)", debitSum, creditSum));
+                    String.format(
+                            "거래통화 차대변 합계가 일치하지 않습니다. (차변: %s, 대변: %s)",
+                            debitTotal,
+                            creditTotal));
+        }
+        if (baseDebitTotal.compareTo(baseCreditTotal) != 0) {
+            throw new IllegalStateException(
+                    String.format(
+                            "기준통화 차대변 합계가 일치하지 않습니다. (차변: %s, 대변: %s)",
+                            baseDebitTotal,
+                            baseCreditTotal));
         }
     }
 
@@ -364,6 +402,9 @@ public class JournalEntry {
      * @param detail 추가할 전표 상세 라인
      */
     public void addDetail(JournalDetail detail) {
+        if (detail == null) {
+            throw new IllegalArgumentException("추가할 전표 상세는 필수입니다.");
+        }
         details.add(detail);
         detail.setJournalEntry(this);
     }
@@ -384,6 +425,7 @@ public class JournalEntry {
      * 전표 수정 시 기존 라인을 모두 제거하고 새로 추가할 때 사용합니다.
      */
     public void clearDetails() {
+        this.details.forEach(detail -> detail.setJournalEntry(null));
         this.details.clear();
     }
 
@@ -405,22 +447,46 @@ public class JournalEntry {
     public void setDescription(String description) { this.description = description; }
 
     public JournalEntryStatus getStatus() { return status; }
-    public void setStatus(JournalEntryStatus status) { this.status = status; }
+
+    /**
+     * 신규 전표의 최초 상태를 지정합니다.
+     *
+     * <p>임의 상태 setter를 공개하면 호출자가 APPROVED/POSTED로 건너뛸 수 있습니다.
+     * 그래서 생성 단계에서만 쓸 수 있는 의도 기반 메서드로 DRAFT 초기화를 제한합니다.</p>
+     */
+    public void initializeDraft() {
+        if (this.status != null && this.status != JournalEntryStatus.DRAFT) {
+            throw new IllegalStateException("이미 진행된 전표를 DRAFT로 되돌릴 수 없습니다.");
+        }
+        this.status = JournalEntryStatus.DRAFT;
+    }
 
     public String getEntryType() { return entryType; }
     public void setEntryType(String entryType) { this.entryType = entryType; }
 
     public String getCurrencyCode() { return currencyCode; }
-    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+    public void setCurrencyCode(String currencyCode) {
+        this.currencyCode = currencyCode == null || currencyCode.isBlank()
+                ? null
+                : currencyCode.trim().toUpperCase(Locale.ROOT);
+    }
 
     public BigDecimal getExchangeRate() { return exchangeRate; }
-    public void setExchangeRate(BigDecimal exchangeRate) { this.exchangeRate = exchangeRate; }
+    public void setExchangeRate(BigDecimal exchangeRate) {
+        this.exchangeRate = exchangeRate == null ? null : AccountingPrecision.exchangeRate(exchangeRate);
+    }
 
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
-    public List<JournalDetail> getDetails() { return details; }
-    public void setDetails(List<JournalDetail> details) { this.details = details; }
+    public List<JournalDetail> getDetails() { return List.copyOf(details); }
+    public void setDetails(List<JournalDetail> details) {
+        if (details == null) {
+            throw new IllegalArgumentException("전표 상세 목록은 필수입니다.");
+        }
+        clearDetails();
+        details.forEach(this::addDetail);
+    }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

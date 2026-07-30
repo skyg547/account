@@ -36,7 +36,7 @@ import java.time.LocalDate;
  * ─────────────────────────────────────────────────
  * [개발 설명]
  * - gl_entries 테이블에 매핑됩니다.
- * - PostingService.postJournalEntry()에서 JournalDetail 하나당 GlEntry 하나가 생성됩니다.
+ * - LedgerEntryPersistenceAdapter가 GeneralLedger posting 하나당 GlEntry 하나를 생성합니다.
  * - drAmount/crAmount: 외화 거래 원본 금액 (조회용)
  * - baseDrAmount/baseCrAmount: KRW 환산 금액 (GlBalance 잔액 계산 기준)
  * - lineageSourceType + lineageSourceId: JournalEntry 헤더에서 복사하여
@@ -102,21 +102,25 @@ public class GlEntry {
     private LocalDate postingDate;
 
     /** 거래통화 기준 차변 금액 (외화 그대로). 0이면 대변 항목. */
+    @Column(name = "dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal drAmount = BigDecimal.ZERO;
 
     /** 거래통화 기준 대변 금액 (외화 그대로). 0이면 차변 항목. */
+    @Column(name = "cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal crAmount = BigDecimal.ZERO;
 
     /**
      * 기본통화(KRW) 기준 차변 금액.
      * GlBalance.addDebit()에서 이 값을 잔액에 반영합니다.
      */
+    @Column(name = "base_dr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseDrAmount = BigDecimal.ZERO;
 
     /**
      * 기본통화(KRW) 기준 대변 금액.
      * GlBalance.addCredit()에서 이 값을 잔액에 반영합니다.
      */
+    @Column(name = "base_cr_amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal baseCrAmount = BigDecimal.ZERO;
 
     /** 적요 (간략한 거래 내용 메모) */
@@ -135,4 +139,20 @@ public class GlEntry {
      * 예: "REQ-20260101-001"
      */
     private String lineageSourceId;
+
+    public void setDrAmount(BigDecimal drAmount) {
+        this.drAmount = AccountingPrecision.nonNegativeLedgerAmount(drAmount);
+    }
+
+    public void setCrAmount(BigDecimal crAmount) {
+        this.crAmount = AccountingPrecision.nonNegativeLedgerAmount(crAmount);
+    }
+
+    public void setBaseDrAmount(BigDecimal baseDrAmount) {
+        this.baseDrAmount = AccountingPrecision.nonNegativeLedgerAmount(baseDrAmount);
+    }
+
+    public void setBaseCrAmount(BigDecimal baseCrAmount) {
+        this.baseCrAmount = AccountingPrecision.nonNegativeLedgerAmount(baseCrAmount);
+    }
 }

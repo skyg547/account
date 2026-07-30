@@ -1,3 +1,27 @@
+## 2026-07-30 - Issue #44 Journal/GL/Sub-ledger domain authority
+
+- Owner: Codex as Integrator with an independent read-only Reviewer. The initial three audit roles hit the account usage limit; the commit-review retry later succeeded.
+- Branch/worktree: `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`.
+- Base: `origin/main@54352362`.
+- State: implementation, local verification, and independent re-review complete; remote PR gates pending.
+- Scope:
+  - Added immutable Debit/Credit value objects and one fail-closed precision policy matching ledger amount and exchange-rate storage.
+  - Strengthened JournalEntry line ownership plus transaction/base-currency double-entry invariants.
+  - Added GeneralLedger as the approved persisted-entry snapshot authority.
+  - Changed LedgerEntryPersistencePort to carry the Aggregate and moved JPA/JDBC storage mapping into outbound adapters.
+  - Removed unused Money/GlAccountBalance parallel authority and aligned impacted Loan/Expenditure callers with intent-based state initialization.
+- Verification:
+  - Journal Ledger Core 35, API 2, Batch 3 tests and both bootJars passed.
+  - Loan Core 30, Expenditure Core 10/API 1, and Closing Batch 12 tests passed; all 93 affected tests completed with no failures, errors, or skips.
+  - Closing Batch bootJar passed in addition to both Journal Ledger bootJars.
+  - Focused coverage proves precision rejection, immutable posting lineage, transaction/base balance, and JPA/JDBC parity.
+  - Independent review found and verified fixes for the downstream fixture compilation P1 and aggregate-total precision P2; re-review reported no P0-P3 findings.
+- Risks:
+  - The existing fixed scale-2 schema is not a currency-specific minor-unit model.
+  - PostgreSQL bulk load, indexing, and lock contention were not exercised locally.
+- Rollback:
+  - Revert the Issue #44 feature commit; no data or schema rollback is required.
+
 ## 2026-07-30 - Issue #43 EOD/BOD daily lifecycle
 
 - Owner: Codex as Integrator with Service, Controller, SQL, Gateway, Test, and independent Reviewer roles.

@@ -1,3 +1,40 @@
+# AI Harness Handoff - 2026-07-30 Issue #44 Journal/GL/Sub-ledger
+
+## Active Goal And State
+
+- GitHub Issue `#44` is implemented on `agent/44-journal-ledger-domain` in `C:\tmp\account-44-journal-ledger-domain`.
+- Base is `origin/main@54352362`; implementation, local verification, and independent re-review are complete, while remote PR gates remain.
+- Previous PRs #152/#222 only produced a placeholder and generic note. This branch connects the requested domain types to the real posting path.
+
+## Changes And Boundaries
+
+- `Debit` and `Credit` are immutable direction-specific value objects. `AccountingPrecision` matches ledger `DECIMAL(19,2)` and exchange-rate `DECIMAL(19,8)` without silent rounding.
+- `JournalEntry` owns detail relationships, exposes an immutable detail view, and validates positive lines plus transaction/base-currency double entry.
+- Only `APPROVED` entries with persisted header/detail IDs become a `GeneralLedger`; its immutable postings preserve GL/SL dimensions and lineage.
+- `PostingService` orchestrates Aggregate creation, journal state change, output-port storage, and balance update. It no longer constructs JPA entities.
+- JPA and JDBC bulk adapters map the same `GeneralLedger` snapshot. Active `GlBalance`/`SlBalance` projections share the precision policy.
+- Unused `Money`, `GlAccountBalance`, `GlBalanceType`, and repository authority was removed.
+- The public arbitrary Journal status setter was removed; impacted Loan/Expenditure callers use DRAFT initialization and normal transitions.
+
+## Verification Evidence
+
+- Journal Ledger: Core 35, API 2, Batch 3 tests; failures/errors/skipped 0.
+- Impacted contracts: Loan Core 30, Expenditure Core 10/API 1, Closing Batch 12 tests; failures/errors/skipped 0.
+- Combined affected verification: 93 tests, with failures/errors/skipped 0.
+- Journal Ledger API/Batch and Closing Batch `bootJar`: passed.
+- Focused tests cover precision overflow/fraction rejection, both currency balances, transient-detail rejection, immutable snapshots, and JPA/JDBC GL/SL parity.
+- Independent review found a Closing Batch fixture compilation regression (P1) and aggregate-total precision overconstraint (P2). Both were fixed, and re-review reported no P0-P3 findings.
+
+## Known Risks And Rollback
+
+- The fixed scale-2 policy intentionally matches the current schema. Currency-specific minor units require a separately reviewed schema and contract change.
+- Real PostgreSQL bulk performance and lock contention were not available in this local pass.
+- Roll back with a normal feature-commit revert; there is no schema or production-data mutation.
+
+## Next Gate
+
+- Amend the reviewed fixes into the feature commit, create the Issue-closing Draft PR under the authorized gate, and record final hashes.
+
 # AI Harness Handoff - 2026-07-30 Issue #43 EOD/BOD Lifecycle
 
 ## Active Goal And State
