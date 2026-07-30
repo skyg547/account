@@ -2,7 +2,7 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#45` is implemented on `agent/45-budget-control` in `C:\tmp\account-45-budget-control`, based on `origin/main@36a1be4f`.
+- GitHub Issue `#45` was integrated by PR `#246`: source `5f06cad1`, merge `db7feeb4`. `Fixes #45` closed the Issue and the remote feature branch was deleted.
 - Prior PRs #151/#221 supplied only a placeholder and generic completion note. This branch adds the actual bounded context.
 - The initial independent review reported four P1 and two P2 findings. Its follow-up checks also identified typed-empty-404, infrastructure-exception classification, bounded-string, and technology-neutral `yearMonth` gaps. All were corrected, and the same Reviewer reported no remaining P0-P3 findings.
 
@@ -34,9 +34,9 @@
 - Expenditure reservation/commit/release migration and data reconciliation remain #17 scope.
 - Roll back by reverting the feature commit and removing the three module includes; existing Expenditure data is untouched.
 
-## Next Gate
+## Final Gate Result
 
-- Commit the reviewed staged diff, create the authorized Draft PR, promote it after checks, and merge it.
+- GitHub `reporting-tests` passed, the Draft PR was promoted to Ready, and PR #246 merged cleanly.
 
 # AI Harness Handoff - 2026-07-30 Issue #44 Journal/GL/Sub-ledger
 

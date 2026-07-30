@@ -41,3 +41,8 @@ no remaining P0-P3 findings.
 Rollback is a normal feature revert; existing Expenditure schema/data is not mutated. Live
 PostgreSQL migration/locking and high-cardinality year-end close performance were not exercised
 in this local verification.
+
+## Integration
+
+PR #246 merged source commit `5f06cad1` as merge commit `db7feeb4`. `Fixes #45` closed the
+Issue, the required GitHub check passed, and the remote feature branch was deleted.

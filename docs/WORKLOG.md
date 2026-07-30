@@ -1,5 +1,5 @@
 ### 📅 2026-07-30 (Codex Issue #45 실제 구현)
-### [재검토 완료] 실행 가능한 Budget Control bounded context
+### [통합 완료] 실행 가능한 Budget Control bounded context
 
 - **작업 배경**:
   - 기존 PR #151/#221은 placeholder와 일반 완료 문서만 추가했고 `budget/` 모듈이나 호출 가능한 예산 통제 흐름을 만들지 않았다.
@@ -19,7 +19,7 @@
   - 최초 독립 리뷰의 P1 4건/P2 2건과 재검토 중 확인한 typed 404, 인프라 예외 오분류, 문자열 길이, 기술중립 `yearMonth` 검증을 모두 보정했다.
   - 같은 독립 리뷰어의 최종 재검토는 P0-P3 finding 없이 PASS했다.
 - **현재 상태와 위험**:
-  - `agent/45-budget-control`은 구현·회귀 검증·독립 재검토를 완료했고 Git/PR 통합 단계만 남았다.
+  - PR #246이 source commit `5f06cad1`, merge commit `db7feeb4`로 병합됐고 `Fixes #45`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.
   - 실제 PostgreSQL migration/lock 경합은 실행하지 않았다. shard hotspot, 회계연도 `LIKE` 인덱스 효율, lock timeout 변환과 단건 `saveAndFlush` 기반 연말 마감 성능은 운영 규모에서 재검증해야 한다.
   - 기존 Expenditure 예산의 reservation/commit/release 데이터 이전과 호출자 전환은 #17의 별도 조정 범위다.
 
