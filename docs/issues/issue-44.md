@@ -45,3 +45,8 @@ authority was removed. `GlBalance`/`SlBalance` remain the active daily balance p
 Rollback is a normal revert of the Issue #44 feature commit. There is no schema or production-data
 mutation because the code policy matches existing `DECIMAL(19,2)` columns. PostgreSQL bulk load and
 lock behavior remain a deployment verification item.
+
+## Integration
+
+PR #238 merged reviewed source commit `d8c0504c` as merge commit `299746a7`. Its `Fixes #44`
+keyword closed the Issue, and the remote feature branch was deleted after verification.

@@ -2,8 +2,8 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#44` is implemented on `agent/44-journal-ledger-domain` in `C:\tmp\account-44-journal-ledger-domain`.
-- Base is `origin/main@54352362`; implementation, local verification, and independent re-review are complete, while remote PR gates remain.
+- GitHub Issue `#44` was integrated by PR `#238`: source `d8c0504c`, merge `299746a7`. `Fixes #44` closed the Issue and the remote feature branch was deleted.
+- The integration-record branch is `agent/44-integration-record` in `C:\tmp\account-44-journal-ledger-domain`, based on merged `origin/main`.
 - Previous PRs #152/#222 only produced a placeholder and generic note. This branch connects the requested domain types to the real posting path.
 
 ## Changes And Boundaries
@@ -33,7 +33,7 @@
 
 ## Next Gate
 
-- Amend the reviewed fixes into the feature commit, create the Issue-closing Draft PR under the authorized gate, and record final hashes.
+- Merge this documentation-only integration record, then remove the Issue #44 worktree and local branches.
 
 # AI Harness Handoff - 2026-07-30 Issue #43 EOD/BOD Lifecycle
 
