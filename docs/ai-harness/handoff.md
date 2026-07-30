@@ -37,6 +37,18 @@
 ## Final Gate Result
 
 - GitHub `reporting-tests` passed, the Draft PR was promoted to Ready, and PR #246 merged cleanly.
+# AI Harness Handoff - 2026-07-30 Issue #243 Runtime Dependencies
+
+- Issue/branch/worktree: `#243`, `agent/243-postgres-actuator-runtime`, `C:\tmp\account-243-postgres-actuator-runtime`.
+- Added PostgreSQL JDBC to the runtime classpath of 22 API/Batch applications in asset-lease, closing, deposit, expenditure-resolution, journal-ledger, loan, payable, receivable, reconciliation, reporting and tax.
+- Added Actuator to the nine APIs that did not already contain it. No Controller, application, domain, persistence, configuration profile or migration behavior changed.
+- `verifyProductionRuntimeDependencies --offline` resolves the classpaths, builds all 22 bootJars, and verifies the expected JAR entries in each executable archive. It explicitly declares its cross-project execution-time inspection incompatible with Gradle configuration cache.
+- A shared minimal context test proves HTTP 200 from `/actuator/health/readiness` in each of the nine APIs that received Actuator.
+- Verification passed: 22 bootJars and 56 affected tests with no failures/errors/skips. Some Batch projects without module-owned test sources remain a coverage gap, not a failed test.
+- Independent final review found no P0-P3 finding. Its clean latest-source rerun covered 29 tests in the nine changed APIs; the remaining affected suites contribute 27, for 56 total.
+- PostgreSQL was not contacted. Existing local H2 startup failures were not widened or claimed fixed; schema compatibility and Batch metadata provisioning are owned by #244.
+- Rebase onto latest main, post-rebase verification, commit, push and Draft PR are pending. Merge and Issue close are not authorized.
+- Rollback: revert the dependency declarations, root verification task, docs and harness records. No data rollback is required.
 
 # AI Harness Handoff - 2026-07-30 Issue #44 Journal/GL/Sub-ledger
 

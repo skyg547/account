@@ -16,6 +16,14 @@
 - 리스크:
   - PostgreSQL 실DB migration/locking, shard hotspot/lock timeout과 연말 마감의 대량 `saveAndFlush` 비용은 미검증이다.
   - 기존 Expenditure 예산 데이터와 reservation/commit/release 호출 흐름의 이전은 #17에서 별도 설계해야 한다.
+## 2026-07-30 (Issue #243 PostgreSQL JDBC/Actuator runtime)
+
+- 11개 bounded context의 API/Batch 22개에 PostgreSQL runtime driver를 추가하고, 누락된 API 9개에 Actuator를 추가했다.
+- Local H2 dependency와 production/domain 코드는 변경하지 않았다.
+- `verifyProductionRuntimeDependencies`가 22개 runtimeClasspath와 bootJar의 PostgreSQL JAR, API 11개의 Actuator JAR을 검증한다.
+- 22 bootJar와 영향 테스트 56개(신규 readiness endpoint 9개 포함)가 실패/오류/skip 없이 통과했다. PostgreSQL/migration 실DB 검증은 #244다.
+- 독립 리뷰어가 최신 source 상태에서 변경 API 9개 전체 29 tests를 재실행했고, 최종 P0-P3 지적은 없다.
+- 독립 리뷰, commit, push, Draft PR이 남아 있으며 외부 DB/registry/container/server는 변경하지 않았다.
 
 ## 2026-07-30 (Issue #44 GL/Sub-ledger domain authority)
 - 요청 목표: 차변/대변 VO, JournalEntry/GeneralLedger Aggregate, BigDecimal 정밀도 정책을 실제 전기 흐름에 연결한다.
