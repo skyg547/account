@@ -23,7 +23,7 @@
 - `verifyProductionRuntimeDependencies`가 22개 runtimeClasspath와 bootJar의 PostgreSQL JAR, API 11개의 Actuator JAR을 검증한다.
 - 22 bootJar와 영향 테스트 56개(신규 readiness endpoint 9개 포함)가 실패/오류/skip 없이 통과했다. PostgreSQL/migration 실DB 검증은 #244다.
 - 독립 리뷰어가 최신 source 상태에서 변경 API 9개 전체 29 tests를 재실행했고, 최종 P0-P3 지적은 없다.
-- 독립 리뷰, commit, push, Draft PR이 남아 있으며 외부 DB/registry/container/server는 변경하지 않았다.
+- commit `c8b10947`을 최신 `origin/main@5c810422`에 rebase했고 post-rebase gate와 재리뷰가 통과했다. push와 Draft PR이 남아 있으며 외부 DB/registry/container/server는 변경하지 않았다.
 
 ## 2026-07-30 (Issue #44 GL/Sub-ledger domain authority)
 - 요청 목표: 차변/대변 VO, JournalEntry/GeneralLedger Aggregate, BigDecimal 정밀도 정책을 실제 전기 흐름에 연결한다.

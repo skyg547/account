@@ -1,6 +1,6 @@
 # Conflict Log
 
-No merge or rebase conflicts recorded yet.
+Merge and rebase conflict resolutions are recorded below.
 
 ## Template
 

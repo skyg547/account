@@ -26,13 +26,14 @@
 ## 2026-07-30 - Issue #243 production PostgreSQL and Actuator runtime classpath
 
 - Owner: Codex Integrator; independent read-only review required before commit.
-- Branch/worktree/base: `agent/243-postgres-actuator-runtime` / `C:\tmp\account-243-postgres-actuator-runtime` / `origin/main@36a1be4f`.
+- Branch/worktree/base: `agent/243-postgres-actuator-runtime` / `C:\tmp\account-243-postgres-actuator-runtime`; initial base `origin/main@36a1be4f`, rebased commit `c8b10947` on `origin/main@5c810422`.
 - Added PostgreSQL runtime dependencies to 11 bounded contexts across 22 executable API/Batch projects while preserving local H2 dependencies.
 - Added Actuator to the nine APIs that lacked the production readiness endpoint dependency; Journal Ledger and Loan already had it.
 - Added root `verifyProductionRuntimeDependencies`, which resolves all 22 runtime classpaths, builds their bootJars, and inspects the archives for PostgreSQL and Actuator JARs.
 - Added a shared minimal readiness context contract to the nine APIs that received Actuator; each proves `/actuator/health/readiness` returns HTTP 200 without an external runtime.
 - Verification: the runtime/bootJar gate passed; all 22 bootJars passed; the 22 affected test tasks passed with 56 observed tests and no failures/errors/skips. Some Batch projects still have no module-owned test sources.
 - Independent review re-ran all nine changed API test suites from the latest source state with one worker: 29 tests passed; combined with the remaining affected 27 tests the total is 56. Final review found no P0-P3 finding.
+- Post-rebase runtime/archive gate, nine readiness tests, diff/marker checks and semantic re-review passed with no remaining P0-P3 finding.
 - No external database, Config Server, registry, image, container or server was accessed. Existing local-start gaps such as Closing API runtime H2 remain their module Issues; PostgreSQL schema/migration execution remains Issue #244.
 
 ## 2026-07-30 - Issue #44 Journal/GL/Sub-ledger domain authority
