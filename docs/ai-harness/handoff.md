@@ -132,7 +132,7 @@
 ## State And Delivered Contract
 
 - Branch/worktree/base: `agent/229-dev-postgres` / `C:\tmp\account-229-dev-postgres` / `origin/main@5fb9cb67`.
-- Local implementation commit exists; push, Draft PR, merge and Issue close were not performed.
+- The latest-main verified branch is pushed and Draft PR `#241` is open with `Refs #229`; merge and Issue close were not performed.
 - Local direct module execution remains H2. Containerized `dev` uses PostgreSQL.
 - Self-contained mode uses explicit `self-contained-db`, 16 database-specific owner roles, and a manifest written only after all bootstrap operations complete.
 - External mode uses a separate `external-dev` file with no local DB and an authenticated read-only probe using required `DEV_DB_*`.

@@ -66,7 +66,7 @@
 - dummy env examples, ignore, runbook, Config Server policy tests를 추가했다.
 - `:config-server:test --offline`, init `bash -n`, diff/conflict/link/security scans와 독립 리뷰가 통과했다.
 - Docker/Compose provider와 cached image가 없어 live bootstrap/restart/idempotency는 미실행이며 #66의 통합 gate로 남긴다.
-- local commit only; push/PR/merge/Issue close 미실행.
+- `agent/229-dev-postgres` push와 Draft PR `#241` (`Refs #229`) 생성 완료; merge/Issue close 미실행.
 
 ## 2026-07-30 (Issue #42 Master Data 거래처 승인 UI/API)
 - 요청 목표: 거래처 등록과 `REQUESTED` 변경요청의 승인·반려를 실제 Master Data API에 연결한다.

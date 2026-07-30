@@ -96,6 +96,7 @@
 - Docker Compose provider and cached PostgreSQL image were unavailable, so live Compose/bootstrap/restart/idempotency remains a #66 gate.
 - No remote DB login, metadata, schema, credential, container, migration or volume mutation occurred.
 - Rollback reverts Issue #229 files and stops local Compose without `-v`; named volumes and remote DB state remain.
+- Pushed `agent/229-dev-postgres` and opened Draft PR `#241` with `Refs #229`; no merge or Issue closure.
 
 ## 2026-07-30 - Issue #42 Master Data partner approval UI/API
 
