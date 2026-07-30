@@ -701,4 +701,4 @@
 - Verification: forced Config Server/Gateway policy tests passed; all 33 enabled Java targets produced exactly one executable JAR offline; 2 Internal Audit targets reported `BLOCKED`; frontend remained static-only because dependency installation and image pulls were not authorized.
 - Environment gate: Docker is absent and Podman has neither required base images nor an approved pull, so no actual local image build or registry action was performed.
 - Independent review findings for root/frontend secret context leakage, tracked Compose credentials, process-output deadlock and frontend URL drift were corrected; final re-review found no unresolved issue after the frontend context was hardened.
-- State: local Issue branch only; no push, PR, merge or Issue closure.
+- State: pushed to `origin/agent/228-container-images`; Draft PR `#240` opened with `Refs #228`. No merge or Issue closure.

@@ -1182,7 +1182,7 @@
 
 - Issue/branch/worktree: `#228`, `agent/228-container-images`, `C:\tmp\account-228-container-images`.
 - Base: `origin/main@5fb9cb67`.
-- State: implementation and local verification complete. No image pull/build, push, Draft PR, merge or Issue closure was performed.
+- State: implementation and latest-main verification complete; branch pushed and Draft PR `#240` opened with `Refs #228`. No image pull/build, merge or Issue closure was performed.
 
 ## Implemented contract
 
