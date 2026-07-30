@@ -199,7 +199,7 @@
 - **안전/상태**:
   - 공유 개발 pgAdmin/PostgreSQL은 TCP 도달성만 확인했고 로그인·metadata·credential·컨테이너는 조회하지 않았다. 정확한 host와 자격증명은 저장소/Issue/결과에 기록하지 않았다.
   - DB migration, 원격 컨테이너, Compose volume은 변경하지 않았다.
-  - branch는 review-ready이며 push/PR/merge/Issue close는 수행하지 않았다.
+  - 최신 main 재검증 후 branch를 push하고 Draft PR `#242`를 `Refs #227`로 열었다. merge/Issue close는 수행하지 않았다.
 
 ### 📅 2026-07-30 (Codex Issue #41 후속 구현)
 ### [후속 구현/통합 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리

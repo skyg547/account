@@ -146,6 +146,8 @@
   - Packaging/image #228, development DB #229, production overlay #230, Internal Audit/Auth boundary #231, root orchestration #66; coordination #60/#226.
 - Safety:
   - Shared development endpoints received TCP reachability checks only. No login, schema, metadata, credential, remote container, migration, or volume mutation occurred.
+- Delivery:
+  - Pushed `agent/227-runtime-parity-audit` and opened Draft PR `#242` with `Refs #227`; no merge or Issue closure.
 - Rollback:
   - Revert Issue #227 documentation, `tools/runtime-smoke.ps1`, and these harness records. No database rollback is needed.
 

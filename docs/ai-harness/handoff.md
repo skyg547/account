@@ -197,7 +197,7 @@
 
 - 장기 목표는 local에서 각 모듈을 Gradle/JAR/NPM과 H2로 독립 실행하고, dev/prod는 container/Compose와 PostgreSQL로 실행하는 것입니다.
 - 현재 완료 범위는 첫 실행 감사 Issue `#227`입니다. branch/worktree는 `agent/227-runtime-parity-audit` / `C:\tmp\account-227-runtime-parity-audit`입니다. 원본 감사 snapshot은 `origin/main@c0fb871b`, push gate 재검증 기준은 `origin/main@36a1be4f`입니다.
-- 로컬 commit만 있으며 push, Draft PR, merge, Issue close는 하지 않았습니다.
+- 최신 main 검증 branch를 push했고 Draft PR `#242`를 `Refs #227`로 열었습니다. merge와 Issue close는 하지 않았습니다.
 - root checkout의 기존 사용자 변경은 건드리지 않았습니다.
 
 ## Delivered Audit Contract

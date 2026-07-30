@@ -103,7 +103,7 @@
 - 후속:
   - 실패는 #73-#80, #89-#90; image는 #228, dev DB는 #229, prod overlay는 #230, Internal Audit/Auth 경계는 #231, root Compose는 #66에서 처리한다.
   - 공유 개발 PostgreSQL은 `DEV_DB_HOST`/JDBC 환경변수 override로만 사용하고 self-contained dev DB와 동시에 실행하지 않는다.
-- 상태: 로컬 commit 후 review-ready. push/PR/merge/Issue close는 미실행.
+- 상태: `agent/227-runtime-parity-audit` push와 Draft PR `#242` (`Refs #227`) 생성 완료. merge/Issue close는 미실행.
 
 ## 2026-07-29 (Issue #40 Master Data API/Core/Batch split)
 - 요청 목표: `master-data`를 실제 배포 가능한 `api`, `batch`와 재사용 library인 `core`로 물리 분리한다.
