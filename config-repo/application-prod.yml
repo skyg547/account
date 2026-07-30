@@ -1,19 +1,44 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres-db-prod}:5432/${DB_NAME:account_prod}
-    driverClassName: org.postgresql.Driver
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    url: ${PROD_DB_URL}
+    username: ${PROD_DB_USER}
+    password: ${PROD_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      minimum-idle: ${PROD_DB_POOL_MINIMUM_IDLE:2}
+      maximum-pool-size: ${PROD_DB_POOL_MAXIMUM_SIZE:20}
+      connection-timeout: ${PROD_DB_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${PROD_DB_VALIDATION_TIMEOUT_MS:5000}
+  flyway:
+    # Production migrations are executed by a separately approved release
+    # step with a dedicated migrator role, never by long-running applications.
+    enabled: false
+    clean-disabled: true
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
+    open-in-view: false
     show-sql: false
-
+  sql:
+    init:
+      mode: never
+  batch:
+    jdbc:
+      initialize-schema: never
   kafka:
-    bootstrap-servers: ${KAFKA_HOST:kafka-prod}:9092
-
+    bootstrap-servers: ${PROD_KAFKA_BOOTSTRAP_SERVERS}
   data:
     redis:
-      host: ${REDIS_HOST:redis-prod}
-      port: 6379
+      host: ${PROD_REDIS_HOST}
+      port: ${PROD_REDIS_PORT}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
