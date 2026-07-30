@@ -2404,4 +2404,4 @@
 - zero digest/빈 password만 가진 예제, TLS·최소권한 user·host override/interpolation을 검사하는 값 비출력 validator와 운영/rollback runbook을 추가했다.
 - 독립 리뷰로 PostgreSQL/Actuator runtime classpath #243과 PostgreSQL migration/Batch metadata #244를 발행했으며 둘 다 운영 배포 선행 조건이다.
 - Config Server policy test와 validator self-test가 34 image, 15 DB, 83개 필수 변수 계약을 통과했다. Compose provider와 image가 없어 실제 render/start/PostgreSQL은 미실행했다.
-- 원격 환경은 접근하거나 변경하지 않았다. branch는 로컬 review-ready이며 commit/push/PR/merge/Issue close는 미실행이다.
+- 원격 환경은 접근하거나 변경하지 않았다. 독립 리뷰에 남은 P0-P3 지적이 없고 commit `fd93f466`을 push해 Draft PR #245를 열었다. merge/Issue close/배포는 미실행이다.
