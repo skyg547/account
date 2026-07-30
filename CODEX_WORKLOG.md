@@ -1,6 +1,6 @@
 ## 2026-07-30 (Issue #44 GL/Sub-ledger domain authority)
 - 요청 목표: 차변/대변 VO, JournalEntry/GeneralLedger Aggregate, BigDecimal 정밀도 정책을 실제 전기 흐름에 연결한다.
-- 상태: `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`에서 구현·전체 로컬 검증·독립 재리뷰 완료, PR 게이트 전.
+- 통합: PR `#238`이 source commit `d8c0504c`, merge commit `299746a7`로 `main`에 병합됐고 `Fixes #44`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.
 - 변경:
   - `Debit`/`Credit`, `AccountingPrecision`, `GeneralLedger`를 추가하고 거래/기준통화 차대일치와 persisted-lineage 규칙을 구현했다.
   - `JournalEntry`가 상세 컬렉션을 소유하고 임의 상태 setter 없이 의도 기반 전이를 사용하도록 보강했다.

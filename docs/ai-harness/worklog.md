@@ -1,9 +1,9 @@
 ## 2026-07-30 - Issue #44 Journal/GL/Sub-ledger domain authority
 
 - Owner: Codex as Integrator with an independent read-only Reviewer. The initial three audit roles hit the account usage limit; the commit-review retry later succeeded.
-- Branch/worktree: `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`.
+- Source branch/worktree: `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`.
 - Base: `origin/main@54352362`.
-- State: implementation, local verification, and independent re-review complete; remote PR gates pending.
+- Integration: PR `#238` merged source `d8c0504c` as `299746a7`; `Fixes #44` closed the Issue and the remote feature branch was deleted.
 - Scope:
   - Added immutable Debit/Credit value objects and one fail-closed precision policy matching ledger amount and exchange-rate storage.
   - Strengthened JournalEntry line ownership plus transaction/base-currency double-entry invariants.

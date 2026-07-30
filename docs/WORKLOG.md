@@ -1,5 +1,5 @@
 ### 📅 2026-07-30 (Codex Issue #44 실제 구현)
-### [리뷰 준비] 불변 차대 VO와 GeneralLedger Aggregate
+### [통합 완료] 불변 차대 VO와 GeneralLedger Aggregate
 
 - **작업 배경**:
   - 기존 자동 PR #152/#222는 placeholder/문서만 추가했고 실제 전표·원장 계약을 구현하지 않았다.
@@ -17,7 +17,7 @@
   - 정밀도 초과/음수/소수 센트 거부, 거래·기준통화 차대일치, transient lineage 차단, 불변 snapshot, JPA/JDBC 동등 매핑을 focused test로 확인했다.
   - 독립 리뷰의 P1(Closing Batch fixture 공개 계약 회귀)과 P2(여러 대형 라인 합계에 단일 컬럼 정밀도 오적용)를 수정했고, 같은 리뷰어의 재검토는 P0-P3 finding 없이 통과했다.
 - **현재 상태와 위험**:
-  - branch/worktree는 `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`이며 독립 리뷰 완료, PR 게이트 전이다.
+  - PR #238이 source commit `d8c0504c`를 merge commit `299746a7`로 `main`에 통합했다. `Fixes #44`로 Issue가 닫혔고 원격 feature branch도 삭제됐다.
   - 정밀도 정책은 기존 DB의 고정 scale 2 계약을 따른다. 통화별 minor unit(JPY/KWD 등)은 별도 schema/domain 확장 범위다.
   - 실제 PostgreSQL bulk 성능·lock 경합은 로컬 H2 검증에 포함하지 않았다.
 
