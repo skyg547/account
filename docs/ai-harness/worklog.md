@@ -3,6 +3,7 @@
 - Owner: Codex as Integrator with Domain/Service, SQL, Controller, Batch, Gateway, Test, and independent Reviewer roles.
 - Source branch/worktree: `agent/45-budget-control` / `C:\tmp\account-45-budget-control`.
 - Base: `origin/main@36a1be4f`.
+- Integration: PR `#246`, source commit `5f06cad1`, merge commit `db7feeb4`; Issue `#45` closed and the remote feature branch was deleted.
 - Scope:
   - Added `budget:core`, `budget:api`, and `budget:batch` as an isolated bounded context.
   - Implemented pure BudgetPlan/Transfer/Execution/FiscalYearControl aggregates, inbound commands/use cases, output ports, and a transactional service with shard/year/plan lock ordering.

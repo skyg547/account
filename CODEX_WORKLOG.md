@@ -1,6 +1,6 @@
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.
-- 상태: `agent/45-budget-control` / `C:\tmp\account-45-budget-control`에서 독립 리뷰 finding을 모두 수정했고, 같은 리뷰어의 최종 재검토는 P0-P3 finding 없이 PASS했다.
+- 통합: PR `#246`이 source commit `5f06cad1`, merge commit `db7feeb4`로 `main`에 병합됐고 `Fixes #45`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.
 - 변경:
   - `budget:core`, `budget:api`, `budget:batch` 모듈과 실행 진입점·문서를 추가했다.
   - 순수 계획·전용·집행·회계연도 제어 Aggregate, command/use case, output Port, 트랜잭션 application service를 구현했다.
