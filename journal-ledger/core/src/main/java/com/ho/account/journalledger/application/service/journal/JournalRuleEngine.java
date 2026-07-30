@@ -4,7 +4,6 @@ import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleCondition;
 import com.ho.account.journalledger.domain.journal.domain.JournalRuleDetail;
@@ -179,7 +178,8 @@ public class JournalRuleEngine {
         JournalEntry entry = new JournalEntry();
         entry.setSlipDate(accountingDate);
         entry.setAccountingDate(accountingDate);
-        entry.setStatus(JournalEntryStatus.DRAFT);
+        // Aggregate가 허용한 최초 전이만 사용해 임의 상태 건너뛰기를 막습니다.
+        entry.initializeDraft();
         entry.setDescription(resolveEntryDescription(rule, eventData));
         String actor = resolveActor(eventData);
         entry.setCreatedBy(actor);

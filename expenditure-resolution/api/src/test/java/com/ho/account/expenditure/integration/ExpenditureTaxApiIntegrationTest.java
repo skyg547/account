@@ -19,7 +19,6 @@ import com.ho.account.expenditure.domain.APPaymentStatus;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
@@ -167,7 +166,7 @@ class ExpenditureTaxApiIntegrationTest {
         when(journalUseCase.createJournalEntry(any())).thenAnswer(invocation -> {
             JournalEntry entry = invocation.getArgument(0);
             entry.setId(100L);
-            entry.setStatus(JournalEntryStatus.APPROVED);
+            entry.initializeDraft();
             return entry;
         });
     }

@@ -1,11 +1,12 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
-import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
-import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
 import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
 import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,19 +41,24 @@ class JdbcLedgerBulkPersistenceAdapterTest {
     @Test
     void insertsGlAndSlEntriesWithJdbcBatch() {
         JdbcLedgerEntryBulkPersistenceAdapter adapter = new JdbcLedgerEntryBulkPersistenceAdapter(jdbcTemplate);
-        JournalDetail detail = new JournalDetail();
-        detail.setId(101L);
 
-        adapter.saveGlEntries(List.of(glEntry(detail)));
-        adapter.saveSlEntries(List.of(slEntry(detail)));
+        adapter.save(generalLedger());
 
         Integer glCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM gl_entries", Integer.class);
         Integer slCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sl_entries", Integer.class);
-        assertThat(glCount).isEqualTo(1);
-        assertThat(slCount).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("SELECT base_dr_amount FROM gl_entries", BigDecimal.class))
+        assertThat(glCount).isEqualTo(2);
+        assertThat(slCount).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_dr_amount FROM gl_entries WHERE base_dr_amount > 0",
+                BigDecimal.class))
                 .isEqualByComparingTo("100.00");
-        assertThat(jdbcTemplate.queryForObject("SELECT business_partner_code FROM sl_entries", String.class))
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT base_cr_amount FROM gl_entries WHERE base_cr_amount > 0",
+                BigDecimal.class))
+                .isEqualByComparingTo("100.00");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT business_partner_code FROM sl_entries WHERE journal_detail_id = 101",
+                String.class))
                 .isEqualTo("BP-001");
     }
 
@@ -86,42 +92,33 @@ class JdbcLedgerBulkPersistenceAdapterTest {
                 .isEqualByComparingTo("5.00");
     }
 
-    private GlEntry glEntry(JournalDetail detail) {
-        GlEntry entry = new GlEntry();
-        entry.setJournalDetail(detail);
-        entry.setAccountCode("10100");
+    private GeneralLedger generalLedger() {
+        JournalEntry entry = new JournalEntry();
+        entry.setId(10L);
+        entry.setSlipNo("JE-20260610-0001");
+        entry.setSlipDate(LocalDate.of(2026, 6, 10));
+        entry.setAccountingDate(LocalDate.of(2026, 6, 10));
         entry.setCurrencyCode("KRW");
-        entry.setFiscalYear("2026");
-        entry.setFiscalPeriod("06");
-        entry.setPostingDate(LocalDate.of(2026, 6, 10));
-        entry.setDrAmount(new BigDecimal("100.00"));
-        entry.setCrAmount(BigDecimal.ZERO);
-        entry.setBaseDrAmount(new BigDecimal("100.00"));
-        entry.setBaseCrAmount(BigDecimal.ZERO);
-        entry.setSummary("cash debit");
         entry.setLineageSourceType("TEST");
         entry.setLineageSourceId("SRC-1");
-        return entry;
+        entry.addDetail(journalDetail(101L, JournalSide.DEBIT, "10100", "cash debit"));
+        entry.addDetail(journalDetail(102L, JournalSide.CREDIT, "40100", "revenue credit"));
+        entry.initializeDraft();
+        entry.approve("approver");
+        return GeneralLedger.fromApproved(entry);
     }
 
-    private SlEntry slEntry(JournalDetail detail) {
-        SlEntry entry = new SlEntry();
-        entry.setJournalDetail(detail);
-        entry.setAccountCode("10100");
-        entry.setBusinessPartnerCode("BP-001");
-        entry.setDepartmentCode("D-10");
-        entry.setCurrencyCode("KRW");
-        entry.setFiscalYear("2026");
-        entry.setFiscalPeriod("06");
-        entry.setPostingDate(LocalDate.of(2026, 6, 10));
-        entry.setDrAmount(new BigDecimal("100.00"));
-        entry.setCrAmount(BigDecimal.ZERO);
-        entry.setBaseDrAmount(new BigDecimal("100.00"));
-        entry.setBaseCrAmount(BigDecimal.ZERO);
-        entry.setSummary("cash debit by partner");
-        entry.setLineageSourceType("TEST");
-        entry.setLineageSourceId("SRC-1");
-        return entry;
+    private JournalDetail journalDetail(Long id, JournalSide side, String accountCode, String summary) {
+        JournalDetail detail = new JournalDetail();
+        detail.setId(id);
+        detail.setSide(side);
+        detail.setAccountCode(accountCode);
+        detail.setAmount(new BigDecimal("100.00"));
+        detail.setBaseAmount(new BigDecimal("100.00"));
+        detail.setBusinessPartnerCode("BP-001");
+        detail.setDepartmentCode("D-10");
+        detail.setDetailDescription(summary);
+        return detail;
     }
 
     private GlBalance glBalance(String debit, String credit) {

@@ -9,7 +9,7 @@
 **Q. 이 모듈은 정확히 무슨 일을 하나요?**
 거래를 회계 전표로 만들고, 승인받고, 최종적으로 원장(Ledger)에 반영한 뒤, 나중에 감사관이 "이 돈 어디서 왔어?" 하고 물어볼 때 끝까지 추적할 수 있게 기록을 남기는 곳입니다.
 
-**초보자가 알아야 할 핵심 5가지 개념:**
+**초보자가 알아야 할 핵심 6가지 개념:**
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
@@ -17,6 +17,12 @@
    - `GL (총계정원장)`: 계정과목 중심의 큰 장부
    - `SL (보조원장)`: 거래처, 부서 등 상세 차원을 포함한 보조 장부
 5. **Lineage (추적 키):** 이 전표가 시스템의 어떤 원천 문서(지출결의서 등)에서 왔는지 알려주는 꼬리표(`lineageSourceType`, `lineageSourceId`). 드릴다운(Drill-down)의 핵심입니다.
+6. **불변 전기 스냅샷:** 승인된 `JournalEntry`는 `GeneralLedger` Aggregate로 한 번 고정된 뒤 GL과 SL adapter에 전달됩니다. 두 장부가 서로 다른 시점의 가변 데이터를 읽지 않도록 하기 위함입니다.
+
+차변과 대변 금액은 단순 `BigDecimal`이 아니라 `Debit`/`Credit` Value Object로 구분합니다.
+두 타입은 기존 DB의 `DECIMAL(19,2)` 계약을 공유하며 소수 둘째 자리를 넘는 값을 몰래
+반올림하지 않고 실패시킵니다. IFRS 9 유효이자율 등 고정밀 계산은 각 업무 도메인에서
+수행하고, 원장에는 명시적으로 확정된 금액만 전기합니다.
 
 ---
 
@@ -43,7 +49,8 @@ sequenceDiagram
 
     App->>Service: 전기(Posting) 요청
     Service->>Service: PostingService 호출
-    Service->>DB: 원장(GL/SL) 잔액 업데이트 및 POSTED 전환
+    Service->>Service: GeneralLedger 불변 스냅샷 생성
+    Service->>DB: adapter가 같은 스냅샷으로 GL/SL 저장 및 POSTED 전환
     Service-->>App: 전기 완료
 ```
 

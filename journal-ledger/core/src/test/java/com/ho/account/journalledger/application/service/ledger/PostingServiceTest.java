@@ -6,8 +6,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
-import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
-import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
+import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,34 +52,26 @@ class PostingServiceTest {
         assertThat(entry.getAuditUser()).isEqualTo("poster-1");
         verify(journalPersistencePort).save(entry);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<GlEntry>> glEntriesCaptor = ArgumentCaptor.forClass(List.class);
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<SlEntry>> slEntriesCaptor = ArgumentCaptor.forClass(List.class);
-
-        verify(ledgerEntryPersistencePort).saveGlEntries(glEntriesCaptor.capture());
-        verify(ledgerEntryPersistencePort).saveSlEntries(slEntriesCaptor.capture());
+        ArgumentCaptor<GeneralLedger> ledgerCaptor = ArgumentCaptor.forClass(GeneralLedger.class);
+        verify(ledgerEntryPersistencePort).save(ledgerCaptor.capture());
         verify(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
 
-        List<GlEntry> glEntries = glEntriesCaptor.getValue();
-        List<SlEntry> slEntries = slEntriesCaptor.getValue();
-
-        assertThat(glEntries).hasSize(2);
-        assertThat(glEntries.get(0).getDrAmount()).isEqualByComparingTo("100.00");
-        assertThat(glEntries.get(0).getCrAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(glEntries.get(1).getDrAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(glEntries.get(1).getCrAmount()).isEqualByComparingTo("100.00");
-        assertThat(glEntries).allSatisfy(glEntry -> {
-            assertThat(glEntry.getPostingDate()).isEqualTo(LocalDate.of(2026, 5, 10));
-            assertThat(glEntry.getFiscalYear()).isEqualTo("2026");
-            assertThat(glEntry.getFiscalPeriod()).isEqualTo("05");
-            assertThat(glEntry.getLineageSourceType()).isEqualTo("UNIT_TEST");
-            assertThat(glEntry.getLineageSourceId()).isEqualTo("SRC-1");
+        GeneralLedger ledger = ledgerCaptor.getValue();
+        assertThat(ledger.journalEntryId()).isEqualTo(1L);
+        assertThat(ledger.postings()).hasSize(2);
+        assertThat(ledger.postings().get(0).debit().amount()).isEqualByComparingTo("100.00");
+        assertThat(ledger.postings().get(0).credit().amount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(ledger.postings().get(1).debit().amount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(ledger.postings().get(1).credit().amount()).isEqualByComparingTo("100.00");
+        assertThat(ledger.postings()).allSatisfy(posting -> {
+            assertThat(posting.postingDate()).isEqualTo(LocalDate.of(2026, 5, 10));
+            assertThat(posting.fiscalYear()).isEqualTo("2026");
+            assertThat(posting.fiscalPeriod()).isEqualTo("05");
+            assertThat(posting.lineageSourceType()).isEqualTo("UNIT_TEST");
+            assertThat(posting.lineageSourceId()).isEqualTo("SRC-1");
         });
-
-        assertThat(slEntries).hasSize(2);
-        assertThat(slEntries.get(0).getBaseDrAmount()).isEqualByComparingTo("100.00");
-        assertThat(slEntries.get(1).getBaseCrAmount()).isEqualByComparingTo("100.00");
+        assertThat(ledger.postings().get(0).baseDebit().amount()).isEqualByComparingTo("100.00");
+        assertThat(ledger.postings().get(1).baseCredit().amount()).isEqualByComparingTo("100.00");
     }
 
     private JournalEntry approvedEntry() {
@@ -90,17 +80,19 @@ class PostingServiceTest {
         entry.setSlipNo("JE-20260510-0001");
         entry.setSlipDate(LocalDate.of(2026, 5, 10));
         entry.setAccountingDate(LocalDate.of(2026, 5, 10));
-        entry.setStatus(JournalEntryStatus.APPROVED);
         entry.setCurrencyCode("KRW");
         entry.setLineageSourceType("UNIT_TEST");
         entry.setLineageSourceId("SRC-1");
-        entry.addDetail(detail(JournalSide.DEBIT, "10100"));
-        entry.addDetail(detail(JournalSide.CREDIT, "40100"));
+        entry.addDetail(detail(11L, JournalSide.DEBIT, "10100"));
+        entry.addDetail(detail(12L, JournalSide.CREDIT, "40100"));
+        entry.initializeDraft();
+        entry.approve("approver-1");
         return entry;
     }
 
-    private JournalDetail detail(JournalSide side, String accountCode) {
+    private JournalDetail detail(Long id, JournalSide side, String accountCode) {
         JournalDetail detail = new JournalDetail();
+        detail.setId(id);
         detail.setSide(side);
         detail.setAccountCode(accountCode);
         detail.setAmount(new BigDecimal("100.00"));

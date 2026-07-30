@@ -14,7 +14,6 @@ import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -140,7 +139,7 @@ class ExpenditureResolutionServiceTest {
         givenMasterData();
         JournalEntry savedEntry = new JournalEntry();
         savedEntry.setId(100L);
-        savedEntry.setStatus(JournalEntryStatus.DRAFT);
+        savedEntry.initializeDraft();
 
         when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(resolution));
         when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenReturn(savedEntry);

@@ -1,3 +1,26 @@
+### 📅 2026-07-30 (Codex Issue #44 실제 구현)
+### [리뷰 준비] 불변 차대 VO와 GeneralLedger Aggregate
+
+- **작업 배경**:
+  - 기존 자동 PR #152/#222는 placeholder/문서만 추가했고 실제 전표·원장 계약을 구현하지 않았다.
+  - production 전기 흐름은 존재했지만 `PostingService`가 JPA `GlEntry`/`SlEntry`를 직접 조립했고, 사용되지 않는 `Money`와 `GlAccountBalance`가 활성 `GlBalance`와 병렬 권위로 남아 있었다.
+- **변경 범위**:
+  - `Debit`/`Credit` 불변 VO와 원장 `DECIMAL(19,2)`, 환율 `DECIMAL(19,8)`을 강제하는 `AccountingPrecision`을 추가했다. 무음 반올림은 허용하지 않는다.
+  - `JournalEntry`가 상세 양방향 소유권, 최소 차·대 라인, 양수 금액, 거래통화/기준통화 차대일치를 함께 검증하도록 aggregate 규칙을 강화했다.
+  - 승인·저장된 전표만 불변 `GeneralLedger` posting snapshot으로 만들고 GL/SL 차원·lineage를 같은 값으로 보존한다.
+  - `LedgerEntryPersistencePort`가 Aggregate를 받고 JPA/JDBC outbound adapter가 각 저장 형태로 변환하도록 경계를 이동했다.
+  - 사용되지 않는 `Money`, `GlAccountBalance`, `GlBalanceType`, `GlAccountBalanceRepository`를 제거하고 활성 `GlBalance`/`SlBalance`에 같은 정밀도 정책을 적용했다.
+  - 상태 setter를 제거하고 Loan/Expenditure 호출자가 의도 기반 DRAFT 초기화를 사용하도록 공용 계약 영향을 정리했다.
+- **검증**:
+  - Journal Ledger Core 35, API 2, Batch 3으로 40 tests와 API/Batch `bootJar`가 통과했다.
+  - 영향받은 Loan Core 전체 30, Expenditure Core 10/API 1, Closing Batch 12 tests와 Closing Batch `bootJar`가 통과해 총 93 tests가 실패/오류/skip 없이 통과했다.
+  - 정밀도 초과/음수/소수 센트 거부, 거래·기준통화 차대일치, transient lineage 차단, 불변 snapshot, JPA/JDBC 동등 매핑을 focused test로 확인했다.
+  - 독립 리뷰의 P1(Closing Batch fixture 공개 계약 회귀)과 P2(여러 대형 라인 합계에 단일 컬럼 정밀도 오적용)를 수정했고, 같은 리뷰어의 재검토는 P0-P3 finding 없이 통과했다.
+- **현재 상태와 위험**:
+  - branch/worktree는 `agent/44-journal-ledger-domain` / `C:\tmp\account-44-journal-ledger-domain`이며 독립 리뷰 완료, PR 게이트 전이다.
+  - 정밀도 정책은 기존 DB의 고정 scale 2 계약을 따른다. 통화별 minor unit(JPY/KWD 등)은 별도 schema/domain 확장 범위다.
+  - 실제 PostgreSQL bulk 성능·lock 경합은 로컬 H2 검증에 포함하지 않았다.
+
 ### 📅 2026-07-30 (Codex Issue #43 실제 구현)
 ### [통합 완료] 날짜 이력을 보존하는 EOD/BOD 상태 머신
 

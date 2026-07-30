@@ -3,7 +3,6 @@ package com.ho.account.loan.infrastructure.adapter;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import org.springframework.stereotype.Component;
@@ -29,7 +28,8 @@ public class LoanJournalAdapter implements LoanJournalPort {
         entry.setSlipDate(command.accountingDate());
         entry.setAccountingDate(command.accountingDate());
         entry.setDescription(command.description());
-        entry.setStatus(JournalEntryStatus.DRAFT);
+        // 상태 setter로 승인 단계를 건너뛸 수 없도록 Aggregate의 최초 전이만 호출합니다.
+        entry.initializeDraft();
         entry.setEntryType("NORMAL");
         entry.setCreatedBy(command.actor());
         entry.setAuditUser(command.actor());

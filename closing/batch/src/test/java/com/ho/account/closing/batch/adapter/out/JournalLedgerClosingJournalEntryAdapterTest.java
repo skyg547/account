@@ -151,7 +151,6 @@ class JournalLedgerClosingJournalEntryAdapterTest {
         entry.setCurrencyCode(command.currencyCode());
         entry.setLineageSourceType(command.lineageSourceType());
         entry.setLineageSourceId(command.lineageSourceId());
-        entry.setStatus(status);
         entry.setDetails(command.lines().stream().map(line -> {
             JournalDetail detail = new JournalDetail();
             detail.setJournalEntry(entry);
@@ -164,6 +163,20 @@ class JournalLedgerClosingJournalEntryAdapterTest {
             detail.setDetailDescription(line.description());
             return detail;
         }).toList());
+        // Fixture도 임의 상태 주입 대신 production Aggregate와 같은 전이를 사용합니다.
+        // 그래야 상태 캡슐화 계약이 바뀌었을 때 소비 모듈의 회귀를 컴파일 단계에서 발견합니다.
+        entry.initializeDraft();
+        if (status == JournalEntryStatus.APPROVED || status == JournalEntryStatus.POSTED) {
+            entry.approve("TEST");
+        }
+        if (status == JournalEntryStatus.POSTED) {
+            entry.post("TEST");
+        }
+        if (status != JournalEntryStatus.DRAFT
+                && status != JournalEntryStatus.APPROVED
+                && status != JournalEntryStatus.POSTED) {
+            throw new IllegalArgumentException("Unsupported fixture status: " + status);
+        }
         return entry;
     }
 }

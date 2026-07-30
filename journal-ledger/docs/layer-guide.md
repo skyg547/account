@@ -45,8 +45,9 @@ domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항�
 
 - 상태 전이와 금액 검증은 도메인 메서드에 둡니다.
 - 외부 저장소 조회, HTTP 호출, 캐시, JDBC SQL은 domain에 두지 않습니다.
-- 차대변 문자열은 가능하면 `JournalSide` 같은 타입으로 제한합니다.
-- 금액은 `BigDecimal`을 사용합니다.
+- 차대변 문자열은 `JournalSide`로 제한하고, 실제 금액 방향은 불변 `Debit`/`Credit` VO로 표현합니다.
+- `AccountingPrecision`은 원장 금액 `DECIMAL(19,2)`와 환율 `DECIMAL(19,8)`을 강제하며 무음 반올림을 금지합니다.
+- `JournalEntry`는 상세 라인의 소유권과 거래/기준통화 차대일치를, `GeneralLedger`는 승인된 전표의 불변 posting snapshot을 책임집니다.
 
 ## Batch 계층
 
@@ -71,7 +72,7 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 | --- | --- | --- | --- |
 | 전표 저장 | `JournalPersistencePort` | JPA | 별도 필요 시 추가 |
 | 자동분개 규칙 조회 | `JournalRuleQueryPort` | JPA | - |
-| GL/SL 엔트리 저장 | `LedgerEntryPersistencePort` | JPA `saveAll` | JDBC batch insert |
+| GL/SL 엔트리 저장 | `LedgerEntryPersistencePort.save(GeneralLedger)` | Aggregate → JPA entity mapping 후 `saveAll` | 같은 Aggregate를 JDBC batch insert |
 | GL/SL 잔액 저장 | `LedgerBalancePersistencePort` | JPA `saveAll` | JDBC upsert/update+insert |
 | 미결 항목 저장 | `UnsettledItemPersistencePort` | JPA | - |
 

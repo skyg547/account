@@ -2,19 +2,14 @@ package com.ho.account.journalledger.application.service.ledger;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
-import com.ho.account.journalledger.domain.ledger.domain.GlEntry;
-import com.ho.account.journalledger.domain.ledger.domain.SlEntry;
+import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.time.LocalDate;
-import java.math.BigDecimal;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -22,11 +17,11 @@ import java.math.BigDecimal;
  * 
  * 🐣 [초보자를 위한 설명]
  * 전기(Posting)란 승인된 '전표(영수증)'의 내용을 바탕으로 실제 '총계정원장(GL)'과 '보조원장(SL)'이라는 큰 장부에 기록을 옮겨 적는 행위입니다.
- * 이 클래스는 전표 승인 이후, 해당 전표의 상세 라인(차변/대변)을 하나씩 읽어서 원장 엔티티(GlEntry, SlEntry)로 변환하고
- * 원장 엔트리를 저장하고 잔액 갱신 서비스에 전달하는 중추적인 역할을 합니다.
+ * 이 클래스는 전표 승인 이후, 상세 라인을 불변 {@code GeneralLedger} Aggregate로 승격하고
+ * 원장 저장과 잔액 갱신을 조정하는 중추적인 역할을 합니다.
  *
- * 전표와 GL/SL 엔트리 저장은 출력 포트에 위임하며, 서비스는 승인 전표를 원장 엔트리로 변환하고
- * 잔액 갱신을 조정하는 업무 흐름에 집중합니다.
+ * GL/SL 영속성 엔티티 조립은 출력 adapter에 위임하며, 서비스는 도메인 Aggregate 생성과
+ * 저장·잔액 갱신 순서를 조정하는 업무 흐름에 집중합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,71 +41,14 @@ public class PostingService {
         JournalEntry journalEntry = journalPersistencePort.findByIdWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 
+        // 승인된 전표의 값을 먼저 불변 스냅샷으로 고정합니다. 이후 adapter 두 개가 같은
+        // Aggregate를 소비하므로 GL과 SL 중 한쪽만 다른 값으로 조립될 여지가 없습니다.
+        GeneralLedger generalLedger = GeneralLedger.fromApproved(journalEntry);
         journalEntry.post(poster);
         journalPersistencePort.save(journalEntry);
 
-        LocalDate accountingDate = journalEntry.getAccountingDate();
-        String fiscalYear = String.valueOf(accountingDate.getYear());
-        String fiscalPeriod = String.format("%02d", accountingDate.getMonthValue());
-
-        List<GlEntry> glEntries = new ArrayList<>();
-        List<SlEntry> slEntries = new ArrayList<>();
         List<JournalDetail> details = journalEntry.getDetails();
-
-        for (JournalDetail detail : details) {
-            boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
-
-            GlEntry glEntry = new GlEntry();
-            glEntry.setJournalDetail(detail);
-            glEntry.setAccountCode(detail.getAccountCode());
-            glEntry.setFiscalYear(fiscalYear);
-            glEntry.setFiscalPeriod(fiscalPeriod);
-            glEntry.setPostingDate(accountingDate);
-            glEntry.setCurrencyCode(journalEntry.getCurrencyCode());
-            glEntry.setLineageSourceType(journalEntry.getLineageSourceType());
-            glEntry.setLineageSourceId(journalEntry.getLineageSourceId());
-
-            if (isDebit) {
-                glEntry.setDrAmount(detail.getAmount());
-                glEntry.setCrAmount(BigDecimal.ZERO);
-                glEntry.setBaseDrAmount(detail.getBaseAmount());
-                glEntry.setBaseCrAmount(BigDecimal.ZERO);
-            } else {
-                glEntry.setDrAmount(BigDecimal.ZERO);
-                glEntry.setCrAmount(detail.getAmount());
-                glEntry.setBaseDrAmount(BigDecimal.ZERO);
-                glEntry.setBaseCrAmount(detail.getBaseAmount());
-            }
-            glEntries.add(glEntry);
-
-            SlEntry slEntry = new SlEntry();
-            slEntry.setJournalDetail(detail);
-            slEntry.setAccountCode(detail.getAccountCode());
-            slEntry.setBusinessPartnerCode(detail.getBusinessPartnerCode());
-            slEntry.setDepartmentCode(detail.getDepartmentCode());
-            slEntry.setFiscalYear(fiscalYear);
-            slEntry.setFiscalPeriod(fiscalPeriod);
-            slEntry.setPostingDate(accountingDate);
-            slEntry.setCurrencyCode(journalEntry.getCurrencyCode());
-            slEntry.setLineageSourceType(journalEntry.getLineageSourceType());
-            slEntry.setLineageSourceId(journalEntry.getLineageSourceId());
-
-            if (isDebit) {
-                slEntry.setDrAmount(detail.getAmount());
-                slEntry.setCrAmount(BigDecimal.ZERO);
-                slEntry.setBaseDrAmount(detail.getBaseAmount());
-                slEntry.setBaseCrAmount(BigDecimal.ZERO);
-            } else {
-                slEntry.setDrAmount(BigDecimal.ZERO);
-                slEntry.setCrAmount(detail.getAmount());
-                slEntry.setBaseDrAmount(BigDecimal.ZERO);
-                slEntry.setBaseCrAmount(detail.getBaseAmount());
-            }
-            slEntries.add(slEntry);
-        }
-
-        ledgerEntryPersistencePort.saveGlEntries(glEntries);
-        ledgerEntryPersistencePort.saveSlEntries(slEntries);
+        ledgerEntryPersistencePort.save(generalLedger);
         
         ledgerService.updateLedgerBalancesBulk(details);
     }

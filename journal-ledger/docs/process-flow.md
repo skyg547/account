@@ -11,8 +11,9 @@ flowchart LR
     VALIDATE --> DRAFT[DRAFT 전표 저장]
     DRAFT --> APPROVE[APPROVED]
     APPROVE --> POST[PostingService]
-    POST --> GL[GL Entry / Balance]
-    POST --> SL[SL Entry / Balance]
+    POST --> SNAPSHOT[GeneralLedger immutable snapshot]
+    SNAPSHOT --> GL[GL Entry / Balance]
+    SNAPSHOT --> SL[SL Entry / Balance]
     POST --> UNSETTLED[미결 항목 등록]
     UNSETTLED --> SETTLE[수금·지급 반제]
 ```
@@ -29,6 +30,15 @@ flowchart LR
 
 전표 저장은 `JournalPersistencePort`, GL/SL 엔트리 저장은 `LedgerEntryPersistencePort`,
 잔액 조회·저장·재집계는 `LedgerBalancePersistencePort`를 사용합니다.
+
+`PostingService`는 JPA 엔티티를 직접 만들지 않습니다. 승인된 `JournalEntry`를
+`GeneralLedger` Aggregate로 바꾸고 `LedgerEntryPersistencePort.save()`에 전달합니다.
+JPA와 JDBC bulk adapter는 이 같은 불변 snapshot을 각 저장 형태로 변환하므로 GL과 SL의
+차변/대변, 기준통화 금액, lineage가 서로 어긋나지 않습니다.
+
+원장 금액은 `Debit`/`Credit` VO와 `AccountingPrecision`을 거칩니다. 저장 계약은
+`DECIMAL(19,2)`이며 소수 센트를 무음 반올림하지 않습니다. 거래통화 합계뿐 아니라
+기준통화 합계도 차대일치해야 전기할 수 있습니다.
 
 기본 어댑터는 JPA입니다. 운영에서 대량 전기/재집계가 필요하면 아래 설정으로 JDBC bulk 구현체를 사용합니다.
 

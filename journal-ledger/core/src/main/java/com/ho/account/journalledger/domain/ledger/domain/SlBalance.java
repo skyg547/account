@@ -62,12 +62,16 @@ public class SlBalance {
     private LocalDateTime updatedAt;
 
     public void addDebit(BigDecimal amount) {
-        this.debitAmount = (this.debitAmount == null ? BigDecimal.ZERO : this.debitAmount).add(amount);
+        BigDecimal normalized = AccountingPrecision.nonNegativeLedgerAmount(amount);
+        this.debitAmount = AccountingPrecision.nonNegativeLedgerAmount(
+                (this.debitAmount == null ? BigDecimal.ZERO : this.debitAmount).add(normalized));
         recalculate();
     }
 
     public void addCredit(BigDecimal amount) {
-        this.creditAmount = (this.creditAmount == null ? BigDecimal.ZERO : this.creditAmount).add(amount);
+        BigDecimal normalized = AccountingPrecision.nonNegativeLedgerAmount(amount);
+        this.creditAmount = AccountingPrecision.nonNegativeLedgerAmount(
+                (this.creditAmount == null ? BigDecimal.ZERO : this.creditAmount).add(normalized));
         recalculate();
     }
 
@@ -75,7 +79,7 @@ public class SlBalance {
         BigDecimal beg = this.beginningBalance == null ? BigDecimal.ZERO : this.beginningBalance;
         BigDecimal dr  = this.debitAmount      == null ? BigDecimal.ZERO : this.debitAmount;
         BigDecimal cr  = this.creditAmount     == null ? BigDecimal.ZERO : this.creditAmount;
-        this.endingBalance = beg.add(dr).subtract(cr);
+        this.endingBalance = AccountingPrecision.ledgerAmount(beg.add(dr).subtract(cr));
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -92,5 +96,21 @@ public class SlBalance {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setBeginningBalance(BigDecimal beginningBalance) {
+        this.beginningBalance = AccountingPrecision.ledgerAmount(beginningBalance);
+    }
+
+    public void setDebitAmount(BigDecimal debitAmount) {
+        this.debitAmount = AccountingPrecision.nonNegativeLedgerAmount(debitAmount);
+    }
+
+    public void setCreditAmount(BigDecimal creditAmount) {
+        this.creditAmount = AccountingPrecision.nonNegativeLedgerAmount(creditAmount);
+    }
+
+    public void setEndingBalance(BigDecimal endingBalance) {
+        this.endingBalance = AccountingPrecision.ledgerAmount(endingBalance);
     }
 }
