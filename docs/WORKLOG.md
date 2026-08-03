@@ -1,3 +1,14 @@
+### 📅 2026-08-04 (Reconciliation 모듈 AutomatedMatchingEngine & Diff Resolver 도메인 고도화)
+### [기능 완료] pure domain ReconciliationDiffResolver 구현 및 대사 차이 해소 수수료/조정 산출 엔진
+
+- **작업 배경**:
+  - `reconciliation` 모듈의 자동 대사 매칭 엔진(`AutomatedMatchingEngine`)과 연계하여 대사 결과 발견된 불일치 항목(`ReconciliationDifference`)에 사유 코드(`DifferenceReasonCode`)를 지정하고 `RESOLVED` 종결 및 조정 전표 필요 금액을 산출하는 코어 도메인 엔진이 필요했음.
+- **주요 변경 사항**:
+  - **`ReconciliationDiffResolver` (pure domain)**: 대사 차이 항목의 상태 검증(이미 `RESOLVED` 또는 `IGNORED` 항목 재해소 금지), 원인 사유 코드 부여, 해소자(`resolvedBy`) 및 일시 기록, 조정 전표 발생 필요 금액 계산기 구현.
+- **검증**:
+  - `ReconciliationDiffResolverTest` (사유 코드 할당 해소 성공, 중복 해소 예외 거부, 조정 금액 계산 100% 통과).
+  - Gradle test suite 실행: `:reconciliation:core:test`, `:reconciliation:api:test`, `:reconciliation:batch:test` 전수 통과 확인.
+
 ### 📅 2026-08-04 (Deposit 모듈 약정이율 예금 이자 일할 계산 & 중도/만기해지 정산 엔진 구현)
 ### [기능 완료] pure domain DepositInterestAccrualCalculator 및 DepositTerminationSettlementCalculator
 
