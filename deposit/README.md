@@ -4,9 +4,16 @@
 
 ## 모듈 구조
 
-- `deposit:core`: 예금 계좌 도메인, 계좌 개설 유즈케이스, 초기입금 전표 생성 포트, JPA 영속성 어댑터. `OpenAccountCommand`가 고객/상품/통화 코드와 금액/금리 기본 무결성을 먼저 검증합니다.
+- `deposit:core`: 예금 계좌 도메인, 계좌 상태 전이 머신(`DepositAccountStateMachine`), 일할 이자 계산기(`DepositInterestAccrualCalculator`), 중도/만기해지 정산 엔진(`DepositTerminationSettlementCalculator`), 계좌 개설 유즈케이스 및 JPA 영속성 어댑터를 포함합니다.
 - `deposit:api`: HTTP API 실행 앱. `DepositApplication`을 main class로 사용합니다.
 - `deposit:batch`: Batch 컨텍스트 실행 앱. `depositAccountIntegrityJob`으로 활성 예금 계좌의 잔액/이자율/유효기간 무결성을 점검합니다.
+
+## 주요 코어 도메인 계산 엔진
+
+1. **DepositDayCountConvention**: 원화 예금 365일 기준(`ACTUAL_365`) 및 외화 예금 360일 기준(`ACTUAL_360`) 일수 계산 기준.
+2. **DepositInterestAccrualCalculator**: 약정이율 기반 매일 미지급 이자 일할 계산 (\( \text{Balance} \times \text{Rate} \times \frac{\text{Days}}{\text{BaseDays}} \)) 정밀 계산기.
+3. **DepositTerminationSettlementCalculator**: 만기해지 및 중도해지 패널티 비율 적용, 이자소득세 14% + 지방소득세 1.4% (총 15.4%) 원천징수 세금 및 최종 실지급액 산출 엔진.
+4. **DepositAccountStateMachine**: 계좌 상태 전이(`ACTIVE` -> `SUSPENDED` / `DORMANT` -> `CLOSED`) 규칙 검증기.
 
 ## 로컬 실행
 
