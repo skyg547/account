@@ -28,7 +28,7 @@ class MigrationCommandTest {
     }
 
     @Test
-    void incompleteContextIsBlockedBeforeAnyConnectionConfigurationIsRead() {
+    void completedContextAdvancesToFailClosedConnectionConfiguration() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
 
@@ -36,9 +36,10 @@ class MigrationCommandTest {
                 new String[]{"--context=account-mart", "--action=validate"},
                 Map.of());
 
-        assertThat(exitCode).isEqualTo(3);
+        assertThat(exitCode).isEqualTo(2);
         assertThat(errors.toString(StandardCharsets.UTF_8))
-                .contains("account-mart", "#255")
+                .contains("MIGRATION_DB_URL is required")
+                .doesNotContain("#255")
                 .doesNotContain("MIGRATION_DB_PASSWORD");
     }
 

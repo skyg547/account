@@ -18,15 +18,30 @@ public class OdsReconcileHistEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "base_dt")
+    @Column(name = "base_dt", nullable = false)
     private LocalDate baseDate;
 
+    @Column(name = "source_system", length = 255)
     private String sourceSystem;
+
+    @Column(name = "target_system", length = 255)
     private String targetSystem;
+
+    @Column(name = "reconcile_item", length = 255)
     private String reconcileItem;
+
+    @Column(name = "source_amount", precision = 19, scale = 4)
     private BigDecimal sourceAmount;
+
+    @Column(name = "target_amount", precision = 19, scale = 4)
     private BigDecimal targetAmount;
+
+    @Column(name = "diff_amount", precision = 19, scale = 4)
     private BigDecimal diffAmount;
+
+    @Column(name = "status", length = 255)
     private String status;
+
+    @Column(name = "audit_timestamp")
     private LocalDateTime auditTimestamp;
 }

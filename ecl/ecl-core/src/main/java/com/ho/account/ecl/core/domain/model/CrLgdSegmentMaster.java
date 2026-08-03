@@ -28,19 +28,19 @@ public class CrLgdSegmentMaster {
     private Long id;
 
     /** 세그먼트 명칭 */
-    @Column(name = "segment_name", nullable = false)
+    @Column(name = "segment_name", nullable = false, length = 100)
     private String segmentName;
 
     /** 차주 유형 (CORPORATE, RETAIL 등) */
-    @Column(name = "customer_type", nullable = false)
+    @Column(name = "customer_type", nullable = false, length = 30)
     private String customerType;
 
     /** 담보 유형 (UNSECURED, REAL_ESTATE 등) */
-    @Column(name = "collateral_type", nullable = false)
+    @Column(name = "collateral_type", nullable = false, length = 30)
     private String collateralType;
 
     /** 신용 부도시 손실률 (LGD, 0.0 ~ 1.0) */
-    @Column(name = "lgd_value", nullable = false, precision = 10, scale = 8)
+    @Column(name = "lgd_value", nullable = false, precision = 15, scale = 10)
     private BigDecimal lgdValue;
 
     /** 생성 일시 */

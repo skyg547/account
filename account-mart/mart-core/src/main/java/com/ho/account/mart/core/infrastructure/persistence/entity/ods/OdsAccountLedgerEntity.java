@@ -13,7 +13,7 @@ import java.time.LocalDate;
 public class OdsAccountLedgerEntity {
 
     @Id 
-    @Column(name = "acc_no", length = 50) 
+    @Column(name = "acc_no", nullable = false, length = 50)
     @Comment("계좌번호")
     private String accountNo;
 
@@ -26,19 +26,19 @@ public class OdsAccountLedgerEntity {
     @Column(name = "currency", length = 3) 
     private String currency;
 
-    @Column(name = "outstd_amt") 
+    @Column(name = "outstd_amt", precision = 19, scale = 4)
     private BigDecimal outstandingAmount;
 
-    @Column(name = "limit_amt") 
+    @Column(name = "limit_amt", precision = 19, scale = 4)
     private BigDecimal limitAmount;
 
-    @Column(name = "int_rate") 
+    @Column(name = "int_rate", precision = 10, scale = 6)
     private BigDecimal interestRate;
 
-    @Column(name = "base_rate_cd") 
+    @Column(name = "base_rate_cd", length = 20)
     private String baseRateCode;
 
-    @Column(name = "spread") 
+    @Column(name = "spread", precision = 10, scale = 6)
     private BigDecimal spread;
 
     @Column(name = "next_reset_dt") 
@@ -53,7 +53,7 @@ public class OdsAccountLedgerEntity {
     @Column(name = "delinquent_days") 
     private Integer delinquentDays;
 
-    @Column(name = "repayment_method") 
+    @Column(name = "repayment_method", length = 20)
     private String repaymentMethod;
 
     @Column(name = "grace_period")

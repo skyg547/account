@@ -23,7 +23,7 @@ import org.hibernate.annotations.Comment;
 public class OdsCustomerMstEntity {
 
     @Id 
-    @Column(name = "customer_code", length = 50) 
+    @Column(name = "customer_code", nullable = false, length = 50)
     @Comment("고객내부코드: 시스템 내부적으로 고객을 식별하기 위한 고유 번호")
     private String customerCode;
 

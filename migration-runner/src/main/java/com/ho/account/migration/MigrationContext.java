@@ -30,14 +30,14 @@ record MigrationContext(
 
     private static Map<String, MigrationContext> createContexts() {
         Map<String, MigrationContext> contexts = new LinkedHashMap<>();
-        blocked(contexts, "account-mart", 255);
-        blocked(contexts, "asset-lease", 254);
+        ready(contexts, "account-mart");
+        ready(contexts, "asset-lease");
         ready(contexts, "auth");
         ready(contexts, "budget");
         readyWithLegacyBaseline(
                 contexts, "closing", "flyway_schema_history_closing", "49");
         ready(contexts, "deposit");
-        blocked(contexts, "ecl", 255);
+        ready(contexts, "ecl");
         ready(contexts, "expenditure-resolution");
         ready(contexts, "journal-ledger");
         ready(contexts, "loan");

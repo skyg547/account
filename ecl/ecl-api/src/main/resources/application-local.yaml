@@ -1,0 +1,46 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:ecl-api;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: never
+  kafka:
+    listener:
+      auto-startup: false
+  redisson:
+    enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

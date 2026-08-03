@@ -21,32 +21,32 @@ import java.time.LocalDate;
 @Table(name = "allowance_input_positions")
 @IdClass(AllowanceInputPositionJpaId.class)
 public class AllowanceInputPositionJpaEntity {
-    @Id @Column(name = "base_dt") private LocalDate baseDt;
-    @Id @Column(name = "acc_no") private String accNo;
-    @Column(name = "customer_code") private String customerCode;
-    @Column(name = "customer_name") private String customerName;
-    @Enumerated(EnumType.STRING) @Column(name = "cust_type") private CustomerType customerType;
+    @Id @Column(name = "base_dt", nullable = false) private LocalDate baseDt;
+    @Id @Column(name = "acc_no", nullable = false, length = 50) private String accNo;
+    @Column(name = "customer_code", nullable = false, length = 50) private String customerCode;
+    @Column(name = "customer_name", length = 200) private String customerName;
+    @Enumerated(EnumType.STRING) @Column(name = "cust_type", length = 30) private CustomerType customerType;
     @Column(name = "is_sme") private Boolean isSme;
-    @Column(name = "country_cd") private String countryCode;
-    @Column(name = "prod_cd") private String productCode;
-    @Enumerated(EnumType.STRING) @Column(name = "prod_category") private ProductCategory productCategory;
-    @Enumerated(EnumType.STRING) @Column(name = "currency") private CurrencyCode currency;
-    @Column(name = "outstd_amt") private BigDecimal outstandingAmount;
-    @Column(name = "limit_amt") private BigDecimal limitAmount;
-    @Column(name = "int_rate") private BigDecimal interestRate;
+    @Column(name = "country_cd", length = 10) private String countryCode;
+    @Column(name = "prod_cd", length = 20) private String productCode;
+    @Enumerated(EnumType.STRING) @Column(name = "prod_category", length = 30) private ProductCategory productCategory;
+    @Enumerated(EnumType.STRING) @Column(name = "currency", nullable = false, length = 3) private CurrencyCode currency;
+    @Column(name = "outstd_amt", precision = 19, scale = 4) private BigDecimal outstandingAmount;
+    @Column(name = "limit_amt", precision = 19, scale = 4) private BigDecimal limitAmount;
+    @Column(name = "int_rate", precision = 10, scale = 6) private BigDecimal interestRate;
     @Column(name = "open_dt") private LocalDate openDate;
     @Column(name = "maturity_dt") private LocalDate maturityDate;
-    @Column(name = "repayment_method") private String repaymentMethod;
+    @Column(name = "repayment_method", length = 20) private String repaymentMethod;
     @Column(name = "grace_period") private Integer gracePeriod;
     @Column(name = "repayment_freq") private Integer repaymentFreq;
-    @Column(name = "internal_rating") private String internalRating;
-    @Column(name = "industry_cd") private String industryCode;
-    @Column(name = "warning_level") private String warningLevel;
+    @Column(name = "internal_rating", length = 10) private String internalRating;
+    @Column(name = "industry_cd", length = 20) private String industryCode;
+    @Column(name = "warning_level", length = 20) private String warningLevel;
     @Column(name = "is_debt_restructured") private Boolean isDebtRestructured;
     @Column(name = "delinquent_days") private Integer delinquentDays;
-    @Enumerated(EnumType.STRING) @Column(name = "staging") private CrStaging staging;
-    @Column(name = "branch_cd") private String branchCode;
-    @Column(name = "biz_unit_cd") private String businessUnitCode;
+    @Enumerated(EnumType.STRING) @Column(name = "staging", length = 20) private CrStaging staging;
+    @Column(name = "branch_cd", length = 10) private String branchCode;
+    @Column(name = "biz_unit_cd", length = 10) private String businessUnitCode;
 
     public LocalDate getBaseDt() { return baseDt; }
     public String getAccNo() { return accNo; }

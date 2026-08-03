@@ -1,3 +1,9 @@
+description = 'account-ecl-api'
+
+base {
+    archivesName = 'account-ecl-api'
+}
+
 dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -5,9 +11,14 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
     implementation project(':ecl:ecl-core')
     implementation project(':ecl:ecl-batch')
+    implementation project(':shared-kernel')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
@@ -22,5 +33,15 @@ dependencies {
     // Contract Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-verifier'
-    testRuntimeOnly 'com.h2database:h2'
+}
+
+bootJar { enabled = true }
+jar { enabled = false }
+
+springBoot {
+    mainClass = 'com.ho.account.ecl.api.AllowanceEclApiApplication'
+}
+
+bootRun {
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
 }

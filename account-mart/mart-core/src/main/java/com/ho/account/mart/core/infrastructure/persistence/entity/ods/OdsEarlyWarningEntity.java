@@ -15,17 +15,17 @@ import java.time.LocalDate;
 public class OdsEarlyWarningEntity {
 
     @Id
-    @Column(name = "base_dt")
+    @Column(name = "base_dt", nullable = false)
     private LocalDate baseDate;
 
     @Id
-    @Column(name = "customer_code", length = 50)
+    @Column(name = "customer_code", nullable = false, length = 50)
     private String customerCode;
 
     @Column(name = "warning_level", length = 10)
     private String warningLevel;
 
-    @Column(name = "warning_reason")
+    @Column(name = "warning_reason", length = 255)
     private String warningReason;
 
     @Column(name = "warning_score")

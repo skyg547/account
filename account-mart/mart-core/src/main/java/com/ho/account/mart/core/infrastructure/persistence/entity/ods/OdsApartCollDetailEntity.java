@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 public class OdsApartCollDetailEntity {
 
     @Id
-    @Column(name = "coll_id", length = 50)
+    @Column(name = "coll_id", nullable = false, length = 50)
     private String collateralId;
 
     @Column(name = "district_cd", length = 10)

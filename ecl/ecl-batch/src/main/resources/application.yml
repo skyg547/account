@@ -1,107 +1,43 @@
-server:
-  port: 8084 # IFRS 9 대손충당금 배치 제어 포트
-
 spring:
   application:
     name: ifrs9-allowance-batch
-  # 💡 로컬 환경 Redis 미기동 시 Redisson 연결 시도 방지
-  redisson:
-    enabled: false
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-  datasource:
-    # 배치 메타데이터 및 산출 데이터를 위한 H2 설정 (PostgreSQL 모드)
-    url: jdbc:h2:file:./data/ifrs9_allowance_db;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  
-  # JPA 및 Hibernate 설정
-  # IFRS 9 대손충당금 산식은 정밀도 유지가 핵심입니다.
-  # EAD, LGD, PD, ECL 금액/비율 계산에는 BigDecimal을 사용합니다.
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
-  
-  # Spring Batch 설정
-  # Chunk Size: 100~500 권장 (메모리 사용량과 DB I/O 성능 간의 트레이드오프)
-  # 너무 작으면 DB Commit이 잦아져 느리고, 너무 크면 JVM OOM 위험이 있습니다.
+  profiles:
+    default: local
+  main:
+    web-application-type: none
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
   batch:
     job:
-      enabled: false # 애플리케이션 시작 시 자동으로 잡이 실행되는 것을 방지 (트리거 필요)
-    jdbc:
-      initialize-schema: always # 배치 실행에 필요한 메타 테이블 자동 생성
+      enabled: false
+  flyway:
+    enabled: false
+    locations: classpath:db/ecl-local-migration
+    clean-disabled: true
+    baseline-on-migrate: false
   sql:
     init:
       mode: never
-
-# 서비스 디스커버리 연동
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
-logging:
-  level:
-    com.ho.account.ecl: DEBUG
-
----
-# 실운영 환경용 프로파일 (PostgreSQL)
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  datasource:
-    url: jdbc:postgresql://192.168.0.104:5432/ifrs9_allowance_db
-    username: allowance_user
-    password: ${ALLOWANCE_DB_PASSWORD:allowance_password}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  batch:
-    jdbc:
-      platform: postgresql
-      initialize-schema: always
-
----
-# Docker 컨테이너 환경용 프로파일
-spring:
-  config:
-    activate:
-      on-profile: docker
-  datasource:
-    url: jdbc:postgresql://postgres:5432/ifrs9_allowance_db
-    username: allowance_user
-    password: ${ALLOWANCE_DB_PASSWORD:allowance_password}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  batch:
-    jdbc:
-      platform: postgresql
-      initialize-schema: always
+  kafka:
+    listener:
+      auto-startup: false
+  redisson:
+    enabled: false
 
 eureka:
   client:
-    service-url:
-      defaultZone: http://discovery-service:8761/eureka/
+    enabled: false
+
+management:
+  health:
+    redis:
+      enabled: false
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

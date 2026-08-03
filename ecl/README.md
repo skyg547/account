@@ -46,6 +46,24 @@ flowchart LR
 
 Windows PowerShell 또는 IntelliJ Gradle Run Configuration 기준입니다.
 
+프로파일을 생략하면 `local`이 선택된다. API와 Batch는 각각 독립 메모리 H2 DB에 ECL 전용
+Flyway V1 baseline을 적용하고 JPA schema를 검증하며, Batch Job과 Kafka listener는 자동으로
+시작하지 않는다.
+
+```powershell
+.\gradlew.bat :ecl:ecl-api:bootRun --console=plain
+.\gradlew.bat :ecl:ecl-batch:bootRun --console=plain
+.\gradlew.bat :ecl:ecl-api:bootJar :ecl:ecl-batch:bootJar
+java -jar ecl\ecl-api\build\libs\account-ecl-api-0.0.1-SNAPSHOT.jar
+java -jar ecl\ecl-batch\build\libs\account-ecl-batch-0.0.1-SNAPSHOT.jar
+```
+
+`dev`/`prod`는 `DEV_DB_*`/`PROD_DB_*` 환경 변수로 PostgreSQL만 사용한다. 런타임 Flyway,
+Hibernate DDL, SQL init, Batch metadata 자동 생성은 금지되며 release-time runner가 published
+V1-V3와 forward-only V4를 적용한다. `prod`는 `sslmode=verify-full`을 강제한다.
+
+실제 Job을 opt-in 실행하는 예시는 다음과 같다.
+
 ```powershell
 # 대손충당금 전용 ECL 산출
 .\gradlew :ecl:ecl-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=false job.name=allowanceEclJob baseDate=2026-04-30 runId=RUN-20260430 modelVersion=v1 --spring.flyway.enabled=false" --console=plain --max-workers=1

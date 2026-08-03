@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class OdsCollateralMstEntity {
     @Id
-    @Column(name = "collateral_no", length = 50)
+    @Column(name = "collateral_no", nullable = false, length = 50)
     private String collateralNo;
 
     @Column(name = "customer_code", length = 50)

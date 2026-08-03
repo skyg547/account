@@ -3,7 +3,6 @@ package com.ho.account.ecl.api.controller;
 import com.ho.account.ecl.core.application.service.calculation.EadBatchService;
 import com.ho.account.ecl.core.domain.result.AllowanceEclResult;
 import com.ho.account.shared.finance.dto.ApiResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.explore.JobExplorer;
@@ -45,7 +44,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/ifrs/allowance/batch")
-@RequiredArgsConstructor
 public class AllowanceBatchController {
 
     // Spring Batch의 Job을 실행시키는 런처. "Job 시작!"을 명령하는 역할입니다.
@@ -60,9 +58,16 @@ public class AllowanceBatchController {
     // Spring ApplicationContext: 문자열(jobName)로 Bean을 찾을 때 사용합니다.
     private final org.springframework.context.ApplicationContext context;
 
-    // @Qualifier: 같은 타입(Job)의 Bean이 여러 개일 때 어떤 것을 쓸지 이름으로 지정합니다.
-    @org.springframework.beans.factory.annotation.Qualifier("allowanceEclJob")
-    private final Job allowanceEclJob;
+    public AllowanceBatchController(
+            JobLauncher jobLauncher,
+            JobExplorer jobExplorer,
+            EadBatchService eadBatchService,
+            org.springframework.context.ApplicationContext context) {
+        this.jobLauncher = jobLauncher;
+        this.jobExplorer = jobExplorer;
+        this.eadBatchService = eadBatchService;
+        this.context = context;
+    }
 
     /**
      * 최근 배치 실행 상태 및 8단계별 진행 상황을 조회한다.

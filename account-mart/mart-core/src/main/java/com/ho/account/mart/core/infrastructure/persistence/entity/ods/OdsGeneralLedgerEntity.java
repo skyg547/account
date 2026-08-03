@@ -15,21 +15,21 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class OdsGeneralLedgerEntity {
     @Id
-    @Column(name = "base_dt")
+    @Column(name = "base_dt", nullable = false)
     private LocalDate baseDate;
 
     @Id
-    @Column(name = "gl_code", length = 20)
+    @Column(name = "gl_code", nullable = false, length = 20)
     private String glCode;
 
     @Id
-    @Column(name = "currency", length = 3)
+    @Column(name = "currency", nullable = false, length = 3)
     private String currency;
 
     @Column(name = "balance", precision = 19, scale = 4)
     private BigDecimal balance;
 
     @Id
-    @Column(name = "branch_cd", length = 10)
+    @Column(name = "branch_cd", nullable = false, length = 10)
     private String branchCode;
 }

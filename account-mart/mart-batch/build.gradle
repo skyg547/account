@@ -5,10 +5,28 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
     implementation project(':account-mart:mart-core')
     implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'com.github.ben-manes.caffeine:caffeine'
     testImplementation 'org.springframework.batch:spring-batch-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'com.h2database:h2'
+}
+
+base {
+    archivesName = 'account-mart-batch'
+}
+
+bootJar { enabled = true }
+jar { enabled = false }
+
+springBoot {
+    mainClass = 'com.ho.account.mart.batch.AllowanceMartBatchApplication'
+}
+
+bootRun {
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
 }

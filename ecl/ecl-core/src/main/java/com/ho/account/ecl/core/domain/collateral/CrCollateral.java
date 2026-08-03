@@ -45,7 +45,7 @@ public class CrCollateral extends BaseEntity {
     private BigDecimal appraisalAmount;
 
     /** 모델 기본 헤어컷 (Hc, 0.0 ~ 1.0) */
-    @Column(name = "base_haircut", nullable = false, precision = 5, scale = 4)
+    @Column(name = "base_haircut", nullable = false, precision = 10, scale = 6)
     @Builder.Default
     private BigDecimal baseHaircut = BigDecimal.ZERO;
 
@@ -57,7 +57,7 @@ public class CrCollateral extends BaseEntity {
     private BigDecimal priorLienAmount = BigDecimal.ZERO;
 
     /** LTV 한도 (예: 0.70) */
-    @Column(name = "ltv_limit", precision = 5, scale = 4)
+    @Column(name = "ltv_limit", precision = 10, scale = 6)
     private BigDecimal ltvLimit;
 
     /** KB 시세 (부동산인 경우) */

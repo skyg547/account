@@ -31,7 +31,7 @@ public class CrProductMaster extends BaseEntity {
     private String productName;
 
     /** 신용전환계수 (CCF) - 미사용 한도 등 난외(Off-Balance) 자산을 EAD로 환산할 때 곱하는 비율 */
-    @Column(name = "ccf_rate", nullable = false, precision = 5, scale = 4)
+    @Column(name = "ccf_rate", nullable = false, precision = 10, scale = 6)
     private BigDecimal ccfRate;
 
     /** 상품 상세 설명 */

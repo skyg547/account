@@ -15,6 +15,10 @@ import org.springframework.core.env.Environment;
 class ExecutableSchemaProfilePolicyTest {
 
     private static final List<String> EXECUTABLE_RESOURCE_DIRECTORIES = List.of(
+            "account-mart/mart-api/src/main/resources",
+            "account-mart/mart-batch/src/main/resources",
+            "asset-lease/api/src/main/resources",
+            "asset-lease/batch/src/main/resources",
             "auth/api/src/main/resources",
             "auth/batch/src/main/resources",
             "budget/api/src/main/resources",
@@ -23,6 +27,8 @@ class ExecutableSchemaProfilePolicyTest {
             "closing/batch/src/main/resources",
             "deposit/api/src/main/resources",
             "deposit/batch/src/main/resources",
+            "ecl/ecl-api/src/main/resources",
+            "ecl/ecl-batch/src/main/resources",
             "expenditure-resolution/api/src/main/resources",
             "expenditure-resolution/batch/src/main/resources",
             "journal-ledger/api/src/main/resources",
@@ -110,8 +116,10 @@ class ExecutableSchemaProfilePolicyTest {
                 .isEqualTo("never");
         assertThat(environment.getProperty("spring.sql.init.mode"))
                 .isEqualTo("never");
-        if (executable.startsWith("asset-lease/")
+        if (executable.startsWith("account-mart/")
+                || executable.startsWith("asset-lease/")
                 || executable.startsWith("closing/")
+                || executable.startsWith("ecl/")
                 || executable.startsWith("expenditure-resolution/")
                 || executable.startsWith("journal-ledger/")
                 || executable.startsWith("master-data/")
@@ -125,6 +133,11 @@ class ExecutableSchemaProfilePolicyTest {
             assertThat(environment.getProperty("spring.cloud.vault.enabled", Boolean.class))
                     .as(description + " Vault")
                     .isFalse();
+            if (executable.startsWith("account-mart/") || executable.startsWith("ecl/")) {
+                assertThat(environment.getProperty("management.health.redis.enabled", Boolean.class))
+                        .as(description + " Redis health")
+                        .isFalse();
+            }
         }
         if (executable.startsWith("journal-ledger/")) {
             assertThat(environment.getProperty("journal-ledger.master-data.base-url"))
@@ -147,10 +160,14 @@ class ExecutableSchemaProfilePolicyTest {
     void localProfilesDisableExternalControlPlaneAndBatchAutorun() {
         Path repositoryRoot = repositoryRoot();
         for (String resourceDirectory : List.of(
+                "account-mart/mart-api/src/main/resources",
+                "account-mart/mart-batch/src/main/resources",
                 "asset-lease/api/src/main/resources",
                 "asset-lease/batch/src/main/resources",
                 "closing/api/src/main/resources",
                 "closing/batch/src/main/resources",
+                "ecl/ecl-api/src/main/resources",
+                "ecl/ecl-batch/src/main/resources",
                 "expenditure-resolution/api/src/main/resources",
                 "expenditure-resolution/batch/src/main/resources",
                 "journal-ledger/api/src/main/resources",
@@ -181,6 +198,11 @@ class ExecutableSchemaProfilePolicyTest {
                 assertThat(environment.getProperty("eureka.client.enabled", Boolean.class)).isFalse();
                 if (resourceDirectory.contains("/batch/")) {
                     assertThat(environment.getProperty("spring.batch.job.enabled", Boolean.class)).isFalse();
+                }
+                if (resourceDirectory.startsWith("account-mart/")
+                        || resourceDirectory.startsWith("ecl/")) {
+                    assertThat(environment.getProperty("management.health.redis.enabled", Boolean.class))
+                            .isFalse();
                 }
                 if (resourceDirectory.startsWith("journal-ledger/")) {
                     assertThat(environment.getProperty(

@@ -35,17 +35,17 @@ public class CrMacroScenario {
     private String scenarioType;
 
     /** 시나리오 발생 확률 (가중치, 예: 0.30) */
-    @Column(name = "probability_weight", precision = 5, scale = 4)
+    @Column(name = "probability_weight", nullable = false, precision = 10, scale = 6)
     private BigDecimal probabilityWeight;
 
     /** 
      * PD 스칼라 조정 계수 (Z-factor)
      * 💡 평균(BASE)을 1.0으로 볼 때, 침체기에는 부도율이 1.5배 높아진다면 1.5000을 입력합니다.
      */
-    @Column(name = "pd_adjustment_factor", precision = 7, scale = 4)
+    @Column(name = "pd_adjustment_factor", nullable = false, precision = 10, scale = 6)
     private BigDecimal pdAdjustmentFactor;
 
     /** 설명 (예: 2026년 하반기 경기 침체 시나리오 반영) */
-    @Column(name = "description")
+    @Column(name = "description", length = 500)
     private String description;
 }
