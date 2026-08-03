@@ -758,6 +758,7 @@
 
 - Owner: Codex Integrator with an independent read-only Reviewer.
 - Branch/worktree: `agent/251-journal-master-postgres-baseline` / `C:\tmp\account-251-journal-master-postgres-baseline`; stacked on `agent/250-closing-postgres-baseline`.
+- Delivery: implementation commit `1e6e68d8`, stacked Draft PR `#263`; Issue `#251` remains open.
 - Preserved published Journal V1/V10 and Master V1-V5, then completed all JPA-owned tables, numeric precision, checks, FK, unique and indexes through forward-only Journal V11 and Master V6.
 - Added default local H2 PostgreSQL-mode/Flyway/JPA-validate profiles and fail-closed dev/prod PostgreSQL profiles for both API/Batch pairs. Runtime Flyway, SQL init and dev/prod Batch schema init remain disabled.
 - Narrowed Journal composition roots to Journal schema ownership. Added a local-only Master Data reference adapter, bounded dev/prod HTTP adapter, and date-explicit read-only Master Data reference/fiscal-period endpoints so Journal no longer scans Master Data persistence or exposes raw Closing state mutation.

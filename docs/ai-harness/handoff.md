@@ -1296,6 +1296,7 @@
 
 - Worktree/branch: `C:\tmp\account-251-journal-master-postgres-baseline`, `agent/251-journal-master-postgres-baseline`.
 - Stack: `agent/250-closing-postgres-baseline` / Draft PR #260, which stacks on #259 and #256.
+- Delivery: implementation commit `1e6e68d8`, stacked Draft PR #263.
 - Issue #251 remains OPEN. Runner inventory is READY 9 / BLOCKED 7 on this stack.
 
 ## Delivered and verified

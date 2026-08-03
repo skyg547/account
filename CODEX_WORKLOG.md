@@ -1760,7 +1760,7 @@
 
 ## 2026-08-04 (Issue #251 Journal Ledger and Master Data PostgreSQL baselines)
 
-- `agent/251-journal-master-postgres-baseline`을 #260 위에 stack해 published migration을 유지한 Journal V11과 Master V6 forward-only baseline을 구현했다.
+- `agent/251-journal-master-postgres-baseline`을 #260 위에 stack해 published migration을 유지한 Journal V11과 Master V6 forward-only baseline을 구현하고 commit `1e6e68d8`, Draft PR #263으로 전달했다.
 - Journal/Master API·Batch는 profile 생략 시 local H2 PostgreSQL mode, Flyway, JPA validate로 독립 실행한다. dev/prod는 injected PostgreSQL, runtime Flyway/SQL/Batch schema init 차단 계약을 가진다.
 - Journal production scan을 Journal 소유로 좁히고 local 전용 reference adapter와 날짜 명시·timeout 제한 dev/prod Master Data HTTP adapter, read-only reference/Fiscal Period API를 추가했다. raw Closing 상태 mutation은 승인/gate 우회를 막기 위해 노출하지 않는다.
 - Production PostgreSQL은 `sslmode=verify-full`을 startup에서 강제하고, remote connect/read timeout은 1ms 미만/0/음수/과대 값을 거부한다.
