@@ -1,3 +1,18 @@
+### 📅 2026-08-03 (Loan 모듈 원리금 상환 스케줄 & EIR 이연 상각 코어 엔진 구현)
+### [기능 완료] pure domain RepaymentScheduleCalculator 및 EIRAmortizationEngine
+
+- **작업 배경**:
+  - 기존 `loan` 모듈의 스케줄 생성 로직이 단일 상환 방식에 국한되어 다양한 금융 대출 상환 방식(원리금 균등, 원금 균등, 만기 일시) 및 IFRS 9 정밀 이연 상각 요구사항 반영이 필요했음.
+- **주요 변경 사항**:
+  - **`RepaymentMethod`**: 원리금 균등상환(`EQUAL_PRINCIPAL_AND_INTEREST`), 원금 균등상환(`EQUAL_PRINCIPAL`), 만기 일시상환(`BULLET_MATURITY`) 도메인 열거형 구현.
+  - **`RepaymentScheduleCalculator` (pure domain)**: `MathContext(34, RoundingMode.HALF_EVEN)` 기반 상환 방식별 PMT 수식, 정기 원금, 약정 이자, 기말 잔액 정밀 계산기 구현.
+  - **`EIRAmortizationEngine` (pure domain)**: IFRS 9 기준 수수료 수익(Inflow -)과 부대비용(Outflow +)을 순 이연 금액(Net Deferred Amount)으로 상계하고, 매월 유효이자수익(\( \text{Carrying Amount} \times \text{EIR} \)) - 약정이자수익 차액으로 부대손익 상각액을 산출하며 만기일 단수 보정을 적용함.
+  - **`RepaymentScheduleEntry` (VO)**: 불변 회차별 상환 스케줄 항목 객체 설계.
+- **검증**:
+  - `RepaymentScheduleCalculatorTest` (원리금 균등, 원금 균등, 만기 일시상환 100% 검증).
+  - `EIRAmortizationEngineTest` (순 이연 금액 산출, 월별 이연 부대손익 상각, 만기 소진 검증).
+  - Gradle test suite 실행: `:loan:core:test`, `:loan:api:test`, `:loan:batch:test` 전수 통과 확인.
+
 ### 📅 2026-08-03 (IFRS 9 ECL Core Engine & Staging 고도화)
 ### [기능 완료] pure domain IfrsStagingEngine 및 BigDecimal IFRS 9 ECL 산출 코어 엔진
 

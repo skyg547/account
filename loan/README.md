@@ -15,7 +15,9 @@
 1. 계약 생성: 거래처·통화를 실행일 기준으로 검증하고 `PENDING_DISBURSEMENT`로 저장합니다.
 2. 대출 실행: 잠근 계약에 원금 전액을 한 번만 실행하고 `대출채권(차변) / 현금(대변)` 전표를 전기한 뒤 `ACTIVE`로 바꿉니다.
 3. 이연 항목: 유형별 계정 코드를 유효일 기준으로 검증하고 초기 전표를 연결합니다.
-4. EIR 스케줄: 현재 미상환 원금과 이연 잔액으로 월별 `eir_amortization_schedules`를 생성합니다.
+4. 상환 스케줄 & EIR 상각 엔진:
+   - `RepaymentScheduleCalculator`: 원리금 균등상환(`EQUAL_PRINCIPAL_AND_INTEREST`), 원금 균등상환(`EQUAL_PRINCIPAL`), 만기 일시상환(`BULLET_MATURITY`) 3가지 방식별 회차별 원금/약정이자/기말잔액을 pure `BigDecimal` 정밀 산출합니다.
+   - `EIRAmortizationEngine`: IFRS 9 기준 수수료 수익(Inflow)과 부대비용(Outflow)을 순 이연 금액(Net Deferred Amount)으로 산출하고, 유효이자율(EIR) 방식 매월 부대손익 상각 스케줄을 정밀 계산하여 마지막 회차 단수 차이를 자동 보정합니다.
 5. 조건 변경: 원래 약정 원금은 보존하고 현재 미상환 잔액·만기·EIR을 변경하며 `RecalculationRun`과 `LoanEvent`를 남깁니다.
 6. 이자 발생 Batch: 필수 `accrualDate`에 해당하는 EIR 스케줄을 읽고 성공 건은 건너뛰며 실패 건은 재시도합니다.
 
