@@ -37,9 +37,6 @@ class MigrationContextTest {
                 .containsExactly(
                         "account-mart",
                         "ecl",
-                        "expenditure-resolution",
-                        "payable",
-                        "receivable",
                         "reconciliation",
                         "tax");
         assertThat(MigrationContext.all())
@@ -49,8 +46,9 @@ class MigrationContextTest {
                 .filteredOn(MigrationContext::cleanDatabaseReady)
                 .extracting(MigrationContext::slug)
                 .containsExactly(
-                        "asset-lease", "auth", "budget", "closing", "deposit", "journal-ledger",
-                        "loan", "master-data", "reporting");
+                        "asset-lease", "auth", "budget", "closing", "deposit", "expenditure-resolution",
+                        "journal-ledger", "loan", "master-data", "payable", "receivable",
+                        "reporting");
 
         MigrationContext closing = MigrationContext.require("closing");
         assertThat(closing.historyTable()).isEqualTo("flyway_schema_history_closing");

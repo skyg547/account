@@ -115,3 +115,7 @@ erDiagram
 - 부분 매칭은 `Collection.matchedAmount`와 `CollectionAllocation`에 모두 남긴다.
 - 수납 인식과 채권 반제는 분리된 전표 유형으로 남아 현금 입금과 채권 감소를 추적할 수 있다.
 - `customerCode`는 외부 customer 엔티티 직접 참조가 아니라 master-data 코드 참조다.
+
+## PostgreSQL 기준선
+
+전용 Flyway V1은 6개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 인보이스당 채권 1개, 고객 귀속 복합 FK, 상태-잔액/매칭 금액, 배분 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

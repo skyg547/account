@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://${DEV_DB_HOST}:${DEV_DB_PORT:5432}/${DEV_DB_NAME}
+    username: ${DEV_DB_USER}
+    password: ${DEV_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: never
+  sql:
+    init:
+      mode: never

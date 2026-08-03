@@ -38,12 +38,12 @@ record MigrationContext(
                 contexts, "closing", "flyway_schema_history_closing", "49");
         ready(contexts, "deposit");
         blocked(contexts, "ecl", 255);
-        blocked(contexts, "expenditure-resolution", 252);
+        ready(contexts, "expenditure-resolution");
         ready(contexts, "journal-ledger");
         ready(contexts, "loan");
         ready(contexts, "master-data");
-        blocked(contexts, "payable", 252);
-        blocked(contexts, "receivable", 252);
+        ready(contexts, "payable");
+        ready(contexts, "receivable");
         blocked(contexts, "reconciliation", 253);
         ready(contexts, "reporting");
         blocked(contexts, "tax", 253);

@@ -21,7 +21,8 @@ class MigrationCommandTest {
         assertThat(exitCode).isZero();
         assertThat(output.toString(StandardCharsets.UTF_8))
                 .contains("auth", "READY", "asset-lease", "READY",
-                        "closing", "READY");
+                        "closing", "READY", "expenditure-resolution", "READY",
+                        "payable", "READY", "receivable", "READY");
         assertThat(errors.toString(StandardCharsets.UTF_8)).isEmpty();
     }
 
@@ -31,12 +32,12 @@ class MigrationCommandTest {
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
 
         int exitCode = new MigrationCommand(stream(output), stream(errors)).run(
-                new String[]{"--context=payable", "--action=validate"},
+                new String[]{"--context=tax", "--action=validate"},
                 Map.of());
 
         assertThat(exitCode).isEqualTo(3);
         assertThat(errors.toString(StandardCharsets.UTF_8))
-                .contains("payable", "#252")
+                .contains("tax", "#253")
                 .doesNotContain("MIGRATION_DB_PASSWORD");
     }
 

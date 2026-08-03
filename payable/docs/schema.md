@@ -132,3 +132,7 @@ erDiagram
 - 지급 실패는 `Payment.failureReason`과 `executionAttempts`에 남겨 재시도 판단에 사용한다.
 - 같은 공급업체의 같은 인보이스 번호는 유니크 제약과 서비스 중복 검사로 보호한다.
 - 지급 런은 공급업체/금액 재검색이 아니라 `payableId`로 차감 대상을 고정한다.
+
+## PostgreSQL 기준선
+
+전용 Flyway V1은 5개 소유 테이블을 생성한다. `numeric(19,2)` 금액, 인보이스 합계, 상태-잔액, 원천 인보이스 복합 FK와 공급업체 일치, 지급 라인리지 및 배치 조회 인덱스를 강제한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

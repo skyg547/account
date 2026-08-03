@@ -23,12 +23,18 @@ class ExecutableSchemaProfilePolicyTest {
             "closing/batch/src/main/resources",
             "deposit/api/src/main/resources",
             "deposit/batch/src/main/resources",
+            "expenditure-resolution/api/src/main/resources",
+            "expenditure-resolution/batch/src/main/resources",
             "journal-ledger/api/src/main/resources",
             "journal-ledger/batch/src/main/resources",
             "loan/api/src/main/resources",
             "loan/batch/src/main/resources",
             "master-data/api/src/main/resources",
             "master-data/batch/src/main/resources",
+            "payable/api/src/main/resources",
+            "payable/batch/src/main/resources",
+            "receivable/api/src/main/resources",
+            "receivable/batch/src/main/resources",
             "reporting/api/src/main/resources",
             "reporting/batch/src/main/resources");
 
@@ -102,8 +108,11 @@ class ExecutableSchemaProfilePolicyTest {
                 .isEqualTo("never");
         if (executable.startsWith("asset-lease/")
                 || executable.startsWith("closing/")
+                || executable.startsWith("expenditure-resolution/")
                 || executable.startsWith("journal-ledger/")
-                || executable.startsWith("master-data/")) {
+                || executable.startsWith("master-data/")
+                || executable.startsWith("payable/")
+                || executable.startsWith("receivable/")) {
             assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class))
                     .as(description + " Config Client")
                     .isFalse();
@@ -136,10 +145,16 @@ class ExecutableSchemaProfilePolicyTest {
                 "asset-lease/batch/src/main/resources",
                 "closing/api/src/main/resources",
                 "closing/batch/src/main/resources",
+                "expenditure-resolution/api/src/main/resources",
+                "expenditure-resolution/batch/src/main/resources",
                 "journal-ledger/api/src/main/resources",
                 "journal-ledger/batch/src/main/resources",
                 "master-data/api/src/main/resources",
-                "master-data/batch/src/main/resources")) {
+                "master-data/batch/src/main/resources",
+                "payable/api/src/main/resources",
+                "payable/batch/src/main/resources",
+                "receivable/api/src/main/resources",
+                "receivable/batch/src/main/resources")) {
             Path location = repositoryRoot.resolve(resourceDirectory);
             try (ConfigurableApplicationContext context = new SpringApplicationBuilder(Probe.class)
                     .web(WebApplicationType.NONE)

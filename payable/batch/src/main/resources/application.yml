@@ -5,37 +5,17 @@ spring:
     default: local
   main:
     web-application-type: none
-  cloud:
-    config:
-      enabled: false
-    discovery:
-      enabled: false
-    vault:
-      enabled: false
-  datasource:
-    url: jdbc:h2:mem:payable_batch;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    open-in-view: false
+  flyway:
+    enabled: false
+    locations: classpath:db/payable-migration
+    clean-disabled: true
+    baseline-on-migrate: false
   batch:
     job:
       enabled: false
-    jdbc:
-      initialize-schema: always
-  flyway:
-    enabled: false
-
-eureka:
-  client:
-    enabled: false
 
 management:
-  health:
-    vault:
-      enabled: false
-  tracing:
-    enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

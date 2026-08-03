@@ -1,10 +1,19 @@
 # expenditure-resolution local run
 
+## 실행 프로파일 계약
+
+- 기본 프로파일은 `local`이다. API와 Batch는 외부 서비스 없이 H2 PostgreSQL mode에서 시작하며, 전용 Flyway V1을 적용한 뒤 Hibernate `validate`로 엔티티 정합성을 확인한다.
+- `dev`/`prod`는 PostgreSQL 전용이다. API/Batch 프로세스에서는 Flyway, Hibernate DDL, SQL init, Batch metadata init을 모두 끄고 release-time `migration-runner`가 먼저 스키마를 반영한다.
+- `prod` JDBC URL은 `sslmode=verify-full`을 강제한다. 비밀번호는 설정 파일이나 명령행에 기록하지 않고 환경 변수로 주입한다.
+- 실제 PostgreSQL clean migrate/validate는 승인된 환경에서 별도로 수행해야 한다. Master Data, Tax, Asset, Journal 원격 어댑터는 Issue #264 범위이므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.
+
+개발 환경은 `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`, 운영은 대응하는 `PROD_DB_*` 변수를 secret injection으로 제공하고 `--spring.profiles.active=dev|prod`로 시작한다. 사설 호스트나 자격증명을 저장소에 기록하지 않는다.
+
 ## 전제 조건
 
 - JDK 17
 - IntelliJ IDEA Gradle JVM도 JDK 17로 설정
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
+- 저장소 루트를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
 ## 모듈 구조
@@ -55,6 +64,14 @@ Batch 컨텍스트 실행:
 .\gradlew :expenditure-resolution:batch:bootRun --console=plain --max-workers=1
 ```
 
+실행 JAR 생성 및 직접 실행:
+
+```powershell
+.\gradlew :expenditure-resolution:api:bootJar :expenditure-resolution:batch:bootJar --console=plain --max-workers=1
+java -jar expenditure-resolution\api\build\libs\account-expenditure-resolution-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+java -jar expenditure-resolution\batch\build\libs\account-expenditure-resolution-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+```
+
 실제 Batch Job 실행:
 
 ```powershell
@@ -62,18 +79,6 @@ Batch 컨텍스트 실행:
 ```
 
 `expenditureResolutionApprovalJob`은 조회 기간 내 REQUESTED 결의서 중 지급 예정일이 `paymentDueDate` 이내인 건을 core 승인 유즈케이스로 위임한다.
-
-API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
-
-```powershell
-.\gradlew :expenditure-resolution:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
-```
-
-Batch 스모크만 확인하고 Job은 실행하지 않을 때:
-
-```powershell
-.\gradlew :expenditure-resolution:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
-```
 
 ## local profile 동작
 
