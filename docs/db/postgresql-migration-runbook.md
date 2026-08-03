@@ -18,7 +18,7 @@
 | Context | State | Evidence or blocker |
 | --- | --- | --- |
 | account-mart | BLOCKED | entity/migration parity #255 |
-| asset-lease | BLOCKED | missing lease tables #254; PostgreSQL V20 dialect variant prepared |
+| asset-lease | READY | complete PostgreSQL V20 parity baseline; Issue #254 stacked Draft PR |
 | auth | READY | V70-V73 |
 | budget | READY | V50 |
 | closing | BLOCKED | clean baseline #250 |
@@ -84,7 +84,7 @@ Batch 5.1의 전체 table/column 집합과 세 sequence가 정확히 존재하�
 
 - 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 Asset Lease/Deposit/Loan
   vendor migration + Batch metadata migrate/validate, executable jar `--list`.
-- 승인 환경 검증: 5개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
+- 승인 환경 검증: 6개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
   upgrade, runtime least-privilege, Batch restart.
 - 아직 금지된 범위: 운영 DB 접속, 운영 데이터 변경, 실제 secret 출력, 승인 없는 image pull
   또는 배포.

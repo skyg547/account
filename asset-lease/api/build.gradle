@@ -26,7 +26,6 @@ sourceSets {
 
 dependencies {
     implementation project(':asset-lease:core')
-    implementation project(':master-data:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -38,11 +37,13 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
     runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.flywaydb:flyway-core'
 }
 
 bootRun {

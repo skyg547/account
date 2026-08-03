@@ -18,8 +18,26 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LeaseEntryServiceTest {
+
+    @Test
+    void registrationRejectsPaymentDayOutsideCalendarRangeBeforePersistence() {
+        LeaseContract contract = createIfrs16LeaseContract();
+        contract.setPaymentDay(0);
+        LeaseEntryService service = new LeaseEntryService(
+                new FakeLeasePersistencePort(List.of(), List.of()),
+                new NoOpAssetEventPort(),
+                new RecordingLeasePaymentResolutionPort(),
+                new StaticLeaseAccountMappingPort());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.registerLeaseContract(contract, "lease-user"));
+
+        assertEquals("payment day must be between 1 and 31", exception.getMessage());
+    }
 
     @Test
     void processMonthlyLeasePaymentSplitsIfrs16PaymentIntoInterestAndPrincipal() {

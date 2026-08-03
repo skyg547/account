@@ -42,6 +42,7 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
     @Override
     @Transactional
     public FixedAsset registerAsset(FixedAsset asset, String actor) {
+        asset.initializeAcquisitionBalances();
         asset.setStatus("ACTIVE");
         FixedAsset savedAsset = persistencePort.save(asset);
 

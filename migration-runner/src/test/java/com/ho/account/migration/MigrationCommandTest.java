@@ -20,7 +20,7 @@ class MigrationCommandTest {
 
         assertThat(exitCode).isZero();
         assertThat(output.toString(StandardCharsets.UTF_8))
-                .contains("auth", "READY", "asset-lease", "BLOCKED (#254)",
+                .contains("auth", "READY", "asset-lease", "READY",
                         "closing", "BLOCKED (#250)");
         assertThat(errors.toString(StandardCharsets.UTF_8)).isEmpty();
     }
