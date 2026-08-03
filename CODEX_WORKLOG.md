@@ -1775,3 +1775,11 @@
 - 금액 합계·양수·상태/잔액, 원천 인보이스와 거래처 귀속, one-to-one 소유권, FK/unique 및 batch-leading index를 DB 기준선에서 보호한다.
 - 114 tests, 여섯 bootJar와 runner bootJar, READY 24개 PG-driver gate, runner `--list`, 여섯 실제 local JAR V1 startup이 통과했다. 독립 리뷰 최종 P0-P3는 없다.
 - Runner inventory는 READY 12 / BLOCKED 4다. 실제 PostgreSQL clean migrate+validate, runtime-role/Batch restart 및 #264 원격 어댑터가 남아 있어 Issue #252는 open으로 유지한다.
+
+## 2026-08-04 (Issue #253 Reconciliation and Tax PostgreSQL baselines)
+
+- `agent/253-reconciliation-tax-postgres-baseline`을 #265 위에 stack해 두 context 전용 V1과 네 API/Batch profile을 구현하고 commit `bfe7dda8`, Draft PR #267로 전달했다.
+- local은 H2 PostgreSQL mode에서 Flyway V1과 JPA validate로 독립 실행하고, dev/prod는 PostgreSQL 15+, injected credentials, runtime Flyway/DDL/SQL/Batch init 차단과 production TLS 검증 계약을 가진다.
+- Reconciliation 8개 및 Tax 1개 JPA table의 정밀도, 상태, FK/index와 금액/취소 감사를 보호한다. nullable stage 집계는 item/dimension identity를 분리하고, nullable difference lineage는 bounded `varchar(255)` canonical reference와 `NULLS NOT DISTINCT`로 멱등성을 보장한다.
+- 46 tests, 네 bootJar와 runner bootJar, READY 28개 PG-driver gate, runner `--list`, 네 실제 local JAR V1 startup이 통과했다. 독립 리뷰 최종 P0-P3는 없다.
+- Runner inventory는 READY 14 / BLOCKED 2다. 실제 PostgreSQL 15+ clean migrate+validate, runtime-role/Batch restart 및 #266 원격 어댑터가 남아 있어 Issue #253과 PR #267은 open/Draft로 유지한다.

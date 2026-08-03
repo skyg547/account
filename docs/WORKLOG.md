@@ -2299,3 +2299,9 @@
 - commit `a3dafe69`, stacked Draft PR `#265`에서 세 context의 분리된 V1, 여섯 API/Batch local H2 및 dev/prod PostgreSQL 프로파일을 구현하고 runner inventory를 READY 12 / BLOCKED 4로 전환했다.
 - 114 tests, 여섯 direct local JAR startup, 여섯 bootJar, runner bootJar와 24 READY PG-driver 검사가 통과했으며 독립 리뷰 잔여 P0-P3는 없다.
 - 실제 PostgreSQL 검증과 #264 원격 어댑터가 남아 있어 Issue #252와 향후 Draft PR은 open/Draft로 유지한다.
+
+### 2026-08-04 - Issue #253 Reconciliation and Tax PostgreSQL baselines
+
+- commit `bfe7dda8`, stacked Draft PR `#267`에서 두 context의 분리된 V1, 네 API/Batch local H2 및 dev/prod PostgreSQL 15+ profile을 구현하고 runner inventory를 READY 14 / BLOCKED 2로 전환했다.
+- 46 tests, 네 direct local JAR startup, 네 bootJar와 runner bootJar, 28 READY PG-driver 검사가 통과했으며 독립 리뷰 잔여 P0-P3는 없다.
+- 실제 PostgreSQL 15+ 검증과 #266 원격 어댑터가 남아 있어 Issue #253과 Draft PR #267은 open/Draft로 유지한다.

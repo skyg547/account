@@ -1334,3 +1334,24 @@
 - Do not close #252, make its future PR Ready, or connect/deploy until approved PostgreSQL clean migrate+validate, runtime-role DDL denial and Batch restart are evidenced.
 - Full dev/prod business flows need the remote adapters tracked by #264; local adapters remain local-only.
 - Before application, rollback is a normal commit revert. After V1 is applied, never edit, repair or down-migrate it; ship a reviewed forward-fix.
+
+# AI Harness Handoff - 2026-08-04 Issue #253 Reconciliation and Tax baselines
+
+## State
+
+- Worktree/branch: `C:\tmp\account-253-reconciliation-tax-postgres-baseline`, `agent/253-reconciliation-tax-postgres-baseline`.
+- Stack: `agent/252-expenditure-payable-receivable-postgres-baseline` / Draft PR #265, which stacks on #263, #260, #259 and #256.
+- Delivery: implementation commit `bfe7dda8`, stacked Draft PR #267. Issue #253 remains OPEN. Runner inventory is READY 14 / BLOCKED 2.
+
+## Delivered and verified
+
+- Reconciliation and Tax own context-specific V1 locations, avoiding migration-version collisions while creating only their 9 JPA-owned tables.
+- Reconciliation protects financial precision, lifecycle, stage and difference lineage, including nullable aggregate dimensions and bounded canonical references. Tax protects amount equality, status/cancellation audit and lookup indexes.
+- Four API/Batch applications default to independent local H2/Flyway/JPA validate execution. Dev/prod require PostgreSQL 15+, prohibit runtime schema creation and enforce production TLS host verification.
+- 46 affected tests, four bootJars plus runner bootJar, 28 READY driver-bearing executables, runner `--list` and four direct final local JAR starts passed. Independent final review has no remaining P0-P3.
+
+## Gates and rollback
+
+- Do not close #253, make PR #267 Ready, or connect/deploy until approved PostgreSQL 15+ clean migrate+validate, shared API/Batch history, runtime DDL denial and Batch restart are evidenced.
+- Full dev/prod business flows need the remote adapters tracked by #266; local adapters remain local-only.
+- Before application, rollback is a normal commit revert. After V1 is applied, never edit, repair or down-migrate it; ship a reviewed forward-fix.

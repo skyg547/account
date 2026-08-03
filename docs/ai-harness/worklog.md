@@ -778,3 +778,16 @@
 - Verification: 114 tests passed with no failures/errors/skips; six bootJars plus runner bootJar, 24 READY driver packages, runner `--list`, six direct local JAR startups through V1, diff/conflict/private-host/secret scans and independent review passed.
 - Independent review drove AP total equality, invoice/party lineage, state-balance correlation, partial-unmatched validity, batch indexes and exact JAR documentation. Final result has no remaining P0-P3.
 - Remaining gates: approved real PostgreSQL clean migrate+validate, runtime least-privilege and Batch restart. Remote business adapters are tracked by #264. No development/production DB connection, image pull, deployment or data mutation was performed.
+
+## 2026-08-04 - Issue #253 Reconciliation and Tax PostgreSQL baselines
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/253-reconciliation-tax-postgres-baseline` / `C:\tmp\account-253-reconciliation-tax-postgres-baseline`; stacked on `agent/252-expenditure-payable-receivable-postgres-baseline`.
+- Delivery: implementation commit `bfe7dda8`, stacked Draft PR `#267`; Issue `#253` remains open.
+- Added isolated V1 migrations for 8 Reconciliation and 1 Tax JPA-owned tables. Financial precision, lifecycle checks, FK/index contracts, tax totals/cancellation audit and Reconciliation stage/lineage idempotency are database-enforced.
+- Nullable stage aggregates use separate item and dimension identities; nullable difference lineage uses PostgreSQL 15+ `NULLS NOT DISTINCT`. Canonical lineage references are bounded to `varchar(255)` so the compound B-tree key remains valid.
+- Added independent default-local H2 PostgreSQL-mode/Flyway/JPA-validate execution and fail-closed dev/prod PostgreSQL profiles to four API/Batch applications. Runtime Flyway, SQL init and dev/prod Batch schema initialization are disabled; production TLS verification is mandatory.
+- Promoted both contexts to runner READY. Inventory is READY 14 / BLOCKED 2 and 28 READY API/Batch executable jars contain the PostgreSQL driver.
+- Verification: 46 affected tests passed with no failures/errors/skips; full affected validation executed 176 Gradle tasks, post-review Reconciliation/runner validation executed 168 tasks, and four API/Batch bootJars plus runner bootJar passed. Runner `--list`, 28 READY driver packages and four final local JAR starts through V1 passed with no remaining Java process.
+- Independent review drove nullable-key idempotency, dimension coexistence, PostgreSQL 15 minimum-version gate and bounded B-tree lineage-key corrections. Final result has no remaining P0-P3 finding.
+- Remaining gates: approved real PostgreSQL 15+ clean migrate+validate, API/Batch shared history, runtime-role DDL denial and Batch restart. Remote business adapters are tracked by #266. No development/production DB connection, image pull, deployment or data mutation was performed.
