@@ -2287,6 +2287,7 @@
 
 ### 2026-08-03 - Issue #244 PostgreSQL migration runner foundation
 
+- 구현 commit `73e40c08`, Draft PR `#256`; Issue `#244`는 open이다.
 - 비웹 release runner, 16-context inventory, 승인·target·TLS·secret gate와 Spring Batch 5.1 metadata provisioning을 추가했다.
 - Auth/Budget/Deposit/Loan/Reporting 5개 context만 READY이며 dev/prod API/Batch는 PostgreSQL + JPA validate + startup Flyway off + Batch schema init never를 effective profile로 사용한다.
 - 기존 H2 migration checksum은 바꾸지 않고 세 PostgreSQL dialect variant를 분리했다.

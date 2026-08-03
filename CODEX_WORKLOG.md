@@ -1731,6 +1731,7 @@
 - Rollback: revert the Issue #41 follow-up implementation commit. No schema rollback is required.
 ## 2026-08-03 (Issue #244 PostgreSQL release migration foundation)
 
+- 구현 commit `73e40c08`을 push하고 Draft PR #256을 열었다. Issue #244는 open 상태다.
 - 16개 bounded context를 release runner artifact에 등록하고 Auth/Budget/Deposit/Loan/Reporting만 READY, 나머지 11개는 #250-#255가 해결될 때까지 DB 접속 전에 차단했다.
 - H2 V20/V40/V30 checksum을 보존하면서 Asset Lease/Deposit/Loan PostgreSQL vendor migration을 분리했다.
 - context/예상 database/URL path/`current_database()` 결합, production `sslmode=verify-full`, change ticket와 migrate switch, Flyway URL 로그 차단을 구현했다.

@@ -719,6 +719,7 @@
 
 - Owner: Codex Integrator with an independent read-only Reviewer.
 - Branch/worktree: `agent/244-postgres-migrations` / `C:\tmp\account-244-postgres-migrations`; base `origin/main@5c810422`.
+- Delivery: implementation commit `73e40c08`, Draft PR `#256`; Issue `#244` remains open.
 - Added an executable, non-web Flyway release runner with 16-context inventory, canonical database target guard, production TLS gate, migrate approval gate, secret-safe logging, and destructive action exclusion.
 - Split published H2 migrations from PostgreSQL Asset Lease/Deposit/Loan dialect variants without changing the V20/V40/V30 blobs or checksums.
 - Provisioned Spring Batch 5.1 metadata through a separate version-0/V1 history and verify all columns/types/nullability/lengths, primary/foreign/composite unique keys, and sequence definitions after migrate/validate.

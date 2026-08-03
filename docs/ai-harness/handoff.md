@@ -1221,6 +1221,7 @@
 ## State
 
 - Worktree/branch: `C:\tmp\account-244-postgres-migrations`, `agent/244-postgres-migrations` from `origin/main@5c810422`.
+- Delivery: implementation commit `73e40c08`, Draft PR `#256`.
 - Issue #244 remains OPEN. It now reflects 16 contexts and child baseline Issues #250-#255.
 - This is a reviewable foundation, not completion: READY 5 / BLOCKED 11 and no actual PostgreSQL execution.
 
