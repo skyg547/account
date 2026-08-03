@@ -21,9 +21,10 @@ public class AssetHistory {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "asset_id")
+    @JoinColumn(name = "asset_id", nullable = false)
     private FixedAsset fixedAsset;
 
+    @Column(nullable = false, length = 50)
     private String historyType; // TRANSFER, DISPOSAL, DEPRECIATION, STATUS_CHANGE
 
     @Column(name = "old_dept_code", length = 20)
@@ -32,10 +33,14 @@ public class AssetHistory {
     @Column(name = "new_dept_code", length = 20)
     private String newDepartmentCode;
 
+    @Column(length = 20)
     private String oldStatus;
+    @Column(length = 20)
     private String newStatus;
     private String description;
 
+    @Column(nullable = false)
     private LocalDateTime eventAt;
+    @Column(nullable = false, length = 50)
     private String auditUser;
 }

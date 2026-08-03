@@ -40,6 +40,7 @@ public class LeaseEntryService implements LeaseUseCase {
     @Override
     @Transactional
     public LeaseContract registerLeaseContract(LeaseContract contract, String actor) {
+        contract.validateForRegistration();
         LeaseContract savedContract = persistencePort.saveContract(contract);
 
         if (savedContract.isIfrs16Applicable() && !savedContract.isShortTermLease() && !savedContract.isLowValueLease()) {

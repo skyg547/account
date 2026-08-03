@@ -36,7 +36,6 @@ class MigrationContextTest {
                 .extracting(MigrationContext::slug)
                 .containsExactly(
                         "account-mart",
-                        "asset-lease",
                         "closing",
                         "ecl",
                         "expenditure-resolution",
@@ -52,6 +51,6 @@ class MigrationContextTest {
         assertThat(MigrationContext.all())
                 .filteredOn(MigrationContext::cleanDatabaseReady)
                 .extracting(MigrationContext::slug)
-                .containsExactly("auth", "budget", "deposit", "loan", "reporting");
+                .containsExactly("asset-lease", "auth", "budget", "deposit", "loan", "reporting");
     }
 }

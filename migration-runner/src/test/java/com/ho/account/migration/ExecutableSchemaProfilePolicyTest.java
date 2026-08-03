@@ -15,6 +15,8 @@ import org.springframework.core.env.Environment;
 class ExecutableSchemaProfilePolicyTest {
 
     private static final List<String> EXECUTABLE_RESOURCE_DIRECTORIES = List.of(
+            "asset-lease/api/src/main/resources",
+            "asset-lease/batch/src/main/resources",
             "auth/api/src/main/resources",
             "auth/batch/src/main/resources",
             "budget/api/src/main/resources",
@@ -90,6 +92,41 @@ class ExecutableSchemaProfilePolicyTest {
                 .isEqualTo("never");
         assertThat(environment.getProperty("spring.sql.init.mode"))
                 .isEqualTo("never");
+        if (executable.startsWith("asset-lease/")) {
+            assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class))
+                    .as(description + " Config Client")
+                    .isFalse();
+            assertThat(environment.getProperty("spring.cloud.vault.enabled", Boolean.class))
+                    .as(description + " Vault")
+                    .isFalse();
+        }
+    }
+
+    @Test
+    void assetLeaseLocalProfilesDisableExternalControlPlaneAndBatchAutorun() {
+        Path repositoryRoot = repositoryRoot();
+        for (String resourceDirectory : List.of(
+                "asset-lease/api/src/main/resources",
+                "asset-lease/batch/src/main/resources")) {
+            Path location = repositoryRoot.resolve(resourceDirectory);
+            try (ConfigurableApplicationContext context = new SpringApplicationBuilder(Probe.class)
+                    .web(WebApplicationType.NONE)
+                    .registerShutdownHook(false)
+                    .properties(
+                            "spring.config.location=" + location.toUri(),
+                            "spring.profiles.active=local",
+                            "spring.main.banner-mode=off")
+                    .run()) {
+                Environment environment = context.getEnvironment();
+                assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class)).isFalse();
+                assertThat(environment.getProperty("spring.cloud.discovery.enabled", Boolean.class)).isFalse();
+                assertThat(environment.getProperty("spring.cloud.vault.enabled", Boolean.class)).isFalse();
+                assertThat(environment.getProperty("eureka.client.enabled", Boolean.class)).isFalse();
+                if (resourceDirectory.contains("/batch/")) {
+                    assertThat(environment.getProperty("spring.batch.job.enabled", Boolean.class)).isFalse();
+                }
+            }
+        }
     }
 
     private Path repositoryRoot() {
