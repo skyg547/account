@@ -1,9 +1,11 @@
 package com.ho.account.tax.api;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.context.annotation.Import;
 
 /**
  * Tax API 실행 진입점이다.
@@ -12,6 +14,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.ho.account.tax")
 @EntityScan(basePackages = "com.ho.account.tax.domain")
 @EnableJpaRepositories(basePackages = "com.ho.account.tax.repository")
+@Import(ProductionPostgresqlTlsGuard.class)
 public class TaxApiApplication {
 
     public static void main(String[] args) {

@@ -1,9 +1,11 @@
 package com.ho.account.reconciliation.api;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.context.annotation.Import;
 
 /**
  * Reconciliation API 실행 진입점이다.
@@ -18,6 +20,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.ho.account.reconciliation.repository",
         "com.ho.account.reconciliation.infrastructure.persistence"
 })
+@Import(ProductionPostgresqlTlsGuard.class)
 public class ReconciliationApiApplication {
 
     public static void main(String[] args) {

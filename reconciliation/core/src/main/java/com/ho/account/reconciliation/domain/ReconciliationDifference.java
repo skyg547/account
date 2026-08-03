@@ -47,10 +47,10 @@ public class ReconciliationDifference {
     private String description; // 차이 상세 설명
 
     // 원천/대상 데이터 항목에 대한 참조 (예: JSON 문자열로 { "type": "BANK_TRANSACTION", "id": "TXN123" } 또는 { "type": "JOURNAL_ENTRY_DETAIL", "id": "JD456" })
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 255)
     private String sourceItemRef;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 255)
     private String targetItemRef;
 
     @ManyToOne(fetch = FetchType.LAZY)

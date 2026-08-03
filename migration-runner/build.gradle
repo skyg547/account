@@ -38,7 +38,9 @@ def contextMigrationSources = [
         'master-data'           : 'master-data/core/src/main/resources/db/migration',
         'payable'               : 'payable/core/src/main/resources/db/payable-migration',
         'receivable'            : 'receivable/core/src/main/resources/db/receivable-migration',
-        'reporting'             : 'reporting/core/src/main/resources/db/migration'
+        'reconciliation'        : 'reconciliation/core/src/main/resources/db/reconciliation-migration',
+        'reporting'             : 'reporting/core/src/main/resources/db/migration',
+        'tax'                   : 'tax/core/src/main/resources/db/tax-migration'
 ]
 
 def postgresqlOverrides = [
@@ -86,7 +88,9 @@ def readyExecutableProjects = [
         project(':master-data:api'), project(':master-data:batch'),
         project(':payable:api'), project(':payable:batch'),
         project(':receivable:api'), project(':receivable:batch'),
-        project(':reporting:api'), project(':reporting:batch')
+        project(':reconciliation:api'), project(':reconciliation:batch'),
+        project(':reporting:api'), project(':reporting:batch'),
+        project(':tax:api'), project(':tax:batch')
 ]
 
 tasks.register('verifyReadyExecutablePostgresqlDrivers') {

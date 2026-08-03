@@ -20,7 +20,9 @@ class PostgresqlMigrationResourceTest {
             "db/contexts/loan/V30__init_loan_schema.sql",
             "db/contexts/master-data/V6__master_data_postgresql_baseline.sql",
             "db/contexts/payable/V1__payable_baseline.sql",
-            "db/contexts/receivable/V1__receivable_baseline.sql"
+            "db/contexts/receivable/V1__receivable_baseline.sql",
+            "db/contexts/reconciliation/V1__reconciliation_baseline.sql",
+            "db/contexts/tax/V1__tax_baseline.sql"
     })
     void packagedPostgresqlVariantsContainNoH2OnlyIdentityOrTimestampSyntax(String resource)
             throws IOException {

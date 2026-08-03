@@ -336,6 +336,195 @@ class MigrationExecutorH2Test {
     }
 
     @Test
+    void reconciliationBaselineContainsOwnedTablesLineageAndIdempotencyConstraints() throws Exception {
+        String url = "jdbc:h2:mem:reconciliation-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        new MigrationExecutor().execute(
+                MigrationContext.require("reconciliation"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "reconciliation"));
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "reconciliation_units", "difference_reason_codes", "bank_statements",
+                            "recon_external_stage_record", "reconciliation_rules", "reconciliation_runs",
+                            "reconciliation_differences", "reconciliation_stage_results")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+            assertNumericColumn(connection, "reconciliation_rules", "tolerance_value", 19, 8);
+            assertNumericColumn(connection, "reconciliation_runs", "unmatched_amount", 19, 2);
+            assertNumericColumn(connection, "reconciliation_differences", "difference_amount", 19, 2);
+            assertThat(hasForeignKey(
+                    connection, "reconciliation_rules", "reconciliation_unit_id",
+                    "reconciliation_units", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "reconciliation_runs", "reconciliation_unit_id",
+                    "reconciliation_units", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "reconciliation_differences", "reconciliation_run_id",
+                    "reconciliation_runs", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "reconciliation_stage_results", "reconciliation_run_id",
+                    "reconciliation_runs", "id")).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "reconciliation_stage_results",
+                    List.of("reconciliation_run_id", "stage_code"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "reconciliation_differences",
+                    List.of("adjustment_journal_entry_id"))).isTrue();
+            assertThat(indexColumns(
+                    connection, "recon_external_stage_record", "idx_recon_external_stage_summary"))
+                    .containsExactly(
+                            "unit_id", "stage_code", "reconciliation_date",
+                            "product_code", "currency_code", "legal_entity_code");
+            assertThat(indexColumns(connection, "reconciliation_runs", "idx_reconciliation_run_date_status"))
+                    .containsExactly("reconciliation_date", "status");
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO bank_statements (
+                        bank_code, account_no, transaction_date, withdrawal_amount, deposit_amount,
+                        reconciliation_status, create_date, update_date, audit_user)
+                    VALUES ('BANK', 'ACCOUNT', DATE '2026-01-01', 100.00, 100.00,
+                        'UNMATCHED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """))
+                    .hasMessageContaining("ck_bank_statement_amounts");
+
+            statement.executeUpdate("""
+                    INSERT INTO reconciliation_units (
+                        name, frequency, reconciliation_type, is_active)
+                    VALUES ('Daily bank', 'DAILY', 'BANK_BOOK', TRUE)
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO reconciliation_runs (
+                        reconciliation_unit_id, reconciliation_date, run_start_time, status,
+                        total_items_source, total_amount_source, total_items_target, total_amount_target,
+                        matched_items_count, matched_amount, unmatched_items_count, unmatched_amount)
+                    SELECT id, DATE '2026-01-01', CURRENT_TIMESTAMP, 'SUCCESS',
+                        0, 0.00, 0, 0.00, 0, 0.00, 0, 0.00
+                    FROM reconciliation_units WHERE name = 'Daily bank'
+                    """))
+                    .hasMessageContaining("ck_reconciliation_run_lifecycle");
+
+            statement.executeUpdate("""
+                    INSERT INTO recon_external_stage_record (
+                        unit_id, stage_code, reconciliation_date, item_reference, amount,
+                        create_date, update_date, audit_user)
+                    VALUES ('1', 'SOURCE', DATE '2026-01-01', 'ITEM-1', 10.00,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO recon_external_stage_record (
+                        unit_id, stage_code, reconciliation_date, item_reference, amount,
+                        create_date, update_date, audit_user)
+                    VALUES ('1', 'SOURCE', DATE '2026-01-01', 'ITEM-1', 10.00,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """))
+                    .hasMessageContaining("uk_recon_external_stage_item");
+
+            statement.executeUpdate("""
+                    INSERT INTO recon_external_stage_record (
+                        unit_id, stage_code, reconciliation_date, item_reference, amount,
+                        create_date, update_date, audit_user)
+                    VALUES ('1', 'INTERFACE', DATE '2026-01-01', NULL, 10.00,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO recon_external_stage_record (
+                        unit_id, stage_code, reconciliation_date, item_reference, amount,
+                        create_date, update_date, audit_user)
+                    VALUES ('1', 'INTERFACE', DATE '2026-01-01', NULL, 10.00,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """))
+                    .hasMessageContaining("uk_recon_external_stage_aggregate");
+            statement.executeUpdate("""
+                    INSERT INTO recon_external_stage_record (
+                        unit_id, stage_code, reconciliation_date, item_reference,
+                        product_code, currency_code, amount, create_date, update_date, audit_user)
+                    VALUES ('1', 'INTERFACE', DATE '2026-01-01', NULL,
+                        'P2', 'EUR', 20.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'tester')
+                    """);
+
+            statement.executeUpdate("""
+                    INSERT INTO reconciliation_runs (
+                        reconciliation_unit_id, reconciliation_date, run_start_time, run_end_time, status,
+                        total_items_source, total_amount_source, total_items_target, total_amount_target,
+                        matched_items_count, matched_amount, unmatched_items_count, unmatched_amount)
+                    SELECT id, DATE '2026-01-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SUCCESS',
+                        0, 0.00, 0, 0.00, 0, 0.00, 0, 0.00
+                    FROM reconciliation_units WHERE name = 'Daily bank'
+                    """);
+            statement.executeUpdate("""
+                    INSERT INTO reconciliation_differences (
+                        reconciliation_run_id, difference_type, source_item_ref, target_item_ref,
+                        difference_amount, status)
+                    SELECT id, 'MISSING_TARGET', 'SOURCE-1', NULL, 10.00, 'PENDING'
+                    FROM reconciliation_runs WHERE reconciliation_date = DATE '2026-01-01'
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO reconciliation_differences (
+                        reconciliation_run_id, difference_type, source_item_ref, target_item_ref,
+                        difference_amount, status)
+                    SELECT id, 'MISSING_TARGET', 'SOURCE-1', NULL, 10.00, 'PENDING'
+                    FROM reconciliation_runs WHERE reconciliation_date = DATE '2026-01-01'
+                    """))
+                    .hasMessageContaining("uk_reconciliation_difference_lineage");
+            String oversizedReference = "R".repeat(256);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO reconciliation_differences (
+                        reconciliation_run_id, difference_type, source_item_ref, target_item_ref,
+                        difference_amount, status)
+                    SELECT id, 'MISSING_TARGET', '%s', NULL, 10.00, 'PENDING'
+                    FROM reconciliation_runs WHERE reconciliation_date = DATE '2026-01-01'
+                    """.formatted(oversizedReference)))
+                    .hasMessageContaining("Value too long");
+        }
+    }
+
+    @Test
+    void taxBaselineContainsFinancialAndCancellationConstraints() throws Exception {
+        String url = "jdbc:h2:mem:tax-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        new MigrationExecutor().execute(
+                MigrationContext.require("tax"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "tax"));
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(tableExists(statement, "tax_invoices")).isTrue();
+            assertNumericColumn(connection, "tax_invoices", "supply_amount", 19, 2);
+            assertNumericColumn(connection, "tax_invoices", "tax_amount", 19, 2);
+            assertNumericColumn(connection, "tax_invoices", "total_amount", 19, 2);
+            assertThat(hasUniqueIndexOnColumns(connection, "tax_invoices", List.of("issue_id"))).isTrue();
+            assertThat(indexColumns(connection, "tax_invoices", "idx_tax_invoice_issue_date"))
+                    .containsExactly("issue_date");
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO tax_invoices (
+                        issue_id, type, issue_date, business_partner_code,
+                        supply_amount, tax_amount, total_amount, status)
+                    VALUES ('INVALID-AMOUNT', 'PURCHASE', DATE '2026-01-01', 'BP-1',
+                        100.00, 10.00, 100.00, 'ACTIVE')
+                    """))
+                    .hasMessageContaining("ck_tax_invoice_amounts");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO tax_invoices (
+                        issue_id, type, issue_date, business_partner_code,
+                        supply_amount, tax_amount, total_amount, status)
+                    VALUES ('INVALID-CANCEL', 'PURCHASE', DATE '2026-01-01', 'BP-1',
+                        100.00, 10.00, 110.00, 'CANCELLED')
+                    """))
+                    .hasMessageContaining("ck_tax_invoice_lifecycle");
+        }
+    }
+
+    @Test
     void assetLeaseBaselineContainsEveryJpaOwnedTable() throws Exception {
         String url = "jdbc:h2:mem:asset-lease-parity"
                 + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
@@ -897,7 +1086,9 @@ class MigrationExecutorH2Test {
                 Arguments.of("master-data", "account_subjects"),
                 Arguments.of("payable", "payables"),
                 Arguments.of("receivable", "receivables"),
-                Arguments.of("reporting", "rpt_snapshot_header"));
+                Arguments.of("reconciliation", "reconciliation_runs"),
+                Arguments.of("reporting", "rpt_snapshot_header"),
+                Arguments.of("tax", "tax_invoices"));
     }
 
     private static Stream<Arguments> malformedBatchMetadataMutations() {

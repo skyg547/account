@@ -1,5 +1,14 @@
 # PostgreSQL Migration Runbook
 
+## Supported version
+
+- 개발·운영 PostgreSQL의 최소 지원 버전은 **15**다. 루트 Compose는 PostgreSQL 15,
+  전용 PostgreSQL Compose는 PostgreSQL 16을 사용한다.
+- 승인 환경 검증은 migration 실행 전에 `SHOW server_version_num`으로 150000 이상인지
+  확인한다. 버전 확인이 끝나지 않은 외부 DB에는 migration을 실행하지 않는다.
+- Reconciliation 기준선은 nullable lineage의 재적재를 차단하기 위해 PostgreSQL 15의
+  `UNIQUE NULLS NOT DISTINCT`를 사용한다.
+
 ## Contract
 
 - 개발·운영 DB는 context별 PostgreSQL database와 runtime role을 분리한다.
@@ -30,9 +39,9 @@
 | master-data | READY | published V1-V5 preserved; forward-only V6 complete baseline; Issue #251 stacked Draft PR |
 | payable | READY | isolated PostgreSQL V1 baseline; Issue #252 stacked Draft PR |
 | receivable | READY | isolated PostgreSQL V1 baseline; Issue #252 stacked Draft PR |
-| reconciliation | BLOCKED | baseline #253 |
+| reconciliation | READY | isolated PostgreSQL V1 baseline; Issue #253 stacked Draft PR |
 | reporting | READY | V60-V63 |
-| tax | BLOCKED | baseline #253 |
+| tax | READY | isolated PostgreSQL V1 baseline; Issue #253 stacked Draft PR |
 
 `READY`는 artifact와 H2 PostgreSQL-mode 검증이 있다는 뜻이며, 이 변경만으로 실제
 PostgreSQL 검증이 끝났다는 뜻은 아니다. 승인된 PostgreSQL 검증 환경의 clean migrate +
@@ -86,10 +95,10 @@ Batch 5.1의 전체 table/column 집합과 세 sequence가 정확히 존재하�
 
 ## Verification boundaries
 
-- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 12개 READY context의 domain
-  migration + Batch metadata migrate/validate, 24개 API/Batch executable의 PostgreSQL driver,
+- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 14개 READY context의 domain
+  migration + Batch metadata migrate/validate, 28개 API/Batch executable의 PostgreSQL driver,
   executable jar `--list`.
-- 승인 환경 검증: 12개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
+- 승인 환경 검증: 14개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
   upgrade, runtime least-privilege, Batch restart.
 - 아직 금지된 범위: 운영 DB 접속, 운영 데이터 변경, 실제 secret 출력, 승인 없는 image pull
   또는 배포.

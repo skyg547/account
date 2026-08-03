@@ -37,8 +37,12 @@ class ExecutableSchemaProfilePolicyTest {
             "payable/batch/src/main/resources",
             "receivable/api/src/main/resources",
             "receivable/batch/src/main/resources",
+            "reconciliation/api/src/main/resources",
+            "reconciliation/batch/src/main/resources",
             "reporting/api/src/main/resources",
-            "reporting/batch/src/main/resources");
+            "reporting/batch/src/main/resources",
+            "tax/api/src/main/resources",
+            "tax/batch/src/main/resources");
 
     @Test
     void everyReadyExecutableLoadsFailClosedDevelopmentAndProductionSchemaPolicies() {
@@ -114,7 +118,9 @@ class ExecutableSchemaProfilePolicyTest {
                 || executable.startsWith("journal-ledger/")
                 || executable.startsWith("master-data/")
                 || executable.startsWith("payable/")
-                || executable.startsWith("receivable/")) {
+                || executable.startsWith("receivable/")
+                || executable.startsWith("reconciliation/")
+                || executable.startsWith("tax/")) {
             assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class))
                     .as(description + " Config Client")
                     .isFalse();
@@ -156,7 +162,11 @@ class ExecutableSchemaProfilePolicyTest {
                 "payable/api/src/main/resources",
                 "payable/batch/src/main/resources",
                 "receivable/api/src/main/resources",
-                "receivable/batch/src/main/resources")) {
+                "receivable/batch/src/main/resources",
+                "reconciliation/api/src/main/resources",
+                "reconciliation/batch/src/main/resources",
+                "tax/api/src/main/resources",
+                "tax/batch/src/main/resources")) {
             Path location = repositoryRoot.resolve(resourceDirectory);
             try (ConfigurableApplicationContext context = new SpringApplicationBuilder(Probe.class)
                     .web(WebApplicationType.NONE)
