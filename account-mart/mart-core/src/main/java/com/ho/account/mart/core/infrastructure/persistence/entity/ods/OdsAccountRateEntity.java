@@ -15,7 +15,7 @@ import java.time.LocalDate;
 public class OdsAccountRateEntity {
 
     @Id
-    @Column(name = "acc_no", length = 50)
+    @Column(name = "acc_no", nullable = false, length = 50)
     private String accountNo;
 
     @Column(name = "rate_type", nullable = false, length = 10)

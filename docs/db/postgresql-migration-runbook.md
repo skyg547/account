@@ -26,13 +26,13 @@
 
 | Context | State | Evidence or blocker |
 | --- | --- | --- |
-| account-mart | BLOCKED | entity/migration parity #255 |
+| account-mart | READY | published V1-V5 preserved; forward-only V6 schema convergence; Issue #255 stacked Draft PR |
 | asset-lease | READY | complete PostgreSQL V20 parity baseline; Issue #254 stacked Draft PR |
 | auth | READY | V70-V73 |
 | budget | READY | V50 |
 | closing | READY | V49 clean baseline + V50 state upgrade + V51 indexes; guarded legacy baseline 49 transition; Issue #250 stacked Draft PR |
 | deposit | READY | PostgreSQL-specific V40; published H2 checksum preserved |
-| ecl | BLOCKED | entity/migration parity #255 |
+| ecl | READY | published V1-V3 preserved; forward-only V4 schema convergence; Issue #255 stacked Draft PR |
 | expenditure-resolution | READY | isolated PostgreSQL V1 baseline; Issue #252 stacked Draft PR |
 | journal-ledger | READY | published V1/V10 preserved; forward-only V11 complete baseline; Issue #251 stacked Draft PR |
 | loan | READY | PostgreSQL-specific V30 plus V31-V33 |
@@ -95,10 +95,10 @@ Batch 5.1의 전체 table/column 집합과 세 sequence가 정확히 존재하�
 
 ## Verification boundaries
 
-- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 14개 READY context의 domain
-  migration + Batch metadata migrate/validate, 28개 API/Batch executable의 PostgreSQL driver,
+- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 검증 가능한 context의 domain
+  migration + Batch metadata migrate/validate, 32개 API/Batch executable의 PostgreSQL driver,
   executable jar `--list`.
-- 승인 환경 검증: 14개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
+- 승인 환경 검증: 16개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
   upgrade, runtime least-privilege, Batch restart.
 - 아직 금지된 범위: 운영 DB 접속, 운영 데이터 변경, 실제 secret 출력, 승인 없는 image pull
   또는 배포.

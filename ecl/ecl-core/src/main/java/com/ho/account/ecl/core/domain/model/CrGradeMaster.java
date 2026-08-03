@@ -28,11 +28,11 @@ public class CrGradeMaster {
     private Long id;
 
     /** 등급 코드 (예: AAA, A1, 1, 2 등) */
-    @Column(name = "rating_code", nullable = false, unique = true)
+    @Column(name = "rating_code", nullable = false, unique = true, length = 10)
     private String ratingCode;
 
     /** 등급별 신용 부도율 (PD) */
-    @Column(name = "pd_value", nullable = false, precision = 10, scale = 8)
+    @Column(name = "pd_value", nullable = false, precision = 15, scale = 10)
     private BigDecimal pdValue;
 
     /** 등급 순서 (정렬용, 숫자가 작을수록 우량) */
@@ -40,7 +40,7 @@ public class CrGradeMaster {
     private Integer notchOrder;
 
     /** 등급 상세 설명 */
-    @Column(name = "description")
+    @Column(name = "description", length = 200)
     private String description;
 
     /** 생성 일시 */

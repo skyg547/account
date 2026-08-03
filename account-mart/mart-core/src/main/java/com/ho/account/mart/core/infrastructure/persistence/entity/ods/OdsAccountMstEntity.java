@@ -25,23 +25,23 @@ public class OdsAccountMstEntity {
 
     /** 계정과목 코드 - 회계 시스템에서 사용하는 고유 식별 번호입니다. */
     @Id
-    @Column(name = "subj_cd", length = 20)
+    @Column(name = "subj_cd", nullable = false, length = 20)
     private String subjectCode;
 
     /** 계정과목 명칭 - 사람이 이해할 수 있는 계정명입니다 (예: 일반가계대출, 요구불예금). */
-    @Column(name = "subj_nm", length = 100)
+    @Column(name = "subj_nm", nullable = false, length = 100)
     private String subjectName;
 
     /** 계정 유형 (예: DEMAND: 요구불, TIME: 저축성, LOAN: 대출 등) */
-    @Column(name = "acc_type", length = 20)
+    @Column(name = "acc_type", nullable = false, length = 20)
     private String accountType;
 
     /** B/S 분류 (ASSET: 자산, LIABILITY: 부채, EQUITY: 자본, OFF_BS: 난외자산) */
-    @Column(name = "bs_class", length = 10)
+    @Column(name = "bs_class", nullable = false, length = 10)
     private String bsClass;
 
     /** 자산 여부 - 은행이 타인에게 돈을 빌려주어 받을 권리가 있는 항목이면 True입니다. */
-    @Column(name = "is_asset")
+    @Column(name = "is_asset", nullable = false)
     private Boolean isAsset;
 
     /** 사업부 코드 (예: RETAIL: 가계금융, CORPORATE: 기업금융, WM: 자산관리 등) */

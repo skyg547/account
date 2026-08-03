@@ -23,7 +23,7 @@ public class OdsProductMstEntity {
 
     /** 상품 코드 - 은행에서 정의한 유니크한 상품 식별 번호입니다. */
     @Id 
-    @Column(name = "prod_cd", length = 20) 
+    @Column(name = "prod_cd", nullable = false, length = 20)
     private String productCode;
 
     /** 상품명 - 상품의 공식 명칭입니다. */

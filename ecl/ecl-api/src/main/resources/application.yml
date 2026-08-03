@@ -1,23 +1,48 @@
 server:
-  port: 8083
+  port: ${SERVER_PORT:8083}
 
 spring:
   application:
     name: ifrs9-allowance-api
-  
-  # 🔑 [Centralized Config] 설정 서버 연동
-  config:
-    import: "optional:configserver:http://localhost:8888"
+  profiles:
+    default: local
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+  batch:
+    job:
+      enabled: false
+  flyway:
+    enabled: false
+    locations: classpath:db/ecl-local-migration
+    clean-disabled: true
+    baseline-on-migrate: false
+  sql:
+    init:
+      mode: never
+  kafka:
+    listener:
+      auto-startup: false
+  redisson:
+    enabled: false
 
-# 💡 최소한의 인프라 연결 설정만 유지
 eureka:
   client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
+    enabled: false
 
-# 로깅 설정
-logging:
-  level:
-    com.ho.account.ecl: DEBUG
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  health:
+    redis:
+      enabled: false
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

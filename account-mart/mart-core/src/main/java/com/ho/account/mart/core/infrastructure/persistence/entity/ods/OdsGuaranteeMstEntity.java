@@ -15,7 +15,7 @@ import java.time.LocalDate;
 public class OdsGuaranteeMstEntity {
 
     @Id
-    @Column(name = "guarantee_no", length = 50)
+    @Column(name = "guarantee_no", nullable = false, length = 50)
     private String guaranteeNo;
 
     @Column(name = "acc_no", length = 50)

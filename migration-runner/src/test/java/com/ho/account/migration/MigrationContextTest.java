@@ -30,21 +30,17 @@ class MigrationContextTest {
     }
 
     @Test
-    void contextsWithoutCleanBaselinesRemainFailClosed() {
+    void everyContextHasACleanPostgresqlBaseline() {
         assertThat(MigrationContext.all())
                 .filteredOn(context -> !context.cleanDatabaseReady())
                 .extracting(MigrationContext::slug)
-                .containsExactly(
-                        "account-mart",
-                        "ecl");
-        assertThat(MigrationContext.all())
-                .filteredOn(context -> !context.cleanDatabaseReady())
-                .allMatch(context -> context.blockerIssue() > 0);
+                .isEmpty();
         assertThat(MigrationContext.all())
                 .filteredOn(MigrationContext::cleanDatabaseReady)
                 .extracting(MigrationContext::slug)
                 .containsExactly(
-                        "asset-lease", "auth", "budget", "closing", "deposit", "expenditure-resolution",
+                        "account-mart", "asset-lease", "auth", "budget", "closing", "deposit", "ecl",
+                        "expenditure-resolution",
                         "journal-ledger", "loan", "master-data", "payable", "receivable",
                         "reconciliation", "reporting", "tax");
 

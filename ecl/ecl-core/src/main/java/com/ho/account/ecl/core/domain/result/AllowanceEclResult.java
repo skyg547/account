@@ -59,21 +59,21 @@ public class AllowanceEclResult extends BaseEntity {
     private BigDecimal ead;
 
     /** 적용된 CCF */
-    @Column(name = "applied_ccf", precision = 5, scale = 4)
+    @Column(name = "applied_ccf", precision = 10, scale = 6)
     private BigDecimal appliedCcf;
 
     /** 
      * [v2.4 고도화] 적용된 부도율 (PD, Probability of Default)
      * 차주 등급 또는 계좌별 등급에 따라 산출된 최종 부도 확률 (0.0 ~ 1.0)
      */
-    @Column(name = "pd", precision = 10, scale = 8)
+    @Column(name = "pd", precision = 15, scale = 10)
     private BigDecimal pd;
 
     /** 
      * 부도시 손실률 (LGD, Loss Given Default)
      * 부도 발생 시 실제 떼이게 되는 금액의 비율 (담보에 따라 차등)
      */
-    @Column(name = "lgd", precision = 10, scale = 8)
+    @Column(name = "lgd", precision = 15, scale = 10)
     private BigDecimal lgd;
 
     /** 기대 손실 (Expected Loss) */
@@ -110,7 +110,7 @@ public class AllowanceEclResult extends BaseEntity {
     private CalculationStatus status;
 
     /** 오류 메시지 */
-    @Column(name = "error_message", length = 1000)
+    @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
     /** 산출 완료 일시 */

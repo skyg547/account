@@ -31,7 +31,7 @@ public class YieldCurvePointEntity {
     private YieldCurveEntity yieldCurve;
 
     /** 만기 라벨 - 사람이 읽기 쉬운 만기 표시입니다. (예: "3M", "1Y", "10Y") */
-    @Column(name = "tenor_label") 
+    @Column(name = "tenor_label", length = 10)
     private String tenorLabel;
 
     /** 만기 개월수 - 계산을 위해 만기를 개월 단위 숫자로 바꾼 값입니다. (예: "1Y" -> 12) */
@@ -39,7 +39,7 @@ public class YieldCurvePointEntity {
     private Integer tenorMonths;
 
     /** 금리 - 해당 만기 시점의 시장 이자율(%)입니다. */
-    @Column(name = "rate") 
+    @Column(name = "rate", precision = 10, scale = 6)
     private BigDecimal rate;
 
     /** 
@@ -47,7 +47,7 @@ public class YieldCurvePointEntity {
      * 💡 [개념 설명] 미래의 1원을 현재 가치로 바꿀 때 곱하는 숫자입니다. 
      * 보통 금리가 높을수록 할인 계수는 작아집니다. (예: 1년 뒤 1원의 현재 가치는 0.96원)
      */
-    @Column(name = "discount_factor") 
+    @Column(name = "discount_factor", precision = 19, scale = 12)
     private BigDecimal discountFactor;
 
     public YieldCurvePointEntity() {}

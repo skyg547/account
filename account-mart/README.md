@@ -22,8 +22,26 @@ flowchart LR
 
 ## 실행
 
+프로파일을 생략하면 `local`이 선택되고, API와 Batch가 각각 독립 메모리 H2 DB에 Account Mart
+전용 Flyway V1 baseline을 적용한 뒤 JPA schema를 검증한다. Batch Job 자동 실행은 기본적으로
+꺼져 있다.
+
 ```powershell
-./gradlew :account-mart:mart-core:compileJava :account-mart:mart-api:compileJava :account-mart:mart-batch:compileJava
+.\gradlew.bat :account-mart:mart-api:bootRun --console=plain
+.\gradlew.bat :account-mart:mart-batch:bootRun --console=plain
+.\gradlew.bat :account-mart:mart-api:bootJar :account-mart:mart-batch:bootJar
+java -jar account-mart\mart-api\build\libs\account-mart-api-0.0.1-SNAPSHOT.jar
+java -jar account-mart\mart-batch\build\libs\account-mart-batch-0.0.1-SNAPSHOT.jar
+```
+
+`dev`/`prod`는 PostgreSQL 전용이며 `DEV_DB_*`/`PROD_DB_*` 환경 변수를 반드시 주입한다.
+애플리케이션 Flyway와 Hibernate DDL, SQL init, Batch metadata 생성은 금지되고 release-time
+`migration-runner`가 published V1-V5와 forward-only V6를 적용한다. `prod`는
+`sslmode=verify-full`을 강제한다.
+
+대표 Job을 명시적으로 실행하는 기존 demo 예시는 다음과 같다.
+
+```powershell
 .\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain --max-workers=1
 ```
 

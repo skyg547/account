@@ -12,11 +12,9 @@ Batch metadata를 하나의 실행 가능한 Boot jar에 패키징한다.
 java -jar migration-runner\build\libs\account-migration-runner.jar --list
 ```
 
-`--list`는 자격증명 없이 16개 context의 `READY`/`BLOCKED` 상태를 출력한다. 현재 이 stack은
-Reconciliation과 Tax의 분리된 V1 baseline까지 포함해
-`READY 14 / BLOCKED 2`다. baseline이
-불완전한 context는 해당 GitHub Issue가 해결될 때까지 DB 접속 전에 종료 코드 `3`으로
-차단된다.
+`--list`는 자격증명 없이 16개 context의 상태를 출력한다. Account Mart V6와 ECL V4까지
+포함한 현재 stack은 `READY 16 / BLOCKED 0`이다. 모든 context가 release artifact에 포함되어
+있지만, `READY`는 승인된 실제 PostgreSQL 검증이 끝났다는 뜻이 아니다.
 
 ## Commands
 

@@ -1,5 +1,6 @@
 package com.ho.account.ecl.batch;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import java.util.Map;
 
 import org.springframework.boot.SpringApplication;
@@ -7,6 +8,7 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -16,9 +18,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * 본 시스템은 IFRS 9 대손충당금 결산을 위한 대량 신용 노출(Exposure),
  * 부도율(PD), 부도시손실률(LGD), 기대신용손실(ECL) 산출 배치를 수행합니다.
  */
-@SpringBootApplication(scanBasePackages = {"com.ho.account.ecl", "com.ho.account.shared.finance"})
-@EntityScan(basePackages = {"com.ho.account.ecl", "com.ho.account.shared.finance.entity"})
-@EnableJpaRepositories(basePackages = {"com.ho.account.ecl", "com.ho.account.shared.finance.repository"})
+@SpringBootApplication(scanBasePackages = "com.ho.account.ecl")
+@EntityScan(basePackages = {
+        "com.ho.account.ecl.core.domain",
+        "com.ho.account.ecl.core.infrastructure.adapter.persistence.jpa"
+})
+@EnableJpaRepositories(basePackages =
+        "com.ho.account.ecl.core.infrastructure.adapter.persistence.jpa")
+@Import(ProductionPostgresqlTlsGuard.class)
 public class AllowanceEclBatchApplication {
 
     public static void main(String[] args) {

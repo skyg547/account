@@ -68,7 +68,7 @@ public class AllowanceInputPosition {
     private ProductCategory productCategory;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "currency", length = 3)
+    @Column(name = "currency", nullable = false, length = 3)
     private CurrencyCode currency;
 
     @Column(name = "bs_class", length = 10)

@@ -31,7 +31,7 @@ public class YieldCurveEntity {
     private LocalDate baseDate;
 
     @Enumerated(EnumType.STRING) 
-    @Column(name = "currency") 
+    @Column(name = "currency", length = 3)
     @Comment("통화코드: 곡선의 대상 통화 (KRW, USD 등)")
     private CurrencyCode currency;
 

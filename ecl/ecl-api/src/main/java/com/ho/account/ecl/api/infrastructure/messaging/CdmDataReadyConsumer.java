@@ -2,8 +2,8 @@ package com.ho.account.ecl.api.infrastructure.messaging;
 
 import com.ho.account.shared.finance.event.CdmDataReadyEvent;
 import java.time.format.DateTimeFormatter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
@@ -21,11 +21,17 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CdmDataReadyConsumer {
 
     private final JobLauncher jobLauncher;
     private final Job allowanceEclJob;
+
+    public CdmDataReadyConsumer(
+            JobLauncher jobLauncher,
+            @Qualifier("allowanceEclJob") Job allowanceEclJob) {
+        this.jobLauncher = jobLauncher;
+        this.allowanceEclJob = allowanceEclJob;
+    }
 
     /**
      * Kafka Topic으로부터 이벤트를 수신합니다.

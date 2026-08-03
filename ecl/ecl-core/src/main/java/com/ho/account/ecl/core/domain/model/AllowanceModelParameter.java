@@ -19,15 +19,15 @@ import java.time.LocalDateTime;
 public class AllowanceModelParameter {
     /** 파라미터 키 (예: PD_FLOOR, DEFAULT_DISCOUNT_RATE 등) */
     @Id
-    @Column(name = "param_key")
+    @Column(name = "param_key", length = 50)
     private String paramKey;
 
     /** 파라미터 값 */
-    @Column(name = "param_value", nullable = false, precision = 19, scale = 8)
+    @Column(name = "param_value", nullable = false, precision = 19, scale = 10)
     private BigDecimal paramValue;
 
     /** 파라미터 상세 설명 */
-    @Column(name = "description")
+    @Column(name = "description", length = 200)
     private String description;
 
     /** 업데이트 일시 */
