@@ -1767,3 +1767,11 @@
 - Shared Kernel 8, Journal Core 41/API 3/Batch 4, Master Core 13/API 18/Batch 5, runner 53으로 총 145 tests가 통과했다. 네 bootJar와 실제 local jar V11/V6 smoke, READY 18개 PG-driver gate도 통과했다.
 - 독립 리뷰가 SL nullable key, existing upgrade, SCD2 날짜/JSON, raw mutation, TLS, timeout 결함을 찾아 모두 수정했으며 최종 P0-P3는 없다. BP historical active와 Closing service-auth command는 #261/#262로 추적한다.
 - Runner inventory는 READY 9 / BLOCKED 7이다. 실제 PostgreSQL 15+ clean/upgrade migrate+validate, runtime DDL denial, Batch restart가 남아 있어 Issue #251은 open으로 유지한다.
+
+## 2026-08-04 (Issue #252 Expenditure Resolution, Payable and Receivable PostgreSQL baselines)
+
+- `agent/252-expenditure-payable-receivable-postgres-baseline`을 #263 위에 stack해 세 context 전용 V1 baseline과 여섯 API/Batch 프로파일을 구현하고 commit `a3dafe69`, Draft PR #265로 전달했다.
+- local은 H2 PostgreSQL mode에서 Flyway V1과 JPA validate로 독립 실행하고, dev/prod는 injected PostgreSQL과 runtime Flyway/DDL/SQL/Batch init 차단 계약을 가진다. production은 `sslmode=verify-full`을 강제한다.
+- 금액 합계·양수·상태/잔액, 원천 인보이스와 거래처 귀속, one-to-one 소유권, FK/unique 및 batch-leading index를 DB 기준선에서 보호한다.
+- 114 tests, 여섯 bootJar와 runner bootJar, READY 24개 PG-driver gate, runner `--list`, 여섯 실제 local JAR V1 startup이 통과했다. 독립 리뷰 최종 P0-P3는 없다.
+- Runner inventory는 READY 12 / BLOCKED 4다. 실제 PostgreSQL clean migrate+validate, runtime-role/Batch restart 및 #264 원격 어댑터가 남아 있어 Issue #252는 open으로 유지한다.

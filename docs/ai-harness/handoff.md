@@ -1313,3 +1313,24 @@
 - Do not close #251, make its future PR Ready, or connect/deploy until approved PostgreSQL clean/upgrade migrate+validate, runtime-role denial and Batch restart are evidenced.
 - Before application, rollback is a normal commit revert. After application, never edit, repair or down-migrate published V1-V11/V1-V6; ship a reviewed forward-fix.
 - Business Partner historical active semantics and a service-authenticated Closing→Master command boundary remain tracked in #261 and #262.
+
+# AI Harness Handoff - 2026-08-04 Issue #252 Expenditure Resolution, Payable and Receivable baselines
+
+## State
+
+- Worktree/branch: `C:\tmp\account-252-expenditure-payable-receivable-postgres-baseline`, `agent/252-expenditure-payable-receivable-postgres-baseline`.
+- Stack: `agent/251-journal-master-postgres-baseline` / Draft PR #263, which stacks on #260, #259 and #256.
+- Delivery: implementation commit `a3dafe69`, stacked Draft PR #265. Issue #252 remains OPEN. Runner inventory is READY 12 / BLOCKED 4.
+
+## Delivered and verified
+
+- Three context-specific V1 locations avoid migration-version collisions across dependent modules and create only the 16 JPA-owned tables for Expenditure Resolution, Payable and Receivable.
+- DB constraints protect monetary totals, positive/ranged balances, valid status/balance combinations, invoice-to-party lineage, one-to-one invoice/receivable and resolution/payment ownership, allocations and batch query indexes.
+- Six API/Batch applications default to independent local H2/Flyway/JPA validate execution. Dev/prod use injected PostgreSQL and prohibit runtime migration/schema initialization; production enforces `sslmode=verify-full`.
+- 114 tests, six bootJars, runner bootJar, 24 READY driver-bearing executables, runner `--list` and six direct local JAR starts passed. Independent final review has no remaining P0-P3.
+
+## Gates and rollback
+
+- Do not close #252, make its future PR Ready, or connect/deploy until approved PostgreSQL clean migrate+validate, runtime-role DDL denial and Batch restart are evidenced.
+- Full dev/prod business flows need the remote adapters tracked by #264; local adapters remain local-only.
+- Before application, rollback is a normal commit revert. After V1 is applied, never edit, repair or down-migrate it; ship a reviewed forward-fix.

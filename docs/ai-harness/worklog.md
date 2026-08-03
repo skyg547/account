@@ -766,3 +766,15 @@
 - Verification: Shared Kernel 8; Journal Core 41, API 3, Batch 4; Master Core 13, API 18, Batch 5; runner 53 tests passed (145 total, no failures/errors/skips). Four bootJars, actual local JAR startup through Journal V11/Master V6, and 18 READY driver packages passed.
 - Independent review drove clean/existing NULL-safe SL uniqueness, dated SCD2 propagation/JSON parity, raw mutation removal, production TLS and bounded HTTP timeout fixes. Final result has no remaining P0-P3.
 - Remaining gate: actual approved PostgreSQL 15+ clean/upgrade migrate+validate, runtime-role DDL denial and Batch restart. Business Partner historical active semantics and authenticated Closing command boundary are tracked by #261/#262. No development/production DB connection, image pull, deployment or data mutation was performed.
+
+## 2026-08-04 - Issue #252 Expenditure Resolution, Payable and Receivable PostgreSQL baselines
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/252-expenditure-payable-receivable-postgres-baseline` / `C:\tmp\account-252-expenditure-payable-receivable-postgres-baseline`; stacked on `agent/251-journal-master-postgres-baseline`.
+- Delivery: implementation commit `a3dafe69`, stacked Draft PR `#265`; Issue `#252` remains open.
+- Added isolated V1 migrations for 5 Expenditure Resolution, 5 Payable and 6 Receivable JPA-owned tables. Financial totals, positive amounts, status/balance correlations, source lineage, one-to-one ownership, FK/unique and batch-leading indexes are database-enforced.
+- Added independent default-local H2 PostgreSQL-mode/Flyway/JPA-validate execution and fail-closed dev/prod PostgreSQL profiles to all six API/Batch applications. Runtime Flyway, SQL init and dev/prod Batch schema initialization are disabled; production TLS verification is mandatory.
+- Promoted all three contexts to runner READY. Inventory is READY 12 / BLOCKED 4 and 24 READY API/Batch executable jars contain PostgreSQL drivers.
+- Verification: 114 tests passed with no failures/errors/skips; six bootJars plus runner bootJar, 24 READY driver packages, runner `--list`, six direct local JAR startups through V1, diff/conflict/private-host/secret scans and independent review passed.
+- Independent review drove AP total equality, invoice/party lineage, state-balance correlation, partial-unmatched validity, batch indexes and exact JAR documentation. Final result has no remaining P0-P3.
+- Remaining gates: approved real PostgreSQL clean migrate+validate, runtime least-privilege and Batch restart. Remote business adapters are tracked by #264. No development/production DB connection, image pull, deployment or data mutation was performed.

@@ -2293,3 +2293,9 @@
 - 기존 H2 migration checksum은 바꾸지 않고 세 PostgreSQL dialect variant를 분리했다.
 - Runner/Config/영향 모듈 테스트, 10 READY bootJar driver 검사와 독립 리뷰가 통과했다.
 - #250-#255의 11개 baseline과 실제 PostgreSQL 검증이 남았으므로 #244는 완료/close하지 않는다.
+
+### 2026-08-04 - Issue #252 Expenditure Resolution, Payable and Receivable PostgreSQL baselines
+
+- commit `a3dafe69`, stacked Draft PR `#265`에서 세 context의 분리된 V1, 여섯 API/Batch local H2 및 dev/prod PostgreSQL 프로파일을 구현하고 runner inventory를 READY 12 / BLOCKED 4로 전환했다.
+- 114 tests, 여섯 direct local JAR startup, 여섯 bootJar, runner bootJar와 24 READY PG-driver 검사가 통과했으며 독립 리뷰 잔여 P0-P3는 없다.
+- 실제 PostgreSQL 검증과 #264 원격 어댑터가 남아 있어 Issue #252와 향후 Draft PR은 open/Draft로 유지한다.
