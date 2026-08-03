@@ -1,0 +1,32 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    vault:
+      enabled: false
+    discovery:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:closing-batch;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    clean-disabled: true
+    baseline-on-migrate: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: never
+
+eureka:
+  client:
+    enabled: false

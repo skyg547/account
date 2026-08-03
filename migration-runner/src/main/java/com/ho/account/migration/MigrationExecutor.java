@@ -1,6 +1,7 @@
 package com.ho.account.migration;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 
 final class MigrationExecutor {
 
@@ -11,6 +12,7 @@ final class MigrationExecutor {
             MigrationContext context,
             MigrationAction action,
             MigrationConfiguration configuration) {
+        new LegacyBaselineVerifier().verify(context, configuration);
         Flyway contextFlyway = configureContext(configuration, context);
         Flyway batchFlyway = configureBatch(configuration);
 
@@ -29,14 +31,21 @@ final class MigrationExecutor {
     private Flyway configureContext(
             MigrationConfiguration configuration,
             MigrationContext context) {
-        return Flyway.configure()
+        FluentConfiguration flyway = Flyway.configure()
                 .dataSource(configuration.url(), configuration.user(), configuration.password())
                 .locations(context.location())
                 .table(context.historyTable())
-                .baselineOnMigrate(false)
                 .cleanDisabled(true)
-                .validateMigrationNaming(true)
-                .load();
+                .validateMigrationNaming(true);
+        if (context.legacyBaselineVersion() == null) {
+            flyway.baselineOnMigrate(false);
+        } else {
+            flyway.baselineOnMigrate(true)
+                    .baselineVersion(context.legacyBaselineVersion())
+                    .baselineDescription(
+                            "Existing " + context.slug() + " schema before clean baseline");
+        }
+        return flyway.load();
     }
 
     private Flyway configureBatch(MigrationConfiguration configuration) {

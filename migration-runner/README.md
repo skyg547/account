@@ -41,8 +41,12 @@ java -jar migration-runner\build\libs\account-migration-runner.jar `
   --context=auth --action=migrate
 ```
 
-지원 action은 `validate`, `migrate`뿐이다. `clean`, `repair`, baseline 자동 생성은 제공하지
-않는다. `MIGRATION_TARGET_ENV`는 `development` 또는 `production`이고 production은
+지원 action은 `validate`, `migrate`뿐이다. `clean`, `repair`는 제공하지 않는다. 일반 context의
+baseline 자동 생성도 금지한다. 유일한 예외인 Closing은 과거 계약을 승계하기 위해 전용 history가
+없는 비어 있지 않은 DB의 10개 V49 테이블과 전체 컬럼 타입·길이·nullability, identity,
+PK/FK/기간 unique를 먼저 검사하고, 일치할 때만 version 49 baseline을 만든 뒤 V50/V51을 적용한다.
+일부 테이블만 있거나 V50 컬럼이 history 없이 존재하거나 같은 이름의 잘못된 운영 인덱스가 있으면 중단한다.
+`MIGRATION_TARGET_ENV`는 `development` 또는 `production`이고 production은
 `sslmode=verify-full`이 필수다. 예상 DB 이름은 context의 canonical token(예:
 `auth`, `auth_dev`, `auth_prod`)과 일치해야 하며 URL path와 실제 `current_database()`를 모두
 대조한다. 종료 코드는 `0` 성공, `2` 인자/승인/환경 오류, `3` baseline 차단, `4` Flyway 또는
