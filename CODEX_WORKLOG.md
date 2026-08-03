@@ -1751,7 +1751,7 @@
 
 ## 2026-08-04 (Issue #250 Closing PostgreSQL baseline)
 
-- `agent/250-closing-postgres-baseline`을 #259 위에 stack해 Closing clean/legacy PostgreSQL schema를 구현했다. Issue #250은 실제 PostgreSQL gate 때문에 open 상태다.
+- `agent/250-closing-postgres-baseline`을 #259 위에 stack해 Closing clean/legacy PostgreSQL schema를 구현하고 commit `d930f3d6`, Draft PR #260으로 전달했다. Issue #250은 실제 PostgreSQL gate 때문에 open 상태다.
 - V49는 10개 Closing JPA 소유 테이블을 생성하고, published V50은 legacy `is_closed`를 EOD/BOD 상태로 forward 전환하며, V51은 baseline-49 기존 DB에도 운영 인덱스를 수렴시킨다.
 - history 없는 legacy DB 자동 baseline은 exact column set, type/length/nullability, identity, PK/FK/period unique와 동일명 index 정의를 검증하고 partial/unrelated/corrupt 모양을 모두 fail-closed 거부한다.
 - API/Batch는 profile 생략 시 local H2로 독립 기동하고, dev/prod는 injected PostgreSQL, JPA validate, runtime Flyway/Batch/SQL init 차단 계약을 가진다.

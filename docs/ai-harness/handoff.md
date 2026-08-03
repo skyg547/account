@@ -1275,6 +1275,7 @@
 
 - Worktree/branch: `C:\tmp\account-250-closing-postgres-baseline`, `agent/250-closing-postgres-baseline`.
 - Stack: `agent/254-asset-lease-postgres-baseline` / Draft PR #259, which itself stacks on #256.
+- Delivery: implementation commit `d930f3d6`, stacked Draft PR #260.
 - Issue #250 remains OPEN. Runner inventory is READY 7 / BLOCKED 9 on this stack.
 
 ## Delivered and verified
