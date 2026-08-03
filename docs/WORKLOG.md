@@ -1,3 +1,18 @@
+### 📅 2026-08-03 (IFRS 9 ECL Core Engine & Staging 고도화)
+### [기능 완료] pure domain IfrsStagingEngine 및 BigDecimal IFRS 9 ECL 산출 코어 엔진
+
+- **작업 배경**:
+  - 기존 `IfrsEclCalculator`는 `doubleValue()` 및 `Math.pow()` 부동소수점 연산을 사용하여 현가 할인 시 회계 및 금융 정밀도 오차가 발생할 위험이 있었다.
+  - 스테이징 평가 규칙이 서비스 레이어에 직접 혼합되어 도메인 계산 로직의 순수 객체지향 분리가 미흡했다.
+- **주요 변경 사항**:
+  - **`IfrsStagingEngine` (pure domain)**: 외부 의존성 없는 순수 도메인 스테이징 엔진 구현. Stage 1 (정상), Stage 2 (연체 30일/3노치 하락/CRITICAL·WARNING 조기경보 SICR), Stage 3 (연체 90일/채무조정 Default) 판정 및 사유 불변 객체 `StagingDecisionResult` 생성.
+  - **`IfrsEclCalculator` (pure BigDecimal)**: 부동소수점 오차 없는 순수 `BigDecimal` 현가 할인 (\( \frac{1}{(1+r)^t} \)) 및 다중 거시경제 시나리오(낙관/중립/비관) 가중합산 계산기 리팩토링.
+  - **`PdCalculator` & `LgdCalculator` (domain calculators)**: 12개월 PD, 한계 PD 시퀀스, PD Floor, 동적 할증 및 LGD 담보부/무담보부 가중분할, Downturn LGD, LGD Floor 반영.
+  - **`StagingService` 위임**: 서비스 레이어가 `IfrsStagingEngine`을 통해 스테이징을 결정하고 세부 트랜잭션 메트릭을 로깅하도록 개선.
+- **검증**:
+  - `IfrsStagingEngineTest`, `IfrsEclCalculatorTest`, `PdCalculatorTest`, `LgdCalculatorTest` 단위 테스트 100% 작성 및 통과.
+  - Gradle test suite 실행: `:ecl:ecl-core:test`, `:ecl:ecl-api:test`, `:ecl:ecl-batch:test` 전수 실행하여 100% BUILD SUCCESSFUL 확인.
+
 ### 📅 2026-07-30 (Codex Issue #45 실제 구현)
 ### [통합 완료] 실행 가능한 Budget Control bounded context
 

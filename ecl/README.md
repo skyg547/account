@@ -13,10 +13,11 @@
 ## 주요 개념
 
 1. **EAD (Exposure At Default)**: 부도 시 회수 대상이 되는 노출액이다. 현재 잔액과 미사용 한도, CCF를 반영한다.
-2. **PD (Probability of Default)**: 일정 기간 내 부도 발생 확률이다. IFRS 9 Stage 및 등급 정보를 기반으로 산출한다.
-3. **LGD (Loss Given Default)**: 부도 발생 시 최종 손실률이다. 담보와 회수 가능성을 반영한다.
-4. **ECL (Expected Credit Loss)**: `EAD * PD * LGD` 및 미래전망 가중치를 반영한 기대신용손실이다.
-5. **allowance_summary**: 완료된 ECL 결과를 회계 계정 매핑과 결합한 결산 입력 summary다.
+2. **PD (Probability of Default)**: 일정 기간 내 부도 발생 확률이다. IFRS 9 Stage, 등급 정보, DPD/조기경보 할증, PD Floor 및 거시경제 민감도 scaling을 적용하여 `PdCalculator`로 산출한다.
+3. **LGD (Loss Given Default)**: 부도 발생 시 최종 손실률이다. 담보부/무담보부 세그먼트 LGD, CRM 헤어컷 차감, Downturn LGD 할증 및 LGD Floor를 `LgdCalculator`로 반영한다.
+4. **IfrsStagingEngine**: pure domain 스테이징 엔진으로 연체일수(30일/90일), 등급하락(3노치), 조기경보(CRITICAL/WARNING), 채무조정을 평가하여 Stage 1/2/3 및 상세 판정 사유(`StagingDecisionResult`)를 결정한다.
+5. **ECL (Expected Credit Loss)**: `IfrsEclCalculator`를 통해 부동소수점 오차 없는 순수 `BigDecimal` 현가 할인(\( \frac{1}{(1+r)^t} \)) 및 다중 거시경제 시나리오(낙관/중립/비관) 가중합산으로 기대신용손실을 산출한다.
+6. **allowance_summary**: 완료된 ECL 결과를 회계 계정 매핑과 결합한 결산 입력 summary다.
 
 ## 현재 표준 실행 흐름
 
