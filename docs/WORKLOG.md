@@ -1,3 +1,16 @@
+### 📅 2026-08-04 (Reporting 모듈 FinancialStatementEngine & IfrsDisclosureNotesEngine 구현)
+### [기능 완료] pure domain FinancialStatementEngine 및 IfrsDisclosureNotesEngine 구현
+
+- **작업 배경**:
+  - `reporting` 모듈의 시산표(Trial Balance) 기반 재무상태표(B/S), 손익계산서(I/S) 자동 집계 및 복식부기 대차 등식(\( \text{자산} = \text{부채} + \text{자본} \)) 검증 엔진과 IFRS 주석 공시 데이터 집계 엔진이 필요했음.
+- **주요 변경 사항**:
+  - **`FinancialStatementEngine` (pure domain)**: 시산표(Trial Balance) 항목으로부터 손익계산서 당기순이익 산출, 재무상태표 자본(이익유보금) 이체 합산, 복식부기 대차 무결성 검증(`Assets == Liabilities + Equity`) 및 `FinancialStatement` 도메인 생성.
+  - **`IfrsDisclosureNotesEngine` (pure domain)**: `DisclosureNoteMart` 데이터를 주석 번호(`noteNumber`) 기준 자동 그룹화, 라인 항목 수, 당기 및 전기 합계 금액 정밀 집계.
+- **검증**:
+  - `FinancialStatementEngineTest` (손익계산서 당기순이익, 재무상태표 대차 등식 검증, 대차 불일치 예외 100% 통과).
+  - `IfrsDisclosureNotesEngineTest` (주석 번호별 당기/전기 금액 정밀 집계 100% 통과).
+  - Gradle test suite 실행: `:reporting:core:test`, `:reporting:api:test`, `:reporting:batch:test` 전수 통과 확인.
+
 ### 📅 2026-08-04 (Reconciliation 모듈 AutomatedMatchingEngine & Diff Resolver 도메인 고도화)
 ### [기능 완료] pure domain ReconciliationDiffResolver 구현 및 대사 차이 해소 수수료/조정 산출 엔진
 
