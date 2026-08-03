@@ -110,4 +110,10 @@ erDiagram
 - 상세 실행 순서는 [docs/local-run.md](./docs/local-run.md)를 참고합니다.
 
 - core는 master-data 내부 Repository/Entity를 직접 참조하지 않고 MasterDataQueryPort로 부서, 계정, 거래처를 확인합니다.
-- 예산은 deptCode, ccountCode 코드 기준으로 저장되어 기준정보 Aggregate와 생명주기를 분리합니다.
+- 예산은 `deptCode`, `accountCode` 코드 기준으로 저장되어 기준정보 Aggregate와 생명주기를 분리합니다.
+
+### 프로파일과 DB 계약
+
+- `local`: H2 PostgreSQL mode + 전용 Flyway V1 + Hibernate `validate`; Gradle `bootRun`과 실행 JAR을 모두 지원합니다.
+- `dev`/`prod`: PostgreSQL + 런타임 migration/DDL 비활성화; release-time `migration-runner`가 스키마를 소유합니다. `prod`는 TLS 호스트 검증을 강제합니다.
+- 실제 PostgreSQL 검증은 승인 환경에서 남아 있으며, 원격 서비스 어댑터는 Issue #264에서 추적합니다.

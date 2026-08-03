@@ -32,9 +32,12 @@ def contextMigrationSources = [
         'closing'               : 'closing/core/src/main/resources/db/closing-migration',
         'deposit'               : 'deposit/core/src/main/resources/db/migration',
         'ecl'                   : 'ecl/ecl-api/src/main/resources/db/migration',
+        'expenditure-resolution': 'expenditure-resolution/core/src/main/resources/db/expenditure-resolution-migration',
         'journal-ledger'        : 'journal-ledger/core/src/main/resources/db/migration',
         'loan'                  : 'loan/core/src/main/resources/db/migration',
         'master-data'           : 'master-data/core/src/main/resources/db/migration',
+        'payable'               : 'payable/core/src/main/resources/db/payable-migration',
+        'receivable'            : 'receivable/core/src/main/resources/db/receivable-migration',
         'reporting'             : 'reporting/core/src/main/resources/db/migration'
 ]
 
@@ -77,9 +80,12 @@ def readyExecutableProjects = [
         project(':budget:api'), project(':budget:batch'),
         project(':closing:api'), project(':closing:batch'),
         project(':deposit:api'), project(':deposit:batch'),
+        project(':expenditure-resolution:api'), project(':expenditure-resolution:batch'),
         project(':journal-ledger:api'), project(':journal-ledger:batch'),
         project(':loan:api'), project(':loan:batch'),
         project(':master-data:api'), project(':master-data:batch'),
+        project(':payable:api'), project(':payable:batch'),
+        project(':receivable:api'), project(':receivable:batch'),
         project(':reporting:api'), project(':reporting:batch')
 ]
 

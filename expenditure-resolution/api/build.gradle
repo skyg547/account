@@ -19,11 +19,15 @@ dependencyManagement {
 dependencies {
     implementation project(':expenditure-resolution:core')
     implementation project(':contracts')
+    implementation project(':shared-kernel')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation project(':tax:core')
     testImplementation project(':tax:api')
@@ -34,5 +38,12 @@ dependencies {
 
 bootRun {
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
+}
+
+bootJar { enabled = true }
+jar { enabled = false }
+
+springBoot {
+    mainClass = 'com.ho.account.expenditure.resolution.api.ExpenditureResolutionApiApplication'
 }
 

@@ -76,3 +76,7 @@ erDiagram
 ## AP Invoice 레거시 엔티티
 
 `Invoice`는 AP 미지급 송장 표현을 위해 남아 있지만 현재 주요 API 흐름은 tax 모듈의 `TaxInvoiceRef`를 사용한다. `Invoice`도 master-data 엔티티 직접 연관 대신 `vendorCode`, `currencyCode` 값을 저장한다.
+
+## PostgreSQL 기준선
+
+전용 Flyway V1은 이 모듈 소유 5개 테이블만 생성한다. 금액 정밀도는 `numeric(19,2)`이며, AP 청구 합계·잔액, 예산 한도, 상태, 일자, 결의-지급 1:1 및 상세 라인리지를 DB 제약으로 보호한다. 이미 데이터가 있는 history 없는 DB를 자동 baseline하지 않고 실패로 종료한다.

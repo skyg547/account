@@ -93,6 +93,249 @@ class MigrationExecutorH2Test {
     }
 
     @Test
+    void expenditureResolutionBaselineContainsOwnedTablesAndFinancialConstraints() throws Exception {
+        String url = "jdbc:h2:mem:expenditure-resolution-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        new MigrationExecutor().execute(
+                MigrationContext.require("expenditure-resolution"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "expenditure_resolution"));
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "expenditure_resolutions", "expenditure_details", "budgets",
+                            "ap_invoices", "ap_payments")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+            assertNumericColumn(connection, "expenditure_resolutions", "total_amount", 19, 2);
+            assertNumericColumn(connection, "expenditure_details", "amount", 19, 2);
+            assertNumericColumn(connection, "budgets", "assigned_amount", 19, 2);
+            assertNumericColumn(connection, "ap_payments", "unapplied_amount", 19, 2);
+            assertThat(hasForeignKey(
+                    connection, "expenditure_details", "expenditure_resolution_id",
+                    "expenditure_resolutions", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "ap_payments", "expenditure_resolution_id",
+                    "expenditure_resolutions", "id")).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "budgets", List.of("year_month", "dept_code", "account_code"))).isTrue();
+            assertThat(indexColumns(
+                    connection, "expenditure_resolutions", "idx_expenditure_resolution_date_status"))
+                    .containsExactly("resolution_date", "status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO expenditure_resolutions (
+                        resolution_no, title, resolution_date, payment_date, total_amount, status)
+                    VALUES ('INVALID', 'Invalid', DATE '2026-01-02', DATE '2026-01-01', -1.00, 'UNKNOWN')
+                    """))
+                    .hasMessageContaining("ck_expenditure_resolution");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO ap_invoices (
+                        invoice_no, vendor_code, invoice_date, due_date, currency_code, supply_amount,
+                        tax_amount, total_amount, remaining_amount, status, created_at)
+                    VALUES ('INVALID-TOTAL', 'VENDOR', DATE '2026-01-01', DATE '2026-01-02', 'KRW',
+                        100.00, 10.00, 100.00, 100.00, 'OPEN', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_expenditure_ap_invoice_amounts");
+        }
+    }
+
+    @Test
+    void payableBaselineContainsOwnedTablesAndFinancialConstraints() throws Exception {
+        String url = "jdbc:h2:mem:payable-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        new MigrationExecutor().execute(
+                MigrationContext.require("payable"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "payable"));
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "purchase_invoices", "payables", "payment_runs", "payments",
+                            "advance_payments")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+            assertNumericColumn(connection, "purchase_invoices", "total_amount", 19, 2);
+            assertNumericColumn(connection, "payables", "outstanding_amount", 19, 2);
+            assertNumericColumn(connection, "payments", "amount", 19, 2);
+            assertThat(hasForeignKey(connection, "payments", "payable_id", "payables", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "payments", "payment_run_id", "payment_runs", "id")).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "purchase_invoices", List.of("invoice_no", "vendor_code"))).isTrue();
+            assertThat(hasCompositeForeignKey(
+                    connection,
+                    "payables",
+                    List.of("purchase_invoice_invoice_no", "purchase_invoice_vendor_code"),
+                    "purchase_invoices",
+                    List.of("invoice_no", "vendor_code"))).isTrue();
+            assertThat(indexColumns(connection, "payables", "idx_payable_vendor_due_status"))
+                    .containsExactly("vendor_code", "due_date", "status");
+            assertThat(indexColumns(connection, "payables", "idx_payable_due_status"))
+                    .containsExactly("due_date", "status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO purchase_invoices (
+                        invoice_no, vendor_code, issue_date, due_date,
+                        total_amount, tax_amount, net_amount, status, created_by, created_at)
+                    VALUES ('INVALID', 'VENDOR', DATE '2026-01-01', DATE '2026-01-02',
+                        99.00, 10.00, 100.00, 'RECEIVED', 'tester', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_purchase_invoice_amounts");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO purchase_invoices (
+                        invoice_no, vendor_code, issue_date, due_date,
+                        total_amount, tax_amount, net_amount, status, created_by, created_at)
+                    VALUES ('ZERO', 'VENDOR', DATE '2026-01-01', DATE '2026-01-02',
+                        0.00, 0.00, 0.00, 'RECEIVED', 'tester', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_purchase_invoice_amounts");
+            statement.executeUpdate("""
+                    INSERT INTO purchase_invoices (
+                        invoice_no, vendor_code, issue_date, due_date,
+                        total_amount, tax_amount, net_amount, status, created_by, created_at)
+                    VALUES ('PI-1', 'VENDOR', DATE '2026-01-01', DATE '2026-01-02',
+                        110.00, 10.00, 100.00, 'RECEIVED', 'tester', CURRENT_TIMESTAMP)
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO payables (
+                        purchase_invoice_invoice_no, purchase_invoice_vendor_code, vendor_code,
+                        original_amount, outstanding_amount, due_date, status, created_at)
+                    VALUES ('MISSING', 'VENDOR', 'VENDOR', 110.00, 110.00,
+                        DATE '2026-01-02', 'OPEN', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("fk_payable_purchase_invoice");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO payables (
+                        purchase_invoice_invoice_no, purchase_invoice_vendor_code, vendor_code,
+                        original_amount, outstanding_amount, due_date, status, created_at)
+                    VALUES ('PI-1', 'VENDOR', 'VENDOR', 110.00, 50.00,
+                        DATE '2026-01-02', 'OPEN', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_payable_status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO payables (
+                        purchase_invoice_invoice_no, purchase_invoice_vendor_code, vendor_code,
+                        original_amount, outstanding_amount, due_date, status, created_at)
+                    VALUES ('PI-1', 'VENDOR', 'OTHER-VENDOR', 110.00, 110.00,
+                        DATE '2026-01-02', 'OPEN', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_payable_vendor_lineage");
+        }
+    }
+
+    @Test
+    void receivableBaselineContainsOwnedTablesAndFinancialConstraints() throws Exception {
+        String url = "jdbc:h2:mem:receivable-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        new MigrationExecutor().execute(
+                MigrationContext.require("receivable"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "receivable"));
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "sales_invoices", "receivables", "collections", "collection_allocations",
+                            "matching_rules", "unmatched_collections")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+            assertNumericColumn(connection, "sales_invoices", "total_amount", 19, 2);
+            assertNumericColumn(connection, "receivables", "outstanding_amount", 19, 2);
+            assertNumericColumn(connection, "collection_allocations", "matched_amount", 19, 2);
+            assertThat(isNullable(connection, "receivables", "sales_invoice_id")).isFalse();
+            assertThat(hasForeignKey(
+                    connection, "receivables", "sales_invoice_id", "sales_invoices", "id")).isTrue();
+            assertThat(hasCompositeForeignKey(
+                    connection,
+                    "receivables",
+                    List.of("sales_invoice_id", "customer_code"),
+                    "sales_invoices",
+                    List.of("id", "customer_code"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "receivables", List.of("sales_invoice_id"))).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "collection_allocations", "collection_id", "collections", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "collection_allocations", "receivable_id", "receivables", "id")).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "unmatched_collections", List.of("collection_id"))).isTrue();
+            assertThat(indexColumns(
+                    connection, "receivables", "idx_receivable_customer_due_status"))
+                    .containsExactly("customer_code", "due_date", "status");
+            assertThat(indexColumns(connection, "sales_invoices", "idx_sales_invoice_due_status"))
+                    .containsExactly("due_date", "status");
+            assertThat(indexColumns(connection, "receivables", "idx_receivable_due_status"))
+                    .containsExactly("due_date", "status");
+            assertThat(indexColumns(connection, "collections", "idx_collection_status"))
+                    .containsExactly("status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO collections (
+                        collection_date, customer_code, amount, matched_amount, status, created_at)
+                    VALUES (DATE '2026-01-01', 'CUSTOMER', 100.00, 101.00, 'CANCELLED', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_collection_amounts");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO collections (
+                        collection_date, customer_code, amount, matched_amount, status, created_at)
+                    VALUES (DATE '2026-01-01', 'CUSTOMER', 100.00, 50.00, 'MATCHED', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_collection_status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO sales_invoices (
+                        invoice_no, customer_code, issue_date, due_date,
+                        total_amount, tax_amount, net_amount, status, created_by, created_at)
+                    VALUES ('ZERO', 'CUSTOMER', DATE '2026-01-01', DATE '2026-01-02',
+                        0.00, 0.00, 0.00, 'ISSUED', 'tester', CURRENT_TIMESTAMP)
+                    """))
+                    .hasMessageContaining("ck_sales_invoice_amounts");
+            statement.executeUpdate("""
+                    INSERT INTO sales_invoices (
+                        invoice_no, customer_code, issue_date, due_date,
+                        total_amount, tax_amount, net_amount, status, created_by, created_at)
+                    VALUES ('SI-1', 'CUSTOMER', DATE '2026-01-01', DATE '2026-01-02',
+                        110.00, 10.00, 100.00, 'ISSUED', 'tester', CURRENT_TIMESTAMP)
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO receivables (
+                        sales_invoice_id, customer_code, original_amount,
+                        outstanding_amount, due_date, status, created_at)
+                    SELECT id, 'CUSTOMER', 110.00, 50.00, DATE '2026-01-02', 'OPEN', CURRENT_TIMESTAMP
+                    FROM sales_invoices WHERE invoice_no = 'SI-1'
+                    """))
+                    .hasMessageContaining("ck_receivable_status");
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO receivables (
+                        sales_invoice_id, customer_code, original_amount,
+                        outstanding_amount, due_date, status, created_at)
+                    SELECT id, 'OTHER-CUSTOMER', 110.00, 110.00, DATE '2026-01-02', 'OPEN', CURRENT_TIMESTAMP
+                    FROM sales_invoices WHERE invoice_no = 'SI-1'
+                    """))
+                    .hasMessageContaining("fk_receivable_sales_invoice");
+            statement.executeUpdate("""
+                    INSERT INTO collections (
+                        collection_date, customer_code, amount, matched_amount, status, created_at)
+                    VALUES (DATE '2026-01-01', 'CUSTOMER', 100.00, 50.00, 'UNMATCHED', CURRENT_TIMESTAMP)
+                    """);
+        }
+    }
+
+    @Test
     void assetLeaseBaselineContainsEveryJpaOwnedTable() throws Exception {
         String url = "jdbc:h2:mem:asset-lease-parity"
                 + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
@@ -648,9 +891,12 @@ class MigrationExecutorH2Test {
                 Arguments.of("budget", "budget_plans"),
                 Arguments.of("closing", "closing_calendars"),
                 Arguments.of("deposit", "deposit_accounts"),
+                Arguments.of("expenditure-resolution", "expenditure_resolutions"),
                 Arguments.of("journal-ledger", "journal_entries"),
                 Arguments.of("loan", "loans"),
                 Arguments.of("master-data", "account_subjects"),
+                Arguments.of("payable", "payables"),
+                Arguments.of("receivable", "receivables"),
                 Arguments.of("reporting", "rpt_snapshot_header"));
     }
 
@@ -780,6 +1026,51 @@ class MigrationExecutorH2Test {
             }
             return false;
         }
+    }
+
+    private boolean hasCompositeForeignKey(
+            Connection connection,
+            String tableName,
+            List<String> columnNames,
+            String referencedTable,
+            List<String> referencedColumns) throws Exception {
+        Map<String, List<String>> localColumns = new LinkedHashMap<>();
+        Map<String, List<String>> targetColumns = new LinkedHashMap<>();
+        try (ResultSet resultSet = connection.getMetaData().getImportedKeys(
+                null, null, tableName)) {
+            while (resultSet.next()) {
+                if (!referencedTable.equals(resultSet.getString("PKTABLE_NAME"))) {
+                    continue;
+                }
+                String foreignKeyName = resultSet.getString("FK_NAME");
+                int position = resultSet.getInt("KEY_SEQ");
+                putAt(localColumns, foreignKeyName, position, resultSet.getString("FKCOLUMN_NAME"));
+                putAt(targetColumns, foreignKeyName, position, resultSet.getString("PKCOLUMN_NAME"));
+            }
+        }
+        return localColumns.entrySet().stream().anyMatch(entry -> {
+            List<String> actualLocal = compact(entry.getValue());
+            List<String> actualTarget = compact(targetColumns.get(entry.getKey()));
+            return columnNames.equals(actualLocal) && referencedColumns.equals(actualTarget);
+        });
+    }
+
+    private void putAt(
+            Map<String, List<String>> values,
+            String key,
+            int position,
+            String value) {
+        List<String> ordered = values.computeIfAbsent(key, ignored -> new ArrayList<>());
+        while (ordered.size() < position) {
+            ordered.add(null);
+        }
+        ordered.set(position - 1, value);
+    }
+
+    private List<String> compact(List<String> values) {
+        return values == null
+                ? List.of()
+                : values.stream().filter(java.util.Objects::nonNull).toList();
     }
 
     private List<String> indexColumns(

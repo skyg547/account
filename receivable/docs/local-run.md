@@ -1,10 +1,19 @@
 # receivable local run
 
+## 실행 프로파일 계약
+
+- 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1, Hibernate `validate`를 사용한다.
+- `dev`/`prod`는 PostgreSQL 전용이며 런타임 Flyway/DDL/SQL init/Batch metadata init을 금지한다. 배포 전에 `migration-runner --context=receivable`을 실행한다.
+- `prod`는 `sslmode=verify-full`을 강제하고 DB 비밀번호는 환경 변수로만 주입한다.
+- 실제 PostgreSQL 검증은 승인 환경에서 별도로 필요하다. Master Data/Journal/수납 원격 어댑터는 Issue #264에서 구현하므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.
+
+개발 환경은 `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`, 운영은 대응하는 `PROD_DB_*` 변수를 secret injection으로 제공하고 `--spring.profiles.active=dev|prod`로 시작한다. 사설 호스트나 자격증명을 저장소에 기록하지 않는다.
+
 ## 전제 조건
 
 - JDK 17
 - IntelliJ IDEA Gradle JVM도 JDK 17로 설정
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
+- 저장소 루트를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
 `receivable`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
@@ -50,6 +59,14 @@ Batch 컨텍스트 실행:
 .\gradlew :receivable:batch:bootRun --console=plain --max-workers=1
 ```
 
+실행 JAR 생성 및 직접 실행:
+
+```powershell
+.\gradlew :receivable:api:bootJar :receivable:batch:bootJar --console=plain --max-workers=1
+java -jar receivable\api\build\libs\account-receivable-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+java -jar receivable\batch\build\libs\account-receivable-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+```
+
 실제 Batch Job 실행:
 
 ```powershell
@@ -64,12 +81,6 @@ API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
 .\gradlew :receivable:api:bootRun --args="--spring.main.web-application-type=none" --console=plain --max-workers=1
 ```
 
-
-Batch 스모크만 확인하고 Job을 자동 실행하지 않을 때:
-
-```powershell
-.\gradlew :receivable:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
-```
 
 위 실행에서는 `ReceivableBatchJobRegistryConfiguration`이 Job 등록을 singleton 초기화 이후로 늦춰 `jobRegistryBeanPostProcessor` 조기 초기화 경고를 피한다.
 ## local profile 동작

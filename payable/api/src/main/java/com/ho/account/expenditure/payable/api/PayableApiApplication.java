@@ -1,8 +1,10 @@
 package com.ho.account.expenditure.payable.api;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -12,6 +14,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.ho.account.expenditure")
 @EntityScan(basePackages = "com.ho.account.expenditure.domain")
 @EnableJpaRepositories(basePackages = "com.ho.account.expenditure.repository")
+@Import(ProductionPostgresqlTlsGuard.class)
 public class PayableApiApplication {
 
     public static void main(String[] args) {

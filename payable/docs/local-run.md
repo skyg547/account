@@ -1,10 +1,19 @@
 # payable local run
 
+## 실행 프로파일 계약
+
+- 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1, Hibernate `validate`를 사용한다.
+- `dev`/`prod`는 PostgreSQL 전용이며 런타임 Flyway/DDL/SQL init/Batch metadata init을 금지한다. 배포 전에 `migration-runner --context=payable`을 실행한다.
+- `prod`는 `sslmode=verify-full`을 강제하고 DB 비밀번호는 환경 변수로만 주입한다.
+- 실제 PostgreSQL 검증은 승인 환경에서 별도로 필요하다. Master Data/Journal/지급 원격 어댑터는 Issue #264에서 구현하므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.
+
+개발 환경은 `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`, 운영은 대응하는 `PROD_DB_*` 변수를 secret injection으로 제공하고 `--spring.profiles.active=dev|prod`로 시작한다. 사설 호스트나 자격증명을 저장소에 기록하지 않는다.
+
 ## 전제 조건
 
 - JDK 17
 - IntelliJ IDEA Gradle JVM도 JDK 17로 설정
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
+- 저장소 루트를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
 `payable`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
@@ -48,6 +57,14 @@ Batch 컨텍스트 실행:
 
 ```powershell
 .\gradlew :payable:batch:bootRun --console=plain --max-workers=1
+```
+
+실행 JAR 생성 및 직접 실행:
+
+```powershell
+.\gradlew :payable:api:bootJar :payable:batch:bootJar --console=plain --max-workers=1
+java -jar payable\api\build\libs\account-payable-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+java -jar payable\batch\build\libs\account-payable-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
 실제 Batch Job 실행:

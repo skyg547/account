@@ -23,8 +23,8 @@ public class Receivable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sales_invoice_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sales_invoice_id", nullable = false, unique = true)
     private SalesInvoice salesInvoice; // 관련 매출 인보이스
 
     @Column(name = "customer_code", nullable = false, length = 50)
