@@ -13,10 +13,7 @@ dependencyManagement {
 
 dependencies {
     implementation project(':journal-ledger:core')
-    implementation project(':tax')
-    implementation project(':payable')
-    implementation project(':receivable')
-    
+
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'com.github.ben-manes.caffeine:caffeine'
@@ -24,6 +21,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.flywaydb:flyway-core'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -33,7 +31,17 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation project(':master-data:core')
+    testImplementation project(':tax')
+    testImplementation project(':payable')
+    testImplementation project(':receivable')
 }
+
+bootRun {
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
+}
+
+bootJar { enabled = true }
+jar { enabled = false }
 
 springBoot {
     mainClass = 'com.ho.account.journalledger.JournalLedgerApplication'

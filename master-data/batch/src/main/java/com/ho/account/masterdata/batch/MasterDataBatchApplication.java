@@ -1,10 +1,12 @@
 package com.ho.account.masterdata.batch;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.context.annotation.Import;
 
 /**
  * Dedicated Spring Batch executable for Master Data maintenance jobs.
@@ -26,6 +28,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         // the outbound adapter and must be registered by this composition root.
         "com.ho.account.masterdata.core.infrastructure.persistence"
 })
+@Import(ProductionPostgresqlTlsGuard.class)
 public class MasterDataBatchApplication {
 
     /**

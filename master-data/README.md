@@ -99,9 +99,8 @@ erDiagram
 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
 
 **IntelliJ 실행 순서:**
-1. `Config Server bootRun`을 먼저 실행합니다.
-2. Eureka 등록까지 확인하려면 `Discovery bootRun`을 실행합니다.
-3. `Master Data bootRun`을 실행합니다.
+1. 로컬 단독 실행은 `Master Data bootRun`을 바로 실행합니다.
+2. 통합 모드에서만 Config Server와 Discovery를 먼저 실행합니다.
 
 **PowerShell 검증 명령:**
 ```powershell
@@ -110,17 +109,20 @@ erDiagram
 
 **API 로컬 실행 명령:**
 ```powershell
-.\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :master-data:api:bootRun --console=plain --max-workers=1
 ```
 
 **일일 유효성 Batch 실행 명령:**
 ```powershell
-.\gradlew :master-data:batch:bootRun --args="--spring.profiles.active=local --spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29 --spring.cloud.config.enabled=false --spring.config.on-not-found=ignore --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1 --no-daemon
+.\gradlew :master-data:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29" --console=plain --max-workers=1 --no-daemon
 ```
 
-`spring.config.on-not-found=ignore`는 Config Server를 의도적으로 끈 이 학습용 H2
-명령에서만 사용합니다. 기본 Batch 설정은 Config Server와 공통 datasource 계약을
-받지 못하면 시작을 중단하므로, 운영 실행에 이 예외 플래그를 복사하면 안 됩니다.
+프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode와 Flyway V1-V6, JPA validate를
+사용합니다. `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하고 애플리케이션 Flyway와
+SQL/Batch schema 자동 생성을 끕니다. 배포 migration은 별도 `migration-runner`가 수행합니다.
+prod PostgreSQL은 `sslmode=verify-full`을 startup에서 검증합니다. 외부 서비스의 SCD2 조회는
+`/api/basic/references/**?effectiveDate=yyyy-MM-dd`와 read-only Fiscal Period API를 사용하며,
+회계기간 상태 변경은 Closing 승인/gate를 우회하는 raw endpoint로 제공하지 않습니다.
 
 **연동 주의사항:**
 - 다른 모듈에서 마스터 데이터를 조회할 때는 반드시 `contracts`의 `MasterDataQueryPort`를 사용하세요.
@@ -135,5 +137,5 @@ erDiagram
 - 계정과목/상품 활성 목록과 거래처 이름 검색도 전체 행을 Java에서 필터링하지 않고 기준일 조건을 DB query에 전달합니다. 거래처 검색은 빈 검색어를 거부하고 현재 활성 버전만 반환합니다.
 - 환율 조회는 요청일 이하의 데이터 중 가장 최근 `effectiveDate` 1건을 DB에서 선택합니다. 환율은 양수이고 통화 코드는 3자리 ISO 형식이어야 합니다.
 - Closing이 회계기간 상태를 바꿀 때는 `FiscalPeriodPersistencePort` 뒤에서 대상 행을 잠그고, 영구 마감 불변식과 감사 사용자를 `FiscalPeriod` 도메인 메서드가 검증합니다.
-- 운영에서는 `config-repo/master-data.yml`의 `ddl-auto: update`를 그대로 쓰지 말고 Flyway 기준으로 검증해야 합니다.
+- 운영에서는 애플리케이션 `ddl-auto`를 `validate`로 유지하고 migration-runner가 검증한 Flyway 기준만 사용합니다.
 - 현재 Loan core의 거래처/통화 엔티티 연관과 Closing Batch의 환율 Repository 직접 참조는 위 contracts 원칙의 예외입니다. 다음 순차 리팩터링에서 코드/ID 저장과 소비 모듈 소유 포트 + contracts 조회로 분리해야 합니다.

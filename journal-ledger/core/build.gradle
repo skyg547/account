@@ -38,3 +38,12 @@ tasks.named('compileJava').configure {
     }
 }
 
+// The runtime classpath contains transitive bounded-context jars. Copy Journal
+// migrations to an owned location so Flyway never discovers another context's V1.
+tasks.named('processResources').configure {
+    from('src/main/resources/db/migration') {
+        include '*.sql'
+        into 'db/journal-migration'
+    }
+}
+

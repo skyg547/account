@@ -19,7 +19,15 @@ import com.ho.account.expenditure.application.port.in.ExecutePaymentCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import com.ho.account.shared.infrastructure.SpringServiceDiscoveryRegistry;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -33,7 +41,24 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 전사 통합 비즈니스 프로세스(세금계산서 -> 매입 -> 채무 -> 지급)를 검증합니다.
  * 리팩토링된 ID 기반 참조 체계에서도 데이터 정합성이 유지되는지 확인합니다.
  */
-@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
+@SpringBootTest(
+        classes = IntegratedBusinessProcessTest.IntegratedTestApplication.class,
+        properties = {
+                "spring.config.name=integrated-test",
+                "spring.profiles.active=local",
+                "spring.main.allow-bean-definition-overriding=true",
+                "spring.datasource.url=jdbc:h2:mem:journal-integrated;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+                "spring.datasource.driver-class-name=org.h2.Driver",
+                "spring.datasource.username=sa",
+                "spring.datasource.password=",
+                "spring.jpa.hibernate.ddl-auto=create-drop",
+                "spring.flyway.enabled=false",
+                "spring.cloud.config.enabled=false",
+                "spring.cloud.discovery.enabled=false",
+                "spring.cloud.vault.enabled=false",
+                "eureka.client.enabled=false",
+                "spring.kafka.listener.auto-startup=false"
+        })
 @Transactional
 public class IntegratedBusinessProcessTest {
 
@@ -168,5 +193,34 @@ public class IntegratedBusinessProcessTest {
         Payable updatedPayable = payablePersistencePort.findById(payable.getId()).orElseThrow();
         assertThat(updatedPayable.getStatus()).isEqualTo(PayableStatus.PAID);
         assertThat(updatedPayable.getOutstandingAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @ComponentScan(
+            basePackages = {
+                    "com.ho.account.journalledger",
+                    "com.ho.account.common",
+                    "com.ho.account.masterdata.core",
+                    "com.ho.account.expenditure",
+                    "com.ho.account.tax"
+            },
+            excludeFilters = @ComponentScan.Filter(
+                    type = FilterType.ASSIGNABLE_TYPE,
+                    classes = JournalLedgerApplication.class))
+    @EntityScan(basePackages = {
+            "com.ho.account.journalledger.domain",
+            "com.ho.account.masterdata.core",
+            "com.ho.account.expenditure",
+            "com.ho.account.tax"
+    })
+    @EnableJpaRepositories(basePackages = {
+            "com.ho.account.journalledger",
+            "com.ho.account.masterdata.core",
+            "com.ho.account.expenditure",
+            "com.ho.account.tax"
+    })
+    @Import(SpringServiceDiscoveryRegistry.class)
+    static class IntegratedTestApplication {
     }
 }

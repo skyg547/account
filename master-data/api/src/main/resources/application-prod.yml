@@ -1,0 +1,22 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://${PROD_DB_HOST}:${PROD_DB_PORT:5432}/${PROD_DB_NAME}?sslmode=verify-full
+    username: ${PROD_DB_USER}
+    password: ${PROD_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  batch:
+    jdbc:
+      initialize-schema: never
+  sql:
+    init:
+      mode: never
