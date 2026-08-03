@@ -12,7 +12,8 @@ Batch metadata를 하나의 실행 가능한 Boot jar에 패키징한다.
 java -jar migration-runner\build\libs\account-migration-runner.jar --list
 ```
 
-`--list`는 자격증명 없이 16개 context의 `READY`/`BLOCKED` 상태를 출력한다. baseline이
+`--list`는 자격증명 없이 16개 context의 `READY`/`BLOCKED` 상태를 출력한다. 현재 이 stack은
+Journal Ledger V11과 Master Data V6까지 포함해 `READY 9 / BLOCKED 7`이다. baseline이
 불완전한 context는 해당 GitHub Issue가 해결될 때까지 DB 접속 전에 종료 코드 `3`으로
 차단된다.
 

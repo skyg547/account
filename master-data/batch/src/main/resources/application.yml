@@ -1,26 +1,17 @@
 spring:
   application:
-    # API와 Batch가 같은 서비스 이름을 쓰면 Config/관제에서 실행 주체를
-    # 구분하기 어렵기 때문에 Batch 전용 이름을 사용합니다.
     name: master-data-batch
-  cloud:
-    config:
-      # 공통 datasource/Flyway 계약은 master-data.yml에서 받고, 향후
-      # Batch 전용 override도 같은 요청에 합성할 수 있게 두 이름을 지정합니다.
-      # application name은 Eureka/관제에서 실행 주체를 구분하도록 유지합니다.
-      name: master-data,master-data-batch
-
+  profiles:
+    default: local
   main:
     web-application-type: none
-  config:
-    # 기본 실행은 Config Server 계약을 반드시 읽어야 합니다. optional로 두면
-    # Config 장애를 숨긴 채 임시 H2에서 0건 배치가 성공해 운영자가 정상 처리로
-    # 오해할 수 있으므로, 인프라 없는 학습 실행에서만 Config를 명시적으로 끕니다.
-    import: "configserver:http://localhost:8888/"
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    clean-disabled: true
+    baseline-on-migrate: false
   batch:
     job:
-      # 운영 스케줄러가 job name과 asOfDate를 명시해야만 실행됩니다.
-      # 애플리케이션 재시작이 임의 기준일 작업을 재실행하면 안 됩니다.
       enabled: false
 
 management:

@@ -753,3 +753,15 @@
 - Verification: Closing Core 59, API 9, Batch 13 and Migration Runner 45 tests passed (126 total); API/Batch/runner bootJars, 14 READY executable PostgreSQL driver packages, executable `--list`, actual local API/Batch jar V51 startup, diff and conflict scans passed.
 - Independent review drove legacy baseline history, exact schema, corrupt nullable state, key/index, Batch validate and V51 regression fixes. Final result has no remaining P0-P3 finding.
 - Remaining gate: actual approved PostgreSQL clean migrate/validate, representative legacy-data upgrade, runtime-role DDL denial and Batch restart. Draft PR #260 must remain Draft and Issue #250 must remain open until that evidence exists.
+
+## 2026-08-04 - Issue #251 Journal Ledger and Master Data PostgreSQL baselines
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/251-journal-master-postgres-baseline` / `C:\tmp\account-251-journal-master-postgres-baseline`; stacked on `agent/250-closing-postgres-baseline`.
+- Preserved published Journal V1/V10 and Master V1-V5, then completed all JPA-owned tables, numeric precision, checks, FK, unique and indexes through forward-only Journal V11 and Master V6.
+- Added default local H2 PostgreSQL-mode/Flyway/JPA-validate profiles and fail-closed dev/prod PostgreSQL profiles for both API/Batch pairs. Runtime Flyway, SQL init and dev/prod Batch schema init remain disabled.
+- Narrowed Journal composition roots to Journal schema ownership. Added a local-only Master Data reference adapter, bounded dev/prod HTTP adapter, and date-explicit read-only Master Data reference/fiscal-period endpoints so Journal no longer scans Master Data persistence or exposes raw Closing state mutation.
+- Promoted both contexts to runner READY. Inventory is READY 9 / BLOCKED 7 and 18 READY API/Batch bootJars contain the PostgreSQL driver.
+- Verification: Shared Kernel 8; Journal Core 41, API 3, Batch 4; Master Core 13, API 18, Batch 5; runner 53 tests passed (145 total, no failures/errors/skips). Four bootJars, actual local JAR startup through Journal V11/Master V6, and 18 READY driver packages passed.
+- Independent review drove clean/existing NULL-safe SL uniqueness, dated SCD2 propagation/JSON parity, raw mutation removal, production TLS and bounded HTTP timeout fixes. Final result has no remaining P0-P3.
+- Remaining gate: actual approved PostgreSQL 15+ clean/upgrade migrate+validate, runtime-role DDL denial and Batch restart. Business Partner historical active semantics and authenticated Closing command boundary are tracked by #261/#262. No development/production DB connection, image pull, deployment or data mutation was performed.

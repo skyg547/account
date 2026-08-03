@@ -25,8 +25,12 @@ class ExecutableSchemaProfilePolicyTest {
             "closing/batch/src/main/resources",
             "deposit/api/src/main/resources",
             "deposit/batch/src/main/resources",
+            "journal-ledger/api/src/main/resources",
+            "journal-ledger/batch/src/main/resources",
             "loan/api/src/main/resources",
             "loan/batch/src/main/resources",
+            "master-data/api/src/main/resources",
+            "master-data/batch/src/main/resources",
             "reporting/api/src/main/resources",
             "reporting/batch/src/main/resources");
 
@@ -49,8 +53,12 @@ class ExecutableSchemaProfilePolicyTest {
                                 "DEV_DB_USER=context_dev_app",
                                 "DEV_DB_PASSWORD=injected-dev-secret",
                                 "PROD_DB_URL=jdbc:postgresql://prod-db.invalid:5432/context_prod?sslmode=verify-full",
+                                "PROD_DB_HOST=prod-db.invalid",
+                                "PROD_DB_PORT=5432",
+                                "PROD_DB_NAME=context_prod",
                                 "PROD_DB_USER=context_prod_app",
-                                "PROD_DB_PASSWORD=injected-prod-secret")
+                                "PROD_DB_PASSWORD=injected-prod-secret",
+                                "MASTER_DATA_BASE_URL=http://master-data.invalid:8082")
                         .run()) {
                     assertPolicy(context.getEnvironment(), resourceDirectory, profile);
                 }
@@ -94,13 +102,31 @@ class ExecutableSchemaProfilePolicyTest {
                 .isEqualTo("never");
         assertThat(environment.getProperty("spring.sql.init.mode"))
                 .isEqualTo("never");
-        if (executable.startsWith("asset-lease/") || executable.startsWith("closing/")) {
+        if (executable.startsWith("asset-lease/")
+                || executable.startsWith("closing/")
+                || executable.startsWith("journal-ledger/")
+                || executable.startsWith("master-data/")) {
             assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class))
                     .as(description + " Config Client")
                     .isFalse();
             assertThat(environment.getProperty("spring.cloud.vault.enabled", Boolean.class))
                     .as(description + " Vault")
                     .isFalse();
+        }
+        if (executable.startsWith("journal-ledger/")) {
+            assertThat(environment.getProperty("journal-ledger.master-data.base-url"))
+                    .as(description + " Master Data URL")
+                    .isEqualTo("http://master-data.invalid:8082");
+            assertThat(environment.getProperty("journal-ledger.master-data.connect-timeout"))
+                    .as(description + " Master Data connect timeout")
+                    .isEqualTo("2s");
+            assertThat(environment.getProperty("journal-ledger.master-data.read-timeout"))
+                    .as(description + " Master Data read timeout")
+                    .isEqualTo("5s");
+            assertThat(environment.getProperty(
+                    "journal-ledger.master-data.local-adapter.enabled", Boolean.class)).isFalse();
+            assertThat(environment.getProperty(
+                    "journal-ledger.master-data.remote.enabled", Boolean.class)).isTrue();
         }
     }
 
@@ -111,7 +137,11 @@ class ExecutableSchemaProfilePolicyTest {
                 "asset-lease/api/src/main/resources",
                 "asset-lease/batch/src/main/resources",
                 "closing/api/src/main/resources",
-                "closing/batch/src/main/resources")) {
+                "closing/batch/src/main/resources",
+                "journal-ledger/api/src/main/resources",
+                "journal-ledger/batch/src/main/resources",
+                "master-data/api/src/main/resources",
+                "master-data/batch/src/main/resources")) {
             Path location = repositoryRoot.resolve(resourceDirectory);
             try (ConfigurableApplicationContext context = new SpringApplicationBuilder(Probe.class)
                     .web(WebApplicationType.NONE)
@@ -128,6 +158,12 @@ class ExecutableSchemaProfilePolicyTest {
                 assertThat(environment.getProperty("eureka.client.enabled", Boolean.class)).isFalse();
                 if (resourceDirectory.contains("/batch/")) {
                     assertThat(environment.getProperty("spring.batch.job.enabled", Boolean.class)).isFalse();
+                }
+                if (resourceDirectory.startsWith("journal-ledger/")) {
+                    assertThat(environment.getProperty(
+                            "journal-ledger.master-data.local-adapter.enabled", Boolean.class)).isTrue();
+                    assertThat(environment.getProperty(
+                            "journal-ledger.master-data.remote.enabled", Boolean.class)).isFalse();
                 }
             }
         }

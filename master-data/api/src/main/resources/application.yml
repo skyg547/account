@@ -4,8 +4,13 @@ server:
 spring:
   application:
     name: master-data
-  config:
-    import: "optional:configserver:http://localhost:8888/"
+  profiles:
+    default: local
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    clean-disabled: true
+    baseline-on-migrate: false
 
 management:
   endpoint:

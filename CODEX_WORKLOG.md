@@ -1757,3 +1757,13 @@
 - API/Batch는 profile 생략 시 local H2로 독립 기동하고, dev/prod는 injected PostgreSQL, JPA validate, runtime Flyway/Batch/SQL init 차단 계약을 가진다.
 - Closing Core 59, API 9, Batch 13, runner 45로 총 126 tests와 API/Batch/runner bootJar, READY 14개 PG-driver gate, 실제 local jar V51 smoke가 통과했다. 독립 리뷰 최종 P0-P3는 없다.
 - Runner inventory는 READY 7 / BLOCKED 9다. 실제 PostgreSQL clean/legacy migrate+validate, runtime DDL denial, Batch restart 전에는 #250을 닫거나 PR을 Ready로 전환하지 않는다.
+
+## 2026-08-04 (Issue #251 Journal Ledger and Master Data PostgreSQL baselines)
+
+- `agent/251-journal-master-postgres-baseline`을 #260 위에 stack해 published migration을 유지한 Journal V11과 Master V6 forward-only baseline을 구현했다.
+- Journal/Master API·Batch는 profile 생략 시 local H2 PostgreSQL mode, Flyway, JPA validate로 독립 실행한다. dev/prod는 injected PostgreSQL, runtime Flyway/SQL/Batch schema init 차단 계약을 가진다.
+- Journal production scan을 Journal 소유로 좁히고 local 전용 reference adapter와 날짜 명시·timeout 제한 dev/prod Master Data HTTP adapter, read-only reference/Fiscal Period API를 추가했다. raw Closing 상태 mutation은 승인/gate 우회를 막기 위해 노출하지 않는다.
+- Production PostgreSQL은 `sslmode=verify-full`을 startup에서 강제하고, remote connect/read timeout은 1ms 미만/0/음수/과대 값을 거부한다.
+- Shared Kernel 8, Journal Core 41/API 3/Batch 4, Master Core 13/API 18/Batch 5, runner 53으로 총 145 tests가 통과했다. 네 bootJar와 실제 local jar V11/V6 smoke, READY 18개 PG-driver gate도 통과했다.
+- 독립 리뷰가 SL nullable key, existing upgrade, SCD2 날짜/JSON, raw mutation, TLS, timeout 결함을 찾아 모두 수정했으며 최종 P0-P3는 없다. BP historical active와 Closing service-auth command는 #261/#262로 추적한다.
+- Runner inventory는 READY 9 / BLOCKED 7이다. 실제 PostgreSQL 15+ clean/upgrade migrate+validate, runtime DDL denial, Batch restart가 남아 있어 Issue #251은 open으로 유지한다.

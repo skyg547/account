@@ -101,8 +101,12 @@ DB unique index는 중복 행을 막지만, 두 노드가 동시에 최초 요�
 - `V3__master_data_change_request_lock_version.sql`: 기존 요청 데이터에 기본값 0을 적용하며 `lock_version`을 추가합니다.
 - `V4__master_data_change_request_payload_text.sql`: 적용 이력이 있는 V2를 수정하지 않고 `payload_json`을 `TEXT`로 보정합니다. H2 PostgreSQL 모드에서는 검증했지만, 신규 PostgreSQL은 V2의 `CLOB`보다 먼저 실행할 vendor별 baseline이 필요하므로 아직 운영 부트스트랩 완료로 보지 않습니다.
 - `V5__master_data_change_request_lineage.sql`: Governance 재시도 멱등 키 `source_reference`, 실제 반영 시각 `applied_at`, source reference unique index를 추가합니다.
-- 기준정보 본 테이블의 전체 운영 DDL은 아직 baseline에 없습니다. 로컬 학습 실행은 Hibernate `create-drop`을 사용하지만 운영 PostgreSQL은 전체 Flyway DDL을 완성하고 `ddl-auto=validate`로 전환해야 합니다.
-- 완료 판정은 빈 PostgreSQL에서 모든 entity table/index/constraint를 Flyway만으로 만들고 `ddl-auto=validate` 부팅과 migration 통합 테스트를 통과하는 것입니다.
+- `V6__master_data_postgresql_baseline.sql`: 적용 이력이 있는 V1-V5를 수정하지 않고 나머지
+  9개 JPA 소유 테이블과 변경 요청 제약, 정밀도, FK, unique/check/index를 forward-only로
+  완성합니다. clean H2 PostgreSQL mode와 V5→V6 upgrade 경로를 모두 검증합니다.
+- 운영 완료 판정은 승인된 PostgreSQL에서 clean/upgrade migrate+validate, API/Batch JPA
+  validate 부팅, runtime role의 DDL 거부를 확인하는 것입니다. 적용된 migration은 수정하거나
+  `repair`하지 않고 새 forward migration으로 보정합니다.
 
 ## 포트와 어댑터
 

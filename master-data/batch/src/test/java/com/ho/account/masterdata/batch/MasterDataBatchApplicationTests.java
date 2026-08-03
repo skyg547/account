@@ -2,14 +2,10 @@ package com.ho.account.masterdata.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.io.ClassPathResource;
 
 /**
  * Proves that the Batch executable can assemble core services without the API
@@ -33,18 +29,13 @@ class MasterDataBatchApplicationTests {
     private Environment environment;
 
     @Test
-    void contextLoadsWithoutApiModule() throws IOException {
+    void contextLoadsWithoutApiModule() {
         assertThat(environment.getProperty("spring.application.name"))
                 .isEqualTo("master-data-batch");
-        assertThat(environment.getProperty("spring.cloud.config.name"))
-                .isEqualTo("master-data,master-data-batch");
-
-        PropertySource<?> applicationYaml = new YamlPropertySourceLoader()
-                .load("application.yml", new ClassPathResource("application.yml"))
-                .get(0);
-        assertThat(applicationYaml.getProperty("spring.config.import"))
-                .isEqualTo("configserver:http://localhost:8888/")
-                .asString()
-                .doesNotStartWith("optional:");
+        assertThat(environment.getDefaultProfiles()).contains("local");
+        assertThat(environment.getProperty("spring.flyway.locations"))
+                .isEqualTo("classpath:db/migration");
+        assertThat(environment.getProperty("spring.batch.job.enabled", Boolean.class)).isFalse();
+        assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class)).isFalse();
     }
 }

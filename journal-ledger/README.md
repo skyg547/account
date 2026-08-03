@@ -109,11 +109,19 @@ docker-compose up -d journal-ledger
 
 **로컬 실행 (PowerShell / IntelliJ Gradle):**
 ```powershell
-.\gradlew :journal-ledger:core:test :journal-ledger:api:test --console=plain --max-workers=1 --no-daemon
+.\gradlew :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test --console=plain --max-workers=1 --no-daemon
 .\gradlew :journal-ledger:api:bootRun --console=plain
 .\gradlew :journal-ledger:api:bootRun --args="--journal-ledger.ledger.persistence-mode=jdbc-bulk" --console=plain
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
 ```
+
+프로파일을 생략하면 `local`이 선택되어 H2 PostgreSQL mode에서 V1/V10/V11을 적용하고
+Hibernate가 스키마를 검증합니다. `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
+애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
+`migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local
+adapter를 사용하고 dev/prod에서는 `MASTER_DATA_BASE_URL`의 날짜 명시 read-only API를
+호출합니다. 원격 connect/read timeout은 기본 2초/5초이며 양수 밀리초 범위를 벗어나면
+startup을 거부합니다. prod PostgreSQL은 `sslmode=verify-full` 없이는 시작하지 않습니다.
 
 IntelliJ에서는 공유 실행 설정 `Journal Ledger API bootRun` 또는 `Journal Ledger API JDBC Bulk`를 사용할 수 있습니다. Batch는 `JournalLedgerBatchApplication`을 선택하고 Program arguments에 `--spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30`를 넣어 실행합니다.
 

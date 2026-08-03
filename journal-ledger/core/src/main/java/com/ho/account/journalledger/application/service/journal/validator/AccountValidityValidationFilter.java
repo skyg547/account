@@ -4,6 +4,8 @@ import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import lombok.RequiredArgsConstructor;
+import java.time.LocalDate;
+import java.util.Objects;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +22,12 @@ public class AccountValidityValidationFilter implements JournalValidationFilter 
 
     @Override
     public void validate(JournalEntry journalEntry) {
+        LocalDate accountingDate = Objects.requireNonNull(
+                journalEntry.getAccountingDate(),
+                "Journal accountingDate is required for account validation");
         for (JournalDetail detail : journalEntry.getDetails()) {
             String accountCode = detail.getAccountCode();
-            masterDataQueryPort.findAccountSubject(accountCode)
+            masterDataQueryPort.findAccountSubjectAt(accountCode, accountingDate)
                     .orElseThrow(() -> new IllegalStateException("유효하지 않은 계정코드입니다: " + accountCode));
             
             // 추가로 활성화 여부(active) 등을 체크할 수 있습니다.

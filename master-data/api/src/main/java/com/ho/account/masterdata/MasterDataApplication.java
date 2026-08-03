@@ -1,11 +1,13 @@
 package com.ho.account.masterdata;
 
+import com.ho.account.shared.infrastructure.ProductionPostgresqlTlsGuard;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.context.annotation.Import;
 
 /**
  * Master Data HTTP API application.
@@ -16,11 +18,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * {@code master-data:core}, while the core jar remains independently
  * testable and cannot accidentally be deployed as a server.</p>
  *
- * <p>@todo 운영 PostgreSQL의 전체 기준정보 DDL baseline이 아직 없습니다.
- * 완료 조건은 빈 PostgreSQL에서 모든 entity table/index/constraint를
- * Flyway만으로 생성하고, {@code ddl-auto=validate} 부팅 및 migration
- * 통합 테스트를 통과하며, 운영 설정에서 {@code ddl-auto=update}를
- * 제거하는 것입니다.</p>
+ * <p>Flyway owns the complete PostgreSQL schema. API and Batch composition
+ * roots validate the same mappings and never create production tables.</p>
  */
 @SpringBootApplication(scanBasePackages = "com.ho.account.masterdata")
 @EnableDiscoveryClient
@@ -33,6 +32,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         // persistence adapter therefore owns separate entity classes here.
         "com.ho.account.masterdata.core.infrastructure.persistence"
 })
+@Import(ProductionPostgresqlTlsGuard.class)
 public class MasterDataApplication {
 
     /**

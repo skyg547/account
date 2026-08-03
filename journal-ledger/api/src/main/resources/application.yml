@@ -1,24 +1,13 @@
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
+
 spring:
   application:
     name: journal-ledger
-  config:
-    import: "optional:configserver:http://localhost:8888/"
-  cloud:
-    vault:
-      enabled: false
-    config:
-      enabled: false
-  datasource:
-    url: jdbc:h2:mem:journaldb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
+  profiles:
+    default: local
+  flyway:
+    enabled: false
+    locations: classpath:db/journal-migration
+    clean-disabled: true
+    baseline-on-migrate: false

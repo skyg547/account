@@ -1,0 +1,35 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:journal-ledger-api;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  batch:
+    jdbc:
+      initialize-schema: never
+  sql:
+    init:
+      mode: never
+
+eureka:
+  client:
+    enabled: false
+
+journal-ledger:
+  master-data:
+    local-adapter:
+      enabled: true
+    remote:
+      enabled: false

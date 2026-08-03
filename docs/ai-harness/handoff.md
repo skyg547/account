@@ -1289,3 +1289,26 @@
 
 - Do not close #250, mark its PR Ready, or deploy/connect until an approved PostgreSQL clean migrate+validate, representative legacy-data upgrade, runtime DDL denial and Batch restart are evidenced.
 - Before application, rollback is a normal commit revert. After any migration succeeds, never clean, repair, edit or down-migrate V49/V50/V51; ship a reviewed forward-fix.
+
+# AI Harness Handoff - 2026-08-04 Issue #251 Journal Ledger and Master Data baselines
+
+## State
+
+- Worktree/branch: `C:\tmp\account-251-journal-master-postgres-baseline`, `agent/251-journal-master-postgres-baseline`.
+- Stack: `agent/250-closing-postgres-baseline` / Draft PR #260, which stacks on #259 and #256.
+- Issue #251 remains OPEN. Runner inventory is READY 9 / BLOCKED 7 on this stack.
+
+## Delivered and verified
+
+- Journal V11 and Master V6 preserve every published migration checksum and complete the two PostgreSQL schemas through new forward-only migrations.
+- Both API/Batch pairs default to independent local H2/Flyway/JPA validate execution. Dev/prod use injected PostgreSQL and deny runtime schema creation.
+- Journal owns only its JPA composition root. Local reference validation is explicit and local-only; dev/prod use date-explicit, bounded read-only Master Data HTTP contracts. Raw fiscal-period status mutation is deliberately not exposed.
+- Production startup requires PostgreSQL `sslmode=verify-full`; remote Master Data connect/read timeouts are positive and bounded, including sub-millisecond rejection.
+- 145 tests passed with no failures/errors/skips. Four bootJars, 18 READY executable PostgreSQL driver packages, clean/existing-upgrade H2 migration parity and actual local API/Batch jar startup through Journal V11/Master V6 passed.
+
+## Gates and rollback
+
+- Independent review found and drove the SL NULL uniqueness, SCD2 date/JSON, raw mutation, TLS and timeout corrections. Final review has no remaining P0-P3.
+- Do not close #251, make its future PR Ready, or connect/deploy until approved PostgreSQL clean/upgrade migrate+validate, runtime-role denial and Batch restart are evidenced.
+- Before application, rollback is a normal commit revert. After application, never edit, repair or down-migrate published V1-V11/V1-V6; ship a reviewed forward-fix.
+- Business Partner historical active semantics and a service-authenticated Closing→Master command boundary remain tracked in #261 and #262.

@@ -25,9 +25,9 @@
 | deposit | READY | PostgreSQL-specific V40; published H2 checksum preserved |
 | ecl | BLOCKED | entity/migration parity #255 |
 | expenditure-resolution | BLOCKED | baseline #252 |
-| journal-ledger | BLOCKED | empty V1 replacement path #251 |
+| journal-ledger | READY | published V1/V10 preserved; forward-only V11 complete baseline; Issue #251 stacked Draft PR |
 | loan | READY | PostgreSQL-specific V30 plus V31-V33 |
-| master-data | BLOCKED | empty V1 replacement path #251 |
+| master-data | READY | published V1-V5 preserved; forward-only V6 complete baseline; Issue #251 stacked Draft PR |
 | payable | BLOCKED | baseline #252 |
 | receivable | BLOCKED | baseline #252 |
 | reconciliation | BLOCKED | baseline #253 |
@@ -86,9 +86,10 @@ Batch 5.1의 전체 table/column 집합과 세 sequence가 정확히 존재하�
 
 ## Verification boundaries
 
-- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 Asset Lease/Closing/Deposit/Loan
-  vendor migration + Batch metadata migrate/validate, executable jar `--list`.
-- 승인 환경 검증: 7개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
+- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 9개 READY context의 domain
+  migration + Batch metadata migrate/validate, 18개 API/Batch executable의 PostgreSQL driver,
+  executable jar `--list`.
+- 승인 환경 검증: 9개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
   upgrade, runtime least-privilege, Batch restart.
 - 아직 금지된 범위: 운영 DB 접속, 운영 데이터 변경, 실제 secret 출력, 승인 없는 image pull
   또는 배포.

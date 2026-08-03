@@ -9,7 +9,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -153,6 +155,232 @@ class MigrationExecutorH2Test {
                         100.00, 0, 10.0000, TRUE, FALSE, FALSE)
                     """))
                     .hasMessageContaining("ck_lease_contract_payment_day");
+        }
+    }
+
+    @Test
+    void journalLedgerBaselineContainsEveryJpaOwnedTableAndFinancialConstraint() throws Exception {
+        String url = "jdbc:h2:mem:journal-ledger-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        MigrationConfiguration configuration = new MigrationConfiguration(url, "sa", "", "journal_ledger");
+
+        new MigrationExecutor().execute(
+                MigrationContext.require("journal-ledger"),
+                MigrationAction.MIGRATE,
+                configuration);
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "journal_entries", "journal_details", "journal_rules",
+                            "journal_rule_conditions", "journal_rule_details",
+                            "gl_entries", "sl_entries", "gl_balances", "sl_balances",
+                            "unsettled_items")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    }))
+                    .isTrue();
+            assertNumericColumn(connection, "journal_entries", "exchange_rate", 19, 8);
+            assertNumericColumn(connection, "journal_details", "amount", 19, 2);
+            assertNumericColumn(connection, "journal_details", "base_amount", 19, 2);
+            assertNumericColumn(connection, "gl_entries", "dr_amount", 19, 2);
+            assertNumericColumn(connection, "sl_entries", "base_cr_amount", 19, 2);
+            assertNumericColumn(connection, "gl_balances", "ending_balance", 19, 2);
+            assertNumericColumn(connection, "sl_balances", "ending_balance", 19, 2);
+            assertThat(hasForeignKey(
+                    connection, "journal_details", "journal_entry_id", "journal_entries", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "gl_entries", "journal_detail_id", "journal_details", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "sl_entries", "journal_detail_id", "journal_details", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "unsettled_items", "journal_detail_id", "journal_details", "id")).isTrue();
+            assertThat(indexColumns(connection, "journal_entries", "idx_journal_entry_lineage"))
+                    .containsExactly("lineage_source_type", "lineage_source_id");
+            assertThat(indexColumns(connection, "gl_balances", "idx_gl_balance_lookup"))
+                    .containsExactly("account_code", "currency_code", "balance_date");
+            assertThat(hasUniqueIndexOnColumns(connection, "journal_entries", List.of("slip_no"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(connection, "unsettled_items", List.of("management_no"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection,
+                    "gl_balances",
+                    List.of("account_code", "currency_code", "balance_date", "period"))).isTrue();
+            statement.executeUpdate("""
+                    INSERT INTO sl_balances (
+                        balance_date, beginning_balance, debit_amount, credit_amount,
+                        ending_balance, currency_code, account_code, bp_code, dept_code, period)
+                    VALUES (DATE '2026-08-04', 0.00, 100.00, 0.00,
+                        100.00, 'KRW', '101000', NULL, NULL, '2026-08')
+                    """);
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO sl_balances (
+                        balance_date, beginning_balance, debit_amount, credit_amount,
+                        ending_balance, currency_code, account_code, bp_code, dept_code, period)
+                    VALUES (DATE '2026-08-04', 0.00, 100.00, 0.00,
+                        100.00, 'KRW', '101000', NULL, NULL, '2026-08')
+                    """))
+                    .isInstanceOf(java.sql.SQLException.class);
+        }
+    }
+
+    @Test
+    void journalLedgerPlaceholderHistoryUpgradesForwardToV11() throws Exception {
+        String url = "jdbc:h2:mem:journal-ledger-v10-upgrade"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        Flyway.configure()
+                .dataSource(url, "sa", "")
+                .locations("classpath:db/contexts/journal-ledger")
+                .target("10")
+                .load()
+                .migrate();
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE sl_balances (
+                        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        balance_date DATE NOT NULL,
+                        beginning_balance NUMERIC(19, 2) NOT NULL,
+                        debit_amount NUMERIC(19, 2) NOT NULL,
+                        credit_amount NUMERIC(19, 2) NOT NULL,
+                        ending_balance NUMERIC(19, 2) NOT NULL,
+                        currency_code VARCHAR(3) NOT NULL,
+                        account_code VARCHAR(50) NOT NULL,
+                        bp_code VARCHAR(50),
+                        dept_code VARCHAR(50),
+                        period VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMP(6),
+                        updated_at TIMESTAMP(6),
+                        CONSTRAINT uk_sl_balance_key UNIQUE
+                            (account_code, bp_code, dept_code, currency_code, balance_date, period)
+                    )
+                    """);
+            statement.executeUpdate("""
+                    INSERT INTO sl_balances (
+                        balance_date, beginning_balance, debit_amount, credit_amount,
+                        ending_balance, currency_code, account_code, bp_code, dept_code, period)
+                    VALUES (DATE '2026-08-04', 0.00, 100.00, 0.00,
+                        100.00, 'KRW', '101000', NULL, NULL, '2026-08')
+                    """);
+        }
+
+        MigrationConfiguration configuration =
+                new MigrationConfiguration(url, "sa", "", "journal_ledger");
+        MigrationExecutor executor = new MigrationExecutor();
+        assertThat(executor.execute(
+                MigrationContext.require("journal-ledger"), MigrationAction.MIGRATE, configuration))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(executor.execute(
+                MigrationContext.require("journal-ledger"), MigrationAction.VALIDATE, configuration)).isZero();
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(tableExists(statement, "journal_entries")).isTrue();
+            assertThat(tableExists(statement, "batch_job_instance")).isTrue();
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                    INSERT INTO sl_balances (
+                        balance_date, beginning_balance, debit_amount, credit_amount,
+                        ending_balance, currency_code, account_code, bp_code, dept_code, period)
+                    VALUES (DATE '2026-08-04', 0.00, 100.00, 0.00,
+                        100.00, 'KRW', '101000', NULL, NULL, '2026-08')
+                    """))
+                    .isInstanceOf(java.sql.SQLException.class);
+            try (ResultSet resultSet = statement.executeQuery("""
+                    SELECT COUNT(*) FROM flyway_schema_history
+                    WHERE version = '11' AND success = TRUE
+                    """)) {
+                resultSet.next();
+                assertThat(resultSet.getInt(1)).isOne();
+            }
+        }
+    }
+
+    @Test
+    void masterDataBaselineContainsEveryJpaOwnedTableAndConstraint() throws Exception {
+        String url = "jdbc:h2:mem:master-data-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        MigrationConfiguration configuration = new MigrationConfiguration(url, "sa", "", "master_data");
+
+        new MigrationExecutor().execute(
+                MigrationContext.require("master-data"),
+                MigrationAction.MIGRATE,
+                configuration);
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "account_subjects", "business_partners", "business_partner_accounts",
+                            "currencies", "departments", "exchange_rates", "fiscal_periods",
+                            "master_data_change_requests", "products", "tax_profiles")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    }))
+                    .isTrue();
+            assertNumericColumn(connection, "exchange_rates", "rate", 19, 8);
+            assertNumericColumn(connection, "products", "price", 19, 4);
+            assertNumericColumn(connection, "tax_profiles", "tax_rate", 7, 4);
+            assertThat(hasForeignKey(
+                    connection, "account_subjects", "parent_id", "account_subjects", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "departments", "parent_id", "departments", "id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection,
+                    "business_partner_accounts",
+                    "business_partner_id",
+                    "business_partners",
+                    "id")).isTrue();
+            assertThat(indexColumns(connection, "account_subjects", "idx_account_code_valid"))
+                    .containsExactly("code", "valid_from", "valid_to");
+            assertThat(indexColumns(connection, "business_partners", "idx_bp_code_valid"))
+                    .containsExactly("business_partner_code", "valid_from", "valid_to");
+            assertThat(hasUniqueIndexOnColumns(
+                    connection,
+                    "exchange_rates",
+                    List.of("from_currency_code", "to_currency_code", "effective_date"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "fiscal_periods", List.of("fiscal_year", "fiscal_period"))).isTrue();
+            assertThat(hasUniqueIndexOnColumns(
+                    connection, "master_data_change_requests", List.of("source_reference"))).isTrue();
+        }
+    }
+
+    @Test
+    void masterDataPublishedHistoryUpgradesForwardFromV5ToV6() throws Exception {
+        String url = "jdbc:h2:mem:master-data-v5-upgrade"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        Flyway.configure()
+                .dataSource(url, "sa", "")
+                .locations("classpath:db/contexts/master-data")
+                .target("5")
+                .load()
+                .migrate();
+
+        MigrationConfiguration configuration = new MigrationConfiguration(url, "sa", "", "master_data");
+        MigrationExecutor executor = new MigrationExecutor();
+        assertThat(executor.execute(
+                MigrationContext.require("master-data"), MigrationAction.MIGRATE, configuration))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(executor.execute(
+                MigrationContext.require("master-data"), MigrationAction.VALIDATE, configuration)).isZero();
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(tableExists(statement, "account_subjects")).isTrue();
+            assertThat(tableExists(statement, "master_data_change_requests")).isTrue();
+            assertThat(tableExists(statement, "batch_job_instance")).isTrue();
+            try (ResultSet resultSet = statement.executeQuery("""
+                    SELECT COUNT(*) FROM flyway_schema_history
+                    WHERE version = '6' AND success = TRUE
+                    """)) {
+                resultSet.next();
+                assertThat(resultSet.getInt(1)).isOne();
+            }
         }
     }
 
@@ -420,7 +648,9 @@ class MigrationExecutorH2Test {
                 Arguments.of("budget", "budget_plans"),
                 Arguments.of("closing", "closing_calendars"),
                 Arguments.of("deposit", "deposit_accounts"),
+                Arguments.of("journal-ledger", "journal_entries"),
                 Arguments.of("loan", "loans"),
+                Arguments.of("master-data", "account_subjects"),
                 Arguments.of("reporting", "rpt_snapshot_header"));
     }
 
@@ -571,5 +801,31 @@ class MigrationExecutorH2Test {
             }
         }
         return columns.stream().filter(java.util.Objects::nonNull).toList();
+    }
+
+    private boolean hasUniqueIndexOnColumns(
+            Connection connection,
+            String tableName,
+            List<String> expectedColumns) throws Exception {
+        Map<String, List<String>> indexes = new LinkedHashMap<>();
+        try (ResultSet resultSet = connection.getMetaData().getIndexInfo(
+                null, null, tableName, true, false)) {
+            while (resultSet.next()) {
+                String indexName = resultSet.getString("INDEX_NAME");
+                String columnName = resultSet.getString("COLUMN_NAME");
+                if (indexName == null || columnName == null || resultSet.getBoolean("NON_UNIQUE")) {
+                    continue;
+                }
+                List<String> columns = indexes.computeIfAbsent(indexName, ignored -> new ArrayList<>());
+                int position = resultSet.getInt("ORDINAL_POSITION");
+                while (columns.size() < position) {
+                    columns.add(null);
+                }
+                columns.set(position - 1, columnName);
+            }
+        }
+        return indexes.values().stream()
+                .map(columns -> columns.stream().filter(java.util.Objects::nonNull).toList())
+                .anyMatch(expectedColumns::equals);
     }
 }

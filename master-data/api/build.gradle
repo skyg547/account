@@ -11,6 +11,7 @@ dependencyManagement {
 }
 dependencies {
     implementation project(':master-data:core')
+    implementation project(':contracts')
     implementation project(':shared-kernel')
     
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
@@ -37,3 +38,11 @@ dependencies {
 // difficult to deploy the wrong artifact by accident.
 bootJar { enabled = true }
 jar { enabled = false }
+
+bootRun {
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')
+}
+
+springBoot {
+    mainClass = 'com.ho.account.masterdata.MasterDataApplication'
+}

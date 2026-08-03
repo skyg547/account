@@ -78,4 +78,8 @@ JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 `YearMonthAttrib
 
 - 기준 스키마는 `V1__init_baseline.sql`에서 시작합니다.
 - 미결 반제 감사 필드는 `V10__unsettled_settlement_audit.sql`에 추가되어 있습니다.
-- 운영 배포 전 실제 통합 스키마의 버전 충돌과 기존 데이터 null 처리 정책을 확인합니다.
+- `V11__journal_ledger_postgresql_baseline.sql`은 적용 이력이 있는 V1/V10을 수정하지 않고,
+  10개 JPA 소유 테이블의 누락 DDL과 정밀도, FK, unique/check/index를 forward-only로
+  완성합니다. clean H2 PostgreSQL mode와 V10→V11 upgrade 경로를 모두 검증합니다.
+- 운영 배포 전 승인된 PostgreSQL에서 clean/upgrade migrate+validate와 runtime role의 DDL
+  거부를 확인합니다. 적용된 V1/V10/V11의 checksum을 `repair`로 덮거나 파일을 수정하지 않습니다.

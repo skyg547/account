@@ -39,9 +39,9 @@ record MigrationContext(
         ready(contexts, "deposit");
         blocked(contexts, "ecl", 255);
         blocked(contexts, "expenditure-resolution", 252);
-        blocked(contexts, "journal-ledger", 251);
+        ready(contexts, "journal-ledger");
         ready(contexts, "loan");
-        blocked(contexts, "master-data", 251);
+        ready(contexts, "master-data");
         blocked(contexts, "payable", 252);
         blocked(contexts, "receivable", 252);
         blocked(contexts, "reconciliation", 253);

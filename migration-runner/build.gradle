@@ -77,7 +77,9 @@ def readyExecutableProjects = [
         project(':budget:api'), project(':budget:batch'),
         project(':closing:api'), project(':closing:batch'),
         project(':deposit:api'), project(':deposit:batch'),
+        project(':journal-ledger:api'), project(':journal-ledger:batch'),
         project(':loan:api'), project(':loan:batch'),
+        project(':master-data:api'), project(':master-data:batch'),
         project(':reporting:api'), project(':reporting:batch')
 ]
 
