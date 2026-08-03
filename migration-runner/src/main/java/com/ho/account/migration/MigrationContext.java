@@ -44,9 +44,9 @@ record MigrationContext(
         ready(contexts, "master-data");
         ready(contexts, "payable");
         ready(contexts, "receivable");
-        blocked(contexts, "reconciliation", 253);
+        ready(contexts, "reconciliation");
         ready(contexts, "reporting");
-        blocked(contexts, "tax", 253);
+        ready(contexts, "tax");
         return Collections.unmodifiableMap(contexts);
     }
 

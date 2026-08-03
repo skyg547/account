@@ -1,10 +1,19 @@
 # reconciliation local run
 
+## 실행 프로파일 계약
+
+- 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1, Hibernate `validate`를 사용한다.
+- `dev`/`prod`는 PostgreSQL 15+ 전용이며 런타임 Flyway/DDL/SQL init/Batch metadata init을 금지한다. 배포 전에 서버 버전이 15 이상인지 확인하고 `migration-runner --context=reconciliation`을 실행한다.
+- `prod`는 `sslmode=verify-full`을 강제하고 DB 비밀번호는 환경 변수로만 주입한다.
+- 실제 PostgreSQL 검증은 승인 환경에서 별도로 필요하다. Journal/Ledger 원격 어댑터는 Issue #266에서 구현하므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.
+
+개발 환경은 `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`, 운영은 대응하는 `PROD_DB_*` 변수를 secret injection으로 제공하고 `--spring.profiles.active=dev|prod`로 시작한다. 사설 호스트나 자격증명을 저장소에 기록하지 않는다.
+
 ## 전제 조건
 
 - JDK 17
 - IntelliJ IDEA Gradle JVM도 JDK 17로 설정
-- 루트 프로젝트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 Import
+- 저장소 루트를 Gradle 프로젝트로 Import
 - Gradle wrapper 사용: `.\gradlew`
 
 `reconciliation`은 이제 `core/api/batch` 하위 Gradle 모듈로 분리되어 있다.
@@ -41,13 +50,21 @@
 API 서버 실행:
 
 ```powershell
-.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
 ```
 
 Batch 컨텍스트 실행:
 
 ```powershell
-.\gradlew :reconciliation:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --console=plain --max-workers=1
+```
+
+실행 JAR 생성 및 직접 실행:
+
+```powershell
+.\gradlew :reconciliation:api:bootJar :reconciliation:batch:bootJar --console=plain --max-workers=1
+java -jar reconciliation\api\build\libs\account-reconciliation-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+java -jar reconciliation\batch\build\libs\account-reconciliation-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
 실제 Batch Job 실행:
@@ -61,10 +78,6 @@ Batch 컨텍스트 실행:
 API 스모크만 확인하고 서버를 계속 띄우지 않을 때:
 
 > 위 API 실행 명령은 `web-application-type=none`으로 컨텍스트만 확인한다. 실제 HTTP 서버를 띄워 API를 호출하려면 해당 옵션을 빼고 `:reconciliation:api:bootRun`을 실행한다.
-
-```powershell
-.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
-```
 
 ## 테스트 데이터 주의사항
 

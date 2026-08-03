@@ -114,3 +114,9 @@ erDiagram
 - [docs/process-flow.md](./docs/process-flow.md): AP Invoice 생성, 수정, 취소, 외부 조회 포트 흐름.
 - [docs/schema.md](./docs/schema.md): 테이블, 상태, 논리 취소 필드.
 - [docs/local-run.md](./docs/local-run.md): IntelliJ와 Gradle 로컬 검증 방법.
+
+## 프로파일과 DB 계약
+
+- `local`: H2 PostgreSQL mode + 전용 Flyway V1 + Hibernate `validate`; Gradle `bootRun`과 실행 JAR을 모두 지원합니다.
+- `dev`/`prod`: PostgreSQL 15+ + 런타임 migration/DDL 비활성화; release-time `migration-runner`가 스키마를 소유합니다. `prod`는 TLS 호스트 검증을 강제합니다.
+- 실제 PostgreSQL 검증은 승인 환경에서 남아 있으며, Master Data 원격 어댑터는 Issue #266에서 추적합니다.

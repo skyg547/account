@@ -18,11 +18,13 @@ dependencyManagement {
 
 dependencies {
     implementation project(':reconciliation:core')
+    implementation project(':shared-kernel')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'org.postgresql:postgresql'
 
@@ -33,6 +35,13 @@ dependencies {
 }
 
 sourceSets.test.java.srcDir rootProject.file('test-support/runtime-contracts/src/test/java')
+
+bootJar { enabled = true }
+jar { enabled = false }
+
+springBoot {
+    mainClass = 'com.ho.account.reconciliation.api.ReconciliationApiApplication'
+}
 
 bootRun {
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')

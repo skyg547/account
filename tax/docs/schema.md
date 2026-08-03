@@ -62,3 +62,7 @@ supplyAmount + taxAmount == totalAmount
 외부 조회 포트는 취소 세금계산서도 반환하되 `TaxInvoiceRef.status`에 `ACTIVE` 또는 `CANCELLED`를 함께 담는다. `TaxInvoiceRef`는 `purchase()`, `active()`, `usableForPurchaseSettlement()`를 제공하므로 소비 모듈은 tax 내부 enum을 몰라도 업무 연결 가능 여부를 결정할 수 있다. 이렇게 하면 감사 추적용 조회는 가능하고, 소비 모듈은 상태를 보고 업무 연결 여부를 결정할 수 있다.
 
 현재 소비 정책은 fail-closed다. `expenditure-resolution`의 지출결의와 AP 지급은 `PURCHASE` 타입이면서 `ACTIVE` 상태인 세금계산서만 연결하고, `CANCELLED` 상태는 예외로 차단한다.
+
+## PostgreSQL 기준선
+
+전용 Flyway V1은 PostgreSQL 15+에서 `tax_invoices`를 생성하고 `numeric(19,2)` 금액 합계, type, ACTIVE/CANCELLED 감사 상태, issue ID unique와 기간·거래처 조회 인덱스를 보호한다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

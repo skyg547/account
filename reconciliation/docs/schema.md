@@ -117,3 +117,7 @@ erDiagram
 - `JournalPostingPort`: 조정 전표 초안 생성.
 
 조정 전표 생성 시 `lineageSourceId`는 `RECON_ADJ-RUN-{runId}-DIFF-{differenceId}-DR-{debitAccount}-CR-{creditAccount}` 형식이다. 시간값을 넣지 않기 때문에 같은 대사 실행/차이에 대한 재시도는 같은 외부 참조 키를 사용한다.
+
+## PostgreSQL 기준선
+
+전용 Flyway V1은 PostgreSQL 15+에서 8개 JPA 소유 테이블을 생성한다. `numeric(19,2)`/허용오차 `numeric(19,8)`, 실행·차이 상태, FK 라인리지, 실행별 단계 unique, 조정 전표 unique 및 외부 stage item 멱등 키를 DB에서 보호한다. nullable 외부 집계는 dimension 조합별 공존을 허용하면서 같은 조합 재적재를 막는다. 차이의 원천/대상 참조는 B-tree key 한도를 넘지 않는 canonical ID(`varchar(255)`)로 제한하고, nullable lineage는 `UNIQUE NULLS NOT DISTINCT`로 중복을 막는다. history 없는 비어 있지 않은 DB에는 자동 baseline하지 않는다.

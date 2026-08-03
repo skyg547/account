@@ -89,8 +89,8 @@ erDiagram
 
 **H2 local 실행:**
 ```powershell
-.\gradlew :reconciliation:api:bootRun --args="--spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
-.\gradlew :reconciliation:batch:bootRun --args="--spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain --max-workers=1
+.\gradlew :reconciliation:api:bootRun --console=plain --max-workers=1
+.\gradlew :reconciliation:batch:bootRun --console=plain --max-workers=1
 ```
 
 **실제 Spring Batch Job 실행:**
@@ -114,3 +114,9 @@ erDiagram
 - `reconciliationDailyJob`은 활성 대사 단위를 찾아 `RunReconciliationCommand`로 core 대사 실행 서비스에 위임하며, `deepMode=true`이면 Deep reconciliation 흐름을 사용합니다.
 - `ReconciliationBatchJobRegistryConfiguration`은 Batch Job 등록 시점만 늦춰 로컬/H2 컨텍스트 경고를 줄이며 업무 로직은 포함하지 않습니다.
 - 상세 문서는 [docs/README.md](./docs/README.md)에서 `beginner-guide`, `process-flow`, `schema`, `local-run` 순서로 확인합니다.
+
+### 프로파일과 DB 계약
+
+- `local`: H2 PostgreSQL mode + 전용 Flyway V1 + Hibernate `validate`; Gradle `bootRun`과 실행 JAR을 모두 지원합니다.
+- `dev`/`prod`: PostgreSQL 15+ + 런타임 migration/DDL 비활성화; release-time `migration-runner`가 스키마를 소유합니다. `prod`는 TLS 호스트 검증을 강제합니다.
+- 실제 PostgreSQL 검증은 승인 환경에서 남아 있으며, Journal/Ledger 원격 어댑터는 Issue #266에서 추적합니다.
