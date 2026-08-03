@@ -1,3 +1,11 @@
 spring:
   application:
     name: closing-batch
+  profiles:
+    default: local
+  flyway:
+    enabled: false
+    locations: classpath:db/closing-migration
+    table: flyway_schema_history_closing
+    baseline-on-migrate: false
+    baseline-version: 49

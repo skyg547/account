@@ -1,0 +1,29 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    vault:
+      enabled: false
+    discovery:
+      enabled: false
+  datasource:
+    url: jdbc:h2:mem:closing-api;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    clean-disabled: true
+    baseline-on-migrate: false
+  jpa:
+    hibernate:
+      # Local H2 also hosts dependency adapters that predate service-level persistence ports.
+      # Closing-owned tables are created by Flyway; Hibernate only fills those local-only tables.
+      ddl-auto: update
+  sql:
+    init:
+      mode: never
+
+eureka:
+  client:
+    enabled: false

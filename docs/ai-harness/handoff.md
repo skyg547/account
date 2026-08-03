@@ -1268,3 +1268,23 @@
 - Do not mark #254 complete, make PR #259 Ready, or connect/deploy until an approved PostgreSQL clean migrate+validate, runtime-role denial and Batch restart are evidenced.
 - V20 is editable only because #256/#259 are a stacked unpublished migration. If V20 is merged or applied first, convert #259 to a V21+ forward migration.
 - Before publication, rollback is a normal commit revert. After application, never edit/down-migrate V20; ship a reviewed forward-fix.
+
+# AI Harness Handoff - 2026-08-04 Issue #250 Closing baseline
+
+## State
+
+- Worktree/branch: `C:\tmp\account-250-closing-postgres-baseline`, `agent/250-closing-postgres-baseline`.
+- Stack: `agent/254-asset-lease-postgres-baseline` / Draft PR #259, which itself stacks on #256.
+- Issue #250 remains OPEN. Runner inventory is READY 7 / BLOCKED 9 on this stack.
+
+## Delivered and verified
+
+- V49 creates all 10 Closing JPA tables, V50 preserves the published legacy daily-state conversion, and V51 supplies forward-only operational indexes to existing baseline-49 databases.
+- Closing's special legacy transition validates an exact V49 column set and every type, length, nullability, identity, PK, Closing-owned FK, period unique and conflicting named index before it permits automatic baseline 49. It rejects unrelated non-empty schemas, missing/extra columns, partial V50 and incomplete history shapes.
+- API and Batch default to local in-memory H2 when run directly. Dev/prod use injected PostgreSQL, JPA validate, and no runtime Flyway/SQL/Batch schema creation.
+- Closing Core 59, API 9, Batch 13 and runner 45 tests passed. API/Batch/runner bootJars, 14 READY driver packages, runner `--list`, local API/Batch jar startup through V51, diff/marker scans and independent review passed.
+
+## Gates and rollback
+
+- Do not close #250, mark its PR Ready, or deploy/connect until an approved PostgreSQL clean migrate+validate, representative legacy-data upgrade, runtime DDL denial and Batch restart are evidenced.
+- Before application, rollback is a normal commit revert. After any migration succeeds, never clean, repair, edit or down-migrate V49/V50/V51; ship a reviewed forward-fix.

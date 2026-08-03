@@ -741,3 +741,14 @@
 - Verification: Core 15, API 1, Batch 1 and Migration Runner 28 tests passed; API/Batch/runner bootJars and READY driver verification passed; real local API/Batch jars started on H2 and Batch did not auto-run a Job.
 - Independent review drove precision, audit, book-value, account, payment-day, local Batch and Config Client corrections. Final result has no remaining P0-P3 finding.
 - Remaining gate: actual PostgreSQL clean migrate/validate, runtime DDL denial and Batch restart. V20 may be edited only while parent #256 remains unpublished; otherwise convert this stack to V21+ forward migration.
+
+## 2026-08-04 - Issue #250 Closing PostgreSQL baseline
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/250-closing-postgres-baseline` / `C:\tmp\account-250-closing-postgres-baseline`; stacked on `agent/254-asset-lease-postgres-baseline`.
+- Added a 10-table Closing V49 clean baseline, retained V50's legacy Boolean-to-EOD/BOD forward conversion, and added V51 operational-index convergence for legacy-baselined databases.
+- Promoted Closing to runner READY with its existing `flyway_schema_history_closing` contract. Automatic baseline 49 now rejects partial, unrelated, post-V50, extra-column, type/length/nullability/identity, PK/FK/unique and same-name wrong-index shapes before Flyway changes history.
+- Added local H2 default profiles and dev/prod PostgreSQL fail-closed profiles for API/Batch, packaged H2/PostgreSQL/Flyway runtimes, and added both API and Batch clean-migration JPA validate tests.
+- Verification: Closing Core 59, API 9, Batch 13 and Migration Runner 45 tests passed (126 total); API/Batch/runner bootJars, 14 READY executable PostgreSQL driver packages, executable `--list`, actual local API/Batch jar V51 startup, diff and conflict scans passed.
+- Independent review drove legacy baseline history, exact schema, corrupt nullable state, key/index, Batch validate and V51 regression fixes. Final result has no remaining P0-P3 finding.
+- Remaining gate: actual approved PostgreSQL clean migrate/validate, representative legacy-data upgrade, runtime-role DDL denial and Batch restart. Issue #250 remains open and the PR remains Draft.

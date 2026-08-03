@@ -1748,3 +1748,12 @@
 - local은 H2로 API/Batch jar가 독립 기동하며 Batch Job은 opt-in이다. dev/prod는 direct environment PostgreSQL, JPA validate, runtime Flyway/Batch/SQL init 차단, Config/Vault 비활성 계약을 가진다.
 - Core 15, API 1, Batch 1, Migration Runner 28 등 45 tests와 bootJar/PG-driver gate, 실제 local jar smoke가 통과했다. 독립 리뷰 최종 P0-P3는 없다.
 - Runner inventory는 READY 6 / BLOCKED 10이다. 실제 PostgreSQL clean migrate/validate, runtime role, Batch restart 전에는 #254를 닫거나 PR을 Ready로 전환하지 않는다.
+
+## 2026-08-04 (Issue #250 Closing PostgreSQL baseline)
+
+- `agent/250-closing-postgres-baseline`을 #259 위에 stack해 Closing clean/legacy PostgreSQL schema를 구현했다. Issue #250은 실제 PostgreSQL gate 때문에 open 상태다.
+- V49는 10개 Closing JPA 소유 테이블을 생성하고, published V50은 legacy `is_closed`를 EOD/BOD 상태로 forward 전환하며, V51은 baseline-49 기존 DB에도 운영 인덱스를 수렴시킨다.
+- history 없는 legacy DB 자동 baseline은 exact column set, type/length/nullability, identity, PK/FK/period unique와 동일명 index 정의를 검증하고 partial/unrelated/corrupt 모양을 모두 fail-closed 거부한다.
+- API/Batch는 profile 생략 시 local H2로 독립 기동하고, dev/prod는 injected PostgreSQL, JPA validate, runtime Flyway/Batch/SQL init 차단 계약을 가진다.
+- Closing Core 59, API 9, Batch 13, runner 45로 총 126 tests와 API/Batch/runner bootJar, READY 14개 PG-driver gate, 실제 local jar V51 smoke가 통과했다. 독립 리뷰 최종 P0-P3는 없다.
+- Runner inventory는 READY 7 / BLOCKED 9다. 실제 PostgreSQL clean/legacy migrate+validate, runtime DDL denial, Batch restart 전에는 #250을 닫거나 PR을 Ready로 전환하지 않는다.
