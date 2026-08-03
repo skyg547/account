@@ -3,6 +3,11 @@
 이 문서는 `docs/db` 하위 DDL 파일을 현재 Java 도메인 엔티티 기준으로 분류한 결과다.
 현재 파일은 `docs/db/current`, `docs/db/legacy`로 물리적으로 분리되어 있다.
 
+실행 가능한 PostgreSQL Flyway artifact와 release 절차는
+[`migration-runner`](../../migration-runner/README.md)와
+[`postgresql-migration-runbook.md`](postgresql-migration-runbook.md)를 따른다. `docs/db`의
+참고 DDL을 runner가 자동 실행하지는 않는다.
+
 ## 분류 기준
 
 - `현행`: 현재 엔티티와 테이블명/구조 방향이 대부분 일치하며 우선 참조 가능한 DDL

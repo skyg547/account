@@ -3,6 +3,7 @@ rootProject.name = 'account'
 include 'app',
         'contracts',
         'shared-kernel',
+        'migration-runner',
         'master-data:core', 'master-data:api', 'master-data:batch',
         'internal-audit:core', 'internal-audit:api', 'internal-audit:batch',
         'journal-ledger:core',

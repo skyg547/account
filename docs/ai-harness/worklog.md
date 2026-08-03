@@ -715,3 +715,16 @@
 - Independent review identified account loss on SCD2 replacement. The domain now clones account values with new child IDs, while tests prove old/new FK ownership, close-before-save ordering, invalid-update no-write behavior, and overlapping-row fail-closed lookup.
 - Draft PR #232 was marked Ready and merged as `c720ae58`; `Fixes #41` closed the reopened Issue automatically, and the remote source branch was deleted. PR, Issue, and remote branch states were reverified before marking the source worktree cleanup-eligible.
 - Remaining risks: PostgreSQL execution was not run, overlapping SCD2 periods still need a database exclusion constraint, and unbounded list/query pagination remains outside this issue.
+## 2026-08-03 - Issue #244 release migration runner foundation
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/244-postgres-migrations` / `C:\tmp\account-244-postgres-migrations`; base `origin/main@5c810422`.
+- Added an executable, non-web Flyway release runner with 16-context inventory, canonical database target guard, production TLS gate, migrate approval gate, secret-safe logging, and destructive action exclusion.
+- Split published H2 migrations from PostgreSQL Asset Lease/Deposit/Loan dialect variants without changing the V20/V40/V30 blobs or checksums.
+- Provisioned Spring Batch 5.1 metadata through a separate version-0/V1 history and verify all columns/types/nullability/lengths, primary/foreign/composite unique keys, and sequence definitions after migrate/validate.
+- Packaged fail-closed dev/prod PostgreSQL profiles for the five READY contexts' ten API/Batch executables and verified effective ConfigData, JPA validate, Flyway off, Batch init never, SQL init never, and PostgreSQL driver inclusion.
+- Inventory result: Auth, Budget, Deposit, Loan, Reporting are READY; 11 contexts remain blocked by #250-#255. Issue #244 stays open and the PR must remain Draft.
+- Verification: runner 26 tests, Config Server 4, affected API/Batch/core tests 85 additional observed tests, 10 READY bootJars plus runner bootJar, executable `--list`, diff/conflict/secret scans passed. Some executable test tasks are legitimately `NO-SOURCE`.
+- Independent review corrected Batch history version collisions, legacy metadata false-success, JDBC URL logging, ineffective central-only profile overrides, missing PostgreSQL drivers, target misbinding, and stale command examples. Final code review found no additional P0/P2/P3.
+- Remaining gates: actual clean/existing PostgreSQL migrate+validate, least-privilege and Batch restart, and the 11 blocked context baselines. No development/production DB connection, image pull, deployment, or data mutation was performed.
+- Rollback: revert code/config/docs only. Never clean, repair, or down-migrate an applied database; ship a reviewed forward-fix.

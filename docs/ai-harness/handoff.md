@@ -1216,3 +1216,33 @@
 - `@EntityGraph(accounts)` prevents per-row lazy queries but an unpaged list may expand result rows; bounded pagination remains a separate contract change.
 - Rollback after commit is a normal revert of the Issue #41 follow-up implementation commit. Existing schema and API contracts are retained, so no migration rollback is needed.
 - The implementation worktree may be removed after this integration record is merged; the verified Git history remains on `main`.
+# AI Harness Handoff - 2026-08-03 Issue #244 migration foundation
+
+## State
+
+- Worktree/branch: `C:\tmp\account-244-postgres-migrations`, `agent/244-postgres-migrations` from `origin/main@5c810422`.
+- Issue #244 remains OPEN. It now reflects 16 contexts and child baseline Issues #250-#255.
+- This is a reviewable foundation, not completion: READY 5 / BLOCKED 11 and no actual PostgreSQL execution.
+
+## Delivered contract
+
+- `migration-runner` produces `account-migration-runner.jar`; `--list` is credential-free and `validate|migrate` are the only DB actions.
+- Migrate requires explicit allow switch and change ticket. All connections require selected context, canonical expected DB, URL DB path, and `current_database()` agreement. Production requires TLS hostname verification.
+- Domain and Spring Batch migrations have separate Flyway history. The isolated Batch history starts at version 0 and applies Spring Batch 5.1 V1 without colliding with domain V1/V30/V70 ranges.
+- Batch schema adoption fails if any table/column definition, key target, composite uniqueness, or sequence definition differs.
+- Existing H2 migration blobs are unchanged; PostgreSQL-specific Asset Lease/Deposit/Loan resources are packaged only into the runner.
+- Auth/Budget/Deposit/Loan/Reporting API and Batch jars carry effective dev/prod PostgreSQL profiles and exactly one PostgreSQL JDBC driver.
+
+## Verification and review
+
+- Runner 26 tests, Config Server 4 tests, targeted existing core/API/Batch tests all passed; total currently observed XML count is 115 with no failures/errors/skips.
+- Ten READY API/Batch bootJars and the runner bootJar passed. The driver verification task found exactly one PostgreSQL JDBC jar in every READY executable.
+- Executable `--list`, secret-safe failed connection smoke, `git diff --check`, conflict markers, original migration blob hashes, and private-host scans passed.
+- Independent Reviewer found and drove all high-risk corrections. Final result: no additional P0/P2/P3; two expected P1 completion gaps are the 11 blocked baselines and missing real PostgreSQL evidence.
+
+## Next gates
+
+- Complete #250-#255 and promote each context from BLOCKED only after entity/DDL parity.
+- Run clean and upgrade migrate+validate for all contexts in an approved PostgreSQL environment, then prove runtime DDL denial and Batch restart.
+- Rebase after dependent Draft PRs #241/#245/#248 land; identical datasource/driver changes should collapse, while conflicts must preserve the stricter runner-only schema owner contract.
+- Do not close #244, mark the Draft PR Ready, connect to the supplied development DB, or deploy without the separate approval gate.

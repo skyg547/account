@@ -1,0 +1,99 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+springBoot {
+    mainClass = 'com.ho.account.migration.DatabaseMigrationApplication'
+}
+
+bootJar {
+    archiveFileName = 'account-migration-runner.jar'
+}
+
+jar {
+    enabled = false
+}
+
+def contextMigrationSources = [
+        'account-mart'          : 'account-mart/mart-api/src/main/resources/db/migration',
+        'asset-lease'           : 'asset-lease/core/src/main/resources/db/migration',
+        'auth'                  : 'auth/api/src/main/resources/db/migration',
+        'budget'                : 'budget/core/src/main/resources/db/migration',
+        'closing'               : 'closing/core/src/main/resources/db/closing-migration',
+        'deposit'               : 'deposit/core/src/main/resources/db/migration',
+        'ecl'                   : 'ecl/ecl-api/src/main/resources/db/migration',
+        'journal-ledger'        : 'journal-ledger/core/src/main/resources/db/migration',
+        'loan'                  : 'loan/core/src/main/resources/db/migration',
+        'master-data'           : 'master-data/core/src/main/resources/db/migration',
+        'reporting'             : 'reporting/core/src/main/resources/db/migration'
+]
+
+def postgresqlOverrides = [
+        'asset-lease': [
+                file: 'V20__init_asset_lease.sql',
+                source: 'asset-lease/core/src/main/resources/db/postgresql-migration'
+        ],
+        'deposit': [
+                file: 'V40__init_deposit_schema.sql',
+                source: 'deposit/core/src/main/resources/db/postgresql-migration'
+        ],
+        'loan': [
+                file: 'V30__init_loan_schema.sql',
+                source: 'loan/core/src/main/resources/db/postgresql-migration'
+        ]
+]
+
+tasks.named('processResources') {
+    contextMigrationSources.each { context, sourcePath ->
+        from(rootProject.file(sourcePath)) {
+            include '*.sql'
+            if (postgresqlOverrides.containsKey(context)) {
+                exclude postgresqlOverrides[context].file
+            }
+            into "db/contexts/${context}"
+        }
+        if (postgresqlOverrides.containsKey(context)) {
+            from(rootProject.file(postgresqlOverrides[context].source)) {
+                include postgresqlOverrides[context].file
+                into "db/contexts/${context}"
+            }
+        }
+    }
+}
+
+def readyExecutableProjects = [
+        project(':auth:api'), project(':auth:batch'),
+        project(':budget:api'), project(':budget:batch'),
+        project(':deposit:api'), project(':deposit:batch'),
+        project(':loan:api'), project(':loan:batch'),
+        project(':reporting:api'), project(':reporting:batch')
+]
+
+tasks.register('verifyReadyExecutablePostgresqlDrivers') {
+    group = 'verification'
+    description = 'Builds every READY API/Batch bootJar and verifies one PostgreSQL JDBC driver is packaged.'
+    dependsOn readyExecutableProjects.collect { it.tasks.named('bootJar') }
+
+    doLast {
+        readyExecutableProjects.each { executableProject ->
+            File bootJarFile = executableProject.tasks.named('bootJar').get().archiveFile.get().asFile
+            Set<File> drivers = zipTree(bootJarFile).matching {
+                include 'BOOT-INF/lib/postgresql-*.jar'
+            }.files
+            if (drivers.size() != 1) {
+                throw new GradleException(
+                        "${executableProject.path} bootJar must contain exactly one PostgreSQL JDBC driver; found ${drivers.size()}")
+            }
+        }
+    }
+}

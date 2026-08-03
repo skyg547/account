@@ -1729,3 +1729,12 @@
 - Independent post-rebase review and static checks found no remaining P0-P3 findings. PostgreSQL was not executed; overlap exclusion constraint and list pagination remain follow-ups.
 - PR `#232` merged as `c720ae58` after Ready/mergeability checks, `Fixes #41` closed the reopened Issue automatically, and GitHub deleted the remote source branch. The source worktree is cleanup-eligible.
 - Rollback: revert the Issue #41 follow-up implementation commit. No schema rollback is required.
+## 2026-08-03 (Issue #244 PostgreSQL release migration foundation)
+
+- 16개 bounded context를 release runner artifact에 등록하고 Auth/Budget/Deposit/Loan/Reporting만 READY, 나머지 11개는 #250-#255가 해결될 때까지 DB 접속 전에 차단했다.
+- H2 V20/V40/V30 checksum을 보존하면서 Asset Lease/Deposit/Loan PostgreSQL vendor migration을 분리했다.
+- context/예상 database/URL path/`current_database()` 결합, production `sslmode=verify-full`, change ticket와 migrate switch, Flyway URL 로그 차단을 구현했다.
+- Spring Batch 5.1 metadata를 별도 history로 provision하고 전체 column definition, PK/FK target, composite unique, sequence 속성을 migrate/validate 후 검증한다.
+- READY 5개 context의 API/Batch 10개에 dev/prod PostgreSQL fail-closed profile과 JDBC driver를 보장했다.
+- Runner 26, Config Server 4 및 영향 모듈 테스트, 10 bootJar+runner bootJar, `--list`, driver packaging, diff/conflict scan이 통과했다. 독립 리뷰 최종 결과 추가 P0/P2/P3는 없다.
+- #244는 완료가 아니다. 11개 baseline과 실제 PostgreSQL clean/upgrade migrate+validate, least privilege, Batch restart 증거가 남아 있어 Issue와 PR은 Open/Draft로 유지한다.
