@@ -1739,3 +1739,12 @@
 - READY 5개 context의 API/Batch 10개에 dev/prod PostgreSQL fail-closed profile과 JDBC driver를 보장했다.
 - Runner 26, Config Server 4 및 영향 모듈 테스트, 10 bootJar+runner bootJar, `--list`, driver packaging, diff/conflict scan이 통과했다. 독립 리뷰 최종 결과 추가 P0/P2/P3는 없다.
 - #244는 완료가 아니다. 11개 baseline과 실제 PostgreSQL clean/upgrade migrate+validate, least privilege, Batch restart 증거가 남아 있어 Issue와 PR은 Open/Draft로 유지한다.
+
+## 2026-08-03 (Issue #254 Asset Lease PostgreSQL baseline)
+
+- `agent/254-asset-lease-postgres-baseline`을 #256 위에 stack하고 구현 commit `6ee765b3`, Draft PR #259를 push했다. Issue #254는 실제 PostgreSQL gate 때문에 open 상태다.
+- Asset Lease의 6개 JPA table, 금액 정밀도, audit NOT NULL, FK/unique/index, 지급일 CHECK를 PostgreSQL V20에 완성했고 published H2 V20 hash `aeb0724fd267a16b23ebf7488607ce4ec096ae8e`를 보존했다.
+- 취득 시 장부가액/잔존가치 불변식을 domain에 고정하고 API/Batch scan에서 사용하지 않는 Master Data schema 소유권을 제거했다.
+- local은 H2로 API/Batch jar가 독립 기동하며 Batch Job은 opt-in이다. dev/prod는 direct environment PostgreSQL, JPA validate, runtime Flyway/Batch/SQL init 차단, Config/Vault 비활성 계약을 가진다.
+- Core 15, API 1, Batch 1, Migration Runner 28 등 45 tests와 bootJar/PG-driver gate, 실제 local jar smoke가 통과했다. 독립 리뷰 최종 P0-P3는 없다.
+- Runner inventory는 READY 6 / BLOCKED 10이다. 실제 PostgreSQL clean migrate/validate, runtime role, Batch restart 전에는 #254를 닫거나 PR을 Ready로 전환하지 않는다.

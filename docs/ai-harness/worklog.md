@@ -729,3 +729,15 @@
 - Independent review corrected Batch history version collisions, legacy metadata false-success, JDBC URL logging, ineffective central-only profile overrides, missing PostgreSQL drivers, target misbinding, and stale command examples. Final code review found no additional P0/P2/P3.
 - Remaining gates: actual clean/existing PostgreSQL migrate+validate, least-privilege and Batch restart, and the 11 blocked context baselines. No development/production DB connection, image pull, deployment, or data mutation was performed.
 - Rollback: revert code/config/docs only. Never clean, repair, or down-migrate an applied database; ship a reviewed forward-fix.
+
+## 2026-08-03 - Issue #254 Asset Lease PostgreSQL baseline
+
+- Owner: Codex Integrator with an independent read-only Reviewer.
+- Branch/worktree: `agent/254-asset-lease-postgres-baseline` / `C:\tmp\account-254-asset-lease-postgres-baseline`; stacked on `agent/244-postgres-migrations`.
+- Delivery: implementation commit `6ee765b3`, Draft PR `#259`; Issue `#254` remains open.
+- Completed all six JPA-owned tables in the PostgreSQL V20 variant and verified precision, nullability, FK targets, unique/index contracts, audit requirements and payment-day bounds without changing the published H2 V20 blob.
+- Added Asset Lease local H2 and dev/prod PostgreSQL executable profiles, direct-env Config/Vault behavior, PostgreSQL JDBC packaging, JPA validate context tests and runner READY promotion.
+- Corrected registration invariants so acquisition book value and non-negative residual balances are established before persistence; removed unused Master Data schema scanning/dependencies.
+- Verification: Core 15, API 1, Batch 1 and Migration Runner 28 tests passed; API/Batch/runner bootJars and READY driver verification passed; real local API/Batch jars started on H2 and Batch did not auto-run a Job.
+- Independent review drove precision, audit, book-value, account, payment-day, local Batch and Config Client corrections. Final result has no remaining P0-P3 finding.
+- Remaining gate: actual PostgreSQL clean migrate/validate, runtime DDL denial and Batch restart. V20 may be edited only while parent #256 remains unpublished; otherwise convert this stack to V21+ forward migration.

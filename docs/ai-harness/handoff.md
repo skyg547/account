@@ -1247,3 +1247,24 @@
 - Run clean and upgrade migrate+validate for all contexts in an approved PostgreSQL environment, then prove runtime DDL denial and Batch restart.
 - Rebase after dependent Draft PRs #241/#245/#248 land; identical datasource/driver changes should collapse, while conflicts must preserve the stricter runner-only schema owner contract.
 - Do not close #244, mark the Draft PR Ready, connect to the supplied development DB, or deploy without the separate approval gate.
+
+# AI Harness Handoff - 2026-08-03 Issue #254 Asset Lease baseline
+
+## State
+
+- Worktree/branch: `C:\tmp\account-254-asset-lease-postgres-baseline`, `agent/254-asset-lease-postgres-baseline`.
+- Stack: parent branch `agent/244-postgres-migrations`, Draft PR #256; delivery commit `6ee765b3`, stacked Draft PR #259.
+- Issue #254 remains OPEN. Runner inventory is READY 6 / BLOCKED 10.
+
+## Delivered and verified
+
+- PostgreSQL V20 creates all six Asset Lease JPA tables with matched precision, required audit/account/book-value fields, FK/unique/index contracts and payment-day validation. Published H2 V20 hash remains `aeb0724fd267a16b23ebf7488607ce4ec096ae8e`.
+- Asset acquisition initializes current book value and rejects invalid residual balances before persistence. Asset Lease no longer scans or depends on Master Data JPA ownership it does not use.
+- API/Batch local profiles start directly on H2 without Config/Discovery/Vault; Batch Job execution is opt-in. Dev/prod profiles use injected PostgreSQL values, JPA validate and no runtime schema initialization.
+- Core 15, API 1, Batch 1 and runner 28 tests passed. API/Batch/runner bootJars, READY PostgreSQL-driver packaging and actual local API/Batch jar smoke passed. Independent final review found no remaining P0-P3.
+
+## Gates and rollback
+
+- Do not mark #254 complete, make PR #259 Ready, or connect/deploy until an approved PostgreSQL clean migrate+validate, runtime-role denial and Batch restart are evidenced.
+- V20 is editable only because #256/#259 are a stacked unpublished migration. If V20 is merged or applied first, convert #259 to a V21+ forward migration.
+- Before publication, rollback is a normal commit revert. After application, never edit/down-migrate V20; ship a reviewed forward-fix.
