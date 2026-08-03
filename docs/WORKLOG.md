@@ -1,3 +1,20 @@
+### 📅 2026-08-04 (Deposit 모듈 약정이율 예금 이자 일할 계산 & 중도/만기해지 정산 엔진 구현)
+### [기능 완료] pure domain DepositInterestAccrualCalculator 및 DepositTerminationSettlementCalculator
+
+- **작업 배경**:
+  - `deposit` 모듈의 계좌 개설 유즈케이스 외에 매일 발생하는 미지급 이자 일할 계산(Accrual) 및 만기/중도 해지 시 패널티 이율 적용과 세금 원천징수 정산 엔진이 필요했음.
+- **주요 변경 사항**:
+  - **`DepositDayCountConvention`**: ACTUAL_365(원화 365일 기준) 및 ACTUAL_360(외화 360일 기준) 일수 계산 규정.
+  - **`DepositInterestAccrualCalculator` (pure domain)**: `MathContext(34, RoundingMode.HALF_EVEN)` 연산 기반 잔액, 약정이율, 경과일수에 따른 매일 미지급 이자 정밀 산출.
+  - **`DepositTerminationSettlementCalculator` (pure domain)**: 만기해지 및 중도해지 경과 비율별 차등 패널티 이율 산출, 한국 금융 세법 기준 이자소득세 14% + 지방소득세 1.4% (총 15.4%) 원천징수 세금 산출 및 최종 실지급액 계산.
+  - **`DepositAccountStateMachine`**: 계좌 상태 전이(`ACTIVE` -> `SUSPENDED` / `DORMANT` -> `CLOSED`) 규칙 검증기.
+  - **`DepositTerminationResult` (VO)**: 불변 해지 정산 결과 객체 설계.
+- **검증**:
+  - `DepositInterestAccrualCalculatorTest` (ACTUAL_365 및 ACTUAL_360 일할 이자 산출 검증).
+  - `DepositTerminationSettlementCalculatorTest` (1년 만기 해지 15.4% 세금 정산 및 6개월 중도 해지 패널티 세후 지급액 검증).
+  - `DepositAccountStateMachineTest` (허용/거부 상태 전이 검증).
+  - Gradle test suite 실행: `:deposit:core:test`, `:deposit:api:test`, `:deposit:batch:test` 전수 통과 확인.
+
 ### 📅 2026-08-03 (Loan 모듈 원리금 상환 스케줄 & EIR 이연 상각 코어 엔진 구현)
 ### [기능 완료] pure domain RepaymentScheduleCalculator 및 EIRAmortizationEngine
 
