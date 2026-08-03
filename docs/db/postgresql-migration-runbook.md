@@ -21,7 +21,7 @@
 | asset-lease | BLOCKED | missing lease tables #254; PostgreSQL V20 dialect variant prepared |
 | auth | READY | V70-V73 |
 | budget | READY | V50 |
-| closing | BLOCKED | clean baseline #250 |
+| closing | READY | V49 clean baseline + V50 state upgrade + V51 indexes; guarded legacy baseline 49 transition; Issue #250 stacked Draft PR |
 | deposit | READY | PostgreSQL-specific V40; published H2 checksum preserved |
 | ecl | BLOCKED | entity/migration parity #255 |
 | expenditure-resolution | BLOCKED | baseline #252 |
@@ -60,7 +60,11 @@ validate 증거가 #244 완료 게이트다.
 
 Spring Batch metadata는 별도 history의 공통 `V1__spring_batch_metadata_v5_1.sql`로 생성된다.
 Domain tables 때문에 schema가 이미 non-empty여도 Batch history만 version `0`으로 초기화한 뒤
-V1을 적용한다. Context history에는 baseline을 자동 생성하지 않는다. 이 기준 파일은 적용 후
+V1을 적용한다. Context history에는 원칙적으로 baseline을 자동 생성하지 않는다. Closing만 기존
+`flyway_schema_history_closing` 계약 때문에 예외다. history가 없는 비어 있지 않은 DB에서
+10개 legacy V49 테이블의 전체 컬럼 타입·길이·nullability, identity, PK/FK/기간 unique가
+확인되고 V50의 `state` 컬럼이 아직 없을 때만 49 baseline marker를 기록한 뒤 V50/V51을
+적용한다. 불완전하거나 부분 적용된 모양과 같은 이름의 잘못된 운영 인덱스는 중단한다. 이 기준 파일은 적용 후
 수정하지 않고 후속 schema 변경은 새 forward migration으로 추가한다. Job instance,
 execution, step execution/context 테이블과 세 sequence를 앱 기동 전에 provision하므로
 `initialize-schema=never`에서도 restart metadata가 보존된다. Runner는 적용·검증 뒤 Spring
@@ -82,9 +86,9 @@ Batch 5.1의 전체 table/column 집합과 세 sequence가 정확히 존재하�
 
 ## Verification boundaries
 
-- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 Asset Lease/Deposit/Loan
+- 로컬 자동 검증: runner 단위 테스트, PostgreSQL-mode H2에서 Asset Lease/Closing/Deposit/Loan
   vendor migration + Batch metadata migrate/validate, executable jar `--list`.
-- 승인 환경 검증: 5개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
+- 승인 환경 검증: 7개 READY context 각각 clean PostgreSQL migrate + validate, 기존 schema
   upgrade, runtime least-privilege, Batch restart.
 - 아직 금지된 범위: 운영 DB 접속, 운영 데이터 변경, 실제 secret 출력, 승인 없는 image pull
   또는 배포.

@@ -31,7 +31,14 @@ Batch Job은 선행 데이터가 필요하므로 기본 Run Configuration은 컨
 실행 모듈은 의존 JAR의 설정 이름을 상속하지 않도록 `spring.application.name=closing-service`, 기본 포트 `8086`을 자체 설정합니다.
 
 ```powershell
-.\gradlew :closing:api:bootRun --args="--spring.profiles.active=local --server.port=8086 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop" --console=plain
+.\gradlew :closing:api:bootRun --console=plain
+```
+
+직접 실행 JAR도 profile을 생략하면 `local`을 사용합니다.
+
+```powershell
+.\gradlew :closing:api:bootJar --console=plain
+java -jar closing\api\build\libs\closing-api-0.0.1-SNAPSHOT.jar
 ```
 
 API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확인합니다.
@@ -57,17 +64,26 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 
 EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
 
-Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. 기존 스키마는 baseline 49, 일마감 상태 도입은 V50입니다.
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스를 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
 ## Batch 컨텍스트만 실행
 
 Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.
 
 ```powershell
-.\gradlew :closing:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false" --console=plain
+.\gradlew :closing:batch:bootRun --args="--spring.main.web-application-type=none" --console=plain
 ```
 
 이 명령은 Job을 실행하지 않고 Batch 설정과 Bean 로딩만 확인합니다. 신규 개발자는 이 명령으로 의존성 누락이나 설정 오류를 먼저 잡는 것이 안전합니다.
+
+## 개발·운영 PostgreSQL profile
+
+- `dev`: `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`
+- `prod`: `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`
+
+두 profile 모두 runtime Flyway와 SQL init, Batch metadata 자동 생성을 끄고 JPA `validate`를
+사용합니다. 비밀번호와 완성된 운영 URL은 Compose나 저장소에 기록하지 않고 secret으로
+주입합니다. 실제 DB 변경은 `migration-runner`와 승인된 변경 티켓으로만 수행합니다.
 
 ## FX 평가 Job 실행
 

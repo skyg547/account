@@ -10,6 +10,7 @@ record MigrationContext(
         String databaseToken,
         String location,
         String historyTable,
+        String legacyBaselineVersion,
         boolean cleanDatabaseReady,
         int blockerIssue) {
 
@@ -33,7 +34,8 @@ record MigrationContext(
         blocked(contexts, "asset-lease", 254);
         ready(contexts, "auth");
         ready(contexts, "budget");
-        blocked(contexts, "closing", 250, "flyway_schema_history_closing");
+        readyWithLegacyBaseline(
+                contexts, "closing", "flyway_schema_history_closing", "49");
         ready(contexts, "deposit");
         blocked(contexts, "ecl", 255);
         blocked(contexts, "expenditure-resolution", 252);
@@ -54,6 +56,22 @@ record MigrationContext(
                 slug.replace('-', '_'),
                 "classpath:db/contexts/" + slug,
                 "flyway_schema_history",
+                null,
+                true,
+                0));
+    }
+
+    private static void readyWithLegacyBaseline(
+            Map<String, MigrationContext> contexts,
+            String slug,
+            String historyTable,
+            String legacyBaselineVersion) {
+        contexts.put(slug, new MigrationContext(
+                slug,
+                slug.replace('-', '_'),
+                "classpath:db/contexts/" + slug,
+                historyTable,
+                legacyBaselineVersion,
                 true,
                 0));
     }
@@ -72,6 +90,7 @@ record MigrationContext(
                 slug.replace('-', '_'),
                 "classpath:db/contexts/" + slug,
                 historyTable,
+                null,
                 false,
                 issue));
     }

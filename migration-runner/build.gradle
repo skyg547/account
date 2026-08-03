@@ -74,6 +74,7 @@ tasks.named('processResources') {
 def readyExecutableProjects = [
         project(':auth:api'), project(':auth:batch'),
         project(':budget:api'), project(':budget:batch'),
+        project(':closing:api'), project(':closing:batch'),
         project(':deposit:api'), project(':deposit:batch'),
         project(':loan:api'), project(':loan:batch'),
         project(':reporting:api'), project(':reporting:batch')

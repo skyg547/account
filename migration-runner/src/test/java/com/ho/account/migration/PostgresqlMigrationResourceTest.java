@@ -13,6 +13,7 @@ class PostgresqlMigrationResourceTest {
     @ParameterizedTest
     @ValueSource(strings = {
             "db/contexts/asset-lease/V20__init_asset_lease.sql",
+            "db/contexts/closing/V49__closing_clean_baseline.sql",
             "db/contexts/deposit/V40__init_deposit_schema.sql",
             "db/contexts/loan/V30__init_loan_schema.sql"
     })

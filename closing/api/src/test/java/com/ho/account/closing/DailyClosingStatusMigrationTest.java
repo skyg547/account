@@ -57,6 +57,9 @@ class DailyClosingStatusMigrationTest {
                 .table("flyway_schema_history_closing")
                 .baselineOnMigrate(true)
                 .baselineVersion("49")
+                // This fixture intentionally contains only the pre-V50 daily table. V51 is
+                // covered by the complete legacy-schema runner tests.
+                .target("50")
                 .load()
                 .migrate();
 
