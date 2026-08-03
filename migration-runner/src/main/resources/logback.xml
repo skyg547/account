@@ -1,0 +1,5 @@
+<configuration>
+    <!-- Flyway logs the complete JDBC URL at INFO. Release output must not expose DB addresses. -->
+    <logger name="org.flywaydb" level="OFF"/>
+    <root level="OFF"/>
+</configuration>

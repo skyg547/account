@@ -8,13 +8,17 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
   flyway:
-    enabled: true
-    validate-on-migrate: true
+    enabled: false
+    clean-disabled: true
+    baseline-on-migrate: false
+  batch:
+    jdbc:
+      initialize-schema: never
   sql:
     init:
       mode: never
