@@ -32,8 +32,10 @@ flowchart TD
     F -->|수동 조치| I[담당자 할당 및 분석]
 ```
 
-### 📌 자동 매칭 엔진 (Match Options)
-단순 금액 외에도 전표번호, 적요 유사도 등을 조합하여 정교하게 매칭합니다.
+### 📌 자동 매칭 및 차이 해소 코어 엔진 (Automated Matching & Diff Resolver)
+단순 금액 외에도 전표번호, 적요 유사도, 계좌번호 조건과 차이 원인 사유 코드(`DifferenceReasonCode`) 할당 및 조정 전표 필요 금액 계산을 지원합니다.
+- **AutomatedMatchingEngine**: 1:1, 1:N 트랜잭션 exact / tolerance / slip_no / account_no / description 복합 매칭 엔진.
+- **ReconciliationDiffResolver**: 대사 차이(`ReconciliationDifference`) 해소, 원인 사유 코드 부여, `RESOLVED` 상태 전환 및 조정 전표 발생 금액 산출 엔진.
 
 ```mermaid
 flowchart LR
