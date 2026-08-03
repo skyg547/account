@@ -29,7 +29,7 @@
 - 누락된 API 9개에 Actuator를 추가하고, 공용 Gradle gate가 runtimeClasspath와 실제 bootJar 내용을 함께 확인하도록 했다.
 - 22 bootJar와 영향 테스트 56개(신규 readiness endpoint 9개 포함)가 통과했다. Local H2 dependency scope와 업무 코드는 변경하지 않았고 실 PostgreSQL migration은 #244로 분리했다.
 - 독립 최신-source 재실행(변경 API 9개 29 tests)과 최종 리뷰에서 P0-P3 지적이 없었다.
-- commit `c8b10947`의 최신 main rebase, post-rebase gate와 재리뷰가 통과했다. push/Draft PR 대기 상태이며 외부 실행 환경은 변경하지 않았다.
+- commit `c8b10947`의 최신 main rebase, post-rebase gate와 재리뷰가 통과했다. `d0586cbe`와 함께 push해 Draft PR #248을 열었으며 외부 실행 환경은 변경하지 않았다.
 
 ### 📅 2026-07-30 (Codex Issue #44 실제 구현)
 ### [통합 완료] 불변 차대 VO와 GeneralLedger Aggregate

@@ -34,6 +34,7 @@
 - Verification: the runtime/bootJar gate passed; all 22 bootJars passed; the 22 affected test tasks passed with 56 observed tests and no failures/errors/skips. Some Batch projects still have no module-owned test sources.
 - Independent review re-ran all nine changed API test suites from the latest source state with one worker: 29 tests passed; combined with the remaining affected 27 tests the total is 56. Final review found no P0-P3 finding.
 - Post-rebase runtime/archive gate, nine readiness tests, diff/marker checks and semantic re-review passed with no remaining P0-P3 finding.
+- Commits `c8b10947` and `d0586cbe` were pushed on `agent/243-postgres-actuator-runtime`; Draft PR #248 is open with #244 and actual PostgreSQL/Compose validation retained as deployment gates.
 - No external database, Config Server, registry, image, container or server was accessed. Existing local-start gaps such as Closing API runtime H2 remain their module Issues; PostgreSQL schema/migration execution remains Issue #244.
 
 ## 2026-07-30 - Issue #44 Journal/GL/Sub-ledger domain authority

@@ -47,7 +47,7 @@
 - Verification passed: 22 bootJars and 56 affected tests with no failures/errors/skips. Some Batch projects without module-owned test sources remain a coverage gap, not a failed test.
 - Independent final review found no P0-P3 finding. Its clean latest-source rerun covered 29 tests in the nine changed APIs; the remaining affected suites contribute 27, for 56 total.
 - PostgreSQL was not contacted. Existing local H2 startup failures were not widened or claimed fixed; schema compatibility and Batch metadata provisioning are owned by #244.
-- Commit `c8b10947` is rebased onto `origin/main@5c810422`. Post-rebase runtime/archive gate, nine readiness tests, diff/marker checks and semantic review passed. Push and Draft PR are pending; merge and Issue close are not authorized.
+- Commit `c8b10947` is rebased onto `origin/main@5c810422`; harness commit `d0586cbe` records the final state. Both are pushed and Draft PR #248 is open. Post-rebase runtime/archive gate, nine readiness tests, diff/marker checks and semantic review passed. Merge and Issue close are not authorized.
 - Rollback: revert the dependency declarations, root verification task, docs and harness records. No data rollback is required.
 
 # AI Harness Handoff - 2026-07-30 Issue #44 Journal/GL/Sub-ledger
