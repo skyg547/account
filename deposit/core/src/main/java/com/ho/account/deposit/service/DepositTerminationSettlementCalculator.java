@@ -1,5 +1,6 @@
 package com.ho.account.deposit.service;
 
+import com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy;
 import com.ho.account.deposit.domain.DepositDayCountConvention;
 import org.springframework.stereotype.Component;
 
@@ -39,7 +40,7 @@ public class DepositTerminationSettlementCalculator {
     }
 
     /**
-     * 만기 해지 정산 계산
+     * 만기 해지 정산 계산 (기본 원화 절사 정책)
      */
     public DepositTerminationResult calculateMaturitySettlement(
             String accountNumber,
@@ -50,11 +51,27 @@ public class DepositTerminationSettlementCalculator {
             DepositDayCountConvention convention) {
 
         return calculateSettlement(
-                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, maturityDate, false, convention);
+                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, maturityDate, false, convention, CurrencyTaxRoundingPolicy.KRW);
     }
 
     /**
-     * 중도 해지 정산 계산
+     * 만기 해지 정산 계산 (다통화 세금 절사/반올림 정책 적용)
+     */
+    public DepositTerminationResult calculateMaturitySettlement(
+            String accountNumber,
+            BigDecimal principal,
+            BigDecimal agreedAnnualRate,
+            LocalDate openDate,
+            LocalDate maturityDate,
+            DepositDayCountConvention convention,
+            CurrencyTaxRoundingPolicy policy) {
+
+        return calculateSettlement(
+                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, maturityDate, false, convention, policy);
+    }
+
+    /**
+     * 중도 해지 정산 계산 (기본 원화 절사 정책)
      */
     public DepositTerminationResult calculateEarlyTerminationSettlement(
             String accountNumber,
@@ -66,7 +83,24 @@ public class DepositTerminationSettlementCalculator {
             DepositDayCountConvention convention) {
 
         return calculateSettlement(
-                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, terminationDate, true, convention);
+                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, terminationDate, true, convention, CurrencyTaxRoundingPolicy.KRW);
+    }
+
+    /**
+     * 중도 해지 정산 계산 (다통화 세금 절사/반올림 정책 적용)
+     */
+    public DepositTerminationResult calculateEarlyTerminationSettlement(
+            String accountNumber,
+            BigDecimal principal,
+            BigDecimal agreedAnnualRate,
+            LocalDate openDate,
+            LocalDate maturityDate,
+            LocalDate terminationDate,
+            DepositDayCountConvention convention,
+            CurrencyTaxRoundingPolicy policy) {
+
+        return calculateSettlement(
+                accountNumber, principal, agreedAnnualRate, openDate, maturityDate, terminationDate, true, convention, policy);
     }
 
     private DepositTerminationResult calculateSettlement(
@@ -77,7 +111,8 @@ public class DepositTerminationSettlementCalculator {
             LocalDate maturityDate,
             LocalDate settlementDate,
             boolean isEarlyTermination,
-            DepositDayCountConvention convention) {
+            DepositDayCountConvention convention,
+            CurrencyTaxRoundingPolicy policy) {
 
         if (principal == null || principal.signum() <= 0) {
             throw new IllegalArgumentException("principal must be positive.");
@@ -88,6 +123,8 @@ public class DepositTerminationSettlementCalculator {
         if (openDate == null || settlementDate == null || settlementDate.isBefore(openDate)) {
             throw new IllegalArgumentException("settlementDate must be on or after openDate.");
         }
+
+        com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy safePolicy = (policy != null) ? policy : com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.KRW;
 
         long totalTermDays = Math.max(1, ChronoUnit.DAYS.between(openDate, maturityDate != null ? maturityDate : settlementDate));
         long elapsedDays = Math.max(0, ChronoUnit.DAYS.between(openDate, settlementDate));
@@ -103,9 +140,9 @@ public class DepositTerminationSettlementCalculator {
         BigDecimal grossInterest = accrualCalculator.calculateDailyAccrual(principal, appliedRate, elapsedDays, convention)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 원천징수 세금 산출 (원 단위 절사 정책 적용)
-        BigDecimal incomeTax = grossInterest.multiply(INCOME_TAX_RATE, MC).setScale(0, RoundingMode.FLOOR).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal localIncomeTax = grossInterest.multiply(LOCAL_TAX_RATE, MC).setScale(0, RoundingMode.FLOOR).setScale(2, RoundingMode.HALF_UP);
+        // 원천징수 세금 산출 (통화별 절사/반올림 정책 적용)
+        BigDecimal incomeTax = safePolicy.applyRounding(grossInterest.multiply(INCOME_TAX_RATE, MC));
+        BigDecimal localIncomeTax = safePolicy.applyRounding(grossInterest.multiply(LOCAL_TAX_RATE, MC));
         BigDecimal totalTaxWithheld = incomeTax.add(localIncomeTax, MC).setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal netInterest = grossInterest.subtract(totalTaxWithheld, MC).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);

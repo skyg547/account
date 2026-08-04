@@ -1,3 +1,19 @@
+### 📅 2026-08-05 (Deposit 모듈 다통화 수신 계좌 세금 원천징수 절사/반올림 정책 확장 - Issue #276)
+### [기능 완료] DepositTerminationSettlementCalculator 내 CurrencyTaxRoundingPolicy 확장 및 다통화 원천징수 옵션 보강
+
+- **작업 배경**:
+  - `deposit` 모듈의 `DepositTerminationSettlementCalculator`는 기존 원화(KRW) 기준 1원 미만 절사(FLOOR, scale=0) 정책만 하드코딩되어 있어, USD, EUR 등 외화 예금 수신 계좌 처리 시 센트(Cents, scale=2) 단위 반올림 및 통화별 원천징수 세금 계산 확장이 필요했음.
+- **주요 변경 사항**:
+  - **`CurrencyTaxRoundingPolicy` 도메인 Enum 추가**:
+    - 통화별(KRW, USD, EUR, JPY) 소수점 자리수(scale) 및 RoundingMode(FLOOR vs HALF_UP) 정의.
+    - `CurrencyTaxRoundingPolicy.of(currencyCode)` 팩토리 메서드로 미지정/대소문자 통화 코드 안전 맵핑.
+  - **`DepositTerminationSettlementCalculator` 오버로딩 확장**:
+    - `calculateMaturitySettlement` 및 `calculateEarlyTerminationSettlement`에 `CurrencyTaxRoundingPolicy` 파라미터 수용.
+    - 기존 원화 계좌와 100% 호환되는 하위 호환성 오버로딩 유지.
+- **검증**:
+  - `DepositTerminationSettlementCalculatorTest`: USD 계좌 1,000달러 5% 이자 기준 원천징수 15.4% 센트(0.01) 단위 정밀 세금 계산 및 `CurrencyTaxRoundingPolicy.of()` 맵핑 단위 테스트 100% 통과.
+  - Gradle test suite 실행: `.\gradlew :deposit:core:test` 전수 통과 확인 (BUILD SUCCESSFUL in 14s).
+
 ### 📅 2026-08-05 (Reconciliation 모듈 AutomatedMatchingEngine N:M Subset-Sum 매칭 알고리즘 확장 - Issue #277)
 ### [기능 완료] AutomatedMatchingEngine 내 N:M 다대다 합계 매칭(Subset-Sum Matching) 알고리즘 보강
 
