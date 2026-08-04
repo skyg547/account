@@ -182,6 +182,24 @@
   - 신뢰 헤더 계약은 Master Data 서비스가 Gateway 뒤에서만 접근된다는 배포 경계를 전제로 하므로 서비스 포트를 외부에 직접 공개하면 안 된다.
   - 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload 승인 finding은 모두 코드와 회귀 테스트로 해소했고 재검토가 PASS했다.
   - 로컬 Next dev server가 요청에 응답하지 않아 브라우저 시각 검증은 완료하지 못했고 해당 프로세스와 임시 junction은 정리했다.
+### 📅 2026-07-30 (Issue #227 Runtime 실행 감사)
+### [검토 준비] Local H2·직접 JAR/NPM·dev/prod PostgreSQL/Compose 실행 계약 기준선
+
+- **작업 범위**:
+  - dirty root checkout과 분리된 `agent/227-runtime-parity-audit` worktree에서 70개 Gradle subproject를 API 16, Batch 16, infra server 3, library 18, aggregator 16, phantom `:app` 1로 분류했다.
+  - `tools/runtime-smoke.ps1`로 실제 offline packaging, library `test+jar`, 명시적 인메모리 H2 executable JAR context, frontend 정적 실행 계약을 재현 가능하게 만들었다.
+  - `local=H2`, `dev/prod=PostgreSQL`, 공유 개발 DB는 환경변수로만 주입하는 계약과 self-contained/external-dev/prod Compose 후속 설계를 문서화했다.
+- **최신 main 검증** (`origin/main@c0fb871b`):
+  - executable 35개: 실제 packaging 33 PASS, Internal Audit API/Batch 2개 차단.
+  - library/aggregator 34개: 프로젝트별 `test+jar` 모두 PASS.
+  - 원본 snapshot local JAR: 25 PASS, 8 FAIL, 2 packaging 차단. 실패 원인은 기존 #73-#80, #89-#90에 증거로 연결했다.
+  - `origin/main@36a1be4f` 재검증에서 Closing Batch가 PASS로 복구되어 현재는 26 PASS, 7 FAIL, 2 packaging 차단이다.
+  - frontend는 scripts/lockfile/npm 존재를 확인했으나 worktree에 `node_modules`가 없고 설치 승인이 없어 실제 build/start는 차단으로 기록했다.
+  - Docker CLI가 없어 image/Compose runtime 검증은 수행하지 않았고 #66, #228-#230에 후속 소유권을 연결했다.
+- **안전/상태**:
+  - 공유 개발 pgAdmin/PostgreSQL은 TCP 도달성만 확인했고 로그인·metadata·credential·컨테이너는 조회하지 않았다. 정확한 host와 자격증명은 저장소/Issue/결과에 기록하지 않았다.
+  - DB migration, 원격 컨테이너, Compose volume은 변경하지 않았다.
+  - 최신 main 재검증 후 branch를 push하고 Draft PR `#242`를 `Refs #227`로 열었다. merge/Issue close는 수행하지 않았다.
 
 ### 📅 2026-07-30 (Codex Issue #41 후속 구현)
 ### [후속 구현/통합 완료] BusinessPartner 순수 도메인과 JPA 영속성 모델 분리

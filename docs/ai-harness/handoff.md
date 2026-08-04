@@ -191,6 +191,44 @@
 
 - 최초 독립 리뷰의 API base URL, client actor spoofing, role 없는 apply, malformed payload/P2 심사 표시 finding은 코드와 회귀 테스트로 해소했고 수정 diff 재검토도 PASS했습니다.
 - 이 integration record PR을 병합한 뒤 구현/기록 worktree와 로컬 브랜치를 제거하고 root `main`을 fast-forward합니다.
+# AI Harness Handoff - 2026-07-30 Issue #227 Runtime Execution Parity Audit
+
+## Active Goal And State
+
+- 장기 목표는 local에서 각 모듈을 Gradle/JAR/NPM과 H2로 독립 실행하고, dev/prod는 container/Compose와 PostgreSQL로 실행하는 것입니다.
+- 현재 완료 범위는 첫 실행 감사 Issue `#227`입니다. branch/worktree는 `agent/227-runtime-parity-audit` / `C:\tmp\account-227-runtime-parity-audit`입니다. 원본 감사 snapshot은 `origin/main@c0fb871b`, push gate 재검증 기준은 `origin/main@36a1be4f`입니다.
+- 최신 main 검증 branch를 push했고 Draft PR `#242`를 `Refs #227`로 열었습니다. merge와 Issue close는 하지 않았습니다.
+- root checkout의 기존 사용자 변경은 건드리지 않았습니다.
+
+## Delivered Audit Contract
+
+- `tools/runtime-smoke.ps1`는 실제 Gradle inventory를 기준으로 Inventory, TaskContract, Packaging, Libraries, LocalJar, Frontend 검증을 제공합니다.
+- `TaskContract`의 dry-run은 task path 확인으로만 표시하며 packaging 성공으로 취급하지 않습니다.
+- LocalJar는 외부 Config/Eureka/Vault/실DB를 끄고 인메모리 H2를 명시하며 Spring `Started` marker가 있어야 성공입니다.
+- Batch local smoke는 `spring.batch.job.enabled=false`인 context 검증입니다. 실제 Job 입력, 결과, 멱등성, 재시작은 각 Batch Issue의 별도 gate입니다.
+- 환경 계약은 local H2, self-contained dev PostgreSQL, shared external-dev PostgreSQL override, immutable production image + external PostgreSQL입니다. 공유 host와 credential은 환경변수/secret provider로만 주입합니다.
+
+## Verification Evidence
+
+- Gradle inventory: root 외 70 subprojects = API 16, Batch 16, infra server 3, library 18, aggregator 16, phantom `:app` 1.
+- Actual packaging: 33 PASS; `:internal-audit:api` NON_EXECUTABLE_COMPILE_FAILED, `:internal-audit:batch` NON_EXECUTABLE.
+- Libraries/aggregators: 34/34 isolated `test+jar --offline` PASS.
+- 원본 snapshot local executable JAR context: 25 PASS, 8 FAIL, 2 BLOCKED_BY_PACKAGING.
+  - Asset Lease API/Batch, Journal Ledger Batch, Loan API/Batch: Master Data `BusinessPartnerJpaEntity` scan gap.
+  - Closing API: H2 runtime driver absent.
+  - Journal Ledger API: repository registered twice through Journal Ledger/Internal Audit application scanning.
+- Latest-main follow-up: 원래 실패 8개 모두 재패키징 PASS; Closing Batch는 local context `PASS_EXITED`로 복구되어 현재 합계는 26 PASS, 7 FAIL, 2 BLOCKED_BY_PACKAGING입니다.
+- Frontend: package/lock/dev-build-start scripts and `npm.cmd` exist. `node_modules` is absent; package installation was not authorized, so actual npm build/start was not run.
+- Docker CLI is unavailable; image build and Compose render/up were not run.
+- Shared development pgAdmin/PostgreSQL endpoints were TCP-reachable. No login, metadata, schema, credential, or container inspection occurred, and the exact host was not recorded.
+- PowerShell parse, `git diff --check`, conflict marker, changed-doc link, and sensitive-host-literal checks passed.
+
+## Issue Routing, Risks, And Rollback
+
+- Runtime failures are attached to #73-#80 and #89-#90. Latest Master Data success was added to #72 without closing it.
+- Container image remediation: #228. Development PostgreSQL/bootstrap/external-dev override: #229. Production Compose: #230. Internal Audit/Auth boundary: #231. Root dev orchestration: #66. Initiative coordination: #60/#226.
+- H2/PostgreSQL SQL parity, Flyway migrations, representative Batch jobs, frontend dependency build, and all image/Compose runtime behavior remain unverified gates.
+- Rollback is a revert of Issue #227 docs/tool/harness records. No migration, remote container, Compose volume, or live database state changed.
 
 ---
 

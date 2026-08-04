@@ -75,7 +75,7 @@ flowchart TD
 본 시스템은 철저한 도메인 주도 설계(DDD)를 바탕으로, 각 기능별로 완전히 분리된 마이크로서비스 모듈로 구성되어 있습니다.
 
 ### ⚙️ 기반 모듈 (Foundation)
-* **서비스별 실행 모듈**: 통합 `app` 모듈은 제거되었으며, `auth`, `master-data`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 모듈이 각자 실행 진입점과 설정을 소유합니다.
+* **서비스별 실행 모듈**: `auth:api`, `master-data:api`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 API/Batch/인프라 모듈이 실행 진입점을 소유합니다. 현재 `settings.gradle`에는 source 없는 `:app`이 다시 포함된 상태이므로 실행 대상으로 사용하지 않으며, 최신 감사 결과는 [runtime execution matrix](docs/runtime-execution-matrix.md)를 따릅니다.
 * **`contracts/`**: 모듈 간 Entity 직접 참조를 막는 Java Port/Command/Ref 계약입니다. 자체 서버가 아니며 같은 프로세스는 Bean, 원격 MSA는 별도 REST/Kafka 어댑터로 연결합니다.
 * **`shared-kernel/`**: 로컬 capability 메타정보와 JSON 마스킹 등 최소 공통 규칙을 담습니다. 현재 인프라 전이 의존성과 ECL/account-mart 전용 타입은 단계적 분리 TODO가 있습니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
@@ -222,10 +222,10 @@ flowchart TD
 
 ## 🚀 빠른 시작 (Getting Started)
 
-모든 개별 MSA 모듈 및 인프라스트럭처에 대해 독립적으로 실행 가능한 `Dockerfile`과 `docker-compose.yml`이 구성되어 있습니다.
-IntelliJ IDEA에서 로컬 실행을 먼저 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
+일부 모듈은 독립 `Dockerfile`/Compose가 있으나 현재 멀티모듈 Gradle 경로와 맞지 않는 항목도 있습니다. [runtime execution matrix](docs/runtime-execution-matrix.md)에서 검증 상태와 후속 Issue를 먼저 확인하세요.
+IntelliJ IDEA에서 로컬 실행을 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
 
-> 통합 `app` Gradle 프로젝트는 제거되었습니다. 로컬에 `app/build`만 남아 있다면 과거 빌드의 무시된 산출물이며, 실행 대상이 아닙니다. 통합 실행 대신 `auth`, `master-data`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
+> `:app`은 현재 Gradle 목록에 보이지만 source/build file이 없는 phantom project입니다. 실행 대상으로 사용하지 않습니다. 통합 실행 대신 `auth:api`, `master-data:api`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
 
 ### 인프라 및 기반 시스템 구동
 ```bash
@@ -260,7 +260,8 @@ docker-compose logs -f
 1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
 2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
 3. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/local-development.md)**: IntelliJ, JDK 17, Gradle, 모듈별 bootRun 설정
-4. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
-5. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
+4. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태와 후속 Issue
+5. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+6. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.

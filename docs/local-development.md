@@ -2,6 +2,8 @@
 
 이 문서는 IntelliJ IDEA와 Gradle로 이 저장소를 로컬에서 실행하는 방법을 정리합니다.
 
+> 현재 `origin/main`에서 다시 검증한 프로젝트 분류, executable JAR 결과, local H2/dev-prod PostgreSQL 및 Docker/Compose gap은 [runtime-execution-matrix.md](runtime-execution-matrix.md)를 기준으로 합니다. 이 문서의 과거 성공 예시는 현재 checkout의 성공을 대신하지 않습니다.
+
 ## 1. 필수 도구
 
 - JDK 17
@@ -33,6 +35,14 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 .\gradlew :contracts:test :shared-kernel:test --console=plain --max-workers=1 --no-daemon
 ```
 
+외부 다운로드 없이 현재 실행 계약을 다시 수집하려면:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode All
+```
+
+`local`은 H2, `dev`/`prod`는 PostgreSQL이 원칙입니다. 공유 개발 서버를 사용할 때 host/JDBC URL/계정은 저장소 파일에 쓰지 말고 현재 shell 또는 승인된 secret 주입 경로로만 전달합니다. 자체 PostgreSQL Compose와 공유 개발 PostgreSQL override를 동시에 실행하지 않습니다.
+
 전체 테스트는 오래 걸립니다. 모듈을 수정할 때는 해당 모듈과 직접 연관 모듈부터 확인합니다.
 
 ## 4. Spring Cloud LoadBalancer 캐시
@@ -49,7 +59,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 
 ## 5. Spring Boot 실행 모듈
 
-통합 `app` Gradle 프로젝트는 제거되었으므로 IntelliJ에서 아래 서비스별 실행 클래스를 기준으로 Run Configuration을 만듭니다. 로컬의 `app/build`는 과거 빌드 산출물일 수 있으며 실행 대상이 아닙니다.
+통합 `app`은 실행 가능한 모듈이 아닙니다. 현재 Gradle 설정에는 source와 build file이 없는 phantom `:app` project가 남아 있으므로, IntelliJ에서는 아래 서비스별 실행 클래스를 기준으로 Run Configuration을 만듭니다. 로컬의 `app/build`가 있다면 과거 빌드 산출물일 수 있으며 실행 대상으로 간주하지 않습니다.
 
 | 모듈 | 실행 클래스 | 기본 포트 | 용도 |
 | --- | --- | ---: | --- |
