@@ -1,0 +1,15 @@
+spring:
+  batch:
+    job:
+      enabled: false
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
