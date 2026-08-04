@@ -2392,3 +2392,16 @@
 
 
 
+### 📅 2026-07-30 (Issue #230 운영 Compose 계약)
+### [검토 준비] 고정 digest image와 외부 PostgreSQL을 사용하는 build-less 운영 모델
+
+- `compose.prod.yml`에 Config Server, Discovery, Gateway, Frontend와 15개 도메인 API/Batch 쌍을 포함한 34개 서비스를 정의했다.
+- 모든 service image는 필수 `@sha256` digest 변수이며 source `build:`와 로컬 PostgreSQL service는 없다.
+- 도메인별 PostgreSQL URL/user/password를 필수로 받고 Gateway/Frontend만 host port를 공개한다.
+- read-only filesystem, capability drop, no-new-privileges, PID/resource/log 제한, readiness dependency와 restart 정책을 적용했다.
+- API는 `prod`, Batch는 `batch` profile이며 Batch 자동실행은 기본 disabled다. Internal Audit은 #73/#74/#231 해결 전 제외한다.
+- 운영 Config는 PostgreSQL/JPA validate를 강제하고 application-runtime Flyway, clean, SQL init, Batch schema init, H2 fallback을 금지한다. Migration은 별도 release role/job으로 분리한다.
+- zero digest/빈 password만 가진 예제, TLS·최소권한 user·host override/interpolation을 검사하는 값 비출력 validator와 운영/rollback runbook을 추가했다.
+- 독립 리뷰로 PostgreSQL/Actuator runtime classpath #243과 PostgreSQL migration/Batch metadata #244를 발행했으며 둘 다 운영 배포 선행 조건이다.
+- Config Server policy test와 validator self-test가 34 image, 15 DB, 83개 필수 변수 계약을 통과했다. Compose provider와 image가 없어 실제 render/start/PostgreSQL은 미실행했다.
+- 원격 환경은 접근하거나 변경하지 않았다. 독립 리뷰에 남은 P0-P3 지적이 없고 commit `fd93f466`을 push해 Draft PR #245를 열었다. merge/Issue close/배포는 미실행이다.

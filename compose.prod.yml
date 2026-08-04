@@ -1,0 +1,554 @@
+name: account-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-common-environment: &common-environment
+  SPRING_PROFILES_ACTIVE: prod
+  SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery:8761/eureka/
+  PROD_KAFKA_BOOTSTRAP_SERVERS: "${PROD_KAFKA_BOOTSTRAP_SERVERS:?set PROD_KAFKA_BOOTSTRAP_SERVERS}"
+  PROD_REDIS_HOST: "${PROD_REDIS_HOST:?set PROD_REDIS_HOST}"
+  PROD_REDIS_PORT: "${PROD_REDIS_PORT:?set PROD_REDIS_PORT}"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+  SPRING_JPA_OPEN_IN_VIEW: "false"
+  # Schema changes run in a separately approved release migration with a
+  # dedicated credential. Long-running application containers only validate.
+  SPRING_FLYWAY_ENABLED: "false"
+  SPRING_FLYWAY_CLEAN_DISABLED: "true"
+  SPRING_SQL_INIT_MODE: never
+  SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: never
+
+x-api-service: &api-service
+  profiles: ["prod"]
+  restart: unless-stopped
+  read_only: true
+  init: true
+  pids_limit: 256
+  cap_drop: ["ALL"]
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=128m,mode=1777
+  stop_grace_period: 30s
+  logging: *default-logging
+  networks: [account-prod]
+  depends_on:
+    config-server:
+      condition: service_healthy
+    discovery:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+    interval: 30s
+    timeout: 5s
+    retries: 5
+    start_period: 60s
+  deploy:
+    resources:
+      limits:
+        cpus: "1.00"
+        memory: 1g
+      reservations:
+        memory: 256m
+
+x-batch-service: &batch-service
+  profiles: ["batch"]
+  restart: "no"
+  read_only: true
+  init: true
+  pids_limit: 512
+  cap_drop: ["ALL"]
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+  stop_grace_period: 2m
+  logging: *default-logging
+  networks: [account-prod]
+  depends_on:
+    config-server:
+      condition: service_healthy
+    discovery:
+      condition: service_healthy
+  deploy:
+    resources:
+      limits:
+        cpus: "2.00"
+        memory: 2g
+      reservations:
+        memory: 512m
+
+services:
+  config-server:
+    profiles: ["prod", "batch"]
+    image: "${CONFIG_SERVER_IMAGE:?set immutable CONFIG_SERVER_IMAGE digest}"
+    restart: unless-stopped
+    read_only: true
+    init: true
+    pids_limit: 128
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      CONFIG_REPO_LOCATION: file:/config-repo
+      SERVER_PORT: "8888"
+    volumes:
+      - type: bind
+        source: "${PROD_CONFIG_REPO_PATH:?set PROD_CONFIG_REPO_PATH}"
+        target: /config-repo
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8888/actuator/health/readiness || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    logging: *default-logging
+    networks: [account-prod]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768m
+        reservations:
+          memory: 256m
+
+  discovery:
+    profiles: ["prod", "batch"]
+    image: "${DISCOVERY_IMAGE:?set immutable DISCOVERY_IMAGE digest}"
+    restart: unless-stopped
+    read_only: true
+    init: true
+    pids_limit: 128
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      SERVER_PORT: "8761"
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8761/actuator/health/readiness || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging: *default-logging
+    networks: [account-prod]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768m
+        reservations:
+          memory: 256m
+
+  gateway:
+    profiles: ["prod"]
+    image: "${GATEWAY_IMAGE:?set immutable GATEWAY_IMAGE digest}"
+    restart: unless-stopped
+    read_only: true
+    init: true
+    pids_limit: 256
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8000"
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery:8761/eureka/
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery:
+        condition: service_healthy
+    ports:
+      - "${PROD_GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/actuator/health/readiness || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 30s
+    logging: *default-logging
+    networks: [account-prod]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1g
+        reservations:
+          memory: 256m
+
+  frontend:
+    profiles: ["prod"]
+    image: "${FRONTEND_IMAGE:?set immutable FRONTEND_IMAGE digest}"
+    restart: unless-stopped
+    read_only: true
+    init: true
+    pids_limit: 128
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,mode=1777
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "${PROD_FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    logging: *default-logging
+    networks: [account-prod]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512m
+        reservations:
+          memory: 128m
+
+  account-mart-api:
+    <<: *api-service
+    image: "${ACCOUNT_MART_API_IMAGE:?set immutable ACCOUNT_MART_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${ACCOUNT_MART_DB_URL:?set ACCOUNT_MART_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ACCOUNT_MART_DB_USER:?set ACCOUNT_MART_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ACCOUNT_MART_DB_PASSWORD:?set ACCOUNT_MART_DB_PASSWORD}"
+
+  account-mart-batch:
+    <<: *batch-service
+    image: "${ACCOUNT_MART_BATCH_IMAGE:?set immutable ACCOUNT_MART_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${ACCOUNT_MART_DB_URL:?set ACCOUNT_MART_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ACCOUNT_MART_DB_USER:?set ACCOUNT_MART_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ACCOUNT_MART_DB_PASSWORD:?set ACCOUNT_MART_DB_PASSWORD}"
+
+  asset-lease-api:
+    <<: *api-service
+    image: "${ASSET_LEASE_API_IMAGE:?set immutable ASSET_LEASE_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${ASSET_LEASE_DB_URL:?set ASSET_LEASE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ASSET_LEASE_DB_USER:?set ASSET_LEASE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ASSET_LEASE_DB_PASSWORD:?set ASSET_LEASE_DB_PASSWORD}"
+
+  asset-lease-batch:
+    <<: *batch-service
+    image: "${ASSET_LEASE_BATCH_IMAGE:?set immutable ASSET_LEASE_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${ASSET_LEASE_DB_URL:?set ASSET_LEASE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ASSET_LEASE_DB_USER:?set ASSET_LEASE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ASSET_LEASE_DB_PASSWORD:?set ASSET_LEASE_DB_PASSWORD}"
+
+  auth-api:
+    <<: *api-service
+    image: "${AUTH_API_IMAGE:?set immutable AUTH_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?set AUTH_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?set AUTH_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}"
+
+  auth-batch:
+    <<: *batch-service
+    image: "${AUTH_BATCH_IMAGE:?set immutable AUTH_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?set AUTH_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?set AUTH_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}"
+
+  closing-api:
+    <<: *api-service
+    image: "${CLOSING_API_IMAGE:?set immutable CLOSING_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?set CLOSING_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?set CLOSING_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${CLOSING_DB_PASSWORD:?set CLOSING_DB_PASSWORD}"
+
+  closing-batch:
+    <<: *batch-service
+    image: "${CLOSING_BATCH_IMAGE:?set immutable CLOSING_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?set CLOSING_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?set CLOSING_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${CLOSING_DB_PASSWORD:?set CLOSING_DB_PASSWORD}"
+
+  deposit-api:
+    <<: *api-service
+    image: "${DEPOSIT_API_IMAGE:?set immutable DEPOSIT_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${DEPOSIT_DB_URL:?set DEPOSIT_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${DEPOSIT_DB_USER:?set DEPOSIT_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${DEPOSIT_DB_PASSWORD:?set DEPOSIT_DB_PASSWORD}"
+
+  deposit-batch:
+    <<: *batch-service
+    image: "${DEPOSIT_BATCH_IMAGE:?set immutable DEPOSIT_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${DEPOSIT_DB_URL:?set DEPOSIT_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${DEPOSIT_DB_USER:?set DEPOSIT_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${DEPOSIT_DB_PASSWORD:?set DEPOSIT_DB_PASSWORD}"
+
+  ecl-api:
+    <<: *api-service
+    image: "${ECL_API_IMAGE:?set immutable ECL_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${ECL_DB_URL:?set ECL_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ECL_DB_USER:?set ECL_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ECL_DB_PASSWORD:?set ECL_DB_PASSWORD}"
+
+  ecl-batch:
+    <<: *batch-service
+    image: "${ECL_BATCH_IMAGE:?set immutable ECL_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${ECL_DB_URL:?set ECL_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${ECL_DB_USER:?set ECL_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${ECL_DB_PASSWORD:?set ECL_DB_PASSWORD}"
+
+  expenditure-resolution-api:
+    <<: *api-service
+    image: "${EXPENDITURE_RESOLUTION_API_IMAGE:?set immutable EXPENDITURE_RESOLUTION_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?set EXPENDITURE_RESOLUTION_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?set EXPENDITURE_RESOLUTION_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?set EXPENDITURE_RESOLUTION_DB_PASSWORD}"
+
+  expenditure-resolution-batch:
+    <<: *batch-service
+    image: "${EXPENDITURE_RESOLUTION_BATCH_IMAGE:?set immutable EXPENDITURE_RESOLUTION_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?set EXPENDITURE_RESOLUTION_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?set EXPENDITURE_RESOLUTION_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?set EXPENDITURE_RESOLUTION_DB_PASSWORD}"
+
+  journal-ledger-api:
+    <<: *api-service
+    image: "${JOURNAL_LEDGER_API_IMAGE:?set immutable JOURNAL_LEDGER_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?set JOURNAL_LEDGER_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?set JOURNAL_LEDGER_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?set JOURNAL_LEDGER_DB_PASSWORD}"
+
+  journal-ledger-batch:
+    <<: *batch-service
+    image: "${JOURNAL_LEDGER_BATCH_IMAGE:?set immutable JOURNAL_LEDGER_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?set JOURNAL_LEDGER_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?set JOURNAL_LEDGER_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?set JOURNAL_LEDGER_DB_PASSWORD}"
+
+  loan-api:
+    <<: *api-service
+    image: "${LOAN_API_IMAGE:?set immutable LOAN_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${LOAN_DB_URL:?set LOAN_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${LOAN_DB_USER:?set LOAN_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${LOAN_DB_PASSWORD:?set LOAN_DB_PASSWORD}"
+
+  loan-batch:
+    <<: *batch-service
+    image: "${LOAN_BATCH_IMAGE:?set immutable LOAN_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${LOAN_DB_URL:?set LOAN_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${LOAN_DB_USER:?set LOAN_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${LOAN_DB_PASSWORD:?set LOAN_DB_PASSWORD}"
+
+  master-data-api:
+    <<: *api-service
+    image: "${MASTER_DATA_API_IMAGE:?set immutable MASTER_DATA_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${MASTER_DATA_DB_URL:?set MASTER_DATA_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${MASTER_DATA_DB_USER:?set MASTER_DATA_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${MASTER_DATA_DB_PASSWORD:?set MASTER_DATA_DB_PASSWORD}"
+
+  master-data-batch:
+    <<: *batch-service
+    image: "${MASTER_DATA_BATCH_IMAGE:?set immutable MASTER_DATA_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${MASTER_DATA_DB_URL:?set MASTER_DATA_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${MASTER_DATA_DB_USER:?set MASTER_DATA_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${MASTER_DATA_DB_PASSWORD:?set MASTER_DATA_DB_PASSWORD}"
+
+  payable-api:
+    <<: *api-service
+    image: "${PAYABLE_API_IMAGE:?set immutable PAYABLE_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?set PAYABLE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?set PAYABLE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${PAYABLE_DB_PASSWORD:?set PAYABLE_DB_PASSWORD}"
+
+  payable-batch:
+    <<: *batch-service
+    image: "${PAYABLE_BATCH_IMAGE:?set immutable PAYABLE_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?set PAYABLE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?set PAYABLE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${PAYABLE_DB_PASSWORD:?set PAYABLE_DB_PASSWORD}"
+
+  receivable-api:
+    <<: *api-service
+    image: "${RECEIVABLE_API_IMAGE:?set immutable RECEIVABLE_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?set RECEIVABLE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?set RECEIVABLE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?set RECEIVABLE_DB_PASSWORD}"
+
+  receivable-batch:
+    <<: *batch-service
+    image: "${RECEIVABLE_BATCH_IMAGE:?set immutable RECEIVABLE_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?set RECEIVABLE_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?set RECEIVABLE_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?set RECEIVABLE_DB_PASSWORD}"
+
+  reconciliation-api:
+    <<: *api-service
+    image: "${RECONCILIATION_API_IMAGE:?set immutable RECONCILIATION_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${RECONCILIATION_DB_URL:?set RECONCILIATION_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${RECONCILIATION_DB_USER:?set RECONCILIATION_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${RECONCILIATION_DB_PASSWORD:?set RECONCILIATION_DB_PASSWORD}"
+
+  reconciliation-batch:
+    <<: *batch-service
+    image: "${RECONCILIATION_BATCH_IMAGE:?set immutable RECONCILIATION_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${RECONCILIATION_DB_URL:?set RECONCILIATION_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${RECONCILIATION_DB_USER:?set RECONCILIATION_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${RECONCILIATION_DB_PASSWORD:?set RECONCILIATION_DB_PASSWORD}"
+
+  reporting-api:
+    <<: *api-service
+    image: "${REPORTING_API_IMAGE:?set immutable REPORTING_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?set REPORTING_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?set REPORTING_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${REPORTING_DB_PASSWORD:?set REPORTING_DB_PASSWORD}"
+
+  reporting-batch:
+    <<: *batch-service
+    image: "${REPORTING_BATCH_IMAGE:?set immutable REPORTING_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?set REPORTING_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?set REPORTING_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${REPORTING_DB_PASSWORD:?set REPORTING_DB_PASSWORD}"
+
+  tax-api:
+    <<: *api-service
+    image: "${TAX_API_IMAGE:?set immutable TAX_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: "${TAX_DB_URL:?set TAX_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?set TAX_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${TAX_DB_PASSWORD:?set TAX_DB_PASSWORD}"
+
+  tax-batch:
+    <<: *batch-service
+    image: "${TAX_BATCH_IMAGE:?set immutable TAX_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${TAX_DB_URL:?set TAX_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?set TAX_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${TAX_DB_PASSWORD:?set TAX_DB_PASSWORD}"
+
+networks:
+  account-prod:
+    driver: bridge

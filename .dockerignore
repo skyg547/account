@@ -13,6 +13,7 @@
 **/.env.*
 !.env.example
 !.env.external-dev.example
+!.env.prod.example
 **/application-local.properties
 **/application-local.yml
 **/application-local.yaml
