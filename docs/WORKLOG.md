@@ -1,3 +1,22 @@
+### 📅 2026-08-05 (ECL 모듈 기준일별 파티션 키와 worker 조회 범위 정합성 보장 - Issue #268)
+### [버그 수정] ColumnRangePartitioner 및 CrBatchQueryProvider 기준일(baseDate) 조건 바인딩 및 파티션 격리 보장
+
+- **작업 배경**:
+  - `ColumnRangePartitioner`가 `baseDate` 필터링 없이 전체 테이블(`cr_accounts`) min/max ID만 조회하여 파티션을 생성함에 따라, `allowance_ecl_results` 파티션 분할 및 Worker Step 조회가 기준일과 무관하게 이루어져 타 기준일 데이터 간 파티션 간섭 위험이 존재하였음.
+- **주요 변경 사항**:
+  - `ColumnRangePartitioner`:
+    - `dateColumn` 및 `baseDate` 파라미터를 추가하여, 지정 시 `SELECT MIN(col), MAX(col) FROM table WHERE dateColumn = ?`로 기준일별 파티션 범위를 엄격히 격리하도록 확장.
+  - `CrBatchQueryProvider`:
+    - `resultPagingQuery(LocalDate baseDate)` 오버로딩을 추가하여 QueryDSL `allowanceEclResult.baseDate.eq(baseDate)` 조건 바인딩.
+  - `BatchInfrastructureConfig`:
+    - `accountPartitioner` (`cr_accounts`)와 `resultPartitioner` (`allowance_ecl_results`, `base_date`, `baseDate`) Spring Batch `@StepScope` 빈을 분리 정의하고, `pagingResultReader`에 `baseDate` 파라미터를 전달하도록 수정.
+  - `AllowanceStagingBatchConfig`, `ExposureLgdBatchConfig`, `MainReportingBatchConfig`:
+    - 각 Step Scope에 적합한 Partitioner `@Qualifier` 주입 및 참조 명시.
+  - `PartitionDateConsistencyIntegrationTest`:
+    - 복수 기준일(`2026-04-15`, `2026-04-30`) 상호 격리 검증 및 미존재 기준일(`2026-05-01`) 안전 완주 통합 회귀 테스트 신규 작성.
+- **검증**:
+  - `.\gradlew :ecl:ecl-core:test :ecl:ecl-batch:test` 전수 100% 통과 (BUILD SUCCESSFUL in 24s).
+
 ### 📅 2026-08-05 (Account Mart 모듈 IntegratedPositionEtlJob DQ audit writer persistence port 교정 - Issue #269)
 ### [버그 수정] IntegratedPositionEtlJobConfig 내 dqAuditWriter를 persistence port(OdsDqAuditRepository) 경계로 교정
 

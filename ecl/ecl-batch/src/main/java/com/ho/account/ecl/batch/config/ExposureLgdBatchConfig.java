@@ -57,7 +57,8 @@ public class ExposureLgdBatchConfig {
     private final TaskExecutor allowanceTaskExecutor;
     
     /** 💡 [초보자 가이드] 전체 데이터를 ID 범위별로 쪼개어 여러 워커에게 배분하는 분할기입니다. */
-    private final ColumnRangePartitioner partitioner;
+    @org.springframework.beans.factory.annotation.Qualifier("resultPartitioner")
+    private final ColumnRangePartitioner resultPartitioner;
     
     /** 💡 [초보자 가이드] DB에서 대손충당금(IFRS9) 산출 대상 데이터를 페이지 단위로 읽어오는 도구입니다. */
     private final QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader;
@@ -93,7 +94,7 @@ public class ExposureLgdBatchConfig {
     @Bean
     public Step eadCrmManagerStep() {
         return new StepBuilder("eadCrmManagerStep", jobRepository)
-                .partitioner("eadCrmWorkerStep", partitioner)
+                .partitioner("eadCrmWorkerStep", resultPartitioner)
                 .step(eadCrmWorkerStep())
                 .gridSize(4)
                 .taskExecutor(allowanceTaskExecutor)

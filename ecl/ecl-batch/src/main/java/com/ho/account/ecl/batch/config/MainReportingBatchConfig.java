@@ -42,7 +42,8 @@ public class MainReportingBatchConfig {
 
     // Infrastructure Beans (병렬 처리 인프라)
     private final TaskExecutor allowanceTaskExecutor;
-    private final ColumnRangePartitioner partitioner;
+    @org.springframework.beans.factory.annotation.Qualifier("resultPartitioner")
+    private final ColumnRangePartitioner resultPartitioner;
     private final QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader;
 
     /**
@@ -78,7 +79,7 @@ public class MainReportingBatchConfig {
     @Bean
     public Step eclManagerStep() {
         return new StepBuilder("eclManagerStep", jobRepository)
-                .partitioner("eclWorkerStep", partitioner) // ID 범위별로 구역 나누기
+                .partitioner("eclWorkerStep", resultPartitioner) // ID 범위별로 구역 나누기
                 .step(eclWorkerStep())
                 .gridSize(4)
                 .taskExecutor(allowanceTaskExecutor)       // 비동기 스레드 풀 사용
