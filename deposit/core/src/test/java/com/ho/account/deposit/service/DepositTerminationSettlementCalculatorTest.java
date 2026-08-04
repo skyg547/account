@@ -58,4 +58,44 @@ class DepositTerminationSettlementCalculatorTest {
         assertThat(result.appliedInterestRate()).isEqualByComparingTo("0.02000000");
         assertThat(result.netPayoutAmount()).isGreaterThan(principal);
     }
+
+    @Test
+    @DisplayName("USD 외화 수신 계좌 1,000달러 만기해지 시 센트(0.01) 단위 원천징수 15.4% 세금이 올바르게 반올림 계산된다")
+    void calculateMaturitySettlement_USD() {
+        BigDecimal principal = new BigDecimal("1000.00");
+        BigDecimal agreedRate = new BigDecimal("0.0500"); // 연 5.0%
+        LocalDate openDate = LocalDate.of(2025, 1, 1);
+        LocalDate maturityDate = LocalDate.of(2026, 1, 1);
+
+        DepositTerminationResult result = settlementCalculator.calculateMaturitySettlement(
+                "DEP-USD-001", principal, agreedRate, openDate, maturityDate, DepositDayCountConvention.ACTUAL_365,
+                com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.USD);
+
+        assertThat(result.isEarlyTermination()).isFalse();
+        // 세전 이자: 1,000 * 0.05 * 1 = 50.00 달러
+        assertThat(result.grossInterest()).isEqualByComparingTo("50.00");
+        // 이자소득세 (14%): 50.00 * 0.14 = 7.00 달러
+        assertThat(result.incomeTax()).isEqualByComparingTo("7.00");
+        // 지방소득세 (1.4%): 50.00 * 0.014 = 0.70 달러
+        assertThat(result.localIncomeTax()).isEqualByComparingTo("0.70");
+        // 총 원천징수: 7.70 달러
+        assertThat(result.totalTaxWithheld()).isEqualByComparingTo("7.70");
+        // 세후 이자: 42.30 달러
+        assertThat(result.netInterest()).isEqualByComparingTo("42.30");
+        // 실지급액: 1,042.30 달러
+        assertThat(result.netPayoutAmount()).isEqualByComparingTo("1042.30");
+    }
+
+    @Test
+    @DisplayName("CurrencyTaxRoundingPolicy factory method of()로 통화 코드 매핑이 정상 동작한다")
+    void currencyTaxRoundingPolicy_of() {
+        assertThat(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.of("USD"))
+                .isEqualTo(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.USD);
+        assertThat(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.of("eur"))
+                .isEqualTo(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.EUR);
+        assertThat(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.of("JPY"))
+                .isEqualTo(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.JPY);
+        assertThat(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.of("UNKNOWN"))
+                .isEqualTo(com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy.KRW);
+    }
 }
