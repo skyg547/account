@@ -139,6 +139,7 @@ class AllowanceCalculationServiceTest {
 
         assertThat((BigDecimal) summary.get("totalExposure")).isEqualByComparingTo(new BigDecimal("300.0000"));
         assertThat((BigDecimal) summary.get("targetAllowanceAmount")).isEqualByComparingTo(new BigDecimal("6.0000"));
+        assertThat((BigDecimal) summary.get("avgPd")).isEqualByComparingTo(new BigDecimal("0.015000"));
         assertThat((Map<String, Long>) summary.get("stageSummary"))
                 .containsEntry("STAGE1", 1L)
                 .containsEntry("STAGE2", 1L);

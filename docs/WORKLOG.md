@@ -1,3 +1,17 @@
+### 📅 2026-08-05 (ECL 모듈 AllowanceCalculationService 평균 PD 정밀도 개선 - Issue #274)
+### [기능 완료] AllowanceCalculationService 통계 스트림 primitive double 변환 제거 및 pure BigDecimal 연산 정교화
+
+- **작업 배경**:
+  - `ecl` 모듈의 `AllowanceCalculationService.getAllowanceSummary()` 내 평균 PD(Probability of Default) 산출 과정에서 `pd.doubleValue()` 부동소수점 형변환이 사용되고 있어, 금융 정밀도 정책 위반 및 부동소수점 오차 위험이 존재하였음.
+- **주요 변경 사항**:
+  - `AllowanceCalculationService`:
+    - `pd.doubleValue()` 및 `mapToDouble().average()` 스트림 제거.
+    - `results.stream().map(AllowanceEclResult::getPd).reduce(BigDecimal.ZERO, BigDecimal::add)` 기반 `sumPd` 합산 및 `divide(size, 6, HALF_UP)`를 통한 pure `BigDecimal` 정밀 연산으로 전면 개편.
+  - `AllowanceCalculationServiceTest`:
+    - `getAllowanceSummary` 검증 단에 `avgPd` `BigDecimal` 정밀 타입 비교 검증 추가 (`assertThat((BigDecimal) summary.get("avgPd")).isEqualByComparingTo(new BigDecimal("0.015000"));`).
+- **검증**:
+  - Gradle test suite 실행: `.\gradlew :ecl:ecl-core:test` 전수 통과 확인 (BUILD SUCCESSFUL in 17s).
+
 ### 📅 2026-08-05 (Loan 모듈 EIRAmortizationEngine Newton-Raphson 수치해석기 구현 - Issue #275)
 ### [기능 완료] EIRAmortizationEngine 내 원천 이연 수수료/원가 기반 Newton-Raphson 유효이자율(EIR) 수치해석기 내장
 

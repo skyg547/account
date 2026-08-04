@@ -120,10 +120,10 @@ public class AllowanceCalculationService {
         BigDecimal totalAllowance = results.stream()
                 .map(result -> result.getWeightedEcl() != null ? result.getWeightedEcl() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        double avgPd = results.stream()
-                .mapToDouble(result -> result.getPd() != null ? result.getPd().doubleValue() : 0.0)
-                .average()
-                .orElse(0.0);
+        BigDecimal sumPd = results.stream()
+                .map(result -> result.getPd() != null ? result.getPd() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal avgPd = sumPd.divide(BigDecimal.valueOf(results.size()), 6, java.math.RoundingMode.HALF_UP);
         java.util.Map<String, Long> stageSummary = results.stream()
                 .collect(Collectors.groupingBy(result -> result.getStaging().name(), Collectors.counting()));
 
