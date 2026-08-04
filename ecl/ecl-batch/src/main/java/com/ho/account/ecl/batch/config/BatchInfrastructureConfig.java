@@ -164,12 +164,29 @@ public class BatchInfrastructureConfig {
      * "1억 건의 데이터를 4개로 쪼개줘!"라고 요청하면 ID 범위를 계산하여 구역을 나눕니다.
      * @StepScope: 스레드별로 동적인 파라미터를 받기 위해 사용합니다.
      */
-    @Bean
+    @Bean("accountPartitioner")
+    @StepScope
+    public ColumnRangePartitioner accountPartitioner() {
+        return new ColumnRangePartitioner(jdbcOperations, "cr_accounts", "id");
+    }
+
+    @Bean("resultPartitioner")
+    @StepScope
+    public ColumnRangePartitioner resultPartitioner(
+            @Value("#{jobParameters['baseDate']}") String baseDateStr) {
+        java.time.LocalDate baseDate = baseDateStr != null && !baseDateStr.isBlank() ? java.time.LocalDate.parse(baseDateStr) : null;
+        return new ColumnRangePartitioner(jdbcOperations, "allowance_ecl_results", "id", "base_date", baseDate);
+    }
+
+    @Bean("partitioner")
     @StepScope
     public ColumnRangePartitioner partitioner(
             @Value("#{jobParameters['table'] ?: 'cr_accounts'}") String table,
-            @Value("#{jobParameters['column'] ?: 'id'}") String column) {
-        return new ColumnRangePartitioner(jdbcOperations, table, column);
+            @Value("#{jobParameters['column'] ?: 'id'}") String column,
+            @Value("#{jobParameters['baseDate']}") String baseDateStr) {
+        java.time.LocalDate baseDate = baseDateStr != null && !baseDateStr.isBlank() ? java.time.LocalDate.parse(baseDateStr) : null;
+        String dateColumn = "allowance_ecl_results".equalsIgnoreCase(table) ? "base_date" : null;
+        return new ColumnRangePartitioner(jdbcOperations, table, column, dateColumn, baseDate);
     }
 
     /**
@@ -202,15 +219,17 @@ public class BatchInfrastructureConfig {
     @StepScope
     public QuerydslPagingItemReader<AllowanceEclResult> pagingResultReader(
             @Value("#{stepExecutionContext['minValue']}") Long minValue,
-            @Value("#{stepExecutionContext['maxValue']}") Long maxValue) {
+            @Value("#{stepExecutionContext['maxValue']}") Long maxValue,
+            @Value("#{jobParameters['baseDate']}") String baseDateStr) {
 
         long resolvedMin = minValue == null ? 0L : minValue;
         long resolvedMax = maxValue == null ? -1L : maxValue;
+        java.time.LocalDate baseDate = baseDateStr != null && !baseDateStr.isBlank() ? java.time.LocalDate.parse(baseDateStr) : null;
 
         return new QuerydslPagingItemReader<>(
                 entityManagerFactory,
                 200,
-                queryFactory -> CrBatchQueryProvider.resultPagingQuery().apply(
+                queryFactory -> CrBatchQueryProvider.resultPagingQuery(baseDate).apply(
                         queryFactory, new CrBatchQueryProvider.LongRange(resolvedMin, resolvedMax))
         );
     }

@@ -31,16 +31,26 @@ public class CrBatchQueryProvider {
     }
 
     /**
-     * [Phase 2~4] EAD/LGD/ECL 업데이트용 결과 레코드 조회 쿼리 생성 함수.
+     * [Phase 2~4] EAD/LGD/ECL 업데이트용 결과 레코드 조회 쿼리 생성 함수 (기준일 파라미터 적용).
      */
+    public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<AllowanceEclResult>> resultPagingQuery(java.time.LocalDate baseDate) {
+        return (queryFactory, range) -> {
+            com.querydsl.core.types.dsl.BooleanExpression predicate = QAllowanceEclResult.allowanceEclResult.id.goe(range.min())
+                    .and(QAllowanceEclResult.allowanceEclResult.id.loe(range.max()));
+            if (baseDate != null) {
+                predicate = predicate.and(QAllowanceEclResult.allowanceEclResult.baseDate.eq(baseDate));
+            }
+            return queryFactory
+                    .selectFrom(QAllowanceEclResult.allowanceEclResult)
+                    .join(QAllowanceEclResult.allowanceEclResult.account).fetchJoin()
+                    .join(QAllowanceEclResult.allowanceEclResult.account.customer).fetchJoin()
+                    .where(predicate)
+                    .orderBy(QAllowanceEclResult.allowanceEclResult.id.asc());
+        };
+    }
+
     public static BiFunction<JPAQueryFactory, LongRange, JPAQuery<AllowanceEclResult>> resultPagingQuery() {
-        return (queryFactory, range) -> queryFactory
-                .selectFrom(QAllowanceEclResult.allowanceEclResult)
-                .join(QAllowanceEclResult.allowanceEclResult.account).fetchJoin()
-                .join(QAllowanceEclResult.allowanceEclResult.account.customer).fetchJoin()
-                .where(QAllowanceEclResult.allowanceEclResult.id.goe(range.min()),
-                       QAllowanceEclResult.allowanceEclResult.id.loe(range.max()))
-                .orderBy(QAllowanceEclResult.allowanceEclResult.id.asc());
+        return resultPagingQuery(null);
     }
 
     /**

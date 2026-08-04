@@ -61,7 +61,8 @@ public class AllowanceStagingBatchConfig {
     private final TaskExecutor allowanceTaskExecutor;
     
     /** 💡 [초보자 가이드] 수백만 건의 데이터를 어떻게 구역별로 쪼갤지 결정하는 분할기입니다. */
-    private final ColumnRangePartitioner partitioner;
+    @org.springframework.beans.factory.annotation.Qualifier("accountPartitioner")
+    private final ColumnRangePartitioner accountPartitioner;
     
     /** 💡 [초보자 가이드] DB에서 계좌 데이터를 한 페이지씩 효율적으로 읽어오는 도구입니다. */
     private final QuerydslPagingItemReader<CrAccount> pagingAccountReader;
@@ -113,7 +114,7 @@ public class AllowanceStagingBatchConfig {
     @Bean
     public Step stagingManagerStep() {
         return new StepBuilder("stagingManagerStep", jobRepository)
-                .partitioner("stagingWorkerStep", partitioner) // ID 범위 기반으로 구역 나누기
+                .partitioner("stagingWorkerStep", accountPartitioner) // ID 범위 기반으로 구역 나누기
                 .step(stagingWorkerStep())                     // 실제 일은 Worker가 수행
                 .gridSize(4)                                   // 4개 구역으로 분할 처리 (일꾼 4명)
                 .taskExecutor(allowanceTaskExecutor)           // 병렬 스레드풀 사용
