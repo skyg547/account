@@ -111,6 +111,18 @@ public class IntegratedPositionEtlJobTest {
                 java.sql.Date.valueOf(baseDate),
                 "DEMO-ACC001");
         assertThat(accountingAccountCode).isEqualTo("L001");
+
+        Integer dqAuditRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM ods_dq_audit WHERE base_date = ? AND account_no = 'DEMO-ACC-DQ-ERR'",
+                Integer.class,
+                java.sql.Date.valueOf(baseDate));
+        assertThat(dqAuditRows).isEqualTo(1);
+
+        String auditType = jdbcTemplate.queryForObject(
+                "SELECT audit_type FROM ods_dq_audit WHERE base_date = ? AND account_no = 'DEMO-ACC-DQ-ERR'",
+                String.class,
+                java.sql.Date.valueOf(baseDate));
+        assertThat(auditType).isEqualTo("NEGATIVE_BALANCE");
     }
 
     private void seedDemoSourceData(LocalDate baseDate) {
@@ -137,6 +149,16 @@ public class IntegratedPositionEtlJobTest {
                 new BigDecimal("5000000.0000"), new BigDecimal("5000000.0000"), 95, "BR003", "ENTITY03");
         insertLedger(baseDate, "DEMO-ACC005", "DEMO-CUST005", "DEMO-USD", "USD",
                 new BigDecimal("10000.0000"), new BigDecimal("10000.0000"), 0, "BR004", "ENTITY04");
+        jdbcTemplate.update("""
+                INSERT INTO ods_acc_ledger (
+                    acc_no, customer_code, prod_cd, currency, outstd_amt, limit_amt, int_rate,
+                    base_rate_cd, spread, next_reset_dt, open_dt, maturity_dt, delinquent_days,
+                    repayment_method, grace_period, repayment_freq, branch_cd, biz_unit_cd, is_active
+                ) VALUES ('DEMO-ACC-DQ-ERR', 'DEMO-CUST001', 'DEMO-LOAN', 'KRW', -1000.0000, 1000000.0000, 4.500000, 'KORIBOR_3M', 1.000000, ?, ?, ?, 0, 'BULLET', 0, 1, 'BR001', 'ENTITY01', FALSE)
+                """,
+                java.sql.Date.valueOf(baseDate.plusMonths(3)),
+                java.sql.Date.valueOf(baseDate.minusYears(1)),
+                java.sql.Date.valueOf(baseDate.plusYears(3)));
 
         insertGeneralLedger(baseDate, "L001", "KRW", new BigDecimal("300000000.0000"), "BR001");
         insertGeneralLedger(baseDate, "L003", "KRW", new BigDecimal("100000000.0000"), "BR002");
@@ -155,6 +177,7 @@ public class IntegratedPositionEtlJobTest {
     }
 
     private void cleanupDemoData(LocalDate baseDate) {
+        jdbcTemplate.update("DELETE FROM ods_dq_audit WHERE base_date = ?", java.sql.Date.valueOf(baseDate));
         jdbcTemplate.update("DELETE FROM allowance_exposure_snapshots WHERE base_date = ?", java.sql.Date.valueOf(baseDate));
         jdbcTemplate.update("DELETE FROM allowance_input_positions WHERE base_dt = ?", java.sql.Date.valueOf(baseDate));
         jdbcTemplate.update("DELETE FROM ods_reconcile_hist WHERE base_dt = ?", java.sql.Date.valueOf(baseDate));

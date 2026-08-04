@@ -9,6 +9,7 @@ import com.ho.account.mart.batch.tasklet.OdsReconcileTasklet;
 import com.ho.account.mart.batch.processor.CollateralDataQualityItemProcessor;
 import com.ho.account.mart.batch.processor.IntegratedPositionItemProcessor;
 import com.ho.account.mart.batch.processor.LedgerDataQualityItemProcessor;
+import com.ho.account.mart.core.application.port.out.OdsDqAuditRepository;
 import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
 import com.ho.account.mart.core.domain.ods.audit.OdsDqAudit;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
@@ -21,6 +22,7 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
@@ -50,6 +52,7 @@ public class IntegratedPositionEtlJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
+    private final OdsDqAuditRepository odsDqAuditRepository;
     private final com.ho.account.mart.batch.tasklet.BatchPreProcessTasklet preProcessTasklet;
     private final OdsReconcileTasklet reconcileTasklet;
     private final CdmEventPublishTasklet cdmEventPublishTasklet;
@@ -262,10 +265,8 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
-    public JpaItemWriter<OdsDqAudit> dqAuditWriter() {
-        return new JpaItemWriterBuilder<OdsDqAudit>()
-                .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
-                .build();
+    public ItemWriter<OdsDqAudit> dqAuditWriter() {
+        return chunk -> odsDqAuditRepository.saveAll(new java.util.ArrayList<>(chunk.getItems()));
     }
 }
 
