@@ -1,3 +1,18 @@
+### 📅 2026-08-05 (Reporting 모듈 FinancialStatementEngine 현금흐름표(C/F) 집계 엔진 구현 - Issue #278)
+### [기능 완료] FinancialStatementEngine 내 Statement of Cash Flows 영업/투자/재무 활동 자동 집계 엔진 추가
+
+- **작업 배경**:
+  - `reporting` 모듈의 `FinancialStatementEngine`은 기존 재무상태표(B/S) 및 손익계산서(I/S) 자동 집계 기능만 보유하고 있었으나, IFRS 3대 재무제표의 완성을 위해 영업활동, 투자활동, 재무활동 현금흐름표(Statement of Cash Flows - C/F)를 정밀 집계하는 코어 도메인 엔진 확장이 필요했음.
+- **주요 변경 사항**:
+  - **`FinancialStatement.StatementType` 확장**: `CASH_FLOW_STATEMENT` 도메인 보고서 유형 추가.
+  - **`FinancialStatementEngine.generateCashFlowStatement` (pure domain)**:
+    - `CashFlowActivityType` (OPERATING, INVESTING, FINANCING) 별 현금 유입/유출 항목 분류 및 집계.
+    - 손익계산서 당기순이익(`netIncomeCurrent`, `netIncomePrevious`)을 영업활동 현금흐름의 출발지점으로 자동 연동.
+    - 영업활동, 투자활동, 재무활동 소계 및 최종 현금및현금성자산 순증가(`CF_NET_CASH_FLOW`)를 `BigDecimal` 정밀 연산(`MathContext(34, HALF_EVEN)` 및 `setScale(2, HALF_UP)`)으로 계산.
+- **검증**:
+  - `FinancialStatementEngineTest`: 영업/투자/재무 활동 집계 및 최종 현금 순증가 총계 단위 테스트 100% 통과.
+  - Gradle test suite 실행: `.\gradlew :reporting:core:test` 전수 통과 확인.
+
 ### 📅 2026-08-04 (Reporting 모듈 FinancialStatementEngine & IfrsDisclosureNotesEngine 구현)
 ### [기능 완료] pure domain FinancialStatementEngine 및 IfrsDisclosureNotesEngine 구현
 

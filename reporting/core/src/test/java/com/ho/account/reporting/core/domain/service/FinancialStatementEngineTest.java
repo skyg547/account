@@ -86,4 +86,39 @@ class FinancialStatementEngineTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Accounting equation mismatch");
     }
+
+    @Test
+    @DisplayName("영업, 투자, 재무활동 현금흐름과 당기순이익으로부터 현금흐름표(C/F)가 정확히 집계되는지 검증한다")
+    void generateCashFlowStatement() {
+        LocalDateTime baseDate = LocalDateTime.of(2026, 3, 31, 0, 0);
+
+        List<FinancialStatementEngine.CashFlowEntry> entries = List.of(
+                new FinancialStatementEngine.CashFlowEntry("CF_OP_01", "매출채권 감소(증가)", FinancialStatementEngine.CashFlowActivityType.OPERATING, new BigDecimal("50000.00"), new BigDecimal("30000.00")),
+                new FinancialStatementEngine.CashFlowEntry("CF_INV_01", "유형자산 취득", FinancialStatementEngine.CashFlowActivityType.INVESTING, new BigDecimal("-100000.00"), new BigDecimal("-80000.00")),
+                new FinancialStatementEngine.CashFlowEntry("CF_FIN_01", "단기차입금 증가", FinancialStatementEngine.CashFlowActivityType.FINANCING, new BigDecimal("200000.00"), new BigDecimal("150000.00"))
+        );
+
+        BigDecimal netIncomeCurrent = new BigDecimal("250000.00");
+        BigDecimal netIncomePrevious = new BigDecimal("210000.00");
+
+        FinancialStatement cf = engine.generateCashFlowStatement("2026-CF-001", baseDate, netIncomeCurrent, netIncomePrevious, entries);
+
+        assertThat(cf.getType()).isEqualTo(FinancialStatement.StatementType.CASH_FLOW_STATEMENT);
+        assertThat(cf.getStatus()).isEqualTo(FinancialStatement.StatementStatus.FINAL);
+
+        // Operating: NetIncome(250,000) + CF_OP_01(50,000) = 300,000 / Prev: 210,000 + 30,000 = 240,000
+        // Investing: -100,000 / Prev: -80,000
+        // Financing: 200,000 / Prev: 150,000
+        // Net Cash Flow Total: 300,000 - 100,000 + 200,000 = 400,000 / Prev: 240,000 - 80,000 + 150,000 = 310,000
+        var operatingTotal = cf.getLines().stream().filter(l -> "CF_TOTAL_OPERATING".equals(l.getLineCode())).findFirst().orElseThrow();
+        var investingTotal = cf.getLines().stream().filter(l -> "CF_TOTAL_INVESTING".equals(l.getLineCode())).findFirst().orElseThrow();
+        var financingTotal = cf.getLines().stream().filter(l -> "CF_TOTAL_FINANCING".equals(l.getLineCode())).findFirst().orElseThrow();
+        var netTotal = cf.getLines().stream().filter(l -> "CF_NET_CASH_FLOW".equals(l.getLineCode())).findFirst().orElseThrow();
+
+        assertThat(operatingTotal.getCurrentAmount()).isEqualByComparingTo("300000.00");
+        assertThat(investingTotal.getCurrentAmount()).isEqualByComparingTo("-100000.00");
+        assertThat(financingTotal.getCurrentAmount()).isEqualByComparingTo("200000.00");
+        assertThat(netTotal.getCurrentAmount()).isEqualByComparingTo("400000.00");
+        assertThat(netTotal.getPreviousAmount()).isEqualByComparingTo("310000.00");
+    }
 }

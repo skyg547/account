@@ -181,4 +181,108 @@ public class FinancialStatementEngine {
         statement.finalizeStatement();
         return statement;
     }
+
+    public enum CashFlowActivityType {
+        OPERATING,  // 영업활동
+        INVESTING,  // 투자활동
+        FINANCING   // 재무활동
+    }
+
+    /**
+     * 현금흐름표 항목 레코드 (Statement of Cash Flows Entry)
+     */
+    public record CashFlowEntry(
+            String accountCode,
+            String accountName,
+            CashFlowActivityType activityType,
+            BigDecimal currentAmount,
+            BigDecimal previousAmount
+    ) {
+        public CashFlowEntry {
+            if (accountCode == null || accountCode.isBlank()) {
+                throw new IllegalArgumentException("accountCode is required.");
+            }
+            if (activityType == null) {
+                throw new IllegalArgumentException("activityType is required.");
+            }
+            if (currentAmount == null) currentAmount = BigDecimal.ZERO;
+            if (previousAmount == null) previousAmount = BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * 당기순이익과 현금흐름 항목들을 바탕으로 현금흐름표(Statement of Cash Flows - C/F)를 집계합니다.
+     */
+    public FinancialStatement generateCashFlowStatement(
+            String statementId,
+            LocalDateTime baseDate,
+            BigDecimal netIncomeCurrent,
+            BigDecimal netIncomePrevious,
+            List<CashFlowEntry> cashFlowEntries) {
+
+        if (statementId == null || statementId.isBlank()) {
+            throw new IllegalArgumentException("statementId is required.");
+        }
+        if (baseDate == null) {
+            throw new IllegalArgumentException("baseDate is required.");
+        }
+        List<CashFlowEntry> entries = (cashFlowEntries != null) ? cashFlowEntries : List.of();
+
+        FinancialStatement statement = new FinancialStatement(statementId, StatementType.CASH_FLOW_STATEMENT, baseDate);
+
+        BigDecimal safeNetIncomeCur = (netIncomeCurrent != null) ? netIncomeCurrent : BigDecimal.ZERO;
+        BigDecimal safeNetIncomePrev = (netIncomePrevious != null) ? netIncomePrevious : BigDecimal.ZERO;
+
+        BigDecimal operatingCur = safeNetIncomeCur;
+        BigDecimal operatingPrev = safeNetIncomePrev;
+        BigDecimal investingCur = BigDecimal.ZERO;
+        BigDecimal investingPrev = BigDecimal.ZERO;
+        BigDecimal financingCur = BigDecimal.ZERO;
+        BigDecimal financingPrev = BigDecimal.ZERO;
+
+        statement.addLine(new ReportLine("CF_START_NET_INCOME", "당기순이익 (영업활동 출발지점)",
+                safeNetIncomeCur.setScale(2, RoundingMode.HALF_UP),
+                safeNetIncomePrev.setScale(2, RoundingMode.HALF_UP), "OPERATING", 2));
+
+        for (CashFlowEntry entry : entries) {
+            switch (entry.activityType()) {
+                case OPERATING -> {
+                    operatingCur = operatingCur.add(entry.currentAmount(), MC);
+                    operatingPrev = operatingPrev.add(entry.previousAmount(), MC);
+                    statement.addLine(new ReportLine(entry.accountCode(), entry.accountName(),
+                            entry.currentAmount(), entry.previousAmount(), "OPERATING", 3));
+                }
+                case INVESTING -> {
+                    investingCur = investingCur.add(entry.currentAmount(), MC);
+                    investingPrev = investingPrev.add(entry.previousAmount(), MC);
+                    statement.addLine(new ReportLine(entry.accountCode(), entry.accountName(),
+                            entry.currentAmount(), entry.previousAmount(), "INVESTING", 3));
+                }
+                case FINANCING -> {
+                    financingCur = financingCur.add(entry.currentAmount(), MC);
+                    financingPrev = financingPrev.add(entry.previousAmount(), MC);
+                    statement.addLine(new ReportLine(entry.accountCode(), entry.accountName(),
+                            entry.currentAmount(), entry.previousAmount(), "FINANCING", 3));
+                }
+            }
+        }
+
+        operatingCur = operatingCur.setScale(2, RoundingMode.HALF_UP);
+        operatingPrev = operatingPrev.setScale(2, RoundingMode.HALF_UP);
+        investingCur = investingCur.setScale(2, RoundingMode.HALF_UP);
+        investingPrev = investingPrev.setScale(2, RoundingMode.HALF_UP);
+        financingCur = financingCur.setScale(2, RoundingMode.HALF_UP);
+        financingPrev = financingPrev.setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal netCashFlowCur = operatingCur.add(investingCur, MC).add(financingCur, MC).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netCashFlowPrev = operatingPrev.add(investingPrev, MC).add(financingPrev, MC).setScale(2, RoundingMode.HALF_UP);
+
+        statement.addLine(new ReportLine("CF_TOTAL_OPERATING", "영업활동으로 인한 현금흐름", operatingCur, operatingPrev, null, 1));
+        statement.addLine(new ReportLine("CF_TOTAL_INVESTING", "투자활동으로 인한 현금흐름", investingCur, investingPrev, null, 1));
+        statement.addLine(new ReportLine("CF_TOTAL_FINANCING", "재무활동으로 인한 현금흐름", financingCur, financingPrev, null, 1));
+        statement.addLine(new ReportLine("CF_NET_CASH_FLOW", "현금 및 현금성자산의 순증가(감소)", netCashFlowCur, netCashFlowPrev, null, 1));
+
+        statement.finalizeStatement();
+        return statement;
+    }
 }
