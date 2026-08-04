@@ -1,3 +1,20 @@
+### 📅 2026-08-05 (Master Data 모듈 Business Partner SCD2 historical active 의미 복원 - Issue #261)
+### [버그 수정] BusinessPartner terminate 시 useYn 유지 및 V7 Flyway SCD2 백필 마이그레이션 적용
+
+- **작업 배경**:
+  - `BusinessPartner.terminate(endDate)` 호출 시 `validTo = endDate`와 함께 legacy `useYn = false`가 일괄 저장되어, 종료일 이전 과거 기준일 조회까지 `useYn = false`로 판정되어 역사적 활성 상태 재현이 파괴되는 결함이 존재하였음.
+- **주요 변경 사항**:
+  - `BusinessPartner`:
+    - `terminate(LocalDate endDate)` 구현 시 `useYn = false` 강제 변경을 제거하고, `validTo = endDate` 범위만 조정하도록 교정.
+    - 유효기간 `[validFrom, endDate]` 내에서는 `useYn = true`가 유지되어 과거/당일 조회가 당시 활성 상태로 정확히 복원되고, `endDate` 이후 조회는 `validTo >= date` 불충족으로 자동 비활성 처리됨.
+    - 명시적 비활성화(정지) 처리를 위한 `deactivate()` 도메인 메서드 추가.
+  - `Flyway Migration (V7)`:
+    - `V7__business_partner_scd2_active_meaning.sql`: 과거 닫힌 SCD2 유효기간(`valid_to < '9999-12-31'`)을 가진 레거시 종결 데이터의 `use_yn`을 `true`로 보정하는 forward-only 백필 마이그레이션 작성.
+  - `BusinessPartnerHistoricalActiveIntegrationTest`:
+    - 종료일 이전, 당일, 이후의 active 조회 상태 분기 검증 및 Flyway V7 백필 스키마 통합 회귀 테스트 신규 작성.
+- **검증**:
+  - `.\gradlew :master-data:core:test :master-data:api:test :master-data:batch:test` 전수 100% 통과 (BUILD SUCCESSFUL in 46s).
+
 ### 📅 2026-08-05 (ECL 모듈 기준일별 파티션 키와 worker 조회 범위 정합성 보장 - Issue #268)
 ### [버그 수정] ColumnRangePartitioner 및 CrBatchQueryProvider 기준일(baseDate) 조건 바인딩 및 파티션 격리 보장
 
