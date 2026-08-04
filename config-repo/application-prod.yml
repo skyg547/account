@@ -9,23 +9,23 @@ spring:
       maximum-pool-size: ${PROD_DB_POOL_MAXIMUM_SIZE:20}
       connection-timeout: ${PROD_DB_CONNECTION_TIMEOUT_MS:30000}
       validation-timeout: ${PROD_DB_VALIDATION_TIMEOUT_MS:5000}
-  flyway:
-    # Production migrations are executed by a separately approved release
-    # step with a dedicated migrator role, never by long-running applications.
-    enabled: false
-    clean-disabled: true
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
     open-in-view: false
     show-sql: false
-  sql:
-    init:
-      mode: never
+  flyway:
+    enabled: false
+    clean-disabled: true
+    baseline-on-migrate: false
   batch:
     jdbc:
       initialize-schema: never
+  sql:
+    init:
+      mode: never
+
   kafka:
     bootstrap-servers: ${PROD_KAFKA_BOOTSTRAP_SERVERS}
   data:

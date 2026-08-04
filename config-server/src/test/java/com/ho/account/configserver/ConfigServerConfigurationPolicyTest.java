@@ -17,6 +17,47 @@ import org.yaml.snakeyaml.Yaml;
 class ConfigServerConfigurationPolicyTest {
 
     @Test
+    void developmentAndProductionDelegateAllSchemaChangesToTheReleaseMigrator() {
+        for (String profile : List.of("dev", "prod")) {
+            Properties properties = loadProperties(resolveFromRepositoryRoot(
+                    "config-repo", "application-" + profile + ".yml"));
+
+            if ("dev".equals(profile)) {
+                assertThat(properties.getProperty("spring.datasource.url"))
+                        .isEqualTo("jdbc:postgresql://${DEV_DB_HOST}:${DEV_DB_PORT:5432}/${DEV_DB_NAME}");
+                assertThat(properties.getProperty("spring.datasource.username"))
+                        .isEqualTo("${DEV_DB_USER}");
+                assertThat(properties.getProperty("spring.datasource.password"))
+                        .isEqualTo("${DEV_DB_PASSWORD}");
+            } else {
+                assertThat(properties.getProperty("spring.datasource.url"))
+                        .isEqualTo("${PROD_DB_URL}");
+                assertThat(properties.getProperty("spring.datasource.username"))
+                        .isEqualTo("${PROD_DB_USER}");
+                assertThat(properties.getProperty("spring.datasource.password"))
+                        .isEqualTo("${PROD_DB_PASSWORD}");
+            }
+            assertThat(properties.getProperty("spring.datasource.driver-class-name"))
+                    .isEqualTo("org.postgresql.Driver");
+            assertThat(properties.getProperty("spring.jpa.hibernate.ddl-auto"))
+                    .as(profile + " JPA schema policy")
+                    .isEqualTo("validate");
+            assertThat(properties.getProperty("spring.flyway.enabled"))
+                    .as(profile + " startup Flyway policy")
+                    .isEqualTo("false");
+            assertThat(properties.getProperty("spring.flyway.clean-disabled"))
+                    .isEqualTo("true");
+            assertThat(properties.getProperty("spring.flyway.baseline-on-migrate"))
+                    .isEqualTo("false");
+            assertThat(properties.getProperty("spring.batch.jdbc.initialize-schema"))
+                    .as(profile + " Batch metadata policy")
+                    .isEqualTo("never");
+            assertThat(properties.getProperty("spring.sql.init.mode"))
+                    .isEqualTo("never");
+        }
+    }
+
+    @Test
     void localDefaultsUseNativeRepositoryAndRepositoryAwareReadiness() {
         Properties properties = loadProperties(resolveFromRepositoryRoot(
                 "config-server", "src", "main", "resources", "application.yml"));
