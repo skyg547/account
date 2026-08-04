@@ -1,3 +1,19 @@
+### 📅 2026-08-05 (Loan 모듈 EIRAmortizationEngine Newton-Raphson 수치해석기 구현 - Issue #275)
+### [기능 완료] EIRAmortizationEngine 내 원천 이연 수수료/원가 기반 Newton-Raphson 유효이자율(EIR) 수치해석기 내장
+
+- **작업 배경**:
+  - `loan` 모듈의 `EIRAmortizationEngine`은 기존 외부에서 전달된 유효이자율(`annualEir`) 기반 상각 계산만 지원하였으나, pure domain 내부에서 대출 원금, 순 이연 수수료/원가, 현금흐름 배열만으로 Newton-Raphson 수치해석을 실행해 EIR을 정밀 산출하는 알고리즘 확장이 필요했음.
+- **주요 변경 사항**:
+  - **`solveEIRWithNewtonRaphson` (pure domain)**:
+    - 대출 원금과 순 이연 금액(부대수익 -, 부대비용 +)으로 초기 순 투자액(Net Investment)을 산출.
+    - 회차별 예정 현금흐름(원리금)과 수수료 조건에 대해 Newton-Raphson 미분 반복 계산($f(r) = -I + \sum \frac{CF_t}{(1+r)^t}$, $f'(r) = \sum \frac{-t \cdot CF_t}{(1+r)^{t+1}}$) 수행.
+    - 수렴 정밀도($10^{-18}$) 이내로 수렴한 연 유효이자율(EIR, 소수점 4자리) 정밀 산출.
+  - **`calculateMonthlyDeferredAmortizationsWithSolver` 도메인 메서드 지원**:
+    - 별도 외부 입력 없이 상환 스케줄과 수수료만으로 자동 EIR 수치해석 및 이연 상각액 계산 원스톱 처리.
+- **검증**:
+  - `EIRAmortizationEngineTest`: Newton-Raphson 수치해석기 수렴 및 수수료 이연 상각 스케줄 100% 통합 검증 단위 테스트 통과.
+  - Gradle test suite 실행: `.\gradlew :loan:core:test` 전수 통과 확인 (BUILD SUCCESSFUL in 23s).
+
 ### 📅 2026-08-05 (Deposit 모듈 다통화 수신 계좌 세금 원천징수 절사/반올림 정책 확장 - Issue #276)
 ### [기능 완료] DepositTerminationSettlementCalculator 내 CurrencyTaxRoundingPolicy 확장 및 다통화 원천징수 옵션 보강
 
