@@ -30,6 +30,7 @@ public class AutomatedMatchingEngine {
     public static final String COMPLEX_DESCRIPTION_MATCH = "COMPLEX_DESCRIPTION_MATCH";
     public static final String SLIP_NO_MATCH = "SLIP_NO_MATCH";
     public static final String ACCOUNT_NO_MATCH = "ACCOUNT_NO_MATCH";
+    public static final String SUBSET_SUM_MATCH = "SUBSET_SUM_MATCH";
     public static final String NO_MATCH_FOUND = "NO_MATCH_FOUND";
 
     public static class MatchOptions {
@@ -288,5 +289,112 @@ public class AutomatedMatchingEngine {
     }
 
     private record IndexedDetail(int index, JournalDetailSummary detail) {
+    }
+
+    public static class SubsetMatchResult {
+        private final List<BankStatement> statements;
+        private final List<JournalDetailSummary> journalDetails;
+        private final BigDecimal totalAmount;
+        private final boolean isMatch;
+        private final String matchReason;
+
+        public SubsetMatchResult(List<BankStatement> statements, List<JournalDetailSummary> journalDetails,
+                BigDecimal totalAmount, boolean isMatch, String matchReason) {
+            this.statements = statements != null ? statements : List.of();
+            this.journalDetails = journalDetails != null ? journalDetails : List.of();
+            this.totalAmount = totalAmount != null ? totalAmount : BigDecimal.ZERO;
+            this.isMatch = isMatch;
+            this.matchReason = matchReason;
+        }
+
+        public List<BankStatement> getStatements() {
+            return statements;
+        }
+
+        public List<JournalDetailSummary> getJournalDetails() {
+            return journalDetails;
+        }
+
+        public BigDecimal getTotalAmount() {
+            return totalAmount;
+        }
+
+        public boolean isMatch() {
+            return isMatch;
+        }
+
+        public String getMatchReason() {
+            return matchReason;
+        }
+    }
+
+    /**
+     * N:M 합계 매칭 (Subset-Sum Matching):
+     * 미대치된 복수 거래(BankStatement N개)와 복수 원장 전표(JournalDetailSummary M개) 간의
+     * 합계 금액이 일치하는 부분집합(Subset) 조합을 탐색하여 대치합니다.
+     */
+    public List<SubsetMatchResult> matchSubsetSum(
+            List<BankStatement> statements,
+            List<JournalDetailSummary> details,
+            int maxSubsetSize) {
+        Objects.requireNonNull(statements, "statements must not be null");
+        Objects.requireNonNull(details, "details must not be null");
+
+        int limit = maxSubsetSize > 0 ? maxSubsetSize : 4;
+        List<SubsetMatchResult> results = new ArrayList<>();
+        Set<BankStatement> matchedStatements = new HashSet<>();
+        Set<JournalDetailSummary> matchedDetails = new HashSet<>();
+
+        List<List<BankStatement>> statementSubsets = generateSubsets(statements, limit);
+        List<List<JournalDetailSummary>> detailSubsets = generateSubsets(details, limit);
+
+        for (List<BankStatement> stmtSub : statementSubsets) {
+            if (stmtSub.stream().anyMatch(matchedStatements::contains)) {
+                continue;
+            }
+            BigDecimal stmtSum = stmtSub.stream()
+                    .map(this::statementAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            for (List<JournalDetailSummary> detailSub : detailSubsets) {
+                if (detailSub.stream().anyMatch(matchedDetails::contains)) {
+                    continue;
+                }
+                BigDecimal detailSum = detailSub.stream()
+                        .map(this::detailAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (stmtSum.compareTo(detailSum) == 0 && stmtSum.compareTo(BigDecimal.ZERO) != 0) {
+                    matchedStatements.addAll(stmtSub);
+                    matchedDetails.addAll(detailSub);
+                    results.add(new SubsetMatchResult(stmtSub, detailSub, stmtSum, true, SUBSET_SUM_MATCH));
+                    break;
+                }
+            }
+        }
+        return results;
+    }
+
+    private <T> List<List<T>> generateSubsets(List<T> items, int maxSize) {
+        List<List<T>> subsets = new ArrayList<>();
+        int n = items.size();
+        for (int size = 1; size <= Math.min(n, maxSize); size++) {
+            combine(items, size, 0, new ArrayList<>(), subsets);
+        }
+        return subsets;
+    }
+
+    private <T> void combine(List<T> items, int k, int start, List<T> current, List<List<T>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+        for (int i = start; i < items.size(); i++) {
+            current.add(items.get(i));
+            combine(items, k, i + 1, current, result);
+            current.remove(current.size() - 1);
+        }
     }
 }

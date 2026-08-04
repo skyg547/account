@@ -1,3 +1,18 @@
+### 📅 2026-08-05 (Reconciliation 모듈 AutomatedMatchingEngine N:M Subset-Sum 매칭 알고리즘 확장 - Issue #277)
+### [기능 완료] AutomatedMatchingEngine 내 N:M 다대다 합계 매칭(Subset-Sum Matching) 알고리즘 보강
+
+- **작업 배경**:
+  - `reconciliation` 모듈의 `AutomatedMatchingEngine`은 기존 1:1 및 1:N 트랜잭션 exact/tolerance 매칭만 지원하였으나, 복수 입금건과 복수 원장 전표 간 합계 금액이 일치하는 N:M 다대다 합계 매칭(Subset-Sum Matching) 기능 확장이 필요했음.
+- **주요 변경 사항**:
+  - **`AutomatedMatchingEngine.SUBSET_SUM_MATCH` 매칭 사유 추가**: N:M 합계 일치 매칭 추적용 상수 정의.
+  - **`SubsetMatchResult` 도메인 클래스 추가**: 다대다 매칭된 `List<BankStatement>`, `List<JournalDetailSummary>`, `totalAmount`, `matchReason` 캡슐화.
+  - **`AutomatedMatchingEngine.matchSubsetSum` (pure domain)**:
+    - `generateSubsets` 조합 탐색 알고리즘 기반으로 지정된 `maxSubsetSize`(기본 4) 이하의 입금건 및 전표 부분집합 생성.
+    - 조합별 `BigDecimal` 합계 금액 비교 (`stmtSum.compareTo(detailSum) == 0`)를 통해 다대다 100% 정밀 대차 매칭 수행.
+- **검증**:
+  - `AutomatedMatchingEngineTest`: 2개 입금건(30,000 + 70,000)과 3개 전표(40,000 + 40,000 + 20,000) 간 100,000원 N:M Subset-Sum 매칭 단위 테스트 100% 통과.
+  - Gradle test suite 실행: `.\gradlew :reconciliation:core:test` 전수 통과 확인 (BUILD SUCCESSFUL in 18s).
+
 ### 📅 2026-08-05 (Reporting 모듈 FinancialStatementEngine 현금흐름표(C/F) 집계 엔진 구현 - Issue #278)
 ### [기능 완료] FinancialStatementEngine 내 Statement of Cash Flows 영업/투자/재무 활동 자동 집계 엔진 추가
 

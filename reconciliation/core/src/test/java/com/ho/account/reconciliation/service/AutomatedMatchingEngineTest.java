@@ -216,6 +216,42 @@ class AutomatedMatchingEngineTest {
                 .hasMessageContaining("dateToleranceDays");
     }
 
+    @Test
+    void matchSubsetSumSucceedsForNMStatementsAndJournalDetails() {
+        BankStatement stmt1 = bankStatement("30000.00", "0.00", LocalDate.of(2026, 5, 12));
+        BankStatement stmt2 = bankStatement("70000.00", "0.00", LocalDate.of(2026, 5, 12));
+
+        JournalDetailSummary detail1 = journalDetail("40000.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail2 = journalDetail("40000.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail3 = journalDetail("20000.00", LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.SubsetMatchResult> results = matchingEngine.matchSubsetSum(
+                List.of(stmt1, stmt2),
+                List.of(detail1, detail2, detail3),
+                3);
+
+        assertThat(results).hasSize(1);
+        AutomatedMatchingEngine.SubsetMatchResult match = results.get(0);
+        assertThat(match.isMatch()).isTrue();
+        assertThat(match.getStatements()).containsExactlyInAnyOrder(stmt1, stmt2);
+        assertThat(match.getJournalDetails()).containsExactlyInAnyOrder(detail1, detail2, detail3);
+        assertThat(match.getTotalAmount()).isEqualByComparingTo("100000.00");
+        assertThat(match.getMatchReason()).isEqualTo(AutomatedMatchingEngine.SUBSET_SUM_MATCH);
+    }
+
+    @Test
+    void matchSubsetSumReturnsEmptyWhenNoSubsetMatches() {
+        BankStatement stmt1 = bankStatement("30000.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail1 = journalDetail("40000.00", LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.SubsetMatchResult> results = matchingEngine.matchSubsetSum(
+                List.of(stmt1),
+                List.of(detail1),
+                3);
+
+        assertThat(results).isEmpty();
+    }
+
     private BankStatement bankStatement(String depositAmount, String withdrawalAmount, LocalDate transactionDate) {
         BankStatement statement = new BankStatement();
         statement.setDepositAmount(new BigDecimal(depositAmount));
