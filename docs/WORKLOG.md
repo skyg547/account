@@ -1,3 +1,17 @@
+### 📅 2026-08-05 (Account Mart 모듈 IntegratedPositionEtlJob DQ audit writer persistence port 교정 - Issue #269)
+### [버그 수정] IntegratedPositionEtlJobConfig 내 dqAuditWriter를 persistence port(OdsDqAuditRepository) 경계로 교정
+
+- **작업 배경**:
+  - `IntegratedPositionEtlJobConfig.dqAuditWriter()`에서 도메인 불변 모델인 `OdsDqAudit`을 JPA 엔티티가 아닌 형태 그대로 `JpaItemWriter`에 직접 전달함에 따라, 런타임시 JPA unknown-entity 오류가 발생하는 결함이 존재하였음.
+- **주요 변경 사항**:
+  - `IntegratedPositionEtlJobConfig`:
+    - `JpaItemWriter<OdsDqAudit>` 대신 Hexagonal Output Port인 `OdsDqAuditRepository`를 주입받아 Spring Batch `ItemWriter<OdsDqAudit>`로 전환 (`chunk -> odsDqAuditRepository.saveAll(...)`).
+    - 도메인 모델에서 persistence 엔티티(`OdsDqAuditEntity`)로의 변환 및 DB 저장을 Output Adapter(`OdsDqAuditPersistenceAdapter`) 책임 경계로 완전 격리.
+  - `IntegratedPositionEtlJobTest`:
+    - 음수 대출 잔액 계좌(`DEMO-ACC-DQ-ERR`)를 시드 데이터로 추가하여 `ledgerDataQualityStep` 실행 시 `ods_dq_audit` 테이블에 품질 감사 결과가 정상 픽스처 저장되고 조회되는 통합 엔드투엔드 검증 작성 (`audit_type='NEGATIVE_BALANCE'`).
+- **검증**:
+  - Gradle test suite 실행: `.\gradlew :account-mart:mart-core:test :account-mart:mart-batch:test` 전수 통과 확인 (BUILD SUCCESSFUL in 23s).
+
 ### 📅 2026-08-05 (ECL 모듈 AllowanceCalculationService 평균 PD 정밀도 개선 - Issue #274)
 ### [기능 완료] AllowanceCalculationService 통계 스트림 primitive double 변환 제거 및 pure BigDecimal 연산 정교화
 
