@@ -78,4 +78,46 @@ class EIRAmortizationEngineTest {
         BigDecimal totalAmortized = amortizations.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         assertThat(totalAmortized).isEqualByComparingTo("-12000.00");
     }
+
+    @Test
+    @DisplayName("Newton-Raphson 수치해석 알고리즘으로 현금흐름과 수수료 기반 유효이자율(EIR)이 정밀하게 수렴 계산되는지 검증한다")
+    void solveEIRWithNewtonRaphson() {
+        BigDecimal principal = new BigDecimal("1200000.00");
+        BigDecimal netInitialDeferred = new BigDecimal("-12000.00"); // 12,000원 수수료 이연 (순 투자액 1,188,000원)
+
+        // 6개월 월 203,513원 현금흐름
+        List<BigDecimal> cashFlows = List.of(
+                new BigDecimal("203513.00"),
+                new BigDecimal("203513.00"),
+                new BigDecimal("203513.00"),
+                new BigDecimal("203513.00"),
+                new BigDecimal("203513.00"),
+                new BigDecimal("203513.00")
+        );
+
+        BigDecimal solvedEir = engine.solveEIRWithNewtonRaphson(principal, netInitialDeferred, cashFlows);
+
+        assertThat(solvedEir).isNotNull();
+        assertThat(solvedEir).isGreaterThan(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("내부 Newton-Raphson 해석기를 통합한 calculateMonthlyDeferredAmortizationsWithSolver가 정상 상각 스케줄을 생성한다")
+    void calculateMonthlyDeferredAmortizationsWithSolver() {
+        BigDecimal principal = new BigDecimal("1200000.00");
+        BigDecimal annualRate = new BigDecimal("0.0600");
+        LocalDate startDate = LocalDate.of(2026, 1, 1);
+        LocalDate maturityDate = LocalDate.of(2026, 7, 1);
+
+        List<RepaymentScheduleEntry> entries = scheduleCalculator.generateSchedule(
+                principal, annualRate, startDate, maturityDate, RepaymentMethod.EQUAL_PRINCIPAL_AND_INTEREST);
+
+        BigDecimal netInitialDeferred = new BigDecimal("-12000.00");
+
+        List<BigDecimal> amortizations = engine.calculateMonthlyDeferredAmortizationsWithSolver(principal, entries, netInitialDeferred);
+
+        assertThat(amortizations).hasSize(6);
+        BigDecimal totalAmortized = amortizations.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(totalAmortized).isEqualByComparingTo("-12000.00");
+    }
 }

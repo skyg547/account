@@ -132,4 +132,97 @@ public class EIRAmortizationEngine {
 
         return List.copyOf(amortizations);
     }
+
+    private static final int MAX_ITERATIONS = 100;
+    private static final BigDecimal CONVERGENCE_PRECISION = new BigDecimal("0.000000000000000001");
+
+    /**
+     * 초기 대출 원금, 순 이연 금액(부대비용-부대수익), 회차별 현금흐름(원리금) 리스트가 주어졌을 때
+     * pure domain 내부에서 Newton-Raphson 수치해석 알고리즘으로 유효이자율(EIR, 연율)을 자동 산출합니다.
+     *
+     * 현금흐름 수식:
+     * \( \text{순 투자액} = \text{원금} + \text{순이연금액} = \sum_{t=1}^{N} \frac{\text{CashFlow}_t}{(1 + r)^t} \)
+     *
+     * @param principal           대출 원금
+     * @param netInitialDeferred  순 이연 금액 (부대수익은 -, 부대비용은 +)
+     * @param cashFlows           회차별 현금흐름(원리금) 리스트
+     * @return 수렴된 연 유효이자율 (EIR, 예: 0.0520 = 5.2%)
+     */
+    public BigDecimal solveEIRWithNewtonRaphson(
+            BigDecimal principal,
+            BigDecimal netInitialDeferred,
+            List<BigDecimal> cashFlows) {
+
+        if (principal == null || principal.signum() <= 0) {
+            throw new IllegalArgumentException("principal must be positive.");
+        }
+        if (cashFlows == null || cashFlows.isEmpty()) {
+            throw new IllegalArgumentException("cashFlows must not be null or empty.");
+        }
+
+        BigDecimal safeDeferred = (netInitialDeferred != null) ? netInitialDeferred : BigDecimal.ZERO;
+        BigDecimal netInvestment = principal.add(safeDeferred, MC);
+        if (netInvestment.signum() <= 0) {
+            throw new IllegalArgumentException("netInvestment must be positive.");
+        }
+
+        int periods = cashFlows.size();
+        BigDecimal monthlyRate = new BigDecimal("0.05").divide(MONTHS_PER_YEAR, MC);
+
+        for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+            BigDecimal onePlusRate = BigDecimal.ONE.add(monthlyRate, MC);
+            if (onePlusRate.signum() <= 0) {
+                throw new IllegalStateException("Newton-Raphson iteration crossed rate boundary.");
+            }
+
+            BigDecimal fValue = netInvestment.negate();
+            BigDecimal fDerivative = BigDecimal.ZERO;
+
+            for (int t = 1; t <= periods; t++) {
+                BigDecimal cashFlow = cashFlows.get(t - 1);
+                if (cashFlow == null) cashFlow = BigDecimal.ZERO;
+
+                BigDecimal discountFactor = onePlusRate.pow(t, MC);
+                fValue = fValue.add(cashFlow.divide(discountFactor, MC), MC);
+
+                BigDecimal derivativeTerm = cashFlow.multiply(BigDecimal.valueOf(t), MC)
+                        .divide(discountFactor.multiply(onePlusRate, MC), MC);
+                fDerivative = fDerivative.subtract(derivativeTerm, MC);
+            }
+
+            if (fDerivative.abs().compareTo(CONVERGENCE_PRECISION) <= 0) {
+                throw new IllegalStateException("Newton-Raphson derivative is too small to converge.");
+            }
+
+            BigDecimal nextMonthlyRate = monthlyRate.subtract(fValue.divide(fDerivative, MC), MC);
+            if (nextMonthlyRate.subtract(monthlyRate, MC).abs().compareTo(CONVERGENCE_PRECISION) <= 0) {
+                return nextMonthlyRate.multiply(MONTHS_PER_YEAR, MC).setScale(4, RoundingMode.HALF_UP);
+            }
+
+            monthlyRate = nextMonthlyRate;
+        }
+
+        throw new IllegalStateException("Newton-Raphson solver failed to converge within " + MAX_ITERATIONS + " iterations.");
+    }
+
+    /**
+     * 회차별 상환 스케줄과 순 이연 금액이 주어졌을 때,
+     * 내부 Newton-Raphson 수치해석기로 연 EIR을 자동 산출하고 월별 이연 상각 스케줄을 산출합니다.
+     */
+    public List<BigDecimal> calculateMonthlyDeferredAmortizationsWithSolver(
+            BigDecimal principal,
+            List<RepaymentScheduleEntry> scheduleEntries,
+            BigDecimal netInitialDeferred) {
+
+        if (scheduleEntries == null || scheduleEntries.isEmpty()) {
+            return List.of();
+        }
+
+        List<BigDecimal> cashFlows = scheduleEntries.stream()
+                .map(RepaymentScheduleEntry::totalPayment)
+                .toList();
+
+        BigDecimal solvedAnnualEir = solveEIRWithNewtonRaphson(principal, netInitialDeferred, cashFlows);
+        return calculateMonthlyDeferredAmortizations(scheduleEntries, solvedAnnualEir, netInitialDeferred);
+    }
 }
