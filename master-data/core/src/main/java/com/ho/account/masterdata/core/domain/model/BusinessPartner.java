@@ -265,19 +265,26 @@ public class BusinessPartner {
     /**
      * 이 SCD2 버전을 지정일에 종료합니다.
      *
-     * <p>종료일은 기존 유효기간 밖으로 이동할 수 없습니다. 이 검증을 도메인에 두면 REST,
-     * 승인 워크플로, 배치 중 어느 경로로 종료하더라도 과거보다 앞선 종료일이나 기간 연장이
-     * 저장되는 것을 동일하게 차단합니다.</p>
+     * <p>종료일은 기존 유효기간 밖으로 이동할 수 없습니다. 종료 시 validTo가 endDate로 조정되어
+     * [validFrom, endDate] 기간 동안의 과거/당일 조회가 당시 active 상태로 정상 재현되며,
+     * endDate 이후 기준일 조회에서는 유효기간 초과로 자동 비활성 처리됩니다.</p>
      */
     public void terminate(LocalDate endDate) {
         requireEndDateWithinCurrentWindow(endDate);
-        if (!Boolean.TRUE.equals(useYn)) {
-            if (endDate.equals(validTo)) {
-                return;
-            }
-            throw new IllegalStateException("이미 종료된 거래처 버전의 종료일은 변경할 수 없습니다.");
+        if (endDate.equals(validTo) && !validTo.equals(OPEN_ENDED_VALID_TO)) {
+            return;
         }
         validTo = endDate;
+        updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 거래처를 명시적으로 비활성화(정지) 처리합니다.
+     */
+    public void deactivate() {
+        if (!Boolean.TRUE.equals(useYn)) {
+            return;
+        }
         useYn = false;
         updatedAt = LocalDateTime.now();
     }

@@ -124,7 +124,9 @@ class BusinessPartnerTest {
         partner.terminate(validFrom);
 
         assertThat(partner.getValidTo()).isEqualTo(validFrom);
-        assertThat(partner.getUseYn()).isFalse();
+        assertThat(partner.getUseYn()).isTrue();
+        assertThat(partner.isActiveAt(validFrom)).isTrue();
+        assertThat(partner.isActiveAt(validFrom.plusDays(1))).isFalse();
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> partner.terminate(validFrom.plusDays(1)))
                 .withMessage("거래처 종료일은 현재 유효 종료일보다 늦을 수 없습니다.");
