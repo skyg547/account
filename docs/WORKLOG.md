@@ -93,6 +93,14 @@
   - PR #246이 source commit `5f06cad1`, merge commit `db7feeb4`로 병합됐고 `Fixes #45`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.
   - 실제 PostgreSQL migration/lock 경합은 실행하지 않았다. shard hotspot, 회계연도 `LIKE` 인덱스 효율, lock timeout 변환과 단건 `saveAndFlush` 기반 연말 마감 성능은 운영 규모에서 재검증해야 한다.
   - 기존 Expenditure 예산의 reservation/commit/release 데이터 이전과 호출자 전환은 #17의 별도 조정 범위다.
+### 📅 2026-07-30 (Issue #243 PostgreSQL JDBC/Actuator runtime)
+### [리뷰 대기] 운영 runtime classpath 보정
+
+- 11개 bounded context의 API/Batch 22개에 PostgreSQL JDBC runtime을 추가했다.
+- 누락된 API 9개에 Actuator를 추가하고, 공용 Gradle gate가 runtimeClasspath와 실제 bootJar 내용을 함께 확인하도록 했다.
+- 22 bootJar와 영향 테스트 56개(신규 readiness endpoint 9개 포함)가 통과했다. Local H2 dependency scope와 업무 코드는 변경하지 않았고 실 PostgreSQL migration은 #244로 분리했다.
+- 독립 최신-source 재실행(변경 API 9개 29 tests)과 최종 리뷰에서 P0-P3 지적이 없었다.
+- commit `c8b10947`의 최신 main rebase, post-rebase gate와 재리뷰가 통과했다. `d0586cbe`와 함께 push해 Draft PR #248을 열었으며 외부 실행 환경은 변경하지 않았다.
 
 ### 📅 2026-07-30 (Codex Issue #44 실제 구현)
 ### [통합 완료] 불변 차대 VO와 GeneralLedger Aggregate

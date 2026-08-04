@@ -40,3 +40,83 @@ subprojects {
         options.compilerArgs << '-parameters'
     }
 }
+
+def productionJdbcRuntimeProjects = [
+        ':asset-lease:api', ':asset-lease:batch',
+        ':closing:api', ':closing:batch',
+        ':deposit:api', ':deposit:batch',
+        ':expenditure-resolution:api', ':expenditure-resolution:batch',
+        ':journal-ledger:api', ':journal-ledger:batch',
+        ':loan:api', ':loan:batch',
+        ':payable:api', ':payable:batch',
+        ':receivable:api', ':receivable:batch',
+        ':reconciliation:api', ':reconciliation:batch',
+        ':reporting:api', ':reporting:batch',
+        ':tax:api', ':tax:batch'
+]
+
+def productionHealthApiProjects = [
+        ':asset-lease:api',
+        ':closing:api',
+        ':deposit:api',
+        ':expenditure-resolution:api',
+        ':journal-ledger:api',
+        ':loan:api',
+        ':payable:api',
+        ':receivable:api',
+        ':reconciliation:api',
+        ':reporting:api',
+        ':tax:api'
+]
+
+tasks.register('verifyProductionRuntimeDependencies') {
+    group = 'verification'
+    description = 'Fails when runtimeClasspath or a bootJar lacks PostgreSQL/Actuator.'
+    notCompatibleWithConfigurationCache(
+            'This cross-project gate resolves runtime classpaths and inspects bootJar archives at execution time.')
+    dependsOn productionJdbcRuntimeProjects.collect { "${it}:bootJar" }
+
+    doLast {
+        productionJdbcRuntimeProjects.each { projectPath ->
+            def runtimeProject = project(projectPath)
+            def modules = runtimeProject
+                    .configurations
+                    .runtimeClasspath
+                    .resolvedConfiguration
+                    .resolvedArtifacts
+                    .collect { "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}".toString() }
+                    .toSet()
+            if (!modules.contains('org.postgresql:postgresql')) {
+                throw new GradleException("${projectPath} runtimeClasspath is missing org.postgresql:postgresql")
+            }
+            def bootJar = runtimeProject.tasks.named('bootJar').get().archiveFile.get().asFile
+            def postgresqlEntries = zipTree(bootJar).matching {
+                include 'BOOT-INF/lib/postgresql-*.jar'
+            }.files
+            if (postgresqlEntries.isEmpty()) {
+                throw new GradleException("${projectPath} bootJar is missing the PostgreSQL JDBC driver")
+            }
+        }
+
+        productionHealthApiProjects.each { projectPath ->
+            def runtimeProject = project(projectPath)
+            def modules = runtimeProject
+                    .configurations
+                    .runtimeClasspath
+                    .resolvedConfiguration
+                    .resolvedArtifacts
+                    .collect { "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}".toString() }
+                    .toSet()
+            if (!modules.contains('org.springframework.boot:spring-boot-starter-actuator')) {
+                throw new GradleException("${projectPath} runtimeClasspath is missing spring-boot-starter-actuator")
+            }
+            def bootJar = runtimeProject.tasks.named('bootJar').get().archiveFile.get().asFile
+            def actuatorEntries = zipTree(bootJar).matching {
+                include 'BOOT-INF/lib/spring-boot-actuator-*.jar'
+            }.files
+            if (actuatorEntries.isEmpty()) {
+                throw new GradleException("${projectPath} bootJar is missing Spring Boot Actuator")
+            }
+        }
+    }
+}

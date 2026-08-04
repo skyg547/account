@@ -180,6 +180,14 @@ PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰�
 --spring.datasource.url=jdbc:postgresql://localhost:5432/account_local --spring.datasource.username=account --spring.datasource.password=account --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none --spring.flyway.enabled=true
 ```
 
+운영 image 대상 API/Batch의 PostgreSQL driver와 API readiness dependency가 실제 `runtimeClasspath`와 `bootJar`에 들어가는지는 다음 공용 gate로 확인합니다. 이 명령은 DB에 접속하지 않습니다.
+
+```powershell
+.\gradlew.bat verifyProductionRuntimeDependencies --offline
+```
+
+현재 gate는 11개 bounded context의 API/Batch 22개에서 PostgreSQL JDBC JAR을, API 11개에서 Actuator JAR을 확인합니다. 이번 변경은 기존 Local H2 dependency scope를 수정하지 않습니다. Closing API의 local runtime H2 누락처럼 기존 독립 실행 결함은 #77 등 모듈 Issue에서 별도로 해결합니다.
+
 대표 Spring Batch Job smoke 명령은 아래 기준으로 검증했습니다. 빈 H2 데이터 기준이므로 Job 성공은 "엔트리포인트와 메타 테이블, 파라미터, core 위임 경로가 정상"이라는 뜻이고, 운영 금액 결과 검증은 별도 seed data가 필요합니다.
 
 | 모듈 | 대표 Job | 필수 파라미터 예시 |

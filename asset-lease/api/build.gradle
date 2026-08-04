@@ -29,6 +29,7 @@ dependencies {
     implementation project(':master-data:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.kafka:spring-kafka'
@@ -38,12 +39,15 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
     runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
+
+sourceSets.test.java.srcDir rootProject.file('test-support/runtime-contracts/src/test/java')
 
 bootRun {
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'local')

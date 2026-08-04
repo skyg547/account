@@ -21,14 +21,18 @@ dependencies {
     implementation project(':reporting:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
+
+sourceSets.test.java.srcDir rootProject.file('test-support/runtime-contracts/src/test/java')
 
 bootJar {
     enabled = true
