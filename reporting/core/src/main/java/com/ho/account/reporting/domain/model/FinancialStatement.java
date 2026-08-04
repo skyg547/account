@@ -69,8 +69,9 @@ public class FinancialStatement {
 
     // 보고서 종류 정의
     public enum StatementType {
-        BALANCE_SHEET,    // 재무상태표 (현재 재산 상태)
-        INCOME_STATEMENT  // 손익계산서 (얼마나 벌었나)
+        BALANCE_SHEET,          // 재무상태표 (현재 재산 상태)
+        INCOME_STATEMENT,       // 손익계산서 (얼마나 벌었나)
+        CASH_FLOW_STATEMENT     // 현금흐름표 (현금의 유입과 유출)
     }
 
     // 보고서 상태 정의
