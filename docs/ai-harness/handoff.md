@@ -1216,3 +1216,31 @@
 - `@EntityGraph(accounts)` prevents per-row lazy queries but an unpaged list may expand result rows; bounded pagination remains a separate contract change.
 - Rollback after commit is a normal revert of the Issue #41 follow-up implementation commit. Existing schema and API contracts are retained, so no migration rollback is needed.
 - The implementation worktree may be removed after this integration record is merged; the verified Git history remains on `main`.
+# AI Harness Handoff - 2026-07-30 Issue #228 Container Images
+
+## Review-ready state
+
+- Issue/branch/worktree: `#228`, `agent/228-container-images`, `C:\tmp\account-228-container-images`.
+- Base: `origin/main@5fb9cb67`.
+- State: implementation and latest-main verification complete; branch pushed and Draft PR `#240` opened with `Refs #228`. No image pull/build, merge or Issue closure was performed.
+
+## Implemented contract
+
+- Root `Containerfile` and `Dockerfile` are byte-identical Java 17 definitions. Required `GRADLE_PROJECT` and `JAR_DIRECTORY` inputs are character-validated, the exact `bootJar` task is invoked, and the build fails unless exactly one non-plain JAR exists.
+- Builder writes only as the Gradle user; runtime uses a minimal Java 17 JRE and non-root `app` user with exec-form Java entrypoint.
+- `deploy/image-targets.json` is the single target inventory: 35 Java executables plus frontend. It excludes libraries, cores, aggregators and the removed phantom app.
+- All 19 existing module Compose build blocks now use the repository-root Containerfile and exact project/path arguments. The manifest owns additional API/Batch images that are not represented by legacy module Compose files and will be orchestrated by #66/#230.
+- Frontend uses its existing Next standalone Containerfile with same-origin `/api` default and without source volumes that hide `server.js`; recursive `.env*`, ignored Spring local configs and private-key/keystore files are excluded from build contexts.
+- Active Auth/Account Mart/ECL module Compose paths require datasource variables and contain no default credentials; Auth uses `ddl-auto=validate`.
+- `tools/container-images.ps1` concurrently drains stdout/stderr, lists targets, verifies all Java packages offline, or builds selected local Docker/Podman images without pushing. It records the full report before returning non-zero for enabled target failures.
+
+## Verification and remaining gates
+
+- `.\gradlew.bat :config-server:test :gateway:test --offline --no-daemon --rerun-tasks`: passed.
+- Full package report: 33 `PASS`, 2 `BLOCKED` (`internal-audit-api`, `internal-audit-batch`), with all 33 JAR paths present.
+- Updated verifier sample: `master-data-api=PASS`, `internal-audit-api=BLOCKED`, exit code 0.
+- PowerShell parse/list smoke, YAML policy parsing, `git diff --check`, private-host/default-secret scans and executable artifact-count checks passed.
+- Independent review raised four findings and re-review found one remaining frontend-context gap. All were corrected; the final read-only review found no unresolved issue.
+- Frontend dependency install/build was not run because `node_modules` is absent and package installation is not authorized.
+- Docker is absent; Podman has no required base images and no Compose provider. Actual image builds, health checks and registry behavior remain environment gates.
+- Rollback: revert the Issue #228 commit. No registry image, container, volume or remote environment was changed.

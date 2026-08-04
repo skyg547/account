@@ -22,7 +22,10 @@ class GatewayDockerConfigurationTest {
         Map<String, Object> build = asMap(gateway.get("build"));
 
         assertThat(build.get("context")).isEqualTo("..");
-        assertThat(build.get("dockerfile")).isEqualTo("gateway/Dockerfile");
+        assertThat(build.get("dockerfile")).isEqualTo("Containerfile");
+        assertThat(asMap(build.get("args")))
+                .containsEntry("GRADLE_PROJECT", ":gateway")
+                .containsEntry("JAR_DIRECTORY", "gateway");
         assertThat(asList(gateway.get("ports"))).contains("8000:8000");
         assertThat(asList(gateway.get("environment")))
                 .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084");

@@ -6,8 +6,13 @@ version: '3.8' # Docker Compose 파일의 문법 버전입니다.
 
 services: # 실행할 서비스(컨테이너)들의 목록을 정의합니다.
   closing:
-    # build: '.' 은 현재 폴더(.)에 있는 Dockerfile을 읽어서 새로운 이미지를 굽겠다는 의미입니다.
-    build: .
+    # 저장소 루트의 canonical Containerfile로 정확한 API bootJar를 만듭니다.
+    build:
+      context: ..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":closing:api"
+        JAR_DIRECTORY: closing/api
     
     # 컨테이너의 이름을 지정합니다. (터미널에서 docker ps 로 볼 때 나타나는 이름)
     container_name: closing

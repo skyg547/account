@@ -715,3 +715,16 @@
 - Independent review identified account loss on SCD2 replacement. The domain now clones account values with new child IDs, while tests prove old/new FK ownership, close-before-save ordering, invalid-update no-write behavior, and overlapping-row fail-closed lookup.
 - Draft PR #232 was marked Ready and merged as `c720ae58`; `Fixes #41` closed the reopened Issue automatically, and the remote source branch was deleted. PR, Issue, and remote branch states were reverified before marking the source worktree cleanup-eligible.
 - Remaining risks: PostgreSQL execution was not run, overlapping SCD2 periods still need a database exclusion constraint, and unbounded list/query pagination remains outside this issue.
+## 2026-07-30 - Issue #228 canonical Java/frontend image packaging
+
+- Issue/branch/worktree: `#228`, `agent/228-container-images`, `C:\tmp\account-228-container-images`; based on `origin/main@5fb9cb67`.
+- Replaced divergent root Java image definitions with one Java 17 multi-stage contract that builds an exact Gradle `bootJar`, requires exactly one non-plain JAR, and runs as a non-root user.
+- Added a 36-target manifest: 35 Java API/Batch/infra targets plus frontend. The 33 currently executable Java targets are enabled; Internal Audit API/Batch remain explicitly blocked by #73/#74/#231.
+- Pointed all 19 active module Compose build definitions at the canonical root Containerfile with exact Gradle project and JAR-directory arguments.
+- Kept the frontend on its standalone Containerfile and same-origin `/api` default, removed runtime-masking source volumes, and excluded recursive `.env*`, ignored Spring local configs, key stores, build, Node and Next artifacts from build contexts.
+- Replaced tracked database credentials in the now-active Auth/Account Mart/ECL module Compose paths with required variables and changed Auth schema handling from `update` to `validate`.
+- Added a reusable PowerShell package/image verifier and policy tests covering target ownership, Java version, deterministic artifact selection, Compose mappings and frontend standalone execution.
+- Verification: forced Config Server/Gateway policy tests passed; all 33 enabled Java targets produced exactly one executable JAR offline; 2 Internal Audit targets reported `BLOCKED`; frontend remained static-only because dependency installation and image pulls were not authorized.
+- Environment gate: Docker is absent and Podman has neither required base images nor an approved pull, so no actual local image build or registry action was performed.
+- Independent review findings for root/frontend secret context leakage, tracked Compose credentials, process-output deadlock and frontend URL drift were corrected; final re-review found no unresolved issue after the frontend context was hardened.
+- State: pushed to `origin/agent/228-container-images`; Draft PR `#240` opened with `Refs #228`. No merge or Issue closure.

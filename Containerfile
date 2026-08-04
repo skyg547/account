@@ -1,30 +1,32 @@
-# Multi-stage build for Spring Boot 3.4 / Java 21 Microservices
-# Build Stage
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM docker.io/library/gradle:8.7-jdk17-alpine AS builder
+USER root
+RUN mkdir -p /workspace && chown gradle:gradle /workspace
+USER gradle
+WORKDIR /workspace
 
+ARG GRADLE_PROJECT
+ARG JAR_DIRECTORY
+
+COPY --chown=gradle:gradle . .
+
+RUN set -eu; \
+    printf '%s' "$GRADLE_PROJECT" | grep -Eq '^:[a-z0-9-]+(:[a-z0-9-]+)*$'; \
+    printf '%s' "$JAR_DIRECTORY" | grep -Eq '^[a-z0-9-]+(/[a-z0-9-]+)*$'; \
+    test -f "$JAR_DIRECTORY/build.gradle"; \
+    ./gradlew "${GRADLE_PROJECT}:bootJar" --console=plain --no-daemon; \
+    jar_count="$(find "$JAR_DIRECTORY/build/libs" -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | wc -l | tr -d ' ')"; \
+    test "$jar_count" -eq 1; \
+    jar_file="$(find "$JAR_DIRECTORY/build/libs" -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print)"; \
+    cp "$jar_file" /workspace/app.jar
+
+FROM docker.io/library/eclipse-temurin:17-jre-alpine AS runtime
 WORKDIR /app
-COPY . .
 
-# Argument to pass which module to build (e.g., closing/api, journal-ledger/batch)
-ARG MODULE_NAME
-# Build only the required module
-RUN ./gradlew :${MODULE_NAME}:bootJar --no-daemon
+RUN addgroup -S app && adduser -S -G app app
 
-# Find the built jar and rename it to app.jar
-RUN find ${MODULE_NAME}/build/libs/ -name "*.jar" -not -name "*plain.jar" -exec cp {} app.jar \;
+COPY --from=builder --chown=app:app /workspace/app.jar /app/app.jar
 
-# Run Stage
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
+USER app:app
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
-# Non-root user for security
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
-
-# Copy built jar from builder
-COPY --from=builder /app/app.jar /app/app.jar
-
-# JVM options optimized for containers
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
