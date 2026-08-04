@@ -57,6 +57,16 @@
   - 독립 리뷰에서 확인된 Closing 전용 Flyway history와 BOD 직전 선행일 검증을 보완했고, 재검토는 P0-P3 finding 없이 PASS했다.
 - 리스크:
   - Journal의 일마감 거래 차단 연동, PostgreSQL 실DB migration, live Gateway/Auth/Discovery 검증은 후속 범위다.
+## 2026-07-30 (Issue #229 development PostgreSQL contract)
+
+- branch/worktree: `agent/229-dev-postgres` / `C:\tmp\account-229-dev-postgres`; base `origin/main@5fb9cb67`.
+- self-contained PostgreSQL/pgAdmin을 명시 profile로 격리하고 16개 database별 owner role, post-bootstrap manifest healthcheck를 추가했다.
+- external-dev 전용 Compose는 로컬 DB 없이 `DEV_DB_*` secret/env로 인증된 read-only probe를 제공한다.
+- 중앙 dev datasource는 PostgreSQL/Flyway/JPA validate/SQL init off를 강제하고 H2/기본 자격증명 fallback을 제거한다.
+- dummy env examples, ignore, runbook, Config Server policy tests를 추가했다.
+- `:config-server:test --offline`, init `bash -n`, diff/conflict/link/security scans와 독립 리뷰가 통과했다.
+- Docker/Compose provider와 cached image가 없어 live bootstrap/restart/idempotency는 미실행이며 #66의 통합 gate로 남긴다.
+- `agent/229-dev-postgres` push와 Draft PR `#241` (`Refs #229`) 생성 완료; merge/Issue close 미실행.
 
 ## 2026-07-30 (Issue #42 Master Data 거래처 승인 UI/API)
 - 요청 목표: 거래처 등록과 `REQUESTED` 변경요청의 승인·반려를 실제 Master Data API에 연결한다.

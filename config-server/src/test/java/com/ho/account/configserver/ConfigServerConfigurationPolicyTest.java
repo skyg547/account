@@ -53,6 +53,128 @@ class ConfigServerConfigurationPolicyTest {
     }
 
     @Test
+    void developmentProfileRequiresPostgreSqlWithoutH2Fallback() throws IOException {
+        Path profile = resolveFromRepositoryRoot("config-repo", "application-dev.yml");
+        Properties properties = loadProperties(profile);
+        String yaml = Files.readString(profile);
+
+        assertThat(properties.getProperty("spring.datasource.url"))
+                .isEqualTo("jdbc:postgresql://${DEV_DB_HOST}:${DEV_DB_PORT:5432}/${DEV_DB_NAME}");
+        assertThat(properties.getProperty("spring.datasource.driver-class-name"))
+                .isEqualTo("org.postgresql.Driver");
+        assertThat(properties.getProperty("spring.datasource.username")).isEqualTo("${DEV_DB_USER}");
+        assertThat(properties.getProperty("spring.datasource.password")).isEqualTo("${DEV_DB_PASSWORD}");
+        assertThat(properties.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
+        assertThat(properties.getProperty("spring.flyway.enabled")).isEqualTo("true");
+        assertThat(properties.getProperty("spring.sql.init.mode")).isEqualTo("never");
+        assertThat(yaml)
+                .doesNotContain("jdbc:h2:")
+                .doesNotContain("ddl-auto: update")
+                .doesNotContain("dev_pass");
+    }
+
+    @Test
+    void developmentPostgresComposeUsesBootstrapHealthAndSecretReferences() throws IOException {
+        Path composePath = resolveFromRepositoryRoot("postgres", "docker-compose.yml");
+        Map<String, Object> root = loadYaml(composePath);
+        Map<String, Object> services = asMap(root.get("services"));
+        Map<String, Object> postgres = asMap(services.get("postgres-db"));
+        Map<String, Object> environment = asMap(postgres.get("environment"));
+        Map<String, Object> healthcheck = asMap(postgres.get("healthcheck"));
+        Map<String, Object> pgadmin = asMap(services.get("pgadmin"));
+        Map<String, Object> pgadminDependency =
+                asMap(asMap(pgadmin.get("depends_on")).get("postgres-db"));
+        String compose = Files.readString(composePath);
+        String initScript = Files.readString(resolveFromRepositoryRoot(
+                "postgres", "init", "10-create-service-databases.sh"));
+        Path exampleEnvironmentPath = resolveFromRepositoryRoot(".env.example");
+        String exampleEnvironment = Files.readString(exampleEnvironmentPath);
+        Properties exampleProperties = loadKeyValueProperties(exampleEnvironmentPath);
+
+        assertThat(environment.get("POSTGRES_USER").toString())
+                .contains("${POSTGRES_ADMIN_USER:?");
+        assertThat(environment.get("POSTGRES_PASSWORD").toString())
+                .contains("${POSTGRES_ADMIN_PASSWORD:?");
+        assertThat(environment.get("ACCOUNT_DATABASES").toString())
+                .contains("${ACCOUNT_DATABASES:?");
+        assertThat(environment.get("ACCOUNT_DB_PASSWORD").toString())
+                .contains("${ACCOUNT_DB_PASSWORD:?");
+        assertThat(asList(postgres.get("profiles"))).contains("self-contained-db");
+        assertThat(asList(healthcheck.get("test")).toString())
+                .contains("pg_isready")
+                .contains("account_dev_bootstrap_status")
+                .contains("ACCOUNT_DATABASES");
+        assertThat(asList(postgres.get("volumes")))
+                .contains("./init:/docker-entrypoint-initdb.d:ro");
+        assertThat(asList(pgadmin.get("profiles"))).contains("admin");
+        assertThat(pgadminDependency.get("condition")).isEqualTo("service_healthy");
+
+        assertThat(initScript)
+                .contains("CREATE ROLE %I LOGIN PASSWORD %L")
+                .contains("CREATE DATABASE %I OWNER %I")
+                .contains("ALTER SCHEMA public OWNER TO %I")
+                .contains("account_dev_bootstrap_status")
+                .contains("database_manifest")
+                .doesNotContain("set -x");
+        assertThat(exampleEnvironment)
+                .contains("ACCOUNT_DATABASES=auth_dev,master_data_dev")
+                .contains("POSTGRES_ADMIN_PASSWORD=replace-with-local-admin-password")
+                .contains("ACCOUNT_DB_PASSWORD=replace-with-local-service-password");
+        assertThat(exampleProperties.getProperty("ACCOUNT_DATABASES").split(","))
+                .containsExactly(
+                        "auth_dev",
+                        "master_data_dev",
+                        "internal_audit_dev",
+                        "journal_ledger_dev",
+                        "closing_dev",
+                        "loan_dev",
+                        "deposit_dev",
+                        "asset_lease_dev",
+                        "payable_dev",
+                        "receivable_dev",
+                        "reconciliation_dev",
+                        "tax_dev",
+                        "expenditure_resolution_dev",
+                        "reporting_dev",
+                        "account_mart_dev",
+                        "ecl_dev");
+        assertThat(compose)
+                .doesNotContain("POSTGRES_PASSWORD: postgres")
+                .doesNotContain("PGADMIN_DEFAULT_PASSWORD: admin")
+                .doesNotContain("dev_pass");
+    }
+
+    @Test
+    void externalDevelopmentComposeUsesAuthenticatedProbeWithoutLocalDatabase() throws IOException {
+        Path composePath = resolveFromRepositoryRoot("postgres", "compose.external-dev.yml");
+        Map<String, Object> root = loadYaml(composePath);
+        Map<String, Object> services = asMap(root.get("services"));
+        Map<String, Object> probe = asMap(services.get("external-dev-db-check"));
+        Map<String, Object> environment = asMap(probe.get("environment"));
+        Map<String, Object> healthcheck = asMap(probe.get("healthcheck"));
+        String compose = Files.readString(composePath);
+        String exampleEnvironment = Files.readString(resolveFromRepositoryRoot(
+                ".env.external-dev.example"));
+        String gitignore = Files.readString(resolveFromRepositoryRoot(".gitignore"));
+
+        assertThat(services).doesNotContainKey("postgres-db");
+        assertThat(asList(probe.get("profiles"))).contains("external-dev");
+        assertThat(environment.get("DEV_DB_HOST").toString()).contains("${DEV_DB_HOST:?");
+        assertThat(environment.get("DEV_DB_NAME").toString()).contains("${DEV_DB_NAME:?");
+        assertThat(environment.get("DEV_DB_USER").toString()).contains("${DEV_DB_USER:?");
+        assertThat(environment.get("DEV_DB_PASSWORD").toString()).contains("${DEV_DB_PASSWORD:?");
+        assertThat(asList(healthcheck.get("test")).toString())
+                .contains("PGPASSWORD=\"$$DEV_DB_PASSWORD\"")
+                .contains("--command \"SELECT 1\"");
+        assertThat(probe).doesNotContainKeys("ports", "volumes");
+        assertThat(exampleEnvironment)
+                .contains("DEV_DB_HOST=replace-with-approved-shared-host")
+                .contains("DEV_DB_PASSWORD=replace-with-secret-provider-value");
+        assertThat(gitignore).contains(".env.external-dev");
+        assertThat(compose).doesNotContain("postgres-db:");
+    }
+
+    @Test
     void dockerAndIntellijPoliciesUseJava17BootJarRepositoryAndReadiness() throws IOException {
         String dockerfile = Files.readString(resolveFromRepositoryRoot("config-server", "Dockerfile"));
         assertThat(dockerfile)
@@ -79,6 +201,14 @@ class ConfigServerConfigurationPolicyTest {
         Properties properties = factory.getObject();
         if (properties == null) {
             throw new IllegalStateException("YAML properties could not be loaded: " + path);
+        }
+        return properties;
+    }
+
+    private Properties loadKeyValueProperties(Path path) throws IOException {
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(path)) {
+            properties.load(reader);
         }
         return properties;
     }

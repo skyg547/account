@@ -12,10 +12,11 @@
 1. **[beginner_guide.md](./beginner_guide.md):** 프로젝트 통합 가이드. 시스템의 큰 그림과 문서 읽는 순서를 잡아줍니다.
 2. **[local-development.md](./local-development.md):** IntelliJ IDEA, JDK 17, Gradle, 로컬 Spring Boot 실행 방법을 설명합니다.
 3. **[container-images.md](./container-images.md):** Java API/Batch와 frontend의 canonical image target/JAR 계약을 설명합니다.
-4. **[infrastructure_runbook.md](./infrastructure_runbook.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
-5. **[business_workflow.md](./business_workflow.md):** 지출결의부터 전표 생성, 마감까지 실제 돈이 어떻게 흘러가는지 업무 시나리오를 다룹니다.
-6. **[domain-catalog.md](./domain-catalog.md):** 우리 시스템에 어떤 도메인(업무)들이 있는지 한눈에 보는 카탈로그입니다.
-7. **[module-documentation-sequence.md](./module-documentation-sequence.md):** 모듈별 문서 통합 진행 순서와 완료/대기 상태.
+4. **[development-postgresql.md](./development-postgresql.md):** self-contained/shared 개발 PostgreSQL, DB별 owner, healthcheck와 secret 주입 계약을 설명합니다.
+5. **[infrastructure_runbook.md](./infrastructure_runbook.md):** 유레카, 게이트웨이, 도커 환경 등 인프라가 어떻게 구성되어 있는지 비유로 설명합니다.
+6. **[business_workflow.md](./business_workflow.md):** 지출결의부터 전표 생성, 마감까지 실제 돈이 어떻게 흘러가는지 업무 시나리오를 다룹니다.
+7. **[domain-catalog.md](./domain-catalog.md):** 우리 시스템에 어떤 도메인(업무)들이 있는지 한눈에 보는 카탈로그입니다.
+8. **[module-documentation-sequence.md](./module-documentation-sequence.md):** 모듈별 문서 통합 진행 순서와 완료/대기 상태.
 
 ---
 

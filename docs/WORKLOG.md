@@ -146,6 +146,16 @@
   - 독립 리뷰는 P0-P3 finding 없이 PASS했고, PR #236이 source commit `86ebedf9`를 merge commit `10d80939`로 통합했다. `Fixes #43`으로 Issue가 닫혔고 원격 feature branch도 삭제됐다.
   - Journal 신규 전표 경로는 아직 Master Data 월 회계기간만 확인한다. `EodState.transactionAllowed`를 서비스 간 fail-closed 계약으로 연결하는 작업은 별도 범위다.
   - PostgreSQL migration 실행과 live Gateway/Auth/Discovery 연동은 이 로컬 검증에서 수행하지 않았다.
+### 📅 2026-07-30 (Issue #229 개발 PostgreSQL 계약)
+### [검토 준비] DB ownership, bootstrap health, self-contained/external-dev 분리
+
+- `postgres/docker-compose.yml`을 명시적 `self-contained-db` profile로 제한하고 16개 bounded context별 database와 `<database>_owner` role을 최초 volume에 bootstrap한다.
+- 모든 role/database/schema 처리가 끝난 뒤 manifest marker를 기록하고, `pg_isready`와 marker가 모두 일치해야 healthy가 되게 했다.
+- 별도 external-dev Compose는 로컬 DB 없이 승인된 `DEV_DB_*` 값으로 인증된 `SELECT 1` probe만 수행한다.
+- 중앙 dev profile은 PostgreSQL/Flyway/`ddl-auto=validate`를 강제하고 H2/default credential/SQL init fallback을 제거했다.
+- `origin/main@5fb9cb67`에서 Config Server offline test, `bash -n`, diff/conflict/link/private-host/default-password 검사가 통과했고 독립 재리뷰 finding이 없다.
+- Docker Compose provider와 cached image가 없어 live bootstrap/restart는 미실행했다. 원격 DB·컨테이너·volume은 접근하거나 변경하지 않았다.
+- 최신 main 재검증 후 `agent/229-dev-postgres`를 push하고 Draft PR `#241`을 `Refs #229`로 열었다. merge/Issue close는 미실행이다.
 
 ### 📅 2026-07-30 (Codex Issue #42 실제 구현)
 ### [통합 완료] 거래처 등록·심사 승인 화면과 Master Data 승인 API 연동

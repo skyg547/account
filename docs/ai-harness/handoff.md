@@ -127,6 +127,29 @@
 ## Next Gate
 
 - Merge this integration-record PR, remove the Issue #43 worktree/local branches, and fast-forward the root `main` while preserving the user's untracked `scratch/` directory.
+# AI Harness Handoff - 2026-07-30 Issue #229 Development PostgreSQL Contract
+
+## State And Delivered Contract
+
+- Branch/worktree/base: `agent/229-dev-postgres` / `C:\tmp\account-229-dev-postgres` / `origin/main@5fb9cb67`.
+- The latest-main verified branch is pushed and Draft PR `#241` is open with `Refs #229`; merge and Issue close were not performed.
+- Local direct module execution remains H2. Containerized `dev` uses PostgreSQL.
+- Self-contained mode uses explicit `self-contained-db`, 16 database-specific owner roles, and a manifest written only after all bootstrap operations complete.
+- External mode uses a separate `external-dev` file with no local DB and an authenticated read-only probe using required `DEV_DB_*`.
+- Dev Config requires PostgreSQL/Flyway/JPA validate, disables SQL init, and has no H2/default credential fallback.
+- Example env files contain dummy values; real `.env` and `.env.external-dev` are ignored.
+
+## Verification, Risks, And Next Gate
+
+- `:config-server:test --offline`, `bash -n`, LF, diff/conflict/link/private-host/default-password checks passed.
+- Initial review findings for missing external override and early `pg_isready` were corrected; final independent review had no findings.
+- Docker Compose provider and cached PostgreSQL image are unavailable, so actual render/up, first bootstrap, restart and rerun idempotency are unverified.
+- #66 must put backend services and the selected DB/probe in the same Compose project before adding `depends_on.condition=service_healthy`.
+- #230 owns production external PostgreSQL/immutable Compose. Service migrations, PostgreSQL SQL parity and Batch metadata/restart remain module gates.
+- No shared DB login, metadata, schema, credential, remote container or migration was accessed or changed; the exact shared host is absent.
+- Rollback reverts Issue #229 files and uses `docker compose down` without `-v`, preserving named volumes and remote DB state.
+
+---
 
 # AI Harness Handoff - 2026-07-30 Issue #42 Master Data Partner Approval
 

@@ -1,0 +1,33 @@
+name: ${COMPOSE_PROJECT_NAME:-account-external-dev-db}
+
+services:
+  external-dev-db-check:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    profiles:
+      - external-dev
+    restart: unless-stopped
+    environment:
+      DEV_DB_HOST: "${DEV_DB_HOST:?Set DEV_DB_HOST in an untracked external-dev env file}"
+      DEV_DB_PORT: "${DEV_DB_PORT:-5432}"
+      DEV_DB_NAME: "${DEV_DB_NAME:?Set DEV_DB_NAME in an untracked external-dev env file}"
+      DEV_DB_USER: "${DEV_DB_USER:?Set DEV_DB_USER in an untracked external-dev env file}"
+      DEV_DB_PASSWORD: "${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in an untracked external-dev env file}"
+    command:
+      - sh
+      - -c
+      - while true; do sleep 3600; done
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'PGPASSWORD="$$DEV_DB_PASSWORD" psql --host "$$DEV_DB_HOST" --port "$$DEV_DB_PORT" --dbname "$$DEV_DB_NAME" --username "$$DEV_DB_USER" --no-psqlrc --tuples-only --no-align --quiet --command "SELECT 1" >/dev/null 2>&1'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+    driver: bridge

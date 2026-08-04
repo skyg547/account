@@ -1,17 +1,23 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres-db}:5432/${DB_NAME:account_dev}
-    driverClassName: org.postgresql.Driver
-    username: ${DB_USER:dev_user}
-    password: ${DB_PASSWORD:dev_pass}
+    url: jdbc:postgresql://${DEV_DB_HOST}:${DEV_DB_PORT:5432}/${DEV_DB_NAME}
+    driver-class-name: org.postgresql.Driver
+    username: ${DEV_DB_USER}
+    password: ${DEV_DB_PASSWORD}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+  sql:
+    init:
+      mode: never
 
   kafka:
     bootstrap-servers: ${KAFKA_HOST:kafka}:9092
