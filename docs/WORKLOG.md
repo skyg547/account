@@ -1,3 +1,22 @@
+### 📅 2026-08-05 (Closing 및 Master Data 모듈 서비스 인증 회계기간 상태 변경 경계 구축 - Issue #262)
+### [기능 강화/보안] 서비스 인증 기반 회계기간 상태 변경 경계 구축 및 게이트웨이 헤더 스푸핑 차단
+
+- **작업 배경**:
+  - 회계기간(FiscalPeriod)의 OPEN/CLOSED 상태 변경은 Closing 모듈의 승인 워크플로, 결산 캘린더/게이트 검증, 감사 감사 이력(lineage)을 반드시 거쳐야 함.
+  - Master Data 모듈에 임의 상태 변경용 raw CRUD PUT 엔드포인트를 노출하거나 외부 사용자가 직접 호출하는 것을 차단하고, 컨테이너 분리 환경에서 서비스 인증 기반 경계를 구축함.
+- **주요 변경 사항**:
+  - `master-data`:
+    - `InternalFiscalPeriodController`: 서비스간 전용 엔드포인트 `PUT /api/internal/fiscal-periods/{id}/closing-status` 구축. `X-Service-Identity: closing` 서비스 인증 헤더를 검증하여 미인증/스푸핑 요청 차단(403 Forbidden).
+    - `FiscalPeriodStatusUpdateRequestDto`: DTO 추가 및 유효성 검증 적용.
+  - `closing`:
+    - `HttpFiscalPeriodControlAdapter`: 원격 HTTP 컨테이너 환경에서 `X-Service-Identity: closing` 서비스 인증 헤더와 함께 Master Data 서비스의 회계기간 상태 변경을 안전하게 조율하는 어댑터 작성.
+    - `ClosingExceptionHandler`: `EntityNotFoundException`(404), `IllegalStateException`(409 Conflict), `IllegalArgumentException`(400 Bad Request)을 가시적인 HTTP 응답 코드로 변환하는 인바운드 예외 처리 추가.
+    - `ClosingFiscalPeriodControlBoundaryIntegrationTest`: Reopen approval 요청, 동일 요청자 승인 시도 거부(requester != approver), 중복 PENDING 요청 충돌, 404/409 상태 코드 검증 통합 테스트 작성.
+  - `gateway`:
+    - `JwtAuthenticationFilter`: `X-Service-Identity`, `X-Internal-Token`, `X-Service-Name` 헤더를 `TRUSTED_IDENTITY_HEADERS`에 추가하여 외부 요청의 서비스 헤더 스푸핑을 강제 제거하고, 외부에서 `/api/internal/**` 경로 직통 접근 시 404 NOT_FOUND/403 FORBIDDEN 처리.
+- **검증**:
+  - `.\gradlew :closing:api:test :closing:core:test :master-data:api:test :master-data:core:test :gateway:test` 전수 100% 통과 (BUILD SUCCESSFUL in 58s).
+
 ### 📅 2026-08-05 (Master Data 모듈 Business Partner SCD2 historical active 의미 복원 - Issue #261)
 ### [버그 수정] BusinessPartner terminate 시 useYn 유지 및 V7 Flyway SCD2 백필 마이그레이션 적용
 

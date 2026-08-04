@@ -39,11 +39,15 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final String LOGIN_PATH = "/api/auth/login";
     private static final String TOKEN_VERSION_PATH = "/api/auth/validate-token-version";
     private static final String INTERNAL_AUTH_PATH_PREFIX = "/api/auth/internal/";
+    private static final String INTERNAL_PATH_PREFIX = "/api/internal/";
     private static final List<String> TRUSTED_IDENTITY_HEADERS = List.of(
             AUTH_USER_HEADER,
             AUTH_ROLES_HEADER,
             AUTH_ROLE_VERSION_HEADER,
-            AUTH_DEPARTMENT_HEADER);
+            AUTH_DEPARTMENT_HEADER,
+            "X-Service-Identity",
+            "X-Internal-Token",
+            "X-Service-Name");
 
     private final AccessTokenVerifier accessTokenVerifier;
     private final TokenVersionValidator tokenVersionValidator;
@@ -151,7 +155,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isInternalAuthPath(String path) {
-        return TOKEN_VERSION_PATH.equals(path) || path.startsWith(INTERNAL_AUTH_PATH_PREFIX);
+        return TOKEN_VERSION_PATH.equals(path)
+                || path.startsWith(INTERNAL_AUTH_PATH_PREFIX)
+                || path.startsWith(INTERNAL_PATH_PREFIX);
     }
 
     private Mono<Void> onError(ServerHttpResponse response, String errorCode, HttpStatus status) {
