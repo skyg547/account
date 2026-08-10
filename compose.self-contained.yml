@@ -1,0 +1,85 @@
+version: "3.8"
+
+name: ${COMPOSE_PROJECT_NAME:-account-dev}
+
+x-self-contained-db-dependency: &self-contained-db-dependency
+  self-contained-schema-check:
+    condition: service_healthy
+
+services:
+  postgres-db:
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:?Set ACCOUNT_DATABASES}"
+      ACCOUNT_DB_OWNER_PASSWORD: "${ACCOUNT_DB_OWNER_PASSWORD:?Set ACCOUNT_DB_OWNER_PASSWORD}"
+      ACCOUNT_DB_APP_PASSWORD: "${ACCOUNT_DB_APP_PASSWORD:?Set ACCOUNT_DB_APP_PASSWORD}"
+
+  self-contained-schema-check:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    profiles: ["self-contained", "apis", "batch"]
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres-db
+      PGPORT: "5432"
+      PGPASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}"
+      POSTGRES_USER: "${POSTGRES_ADMIN_USER:-account_admin}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:?Set ACCOUNT_DATABASES}"
+    volumes:
+      - ./postgres/runtime:/account-runtime:ro
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "/account-runtime/check-runtime-schemas.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+    networks: [account-network]
+
+  migration-runner:
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  runtime-grants:
+    environment:
+      PGPASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:?Set ACCOUNT_DATABASES}"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  account-mart-api: {depends_on: *self-contained-db-dependency}
+  account-mart-batch: {depends_on: *self-contained-db-dependency}
+  asset-lease-api: {depends_on: *self-contained-db-dependency}
+  asset-lease-batch: {depends_on: *self-contained-db-dependency}
+  auth-api: {depends_on: *self-contained-db-dependency}
+  budget-api: {depends_on: *self-contained-db-dependency}
+  budget-batch: {depends_on: *self-contained-db-dependency}
+  closing-api: {depends_on: *self-contained-db-dependency}
+  closing-batch: {depends_on: *self-contained-db-dependency}
+  deposit-api: {depends_on: *self-contained-db-dependency}
+  deposit-batch: {depends_on: *self-contained-db-dependency}
+  ecl-api: {depends_on: *self-contained-db-dependency}
+  ecl-batch: {depends_on: *self-contained-db-dependency}
+  expenditure-resolution-api: {depends_on: *self-contained-db-dependency}
+  expenditure-resolution-batch: {depends_on: *self-contained-db-dependency}
+  internal-audit-api: {depends_on: *self-contained-db-dependency}
+  journal-ledger-api: {depends_on: *self-contained-db-dependency}
+  journal-ledger-batch: {depends_on: *self-contained-db-dependency}
+  loan-api: {depends_on: *self-contained-db-dependency}
+  loan-batch: {depends_on: *self-contained-db-dependency}
+  master-data-api: {depends_on: *self-contained-db-dependency}
+  master-data-batch: {depends_on: *self-contained-db-dependency}
+  payable-api: {depends_on: *self-contained-db-dependency}
+  payable-batch: {depends_on: *self-contained-db-dependency}
+  receivable-api: {depends_on: *self-contained-db-dependency}
+  receivable-batch: {depends_on: *self-contained-db-dependency}
+  reconciliation-api: {depends_on: *self-contained-db-dependency}
+  reconciliation-batch: {depends_on: *self-contained-db-dependency}
+  reporting-api: {depends_on: *self-contained-db-dependency}
+  reporting-batch: {depends_on: *self-contained-db-dependency}
+  tax-api: {depends_on: *self-contained-db-dependency}
+  tax-batch: {depends_on: *self-contained-db-dependency}

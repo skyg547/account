@@ -89,15 +89,18 @@ docker compose --env-file .env -f postgres/docker-compose.yml down
 
 ## Shared External Dev
 
-공유 개발 PostgreSQL을 사용할 때는 `self-contained-db` profile을 선택하지 않습니다. 별도 env 파일을 만들고 실제 host/user/password는 Git에 추가하지 않습니다.
+공유 개발 PostgreSQL을 사용할 때는 `self-contained`/`self-contained-db` profile을 선택하지 않습니다. 별도 env 파일을 만들고 실제 host/user/password는 Git에 추가하지 않습니다.
 
 ```powershell
 Copy-Item .env.external-dev.example .env.external-dev
-docker compose --env-file .env.external-dev -f postgres/compose.external-dev.yml --profile external-dev up -d external-dev-db-check
-docker compose --env-file .env.external-dev -f postgres/compose.external-dev.yml ps
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
+  -Mode ExternalDev -EnvFile .\.env.external-dev
+docker compose --env-file .env.external-dev `
+  -f docker-compose.yml -f compose.external-dev.yml `
+  --profile external-dev --profile apis config --quiet
 ```
 
-`external-dev-db-check`는 실제 login으로 `SELECT 1`을 실행해야 healthy가 됩니다. 이 probe는 database/schema migration을 만들거나 수정하지 않습니다. #66의 external-dev 서비스 Compose는 probe의 `service_healthy`에 의존하고, 같은 `DEV_DB_*` 값을 서비스 컨테이너에 주입해야 합니다.
+`external-dev-db-check`는 17개 context runtime login으로 실제 접속하고 업무 테이블 존재와 Flyway history 비노출을 확인해야 healthy가 됩니다. 이 probe는 database/schema migration을 만들거나 수정하지 않습니다. 루트 external-dev 서비스는 probe의 `service_healthy`에 의존하고 context별 `*_DB_URL/USER/PASSWORD`를 서비스 컨테이너에 주입합니다.
 
 ```text
 SPRING_PROFILES_ACTIVE=dev
@@ -112,7 +115,12 @@ host, JDBC URL, username, password를 Git 추적 파일, Issue, worklog, 빌드 
 
 ## Migration And Fail-Fast Policy
 
-`config-repo/application-dev.yml`은 PostgreSQL driver를 고정하고 `DEV_DB_HOST`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`가 없으면 시작을 실패시킵니다. Self-contained 서비스에서도 #66이 각 database/runtime role에 맞는 `DEV_DB_*` 값을 주입합니다. owner credential은 release migration에만 사용합니다. H2 fallback, `ddl-auto=update`, 자동 `schema.sql` 실행은 허용하지 않습니다.
+`config-repo/application-dev.yml`과 모듈별 dev profile은 PostgreSQL driver를 고정하고 직접 실행 시
+`DEV_DB_HOST`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`가 없으면 시작을 실패시킵니다.
+루트 Compose는 context별 `*_DB_URL/USER/PASSWORD`를 각 컨테이너의 표준
+`SPRING_DATASOURCE_*`로 매핑해 같은 설정을 명시적으로 override합니다. owner credential은 release
+migration에만 사용합니다. H2 fallback, `ddl-auto=update`, 자동 `schema.sql` 실행은 허용하지
+않습니다.
 
 - JPA: `ddl-auto=validate`
 - Flyway: 장기 실행 앱에서는 disabled, 승인된 release migration runner에서만 migrate/validate
@@ -124,19 +132,18 @@ host, JDBC URL, username, password를 Git 추적 파일, Issue, worklog, 빌드 
 
 ## Verification And Rollback
 
-Docker 사용 가능 환경:
+Docker/Podman Compose provider 사용 가능 환경:
 
 ```powershell
-docker compose --env-file .env.example -f postgres/docker-compose.yml config
-docker compose --env-file .env.external-dev.example -f postgres/compose.external-dev.yml config
-docker compose --env-file .env -f postgres/docker-compose.yml --profile self-contained-db up -d postgres-db
-docker compose --env-file .env -f postgres/docker-compose.yml ps
+docker compose --env-file .env.dev.example -f docker-compose.yml -f compose.self-contained.yml --profile self-contained --profile apis config --quiet
+docker compose --env-file .env.external-dev.example -f docker-compose.yml -f compose.external-dev.yml --profile external-dev --profile apis config --quiet
 ```
 
 저장소 정적 계약:
 
 ```powershell
 .\gradlew :config-server:test --offline --console=plain --max-workers=1 --no-daemon
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 -SelfTest
 git diff --check
 ```
 

@@ -2560,3 +2560,13 @@
 - 영향 모듈 244개 테스트와 179-task Gradle/bootJar 검증, H2/Flyway/JPA validate 기반 로컬 JAR 시작, 운영 manifest/template 정책 검증이 통과했다.
 - 독립 리뷰의 지적을 모두 반영했고 남은 P0-P3가 없다. commit `5052163c`를 push하고 Draft PR #338을 열었다.
 - Docker/실 PostgreSQL/원격 개발 서버는 사용하지 않았으므로 실제 Compose와 PostgreSQL 및 live Gateway/Eureka 검증은 외부 게이트로 남는다.
+
+### 📅 2026-08-11 (Issue #66 개발 Compose 통합)
+### [PR 검토 준비] 전체 MSA 개발 실행면과 두 PostgreSQL 모드
+
+- 루트 개발 Compose에 플랫폼 3개, 프런트엔드, API 17개, 선택 실행 Batch 15개 등 활성 image target 36개를 정합화했다.
+- self-contained 모드는 PostgreSQL/Redis/Kafka, release migration, runtime grant와 17개 스키마 권한 gate를 소유한다. external-dev 모드는 중복 인프라를 생성하지 않고 context별 runtime 계정으로 읽기 전용 준비 상태를 확인한다.
+- 업무 API/Batch는 dev PostgreSQL, JPA validate, runtime Flyway/DDL/SQL-init 차단을 사용한다. Batch는 non-web·job-disabled이고 업무 포트는 외부에 공개하지 않는다.
+- 정책 테스트 6개, Config/Gateway/migration-runner 및 159-task 패키징 검증, 환경 validator, shell 정적 검사와 122-route 프런트엔드 production build가 통과했다. 독립 최종 리뷰에 남은 P0-P3가 없다.
+- Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
+- commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.

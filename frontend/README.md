@@ -22,21 +22,43 @@
 # 1. 프론트엔드 폴더로 이동
 cd frontend
 
-# 2. 필요한 도구들(패키지) 설치
-npm install
+# 2. package-lock.json 그대로 의존성 설치
+npm ci
 
 # 3. 개발 서버 실행
-npm run dev
+npm run dev -- --hostname 0.0.0.0
 ```
 이제 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어보세요!
 
-### 🐳 Docker로 간편하게 실행하기 (Docker 필요)
-설사 내 컴퓨터에 Node.js가 없어도 도커만 있다면 실행할 수 있습니다.
-```bash
-# 1. 이미지 빌드 및 실행
-docker-compose up --build
+상대 경로 `/api` 요청(로그인 포함)은 Next.js 개발 서버가 `GATEWAY_INTERNAL_URL`로 전달하며,
+로컬 npm 실행 시 기본 Gateway 주소는 `http://localhost:8000`입니다. Gateway를 다른 주소에서
+실행할 때만 환경 변수를 지정하세요. 기존 PAT/Governance 화면은 아직 Gateway 전용 route와
+권한 경계가 완성되지 않았으므로 기존 `NEXT_PUBLIC_AUTH_API_URL`,
+`NEXT_PUBLIC_GOVERNANCE_API_URL` 직접 override 계약을 유지합니다.
+
+### 🐳 루트 Compose로 통합 실행하기 (Docker/Podman 필요)
+
+루트 Compose는 Config Server, Discovery, Gateway, Frontend와 API 서비스를 함께 실행합니다.
+처음 실행할 때 예제 환경 파일을 복사하고 모든 `replace-with-...` 값을 로컬 전용 값으로 바꾸세요.
+
+```powershell
+Copy-Item .env.dev.example .env.dev
+docker compose --env-file .env.dev `
+  -f docker-compose.yml `
+  -f compose.self-contained.yml `
+  --profile self-contained `
+  --profile apis `
+  up --build
 ```
-이제 [http://localhost:4000](http://localhost:4000)에서 결과를 확인할 수 있습니다.
+
+명령은 저장소 루트에서 실행합니다. self-contained 모드는 로컬 PostgreSQL, Redis, Kafka를 함께
+기동하며 Frontend는 [http://localhost:3000](http://localhost:3000), Gateway는
+[http://localhost:8000](http://localhost:8000)에 바인딩됩니다. 개발 Frontend 컨테이너는
+Node.js 20과 `npm ci` 의존성 레이어를 사용하고 non-root 사용자로 Next 개발 서버를 실행합니다.
+production 이미지는 별도 `frontend/Containerfile` 계약을 그대로 사용합니다.
+`GATEWAY_INTERNAL_URL`이 없는 production build에는 개발 rewrite를 포함하지 않습니다.
+새 self-contained DB에서는 API보다 먼저 17개 migration과 runtime grant를 완료해야 합니다.
+전체 순서는 [`docs/development-compose.md`](../docs/development-compose.md)를 따릅니다.
 
 ---
 

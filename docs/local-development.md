@@ -241,12 +241,21 @@ Config Server는 DB가 필요하지 않습니다. 다음 상태가 모두 확인
 .\start-infra.bat
 ```
 
-또는 필요한 컨테이너만 Docker Compose로 실행합니다.
+개발 컨테이너 통합 실행은 환경 파일과 DB mode overlay가 필수입니다. bare
+`docker compose up`은 사용하지 않습니다.
 
 ```powershell
-docker compose up -d
-docker compose ps
+Copy-Item .env.dev.example .env.dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
+  -Mode SelfContained -EnvFile .\.env.dev
+docker compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml `
+  --profile self-contained --profile apis config --quiet
 ```
+
+DB migration/grant와 전체 기동 순서는 [development-compose.md](./development-compose.md)를
+따릅니다. 공유 개발 DB는 `compose.external-dev.yml`을 사용하며 self-contained profile을
+동시에 선택하지 않습니다.
 
 로컬 단위 테스트와 H2 기반 모듈 실행만 확인할 때는 인프라를 모두 띄우지 않아도 됩니다.
 

@@ -72,3 +72,4 @@
 
 | 2026-07-22 | Codex | Coder / Integrator Agent | `agent/asset-lease-split` | Review ready / reverified 2026-07-28 | Contracts/shared-kernel second pass reverified after resource recovery; Jackson family mismatch and invalid ECL checked-exception test were corrected, with the 140-test affected set green. |
 | 2026-08-11 | Codex | Coder / Integrator Agent | `agent/231-internal-audit-runtime-boundary` | Review ready | Internal Audit executable API/Core boundary, H2/PostgreSQL profiles, V60 migrations, Gateway/Compose wiring and 244 tests verified; Draft PR #338. |
+| 2026-08-11 | Codex | Integrator Agent | `agent/66-compose-runtime-topology` | Review ready | Root dev topology for 36 targets, self-contained/external-dev PostgreSQL modes, validator, policy tests and Frontend build verified; commit `375105ab`, Draft PR #339; live Compose/PostgreSQL gates remain. |

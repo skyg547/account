@@ -15,7 +15,7 @@ export interface LoginResponse {
   roleVersion: number;
 }
 
-const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8080';
+const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || '';
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {

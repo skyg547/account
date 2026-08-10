@@ -98,6 +98,7 @@ export default function PersonalAccessTokenPage() {
       <PageHeader
         title="개인용 액세스 토큰 (PAT) 관리"
         description="AI 에이전트, 스크립트, CLI 도구에서 비인가 접속 없이 안전하게 사용할 수 있는 전용 마스터 키를 생성 및 발급합니다."
+        breadcrumbs={[{ label: 'Profile' }, { label: 'Personal Access Tokens' }]}
       />
 
       {/* 1. 신규 토큰 발급 폼 카드 */}

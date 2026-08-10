@@ -1,75 +1,683 @@
-version: '3.8'
+version: "3.8"
+
+name: ${COMPOSE_PROJECT_NAME:-account-dev}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-common-runtime-environment: &common-runtime-environment
+  SPRING_PROFILES_ACTIVE: dev
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "${DEV_KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+  SPRING_DATA_REDIS_HOST: "${DEV_REDIS_HOST:-redis}"
+  SPRING_DATA_REDIS_PORT: "${DEV_REDIS_PORT:-6379}"
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+  EUREKA_CLIENT_ENABLED: "true"
+  SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+  SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+  SPRING_JPA_OPEN_IN_VIEW: "false"
+  SPRING_FLYWAY_ENABLED: "false"
+  SPRING_FLYWAY_CLEAN_DISABLED: "true"
+  SPRING_SQL_INIT_MODE: never
+  SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: never
+
+x-config-client-environment: &config-client-environment
+  SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+  SPRING_CLOUD_CONFIG_ENABLED: "true"
+
+x-api-service: &api-service
+  restart: on-failure
+  init: true
+  environment:
+    <<: *common-runtime-environment
+    SERVER_PORT: "8080"
+    MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+  depends_on:
+    config-server:
+      condition: service_healthy
+    discovery:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+    interval: 20s
+    timeout: 5s
+    retries: 12
+    start_period: 60s
+  logging: *default-logging
+  networks: [account-network]
+
+x-batch-service: &batch-service
+  restart: "no"
+  init: true
+  environment:
+    <<: *common-runtime-environment
+    SPRING_MAIN_WEB_APPLICATION_TYPE: none
+    SPRING_BATCH_JOB_ENABLED: "false"
+  depends_on:
+    config-server:
+      condition: service_healthy
+    discovery:
+      condition: service_healthy
+  logging: *default-logging
+  networks: [account-network]
 
 services:
   postgres-db:
-    image: postgres:15-alpine
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    profiles: ["self-contained"]
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: dev_user
-      POSTGRES_PASSWORD: dev_pass
-      POSTGRES_DB: account_dev
+      POSTGRES_DB: "${POSTGRES_ADMIN_DB:-postgres}"
+      POSTGRES_USER: "${POSTGRES_ADMIN_USER:-account_admin}"
+      POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:-}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:-auth_dev,master_data_dev,internal_audit_dev,budget_dev,journal_ledger_dev,closing_dev,loan_dev,deposit_dev,asset_lease_dev,payable_dev,receivable_dev,reconciliation_dev,tax_dev,expenditure_resolution_dev,reporting_dev,account_mart_dev,ecl_dev}"
+      ACCOUNT_DB_OWNER_PASSWORD: "${ACCOUNT_DB_OWNER_PASSWORD:-}"
+      ACCOUNT_DB_APP_PASSWORD: "${ACCOUNT_DB_APP_PASSWORD:-}"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - account-network
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/runtime:/account-runtime:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" && test "$$(psql --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --no-psqlrc --tuples-only --no-align --quiet --command "SELECT database_manifest FROM public.account_dev_bootstrap_status WHERE singleton = true AND completed = true")" = "$$ACCOUNT_DATABASES"'
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    logging: *default-logging
+    networks: [account-network]
 
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    profiles: ["self-contained"]
+    restart: unless-stopped
     ports:
-      - "6379:6379"
-    networks:
-      - account-network
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *default-logging
+    networks: [account-network]
 
   kafka:
-    image: bitnami/kafka:3.5
+    image: ${KAFKA_IMAGE:-bitnami/kafka:3.7}
+    profiles: ["self-contained"]
+    restart: unless-stopped
     environment:
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
     ports:
-      - "9092:9092"
-    networks:
-      - account-network
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging: *default-logging
+    networks: [account-network]
+
+  config-server:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":config-server"
+        JAR_DIRECTORY: config-server
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      CONFIG_REPO_LOCATION: file:/config-repo
+      SERVER_PORT: "8888"
+    volumes:
+      - ./config-repo:/config-repo:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8888/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging: *default-logging
+    networks: [account-network]
+
+  discovery:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":discovery"
+        JAR_DIRECTORY: discovery
+    restart: unless-stopped
+    init: true
+    environment:
+      SERVER_PORT: "8761"
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8761/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    logging: *default-logging
+    networks: [account-network]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":gateway"
+        JAR_DIRECTORY: gateway
+    profiles: ["platform", "apis"]
+    restart: on-failure
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8000"
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the untracked environment file}"
+      AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: http://auth-api:8080
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${DEV_GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/actuator/health/readiness || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    logging: *default-logging
+    networks: [account-network]
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Containerfile.dev
+    profiles: ["platform", "apis"]
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      GATEWAY_INTERNAL_URL: http://gateway:8000
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${DEV_FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next_cache:/app/.next
+    logging: *default-logging
+    networks: [account-network]
+
+  migration-runner:
+    build:
+      context: .
       dockerfile: Containerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
-    ports:
-      - "3000:3000"
-    networks:
-      - account-network
+        GRADLE_PROJECT: ":migration-runner"
+        JAR_DIRECTORY: migration-runner
+    profiles: ["migration"]
+    restart: "no"
+    environment:
+      MIGRATION_DB_URL: "${MIGRATION_DB_URL:-}"
+      MIGRATION_DB_USER: "${MIGRATION_DB_USER:-}"
+      MIGRATION_DB_PASSWORD: "${MIGRATION_DB_PASSWORD:-}"
+      MIGRATION_TARGET_ENV: development
+      MIGRATION_EXPECTED_DATABASE: "${MIGRATION_EXPECTED_DATABASE:-}"
+      MIGRATION_ALLOW_MIGRATE: "${MIGRATION_ALLOW_MIGRATE:-false}"
+      MIGRATION_CHANGE_TICKET: "${MIGRATION_CHANGE_TICKET:-}"
+    command:
+      - "--context=${MIGRATION_CONTEXT:-__context_required__}"
+      - "--action=${MIGRATION_ACTION:-validate}"
+    logging: *default-logging
+    networks: [account-network]
 
-# Add backend services like master-data, closing here
-#  master-data:
-#    build:
-#      context: .
-#      dockerfile: Containerfile
-#      args:
-#        MODULE_NAME: master-data
-#    environment:
-#      - SPRING_PROFILES_ACTIVE=dev
-#      - DB_HOST=postgres-db
-#      - REDIS_HOST=redis
-#      - KAFKA_HOST=kafka
-#    ports:
-#      - "8081:8080"
-#    depends_on:
-#      - postgres-db
-#      - redis
-#      - kafka
-#    networks:
-#      - account-network
+  runtime-grants:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    profiles: ["migration"]
+    restart: "no"
+    environment:
+      PGHOST: "${GRANT_DB_HOST:-postgres-db}"
+      PGPORT: "${GRANT_DB_PORT:-5432}"
+      PGPASSWORD: "${POSTGRES_ADMIN_PASSWORD:-}"
+      POSTGRES_USER: "${POSTGRES_ADMIN_USER:-account_admin}"
+      ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:-auth_dev,master_data_dev,internal_audit_dev,budget_dev,journal_ledger_dev,closing_dev,loan_dev,deposit_dev,asset_lease_dev,payable_dev,receivable_dev,reconciliation_dev,tax_dev,expenditure_resolution_dev,reporting_dev,account_mart_dev,ecl_dev}"
+    volumes:
+      - ./postgres/runtime:/account-runtime:ro
+    command: ["sh", "/account-runtime/grant-runtime-privileges.sh"]
+    logging: *default-logging
+    networks: [account-network]
+
+  account-mart-api:
+    <<: *api-service
+    profiles: ["apis", "risk"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":account-mart:mart-api", JAR_DIRECTORY: account-mart/mart-api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${ACCOUNT_MART_DB_URL:?Set ACCOUNT_MART_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ACCOUNT_MART_DB_USER:?Set ACCOUNT_MART_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ACCOUNT_MART_DB_PASSWORD:?Set ACCOUNT_MART_DB_PASSWORD in the untracked environment file}"
+
+  account-mart-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":account-mart:mart-batch", JAR_DIRECTORY: account-mart/mart-batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${ACCOUNT_MART_DB_URL:?Set ACCOUNT_MART_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ACCOUNT_MART_DB_USER:?Set ACCOUNT_MART_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ACCOUNT_MART_DB_PASSWORD:?Set ACCOUNT_MART_DB_PASSWORD in the untracked environment file}"
+
+  asset-lease-api:
+    <<: *api-service
+    profiles: ["apis", "products"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":asset-lease:api", JAR_DIRECTORY: asset-lease/api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${ASSET_LEASE_DB_URL:?Set ASSET_LEASE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ASSET_LEASE_DB_USER:?Set ASSET_LEASE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ASSET_LEASE_DB_PASSWORD:?Set ASSET_LEASE_DB_PASSWORD in the untracked environment file}"
+
+  asset-lease-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":asset-lease:batch", JAR_DIRECTORY: asset-lease/batch}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${ASSET_LEASE_DB_URL:?Set ASSET_LEASE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ASSET_LEASE_DB_USER:?Set ASSET_LEASE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ASSET_LEASE_DB_PASSWORD:?Set ASSET_LEASE_DB_PASSWORD in the untracked environment file}"
+
+  auth-api:
+    <<: *api-service
+    profiles: ["apis", "foundation"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":auth:api", JAR_DIRECTORY: auth/api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?Set AUTH_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?Set AUTH_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in the untracked environment file}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the untracked environment file}"
+      AUTH_DEFAULT_PASSWORD: "${AUTH_DEFAULT_PASSWORD:?Set AUTH_DEFAULT_PASSWORD in the untracked environment file}"
+      AUTH_INTERNAL_API_TOKEN: "${AUTH_INTERNAL_API_TOKEN:?Set AUTH_INTERNAL_API_TOKEN in the untracked environment file}"
+
+  budget-api:
+    <<: *api-service
+    profiles: ["apis", "foundation"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":budget:api", JAR_DIRECTORY: budget/api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      BUDGET_DISCOVERY_ENABLED: "true"
+      BUDGET_EUREKA_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${BUDGET_DB_URL:?Set BUDGET_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${BUDGET_DB_USER:?Set BUDGET_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${BUDGET_DB_PASSWORD:?Set BUDGET_DB_PASSWORD in the untracked environment file}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the untracked environment file}"
+
+  budget-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":budget:batch", JAR_DIRECTORY: budget/batch}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${BUDGET_DB_URL:?Set BUDGET_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${BUDGET_DB_USER:?Set BUDGET_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${BUDGET_DB_PASSWORD:?Set BUDGET_DB_PASSWORD in the untracked environment file}"
+
+  closing-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":closing:api", JAR_DIRECTORY: closing/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?Set CLOSING_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?Set CLOSING_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${CLOSING_DB_PASSWORD:?Set CLOSING_DB_PASSWORD in the untracked environment file}"
+
+  closing-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":closing:batch", JAR_DIRECTORY: closing/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?Set CLOSING_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?Set CLOSING_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${CLOSING_DB_PASSWORD:?Set CLOSING_DB_PASSWORD in the untracked environment file}"
+
+  deposit-api:
+    <<: *api-service
+    profiles: ["apis", "products"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":deposit:api", JAR_DIRECTORY: deposit/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${DEPOSIT_DB_URL:?Set DEPOSIT_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${DEPOSIT_DB_USER:?Set DEPOSIT_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${DEPOSIT_DB_PASSWORD:?Set DEPOSIT_DB_PASSWORD in the untracked environment file}"
+
+  deposit-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":deposit:batch", JAR_DIRECTORY: deposit/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${DEPOSIT_DB_URL:?Set DEPOSIT_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${DEPOSIT_DB_USER:?Set DEPOSIT_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${DEPOSIT_DB_PASSWORD:?Set DEPOSIT_DB_PASSWORD in the untracked environment file}"
+
+  ecl-api:
+    <<: *api-service
+    profiles: ["apis", "risk"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":ecl:ecl-api", JAR_DIRECTORY: ecl/ecl-api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${ECL_DB_URL:?Set ECL_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ECL_DB_USER:?Set ECL_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ECL_DB_PASSWORD:?Set ECL_DB_PASSWORD in the untracked environment file}"
+
+  ecl-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":ecl:ecl-batch", JAR_DIRECTORY: ecl/ecl-batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${ECL_DB_URL:?Set ECL_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${ECL_DB_USER:?Set ECL_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${ECL_DB_PASSWORD:?Set ECL_DB_PASSWORD in the untracked environment file}"
+
+  expenditure-resolution-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":expenditure-resolution:api", JAR_DIRECTORY: expenditure-resolution/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?Set EXPENDITURE_RESOLUTION_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?Set EXPENDITURE_RESOLUTION_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?Set EXPENDITURE_RESOLUTION_DB_PASSWORD in the untracked environment file}"
+
+  expenditure-resolution-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":expenditure-resolution:batch", JAR_DIRECTORY: expenditure-resolution/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?Set EXPENDITURE_RESOLUTION_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?Set EXPENDITURE_RESOLUTION_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?Set EXPENDITURE_RESOLUTION_DB_PASSWORD in the untracked environment file}"
+
+  internal-audit-api:
+    <<: *api-service
+    profiles: ["apis", "foundation"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":internal-audit:api", JAR_DIRECTORY: internal-audit/api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${INTERNAL_AUDIT_DB_URL:?Set INTERNAL_AUDIT_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${INTERNAL_AUDIT_DB_USER:?Set INTERNAL_AUDIT_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${INTERNAL_AUDIT_DB_PASSWORD:?Set INTERNAL_AUDIT_DB_PASSWORD in the untracked environment file}"
+
+  journal-ledger-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":journal-ledger:api", JAR_DIRECTORY: journal-ledger/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?Set JOURNAL_LEDGER_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?Set JOURNAL_LEDGER_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?Set JOURNAL_LEDGER_DB_PASSWORD in the untracked environment file}"
+
+  journal-ledger-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":journal-ledger:batch", JAR_DIRECTORY: journal-ledger/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?Set JOURNAL_LEDGER_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?Set JOURNAL_LEDGER_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?Set JOURNAL_LEDGER_DB_PASSWORD in the untracked environment file}"
+
+  loan-api:
+    <<: *api-service
+    profiles: ["apis", "products"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":loan:api", JAR_DIRECTORY: loan/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${LOAN_DB_URL:?Set LOAN_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${LOAN_DB_USER:?Set LOAN_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${LOAN_DB_PASSWORD:?Set LOAN_DB_PASSWORD in the untracked environment file}"
+
+  loan-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":loan:batch", JAR_DIRECTORY: loan/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${LOAN_DB_URL:?Set LOAN_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${LOAN_DB_USER:?Set LOAN_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${LOAN_DB_PASSWORD:?Set LOAN_DB_PASSWORD in the untracked environment file}"
+
+  master-data-api:
+    <<: *api-service
+    profiles: ["apis", "foundation"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":master-data:api", JAR_DIRECTORY: master-data/api}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${MASTER_DATA_DB_URL:?Set MASTER_DATA_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${MASTER_DATA_DB_USER:?Set MASTER_DATA_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${MASTER_DATA_DB_PASSWORD:?Set MASTER_DATA_DB_PASSWORD in the untracked environment file}"
+
+  master-data-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":master-data:batch", JAR_DIRECTORY: master-data/batch}}
+    environment:
+      <<: [*common-runtime-environment, *config-client-environment]
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${MASTER_DATA_DB_URL:?Set MASTER_DATA_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${MASTER_DATA_DB_USER:?Set MASTER_DATA_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${MASTER_DATA_DB_PASSWORD:?Set MASTER_DATA_DB_PASSWORD in the untracked environment file}"
+
+  payable-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":payable:api", JAR_DIRECTORY: payable/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?Set PAYABLE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?Set PAYABLE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${PAYABLE_DB_PASSWORD:?Set PAYABLE_DB_PASSWORD in the untracked environment file}"
+
+  payable-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":payable:batch", JAR_DIRECTORY: payable/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?Set PAYABLE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?Set PAYABLE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${PAYABLE_DB_PASSWORD:?Set PAYABLE_DB_PASSWORD in the untracked environment file}"
+
+  receivable-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":receivable:api", JAR_DIRECTORY: receivable/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?Set RECEIVABLE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?Set RECEIVABLE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?Set RECEIVABLE_DB_PASSWORD in the untracked environment file}"
+
+  receivable-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":receivable:batch", JAR_DIRECTORY: receivable/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?Set RECEIVABLE_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?Set RECEIVABLE_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?Set RECEIVABLE_DB_PASSWORD in the untracked environment file}"
+
+  reconciliation-api:
+    <<: *api-service
+    profiles: ["apis", "risk"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reconciliation:api", JAR_DIRECTORY: reconciliation/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${RECONCILIATION_DB_URL:?Set RECONCILIATION_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${RECONCILIATION_DB_USER:?Set RECONCILIATION_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${RECONCILIATION_DB_PASSWORD:?Set RECONCILIATION_DB_PASSWORD in the untracked environment file}"
+
+  reconciliation-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reconciliation:batch", JAR_DIRECTORY: reconciliation/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${RECONCILIATION_DB_URL:?Set RECONCILIATION_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${RECONCILIATION_DB_USER:?Set RECONCILIATION_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${RECONCILIATION_DB_PASSWORD:?Set RECONCILIATION_DB_PASSWORD in the untracked environment file}"
+
+  reporting-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reporting:api", JAR_DIRECTORY: reporting/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?Set REPORTING_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?Set REPORTING_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${REPORTING_DB_PASSWORD:?Set REPORTING_DB_PASSWORD in the untracked environment file}"
+
+  reporting-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reporting:batch", JAR_DIRECTORY: reporting/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?Set REPORTING_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?Set REPORTING_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${REPORTING_DB_PASSWORD:?Set REPORTING_DB_PASSWORD in the untracked environment file}"
+
+  tax-api:
+    <<: *api-service
+    profiles: ["apis", "accounting"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":tax:api", JAR_DIRECTORY: tax/api}}
+    environment:
+      <<: *common-runtime-environment
+      SERVER_PORT: "8080"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      SPRING_DATASOURCE_URL: "${TAX_DB_URL:?Set TAX_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?Set TAX_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${TAX_DB_PASSWORD:?Set TAX_DB_PASSWORD in the untracked environment file}"
+
+  tax-batch:
+    <<: *batch-service
+    profiles: ["batch"]
+    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":tax:batch", JAR_DIRECTORY: tax/batch}}
+    environment:
+      <<: *common-runtime-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${TAX_DB_URL:?Set TAX_DB_URL in the untracked environment file}"
+      SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?Set TAX_DB_USER in the untracked environment file}"
+      SPRING_DATASOURCE_PASSWORD: "${TAX_DB_PASSWORD:?Set TAX_DB_PASSWORD in the untracked environment file}"
 
 networks:
   account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
     driver: bridge
 
 volumes:
   postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-account-dev-postgres-data}
+  frontend_node_modules:
+  frontend_next_cache:

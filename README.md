@@ -260,8 +260,9 @@ docker-compose logs -f
 1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
 2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
 3. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/local-development.md)**: IntelliJ, JDK 17, Gradle, 모듈별 bootRun 설정
-4. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태와 후속 Issue
-5. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
-6. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
+4. 🐳 **[개발 Compose 실행 가이드 (development-compose.md)](docs/development-compose.md)**: 전체 API/Batch, self-contained/external-dev PostgreSQL, Frontend 개발 컨테이너
+5. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태와 후속 Issue
+6. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+7. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
 
 각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
