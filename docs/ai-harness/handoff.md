@@ -1347,3 +1347,19 @@
 - Production validator self-test/template passed with 91 required variables, 36 immutable images and 16 PostgreSQL URLs. Git Bash syntax, diff and marker checks passed.
 - Independent review drove JWT/Auth route, Actuator, network, DB role/grant, migration-history and sequence-privilege corrections; final review found no P0-P3.
 - Real PostgreSQL role/ACL/TLS, image build and Compose start/health were not run. No external development host or secret was accessed. Rollback is a normal revert of `d904c2ce`; do not delete database volumes or rewrite migrations.
+
+# AI Harness Handoff - 2026-08-11 Issue #231 Internal Audit Runtime Boundary
+
+## Review-ready state
+
+- Issue/branch/worktree: `#231`, `agent/231-internal-audit-runtime-boundary`, `C:\tmp\account-231-internal-audit-runtime-boundary`.
+- Base/source/PR: `main@0e254ebd`, source `5052163c`, Draft PR `#338` targeting `main` with `Refs #231`, `#73`, and `#74`.
+- Internal Audit API is now the executable boundary; Core is a library and the fake Auth/Internal Audit Batch skeletons are removed because no real Job/Step exists.
+
+## Evidence and gates
+
+- The combined Gradle gate passed 179 tasks; 244 affected tests had no failure/error/skip. API/core packaging, migration-runner, Gateway, Config Server and production runtime dependency gates passed.
+- Direct local JAR smoke passed with servlet, H2, Flyway V60 and JPA validate. Production manifest/template validation passed with 36 immutable images and 17 PostgreSQL URLs.
+- Independent review drove TLS startup ordering, Gateway routing and parent-integrity corrections; final review found no remaining P0-P3.
+- Docker was unavailable and no external development host was accessed. Real PostgreSQL migration/JPA validate, Compose health and live Gateway/Eureka routing remain external gates.
+- Rollback is a normal revert of `5052163c`; do not rewrite or delete an applied V60 migration.
