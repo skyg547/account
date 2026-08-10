@@ -787,6 +787,7 @@
 - `gradlew projects --offline` now lists 72 real subprojects instead of 73 entries, with set difference exactly `app`; all executable image/Compose targets remain unchanged.
 - Config/image/development/production policy suites passed 21 tests with no failure/error/skip. Diff/marker checks and independent review found no P0-P3.
 - Rollback is a normal revert of the Issue #341 commit; local ignored `app/build` remnants remain untouched. Latest matrix counts are owned by #227.
+- Commit `7b393665` is pushed and Draft PR `#346` targets `main` with `Refs #341` and `Refs #227`.
 ## 2026-08-11 - Issue #254 Asset Lease baseline recovery
 
 - Recovered the Asset Lease implementation from obsolete stack PR #259 onto current `origin/main@ea6d8063` without reapplying stale shared migration-runner changes.

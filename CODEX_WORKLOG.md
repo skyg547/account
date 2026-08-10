@@ -1808,6 +1808,7 @@
 - Removed only the `:app` include, which had no directory, build file, source, entrypoint or tests, and corrected current-state root/container/local-development text.
 - `gradlew projects --offline` changed from 73 entries to 72 with set difference exactly `app`; runtime manifest and Compose targets were unchanged.
 - Twenty-one Config/image/development/production policy tests, diff/marker checks and independent review passed with no P0-P3. No app directory or ignored build output was deleted.
+- Commit `7b393665` is pushed and Draft PR `#346` targets `main` with `Refs #341` and `Refs #227`.
 
 ## 2026-08-11 (Issue #66 root development Compose topology)
 

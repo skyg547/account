@@ -2566,6 +2566,7 @@
 - source/build/entrypoint가 없는 `:app` include만 제거하고 현재 상태를 설명하는 루트·컨테이너·로컬 실행 문서를 정정했다.
 - Gradle project 항목은 73개에서 실제 72개로 정리됐고 차집합은 `app` 하나뿐이다. 실행 image/Compose target은 바뀌지 않았다.
 - Config/image/dev/prod 정책 21개, diff/marker 검사와 독립 리뷰가 통과했으며 로컬 `app` 디렉터리나 산출물은 삭제하지 않았다.
+- commit `7b393665`을 push하고 `Refs #341`, `Refs #227` Draft PR #346을 열었다.
 
 ### 📅 2026-08-11 (Issue #66 개발 Compose 통합)
 ### [PR 검토 준비] 전체 MSA 개발 실행면과 두 PostgreSQL 모드

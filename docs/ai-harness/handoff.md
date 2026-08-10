@@ -1366,7 +1366,7 @@
 
 # AI Harness Handoff - 2026-08-11 Issue #341 Phantom App Removal
 
-- Issue/branch/worktree/base: `#341`, `agent/341-remove-phantom-app`, `C:\tmp\account-341-remove-phantom-app`, `origin/main@5624ae97`.
+- Issue/branch/worktree/base: `#341`, `agent/341-remove-phantom-app`, `C:\tmp\account-341-remove-phantom-app`, `origin/main@5624ae97`; source `7b393665`, Draft PR `#346`.
 - The only project-set change is removal of source/build-less `:app`; 72 real subprojects remain and runtime image/Compose inventory is unchanged.
 - `projects` and 21 Config/image/development/production policy tests passed; diff/marker checks and independent review reported no P0-P3.
 - No local directory or build output was deleted. Rollback is a normal commit revert; #227 owns regenerated inventory counts and matrix documentation.
