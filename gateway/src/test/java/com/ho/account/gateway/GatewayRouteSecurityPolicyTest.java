@@ -114,6 +114,35 @@ class GatewayRouteSecurityPolicyTest {
                 .containsKey("message");
     }
 
+    @Test
+    void internalAuditPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "internal-audit-api");
+        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(legacyCatchAllRouteIndex).isGreaterThan(routeIndex);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://internal-audit-service");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/internalaudit/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/internal-audit");
+    }
+
+    @Test
+    void internalAuditFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().internalAuditFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
     private int routeIndex(Properties properties, String routeId) {
         for (int index = 0; index < properties.size(); index++) {
             if (routeId.equals(properties.getProperty(

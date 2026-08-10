@@ -34,6 +34,23 @@ class ProductionComposePolicyTest {
             "deposit",
             "ecl",
             "expenditure-resolution",
+            "internal-audit",
+            "journal-ledger",
+            "loan",
+            "master-data",
+            "payable",
+            "receivable",
+            "reconciliation",
+            "reporting",
+            "tax");
+    private static final Set<String> BATCH_DOMAIN_PREFIXES = Set.of(
+            "account-mart",
+            "asset-lease",
+            "budget",
+            "closing",
+            "deposit",
+            "ecl",
+            "expenditure-resolution",
             "journal-ledger",
             "loan",
             "master-data",
@@ -53,12 +70,14 @@ class ProductionComposePolicyTest {
         Set<String> expected = new HashSet<>(PLATFORM_SERVICES);
         for (String domain : DOMAIN_PREFIXES) {
             expected.add(domain + "-api");
-            expected.add(domain + "-batch");
+            if (BATCH_DOMAIN_PREFIXES.contains(domain)) {
+                expected.add(domain + "-batch");
+            }
         }
 
         assertThat(services.keySet()).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(services).hasSize(36).doesNotContainKeys(
-                "postgres", "postgres-db", "internal-audit-api", "internal-audit-batch");
+                "postgres", "postgres-db", "auth-batch", "internal-audit-batch");
         assertThat(composeText)
                 .doesNotContain("build:")
                 .doesNotContain("jdbc:h2:")
@@ -110,13 +129,16 @@ class ProductionComposePolicyTest {
     }
 
     @Test
-    void everyDomainPairRequiresItsOwnExternalPostgresqlContract() throws IOException {
+    void everyExecutableDomainRequiresItsOwnExternalPostgresqlContract() throws IOException {
         Map<String, Object> services =
                 asMap(loadYaml(resolve("compose.prod.yml")).get("services"));
 
         for (String domain : DOMAIN_PREFIXES) {
             String variablePrefix = domain.replace("-", "_").toUpperCase();
-            for (String runtime : List.of("api", "batch")) {
+            List<String> runtimes = BATCH_DOMAIN_PREFIXES.contains(domain)
+                    ? List.of("api", "batch")
+                    : List.of("api");
+            for (String runtime : runtimes) {
                 String serviceName = domain + "-" + runtime;
                 Map<String, Object> environment =
                         asMap(asMap(services.get(serviceName)).get("environment"));
@@ -235,9 +257,9 @@ class ProductionComposePolicyTest {
                         "AUTH_INTERNAL_API_TOKEN=")
                 .doesNotContain("192.168.", "localhost", "dev_pass", "password=password");
         assertThat(digest.matcher(template).results()).hasSize(36);
-        assertThat(emptyPassword.matcher(template).results()).hasSize(16);
-        assertThat(verifiedTlsUrl.matcher(template).results()).hasSize(16);
-        assertThat(runtimeUser.matcher(template).results()).hasSize(16);
+        assertThat(emptyPassword.matcher(template).results()).hasSize(17);
+        assertThat(verifiedTlsUrl.matcher(template).results()).hasSize(17);
+        assertThat(runtimeUser.matcher(template).results()).hasSize(17);
     }
 
     @Test
@@ -272,7 +294,7 @@ class ProductionComposePolicyTest {
         assertThat(runbook)
                 .contains(
                         "--profile prod up -d --wait --wait-timeout 300 --no-build --pull never",
-                        "prod profile의 20개 서비스가 running/healthy",
+                        "prod profile의 21개 서비스가 running/healthy",
                         "#243",
                         "#244")
                 .doesNotContain("--profile prod up -d --no-build --pull never");

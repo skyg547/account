@@ -26,7 +26,7 @@
 | `auth-service.yml` | Auth |
 | `discovery-service.yml` | Discovery |
 | `gateway-service.yml` | Gateway |
-| `governance-service.yml` | Governance |
+| `internal-audit-service.yml` | Internal Audit API |
 | `journal-ledger.yml` | Journal Ledger |
 | `master-data.yml` | Master Data |
 

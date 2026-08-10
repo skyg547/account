@@ -1,0 +1,26 @@
+services:
+  internal-audit-api:
+    build:
+      context: ..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":internal-audit:api"
+        JAR_DIRECTORY: internal-audit/api
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: ${INTERNAL_AUDIT_DB_URL:?set INTERNAL_AUDIT_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${INTERNAL_AUDIT_DB_USER:?set INTERNAL_AUDIT_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${INTERNAL_AUDIT_DB_PASSWORD:?set INTERNAL_AUDIT_DB_PASSWORD}
+      SERVER_PORT: "8083"
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "false"
+      INTERNAL_AUDIT_EUREKA_ENABLED: "false"
+    ports:
+      - "${INTERNAL_AUDIT_API_PORT:-8083}:8083"
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}

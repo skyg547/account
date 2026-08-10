@@ -62,4 +62,13 @@ public class FallbackController {
         response.put("message", "현재 예산(Budget) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
     }
+
+    @RequestMapping("/internal-audit")
+    public Mono<ResponseEntity<Map<String, Object>>> internalAuditFallback() {
+        log.error("[Circuit breaker] Internal Audit service is unavailable.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "Internal Audit service is temporarily unavailable.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
 }

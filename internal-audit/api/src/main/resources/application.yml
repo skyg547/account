@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: internal-audit-service
+  profiles:
+    default: local
+  cloud:
+    config:
+      enabled: ${SPRING_CLOUD_CONFIG_ENABLED:false}
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
+    vault:
+      enabled: false
+  jpa:
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8083}
+
+eureka:
+  client:
+    enabled: ${INTERNAL_AUDIT_EUREKA_ENABLED:false}
+    register-with-eureka: ${INTERNAL_AUDIT_EUREKA_ENABLED:false}
+    fetch-registry: ${INTERNAL_AUDIT_EUREKA_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

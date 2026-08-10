@@ -84,7 +84,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 **PowerShell 검증:**
 
 ```powershell
-.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1
+.\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --console=plain --max-workers=1
 ```
 
 **통합 Docker 실행 기록:**

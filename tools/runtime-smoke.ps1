@@ -539,7 +539,9 @@ function Test-LocalJarContract {
                 '--management.tracing.enabled=false'
             )
         } else {
-            $webApplicationType = if ($package.Project -eq ':budget:api') { 'servlet' } else { 'none' }
+            $webApplicationType = if ($package.Project -in @(
+                    ':budget:api',
+                    ':internal-audit:api')) { 'servlet' } else { 'none' }
             $arguments += @(
                 '--spring.profiles.active=local',
                 "--spring.main.web-application-type=$webApplicationType",
@@ -553,11 +555,14 @@ function Test-LocalJarContract {
                 '--management.tracing.enabled=false',
                 '--spring.batch.job.enabled=false'
             )
-            if ($package.Project -in @(':budget:api', ':budget:batch')) {
-                $budgetDatabaseName = $package.Project.TrimStart(':').Replace(':', '_')
+            if ($package.Project -in @(
+                    ':budget:api',
+                    ':budget:batch',
+                    ':internal-audit:api')) {
+                $databaseName = $package.Project.TrimStart(':').Replace(':', '_').Replace('-', '_')
                 $arguments += @(
                     '--spring.batch.jdbc.initialize-schema=always',
-                    "--spring.datasource.url=jdbc:h2:mem:runtime_smoke_$budgetDatabaseName;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+                    "--spring.datasource.url=jdbc:h2:mem:runtime_smoke_$databaseName;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
                     '--spring.datasource.driver-class-name=org.h2.Driver',
                     '--spring.datasource.username=sa',
                     '--spring.datasource.password=',

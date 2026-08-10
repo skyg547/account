@@ -22,6 +22,7 @@ class MigrationCommandTest {
         assertThat(output.toString(StandardCharsets.UTF_8))
                 .contains("auth", "READY", "asset-lease", "READY",
                         "closing", "READY", "expenditure-resolution", "READY",
+                        "internal-audit", "READY",
                         "payable", "READY", "receivable", "READY",
                         "reconciliation", "READY", "tax", "READY");
         assertThat(errors.toString(StandardCharsets.UTF_8)).isEmpty();

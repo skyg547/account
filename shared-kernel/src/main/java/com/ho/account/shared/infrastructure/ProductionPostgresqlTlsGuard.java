@@ -16,7 +16,7 @@ public class ProductionPostgresqlTlsGuard {
         requireVerifyFull(datasourceUrl);
     }
 
-    static void requireVerifyFull(String datasourceUrl) {
+    public static void requireVerifyFull(String datasourceUrl) {
         if (datasourceUrl == null
                 || !datasourceUrl.regionMatches(true, 0, "jdbc:postgresql://", 0, 18)) {
             throw new IllegalStateException(

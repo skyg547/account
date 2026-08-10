@@ -12,7 +12,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import com.ho.account.internalaudit.core.infrastructure.persistence.entity.RcmProcessJpaEntity;
 import org.flywaydb.core.Flyway;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Configuration;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -89,6 +96,151 @@ class MigrationExecutorH2Test {
             assertThat(tableExists(statement, context.historyTable())).isTrue();
             assertThat(tableExists(statement, "flyway_schema_history_batch")).isTrue();
         }
+    }
+
+    @Test
+    void internalAuditBaselineMatchesOwnedJpaMetadataAndRepositoryAccessPaths() throws Exception {
+        String url = "jdbc:h2:mem:internal-audit-parity"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        MigrationExecutor executor = new MigrationExecutor();
+        assertThat(executor.execute(
+                MigrationContext.require("internal-audit"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "internal_audit")))
+                .isGreaterThanOrEqualTo(2);
+        assertThat(executor.execute(
+                MigrationContext.require("internal-audit"),
+                MigrationAction.MIGRATE,
+                new MigrationConfiguration(url, "sa", "", "internal_audit"))).isZero();
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(Stream.of(
+                            "rcm_process", "rcm_risk", "rcm_control_activity",
+                            "eval_design", "eval_operating",
+                            "operating_evaluation_jpa_entity_evidence_file_paths",
+                            "eval_deficiency")
+                    .allMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+
+            assertThat(Stream.of(
+                            "audit_log", "audit_authorizations", "system_role",
+                            "system_users", "system_roles", "system_functions",
+                            "role_func_permissions", "risk_control_matrix", "design_assessment")
+                    .noneMatch(table -> {
+                        try {
+                            return tableExists(statement, table);
+                        } catch (Exception exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })).isTrue();
+
+            for (String table : List.of(
+                    "rcm_process", "rcm_risk", "rcm_control_activity",
+                    "eval_design", "eval_operating", "eval_deficiency")) {
+                assertThat(hasPrimaryKey(connection, table)).isTrue();
+            }
+            assertCharacterColumn(connection, "rcm_process", "process_id", 255);
+            assertCharacterColumn(connection, "rcm_process", "description", 255);
+            assertCharacterColumn(connection, "rcm_risk", "process_id", 255);
+            assertCharacterColumn(connection, "rcm_control_activity", "risk_id", 255);
+            assertCharacterColumn(connection, "eval_design", "control_id", 255);
+            assertCharacterColumn(connection, "eval_operating", "control_id", 255);
+            assertCharacterColumn(connection, "eval_deficiency", "evaluation_id", 255);
+            assertCharacterColumn(
+                    connection,
+                    "operating_evaluation_jpa_entity_evidence_file_paths",
+                    "evidence_file_paths",
+                    255);
+
+            assertThat(isNullable(connection, "rcm_process", "process_id")).isFalse();
+            assertThat(isNullable(connection, "rcm_process", "description")).isTrue();
+            assertThat(isNullable(connection, "rcm_risk", "process_id")).isFalse();
+            assertThat(isNullable(connection, "rcm_control_activity", "risk_id")).isFalse();
+            assertThat(isNullable(connection, "eval_design", "control_id")).isFalse();
+            assertThat(isNullable(connection, "eval_operating", "control_id")).isFalse();
+            assertThat(isNullable(connection, "eval_operating", "sample_size")).isTrue();
+            assertThat(isNullable(connection, "eval_operating", "exception_count")).isTrue();
+            assertThat(isNullable(connection, "eval_deficiency", "evaluation_id")).isFalse();
+            assertThat(isNullable(
+                    connection,
+                    "operating_evaluation_jpa_entity_evidence_file_paths",
+                    "operating_evaluation_jpa_entity_evaluation_id")).isFalse();
+            assertThat(isNullable(
+                    connection,
+                    "operating_evaluation_jpa_entity_evidence_file_paths",
+                    "evidence_file_paths")).isTrue();
+
+            assertThat(hasForeignKey(
+                    connection, "rcm_risk", "process_id", "rcm_process", "process_id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "rcm_control_activity", "risk_id", "rcm_risk", "risk_id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "eval_design", "control_id", "rcm_control_activity", "control_id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection, "eval_operating", "control_id", "rcm_control_activity", "control_id")).isTrue();
+            assertThat(hasForeignKey(
+                    connection,
+                    "operating_evaluation_jpa_entity_evidence_file_paths",
+                    "operating_evaluation_jpa_entity_evaluation_id",
+                    "eval_operating",
+                    "evaluation_id")).isTrue();
+
+            assertThat(hasIndex(connection, "rcm_risk", "process_id", false)).isTrue();
+            assertThat(hasIndex(connection, "rcm_control_activity", "risk_id", false)).isTrue();
+            assertThat(hasIndex(connection, "eval_design", "control_id", false)).isTrue();
+            assertThat(hasIndex(connection, "eval_operating", "control_id", false)).isTrue();
+            assertThat(hasIndex(connection, "eval_deficiency", "evaluation_id", false)).isTrue();
+            assertThat(hasIndex(
+                    connection,
+                    "operating_evaluation_jpa_entity_evidence_file_paths",
+                    "operating_evaluation_jpa_entity_evaluation_id",
+                    false)).isTrue();
+        }
+
+        assertInternalAuditJpaValidation(url);
+    }
+
+    @Test
+    void internalAuditLocalH2MigrationMatchesRuntimeJpaMetadata() throws Exception {
+        String url = "jdbc:h2:mem:internal-audit-local"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        Flyway flyway = Flyway.configure()
+                .dataSource(url, "sa", "")
+                .locations("classpath:db/migration")
+                .load();
+        assertThat(flyway.migrate().migrationsExecuted).isOne();
+        assertThat(flyway.migrate().migrationsExecuted).isZero();
+
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            assertThat(tableExists(statement, "rcm_process")).isTrue();
+            assertThat(tableExists(
+                    statement,
+                    "operating_evaluation_jpa_entity_evidence_file_paths")).isTrue();
+        }
+        assertInternalAuditJpaValidation(url);
+    }
+
+    private void assertInternalAuditJpaValidation(String url) {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        DataSourceAutoConfiguration.class,
+                        HibernateJpaAutoConfiguration.class))
+                .withUserConfiguration(InternalAuditJpaProbe.class)
+                .withPropertyValues(
+                        "spring.datasource.url=" + url,
+                        "spring.datasource.username=sa",
+                        "spring.datasource.password=",
+                        "spring.datasource.driver-class-name=org.h2.Driver",
+                        "spring.jpa.hibernate.ddl-auto=validate",
+                        "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect")
+                .run(context -> assertThat(context.getStartupFailure()).isNull());
     }
 
     @Test
@@ -1080,6 +1232,7 @@ class MigrationExecutorH2Test {
                 Arguments.of("closing", "closing_calendars"),
                 Arguments.of("deposit", "deposit_accounts"),
                 Arguments.of("expenditure-resolution", "expenditure_resolutions"),
+                Arguments.of("internal-audit", "rcm_process"),
                 Arguments.of("journal-ledger", "journal_entries"),
                 Arguments.of("loan", "loans"),
                 Arguments.of("master-data", "account_subjects"),
@@ -1168,6 +1321,25 @@ class MigrationExecutorH2Test {
             assertThat(resultSet.next()).isTrue();
             assertThat(resultSet.getInt("COLUMN_SIZE")).isEqualTo(precision);
             assertThat(resultSet.getInt("DECIMAL_DIGITS")).isEqualTo(scale);
+        }
+    }
+
+    private void assertCharacterColumn(
+            Connection connection,
+            String tableName,
+            String columnName,
+            int length) throws Exception {
+        try (ResultSet resultSet = connection.getMetaData().getColumns(
+                null, null, tableName, columnName)) {
+            assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.getInt("COLUMN_SIZE")).isEqualTo(length);
+        }
+    }
+
+    private boolean hasPrimaryKey(Connection connection, String tableName) throws Exception {
+        try (ResultSet resultSet = connection.getMetaData().getPrimaryKeys(
+                null, null, tableName)) {
+            return resultSet.next();
         }
     }
 
@@ -1308,5 +1480,10 @@ class MigrationExecutorH2Test {
         return indexes.values().stream()
                 .map(columns -> columns.stream().filter(java.util.Objects::nonNull).toList())
                 .anyMatch(expectedColumns::equals);
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EntityScan(basePackageClasses = RcmProcessJpaEntity.class)
+    static class InternalAuditJpaProbe {
     }
 }

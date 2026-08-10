@@ -38,7 +38,7 @@
 - `shared-kernel/README.md`와 `shared-kernel/docs/README.md`: 로컬 capability/마스킹/공통 타입과 의존성 축소 계획. 서버가 아닌 library라 IntelliJ/Gradle 테스트 중심으로 검증
 - `contracts/README.md`와 `contracts/docs/README.md`: JVM Port/Command/Ref 계약, SCD2 기준일과 전표 입력 불변성. 서버가 아닌 library라 구현·호출 모듈 테스트까지 함께 검증
 - `master-data/README.md`와 `master-data/docs/README.md`: 계정, 부서, 거래처, 상품 등 기준 정보와 SCD2 흐름. Spring Boot 앱으로 IntelliJ `Master Data bootRun` 제공
-- `governance/README.md`와 `governance/docs/README.md`: 감사 로그, 승인, SOD, Auth 역할 반영 흐름. Spring Boot 앱으로 IntelliJ `Governance bootRun` 제공
+- `internal-audit/README.md`: RCM, 설계·운영 평가, local H2/Flyway와 dev/prod PostgreSQL 실행 계약. Spring Boot API로 IntelliJ `Internal Audit bootRun` 제공
 - `auth/README.md`와 `auth/docs/README.md`: 로그인, JWT, 역할 버전, 내부 역할 반영 API. Spring Boot 앱으로 IntelliJ `Auth bootRun` 제공
 - `config-server/README.md`와 `config-server/docs/README.md`: native `config-repo` 조회, strict repository readiness, JDK 17/Compose 흐름. IntelliJ `Config Server bootRun` 제공
 - `discovery/README.md`와 `discovery/docs/README.md`: Eureka register/heartbeat/lookup/cancel, readiness, self-preservation. IntelliJ standalone/통합 `bootRun` 제공

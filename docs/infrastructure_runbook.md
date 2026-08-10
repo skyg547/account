@@ -100,7 +100,7 @@ flowchart TD
 ### [Phase 3] 보안 및 관문
 1. **Auth Service (Port: 8084)**: 출입증(JWT) 발급. Vault가 없다면 끄고 실행합니다.
    ```bash
-   ./gradlew :auth:bootRun --args='--server.port=8084 --spring.cloud.vault.enabled=false'
+   ./gradlew :auth:api:bootRun --args='--server.port=8084 --spring.cloud.vault.enabled=false'
    ```
 2. **Gateway Service (Port: 8080/8000)**: 단일 진입점. 모든 요청을 담당 서비스로 라우팅합니다.
 

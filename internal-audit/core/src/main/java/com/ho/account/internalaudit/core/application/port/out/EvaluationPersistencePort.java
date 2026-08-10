@@ -10,6 +10,8 @@ public interface EvaluationPersistencePort {
     OperatingEvaluation saveOperatingEvaluation(OperatingEvaluation evaluation);
     Deficiency saveDeficiency(Deficiency deficiency);
 
+    boolean controlActivityExists(String controlId);
+    boolean evaluationExists(String evaluationId);
     List<DesignEvaluation> findDesignEvaluationsByControlId(String controlId);
     List<OperatingEvaluation> findOperatingEvaluationsByControlId(String controlId);
 }

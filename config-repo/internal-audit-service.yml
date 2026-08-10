@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: governance-service
+    name: internal-audit-service
 
 eureka:
   client:

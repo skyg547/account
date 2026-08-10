@@ -14,7 +14,7 @@
 - `auth`는 Spring Boot 내장 WAS로 실행되는 API 앱입니다.
 - `.run/Auth bootRun.run.xml`은 Config/Eureka 없이 H2, Flyway, JPA validate로 단독 실행합니다.
 - H2와 PostgreSQL JDBC 드라이버가 런타임에 포함됩니다.
-- 단위/통합 검증은 `.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1`로 수행합니다.
+- 단위/통합 검증은 `.\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --console=plain --max-workers=1`로 수행합니다.
 
 ## 핵심 코드 입구
 

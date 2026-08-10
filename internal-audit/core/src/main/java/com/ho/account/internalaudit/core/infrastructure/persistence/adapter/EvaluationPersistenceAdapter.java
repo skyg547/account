@@ -10,6 +10,7 @@ import com.ho.account.internalaudit.core.infrastructure.persistence.entity.Opera
 import com.ho.account.internalaudit.core.infrastructure.persistence.repository.DeficiencyRepository;
 import com.ho.account.internalaudit.core.infrastructure.persistence.repository.DesignEvaluationRepository;
 import com.ho.account.internalaudit.core.infrastructure.persistence.repository.OperatingEvaluationRepository;
+import com.ho.account.internalaudit.core.infrastructure.persistence.repository.ControlActivityRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
     private final DesignEvaluationRepository designEvaluationRepository;
     private final OperatingEvaluationRepository operatingEvaluationRepository;
     private final DeficiencyRepository deficiencyRepository;
+    private final ControlActivityRepository controlActivityRepository;
 
     @Override
     public DesignEvaluation saveDesignEvaluation(DesignEvaluation evaluation) {
@@ -65,6 +67,17 @@ public class EvaluationPersistenceAdapter implements EvaluationPersistencePort {
                 .build();
         DeficiencyJpaEntity saved = deficiencyRepository.save(entity);
         return toDomain(saved);
+    }
+
+    @Override
+    public boolean controlActivityExists(String controlId) {
+        return controlActivityRepository.existsById(controlId);
+    }
+
+    @Override
+    public boolean evaluationExists(String evaluationId) {
+        return designEvaluationRepository.existsById(evaluationId)
+                || operatingEvaluationRepository.existsById(evaluationId);
     }
 
     @Override

@@ -5,7 +5,7 @@ include 'app',
         'shared-kernel',
         'migration-runner',
         'master-data:core', 'master-data:api', 'master-data:batch',
-        'internal-audit:core', 'internal-audit:api', 'internal-audit:batch',
+        'internal-audit:core', 'internal-audit:api',
         'journal-ledger:core',
         'journal-ledger:api',
         'journal-ledger:batch',
@@ -58,5 +58,5 @@ include 'app',
         'discovery',
         'gateway',
         'config-server',
-        'auth:core', 'auth:api', 'auth:batch'
+        'auth:core', 'auth:api'
 

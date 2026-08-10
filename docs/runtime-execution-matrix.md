@@ -2,6 +2,8 @@
 
 이 문서는 GitHub Issue `#227` 기준으로 `origin/main@c0fb871b`의 실행 계약을 다시 확인한 결과입니다. 과거 worklog의 성공 기록이 아니라 현재 checkout에서 실행한 명령과 정적 설정을 근거로 합니다.
 
+> Issue #231 후속 변경에서는 `:internal-audit:api`를 local H2/Flyway 및 dev/prod PostgreSQL을 갖춘 실행형 JAR로 복구했습니다. 실제 Job/Step이 없는 `:internal-audit:batch`와 `:auth:batch`는 Gradle·image·Compose 실행 대상에서 제거했습니다. 아래 #227 표는 당시 감사 snapshot이며, 현재 실행 인벤토리는 API 17개, Batch 15개, 인프라 서버 3개입니다.
+
 ## Environment Contract
 
 | Environment | Launch method | Database contract | Configuration rule |
@@ -83,7 +85,7 @@ Draft PR 준비 전 `origin/main@36a1be4f`로 rebase한 뒤 원래 실패한 8�
 | Account Mart | API/Batch local JAR PASS | local smoke H2 PASS | `postgres/docker`만 있고 dev/prod GAP | API image 일부 정의, Batch Dockerfile/통합 Compose GAP | `#97`, `#98`, `#228` |
 | ECL | API/Batch local JAR PASS | local smoke H2 PASS | `postgres/docker`만 있고 dev/prod GAP | API/Batch image 정의, root integration GAP | `#99`, `#100`, `#66` |
 | Auth | API/Batch local JAR PASS | local smoke H2 PASS | PostgreSQL driver 있음 | Dockerfile/Run Configuration이 잘못된 aggregator task 사용 | `#60`, `#228`, `#231` |
-| Internal Audit / Governance | API FAIL, Batch non-executable | runtime profile GAP | driver/profile GAP | image/Compose 없음 | `#73`, `#74`, `#231` |
+| Internal Audit | API `bootJar` 및 local H2 JAR PASS, Batch 대상 없음 | H2 PostgreSQL mode + Flyway V60 + JPA validate | PostgreSQL driver, 환경변수 전용 dev/prod, prod TLS guard | API canonical image와 dev/prod Compose 계약 | 실제 PostgreSQL/Compose 기동 gate |
 | Frontend | scripts/lockfile PASS | N/A | API URL은 env 주입 대상 | dev Compose가 `next dev`가 아니며 image 정의가 이중화 | `#228`, `#66` |
 
 ## Frontend Result
