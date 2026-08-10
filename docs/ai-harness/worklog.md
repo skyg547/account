@@ -779,3 +779,10 @@
 - Environment gate: Docker is absent and Podman has neither required base images nor an approved pull, so no actual local image build or registry action was performed.
 - Independent review findings for root/frontend secret context leakage, tracked Compose credentials, process-output deadlock and frontend URL drift were corrected; final re-review found no unresolved issue after the frontend context was hardened.
 - State: pushed to `origin/agent/228-container-images`; Draft PR `#240` opened with `Refs #228`. No merge or Issue closure.
+## 2026-08-11 - Issue #254 Asset Lease baseline recovery
+
+- Recovered the Asset Lease implementation from obsolete stack PR #259 onto current `origin/main@ea6d8063` without reapplying stale shared migration-runner changes.
+- Added local H2 and dev/prod PostgreSQL API/Batch runtime profiles, complete PostgreSQL V20 schema parity, domain/DDL date consistency, financial precision guards and published-H2 checksum locking.
+- Removed the main-line standalone conflict marker. Core 19, API 2, Batch 1, runner 78, two bootJars, full driver packaging and direct local JAR smoke passed.
+- Independent review findings on staged marker state, lease period validation and remeasurement ordering were corrected; final re-review reported no P0-P3 findings.
+- Pushed `39edbd26`; Draft PR #288 targets main. No external database, container deployment, merge or Issue close was performed.

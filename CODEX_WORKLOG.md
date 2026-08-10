@@ -1779,3 +1779,10 @@
 - Actual Docker/Podman image build was not run: Docker is absent, Podman lacks required base images/Compose support, and no image pull or package install was authorized.
 - Independent review and re-review drove root/frontend secret-context, Compose credential, stream-capture and frontend URL corrections; no unresolved finding remains.
 - State: pushed to `origin/agent/228-container-images`; Draft PR `#240` opened with `Refs #228`. No merge or Issue close.
+## 2026-08-11 (Issue #254 Asset Lease PostgreSQL baseline reintegration)
+
+- `agent/254-asset-lease-postgres-reintegration` was created from `origin/main@ea6d8063` because PR #259 had merged only into an obsolete stacked base and its Asset Lease changes were absent from main.
+- Restored independently runnable API/Batch local H2 profiles, dev/prod PostgreSQL-only profiles, executable packaging, complete six-table V20 parity, financial precision/nullability fixes, and domain validation matching the PostgreSQL lease-date check.
+- Removed the standalone conflict marker inherited by main and locked the published H2 V20 bytes with SHA-256.
+- Verification passed Core 19, API 2, Batch 1 and migration-runner 78 tests; both bootJars; the 183-task READY driver gate; and direct `java -jar --spring.profiles.active=local` startup for API and Batch with H2. Final independent review found no P0-P3 finding.
+- Commit `39edbd26` is pushed and Draft PR #288 targets `main` with `Refs #254`. Real PostgreSQL clean migrate/JPA validate, merge and Issue close were not performed.
