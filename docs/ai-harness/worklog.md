@@ -802,3 +802,13 @@
 - A 179-task combined gate passed; 244 affected tests had zero failures/errors/skips. The local JAR smoke proved servlet startup, H2, Flyway V60 and JPA validate. Production image/template policy checks passed for 36 images and 17 PostgreSQL URLs.
 - Independent review findings were corrected; final review reported no remaining P0-P3. Commit `5052163c` is pushed and Draft PR #338 targets main with references to #231/#73/#74.
 - Docker was unavailable and the external development host was not accessed. Actual PostgreSQL, Compose and live Gateway/Eureka verification remain environment gates.
+
+## 2026-08-11 - Issue #66 root development Compose topology
+
+- Issue/branch/worktree/base: `#66`, `agent/66-compose-runtime-topology`, `C:\tmp\account-66-compose-runtime-topology`, `origin/main@1e6ad6f1`.
+- Implemented one root development topology for 36 enabled targets: Config Server, Discovery, Gateway, Frontend, 17 APIs and 15 opt-in Batch applications. Java builds use the canonical root `Containerfile`; development Frontend uses a non-root Node 20 `Containerfile.dev` with reproducible `npm ci` dependencies and same-origin Gateway login routing.
+- Added mutually exclusive self-contained and external-dev overlays. Self-contained owns PostgreSQL/Redis/Kafka, release migration and runtime grants; external-dev starts no duplicate infrastructure and probes all 17 context-specific runtime credentials without logging endpoints or secrets.
+- All API/Batch services use PostgreSQL `dev`, Flyway/SQL-init/DDL creation disabled and JPA `validate`; Batch is non-web, profile-gated and job-disabled. Host publication is loopback-only and business API/Batch ports stay internal.
+- Verification passed: shell syntax, PowerShell AST and validator self-test, six development Compose policy tests, Config/Gateway/migration-runner tests and 159-task packaging gate, Frontend production build with 122 routes and zero production `/api` rewrites, diff/marker checks, and independent re-review with no remaining P0-P3.
+- Environment gates: Docker CLI is unavailable and Podman has no Compose provider, so actual Compose render/build/up and 17-context PostgreSQL privilege probes were not run. No external host, credentials, database or existing container was inspected or changed.
+- Rollback: revert the Issue #66 commit and stop the same Compose project without `-v`; never delete named volumes or change an external database as rollback. The Issue remains open until live self-contained/external-dev gates pass.

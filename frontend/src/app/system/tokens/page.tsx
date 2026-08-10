@@ -62,6 +62,7 @@ export default function SystemTokenGovernancePage() {
         <PageHeader
           title="전사 개인용 액세스 토큰 (PAT) 감시 및 거버넌스"
           description="전체 사용자가 생성한 AI 에이전트 및 외부 서비스 연결 토큰 현황을 감시하고 해킹/유출 의심 시 즉시 강제 폐기합니다."
+          breadcrumbs={[{ label: 'System' }, { label: 'Access Tokens' }]}
         />
         <button
           onClick={fetchAllTokens}

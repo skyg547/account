@@ -56,13 +56,13 @@ docker build --file frontend/Containerfile --tag account/frontend:local frontend
 
 `frontend/Containerfile`만 canonical production image definition입니다. `next.config.ts`의 `output: "standalone"`과 일치하게 standalone server, static files와 public assets만 runtime image로 복사하고 non-root `nextjs` user로 실행합니다. `NEXT_PUBLIC_API_URL`은 build argument이며 운영 기본은 same-origin `/api`입니다.
 
-`frontend/docker-compose.yml`은 standalone production image를 그대로 실행하며 소스 bind mount로 runtime artifact를 가리지 않습니다. `next dev` volume workflow와 전체 production service orchestration은 #66/#230에서 환경별 Compose로 분리합니다.
+`frontend/docker-compose.yml`은 standalone production image를 그대로 실행하며 소스 bind mount로 runtime artifact를 가리지 않습니다. 루트 개발 Compose는 별도 `frontend/Containerfile.dev`, source bind mount, named dependency/cache volume과 `next dev`를 사용합니다. 운영은 계속 canonical `frontend/Containerfile` standalone image를 사용합니다.
 
 기존 module Compose 중 PostgreSQL datasource를 직접 주입하는 Auth, Account Mart, ECL은 URL/user/password를 필수 환경변수로만 받습니다. 추적된 기본 자격증명은 없고 Auth의 Hibernate 정책은 `validate`입니다.
 
 ## Legacy Module Dockerfiles
 
-기존 domain별 Dockerfile에는 aggregator build, Java 21, wildcard JAR copy가 섞여 있습니다. 신규 자동화와 현재 활성 module Compose는 이 파일을 image source로 사용하지 않고 canonical root Containerfile + manifest만 사용합니다. #66/#230의 통합 Compose도 같은 계약을 사용해야 하며, 기존 module Dockerfile 성공은 보장하지 않습니다.
+기존 domain별 Dockerfile에는 aggregator build, Java 21, wildcard JAR copy가 섞여 있습니다. 신규 자동화와 현재 활성 module Compose는 이 파일을 image source로 사용하지 않고 canonical root Containerfile + manifest만 사용합니다. 루트 개발/운영 통합 Compose도 같은 Java 계약을 사용하며, 기존 module Dockerfile 성공은 보장하지 않습니다.
 
 ## Rollback And Remaining Gate
 

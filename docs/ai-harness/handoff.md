@@ -1363,3 +1363,18 @@
 - Independent review drove TLS startup ordering, Gateway routing and parent-integrity corrections; final review found no remaining P0-P3.
 - Docker was unavailable and no external development host was accessed. Real PostgreSQL migration/JPA validate, Compose health and live Gateway/Eureka routing remain external gates.
 - Rollback is a normal revert of `5052163c`; do not rewrite or delete an applied V60 migration.
+
+# AI Harness Handoff - 2026-08-11 Issue #66 Development Compose
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#66`, `agent/66-compose-runtime-topology`, `C:\tmp\account-66-compose-runtime-topology`, `origin/main@1e6ad6f1`.
+- Root development orchestration now covers 3 Java platform services, Frontend, 17 APIs and 15 opt-in Batch services using canonical image targets. Self-contained and external-dev overlays share one service topology while keeping infrastructure ownership mutually exclusive.
+- Self-contained mode gates runtime on PostgreSQL health, migrations, grants and a 17-schema privilege check. External-dev starts no PostgreSQL/Redis/Kafka service and gates all API/Batch services on secret-safe, context-specific PostgreSQL probes.
+
+## Evidence and remaining gates
+
+- Six `DevelopmentComposePolicyTest` cases, Config/Gateway/migration-runner tests, 159 Gradle packaging tasks, validator self-test, shell syntax, diff/marker checks and the Frontend production build all passed. The Frontend produced 122 routes and no production rewrite to a development Gateway.
+- Independent review findings on standard Kafka/Redis properties, Gateway readiness, PostgreSQL sequence visibility, `psql` error leakage, password consistency and Frontend health were corrected; final re-review found no unresolved P0-P3.
+- Docker is unavailable and Podman lacks a Compose provider. Actual render/build/up, HTTP health, 17-context PostgreSQL DML/sequence/Flyway ACL checks and external-network probe timing remain deployment-environment gates. Issue #66 must remain open after code merge.
+- Rollback is a normal code/config revert followed by Compose `down` without `-v`. Do not remove named volumes, rewrite migrations or mutate an external development database. Next owner is an approved container/PostgreSQL host operator for the live gates.

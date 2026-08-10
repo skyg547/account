@@ -3,6 +3,8 @@
 이 문서는 GitHub Issue `#227` 기준으로 `origin/main@c0fb871b`의 실행 계약을 다시 확인한 결과입니다. 과거 worklog의 성공 기록이 아니라 현재 checkout에서 실행한 명령과 정적 설정을 근거로 합니다.
 
 > Issue #231 후속 변경에서는 `:internal-audit:api`를 local H2/Flyway 및 dev/prod PostgreSQL을 갖춘 실행형 JAR로 복구했습니다. 실제 Job/Step이 없는 `:internal-audit:batch`와 `:auth:batch`는 Gradle·image·Compose 실행 대상에서 제거했습니다. 아래 #227 표는 당시 감사 snapshot이며, 현재 실행 인벤토리는 API 17개, Batch 15개, 인프라 서버 3개입니다.
+>
+> Issue #66 후속 변경은 root 개발 Compose에 manifest의 35개 Java target과 Frontend를 모두 매핑하고, API 17개·Batch 15개, self-contained/external-dev PostgreSQL gate, 개발용 `next dev` 컨테이너를 정의했습니다. 아래 Module Contract/Container Result 표는 #227 당시 snapshot이며 현재 Compose 구현 상태를 나타내지 않습니다. 실제 Docker/Podman Compose render/build/up 증거는 provider가 있는 환경의 close gate로 남습니다.
 
 ## Environment Contract
 

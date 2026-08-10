@@ -1802,3 +1802,11 @@
 - Verification passed 244 affected tests and a 179-task combined Gradle/bootJar gate. The local executable JAR started with servlet, H2, Flyway V60 and JPA validate. Production template/image policy validation passed with 36 images and 17 PostgreSQL URLs.
 - Independent review findings were corrected and final review reported no remaining P0-P3. Commit `5052163c` is pushed and Draft PR #338 targets main with `Refs #231`, `#73`, and `#74`.
 - Docker was unavailable and no external development host was accessed, so real PostgreSQL migration, Compose startup and live Gateway/Eureka routing remain external verification gates.
+
+## 2026-08-11 (Issue #66 root development Compose topology)
+
+- Created the full root development runtime for 36 enabled image targets: Config Server, Discovery, Gateway, Frontend, 17 APIs and 15 opt-in Batch applications.
+- Added self-contained PostgreSQL/Redis/Kafka and external-dev no-infrastructure overlays, 17-context secret-safe probes, post-migration runtime privilege checks and a fail-closed PowerShell environment validator.
+- Enforced dev PostgreSQL/JPA-validate/no-runtime-migration policy, internal-only business ports, health/dependency ordering, non-web/job-disabled Batch defaults and canonical Java/Frontend development images.
+- Verification passed six Compose policy tests, Config/Gateway/migration-runner tests, 159 Gradle packaging tasks, shell/PowerShell/static checks and a Frontend production build with 122 routes and no development rewrite. Independent final review found no P0-P3.
+- Docker was unavailable and Podman had no Compose provider; no external server, DB, secret or existing container was accessed. Live Compose and PostgreSQL privilege checks remain Issue #66 close gates. Rollback is a normal revert and Compose `down` without volume deletion.
