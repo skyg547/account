@@ -2569,3 +2569,4 @@
 - 업무 API/Batch는 dev PostgreSQL, JPA validate, runtime Flyway/DDL/SQL-init 차단을 사용한다. Batch는 non-web·job-disabled이고 업무 포트는 외부에 공개하지 않는다.
 - 정책 테스트 6개, Config/Gateway/migration-runner 및 159-task 패키징 검증, 환경 validator, shell 정적 검사와 122-route 프런트엔드 production build가 통과했다. 독립 최종 리뷰에 남은 P0-P3가 없다.
 - Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
+- commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.

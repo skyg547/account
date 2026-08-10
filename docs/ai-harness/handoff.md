@@ -1368,7 +1368,7 @@
 
 ## Review-ready state
 
-- Issue/branch/worktree/base: `#66`, `agent/66-compose-runtime-topology`, `C:\tmp\account-66-compose-runtime-topology`, `origin/main@1e6ad6f1`.
+- Issue/branch/worktree/base: `#66`, `agent/66-compose-runtime-topology`, `C:\tmp\account-66-compose-runtime-topology`, `origin/main@1e6ad6f1`; source `375105ab`, Draft PR `#339` with `Refs #66`.
 - Root development orchestration now covers 3 Java platform services, Frontend, 17 APIs and 15 opt-in Batch services using canonical image targets. Self-contained and external-dev overlays share one service topology while keeping infrastructure ownership mutually exclusive.
 - Self-contained mode gates runtime on PostgreSQL health, migrations, grants and a 17-schema privilege check. External-dev starts no PostgreSQL/Redis/Kafka service and gates all API/Batch services on secret-safe, context-specific PostgreSQL probes.
 

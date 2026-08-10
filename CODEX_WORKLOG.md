@@ -1810,3 +1810,4 @@
 - Enforced dev PostgreSQL/JPA-validate/no-runtime-migration policy, internal-only business ports, health/dependency ordering, non-web/job-disabled Batch defaults and canonical Java/Frontend development images.
 - Verification passed six Compose policy tests, Config/Gateway/migration-runner tests, 159 Gradle packaging tasks, shell/PowerShell/static checks and a Frontend production build with 122 routes and no development rewrite. Independent final review found no P0-P3.
 - Docker was unavailable and Podman had no Compose provider; no external server, DB, secret or existing container was accessed. Live Compose and PostgreSQL privilege checks remain Issue #66 close gates. Rollback is a normal revert and Compose `down` without volume deletion.
+- Commit `375105ab` is pushed and Draft PR `#339` targets `main` with `Refs #66`; the Issue remains open for approved live environment verification.
