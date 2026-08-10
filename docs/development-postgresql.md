@@ -11,28 +11,32 @@
 
 두 profile을 동시에 선택하지 않습니다. self-contained PostgreSQL은 기본 profile에 속하지 않으므로 명시하지 않으면 시작되지 않습니다. TCP port 도달 가능 여부는 로그인, schema 준비, migration 완료 또는 DB health를 의미하지 않습니다.
 
-## Database And Owner Matrix
+## Database, Owner And Runtime Matrix
 
-Self-contained dev는 bounded context마다 database와 login owner를 하나씩 만듭니다. 모든 owner가 같은 example password를 쓰는 것은 로컬 격리 환경에서만 허용되는 단순화입니다. 공유 개발 환경은 아래 이름을 기준으로 각 owner의 secret을 분리하는 것을 권장합니다.
+Self-contained dev는 bounded context마다 migration 전용 login owner와 장기 실행 앱용
+least-privilege runtime login을 분리해 만듭니다. 로컬 격리 환경에서는 owner끼리,
+runtime끼리 예제 비밀번호를 공유하지만 owner와 runtime 비밀번호는 서로 달라야 합니다.
+공유 개발 환경은 아래 이름을 기준으로 각 role의 secret을 분리해야 합니다.
 
-| Bounded context | Database | Owner role |
-| --- | --- | --- |
-| Auth | `auth_dev` | `auth_dev_owner` |
-| Master Data | `master_data_dev` | `master_data_dev_owner` |
-| Internal Audit | `internal_audit_dev` | `internal_audit_dev_owner` |
-| Journal Ledger | `journal_ledger_dev` | `journal_ledger_dev_owner` |
-| Closing | `closing_dev` | `closing_dev_owner` |
-| Loan | `loan_dev` | `loan_dev_owner` |
-| Deposit | `deposit_dev` | `deposit_dev_owner` |
-| Asset Lease | `asset_lease_dev` | `asset_lease_dev_owner` |
-| Payable | `payable_dev` | `payable_dev_owner` |
-| Receivable | `receivable_dev` | `receivable_dev_owner` |
-| Reconciliation | `reconciliation_dev` | `reconciliation_dev_owner` |
-| Tax | `tax_dev` | `tax_dev_owner` |
-| Expenditure Resolution | `expenditure_resolution_dev` | `expenditure_resolution_dev_owner` |
-| Reporting | `reporting_dev` | `reporting_dev_owner` |
-| Account Mart | `account_mart_dev` | `account_mart_dev_owner` |
-| ECL | `ecl_dev` | `ecl_dev_owner` |
+| Bounded context | Database | Owner role | Runtime role |
+| --- | --- | --- | --- |
+| Auth | `auth_dev` | `auth_dev_owner` | `auth_dev_app` |
+| Master Data | `master_data_dev` | `master_data_dev_owner` | `master_data_dev_app` |
+| Internal Audit | `internal_audit_dev` | `internal_audit_dev_owner` | `internal_audit_dev_app` |
+| Budget | `budget_dev` | `budget_dev_owner` | `budget_dev_app` |
+| Journal Ledger | `journal_ledger_dev` | `journal_ledger_dev_owner` | `journal_ledger_dev_app` |
+| Closing | `closing_dev` | `closing_dev_owner` | `closing_dev_app` |
+| Loan | `loan_dev` | `loan_dev_owner` | `loan_dev_app` |
+| Deposit | `deposit_dev` | `deposit_dev_owner` | `deposit_dev_app` |
+| Asset Lease | `asset_lease_dev` | `asset_lease_dev_owner` | `asset_lease_dev_app` |
+| Payable | `payable_dev` | `payable_dev_owner` | `payable_dev_app` |
+| Receivable | `receivable_dev` | `receivable_dev_owner` | `receivable_dev_app` |
+| Reconciliation | `reconciliation_dev` | `reconciliation_dev_owner` | `reconciliation_dev_app` |
+| Tax | `tax_dev` | `tax_dev_owner` | `tax_dev_app` |
+| Expenditure Resolution | `expenditure_resolution_dev` | `expenditure_resolution_dev_owner` | `expenditure_resolution_dev_app` |
+| Reporting | `reporting_dev` | `reporting_dev_owner` | `reporting_dev_app` |
+| Account Mart | `account_mart_dev` | `account_mart_dev_owner` | `account_mart_dev_app` |
+| ECL | `ecl_dev` | `ecl_dev_owner` | `ecl_dev_app` |
 
 Config Server, Discovery와 Gateway는 database를 사용하지 않습니다.
 
@@ -48,7 +52,7 @@ docker compose --env-file .env -f postgres/docker-compose.yml --profile self-con
 docker compose --env-file .env -f postgres/docker-compose.yml ps
 ```
 
-`postgres-db` healthcheck는 `pg_isready`와 bootstrap manifest를 함께 검사합니다. 16개 database/owner 생성이 모두 끝나고 현재 `ACCOUNT_DATABASES` 값과 marker가 일치하기 전에는 healthy가 되지 않습니다. #66의 self-contained 서비스 Compose는 다음 dependency 계약을 사용해야 합니다.
+`postgres-db` healthcheck는 `pg_isready`와 bootstrap manifest를 함께 검사합니다. Budget을 포함한 17개 database와 owner/runtime role 생성이 모두 끝나고 현재 `ACCOUNT_DATABASES` 값과 marker가 일치하기 전에는 healthy가 되지 않습니다. #66의 self-contained 서비스 Compose는 다음 dependency 계약을 사용해야 합니다.
 
 ```yaml
 depends_on:
@@ -63,6 +67,17 @@ docker compose --env-file .env -f postgres/docker-compose.yml --profile self-con
 ```
 
 init script는 named volume이 처음 만들어질 때만 실행됩니다. `ACCOUNT_DATABASES`를 바꿨다고 기존 volume에 자동 적용되지 않습니다. 기존 개발 DB에 database를 추가할 때는 승인된 DBA 절차를 사용하고, 자동화를 위해 volume을 삭제하지 않습니다.
+
+owner role로 release migration을 모두 적용·validate한 뒤, API/Batch를 시작하기 전에
+runtime grant gate를 실행합니다. 이 gate는 현재 업무 테이블과 sequence에만 app 권한을
+부여하고 `flyway_schema_history*` 이력 테이블의 모든 runtime 권한을 명시적으로 회수합니다.
+default privilege를 사용하지 않으므로 새 migration 뒤에는 반드시 다시 실행해야 하며,
+gate가 끝나기 전에는 앱 컨테이너를 시작하지 않습니다.
+
+```powershell
+docker compose --env-file .env -f postgres/docker-compose.yml exec -T postgres-db `
+  sh /account-runtime/grant-runtime-privileges.sh
+```
 
 중지할 때도 volume을 유지합니다.
 
@@ -89,7 +104,7 @@ SPRING_PROFILES_ACTIVE=dev
 DEV_DB_HOST=<approved-shared-host>
 DEV_DB_PORT=5432
 DEV_DB_NAME=<bounded-context-database>
-DEV_DB_USER=<bounded-context-owner>
+DEV_DB_USER=<bounded-context-runtime-role>
 DEV_DB_PASSWORD=<secret-provider-value>
 ```
 
@@ -97,10 +112,10 @@ host, JDBC URL, username, password를 Git 추적 파일, Issue, worklog, 빌드 
 
 ## Migration And Fail-Fast Policy
 
-`config-repo/application-dev.yml`은 PostgreSQL driver를 고정하고 `DEV_DB_HOST`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`가 없으면 시작을 실패시킵니다. Self-contained 서비스에서도 #66이 각 database/owner에 맞는 `DEV_DB_*` 값을 주입합니다. H2 fallback, `ddl-auto=update`, 자동 `schema.sql` 실행은 허용하지 않습니다.
+`config-repo/application-dev.yml`은 PostgreSQL driver를 고정하고 `DEV_DB_HOST`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`가 없으면 시작을 실패시킵니다. Self-contained 서비스에서도 #66이 각 database/runtime role에 맞는 `DEV_DB_*` 값을 주입합니다. owner credential은 release migration에만 사용합니다. H2 fallback, `ddl-auto=update`, 자동 `schema.sql` 실행은 허용하지 않습니다.
 
 - JPA: `ddl-auto=validate`
-- Flyway: enabled + validate-on-migrate
+- Flyway: 장기 실행 앱에서는 disabled, 승인된 release migration runner에서만 migrate/validate
 - SQL init: disabled
 - 업무 schema: 각 bounded context의 versioned migration이 소유
 - Spring Batch metadata: 해당 Batch 모듈의 migration/초기화 계약이 소유

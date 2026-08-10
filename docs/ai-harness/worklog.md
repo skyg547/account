@@ -786,3 +786,10 @@
 - Removed the main-line standalone conflict marker. Core 19, API 2, Batch 1, runner 78, two bootJars, full driver packaging and direct local JAR smoke passed.
 - Independent review findings on staged marker state, lease period validation and remeasurement ordering were corrected; final re-review reported no P0-P3 findings.
 - Pushed `39edbd26`; Draft PR #288 targets main. No external database, container deployment, merge or Issue close was performed.
+## 2026-08-11 - Issue #249 Budget runtime integration
+
+- Integrated Budget API/Batch into the reproducible local H2, PostgreSQL profile, container image and production Compose matrices.
+- Added fail-closed production TLS, health/JDBC packaging, one shared JWT trust value for Auth/Gateway/Budget, Gateway-to-Auth token-version routing and required Auth production secrets.
+- Split self-contained dev owner/runtime roles and added a mandatory post-migration grant gate that excludes all Flyway history tables and grants only DML plus sequence USAGE/SELECT.
+- On latest main, 195 combined Gradle tasks, Budget API/Batch JAR smokes, production env validator and shell/static gates passed. Final independent review found no P0-P3.
+- Pushed `d904c2ce`; Draft PR #289 targets main. Actual PostgreSQL ACL/TLS and Compose/image runtime remain external gates.

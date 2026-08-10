@@ -13,10 +13,12 @@ services:
       POSTGRES_USER: "${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER in an untracked env file}"
       POSTGRES_PASSWORD: "${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in an untracked env file}"
       ACCOUNT_DATABASES: "${ACCOUNT_DATABASES:?Set ACCOUNT_DATABASES in an untracked env file}"
-      ACCOUNT_DB_PASSWORD: "${ACCOUNT_DB_PASSWORD:?Set ACCOUNT_DB_PASSWORD in an untracked env file}"
+      ACCOUNT_DB_OWNER_PASSWORD: "${ACCOUNT_DB_OWNER_PASSWORD:?Set ACCOUNT_DB_OWNER_PASSWORD in an untracked env file}"
+      ACCOUNT_DB_APP_PASSWORD: "${ACCOUNT_DB_APP_PASSWORD:?Set ACCOUNT_DB_APP_PASSWORD in an untracked env file}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
+      - ./runtime:/account-runtime:ro
     networks:
       - account-network
     healthcheck:

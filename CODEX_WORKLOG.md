@@ -1786,3 +1786,10 @@
 - Removed the standalone conflict marker inherited by main and locked the published H2 V20 bytes with SHA-256.
 - Verification passed Core 19, API 2, Batch 1 and migration-runner 78 tests; both bootJars; the 183-task READY driver gate; and direct `java -jar --spring.profiles.active=local` startup for API and Batch with H2. Final independent review found no P0-P3 finding.
 - Commit `39edbd26` is pushed and Draft PR #288 targets `main` with `Refs #254`. Real PostgreSQL clean migrate/JPA validate, merge and Issue close were not performed.
+## 2026-08-11 (Issue #249 Budget runtime matrix)
+
+- Added Budget API/Batch to local H2, dev/prod PostgreSQL, canonical image inventory, module Compose and buildless production Compose contracts.
+- Local Gradle/JAR execution keeps Config/Discovery opt-in; Batch stays non-web, opt-in and job-disabled. Production requires shared Auth/Gateway/Budget JWT trust, a container-reachable token-version endpoint, Auth bootstrap secrets, immutable images and TLS-valid PostgreSQL URLs.
+- Self-contained dev now provisions separate owner/runtime roles with different passwords. Runtime table/sequence grants run only after release migration and revoke every `flyway_schema_history*` privilege; no default DML grant or sequence `UPDATE` remains.
+- Rebased onto main including PR #288. The combined Budget/Config/migration/runtime gate executed 195 tasks successfully; API `PASS_STARTED` and Batch `PASS_EXITED` local JAR smokes used H2, Flyway V50 and JPA validate. Validator self/template, shell syntax, diff/marker checks passed.
+- Independent review findings were corrected and final review reported no P0-P3. Commit `d904c2ce` is pushed and Draft PR #289 targets main with `Refs #249`; no external DB/container/deployment was touched.

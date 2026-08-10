@@ -1,0 +1,48 @@
+services:
+  budget-api:
+    build:
+      context: ..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":budget:api"
+        JAR_DIRECTORY: budget/api
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: ${BUDGET_DB_URL:?set BUDGET_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${BUDGET_DB_USER:?set BUDGET_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${BUDGET_DB_PASSWORD:?set BUDGET_DB_PASSWORD}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-auth-service}
+      SERVER_PORT: "8096"
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "false"
+      BUDGET_DISCOVERY_ENABLED: "false"
+      BUDGET_EUREKA_ENABLED: "false"
+    ports:
+      - "${BUDGET_API_PORT:-8096}:8096"
+    networks:
+      - account-network
+
+  budget-batch:
+    profiles: ["batch"]
+    build:
+      context: ..
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":budget:batch"
+        JAR_DIRECTORY: budget/batch
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: ${BUDGET_DB_URL:?set BUDGET_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${BUDGET_DB_USER:?set BUDGET_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${BUDGET_DB_PASSWORD:?set BUDGET_DB_PASSWORD}
+      SPRING_BATCH_JOB_ENABLED: "false"
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+    restart: "no"
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    external: true
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}

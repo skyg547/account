@@ -235,8 +235,14 @@ function Get-RuntimeInventory {
             PostgreSqlDependency = $buildText -match 'org\.postgresql:postgresql'
             ExplicitH2Config     = $resourceText -match 'jdbc:h2:'
             ExplicitLocalProfile = $resourceText -match '(?m)^\s*(default|active):\s*local\s*$'
-            ExplicitDevProfile   = $resourceText -match '(?m)on-profile:\s*dev\s*$'
-            ExplicitProdProfile  = $resourceText -match '(?m)on-profile:\s*prod\s*$'
+            ExplicitDevProfile   = @($resourceFiles | Where-Object {
+                    $_.Name -match '^application-dev\.(yml|yaml|properties)$'
+                }).Count -gt 0 -or
+                $resourceText -match '(?m)on-profile:\s*dev\s*$'
+            ExplicitProdProfile  = @($resourceFiles | Where-Object {
+                    $_.Name -match '^application-prod\.(yml|yaml|properties)$'
+                }).Count -gt 0 -or
+                $resourceText -match '(?m)on-profile:\s*prod\s*$'
             ModuleDockerfile     = Test-Path -LiteralPath $dockerfile -PathType Leaf
             ModuleCompose        = Test-Path -LiteralPath $composeFile -PathType Leaf
         }
@@ -533,9 +539,10 @@ function Test-LocalJarContract {
                 '--management.tracing.enabled=false'
             )
         } else {
+            $webApplicationType = if ($package.Project -eq ':budget:api') { 'servlet' } else { 'none' }
             $arguments += @(
                 '--spring.profiles.active=local',
-                '--spring.main.web-application-type=none',
+                "--spring.main.web-application-type=$webApplicationType",
                 '--server.port=0',
                 '--spring.cloud.config.enabled=false',
                 '--spring.config.on-not-found=ignore',
@@ -544,21 +551,39 @@ function Test-LocalJarContract {
                 '--spring.cloud.vault.enabled=false',
                 '--eureka.client.enabled=false',
                 '--management.tracing.enabled=false',
-                '--spring.batch.job.enabled=false',
-                '--spring.batch.jdbc.initialize-schema=always',
-                '--spring.datasource.url=jdbc:h2:mem:runtime_smoke;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE',
-                '--spring.datasource.driver-class-name=org.h2.Driver',
-                '--spring.datasource.username=sa',
-                '--spring.datasource.password=',
-                '--spring.jpa.hibernate.ddl-auto=create-drop',
-                '--spring.flyway.enabled=false'
+                '--spring.batch.job.enabled=false'
             )
+            if ($package.Project -in @(':budget:api', ':budget:batch')) {
+                $budgetDatabaseName = $package.Project.TrimStart(':').Replace(':', '_')
+                $arguments += @(
+                    '--spring.batch.jdbc.initialize-schema=always',
+                    "--spring.datasource.url=jdbc:h2:mem:runtime_smoke_$budgetDatabaseName;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+                    '--spring.datasource.driver-class-name=org.h2.Driver',
+                    '--spring.datasource.username=sa',
+                    '--spring.datasource.password=',
+                    '--spring.jpa.hibernate.ddl-auto=validate',
+                    '--spring.flyway.enabled=true'
+                )
+            } else {
+                $arguments += @(
+                    '--spring.batch.jdbc.initialize-schema=always',
+                    '--spring.datasource.url=jdbc:h2:mem:runtime_smoke;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE',
+                    '--spring.datasource.driver-class-name=org.h2.Driver',
+                    '--spring.datasource.username=sa',
+                    '--spring.datasource.password=',
+                    '--spring.jpa.hibernate.ddl-auto=create-drop',
+                    '--spring.flyway.enabled=false'
+                )
+            }
         }
         if ($package.Project -in @(':deposit:api', ':deposit:batch')) {
             $arguments += '--account.deposit.local-adapters.enabled=true'
         }
         if ($package.Project -in @(':reporting:api', ':reporting:batch')) {
             $arguments += '--account.reporting.persistence.mode=memory'
+        }
+        if ($package.Project -eq ':budget:api') {
+            $arguments += '--auth.jwt.secret=runtime-smoke-budget-test-key-32-bytes-minimum'
         }
         $result = Invoke-ProcessCaptureWithTimeout `
             -FilePath $javaCommand.Source `

@@ -25,6 +25,7 @@ class ContainerImagePolicyTest {
         JsonNode targets = manifest.get("targets");
         Set<String> names = new HashSet<>();
         Set<String> gradleProjects = new HashSet<>();
+        Set<String> enabledGradleProjects = new HashSet<>();
         int javaTargets = 0;
         int enabledJavaTargets = 0;
         int frontendTargets = 0;
@@ -53,16 +54,19 @@ class ContainerImagePolicyTest {
 
             if (target.get("enabled").asBoolean()) {
                 enabledJavaTargets++;
+                enabledGradleProjects.add(project);
             } else {
                 assertThat(name).isIn("internal-audit-api", "internal-audit-batch");
                 assertThat(target.get("blockedBy").asText()).contains("#231");
             }
         }
 
-        assertThat(targets.size()).isEqualTo(36);
-        assertThat(javaTargets).isEqualTo(35);
-        assertThat(enabledJavaTargets).isEqualTo(33);
+        assertThat(targets.size()).isEqualTo(38);
+        assertThat(javaTargets).isEqualTo(37);
+        assertThat(enabledJavaTargets).isEqualTo(35);
         assertThat(frontendTargets).isEqualTo(1);
+        assertThat(enabledGradleProjects)
+                .containsExactlyInAnyOrderElementsOf(discoverEnabledExecutableProjects());
         assertThat(gradleProjects)
                 .doesNotContain(":app", ":contracts", ":shared-kernel")
                 .allMatch(project -> !project.endsWith(":core"));
@@ -146,6 +150,8 @@ class ContainerImagePolicyTest {
         Map<String, ComposeTarget> targets = new LinkedHashMap<>();
         targets.put("auth/docker-compose.yml",
                 new ComposeTarget("auth", "..", ":auth:api", "auth/api"));
+        targets.put("budget/docker-compose.yml",
+                new ComposeTarget("budget-api", "..", ":budget:api", "budget/api"));
         targets.put("master-data/docker-compose.yml",
                 new ComposeTarget("master-data", "..", ":master-data:api", "master-data/api"));
         targets.put("asset-lease/docker-compose.yml",
@@ -186,7 +192,7 @@ class ContainerImagePolicyTest {
         targets.put("gateway/docker-compose.yml",
                 new ComposeTarget("gateway", "..", ":gateway", "gateway"));
 
-        assertThat(targets).hasSize(19);
+        assertThat(targets).hasSize(20);
         for (Map.Entry<String, ComposeTarget> entry : targets.entrySet()) {
             Map<String, Object> root = loadYaml(resolve(entry.getKey().split("/")));
             ComposeTarget target = entry.getValue();
@@ -269,6 +275,54 @@ class ContainerImagePolicyTest {
                         }
                     });
         }
+    }
+
+    private Set<String> discoverEnabledExecutableProjects() throws IOException {
+        Path repositoryRoot = Files.exists(Path.of("settings.gradle"))
+                ? Path.of("").toAbsolutePath().normalize()
+                : Path.of("..").toAbsolutePath().normalize();
+        Set<String> projects = new HashSet<>();
+        try (var paths = Files.walk(repositoryRoot)) {
+            for (Path buildFile : paths
+                    .filter(path -> path.getFileName().toString().equals("build.gradle"))
+                    .toList()) {
+                String build = Files.readString(buildFile);
+                Path projectRoot = buildFile.getParent();
+                if (!(build.contains("id 'org.springframework.boot'")
+                                || inheritsSpringBootPlugin(projectRoot, repositoryRoot))
+                        || build.matches("(?s).*bootJar\\s*\\{[^}]*enabled\\s*=\\s*false.*")
+                        || !containsSpringBootApplication(projectRoot.resolve("src/main/java"))) {
+                    continue;
+                }
+                String project = ":" + repositoryRoot.relativize(projectRoot)
+                        .toString()
+                        .replace('\\', ':')
+                        .replace('/', ':');
+                String leaf = project.substring(project.lastIndexOf(':') + 1);
+                if (!leaf.endsWith("api")
+                        && !leaf.endsWith("batch")
+                        && !Set.of(":config-server", ":discovery", ":gateway").contains(project)) {
+                    continue;
+                }
+                projects.add(project);
+            }
+        }
+        return projects;
+    }
+
+    private boolean inheritsSpringBootPlugin(Path projectRoot, Path repositoryRoot)
+            throws IOException {
+        for (Path ancestor = projectRoot.getParent();
+                ancestor != null && !ancestor.equals(repositoryRoot);
+                ancestor = ancestor.getParent()) {
+            Path buildFile = ancestor.resolve("build.gradle");
+            if (Files.exists(buildFile)
+                    && Files.readString(buildFile)
+                            .contains("apply plugin: 'org.springframework.boot'")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Path resolve(String... parts) {

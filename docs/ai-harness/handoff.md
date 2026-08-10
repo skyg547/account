@@ -1332,3 +1332,18 @@
 - Independent review findings were resolved and final re-review reported no P0-P3 findings.
 - Actual PostgreSQL clean migrate plus API/Batch `ddl-auto=validate` was not run because no approved local image/pull or external DB access was available. This remains an environment gate, not evidence supplied by H2 compatibility mode.
 - Rollback is a normal revert of `39edbd26`; never delete or rewrite an already applied V20 migration. Merge, Issue close and deployment require separate approval.
+# AI Harness Handoff - 2026-08-11 Issue #249 Budget Runtime
+
+## Review-ready state
+
+- Issue/branch/worktree: `#249`, `agent/249-budget-runtime-matrix`, `C:\tmp\account-249-budget-runtime-matrix`.
+- Base/source/PR: `main@fe24362d` including Asset Lease PR #288, source `d904c2ce`, Draft PR `#289` targeting `main` with `Refs #249`.
+- Budget API/Batch now own local H2 direct execution, dev/prod PostgreSQL-only profiles, canonical images, module Compose and production Compose services.
+
+## Evidence and gates
+
+- Latest-main combined gate passed 195 Gradle tasks covering Budget tests, Config policies, full migration-runner tests, READY driver packaging and production JDBC/Actuator archives.
+- API JAR `PASS_STARTED`; Batch JAR `PASS_EXITED`; both applied Flyway V50 to H2 and validated JPA, with no automatic Batch Job.
+- Production validator self-test/template passed with 91 required variables, 36 immutable images and 16 PostgreSQL URLs. Git Bash syntax, diff and marker checks passed.
+- Independent review drove JWT/Auth route, Actuator, network, DB role/grant, migration-history and sequence-privilege corrections; final review found no P0-P3.
+- Real PostgreSQL role/ACL/TLS, image build and Compose start/health were not run. No external development host or secret was accessed. Rollback is a normal revert of `d904c2ce`; do not delete database volumes or rewrite migrations.

@@ -12,6 +12,8 @@
     {"name": "asset-lease-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":asset-lease:batch", "jarDirectory": "asset-lease/batch"},
     {"name": "auth-api", "kind": "java-api", "enabled": true, "gradleProject": ":auth:api", "jarDirectory": "auth/api"},
     {"name": "auth-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":auth:batch", "jarDirectory": "auth/batch"},
+    {"name": "budget-api", "kind": "java-api", "enabled": true, "gradleProject": ":budget:api", "jarDirectory": "budget/api"},
+    {"name": "budget-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":budget:batch", "jarDirectory": "budget/batch"},
     {"name": "closing-api", "kind": "java-api", "enabled": true, "gradleProject": ":closing:api", "jarDirectory": "closing/api"},
     {"name": "closing-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":closing:batch", "jarDirectory": "closing/batch"},
     {"name": "deposit-api", "kind": "java-api", "enabled": true, "gradleProject": ":deposit:api", "jarDirectory": "deposit/api"},

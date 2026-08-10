@@ -37,7 +37,7 @@ auth:
 
 server:
   # Expenditure Resolution API가 사용하는 8095와 충돌하지 않는 Budget 전용 포트입니다.
-  port: 8096
+  port: ${SERVER_PORT:8096}
 
 eureka:
   client:

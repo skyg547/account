@@ -106,7 +106,7 @@ class ConfigServerConfigurationPolicyTest {
         assertThat(properties.getProperty("spring.datasource.username")).isEqualTo("${DEV_DB_USER}");
         assertThat(properties.getProperty("spring.datasource.password")).isEqualTo("${DEV_DB_PASSWORD}");
         assertThat(properties.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
-        assertThat(properties.getProperty("spring.flyway.enabled")).isEqualTo("true");
+        assertThat(properties.getProperty("spring.flyway.enabled")).isEqualTo("false");
         assertThat(properties.getProperty("spring.sql.init.mode")).isEqualTo("never");
         assertThat(yaml)
                 .doesNotContain("jdbc:h2:")
@@ -128,6 +128,8 @@ class ConfigServerConfigurationPolicyTest {
         String compose = Files.readString(composePath);
         String initScript = Files.readString(resolveFromRepositoryRoot(
                 "postgres", "init", "10-create-service-databases.sh"));
+        String runtimeGrantScript = Files.readString(resolveFromRepositoryRoot(
+                "postgres", "runtime", "grant-runtime-privileges.sh"));
         Path exampleEnvironmentPath = resolveFromRepositoryRoot(".env.example");
         String exampleEnvironment = Files.readString(exampleEnvironmentPath);
         Properties exampleProperties = loadKeyValueProperties(exampleEnvironmentPath);
@@ -138,15 +140,19 @@ class ConfigServerConfigurationPolicyTest {
                 .contains("${POSTGRES_ADMIN_PASSWORD:?");
         assertThat(environment.get("ACCOUNT_DATABASES").toString())
                 .contains("${ACCOUNT_DATABASES:?");
-        assertThat(environment.get("ACCOUNT_DB_PASSWORD").toString())
-                .contains("${ACCOUNT_DB_PASSWORD:?");
+        assertThat(environment.get("ACCOUNT_DB_OWNER_PASSWORD").toString())
+                .contains("${ACCOUNT_DB_OWNER_PASSWORD:?");
+        assertThat(environment.get("ACCOUNT_DB_APP_PASSWORD").toString())
+                .contains("${ACCOUNT_DB_APP_PASSWORD:?");
         assertThat(asList(postgres.get("profiles"))).contains("self-contained-db");
         assertThat(asList(healthcheck.get("test")).toString())
                 .contains("pg_isready")
                 .contains("account_dev_bootstrap_status")
                 .contains("ACCOUNT_DATABASES");
         assertThat(asList(postgres.get("volumes")))
-                .contains("./init:/docker-entrypoint-initdb.d:ro");
+                .contains(
+                        "./init:/docker-entrypoint-initdb.d:ro",
+                        "./runtime:/account-runtime:ro");
         assertThat(asList(pgadmin.get("profiles"))).contains("admin");
         assertThat(pgadminDependency.get("condition")).isEqualTo("service_healthy");
 
@@ -154,18 +160,31 @@ class ConfigServerConfigurationPolicyTest {
                 .contains("CREATE ROLE %I LOGIN PASSWORD %L")
                 .contains("CREATE DATABASE %I OWNER %I")
                 .contains("ALTER SCHEMA public OWNER TO %I")
+                .contains("GRANT CONNECT ON DATABASE %I TO %I")
+                .contains("GRANT USAGE ON SCHEMA public TO %I")
+                .contains("Development owner and runtime passwords must differ")
                 .contains("account_dev_bootstrap_status")
                 .contains("database_manifest")
+                .doesNotContain("ALTER DEFAULT PRIVILEGES")
                 .doesNotContain("set -x");
+        assertThat(runtimeGrantScript)
+                .contains(
+                        "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I.%I TO %I",
+                        "GRANT USAGE, SELECT ON SEQUENCE %I.%I TO %I",
+                        "REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I",
+                        "tablename LIKE 'flyway\\_schema\\_history%' ESCAPE '\\'")
+                .doesNotContain("set -x", "ALTER DEFAULT PRIVILEGES");
         assertThat(exampleEnvironment)
                 .contains("ACCOUNT_DATABASES=auth_dev,master_data_dev")
                 .contains("POSTGRES_ADMIN_PASSWORD=replace-with-local-admin-password")
-                .contains("ACCOUNT_DB_PASSWORD=replace-with-local-service-password");
+                .contains("ACCOUNT_DB_OWNER_PASSWORD=replace-with-local-owner-password")
+                .contains("ACCOUNT_DB_APP_PASSWORD=replace-with-local-app-password");
         assertThat(exampleProperties.getProperty("ACCOUNT_DATABASES").split(","))
                 .containsExactly(
                         "auth_dev",
                         "master_data_dev",
                         "internal_audit_dev",
+                        "budget_dev",
                         "journal_ledger_dev",
                         "closing_dev",
                         "loan_dev",

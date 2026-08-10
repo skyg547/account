@@ -35,6 +35,18 @@ class BudgetApiSecurityConfigurationTest {
                 .isInstanceOf(JwtValidationException.class);
     }
 
+    @Test
+    void decoderFailsClosedWhenJwtSecretIsMissingOrTooShort() {
+        BudgetApiSecurityConfiguration configuration = new BudgetApiSecurityConfiguration();
+
+        assertThatThrownBy(() -> configuration.budgetJwtDecoder("", "auth-service"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least 32 bytes");
+        assertThatThrownBy(() -> configuration.budgetJwtDecoder("short-test-key", "auth-service"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least 32 bytes");
+    }
+
     private String token(String issuer) throws Exception {
         Instant now = Instant.now();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
