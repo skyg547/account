@@ -779,6 +779,15 @@
 - Environment gate: Docker is absent and Podman has neither required base images nor an approved pull, so no actual local image build or registry action was performed.
 - Independent review findings for root/frontend secret context leakage, tracked Compose credentials, process-output deadlock and frontend URL drift were corrected; final re-review found no unresolved issue after the frontend context was hardened.
 - State: pushed to `origin/agent/228-container-images`; Draft PR `#240` opened with `Refs #228`. No merge or Issue closure.
+
+## 2026-08-11 - Issue #341 remove phantom Gradle project
+
+- Issue/branch/worktree/base: `#341`, `agent/341-remove-phantom-app`, `C:\tmp\account-341-remove-phantom-app`, `origin/main@5624ae97`.
+- Removed only the source/build-less `:app` include and updated current-state root/container/local-development prose; no directory or build artifact was deleted.
+- `gradlew projects --offline` now lists 72 real subprojects instead of 73 entries, with set difference exactly `app`; all executable image/Compose targets remain unchanged.
+- Config/image/development/production policy suites passed 21 tests with no failure/error/skip. Diff/marker checks and independent review found no P0-P3.
+- Rollback is a normal revert of the Issue #341 commit; local ignored `app/build` remnants remain untouched. Latest matrix counts are owned by #227.
+- Commit `7b393665` is pushed and Draft PR `#346` targets `main` with `Refs #341` and `Refs #227`.
 ## 2026-08-11 - Issue #254 Asset Lease baseline recovery
 
 - Recovered the Asset Lease implementation from obsolete stack PR #259 onto current `origin/main@ea6d8063` without reapplying stale shared migration-runner changes.

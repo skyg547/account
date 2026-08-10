@@ -2561,6 +2561,13 @@
 - 독립 리뷰의 지적을 모두 반영했고 남은 P0-P3가 없다. commit `5052163c`를 push하고 Draft PR #338을 열었다.
 - Docker/실 PostgreSQL/원격 개발 서버는 사용하지 않았으므로 실제 Compose와 PostgreSQL 및 live Gateway/Eureka 검증은 외부 게이트로 남는다.
 
+### 📅 2026-08-11 (Issue #341 phantom Gradle project 제거)
+
+- source/build/entrypoint가 없는 `:app` include만 제거하고 현재 상태를 설명하는 루트·컨테이너·로컬 실행 문서를 정정했다.
+- Gradle project 항목은 73개에서 실제 72개로 정리됐고 차집합은 `app` 하나뿐이다. 실행 image/Compose target은 바뀌지 않았다.
+- Config/image/dev/prod 정책 21개, diff/marker 검사와 독립 리뷰가 통과했으며 로컬 `app` 디렉터리나 산출물은 삭제하지 않았다.
+- commit `7b393665`을 push하고 `Refs #341`, `Refs #227` Draft PR #346을 열었다.
+
 ### 📅 2026-08-11 (Issue #66 개발 Compose 통합)
 ### [PR 검토 준비] 전체 MSA 개발 실행면과 두 PostgreSQL 모드
 

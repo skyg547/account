@@ -1803,6 +1803,13 @@
 - Independent review findings were corrected and final review reported no remaining P0-P3. Commit `5052163c` is pushed and Draft PR #338 targets main with `Refs #231`, `#73`, and `#74`.
 - Docker was unavailable and no external development host was accessed, so real PostgreSQL migration, Compose startup and live Gateway/Eureka routing remain external verification gates.
 
+## 2026-08-11 (Issue #341 remove source-less Gradle app)
+
+- Removed only the `:app` include, which had no directory, build file, source, entrypoint or tests, and corrected current-state root/container/local-development text.
+- `gradlew projects --offline` changed from 73 entries to 72 with set difference exactly `app`; runtime manifest and Compose targets were unchanged.
+- Twenty-one Config/image/development/production policy tests, diff/marker checks and independent review passed with no P0-P3. No app directory or ignored build output was deleted.
+- Commit `7b393665` is pushed and Draft PR `#346` targets `main` with `Refs #341` and `Refs #227`.
+
 ## 2026-08-11 (Issue #66 root development Compose topology)
 
 - Created the full root development runtime for 36 enabled image targets: Config Server, Discovery, Gateway, Frontend, 17 APIs and 15 opt-in Batch applications.
