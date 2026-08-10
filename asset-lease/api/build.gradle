@@ -26,7 +26,6 @@ sourceSets {
 
 dependencies {
     implementation project(':asset-lease:core')
-    implementation project(':master-data:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -45,6 +44,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.flywaydb:flyway-core'
 }
 
 sourceSets.test.java.srcDir rootProject.file('test-support/runtime-contracts/src/test/java')

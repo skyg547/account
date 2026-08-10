@@ -7,8 +7,45 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FixedAssetTest {
+
+    @Test
+    void acquisitionInitializationEstablishesNonNullFinancialBalances() {
+        FixedAsset asset = new FixedAsset();
+        asset.setAcquisitionCost(new BigDecimal("12000000.00"));
+        asset.setResidualValue(new BigDecimal("1200000.00"));
+        asset.setAccumulatedDepreciation(new BigDecimal("100.00"));
+
+        asset.initializeAcquisitionBalances();
+
+        assertThat(asset.getCurrentBookValue()).isEqualByComparingTo("12000000.00");
+        assertThat(asset.getAccumulatedDepreciation()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(asset.getResidualValue()).isEqualByComparingTo("1200000.00");
+    }
+
+    @Test
+    void acquisitionInitializationRejectsResidualAboveCost() {
+        FixedAsset asset = new FixedAsset();
+        asset.setAcquisitionCost(new BigDecimal("100.00"));
+        asset.setResidualValue(new BigDecimal("100.01"));
+
+        assertThatThrownBy(asset::initializeAcquisitionBalances)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("residual value");
+    }
+
+    @Test
+    void acquisitionInitializationRejectsNegativeResidual() {
+        FixedAsset asset = new FixedAsset();
+        asset.setAcquisitionCost(new BigDecimal("100.00"));
+        asset.setResidualValue(new BigDecimal("-0.01"));
+
+        assertThatThrownBy(asset::initializeAcquisitionBalances)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must not be negative");
+    }
 
     @Test
     @DisplayName("정액법 감가상각이 정확하게 계산되어야 한다.")

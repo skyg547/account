@@ -7,20 +7,11 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@SpringBootApplication(scanBasePackages = {
-        "com.ho.account.asset",
-        "com.ho.account.masterdata.core"
-})
+@SpringBootApplication(scanBasePackages = "com.ho.account.asset")
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.ho.account.asset")
-@EntityScan(basePackages = {
-        "com.ho.account.asset.domain",
-        "com.ho.account.masterdata.core.domain"
-})
-@EnableJpaRepositories(basePackages = {
-        "com.ho.account.asset.repository",
-        "com.ho.account.masterdata.core.infrastructure.persistence"
-})
+@EntityScan(basePackages = "com.ho.account.asset.domain")
+@EnableJpaRepositories(basePackages = "com.ho.account.asset.repository")
 public class AssetLeaseApiApplication {
     public static void main(String[] args) {
         SpringApplication.run(AssetLeaseApiApplication.class, args);

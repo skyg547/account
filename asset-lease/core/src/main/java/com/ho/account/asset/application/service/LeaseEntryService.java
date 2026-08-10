@@ -40,6 +40,7 @@ public class LeaseEntryService implements LeaseUseCase {
     @Override
     @Transactional
     public LeaseContract registerLeaseContract(LeaseContract contract, String actor) {
+        contract.validateForRegistration();
         LeaseContract savedContract = persistencePort.saveContract(contract);
 
         if (savedContract.isIfrs16Applicable() && !savedContract.isShortTermLease() && !savedContract.isLowValueLease()) {
@@ -113,7 +114,8 @@ public class LeaseEntryService implements LeaseUseCase {
         if (newPayment != null) contract.setMonthlyPayment(newPayment);
         if (newEndDate != null) contract.setEndDate(newEndDate);
         if (newRate != null) contract.setDiscountRate(newRate);
-        
+
+        contract.validateForRegistration();
         LeaseContract updated = persistencePort.saveContract(contract);
         
         Map<String, Object> event = new HashMap<>();

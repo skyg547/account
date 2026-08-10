@@ -1317,3 +1317,18 @@
 - Frontend dependency install/build was not run because `node_modules` is absent and package installation is not authorized.
 - Docker is absent; Podman has no required base images and no Compose provider. Actual image builds, health checks and registry behavior remain environment gates.
 - Rollback: revert the Issue #228 commit. No registry image, container, volume or remote environment was changed.
+# AI Harness Handoff - 2026-08-11 Issue #254 Asset Lease Recovery
+
+## Review-ready state
+
+- Issue/branch/worktree: `#254`, `agent/254-asset-lease-postgres-reintegration`, `C:\tmp\account-254-asset-lease-postgres-reintegration`.
+- Base/source/PR: `origin/main@ea6d8063`, `39edbd26`, Draft PR `#288` targeting `main` with `Refs #254`.
+- Reason for recovery: old PR #259 merged into a superseded stacked branch, while current main advertised Asset Lease READY without containing the corresponding profiles and schema implementation.
+
+## Evidence and gates
+
+- Asset Lease Core 19, API 2, Batch 1 and migration-runner 78 tests passed with no failure/error/skip.
+- API/Batch bootJars, the full 183-task READY PostgreSQL-driver gate, diff/marker checks and direct local-profile H2 JAR startup passed.
+- Independent review findings were resolved and final re-review reported no P0-P3 findings.
+- Actual PostgreSQL clean migrate plus API/Batch `ddl-auto=validate` was not run because no approved local image/pull or external DB access was available. This remains an environment gate, not evidence supplied by H2 compatibility mode.
+- Rollback is a normal revert of `39edbd26`; never delete or rewrite an already applied V20 migration. Merge, Issue close and deployment require separate approval.
