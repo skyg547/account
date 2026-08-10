@@ -29,6 +29,7 @@ class ProductionComposePolicyTest {
             "account-mart",
             "asset-lease",
             "auth",
+            "budget",
             "closing",
             "deposit",
             "ecl",
@@ -56,7 +57,7 @@ class ProductionComposePolicyTest {
         }
 
         assertThat(services.keySet()).containsExactlyInAnyOrderElementsOf(expected);
-        assertThat(services).hasSize(34).doesNotContainKeys(
+        assertThat(services).hasSize(36).doesNotContainKeys(
                 "postgres", "postgres-db", "internal-audit-api", "internal-audit-batch");
         assertThat(composeText)
                 .doesNotContain("build:")
@@ -142,6 +143,49 @@ class ProductionComposePolicyTest {
     }
 
     @Test
+    void authGatewayAndBudgetShareOneRequiredJwtAndBudgetIntegrationIsExplicit()
+            throws IOException {
+        Map<String, Object> services =
+                asMap(loadYaml(resolve("compose.prod.yml")).get("services"));
+        Map<String, Object> authEnvironment =
+                asMap(asMap(services.get("auth-api")).get("environment"));
+        Map<String, Object> gatewayEnvironment =
+                asMap(asMap(services.get("gateway")).get("environment"));
+        Map<String, Object> apiEnvironment =
+                asMap(asMap(services.get("budget-api")).get("environment"));
+        Map<String, Object> batchEnvironment =
+                asMap(asMap(services.get("budget-batch")).get("environment"));
+
+        String requiredJwt = "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}";
+        assertThat(authEnvironment)
+                .containsEntry("AUTH_JWT_SECRET", requiredJwt)
+                .containsEntry(
+                        "AUTH_DEFAULT_PASSWORD",
+                        "${AUTH_DEFAULT_PASSWORD:?set AUTH_DEFAULT_PASSWORD}")
+                .containsEntry(
+                        "AUTH_INTERNAL_API_TOKEN",
+                        "${AUTH_INTERNAL_API_TOKEN:?set AUTH_INTERNAL_API_TOKEN}");
+        assertThat(gatewayEnvironment)
+                .containsEntry("AUTH_JWT_SECRET", requiredJwt)
+                .containsEntry(
+                        "AUTH_TOKEN_VERSION_VALIDATION_BASE_URL",
+                        "http://auth-api:8080");
+        assertThat(apiEnvironment)
+                .containsEntry(
+                        "AUTH_JWT_SECRET",
+                        requiredJwt)
+                .containsEntry("SPRING_CLOUD_CONFIG_ENABLED", "true")
+                .containsEntry("SPRING_CLOUD_DISCOVERY_ENABLED", "true")
+                .containsEntry("BUDGET_DISCOVERY_ENABLED", "true")
+                .containsEntry("BUDGET_EUREKA_ENABLED", "true");
+        assertThat(batchEnvironment)
+                .containsEntry("SPRING_CLOUD_CONFIG_ENABLED", "true")
+                .containsEntry("SPRING_MAIN_WEB_APPLICATION_TYPE", "none")
+                .containsEntry(
+                        "SPRING_BATCH_JOB_ENABLED", "${PROD_BATCH_JOB_ENABLED:-false}");
+    }
+
+    @Test
     void productionConfigFailsClosedOnPostgresqlAndMigrationPolicy() {
         Properties properties = loadProperties(resolve("config-repo", "application-prod.yml"));
 
@@ -156,8 +200,8 @@ class ProductionComposePolicyTest {
         assertThat(properties.getProperty("spring.jpa.open-in-view")).isEqualTo("false");
         assertThat(properties.getProperty("spring.flyway.enabled")).isEqualTo("false");
         assertThat(properties.getProperty("spring.flyway.clean-disabled")).isEqualTo("true");
-        assertThat(properties).doesNotContainKeys(
-                "spring.flyway.validate-on-migrate", "spring.flyway.baseline-on-migrate");
+        assertThat(properties.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
+        assertThat(properties).doesNotContainKey("spring.flyway.validate-on-migrate");
         assertThat(properties.getProperty("spring.sql.init.mode")).isEqualTo("never");
         assertThat(properties.getProperty("spring.batch.jdbc.initialize-schema")).isEqualTo("never");
         assertThat(properties.getProperty("spring.kafka.bootstrap-servers"))
@@ -185,11 +229,15 @@ class ProductionComposePolicyTest {
         assertThat(dockerignore).contains(".env.prod");
         assertThat(template)
                 .contains("db.example.invalid")
+                .contains(
+                        "AUTH_JWT_SECRET=",
+                        "AUTH_DEFAULT_PASSWORD=",
+                        "AUTH_INTERNAL_API_TOKEN=")
                 .doesNotContain("192.168.", "localhost", "dev_pass", "password=password");
-        assertThat(digest.matcher(template).results()).hasSize(34);
-        assertThat(emptyPassword.matcher(template).results()).hasSize(15);
-        assertThat(verifiedTlsUrl.matcher(template).results()).hasSize(15);
-        assertThat(runtimeUser.matcher(template).results()).hasSize(15);
+        assertThat(digest.matcher(template).results()).hasSize(36);
+        assertThat(emptyPassword.matcher(template).results()).hasSize(16);
+        assertThat(verifiedTlsUrl.matcher(template).results()).hasSize(16);
+        assertThat(runtimeUser.matcher(template).results()).hasSize(16);
     }
 
     @Test
@@ -209,6 +257,9 @@ class ProductionComposePolicyTest {
                         "Interpolated double-quoted values are forbidden",
                         "Backslash escape sequences are forbidden",
                         "least-privilege runtime database user",
+                        "JWT secrets must be at least 32 characters",
+                        "AUTH_DEFAULT_PASSWORD does not meet the minimum production policy",
+                        "AUTH_INTERNAL_API_TOKEN must be at least 32 characters",
                         "password.Length -lt 16",
                         "Production Compose must not contain source build directives")
                 .doesNotContain("Write-Output $values", "Write-Host $values");
@@ -221,7 +272,7 @@ class ProductionComposePolicyTest {
         assertThat(runbook)
                 .contains(
                         "--profile prod up -d --wait --wait-timeout 300 --no-build --pull never",
-                        "prod profile의 19개 서비스가 running/healthy",
+                        "prod profile의 20개 서비스가 running/healthy",
                         "#243",
                         "#244")
                 .doesNotContain("--profile prod up -d --no-build --pull never");

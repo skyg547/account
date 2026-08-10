@@ -7,7 +7,10 @@ spring:
     web-application-type: none
   cloud:
     config:
-      enabled: false
+      # Local/direct runs stay independent. Container environments may opt in
+      # only by explicitly setting SPRING_CLOUD_CONFIG_ENABLED=true together
+      # with their externally supplied spring.config.import value.
+      enabled: ${SPRING_CLOUD_CONFIG_ENABLED:false}
     discovery:
       enabled: false
     vault:

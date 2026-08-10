@@ -4,7 +4,13 @@ set -eu
 : "${POSTGRES_USER:?POSTGRES_USER is required}"
 : "${POSTGRES_DB:?POSTGRES_DB is required}"
 : "${ACCOUNT_DATABASES:?ACCOUNT_DATABASES is required}"
-: "${ACCOUNT_DB_PASSWORD:?ACCOUNT_DB_PASSWORD is required}"
+: "${ACCOUNT_DB_OWNER_PASSWORD:?ACCOUNT_DB_OWNER_PASSWORD is required}"
+: "${ACCOUNT_DB_APP_PASSWORD:?ACCOUNT_DB_APP_PASSWORD is required}"
+
+if [ "$ACCOUNT_DB_OWNER_PASSWORD" = "$ACCOUNT_DB_APP_PASSWORD" ]; then
+    echo "Development owner and runtime passwords must differ" >&2
+    exit 1
+fi
 
 old_ifs=$IFS
 IFS=','
@@ -23,7 +29,8 @@ for raw_database in $ACCOUNT_DATABASES; do
     fi
 
     owner="${database}_owner"
-    echo "Provisioning development database '$database' with owner '$owner'"
+    app="${database}_app"
+    echo "Provisioning development database '$database' with owner '$owner' and runtime role '$app'"
 
     psql \
         --username "$POSTGRES_USER" \
@@ -31,12 +38,21 @@ for raw_database in $ACCOUNT_DATABASES; do
         --set=ON_ERROR_STOP=1 \
         --set=database="$database" \
         --set=owner="$owner" \
-        --set=owner_password="$ACCOUNT_DB_PASSWORD" <<'SQL'
+        --set=owner_password="$ACCOUNT_DB_OWNER_PASSWORD" \
+        --set=app="$app" \
+        --set=app_password="$ACCOUNT_DB_APP_PASSWORD" <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'owner', :'owner_password')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'owner')
 \gexec
 
 SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'owner', :'owner_password')
+\gexec
+
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'app', :'app_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app')
+\gexec
+
+SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'app', :'app_password')
 \gexec
 
 SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'owner')
@@ -45,15 +61,25 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'database')
 
 SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'owner')
 \gexec
+
+SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'database')
+\gexec
+
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'database', :'app')
+\gexec
 SQL
 
     psql \
         --username "$POSTGRES_USER" \
         --dbname "$database" \
         --set=ON_ERROR_STOP=1 \
-        --set=owner="$owner" <<'SQL'
+        --set=owner="$owner" \
+        --set=app="$app" <<'SQL'
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SELECT format('ALTER SCHEMA public OWNER TO %I', :'owner')
+\gexec
+
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'app')
 \gexec
 SQL
 done

@@ -24,10 +24,12 @@ Copy-Item .env.prod.example .env.prod
 
 다음을 배포 시스템의 승인된 값으로 채웁니다.
 
-- 34개 image reference: release registry의 immutable `@sha256:<64 hex>` digest
+- 36개 image reference: release registry의 immutable `@sha256:<64 hex>` digest
 - `PROD_CONFIG_REPO_PATH`: 배포된 Config repository의 절대 경로
 - Kafka/Redis endpoint
-- 15개 bounded context별 PostgreSQL JDBC URL, 최소 권한 runtime user, password
+- Budget을 포함한 16개 bounded context별 PostgreSQL JDBC URL, 최소 권한 runtime user, password
+- Auth, Gateway, Budget API가 함께 사용하는 32자 이상의 `AUTH_JWT_SECRET`
+- 운영 bootstrap용 16자 이상의 `AUTH_DEFAULT_PASSWORD`와 32자 이상의 `AUTH_INTERNAL_API_TOKEN`
 - 필요하면 Gateway/Frontend host port
 
 예제의 빈 password와 zero digest는 운영 검증에서 거부됩니다. 자격증명은 저장소, PR, Issue, shell history에 넣지 않습니다. 실제 배포에서는 secret manager가 보호된 임시 env 파일을 생성하게 하고, host 접근권한과 보존 정책을 배포 플랫폼에서 통제합니다.
@@ -64,7 +66,7 @@ docker compose --env-file .env.prod -f compose.prod.yml --profile prod up -d --w
 docker compose --env-file .env.prod -f compose.prod.yml --profile prod ps
 ```
 
-`--wait`가 prod profile의 19개 서비스가 running/healthy가 되지 못하면 명령을 실패시킵니다. Config Server readiness 뒤에 Discovery가 시작되고, Gateway와 도메인 API는 두 플랫폼 서비스가 healthy가 된 뒤 병렬로 시작합니다. Frontend만 Gateway readiness를 기다립니다. Gateway가 모든 API를 `depends_on`으로 묶어 한 업무의 장애가 전체 ingress를 막게 하지 않습니다. `--wait` 통과 뒤에도 필수 Gateway route smoke가 성공하기 전에는 traffic을 전환하지 않습니다. Database migration과 PostgreSQL 권한이 유효하지 않으면 `ddl-auto`로 우회하지 않고 배포를 실패시킵니다. #243의 PostgreSQL driver/Actuator classpath와 #244의 PostgreSQL migration gate가 완료되기 전에는 이 stack을 운영 배포하지 않습니다.
+`--wait`가 prod profile의 20개 서비스가 running/healthy가 되지 못하면 명령을 실패시킵니다. Config Server readiness 뒤에 Discovery가 시작되고, Gateway와 도메인 API는 두 플랫폼 서비스가 healthy가 된 뒤 병렬로 시작합니다. Frontend만 Gateway readiness를 기다립니다. Gateway가 모든 API를 `depends_on`으로 묶어 한 업무의 장애가 전체 ingress를 막게 하지 않습니다. `--wait` 통과 뒤에도 필수 Gateway route smoke가 성공하기 전에는 traffic을 전환하지 않습니다. Database migration과 PostgreSQL 권한이 유효하지 않으면 `ddl-auto`로 우회하지 않고 배포를 실패시킵니다. #243의 PostgreSQL driver/Actuator classpath와 #244의 PostgreSQL migration gate가 완료되기 전에는 이 stack을 운영 배포하지 않습니다.
 
 ## Run A Batch Explicitly
 

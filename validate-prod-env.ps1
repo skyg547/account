@@ -217,7 +217,14 @@ if (-not $values.ContainsKey('PROD_BATCH_JOB_ENABLED') -or $values['PROD_BATCH_J
 $emptyNames = @(
     $requiredNames |
         Where-Object {
-            -not $values[$_] -and -not ($Template -and $_ -like '*_DB_PASSWORD')
+            -not $values[$_] -and -not (
+                $Template -and (
+                    $_ -like '*_DB_PASSWORD' -or
+                    $_ -like '*_JWT_SECRET' -or
+                    $_ -eq 'AUTH_DEFAULT_PASSWORD' -or
+                    $_ -eq 'AUTH_INTERNAL_API_TOKEN'
+                )
+            )
         }
 )
 if ($emptyNames.Count -gt 0) {
@@ -254,6 +261,20 @@ if (-not $Template) {
         if ($password.Length -lt 16 -or $weakPasswords -contains $password.ToLowerInvariant()) {
             throw 'A production database password does not meet the minimum policy.'
         }
+    }
+
+    foreach ($name in @($requiredNames | Where-Object { $_ -like '*_JWT_SECRET' })) {
+        if ($values[$name].Length -lt 32) {
+            throw 'JWT secrets must be at least 32 characters.'
+        }
+    }
+
+    if ($values['AUTH_DEFAULT_PASSWORD'].Length -lt 16 -or
+            $weakPasswords -contains $values['AUTH_DEFAULT_PASSWORD'].ToLowerInvariant()) {
+        throw 'AUTH_DEFAULT_PASSWORD does not meet the minimum production policy.'
+    }
+    if ($values['AUTH_INTERNAL_API_TOKEN'].Length -lt 32) {
+        throw 'AUTH_INTERNAL_API_TOKEN must be at least 32 characters.'
     }
 }
 

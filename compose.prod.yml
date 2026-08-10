@@ -171,6 +171,8 @@ services:
       SERVER_PORT: "8000"
       SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery:8761/eureka/
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}"
+      AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: http://auth-api:8080
     depends_on:
       config-server:
         condition: service_healthy
@@ -282,6 +284,9 @@ services:
     environment:
       <<: *common-environment
       SERVER_PORT: "8080"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}"
+      AUTH_DEFAULT_PASSWORD: "${AUTH_DEFAULT_PASSWORD:?set AUTH_DEFAULT_PASSWORD}"
+      AUTH_INTERNAL_API_TOKEN: "${AUTH_INTERNAL_API_TOKEN:?set AUTH_INTERNAL_API_TOKEN}"
       SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?set AUTH_DB_URL}"
       SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?set AUTH_DB_USER}"
       SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}"
@@ -296,6 +301,33 @@ services:
       SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?set AUTH_DB_URL}"
       SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?set AUTH_DB_USER}"
       SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}"
+
+  budget-api:
+    <<: *api-service
+    image: "${BUDGET_API_IMAGE:?set immutable BUDGET_API_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SERVER_PORT: "8080"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      BUDGET_DISCOVERY_ENABLED: "true"
+      BUDGET_EUREKA_ENABLED: "true"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}"
+      SPRING_DATASOURCE_URL: "${BUDGET_DB_URL:?set BUDGET_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${BUDGET_DB_USER:?set BUDGET_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${BUDGET_DB_PASSWORD:?set BUDGET_DB_PASSWORD}"
+
+  budget-batch:
+    <<: *batch-service
+    image: "${BUDGET_BATCH_IMAGE:?set immutable BUDGET_BATCH_IMAGE digest}"
+    environment:
+      <<: *common-environment
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      SPRING_BATCH_JOB_ENABLED: "${PROD_BATCH_JOB_ENABLED:-false}"
+      SPRING_DATASOURCE_URL: "${BUDGET_DB_URL:?set BUDGET_DB_URL}"
+      SPRING_DATASOURCE_USERNAME: "${BUDGET_DB_USER:?set BUDGET_DB_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${BUDGET_DB_PASSWORD:?set BUDGET_DB_PASSWORD}"
 
   closing-api:
     <<: *api-service
