@@ -1,7 +1,6 @@
 rootProject.name = 'account'
 
-include 'app',
-        'contracts',
+include 'contracts',
         'shared-kernel',
         'migration-runner',
         'master-data:core', 'master-data:api', 'master-data:batch',

@@ -75,7 +75,7 @@ flowchart TD
 본 시스템은 철저한 도메인 주도 설계(DDD)를 바탕으로, 각 기능별로 완전히 분리된 마이크로서비스 모듈로 구성되어 있습니다.
 
 ### ⚙️ 기반 모듈 (Foundation)
-* **서비스별 실행 모듈**: `auth:api`, `master-data:api`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 API/Batch/인프라 모듈이 실행 진입점을 소유합니다. 현재 `settings.gradle`에는 source 없는 `:app`이 다시 포함된 상태이므로 실행 대상으로 사용하지 않으며, 최신 감사 결과는 [runtime execution matrix](docs/runtime-execution-matrix.md)를 따릅니다.
+* **서비스별 실행 모듈**: `auth:api`, `master-data:api`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 API/Batch/인프라 모듈이 실행 진입점을 소유합니다. Source와 build file이 없던 `:app`은 Gradle 프로젝트 목록에서 제거되었으며, 최신 감사 결과는 [runtime execution matrix](docs/runtime-execution-matrix.md)를 따릅니다.
 * **`contracts/`**: 모듈 간 Entity 직접 참조를 막는 Java Port/Command/Ref 계약입니다. 자체 서버가 아니며 같은 프로세스는 Bean, 원격 MSA는 별도 REST/Kafka 어댑터로 연결합니다.
 * **`shared-kernel/`**: 로컬 capability 메타정보와 JSON 마스킹 등 최소 공통 규칙을 담습니다. 현재 인프라 전이 의존성과 ECL/account-mart 전용 타입은 단계적 분리 TODO가 있습니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
@@ -225,7 +225,7 @@ flowchart TD
 일부 모듈은 독립 `Dockerfile`/Compose가 있으나 현재 멀티모듈 Gradle 경로와 맞지 않는 항목도 있습니다. [runtime execution matrix](docs/runtime-execution-matrix.md)에서 검증 상태와 후속 Issue를 먼저 확인하세요.
 IntelliJ IDEA에서 로컬 실행을 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
 
-> `:app`은 현재 Gradle 목록에 보이지만 source/build file이 없는 phantom project입니다. 실행 대상으로 사용하지 않습니다. 통합 실행 대신 `auth:api`, `master-data:api`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
+> Source/build file이 없던 phantom `:app`은 Gradle 목록에서 제거되었습니다. 통합 실행 대신 `auth:api`, `master-data:api`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
 
 ### 인프라 및 기반 시스템 구동
 ```bash

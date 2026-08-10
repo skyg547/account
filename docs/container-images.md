@@ -11,7 +11,7 @@
 
 Java builder와 runtime은 모두 Java 17입니다. 이미지에는 environment profile, DB host, credential을 굽지 않습니다. root `.dockerignore`는 모든 하위 디렉터리의 `.env*`, ignored Spring `application-local.*`, secret 디렉터리와 private-key/keystore 형식을 build context에서 제외하며 공개 환경 예제 파일만 허용합니다. API port, healthcheck, `SPRING_PROFILES_ACTIVE`, datasource와 resource/security policy는 #66/#230 Compose가 주입합니다.
 
-library/core/aggregator/phantom `:app`은 service image target이 아닙니다. Manifest는 Java 실행 target 35개와 Frontend 1개를 소유하며 모두 활성입니다. Internal Audit API는 실행 target에 포함되고, 실제 Job/Step이 없는 Internal Audit/Auth Batch는 target에서 제거되었습니다. 정책 테스트는 manifest만 신뢰하지 않고 실제 Gradle Boot API/Batch/infra 진입점과 활성 target을 양방향 비교하므로 새 실행 모듈이 조용히 빠질 수 없습니다.
+Gradle 목록에서 제거된 phantom `:app`과 library/core/aggregator project는 service image target이 아닙니다. Manifest는 Java 실행 target 35개와 Frontend 1개를 소유하며 모두 활성입니다. Internal Audit API는 실행 target에 포함되고, 실제 Job/Step이 없는 Internal Audit/Auth Batch는 target에서 제거되었습니다. 정책 테스트는 manifest만 신뢰하지 않고 실제 Gradle Boot API/Batch/infra 진입점과 활성 target을 양방향 비교하므로 새 실행 모듈이 조용히 빠질 수 없습니다.
 
 ## Verify Packages Without Building Images
 
