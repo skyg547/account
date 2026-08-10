@@ -1,13 +1,33 @@
-﻿# Internal Audit Module (내부감사 모듈)
+# Internal Audit
 
-## 📌 개요
-내부회계관리제도(ICFR/K-SOX) 컴플라이언스 및 재무/권한 변경 이력 감사 로그를 담당하는 모듈입니다.
+Internal Audit는 RCM과 설계·운영 평가를 제공하는 헥사고날 모듈입니다.
 
-## 🏗 아키텍처 (헥사고날 구조)
-- internal-audit:core: 감사 도메인 엔티티, 유즈케이스, 영속성 어댑터
-- internal-audit:api: 감사 로그 조회 REST Controller 및 API DTO
-- internal-audit:batch: 배치 감사 점검 및 집계 오케스트레이터
+- `internal-audit:core`: domain, application port/service, JPA outbound adapter를 소유하는 일반 JAR
+- `internal-audit:api`: Controller와 Spring Boot composition root를 소유하는 유일한 실행 JAR
 
-## ⚙️ 주요 기능
-1. **감사 트레일 (Audit Trail)**: 데이터 CUD 발생 시 변경 전/후 스냅샷 기록
-2. **SoD (Separation of Duties) 검증**: 직무 분리 위반 탐지
+구체적인 Job/Step 계약이 없는 Batch는 실행 모듈로 유지하지 않습니다. Auth도 같은 원칙에 따라 API만 실행 대상입니다.
+
+## Local H2
+
+외부 Config Server, Eureka, PostgreSQL 없이 실행됩니다. Flyway V60이 H2 PostgreSQL compatibility mode에 스키마를 만들고 Hibernate는 `validate`만 수행합니다.
+
+```powershell
+.\gradlew :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar --console=plain
+.\gradlew :internal-audit:api:bootRun --args="--spring.profiles.active=local" --console=plain
+java -jar .\internal-audit\api\build\libs\account-internal-audit-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+```
+
+기본 포트는 `8083`이며 readiness는 `/actuator/health/readiness`입니다.
+
+## Development / Production PostgreSQL
+
+`dev`와 `prod`는 H2로 fallback하지 않습니다. URL, user, password는 환경변수 또는 Compose secret 주입으로만 전달하고, 애플리케이션은 Flyway를 실행하지 않은 채 승인된 release migration 결과를 `ddl-auto=validate`로 확인합니다. `prod` JDBC URL은 `sslmode=verify-full`이어야 합니다.
+
+개발 Compose는 저장소 루트에서 다음처럼 렌더링·실행합니다.
+
+```powershell
+docker compose -f .\internal-audit\docker-compose.yml config --quiet
+docker compose -f .\internal-audit\docker-compose.yml up --build internal-audit-api
+```
+
+필수 변수는 `INTERNAL_AUDIT_DB_URL`, `INTERNAL_AUDIT_DB_USER`, `INTERNAL_AUDIT_DB_PASSWORD`입니다. Compose는 외부 `account-dev-network`를 사용하며 PostgreSQL 자체는 `postgres/compose.self-contained.yml` 또는 승인된 공유 개발 DB 계약에서 제공합니다.

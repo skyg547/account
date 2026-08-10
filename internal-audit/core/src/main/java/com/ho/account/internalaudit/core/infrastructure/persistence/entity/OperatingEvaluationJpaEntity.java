@@ -1,5 +1,6 @@
 package com.ho.account.internalaudit.core.infrastructure.persistence.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -23,6 +24,7 @@ public class OperatingEvaluationJpaEntity {
     @Id
     private String evaluationId;
     
+    @Column(nullable = false)
     private String controlId;
     private String evaluatorId;
     private String evaluationDate;

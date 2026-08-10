@@ -76,6 +76,18 @@ spring:
               args:
                 name: budgetCircuitBreaker
                 fallbackUri: forward:/fallback/budget
+
+        # Internal Audit API is a dedicated service and must not fall through
+        # to the legacy account monolith route.
+        - id: internal-audit-api
+          uri: lb://internal-audit-service
+          predicates:
+            - Path=/api/v1/internalaudit/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: internalAuditCircuitBreaker
+                fallbackUri: forward:/fallback/internal-audit
                 
         # OpenAPI (Swagger) 문서 긁어오기 라우팅
         - id: openapi-master-data

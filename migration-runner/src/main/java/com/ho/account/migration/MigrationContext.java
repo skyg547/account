@@ -39,6 +39,7 @@ record MigrationContext(
         ready(contexts, "deposit");
         ready(contexts, "ecl");
         ready(contexts, "expenditure-resolution");
+        ready(contexts, "internal-audit");
         ready(contexts, "journal-ledger");
         ready(contexts, "loan");
         ready(contexts, "master-data");

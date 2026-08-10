@@ -15,8 +15,10 @@
           <option value=":master-data:core:test" />
           <option value=":master-data:api:test" />
           <option value=":master-data:batch:test" />
-          <option value=":governance:test" />
-          <option value=":auth:test" />
+          <option value=":internal-audit:core:test" />
+          <option value=":internal-audit:api:test" />
+          <option value=":auth:core:test" />
+          <option value=":auth:api:test" />
           <option value=":gateway:test" />
           <option value=":discovery:test" />
           <option value=":config-server:assemble" />

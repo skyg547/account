@@ -793,3 +793,12 @@
 - Split self-contained dev owner/runtime roles and added a mandatory post-migration grant gate that excludes all Flyway history tables and grants only DML plus sequence USAGE/SELECT.
 - On latest main, 195 combined Gradle tasks, Budget API/Batch JAR smokes, production env validator and shell/static gates passed. Final independent review found no P0-P3.
 - Pushed `d904c2ce`; Draft PR #289 targets main. Actual PostgreSQL ACL/TLS and Compose/image runtime remain external gates.
+
+## 2026-08-11 - Issue #231 Internal Audit runtime boundary
+
+- Promoted `internal-audit:api` to the executable composition root, retained Core as a library and removed Auth/Internal Audit placeholder Batch modules with no real Job/Step.
+- Added local H2, dev/prod PostgreSQL, V60 migration parity, pre-bean production TLS validation, Gateway route, migration-runner support and canonical container/Compose wiring.
+- Moved web adapters into API, removed duplicated Audit/Security sources and enforced RCM/Evaluation parent existence and path/body identifier consistency before persistence.
+- A 179-task combined gate passed; 244 affected tests had zero failures/errors/skips. The local JAR smoke proved servlet startup, H2, Flyway V60 and JPA validate. Production image/template policy checks passed for 36 images and 17 PostgreSQL URLs.
+- Independent review findings were corrected; final review reported no remaining P0-P3. Commit `5052163c` is pushed and Draft PR #338 targets main with references to #231/#73/#74.
+- Docker was unavailable and the external development host was not accessed. Actual PostgreSQL, Compose and live Gateway/Eureka verification remain environment gates.

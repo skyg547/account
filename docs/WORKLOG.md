@@ -2550,3 +2550,13 @@
 - 독립 리뷰로 PostgreSQL/Actuator runtime classpath #243과 PostgreSQL migration/Batch metadata #244를 발행했으며 둘 다 운영 배포 선행 조건이다.
 - Config Server policy test와 validator self-test가 34 image, 15 DB, 83개 필수 변수 계약을 통과했다. Compose provider와 image가 없어 실제 render/start/PostgreSQL은 미실행했다.
 - 원격 환경은 접근하거나 변경하지 않았다. 독립 리뷰에 남은 P0-P3 지적이 없고 commit `fd93f466`을 push해 Draft PR #245를 열었다. merge/Issue close/배포는 미실행이다.
+
+### 📅 2026-08-11 (Issue #231 Internal Audit 실행 경계)
+### [PR 검토 준비] API 실행 모듈·H2/PostgreSQL 프로파일 정합화
+
+- `internal-audit:api`를 실행 가능한 Spring Boot 경계로 만들고 Core를 라이브러리로 유지했다. 실제 Job/Step이 없는 Auth/Internal Audit Batch skeleton은 제거했다.
+- 로컬 H2와 dev/prod PostgreSQL 프로파일, V60 마이그레이션 동등성, prod TLS 선검증, Gateway 경로와 컨테이너/Compose 계약을 추가했다.
+- RCM/Evaluation의 부모 참조를 쓰기 전에 검증하고 Controller를 API 어댑터로 이동했으며 중복 Audit/Security 소스를 제거했다.
+- 영향 모듈 244개 테스트와 179-task Gradle/bootJar 검증, H2/Flyway/JPA validate 기반 로컬 JAR 시작, 운영 manifest/template 정책 검증이 통과했다.
+- 독립 리뷰의 지적을 모두 반영했고 남은 P0-P3가 없다. commit `5052163c`를 push하고 Draft PR #338을 열었다.
+- Docker/실 PostgreSQL/원격 개발 서버는 사용하지 않았으므로 실제 Compose와 PostgreSQL 및 live Gateway/Eureka 검증은 외부 게이트로 남는다.

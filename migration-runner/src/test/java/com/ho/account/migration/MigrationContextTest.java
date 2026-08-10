@@ -19,6 +19,7 @@ class MigrationContextTest {
                         "deposit",
                         "ecl",
                         "expenditure-resolution",
+                        "internal-audit",
                         "journal-ledger",
                         "loan",
                         "master-data",
@@ -40,7 +41,7 @@ class MigrationContextTest {
                 .extracting(MigrationContext::slug)
                 .containsExactly(
                         "account-mart", "asset-lease", "auth", "budget", "closing", "deposit", "ecl",
-                        "expenditure-resolution",
+                        "expenditure-resolution", "internal-audit",
                         "journal-ledger", "loan", "master-data", "payable", "receivable",
                         "reconciliation", "reporting", "tax");
 

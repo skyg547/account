@@ -1,1 +1,0 @@
-package com.ho.account.internalaudit.batch; import org.springframework.boot.SpringApplication; import org.springframework.boot.autoconfigure.SpringBootApplication; @SpringBootApplication public class InternalAuditBatchApplication { public static void main(String[] args) { SpringApplication.run(InternalAuditBatchApplication.class, args); } }

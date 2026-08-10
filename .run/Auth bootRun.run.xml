@@ -10,7 +10,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":auth:bootRun" />
+          <option value=":auth:api:bootRun" />
         </list>
       </option>
       <option name="vmOptions" />

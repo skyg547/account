@@ -1,5 +1,6 @@
 package com.ho.account.internalaudit.core.infrastructure.persistence.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -20,6 +21,7 @@ public class RcmRiskJpaEntity {
     @Id
     private String riskId;
     
+    @Column(nullable = false)
     private String processId;
     private String riskDescription;
     private String impactLevel;

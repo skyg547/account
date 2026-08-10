@@ -27,7 +27,7 @@
 ## PowerShell H2 API 실행
 
 ```powershell
-.\gradlew :auth:bootRun --args="--spring.profiles.active=local --server.port=8081 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --spring.h2.console.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
+.\gradlew :auth:api:bootRun --args="--spring.profiles.active=local --server.port=8081 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --spring.h2.console.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
 ```
 
 - API: `http://localhost:8081`
@@ -40,7 +40,7 @@
 웹 포트 없이 마이그레이션과 Bean/JPA 매핑만 확인합니다.
 
 ```powershell
-.\gradlew :auth:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
+.\gradlew :auth:api:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=jdbc:h2:mem:auth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE --spring.datasource.username=sa --spring.datasource.password= --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
 ```
 
 ## PostgreSQL 로컬 smoke
@@ -52,7 +52,7 @@ $env:AUTH_DB_URL='jdbc:postgresql://localhost:5432/account_auth_local'
 $env:AUTH_DB_USER='local_user'
 $env:AUTH_DB_PASSWORD='local_password'
 
-.\gradlew :auth:bootRun --args="--spring.profiles.active=local --server.port=8081 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=$env:AUTH_DB_URL --spring.datasource.username=$env:AUTH_DB_USER --spring.datasource.password=$env:AUTH_DB_PASSWORD --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
+.\gradlew :auth:api:bootRun --args="--spring.profiles.active=local --server.port=8081 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.data.redis.repositories.enabled=false --spring.datasource.url=$env:AUTH_DB_URL --spring.datasource.username=$env:AUTH_DB_USER --spring.datasource.password=$env:AUTH_DB_PASSWORD --spring.jpa.hibernate.ddl-auto=validate --spring.flyway.enabled=true --auth.persistence.mode=jpa --auth.login-security.store=jpa" --console=plain --max-workers=1
 ```
 
 실제 PostgreSQL 실행은 이번 검증 범위에 포함되지 않았습니다. 운영 전 Flyway DDL, lock 동작, 동시 승인/로그인 실패 부하를 PostgreSQL 환경에서 확인해야 합니다.
@@ -60,7 +60,7 @@ $env:AUTH_DB_PASSWORD='local_password'
 ## 테스트와 빌드
 
 ```powershell
-.\gradlew :auth:test :auth:bootJar --console=plain --max-workers=1
+.\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --console=plain --max-workers=1
 ```
 
 테스트 범위에는 API/core DTO 경계, 고정 시각 역할 스냅샷, token-version 상태 정책, memory/JPA 역할 메타데이터, approvalTraceId 멱등성이 포함됩니다.

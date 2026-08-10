@@ -8,11 +8,24 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class PostgresqlMigrationResourceTest {
+
+    @Test
+    void packagedInternalAuditBaselineUsesPortablePostgresqlSyntax() throws IOException {
+        String sql = read("db/contexts/internal-audit/V60__init_internal_audit_schema.sql");
+
+        assertThat(sql)
+                .doesNotContain("AUTO_INCREMENT")
+                .doesNotContain("DATETIME")
+                .doesNotContain("ON UPDATE CURRENT_TIMESTAMP")
+                .contains("CREATE TABLE rcm_process")
+                .contains("CREATE TABLE operating_evaluation_jpa_entity_evidence_file_paths");
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {

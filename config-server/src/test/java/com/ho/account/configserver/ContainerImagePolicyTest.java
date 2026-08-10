@@ -55,14 +55,11 @@ class ContainerImagePolicyTest {
             if (target.get("enabled").asBoolean()) {
                 enabledJavaTargets++;
                 enabledGradleProjects.add(project);
-            } else {
-                assertThat(name).isIn("internal-audit-api", "internal-audit-batch");
-                assertThat(target.get("blockedBy").asText()).contains("#231");
             }
         }
 
-        assertThat(targets.size()).isEqualTo(38);
-        assertThat(javaTargets).isEqualTo(37);
+        assertThat(targets.size()).isEqualTo(36);
+        assertThat(javaTargets).isEqualTo(35);
         assertThat(enabledJavaTargets).isEqualTo(35);
         assertThat(frontendTargets).isEqualTo(1);
         assertThat(enabledGradleProjects)
@@ -175,6 +172,9 @@ class ContainerImagePolicyTest {
         targets.put("expenditure-resolution/docker-compose.yml",
                 new ComposeTarget("expenditure-resolution", "..", ":expenditure-resolution:api",
                         "expenditure-resolution/api"));
+        targets.put("internal-audit/docker-compose.yml",
+                new ComposeTarget("internal-audit-api", "..", ":internal-audit:api",
+                        "internal-audit/api"));
         targets.put("account-mart/mart-api/docker-compose.yml",
                 new ComposeTarget("ifrs9-allowance-mart-api", "../..", ":account-mart:mart-api",
                         "account-mart/mart-api"));
@@ -192,7 +192,7 @@ class ContainerImagePolicyTest {
         targets.put("gateway/docker-compose.yml",
                 new ComposeTarget("gateway", "..", ":gateway", "gateway"));
 
-        assertThat(targets).hasSize(20);
+        assertThat(targets).hasSize(21);
         for (Map.Entry<String, ComposeTarget> entry : targets.entrySet()) {
             Map<String, Object> root = loadYaml(resolve(entry.getKey().split("/")));
             ComposeTarget target = entry.getValue();
@@ -213,6 +213,7 @@ class ContainerImagePolicyTest {
             throws IOException {
         Map<String, String> databaseVariables = Map.of(
                 "auth/docker-compose.yml", "AUTH_DB",
+                "internal-audit/docker-compose.yml", "INTERNAL_AUDIT_DB",
                 "account-mart/mart-api/docker-compose.yml", "ACCOUNT_MART_DB",
                 "account-mart/mart-batch/docker-compose.yml", "ACCOUNT_MART_DB",
                 "ecl/ecl-api/docker-compose.yml", "ECL_DB",

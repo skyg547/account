@@ -1793,3 +1793,12 @@
 - Self-contained dev now provisions separate owner/runtime roles with different passwords. Runtime table/sequence grants run only after release migration and revoke every `flyway_schema_history*` privilege; no default DML grant or sequence `UPDATE` remains.
 - Rebased onto main including PR #288. The combined Budget/Config/migration/runtime gate executed 195 tasks successfully; API `PASS_STARTED` and Batch `PASS_EXITED` local JAR smokes used H2, Flyway V50 and JPA validate. Validator self/template, shell syntax, diff/marker checks passed.
 - Independent review findings were corrected and final review reported no P0-P3. Commit `d904c2ce` is pushed and Draft PR #289 targets main with `Refs #249`; no external DB/container/deployment was touched.
+
+## 2026-08-11 (Issue #231 Internal Audit runtime boundary)
+
+- Made `internal-audit:api` the executable Spring Boot composition root and kept `internal-audit:core` as a library; removed placeholder Auth/Internal Audit Batch applications because they had no real Job/Step.
+- Added local H2 plus dev/prod PostgreSQL profiles, H2/PostgreSQL V60 migration parity, production TLS fail-fast validation, canonical image/Compose wiring and Gateway routing.
+- Enforced RCM/Evaluation parent integrity and API error mapping before writes; moved web adapters out of Core and removed duplicated Audit/Security sources.
+- Verification passed 244 affected tests and a 179-task combined Gradle/bootJar gate. The local executable JAR started with servlet, H2, Flyway V60 and JPA validate. Production template/image policy validation passed with 36 images and 17 PostgreSQL URLs.
+- Independent review findings were corrected and final review reported no remaining P0-P3. Commit `5052163c` is pushed and Draft PR #338 targets main with `Refs #231`, `#73`, and `#74`.
+- Docker was unavailable and no external development host was accessed, so real PostgreSQL migration, Compose startup and live Gateway/Eureka routing remain external verification gates.
