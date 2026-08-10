@@ -2,6 +2,8 @@ package com.ho.account.asset.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -28,6 +30,8 @@ public class LeaseContractRequest {
     @NotNull
     private BigDecimal monthlyPayment;
 
+    @Min(1)
+    @Max(31)
     private int paymentDay;
 
     @NotNull

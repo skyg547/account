@@ -44,15 +44,18 @@ public class LeaseContract {
     @Column(nullable = false)
     private LocalDate endDate;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal monthlyPayment;
 
+    @Column(nullable = false)
     private int paymentDay;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 7, scale = 4)
     private BigDecimal discountRate; // 증분차입이자율
 
+    @Column(precision = 19, scale = 2)
     private BigDecimal initialRightOfUseAssetValue; // 초기 사용권자산 PV
+    @Column(precision = 19, scale = 2)
     private BigDecimal initialLeaseLiabilityValue; // 초기 리스부채 PV
 
     private String status; // ACTIVE, TERMINATED, MODIFIED
@@ -63,7 +66,22 @@ public class LeaseContract {
     @Column(name = "expense_account_code", length = 20)
     private String expenseAccountCode;
 
+    @Column(name = "ifrs16_applicable", nullable = false)
     private boolean ifrs16Applicable = true;
+    @Column(nullable = false)
     private boolean shortTermLease = false;
+    @Column(nullable = false)
     private boolean lowValueLease = false;
+
+    public void validateForRegistration() {
+        if (paymentDay < 1 || paymentDay > 31) {
+            throw new IllegalArgumentException("payment day must be between 1 and 31");
+        }
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("lease start date and end date are required");
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("lease start date must be on or before end date");
+        }
+    }
 }

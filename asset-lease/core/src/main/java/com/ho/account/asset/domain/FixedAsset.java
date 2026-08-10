@@ -40,7 +40,7 @@ public class FixedAsset {
     @Column(nullable = false)
     private String assetName;
 
-    @Column(name = "account_code", length = 20)
+    @Column(name = "account_code", nullable = false, length = 20)
     private String accountCode;
 
     @Column(name = "accumulated_account_code", length = 20)
@@ -52,7 +52,7 @@ public class FixedAsset {
     @Column(nullable = false)
     private LocalDate acquisitionDate;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal acquisitionCost;
 
     @Column(nullable = false)
@@ -60,12 +60,16 @@ public class FixedAsset {
 
     private String depreciationMethod;
 
+    @Column(precision = 19, scale = 2)
     private BigDecimal residualValue = BigDecimal.ZERO;
 
+    @Column(precision = 19, scale = 2)
     private BigDecimal accumulatedDepreciation = BigDecimal.ZERO;
 
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal currentBookValue;
 
+    @Column(precision = 19, scale = 2)
     private BigDecimal depreciationAmountPerPeriod;
 
     private LocalDate lastDepreciationDate;
@@ -140,6 +144,22 @@ public class FixedAsset {
                 accumulated.add(amount),
                 bookValueAfter,
                 statusAfter);
+    }
+
+    public void initializeAcquisitionBalances() {
+        if (acquisitionCost == null || acquisitionCost.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("acquisition cost must be greater than zero");
+        }
+        BigDecimal residual = defaultZero(residualValue);
+        if (residual.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("residual value must not be negative");
+        }
+        if (residual.compareTo(acquisitionCost) > 0) {
+            throw new IllegalArgumentException("residual value must not exceed acquisition cost");
+        }
+        residualValue = residual;
+        accumulatedDepreciation = BigDecimal.ZERO;
+        currentBookValue = acquisitionCost;
     }
 
     public BigDecimal depreciate(LocalDate processDate) {

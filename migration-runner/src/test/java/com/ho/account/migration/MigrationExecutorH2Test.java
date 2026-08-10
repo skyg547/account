@@ -1072,7 +1072,6 @@ class MigrationExecutorH2Test {
                 .hasMessageContaining("refusing automatic baseline");
     }
 
->>>>>>> 9eb2ae3a (feat(closing): complete PostgreSQL baseline (#250))
     private static Stream<Arguments> postgresqlCompatibleContexts() {
         return Stream.of(
                 Arguments.of("asset-lease", "fixed_assets"),
