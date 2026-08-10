@@ -1355,3 +1355,23 @@
 - Do not close #253, make PR #267 Ready, or connect/deploy until approved PostgreSQL 15+ clean migrate+validate, shared API/Batch history, runtime DDL denial and Batch restart are evidenced.
 - Full dev/prod business flows need the remote adapters tracked by #266; local adapters remain local-only.
 - Before application, rollback is a normal commit revert. After V1 is applied, never edit, repair or down-migrate it; ship a reviewed forward-fix.
+
+# AI Harness Handoff - 2026-08-04 Issue #255 Account Mart and ECL baselines
+
+## State
+
+- Worktree/branch: `C:\tmp\account-255-account-mart-ecl-postgres-baseline`, `agent/255-account-mart-ecl-postgres-baseline`.
+- Stack: `agent/253-reconciliation-tax-postgres-baseline` / Draft PR #267, which stacks on #265, #263, #260, #259 and #256.
+- Delivery: implementation commit `bb724f1a`, stacked Draft PR #270. Issue #255 remains OPEN. Runner inventory is READY 16 / BLOCKED 0.
+
+## Delivered and verified
+
+- Account Mart published V1-V5 and ECL V1-V3 are checksum-pinned and unchanged. Forward-only Mart V6/ECL V4 complete current persistence parity, default partitions and guarded existing-data convergence.
+- Four API/Batch applications default to independent local H2/Flyway/JPA validate execution. Dev/prod require injected PostgreSQL, disable runtime migration/schema initialization and enforce production TLS host verification.
+- 136 tests, five bootJars, 32 READY driver-bearing executables, runner `--list` and four direct final local JAR starts passed. Mart health and ECL batch status returned HTTP 200. Independent final review has no remaining P0-P3.
+
+## Gates and rollback
+
+- Do not close #255, make PR #270 Ready, or connect/deploy until approved PostgreSQL 15+ clean and seeded-upgrade migrate+validate, runtime DDL denial and Batch restart are evidenced.
+- ECL date/range partition correctness and Account Mart DQ persistence writing are tracked by #268/#269.
+- Before application, rollback is a normal commit revert. After V6/V4 is applied, never edit, repair or down-migrate published migrations; ship a reviewed V7/V5 forward-fix.

@@ -1783,3 +1783,13 @@
 - Reconciliation 8개 및 Tax 1개 JPA table의 정밀도, 상태, FK/index와 금액/취소 감사를 보호한다. nullable stage 집계는 item/dimension identity를 분리하고, nullable difference lineage는 bounded `varchar(255)` canonical reference와 `NULLS NOT DISTINCT`로 멱등성을 보장한다.
 - 46 tests, 네 bootJar와 runner bootJar, READY 28개 PG-driver gate, runner `--list`, 네 실제 local JAR V1 startup이 통과했다. 독립 리뷰 최종 P0-P3는 없다.
 - Runner inventory는 READY 14 / BLOCKED 2다. 실제 PostgreSQL 15+ clean migrate+validate, runtime-role/Batch restart 및 #266 원격 어댑터가 남아 있어 Issue #253과 PR #267은 open/Draft로 유지한다.
+
+## 2026-08-04 (Issue #255 Account Mart and ECL PostgreSQL baselines)
+
+- `agent/255-account-mart-ecl-postgres-baseline`을 #267 위에 stack해 Account Mart V6, ECL V4와 각각의 final-state local H2 V1을 구현하고 commit `bb724f1a`, Draft PR #270으로 전달했다.
+- published Account Mart V1-V5와 ECL V1-V3 checksum은 유지했다. Mart 22개 mapped table과 ECL JPA/JDBC/input contract를 forward-only migration으로 수렴하고 default partition, nullable natural-key parity, legacy orphan preflight를 추가했다.
+- 네 API/Batch는 profile 생략 시 local H2/Flyway/JPA validate로 독립 실행한다. dev/prod는 injected PostgreSQL, runtime Flyway/DDL/SQL/Batch init 차단과 production TLS 검증 계약을 가진다.
+- ECL API가 Batch Job을 포함한 실행 JAR로 동작하도록 plain dependency jar, composition-root 제외, API component scan, named Job injection을 교정했다. local Redis가 없어도 Mart health는 UP이다.
+- Account Mart Core 18/API 2/Batch 3, ECL Core 29/API 4/Batch 2, runner 78로 총 136 tests가 통과했다. 다섯 bootJar, READY 32개 PG-driver gate, runner `--list`, 네 실제 local JAR Flyway V1 startup, Mart health 200, ECL batch-status 200도 통과했다.
+- 독립 리뷰 최종 P0-P3는 없다. ECL partition worker와 Mart DQ writer 결함은 #268/#269로 추적한다.
+- Runner inventory는 READY 16 / BLOCKED 0이다. 실제 PostgreSQL 15+ clean/seeded-upgrade migrate+validate, runtime-role/Batch restart가 남아 있어 Issue #255와 PR #270은 open/Draft로 유지한다.

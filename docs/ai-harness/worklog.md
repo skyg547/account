@@ -791,3 +791,17 @@
 - Verification: 46 affected tests passed with no failures/errors/skips; full affected validation executed 176 Gradle tasks, post-review Reconciliation/runner validation executed 168 tasks, and four API/Batch bootJars plus runner bootJar passed. Runner `--list`, 28 READY driver packages and four final local JAR starts through V1 passed with no remaining Java process.
 - Independent review drove nullable-key idempotency, dimension coexistence, PostgreSQL 15 minimum-version gate and bounded B-tree lineage-key corrections. Final result has no remaining P0-P3 finding.
 - Remaining gates: approved real PostgreSQL 15+ clean migrate+validate, API/Batch shared history, runtime-role DDL denial and Batch restart. Remote business adapters are tracked by #266. No development/production DB connection, image pull, deployment or data mutation was performed.
+
+## 2026-08-04 - Issue #255 Account Mart and ECL PostgreSQL baselines
+
+- Owner: Codex Integrator with independent read-only Reviewer and bounded runtime/SQL roles.
+- Branch/worktree: `agent/255-account-mart-ecl-postgres-baseline` / `C:\tmp\account-255-account-mart-ecl-postgres-baseline`; stacked on `agent/253-reconciliation-tax-postgres-baseline`.
+- Delivery: implementation commit `bb724f1a`, stacked Draft PR `#270`; Issue `#255` remains open.
+- Preserved published Account Mart V1-V5 and ECL V1-V3 hashes. Added forward-only Mart V6 and ECL V4 plus separate final-state H2 local baselines, entity precision/length/nullability alignment, default date partitions and fail-fast legacy-data preflights.
+- Removed the unused incompatible duplicate `OdsRateInfoEntity`. Kept ambiguous Account Mart collateral legacy columns and added canonical columns without semantic data invention.
+- Added default-local H2/Flyway/JPA-validate and fail-closed dev/prod PostgreSQL profiles for Account Mart/ECL API and Batch. Runtime Flyway, Hibernate DDL, SQL init and dev/prod Batch metadata creation are disabled; production TLS verification is mandatory.
+- Corrected ECL executable packaging and composition: Batch provides a plain dependency jar alongside its bootJar, API excludes the nested Batch composition root, API components remain scanned, and named Job injection is explicit.
+- Promoted both contexts to runner READY. Inventory is READY 16 / BLOCKED 0 and all 32 API/Batch executable jars contain one PostgreSQL driver.
+- Verification: Account Mart Core 18/API 2/Batch 3, ECL Core 29/API 4/Batch 2 and runner 78 tests passed (136 total). Five bootJars, runner `--list`, driver gate and four direct local JAR starts passed; Mart health and ECL batch-status endpoints returned 200 and no service Java process remained.
+- Independent review drove nullable-key local parity, orphan-history upgrade preflight, API component scan and local Redis health isolation fixes. Final result has no remaining P0-P3.
+- Follow-up Batch logic defects are tracked by #268 and #269. Actual approved PostgreSQL 15+ clean/seeded-upgrade migrate+validate, runtime-role DDL denial and Batch restart remain gates; no development/production DB connection, image pull, deployment or data mutation was performed.
