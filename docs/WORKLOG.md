@@ -1,3 +1,21 @@
+### 📅 2026-08-12 ([deposit][architecture] 낙관적 잠금(Optimistic Locking) 누락으로 인한 잔액 갱신 손실(Lost Update) 위험 - Issue #313)
+### [deposit] DepositAccount 엔티티 JPA @Version 적용 및 낙관적 잠금 재시도(Retry) 메커니즘을 통한 갱신 손실 방지
+
+- **작업 배경**:
+  - 기존 `DepositAccount` 엔티티에는 동시성 제어를 위한 버전 관리 필드가 존재하지 않아, 동시 입출금 트랜잭션 수행 시 한 트랜잭션의 갱신 사항이 다른 트랜잭션에 의해 덮어씌워지는 '갱신 손실(Lost Update)' 및 잔액 정합성 훼손 위험이 존재함.
+- **주요 변경 사항**:
+  - **JPA 낙관적 잠금(Optimistic Locking, `@Version`) 적용**:
+    - `deposit/core/.../domain/DepositAccount.java`에 `@Version private Long version;` 필드 추가 및 DB Schema Migration(`V40`, `V41__add_version_to_deposit_accounts.sql`) 반영.
+  - **Inbound Port 및 애플리케이션 서비스 동시성 예외 처리/재시도 구현**:
+    - `DepositTransactionUseCase.java`: 입출금 유즈케이스 포트 신규 정의 (`deposit`, `withdraw`).
+    - `DepositService.java`: `OptimisticLockingFailureException` (또는 JPA 버전 불일치 예외) 발생 시 최신 계좌 상태를 DB에서 다시 읽어와(Re-fetch) 지수 백오프(Backoff) 기반 재시도(Retry)를 수행하는 `executeWithOptimisticLockRetry` 메커니즘 구현.
+  - **Hexagonal Persistence Adapter 및 상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - `DepositAccountPersistenceAdapter.java` 및 `DepositAccount.java`, `DepositService.java`에 금융 예금 계좌에서의 동시성 제어(Concurrency Control), 낙관적 잠금(Optimistic Locking) 대 비관적 잠금(Pessimistic Locking)의 장단점 비교 및 갱신 손실 방지 메커니즘을 다룬 상세 설명 작성.
+- **검증**:
+  - `DepositAccountOptimisticLockingTest.java`: `@Version` 필드 자동 증가 및 동시 수정 시 `OptimisticLockingFailureException` 예외 발생 검증.
+  - `DepositServiceConcurrencyTest.java`: 10개의 동시 입금 멀티스레드 환경에서 낙관적 잠금 및 재시도 메커니즘을 통한 갱신 손실 없는 잔액 정합성 보장 검증.
+  - `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` 실행하여 전원 성공 확인.
+
 ### 📅 2026-08-12 ([journal-ledger][architecture] MonolithJournalPostingAdapter 사용으로 인한 MSA 전환 저해 - Issue #292)
 ### [journal-ledger] MonolithJournalPostingAdapter 제거 및 MSA 전환을 위한 Hexagonal Port/Adapter (REST & Event Inbound) 디커플링 정립
 

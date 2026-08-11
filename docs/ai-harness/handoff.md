@@ -1,9 +1,33 @@
-# AI Harness Handoff - 2026-08-12 Issue #292 Decouple Monolith Journal Posting Adapter for MSA Transition
+# AI Harness Handoff - 2026-08-12 Issue #313 Apply Optimistic Locking to Deposit Account to Prevent Lost Updates
 
 ## Active Goal And State
 
-- GitHub Issue `#292` (`[journal-ledger][architecture] MonolithJournalPostingAdapter 사용으로 인한 MSA 전환 저해`) completed and PR created/merged into `main`.
-- Worktree `C:\tmp\account-292-journal-ledger-msa-adapter-decouple` active during implementation and cleaned up post merge.
+- GitHub Issue `#313` (`[deposit][architecture] 낙관적 잠금(Optimistic Locking) 누락으로 인한 잔액 갱신 손실(Lost Update) 위험`) completed and PR #377 merged into `main`.
+- Worktree `C:\tmp\account-313-deposit-optimistic-locking` removed and pruned post-merge.
+
+## Changes And Boundaries
+
+- JPA `@Version` Optimistic Locking:
+  - Added `@Version private Long version;` field to `DepositAccount.java`.
+  - Created Flyway/Schema migration scripts `V41__add_version_to_deposit_accounts.sql` for both H2 and PostgreSQL.
+- Inbound Port & Retry Mechanism:
+  - Created `DepositTransactionUseCase.java` interface (`deposit`, `withdraw`).
+  - Implemented `executeWithOptimisticLockRetry` in `DepositService.java` to catch `OptimisticLockingFailureException` and perform exponential backoff retries with fresh DB refetch.
+- Pedagogical Comments & Verification:
+  - Added educational comments explaining Optimistic Locking vs Pessimistic Locking, Lost Update prevention, and Hexagonal Architecture exception propagation across `DepositAccount.java`, `DepositService.java`, and `DepositAccountPersistenceAdapter.java`.
+  - Unit/Concurrency tests added: `DepositAccountOptimisticLockingTest.java` and `DepositServiceConcurrencyTest.java` (10 concurrent threads).
+  - Executed `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` with BUILD SUCCESSFUL.
+
+## Verification Evidence
+
+- `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` executed with 100% SUCCESS.
+- PR #377 merged into `main` and remote branch deleted.
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #377 commit on `main`.
+
+# AI Harness Handoff - 2026-08-12 Issue #292 Decouple Monolith Journal Posting Adapter for MSA Transition
 
 ## Changes And Boundaries
 

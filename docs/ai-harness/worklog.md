@@ -1,3 +1,22 @@
+## 2026-08-12 - Issue #313 Apply Optimistic Locking to Deposit Account to Prevent Lost Updates
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/313-deposit-optimistic-locking` / `C:\tmp\account-313-deposit-optimistic-locking`.
+- Base: `origin/main`.
+- Scope:
+  - JPA `@Version` Optimistic Locking:
+    - Added `@Version private Long version;` field to `DepositAccount.java`.
+    - Added V41 migration scripts (`V41__add_version_to_deposit_accounts.sql`) for both H2 and PostgreSQL schemas.
+  - Inbound Port & Retry Mechanism:
+    - Created `DepositTransactionUseCase.java` interface (`deposit`, `withdraw`).
+    - Implemented `DepositService` retry logic (`executeWithOptimisticLockRetry`) with exponential backoff on `OptimisticLockingFailureException`.
+  - Pedagogical Comments:
+    - Added comprehensive comments comparing Optimistic Locking vs Pessimistic Locking, Lost Update prevention, and Hexagonal Architecture persistence exception handling across `DepositAccount.java`, `DepositService.java`, and `DepositAccountPersistenceAdapter.java`.
+- Verification:
+  - Added unit test `DepositAccountOptimisticLockingTest.java` verifying version increment and conflict exception.
+  - Added concurrency test `DepositServiceConcurrencyTest.java` verifying balance integrity under 10 concurrent deposit threads.
+  - Executed `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #292 Decouple Monolith Journal Posting Adapter for MSA Transition
 
 - Owner: Gemini (Agent loop subagent)
