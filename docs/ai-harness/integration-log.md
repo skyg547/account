@@ -200,3 +200,10 @@ Recommended integration order remains:
 - Gate: latest-main 34 tests, API bootJar, direct health/readiness HTTP smoke, path-scoped rollback correction and final independent re-review passed with no remaining P0-P3.
 - Result: PR #353 merged to `main` as `cf50e4fc`; Issue #342 closed and active workflow/owner labels were removed.
 - Rollback: use a reviewed revert of only the three #342 runtime/test/docs paths while preserving append-only harness history; no schema, data, container, credential or external runtime rollback is required.
+
+## 2026-08-12 - GH-344 Internal Audit Local Policy Integration
+
+- Source: Issue #344, PR #357, branch `agent/344-internal-audit-local-h2`.
+- Gate: focused/full Internal Audit tests, bootJar, direct local H2/Flyway V60/JPA startup, root 349-task forced build, latest-main sync and final independent PR-head review passed with no P0-P3.
+- Result: PR #357 merged to main as `21395eb3`; Issue #344 closed and active workflow/owner labels were removed.
+- Rollback: use a reviewed revert of only the two #344 runtime-test/documentation paths while preserving append-only harness history; no schema, data, container, credential or external runtime rollback is required.

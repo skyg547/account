@@ -24,3 +24,10 @@ Merge and rebase conflict resolutions are recorded below.
 - Conflict: only `docs/ai-harness/agent-status.md`; upstream added #312/#314 integration rows while the Issue branch added #344 and corrected #342 rows.
 - Resolution: retained all four rows in newest-first order. `handoff.md` and `worklog.md` auto-merged append-only; the two Internal Audit implementation paths remained byte-identical to the independently reviewed stash.
 - Verification: no unmerged entries or conflict markers, `git diff --check`, allowlist and latest-main focused policy test passed. The named stash remains temporarily as a recovery reference until the PR head is verified.
+
+## 2026-08-12 - Issue #90 PR #359 latest-main sync
+
+- Ready/merge was attempted only after final PR-head review, but main advanced from `43f5b36c` to `191c5c28` through PR #360 before GitHub completed the merge; GitHub rejected PR #359 as conflicting and Issue #90 remained open.
+- Merged `origin/main@191c5c28` into `agent/90-asset-lease-batch-local`. Discovery production/test paths and `docs/WORKLOG.md` came from upstream unchanged.
+- The only manual conflict was `docs/ai-harness/agent-status.md`; resolution preserved both the local Issue #90 row and upstream Issue #304/PR #360 row. `handoff.md` and `worklog.md` auto-merged append-only.
+- Re-run focused/static gates after resolution before updating the PR. The four Issue #90 implementation paths did not overlap upstream.
