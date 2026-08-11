@@ -2,16 +2,18 @@ package com.ho.account.deposit.service;
 
 import com.ho.account.deposit.domain.CurrencyTaxRoundingPolicy;
 import com.ho.account.deposit.domain.DepositDayCountConvention;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-
 /**
- * [도메인 계산기] 예금 중도해지/만기해지 정산 및 세금 원천징수 계산 엔진.
+ * [순수 도메인 계산기 (Pure Domain Service)] 예금 중도해지/만기해지 정산 및 세금 원천징수 계산 엔진.
+ *
+ * 💡 [DDD 원칙 - 도메인 서비스의 순수성 (Pure Domain Service)]
+ * 도메인 계층 내의 본 클래스는 순수 POJO로서 기술 프레임워크 어노테이션(`@Component` 등)을 포함하지 않습니다.
+ * 필요한 경우 외부 `@Configuration` 클래스에서 Spring Bean으로 수동 등록되거나 Application Service에서 직관적으로 생성 및 주입됩니다.
  *
  * 💡 [초보자를 위한 금융 업무 설명]
  * 고객이 예금을 만기 시 해지하거나 중간에 중도 해지할 때:
@@ -26,7 +28,6 @@ import java.time.temporal.ChronoUnit;
  * - 세후 이자 = 세전 이자 - (이자소득세 + 지방소득세)
  * - 최종 실지급액 = 원금 + 세후 이자
  */
-@Component
 public class DepositTerminationSettlementCalculator {
 
     private static final MathContext MC = new MathContext(34, RoundingMode.HALF_EVEN);

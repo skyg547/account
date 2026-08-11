@@ -1,3 +1,18 @@
+### 📅 2026-08-12 (Deposit 모듈 도메인 계층 Spring 프레임워크 의존성 제거 및 POJO 전환 - Issue #312)
+### [DDD/아키텍처] Deposit 도메인 계층 Pure POJO 전환 및 Spring 어노테이션 제거
+
+- **작업 배경**:
+  - Deposit 도메인 계층의 `DepositAccountStateMachine`, `DepositInterestAccrualCalculator`, `DepositTerminationSettlementCalculator` 클래스에 `@Component` 어노테이션이 직접 포함되어 프레임워크 침투(Framework Coupling)가 존재하였음.
+  - DDD(Domain-Driven Design) 및 헥사고날 아키텍처 원칙에 따라 도메인 계층을 특정 프레임워크에 의존하지 않는 순수한 자바 객체(Pure POJO)로 격리할 필요가 있었음.
+- **주요 변경 사항**:
+  - `deposit/core`:
+    - `DepositAccountStateMachine`: `@Component` 어노테이션 제거 및 Pure POJO로 전환. 도메인 독립성에 관한 교육적 상세 주석(Pedagogical comments) 보강.
+    - `DepositInterestAccrualCalculator`: `@Component` 어노테이션 제거 및 Pure POJO로 전환. 도메인 서비스 순수성 및 금융 수학 수식 설명 주석 보강.
+    - `DepositTerminationSettlementCalculator`: `@Component` 어노테이션 제거 및 Pure POJO로 전환. 도메인 순수성 및 세금 정산 수식 설명 주석 보강.
+    - `DepositDomainConfiguration`: `infrastructure/config` 패키지에 `@Configuration` 클래스 신설하여, Spring IoC 컨테이너가 필요할 때 Pure POJO 도메인 객체를 Bean으로 명시적 수동 등록(`@Bean`)할 수 있도록 인프라 계층 설정 구축.
+- **검증**:
+  - `.\gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` 전수 통과 (BUILD SUCCESSFUL in 10s).
+
 ### 📅 2026-08-12 (Reconciliation 모듈 ReconciliationService JSON 문자열 하드코딩 제거 및 안전 직렬화 - Issue #314)
 ### [클린코드/안전성] ObjectMapper 기반 JSON 직렬화 도입 및 하드코딩된 문자열 연결 제거
 

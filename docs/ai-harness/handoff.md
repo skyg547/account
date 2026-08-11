@@ -1,3 +1,24 @@
+# AI Harness Handoff - 2026-08-12 Issue #312 Deposit DDD Spring Decouple
+
+## Active Goal And State
+
+- GitHub Issue `#312` was integrated by PR. `Fixes #312` closed the Issue and the remote feature branch was deleted.
+- Worktree `C:\tmp\account-312-deposit-ddd-spring-decouple` was cleaned up.
+
+## Changes And Boundaries
+
+- Removed Spring `@Component` annotations from `DepositAccountStateMachine`, `DepositInterestAccrualCalculator`, `DepositTerminationSettlementCalculator`.
+- Added educational comments explaining pure domain principles and business/math logic.
+- Created `DepositDomainConfiguration` under `infrastructure/config` to explicitly register pure domain POJOs as Spring `@Bean`s when required by Spring container.
+
+## Verification Evidence
+
+- Run `:deposit:core:test :deposit:api:test :deposit:batch:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #314 Reconciliation JSON Refactor
 
 ## Active Goal And State
