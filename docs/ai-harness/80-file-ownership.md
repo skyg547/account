@@ -15,6 +15,7 @@ This policy maps custom agent roles to default edit areas. The task or Issue mus
 | Reviewer | None | All edits and Git/GitHub state |
 | Integrator subagent | None | Conflict edits, logs, commits, push, PR/Issue mutations |
 | Documentation | Approved `docs/**`, module `README.md`, runbooks, API docs | Shared harness logs unless parent assigns them |
+| Module Writer | Approved target module directory (`<module-name>/**`) | Files outside assigned module and shared harness logs |
 
 ## Shared Records
 

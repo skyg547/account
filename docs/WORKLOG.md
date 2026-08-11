@@ -1,3 +1,19 @@
+### 📅 2026-08-12 (Reconciliation 모듈 ReconciliationService JSON 문자열 하드코딩 제거 및 안전 직렬화 - Issue #314)
+### [클린코드/안전성] ObjectMapper 기반 JSON 직렬화 도입 및 하드코딩된 문자열 연결 제거
+
+- **작업 배경**:
+  - `ReconciliationService` 내에서 대사 차이(`ReconciliationDifference`) 생성 시 `sourceItemRef` 및 `targetItemRef`에 JSON 문자열을 직접 연결(`"{\"type\":\"SUMMARY\",\"date\":\"" + date + ...`)하여 생성하였음.
+  - 대사 단위 이름(`unitName`) 등에 특수문자, 큰따옴표, 백슬래시 또는 개행이 포함될 경우 유효하지 않은 JSON이 생성되거나 런타임 JSON 파싱 에러가 발생할 심각한 위험이 존재했음.
+- **주요 변경 사항**:
+  - `ReconciliationService`:
+    - 하드코딩된 JSON 문자열 결합 로직을 제거하고, 주입받은 `ObjectMapper` 및 `Map` 객체를 활용하는 `buildItemRefJson(type, date, unitName)` 헬퍼 메서드 신설.
+    - 초보자 및 유지보수자를 위한 교육적 주석(Pedagogical comments)을 작성하여 JSON 직렬화 안전성 및 설계 이유를 상세히 기재.
+  - `ReconciliationServiceTest`:
+    - `ReconciliationDifference` 생성 시 `sourceItemRef` 및 `targetItemRef` 직렬화 결과 검증 로직 추가.
+    - 대사 단위 이름에 큰따옴표, 앰퍼샌드, 작은따옴표, 개행문자(`GL "Special" & 'Unit'\nName`) 등 특수문자가 포함된 경우에도 안전하게 JSON이 생성되고 파싱되는지 검증하는 신규 테스트 `performReconciliationHandlesSpecialCharactersInUnitNameSafely` 추가.
+- **검증**:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` 실행으로 reconciliation 모듈 전수 테스트 100% 통과 (BUILD SUCCESSFUL in 48s).
+
 ### 📅 2026-08-05 (Closing 및 Master Data 모듈 서비스 인증 회계기간 상태 변경 경계 구축 - Issue #262)
 ### [기능 강화/보안] 서비스 인증 기반 회계기간 상태 변경 경계 구축 및 게이트웨이 헤더 스푸핑 차단
 

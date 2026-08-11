@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #314 Reconciliation JSON String Hardcoding Refactor
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/314-reconciliation-json-hardcoding` / `C:\tmp\account-314-reconciliation-json-hardcoding`.
+- Base: `origin/main`.
+- Integration: PR `#355`, merged into `main`. Issue `#314` closed and remote branch deleted.
+- Scope:
+  - Fixed hardcoded JSON string concatenation in `ReconciliationService.java` for `sourceItemRef` and `targetItemRef`.
+  - Introduced `buildItemRefJson` helper method leveraging Spring/Jackson `ObjectMapper` for safe serialization.
+  - Added educational comments explaining JSON escaping and serialization safety.
+  - Expanded `ReconciliationServiceTest` with assertions on `itemRef` JSON integrity and special character handling.
+- Verification:
+  - Gradle test task `:reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` passed 100% (BUILD SUCCESSFUL).
+- Rollback:
+  - Revert PR #355 / commit on main. No DB schema changes were introduced.
+
 ## 2026-07-30 - Issue #45 executable Budget Control foundation
 
 - Owner: Codex as Integrator with Domain/Service, SQL, Controller, Batch, Gateway, Test, and independent Reviewer roles.

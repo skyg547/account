@@ -1,3 +1,24 @@
+# AI Harness Handoff - 2026-08-12 Issue #314 Reconciliation JSON Refactor
+
+## Active Goal And State
+
+- GitHub Issue `#314` was integrated by PR `#355`. `Fixes #314` closed the Issue and the remote feature branch was deleted.
+- Worktree `C:\tmp\account-314-reconciliation-json-hardcoding` was cleaned up.
+
+## Changes And Boundaries
+
+- `ReconciliationService.java`: Replaced raw JSON string concatenation with `ObjectMapper`-driven `buildItemRefJson` serialization method to protect against invalid JSON parsing errors when unit names contain special characters. Added educational comments explaining the rationale.
+- `ReconciliationServiceTest.java`: Added assertions for item references and special character handling test case `performReconciliationHandlesSpecialCharactersInUnitNameSafely`.
+
+## Verification Evidence
+
+- Run `:reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` passed (BUILD SUCCESSFUL).
+- PR #355 merged into main cleanly.
+
+## Known Risks And Rollback
+
+- Revert PR #355. No database schema or external API contracts were changed.
+
 # AI Harness Handoff - 2026-07-30 Issue #45 Budget Control
 
 ## Active Goal And State

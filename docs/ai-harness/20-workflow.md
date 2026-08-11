@@ -25,6 +25,7 @@
 
 - Issue, branch, worktree, PR 추적: `$account-issue-loop`
 - API/core/batch/SQL 코드 변경: `$account-hexagonal-change`
+- 다중 모듈 MSA 병렬 작업: `$account-module-parallel`
 - diff 검수, 테스트, 로그, handoff: `$account-review-handoff`
 
 간단한 설명이나 read-only 상태 확인에는 Issue와 작업 브랜치를 강제하지 않는다. 실행 가능한 코드/문서 변경, 병렬 작업, 장기 추적이 필요한 작업에는 Issue를 사용한다.

@@ -15,6 +15,7 @@ Project-scoped Codex custom agents live in `.codex/agents/*.toml`. Every writer 
 | Reviewer | `reviewer` | Correctness, security, performance, architecture, regression review | Read-only |
 | Integrator | `integrator` | Integration analysis, semantic conflict and PR recommendation | Read-only advisory |
 | Documentation | `documentation` | Module docs, API docs, runbooks, beginner guidance | Approved docs |
+| Module Writer | `coder`/`self` | Target microservice module implementation in parallel ($account-module-parallel) | Module allowlist (`<module>/**`) |
 
 ## Parent Integrator
 
@@ -31,6 +32,7 @@ This single-writer rule prevents parallel agents from racing on shared records o
 ## Delegation Rules
 
 - Parallelize independent read-heavy exploration, review, and test analysis.
+- Multi-module MSA changes can be parallelized across distinct modules with disjoint module allowlists (`<module-name>/**`).
 - Give write agents disjoint file sets.
 - Do not ask a child agent to spawn more agents; `.codex/config.toml` keeps `max_depth = 1`.
 - Do not pin vendor model names in repository role files. Select capacity by task risk using `70-model-assignment-policy.md`.

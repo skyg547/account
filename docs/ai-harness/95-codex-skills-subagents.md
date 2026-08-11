@@ -12,6 +12,7 @@ Codex discovers repository skills under `.agents/skills/<skill-name>/SKILL.md`.
 | --- | --- |
 | `$account-issue-loop` | Issue, branch, worktree, Draft PR, merge/close/cleanup gates |
 | `$account-hexagonal-change` | API/core/batch/domain/persistence implementation or review |
+| `$account-module-parallel` | Parallel execution across multiple MSA microservice modules with disjoint allowlists |
 | `$account-review-handoff` | Diff review, verification, shared records, rollback, handoff |
 
 Invoke a skill explicitly when the workflow matters:
@@ -19,6 +20,7 @@ Invoke a skill explicitly when the workflow matters:
 ```text
 Use $account-issue-loop for Issue #4 and create an isolated worktree.
 Use $account-hexagonal-change to split this module into api/core/batch.
+Use $account-module-parallel to implement changes across journal-ledger and deposit in parallel.
 Use $account-review-handoff before preparing the Draft PR.
 ```
 
@@ -46,6 +48,7 @@ Wait for required results, then let the parent Integrator summarize and update t
 `.codex/config.toml` sets a maximum of six open threads and one child level.
 
 - Prefer parallel read-heavy tasks.
+- Multi-module MSA changes should be parallelized across microservices using `$account-module-parallel` with disjoint module allowlists (`<module>/**`).
 - Parallelize writers only when their file sets do not overlap.
 - Do not let a subagent spawn additional subagents.
 - Keep one parent responsible for final decisions and external state.
