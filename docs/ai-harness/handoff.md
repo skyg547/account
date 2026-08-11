@@ -2,7 +2,7 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#312` was integrated by PR. `Fixes #312` closed the Issue and the remote feature branch was deleted.
+- GitHub Issue `#312` was integrated by PR `#356`. `Fixes #312` closed the Issue and the remote feature branch was deleted.
 - Worktree `C:\tmp\account-312-deposit-ddd-spring-decouple` was cleaned up.
 
 ## Changes And Boundaries

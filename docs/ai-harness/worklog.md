@@ -3,7 +3,7 @@
 - Owner: Gemini (Agent loop subagent)
 - Source branch/worktree: `agent/312-deposit-ddd-spring-decouple` / `C:\tmp\account-312-deposit-ddd-spring-decouple`.
 - Base: `origin/main`.
-- Integration: PR merged into `main`. Issue `#312` closed and remote branch deleted.
+- Integration: PR `#356`, merged into `main`. Issue `#312` closed and remote branch deleted.
 - Scope:
   - Removed Spring `@Component` annotations from Deposit domain classes (`DepositAccountStateMachine`, `DepositInterestAccrualCalculator`, `DepositTerminationSettlementCalculator`).
   - Added educational comments detailing Pure Domain principles and financial calculation logic.
