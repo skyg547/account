@@ -1850,3 +1850,12 @@
 - Latest-main 24-task gate passed: 42 Loan Core/API tests in 14 suites, zero failure/error/skip, API bootJar, and direct executable-JAR H2 startup with `Started LoanApplication`. Diff/marker/allowlist checks passed.
 - Independent review found no P0-P3. PostgreSQL schema parity, Loan Batch startup and CI/container smoke remain separate gates; no external environment was accessed.
 - Commit `09b72f21` is pushed and Draft PR #352 targets main with `Refs #79/#227`. Issue #79 is `status:needs-review`; merge and close remain gated.
+- Final PR-head review passed with no P0-P3. PR #352 merged as `4fa50cc8`; Issue #79 closed and active status/owner labels were removed.
+
+## 2026-08-11 (Issue #342 Reconciliation local health)
+
+- Reused `agent/342-reconciliation-local-health` / `C:\tmp\account-342-reconciliation-local-health` and fast-forwarded its preserved three-file change without overlap to `origin/main@4fa50cc8`; the dirty primary checkout remained untouched.
+- Added local-only health probes and disabled the unused Redis health contributor, leaving dev/prod resources and Reconciliation business/runtime code unchanged.
+- Added a Spring configuration policy test for exact local versus dev/prod properties and documented Redis-free health/readiness behavior.
+- Latest-main 34 Core/API tests in 9 suites, API bootJar, and direct executable-JAR health/readiness HTTP 200+UP passed. Diff/marker/allowlist checks passed.
+- Independent review found no P0-P3. Real Redis-backed dev/prod and automated container/CI smoke remain outside scope; no external environment was accessed.

@@ -859,3 +859,13 @@
 - `git diff --check`, two-file allowlist and scoped conflict-marker scan passed. Independent review found no P0-P3 and approved parent-owned commit/Draft PR preparation.
 - PostgreSQL schema parity, Loan Batch startup and automated CI/container JAR smoke are outside #79. No external DB, credentials, private URL, container or deployed service was accessed. Rollback is a normal revert of the Issue commit.
 - Commit `09b72f21` is pushed and Draft PR #352 targets `main` with `Refs #79/#227`. Issue #79 is `status:needs-review`; no Ready transition, merge, close or external deployment was performed.
+- Final PR-head review found no P0-P3. PR #352 was promoted Ready and merged as `4fa50cc8`; Issue #79 was closed and its active status/owner labels were removed.
+
+## 2026-08-11 - Issue #342 Reconciliation local health
+
+- Issue/branch/worktree/base: `#342`, `agent/342-reconciliation-local-health`, `C:\tmp\account-342-reconciliation-local-health`, latest `origin/main@4fa50cc8` after a non-overlapping fast-forward from `5624ae97`.
+- The API `local` profile now enables health probes and disables only the unused Redis health contributor. Vault remains disabled locally; dev/prod resources and business/runtime dependencies are unchanged.
+- Added a Spring-config-backed policy test proving local resolves Redis/probes as `false/true` while dev and prod resolve neither override, plus truthful local-run documentation for both health endpoints.
+- Latest-main Core/API reports passed 34 tests in 9 suites with zero failure/error/skip; API bootJar passed. A bounded direct executable-JAR smoke returned HTTP 200 and `UP` from `/actuator/health` and `/actuator/health/readiness` without Redis.
+- Three-file allowlist, `git diff --check` and scoped conflict-marker scan passed. Independent review found no P0-P3 and approved parent-owned commit/Draft PR preparation.
+- Real Redis-backed dev/prod health, automated HTTP/container smoke and Batch behavior are outside #342. No external Redis/DB, credential, private URL, container or deployed service was accessed. Rollback is a normal revert of the Issue commit.
