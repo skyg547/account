@@ -4,7 +4,6 @@ import com.ho.account.reporting.domain.model.FinancialStatement;
 import com.ho.account.reporting.domain.model.FinancialStatement.StatementStatus;
 import com.ho.account.reporting.domain.model.FinancialStatement.StatementType;
 import com.ho.account.reporting.domain.model.ReportLine;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -15,6 +14,13 @@ import java.util.Map;
 
 /**
  * [도메인 서비스/계산기] 재무상태표(B/S) 및 손익계산서(I/S) 자동 집계 코어 엔진.
+ *
+ * 💡 [헥사고날 아키텍처 & Pure Java POJO 원칙]
+ * 이 도메인 서비스는 특정 프레임워크(예: Spring Framework)에 전혀 의존하지 않는 순수 Java POJO(Plain Old Java Object)입니다.
+ * `@Component` 등의 프레임워크 어노테이션을 제거함으로써:
+ * 1. 도메인 로직이 외부 기술 변경에 영향을 받지 않는 독립성을 보장합니다.
+ * 2. 프레임워크 없이도 단위 테스트(Unit Test)를 매우 빠르게 실행할 수 있습니다.
+ * 3. 필요한 경우 Spring Configuration(`ReportingDomainConfiguration`)에서 `@Bean`으로 명시적으로 수동 등록하여 DI를 지원합니다.
  *
  * 💡 [초보자를 위한 금융 회계 설명]
  * 이 클래스는 총계정원장(GL)의 계정과목별 잔액 시산표(Trial Balance)를 바탕으로 IFRS 재무제표를 집계합니다.
@@ -27,7 +33,6 @@ import java.util.Map;
  * 🔧 [금융 정밀도 정책]
  * - 모든 연산은 `BigDecimal` 정밀 연산을 사용하며 원화 단위 반올림(`setScale(2, RoundingMode.HALF_UP)`)을 적용합니다.
  */
-@Component
 public class FinancialStatementEngine {
 
     private static final MathContext MC = new MathContext(34, RoundingMode.HALF_EVEN);
