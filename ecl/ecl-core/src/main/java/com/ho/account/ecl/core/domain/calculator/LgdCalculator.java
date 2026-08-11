@@ -72,4 +72,34 @@ public class LgdCalculator {
 
         return finalLgd.setScale(6, RoundingMode.HALF_UP);
     }
+
+    /**
+     * [도메인 계산기] 담보 유무 및 모델 파라미터 규제에 따른 LGD Floor(하한선)를 반영합니다.
+     *
+     * 💡 [IFRS 9 모델 가이드 & DDD 설계]
+     * 담보가 있는 자산(Secured)은 예상치 못한 담보 가치 하락에 대비해 최소 손실률(Secured Floor, 약 10%)을 적용하고,
+     * 무담보 자산(Unsecured)은 훨씬 더 높은 최저선(Unsecured Floor, 약 25~45%)을 적용하여 보수적으로 손실률을 결정합니다.
+     *
+     * @param baseLgd 세그먼트 마스터 LGD 수치
+     * @param hasCollateral 담보 유무
+     * @param securedFloor 담보부 LGD 하한선 (예: 0.10)
+     * @param unsecuredFloor 무담보부 LGD 하한선 (예: 0.45)
+     * @return Floor 규제가 반영된 최종 LGD 수치
+     */
+    public BigDecimal applyLgdFloor(BigDecimal baseLgd, boolean hasCollateral, BigDecimal securedFloor, BigDecimal unsecuredFloor) {
+        BigDecimal safeLgd = (baseLgd != null) ? baseLgd : ((unsecuredFloor != null) ? unsecuredFloor : new BigDecimal("0.45"));
+        BigDecimal safeSecuredFloor = (securedFloor != null) ? securedFloor : new BigDecimal("0.10");
+        BigDecimal safeUnsecuredFloor = (unsecuredFloor != null) ? unsecuredFloor : new BigDecimal("0.45");
+
+        BigDecimal finalLgd = hasCollateral
+                ? safeLgd.max(safeSecuredFloor)
+                : safeLgd.max(safeUnsecuredFloor);
+
+        if (finalLgd.compareTo(BigDecimal.ONE) > 0) {
+            finalLgd = BigDecimal.ONE;
+        }
+
+        return finalLgd.setScale(6, RoundingMode.HALF_UP);
+    }
 }
+

@@ -77,4 +77,29 @@ class PdCalculatorTest {
 
         assertThat(result).isEqualByComparingTo(new BigDecimal("0.02700000"));
     }
+
+    @Test
+    @DisplayName("전이행렬 기반 PD 곡선을 정상 산출한다.")
+    void generateTransitionBasedCurve_Success() {
+        com.ho.account.ecl.core.domain.model.TransitionMatrix tm = com.ho.account.ecl.core.domain.model.TransitionMatrix.builder()
+                .fromRating("BBB")
+                .toRating("D")
+                .probability(new BigDecimal("0.0300"))
+                .build();
+
+        List<BigDecimal> curve = pdCalculator.generateTransitionBasedCurve(List.of(tm), new BigDecimal("0.0200"), 3.0);
+
+        assertThat(curve).hasSize(3);
+        assertThat(curve.get(0)).isEqualByComparingTo(new BigDecimal("0.03000000"));
+    }
+
+    @Test
+    @DisplayName("전이행렬 미존재 시 단순 모델 PD 곡선을 정상 산출한다.")
+    void generateSimplePdCurve_Success() {
+        List<BigDecimal> curve = pdCalculator.generateSimplePdCurve(new BigDecimal("0.0500"), 3.0);
+
+        assertThat(curve).hasSize(3);
+        assertThat(curve.get(0)).isEqualByComparingTo(new BigDecimal("0.05000000"));
+    }
 }
+
