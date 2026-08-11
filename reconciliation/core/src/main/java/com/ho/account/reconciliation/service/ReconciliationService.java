@@ -444,8 +444,8 @@ public class ReconciliationService {
                 diff.setAmountActual(targetAmount);
                 diff.setDifferenceAmount(unmatchedAmount);
                 diff.setDescription(reconciliationUnit.getName() + " - amount mismatch (date " + reconciliationDate + ")");
-                diff.setSourceItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
-                diff.setTargetItemRef("{\"type\":\"SUMMARY\",\"date\":\"" + reconciliationDate + "\",\"unit\":\"" + reconciliationUnit.getName() + "\"}");
+                diff.setSourceItemRef(buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()));
+                diff.setTargetItemRef(buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()));
 
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
                         .orElseThrow(() -> new IllegalStateException("Required generic mismatch reason code is missing. Please seed reference data."));
@@ -593,6 +593,33 @@ public class ReconciliationService {
             return objectMapper.readTree(criteriaJson);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Invalid reconciliation criteriaJson for unit " + reconciliationUnit.getId(), e);
+        }
+    }
+
+    /**
+     * [교육적 주석 - Clean Code 및 안전한 Serialization]
+     * JSON 문자열을 직접 하드코딩(String concatenation)하여 생성할 경우,
+     * 대사 단위 이름(unitName)이나 날짜 등의 필드에 큰따옴표("), 백슬래시(\), 줄바꿈 등
+     * 특수문자가 포함될 때 문법적으로 유효하지 않은 JSON이 생성되거나 파싱 에러(JsonParseException)가 발생할 위험이 있습니다.
+     * 
+     * 따라서 Jackson의 {@link ObjectMapper}와 데이터 구조(Map)를 활용하여
+     * 표준 규격에 맞게 안전하게 JSON으로 직렬화(Serialize)합니다.
+     * 
+     * @param type 대사 항목 유형 (예: SUMMARY)
+     * @param date 대사 기준일
+     * @param unitName 대사 단위 명칭
+     * @return 직렬화된 JSON 문자열
+     */
+    private String buildItemRefJson(String type, LocalDate date, String unitName) {
+        try {
+            java.util.Map<String, String> refMap = java.util.Map.of(
+                    "type", type,
+                    "date", date != null ? date.toString() : "",
+                    "unit", unitName != null ? unitName : ""
+            );
+            return objectMapper.writeValueAsString(refMap);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to serialize item reference to JSON", e);
         }
     }
 

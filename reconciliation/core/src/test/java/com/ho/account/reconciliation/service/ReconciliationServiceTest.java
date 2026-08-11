@@ -122,6 +122,8 @@ class ReconciliationServiceTest {
         assertThat(difference.getAmountActual()).isEqualByComparingTo("950.00");
         assertThat(difference.getDifferenceAmount()).isEqualByComparingTo("50.00");
         assertThat(difference.getReasonCode()).isSameAs(reasonCode);
+        assertThat(difference.getSourceItemRef()).contains("\"type\":\"SUMMARY\"").contains("\"unit\":\"GL daily reconciliation\"");
+        assertThat(difference.getTargetItemRef()).contains("\"type\":\"SUMMARY\"").contains("\"unit\":\"GL daily reconciliation\"");
 
         verify(journalPostingPort, never()).createDraftEntry(any());
     }
@@ -337,5 +339,38 @@ class ReconciliationServiceTest {
         rule.setToleranceValue(new BigDecimal(toleranceValue));
         rule.setActive(active);
         return rule;
+    }
+
+    @Test
+    void performReconciliationHandlesSpecialCharactersInUnitNameSafely() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = new ReconciliationUnit();
+        unit.setId(10L);
+        unit.setName("GL \"Special\" & 'Unit'\nName");
+        unit.setCriteriaJson("{\"sourceAmount\":\"1000.00\",\"sourceCount\":2}");
+        DifferenceReasonCode reasonCode = reasonCode(false);
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        stubRunAndDifferenceSaves();
+        when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
+        stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
+
+        ReconciliationRun run = reconciliationService.performReconciliation(new RunReconciliationCommand(10L, reconciliationDate, "TEST_USER"));
+
+        assertThat(run.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+        ArgumentCaptor<ReconciliationDifference> differenceCaptor = ArgumentCaptor.forClass(ReconciliationDifference.class);
+        verify(reconciliationDifferenceRepository).save(differenceCaptor.capture());
+        ReconciliationDifference difference = differenceCaptor.getValue();
+
+        // ObjectMapper가 특수문자를 안전하게 직렬화했는지 파싱 가능 여부로 검증
+        assertThat(difference.getSourceItemRef()).isNotNull();
+        assertThat(difference.getTargetItemRef()).isNotNull();
+        ObjectMapper objectMapper = new ObjectMapper();
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
+            objectMapper.readTree(difference.getSourceItemRef());
+            objectMapper.readTree(difference.getTargetItemRef());
+        });
     }
 }
