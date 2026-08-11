@@ -1415,4 +1415,5 @@
 - Only an open `status:ready` Issue may be claimed for implementation. A valid claim has exactly one tool-owner label plus a start comment recording branch, external worktree, base commit, allowlist, acceptance criteria, and verification.
 - Gemini and Claude remain reviewers by default. They may implement a different ready Issue only after explicit user assignment and a valid claim. A different tool may review `status:needs-review` read-only without taking implementation ownership.
 - The primary checkout is dirty and 15 commits behind, so it was not pulled, reset, or edited. All Issue #348 changes are isolated on the latest fetched remote base.
-- Next gates are documentation/link/static verification, independent review, parent-owned harness finalization, commit, push, and Draft PR. No merge or Issue close is implied.
+- Allowlist, relative-link, required-label, synchronized Issue state/assignee, diff, and conflict-marker verification passed. Commit `34d14d34` is pushed and Draft PR `#349` targets `main` with `Refs #348`.
+- Issue #348 is `status:needs-review`. Next owner is an independent Gemini or Claude Code reviewer; findings return to Codex/parent Integrator. No Ready transition, merge, or Issue close is implied.
