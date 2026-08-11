@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #310 Loan Multi-currency Rounding Policy Implementation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/310-loan-currency-rounding-policy` / `C:\tmp\account-310-loan-currency-rounding-policy`.
+- Base: `origin/main`.
+- Integration: PR `#358`, merged into `main`. Issue `#310` closed and remote branch deleted.
+- Scope:
+  - Created `CurrencyRoundingPolicy` domain enum for loan multi-currency rounding rules (KRW/JPY: scale 0, FLOOR; USD/EUR/GBP: scale 2, HALF_UP).
+  - Added educational comments for financial calculation precision principles.
+  - Applied `CurrencyRoundingPolicy` across `LoanService`, `InterestAccrualService`, and `EIRAmortizationSchedule`.
+  - Added unit and integration tests (`CurrencyRoundingPolicyTest`, `LoanCurrencyRoundingPolicyIntegrationTest`) and adjusted existing test assertions.
+- Verification:
+  - `./gradlew.bat :loan:core:test :loan:api:test :loan:batch:test` passed 100% (BUILD SUCCESSFUL).
+- Rollback:
+  - Revert PR #358. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #312 Deposit DDD Spring Decouple Refactor
 
 - Owner: Gemini (Agent loop subagent)

@@ -1,3 +1,21 @@
+### 📅 2026-08-12 (Loan 모듈 다중 통화(Multi-currency) 환경 원단위 절사 및 통화 반올림 정책 도입 - Issue #310)
+### [DDD/금융회계/기능강화] Loan 모듈 CurrencyRoundingPolicy 도입 및 전표/원리금계산 절사 및 반올림 적용
+
+- **작업 배경**:
+  - 기존 Loan 모듈에는 통화별 소수점 및 절사/반올림 정책(`CurrencyRoundingPolicy`)이 부재하여, 원화(KRW) 대출 처리 시 소수점이 포함된 원단위 불일치가 발생하거나 달러(USD)/유로(EUR) 등 센트(Cents) 단위 통화 연산 시 전표(Journal) 금액 단차가 생길 수 있는 심각한 위험이 존재했음.
+- **주요 변경 사항**:
+  - `loan/core`:
+    - `CurrencyRoundingPolicy`: 대출 통화별 소수점 자리수(scale) 및 절사/반올림 방식(RoundingMode)을 캡슐화한 도메인 Enum 신설. (KRW/JPY: 소수점 0자리, 1원/1엔 미만 절사 `FLOOR` / USD/EUR/GBP: 소수점 2자리, `HALF_UP` 반올림). 초보자를 위한 상세한 교육적 주석(Pedagogical comments) 작성.
+    - `LoanService`: 자동 전표(Journal) 생성(`createAutomatedJournalEntry`), 대출 실행(`disburseLoan`), 이연 항목 생성(`createDeferredItem`), 원금 재계산(`recalculateLoanWithEvent`) 전표 계상 전 통화 규격 반올림/절사를 일괄 적용.
+    - `InterestAccrualService`: 일일 이자 발생 전표(`postAccrualJournal`) 계상 시 통화별 절사/반올림 정책 적용.
+    - `EIRAmortizationSchedule`: 월별 상각 스케줄 생성(`generateMonthly`) 시 이자수익, 원금상환, 기말잔액, 이연상각액에 통화 규격 절사/반올림 적용.
+  - `loan/core` 테스트:
+    - `CurrencyRoundingPolicyTest`: 통화별(KRW, USD, EUR, JPY) 절사/반올림 규칙 및 Fallback 단위 테스트 작성.
+    - `LoanCurrencyRoundingPolicyIntegrationTest`: KRW 및 USD 대출 이연 항목 및 전표 생성 시 1원 미만 절사 및 센트 단위 반올림 동작 통합 테스트 신규 작성.
+    - `LoanServiceTest` 및 `InterestAccrualServiceTest`: 통화 절사 규칙 반영에 따른 기존 테스트 스텁 및 검증 조건 보정.
+- **검증**:
+  - `./gradlew.bat :loan:core:test :loan:api:test :loan:batch:test` 전수 실행하여 100% 통과 (BUILD SUCCESSFUL in 29s).
+
 ### 📅 2026-08-12 (Deposit 모듈 도메인 계층 Spring 프레임워크 의존성 제거 및 POJO 전환 - Issue #312)
 ### [DDD/아키텍처] Deposit 도메인 계층 Pure POJO 전환 및 Spring 어노테이션 제거
 

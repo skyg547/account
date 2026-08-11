@@ -1,3 +1,28 @@
+# AI Harness Handoff - 2026-08-12 Issue #310 Loan Multi-Currency Rounding Policy
+
+## Active Goal And State
+
+- GitHub Issue `#310` was integrated by PR `#358`. `Fixes #310` closed the Issue and the remote feature branch was deleted.
+- Worktree `C:\tmp\account-310-loan-currency-rounding-policy` was cleaned up.
+
+## Changes And Boundaries
+
+- `CurrencyRoundingPolicy.java`: Created domain enum for loan multi-currency precision (KRW/JPY: scale 0, FLOOR; USD/EUR/GBP: scale 2, HALF_UP).
+- `LoanService.java`: Applied currency rounding rules to automated journal creation (`createAutomatedJournalEntry`), loan disbursal (`disburseLoan`), deferred items (`createDeferredItem`), and loan recalculation (`recalculateLoanWithEvent`).
+- `InterestAccrualService.java`: Applied currency rounding rules to daily interest accrual journal posting (`postAccrualJournal`).
+- `EIRAmortizationSchedule.java`: Applied currency rounding rules to monthly amortization schedule generation (`generateMonthly`).
+- Added educational comments explaining financial precision principles and rounding policy rationale.
+- Added `CurrencyRoundingPolicyTest` and `LoanCurrencyRoundingPolicyIntegrationTest`, and updated existing test assertions.
+
+## Verification Evidence
+
+- Run `:loan:core:test :loan:api:test :loan:batch:test` passed 100% (BUILD SUCCESSFUL in 29s).
+- PR #358 merged into main cleanly.
+
+## Known Risks And Rollback
+
+- Revert PR #358. No database schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #312 Deposit DDD Spring Decouple
 
 ## Active Goal And State
