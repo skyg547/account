@@ -13,6 +13,7 @@ CREATE TABLE deposit_accounts (
     closed_at DATE,
     valid_from DATE NOT NULL,
     valid_to DATE NOT NULL,
+    version BIGINT DEFAULT 0 NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(50),
