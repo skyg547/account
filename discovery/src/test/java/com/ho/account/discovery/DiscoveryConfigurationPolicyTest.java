@@ -6,56 +6,165 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
-import org.springframework.core.io.FileSystemResource;
 import org.yaml.snakeyaml.Yaml;
 
 class DiscoveryConfigurationPolicyTest {
 
     @Test
-    void localDefaultsStartSingleNodeRegistryOnPort8761WithoutConfigServer() {
-        Properties properties = loadProperties(resolveFromRepositoryRoot(
+    void localDefaultsStartSingleNodeRegistryOnPort8761WithoutConfigServer() throws IOException {
+        Map<String, Object> doc = findDefaultDocument(resolveFromRepositoryRoot(
                 "discovery", "src", "main", "resources", "application.yml"));
 
-        assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8761}");
-        assertThat(properties.getProperty("spring.config.import"))
-                .isEqualTo("optional:configserver:http://localhost:8888/");
-        assertThat(properties.getProperty("eureka.client.register-with-eureka")).isEqualTo("false");
-        assertThat(properties.getProperty("eureka.client.fetch-registry")).isEqualTo("false");
-        assertThat(properties.getProperty("management.endpoint.health.probes.enabled")).isEqualTo("true");
+        assertThat(doc).isNotNull();
+
+        Map<String, Object> server = asMap(doc.get("server"));
+        assertThat(server.get("port")).isEqualTo("${SERVER_PORT:8761}");
+
+        Map<String, Object> spring = asMap(doc.get("spring"));
+        Map<String, Object> config = asMap(spring.get("config"));
+        assertThat(config.get("import")).isEqualTo("optional:configserver:http://localhost:8888/");
+
+        Map<String, Object> eureka = asMap(doc.get("eureka"));
+        Map<String, Object> client = asMap(eureka.get("client"));
+        assertThat(client.get("register-with-eureka")).isEqualTo(false);
+        assertThat(client.get("fetch-registry")).isEqualTo(false);
+
+        Map<String, Object> eurekaServer = asMap(eureka.get("server"));
+        assertThat(eurekaServer.get("enable-self-preservation"))
+                .isEqualTo("${EUREKA_SERVER_ENABLE_SELF_PRESERVATION:true}");
+        assertThat(eurekaServer.get("eviction-interval-timer-in-ms"))
+                .isEqualTo("${EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS:60000}");
+
+        Map<String, Object> management = asMap(doc.get("management"));
+        Map<String, Object> endpoint = asMap(management.get("endpoint"));
+        Map<String, Object> health = asMap(endpoint.get("health"));
+        Map<String, Object> probes = asMap(health.get("probes"));
+        assertThat(probes.get("enabled")).isEqualTo(true);
     }
 
     @Test
-    void externalConfigurationKeepsSamePortAndServerOnlyClientPolicy() {
-        Properties properties = loadProperties(resolveFromRepositoryRoot(
+    void peer1ProfileConfiguresPeerAwarenessAndCrossReferenceToPeer2() throws IOException {
+        Map<String, Object> peer1Doc = findDocumentByProfile(
+                resolveFromRepositoryRoot("discovery", "src", "main", "resources", "application.yml"), "peer1");
+
+        assertThat(peer1Doc).isNotNull();
+
+        Map<String, Object> server = asMap(peer1Doc.get("server"));
+        assertThat(server.get("port")).isEqualTo("${SERVER_PORT:8761}");
+
+        Map<String, Object> eureka = asMap(peer1Doc.get("eureka"));
+        Map<String, Object> instance = asMap(eureka.get("instance"));
+        assertThat(instance.get("hostname")).isEqualTo("${EUREKA_INSTANCE_HOSTNAME:peer1}");
+
+        Map<String, Object> client = asMap(eureka.get("client"));
+        assertThat(client.get("register-with-eureka")).isEqualTo(true);
+        assertThat(client.get("fetch-registry")).isEqualTo(true);
+
+        Map<String, Object> serviceUrl = asMap(client.get("service-url"));
+        assertThat(serviceUrl.get("defaultZone"))
+                .isEqualTo("${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://peer2:8762/eureka/}");
+    }
+
+    @Test
+    void peer2ProfileConfiguresPeerAwarenessAndCrossReferenceToPeer1() throws IOException {
+        Map<String, Object> peer2Doc = findDocumentByProfile(
+                resolveFromRepositoryRoot("discovery", "src", "main", "resources", "application.yml"), "peer2");
+
+        assertThat(peer2Doc).isNotNull();
+
+        Map<String, Object> server = asMap(peer2Doc.get("server"));
+        assertThat(server.get("port")).isEqualTo("${SERVER_PORT:8762}");
+
+        Map<String, Object> eureka = asMap(peer2Doc.get("eureka"));
+        Map<String, Object> instance = asMap(eureka.get("instance"));
+        assertThat(instance.get("hostname")).isEqualTo("${EUREKA_INSTANCE_HOSTNAME:peer2}");
+
+        Map<String, Object> client = asMap(eureka.get("client"));
+        assertThat(client.get("register-with-eureka")).isEqualTo(true);
+        assertThat(client.get("fetch-registry")).isEqualTo(true);
+
+        Map<String, Object> serviceUrl = asMap(client.get("service-url"));
+        assertThat(serviceUrl.get("defaultZone"))
+                .isEqualTo("${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://peer1:8761/eureka/}");
+    }
+
+    @Test
+    void externalConfigurationKeepsSamePortAndServerOnlyClientPolicy() throws IOException {
+        Map<String, Object> doc = findDefaultDocument(resolveFromRepositoryRoot(
                 "config-repo", "discovery-service.yml"));
 
-        assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8761}");
-        assertThat(properties.getProperty("eureka.client.register-with-eureka")).isEqualTo("false");
-        assertThat(properties.getProperty("eureka.client.fetch-registry")).isEqualTo("false");
-        assertThat(properties.getProperty("management.endpoints.web.exposure.include"))
-                .isEqualTo("health,info,prometheus");
+        assertThat(doc).isNotNull();
+
+        Map<String, Object> server = asMap(doc.get("server"));
+        assertThat(server.get("port")).isEqualTo("${SERVER_PORT:8761}");
+
+        Map<String, Object> eureka = asMap(doc.get("eureka"));
+        Map<String, Object> client = asMap(eureka.get("client"));
+        assertThat(client.get("register-with-eureka")).isEqualTo(false);
+        assertThat(client.get("fetch-registry")).isEqualTo(false);
+
+        Map<String, Object> eurekaServer = asMap(eureka.get("server"));
+        assertThat(eurekaServer.get("enable-self-preservation"))
+                .isEqualTo("${EUREKA_SERVER_ENABLE_SELF_PRESERVATION:true}");
+        assertThat(eurekaServer.get("eviction-interval-timer-in-ms"))
+                .isEqualTo("${EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS:60000}");
+
+        Map<String, Object> management = asMap(doc.get("management"));
+        Map<String, Object> endpoints = asMap(management.get("endpoints"));
+        Map<String, Object> web = asMap(endpoints.get("web"));
+        Map<String, Object> exposure = asMap(web.get("exposure"));
+        assertThat(exposure.get("include")).isEqualTo("health,info,prometheus");
     }
 
-
-
-    private Properties loadProperties(Path path) {
-        YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
-        factory.setResources(new FileSystemResource(path));
-        Properties properties = factory.getObject();
-        if (properties == null) {
-            throw new IllegalStateException("YAML properties could not be loaded: " + path);
+    private Map<String, Object> findDefaultDocument(Path path) throws IOException {
+        List<Map<String, Object>> documents = loadAllYamlDocuments(path);
+        for (Map<String, Object> doc : documents) {
+            Object springObj = doc.get("spring");
+            if (springObj instanceof Map<?, ?> springMap) {
+                Object configObj = springMap.get("config");
+                if (configObj instanceof Map<?, ?> configMap) {
+                    if (configMap.containsKey("activate")) {
+                        continue;
+                    }
+                }
+            }
+            return doc;
         }
-        return properties;
+        return documents.isEmpty() ? null : documents.get(0);
     }
 
-    private Map<String, Object> loadYaml(Path path) throws IOException {
+    private Map<String, Object> findDocumentByProfile(Path path, String profile) throws IOException {
+        List<Map<String, Object>> documents = loadAllYamlDocuments(path);
+        for (Map<String, Object> doc : documents) {
+            Object springObj = doc.get("spring");
+            if (springObj instanceof Map<?, ?> springMap) {
+                Object configObj = springMap.get("config");
+                if (configObj instanceof Map<?, ?> configMap) {
+                    Object activateObj = configMap.get("activate");
+                    if (activateObj instanceof Map<?, ?> activateMap) {
+                        if (profile.equals(activateMap.get("on-profile"))) {
+                            return doc;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<Map<String, Object>> loadAllYamlDocuments(Path path) throws IOException {
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return asMap(new Yaml().load(inputStream));
+            List<Map<String, Object>> docs = new ArrayList<>();
+            for (Object doc : new Yaml().loadAll(inputStream)) {
+                if (doc != null) {
+                    docs.add(asMap(doc));
+                }
+            }
+            return docs;
         }
     }
 
@@ -78,12 +187,6 @@ class DiscoveryConfigurationPolicyTest {
         }
         return (Map<String, Object>) map;
     }
-
-    @SuppressWarnings("unchecked")
-    private List<Object> asList(Object value) {
-        if (!(value instanceof List<?> list)) {
-            throw new IllegalArgumentException("expected YAML list but got: " + value);
-        }
-        return (List<Object>) list;
-    }
 }
+
+
