@@ -9,7 +9,9 @@ spring:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
+    secret: ${AUTH_JWT_SECRET:${JWT_SECRET:}}
+    public-key: ${AUTH_JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY:}}
+    jwks-uri: ${AUTH_JWT_JWKS_URI:${JWT_JWKS_URI:}}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     allowed-clock-skew-seconds: ${AUTH_JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
   token-version-validation:
