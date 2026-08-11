@@ -9,7 +9,7 @@ Internal Audit는 RCM과 설계·운영 평가를 제공하는 헥사고날 모�
 
 ## Local H2
 
-외부 Config Server, Eureka, PostgreSQL 없이 실행됩니다. Flyway V60이 H2 PostgreSQL compatibility mode에 스키마를 만들고 Hibernate는 `validate`만 수행합니다.
+`local` 프로파일은 별도 환경변수 없이 외부 Config Server, Eureka, Vault, PostgreSQL을 모두 사용하지 않습니다. Flyway V60이 격리된 in-memory H2 PostgreSQL compatibility mode에 스키마를 만들고 Hibernate는 `validate`만 수행합니다. 애플리케이션을 종료하면 로컬 데이터도 함께 사라집니다.
 
 ```powershell
 .\gradlew :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar --console=plain

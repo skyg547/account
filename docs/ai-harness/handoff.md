@@ -1493,3 +1493,24 @@
 - Commit `d0698585` is pushed and Draft PR #353 targets main. Issue #342 is frozen at `status:needs-review`; next owner is an independent read-only PR reviewer, followed by the parent Integrator.
 - Roll back only `application-local.yaml`, `ReconciliationLocalHealthPolicyTest.java`, and `reconciliation/docs/local-run.md` in a new reviewed commit, then append the outcome to the harness. Preserve all five parent-owned harness files because they also contain accurate #79 integration history; never revert all of `d0698585`. No DB/data/container rollback is required.
 - Final PR review found only this P3 rollback-document defect; runtime/test behavior had no P0-P3. The corrected head requires independent re-review before Ready/merge.
+- Independent re-review found no P0-P3. PR #353 merged as `cf50e4fc`; Issue #342 closed and active labels were removed.
+
+# AI Harness Handoff - 2026-08-11 Issue #344 Internal Audit Local Policy
+
+## Verification-ready state
+
+- Issue/branch/worktree/base: `#344`, `agent/344-internal-audit-local-h2`, `C:\tmp\account-344-internal-audit-local-h2`, `origin/main@cf50e4fc`.
+- Changed runtime scope is limited to `InternalAuditRuntimePolicyTest.java` and `internal-audit/README.md`, plus parent-owned append-only harness records. The production `application-local.yml` was already integrated by #231 and is unchanged.
+- The test now pins the full explicit local H2/Flyway V60/JPA/control-plane contract; documentation states local needs no external control plane or PostgreSQL and that in-memory data is ephemeral.
+
+## Evidence, rollback, and next owner
+
+- Focused and full Core/API verification passed 17 tests in 6 suites, API bootJar and direct local executable-JAR startup. The smoke observed active local profile, H2, Flyway V60, JPA initialization and successful application start.
+- The initial smoke checker produced a false negative only because it searched for an obsolete class name; corrected evaluation of the same successful startup log passed. Static gates passed.
+- No external PostgreSQL, credential, private URL, Compose stack, container or deployed service was accessed. Roll back only the two Issue paths with a reviewed revert; no external state rollback exists.
+- Next owner is an independent read-only reviewer, followed by the parent Integrator for commit, Draft PR and state synchronization.
+- The first reviewer found one P3 masked assertion: Config/Discovery/Eureka were overridden before local assertions. The helper now applies those isolation overrides only for dev/prod, leaving local values sourced from `application-local.yml`; focused/full module gates passed again and independent re-review is pending.
+- The root forced build was attempted but exceeded a five-minute command timeout with no observed failure; do not treat it as a pass. This does not replace the successful focused, module, packaging and direct-JAR evidence.
+- A second root forced build with a ten-minute limit passed in 8m31s with 349 actionable tasks executed, clearing the prior full-root stop. Independent remediation re-review found no P0-P3.
+- The reviewer observed that `origin/main` advanced and overlaps three append-only harness logs. Synchronize while preserving both histories, confirm the two Internal Audit paths are byte-identical, then rerun focused/static gates before commit/Draft PR.
+- Latest-main synchronization is complete at `b2d5c6ef`. A single `agent-status.md` conflict was resolved append-only, preserving upstream #312/#314 and local #344/#342 rows; reviewed implementation paths remained byte-identical. Focused and static gates passed again, so the parent may commit, push and open the Draft PR.

@@ -14,6 +14,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.Profiles;
 import org.springframework.core.env.StandardEnvironment;
 
 class InternalAuditRuntimePolicyTest {
@@ -22,15 +23,30 @@ class InternalAuditRuntimePolicyTest {
     void localProfileUsesFlywayOwnedH2WithoutControlPlaneDependencies() {
         try (ConfigurableApplicationContext context = context("local")) {
             Environment environment = context.getEnvironment();
+            assertThat(environment.acceptsProfiles(Profiles.of("local"))).isTrue();
             assertThat(environment.getProperty("spring.datasource.url"))
                     .startsWith("jdbc:h2:mem:")
                     .contains("MODE=PostgreSQL");
+            assertThat(environment.getProperty("spring.datasource.driver-class-name"))
+                    .isEqualTo("org.h2.Driver");
             assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
+            assertThat(environment.getProperty("spring.flyway.locations"))
+                    .isEqualTo("classpath:db/migration");
+            assertThat(environment.getProperty("spring.flyway.target")).isEqualTo("60");
             assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto"))
                     .isEqualTo("validate");
+            assertThat(environment.getProperty("spring.sql.init.mode")).isEqualTo("never");
             assertThat(environment.getProperty("spring.cloud.config.enabled", Boolean.class))
                     .isFalse();
+            assertThat(environment.getProperty("spring.cloud.discovery.enabled", Boolean.class))
+                    .isFalse();
+            assertThat(environment.getProperty("spring.cloud.vault.enabled", Boolean.class))
+                    .isFalse();
             assertThat(environment.getProperty("eureka.client.enabled", Boolean.class)).isFalse();
+            assertThat(environment.getProperty("eureka.client.register-with-eureka", Boolean.class))
+                    .isFalse();
+            assertThat(environment.getProperty("eureka.client.fetch-registry", Boolean.class))
+                    .isFalse();
         }
     }
 
@@ -86,9 +102,11 @@ class InternalAuditRuntimePolicyTest {
     private ConfigurableApplicationContext context(String profile) {
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put("spring.profiles.active", profile);
-        overrides.put("spring.cloud.config.enabled", false);
-        overrides.put("spring.cloud.discovery.enabled", false);
-        overrides.put("eureka.client.enabled", false);
+        if (!"local".equals(profile)) {
+            overrides.put("spring.cloud.config.enabled", false);
+            overrides.put("spring.cloud.discovery.enabled", false);
+            overrides.put("eureka.client.enabled", false);
+        }
         overrides.put("DEV_DB_HOST", "dev-db.invalid");
         overrides.put("DEV_DB_NAME", "internal_audit_dev");
         overrides.put("DEV_DB_USER", "dev_internal_audit_app");
