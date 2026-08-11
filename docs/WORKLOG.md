@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([journal-ledger][architecture] MonolithJournalPostingAdapter 사용으로 인한 MSA 전환 저해 - Issue #292)
+### [journal-ledger] MonolithJournalPostingAdapter 제거 및 MSA 전환을 위한 Hexagonal Port/Adapter (REST & Event Inbound) 디커플링 정립
+
+- **작업 배경**:
+  - 기존 `journal-ledger/core` 내의 `MonolithJournalPostingAdapter` 및 `MonolithJournalPostingCommand`는 타 모듈이 `JournalUseCase`를 직접 인메모리 메서드로 호출하는 모놀리식 강결합 구조였습니다.
+  - 이 모놀리식 직접 결합 방식은 컴파일 타임 의존성을 형성하여 `journal-ledger` 모듈을 독립적인 Bounded Context(마이크로서비스)로 분리/배포하는 데 저해 요소로 작용했습니다.
+- **주요 변경 사항**:
+  - **구 모놀리스 어댑터 및 커맨드 파일 제거**:
+    - `journal-ledger/core/.../common/adapter/MonolithJournalPostingAdapter.java` 및 `MonolithJournalPostingCommand.java` 제거.
+  - **Hexagonal Inbound/Outbound Port-Adapter 계층 정립**:
+    - `JournalPostingAdapter.java`: `contracts` 모듈의 `JournalPostingPort`를 수신 구현하고 `JournalEntryCommand`를 `journal-ledger` 도메인 엔티티로 변환 전달하는 헥사고날 포트 어댑터 역할 명확화.
+    - `lineageSourceType`과 `lineageSourceId`를 기반으로 한 멱등성(Idempotency) 중복 방지 메커니즘을 적용.
+  - **REST Inbound Web Controller 및 Async Event Inbound Listener 정립**:
+    - `JournalPostingRestController.java` (`POST /api/v1/journals/posting`): MSA 통신 환경에서 HTTP REST 동기 요청으로 전표 전기를 요청받는 REST Inbound Web Adapter 구현.
+    - `JournalPostingEventListener.java`: MSA 비동기 이벤트 기반 통신(Event-Driven Architecture / Transactional Outbox) 시 비동기 전표 발행 이벤트를 수신하여 `JournalPostingPort`로 릴레이 전달하는 Async Event Inbound Adapter 구현.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Monolith 직접 메소드 호출 방식의 문제점, Hexagonal Architecture Port/Adapter 디커플링 이점, REST API 및 Event-Driven 기반 독립 Bounded Context 전환 및 멱등성/최종정합성 메커니즘을 초보자 눈높이로 상세 기재.
+- **검증**:
+  - `JournalPostingRestControllerTest` 및 `JournalPostingEventListenerTest` 단위 테스트 신설.
+  - `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test` 실행하여 성공 검증.
+
 ### 📅 2026-08-12 ([전 모듈][msa] 전표 기록(Journal POST) 동기 호출로 인한 Dual Write 정합성 문제 - Issue #293)
 ### [contracts/journal/deposit/loan] Transactional Outbox 패턴 기반 전표 비동기 발행 및 Dual Write 정합성/멱등성 구조 구현
 
