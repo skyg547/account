@@ -1,27 +1,28 @@
-# AI Harness Handoff - 2026-08-12 Issue #293 Implement Transactional Outbox Pattern for Journal Posting Dual Write Consistency
+# AI Harness Handoff - 2026-08-12 Issue #292 Decouple Monolith Journal Posting Adapter for MSA Transition
 
 ## Active Goal And State
 
-- GitHub Issue `#293` (`[전 모듈][msa] 전표 기록(Journal POST) 동기 호출로 인한 Dual Write 정합성 문제`) completed and PR created for merge into `main`.
-- Worktree `C:\tmp\account-293-msa-transactional-outbox-journal` active.
+- GitHub Issue `#292` (`[journal-ledger][architecture] MonolithJournalPostingAdapter 사용으로 인한 MSA 전환 저해`) completed and PR created/merged into `main`.
+- Worktree `C:\tmp\account-292-journal-ledger-msa-adapter-decouple` active during implementation and cleaned up post merge.
 
 ## Changes And Boundaries
 
-- Outbox Domain/Persistence Models & Ports (`contracts/src/main/java/com/ho/account/contracts/outbox/`):
-  - `OutboxStatus.java`: PENDING, PUBLISHED, FAILED lifecycle enum.
-  - `OutboxEvent.java`: Common Outbox domain/persistence event model.
-  - `JournalOutboxEvent.java`: Specialized journal posting event wrapping `JournalEntryCommand`, lineage info, and idempotency key.
-  - `OutboxPort.java`: Outbound persistence port for atomic local DB save, pending event query, and status updates.
-  - `OutboxEventPublisher.java` & `JournalOutboxRelayService.java`: Asynchronous relay engine scanning PENDING events and delivering to `JournalPostingPort` with At-Least-Once Delivery and Eventual Consistency.
-  - `InMemoryOutboxAdapter.java`: In-memory port adapter for testing and local standalone execution.
-- Service Integrations (`deposit`, `loan`, `journal-ledger`):
-  - `DepositService.java`: Saves `JournalOutboxEvent` atomically in local DB transaction during account opening/initial deposit, then relays via `OutboxEventPublisher`.
-  - `LoanJournalAdapter.java`: Saves `JournalOutboxEvent` atomically upon loan disbursal/adjustment journal posting, then marks as PUBLISHED.
-  - `JournalPostingAdapter.java`: Added idempotency check using `lineageSourceType` and `lineageSourceId` to deduplicate incoming journal requests.
-- Educational Documentation:
-  - Added extensive pedagogical comments explaining MSA Dual Write issues, Transactional Outbox atomic save, Eventual Consistency, and Idempotency benefits.
+- Removed Monolithic Adapter & Command:
+  - Removed `MonolithJournalPostingAdapter.java` and `MonolithJournalPostingCommand.java` from `journal-ledger/core/.../common/adapter/`.
+- Hexagonal Port & Adapter Refactoring:
+  - Refactored `JournalPostingAdapter.java`: Implemented `JournalPostingPort` in Hexagonal Architecture, with `lineageSourceType` and `lineageSourceId` idempotency deduplication.
+- Inbound Adapters:
+  - Added `JournalPostingRestController.java` (`POST /api/v1/journals/posting`): REST Inbound Web Adapter for synchronous HTTP journal posting in MSA environment.
+  - Added `JournalPostingEventListener.java`: Async Event Inbound Adapter for event-driven journal posting via Spring Application Event / Message Relay.
+- Pedagogical Comments & Verification:
+  - Added rich educational comments explaining Hexagonal Architecture Port/Adapter design, MSA Bounded Context isolation, REST/Event communication, and Idempotency guarantees.
+  - Unit tests added: `JournalPostingRestControllerTest.java` & `JournalPostingEventListenerTest.java`.
+  - Executed `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test` with BUILD SUCCESSFUL.
 
 ## Verification Evidence
+
+- `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test` executed with 0 failures.
+- Obsolete monolithic files cleanly removed via `git rm`.
 
 - Added unit/integration test `JournalOutboxPatternTest.java` verifying atomic save, network failure retry resilience, and idempotency key deduplication.
 - `./gradlew.bat test` executed across all modules with 100% SUCCESS.

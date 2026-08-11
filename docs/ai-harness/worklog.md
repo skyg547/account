@@ -1,3 +1,22 @@
+## 2026-08-12 - Issue #292 Decouple Monolith Journal Posting Adapter for MSA Transition
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/292-journal-ledger-msa-adapter-decouple` / `C:\tmp\account-292-journal-ledger-msa-adapter-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Removed Obsolete Monolithic Adapter & Command:
+    - Removed `MonolithJournalPostingAdapter.java` and `MonolithJournalPostingCommand.java` from `journal-ledger/core/.../common/adapter/`.
+  - Hexagonal Architecture Port & Adapter Refactoring:
+    - Updated `JournalPostingAdapter.java` implementing `JournalPostingPort` with idempotency deduplication (`lineageSourceType` & `lineageSourceId`).
+  - REST & Async Event Inbound Adapters:
+    - Added `JournalPostingRestController.java` (`POST /api/v1/journals/posting`): REST Inbound Web Adapter for synchronous HTTP posting requests in MSA environment.
+    - Added `JournalPostingEventListener.java`: Async Event Inbound Adapter for event-driven journal posting via Spring Event / Message Relay.
+  - Pedagogical Comments:
+    - Added extensive pedagogical comments detailing Hexagonal Architecture, MSA Bounded Context decoupling, REST & Event-Driven communication, and Idempotency / Eventual Consistency guarantees.
+- Verification:
+  - Added unit tests `JournalPostingRestControllerTest.java` and `JournalPostingEventListenerTest.java`.
+  - Executed `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test` (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #293 Implement Transactional Outbox Pattern for Journal Posting Dual Write Consistency
 
 - Owner: Gemini (Agent loop subagent)

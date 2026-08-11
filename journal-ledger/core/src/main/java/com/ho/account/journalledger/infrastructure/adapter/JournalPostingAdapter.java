@@ -12,20 +12,35 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * [헥사고날 아키텍처 - 전표 전기 수신 어댑터 (JournalPostingAdapter)]
+ * [헥사고날 아키텍처 - 전표 전기 인바운드/아웃바운드 포트 어댑터 (JournalPostingAdapter)]
+ *
+ * ───────────────────────────────────────────────────────────────────────────────────
+ * 🐣 [초보자를 위한 아키텍처 및 MSA 전환 교육용 주석 (Pedagogical Comments)]
  * 
- * 🐣 [초보자를 위한 설명 및 멱등성(Idempotency) 보장 아키텍처]
- * 이 어댑터는 Contracts 모듈의 {@link JournalPostingPort}를 구현하여 
- * 타 마이크로서비스(Deposit, Loan, Payable, Receivable 등)로부터 전표 생성 요청을 수신합니다.
- * 
- * **Transactional Outbox 및 멱등성(Idempotency) 보장:**
- * 1. Transactional Outbox 비동기 릴레이 환경에서는 메시지가 At-Least-Once Delivery로 중복 수신될 수 있습니다.
- * 2. 수신측에서는 `lineageSourceType`과 `lineageSourceId` (또는 idempotencyKey)를 조회하여 
- *    이미 동일한 원천 거래로 전표가 발행된 경우 기존 전표 결과를 멱등(Idempotent)하게 반환하여 중복 전표 생성을 방지합니다.
+ * 1. 모놀리스 직접 결합(Monolith Direct Coupling)의 한계와 탈피:
+ *    - 기존 As-Is 구조: 타 모듈(Receivable, Payable, Loan, Deposit 등)이 journal-ledger 모듈 내부의
+ *      `MonolithJournalPostingAdapter`나 `JournalUseCase` 서비스 Bean을 직접 주입받아 Java 메서드를 호출했습니다.
+ *    - 문제점: 이 방식은 Monolith Single-Process 환경에서는 편해 보이지만, 모듈 간 컴파일 타임 강결합을 유발하여
+ *      `journal-ledger`를 독립적인 Microservice(Bounded Context)로 분리/배포하는 데 심각한 걸림돌이 됩니다.
+ *
+ * 2. 헥사고날 포트/어댑터 패턴 (Hexagonal Architecture Port & Adapter)을 통한 디커플링:
+ *    - To-Be 구조: 모듈 간 계약(Contracts) 모듈에 독립된 `JournalPostingPort` 인터페이스와
+ *      `JournalEntryCommand` / `JournalPostingResult` DTO 표준을 정립했습니다.
+ *    - 이 클래스(`JournalPostingAdapter`)는 `JournalPostingPort`를 구현하여 외부 모듈의 요청을 수신하고,
+ *      내부 도메인/유즈케이스(`JournalUseCase`)로 변환 전달하는 헥사고날 어댑터 역할을 수행합니다.
+ *    - 결과적으로 호출 측(도메인 서비스)은 `JournalPostingPort` 인터페이스에만 의존하며,
+ *      배포 환경에 따라 In-Memory 로컬 Bean 호출, REST HTTP Client, Async Messaging(Kafka/Outbox) 등으로
+ *      호출 방식을 자유롭게 전환할 수 있습니다.
+ *
+ * 3. Transactional Outbox 및 멱등성(Idempotency) 보장:
+ *    - MSA 분리 환경에서 네트워크 유실 및 At-Least-Once Delivery로 인한 메시지 중복 수신이 발생할 수 있습니다.
+ *    - 본 어댑터는 수신된 `JournalEntryCommand`의 `lineageSourceType`과 `lineageSourceId`를 기반으로 
+ *      이미 발행된 동일 원천 전표가 존재하는지 멱등성 검사(Idempotency Check)를 수행합니다.
+ *    - 중복 요청 시 기존 전표 식별자 및 상태를 반환하여 중복 전표가 생기는 것을 방지합니다.
+ * ───────────────────────────────────────────────────────────────────────────────────
  */
 @Component
 @RequiredArgsConstructor
@@ -49,7 +64,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             }
         }
 
-        // 2. 신규 전표 엔티티 조립
+        // 2. 신규 전표 엔티티 조립 (계약 커맨드 -> journal-ledger 도메인 모델 변환)
         JournalEntry entry = new JournalEntry();
         entry.setAccountingDate(command.accountingDate());
         entry.setSlipDate(command.slipDate());
@@ -68,6 +83,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
         String currencyCode = command.currencyCode() != null ? command.currencyCode() : "KRW";
         entry.setCurrencyCode(currencyCode);
 
+        // 분개 상세(JournalDetail) 라인 생성
         entry.setDetails(command.lines().stream().map(line -> {
             JournalDetail detail = new JournalDetail();
             
@@ -90,6 +106,7 @@ public class JournalPostingAdapter implements JournalPostingPort {
             return detail;
         }).collect(Collectors.toList()));
 
+        // 3. 유즈케이스 호출 및 생성 결과 반환
         JournalEntry savedEntry = journalUseCase.createJournalEntry(entry);
         
         return new JournalPostingResult(
@@ -99,3 +116,4 @@ public class JournalPostingAdapter implements JournalPostingPort {
         );
     }
 }
+
