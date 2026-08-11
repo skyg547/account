@@ -1818,3 +1818,11 @@
 - Verification passed six Compose policy tests, Config/Gateway/migration-runner tests, 159 Gradle packaging tasks, shell/PowerShell/static checks and a Frontend production build with 122 routes and no development rewrite. Independent final review found no P0-P3.
 - Docker was unavailable and Podman had no Compose provider; no external server, DB, secret or existing container was accessed. Live Compose and PostgreSQL privilege checks remain Issue #66 close gates. Rollback is a normal revert and Compose `down` without volume deletion.
 - Commit `375105ab` is pushed and Draft PR `#339` targets `main` with `Refs #66`; the Issue remains open for approved live environment verification.
+
+## 2026-08-11 (Issue #340 Expenditure/Tax test classpath)
+
+- Fast-forwarded the isolated Issue worktree onto `origin/main@81f4206e` after confirming no overlap between upstream files and the three-file Gradle diff.
+- Enabled an explicitly classified Tax API plain JAR for the Expenditure cross-API test while retaining the unclassified executable boot JAR; removed duplicate/unused Expenditure dependencies.
+- Focused latest-main verification passed 45 tasks and 55 observed tests with no failure/error/skip. Tax packaging produced exactly one executable artifact and one small `-plain.jar`; container selection policy passed.
+- The full root forced build passed the original #340 failure and executed 237 tasks before the known #344 Internal Audit explicit local datasource policy failure. Fresh evidence was posted to #344.
+- Commit `aaaa4922` is pushed and Draft PR `#350` is open with Issue #340 at `status:needs-review`. No external environment, merge, or Issue close was performed.

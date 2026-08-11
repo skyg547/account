@@ -822,3 +822,14 @@
 - Environment gates: Docker CLI is unavailable and Podman has no Compose provider, so actual Compose render/build/up and 17-context PostgreSQL privilege probes were not run. No external host, credentials, database or existing container was inspected or changed.
 - Rollback: revert the Issue #66 commit and stop the same Compose project without `-v`; never delete named volumes or change an external database as rollback. The Issue remains open until live self-contained/external-dev gates pass.
 - Commit `375105ab` is pushed to `origin/agent/66-compose-runtime-topology`; Draft PR `#339` targets `main` with `Refs #66` so the live environment gates do not close the Issue.
+
+## 2026-08-11 - Issue #340 Expenditure/Tax test classpath
+
+- Issue/branch/worktree/base: `#340`, `agent/340-expenditure-tax-test-classpath`, `C:\tmp\account-340-expenditure-tax-test-classpath`, latest `origin/main@81f4206e` after a non-overlapping fast-forward.
+- Enabled the Tax API plain library artifact with the explicit `plain` classifier while retaining the sole unclassified executable boot JAR. The canonical Containerfile excludes `*-plain.jar`, so runtime selection remains deterministic.
+- Removed a duplicate Expenditure API Actuator declaration and an unused Tax API test dependency from Expenditure Core. No production Java behavior or endpoint changed.
+- Latest-main focused verification executed 45 tasks successfully; observed Tax/Expenditure/Container-policy reports contained 55 tests with no failure/error/skip. Tax output contained one approximately 98 MB executable JAR and one approximately 9 KB `-plain.jar`.
+- Root `build --offline --rerun-tasks --max-workers=1` passed the original Expenditure test compilation/integration failure and executed 237 tasks. It stopped only at the separately tracked #344 `InternalAuditRuntimePolicyTest` explicit-local-datasource assertion; fresh evidence was added to #344.
+- `git diff --check` and scoped conflict-marker checks passed. The independent pre-sync review reported no P0-P3 and latest-main changed-file overlap was empty.
+- Commit `aaaa4922` is pushed and Draft PR `#350` targets `main` with `Refs #340/#227/#344`. Issue #340 is `status:needs-review`; no merge or close was performed.
+- Rollback is a normal revert of `aaaa4922`. A named pre-sync stash commit is retained until integration; no database, container, credential, private endpoint, or external service was accessed.
