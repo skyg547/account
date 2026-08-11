@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #295 Implement IFRS 16 Lease Present Value (PV) Calculation & Input Validation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/295-asset-lease-ifrs16-pv-calculation` / `C:\tmp\account-295-asset-lease-ifrs16-pv-calculation`.
+- Base: `origin/main`.
+- Integration: Merged PR #372 into `main`. Issue `#295` closed and remote branch deleted.
+- Scope:
+  - Implemented IFRS 16 lease present value (PV) calculation logic in `LeaseContract` domain model (`calculatePresentValue(monthlyPayment, termMonths, annualRate)`).
+  - Added `calculateTermMonths()` to calculate exact lease term months from `startDate` and `endDate`.
+  - Added `updatePresentValueAndValidate()` in `LeaseContract` to cross-validate external PV inputs against domain-calculated PV and strictly enforce domain invariants.
+  - Refactored `LeaseEntryService.registerLeaseContract` and `recognizeInitialLease` to mandate domain PV calculation and validation, preventing reliance on external request values.
+  - Added detailed pedagogical comments explaining IFRS 16 accounting standards, incremental borrowing rate discounting, and financial domain invariants.
+  - Added domain unit tests in `LeaseContractTest.java` and integration tests in `LeaseEntryServiceTest.java`.
+- Verification:
+  - `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` passed 100% (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #294 Refactor Asset Lease Core JPA Repository Location to Enforce DIP
 
 - Owner: Gemini (Agent loop subagent)

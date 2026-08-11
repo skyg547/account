@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([asset-lease][financial] IFRS 16 리스 현재가치(PV) 계산 누락 및 외부 입력 전면 신뢰 - Issue #295)
+### [asset-lease/financial] IFRS 16 리스료 미래 현금흐름 현재가치(PV) 도메인 자동 산출 및 외부 입력 교차 검증 구현
+
+- **작업 배경**:
+  - `asset-lease/core` 모듈의 리스계약 최초인식(`recognizeInitialLease`) 과정에서 도메인 내부의 리스 현재가치(PV) 계산 및 검증 로직 없이 외부 요청 객체(DTO)가 제공하는 입력 가액(PV)을 100% 신뢰함으로써, 악의적 입력 변조 또는 외부 산출식 오차 시 장부 불일치 및 금융 회계 데이터 왜곡 위험이 존재함.
+  - IFRS 16 규격에 맞는 미래 현금흐름 현재가치(PV) 산출 로직을 `LeaseContract` 도메인 모델에 내장하고, 리스 계약 등록 시 도메인이 자동 계산한 PV로 외부 입력 가액을 교차 검증/설정하도록 리팩토링함.
+- **주요 변경 사항**:
+  - `LeaseContract.java` (`asset-lease/core/.../domain`):
+    - `calculatePresentValue(BigDecimal monthlyPayment, int termMonths, BigDecimal annualRate)` 및 `calculatePresentValue()` 구현:
+      - 월 리스료($PMT$), 리스 약정기간 개월 수($N$), 연 증분차입이자율($annualRate$)을 기반으로 월 할인율 $r = annualRate / 1200$ 을 적용하여 $PV = \sum_{t=1}^{N} \frac{PMT}{(1+r)^t}$ 복리 할인 자동 산출.
+    - `calculateTermMonths()` 구현: 계약 시작일과 종료일 사이의 리스 기간 개월 수 정확 산출.
+    - `updatePresentValueAndValidate()` 구현: 도메인 내부 PV 산출액으로 외부 입력 PV를 교차 검증하고, 도메인 불변성(Domain Invariants)을 만족하는 PV 값으로 자산/부채 최초가액 강제 설정.
+    - IFRS 16 리스회계, 증분차입이자율 할인율 적용, 금융 회계 도메인 불변성 원리를 설명하는 상세 교육적 주석(Pedagogical comments) 작성.
+  - `LeaseEntryService.java` (`asset-lease/core/.../application/service`):
+    - `registerLeaseContract` 및 `recognizeInitialLease`에서 `contract.updatePresentValueAndValidate()`를 호출하여 외부 입력 PV 100% 신뢰를 차단하고 도메인 자동 검증/설정 적용.
+    - 서비스 계층 내 외부 입력 교차 검증 관련 교육적 주석 작성.
+  - `LeaseContractTest.java` 신설 및 `LeaseEntryServiceTest.java` 확장:
+    - 할인율 0% 및 연 6.0% 할인율 PV 계산 정확도, 기간 개월 수 산출, 외부 엉뚱 입력 가액에 대한 도메인 자동 산출 PV 교정 기능 단위 테스트 작성.
+- **검증**:
+  - `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([asset-lease][architecture] Core 모듈 내부에 JPA Repository 위치 — 헥사고날/DIP 위반 - Issue #294)
 ### [asset-lease/architecture] Core 패키지 JPA Repository를 infrastructure.persistence.repository로 이동 및 헥사고날/DIP 패러다임 전면 정립
 

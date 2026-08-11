@@ -1,3 +1,32 @@
+# AI Harness Handoff - 2026-08-12 Issue #295 Implement IFRS 16 Lease Present Value (PV) Calculation & Input Validation
+
+## Active Goal And State
+
+- GitHub Issue `#295` (`[asset-lease][financial] IFRS 16 리스 현재가치(PV) 계산 누락 및 외부 입력 전면 신뢰`) completed and merged into `main`. `Fixes #295` closes Issue `#295`.
+- PR #372 merged into `main` and remote branch `agent/295-asset-lease-ifrs16-pv-calculation` deleted.
+- Worktree `C:\tmp\account-295-asset-lease-ifrs16-pv-calculation` cleaned up.
+
+## Changes And Boundaries
+
+- `asset-lease/core/.../domain/LeaseContract.java`:
+  - Implemented `calculatePresentValue(monthlyPayment, termMonths, annualRate)` to compute present value of lease payments using compound discounting with monthly discount rate ($r = annualRate / 1200$).
+  - Added `calculateTermMonths()` to compute exact lease term months from `startDate` and `endDate`.
+  - Added `updatePresentValueAndValidate()` to cross-validate external PV inputs against domain-calculated PV and strictly enforce domain invariants for initial recognition of ROU asset and lease liability.
+  - Added detailed pedagogical comments explaining IFRS 16 accounting, incremental borrowing rate discounting, and financial domain invariant principles.
+- `asset-lease/core/.../application/service/LeaseEntryService.java`:
+  - Refactored `registerLeaseContract` and `recognizeInitialLease` to mandate domain PV calculation and validation before initial recognition, eliminating blind trust in external request inputs.
+- Tests:
+  - Created `LeaseContractTest.java` to test PV calculations (0% rate, 6% rate), term months calculation, and external input override/validation.
+  - Updated `LeaseEntryServiceTest.java` to test automated PV calculation and registration integration.
+
+## Verification Evidence
+
+- `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #372. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #294 Refactor Asset Lease Core JPA Repository Location to Enforce DIP
 
 ## Active Goal And State
