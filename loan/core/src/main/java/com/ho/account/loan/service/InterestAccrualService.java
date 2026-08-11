@@ -5,6 +5,7 @@ import com.ho.account.loan.application.port.out.LoanJournalPort.PostedJournal;
 import com.ho.account.loan.application.port.out.LoanAccrualPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
+import com.ho.account.loan.domain.CurrencyRoundingPolicy;
 import com.ho.account.loan.domain.Loan;
 import com.ho.account.loan.domain.LoanAccrualLog;
 import java.math.BigDecimal;
@@ -101,6 +102,10 @@ public class InterestAccrualService {
         AccountReference interestIncome = referenceDataPort.requireAccount(
                 accountingProperties.getInterestIncomeAccountCode(), date);
 
+        // [금융 회계 통화 정책 적용] 이자 발생 전표 금액에 통화 규격 절사/반올림 적용 (KRW: 0자리/절사, USD: 2자리/반올림 등)
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
+        BigDecimal roundedAmount = roundingPolicy.applyRounding(amount);
+
         return journalPort.post(new LoanJournalPort.LoanJournalCommand(
                 date,
                 "Loan daily interest accrual: " + loan.getLoanNumber(),
@@ -112,12 +117,12 @@ public class InterestAccrualService {
                         new LoanJournalPort.LoanJournalLine(
                                 "DEBIT",
                                 accruedInterestReceivable.code(),
-                                amount,
+                                roundedAmount,
                                 "Accrued interest receivable"),
                         new LoanJournalPort.LoanJournalLine(
                                 "CREDIT",
                                 interestIncome.code(),
-                                amount,
+                                roundedAmount,
                                 "Interest income accrual"))));
     }
 

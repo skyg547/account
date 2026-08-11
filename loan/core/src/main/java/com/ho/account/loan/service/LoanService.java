@@ -7,6 +7,7 @@ import com.ho.account.loan.application.port.out.LoanPersistencePort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort.AccountReference;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort.LoanReferenceSnapshot;
+import com.ho.account.loan.domain.CurrencyRoundingPolicy;
 import com.ho.account.loan.domain.DeferredItem;
 import com.ho.account.loan.domain.DeferredItemType;
 import com.ho.account.loan.domain.DeferredItemType.DeferralMethod;
@@ -87,14 +88,18 @@ public class LoanService implements LoanUseCase {
             throw new IllegalStateException("Loan has already been disbursed: " + loanId);
         }
 
+        // [금융 회계 통화 정책 적용] 대출 실행 금액에 통화별 절사/반올림 적용 (KRW: 0자리/절사, USD: 2자리/반올림 등)
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
+        BigDecimal roundedDisbursedAmount = roundingPolicy.applyRounding(disbursedAmount);
+
         LoanDisbursal disbursal = LoanDisbursal.recordDisbursal(
-                loan, disbursalDate, disbursedAmount, user);
+                loan, disbursalDate, roundedDisbursedAmount, user);
         String cashAccountCode = resolveAccountCode(
                 accountingProperties.getCashAccountCode(), disbursalDate);
         String loanReceivableAccountCode = resolveAccountCode(
                 accountingProperties.getLoanReceivableAccountCode(), disbursalDate);
 
-        loan.activateAfterDisbursal(disbursalDate, disbursedAmount, user);
+        loan.activateAfterDisbursal(disbursalDate, roundedDisbursedAmount, user);
         PostedJournal journal = createAutomatedJournalEntry(
                 disbursalDate,
                 loan.getLoanNumber() + " loan disbursal",
@@ -102,7 +107,7 @@ public class LoanService implements LoanUseCase {
                 "LOAN_DISBURSAL",
                 loanId.toString(),
                 requireLoanCurrencyCode(loan),
-                disbursedAmount,
+                roundedDisbursedAmount,
                 loanReceivableAccountCode,
                 cashAccountCode);
         disbursal.linkPostedJournal(journal.journalEntryId(), journal.slipNo());
@@ -167,8 +172,12 @@ public class LoanService implements LoanUseCase {
                         "DeferredItemType not found with id: " + deferredItemTypeId));
         DeferredAccounts accounts = resolveDeferredAccounts(itemType, deferralDate);
 
+        // [금융 회계 통화 정책 적용] 이연 항목 금액에 통화별 절사/반올림 적용
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
+        BigDecimal roundedAmount = roundingPolicy.applyRounding(amount);
+
         DeferredItem deferredItem = DeferredItem.create(
-                loan, itemType, amount, deferralDate, amortizationEndDate, user);
+                loan, itemType, roundedAmount, deferralDate, amortizationEndDate, user);
         PostedJournal initialEntry = createAutomatedJournalEntry(
                 deferralDate,
                 loan.getLoanNumber() + " deferred item recognition",
@@ -176,7 +185,7 @@ public class LoanService implements LoanUseCase {
                 "LOAN_DEFERRED_ITEM",
                 loan.getId().toString(),
                 requireLoanCurrencyCode(loan),
-                amount,
+                roundedAmount,
                 accounts.deferredAsset().code(),
                 accounts.recognizedIncome().code());
         deferredItem.linkInitialJournal(initialEntry.journalEntryId(), initialEntry.slipNo());
@@ -310,10 +319,12 @@ public class LoanService implements LoanUseCase {
             throw new IllegalArgumentException("recalculationDate and reason are required.");
         }
         Loan loan = findLoanForUpdate(loanId);
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
+
         BigDecimal oldOutstanding = loan.getOutstandingPrincipal();
         BigDecimal oldEir = loan.getCurrentEIR();
         LocalDate oldMaturityDate = loan.getMaturityDate();
-        BigDecimal proposedOutstanding = newPrincipal.orElse(oldOutstanding);
+        BigDecimal proposedOutstanding = newPrincipal.map(roundingPolicy::applyRounding).orElse(oldOutstanding);
         LocalDate proposedMaturityDate = newMaturityDate.orElse(oldMaturityDate);
 
         if (reason == RecalculationReason.EARLY_REPAYMENT
@@ -327,7 +338,7 @@ public class LoanService implements LoanUseCase {
                 loan, proposedOutstanding, proposedMaturityDate, deferredItems);
 
         AdjustmentAccounts adjustmentAccounts = null;
-        BigDecimal principalDelta = oldOutstanding.subtract(proposedOutstanding);
+        BigDecimal principalDelta = roundingPolicy.applyRounding(oldOutstanding.subtract(proposedOutstanding));
         if (reason == RecalculationReason.EARLY_REPAYMENT && principalDelta.signum() > 0) {
             adjustmentAccounts = new AdjustmentAccounts(
                     resolveAccountCode(accountingProperties.getCashAccountCode(), recalculationDate),
@@ -479,6 +490,11 @@ public class LoanService implements LoanUseCase {
             BigDecimal amount,
             String debitAccountCode,
             String creditAccountCode) {
+        // [금융 회계 통화 정책 적용]
+        // 통화 규격(KRW: 0자리/절사, USD/EUR: 2자리/반올림 등)에 맞춰 전표 금액(Line Amount)을 최종 정제합니다.
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(currencyCode);
+        BigDecimal roundedAmount = roundingPolicy.applyRounding(amount);
+
         return journalPort.post(new LoanJournalPort.LoanJournalCommand(
                 accountingDate,
                 description,
@@ -488,9 +504,9 @@ public class LoanService implements LoanUseCase {
                 currencyCode,
                 List.of(
                         new LoanJournalPort.LoanJournalLine(
-                                "DEBIT", debitAccountCode, amount, description + " (DEBIT)"),
+                                "DEBIT", debitAccountCode, roundedAmount, description + " (DEBIT)"),
                         new LoanJournalPort.LoanJournalLine(
-                                "CREDIT", creditAccountCode, amount, description + " (CREDIT)"))));
+                                "CREDIT", creditAccountCode, roundedAmount, description + " (CREDIT)"))));
     }
 
     private Loan findLoanForUpdate(Long loanId) {

@@ -234,30 +234,33 @@ public class EIRAmortizationSchedule {
         List<LocalDate> paymentDates = paymentDates(scheduleStartDate, loan.getMaturityDate());
         int periods = paymentDates.size();
 
+        // [금융 회계 통화 정책 적용] 대출 통화별 소수점 자리수 및 절사/반올림 규칙 적용 (KRW: 0자리/절사, USD: 2자리/반올림 등)
+        CurrencyRoundingPolicy roundingPolicy = CurrencyRoundingPolicy.of(loan.getCurrencyCode());
+
         BigDecimal monthlyRate = rate.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
         BigDecimal principalBalance = requirePositive(loan.getOutstandingPrincipal(), "outstandingPrincipal");
-        BigDecimal regularPrincipalRepayment = principalBalance
-                .divide(BigDecimal.valueOf(periods), 2, RoundingMode.HALF_UP);
+        BigDecimal regularPrincipalRepayment = roundingPolicy.applyRounding(principalBalance
+                .divide(BigDecimal.valueOf(periods), 10, RoundingMode.HALF_UP));
         BigDecimal remainingDeferredAmount = deferredAmount;
         BigDecimal regularDeferredAmortization = deferredAmount.signum() == 0
                 ? BigDecimal.ZERO
-                : deferredAmount.divide(BigDecimal.valueOf(periods), 2, RoundingMode.HALF_UP);
+                : roundingPolicy.applyRounding(deferredAmount.divide(BigDecimal.valueOf(periods), 10, RoundingMode.HALF_UP));
 
         List<EIRAmortizationSchedule> schedules = new ArrayList<>(periods);
         for (int index = 0; index < periods; index++) {
             boolean lastPeriod = index == periods - 1;
-            BigDecimal beginningBalance = principalBalance;
-            BigDecimal interestIncome = beginningBalance.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal principalRepayment = lastPeriod
+            BigDecimal beginningBalance = roundingPolicy.applyRounding(principalBalance);
+            BigDecimal interestIncome = roundingPolicy.applyRounding(beginningBalance.multiply(monthlyRate));
+            BigDecimal principalRepayment = roundingPolicy.applyRounding(lastPeriod
                     ? beginningBalance
-                    : regularPrincipalRepayment.min(beginningBalance);
-            BigDecimal endingBalance = beginningBalance.subtract(principalRepayment).max(BigDecimal.ZERO);
+                    : regularPrincipalRepayment.min(beginningBalance));
+            BigDecimal endingBalance = roundingPolicy.applyRounding(beginningBalance.subtract(principalRepayment).max(BigDecimal.ZERO));
 
             BigDecimal deferredAmortization = BigDecimal.ZERO;
             if (remainingDeferredAmount.signum() > 0) {
-                deferredAmortization = lastPeriod
+                deferredAmortization = roundingPolicy.applyRounding(lastPeriod
                         ? remainingDeferredAmount
-                        : regularDeferredAmortization.min(remainingDeferredAmount);
+                        : regularDeferredAmortization.min(remainingDeferredAmount));
                 remainingDeferredAmount = remainingDeferredAmount.subtract(deferredAmortization);
             }
 
@@ -269,7 +272,7 @@ public class EIRAmortizationSchedule {
             schedule.principalRepayment = principalRepayment;
             schedule.endingBalance = endingBalance;
             schedule.deferredItemAmortization = deferredAmortization;
-            schedule.cashFlow = principalRepayment.add(interestIncome);
+            schedule.cashFlow = roundingPolicy.applyRounding(principalRepayment.add(interestIncome));
             schedule.isRecalculated = recalculated;
             schedule.auditUser = normalizedActor;
             schedules.add(schedule);
