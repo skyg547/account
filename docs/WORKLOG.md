@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([asset-lease][architecture] Core 모듈 내부에 JPA Repository 위치 — 헥사고날/DIP 위반 - Issue #294)
+### [asset-lease/architecture] Core 패키지 JPA Repository를 infrastructure.persistence.repository로 이동 및 헥사고날/DIP 패러다임 전면 정립
+
+- **작업 배경**:
+  - `asset-lease/core` 모듈 내 `com.ho.account.asset.repository` 패키지에 `JpaRepository` 상속 인터페이스가 위치하여, 애플리케이션 코어(Application Core) 레이어가 Spring Data JPA 프레임워크 기술 및 영속성 세부 구현체에 직접 결합되어 헥사고날 아키텍처(Port and Adapter Pattern) 및 의존관계 역전 원칙(DIP)을 위반함.
+  - JpaRepository 인터페이스들을 `infrastructure.persistence.repository` 패키지로 이동시키고, 코어 서비스 및 외곽 모듈이 JPA 인터페이스가 아닌 아웃바운드 포트(`FixedAssetPersistencePort`, `LeasePersistencePort`)를 통해서만 영속성 레이어와 협력하도록 리팩토링함.
+- **주요 변경 사항**:
+  - `JpaRepository` 인터페이스 6종 패키지 이동 (`com.ho.account.asset.infrastructure.persistence.repository`):
+    - `FixedAssetRepository.java`, `AssetHistoryRepository.java`
+    - `LeaseContractRepository.java`, `LeaseLiabilityRepository.java`, `LeasePaymentScheduleRepository.java`, `RightOfUseAssetRepository.java`
+  - 아웃바운드 포트 및 영속성 어댑터 보강 (`core`):
+    - `FixedAssetPersistencePort.java`: `Page<FixedAsset> findByStatus(String status, Pageable pageable)` 메서드 및 헥사고날 포트/DIP 이점을 설명하는 상세 교육적 주석 추가.
+    - `FixedAssetPersistenceAdapter.java` & `LeasePersistenceAdapter.java`: 신규 영속성 패키지 import 업데이트, 영속성 메커니즘 캡슐화 관련 상세 주석 작성.
+  - 애플리케이션 및 배치 구성 수정 (`api`, `batch`):
+    - `AssetLeaseApiApplication.java` & `AssetLeaseBatchApplication.java`: `@EnableJpaRepositories(basePackages = "com.ho.account.asset.infrastructure.persistence.repository")` 스캔 경로 수정.
+    - `AssetDepreciationBatchConfig.java`: 인프라 영속성 패키지 기반 import 업데이트 및 교육적 주석 작성.
+  - `asset-lease/core/build.gradle`:
+    - core 의존성 내 영속성 어댑터 및 포트 계층 역할에 대한 상세 교육적 주석 추가.
+- **검증**:
+  - `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([account-mart][architecture] 도메인 엔티티 내 JPA 어노테이션 사용 — 포트 앤 어댑터 패턴 위반 - Issue #299)
 ### [account-mart/architecture] 도메인 엔티티 내 JPA 기술 어노테이션 전면 제거 및 도메인-영속성 모델 분리 (Pure Java POJO & Data Mapper 패턴 적용)
 

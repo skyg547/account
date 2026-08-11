@@ -1,3 +1,18 @@
+## 2026-08-12 - Issue #294 Refactor Asset Lease Core JPA Repository Location to Enforce DIP
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/294-asset-lease-core-jpa-repository-dip` / `C:\tmp\account-294-asset-lease-core-jpa-repository-dip`.
+- Base: `origin/main`.
+- Integration: Merged PR #371 into `main`. Issue `#294` closed and remote branch deleted.
+- Scope:
+  - Moved Spring Data JPA repositories from `com.ho.account.asset.repository` package in `core` to `com.ho.account.asset.infrastructure.persistence.repository` (`FixedAssetRepository`, `AssetHistoryRepository`, `LeaseContractRepository`, `LeaseLiabilityRepository`, `LeasePaymentScheduleRepository`, `RightOfUseAssetRepository`).
+  - Decoupled `core` domain and application services (`FixedAssetEntryService`, `LeaseEntryService`) from JPA interfaces to strictly rely on Outbound Ports (`FixedAssetPersistencePort`, `LeasePersistencePort`).
+  - Enhanced `FixedAssetPersistencePort` with `Page<FixedAsset> findByStatus(String status, Pageable pageable)` and comprehensive educational comments (Pedagogical comments) explaining Hexagonal Architecture Outbound Port pattern and DIP advantages.
+  - Updated `AssetLeaseApiApplication`, `AssetLeaseBatchApplication`, and `AssetDepreciationBatchConfig` with new infrastructure repository package imports and scanning configuration.
+  - Updated `asset-lease/core/build.gradle` with pedagogical comments on core dependencies.
+- Verification:
+  - `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` passed 100% (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #299 Decouple JPA Annotations from Account Mart Domain Entities
 
 - Owner: Gemini (Agent loop subagent)

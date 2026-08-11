@@ -1,3 +1,27 @@
+# AI Harness Handoff - 2026-08-12 Issue #294 Refactor Asset Lease Core JPA Repository Location to Enforce DIP
+
+## Active Goal And State
+
+- GitHub Issue `#294` (`[asset-lease][architecture] Core 모듈 내부에 JPA Repository 위치 — 헥사고날/DIP 위반`) completed and merged into `main`. `Fixes #294` closes Issue `#294`.
+- PR #371 merged into `main` and remote branch `agent/294-asset-lease-core-jpa-repository-dip` deleted.
+- Worktree `C:\tmp\account-294-asset-lease-core-jpa-repository-dip` cleaned up.
+
+## Changes And Boundaries
+
+- Relocated Spring Data JPA repository interfaces from `com.ho.account.asset.repository` in `core` to `com.ho.account.asset.infrastructure.persistence.repository`.
+- Decoupled `core` domain and application services (`FixedAssetEntryService`, `LeaseEntryService`) from JPA interfaces to strictly rely on Outbound Ports (`FixedAssetPersistencePort`, `LeasePersistencePort`).
+- Added `Page<FixedAsset> findByStatus(String status, Pageable pageable)` to `FixedAssetPersistencePort`.
+- Added pedagogical comments explaining DIP, Hexagonal Architecture Outbound Port pattern, and persistence encapsulation across core, adapter, and batch files.
+- Updated `@EnableJpaRepositories` package scanning in `AssetLeaseApiApplication` and `AssetLeaseBatchApplication`.
+
+## Verification Evidence
+
+- `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #371. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #299 Decouple JPA Annotations from Account Mart Domain Entities
 
 ## Active Goal And State
