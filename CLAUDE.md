@@ -3,8 +3,15 @@
 ## 공통 AI Harness 참조
 
 - Claude/Antigravity/기타 리뷰 에이전트도 공통 브랜치, 보안, worklog, handoff 규칙은 `docs/ai-harness/`를 따른다.
-- 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`와 `30-agents.md`를 우선 확인한다.
-- 리뷰 결과나 handoff가 필요한 경우 `CLAUDE_WORKLOG.md`와 함께 `docs/ai-harness/agent-status.md` 또는 `handoff.md`를 갱신한다.
+- 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`, `30-agents.md`, `86-multi-tool-issue-ownership.md`를 우선 확인한다.
+- 리뷰 결과나 handoff는 `CLAUDE_WORKLOG.md` 또는 Issue 댓글로 부모 Integrator에게 전달한다. 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
+
+## Claude Code 구현 할당
+
+- 기본 역할은 계속 독립 리뷰어다. 사용자가 Claude Code에 특정 Issue 구현을 명시적으로 맡긴 경우에만 production/test 코드를 수정한다.
+- 구현 전 Issue가 `status:ready`인지 다시 확인하고 `status:in-progress`, `agent:claude-code`, branch/worktree/base/allowlist 시작 댓글을 동기화한다.
+- 다른 도구가 소유한 `status:in-progress` 또는 `status:blocked` Issue는 중복 구현하지 않는다.
+- `status:needs-review` Issue를 맡으면 read-only 리뷰만 수행하며, 발견한 수정은 구현 owner 또는 부모 Integrator에게 반환한다.
 
 ## 역할 정의
 

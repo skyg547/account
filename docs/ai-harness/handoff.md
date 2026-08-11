@@ -1401,3 +1401,18 @@
 - The root forced build passed the original #340 compile/integration failure and executed 237 tasks, then stopped at unrelated #344 because Internal Audit's local profile does not declare the datasource URL required by its policy test.
 - Next owner is an independent latest-main reviewer for PR #350, followed by the parent Integrator. Full-root green and parent #227 completion depend on #344, not further #340 production changes.
 - Roll back by reverting `aaaa4922`. No DB/data/image/Compose rollback is required.
+
+# AI Harness Handoff - 2026-08-11 Issue #348 Multi-Tool Issue Ownership
+
+## Current state
+
+- Issue/branch/worktree/base: `#348`, `agent/348-multi-tool-issue-ownership`, `C:\tmp\account-348-multi-tool-issue-ownership`, fetched `origin/main@81f4206e`.
+- GitHub now exposes workflow state through `status:ready`, `status:in-progress`, `status:blocked`, and `status:needs-review`; tool ownership uses `agent:codex`, `agent:gemini`, or `agent:claude-code`.
+- Active Codex Issues are assigned to the authenticated repository owner and labeled. Available Issues are visibly `status:ready`, Issue #66 is blocked on live environment evidence, and Issue #89 awaits independent review.
+
+## Contract and remaining gates
+
+- Only an open `status:ready` Issue may be claimed for implementation. A valid claim has exactly one tool-owner label plus a start comment recording branch, external worktree, base commit, allowlist, acceptance criteria, and verification.
+- Gemini and Claude remain reviewers by default. They may implement a different ready Issue only after explicit user assignment and a valid claim. A different tool may review `status:needs-review` read-only without taking implementation ownership.
+- The primary checkout is dirty and 15 commits behind, so it was not pulled, reset, or edited. All Issue #348 changes are isolated on the latest fetched remote base.
+- Next gates are documentation/link/static verification, independent review, parent-owned harness finalization, commit, push, and Draft PR. No merge or Issue close is implied.

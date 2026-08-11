@@ -1826,3 +1826,11 @@
 - Focused latest-main verification passed 45 tasks and 55 observed tests with no failure/error/skip. Tax packaging produced exactly one executable artifact and one small `-plain.jar`; container selection policy passed.
 - The full root forced build passed the original #340 failure and executed 237 tasks before the known #344 Internal Audit explicit local datasource policy failure. Fresh evidence was posted to #344.
 - Commit `aaaa4922` is pushed and Draft PR `#350` is open with Issue #340 at `status:needs-review`. No external environment, merge, or Issue close was performed.
+
+## 2026-08-11 (Issue #348 multi-tool GitHub ownership)
+
+- Audited GitHub workflow metadata and found only default labels, no configured Project Status, and no assignees or workflow labels on the active runtime Issues.
+- Added eight approved status/ownership labels, assigned active Codex Issues to the authenticated repository owner, and synchronized Issues into in-progress, ready, blocked, or needs-review states with comments.
+- Defined a shared Codex/Gemini/Claude Code protocol: only `status:ready` may be claimed, one Issue has one active writer, implementation ownership is one `agent:*` label plus a start comment, reviews remain read-only, and transfers require a parent-Integrator handoff.
+- Created Issue #348 and a latest-remote external worktree at `origin/main@81f4206e`. The dirty primary checkout remains untouched and 15 commits behind; its uncommitted harness changes were not overwritten or copied.
+- No GitHub Project or bot account was created. No package, secret, database, container, production/test code, or primary-checkout file was accessed or changed by this documentation implementation.

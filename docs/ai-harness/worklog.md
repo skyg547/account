@@ -833,3 +833,12 @@
 - `git diff --check` and scoped conflict-marker checks passed. The independent pre-sync review reported no P0-P3 and latest-main changed-file overlap was empty.
 - Commit `aaaa4922` is pushed and Draft PR `#350` targets `main` with `Refs #340/#227/#344`. Issue #340 is `status:needs-review`; no merge or close was performed.
 - Rollback is a normal revert of `aaaa4922`. A named pre-sync stash commit is retained until integration; no database, container, credential, private endpoint, or external service was accessed.
+
+## 2026-08-11 - Issue #348 multi-tool GitHub ownership protocol
+
+- Confirmed the repository had only the nine default GitHub labels, no workflow/agent labels, no Issue assignees on the active runtime Issues, and no GitHub Projects Status field.
+- Added `agent-loop`, `agent:codex`, `agent:gemini`, `agent:claude-code`, `status:ready`, `status:in-progress`, `status:blocked`, and `status:needs-review` with non-secret descriptions.
+- Assigned the authenticated repository owner and `agent:codex` to active Codex work; marked #66 blocked on live Compose/PostgreSQL gates; marked unclaimed #80/#343/#345/#347 ready; and marked #89 for independent review. Each synchronized Issue received a concise state comment.
+- Created Issue #348 and isolated `agent/348-multi-tool-issue-ownership` / `C:\tmp\account-348-multi-tool-issue-ownership` from fetched `origin/main@81f4206e` because the primary checkout is dirty and 15 commits behind.
+- Added a focused runbook defining exactly one active writer, claim-race handling, safe transfer, review-only ownership, labels versus GitHub assignees, and dirty-main synchronization for Codex, Gemini, and Claude Code.
+- No GitHub Project, bot/App, package, database, container, credential, production/test code, or primary-checkout file was changed. Rollback is a documentation revert plus removal of only the eight Issue #348 labels if the convention is rejected.
