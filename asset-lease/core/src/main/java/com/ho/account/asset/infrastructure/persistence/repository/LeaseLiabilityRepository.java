@@ -1,4 +1,4 @@
-package com.ho.account.asset.repository;
+package com.ho.account.asset.infrastructure.persistence.repository;
 
 import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.domain.LeaseLiability;
@@ -8,7 +8,12 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 /**
- * 리스부채(LeaseLiability) 엔티티를 관리하는 JPA 리포지토리.
+ * [헥사고날 아키텍처 - 인프라스트럭처 영속성 계층 (Infrastructure Persistence Repository)]
+ * 리스부채(LeaseLiability) 엔티티를 관리하는 JPA 리포지토리 인터페이스입니다.
+ * 
+ * 💡 [교육적 주석 - 영속성 기술 캡슐화]
+ * JPA 종속 기술(JpaRepository)을 infrastructure 계층에 위치시킴으로써 
+ * Core 도메인이 특정 데이터 접근 기술에 오염되지 않도록 격리합니다.
  */
 @Repository
 public interface LeaseLiabilityRepository extends JpaRepository<LeaseLiability, Long> {

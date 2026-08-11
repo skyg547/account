@@ -5,19 +5,28 @@ import com.ho.account.asset.domain.LeaseContract;
 import com.ho.account.asset.domain.LeaseLiability;
 import com.ho.account.asset.domain.LeasePaymentSchedule;
 import com.ho.account.asset.domain.RightOfUseAsset;
-import com.ho.account.asset.repository.LeaseContractRepository;
-import com.ho.account.asset.repository.LeaseLiabilityRepository;
-import com.ho.account.asset.repository.LeasePaymentScheduleRepository;
-import com.ho.account.asset.repository.RightOfUseAssetRepository;
+import com.ho.account.asset.infrastructure.persistence.repository.LeaseContractRepository;
+import com.ho.account.asset.infrastructure.persistence.repository.LeaseLiabilityRepository;
+import com.ho.account.asset.infrastructure.persistence.repository.LeasePaymentScheduleRepository;
+import com.ho.account.asset.infrastructure.persistence.repository.RightOfUseAssetRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * [헥사고날 아키텍처 - 영속성 아웃바운드 어댑터 (Persistence Outbound Adapter)]
+ * LeasePersistencePort를 구현하여 리스 계약 관련 엔티티의 영속성을 처리하는 인프라 어댑터입니다.
+ * 
+ * 💡 [교육적 주석 - 헥사고날/DIP 이점]
+ * 리스 관련 JPA Repositories(LeaseContractRepository 등)를 인프라 레이어 어댑터 내부에 은닉하고,
+ * 도메인과 서비스는 LeasePersistencePort 인터페이스를 통해 접근하도록 격리합니다.
+ */
 @Component
 @RequiredArgsConstructor
 public class LeasePersistenceAdapter implements LeasePersistencePort {
+
 
     private final LeaseContractRepository leaseContractRepository;
     private final RightOfUseAssetRepository rightOfUseAssetRepository;
