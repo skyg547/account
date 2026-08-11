@@ -19,8 +19,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
-      # 컨테이너 안의 localhost는 Gateway 자신이므로 Auth 서비스 이름을 사용합니다.
-      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084
+      # 서비스 디스커버리(Eureka) 및 Spring Cloud LoadBalancer 연동을 위한 로드밸런싱 주소
+      - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service
     networks:
       - account-network
 

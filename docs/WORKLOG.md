@@ -1,3 +1,22 @@
+### 📅 2026-08-12 (Gateway TokenVersion 검증 시 서비스 디스커버리 및 동적 로드밸런싱 적용 - Issue #306)
+### [Gateway/MSA/개선] AuthTokenVersionValidator 하드코딩된 IP 호출 대신 서비스 디스커버리 기반 lb://auth-service 동적 로드밸런싱 전환
+
+- **작업 배경**:
+  - 기존 Gateway의 `AuthTokenVersionValidator`에서 Auth 서비스의 토큰 버전 검증 API 호출 시 `http://localhost:8084` 고정 주소를 참조하고 있어, 동적으로 배포/확장되는 MSA 환경에서 IP/포트 변경 시 유연한 대응이 불가능하고 부하 분산(Load Balancing)이 적용되지 못함.
+- **주요 변경 사항**:
+  - `gateway/src/main/java/com/ho/account/gateway/config/WebClientConfig.java`:
+    - `@LoadBalanced` 어노테이션이 적용된 `WebClient.Builder` Spring Bean 신설.
+    - MSA 환경에서 Eureka Service Discovery와 Spring Cloud LoadBalancer의 역할 및 필요성에 관한 교육적 상세 주석(Pedagogical comments) 추가.
+  - `gateway/src/main/java/com/ho/account/gateway/security/AuthTokenVersionValidator.java`:
+    - `@LoadBalanced WebClient.Builder`를 주입받아 Eureka 서비스 디스커버리 및 Spring Cloud LoadBalancer 인터셉터를 동적으로 처리하도록 개선.
+    - MSA 환경에서 동적 인스턴스 조회, 라운드로빈 부하분산, 고가용성(HA) 확보 원리를 설명하는 교육적 주석 보강.
+  - `gateway/src/main/java/com/ho/account/gateway/security/TokenVersionValidationProperties.java` & `gateway/src/main/resources/application.yml`:
+    - `baseUrl` 기본값을 `http://localhost:8084`에서 `lb://auth-service` 로 변경.
+  - `gateway/docker-compose.yml` & `GatewayDockerConfigurationTest.java` & `gateway/README.md`:
+    - Docker 구성 환경 변수 및 테스트 검증값을 `lb://auth-service`에 맞게 업데이트 및 문서화 반영.
+- **검증**:
+  - `.\gradlew.bat :gateway:test` 실행하여 전체 5개 테스트 100% 성공 검증 완료 (BUILD SUCCESSFUL in 40s).
+
 ### 📅 2026-08-12 (Discovery 모듈 유레카 서버 Peer-Awareness 구성 및 자가 보존 모드/수확 주기 설정 - Issue #304)
 ### [MSA/디스커버리/고가용성] Eureka Server Peer-Awareness HA 프로파일 분리 및 자가 보존 모드/수확 주기 설정
 

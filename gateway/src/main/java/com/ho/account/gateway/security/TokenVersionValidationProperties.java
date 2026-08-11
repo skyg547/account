@@ -14,8 +14,16 @@ public class TokenVersionValidationProperties {
 
     private boolean enabled = true;
 
+    /**
+     * Auth 토큰 버전 검증 서비스를 호출하기 위한 Base URL입니다.
+     *
+     * <p>[교육적 주석: MSA 로드밸런싱 URL 구조]</p>
+     * 기본값 'lb://auth-service'는 Spring Cloud LoadBalancer와 Eureka Service Discovery를 활용하는 식별자입니다.
+     * 고정 IP(예: http://localhost:8084) 대신 'lb://서비스명' 스킴을 사용하면, Spring Cloud가 Discovery Registry에서
+     * 가용 인스턴스 IP 목록을 조회하여 동적으로 트래픽을 부하 분산하고 동적 인스턴스 변경에 유연하게 대응합니다.
+     */
     @NotBlank
-    private String baseUrl = "http://localhost:8084";
+    private String baseUrl = "lb://auth-service";
 
     @Min(1)
     @Max(300)

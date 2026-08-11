@@ -88,7 +88,7 @@ auth:
     allowed-clock-skew-seconds: ${AUTH_JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
   token-version-validation:
     enabled: ${AUTH_TOKEN_VERSION_VALIDATION_ENABLED:true}
-    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://localhost:8084}
+    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:lb://auth-service}
     cache-ttl-seconds: ${AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS:30}
     timeout-millis: ${AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS:500}
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
@@ -138,7 +138,7 @@ auth:
 docker compose up --build gateway
 ```
 
-루트 Compose는 컨테이너 내부 Auth 주소를 `http://auth:8084`로 주입합니다. 컨테이너 안에서 `localhost:8084`는 Auth가 아니라 Gateway 자신이므로 사용하면 안 됩니다.
+루트 Compose는 서비스 디스커버리와 Spring Cloud LoadBalancer 기반의 `lb://auth-service`를 통해 동적으로 Auth 서비스에 접근합니다.
 
 ---
 

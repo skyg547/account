@@ -1,3 +1,20 @@
+## 2026-08-12 - Issue #306 Gateway Dynamic Service Discovery in AuthTokenVersionValidator
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/306-gateway-token-version-dynamic-lb` / `C:\tmp\account-306-gateway-token-version-dynamic-lb`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#306` closed and remote branch deleted.
+- Scope:
+  - Created `WebClientConfig.java` in Gateway module with `@LoadBalanced WebClient.Builder` Spring Bean.
+  - Refactored `AuthTokenVersionValidator` to inject `@LoadBalanced WebClient.Builder` for Eureka Service Discovery and Spring Cloud LoadBalancer dynamic routing.
+  - Changed default `baseUrl` in `TokenVersionValidationProperties` and `application.yml` from `http://localhost:8084` to `lb://auth-service`.
+  - Added comprehensive pedagogical comments on MSA Service Discovery, Client-side Load Balancing, Eureka Registry lookup, and round-robin load distribution.
+  - Updated `docker-compose.yml`, `GatewayDockerConfigurationTest.java`, and `README.md` to reflect `lb://auth-service`.
+- Verification:
+  - `./gradlew.bat :gateway:test` passed 100% (BUILD SUCCESSFUL in 40s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #304 Discovery Eureka Peer-Awareness and Self-Preservation Config
 
 - Owner: Gemini (Agent loop subagent)

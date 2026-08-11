@@ -14,7 +14,7 @@ auth:
     allowed-clock-skew-seconds: ${AUTH_JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
   token-version-validation:
     enabled: ${AUTH_TOKEN_VERSION_VALIDATION_ENABLED:true}
-    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:http://localhost:8084}
+    base-url: ${AUTH_TOKEN_VERSION_VALIDATION_BASE_URL:lb://auth-service}
     cache-ttl-seconds: ${AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS:30}
     timeout-millis: ${AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS:500}
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
