@@ -34,7 +34,10 @@ dependencies {
 sourceSets.test.java.srcDir rootProject.file('test-support/runtime-contracts/src/test/java')
 
 bootJar { enabled = true }
-jar { enabled = false }
+jar {
+    enabled = true
+    archiveClassifier = 'plain'
+}
 
 springBoot {
     mainClass = 'com.ho.account.tax.api.TaxApiApplication'
