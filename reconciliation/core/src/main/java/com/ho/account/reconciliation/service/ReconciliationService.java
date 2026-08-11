@@ -32,16 +32,17 @@ import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunS
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
- * 대사(Reconciliation) 업무의 핵심 비즈니스 로직을 처리하는 서비스입니다.
+ * 대사(Reconciliation) 업무의 핵심 유즈케이스 흐름을 조율하는 서비스입니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 이 서비스는 대사 업무의 '현장 소장'입니다. 
- * "오늘치 대사를 실행해!"라는 명령을 받으면, 
- * 1. 비교할 대상 데이터(원천 vs 장부)를 싹 긁어모아 오고, 
- * 2. 정해진 규칙(Rule)에 따라 하나씩 짝을 맞춰본 뒤, 
- * 3. 짝이 안 맞는 내역(Difference)이 있으면 따로 모아서 담당자에게 배정하거나 자동으로 수정하는 전표를 끊어주는 등 
- * 전체적인 업무 흐름을 총괄합니다.
- * 포트 앤 어댑터 패턴을 사용하여, 실제 외부 데이터(은행 등)를 가져오는 역할은 Out Port로 분리했습니다.
+ * 🐣 [초보자를 위한 설명: Rich Domain Model 패턴 적용]
+ * 이 서비스는 대사 업무의 '현장 소장 (Orchestrator)'입니다.
+ * 과거 Anemic Domain Model에서는 서비스가 엔티티의 상태(status), 담당자, 일시, 집계 금액 등을 일일이 setter로 조작하고
+ * 비즈니스 검증(예: 조정 전표 연계 필요 여부, 완료 상태 전이 등)을 직접 담당하여 서비스 코드가 거대하고 파편화되었습니다.
+ * 
+ * Rich Domain Model로 전환된 현재,
+ * 1. 상태 검증 및 비즈니스 룰은 엔티티(`ReconciliationDifference`, `ReconciliationRun`) 내부 도메인 메서드에 캡슐화되었습니다.
+ * 2. 서비스는 외부 포트(데이터 조회, 전표 생성, 저장소 접근)와의 연동 및 도메인 객체의 호출 순서를 관리하는
+ *    **포트 조율(Orchestration)** 본연의 책임에 집중합니다.
  */
 @Service
 @Transactional
@@ -327,9 +328,7 @@ public class ReconciliationService {
         ReconciliationDifference difference = reconciliationDifferenceRepository.findById(command.differenceId())
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + command.differenceId()));
 
-        difference.setAssignedToUser(command.assignedToUser());
-        difference.setSlaDueDate(command.slaDueDate());
-        difference.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.ASSIGNED);
+        difference.assignOwner(command.assignedToUser(), command.slaDueDate());
         return reconciliationDifferenceRepository.save(difference);
     }
 
@@ -346,34 +345,17 @@ public class ReconciliationService {
         Long adjustmentJournalEntryId = command.adjustmentJournalEntryId();
         ReconciliationDifference.ReconciliationDifferenceStatus status = command.status();
         String resolvedBy = command.resolvedBy();
+
         ReconciliationDifference difference = reconciliationDifferenceRepository.findById(differenceId)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationDifference not found with id: " + differenceId));
         DifferenceReasonCode reasonCode = differenceReasonCodeRepository.findById(reasonCodeId)
                 .orElseThrow(() -> new EntityNotFoundException("DifferenceReasonCode not found with id: " + reasonCodeId));
 
-        if (status != ReconciliationDifference.ReconciliationDifferenceStatus.RESOLVED
-                && status != ReconciliationDifference.ReconciliationDifferenceStatus.IGNORED) {
-            throw new IllegalArgumentException("Difference can only be finalized as RESOLVED or IGNORED.");
-        }
-
-        Long adjustmentJournalEntryIdToLink = null;
         if (adjustmentJournalEntryId != null) {
             validateAdjustmentJournalEntry(adjustmentJournalEntryId);
-            adjustmentJournalEntryIdToLink = adjustmentJournalEntryId;
-        } else if (difference.getAdjustmentJournalEntryId() != null) {
-            adjustmentJournalEntryIdToLink = difference.getAdjustmentJournalEntryId();
         }
 
-        if (reasonCode.isAdjustable() && adjustmentJournalEntryIdToLink == null) {
-            throw new IllegalArgumentException("Adjustable reason code requires an adjustment journal entry link.");
-        }
-
-        difference.setReasonCode(reasonCode);
-        difference.setAdjustmentJournalEntryId(adjustmentJournalEntryIdToLink);
-        difference.setStatus(status);
-        difference.setResolvedBy(resolvedBy);
-        difference.setResolvedAt(LocalDateTime.now());
-        difference.setAuditUser(resolvedBy);
+        difference.resolve(reasonCode, adjustmentJournalEntryId, status, resolvedBy);
 
         return reconciliationDifferenceRepository.save(difference);
     }
@@ -407,13 +389,7 @@ public class ReconciliationService {
         ReconciliationUnit reconciliationUnit = findReconciliationUnitById(unitId);
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 
-        ReconciliationRun run = new ReconciliationRun();
-        run.setReconciliationUnit(reconciliationUnit);
-        run.setReconciliationDate(reconciliationDate);
-        run.setRunStartTime(LocalDateTime.now());
-        run.setStatus(ReconciliationRunStatus.RUNNING);
-        // T32 fixed: Propagate the real scheduler/user actor into the use case.
-        run.setRunBy(runBy);
+        ReconciliationRun run = ReconciliationRun.startRun(reconciliationUnit, reconciliationDate, runBy);
         run = reconciliationRunRepository.save(run);
 
         try {
@@ -437,22 +413,21 @@ public class ReconciliationService {
                 matchedAmount = sourceAmount.min(targetAmount);
                 matchedCount = Math.min(sourceCount, targetCount);
 
-                ReconciliationDifference diff = new ReconciliationDifference();
-                diff.setReconciliationRun(run);
-                diff.setDifferenceType(ReconciliationDifference.DifferenceType.AMOUNT_MISMATCH);
-                diff.setAmountExpected(sourceAmount);
-                diff.setAmountActual(targetAmount);
-                diff.setDifferenceAmount(unmatchedAmount);
-                diff.setDescription(reconciliationUnit.getName() + " - amount mismatch (date " + reconciliationDate + ")");
-                diff.setSourceItemRef(buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()));
-                diff.setTargetItemRef(buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()));
-
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
                         .orElseThrow(() -> new IllegalStateException("Required generic mismatch reason code is missing. Please seed reference data."));
 
-                diff.setReasonCode(defaultReason);
-                diff.setStatus(ReconciliationDifference.ReconciliationDifferenceStatus.PENDING);
-                diff.setAuditUser("SYSTEM");
+                ReconciliationDifference diff = ReconciliationDifference.createDifference(
+                        run,
+                        ReconciliationDifference.DifferenceType.AMOUNT_MISMATCH,
+                        sourceAmount,
+                        targetAmount,
+                        unmatchedAmount,
+                        reconciliationUnit.getName() + " - amount mismatch (date " + reconciliationDate + ")",
+                        buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()),
+                        buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()),
+                        defaultReason,
+                        "SYSTEM"
+                );
 
                 if (defaultReason.isAdjustable()) {
                     ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
@@ -468,7 +443,7 @@ public class ReconciliationService {
                             run,
                             diff
                     );
-                    diff.setAdjustmentJournalEntryId(adjustmentEntryId);
+                    diff.attachAdjustmentJournalEntry(adjustmentEntryId);
                 }
                 reconciliationDifferenceRepository.save(diff);
             } else {
@@ -476,22 +451,17 @@ public class ReconciliationService {
                 matchedCount = Math.min(sourceCount, targetCount);
             }
 
-            run.setTotalItemsSource((long)sourceCount);
-            run.setTotalAmountSource(sourceAmount);
-            run.setTotalItemsTarget((long)targetCount);
-            run.setTotalAmountTarget(targetAmount);
-            run.setMatchedItemsCount((long)matchedCount);
-            run.setMatchedAmount(matchedAmount);
-            run.setUnmatchedItemsCount((long)unmatchedCount);
-            run.setUnmatchedAmount(unmatchedAmount);
-            run.setStatus(ReconciliationRunStatus.SUCCESS);
-
+            run.completeRun(
+                    (long) sourceCount, sourceAmount,
+                    (long) targetCount, targetAmount,
+                    (long) matchedCount, matchedAmount,
+                    (long) unmatchedCount, unmatchedAmount
+            );
 
         } catch (Exception e) {
-            run.setStatus(ReconciliationRunStatus.FAILED);
+            run.failRun();
             throw new RuntimeException("Reconciliation failed for unit " + unitId, e);
         } finally {
-            run.setRunEndTime(LocalDateTime.now());
             reconciliationRunRepository.save(run);
         }
 

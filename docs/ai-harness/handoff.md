@@ -1,3 +1,32 @@
+# AI Harness Handoff - 2026-08-12 Issue #303 Reconciliation Rich Domain Model Refactoring
+
+## Active Goal And State
+
+- GitHub Issue `#303` (`[reconciliation][ddd] 빈약한 도메인 모델(Anemic Domain Model) 적용`) completed and merged into `main`. `Fixes #303` closes Issue `#303`.
+- Worktree `C:\tmp\account-303-reconciliation-rich-domain-model` was cleaned up.
+
+## Changes And Boundaries
+
+- `reconciliation/core/.../domain/ReconciliationDifference.java`:
+  - Added `createDifference` static factory method and domain behavior methods `assignOwner`, `resolve`, and `attachAdjustmentJournalEntry`.
+  - Added pedagogical comments explaining Anemic vs Rich Domain Model, encapsulation, and domain invariants.
+- `reconciliation/core/.../domain/ReconciliationRun.java`:
+  - Added `startRun` static factory method, `completeRun` (with RUNNING state invariant check), and `failRun` state transition methods.
+  - Added educational comments explaining execution lifecycle and encapsulation.
+- `reconciliation/core/.../service/ReconciliationService.java`:
+  - Simplified Application Service methods (`assignDifference`, `resolveDifference`, `performReconciliation`) to delegate state transitions to rich domain entities, limiting service responsibility to port orchestration.
+  - Updated class-level educational comments.
+- `reconciliation/core/.../domain/ReconciliationDifferenceTest.java` & `ReconciliationRunTest.java`:
+  - Created unit tests verifying domain entity state transitions and invariant exception handling.
+
+## Verification Evidence
+
+- `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` passed 100% (BUILD SUCCESSFUL in 29s).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #305 Resolve N+1 Query in TaxInvoiceBatchService using Bulk Lookup
 
 ## Active Goal And State

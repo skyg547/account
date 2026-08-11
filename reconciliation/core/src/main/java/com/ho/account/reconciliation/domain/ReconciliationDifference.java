@@ -9,14 +9,21 @@ import java.time.LocalDateTime;
  * 대사 실행 결과 발견된 차이 항목을 기록하고, 사유 코드 및 조정 전표와 연계합니다.
  */
 /**
- * [DDD(도메인 주도 설계) - Aggregate Root]
+ * [DDD(도메인 주도 설계) - Aggregate Root & Rich Domain Model]
  * 대사 차이(Reconciliation Difference) 엔티티. 대사 실행 결과 발견된 불일치 항목과 그 해결 과정을 관리합니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 대사 차이는 한마디로 '장부가 맞지 않는 내역'입니다.
- * 예를 들어, 은행 통장에는 10,000원이 입금되었는데 회사 장부에는 9,000원만 기록되어 있다면 1,000원의 차이가 발생하겠죠?
- * 이 클래스는 그 1,000원이 왜 차이 나는지(사유), 누구에게 확인을 맡겼는지(담당자), 
- * 그리고 최종적으로 어떻게 해결했는지(조정 전표 등)를 기록하는 일지 역할을 합니다.
+ * 🐣 [초보자를 위한 개념 설명: Anemic Domain Model vs Rich Domain Model]
+ * 1. 빈약한 도메인 모델 (Anemic Domain Model):
+ *    - 엔티티가 단순 데이터 상자(Getter/Setter 모음) 역할만 수행하고, 모든 비즈니스 로직(검증, 상태 전이 규칙)이
+ *      애플리케이션 서비스에 흩어져 있는 설계입니다.
+ *    - 이는 객체지향 캡슐화(Encapsulation) 원칙을 위배하며, 엔티티 상태의 불변성(Invariant)을 보장하지 못해 
+ *      잘못된 데이터 상태(예: 담당자 지정 없이 상태만 ASSIGNED로 변경됨)가 발생하기 쉽습니다.
+ * 
+ * 2. 풍부한 도메인 모델 (Rich Domain Model):
+ *    - 상태(State)와 행위(Behavior)가 객체 내부에 결합되어 스스로 불변식(Invariant)을 지키는 도메인 모델입니다.
+ *    - `assignOwner()`, `resolve()`와 같이 비즈니스 언어(유비쿼터스 언어)를 반영하는 서명(Method Signature)을 통해
+ *      상태 전이와 검증 규칙을 엔티티 내부로 캡슐화합니다.
+ *    - 이를 통해 Service 레이어는 도메인 객체의 포트 조율(Orchestration) 역할만 담당하게 되어 코드가 훨씬 깔끔하고 유지보수가 쉬워집니다.
  */
 @Entity
 @Table(name = "reconciliation_differences")
@@ -114,6 +121,117 @@ public class ReconciliationDifference {
         IN_REVIEW, // 검토 중
         RESOLVED,  // 해결 완료
         IGNORED    // 무시됨
+    }
+
+    // --- Rich Domain Model Business Logic Methods ---
+
+    /**
+     * [교육적 주석 - Rich Domain Model 팩토리 메서드]
+     * 신규 대사 차이 객체를 올바른 초기 상태(PENDING)로 생성합니다.
+     * 
+     * @param reconciliationRun 대사 실행 엔티티
+     * @param differenceType 차이 유형
+     * @param amountExpected 기대 금액
+     * @param amountActual 실제 금액
+     * @param differenceAmount 차이 금액
+     * @param description 상세 설명
+     * @param sourceItemRef 원천 참조 정보
+     * @param targetItemRef 대상 참조 정보
+     * @param reasonCode 차이 사유 코드
+     * @param auditUser 작업 수행자
+     * @return 갓 생성된 ReconciliationDifference 객체
+     */
+    public static ReconciliationDifference createDifference(
+            ReconciliationRun reconciliationRun,
+            DifferenceType differenceType,
+            BigDecimal amountExpected,
+            BigDecimal amountActual,
+            BigDecimal differenceAmount,
+            String description,
+            String sourceItemRef,
+            String targetItemRef,
+            DifferenceReasonCode reasonCode,
+            String auditUser) {
+        
+        ReconciliationDifference diff = new ReconciliationDifference();
+        diff.reconciliationRun = reconciliationRun;
+        diff.differenceType = differenceType;
+        diff.amountExpected = amountExpected;
+        diff.amountActual = amountActual;
+        diff.differenceAmount = differenceAmount;
+        diff.description = description;
+        diff.sourceItemRef = sourceItemRef;
+        diff.targetItemRef = targetItemRef;
+        diff.reasonCode = reasonCode;
+        diff.status = ReconciliationDifferenceStatus.PENDING;
+        diff.auditUser = auditUser != null ? auditUser : "SYSTEM";
+        return diff;
+    }
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 담당자 배정 도메인 메서드]
+     * 대사 차이 항목에 담당자를 지정하고 SLA 기한을 세팅하며, 상태를 ASSIGNED로 원자적 전환합니다.
+     * 외부 서비스에서 setter를 여러 번 호출하는 대신, 단일 행위 메서드로 불변식을 지킵니다.
+     * 
+     * @param assignedToUser 담당자 식별자
+     * @param slaDueDate SLA 마감일시
+     */
+    public void assignOwner(String assignedToUser, LocalDateTime slaDueDate) {
+        if (assignedToUser == null || assignedToUser.isBlank()) {
+            throw new IllegalArgumentException("Assigned user cannot be null or empty.");
+        }
+        this.assignedToUser = assignedToUser.trim();
+        this.slaDueDate = slaDueDate;
+        this.status = ReconciliationDifferenceStatus.ASSIGNED;
+    }
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 차이 해결 및 도메인 규칙 검증 메서드]
+     * 대사 차이를 해결(RESOLVED) 또는 무시(IGNORED) 상태로 완결합니다.
+     * 
+     * 💡 도메인 불변식 규칙:
+     * 1. 최종 상태는 RESOLVED 또는 IGNORED여야 함.
+     * 2. 사유 코드(ReasonCode)가 반드시 전달되어야 함.
+     * 3. 사유 코드가 조정 대상(isAdjustable)인 경우, 조정 전표(adjustmentJournalEntryId) 링크가 필수적임.
+     * 
+     * @param reasonCode 차이 사유 코드
+     * @param adjustmentJournalEntryId 연계된 조정 전표 ID (선택/필수)
+     * @param targetStatus 최종 변경 상태 (RESOLVED 또는 IGNORED)
+     * @param resolvedBy 해결 작업자
+     */
+    public void resolve(DifferenceReasonCode reasonCode, Long adjustmentJournalEntryId, ReconciliationDifferenceStatus targetStatus, String resolvedBy) {
+        if (targetStatus != ReconciliationDifferenceStatus.RESOLVED && targetStatus != ReconciliationDifferenceStatus.IGNORED) {
+            throw new IllegalArgumentException("Difference can only be finalized as RESOLVED or IGNORED.");
+        }
+        if (reasonCode == null) {
+            throw new IllegalArgumentException("Reason code is required to finalize reconciliation difference.");
+        }
+
+        Long journalEntryIdToLink = adjustmentJournalEntryId != null ? adjustmentJournalEntryId : this.adjustmentJournalEntryId;
+
+        if (reasonCode.isAdjustable() && journalEntryIdToLink == null) {
+            throw new IllegalArgumentException("Adjustable reason code requires an adjustment journal entry link.");
+        }
+
+        this.reasonCode = reasonCode;
+        this.adjustmentJournalEntryId = journalEntryIdToLink;
+        this.status = targetStatus;
+        this.resolvedBy = resolvedBy;
+        this.resolvedAt = LocalDateTime.now();
+        this.auditUser = resolvedBy != null ? resolvedBy : "SYSTEM";
+    }
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 조정 전표 연계 메서드]
+     * 생성된 조정 전표 ID를 차이 객체에 연계합니다.
+     * 
+     * @param adjustmentJournalEntryId 생성된 조정 전표 ID
+     */
+    public void attachAdjustmentJournalEntry(Long adjustmentJournalEntryId) {
+        if (adjustmentJournalEntryId == null) {
+            throw new IllegalArgumentException("Adjustment journal entry ID cannot be null.");
+        }
+        this.adjustmentJournalEntryId = adjustmentJournalEntryId;
     }
 
     // --- Getter 및 Setter ---

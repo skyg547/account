@@ -1,3 +1,26 @@
+### 📅 2026-08-12 (빈약한 도메인 모델(Anemic Domain Model) 적용 — Rich Domain Model 리팩토링 - Issue #303)
+### [reconciliation/ddd] ReconciliationDifference 및 ReconciliationRun Rich Domain Model 전환 및 비즈니스 로직 엔티티 이관
+
+- **작업 배경**:
+  - 기존 Reconciliation 도메인 엔티티(`ReconciliationDifference`, `ReconciliationRun`)들이 단순 Getter/Setter만 존재하던 빈약한 도메인 모델(Anemic Domain Model) 상태였음.
+  - 상태 전이(RUNNING -> SUCCESS/FAILED, PENDING -> ASSIGNED/RESOLVED/IGNORED)와 검증 로직(담당자 필수 지정, 조정 전표 연계 필수 여부 등)이 외부 서비스(`ReconciliationService`)에 파편화되어 캡슐화가 손상됨.
+- **주요 변경 사항**:
+  - `reconciliation/core/.../domain/ReconciliationDifference.java`:
+    - `createDifference(...)` static 팩토리 메서드 구현.
+    - `assignOwner(assignedToUser, slaDueDate)`, `resolve(reasonCode, adjustmentJournalEntryId, status, resolvedBy)`, `attachAdjustmentJournalEntry(id)` 비즈니스 행위 메서드 구현.
+    - Anemic Domain Model vs Rich Domain Model 캡슐화(Encapsulation) 및 도메인 불변성(Invariant)에 대한 상세 교육적 주석(Pedagogical comments) 작성.
+  - `reconciliation/core/.../domain/ReconciliationRun.java`:
+    - `startRun(unit, date, runBy)` static 팩토리 메서드 구현.
+    - `completeRun(...)` (집계 세팅 및 SUCCESS 전이, RUNNING 상태 불변식 검증), `failRun()` (FAILED 전이) 비즈니스 상태 전이 메서드 구현.
+    - 대사 실행 lifecycle 관리 및 상태전이 안전성에 대한 상세 교육적 주석 작성.
+  - `reconciliation/core/.../service/ReconciliationService.java`:
+    - 애플리케이션 서비스가 엔티티 상태를 직접 제어하던 로직을 도메인 메서드 호출로 전환하여, 포트 조율(Orchestration) 본연의 역할에 집중하도록 단순화.
+    - Application Service의 역할 변화에 관한 교육적 주석 추가.
+  - `reconciliation/core/.../domain/ReconciliationDifferenceTest.java` & `ReconciliationRunTest.java`:
+    - Rich Domain Model 엔티티 신규 도메인 메서드 및 예외 처리 검증 단위 테스트 작성.
+- **검증**:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` 성공 확인 (BUILD SUCCESSFUL in 29s).
+
 ### 📅 2026-08-12 (반복문 내 외부 포트(DB/API) 쿼리 — N+1 문제 해결 - Issue #305)
 ### [tax/extensibility/성능최적화] TaxInvoiceBatchService 세금계산서 일괄 검증 N+1 쿼리 제거 및 벌크 쿼리(Bulk Lookup) 지원
 
