@@ -4,7 +4,7 @@
 
 - Claude/Antigravity/기타 리뷰 에이전트도 공통 브랜치, 보안, worklog, handoff 규칙은 `docs/ai-harness/`를 따른다.
 - 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`, `30-agents.md`, `86-multi-tool-issue-ownership.md`를 우선 확인한다.
-- 리뷰 결과나 handoff는 `CLAUDE_WORKLOG.md` 또는 Issue 댓글로 부모 Integrator에게 전달한다. 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
+- 리뷰 결과나 handoff는 `CLAUDE_WORKLOG.md` 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
 
 ## Claude Code 구현 할당
 

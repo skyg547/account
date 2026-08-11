@@ -96,7 +96,7 @@ Recommended labels:
 
 The `agent:<tool>` labels identify the current implementation tool. Role labels such as `agent:coder` identify responsibility and do not reserve the Issue. Keep exactly one `status:*` workflow label and one implementation-owner label on a claimed open Issue.
 
-If repository labels do not exist yet, create them manually or with an approved GitHub CLI/API step. The current repository uses labels as its workflow state because no GitHub Projects Status field is configured.
+If repository labels do not exist yet, the parent Integrator creates them manually or with an approved GitHub CLI/API step. The current repository uses labels as its workflow state because no GitHub Projects Status field is configured.
 
 ## Project Fields
 
@@ -153,7 +153,7 @@ GitHub Issue #123 변경분을 Reviewer Agent 관점으로 검토해줘.
 
 ## GitHub CLI Usage
 
-After `gh` is installed and authenticated:
+After `gh` is installed and authenticated, implementation/review tools may run the read-only `list` and `view` examples. The parent Integrator alone runs Issue/PR mutation commands such as `create`, `edit`, `comment`, `ready`, `merge`, and `close`:
 
 ```powershell
 gh auth login
@@ -259,7 +259,7 @@ Issue `#1` is the parent issue for AI harness setup. This branch applies it as:
 
 ## PR Merge And Issue Close Runbook
 
-Use this runbook when the user explicitly approves merge after a Draft PR is ready.
+The parent Integrator uses this runbook when the user explicitly approves merge after a Draft PR is ready. Other implementation/review tools return their evidence and do not run these mutation commands.
 
 1. Check PR state and mergeability.
 

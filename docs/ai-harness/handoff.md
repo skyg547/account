@@ -1416,4 +1416,5 @@
 - Gemini and Claude remain reviewers by default. They may implement a different ready Issue only after explicit user assignment and a valid claim. A different tool may review `status:needs-review` read-only without taking implementation ownership.
 - The primary checkout is dirty and 15 commits behind, so it was not pulled, reset, or edited. All Issue #348 changes are isolated on the latest fetched remote base.
 - Initial independent review found three P2 process defects. The parent-only GitHub mutation rule, all advertised ready-Issue contracts, and the malformed #348 claim have been corrected; the branch was rebased while preserving #340/#348 logs.
+- The first re-review found one residual P2 because review/transfer wording and four old ready-Issue comments still implied tool-owned mutations. Tool guides/runbooks now reserve Issue comments and every state transition to the parent, and #80/#343/#345/#347 contain explicit superseding comments.
 - Issue #348 remains `status:needs-review`. Static validation, push and independent re-review are required before Ready/merge/close.

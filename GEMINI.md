@@ -24,7 +24,7 @@
 - 리뷰 결과는 파일/라인 근거와 함께 작성하고, 재현 가능한 빌드/테스트 명령을 포함한다.
 - 리뷰 기록을 남기라는 요청이 있으면 `WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
 - 테스트 미실행 항목은 원인과 영향 범위를 반드시 기록한다.
-- Gemini는 검토/구현 결과를 Issue 또는 전용 worklog로 부모 Integrator에게 전달한다. 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
+- Gemini는 검토/구현 결과를 전용 worklog 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
 
 ## Gemini Review Handoff
 - Codex가 구현을 맡고 Gemini가 리뷰하는 표준 절차는 루트 `GEMINI_REVIEW_PROMPT.md`를 따른다.

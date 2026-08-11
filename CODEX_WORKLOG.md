@@ -1838,3 +1838,4 @@
 - Issue #348 is now `status:needs-review`. Gemini or Claude Code can review the frozen diff read-only; merge and Issue close remain pending.
 - The initial independent review found three P2 process defects. The remediation makes the parent Integrator the only GitHub mutator, completes every advertised ready-Issue contract, and supersedes the malformed #348 claim comment with an exact contract.
 - Rebased onto `origin/main@aaad0c0d`; four append-only harness conflicts retained both #340 and #348 records. No production/test/build/runtime file conflicted.
+- Remediation re-review found one remaining P2 in review/transfer wording and stale ready-Issue comments. The parent-only rule now covers Issue comments, handoff, review transitions and CLI mutation examples; #80/#343/#345/#347 each received a superseding parent-only coordination comment.

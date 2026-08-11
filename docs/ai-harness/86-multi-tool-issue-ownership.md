@@ -81,8 +81,8 @@ Verification: targeted tests, bootJar/JAR smoke, diff/marker checks
 
 For an owner transfer:
 
-1. The current owner posts a handoff with changed files, uncommitted/committed state, commands and results, risks, branch/worktree, and next action.
-2. The parent Integrator confirms the handoff and changes the `agent:*` owner label.
+1. The current owner submits a handoff to the parent Integrator with changed files, uncommitted/committed state, commands and results, risks, branch/worktree, and next action.
+2. The parent Integrator validates and posts the handoff, then changes the `agent:*` owner label.
 3. The new owner refreshes the Issue and worktree before editing.
 4. Do not delete or recreate an existing dirty worktree until its changes are inspected and preserved.
 
@@ -90,7 +90,7 @@ If work is abandoned without a usable change, the parent Integrator records why,
 
 ## Review, PR, And Completion
 
-- The implementation owner moves the Issue to `status:needs-review` only after targeted verification and a frozen diff.
+- After targeted verification and a frozen diff, the implementation owner requests review handoff; the parent Integrator records the evidence and moves the Issue to `status:needs-review`.
 - The independent reviewer does not commit production/test fixes. Findings go back to the implementation owner.
 - The parent Integrator alone updates shared harness records, stages, commits, pushes, opens or changes PR state, merges, closes Issues, and cleans branches/worktrees.
 - Draft PRs use `Refs #<issue>` until close conditions are satisfied. Use `Fixes #<issue>` only when the reviewed merge should close the Issue.
@@ -113,7 +113,7 @@ gh issue edit 123 --remove-label "status:ready" --add-label "status:in-progress"
 gh issue comment 123 --body "<claim contract>"
 ```
 
-Move a frozen implementation to review:
+Parent Integrator only - move a frozen implementation to review after validating its evidence:
 
 ```powershell
 gh issue edit 123 --remove-label "status:in-progress" --add-label "status:needs-review"
