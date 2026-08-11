@@ -2,9 +2,9 @@ package com.ho.account.asset.batch;
 
 import com.ho.account.asset.application.pipeline.DepreciationPipeline;
 import com.ho.account.asset.application.port.out.AssetPersistencePort;
-import com.ho.account.asset.application.port.out.FixedAssetPersistencePort;
 import com.ho.account.asset.domain.FixedAsset;
 import com.ho.account.asset.domain.FixedAssetDepreciationResult;
+import com.ho.account.asset.infrastructure.persistence.repository.FixedAssetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -32,17 +32,17 @@ import java.util.List;
  * <h3>고속 감가상각 배치 오케스트레이터</h3>
  * Agents.md 규율에 따라 비즈니스 로직을 포함하지 않고 Flow 제어에만 집중합니다.
  * 
- * 💡 [교육적 주석 - 배치 오케스트레이터의 DIP & 아웃바운드 포트 활용]
- * 배치 모듈 또한 헥사고날 아키텍처의 아웃바운드 포트(FixedAssetPersistencePort)를 참조합니다.
- * Spring Batch의 RepositoryItemReaderBuilder는 넘겨받은 빈 객체(Port)의 findByStatus(String, Pageable)
- * 리플렉션 호출을 통해 페이징 조회를 수행하므로 JPA Repository에 직접 의존하지 않고 포트 추상화만으로 동작합니다.
+ * 💡 [교육적 주석 - 배치 오케스트레이터의 영속성 접근 계층 분리]
+ * Spring Batch의 RepositoryItemReaderBuilder는 Spring Data JPA의 PagingAndSortingRepository 인터페이스 규격을 요구합니다.
+ * 본 Batch Config는 인프라스트럭처 영속성 리포지토리(FixedAssetRepository)를 페이징 리더로 사용하며,
+ * 비즈니스 핵심 코어(FixedAssetEntryService 등)는 포트 인터페이스(FixedAssetPersistencePort)를 통해서만 영속성과 협력합니다.
  */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class AssetDepreciationBatchConfig {
 
-    private final FixedAssetPersistencePort fixedAssetPersistencePort;
+    private final FixedAssetRepository fixedAssetRepository;
     private final DepreciationPipeline depreciationPipeline;
     private final AssetPersistencePort assetPersistencePort;
 
@@ -69,7 +69,7 @@ public class AssetDepreciationBatchConfig {
     public ItemReader<FixedAsset> assetReader() {
         return new RepositoryItemReaderBuilder<FixedAsset>()
                 .name("assetReader")
-                .repository(fixedAssetPersistencePort)
+                .repository(fixedAssetRepository)
                 .methodName("findByStatus")
                 .arguments(Collections.singletonList("ACTIVE"))
                 .pageSize(1000)
