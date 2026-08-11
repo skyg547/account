@@ -1,3 +1,20 @@
+## 2026-08-12 - Issue #290 Decouple PersonalAccessTokenService from JPA Infrastructure (DIP & Hexagonal Outbound Port)
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/290-auth-pat-service-dip-decouple` / `C:\tmp\account-290-auth-pat-service-dip-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Decoupled `PersonalAccessTokenService` from direct dependencies on `PersonalAccessTokenJpaRepository` and `PersonalAccessTokenJpaEntity` to satisfy DIP.
+  - Created Pure POJO Domain Model `PersonalAccessToken.java` with domain logic for status management (`revoke()`, `markUsed()`) and effective status evaluation (`getEffectiveStatus()`).
+  - Created Outbound Port Interface `PersonalAccessTokenPort.java` in `application/port/out/`.
+  - Created Outbound Persistence Adapter `PersonalAccessTokenPersistenceAdapter.java` in `infrastructure/persistence/` implementing `PersonalAccessTokenPort` with Data Mapper conversion logic.
+  - Added Data Mapper conversion methods `toDomain()` and `fromDomain()` in `PersonalAccessTokenJpaEntity.java`.
+  - Refactored `PersonalAccessTokenService.java` to depend solely on `PersonalAccessTokenPort` and `PersonalAccessToken` domain model.
+  - Added pedagogical comments explaining Hexagonal Outbound Ports and DIP architectural benefits.
+  - Created unit tests `PersonalAccessTokenServiceTest.java` and adapter tests `PersonalAccessTokenPersistenceAdapterTest.java`.
+- Verification:
+  - `./gradlew.bat :auth:core:test :auth:api:test` passed 100% (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #291 Decouple JPA Annotations from Master Data Core Domain Models (Pure POJO & Data Mapper)
 
 - Owner: Gemini (Agent loop subagent)
