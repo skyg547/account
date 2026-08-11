@@ -1,11 +1,13 @@
 package com.ho.account.receivable.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -55,6 +57,8 @@ class CollectionServiceTest {
     private CollectionMatchingPolicyPort collectionMatchingPolicyPort;
     @Mock
     private CollectionAllocationPersistencePort collectionAllocationPersistencePort;
+    @Mock
+    private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     private CollectionService service;
 
@@ -68,12 +72,15 @@ class CollectionServiceTest {
                 journalPostingPort,
                 receivableAccountMappingPort,
                 collectionMatchingPolicyPort,
-                collectionAllocationPersistencePort);
+                collectionAllocationPersistencePort,
+                accountingPeriodStatusPort);
     }
 
     @Test
     @DisplayName("수납 인식 전표 생성 시 수납 계정 매핑 정책을 반영한다")
     void receivePaymentUsesMappedAccounts() {
+        CollectionCommand command = collectionCommand();
+        when(accountingPeriodStatusPort.isClosed(command.collectionDate())).thenReturn(false);
         when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
         when(collectionPersistencePort.save(any(Collection.class))).thenAnswer(invocation -> {
             Collection saved = invocation.getArgument(0);
@@ -87,7 +94,7 @@ class CollectionServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(200L, "SLIP-200", "DRAFT"));
 
-        service.receivePayment(collectionCommand());
+        service.receivePayment(command);
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -103,6 +110,7 @@ class CollectionServiceTest {
         Receivable receivable = receivable();
 
         when(collectionPersistencePort.findById(20L)).thenReturn(Optional.of(collection));
+        when(accountingPeriodStatusPort.isClosed(collection.getCollectionDate())).thenReturn(false);
         when(receivablePersistencePort.findById(30L)).thenReturn(Optional.of(receivable));
         when(receivablePersistencePort.save(receivable)).thenReturn(receivable);
         when(collectionPersistencePort.save(collection)).thenReturn(collection);
@@ -126,6 +134,17 @@ class CollectionServiceTest {
         assertThat(allocationCaptor.getValue().getMatchedAmount()).isEqualByComparingTo("100.00");
         assertThat(allocationCaptor.getValue().getResidualCollectionAmount()).isEqualByComparingTo("0.00");
         assertThat(allocationCaptor.getValue().getResidualReceivableAmount()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    @DisplayName("마감된 회계기간에 대한 수납 처리 시 IllegalStateException이 발생한다")
+    void receivePaymentThrowsExceptionWhenAccountingPeriodClosed() {
+        CollectionCommand command = collectionCommand();
+        when(accountingPeriodStatusPort.isClosed(command.collectionDate())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.receivePayment(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간입니다");
     }
 
     private CollectionCommand collectionCommand() {

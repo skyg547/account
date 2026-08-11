@@ -1,5 +1,6 @@
 package com.ho.account.receivable.application.service;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -36,21 +37,26 @@ public class SalesService implements SalesUseCase {
     private final MasterDataQueryPort masterDataQueryPort;
     private final JournalPostingPort journalPostingPort;
     private final ReceivableAccountMappingPort receivableAccountMappingPort;
+    private final AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     public SalesService(SalesInvoicePersistencePort salesInvoicePersistencePort,
                         ReceivablePersistencePort receivablePersistencePort,
                         MasterDataQueryPort masterDataQueryPort,
                         JournalPostingPort journalPostingPort,
-                        ReceivableAccountMappingPort receivableAccountMappingPort) {
+                        ReceivableAccountMappingPort receivableAccountMappingPort,
+                        AccountingPeriodStatusPort accountingPeriodStatusPort) {
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.journalPostingPort = journalPostingPort;
         this.receivableAccountMappingPort = receivableAccountMappingPort;
+        this.accountingPeriodStatusPort = accountingPeriodStatusPort;
     }
 
     @Override
     public SalesInvoice createSalesInvoice(SalesInvoiceCommand command) {
+        validateAccountingPeriodOpen(command.issueDate());
+
         SalesInvoice invoice = toInvoice(command);
         String customerCode = invoice.getCustomerCode();
         BusinessPartnerRef customer = validateCustomer(customerCode);
@@ -134,6 +140,28 @@ public class SalesService implements SalesUseCase {
         for (String accountCode : accountCodes) {
             masterDataQueryPort.findAccountSubject(accountCode)
                     .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
+    }
+
+    /**
+     * 회계기간 마감 여부를 사전에 검증합니다.
+     *
+     * 🎓 [금융 회계 내부 통제 및 마감 정합성 - Accounting Period Controls]
+     * 회계 시스템에서 마감(CLOSED) 처리된 회계기간에 매출 인보이스 및 매출 인식 전표가 작성되는 것을 사전에 차단합니다.
+     *
+     * 1. 소급 마감 차단 (Anti-Backdating):
+     *    마감된 과거 회계기간으로 매출 인보이스를 소급 발행하면 확정된 매출 수익과 매출채권 금액이 변동되어
+     *    재무제표의 신뢰성 훼손 및 공시/세무 신고의 오류를 유발합니다.
+     * 2. 회계 내부 통제 이점 (Internal Control Benefits):
+     *    매출 인식 및 채권 생성 전 회계기간 마감 여부를 사전 검증(Fail-Closed)하여
+     *    회계 장부의 마감 정합성을 유지하고 매출 조작 및 무단 전표 생성을 예방합니다.
+     *
+     * @param date 검증할 매출 인보이스 발행일자(Issue Date)
+     * @throws IllegalStateException 해당 회계기간이 이미 마감(CLOSED)된 경우
+     */
+    private void validateAccountingPeriodOpen(LocalDate date) {
+        if (accountingPeriodStatusPort.isClosed(date)) {
+            throw new IllegalStateException("해당 회계 반영일(" + date + ")은 이미 마감된 기간입니다.");
         }
     }
 }

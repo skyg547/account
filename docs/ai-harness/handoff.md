@@ -1,10 +1,10 @@
-# AI Harness Handoff - 2026-08-12 Issue #301 Move ECL Calculation Logic to Domain Layer
+# AI Harness Handoff - 2026-08-12 Issue #298 Accounting Period Validation in Payable & Receivable Services
 
 ## Active Goal And State
 
-- GitHub Issue `#301` (`[ecl][ddd] 핵심 도메인 계산식의 애플리케이션 서비스 유출 — Anemic Domain Model`) completed and merged into `main`. `Fixes #301` closes Issue `#301`.
-- PR `#367` merged into `main` and remote branch `agent/301-ecl-domain-calculator-refactor` was deleted.
-- Worktree `C:\tmp\account-301-ecl-domain-calculator-refactor` was cleaned up.
+- GitHub Issue `#298` (`[payable, receivable][financial] 회계기간 및 마감 상태 사전 검증 누락`) completed and merged into `main`. `Fixes #298` closes Issue `#298`.
+- PR merged into `main` and remote branch `agent/298-payable-receivable-accounting-period-validation` deleted.
+- Worktree `C:\tmp\account-298-payable-receivable-accounting-period-validation` cleaned up.
 
 ## Changes And Boundaries
 

@@ -1,11 +1,13 @@
 package com.ho.account.receivable.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -42,6 +44,8 @@ class SalesServiceTest {
     private JournalPostingPort journalPostingPort;
     @Mock
     private ReceivableAccountMappingPort receivableAccountMappingPort;
+    @Mock
+    private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     private SalesService service;
 
@@ -52,14 +56,17 @@ class SalesServiceTest {
                 receivablePersistencePort,
                 masterDataQueryPort,
                 journalPostingPort,
-                receivableAccountMappingPort);
+                receivableAccountMappingPort,
+                accountingPeriodStatusPort);
     }
 
     @Test
     @DisplayName("매출 인식 전표 생성 시 receivable 계정 매핑 정책을 반영한다")
     void createSalesInvoiceUsesMappedAccounts() {
+        SalesInvoiceCommand command = createCommand();
         BusinessPartnerRef customer = new BusinessPartnerRef("C001", "Customer One", "CUSTOMER", true);
 
+        when(accountingPeriodStatusPort.isClosed(command.issueDate())).thenReturn(false);
         when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer));
         when(salesInvoicePersistencePort.save(any(SalesInvoice.class))).thenAnswer(invocation -> {
             SalesInvoice saved = invocation.getArgument(0);
@@ -74,7 +81,7 @@ class SalesServiceTest {
         when(journalPostingPort.createDraftEntry(any()))
                 .thenReturn(new JournalPostingResult(100L, "SLIP-100", "DRAFT"));
 
-        service.createSalesInvoice(createCommand());
+        service.createSalesInvoice(command);
 
         ArgumentCaptor<JournalEntryCommand> commandCaptor = ArgumentCaptor.forClass(JournalEntryCommand.class);
         verify(journalPostingPort).createDraftEntry(commandCaptor.capture());
@@ -83,6 +90,17 @@ class SalesServiceTest {
                 .containsExactly("AR-001", "REV-001", "VAT-001");
         assertThat(commandCaptor.getValue().createdBy()).isEqualTo("sales-user");
         assertThat(commandCaptor.getValue().auditUser()).isEqualTo("sales-user");
+    }
+
+    @Test
+    @DisplayName("마감된 회계기간에 대한 매출 인보이스 생성 시 IllegalStateException이 발생한다")
+    void createSalesInvoiceThrowsExceptionWhenAccountingPeriodClosed() {
+        SalesInvoiceCommand command = createCommand();
+        when(accountingPeriodStatusPort.isClosed(command.issueDate())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createSalesInvoice(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간입니다");
     }
 
     private SalesInvoiceCommand createCommand() {

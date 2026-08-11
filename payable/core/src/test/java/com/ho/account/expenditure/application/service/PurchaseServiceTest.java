@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.application.service;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -43,6 +44,8 @@ class PurchaseServiceTest {
     private JournalPostingPort journalPostingPort;
     @Mock
     private PayableAccountMappingPort payableAccountMappingPort;
+    @Mock
+    private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     private PurchaseService service;
 
@@ -53,13 +56,15 @@ class PurchaseServiceTest {
                 payablePersistencePort,
                 masterDataQueryPort,
                 journalPostingPort,
-                payableAccountMappingPort);
+                payableAccountMappingPort,
+                accountingPeriodStatusPort);
     }
 
     @Test
     @DisplayName("매입 인보이스 생성 시 actor와 계정 매핑 정책을 전표에 반영한다")
     void createPurchaseInvoiceUsesActorAndMappedAccounts() {
         PurchaseInvoiceCommand command = createCommand(" buyer-user ");
+        when(accountingPeriodStatusPort.isClosed(command.issueDate())).thenReturn(false);
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(purchaseInvoicePersistencePort.findByInvoiceNoAndVendorCode("PI-001", "V001")).thenReturn(Optional.empty());
@@ -92,6 +97,17 @@ class PurchaseServiceTest {
         assertThatThrownBy(() -> service.createPurchaseInvoice(createCommand(" ")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("createdBy is required");
+    }
+
+    @Test
+    @DisplayName("마감된 회계기간에 대한 매입 인보이스 생성 시 IllegalStateException이 발생한다")
+    void createPurchaseInvoiceThrowsExceptionWhenAccountingPeriodClosed() {
+        PurchaseInvoiceCommand command = createCommand("buyer-user");
+        when(accountingPeriodStatusPort.isClosed(command.issueDate())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createPurchaseInvoice(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간입니다");
     }
 
     private PurchaseInvoiceCommand createCommand(String createdBy) {

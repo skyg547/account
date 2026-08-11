@@ -1,5 +1,6 @@
 package com.ho.account.receivable.application.service;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -31,6 +33,7 @@ public class CollectionService implements CollectionUseCase {
     private final ReceivableAccountMappingPort receivableAccountMappingPort;
     private final CollectionMatchingPolicyPort collectionMatchingPolicyPort;
     private final CollectionAllocationPersistencePort collectionAllocationPersistencePort;
+    private final AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     public CollectionService(CollectionPersistencePort collectionPersistencePort,
                              ReceivablePersistencePort receivablePersistencePort,
@@ -39,7 +42,8 @@ public class CollectionService implements CollectionUseCase {
                              JournalPostingPort journalPostingPort,
                              ReceivableAccountMappingPort receivableAccountMappingPort,
                              CollectionMatchingPolicyPort collectionMatchingPolicyPort,
-                             CollectionAllocationPersistencePort collectionAllocationPersistencePort) {
+                             CollectionAllocationPersistencePort collectionAllocationPersistencePort,
+                             AccountingPeriodStatusPort accountingPeriodStatusPort) {
         this.collectionPersistencePort = collectionPersistencePort;
         this.receivablePersistencePort = receivablePersistencePort;
         this.salesInvoicePersistencePort = salesInvoicePersistencePort;
@@ -48,10 +52,13 @@ public class CollectionService implements CollectionUseCase {
         this.receivableAccountMappingPort = receivableAccountMappingPort;
         this.collectionMatchingPolicyPort = collectionMatchingPolicyPort;
         this.collectionAllocationPersistencePort = collectionAllocationPersistencePort;
+        this.accountingPeriodStatusPort = accountingPeriodStatusPort;
     }
 
     @Override
     public Collection receivePayment(CollectionCommand command) {
+        validateAccountingPeriodOpen(command.collectionDate());
+
         Collection collection = toCollection(command);
         String customerCode = collection.getCustomerCode();
         BusinessPartnerRef customer = validateCustomer(customerCode);
@@ -72,6 +79,8 @@ public class CollectionService implements CollectionUseCase {
     public void attemptAutoMatching(Long collectionId) {
         Collection collection = collectionPersistencePort.findById(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
+
+        validateAccountingPeriodOpen(collection.getCollectionDate());
 
         if (!collection.canMatch()) {
             return;
@@ -98,6 +107,9 @@ public class CollectionService implements CollectionUseCase {
         BigDecimal amount = command.matchingAmount();
         Collection collection = collectionPersistencePort.findById(collectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Collection not found: " + collectionId));
+
+        validateAccountingPeriodOpen(collection.getCollectionDate());
+
         Receivable receivable = receivablePersistencePort.findById(receivableId)
                 .orElseThrow(() -> new IllegalArgumentException("Receivable not found: " + receivableId));
 
@@ -194,6 +206,28 @@ public class CollectionService implements CollectionUseCase {
         for (String accountCode : accountCodes) {
             masterDataQueryPort.findAccountSubject(accountCode)
                     .orElseThrow(() -> new IllegalStateException("Account missing: " + accountCode));
+        }
+    }
+
+    /**
+     * 회계기간 마감 여부를 사전에 검증합니다.
+     *
+     * 🎓 [금융 회계 내부 통제 및 마감 정합성 - Accounting Period Controls]
+     * 회계 시스템에서 마감(CLOSED) 처리된 회계기간에 수납(Collection) 및 수납 매칭 전표가 발행되는 것을 사전에 차단합니다.
+     *
+     * 1. 소급 마감 차단 (Anti-Backdating):
+     *    이미 마감된 기간으로 수납 거래 및 매칭 전표를 소급 작성하는 것을 금지하여
+     *    현금 흐름표, 외상매출금 잔액 및 반제 내역의 정합성을 보호합니다.
+     * 2. 회계 내부 통제 이점 (Internal Control Benefits):
+     *    수납 등록 및 매칭 처리 시 사전 검증(Fail-Closed)을 실시함으로써
+     *    마감 기간에 대한 자금 입금/반제 무단 수정을 원천 차단하고 재무 통제의 완전성을 보장합니다.
+     *
+     * @param date 검증할 수납일자(Collection Date)
+     * @throws IllegalStateException 해당 회계기간이 이미 마감(CLOSED)된 경우
+     */
+    private void validateAccountingPeriodOpen(LocalDate date) {
+        if (accountingPeriodStatusPort.isClosed(date)) {
+            throw new IllegalStateException("해당 회계 반영일(" + date + ")은 이미 마감된 기간입니다.");
         }
     }
 }
