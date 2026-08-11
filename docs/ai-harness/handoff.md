@@ -1540,3 +1540,19 @@
 - The reviewer observed that `origin/main` advanced and overlaps three append-only harness logs. Synchronize while preserving both histories, confirm the two Internal Audit paths are byte-identical, then rerun focused/static gates before commit/Draft PR.
 - Latest-main synchronization is complete at `b2d5c6ef`. A single `agent-status.md` conflict was resolved append-only, preserving upstream #312/#314 and local #344/#342 rows; reviewed implementation paths remained byte-identical. Focused and static gates passed again, so the parent may commit, push and open the Draft PR.
 - Commit `e4a86d67` is pushed and Draft PR #357 targets main with `Refs #344/#227`. Issue #344 is frozen at `status:needs-review`; next owner is an independent final PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge/close gate.
+- Final PR-head review found no P0-P3. PR #357 merged as `21395eb3`; Issue #344 closed and active labels were removed.
+
+# AI Harness Handoff - 2026-08-12 Issue #90 Asset Lease Batch Local H2
+
+## Verification-ready state
+
+- Issue/branch/worktree/base: `#90`, `agent/90-asset-lease-batch-local`, `C:\tmp\account-90-asset-lease-batch-local`, `origin/main@43f5b36c`.
+- Implementation paths: Batch `application-local.yml`, `AssetLeaseBatchLocalContextTest.java`, IntelliJ `Asset Lease Batch Context` run configuration and `asset-lease/docs/local-run.md`, plus parent-owned append-only harness records.
+- The local profile is self-contained: non-web H2 PostgreSQL mode, create-drop, Batch metadata initialization, jobs off by default, and Config/Discovery/Vault/Eureka/Kafka listener/tracing disabled. Dev/prod PostgreSQL resources and depreciation business behavior are unchanged.
+
+## Evidence, rollback, and next owner
+
+- Latest-main Core/Batch reports contain 21 tests in 8 suites with zero failure/error/skip; Batch bootJar passed. The packaged JAR started with only `--spring.profiles.active=local`, initialized H2/JPA/Batch metadata and launched no Job or external connection.
+- Static gates and exact implementation allowlist passed. The first new test run failed only because JUnit method parameters were not autowired; field injection corrected test wiring and both focused/full gates passed afterward.
+- A previous restart-validator experiment remains in named stash `GH-90 pre-baseline partial batch local work`; it is outside the refreshed Issue contract because it changes Job semantics and fails the existing prod schema-context test. Do not apply it to this PR.
+- Rollback uses a reviewed revert of the four implementation paths while retaining append-only records. No external state exists. Next owner is an independent read-only reviewer, followed by the parent Integrator for commit/Draft PR.

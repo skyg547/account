@@ -1,7 +1,14 @@
 spring:
+  config:
+    activate:
+      on-profile: local
+  main:
+    web-application-type: none
   batch:
     job:
       enabled: false
+    jdbc:
+      initialize-schema: always
   cloud:
     config:
       enabled: false
@@ -9,7 +16,31 @@ spring:
       enabled: false
     vault:
       enabled: false
+  datasource:
+    url: jdbc:h2:mem:asset_lease_batch;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+  sql:
+    init:
+      mode: never
+  kafka:
+    listener:
+      auto-startup: false
 
 eureka:
   client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+management:
+  tracing:
     enabled: false

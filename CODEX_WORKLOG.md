@@ -1876,3 +1876,12 @@
 - Independent remediation re-review found no P0-P3. A newer `origin/main` overlaps three append-only harness logs, so latest-main synchronization and focused revalidation remain before commit/Draft PR.
 - Synchronized through a named stash and fast-forward to `origin/main@b2d5c6ef`. Resolved the sole `agent-status.md` conflict by preserving upstream #312/#314 and local #344/#342 records; auto-merged logs preserved both histories. The reviewed Internal Audit paths were byte-identical and the focused policy test/static gates passed again.
 - Commit `e4a86d67` is pushed and Draft PR #357 targets main with `Refs #344/#227`. Issue #344 is `status:needs-review`; Ready/merge/close remain pending a final PR-head gate.
+- Final PR-head review found no P0-P3. PR #357 merged to main as `21395eb3`; Issue #344 closed and active owner/status labels were removed.
+
+## 2026-08-12 (Issue #90 Asset Lease Batch explicit local profile)
+
+- Reused `agent/90-asset-lease-batch-local` / `C:\tmp\account-90-asset-lease-batch-local`, preserved the prior restart-validator experiment in a named stash and fast-forwarded without implementation overlap to `origin/main@43f5b36c`. The dirty primary checkout remained untouched.
+- Current-main baseline Batch tests/bootJar and a profile-only packaged-JAR smoke passed, proving PR #288 had already fixed the historical startup defect. The remaining gap was an incomplete Batch-owned local policy and missing real-profile regression coverage.
+- Made `application-local.yml` explicitly own H2 PostgreSQL mode, create-drop JPA, Batch metadata initialization, jobs-off and disabled control-plane/Kafka-listener/tracing behavior. Added an unmasked real local context test and simplified IntelliJ/docs to profile-only execution.
+- Latest-main Core/Batch 21 tests in 8 suites, zero failure/error/skip, Batch bootJar, and bounded packaged-JAR startup passed. The smoke observed H2/JPA/Batch metadata/start, no Job launch, no external attempt and no startup failure. Diff/marker/allowlist gates passed.
+- The first focused test failed only from unsupported JUnit method-parameter injection; field injection fixed the test harness. Dev/prod PostgreSQL resources, depreciation logic and Job parameter semantics remain unchanged. Independent read-only review remains.
