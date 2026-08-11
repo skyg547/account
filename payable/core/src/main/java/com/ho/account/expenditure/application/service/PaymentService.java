@@ -209,7 +209,7 @@ public class PaymentService implements PaymentUseCase {
                 .orElse(payment.getVendorCode());
         String actor = resolveActor(payment);
 
-        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+        JournalEntryCommand command = new JournalEntryCommand(
                 payment.getPaymentDate(),
                 payment.getPaymentDate(),
                 "Payment: " + vendorName + " - " + payment.getAmount(),
@@ -220,7 +220,10 @@ public class PaymentService implements PaymentUseCase {
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), payment.getAmount(), null, null,
                                 payment.getVendorCode(), "AP Decrease"),
                         new JournalLineCommand("CREDIT", accounts.cashAccountCode(), payment.getAmount(), null, null,
-                                payment.getVendorCode(), "Cash/Bank Decrease"))));
+                                payment.getVendorCode(), "Cash/Bank Decrease")));
+
+        validateJournalBalance(command);
+        journalPostingPort.createDraftEntry(command);
     }
 
     private void postAdvanceJournal(AdvancePayment advance, String vendorName) {
@@ -228,7 +231,7 @@ public class PaymentService implements PaymentUseCase {
                 payableAccountMappingPort.resolveAdvancePaymentAccounts(advance);
         requireAccounts(accounts.requiredAccountCodes());
 
-        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+        JournalEntryCommand command = new JournalEntryCommand(
                 advance.getPaymentDate(),
                 advance.getPaymentDate(),
                 "Advance: " + vendorName + " - " + advance.getAmount(),
@@ -239,7 +242,10 @@ public class PaymentService implements PaymentUseCase {
                         new JournalLineCommand("DEBIT", accounts.advanceAccountCode(), advance.getAmount(), null, null,
                                 advance.getVendorCode(), "Advance recognized"),
                         new JournalLineCommand("CREDIT", accounts.cashAccountCode(), advance.getAmount(), null, null,
-                                advance.getVendorCode(), "Cash Decrease"))));
+                                advance.getVendorCode(), "Cash Decrease")));
+
+        validateJournalBalance(command);
+        journalPostingPort.createDraftEntry(command);
     }
 
     private void postOffsetJournal(Payable payable, BigDecimal amount) {
@@ -251,7 +257,7 @@ public class PaymentService implements PaymentUseCase {
                 .map(BusinessPartnerRef::name)
                 .orElse(payable.getVendorCode());
 
-        journalPostingPort.createDraftEntry(new JournalEntryCommand(
+        JournalEntryCommand command = new JournalEntryCommand(
                 LocalDate.now(), LocalDate.now(),
                 "Offset: " + vendorName + " - " + amount,
                 "AP_ADVANCE_OFFSET",
@@ -261,7 +267,10 @@ public class PaymentService implements PaymentUseCase {
                         new JournalLineCommand("DEBIT", accounts.accountsPayableAccountCode(), amount, null, null,
                                 payable.getVendorCode(), "AP Offset"),
                         new JournalLineCommand("CREDIT", accounts.advanceAccountCode(), amount, null, null,
-                                payable.getVendorCode(), "Advance Offset"))));
+                                payable.getVendorCode(), "Advance Offset")));
+
+        validateJournalBalance(command);
+        journalPostingPort.createDraftEntry(command);
     }
 
     private void requireAccounts(List<String> accountCodes) {
@@ -300,6 +309,50 @@ public class PaymentService implements PaymentUseCase {
     private void validateAccountingPeriodOpen(LocalDate date) {
         if (accountingPeriodStatusPort.isClosed(date)) {
             throw new IllegalStateException("해당 회계 반영일(" + date + ")은 이미 마감된 기간입니다.");
+        }
+    }
+
+    /**
+     * 발행할 전표의 복식부기 대차평균(Equivalence of Debits and Credits) 균형을 사전 검증합니다.
+     *
+     * 🎓 [금융 회계 대차평균의 원리 및 원장 정합성 보장 - Double-Entry Bookkeeping Balance Validation]
+     * 복식부기(Double-entry bookkeeping)의 핵심 원칙에 따라 모든 회계 전표는 차변(Debit) 합계와 대변(Credit) 합계가
+     * 정확히 일치(Equivalence of Debits and Credits)해야 합니다.
+     *
+     * 1. 대차평균의 원리 (Equivalence of Debits and Credits):
+     *    모든 거래는 차변과 대변에 동일한 금액으로 양방향 기록되어야 하며, 차변 합계와 대변 합계는 반드시 equal(compareTo == 0)이어야 합니다.
+     * 2. 원장 정합성 보장 및 Fail-Closed 사전 차단:
+     *    차대변 금액이 불일치하는 불평형 전표가 원장에 반영될 경우 총계정원장(General Ledger)의 대차 균형이 파괴되어
+     *    시산표(Trial Balance) 및 재무제표(Financial Statements)의 심각한 오류와 왜곡을 유발합니다.
+     *    전표 발행 직전 사전 검증을 통해 불평형 전표 발행을 원천 차단(Fail-Closed)함으로써 회계 데이터의 정합성과 내부 통제를 보장합니다.
+     *
+     * @param command 발행할 전표 데이터 (JournalEntryCommand)
+     * @throws IllegalArgumentException 전표 라인이 없거나 차변 합계와 대변 합계가 일치하지 않을 경우
+     */
+    private void validateJournalBalance(JournalEntryCommand command) {
+        if (command == null || command.lines() == null || command.lines().isEmpty()) {
+            throw new IllegalArgumentException("전표 상세 라인이 존재하지 않습니다.");
+        }
+
+        BigDecimal debitTotal = BigDecimal.ZERO;
+        BigDecimal creditTotal = BigDecimal.ZERO;
+
+        for (JournalLineCommand line : command.lines()) {
+            if (line.amount() == null) {
+                throw new IllegalArgumentException("전표 라인의 금액(amount)은 null일 수 없습니다.");
+            }
+            if ("DEBIT".equalsIgnoreCase(line.drcrType())) {
+                debitTotal = debitTotal.add(line.amount());
+            } else if ("CREDIT".equalsIgnoreCase(line.drcrType())) {
+                creditTotal = creditTotal.add(line.amount());
+            } else {
+                throw new IllegalArgumentException("유효하지 않은 차대변 구분(drcrType)입니다: " + line.drcrType());
+            }
+        }
+
+        if (debitTotal.compareTo(creditTotal) != 0) {
+            throw new IllegalArgumentException(
+                    String.format("전표의 차변 합계(%s)와 대변 합계(%s)가 일치하지 않습니다.", debitTotal, creditTotal));
         }
     }
 }

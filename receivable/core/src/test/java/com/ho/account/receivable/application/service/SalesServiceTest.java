@@ -103,6 +103,26 @@ class SalesServiceTest {
                 .hasMessageContaining("이미 마감된 기간입니다");
     }
 
+    @Test
+    @DisplayName("차변과 대변 합계가 일치하지 않는 전표 검증 시 IllegalArgumentException이 발생한다")
+    void validateJournalBalanceThrowsExceptionWhenImbalanced() {
+        JournalEntryCommand imbalancedCommand = new JournalEntryCommand(
+                LocalDate.now(),
+                LocalDate.now(),
+                "Imbalanced Sales Entry",
+                "TEST",
+                null, null, "user", "user",
+                "TEST", "1",
+                java.util.List.of(
+                        new com.ho.account.contracts.journal.JournalLineCommand("DEBIT", "11100", new BigDecimal("1000.00"), null, null, "C001", "AR"),
+                        new com.ho.account.contracts.journal.JournalLineCommand("CREDIT", "40100", new BigDecimal("950.00"), null, null, "C001", "Revenue")));
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                service, "validateJournalBalance", imbalancedCommand))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("차변 합계(1000.00)와 대변 합계(950.00)가 일치하지 않습니다");
+    }
+
     private SalesInvoiceCommand createCommand() {
         return new SalesInvoiceCommand(
                 "SI-001",
