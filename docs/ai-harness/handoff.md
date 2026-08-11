@@ -1,3 +1,28 @@
+# AI Harness Handoff - 2026-08-12 Issue #309 Harden Gateway JWT Secret Configuration & Asymmetric Key Support
+
+## Active Goal And State
+
+- GitHub Issue `#309` (`[gateway][security] JWT Secret 하드코딩 및 비대칭키 구조 전환 필요`) completed and PR #379 merged into `main`.
+- Worktree `C:\tmp\account-309-gateway-jwt-secret-security-hardening` removed and pruned post-merge.
+
+## Changes And Boundaries
+
+- Removed Hardcoded Plaintext Default JWT Secret:
+  - Removed `modern-account-system-super-secret-key-1234567890` from `gateway/src/main/resources/application.yml` and `JwtProperties.java`.
+  - Configured mandatory external environment variable / Config Server property injection (`${AUTH_JWT_SECRET:${JWT_SECRET:}}`, `${AUTH_JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY:}}`, `${AUTH_JWT_JWKS_URI:${JWT_JWKS_URI:}}`).
+- Asymmetric Key (RS256/ES256) & Key Rotation Support:
+  - Updated `JjwtAccessTokenVerifier.java` using `SigningKeyResolverAdapter` to dynamically resolve HMAC Secret Key (HS256) or RSA Public Key (RS256) based on JWT header `alg`.
+- Pedagogical Security Comments:
+  - Added extensive comments covering API Gateway Secret Exposure Risks, Asymmetric Verification Defense-in-Depth benefits, and Key Rotation / JWKS (`/.well-known/jwks.json`) strategies across `JwtProperties.java` and `JjwtAccessTokenVerifier.java`.
+- Verification Evidence:
+  - Added unit tests in `JjwtAccessTokenVerifierTest.java` for RSA RS256 token verification and missing key exception validation.
+  - Executed `./gradlew.bat :gateway:test :config-server:test` with 100% SUCCESS.
+  - PR #379 merged into `main` and branch deleted.
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #379 commit on `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #316 Fix Budget Double-Deduction Bug on Expenditure Resolution Update and Rejection
 
 ## Active Goal And State

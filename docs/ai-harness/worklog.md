@@ -1,3 +1,21 @@
+## 2026-08-12 - Issue #309 Harden Gateway JWT Secret Configuration & Asymmetric Key Support
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/309-gateway-jwt-secret-security-hardening` / `C:\tmp\account-309-gateway-jwt-secret-security-hardening`.
+- Base: `origin/main`.
+- Scope:
+  - Removed Hardcoded Plaintext Default JWT Secret:
+    - Removed `modern-account-system-super-secret-key-1234567890` from `gateway/src/main/resources/application.yml` and `JwtProperties.java`.
+    - Made external environment variable / Config Server property injection mandatory (`${AUTH_JWT_SECRET:${JWT_SECRET:}}`, `${AUTH_JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY:}}`, `${AUTH_JWT_JWKS_URI:${JWT_JWKS_URI:}}`).
+  - Asymmetric Key (RS256/ES256) & Key Rotation Support:
+    - Updated `JjwtAccessTokenVerifier.java` using `SigningKeyResolverAdapter` to dynamically resolve HMAC Secret Key (HS256) or RSA Public Key (RS256) based on JWT header `alg`.
+  - Pedagogical Security Comments:
+    - Added extensive comments covering API Gateway Secret Exposure Risks, Asymmetric Verification Defense-in-Depth benefits, and Key Rotation / JWKS (`/.well-known/jwks.json`) strategies across `JwtProperties.java` and `JjwtAccessTokenVerifier.java`.
+- Verification:
+  - Added unit tests in `JjwtAccessTokenVerifierTest.java` for RSA RS256 token verification and missing key exception validation.
+  - Executed `./gradlew.bat :gateway:test :config-server:test` with 100% SUCCESS.
+  - PR #379 merged into `main` and branch deleted.
+
 ## 2026-08-12 - Issue #316 Fix Budget Double-Deduction Bug on Expenditure Resolution Update and Rejection
 
 - Owner: Gemini (Agent loop subagent)

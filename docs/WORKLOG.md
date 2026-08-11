@@ -1,3 +1,21 @@
+### 📅 2026-08-12 ([gateway][security] JWT Secret 하드코딩 및 비대칭키 구조 전환 - Issue #309)
+### [gateway] application.yml 평문 JWT Secret 하드코딩 제거 및 비대칭키(RS256)/JWKS 보안 검증 구조 전환
+
+- **작업 배경**:
+  - 기존 `gateway/src/main/resources/application.yml` 및 `JwtProperties.java`에 평문 JWT secret 기본값(`modern-account-system-super-secret-key-1234567890`)이 하드코딩되어 있어 소스코드 유출 시 전역 토큰 위조 및 보안 사고 위험이 존재했음.
+- **주요 변경 사항**:
+  - **평문 하드코딩 Secret 제거 및 외부 주입 필수화**:
+    - `gateway/src/main/resources/application.yml` 내 평문 하드코딩 기본값을 제거하고, `${AUTH_JWT_SECRET:${JWT_SECRET:}}`, `${AUTH_JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY:}}`, `${AUTH_JWT_JWKS_URI:${JWT_JWKS_URI:}}`를 통한 외부 환경변수/Config Server 주입 필수화.
+    - `JwtProperties.java`: 비밀키 하드코딩 문자열 기본값 삭제 및 비대칭키(`publicKey`), `jwksUri` 프로퍼티 추가.
+  - **대칭키(HS256) 및 비대칭키(RS256/ES256) 유연 검증 체계 구현**:
+    - `JjwtAccessTokenVerifier.java`: `SigningKeyResolverAdapter`를 도입하여 JWT 헤더의 `alg`에 따라 RSA 공개키(RS256) 또는 HMAC 비밀키(HS256)를 동적으로 선택/검증할 수 있도록 개선.
+    - 키 미설정 시 기동/검증 시점에 명확한 예외(`IllegalStateException`)를 발생시켜 안전한 동작 보장.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - API Gateway 최전방 관문에서의 Secret 유출 위험성, RS256/ES256 비대칭키 검증의 보안 격리(Defense-in-Depth) 이점, 그리고 JWKS (`/.well-known/jwks.json`) 기반 무중단 키 순환(Zero-downtime Key Rotation) 대책을 교육적 주석으로 명시.
+- **검증**:
+  - `JjwtAccessTokenVerifierTest.java`: RSA 공개키(RS256) 토큰 검증, HMAC 토큰 검증 및 키 미설정 시 검증 예외 동작 유닛 테스트 추가.
+  - `./gradlew.bat :gateway:test :config-server:test` 실행하여 100% 빌드 및 테스트 성공 확인.
+
 ### 📅 2026-08-12 ([expenditure-resolution][financial] 결의서 수정/반려 시 예산 복원 누락 (이중 차감 버그) - Issue #316)
 ### [expenditure-resolution] 결의서 수정 및 반려 시 예산 복원(restoreBudget) 구현을 통한 이중 차감 버그 해결 및 예산 통제 정합성 확보
 
