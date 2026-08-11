@@ -1,6 +1,8 @@
 package com.ho.account.mart.batch.job.ods;
 
 import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
+import com.ho.account.mart.core.infrastructure.persistence.entity.mart.AllowanceInputPositionEntity;
+import com.ho.account.mart.core.infrastructure.persistence.mapper.AllowanceInputPositionMapper;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,11 +66,15 @@ public class IntegratedPositionEtlJobTest {
 
         assertThat(jobExecution.getExitStatus()).isEqualTo(ExitStatus.COMPLETED);
 
-        List<AllowanceInputPosition> results = entityManager.createQuery(
-                "SELECT p FROM AllowanceInputPosition p WHERE p.baseDt = :baseDate ORDER BY p.accNo",
-                AllowanceInputPosition.class)
+        List<AllowanceInputPositionEntity> entities = entityManager.createQuery(
+                "SELECT p FROM AllowanceInputPositionEntity p WHERE p.baseDt = :baseDate ORDER BY p.accNo",
+                AllowanceInputPositionEntity.class)
                 .setParameter("baseDate", baseDate)
                 .getResultList();
+
+        List<AllowanceInputPosition> results = entities.stream()
+                .map(AllowanceInputPositionMapper::toDomain)
+                .toList();
 
         assertThat(results).hasSize(5);
         assertThat(results).extracting(AllowanceInputPosition::getAccNo)
