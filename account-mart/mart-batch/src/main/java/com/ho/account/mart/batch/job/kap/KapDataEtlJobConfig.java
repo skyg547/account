@@ -1,7 +1,7 @@
 package com.ho.account.mart.batch.job.kap;
 
 import com.ho.account.mart.batch.config.MartBatchExecutionConfig;
-import com.ho.account.mart.core.domain.external.kap.KapExternalRating;
+import com.ho.account.mart.core.infrastructure.persistence.entity.external.kap.KapExternalRatingEntity;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,9 +60,9 @@ public class KapDataEtlJobConfig {
     public Step kapExternalRatingStep(
             SynchronizedItemStreamReader<KapExternalRatingCsvRow> kapExternalRatingReader,
             KapExternalRatingProcessor kapExternalRatingProcessor,
-            JpaItemWriter<KapExternalRating> kapExternalRatingWriter) {
+            JpaItemWriter<KapExternalRatingEntity> kapExternalRatingWriter) {
         return new StepBuilder("kapExternalRatingStep", jobRepository)
-                .<KapExternalRatingCsvRow, KapExternalRating>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, transactionManager)
+                .<KapExternalRatingCsvRow, KapExternalRatingEntity>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, transactionManager)
                 .reader(kapExternalRatingReader)
                 .processor(kapExternalRatingProcessor)
                 .writer(kapExternalRatingWriter)
@@ -107,9 +107,10 @@ public class KapDataEtlJobConfig {
     }
 
     @Bean
-    public JpaItemWriter<KapExternalRating> kapExternalRatingWriter() {
-        return new JpaItemWriterBuilder<KapExternalRating>()
+    public JpaItemWriter<KapExternalRatingEntity> kapExternalRatingWriter() {
+        return new JpaItemWriterBuilder<KapExternalRatingEntity>()
                 .entityManagerFactory(entityManagerFactory)
                 .build();
     }
 }
+

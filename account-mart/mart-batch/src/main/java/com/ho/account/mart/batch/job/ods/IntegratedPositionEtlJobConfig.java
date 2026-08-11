@@ -10,7 +10,7 @@ import com.ho.account.mart.batch.processor.CollateralDataQualityItemProcessor;
 import com.ho.account.mart.batch.processor.IntegratedPositionItemProcessor;
 import com.ho.account.mart.batch.processor.LedgerDataQualityItemProcessor;
 import com.ho.account.mart.core.application.port.out.OdsDqAuditRepository;
-import com.ho.account.mart.core.domain.mart.AllowanceInputPosition;
+import com.ho.account.mart.core.infrastructure.persistence.entity.mart.AllowanceInputPositionEntity;
 import com.ho.account.mart.core.domain.ods.audit.OdsDqAudit;
 import com.ho.account.mart.core.domain.ods.loan.OdsAccountLedger;
 import com.ho.account.mart.core.domain.ods.loan.OdsCollateralMst;
@@ -203,7 +203,7 @@ public class IntegratedPositionEtlJobConfig {
     public Step cdmLoadStep() {
         StepBuilder builder = new StepBuilder("cdmLoadStep", Objects.requireNonNull(jobRepository));
         var chunkStep = builder
-                .<OdsAccountLedger, AllowanceInputPosition>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
+                .<OdsAccountLedger, AllowanceInputPositionEntity>chunk(MartBatchExecutionConfig.DEFAULT_CHUNK_SIZE, Objects.requireNonNull(transactionManager))
                 .reader(Objects.requireNonNull(odsLedgerReader()))
                 .processor(integratedPositionItemProcessor)
                 .writer(Objects.requireNonNull(cdmWriter()))
@@ -238,8 +238,8 @@ public class IntegratedPositionEtlJobConfig {
     }
 
     @Bean
-    public JpaItemWriter<AllowanceInputPosition> cdmWriter() {
-        return new JpaItemWriterBuilder<AllowanceInputPosition>()
+    public JpaItemWriter<AllowanceInputPositionEntity> cdmWriter() {
+        return new JpaItemWriterBuilder<AllowanceInputPositionEntity>()
                 .entityManagerFactory(Objects.requireNonNull(entityManagerFactory))
                 .build();
     }
@@ -269,5 +269,6 @@ public class IntegratedPositionEtlJobConfig {
         return chunk -> odsDqAuditRepository.saveAll(new java.util.ArrayList<>(chunk.getItems()));
     }
 }
+
 
 

@@ -4,13 +4,6 @@ import com.ho.account.shared.finance.enums.CrStaging;
 import com.ho.account.shared.finance.enums.CurrencyCode;
 import com.ho.account.shared.finance.enums.CustomerType;
 import com.ho.account.shared.finance.enums.ProductCategory;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,14 +14,23 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Account Mart가 소유하는 IFRS 9 대손충당금 입력 포지션.
+ * [Domain Entity] Account Mart가 소유하는 IFRS 9 대손충당금 입력 포지션.
  *
- * <p>ODS 원천 데이터를 ECL 계산기가 읽기 좋은 한 행으로 정리한 마트 결과입니다. 테이블 적재와
- * 스키마 변경 책임은 Account Mart에 있고, ECL은 자기 읽기 어댑터를 통해 필요한 값만 조회합니다.
+ * <p><strong>교육적 주석 (Pedagogical Comments):</strong></p>
+ * <ul>
+ *   <li><strong>헥사고날 아키텍처 (Port and Adapter Pattern) 준수:</strong>
+ *       도메인 엔티티는 특정 영속성 프레임워크(JPA, Hibernate)에 종속되지 않도록 Pure Java POJO로 작성되어야 합니다.
+ *       기존에는 {@code @Entity}, {@code @Table}, {@code @IdClass}, {@code @Column}, {@code @Enumerated} 등
+ *       JPA 기술 어노테이션이 도메인 레이어에 침범하여 계층 분리 원칙을 위반했었습니다.</li>
+ *   <li><strong>도메인 모델의 순수성과 책임 격리:</strong>
+ *       JPA 어노테이션을 전면 제거하고 Pure Java POJO로 격리함으로써 비즈니스 도메인의 순수성을 보장하고,
+ *       단위 테스트 작성 시 DB 의존성을 배제할 수 있습니다.
+ *       테이블 적재, ORM 매핑 및 스키마 관리는 Infrastructure 레이어의 {@code AllowanceInputPositionEntity}가 전담합니다.</li>
+ *   <li><strong>Data Mapper 패턴 적용:</strong>
+ *       도메인 POJO 모델과 JPA Entity 간의 양방향 데이터 변환은 어댑터 레이어의
+ *       {@code AllowanceInputPositionMapper}에 위임합니다.</li>
+ * </ul>
  */
-@Entity
-@Table(name = "allowance_input_positions")
-@IdClass(AllowanceInputPositionId.class)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,151 +38,99 @@ import java.time.LocalDate;
 @Builder
 public class AllowanceInputPosition {
 
-    @Id
-    @Column(name = "base_dt", nullable = false)
     private LocalDate baseDt;
 
-    @Id
-    @Column(name = "acc_no", nullable = false, length = 50)
     private String accNo;
 
-    @Column(name = "customer_code", nullable = false, length = 50)
     private String customerCode;
 
-    @Column(name = "customer_name", length = 200)
     private String customerName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "cust_type", length = 30)
     private CustomerType customerType;
 
-    @Column(name = "is_sme")
     private Boolean isSme;
 
-    @Column(name = "country_cd", length = 10)
     private String countryCode;
 
-    @Column(name = "prod_cd", length = 20)
     private String productCode;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "prod_category", length = 30)
     private ProductCategory productCategory;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "currency", nullable = false, length = 3)
     private CurrencyCode currency;
 
-    @Column(name = "bs_class", length = 10)
     private String bsClass;
 
-    @Column(name = "cur_bal", precision = 19, scale = 4)
     private BigDecimal currentBalance;
 
-    @Column(name = "outstd_amt", precision = 19, scale = 4)
     private BigDecimal outstandingAmount;
 
-    @Column(name = "limit_amt", precision = 19, scale = 4)
     private BigDecimal limitAmount;
 
-    @Column(name = "market_val", precision = 19, scale = 4)
     private BigDecimal marketValue;
 
-    @Column(name = "int_rate", precision = 10, scale = 6)
     private BigDecimal interestRate;
 
-    @Column(name = "coupon_rate", precision = 10, scale = 6)
     private BigDecimal couponRate;
 
-    @Column(name = "rate_type", length = 10)
     private String rateType;
 
-    @Column(name = "base_rate_cd", length = 20)
     private String baseRateCode;
 
-    @Column(name = "spread", precision = 10, scale = 6)
     private BigDecimal spread;
 
-    @Column(name = "payment_freq")
     private Integer paymentFreq;
 
-    @Column(name = "next_reset_dt")
     private LocalDate nextResetDate;
 
-    @Column(name = "open_dt")
     private LocalDate openDate;
 
-    @Column(name = "maturity_dt")
     private LocalDate maturityDate;
 
-    @Column(name = "repayment_method", length = 20)
     private String repaymentMethod;
 
-    @Column(name = "grace_period")
     private Integer gracePeriod;
 
-    @Column(name = "repayment_freq")
     private Integer repaymentFreq;
 
-    @Column(name = "int_rate_floor", precision = 10, scale = 6)
     private BigDecimal interestRateFloor;
 
-    @Column(name = "int_rate_cap", precision = 10, scale = 6)
     private BigDecimal interestRateCap;
 
-    @Column(name = "ref_index_cd", length = 20)
     private String refIndexCode;
 
-    @Column(name = "internal_rating", length = 10)
     private String internalRating;
 
-    @Column(name = "external_rating", length = 10)
     private String externalRating;
 
-    @Column(name = "industry_cd", length = 20)
     private String industryCode;
 
-    @Column(name = "warning_level", length = 20)
     private String warningLevel;
 
-    @Column(name = "is_debt_restructured")
     private Boolean isDebtRestructured;
 
-    @Column(name = "delinquent_days")
     private Integer delinquentDays;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "staging", length = 20)
     private CrStaging staging;
 
-    @Column(name = "coll_amt", precision = 19, scale = 4)
     private BigDecimal collateralAmount;
 
-    @Column(name = "recognized_coll_amt", precision = 19, scale = 4)
     private BigDecimal recognizedCollateralAmount;
 
-    @Column(name = "coll_type", length = 20)
     private String collateralType;
 
-    @Column(name = "pd", precision = 10, scale = 8)
     private BigDecimal pd;
 
-    @Column(name = "lgd", precision = 10, scale = 8)
     private BigDecimal lgd;
 
-    @Column(name = "expected_loss", precision = 19, scale = 4)
     private BigDecimal expectedLoss;
 
-    @Column(name = "branch_cd", length = 10)
     private String branchCd;
 
-    @Column(name = "biz_unit_cd", length = 10)
     private String bizUnitCd;
 
-    @Column(name = "margin_rate", precision = 10, scale = 6)
     private BigDecimal marginRate;
 
-    @Column(name = "repricing_freq")
     private Integer repricingFreq;
 }
+
 
