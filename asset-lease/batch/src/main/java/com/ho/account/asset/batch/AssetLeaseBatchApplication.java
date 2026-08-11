@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = "com.ho.account.asset")
 @EnableDiscoveryClient
 @EntityScan(basePackages = "com.ho.account.asset.domain")
-@EnableJpaRepositories(basePackages = "com.ho.account.asset.repository")
+@EnableJpaRepositories(basePackages = "com.ho.account.asset.infrastructure.persistence.repository")
 public class AssetLeaseBatchApplication {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(AssetLeaseBatchApplication.class);

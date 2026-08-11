@@ -1,4 +1,4 @@
-package com.ho.account.asset.repository;
+package com.ho.account.asset.infrastructure.persistence.repository;
 
 import com.ho.account.asset.domain.LeaseContract;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -7,6 +7,14 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * [헥사고날 아키텍처 - 인프라스트럭처 영속성 계층 (Infrastructure Persistence Repository)]
+ * 리스 계약(LeaseContract) 엔티티를 관리하는 JPA 리포지토리 인터페이스입니다.
+ * 
+ * 💡 [교육적 주석 - 헥사고날/DIP 원칙]
+ * 본 인터페이스는 인프라스트럭처 레이어에 위치하며, LeasePersistenceAdapter에서만 직접 주입받아 사용합니다.
+ * 핵심 도메인 로직 및 서비스는 본 인터페이스 대신 LeasePersistencePort 인터페이스에 의존합니다.
+ */
 @Repository
 public interface LeaseContractRepository extends JpaRepository<LeaseContract, Long> {
     List<LeaseContract> findByStatus(String status);
