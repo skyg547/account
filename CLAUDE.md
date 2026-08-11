@@ -9,7 +9,7 @@
 ## Claude Code 구현 할당
 
 - 기본 역할은 계속 독립 리뷰어다. 사용자가 Claude Code에 특정 Issue 구현을 명시적으로 맡긴 경우에만 production/test 코드를 수정한다.
-- 구현 전 Issue가 `status:ready`인지 다시 확인하고 `status:in-progress`, `agent:claude-code`, branch/worktree/base/allowlist 시작 댓글을 동기화한다.
+- 구현 전 Issue가 `status:ready`인지 다시 확인하고 부모 Integrator에게 claim을 요청한다. 부모가 `status:in-progress`, `agent:claude-code`, assignee 및 branch/worktree/base/allowlist 시작 댓글을 동기화했다고 확인할 때까지 편집하지 않으며, Claude Code는 GitHub 상태를 직접 변경하지 않는다.
 - 다른 도구가 소유한 `status:in-progress` 또는 `status:blocked` Issue는 중복 구현하지 않는다.
 - `status:needs-review` Issue를 맡으면 read-only 리뷰만 수행하며, 발견한 수정은 구현 owner 또는 부모 Integrator에게 반환한다.
 

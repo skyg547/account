@@ -1825,7 +1825,7 @@
 - Enabled an explicitly classified Tax API plain JAR for the Expenditure cross-API test while retaining the unclassified executable boot JAR; removed duplicate/unused Expenditure dependencies.
 - Focused latest-main verification passed 45 tasks and 55 observed tests with no failure/error/skip. Tax packaging produced exactly one executable artifact and one small `-plain.jar`; container selection policy passed.
 - The full root forced build passed the original #340 failure and executed 237 tasks before the known #344 Internal Audit explicit local datasource policy failure. Fresh evidence was posted to #344.
-- Commit `aaaa4922` is pushed and Draft PR `#350` is open with Issue #340 at `status:needs-review`. No external environment, merge, or Issue close was performed.
+- Independent latest-main review found no P0-P3. PR `#350` merged as `aaad0c0d`; Issue #340 was closed and its active workflow/owner labels were removed.
 
 ## 2026-08-11 (Issue #348 multi-tool GitHub ownership)
 
@@ -1836,3 +1836,5 @@
 - No GitHub Project or bot account was created. No package, secret, database, container, production/test code, or primary-checkout file was accessed or changed by this documentation implementation.
 - Allowlist/link/label/Issue-state/diff/conflict-marker checks passed. Commit `34d14d34` is pushed and Draft PR `#349` is open with `Refs #348`.
 - Issue #348 is now `status:needs-review`. Gemini or Claude Code can review the frozen diff read-only; merge and Issue close remain pending.
+- The initial independent review found three P2 process defects. The remediation makes the parent Integrator the only GitHub mutator, completes every advertised ready-Issue contract, and supersedes the malformed #348 claim comment with an exact contract.
+- Rebased onto `origin/main@aaad0c0d`; four append-only harness conflicts retained both #340 and #348 records. No production/test/build/runtime file conflicted.

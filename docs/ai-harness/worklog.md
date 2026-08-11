@@ -831,7 +831,7 @@
 - Latest-main focused verification executed 45 tasks successfully; observed Tax/Expenditure/Container-policy reports contained 55 tests with no failure/error/skip. Tax output contained one approximately 98 MB executable JAR and one approximately 9 KB `-plain.jar`.
 - Root `build --offline --rerun-tasks --max-workers=1` passed the original Expenditure test compilation/integration failure and executed 237 tasks. It stopped only at the separately tracked #344 `InternalAuditRuntimePolicyTest` explicit-local-datasource assertion; fresh evidence was added to #344.
 - `git diff --check` and scoped conflict-marker checks passed. The independent pre-sync review reported no P0-P3 and latest-main changed-file overlap was empty.
-- Commit `aaaa4922` is pushed and Draft PR `#350` targets `main` with `Refs #340/#227/#344`. Issue #340 is `status:needs-review`; no merge or close was performed.
+- Independent latest-main review reported no P0-P3. PR `#350` was promoted Ready and merged as `aaad0c0d`; Issue #340 was closed and its active status/owner labels were removed.
 - Rollback is a normal revert of `aaaa4922`. A named pre-sync stash commit is retained until integration; no database, container, credential, private endpoint, or external service was accessed.
 
 ## 2026-08-11 - Issue #348 multi-tool GitHub ownership protocol
@@ -844,3 +844,5 @@
 - No GitHub Project, bot/App, package, database, container, credential, production/test code, or primary-checkout file was changed. Rollback is a documentation revert plus removal of only the eight Issue #348 labels if the convention is rejected.
 - Changed-file allowlist, relative links, required-label existence, synchronized Issue state/assignee audit, `git diff --check`, and scoped conflict-marker checks passed.
 - Commit `34d14d34` is pushed and Draft PR `#349` targets `main` with `Refs #348`. Issue #348 is `status:needs-review`; Gemini or Claude Code may perform the independent read-only review. No Ready transition, merge, or Issue close was performed.
+- The first independent PR review found three P2 process defects: incomplete ready-Issue contracts, contradictory GitHub mutation ownership, and a malformed original #348 claim comment. The protocol now makes the parent Integrator the sole GitHub mutator, the ready contracts were completed, and an exact superseding claim was posted.
+- Rebased onto `origin/main@aaad0c0d`; append-only conflicts in four shared harness logs preserved both the integrated #340 evidence and the #348 records. No production, test, build, database, or runtime file conflicted.

@@ -17,7 +17,7 @@
 - 공통 아키텍처/검증/안전 원칙은 루트 `AGENTS.md`를 따른다.
 - 기본 역할은 **독립 코드 리뷰어**다.
 - 사용자가 명시적으로 "Gemini가 구현/수정"을 요청하지 않는 한, Gemini는 production/test 코드 수정을 하지 않는다.
-- 사용자가 구현을 명시해도 `status:ready`인 GitHub Issue만 claim할 수 있다. 편집 전에 `docs/ai-harness/86-multi-tool-issue-ownership.md`에 따라 `status:in-progress`, `agent:gemini`, branch/worktree/base/allowlist 시작 댓글을 동기화한다.
+- 사용자가 구현을 명시해도 `status:ready`인 GitHub Issue만 claim할 수 있다. 부모 Integrator에게 claim을 요청하고, 부모가 `status:in-progress`, `agent:gemini`, assignee 및 branch/worktree/base/allowlist 시작 댓글을 동기화했다고 확인할 때까지 편집하지 않는다. Gemini는 GitHub 상태를 직접 변경하지 않는다.
 - 다른 도구가 소유한 `status:in-progress` 또는 `status:blocked` Issue는 구현하지 않는다. 다른 `status:ready` Issue를 선택하거나 부모 Integrator가 기록한 handoff를 기다린다.
 - `status:needs-review` Issue에서는 독립 리뷰만 수행하고 구현 파일을 수정하지 않는다.
 - Gemini는 Codex 변경분을 검수하고, 버그/회귀/아키텍처 위반/테스트 누락/문서 불일치를 우선순위별로 보고한다.

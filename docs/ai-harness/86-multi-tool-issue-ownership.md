@@ -41,10 +41,10 @@ Only claim an Issue whose current state is `OPEN` and whose workflow label is `s
 1. Read the Issue body, all comments, linked PRs, assignees, and labels.
 2. Fetch the base branch and record the exact `origin/main` commit. Do not synchronize by modifying a dirty primary checkout.
 3. Confirm there is no active `status:in-progress` or `status:blocked` label and no newer claim comment.
-4. Change `status:ready` to `status:in-progress`, add exactly one `agent:*` owner label, and add the approved GitHub assignee when applicable.
-5. Immediately add a start comment containing owner tool, branch, external worktree, base commit, allowed files, acceptance criteria, and verification plan.
-6. Refresh the Issue. If a concurrent claim produced more than one owner label or claim comment, stop before editing. The parent Integrator resolves the race; the first complete claim by GitHub timestamp normally wins.
-7. Create or reuse only the Issue branch and its isolated worktree. Never write from the dirty primary checkout.
+4. Request the claim from the parent Integrator. Implementation tools do not change Issue labels, assignees, comments, branches, or PR state themselves.
+5. The parent Integrator validates the complete ready contract, changes `status:ready` to `status:in-progress`, replaces any stale tool-owner label with exactly one `agent:*` label, applies the approved assignee, and adds the start comment containing owner tool, branch, external worktree, exact base commit, allowed files, acceptance criteria, and verification plan.
+6. The parent Integrator refreshes the Issue and resolves any race. The first complete claim by GitHub timestamp normally wins; all implementation tools wait until the Integrator confirms the remote state.
+7. After confirmation, create or reuse only the Issue branch and its isolated worktree. Never write from the dirty primary checkout.
 
 Example claim comment:
 
@@ -106,7 +106,7 @@ git fetch origin main
 git rev-parse origin/main
 ```
 
-Claim a ready Issue after approval:
+Parent Integrator only - record an approved ready-Issue claim (implementation tools request this and wait):
 
 ```powershell
 gh issue edit 123 --remove-label "status:ready" --add-label "status:in-progress" --add-label "agent:gemini"
