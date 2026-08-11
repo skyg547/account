@@ -2,6 +2,7 @@ package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
 import com.ho.account.masterdata.core.infrastructure.persistence.BusinessPartnerJpaEntity;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -31,6 +32,19 @@ public interface BusinessPartnerRepository extends JpaRepository<BusinessPartner
             """)
     Optional<BusinessPartnerJpaEntity> findActiveByBusinessPartnerCode(
             @Param("businessPartnerCode") String businessPartnerCode,
+            @Param("date") LocalDate date);
+
+    @EntityGraph(attributePaths = "accounts")
+    @Query("""
+            SELECT bp FROM BusinessPartnerJpaEntity bp
+            WHERE bp.businessPartnerCode IN :codes
+              AND bp.useYn = true
+              AND bp.validFrom <= :date
+              AND bp.validTo >= :date
+            ORDER BY bp.businessPartnerCode, bp.validFrom
+            """)
+    List<BusinessPartnerJpaEntity> findActiveByBusinessPartnerCodeIn(
+            @Param("codes") Collection<String> codes,
             @Param("date") LocalDate date);
 
     // @todo 운영 PostgreSQL에서는 business_partner_code와 날짜 범위에 exclusion constraint를 추가해야 합니다.

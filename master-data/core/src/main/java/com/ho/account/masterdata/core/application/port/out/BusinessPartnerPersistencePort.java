@@ -2,6 +2,7 @@ package com.ho.account.masterdata.core.application.port.out;
 
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,8 @@ public interface BusinessPartnerPersistencePort {
     boolean existsByBusinessPartnerCode(String businessPartnerCode);
 
     Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode);
+
+    List<BusinessPartner> findAllByBusinessPartnerCodeIn(Collection<String> businessPartnerCodes);
 
     /**
      * 지정 기준일에 유효했던 거래처 버전을 조회합니다.
