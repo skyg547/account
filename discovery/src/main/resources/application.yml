@@ -11,11 +11,23 @@ eureka:
   instance:
     hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
   client:
-    # Discovery Server 자체는 업무 서비스가 아니므로 자기 자신을 client로 등록하거나 registry를 내려받지 않습니다.
+    # 단일 노드(Standalone) 디스커버리 서버 기본 설정:
+    # Discovery Server 자신은 업무 서비스가 아니므로 자기 자신을 Registry에 등록하거나 레지스트리를 가져오지 않습니다.
     register-with-eureka: false
     fetch-registry: false
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+  server:
+    # [유레카 자가 보존 모드 (Self-Preservation Mode)]
+    # - 개념: 네트워크 단선이나 일시적인 지연으로 인해 Microservice 인스턴스로부터 Heartbeat(하트비트)를 수신하지 못할 때,
+    #         하트비트 수신율이 지정 임계치(기본 85%) 이하로 떨어지면 정상 인스턴스들을 레지스트리에서 무분별하게 제거(Eviction)하지 않도록 보호합니다.
+    # - 목적: 네트워크 핑 손실 시 대량의 서비스 인스턴스가 동시 해제되어 정상 요청 전달이 불가능해지는 장애 확산을 방지합니다.
+    enable-self-preservation: ${EUREKA_SERVER_ENABLE_SELF_PRESERVATION:true}
+
+    # [수확 주기 (Eviction Interval Timer)]
+    # - 개념: Heartbeat가 정상 수신되지 않는 '만료된' 인스턴스를 레지스트리에서 검출하여 실제로 수확(Evict/제거)하는 스케줄러 주기(ms 단위).
+    # - 기본값: 60,000ms (60초). 주기적으로 1분마다 만료된 인스턴스를 검출하여 정리합니다.
+    eviction-interval-timer-in-ms: ${EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS:60000}
 
 management:
   endpoints:
@@ -31,3 +43,55 @@ management:
       enabled: true
     readinessstate:
       enabled: true
+
+---
+# ===================================================================
+# [고가용성(HA) Peer-Awareness 프로파일 설정: peer1]
+# -------------------------------------------------------------------
+# - Peer Awareness 개념: Eureka Server를 다중 노드로 구성하여 서버 간 레지스트리(Registry) 정보를 상호 복제(Replication)합니다.
+# - peer1 노드는 상대 노드인 peer2(기본 포트 8762)를 바라보며 레지스트리 정보를 주입받고 복제합니다.
+# - 클러스터링(HA) 모드에서는 상대방 노드와 통신하며 자신을 등록하고 레지스트리를 조회해야 하므로
+#   register-with-eureka 와 fetch-registry 옵션을 true로 설정합니다.
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: peer1
+
+server:
+  port: ${SERVER_PORT:8761}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:peer1}
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://peer2:8762/eureka/}
+
+---
+# ===================================================================
+# [고가용성(HA) Peer-Awareness 프로파일 설정: peer2]
+# -------------------------------------------------------------------
+# - peer2 노드는 상대 노드인 peer1(기본 포트 8761)을 교차 참조(Cross-Reference)합니다.
+# - peer1 -> peer2:8762/eureka, peer2 -> peer1:8761/eureka 상호 참조 구성을 통해
+#   한쪽 Eureka Server 노드에 장애가 발생하더라도 서비스 디스커버리 기능이 무중단(HA) 유지됩니다.
+# ===================================================================
+spring:
+  config:
+    activate:
+      on-profile: peer2
+
+server:
+  port: ${SERVER_PORT:8762}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:peer2}
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://peer1:8761/eureka/}
+

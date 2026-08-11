@@ -1,3 +1,21 @@
+### 📅 2026-08-12 (Discovery 모듈 유레카 서버 Peer-Awareness 구성 및 자가 보존 모드/수확 주기 설정 - Issue #304)
+### [MSA/디스커버리/고가용성] Eureka Server Peer-Awareness HA 프로파일 분리 및 자가 보존 모드/수확 주기 설정
+
+- **작업 배경**:
+  - Discovery 모듈의 Eureka Server 설정이 단일 노드(Standalone) 기준으로만 설정되어 있어, 다중 노드(peer1/peer2) 고가용성(HA) 구성 시 레지스트리 상호 동기화(Replication) 및 피어 인식(Peer Awareness) 설정이 부재했음.
+  - 유레카 자가 보존 모드(`enable-self-preservation`) 및 만료 인스턴스 수확 주기(`eviction-interval-timer-in-ms`) 설정이 명시되지 않아 장애 상황 발생 시 복구 및 인스턴스 정리 정책이 불명확하였음.
+- **주요 변경 사항**:
+  - `discovery/src/main/resources/application.yml` & `config-repo/discovery-service.yml`:
+    - `peer1` 및 `peer2` Spring 프로파일 분리 구성을 추가하여 defaultZone 상호 교차 참조 설정 (peer1 -> peer2:8762/eureka, peer2 -> peer1:8761/eureka) 구축.
+    - HA 구성 노드 간 레지스트리 동기화를 위해 `peer1`/`peer2` 프로파일의 `eureka.client.register-with-eureka: true` 및 `eureka.client.fetch-registry: true` 설정 적용.
+    - 유레카 서버 자가 보존 모드(`eureka.server.enable-self-preservation: true`) 및 만료 인스턴스 수확 주기(`eureka.server.eviction-interval-timer-in-ms: 60000`) 기본값 및 환경변수 오버라이드 지원 설정 추가.
+    - 초보 개발자도 Eureka Server 고가용성(HA) 구조 및 피어 인식(Peer Awareness) 개념, 자가 보존 모드의 동작 원리를 명확히 이해할 수 있도록 교육적 상세 주석(Pedagogical comments) 작성.
+  - `discovery/src/test/java/com/ho/account/discovery/DiscoveryConfigurationPolicyTest.java`:
+    - Multi-document YAML 파싱 기반 `peer1`, `peer2` 프로파일 분리 설정 및 defaultZone 상호 교차 참조 검증 단위 테스트 작성 (`peer1ProfileConfiguresPeerAwarenessAndCrossReferenceToPeer2`, `peer2ProfileConfiguresPeerAwarenessAndCrossReferenceToPeer1`).
+    - 자가 보존 모드 및 수확 주기 프로퍼티 검증 로직 추가.
+- **검증**:
+  - `.\gradlew.bat :discovery:test` 실행하여 정상 동작 및 YAML 문법 검증 완료 (BUILD SUCCESSFUL in 12s).
+
 ### 📅 2026-08-12 (Loan 모듈 다중 통화(Multi-currency) 환경 원단위 절사 및 통화 반올림 정책 도입 - Issue #310)
 ### [DDD/금융회계/기능강화] Loan 모듈 CurrencyRoundingPolicy 도입 및 전표/원리금계산 절사 및 반올림 적용
 

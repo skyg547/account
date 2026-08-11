@@ -1,3 +1,21 @@
+## 2026-08-12 - Issue #304 Discovery Eureka Peer-Awareness and Self-Preservation Config
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/304-discovery-eureka-peer-awareness` / `C:\tmp\account-304-discovery-eureka-peer-awareness`.
+- Base: `origin/main`.
+- Integration: PR `#360`, merged into `main`. Issue `#304` closed and remote branch deleted.
+- Scope:
+  - Added `peer1` and `peer2` Spring profiles (`spring.config.activate.on-profile: peer1` / `peer2`) to `discovery/src/main/resources/application.yml` and `config-repo/discovery-service.yml`.
+  - Configured defaultZone cross-referencing between peers (peer1 -> peer2:8762/eureka, peer2 -> peer1:8761/eureka).
+  - Set `eureka.client.register-with-eureka: true` and `eureka.client.fetch-registry: true` for HA profiles.
+  - Added Eureka server self-preservation (`eureka.server.enable-self-preservation: true`) and eviction interval timer (`eureka.server.eviction-interval-timer-in-ms: 60000`) settings.
+  - Added pedagogical comments explaining Eureka Server HA, Peer-Awareness, self-preservation mode, and eviction interval concepts.
+  - Added unit test `DiscoveryConfigurationPolicyTest` to parse multi-document YAML and assert profile-specific configurations and server properties.
+- Verification:
+  - `./gradlew.bat :discovery:test` passed 100% (BUILD SUCCESSFUL in 12s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #310 Loan Multi-currency Rounding Policy Implementation
 
 - Owner: Gemini (Agent loop subagent)
