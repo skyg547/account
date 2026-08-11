@@ -1,3 +1,21 @@
+## 2026-08-12 - Issue #304 Discovery Eureka Peer-Awareness and Self-Preservation Config
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/304-discovery-eureka-peer-awareness` / `C:\tmp\account-304-discovery-eureka-peer-awareness`.
+- Base: `origin/main`.
+- Integration: PR `#360`, merged into `main`. Issue `#304` closed and remote branch deleted.
+- Scope:
+  - Added `peer1` and `peer2` Spring profiles (`spring.config.activate.on-profile: peer1` / `peer2`) to `discovery/src/main/resources/application.yml` and `config-repo/discovery-service.yml`.
+  - Configured defaultZone cross-referencing between peers (peer1 -> peer2:8762/eureka, peer2 -> peer1:8761/eureka).
+  - Set `eureka.client.register-with-eureka: true` and `eureka.client.fetch-registry: true` for HA profiles.
+  - Added Eureka server self-preservation (`eureka.server.enable-self-preservation: true`) and eviction interval timer (`eureka.server.eviction-interval-timer-in-ms: 60000`) settings.
+  - Added pedagogical comments explaining Eureka Server HA, Peer-Awareness, self-preservation mode, and eviction interval concepts.
+  - Added unit test `DiscoveryConfigurationPolicyTest` to parse multi-document YAML and assert profile-specific configurations and server properties.
+- Verification:
+  - `./gradlew.bat :discovery:test` passed 100% (BUILD SUCCESSFUL in 12s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #310 Loan Multi-currency Rounding Policy Implementation
 
 - Owner: Gemini (Agent loop subagent)
@@ -947,3 +965,4 @@
 - `git diff --check`, four-file implementation allowlist and scoped conflict-marker checks passed. An older restart-validator experiment changed Job semantics and regressed the existing prod schema-context test; it is intentionally excluded and retained only in named stash `GH-90 pre-baseline partial batch local work` until review/merge cleanup.
 - Rollback only the four Issue #90 implementation paths through a reviewed revert and append the result to shared records. No external DB/data/container rollback exists; no private host, credential, PostgreSQL, Kafka or Compose runtime was accessed.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main with `Refs #90/#227`; Issue #90 is `status:needs-review`. Ready/merge/close remain gated on final PR-head verification.
+- The first final PR-head review passed and PR #359 was promoted Ready, but main advanced through Discovery PR #360 before merge; GitHub correctly rejected the stale conflicting merge and Issue #90 remained open. Merged `origin/main@191c5c28`, preserved both append-only #90/#304 records, confirmed zero upstream overlap in the four implementation paths, and reran the focused local-context test successfully. A final PR-head recheck is required after pushing the sync commit.

@@ -1,3 +1,30 @@
+# AI Harness Handoff - 2026-08-12 Issue #304 Discovery Eureka Peer-Awareness and Self-Preservation Config
+
+## Active Goal And State
+
+- GitHub Issue `#304` was integrated by PR `#360`. `Fixes #304` closed the Issue and the remote feature branch was deleted.
+- Worktree `C:\tmp\account-304-discovery-eureka-peer-awareness` was cleaned up.
+
+## Changes And Boundaries
+
+- `discovery/src/main/resources/application.yml` & `config-repo/discovery-service.yml`:
+  - Added `peer1` and `peer2` Spring profile sections with `spring.config.activate.on-profile: peer1` / `peer2`.
+  - Configured defaultZone cross-referencing between peers (peer1 -> peer2:8762/eureka, peer2 -> peer1:8761/eureka).
+  - Set `eureka.client.register-with-eureka: true` and `eureka.client.fetch-registry: true` for HA profiles.
+  - Added Eureka server self-preservation (`eureka.server.enable-self-preservation: ${EUREKA_SERVER_ENABLE_SELF_PRESERVATION:true}`) and eviction interval timer (`eureka.server.eviction-interval-timer-in-ms: ${EUREKA_SERVER_EVICTION_INTERVAL_TIMER_IN_MS:60000}`) configuration.
+  - Written detailed educational comments (Pedagogical comments) to explain HA cluster architecture, Peer-Awareness, self-preservation mode, and eviction interval concepts.
+- `discovery/src/test/java/com/ho/account/discovery/DiscoveryConfigurationPolicyTest.java`:
+  - Updated unit test to parse multi-document YAML with SnakeYAML `loadAll` and verify default vs `peer1` / `peer2` profile configurations and server properties.
+
+## Verification Evidence
+
+- Run `./gradlew.bat :discovery:test` passed 100% (BUILD SUCCESSFUL in 12s).
+- PR #360 merged into `main` cleanly.
+
+## Known Risks And Rollback
+
+- Revert PR #360. No database schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #310 Loan Multi-Currency Rounding Policy
 
 ## Active Goal And State
@@ -1557,3 +1584,4 @@
 - A previous restart-validator experiment remains in named stash `GH-90 pre-baseline partial batch local work`; it is outside the refreshed Issue contract because it changes Job semantics and fails the existing prod schema-context test. Do not apply it to this PR.
 - Rollback uses a reviewed revert of the four implementation paths while retaining append-only records. No external state exists. Next owner is an independent read-only reviewer, followed by the parent Integrator for commit/Draft PR.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main; Issue #90 is frozen at `status:needs-review`. Next owner is an independent final PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge/close gate.
+- PR #359 was promoted Ready after its first final review, but a concurrent Discovery PR #360 main merge made the head conflicting before merge execution. The parent merged `main@191c5c28`, preserved both harness histories and reran the focused test. Push the sync commit, recheck PR head/base, then repeat the independent final gate; Issue #90 remains open.
