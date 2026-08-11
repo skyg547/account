@@ -16,3 +16,11 @@ Merge and rebase conflict resolutions are recorded below.
 | 2026-07-30 | `agent/228-container-images` + `origin/main@54352362` | `docs/ai-harness/agent-status.md` | text conflict during rebase | Kept Issue #43's final integrated status and the independent Issue #228 image-packaging status; discarded only the superseded pre-integration Issue #43 row. A later rebase to `origin/main@36a1be4f` completed without conflict. | Codex Integrator |
 | 2026-07-30 | `agent/229-dev-postgres` + `origin/main@36a1be4f` | `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/ai-harness/{worklog,agent-status,handoff}.md` | text conflicts in append-only shared records during rebase | Preserved the latest Issue #43/#44 integration records and appended the Issue #229 development PostgreSQL contract records. No database, migration, or application configuration conflict occurred. | Codex Integrator |
 | 2026-07-30 | `agent/227-runtime-parity-audit` + `origin/main@36a1be4f` | `CODEX_WORKLOG.md`, `docs/WORKLOG.md`, `docs/ai-harness/{worklog,agent-status,handoff}.md` | text conflicts in append-only shared records during rebase | Preserved all latest Issue #43/#44 integration records and appended the Issue #227 audit snapshot/handoff entries without changing production or test code. | Codex Integrator |
+
+## 2026-08-11 - Issue #344 latest-main harness sync
+
+- Branch/worktree: `agent/344-internal-audit-local-h2` / `C:\tmp\account-344-internal-audit-local-h2`.
+- Sync: named stash of the reviewed `cf50e4fc` diff, fast-forward to `origin/main@b2d5c6ef`, then stash replay.
+- Conflict: only `docs/ai-harness/agent-status.md`; upstream added #312/#314 integration rows while the Issue branch added #344 and corrected #342 rows.
+- Resolution: retained all four rows in newest-first order. `handoff.md` and `worklog.md` auto-merged append-only; the two Internal Audit implementation paths remained byte-identical to the independently reviewed stash.
+- Verification: no unmerged entries or conflict markers, `git diff --check`, allowlist and latest-main focused policy test passed. The named stash remains temporarily as a recovery reference until the PR head is verified.

@@ -1861,3 +1861,18 @@
 - Independent review found no P0-P3. Real Redis-backed dev/prod and automated container/CI smoke remain outside scope; no external environment was accessed.
 - Commit `d0698585` is pushed and Draft PR #353 targets main with `Refs #342/#227`. Issue #342 is `status:needs-review`; merge and close remain gated.
 - Final PR review found one P3: whole-commit rollback would remove accurate #79 integration history co-located in `d0698585`. Corrected the contract to revert only the three #342 paths through a reviewed follow-up while preserving append-only harness records; runtime/test review remains clear.
+- Independent re-review found no P0-P3. PR #353 merged as `cf50e4fc`; Issue #342 closed and active labels were removed.
+
+## 2026-08-11 (Issue #344 Internal Audit explicit local policy)
+
+- Reused `agent/344-internal-audit-local-h2` / `C:\tmp\account-344-internal-audit-local-h2` and fast-forwarded its preserved two-file change without overlap from `81f4206e` to `origin/main@cf50e4fc`; the dirty primary checkout remained untouched.
+- Confirmed the production `application-local.yml` was already integrated by #231. Strengthened the focused policy test for local H2 PostgreSQL mode, Flyway V60, JPA validate, disabled SQL init/control-plane clients, and clarified that local in-memory data is ephemeral.
+- Focused and full Internal Audit Core/API gates passed 17 tests in 6 suites, zero failure/error/skip, API bootJar, and direct executable-JAR startup with active local profile, H2, Flyway V60, JPA and `Started InternalAuditApiApplication`.
+- The first smoke checker searched for an obsolete class name and falsely returned failure despite a successful start; corrected evaluation of the same log passed all checks. Diff/marker/allowlist checks passed.
+- No production resource, migration, dev/prod behavior, external PostgreSQL, credential, private URL, Compose stack or existing container changed. Independent read-only review remains before commit/PR.
+- Independent review found one P3 because the test helper masked three local control-plane values. The fix limits those overrides to dev/prod test contexts, so local assertions now exercise the tracked profile; focused and full module gates reran successfully and independent re-review remains.
+- A root `build --offline --rerun-tasks --max-workers=1` attempt exceeded the five-minute command timeout without an observed failure. It is recorded as timed out, not passed; no external system was involved.
+- Repeated the root forced build with a ten-minute limit; it passed in 8m31s with all 349 actionable tasks executed. This clears the earlier #340/#344 full-root stopping point on the tested base.
+- Independent remediation re-review found no P0-P3. A newer `origin/main` overlaps three append-only harness logs, so latest-main synchronization and focused revalidation remain before commit/Draft PR.
+- Synchronized through a named stash and fast-forward to `origin/main@b2d5c6ef`. Resolved the sole `agent-status.md` conflict by preserving upstream #312/#314 and local #344/#342 records; auto-merged logs preserved both histories. The reviewed Internal Audit paths were byte-identical and the focused policy test/static gates passed again.
+- Commit `e4a86d67` is pushed and Draft PR #357 targets main with `Refs #344/#227`. Issue #344 is `status:needs-review`; Ready/merge/close remain pending a final PR-head gate.

@@ -193,3 +193,10 @@ Recommended integration order remains:
 - Gate: latest-main 42 tests, API bootJar, direct local H2 JAR startup, allowlist/diff/marker checks and final independent review passed with no P0-P3.
 - Result: PR #352 merged to `main` as `4fa50cc8`; Issue #79 closed and active workflow/owner labels were removed.
 - Rollback: revert merge commit `4fa50cc8`; no schema, data, container, credential, or external runtime rollback is required.
+
+## 2026-08-11 - GH-342 Reconciliation Local Health Integration
+
+- Source: Issue #342, PR #353, branch `agent/342-reconciliation-local-health`.
+- Gate: latest-main 34 tests, API bootJar, direct health/readiness HTTP smoke, path-scoped rollback correction and final independent re-review passed with no remaining P0-P3.
+- Result: PR #353 merged to `main` as `cf50e4fc`; Issue #342 closed and active workflow/owner labels were removed.
+- Rollback: use a reviewed revert of only the three #342 runtime/test/docs paths while preserving append-only harness history; no schema, data, container, credential or external runtime rollback is required.
