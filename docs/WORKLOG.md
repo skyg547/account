@@ -1,3 +1,27 @@
+### 📅 2026-08-12 ([account-mart][architecture] 도메인 엔티티 내 JPA 어노테이션 사용 — 포트 앤 어댑터 패턴 위반 - Issue #299)
+### [account-mart/architecture] 도메인 엔티티 내 JPA 기술 어노테이션 전면 제거 및 도메인-영속성 모델 분리 (Pure Java POJO & Data Mapper 패턴 적용)
+
+- **작업 배경**:
+  - `account-mart` 모듈의 도메인 패키지 내 `KapExternalRating` 및 `AllowanceInputPosition` 클래스에 `@Entity`, `@Table`, `@Id`, `@Column` 등의 JPA 기술 어노테이션이 직접 포함되어 헥사고날 아키텍처(Port and Adapter Pattern)의 도메인 레이어 기술 독립성 원칙을 위반함.
+  - 도메인 엔티티에서 JPA 어노테이션을 전면 제거하여 Pure Java POJO로 재작성하고, DB 테이블 매핑 전담 JPA Entity 클래스(`KapExternalRatingEntity`, `AllowanceInputPositionEntity`)와 양방향 변환 Mapper(`KapExternalRatingMapper`, `AllowanceInputPositionMapper`)를 Infrastructure 레이어로 분리/신설함.
+- **주요 변경 사항**:
+  - `account-mart/mart-core/.../domain/external/kap/KapExternalRating.java`:
+    - JPA 어노테이션 전면 제거 및 Pure Java POJO 변환.
+    - 헥사고날 아키텍처, 도메인 모델 순수성 및 영속성 분리 관련 교육적 주석(Pedagogical comments) 추가.
+  - `account-mart/mart-core/.../domain/mart/AllowanceInputPosition.java`:
+    - JPA 어노테이션(`@Entity`, `@Table`, `@IdClass`, `@Column`, `@Enumerated` 등) 전면 제거 및 Pure Java POJO 변환.
+    - 계층 분리 원칙, 단위 테스트 용이성 및 Data Mapper 패턴 적용 관련 상세 교육적 주석 추가.
+  - Infrastructure JPA Entity & Mapper 신설 (`mart-core`):
+    - `KapExternalRatingEntity.java`, `AllowanceInputPositionEntity.java`
+    - `KapExternalRatingMapper.java`, `AllowanceInputPositionMapper.java`
+    - `JpaKapExternalRatingRepository.java`, `JpaAllowanceInputPositionRepository.java` (Entity 대상 JPQL/Generics 적용)
+    - `AllowanceInputPositionPersistenceAdapter.java` (Domain POJO <-> JPA Entity 변환 매핑 적용)
+  - Batch 및 Test 모듈 맞춤 변경 (`mart-batch`):
+    - `KapDataEtlJobConfig.java`, `KapExternalRatingProcessor.java`, `KapDataEtlJobTest.java`
+    - `IntegratedPositionEtlJobConfig.java`, `IntegratedPositionItemProcessor.java`
+- **검증**:
+  - `./gradlew.bat :account-mart:mart-core:test :account-mart:mart-api:test :account-mart:mart-batch:test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([payable, receivable][financial] 전표 발행 시 대차평균(복식부기 차변=대변) 검증 로직 누락 해결 - Issue #296)
 ### [payable, receivable/financial] 전표 발행 직전 차변/대변 금액 대차평균(Double-entry debit-credit balance) 사전 명시적 검증 및 불평형 전표 차단 (Fail-Closed)
 

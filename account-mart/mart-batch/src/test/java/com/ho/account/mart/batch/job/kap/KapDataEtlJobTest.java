@@ -1,6 +1,6 @@
 package com.ho.account.mart.batch.job.kap;
 
-import com.ho.account.mart.core.domain.external.kap.KapExternalRating;
+import com.ho.account.mart.core.infrastructure.persistence.entity.external.kap.KapExternalRatingEntity;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,19 +61,20 @@ public class KapDataEtlJobTest {
         assertThat(jobExecution.getExitStatus()).isEqualTo(ExitStatus.COMPLETED);
 
         // DB 조회 검증
-        List<KapExternalRating> results = entityManager.createQuery(
-                "SELECT r FROM KapExternalRating r", KapExternalRating.class)
+        List<KapExternalRatingEntity> results = entityManager.createQuery(
+                "SELECT r FROM KapExternalRatingEntity r", KapExternalRatingEntity.class)
                 .getResultList();
 
         assertThat(results).hasSize(3);
         assertThat(results)
-                .extracting(KapExternalRating::getCustomerId, KapExternalRating::getRatingGrade)
+                .extracting(KapExternalRatingEntity::getCustomerId, KapExternalRatingEntity::getRatingGrade)
                 .containsExactlyInAnyOrder(
                         tuple("C-001", "AAA"),
                         tuple("C-002", "AA+"),
                         tuple("C-003", "BBB"));
 
-        KapExternalRating first = results.get(0);
+        KapExternalRatingEntity first = results.get(0);
         assertThat(first.getEvalAgency()).isEqualTo("KAP");
     }
 }
+

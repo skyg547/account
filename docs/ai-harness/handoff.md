@@ -1,3 +1,34 @@
+# AI Harness Handoff - 2026-08-12 Issue #299 Decouple JPA Annotations from Account Mart Domain Entities
+
+## Active Goal And State
+
+- GitHub Issue `#299` (`[account-mart][architecture] 도메인 엔티티 내 JPA 어노테이션 사용 — 포트 앤 어댑터 패턴 위반`) completed and merged into `main`. `Fixes #299` closes Issue `#299`.
+- PR merged into `main` and remote branch `agent/299-account-mart-jpa-decouple` deleted.
+- Worktree `C:\tmp\account-299-account-mart-jpa-decouple` cleaned up.
+
+## Changes And Boundaries
+
+- `account-mart/mart-core/.../domain/external/kap/KapExternalRating.java`:
+  - Stripped JPA annotations (`@Entity`, `@Table`, `@Id`, `@Column`). Pure Java POJO. Added detailed pedagogical comments.
+- `account-mart/mart-core/.../domain/mart/AllowanceInputPosition.java`:
+  - Stripped JPA annotations (`@Entity`, `@Table`, `@IdClass`, `@Id`, `@Column`, `@Enumerated`). Pure Java POJO. Added detailed pedagogical comments.
+- New Infrastructure JPA Entities & Mappers:
+  - `KapExternalRatingEntity.java`, `AllowanceInputPositionEntity.java`
+  - `KapExternalRatingMapper.java`, `AllowanceInputPositionMapper.java`
+  - `JpaKapExternalRatingRepository.java`, `JpaAllowanceInputPositionRepository.java`
+  - `AllowanceInputPositionPersistenceAdapter.java`
+- Batch Processors & Configs (`mart-batch`):
+  - `KapDataEtlJobConfig.java`, `KapExternalRatingProcessor.java`, `KapDataEtlJobTest.java`
+  - `IntegratedPositionEtlJobConfig.java`, `IntegratedPositionItemProcessor.java`
+
+## Verification Evidence
+
+- `./gradlew.bat :account-mart:mart-core:test :account-mart:mart-api:test :account-mart:mart-batch:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #296 Validate Double-Entry Debit-Credit Balance in Payable & Receivable Services
 
 ## Active Goal And State

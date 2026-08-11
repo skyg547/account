@@ -1,3 +1,18 @@
+## 2026-08-12 - Issue #299 Decouple JPA Annotations from Account Mart Domain Entities
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/299-account-mart-jpa-decouple` / `C:\tmp\account-299-account-mart-jpa-decouple`.
+- Base: `origin/main`.
+- Integration: Merged PR into `main`. Issue `#299` closed and remote branch deleted.
+- Scope:
+  - Removed all JPA annotations (`@Entity`, `@Table`, `@Id`, `@Column`, `@Enumerated`, `@IdClass`, etc.) from `KapExternalRating` and `AllowanceInputPosition` domain classes in `account-mart/mart-core`.
+  - Converted domain entities into Pure Java POJOs to adhere to Hexagonal Architecture (Port and Adapter Pattern) and DDD guidelines.
+  - Added JPA Entities (`KapExternalRatingEntity`, `AllowanceInputPositionEntity`) and Data Mappers (`KapExternalRatingMapper`, `AllowanceInputPositionMapper`) in `infrastructure/persistence`.
+  - Updated `JpaKapExternalRatingRepository`, `JpaAllowanceInputPositionRepository`, `AllowanceInputPositionPersistenceAdapter`, `KapExternalRatingProcessor`, `IntegratedPositionItemProcessor`, `KapDataEtlJobConfig`, and `IntegratedPositionEtlJobConfig`.
+  - Added comprehensive educational comments (Pedagogical comments) explaining Hexagonal Architecture, domain purity, and persistence model separation.
+- Verification:
+  - `./gradlew.bat :account-mart:mart-core:test :account-mart:mart-api:test :account-mart:mart-batch:test` passed 100% (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #296 Validate Double-Entry Debit-Credit Balance in Payable & Receivable Services
 
 - Owner: Gemini (Agent loop subagent)
