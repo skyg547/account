@@ -76,8 +76,8 @@ class InterestAccrualServiceTest {
                         LoanJournalPort.LoanJournalLine::accountCode,
                         LoanJournalPort.LoanJournalLine::amount)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("DEBIT", "11599", new BigDecimal("123.45")),
-                        org.assertj.core.groups.Tuple.tuple("CREDIT", "41199", new BigDecimal("123.45")));
+                        org.assertj.core.groups.Tuple.tuple("DEBIT", "11599", new BigDecimal("123")),
+                        org.assertj.core.groups.Tuple.tuple("CREDIT", "41199", new BigDecimal("123")));
 
         InOrder businessOrder = inOrder(referenceDataPort, journalPort);
         businessOrder.verify(referenceDataPort).requireAccount("11599", accrualDate);

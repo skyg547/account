@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -126,7 +127,7 @@ class LoanServiceTest {
         when(persistencePort.findLoanForUpdate(1L)).thenReturn(Optional.of(loan));
         when(persistencePort.findDeferredItems(loan)).thenReturn(List.of());
         when(eirCalculator.calculateEIR(
-                eq(loan), eq(newOutstanding), eq(loan.getMaturityDate()), anyList()))
+                eq(loan), argThat(val -> val != null && val.compareTo(newOutstanding) == 0), eq(loan.getMaturityDate()), anyList()))
                 .thenReturn(new BigDecimal("0.0400"));
         when(referenceDataPort.requireAccount("101999", date))
                 .thenReturn(new AccountReference("101999", "Cash"));
