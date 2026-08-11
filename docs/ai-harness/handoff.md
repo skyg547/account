@@ -1,3 +1,31 @@
+# AI Harness Handoff - 2026-08-12 Issue #306 Gateway Dynamic Service Discovery in AuthTokenVersionValidator
+
+## Active Goal And State
+
+- GitHub Issue `#306` (`[gateway][msa] TokenVersion 검증 시 하드코딩된 고정 IP 호출`) completed and merged into `main`. `Fixes #306` closes Issue `#306`.
+- Worktree `C:\tmp\account-306-gateway-token-version-dynamic-lb` was cleaned up.
+
+## Changes And Boundaries
+
+- `gateway/src/main/java/com/ho/account/gateway/config/WebClientConfig.java`:
+  - Created WebClientConfig with `@LoadBalanced WebClient.Builder` Spring Bean.
+  - Added comprehensive pedagogical comments explaining MSA Service Discovery and Client-side Load Balancing.
+- `gateway/src/main/java/com/ho/account/gateway/security/AuthTokenVersionValidator.java`:
+  - Injected `@LoadBalanced WebClient.Builder` to enable dynamic service resolution for Auth token version validation.
+  - Added pedagogical comments explaining dynamic instance discovery, round-robin balancing, and HA benefits.
+- `gateway/src/main/java/com/ho/account/gateway/security/TokenVersionValidationProperties.java` & `gateway/src/main/resources/application.yml`:
+  - Updated default `baseUrl` from `http://localhost:8084` to `lb://auth-service`.
+- `gateway/docker-compose.yml` & `GatewayDockerConfigurationTest.java` & `gateway/README.md`:
+  - Updated Docker compose configuration, unit tests, and documentation to reflect `lb://auth-service`.
+
+## Verification Evidence
+
+- `./gradlew.bat :gateway:test` passed 100% (BUILD SUCCESSFUL in 40s).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #304 Discovery Eureka Peer-Awareness and Self-Preservation Config
 
 ## Active Goal And State

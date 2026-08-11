@@ -28,7 +28,7 @@ class GatewayDockerConfigurationTest {
                 .containsEntry("JAR_DIRECTORY", "gateway");
         assertThat(asList(gateway.get("ports"))).contains("8000:8000");
         assertThat(asList(gateway.get("environment")))
-                .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=http://auth:8084");
+                .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service");
     }
 
     private Map<String, Object> service(Map<String, Object> root, String serviceName) {
