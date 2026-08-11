@@ -6,6 +6,8 @@ This document defines how to manage AI coding work with GitHub Issues, agent bra
 
 초보자 설명: GitHub Issue는 "AI에게 맡길 작업 지시서"이고, branch/worktree는 "안전한 작업 공간"이며, Draft PR은 "사람 리뷰 전 검수 문"이다.
 
+Codex, Gemini, and Claude Code ownership, claim races, handoffs, and status transitions are defined in [86-multi-tool-issue-ownership.md](86-multi-tool-issue-ownership.md).
+
 ## Branch Or Worktree
 
 Use both concepts together:
@@ -68,6 +70,9 @@ Every AI Agent task issue should contain:
 Recommended labels:
 
 - `agent-loop`
+- `agent:codex`
+- `agent:gemini`
+- `agent:claude-code`
 - `agent:planner`
 - `agent:explorer`
 - `agent:coder`
@@ -89,7 +94,9 @@ Recommended labels:
 - `status:blocked`
 - `status:needs-review`
 
-If repository labels do not exist yet, create them manually or with an approved GitHub CLI/API step.
+The `agent:<tool>` labels identify the current implementation tool. Role labels such as `agent:coder` identify responsibility and do not reserve the Issue. Keep exactly one `status:*` workflow label and one implementation-owner label on a claimed open Issue.
+
+If repository labels do not exist yet, the parent Integrator creates them manually or with an approved GitHub CLI/API step. The current repository uses labels as its workflow state because no GitHub Projects Status field is configured.
 
 ## Project Fields
 
@@ -102,6 +109,8 @@ Recommended GitHub Projects fields:
 - Risk: Low, Medium, High.
 - Target Branch: planned branch name.
 - Verification: Not run, Targeted pass, Full pass, Blocked.
+
+GitHub Projects is optional. If it is introduced later, its Status must mirror the Issue labels and must not become a conflicting second claim source.
 
 ## Standard Issue Loop
 
@@ -144,7 +153,7 @@ GitHub Issue #123 변경분을 Reviewer Agent 관점으로 검토해줘.
 
 ## GitHub CLI Usage
 
-After `gh` is installed and authenticated:
+After `gh` is installed and authenticated, implementation/review tools may run the read-only `list` and `view` examples. The parent Integrator alone runs Issue/PR mutation commands such as `create`, `edit`, `comment`, `ready`, `merge`, and `close`:
 
 ```powershell
 gh auth login
@@ -250,7 +259,7 @@ Issue `#1` is the parent issue for AI harness setup. This branch applies it as:
 
 ## PR Merge And Issue Close Runbook
 
-Use this runbook when the user explicitly approves merge after a Draft PR is ready.
+The parent Integrator uses this runbook when the user explicitly approves merge after a Draft PR is ready. Other implementation/review tools return their evidence and do not run these mutation commands.
 
 1. Check PR state and mergeability.
 

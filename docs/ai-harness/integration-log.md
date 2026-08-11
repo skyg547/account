@@ -171,3 +171,11 @@ Recommended integration order remains:
 - Result: PR #232 merged as `c720ae58`; Issue #41 closed automatically at merge; the remote source branch was deleted.
 - Rollback: revert merge commit `c720ae58`. No schema migration rollback is required.
 - Remaining risks: PostgreSQL exclusion constraint/integration coverage, bounded pagination for account entity graphs, and a second-save rollback integration test remain follow-ups.
+
+## 2026-08-11 - GH-340 Expenditure/Tax Classpath Integration
+
+- Source: Issue #340, PR #350, branch `agent/340-expenditure-tax-test-classpath`.
+- Gate: focused 45 tasks and 55 observed tests passed; the original root failure was cleared; independent latest-main review found no P0-P3.
+- Result: PR #350 merged to `main` as `aaad0c0d`; Issue #340 closed and active workflow/owner labels were removed.
+- Remaining dependency: the full-root build still stops at separately owned Issue #344 after passing the original #340 failure.
+- Rollback: revert merge commit `aaad0c0d`; no database, container, credential, or external runtime rollback is required.
