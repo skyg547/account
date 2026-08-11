@@ -1,3 +1,24 @@
+## 2026-08-12 - Issue #293 Implement Transactional Outbox Pattern for Journal Posting Dual Write Consistency
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/293-msa-transactional-outbox-journal` / `C:\tmp\account-293-msa-transactional-outbox-journal`.
+- Base: `origin/main`.
+- Scope:
+  - Extracted `com.ho.account.contracts.outbox` package in `contracts` module:
+    - Domain/Persistence Event Models: `OutboxStatus`, `OutboxEvent`, `JournalOutboxEvent`.
+    - Ports: `OutboxPort` (atomic local DB save & pending query/status update), `OutboxEventPublisher` (relay engine interface).
+    - Asynchronous Relay Engine: `JournalOutboxRelayService` (queries PENDING events and relays to `JournalPostingPort` with At-Least-Once delivery and Eventual Consistency).
+    - In-Memory Adapter: `InMemoryOutboxAdapter` for testing and local standalone runs.
+  - Integrated `deposit` and `loan` modules:
+    - Refactored `DepositService`: saves `JournalOutboxEvent` atomically within local DB transaction during account opening/initial deposit, then relays via `OutboxEventPublisher`.
+    - Refactored `LoanJournalAdapter`: saves `JournalOutboxEvent` atomically upon loan disbursal/adjustment journal posting, transitioning to PUBLISHED upon completion.
+  - Idempotency & Pedagogical Comments:
+    - Added idempotency check in `JournalPostingAdapter` using `lineageSourceType` and `lineageSourceId` to prevent duplicate journal posting.
+    - Added extensive pedagogical comments explaining MSA Dual Write issues, Transactional Outbox atomic save, Eventual Consistency, and Idempotency benefits.
+- Verification:
+  - Added unit/integration tests `JournalOutboxPatternTest.java` (verifying atomic save, retry resilience upon network failure, and idempotency deduplication).
+  - Executed `./gradlew.bat test` across all modules (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #290 Decouple PersonalAccessTokenService from JPA Infrastructure (DIP & Hexagonal Outbound Port)
 
 - Owner: Gemini (Agent loop subagent)

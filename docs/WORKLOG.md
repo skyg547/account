@@ -1,3 +1,29 @@
+### 📅 2026-08-12 ([전 모듈][msa] 전표 기록(Journal POST) 동기 호출로 인한 Dual Write 정합성 문제 - Issue #293)
+### [contracts/journal/deposit/loan] Transactional Outbox 패턴 기반 전표 비동기 발행 및 Dual Write 정합성/멱등성 구조 구현
+
+- **작업 배경**:
+  - 기존에는 `LoanService` 및 `DepositService` 등 전표 연동 모듈에서 로컬 DB 저장 트랜잭션 내부에서 외부 전표 서비스 API(`JournalPostingPort` / `JournalUseCase`)를 직접 동기 호출함.
+  - 이로 인해 로컬 DB 커밋 후 네트워크 장애로 외부 전표 생성이 실패하거나, 반대로 외부 전표는 생성되었으나 로컬 DB 커밋 직전 예외 발생 시 수동 복구가 불가한 Dual Write 정합성 불일치 문제가 존재함.
+- **주요 변경 사항**:
+  - `contracts` 모듈 내 `com.ho.account.contracts.outbox` 패키지 도출:
+    - `OutboxStatus`: 이벤트 생명주기 관리 Enum (PENDING, PUBLISHED, FAILED).
+    - `OutboxEvent`: 공통 Outbox 도메인/영속성 이벤트 모델 (`eventId`, `aggregateType`, `aggregateId`, `eventType`, `payload`, `idempotencyKey` 등).
+    - `JournalOutboxEvent`: 전표 생성 명령어(`JournalEntryCommand`) 및 Lineage 정보, 멱등성 키를 탑재한 전표 전용 Outbox 이벤트.
+    - `OutboxPort`: 로컬 DB 트랜잭션 내 원자적 Save 및 PENDING 이벤트 조회/상태 갱신 아웃바운드 포트.
+    - `OutboxEventPublisher`: 비동기 릴레이 엔진 인터페이스.
+    - `JournalOutboxRelayService`: Outbox 저장소에서 PENDING 이벤트를 조회하여 `JournalPostingPort`로 릴레이 전달하고 At-Least-Once delivery 및 최종 정합성(Eventual Consistency)을 달성하는 비동기 릴레이 엔진.
+    - `InMemoryOutboxAdapter`: 테스트 및 로컬 단독 실행용 인메모리 Outbox 포트 어댑터.
+  - `deposit` 및 `loan` 모듈 통합:
+    - `DepositService`: 계좌 개설 및 초기 입금 처리 시 외부 API 직접 동기 호출 대신 `JournalOutboxEvent`를 생성하여 로컬 DB 트랜잭션 내 원자적 저장 후 릴레이 엔진을 통해 전표를 안전하게 전달하도록 구조화.
+    - `LoanJournalAdapter`: Loan 전표 발행 시 `JournalOutboxEvent`를 Outbox 저장소에 원자적으로 기록 후 전표 생성을 완료하고 PUBLISHED 상태로 갱신하여 데이터 불일치 완화.
+  - `journal-ledger` 모듈 멱등성(Idempotency) 보장:
+    - `JournalPostingAdapter`: 수신된 `lineageSourceType`과 `lineageSourceId`를 기반으로 이미 생성된 동일 lineage 전표가 존재하는지 멱등성 검사를 수행하여 중복 전표 발행 방지.
+  - 상세 교육적 주석 (Pedagogical comments) 작성:
+    - MSA 환경에서의 Dual Write 정합성 문제, Transactional Outbox 패턴의 원자적 저장 및 최종 정합성(Eventual Consistency), 멱등성(Idempotency) 보장의 아키텍처적 장점 기술.
+- **검증**:
+  - `JournalOutboxPatternTest` 단기술/통합 테스트 신설 (원자적 저장, 네트워크 1차 실패 후 재시도 최종 정합성 검증, 멱등성 키 중복 방지 검증).
+  - `./gradlew.bat test` 실행으로 전체 모듈 빌드 및 테스트 성공 확인.
+
 ### 📅 2026-08-12 ([auth:core][architecture] PersonalAccessTokenService 인프라 직접 의존 — 헥사고날 위반 - Issue #290)
 ### [auth/core] PersonalAccessTokenService 인프라 직접 의존성 제거 및 아웃바운드 포트-어댑터 패턴 (DIP) 구조 개선
 
