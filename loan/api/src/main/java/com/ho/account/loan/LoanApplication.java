@@ -20,13 +20,16 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = {
         "com.ho.account.loan.domain",
         "com.ho.account.journalledger.domain",
-        "com.ho.account.masterdata.core.domain"
+        "com.ho.account.masterdata.core.domain",
+        "com.ho.account.masterdata.core.infrastructure.persistence",
+        "com.ho.account.shared.infrastructure.security.domain"
 })
 @EnableJpaRepositories(basePackages = {
         "com.ho.account.loan.infrastructure.persistence",
         "com.ho.account.journalledger.domain",
         "com.ho.account.journalledger.adapter.out.persistence",
-        "com.ho.account.masterdata.core.infrastructure.persistence"
+        "com.ho.account.masterdata.core.infrastructure.persistence",
+        "com.ho.account.shared.infrastructure.security.repository"
 })
 public class LoanApplication {
     public static void main(String[] args) {
