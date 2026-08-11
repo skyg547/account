@@ -37,10 +37,19 @@ public class LeaseEntryService implements LeaseUseCase {
 
     private static final String TOPIC = "transaction-events";
 
+    /**
+     * 🎓 [교육적 주석 - IFRS 16 최초 인식 및 외부 입력 PV 교차 검증 적용]
+     * 신규 리스 계약을 등록할 때 외부 요청 객체(DTO 등)가 지정한 현재가치(PV)를 무조건 신뢰하지 않습니다.
+     * 계약의 월 리스료, 계약 기간, 증분차입이자율을 기반으로 도메인 내부에서 PV를 자동 계산하여 
+     * 외부 값과의 교차 검증을 거치고, 검증된 도메인 PV 값으로 사용권자산과 리스부채를 최초 인식합니다.
+     */
     @Override
     @Transactional
     public LeaseContract registerLeaseContract(LeaseContract contract, String actor) {
         contract.validateForRegistration();
+        if (contract.isIfrs16Applicable() && !contract.isShortTermLease() && !contract.isLowValueLease()) {
+            contract.updatePresentValueAndValidate();
+        }
         LeaseContract savedContract = persistencePort.saveContract(contract);
 
         if (savedContract.isIfrs16Applicable() && !savedContract.isShortTermLease() && !savedContract.isLowValueLease()) {
@@ -50,15 +59,18 @@ public class LeaseEntryService implements LeaseUseCase {
     }
 
     private void recognizeInitialLease(LeaseContract contract, String actor) {
+        // 외부 요청 입력값을 100% 신뢰하지 않고 도메인 자동 산출 PV로 재검증 및 설정
+        contract.updatePresentValueAndValidate();
+
         RightOfUseAsset rouAsset = new RightOfUseAsset();
         rouAsset.setLeaseContract(contract);
         rouAsset.setAssetName(contract.getContractName() + " - ROU");
         rouAsset.setRecognitionDate(contract.getStartDate());
         rouAsset.setInitialValue(contract.getInitialRightOfUseAssetValue());
         rouAsset.setCurrentBookValue(contract.getInitialRightOfUseAssetValue());
-        long totalMonths = contract.getStartDate().until(contract.getEndDate()).toTotalMonths();
-        rouAsset.setDepreciationAmountPerPeriod(totalMonths > 0 
-                ? contract.getInitialRightOfUseAssetValue().divide(new BigDecimal(totalMonths), 2, RoundingMode.HALF_UP) 
+        int termMonths = contract.calculateTermMonths();
+        rouAsset.setDepreciationAmountPerPeriod(termMonths > 0 
+                ? contract.getInitialRightOfUseAssetValue().divide(new BigDecimal(termMonths), 2, RoundingMode.HALF_UP) 
                 : BigDecimal.ZERO);
         persistencePort.saveROUAsset(rouAsset);
 

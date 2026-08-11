@@ -148,6 +148,27 @@ class LeaseEntryServiceTest {
         assertEquals(new BigDecimal("9000.00"), liability.getCurrentValue());
     }
 
+    @Test
+    void registerLeaseContractCalculatesAndSetsPresentValueAutomatically() {
+        LeaseContract contract = createIfrs16LeaseContract();
+        contract.setDiscountRate(new BigDecimal("6.0"));
+        contract.setInitialRightOfUseAssetValue(new BigDecimal("99999999.00"));
+
+        RecordingAssetEventPort eventPort = new RecordingAssetEventPort();
+        LeaseEntryService service = new LeaseEntryService(
+                new FakeLeasePersistencePort(List.of(contract), List.of()),
+                eventPort,
+                new RecordingLeasePaymentResolutionPort(),
+                new StaticLeaseAccountMappingPort());
+
+        LeaseContract registered = service.registerLeaseContract(contract, "lease-user");
+
+        BigDecimal expectedPv = new BigDecimal("13942.72");
+        assertEquals(expectedPv, registered.getInitialRightOfUseAssetValue());
+        assertEquals(expectedPv, registered.getInitialLeaseLiabilityValue());
+        assertEquals(expectedPv, eventPort.eventData.get("rouAmount"));
+    }
+
     private static class StaticLeaseAccountMappingPort implements LeaseAccountMappingPort {
 
         @Override
@@ -229,7 +250,10 @@ class LeaseEntryServiceTest {
 
         @Override
         public LeaseContract saveContract(LeaseContract contract) {
-            throw new UnsupportedOperationException();
+            if (contract.getId() == null) {
+                contract.setId(1L);
+            }
+            return contract;
         }
 
         @Override
@@ -276,7 +300,7 @@ class LeaseEntryServiceTest {
 
         @Override
         public void savePaymentSchedules(List<LeasePaymentSchedule> schedules) {
-            throw new UnsupportedOperationException();
+            // no-op or record schedules
         }
 
         @Override
