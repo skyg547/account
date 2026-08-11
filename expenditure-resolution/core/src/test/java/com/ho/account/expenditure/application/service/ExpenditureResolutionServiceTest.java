@@ -151,6 +151,56 @@ class ExpenditureResolutionServiceTest {
         verify(resolutionPersistencePort).save(resolution);
     }
 
+    @Test
+    void updateResolutionRestoresExistingBudgetAndDeductsNewAmountWhenDraft() {
+        ExpenditureResolutionService service = createService();
+        LocalDate resolutionDate = LocalDate.of(2026, 4, 29);
+        ExpenditureResolution existing = ExpenditureResolution.create(
+                "REQ-20260429-001",
+                "기존 결의서",
+                resolutionDate,
+                resolutionDate.plusDays(1),
+                "D001",
+                "PAY001",
+                "tester");
+        ExpenditureDetail detail = ExpenditureDetail.create("EXP001", new BigDecimal("1000.00"), "BP001", "기존 내역");
+        existing.addDetail(detail);
+
+        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(existing));
+        givenMasterData();
+        when(taxInvoiceQueryPort.findById(10L)).thenReturn(Optional.of(new TaxInvoiceRef(10L, "TX-10", "PURCHASE", "ACTIVE")));
+        when(resolutionPersistencePort.save(any(ExpenditureResolution.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ExpenditureResolutionCommand updateCmd = new ExpenditureResolutionCommand(
+                "수정 결의서",
+                resolutionDate,
+                resolutionDate.plusDays(1),
+                "D001",
+                "PAY001",
+                10L,
+                List.of(new ExpenditureResolutionCommand.DetailCommand("EXP001", new BigDecimal("1500.00"), "BP001", "수정 내역")));
+
+        ExpenditureResolution updated = service.updateResolution(1L, updateCmd);
+
+        verify(budgetService).restoreBudget("202604", "D001", "EXP001", new BigDecimal("1000.00"));
+        verify(budgetService).useBudget("202604", "D001", "EXP001", new BigDecimal("1500.00"));
+        assertEquals("수정 결의서", updated.getTitle());
+    }
+
+    @Test
+    void rejectResolutionRestoresBudgetOnRejection() {
+        ExpenditureResolutionService service = createService();
+        ExpenditureResolution resolution = requestedResolution();
+        when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(resolution));
+
+        service.rejectResolution(1L, "서류 미비로 인한 반려");
+
+        assertEquals(ExpenditureResolutionStatus.REJECTED, resolution.getStatus());
+        assertEquals("서류 미비로 인한 반려", resolution.getRejectionReason());
+        verify(budgetService).restoreBudget("202604", "D001", "EXP001", new BigDecimal("1200.00"));
+        verify(resolutionPersistencePort).save(resolution);
+    }
+
     private ExpenditureResolutionCommand createCommand(LocalDate resolutionDate) {
         return new ExpenditureResolutionCommand(
                 "지출결의 테스트",

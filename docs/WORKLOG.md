@@ -1,3 +1,25 @@
+### 📅 2026-08-12 ([expenditure-resolution][financial] 결의서 수정/반려 시 예산 복원 누락 (이중 차감 버그) - Issue #316)
+### [expenditure-resolution] 결의서 수정 및 반려 시 예산 복원(restoreBudget) 구현을 통한 이중 차감 버그 해결 및 예산 통제 정합성 확보
+
+- **작업 배경**:
+  - 지출결의서 수정(`updateResolution`) 시 기존 결의 금액에 대해 차감된 예산을 복원하지 않고 신규 금액만 예산을 차감(`useBudget`)하여 동일 결의서에 대해 예산이 중복 차감되는 결함이 존재했음.
+  - 지출결의서 반려(`rejectResolution`) 시에도 차감 처리되었던 예산 금액을 복원해주지 않아 부서 잔여 예산이 불필요하게 잠기는 문제 발생.
+- **주요 변경 사항**:
+  - **도메인 및 서비스 예산 복원 기능 구현**:
+    - `Budget.java`: 차감 사용액(`usedAmount`)을 환원시키는 `restoreBudget(BigDecimal amount)` 메서드 추가. 음수/Null 및 초과 복원 예외 검증 로직 구현.
+    - `BudgetService.java`: 지정된 연월, 부서, 계정과목의 예산을 복원하는 `restoreBudget(...)` 메서드 구현.
+  - **Hexagonal Port-Adapter 연동**:
+    - `BudgetControlPort.java` (contracts) 및 `BudgetControlAdapter.java`: 예산 복원(`restoreBudget`) 포트 정의 및 어댑터 구현 연동.
+  - **지출결의 서비스 이중 차감 방지 및 반려 시 복원 로직 구현**:
+    - `ExpenditureResolutionService.updateResolution`: DRAFT 상태 결의서 수정 시 기존 결의 금액에 대해 `restoreBudget`을 먼저 수행한 후, 갱신된 신규 금액으로 `useBudget`을 수행하도록 수정. (REJECTED 상태 수정 시 이미 반려 시점에 복원 완료되었으므로 중복 복원 방지).
+    - `ExpenditureResolutionService.rejectResolution`: 결의서 반려 시 차감되었던 예산 금액을 전액 `restoreBudget`하도록 보장.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 지출결의 업무에서 예산 통제(Budget Control) 생명주기, 결의서 변경/반려에 따른 예산 환원 정합성, 과도한 예산 잠금 방지 및 금융 통제 이점을 상세 설명.
+- **검증**:
+  - `ExpenditureResolutionServiceTest.java`: `updateResolution` 실행 시 기존 예산 복원 후 신규 예산 차감 검증 및 `rejectResolution` 실행 시 예산 전액 복원 검증.
+  - `BudgetServiceTest.java`: `restoreBudget` 실행 시 사용 금액 차감 및 잔여 예산 즉시 회복 검증.
+  - `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` 실행하여 전체 성공 확인.
+
 ### 📅 2026-08-12 ([deposit][architecture] 낙관적 잠금(Optimistic Locking) 누락으로 인한 잔액 갱신 손실(Lost Update) 위험 - Issue #313)
 ### [deposit] DepositAccount 엔티티 JPA @Version 적용 및 낙관적 잠금 재시도(Retry) 메커니즘을 통한 갱신 손실 방지
 

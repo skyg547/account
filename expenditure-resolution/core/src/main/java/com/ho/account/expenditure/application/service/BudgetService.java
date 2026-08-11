@@ -28,6 +28,29 @@ public class BudgetService {
         budgetPersistencePort.save(budget);
     }
 
+    /**
+     * 지정된 연월, 부서, 계정과목의 차감된 예산을 복원(환원)합니다.
+     * 
+     * 🎓 [교육적 설명 / Financial Control LifeCycle]
+     * 결의서의 수정(updateResolution)이나 반려(rejectResolution)가 발생하면, 기존에 차감 처리되었던
+     * 예산을 즉시 복원해야 합니다. 
+     * 이를 통해 회계 시스템은 '실제 유효한 결의'에 대해서만 예산을 차감(Deduction) 상태로 유지하며,
+     * 취소되거나 변경된 거래 내역에 의한 예산 과다 잠금(Over-locking) 현상을 방지하여 
+     * 자금 집행의 정확성과 통제 정합성(Consistency)을 보장합니다.
+     *
+     * @param yearMonth 연월 (YYYYMM)
+     * @param departmentCode 부서 코드
+     * @param accountCode 계정과목 코드
+     * @param amount 복원할 예산 금액
+     */
+    public void restoreBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+        Budget budget = budgetPersistencePort
+                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode)
+                .orElseThrow(() -> new IllegalArgumentException("해당 부서와 계정의 예산이 설정되지 않았습니다."));
+        budget.restoreBudget(amount);
+        budgetPersistencePort.save(budget);
+    }
+
     @Transactional(readOnly = true)
     public BigDecimal getRemainingBudget(String yearMonth, String departmentCode, String accountCode) {
         return budgetPersistencePort
