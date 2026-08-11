@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #308 Journal Entry Domain Validation Cohesion & Invariants Consolidation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/308-journal-entry-domain-validation` / `C:\tmp\account-308-journal-entry-domain-validation`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#308` closed and remote branch deleted.
+- Scope:
+  - Created `validateInvariants()` method in `JournalEntry` Aggregate Root to consolidate required header checks (`slipDate`, `accountingDate`) and debit/credit balance checks (`validateBalance()`).
+  - Refactored `BalanceValidationFilter` to delegate validation by invoking `journalEntry.validateInvariants()`.
+  - Added educational comments on DDD Aggregate Root invariants, encapsulation, and domain model cohesion.
+  - Enhanced `JournalEntryAggregateTest` with unit tests for header invariant validation.
+- Verification:
+  - `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test` passed 100% (BUILD SUCCESSFUL in 40s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #306 Gateway Dynamic Service Discovery in AuthTokenVersionValidator
 
 - Owner: Gemini (Agent loop subagent)

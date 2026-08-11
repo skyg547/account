@@ -1,3 +1,31 @@
+# AI Harness Handoff - 2026-08-12 Issue #308 Journal Entry Domain Validation Cohesion & Invariants Consolidation
+
+## Active Goal And State
+
+- GitHub Issue `#308` (`[journal-ledger][ddd] 분개 검증(Validation) 로직의 도메인 응집도 분산`) completed and merged into `main`. `Fixes #308` closes Issue `#308`.
+- Worktree `C:\tmp\account-308-journal-entry-domain-validation` was cleaned up.
+
+## Changes And Boundaries
+
+- `journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java`:
+  - Consolidated domain invariants validation and header validation (`slipDate`, `accountingDate`) with debit/credit balance checks into `validateInvariants()`.
+  - Added educational comments on DDD Aggregate Root invariants, encapsulation, and domain model cohesion.
+- `journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/validator/BalanceValidationFilter.java`:
+  - Updated filter to delegate validation to `journalEntry.validateInvariants()`.
+  - Added educational comments on Validation Filter orchestration and domain delegation.
+- `journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java`:
+  - Enhanced comments explaining the separation between Application Service orchestration and Domain Entity invariant encapsulation.
+- `journal-ledger/core/src/test/java/com/ho/account/journalledger/domain/journal/domain/JournalEntryAggregateTest.java`:
+  - Added unit test cases for header invariant validation and `validateInvariants()` success/failure.
+
+## Verification Evidence
+
+- `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test` passed 100% (BUILD SUCCESSFUL in 40s).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #306 Gateway Dynamic Service Discovery in AuthTokenVersionValidator
 
 ## Active Goal And State
