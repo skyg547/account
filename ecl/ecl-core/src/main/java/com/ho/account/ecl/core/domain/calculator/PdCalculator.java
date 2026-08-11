@@ -1,5 +1,6 @@
 package com.ho.account.ecl.core.domain.calculator;
 
+import com.ho.account.ecl.core.domain.model.TransitionMatrix;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -8,16 +9,22 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * [도메인 계산기] IFRS 9 PD(Probability of Default, 부도확률) 정밀 계산 도메인 모델.
+ * [도메인 계산기] IFRS 9 PD(Probability of Default, 부도확률) 정밀 계산 순수 도메인 모델 (Pure Domain Calculator).
  *
- * 💡 [초보자를 위한 개념 설명]
- * - PD Floor (부도확률 하한선): 자산 신용등급이 우량해도 회계/감독 규정에 따라 최소한으로 적용해야 하는 바닥 PD 수치입니다. (예: 0.0003 = 0.03%)
- * - Delinquency/Warning Penalty (동적 위험 할증): 연체 30일 이상이거나 경보 발생 시 부도 확률을 2배 이상 할증합니다.
- * - Lifetime Cumulative PD -> Marginal PD 분해:
- *   누적 부도확률 $CumPD_t$ 로부터 각 연도별 순수 부도확률인 한계 부도확률 $MarginalPD_t$ 를 계산합니다.
- *   $MarginalPD_t = \frac{CumPD_t - CumPD_{t-1}}{1 - CumPD_{t-1}}$
+ * 💡 [초보자를 위한 개념 설명 & DDD 설계 이유]
+ * 1. Rich Domain Model vs Anemic Service:
+ *    기존에는 애플리케이션 서비스(LifetimePdService) 내부에 연속 위험률(Hazard Rate) 연산 및
+ *    전이행렬(Transition Matrix) 기반 다기간 한계부도율(Marginal PD) 산식 등의 핵심 도메인 로직이 유출되어 있었습니다.
+ *    이를 순수 도메인 계산기(PdCalculator)로 캡슐화하여 서비스의 역할을 데이터 조회 및 조율(Orchestration)로 한정합니다.
+ *
+ * 2. 부도확률 주요 공식:
+ *    - PD Floor (하한선): 신용 우량 차주라도 회계 규정에 따른 최소 적용 PD (예: 0.03%)
+ *    - 연속 위험률: $h = -\ln(1 - \min(pd_1, 0.9999))$ (누적 PD가 1을 넘지 않도록 안전 보장)
+ *    - 연도 $t$의 한계부도율: $MarginalPD_t = (1 - CumPD_{t-1}) \times (1 - e^{-h})$
  */
 @Component
 public class PdCalculator {
@@ -104,6 +111,93 @@ public class PdCalculator {
     }
 
     /**
+     * [Pure Domain Calculator] 전이행렬(Transition Matrix)에서 부도 등급('D')으로의 전이 확률을 추출하여 Marginal PD 곡선을 생성합니다.
+     *
+     * 💡 [금융공학 산출 원리]
+     * 1. 1차년도 PD($pd_1$): 전이행렬 상의 D(Default) 등급 전이 확률과 등급 마스터 기초 PD 중 보수적인(더 큰) 수치 선택
+     * 2. 연속 위험률(Hazard Rate, $h$): $h = -\ln(1 - \min(pd_1, 0.9999))$
+     *    - 부도확률을 연속 시간 모델로 전환하여 누적 부도확률이 100%를 넘지 않도록 보장
+     * 3. $t$년차 한계부도율($mPD_t$): 생존확률($1 - CumPD_{t-1}$) $\times (1 - e^{-h})$
+     *
+     * @param transitions 해당 신용등급의 전이행렬 엔티티 목록
+     * @param initialPd12m 기초 12개월 PD
+     * @param maturityYears 잔여만기 (연 단위)
+     * @return 연도별 Marginal PD 곡선 리스트
+     */
+    public List<BigDecimal> generateTransitionBasedCurve(
+            List<TransitionMatrix> transitions,
+            BigDecimal initialPd12m,
+            double maturityYears) {
+
+        Map<String, BigDecimal> transMap = transitions.stream()
+                .collect(Collectors.toMap(
+                        TransitionMatrix::getToRating,
+                        TransitionMatrix::getProbability,
+                        (v1, v2) -> v2
+                ));
+
+        BigDecimal transitionPd = transMap.getOrDefault("D", initialPd12m);
+
+        double pd1 = Math.max(
+                (transitionPd != null) ? transitionPd.doubleValue() : 0.05,
+                (initialPd12m != null) ? initialPd12m.doubleValue() : 0.05
+        );
+
+        List<BigDecimal> curve = new ArrayList<>();
+        curve.add(BigDecimal.valueOf(pd1).setScale(8, RoundingMode.HALF_UP));
+
+        double hazardRate = -Math.log(1 - Math.min(pd1, 0.9999));
+        double cumulativePd = pd1;
+        int maxYears = (int) Math.ceil(maturityYears);
+
+        for (int t = 2; t <= maxYears; t++) {
+            double survivalProb = 1.0 - cumulativePd;
+            double marginalPd = survivalProb * (1 - Math.exp(-hazardRate));
+            marginalPd = Math.min(marginalPd, survivalProb);
+
+            curve.add(BigDecimal.valueOf(marginalPd).setScale(8, RoundingMode.HALF_UP));
+            cumulativePd += marginalPd;
+
+            if (cumulativePd >= 0.99) break;
+        }
+
+        return curve;
+    }
+
+    /**
+     * [Pure Domain Calculator] 전이행렬 미존재 시 단순 지수 평활 가정을 적용하여 Marginal PD 곡선을 생성합니다.
+     *
+     * 💡 [단순 모델 산식]
+     * $t$년차 한계부도율 = $\min(\text{생존확률} \times \text{HazardRate}, \text{생존확률})$
+     *
+     * @param initialPd12m 기초 12개월 PD
+     * @param maturityYears 잔여만기 (연 단위)
+     * @return 연도별 Marginal PD 곡선 리스트
+     */
+    public List<BigDecimal> generateSimplePdCurve(BigDecimal initialPd12m, double maturityYears) {
+        List<BigDecimal> curve = new ArrayList<>();
+        double pd1 = (initialPd12m != null) ? initialPd12m.doubleValue() : 0.05;
+
+        curve.add(BigDecimal.valueOf(pd1).setScale(8, RoundingMode.HALF_UP));
+
+        double cumulativePd = pd1;
+        double hazardRate = pd1;
+
+        int maxYears = (int) Math.ceil(maturityYears);
+        for (int t = 2; t <= maxYears; t++) {
+            double survivalProb = 1.0 - cumulativePd;
+            double marginalPd = Math.min(survivalProb * hazardRate, survivalProb);
+
+            curve.add(BigDecimal.valueOf(marginalPd).setScale(8, RoundingMode.HALF_UP));
+            cumulativePd += marginalPd;
+
+            if (cumulativePd >= 0.99) break;
+        }
+
+        return curve;
+    }
+
+    /**
      * 거시경제 민감도 계수(Macro Scaling Factor)를 적용하여 시나리오별 PD를 조정합니다.
      *
      * @param basePd        기초 PD
@@ -121,3 +215,4 @@ public class PdCalculator {
         return adjusted.setScale(8, RoundingMode.HALF_UP);
     }
 }
+

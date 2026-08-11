@@ -5,31 +5,33 @@ import com.ho.account.ecl.core.application.port.out.CrBulkOperationPort;
 import com.ho.account.ecl.core.application.port.out.CrAccountRepository;
 import com.ho.account.ecl.core.application.port.out.CrCollateralRepository;
 import com.ho.account.ecl.core.application.port.out.CrCustomerRepository;
+import com.ho.account.ecl.core.domain.calculator.CollateralAllocationCalculator;
+import com.ho.account.ecl.core.domain.calculator.CollateralAllocationCalculator.AllocationResult;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
 import com.ho.account.ecl.core.domain.collateral.CrCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.math3.optim.MaxIter;
-import org.apache.commons.math3.optim.PointValuePair;
-import org.apache.commons.math3.optim.linear.*;
-import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * [Service] [CRM] 수학적 최적화 기반 담보배분 서비스 (Mathematical LP CRM Optimization)
+ * [애플리케이션 서비스] [CRM] 담보 배분 오케스트레이션 서비스 (Collateral Allocation Application Service)
  * 
- * 💡 [초보자를 위한 개념 설명]
- * 은행에는 여러 개의 대출을 가진 고객이 하나의 아파트나 보증서를 여러 대출에
- * 동시에 담보로 잡는 경우가 많습니다.
- * 이때 "어떤 대출에 담보를 얼마나 나눠줘야 전체 기대손실이 줄어들까?"를 사람이 일일이 계산하기는 매우 어렵습니다.
- * 본 서비스는 '선형계획법(LP)'이라는 수학적 기법을 사용하여,
- * 제약 조건(담보 한도, 대출 잔액) 내에서 EAD/LGD 개선 효과가 큰 배분 비율을 자동으로 찾아냅니다.
+ * 💡 [DDD & Hexagonal Architecture 설계 원칙]
+ * 1. Application Service의 역할 (Orchestration):
+ *    본 클래스는 포트(Repository, BulkOperationPort)를 사용하여 영속성 데이터를 조율하고,
+ *    트랜잭션 범위를 설정하며, 순수 도메인 연산자({@link CollateralAllocationCalculator})를 호출하는 역할만 전담합니다.
+ * 
+ * 2. Domain Calculator로의 핵심 연산 이관 (Encapsulation):
+ *    수학적 최적화(선형계획법 LP Simplex Solver), 대출 상품별 손실 절감 우선순위 계산, 폭포수 순차 배분 산식은
+ *    모두 도메인 계층의 Pure Domain Calculator 로 이관되었습니다.
+ *    이를 통해 도메인 로직의 재사용성, 단위 테스트 용이성, 그리고 Anemic Domain Model 탈피를 달성합니다.
  */
 @Slf4j
 @Service
@@ -42,10 +44,11 @@ public class CollateralAllocationService {
     private final CrAccountCollateralRepository accountCollateralRepository;
     private final CrBulkOperationPort bulkOperationPort;
     private final ApartmentCollateralService apartmentCollateralService;
+    private final CollateralAllocationCalculator collateralAllocationCalculator;
 
     /**
-     * [고도화] 모든 활성 고객에 대해 담보 배분을 수행한다.
-     * 배치 작업에서 개별 고객별로 호출하던 로직을 서비스 내부로 캡슐화했습니다.
+     * [애플리케이션 서비스 오케스트레이션] 모든 활성 고객에 대해 담보 배분을 수행한다.
+     * 배치 작업 등에서 호출되며 고객별 담보 배분 프로세스를 조율합니다.
      */
     @Transactional
     public void allocateAllCollaterals() {
@@ -67,7 +70,8 @@ public class CollateralAllocationService {
     }
 
     /**
-     * [고도화] 선형계획법(LP Solver)을 사용하여 고객의 담보를 기대손실 절감 관점에서 최적 배분한다.
+     * [애플리케이션 서비스 오케스트레이션] 고객의 계좌 및 담보를 조회하고,
+     * Pure Domain Calculator를 기동하여 최적 배분 결과를 영속화합니다.
      */
     @Transactional
     public void allocateCollateralsForCustomer(Long customerId) {
@@ -81,14 +85,18 @@ public class CollateralAllocationService {
             return;
         }
 
-        // 1. 기존 배분 정보 초기화
+        // 1. 기존 배분 정보 초기화 (Infrastructure IO)
         for (CrAccount account : accounts) {
             bulkOperationPort.deleteAllocationByAccountId(account.getId());
         }
 
         try {
-            // 2. LP 최적화 모델 구축 및 실행
-            executeLinearProgrammingOptimization(accounts, collaterals);
+            // 2. Pure Domain Calculator 호출 (LP 최적화 계산)
+            log.info("  - Domain Calculator LP 최적화 연산 호출 중...");
+            List<AllocationResult> results = collateralAllocationCalculator.calculateLpOptimization(accounts, collaterals);
+            
+            // 3. 연산 결과 저장 (Infrastructure IO)
+            saveAllocationResults(results);
             log.info("✅ [CRM 최적화] 고객(ID: {})의 최적 배분 결과를 저장했습니다.", customerId);
         } catch (Exception e) {
             log.error("❌ [CRM 최적화] 최적화 엔진 실행 중 오류 발생. 단순 Waterfall 방식으로 폴백합니다.", e);
@@ -97,170 +105,33 @@ public class CollateralAllocationService {
     }
 
     /**
-     * [Mathematical Optimization] 심플렉스 솔버(Simplex Solver)를 사용하여 담보 배분 우선순위를 계산한다.
-     * 
-     * 💡 [비즈니스 심화 설명]
-     * 이 로직의 핵심은 손실률 개선 효과가 큰 대출에 담보를 우선 배정하는 것입니다.
-     * 수학적으로는 "Σ (배분액_ij * 우선순위_i)"를 최대화합니다.
-     */
-    private void executeLinearProgrammingOptimization(List<CrAccount> accounts, List<CrCollateral> collaterals) {
-        int totalAccountCount = accounts.size();
-        int totalCollateralCount = collaterals.size();
-
-        // 결정 변수(Decision Variables)의 총 개수 = (계좌 수 * 담보 수)
-        // 예: 계좌 2개, 담보 3개면 총 6개의 배분 조합(Variable)이 나옵니다.
-        int totalDecisionVariables = totalAccountCount * totalCollateralCount;
-
-        // 1. 목적 함수(Objective Function) 정의
-        // 각 변수의 가중치(Coefficients)는 해당 대출 계좌의 손실 절감 우선순위입니다.
-        double[] lossReductionWeights = new double[totalDecisionVariables];
-        for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-            double priorityWeight = estimateLossPriorityWeight(accounts.get(accountIdx));
-
-            for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
-                // 선형 배열 내에서 (계좌, 담보) 조합의 고유 인덱스를 계산합니다.
-                int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                lossReductionWeights[variableIdx] = priorityWeight;
-            }
-        }
-
-        // 상수항 0인 선형 목적 함수 생성 (손실 절감 효과 최대화가 목표)
-        LinearObjectiveFunction lossReductionGoal = new LinearObjectiveFunction(lossReductionWeights, 0);
-
-        // 2. 제약 조건(Constraints) 설정
-        List<LinearConstraint> constraintList = new ArrayList<>();
-
-        // [제약 조건 A] 계좌별 한도 (Account Capacity Constraints)
-        // "특정 대출 계좌 i에 배분된 모든 담보액의 합은 해당 대출의 잔액(EAD)을 초과할 수 없다."
-        for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-            double[] coefficients = new double[totalDecisionVariables];
-            for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
-                int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                coefficients[variableIdx] = 1.0;
-            }
-            double loanBalanceLimit = accounts.get(accountIdx).getOutstandingAmount().doubleValue();
-            constraintList.add(new LinearConstraint(coefficients, Relationship.LEQ, loanBalanceLimit));
-        }
-
-        // [제약 조건 B] 담보별 한도 (Collateral Capacity Constraints)
-        // "특정 담보 j가 여러 대출에 나눠준 모든 배분액의 합은 담보의 유효 가액을 초과할 수 없다."
-        for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
-            double[] coefficients = new double[totalDecisionVariables];
-            for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-                int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                coefficients[variableIdx] = 1.0;
-            }
-            double collateralEffectiveValue = calculateEffectiveValue(collaterals.get(collateralIdx)).doubleValue();
-            constraintList.add(new LinearConstraint(coefficients, Relationship.LEQ, collateralEffectiveValue));
-        }
-
-        // 3. 최적화 엔진(Simplex Solver) 기동
-        // 목표: lossReductionGoal을 최대화(MAXIMIZE) 하면서 모든 제약을 만족하는 '해'를 찾음
-        SimplexSolver solver = new SimplexSolver();
-        PointValuePair optimalSolution = solver.optimize(
-                new MaxIter(1000), // 최대 반복 횟수 (안전장치)
-                lossReductionGoal, // 최적화 목표
-                new LinearConstraintSet(constraintList), // 준수해야 할 제약 조건들
-                GoalType.MAXIMIZE, // 절감 효과 최대화 선택
-                new NonNegativeConstraint(true) // 모든 배분액은 0 이상이어야 함 (음수 배분 방지)
-        );
-
-        // 4. 최적화 결과(해)를 도메인 모델로 변환하여 저장
-        double[] optimizedAllocations = optimalSolution.getPoint();
-        for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-            for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
-                int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                double allocatedAmount = optimizedAllocations[variableIdx];
-
-                // 부동 소수점 오차를 고려하여 0.0001원 이상의 의미 있는 금액만 DB에 기록
-                if (allocatedAmount > 0.0001) {
-                    saveAllocation(
-                            accounts.get(accountIdx),
-                            collaterals.get(collateralIdx),
-                            BigDecimal.valueOf(allocatedAmount));
-                }
-            }
-        }
-    }
-
-    /**
-     * 담보 유형별로 유효 가치를 산출한다.
-     */
-    private BigDecimal calculateEffectiveValue(CrCollateral collateral) {
-        if ("REAL_ESTATE".equals(collateral.getCollateralType())
-                || "APARTMENT".equals(collateral.getCollateralType())) {
-            return apartmentCollateralService.calculateEffectiveValue(collateral);
-        }
-        // 일반 담보 (예금, 유가증권 등)는 헤어컷만 적용
-        return collateral.getAppraisalAmount().multiply(BigDecimal.ONE.subtract(collateral.getBaseHaircut()));
-    }
-
-    private void saveAllocation(CrAccount account, CrCollateral collateral, BigDecimal amount) {
-        CrAccountCollateral mapping = CrAccountCollateral.builder()
-                .account(account)
-                .collateral(collateral)
-                .allocationAmount(amount)
-                .build();
-        accountCollateralRepository.save(java.util.Objects.requireNonNull(mapping));
-    }
-
-    /**
-     * [Fallback Logic] 단순 Waterfall(폭포수) 배분 로직
-     * 
-     * 💡 [초보자를 위한 개념 설명]
-     * 수학적 최적화 엔진(Simplex)이 예상치 못한 이유로 실패할 경우를 대비한 '비상용' 로직입니다.
-     * 1. 우선순위: 손실 절감 효과가 큰 대출을 1순위로 보호합니다.
-     * 2. 배분방식: 마치 폭포수가 위에서 아래로 흐르듯, 1순위 대출에 담보를 꽉 채우고
-     * 남은 담보가 있다면 다음 순위 대출로 넘겨주는 단순하지만 확실한 방식입니다.
+     * [Fallback Logic - Application Orchestration] Waterfall 방식 폴백 처리
      */
     private void runSimpleWaterfallAllocation(List<CrAccount> accounts, List<CrCollateral> collaterals) {
-        // 1. 대출 계좌를 손실 절감 우선순위가 높은 순서대로 정렬합니다.
-        accounts.sort((a, b) -> Integer.compare(estimateLossPriorityWeight(b), estimateLossPriorityWeight(a)));
-
-        for (CrCollateral collateral : collaterals) {
-            // 해당 담보가 가진 실제 가용 금액을 계산합니다.
-            BigDecimal remainingAmt = calculateEffectiveValue(collateral);
-
-            for (CrAccount account : accounts) {
-                // 담보를 다 썼다면 다음 담보로 넘어갑니다.
-                if (remainingAmt.compareTo(BigDecimal.ZERO) <= 0)
-                    break;
-
-                // 해당 계좌가 이미 다른 담보로부터 배분받은 총액을 조회합니다.
-                BigDecimal alreadyAllocated = bulkOperationPort.sumAllocationByAccountId(account.getId());
-                if (alreadyAllocated == null)
-                    alreadyAllocated = BigDecimal.ZERO;
-
-                // 아직 담보로 보호받지 못한 순수 대출 잔액(Uncollateralized)을 계산합니다.
-                BigDecimal uncollateralized = account.getOutstandingAmount().subtract(alreadyAllocated);
-
-                if (uncollateralized.compareTo(BigDecimal.ZERO) > 0) {
-                    // 남은 담보액과 대출 잔액 중 '작은 금액'만큼 배분합니다.
-                    BigDecimal alloc = remainingAmt.min(uncollateralized);
-
-                    // 배분 결과 저장
-                    saveAllocation(account, collateral, alloc);
-
-                    // 방금 써버린 만큼 담보 가용액을 차감합니다. (폭포수가 다음 칸으로 흐름)
-                    remainingAmt = remainingAmt.subtract(alloc);
-                }
-            }
+        Map<Long, BigDecimal> existingAllocations = new HashMap<>();
+        for (CrAccount account : accounts) {
+            BigDecimal sum = bulkOperationPort.sumAllocationByAccountId(account.getId());
+            existingAllocations.put(account.getId(), sum != null ? sum : BigDecimal.ZERO);
         }
+
+        List<AllocationResult> results = collateralAllocationCalculator.calculateWaterfallAllocation(
+                accounts, collaterals, existingAllocations);
+
+        saveAllocationResults(results);
     }
 
     /**
-     * 계좌의 담보 배분 우선순위를 산출한다.
+     * 계산 결과를 DB 엔티티로 매핑하여 저장하는 영속성 조율 메서드
      */
-    private int estimateLossPriorityWeight(CrAccount account) {
-        String prod = (account.getProductCode() != null) ? account.getProductCode().toUpperCase() : "";
-        if (prod.contains("CORP"))
-            return 100;
-        if (prod.contains("RETAIL"))
-            return 75;
-        if (prod.contains("MORTGAGE"))
-            return 35;
-        if (prod.contains("SOV"))
-            return 0;
-        return 100;
+    private void saveAllocationResults(List<AllocationResult> results) {
+        for (AllocationResult result : results) {
+            CrAccountCollateral mapping = CrAccountCollateral.builder()
+                    .account(result.getAccount())
+                    .collateral(result.getCollateral())
+                    .allocationAmount(result.getAllocatedAmount())
+                    .build();
+            accountCollateralRepository.save(java.util.Objects.requireNonNull(mapping));
+        }
     }
 }
+

@@ -5,7 +5,9 @@ import com.ho.account.ecl.core.application.port.out.CrAccountRepository;
 import com.ho.account.ecl.core.application.port.out.CrBulkOperationPort;
 import com.ho.account.ecl.core.application.port.out.CrCollateralRepository;
 import com.ho.account.ecl.core.application.port.out.CrCustomerRepository;
+import com.ho.account.ecl.core.domain.calculator.CollateralAllocationCalculator;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
+
 import com.ho.account.ecl.core.domain.collateral.CrCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import org.junit.jupiter.api.DisplayName;
@@ -38,8 +40,12 @@ class CollateralAllocationServiceTest {
     @Mock private CrBulkOperationPort bulkOperationPort;
     @Mock private ApartmentCollateralService apartmentCollateralService;
 
+    @org.mockito.Spy
+    private CollateralAllocationCalculator collateralAllocationCalculator = new CollateralAllocationCalculator();
+
     @InjectMocks
     private CollateralAllocationService allocationService;
+
 
     @Test
     @DisplayName("✅ LGD/ECL 완화 목적 담보 배분 검증")

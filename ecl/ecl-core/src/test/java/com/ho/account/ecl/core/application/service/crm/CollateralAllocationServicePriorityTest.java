@@ -5,7 +5,9 @@ import com.ho.account.ecl.core.application.port.out.CrAccountRepository;
 import com.ho.account.ecl.core.application.port.out.CrBulkOperationPort;
 import com.ho.account.ecl.core.application.port.out.CrCollateralRepository;
 import com.ho.account.ecl.core.application.port.out.CrCustomerRepository;
+import com.ho.account.ecl.core.domain.calculator.CollateralAllocationCalculator;
 import com.ho.account.ecl.core.domain.collateral.CrAccountCollateral;
+
 import com.ho.account.ecl.core.domain.collateral.CrCollateral;
 import com.ho.account.ecl.core.domain.exposure.CrAccount;
 import org.junit.jupiter.api.DisplayName;
@@ -41,8 +43,12 @@ class CollateralAllocationServicePriorityTest {
     @Mock private CrBulkOperationPort bulkOperationPort;
     @Mock private ApartmentCollateralService apartmentCollateralService;
 
+    @org.mockito.Spy
+    private CollateralAllocationCalculator collateralAllocationCalculator = new CollateralAllocationCalculator();
+
     @InjectMocks
     private CollateralAllocationService allocationService;
+
 
     @Test
     @DisplayName("✅ 손실완화 우선순위가 높은 계좌가 담보를 우선 배정받아야 한다")
