@@ -96,6 +96,20 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         return resolutionPersistencePort.save(resolution);
     }
 
+    /**
+     * 지출결의서를 수정합니다.
+     * 
+     * 🎓 [교육적 주석 / Budget Control & Re-deduction Strategy]
+     * 지출결의서 수정 시 기존에 차감했던 예산 금액을 먼저 복원(restoreBudget)한 뒤, 신규 작성 금액으로 예산을 재차감(useBudget)합니다.
+     * 
+     * [이중 차감 결함 제거 원리]
+     * 이전 코드에서는 기존에 차감된 예산을 복원하지 않은 채 신규 금액만 useBudget하여 동일 결의서에 대해 예산이 이중 차감되는 결함이 있었습니다.
+     * 1) 결의서가 DRAFT 상태인 경우: 이미 createResolution 시점에 예산이 차감되었으므로, 기존 내역(기존 연월, 기존 부서, 기존 내역별 계정/금액)의 예산을 복원합니다.
+     *    (단, REJECTED 상태인 경우는 rejectResolution 호출 시점에 이미 예산이 전액 복원되었으므로 사전 복원을 수행하지 않습니다.)
+     * 2) 결의서 수정 적용: 기본 정보 및 상세 내역(Details) 갱신.
+     * 3) 신규 금액 재차감: 갱신된 내역(신규 연월, 신규 부서, 신규 내역별 계정/금액)에 대해 useBudget으로 예산을 재차감합니다.
+     * 이를 통해 결의서 변경 시에도 잔여 예산의 정합성과 금융 통제를 정확히 이행합니다.
+     */
     @Override
     public ExpenditureResolution updateResolution(Long id, ExpenditureResolutionCommand command) {
         ExpenditureResolution existing = resolutionPersistencePort.findById(id)
@@ -104,6 +118,15 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         if (existing.getStatus() != com.ho.account.expenditure.domain.ExpenditureResolutionStatus.DRAFT
                 && existing.getStatus() != com.ho.account.expenditure.domain.ExpenditureResolutionStatus.REJECTED) {
             throw new IllegalStateException("DRAFT 또는 REJECTED 상태의 결의서만 수정할 수 있습니다.");
+        }
+
+        // DRAFT 상태인 경우, 작성 시점에 차감되었던 기존 결의 금액에 대해 예산을 선-복원(restoreBudget)
+        if (existing.getStatus() == com.ho.account.expenditure.domain.ExpenditureResolutionStatus.DRAFT) {
+            String existingYearMonth = existing.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
+            String existingDeptCode = existing.getDeptCode();
+            for (ExpenditureDetail detail : existing.getDetails()) {
+                budgetService.restoreBudget(existingYearMonth, existingDeptCode, detail.getAccountCode(), detail.getAmount());
+            }
         }
 
         DepartmentRef department = requireDepartment(command.departmentCode());
@@ -161,11 +184,29 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         resolutionPersistencePort.save(resolution);
     }
 
+    /**
+     * 지출결의서를 반려 처리합니다.
+     * 
+     * 🎓 [교육적 주석 / Budget Restoration on Rejection]
+     * 승인 요청된 결의서가 반려(REJECTED)되면 차감되었던 예산 금액을 즉시 전액 복원(restoreBudget)합니다.
+     * 
+     * [금융 통제 이점]
+     * 결의서 작성을 통해 잠겼던 예산 자원을 결의 반려 시 즉시 해제함으로써, 부서의 실제 잔여 예산을
+     * 정확히 반영하고 타 유효 결의 생성을 방해하지 않도록 보장합니다.
+     */
     @Override
     public void rejectResolution(Long id, String reason) {
         ExpenditureResolution resolution = resolutionPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
         resolution.reject(reason);
+
+        // 반려 시 차감되었던 예산을 전액 복원
+        String yearMonth = resolution.getResolutionDate().format(DateTimeFormatter.ofPattern("yyyyMM"));
+        String deptCode = resolution.getDeptCode();
+        for (ExpenditureDetail detail : resolution.getDetails()) {
+            budgetService.restoreBudget(yearMonth, deptCode, detail.getAccountCode(), detail.getAmount());
+        }
+
         resolutionPersistencePort.save(resolution);
     }
 

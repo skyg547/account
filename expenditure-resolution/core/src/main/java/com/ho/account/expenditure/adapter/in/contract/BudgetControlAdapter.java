@@ -37,4 +37,14 @@ public class BudgetControlAdapter implements BudgetControlPort {
         }
         budgetService.checkBudgetAvailability(yearMonth, departmentCode, accountCode, amount);
     }
+
+    @Override
+    public void useBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+        budgetService.useBudget(yearMonth, departmentCode, accountCode, amount);
+    }
+
+    @Override
+    public void restoreBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+        budgetService.restoreBudget(yearMonth, departmentCode, accountCode, amount);
+    }
 }

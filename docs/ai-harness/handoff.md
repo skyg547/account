@@ -1,3 +1,31 @@
+# AI Harness Handoff - 2026-08-12 Issue #316 Fix Budget Double-Deduction Bug on Expenditure Resolution Update and Rejection
+
+## Active Goal And State
+
+- GitHub Issue `#316` (`[expenditure-resolution][financial] 결의서 수정/반려 시 예산 복원 누락 (이중 차감 버그)`) completed.
+- Worktree `C:\tmp\account-316-expenditure-budget-restore-fix` created and modified.
+
+## Changes And Boundaries
+
+- Domain & Service Budget Restoration:
+  - Added `restoreBudget(BigDecimal amount)` to `Budget.java` domain model with validation and educational comments.
+  - Implemented `restoreBudget` in `BudgetService.java` to restore budget for specific yearMonth, departmentCode, and accountCode.
+- Hexagonal Architecture Port & Adapter:
+  - Added `restoreBudget` to `BudgetControlPort.java` (contracts) and implemented in `BudgetControlAdapter.java`.
+- Expenditure Resolution LifeCycle & Double-Deduction Prevention:
+  - Modified `ExpenditureResolutionService.updateResolution`: Restores previous budget amount before re-deducting new amount when resolution is in DRAFT state.
+  - Modified `ExpenditureResolutionService.rejectResolution`: Automatically restores deducted budget in full upon resolution rejection.
+- Pedagogical Comments:
+  - Added detailed comments explaining Financial Budget Control LifeCycle, budget over-locking prevention, and consistency advantages.
+- Verification:
+  - Added unit test in `ExpenditureResolutionServiceTest.java` verifying budget restoration on update and rejection.
+  - Added `BudgetServiceTest.java` verifying budget deduction restoration logic.
+  - Executed `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` (BUILD SUCCESSFUL).
+
+## Verification Evidence
+
+- `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` executed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-12 Issue #313 Apply Optimistic Locking to Deposit Account to Prevent Lost Updates
 
 ## Active Goal And State

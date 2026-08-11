@@ -66,6 +66,27 @@ public class Budget {
         this.usedAmount = this.usedAmount.add(amount);
     }
 
+    /**
+     * 예산을 복원(환원)합니다.
+     * 
+     * 🎓 [교육적 설명 / Financial Budget Control Principle]
+     * 지출 결의서의 수정 또는 반려(Reject) 시 기존에 차감(집행)되었던 예산을 다시 사용 가능 예산으로 환원합니다.
+     * 예산 복원 시 차감 금액(usedAmount)을 줄여줌으로써 잔여 예산(getRemainingAmount)을 즉시 회복시키고,
+     * 과도한 예산 통제로 인해 정상적인 타 부서/프로젝트의 비용 집행이 막히는 것을 방지합니다.
+     *
+     * @param amount 복원할 예산 금액 (0보다 커야 함)
+     */
+    public void restoreBudget(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("복원 예산 금액은 0보다 커야 합니다.");
+        }
+        if (this.usedAmount.compareTo(amount) < 0) {
+            throw new IllegalStateException(
+                    String.format("복원 금액(%s)이 현재 차감되어 있는 예산 금액(%s)보다 클 수 없습니다.", amount, this.usedAmount));
+        }
+        this.usedAmount = this.usedAmount.subtract(amount);
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getYearMonth() { return yearMonth; }
