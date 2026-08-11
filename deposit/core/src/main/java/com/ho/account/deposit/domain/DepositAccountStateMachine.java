@@ -1,9 +1,13 @@
 package com.ho.account.deposit.domain;
 
-import org.springframework.stereotype.Component;
-
 /**
- * [도메인 객체] 수신(Deposit) 계좌 상태 전이 검증기.
+ * [순수 도메인 객체 (Pure Domain Model)] 수신(Deposit) 계좌 상태 전이 검증기.
+ *
+ * 💡 [DDD 원칙 - 도메인 계층의 프레임워크 독립성 (Framework Decoupling)]
+ * 도메인 계층은 특정 프레임워크(Spring Framework 등)에 의존하지 않는 순수 자바 객체(POJO)여야 합니다.
+ * 1. **프레임워크 독립성**: `@Component` 등 프레임워크 어노테이션을 제거하여 순수한 비즈니스 규칙만 포함합니다.
+ * 2. **테스트 용이성**: Spring ApplicationContext 실행 없이 매우 빠른 단위 테스트(POJO Unit Test) 작성이 가능합니다.
+ * 3. **헥사고날 아키텍처 코어**: 도메인 모델은 애플리케이션의 핵심(Core) 영역으로 외부 프레임워크, DB, WEB 인프라 변경으로부터 완전히 보호됩니다.
  *
  * 💡 [초보자를 위한 상태 머신 설명]
  * 수신 계좌는 생성된 순간부터 해지될 때까지 특정 법칙에 따라서만 상태가 바뀔 수 있습니다.
@@ -19,7 +23,6 @@ import org.springframework.stereotype.Component;
  * - DORMANT -> ACTIVE, CLOSED
  * - CLOSED -> (최종 상태, 전이 불가)
  */
-@Component
 public class DepositAccountStateMachine {
 
     public void validateStateTransition(DepositStatus currentStatus, DepositStatus targetStatus) {

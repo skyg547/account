@@ -1,3 +1,18 @@
+## 2026-08-12 - Issue #312 Deposit DDD Spring Decouple Refactor
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/312-deposit-ddd-spring-decouple` / `C:\tmp\account-312-deposit-ddd-spring-decouple`.
+- Base: `origin/main`.
+- Integration: PR merged into `main`. Issue `#312` closed and remote branch deleted.
+- Scope:
+  - Removed Spring `@Component` annotations from Deposit domain classes (`DepositAccountStateMachine`, `DepositInterestAccrualCalculator`, `DepositTerminationSettlementCalculator`).
+  - Added educational comments detailing Pure Domain principles and financial calculation logic.
+  - Created `DepositDomainConfiguration` under `infrastructure/config` to explicitly register domain services as Spring `@Bean`s.
+- Verification:
+  - `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:batch:test` passed 100% (BUILD SUCCESSFUL).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #314 Reconciliation JSON String Hardcoding Refactor
 
 - Owner: Gemini (Agent loop subagent)
