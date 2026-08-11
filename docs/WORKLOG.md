@@ -1,3 +1,25 @@
+### 📅 2026-08-12 ([payable, receivable][financial] 전표 발행 시 대차평균(복식부기 차변=대변) 검증 로직 누락 해결 - Issue #296)
+### [payable, receivable/financial] 전표 발행 직전 차변/대변 금액 대차평균(Double-entry debit-credit balance) 사전 명시적 검증 및 불평형 전표 차단 (Fail-Closed)
+
+- **작업 배경**:
+  - `payable` (지급, 매입) 및 `receivable` (매출, 수납) 모듈의 전표 발생 애플리케이션 서비스에서 전표 생성 시 차변 합계(sum of DEBIT)와 대변 합계(sum of CREDIT)의 균형 상태를 사전에 검증하지 않아, 불평형 전표(Imbalanced Journal Entry)가 전표원장에 전송될 위험이 존재함.
+  - 전표 발행 직전 차변 합계와 대변 합계가 정확히 일치(`compareTo == 0`)하는지 명시적 사전 검증(`validateJournalBalance`)을 수행하고, 차대변 불일치 시 `IllegalArgumentException`을 발생시켜 불평형 전표 발행을 원천 차단(Fail-Closed)함.
+- **주요 변경 사항**:
+  - `payable/core/.../application/service/PaymentService.java`:
+    - `postPaymentJournal`, `postAdvanceJournal`, `postOffsetJournal` 전표 발행 직전 `validateJournalBalance` 호출 추가.
+  - `payable/core/.../application/service/PurchaseService.java`:
+    - `postPurchaseJournal` 매입 전표 발행 직전 `validateJournalBalance` 호출 추가.
+  - `receivable/core/.../application/service/SalesService.java`:
+    - `postSalesJournal` 매출 인식 전표 발행 직전 `validateJournalBalance` 호출 추가.
+  - `receivable/core/.../application/service/CollectionService.java`:
+    - `postCollectionRecognitionJournal`, `postMatchJournal` 수납/매칭 전표 발행 직전 `validateJournalBalance` 호출 추가.
+  - 상세 교육적 주석 (Pedagogical Comments) 추가:
+    - 복식부기(Double-entry bookkeeping) 대차평균의 원리(Equivalence of Debits and Credits), 총계정원장 정합성 보호 및 Fail-Closed 사전 차단 중요성을 상세 기술.
+  - 단위 테스트 보강 (`PaymentServiceTest`, `PurchaseServiceTest`, `SalesServiceTest`, `CollectionServiceTest`):
+    - 차대변 합계 불일치 전표에 대한 사전 검증 예외 발생(`IllegalArgumentException`) 단위 테스트 케이스 작성 및 성공 검증.
+- **검증**:
+  - `./gradlew.bat :payable:core:test :receivable:core:test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([payable, receivable][financial] 회계기간 및 마감 상태 사전 검증 누락 해결 - Issue #298)
 ### [payable, receivable/financial] 전표/지급/매출/수납 발생 Application Service 내 회계기간 마감 사전 검증 및 포트 연동
 

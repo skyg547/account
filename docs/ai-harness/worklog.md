@@ -1,3 +1,20 @@
+## 2026-08-12 - Issue #296 Validate Double-Entry Debit-Credit Balance in Payable & Receivable Services
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/296-payable-receivable-double-entry-validation` / `C:\tmp\account-296-payable-receivable-double-entry-validation`.
+- Base: `origin/main`.
+- Integration: Merged PR #369 into `main`. Issue `#296` closed and remote branch deleted.
+- Scope:
+  - Added explicit pre-posting double-entry debit-credit balance validation (`validateJournalBalance`) across `payable` (`PaymentService`, `PurchaseService`) and `receivable` (`SalesService`, `CollectionService`) application services.
+  - Ensures sum of DEBIT amounts equals sum of CREDIT amounts (`compareTo == 0`) before dispatching `JournalEntryCommand` to `JournalPostingPort`.
+  - Throws `IllegalArgumentException` when an imbalanced entry is detected (Fail-Closed principle).
+  - Added educational comments (Pedagogical comments) explaining Double-Entry Bookkeeping (Equivalence of Debits and Credits), general ledger consistency, and fail-closed validation advantages.
+  - Added unit test cases verifying `IllegalArgumentException` thrown on imbalanced journal entries in `PaymentServiceTest`, `PurchaseServiceTest`, `SalesServiceTest`, and `CollectionServiceTest`.
+- Verification:
+  - `./gradlew.bat :payable:core:test :receivable:core:test` passed 100% (BUILD SUCCESSFUL).
+- Rollback:
+  - Revert PR #369. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #298 Accounting Period Validation in Payable & Receivable Services
 
 - Owner: Gemini (Agent loop subagent)

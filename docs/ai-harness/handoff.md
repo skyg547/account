@@ -1,3 +1,33 @@
+# AI Harness Handoff - 2026-08-12 Issue #296 Validate Double-Entry Debit-Credit Balance in Payable & Receivable Services
+
+## Active Goal And State
+
+- GitHub Issue `#296` (`[payable, receivable][financial] 전표 발행 시 대차평균(복식부기 차변=대변) 검증 로직 누락`) completed and merged into `main`. `Fixes #296` closes Issue `#296`.
+- PR #369 merged into `main` and remote branch `agent/296-payable-receivable-double-entry-validation` deleted.
+- Worktree `C:\tmp\account-296-payable-receivable-double-entry-validation` cleaned up.
+
+## Changes And Boundaries
+
+- `payable/core/.../application/service/PaymentService.java`:
+  - Added `validateJournalBalance` call prior to posting journal entries in `postPaymentJournal`, `postAdvanceJournal`, and `postOffsetJournal`.
+  - Added pedagogical comments explaining Double-Entry Bookkeeping principles (Equivalence of Debits and Credits).
+- `payable/core/.../application/service/PurchaseService.java`:
+  - Added `validateJournalBalance` call prior to posting purchase recognition journal entries in `postPurchaseJournal`.
+- `receivable/core/.../application/service/SalesService.java`:
+  - Added `validateJournalBalance` call prior to posting sales recognition journal entries in `postSalesJournal`.
+- `receivable/core/.../application/service/CollectionService.java`:
+  - Added `validateJournalBalance` call prior to posting collection recognition and match journal entries in `postCollectionRecognitionJournal` and `postMatchJournal`.
+- Unit Tests (`PaymentServiceTest`, `PurchaseServiceTest`, `SalesServiceTest`, `CollectionServiceTest`):
+  - Added test methods to verify `IllegalArgumentException` is thrown when an imbalanced entry is checked.
+
+## Verification Evidence
+
+- `./gradlew.bat :payable:core:test :receivable:core:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #369. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #298 Accounting Period Validation in Payable & Receivable Services
 
 ## Active Goal And State
