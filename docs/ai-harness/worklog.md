@@ -858,3 +858,4 @@
 - Latest-main verification passed 24 Gradle tasks, Loan Core/API 42 tests in 14 suites with zero failure/error/skip, API `bootJar`, and a bounded direct executable-JAR smoke that observed H2 start and `Started LoanApplication` in 8.181 seconds.
 - `git diff --check`, two-file allowlist and scoped conflict-marker scan passed. Independent review found no P0-P3 and approved parent-owned commit/Draft PR preparation.
 - PostgreSQL schema parity, Loan Batch startup and automated CI/container JAR smoke are outside #79. No external DB, credentials, private URL, container or deployed service was accessed. Rollback is a normal revert of the Issue commit.
+- Commit `09b72f21` is pushed and Draft PR #352 targets `main` with `Refs #79/#227`. Issue #79 is `status:needs-review`; no Ready transition, merge, close or external deployment was performed.

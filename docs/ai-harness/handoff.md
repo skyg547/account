@@ -1432,4 +1432,5 @@
 
 - Latest-main Loan Core/API verification passed 42 tests, API bootJar and direct local H2 JAR startup. Static gates passed and independent review found no P0-P3.
 - No PostgreSQL, Compose, credential, private endpoint or existing container was accessed. PostgreSQL parity and separate Loan Batch startup remain outside this Issue.
-- Roll back the Issue commit; there is no schema, data, container or external-service rollback. Next owner is the parent Integrator for commit, push and Draft PR, followed by read-only PR review.
+- Commit `09b72f21` is pushed and Draft PR #352 targets main. Issue #79 is frozen at `status:needs-review`; next owner is an independent read-only PR reviewer, followed by the parent Integrator.
+- Roll back `09b72f21`; there is no schema, data, container or external-service rollback.

@@ -1849,3 +1849,4 @@
 - Added a `local` H2 context regression test for the real Loan API composition root and required Master Data managed types.
 - Latest-main 24-task gate passed: 42 Loan Core/API tests in 14 suites, zero failure/error/skip, API bootJar, and direct executable-JAR H2 startup with `Started LoanApplication`. Diff/marker/allowlist checks passed.
 - Independent review found no P0-P3. PostgreSQL schema parity, Loan Batch startup and CI/container smoke remain separate gates; no external environment was accessed.
+- Commit `09b72f21` is pushed and Draft PR #352 targets main with `Refs #79/#227`. Issue #79 is `status:needs-review`; merge and close remain gated.
