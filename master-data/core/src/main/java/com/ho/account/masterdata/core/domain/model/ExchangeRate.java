@@ -1,42 +1,27 @@
 package com.ho.account.masterdata.core.domain.model;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Exchange rate master data.
- * Stores effective rates between two currencies.
+ * 환율(Exchange Rate) 도메인 모델.
+ * 두 통화 간의 적용 환율 정보를 관리합니다.
+ * 
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO 원칙:
+ *    환율 도메인 모델은 JPA 기술에 의존하지 않는 순수한 자바 객체입니다.
+ * 2. 도메인-영속성 모델 분리:
+ *    테이블 매핑 및 제약조건은 ExchangeRateEntity에서 처리하고, Data Mapper를 통해 매핑합니다.
  */
-@Entity
-@Table(name = "exchange_rates",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"from_currency_code", "to_currency_code", "effective_date"}))
 public class ExchangeRate {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "from_currency_code", nullable = false, length = 3)
     private String fromCurrencyCode; // Source currency, for example USD
-
-    @Column(name = "to_currency_code", nullable = false, length = 3)
     private String toCurrencyCode; // Target currency, for example KRW
-
-    @Column(nullable = false, precision = 19, scale = 8)
     private BigDecimal rate; // Exchange rate, for example 1 USD = 1300 KRW
-
-    @Column(nullable = false)
     private LocalDate effectiveDate; // Effective start date
-
-    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 
     // Getters and setters
     public Long getId() {
@@ -104,3 +89,4 @@ public class ExchangeRate {
         return normalized;
     }
 }
+

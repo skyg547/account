@@ -1,89 +1,53 @@
 package com.ho.account.masterdata.core.domain.changerequest;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import com.ho.account.masterdata.core.domain.exception.MasterDataIdempotencyConflictException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Controlled master-data change request.
+ * 통제된 기준정보 변경 요청 도메인 모델 (Controlled master-data change request).
  *
- * <p>The aggregate keeps approval workflow and audit state for sensitive master-data changes.
- * It enforces the REQUESTED -> APPROVED/REJECTED -> APPLIED lifecycle and separation of
- * duties between requester and approver.</p>
+ * <p>승인 워크플로우와 민감 기준정보 변경 이력을 관리하는 애그리게이트 루트입니다.
+ * REQUESTED -> APPROVED/REJECTED -> APPLIED 라이프사이클과 요청자/승인자 분리 규칙을 강제합니다.</p>
+ * 
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO 원칙:
+ *    MasterDataChangeRequest는 JPA 어노테이션(@Entity, @Table, @Version 등)을 전혀 포함하지 않는 순수 자바 객체입니다.
+ * 2. 도메인-영속성 모델 분리:
+ *    JPA 어노테이션 및 DB 락 버전관리(@Version)는 infrastructure/persistence/entity/MasterDataChangeRequestEntity에서 담당하고,
+ *    Data Mapper를 통해 두 모델을 변환함으로써 비즈니스 도메인 로직을 인프라로부터 완전히 보호합니다.
  */
-@Entity
-@Table(name = "master_data_change_requests")
 public class MasterDataChangeRequest {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 40)
     private MasterDataType targetType;
-
-    @Column(nullable = false, length = 100)
     private String targetKey;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ChangeType changeType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
     private ChangeStatus status;
 
     /**
-     * 같은 변경 요청을 두 노드가 동시에 승인하거나 반영하는 기술적 충돌을 감지합니다.
-     * 업무상의 SCD2 순번은 requestedVersion과 별도로 검증합니다.
+     * 같은 변경 요청을 두 노드가 동시에 승인하거나 반영하는 기술적 충돌을 감지하는 낙관적 락 버전입니다.
      */
-    @Version
-    @Column(nullable = false)
     private long lockVersion;
 
-    @Column(nullable = false)
     private LocalDate effectiveDate;
-
-    @Column(nullable = false)
     private Integer requestedVersion;
-
-    @Column(nullable = false, length = 80)
     private String requestedBy;
-
-    @Column(length = 80)
     private String approvedBy;
-
-    @Column(nullable = false)
     private LocalDateTime requestedAt;
-
     private LocalDateTime approvedAt;
-
-    @Column(length = 500)
     private String reason;
-
-    @Column(columnDefinition = "TEXT")
     private String payloadJson;
 
     /**
      * 외부 승인/이벤트의 안정적인 식별자입니다. 같은 승인 재시도가 새 요청을 만들지 않게 합니다.
      */
-    @Column(length = 120, unique = true)
     private String sourceReference;
 
     private LocalDateTime appliedAt;
 
-    protected MasterDataChangeRequest() {
+    public MasterDataChangeRequest() {
     }
 
     public MasterDataChangeRequest(MasterDataType targetType, String targetKey, ChangeType changeType,
@@ -107,6 +71,31 @@ public class MasterDataChangeRequest {
                 sourceReference, 120, "Source reference must be 120 characters or fewer.");
         this.status = ChangeStatus.REQUESTED;
         this.requestedAt = LocalDateTime.now();
+    }
+
+    public static MasterDataChangeRequest reconstitute(
+            Long id, MasterDataType targetType, String targetKey, ChangeType changeType,
+            ChangeStatus status, long lockVersion, LocalDate effectiveDate, Integer requestedVersion,
+            String requestedBy, String approvedBy, LocalDateTime requestedAt, LocalDateTime approvedAt,
+            String reason, String payloadJson, String sourceReference, LocalDateTime appliedAt) {
+        MasterDataChangeRequest req = new MasterDataChangeRequest();
+        req.id = id;
+        req.targetType = targetType;
+        req.targetKey = targetKey;
+        req.changeType = changeType;
+        req.status = status;
+        req.lockVersion = lockVersion;
+        req.effectiveDate = effectiveDate;
+        req.requestedVersion = requestedVersion;
+        req.requestedBy = requestedBy;
+        req.approvedBy = approvedBy;
+        req.requestedAt = requestedAt;
+        req.approvedAt = approvedAt;
+        req.reason = reason;
+        req.payloadJson = payloadJson;
+        req.sourceReference = sourceReference;
+        req.appliedAt = appliedAt;
+        return req;
     }
 
     public void approve(String approver) {
@@ -218,6 +207,7 @@ public class MasterDataChangeRequest {
     public String getTargetKey() { return targetKey; }
     public ChangeType getChangeType() { return changeType; }
     public ChangeStatus getStatus() { return status; }
+    public long getLockVersion() { return lockVersion; }
     public LocalDate getEffectiveDate() { return effectiveDate; }
     public Integer getRequestedVersion() { return requestedVersion; }
     public String getRequestedBy() { return requestedBy; }
@@ -241,3 +231,4 @@ public class MasterDataChangeRequest {
         REQUESTED, APPROVED, REJECTED, APPLIED
     }
 }
+

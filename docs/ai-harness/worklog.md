@@ -1,4 +1,21 @@
+## 2026-08-12 - Issue #291 Decouple JPA Annotations from Master Data Core Domain Models (Pure POJO & Data Mapper)
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/291-master-data-domain-pojo-decouple` / `C:\tmp\account-291-master-data-domain-pojo-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Decoupled JPA technology annotations (`@Entity`, `@Table`, `@Id`, `@Column`, `@ManyToOne`, `@Enumerated`, `@PrePersist`, `@PreUpdate`, etc.) from all domain models in `master-data/core` (`AccountSubject`, `Product`, `Currency`, `Department`, `ExchangeRate`, `FiscalPeriod`, `TaxProfile`, `MasterDataChangeRequest`).
+  - Created 8 JPA Entity classes in `infrastructure/persistence/entity/` (`AccountSubjectEntity`, `ProductEntity`, `CurrencyEntity`, `DepartmentEntity`, `ExchangeRateEntity`, `FiscalPeriodEntity`, `TaxProfileEntity`, `MasterDataChangeRequestEntity`).
+  - Created 8 Data Mapper classes in `infrastructure/persistence/mapper/` (`AccountSubjectMapper`, `ProductMapper`, `CurrencyMapper`, `DepartmentMapper`, `ExchangeRateMapper`, `FiscalPeriodMapper`, `TaxProfileMapper`, `MasterDataChangeRequestMapper`).
+  - Refactored JPA Repositories and Persistence Adapters to perform two-way mapping between Domain POJOs and JPA Entities.
+  - Refactored `MonolithMasterDataQueryAdapter` to depend on Domain Outbound Ports (`AccountSubjectPersistencePort`, `DepartmentPersistencePort`) instead of direct JPA Repositories.
+  - Added comprehensive pedagogical comments explaining DDD Pure Domain POJO principles and domain-persistence model separation benefits.
+- Verification:
+  - `./gradlew.bat :master-data:core:test :master-data:api:test :master-data:batch:test` passed 100% (BUILD SUCCESSFUL).
+  - `./gradlew.bat test` full test suite passed 100% (65 executed tasks).
+
 ## 2026-08-12 - Issue #295 Implement IFRS 16 Lease Present Value (PV) Calculation & Input Validation
+
 
 - Owner: Gemini (Agent loop subagent)
 - Source branch/worktree: `agent/295-asset-lease-ifrs16-pv-calculation` / `C:\tmp\account-295-asset-lease-ifrs16-pv-calculation`.

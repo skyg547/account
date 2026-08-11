@@ -1,6 +1,5 @@
 package com.ho.account.masterdata.core.domain.model;
 
-import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,45 +9,31 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * 회계기간(Fiscal Period) 엔티티
+ * 회계기간(Fiscal Period) 도메인 모델
  * 특정 연도의 월별 마감 상태를 관리합니다.
+ * 
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO 원칙:
+ *    회계기간 도메인 모델은 JPA 어노테이션에 의존하지 않는 순수 자바 객체로서 비즈니스 인메모리 행위(changeClosingStatus)에 집중합니다.
+ * 2. 도메인-영속성 모델 분리:
+ *    FiscalPeriodEntity와 Data Mapper를 통해 DB 영속화 방식을 분리합니다.
  */
-@Entity
-@Table(name = "fiscal_periods", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "fiscal_year", "fiscal_period" })
-})
 @Getter
 @Setter
 @NoArgsConstructor
 public class FiscalPeriod {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "fiscal_year", nullable = false, length = 4)
     private String fiscalYear;
-
-    @Column(name = "fiscal_period", nullable = false, length = 2)
     private String fiscalPeriod;
-
-    @Column(nullable = false)
     private LocalDate startDate;
-
-    @Column(nullable = false)
     private LocalDate endDate;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     @Setter(AccessLevel.NONE)
     private ClosingStatus closingStatus;
 
-    @Column(updatable = false)
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
-
-    @Column(length = 50)
     private String auditUser;
 
     public enum ClosingStatus {
@@ -78,23 +63,9 @@ public class FiscalPeriod {
         this.updatedAt = LocalDateTime.now();
     }
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.closingStatus == null)
-            this.closingStatus = ClosingStatus.OPEN;
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
     @Deprecated
     public String getFiscalYearAndPeriod() {
         return fiscalYear + "-" + fiscalPeriod;
     }
 }
+

@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
-import com.ho.account.masterdata.core.domain.model.ExchangeRate;
+import com.ho.account.masterdata.core.infrastructure.persistence.entity.ExchangeRateEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,14 +8,14 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
-public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long> {
-    Optional<ExchangeRate>
+public interface ExchangeRateRepository extends JpaRepository<ExchangeRateEntity, Long> {
+    Optional<ExchangeRateEntity>
             findFirstByFromCurrencyCodeAndToCurrencyCodeAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
                     String fromCurrencyCode,
                     String toCurrencyCode,
                     LocalDate effectiveDate);
 
-    default Optional<ExchangeRate> findExchangeRate(
+    default Optional<ExchangeRateEntity> findExchangeRate(
             String fromCurrencyCode,
             String toCurrencyCode,
             LocalDate date) {
@@ -25,8 +25,9 @@ public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, Long
                 date);
     }
 
-    Optional<ExchangeRate> findByFromCurrencyCodeAndToCurrencyCodeAndEffectiveDate(
+    Optional<ExchangeRateEntity> findByFromCurrencyCodeAndToCurrencyCodeAndEffectiveDate(
             String fromCurrencyCode,
             String toCurrencyCode,
             LocalDate effectiveDate);
 }
+

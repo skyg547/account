@@ -3,8 +3,12 @@ package com.ho.account.masterdata.batch.job;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.masterdata.batch.MasterDataBatchApplication;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
+
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.domain.model.Product;
@@ -74,10 +78,19 @@ class MasterDataValidityJobIntegrationTest {
     private AccountSubjectRepository accountSubjectRepository;
 
     @Autowired
+    private AccountSubjectPersistencePort accountSubjectPersistencePort;
+
+    @Autowired
     private DepartmentRepository departmentRepository;
 
     @Autowired
+    private DepartmentPersistencePort departmentPersistencePort;
+
+    @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ProductPersistencePort productPersistencePort;
 
     @Autowired
     private BusinessPartnerRepository businessPartnerRepository;
@@ -97,17 +110,17 @@ class MasterDataValidityJobIntegrationTest {
 
     @Test
     void executesValidityJobThroughCorePortAndJpaAdapter() throws Exception {
-        accountSubjectRepository.save(accountSubject(
+        accountSubjectPersistencePort.save(accountSubject(
                 "ACCOUNT-ACTIVE", AS_OF_DATE.minusDays(1), AS_OF_DATE));
-        accountSubjectRepository.save(accountSubject(
+        accountSubjectPersistencePort.save(accountSubject(
                 "ACCOUNT-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
-        departmentRepository.save(department(
+        departmentPersistencePort.save(department(
                 "DEPT-ACTIVE", AS_OF_DATE, AS_OF_DATE.plusDays(1)));
-        departmentRepository.save(department(
+        departmentPersistencePort.save(department(
                 "DEPT-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
-        productRepository.save(product(
+        productPersistencePort.save(product(
                 "PRODUCT-ACTIVE", AS_OF_DATE.minusDays(1), AS_OF_DATE.plusDays(1)));
-        productRepository.save(product(
+        productPersistencePort.save(product(
                 "PRODUCT-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
         // 거래처 aggregate는 순수 도메인 객체이므로 Spring Data repository에 직접
         // 전달하지 않습니다. 운영 코드와 같은 output port를 거쳐 JPA entity 매핑까지
@@ -116,6 +129,7 @@ class MasterDataValidityJobIntegrationTest {
                 "PARTNER-ACTIVE", AS_OF_DATE.minusDays(1), AS_OF_DATE.plusDays(1)));
         businessPartnerPersistencePort.save(businessPartner(
                 "PARTNER-EXPIRED", AS_OF_DATE.minusDays(2), AS_OF_DATE.minusDays(1)));
+
 
         JobExecution execution = jobLauncherTestUtils.launchJob(
                 new JobParametersBuilder()

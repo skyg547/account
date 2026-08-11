@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.infrastructure.adapter;
 
-import com.ho.account.masterdata.core.domain.model.ExchangeRate;
+import com.ho.account.masterdata.core.infrastructure.persistence.entity.ExchangeRateEntity;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.ExchangeRateRepository;
 import org.junit.jupiter.api.Test;
 
@@ -19,9 +19,9 @@ class MonolithExchangeRateQueryAdapterTest {
         ExchangeRateRepository repository = mock(ExchangeRateRepository.class);
         MonolithExchangeRateQueryAdapter adapter = new MonolithExchangeRateQueryAdapter(repository);
         LocalDate effectiveDate = LocalDate.of(2026, 5, 31);
-        ExchangeRate rate = new ExchangeRate();
-        rate.setFromCurrencyCode("eur");
-        rate.setToCurrencyCode("krw");
+        ExchangeRateEntity rate = new ExchangeRateEntity();
+        rate.setFromCurrencyCode("EUR");
+        rate.setToCurrencyCode("KRW");
         rate.setRate(new BigDecimal("1500.12345678"));
         rate.setEffectiveDate(effectiveDate);
         when(repository.findExchangeRate("EUR", "KRW", effectiveDate))
@@ -35,3 +35,4 @@ class MonolithExchangeRateQueryAdapterTest {
         assertThat(result.effectiveDate()).isEqualTo(effectiveDate);
     }
 }
+

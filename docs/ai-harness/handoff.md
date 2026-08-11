@@ -1,4 +1,35 @@
+# AI Harness Handoff - 2026-08-12 Issue #291 Decouple JPA Annotations from Master Data Core Domain Models (Pure POJO & Data Mapper)
+
+## Active Goal And State
+
+- GitHub Issue `#291` (`[master-data:core][ddd] 도메인 모델에 JPA 인프라 종속성 포함 — 순수 POJO 원칙 위반`) in progress.
+- Worktree `C:\tmp\account-291-master-data-domain-pojo-decouple` active.
+
+## Changes And Boundaries
+
+- Domain Models (`master-data/core/.../domain/model/` and `domain/changerequest/`):
+  - Removed JPA technology annotations (`@Entity`, `@Table`, `@Id`, `@Column`, `@ManyToOne`, `@Enumerated`, `@PrePersist`, `@PreUpdate`, `@Version`) from `AccountSubject`, `Product`, `Currency`, `Department`, `ExchangeRate`, `FiscalPeriod`, `TaxProfile`, and `MasterDataChangeRequest`.
+  - Added comprehensive pedagogical comments explaining DDD Pure Domain POJO principle and domain-persistence model decoupling benefits.
+- Persistence Entities (`master-data/core/.../infrastructure/persistence/entity/`):
+  - Created 8 JPA Entity classes: `AccountSubjectEntity`, `ProductEntity`, `CurrencyEntity`, `DepartmentEntity`, `ExchangeRateEntity`, `FiscalPeriodEntity`, `TaxProfileEntity`, `MasterDataChangeRequestEntity`.
+- Data Mappers (`master-data/core/.../infrastructure/persistence/mapper/`):
+  - Created 8 Data Mapper classes: `AccountSubjectMapper`, `ProductMapper`, `CurrencyMapper`, `DepartmentMapper`, `ExchangeRateMapper`, `FiscalPeriodMapper`, `TaxProfileMapper`, `MasterDataChangeRequestMapper`.
+- Repositories & Adapters:
+  - Updated Spring Data JPA Repositories to operate on JPA Entities (`AccountSubjectEntity`, `ProductEntity`, etc.).
+  - Updated Persistence Adapters (`JpaAccountSubjectPersistenceAdapter`, `JpaProductPersistenceAdapter`, `CurrencyPersistenceAdapter`, `JpaDepartmentPersistenceAdapter`, `JpaFiscalPeriodPersistenceAdapter`, `JpaMasterDataChangeRequestPersistenceAdapter`) to perform two-way mapping between Domain POJOs and JPA Entities via Data Mappers.
+  - Refactored `MonolithMasterDataQueryAdapter` to use Outbound Ports (`AccountSubjectPersistencePort`, `DepartmentPersistencePort`) instead of direct JPA Repositories.
+
+## Verification Evidence
+
+- `./gradlew.bat :master-data:core:test :master-data:api:test :master-data:batch:test` passed 100% (BUILD SUCCESSFUL).
+- `./gradlew.bat test` full test suite passed 100%.
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit/PR. DB table schemas remain unchanged.
+
 # AI Harness Handoff - 2026-08-12 Issue #295 Implement IFRS 16 Lease Present Value (PV) Calculation & Input Validation
+
 
 ## Active Goal And State
 
