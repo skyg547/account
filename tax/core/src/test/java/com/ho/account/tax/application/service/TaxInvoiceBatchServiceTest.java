@@ -1,0 +1,116 @@
+package com.ho.account.tax.application.service;
+
+import com.ho.account.contracts.masterdata.BusinessPartnerRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.tax.application.port.in.TaxInvoiceBatchUseCase.TaxInvoiceValidationResult;
+import com.ho.account.tax.application.port.out.TaxInvoicePersistencePort;
+import com.ho.account.tax.domain.TaxInvoice;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class TaxInvoiceBatchServiceTest {
+
+    @Mock
+    private TaxInvoicePersistencePort taxInvoicePersistencePort;
+
+    @Mock
+    private MasterDataQueryPort masterDataQueryPort;
+
+    @Test
+    @DisplayName("매입 세금계산서 일괄 검증 시 벌크 쿼리(findAllByPartnerCodes) 1회만 호출하여 N+1 문제를 방지한다")
+    void validatePurchaseInvoicesUsesBulkQueryToPreventNPlusOne() {
+        TaxInvoiceBatchService service = new TaxInvoiceBatchService(taxInvoicePersistencePort, masterDataQueryPort);
+
+        LocalDate startDate = LocalDate.of(2026, 8, 1);
+        LocalDate endDate = LocalDate.of(2026, 8, 31);
+
+        TaxInvoice invoice1 = createPurchaseInvoice("TX-001", "BP001", "1000.00", "100.00", "1100.00");
+        TaxInvoice invoice2 = createPurchaseInvoice("TX-002", "BP002", "2000.00", "200.00", "2200.00");
+        TaxInvoice invoice3 = createPurchaseInvoice("TX-003", "BP001", "3000.00", "300.00", "3300.00");
+        TaxInvoice salesInvoice = createSalesInvoice("TX-004", "BP003", "5000.00", "500.00", "5500.00");
+
+        when(taxInvoicePersistencePort.findByIssueDateBetween(startDate, endDate))
+                .thenReturn(List.of(invoice1, invoice2, invoice3, salesInvoice));
+
+        Set<String> expectedPartnerCodes = Set.of("BP001", "BP002");
+        when(masterDataQueryPort.findAllByPartnerCodes(expectedPartnerCodes))
+                .thenReturn(Map.of(
+                        "BP001", new BusinessPartnerRef("BP001", "Partner 1", "VENDOR", true),
+                        "BP002", new BusinessPartnerRef("BP002", "Partner 2", "VENDOR", true)
+                ));
+
+        TaxInvoiceValidationResult result = service.validatePurchaseInvoices(startDate, endDate);
+
+        assertEquals(4, result.scannedCount());
+        assertEquals(3, result.validatedCount());
+
+        // N+1 문제 검증: 단건 조회가 아닌 벌크 쿼리가 정확히 1회 호출되었는지 확인
+        verify(masterDataQueryPort).findAllByPartnerCodes(expectedPartnerCodes);
+        verify(masterDataQueryPort, never()).findBusinessPartner(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 거래처의 매입 세금계산서 포함 시 IllegalStateException 예외가 발생한다")
+    void validatePurchaseInvoicesThrowsExceptionWhenPartnerMissing() {
+        TaxInvoiceBatchService service = new TaxInvoiceBatchService(taxInvoicePersistencePort, masterDataQueryPort);
+
+        LocalDate startDate = LocalDate.of(2026, 8, 1);
+        LocalDate endDate = LocalDate.of(2026, 8, 31);
+
+        TaxInvoice invoice1 = createPurchaseInvoice("TX-001", "BP001", "1000.00", "100.00", "1100.00");
+        TaxInvoice invoice2 = createPurchaseInvoice("TX-002", "BP-MISSING", "2000.00", "200.00", "2200.00");
+
+        when(taxInvoicePersistencePort.findByIssueDateBetween(startDate, endDate))
+                .thenReturn(List.of(invoice1, invoice2));
+
+        when(masterDataQueryPort.findAllByPartnerCodes(Set.of("BP001", "BP-MISSING")))
+                .thenReturn(Map.of(
+                        "BP001", new BusinessPartnerRef("BP001", "Partner 1", "VENDOR", true)
+                ));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> service.validatePurchaseInvoices(startDate, endDate));
+
+        assertEquals("Business partner missing for tax invoice TX-002", ex.getMessage());
+    }
+
+    private TaxInvoice createPurchaseInvoice(String issueId, String partnerCode, String supplyAmt, String vatAmt, String totalAmt) {
+        return TaxInvoice.create(
+                issueId,
+                "PURCHASE",
+                LocalDate.of(2026, 8, 10),
+                partnerCode,
+                new BigDecimal(supplyAmt),
+                new BigDecimal(vatAmt),
+                new BigDecimal(totalAmt)
+        );
+    }
+
+    private TaxInvoice createSalesInvoice(String issueId, String partnerCode, String supplyAmt, String vatAmt, String totalAmt) {
+        return TaxInvoice.create(
+                issueId,
+                "SALES",
+                LocalDate.of(2026, 8, 10),
+                partnerCode,
+                new BigDecimal(supplyAmt),
+                new BigDecimal(vatAmt),
+                new BigDecimal(totalAmt)
+        );
+    }
+}

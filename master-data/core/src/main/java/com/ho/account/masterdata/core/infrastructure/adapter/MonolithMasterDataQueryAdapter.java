@@ -11,8 +11,12 @@ import com.ho.account.masterdata.core.domain.model.Department;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -56,6 +60,16 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
     public Optional<BusinessPartnerRef> findBusinessPartner(String businessPartnerCode) {
         return businessPartnerPersistencePort.findByBusinessPartnerCode(businessPartnerCode)
                 .map(this::toBusinessPartnerRef);
+    }
+
+    @Override
+    public Map<String, BusinessPartnerRef> findAllByPartnerCodes(Collection<String> businessPartnerCodes) {
+        if (businessPartnerCodes == null || businessPartnerCodes.isEmpty()) {
+            return Map.of();
+        }
+        return businessPartnerPersistencePort.findAllByBusinessPartnerCodeIn(businessPartnerCodes).stream()
+                .map(this::toBusinessPartnerRef)
+                .collect(Collectors.toMap(BusinessPartnerRef::code, Function.identity(), (a, b) -> a));
     }
 
     @Override

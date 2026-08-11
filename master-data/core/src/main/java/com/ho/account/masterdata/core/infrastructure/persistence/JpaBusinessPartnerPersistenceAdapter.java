@@ -5,6 +5,7 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.BusinessPartnerRepository;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,17 @@ public class JpaBusinessPartnerPersistenceAdapter implements BusinessPartnerPers
     public Optional<BusinessPartner> findByBusinessPartnerCode(String businessPartnerCode) {
         return businessPartnerRepository.findByBusinessPartnerCode(businessPartnerCode)
                 .map(this::toDomain);
+    }
+
+    @Override
+    public List<BusinessPartner> findAllByBusinessPartnerCodeIn(Collection<String> businessPartnerCodes) {
+        if (businessPartnerCodes == null || businessPartnerCodes.isEmpty()) {
+            return List.of();
+        }
+        return businessPartnerRepository.findActiveByBusinessPartnerCodeIn(businessPartnerCodes, LocalDate.now())
+                .stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     @Override

@@ -1,3 +1,22 @@
+### 📅 2026-08-12 (반복문 내 외부 포트(DB/API) 쿼리 — N+1 문제 해결 - Issue #305)
+### [tax/extensibility/성능최적화] TaxInvoiceBatchService 세금계산서 일괄 검증 N+1 쿼리 제거 및 벌크 쿼리(Bulk Lookup) 지원
+
+- **작업 배경**:
+  - `TaxInvoiceBatchService.validatePurchaseInvoices`에서 매입 세금계산서(N건) 순회 시 반복문 내부에서 `masterDataQueryPort.findBusinessPartner(...)`를 단건으로 N회 호출하는 N+1 쿼리 문제가 존재하여 DB I/O 네트워크 라운드트립 및 배치 처리 성능 저하가 발생함.
+- **주요 변경 사항**:
+  - `contracts/src/main/java/com/ho/account/contracts/masterdata/MasterDataQueryPort.java`:
+    - 거래처 코드 컬렉션을 받아 `Map<String, BusinessPartnerRef>`로 반환하는 `findAllByPartnerCodes` default 포트 메서드 신설.
+    - N+1 쿼리 문제와 데이터베이스 I/O 성능 최적화, 벌크 쿼리 패턴의 이점을 설명하는 교육적 상세 주석(Pedagogical comments) 작성.
+  - `master-data/core/.../MasterDataQueryPort` & `BusinessPartnerPersistencePort` & `BusinessPartnerRepository`:
+    - `MonolithMasterDataQueryAdapter`에서 `findAllByPartnerCodes`를 재정의하여 `BusinessPartnerPersistencePort.findAllByBusinessPartnerCodeIn` 및 SQL `IN` 절 쿼리로 1회 일괄 조회하도록 최적화.
+  - `tax/core/src/main/java/com/ho/account/tax/application/service/TaxInvoiceBatchService.java`:
+    - 1단계 (Set 중복 제거 수집) ➔ 2단계 (벌크 쿼리 `findAllByPartnerCodes` 1회 호출) ➔ 3단계 (로컬 Map.containsKey O(1) 조율) 패턴으로 리팩토링.
+    - N+1 문제 해결 및 DB I/O 네트워크 오버헤드 최소화 원리를 설명하는 교육적 주석 보강.
+  - `tax/core/src/test/java/com/ho/account/tax/application/service/TaxInvoiceBatchServiceTest.java`:
+    - 벌크 쿼리 1회 호출 검증 및 존재하지 않는 거래처 예외 발생 단위 테스트 신설.
+- **검증**:
+  - `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` 및 `./gradlew.bat :master-data:core:test` 성공 확인.
+
 ### 📅 2026-08-12 (분개 검증(Validation) 로직의 도메인 응집도 일원화 - Issue #308)
 ### [DDD/전표/도메인응집도] JournalEntry Aggregate Root 불변성(Invariant) 검증 일원화 및 응집도 개선
 

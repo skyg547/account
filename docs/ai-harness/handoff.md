@@ -1,3 +1,30 @@
+# AI Harness Handoff - 2026-08-12 Issue #305 Resolve N+1 Query in TaxInvoiceBatchService using Bulk Lookup
+
+## Active Goal And State
+
+- GitHub Issue `#305` (`[tax][extensibility] 반복문 내 외부 포트(DB/API) 쿼리 — N+1 문제`) completed and merged into `main`. `Fixes #305` closes Issue `#305`.
+- Worktree `C:\tmp\account-305-tax-n-plus-1-bulk-query` was cleaned up.
+
+## Changes And Boundaries
+
+- `contracts/src/main/java/com/ho/account/contracts/masterdata/MasterDataQueryPort.java`:
+  - Added `findAllByPartnerCodes(Collection<String>)` default method with educational comments on N+1 query problem, DB Network Round-Trip optimization, and bulk lookup pattern.
+- `master-data/core/...`:
+  - Added `findActiveByBusinessPartnerCodeIn` in `BusinessPartnerRepository`, `findAllByBusinessPartnerCodeIn` in `BusinessPartnerPersistencePort` / `JpaBusinessPartnerPersistenceAdapter`, and overrode `findAllByPartnerCodes` in `MonolithMasterDataQueryAdapter`.
+- `tax/core/src/main/java/com/ho/account/tax/application/service/TaxInvoiceBatchService.java`:
+  - Optimized `validatePurchaseInvoices` using 3-step bulk lookup pattern (Set extraction ➔ 1-time bulk query ➔ O(1) map lookup) with pedagogical comments.
+- `tax/core/src/test/java/com/ho/account/tax/application/service/TaxInvoiceBatchServiceTest.java`:
+  - Created unit tests verifying single bulk query invocation and error handling for missing partners.
+
+## Verification Evidence
+
+- `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` passed 100%.
+- `./gradlew.bat :master-data:core:test` passed 100%.
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #308 Journal Entry Domain Validation Cohesion & Invariants Consolidation
 
 ## Active Goal And State

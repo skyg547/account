@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #305 Resolve N+1 Query in TaxInvoiceBatchService using Bulk Lookup
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/305-tax-n-plus-1-bulk-query` / `C:\tmp\account-305-tax-n-plus-1-bulk-query`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#305` closed and remote branch deleted.
+- Scope:
+  - Added `findAllByPartnerCodes(Collection<String>)` bulk lookup default method in `MasterDataQueryPort` with pedagogical comments on N+1 query problem & DB I/O optimization.
+  - Implemented SQL `IN` clause bulk query in `BusinessPartnerRepository`, `BusinessPartnerPersistencePort`, and `MonolithMasterDataQueryAdapter`.
+  - Refactored `TaxInvoiceBatchService.validatePurchaseInvoices` using 3-step bulk lookup (Set extraction -> bulk query 1-time execution -> O(1) map lookup).
+  - Added unit tests in `TaxInvoiceBatchServiceTest` verifying bulk query invocation and exception handling.
+- Verification:
+  - `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` and `./gradlew.bat :master-data:core:test` passed 100%.
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #308 Journal Entry Domain Validation Cohesion & Invariants Consolidation
 
 - Owner: Gemini (Agent loop subagent)
