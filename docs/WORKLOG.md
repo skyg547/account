@@ -1,3 +1,50 @@
+### 📅 2026-08-12 (핵심 도메인 계산식의 애플리케이션 서비스 유출 — Anemic Domain Model 해결 - Issue #301)
+### [ecl/ddd] ECL PD/LGD 계산 및 담보 배분 최적화 로직의 Pure Domain Calculator / Domain Model 이관
+
+- **작업 배경**:
+  - 기존 `ecl` 모듈의 애플리케이션 서비스(`LifetimePdService`, `CollateralAllocationService`, `PdCalculationService`, `LgdCalculationService`) 내부에 전이행렬 기반 PD 곡선 산출, 연속 위험률(Hazard Rate) 연산, 선형계획법(Simplex LP) 담보 최적 배정 및 폭포수(Waterfall) 배분 연산이 직접 노출되어 "Anemic Domain Model"(빈약한 도메인 모델) 문제가 발생함.
+  - 헥사고날 아키텍처 및 Domain-Driven Design(DDD) 원칙에 따라, 핵심 금융/수학 연산식을 순수 도메인 계층(Pure Domain Calculator 및 Domain Model Entity)으로 캡슐화하고 Application Service는 포트 조회 및 조율(Orchestration) 역할만 전담하도록 개선.
+- **주요 변경 사항**:
+  - `ecl/ecl-core/.../domain/collateral/CrCollateral.java`:
+    - `calculateRealEstateEffectiveValue()` 및 `calculateEffectiveValue()` 도메인 엔티티 비즈니스 메서드 구현. KB시세, LTV, 선순위 채권 및 헤어컷(Haircut) 기반 유효 담보가액 산출 로직을 엔티티 내부에 캡슐화.
+  - `ecl/ecl-core/.../domain/calculator/CollateralAllocationCalculator.java`:
+    - 신규 Pure Domain Calculator 클래스 작성.
+    - 선형계획법(Simplex Solver)을 활용한 손실 절감 가중치 최대화 담보 배분 연산(`calculateLpOptimization`), 폭포수 순차 배분 연산(`calculateWaterfallAllocation`), 계좌 상품별 손실 절감 우선순위 계산(`estimateLossPriorityWeight`)을 도메인 계층으로 이관.
+  - `ecl/ecl-core/.../domain/calculator/PdCalculator.java`:
+    - 전이행렬 기반 PD 곡선 생성(`generateTransitionBasedCurve`) 및 단순 모델 PD 곡선 생성(`generateSimplePdCurve`) pure domain calculator 메서드 구현.
+  - `ecl/ecl-core/.../domain/calculator/LgdCalculator.java`:
+    - 담보부/무담보부 LGD Floor 반영 로직(`applyLgdFloor`) 도메인 계산기 메서드 신설.
+  - `application/service/calculation` 및 `crm` 패키지 서비스 리팩토링:
+    - `LifetimePdService`, `CollateralAllocationService`, `PdCalculationService`, `LgdCalculationService`: Pure Domain Calculator를 주입받아 위임 호출하고, 서비스 자체는 Repository/Cache 데이터 조회 및 영속화 조율(Orchestration) 역할만 전담.
+    - 도메인 캡슐화와 Pure Domain Service/Model 도입 이유를 설명하는 상세한 교육적 주석(Pedagogical comments) 작성.
+  - 단위 테스트 신설 및 보강:
+    - `CollateralAllocationCalculatorTest` 신규 단위 테스트 추가.
+    - `PdCalculatorTest` 전이행렬 및 단순 PD 곡선 생성 검증 메서드 추가.
+    - `CollateralAllocationServiceTest` 및 `CollateralAllocationServicePriorityTest` Spy 의존성 주입 보정.
+- **검증**:
+  - `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` 실행하여 성공 확인 (BUILD SUCCESSFUL in 36s).
+
+### 📅 2026-08-12 (도메인 계층의 Spring 프레임워크 강결합 해제 — Hexagonal Architecture 위반 해결 - Issue #297)
+
+### [reporting/architecture] FinancialStatementEngine 및 reporting domain 클래스 Spring 프레임워크 강결합 해제 및 Pure Java POJO 전환
+
+- **작업 배경**:
+  - `reporting/core/.../domain/service/FinancialStatementEngine.java` 및 `IfrsDisclosureNotesEngine.java` 등의 도메인 서비스 클래스에 Spring의 `@Component` 어노테이션이 붙어 있어 도메인 계층이 특정 기술/프레임워크에 강결합되는 Hexagonal Architecture 위반이 존재함.
+  - 도메인 계층의 기술 독립성(Pure Java POJO)을 보장하고, 프레임워크 종속성을 제거하기 위해 수동 명시적 Bean 등록 구조로 리팩토링 진행.
+- **주요 변경 사항**:
+  - `reporting/core/.../domain/service/FinancialStatementEngine.java`:
+    - `@Component` 및 `import org.springframework.stereotype.Component;` 전면 제거하여 Pure Java POJO로 전환.
+    - 헥사고날 아키텍처 및 Pure Java POJO 유지에 관한 상세 교육적 주석(Pedagogical comments) 보강.
+  - `reporting/core/.../domain/service/IfrsDisclosureNotesEngine.java`:
+    - `@Component` 및 Spring import 전면 제거하여 Pure POJO로 전환.
+    - 도메인 계층의 프레임워크 독립성에 관한 교육적 주석 보강.
+  - `reporting/core/.../infrastructure/config/ReportingDomainConfiguration.java`:
+    - `@Configuration` 클래스 신설.
+    - Pure POJO 도메인 서비스(`FinancialStatementEngine`, `IfrsDisclosureNotesEngine`, `RwaCalculator`)들을 `@Bean`으로 수동 명시적 등록.
+    - Hexagonal Architecture의 핵심 원칙인 "도메인 계층의 프레임워크 독립성", "수동 Bean 등록의 이점", "단위 테스트 용이성"에 관한 상세 교육적 주석 작성.
+- **검증**:
+  - `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test --rerun-tasks` 성공 확인 (BUILD SUCCESSFUL in 18s).
+
 ### 📅 2026-08-12 (빈약한 도메인 모델(Anemic Domain Model) 적용 — Rich Domain Model 리팩토링 - Issue #303)
 ### [reconciliation/ddd] ReconciliationDifference 및 ReconciliationRun Rich Domain Model 전환 및 비즈니스 로직 엔티티 이관
 

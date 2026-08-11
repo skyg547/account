@@ -1,3 +1,38 @@
+## 2026-08-12 - Issue #301 ECL Core Domain Calculator Refactoring & Pure Domain Logic Encapsulation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/301-ecl-domain-calculator-refactor` / `C:\tmp\account-301-ecl-domain-calculator-refactor`.
+- Base: `origin/main`.
+- Integration: PR `#367`, merged into `main`. Issue `#301` closed and remote branch deleted.
+- Scope:
+  - Extracted PD/LGD calculation formulas and collateral LP/waterfall allocation logic from Application Services (`LifetimePdService`, `CollateralAllocationService`, `PdCalculationService`, `LgdCalculationService`) into Pure Domain Calculators (`PdCalculator`, `CollateralAllocationCalculator`, `LgdCalculator`) and `CrCollateral` domain entity.
+  - Refactored Application Services to focus strictly on Application Service Orchestration (repository fetch, transaction boundary, delegating calculations to domain calculators).
+  - Created `CollateralAllocationCalculator` (Pure Domain Service) to encapsulate Simplex LP optimization, waterfall allocation algorithm, and priority weight calculations.
+  - Added transition-matrix based PD curve generation and simple PD curve fallback logic to `PdCalculator`.
+  - Added secured/unsecured LGD floor rules encapsulation to `LgdCalculator` and collateral effective value calculation to `CrCollateral`.
+  - Added comprehensive pedagogical comments detailing DDD rich domain models, pure domain service encapsulation, and Hexagonal Architecture principles.
+  - Added `CollateralAllocationCalculatorTest` and updated existing unit tests.
+- Verification:
+  - `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` passed 100% (BUILD SUCCESSFUL in 36s).
+- Rollback:
+  - Revert PR #367. No DB schema changes were introduced.
+
+## 2026-08-12 - Issue #297 Decouple Spring Framework from Reporting Domain Layer
+
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/297-reporting-domain-spring-decouple` / `C:\tmp\account-297-reporting-domain-spring-decouple`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#297` closed and remote branch deleted.
+- Scope:
+  - Removed Spring `@Component` annotations and imports from `FinancialStatementEngine` and `IfrsDisclosureNotesEngine` domain services to maintain Pure Java POJO purity.
+  - Added educational comments explaining Hexagonal Architecture principles, domain framework independence, and unit testing benefits.
+  - Created `ReportingDomainConfiguration` in `reporting/core/infrastructure/config` for explicit `@Bean` registration of domain services (`FinancialStatementEngine`, `IfrsDisclosureNotesEngine`, `RwaCalculator`).
+- Verification:
+  - `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test --rerun-tasks` passed 100% (BUILD SUCCESSFUL in 18s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #303 Reconciliation Rich Domain Model Refactoring
 
 - Owner: Gemini (Agent loop subagent)

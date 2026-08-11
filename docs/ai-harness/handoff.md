@@ -1,3 +1,64 @@
+# AI Harness Handoff - 2026-08-12 Issue #301 Move ECL Calculation Logic to Domain Layer
+
+## Active Goal And State
+
+- GitHub Issue `#301` (`[ecl][ddd] 핵심 도메인 계산식의 애플리케이션 서비스 유출 — Anemic Domain Model`) completed and merged into `main`. `Fixes #301` closes Issue `#301`.
+- PR `#367` merged into `main` and remote branch `agent/301-ecl-domain-calculator-refactor` was deleted.
+- Worktree `C:\tmp\account-301-ecl-domain-calculator-refactor` was cleaned up.
+
+## Changes And Boundaries
+
+- `ecl/ecl-core/.../domain/collateral/CrCollateral.java`:
+  - Added `calculateRealEstateEffectiveValue()` and `calculateEffectiveValue()` methods to encapsulate collateral valuation logic (KB market price, LTV, prior liens, haircuts) within the entity model.
+- `ecl/ecl-core/.../domain/calculator/CollateralAllocationCalculator.java`:
+  - Created Pure Domain Calculator component to encapsulate Simplex LP optimization (`calculateLpOptimization`), waterfall allocation algorithm (`calculateWaterfallAllocation`), and loan loss priority weight estimations (`estimateLossPriorityWeight`).
+- `ecl/ecl-core/.../domain/calculator/PdCalculator.java`:
+  - Added transition-matrix based PD curve generation (`generateTransitionBasedCurve`) and simple PD curve fallback generation (`generateSimplePdCurve`) methods with detailed pedagogical comments.
+- `ecl/ecl-core/.../domain/calculator/LgdCalculator.java`:
+  - Added secured and unsecured LGD Floor regulation rules (`applyLgdFloor`).
+- `application/service/calculation` & `crm` Services Refactoring:
+  - `LifetimePdService`, `CollateralAllocationService`, `PdCalculationService`, `LgdCalculationService`: Refactored to inject pure domain calculators and focus solely on Application Service Orchestration (repository fetching, transaction management).
+  - Added educational comments explaining Hexagonal Architecture, pure domain calculation, and DDD encapsulation benefits.
+- Unit Tests:
+  - Created `CollateralAllocationCalculatorTest` and expanded `PdCalculatorTest`.
+  - Added `@Spy` injection for `CollateralAllocationCalculator` in `CollateralAllocationServiceTest` and `CollateralAllocationServicePriorityTest`.
+
+## Verification Evidence
+
+- `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` passed 100% (BUILD SUCCESSFUL in 36s).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR #367. No DB schema changes were introduced.
+
+# AI Harness Handoff - 2026-08-12 Issue #297 Decouple Spring Framework from Reporting Domain Layer
+
+
+## Active Goal And State
+
+- GitHub Issue `#297` (`[reporting][architecture] 도메인 계층의 Spring 프레임워크 강결합 — Hexagonal 위반`) completed and merged into `main`. `Fixes #297` closes Issue `#297`.
+- Worktree `C:\tmp\account-297-reporting-domain-spring-decouple` was cleaned up.
+
+## Changes And Boundaries
+
+- `reporting/core/.../domain/service/FinancialStatementEngine.java`:
+  - Removed Spring `@Component` annotation and import to enforce Pure Java POJO purity.
+  - Added educational comments explaining Hexagonal Architecture domain independence and unit test benefits.
+- `reporting/core/.../domain/service/IfrsDisclosureNotesEngine.java`:
+  - Removed Spring `@Component` annotation and import to enforce Pure Java POJO purity.
+  - Enhanced pedagogical comments on domain framework isolation.
+- `reporting/core/.../infrastructure/config/ReportingDomainConfiguration.java`:
+  - Created `@Configuration` class to manually register domain services (`FinancialStatementEngine`, `IfrsDisclosureNotesEngine`, `RwaCalculator`) as `@Bean`.
+  - Added detailed pedagogical comments explaining manual bean registration and Hexagonal Architecture principles.
+
+## Verification Evidence
+
+- `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test --rerun-tasks` passed 100% (BUILD SUCCESSFUL in 18s).
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR. No DB schema changes were introduced.
+
 # AI Harness Handoff - 2026-08-12 Issue #303 Reconciliation Rich Domain Model Refactoring
 
 ## Active Goal And State
