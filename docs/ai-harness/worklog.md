@@ -1,3 +1,19 @@
+## 2026-08-12 - Issue #303 Reconciliation Rich Domain Model Refactoring
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/303-reconciliation-rich-domain-model` / `C:\tmp\account-303-reconciliation-rich-domain-model`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#303` closed and remote branch deleted.
+- Scope:
+  - Refactored `ReconciliationDifference` and `ReconciliationRun` from Anemic Domain Models into Rich Domain Models with business behavior methods (`assignOwner`, `resolve`, `attachAdjustmentJournalEntry`, `startRun`, `completeRun`, `failRun`).
+  - Added educational comments explaining Anemic vs Rich Domain Model, encapsulation, and domain invariants.
+  - Simplified `ReconciliationService` to focus strictly on Application Service orchestration rather than fragmented state transitions.
+  - Added domain unit tests in `ReconciliationDifferenceTest` and `ReconciliationRunTest`.
+- Verification:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` passed 100% (BUILD SUCCESSFUL in 29s).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #305 Resolve N+1 Query in TaxInvoiceBatchService using Bulk Lookup
 
 - Owner: Gemini (Agent loop subagent)

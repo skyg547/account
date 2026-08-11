@@ -6,14 +6,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 대사 실행(Reconciliation Run) 엔티티
- * 특정 대사 단위에 대한 실행 결과를 기록합니다.
+ * [DDD(도메인 주도 설계) - Aggregate Root & Rich Domain Model]
+ * 대사 실행(Reconciliation Run) 엔티티. 특정 대사 단위에 대한 실행 결과를 기록하고 lifecycle을 관리합니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 이 클래스는 대사(맞춰보기) 작업의 '실행 결과 보고서'입니다.
- * 예를 들어 "오늘 은행 통장 내역과 우리 장부 내역을 맞춰봐라"고 시키면,
- * "총 100건 중 98건은 완벽히 맞았고, 2건(15만원)이 안 맞아서 불일치(Unmatched)로 남겼습니다"라고
- * 대사 작업이 끝난 후의 최종 성적표를 이곳에 저장합니다.
+ * 🐣 [초보자를 위한 개념 설명: Anemic Domain Model vs Rich Domain Model]
+ * 기존 Anemic Domain Model에서는 대사 실행의 상태(RUNNING -> SUCCESS / FAILED) 전환과
+ * 집계 데이터 세팅을 외부 서비스(`ReconciliationService`)에서 setter로 일일이 호출했습니다.
+ * 
+ * Rich Domain Model로 전환함에 따라:
+ * 1. 대사의 시작(`startRun`), 성공적 완료(`completeRun`), 실패(`failRun`)를 의미 명확한 도메인 메서드로 제공합니다.
+ * 2. 실행 중(RUNNING)이 아닌 상태에서 중복으로 결과를 완료 처리하려고 시도하는 등 잘못된 상태 전이(State Transition)를
+ *    엔티티 내부 검증 로직으로 차단합니다.
  */
 @Entity
 @Table(name = "reconciliation_runs")
@@ -91,6 +94,74 @@ public class ReconciliationRun {
     // --- Enums ---
     public enum ReconciliationRunStatus {
         RUNNING, SUCCESS, FAILED, PARTIAL
+    }
+
+    // --- Rich Domain Model Business Logic Methods ---
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 대사 실행 시작 팩토리 메서드]
+     * 대사 실행 작업 객체를 생성하고 RUNNING 상태로 시작합니다.
+     * 
+     * @param reconciliationUnit 대상 대사 단위
+     * @param reconciliationDate 대사 기준일
+     * @param runBy 대사 실행자
+     * @return 대사 실행 객체 (RUNNING 상태)
+     */
+    public static ReconciliationRun startRun(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, String runBy) {
+        if (reconciliationUnit == null) {
+            throw new IllegalArgumentException("ReconciliationUnit cannot be null.");
+        }
+        if (reconciliationDate == null) {
+            throw new IllegalArgumentException("ReconciliationDate cannot be null.");
+        }
+
+        ReconciliationRun run = new ReconciliationRun();
+        run.reconciliationUnit = reconciliationUnit;
+        run.reconciliationDate = reconciliationDate;
+        run.runStartTime = LocalDateTime.now();
+        run.status = ReconciliationRunStatus.RUNNING;
+        run.runBy = runBy != null ? runBy : "SYSTEM";
+        run.auditUser = run.runBy;
+        return run;
+    }
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 대사 실행 성공 완료 메서드]
+     * 대사 작업을 완료하고 대사 집계 결과를 세팅하며 상태를 SUCCESS로 변경합니다.
+     * 
+     * 💡 상태 불변식 검증:
+     * RUNNING 상태가 아닌 실행 결과에 대해 완료를 시도하는 경우 예외를 발생시킵니다.
+     */
+    public void completeRun(
+            long totalItemsSource, BigDecimal totalAmountSource,
+            long totalItemsTarget, BigDecimal totalAmountTarget,
+            long matchedItemsCount, BigDecimal matchedAmount,
+            long unmatchedItemsCount, BigDecimal unmatchedAmount) {
+
+        if (this.status != ReconciliationRunStatus.RUNNING) {
+            throw new IllegalStateException("Cannot complete a reconciliation run that is not in RUNNING state. Current status: " + this.status);
+        }
+
+        this.totalItemsSource = totalItemsSource;
+        this.totalAmountSource = totalAmountSource != null ? totalAmountSource : BigDecimal.ZERO;
+        this.totalItemsTarget = totalItemsTarget;
+        this.totalAmountTarget = totalAmountTarget != null ? totalAmountTarget : BigDecimal.ZERO;
+        this.matchedItemsCount = matchedItemsCount;
+        this.matchedAmount = matchedAmount != null ? matchedAmount : BigDecimal.ZERO;
+        this.unmatchedItemsCount = unmatchedItemsCount;
+        this.unmatchedAmount = unmatchedAmount != null ? unmatchedAmount : BigDecimal.ZERO;
+
+        this.runEndTime = LocalDateTime.now();
+        this.status = ReconciliationRunStatus.SUCCESS;
+    }
+
+    /**
+     * [교육적 주석 - Rich Domain Model: 대사 실행 실패 처리 메서드]
+     * 대사 작업 중 오류 발생 시 상태를 FAILED로 변경하고 종료 일시를 기록합니다.
+     */
+    public void failRun() {
+        this.runEndTime = LocalDateTime.now();
+        this.status = ReconciliationRunStatus.FAILED;
     }
 
     // --- Getter 및 Setter ---
