@@ -2,8 +2,9 @@
 
 ## Active Goal And State
 
-- GitHub Issue `#290` (`[auth:core][architecture] PersonalAccessTokenService 인프라 직접 의존 — 헥사고날 위반`) in progress.
-- Worktree `C:\tmp\account-290-auth-pat-service-dip-decouple` active.
+- GitHub Issue `#290` (`[auth:core][architecture] PersonalAccessTokenService 인프라 직접 의존 — 헥사고날 위반`) completed and merged into `main`. `Fixes #290` closes Issue `#290`.
+- PR #374 merged into `main` and remote branch `agent/290-auth-pat-service-dip-decouple` deleted.
+- Worktree `C:\tmp\account-290-auth-pat-service-dip-decouple` cleaned up.
 
 ## Changes And Boundaries
 
