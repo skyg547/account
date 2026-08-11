@@ -1385,3 +1385,19 @@
 - Independent review findings on standard Kafka/Redis properties, Gateway readiness, PostgreSQL sequence visibility, `psql` error leakage, password consistency and Frontend health were corrected; final re-review found no unresolved P0-P3.
 - Docker is unavailable and Podman lacks a Compose provider. Actual render/build/up, HTTP health, 17-context PostgreSQL DML/sequence/Flyway ACL checks and external-network probe timing remain deployment-environment gates. Issue #66 must remain open after code merge.
 - Rollback is a normal code/config revert followed by Compose `down` without `-v`. Do not remove named volumes, rewrite migrations or mutate an external development database. Next owner is an approved container/PostgreSQL host operator for the live gates.
+
+# AI Harness Handoff - 2026-08-11 Issue #340 Expenditure/Tax Classpath
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#340`, `agent/340-expenditure-tax-test-classpath`, `C:\tmp\account-340-expenditure-tax-test-classpath`, `origin/main@81f4206e`.
+- Source/PR: commit `aaaa4922`, Draft PR `#350`, Issue `status:needs-review`.
+- Changed files are limited to `tax/api/build.gradle`, `expenditure-resolution/api/build.gradle`, and `expenditure-resolution/core/build.gradle`.
+
+## Evidence and remaining gate
+
+- The Tax API now exposes an explicit `-plain.jar` to Gradle consumers while its unclassified artifact remains the executable boot JAR selected by the canonical Containerfile.
+- Focused latest-main verification passed 45 tasks and 55 observed tests with no failure/error/skip. Diff and marker checks passed; the prior independent reviewer found no P0-P3.
+- The root forced build passed the original #340 compile/integration failure and executed 237 tasks, then stopped at unrelated #344 because Internal Audit's local profile does not declare the datasource URL required by its policy test.
+- Next owner is an independent latest-main reviewer for PR #350, followed by the parent Integrator. Full-root green and parent #227 completion depend on #344, not further #340 production changes.
+- Roll back by reverting `aaaa4922`. No DB/data/image/Compose rollback is required.
