@@ -1860,3 +1860,4 @@
 - Latest-main 34 Core/API tests in 9 suites, API bootJar, and direct executable-JAR health/readiness HTTP 200+UP passed. Diff/marker/allowlist checks passed.
 - Independent review found no P0-P3. Real Redis-backed dev/prod and automated container/CI smoke remain outside scope; no external environment was accessed.
 - Commit `d0698585` is pushed and Draft PR #353 targets main with `Refs #342/#227`. Issue #342 is `status:needs-review`; merge and close remain gated.
+- Final PR review found one P3: whole-commit rollback would remove accurate #79 integration history co-located in `d0698585`. Corrected the contract to revert only the three #342 paths through a reviewed follow-up while preserving append-only harness records; runtime/test review remains clear.
