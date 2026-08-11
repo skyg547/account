@@ -1,3 +1,35 @@
+# AI Harness Handoff - 2026-08-12 Issue #290 Decouple PersonalAccessTokenService from JPA Infrastructure (DIP & Hexagonal Outbound Port)
+
+## Active Goal And State
+
+- GitHub Issue `#290` (`[auth:core][architecture] PersonalAccessTokenService 인프라 직접 의존 — 헥사고날 위반`) in progress.
+- Worktree `C:\tmp\account-290-auth-pat-service-dip-decouple` active.
+
+## Changes And Boundaries
+
+- Domain Model (`auth/core/.../domain/model/PersonalAccessToken.java`):
+  - Created Pure POJO `PersonalAccessToken` domain model with zero external technology dependencies.
+  - Encapsulated status management (`revoke()`, `markUsed()`) and effective status logic (`getEffectiveStatus()`).
+- Outbound Port (`auth/core/.../application/port/out/PersonalAccessTokenPort.java`):
+  - Defined Outbound Port interface for PAT domain model persistence and query operations.
+- Infrastructure Persistence Adapter & Data Mapper (`auth/core/.../infrastructure/persistence/`):
+  - Created `PersonalAccessTokenPersistenceAdapter` implementing `PersonalAccessTokenPort`.
+  - Added `toDomain()` and `fromDomain()` mapping methods in `PersonalAccessTokenJpaEntity`.
+- Service Refactoring (`auth/core/.../application/service/PersonalAccessTokenService.java`):
+  - Refactored `PersonalAccessTokenService` to depend on `PersonalAccessTokenPort` instead of `PersonalAccessTokenJpaRepository`.
+  - Replaced direct JPA Entity manipulations with Pure Domain POJO creation and updates.
+  - Added detailed pedagogical comments explaining DIP and Hexagonal Architecture benefits.
+- Unit Tests:
+  - Added `PersonalAccessTokenServiceTest.java` and `PersonalAccessTokenPersistenceAdapterTest.java`.
+
+## Verification Evidence
+
+- `./gradlew.bat :auth:core:test :auth:api:test` passed 100% (BUILD SUCCESSFUL).
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit/PR. DB schema is untouched.
+
 # AI Harness Handoff - 2026-08-12 Issue #291 Decouple JPA Annotations from Master Data Core Domain Models (Pure POJO & Data Mapper)
 
 ## Active Goal And State

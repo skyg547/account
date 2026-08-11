@@ -1,3 +1,26 @@
+### 📅 2026-08-12 ([auth:core][architecture] PersonalAccessTokenService 인프라 직접 의존 — 헥사고날 위반 - Issue #290)
+### [auth/core] PersonalAccessTokenService 인프라 직접 의존성 제거 및 아웃바운드 포트-어댑터 패턴 (DIP) 구조 개선
+
+- **작업 배경**:
+  - `auth/core` 모듈의 `PersonalAccessTokenService`가 `PersonalAccessTokenJpaEntity` 및 `PersonalAccessTokenJpaRepository` 영속성 인프라 구현체에 직접 의존하여 헥사고날 아키텍처 및 의존관계 역전 원칙(DIP)을 위반함.
+  - 아웃바운드 포트 인터페이스와 Pure POJO 도메인 모델, JPA 어댑터를 도출하여 서비스 계층과 영속성 인프라 간의 의존성을 격리함.
+- **주요 변경 사항**:
+  - `auth/core/.../domain/model/PersonalAccessToken.java` 신설:
+    - JPA 등 외부 기술 어노테이션이 없는 Pure Java POJO 도메인 모델 구현.
+    - 상태 관리(`revoke()`, `markUsed()`) 및 실질적 만료 상태 계산(`getEffectiveStatus()`) 비즈니스 로직 캡슐화.
+  - `auth/core/.../application/port/out/PersonalAccessTokenPort.java` 신설:
+    - 영속성 인프라 조작을 위한 아웃바운드 포트 인터페이스 정의.
+  - `auth/core/.../infrastructure/persistence/PersonalAccessTokenPersistenceAdapter.java` 신설:
+    - `PersonalAccessTokenPort`를 구현하는 JPA 영속성 어댑터.
+    - Data Mapper 패턴 적용으로 `PersonalAccessTokenJpaEntity`와 Pure Domain POJO 간 양방향 데이터 변환 캡슐화.
+  - `PersonalAccessTokenJpaEntity.java`: `toDomain()` 및 `fromDomain()` 데이터 매핑 메서드 추가.
+  - `PersonalAccessTokenService.java`:
+    - JPA Repository 직접 의존에서 `PersonalAccessTokenPort` 및 `PersonalAccessToken` 도메인 모델 사용으로 변경.
+    - DIP 및 헥사고날 아웃바운드 포트 아키텍처의 이점을 설명하는 상세 교육적 주석(Pedagogical comments) 작성.
+  - 단위 및 어댑터 테스트 신설: `PersonalAccessTokenServiceTest`, `PersonalAccessTokenPersistenceAdapterTest`.
+- **검증**:
+  - `./gradlew.bat :auth:core:test :auth:api:test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([master-data:core][ddd] 도메인 모델에 JPA 인프라 종속성 포함 — 순수 POJO 원칙 위반 - Issue #291)
 ### [master-data/core] 도메인 모델 내 JPA 기술 어노테이션 전면 제거 및 도메인-영속성 모델 분리 (Pure Java POJO & Data Mapper 패턴 적용)
 

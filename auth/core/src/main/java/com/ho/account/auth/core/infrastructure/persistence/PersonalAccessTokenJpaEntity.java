@@ -59,6 +59,42 @@ public class PersonalAccessTokenJpaEntity {
         this.createdAt = createdAt;
     }
 
+    /**
+     * Domain POJO 객체를 JPA Entity로 변환합니다.
+     */
+    public static PersonalAccessTokenJpaEntity fromDomain(com.ho.account.auth.core.domain.model.PersonalAccessToken domain) {
+        if (domain == null) {
+            return null;
+        }
+        PersonalAccessTokenJpaEntity entity = new PersonalAccessTokenJpaEntity(
+                domain.getId(),
+                domain.getUsername(),
+                domain.getTokenName(),
+                domain.getTokenPrefix(),
+                domain.getTokenHash(),
+                domain.getStatus(),
+                domain.getExpiresAt(),
+                domain.getCreatedAt());
+        entity.lastUsedAt = domain.getLastUsedAt();
+        return entity;
+    }
+
+    /**
+     * JPA Entity를 Pure Domain POJO 객체로 변환합니다 (Data Mapping).
+     */
+    public com.ho.account.auth.core.domain.model.PersonalAccessToken toDomain() {
+        return new com.ho.account.auth.core.domain.model.PersonalAccessToken(
+                this.id,
+                this.username,
+                this.tokenName,
+                this.tokenPrefix,
+                this.tokenHash,
+                this.status,
+                this.expiresAt,
+                this.lastUsedAt,
+                this.createdAt);
+    }
+
     public void revoke() {
         this.status = "REVOKED";
     }
