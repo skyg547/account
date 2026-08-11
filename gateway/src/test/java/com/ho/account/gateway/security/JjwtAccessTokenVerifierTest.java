@@ -9,10 +9,12 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
 import java.security.Key;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,46 @@ class JjwtAccessTokenVerifierTest {
         assertThat(principal.roles()).containsExactly("ACCOUNT_ADMIN", "REPORT_READER");
         assertThat(principal.roleVersion()).isEqualTo(7L);
         assertThat(principal.departmentCode()).isEqualTo("FINANCE");
+    }
+
+    @Test
+    void verify_verifiesTokenWithAsymmetricRsaPublicKey() {
+        KeyPair keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+        String publicKeyPem = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+
+        JwtProperties rsaProps = new JwtProperties();
+        rsaProps.setPublicKey(publicKeyPem);
+        rsaProps.setIssuer("auth-service");
+
+        JjwtAccessTokenVerifier rsaVerifier = new JjwtAccessTokenVerifier(
+                rsaProps,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        String token = Jwts.builder()
+                .setSubject("rsa_admin")
+                .setIssuer("auth-service")
+                .setIssuedAt(Date.from(NOW.minusSeconds(10)))
+                .setExpiration(Date.from(NOW.plusSeconds(300)))
+                .claim("roles", List.of("SYSTEM_ADMIN"))
+                .claim("roleVersion", 1L)
+                .signWith(keyPair.getPrivate(), SignatureAlgorithm.RS256)
+                .compact();
+
+        AuthenticatedPrincipal principal = rsaVerifier.verify(token);
+
+        assertThat(principal.username()).isEqualTo("rsa_admin");
+        assertThat(principal.roles()).containsExactly("SYSTEM_ADMIN");
+        assertThat(principal.roleVersion()).isEqualTo(1L);
+    }
+
+    @Test
+    void constructor_throwsExceptionWhenNoKeyConfigured() {
+        JwtProperties emptyProps = new JwtProperties();
+        emptyProps.setSecret(null);
+
+        assertThatThrownBy(() -> new JjwtAccessTokenVerifier(emptyProps, Clock.fixed(NOW, ZoneOffset.UTC)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JWT verification requires either a valid secret");
     }
 
     @Test

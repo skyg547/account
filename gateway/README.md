@@ -83,7 +83,9 @@ Auth와 Gateway는 같은 서명키와 issuer를 사용해야 합니다.
 ```yaml
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET}
+    secret: ${AUTH_JWT_SECRET:${JWT_SECRET:}}
+    public-key: ${AUTH_JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY:}}
+    jwks-uri: ${AUTH_JWT_JWKS_URI:${JWT_JWKS_URI:}}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     allowed-clock-skew-seconds: ${AUTH_JWT_ALLOWED_CLOCK_SKEW_SECONDS:30}
   token-version-validation:
@@ -94,7 +96,7 @@ auth:
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
 ```
 
-저장소 기본 서명키는 로컬 학습용 호환값입니다. 운영에서는 `AUTH_JWT_SECRET`을 반드시 Secret Manager/Vault 등의 외부 비밀 저장소에서 주입하고 저장소나 로그에 기록하지 않습니다.
+소스코드 내 평문 JWT Secret 기본값은 보안 강화를 위해 완전히 제거되었습니다. 운영 및 개발 환경에서는 `AUTH_JWT_SECRET` (또는 `JWT_SECRET`) 및 RS256 비대칭키 공개키(`AUTH_JWT_PUBLIC_KEY`)를 Secret Manager/Vault/환경변수로 주입해야 합니다.
 
 정상 검증 결과만 짧게 캐시합니다. 거절·장애 결과는 캐시하지 않으므로 계정 복구나 Auth 복구가 불필요하게 지연되지 않습니다.
 
