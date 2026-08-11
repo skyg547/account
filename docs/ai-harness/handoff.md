@@ -1,3 +1,35 @@
+# AI Harness Handoff - 2026-08-12 Issue #293 Implement Transactional Outbox Pattern for Journal Posting Dual Write Consistency
+
+## Active Goal And State
+
+- GitHub Issue `#293` (`[전 모듈][msa] 전표 기록(Journal POST) 동기 호출로 인한 Dual Write 정합성 문제`) completed and PR created for merge into `main`.
+- Worktree `C:\tmp\account-293-msa-transactional-outbox-journal` active.
+
+## Changes And Boundaries
+
+- Outbox Domain/Persistence Models & Ports (`contracts/src/main/java/com/ho/account/contracts/outbox/`):
+  - `OutboxStatus.java`: PENDING, PUBLISHED, FAILED lifecycle enum.
+  - `OutboxEvent.java`: Common Outbox domain/persistence event model.
+  - `JournalOutboxEvent.java`: Specialized journal posting event wrapping `JournalEntryCommand`, lineage info, and idempotency key.
+  - `OutboxPort.java`: Outbound persistence port for atomic local DB save, pending event query, and status updates.
+  - `OutboxEventPublisher.java` & `JournalOutboxRelayService.java`: Asynchronous relay engine scanning PENDING events and delivering to `JournalPostingPort` with At-Least-Once Delivery and Eventual Consistency.
+  - `InMemoryOutboxAdapter.java`: In-memory port adapter for testing and local standalone execution.
+- Service Integrations (`deposit`, `loan`, `journal-ledger`):
+  - `DepositService.java`: Saves `JournalOutboxEvent` atomically in local DB transaction during account opening/initial deposit, then relays via `OutboxEventPublisher`.
+  - `LoanJournalAdapter.java`: Saves `JournalOutboxEvent` atomically upon loan disbursal/adjustment journal posting, then marks as PUBLISHED.
+  - `JournalPostingAdapter.java`: Added idempotency check using `lineageSourceType` and `lineageSourceId` to deduplicate incoming journal requests.
+- Educational Documentation:
+  - Added extensive pedagogical comments explaining MSA Dual Write issues, Transactional Outbox atomic save, Eventual Consistency, and Idempotency benefits.
+
+## Verification Evidence
+
+- Added unit/integration test `JournalOutboxPatternTest.java` verifying atomic save, network failure retry resilience, and idempotency key deduplication.
+- `./gradlew.bat test` executed across all modules with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Rollback: Revert PR commit.
+
 # AI Harness Handoff - 2026-08-12 Issue #290 Decouple PersonalAccessTokenService from JPA Infrastructure (DIP & Hexagonal Outbound Port)
 
 ## Active Goal And State

@@ -34,9 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>🐣 이 클래스는 대출 업무의 지휘자입니다. 도메인 객체가 금액·상태 규칙을 지키게 하고,
  * 기준정보·영속성·전표는 Loan이 소유한 출력 포트 뒤로 숨긴 채 호출 순서와 트랜잭션 경계를 관리합니다.</p>
  *
- * <p>현재 전표 POST와 Loan DB commit은 동기 호출 두 트랜잭션이라, 전표 전기 후 Loan 저장이
- * 실패하면 불일치가 생길 수 있습니다. 완료 조건은 업무 lineage idempotency key, Loan outbox,
- * Journal inbox/중복 응답, 재처리·보상 실행 이력을 함께 구현하고 장애 주입 통합 테스트를 통과하는 것입니다.</p>
+ * <p><b>[MSA Transactional Outbox 패턴 적용 및 Dual Write 정합성 해결]</b><br>
+ * 트랜잭션 내 외부 전표 API 동기 직접 호출로 인한 Dual Write 정합성 이슈(로컬 DB 커밋 성공 후 네트워크 장애로 전표 발행 실패)를 
+ * 해결하기 위해 Transactional Outbox 패턴을 도입했습니다.<br>
+ * 1. 로컬 DB 트랜잭션 수반 시 `JournalOutboxEvent`를 Outbox 테이블에 원자적으로 함께 저장합니다.<br>
+ * 2. 비동기 릴레이 프로세서(Outbox Relay)가 PENDING 상태 이벤트를 수신측 전표 포트({@link LoanJournalPort})로 안전하게 발행합니다.<br>
+ * 3. `lineageSourceType`과 `lineageSourceId` 기반의 멱등성 키(idempotency key)를 통해 최종 정합성(Eventual Consistency)과 중복 발행 방지를 보장합니다.</p>
  */
 @Service
 @Transactional
