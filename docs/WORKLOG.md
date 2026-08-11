@@ -1,3 +1,27 @@
+### 📅 2026-08-12 ([payable, receivable][financial] 회계기간 및 마감 상태 사전 검증 누락 해결 - Issue #298)
+### [payable, receivable/financial] 전표/지급/매출/수납 발생 Application Service 내 회계기간 마감 사전 검증 및 포트 연동
+
+- **작업 배경**:
+  - `payable` (지급, 매입) 및 `receivable` (매출, 수납) 모듈의 전표 발생 서비스에서 거래일자/지급일자 기준 회계기간(Fiscal Period) 마감 여부를 검증하지 않아, 마감(CLOSED) 처리된 회계기간에 소급하여 전표가 생성되거나 외부 송금/수납이 발생하는 금융 회계 내부 통제 누락 위험이 존재함.
+  - `contracts` 모듈의 `AccountingPeriodStatusPort`를 사전 검증 게이트로 연결하여 마감된 회계기간의 전표/지급 발행을 `IllegalStateException`으로 원천 차단(Fail-Closed)함.
+- **주요 변경 사항**:
+  - `payable/core/.../application/service/PaymentService.java`:
+    - `AccountingPeriodStatusPort` 주입 및 `initiatePaymentRun`, `executePayment`, `recordAdvancePayment`, `offsetPayableWithAdvancePayment` 메서드 진입 시 회계기간 마감 여부 사전 검증(`validateAccountingPeriodOpen`) 적용.
+  - `payable/core/.../application/service/PurchaseService.java`:
+    - `AccountingPeriodStatusPort` 주입 및 `createPurchaseInvoice` 전표 발행 전 인보이스 발행일(Issue Date) 기준 마감 검증 적용.
+  - `receivable/core/.../application/service/SalesService.java`:
+    - `AccountingPeriodStatusPort` 주입 및 `createSalesInvoice` 매출 인식 전표 발행 전 인보이스 발행일 기준 마감 검증 적용.
+  - `receivable/core/.../application/service/CollectionService.java`:
+    - `AccountingPeriodStatusPort` 주입 및 `receivePayment`, `attemptAutoMatching`, `manualMatchCollection` 전표 발행 전 수납일자 기준 마감 검증 적용.
+  - Local External Port Configuration (`PayableLocalExternalPortConfiguration`, `ReceivableLocalExternalPortConfiguration`):
+    - 로컬 실행 환경용 `@Bean @ConditionalOnMissingBean AccountingPeriodStatusPort` 등록.
+  - 상세 교육적 주석 (Pedagogical Comments) 추가:
+    - 금융 회계의 마감 정합성(Accounting Period Controls), 소급 마감 차단 규정(Anti-Backdating), 회계 내부 통제 이점(Internal Control Benefits)을 상세 기술.
+  - 단위 테스트 보강 (`PaymentServiceTest`, `PurchaseServiceTest`, `SalesServiceTest`, `CollectionServiceTest`):
+    - 마감된 회계기간(`isClosed(date) == true`)에 대한 예외 발생(`IllegalStateException`) 단위 테스트 케이스 작성 및 성공 검증.
+- **검증**:
+  - `./gradlew.bat :payable:core:test :receivable:core:test` 및 전체 `./gradlew.bat test` 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 (핵심 도메인 계산식의 애플리케이션 서비스 유출 — Anemic Domain Model 해결 - Issue #301)
 ### [ecl/ddd] ECL PD/LGD 계산 및 담보 배분 최적화 로직의 Pure Domain Calculator / Domain Model 이관
 

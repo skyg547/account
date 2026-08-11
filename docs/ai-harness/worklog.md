@@ -1,3 +1,21 @@
+## 2026-08-12 - Issue #298 Accounting Period Validation in Payable & Receivable Services
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/298-payable-receivable-accounting-period-validation` / `C:\tmp\account-298-payable-receivable-accounting-period-validation`.
+- Base: `origin/main`.
+- Integration: Merged into `main`. Issue `#298` closed and remote branch deleted.
+- Scope:
+  - Integrated `AccountingPeriodStatusPort` into `payable` (`PaymentService`, `PurchaseService`) and `receivable` (`SalesService`, `CollectionService`) application services.
+  - Implemented pre-validations (`validateAccountingPeriodOpen`) before posting journal entries, creating invoices, executing payments, recording advance payments, or matching collections.
+  - Throws `IllegalStateException` when a transaction is attempted against a CLOSED accounting period.
+  - Added `@Bean @ConditionalOnMissingBean AccountingPeriodStatusPort` definitions to `PayableLocalExternalPortConfiguration` and `ReceivableLocalExternalPortConfiguration`.
+  - Added educational comments (Pedagogical comments) detailing financial accounting period controls, anti-backdating rules, and internal control benefits.
+  - Added unit test cases for closed period validation in `PaymentServiceTest`, `PurchaseServiceTest`, `SalesServiceTest`, and `CollectionServiceTest`.
+- Verification:
+  - `./gradlew.bat :payable:core:test :receivable:core:test` and `./gradlew.bat test` passed 100% (BUILD SUCCESSFUL).
+- Rollback:
+  - Revert PR. No DB schema changes were introduced.
+
 ## 2026-08-12 - Issue #301 ECL Core Domain Calculator Refactoring & Pure Domain Logic Encapsulation
 
 - Owner: Gemini (Agent loop subagent)

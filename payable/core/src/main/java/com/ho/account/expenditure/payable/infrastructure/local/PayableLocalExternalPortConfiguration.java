@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.payable.infrastructure.local;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
@@ -51,5 +52,11 @@ public class PayableLocalExternalPortConfiguration {
             long id = journalSequence.getAndIncrement();
             return new JournalPostingResult(id, "LOCAL-AP-" + id, "DRAFT");
         };
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    AccountingPeriodStatusPort payableLocalAccountingPeriodStatusPort() {
+        return date -> false;
     }
 }

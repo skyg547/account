@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.application.service;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
@@ -25,7 +26,7 @@ import java.util.List;
  * "A 거래처에 실제로 돈 보내고 장부에서 빚 지워줘!" (Execute Payment), 
  * "미리 준 돈(선급금)이 있으니 나중에 줄 돈이랑 퉁치자!" (Offset) 같은 복잡한 일들을 순서대로 처리합니다.
  * 
- * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 통신하여 결합도를 낮춥니다.
+ * 타 모듈(Master Data, Journal Ledger, Closing)과는 ID/Code/Port 기반으로 통신하여 결합도를 낮춥니다.
  */
 @Service
 @Transactional
@@ -39,6 +40,7 @@ public class PaymentService implements PaymentUseCase {
     private final JournalPostingPort journalPostingPort;
     private final PayableAccountMappingPort payableAccountMappingPort;
     private final PaymentExecutionPort paymentExecutionPort;
+    private final AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     public PaymentService(PaymentPersistencePort paymentPersistencePort,
                           PayablePersistencePort payablePersistencePort,
@@ -47,7 +49,8 @@ public class PaymentService implements PaymentUseCase {
                           MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort,
                           PayableAccountMappingPort payableAccountMappingPort,
-                          PaymentExecutionPort paymentExecutionPort) {
+                          PaymentExecutionPort paymentExecutionPort,
+                          AccountingPeriodStatusPort accountingPeriodStatusPort) {
         this.paymentPersistencePort = paymentPersistencePort;
         this.payablePersistencePort = payablePersistencePort;
         this.paymentRunPersistencePort = paymentRunPersistencePort;
@@ -56,11 +59,14 @@ public class PaymentService implements PaymentUseCase {
         this.journalPostingPort = journalPostingPort;
         this.payableAccountMappingPort = payableAccountMappingPort;
         this.paymentExecutionPort = paymentExecutionPort;
+        this.accountingPeriodStatusPort = accountingPeriodStatusPort;
     }
 
     @Override
     public PaymentRun initiatePaymentRun(PaymentRunCommand command) {
         LocalDate runDate = command.runDate();
+        validateAccountingPeriodOpen(runDate);
+
         String description = command.description();
         String createdBy = command.createdBy();
         PaymentRun paymentRun = new PaymentRun();
@@ -97,6 +103,8 @@ public class PaymentService implements PaymentUseCase {
         String bankAccount = command.bankAccount();
         Payment payment = paymentPersistencePort.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+
+        validateAccountingPeriodOpen(payment.getPaymentDate());
 
         // 완료된 지급을 다시 호출하면 외부 송금과 채무 차감을 반복하지 않고 기존 결과를 반환합니다.
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
@@ -140,6 +148,8 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public AdvancePayment recordAdvancePayment(AdvancePaymentCommand command) {
+        validateAccountingPeriodOpen(command.paymentDate());
+
         AdvancePayment advancePayment = toAdvancePayment(command);
         String vendorCode = advancePayment.getVendorCode();
         BusinessPartnerRef vendor = validateVendor(vendorCode);
@@ -153,6 +163,8 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public Payable offsetPayableWithAdvancePayment(OffsetPayableCommand command) {
+        validateAccountingPeriodOpen(LocalDate.now());
+
         Long payableId = command.payableId();
         Long advancePaymentId = command.advancePaymentId();
         BigDecimal offsetAmount = command.offsetAmount();
@@ -266,5 +278,28 @@ public class PaymentService implements PaymentUseCase {
             return payment.getPaymentRun().getCreatedBy().trim();
         }
         return "SYSTEM";
+    }
+
+    /**
+     * 회계기간 마감 여부를 사전에 검증합니다.
+     *
+     * 🎓 [금융 회계 내부 통제 및 마감 정합성 - Accounting Period Controls]
+     * 회계 시스템에서 마감(CLOSED) 처리된 회계기간에 새로운 지급/선급금/상계 거래가 발생하거나 전표가 발행되는 것을
+     * 사전에 차단하는 것은 재무제표의 신뢰성과 내부 통제(Internal Control)의 핵심 요구사항입니다.
+     *
+     * 1. 소급 마감 차단 (Anti-Backdating):
+     *    마감된 과거 회계기간으로 지급/선급금 전표가 작성되면 이미 확정된 당기순이익, 현금/예금 잔액, 채무 잔액이
+     *    변경되어 재무제표의 왜곡을 초래합니다.
+     * 2. 회계 내부 통제 이점 (Internal Control Benefits):
+     *    지급 및 전표 발행 전 회계기간 마감 여부를 사전 검증(Fail-Closed)함으로써 무단/부정 지급 및
+     *    마감 후 전표 삽입을 원천 차단하고 감사 추적성(Audit Trail)을 보장합니다.
+     *
+     * @param date 검증할 지급일자 또는 거래일자
+     * @throws IllegalStateException 해당 회계기간이 이미 마감(CLOSED)된 경우
+     */
+    private void validateAccountingPeriodOpen(LocalDate date) {
+        if (accountingPeriodStatusPort.isClosed(date)) {
+            throw new IllegalStateException("해당 회계 반영일(" + date + ")은 이미 마감된 기간입니다.");
+        }
     }
 }

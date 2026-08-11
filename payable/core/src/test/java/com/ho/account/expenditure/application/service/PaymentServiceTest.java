@@ -1,5 +1,6 @@
 package com.ho.account.expenditure.application.service;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -59,6 +61,8 @@ class PaymentServiceTest {
     private PayableAccountMappingPort payableAccountMappingPort;
     @Mock
     private PaymentExecutionPort paymentExecutionPort;
+    @Mock
+    private AccountingPeriodStatusPort accountingPeriodStatusPort;
 
     private PaymentService service;
 
@@ -72,7 +76,8 @@ class PaymentServiceTest {
                 masterDataQueryPort,
                 journalPostingPort,
                 payableAccountMappingPort,
-                paymentExecutionPort);
+                paymentExecutionPort,
+                accountingPeriodStatusPort);
     }
 
     @Test
@@ -82,6 +87,7 @@ class PaymentServiceTest {
         Payable payable = payable();
 
         when(paymentPersistencePort.findById(10L)).thenReturn(Optional.of(payment));
+        when(accountingPeriodStatusPort.isClosed(payment.getPaymentDate())).thenReturn(false);
         when(paymentExecutionPort.execute(any())).thenReturn(
                 PaymentExecutionPort.PaymentExecutionResult.completed("BANK-REF-10"));
         when(paymentPersistencePort.save(payment)).thenReturn(payment);
@@ -116,6 +122,7 @@ class PaymentServiceTest {
     void executePaymentPreservesFailureWithoutSettlingPayable() {
         Payment payment = payment();
         when(paymentPersistencePort.findById(10L)).thenReturn(Optional.of(payment));
+        when(accountingPeriodStatusPort.isClosed(payment.getPaymentDate())).thenReturn(false);
         when(paymentExecutionPort.execute(any())).thenReturn(
                 PaymentExecutionPort.PaymentExecutionResult.failed("BANK_TIMEOUT"));
         when(paymentPersistencePort.save(payment)).thenReturn(payment);
@@ -133,6 +140,7 @@ class PaymentServiceTest {
     void recordAdvancePaymentUsesMappedAccounts() {
         AdvancePayment advance = advancePayment();
 
+        when(accountingPeriodStatusPort.isClosed(LocalDate.of(2026, 5, 29))).thenReturn(false);
         when(masterDataQueryPort.findBusinessPartner("V001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("V001", "Vendor One", "VENDOR", true)));
         when(advancePaymentPersistencePort.save(any(AdvancePayment.class))).thenAnswer(invocation -> {
@@ -162,6 +170,7 @@ class PaymentServiceTest {
         Payable payable = payable();
         AdvancePayment advance = advancePayment();
 
+        when(accountingPeriodStatusPort.isClosed(any(LocalDate.class))).thenReturn(false);
         when(payablePersistencePort.findById(100L)).thenReturn(Optional.of(payable));
         when(advancePaymentPersistencePort.findById(200L)).thenReturn(Optional.of(advance));
         when(payablePersistencePort.save(payable)).thenReturn(payable);
@@ -186,6 +195,30 @@ class PaymentServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("AP-004", "ADV-004");
+    }
+
+    @Test
+    @DisplayName("마감된 회계기간에 대한 지급 실행 시 IllegalStateException이 발생한다")
+    void executePaymentThrowsExceptionWhenAccountingPeriodClosed() {
+        Payment payment = payment();
+        when(paymentPersistencePort.findById(10L)).thenReturn(Optional.of(payment));
+        when(accountingPeriodStatusPort.isClosed(payment.getPaymentDate())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.executePayment(new ExecutePaymentCommand(10L, "BANK-001")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간입니다");
+    }
+
+    @Test
+    @DisplayName("마감된 회계기간에 대한 선급금 등록 시 IllegalStateException이 발생한다")
+    void recordAdvancePaymentThrowsExceptionWhenAccountingPeriodClosed() {
+        LocalDate closedDate = LocalDate.of(2026, 5, 29);
+        when(accountingPeriodStatusPort.isClosed(closedDate)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.recordAdvancePayment(
+                new AdvancePaymentCommand("V001", closedDate, new BigDecimal("200.00"), null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("이미 마감된 기간입니다");
     }
 
     private Payment payment() {

@@ -2,6 +2,7 @@
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-08-12 | Gemini | Subagent Coder / Reviewer | `agent/298-payable-receivable-accounting-period-validation` / `C:\tmp\account-298-payable-receivable-accounting-period-validation` | Integrated PR / Issue closed | Added `AccountingPeriodStatusPort` pre-validation to Payable & Receivable services (`PaymentService`, `PurchaseService`, `SalesService`, `CollectionService`). Added pedagogical comments on financial period controls. All payable/receivable tests passed. PR merged into `main`. |
 | 2026-08-12 | Gemini | Subagent Coder / Reviewer | `agent/301-ecl-domain-calculator-refactor` / `C:\tmp\account-301-ecl-domain-calculator-refactor` | Integrated PR #367 / Issue closed | Extracted ECL PD/LGD calculation and collateral LP/waterfall allocation logic into Pure Domain Calculators (`PdCalculator`, `CollateralAllocationCalculator`, `LgdCalculator`) and `CrCollateral` domain entity. Refactored Application Services for orchestration. All ecl module tests passed. PR #367 merged into `main`. |
 | 2026-08-12 | Gemini | Subagent Coder / Reviewer | `agent/297-reporting-domain-spring-decouple` / `C:\tmp\account-297-reporting-domain-spring-decouple` | Integrated PR #366 / Issue closed | Decoupled Spring `@Component` annotations from Reporting domain services (`FinancialStatementEngine`, `IfrsDisclosureNotesEngine`). Created `ReportingDomainConfiguration` for explicit `@Bean` registration. All reporting tests passed. PR #366 merged into `main`. |
 
