@@ -32,7 +32,13 @@ eureka:
     enabled: false
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   health:
+    redis:
+      enabled: false
     vault:
       enabled: false
   tracing:

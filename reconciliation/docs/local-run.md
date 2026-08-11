@@ -3,6 +3,7 @@
 ## 실행 프로파일 계약
 
 - 기본 `local` 프로파일은 H2 PostgreSQL mode, 전용 Flyway V1, Hibernate `validate`를 사용한다.
+- `local` API는 Actuator probes를 활성화하므로 `/actuator/health`와 `/actuator/health/readiness`가 Redis 없이 `UP`이어야 한다. Redis health indicator와 probes의 local override는 `dev`/`prod`에 적용하지 않는다.
 - `dev`/`prod`는 PostgreSQL 15+ 전용이며 런타임 Flyway/DDL/SQL init/Batch metadata init을 금지한다. 배포 전에 서버 버전이 15 이상인지 확인하고 `migration-runner --context=reconciliation`을 실행한다.
 - `prod`는 `sslmode=verify-full`을 강제하고 DB 비밀번호는 환경 변수로만 주입한다.
 - 실제 PostgreSQL 검증은 승인 환경에서 별도로 필요하다. Journal/Ledger 원격 어댑터는 Issue #266에서 구현하므로 그 전까지 완전한 dev/prod 업무 플로우는 준비되지 않았다.

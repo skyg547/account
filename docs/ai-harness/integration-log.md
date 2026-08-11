@@ -186,3 +186,10 @@ Recommended integration order remains:
 - Gate: ready-Issue contracts/state, parent-only mutation rules, exact claim, links, diff and marker checks passed; final independent review found no P0-P3.
 - Result: PR #349 merged to `main` as `c4a50f17`; Issue #348 closed and active workflow/owner labels were removed.
 - Rollback: revert merge commit `c4a50f17`; no production code, database, container, credential, or external runtime rollback is required.
+
+## 2026-08-11 - GH-79 Loan API Local H2 Integration
+
+- Source: Issue #79, PR #352, branch `agent/79-loan-api-local-h2`.
+- Gate: latest-main 42 tests, API bootJar, direct local H2 JAR startup, allowlist/diff/marker checks and final independent review passed with no P0-P3.
+- Result: PR #352 merged to `main` as `4fa50cc8`; Issue #79 closed and active workflow/owner labels were removed.
+- Rollback: revert merge commit `4fa50cc8`; no schema, data, container, credential, or external runtime rollback is required.

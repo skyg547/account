@@ -1434,3 +1434,20 @@
 - No PostgreSQL, Compose, credential, private endpoint or existing container was accessed. PostgreSQL parity and separate Loan Batch startup remain outside this Issue.
 - Commit `09b72f21` is pushed and Draft PR #352 targets main. Issue #79 is frozen at `status:needs-review`; next owner is an independent read-only PR reviewer, followed by the parent Integrator.
 - Roll back `09b72f21`; there is no schema, data, container or external-service rollback.
+- Final PR-head review found no P0-P3. PR #352 merged as `4fa50cc8`; Issue #79 closed and active status/owner labels were removed.
+
+# AI Harness Handoff - 2026-08-11 Issue #342 Reconciliation Local Health
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#342`, `agent/342-reconciliation-local-health`, `C:\tmp\account-342-reconciliation-local-health`, `origin/main@4fa50cc8`.
+- Changed files: `application-local.yaml`, `ReconciliationLocalHealthPolicyTest.java`, `reconciliation/docs/local-run.md`, plus parent-owned harness records.
+- Local health no longer depends on an unused Redis process; probes expose health/readiness while dev/prod retain their existing behavior.
+
+## Evidence, rollback, and next owner
+
+- Latest-main 34 Core/API tests, API bootJar and direct local H2 JAR health/readiness HTTP smoke passed. Static gates passed and independent review found no P0-P3.
+- Real Redis-backed dev/prod health and automated container/CI smoke remain outside the Issue. No external environment was accessed.
+- Commit `d0698585` is pushed and Draft PR #353 targets main. Issue #342 is frozen at `status:needs-review`; next owner is an independent read-only PR reviewer, followed by the parent Integrator.
+- Roll back only `application-local.yaml`, `ReconciliationLocalHealthPolicyTest.java`, and `reconciliation/docs/local-run.md` in a new reviewed commit, then append the outcome to the harness. Preserve all five parent-owned harness files because they also contain accurate #79 integration history; never revert all of `d0698585`. No DB/data/container rollback is required.
+- Final PR review found only this P3 rollback-document defect; runtime/test behavior had no P0-P3. The corrected head requires independent re-review before Ready/merge.
