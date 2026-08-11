@@ -1,6 +1,5 @@
 package com.ho.account.masterdata.core.domain.model;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -8,58 +7,38 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 부서(Department/Cost Center) 엔티티
+ * 부서(Department/Cost Center) 도메인 모델
  * 조직 구조를 관리하며 SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 조직 개편 이력을 추적합니다.
+ * 
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO 원칙:
+ *    도메인 모델은 JPA 기술 어노테이션에 취약해지지 않도록 완전히 격리됩니다.
+ * 2. 도메인-영속성 모델 분리:
+ *    infrastructure/persistence/entity/DepartmentEntity와 Data Mapper를 활용하여 DB 스키마 변화에 영향받지 않습니다.
  */
-@Entity
-@Table(name = "departments", indexes = {
-    @Index(name = "idx_dept_code_valid", columnList = "code, valid_from, valid_to")
-})
 @Getter
 @Setter
 @NoArgsConstructor
 public class Department {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false, length = 20)
     private String code;
-
     /**
      * 부서의 명칭
      */
-    @Column(nullable = false, length = 100)
     private String name;
-
     /**
-     * 상위 부서 연관관계 (ID 기반)
+     * 상위 부서 연관관계 (도메인 참조)
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
     private Department parent;
-
     /**
      * 부서의 유형 (예: 비용 센터, 이익 센터, 지원 부서 등)
      */
-    @Enumerated(EnumType.STRING)
-    @Column(length = 30)
     private DepartmentType type;
-
-    @Column(name = "valid_from", nullable = false)
     private LocalDate validFrom;
-
-    @Column(name = "valid_to", nullable = false)
     private LocalDate validTo;
-
-    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt; // 생성일시
-
-    @Column(nullable = false)
     private LocalDateTime updatedAt; // 수정일시
-
-    @Column(length = 50)
     private String auditUser; // 감사 사용자
 
     public enum DepartmentType {
@@ -83,27 +62,5 @@ public class Department {
         this.validTo = endDate;
         this.updatedAt = LocalDateTime.now();
     }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null) {
-            this.auditUser = "SYSTEM";
-        }
-        if (this.type == null) {
-            this.type = DepartmentType.OTHER;
-        }
-        if (this.validFrom == null) {
-            this.validFrom = LocalDate.now();
-        }
-        if (this.validTo == null) {
-            this.validTo = LocalDate.of(9999, 12, 31);
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }
+

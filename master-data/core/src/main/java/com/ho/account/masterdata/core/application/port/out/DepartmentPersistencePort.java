@@ -15,7 +15,10 @@ public interface DepartmentPersistencePort {
 
     Optional<Department> findActiveByCode(String code);
 
+    Optional<Department> findActiveByCodeAt(String code, java.time.LocalDate asOfDate);
+
     List<Department> findAll();
+
 
     List<Department> findAllActive();
 

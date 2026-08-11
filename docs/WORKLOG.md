@@ -1,4 +1,29 @@
+### 📅 2026-08-12 ([master-data:core][ddd] 도메인 모델에 JPA 인프라 종속성 포함 — 순수 POJO 원칙 위반 - Issue #291)
+### [master-data/core] 도메인 모델 내 JPA 기술 어노테이션 전면 제거 및 도메인-영속성 모델 분리 (Pure Java POJO & Data Mapper 패턴 적용)
+
+- **작업 배경**:
+  - `master-data/core` 모듈 내 도메인 모델들(`AccountSubject`, `Product`, `Currency`, `Department`, `ExchangeRate`, `FiscalPeriod`, `TaxProfile`, `MasterDataChangeRequest`)에 `@Entity`, `@Table`, `@Id`, `@Column` 등 JPA 기술 어노테이션이 직접 포함되어 헥사고날 아키텍처 및 Pure POJO 원칙을 위반함.
+  - 도메인 패키지 모델에서 JPA 어노테이션을 전면 제거하여 Pure Java POJO로 작성하고, DB 테이블 매핑 전담 JPA Entity 클래스(`AccountSubjectEntity`, `ProductEntity`, `CurrencyEntity` 등 8종)와 양방향 변환 Mapper(`AccountSubjectMapper`, `ProductMapper` 등 8종)를 `infrastructure/persistence/entity/` 및 `infrastructure/persistence/mapper/` 패키지에 신설/분리함.
+- **주요 변경 사항**:
+  - `master-data/core/.../domain/model/` 및 `domain/changerequest/`:
+    - `AccountSubject.java`, `Product.java`, `Currency.java`, `Department.java`, `ExchangeRate.java`, `FiscalPeriod.java`, `TaxProfile.java`, `MasterDataChangeRequest.java`:
+      - `@Entity`, `@Table`, `@Column`, `@Id` 등 JPA 어노테이션 전면 제거 및 Pure Java POJO 전환.
+      - DDD Pure Domain POJO 원칙 및 도메인-영속성 모델 분리의 이점을 설명하는 상세 교육적 주석(Pedagogical comments) 작성.
+  - `master-data/core/.../infrastructure/persistence/entity/` 신설:
+    - `AccountSubjectEntity.java`, `ProductEntity.java`, `CurrencyEntity.java`, `DepartmentEntity.java`, `ExchangeRateEntity.java`, `FiscalPeriodEntity.java`, `TaxProfileEntity.java`, `MasterDataChangeRequestEntity.java`:
+      - JPA 테이블 매핑, 인덱스, DB 제약 조건 및 영속성 생명주기 콜백(`@PrePersist`, `@PreUpdate`) 전담.
+  - `master-data/core/.../infrastructure/persistence/mapper/` 신설:
+    - `AccountSubjectMapper.java`, `ProductMapper.java`, `CurrencyMapper.java`, `DepartmentMapper.java`, `ExchangeRateMapper.java`, `FiscalPeriodMapper.java`, `TaxProfileMapper.java`, `MasterDataChangeRequestMapper.java`:
+      - Domain POJO <-> JPA Entity 간 양방향 데이터 전환을 전담하는 Data Mapper 구현.
+  - Repository 및 Persistence Adapter 리팩토링:
+    - `AccountSubjectRepository`, `ProductRepository`, `CurrencyRepository`, `DepartmentRepository`, `ExchangeRateRepository`, `FiscalPeriodRepository`, `MasterDataChangeRequestJpaRepository`: JPA Entity 타입으로 파라미터 및 쿼리 갱신.
+    - `JpaAccountSubjectPersistenceAdapter`, `JpaProductPersistenceAdapter`, `CurrencyPersistenceAdapter`, `JpaDepartmentPersistenceAdapter`, `JpaFiscalPeriodPersistenceAdapter`, `JpaMasterDataChangeRequestPersistenceAdapter`: Data Mapper를 이용한 Domain POJO <-> JPA Entity 양방향 변환 적용.
+    - `MonolithMasterDataQueryAdapter`: Direct Repository 의존 대신 `AccountSubjectPersistencePort` 및 `DepartmentPersistencePort`를 주입받아 도메인 모델을 반환하도록 아키텍처 정립.
+- **검증**:
+  - `./gradlew.bat :master-data:core:test :master-data:api:test :master-data:batch:test` 실행 및 `./gradlew.bat test` 전체 테스트 슈트 실행하여 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([asset-lease][financial] IFRS 16 리스 현재가치(PV) 계산 누락 및 외부 입력 전면 신뢰 - Issue #295)
+
 ### [asset-lease/financial] IFRS 16 리스료 미래 현금흐름 현재가치(PV) 도메인 자동 산출 및 외부 입력 교차 검증 구현
 
 - **작업 배경**:

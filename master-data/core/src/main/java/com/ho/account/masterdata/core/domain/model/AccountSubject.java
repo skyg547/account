@@ -1,6 +1,5 @@
 package com.ho.account.masterdata.core.domain.model;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -8,77 +7,43 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 계정과목(Account Subject) 엔티티.
+ * 계정과목(Account Subject) 도메인 모델.
  * SCD2(Slowly Changing Dimension Type 2) 방식을 사용하여 관리한다.
  * 유일한 계정코드(code)가 존재하더라도 연관관계는 대체 키인 기술적인 기본키(id)를 사용한다.
  * 
- * 🐣 [초보자를 위한 설명]
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO (Plain Old Java Object) 원칙:
+ *    도메인 모델은 데이터베이스나 JPA(jakarta.persistence.*) 등의 특정 기술/프레임워크 어노테이션에 의존하지 않는 순수한 자바 객체여야 합니다.
+ *    이를 통해 도메인 로직이 데이터베이스 테이블 스키마나 ORM 매핑 기술에 결합되지 않고 독립적으로 테스트 및 확장될 수 있습니다.
+ * 2. 도메인-영속성 모델 분리 (Domain vs Entity):
+ *    - Domain Model (AccountSubject): 비즈니스 규칙, 상태 변경 메서드(terminate 등), 검증 로직을 포함하는 핵심 객체.
+ *    - JPA Entity (AccountSubjectEntity): DB 테이블 구조(컬럼, 인덱스, FK, JPA 생명주기 어노테이션)를 표현하는 영속성 전용 객체.
+ *     infrastructure 패키지의 Data Mapper (AccountSubjectMapper)를 통해 두 모델 간 변환을 수행합니다.
+ * 
  * 계정과목은 회사에서 돈이 들어오고 나가는 명목(이름표)을 뜻합니다.
- * 예를 들어, "직원 월급"은 '급여'라는 계정과목표를 달고 기록됩니다.
- * 이 클래스는 시스템에서 사용되는 모든 계정과목표의 마스터 데이터를 정의합니다.
- * 특히, 회계 정책이 바뀌어 계정과목의 속성이 변경되더라도 과거 데이터(전표)에 영향을 
- * 주지 않도록 유효기간(validFrom, validTo)을 두어 과거 이력을 모두 보존하는 SCD2 방식을 사용합니다.
+ * 이 클래스는 시스템에서 사용되는 모든 계정과목표의 마스터 데이터를 정의하며,
+ * 과거 이력을 모두 보존하는 SCD2 방식을 지원합니다.
  */
-@Entity
-@Table(name = "account_subjects", indexes = {
-    @Index(name = "idx_account_code_valid", columnList = "code, valid_from, valid_to")
-})
 @Getter
 @Setter
 @NoArgsConstructor
 public class AccountSubject {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false, length = 20)
     private String code; // 계정코드 (유일 코드가 아님에 주의)
-
-    @Column(nullable = false, length = 100)
     private String name; // 계정과목명
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
     private AccountSubject parent; // 상위 계정과목 (ID 기반 연관관계)
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 30)
     private AccountCategory category;
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 30)
     private AccountType accountType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
     private BalanceType balanceType;
-
-    @Column(length = 100)
     private String reportLine;
-
-    @Column(length = 100)
     private String regulatoryMappingCode;
-
-    @Column(nullable = false)
     private boolean unsettled;
-
-    @Column(nullable = false)
     private LocalDate validFrom;
-
-    @Column(nullable = false)
     private LocalDate validTo;
-
-    @Column(nullable = false)
     private boolean fixedAsset;
-
-    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    @Column(length = 50)
     private String auditUser;
 
     public enum AccountCategory {
@@ -97,6 +62,10 @@ public class AccountSubject {
     /**
      * 기존 코드와의 호환성을 위해 남겨둔 메서드들입니다.
      */
+    public void setAccountType(AccountType accountType) {
+        this.accountType = accountType;
+    }
+
     @Deprecated
     public void setAccountType(String accountType) {
         if (accountType == null || accountType.isBlank()) {
@@ -112,6 +81,7 @@ public class AccountSubject {
         };
         this.accountType = AccountType.valueOf(normalized);
     }
+
 
     @Deprecated
     public void setDescription(String description) {
@@ -132,25 +102,5 @@ public class AccountSubject {
         this.validTo = endDate;
         this.updatedAt = LocalDateTime.now();
     }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.auditUser == null) this.auditUser = "SYSTEM";
-        if (this.validFrom == null) this.validFrom = LocalDate.now();
-        if (this.validTo == null) this.validTo = LocalDate.of(9999, 12, 31);
-        if (this.category == null) this.category = AccountCategory.ASSETS;
-        if (this.accountType == null) this.accountType = AccountType.valueOf(this.category.name());
-        
-        if (this.balanceType == null && this.category != null) {
-            this.balanceType = (category == AccountCategory.LIABILITIES || category == AccountCategory.EQUITY || category == AccountCategory.REVENUE)
-                    ? BalanceType.CREDIT : BalanceType.DEBIT;
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }
+

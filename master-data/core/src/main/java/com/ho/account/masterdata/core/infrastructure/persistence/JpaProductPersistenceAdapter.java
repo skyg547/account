@@ -1,6 +1,8 @@
 package com.ho.account.masterdata.core.infrastructure.persistence;
 
 import com.ho.account.masterdata.core.domain.model.Product;
+import com.ho.account.masterdata.core.infrastructure.persistence.entity.ProductEntity;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.ProductMapper;
 import com.ho.account.masterdata.core.infrastructure.persistence.repository.ProductRepository;
 import com.ho.account.masterdata.core.application.port.out.ProductPersistencePort;
 import java.time.LocalDate;
@@ -12,9 +14,11 @@ import org.springframework.stereotype.Component;
 public class JpaProductPersistenceAdapter implements ProductPersistencePort {
 
     private final ProductRepository productRepository;
+    private final ProductMapper productMapper;
 
-    public JpaProductPersistenceAdapter(ProductRepository productRepository) {
+    public JpaProductPersistenceAdapter(ProductRepository productRepository, ProductMapper productMapper) {
         this.productRepository = productRepository;
+        this.productMapper = productMapper;
     }
 
     @Override
@@ -24,32 +28,42 @@ public class JpaProductPersistenceAdapter implements ProductPersistencePort {
 
     @Override
     public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
+        return productRepository.findById(id).map(productMapper::toDomain);
     }
 
     @Override
     public Optional<Product> findByProductCode(String productCode) {
-        return productRepository.findByProductCodeOrderByValidFromDesc(productCode).stream().findFirst();
+        return productRepository.findByProductCodeOrderByValidFromDesc(productCode).stream()
+                .findFirst()
+                .map(productMapper::toDomain);
     }
 
     @Override
     public Optional<Product> findActiveByProductCode(String productCode) {
-        return productRepository.findActiveByProductCode(productCode, java.time.LocalDate.now());
+        return productRepository.findActiveByProductCode(productCode, java.time.LocalDate.now())
+                .map(productMapper::toDomain);
     }
 
     @Override
     public List<Product> findAll() {
-        return productRepository.findAll();
+        return productRepository.findAll().stream()
+                .map(productMapper::toDomain)
+                .toList();
     }
 
     @Override
     public List<Product> findAllActive(LocalDate asOfDate) {
-        return productRepository.findActiveVersions(asOfDate);
+        return productRepository.findActiveVersions(asOfDate).stream()
+                .map(productMapper::toDomain)
+                .toList();
     }
 
     @Override
     public Product save(Product product) {
-        return productRepository.save(product);
+        ProductEntity entity = productMapper.toEntity(product);
+        ProductEntity saved = productRepository.save(entity);
+        return productMapper.toDomain(saved);
     }
 }
+
 

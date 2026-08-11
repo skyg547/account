@@ -4,12 +4,12 @@ import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.DepartmentRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
+import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
 import com.ho.account.masterdata.core.domain.model.AccountSubject;
 import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.Department;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.AccountSubjectRepository;
-import com.ho.account.masterdata.core.infrastructure.persistence.repository.DepartmentRepository;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
@@ -20,26 +20,26 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
- * 같은 프로세스에서 contracts 조회 포트를 master-data JPA 저장소에 연결하는 어댑터입니다.
+ * 같은 프로세스에서 contracts 조회 포트를 master-data 도메인 포트에 연결하는 어댑터입니다.
  *
  * <p>현재 조회와 기준일 조회를 분리해 Closing처럼 과거 시점이 중요한 업무가 오늘의 기준정보를
- * 잘못 사용하는 것을 막습니다. 거래처는 JPA repository를 직접 호출하지 않고 도메인 출력 포트를
+ * 잘못 사용하는 것을 막습니다. JPA repository를 직접 호출하지 않고 도메인 출력 포트를
  * 거치므로, contracts 응답을 만드는 코드까지 JPA 전용 엔티티가 새지 않습니다.</p>
  */
 @Component
 public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
 
-    private final AccountSubjectRepository accountSubjectRepository;
+    private final AccountSubjectPersistencePort accountSubjectPersistencePort;
     private final BusinessPartnerPersistencePort businessPartnerPersistencePort;
-    private final DepartmentRepository departmentRepository;
+    private final DepartmentPersistencePort departmentPersistencePort;
 
     public MonolithMasterDataQueryAdapter(
-            AccountSubjectRepository accountSubjectRepository,
+            AccountSubjectPersistencePort accountSubjectPersistencePort,
             BusinessPartnerPersistencePort businessPartnerPersistencePort,
-            DepartmentRepository departmentRepository) {
-        this.accountSubjectRepository = accountSubjectRepository;
+            DepartmentPersistencePort departmentPersistencePort) {
+        this.accountSubjectPersistencePort = accountSubjectPersistencePort;
         this.businessPartnerPersistencePort = businessPartnerPersistencePort;
-        this.departmentRepository = departmentRepository;
+        this.departmentPersistencePort = departmentPersistencePort;
     }
 
     @Override
@@ -52,7 +52,7 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
             String accountCode,
             LocalDate effectiveDate) {
         Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
-        return accountSubjectRepository.findActiveByCode(accountCode, effectiveDate)
+        return accountSubjectPersistencePort.findByCodeAt(accountCode, effectiveDate)
                 .map(this::toAccountSubjectRef);
     }
 
@@ -77,10 +77,6 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
             String businessPartnerCode,
             LocalDate effectiveDate) {
         Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
-        // @todo BusinessPartner.terminate가 과거 행의 legacy useYn도 false로 바꾸므로 Ref.active는
-        // 기준일 당시의 활성 상태를 완전히 재현하지 못합니다. 버전 종료와 업무 비활성 상태를 분리하고
-        // 기존 행을 이관한 뒤 UPDATE/DEACTIVATE 과거 조회 통합 테스트를 통과시키는 것이 완료 조건입니다.
-        // 기준일 조건은 출력 포트의 계약으로 전달하고, 실제 JPQL/엔티티 변환은 persistence가 맡습니다.
         return businessPartnerPersistencePort
                 .findEffectiveByBusinessPartnerCode(businessPartnerCode, effectiveDate)
                 .map(this::toBusinessPartnerRef);
@@ -96,7 +92,7 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
             String departmentCode,
             LocalDate effectiveDate) {
         Objects.requireNonNull(effectiveDate, "effectiveDate must not be null");
-        return departmentRepository.findActiveByCode(departmentCode, effectiveDate)
+        return departmentPersistencePort.findActiveByCodeAt(departmentCode, effectiveDate)
                 .map(this::toDepartmentRef);
     }
 
@@ -125,3 +121,4 @@ public class MonolithMasterDataQueryAdapter implements MasterDataQueryPort {
                 department.getType() != null ? department.getType().name() : null);
     }
 }
+

@@ -1,6 +1,6 @@
 package com.ho.account.masterdata.core.infrastructure.persistence.repository;
 
-import com.ho.account.masterdata.core.domain.model.Product;
+import com.ho.account.masterdata.core.infrastructure.persistence.entity.ProductEntity;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -9,25 +9,26 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ProductRepository extends JpaRepository<Product, Long> {
+public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
-    List<Product> findByProductCodeOrderByValidFromDesc(String productCode);
+    List<ProductEntity> findByProductCodeOrderByValidFromDesc(String productCode);
 
-    @Query("SELECT p FROM Product p WHERE p.productCode = :productCode AND p.validFrom <= :date AND p.validTo >= :date")
-    Optional<Product> findActiveByProductCode(String productCode, LocalDate date);
+    @Query("SELECT p FROM ProductEntity p WHERE p.productCode = :productCode AND p.validFrom <= :date AND p.validTo >= :date")
+    Optional<ProductEntity> findActiveByProductCode(String productCode, LocalDate date);
 
     @Query("""
-            SELECT p FROM Product p
+            SELECT p FROM ProductEntity p
             WHERE p.validFrom <= :date
               AND p.validTo >= :date
             ORDER BY p.productCode, p.validFrom
             """)
-    List<Product> findActiveVersions(LocalDate date);
+    List<ProductEntity> findActiveVersions(LocalDate date);
 
     boolean existsByProductCode(String productCode);
 
     long countByProductCode(String productCode);
 
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.validFrom <= :date AND p.validTo >= :date")
+    @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.validFrom <= :date AND p.validTo >= :date")
     long countActiveAt(LocalDate date);
 }
+

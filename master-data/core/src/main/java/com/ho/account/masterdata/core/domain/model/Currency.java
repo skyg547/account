@@ -1,61 +1,29 @@
 package com.ho.account.masterdata.core.domain.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 통화 정보 엔티티 (ISO 4217)
+ * 통화 정보 도메인 모델 (ISO 4217)
+ * 
+ * 🐣 [DDD & Pure POJO 원칙 교육적 주석]
+ * 1. Pure POJO 원칙:
+ *    도메인 모델은 특정 영속성 프레임워크 어노테이션에 의존하지 않는 순수한 자바 객체입니다.
+ * 2. 도메인-영속성 모델 분리:
+ *    DB 테이블 구조 및 JPA 어노테이션은 infrastructure 패키지의 CurrencyEntity에서 정의하며,
+ *    Data Mapper를 통해 뷰 및 데이터 엑세스 레이어와의 디커플링을 유지합니다.
  */
-@Entity
-@Table(name = "currencies", indexes = {
-        @Index(name = "idx_currency_code_valid", columnList = "currency_code, valid_from, valid_to")
-})
 public class Currency {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode; // ISO 4217 (예: KRW, USD, EUR)
-
-    @Column(nullable = false, length = 50)
     private String currencyName;
-
-    @Column(length = 10)
     private String symbol; // 통화 기호 (예: ₩, $)
-
-    @Column(nullable = false)
     private LocalDate validFrom;
-
-    @Column(nullable = false)
     private LocalDate validTo;
-
-    @Column(updatable = false)
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
-
-    @Column(length = 50)
     private String auditUser;
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.validFrom == null)
-            this.validFrom = LocalDate.now();
-        if (this.validTo == null)
-            this.validTo = LocalDate.of(9999, 12, 31);
-        if (this.auditUser == null)
-            this.auditUser = "SYSTEM";
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     public boolean isValid(LocalDate date) {
         return date != null
@@ -141,8 +109,16 @@ public class Currency {
         return createdAt;
     }
 
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public String getAuditUser() {
@@ -153,3 +129,4 @@ public class Currency {
         this.auditUser = auditUser;
     }
 }
+
