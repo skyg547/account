@@ -9,11 +9,13 @@ import com.ho.account.contracts.outbox.JournalOutboxEvent;
 import com.ho.account.contracts.outbox.JournalOutboxRelayService;
 import com.ho.account.contracts.outbox.OutboxEventPublisher;
 import com.ho.account.contracts.outbox.OutboxPort;
+import com.ho.account.deposit.application.port.in.DepositTransactionUseCase;
 import com.ho.account.deposit.application.port.in.OpenAccountUseCase;
 import com.ho.account.deposit.application.port.out.DepositAccountMappingPort;
 import com.ho.account.deposit.application.port.out.DepositAccountPersistencePort;
 import com.ho.account.deposit.domain.DepositAccount;
 import com.ho.account.deposit.domain.DepositStatus;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +36,13 @@ import java.util.UUID;
  * To-Be: 계좌 개설 로컬 DB 트랜잭션 내에서 `JournalOutboxEvent`를 원자적(Atomically)으로 Outbox 저장소에 기록합니다.
  *       이후 `OutboxEventPublisher` (비동기 릴레이 엔진)가 PENDING 상태 이벤트를 읽어서 
  *       외부 Journal 시스템({@link JournalPostingPort})에 안전하게 릴레이(Publish)하여 최종 정합성을 확보합니다.
+ *
+ * **낙관적 잠금(Optimistic Locking) 기반 동시성 입출금 처리 및 재시도 메커니즘:**
+ * 금융 예금 계좌에서 동시 입출금 요청 시 발생할 수 있는 갱신 손실(Lost Update)을 방지하기 위해
+ * JPA `@Version` 기반 낙관적 잠금을 적용하고, 충돌 발생 시 최신 엔티티 재조회 후 재시도(Retry)합니다.
  */
 @Service
-public class DepositService implements OpenAccountUseCase {
+public class DepositService implements OpenAccountUseCase, DepositTransactionUseCase {
 
     private final DepositAccountPersistencePort depositAccountPersistencePort;
     private final DepositAccountMappingPort depositAccountMappingPort;
@@ -97,6 +103,68 @@ public class DepositService implements OpenAccountUseCase {
         }
         
         return accountNumber;
+    }
+
+    /**
+     * [낙관적 잠금(Optimistic Locking) 예외 처리 및 입금 재시도 유즈케이스]
+     * 
+     * 🐣 [초보자를 위한 설명]
+     * 동시 입금 요청 시 JPA @Version 버전 충돌(OptimisticLockingFailureException)이 발생할 경우,
+     * DB에서 최신 계좌 정보를 다시 읽어서(Re-fetch) 입금 도메인 로직을 다시 수행합니다.
+     * 이를 통해 갱신 손실(Lost Update) 없이 잔액 정합성을 안전하게 유지합니다.
+     */
+    @Override
+    public void deposit(String accountNumber, BigDecimal amount) {
+        executeWithOptimisticLockRetry(() -> {
+            DepositAccount account = depositAccountPersistencePort.findByAccountNumber(accountNumber)
+                    .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + accountNumber));
+            account.deposit(amount);
+            depositAccountPersistencePort.save(account);
+        });
+    }
+
+    /**
+     * [낙관적 잠금(Optimistic Locking) 예외 처리 및 출금 재시도 유즈케이스]
+     * 
+     * 🐣 [초보자를 위한 설명]
+     * 동시 출금 요청 시 버전 충돌 발생 시 최신 계좌 잔액을 다시 조회하여 잔액 검증 후 출금을 재시도합니다.
+     */
+    @Override
+    public void withdraw(String accountNumber, BigDecimal amount) {
+        executeWithOptimisticLockRetry(() -> {
+            DepositAccount account = depositAccountPersistencePort.findByAccountNumber(accountNumber)
+                    .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + accountNumber));
+            account.withdraw(amount);
+            depositAccountPersistencePort.save(account);
+        });
+    }
+
+    /**
+     * [낙관적 잠금 충돌 재시도(Retry) 헬퍼 메서드]
+     * 
+     * 동시 트랜잭션으로 인한 OptimisticLockingFailureException 발생 시
+     * 지정된 최대 횟수(maxAttempts)만큼 지수 백오프(Exponential Backoff) 대기 후 작업을 재시도합니다.
+     */
+    private void executeWithOptimisticLockRetry(Runnable action) {
+        int maxAttempts = 10;
+        int attempt = 0;
+        while (true) {
+            try {
+                attempt++;
+                action.run();
+                break;
+            } catch (OptimisticLockingFailureException ex) {
+                if (attempt >= maxAttempts) {
+                    throw new IllegalStateException("동시성 충돌로 인한 최대 재시도 횟수 초과 (" + maxAttempts + "회)", ex);
+                }
+                try {
+                    Thread.sleep(10L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("재시도 대기 중 인터럽트가 발생하였습니다.", ie);
+                }
+            }
+        }
     }
 
     private boolean hasInitialDeposit(BigDecimal amount) {

@@ -31,6 +31,34 @@ public class DepositAccount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * [동시성 제어 - 낙관적 잠금 (Optimistic Locking)]
+     *
+     * 🐣 [초보자를 위한 설명]
+     * 금융 예금 시스템에서는 여러 트랜잭션(예: 동시 입금, 출금, 이자 자동 지급 등)이 동일한 계좌의 잔액(balance)을
+     * 동시에 변경하려고 시도할 수 있습니다.
+     *
+     * 만약 동시성 제어가 없다면 다음과 같은 '갱신 손실(Lost Update)' 문제가 발생합니다:
+     * 1. 트랜잭션 A가 잔액 1,000원 계좌 조회 (balance = 1,000, version = 1)
+     * 2. 트랜잭션 B가 잔액 1,000원 계좌 조회 (balance = 1,000, version = 1)
+     * 3. 트랜잭션 A가 500원 입금 후 저장 -> DB balance = 1,500, version = 2
+     * 4. 트랜잭션 B가 300원 입금 후 저장 -> DB balance = 1,300, version = 2 (트랜잭션 A의 500원 입금 내역이 덮어씌워져 손실됨!)
+     *
+     * [낙관적 잠금(Optimistic Locking) vs 비관적 잠금(Pessimistic Locking) 비교]
+     * - 비관적 잠금(Pessimistic Locking, SELECT ... FOR UPDATE):
+     *   DB 차원에서 데이터 행(Row)에 Exclusive Lock을 걸어 다른 트랜잭션의 접근을 물리적으로 대기(Blocking)시킵니다.
+     *   장점: 충돌이 극심한 환경에서 데이터 일관성을 강력하게 보장.
+     *   단점: 락 대기 시간으로 인한 데드락(Deadlock) 위험 및 처리량(Throughput) 저하.
+     *
+     * - 낙관적 잠금(Optimistic Locking, @Version):
+     *   DB 락을 잡지 않고, 엔티티의 버전(version) 번호를 이용하여 데이터 수정 시점에 충돌 여부를 검증합니다.
+     *   UPDATE deposit_accounts SET balance = ?, version = version + 1 WHERE id = ? AND version = ?
+     *   장점: DB 락 대기가 없어 읽기/쓰기 성능이 우수하고 데드락이 발생하지 않음.
+     *   단점: 동시 수정 충돌 시 예외(OptimisticLockingFailureException)가 발생하므로 애플리케이션 레벨에서 재시도(Retry) 처리가 필요.
+     */
+    @Version
+    private Long version;
+
     @Column(nullable = false, unique = true, length = 20)
     private String accountNumber;
 
