@@ -179,3 +179,10 @@ Recommended integration order remains:
 - Result: PR #350 merged to `main` as `aaad0c0d`; Issue #340 closed and active workflow/owner labels were removed.
 - Remaining dependency: the full-root build still stops at separately owned Issue #344 after passing the original #340 failure.
 - Rollback: revert merge commit `aaad0c0d`; no database, container, credential, or external runtime rollback is required.
+
+## 2026-08-11 - GH-348 Multi-Tool Ownership Integration
+
+- Source: Issue #348, PR #349, branch `agent/348-multi-tool-issue-ownership`.
+- Gate: ready-Issue contracts/state, parent-only mutation rules, exact claim, links, diff and marker checks passed; final independent review found no P0-P3.
+- Result: PR #349 merged to `main` as `c4a50f17`; Issue #348 closed and active workflow/owner labels were removed.
+- Rollback: revert merge commit `c4a50f17`; no production code, database, container, credential, or external runtime rollback is required.

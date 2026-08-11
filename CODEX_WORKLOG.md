@@ -1840,3 +1840,12 @@
 - Rebased onto `origin/main@aaad0c0d`; four append-only harness conflicts retained both #340 and #348 records. No production/test/build/runtime file conflicted.
 - Remediation re-review found one remaining P2 in review/transfer wording and stale ready-Issue comments. The parent-only rule now covers Issue comments, handoff, review transitions and CLI mutation examples; #80/#343/#345/#347 each received a superseding parent-only coordination comment.
 - Final independent re-review at `9a783fc1` passed with no P0-P3. PR #349 is CLEAN/MERGEABLE on latest main; the user authorized Ready/merge and the parent Integrator owns the final transition.
+- PR #349 merged as `c4a50f17`; Issue #348 closed and its active status/owner labels were removed.
+
+## 2026-08-11 (Issue #79 Loan API local H2 composition)
+
+- Reused `agent/79-loan-api-local-h2` / `C:\tmp\account-79-loan-api-local-h2` and fast-forwarded its preserved two-file implementation without overlap to `origin/main@c4a50f17`; the dirty primary checkout remained untouched.
+- Explicitly registered Master Data persistence entities plus shared audit/security entity and repository packages required by the existing local adapters, without broad root scanning or changes to Loan financial/domain behavior.
+- Added a `local` H2 context regression test for the real Loan API composition root and required Master Data managed types.
+- Latest-main 24-task gate passed: 42 Loan Core/API tests in 14 suites, zero failure/error/skip, API bootJar, and direct executable-JAR H2 startup with `Started LoanApplication`. Diff/marker/allowlist checks passed.
+- Independent review found no P0-P3. PostgreSQL schema parity, Loan Batch startup and CI/container smoke remain separate gates; no external environment was accessed.

@@ -1418,3 +1418,18 @@
 - Initial independent review found three P2 process defects. The parent-only GitHub mutation rule, all advertised ready-Issue contracts, and the malformed #348 claim have been corrected; the branch was rebased while preserving #340/#348 logs.
 - The first re-review found one residual P2 because review/transfer wording and four old ready-Issue comments still implied tool-owned mutations. Tool guides/runbooks now reserve Issue comments and every state transition to the parent, and #80/#343/#345/#347 contain explicit superseding comments.
 - Final independent re-review found no P0-P3. Head `9a783fc1`, base `aaad0c0d`, ready-Issue state, allowlist, links, diff, marker and CLEAN/MERGEABLE checks passed; zero CI checks are configured and no runtime tests apply. The parent Integrator may perform the user-authorized Ready/merge/close transition.
+- PR #349 merged as `c4a50f17`; Issue #348 is closed and its active status/owner labels are removed.
+
+# AI Harness Handoff - 2026-08-11 Issue #79 Loan API Local H2
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#79`, `agent/79-loan-api-local-h2`, `C:\tmp\account-79-loan-api-local-h2`, `origin/main@c4a50f17`.
+- Changed files: `LoanApplication.java` and `LoanApplicationLocalProfileTest.java`, plus parent-owned harness records.
+- The composition root now explicitly registers the Master Data persistence entities and shared audit/security entities and repositories already required by its single-repository local adapters; Loan core port boundaries remain unchanged.
+
+## Evidence, rollback, and next owner
+
+- Latest-main Loan Core/API verification passed 42 tests, API bootJar and direct local H2 JAR startup. Static gates passed and independent review found no P0-P3.
+- No PostgreSQL, Compose, credential, private endpoint or existing container was accessed. PostgreSQL parity and separate Loan Batch startup remain outside this Issue.
+- Roll back the Issue commit; there is no schema, data, container or external-service rollback. Next owner is the parent Integrator for commit, push and Draft PR, followed by read-only PR review.

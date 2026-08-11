@@ -848,3 +848,13 @@
 - Rebased onto `origin/main@aaad0c0d`; append-only conflicts in four shared harness logs preserved both the integrated #340 evidence and the #348 records. No production, test, build, database, or runtime file conflicted.
 - The first remediation re-review found one remaining P2: review/transfer wording and old ready-Issue comments still implied direct tool mutations. Updated both tool guides and both runbooks so the parent alone posts Issue comments and changes review state, and posted superseding parent-only comments on #80/#343/#345/#347.
 - Final independent re-review at `9a783fc1` found no P0-P3 and approved the merge gate. PR #349 is CLEAN/MERGEABLE on `origin/main@aaad0c0d`; no CI checks are configured and no production/runtime tests apply to this documentation-only change.
+- PR #349 was promoted Ready and merged as `c4a50f17`; Issue #348 was closed and its active workflow/owner labels were removed.
+
+## 2026-08-11 - Issue #79 Loan API local H2 composition
+
+- Issue/branch/worktree/base: `#79`, `agent/79-loan-api-local-h2`, `C:\tmp\account-79-loan-api-local-h2`, latest `origin/main@c4a50f17` after a non-overlapping fast-forward from `5624ae97`.
+- Added only the explicit Master Data persistence entity package and shared security/audit entity/repository packages required by the already composed local adapters. No broad `com.ho.account` scan, business logic, API contract, migration, or Batch behavior changed.
+- Added a real `local` profile API context regression test that disables external control-plane clients, uses ephemeral H2/create-drop, and asserts both Master Data persistence entity types are managed.
+- Latest-main verification passed 24 Gradle tasks, Loan Core/API 42 tests in 14 suites with zero failure/error/skip, API `bootJar`, and a bounded direct executable-JAR smoke that observed H2 start and `Started LoanApplication` in 8.181 seconds.
+- `git diff --check`, two-file allowlist and scoped conflict-marker scan passed. Independent review found no P0-P3 and approved parent-owned commit/Draft PR preparation.
+- PostgreSQL schema parity, Loan Batch startup and automated CI/container JAR smoke are outside #79. No external DB, credentials, private URL, container or deployed service was accessed. Rollback is a normal revert of the Issue commit.
