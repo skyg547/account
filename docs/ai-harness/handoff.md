@@ -1,3 +1,41 @@
+# AI Harness Handoff - 2026-08-11 Gemini 전 모듈 코드 리뷰 → 이슈 핸드오프
+
+## Active Goal And State
+
+- Gemini가 독립 코드 리뷰어로서 20개 모듈을 MSA/DDD/Hexagonal/CleanCode/SOLID/Financial 기준으로 전수 검토 완료.
+- 신규 이슈 36건 발행 (#290~#328), 모두 `status:ready` 라벨로 에이전트 작업 대기 상태.
+- 기존 이슈와의 중복 12건은 발행에서 제외.
+- 중복 생성된 12건(#323~#337)은 즉시 닫음 처리 완료.
+
+## Changes And Boundaries
+
+- 코드 수정 없음. 리뷰 전용 작업.
+- GitHub 라벨 12개 신규 생성: `priority:p0`, `priority:p1`, `priority:p2`, `type:bug`, `type:refactor`, `type:security`, `type:financial`, `type:test`, `type:docs`, `area:api`, `area:batch`, `area:core`.
+- 36건 이슈에 priority/type/area/status:ready 라벨 부여.
+- 하네스 문서(worklog.md, agent-status.md, handoff.md) 업데이트.
+
+## Immediate Action Items (Critical P0)
+
+| # | 이슈 | 권장 이유 |
+|---|------|-----------|
+| #316 | expenditure-resolution 예산 이중 차감 버그 | 실제 금전 오류 유발 가능 |
+| #313 | deposit 낙관적 잠금 누락 잔액 갱신 손실 | 동시성 문제로 잔액 정합성 위험 |
+| #309 | gateway JWT Secret 평문 하드코딩 | 보안 취약점 |
+| #324 | ECL double 사용 금액 정밀도 | IFRS9 규정 위반 위험 |
+| #320 | reconciliation N:M 매칭 엔진 부재 | 건별 대사 불가 |
+
+## Known Risks
+
+- 이슈 body의 파일 경로/라인은 `main@HEAD` 기준. 코드 변경 시 경로 재확인 필요.
+- 36건을 한꺼번에 처리하면 conflict 위험. 모듈별 순차 진행 또는 병렬 worktree 권장.
+- 일부 이슈(MSA 경계 위반, Dual Write 패턴)는 대규모 리팩토링이므로 단계적 접근 필요.
+
+## Rollback
+
+- 이슈 일괄 close로 복원 가능. 코드 변경 없음.
+
+---
+
 # AI Harness Handoff - 2026-07-30 Issue #45 Budget Control
 
 ## Active Goal And State

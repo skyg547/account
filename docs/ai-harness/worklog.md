@@ -1,3 +1,20 @@
+## 2026-08-11 - Gemini 전 모듈 코드 리뷰 및 신규 이슈 36건 발행
+
+- Owner: Gemini as independent Reviewer (코드 수정 없음, 리뷰 전용).
+- Scope: 20개 모듈 전수 리뷰 (config-server, discovery, gateway, auth, master-data, journal-ledger, closing, loan, deposit, asset-lease, expenditure-resolution, payable, receivable, reconciliation, tax, reporting, account-mart, ecl).
+- 리뷰 기준: MSA, DDD, 헥사고날 아키텍처, 클린코드, SOLID, 확장성, 금융회계 업무 구현 품질.
+- 방법: 8개 병렬 리뷰 에이전트를 배포하여 모듈 그룹별 코드를 전수 검토.
+- 결과:
+  - 신규 이슈 36건 발행 (#290~#328).
+  - Critical 10건, High 17건, Medium 9건.
+  - 주요 패턴: 도메인 JPA/Spring 강결합(8건), OOM/대량 처리 위험(5건), MSA 경계 위반(4건), 금융 업무 검증 누락(4건), Anemic Domain Model(3건).
+  - 기존 이슈와 중복으로 제외: #162, #163, #164, #166, #167, #168, #170, #171, #172, #173, #177, #180.
+  - 중복 생성된 12건(#323~#337)은 즉시 닫음.
+- 라벨링: 누락 라벨 12개(priority:p0~p2, type:*, area:*) 생성 후 전 이슈에 priority/type/area/status:ready 부여.
+- 하네스 업데이트: worklog, agent-status, handoff에 리뷰 결과 기록.
+- Risks: 코드 수정 없음. 이슈 body의 파일 경로/라인은 main 기준이며 변경 시 재확인 필요.
+- Rollback: 이슈 일괄 close로 복원 가능.
+
 ## 2026-07-30 - Issue #45 executable Budget Control foundation
 
 - Owner: Codex as Integrator with Domain/Service, SQL, Controller, Batch, Gateway, Test, and independent Reviewer roles.
