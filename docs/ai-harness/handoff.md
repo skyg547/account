@@ -1448,4 +1448,5 @@
 
 - Latest-main 34 Core/API tests, API bootJar and direct local H2 JAR health/readiness HTTP smoke passed. Static gates passed and independent review found no P0-P3.
 - Real Redis-backed dev/prod health and automated container/CI smoke remain outside the Issue. No external environment was accessed.
-- Roll back the Issue commit; no DB/data/container rollback is required. Next owner is the parent Integrator for commit, push and Draft PR, followed by read-only PR review.
+- Commit `d0698585` is pushed and Draft PR #353 targets main. Issue #342 is frozen at `status:needs-review`; next owner is an independent read-only PR reviewer, followed by the parent Integrator.
+- Roll back `d0698585`; no DB/data/container rollback is required.

@@ -1859,3 +1859,4 @@
 - Added a Spring configuration policy test for exact local versus dev/prod properties and documented Redis-free health/readiness behavior.
 - Latest-main 34 Core/API tests in 9 suites, API bootJar, and direct executable-JAR health/readiness HTTP 200+UP passed. Diff/marker/allowlist checks passed.
 - Independent review found no P0-P3. Real Redis-backed dev/prod and automated container/CI smoke remain outside scope; no external environment was accessed.
+- Commit `d0698585` is pushed and Draft PR #353 targets main with `Refs #342/#227`. Issue #342 is `status:needs-review`; merge and close remain gated.

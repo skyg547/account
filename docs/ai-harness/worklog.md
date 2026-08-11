@@ -869,3 +869,4 @@
 - Latest-main Core/API reports passed 34 tests in 9 suites with zero failure/error/skip; API bootJar passed. A bounded direct executable-JAR smoke returned HTTP 200 and `UP` from `/actuator/health` and `/actuator/health/readiness` without Redis.
 - Three-file allowlist, `git diff --check` and scoped conflict-marker scan passed. Independent review found no P0-P3 and approved parent-owned commit/Draft PR preparation.
 - Real Redis-backed dev/prod health, automated HTTP/container smoke and Batch behavior are outside #342. No external Redis/DB, credential, private URL, container or deployed service was accessed. Rollback is a normal revert of the Issue commit.
+- Commit `d0698585` is pushed and Draft PR #353 targets `main` with `Refs #342/#227`. Issue #342 is `status:needs-review`; no Ready transition, merge, close or external deployment was performed.
