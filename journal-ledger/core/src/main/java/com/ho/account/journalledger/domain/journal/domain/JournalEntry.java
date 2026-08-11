@@ -247,7 +247,7 @@ public class JournalEntry {
         if (this.status != JournalEntryStatus.DRAFT && this.status != JournalEntryStatus.REQUESTED) {
             throw new IllegalStateException("승인 가능한 상태가 아닙니다. 현재 상태: " + this.status);
         }
-        validateBalance(); // 차대변 합계 불일치 시 예외 발생
+        validateInvariants(); // 도메인 불변성(Invariants) 및 차대변 합계 일치 검증
         this.status = JournalEntryStatus.APPROVED;
         this.auditUser = approver;
     }
@@ -334,19 +334,66 @@ public class JournalEntry {
     }
 
     /**
-     * 차변/대변 합계 일치 여부를 검증합니다.
+     * 전표 Aggregate Root의 도메인 불변성(Invariant) 및 차대변 균형을 종합 검증합니다.
+     *
+     * 🐣 [초보자를 위한 설명]
+     * 도메인 불변성(Invariant)이란 "시스템 동작 중에 절대로 깨져서는 안 되는 비즈니스 핵심 규칙"입니다.
+     * 회계 전표에서 가장 중요한 불변식은 다음과 같습니다:
+     * 1. 전표 작성일(slipDate) 및 회계 반영일(accountingDate) 등 필수 헤더 데이터가 존재해야 합니다.
+     * 2. 복식부기(Double-entry bookkeeping) 원칙에 따라 차변 합계(Debit)와 대변 합계(Credit)가 정확히 일치해야 합니다.
+     *
+     * ─────────────────────────────────────────────────
+     * [DDD & 헥사고날 아키텍처 관점의 교육적 설명]
+     * 1. 도메인 응집도(Cohesion)와 캡슐화(Encapsulation):
+     *    검증 로직이 Application Service나 외부 Validator 클래스에 흩어져 있으면 
+     *    도메인 엔티티는 단순한 데이터 껍데기(Anemic Domain Model)로 전락합니다.
+     *    Aggregate Root인 JournalEntry 내부로 비즈니스 규칙과 검증 로직을 일원화하여 High Cohesion을 달성합니다.
+     *
+     * 2. Aggregate Root의 불변성(Invariant) 보장:
+     *    Aggregate Root는 바운디드 컨텍스트 내의 트랜잭션 경계(Consistency Boundary)입니다.
+     *    JournalEntry는 자신과 하위 JournalDetail 엔티티 목록의 상태가 항상 유효함(Valid Invariant State)을 
+     *    스스로 검증할 책임이 있습니다.
+     * ─────────────────────────────────────────────────
+     *
+     * @throws IllegalStateException 도메인 불변식이나 차대변 정합성 검증 실패 시
+     */
+    public void validateInvariants() {
+        validateRequiredHeaderFields();
+        validateBalance();
+    }
+
+    /**
+     * 전표 헤더의 필수 필드가 유효하게 설정되었는지 검증합니다.
+     *
+     * @throws IllegalStateException 필수 헤더 필드가 누락되었을 경우
+     */
+    private void validateRequiredHeaderFields() {
+        if (this.slipDate == null) {
+            throw new IllegalStateException("전표 작성일(slipDate)은 필수입니다.");
+        }
+        if (this.accountingDate == null) {
+            // 회계 반영일 미입력 시 전표 작성일로 기본 설정
+            this.accountingDate = this.slipDate;
+        }
+    }
+
+    /**
+     * 차변/대변 합계 일치 여부 및 상세 라인 불변성을 검증합니다.
      *
      * [업무 설명]
      * 복식부기의 핵심 원칙: 모든 전표는 차변 합계 = 대변 합계여야 합니다.
      * 이 검증이 통과해야 전표 승인이 가능합니다.
      *
      * [예외 발생 조건]
-     * 1. details가 비어있는 경우 (상세 라인 없음)
-     * 2. 차변 합계 ≠ 대변 합계인 경우
+     * 1. details가 비어있거나 2개 미만인 경우 (복식부기 라인 부족)
+     * 2. 차변 라인 또는 대변 라인이 하나도 없는 경우
+     * 3. 차변 합계 ≠ 대변 합계인 경우 (거래통화 및 기준통화 모두 체크)
      *
      * @throws IllegalStateException 정합성 검증 실패 시
      */
     public void validateBalance() {
+        validateRequiredHeaderFields();
+
         if (details.size() < 2) {
             throw new IllegalStateException("복식부기 전표는 최소 두 개의 상세 라인이 필요합니다.");
         }

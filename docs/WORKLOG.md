@@ -1,3 +1,23 @@
+### 📅 2026-08-12 (분개 검증(Validation) 로직의 도메인 응집도 일원화 - Issue #308)
+### [DDD/전표/도메인응집도] JournalEntry Aggregate Root 불변성(Invariant) 검증 일원화 및 응집도 개선
+
+- **작업 배경**:
+  - 기존에는 전표(Journal Entry)의 차대변 합계 일치(Debit == Credit) 및 필수값 검증 로직이 외부 서비스(`JournalEntryService`)나 검증 필터(`BalanceValidationFilter`)에 산재/분산되어 있어 도메인 불변식(Invariant)의 캡슐화가 깨지고 빈약한 도메인 모델(Anemic Domain Model)이 될 위험이 존재했음.
+- **주요 변경 사항**:
+  - `journal-ledger/core/src/main/java/com/ho/account/journalledger/domain/journal/domain/JournalEntry.java`:
+    - `validateInvariants()` 종합 검증 메서드 신설. 전표 헤더의 필수 필드(`slipDate`, `accountingDate`) 및 차대변 합계 일치(`validateBalance()`) 불변성을 Aggregate Root 내부에 일원화.
+    - `approve(String approver)` 메서드에서 `validateInvariants()`를 호출하여 도메인 불변 상태를 통제.
+    - DDD Aggregate Root 불변식(Invariant) 관리, 캡슐화(Encapsulation), 도메인 응집도(Cohesion) 원칙에 관한 교육적 상세 주석(Pedagogical comments) 작성.
+  - `journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/validator/BalanceValidationFilter.java`:
+    - 자체 검증/계산 대신 `journalEntry.validateInvariants()` 캡슐화 메서드를 위임 호출하도록 개선.
+    - 애플리케이션 검증 엔진 필터의 역할과 도메인 응집도 유지 원리에 관한 교육적 주석 보강.
+  - `journal-ledger/core/src/main/java/com/ho/account/journalledger/application/service/journal/JournalEntryService.java`:
+    - `createJournalEntry` 등에서 `JournalValidationEngine`을 통해 도메인 불변성 및 서비스 검증(마감, 계정 유효성)을 조율하도록 구성 및 주석 작성.
+  - `journal-ledger/core/src/test/java/com/ho/account/journalledger/domain/journal/domain/JournalEntryAggregateTest.java`:
+    - 필수 헤더(`slipDate`) 누락 및 `validateInvariants()` 동작에 관한 단위 테스트 추가.
+- **검증**:
+  - `.\gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test` 실행하여 성공 확인 (BUILD SUCCESSFUL in 40s).
+
 ### 📅 2026-08-12 (Gateway TokenVersion 검증 시 서비스 디스커버리 및 동적 로드밸런싱 적용 - Issue #306)
 ### [Gateway/MSA/개선] AuthTokenVersionValidator 하드코딩된 IP 호출 대신 서비스 디스커버리 기반 lb://auth-service 동적 로드밸런싱 전환
 

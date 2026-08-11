@@ -94,12 +94,21 @@ public class JournalEntryService implements JournalUseCase {
     public JournalEntry createJournalEntry(JournalEntry journalEntry) {
         // 전표 번호 채번 (Simple Implementation)
         if (journalEntry.getSlipNo() == null) {
+            if (journalEntry.getSlipDate() == null) {
+                // 작성일 누락 시 도메인 불변성 검증으로 빠른 예외 발생
+                journalEntry.validateInvariants();
+            }
             String datePart = journalEntry.getSlipDate().toString().replace("-", "");
             String uniquePart = java.util.UUID.randomUUID().toString().substring(0, 4).toUpperCase();
             journalEntry.setSlipNo("JE-" + datePart + "-" + uniquePart);
         }
 
-        // 검증 엔진 실행: 차대일치, 마감잠금, 계정유효성 등
+        // ─────────────────────────────────────────────────
+        // [DDD 응집도 및 검증 파이프라인]
+        // Application Service는 도메인 검증 로직을 직접 수행하지 않고,
+        // journalValidationEngine을 통해 Aggregate Root의 validateInvariants() 및
+        // 마감/계정유효성 등 외부 도메인 서브시스템 검증 필터들을 통합 호출합니다.
+        // ─────────────────────────────────────────────────
         journalValidationEngine.validate(journalEntry);
 
         return journalPersistencePort.save(journalEntry);
