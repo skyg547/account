@@ -133,5 +133,9 @@ class JournalOutboxPatternTest {
             long id = sequence++;
             return new JournalPostingResult(id, "SLIP-TEST-" + id, "DRAFT");
         }
+
+        @Override
+        public void approveAndPost(Long journalEntryId, String actor) {
+        }
     }
 }

@@ -5,10 +5,14 @@ import java.time.LocalDate;
 public class JournalSummary {
     private Long id;
     private String slipNo;
+    private LocalDate slipDate;
     private LocalDate accountingDate;
     private String description;
     private String entryType;
     private String status;
+    private String currencyCode;
+    private String lineageSourceType;
+    private String lineageSourceId;
 
     public Long getId() {
         return id;
@@ -24,6 +28,14 @@ public class JournalSummary {
 
     public void setSlipNo(String slipNo) {
         this.slipNo = slipNo;
+    }
+
+    public LocalDate getSlipDate() {
+        return slipDate;
+    }
+
+    public void setSlipDate(LocalDate slipDate) {
+        this.slipDate = slipDate;
     }
 
     public LocalDate getAccountingDate() {
@@ -56,5 +68,29 @@ public class JournalSummary {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getCurrencyCode() {
+        return currencyCode;
+    }
+
+    public void setCurrencyCode(String currencyCode) {
+        this.currencyCode = currencyCode;
+    }
+
+    public String getLineageSourceType() {
+        return lineageSourceType;
+    }
+
+    public void setLineageSourceType(String lineageSourceType) {
+        this.lineageSourceType = lineageSourceType;
+    }
+
+    public String getLineageSourceId() {
+        return lineageSourceId;
+    }
+
+    public void setLineageSourceId(String lineageSourceId) {
+        this.lineageSourceId = lineageSourceId;
     }
 }

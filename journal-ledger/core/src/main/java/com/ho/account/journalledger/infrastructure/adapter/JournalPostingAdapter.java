@@ -115,5 +115,26 @@ public class JournalPostingAdapter implements JournalPostingPort {
                 savedEntry.getStatus().name()
         );
     }
-}
 
+    @Override
+    public void approveAndPost(Long journalEntryId, String actor) {
+        JournalEntry entry = journalUseCase.getJournalEntry(journalEntryId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Closing journal entry not found: " + journalEntryId));
+        JournalEntryStatus status = entry.getStatus();
+        if (status == JournalEntryStatus.POSTED) {
+            return;
+        }
+        if (status == JournalEntryStatus.DRAFT || status == JournalEntryStatus.REQUESTED) {
+            journalUseCase.approveJournalEntry(journalEntryId, actor);
+            journalUseCase.postJournalEntry(journalEntryId, actor);
+            return;
+        }
+        if (status == JournalEntryStatus.APPROVED) {
+            journalUseCase.postJournalEntry(journalEntryId, actor);
+            return;
+        }
+        throw new IllegalStateException(
+                "Closing journal cannot be posted from status " + status + ": " + journalEntryId);
+    }
+}

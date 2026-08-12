@@ -5,37 +5,63 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
+import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
+import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.contracts.journal.JournalSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
+/**
+ * [헥사고날 아키텍처 - 마감 결산 전표 연동 아웃바운드 어댑터 (JournalLedgerClosingJournalEntryAdapter)]
+ *
+ * ───────────────────────────────────────────────────────────────────────────────────
+ * 🐣 [초보자를 위한 아키텍처 및 MSA 전환 교육용 주석 (Pedagogical Comments)]
+ *
+ * 1. Bounded Context 경계 보존 (Domain Driven Design):
+ *    - 마감(Closing) Bounded Context와 분개장(Journal Ledger) Bounded Context는
+ *      서로 다른 비즈니스 도메인과 생명주기를 가집니다.
+ *    - 기존에는 closing 모듈이 journal-ledger 모듈의 도메인 엔티티(JournalEntry, JournalDetail) 및
+ *      내부 서비스(JournalUseCase)를 직접 참조하여 컴파일 타임 강결합이 발생했습니다.
+ *    - 리팩토링 후, `:contracts` 공유 커널(Shared Kernel) 모듈의 포트(JournalPostingPort, JournalQueryPort) 및
+ *      계약 DTO(JournalEntryCommand, JournalSummary, JournalDetailSummary)만 참조하도록 전환했습니다.
+ *
+ * 2. 컴파일 타임 격리 (Compile-Time Isolation) & MSA 독립 배포:
+ *    - `journal-ledger:core`에 대한 직접 프로젝트 의존성을 완전히 제거함으로써,
+ *      두 모듈 간 컴파일 타임 결합이 차단되었습니다.
+ *    - 향후 `journal-ledger`가 별도의 독립된 마이크로서비스(Microservice)로 분리되어
+ *      REST API 또는 gRPC / Async Kafka Message 전달 방식으로 변경되더라도
+ *      `closing` 모듈의 코드 변경 없이 어댑터의 런타임 구현체만 교체할 수 있습니다.
+ *
+ * 3. 헥사고날 아키텍처 포트/어댑터 패턴 (Hexagonal Architecture):
+ *    - `ClosingJournalEntryPort`는 Closing 도메인 관점의 아웃바운드 포트입니다.
+ *    - 본 클래스는 해당 포트 인터페이스를 구현하며, 내부적으로 계약 모듈의 포트(`JournalPostingPort`, `JournalQueryPort`)를
+ *      조율(Orchestration)하여 마감 전표 생성, 재시도 멱등성 검사 및 승인/전기 요청을 위임합니다.
+ * ───────────────────────────────────────────────────────────────────────────────────
+ */
 @Component
 @RequiredArgsConstructor
 public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEntryPort {
 
     private final JournalPostingPort journalPostingPort;
-    private final JournalUseCase journalUseCase;
+    private final JournalQueryPort journalQueryPort;
 
     @Override
     public ClosingJournalEntryResult createDraftAdjustment(ClosingJournalEntryCommand command) {
-        var existing = journalUseCase.getJournalEntryBySlipNo(command.slipNo());
-        if (existing.isPresent()) {
-            JournalEntry persisted = journalUseCase.getJournalEntryWithDetails(existing.get().getId())
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Existing closing journal cannot be loaded with details: " + command.slipNo()));
-            requireSameClosingRequest(command, persisted);
-            return new ClosingJournalEntryResult(persisted.getId(), persisted.getSlipNo());
+        Optional<JournalSummary> existingOpt = journalQueryPort.findBySlipNo(command.slipNo());
+        if (existingOpt.isPresent()) {
+            JournalSummary existing = existingOpt.get();
+            List<JournalDetailSummary> details = journalQueryPort.getJournalDetails(existing.getId());
+            requireSameClosingRequest(command, existing, details);
+            return new ClosingJournalEntryResult(existing.getId(), existing.getSlipNo());
         }
 
         JournalEntryCommand journalCommand = new JournalEntryCommand(
@@ -57,24 +83,7 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
 
     @Override
     public void approveAndPost(Long journalEntryId, String actor) {
-        JournalEntry entry = journalUseCase.getJournalEntry(journalEntryId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Closing journal entry not found: " + journalEntryId));
-        JournalEntryStatus status = entry.getStatus();
-        if (status == JournalEntryStatus.POSTED) {
-            return;
-        }
-        if (status == JournalEntryStatus.DRAFT || status == JournalEntryStatus.REQUESTED) {
-            journalUseCase.approveJournalEntry(journalEntryId, actor);
-            journalUseCase.postJournalEntry(journalEntryId, actor);
-            return;
-        }
-        if (status == JournalEntryStatus.APPROVED) {
-            journalUseCase.postJournalEntry(journalEntryId, actor);
-            return;
-        }
-        throw new IllegalStateException(
-                "Closing journal cannot be posted from status " + status + ": " + journalEntryId);
+        journalPostingPort.approveAndPost(journalEntryId, actor);
     }
 
     private JournalLineCommand toJournalLine(ClosingJournalLineCommand line) {
@@ -90,7 +99,8 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
 
     private void requireSameClosingRequest(
             ClosingJournalEntryCommand command,
-            JournalEntry persisted) {
+            JournalSummary persisted,
+            List<JournalDetailSummary> details) {
         boolean sameHeader = Objects.equals(command.slipNo(), persisted.getSlipNo())
                 && Objects.equals(command.slipDate(), persisted.getSlipDate())
                 && Objects.equals(command.accountingDate(), persisted.getAccountingDate())
@@ -103,7 +113,7 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
                 .map(this::canonicalLine)
                 .sorted()
                 .toList();
-        List<String> persistedLines = persisted.getDetails().stream()
+        List<String> persistedLines = details.stream()
                 .map(this::canonicalLine)
                 .sorted()
                 .toList();
@@ -111,8 +121,8 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
             throw new IllegalStateException(
                     "Closing slip already exists with different business content: " + command.slipNo());
         }
-        if (persisted.getStatus() == JournalEntryStatus.REJECTED
-                || persisted.getStatus() == JournalEntryStatus.REVERSED) {
+        if ("REJECTED".equals(persisted.getStatus())
+                || "REVERSED".equals(persisted.getStatus())) {
             throw new IllegalStateException(
                     "Closing slip exists in a non-reusable status " + persisted.getStatus()
                             + ": " + command.slipNo());
@@ -127,7 +137,7 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
                 + "|||" + optional(line.description());
     }
 
-    private String canonicalLine(JournalDetail line) {
+    private String canonicalLine(JournalDetailSummary line) {
         return line.getSide().name()
                 + "|" + line.getAccountCode()
                 + "|" + decimal(line.getAmount())

@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -95,14 +96,24 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
                 .orElseThrow(() -> new NoSuchElementException("Journal entry not found: " + journalEntryId));
     }
 
+    @Override
+    public Optional<JournalSummary> findBySlipNo(String slipNo) {
+        return journalUseCase.getJournalEntryBySlipNo(slipNo)
+                .map(this::mapToSummary);
+    }
+
     private JournalSummary mapToSummary(JournalEntry entry) {
         JournalSummary summary = new JournalSummary();
         summary.setId(entry.getId());
         summary.setSlipNo(entry.getSlipNo());
+        summary.setSlipDate(entry.getSlipDate());
         summary.setAccountingDate(entry.getAccountingDate());
         summary.setDescription(entry.getDescription());
         summary.setEntryType(entry.getEntryType());
         summary.setStatus(entry.getStatus().name());
+        summary.setCurrencyCode(entry.getCurrencyCode());
+        summary.setLineageSourceType(entry.getLineageSourceType());
+        summary.setLineageSourceId(entry.getLineageSourceId());
         return summary;
     }
 
@@ -132,6 +143,7 @@ public class MonolithJournalQueryAdapter implements JournalQueryPort {
         summary.setBaseAmount(detail.getBaseAmount());
         summary.setDetailDescription(detail.getDetailDescription());
         summary.setBusinessPartnerCode(detail.getBusinessPartnerCode());
+        summary.setDepartmentCode(detail.getDepartmentCode());
         return summary;
     }
 
