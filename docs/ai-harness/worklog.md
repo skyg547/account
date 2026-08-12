@@ -1,3 +1,8 @@
+### 📅 2026-08-13 (GH-99: Fix ECL API ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `ecl/ecl-api`
+- **Changes**: Created `ecl/ecl-api/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:ecl-api-local;MODE=PostgreSQL`), Flyway V1 baseline migration (`locations: classpath:db/ecl-local-migration`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `EclApiApplicationTests.java` with `@SpringBootTest(classes = AllowanceEclApiApplication.class)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across all changed files.
+- **Verification**: `./gradlew.bat :ecl:ecl-api:test` (100% SUCCESSFUL).
+
 ### 📅 2026-08-13 (GH-100: Fix ECL Batch ApplicationContext Loading and Configure Local H2 Profile)
 - **Component**: `ecl/ecl-batch`
 - **Changes**: Added exception rule `!**/src/test/resources/application-local.yml` to `.gitignore`. Created `ecl/ecl-batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:ecl-batch-local;MODE=PostgreSQL`), Flyway V1 baseline migration (`locations: classpath:db/ecl-local-migration`), Spring Batch H2 metadata table initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `EclBatchApplicationTests.java` with `@SpringBootTest(classes = AllowanceEclBatchApplication.class)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across all changed files.

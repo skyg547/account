@@ -1,3 +1,18 @@
+### 📅 2026-08-13 ([runtime][ecl-api] Fix ECL API ApplicationContext Loading and Configure Local H2 Profile - Issue #99)
+### [ecl-api] ecl:ecl-api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 EclApiApplicationTests 추가
+
+- **작업 배경**:
+  - `ecl:ecl-api` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 Flyway/인메모리 DB 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`ecl/ecl-api/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:ecl-api-local;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/ecl-local-migration`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`EclApiApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = AllowanceEclApiApplication.class)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `AllowanceEclApiApplication`의 ApplicationContext가 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, Flyway 마이그레이션 연동 및 외부 인프라 디커플링의 아키텍처적 목적과 설계 의도를 상세 명시.
+- **검증**:
+  - `./gradlew.bat :ecl:ecl-api:test` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][ecl-batch] Fix ECL Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #100)
 ### [ecl-batch] ecl:ecl-batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 EclBatchApplicationTests 추가
 

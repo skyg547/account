@@ -1,3 +1,14 @@
+# AI Harness Handoff - 2026-08-13 Issue #99 Fix ECL API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #99 (`[bug] ecl:ecl-api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `ecl/ecl-api/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:ecl-api-local;MODE=PostgreSQL`), Flyway V1 baseline migration (`locations: classpath:db/ecl-local-migration`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `EclApiApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Flyway Baseline Migrations, and External Control Plane Decoupling.
+  - Verification: `./gradlew.bat :ecl:ecl-api:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #100 Fix ECL Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
