@@ -1,3 +1,20 @@
+### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #94)
+### [expenditure-resolution] expenditure-resolution:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `expenditure-resolution:batch` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Batch 메타데이터 스키마 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`expenditure-resolution/batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:expenditure_resolution_batch_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/expenditure-resolution-migration`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`ExpenditureResolutionBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `ExpenditureResolutionBatchApplication`의 ApplicationContext, Batch Infra (`JobExplorer`, `expenditureResolutionApprovalJob`), 및 도메인 유스케이스(`ExpenditureResolutionBatchUseCase`) 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **`ExpenditureResolutionLocalExternalPortConfiguration.java` 컴파일 오류 수정**:
+    - `JournalPostingPort` 인터페이스의 다중 메서드(`createDraftEntry`, `approveAndPost`) 계약에 맞춰 익명 클래스 스텁 구현으로 수정.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, 배치 메타데이터 초기화 및 포트 인터페이스 스텁 구현의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :expenditure-resolution:batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][reporting-batch] Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #96)
 ### [reporting-batch] reporting:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ReportingBatchApplicationTests 추가
 

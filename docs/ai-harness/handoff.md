@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-13 Issue #94 Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #94 (`[bug] expenditure-resolution:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `expenditure-resolution/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_batch_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ExpenditureResolutionBatchApplicationTests.java` verifying ApplicationContext loading, Job/UseCase bean injection, and local profile isolation.
+  - Fixed `JournalPostingPort` anonymous stub implementation in `ExpenditureResolutionLocalExternalPortConfiguration.java` to adhere to multi-method interface contracts.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Spring Batch Metadata Schema Auto-Initialization, and Stub Interface Adaptations.
+  - Verification: `./gradlew.bat :expenditure-resolution:batch:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #96 Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
