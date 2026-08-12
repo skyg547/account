@@ -8,6 +8,7 @@ import com.ho.account.contracts.masterdata.DepartmentRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceRef;
+import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import java.util.Optional;
@@ -70,12 +71,33 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
         };
     }
 
+    /**
+     * [Local Journal Posting Port Stub]
+     *
+     * <p><strong>Pedagogical Explanation & Design Intent:</strong></p>
+     * <ul>
+     *   <li><strong>Interface Contract Implementation (인터페이스 계약 구현)</strong>:
+     *       {@link JournalPostingPort}는 초안 전표 생성({@code createDraftEntry}) 및 승인/전기({@code approveAndPost})
+     *       다중 메서드를 정의하므로, 람다식이 아닌 익명 클래스 객체 형태로 구현합니다.</li>
+     *   <li><strong>Local Test Stub Operation (로컬 테스트 스텁 동작)</strong>:
+     *       외부 회계 분개 서비스 미연동 환경에서도 지출결의 승인/정산 배치 및 워크플로우가 차단되지 않고
+     *       가상의 분개 전표 ID/번호를 생성하여 정상 처리 흐름을 보증합니다.</li>
+     * </ul>
+     */
     @Bean
     @ConditionalOnMissingBean
     JournalPostingPort expenditureLocalJournalPostingPort() {
-        return command -> {
-            long id = journalSequence.getAndIncrement();
-            return new JournalPostingResult(id, "LOCAL-EXP-" + id, "DRAFT");
+        return new JournalPostingPort() {
+            @Override
+            public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
+                long id = journalSequence.getAndIncrement();
+                return new JournalPostingResult(id, "LOCAL-EXP-" + id, "DRAFT");
+            }
+
+            @Override
+            public void approveAndPost(Long journalEntryId, String actor) {
+                // 로컬 실행 시 분개 승인 및 전기 처리는 스텁으로 동작하여 예외를 발생시키지 않는다.
+            }
         };
     }
 }
