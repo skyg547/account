@@ -1,3 +1,25 @@
+## 2026-08-12 - Issue #300 Refactor Payable & Receivable Batch Jobs to Chunk-Oriented Processing
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/300-payable-receivable-batch-chunk` / `C:\tmp\account-300-payable-receivable-batch-chunk`.
+- Base: `origin/main`.
+- Scope:
+  - `ReceivableAutoMatchingBatchConfig.java`:
+    - Refactored single-transaction Tasklet (`runAutoMatching`) to Spring Batch Chunk-Oriented Architecture (Chunk Size 100).
+    - `receivableAutoMatchingItemReader`: Configured `JpaPagingItemReader<CollectionJpaEntity>` (`@StepScope`, pageSize=100) to stream candidate collections page-by-page.
+    - `receivableAutoMatchingItemWriter`: Delegates 100-item chunks to `collectionUseCase.attemptAutoMatching` committing per chunk.
+  - `PaymentUseCase.java` & `PaymentService.java`:
+    - Added chunk processing support methods `createPaymentRun`, `processPaymentRunChunk`, and `completePaymentRun`.
+  - `PayablePaymentRunBatchConfig.java`:
+    - Refactored single-transaction Tasklet into a 3-step pipeline (`createPaymentRunStep` -> `processPayablePaymentRunChunkStep` -> `completePaymentRunStep`).
+    - `createPaymentRunStep` (Tasklet): Creates `PaymentRun` header in INITIATED status and puts `paymentRunId` & `runDate` into `JobExecutionContext`.
+    - `processPayablePaymentRunChunkStep` (Chunk Step, Chunk Size 100): Uses `JpaPagingItemReader<PayableJpaEntity>` to load due payables page-by-page, calling `paymentUseCase.processPaymentRunChunk` per 100 items to cap memory footprint at $O(\text{chunkSize})$.
+    - `completePaymentRunStep` (Tasklet): Transitions `PaymentRun` status to PROCESSING upon chunk completion.
+  - Pedagogical Comments:
+    - Added comprehensive comments on Chunk-oriented Architecture benefits, Memory Footprint Management (Heap OOM prevention), and Transaction Boundary Segregation (partial failure rollback/retry).
+  - Test Validation:
+    - Executed `./gradlew.bat :receivable:batch:test :payable:batch:test` (100% SUCCESSFUL).
+
 ## 2026-08-12 - Issue #302 Decompose Monolithic ReconciliationService for Single Responsibility Principle Compliance
 
 - Owner: Gemini (Agent loop subagent)
