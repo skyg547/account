@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-12 Issue #343 Align Demo Seed Fixture and Clean Batch Lifecycle for Account Mart
+
+- **Owner**: Gemini (Agent loop subagent)
+- **PR**: #397 (Merged into `main`)
+- **Status**: Integrated PR / Issue closed
+- **Summary**:
+  - Implemented `AccountMartDemoSeedRunner` and `AccountMartDemoFixtureService` activated on `mart.batch.demo-seed.enabled: true` for deterministic H2 fixture seeding (ods account subjects, products, ledgers, balance history, general ledger, exchange rates, KAP ratings, collaterals).
+  - Specified `@Bean(destroyMethod = "")` on all `ItemReader` bean definitions in `IntegratedPositionEtlJobConfig`, `KapDataEtlJobConfig`, and `BehavioralHistoryLoadJobConfig` to decouple Spring Container shutdown inferred `close()` from Spring Batch Step ItemStream lifecycle, eliminating unopened reader close warnings during context shutdown (`spring.batch.job.enabled: false`).
+  - Added `AccountMartDemoSeedAndLifecycleTest.java` verifying deterministic demo fixture loading, representative job execution (`integratedPositionEtlJob`), and clean context shutdown.
+  - Added detailed pedagogical comments explaining Data Mart Batch Lifecycle, Deterministic Demo Seeding, and Spring Container vs Spring Batch lifecycle management.
+  - Verification: `./gradlew.bat :account-mart:mart-core:test :account-mart:mart-api:test :account-mart:mart-batch:test :account-mart:mart-api:bootJar :account-mart:mart-batch:bootJar` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-12 Issue #344 Strengthen Self-Contained Local H2 Runtime Policy for Internal Audit
 
 - **Owner**: Gemini (Agent loop subagent)

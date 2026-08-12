@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([runtime][account-mart] Align demo seed and clean Batch lifecycle - Issue #343)
+### [account-mart] account-mart batch 모듈 데모 시드 데이터 로더 구축, 결정론적 H2 픽스처 정합화 및 unopened ItemReader close 경고 없는 Clean Batch Lifecycle 달성
+
+- **작업 배경**:
+  - `application-demo.yml`에 `mart.batch.demo-seed` 플래그가 존재하였으나 이를 소비하는 프로덕션 코드가 부재하였고, 데모/로컬 배치 환경에서 시계열 분석 및 결산용 H2 시드 데이터의 결정론적 적재 로직 정합화가 필요했음.
+  - `spring.batch.job.enabled: false` 상태로 애플리케이션 컨텍스트 셧다운 시, 스프링의 기본 추론(`destroyMethod = "(inferred)"`)에 의해 open되지 않은 `ItemReader` 및 `StepScope` 빈의 `close()`가 호출되어 `ItemStreamException` WARN 경고 로그가 남는 문제가 존재했음.
+- **주요 변경 사항**:
+  - **`AccountMartDemoFixtureService` & `AccountMartDemoSeedRunner` 생성**:
+    - `mart.batch.demo-seed.enabled: true` 조건에서 동작하는 `AccountMartDemoSeedRunner` (`CommandLineRunner`)와 `AccountMartDemoFixtureService` 구축.
+    - H2 환경에서 계정과목(`ods_acc_mst`), 상품(`ods_product_mst`), 계정원장(`ods_acc_ledger`), 시계열 잔액(`ods_balance_hist`), 총계정원장(`ods_general_ledger`), 매매기준율(`market_exchange_rate`), KAP 대외신용등급(`kap_external_ratings`), 담보(`ods_coll_mst`), 아파트시세(`ods_apart_coll_detail`) 등 IFRS9 결산 마트 픽스처 데이터를 결정론적(Deterministic)으로 적재 정합화.
+  - **Clean Batch Lifecycle 달성 (`@Bean(destroyMethod = "")`)**:
+    - `IntegratedPositionEtlJobConfig`, `KapDataEtlJobConfig`, `BehavioralHistoryLoadJobConfig` 모듈 내 모든 `ItemReader` 빈 등록부에 `@Bean(destroyMethod = "")` 명시.
+    - 컨텍스트 종료 시 Spring Container 차원의 불필요한 automatic close 호출을 차단하고 Spring Batch Step Execution 내에서만 안전하게 `ItemStream` 생명주기가 제어되도록 원천 예방.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 금융 데이터 마트 배치 생명주기, 결정론적 데모 데이터 시딩(Deterministic Demo Seeding), 스프링 컨테이너 빈 생명주기 vs 스프링 배치 Step execution 생명주기 불일치 문제 해결 기법을 교육적 주석으로 작성.
+  - **단위 및 통합 테스트 구축 (`AccountMartDemoSeedAndLifecycleTest.java`)**:
+    - `mart.batch.demo-seed.enabled=true` 및 `spring.batch.job.enabled=false` 환경에서 결정론적 데모 픽스처 시딩과 대표 잡(`integratedPositionEtlJob`) 완주 및 warning 없는 깔끔한 셧다운 검증.
+- **검증**:
+  - `./gradlew.bat :account-mart:mart-core:test :account-mart:mart-api:test :account-mart:mart-batch:test :account-mart:mart-api:bootJar :account-mart:mart-batch:bootJar` 실행 (BUILD SUCCESSFUL, unopened reader close WARN 0건).
+  - PR #397 생성 및 `main` 브랜치 자동 병합 완료.
+
 ### 📅 2026-08-12 ([runtime][internal-audit] Add explicit local H2 profile - Issue #344)
 ### [internal-audit] internal-audit api 모듈에 명시적 application-local.yml 프로파일 추가, 런타임 정책 검증 테스트 강화 및 단독 구동 가이드 업데이트
 
