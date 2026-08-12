@@ -31,6 +31,24 @@ public interface ExternalReconStageRecordRepository extends JpaRepository<Extern
             @Param("legalEntityCode") String legalEntityCode
     );
 
+    @Query("""
+            SELECT r FROM ExternalReconStageRecord r
+            WHERE r.unitId = :unitId
+              AND r.stageCode = :stageCode
+              AND r.reconciliationDate = :reconciliationDate
+              AND (:productCode IS NULL OR r.productCode = :productCode)
+              AND (:currencyCode IS NULL OR r.currencyCode = :currencyCode)
+              AND (:legalEntityCode IS NULL OR r.legalEntityCode = :legalEntityCode)
+            """)
+    java.util.List<ExternalReconStageRecord> findStageRecords(
+            @Param("unitId") String unitId,
+            @Param("stageCode") String stageCode,
+            @Param("reconciliationDate") LocalDate reconciliationDate,
+            @Param("productCode") String productCode,
+            @Param("currencyCode") String currencyCode,
+            @Param("legalEntityCode") String legalEntityCode
+    );
+
     interface SnapshotAggregateProjection {
         Long getItemCount();
 
