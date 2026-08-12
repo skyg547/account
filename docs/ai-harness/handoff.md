@@ -1,3 +1,14 @@
+# AI Harness Handoff - 2026-08-13 Issue #97 Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #97 (`[bug] account-mart:mart-api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Completed & Merged
+- **Summary**:
+  - Created `account-mart/mart-api/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `AccountMartApiApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Flyway Baseline Migrations.
+  - Verification: `./gradlew.bat :account-mart:mart-api:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #98 Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
