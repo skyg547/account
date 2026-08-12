@@ -133,10 +133,7 @@ services:
   config-server:
     build:
       context: .
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":config-server"
-        JAR_DIRECTORY: config-server
+      dockerfile: config-server/Dockerfile
     restart: unless-stopped
     init: true
     environment:
@@ -157,10 +154,7 @@ services:
   discovery:
     build:
       context: .
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":discovery"
-        JAR_DIRECTORY: discovery
+      dockerfile: discovery/Dockerfile
     restart: unless-stopped
     init: true
     environment:
@@ -181,10 +175,7 @@ services:
   gateway:
     build:
       context: .
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":gateway"
-        JAR_DIRECTORY: gateway
+      dockerfile: gateway/Dockerfile
     profiles: ["platform", "apis"]
     restart: on-failure
     init: true
@@ -245,10 +236,7 @@ services:
   migration-runner:
     build:
       context: .
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":migration-runner"
-        JAR_DIRECTORY: migration-runner
+      dockerfile: migration-runner/Dockerfile
     profiles: ["migration"]
     restart: "no"
     environment:
@@ -284,7 +272,7 @@ services:
   account-mart-api:
     <<: *api-service
     profiles: ["apis", "risk"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":account-mart:mart-api", JAR_DIRECTORY: account-mart/mart-api}}
+    build: {context: ., dockerfile: account-mart/mart-api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -296,7 +284,7 @@ services:
   account-mart-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":account-mart:mart-batch", JAR_DIRECTORY: account-mart/mart-batch}}
+    build: {context: ., dockerfile: account-mart/mart-batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -308,7 +296,7 @@ services:
   asset-lease-api:
     <<: *api-service
     profiles: ["apis", "products"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":asset-lease:api", JAR_DIRECTORY: asset-lease/api}}
+    build: {context: ., dockerfile: asset-lease/api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -320,7 +308,7 @@ services:
   asset-lease-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":asset-lease:batch", JAR_DIRECTORY: asset-lease/batch}}
+    build: {context: ., dockerfile: asset-lease/batch/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -332,7 +320,7 @@ services:
   auth-api:
     <<: *api-service
     profiles: ["apis", "foundation"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":auth:api", JAR_DIRECTORY: auth/api}}
+    build: {context: ., dockerfile: auth/api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -347,7 +335,7 @@ services:
   budget-api:
     <<: *api-service
     profiles: ["apis", "foundation"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":budget:api", JAR_DIRECTORY: budget/api}}
+    build: {context: ., dockerfile: budget/api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -362,7 +350,7 @@ services:
   budget-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":budget:batch", JAR_DIRECTORY: budget/batch}}
+    build: {context: ., dockerfile: budget/batch/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -374,7 +362,7 @@ services:
   closing-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":closing:api", JAR_DIRECTORY: closing/api}}
+    build: {context: ., dockerfile: closing/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -386,7 +374,7 @@ services:
   closing-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":closing:batch", JAR_DIRECTORY: closing/batch}}
+    build: {context: ., dockerfile: closing/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -398,7 +386,7 @@ services:
   deposit-api:
     <<: *api-service
     profiles: ["apis", "products"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":deposit:api", JAR_DIRECTORY: deposit/api}}
+    build: {context: ., dockerfile: deposit/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -410,7 +398,7 @@ services:
   deposit-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":deposit:batch", JAR_DIRECTORY: deposit/batch}}
+    build: {context: ., dockerfile: deposit/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -422,7 +410,7 @@ services:
   ecl-api:
     <<: *api-service
     profiles: ["apis", "risk"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":ecl:ecl-api", JAR_DIRECTORY: ecl/ecl-api}}
+    build: {context: ., dockerfile: ecl/ecl-api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -434,7 +422,7 @@ services:
   ecl-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":ecl:ecl-batch", JAR_DIRECTORY: ecl/ecl-batch}}
+    build: {context: ., dockerfile: ecl/ecl-batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -446,7 +434,7 @@ services:
   expenditure-resolution-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":expenditure-resolution:api", JAR_DIRECTORY: expenditure-resolution/api}}
+    build: {context: ., dockerfile: expenditure-resolution/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -458,7 +446,7 @@ services:
   expenditure-resolution-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":expenditure-resolution:batch", JAR_DIRECTORY: expenditure-resolution/batch}}
+    build: {context: ., dockerfile: expenditure-resolution/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -470,7 +458,7 @@ services:
   internal-audit-api:
     <<: *api-service
     profiles: ["apis", "foundation"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":internal-audit:api", JAR_DIRECTORY: internal-audit/api}}
+    build: {context: ., dockerfile: internal-audit/api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -482,7 +470,7 @@ services:
   journal-ledger-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":journal-ledger:api", JAR_DIRECTORY: journal-ledger/api}}
+    build: {context: ., dockerfile: journal-ledger/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -494,7 +482,7 @@ services:
   journal-ledger-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":journal-ledger:batch", JAR_DIRECTORY: journal-ledger/batch}}
+    build: {context: ., dockerfile: journal-ledger/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -506,7 +494,7 @@ services:
   loan-api:
     <<: *api-service
     profiles: ["apis", "products"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":loan:api", JAR_DIRECTORY: loan/api}}
+    build: {context: ., dockerfile: loan/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -518,7 +506,7 @@ services:
   loan-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":loan:batch", JAR_DIRECTORY: loan/batch}}
+    build: {context: ., dockerfile: loan/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -530,7 +518,7 @@ services:
   master-data-api:
     <<: *api-service
     profiles: ["apis", "foundation"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":master-data:api", JAR_DIRECTORY: master-data/api}}
+    build: {context: ., dockerfile: master-data/api/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SERVER_PORT: "8080"
@@ -542,7 +530,7 @@ services:
   master-data-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":master-data:batch", JAR_DIRECTORY: master-data/batch}}
+    build: {context: ., dockerfile: master-data/batch/Dockerfile}
     environment:
       <<: [*common-runtime-environment, *config-client-environment]
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -554,7 +542,7 @@ services:
   payable-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":payable:api", JAR_DIRECTORY: payable/api}}
+    build: {context: ., dockerfile: payable/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -566,7 +554,7 @@ services:
   payable-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":payable:batch", JAR_DIRECTORY: payable/batch}}
+    build: {context: ., dockerfile: payable/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -578,7 +566,7 @@ services:
   receivable-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":receivable:api", JAR_DIRECTORY: receivable/api}}
+    build: {context: ., dockerfile: receivable/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -590,7 +578,7 @@ services:
   receivable-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":receivable:batch", JAR_DIRECTORY: receivable/batch}}
+    build: {context: ., dockerfile: receivable/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -602,7 +590,7 @@ services:
   reconciliation-api:
     <<: *api-service
     profiles: ["apis", "risk"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reconciliation:api", JAR_DIRECTORY: reconciliation/api}}
+    build: {context: ., dockerfile: reconciliation/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -614,7 +602,7 @@ services:
   reconciliation-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reconciliation:batch", JAR_DIRECTORY: reconciliation/batch}}
+    build: {context: ., dockerfile: reconciliation/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -626,7 +614,7 @@ services:
   reporting-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reporting:api", JAR_DIRECTORY: reporting/api}}
+    build: {context: ., dockerfile: reporting/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -638,7 +626,7 @@ services:
   reporting-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":reporting:batch", JAR_DIRECTORY: reporting/batch}}
+    build: {context: ., dockerfile: reporting/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
@@ -650,7 +638,7 @@ services:
   tax-api:
     <<: *api-service
     profiles: ["apis", "accounting"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":tax:api", JAR_DIRECTORY: tax/api}}
+    build: {context: ., dockerfile: tax/api/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SERVER_PORT: "8080"
@@ -662,7 +650,7 @@ services:
   tax-batch:
     <<: *batch-service
     profiles: ["batch"]
-    build: {context: ., dockerfile: Containerfile, args: {GRADLE_PROJECT: ":tax:batch", JAR_DIRECTORY: tax/batch}}
+    build: {context: ., dockerfile: tax/batch/Dockerfile}
     environment:
       <<: *common-runtime-environment
       SPRING_MAIN_WEB_APPLICATION_TYPE: none

@@ -1,7 +1,7 @@
 # [엔터프라이즈급 멀티스테이지 빌드]
 # 1단계: 빌드 환경 (Builder)
 # 소스코드를 가져와서 컴파일하고 실행 파일(.jar)을 만드는 과정입니다.
-FROM gradle:8.7-jdk21-alpine AS builder
+FROM gradle:8.7-jdk17-alpine AS builder
 WORKDIR /build
 
 # 전체 프로젝트 소스를 복사합니다. (멀티 모듈 의존성 해결을 위함)
@@ -13,7 +13,7 @@ RUN ./gradlew :asset-lease:api:bootJar -x test --no-daemon
 
 # 2단계: 실행 환경 (Runner)
 # 무거운 빌드 도구(Gradle 등)를 버리고, 자바 실행기(JRE)만 있는 가벼운 이미지로 갈아탑니다.
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # 타임존 설정 (한국 시간)

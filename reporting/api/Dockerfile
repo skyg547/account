@@ -7,14 +7,14 @@ WORKDIR /workspace
 
 COPY --chown=gradle:gradle . .
 
-RUN ./gradlew :ecl:ecl-batch:bootJar --console=plain --no-daemon
+RUN ./gradlew :reporting:api:bootJar --console=plain --no-daemon
 
 # Stage 2: Runtime
 FROM docker.io/library/eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S app && adduser -S -G app app
-COPY --from=builder --chown=app:app /workspace/ecl/ecl-batch/build/libs/*-SNAPSHOT.jar /app/app.jar
+COPY --from=builder --chown=app:app /workspace/reporting/api/build/libs/*-SNAPSHOT.jar /app/app.jar
 
 USER app:app
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
