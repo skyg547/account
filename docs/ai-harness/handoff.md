@@ -1,3 +1,23 @@
+# AI Harness Handoff - 2026-08-12 Issue #320 Implement Item-Level N:M Matching Engine for Financial Reconciliation
+
+- **Issue**: #320 (`[reconciliation][financial] 대사 자동 매칭 로직이 단순 총액 비교에 불과함 — 건별 N:M 매칭 엔진 부재`)
+- **PR**: #390 (Merged into `main`)
+- **Status**: Completed / Integrated
+- **Summary**:
+  - Implemented Item-Level N:M matching engine algorithms (`ReconciliationMatchingEngine`, `ItemLevelMatcher`) replacing simple total summary comparison in `ReconciliationService.performReconciliation`.
+  - Created `ReconciliationItem` and `ReconciliationCompositeKey` domain VOs supporting normalized multi-attribute grouping (`transactionDate`, `referenceId`, `partnerCode`, `accountCode`) and relaxed key fallbacks.
+  - Built 4-phase matching pipeline:
+    1) Phase 1: 1:1 Exact/Tolerance Matching (`EXACT_1_1`)
+    2) Phase 2: 1:N and N:1 Subset Matching (`ONE_TO_MANY_1_N`, `MANY_TO_ONE_N_1`)
+    3) Phase 3: N:M Subset-Sum Combinatorial Search (`MANY_TO_MANY_N_M`)
+    4) Phase 4: Relaxed Key Matching & Discrepancy Categorization (`MISSING_TARGET`, `MISSING_SOURCE`, `AMOUNT_MISMATCH`)
+  - Integrated with `ReconciliationDifference` domain entity to store rich JSON metadata for drill-through and audit trail.
+  - Added comprehensive pedagogical comments detailing offsetting error prevention, audit trail traceability, and NP-Hard combinatorial optimization via composite key partitioning.
+  - Created unit tests (`ItemLevelMatcherTest`, `ReconciliationMatchingEngineTest`) and updated `ReconciliationServiceTest`.
+  - Verification: Executed `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` (100% SUCCESSFUL).
+
+## 2026-08-12 - Issue #321 Push Down Ledger Snapshot Aggregation to DB Level for Heap OOM Prevention
+
 # AI Harness Handoff - 2026-08-12 Issue #321 Push Down Ledger Snapshot Aggregation to DB Level for Heap OOM Prevention
 
 ## Active Goal And State

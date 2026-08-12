@@ -1,3 +1,31 @@
+### 📅 2026-08-12 ([reconciliation][financial] 대사 자동 매칭 로직이 단순 총액 비교에 불과함 — 건별 N:M 매칭 엔진 부재 - Issue #320)
+### [reconciliation] 항목 수준(Item-Level) 건별 N:M 매칭 알고리즘 엔진(ReconciliationMatchingEngine, ItemLevelMatcher) 구축 및 복합 키 기반 자동 대사 고도화
+
+- **작업 배경**:
+  - 기존 `performReconciliation` 대사 로직이 원천 총액과 대상 총액만 단순 비교하여, 총액은 일치하지만 개별 거래 건이 상이한 **상쇄 오류(Offsetting Errors)**를 적발하지 못하는 상용 금융 대사 위험이 존재했음.
+- **주요 변경 사항**:
+  - **도메인 모델 설계 (`reconciliation/core/src/main/java/com/ho/account/reconciliation/domain/`)**:
+    - `ReconciliationItem` 불변 값 객체 신규 생성 (id, transactionDate, referenceId, partnerCode, accountCode, amount, side, description).
+    - `ReconciliationCompositeKey` 불변 값 객체 작성 (`transactionDate`, `referenceId`, `partnerCode`, `accountCode` 복합 키 및 텍스트 정규화 Uppercase Normalization, 완화 복합 키 지원).
+  - **건별 N:M 매칭 알고리즘 엔진 구현 (`ItemLevelMatcher.java`, `ReconciliationMatchingEngine.java`)**:
+    - 4단계 다지점 매칭 구현:
+      1) Phase 1: 복합 키 1:1 정밀/허용오차 매칭 (`EXACT_1_1`)
+      2) Phase 2: 복합 키 1:N / N:1 분할 매칭 (`ONE_TO_MANY_1_N`, `MANY_TO_ONE_N_1`)
+      3) Phase 3: 복합 키 N:M 부분집합 합계 알고리즘 (`MANY_TO_MANY_N_M`, Subset-Sum combinatorial search)
+      4) Phase 4: 완화 복합 키(날짜+계정과목) 매칭 및 잔여 불일치 분석 (`MISSING_TARGET`, `MISSING_SOURCE`, `AMOUNT_MISMATCH`)
+  - **영속성 포트 & 어댑터 고도화**:
+    - `ExternalReconSnapshotPort`: `loadItems` 메서드 추가 및 `ExternalReconStageSnapshotAdapter` 구현.
+    - `ExternalReconStageRecordRepository`: `findStageRecords` JPQL 쿼리 추가.
+  - **서비스 레이어 통합 (`ReconciliationService.java`)**:
+    - `performReconciliation`에서 `ReconciliationMatchingEngine`을 연동하여 항목 수준 N:M 매칭 수행.
+    - 대사 불일치 발생 시 불일치 유형별로 `ReconciliationDifference` 도메인 차이 객체 생성 및 상세 JSON 메타데이터 기록.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 1:1 / 1:N / N:M 매칭 알고리즘의 필요성, 상쇄 오류 방지, 감사 추적성(Audit Trail), NP-Hard 부분집합 조합의 복합 키 파티셔닝 최적화 이점 설명.
+  - **테스트 케이스 작성 및 검증**:
+    - `ItemLevelMatcherTest`, `ReconciliationMatchingEngineTest` 신규 작성 및 `ReconciliationServiceTest` 검증 완료.
+- **검증**:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` 실행 100% 성공 (BUILD SUCCESSFUL). PR #390 main 병합 완료.
+
 ### 📅 2026-08-12 ([reconciliation][extensibility] 대량 원장 데이터 메모리 적재로 인한 OOM 위험 - Issue #321)
 ### [reconciliation] DB 레벨 푸시다운 집계(Push-Down Aggregation) 적용을 통한 Heap OOM 예방 및 원장 잔액 스냅샷 메모리 풋프린트 최적화
 

@@ -1,3 +1,30 @@
+## 2026-08-12 - Issue #320 Implement Item-Level N:M Matching Engine for Financial Reconciliation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/320-reconciliation-item-matching-engine` / `C:\tmp\account-320-reconciliation-item-matching-engine`.
+- Base: `origin/main`.
+- Scope:
+  - Domain Model Design (`reconciliation/core/src/main/java/com/ho/account/reconciliation/domain/`):
+    - Created `ReconciliationItem` immutable value object representing individual source/target reconciliation items.
+    - Created `ReconciliationCompositeKey` value object supporting normalized multi-attribute grouping (`transactionDate`, `referenceId`, `partnerCode`, `accountCode`) and relaxed keys.
+  - Item-Level Matching Engine Algorithm (`ItemLevelMatcher.java` & `ReconciliationMatchingEngine.java`):
+    - Implemented 4-phase matching pipeline:
+      1) Phase 1: Composite Key Exact 1:1 Matching (`EXACT_1_1`)
+      2) Phase 2: 1:N & N:1 Subset Matching (`ONE_TO_MANY_1_N`, `MANY_TO_ONE_N_1`)
+      3) Phase 3: N:M Subset-Sum Combinatorial Search (`MANY_TO_MANY_N_M`)
+      4) Phase 4: Relaxed Key Fallback & Discrepancy Categorization (`MISSING_TARGET`, `MISSING_SOURCE`, `AMOUNT_MISMATCH`)
+  - Outbound Port & Adapter Enhancements:
+    - Added `loadItems` to `ExternalReconSnapshotPort` and implemented in `ExternalReconStageSnapshotAdapter`.
+    - Added `findStageRecords` JPQL query to `ExternalReconStageRecordRepository`.
+  - Service Integration (`ReconciliationService.java`):
+    - Updated `performReconciliation` to orchestrate item-level N:M matching via `ReconciliationMatchingEngine`.
+    - Generated rich `ReconciliationDifference` records with detailed item JSON refs for unmatched items.
+  - Pedagogical Comments:
+    - Added extensive comments explaining offsetting error prevention, audit trail traceability, and NP-Hard combinatorial optimization via composite key partitioning.
+  - Test Validation:
+    - Created `ItemLevelMatcherTest`, `ReconciliationMatchingEngineTest`, and validated `ReconciliationServiceTest`.
+    - Executed `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` (100% SUCCESSFUL). PR #390 merged into `main`.
+
 ## 2026-08-12 - Issue #321 Push Down Ledger Snapshot Aggregation to DB Level for Heap OOM Prevention
 
 - Owner: Gemini (Agent loop subagent)
