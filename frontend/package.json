@@ -2,6 +2,11 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "_comment": "[교육적 주석 / Node.js Runtime Pinning] Node 20 LTS(>=20.0.0 <21.0.0) 및 NPM 10+(>=10.0.0) 런타임 규격을 명시적으로 고정하여 로컬 개발 환경, 컨테이너(node:20-alpine), CI/CD 파이프라인 간 정합성을 보장하고 Lockfile v3의 결정론적 재현성을 확보합니다.",
+  "engines": {
+    "node": ">=20.0.0 <21.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

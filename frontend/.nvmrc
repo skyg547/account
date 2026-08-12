@@ -1,0 +1,5 @@
+20.18.0
+# [교육적 주석 / Node.js Runtime Pinning]
+# Node 20 LTS (v20.18.0) 버전으로 로컬 개발 런타임을 고정합니다.
+# NVM(Node Version Manager)을 사용하는 개발 환경에서 `nvm use` 실행 시 지정된 LTS 버전을 자동 적용합니다.
+# Containerfile, Dockerfile의 node:20-alpine 이미지와 100% 버전을 일치시켜 개발 및 컨테이너 환경 간 런타임 정합성(Runtime Parity) 및 Lockfile v3 재현성을 확보합니다.
