@@ -1,3 +1,29 @@
+### 📅 2026-08-12 ([ecl][msa] API 모듈이 Batch 모듈을 직접 참조 및 구동 — 아키텍처 훼손 - Issue #319)
+### [ecl] ecl-api 모듈의 ecl-batch 직접 의존성 및 Spring Batch 직접 구동 로직 전면 제거, BatchTriggerPort 및 어댑터 전환을 통한 리소스/프로세스 격리 완성
+
+- **작업 배경**:
+  - `ecl-api` 모듈이 `ecl-batch` 모듈에 직접적인 프로젝트 컴파일 의존성(`implementation project(':ecl:ecl-batch')`)을 맺고 `AllowanceBatchController` 및 `CdmDataReadyConsumer`에서 `JobLauncher`, `JobExplorer`, `Job` Bean을 직접 주입받아 동일 JVM/프로세스 내에서 대용량 배치를 구동했음.
+  - 이로 인해 대용량 계산 배치 구동 시 API 서버의 CPU, 힙 메모리(OOM 위험), DB 커넥션 풀 경합이 발생하고, 배치 장애가 API 서비스 장애로 전파되는 MSA/헥사고날 아키텍처적 훼손이 존재했음.
+- **주요 변경 사항**:
+  - **직접적 모듈 및 라이브러리 의존성 전면 제거 (`ecl/ecl-api/build.gradle`)**:
+    - `implementation project(':ecl:ecl-batch')` 및 `implementation 'org.springframework.boot:spring-boot-starter-batch'` 전면 제거.
+    - `AllowanceEclApiApplication.java`에서 `com.ho.account.ecl.batch` 스캔 및 `AllowanceEclBatchApplication` 참조 제거.
+  - **BatchTriggerPort 및 DTO 설계 (`ecl/ecl-api/src/main/java/com/ho/account/ecl/api/port/`)**:
+    - `BatchTriggerPort` 인터페이스 신규 정의 (`triggerBatch`, `getBatchStatus`).
+    - `BatchTriggerResponse`, `BatchStatusResponse`, `BatchAlreadyCompletedException`, `BatchExecutionException` 추가.
+  - **Lightweight External Batch Adapter 구현 (`ExternalBatchTriggerAdapter.java`)**:
+    - Spring Batch 라이브러리 없이 `JdbcTemplate` 기반 메타데이터 조회를 통해 `getBatchStatus` 구현.
+    - 외부 배치 프로세스로 트리거 명령을 위임하는 어댑터 구조 구축.
+  - **컨트롤러 및 Kafka Consumer 리팩토링 (`AllowanceBatchController.java`, `CdmDataReadyConsumer.java`)**:
+    - `JobLauncher` 및 `Job` 직접 주입을 제거하고 `BatchTriggerPort` 연동으로 전환.
+    - `CdmDataReadyConsumer`: Kafka 이벤트 수신 시 `BatchTriggerPort.triggerBatch`를 통해 외부 배치 트리거를 수행하며, 멱등성 및 예외 전파 유지.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - MSA 환경에서 API 프로세스와 Batch 프로세스의 리소스 분리(Resource Isolation), API 서버 힙 메모리 보호, CPU/커넥션 경합 방지 및 프로세스 격리의 아키텍처적 이점을 다룬 상세 주석 작성.
+  - **테스트 케이스 보강 및 검증**:
+    - `CdmDataReadyConsumerTest.java`: `BatchTriggerPort` 연동 테스트로 보완.
+- **검증**:
+  - `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([tax][extensibility] 대량 세금계산서 데이터 한번에 메모리 로딩 — OOM 위험 - Issue #322)
 ### [tax] 세금계산서 일괄 배치 검증 Paging/Chunking 도입을 통한 Out-Of-Memory(OOM) 방지 및 메모리 풋프린트 관리
 
