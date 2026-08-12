@@ -6,6 +6,43 @@ spring:
     name: gateway-service
   config:
     import: "optional:configserver:http://localhost:8888/"
+  cloud:
+    gateway:
+      # Eureka 동적 서비스 디스커버리 라우팅 활성화
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          lower-case-service-id-with-rest-site: true
+      # 글로벌 CORS 정책: 허용 오리진 패턴, HTTP 메서드, 헤더 및 클라이언트 브라우저 캐싱(maxAge) 설정
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - http://localhost:*
+              - http://127.0.0.1:*
+              - https://*.myaccount.com
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - X-Request-Id
+              - X-Auth-Error
+              - Authorization
+            allowCredentials: true
+            maxAge: 3600
+      # 전역 RequestRateLimiter 및 IP/KeyResolver 기반 API 호출 제한 정책 (DDoS 차단 및 백엔드 서버 보호)
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@ipKeyResolver}"
+            rate-limiter: "#{@inMemoryRateLimiter}"
 
 auth:
   jwt:
