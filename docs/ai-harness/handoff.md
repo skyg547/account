@@ -1,3 +1,36 @@
+# AI Harness Handoff - 2026-08-12 Issue #311 Decouple Closing Module from Journal-Ledger Core for MSA Isolation
+
+## Active Goal And State
+
+- GitHub Issue `#311` (`[closing][msa] journal-ledger:core 직접 의존에 의한 Bounded Context 경계 위반`) completed and merged to `main` via PR #383.
+- Branch `agent/311-closing-msa-bounded-context-decouple` integrated and worktree removed.
+
+## Changes And Boundaries
+
+- Direct Project Dependency Removal (`closing/api/build.gradle` & `closing/batch/build.gradle`):
+  - Removed `implementation project(':journal-ledger:core')` from `closing:api` and `closing:batch`.
+  - Added `implementation project(':contracts')` to `closing:api` and `closing:batch`.
+- Shared Kernel Outbound Port Transition (`JournalLedgerClosingJournalEntryAdapter.java`):
+  - Replaced `JournalUseCase`, `JournalEntry`, `JournalEntryStatus`, `JournalDetail` direct imports/usage with `JournalPostingPort` and `JournalQueryPort` from `:contracts`.
+  - Refactored `createDraftAdjustment` to check existing slips via `journalQueryPort.findBySlipNo` and `getJournalDetails`.
+  - Refactored `approveAndPost` to delegate directly to `journalPostingPort.approveAndPost`.
+- Contract & Adapter Extensions:
+  - Added `slipDate`, `currencyCode`, `lineageSourceType`, `lineageSourceId` to `JournalSummary`.
+  - Added `departmentCode` to `JournalDetailSummary`.
+  - Added `approveAndPost` method signature to `JournalPostingPort` and implemented in `JournalPostingAdapter`.
+  - Added `findBySlipNo` method signature to `JournalQueryPort` and implemented in `MonolithJournalQueryAdapter`.
+- Pedagogical Comments:
+  - Added comprehensive pedagogical comments on DDD Bounded Context preservation, compile-time module isolation, and Hexagonal Outbound Port pattern benefits for MSA architecture.
+- Local Configuration & Tests:
+  - Created `ClosingLocalExternalPortConfiguration.java` providing fallback `JournalPostingPort` and `JournalQueryPort` beans for closing module runtime and tests.
+  - Updated `JournalLedgerClosingJournalEntryAdapterTest.java` to mock `JournalPostingPort` and `JournalQueryPort`.
+- Verification Evidence:
+  - Executed `./gradlew.bat :closing:api:test :closing:batch:test :contracts:test :journal-ledger:core:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit `9f6106c4` on `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #315 Decouple Expenditure Resolution Core from Direct Module Dependencies
 
 ## Active Goal And State

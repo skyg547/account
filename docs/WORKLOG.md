@@ -1,3 +1,29 @@
+### 📅 2026-08-12 ([closing][msa] journal-ledger:core 직접 의존에 의한 Bounded Context 경계 위반 - Issue #311)
+### [closing] journal-ledger:core 직접 컴파일 의존성 제거, Shared Kernel contracts 포트 연동 및 MSA Bounded Context 경계 격리
+
+- **작업 배경**:
+  - `closing` 모듈(`closing/api`, `closing/batch`)이 `journal-ledger:core` 모듈에 직접적인 컴파일 타임 Gradle 의존성(`implementation project(':journal-ledger:core')`)을 맺고 `JournalUseCase`, `JournalEntry`, `JournalEntryStatus`, `JournalDetail`을 직접 참조하여 DDD Bounded Context 경계 및 헥사고날/MSA 아키텍처 원칙을 위반했음.
+- **주요 변경 사항**:
+  - **직접적 프로젝트 의존성 제거 (`closing/api/build.gradle`, `closing/batch/build.gradle`)**:
+    - `implementation project(':journal-ledger:core')` 전면 제거 및 `implementation project(':contracts')` 추가.
+  - **Shared Kernel (`contracts`) 포트 및 DTO 활용으로 리팩토링 (`JournalLedgerClosingJournalEntryAdapter.java`)**:
+    - `journal-ledger:core` 도메인 클래스/유즈케이스 직접 import 제거.
+    - `:contracts` 모듈의 계약 포트(`JournalPostingPort`, `JournalQueryPort`) 및 DTO (`JournalEntryCommand`, `JournalPostingResult`, `JournalSummary`, `JournalDetailSummary`) 활용으로 리팩토링.
+    - `createDraftAdjustment`는 `JournalQueryPort.findBySlipNo` 및 `getJournalDetails`로 기존 전표 검증 수행.
+    - `approveAndPost`는 `JournalPostingPort.approveAndPost` 단 1줄 호출로 위임.
+  - **`:contracts` 및 `journal-ledger:core` 어댑터 보완**:
+    - `JournalSummary`: `slipDate`, `currencyCode`, `lineageSourceType`, `lineageSourceId` 필드 추가.
+    - `JournalDetailSummary`: `departmentCode` 필드 추가.
+    - `JournalPostingPort`: `void approveAndPost(Long journalEntryId, String actor)` 메소드 계약 추가 및 `JournalPostingAdapter` 구현.
+    - `JournalQueryPort`: `Optional<JournalSummary> findBySlipNo(String slipNo)` 메소드 계약 추가 및 `MonolithJournalQueryAdapter` 구현.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - DDD Bounded Context 경계 보존, 컴파일 타임 모듈 격리, Shared Kernel(`contracts`) 및 헥사고날 포트/어댑터 패턴의 MSA 아키텍처적 이점을 다룬 상세 교육적 주석 작성.
+  - **로컬 어댑터 및 테스트 환경 보완**:
+    - `ClosingLocalExternalPortConfiguration.java`: `@ConditionalOnMissingBean`으로 `JournalPostingPort`, `JournalQueryPort` fallback 빈 등록.
+    - `JournalLedgerClosingJournalEntryAdapterTest.java`: `JournalPostingPort`, `JournalQueryPort` 목(mock) 기반으로 테스트 전면 리팩토링.
+- **검증**:
+  - `./gradlew.bat :closing:api:test :closing:batch:test :contracts:test :journal-ledger:core:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([expenditure-resolution][msa] 모듈 간 직접 의존 및 MSA/헥사고날 경계 심각한 위반 - Issue #315)
 ### [expenditure-resolution] core 간 프로젝트 직접 의존성 제거, Shared Kernel contracts 포트 연동 및 MSA 경계 격리 강화
 
