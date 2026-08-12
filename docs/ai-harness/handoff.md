@@ -1,3 +1,14 @@
+# AI Harness Handoff - 2026-08-13 Issue #96 Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #96 (`[bug] reporting:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `reporting/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:reporting_batch_db;MODE=PostgreSQL`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: create-drop`, memory persistence mode (`account.reporting.persistence.mode: memory`), and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ReportingBatchApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Spring Batch Metadata Schema Auto-Initialization.
+  - Verification: `./gradlew.bat :reporting:batch:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #97 Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)

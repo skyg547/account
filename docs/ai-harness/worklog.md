@@ -1,3 +1,8 @@
+### 📅 2026-08-13 (GH-96: Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `reporting/batch`
+- **Changes**: Created `reporting/batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:reporting_batch_db;MODE=PostgreSQL`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: create-drop`, memory persistence mode (`account.reporting.persistence.mode: memory`), and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `ReportingBatchApplicationTests.java` with `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across changed files.
+- **Verification**: `./gradlew.bat :reporting:batch:test` (100% SUCCESSFUL).
+
 ### 📅 2026-08-13 (GH-97: Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile)
 - **Component**: `account-mart/mart-api`
 - **Changes**: Created `account-mart/mart-api/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `AccountMartApiApplicationTests.java` with `@SpringBootTest(classes = AllowanceMartApiApplication.class)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across changed files.
