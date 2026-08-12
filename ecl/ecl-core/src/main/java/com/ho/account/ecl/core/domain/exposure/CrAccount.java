@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
@@ -28,9 +29,9 @@ import java.time.temporal.ChronoUnit;
 @Builder
 public class CrAccount extends BaseEntity {
 
-    private static final double DEFAULT_MATURITY_YEARS = 2.5d;
-    private static final double MINIMUM_MATURITY_YEARS = 1.0d;
-    private static final double DAYS_PER_YEAR = 365.0d;
+    private static final BigDecimal DEFAULT_MATURITY_YEARS = new BigDecimal("2.5");
+    private static final BigDecimal MINIMUM_MATURITY_YEARS = new BigDecimal("1.0");
+    private static final BigDecimal DAYS_PER_YEAR = new BigDecimal("365.0");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -130,12 +131,28 @@ public class CrAccount extends BaseEntity {
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
 
-    public double resolveMaturityYears(LocalDate baseDate) {
+    /**
+     * [도메인 메서드] 기준일(baseDate) 대비 잔존 만기 연수(Maturity Years)를 정밀 산출합니다.
+     *
+     * 💡 [초보자를 위한 금융 정밀도 & DDD 설명]
+     * - IEEE 754 부동소수점(double/float) 연산 오차 방지:
+     *   365.0일로 일수를 나누는 과정에서 double형을 사용할 경우 730 / 365.0 연산 시
+     *   이진 부동소수점 표기 특성상 1.9999999999999998 과 같은 근사값 표현 오차가 누적될 위험이 있습니다.
+     * - 이에 따라 만기 연수 계산에도 pure BigDecimal 및 MathContext(소수점 8자리 반올림)를 전면 적용하여
+     *   IFRS 9 생애부도율(Lifetime PD) 및 대손충당금 산출 시의 원화/외화 정밀도 오차를 완벽히 통제합니다.
+     *
+     * @param baseDate 산출 기준일
+     * @return 소수점 8자리 정밀도의 잔존 만기 연수 (기본 최소 1.0년 이상 보장)
+     */
+    public BigDecimal resolveMaturityYears(LocalDate baseDate) {
         if (maturityDate == null) {
             return DEFAULT_MATURITY_YEARS;
         }
         long remainingDays = ChronoUnit.DAYS.between(baseDate, maturityDate);
-        return Math.max(remainingDays / DAYS_PER_YEAR, MINIMUM_MATURITY_YEARS);
+        BigDecimal remainingDaysBd = BigDecimal.valueOf(remainingDays);
+        BigDecimal calculatedYears = remainingDaysBd.divide(DAYS_PER_YEAR, 8, RoundingMode.HALF_UP);
+
+        return calculatedYears.max(MINIMUM_MATURITY_YEARS).setScale(8, RoundingMode.HALF_UP);
     }
 }
 

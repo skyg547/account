@@ -3,9 +3,10 @@ package com.ho.account.ecl.core.domain.exposure;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class CrAccountTest {
 
@@ -16,7 +17,7 @@ class CrAccountTest {
     void resolveMaturityYearsUsesDefaultWhenMaturityDateIsMissing() {
         CrAccount account = CrAccount.builder().maturityDate(null).build();
 
-        assertEquals(2.5d, account.resolveMaturityYears(BASE_DATE));
+        assertThat(account.resolveMaturityYears(BASE_DATE)).isEqualByComparingTo(new BigDecimal("2.5"));
     }
 
     @Test
@@ -26,7 +27,7 @@ class CrAccountTest {
                 .maturityDate(BASE_DATE.plusDays(30))
                 .build();
 
-        assertEquals(1.0d, account.resolveMaturityYears(BASE_DATE));
+        assertThat(account.resolveMaturityYears(BASE_DATE)).isEqualByComparingTo(new BigDecimal("1.0"));
     }
 
     @Test
@@ -36,6 +37,6 @@ class CrAccountTest {
                 .maturityDate(BASE_DATE.plusDays(730))
                 .build();
 
-        assertEquals(2.0d, account.resolveMaturityYears(BASE_DATE));
+        assertThat(account.resolveMaturityYears(BASE_DATE)).isEqualByComparingTo(new BigDecimal("2.0"));
     }
 }

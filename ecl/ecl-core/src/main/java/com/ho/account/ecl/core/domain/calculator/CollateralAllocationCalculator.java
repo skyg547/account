@@ -55,11 +55,17 @@ public class CollateralAllocationCalculator {
     /**
      * [Pure Domain Calculator] 선형계획법(Simplex Solver)을 활용하여 손실 절감 효과가 최대화되도록 담보를 최적 배분합니다.
      *
-     * 💡 [수학적 산식 및 제약조건]
+     * 💡 [수학적 산식, 부동소수점 정밀도 및 제약조건]
      * - 목적 함수: Maximize Σ (배분액_ij * 우선순위가중치_i)
      * - 제약 조건 1: Σ_j (배분액_ij) <= 계좌 i의 대출 잔액(EAD)
      * - 제약 조건 2: Σ_i (배분액_ij) <= 담보 j의 유효 가액(Effective Value)
      * - 제약 조건 3: 배분액_ij >= 0 (음수 배분 불가)
+     *
+     * 📌 [금융 정밀도 제어 (Pedagogical Comments)]
+     * - 외부 수학적 최적화 라이브러리(Apache Commons Math SimplexSolver)는 선형계획법 매트릭스 특성상 primitive double 배열을 인수로 요구합니다.
+     * - 이에 따라 LP 연산 시점에 정밀 전달을 수행하고, 연산 결과 배분액을 도메인 모델 DTO로 복원할 때는
+     *   `BigDecimal` 및 소수점 4자리 반올림(`setScale(4, RoundingMode.HALF_UP)`) 및 임계값(`0.0001`) 비교를 통한 정밀 검증을 수행하여
+     *   부동소수점 근사 오차(IEEE 754 precision loss)가 담보 배분 잔액 및 차감 LGD 계산에 오차를 유발하지 않도록 안전 조치합니다.
      *
      * @param accounts 배분 대상 대출 계좌 목록
      * @param collaterals 배분 대상 담보 목록
@@ -73,7 +79,7 @@ public class CollateralAllocationCalculator {
         // 1. 목적 함수(Objective Function) 구성: 각 (계좌, 담보) 조합의 가중치 세팅
         double[] lossReductionWeights = new double[totalDecisionVariables];
         for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
-            double priorityWeight = estimateLossPriorityWeight(accounts.get(accountIdx));
+            double priorityWeight = (double) estimateLossPriorityWeight(accounts.get(accountIdx));
             for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
                 int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
                 lossReductionWeights[variableIdx] = priorityWeight;
@@ -84,14 +90,15 @@ public class CollateralAllocationCalculator {
         // 2. 제약 조건(Constraints) 구성
         List<LinearConstraint> constraintList = new ArrayList<>();
 
-        // [제약 A] 계좌별 대출 잔액 상한
+        // [제약 A] 계좌별 대출 잔액 상한 (BigDecimal -> double 정밀 전환)
         for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
             double[] coefficients = new double[totalDecisionVariables];
             for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
                 int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
                 coefficients[variableIdx] = 1.0;
             }
-            double loanBalanceLimit = accounts.get(accountIdx).getOutstandingAmount().doubleValue();
+            BigDecimal outstandingBd = accounts.get(accountIdx).getOutstandingAmount();
+            double loanBalanceLimit = (outstandingBd != null) ? outstandingBd.doubleValue() : 0.0;
             constraintList.add(new LinearConstraint(coefficients, Relationship.LEQ, loanBalanceLimit));
         }
 
@@ -102,7 +109,8 @@ public class CollateralAllocationCalculator {
                 int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
                 coefficients[variableIdx] = 1.0;
             }
-            double collateralEffectiveValue = collaterals.get(collateralIdx).calculateEffectiveValue().doubleValue();
+            BigDecimal effectiveValBd = collaterals.get(collateralIdx).calculateEffectiveValue();
+            double collateralEffectiveValue = (effectiveValBd != null) ? effectiveValBd.doubleValue() : 0.0;
             constraintList.add(new LinearConstraint(coefficients, Relationship.LEQ, collateralEffectiveValue));
         }
 
@@ -116,19 +124,24 @@ public class CollateralAllocationCalculator {
                 new NonNegativeConstraint(true)
         );
 
-        // 4. 연산 결과 DTO 매핑
+        // 4. 연산 결과 DTO 매핑 (소수점 4자리 반올림 및 BigDecimal threshold 정밀 판단)
         double[] optimizedAllocations = optimalSolution.getPoint();
         List<AllocationResult> results = new ArrayList<>();
+        BigDecimal allocationThreshold = new BigDecimal("0.0001");
+
         for (int accountIdx = 0; accountIdx < totalAccountCount; accountIdx++) {
             for (int collateralIdx = 0; collateralIdx < totalCollateralCount; collateralIdx++) {
                 int variableIdx = (accountIdx * totalCollateralCount) + collateralIdx;
-                double allocatedAmount = optimizedAllocations[variableIdx];
+                double rawAllocatedAmount = optimizedAllocations[variableIdx];
 
-                if (allocatedAmount > 0.0001) {
+                BigDecimal allocatedAmountBd = BigDecimal.valueOf(rawAllocatedAmount)
+                        .setScale(4, java.math.RoundingMode.HALF_UP);
+
+                if (allocatedAmountBd.compareTo(allocationThreshold) > 0) {
                     results.add(AllocationResult.builder()
                             .account(accounts.get(accountIdx))
                             .collateral(collaterals.get(collateralIdx))
-                            .allocatedAmount(BigDecimal.valueOf(allocatedAmount))
+                            .allocatedAmount(allocatedAmountBd)
                             .build());
                 }
             }

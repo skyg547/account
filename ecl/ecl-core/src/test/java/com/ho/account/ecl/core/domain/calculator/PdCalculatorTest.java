@@ -87,7 +87,7 @@ class PdCalculatorTest {
                 .probability(new BigDecimal("0.0300"))
                 .build();
 
-        List<BigDecimal> curve = pdCalculator.generateTransitionBasedCurve(List.of(tm), new BigDecimal("0.0200"), 3.0);
+        List<BigDecimal> curve = pdCalculator.generateTransitionBasedCurve(List.of(tm), new BigDecimal("0.0200"), new BigDecimal("3.0"));
 
         assertThat(curve).hasSize(3);
         assertThat(curve.get(0)).isEqualByComparingTo(new BigDecimal("0.03000000"));
@@ -96,7 +96,7 @@ class PdCalculatorTest {
     @Test
     @DisplayName("전이행렬 미존재 시 단순 모델 PD 곡선을 정상 산출한다.")
     void generateSimplePdCurve_Success() {
-        List<BigDecimal> curve = pdCalculator.generateSimplePdCurve(new BigDecimal("0.0500"), 3.0);
+        List<BigDecimal> curve = pdCalculator.generateSimplePdCurve(new BigDecimal("0.0500"), new BigDecimal("3.0"));
 
         assertThat(curve).hasSize(3);
         assertThat(curve.get(0)).isEqualByComparingTo(new BigDecimal("0.05000000"));

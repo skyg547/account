@@ -1,3 +1,29 @@
+### 📅 2026-08-12 ([ecl][financial] 금융 통계(ECL/PD) 계산 로직에 부동소수점(double) 자료형 사용 — 금액 정밀도 위험 - Issue #324)
+### [ecl] 부동소수점(double) 자료형 사용 전면 제거, BigDecimal 및 MathContext (소수점 8~10자리 정밀도) 전면 전환
+
+- **작업 배경**:
+  - ECL/PD 금융 통계 연산(생존확률, 한계부도확률, 누적부도확률, 잔존만기 연산 및 담보 배분)에 IEEE 754 부동소수점 primitives (`double`, `float`)가 사용되어 이진 근사 표현 오차가 누적되고 IFRS 9 기대신용손실 및 손실충당금 산출 정밀도 손실 위험이 존재했음.
+- **주요 변경 사항**:
+  - **`CrAccount.java`**:
+    - 상수 `DEFAULT_MATURITY_YEARS` (2.5), `MINIMUM_MATURITY_YEARS` (1.0), `DAYS_PER_YEAR` (365.0)를 `BigDecimal`로 정의 및 전환.
+    - `resolveMaturityYears` 메서드의 반환 타입을 `BigDecimal`로 변경하고, `BigDecimal` 연산 및 소수점 8자리 반올림(`setScale(8, RoundingMode.HALF_UP)`)으로 정밀 산출하도록 수정.
+  - **`PdCalculator.java`**:
+    - `generateTransitionBasedCurve` 및 `generateSimplePdCurve` 메서드의 `maturityYears` 파라미터 타입을 `double`에서 `BigDecimal`로 전환.
+    - 내부 부동소수점 primitive `double` 변수 (`pd1`, `hazardRate`, `cumulativePd`, `survivalProb`, `marginalPd`) 사용 전면 제거 및 `BigDecimal`과 `MathContext(15, RoundingMode.HALF_UP)` 연산으로 전면 교체.
+    - 연속 위험률 모델에서 $1 - e^{-h} = pd_1$ 수학적 등가성을 정밀 증명하여 부동소수점 함수 `Math.log` 및 `Math.exp` 없이 100% `BigDecimal`로 연산.
+  - **`LifetimePdService.java`**:
+    - `generateMarginalPdCurve` 메서드 파라미터 `double maturityYears`를 `BigDecimal maturityYears`로 변경.
+  - **`ForwardLookingEclCalculationPipeline.java`**:
+    - `account.resolveMaturityYears(baseDate)` (`BigDecimal`) 호출 및 `lifetimePdService.generateMarginalPdCurve` 연동.
+  - **`CollateralAllocationCalculator.java`**:
+    - 담보 최적화 배분 연산 후 배분액 DTO 매핑 시 `BigDecimal` 생성 및 소수점 4자리 반올림(`setScale(4, RoundingMode.HALF_UP)`), 임계값(`0.0001`) `compareTo` 정밀 검증 도입.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - IEEE 754 부동소수점 이진 표현 한계 및 근사 연산 오차 위험성, Pure `BigDecimal` 및 `MathContext` 정밀도 제어 이점, IFRS 9 ECL 손실충당금 평가 회계적 신뢰성 설명 주석 추가.
+  - **테스트 케이스 수정 및 검증**:
+    - `CrAccountTest.java`, `PdCalculatorTest.java` 테스트를 `BigDecimal` 반환값 및 `isEqualByComparingTo`에 맞추어 보완.
+- **검증**:
+  - `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([config-server][security] 운영 환경용 Git 백엔드 및 암호화 설정 부재 - Issue #326)
 ### [config-server] 운영 환경용 Git 기반 백엔드(URI/Label/Clone-on-start) 및 암호화 대칭키(encrypt.key) 설정 구성
 
