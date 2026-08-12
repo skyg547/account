@@ -1,0 +1,64 @@
+version: "3.8"
+
+# Production overlay for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml --profile platform --profile apis up -d
+
+services:
+  # Disable local infrastructure services in production.
+  # Production should use Managed Services (RDS, ElastiCache, MSK) passed via environment variables.
+  postgres-db:
+    profiles: ["never"]
+  redis:
+    profiles: ["never"]
+  kafka:
+    profiles: ["never"]
+  runtime-grants:
+    profiles: ["never"]
+
+  # Platform & Gateway
+  gateway:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8000:8000" # Explicit port binding for load balancers
+  
+  frontend:
+    restart: always
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes: [] # Remove dev source volumes
+
+  config-server:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  discovery:
+    restart: always
+
+  # API & Batch Services (Common production overrides)
+  # In a full declarative overlay, every service would list `restart: always`.
+  # Here we list key services; others inherit from the base file and rely on orchestrator (like ECS/K8s) for restarts, 
+  # or can be extended here.
+  auth-api:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+  
+  master-data-api:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  internal-audit-api:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+  account-mart-api:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
