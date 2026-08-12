@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TaxInvoiceBatchService implements TaxInvoiceBatchUseCase {
 
+    /**
+     * 배치 검증 실행 시 기본으로 사용할 페이징 분할 크기(청크 사이즈)입니다.
+     * 메모리 사용량을 예측 가능하고 안정적인 범위 내로 상한 제어하기 위한 기준값입니다.
+     */
+    private static final int DEFAULT_PAGE_SIZE = 500;
+
     private final TaxInvoicePersistencePort taxInvoicePersistencePort;
     private final MasterDataQueryPort masterDataQueryPort;
 
@@ -35,20 +44,7 @@ public class TaxInvoiceBatchService implements TaxInvoiceBatchUseCase {
     }
 
     /**
-     * 지정된 기간 동안의 매입 세금계산서들을 일괄 검증합니다.
-     *
-     * <p><b>[N+1 쿼리 문제 및 벌크 쿼리 최적화 설계 원칙 (Pedagogical Comments)]</b><br>
-     * 1. <b>N+1 쿼리 문제 (N+1 Problem)</b>:<br>
-     *    기존 방식에서는 세금계산서 N건을 순회하는 반복문(for-loop) 내부에서 거래처 단건 조회 메서드
-     *    ({@code masterDataQueryPort.findBusinessPartner(...)})를 N번 반복 호출했습니다.<br>
-     *    이 구조는 N번의 추가 DB Network Round-Trip 오버헤드가 발생하여 대량 배치 처리 시 I/O 병목 및 성능 저하를 일으킵니다.<br>
-     * 2. <b>벌크 쿼리 패턴 (Bulk Query Pattern) 적용 방식</b>:<br>
-     *    - <b>Step 1 (식별자 수집 &amp; Set 중복 제거)</b>: 검증 대상 매입 세금계산서들로부터 거래처 코드 목록을 추출하고
-     *      Set 컬렉션으로 수집하여 동일 거래처 코드 중복 조회를 방지합니다.<br>
-     *    - <b>Step 2 (벌크 쿼리 일괄 조회)</b>: 추출된 거래처 코드 Set으로 {@code masterDataQueryPort.findAllByPartnerCodes(...)}를
-     *      1회 호출합니다. 하위 어댑터에서는 SQL {@code IN} 절을 이용하여 단 1회의 쿼리로 모든 거래처를 일괄 조회합니다.<br>
-     *    - <b>Step 3 (로컬 Map 캐싱 및 O(1) 조율)</b>: 조회된 결과를 거래처 코드를 Key로 하는 {@code Map<String, BusinessPartnerRef>}에
-     *      구성하여, 반복문 내부에서는 {@code Map.containsKey()} 또는 {@code Map.get()}으로 시간 복잡도 O(1)에 바로 검증합니다.</p>
+     * 기본 청크 크기(500건)를 이용하여 지정된 기간 동안의 매입 세금계산서들을 일괄 검증합니다.
      *
      * @param startDate 검증 시작일
      * @param endDate 검증 종료일
@@ -56,30 +52,82 @@ public class TaxInvoiceBatchService implements TaxInvoiceBatchUseCase {
      */
     @Override
     public TaxInvoiceValidationResult validatePurchaseInvoices(LocalDate startDate, LocalDate endDate) {
-        List<TaxInvoice> invoices = taxInvoicePersistencePort.findByIssueDateBetween(startDate, endDate);
+        return validatePurchaseInvoices(startDate, endDate, DEFAULT_PAGE_SIZE);
+    }
 
-        // Step 1: 매입 세금계산서의 거래처 코드(businessPartnerCode) 집합 수집 (Set으로 중복 제거)
-        Set<String> purchasePartnerCodes = invoices.stream()
-                .filter(TaxInvoice::isPurchaseType)
-                .map(TaxInvoice::getBusinessPartnerCode)
-                .collect(Collectors.toSet());
-
-        // Step 2: 벌크 쿼리(findAllByPartnerCodes)로 거래처 정보 1회 일괄 조회 (N+1 쿼리 및 DB I/O 최적화)
-        Map<String, BusinessPartnerRef> partnerMap = masterDataQueryPort.findAllByPartnerCodes(purchasePartnerCodes);
-
-        // Step 3: 반복문 순회 시 로컬 Map.containsKey()로 시간 복잡도 O(1) 시간 내 검증 수행
-        int validated = 0;
-        for (TaxInvoice invoice : invoices) {
-            if (!invoice.isPurchaseType()) {
-                continue;
-            }
-            invoice.validateAmounts();
-            if (!partnerMap.containsKey(invoice.getBusinessPartnerCode())) {
-                throw new IllegalStateException(
-                        "Business partner missing for tax invoice " + invoice.getIssueId());
-            }
-            validated++;
+    /**
+     * 지정된 청크 크기(pageSize)로 페이징 분할하여 기간 내 매입 세금계산서들을 일괄 검증합니다.
+     *
+     * <p><b>[대용량 배치 페이징(Paging) 및 메모리 풋프린트 관리 설계 원칙 (Pedagogical Comments)]</b><br>
+     * 1. <b>Heap Out-Of-Memory(OOM) 방지 및 메모리 풋프린트(Memory Footprint) 상한 고정</b>:<br>
+     *    기존 방식처럼 전체 세금계산서 데이터를 단일 {@code List}로 메모리에 한 번에 적재하면,
+     *    데이터가 수만~수십만 건 이상일 때 힙 메모리 사용량이 선형적으로 증가하여 $O(N)$ 메모리 복잡도를 가지게 됩니다.<br>
+     *    본 리팩토링에서는 {@link Pageable} 및 분할 페이지 조회({@code pageSize})를 도입하여,
+     *    힙 메모리에 동시에 상주하는 세금계산서 객체 수를 최대 {@code pageSize} (예: 500건) 이내로 엄격히 제한합니다 ($O(pageSize)$).<br>
+     *    각 청크(Chunk) 처리 후에는 사용 완료된 객체 참조가 해제되어 JVM Garbage Collector(GC)가 빠르게 Young Generation 영역에서
+     *    힙 메모리를 회수할 수 있도록 합니다.<br>
+     * 2. <b>N+1 쿼리 방지 및 Bulk Query와의 시너지</b>:<br>
+     *    페이지 단위로 조회된 매입 세금계산서 청크 목록에서 거래처 코드 집합({@code Set<String>})을 추출한 후,
+     *    {@code masterDataQueryPort.findAllByPartnerCodes(...)} 벌크 쿼리를 1회 호출합니다.<br>
+     *    이 방식은 대용량 Paging 분할 조회로 OOM을 예방하는 동시에, 청크 내 N+1 쿼리 오버헤드를 $O(1)$의 벌크 검색 맵 캐싱으로 극복하여
+     *    DB Network Round-Trip을 최소화합니다.<br>
+     * 3. <b>금융 배치 아키텍처적 확장성</b>:<br>
+     *    데이터 규모가 지속적으로 증가하더라도 하드웨어 메모리 증설 없이도 동일한 힙 메모리 사용량 수준에서 안전하게 배치를 실행할 수 있습니다.</p>
+     *
+     * @param startDate 검증 시작일
+     * @param endDate 검증 종료일
+     * @param pageSize 페이징 분할 크기 (청크 사이즈)
+     * @return 검증 대상 건수 및 성공 건수를 포함한 {@link TaxInvoiceValidationResult}
+     */
+    @Override
+    public TaxInvoiceValidationResult validatePurchaseInvoices(LocalDate startDate, LocalDate endDate, int pageSize) {
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("pageSize는 1 이상이어야 합니다: " + pageSize);
         }
-        return new TaxInvoiceValidationResult(invoices.size(), validated);
+
+        int scannedCount = 0;
+        int validatedCount = 0;
+        int pageNumber = 0;
+        Page<TaxInvoice> page;
+
+        do {
+            Pageable pageable = PageRequest.of(pageNumber, pageSize);
+            page = taxInvoicePersistencePort.findByIssueDateBetween(startDate, endDate, pageable);
+            List<TaxInvoice> chunk = page.getContent();
+
+            if (chunk.isEmpty()) {
+                break;
+            }
+
+            // Step 1: 현재 청크 내 매입 세금계산서의 거래처 코드 집합 수집 (Set으로 중복 제거)
+            Set<String> purchasePartnerCodes = chunk.stream()
+                    .filter(TaxInvoice::isPurchaseType)
+                    .map(TaxInvoice::getBusinessPartnerCode)
+                    .collect(Collectors.toSet());
+
+            // Step 2: 현재 청크의 거래처 정보 1회 일괄 조회 (N+1 쿼리 및 DB I/O 최적화)
+            Map<String, BusinessPartnerRef> partnerMap = purchasePartnerCodes.isEmpty()
+                    ? Map.of()
+                    : masterDataQueryPort.findAllByPartnerCodes(purchasePartnerCodes);
+
+            // Step 3: 현재 청크 세금계산서 검증 수행
+            for (TaxInvoice invoice : chunk) {
+                scannedCount++;
+                if (!invoice.isPurchaseType()) {
+                    continue;
+                }
+                invoice.validateAmounts();
+                if (!partnerMap.containsKey(invoice.getBusinessPartnerCode())) {
+                    throw new IllegalStateException(
+                            "Business partner missing for tax invoice " + invoice.getIssueId());
+                }
+                validatedCount++;
+            }
+
+            pageNumber++;
+        } while (page.hasNext());
+
+        return new TaxInvoiceValidationResult(scannedCount, validatedCount);
     }
 }
+
