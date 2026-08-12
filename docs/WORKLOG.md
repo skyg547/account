@@ -1,3 +1,18 @@
+### 📅 2026-08-13 ([runtime][account-mart] Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #98)
+### [account-mart] account-mart:mart-batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 AccountMartBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `account-mart:mart-batch` 모듈 로컬 실행 시 로컬 H2 데이터베이스 및 local 프로파일 설정 부재로 인한 ApplicationContext 로드 예외 발생.
+- **주요 변경 사항**:
+  - **`account-mart/mart-batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:account-mart-batch-local;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/account-mart-local-migration`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`AccountMartBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = AllowanceMartBatchApplication.class)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `AllowanceMartBatchApplication`의 ApplicationContext가 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, Flyway 마이그레이션 연동 및 Spring Batch 메타데이터 스키마 초기화의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :account-mart:mart-batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][ecl-api] Fix ECL API ApplicationContext Loading and Configure Local H2 Profile - Issue #99)
 ### [ecl-api] ecl:ecl-api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 EclApiApplicationTests 추가
 
