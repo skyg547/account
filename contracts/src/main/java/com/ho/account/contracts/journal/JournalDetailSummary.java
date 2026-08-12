@@ -16,6 +16,7 @@ public class JournalDetailSummary {
     private String detailDescription;
     private String headerDescription;
     private String businessPartnerCode;
+    private String departmentCode;
     private String accountNo;
 
     public Long getId() {
@@ -112,6 +113,14 @@ public class JournalDetailSummary {
 
     public void setBusinessPartnerCode(String businessPartnerCode) {
         this.businessPartnerCode = businessPartnerCode;
+    }
+
+    public String getDepartmentCode() {
+        return departmentCode;
+    }
+
+    public void setDepartmentCode(String departmentCode) {
+        this.departmentCode = departmentCode;
     }
 
     public String getAccountNo() {

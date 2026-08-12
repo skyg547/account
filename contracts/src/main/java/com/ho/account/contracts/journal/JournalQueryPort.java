@@ -3,6 +3,7 @@ package com.ho.account.contracts.journal;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * [JournalQueryPort]
@@ -40,4 +41,9 @@ public interface JournalQueryPort {
      * 특정 전표의 요약 정보를 조회합니다.
      */
     JournalSummary getJournalSummary(Long journalEntryId);
+
+    /**
+     * 전표 번호(slipNo)로 전표 요약 정보를 조회합니다.
+     */
+    Optional<JournalSummary> findBySlipNo(String slipNo);
 }
