@@ -1,3 +1,17 @@
+# AI Harness Handoff - 2026-08-12 Issue #347 Add Explicit Self-Contained Local Profiles for Reporting Module
+
+- **Issue**: #347 (`[runtime][reporting] Add explicit self-contained local profiles`)
+- **PR**: (Merged into `main`)
+- **Status**: Completed / Integrated
+- **Summary**:
+  - Added explicit self-contained `application-local.yml` profiles for `reporting/api` and `reporting/batch` modules.
+  - `reporting/api/src/main/resources/application-local.yml`: Configured H2 in-memory DB (`jdbc:h2:mem:reporting_api_db`), JPA `create-drop`, and memory persistence mode (`account.reporting.persistence.mode: memory`). Disabled external Cloud Config, Eureka Discovery, Vault, and Tracing for self-contained local execution.
+  - `reporting/batch/src/main/resources/application-local.yml`: Configured `web-application-type: none` to disable embedded servlet container, `spring.batch.job.enabled: false` to prevent automatic job execution on startup, and `spring.batch.jdbc.initialize-schema: always` for H2 batch meta-schema setup.
+  - Created integration tests (`ReportingApiLocalProfileTest.java`, `ReportingBatchLocalProfileTest.java`) to verify context loading, active profile matching, H2 connection, and spring batch auto-start prevention under `@ActiveProfiles("local")`.
+  - Fixed contract implementations (`findBySlipNo` in `InMemoryJournalQueryAdapter` and `calculateLedgerSummary` in `LedgerClientAdapterTest`).
+  - Added comprehensive pedagogical comments on Profile Separation, H2 In-Memory DB Isolation, Automatic Batch Scheduler Prevention (`job.enabled: false`), and Infrastructure Decoupling.
+  - Verification: Executed `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test :reporting:api:bootJar :reporting:batch:bootJar` (100% SUCCESSFUL).
+
 # AI Harness Handoff - 2026-08-12 Issue #300 Refactor Payable & Receivable Batch Jobs to Chunk-Oriented Processing
 
 - **Issue**: #300 (`[payable, receivable][extensibility] 대용량 배치 처리에 부적합한 Tasklet 및 단일 트랜잭션 루프`)

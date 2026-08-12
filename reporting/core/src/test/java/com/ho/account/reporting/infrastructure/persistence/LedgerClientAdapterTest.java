@@ -98,5 +98,15 @@ class LedgerClientAdapterTest {
                 String currencyCode) {
             return List.of();
         }
+
+        @Override
+        public com.ho.account.contracts.ledger.LedgerAggregateSummary calculateLedgerSummary(
+                LocalDate startDate,
+                LocalDate endDate,
+                String accountCode,
+                String currencyCode,
+                String amountBasis) {
+            return new com.ho.account.contracts.ledger.LedgerAggregateSummary(0L, java.math.BigDecimal.ZERO);
+        }
     }
 }
