@@ -6,6 +6,7 @@ import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
