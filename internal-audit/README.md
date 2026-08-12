@@ -1,33 +1,69 @@
-# Internal Audit
+# 🛡️ Internal Audit (내부 감사 모듈)
 
-Internal Audit는 RCM과 설계·운영 평가를 제공하는 헥사고날 모듈입니다.
+Internal Audit 서비스는 RCM(Risk Control Matrix) 및 설계·운영 평가, 내부통제 감사 이력을 관리하는 헥사고날 아키텍처 기반 모듈입니다.
 
-- `internal-audit:core`: domain, application port/service, JPA outbound adapter를 소유하는 일반 JAR
-- `internal-audit:api`: Controller와 Spring Boot composition root를 소유하는 유일한 실행 JAR
+---
 
-구체적인 Job/Step 계약이 없는 Batch는 실행 모듈로 유지하지 않습니다. Auth도 같은 원칙에 따라 API만 실행 대상입니다.
+## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
 
-## Local H2
+1. **RCM (Risk Control Matrix, 리스크 통제 행렬):** 기업 내부 프로세스의 통제 목적, 리스크 및 이에 대응하는 통제 활동(Control Activity)을 관리하는 핵심 명세서입니다.
+2. **독립 단독 런타임 (Self-Contained Local Runtime):** 로컬 개발 환경에서 외부 PostgreSQL DB, Spring Cloud Config, Eureka, Vault 등 외부 제어 서버 연결 없이 단독으로 빠르게 실행 가능한 오프라인 격리 환경입니다.
+3. **Flyway V60 타깃 스키마 & JPA Validate:** 로컬 H2 인메모리 DB 구동 시 Flyway V60 마이그레이션으로 DB 테이블을 자동 생성하고, JPA `validate`로 스키마-엔티티 매핑 정합성을 엄격히 검증합니다.
 
-`local` 프로파일은 별도 환경변수 없이 외부 Config Server, Eureka, Vault, PostgreSQL을 모두 사용하지 않습니다. Flyway V60이 격리된 in-memory H2 PostgreSQL compatibility mode에 스키마를 만들고 Hibernate는 `validate`만 수행합니다. 애플리케이션을 종료하면 로컬 데이터도 함께 사라집니다.
+---
 
+## 2. 🏛️ 모듈 구조 (Module Architecture)
+
+- `internal-audit:core`: domain, application port/service, JPA outbound adapter를 소유하는 순수 Java 라이브러리(`java-library`)
+- `internal-audit:api`: Controller, Spring Boot composition root, HTTP REST API를 제공하는 유일한 실행 모듈(`bootJar`)
+
+> **Note:** 구체적인 Job/Step 계약이 없는 Batch는 실행 모듈로 유지하지 않는 모듈 격리 원칙을 준수합니다.
+
+---
+
+## 3. 🧭 로컬 독립 단독 구동 가이드 (Self-Contained Local H2 Guide)
+
+`local` 프로파일은 외부 환경 변수 주입이나 외부 인프라 자원(Config Server, Eureka, Vault, PostgreSQL) 없이 완전 오프라인 독립 단독 구동을 보장합니다.
+
+### 📌 런타임 제어 평면 비활성화 & 격리 메커니즘
+- **H2 In-Memory DB**: PostgreSQL 호환 모드 (`MODE=PostgreSQL`) 기반 H2 DB 적용
+- **Flyway V60 Target**: `classpath:db/migration` 내 Flyway V60 마이그레이션 스크립트로 스키마 구축
+- **JPA Validate**: Hibernate `ddl-auto: validate`로 런타임 스키마 정합성 검증
+- **Control Plane Decoupling**: Spring Cloud Config, Eureka Discovery, Vault, Tracing 완전 비활성화
+
+### 📌 PowerShell 검증 및 실행 명령
+
+**1) 테스트 및 빌드 검증:**
 ```powershell
-.\gradlew :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar --console=plain
-.\gradlew :internal-audit:api:bootRun --args="--spring.profiles.active=local" --console=plain
+.\gradlew.bat :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar --console=plain
+```
+
+**2) 로컬 `local` 프로파일 bootRun 실행:**
+```powershell
+.\gradlew.bat :internal-audit:api:bootRun --args="--spring.profiles.active=local" --console=plain
+```
+
+**3) 실행 가능 JAR로 직접 실행:**
+```powershell
 java -jar .\internal-audit\api\build\libs\account-internal-audit-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-기본 포트는 `8083`이며 readiness는 `/actuator/health/readiness`입니다.
+- **기본 포트:** `8083`
+- **Readiness Probe:** `http://localhost:8083/actuator/health/readiness`
+- **Health Check:** `http://localhost:8083/actuator/health`
 
-## Development / Production PostgreSQL
+---
 
-`dev`와 `prod`는 H2로 fallback하지 않습니다. URL, user, password는 환경변수 또는 Compose secret 주입으로만 전달하고, 애플리케이션은 Flyway를 실행하지 않은 채 승인된 release migration 결과를 `ddl-auto=validate`로 확인합니다. `prod` JDBC URL은 `sslmode=verify-full`이어야 합니다.
+## 4. 🐳 Development / Production PostgreSQL
 
-개발 Compose는 저장소 루트에서 다음처럼 렌더링·실행합니다.
+`dev` 및 `prod` 프로파일은 로컬 H2로 Fallback하지 않으며, 외부 주입된 PostgreSQL DB를 사용합니다.
+
+- **Dev/Prod 정책:** 외부 PostgreSQL URL, 사용자, 비밀번호를 환경변수 또는 Secret으로만 전달받아 동작하며, `ddl-auto=validate`로 스키마 구조를 검증합니다.
+- **Docker Compose 단독 렌더링 및 실행:**
 
 ```powershell
 docker compose -f .\internal-audit\docker-compose.yml config --quiet
 docker compose -f .\internal-audit\docker-compose.yml up --build internal-audit-api
 ```
 
-필수 변수는 `INTERNAL_AUDIT_DB_URL`, `INTERNAL_AUDIT_DB_USER`, `INTERNAL_AUDIT_DB_PASSWORD`입니다. Compose는 외부 `account-dev-network`를 사용하며 PostgreSQL 자체는 `postgres/compose.self-contained.yml` 또는 승인된 공유 개발 DB 계약에서 제공합니다.
+- **필수 환경변수:** `INTERNAL_AUDIT_DB_URL`, `INTERNAL_AUDIT_DB_USER`, `INTERNAL_AUDIT_DB_PASSWORD`
