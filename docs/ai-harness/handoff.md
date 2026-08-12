@@ -1,3 +1,16 @@
+# AI Harness Handoff - 2026-08-12 Issue #75 Fix Journal Ledger API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #75 (`[bug] journal-ledger:api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `journal-ledger/api/src/main/resources/application.yml` and `application-local.yml` configuring local default profile, H2 in-memory DB (`jdbc:h2:mem:journal_ledger_api_db;MODE=PostgreSQL`), JPA `create-drop`, `journal-ledger.master-data.local-adapter.enabled: true`, `spring.kafka.listener.auto-startup: false`, and disabled Cloud Config/Eureka/Vault control plane services.
+  - Updated `JournalLedgerApplication` Composition Root `@EntityScan` and `@EnableJpaRepositories` to explicitly include `com.ho.account.journalledger.domain` and `com.ho.account.journalledger.adapter.out.persistence` packages.
+  - Fixed UTF-16LE BOM encoding of test `journal-ledger/api/src/test/resources/application.properties` to standard UTF-8.
+  - Created `JournalLedgerApiLocalProfileTest.java` verifying local ApplicationContext loading, profile isolation, H2 DB configuration, external cloud & Kafka listener decoupling, and Metamodel/Repository bean registrations.
+  - Added extensive pedagogical comments across all changed files explaining Explicit Multi-Module JPA Package Scanning, Profile-Based Isolated Runtime, Event Broker Decoupling, and Modular Encapsulation Boundaries.
+  - Verification: `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:api:bootJar` passed with 100% SUCCESS. Executable JAR smoke test `java -jar journal-ledger/api/build/libs/journal-ledger-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` clean H2 schema startup & JPA initialization.
+
 # AI Harness Handoff - 2026-08-12 Issue #79 Fix Loan API ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
