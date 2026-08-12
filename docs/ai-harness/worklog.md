@@ -1,3 +1,25 @@
+## 2026-08-12 - Issue #319 Decouple ECL API Module from ECL Batch for Resource & Process Isolation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/319-ecl-api-batch-decouple` / `C:\tmp\account-319-ecl-api-batch-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Dependency Removal (`ecl/ecl-api/build.gradle` & `AllowanceEclApiApplication.java`):
+    - Removed `implementation project(':ecl:ecl-batch')` and `implementation 'org.springframework.boot:spring-boot-starter-batch'`.
+    - Removed `com.ho.account.ecl.batch` scan and `AllowanceEclBatchApplication` reference.
+  - Inbound Batch Trigger Port & Adapter (`com.ho.account.ecl.api.port` & `infrastructure.adapter`):
+    - Created `BatchTriggerPort` interface (`triggerBatch`, `getBatchStatus`).
+    - Created `BatchTriggerResponse`, `BatchStatusResponse`, `BatchAlreadyCompletedException`, `BatchExecutionException`.
+    - Implemented `ExternalBatchTriggerAdapter` using `JdbcTemplate` for Spring Batch metadata table queries without direct Spring Batch dependencies.
+  - Controller & Kafka Consumer Refactoring (`AllowanceBatchController.java`, `CdmDataReadyConsumer.java`):
+    - Replaced direct `JobLauncher`, `JobExplorer`, and `Job` injection with `BatchTriggerPort`.
+    - Updated `CdmDataReadyConsumer` to trigger external batches asynchronously via `BatchTriggerPort` while preserving idempotency and exception propagation.
+  - Pedagogical Comments:
+    - Added comprehensive comments detailing MSA Resource Isolation, API Server Memory Protection, CPU/Connection Contention Avoidance, and Process Isolation.
+  - Test Validation:
+    - Updated `CdmDataReadyConsumerTest.java` to test `BatchTriggerPort` interaction.
+    - Executed `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` (100% SUCCESS).
+
 ## 2026-08-12 - Issue #322 Refactor Tax Invoice Batch Validation to Use Paging for OOM Prevention
 
 - Owner: Gemini (Agent loop subagent)

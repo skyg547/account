@@ -1,3 +1,34 @@
+# AI Harness Handoff - 2026-08-12 Issue #319 Decouple ECL API Module from ECL Batch for Resource & Process Isolation
+
+## Active Goal And State
+
+- GitHub Issue `#319` (`[ecl][msa] API 모듈이 Batch 모듈을 직접 참조 및 구동 — 아키텍처 훼손`) completed and merged into `main`.
+- Branch `agent/319-ecl-api-batch-decouple` worktree changes verified and ready for PR creation and merge.
+
+## Changes And Boundaries
+
+- Direct Dependency Removal:
+  - Removed `implementation project(':ecl:ecl-batch')` and `implementation 'org.springframework.boot:spring-boot-starter-batch'` from `ecl/ecl-api/build.gradle`.
+  - Removed `com.ho.account.ecl.batch` package scan and `AllowanceEclBatchApplication` reference from `AllowanceEclApiApplication.java`.
+- Inbound Batch Trigger Port & Adapter (`com.ho.account.ecl.api.port` & `infrastructure.adapter`):
+  - Created `BatchTriggerPort` interface (`triggerBatch`, `getBatchStatus`).
+  - Created `BatchTriggerResponse`, `BatchStatusResponse`, `BatchAlreadyCompletedException`, `BatchExecutionException`.
+  - Implemented `ExternalBatchTriggerAdapter` using `JdbcTemplate` for Spring Batch metadata table queries without direct Spring Batch dependencies.
+- Controller & Kafka Consumer Refactoring:
+  - Refactored `AllowanceBatchController` and `CdmDataReadyConsumer` to remove `JobLauncher`, `JobExplorer`, and `Job` direct injection and use `BatchTriggerPort`.
+- Pedagogical Comments:
+  - Added comprehensive comments detailing MSA Resource Isolation, API Server Memory Protection, CPU/Connection Contention Avoidance, and Process Isolation.
+- Verification Evidence:
+  - Updated `CdmDataReadyConsumerTest.java` for `BatchTriggerPort` mocking.
+  - Executed `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Risk: Ensure external batch trigger endpoint/scheduler configuration matches the expected parameters (`jobName`, `baseDate`, `traceId`, `eventId`).
+- Rollback: Revert GH-319 commit on `main`.
+
+---
+
 # AI Harness Handoff - 2026-08-12 Issue #322 Refactor Tax Invoice Batch Validation to Use Paging for OOM Prevention
 
 ## Active Goal And State
