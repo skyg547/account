@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * 업무 규칙은 :payable:core의 domain/application 계층에 두고, 이 모듈은 HTTP로 core UseCase를 호출할 Spring 컨텍스트만 연다.
  */
 @SpringBootApplication(scanBasePackages = "com.ho.account.expenditure")
-@EntityScan(basePackages = "com.ho.account.expenditure.domain")
+@EntityScan(basePackages = "com.ho.account.expenditure.infrastructure.persistence.entity")
 @EnableJpaRepositories(basePackages = "com.ho.account.expenditure.repository")
 @Import(ProductionPostgresqlTlsGuard.class)
 public class PayableApiApplication {

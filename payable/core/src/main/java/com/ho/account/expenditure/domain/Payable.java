@@ -1,81 +1,36 @@
 package com.ho.account.expenditure.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * [DDD(도메인 주도 설계) - Aggregate Root]
+ * [DDD(도메인 주도 설계) - Aggregate Root] (Pure Java POJO)
  * 매입채무(Payable) 엔티티 — 거래처로부터 물건을 사고 아직 갚지 않은 빚을 관리합니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 매입채무는 쉽게 말해 '언젠가 갚아야 할 외상값'입니다. 
- * 거래처에서 물건이나 서비스를 먼저 받고 나중에 돈을 주기로 했을 때 "이만큼 빚이 있어"라고 장부에 적어두는 부채입니다. 
- * 이 클래스는 처음에 갚아야 할 돈(원금)이 얼마였는지와, 중간에 돈을 일부 갚아서 현재 빚이 얼마 남았는지(미지급 잔액)를 정확히 관리합니다.
- * 객체지향 설계(Rich Domain Model) 원칙에 따라, 잔액 차감이나 상태 변경 로직을 도메인 객체 스스로가 수행하여 데이터 정합성을 유지합니다.
- *
- * ─────────────────────────────────────────────────
- * [도메인 설명]
- * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 독립성을 보장합니다.
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 1. 도메인 계층의 기술/영속성 프레임워크 독립성 (Hexagonal Architecture Core):
+ *    도메인 모델 객체(Payable)는 데이터베이스나 JPA(Hibernate), Spring Data 등의 특정 기술 프레임워크 어노테이션에 의존하지 않는 Pure Java POJO입니다.
+ *    이를 통해 핵심 비즈니스 로직(잔액 차감, 상계 처리, 상태 변경 규칙)을 특정 DB 기술이나 ORM 변경에 상관없이 독립적으로 유지합니다.
+ * 
+ * 2. Data Mapper 패턴의 아키텍처적 이점:
+ *    도메인 모델의 캡슐화(Encapsulation) 및 객체지향적 비즈니스 메서드와, DB 스키마 표현에 최적화된 PayableJpaEntity 구조를 분리합니다.
+ *    Infrastructure 계층의 PayableMapper가 Domain POJO <-> JPA Entity 간 상호 변환을 담당합니다.
  */
-@Entity
-@Table(name = "payables")
 public class Payable {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    /**
-     * 관련 매입 인보이스 번호.
-     */
-    @Column(name = "purchase_invoice_invoice_no", nullable = false, length = 50)
     private String purchaseInvoiceNo;
-
-    /**
-     * 매입 인보이스의 공급업체 코드.
-     */
-    @Column(name = "purchase_invoice_vendor_code", nullable = false, length = 20)
     private String purchaseInvoiceVendorCode;
-
-    /**
-     * 채무 대상 공급업체 코드.
-     */
-    @Column(name = "vendor_code", nullable = false, length = 20)
     private String vendorCode;
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 최초 채무 금액
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 미지급 금액 (잔액)
-
-    @Column(nullable = false)
-    private LocalDate dueDate; // 만기일 (지급 예정일)
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private PayableStatus status; // 채무 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
-
-    /**
-     * 연관된 회계 전표 ID.
-     */
-    @Column(name = "journal_entry_id")
+    private BigDecimal originalAmount;
+    private BigDecimal outstandingAmount;
+    private LocalDate dueDate;
+    private PayableStatus status = PayableStatus.OPEN;
     private Long journalEntryId;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = PayableStatus.OPEN;
-        }
-        if (outstandingAmount == null) {
-            outstandingAmount = originalAmount;
-        }
+    public Payable() {
     }
 
     /**
@@ -129,7 +84,12 @@ public class Payable {
     public void setVendorCode(String vendorCode) { this.vendorCode = vendorCode; }
 
     public BigDecimal getOriginalAmount() { return originalAmount; }
-    public void setOriginalAmount(BigDecimal originalAmount) { this.originalAmount = originalAmount; }
+    public void setOriginalAmount(BigDecimal originalAmount) {
+        this.originalAmount = originalAmount;
+        if (this.outstandingAmount == null) {
+            this.outstandingAmount = originalAmount;
+        }
+    }
 
     public BigDecimal getOutstandingAmount() { return outstandingAmount; }
     public void setOutstandingAmount(BigDecimal outstandingAmount) { this.outstandingAmount = outstandingAmount; }

@@ -1,60 +1,31 @@
 package com.ho.account.receivable.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 수금(입금) 엔티티.
+ * 수금(입금) 엔티티 (Pure Java POJO).
  * 고객으로부터 입금된 금액 정보를 관리합니다.
+ *
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * Collection 도메인 객체는 JPA 기술 어노테이션에 독립적인 Pure Java POJO입니다.
+ * 수금 배분(applyAllocation) 및 매칭 가능 판단(canMatch) 로직을 순수 자바 객체 내부로 캡슐화합니다.
  */
-@Entity
-@Table(name = "collections")
 public class Collection {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private LocalDate collectionDate;
+    private String customerCode;
+    private BigDecimal amount;
+    private BigDecimal matchedAmount = BigDecimal.ZERO;
+    private String bankAccount;
+    private String virtualAccount;
+    private String referenceNo;
+    private CollectionStatus status = CollectionStatus.RECEIVED;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false)
-    private LocalDate collectionDate; // 수금일
-
-    @Column(name = "customer_code", nullable = false, length = 50)
-    private String customerCode; // 입금 고객 코드 (거래처)
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 수금액
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal matchedAmount = BigDecimal.ZERO; // 지금까지 채권에 배분한 누적 금액
-
-    @Column(length = 100)
-    private String bankAccount; // 입금된 당행 계좌 (이름 또는 번호)
-
-    @Column(length = 100)
-    private String virtualAccount; // 가상 계좌 정보 (사용하는 경우)
-
-    @Column(length = 100)
-    private String referenceNo; // 매칭을 위한 참조 번호 (예: 인보이스 번호, 주문 번호)
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private CollectionStatus status; // 수금 상태 (RECEIVED, MATCHED, PARTIAL_MATCHED, UNMATCHED, CANCELLED)
-
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = CollectionStatus.RECEIVED; // 초기 상태는 RECEIVED (수신됨)
-        }
-        if (matchedAmount == null) {
-            matchedAmount = BigDecimal.ZERO;
-        }
+    public Collection() {
     }
 
     public void markAsMatched() {

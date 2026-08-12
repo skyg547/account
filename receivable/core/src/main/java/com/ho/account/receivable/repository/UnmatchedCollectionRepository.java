@@ -1,14 +1,15 @@
 package com.ho.account.receivable.repository;
 
-import com.ho.account.receivable.domain.Collection;
-import com.ho.account.receivable.domain.UnmatchedCollection;
 import com.ho.account.receivable.domain.UnmatchedCollectionStatus;
+import com.ho.account.receivable.infrastructure.persistence.entity.CollectionJpaEntity;
+import com.ho.account.receivable.infrastructure.persistence.entity.UnmatchedCollectionJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+
 @Repository
-public interface UnmatchedCollectionRepository extends JpaRepository<UnmatchedCollection, Long> {
-    List<UnmatchedCollection> findByStatus(UnmatchedCollectionStatus status);
-    List<UnmatchedCollection> findByCollection(Collection collection);
+public interface UnmatchedCollectionRepository extends JpaRepository<UnmatchedCollectionJpaEntity, Long> {
+    List<UnmatchedCollectionJpaEntity> findByStatus(UnmatchedCollectionStatus status);
+    List<UnmatchedCollectionJpaEntity> findByCollection(CollectionJpaEntity collection);
 }

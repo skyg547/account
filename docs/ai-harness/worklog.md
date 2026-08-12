@@ -1,3 +1,23 @@
+## 2026-08-12 - Issue #318 Decouple JPA Annotations from Payable and Receivable Domain Entities
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/318-payable-receivable-jpa-decouple` / `C:\tmp\account-318-payable-receivable-jpa-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Decoupled JPA Annotations from Domain Entities (Pure Java POJO):
+    - Removed all `@Entity`, `@Table`, `@Column`, `@Id`, `@GeneratedValue`, `@Enumerated`, `@PrePersist` etc. annotations from `payable` (5 classes) and `receivable` (6 classes) domain models.
+    - Added extensive pedagogical comments explaining Hexagonal Architecture domain independence and Data Mapper pattern benefits.
+  - Created Infrastructure JPA Entities (`infrastructure.persistence.entity`):
+    - Created `PurchaseInvoiceJpaEntity`, `PaymentJpaEntity`, `PayableJpaEntity`, `AdvancePaymentJpaEntity`, `PaymentRunJpaEntity` in `payable`.
+    - Created `SalesInvoiceJpaEntity`, `CollectionJpaEntity`, `CollectionAllocationJpaEntity`, `ReceivableJpaEntity`, `UnmatchedCollectionJpaEntity`, `MatchingRuleJpaEntity` in `receivable`.
+  - Implemented Data Mappers (`infrastructure.persistence.mapper`):
+    - Created two-way Data Mappers for all 11 domain models and JPA entities with pedagogical comments.
+  - Updated Spring Data Repositories & Persistence Adapters:
+    - Updated repositories to manage JPA entities and persistence adapters to map Domain POJO <-> JPA Entity via Data Mappers.
+    - Updated `@EntityScan` in API and Batch application entry points.
+- Verification:
+  - `./gradlew.bat :payable:core:test :payable:api:test :payable:batch:test :receivable:core:test :receivable:api:test :receivable:batch:test` executed with 100% SUCCESS.
+
 ## 2026-08-12 - Issue #309 Harden Gateway JWT Secret Configuration & Asymmetric Key Support
 
 - Owner: Gemini (Agent loop subagent)

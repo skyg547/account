@@ -1,84 +1,41 @@
 package com.ho.account.expenditure.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * [PurchaseInvoice] 도메인 엔티티.
+ * [PurchaseInvoice] 도메인 엔티티 (Pure Java POJO).
  * 공급업체로부터 수취한 매입 인보이스 정보를 관리합니다.
  * 타 모듈(Master Data, Journal Ledger)과는 ID/Code 기반으로 참조하여 결합도를 낮춥니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 이 클래스는 회사가 물건을 사고 거래처(공급업체)로부터 받은 '청구서(세금계산서)'를 의미합니다.
- * "언제(issueDate), 누구한테(vendorCode), 얼마(totalAmount)를 줘야 하는지"가 적혀 있습니다.
- * 이 청구서가 최종 승인(APPROVED)되면, 실제로 갚아야 할 외상값인 Payable(매입채무)이 자동 생성되며,
- * 동시에 회계 장부에 기록하기 위한 분개(JournalEntry)가 발생합니다.
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 1. 도메인 계층의 기술/영속성 프레임워크 독립성 (Hexagonal Architecture Core):
+ *    본 도메인 클래스는 @Entity, @Column, @Id 등 JPA 기술 어노테이션을 전혀 포함하지 않는 Pure Java POJO입니다.
+ *    이를 통해 기술 프레임워크(Hibernate, Spring Data)의 변경이나 DB 스키마 수정에 영향을 받지 않고
+ *    순수한 비즈니스 로직 및 회계 규칙에 집중할 수 있으며, 가볍고 빠른 단위 테스트(Unit Test)를 가능하게 합니다.
+ * 
+ * 2. Data Mapper 패턴을 통한 영속성 분리:
+ *    영속성(Persistence) 처리는 Infrastructure 계층의 PurchaseInvoiceJpaEntity 및 PurchaseInvoiceMapper가 담당하여
+ *    도메인 모델과 데이터베이스 테이블 구조 간의 결합을 완벽하게 제거합니다.
  */
-@Entity
-@Table(
-        name = "purchase_invoices",
-        uniqueConstraints = @UniqueConstraint(name = "uk_purchase_invoice_business_key", columnNames = {"invoice_no", "vendor_code"})
-)
 public class PurchaseInvoice {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "invoice_no", nullable = false, length = 50)
     private String invoiceNo;
-
-    /**
-     * 공급업체(거래처) 코드.
-     */
-    @Column(name = "vendor_code", nullable = false, length = 20)
     private String vendorCode;
-
-    @Column(nullable = false)
     private LocalDate issueDate;
-
-    @Column(nullable = false)
     private LocalDate dueDate;
-
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
-
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal taxAmount;
-
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal netAmount;
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private PurchaseInvoiceStatus status;
-
-    /**
-     * 연관된 회계 전표 ID.
-     */
-    @Column(name = "journal_entry_id")
+    private PurchaseInvoiceStatus status = PurchaseInvoiceStatus.RECEIVED;
     private Long journalEntryId;
-
-    @Column(length = 500)
     private String description;
+    private String createdBy = "SYSTEM";
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false, updatable = false)
-    private String createdBy;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = PurchaseInvoiceStatus.RECEIVED;
-        }
-        if (createdBy == null) {
-            createdBy = "SYSTEM";
-        }
+    public PurchaseInvoice() {
     }
 
     // Getter 및 Setter

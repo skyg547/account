@@ -1,3 +1,29 @@
+# AI Harness Handoff - 2026-08-12 Issue #318 Decouple JPA Annotations from Payable and Receivable Domain Entities
+
+## Active Goal And State
+
+- GitHub Issue `#318` (`[payable, receivable][architecture] 도메인 엔티티에 JPA 의존성 강결합 — 헥사고날 위반`) completed.
+- Worktree `C:\tmp\account-318-payable-receivable-jpa-decouple` configured and verified.
+
+## Changes And Boundaries
+
+- Decoupled JPA Annotations from Domain Entities (Pure Java POJO):
+  - Converted 11 domain classes (`PurchaseInvoice`, `Payment`, `Payable`, `AdvancePayment`, `PaymentRun`, `SalesInvoice`, `Collection`, `CollectionAllocation`, `Receivable`, `UnmatchedCollection`, `MatchingRule`) to Pure Java POJO.
+  - Added extensive pedagogical comments on Hexagonal Architecture Core domain independence and Data Mapper pattern.
+- Created Infrastructure JPA Entities (`infrastructure.persistence.entity`):
+  - Created 5 JPA entities in `payable` and 6 JPA entities in `receivable`.
+- Implemented Data Mappers (`infrastructure.persistence.mapper`):
+  - Implemented two-way Data Mappers for all 11 domain models and JPA entities.
+- Updated Repositories & Adapters & App Configs:
+  - Updated Spring Data Repositories to manage JPA entities, and Persistence Adapters to map between Domain POJOs and JPA Entities.
+  - Updated `@EntityScan` in API and Batch Application entry points.
+- Verification Evidence:
+  - Executed `./gradlew.bat :payable:core:test :payable:api:test :payable:batch:test :receivable:core:test :receivable:api:test :receivable:batch:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit on `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #309 Harden Gateway JWT Secret Configuration & Asymmetric Key Support
 
 ## Active Goal And State
