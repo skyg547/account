@@ -1,3 +1,18 @@
+### 📅 2026-08-13 ([runtime][account-mart] Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile - Issue #97)
+### [account-mart] account-mart:mart-api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 AccountMartApiApplicationTests 추가
+
+- **작업 배경**:
+  - `account-mart:mart-api` 모듈 로컬 실행 시 로컬 H2 데이터베이스 및 local 프로파일 설정 부재로 인한 ApplicationContext 로드 예외 발생.
+- **주요 변경 사항**:
+  - **`account-mart/mart-api/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`AccountMartApiApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = AllowanceMartApiApplication.class)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `AllowanceMartApiApplication`의 ApplicationContext가 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, Flyway 마이그레이션 연동 및 외부 인프라 디커플링의 아키텍처적 목적을 초보자 눈높이에 맞춰 명시.
+- **검증**:
+  - `./gradlew.bat :account-mart:mart-api:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][account-mart] Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #98)
 ### [account-mart] account-mart:mart-batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 AccountMartBatchApplicationTests 추가
 
