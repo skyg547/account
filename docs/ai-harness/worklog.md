@@ -1,3 +1,23 @@
+## 2026-08-12 - Issue #326 Configure Production Git Backend and Property Encryption for Config Server
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/326-config-server-git-backend-encryption` / `C:\tmp\account-326-config-server-git-backend-encryption`.
+- Base: `origin/main`.
+- Scope:
+  - Common Configuration & Encryption (`config-server/src/main/resources/application.yml`):
+    - Configured `encrypt.key: ${ENCRYPT_KEY:account-config-server-secret-key}` for symmetric key property encryption/decryption (`/encrypt`, `/decrypt`, `{cipher}...`).
+    - Kept default `SPRING_PROFILES_ACTIVE: native`.
+    - Added extensive pedagogical comments explaining centralized config management, property encryption, and profile separation benefits in MSA.
+  - Production Profile Configuration (`config-server/src/main/resources/application-prod.yml`):
+    - Added Git backend configuration (`spring.cloud.config.server.git.uri`, `default-label`, `search-paths`, `clone-on-start`, `username`, `password`) for central Git audit trail and versioning in production.
+  - Native Profile Configuration (`config-server/src/main/resources/application-native.yml`):
+    - Added local filesystem search-locations (`CONFIG_REPO_LOCATION: file:./config-repo`) for isolated local development.
+  - Configuration Policy Testing (`ConfigServerConfigurationPolicyTest.java`):
+    - Added `encrypt.key` assertion to local defaults test.
+    - Added `productionProfileUsesGitBackendAndPropertyEncryption` test method to verify production Git backend properties.
+- Verification:
+  - Executed `./gradlew.bat :config-server:test` (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #311 Decouple Closing Module from Journal-Ledger Core for MSA Isolation
 
 - Owner: Gemini (Agent loop subagent)

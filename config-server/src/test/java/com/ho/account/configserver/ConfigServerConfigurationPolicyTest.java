@@ -63,6 +63,7 @@ class ConfigServerConfigurationPolicyTest {
                 "config-server", "src", "main", "resources", "application.yml"));
 
         assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8888}");
+        assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY:account-config-server-secret-key}");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
@@ -73,6 +74,21 @@ class ConfigServerConfigurationPolicyTest {
                 .isEqualTo("master-data");
         assertThat(properties.getProperty("management.endpoint.health.group.readiness.include"))
                 .isEqualTo("readinessState,configRepository");
+    }
+
+    @Test
+    void productionProfileUsesGitBackendAndPropertyEncryption() {
+        Properties prodProperties = loadProperties(resolveFromRepositoryRoot(
+                "config-server", "src", "main", "resources", "application-prod.yml"));
+
+        assertThat(prodProperties.getProperty("spring.cloud.config.server.git.uri"))
+                .isEqualTo("${CONFIG_GIT_URI:https://github.com/skyg547/account-config-repo.git}");
+        assertThat(prodProperties.getProperty("spring.cloud.config.server.git.default-label"))
+                .isEqualTo("${CONFIG_GIT_LABEL:main}");
+        assertThat(prodProperties.getProperty("spring.cloud.config.server.git.search-paths"))
+                .isEqualTo("${CONFIG_GIT_SEARCH_PATHS:*}");
+        assertThat(prodProperties.getProperty("spring.cloud.config.server.git.clone-on-start"))
+                .isEqualTo("${CONFIG_GIT_CLONE_ON_START:true}");
     }
 
 
