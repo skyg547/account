@@ -1,5 +1,6 @@
 package com.ho.account.common.adapter;
 
+import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
@@ -43,6 +44,20 @@ public class MonolithLedgerQueryAdapter implements LedgerQueryPort {
                 currencyCode).stream()
                 .map(this::mapSlToSummary)
                 .toList();
+    }
+
+    @Override
+    public LedgerAggregateSummary calculateLedgerSummary(String accountSubjectCode, LocalDate date) {
+        return calculateLedgerSummary(date, date, accountSubjectCode, null, "DEBIT");
+    }
+
+    @Override
+    public LedgerAggregateSummary calculateLedgerSummary(LocalDate startDate,
+                                                          LocalDate endDate,
+                                                          String accountCode,
+                                                          String currencyCode,
+                                                          String amountBasis) {
+        return ledgerService.calculateGlBalanceAggregate(startDate, endDate, accountCode, currencyCode, amountBasis);
     }
 
     private LedgerBalanceSummary mapGlToSummary(GlBalance balance) {

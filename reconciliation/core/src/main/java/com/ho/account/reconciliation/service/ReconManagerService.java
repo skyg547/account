@@ -165,24 +165,28 @@ public class ReconManagerService {
                 : new StageSnapshot(aggregate.getDetailCount(), safe(aggregate.getTotalAmount()));
     }
 
+    /**
+     * DB 레벨 집계(Push-Down Aggregation)를 통해 원장 잔액 스냅샷을 생성합니다.
+     *
+     * <p><b>[대규모 데이터 처리 시 OOM 예방 및 푸시다운 집계(Push-Down Aggregation) Rationale]</b></p>
+     * <ul>
+     *   <li><b>기존 문제점 (In-Memory Processing):</b> 대량의 원장/거래 전표 엔티티 전체 리스트를 JVM Heap 메모리에
+     *       적재한 뒤 절차적인 for-loop로 합계를 계산했습니다. 원장 레코드가 수십만~수백만 건으로 늘어날 경우 JVM Memory Footprint가
+     *       폭발적으로 증가하여 Heap Out-Of-Memory(OOM)가 발생할 수 있습니다.</li>
+     *   <li><b>개선 방안 (Push-Down Aggregation):</b> 집계 연산({@code SUM(amount)}, {@code COUNT(*)}) 로직을
+     *       데이터가 존재하는 RDBMS Query Engine 수준으로 밀어넣어(Push-down) 처리합니다.</li>
+     *   <li><b>성능적/아키텍처적 이점:</b>
+     *       1) 네트워크 I/O 패킷량 절감: 수만 건의 레코드가 네트워크를 타고 오지 않고 최종 1건의 요약 데이터만 수신합니다.<br>
+     *       2) 메모리 풋프린트 관리: JVM Heap 상에 개별 객체 인스턴스를 생성하지 않으므로 GC 부담과 Memory Footprint가 O(1)에 수렴합니다.<br>
+     *       3) DB 쿼리 최적화: RDBMS의 B-Tree 인덱스 scan 및 데이터베이스 집계 최적화 엔진을 최대한 활용합니다.</li>
+     * </ul>
+     */
     private StageSnapshot buildLedgerSnapshot(DeepReconciliationPolicy policy, LocalDate date) {
-        BigDecimal amount = BigDecimal.ZERO;
-        long count = 0L;
-        for (LedgerBalanceSummary summary : ledgerQueryPort.getGlBalanceSummaries(
-                date, date, policy.ledgerAccountCode(), policy.ledgerCurrencyCode())) {
-            amount = amount.add(resolveLedgerAmount(summary, policy.ledgerAmountBasis()));
-            count++;
-        }
-        return new StageSnapshot(count, amount);
-    }
-
-    private BigDecimal resolveLedgerAmount(LedgerBalanceSummary summary, LedgerAmountBasis basis) {
-        return switch (basis) {
-            case CREDIT -> safe(summary.getCreditAmount());
-            case ENDING_BALANCE -> safe(summary.getEndingBalance());
-            case ABS_ENDING_BALANCE -> safe(summary.getEndingBalance()).abs();
-            case DEBIT -> safe(summary.getDebitAmount());
-        };
+        var aggregate = ledgerQueryPort.calculateLedgerSummary(
+                date, date, policy.ledgerAccountCode(), policy.ledgerCurrencyCode(), policy.ledgerAmountBasis().name());
+        return aggregate == null
+                ? new StageSnapshot(0L, BigDecimal.ZERO)
+                : new StageSnapshot(aggregate.getCount(), safe(aggregate.getTotalAmount()));
     }
 
     private DeepReconciliationPolicy parsePolicy(ReconciliationUnit unit) {
