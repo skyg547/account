@@ -18,8 +18,8 @@ import com.ho.account.expenditure.domain.APPayment;
 import com.ho.account.expenditure.domain.APPaymentStatus;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.BusinessPartnerPersistencePort;
 import com.ho.account.masterdata.core.application.port.out.DepartmentPersistencePort;
@@ -109,7 +109,7 @@ class ExpenditureTaxApiIntegrationTest {
     @MockBean
     private AccountSubjectPersistencePort accountSubjectPersistencePort;
     @MockBean
-    private JournalUseCase journalUseCase;
+    private JournalPostingPort journalPostingPort;
     @MockBean
     private AssetRegistrationPort assetRegistrationPort;
     @MockBean
@@ -163,12 +163,8 @@ class ExpenditureTaxApiIntegrationTest {
                 .thenReturn(Optional.of(new AccountSubjectRef("EXP001", "복리후생비", false, false)));
         when(masterDataQueryPort.findBusinessPartner("BP001"))
                 .thenReturn(Optional.of(new BusinessPartnerRef("BP001", "테스트거래처", "VENDOR", true)));
-        when(journalUseCase.createJournalEntry(any())).thenAnswer(invocation -> {
-            JournalEntry entry = invocation.getArgument(0);
-            entry.setId(100L);
-            entry.initializeDraft();
-            return entry;
-        });
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(100L, "SLIP-100", "DRAFT"));
     }
 
     @Test
@@ -268,7 +264,7 @@ class ExpenditureTaxApiIntegrationTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EnableJpaRepositories(basePackageClasses = TaxInvoiceRepository.class)
-    @EntityScan(basePackageClasses = {TaxInvoice.class, JournalEntry.class})
+    @EntityScan(basePackageClasses = {TaxInvoice.class})
     @Import({
             APInvoiceController.class,
             TaxInvoiceService.class,

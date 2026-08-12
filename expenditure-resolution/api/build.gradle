@@ -32,7 +32,6 @@ dependencies {
     testImplementation project(':tax:core')
     testImplementation project(':tax:api')
     testImplementation project(':master-data:core')
-    testImplementation project(':journal-ledger:core')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 

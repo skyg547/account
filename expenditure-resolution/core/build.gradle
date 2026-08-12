@@ -19,12 +19,8 @@ dependencyManagement {
 
 dependencies {
     implementation project(':contracts')
-    implementation project(':journal-ledger:core')
-    implementation project(':asset-lease:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    testImplementation project(':tax:core')
-    testImplementation project(':master-data:core')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

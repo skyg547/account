@@ -1,3 +1,30 @@
+# AI Harness Handoff - 2026-08-12 Issue #315 Decouple Expenditure Resolution Core from Direct Module Dependencies
+
+## Active Goal And State
+
+- GitHub Issue `#315` (`[expenditure-resolution][msa] 모듈 간 직접 의존 및 MSA/헥사고날 경계 심각한 위반`) completed.
+- Worktree `C:\tmp\account-315-expenditure-msa-bounded-context-decouple` configured and verified.
+
+## Changes And Boundaries
+
+- Direct Project Dependency Removal (`expenditure-resolution/core/build.gradle` & `api/build.gradle`):
+  - Removed `implementation project(':journal-ledger:core')`, `implementation project(':asset-lease:core')`, `testImplementation project(':tax:core')`, `testImplementation project(':master-data:core')` from `expenditure-resolution:core`.
+  - Removed `testImplementation project(':journal-ledger:core')` from `expenditure-resolution:api`.
+- Shared Kernel Outbound Port Transition (`ExpenditureResolutionService.java`):
+  - Replaced `JournalUseCase` and `JournalEntry` direct imports/usage with `JournalPostingPort`, `JournalEntryCommand`, and `JournalPostingResult` from `:contracts`.
+  - Refactored `approveResolution` to assemble `JournalEntryCommand` via `buildJournalEntryCommand()` and call `journalPostingPort.createDraftEntry()`.
+- Pedagogical Comments:
+  - Added extensive educational comments detailing DDD Bounded Context boundary protection, compile-time core isolation, and Hexagonal Outbound Port pattern benefits for MSA scalability.
+- Local Configuration & Tests:
+  - Updated `ExpenditureResolutionLocalExternalPortConfiguration.java` to provide `JournalPostingPort` bean instead of `JournalUseCase`.
+  - Updated `ExpenditureResolutionServiceTest.java` and `ExpenditureTaxApiIntegrationTest.java` to mock `JournalPostingPort`.
+- Verification Evidence:
+  - Executed `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit on `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #317 Enforce Non-Negative Book Value Floor During Lease Asset Depreciation
 
 ## Active Goal And State

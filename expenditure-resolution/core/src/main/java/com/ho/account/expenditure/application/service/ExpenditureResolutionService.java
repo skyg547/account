@@ -2,6 +2,10 @@ package com.ho.account.expenditure.application.service;
 
 import com.ho.account.contracts.asset.AssetAcquisitionCommand;
 import com.ho.account.contracts.asset.AssetRegistrationPort;
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalLineCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.DepartmentRef;
@@ -13,12 +17,9 @@ import com.ho.account.expenditure.application.port.in.ExpenditureResolutionUseCa
 import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPersistencePort;
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,16 +27,32 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 지출결의 유즈케이스 서비스입니다.
  *
- * 초보자용 설명:
- * 이 서비스는 지출결의 생성, 예산 사용, 승인 전표 생성의 업무 순서를 조율합니다.
- * master-data 내부 Repository/Entity를 직접 쓰지 않고 `MasterDataQueryPort`로 코드의 유효성을 확인합니다.
+ * 🎓 [교육적 주석 / DDD Bounded Context & MSA 헥사고날 아키텍처 결합 해제 원칙]
+ * 본 서비스는 지출결의(Expenditure Resolution) Bounded Context의 핵심 비즈니스 유즈케이스를 담당합니다.
+ * 
+ * 1. DDD Bounded Context 경계 보존 및 Core 간 컴파일 타임 격리:
+ *    - 각 모듈의 Core 영역(`expenditure-resolution:core`, `journal-ledger:core`, `asset-lease:core` 등)은
+ *      타 Bounded Context의 도메인 엔티티나 인커밍 포트(UseCase)를 직접 참조(implementation project)하지 않습니다.
+ *    - 모듈 간 직접 컴파일 타임 의존성을 맺으면 한 Bounded Context의 변경이 타 Context로 전파되어
+ *      MSA 독립 배포 및 자율성을 훼손하는 '스파게티 모놀리스' 위험이 발생합니다.
+ *
+ * 2. Shared Kernel (`contracts`) 및 헥사고날 아웃바운드 포트 패턴:
+ *    - 타 Bounded Context와의 협력이 필요한 경우, 공동 계약 모듈(`contracts`)에 정의된 DTO 및 Outbound Port
+ *      (`JournalPostingPort`, `MasterDataQueryPort`, `AssetRegistrationPort`, `TaxInvoiceQueryPort`)만을 사용합니다.
+ *    - 서비스는 포트 인터페이스에만 의존하며, 실제 외부 통신 어댑터(Feign Client, REST Template, Kafka Producer, Local Mock 등)는
+ *      Infrastructure 또는 Spring Configuration에서 주입(DI)받아 런타임에 실행됩니다.
+ *
+ * 3. 업무 조율 흐름:
+ *    - 지출결의 생성/수정/반려 시 예산 차감 및 복원 통제 (`BudgetService`)
+ *    - 결의 승인 시 전표 발행 계약 명령(`JournalEntryCommand`) 생성 후 `JournalPostingPort` 호출
+ *    - 고정자산 대상 결의 승인 시 `AssetRegistrationPort` 호출을 통한 자산 등록 연동
  */
 @Service
 @Transactional
 public class ExpenditureResolutionService implements ExpenditureResolutionUseCase {
 
     private final ExpenditureResolutionPersistencePort resolutionPersistencePort;
-    private final JournalUseCase journalUseCase;
+    private final JournalPostingPort journalPostingPort;
     private final MasterDataQueryPort masterDataQueryPort;
     private final BudgetService budgetService;
     private final AssetRegistrationPort assetRegistrationPort;
@@ -43,13 +60,13 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
 
     public ExpenditureResolutionService(
             ExpenditureResolutionPersistencePort resolutionPersistencePort,
-            JournalUseCase journalUseCase,
+            JournalPostingPort journalPostingPort,
             MasterDataQueryPort masterDataQueryPort,
             BudgetService budgetService,
             AssetRegistrationPort assetRegistrationPort,
             TaxInvoiceQueryPort taxInvoiceQueryPort) {
         this.resolutionPersistencePort = resolutionPersistencePort;
-        this.journalUseCase = journalUseCase;
+        this.journalPostingPort = journalPostingPort;
         this.masterDataQueryPort = masterDataQueryPort;
         this.budgetService = budgetService;
         this.assetRegistrationPort = assetRegistrationPort;
@@ -160,14 +177,25 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         resolutionPersistencePort.save(resolution);
     }
 
+    /**
+     * 지출결의서를 최종 승인하고 회계 전표 발행 및 자산 등록 조율을 수행합니다.
+     * 
+     * 🎓 [교육적 주석 / MSA 헥사고날 포트 패턴을 통한 전표 연동]
+     * 타 Bounded Context(journal-ledger)의 인커밍 포트(`JournalUseCase`) 및 도메인 엔티티(`JournalEntry`)를 직접 참조하지 않고,
+     * Shared Kernel(`contracts`) 모듈의 `JournalPostingPort` 및 `JournalEntryCommand`를 통해 아웃바운드 전표 발행을 요청합니다.
+     * 
+     * [아키텍처적 이점]
+     * 1. 컴파일 타임 격리: expenditure-resolution 모듈은 journal-ledger 내부 도메인 변경에 영향을 받지 않습니다.
+     * 2. MSA 유연성: 단일 프로세스(Monolith/Local) 실행 시 Spring Bean으로 간편히 바인딩되고,
+     *    분산 환경(MSA) 전환 시 REST Feign Client나 Event Driven Broker(Kafka) 어댑터로 손쉽게 교체할 수 있습니다.
+     */
     @Override
     public void approveResolution(Long id) {
         ExpenditureResolution resolution = resolutionPersistencePort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("결의서를 찾을 수 없습니다. ID: " + id));
 
-        JournalEntry journalEntry = buildJournalEntry(resolution);
-        JournalEntry savedEntry = journalUseCase.createJournalEntry(journalEntry);
-        journalUseCase.approveJournalEntry(savedEntry.getId(), "SYSTEM");
+        JournalEntryCommand command = buildJournalEntryCommand(resolution);
+        JournalPostingResult postingResult = journalPostingPort.createDraftEntry(command);
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             AccountSubjectRef accountSubject = requireAccountSubject(detail.getAccountCode());
@@ -180,7 +208,7 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
             assetRegistrationPort.activateLeaseContract(resolution.getLeaseContractId());
         }
 
-        resolution.approve(savedEntry.getId());
+        resolution.approve(postingResult.journalEntryId());
         resolutionPersistencePort.save(resolution);
     }
 
@@ -234,42 +262,53 @@ public class ExpenditureResolutionService implements ExpenditureResolutionUseCas
         );
     }
 
-    private JournalEntry buildJournalEntry(ExpenditureResolution resolution) {
-        JournalEntry entry = new JournalEntry();
-        entry.setSlipDate(resolution.getResolutionDate());
-        entry.setAccountingDate(resolution.getPaymentDate());
-        entry.setDescription("지출결의: " + resolution.getTitle());
-        entry.setLineageSourceType("EXPENDITURE_RESOLUTION");
-        entry.setLineageSourceId(resolution.getResolutionNo());
-
+    private JournalEntryCommand buildJournalEntryCommand(ExpenditureResolution resolution) {
         DepartmentRef department = requireDepartment(resolution.getDeptCode());
+        List<JournalLineCommand> lines = new ArrayList<>();
 
         for (ExpenditureDetail detail : resolution.getDetails()) {
             AccountSubjectRef detailAccount = requireAccountSubject(detail.getAccountCode());
             BusinessPartnerRef businessPartner = requireBusinessPartner(detail.getBusinessPartnerCode());
 
-            JournalDetail debitLine = new JournalDetail();
-            debitLine.setSide(JournalSide.DEBIT);
-            debitLine.setAccountCode(detailAccount.code());
-            debitLine.setAmount(detail.getAmount());
-            debitLine.setBaseAmount(detail.getAmount());
-            debitLine.setDepartmentCode(department.code());
-            debitLine.setBusinessPartnerCode(businessPartner.code());
-            debitLine.setDetailDescription(detail.getDescription());
-            entry.addDetail(debitLine);
+            lines.add(new JournalLineCommand(
+                    "DEBIT",
+                    detailAccount.code(),
+                    detail.getAmount(),
+                    detail.getAmount(),
+                    department.code(),
+                    businessPartner.code(),
+                    detail.getDescription()
+            ));
         }
 
-        JournalDetail creditLine = new JournalDetail();
-        creditLine.setSide(JournalSide.CREDIT);
         AccountSubjectRef paymentAccount = requireAccountSubject(resolution.getPaymentAccountCode());
-        creditLine.setAccountCode(paymentAccount.code());
-        creditLine.setAmount(resolution.getTotalAmount());
-        creditLine.setBaseAmount(resolution.getTotalAmount());
-        creditLine.setDepartmentCode(department.code());
-        creditLine.setDetailDescription("Expenditure payment");
-        entry.addDetail(creditLine);
+        lines.add(new JournalLineCommand(
+                "CREDIT",
+                paymentAccount.code(),
+                resolution.getTotalAmount(),
+                resolution.getTotalAmount(),
+                department.code(),
+                null,
+                "Expenditure payment"
+        ));
 
-        return entry;
+        String actor = resolution.getCreatedBy() != null && !resolution.getCreatedBy().isBlank()
+                ? resolution.getCreatedBy().trim()
+                : "SYSTEM";
+
+        return new JournalEntryCommand(
+                resolution.getResolutionDate(),
+                resolution.getPaymentDate(),
+                "지출결의: " + resolution.getTitle(),
+                "EXPENDITURE_RESOLUTION",
+                null,
+                null,
+                actor,
+                actor,
+                "EXPENDITURE_RESOLUTION",
+                resolution.getResolutionNo(),
+                lines
+        );
     }
 
     private void registerFixedAsset(ExpenditureDetail detail, ExpenditureResolution resolution, AccountSubjectRef accountSubject) {
