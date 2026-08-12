@@ -58,6 +58,7 @@ temp/
 # Spring Boot Local Properties
 application-local.properties
 application-local.yml
+!**/src/test/resources/application-local.yml
 
 # Hexagonal Architecture Exception
 # Keep source packages named "port/out" or "adapter/out" (don't ignore them if they are in src)
