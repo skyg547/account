@@ -1,0 +1,67 @@
+# ==============================================================================
+# Loan API Module - Local Active Profile Configuration
+# ==============================================================================
+# [Architecture & Pedagogical Explanation / 교육적 주석]
+# 1. Profile-Based Runtime Isolation (프로파일 기반 격리 런타임 환경)
+#    - 'local' 프로파일은 로컬 개발자의 독립적인 개발 환경 및 외부 네트워크가 차단된 오프라인 환경에서도
+#      loan:api 애플리케이션을 외부 연동 의존성(PostgreSQL, Config Server, Eureka 등) 없이 단독으로 구동할 수 있도록 보장합니다.
+#
+# 2. In-memory H2 DB Isolation (로컬 H2 인메모리 DB 설정 및 스키마 동적 생성)
+#    - 외부 PostgreSQL 설치 없이도 빠르게 독립 구동되도록 H2 인메모리 DB(jdbc:h2:mem:loan_api_db)를 구성합니다.
+#    - 'MODE=PostgreSQL' 옵션을 부여하여 PostgreSQL 데이터베이스 방언(Dialect)과의 호환성을 유지합니다.
+#    - 'spring.flyway.enabled=false' 및 'spring.jpa.hibernate.ddl-auto=create-drop'을 설정하여 Flyway SQL 구문 호환성 문제를 방지하고 JPA 엔티티 기반으로 스키마를 동적으로 구축합니다.
+#
+# 3. Microservice Infrastructure Decoupling (외부 제어 서버 연동 무효화)
+#    - Spring Cloud Config, Eureka Discovery, Vault, Tracing(Zipkin 등)을 비활성화하여
+#      로컬 단독 실행(Self-contained Local Runtime) 환경에서 외부 통신 실패나 예외 발생을 미연에 차단합니다.
+# ==============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:h2:mem:loan_api_db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: never
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+management:
+  tracing:
+    enabled: false
+
+account:
+  loan:
+    accounting:
+      cash-account-code: "101000"
+      loan-receivable-account-code: "131000"
+      deferred-asset-account-code: "118000"
+      recognized-income-account-code: "410000"
+      accrued-interest-receivable-account-code: "115010"
+      interest-income-account-code: "410100"

@@ -1,0 +1,31 @@
+# ==============================================================================
+# Loan API Module - Default Configuration
+# ==============================================================================
+# [Architecture & Pedagogical Explanation / 교육적 주석]
+# 1. Default Profile Setting (기본 프로파일 설정)
+#    - 별도의 active profile 지정 없이 애플리케이션 실행 시 'local' 프로파일을 기본값으로 사용합니다.
+#    - 로컬 개발 환경 및 오프라인 테스트 환경에서 외부 인프라 서비스 접속 없이 즉시 구동 가능하도록 보장합니다.
+#
+# 2. External Service Decoupling (외부 서비스 비활성화)
+#    - Config Server, Eureka Discovery, Vault 등 MSA 제어 서버를 비활성화하여
+#      단독(Standalone/Self-contained) 런타임으로 동작하도록 디커플링합니다.
+# ==============================================================================
+
+spring:
+  application:
+    name: loan-api
+  profiles:
+    default: local
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    vault:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
