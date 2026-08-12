@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-12 Issue #344 Strengthen Self-Contained Local H2 Runtime Policy for Internal Audit
+
+- **Owner**: Gemini (Agent loop subagent)
+- **PR**: #396 (Merged into `main`)
+- **Status**: Integrated PR / Issue closed
+- **Summary**:
+  - Added explicit `application-local.yml` for `internal-audit/api` with H2 PostgreSQL mode (`jdbc:h2:mem:internal_audit_local_db`), Flyway V60 migration target, JPA `validate`, and disabled Spring Cloud Config/Discovery/Eureka/Vault control plane services.
+  - Strengthened `InternalAuditRuntimePolicyTest.java` validating profile-based isolation, Flyway V60 target schema, control plane decoupling, and execution topology contracts.
+  - Updated `internal-audit/README.md` with detailed standalone local execution guide and PowerShell commands.
+  - Added extensive pedagogical comments detailing profile-based runtime isolation, control plane decoupling, and offline resilience.
+  - Verification: `./gradlew.bat :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-12 Issue #345 Add Explicit Local H2 Profile and Isolate Demo Credentials for Auth Module
 
 - **Owner**: Gemini (Agent loop subagent)

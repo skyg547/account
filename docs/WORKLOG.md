@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([runtime][internal-audit] Add explicit local H2 profile - Issue #344)
+### [internal-audit] internal-audit api 모듈에 명시적 application-local.yml 프로파일 추가, 런타임 정책 검증 테스트 강화 및 단독 구동 가이드 업데이트
+
+- **작업 배경**:
+  - `internal-audit/api` 모듈에 명시적인 `application-local.yml` 프로파일 설정이 요구되었으며, `local` 프로파일 기반 인메모리 H2 데이터베이스(PostgreSQL 호환 모드), Flyway V60 마이그레이션 적용, JPA `validate` 정합성 및 런타임 제어 평면(Spring Cloud Config/Discovery/Eureka/Vault) 비활성화 검증을 강화할 필요가 있었음.
+- **주요 변경 사항**:
+  - **`internal-audit/api/src/main/resources/application-local.yml` 추가**:
+    - `local` 프로파일 활성화 시 H2 인메모리 DB (`jdbc:h2:mem:internal_audit_local_db;MODE=PostgreSQL`), Flyway 마이그레이션 (`locations: classpath:db/migration`, `target: "60"`), JPA `ddl-auto: validate` 정책 명시.
+    - Cloud Config, Eureka Discovery, Vault, Tracing을 완전히 비활성화하여 오프라인 독립 단독 구동(Self-contained Local Runtime) 보장.
+  - **`InternalAuditRuntimePolicyTest.java` 강화**:
+    - `local` 프로파일 구동 시 H2 DB PostgreSQL 호환 모드, Flyway V60 마이그레이션, JPA `validate`, Cloud Config/Discovery/Eureka/Vault 비활성화 상태를 철저히 다단계로 보장하는 검증 테스트 강화.
+    - dev/prod 프로파일에서 외부 주입 PostgreSQL 사용 및 런타임 스키마 변경 금지 정책 검증.
+    - `internal-audit:api`만 유일한 실행 가능 애플리케이션(`bootJar`)이며 Compose 계약을 이행함을 다루는 실행 토폴로지 검증 추가.
+  - **교육적 주석 (Pedagogical Comments) 작성**:
+    - 프로파일 기반 격리 런타임 검증(Profile-Based Runtime Isolation), 런타임 제어 평면 비활성화(Control Plane Decoupling) 및 오프라인 자충우돌 구동(Offline Resiliency)의 아키텍처적 이점을 상세히 서술한 초보자용 교육 주석 작성.
+  - **`internal-audit/README.md` 가이드 업데이트**:
+    - 독립 로컬 단독 구동 가이드 및 가시적인 PowerShell 실행/검증 명령 구체화.
+- **검증**:
+  - `./gradlew.bat :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+  - PR #396 생성 및 `main` 브랜치 자동 병합 완료.
+
 ### 📅 2026-08-12 ([runtime][auth] Add explicit local H2 and isolate demo credentials - Issue #345)
 ### [auth] auth api 모듈에 명시적 application-local.yml 프로파일 추가, 데모 자격증명 격리 및 Fail-Closed 보안 정책 강화
 

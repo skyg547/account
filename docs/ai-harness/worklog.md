@@ -1,3 +1,8 @@
+### 📅 2026-08-12 (GH-344: Strengthen Self-Contained Local H2 Runtime Policy for Internal Audit)
+- **Component**: `internal-audit/api`, `internal-audit/core`
+- **Changes**: Added explicit `application-local.yml` for `internal-audit/api` with H2 PostgreSQL mode (`jdbc:h2:mem:internal_audit_local_db;MODE=PostgreSQL`), Flyway V60 migration target, JPA `validate`, and disabled Spring Cloud Config/Discovery/Eureka/Vault control plane services. Strengthened `InternalAuditRuntimePolicyTest.java` with assertions for profile isolation, PostgreSQL dev/prod policies, and bootJar/Compose execution topology contracts. Updated `internal-audit/README.md` with explicit local standalone execution commands. Added extensive pedagogical comments on profile-based runtime isolation and control plane decoupling.
+- **Verification**: `./gradlew.bat :internal-audit:core:test :internal-audit:api:test :internal-audit:api:bootJar` (100% SUCCESSFUL). PR #396 merged into `main`.
+
 ### 📅 2026-08-12 (GH-345: Add explicit local H2 profile and isolate demo credentials for auth module)
 - **Component**: `auth/api`, `auth/core`
 - **Changes**: Added explicit `application-local.yml` for `auth/api` with H2 PostgreSQL mode, H2 console, Flyway migration and isolated demo credentials (`auth.jwt.secret`, `auth.internal-api.token`, demo user). Stripped default fallback secrets from `application.yml` and `AuthModuleProperties.java`, enforcing Fail-Closed policy on base/dev/prod environments when required credentials are missing. Created `AuthApiRuntimePolicyTest.java` for policy assertions.
