@@ -101,6 +101,16 @@ class FixedAssetTest {
         assertThat(asset.getStatus()).isEqualTo("FULLY_DEPRECIATED");
     }
 
+    @Test
+    @DisplayName("calculateSafeDepreciationAmount는 잔존가치를 초과하는 상각 시 상각가능 남은 가액까지만 계산한다.")
+    void calculateSafeDepreciationAmountCapsAtRemainingValueAboveResidual() {
+        FixedAsset asset = createActiveAsset(new BigDecimal("500000"), new BigDecimal("100000"), new BigDecimal("1000000"));
+
+        BigDecimal safeAmount = asset.calculateSafeDepreciationAmount(null);
+
+        assertThat(safeAmount).isEqualByComparingTo(new BigDecimal("400000"));
+    }
+
     private FixedAsset createActiveAsset(BigDecimal currentBookValue, BigDecimal residualValue, BigDecimal depreciationAmountPerPeriod) {
         FixedAsset asset = new FixedAsset();
         asset.setId(1L);

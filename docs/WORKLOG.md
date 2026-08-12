@@ -1,3 +1,26 @@
+### 📅 2026-08-12 ([asset-lease][financial] 사용권자산 감가상각 시 장부가액 음수 전락 위험 — 상태 검증 부재 - Issue #317)
+### [asset-lease] 감가상각 시 장부가액 최소 기준(Floor: 0원 이상/잔존가치) 보정 및 도메인 불변성 방어 로직 구현
+
+- **작업 배경**:
+  - 기존 `LeaseEntryService`에서 사용권자산(ROU Asset) 감가상각 시, 엔티티 도메인 내부 계산 및 검증을 거치지 않고 서비스 레이어에서 상각액을 감산하여 남아있는 장부가액(Book Value)보다 큰 상각액 적용 시 장부가액이 음수(Negative)로 전락하는 회계적 위험이 존재했음.
+  - 고정자산(Fixed Asset) 및 사용권자산의 감가상각 한도 검증 및 상태 전이(`FULLY_DEPRECIATED`) 보정 로직 명시화 필요.
+- **주요 변경 사항**:
+  - **사용권자산(`RightOfUseAsset.java`) 도메인 방어 및 보정 로직 구현**:
+    - `calculateSafeDepreciationAmount(BigDecimal targetAmount)`: 상각액 시도 시 남은 장부가액을 초과하지 않도록 한도를 자동 보정하는 안전 상각액 계산 로직 추가.
+    - `depreciate()`: IFRS 16 사용권자산 장부가액 음수 불가 원칙(Non-negativity of Net Book Value)을 보장하며, 장부가액이 0원에 도달 시 자산 상태를 `FULLY_DEPRECIATED`로 자동 전환하고 도메인 불변성(Domain Invariants) 가드 적용.
+    - 상세 교육적 주석(Pedagogical Comments) 작성.
+  - **고정자산(`FixedAsset.java`) 상각 한도 보정 로직 보완**:
+    - `calculateSafeDepreciationAmount(BigDecimal targetAmount)`: 잔존가액(Residual Value) 미만으로 장부가액이 하락하지 않도록 안전 상각액 계산 메서드 구현.
+    - `depreciate(LocalDate processDate)`: 잔존가액 미만 하락 방지 가드 및 상세 교육적 주석 보강.
+  - **애플리케이션 서비스 위임 및 리치 도메인 모델 전환**:
+    - `LeaseEntryService.processContractMonthlyAccounting()`: 수동 장부가액 연산을 제거하고 `RightOfUseAsset.depreciate()` 도메인 메서드 호출로 전환.
+    - `FixedAssetEntryService.processMonthlyDepreciation()`: 교육적 주석 보강.
+- **검증**:
+  - `RightOfUseAssetTest.java`: 안전 상각액 보정, 음수 전락 방지 및 `FULLY_DEPRECIATED` 상태 전이 유닛 테스트 추가.
+  - `FixedAssetTest.java`: `calculateSafeDepreciationAmount` 상각 한도 테스트 추가.
+  - `LeaseEntryServiceTest.java`: 월별 리스 회계 처리 시 사용권자산 상각 보정 및 장부가액 0원 Floor 테스트 추가.
+  - `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` 100% 성공 확인.
+
 ### 📅 2026-08-12 ([payable, receivable][architecture] 도메인 엔티티에 JPA 의존성 강결합 — 헥사고날 위반 - Issue #318)
 ### [payable, receivable] 도메인 엔티티의 JPA 의존성 전면 제거(Pure POJO 전환), Entity/Mapper 분리 및 헥사고날/Data Mapper 이점 교육적 주석 작성
 

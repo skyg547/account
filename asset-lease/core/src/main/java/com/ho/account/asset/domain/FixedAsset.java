@@ -102,6 +102,36 @@ public class FixedAsset {
     }
 
     /**
+     * 🎓 [교육적 주석 - 유형자산 감가상각 한도 검증 & 안전 상각액 산출]
+     * 고정자산 감가상각 시, 남은 상각가능가액(현재 장부가액 - 잔존가액)을 초과하는 상각 시도를 방지합니다.
+     * 상각액이 상각가능가액을 초과할 경우 잔존가액(Residual Value)까지만 상각되도록 한도를 자동 보정하여
+     * 장부가액이 잔존가액 미만 또는 음수로 떨어지는 회계적 불변성 위반을 방지합니다.
+     *
+     * @param targetAmount 상각을 시도할 대상 금액 (null일 경우 기간별 설정 상각액 사용)
+     * @return 잔존가액 보존 및 장부가액 음수 전락 방지를 보장하는 안전 상각액
+     */
+    public BigDecimal calculateSafeDepreciationAmount(BigDecimal targetAmount) {
+        if (!STATUS_ACTIVE.equals(status)) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal bookValue = defaultZero(currentBookValue);
+        BigDecimal residual = defaultZero(residualValue);
+        BigDecimal remainingValue = bookValue.subtract(residual);
+
+        if (remainingValue.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal planned = targetAmount != null ? targetAmount : defaultZero(depreciationAmountPerPeriod);
+        if (planned.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return planned.compareTo(remainingValue) >= 0 ? remainingValue : planned;
+    }
+
+    /**
      * 감가상각 결과를 미리 계산합니다. 이 메서드는 자산 상태를 바꾸지 않습니다.
      *
      * <p>초보자 설명: 단건 API는 `depreciate`로 객체를 바로 바꾸지만, Batch는 계산값만 모아
@@ -127,21 +157,18 @@ public class FixedAsset {
                     STATUS_FULLY_DEPRECIATED);
         }
 
-        BigDecimal configuredAmount = defaultZero(depreciationAmountPerPeriod);
-        if (configuredAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal safeAmount = calculateSafeDepreciationAmount(depreciationAmountPerPeriod);
+        if (safeAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return FixedAssetDepreciationResult.noChange(id, accumulated, bookValue, status);
         }
 
-        BigDecimal amount = configuredAmount.compareTo(remainingValue) >= 0
-                ? remainingValue
-                : configuredAmount;
-        BigDecimal bookValueAfter = bookValue.subtract(amount);
-        String statusAfter = amount.compareTo(remainingValue) >= 0 ? STATUS_FULLY_DEPRECIATED : STATUS_ACTIVE;
+        BigDecimal bookValueAfter = bookValue.subtract(safeAmount);
+        String statusAfter = safeAmount.compareTo(remainingValue) >= 0 ? STATUS_FULLY_DEPRECIATED : STATUS_ACTIVE;
 
         return new FixedAssetDepreciationResult(
                 id,
-                amount,
-                accumulated.add(amount),
+                safeAmount,
+                accumulated.add(safeAmount),
                 bookValueAfter,
                 statusAfter);
     }
@@ -162,10 +189,22 @@ public class FixedAsset {
         currentBookValue = acquisitionCost;
     }
 
+    /**
+     * 🎓 [교육적 주석 - 도메인 불변성(Domain Invariants) & 음수 전락 방지]
+     * 고정자산의 감가상각 상태를 직접 변경합니다.
+     * 감가상각 완료 후 장부가액이 잔존가액 미만으로 떨어지거나 음수(Negative)가 발생하지 않도록
+     * 도메인 불변성 방어막을 형성합니다.
+     */
     public BigDecimal depreciate(LocalDate processDate) {
         FixedAssetDepreciationResult result = calculateDepreciation(processDate);
         if (!result.shouldPersist()) {
             return result.depreciationAmount();
+        }
+
+        // 도메인 불변성 가드: 장부가액 하한선(잔존가액) 검증
+        BigDecimal residual = defaultZero(residualValue);
+        if (result.currentBookValue().compareTo(residual) < 0) {
+            throw new IllegalStateException("Fixed asset book value cannot fall below residual value. Target: " + result.currentBookValue());
         }
 
         this.accumulatedDepreciation = result.accumulatedDepreciation();

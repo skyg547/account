@@ -60,6 +60,12 @@ public class FixedAssetEntryService implements FixedAssetUseCase {
         return savedAsset;
     }
 
+    /**
+     * 🎓 [교육적 주석 - 도메인 주도 월 감가상각 및 장부가액 음수 방지]
+     * 서비스 레이어에서는 데이터베이스에서 활성 자산을 조회한 뒤,
+     * 감가상각 로직과 장부가액 한도(Floor) 검증을 고정자산(FixedAsset) 도메인 모델에 위임합니다.
+     * 도메인이 보정 계산한 안전 상각액(amount)이 0원 초과일 때만 영속화 및 회계 이벤트를 발행합니다.
+     */
     @Override
     @Transactional
     public void processMonthlyDepreciation(LocalDate processDate, String actor) {

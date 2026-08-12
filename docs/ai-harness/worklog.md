@@ -1,3 +1,25 @@
+## 2026-08-12 - Issue #317 Enforce Non-Negative Book Value Floor During Lease Asset Depreciation
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/317-asset-lease-depreciation-book-value-floor` / `C:\tmp\account-317-asset-lease-depreciation-book-value-floor`.
+- Base: `origin/main`.
+- Scope:
+  - Domain Defense & Safe Depreciation Amount Calculation (`RightOfUseAsset.java`):
+    - Implemented `calculateSafeDepreciationAmount(BigDecimal targetAmount)` to automatically clamp depreciation amount so that net book value never falls below 0 (IFRS 16 non-negativity principle).
+    - Implemented `depreciate()` domain method encapsulating accumulated depreciation updates, book value reduction, status transition to `FULLY_DEPRECIATED`, and domain invariant checks.
+    - Added extensive pedagogical comments detailing IFRS 16 rules, domain invariants, and rich domain model benefits.
+  - Fixed Asset Defense & Safe Depreciation Calculation (`FixedAsset.java`):
+    - Implemented `calculateSafeDepreciationAmount(BigDecimal targetAmount)` ensuring book value never falls below residual value.
+    - Added domain invariant guards in `depreciate(LocalDate processDate)` and updated pedagogical comments.
+  - Application Service Delegation:
+    - Refactored `LeaseEntryService.processContractMonthlyAccounting()` to delegate ROU asset depreciation calculation and state mutation to `RightOfUseAsset.depreciate()`.
+    - Added pedagogical comments to `FixedAssetEntryService.processMonthlyDepreciation()`.
+- Verification:
+  - Added unit test `RightOfUseAssetTest.java` verifying safe depreciation clamping, negative book value defense, and `FULLY_DEPRECIATED` transition.
+  - Added unit test in `FixedAssetTest.java` for `calculateSafeDepreciationAmount`.
+  - Added unit test in `LeaseEntryServiceTest.java` for ROU safe depreciation clamping in monthly lease accounting.
+  - Executed `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` with 100% SUCCESS.
+
 ## 2026-08-12 - Issue #318 Decouple JPA Annotations from Payable and Receivable Domain Entities
 
 - Owner: Gemini (Agent loop subagent)

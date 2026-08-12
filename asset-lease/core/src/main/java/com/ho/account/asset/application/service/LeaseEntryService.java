@@ -163,9 +163,10 @@ public class LeaseEntryService implements LeaseUseCase {
         RightOfUseAsset rouAsset = persistencePort.findROUAssetByContract(contract)
                 .orElseThrow(() -> new IllegalStateException("ROU Asset not found for contract: " + contract.getId()));
         
-        BigDecimal depreciationAmount = rouAsset.getDepreciationAmountPerPeriod();
-        rouAsset.setAccumulatedDepreciation(rouAsset.getAccumulatedDepreciation().add(depreciationAmount));
-        rouAsset.setCurrentBookValue(rouAsset.getInitialValue().subtract(rouAsset.getAccumulatedDepreciation()));
+        // 🎓 [교육적 주석 - 도메인 캡슐화 & 음수 전락 방지]
+        // 서비스에서 장부가액을 절차적으로 직접 계산하지 않고, RightOfUseAsset 엔티티의 depreciate()를 호출하여
+        // IFRS 16 장부가액 음수 전락 방지(Non-negativity Floor) 및 도메인 불변성을 보장받습니다.
+        BigDecimal depreciationAmount = rouAsset.depreciate();
         persistencePort.saveROUAsset(rouAsset);
 
         LeaseLiability leaseLiability = persistencePort.findLiabilityByContract(contract)

@@ -40,16 +40,89 @@ public class RightOfUseAsset {
     private BigDecimal depreciationAmountPerPeriod; // 기간별 상각액
 
     @Column(length = 20)
-    private String status; // ACTIVE, DISPOSED, TERMINATED
+    private String status = STATUS_ACTIVE; // ACTIVE, DISPOSED, TERMINATED, FULLY_DEPRECIATED
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
+
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_FULLY_DEPRECIATED = "FULLY_DEPRECIATED";
+    public static final String STATUS_DISPOSED = "DISPOSED";
+    public static final String STATUS_TERMINATED = "TERMINATED";
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null)
-            status = "ACTIVE";
+            status = STATUS_ACTIVE;
+    }
+
+    /**
+     * 🎓 [교육적 주석 - IFRS 16 사용권자산 장부가액 음수 불가 원칙 & 안전 상각액 산출]
+     * IFRS 16(리스) 회계기준에 따라 사용권자산(Right-of-Use Asset)은 차감상각(Depreciation)을 진행하지만,
+     * 상각 누적액이 최초 인식가액을 초과하여 장부가액(Net Book Value)이 음수(Negative)가 되는 것은 엄격히 금지됩니다.
+     *
+     * 이 메서드는 계획된 상각액(targetAmount)이 현재 잔여 장부가액을 초과하더라도,
+     * 자산의 장부가액이 0원 미만으로 떨어지지 않도록 남은 장부가액 범위 내에서만 안전하게 상각액을 한도 조정(Limit)합니다.
+     *
+     * @param targetAmount 상각을 시도할 대상 금액 (null일 경우 기간별 설정 상각액 사용)
+     * @return 남은 장부가액을 초과하지 않도록 보정된 안전 상각액
+     */
+    public BigDecimal calculateSafeDepreciationAmount(BigDecimal targetAmount) {
+        BigDecimal bookValue = currentBookValue != null ? currentBookValue : BigDecimal.ZERO;
+        if (bookValue.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal plannedAmount = targetAmount != null ? targetAmount : depreciationAmountPerPeriod;
+        if (plannedAmount == null || plannedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        // 계획된 상각액이 남아있는 장부가액보다 크거나 같으면 남은 장부가액만큼만 상각하여 장부가액 0원 보장
+        return plannedAmount.compareTo(bookValue) >= 0 ? bookValue : plannedAmount;
+    }
+
+    /**
+     * 🎓 [교육적 주석 - Rich Domain Model & 도메인 불변성(Domain Invariant) 보장]
+     * 사용권자산의 월 감가상각 상태 전이를 도메인 내부에서 안전하게 실행합니다.
+     * 외부 서비스나 배치 작업이 직접 엔티티의 장부가액 필드를 조작(Setter 호출)하게 되면,
+     * 장부가액 음수 전락이나 상태 미전이 같은 회계 오류가 발생할 수 있습니다.
+     * 따라서 헥사고날/DDD 원칙에 따라 감가상각 도메인 로직을 엔티티 내부로 캡슐화합니다.
+     *
+     * @return 실제 반영된 감가상각액 (0원 이상)
+     */
+    public BigDecimal depreciate() {
+        if (!STATUS_ACTIVE.equals(status)) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal safeAmount = calculateSafeDepreciationAmount(depreciationAmountPerPeriod);
+        if (safeAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            this.status = STATUS_FULLY_DEPRECIATED;
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal accumulated = accumulatedDepreciation != null ? accumulatedDepreciation : BigDecimal.ZERO;
+        BigDecimal newAccumulated = accumulated.add(safeAmount);
+        BigDecimal baseInitial = initialValue != null ? initialValue : (currentBookValue != null ? currentBookValue.add(accumulated) : safeAmount);
+        BigDecimal newBookValue = baseInitial.subtract(newAccumulated);
+
+        // 하한선 보정: 음수 방지 0원 Floor
+        if (newBookValue.compareTo(BigDecimal.ZERO) <= 0) {
+            newBookValue = BigDecimal.ZERO;
+            this.status = STATUS_FULLY_DEPRECIATED;
+        }
+
+        // 도메인 불변성(Domain Invariant) 최종 가드: 장부가액은 절대 음수일 수 없음
+        if (newBookValue.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("ROU Asset book value cannot be negative. Current: " + newBookValue);
+        }
+
+        this.accumulatedDepreciation = newAccumulated;
+        this.currentBookValue = newBookValue;
+
+        return safeAmount;
     }
 
     // Getter 및 Setter
