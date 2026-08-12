@@ -17,6 +17,11 @@
 
 ## 🚀 빠른 시작 (Running Locally)
 
+### 📌 Node.js 런타임 규격 (Node Runtime Pinning)
+* **권장 Node 버전:** Node 20 LTS (`v20.18.0`) / NPM 10+ (`>=10.0.0`)
+* **로컬 버전 자동 고정:** `.nvmrc` 및 `.node-version`이 포함되어 있어 `nvm use` 실행 시 자동으로 지정된 Node 20 LTS 런타임을 사용합니다.
+* **환경 간 정합성 (Runtime Parity):** `package.json`의 `engines` 규격 (`>=20.0.0 <21.0.0`) 및 Dockerfile/Containerfile (`node:20-alpine`)과 100% 일치시켜 로컬 개발, 컨테이너, CI/CD 간 런타임 불일치 및 Lockfile v3 변형을 예방합니다.
+
 ### 💻 내 컴퓨터에서 바로 실행하기
 ```bash
 # 1. 프론트엔드 폴더로 이동

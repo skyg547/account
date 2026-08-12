@@ -1,0 +1,5 @@
+20.18.0
+# [교육적 주석 / Node.js Runtime Pinning]
+# Node 20 LTS (v20.18.0) 버전으로 로컬 개발 런타임을 고정합니다.
+# fnm / nodenv / asdf 등 호환 런타임 관리 도구에서 로컬 Node.js 버전을 자동 스위칭할 수 있도록 보장합니다.
+# 컨테이너(node:20-alpine) 및 package.json engines 계약과 완전히 정합성을 이룹니다.

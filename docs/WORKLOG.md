@@ -1,3 +1,23 @@
+### 📅 2026-08-12 ([runtime][frontend] Pin Node runtime and verify local NPM lifecycle - Issue #362)
+### [frontend] Node 20 LTS 런타임 명시적 고정(Node Runtime Pinning) 및 컨테이너/로컬 정합성 보장
+
+- **작업 배경**:
+  - 프론트엔드 모듈의 로컬 개발 런타임 규격이 명시되어 있지 않아 개발자 간 Node.js Major 버전 차이로 인한 V8 엔진 문법 불일치 및 `package-lock.json` (Lockfile v3) 구조 변형 위험이 존재했음.
+- **주요 변경 사항**:
+  - **`frontend/package.json` 명시적 엔진 규격 고정**:
+    - `"engines": { "node": ">=20.0.0 <21.0.0", "npm": ">=10.0.0" }` 설정 및 `_comment` 교육적 주석 추가.
+  - **로컬 개발 런타임 고정 파일 신설 (`.nvmrc`, `.node-version`)**:
+    - `frontend/.nvmrc` 및 `frontend/.node-version` 신설하여 Node 20 LTS (`20.18.0`) 런타임을 명시함.
+    - nvm, fnm, nodenv, asdf 등 로컬 버전 관리 도구와의 호환성 및 자동 런타임 전환을 보장함.
+  - **컨테이너 이미지 계약 정합성 확립**:
+    - `frontend/Dockerfile`, `frontend/Containerfile`, `frontend/Containerfile.dev` 상단의 `node:20-alpine` 이미지 및 로컬 `.nvmrc` / `.node-version` / `package.json engines` 간 100% 정합성(Runtime Parity) 확보.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Node.js LTS Runtime Pinning, 로컬과 Docker/Containerfile 빌드 간 런타임 정합성 (Runtime Parity), npm v10+ 기반 Lockfile v3 결정론적(Deterministic) 재현성 확보의 기술적 이점을 상세히 기술함.
+  - **가이드 문서 보완 (`frontend/README.md`)**:
+    - Node 20 LTS 및 NPM 10+ 런타임 요구사항 및 런타임 정합성 보장 가이드를 명시함.
+- **검증**:
+  - `git diff` 및 `package.json` JSON 구조 검증 완료.
+
 ### 📅 2026-08-12 ([runtime][account-mart] Align demo seed and clean Batch lifecycle - Issue #343)
 ### [account-mart] account-mart batch 모듈 데모 시드 데이터 로더 구축, 결정론적 H2 픽스처 정합화 및 unopened ItemReader close 경고 없는 Clean Batch Lifecycle 달성
 

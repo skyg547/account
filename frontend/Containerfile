@@ -1,3 +1,15 @@
+# ==============================================================================
+# [엔터프라이즈 프론트엔드 빌드 Containerfile (Next.js Standalone Build)]
+# ------------------------------------------------------------------------------
+# 💡 교육적 설계 포인트 (Pedagogical Design Notes):
+# 1. Node.js LTS Runtime Pinning:
+#    - node:20-alpine (Node 20 LTS) 베이스 이미지를 활용하여
+#      .nvmrc / .node-version 및 package.json engines (>=20.0.0 <21.0.0) 규격을 준수합니다.
+# 2. 런타임 정합성 보장 (Runtime Parity):
+#    - 로컬 개발 환경, CI 빌드, 프로덕션 컨테이너가 동일한 메이저 런타임을 공유합니다.
+# 3. Lockfile v3 재현성 확보 (Lockfile v3 Reproducibility):
+#    - `npm ci`로 package-lock.json 의존성 트리와 동일한 버전을 결정론적으로 주입합니다.
+# ==============================================================================
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed

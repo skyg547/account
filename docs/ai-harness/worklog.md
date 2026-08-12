@@ -1,3 +1,8 @@
+### 📅 2026-08-12 (GH-362: Pin Node 20 LTS Runtime and Align Container Contracts for Frontend)
+- **Component**: `frontend`
+- **Changes**: Configured explicit `"engines": { "node": ">=20.0.0 <21.0.0", "npm": ">=10.0.0" }` in `frontend/package.json`. Created `frontend/.nvmrc` and `frontend/.node-version` targeting Node 20 LTS (`20.18.0`). Aligned local runtime specifications with `node:20-alpine` in `frontend/Dockerfile`, `frontend/Containerfile`, and `frontend/Containerfile.dev`. Added extensive pedagogical comments explaining Node Runtime Pinning, Dev/Container Runtime Parity, and Lockfile v3 Deterministic Reproducibility across configuration header blocks, `package.json`, and `frontend/README.md`.
+- **Verification**: `git diff` inspection and `package.json` JSON parsing structure validation.
+
 ### 📅 2026-08-12 (GH-343: Align demo seed fixture and clean batch lifecycle for account mart)
 - **Component**: `account-mart/mart-batch`, `account-mart/mart-core`
 - **Changes**: Created `AccountMartDemoFixtureService` and `AccountMartDemoSeedRunner` activated on `mart.batch.demo-seed.enabled: true` for deterministic H2 fixture seeding (ods account subjects, products, ledgers, balance history, general ledger, exchange rates, KAP ratings, collaterals). Added `@Bean(destroyMethod = "")` to all `ItemReader` bean definitions in `IntegratedPositionEtlJobConfig`, `KapDataEtlJobConfig`, and `BehavioralHistoryLoadJobConfig` to decouple Spring Container shutdown inferred `close()` from Spring Batch Step ItemStream lifecycle, guaranteeing warning-free clean context shutdown. Added `AccountMartDemoSeedAndLifecycleTest.java` and extensive pedagogical comments.

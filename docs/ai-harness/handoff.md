@@ -1,3 +1,16 @@
+# AI Harness Handoff - 2026-08-12 Issue #362 Pin Node 20 LTS Runtime and Align Container Contracts for Frontend
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #362 (`[runtime][frontend] Pin Node runtime and verify local NPM lifecycle`)
+- **Status**: Completed / Ready for Integration
+- **Summary**:
+  - Configured explicit `"engines": { "node": ">=20.0.0 <21.0.0", "npm": ">=10.0.0" }` in `frontend/package.json` with educational comments.
+  - Created `frontend/.nvmrc` and `frontend/.node-version` containing `20.18.0` for automatic local Node.js version switching with nvm/fnm/nodenv.
+  - Aligned local runtime configurations 100% with container base images (`node:20-alpine`) in `frontend/Dockerfile`, `frontend/Containerfile`, and `frontend/Containerfile.dev`.
+  - Added comprehensive pedagogical comments across header comments and documentation detailing Node Runtime Pinning, Dev/Container Runtime Parity, and Lockfile v3 Deterministic Reproducibility.
+  - Updated `frontend/README.md` with Node 20 LTS & NPM 10+ runtime requirements guide.
+  - Verification: `git diff` and JSON validity check passed.
+
 # AI Harness Handoff - 2026-08-12 Issue #343 Align Demo Seed Fixture and Clean Batch Lifecycle for Account Mart
 
 - **Owner**: Gemini (Agent loop subagent)
