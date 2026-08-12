@@ -9,12 +9,15 @@ import com.ho.account.contracts.outbox.JournalOutboxEvent;
 import com.ho.account.contracts.outbox.JournalOutboxRelayService;
 import com.ho.account.contracts.outbox.OutboxEventPublisher;
 import com.ho.account.contracts.outbox.OutboxPort;
+import com.ho.account.deposit.application.port.in.DepositQueryUseCase;
 import com.ho.account.deposit.application.port.in.DepositTransactionUseCase;
+import com.ho.account.deposit.application.port.in.DepositUseCase;
 import com.ho.account.deposit.application.port.in.OpenAccountUseCase;
 import com.ho.account.deposit.application.port.out.DepositAccountMappingPort;
 import com.ho.account.deposit.application.port.out.DepositAccountPersistencePort;
 import com.ho.account.deposit.domain.DepositAccount;
 import com.ho.account.deposit.domain.DepositStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -29,6 +33,8 @@ import java.util.UUID;
  * 
  * 🐣 [초보자를 위한 설명 및 MSA 아키텍처 개편]
  * 이 클래스는 예금(Deposit) 모듈의 핵심 유즈케이스 처리기입니다.
+ * 인바운드 유즈케이스 포트인 {@link DepositUseCase} ({@link OpenAccountUseCase}, {@link DepositTransactionUseCase}, {@link DepositQueryUseCase})를 구현하여
+ * Spring Container에 `@Service` 빈으로 자동 등록됩니다.
  * 
  * **Transactional Outbox 패턴 기반 전표 동기화 (Dual Write 정합성 해결):**
  * As-Is: 계좌 개설 저장 후 외부 Journal Ledger API를 직접 동기 호출.
@@ -42,7 +48,7 @@ import java.util.UUID;
  * JPA `@Version` 기반 낙관적 잠금을 적용하고, 충돌 발생 시 최신 엔티티 재조회 후 재시도(Retry)합니다.
  */
 @Service
-public class DepositService implements OpenAccountUseCase, DepositTransactionUseCase {
+public class DepositService implements DepositUseCase {
 
     private final DepositAccountPersistencePort depositAccountPersistencePort;
     private final DepositAccountMappingPort depositAccountMappingPort;
@@ -51,6 +57,7 @@ public class DepositService implements OpenAccountUseCase, DepositTransactionUse
     private final OutboxPort outboxPort;
     private final OutboxEventPublisher outboxEventPublisher;
 
+    @Autowired
     public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
                           DepositAccountMappingPort depositAccountMappingPort,
                           MasterDataQueryPort masterDataQueryPort,
@@ -224,6 +231,19 @@ public class DepositService implements OpenAccountUseCase, DepositTransactionUse
             return account.getCreatedBy().trim();
         }
         return "SYSTEM";
+    }
+
+    /**
+     * [예금 계좌 단건 조회 유즈케이스 구현]
+     *
+     * 🐣 [초보자를 위한 설명]
+     * 계좌번호를 받아 영속성 어댑터(DepositAccountPersistencePort)를 통해 DB에서 계좌 정보를 조회합니다.
+     * readOnly = true 트랜잭션 옵션을 사용하여 변경 감지(Dirty Checking) 비용을 절감하고 성능을 최적화합니다.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<DepositAccount> findByAccountNumber(String accountNumber) {
+        return depositAccountPersistencePort.findByAccountNumber(accountNumber);
     }
 
     private String generateAccountNumber() {

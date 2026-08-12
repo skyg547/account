@@ -1,3 +1,31 @@
+### 📅 2026-08-12 ([runtime][deposit] Fix Deposit API ApplicationContext Loading and Configure Local H2 Profile - Issue #81)
+### [deposit] deposit:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, H2 인메모리 DB 설정, 필수 유즈케이스 포트/빈 등록 정합화 및 런타임 테스트 구축
+
+- **작업 배경**:
+  - `deposit:api` 모듈의 로컬 단독 구동 시 ApplicationContext 로딩 오류 및 의존성 주입 실패 문제 발생.
+  - `deposit:api` 내 `application.yml` 및 `application-local.yml`의 부재로 인해 외부 PostgreSQL 연결 시도 및 런타임 인프라(Config, Eureka, Vault 등) 미작동 시 구동 실패.
+  - `LocalDepositJournalPostingAdapter` 클래스 내 `JournalPostingPort` 인터페이스 계약(`approveAndPost`) 미구현으로 인한 컴파일 실패.
+  - `DepositService` 내 다중 생성자 존재 시 Spring DI의 생성자 모호성으로 인한 `NoSuchMethodException` 발생.
+- **주요 변경 사항**:
+  - **`deposit/api/src/main/resources/application.yml` 및 `application-local.yml` 신설**:
+    - `spring.profiles.default: local` 및 `spring.flyway.enabled: false` 설정으로 기본 로컬 인메모리 H2 DB 환경 구성.
+    - `application-local.yml`에 H2 인메모리 DB(`jdbc:h2:mem:deposit_local_db;MODE=PostgreSQL`), JPA `ddl-auto: create-drop`, `account.deposit.local-adapters.enabled=true` 구성.
+    - Cloud Config, Eureka Discovery, Vault 등 외부 제어 평면 연동을 비활성화하여 오프라인 독립 단독 구동(Self-contained Local Runtime) 보장.
+  - **`LocalDepositJournalPostingAdapter` 인터페이스 계약 이행**:
+    - `JournalPostingPort`의 `approveAndPost(Long journalEntryId, String actor)` 메서드 구성을 추가하여 `deposit:core` 컴파일 오류 해결.
+  - **유즈케이스 포트 및 서비스 빈 등록 정합화**:
+    - `DepositQueryUseCase` (계좌 단건 조회) 및 `DepositUseCase` (통합 인바운드 포트) 인터페이스 신설.
+    - `DepositService`에 `@Autowired` 명시를 통해 Spring DI 다중 생성자 선택 모호성을 해소하고 `findByAccountNumber` 구현.
+  - **`DepositApplication` Composition Root 및 `DepositController` 웹 어댑터 개편**:
+    - `@SpringBootApplication(scanBasePackages = "com.ho.account.deposit")`, `@EntityScan`, `@EnableJpaRepositories` 명시적 설정.
+    - `DepositController`에 계좌 개설, 입금, 출금, 계좌 단건 조회 REST API 구현.
+  - **통합 런타임 테스트 구축 (`DepositApplicationTest.java`)**:
+    - `@ActiveProfiles("local")` 기반 ApplicationContext 로딩 및 `DepositController`, `DepositUseCase` 빈 주입 정합성 100% 검증.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 마이크로서비스 독립 ApplicationContext 로딩, 프로파일 기반 H2 런타임 격리, 헥사고날 인바운드 Web Adapter 및 Spring Container 빈 DI 구성의 아키텍처적 이점을 다룬 주석 작성.
+- **검증**:
+  - `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:api:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([runtime][frontend] Pin Node runtime and verify local NPM lifecycle - Issue #362)
 ### [frontend] Node 20 LTS 런타임 명시적 고정(Node Runtime Pinning) 및 컨테이너/로컬 정합성 보장
 

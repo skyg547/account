@@ -1,3 +1,18 @@
+# AI Harness Handoff - 2026-08-12 Issue #81 Fix Deposit API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #81 (`[bug] deposit:api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Completed / Ready for Integration
+- **Summary**:
+  - Created `deposit/api/src/main/resources/application.yml` and `application-local.yml` configuring local default profile, H2 in-memory DB (`jdbc:h2:mem:deposit_local_db;MODE=PostgreSQL`), JPA `create-drop`, `flyway.enabled: false`, `local-adapters.enabled: true`, and disabled Cloud Config/Eureka/Vault control plane services.
+  - Implemented `approveAndPost(Long journalEntryId, String actor)` in `LocalDepositJournalPostingAdapter` to satisfy `JournalPostingPort` interface contract.
+  - Created `DepositQueryUseCase` and `DepositUseCase` inbound port interfaces for CQRS read operations and composite interface injection.
+  - Added `@Autowired` to primary `DepositService` constructor to eliminate Spring DI constructor disambiguation exception (`NoSuchMethodException`), and implemented `findByAccountNumber`.
+  - Configured `@SpringBootApplication(scanBasePackages = "com.ho.account.deposit")`, `@EntityScan`, and `@EnableJpaRepositories` in `DepositApplication`.
+  - Enhanced `DepositController` REST endpoints and added `DepositApplicationTest` for local ApplicationContext integration testing.
+  - Added extensive pedagogical comments explaining Profile Separation, H2 In-Memory DB Isolation, Hexagonal Inbound Web Adapters, and Spring Container Constructor Injection.
+  - Verification: `./gradlew.bat :deposit:core:test :deposit:api:test :deposit:api:bootJar` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-12 Issue #362 Pin Node 20 LTS Runtime and Align Container Contracts for Frontend
 
 - **Owner**: Gemini (Agent loop subagent)
