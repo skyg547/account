@@ -1,3 +1,22 @@
+## 2026-08-12 - Issue #302 Decompose Monolithic ReconciliationService for Single Responsibility Principle Compliance
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/302-reconciliation-srp-service-split` / `C:\tmp\account-302-reconciliation-srp-service-split`.
+- Base: `origin/main`.
+- Scope:
+  - Specialized Domain Services:
+    - Created `ReconciliationUnitService.java` for ReconciliationUnit CRUD and soft deletion management.
+    - Created `ReconciliationRuleService.java` for ReconciliationRule and DifferenceReasonCode CRUD and soft deletion management.
+    - Created `ReconciliationExecutionService.java` for data collection, N:M matching engine orchestration, difference assignment/resolution, and adjustment journal creation.
+  - Facade Pattern Refactoring (`ReconciliationService.java`):
+    - Converted `ReconciliationService` into a Facade Service delegating to the specialized domain services.
+    - Preserved 100% backward compatibility for API Controllers, Batch services, and legacy constructors.
+  - Pedagogical Comments:
+    - Added comprehensive comments detailing Single Responsibility Principle (SRP), God Class smell removal, and Facade Pattern encapsulation benefits.
+  - Unit Tests & Verification:
+    - Added unit tests (`ReconciliationUnitServiceTest.java`, `ReconciliationRuleServiceTest.java`).
+    - Verified all reconciliation module tests (`:reconciliation:core:test`, `:reconciliation:api:test`, `:reconciliation:batch:test` - BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #307 Refactor Balance Reaggregation Batch Job to Chunk-Oriented Processing & Guarantee Idempotency
 
 - Owner: Gemini (Agent loop subagent)

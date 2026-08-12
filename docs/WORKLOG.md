@@ -1,3 +1,22 @@
+### 📅 2026-08-12 ([reconciliation][clean-code] ReconciliationService 거대 클래스(680행+) 및 SRP 위반 - Issue #302)
+### [reconciliation] 거대 클래스 ReconciliationService를 단일 책임 원칙(SRP)에 따라 전용 서비스(UnitService, RuleService, ExecutionService)로 분리 및 파사드 패턴 적용
+
+- **작업 배경**:
+  - 기존 `ReconciliationService`가 대사 단위(Unit) CRUD, 대사 규칙(Rule)/차액 사유 코드(ReasonCode) CRUD, 대사 실행(Run) 오케스트레이션 및 차액(Difference) 배정/해결 등 상이한 책임들을 한 클래스에 비대하게 포함(680행+ God Class)하여 SRP 위반 및 높은 결합도가 존재했음.
+- **주요 변경 사항**:
+  - **전용 서비스 분리**:
+    - `ReconciliationUnitService.java`: 대사 단위(`ReconciliationUnit`) 설정 및 관리(CRUD, Soft Delete) 전담.
+    - `ReconciliationRuleService.java`: 대사 규칙(`ReconciliationRule`) 및 차액 사유 코드(`DifferenceReasonCode`) 관리(CRUD, Soft Delete) 전담.
+    - `ReconciliationExecutionService.java`: 원천/대상 데이터 수집, N:M 매칭 알고리즘 오케스트레이션, 대사 차액 배정/해결 및 조정 전표 생성 전담.
+  - **파사드 서비스 리팩토링 (`ReconciliationService.java`)**:
+    - `ReconciliationService`를 파사드(Facade) 서비스로 전환하여 외부 호출자(Controller, Batch 서비스 등) 및 기존 레거시 생성자 호출과의 100% 하위 호환성 유지.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - God Class 악취 제거, 객체지향 설계의 단일 책임 원칙(SRP), 파사드 패턴(Facade Pattern)의 우수성 및 Encapsulation 이점에 대한 상세 교육적 설명 추가.
+  - **단위 테스트 추가 및 검증 (`ReconciliationUnitServiceTest.java`, `ReconciliationRuleServiceTest.java`)**:
+    - 분리된 전용 서비스들에 대한 단위 테스트 추가 및 기존 `ReconciliationServiceTest` 검증.
+- **검증**:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([journal-ledger:batch][extensibility] BalanceReaggregationBatchConfig 대량 데이터 처리 성능 및 멱등성 한계 - Issue #307)
 ### [journal-ledger:batch] BalanceReaggregationBatchConfig 단일 트랜잭션 Tasklet 방식에서 2단계 Chunk 기반 배치 프로세싱(JpaPagingItemReader, ItemProcessor, ItemWriter)으로 전환 및 사전 Clean-up Step 추가를 통한 멱등성 보장
 
