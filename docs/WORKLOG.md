@@ -1,3 +1,26 @@
+### 📅 2026-08-12 ([runtime][journal-ledger] Fix Journal Ledger API ApplicationContext Loading and Configure Local H2 Profile - Issue #75)
+### [journal-ledger] journal-ledger:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, isolated H2 프로파일 구축 및 메시지 브로커/외부 제어 서버 디커플링
+
+- **작업 배경**:
+  - `journal-ledger:api` 모듈의 로컬 구동 시 ApplicationContext 로딩 및 빈 정의/엔티티 스캔 오류 발생.
+  - local 프로파일 활성화 시 외부 PostgreSQL 및 Cloud 인프라(Config Server, Eureka, Vault 등) 연동 의존성과 Kafka 메시지 브로커(localhost:9092) 접속 시도로 인한 독립 구동(Self-contained Local Runtime) 실패.
+  - `journal-ledger/api/src/test/resources/application.properties` 파일의 UTF-16LE BOM 인코딩으로 인한 `spring.main.allow-bean-definition-overriding` 프로퍼티 바인딩 실패.
+- **주요 변경 사항**:
+  - **`JournalLedgerApplication` Composition Root 명시적 JPA 스캐닝 구성**:
+    - `@EntityScan` 및 `@EnableJpaRepositories`에 `com.ho.account.journalledger.domain` 및 `com.ho.account.journalledger.adapter.out.persistence` 패키지를 명시적으로 지정하여 `JournalEntry`, `GlBalance`, `UnsettledItem` 등 핵심 JPA 엔티티와 리포지토리가 Spring Container에 정합성 있게 등록되도록 수정.
+  - **`journal-ledger/api/src/main/resources/application.yml` 및 `application-local.yml` 구성**:
+    - `spring.profiles.default: local` 기본 프로파일 선언 및 Cloud Config, Eureka Discovery, Vault 연동 기본 비활성화.
+    - `application-local.yml` 신설 (기존 `application-local.yaml` 대체): isolated H2 메모리 DB(`jdbc:h2:mem:journal_ledger_api_db;MODE=PostgreSQL`), JPA `ddl-auto: create-drop`, `journal-ledger.master-data.local-adapter.enabled: true`, `spring.kafka.listener.auto-startup: false` 및 외부 제어 서버 연동 무효화로 단독 독립 구동 환경 구현.
+  - **테스트 클래스패스 프로퍼티 인코딩 정합화**:
+    - `journal-ledger/api/src/test/resources/application.properties` 파일을 BOM 없는 표준 UTF-8 인코딩으로 재작성하여 프로퍼티 바인딩 오류 예방.
+  - **`JournalLedgerApiLocalProfileTest.java` 런타임 테스트 구축**:
+    - `@ActiveProfiles("local")` 기반 local 프로파일 활성화 상태, isolated H2 DB (`jdbc:h2:mem:journal_ledger_api_db`), JPA create-drop, 외부 cloud 및 Kafka listener 비활성화 상태, JPA Metamodel entity scanning 및 Repository bean 런타임 주석 100% 검증.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Composition Root의 명시적 JPA Entity/Repository 패키지 스캐닝 원칙, 프로파일 기반 H2 런타임 격리, Kafka 이벤트 브로커 디커플링 및 isolated 로컬 인메모리 실행 환경의 아키텍처적 이점을 상세 기술.
+- **검증**:
+  - `./gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:api:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+  - executable JAR 스모크 테스트 `java -jar journal-ledger/api/build/libs/journal-ledger-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` 실행하여 H2 스키마 자동 생성 및 EntityManagerFactory 초기화 100% 기동 확인.
+
 ### 📅 2026-08-12 ([runtime][loan] Fix Loan API ApplicationContext Loading and Configure Local H2 Profile - Issue #79)
 ### [loan] loan:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, 명시적 엔티티/리포지토리 스캐닝 구성 및 H2 인메모리 DB 프로파일 구축
 
