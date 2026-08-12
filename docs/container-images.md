@@ -6,7 +6,7 @@
 
 | Runtime | Build file | Build context | Artifact contract |
 | --- | --- | --- | --- |
-| Java API/Batch/infra | root `Containerfile` 또는 동일한 root `Dockerfile` | repository root | manifest의 정확한 Gradle `bootJar`와 `build/libs`에서 non-plain JAR 정확히 1개 |
+| Java API/Batch/infra | 각 MSA 모듈 하위의 개별 `Dockerfile` | repository root | manifest의 정확한 Gradle `bootJar`와 `build/libs`에서 non-plain JAR 정확히 1개 |
 | Frontend | `frontend/Containerfile` | `frontend` | `npm ci` + Next standalone output |
 
 Java builder와 runtime은 모두 Java 17입니다. 이미지에는 environment profile, DB host, credential을 굽지 않습니다. root `.dockerignore`는 모든 하위 디렉터리의 `.env*`, ignored Spring `application-local.*`, secret 디렉터리와 private-key/keystore 형식을 build context에서 제외하며 공개 환경 예제 파일만 허용합니다. API port, healthcheck, `SPRING_PROFILES_ACTIVE`, datasource와 resource/security policy는 #66/#230 Compose가 주입합니다.
@@ -46,11 +46,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\container-images
 동등한 직접 명령:
 
 ```powershell
-docker build --file Containerfile --build-arg GRADLE_PROJECT=:master-data:api --build-arg JAR_DIRECTORY=master-data/api --tag account/master-data-api:local .
+docker build --file master-data/api/Dockerfile --tag account/master-data-api:local .
 docker build --file frontend/Containerfile --tag account/frontend:local frontend
 ```
 
-`GRADLE_PROJECT`와 `JAR_DIRECTORY`는 Containerfile에서 허용 문자와 실제 build file을 검사합니다. Gradle 성공 후 non-plain executable JAR이 정확히 하나가 아니면 image build는 실패합니다.
+각 모듈별 개별 `Dockerfile`은 하드코딩된 Gradle 경로(`:master-data:api:bootJar`)를 직접 호출하여 단일 진입점을 명확히 보장합니다.
 
 ## Frontend
 
@@ -60,9 +60,10 @@ docker build --file frontend/Containerfile --tag account/frontend:local frontend
 
 기존 module Compose 중 PostgreSQL datasource를 직접 주입하는 Auth, Account Mart, ECL은 URL/user/password를 필수 환경변수로만 받습니다. 추적된 기본 자격증명은 없고 Auth의 Hibernate 정책은 `validate`입니다.
 
-## Legacy Module Dockerfiles
+## MSA Module-Specific Dockerfiles (Canonical)
 
-기존 domain별 Dockerfile에는 aggregator build, Java 21, wildcard JAR copy가 섞여 있습니다. 신규 자동화와 현재 활성 module Compose는 이 파일을 image source로 사용하지 않고 canonical root Containerfile + manifest만 사용합니다. 루트 개발/운영 통합 Compose도 같은 Java 계약을 사용하며, 기존 module Dockerfile 성공은 보장하지 않습니다.
+과거 파편화되어 Java 21과 잘못된 복사 경로가 섞여 있던 레거시 개별 `Dockerfile`들은 전부 Java 17 표준(`gradle:8.7-jdk17-alpine`, `eclipse-temurin:17-jre-alpine`)으로 정상 교정되었습니다.
+현재 이 프로젝트의 신규 자동화 및 활성 통합 Compose(`docker-compose.yml`)는 **각 모듈에 위치한 이 개별 `Dockerfile`들을 공식 빌드 소스(Canonical Image Source)로 사용**하여 MSA 아키텍처의 격리성(Isolation)을 강제합니다.
 
 ## Rollback And Remaining Gate
 
