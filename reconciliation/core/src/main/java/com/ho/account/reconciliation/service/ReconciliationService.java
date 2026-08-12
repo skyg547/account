@@ -27,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.math.BigDecimal;
+import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.reconciliation.domain.ReconciliationRun.ReconciliationRunStatus;
 
 /**
@@ -59,6 +61,7 @@ public class ReconciliationService {
     private final ReconciliationAdjustmentPolicy adjustmentPolicy;
     private final ReconciliationTolerancePolicy tolerancePolicy = new ReconciliationTolerancePolicy();
     private final ExternalReconSnapshotPort externalReconSnapshotPort;
+    private final ReconciliationMatchingEngine matchingEngine;
 
     @Autowired
     public ReconciliationService(ReconciliationUnitRepository reconciliationUnitRepository,
@@ -70,7 +73,8 @@ public class ReconciliationService {
                                  JournalPostingPort journalPostingPort,
                                  ObjectMapper objectMapper,
                                  ReconciliationAdjustmentPolicy adjustmentPolicy,
-                                 ExternalReconSnapshotPort externalReconSnapshotPort) {
+                                 ExternalReconSnapshotPort externalReconSnapshotPort,
+                                 ReconciliationMatchingEngine matchingEngine) {
         this.reconciliationUnitRepository = reconciliationUnitRepository;
         this.reconciliationRuleRepository = reconciliationRuleRepository;
         this.differenceReasonCodeRepository = differenceReasonCodeRepository;
@@ -81,6 +85,23 @@ public class ReconciliationService {
         this.objectMapper = objectMapper;
         this.adjustmentPolicy = adjustmentPolicy;
         this.externalReconSnapshotPort = externalReconSnapshotPort;
+        this.matchingEngine = matchingEngine != null ? matchingEngine : new ReconciliationMatchingEngine(new ItemLevelMatcher());
+    }
+
+    public ReconciliationService(ReconciliationUnitRepository reconciliationUnitRepository,
+                                 ReconciliationRuleRepository reconciliationRuleRepository,
+                                 DifferenceReasonCodeRepository differenceReasonCodeRepository,
+                                 ReconciliationRunRepository reconciliationRunRepository,
+                                 ReconciliationDifferenceRepository reconciliationDifferenceRepository,
+                                 JournalQueryPort journalQueryPort,
+                                 JournalPostingPort journalPostingPort,
+                                 ObjectMapper objectMapper,
+                                 ReconciliationAdjustmentPolicy adjustmentPolicy,
+                                 ExternalReconSnapshotPort externalReconSnapshotPort) {
+        this(reconciliationUnitRepository, reconciliationRuleRepository, differenceReasonCodeRepository,
+             reconciliationRunRepository, reconciliationDifferenceRepository, journalQueryPort,
+             journalPostingPort, objectMapper, adjustmentPolicy, externalReconSnapshotPort,
+             new ReconciliationMatchingEngine(new ItemLevelMatcher()));
     }
 
     // --- ReconciliationUnit methods ---
@@ -377,6 +398,7 @@ public class ReconciliationService {
 
     /**
      * Executes reconciliation for a unit and date.
+     * 항목 수준(Item-Level) N:M 매칭 알고리즘 엔진을 통해 원천과 대상 데이터 건별 대사를 수행합니다.
      *
      * @param command 대사 단위, 기준일, 실행자를 포함한 대사 실행 command
      * @return created reconciliation run
@@ -396,66 +418,80 @@ public class ReconciliationService {
             ReconciliationSnapshot sourceSnapshot = buildSourceSnapshot(reconciliationUnit, reconciliationDate);
             ReconciliationSnapshot targetSnapshot = buildTargetSnapshot(reconciliationUnit, reconciliationDate);
 
+            List<ReconciliationItem> sourceItems = buildSourceItems(reconciliationUnit, reconciliationDate, sourceSnapshot);
+            List<ReconciliationItem> targetItems = buildTargetItems(reconciliationUnit, reconciliationDate, targetSnapshot);
+
             BigDecimal sourceAmount = sourceSnapshot.amount();
-            BigDecimal targetAmount = targetSnapshot.amount();
-            int sourceCount = sourceSnapshot.count();
-            int targetCount = targetSnapshot.count();
-            BigDecimal unmatchedAmount = BigDecimal.ZERO;
-            int unmatchedCount = 0;
-            BigDecimal matchedAmount = BigDecimal.ZERO;
-            int matchedCount = 0;
-            BigDecimal amountDifference = sourceAmount.subtract(targetAmount).abs();
             BigDecimal amountTolerance = tolerancePolicy.resolveAmountTolerance(rules, sourceAmount);
 
-            if (amountDifference.compareTo(amountTolerance) > 0) {
-                unmatchedAmount = amountDifference;
-                unmatchedCount = Math.abs(sourceCount - targetCount);
-                matchedAmount = sourceAmount.min(targetAmount);
-                matchedCount = Math.min(sourceCount, targetCount);
+            ReconciliationMatchingEngine.ExecutionResult result = matchingEngine.matchItems(sourceItems, targetItems, amountTolerance);
 
+            if (!result.discrepancyGroups().isEmpty()) {
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
                         .orElseThrow(() -> new IllegalStateException("Required generic mismatch reason code is missing. Please seed reference data."));
 
-                ReconciliationDifference diff = ReconciliationDifference.createDifference(
-                        run,
-                        ReconciliationDifference.DifferenceType.AMOUNT_MISMATCH,
-                        sourceAmount,
-                        targetAmount,
-                        unmatchedAmount,
-                        reconciliationUnit.getName() + " - amount mismatch (date " + reconciliationDate + ")",
-                        buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()),
-                        buildItemRefJson("SUMMARY", reconciliationDate, reconciliationUnit.getName()),
-                        defaultReason,
-                        "SYSTEM"
-                );
+                for (ItemLevelMatcher.ItemMatchGroup discrepancy : result.discrepancyGroups()) {
+                    ReconciliationDifference.DifferenceType diffType = switch (discrepancy.matchType()) {
+                        case MISSING_TARGET -> ReconciliationDifference.DifferenceType.MISSING_TARGET;
+                        case MISSING_SOURCE -> ReconciliationDifference.DifferenceType.MISSING_SOURCE;
+                        default -> ReconciliationDifference.DifferenceType.AMOUNT_MISMATCH;
+                    };
 
-                if (defaultReason.isAdjustable()) {
-                    ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
-                    // 조정 전표의 멱등 키에 사용할 차이 ID를 확보하기 위해 같은 트랜잭션 안에서 먼저 저장합니다.
-                    diff = reconciliationDifferenceRepository.save(diff);
+                    String sourceRef = buildItemRefJson(discrepancy.sourceItems(), reconciliationDate, reconciliationUnit.getName());
+                    String targetRef = buildItemRefJson(discrepancy.targetItems(), reconciliationDate, reconciliationUnit.getName());
 
-                    Long adjustmentEntryId = createAdjustmentJournalEntry(
-                            reconciliationDate,
-                            unmatchedAmount,
-                            reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
-                            accountCodes,
-                            "SYSTEM",
+                    ReconciliationDifference diff = ReconciliationDifference.createDifference(
                             run,
-                            diff
+                            diffType,
+                            discrepancy.sourceTotalAmount(),
+                            discrepancy.targetTotalAmount(),
+                            discrepancy.differenceAmount(),
+                            reconciliationUnit.getName() + " - " + discrepancy.matchReason() + " (date " + reconciliationDate + ")",
+                            sourceRef,
+                            targetRef,
+                            defaultReason,
+                            "SYSTEM"
                     );
-                    diff.attachAdjustmentJournalEntry(adjustmentEntryId);
+
+                    if (defaultReason.isAdjustable() && discrepancy.differenceAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
+                        diff = reconciliationDifferenceRepository.save(diff);
+
+                        Long adjustmentEntryId = createAdjustmentJournalEntry(
+                                reconciliationDate,
+                                discrepancy.differenceAmount(),
+                                reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
+                                accountCodes,
+                                "SYSTEM",
+                                run,
+                                diff
+                        );
+                        diff.attachAdjustmentJournalEntry(adjustmentEntryId);
+                    }
+                    reconciliationDifferenceRepository.save(diff);
                 }
-                reconciliationDifferenceRepository.save(diff);
-            } else {
-                matchedAmount = sourceAmount.min(targetAmount);
+            }
+
+            long sourceCount = Math.max((long) sourceSnapshot.count(), result.totalSourceCount());
+            long targetCount = Math.max((long) targetSnapshot.count(), result.totalTargetCount());
+            BigDecimal sourceTotalAmount = sourceSnapshot.amount() != null && sourceSnapshot.amount().compareTo(BigDecimal.ZERO) != 0 ? sourceSnapshot.amount() : result.totalSourceAmount();
+            BigDecimal targetTotalAmount = targetSnapshot.amount() != null && targetSnapshot.amount().compareTo(BigDecimal.ZERO) != 0 ? targetSnapshot.amount() : result.totalTargetAmount();
+
+            long matchedCount = result.matchedItemsCount();
+            BigDecimal matchedAmount = result.matchedAmount();
+            long unmatchedCount = result.unmatchedItemsCount();
+
+            if (sourceSnapshot.count() != sourceItems.size() || targetSnapshot.count() != targetItems.size()) {
                 matchedCount = Math.min(sourceCount, targetCount);
+                matchedAmount = sourceTotalAmount.min(targetTotalAmount);
+                unmatchedCount = result.discrepancyGroups().isEmpty() ? 0L : Math.abs(sourceCount - targetCount);
             }
 
             run.completeRun(
-                    (long) sourceCount, sourceAmount,
-                    (long) targetCount, targetAmount,
-                    (long) matchedCount, matchedAmount,
-                    (long) unmatchedCount, unmatchedAmount
+                    sourceCount, sourceTotalAmount,
+                    targetCount, targetTotalAmount,
+                    matchedCount, matchedAmount,
+                    unmatchedCount, result.unmatchedAmount()
             );
 
         } catch (Exception e) {
@@ -580,6 +616,93 @@ public class ReconciliationService {
      * @param unitName 대사 단위 명칭
      * @return 직렬화된 JSON 문자열
      */
+    private List<ReconciliationItem> buildSourceItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
+        JsonNode root = parseCriteriaJson(reconciliationUnit);
+        List<ReconciliationItem> items = externalReconSnapshotPort.loadItems(
+                com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.of(
+                        String.valueOf(reconciliationUnit.getId()),
+                        com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.SOURCE_STAGE,
+                        reconciliationDate,
+                        readText(root, "sourceProductCode"),
+                        readText(root, "sourceCurrencyCode"),
+                        readText(root, "legalEntityCode")
+                )
+        );
+        if (items != null && !items.isEmpty()) {
+            return items;
+        }
+        if (snapshot.count() > 0 || (snapshot.amount() != null && snapshot.amount().compareTo(BigDecimal.ZERO) != 0)) {
+            return List.of(ReconciliationItem.ofSource(
+                    "SUMMARY-SRC-" + reconciliationUnit.getId(),
+                    reconciliationDate,
+                    "SUMMARY",
+                    readText(root, "legalEntityCode"),
+                    readText(root, "sourceProductCode"),
+                    snapshot.amount(),
+                    reconciliationUnit.getName()
+            ));
+        }
+        return List.of();
+    }
+
+    private List<ReconciliationItem> buildTargetItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
+        JsonNode root = parseCriteriaJson(reconciliationUnit);
+        String targetAccountCode = readText(root, "targetAccountCode");
+        List<String> accountCodes = targetAccountCode != null && !targetAccountCode.isBlank() ? List.of(targetAccountCode) : List.of();
+        List<JournalDetailSummary> details = journalQueryPort.getJournalDetailsByAccountCodes(
+                reconciliationDate, reconciliationDate, accountCodes
+        );
+        if (details != null && !details.isEmpty()) {
+            return details.stream()
+                    .map(d -> ReconciliationItem.ofTarget(
+                            String.valueOf(d.getId()),
+                            d.getAccountingDate(),
+                            d.getSlipNo(),
+                            d.getBusinessPartnerCode(),
+                            d.getAccountCode(),
+                            d.getBaseAmount() != null ? d.getBaseAmount() : d.getAmount(),
+                            d.getDetailDescription()
+                    ))
+                    .collect(Collectors.toList());
+        }
+        if (snapshot.count() > 0 || (snapshot.amount() != null && snapshot.amount().compareTo(BigDecimal.ZERO) != 0)) {
+            return List.of(ReconciliationItem.ofTarget(
+                    "SUMMARY-TGT-" + reconciliationUnit.getId(),
+                    reconciliationDate,
+                    "SUMMARY",
+                    null,
+                    targetAccountCode,
+                    snapshot.amount(),
+                    reconciliationUnit.getName()
+            ));
+        }
+        return List.of();
+    }
+
+    private String buildItemRefJson(List<ReconciliationItem> items, LocalDate date, String unitName) {
+        if (items == null || items.isEmpty()) {
+            return buildItemRefJson("SUMMARY", date, unitName);
+        }
+        if (items.size() == 1 && (items.get(0).getId().contains("SUMMARY") || "SUMMARY".equals(items.get(0).getReferenceId()))) {
+            return buildItemRefJson("SUMMARY", date, unitName);
+        }
+        try {
+            List<java.util.Map<String, String>> refList = items.stream().map(item -> java.util.Map.of(
+                    "type", item.getSide().name(),
+                    "id", item.getId() != null ? item.getId() : "",
+                    "refId", item.getReferenceId() != null ? item.getReferenceId() : "",
+                    "partner", item.getPartnerCode() != null ? item.getPartnerCode() : "",
+                    "account", item.getAccountCode() != null ? item.getAccountCode() : "",
+                    "amount", item.getAmount() != null ? item.getAmount().toPlainString() : "0",
+                    "date", item.getTransactionDate() != null ? item.getTransactionDate().toString() : (date != null ? date.toString() : ""),
+                    "unit", unitName != null ? unitName : ""
+            )).collect(Collectors.toList());
+            return objectMapper.writeValueAsString(refList.size() == 1 ? refList.get(0) : refList);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to serialize item reference to JSON", e);
+        }
+    }
+
     private String buildItemRefJson(String type, LocalDate date, String unitName) {
         try {
             java.util.Map<String, String> refMap = java.util.Map.of(
