@@ -1,9 +1,34 @@
-# AI Harness Handoff - 2026-08-12 Issue #311 Decouple Closing Module from Journal-Ledger Core for MSA Isolation
+# AI Harness Handoff - 2026-08-12 Issue #326 Configure Production Git Backend and Property Encryption for Config Server
 
 ## Active Goal And State
 
-- GitHub Issue `#311` (`[closing][msa] journal-ledger:core 직접 의존에 의한 Bounded Context 경계 위반`) completed and merged to `main` via PR #383.
-- Branch `agent/311-closing-msa-bounded-context-decouple` integrated and worktree removed.
+- GitHub Issue `#326` (`[config-server][security] 운영 환경용 Git 백엔드 및 암호화 설정 부재`) completed.
+- Branch `agent/326-config-server-git-backend-encryption` prepared for PR and integration.
+
+## Changes And Boundaries
+
+- Common Configuration & Encryption (`config-server/src/main/resources/application.yml`):
+  - Configured `encrypt.key: ${ENCRYPT_KEY:account-config-server-secret-key}` for symmetric key property encryption/decryption (`/encrypt`, `/decrypt`, `{cipher}...`).
+  - Kept default `SPRING_PROFILES_ACTIVE: native`.
+  - Added extensive pedagogical comments explaining centralized config management, property encryption, and profile separation benefits in MSA.
+- Production Profile Configuration (`config-server/src/main/resources/application-prod.yml`):
+  - Added Git backend configuration (`spring.cloud.config.server.git.uri`, `default-label`, `search-paths`, `clone-on-start`, `username`, `password`) for central Git audit trail and versioning in production.
+- Native Profile Configuration (`config-server/src/main/resources/application-native.yml`):
+  - Added local filesystem search-locations (`CONFIG_REPO_LOCATION: file:./config-repo`) for isolated local development.
+- Configuration Policy Testing (`ConfigServerConfigurationPolicyTest.java`):
+  - Added `encrypt.key` assertion to local defaults test.
+  - Added `productionProfileUsesGitBackendAndPropertyEncryption` test method to verify production Git backend properties.
+- Verification Evidence:
+  - Executed `./gradlew.bat :config-server:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Operational Risk: Production deployment requires proper `ENCRYPT_KEY` environment variable injection and valid Git credentials if private config repositories are used.
+- Rollback: Revert `config-server/src/main/resources/application-prod.yml`, `application-native.yml`, and `application.yml` changes.
+
+---
+
+# AI Harness Handoff - 2026-08-12 Issue #311 Decouple Closing Module from Journal-Ledger Core for MSA Isolation
 
 ## Changes And Boundaries
 

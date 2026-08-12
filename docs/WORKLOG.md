@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([config-server][security] 운영 환경용 Git 백엔드 및 암호화 설정 부재 - Issue #326)
+### [config-server] 운영 환경용 Git 기반 백엔드(URI/Label/Clone-on-start) 및 암호화 대칭키(encrypt.key) 설정 구성
+
+- **작업 배경**:
+  - `config-server`가 로컬 `native` 프로파일 전용 설정만 포함하여 운영 환경(`prod`)에서의 Git 백엔드 기반 중앙집중식 설정 관리, 이력 추적(Audit Trail), 및 기밀 정보(DB 비밀번호, JWT Secret 등)의 대칭키 암호화/복호화(`encrypt.key`) 구성이 부재했음.
+- **주요 변경 사항**:
+  - **공통 설정 보완 (`config-server/src/main/resources/application.yml`)**:
+    - 대칭키 암호화 키 설정 (`encrypt.key: ${ENCRYPT_KEY:account-config-server-secret-key}`) 추가로 `/encrypt`, `/decrypt` 및 `{cipher}...` 암호화 프로퍼티 복호화 활성화.
+    - 기본 프로파일 `SPRING_PROFILES_ACTIVE: native` 유지.
+    - 중앙집중식 설정 관리, 기밀 데이터 암호화, 프로파일 분리의 아키텍처적 및 보안적 이점을 다루는 상세 교육적 주석 작성.
+  - **운영 프로파일 설정 신규 추가 (`config-server/src/main/resources/application-prod.yml`)**:
+    - 운영 환경(`prod`) 선택 시 활성화되는 Git 백엔드 설정 (`spring.cloud.config.server.git.uri`, `default-label`, `search-paths`, `clone-on-start`, `username`, `password`) 구성을 추가하여 버전 관리 및 Audit Trail 확보.
+    - Git 백엔드 및 기밀 보호의 아키텍처적 설계 이점 교육 주석 작성.
+  - **로컬 프로파일 설정 파일 작성 (`config-server/src/main/resources/application-native.yml`)**:
+    - 로컬 격리 개발용 파일시스템 백엔드 (`CONFIG_REPO_LOCATION: file:./config-repo`) 설정 분리 작성.
+  - **정책 검증 테스트 보강 (`ConfigServerConfigurationPolicyTest.java`)**:
+    - `localDefaultsUseNativeRepositoryAndRepositoryAwareReadiness()`에 `encrypt.key` 검증 구문 추가.
+    - `productionProfileUsesGitBackendAndPropertyEncryption()` 테스트 메서드를 추가하여 `application-prod.yml`의 Git 백엔드 설정(URI, default-label, clone-on-start) 정합성을 자동으로 검증하도록 구현.
+- **검증**:
+  - `./gradlew.bat :config-server:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([closing][msa] journal-ledger:core 직접 의존에 의한 Bounded Context 경계 위반 - Issue #311)
 ### [closing] journal-ledger:core 직접 컴파일 의존성 제거, Shared Kernel contracts 포트 연동 및 MSA Bounded Context 경계 격리
 

@@ -1,0 +1,34 @@
+# ==============================================================================
+# 운영 환경(prod) 전용 Spring Cloud Config Server 설정 (Git Backend & Security)
+# ==============================================================================
+# [아키텍처 및 보안 설계 이점 - 상세 교육 가이드]
+# 1. Git 기반 백엔드 및 이력 추적 (Audit Trail & Versioning):
+#    - 운영 환경에서는 `spring.cloud.config.server.git` 구성을 통해 중앙 Git 저장소를 백엔드로 사용합니다.
+#    - 모든 설정 변경 내역이 Git 커밋으로 기록되므로 "누가, 언제, 왜" 설정을 변경했는지 추적(Audit Trail) 가능합니다.
+#    - 장애 발생 시 이전 커밋/태그 시점으로 즉시 롤백할 수 있어 운영 가용성을 대폭 향상시킵니다.
+#
+# 2. 기밀 정보 보안 (Secret Protection in Production):
+#    - Git 저장소에는 기밀 데이터가 평문으로 저장되지 않고 `{cipher}...` 형태의 암호문으로 커밋됩니다.
+#    - Config Server는 실행 시 주입받은 `encrypt.key`를 사용하여 인가된 클라이언트에게 복호화된 값을 전달합니다.
+#
+# 3. 고가용성 및 초기화 탐지 (Clone-on-Start & Reliability):
+#    - `clone-on-start: true` 옵션을 통해 서버 기동 시점에 Git 저장소를 로컬에 복제하여,
+#      최초 설정 조회 시 발생하는 지연(Latency)을 최소화하고 준비 상태(Readiness)를 확증합니다.
+# ==============================================================================
+
+spring:
+  cloud:
+    config:
+      server:
+        git:
+          # 운영용 중앙 Git repository URI 설정 (기본값 및 환경변수 overriding 지원)
+          uri: ${CONFIG_GIT_URI:https://github.com/skyg547/account-config-repo.git}
+          # 기본 참조 브랜치/레이블 설정
+          default-label: ${CONFIG_GIT_LABEL:main}
+          # Git 저장소 내 설정 파일 탐색 경로 (하위 디렉토리 포함)
+          search-paths: ${CONFIG_GIT_SEARCH_PATHS:*}
+          # Config Server 스타트업 시점에 Git repository를 미리 clone하여 첫 요청 응답 지연 방지
+          clone-on-start: ${CONFIG_GIT_CLONE_ON_START:true}
+          # 필요 시 인증을 위한 Git 계정 정보 (Private Repository 사용 시)
+          username: ${CONFIG_GIT_USERNAME:}
+          password: ${CONFIG_GIT_PASSWORD:}

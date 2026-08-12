@@ -1,5 +1,30 @@
+# ==============================================================================
+# Spring Cloud Config Server 공통 설정 (Centralized Configuration & Security)
+# ==============================================================================
+# [아키텍처 및 보안 설계 이점 - 상세 교육 가이드]
+# 1. 중앙집중식 설정 관리 (Centralized Configuration Management):
+#    - 마이크로서비스 아키텍처(MSA)에서 각 서비스(Auth, Master-Data, Budget 등)의
+#      환경 변수 및 동작 설정을 Config Server에서 일괄 관리합니다.
+#    - 이를 통해 각 서비스 재배포 없이 실시간 설정 동기화(Spring Cloud Bus / Actuator /refresh)가 가능합니다.
+#
+# 2. 기밀 정보 암호화 및 복호화 (Property Encryption & Decryption):
+#    - `encrypt.key` 속성을 선언하여 Spring Cloud Config의 대칭키 암호화 엔진을 활성화합니다.
+#    - DB 비밀번호, JWT Secret Key 등 노출 위험이 있는 민감 데이터는 평문 대신
+#      `{cipher}암호화문자열` 형태로 저장하며, Config Server가 클라이언트에 전달 시 자동 복호화합니다.
+#    - REST 엔드포인트(/encrypt, /decrypt)를 활용하여 민감 정보를 안전하게 암호화할 수 있습니다.
+#
+# 3. 멀티 프로파일 기반 환경 분리 (Profile Separation):
+#    - 로컬 개발 환경: `native` 프로파일을 사용하여 로컬 파일 시스템(`./config-repo`)에서 빠르게 읽어옵니다.
+#    - 운영 환경: `prod` 프로파일을 사용하여 Git 저장소 기반 버전 추적 및 보안 강화를 달성합니다.
+# ==============================================================================
+
 server:
   port: ${SERVER_PORT:8888}
+
+# Spring Cloud Config 대칭키(Symmetric Key) 암호화 설정
+# 운영 환경에서는 ENCRYPT_KEY 환경변수 또는 외부 Secret Manager(Vault 등)를 통해 주입받습니다.
+encrypt:
+  key: ${ENCRYPT_KEY:account-config-server-secret-key}
 
 spring:
   application:
@@ -8,8 +33,7 @@ spring:
     config:
       server:
         native:
-          # Git 저장소 대신, 로컬 PC의 'config-repo' 폴더를 바라보도록 설정합니다.
-          # 루트에서 실행하면 기본 경로를 쓰고, Docker는 CONFIG_REPO_LOCATION=file:/config-repo를 주입합니다.
+          # 로컬 개발 시 Git 연동 없이 로컬 디렉토리의 설정 파일들을 참조합니다.
           search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo}
         health:
           repositories:
@@ -17,17 +41,15 @@ spring:
               name: master-data
               profiles: default
 
-        # @todo 운영 외부 노출 전 Config 조회 API를 private network와 mTLS/서비스 인증으로 보호한다.
-        # @todo 다중 노드 운영 전 native 폴더를 검토/승인된 Git backend와 고정 label로 전환하고 refresh/rollback 절차를 검증한다.
-
   profiles:
-    # 로컬 파일 시스템을 사용하겠다는 선언입니다.
+    # 기본 프로파일은 로컬 개발용 'native'로 지정됩니다.
     active: ${SPRING_PROFILES_ACTIVE:native}
 
 config-server:
   repository-probe:
     application: master-data
     profile: default
+
 management:
   endpoints:
     web:
@@ -38,6 +60,6 @@ management:
       probes:
         enabled: true
       group:
-        # 프로세스만 살아 있고 config-repo를 읽지 못하는 상태는 준비 완료가 아닙니다.
+        # 프로세스 상태뿐만 아니라 설정 저장소(configRepository) 접근 가능 여부를 readiness probe에 포함합니다.
         readiness:
           include: readinessState,configRepository
