@@ -1,3 +1,20 @@
+### 📅 2026-08-13 ([runtime][ecl-batch] Fix ECL Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #100)
+### [ecl-batch] ecl:ecl-batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 EclBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `ecl:ecl-batch` 모듈 로컬 실행 시 로컬 H2 데이터베이스 및 local 프로파일 설정 부재로 인한 ApplicationContext 로드 예외 및 Flyway/배치 메타데이터 초기화 부재 문제 발생.
+- **주요 변경 사항**:
+  - **`.gitignore` 테스트 전용 예외 규칙 추가**:
+    - `!**/src/test/resources/application-local.yml` 규칙을 추가하여 test resources 아래의 local 프로파일 설정 파일이 Git 버전 관리에 정합성 있게 포함되도록 수정.
+  - **`ecl/ecl-batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:ecl-batch-local;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/ecl-local-migration`), Spring Batch JDBC 메타데이터 자동 생성, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`EclBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = AllowanceEclBatchApplication.class)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `AllowanceEclBatchApplication`의 ApplicationContext가 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, Flyway 마이그레이션 연동 및 Spring Batch 메타데이터 스키마 초기화의 아키텍처적 목적을 초보자 눈높이에 맞춰 명시.
+- **검증**:
+  - `./gradlew.bat :ecl:ecl-batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL). PR #405를 통해 main 브랜치에 자동 병합 및 삭제 완료.
+
 ### 📅 2026-08-12 ([runtime][journal-ledger] Fix Journal Ledger API ApplicationContext Loading and Configure Local H2 Profile - Issue #75)
 ### [journal-ledger] journal-ledger:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, isolated H2 프로파일 구축 및 메시지 브로커/외부 제어 서버 디커플링
 

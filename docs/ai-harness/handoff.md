@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-13 Issue #100 Fix ECL Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #100 (`[bug] ecl:ecl-batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Integrated PR #405 / Closed
+- **Summary**:
+  - Added exception rule `!**/src/test/resources/application-local.yml` to `.gitignore`.
+  - Created `ecl/ecl-batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:ecl-batch-local;MODE=PostgreSQL`), Flyway V1 baseline migration (`locations: classpath:db/ecl-local-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `EclBatchApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Flyway Baseline Migrations, and Spring Batch Metadata Schema Auto-Initialization.
+  - Verification: `./gradlew.bat :ecl:ecl-batch:test` passed with 100% SUCCESS. PR #405 merged into `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #75 Fix Journal Ledger API ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
