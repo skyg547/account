@@ -1,3 +1,18 @@
+# AI Harness Handoff - 2026-08-12 Issue #302 Decompose Monolithic ReconciliationService for Single Responsibility Principle Compliance
+
+- **Issue**: #302 (`[reconciliation][clean-code] ReconciliationService 거대 클래스(680행+) 및 SRP 위반`)
+- **PR**: (Merged into `main`)
+- **Status**: Completed / Integrated
+- **Summary**:
+  - Decomposed monolithic 680+ lines `ReconciliationService` into specialized domain services (`ReconciliationUnitService`, `ReconciliationRuleService`, `ReconciliationExecutionService`) in compliance with Single Responsibility Principle (SRP).
+  - `ReconciliationUnitService`: Manages `ReconciliationUnit` CRUD and soft deletion.
+  - `ReconciliationRuleService`: Manages `ReconciliationRule` and `DifferenceReasonCode` CRUD and soft deletion.
+  - `ReconciliationExecutionService`: Orchestrates source/target snapshot collection, N:M matching engine execution, difference assignment/resolution, and adjustment journal posting.
+  - Refactored `ReconciliationService` as a Facade Service delegating to specialized services, maintaining 100% backward compatibility for API Controllers, Batch jobs, and legacy constructors.
+  - Added comprehensive pedagogical comments explaining God Class smell removal, SRP, and Facade Pattern encapsulation.
+  - Created unit tests (`ReconciliationUnitServiceTest`, `ReconciliationRuleServiceTest`).
+  - Verification: Executed `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test` (100% SUCCESSFUL).
+
 # AI Harness Handoff - 2026-08-12 Issue #307 Refactor Balance Reaggregation Batch Job to Chunk-Oriented Processing & Guarantee Idempotency
 
 - **Issue**: #307 (`[journal-ledger:batch][extensibility] BalanceReaggregationBatchConfig 대량 데이터 처리 성능 및 멱등성 한계`)
