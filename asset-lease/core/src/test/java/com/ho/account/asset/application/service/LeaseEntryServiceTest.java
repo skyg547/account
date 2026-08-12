@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -149,6 +150,35 @@ class LeaseEntryServiceTest {
     }
 
     @Test
+    void processMonthlyLeaseAccountingClampsROUDepreciationToPreventNegativeBookValue() {
+        LeaseContract contract = createIfrs16LeaseContract();
+        LeasePaymentSchedule schedule = createSchedule(contract);
+        RightOfUseAsset rouAsset = createRightOfUseAsset(contract);
+        rouAsset.setCurrentBookValue(new BigDecimal("400.00"));
+        rouAsset.setAccumulatedDepreciation(new BigDecimal("11600.00"));
+
+        LeaseLiability liability = createLeaseLiability(contract);
+        FakeLeasePersistencePort persistencePort = new FakeLeasePersistencePort(
+                List.of(contract),
+                List.of(schedule),
+                rouAsset,
+                liability);
+        RecordingAssetEventPort eventPort = new RecordingAssetEventPort();
+        LeaseEntryService service = new LeaseEntryService(
+                persistencePort,
+                eventPort,
+                new RecordingLeasePaymentResolutionPort(),
+                new StaticLeaseAccountMappingPort());
+
+        service.processMonthlyLeaseAccounting(LocalDate.of(2026, 5, 31), "lease-user");
+
+        assertThat((BigDecimal) eventPort.eventData.get("depreciationAmount")).isEqualByComparingTo("400.00");
+        assertThat(rouAsset.getCurrentBookValue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(rouAsset.getAccumulatedDepreciation()).isEqualByComparingTo("12000.00");
+        assertEquals(RightOfUseAsset.STATUS_FULLY_DEPRECIATED, rouAsset.getStatus());
+    }
+
+    @Test
     void registerLeaseContractCalculatesAndSetsPresentValueAutomatically() {
         LeaseContract contract = createIfrs16LeaseContract();
         contract.setDiscountRate(new BigDecimal("6.0"));
@@ -215,6 +245,7 @@ class LeaseEntryServiceTest {
         asset.setCurrentBookValue(new BigDecimal("12000.00"));
         asset.setAccumulatedDepreciation(BigDecimal.ZERO);
         asset.setDepreciationAmountPerPeriod(new BigDecimal("1000.00"));
+        asset.setStatus(RightOfUseAsset.STATUS_ACTIVE);
         return asset;
     }
 

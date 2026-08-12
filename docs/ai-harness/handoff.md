@@ -1,3 +1,28 @@
+# AI Harness Handoff - 2026-08-12 Issue #317 Enforce Non-Negative Book Value Floor During Lease Asset Depreciation
+
+## Active Goal And State
+
+- GitHub Issue `#317` (`[asset-lease][financial] 사용권자산 감가상각 시 장부가액 음수 전락 위험 — 상태 검증 부재`) completed.
+- Worktree `C:\tmp\account-317-asset-lease-depreciation-book-value-floor` configured and verified.
+
+## Changes And Boundaries
+
+- Domain Defense & Safe Depreciation Calculation (`RightOfUseAsset.java`):
+  - Implemented `calculateSafeDepreciationAmount(BigDecimal targetAmount)` and `depreciate()` to guarantee IFRS 16 non-negative book value floor (0원 이상) and automatic transition to `FULLY_DEPRECIATED`.
+  - Added extensive pedagogical comments explaining IFRS 16 rules, domain invariants, and rich domain model benefits.
+- Fixed Asset Defense & Safe Depreciation Calculation (`FixedAsset.java`):
+  - Implemented `calculateSafeDepreciationAmount(BigDecimal targetAmount)` ensuring book value never falls below residual value.
+  - Added domain invariant guards in `depreciate(LocalDate processDate)` and updated pedagogical comments.
+- Application Service Delegation:
+  - Refactored `LeaseEntryService.processContractMonthlyAccounting()` to delegate ROU asset depreciation calculation and state mutation to `RightOfUseAsset.depreciate()`.
+  - Added pedagogical comments to `FixedAssetEntryService.processMonthlyDepreciation()`.
+- Verification Evidence:
+  - Executed `./gradlew.bat :asset-lease:core:test :asset-lease:api:test :asset-lease:batch:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Rollback: Revert commit on `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #318 Decouple JPA Annotations from Payable and Receivable Domain Entities
 
 ## Active Goal And State
