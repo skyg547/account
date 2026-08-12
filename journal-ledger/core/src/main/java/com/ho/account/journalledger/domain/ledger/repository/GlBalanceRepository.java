@@ -35,4 +35,20 @@ public interface GlBalanceRepository extends JpaRepository<GlBalance, Long> {
             @Param("endDate") LocalDate endDate,
             @Param("accountCode") String accountCode,
             @Param("currencyCode") String currencyCode);
+
+    @Query("SELECT COUNT(g), " +
+            "SUM(CASE WHEN :amountBasis = 'CREDIT' THEN g.creditAmount " +
+            "         WHEN :amountBasis = 'ENDING_BALANCE' THEN g.endingBalance " +
+            "         WHEN :amountBasis = 'ABS_ENDING_BALANCE' THEN ABS(g.endingBalance) " +
+            "         ELSE g.debitAmount END) " +
+            "FROM GlBalance g " +
+            "WHERE g.balanceDate BETWEEN :startDate AND :endDate " +
+            "AND (:accountCode IS NULL OR g.accountCode = :accountCode) " +
+            "AND (:currencyCode IS NULL OR g.currencyCode = :currencyCode)")
+    Object calculateGlBalanceAggregate(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("accountCode") String accountCode,
+            @Param("currencyCode") String currencyCode,
+            @Param("amountBasis") String amountBasis);
 }

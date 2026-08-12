@@ -73,8 +73,8 @@ class ReconManagerServiceTest {
         when(journalQueryPort.getJournalDetailAggregateByAccount(reconDate, reconDate, JournalSide.DEBIT, "11000"))
                 .thenReturn(new com.ho.account.contracts.journal.JournalDetailAggregateSummary(
                         1L, new BigDecimal("980.00")));
-        when(ledgerQueryPort.getGlBalanceSummaries(reconDate, reconDate, "11000", "KRW"))
-                .thenReturn(List.of(ledgerBalance("950.00")));
+        when(ledgerQueryPort.calculateLedgerSummary(reconDate, reconDate, "11000", "KRW", "DEBIT"))
+                .thenReturn(new com.ho.account.contracts.ledger.LedgerAggregateSummary(1L, new BigDecimal("950.00")));
 
         ReconciliationRun run = reconManagerService.performDeepReconciliation(10L, reconDate, "tester");
 

@@ -2,16 +2,19 @@ package com.ho.account.reconciliation.infrastructure.local;
 
 import com.ho.account.contracts.journal.JournalDetailAggregateSummary;
 import com.ho.account.contracts.journal.JournalDetailSummary;
+import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
+import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -73,15 +76,27 @@ public class ReconciliationLocalExternalPortConfiguration {
                 summary.setStatus("LOCAL");
                 return summary;
             }
+
+            @Override
+            public Optional<JournalSummary> findBySlipNo(String slipNo) {
+                return Optional.empty();
+            }
         };
     }
 
     @Bean
     @ConditionalOnMissingBean
     JournalPostingPort reconciliationLocalJournalPostingPort() {
-        return command -> {
-            long id = journalSequence.getAndIncrement();
-            return new JournalPostingResult(id, "LOCAL-RECON-" + id, "DRAFT");
+        return new JournalPostingPort() {
+            @Override
+            public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
+                long id = journalSequence.getAndIncrement();
+                return new JournalPostingResult(id, "LOCAL-RECON-" + id, "DRAFT");
+            }
+
+            @Override
+            public void approveAndPost(Long journalEntryId, String actor) {
+            }
         };
     }
 
@@ -107,6 +122,16 @@ public class ReconciliationLocalExternalPortConfiguration {
                     String departmentCode,
                     String currencyCode) {
                 return List.of();
+            }
+
+            @Override
+            public LedgerAggregateSummary calculateLedgerSummary(
+                    LocalDate startDate,
+                    LocalDate endDate,
+                    String accountCode,
+                    String currencyCode,
+                    String amountBasis) {
+                return new LedgerAggregateSummary(0L, BigDecimal.ZERO);
             }
         };
     }

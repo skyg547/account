@@ -1,5 +1,6 @@
 package com.ho.account.journalledger.application.service.ledger;
 
+import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
@@ -337,5 +338,14 @@ public class LedgerService {
 
     private BigDecimal zeroIfNull(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
+    }
+
+    @Transactional(readOnly = true)
+    public LedgerAggregateSummary calculateGlBalanceAggregate(LocalDate startDate,
+                                                               LocalDate endDate,
+                                                               String accountCode,
+                                                               String currencyCode,
+                                                               String amountBasis) {
+        return ledgerBalancePersistencePort.calculateGlBalanceAggregate(startDate, endDate, accountCode, currencyCode, amountBasis);
     }
 }

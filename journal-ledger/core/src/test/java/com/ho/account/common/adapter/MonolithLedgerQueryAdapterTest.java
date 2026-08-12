@@ -75,6 +75,23 @@ class MonolithLedgerQueryAdapterTest {
         assertThat(summary.getEndingBalance()).isEqualByComparingTo("400.00");
     }
 
+    @Test
+    void calculateLedgerSummaryDelegatesToLedgerService() {
+        LocalDate date = LocalDate.of(2026, 5, 11);
+        MonolithLedgerQueryAdapter adapter = new MonolithLedgerQueryAdapter(ledgerService);
+        com.ho.account.contracts.ledger.LedgerAggregateSummary expectedSummary =
+                new com.ho.account.contracts.ledger.LedgerAggregateSummary(5L, new BigDecimal("1500.00"));
+
+        when(ledgerService.calculateGlBalanceAggregate(date, date, "101000", "KRW", "DEBIT"))
+                .thenReturn(expectedSummary);
+
+        com.ho.account.contracts.ledger.LedgerAggregateSummary summary =
+                adapter.calculateLedgerSummary(date, date, "101000", "KRW", "DEBIT");
+
+        assertThat(summary.getCount()).isEqualTo(5L);
+        assertThat(summary.getTotalAmount()).isEqualByComparingTo("1500.00");
+    }
+
     private GlBalance glBalance(
             String accountCode,
             String currencyCode,

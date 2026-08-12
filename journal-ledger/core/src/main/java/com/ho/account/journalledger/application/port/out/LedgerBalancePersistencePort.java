@@ -1,5 +1,6 @@
 package com.ho.account.journalledger.application.port.out;
 
+import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
@@ -48,4 +49,7 @@ public interface LedgerBalancePersistencePort {
     List<SlBalance> findSlBalances(
             LocalDate startDate, LocalDate endDate, String accountCode,
             String businessPartnerCode, String departmentCode, String currencyCode);
+
+    LedgerAggregateSummary calculateGlBalanceAggregate(
+            LocalDate startDate, LocalDate endDate, String accountCode, String currencyCode, String amountBasis);
 }
