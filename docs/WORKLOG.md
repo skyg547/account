@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([gateway][msa] Gateway 라우팅 룰 및 Rate Limiter, CORS 설정 누락 - Issue #328)
+### [gateway] Eureka 동적 서비스 디스커버리 라우팅, 글로벌 CORS 정책(maxAge/Authorization), 및 IP/RateLimiter 설정 구성을 통한 API Gateway 최전방 보호 완성
+
+- **작업 배경**:
+  - API Gateway의 Eureka 동적 라우팅(`discovery.locator`), 글로벌 CORS 정책(허용 오리진/메서드/헤더/클라이언트 캐싱 maxAge) 및 DDoS 방어/트래픽 제어 필터(`RequestRateLimiter`) 설정이 누락되어 외부 클라이언트의 비정상적 과도 요청으로부터 백엔드 서비스 보호 및 도메인 격리 통제가 미흡했음.
+- **주요 변경 사항**:
+  - **`RateLimiterConfig.java` 신규 작성**:
+    - IP 기반 `ipKeyResolver` `@Bean` 등록: `X-Forwarded-For` 프록시 헤더를 최우선으로 검사하여 L7 로드밸런서/프록시를 경과한 클라이언트의 실제 IP 주소를 추적하도록 구성.
+    - ConcurrentHashMap 기반 Thread-Safe Token Bucket `inMemoryRateLimiter` 구현: Redis 연결이 활성화되지 않은 개발/단단 테스트 환경에서도 안전하게 Rate Limiter 필터가 동작하도록 토큰 소모/충전 및 HTTP 헤더(`X-RateLimit-*`) 계산 구성.
+  - **`gateway/src/main/resources/application.yml` 및 `config-repo/gateway-service.yml` 보완**:
+    - `spring.cloud.gateway.discovery.locator.enabled: true`, `lower-case-service-id: true`, `lower-case-service-id-with-rest-site: true` 추가하여 Eureka 동적 디스커버리 라우팅 활성화.
+    - `spring.cloud.gateway.globalcors` 정책에 `allowedOriginPatterns` (`http://localhost:*`, `http://127.0.0.1:*`, `https://*.myaccount.com`), `exposedHeaders` (`Authorization` 추가), `maxAge: 3600` (클라이언트 캐싱 1시간) 설정 추가.
+    - `default-filters`에 `RequestRateLimiter` (`key-resolver: "#{@ipKeyResolver}"`, `rate-limiter: "#{@inMemoryRateLimiter}"`) 연동.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - API Gateway의 Bounded Context 동적 라우팅, 글로벌 CORS 도메인 격리, 그리고 IP 기반 Rate Limiter를 통한 최전방 백엔드 보호의 MSA 아키텍처적 이점을 다룬 상세 주석 작성.
+  - **테스트 케이스 추가 및 검증**:
+    - `RateLimiterConfigTest.java` 작성: `X-Forwarded-For` 헤더 IP 추출, RemoteAddress fallback, `inMemoryRateLimiter` 토큰 소모/제한 인가 로직 단독 테스트 작성.
+    - `GatewayRouteSecurityPolicyTest.java` 보완: Discovery locator, globalcors maxAge, RequestRateLimiter default filter 파싱 및 설정 검증 테스트 추가.
+- **검증**:
+  - `./gradlew.bat :gateway:test` 실행하여 42개 테스트 100% 성공 확인 (BUILD SUCCESSFUL). PR #386 main 병합 완료.
+
 ### 📅 2026-08-12 ([ecl][financial] 금융 통계(ECL/PD) 계산 로직에 부동소수점(double) 자료형 사용 — 금액 정밀도 위험 - Issue #324)
 ### [ecl] 부동소수점(double) 자료형 사용 전면 제거, BigDecimal 및 MathContext (소수점 8~10자리 정밀도) 전면 전환
 

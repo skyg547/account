@@ -1,3 +1,24 @@
+## 2026-08-12 - Issue #328 Configure Gateway Dynamic Discovery Routing, Global CORS, and Rate Limiter
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/328-gateway-routing-cors-rate-limiter` / `C:\tmp\account-328-gateway-routing-cors-rate-limiter`.
+- Base: `origin/main`.
+- Scope:
+  - Dynamic Discovery Routing:
+    - Added `spring.cloud.gateway.discovery.locator.enabled: true`, `lower-case-service-id: true`, and `lower-case-service-id-with-rest-site: true` in `application.yml` and `config-repo/gateway-service.yml`.
+  - Global CORS Configuration:
+    - Configured `allowedOriginPatterns` (`http://localhost:*`, `http://127.0.0.1:*`, `https://*.myaccount.com`), `exposedHeaders` (`Authorization`), and `maxAge: 3600` client-side caching.
+  - Rate Limiter & Key Resolver (`RateLimiterConfig.java`):
+    - Implemented `ipKeyResolver` `@Bean` prioritizing `X-Forwarded-For` header for real client IP extraction.
+    - Implemented `inMemoryRateLimiter` (`RateLimiter<Config>`) Thread-Safe Token Bucket implementation with response header calculations (`X-RateLimit-*`).
+    - Configured `default-filters` in Gateway YAML to apply `RequestRateLimiter` globally.
+  - Pedagogical Comments:
+    - Added extensive architectural comments explaining MSA Single Point of Entry, Bounded Context dynamic routing, global CORS domain isolation, and DDoS/traffic control via IP KeyResolver & Rate Limiting.
+  - Test Validation:
+    - Created `RateLimiterConfigTest.java` to test `ipKeyResolver` header/remoteAddress extraction and `inMemoryRateLimiter` token consumption/limiting.
+    - Updated `GatewayRouteSecurityPolicyTest.java` to assert discovery locator, globalcors maxAge, and default filter configurations.
+    - Executed `./gradlew.bat :gateway:test` (42 tests 100% SUCCESSFUL). PR #386 merged into `main`.
+
 ## 2026-08-12 - Issue #324 Convert ECL and PD Calculation Logic to BigDecimal for Financial Precision
 
 - Owner: Gemini (Agent loop subagent)

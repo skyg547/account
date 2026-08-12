@@ -1,3 +1,34 @@
+# AI Harness Handoff - 2026-08-12 Issue #328 Configure Gateway Dynamic Discovery Routing, Global CORS, and Rate Limiter
+
+## Active Goal And State
+
+- GitHub Issue `#328` (`[gateway][msa] Gateway 라우팅 룰 및 Rate Limiter, CORS 설정 누락`) completed and merged into `main` via PR `#386`.
+- Branch `agent/328-gateway-routing-cors-rate-limiter` integrated and cleaned up.
+
+## Changes And Boundaries
+
+- Dynamic Discovery Routing:
+  - Added `spring.cloud.gateway.discovery.locator.enabled: true`, `lower-case-service-id: true`, and `lower-case-service-id-with-rest-site: true` in `application.yml` and `config-repo/gateway-service.yml`.
+- Global CORS Configuration:
+  - Configured `allowedOriginPatterns` (`http://localhost:*`, `http://127.0.0.1:*`, `https://*.myaccount.com`), `exposedHeaders` (`Authorization`), and `maxAge: 3600` client-side caching.
+- Rate Limiter & Key Resolver (`RateLimiterConfig.java`):
+  - Implemented `ipKeyResolver` `@Bean` prioritizing `X-Forwarded-For` header for real client IP extraction.
+  - Implemented `inMemoryRateLimiter` (`RateLimiter<Config>`) Thread-Safe Token Bucket implementation with response header calculations (`X-RateLimit-*`).
+  - Configured `default-filters` in Gateway YAML to apply `RequestRateLimiter` globally.
+- Pedagogical Comments:
+  - Added extensive architectural comments explaining MSA Single Point of Entry, Bounded Context dynamic routing, global CORS domain isolation, and DDoS/traffic control via IP KeyResolver & Rate Limiting.
+- Verification Evidence:
+  - Created `RateLimiterConfigTest.java` to test `ipKeyResolver` header/remoteAddress extraction and `inMemoryRateLimiter` token consumption/limiting.
+  - Updated `GatewayRouteSecurityPolicyTest.java` to assert discovery locator, globalcors maxAge, and default filter configurations.
+  - Executed `./gradlew.bat :gateway:test` with 42 tests 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Risk: Ensure proxy servers or ALBs properly pass the `X-Forwarded-For` header for accurate IP rate limiting.
+- Rollback: Revert `RateLimiterConfig.java`, `RateLimiterConfigTest.java`, `application.yml`, and `config-repo/gateway-service.yml`.
+
+---
+
 # AI Harness Handoff - 2026-08-12 Issue #324 Convert ECL and PD Calculation Logic to BigDecimal for Financial Precision
 
 ## Active Goal And State
