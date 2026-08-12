@@ -1,3 +1,14 @@
+# AI Harness Handoff - 2026-08-13 Issue #92 Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #92 (`[bug] tax:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Pending
+- **Summary**:
+  - Created `tax/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/tax-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `TaxBatchApplicationTests.java` verifying ApplicationContext loading, Job/UseCase bean injection, and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Spring Batch Metadata Schema Auto-Initialization, and Bean Injection Verification.
+  - Verification: `./gradlew.bat :tax:batch:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #93 Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
