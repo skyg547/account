@@ -48,9 +48,16 @@ public class PayableLocalExternalPortConfiguration {
     @Bean
     @ConditionalOnMissingBean
     JournalPostingPort payableLocalJournalPostingPort() {
-        return command -> {
-            long id = journalSequence.getAndIncrement();
-            return new JournalPostingResult(id, "LOCAL-AP-" + id, "DRAFT");
+        return new JournalPostingPort() {
+            @Override
+            public JournalPostingResult createDraftEntry(com.ho.account.contracts.journal.JournalEntryCommand command) {
+                long id = journalSequence.getAndIncrement();
+                return new JournalPostingResult(id, "LOCAL-AP-" + id, "DRAFT");
+            }
+
+            @Override
+            public void approveAndPost(Long journalEntryId, String actor) {
+            }
         };
     }
 

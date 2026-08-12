@@ -1,3 +1,16 @@
+# AI Harness Handoff - 2026-08-12 Issue #300 Refactor Payable & Receivable Batch Jobs to Chunk-Oriented Processing
+
+- **Issue**: #300 (`[payable, receivable][extensibility] 대용량 배치 처리에 부적합한 Tasklet 및 단일 트랜잭션 루프`)
+- **PR**: (Prepared for PR creation and merge)
+- **Status**: Completed / Review ready
+- **Summary**:
+  - Refactored `ReceivableAutoMatchingBatchConfig` and `PayablePaymentRunBatchConfig` from single-transaction Tasklet implementations to Spring Batch Chunk-Oriented Architecture (`JpaPagingItemReader`, `ItemWriter`, Chunk Size 100).
+  - `ReceivableAutoMatchingBatchConfig.java`: Configured `JpaPagingItemReader<CollectionJpaEntity>` (`@StepScope`, pageSize=100) and `ItemWriter<CollectionJpaEntity>` to process candidate collections page-by-page.
+  - `PaymentUseCase` & `PaymentService`: Extended interface and implementation with `createPaymentRun`, `processPaymentRunChunk`, and `completePaymentRun` methods.
+  - `PayablePaymentRunBatchConfig.java`: Structured into a 3-step pipeline (`createPaymentRunStep` -> `processPayablePaymentRunChunkStep` -> `completePaymentRunStep`).
+  - Added comprehensive pedagogical comments detailing Spring Batch Chunk-Oriented Architecture, Memory Footprint Management (caps memory at $O(\text{chunkSize})$ to prevent Heap OOM), and Transaction Boundary Segregation.
+  - Verification: Executed `./gradlew.bat :receivable:batch:test :payable:batch:test` (100% SUCCESSFUL).
+
 # AI Harness Handoff - 2026-08-12 Issue #302 Decompose Monolithic ReconciliationService for Single Responsibility Principle Compliance
 
 - **Issue**: #302 (`[reconciliation][clean-code] ReconciliationService 거대 클래스(680행+) 및 SRP 위반`)

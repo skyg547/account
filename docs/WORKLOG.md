@@ -1,3 +1,29 @@
+### 📅 2026-08-12 ([payable, receivable][extensibility] 대용량 배치 처리에 부적합한 Tasklet 및 단일 트랜잭션 루프 - Issue #300)
+### [payable, receivable] 단일 트랜잭션 Tasklet 배치를 Spring Batch 청크 지향 아키텍처(JpaPagingItemReader, ItemWriter, Chunk Size 100)로 전면 리팩토링 및 힙 메모리 OOM 예방
+
+- **작업 배경**:
+  - 기존 `ReceivableAutoMatchingBatchConfig` 및 `PayablePaymentRunBatchConfig`는 단일 트랜잭션 Tasklet 방식으로 수만~수십만 건의 대량 수납/채무 데이터를 한 번에 메모리에 로딩하여 처리했음.
+  - 이로 인해 대용량 적재 시 JVM 힙 메모리 고갈(**Heap Out Of Memory**, OOM), DB 커넥션 타임아웃 및 Long-Transaction DB Lock이 발생하고, 중간 실패 시 전체 작업이 롤백되는 한계가 존재했음.
+- **주요 변경 사항**:
+  - **`ReceivableAutoMatchingBatchConfig.java` 청크 리팩토링**:
+    - 단일 Tasklet 실행 구조를 `chunk(100)` 기반 청크 지향 아키텍처로 전면 리팩토링.
+    - `receivableAutoMatchingItemReader`: `JpaPagingItemReader<CollectionJpaEntity>` (`@StepScope`, pageSize=100)를 활용하여 자동 매칭 대상 수납 데이터를 페이징 로딩.
+    - `receivableAutoMatchingItemWriter`: `ItemWriter<CollectionJpaEntity>`를 통해 100건 청크 단위로 `collectionUseCase.attemptAutoMatching` 실행 및 트랜잭션 커밋.
+  - **`PaymentUseCase` 및 `PaymentService` 청크 처리 포트/서비스 확장**:
+    - `createPaymentRun(PaymentRunCommand)`: PaymentRun 헤더 생성 및 INITIATED 상태 초기화.
+    - `processPaymentRunChunk(paymentRunId, runDate, payableIds)`: 100건 청크 단위의 만기 채무 ID 목록을 받아 지급(Payment) 엔티티를 일괄 저장.
+    - `completePaymentRun(paymentRunId)`: 청크 처리 완료 후 PaymentRun 상태를 PROCESSING으로 업데이트.
+  - **`PayablePaymentRunBatchConfig.java` 3단계 청크 파이프라인 전면 리팩토링**:
+    - **Step 1 (`createPaymentRunStep`)**: Tasklet을 통해 PaymentRun 생성 후 `JobExecutionContext`에 `paymentRunId`와 `runDate` 기록.
+    - **Step 2 (`processPayablePaymentRunChunkStep`)**: Chunk 기반 프로세싱 (Chunk Size 100).
+      - `payablePaymentRunItemReader`: `JpaPagingItemReader<PayableJpaEntity>`로 만기 채무(`dueDate < runDate + 1` AND `status != PAID`) 건을 100건 페이징 로딩하여 힙 메모리 사용량을 $O(\text{chunkSize})$로 제어.
+      - `payablePaymentRunItemWriter`: 100건 단위로 `paymentUseCase.processPaymentRunChunk` 호출 및 커밋.
+    - **Step 3 (`completePaymentRunStep`)**: Tasklet으로 배치 완료 후 PaymentRun 상태 변경.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Spring Batch 청크 지향 아키텍처(Chunk-oriented Architecture), 메모리 풋프린트 관리(Memory Footprint Control, Heap OOM 및 GC 부담 최소화), 트랜잭션 경계 분리(Transaction Boundary Segregation, partial failure rollback/retry 보장)의 아키텍처적 이점을 다룬 상세설명 작성.
+- **검증**:
+  - `./gradlew.bat :receivable:batch:test :payable:batch:test` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([reconciliation][clean-code] ReconciliationService 거대 클래스(680행+) 및 SRP 위반 - Issue #302)
 ### [reconciliation] 거대 클래스 ReconciliationService를 단일 책임 원칙(SRP)에 따라 전용 서비스(UnitService, RuleService, ExecutionService)로 분리 및 파사드 패턴 적용
 

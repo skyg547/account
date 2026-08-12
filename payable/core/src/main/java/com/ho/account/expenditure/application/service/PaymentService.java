@@ -64,6 +64,30 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public PaymentRun initiatePaymentRun(PaymentRunCommand command) {
+        PaymentRun savedPaymentRun = createPaymentRun(command);
+
+        List<Payable> duePayables = payablePersistencePort.findByDueDateBeforeAndStatusNot(
+                command.runDate().plusDays(1), PayableStatus.PAID);
+
+        List<Long> payableIds = duePayables.stream()
+                .map(payable -> {
+                    if (payable.getId() == null) {
+                        throw new IllegalStateException("Persisted payable must have an ID before payment run creation");
+                    }
+                    return payable.getId();
+                })
+                .toList();
+
+        if (!payableIds.isEmpty()) {
+            processPaymentRunChunk(savedPaymentRun.getId(), command.runDate(), payableIds);
+        }
+
+        completePaymentRun(savedPaymentRun.getId());
+        return paymentRunPersistencePort.findById(savedPaymentRun.getId()).orElse(savedPaymentRun);
+    }
+
+    @Override
+    public PaymentRun createPaymentRun(PaymentRunCommand command) {
         LocalDate runDate = command.runDate();
         validateAccountingPeriodOpen(runDate);
 
@@ -74,27 +98,35 @@ public class PaymentService implements PaymentUseCase {
         paymentRun.setDescription(description);
         paymentRun.setCreatedBy(createdBy);
         paymentRun.setStatus(PaymentRunStatus.INITIATED);
-        PaymentRun savedPaymentRun = paymentRunPersistencePort.save(paymentRun);
+        return paymentRunPersistencePort.save(paymentRun);
+    }
 
-        List<Payable> duePayables = payablePersistencePort.findByDueDateBeforeAndStatusNot(
-                runDate.plusDays(1), PayableStatus.PAID);
+    @Override
+    public void processPaymentRunChunk(Long paymentRunId, LocalDate runDate, List<Long> payableIds) {
+        PaymentRun paymentRun = paymentRunPersistencePort.findById(paymentRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment run not found: " + paymentRunId));
 
-        for (Payable payable : duePayables) {
-            if (payable.getId() == null) {
-                throw new IllegalStateException("Persisted payable must have an ID before payment run creation");
-            }
+        for (Long payableId : payableIds) {
+            Payable payable = payablePersistencePort.findById(payableId)
+                    .orElseThrow(() -> new IllegalStateException("Payable not found: " + payableId));
+
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);
-            payment.setVendorCode(payable.getVendorCode()); // ID 기반 참조로 변경
+            payment.setVendorCode(payable.getVendorCode());
             payment.setPayableId(payable.getId());
             payment.setAmount(payable.getOutstandingAmount());
             payment.setStatus(PaymentStatus.INITIATED);
-            payment.setPaymentRun(savedPaymentRun);
+            payment.setPaymentRun(paymentRun);
             paymentPersistencePort.save(payment);
         }
+    }
 
-        savedPaymentRun.setStatus(PaymentRunStatus.PROCESSING);
-        return paymentRunPersistencePort.save(savedPaymentRun);
+    @Override
+    public void completePaymentRun(Long paymentRunId) {
+        PaymentRun paymentRun = paymentRunPersistencePort.findById(paymentRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment run not found: " + paymentRunId));
+        paymentRun.setStatus(PaymentRunStatus.PROCESSING);
+        paymentRunPersistencePort.save(paymentRun);
     }
 
     @Override
