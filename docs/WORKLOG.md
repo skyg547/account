@@ -1,3 +1,18 @@
+### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile - Issue #93)
+### [expenditure-resolution] expenditure-resolution:api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionApiApplicationTests 추가
+
+- **작업 배경**:
+  - `expenditure-resolution:api` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Cloud 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`expenditure-resolution/api/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:expenditure_resolution_api_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/expenditure-resolution-migration`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`ExpenditureResolutionApiApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `ExpenditureResolutionApiApplication`의 ApplicationContext, Controller (`ExpenditureController`, `APPaymentController`), UseCase (`ExpenditureResolutionUseCase`, `APPaymentUseCase`), 및 Outbound Port Stub 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **`ExpenditureResolutionPostgresqlSchemaContextTest.java` 리팩토링**:
+    - `@ActiveProfiles("local")` 지정을 적용하고 초보자를 위한 교육적 상세 주석(Pedagogical Comments) 추가.
+- **검증**:
+  - `./gradlew.bat :expenditure-resolution:api:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #94)
 ### [expenditure-resolution] expenditure-resolution:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionBatchApplicationTests 추가
 

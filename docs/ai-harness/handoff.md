@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-13 Issue #93 Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #93 (`[bug] expenditure-resolution:api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Pending
+- **Summary**:
+  - Created `expenditure-resolution/api/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_api_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ExpenditureResolutionApiApplicationTests.java` verifying ApplicationContext loading, Controller/UseCase/Port stub injection, and local profile isolation.
+  - Refactored `ExpenditureResolutionPostgresqlSchemaContextTest.java` to use `@ActiveProfiles("local")`.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Outbound Port Stub Adaptations.
+  - Verification: `./gradlew.bat :expenditure-resolution:api:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #94 Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
