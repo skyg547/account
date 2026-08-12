@@ -1,3 +1,23 @@
+### 📅 2026-08-12 ([tax][extensibility] 대량 세금계산서 데이터 한번에 메모리 로딩 — OOM 위험 - Issue #322)
+### [tax] 세금계산서 일괄 배치 검증 Paging/Chunking 도입을 통한 Out-Of-Memory(OOM) 방지 및 메모리 풋프린트 관리
+
+- **작업 배경**:
+  - 기존 `TaxInvoiceBatchService.validatePurchaseInvoices`에서 `findByIssueDateBetween`을 통해 검증 대상 세금계산서 전체를 단일 `List`로 메모리에 한 번에 적재하던 방식은 데이터 수만~수십만 건 이상 시 JVM Heap 메모리 적재량이 $O(N)$으로 증가하여 Out-Of-Memory(OOM)가 발생할 위험이 존재함.
+- **주요 변경 사항**:
+  - **Inbound Port 및 Paging 지원 아웃바운드 포트/레포지토리 추가**:
+    - `TaxInvoiceBatchUseCase`: default 청크 사이즈(500건) 오버로드 및 custom `pageSize` 파라미터를 받는 `validatePurchaseInvoices(startDate, endDate, pageSize)` 메서드 추가.
+    - `TaxInvoicePersistencePort`, `TaxInvoiceRepository`, `TaxInvoicePersistenceAdapter`: `Page<TaxInvoice> findByIssueDateBetween(LocalDate startDate, LocalDate endDate, Pageable pageable)` 페이징 조회 메서드 구현.
+  - **Chunk/Paging 분할 처리 및 메모리 상한 고정**:
+    - `TaxInvoiceBatchService`: `PageRequest.of(pageNumber, pageSize)` 기반 `do-while` 루프를 적용하여 DB 데이터를 일정 크기의 청크(Chunk, 기본 500건) 단위로 분할 조회/검증.
+    - 힙 메모리에 동시 상주하는 객체 수를 $O(pageSize)$로 제한하여 대용량 배치 처리 중에도 메모리 사용량을 일정하게 유지 및 GC 효율 극대화.
+  - **Bulk Query 융합 (Paging + Bulk Lookup 시너지)**:
+    - 각 청크 분할 목록에서 추출된 거래처 코드 Set으로 `masterDataQueryPort.findAllByPartnerCodes(...)`를 호출하여 청크 단위 1회 SQL `IN` 절 벌크 조회를 수행함. (Paging으로 OOM 예방 + Bulk Query로 N+1 문제 해결).
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Heap OOM 예방, Chunk/Paging 분할 처리, 힙 메모리 풋프린트 상한 고정 및 GC 부담 완화의 아키텍처적 이점을 다룬 상세 교육적 주석 기재.
+- **검증**:
+  - `TaxInvoiceBatchServiceTest`: 단일/다중 페이지(Multi-Page Paging/Chunking) 배치 검증 및 벌크 쿼리 1회 호출 검증 단위 테스트 작성.
+  - `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL). PR #387 main 병합 완료.
+
 ### 📅 2026-08-12 ([gateway][msa] Gateway 라우팅 룰 및 Rate Limiter, CORS 설정 누락 - Issue #328)
 ### [gateway] Eureka 동적 서비스 디스커버리 라우팅, 글로벌 CORS 정책(maxAge/Authorization), 및 IP/RateLimiter 설정 구성을 통한 API Gateway 최전방 보호 완성
 

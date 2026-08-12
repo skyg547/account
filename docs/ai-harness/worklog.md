@@ -1,3 +1,23 @@
+## 2026-08-12 - Issue #322 Refactor Tax Invoice Batch Validation to Use Paging for OOM Prevention
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/322-tax-invoice-batch-paging-oom-fix` / `C:\tmp\account-322-tax-invoice-batch-paging-oom-fix`.
+- Base: `origin/main`.
+- Scope:
+  - Inbound Port & Paging Persistence Port:
+    - Added `validatePurchaseInvoices(LocalDate startDate, LocalDate endDate, int pageSize)` overload to `TaxInvoiceBatchUseCase`.
+    - Added `Page<TaxInvoice> findByIssueDateBetween(LocalDate startDate, LocalDate endDate, Pageable pageable)` to `TaxInvoicePersistencePort`, `TaxInvoiceRepository`, and `TaxInvoicePersistenceAdapter`.
+  - Paged Batch Validation & Heap OOM Prevention (`TaxInvoiceBatchService.java`):
+    - Refactored `validatePurchaseInvoices` using `PageRequest.of(pageNumber, pageSize)` in a `do-while` loop to process tax invoices in chunks (default pageSize 500).
+    - Restricted JVM Heap Memory footprint to $O(pageSize)$ objects, enabling fast Minor GC object collection per chunk.
+  - Bulk Query Synergy:
+    - Maintained 1-time bulk partner lookup (`masterDataQueryPort.findAllByPartnerCodes`) per page chunk to prevent N+1 query overhead while ensuring OOM protection.
+  - Pedagogical Comments:
+    - Added detailed architectural comments explaining Heap OOM prevention, chunking/paging benefits, memory footprint limits, and GC efficiency.
+  - Test Validation:
+    - Updated `TaxInvoiceBatchServiceTest.java` for paged queries and added `validatePurchaseInvoicesProcessesInPagesToPreventOOM` test for multi-page batch validation.
+    - Executed `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` (100% SUCCESS). PR #387 merged into `main`.
+
 ## 2026-08-12 - Issue #328 Configure Gateway Dynamic Discovery Routing, Global CORS, and Rate Limiter
 
 - Owner: Gemini (Agent loop subagent)

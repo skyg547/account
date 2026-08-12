@@ -1,3 +1,33 @@
+# AI Harness Handoff - 2026-08-12 Issue #322 Refactor Tax Invoice Batch Validation to Use Paging for OOM Prevention
+
+## Active Goal And State
+
+- GitHub Issue `#322` (`[tax][extensibility] 대량 세금계산서 데이터 한번에 메모리 로딩 — OOM 위험`) completed and merged into `main` via PR `#387`.
+- Branch `agent/322-tax-invoice-batch-paging-oom-fix` integrated and worktree cleaned up.
+
+## Changes And Boundaries
+
+- Inbound Port & Paging Persistence Port:
+  - Added `validatePurchaseInvoices(LocalDate startDate, LocalDate endDate, int pageSize)` overload to `TaxInvoiceBatchUseCase`.
+  - Added `Page<TaxInvoice> findByIssueDateBetween(LocalDate startDate, LocalDate endDate, Pageable pageable)` to `TaxInvoicePersistencePort`, `TaxInvoiceRepository`, and `TaxInvoicePersistenceAdapter`.
+- Paged Batch Validation & Heap OOM Prevention (`TaxInvoiceBatchService.java`):
+  - Refactored `validatePurchaseInvoices` using `PageRequest.of(pageNumber, pageSize)` in a `do-while` loop to process tax invoices in chunks (default pageSize 500).
+  - Restricted JVM Heap Memory footprint to $O(pageSize)$ objects, enabling fast Minor GC object collection per chunk.
+- Bulk Query Synergy:
+  - Maintained 1-time bulk partner lookup (`masterDataQueryPort.findAllByPartnerCodes`) per page chunk to prevent N+1 query overhead while ensuring OOM protection.
+- Pedagogical Comments:
+  - Added detailed architectural comments explaining Heap OOM prevention, chunking/paging benefits, memory footprint limits, and GC efficiency.
+- Verification Evidence:
+  - Updated `TaxInvoiceBatchServiceTest.java` for paged queries and added `validatePurchaseInvoicesProcessesInPagesToPreventOOM` test for multi-page batch validation.
+  - Executed `./gradlew.bat :tax:core:test :tax:api:test :tax:batch:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Risk: Ensure DB queries use proper index on `issue_date` for efficient paged scans across large datasets.
+- Rollback: Revert PR #387 commit on `main`.
+
+---
+
 # AI Harness Handoff - 2026-08-12 Issue #328 Configure Gateway Dynamic Discovery Routing, Global CORS, and Rate Limiter
 
 ## Active Goal And State
