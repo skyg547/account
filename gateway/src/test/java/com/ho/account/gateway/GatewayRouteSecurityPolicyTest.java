@@ -143,6 +143,21 @@ class GatewayRouteSecurityPolicyTest {
                 .containsKey("message");
     }
 
+    @Test
+    void eurekaDiscoveryLocatorAndGlobalCorsConfigured() {
+        Properties properties = loadGatewayProperties();
+
+        assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+                .isEqualTo("true");
+        assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.lower-case-service-id"))
+                .isEqualTo("true");
+        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[0].name"))
+                .isEqualTo("RequestRateLimiter");
+        assertThat(properties.entrySet().stream()
+                .anyMatch(e -> e.getKey().toString().contains("globalcors") && e.getValue().toString().contains("3600")))
+                .isTrue();
+    }
+
     private int routeIndex(Properties properties, String routeId) {
         for (int index = 0; index < properties.size(); index++) {
             if (routeId.equals(properties.getProperty(
