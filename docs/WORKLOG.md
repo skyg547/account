@@ -1,3 +1,23 @@
+### 📅 2026-08-12 ([expenditure-resolution][msa] 모듈 간 직접 의존 및 MSA/헥사고날 경계 심각한 위반 - Issue #315)
+### [expenditure-resolution] core 간 프로젝트 직접 의존성 제거, Shared Kernel contracts 포트 연동 및 MSA 경계 격리 강화
+
+- **작업 배경**:
+  - `expenditure-resolution:core` 모듈이 `journal-ledger:core` 및 `asset-lease:core` 등 타 Core 모듈에 대해 직접적인 컴파일 타임 Gradle 의존성(`implementation project(':journal-ledger:core')` 등)을 맺고, `JournalUseCase` 및 `JournalEntry` 엔티티를 직접 참조하여 DDD Bounded Context 경계 및 MSA/헥사고날 아키텍처 원칙을 위반했음.
+- **주요 변경 사항**:
+  - **직접적 프로젝트 의존성 제거 (`expenditure-resolution/core/build.gradle`)**:
+    - `implementation project(':journal-ledger:core')`, `implementation project(':asset-lease:core')`, `testImplementation project(':tax:core')`, `testImplementation project(':master-data:core')` 전면 제거.
+    - `expenditure-resolution/api/build.gradle`에서 `testImplementation project(':journal-ledger:core')` 제거.
+  - **Shared Kernel (`contracts`) 아웃바운드 포트 전환 (`ExpenditureResolutionService.java`)**:
+    - `JournalUseCase` 및 `JournalEntry` 직접 참조를 제거하고 `com.ho.account.contracts.journal.JournalPostingPort`, `JournalEntryCommand`, `JournalPostingResult` 포트 및 계약 모델 사용으로 전환.
+    - `approveResolution()` 실행 시 `buildJournalEntryCommand()`를 통해 계약 DTO를 조립하고 `journalPostingPort.createDraftEntry()`로 전표 발행을 요청하도록 리팩토링.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - DDD Bounded Context 경계 보존, Core 간 컴파일 타임 격리 필요성, Shared Kernel(`contracts`) 및 헥사고날 아웃바운드 포트 패턴의 MSA 아키텍처적 이점(독립 배포성, REST/Feign/Kafka 어댑터 전환 용이성)을 명시한 교육적 주석 작성.
+  - **로컬 어댑터 및 테스트 환경 보완**:
+    - `ExpenditureResolutionLocalExternalPortConfiguration.java`: `JournalUseCase` 빈 대신 `JournalPostingPort` 어댑터 빈 등록.
+    - `ExpenditureResolutionServiceTest.java` 및 `ExpenditureTaxApiIntegrationTest.java`: `JournalPostingPort` 모킹 기반으로 테스트 업데이트.
+- **검증**:
+  - `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([asset-lease][financial] 사용권자산 감가상각 시 장부가액 음수 전락 위험 — 상태 검증 부재 - Issue #317)
 ### [asset-lease] 감가상각 시 장부가액 최소 기준(Floor: 0원 이상/잔존가치) 보정 및 도메인 불변성 방어 로직 구현
 

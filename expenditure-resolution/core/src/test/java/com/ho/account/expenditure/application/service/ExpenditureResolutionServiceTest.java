@@ -1,6 +1,9 @@
 package com.ho.account.expenditure.application.service;
 
 import com.ho.account.contracts.asset.AssetRegistrationPort;
+import com.ho.account.contracts.journal.JournalEntryCommand;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.DepartmentRef;
@@ -12,8 +15,6 @@ import com.ho.account.expenditure.application.port.out.ExpenditureResolutionPers
 import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.domain.ExpenditureResolutionStatus;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -37,7 +38,7 @@ class ExpenditureResolutionServiceTest {
     @Mock
     private ExpenditureResolutionPersistencePort resolutionPersistencePort;
     @Mock
-    private JournalUseCase journalUseCase;
+    private JournalPostingPort journalPostingPort;
     @Mock
     private MasterDataQueryPort masterDataQueryPort;
     @Mock
@@ -99,7 +100,7 @@ class ExpenditureResolutionServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.approveResolution(1L));
 
-        verify(journalUseCase, never()).createJournalEntry(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
         verify(resolutionPersistencePort, never()).save(any(ExpenditureResolution.class));
     }
 
@@ -113,7 +114,7 @@ class ExpenditureResolutionServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.approveResolution(1L));
 
-        verify(journalUseCase, never()).createJournalEntry(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
         verify(resolutionPersistencePort, never()).save(any(ExpenditureResolution.class));
     }
 
@@ -128,7 +129,7 @@ class ExpenditureResolutionServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.approveResolution(1L));
 
-        verify(journalUseCase, never()).createJournalEntry(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
         verify(resolutionPersistencePort, never()).save(any(ExpenditureResolution.class));
     }
 
@@ -137,17 +138,15 @@ class ExpenditureResolutionServiceTest {
         ExpenditureResolutionService service = createService();
         ExpenditureResolution resolution = requestedResolution();
         givenMasterData();
-        JournalEntry savedEntry = new JournalEntry();
-        savedEntry.setId(100L);
-        savedEntry.initializeDraft();
-
         when(resolutionPersistencePort.findById(1L)).thenReturn(Optional.of(resolution));
-        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenReturn(savedEntry);
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(new JournalPostingResult(100L, "LOCAL-EXP-100", "DRAFT"));
 
         service.approveResolution(1L);
 
         assertEquals(ExpenditureResolutionStatus.APPROVED, resolution.getStatus());
-        verify(journalUseCase).approveJournalEntry(100L, "SYSTEM");
+        assertEquals(100L, resolution.getJournalEntryId());
+        verify(journalPostingPort).createDraftEntry(any(JournalEntryCommand.class));
         verify(resolutionPersistencePort).save(resolution);
     }
 
@@ -249,7 +248,7 @@ class ExpenditureResolutionServiceTest {
     private ExpenditureResolutionService createService() {
         return new ExpenditureResolutionService(
                 resolutionPersistencePort,
-                journalUseCase,
+                journalPostingPort,
                 masterDataQueryPort,
                 budgetService,
                 assetRegistrationPort,

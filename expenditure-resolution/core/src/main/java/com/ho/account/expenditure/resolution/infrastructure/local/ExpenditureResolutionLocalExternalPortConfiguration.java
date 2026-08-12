@@ -8,11 +8,8 @@ import com.ho.account.contracts.masterdata.DepartmentRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceQueryPort;
 import com.ho.account.contracts.tax.TaxInvoiceRef;
-import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalPostingResult;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -75,65 +72,10 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    JournalUseCase expenditureLocalJournalUseCase() {
-        return new JournalUseCase() {
-            @Override
-            public JournalEntry createJournalEntry(JournalEntry journalEntry) {
-                long id = journalSequence.getAndIncrement();
-                journalEntry.setId(id);
-                journalEntry.setSlipNo("LOCAL-EXP-" + id);
-                journalEntry.initializeDraft();
-                return journalEntry;
-            }
-
-            @Override
-            public Optional<JournalEntry> createJournalEntryFromEvent(Map<String, Object> eventData, LocalDate accountingDate) {
-                JournalEntry entry = new JournalEntry();
-                entry.setAccountingDate(accountingDate);
-                return Optional.of(createJournalEntry(entry));
-            }
-
-            @Override
-            public List<JournalEntry> getJournalEntriesByDate(LocalDate startDate, LocalDate endDate) {
-                return List.of();
-            }
-
-            @Override
-            public List<JournalEntry> getJournalEntriesBySource(String sourceType, String sourceId) {
-                return List.of();
-            }
-
-            @Override
-            public Optional<JournalEntry> getJournalEntryBySlipNo(String slipNo) {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<JournalEntry> getJournalEntryWithDetails(Long id) {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<JournalEntry> getJournalEntry(Long id) {
-                return Optional.empty();
-            }
-
-            @Override
-            public void approveJournalEntry(Long id, String approver) {
-                // 로컬 실행에서는 전표 승인 외부 상태를 저장하지 않는다.
-            }
-
-            @Override
-            public void postJournalEntry(Long id, String poster) {
-                // 로컬 실행에서는 원장 반영을 생략한다.
-            }
-
-            @Override
-            public JournalEntry reverseJournalEntry(Long id, LocalDate accountingDate, String creator, String reason) {
-                JournalEntry reversal = new JournalEntry();
-                reversal.setAccountingDate(accountingDate);
-                return createJournalEntry(reversal);
-            }
+    JournalPostingPort expenditureLocalJournalPostingPort() {
+        return command -> {
+            long id = journalSequence.getAndIncrement();
+            return new JournalPostingResult(id, "LOCAL-EXP-" + id, "DRAFT");
         };
     }
 }

@@ -1,3 +1,23 @@
+## 2026-08-12 - Issue #315 Decouple Expenditure Resolution Core from Direct Module Dependencies
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/315-expenditure-msa-bounded-context-decouple` / `C:\tmp\account-315-expenditure-msa-bounded-context-decouple`.
+- Base: `origin/main`.
+- Scope:
+  - Direct Project Dependency Removal (`expenditure-resolution/core/build.gradle` & `api/build.gradle`):
+    - Removed `implementation project(':journal-ledger:core')`, `implementation project(':asset-lease:core')`, `testImplementation project(':tax:core')`, `testImplementation project(':master-data:core')` from `expenditure-resolution:core`.
+    - Removed `testImplementation project(':journal-ledger:core')` from `expenditure-resolution:api`.
+  - Shared Kernel Outbound Port Transition (`ExpenditureResolutionService.java`):
+    - Replaced `JournalUseCase` and `JournalEntry` direct imports/usage with `JournalPostingPort`, `JournalEntryCommand`, and `JournalPostingResult` from `:contracts`.
+    - Refactored `approveResolution` to assemble `JournalEntryCommand` via `buildJournalEntryCommand()` and call `journalPostingPort.createDraftEntry()`.
+  - Pedagogical Comments:
+    - Added extensive educational comments detailing DDD Bounded Context boundary protection, compile-time core isolation, and Hexagonal Outbound Port pattern benefits for MSA scalability.
+  - Local Configuration & Tests:
+    - Updated `ExpenditureResolutionLocalExternalPortConfiguration.java` to provide `JournalPostingPort` bean instead of `JournalUseCase`.
+    - Updated `ExpenditureResolutionServiceTest.java` and `ExpenditureTaxApiIntegrationTest.java` to mock `JournalPostingPort`.
+- Verification:
+  - Executed `./gradlew.bat :expenditure-resolution:core:test :expenditure-resolution:api:test` (BUILD SUCCESSFUL).
+
 ## 2026-08-12 - Issue #317 Enforce Non-Negative Book Value Floor During Lease Asset Depreciation
 
 - Owner: Gemini (Agent loop subagent)
