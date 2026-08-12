@@ -35,7 +35,7 @@ public class ForwardLookingEclCalculationPipeline {
 
         log.debug("[IFRS9 Allowance] 미래전망 ECL 산출 시작 - accountNo={}", account.getAccountNo());
 
-        double maturityYears = account.resolveMaturityYears(baseDate);
+        BigDecimal maturityYears = account.resolveMaturityYears(baseDate);
         List<BigDecimal> marginalPds = lifetimePdService.generateMarginalPdCurve(
                 result.getPd(),
                 maturityYears,

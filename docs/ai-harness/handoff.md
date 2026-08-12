@@ -1,3 +1,36 @@
+# AI Harness Handoff - 2026-08-12 Issue #324 Convert ECL and PD Calculation Logic to BigDecimal for Financial Precision
+
+## Active Goal And State
+
+- GitHub Issue `#324` (`[ecl][financial] 금융 통계(ECL/PD) 계산 로직에 부동소수점(double) 자료형 사용 — 금액 정밀도 위험`) completed.
+- Branch `agent/324-ecl-bigdecimal-precision-conversion` prepared for PR and integration.
+
+## Changes And Boundaries
+
+- Exposure Maturity Precision (`CrAccount.java`):
+  - Converted constants `DEFAULT_MATURITY_YEARS`, `MINIMUM_MATURITY_YEARS`, `DAYS_PER_YEAR` to `BigDecimal`.
+  - Updated `resolveMaturityYears(LocalDate baseDate)` return type to `BigDecimal` with 8 decimal places scale (`setScale(8, RoundingMode.HALF_UP)`).
+- PD Curve Calculation (`PdCalculator.java`):
+  - Replaced primitive `double` parameters (`maturityYears`) with `BigDecimal`.
+  - Completely removed primitive `double` variables (`pd1`, `hazardRate`, `cumulativePd`, `survivalProb`, `marginalPd`) in `generateTransitionBasedCurve` and `generateSimplePdCurve`.
+  - Applied mathematical equivalence ($1 - e^{-h} = pd_1$) to eliminate floating-point `Math.log`/`Math.exp` calls, performing 100% `BigDecimal` & `MathContext(15, RoundingMode.HALF_UP)` calculations.
+- Service & Pipeline Alignment:
+  - Updated `LifetimePdService.java` to accept `BigDecimal maturityYears`.
+  - Updated `ForwardLookingEclCalculationPipeline.java` to pass `BigDecimal maturityYears`.
+- Collateral Allocation Precision (`CollateralAllocationCalculator.java`):
+  - Updated LP optimization DTO mapping to construct `BigDecimal` allocations with 4-decimal scale and `compareTo` threshold checking (`0.0001`).
+- Pedagogical Comments:
+  - Added extensive comments explaining IEEE 754 floating-point precision loss, `BigDecimal` and `MathContext` precision control, and IFRS 9 ECL financial statistics accuracy.
+- Verification Evidence:
+  - Executed `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Risk: High precision decimal calculations (8 decimal places for PD, 4 decimal places for monetary amounts) are required for regulatory IFRS 9 compliance.
+- Rollback: Revert changes in `CrAccount.java`, `PdCalculator.java`, `LifetimePdService.java`, `CollateralAllocationCalculator.java`, and `ForwardLookingEclCalculationPipeline.java`.
+
+---
+
 # AI Harness Handoff - 2026-08-12 Issue #326 Configure Production Git Backend and Property Encryption for Config Server
 
 ## Active Goal And State

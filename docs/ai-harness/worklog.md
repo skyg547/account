@@ -1,3 +1,27 @@
+## 2026-08-12 - Issue #324 Convert ECL and PD Calculation Logic to BigDecimal for Financial Precision
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/324-ecl-bigdecimal-precision-conversion` / `C:\tmp\account-324-ecl-bigdecimal-precision-conversion`.
+- Base: `origin/main`.
+- Scope:
+  - Exposure Maturity Precision (`CrAccount.java`):
+    - Converted constants `DEFAULT_MATURITY_YEARS`, `MINIMUM_MATURITY_YEARS`, `DAYS_PER_YEAR` to `BigDecimal`.
+    - Updated `resolveMaturityYears(LocalDate baseDate)` return type to `BigDecimal` with 8 decimal places scale (`setScale(8, RoundingMode.HALF_UP)`).
+  - PD Curve Calculation (`PdCalculator.java`):
+    - Replaced primitive `double` parameters (`maturityYears`) with `BigDecimal`.
+    - Completely removed primitive `double` variables (`pd1`, `hazardRate`, `cumulativePd`, `survivalProb`, `marginalPd`) in `generateTransitionBasedCurve` and `generateSimplePdCurve`.
+    - Applied mathematical equivalence ($1 - e^{-h} = pd_1$) to eliminate floating-point `Math.log`/`Math.exp` calls, performing 100% `BigDecimal` & `MathContext(15, RoundingMode.HALF_UP)` calculations.
+  - Service & Pipeline Alignment:
+    - Updated `LifetimePdService.java` to accept `BigDecimal maturityYears`.
+    - Updated `ForwardLookingEclCalculationPipeline.java` to pass `BigDecimal maturityYears`.
+  - Collateral Allocation Precision (`CollateralAllocationCalculator.java`):
+    - Updated LP optimization DTO mapping to construct `BigDecimal` allocations with 4-decimal scale and `compareTo` threshold checking (`0.0001`).
+  - Pedagogical Comments:
+    - Added extensive comments explaining IEEE 754 floating-point precision loss, `BigDecimal` and `MathContext` precision control, and IFRS 9 ECL financial statistics accuracy.
+  - Test Validation:
+    - Updated `CrAccountTest.java` and `PdCalculatorTest.java`.
+    - Executed `./gradlew.bat :ecl:ecl-core:test :ecl:ecl-api:test :ecl:ecl-batch:test` (100% SUCCESSFUL).
+
 ## 2026-08-12 - Issue #326 Configure Production Git Backend and Property Encryption for Config Server
 
 - Owner: Gemini (Agent loop subagent)

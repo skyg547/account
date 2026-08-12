@@ -72,7 +72,21 @@ public class LifetimePdService {
      * @param baseDate      전이행렬 기준 일자
      * @return 기간별 Marginal PD 리스트 (1차년도, 2차년도, ...)
      */
-    public List<BigDecimal> generateMarginalPdCurve(BigDecimal initialPd12m, double maturityYears,
+    /**
+     * [애플리케이션 서비스] 전이행렬 기반 Lifetime PD 곡선 생성 프로세스 조율.
+     *
+     * 💡 [조율 흐름]
+     * 1단계: 캐시 또는 Repository에서 해당 등급의 전이행렬 데이터를 조회 (Data Fetching)
+     * 2단계: 데이터 존재 시 Pure Domain Calculator({@link PdCalculator#generateTransitionBasedCurve}) 호출
+     * 3단계: 미존재 시 단순 모델 Pure Domain Calculator({@link PdCalculator#generateSimplePdCurve}) 폴백 호출
+     *
+     * @param initialPd12m  기초 12개월 PD
+     * @param maturityYears 잔여 만기 (연 단위, BigDecimal)
+     * @param currentRating 현재 내부 신용 등급 (예: "BBB")
+     * @param baseDate      전이행렬 기준 일자
+     * @return 기간별 Marginal PD 리스트 (1차년도, 2차년도, ...)
+     */
+    public List<BigDecimal> generateMarginalPdCurve(BigDecimal initialPd12m, BigDecimal maturityYears,
                                                     String currentRating, LocalDate baseDate) {
         if (currentRating != null && baseDate != null) {
             List<TransitionMatrix> transitions = tmCache.get(currentRating.toUpperCase());
@@ -99,7 +113,7 @@ public class LifetimePdService {
      * @deprecated v2.0부터 4-파라미터 버전(currentRating, baseDate 포함)을 사용하세요.
      */
     @Deprecated(since = "2.0", forRemoval = false)
-    public List<BigDecimal> generateMarginalPdCurve(BigDecimal initialPd12m, double maturityYears) {
+    public List<BigDecimal> generateMarginalPdCurve(BigDecimal initialPd12m, BigDecimal maturityYears) {
         return pdCalculator.generateSimplePdCurve(initialPd12m, maturityYears);
     }
 }

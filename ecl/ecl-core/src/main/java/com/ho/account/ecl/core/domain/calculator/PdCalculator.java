@@ -113,21 +113,26 @@ public class PdCalculator {
     /**
      * [Pure Domain Calculator] 전이행렬(Transition Matrix)에서 부도 등급('D')으로의 전이 확률을 추출하여 Marginal PD 곡선을 생성합니다.
      *
-     * 💡 [금융공학 산출 원리]
+     * 💡 [금융공학 산출 원리 & pure BigDecimal 정밀도 제어]
      * 1. 1차년도 PD($pd_1$): 전이행렬 상의 D(Default) 등급 전이 확률과 등급 마스터 기초 PD 중 보수적인(더 큰) 수치 선택
-     * 2. 연속 위험률(Hazard Rate, $h$): $h = -\ln(1 - \min(pd_1, 0.9999))$
-     *    - 부도확률을 연속 시간 모델로 전환하여 누적 부도확률이 100%를 넘지 않도록 보장
-     * 3. $t$년차 한계부도율($mPD_t$): 생존확률($1 - CumPD_{t-1}$) $\times (1 - e^{-h})$
+     * 2. 연속 위험률(Hazard Rate, $h$) 및 한계부도율 산식:
+     *    - 부부확률을 연속 시간 모델로 표현하면 $h = -\ln(1 - pd_1)$ 입니다.
+     *    - 이때 연도별 한계부도율 $mPD_t = survivalProb_{t-1} \times (1 - e^{-h})$ 가 되는데,
+     *      수학적 등가성에 의해 $1 - e^{-h} = 1 - e^{\ln(1 - pd_1)} = 1 - (1 - pd_1) = pd_1$ 이 성립합니다!
+     *    - 따라서 부동소수점 함수인 `Math.log` 및 `Math.exp` 사용 시 발생하는 IEEE 754 부동소수점 오차(Floating-point Precision Loss)를
+     *      전면 차단하고, Pure `BigDecimal` 및 `MathContext(15, RoundingMode.HALF_UP)` 만으로 100% 정밀하게 연산합니다.
+     * 3. IFRS 9 손실충당금 관점의 이점:
+     *    - 생애 잔존 만기 동안 부도확률 누적 오차가 차단되어 자산 스테이징 및 대손충당금 평가의 회계적 신뢰성을 보장합니다.
      *
      * @param transitions 해당 신용등급의 전이행렬 엔티티 목록
      * @param initialPd12m 기초 12개월 PD
-     * @param maturityYears 잔여만기 (연 단위)
-     * @return 연도별 Marginal PD 곡선 리스트
+     * @param maturityYears 잔여만기 (연 단위, BigDecimal)
+     * @return 연도별 Marginal PD 곡선 리스트 (소수점 8자리 정밀도)
      */
     public List<BigDecimal> generateTransitionBasedCurve(
             List<TransitionMatrix> transitions,
             BigDecimal initialPd12m,
-            double maturityYears) {
+            BigDecimal maturityYears) {
 
         Map<String, BigDecimal> transMap = transitions.stream()
                 .collect(Collectors.toMap(
@@ -138,27 +143,32 @@ public class PdCalculator {
 
         BigDecimal transitionPd = transMap.getOrDefault("D", initialPd12m);
 
-        double pd1 = Math.max(
-                (transitionPd != null) ? transitionPd.doubleValue() : 0.05,
-                (initialPd12m != null) ? initialPd12m.doubleValue() : 0.05
-        );
+        BigDecimal basePd1 = (transitionPd != null) ? transitionPd : new BigDecimal("0.05");
+        BigDecimal safeInitPd = (initialPd12m != null) ? initialPd12m : new BigDecimal("0.05");
+        BigDecimal pd1 = basePd1.max(safeInitPd);
 
         List<BigDecimal> curve = new ArrayList<>();
-        curve.add(BigDecimal.valueOf(pd1).setScale(8, RoundingMode.HALF_UP));
+        curve.add(pd1.setScale(8, RoundingMode.HALF_UP));
 
-        double hazardRate = -Math.log(1 - Math.min(pd1, 0.9999));
-        double cumulativePd = pd1;
-        int maxYears = (int) Math.ceil(maturityYears);
+        BigDecimal cumulativePd = pd1;
+        int maxYears = (maturityYears != null) ? maturityYears.setScale(0, RoundingMode.CEILING).intValue() : 1;
+        maxYears = Math.max(1, maxYears);
 
         for (int t = 2; t <= maxYears; t++) {
-            double survivalProb = 1.0 - cumulativePd;
-            double marginalPd = survivalProb * (1 - Math.exp(-hazardRate));
-            marginalPd = Math.min(marginalPd, survivalProb);
+            // survivalProb = 1.0 - cumulativePd
+            BigDecimal survivalProb = BigDecimal.ONE.subtract(cumulativePd, MC);
+            if (survivalProb.compareTo(BigDecimal.ZERO) <= 0) {
+                curve.add(BigDecimal.ZERO.setScale(8, RoundingMode.HALF_UP));
+                continue;
+            }
 
-            curve.add(BigDecimal.valueOf(marginalPd).setScale(8, RoundingMode.HALF_UP));
-            cumulativePd += marginalPd;
+            // marginalPd = survivalProb * pd1 (수학적 등가성에 의해 1 - exp(-h) = pd1)
+            BigDecimal marginalPd = survivalProb.multiply(pd1, MC).min(survivalProb);
 
-            if (cumulativePd >= 0.99) break;
+            curve.add(marginalPd.setScale(8, RoundingMode.HALF_UP));
+            cumulativePd = cumulativePd.add(marginalPd, MC);
+
+            if (cumulativePd.compareTo(new BigDecimal("0.99")) >= 0) break;
         }
 
         return curve;
@@ -167,31 +177,41 @@ public class PdCalculator {
     /**
      * [Pure Domain Calculator] 전이행렬 미존재 시 단순 지수 평활 가정을 적용하여 Marginal PD 곡선을 생성합니다.
      *
-     * 💡 [단순 모델 산식]
-     * $t$년차 한계부도율 = $\min(\text{생존확률} \times \text{HazardRate}, \text{생존확률})$
+     * 💡 [단순 모델 산식 & 부동소수점 제거 설명]
+     * - $t$년차 한계부도율 = $\min(\text{생존확률} \times \text{HazardRate}, \text{생존확률})$
+     * - 부동소수점 primitive `double` 대신 `BigDecimal`과 `MathContext(15, RoundingMode.HALF_UP)`를 사용하여
+     *   누적 부도확률 계산 시 1e-16 수준의 근사 오차가 금융 통계 손손실액 평가액에 왜곡을 주는 위험을 원천 차단합니다.
      *
      * @param initialPd12m 기초 12개월 PD
-     * @param maturityYears 잔여만기 (연 단위)
-     * @return 연도별 Marginal PD 곡선 리스트
+     * @param maturityYears 잔여만기 (연 단위, BigDecimal)
+     * @return 연도별 Marginal PD 곡선 리스트 (소수점 8자리 정밀도)
      */
-    public List<BigDecimal> generateSimplePdCurve(BigDecimal initialPd12m, double maturityYears) {
+    public List<BigDecimal> generateSimplePdCurve(BigDecimal initialPd12m, BigDecimal maturityYears) {
         List<BigDecimal> curve = new ArrayList<>();
-        double pd1 = (initialPd12m != null) ? initialPd12m.doubleValue() : 0.05;
+        BigDecimal pd1 = (initialPd12m != null) ? initialPd12m : new BigDecimal("0.05");
 
-        curve.add(BigDecimal.valueOf(pd1).setScale(8, RoundingMode.HALF_UP));
+        curve.add(pd1.setScale(8, RoundingMode.HALF_UP));
 
-        double cumulativePd = pd1;
-        double hazardRate = pd1;
+        BigDecimal cumulativePd = pd1;
+        BigDecimal hazardRate = pd1;
 
-        int maxYears = (int) Math.ceil(maturityYears);
+        int maxYears = (maturityYears != null) ? maturityYears.setScale(0, RoundingMode.CEILING).intValue() : 1;
+        maxYears = Math.max(1, maxYears);
+
         for (int t = 2; t <= maxYears; t++) {
-            double survivalProb = 1.0 - cumulativePd;
-            double marginalPd = Math.min(survivalProb * hazardRate, survivalProb);
+            BigDecimal survivalProb = BigDecimal.ONE.subtract(cumulativePd, MC);
+            if (survivalProb.compareTo(BigDecimal.ZERO) <= 0) {
+                curve.add(BigDecimal.ZERO.setScale(8, RoundingMode.HALF_UP));
+                continue;
+            }
 
-            curve.add(BigDecimal.valueOf(marginalPd).setScale(8, RoundingMode.HALF_UP));
-            cumulativePd += marginalPd;
+            BigDecimal rawMarginalPd = survivalProb.multiply(hazardRate, MC);
+            BigDecimal marginalPd = rawMarginalPd.min(survivalProb);
 
-            if (cumulativePd >= 0.99) break;
+            curve.add(marginalPd.setScale(8, RoundingMode.HALF_UP));
+            cumulativePd = cumulativePd.add(marginalPd, MC);
+
+            if (cumulativePd.compareTo(new BigDecimal("0.99")) >= 0) break;
         }
 
         return curve;
