@@ -76,10 +76,13 @@ public class KapDataEtlJobConfig {
 
     /**
      * [Reader] CSV 파일을 읽어와 객체로 매핑합니다.
+     * 💡 [Clean Batch Lifecycle Guide]
+     * @Bean(destroyMethod = "")을 명시하여 ApplicationContext 셧다운 시 unopened 또는
+     * StepScope 범위 밖의 Reader 빈에 대해 automatic inferred close()가 유발되는 경고를 방지합니다.
      * @param filePath 파일 경로 (Job 파라미터로 주입)
      * @return CSV 읽기 객체
      */
-    @Bean
+    @Bean(destroyMethod = "")
     @StepScope
     public FlatFileItemReader<KapExternalRatingCsvRow> rawKapExternalRatingReader(
             @Value("#{jobParameters['filePath'] ?: 'data/kap/external_ratings.csv'}") String filePath) {
@@ -98,7 +101,7 @@ public class KapDataEtlJobConfig {
                 .build();
     }
 
-    @Bean
+    @Bean(destroyMethod = "")
     public SynchronizedItemStreamReader<KapExternalRatingCsvRow> kapExternalRatingReader(
             FlatFileItemReader<KapExternalRatingCsvRow> rawKapExternalRatingReader) {
         return new SynchronizedItemStreamReaderBuilder<KapExternalRatingCsvRow>()

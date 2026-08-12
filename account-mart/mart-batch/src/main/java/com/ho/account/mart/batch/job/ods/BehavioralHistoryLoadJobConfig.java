@@ -54,7 +54,13 @@ public class BehavioralHistoryLoadJobConfig {
                 .build();
     }
 
-    @Bean
+    /**
+     * [Clean Batch Lifecycle Guide]
+     * Spring Batch의 JpaPagingItemReader는 ApplicationContext 셧다운 시 Spring의 기본 destroyMethod 추론에 의해
+     * unopened 상태에서 close()가 호출되는 예외(WARN)를 발생시킵니다.
+     * @Bean(destroyMethod = "")으로 지정하여 Spring Container 차원의 자동 close 호출을 예방합니다.
+     */
+    @Bean(destroyMethod = "")
     public JpaPagingItemReader<OdsBehavioralHistory> behavioralHistoryReader() {
         return new JpaPagingItemReaderBuilder<OdsBehavioralHistory>()
                 .name("behavioralHistoryReader")

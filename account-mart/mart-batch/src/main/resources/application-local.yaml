@@ -13,3 +13,9 @@ spring:
   batch:
     jdbc:
       initialize-schema: always
+
+mart:
+  batch:
+    demo-seed:
+      enabled: true
+

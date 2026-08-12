@@ -219,14 +219,24 @@ public class IntegratedPositionEtlJobConfig {
         return chunkStep.build();
     }
 
-    @Bean
+    /**
+     * [Clean Batch Lifecycle & ItemReader Destroy Method Disabling]
+     * 💡 [기술 팁 & 교육용 가이드]
+     * Spring Batch의 ItemReader(ItemStream)는 Spring ApplicationContext 셧다운 시점에
+     * Spring의 기본 자동 추론(destroyMethod = "(inferred)")에 의해 close()가 자동 호출되면 안 됩니다.
+     * 배치 Job이 실행되지 않은 상태(spring.batch.job.enabled=false)에서는 open()이 호출된 적이 없으므로
+     * 컨텍스트 셧다운 시 unopened ItemReader에 대해 close()가 유발되어 ItemStreamException WARN 경고가 찍히게 됩니다.
+     * 따라서 @Bean(destroyMethod = "")으로 지정하여 Spring Container에 의한 자동 close 호출을 차단하고,
+     * 오직 Spring Batch Step Execution 내에서만 안전하게 ItemStream 생명주기가 관리되도록 설정합니다.
+     */
+    @Bean(destroyMethod = "")
     public SynchronizedItemStreamReader<OdsAccountLedger> odsLedgerReader() {
         return new SynchronizedItemStreamReaderBuilder<OdsAccountLedger>()
                 .delegate(rawOdsLedgerReader())
                 .build();
     }
 
-    @Bean
+    @Bean(destroyMethod = "")
     public JpaPagingItemReader<OdsAccountLedger> rawOdsLedgerReader() {
         return new JpaPagingItemReaderBuilder<OdsAccountLedger>()
                 .name("rawOdsLedgerReader")
@@ -244,7 +254,7 @@ public class IntegratedPositionEtlJobConfig {
                 .build();
     }
 
-    @Bean
+    @Bean(destroyMethod = "")
     public JpaPagingItemReader<OdsAccountLedger> ledgerDataQualityReader() {
         return new JpaPagingItemReaderBuilder<OdsAccountLedger>()
                 .name("ledgerDataQualityReader")
@@ -254,7 +264,7 @@ public class IntegratedPositionEtlJobConfig {
                 .build();
     }
 
-    @Bean
+    @Bean(destroyMethod = "")
     public JpaPagingItemReader<OdsCollateralMst> collateralDataQualityReader() {
         return new JpaPagingItemReaderBuilder<OdsCollateralMst>()
                 .name("collateralDataQualityReader")
