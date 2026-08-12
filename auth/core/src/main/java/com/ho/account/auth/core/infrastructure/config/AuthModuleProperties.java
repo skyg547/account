@@ -2,8 +2,25 @@ package com.ho.account.auth.core.infrastructure.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * ==============================================================================
+ * Auth Module Configuration Properties (인증 모듈 환경 설정 프로퍼티)
+ * ==============================================================================
+ * [Architecture & Pedagogical Explanation]
+ * 1. Fail-Closed Security Policy (보안 실패 기본 차단 정책)
+ *    - JWT Secret Key, Internal API Token 등 민감한 인증 보안 자격증명 필드의 하드코딩된 디폴트 값을 제거합니다.
+ *    - 환경변수(AUTH_JWT_SECRET, AUTH_INTERNAL_API_TOKEN) 또는 local 프로파일 설정이 제공되지 않은 경우,
+ *      애플리케이션 시작 시점(@PostConstruct)에 Fail-Closed 예외(IllegalStateException)를 발생시켜
+ *      보안이 취약한 상태로 서비스가 작동되는 위험을 원천 차단합니다.
+ *
+ * 2. Profile-Based Credential Isolation (프로파일 기반 민감 정보 격리)
+ *    - 데모 및 로컬 개발용 비밀키 및 기본 계정 자격증명은 'local' 프로파일(application-local.yml)에만 격리 배치합니다.
+ *    - base/dev/prod 프로파일 환경에서는 디폴트 데모 값을 포함하지 않고 외부 환경변수 주입을 엄격히 강제합니다.
+ * ==============================================================================
+ */
 @ConfigurationProperties(prefix = "auth")
 public class AuthModuleProperties {
 
@@ -13,6 +30,18 @@ public class AuthModuleProperties {
     private InternalApi internalApi = new InternalApi();
     private LoginSecurity loginSecurity = new LoginSecurity();
     private List<User> users = new ArrayList<>();
+
+    @PostConstruct
+    public void validateFailClosedPolicy() {
+        if (jwt.getSecret() == null || jwt.getSecret().isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.jwt.secret' must be provided via AUTH_JWT_SECRET environment variable or active 'local' profile.");
+        }
+        if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable or active 'local' profile.");
+        }
+    }
 
     public Jwt getJwt() {
         return jwt;
@@ -63,7 +92,7 @@ public class AuthModuleProperties {
     }
 
     public static class Jwt {
-        private String secret = "modern-account-system-super-secret-key-1234567890";
+        private String secret;
         private String issuer = "auth-service";
         private long expirationSeconds = 3600L;
 
@@ -117,7 +146,7 @@ public class AuthModuleProperties {
     }
 
     public static class InternalApi {
-        private String token = "local-internal-auth-token";
+        private String token;
 
         public String getToken() {
             return token;
@@ -215,3 +244,4 @@ public class AuthModuleProperties {
         }
     }
 }
+

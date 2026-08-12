@@ -1,3 +1,18 @@
+# ==============================================================================
+# Auth API Module - Base Configuration
+# ==============================================================================
+# [Architecture & Pedagogical Explanation]
+# 1. Fail-Closed Security Alignment (보안 실패 기본 차단 정합성)
+#    - 본 기본(base) 구성 파일은 AUTH_JWT_SECRET 및 AUTH_INTERNAL_API_TOKEN과 같은 필수 민감 정보에
+#      하드코딩된 기본값(Fallback Default)을 명시적으로 포함하지 않습니다.
+#    - 외부 환경 변수 또는 활성화된 'local' 프로파일(application-local.yml)을 통해 자격증명이 전달되지 않으면
+#      애플리케이션 구동 시점(@PostConstruct)에 Fail-Closed 실패를 야기하여 안전을 보장합니다.
+#
+# 2. Profile-Based Credential Isolation (민감 정보 격리)
+#    - 로컬 개발 및 단독 테스트용 기본 자격증명(admin/1234, 로컬 토큰, 데모 JWT Key)은
+#      application-local.yml 프로파일로 완벽히 격리되어 있습니다.
+# ==============================================================================
+
 spring:
   application:
     name: auth-service
@@ -8,7 +23,6 @@ spring:
       enabled: false
 
 eureka:
-
   client:
     enabled: false
 
@@ -16,7 +30,7 @@ auth:
   persistence:
     mode: ${AUTH_PERSISTENCE_MODE:jpa}
   internal-api:
-    token: ${AUTH_INTERNAL_API_TOKEN:local-internal-auth-token}
+    token: ${AUTH_INTERNAL_API_TOKEN:}
   master-data:
     enabled: ${AUTH_MASTER_DATA_ENABLED:false}
     base-url: ${AUTH_MASTER_DATA_BASE_URL:http://localhost:8082}
@@ -26,14 +40,8 @@ auth:
     lock-duration-minutes: ${AUTH_LOGIN_LOCK_DURATION_MINUTES:15}
     store: ${AUTH_LOGIN_SECURITY_STORE:memory}
   jwt:
-    secret: ${AUTH_JWT_SECRET:modern-account-system-super-secret-key-1234567890}
+    secret: ${AUTH_JWT_SECRET:}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:3600}
-  users:
-    - username: ${AUTH_DEFAULT_USERNAME:admin}
-      password: ${AUTH_DEFAULT_PASSWORD:1234}
-      department-code: ${AUTH_DEFAULT_DEPARTMENT_CODE:FIN}
-      active: true
-      locked: false
-      roles:
-        - ROLE_ADMIN
+  users: []
+
