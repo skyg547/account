@@ -1,3 +1,24 @@
+### 📅 2026-08-12 ([runtime][loan] Fix Loan API ApplicationContext Loading and Configure Local H2 Profile - Issue #79)
+### [loan] loan:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, 명시적 엔티티/리포지토리 스캐닝 구성 및 H2 인메모리 DB 프로파일 구축
+
+- **작업 배경**:
+  - `loan:api` 모듈의 로컬 구동 시 Composition Root의 `@EntityScan` 및 `@EnableJpaRepositories` 패키지 구성 부족으로 `BusinessPartnerJpaEntity` `Not a managed type` 및 `AuditLogRepository` 빈 미등록 오류 발생.
+  - `loan:api` 모듈 내 `application.yml` 및 `application-local.yml` 프로파일 설정 부재로 인한 외부 PostgreSQL 및 Cloud 인프라 연동 의존성 문제.
+- **주요 변경 사항**:
+  - **`LoanApplication` Composition Root 명시적 패키지 스캐닝 구성**:
+    - `@EntityScan`에 `com.ho.account.masterdata.core.infrastructure.persistence.entity` 및 `com.ho.account.shared.infrastructure.security.domain` 패키지를 명시 등록하여 MasterData 및 Shared Security Audit 엔티티가 JPA Managed Type으로 등록되도록 수정.
+    - `@EnableJpaRepositories`에 `com.ho.account.masterdata.core.infrastructure.persistence` 및 `com.ho.account.shared.infrastructure.security.repository` 패키지를 지정하여 `BusinessPartnerRepository`, `AuditLogRepository` 등 필수 JPA 리포지토리 빈이 정상 등록되도록 구성.
+  - **`loan/api/src/main/resources/application.yml` 및 `application-local.yml` 신설**:
+    - `spring.profiles.default: local` 및 외부 서비스(Config, Eureka, Vault 등) 비활성화 기본 설정 구성.
+    - `application-local.yml`에 isolated H2 인메모리 DB (`jdbc:h2:mem:loan_api_db;MODE=PostgreSQL`), JPA `ddl-auto: create-drop`, 외부 제어 서버 연동 무효화로 단독 독립 구동(Self-contained Local Runtime) 환경 마련.
+  - **`LoanApplicationLocalProfileTest.java` 런타임 테스트 구축**:
+    - `@ActiveProfiles("local")` 기반 local 프로파일 활성화 상태, isolated H2 DB, external cloud decoupling, MasterData/Audit 엔티티 메타모델 및 JPA 리포지토리 빈 런타임 등록 100% 검증.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 마이크로서비스 Composition Root의 명시적 멀티모듈 JPA Entity/Repository 패키지 스캐닝 원칙, 프로파일 기반 H2 런타임 격리 및 마이크로서비스 모듈 간 캡슐화 경계 유지의 아키텍처적 이점을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :loan:core:test :loan:api:test :loan:api:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+  - executable JAR 스모크 테스트 `java -jar loan/api/build/libs/loan-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` 구동 시 H2 스키마 생성 및 JPA EntityManagerFactory 초기화 100% 동작 확인.
+
 ### 📅 2026-08-12 ([runtime][loan] Fix Loan Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #80)
 ### [loan] loan:batch 모듈 로컬 구동 ApplicationContext 로딩 및 배치 런타임 오류 해결, H2 인메모리 DB 설정, 자원 반납 셧다운 생명주기 구축
 

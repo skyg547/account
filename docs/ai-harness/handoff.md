@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-12 Issue #79 Fix Loan API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #79 (`[bug] loan:api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Integrated PR #401 / Closed
+- **Summary**:
+  - Created `loan/api/src/main/resources/application.yml` and `application-local.yml` configuring local default profile, H2 in-memory DB (`jdbc:h2:mem:loan_api_db;MODE=PostgreSQL`), JPA `create-drop`, and disabled Cloud Config/Eureka/Vault control plane services.
+  - Updated `LoanApplication` Composition Root `@EntityScan` and `@EnableJpaRepositories` to explicitly include MasterData entity (`com.ho.account.masterdata.core.infrastructure.persistence.entity` & `com.ho.account.masterdata.core.infrastructure.persistence`) and Shared Audit security packages (`com.ho.account.shared.infrastructure.security.domain` & `repository`), resolving `BusinessPartnerJpaEntity` `Not a managed type` and missing `AuditLogRepository` bean errors.
+  - Refactored `LoanApplicationLocalProfileTest.java` verifying local ApplicationContext loading, profile isolation, H2 DB configuration, external cloud decoupling, and Metamodel/Repository bean registrations.
+  - Added extensive pedagogical comments across all changed files explaining Explicit Multi-Module JPA Package Scanning, Profile-Based Isolated Runtime, and Modular Encapsulation Boundaries.
+  - Verification: `./gradlew.bat :loan:core:test :loan:api:test :loan:api:bootJar` passed with 100% SUCCESS. Executable JAR smoke test `java -jar loan/api/build/libs/loan-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` clean H2 schema startup & JPA initialization. PR #401 merged into `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #80 Fix Loan Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
