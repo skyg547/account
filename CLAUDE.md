@@ -2,6 +2,7 @@
 
 ## 공통 AI Harness 참조
 
+- 공통 아키텍처/검증/안전 원칙은 루트 `AGENTS.md`를 따른다.
 - Claude/Antigravity/기타 리뷰 에이전트도 공통 브랜치, 보안, worklog, handoff 규칙은 `docs/ai-harness/`를 따른다.
 - 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`, `30-agents.md`, `86-multi-tool-issue-ownership.md`를 우선 확인한다.
 - 리뷰 결과나 handoff는 `CLAUDE_WORKLOG.md` 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
@@ -119,7 +120,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 | 파일 | 용도 |
 |------|------|
 | `CODEX_WORKLOG.md` | Codex가 세션별로 무엇을 했는지 요약 (실행 명령, 결과, 남은 리스크) |
-| `WORKLOG.md` | 전체 팀의 Source of Truth — 모듈별 완료/미완료 상태, 핵심 발견 사항 |
+| `docs/WORKLOG.md` | 전체 팀의 Source of Truth — 모듈별 완료/미완료 상태, 핵심 발견 사항 |
 
 ### 파악해야 할 내용
 1. **최신 세션**: WORKLOG 마지막 항목에서 가장 최근 Codex 작업 내용 확인
@@ -127,12 +128,15 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 3. **컴파일/테스트 통과 여부**: 직전 세션의 빌드 결과 확인 (실패 항목은 즉시 검수 대상)
 4. **헥사고날 위반 패턴**: 기존 검수에서 반복 지적된 구조 문제 확인
 
-### 현재 알려진 미해결 리스크 (2026-05-11 기준)
-- `reconciliation`: 더미 금액(`1000.00`, `950.00`) 사용, `journal-ledger` 내부 Repository 직접 의존
-- `reporting`: 실제 원장 미연동, 목업 단일 라인(`ASSET_CASH`)만 생성
-- `closing`: 더미 계정 `999998`, `999999` 임시 구현 유지
-- `loan`: `Loan`/`LoanContract` 병행 모델, 계정코드 하드코딩, E2E 전기 수렴 미검증
-- `governance → master-data`: `effectiveDate`/`requestedVersion` 유실, `TracingService`의 JPA 직접 의존
+### 현재 알려진 미해결 리스크 (2026-08-13 재확인)
+
+이 목록은 세션마다 고정되지 않는다. 검수 시작 시 `CODEX_WORKLOG.md` 최신 항목과 아래 grep으로 실제 코드 상태를 다시 확인한 뒤 갱신한다.
+
+- `closing`: 더미 계정 `999998`/`999999` — 2026-08-13 grep 결과 `closing/` 내 잔존 없음. **해소 추정**, 재검수 시 확정 필요
+- `loan`: `Loan`/`LoanContract` 병행 모델 — 2026-08-13 grep 결과 `loan/` 내 `LoanContract` 클래스 없음. **해소 추정**, 계정코드 하드코딩·E2E 전기 수렴은 재확인 필요
+- `reconciliation`: 더미 금액(`1000.00`, `950.00`) — 2026-08-13 기준 테스트 코드에서만 발견, production 경로 잔존 여부 재확인 필요
+- `reporting`: 목업 단일 라인(`ASSET_CASH`) — 2026-08-13 기준 다수 파일에서 참조 확인, 실제 원장 연동 여부는 재확인 필요
+- `governance → master-data`: `effectiveDate`/`requestedVersion` 유실, `TracingService`(현재 `shared-kernel`)의 JPA 직접 의존 — 미재검증
 
 ---
 
@@ -149,7 +153,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ## 작업 규칙 (워크플로우)
 
-1. **검수 시작 전**: `CODEX_WORKLOG.md`와 `WORKLOG.md` 최신 항목을 읽고 맥락을 파악한다
+1. **검수 시작 전**: `CODEX_WORKLOG.md`와 `docs/WORKLOG.md` 최신 항목을 읽고 맥락을 파악한다
 2. 검수 전 해당 모듈의 `README.md`와 `docs/*.md`를 먼저 확인한다
 3. 요청 범위를 벗어난 리팩터링은 제안만 하고 직접 수정하지 않는다
 4. 헥사고날 원칙 위반이 발견되면 파일 경로와 라인 번호를 명시한다
@@ -159,7 +163,9 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ---
 
-## 참고: 팀 역할 (`.clinerules` 기반)
+## 참고: 팀 역할 (`.clinerules` 기반, 레거시)
+
+아래 표는 `.clinerules`의 레거시 역할 구분이다. 현재 하네스의 실제 실행 단위는 `docs/ai-harness/30-agents.md`의 Planner/Explorer/Coder/Controller/Service/Batch/SQL/Test/Reviewer/Integrator 역할이며, `docs/ai-harness/00-overview.md`도 `.clinerules`보다 `AGENTS.md`가 우선한다고 명시한다.
 
 | 역할 | 담당 |
 |------|------|

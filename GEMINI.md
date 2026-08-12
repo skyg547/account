@@ -7,9 +7,9 @@
 1. `docs/ai-harness/00-overview.md`
 2. `docs/ai-harness/10-rules.md`
 3. `docs/ai-harness/20-workflow.md`
-4. `docs/GEMINI.md`
-5. `docs/GEMINI_SKILL.md`
-6. `WORKLOG.md` 또는 실제 기록 파일 `docs/WORKLOG.md`
+4. `docs/history/GEMINI.md`
+5. `docs/history/GEMINI_SKILL.md`
+6. `docs/WORKLOG.md`
 7. `docs/todo.md`
 8. `GEMINI_REVIEW_PROMPT.md`
 
@@ -22,7 +22,7 @@
 - `status:needs-review` Issue에서는 독립 리뷰만 수행하고 구현 파일을 수정하지 않는다.
 - Gemini는 Codex 변경분을 검수하고, 버그/회귀/아키텍처 위반/테스트 누락/문서 불일치를 우선순위별로 보고한다.
 - 리뷰 결과는 파일/라인 근거와 함께 작성하고, 재현 가능한 빌드/테스트 명령을 포함한다.
-- 리뷰 기록을 남기라는 요청이 있으면 `WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
+- 리뷰 기록을 남기라는 요청이 있으면 `docs/WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
 - 테스트 미실행 항목은 원인과 영향 범위를 반드시 기록한다.
 - Gemini는 검토/구현 결과를 전용 worklog 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
 
