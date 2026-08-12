@@ -1,3 +1,25 @@
+## 2026-08-12 - Issue #347 Add Explicit Self-Contained Local Profiles for Reporting Module
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/347-reporting-local-profile` / `C:\tmp\account-347-reporting-local-profile`.
+- Base: `origin/main`.
+- Scope:
+  - `reporting/api/src/main/resources/application-local.yml`:
+    - Configured explicit `local` profile with H2 in-memory DB (`jdbc:h2:mem:reporting_api_db`), JPA `create-drop`, and memory persistence mode (`account.reporting.persistence.mode: memory`).
+    - Decoupled external infrastructure services (Config Server, Eureka Discovery, Vault, Tracing) to guarantee self-contained local execution.
+  - `reporting/batch/src/main/resources/application-local.yml`:
+    - Configured `web-application-type: none` to disable embedded servlet container.
+    - Set `spring.batch.job.enabled: false` to prevent automatic batch job executions upon startup.
+    - Set `spring.batch.jdbc.initialize-schema: always` to initialize Spring Batch meta-tables in H2.
+  - Integration Tests (`ReportingApiLocalProfileTest.java`, `ReportingBatchLocalProfileTest.java`):
+    - Added `@ActiveProfiles("local")` integration tests validating context startup, H2 database connection, web-environment disabled, batch job auto-start prevention, and memory adapter injection.
+  - Interface Implementation Fixes:
+    - Implemented `findBySlipNo` in `InMemoryJournalQueryAdapter.java` and `calculateLedgerSummary` in `LedgerClientAdapterTest.java` to align with contract updates.
+  - Pedagogical Comments:
+    - Added comprehensive comments detailing Profile Separation, H2 In-Memory DB Isolation, Automatic Batch Scheduler Prevention, and Infrastructure Decoupling.
+  - Test Validation:
+    - Executed `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test :reporting:api:bootJar :reporting:batch:bootJar` (100% SUCCESSFUL).
+
 ## 2026-08-12 - Issue #300 Refactor Payable & Receivable Batch Jobs to Chunk-Oriented Processing
 
 - Owner: Gemini (Agent loop subagent)

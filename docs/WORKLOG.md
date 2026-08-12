@@ -1,3 +1,25 @@
+### 📅 2026-08-12 ([runtime][reporting] Add explicit self-contained local profiles - Issue #347)
+### [reporting] reporting api 및 batch 모듈에 명시적 독립 단독 실행(Self-contained Local Runtime) application-local.yml 프로파일 추가 및 런타임 검증 테스트 구축
+
+- **작업 배경**:
+  - `reporting/api` 및 `reporting/batch` 모듈에 독립적인 `local` 프로파일 설정이 부재하여, 로컬 환경에서 단독 구동 시 외부 PostgreSQL DB 접속 환경 변수가 요구되거나 의도치 않은 배치 Job 자동 실행 위험이 존재했음.
+- **주요 변경 사항**:
+  - **`reporting/api/src/main/resources/application-local.yml` 생성**:
+    - `--spring.profiles.active=local` 지정 시 CLI 오버라이드 파라미터 없이 인메모리 H2 DB (`jdbc:h2:mem:reporting_api_db`), JPA `create-drop`, 메모리 퍼시스턴스 모드(`account.reporting.persistence.mode: memory`)가 활성화되도록 구성.
+    - Cloud Config Server, Eureka Discovery, Vault, Tracing 등 마이크로서비스 외부 제어 서버 연동을 무효화하여 로컬 단독 구동(Self-contained Local Runtime) 보장.
+  - **`reporting/batch/src/main/resources/application-local.yml` 생성**:
+    - `web-application-type: none`으로 서블릿 컨테이너 구동을 차단하여 경량 배치 프로세스로 격리.
+    - `spring.batch.job.enabled: false` 설정으로 비동기 배치 스케줄러 자동 실행을 방지하여 데이터 오염 및 자원 낭비 원천 차단.
+    - `spring.batch.jdbc.initialize-schema: always`로 인메모리 H2 상에 Batch 메타데이터 스키마 자동 구축.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - YAML 설정 파일 및 테스트 코드에 Spring Boot 프로파일 분리(Profile Separation), H2 인메모리 실행 격리, 비동기 배치 스케줄러 자동 실행 방지(`job.enabled: false`), 외부 제어 서버 연동 무효화의 아키텍처적 이점을 다룬 상세 교육적 주석 작성.
+  - **통합 런타임 테스트 추가 (`ReportingApiLocalProfileTest.java`, `ReportingBatchLocalProfileTest.java`)**:
+    - `@ActiveProfiles("local")` 환경에서 API/Batch 컨텍스트 로딩, H2 DB URL, web-environment `none`, `job.enabled=false`, memory 퍼시스턴스 어댑터 정상 주입 검증 완료.
+  - **인터페이스 호환성 정리**:
+    - `InMemoryJournalQueryAdapter` 및 `LedgerClientAdapterTest.RecordingLedgerQueryPort`에 추가된 신규 인터페이스 메서드(`findBySlipNo`, `calculateLedgerSummary`) 구현.
+- **검증**:
+  - `./gradlew.bat :reporting:core:test :reporting:api:test :reporting:batch:test :reporting:api:bootJar :reporting:batch:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([payable, receivable][extensibility] 대용량 배치 처리에 부적합한 Tasklet 및 단일 트랜잭션 루프 - Issue #300)
 ### [payable, receivable] 단일 트랜잭션 Tasklet 배치를 Spring Batch 청크 지향 아키텍처(JpaPagingItemReader, ItemWriter, Chunk Size 100)로 전면 리팩토링 및 힙 메모리 OOM 예방
 

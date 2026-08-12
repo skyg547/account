@@ -61,4 +61,9 @@ public class InMemoryJournalQueryAdapter implements JournalQueryPort {
     public JournalSummary getJournalSummary(Long journalEntryId) {
         throw new UnsupportedOperationException("Memory mode does not support single journal lookup");
     }
+
+    @Override
+    public java.util.Optional<JournalSummary> findBySlipNo(String slipNo) {
+        return java.util.Optional.empty();
+    }
 }
