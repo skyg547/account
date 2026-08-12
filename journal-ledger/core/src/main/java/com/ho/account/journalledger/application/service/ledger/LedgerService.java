@@ -119,9 +119,24 @@ public class LedgerService {
         ledgerBalancePersistencePort.saveSlBalance(slBalance);
     }
 
+    /**
+     * 지정된 기간의 GL/SL 원장 잔액 데이터를 사전 삭제(초기화)합니다.
+     *
+     * <p>초보자 설명: 배치 작업 재실행 시 기존 잔액 데이터 위에 중복으로 금액이 누적되는 문제를 방지하기 위해,
+     * 재집계 Step(Chunk 프로세싱) 시작 전 대상 기간의 잔액을 먼저 깨끗이 지웁니다.
+     * 이 작업은 배치의 멱등성(Idempotency, 몇 번을 실행해도 동일한 결과를 보장)을 달성하는 핵심 단계입니다.</p>
+     *
+     * @param startDate 집계 시작일
+     * @param endDate   집계 종료일
+     */
+    @Transactional
+    public void clearLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
+        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
+    }
+
     @Transactional
     public void reaggregateLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
-        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
+        clearLedgerBalancesForPeriod(startDate, endDate);
 
         List<JournalDetail> postedJournalDetails =
                 ledgerBalancePersistencePort.findPostedJournalDetailsBetween(startDate, endDate);
