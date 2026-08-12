@@ -1,3 +1,18 @@
+# AI Harness Handoff - 2026-08-12 Issue #80 Fix Loan Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #80 (`[bug] loan:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Integrated PR #400 / Closed
+- **Summary**:
+  - Created `loan/batch/src/main/resources/application.yml` and `application-local.yml` configuring local default profile, H2 in-memory DB (`jdbc:h2:mem:loan_batch_db;MODE=PostgreSQL`), JPA `create-drop`, `spring.batch.jdbc.initialize-schema: always`, `spring.batch.job.enabled: false`, `web-application-type: none`, and disabled Cloud Config/Eureka/Vault control plane services.
+  - Removed `@EnableBatchProcessing` from `LoanBatchApplication` to restore Spring Boot 3 `BatchAutoConfiguration` and auto-creation of Spring Batch metadata tables.
+  - Added `masterdata` persistence and `shared.security` packages to `@EntityScan` and `@EnableJpaRepositories` in `LoanBatchApplication`.
+  - Added `@Autowired` to `LoanJournalAdapter` primary constructor to resolve Spring DI constructor ambiguity in `loan/core`.
+  - Fixed test dependency in `loan/batch/build.gradle` (`spring-batch-test`).
+  - Added `LoanBatchLocalProfileTest` and `LoanInterestAccrualBatchConfigTest` verifying ApplicationContext loading, profile isolation, non-web environment, and representative job execution (`loanInterestAccrualJob`).
+  - Added extensive pedagogical comments across all changed files explaining Non-Web Process Execution Structure, Resource Automatic Release & Shutdown Lifecycle, Spring Boot 3 `BatchAutoConfiguration` mechanics, and Local H2 In-Memory Batch Runtime benefits.
+  - Verification: `./gradlew.bat :loan:core:test :loan:batch:test :loan:batch:bootJar` passed with 100% SUCCESS. Executable JAR smoke test `java -jar loan/batch/build/libs/loan-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` clean startup & exit. PR #400 merged into `main`.
+
 # AI Harness Handoff - 2026-08-12 Issue #81 Fix Deposit API ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)

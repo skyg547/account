@@ -1,3 +1,34 @@
+### 📅 2026-08-12 ([runtime][loan] Fix Loan Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #80)
+### [loan] loan:batch 모듈 로컬 구동 ApplicationContext 로딩 및 배치 런타임 오류 해결, H2 인메모리 DB 설정, 자원 반납 셧다운 생명주기 구축
+
+- **작업 배경**:
+  - `loan:batch` 모듈의 로컬 구동 시 ApplicationContext 로딩 실패 및 `loan/batch` 모듈 내 로컬 프로파일 설정 부재 문제 발생.
+  - `LoanBatchApplication`에 `@EnableBatchProcessing` 선언으로 인한 Spring Boot 3의 `BatchAutoConfiguration` 비활성화 및 Spring Batch 메타데이터 DDL 미실행(`Table BATCH_JOB_INSTANCE not found`).
+  - `@EntityScan` 및 `@EnableJpaRepositories` 패키지 구성에서 `masterdata.infrastructure.persistence` 및 `shared.infrastructure.security` 누락으로 인한 빈 생성 실패.
+  - `LoanJournalAdapter` 내 생성자 다중 정의 시 Spring DI 생성자 모호성으로 인한 `NoSuchMethodException` / `No default constructor found` 예외 발생.
+  - `loan/batch/build.gradle` 내 배치 테스트 의존성 오타 (`spring-boot-starter-batch-test` -> `spring-batch-test`).
+- **주요 변경 사항**:
+  - **`loan/batch/src/main/resources/application.yml` 및 `application-local.yml` 신설**:
+    - `spring.profiles.default: local` 및 `spring.main.web-application-type: none` 설정으로 기본 로컬 non-web 환경 구성.
+    - `application-local.yml`에 isolated H2 인메모리 DB (`jdbc:h2:mem:loan_batch_db;MODE=PostgreSQL`), JPA `ddl-auto: create-drop`, `spring.batch.jdbc.initialize-schema: always`, `spring.batch.job.enabled: false` 설정.
+    - Cloud Config, Eureka Discovery, Vault 등 외부 제어 평면 연동을 비활성화하여 오프라인 독립 단독 구동(Self-contained Local Runtime) 보장.
+  - **`LoanBatchApplication` Composition Root 수정**:
+    - Spring Boot 3 배치 자동 생태계를 활성화하기 위해 `@EnableBatchProcessing` 어노테이션을 제거하여 Spring Boot `BatchAutoConfiguration`이 H2 메타데이터 테이블 생성을 맡도록 수정.
+    - `@EntityScan` 및 `@EnableJpaRepositories`에 `masterdata` persistence 및 `shared.security` 패키지를 추가하여 ApplicationContext 로딩 정합성 확보.
+    - CLI 인자(`spring.batch.job.name`) 수신 시 `SpringApplication.exit` 및 `System.exit`로 프로세스가 자원을 즉시 자동 반납하고 깔끔히 셧다운되는 생명주기 구현.
+  - **`LoanJournalAdapter` 의존성 주입 생성자 모호성 해소**:
+    - 생성자에 `@Autowired`를 지정하여 다중 생성자 환경에서 Spring Container가 올바른 의존성 주입 대상 생성자를 선택하도록 수정 (`loan:core`).
+  - **`loan/batch/build.gradle` 배치 테스트 의존성 정합화**:
+    - `testImplementation 'org.springframework.batch:spring-batch-test'` 및 Spring Boot BOM 추가.
+  - **통합 테스트 작성 (`LoanBatchLocalProfileTest.java`, `LoanInterestAccrualBatchConfigTest.java`)**:
+    - `@ActiveProfiles("local")` 기반 local 프로파일 H2 인메모리 DB, non-web 환경, 외부 제어 서버 디커플링, 배치 Job 비동기 자동 실행 방지 100% 검증.
+    - 대표 대출 배치 Job (`loanInterestAccrualJob`) 인자 검증 및 H2 인메모리 배치 런타임 상에서 `COMPLETED` 성공 실행 검증.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 배치 모듈의 non-web 프로세스 실행 구조, 단발성(Ephemeral) 자원 자동 반납 셧다운 생명주기, Spring Boot 3 `BatchAutoConfiguration` 동작 원리 및 로컬 H2 인메모리 배치 런타임의 아키텍처적 이점을 상세히 기술함.
+- **검증**:
+  - `./gradlew.bat :loan:core:test :loan:batch:test :loan:batch:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+  - 직접 실행가능 JAR 픽스처 스모크 테스트 `java -jar loan/batch/build/libs/loan-batch-0.0.1-SNAPSHOT.jar --spring.profiles.active=local` 실행 시 7.5초 만에 성공적 기동 후 셧다운 확인.
+
 ### 📅 2026-08-12 ([runtime][deposit] Fix Deposit API ApplicationContext Loading and Configure Local H2 Profile - Issue #81)
 ### [deposit] deposit:api 모듈 로컬 구동 ApplicationContext 로딩 오류 해결, H2 인메모리 DB 설정, 필수 유즈케이스 포트/빈 등록 정합화 및 런타임 테스트 구축
 
