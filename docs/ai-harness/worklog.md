@@ -1,3 +1,24 @@
+## 2026-08-12 - Issue #321 Push Down Ledger Snapshot Aggregation to DB Level for Heap OOM Prevention
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/321-reconciliation-db-aggregate-oom-fix` / `C:\tmp\account-321-reconciliation-db-aggregate-oom-fix`.
+- Base: `origin/main`.
+- Scope:
+  - Outbound Ledger Query Port & Aggregation DTO (`contracts/src/main/java/com/ho/account/contracts/ledger/`):
+    - Created `LedgerAggregateSummary` DTO (`count`, `totalAmount`).
+    - Added `calculateLedgerSummary(String accountSubjectCode, LocalDate date)` and `calculateLedgerSummary(LocalDate startDate, LocalDate endDate, String accountCode, String currencyCode, String amountBasis)` methods to `LedgerQueryPort`.
+  - DB-level Push-Down Aggregation (`journal-ledger`):
+    - Added JPQL `COUNT(g)` and `SUM(...)` aggregate query (`calculateGlBalanceAggregate`) to `GlBalanceRepository`.
+    - Implemented `calculateGlBalanceAggregate` across `LedgerBalancePersistencePort`, `LedgerBalancePersistenceAdapter`, `JdbcLedgerBalanceBulkPersistenceAdapter`, `LedgerService`, and `MonolithLedgerQueryAdapter`.
+  - Service Refactoring (`ReconManagerService.java`):
+    - Removed procedural in-memory for-loop aggregation and entity list loading in `buildLedgerSnapshot`.
+    - Delegated to `ledgerQueryPort.calculateLedgerSummary(...)` for single-row DB aggregate retrieval, capping memory footprint to $O(1)$.
+  - Pedagogical Comments:
+    - Added extensive comments detailing Heap OOM prevention, Push-Down Aggregation benefits (reduced network I/O, $O(1)$ memory footprint, DB index/aggregate query optimization).
+  - Test Validation:
+    - Updated `ReconManagerServiceTest`, `MonolithLedgerQueryAdapterTest`, and `ReconciliationLocalExternalPortConfiguration`.
+    - Executed `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test :journal-ledger:core:test` (100% SUCCESSFUL). PR #389 merged into `main`.
+
 ## 2026-08-12 - Issue #319 Decouple ECL API Module from ECL Batch for Resource & Process Isolation
 
 - Owner: Gemini (Agent loop subagent)

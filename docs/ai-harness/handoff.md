@@ -1,3 +1,34 @@
+# AI Harness Handoff - 2026-08-12 Issue #321 Push Down Ledger Snapshot Aggregation to DB Level for Heap OOM Prevention
+
+## Active Goal And State
+
+- GitHub Issue `#321` (`[reconciliation][extensibility] 대량 원장 데이터 메모리 적재로 인한 OOM 위험`) completed and merged into `main` via PR `#389`.
+- Branch `agent/321-reconciliation-db-aggregate-oom-fix` integrated and worktree cleaned up.
+
+## Changes And Boundaries
+
+- Outbound Ledger Query Port & Aggregation DTO (`contracts/src/main/java/com/ho/account/contracts/ledger/`):
+  - Created `LedgerAggregateSummary` DTO (`count`, `totalAmount`).
+  - Added `calculateLedgerSummary(String accountSubjectCode, LocalDate date)` and `calculateLedgerSummary(LocalDate startDate, LocalDate endDate, String accountCode, String currencyCode, String amountBasis)` methods to `LedgerQueryPort`.
+- DB-level Push-Down Aggregation (`journal-ledger`):
+  - Added JPQL `COUNT(g)` and `SUM(...)` aggregate query (`calculateGlBalanceAggregate`) to `GlBalanceRepository`.
+  - Implemented `calculateGlBalanceAggregate` across `LedgerBalancePersistencePort`, `LedgerBalancePersistenceAdapter`, `JdbcLedgerBalanceBulkPersistenceAdapter`, `LedgerService`, and `MonolithLedgerQueryAdapter`.
+- Service Refactoring (`ReconManagerService.java`):
+  - Removed procedural in-memory for-loop aggregation and entity list loading in `buildLedgerSnapshot`.
+  - Delegated to `ledgerQueryPort.calculateLedgerSummary(...)` for single-row DB aggregate retrieval, capping memory footprint to $O(1)$.
+- Pedagogical Comments:
+  - Added extensive comments detailing Heap OOM prevention, Push-Down Aggregation benefits (reduced network I/O, $O(1)$ memory footprint, DB index/aggregate query optimization).
+- Verification Evidence:
+  - Updated `ReconManagerServiceTest`, `MonolithLedgerQueryAdapterTest`, and `ReconciliationLocalExternalPortConfiguration`.
+  - Executed `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test :journal-ledger:core:test` with 100% SUCCESS.
+
+## Known Risks And Rollback
+
+- Risk: Ensure DB aggregation query behavior handles NULL sums appropriately (defaults to BigDecimal.ZERO).
+- Rollback: Revert GH-321 commit on `main`.
+
+---
+
 # AI Harness Handoff - 2026-08-12 Issue #319 Decouple ECL API Module from ECL Batch for Resource & Process Isolation
 
 ## Active Goal And State
