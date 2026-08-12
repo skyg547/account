@@ -1,0 +1,12 @@
+﻿[reporting][architecture] 도메인 계층의 Spring 프레임워크 강결합 — Hexagonal 위반 -> https://github.com/skyg547/account/issues/297
+[account-mart][architecture] 도메인 엔티티 내 JPA 어노테이션 사용 — 포트 앤 어댑터 패턴 위반 -> https://github.com/skyg547/account/issues/299
+[ecl][ddd] 핵심 도메인 계산식의 애플리케이션 서비스 유출 — Anemic Domain Model -> https://github.com/skyg547/account/issues/301
+[discovery][msa] 유레카 서버 Peer-Awareness 구성 및 보존 모드 미지정 -> https://github.com/skyg547/account/issues/304
+[gateway][msa] TokenVersion 검증 시 하드코딩된 고정 IP 호출 -> https://github.com/skyg547/account/issues/306
+[journal-ledger:batch][extensibility] BalanceReaggregationBatchConfig 대량 데이터 처리 성능 및 멱등성 한계 -> https://github.com/skyg547/account/issues/307
+[journal-ledger][ddd] 분개 검증(Validation) 로직의 도메인 응집도 분산 -> https://github.com/skyg547/account/issues/308
+[loan][financial] 다중 통화(Multi-currency) 환경에서 원단위 절사 규칙 미적용 -> https://github.com/skyg547/account/issues/310
+[deposit][ddd] 도메인 서비스에 Spring 프레임워크 의존성 포함 -> https://github.com/skyg547/account/issues/312
+[reconciliation][clean-code] JSON 문자열 하드코딩으로 인한 파싱 에러 위험 -> https://github.com/skyg547/account/issues/314
+[asset-lease][financial] 사용권자산 감가상각 시 장부가액 음수 전락 위험 — 상태 검증 부재 -> https://github.com/skyg547/account/issues/317
+[ecl][msa] API 모듈이 Batch 모듈을 직접 참조 및 구동 — 아키텍처 훼손 -> https://github.com/skyg547/account/issues/319

@@ -1,3 +1,26 @@
+### 📅 2026-08-12 ([reconciliation][extensibility] 대량 원장 데이터 메모리 적재로 인한 OOM 위험 - Issue #321)
+### [reconciliation] DB 레벨 푸시다운 집계(Push-Down Aggregation) 적용을 통한 Heap OOM 예방 및 원장 잔액 스냅샷 메모리 풋프린트 최적화
+
+- **작업 배경**:
+  - `ReconManagerService.buildLedgerSnapshot`에서 대량의 GL 원장 잔액 전체 리스트를 JVM Heap 메모리에 로딩한 뒤 절차적인 for-loop로 개수와 합계를 연산함.
+  - 대규모 원장 데이터 처리 시 메모리 풋프린트가 $O(N)$으로 폭증하여 JVM Heap Out-Of-Memory(OOM)가 발생할 심각한 구조적 위험이 존재했음.
+- **주요 변경 사항**:
+  - **영속성 포트 & DTO 푸시다운 집계 메서드 도출 (`contracts/src/main/java/com/ho/account/contracts/ledger/`)**:
+    - `LedgerAggregateSummary` DTO 신규 작성 (`count`, `totalAmount` 보관).
+    - `LedgerQueryPort` 인터페이스에 DB 레벨 집계 포트 메서드 `calculateLedgerSummary(accountSubjectCode, date)` 및 `calculateLedgerSummary(startDate, endDate, accountCode, currencyCode, amountBasis)` 도출.
+  - **DB 레벨 푸시다운 집계 (Push-Down Aggregation) 쿼리 및 어댑터 구현 (`journal-ledger`)**:
+    - `GlBalanceRepository`: `COUNT(g)` 및 `SUM(...)` 푸시다운 JPQL 쿼리(`calculateGlBalanceAggregate`) 구현.
+    - `LedgerBalancePersistencePort`, `LedgerBalancePersistenceAdapter`, `LedgerService`, `MonolithLedgerQueryAdapter`: DB 레벨 집계 쿼리 호출 및 결과 매핑 연결.
+  - **절차식 In-Memory 연산 제거 및 푸시다운 전환 (`ReconManagerService.java`)**:
+    - `buildLedgerSnapshot`의 for-loop 및 개별 객체 메모리 적재 연산 전면 제거.
+    - `ledgerQueryPort.calculateLedgerSummary(...)` 호출로 전환하여 1건의 집계 데이터만 수신. Memory Footprint $O(1)$로 제어.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 대규모 원장 데이터 처리 시 JVM Heap OOM 방지, DB Push-Down Aggregation의 성능적/네트워크 I/O적 이점, 메모리 풋프린트 통제 및 DB 집계 최적화 활용의 필요성을 설명하는 상세 주석 작성.
+  - **테스트 케이스 수정 및 검증**:
+    - `ReconManagerServiceTest`, `MonolithLedgerQueryAdapterTest`, `ReconciliationLocalExternalPortConfiguration` 보완.
+- **검증**:
+  - `./gradlew.bat :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test :journal-ledger:core:test` 실행하여 100% 성공 확인 (BUILD SUCCESSFUL). PR #389 main 병합 완료.
+
 ### 📅 2026-08-12 ([ecl][msa] API 모듈이 Batch 모듈을 직접 참조 및 구동 — 아키텍처 훼손 - Issue #319)
 ### [ecl] ecl-api 모듈의 ecl-batch 직접 의존성 및 Spring Batch 직접 구동 로직 전면 제거, BatchTriggerPort 및 어댑터 전환을 통한 리소스/프로세스 격리 완성
 

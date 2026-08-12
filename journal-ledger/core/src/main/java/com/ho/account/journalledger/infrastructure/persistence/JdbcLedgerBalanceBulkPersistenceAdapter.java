@@ -1,6 +1,9 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
+import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+
+import java.math.BigDecimal;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
@@ -193,6 +196,20 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
             String businessPartnerCode, String departmentCode, String currencyCode) {
         return slBalanceRepository.findForQuery(
                 startDate, endDate, accountCode, businessPartnerCode, departmentCode, currencyCode);
+    }
+
+    @Override
+    public LedgerAggregateSummary calculateGlBalanceAggregate(
+            LocalDate startDate, LocalDate endDate, String accountCode, String currencyCode, String amountBasis) {
+        Object rawResult = glBalanceRepository.calculateGlBalanceAggregate(
+                startDate, endDate, accountCode, currencyCode, amountBasis);
+        if (rawResult == null) {
+            return new LedgerAggregateSummary(0L, BigDecimal.ZERO);
+        }
+        Object[] row = (rawResult instanceof Object[]) ? (Object[]) rawResult : new Object[]{rawResult};
+        long count = (row.length > 0 && row[0] != null) ? ((Number) row[0]).longValue() : 0L;
+        BigDecimal sum = (row.length > 1 && row[1] != null) ? (BigDecimal) row[1] : BigDecimal.ZERO;
+        return new LedgerAggregateSummary(count, sum);
     }
 
     private void bindGlBalance(PreparedStatement ps, GlBalance balance, LocalDateTime now) throws SQLException {
