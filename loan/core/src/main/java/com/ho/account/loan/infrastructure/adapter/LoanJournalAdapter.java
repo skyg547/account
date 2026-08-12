@@ -10,6 +10,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +42,8 @@ public class LoanJournalAdapter implements LoanJournalPort {
         this(journalUseCase, new InMemoryOutboxAdapter());
     }
 
-    public LoanJournalAdapter(JournalUseCase journalUseCase, OutboxPort outboxPort) {
+    @Autowired
+    public LoanJournalAdapter(JournalUseCase journalUseCase, @Autowired(required = false) OutboxPort outboxPort) {
         this.journalUseCase = journalUseCase;
         this.outboxPort = outboxPort != null ? outboxPort : new InMemoryOutboxAdapter();
     }
