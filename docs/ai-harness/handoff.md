@@ -1,3 +1,13 @@
+# AI Harness Handoff - 2026-08-12 Issue #345 Add Explicit Local H2 Profile and Isolate Demo Credentials for Auth Module
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Status**: Integrated PR / Issue closed
+- **Summary**:
+  - Added explicit `application-local.yml` for `auth/api` with H2 PostgreSQL mode (`jdbc:h2:mem:auth_db`), H2 console, Flyway schema migrations, and isolated demo credentials (`auth.jwt.secret`, `auth.internal-api.token`, admin demo account).
+  - Enforced Fail-Closed security policy in `application.yml` and `AuthModuleProperties.java` by removing default fallback secrets and adding `@PostConstruct` validation.
+  - Created `AuthApiRuntimePolicyTest.java` verifying profile isolation, Fail-Closed policy, and PostgreSQL dev/prod profile compatibility.
+  - Verification: `./gradlew.bat :auth:core:test :auth:api:test :auth:api:bootJar` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-12 Issue #347 Add Explicit Self-Contained Local Profiles for Reporting Module
 
 - **Issue**: #347 (`[runtime][reporting] Add explicit self-contained local profiles`)

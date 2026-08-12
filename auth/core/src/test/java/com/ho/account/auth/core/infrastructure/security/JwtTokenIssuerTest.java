@@ -21,6 +21,7 @@ class JwtTokenIssuerTest {
     @SuppressWarnings("unchecked")
     void issuesClaimsFromProvidedRoleSnapshotAndIssuedAt() {
         AuthModuleProperties properties = new AuthModuleProperties();
+        properties.getJwt().setSecret("test-secret-key-that-is-at-least-32-bytes-long!");
         properties.getJwt().setIssuer("auth-test");
         properties.getJwt().setExpirationSeconds(600L);
         JwtTokenIssuer issuer = new JwtTokenIssuer(properties);

@@ -19,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         classes = AuthApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
+                "spring.profiles.active=local",
                 "spring.cloud.config.enabled=false",
                 "spring.cloud.discovery.enabled=false",
                 "spring.cloud.loadbalancer.enabled=false",

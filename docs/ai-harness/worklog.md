@@ -1,3 +1,8 @@
+### 📅 2026-08-12 (GH-345: Add explicit local H2 profile and isolate demo credentials for auth module)
+- **Component**: `auth/api`, `auth/core`
+- **Changes**: Added explicit `application-local.yml` for `auth/api` with H2 PostgreSQL mode, H2 console, Flyway migration and isolated demo credentials (`auth.jwt.secret`, `auth.internal-api.token`, demo user). Stripped default fallback secrets from `application.yml` and `AuthModuleProperties.java`, enforcing Fail-Closed policy on base/dev/prod environments when required credentials are missing. Created `AuthApiRuntimePolicyTest.java` for policy assertions.
+- **Verification**: `./gradlew.bat :auth:core:test :auth:api:test :auth:api:bootJar` (100% SUCCESSFUL).
+
 ## 2026-08-12 - Issue #347 Add Explicit Self-Contained Local Profiles for Reporting Module
 
 - Owner: Gemini (Agent loop subagent)

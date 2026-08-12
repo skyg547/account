@@ -1,3 +1,25 @@
+### 📅 2026-08-12 ([runtime][auth] Add explicit local H2 and isolate demo credentials - Issue #345)
+### [auth] auth api 모듈에 명시적 application-local.yml 프로파일 추가, 데모 자격증명 격리 및 Fail-Closed 보안 정책 강화
+
+- **작업 배경**:
+  - `auth/api` 모듈에 독립적인 `application-local.yml` 프로파일이 부재하여 런타임이 임베디드 DB 폴백에 의존했으며, 기본 `application.yml`에 데모용 보안 키 및 토큰 디폴트값이 포함되어 있어 프로파일 기반 자격증명 격리가 미흡했음.
+- **주요 변경 사항**:
+  - **`auth/api/src/main/resources/application-local.yml` 생성**:
+    - `local` 프로파일 지정 시 로컬 H2 인메모리 DB (`jdbc:h2:mem:auth_db;MODE=PostgreSQL`), H2 콘솔 (`/h2-console`), Flyway 마이그레이션 (V70~V73) 및 `ddl-auto=validate`가 적용되도록 구성.
+    - 데모용 자격증명 (`auth.jwt.secret`, `auth.internal-api.token`, 데모 admin 계정)을 `local` 프로파일에 완벽히 격리.
+    - Cloud Config, Eureka Discovery, Vault 연동을 비활성화하여 외부 인프라 미작동 상황에서도 독립 로컬 런타임 구동 보장.
+  - **Fail-Closed 보안 정책 강화 정합화**:
+    - `auth/api/src/main/resources/application.yml` 및 `AuthModuleProperties.java`에서 하드코딩된 디폴트 secret/token 필드 초기값을 제거.
+    - `AuthModuleProperties`에 `@PostConstruct` 기반 `validateFailClosedPolicy()`를 추가하여 필수 보안 환경변수 (`AUTH_JWT_SECRET`, `AUTH_INTERNAL_API_TOKEN`)가 누락된 채 base/dev/prod 환경이 구동될 경우 애플리케이션 시작 시점에 Fail-Closed 에러(`IllegalStateException`)를 발생시키도록 정합화.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - 프로파일 기반 자격증명 격리(Profile-based Credential Isolation), Fail-Closed 보안 원칙, 로컬 H2 인메모리 인증 데이터베이스 구축의 보안 및 아키텍처적 이점을 설명하는 подроб 교육적 주석 추가.
+  - **런타임 보안 정책 검증 테스트 구축 (`AuthApiRuntimePolicyTest.java`)**:
+    - `local` 프로파일의 H2 PostgreSQL 모드, Flyway, 데모 자격증명 격리 검증.
+    - 필수 환경변수 누락 시 base/dev/prod 프로파일의 Fail-Closed 동작 검증.
+    - 환경변수 주입 시 dev/prod 프로파일의 정상 구동 검증.
+- **검증**:
+  - `./gradlew.bat :auth:core:test :auth:api:test :auth:api:bootJar` 실행하여 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-12 ([runtime][reporting] Add explicit self-contained local profiles - Issue #347)
 ### [reporting] reporting api 및 batch 모듈에 명시적 독립 단독 실행(Self-contained Local Runtime) application-local.yml 프로파일 추가 및 런타임 검증 테스트 구축
 
