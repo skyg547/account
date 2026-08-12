@@ -1,3 +1,18 @@
+### 📅 2026-08-13 ([runtime][tax-batch] Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #92)
+### [tax-batch] tax:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 TaxBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `tax:batch` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Batch 메타데이터 스키마 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`tax/batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/tax-migration`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`TaxBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = TaxBatchApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `TaxBatchApplication`의 ApplicationContext, Batch Infra (`JobExplorer`, `taxInvoiceValidationJob`), 및 도메인 유스케이스(`TaxInvoiceBatchUseCase`) 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, 배치 메타데이터 초기화 및 도메인 빈 주입의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :tax:batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile - Issue #93)
 ### [expenditure-resolution] expenditure-resolution:api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionApiApplicationTests 추가
 
