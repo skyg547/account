@@ -1,0 +1,60 @@
+# ==============================================================================
+# Deposit API Module - Base Configuration
+# ==============================================================================
+# [Architecture & Pedagogical Explanation / 교육적 주석]
+# 1. Standalone Application Context Loading (독립 애플리케이션 컨텍스트 로딩)
+#    - 본 설정 파일은 예금(Deposit) API 마이크로서비스 단독 실행 시 기본이 되는 Base 구성입니다.
+#    - 'spring.profiles.default: local'을 지정하여 별도의 외부 프로파일 옵션 없이 애플리케이션을 실행하더라도
+#      기본적으로 로컬 인메모리 H2 DB 및 개발용 로컬 어댑터가 동작하도록 보장합니다.
+#
+# 2. Control Plane Decoupling (외부 제어 평면 디커플링 및 격리)
+#    - Spring Cloud Config, Eureka Discovery, Vault 등 외부 제어 평면(Control Plane) 인프라 서비스에 대한
+#      비활성화 옵션을 기본값으로 제공하여, 외부 관리 서버가 미작동하는 오프라인 환경에서도 ApplicationContext가
+#      커넥션 타임아웃 오류 없이 신속하게 로딩되도록 지원합니다.
+#
+# 3. Flyway Auto-Configuration Suppression (Flyway 마이그레이션 자동 비활성화)
+#    - 기본 프로파일에서는 Flyway 자동 실행을 비활성화하여 local 프로파일의 JPA ddl-auto 기반 스키마 생성과 충돌하지 않도록 보장합니다.
+# ==============================================================================
+
+spring:
+  application:
+    name: deposit-service
+  profiles:
+    default: local
+  flyway:
+    enabled: false
+  cloud:
+    config:
+      enabled: ${SPRING_CLOUD_CONFIG_ENABLED:false}
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
+    vault:
+      enabled: false
+  jpa:
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8084}
+
+eureka:
+  client:
+    enabled: ${DEPOSIT_EUREKA_ENABLED:false}
+    register-with-eureka: ${DEPOSIT_EUREKA_ENABLED:false}
+    fetch-registry: ${DEPOSIT_EUREKA_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false
