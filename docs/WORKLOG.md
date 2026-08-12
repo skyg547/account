@@ -1,3 +1,27 @@
+### 📅 2026-08-12 ([journal-ledger:batch][extensibility] BalanceReaggregationBatchConfig 대량 데이터 처리 성능 및 멱등성 한계 - Issue #307)
+### [journal-ledger:batch] BalanceReaggregationBatchConfig 단일 트랜잭션 Tasklet 방식에서 2단계 Chunk 기반 배치 프로세싱(JpaPagingItemReader, ItemProcessor, ItemWriter)으로 전환 및 사전 Clean-up Step 추가를 통한 멱등성 보장
+
+- **작업 배경**:
+  - 기존 `BalanceReaggregationBatchConfig`는 단일 트랜잭션 Tasklet 방식으로 지정 기간의 전체 전표 상세(`JournalDetail`)를 한번에 메모리로 조회하고 집계하여, 대량 전표 데이터 시 **Out Of Memory (OOM)**, DB 커넥션 타임아웃, 중단 시 **재시작(Restartability) 불가** 및 **중복 누적 위험**이 존재했음.
+- **주요 변경 사항**:
+  - **도메인 & 애플리케이션 서비스 확장 (`LedgerService.java`)**:
+    - `clearLedgerBalancesForPeriod(startDate, endDate)` 메서드 신규 추가. 재집계 진입 전 지정 기간의 기존 GL/SL 원장 잔액을 삭제/초기화하여 배치의 멱등성(Idempotency) 보장.
+  - **사전 Clean-up Tasklet 신규 작성 (`BalanceCleanUpTasklet.java`)**:
+    - `BalanceCleanUpTasklet`을 작성하여 배치 1단계 Step(`balanceCleanUpStep`)에서 대상 기간 잔액을 사전 정리하는 전처리 담당. 불필요해진 기존 `BalanceReaggregationTasklet.java` 제거.
+  - **Chunk 기반 2단계 배치 파이프라인 전면 리팩토링 (`BalanceReaggregationBatchConfig.java`)**:
+    - **Step 1 (`balanceCleanUpStep`)**: `BalanceCleanUpTasklet` 실행으로 기존 잔액 초기화.
+    - **Step 2 (`balanceReaggregationStep`)**: Chunk 기반 프로세싱 (Chunk Size 100).
+      - `balanceReaggregationItemReader`: `JpaPagingItemReader` (`@StepScope`)를 사용하여 대상 기간의 승인 완료(POSTED) 전표 상세를 Paging 로딩하여 메모리 풋프린트 $O(\text{chunkSize})$ 로 제어.
+      - `balanceReaggregationItemProcessor`: 투과 전달 (`item -> item`).
+      - `balanceReaggregationItemWriter`: `ledgerService.updateLedgerBalancesBulk(chunk.getItems())`를 호출하여 청크 단위 100건마다 트랜잭션을 commit하고 원장 잔액에 합산 저장.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - Spring Batch의 Chunk 기반 프로세싱 이점(Low Memory Footprint, Transaction Boundaries, Restartability & Idempotency, Clean-up Step의 아키텍처적 이점)을 상세하게 기술.
+  - **테스트 케이스 작성 및 검증 (`BalanceReaggregationBatchConfigTest.java`)**:
+    - `@SpringBatchTest` 환경에서 1회차 배치 실행 후 잔액 정상 집계 확인.
+    - 2회차 재실행 시 잔액이 이중 합산되지 않고 1회차와 동일함을 검증하여 **배치 멱등성(Idempotency)** 보장 검증 완료.
+- **검증**:
+  - `./gradlew.bat :journal-ledger:batch:test` 및 `./gradlew.bat :journal-ledger:core:test` 100% 성공 (BUILD SUCCESSFUL). PR #391 main 병합 완료.
+
 ### 📅 2026-08-12 ([reconciliation][financial] 대사 자동 매칭 로직이 단순 총액 비교에 불과함 — 건별 N:M 매칭 엔진 부재 - Issue #320)
 ### [reconciliation] 항목 수준(Item-Level) 건별 N:M 매칭 알고리즘 엔진(ReconciliationMatchingEngine, ItemLevelMatcher) 구축 및 복합 키 기반 자동 대사 고도화
 

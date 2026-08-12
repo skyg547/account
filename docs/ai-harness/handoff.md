@@ -1,3 +1,16 @@
+# AI Harness Handoff - 2026-08-12 Issue #307 Refactor Balance Reaggregation Batch Job to Chunk-Oriented Processing & Guarantee Idempotency
+
+- **Issue**: #307 (`[journal-ledger:batch][extensibility] BalanceReaggregationBatchConfig 대량 데이터 처리 성능 및 멱등성 한계`)
+- **PR**: #391 (Merged into `main`)
+- **Status**: Completed / Integrated
+- **Summary**:
+  - Refactored `BalanceReaggregationBatchConfig` from single-transaction Tasklet to 2-step pipeline with Clean-up Tasklet (`BalanceCleanUpTasklet`) and Chunk-oriented processing (`JpaPagingItemReader`, `ItemProcessor`, `ItemWriter`).
+  - Added `clearLedgerBalancesForPeriod` to `LedgerService` for pre-processing balance reset, guaranteeing batch idempotency and restartability.
+  - Page-by-page loading caps memory footprint to $O(\text{chunkSize})$ preventing Heap OOM and DB connection timeouts.
+  - Added extensive pedagogical comments covering Low Memory Footprint, Transaction Boundaries, Restartability & Idempotency, and Clean-up Step benefits.
+  - Created unit/integration tests (`BalanceReaggregationBatchConfigTest`).
+  - Verification: Executed `./gradlew.bat :journal-ledger:batch:test` and `./gradlew.bat :journal-ledger:core:test` (100% SUCCESSFUL).
+
 # AI Harness Handoff - 2026-08-12 Issue #320 Implement Item-Level N:M Matching Engine for Financial Reconciliation
 
 - **Issue**: #320 (`[reconciliation][financial] 대사 자동 매칭 로직이 단순 총액 비교에 불과함 — 건별 N:M 매칭 엔진 부재`)

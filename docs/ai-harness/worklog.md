@@ -1,3 +1,25 @@
+## 2026-08-12 - Issue #307 Refactor Balance Reaggregation Batch Job to Chunk-Oriented Processing & Guarantee Idempotency
+
+- Owner: Gemini (Agent loop subagent)
+- Source branch/worktree: `agent/307-journal-ledger-batch-reaggregation-chunk` / `C:\tmp\account-307-journal-ledger-batch-reaggregation-chunk`.
+- Base: `origin/main`.
+- Scope:
+  - Domain & Service Extensions (`LedgerService.java`):
+    - Added `clearLedgerBalancesForPeriod(startDate, endDate)` method for deleting existing GL/SL balances before re-aggregation to guarantee idempotency.
+  - Pre-processing Clean-up Tasklet (`BalanceCleanUpTasklet.java`):
+    - Created `BalanceCleanUpTasklet` to clean up target date range balances in Step 1 (`balanceCleanUpStep`). Removed obsolete `BalanceReaggregationTasklet.java`.
+  - 2-Step Chunk-Oriented Pipeline Refactoring (`BalanceReaggregationBatchConfig.java`):
+    - **Step 1 (`balanceCleanUpStep`)**: Executes `BalanceCleanUpTasklet` for pre-processing cleanup.
+    - **Step 2 (`balanceReaggregationStep`)**: Chunk-oriented processing with chunk size 100.
+      - `balanceReaggregationItemReader`: `JpaPagingItemReader` (`@StepScope`) for reading POSTED `JournalDetail` records page-by-page, controlling memory footprint to $O(\text{chunkSize})$.
+      - `balanceReaggregationItemProcessor`: Pass-through processor (`item -> item`).
+      - `balanceReaggregationItemWriter`: Delegates chunk list to `ledgerService.updateLedgerBalancesBulk(chunk.getItems())`, committing transactions per 100 items.
+  - Pedagogical Comments:
+    - Added extensive comments covering Low Memory Footprint, Transaction Boundaries, Restartability & Idempotency, and Clean-up Step benefits.
+  - Test Validation (`BalanceReaggregationBatchConfigTest.java`):
+    - Created `@SpringBatchTest` verifying initial batch execution balance calculation and second run idempotency.
+    - Executed `./gradlew.bat :journal-ledger:batch:test` and `./gradlew.bat :journal-ledger:core:test` (100% SUCCESSFUL). PR #391 merged into `main`.
+
 ## 2026-08-12 - Issue #320 Implement Item-Level N:M Matching Engine for Financial Reconciliation
 
 - Owner: Gemini (Agent loop subagent)
