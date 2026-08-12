@@ -1,43 +1,25 @@
 package com.ho.account.expenditure.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 지급 실행 (Payment Run) 엔티티.
+ * 지급 실행 (Payment Run) 엔티티 (Pure Java POJO).
  * 여러 지급을 묶어 일괄적으로 처리하고 관리하는 단위입니다.
+ *
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 지급 실행 도메인 모델 객체로서 JPA 의존성을 제거하여 기술 프레임워크로부터 완벽히 분리됩니다.
  */
-@Entity
-@Table(name = "payment_runs")
 public class PaymentRun {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private LocalDate runDate;
+    private String description;
+    private PaymentRunStatus status = PaymentRunStatus.INITIATED;
+    private String createdBy = "SYSTEM";
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false)
-    private LocalDate runDate; // 지급 실행일
-
-    @Column(length = 500)
-    private String description; // 설명
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private PaymentRunStatus status; // 지급 실행 상태 (INITIATED, PROCESSING, COMPLETED, FAILED)
-
-    @Column(nullable = false, updatable = false)
-    private String createdBy;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = PaymentRunStatus.INITIATED;
-        }
+    public PaymentRun() {
     }
 
     // Getter 및 Setter

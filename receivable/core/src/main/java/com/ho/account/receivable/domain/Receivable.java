@@ -1,61 +1,33 @@
 package com.ho.account.receivable.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * [DDD(도메인 주도 설계) - Aggregate Root]
+ * [DDD(도메인 주도 설계) - Aggregate Root] (Pure Java POJO)
  * 매출채권(Receivable) 엔티티 — 고객에게 청구한 금액 중 아직 회수되지 않은 잔액을 관리합니다.
  * 
- * 🐣 [초보자를 위한 설명]
- * 매출채권은 쉽게 말해 '받을 권리가 있는 외상값'입니다. 
- * 고객에게 물건을 주고 청구서를 보냈을 때 "나중에 이만큼 돈을 받을 거야"라고 장부에 기록해두는 자산입니다. 
- * 이 클래스는 처음에 얼마를 받아야 했는지(원금)와, 고객이 중간에 조금씩 갚아서 현재 얼마가 남았는지(잔액)를 정확히 추적합니다.
- * Rich Domain Model 원칙에 따라, 수납 처리나 연체 판정 등의 비즈니스 규칙을 도메인 모델 내부에서 직접 관리합니다.
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 1. 도메인 계층 독립성 보장:
+ *    매출채권 도메인 모델(Receivable)은 JPA 의존성을 제거하여 기술 프레임워크로부터 독립적입니다.
+ *    수납 적용(applyCollection), 연체 판정(markAsOverdue) 등의 풍부한 비즈니스 로직을 pure Java 코드로 실행합니다.
+ * 
+ * 2. Data Mapper 패턴의 아키텍처 이점:
+ *    ReceivableJpaEntity와 ReceivableMapper를 통해 ORM 프레임워크 매핑 구조를 도메인 객체와 분리합니다.
  */
-@Entity
-@Table(name = "receivables")
 public class Receivable {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private SalesInvoice salesInvoice;
+    private String customerCode;
+    private BigDecimal originalAmount;
+    private BigDecimal outstandingAmount;
+    private LocalDate dueDate;
+    private ReceivableStatus status = ReceivableStatus.OPEN;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sales_invoice_id", nullable = false, unique = true)
-    private SalesInvoice salesInvoice; // 관련 매출 인보이스
-
-    @Column(name = "customer_code", nullable = false, length = 50)
-    private String customerCode; // 채권 대상 고객 코드 (거래처)
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal originalAmount; // 최초 채권 금액
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 미수 금액
-
-    @Column(nullable = false)
-    private LocalDate dueDate; // 만기일 (수금 예정일)
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private ReceivableStatus status; // 채권 상태 (OPEN, PARTIAL_PAID, PAID, OVERDUE)
-
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = ReceivableStatus.OPEN;
-        }
-        if (outstandingAmount == null) {
-            outstandingAmount = originalAmount;
-        }
+    public Receivable() {
     }
 
     /**
@@ -122,6 +94,9 @@ public class Receivable {
 
     public void setOriginalAmount(BigDecimal originalAmount) {
         this.originalAmount = originalAmount;
+        if (this.outstandingAmount == null) {
+            this.outstandingAmount = originalAmount;
+        }
     }
 
     public BigDecimal getOutstandingAmount() {

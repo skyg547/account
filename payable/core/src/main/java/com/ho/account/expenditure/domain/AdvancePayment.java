@@ -1,63 +1,31 @@
 package com.ho.account.expenditure.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * [AdvancePayment] 도메인 엔티티.
+ * [AdvancePayment] 도메인 엔티티 (Pure Java POJO).
  * 공급업체에게 미리 지급된 선급금 내역을 관리합니다.
  * 타 모듈과는 ID/Code 기반으로 참조하여 결합도를 낮춥니다.
+ *
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 도메인 계층(AdvancePayment)은 기술 프레임워크(JPA, ORM 어노테이션)에 종속되지 않는 Pure Java POJO입니다.
+ * 선급금 잔액 차감 및 상계 비즈니스 메서드(applyOffset)를 프레임워크 독립적으로 유지합니다.
  */
-@Entity
-@Table(name = "advance_payments")
 public class AdvancePayment {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    /**
-     * 선급금 지급 대상 공급업체 코드.
-     */
-    @Column(name = "vendor_code", nullable = false, length = 20)
     private String vendorCode;
-
-    @Column(nullable = false)
-    private LocalDate paymentDate; // 선급금 지급일
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount; // 최초 선급금 금액
-
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal outstandingAmount; // 상계 가능한 잔액
-
-    @Column(length = 500)
-    private String description; // 설명
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private AdvancePaymentStatus status; // 선급금 상태 (ACTIVE, OFFSET, REFUNDED)
-
-    /**
-     * 연관된 회계 전표 ID.
-     */
-    @Column(name = "journal_entry_id")
+    private LocalDate paymentDate;
+    private BigDecimal amount;
+    private BigDecimal outstandingAmount;
+    private String description;
+    private AdvancePaymentStatus status = AdvancePaymentStatus.ACTIVE;
     private Long journalEntryId;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = AdvancePaymentStatus.ACTIVE;
-        }
-        if (outstandingAmount == null) {
-            outstandingAmount = amount;
-        }
+    public AdvancePayment() {
     }
 
     /**
@@ -92,7 +60,12 @@ public class AdvancePayment {
     public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }
 
     public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+        if (this.outstandingAmount == null) {
+            this.outstandingAmount = amount;
+        }
+    }
 
     public BigDecimal getOutstandingAmount() { return outstandingAmount; }
     public void setOutstandingAmount(BigDecimal outstandingAmount) { this.outstandingAmount = outstandingAmount; }

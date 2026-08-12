@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * 대량 수납 매칭의 Job/Step 제어만 이 모듈에 두고, 매칭 판단은 :receivable:core를 사용한다.
  */
 @SpringBootApplication(scanBasePackages = "com.ho.account.receivable")
-@EntityScan(basePackages = "com.ho.account.receivable.domain")
+@EntityScan(basePackages = "com.ho.account.receivable.infrastructure.persistence.entity")
 @EnableJpaRepositories(basePackages = "com.ho.account.receivable.repository")
 @Import(ProductionPostgresqlTlsGuard.class)
 public class ReceivableBatchApplication {

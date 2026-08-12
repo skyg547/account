@@ -1,45 +1,25 @@
 package com.ho.account.receivable.domain;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * 자동 매칭에 실패하여 수동 처리가 필요한 수금 엔티티.
+ * 자동 매칭에 실패하여 수동 처리가 필요한 수금 엔티티 (Pure Java POJO).
  * 미매칭 큐의 항목으로 사용됩니다.
+ *
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 도메인 모델(UnmatchedCollection)은 프레임워크 독립성을 가집니다.
  */
-@Entity
-@Table(name = "unmatched_collections")
 public class UnmatchedCollection {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private Collection collection;
+    private String reason;
+    private UnmatchedCollectionStatus status = UnmatchedCollectionStatus.PENDING;
+    private String resolvedBy;
+    private LocalDateTime resolvedAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "collection_id", nullable = false, unique = true)
-    private Collection collection; // 매칭되지 않은 수금 정보
-
-    @Column(length = 500)
-    private String reason; // 매칭 실패 사유
-
-    @Column(length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private UnmatchedCollectionStatus status; // 미매칭 상태 (PENDING, RESOLVED, IGNORED)
-
-    @Column(length = 50)
-    private String resolvedBy; // 해결한 사용자 ID
-
-    private LocalDateTime resolvedAt; // 해결 일시
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = UnmatchedCollectionStatus.PENDING; // 초기 상태는 PENDING
-        }
+    public UnmatchedCollection() {
     }
 
     // Getter 및 Setter

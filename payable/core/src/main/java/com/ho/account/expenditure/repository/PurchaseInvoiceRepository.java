@@ -1,7 +1,7 @@
 package com.ho.account.expenditure.repository;
 
-import com.ho.account.expenditure.domain.PurchaseInvoice;
 import com.ho.account.expenditure.domain.PurchaseInvoiceStatus;
+import com.ho.account.expenditure.infrastructure.persistence.entity.PurchaseInvoiceJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoice, Long> {
-    Optional<PurchaseInvoice> findByInvoiceNoAndVendorCode(String invoiceNo, String vendorCode);
-    List<PurchaseInvoice> findByVendorCodeAndStatus(String vendorCode, PurchaseInvoiceStatus status);
-    List<PurchaseInvoice> findByIssueDateBetween(LocalDate startDate, LocalDate endDate);
+public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoiceJpaEntity, Long> {
+    Optional<PurchaseInvoiceJpaEntity> findByInvoiceNoAndVendorCode(String invoiceNo, String vendorCode);
+    List<PurchaseInvoiceJpaEntity> findByVendorCodeAndStatus(String vendorCode, PurchaseInvoiceStatus status);
+    List<PurchaseInvoiceJpaEntity> findByIssueDateBetween(LocalDate startDate, LocalDate endDate);
 }

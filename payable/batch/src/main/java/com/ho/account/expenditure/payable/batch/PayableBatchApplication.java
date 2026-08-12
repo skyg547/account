@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * 배치 모듈은 Job/Step 실행 껍데기만 담당하고, 채무/지급 계산은 :payable:core의 서비스와 도메인을 참조한다.
  */
 @SpringBootApplication(scanBasePackages = "com.ho.account.expenditure")
-@EntityScan(basePackages = "com.ho.account.expenditure.domain")
+@EntityScan(basePackages = "com.ho.account.expenditure.infrastructure.persistence.entity")
 @EnableJpaRepositories(basePackages = "com.ho.account.expenditure.repository")
 @Import(ProductionPostgresqlTlsGuard.class)
 public class PayableBatchApplication {

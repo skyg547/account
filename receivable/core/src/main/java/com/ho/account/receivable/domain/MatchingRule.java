@@ -1,42 +1,25 @@
 package com.ho.account.receivable.domain;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 수금과 매출채권을 자동 매칭하기 위한 규칙 엔티티.
+ * 수금과 매출채권을 자동 매칭하기 위한 규칙 엔티티 (Pure Java POJO).
+ *
+ * 🐣 [Hexagonal Architecture & Pure Java POJO 교육적 주석]
+ * 도메인 모델(MatchingRule)은 기술 프레임워크 독립성을 보유합니다.
  */
-@Entity
-@Table(name = "matching_rules")
 public class MatchingRule {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String ruleName;
+    private Integer priority;
+    private MatchingCriteria matchCriteria;
+    private BigDecimal toleranceAmount;
+    private boolean isActive = true;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String ruleName; // 규칙 명칭
-
-    @Column(nullable = false)
-    private Integer priority; // 규칙 적용 우선순위 (낮은 숫자가 높은 우선순위)
-
-    @Column(length = 50, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private MatchingCriteria matchCriteria; // 매칭 기준 (예: REFERENCE_NO_EXACT, AMOUNT_FUZZY)
-
-    @Column(precision = 19, scale = 2)
-    private BigDecimal toleranceAmount; // 허용 오차 금액 (AMOUNT_FUZZY 매칭 시)
-
-    @Column(nullable = false)
-    private boolean isActive = true; // 규칙 활성화 여부
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
+    public MatchingRule() {
     }
 
     // Getter 및 Setter
@@ -85,7 +68,7 @@ public class MatchingRule {
     }
 
     public void setActive(boolean active) {
-        isActive = active;
+        this.isActive = active;
     }
 
     public LocalDateTime getCreatedAt() {

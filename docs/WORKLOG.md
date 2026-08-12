@@ -1,3 +1,23 @@
+### 📅 2026-08-12 ([payable, receivable][architecture] 도메인 엔티티에 JPA 의존성 강결합 — 헥사고날 위반 - Issue #318)
+### [payable, receivable] 도메인 엔티티의 JPA 의존성 전면 제거(Pure POJO 전환), Entity/Mapper 분리 및 헥사고날/Data Mapper 이점 교육적 주석 작성
+
+- **작업 배경**:
+  - `payable` 및 `receivable` 모듈의 도메인 클래스들(`PurchaseInvoice`, `Payment`, `Payable`, `AdvancePayment`, `PaymentRun`, `SalesInvoice`, `Collection`, `CollectionAllocation`, `Receivable`, `UnmatchedCollection`, `MatchingRule`)이 `@Entity`, `@Table`, `@Column`, `@Id` 등 JPA 기술 어노테이션에 직접 결합되어 있어 헥사고날 아키텍처 원칙(도메인 계층의 프레임워크/영속성 기술 독립성)을 위반했음.
+- **주요 변경 사항**:
+  - **도메인 엔티티의 Pure Java POJO 전환**:
+    - `payable` (5개) 및 `receivable` (6개) 도메인 클래스에서 JPA 기술 어노테이션을 전면 제거하여 Pure Java POJO로 전환.
+    - 헥사고날 아키텍처 Core 독립성 및 Data Mapper 패턴의 아키텍처적 이점에 관한 상세 교육적 주석(Pedagogical Comments) 작성.
+  - **JPA 영속성 엔티티 신설 (`infrastructure.persistence.entity`)**:
+    - `payable`: `PurchaseInvoiceJpaEntity`, `PaymentJpaEntity`, `PayableJpaEntity`, `AdvancePaymentJpaEntity`, `PaymentRunJpaEntity`
+    - `receivable`: `SalesInvoiceJpaEntity`, `CollectionJpaEntity`, `CollectionAllocationJpaEntity`, `ReceivableJpaEntity`, `UnmatchedCollectionJpaEntity`, `MatchingRuleJpaEntity`
+  - **Data Mapper 구현 (`infrastructure.persistence.mapper`)**:
+    - 도메인 POJO <-> JPA Entity 양방향 변환 Mapper 작성 (`PurchaseInvoiceMapper`, `PaymentMapper`, `PayableMapper`, `AdvancePaymentMapper`, `PaymentRunMapper`, `SalesInvoiceMapper`, `CollectionMapper`, `CollectionAllocationMapper`, `ReceivableMapper`, `UnmatchedCollectionMapper`, `MatchingRuleMapper`).
+  - **Spring Data Repository & Persistence Adapter 계층 업데이트**:
+    - Repository 인터페이스가 `JpaEntity`를 처리하도록 변경하고, Persistence Adapter에서 Mapper를 거쳐 Persistence Port(Domain POJO 전달)를 구현하도록 수정.
+    - API 및 Batch 메인 Application의 `@EntityScan` basePackages 경로를 `infrastructure.persistence.entity`로 조율.
+- **검증**:
+  - `./gradlew.bat :payable:core:test :payable:api:test :payable:batch:test :receivable:core:test :receivable:api:test :receivable:batch:test` 실행하여 100% 성공 확인.
+
 ### 📅 2026-08-12 ([gateway][security] JWT Secret 하드코딩 및 비대칭키 구조 전환 - Issue #309)
 ### [gateway] application.yml 평문 JWT Secret 하드코딩 제거 및 비대칭키(RS256)/JWKS 보안 검증 구조 전환
 
