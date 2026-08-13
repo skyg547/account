@@ -1920,4 +1920,5 @@
 - Updated the standalone IntelliJ entry, Gateway/root local guidance and actual-profile tests. Fixed test secret literals were replaced with generated values, and the tests reject any JWT/secret/public-key/JWKS/base-url section in the local resource.
 - Gateway passed 43 tests in 9 suites, bootJar and both packaged-JAR paths. Ephemeral-input startup observed no Config/Eureka attempt; static credential/resource/diff/marker gates passed.
 - Review findings for exact allowlist evidence, literal-secret coverage and local troubleshooting were remediated; final independent re-review found no P0-P3. No external endpoint, credential, DB, container or volume was accessed.
-- Exact-path force-add/staged blob verification, commit/push and Draft PR are next. Independent PR-head review remains the Ready/merge gate.
+- Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `f066eb31`, pushed the branch and opened Draft PR #445. Issue #421 is `status:needs-review`.
+- The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate.

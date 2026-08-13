@@ -1746,4 +1746,5 @@
 - Latest-main Gateway verification passed 43 tests in 9 suites with zero failure/error/skip and bootJar. Packaged-JAR smokes passed missing-input fail-closed and ephemeral-input startup with no Config or Eureka attempt.
 - `git diff --check`, scoped marker, resource/run-config/test-resource credential and Boot JAR resource gates passed. Independent review findings for allowlist evidence, literal-secret test coverage and troubleshooting wording were resolved; final re-review found no P0-P3.
 - No external endpoint, credential, DB, container or volume was accessed. Rollback is a reviewed revert of the #421 Gateway profile/test/run-config/docs and harness paths; no external-state rollback exists.
-- Next gate: exact-path force-add the ignored local resource, verify staged content, commit/push and open a Draft PR; then repeat independent PR-head review before Ready/merge.
+- The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Commit `f066eb31` is pushed and Draft PR #445 targets main with `Refs #421/#227`; Issue #421 is `status:needs-review`.
+- The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.
