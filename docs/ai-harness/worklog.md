@@ -1,3 +1,8 @@
+### 📅 2026-08-14 (Premium Mermaid Diagram & Visual Chart Enhancement)
+- **Component**: `README.md`, `docs/guides/master-domain-glossary.md`
+- **Changes**: Enhanced all Mermaid flowcharts and system architecture diagrams with rich HSL/Hex color fills (`style`), explicit subgraphs, quoted node labels for rendering safety, and clear flow annotations across root `README.md` and `docs/guides/master-domain-glossary.md`.
+- **Verification**: Verified Markdown and Mermaid rendering validity.
+
 ### 📅 2026-08-13 (Enterprise Documentation Restructuring, Code-Sync & Master Glossary)
 - **Component**: `docs/`, `docs/architecture/`, `docs/guides/`
 - **Changes**: Restructured top-level `docs/` taxonomy into dedicated subdirectories (`docs/architecture/` for systemic architecture 명세 and `docs/guides/` for developer/runtime runbooks). Created `docs/guides/master-domain-glossary.md` providing intuitive analogies for core domain & technical concepts (전표, 마감, 대사, IFRS9 ECL, Outbox, Chunking, Circuit Breaker). Updated `docs/README.md` as the master navigation hub. All documentation synchronized 100% with current Spring Boot 3.4 / Java 21 / Hexagonal code implementation.
