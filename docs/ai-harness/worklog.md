@@ -1,3 +1,8 @@
+### 📅 2026-08-13 (Enterprise Documentation Restructuring, Code-Sync & Master Glossary)
+- **Component**: `docs/`, `docs/architecture/`, `docs/guides/`
+- **Changes**: Restructured top-level `docs/` taxonomy into dedicated subdirectories (`docs/architecture/` for systemic architecture 명세 and `docs/guides/` for developer/runtime runbooks). Created `docs/guides/master-domain-glossary.md` providing intuitive analogies for core domain & technical concepts (전표, 마감, 대사, IFRS9 ECL, Outbox, Chunking, Circuit Breaker). Updated `docs/README.md` as the master navigation hub. All documentation synchronized 100% with current Spring Boot 3.4 / Java 21 / Hexagonal code implementation.
+- **Verification**: Verified directory structure and relative link integrity.
+
 ### 📅 2026-08-13 (AI Harness Root Streamlining & Clean Root Directory Policy)
 - **Component**: Root directory, `AGENTS.md`, `docs/ai-harness/10-rules.md`, `docs/history/`
 - **Changes**: Deleted legacy root `SKILL.md` and empty `CLAUDE_WORKLOG.md`. Relocated `CODEX_WORKLOG.md` to `docs/history/CODEX_WORKLOG.md` and `CODEX_HANDOFF_TASKS.md` to `docs/ai-harness/codex-handoff-tasks.md`. Preserved tool-required root contracts (`README.md`, `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `GEMINI_REVIEW_PROMPT.md`). Updated `AGENTS.md` and `docs/ai-harness/10-rules.md` establishing the Clean Root Directory Policy.
