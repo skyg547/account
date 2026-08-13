@@ -5,12 +5,12 @@
 # 1. Fail-Closed Security Alignment (보안 실패 기본 차단 정합성)
 #    - 본 기본(base) 구성 파일은 AUTH_JWT_SECRET 및 AUTH_INTERNAL_API_TOKEN과 같은 필수 민감 정보에
 #      하드코딩된 기본값(Fallback Default)을 명시적으로 포함하지 않습니다.
-#    - 외부 환경 변수 또는 활성화된 'local' 프로파일(application-local.yml)을 통해 자격증명이 전달되지 않으면
-#      애플리케이션 구동 시점(@PostConstruct)에 Fail-Closed 실패를 야기하여 안전을 보장합니다.
+#    - 모든 프로파일에서 실행자가 외부 환경 변수로 자격증명을 전달하지 않으면 애플리케이션 구동 시점
+#      (@PostConstruct)에 Fail-Closed 실패를 야기하여 안전을 보장합니다.
 #
-# 2. Profile-Based Credential Isolation (민감 정보 격리)
-#    - 로컬 개발 및 단독 테스트용 기본 자격증명(admin/1234, 로컬 토큰, 데모 JWT Key)은
-#      application-local.yml 프로파일로 완벽히 격리되어 있습니다.
+# 2. Runtime Credential Isolation (민감 정보 격리)
+#    - application-local.yml은 H2와 외부 control-plane 비활성화만 소유합니다.
+#    - 로컬 JWT secret, internal token, 사용자 비밀번호도 저장소 기본값을 두지 않고 실행 시 임시 주입합니다.
 # ==============================================================================
 
 spring:

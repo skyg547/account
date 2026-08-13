@@ -2631,3 +2631,19 @@
 - Commit `adade958` is pushed and Draft PR #433 targets `main` with `Refs #227`. Issue #227 is frozen at `status:needs-review`; next is independent PR-head review, then the user-authorized Ready/merge gate.
 - No external host, credential, DB, container or volume was read or changed. Rollback is a reviewed revert of only the #227 tool/document/harness commit.
 - Next owner is an independent PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge gate. Issue close remains outside this handoff.
+
+# AI Harness Handoff - 2026-08-14 Issue #420 Auth Local Runtime
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#420`, `agent/420-auth-local-runtime`, `C:\tmp\account-420-auth-local-runtime`, latest `origin/main@db5c865c`.
+- Scope: Auth local/base resources, focused API runtime tests, one JPA integration test, Auth local/schema docs, behavior-neutral core wording, and parent-owned append-only harness records.
+- The local profile owns H2 PostgreSQL mode, Flyway/JPA and disabled external control-plane clients, but owns no secret, internal token or user credential. Missing runtime input remains fail-closed in base/local/dev/prod.
+
+## Evidence, rollback, and next owner
+
+- Latest-main Core/API verification passed 45 tests in 14 suites with zero failure/error/skip and API bootJar. The executable JAR failed closed without input and started with process-generated 32-byte JWT/internal-token values; values were not printed or stored in tracked files.
+- `git diff --check`, marker and secret-default scans passed. Independent review findings were remediated and final re-review found no P0-P3.
+- `application-local.yml` is intentionally covered by an existing ignore rule, so the parent Integrator must use exact-path force-add and inspect the staged content before commit.
+- No external host, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert and preserves append-only harness history.
+- Next owner is the parent Integrator for staged-diff verification, commit/push/Draft PR and Issue `status:needs-review`; an independent PR-head reviewer then gates Ready/merge/close and #427 reevaluation.
