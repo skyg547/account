@@ -2665,3 +2665,41 @@
 - No external service, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert while retaining append-only history.
 - Commit `f066eb31` is pushed, Draft PR #445 is open and Issue #421 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
 - Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #422 Closing API Composition
+
+## Published review state
+
+- Issue/branch/worktree/base: `#422`, `agent/422-closing-api-local-mapper`, `C:\tmp\account-422-closing-api-local-mapper`, `origin/main@305fa259`.
+- Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`.
+- Scope is exactly Closing API composition root, its local context test and Closing local-run documentation, plus this parent-owned harness handoff.
+
+## Evidence, rollback, and next owner
+
+- The broad Master Data adapter scan was replaced by explicit imports for Closing's `FiscalPeriodControlPort` and `MasterDataQueryPort` adapters and their minimal persistence/mapper dependencies. No local fallback, business rule or Master Data production source changed.
+- Closing Core/API passed 74 tests in 19 suites with zero failure/error/skip and API bootJar. The packaged local H2 JAR started without FiscalPeriodMapper failure or external attempt; static gates passed.
+- Independent implementation review found no P0-P3 and confirmed no duplicate/shadow bean or missing removed-adapter dependency.
+- No external state exists. Rollback uses a reviewed revert of the three implementation paths and retains append-only records.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #423 Closing Batch Composition
+
+## Published stacked review state
+
+- Issue/branch/worktree: `#423`, `agent/423-closing-batch-local-journal`, `C:\tmp\account-423-closing-batch-local-journal`.
+- Commit `8a582592` is pushed, stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`, and Issue #423 is `status:needs-review`.
+- Scope is Closing Batch composition, Closing Core's existing local external-port configuration, focused tests, Closing local-run documentation and parent-owned append-only harness records.
+
+## Evidence, rollback, and next owner
+
+- The local fallback is active only for `local`, backs off when approved Journal ports exist and never masks dev/prod. Batch uses exact Closing/FX Master Data imports instead of package-wide adapter scanning.
+- Closing API/Batch/Core passed 90 tests in 27 suites with zero failure/error/skip and Batch `bootJar`. The packaged local H2 JAR started with neither missing port nor external connection attempt.
+- Independent review's single P3 was remediated with explicit fallback back-off coverage; final re-review found no P0-P3. Diff, marker and five-file implementation allowlist gates passed.
+- No external state exists and no business Job ran. Rollback uses a reviewed path-scoped revert of the #423 implementation/test/docs paths while preserving append-only history.
+- Next owner is an independent PR #448 head reviewer, then the parent Integrator for green-check merge into the #422 branch. PR #447 must rerun its full gate before any main merge.
+
+## Stacked integration result
+
+- PR #448 passed Detect/Closing/aggregate GitHub checks and a final PR-head review with no P0-P3.
+- It merged into `agent/422-closing-api-local-mapper` as `dbedb96f`; Issue #423 remains open until the combined main PR is integrated.
+- The next owner is an independent combined-head reviewer for refreshed PR #447, followed by the parent Integrator only after its main-target GitHub checks are green.
