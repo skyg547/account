@@ -1887,3 +1887,18 @@
 - The first focused test failed only from unsupported JUnit method-parameter injection; field injection fixed the test harness. Dev/prod PostgreSQL resources, depreciation logic and Job parameter semantics remain unchanged. Independent read-only review remains.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main with `Refs #90/#227`; Issue #90 is `status:needs-review` pending final PR-head verification.
 - The first final PR-head review passed and PR #359 was promoted Ready, but concurrent Discovery PR #360 advanced main and GitHub rejected the now-conflicting merge. Merged `origin/main@191c5c28`, preserved #90/#304 append-only records and reran the focused local-context test successfully; final PR-head review must repeat after the sync commit.
+
+## 2026-08-14 (Issue #227 latest-main runtime audit)
+
+- Fast-forwarded the isolated Issue worktree to `origin/main@1ae9e108` through a named safety stash; no conflict occurred and the dirty primary checkout was untouched.
+- Classified 72 Gradle subprojects as 17 API, 15 Batch, 3 infra, 1 CLI, 19 libraries and 17 aggregators. Inventory/task contract, all 36 executable packages and all 36 library/aggregator `test+jar` boundaries passed.
+- Strict ProfileJar across 36 artifacts is 16 `PASS_STARTED`, 15 `PASS_EXITED`, and five fail-closed results. Auth/Budget/Gateway require secure local JWT input; Closing API/Batch expose `FiscalPeriodMapper`/`JournalPostingPort` composition gaps.
+- Opened unclaimed `status:ready` #420-#424 for Auth, Gateway, Closing API, Closing Batch and the stale Production Compose runbook test path. Existing #249 owns Budget; #66/#228/#230 own live Compose/image/PostgreSQL. Closed #362 was not duplicated because PR #398 already integrated the Frontend Node 20/lifecycle contract.
+- Rebuilt the runtime matrix from current JSON evidence and corrected the local guide. Java Compose mapping is development 36/36 and production server targets 35/35; Podman still has no Compose provider, so no live Compose or PostgreSQL operation occurred.
+- Hardened the audit tool with bounded Gradle/process-tree handling, concurrent output capture, isolated environment/user home, precise evidence redaction, single executable-JAR enforcement, CLI coverage, stable arrays and failure exit codes.
+- No external host, credential, DB, container or volume was accessed. Parser/diff/marker checks pass; focused Compose/image policy execution is 20/21 with the single stale-path failure tracked by #424. The unaffected policy subset passes, and dynamic redaction/timeout/process-tree checks pass. Independent review precedes commit/push/Draft PR.
+- Final review identified termination-error fail-open, raw diagnostic JWT command evidence, inaccurate timeout wording and unrelated #90 harness scope. All four were remediated; dynamic process-tree, JDK/source preservation, endpoint/credential redaction and Budget LocalJar command checks pass. Independent re-review remains.
+- Re-review's final P2 found user-home, IPv6 and `.java`-suffixed endpoint gaps. Redaction is now context-aware and adversarial samples plus real Budget LocalJar JSON confirm no user path, endpoint or diagnostic JWT leakage. Final re-review remains.
+- A further bypass review constrained stack source tokens and covered compressed/zone-id IPv6. Parenthesized `.java` endpoints and both IPv6 forms redact; source/JDK/loopback utility remains. Adversarial and real Budget JSON checks pass; final re-review remains.
+- Final independent re-review found no P0-P3. Commit/push/Draft PR and final PR-head merge gate are next.
+- Commit `adade958` is pushed and Draft PR #433 targets `main`; Issue #227 is `status:needs-review` pending the final PR-head merge gate.

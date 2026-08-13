@@ -2606,3 +2606,28 @@
 - Rollback uses a reviewed revert of the four implementation paths while retaining append-only records. No external state exists. Next owner is an independent read-only reviewer, followed by the parent Integrator for commit/Draft PR.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main; Issue #90 is frozen at `status:needs-review`. Next owner is an independent final PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge/close gate.
 - PR #359 was promoted Ready after its first final review, but a concurrent Discovery PR #360 main merge made the head conflicting before merge execution. The parent merged `main@191c5c28`, preserved both harness histories and reran the focused test. Push the sync commit, recheck PR head/base, then repeat the independent final gate; Issue #90 remains open.
+
+# AI Harness Handoff - 2026-08-14 Issue #227 Runtime Matrix
+
+## Verification-ready state
+
+- Issue/branch/worktree/base: `#227`, `agent/227-latest-main-runtime-audit`, `C:\tmp\account-227-latest-main-runtime-audit`, `origin/main@1ae9e108` after a named-stash fast-forward; the dirty primary checkout was untouched.
+- Changed scope: `tools/runtime-smoke.ps1`, `docs/guides/runtime-execution-matrix.md`, `docs/guides/local-development.md`, root `README.md`, and parent-owned append-only harness records.
+- The audit distinguishes task existence, real packaging, non-executable module gates, diagnostic override startup and profile-only startup. Migration Runner is included as the 36th executable Java target.
+
+## Evidence and remaining work
+
+- Inventory/task contract passes for 72 subprojects: API 17, Batch 15, infra 3, CLI 1, library 19 and aggregator 17.
+- Actual offline packaging passes for all 36 executable targets with exactly one executable JAR each. Independent `test+jar` passes for all 36 library/aggregator boundaries.
+- Strict ProfileJar across the 36 artifacts is 16 `PASS_STARTED`, 15 `PASS_EXITED`, and five fail-closed results. Auth, Budget and Gateway require secure local JWT input; Closing API lacks `FiscalPeriodMapper`, and Closing Batch lacks `JournalPostingPort`.
+- Unclaimed `status:ready` follow-ups are #420 Auth, #421 Gateway, #422 Closing API, #423 Closing Batch and #424 Production Compose test path. Budget remains #249. No duplicate was opened for Frontend: PR #398 closed #362 after Node 20/lifecycle work; this worktree's no-install policy leaves only current-session `node_modules` verification blocked.
+- Static Java Compose mapping is dev 36/36 and prod server targets 35/35. Focused Compose/image policy execution is 20/21 because one production test still uses the pre-taxonomy runbook path (#424). Podman has no Compose provider, so live development/prod Compose, image build and PostgreSQL gates remain #66/#228/#230/#249.
+- The tool strips inherited application/network/secret/JVM/cloud-binding environment, uses an isolated user home, captures stdout/stderr concurrently, enforces timeouts and single-JAR results, redacts sensitive evidence, writes stable JSON arrays and returns nonzero for failed/BLOCKED contracts.
+- Dynamic tool verification preserved `Foo.java:123` while redacting host/URI/credential samples, reported a two-second timeout and left no child process alive. The unaffected Development Compose and Container Image policy tests reran green; the sole Production stale-path failure is isolated in #424.
+- First final review reported P2 termination fail-open and raw LocalJar command credential evidence plus P3 timeout wording and unrelated #90 scope. Remediation verifies `HasExited`, maps termination errors to failure, redacts command arguments, corrects timeout documentation and removes #90 additions. JDK version/source-location preservation, endpoint/credential removal, scoped process-tree termination and Budget LocalJar command redaction pass dynamically; re-review remains the commit gate.
+- Re-review's remaining P2 covered Windows user-home, IPv6 and `.java`-suffixed endpoints. Context-aware source preservation plus user-profile/IPv6/host redaction now passes adversarial samples and a real Budget LocalJar JSON; final re-review remains the commit gate.
+- A further bypass review restricted source preservation to real stack/path/standalone-line shapes and added parsed compressed/zone-id IPv6 handling. Parenthesized `.java` endpoints, `fe80::1`, `[fe80::1%zone]:port`, user paths and JWT values are absent from adversarial/real Budget JSON evidence. Final re-review remains the commit gate.
+- Final independent re-review found no P0-P3. The branch is ready for the user-authorized commit, push and Draft PR; PR-head review and merge gates still apply after publishing.
+- Commit `adade958` is pushed and Draft PR #433 targets `main` with `Refs #227`. Issue #227 is frozen at `status:needs-review`; next is independent PR-head review, then the user-authorized Ready/merge gate.
+- No external host, credential, DB, container or volume was read or changed. Rollback is a reviewed revert of only the #227 tool/document/harness commit.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge gate. Issue close remains outside this handoff.

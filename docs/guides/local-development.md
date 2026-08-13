@@ -10,7 +10,7 @@
 - IntelliJ IDEA
 - Git
 - PowerShell
-- Docker Desktop은 선택 사항입니다. Kafka, Redis, Zipkin 같은 인프라를 같이 띄울 때 필요합니다.
+- Docker 또는 Podman Compose provider는 local JAR에는 선택 사항이고, 개발 Compose 검증에는 필수입니다.
 
 `gradle.properties`에는 JDK 후보 경로가 아래처럼 들어 있습니다.
 
@@ -22,7 +22,7 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 
 ## 2. IntelliJ 프로젝트 열기
 
-1. `File > Open`에서 저장소 루트 `C:\Users\skyg547\IdeaProjects\account`를 선택합니다.
+1. `File > Open`에서 현재 checkout의 저장소 루트를 선택합니다.
 2. Gradle 프로젝트로 import합니다.
 3. `File > Project Structure > Project SDK`를 JDK 17로 설정합니다.
 4. `Settings > Build, Execution, Deployment > Build Tools > Gradle`에서 Gradle JVM을 JDK 17로 설정합니다.
@@ -35,11 +35,33 @@ org.gradle.java.installations.paths=C:\\Java\\jdk17,C:\\Java\\jdk21,C:\\Java\\jd
 .\gradlew :contracts:test :shared-kernel:test --console=plain --max-workers=1 --no-daemon
 ```
 
-외부 다운로드 없이 현재 실행 계약을 다시 수집하려면:
+외부 다운로드 없이 현재 실행 계약을 다시 수집하려면 모드별 결과를 파일로 분리합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode All
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode Inventory -OutputPath C:\tmp\account-inventory.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode Packaging -OutputPath C:\tmp\account-packaging.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode ProfileJar -PackagingResultPath C:\tmp\account-packaging.json -OutputPath C:\tmp\account-profile-jar.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps1 -Mode Frontend -OutputPath C:\tmp\account-frontend.json
 ```
+
+`ProfileJar`는 추적된 local 설정을 검증하고 DB/JPA/Flyway 보정값을 주입하지 않습니다. 자식 Java 프로세스에는 OS/JDK 실행에 필요한 최소 환경변수만 whitelist로 전달하고 격리된 빈 `user.home`을 지정하므로, 부모 셸의 `SPRING_*`, `ACCOUNT_*`, datasource, proxy, control-plane, secret, JVM 옵션 및 사용자 홈 토큰을 읽지 않습니다. 결과 문자열도 비식별화합니다. `LocalJar`와 아래 공통 H2 옵션은 원인 분리용 진단 수단이며, 성공만으로 추적된 local 프로파일이 완료됐다고 판단하지 않습니다. 현재 main의 예상 실패와 필수 로컬 입력은 [runtime-execution-matrix.md](runtime-execution-matrix.md)를 확인합니다.
+
+Gradle 하위 명령은 기본 600초, JAR 기동 관찰은 기본 30초로 제한됩니다. 느린 검증 환경에서는 `-GradleTimeoutSeconds`와 `-StartupTimeoutSeconds`를 명시적으로 늘릴 수 있습니다. JAR이 제한 전에 `Started`를 기록하고 계속 실행 중이면 감사 도구가 자신의 process tree를 종료한 뒤 `PASS_STARTED`로 판정합니다. `Started` 없이 제한을 넘기거나 process tree 종료를 확인하지 못하면 실패 종료 코드와 JSON 증거를 남깁니다.
+
+2026-08-14 `origin/main@1ae9e108` 재검증에서는 실행 JAR 36/36과 비실행 library/aggregator 36/36이 통과했습니다. 엄격 local JAR은 31개가 기동/정상 종료했고 Auth, Budget, Gateway는 저장소에 둘 수 없는 JWT 입력이 없어 fail-closed 했습니다. Closing API/Batch의 실제 bean 결함은 각각 `#422`, `#423`, Auth/Gateway 실행 입력 계약은 `#420`, `#421`로 분리했습니다.
+
+JWT 기반 local 서비스는 저장소 파일에 secret을 기록하지 말고 현재 shell에만 32-byte 이상 임시 값을 생성해 실행 후 제거합니다. 아래 값은 매번 새로 생성되며 출력하거나 commit하지 않습니다.
+
+```powershell
+$jwtBytes = New-Object byte[] 32
+$random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$random.GetBytes($jwtBytes)
+$env:AUTH_JWT_SECRET = [Convert]::ToBase64String($jwtBytes)
+# 필요한 Auth 실행에서는 AUTH_INTERNAL_API_TOKEN도 별도의 임시 난수로 주입합니다.
+# 실행 종료 후: Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction SilentlyContinue
+```
+
+입력 없는 `ProfileJar`의 nonzero는 fail-closed 검증 결과입니다. 임시 입력을 사용한 성공 smoke와 문서 계약은 위 후속 Issue에서 각각 검증합니다.
 
 `local`은 H2, `dev`/`prod`는 PostgreSQL이 원칙입니다. 공유 개발 서버를 사용할 때 host/JDBC URL/계정은 저장소 파일에 쓰지 말고 현재 shell 또는 승인된 secret 주입 경로로만 전달합니다. 자체 PostgreSQL Compose와 공유 개발 PostgreSQL override를 동시에 실행하지 않습니다.
 
@@ -70,7 +92,14 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `master-data:api` | `com.ho.account.masterdata.MasterDataApplication` | 8082 | 기준정보 HTTP API |
 | `master-data:batch` | `com.ho.account.masterdata.batch.MasterDataBatchApplication` | CLI | 기준정보 유효성 Batch |
 | `internal-audit:api` | `com.ho.account.internalaudit.api.InternalAuditApiApplication` | 8083 | RCM/내부감사 평가 API |
+| `budget:api` | `com.ho.account.budget.api.BudgetApiApplication` | 설정 파일 기준 | 예산 API; 외부 개발 JWT secret 필요 |
+| `budget:batch` | `com.ho.account.budget.batch.BudgetBatchApplication` | CLI | 예산 Batch 컨텍스트 |
 | `journal-ledger:api` | `com.ho.account.journalledger.JournalLedgerApplication` | 설정 파일 기준 | 전표/원장 API |
+| `journal-ledger:batch` | `com.ho.account.journalledger.batch.JournalLedgerBatchApplication` | CLI | 전표/원장 재집계 Batch |
+| `closing:api` | `com.ho.account.closing.ClosingApplication` | 설정 파일 기준 | 결산 API |
+| `closing:batch` | `com.ho.account.closing.batch.ClosingBatchApplication` | CLI | 결산 Batch 컨텍스트 |
+| `loan:api` | `com.ho.account.loan.LoanApplication` | 설정 파일 기준 | 대출 API |
+| `loan:batch` | `com.ho.account.loan.LoanBatchApplication` | CLI | 대출 Batch 컨텍스트 |
 | `deposit:api` | `com.ho.account.deposit.DepositApplication` | 8087 | 예금 API |
 | `deposit:batch` | `com.ho.account.deposit.batch.DepositBatchApplication` | CLI 또는 설정 기준 | 예금 배치 컨텍스트 |
 | `asset-lease:api` | `com.ho.account.asset.api.AssetLeaseApiApplication` | 8083 | 고정자산/리스 API |
@@ -91,6 +120,7 @@ Eureka, Gateway, OpenFeign을 사용하는 실행 모듈은 Spring Cloud LoadBal
 | `ecl:ecl-batch` | `com.ho.account.ecl.batch.AllowanceEclBatchApplication` | CLI 또는 설정 기준 | ECL 배치 |
 | `reporting:api` | `com.ho.account.reporting.ReportingApiApplication` | 8090 | 재무보고 API |
 | `reporting:batch` | `com.ho.account.reporting.batch.ReportingBatchApplication` | CLI 또는 설정 기준 | 재무보고 배치 컨텍스트 |
+| `migration-runner` | `com.ho.account.migration.DatabaseMigrationApplication` | CLI | migration context 목록·검증·승인 실행 |
 
 ## 6. IntelliJ Run Configuration 만들기
 
@@ -173,23 +203,19 @@ ECL Batch는 `spring.batch.job.enabled=false`로 Boot 기본 자동 실행을 �
 | 기준정보 Batch | `master-data:batch` | `:master-data:batch:bootRun` | 필수 `asOfDate` + `masterDataValidityJob` |
 | Mart/ECL Batch | `account-mart`, `ecl` | `:account-mart:mart-batch:bootRun`, `:ecl:ecl-batch:bootRun` | demo profile + 명시 Job 실행 |
 
-공통 H2 API smoke 옵션:
+진단용 공통 H2 API smoke 옵션:
 
 ```powershell
 --spring.profiles.active=local --server.port=0 --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always
 ```
 
-공통 H2 Batch context 옵션:
+진단용 공통 H2 Batch context 옵션:
 
 ```powershell
 --spring.profiles.active=local --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false --spring.batch.job.enabled=false --spring.batch.jdbc.initialize-schema=always
 ```
 
-PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰지 않습니다. 로컬 PostgreSQL을 직접 띄운 뒤 아래 datasource 값을 모듈 DB명에 맞춰 바꿉니다.
-
-```powershell
---spring.datasource.url=jdbc:postgresql://localhost:5432/account_local --spring.datasource.username=account --spring.datasource.password=account --spring.datasource.driver-class-name=org.postgresql.Driver --spring.jpa.hibernate.ddl-auto=none --spring.flyway.enabled=true
-```
+직접 Gradle/JAR로 실행하는 표준 로컬 경로는 각 모듈의 `local` 프로파일과 인메모리 H2입니다. 개발·운영 PostgreSQL은 개인 명령행에 URL·사용자·비밀번호를 넣지 않고, Compose의 환경변수 계약과 배포 환경의 secret 주입을 사용합니다. 실제 개발 Compose/PostgreSQL 연결은 별도 실행 gate를 통과하기 전까지 검증 완료로 간주하지 않습니다.
 
 운영 image 대상 API/Batch의 PostgreSQL driver와 API readiness dependency가 실제 `runtimeClasspath`와 `bootJar`에 들어가는지는 다음 공용 gate로 확인합니다. 이 명령은 DB에 접속하지 않습니다.
 
@@ -197,7 +223,7 @@ PostgreSQL로 실행할 때는 H2용 `ddl-auto=create-drop`을 운영처럼 쓰�
 .\gradlew.bat verifyProductionRuntimeDependencies --offline
 ```
 
-현재 gate는 11개 bounded context의 API/Batch 22개에서 PostgreSQL JDBC JAR을, API 11개에서 Actuator JAR을 확인합니다. 이번 변경은 기존 Local H2 dependency scope를 수정하지 않습니다. Closing API의 local runtime H2 누락처럼 기존 독립 실행 결함은 #77 등 모듈 Issue에서 별도로 해결합니다.
+현재 gate는 API/Batch 25개에서 PostgreSQL JDBC JAR을, API 13개에서 Actuator JAR을 확인합니다. local H2의 명시 설정 여부와 profile-only JAR 기동 결과는 [runtime-execution-matrix.md](runtime-execution-matrix.md)와 각 후속 Issue에서 추적합니다.
 
 대표 Spring Batch Job smoke 명령은 아래 기준으로 검증했습니다. 빈 H2 데이터 기준이므로 Job 성공은 "엔트리포인트와 메타 테이블, 파라미터, core 위임 경로가 정상"이라는 뜻이고, 운영 금액 결과 검증은 별도 seed data가 필요합니다.
 
