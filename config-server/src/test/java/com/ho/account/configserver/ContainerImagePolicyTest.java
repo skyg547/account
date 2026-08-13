@@ -141,6 +141,31 @@ class ContainerImagePolicyTest {
                 "**/*.jks");
     }
 
+    /**
+     * Next bakes {@code rewrites()} into {@code .next/routes-manifest.json} at build time, so
+     * {@code GATEWAY_INTERNAL_URL} has to be present while {@code npm run build} runs. Supplying it
+     * only as a runtime container variable leaves the manifest with {@code rewrites: []}, and the
+     * {@code /api/*} calls that {@code NEXT_PUBLIC_API_URL=/api} produces then return 404 instead of
+     * reaching the gateway.
+     */
+    @Test
+    void frontendBuildStageResolvesGatewayRewriteBeforeNextBuild() throws IOException {
+        String containerfile = Files.readString(resolve("frontend", "Containerfile"));
+
+        assertThat(containerfile)
+                .contains("ARG GATEWAY_INTERNAL_URL=http://gateway:8000")
+                .contains("ENV GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL}");
+
+        int gatewayEnv = containerfile.indexOf("ENV GATEWAY_INTERNAL_URL=");
+        int build = containerfile.indexOf("RUN npm run build");
+        assertThat(gatewayEnv).as("GATEWAY_INTERNAL_URL must be declared").isNotNegative();
+        assertThat(build).as("build step must exist").isNotNegative();
+        assertThat(gatewayEnv)
+                .as("GATEWAY_INTERNAL_URL must be set before npm run build, "
+                        + "otherwise the rewrite is never baked into the manifest")
+                .isLessThan(build);
+    }
+
     @Test
     void moduleComposeFilesSelectTheCanonicalContainerfileAndExactGradleProject()
             throws IOException {

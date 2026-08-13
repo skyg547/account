@@ -61,7 +61,20 @@ docker compose --env-file .env.dev `
 [http://localhost:8000](http://localhost:8000)에 바인딩됩니다. 개발 Frontend 컨테이너는
 Node.js 20과 `npm ci` 의존성 레이어를 사용하고 non-root 사용자로 Next 개발 서버를 실행합니다.
 production 이미지는 별도 `frontend/Containerfile` 계약을 그대로 사용합니다.
-`GATEWAY_INTERNAL_URL`이 없는 production build에는 개발 rewrite를 포함하지 않습니다.
+
+`/api/*` rewrite는 **빌드 시점에** `.next/routes-manifest.json`에 고정됩니다. 그래서
+`GATEWAY_INTERNAL_URL`은 컨테이너 런타임이 아니라 **이미지 빌드 시점에** 있어야 하며,
+`frontend/Containerfile`이 `ARG GATEWAY_INTERNAL_URL=http://gateway:8000`으로 기본값을
+제공합니다. Gateway가 다른 주소에 있으면 빌드할 때 override 하세요.
+
+```powershell
+podman build -f frontend/Containerfile `
+  --build-arg GATEWAY_INTERNAL_URL=http://my-gateway:8000 frontend
+```
+
+이 값 없이 빌드하면 manifest에 `rewrites: []`가 박혀, `NEXT_PUBLIC_API_URL=/api`가 만드는
+`/api/*` 호출이 Gateway에 닿지 못하고 404가 됩니다. 런타임 환경변수로는 고칠 수 없습니다.
+
 새 self-contained DB에서는 API보다 먼저 17개 migration과 runtime grant를 완료해야 합니다.
 전체 순서는 [`docs/development-compose.md`](../docs/development-compose.md)를 따릅니다.
 
