@@ -6,6 +6,13 @@
 *.bat text eol=crlf
 *.jar binary
 
+# Flyway migrations are byte-hashed by immutability tests
+# (PostgresqlMigrationResourceTest, AssetLeasePublishedMigrationTest).
+# Without an explicit eol, `text=auto` checks these out as CRLF on Windows and
+# LF on Linux, so the same commit produces two different SHA-256 values and the
+# tests pass locally while failing in CI. Pin LF so the hash is platform-stable.
+*.sql text eol=lf
+
 # Java sources
 *.java text diff=java
 
