@@ -1748,3 +1748,14 @@
 - No external endpoint, credential, DB, container or volume was accessed. Rollback is a reviewed revert of the #421 Gateway profile/test/run-config/docs and harness paths; no external-state rollback exists.
 - The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Commit `f066eb31` is pushed and Draft PR #445 targets main with `Refs #421/#227`; Issue #421 is `status:needs-review`.
 - The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.
+
+## 2026-08-14 - Issue #422 Closing API Master Data composition
+
+- Claimed `#422` on `agent/422-closing-api-local-mapper` in `C:\tmp\account-422-closing-api-local-mapper` from latest `origin/main@305fa259`; the dirty primary checkout remained untouched.
+- Reproduced the local context failure at `FiscalPeriodMapper`. The mapper-only fix exposed an already-active broad Master Data adapter scan with missing persistence ports, so the Closing composition root now imports only its two used contract adapters and their complete minimal persistence/mapper graph.
+- Closing business/domain behavior and Master Data production sources are unchanged. No profile-specific fallback was added, and dev/prod continue to use the same JPA production adapters without duplicate or shadow beans.
+- Latest-main Core/API verification passed 74 tests in 19 suites with zero failure/error/skip and API bootJar. The packaged local H2 JAR started with no FiscalPeriodMapper error or external attempt.
+- Exact three-file implementation allowlist, `git diff --check` and marker gates passed. Independent review found no P0-P3.
+- Commit `325b6e98` is pushed and Draft PR #447 targets main with `Refs #422/#227`; Issue #422 is `status:needs-review`.
+- No external endpoint, DB, credential, container or volume was accessed. Rollback is a reviewed path-scoped revert of the #422 composition/test/docs commit while retaining append-only history.
+- Next gate is independent PR-head review and green GitHub checks before Ready/merge/close.

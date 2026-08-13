@@ -1922,3 +1922,11 @@
 - Review findings for exact allowlist evidence, literal-secret coverage and local troubleshooting were remediated; final independent re-review found no P0-P3. No external endpoint, credential, DB, container or volume was accessed.
 - Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `f066eb31`, pushed the branch and opened Draft PR #445. Issue #421 is `status:needs-review`.
 - The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate.
+
+## 2026-08-14 (Issue #422 Closing API Master Data composition)
+
+- Claimed #422 and created `agent/422-closing-api-local-mapper` from `origin/main@305fa259` in an external worktree; the dirty primary checkout was not modified.
+- Reproduced the missing `FiscalPeriodMapper` failure. Replacing the broad Master Data adapter scan with explicit Closing-used contract adapters and their minimal persistence/mapper dependency closure also removed the next hidden `AccountSubjectPersistencePort` startup failure.
+- Closing Core/API passed 74 tests in 19 suites, API bootJar passed and the packaged local H2 JAR started without mapper failure or external attempt. Exact implementation allowlist, diff and marker gates passed.
+- Independent implementation review found no P0-P3 and confirmed production adapters are neither duplicated nor shadowed. No business/domain or Master Data production source changed; no external state was accessed.
+- Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`. Independent PR-head review and green GitHub checks remain the Ready/merge gate.

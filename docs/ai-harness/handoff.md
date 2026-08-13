@@ -2665,3 +2665,19 @@
 - No external service, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert while retaining append-only history.
 - Commit `f066eb31` is pushed, Draft PR #445 is open and Issue #421 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
 - Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #422 Closing API Composition
+
+## Published review state
+
+- Issue/branch/worktree/base: `#422`, `agent/422-closing-api-local-mapper`, `C:\tmp\account-422-closing-api-local-mapper`, `origin/main@305fa259`.
+- Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`.
+- Scope is exactly Closing API composition root, its local context test and Closing local-run documentation, plus this parent-owned harness handoff.
+
+## Evidence, rollback, and next owner
+
+- The broad Master Data adapter scan was replaced by explicit imports for Closing's `FiscalPeriodControlPort` and `MasterDataQueryPort` adapters and their minimal persistence/mapper dependencies. No local fallback, business rule or Master Data production source changed.
+- Closing Core/API passed 74 tests in 19 suites with zero failure/error/skip and API bootJar. The packaged local H2 JAR started without FiscalPeriodMapper failure or external attempt; static gates passed.
+- Independent implementation review found no P0-P3 and confirmed no duplicate/shadow bean or missing removed-adapter dependency.
+- No external state exists. Rollback uses a reviewed revert of the three implementation paths and retains append-only records.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for green-check Ready/merge/close.
