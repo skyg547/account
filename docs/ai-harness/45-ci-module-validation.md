@@ -51,7 +51,7 @@ Adding a module requires updating `settings.gradle` only. The workflow needs no 
 
 Selective execution is abandoned and every module runs when any of these change:
 
-- `settings.gradle`, root `build.gradle`
+- `settings.gradle`, root `build.gradle`, `gradle.properties`
 - `gradlew`, `gradlew.bat`, `gradle/**`
 - `shared-kernel/**`, `contracts/**`
 - `.github/workflows/**`
@@ -62,7 +62,31 @@ Selective execution is abandoned and every module runs when any of these change:
 
 ## Branch Protection
 
-`test` job names vary per run because the matrix depends on what changed. A branch protection rule cannot require a check whose name is not stable, so require **`Module Validation Result`** instead. It fails when any matrix entry failed or was cancelled.
+`test` job names vary per run because the matrix depends on what changed. A branch protection rule cannot require a check whose name is not stable, so require **`Module Validation Result`** instead.
+
+That job is fail-closed. It passes only when `detect` succeeded **and** `test` is `success` or `skipped`. Any other combination fails, including the case where `detect` itself broke and `test` never ran.
+
+| `detect` | `test` | Result |
+| --- | --- | --- |
+| success | success | pass |
+| success | skipped (no Gradle module changed) | pass |
+| success | failure / cancelled | fail |
+| failure / cancelled / skipped | any | fail |
+
+초보자 설명: 이 검사는 "merge해도 되는가"를 결정하는 최종 관문이다. 앞 단계가 고장 나서 테스트를 아예 못 돌린 경우에도 초록불을 주면 검증 없이 코드가 들어가므로, "성공"이 아닌 모든 경우를 실패로 처리한다.
+
+## Fail-Closed Parsing
+
+If the `settings.gradle` parse yields zero projects — a format change, a moved file, a broken regex — `detect` exits non-zero instead of reporting "no modules changed". Without this guard a parsing break would silently skip every test and report green.
+
+## Dependency Rate Limiting
+
+The first full run failed `master-data` with `429 Too Many Requests` from Maven Central — 25 jobs resolved dependencies simultaneously. Two guards address this:
+
+- `max-parallel: 6` caps concurrent jobs.
+- The test step retries up to 3 times with 30s/60s backoff, but **only** when the log shows a transient resolution failure (`Too Many Requests`, `Could not resolve`, `Could not GET`, `Connection reset`, `Read timed out`). A genuine test or compile failure is reported immediately without retry.
+
+초보자 설명: 여러 job이 한꺼번에 같은 서버에서 라이브러리를 받으면 서버가 거절한다(429). 코드는 멀쩡한데 실패하므로 동시 실행 수를 제한하고, 네트워크 탓일 때만 다시 시도한다. 진짜 버그를 세 번씩 돌리면 시간만 낭비되므로 그 경우는 바로 멈춘다.
 
 ## Non-Gradle Paths
 

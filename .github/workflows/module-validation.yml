@@ -71,6 +71,18 @@ jobs:
           )
           echo "settings.gradle에서 ${#ALL_PROJECTS[@]}개 프로젝트를 읽었습니다."
 
+          # 파싱이 실패하면 조용히 "변경 없음"으로 흘러가 전 모듈이 미검증 상태로
+          # 통과한다. 결과가 비면 즉시 실패시켜 fail-closed로 만든다.
+          #
+          # 초보자 설명: settings.gradle 형식이 바뀌거나 파일을 못 찾으면 목록이
+          #   빈 채로 진행될 수 있다. 그러면 "테스트할 게 없다"고 판단해 아무것도
+          #   검사하지 않고 초록불이 뜬다. 그래서 목록이 비면 일부러 실패시킨다.
+          if [ "${#ALL_PROJECTS[@]}" -eq 0 ]; then
+            echo "::error::settings.gradle에서 Gradle 프로젝트를 하나도 읽지 못했습니다."
+            echo "::error::파싱 로직 또는 settings.gradle 형식을 확인하십시오."
+            exit 1
+          fi
+
           run_everything() {
             printf '%s\n' "${ALL_PROJECTS[@]}" | awk -F: '{print $1}' | sort -u
           }
@@ -103,7 +115,7 @@ jobs:
             #   공용 부품이다. 여기를 고치면 어느 모듈이 깨질지 알 수 없으므로
             #   선택 실행을 포기하고 전부 검사한다. 빌드 설정(build.gradle 등)도
             #   마찬가지다.
-            if echo "$CHANGED" | grep -qE '^(settings\.gradle|build\.gradle|gradlew|gradlew\.bat|gradle/|shared-kernel/|contracts/|\.github/workflows/)'; then
+            if echo "$CHANGED" | grep -qE '^(settings\.gradle|build\.gradle|gradle\.properties|gradlew|gradlew\.bat|gradle/|shared-kernel/|contracts/|\.github/workflows/)'; then
               FULL_RUN_REASON="공용 빌드 설정 또는 shared-kernel/contracts 변경"
             fi
           fi
@@ -171,6 +183,14 @@ jobs:
       #   테스트를 끝까지 돌린다. true(기본값)면 하나 깨지는 순간 전부 중단되어,
       #   "사실은 3개가 깨졌는데 1개만 보이는" 상황이 생긴다.
       fail-fast: false
+      # 25개 job이 동시에 Maven Central에서 의존성을 받으면 429 Too Many Requests가
+      # 발생해, 코드와 무관한 flaky 실패가 난다. 실제로 첫 전체 실행에서
+      # master-data가 이 이유로 실패했다. 동시 실행 수를 제한해 압력을 낮춘다.
+      #
+      # 초보자 설명: 여러 job이 한꺼번에 같은 서버에서 라이브러리를 내려받으면
+      #   서버가 "요청이 너무 많다"며 거절한다(429). 코드는 멀쩡한데 테스트가
+      #   실패하므로, 한 번에 도는 job 수를 6개로 묶어둔다.
+      max-parallel: 6
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.modules) }}
     steps:
@@ -188,7 +208,38 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run tests for ${{ matrix.module }}
-        run: ./gradlew ${{ matrix.tasks }} --console=plain
+        env:
+          GRADLE_TASKS: ${{ matrix.tasks }}
+        run: |
+          set -uo pipefail
+
+          # max-parallel로 동시 실행을 줄여도 러너 전체가 공유하는 IP 대역이
+          # 레이트리밋에 걸릴 수 있다. 의존성 해결 실패(429/네트워크)일 때만
+          # 재시도하고, 실제 테스트 실패는 즉시 그대로 보고한다.
+          #
+          # 초보자 설명: 재시도를 무조건 하면 진짜 버그도 세 번씩 돌려 시간만
+          #   낭비한다. 그래서 로그에 "라이브러리를 못 받았다"는 흔적이 있을 때만
+          #   다시 시도하고, 테스트가 틀려서 실패한 것이면 바로 멈춘다.
+          LOG=$(mktemp)
+          for attempt in 1 2 3; do
+            if ./gradlew $GRADLE_TASKS --console=plain 2>&1 | tee "$LOG"; then
+              exit 0
+            fi
+
+            if grep -qE "Too Many Requests|Could not resolve|Could not GET|Connection reset|Read timed out" "$LOG"; then
+              if [ "$attempt" -lt 3 ]; then
+                BACKOFF=$((attempt * 30))
+                echo "::warning::의존성 다운로드 실패(일시적). ${BACKOFF}초 후 재시도합니다 ($attempt/3)."
+                sleep "$BACKOFF"
+                continue
+              fi
+              echo "::error::의존성 다운로드가 3회 모두 실패했습니다. Maven Central 레이트리밋일 수 있습니다."
+              exit 1
+            fi
+
+            echo "::error::${{ matrix.module }} 테스트가 실패했습니다."
+            exit 1
+          done
 
       - name: Upload test reports
         if: failure()
@@ -212,14 +263,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report
+        env:
+          DETECT_RESULT: ${{ needs.detect.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          REASON: ${{ needs.detect.outputs.reason }}
         run: |
-          echo "${{ needs.detect.outputs.reason }}"
-          if [ "${{ needs.test.result }}" = "failure" ]; then
-            echo "하나 이상의 모듈에서 테스트가 실패했습니다."
+          echo "detect=$DETECT_RESULT / test=$TEST_RESULT"
+          echo "${REASON:-(사유 없음)}"
+
+          # detect가 실패하면 test는 skipped가 된다. test 결과만 보면 두 조건에
+          # 모두 걸리지 않아 통과로 처리되므로, detect를 먼저 검사해야 한다.
+          #
+          # 초보자 설명: 이 job은 "merge해도 되는가"를 결정하는 최종 관문이다.
+          #   앞 단계가 고장 나서 테스트를 아예 못 돌렸는데 초록불을 주면,
+          #   검증 없이 코드가 들어간다. 그래서 "성공"이 아닌 모든 경우를
+          #   실패로 처리한다.
+          if [ "$DETECT_RESULT" != "success" ]; then
+            echo "::error::detect job이 성공하지 않았습니다 ($DETECT_RESULT). 테스트 대상을 결정하지 못했습니다."
             exit 1
           fi
-          if [ "${{ needs.test.result }}" = "cancelled" ]; then
-            echo "테스트가 취소되었습니다."
-            exit 1
-          fi
-          echo "통과했습니다."
+
+          # test가 skipped인 경우는 정상이다 — Gradle 모듈이 바뀌지 않아
+          # 돌릴 것이 없었다는 뜻이다. 그 외 비정상 종료는 전부 실패로 본다.
+          case "$TEST_RESULT" in
+            success|skipped)
+              echo "통과했습니다."
+              ;;
+            *)
+              echo "::error::모듈 테스트가 통과하지 못했습니다 ($TEST_RESULT)."
+              exit 1
+              ;;
+          esac
