@@ -1769,3 +1769,4 @@
 - Diff/marker/allowlist checks passed. Independent review's P3 about missing fallback back-off coverage was remediated; final re-review found no P0-P3.
 - Implementation commit `8a582592` is pushed and stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`; Issue #423 is `status:needs-review`.
 - No external endpoint, DB, credential, container or volume was accessed. No Closing Job or journal posting ran. Rollback is a reviewed path-scoped revert of the five #423 implementation/test/docs paths while preserving append-only history.
+- PR #448 passed all GitHub checks and final PR-head review with no P0-P3, then merged into the #422 branch as `dbedb96f`. Main-target Draft PR #447 now carries both independently reviewed Closing composition fixes and must pass its refreshed full Closing CI before Ready/merge.

@@ -2697,3 +2697,9 @@
 - Independent review's single P3 was remediated with explicit fallback back-off coverage; final re-review found no P0-P3. Diff, marker and five-file implementation allowlist gates passed.
 - No external state exists and no business Job ran. Rollback uses a reviewed path-scoped revert of the #423 implementation/test/docs paths while preserving append-only history.
 - Next owner is an independent PR #448 head reviewer, then the parent Integrator for green-check merge into the #422 branch. PR #447 must rerun its full gate before any main merge.
+
+## Stacked integration result
+
+- PR #448 passed Detect/Closing/aggregate GitHub checks and a final PR-head review with no P0-P3.
+- It merged into `agent/422-closing-api-local-mapper` as `dbedb96f`; Issue #423 remains open until the combined main PR is integrated.
+- The next owner is an independent combined-head reviewer for refreshed PR #447, followed by the parent Integrator only after its main-target GitHub checks are green.

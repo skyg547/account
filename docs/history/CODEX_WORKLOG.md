@@ -1938,3 +1938,4 @@
 - Replaced broad Master Data adapter scanning with the exact exchange-rate, fiscal-period and master-data adapters plus their minimal persistence/mapper closure.
 - Closing API/Batch/Core passed 90 tests in 27 suites, Batch `bootJar` passed, and the packaged local H2 JAR started without missing ports or external attempts. No actual Job, DB, endpoint, credential, container or volume was used.
 - Independent review's P3 test-coverage finding was remediated and final re-review found no P0-P3. Commit `8a582592` is pushed and stacked Draft PR #448 is open; Issue #423 is `status:needs-review` pending PR-head checks and merge into the #422 branch.
+- PR #448 subsequently passed all GitHub checks and final PR-head review, then merged into the #422 branch as `dbedb96f`. Refreshed main-target PR #447 now owns the combined Closing API/Batch integration gate; neither Issue closes before that PR reaches main.
