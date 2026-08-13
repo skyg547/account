@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.AuthApplication;
+import com.ho.account.auth.core.infrastructure.config.AuthConfiguration;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -25,8 +28,8 @@ import org.springframework.core.env.StandardEnvironment;
  * ==============================================================================
  * [Architecture & Pedagogical Explanation]
  * 1. Profile Isolation Test (프로파일 격리 검증)
- *    - 'local' 프로파일 적용 시 H2 인메모리 DB, Flyway 스키마 마이그레이션, 데모 자격증명(JWT secret, internal token)이
- *      격리되어 정상적으로 주입되는지 다룹니다.
+ *    - 'local' 프로파일은 H2 인메모리 DB와 Flyway 스키마만 소유합니다.
+ *    - JWT secret과 internal token은 파일 기본값이 아니라 실행자가 생성한 임시 입력으로만 주입합니다.
  *
  * 2. Fail-Closed Security Policy Test (보안 실패 기본 차단 검증)
  *    - base/dev/prod 프로파일에서 필수 보안 키(AUTH_JWT_SECRET, AUTH_INTERNAL_API_TOKEN)가 제공되지 않는 경우,
@@ -36,9 +39,12 @@ import org.springframework.core.env.StandardEnvironment;
 class AuthApiRuntimePolicyTest {
 
     @Test
-    @DisplayName("local 프로파일은 H2 PostgreSQL 호환 모드와 Flyway, 격리된 데모 자격증명을 사용한다")
-    void localProfileUsesFlywayOwnedH2AndIsolatesDemoCredentials() {
-        try (ConfigurableApplicationContext context = localContext()) {
+    @DisplayName("local 프로파일은 H2/Flyway를 사용하고 보안 입력은 실행자가 임시 주입한다")
+    void localProfileUsesFlywayOwnedH2AndEphemeralCredentials() throws Exception {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        try (ConfigurableApplicationContext context = localContext(jwtSecret, internalToken)) {
             Environment environment = context.getEnvironment();
             assertThat(environment.acceptsProfiles(Profiles.of("local"))).isTrue();
 
@@ -56,37 +62,56 @@ class AuthApiRuntimePolicyTest {
             assertThat(environment.getProperty("eureka.client.enabled", Boolean.class)).isFalse();
 
             AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
-            assertThat(properties.getJwt().getSecret())
-                    .isEqualTo("modern-account-system-super-secret-key-1234567890");
-            assertThat(properties.getInternalApi().getToken()).isEqualTo("local-internal-auth-token");
-            assertThat(properties.getUsers()).hasSize(1);
-            assertThat(properties.getUsers().get(0).getUsername()).isEqualTo("admin");
+            assertThat(properties.getJwt().getSecret()).isEqualTo(jwtSecret);
+            assertThat(properties.getInternalApi().getToken()).isEqualTo(internalToken);
+            assertThat(properties.getUsers()).isEmpty();
         }
+
+        Path resources = repositoryRoot().resolve("auth/api/src/main/resources");
+        String localProfile = Files.readString(resources.resolve("application-local.yml"));
+        String baseProfile = Files.readString(resources.resolve("application.yml"));
+
+        assertThat(localProfile)
+                .doesNotContain("AUTH_JWT_SECRET")
+                .doesNotContain("AUTH_INTERNAL_API_TOKEN")
+                .doesNotContain("jwt:")
+                .doesNotContain("internal-api:");
+        assertThat(baseProfile)
+                .contains("${AUTH_JWT_SECRET:}")
+                .contains("${AUTH_INTERNAL_API_TOKEN:}");
     }
 
     @Test
     @DisplayName("필수 보안 환경변수가 누락된 경우 base/dev/prod 환경은 Fail-Closed 예외를 발생시킨다")
     void devAndProdProfilesFailClosedWithoutRequiredCredentials() {
-        AuthModuleProperties properties = new AuthModuleProperties();
-        assertThatThrownBy(properties::validateFailClosedPolicy)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Fail-Closed Security Violation");
+        for (String profile : new String[] {null, "dev", "prod"}) {
+            String jwtSecret = ephemeralValue();
+            String internalToken = ephemeralValue();
+
+            assertThatThrownBy(() -> securityPolicyContext(profile, "", internalToken))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage(
+                            "Fail-Closed Security Violation: 'auth.jwt.secret' must be provided via AUTH_JWT_SECRET environment variable.");
+            assertThatThrownBy(() -> securityPolicyContext(profile, jwtSecret, ""))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage(
+                            "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
+        }
     }
 
     @Test
     @DisplayName("환경변수/프로퍼티를 주입받으면 dev 및 prod 프로파일도 정상적인 보안 구성을 유지한다")
     void devAndProdProfilesSucceedWithInjectedCredentials() {
         for (String profile : new String[] {"dev", "prod"}) {
-            AuthModuleProperties properties = new AuthModuleProperties();
-            properties.getJwt().setSecret("dev-prod-injected-jwt-secret-key-1234567890");
-            properties.getInternalApi().setToken("dev-prod-injected-internal-token");
-
-            properties.validateFailClosedPolicy();
-
-            assertThat(properties.getJwt().getSecret())
-                    .isEqualTo("dev-prod-injected-jwt-secret-key-1234567890");
-            assertThat(properties.getInternalApi().getToken())
-                    .isEqualTo("dev-prod-injected-internal-token");
+            String jwtSecret = ephemeralValue();
+            String internalToken = ephemeralValue();
+            try (ConfigurableApplicationContext context =
+                    securityPolicyContext(profile, jwtSecret, internalToken)) {
+                assertThat(context.getEnvironment().acceptsProfiles(Profiles.of(profile))).isTrue();
+                AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
+                assertThat(properties.getJwt().getSecret()).isEqualTo(jwtSecret);
+                assertThat(properties.getInternalApi().getToken()).isEqualTo(internalToken);
+            }
         }
     }
 
@@ -105,9 +130,11 @@ class AuthApiRuntimePolicyTest {
         assertThat(root.resolve("auth/api/src/main/java/com/ho/account/auth/AuthApplication.java")).exists();
     }
 
-    private ConfigurableApplicationContext localContext() {
+    private ConfigurableApplicationContext localContext(String jwtSecret, String internalToken) {
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put("spring.profiles.active", "local");
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
 
@@ -122,6 +149,36 @@ class AuthApiRuntimePolicyTest {
                                         .toUri(),
                         "spring.main.banner-mode=off")
                 .run();
+    }
+
+    private ConfigurableApplicationContext securityPolicyContext(
+            String profile, String jwtSecret, String internalToken) {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        if (profile != null) {
+            overrides.put("spring.profiles.active", profile);
+        }
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("credentialIsolation", overrides));
+
+        return new SpringApplicationBuilder(AuthConfiguration.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run();
+    }
+
+    private static String ephemeralValue() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private Path repositoryRoot() {

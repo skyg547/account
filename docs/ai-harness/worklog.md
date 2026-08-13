@@ -1724,3 +1724,15 @@
 - Final independent re-review found no P0-P3. Publish the eight scoped #227 files, open a Draft PR, then repeat the PR-head gate before Ready/merge.
 - Committed `adade958`, pushed `agent/227-latest-main-runtime-audit`, and opened Draft PR #433 with `Refs #227`. Issue #227 moved to `status:needs-review`; PR-head review precedes the authorized Ready/merge.
 - Rollback is a reviewed revert of only the #227 tool/document/harness commit; no external-state rollback exists.
+
+## 2026-08-14 - Issue #420 Auth secure local H2 runtime
+
+- Claimed `#420` on `agent/420-auth-local-runtime` in `C:\tmp\account-420-auth-local-runtime`; synchronized the isolated worktree to non-overlapping `origin/main@db5c865c` while leaving the dirty primary checkout untouched.
+- Added the missing Auth `application-local.yml` with H2 PostgreSQL mode, Flyway/JPA ownership and disabled Config/Discovery/Vault/Eureka/tracing. The profile contains no JWT secret, internal token or default user credential; all profiles remain fail-closed without runtime input.
+- Runtime policy tests now load real base/local/dev/prod configuration. Base/dev/prod independently reject missing JWT and missing internal token, while local and injected dev/prod contexts bind process-generated ephemeral values.
+- Corrected Auth local-run/schema documentation for port `8081`, migrations V70-V73 and the no-default credential contract. The minimal core edit only corrects stale Javadoc/error wording and changes no behavior.
+- Latest-main Auth Core/API verification passed 45 tests in 14 suites with zero failure/error/skip, plus API `bootJar`. Direct packaged-JAR smokes passed both required paths: missing input failed closed and generated 32-byte inputs started the local H2 application.
+- `git diff --check`, scoped conflict-marker and secret-default scans passed. Independent review findings for port/docs/profile-binding/dual-credential coverage were remediated; final re-review found no P0-P3.
+- No external DB, private endpoint, credential, container or volume was accessed. Rollback is a reviewed revert of only the #420 Auth resource/test/docs/core-wording and harness paths; no external-state rollback exists.
+- The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Initial commit `62cc8717` is pushed and Draft PR #441 targets main with `Refs #420/#427`; Issue #420 is `status:needs-review`.
+- The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.

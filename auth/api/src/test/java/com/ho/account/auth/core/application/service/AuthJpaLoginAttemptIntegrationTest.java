@@ -7,10 +7,14 @@ import com.ho.account.auth.AuthApplication;
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
+import java.security.SecureRandom;
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * 로그인 오케스트레이터 바깥의 JPA 쓰기 트랜잭션이 실제로 커밋되는지 확인합니다.
@@ -36,11 +40,20 @@ import org.springframework.boot.test.context.SpringBootTest;
         })
 class AuthJpaLoginAttemptIntegrationTest {
 
+    private static final String TEST_JWT_SECRET = ephemeralValue();
+    private static final String TEST_INTERNAL_TOKEN = ephemeralValue();
+
     @Autowired
     private AuthUseCase authUseCase;
 
     @Autowired
     private LoginAttemptPort loginAttemptPort;
+
+    @DynamicPropertySource
+    static void ephemeralAuthInputs(DynamicPropertyRegistry registry) {
+        registry.add("auth.jwt.secret", () -> TEST_JWT_SECRET);
+        registry.add("auth.internal-api.token", () -> TEST_INTERNAL_TOKEN);
+    }
 
     @BeforeEach
     void clearAttempt() {
@@ -53,5 +66,11 @@ class AuthJpaLoginAttemptIntegrationTest {
                 .isInstanceOf(InvalidCredentialsException.class);
 
         assertThat(loginAttemptPort.isLocked("admin")).isTrue();
+    }
+
+    private static String ephemeralValue() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

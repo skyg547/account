@@ -1902,3 +1902,13 @@
 - A further bypass review constrained stack source tokens and covered compressed/zone-id IPv6. Parenthesized `.java` endpoints and both IPv6 forms redact; source/JDK/loopback utility remains. Adversarial and real Budget JSON checks pass; final re-review remains.
 - Final independent re-review found no P0-P3. Commit/push/Draft PR and final PR-head merge gate are next.
 - Commit `adade958` is pushed and Draft PR #433 targets `main`; Issue #227 is `status:needs-review` pending the final PR-head merge gate.
+
+## 2026-08-14 (Issue #420 Auth secure local H2 runtime)
+
+- Claimed #420, created `agent/420-auth-local-runtime` in the external worktree and reproduced the two baseline Auth local-runtime failures. The dirty primary checkout was not modified.
+- Added the explicit local H2/Flyway/JPA/control-plane policy without tracked credentials. Base/local/dev/prod retain fail-closed JWT/internal-token requirements and tests use only generated ephemeral values.
+- Updated runtime policy/integration tests and Auth local/schema guidance. Review findings corrected the 8081 commands, V73/security documentation and actual profile-binding coverage for both missing credential guards.
+- Fast-forwarded to non-overlapping `origin/main@db5c865c`. Auth Core/API passed 45 tests in 14 suites, API bootJar passed, and the executable JAR passed missing-input fail-closed plus ephemeral-input local-start smokes.
+- Static gates passed and final independent review found no P0-P3. No external endpoint, DB, credential, container or volume was accessed.
+- Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `62cc8717`, pushed the branch and opened Draft PR #441. Issue #420 is `status:needs-review`.
+- The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate, and #427 is reevaluated only after #420 integration.
