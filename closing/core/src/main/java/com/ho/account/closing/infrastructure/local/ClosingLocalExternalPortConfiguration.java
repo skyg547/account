@@ -11,6 +11,7 @@ import com.ho.account.contracts.journal.JournalSummary;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 빈이 정의되어 있지 않은 경우 런타임/테스트 오류를 방지하기 위해 기본 빈을 등록합니다.
  */
 @Configuration
+@Profile("local")
 public class ClosingLocalExternalPortConfiguration {
 
     private final AtomicLong journalSequence = new AtomicLong(1L);
