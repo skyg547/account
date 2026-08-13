@@ -36,6 +36,14 @@ git diff --stat
 .\gradlew build --console=plain --max-workers=1
 ```
 
+## Continuous Integration
+
+- CI runs `:module:test` only for the modules touched by the diff. See `45-ci-module-validation.md`.
+- Changing `shared-kernel`, `contracts`, or the build scripts makes CI run every module.
+- CI does not run `bootJar`, container policy checks, or migration verification. Those remain local gates in this checklist.
+
+초보자 설명: CI가 통과했다고 모든 검증이 끝난 것은 아니다. CI는 바뀐 모듈의 테스트만 돌리므로, 아래 배치/API 항목은 여전히 직접 확인해야 한다.
+
 ## Batch
 
 - Confirm Spring Batch Job names and parameters.

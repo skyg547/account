@@ -42,6 +42,7 @@ This harness defines how AI agents work safely in the account project. The proje
 - `20-workflow.md`: end-to-end loop.
 - `30-agents.md`: agent roles.
 - `40-test-checklist.md`: verification checklist.
+- `45-ci-module-validation.md`: GitHub Actions changed-module test selection.
 - `50-git-worktree-guide.md`: branch/worktree guide.
 - `60-rebase-merge-policy.md`: rebase, merge, conflict policy.
 - `70-model-assignment-policy.md`: capability and risk based model assignment.
