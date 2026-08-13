@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Inventory', 'TaskContract', 'Packaging', 'Libraries', 'LocalJar', 'Frontend', 'All')]
+    [ValidateSet('Inventory', 'TaskContract', 'Packaging', 'Libraries', 'LocalJar', 'ProfileJar', 'Frontend', 'All')]
     [string]$Mode = 'All',
 
     [string]$OutputPath,
@@ -8,6 +8,9 @@ param(
     [string]$PackagingResultPath,
 
     [string[]]$Project,
+
+    [ValidateRange(30, 3600)]
+    [int]$GradleTimeoutSeconds = 600,
 
     [ValidateRange(5, 180)]
     [int]$StartupTimeoutSeconds = 30
@@ -19,12 +22,57 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $gradleWrapper = Join-Path $repositoryRoot 'gradlew.bat'
 $frontendRoot = Join-Path $repositoryRoot 'frontend'
+$isolatedRuntimeEnvironmentNameAllowlist = @(
+    'SystemRoot',
+    'WINDIR',
+    'ComSpec',
+    'PATH',
+    'PATHEXT',
+    'TEMP',
+    'TMP',
+    'JAVA_HOME',
+    'LANG',
+    'LC_ALL',
+    'LC_CTYPE',
+    'TZ'
+)
 $projectFilter = @(
     $Project |
         ForEach-Object { $_ -split ',' } |
         ForEach-Object { $_.Trim() } |
         Where-Object { $_ }
 )
+
+function Stop-ScopedProcessTree {
+    param(
+        [Parameter(Mandatory)]
+        [System.Diagnostics.Process]$Process
+    )
+
+    if ($Process.HasExited) {
+        return ''
+    }
+
+    try {
+        $killTreeMethod = $Process.GetType().GetMethod('Kill', [type[]]@([bool]))
+        if ($null -ne $killTreeMethod) {
+            [void]$killTreeMethod.Invoke($Process, [object[]]@($true))
+        } elseif ($env:OS -eq 'Windows_NT' -and (Get-Command 'taskkill.exe' -ErrorAction SilentlyContinue)) {
+            $taskKillOutput = & taskkill.exe /PID $Process.Id /T /F 2>&1
+            if ($LASTEXITCODE -ne 0 -and -not $Process.HasExited) {
+                throw "taskkill failed: $($taskKillOutput -join ' ')"
+            }
+        } else {
+            $Process.Kill()
+        }
+        if (-not $Process.WaitForExit(5000)) {
+            throw "process $($Process.Id) did not exit within 5 seconds after tree termination"
+        }
+        ''
+    } catch {
+        $_.Exception.Message
+    }
+}
 
 function Invoke-ProcessCapture {
     param(
@@ -35,59 +83,16 @@ function Invoke-ProcessCapture {
         [string[]]$Arguments,
 
         [Parameter(Mandatory)]
-        [string]$WorkingDirectory
-    )
-
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FilePath
-    $startInfo.WorkingDirectory = $WorkingDirectory
-    $startInfo.UseShellExecute = $false
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-
-    $escapedArguments = foreach ($argument in $Arguments) {
-        if ($argument -notmatch '[\s"]') {
-            $argument
-            continue
-        }
-        '"' + ($argument -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
-    }
-    $startInfo.Arguments = $escapedArguments -join ' '
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    [void]$process.Start()
-    $standardOutput = $process.StandardOutput.ReadToEnd()
-    $standardError = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-
-    [pscustomobject]@{
-        ExitCode = $process.ExitCode
-        StdOut   = $standardOutput
-        StdErr   = $standardError
-        Command  = "$FilePath $($Arguments -join ' ')"
-    }
-}
-
-function Invoke-ProcessCaptureWithTimeout {
-    param(
-        [Parameter(Mandatory)]
-        [string]$FilePath,
-
-        [Parameter(Mandatory)]
-        [string[]]$Arguments,
-
-        [Parameter(Mandatory)]
         [string]$WorkingDirectory,
 
-        [Parameter(Mandatory)]
-        [int]$TimeoutSeconds
+        [int]$TimeoutSeconds = $GradleTimeoutSeconds
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $FilePath
     $startInfo.WorkingDirectory = $WorkingDirectory
     $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
 
@@ -107,18 +112,221 @@ function Invoke-ProcessCaptureWithTimeout {
     $standardErrorTask = $process.StandardError.ReadToEndAsync()
     $completed = $process.WaitForExit($TimeoutSeconds * 1000)
 
+    $terminationError = ''
     if (-not $completed) {
-        $process.Kill()
+        $terminationError = Stop-ScopedProcessTree -Process $process
+        [void]$process.WaitForExit(5000)
+        if (-not $process.HasExited) {
+            $terminationError = (@(
+                $terminationError,
+                "process $($process.Id) is still running after the termination wait"
+            ) | Where-Object { $_ }) -join '; '
+        }
+    } else {
+        $process.WaitForExit()
     }
-    $process.WaitForExit()
+
+    $standardOutputReady = $standardOutputTask.Wait(5000)
+    $standardErrorReady = $standardErrorTask.Wait(5000)
+    $standardOutput = if ($standardOutputReady) { $standardOutputTask.Result } else { '' }
+    $standardError = if ($standardErrorReady) { $standardErrorTask.Result } else { '' }
+    if (-not $completed) {
+        $standardError = ($standardError + "`nAUDIT_PROCESS_TIMEOUT after $TimeoutSeconds seconds").Trim()
+    }
+    if ($terminationError) {
+        $standardError = ($standardError + "`nAUDIT_PROCESS_TREE_TERMINATION_FAILED: $terminationError").Trim()
+    }
 
     [pscustomobject]@{
         ExitCode = if ($completed) { $process.ExitCode } else { $null }
-        StdOut   = $standardOutputTask.Result
-        StdErr   = $standardErrorTask.Result
+        StdOut   = $standardOutput
+        StdErr   = $standardError
         Command  = "$FilePath $($Arguments -join ' ')"
         TimedOut = -not $completed
+        TerminationError = $terminationError
     }
+}
+
+function Invoke-ProcessCaptureWithTimeout {
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory)]
+        [string[]]$Arguments,
+
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory,
+
+        [Parameter(Mandatory)]
+        [int]$TimeoutSeconds,
+
+        [string[]]$EnvironmentVariableNamesToKeep = @()
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.WorkingDirectory = $WorkingDirectory
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $removedEnvironmentVariables = [System.Collections.Generic.List[string]]::new()
+    if ($EnvironmentVariableNamesToKeep.Count -gt 0) {
+        $keptEnvironmentVariables = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
+        foreach ($environmentVariableName in $EnvironmentVariableNamesToKeep) {
+            [void]$keptEnvironmentVariables.Add($environmentVariableName)
+        }
+        foreach ($environmentVariableName in @($startInfo.EnvironmentVariables.Keys)) {
+            if (-not $keptEnvironmentVariables.Contains($environmentVariableName)) {
+                [void]$startInfo.EnvironmentVariables.Remove($environmentVariableName)
+                $removedEnvironmentVariables.Add($environmentVariableName)
+            }
+        }
+    }
+
+    $escapedArguments = foreach ($argument in $Arguments) {
+        if ($argument -notmatch '[\s"]') {
+            $argument
+            continue
+        }
+        '"' + ($argument -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+    }
+    $startInfo.Arguments = $escapedArguments -join ' '
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    $standardOutputTask = $process.StandardOutput.ReadToEndAsync()
+    $standardErrorTask = $process.StandardError.ReadToEndAsync()
+    $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+
+    $terminationError = ''
+    if (-not $completed) {
+        $terminationError = Stop-ScopedProcessTree -Process $process
+        [void]$process.WaitForExit(5000)
+        if (-not $process.HasExited) {
+            $terminationError = (@(
+                $terminationError,
+                "process $($process.Id) is still running after the termination wait"
+            ) | Where-Object { $_ }) -join '; '
+        }
+    } else {
+        $process.WaitForExit()
+    }
+
+    $standardOutputReady = $standardOutputTask.Wait(5000)
+    $standardErrorReady = $standardErrorTask.Wait(5000)
+    $standardOutput = if ($standardOutputReady) { $standardOutputTask.Result } else { '' }
+    $standardError = if ($standardErrorReady) { $standardErrorTask.Result } else { '' }
+    if (-not $completed) {
+        $standardError = ($standardError + "`nAUDIT_PROCESS_TIMEOUT after $TimeoutSeconds seconds").Trim()
+    }
+    if ($terminationError) {
+        $standardError = ($standardError + "`nAUDIT_PROCESS_TREE_TERMINATION_FAILED: $terminationError").Trim()
+    }
+
+    [pscustomobject]@{
+        ExitCode = if ($completed) { $process.ExitCode } else { $null }
+        StdOut   = $standardOutput
+        StdErr   = $standardError
+        Command  = "$FilePath $($Arguments -join ' ')"
+        TimedOut = -not $completed
+        TerminationError = $terminationError
+        EnvironmentVariablesRemoved = @($removedEnvironmentVariables | Sort-Object -Unique)
+    }
+}
+
+function Protect-EvidenceText {
+    param([string]$Text)
+
+    if (-not $Text) {
+        return ''
+    }
+
+    $protected = $Text
+    $sourceLocations = [System.Collections.Generic.List[string]]::new()
+    $sourceLocationTokenPrefix = "__AUDIT_SOURCE_$([System.Guid]::NewGuid().ToString('N'))_"
+    $protected = [regex]::Replace(
+        $protected,
+        '(?im)(?<prefix>\bat\s+[a-z0-9_.$<>/]+\()(?<source>[a-z0-9_$-]+\.(?:java|kt|kts|groovy):\d+)(?=\))',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $index = $sourceLocations.Count
+            $sourceLocations.Add($match.Groups['source'].Value)
+            "$($match.Groups['prefix'].Value)${sourceLocationTokenPrefix}${index}__"
+        }
+    )
+    $protected = [regex]::Replace(
+        $protected,
+        '(?im)^(?<indent>\s*)(?<source>[a-z0-9_$-]+\.(?:java|class|kt|kts|groovy|gradle|xml|yml|yaml|properties|md|ps1):\d+)\s*$',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $index = $sourceLocations.Count
+            $sourceLocations.Add($match.Groups['source'].Value)
+            "$($match.Groups['indent'].Value)${sourceLocationTokenPrefix}${index}__"
+        }
+    )
+    $protected = [regex]::Replace(
+        $protected,
+        '(?i)(?<!\S)(?<source>(?:[a-z]:[\\/]+|\.{1,2}[\\/]+)[^\s()]*\.(?:java|class|kt|kts|groovy|gradle|xml|yml|yaml|properties|md|ps1):\d+)\b',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $index = $sourceLocations.Count
+            $sourceLocations.Add($match.Groups['source'].Value)
+            "${sourceLocationTokenPrefix}${index}__"
+        }
+    )
+    $protected = $protected -replace '(?i)-Duser\.home=[^\s]+', '-Duser.home=[ISOLATED_USER_HOME]'
+    $protected = $protected -replace '(?i)([a-z]:[\\/]+users[\\/]+)[^\\/\s]+', '$1[REDACTED_USER]'
+    $protected = $protected -replace '(?i)jdbc:postgresql://[^\s"'']+', 'jdbc:postgresql://[REDACTED]'
+    $protected = $protected -replace '(?i)\b(?:https?|r2dbc|redis|kafka)://[^\s"'']+', '[REDACTED_URI]'
+    $protected = $protected -replace '(?i)\b(host|hostname|server|node|address)\s*[:=]\s*(?!(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d{2,5})?\b)[^\s,;()]+', '$1=[REDACTED_HOST]'
+    $protected = $protected -replace '(?i)\b((?:connect(?:ing|ed)?|connection)\s+to)\s+(?!(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d{2,5})?\b)[^\s,;()]+', '$1 [REDACTED_HOST]'
+    $protected = [regex]::Replace(
+        $protected,
+        '(?i)\[(?<address>[0-9a-f:]+)(?:%[0-9a-z_.-]+)?\](?::\d{1,5})?',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $address = $null
+            if ([System.Net.IPAddress]::TryParse($match.Groups['address'].Value, [ref]$address) -and
+                -not [System.Net.IPAddress]::IsLoopback($address)) {
+                return '[REDACTED_IPV6]'
+            }
+            $match.Value
+        }
+    )
+    $protected = [regex]::Replace(
+        $protected,
+        '(?i)(?<![0-9a-z:])(?<address>(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4})(?:%[0-9a-z_.-]+)?(?![0-9a-z:])',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $address = $null
+            if ([System.Net.IPAddress]::TryParse($match.Groups['address'].Value, [ref]$address) -and
+                -not [System.Net.IPAddress]::IsLoopback($address)) {
+                return '[REDACTED_IPV6]'
+            }
+            $match.Value
+        }
+    )
+    $protected = $protected -replace '(?<![a-zA-Z0-9_.-])(?!(?:127|0)\.)\d{1,3}(?:\.\d{1,3}){3}\b', '[REDACTED_IP]'
+    $protected = $protected -replace '(?i)(?<![a-z0-9_.-])(?!(?:localhost|127\.0\.0\.1|0\.0\.0\.0):)[a-z][a-z0-9.-]*:\d{2,5}\b', '[REDACTED_HOST]'
+    $protected = $protected -replace '(?i)\b(password|passwd|secret|token|credential|username|user)\s*[:=]\s*[^\s,;]+', '$1=[REDACTED]'
+    for ($index = 0; $index -lt $sourceLocations.Count; $index++) {
+        $protected = $protected.Replace(
+            "${sourceLocationTokenPrefix}${index}__",
+            $sourceLocations[$index]
+        )
+    }
+    $protected
 }
 
 function Get-TextFileContent {
@@ -150,6 +358,9 @@ function Get-ProjectClassification {
     }
     if ($ProjectPath -in @(':config-server', ':discovery', ':gateway')) {
         return 'infra-server'
+    }
+    if ($ProjectPath -eq ':migration-runner') {
+        return 'cli'
     }
     if ($ProjectPath -match ':(api|mart-api|ecl-api)$') {
         return 'api'
@@ -187,6 +398,14 @@ function Get-GradleProjectPaths {
 }
 
 function Get-RuntimeInventory {
+    $rootContainerfile = Join-Path $repositoryRoot 'Containerfile'
+    $rootDevComposeText = Get-TextFileContent -Paths @(
+        (Join-Path $repositoryRoot 'docker-compose.yml')
+    )
+    $rootProdComposeText = Get-TextFileContent -Paths @(
+        (Join-Path $repositoryRoot 'compose.prod.yml')
+    )
+
     $inventory = foreach ($projectPath in Get-GradleProjectPaths) {
         $projectDirectory = Get-ProjectDirectory -ProjectPath $projectPath
         $buildFile = Join-Path $projectDirectory 'build.gradle'
@@ -213,6 +432,26 @@ function Get-RuntimeInventory {
         }
         $resourcePaths = @($resourceFiles | ForEach-Object { $_.FullName })
         $resourceText = Get-TextFileContent -Paths $resourcePaths
+        $localResourceFiles = @(
+            $resourceFiles | Where-Object {
+                $_.Name -match '^application-local\.(yml|yaml|properties)$'
+            }
+        )
+        $localResourceText = Get-TextFileContent -Paths @(
+            $localResourceFiles | ForEach-Object { $_.FullName }
+        )
+        $localDocuments = @(
+            foreach ($resourceFile in $resourceFiles) {
+                $fileText = Get-TextFileContent -Paths @($resourceFile.FullName)
+                foreach ($document in @($fileText -split '(?m)^---\s*$')) {
+                    if ($document -match '(?m)^\s*(default|active):\s*local\s*$' -or
+                        $document -match '(?m)^\s*on-profile:\s*local\s*$') {
+                        $document
+                    }
+                }
+            }
+        )
+        $localDocumentText = $localDocuments -join "`n"
 
         $classification = Get-ProjectClassification `
             -ProjectPath $projectPath `
@@ -222,6 +461,19 @@ function Get-RuntimeInventory {
         $moduleDirectory = Join-Path $repositoryRoot $topLevelModule
         $dockerfile = Join-Path $moduleDirectory 'Dockerfile'
         $composeFile = Join-Path $moduleDirectory 'docker-compose.yml'
+        $projectSegments = $projectPath.TrimStart(':').Split(':')
+        $serviceName = if ($projectSegments.Count -eq 1) {
+            $projectSegments[0]
+        } elseif ($projectSegments[-1] -in @('api', 'batch')) {
+            "$($projectSegments[0])-$($projectSegments[-1])"
+        } elseif ($projectSegments[-1] -in @('mart-api', 'ecl-api')) {
+            "$($projectSegments[0])-api"
+        } elseif ($projectSegments[-1] -in @('mart-batch', 'ecl-batch')) {
+            "$($projectSegments[0])-batch"
+        } else {
+            $projectSegments -join '-'
+        }
+        $composeServicePattern = "(?m)^  $([regex]::Escape($serviceName)):\s*$"
 
         [pscustomobject]@{
             Project              = $projectPath
@@ -231,10 +483,14 @@ function Get-RuntimeInventory {
             BootApplications     = $applicationFiles.Count
             BootApplicationNames = @($applicationFiles | ForEach-Object { $_.BaseName }) -join ', '
             BootJarDisabled      = $buildText -match '(?s)bootJar\s*\{[^}]*enabled\s*=\s*false'
-            H2Dependency         = $buildText -match 'com\.h2database:h2'
-            PostgreSqlDependency = $buildText -match 'org\.postgresql:postgresql'
+            H2Dependency         = $buildText -match '(?m)^\s*(runtimeOnly|implementation|api)\s*(\(\s*)?[\x27\x22]com\.h2database:h2'
+            PostgreSqlDependency = $buildText -match '(?m)^\s*(runtimeOnly|implementation|api)\s*(\(\s*)?[\x27\x22]org\.postgresql:postgresql'
             ExplicitH2Config     = $resourceText -match 'jdbc:h2:'
-            ExplicitLocalProfile = $resourceText -match '(?m)^\s*(default|active):\s*local\s*$'
+            ExplicitLocalH2Config = $localResourceText -match 'jdbc:h2:' -or
+                $localDocumentText -match 'jdbc:h2:'
+            ExplicitLocalProfile = $localResourceFiles.Count -gt 0 -or
+                $localDocuments.Count -gt 0
+            LocalProfileFiles    = @($localResourceFiles | Select-Object -ExpandProperty Name)
             ExplicitDevProfile   = @($resourceFiles | Where-Object {
                     $_.Name -match '^application-dev\.(yml|yaml|properties)$'
                 }).Count -gt 0 -or
@@ -245,6 +501,9 @@ function Get-RuntimeInventory {
                 $resourceText -match '(?m)on-profile:\s*prod\s*$'
             ModuleDockerfile     = Test-Path -LiteralPath $dockerfile -PathType Leaf
             ModuleCompose        = Test-Path -LiteralPath $composeFile -PathType Leaf
+            RootContainerfile    = Test-Path -LiteralPath $rootContainerfile -PathType Leaf
+            RootDevComposeService = $rootDevComposeText -match $composeServicePattern
+            RootProdComposeService = $rootProdComposeText -match $composeServicePattern
         }
     }
 
@@ -259,12 +518,12 @@ function Convert-InventoryToMarkdown {
     $lines.Add('| --- | --- | ---: | --- | --- | --- | --- |')
 
     foreach ($item in $Inventory) {
-        $h2 = if ($item.H2Dependency -and $item.ExplicitH2Config) {
-            'dependency + config'
+        $h2 = if ($item.H2Dependency -and $item.ExplicitLocalH2Config) {
+            'runtime dependency + local config'
         } elseif ($item.H2Dependency) {
-            'dependency only'
-        } elseif ($item.ExplicitH2Config) {
-            'config only'
+            'runtime dependency only'
+        } elseif ($item.ExplicitLocalH2Config) {
+            'local config only'
         } else {
             '-'
         }
@@ -278,12 +537,18 @@ function Convert-InventoryToMarkdown {
         } else {
             '-'
         }
-        $container = if ($item.ModuleDockerfile -and $item.ModuleCompose) {
-            'Dockerfile + Compose'
+        $container = if ($item.RootDevComposeService -and $item.RootProdComposeService) {
+            'root dev + prod'
+        } elseif ($item.RootDevComposeService) {
+            'root dev only'
+        } elseif ($item.RootProdComposeService) {
+            'root prod only'
+        } elseif ($item.ModuleDockerfile -and $item.ModuleCompose) {
+            'legacy module Dockerfile + Compose'
         } elseif ($item.ModuleDockerfile) {
-            'Dockerfile only'
+            'legacy module Dockerfile only'
         } elseif ($item.ModuleCompose) {
-            'Compose only'
+            'legacy module Compose only'
         } else {
             '-'
         }
@@ -303,7 +568,7 @@ function Test-TaskContract {
 
     $runnable = @(
         $Inventory | Where-Object {
-            $_.Classification -in @('api', 'batch', 'infra-server', 'standalone-server')
+            $_.Classification -in @('api', 'batch', 'infra-server', 'standalone-server', 'cli')
         }
     )
 
@@ -337,7 +602,7 @@ function Get-CommandEvidence {
         [string]$StandardError
     )
 
-    $combined = ($StandardOutput + "`n" + $StandardError).Trim()
+    $combined = Protect-EvidenceText -Text (($StandardOutput + "`n" + $StandardError).Trim())
     if (-not $combined) {
         return ''
     }
@@ -365,7 +630,7 @@ function Test-PackagingContract {
 
     $runnable = @(
         $Inventory | Where-Object {
-            $_.Classification -in @('api', 'batch', 'infra-server', 'standalone-server')
+            $_.Classification -in @('api', 'batch', 'infra-server', 'standalone-server', 'cli')
         }
     )
 
@@ -406,18 +671,26 @@ function Test-PackagingContract {
                 'NON_EXECUTABLE'
             } elseif ($item.BootJarDisabled) {
                 'NON_EXECUTABLE_COMPILE_FAILED'
-            } elseif ($result.ExitCode -eq 0 -and $artifacts.Count -gt 0) {
+            } elseif ($result.ExitCode -eq 0 -and $artifacts.Count -eq 1) {
                 'PASS'
             } elseif ($result.ExitCode -eq 0) {
-                'FAIL_NO_EXECUTABLE_JAR'
+                if ($artifacts.Count -eq 0) {
+                    'FAIL_NO_EXECUTABLE_JAR'
+                } else {
+                    'FAIL_AMBIGUOUS_EXECUTABLE_JARS'
+                }
             } else {
                 'FAIL'
             }
             Artifacts       = $artifacts
             Command         = $result.Command
-            Evidence        = Get-CommandEvidence `
-                -StandardOutput $result.StdOut `
-                -StandardError $result.StdErr
+            Evidence        = if ($result.ExitCode -eq 0 -and $artifacts.Count -gt 1) {
+                "Expected exactly one executable JAR, found $($artifacts.Count): $(@($artifacts | Split-Path -Leaf) -join ', ')"
+            } else {
+                Get-CommandEvidence `
+                    -StandardOutput $result.StdOut `
+                    -StandardError $result.StdErr
+            }
         }
     }
 
@@ -464,7 +737,8 @@ function Test-LibraryContract {
 function Test-LocalJarContract {
     param(
         [object[]]$PackagingResults,
-        [int]$TimeoutSeconds
+        [int]$TimeoutSeconds,
+        [bool]$ProfileOnly = $false
     )
 
     $javaCommand = Get-Command 'java.exe' -ErrorAction SilentlyContinue
@@ -508,8 +782,13 @@ function Test-LocalJarContract {
             continue
         }
 
-        $arguments = @('-jar', $jarPath[0])
-        if ($package.Project -eq ':config-server') {
+        $isolatedUserHome = Join-Path `
+            ([System.IO.Path]::GetTempPath()) `
+            "account-runtime-smoke-empty-home-$PID-$([System.Guid]::NewGuid().ToString('N'))"
+        $arguments = @("-Duser.home=$isolatedUserHome", '-jar', $jarPath[0])
+        if ($package.Classification -eq 'cli') {
+            $arguments += '--list'
+        } elseif ($package.Project -eq ':config-server') {
             $arguments += @(
                 '--spring.profiles.active=native',
                 '--server.port=0',
@@ -539,69 +818,85 @@ function Test-LocalJarContract {
                 '--management.tracing.enabled=false'
             )
         } else {
-            $webApplicationType = if ($package.Project -in @(
-                    ':budget:api',
-                    ':internal-audit:api')) { 'servlet' } else { 'none' }
             $arguments += @(
                 '--spring.profiles.active=local',
-                "--spring.main.web-application-type=$webApplicationType",
                 '--server.port=0',
-                '--spring.cloud.config.enabled=false',
-                '--spring.config.on-not-found=ignore',
-                '--spring.cloud.discovery.enabled=false',
-                '--spring.cloud.loadbalancer.enabled=false',
-                '--spring.cloud.vault.enabled=false',
-                '--eureka.client.enabled=false',
-                '--management.tracing.enabled=false',
                 '--spring.batch.job.enabled=false'
             )
-            if ($package.Project -in @(
-                    ':budget:api',
-                    ':budget:batch',
-                    ':internal-audit:api')) {
-                $databaseName = $package.Project.TrimStart(':').Replace(':', '_').Replace('-', '_')
+            if (-not $ProfileOnly) {
+                $webApplicationType = if ($package.Classification -eq 'api') {
+                    'servlet'
+                } else {
+                    'none'
+                }
                 $arguments += @(
-                    '--spring.batch.jdbc.initialize-schema=always',
-                    "--spring.datasource.url=jdbc:h2:mem:runtime_smoke_$databaseName;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-                    '--spring.datasource.driver-class-name=org.h2.Driver',
-                    '--spring.datasource.username=sa',
-                    '--spring.datasource.password=',
-                    '--spring.jpa.hibernate.ddl-auto=validate',
-                    '--spring.flyway.enabled=true'
+                    "--spring.main.web-application-type=$webApplicationType",
+                    '--spring.cloud.config.enabled=false',
+                    '--spring.config.on-not-found=ignore',
+                    '--spring.cloud.discovery.enabled=false',
+                    '--spring.cloud.loadbalancer.enabled=false',
+                    '--spring.cloud.vault.enabled=false',
+                    '--eureka.client.enabled=false',
+                    '--management.tracing.enabled=false'
                 )
-            } else {
-                $arguments += @(
-                    '--spring.batch.jdbc.initialize-schema=always',
-                    '--spring.datasource.url=jdbc:h2:mem:runtime_smoke;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE',
-                    '--spring.datasource.driver-class-name=org.h2.Driver',
-                    '--spring.datasource.username=sa',
-                    '--spring.datasource.password=',
-                    '--spring.jpa.hibernate.ddl-auto=create-drop',
-                    '--spring.flyway.enabled=false'
-                )
+                if ($package.Project -in @(
+                        ':budget:api',
+                        ':budget:batch',
+                        ':internal-audit:api')) {
+                    $databaseName = $package.Project.TrimStart(':').Replace(':', '_').Replace('-', '_')
+                    $arguments += @(
+                        '--spring.batch.jdbc.initialize-schema=always',
+                        "--spring.datasource.url=jdbc:h2:mem:runtime_smoke_$databaseName;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+                        '--spring.datasource.driver-class-name=org.h2.Driver',
+                        '--spring.datasource.username=sa',
+                        '--spring.datasource.password=',
+                        '--spring.jpa.hibernate.ddl-auto=validate',
+                        '--spring.flyway.enabled=true'
+                    )
+                } else {
+                    $arguments += @(
+                        '--spring.batch.jdbc.initialize-schema=always',
+                        '--spring.datasource.url=jdbc:h2:mem:runtime_smoke;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE',
+                        '--spring.datasource.driver-class-name=org.h2.Driver',
+                        '--spring.datasource.username=sa',
+                        '--spring.datasource.password=',
+                        '--spring.jpa.hibernate.ddl-auto=create-drop',
+                        '--spring.flyway.enabled=false'
+                    )
+                }
             }
         }
-        if ($package.Project -in @(':deposit:api', ':deposit:batch')) {
-            $arguments += '--account.deposit.local-adapters.enabled=true'
-        }
-        if ($package.Project -in @(':reporting:api', ':reporting:batch')) {
-            $arguments += '--account.reporting.persistence.mode=memory'
-        }
-        if ($package.Project -eq ':budget:api') {
-            $arguments += '--auth.jwt.secret=runtime-smoke-budget-test-key-32-bytes-minimum'
+        if (-not $ProfileOnly) {
+            if ($package.Project -in @(':deposit:api', ':deposit:batch')) {
+                $arguments += '--account.deposit.local-adapters.enabled=true'
+            }
+            if ($package.Project -in @(':reporting:api', ':reporting:batch')) {
+                $arguments += '--account.reporting.persistence.mode=memory'
+            }
+            if ($package.Project -eq ':budget:api') {
+                $arguments += '--auth.jwt.secret=runtime-smoke-budget-test-key-32-bytes-minimum'
+            }
         }
         $result = Invoke-ProcessCaptureWithTimeout `
             -FilePath $javaCommand.Source `
             -Arguments $arguments `
             -WorkingDirectory $repositoryRoot `
-            -TimeoutSeconds $TimeoutSeconds
+            -TimeoutSeconds $TimeoutSeconds `
+            -EnvironmentVariableNamesToKeep $isolatedRuntimeEnvironmentNameAllowlist
 
         $combined = ($result.StdOut + "`n" + $result.StdErr).Trim()
         $started = $combined -match '(?m)^.*Started .* in [0-9.]+ seconds'
+        $cliSucceeded = $package.Classification -eq 'cli' -and
+            $result.ExitCode -eq 0 -and
+            $combined -match '(?m)^\S+\s+(READY|BLOCKED)\s*$'
         [pscustomobject]@{
             Project        = $package.Project
             Classification = $package.Classification
-            Status         = if ($result.ExitCode -eq 0 -and $started) {
+            Status         = if ($result.TerminationError) {
+                'FAIL_PROCESS_TREE_TERMINATION'
+            } elseif ($cliSucceeded) {
+                'PASS_EXITED'
+            } elseif ($result.ExitCode -eq 0 -and $started) {
                 'PASS_EXITED'
             } elseif ($result.ExitCode -eq 0) {
                 'FAIL_NO_START_MARKER'
@@ -614,7 +909,8 @@ function Test-LocalJarContract {
             }
             ExitCode       = $result.ExitCode
             TimedOut       = $result.TimedOut
-            Command        = $result.Command
+            EnvironmentVariablesRemoved = @($result.EnvironmentVariablesRemoved)
+            Command        = Protect-EvidenceText -Text $result.Command
             Evidence       = Get-CommandEvidence `
                 -StandardOutput $result.StdOut `
                 -StandardError $result.StdErr
@@ -637,6 +933,11 @@ function Test-FrontendContract {
     }
 
     [pscustomobject]@{
+        Status            = if (Test-Path -LiteralPath $nodeModules -PathType Container) {
+            'READY'
+        } else {
+            'BLOCKED'
+        }
         PackageJson       = Test-Path -LiteralPath $packageJson -PathType Leaf
         LockFile          = Test-Path -LiteralPath $lockFile -PathType Leaf
         NpmAvailable      = $null -ne $npmCommand
@@ -657,7 +958,7 @@ $runtimeInventory = $null
 $packagingResults = $null
 $report = [ordered]@{}
 
-if ($Mode -in @('Inventory', 'TaskContract', 'Packaging', 'Libraries', 'LocalJar', 'All')) {
+if ($Mode -in @('Inventory', 'TaskContract', 'Packaging', 'Libraries', 'LocalJar', 'ProfileJar', 'All')) {
     $runtimeInventory = Get-RuntimeInventory
     if ($projectFilter.Count -gt 0) {
         $runtimeInventory = @(
@@ -669,13 +970,13 @@ if ($Mode -in @('Inventory', 'TaskContract', 'Packaging', 'Libraries', 'LocalJar
     }
 }
 if ($Mode -in @('Inventory', 'All')) {
-    $report.Inventory = $runtimeInventory
+    $report.Inventory = @($runtimeInventory)
     $report.InventoryMarkdown = Convert-InventoryToMarkdown -Inventory $runtimeInventory
 }
 if ($Mode -in @('TaskContract', 'All')) {
     $report.TaskContract = Test-TaskContract -Inventory $runtimeInventory
 }
-if ($Mode -eq 'LocalJar' -and $PackagingResultPath) {
+if ($Mode -in @('LocalJar', 'ProfileJar') -and $PackagingResultPath) {
     $resolvedPackagingResult = if ([System.IO.Path]::IsPathRooted($PackagingResultPath)) {
         [System.IO.Path]::GetFullPath($PackagingResultPath)
     } else {
@@ -691,19 +992,29 @@ if ($Mode -eq 'LocalJar' -and $PackagingResultPath) {
     if ($packagingResults.Count -eq 0) {
         throw "Packaging result contains no Packaging entries: $resolvedPackagingResult"
     }
-} elseif ($Mode -in @('Packaging', 'LocalJar', 'All')) {
+} elseif ($Mode -in @('Packaging', 'LocalJar', 'ProfileJar', 'All')) {
     $packagingResults = Test-PackagingContract -Inventory $runtimeInventory
 }
 if ($Mode -in @('Packaging', 'All')) {
-    $report.Packaging = $packagingResults
+    $report.Packaging = @($packagingResults)
 }
 if ($Mode -in @('Libraries', 'All')) {
-    $report.Libraries = Test-LibraryContract -Inventory $runtimeInventory
+    $report.Libraries = @(Test-LibraryContract -Inventory $runtimeInventory)
 }
 if ($Mode -in @('LocalJar', 'All')) {
-    $report.LocalJar = Test-LocalJarContract `
-        -PackagingResults $packagingResults `
-        -TimeoutSeconds $StartupTimeoutSeconds
+    $report.LocalJar = @(
+        Test-LocalJarContract `
+            -PackagingResults $packagingResults `
+            -TimeoutSeconds $StartupTimeoutSeconds
+    )
+}
+if ($Mode -in @('ProfileJar', 'All')) {
+    $report.ProfileJar = @(
+        Test-LocalJarContract `
+            -PackagingResults $packagingResults `
+            -TimeoutSeconds $StartupTimeoutSeconds `
+            -ProfileOnly $true
+    )
 }
 if ($Mode -in @('Frontend', 'All')) {
     $report.Frontend = Test-FrontendContract
@@ -720,4 +1031,23 @@ if ($OutputPath) {
     Write-Output "Wrote runtime smoke result: $resolvedOutput"
 } else {
     Write-Output $json
+}
+
+$hasFailure = $false
+if ($report.Contains('TaskContract') -and $report.TaskContract.ExitCode -ne 0) {
+    $hasFailure = $true
+}
+foreach ($resultGroupName in @('Packaging', 'Libraries', 'LocalJar', 'ProfileJar')) {
+    if ($report.Contains($resultGroupName) -and
+        @($report[$resultGroupName] | Where-Object {
+                $_.Status -match '^(FAIL|BLOCKED|NON_EXECUTABLE)'
+            }).Count -gt 0) {
+        $hasFailure = $true
+    }
+}
+if ($report.Contains('Frontend') -and $report.Frontend.Status -eq 'BLOCKED') {
+    $hasFailure = $true
+}
+if ($hasFailure) {
+    exit 1
 }
