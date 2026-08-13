@@ -79,6 +79,15 @@ That job is fail-closed. It passes only when `detect` succeeded **and** `test` i
 
 If the `settings.gradle` parse yields zero projects — a format change, a moved file, a broken regex — `detect` exits non-zero instead of reporting "no modules changed". Without this guard a parsing break would silently skip every test and report green.
 
+## Dependency Rate Limiting
+
+The first full run failed `master-data` with `429 Too Many Requests` from Maven Central — 25 jobs resolved dependencies simultaneously. Two guards address this:
+
+- `max-parallel: 6` caps concurrent jobs.
+- The test step retries up to 3 times with 30s/60s backoff, but **only** when the log shows a transient resolution failure (`Too Many Requests`, `Could not resolve`, `Could not GET`, `Connection reset`, `Read timed out`). A genuine test or compile failure is reported immediately without retry.
+
+초보자 설명: 여러 job이 한꺼번에 같은 서버에서 라이브러리를 받으면 서버가 거절한다(429). 코드는 멀쩡한데 실패하므로 동시 실행 수를 제한하고, 네트워크 탓일 때만 다시 시도한다. 진짜 버그를 세 번씩 돌리면 시간만 낭비되므로 그 경우는 바로 멈춘다.
+
 ## Non-Gradle Paths
 
 `frontend/` is a Node project and is not covered by this matrix. `docs/` and other non-module paths produce no matrix entries, and the `test` job is skipped entirely rather than run empty.
