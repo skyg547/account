@@ -78,3 +78,8 @@ rg -n "<<<<<<<|=======|>>>>>>>" .
 ```
 
 - Do not commit unrelated generated logs, local settings, secrets, or temporary worktree folders.
+
+## Clean Root Directory Policy
+
+- Keep the repository root directory clean. Only canonical build manifests (`build.gradle`, `package.json`, `Dockerfile`, `docker-compose.yml`), root environment files (`.env`), and tool-required root contracts (`README.md`, `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `GEMINI_REVIEW_PROMPT.md`) remain in the root directory.
+- All non-essential documentation, legacy pointers, operational task lists, and worklogs must be stored under `docs/` or `docs/ai-harness/` or `docs/history/`.

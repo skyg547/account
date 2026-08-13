@@ -29,7 +29,7 @@
 
 ## Start Order
 
-1. `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `docs/ai-harness/worklog.md`의 최신 관련 항목을 확인한다.
+1. `docs/WORKLOG.md`, `docs/history/CODEX_WORKLOG.md`, `docs/ai-harness/worklog.md`의 최신 관련 항목을 확인한다.
 2. `git status --short --branch`와 적용되는 Issue/branch/worktree를 확인한다.
 3. `docs/ai-harness/00-overview.md`, `10-rules.md`와 대상 모듈의 `README.md`, `docs/*.md`를 읽는다.
 4. Issue 기반 작업은 `$account-issue-loop`, 코드 변경은 `$account-hexagonal-change`를 사용한다.
@@ -47,7 +47,7 @@
 1. 대상 테스트를 먼저 실행하고 공용 계약이나 빌드 구성이 바뀌면 검증 범위를 넓힌다.
 2. `$account-review-handoff`로 diff, conflict marker, 테스트, 롤백, 잔여 위험을 점검한다.
 3. 변경 파일과 영향 범위, 실행한 명령과 결과, 미실행 사유를 보고한다.
-4. 의미 있는 변경은 `docs/ai-harness/worklog.md`, `agent-status.md`, `handoff.md`, `CODEX_WORKLOG.md`에 기록한다. 충돌 시 `conflict-log.md`도 갱신한다.
+4. 의미 있는 변경은 `docs/ai-harness/worklog.md`, `agent-status.md`, `handoff.md`, `docs/history/CODEX_WORKLOG.md`에 기록한다. 충돌 시 `conflict-log.md`도 갱신한다.
 5. 통합은 Draft PR과 사람 리뷰를 기본 게이트로 사용한다.
 
 ## Entry Points
