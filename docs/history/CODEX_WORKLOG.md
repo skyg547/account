@@ -1930,3 +1930,11 @@
 - Closing Core/API passed 74 tests in 19 suites, API bootJar passed and the packaged local H2 JAR started without mapper failure or external attempt. Exact implementation allowlist, diff and marker gates passed.
 - Independent implementation review found no P0-P3 and confirmed production adapters are neither duplicated nor shadowed. No business/domain or Master Data production source changed; no external state was accessed.
 - Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`. Independent PR-head review and green GitHub checks remain the Ready/merge gate.
+
+## 2026-08-14 (Issue #423 Closing Batch local Journal composition)
+
+- Claimed #423 and created `agent/423-closing-batch-local-journal` in an external worktree, leaving the dirty primary checkout untouched. The branch is stacked on PR #447 so the API and Batch fixes remain separately reviewable while clearing their shared Closing CI gate.
+- Added explicit Batch composition for the existing local Journal ports, restricted the fallback configuration to `local`, and verified that approved port beans make the fallback back off.
+- Replaced broad Master Data adapter scanning with the exact exchange-rate, fiscal-period and master-data adapters plus their minimal persistence/mapper closure.
+- Closing API/Batch/Core passed 90 tests in 27 suites, Batch `bootJar` passed, and the packaged local H2 JAR started without missing ports or external attempts. No actual Job, DB, endpoint, credential, container or volume was used.
+- Independent review's P3 test-coverage finding was remediated and final re-review found no P0-P3. Commit `8a582592` is pushed and stacked Draft PR #448 is open; Issue #423 is `status:needs-review` pending PR-head checks and merge into the #422 branch.

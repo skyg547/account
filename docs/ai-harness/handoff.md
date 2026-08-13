@@ -2681,3 +2681,19 @@
 - Independent implementation review found no P0-P3 and confirmed no duplicate/shadow bean or missing removed-adapter dependency.
 - No external state exists. Rollback uses a reviewed revert of the three implementation paths and retains append-only records.
 - Next owner is an independent PR-head reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #423 Closing Batch Composition
+
+## Published stacked review state
+
+- Issue/branch/worktree: `#423`, `agent/423-closing-batch-local-journal`, `C:\tmp\account-423-closing-batch-local-journal`.
+- Commit `8a582592` is pushed, stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`, and Issue #423 is `status:needs-review`.
+- Scope is Closing Batch composition, Closing Core's existing local external-port configuration, focused tests, Closing local-run documentation and parent-owned append-only harness records.
+
+## Evidence, rollback, and next owner
+
+- The local fallback is active only for `local`, backs off when approved Journal ports exist and never masks dev/prod. Batch uses exact Closing/FX Master Data imports instead of package-wide adapter scanning.
+- Closing API/Batch/Core passed 90 tests in 27 suites with zero failure/error/skip and Batch `bootJar`. The packaged local H2 JAR started with neither missing port nor external connection attempt.
+- Independent review's single P3 was remediated with explicit fallback back-off coverage; final re-review found no P0-P3. Diff, marker and five-file implementation allowlist gates passed.
+- No external state exists and no business Job ran. Rollback uses a reviewed path-scoped revert of the #423 implementation/test/docs paths while preserving append-only history.
+- Next owner is an independent PR #448 head reviewer, then the parent Integrator for green-check merge into the #422 branch. PR #447 must rerun its full gate before any main merge.
