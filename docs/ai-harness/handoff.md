@@ -2628,5 +2628,6 @@
 - Re-review's remaining P2 covered Windows user-home, IPv6 and `.java`-suffixed endpoints. Context-aware source preservation plus user-profile/IPv6/host redaction now passes adversarial samples and a real Budget LocalJar JSON; final re-review remains the commit gate.
 - A further bypass review restricted source preservation to real stack/path/standalone-line shapes and added parsed compressed/zone-id IPv6 handling. Parenthesized `.java` endpoints, `fe80::1`, `[fe80::1%zone]:port`, user paths and JWT values are absent from adversarial/real Budget JSON evidence. Final re-review remains the commit gate.
 - Final independent re-review found no P0-P3. The branch is ready for the user-authorized commit, push and Draft PR; PR-head review and merge gates still apply after publishing.
+- Commit `adade958` is pushed and Draft PR #433 targets `main` with `Refs #227`. Issue #227 is frozen at `status:needs-review`; next is independent PR-head review, then the user-authorized Ready/merge gate.
 - No external host, credential, DB, container or volume was read or changed. Rollback is a reviewed revert of only the #227 tool/document/harness commit.
 - Next owner is an independent read-only reviewer, followed by the parent Integrator for commit, push and Draft PR. Ready/merge/Issue close are outside this handoff.

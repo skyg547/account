@@ -1901,3 +1901,4 @@
 - Re-review's final P2 found user-home, IPv6 and `.java`-suffixed endpoint gaps. Redaction is now context-aware and adversarial samples plus real Budget LocalJar JSON confirm no user path, endpoint or diagnostic JWT leakage. Final re-review remains.
 - A further bypass review constrained stack source tokens and covered compressed/zone-id IPv6. Parenthesized `.java` endpoints and both IPv6 forms redact; source/JDK/loopback utility remains. Adversarial and real Budget JSON checks pass; final re-review remains.
 - Final independent re-review found no P0-P3. Commit/push/Draft PR and final PR-head merge gate are next.
+- Commit `adade958` is pushed and Draft PR #433 targets `main`; Issue #227 is `status:needs-review` pending the final PR-head merge gate.
