@@ -1759,3 +1759,13 @@
 - Commit `325b6e98` is pushed and Draft PR #447 targets main with `Refs #422/#227`; Issue #422 is `status:needs-review`.
 - No external endpoint, DB, credential, container or volume was accessed. Rollback is a reviewed path-scoped revert of the #422 composition/test/docs commit while retaining append-only history.
 - Next gate is independent PR-head review and green GitHub checks before Ready/merge/close.
+
+## 2026-08-14 - Issue #423 Closing Batch local Journal composition
+
+- Claimed `#423` on `agent/423-closing-batch-local-journal` in `C:\tmp\account-423-closing-batch-local-journal`; the branch is stacked on reviewed PR #447 because #422 and #423 are independent composition fixes whose shared Closing CI previously blocked each other.
+- Wired the existing Closing local Journal ports into the Batch composition root and restricted the fallback configuration to `local`. `@ConditionalOnMissingBean` keeps approved Journal implementations authoritative when they are present.
+- Removed the broad Master Data adapter scan from Closing Batch and explicitly imported only the Closing/FX contract adapters and their minimal persistence/mapper dependency closure.
+- Closing API/Batch/Core passed 90 tests in 27 suites with zero failure/error/skip and Closing Batch `bootJar`. The packaged local H2 JAR started without missing Journal/ExchangeRate ports or any external attempt.
+- Diff/marker/allowlist checks passed. Independent review's P3 about missing fallback back-off coverage was remediated; final re-review found no P0-P3.
+- Implementation commit `8a582592` is pushed and stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`; Issue #423 is `status:needs-review`.
+- No external endpoint, DB, credential, container or volume was accessed. No Closing Job or journal posting ran. Rollback is a reviewed path-scoped revert of the five #423 implementation/test/docs paths while preserving append-only history.
