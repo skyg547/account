@@ -15,7 +15,7 @@
 - 기본 포트와 Config Server 설정 포트는 모두 `8000`입니다.
 - 라우트는 `config-repo/gateway-service.yml`에서 관리합니다.
 - Gateway 자체에는 H2/PostgreSQL 데이터베이스가 없습니다. 사용자·권한의 원장은 Auth가 소유합니다.
-- `.run/Gateway standalone bootRun.run.xml`은 외부 의존성 없는 기동 smoke용입니다.
+- `.run/Gateway standalone bootRun.run.xml`은 `local` 프로파일 기반의 외부 의존성 없는 기동 smoke용입니다. JWT 검증 키는 Run Configuration 환경변수로 별도 주입합니다.
 - `.run/Gateway bootRun.run.xml`은 Config/Discovery/Auth와 함께 쓰는 전체 라우팅용입니다.
 - 보호 API는 Auth의 token-version API를 호출합니다. 단독 smoke에서만 `AUTH_TOKEN_VERSION_VALIDATION_ENABLED=false`를 사용합니다.
 

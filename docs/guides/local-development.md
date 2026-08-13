@@ -48,7 +48,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\runtime-smoke.ps
 
 Gradle 하위 명령은 기본 600초, JAR 기동 관찰은 기본 30초로 제한됩니다. 느린 검증 환경에서는 `-GradleTimeoutSeconds`와 `-StartupTimeoutSeconds`를 명시적으로 늘릴 수 있습니다. JAR이 제한 전에 `Started`를 기록하고 계속 실행 중이면 감사 도구가 자신의 process tree를 종료한 뒤 `PASS_STARTED`로 판정합니다. `Started` 없이 제한을 넘기거나 process tree 종료를 확인하지 못하면 실패 종료 코드와 JSON 증거를 남깁니다.
 
-2026-08-14 `origin/main@1ae9e108` 재검증에서는 실행 JAR 36/36과 비실행 library/aggregator 36/36이 통과했습니다. 엄격 local JAR은 31개가 기동/정상 종료했고 Auth, Budget, Gateway는 저장소에 둘 수 없는 JWT 입력이 없어 fail-closed 했습니다. Closing API/Batch의 실제 bean 결함은 각각 `#422`, `#423`, Auth/Gateway 실행 입력 계약은 `#420`, `#421`로 분리했습니다.
+2026-08-14 런타임 감사에서는 실행 JAR 36/36과 비실행 library/aggregator 36/36이 통과했습니다. Auth는 #420/PR #441에서 secure local 입력 계약을 통합했고, Gateway의 같은 계약은 #421에서 추적합니다. Budget는 저장소에 둘 수 없는 JWT 입력이 없어 fail-closed하며 Closing API/Batch의 실제 bean 결함은 각각 `#422`, `#423`으로 분리했습니다.
 
 JWT 기반 local 서비스는 저장소 파일에 secret을 기록하지 말고 현재 shell에만 32-byte 이상 임시 값을 생성해 실행 후 제거합니다. 아래 값은 매번 새로 생성되며 출력하거나 commit하지 않습니다.
 
@@ -166,6 +166,7 @@ Gradle task로 실행:
 ```powershell
 .\gradlew :master-data:api:bootRun --args="--spring.profiles.active=local --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain
 .\gradlew :internal-audit:api:bootRun --args="--spring.profiles.active=local" --console=plain
+.\gradlew :gateway:bootRun --args="--spring.profiles.active=local --server.port=8000" --console=plain
 .\gradlew :master-data:batch:bootRun --args="--spring.profiles.active=local --spring.batch.job.enabled=true --spring.batch.job.name=masterDataValidityJob asOfDate=2026-07-29 --spring.cloud.config.enabled=false --spring.config.on-not-found=ignore --spring.cloud.discovery.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.jpa.hibernate.ddl-auto=create-drop --spring.flyway.enabled=false" --console=plain
 .\gradlew :account-mart:mart-api:bootRun --console=plain
 .\gradlew :account-mart:mart-batch:bootRun --args="--spring.profiles.active=demo --spring.main.web-application-type=none --spring.cloud.config.enabled=false --spring.cloud.discovery.enabled=false --spring.cloud.loadbalancer.enabled=false --spring.cloud.vault.enabled=false --eureka.client.enabled=false --management.tracing.enabled=false --spring.batch.jdbc.initialize-schema=always --spring.batch.job.enabled=true --spring.batch.job.name=integratedPositionEtlJob baseDate=2026-04-30 --mart.batch.cdm-event.enabled=false" --console=plain

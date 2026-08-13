@@ -11,6 +11,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.Key;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -21,7 +22,7 @@ import org.junit.jupiter.api.Test;
 
 class JjwtAccessTokenVerifierTest {
 
-    private static final String SECRET = "gateway-test-secret-key-must-have-at-least-32-bytes";
+    private static final String SECRET = ephemeralValue();
     private static final Instant NOW = Instant.parse("2026-07-20T00:00:00Z");
 
     private final JjwtAccessTokenVerifier verifier = new JjwtAccessTokenVerifier(
@@ -160,5 +161,11 @@ class JjwtAccessTokenVerifierTest {
         properties.setIssuer("auth-service");
         properties.setAllowedClockSkewSeconds(30L);
         return properties;
+    }
+
+    private static String ephemeralValue() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 }

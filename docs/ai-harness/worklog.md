@@ -1736,3 +1736,14 @@
 - No external DB, private endpoint, credential, container or volume was accessed. Rollback is a reviewed revert of only the #420 Auth resource/test/docs/core-wording and harness paths; no external-state rollback exists.
 - The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Initial commit `62cc8717` is pushed and Draft PR #441 targets main with `Refs #420/#427`; Issue #420 is `status:needs-review`.
 - The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.
+
+## 2026-08-14 - Issue #421 Gateway secure standalone local runtime
+
+- Claimed `#421` on `agent/421-gateway-local-jwt` in `C:\tmp\account-421-gateway-local-jwt` from latest `origin/main@eb7ce92b`; the dirty primary checkout remained untouched.
+- Baseline Gateway tests/bootJar passed and the packaged JAR failed closed without a verification key. A process-generated 32-byte input started the profile-only local JAR, but an Eureka registration attempt proved the tracked local runtime policy was missing.
+- Added an explicit Gateway `application-local.yml` that disables Config/Discovery/LoadBalancer/Gateway locator/Eureka/tracing and token-version remote validation. It contains no JWT secret/public key/JWKS URI or Auth endpoint.
+- The shared standalone IntelliJ configuration and local guides now activate `local` and require a runtime-only ephemeral JWT input. Fixed test secrets were removed; actual Spring profile tests verify isolated startup, missing-key fail-closed behavior and the absence of any local JWT/key/remote URL section.
+- Latest-main Gateway verification passed 43 tests in 9 suites with zero failure/error/skip and bootJar. Packaged-JAR smokes passed missing-input fail-closed and ephemeral-input startup with no Config or Eureka attempt.
+- `git diff --check`, scoped marker, resource/run-config/test-resource credential and Boot JAR resource gates passed. Independent review findings for allowlist evidence, literal-secret test coverage and troubleshooting wording were resolved; final re-review found no P0-P3.
+- No external endpoint, credential, DB, container or volume was accessed. Rollback is a reviewed revert of the #421 Gateway profile/test/run-config/docs and harness paths; no external-state rollback exists.
+- Next gate: exact-path force-add the ignored local resource, verify staged content, commit/push and open a Draft PR; then repeat independent PR-head review before Ready/merge.

@@ -1,0 +1,27 @@
+server:
+  port: 8000
+
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+    loadbalancer:
+      enabled: false
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  tracing:
+    enabled: false
+
+auth:
+  token-version-validation:
+    enabled: false
