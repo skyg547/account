@@ -1,0 +1,179 @@
+name: Module Validation
+
+# 변경된 Gradle 모듈만 골라 테스트한다.
+#
+# 이전에는 reporting 모듈 하나만 CI 대상이었고 나머지 20여 개 모듈은 검사되지
+# 않았다. 이 워크플로는 diff에서 변경된 최상위 디렉터리를 추출한 뒤,
+# settings.gradle의 include 목록에서 해당 디렉터리에 속한 Gradle 프로젝트 경로를
+# 찾아 matrix로 병렬 실행한다. 모듈이 추가되어도 settings.gradle만 갱신하면
+# 이 파일은 수정할 필요가 없다.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect changed modules
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.resolve.outputs.modules }}
+      reason: ${{ steps.resolve.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve changed Gradle projects
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          # settings.gradle의 include 목록에서 Gradle 프로젝트 경로를 읽는다.
+          # rootProject.name('account')만 제외하면 나머지는 전부 프로젝트 경로다.
+          mapfile -t ALL_PROJECTS < <(
+            grep -oE "'[a-z][a-z0-9:_-]*'" settings.gradle \
+              | tr -d "'" \
+              | grep -vx 'account' \
+              | sort -u
+          )
+          echo "settings.gradle에서 ${#ALL_PROJECTS[@]}개 프로젝트를 읽었습니다."
+
+          run_everything() {
+            printf '%s\n' "${ALL_PROJECTS[@]}" | awk -F: '{print $1}' | sort -u
+          }
+
+          # 변경 파일 목록을 결정한다. base를 특정할 수 없으면 안전하게 전체를 돈다.
+          CHANGED=""
+          FULL_RUN_REASON=""
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            FULL_RUN_REASON="workflow_dispatch로 수동 실행"
+          elif [ "$EVENT_NAME" = "pull_request" ] && [ -n "${BASE_SHA:-}" ]; then
+            CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          elif [ "$EVENT_NAME" = "push" ] \
+            && [ -n "${BEFORE_SHA:-}" ] \
+            && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] \
+            && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            CHANGED=$(git diff --name-only "$BEFORE_SHA" HEAD)
+          else
+            FULL_RUN_REASON="비교 기준 커밋을 특정할 수 없음"
+          fi
+
+          if [ -z "$FULL_RUN_REASON" ]; then
+            # 공용 자산이 바뀌면 어떤 모듈이든 영향을 받으므로 전체를 돈다.
+            if echo "$CHANGED" | grep -qE '^(settings\.gradle|build\.gradle|gradlew|gradlew\.bat|gradle/|shared-kernel/|contracts/|\.github/workflows/)'; then
+              FULL_RUN_REASON="공용 빌드 설정 또는 shared-kernel/contracts 변경"
+            fi
+          fi
+
+          if [ -n "$FULL_RUN_REASON" ]; then
+            CHANGED_DIRS=$(run_everything)
+            REASON="전체 모듈 실행 — $FULL_RUN_REASON"
+          else
+            CHANGED_DIRS=$(echo "$CHANGED" | awk -F/ 'NF>1 {print $1}' | sort -u)
+            REASON="변경 감지 기반 선택 실행"
+          fi
+
+          # 변경된 디렉터리에 속한 Gradle 프로젝트 경로를 모아 matrix 항목을 만든다.
+          # 디렉터리 이름과 Gradle 경로의 첫 세그먼트를 대조하므로
+          # account-mart:mart-core, ecl:ecl-core 같은 변칙 명명도 그대로 처리된다.
+          ENTRIES=""
+          while IFS= read -r dir; do
+            [ -n "$dir" ] || continue
+            TASKS=$(
+              printf '%s\n' "${ALL_PROJECTS[@]}" \
+                | awk -F: -v d="$dir" '$1==d' \
+                | sed 's|^|:|; s|$|:test|' \
+                | tr '\n' ' '
+            )
+            TASKS=$(echo "$TASKS" | sed 's/[[:space:]]*$//')
+            [ -n "$TASKS" ] || continue
+            ENTRIES="${ENTRIES}${dir}\t${TASKS}\n"
+          done <<< "$CHANGED_DIRS"
+
+          if [ -z "$ENTRIES" ]; then
+            echo "modules=[]" >> "$GITHUB_OUTPUT"
+            echo "reason=Gradle 모듈 변경 없음 — 테스트를 건너뜁니다." >> "$GITHUB_OUTPUT"
+            echo "테스트할 Gradle 모듈이 없습니다."
+            exit 0
+          fi
+
+          MATRIX=$(
+            printf '%b' "$ENTRIES" \
+              | jq -R -s -c 'split("\n")
+                  | map(select(length > 0))
+                  | map(split("\t") | {module: .[0], tasks: .[1]})'
+          )
+
+          echo "modules=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+          echo "$REASON"
+          echo "$MATRIX" | jq -r '.[] | "  \(.module): \(.tasks)"'
+
+  test:
+    name: ${{ matrix.module }}
+    needs: detect
+    if: needs.detect.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.modules) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Ensure Gradle Wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run tests for ${{ matrix.module }}
+        run: ./gradlew ${{ matrix.tasks }} --console=plain
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.module }}
+          path: "**/build/reports/tests/test/**"
+          retention-days: 7
+
+  # 브랜치 보호 규칙에서 단일 required check로 걸 수 있도록 matrix 결과를 모은다.
+  # matrix job은 실행 대상이 매번 달라져 이름을 고정할 수 없기 때문이다.
+  result:
+    name: Module Validation Result
+    needs: [detect, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          echo "${{ needs.detect.outputs.reason }}"
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "하나 이상의 모듈에서 테스트가 실패했습니다."
+            exit 1
+          fi
+          if [ "${{ needs.test.result }}" = "cancelled" ]; then
+            echo "테스트가 취소되었습니다."
+            exit 1
+          fi
+          echo "통과했습니다."

@@ -1,3 +1,8 @@
+### 📅 2026-08-13 (AI Harness Root Streamlining & Clean Root Directory Policy)
+- **Component**: Root directory, `AGENTS.md`, `docs/ai-harness/10-rules.md`, `docs/history/`
+- **Changes**: Deleted legacy root `SKILL.md` and empty `CLAUDE_WORKLOG.md`. Relocated `CODEX_WORKLOG.md` to `docs/history/CODEX_WORKLOG.md` and `CODEX_HANDOFF_TASKS.md` to `docs/ai-harness/codex-handoff-tasks.md`. Preserved tool-required root contracts (`README.md`, `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `GEMINI_REVIEW_PROMPT.md`). Updated `AGENTS.md` and `docs/ai-harness/10-rules.md` establishing the Clean Root Directory Policy.
+- **Verification**: Verified clean git status and updated document paths.
+
 ### 📅 2026-08-13 (MSA Microservice Module Documentation Audit & Harness Synchronization)
 - **Component**: `docs/ai-harness`, MSA service modules (`journal-ledger`, `closing`, `deposit`, `loan`, `asset-lease`, `payable`, `receivable`, `tax`, `budget`, `expenditure-resolution`, `reporting`, `account-mart`, `ecl`, `shared-kernel`)
 - **Changes**: Audited and verified all MSA service module documentation (`README.md`, `docs/*.md`) under dedicated branch `docs/msa-module-docs-update`. Confirmed 100% alignment with Hexagonal Architecture boundaries (api/core/batch), H2 `local` profile isolation, and multi-module parallel execution standards ($account-module-parallel). Synchronized AI harness records (`agent-status.md`, `worklog.md`, `handoff.md`).
