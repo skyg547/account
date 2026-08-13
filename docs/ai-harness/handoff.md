@@ -2648,3 +2648,20 @@
 - No external host, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert and preserves append-only harness history.
 - Initial commit `62cc8717` is pushed, Draft PR #441 is open and Issue #420 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
 - Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close and #427 reevaluation.
+
+# AI Harness Handoff - 2026-08-14 Issue #421 Gateway Local Runtime
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#421`, `agent/421-gateway-local-jwt`, `C:\tmp\account-421-gateway-local-jwt`, latest `origin/main@eb7ce92b`.
+- Scope: Gateway local resource, runtime tests/test resource, standalone run configuration, Gateway/root local guides and parent-owned harness records.
+- The local profile disables Config/Discovery/LoadBalancer/Gateway locator/Eureka/tracing and Auth token-version remote validation. It owns no JWT secret, public key, JWKS URI or remote endpoint; missing verification input remains fail-closed.
+
+## Evidence, rollback, and next owner
+
+- Gateway verification passed 43 tests in 9 suites with zero failure/error/skip and bootJar. The executable JAR failed closed without input and started with a process-generated 32-byte input while making no Config/Eureka attempt.
+- Diff, marker, credential and packaged-resource gates passed. Independent review findings were remediated and final re-review found no P0-P3.
+- `application-local.yml` is covered by the repository ignore rule, so the parent Integrator force-added its exact path and verified the staged non-empty blob against the reviewed file before commit.
+- No external service, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert while retaining append-only history.
+- Commit `f066eb31` is pushed, Draft PR #445 is open and Issue #421 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
+- Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close.
