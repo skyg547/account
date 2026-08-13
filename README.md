@@ -112,75 +112,76 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph "External Clients"
-        UI["Frontend App / Browser"]
+    subgraph CLIENTS["External Clients"]
+        UI["Frontend App / Browser<br/>(Next.js 15 App Router)"]
     end
 
-    subgraph "API Gateway Layer"
-        GW["API Gateway (Port: 8000)"]
-        CB["Resilience4j (Circuit Breaker)"]
+    subgraph GW_LAYER["API Gateway Layer"]
+        GW["API Gateway (Port: 8000)<br/>Spring Cloud Gateway"]
+        CB["Resilience4j<br/>(Circuit Breaker)"]
         GW -.-> CB
     end
 
-    subgraph "Service Discovery & Config"
-        EUREKA(("Eureka Server Port: 8761"))
-        CONFIG["Config Server Port: 8888"]
+    subgraph DISCOVERY_CFG["Service Discovery & Config"]
+        EUREKA(("Eureka Server<br/>Port: 8761"))
+        CONFIG["Config Server<br/>Port: 8888"]
     end
 
-    subgraph "Backend Microservices"
-        MS1["Master Data Service"]
-        MS2["Journal Ledger Service"]
-        MS3["Closing & Reporting"]
-        MS4["Finance Subledgers"]
+    subgraph SERVICES["Backend Microservices (Spring Boot 3.4 / Java 21)"]
+        MS1["Master Data Service<br/>(Port: 8081)"]
+        MS2["Journal Ledger Service<br/>(Port: 8082)"]
+        MS3["Closing & Reporting<br/>(Port: 8083)"]
+        MS4["Finance Subledgers<br/>(Loan, Deposit, Lease)"]
     end
 
-    subgraph "Data & Messaging"
-        DB[("PostgreSQL")]
-        KAFKA[["Apache Kafka Message Broker"]]
-        REDIS[("Redis Cache & Lock")]
+    subgraph STORAGE["Data & Messaging Infrastructure"]
+        DB[("PostgreSQL 16<br/>ACID Master DB")]
+        KAFKA[["Apache Kafka<br/>Event Streaming"]]
+        REDIS[("Redis Cache<br/>& Distributed Lock")]
     end
 
-    subgraph "Observability (모니터링 & 로깅)"
-        ZIPKIN["Zipkin Trace ID"]
-        ELK{{"ELK Stack Elasticsearch, Logstash, Kibana"}}
-        PROM["Prometheus & Grafana"]
+    subgraph OBSERVE["Observability & Monitoring"]
+        ZIPKIN["Zipkin Trace ID<br/>Distributed Tracing"]
+        ELK{{"ELK Stack<br/>Logs Centralization"}}
+        PROM["Prometheus & Grafana<br/>Metrics Dashboard"]
     end
 
     UI -->|HTTPS Request| GW
     
-    GW -.->|Routing| MS1
-    GW -.->|Routing| MS2
-    GW -.->|Routing| MS3
-    GW -.->|Routing| MS4
+    GW -.->|Dynamic Routing| MS1
+    GW -.->|Dynamic Routing| MS2
+    GW -.->|Dynamic Routing| MS3
+    GW -.->|Dynamic Routing| MS4
     
-    MS1 <-->|Register & Fetch| EUREKA
-    MS2 <-->|Register & Fetch| EUREKA
-    MS3 <-->|Register & Fetch| EUREKA
-    MS4 <-->|Register & Fetch| EUREKA
+    MS1 <-->|Register & Lookup| EUREKA
+    MS2 <-->|Register & Lookup| EUREKA
+    MS3 <-->|Register & Lookup| EUREKA
+    MS4 <-->|Register & Lookup| EUREKA
     
-    CONFIG -.->|Push Properties| MS1
-    CONFIG -.->|Push Properties| MS2
-    CONFIG -.->|Push Properties| MS3
-    CONFIG -.->|Push Properties| MS4
+    CONFIG -.->|Push Config| MS1 & MS2 & MS3 & MS4
 
-    MS1 --> DB
-    MS2 --> DB
-    MS3 --> DB
-    MS4 --> DB
-    
-    MS1 -.-> KAFKA
-    MS2 -.-> KAFKA
-    
-    MS1 -.-> REDIS
-    MS2 -.-> REDIS
+    MS1 & MS2 & MS3 & MS4 --> DB
+    MS1 & MS2 & MS3 & MS4 -.->|Outbox Event| KAFKA
+    MS1 & MS2 -.->|Lock / Cache| REDIS
 
-    MS1 -.->|Logs & Metrics| ELK
-    MS2 -.->|Traces| ZIPKIN
-    MS3 -.->|Metrics| PROM
-    
-    style EUREKA fill:#ff9,stroke:#333,stroke-width:2px
-    style GW fill:#bbf,stroke:#333,stroke-width:2px
-    style KAFKA fill:#dfd,stroke:#333,stroke-width:2px
+    MS1 & MS2 & MS3 & MS4 -.->|Logs| ELK
+    MS1 & MS2 & MS3 & MS4 -.->|Traces| ZIPKIN
+    MS1 & MS2 & MS3 & MS4 -.->|Metrics| PROM
+
+    style CLIENTS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style GW_LAYER fill:#e8eaf6,stroke:#283593,stroke-width:2px
+    style DISCOVERY_CFG fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    style SERVICES fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style STORAGE fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style OBSERVE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+
+    style UI fill:#90caf9,stroke:#1565c0,color:#0d47a1,stroke-width:2px
+    style GW fill:#9fa8da,stroke:#283593,color:#1a237e,stroke-width:2px
+    style EUREKA fill:#ffe082,stroke:#f57f17,color:#f57f17,stroke-width:2px
+    style CONFIG fill:#ffe082,stroke:#f57f17,color:#f57f17,stroke-width:2px
+    style DB fill:#ffcc80,stroke:#e65100,color:#bf360c,stroke-width:2px
+    style KAFKA fill:#a5d6a7,stroke:#2e7d32,color:#1b5e20,stroke-width:2px
+    style REDIS fill:#ffab91,stroke:#d84315,color:#bf360c,stroke-width:2px
 ```
 
 ### 기술 스택 (Tech Stack)

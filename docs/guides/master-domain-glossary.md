@@ -15,6 +15,13 @@ flowchart LR
     JL --> CL["4. Closing & Recon<br/>(마감/잠금/대사)"]
     CL --> ECL["5. Account Mart & ECL<br/>(재무마트/IFRS9 대손)"]
     ECL --> RP["6. Reporting<br/>(재무제표/주석)"]
+
+    style MD fill:#bbdefb,stroke:#0d47a1,color:#0d47a1,stroke-width:2px
+    style SL fill:#c8e6c9,stroke:#1b5e20,color:#1b5e20,stroke-width:2px
+    style JL fill:#ffe0b2,stroke:#e65100,color:#bf360c,stroke-width:2px
+    style CL fill:#e1bee7,stroke:#4a148c,color:#4a148c,stroke-width:2px
+    style ECL fill:#fff9c4,stroke:#f57f17,color:#f57f17,stroke-width:2px
+    style RP fill:#b2dfdb,stroke:#004d40,color:#004d40,stroke-width:2px
 ```
 
 ---
