@@ -1,7 +1,14 @@
 package com.ho.account.closing;
 
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
 import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -13,8 +20,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.ho.account.closing",
         "com.ho.account.journalledger.application.service",
         "com.ho.account.journalledger.infrastructure",
-        "com.ho.account.common.adapter",
-        "com.ho.account.masterdata.core.infrastructure.adapter"
+        "com.ho.account.common.adapter"
 })
 @EntityScan(basePackages = {
         "com.ho.account.closing.domain",
@@ -30,8 +36,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 })
 @EnableDiscoveryClient
 @Import({
+        MonolithFiscalPeriodControlAdapter.class,
+        MonolithMasterDataQueryAdapter.class,
         JpaFiscalPeriodPersistenceAdapter.class,
-        JpaBusinessPartnerPersistenceAdapter.class
+        FiscalPeriodMapper.class,
+        JpaAccountSubjectPersistenceAdapter.class,
+        AccountSubjectMapper.class,
+        JpaBusinessPartnerPersistenceAdapter.class,
+        JpaDepartmentPersistenceAdapter.class,
+        DepartmentMapper.class
 })
 public class ClosingApplication {
 
