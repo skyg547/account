@@ -257,12 +257,13 @@ docker-compose logs -f
 
 시스템의 세부 아키텍처 및 도메인 지식은 `docs/` 폴더 내에 마크다운과 Mermaid 차트로 상세하게 작성되어 있습니다. **새로 합류하신 분들은 아래 순서대로 문서를 확인해 주세요.**
 
-1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
-2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
-3. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/local-development.md)**: IntelliJ, JDK 17, Gradle, 모듈별 bootRun 설정
-4. 🐳 **[개발 Compose 실행 가이드 (development-compose.md)](docs/development-compose.md)**: 전체 API/Batch, self-contained/external-dev PostgreSQL, Frontend 개발 컨테이너
-5. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태와 후속 Issue
-6. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
-7. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
+1. 📖 **[마스터 도메인 용어집 (master-domain-glossary.md)](docs/guides/master-domain-glossary.md)**: ⭐ **초보자 필독!** 전표, 마감, 대사, IFRS 9 ECL 등을 쉬운 비유로 풀어낸 가이드
+2. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
+3. 🐣 **[초보자 입문 가이드 (beginner_guide.md)](docs/guides/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
+4. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/guides/local-development.md)**: IntelliJ, JDK 21, Gradle, `local` H2 프로파일 bootRun 설정
+5. 🐳 **[개발 Compose 실행 가이드 (development-compose.md)](docs/guides/development-compose.md)**: 전체 API/Batch, self-contained/external-dev PostgreSQL, Frontend 개발 컨테이너
+6. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/guides/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태
+7. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/guides/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+8. 🗄️ **[전사 문서 허브 (README.md)](docs/README.md)**: 20+ MSA 모듈별 README 및 아키텍처/가이드 전체 목차
 
-각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
+각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`가 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
