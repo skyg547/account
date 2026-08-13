@@ -51,7 +51,7 @@ Adding a module requires updating `settings.gradle` only. The workflow needs no 
 
 Selective execution is abandoned and every module runs when any of these change:
 
-- `settings.gradle`, root `build.gradle`
+- `settings.gradle`, root `build.gradle`, `gradle.properties`
 - `gradlew`, `gradlew.bat`, `gradle/**`
 - `shared-kernel/**`, `contracts/**`
 - `.github/workflows/**`
@@ -62,7 +62,22 @@ Selective execution is abandoned and every module runs when any of these change:
 
 ## Branch Protection
 
-`test` job names vary per run because the matrix depends on what changed. A branch protection rule cannot require a check whose name is not stable, so require **`Module Validation Result`** instead. It fails when any matrix entry failed or was cancelled.
+`test` job names vary per run because the matrix depends on what changed. A branch protection rule cannot require a check whose name is not stable, so require **`Module Validation Result`** instead.
+
+That job is fail-closed. It passes only when `detect` succeeded **and** `test` is `success` or `skipped`. Any other combination fails, including the case where `detect` itself broke and `test` never ran.
+
+| `detect` | `test` | Result |
+| --- | --- | --- |
+| success | success | pass |
+| success | skipped (no Gradle module changed) | pass |
+| success | failure / cancelled | fail |
+| failure / cancelled / skipped | any | fail |
+
+초보자 설명: 이 검사는 "merge해도 되는가"를 결정하는 최종 관문이다. 앞 단계가 고장 나서 테스트를 아예 못 돌린 경우에도 초록불을 주면 검증 없이 코드가 들어가므로, "성공"이 아닌 모든 경우를 실패로 처리한다.
+
+## Fail-Closed Parsing
+
+If the `settings.gradle` parse yields zero projects — a format change, a moved file, a broken regex — `detect` exits non-zero instead of reporting "no modules changed". Without this guard a parsing break would silently skip every test and report green.
 
 ## Non-Gradle Paths
 
