@@ -2630,4 +2630,4 @@
 - Final independent re-review found no P0-P3. The branch is ready for the user-authorized commit, push and Draft PR; PR-head review and merge gates still apply after publishing.
 - Commit `adade958` is pushed and Draft PR #433 targets `main` with `Refs #227`. Issue #227 is frozen at `status:needs-review`; next is independent PR-head review, then the user-authorized Ready/merge gate.
 - No external host, credential, DB, container or volume was read or changed. Rollback is a reviewed revert of only the #227 tool/document/harness commit.
-- Next owner is an independent read-only reviewer, followed by the parent Integrator for commit, push and Draft PR. Ready/merge/Issue close are outside this handoff.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge gate. Issue close remains outside this handoff.
