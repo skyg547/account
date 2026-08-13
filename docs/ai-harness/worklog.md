@@ -1734,4 +1734,5 @@
 - Latest-main Auth Core/API verification passed 45 tests in 14 suites with zero failure/error/skip, plus API `bootJar`. Direct packaged-JAR smokes passed both required paths: missing input failed closed and generated 32-byte inputs started the local H2 application.
 - `git diff --check`, scoped conflict-marker and secret-default scans passed. Independent review findings for port/docs/profile-binding/dual-credential coverage were remediated; final re-review found no P0-P3.
 - No external DB, private endpoint, credential, container or volume was accessed. Rollback is a reviewed revert of only the #420 Auth resource/test/docs/core-wording and harness paths; no external-state rollback exists.
-- Next gate: stage the ignored local resource explicitly, verify the staged diff, commit/push and open a Draft PR with `Refs #420/#427`; then repeat independent PR-head review before Ready/merge.
+- The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Initial commit `62cc8717` is pushed and Draft PR #441 targets main with `Refs #420/#427`; Issue #420 is `status:needs-review`.
+- The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.

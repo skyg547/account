@@ -1910,4 +1910,5 @@
 - Updated runtime policy/integration tests and Auth local/schema guidance. Review findings corrected the 8081 commands, V73/security documentation and actual profile-binding coverage for both missing credential guards.
 - Fast-forwarded to non-overlapping `origin/main@db5c865c`. Auth Core/API passed 45 tests in 14 suites, API bootJar passed, and the executable JAR passed missing-input fail-closed plus ephemeral-input local-start smokes.
 - Static gates passed and final independent review found no P0-P3. No external endpoint, DB, credential, container or volume was accessed.
-- The branch is ready for exact-path force-add of the ignored local resource, staged-diff verification, commit/push and Draft PR. PR-head review remains the Ready/merge gate; #427 is reevaluated only after #420 integration.
+- Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `62cc8717`, pushed the branch and opened Draft PR #441. Issue #420 is `status:needs-review`.
+- The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate, and #427 is reevaluated only after #420 integration.

@@ -2644,6 +2644,7 @@
 
 - Latest-main Core/API verification passed 45 tests in 14 suites with zero failure/error/skip and API bootJar. The executable JAR failed closed without input and started with process-generated 32-byte JWT/internal-token values; values were not printed or stored in tracked files.
 - `git diff --check`, marker and secret-default scans passed. Independent review findings were remediated and final re-review found no P0-P3.
-- `application-local.yml` is intentionally covered by an existing ignore rule, so the parent Integrator must use exact-path force-add and inspect the staged content before commit.
+- `application-local.yml` is covered by an existing ignore rule, so the parent Integrator force-added its exact path and verified the non-empty staged blob against the reviewed file before commit.
 - No external host, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert and preserves append-only harness history.
-- Next owner is the parent Integrator for staged-diff verification, commit/push/Draft PR and Issue `status:needs-review`; an independent PR-head reviewer then gates Ready/merge/close and #427 reevaluation.
+- Initial commit `62cc8717` is pushed, Draft PR #441 is open and Issue #420 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
+- Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close and #427 reevaluation.
