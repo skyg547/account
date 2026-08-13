@@ -72,6 +72,15 @@ podman build -f frontend/Containerfile `
   --build-arg GATEWAY_INTERNAL_URL=http://my-gateway:8000 frontend
 ```
 
+저장소 빌드 도구(`tools/container-images.ps1`)를 쓸 때는 `deploy/image-targets.json`의
+frontend `buildArgs`가 전달됩니다. 동일한 이름의 환경 변수를 두면 manifest를 수정하지 않고
+override 됩니다.
+
+```powershell
+$env:GATEWAY_INTERNAL_URL = "http://my-gateway:8000"
+pwsh tools/container-images.ps1
+```
+
 이 값 없이 빌드하면 manifest에 `rewrites: []`가 박혀, `NEXT_PUBLIC_API_URL=/api`가 만드는
 `/api/*` 호출이 Gateway에 닿지 못하고 404가 됩니다. 런타임 환경변수로는 고칠 수 없습니다.
 

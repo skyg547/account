@@ -156,14 +156,58 @@ class ContainerImagePolicyTest {
                 .contains("ARG GATEWAY_INTERNAL_URL=http://gateway:8000")
                 .contains("ENV GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL}");
 
+        int builderStage = containerfile.indexOf("FROM base AS builder");
+        int gatewayArg = containerfile.indexOf("ARG GATEWAY_INTERNAL_URL=");
         int gatewayEnv = containerfile.indexOf("ENV GATEWAY_INTERNAL_URL=");
         int build = containerfile.indexOf("RUN npm run build");
-        assertThat(gatewayEnv).as("GATEWAY_INTERNAL_URL must be declared").isNotNegative();
+
+        assertThat(builderStage).as("builder stage must exist").isNotNegative();
+        assertThat(gatewayArg).as("GATEWAY_INTERNAL_URL ARG must be declared").isNotNegative();
+        assertThat(gatewayEnv).as("GATEWAY_INTERNAL_URL ENV must be declared").isNotNegative();
         assertThat(build).as("build step must exist").isNotNegative();
+
+        // Docker ARG is scoped to its stage. Declaring it in an earlier stage would still
+        // read as "before the build" in plain text order while never reaching the builder,
+        // so pin the declarations to the builder stage rather than to file position alone.
+        assertThat(gatewayArg)
+                .as("GATEWAY_INTERNAL_URL must be declared inside the builder stage; "
+                        + "an ARG in an earlier stage does not reach `npm run build`")
+                .isGreaterThan(builderStage);
+        assertThat(gatewayEnv)
+                .as("GATEWAY_INTERNAL_URL ENV must be inside the builder stage")
+                .isGreaterThan(builderStage);
         assertThat(gatewayEnv)
                 .as("GATEWAY_INTERNAL_URL must be set before npm run build, "
                         + "otherwise the rewrite is never baked into the manifest")
                 .isLessThan(build);
+    }
+
+    /**
+     * The Containerfile default only helps when the repository's own build tooling can override
+     * it. {@code container-images.ps1} previously passed no {@code --build-arg} for the frontend,
+     * which made the hardcoded default the only reachable value.
+     */
+    @Test
+    void frontendImageTargetDeclaresGatewayBuildArgAndToolingForwardsIt() throws IOException {
+        JsonNode manifest = objectMapper.readTree(Files.readString(resolve("deploy", "image-targets.json")));
+        JsonNode frontend = null;
+        for (JsonNode target : manifest.get("targets")) {
+            if ("frontend".equals(target.path("name").asText())) {
+                frontend = target;
+            }
+        }
+
+        assertThat(frontend).as("frontend image target must exist").isNotNull();
+        assertThat(frontend.path("buildArgs").path("GATEWAY_INTERNAL_URL").asText())
+                .as("frontend target must declare the gateway build arg")
+                .isEqualTo("http://gateway:8000");
+
+        String tooling = Files.readString(resolve("tools", "container-images.ps1"));
+        assertThat(tooling)
+                .as("frontend build must forward declared buildArgs, "
+                        + "otherwise the Containerfile default cannot be overridden")
+                .contains("buildArgs")
+                .contains("'--build-arg', \"$name=$value\"");
     }
 
     @Test

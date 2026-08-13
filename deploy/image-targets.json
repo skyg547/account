@@ -39,6 +39,7 @@
     {"name": "tax-api", "kind": "java-api", "enabled": true, "gradleProject": ":tax:api", "jarDirectory": "tax/api"},
     {"name": "tax-batch", "kind": "java-batch", "enabled": true, "gradleProject": ":tax:batch", "jarDirectory": "tax/batch"},
 
-    {"name": "frontend", "kind": "frontend", "enabled": true, "context": "frontend", "containerfile": "frontend/Containerfile"}
+    {"name": "frontend", "kind": "frontend", "enabled": true, "context": "frontend", "containerfile": "frontend/Containerfile",
+     "buildArgs": {"GATEWAY_INTERNAL_URL": "http://gateway:8000"}}
   ]
 }
