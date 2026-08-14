@@ -289,7 +289,10 @@ class ProductionComposePolicyTest {
 
     @Test
     void productionRunbookFailsClosedOnServiceReadiness() throws IOException {
-        String runbook = Files.readString(resolve("docs", "production-compose.md"));
+        // The docs restructure moved this runbook under docs/guides/. Keep the path in sync
+        // here: a stale path makes the test fail on a missing file, which reads as a policy
+        // violation and turns config-server red for every unrelated PR touching the module.
+        String runbook = Files.readString(resolve("docs", "guides", "production-compose.md"));
 
         assertThat(runbook)
                 .contains(
