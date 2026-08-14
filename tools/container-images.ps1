@@ -151,12 +151,29 @@ function Build-Image {
 
     $tag = "$TagPrefix/$($ImageTarget.name):local"
     if ($ImageTarget.kind -eq 'frontend') {
+        # Next bakes rewrites() into routes-manifest.json during `npm run build`,
+        # so GATEWAY_INTERNAL_URL has to reach the builder stage as a build arg.
+        # Supplying it at container runtime is too late. Without forwarding
+        # buildArgs the Containerfile default becomes the only reachable value,
+        # and a gateway at a different address silently yields an image whose
+        # /api/* calls 404.
         $arguments = @(
             'build',
-            '--file', $ImageTarget.containerfile,
-            '--tag', $tag,
-            $ImageTarget.context
+            '--file', $ImageTarget.containerfile
         )
+        if ($ImageTarget.PSObject.Properties.Name -contains 'buildArgs' -and $null -ne $ImageTarget.buildArgs) {
+            foreach ($name in $ImageTarget.buildArgs.PSObject.Properties.Name) {
+                $value = $ImageTarget.buildArgs.$name
+                # A same-named environment variable wins, so an operator can point
+                # at a different gateway without editing the tracked manifest.
+                $override = [Environment]::GetEnvironmentVariable($name)
+                if (-not [string]::IsNullOrWhiteSpace($override)) {
+                    $value = $override
+                }
+                $arguments += @('--build-arg', "$name=$value")
+            }
+        }
+        $arguments += @('--tag', $tag, $ImageTarget.context)
     } else {
         $arguments = @(
             'build',
