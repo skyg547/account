@@ -41,6 +41,25 @@ npm run dev -- --hostname 0.0.0.0
 권한 경계가 완성되지 않았으므로 기존 `NEXT_PUBLIC_AUTH_API_URL`,
 `NEXT_PUBLIC_GOVERNANCE_API_URL` 직접 override 계약을 유지합니다.
 
+### 🔁 `dev` 프로파일 Compose에서 Frontend만 재빌드하기
+
+루트 self-contained Compose가 이미 떠 있는 상태에서 다른 서비스는 그대로 두고 `frontend`
+서비스만 재빌드/재기동하려면:
+
+```powershell
+docker compose --env-file .env.dev `
+  -f docker-compose.yml `
+  -f compose.self-contained.yml `
+  --profile self-contained `
+  --profile apis `
+  up -d --build frontend
+```
+
+`frontend` 서비스는 소스 디렉터리를 bind mount하고 `next dev`로 뜨기 때문에, 코드만 바꿨다면
+재빌드 없이 hot reload로 충분합니다. `package.json`/`package-lock.json`을 바꿔 의존성이
+변경된 경우에는 `node_modules`가 named volume(`frontend_node_modules`)이라 이미지 재빌드만으로는
+새 패키지가 반영되지 않을 수 있으니, 재빌드 전에 해당 volume을 먼저 제거하세요.
+
 ### 🐳 루트 Compose로 통합 실행하기 (Docker/Podman 필요)
 
 루트 Compose는 Config Server, Discovery, Gateway, Frontend와 API 서비스를 함께 실행합니다.
@@ -85,7 +104,23 @@ pwsh tools/container-images.ps1
 `/api/*` 호출이 Gateway에 닿지 못하고 404가 됩니다. 런타임 환경변수로는 고칠 수 없습니다.
 
 새 self-contained DB에서는 API보다 먼저 17개 migration과 runtime grant를 완료해야 합니다.
-전체 순서는 [`docs/development-compose.md`](../docs/development-compose.md)를 따릅니다.
+전체 순서는 [`docs/guides/development-compose.md`](../docs/guides/development-compose.md)를 따릅니다.
+
+### 📦 운영 이미지만 단독 검증하기 (`frontend/docker-compose.yml`)
+
+이 폴더의 `docker-compose.yml`은 위 루트 통합 Compose와 별개로, `frontend/Containerfile`
+production standalone 이미지만 실행합니다 (`npm run dev`가 아니라 `next start` 기반 이미지,
+호스트 포트 `4000` → 컨테이너 `3000`). `external: true`로 선언된 `account-network`를 그대로
+사용하므로, **루트 Compose를 최소 한 번 먼저 올려 그 네트워크(`account-dev-network`, 루트
+`docker-compose.yml`에서 생성)가 존재해야만 동작합니다.**
+
+```powershell
+cd frontend
+docker compose up --build
+```
+
+자세한 이미지 계약은 [`docs/guides/container-images.md`](../docs/guides/container-images.md)를
+참고하세요.
 
 ---
 
