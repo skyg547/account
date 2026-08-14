@@ -56,8 +56,21 @@ temp/
 .claude/worktrees/
 
 # Spring Boot Local Properties
+#
+# The bare pattern keeps a developer's personal overrides out of the repository.
+# It must not swallow the tracked local runtime contract: modules ship
+# src/main/resources/application-local.yml as the profile that lets them start
+# standalone, and tests assert its contents.
+#
+# Without the negation below the file is ignored silently — `git add` reports
+# nothing and the commit lands without it, leaving tests that reference the
+# profile red. That is how loan/batch and journal-ledger/api ended up with no
+# local profile, and why several already-tracked files exist only because
+# someone happened to run `git add -f`. Modules using the .yaml spelling were
+# never matched by the pattern at all, which made the gap look arbitrary.
 application-local.properties
 application-local.yml
+!**/src/main/resources/application-local.yml
 !**/src/test/resources/application-local.yml
 
 # Hexagonal Architecture Exception
