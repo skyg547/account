@@ -62,16 +62,25 @@ temp/
 # src/main/resources/application-local.yml as the profile that lets them start
 # standalone, and tests assert its contents.
 #
-# Without the negation below the file is ignored silently — `git add` reports
+# Without the negations below the file is ignored silently — `git add` reports
 # nothing and the commit lands without it, leaving tests that reference the
 # profile red. That is how loan/batch and journal-ledger/api ended up with no
 # local profile, and why several already-tracked files exist only because
-# someone happened to run `git add -f`. Modules using the .yaml spelling were
-# never matched by the pattern at all, which made the gap look arbitrary.
+# someone happened to run `git add -f`.
+#
+# Keep all three spellings symmetric. Previously only .yml was listed, so
+# application-local.yaml was never ignored anywhere — the modules using that
+# spelling committed theirs without noticing, which is what made the gap look
+# arbitrary. Anything outside src/{main,test}/resources stays ignored.
 application-local.properties
 application-local.yml
+application-local.yaml
+!**/src/main/resources/application-local.properties
 !**/src/main/resources/application-local.yml
+!**/src/main/resources/application-local.yaml
+!**/src/test/resources/application-local.properties
 !**/src/test/resources/application-local.yml
+!**/src/test/resources/application-local.yaml
 
 # Hexagonal Architecture Exception
 # Keep source packages named "port/out" or "adapter/out" (don't ignore them if they are in src)
