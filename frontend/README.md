@@ -8,6 +8,7 @@
 ## 📚 초보자를 위한 학습 & 개발 가이드
 처음 오셨다면 아래 문서들을 순서대로 읽어보시는 것을 강력 추천합니다.
 
+0.  [**🚀 실행 가이드 (로컬·개발·운영)**](../docs/guides/frontend-runtime-guide.md): 실행 방법 4가지의 차이, 프로파일별 기동/배포 절차, 자주 겪는 문제를 한곳에 정리했습니다. **실행이 막히면 여기부터 보세요.**
 1.  [**🐣 프론트엔드 입문 가이드**](./docs/beginner-guide.md): 우리 프로젝트의 구조와 기초 개념을 설명합니다.
 2.  [**🖥️ 화면 목록 및 기능 명세**](./docs/screen-inventory.md): 현재 구축된 모든 화면과 주요 기능을 한눈에 확인합니다.
 3.  [**🛠️ 실전 개발 가이드**](./docs/development-guide.md): 페이지를 만들고 디자인을 입히는 구체적인 방법을 알려줍니다.
@@ -40,6 +41,21 @@ npm run dev -- --hostname 0.0.0.0
 실행할 때만 환경 변수를 지정하세요. 기존 PAT/Governance 화면은 아직 Gateway 전용 route와
 권한 경계가 완성되지 않았으므로 기존 `NEXT_PUBLIC_AUTH_API_URL`,
 `NEXT_PUBLIC_GOVERNANCE_API_URL` 직접 override 계약을 유지합니다.
+
+### 🧩 컨테이너로 프론트엔드만 단독 기동하기 (`compose.dev.yml`)
+
+Gateway·Config Server·Discovery 없이 Frontend 하나만 개발 모드로 띄웁니다. 사전에 만들어
+둬야 하는 네트워크도 없습니다.
+
+```powershell
+cd frontend
+docker compose -f compose.dev.yml up -d --build
+```
+
+접속은 [http://localhost:3000](http://localhost:3000). 소스가 bind mount되어 있어 저장 즉시
+hot reload되고, `node_modules`/`.next`는 named volume이라 Windows 호스트 파일이 리눅스
+컨테이너 산출물을 덮어쓰지 않습니다. 포트는 `FRONTEND_DEV_PORT`, Gateway 주소는
+`GATEWAY_INTERNAL_URL`(기본 `http://host.docker.internal:8000`)로 바꿉니다.
 
 ### 🔁 `dev` 프로파일 Compose에서 Frontend만 재빌드하기
 
