@@ -57,6 +57,17 @@ hot reload되고, `node_modules`/`.next`는 named volume이라 Windows 호스트
 컨테이너 산출물을 덮어쓰지 않습니다. 포트는 `FRONTEND_DEV_PORT`, Gateway 주소는
 `GATEWAY_INTERNAL_URL`(기본 `http://host.docker.internal:8000`)로 바꿉니다.
 
+백엔드를 **컨테이너**로 띄워 붙이려면 overlay를 함께 얹습니다. 루트 Compose가 Gateway를
+`127.0.0.1`에만 publish해서 `host.docker.internal`로는 닿지 않기 때문입니다.
+
+```powershell
+docker compose -f compose.dev.yml -f compose.dev.backend.yml up -d --build
+```
+
+이때 루트 Compose는 `platform`이 아니라 `apis`(또는 `foundation`) profile로 떠 있어야
+합니다. `auth-api`가 없으면 로그인이 되지 않습니다. 자세한 내용은
+[실행 가이드](../docs/guides/frontend-runtime-guide.md)를 보세요.
+
 ### 🔁 `dev` 프로파일 Compose에서 Frontend만 재빌드하기
 
 루트 self-contained Compose가 이미 떠 있는 상태에서 다른 서비스는 그대로 두고 `frontend`

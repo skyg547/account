@@ -17,7 +17,7 @@
 | # | 방법 | 실행 위치 | 빌드 파일 | 포트 | 언제 쓰나 |
 |---|------|-----------|-----------|------|-----------|
 | 1 | `npm run dev` | `frontend/` | 없음(로컬 Node) | 3000 | **화면만 빠르게 개발** (제일 간단) |
-| 2 | `frontend/compose.dev.yml` | `frontend/` | `Containerfile.dev` | 3000 | 컨테이너로 프론트만 단독 기동 |
+| 2 | `frontend/compose.dev.yml` | `frontend/` | `Containerfile.dev` | 3000 | 컨테이너로 프론트만 단독 기동 (백엔드 연동은 `compose.dev.backend.yml` overlay 추가) |
 | 3 | 루트 `docker-compose.yml` | **저장소 루트** | `Containerfile.dev` | 3000 | 백엔드 API까지 붙여 통합 확인 |
 | 4 | `frontend/docker-compose.yml` | `frontend/` | `Containerfile` | **4000** | 운영 이미지 스모크 테스트 |
 
@@ -116,11 +116,37 @@ docker volume rm account-frontend-dev_frontend_dev_node_modules
 docker compose -f compose.dev.yml up -d --build
 ```
 
-### 2-2. 백엔드까지 함께 (루트 Compose)
+### 2-2. 단독 프론트엔드를 백엔드 컨테이너에 붙이기
+
+`compose.dev.yml`만으로는 **컨테이너로 띄운 백엔드에 연결되지 않습니다.** 루트 Compose는
+Gateway를 `127.0.0.1:8000`으로 publish하는데, loopback에만 바인딩되므로 다른 컨테이너가
+`host.docker.internal`(호스트 게이트웨이 IP)로 접근하면 연결이 거부됩니다.
+
+백엔드가 **컨테이너**로 떠 있다면 호스트 포트를 경유하지 말고 같은 네트워크에 합류시킵니다.
+
+```powershell
+cd frontend
+docker compose -f compose.dev.yml -f compose.dev.backend.yml up -d --build
+```
+
+overlay가 `account-dev-network`에 합류시키고 `GATEWAY_INTERNAL_URL`을 `http://gateway:8000`
+으로 바꿔 줍니다. 루트 Compose가 먼저 떠 있어야 하며, **`platform`이 아니라 `apis`(또는
+`foundation`) profile이 필요합니다.** Gateway만으로는 로그인이 되지 않습니다(3-3 참고).
+
+반대로 Gateway를 호스트에서 `gradlew bootRun`으로 띄웠다면 `0.0.0.0`에 바인딩되므로
+overlay 없이 `compose.dev.yml` 기본값이 그대로 동작합니다.
+
+| 백엔드 실행 방식 | 쓸 명령 |
+|------------------|---------|
+| 안 띄움 (화면만 개발) | `-f compose.dev.yml` |
+| 호스트에서 `bootRun` | `-f compose.dev.yml` |
+| 컨테이너(루트 Compose) | `-f compose.dev.yml -f compose.dev.backend.yml` |
+
+### 2-3. 백엔드까지 함께 (루트 Compose)
 
 루트 `docker-compose.yml`의 `frontend` 서비스는 `depends_on: gateway(healthy)`가 걸려
-있어 **Gateway → Config Server + Discovery**가 함께 떠야 기동됩니다. 실제 API를 붙여
-확인할 때 사용합니다. 자세한 내용은 아래 3장을 보세요.
+있어 **Gateway → Config Server + Discovery**가 함께 떠야 기동됩니다. 프론트엔드도 같은
+네트워크 안에 있으므로 위 overlay 없이 바로 연동됩니다. 자세한 내용은 아래 3장을 보세요.
 
 ---
 
@@ -165,9 +191,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
   -Mode SelfContained -EnvFile .\.env.dev
 ```
 
-### 3-3. Gateway + Frontend만 띄우기
+### 3-3. Gateway + Frontend만 띄우기 (⚠️ 로그인은 안 됩니다)
 
-백엔드 API 없이 Edge만 확인할 때 (`platform` profile):
+Edge만 확인할 때 (`platform` profile):
 
 ```powershell
 docker compose --env-file .env.dev `
@@ -179,6 +205,20 @@ docker compose --env-file .env.dev `
 
 - Frontend: <http://localhost:3000>
 - Gateway: <http://localhost:8000>
+
+> ⚠️ **이 조합으로는 로그인할 수 없습니다.** `auth-api`의 profile은 `["apis", "foundation"]`
+> 이라 `platform`에는 포함되지 않습니다. Gateway의 로그인 route는 `lb://auth-service`로
+> Eureka 조회를 하는데 등록된 인스턴스가 없어 실패합니다.
+>
+> 로그인이 필요하면 `--profile apis`(전체) 또는 `--profile foundation`(Auth·Master Data·
+> Internal Audit·Budget)을 함께 켜세요. 아래는 로그인에 필요한 최소 조합입니다.
+>
+> ```powershell
+> docker compose --env-file .env.dev `
+>   -f docker-compose.yml -f compose.self-contained.yml `
+>   --profile self-contained --profile platform --profile foundation `
+>   up -d --build
+> ```
 
 ### 3-4. 전체 API까지 띄우기
 
@@ -374,6 +414,44 @@ docker run --rm -v "${PWD}:/app" -w /app node:20-alpine `
 
 운영 이미지를 `GATEWAY_INTERNAL_URL` 없이 빌드한 경우입니다. 4-1의 경고를 참고해
 **다시 빌드**해야 합니다. 컨테이너 환경변수로는 고칠 수 없습니다.
+
+### 로그인이 안 됩니다
+
+원인을 위에서부터 순서대로 확인하세요. **Redis는 로그인 경로와 무관합니다**(아래 참고).
+
+1. **백엔드가 떠 있나요?** 프론트만 띄운 상태가 가장 흔한 원인입니다.
+
+   ```powershell
+   docker ps
+   curl.exe -i http://localhost:8000/actuator/health/readiness
+   ```
+
+2. **`auth-api`가 떠 있나요?** `--profile platform`만 켰다면 `auth-api`는 시작되지 않습니다.
+   `apis` 또는 `foundation` profile이 필요합니다(3-3 참고).
+
+3. **Eureka에 `auth-service`가 등록됐나요?** Gateway의 로그인 route는 `lb://auth-service`
+   입니다. 등록 전이면 503이 납니다.
+
+   ```powershell
+   curl.exe http://localhost:8761/eureka/apps
+   ```
+
+4. **프론트엔드가 Gateway를 볼 수 있나요?** 컨테이너 프론트 + 컨테이너 백엔드라면
+   2-2의 overlay가 필요합니다.
+
+   ```powershell
+   docker exec <frontend-container> sh -c "getent hosts gateway"
+   ```
+
+5. **DB migration이 끝났나요?** `auth_dev` 스키마가 없으면 `auth-api`는 Hibernate
+   `validate`에서 기동에 실패합니다.
+
+> **Redis는 로그인에 쓰이지 않습니다.** `auth` 모듈에는 Redis 코드가 없고,
+> 로그인 실패 잠금 저장소(`auth.login-security.store`)는 `memory`와 `jpa` 두 가지뿐입니다.
+> Gateway의 rate limiter도 Redis가 아니라 in-memory 구현(`@Primary inMemoryRateLimiter`)을
+> 명시적으로 사용합니다. Redis starter는 `shared-kernel`의 전이 의존성으로 classpath에만
+> 올라와 있고(해당 build.gradle에 정리 대상 `@todo`로 기록됨), Lettuce는 지연 연결이라
+> Redis가 꺼져 있어도 기동과 로그인에 영향을 주지 않습니다.
 
 ### 컨테이너 안에서 호스트의 Gateway에 연결이 안 됩니다
 
