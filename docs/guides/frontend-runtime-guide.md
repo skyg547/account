@@ -28,6 +28,11 @@
 이 저장소는 Docker와 Podman을 모두 지원합니다. 아래 예시의 `docker compose`는
 Podman 사용자라면 그대로 `podman compose`로 바꿔 쓰면 됩니다.
 
+> ⚠️ **Podman 사용자 필독**: `podman compose`는 뒤에서 외부 provider를 호출하는데, 그것이
+> `podman-compose`(Python 구현)이면 Compose 파일의 `name:` 필드가 무시되어 **네트워크 이름이
+> 어긋나고 컨테이너들이 서로 연결되지 않습니다.** `docker-compose` provider를 쓰도록
+> 맞춰야 합니다. 자세한 내용과 확인 방법은 [5-2](#5-2-️-podman-compose를-provider로-쓰면-네트워크가-어긋납니다)를 보세요.
+
 ---
 
 ## 1. 로컬 실행 (`local`) — Node.js 직접 실행
@@ -347,10 +352,14 @@ docker network create account-dev-network
 
 ---
 
-## 5. 원격 Linux 개발 서버에서 실행할 때
+## 5. Linux · 원격 개발 서버에서 실행할 때
 
-로컬 PC가 아니라 Ubuntu 등 **원격 개발 서버**에 띄우고 노트북 브라우저로 접속하려는
-경우, 아래 세 가지를 먼저 확인하세요. "네트워크가 연동되지 않는다"의 대부분이 여기입니다.
+Ubuntu 등 Linux나 **원격 개발 서버**에 띄울 때 자주 막히는 지점들입니다.
+"네트워크가 연동되지 않는다"의 대부분이 여기에 해당합니다.
+
+- **5-1**: 포트가 외부에서 안 열림 → 원격 서버일 때
+- **5-2**: 컨테이너끼리 같은 네트워크에 안 붙음 → **Podman 사용자라면 여기부터**
+- **5-3**: `host.docker.internal`이 해석 안 됨 → Linux 공통
 
 ### 5-1. 공개 포트가 전부 `127.0.0.1`에 묶여 있습니다
 
@@ -388,24 +397,72 @@ services:
 > ⚠️ DB·Redis·Kafka 포트는 절대 `0.0.0.0`으로 열지 마세요. 방화벽과 접근 통제가 없으면
 > 그대로 외부에 노출됩니다.
 
-### 5-2. `docker-compose`(v1)가 아니라 `docker compose`(v2)를 쓰세요
+### 5-2. ⚠️ `podman-compose`를 provider로 쓰면 네트워크가 어긋납니다
 
-이 저장소의 Compose 파일은 최상위 `name:` 키를 사용합니다. Compose **v2 전용** 문법이라
-Ubuntu에서 `apt install docker-compose`로 설치되는 v1.x는 다음처럼 실패합니다.
+**Podman을 쓰는 것 자체는 문제가 없습니다.** 문제는 podman이 뒤에서 어떤 **compose
+provider**를 호출하느냐입니다. Podman은 `podman compose` 실행 시 외부 provider를 찾는데,
+`docker-compose`가 PATH에 있으면 그것을, 없으면 Python 구현인 `podman-compose`를 씁니다.
+
+`podman-compose`(1.6.0 확인)는 Compose Spec의 **`name:` 필드를 무시합니다.**
+
+| provider | 최상위 `name:` | `networks.<x>.name:` |
+|----------|----------------|----------------------|
+| `docker-compose` | 존중 | 존중 |
+| `podman-compose` 1.6.0 | 무시 (디렉터리 이름 사용) | 무시 (YAML 키 사용) |
+
+이 저장소는 두 가지를 모두 씁니다. 예를 들어 `postgres/docker-compose.yml`은
+
+```yaml
+name: ${COMPOSE_PROJECT_NAME:-account-dev-db}
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+```
+
+`docker-compose` provider에서는 네트워크가 `account-dev-network`로 만들어지지만,
+`podman-compose`에서는 `postgres_account-network`(디렉터리\_키)로 만들어집니다.
+그 결과 루트 Compose가 만드는 네트워크와 `frontend/docker-compose.yml`이 찾는 네트워크
+이름이 서로 어긋나 **컨테이너들이 같은 네트워크에 붙지 못합니다.**
+
+증상 확인 — `docker network ls`에 `<디렉터리>_<키>` 형태 이름이 보이면 이 경우입니다.
 
 ```
-Unsupported config option for top-level: 'name'
+account-network              ← 손으로 만든 것
+postgres_account-network     ← podman-compose가 name:을 무시하고 만든 것
 ```
 
-확인과 설치:
+**해결: `docker-compose` provider를 설치하면 podman이 자동으로 그쪽을 우선합니다.**
 
 ```bash
-docker compose version          # v2.x가 나와야 정상
-sudo apt install docker-compose-plugin
+mkdir -p ~/.local/bin
+curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o ~/.local/bin/docker-compose
+chmod +x ~/.local/bin/docker-compose
 ```
 
+확인 — `Docker Compose version ...`이 나오고 `podman-compose`가 아니어야 합니다.
+
+```bash
+podman compose version
+podman compose -f docker-compose.yml config | grep -A3 '^networks:'
+```
+
+두 번째 명령에서 `name: account-dev-network`가 보이면 정상입니다. 보이지 않으면 아직
+`podman-compose`가 쓰이고 있는 것입니다.
+
+전환한 뒤에는 잘못된 이름으로 만들어진 네트워크를 정리하고 다시 올립니다.
+
+```bash
+podman compose -f docker-compose.yml down
+podman network rm account-network postgres_account-network
+```
+
+Docker를 쓴다면 Ubuntu의 `apt install docker-compose`(v1.x)가 아니라
+`docker-compose-plugin`을 설치해 `docker compose`를 쓰세요. v1.x는 최상위 `name:` 키에서
+`Unsupported config option for top-level: 'name'`으로 실패합니다.
+
 `profiles`, `depends_on: condition: service_healthy`, `extra_hosts: host-gateway`도
-모두 최신 Docker/Compose를 요구합니다 (Docker 20.10+).
+최신 Docker/Compose를 요구합니다 (Docker 20.10+).
 
 ### 5-3. `host.docker.internal`은 Linux 기본이 아닙니다
 
@@ -491,6 +548,10 @@ docker network ls
 
 `ACCOUNT_NETWORK_NAME`을 바꿔 쓰는 경우, 루트 Compose와 `frontend/docker-compose.yml`을
 **같은 값으로** 실행해야 합니다. 한쪽만 바꾸면 이름이 어긋나 붙지 않습니다.
+
+`config` 출력에 `name:`이 아예 안 보이거나 `docker network ls`에 `<디렉터리>_<키>` 형태
+(`postgres_account-network` 등) 이름이 있다면, Compose 파일이 아니라 **provider가 원인**
+입니다. [5-2](#5-2-️-podman-compose를-provider로-쓰면-네트워크가-어긋납니다)를 보세요.
 
 ### 화면은 뜨는데 `/api` 호출이 전부 404
 
