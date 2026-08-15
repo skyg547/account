@@ -17,7 +17,7 @@
 | # | 방법 | 실행 위치 | 빌드 파일 | 포트 | 언제 쓰나 |
 |---|------|-----------|-----------|------|-----------|
 | 1 | `npm run dev` | `frontend/` | 없음(로컬 Node) | 3000 | **화면만 빠르게 개발** (제일 간단) |
-| 2 | `frontend/compose.dev.yml` | `frontend/` | `Containerfile.dev` | 3000 | 컨테이너로 프론트만 단독 기동 |
+| 2 | `frontend/compose.dev.yml` | `frontend/` | `Containerfile.dev` | 3000 | 컨테이너로 프론트만 단독 기동 (백엔드 연동은 `compose.dev.backend.yml` overlay 추가) |
 | 3 | 루트 `docker-compose.yml` | **저장소 루트** | `Containerfile.dev` | 3000 | 백엔드 API까지 붙여 통합 확인 |
 | 4 | `frontend/docker-compose.yml` | `frontend/` | `Containerfile` | **4000** | 운영 이미지 스모크 테스트 |
 
@@ -27,6 +27,11 @@
 
 이 저장소는 Docker와 Podman을 모두 지원합니다. 아래 예시의 `docker compose`는
 Podman 사용자라면 그대로 `podman compose`로 바꿔 쓰면 됩니다.
+
+> ⚠️ **Podman 사용자 필독**: `podman compose`는 뒤에서 외부 provider를 호출하는데, 그것이
+> `podman-compose`(Python 구현)이면 Compose 파일의 `name:` 필드가 무시되어 **네트워크 이름이
+> 어긋나고 컨테이너들이 서로 연결되지 않습니다.** `docker-compose` provider를 쓰도록
+> 맞춰야 합니다. 자세한 내용과 확인 방법은 [5-2](#5-2-️-podman-compose를-provider로-쓰면-네트워크가-어긋납니다)를 보세요.
 
 ---
 
@@ -116,11 +121,37 @@ docker volume rm account-frontend-dev_frontend_dev_node_modules
 docker compose -f compose.dev.yml up -d --build
 ```
 
-### 2-2. 백엔드까지 함께 (루트 Compose)
+### 2-2. 단독 프론트엔드를 백엔드 컨테이너에 붙이기
+
+`compose.dev.yml`만으로는 **컨테이너로 띄운 백엔드에 연결되지 않습니다.** 루트 Compose는
+Gateway를 `127.0.0.1:8000`으로 publish하는데, loopback에만 바인딩되므로 다른 컨테이너가
+`host.docker.internal`(호스트 게이트웨이 IP)로 접근하면 연결이 거부됩니다.
+
+백엔드가 **컨테이너**로 떠 있다면 호스트 포트를 경유하지 말고 같은 네트워크에 합류시킵니다.
+
+```powershell
+cd frontend
+docker compose -f compose.dev.yml -f compose.dev.backend.yml up -d --build
+```
+
+overlay가 `account-dev-network`에 합류시키고 `GATEWAY_INTERNAL_URL`을 `http://gateway:8000`
+으로 바꿔 줍니다. 루트 Compose가 먼저 떠 있어야 하며, **`platform`이 아니라 `apis`(또는
+`foundation`) profile이 필요합니다.** Gateway만으로는 로그인이 되지 않습니다(3-3 참고).
+
+반대로 Gateway를 호스트에서 `gradlew bootRun`으로 띄웠다면 `0.0.0.0`에 바인딩되므로
+overlay 없이 `compose.dev.yml` 기본값이 그대로 동작합니다.
+
+| 백엔드 실행 방식 | 쓸 명령 |
+|------------------|---------|
+| 안 띄움 (화면만 개발) | `-f compose.dev.yml` |
+| 호스트에서 `bootRun` | `-f compose.dev.yml` |
+| 컨테이너(루트 Compose) | `-f compose.dev.yml -f compose.dev.backend.yml` |
+
+### 2-3. 백엔드까지 함께 (루트 Compose)
 
 루트 `docker-compose.yml`의 `frontend` 서비스는 `depends_on: gateway(healthy)`가 걸려
-있어 **Gateway → Config Server + Discovery**가 함께 떠야 기동됩니다. 실제 API를 붙여
-확인할 때 사용합니다. 자세한 내용은 아래 3장을 보세요.
+있어 **Gateway → Config Server + Discovery**가 함께 떠야 기동됩니다. 프론트엔드도 같은
+네트워크 안에 있으므로 위 overlay 없이 바로 연동됩니다. 자세한 내용은 아래 3장을 보세요.
 
 ---
 
@@ -165,9 +196,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
   -Mode SelfContained -EnvFile .\.env.dev
 ```
 
-### 3-3. Gateway + Frontend만 띄우기
+### 3-3. Gateway + Frontend만 띄우기 (⚠️ 로그인은 안 됩니다)
 
-백엔드 API 없이 Edge만 확인할 때 (`platform` profile):
+Edge만 확인할 때 (`platform` profile):
 
 ```powershell
 docker compose --env-file .env.dev `
@@ -179,6 +210,20 @@ docker compose --env-file .env.dev `
 
 - Frontend: <http://localhost:3000>
 - Gateway: <http://localhost:8000>
+
+> ⚠️ **이 조합으로는 로그인할 수 없습니다.** `auth-api`의 profile은 `["apis", "foundation"]`
+> 이라 `platform`에는 포함되지 않습니다. Gateway의 로그인 route는 `lb://auth-service`로
+> Eureka 조회를 하는데 등록된 인스턴스가 없어 실패합니다.
+>
+> 로그인이 필요하면 `--profile apis`(전체) 또는 `--profile foundation`(Auth·Master Data·
+> Internal Audit·Budget)을 함께 켜세요. 아래는 로그인에 필요한 최소 조합입니다.
+>
+> ```powershell
+> docker compose --env-file .env.dev `
+>   -f docker-compose.yml -f compose.self-contained.yml `
+>   --profile self-contained --profile platform --profile foundation `
+>   up -d --build
+> ```
 
 ### 3-4. 전체 API까지 띄우기
 
@@ -293,9 +338,9 @@ docker compose up --build
 ```
 
 - 접속 포트는 **4000**입니다 (`4000:3000`).
-- ⚠️ 이 파일은 `account-network`를 `external: true`로 요구합니다. 즉 **루트 Compose를
-  최소 한 번 먼저 올려서** 그 네트워크(`account-dev-network`)가 이미 있어야 동작합니다.
-  없으면 `network account-network declared as external, but could not be found` 에러가 납니다.
+- ⚠️ 이 파일은 외부 네트워크를 `external: true`로 요구합니다. **루트 Compose를 최소 한 번
+  먼저 올려서** 그 네트워크가 이미 있어야 동작합니다. 없으면
+  `network ... declared as external, but could not be found` 에러가 납니다.
 
 네트워크만 따로 만들어도 됩니다.
 
@@ -303,9 +348,132 @@ docker compose up --build
 docker network create account-dev-network
 ```
 
+`ACCOUNT_NETWORK_NAME`을 바꿔 쓴다면 그 이름으로 만들어야 합니다.
+
 ---
 
-## 5. 환경변수 정리
+## 5. Linux · 원격 개발 서버에서 실행할 때
+
+Ubuntu 등 Linux나 **원격 개발 서버**에 띄울 때 자주 막히는 지점들입니다.
+"네트워크가 연동되지 않는다"의 대부분이 여기에 해당합니다.
+
+- **5-1**: 포트가 외부에서 안 열림 → 원격 서버일 때
+- **5-2**: 컨테이너끼리 같은 네트워크에 안 붙음 → **Podman 사용자라면 여기부터**
+- **5-3**: `host.docker.internal`이 해석 안 됨 → Linux 공통
+
+### 5-1. 공개 포트가 전부 `127.0.0.1`에 묶여 있습니다
+
+개발 Compose는 모든 host port를 loopback에만 bind합니다.
+
+```yaml
+- "127.0.0.1:${DEV_FRONTEND_PORT:-3000}:3000"
+- "127.0.0.1:${DEV_GATEWAY_PORT:-8000}:8000"
+- "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+```
+
+서버 자신에서 `curl localhost:3000`은 되지만, **노트북에서 `http://<서버IP>:3000`은
+연결되지 않습니다.** 컨테이너 네트워크 문제가 아니라 host bind 주소 때문입니다.
+
+bind 주소는 변수가 아니라 하드코딩이라 환경변수로 바꿀 수 없습니다. 권장 접근은
+**SSH 터널**입니다. 서버 포트를 외부에 열지 않으므로 가장 안전합니다.
+
+```bash
+ssh -L 3000:localhost:3000 -L 8000:localhost:8000 사용자@서버주소
+```
+
+이후 노트북 브라우저에서 <http://localhost:3000> 으로 접속합니다.
+
+굳이 서버 IP로 직접 열어야 한다면 override 파일을 따로 두세요(저장소에 커밋하지 않습니다).
+
+```yaml
+# compose.remote-dev.yml (untracked)
+services:
+  frontend:
+    ports: ["0.0.0.0:3000:3000"]
+  gateway:
+    ports: ["0.0.0.0:8000:8000"]
+```
+
+> ⚠️ DB·Redis·Kafka 포트는 절대 `0.0.0.0`으로 열지 마세요. 방화벽과 접근 통제가 없으면
+> 그대로 외부에 노출됩니다.
+
+### 5-2. ⚠️ `podman-compose`를 provider로 쓰면 네트워크가 어긋납니다
+
+**Podman을 쓰는 것 자체는 문제가 없습니다.** 문제는 podman이 뒤에서 어떤 **compose
+provider**를 호출하느냐입니다. Podman은 `podman compose` 실행 시 외부 provider를 찾는데,
+`docker-compose`가 PATH에 있으면 그것을, 없으면 Python 구현인 `podman-compose`를 씁니다.
+
+`podman-compose`(1.6.0 확인)는 Compose Spec의 **`name:` 필드를 무시합니다.**
+
+| provider | 최상위 `name:` | `networks.<x>.name:` |
+|----------|----------------|----------------------|
+| `docker-compose` | 존중 | 존중 |
+| `podman-compose` 1.6.0 | 무시 (디렉터리 이름 사용) | 무시 (YAML 키 사용) |
+
+이 저장소는 두 가지를 모두 씁니다. 예를 들어 `postgres/docker-compose.yml`은
+
+```yaml
+name: ${COMPOSE_PROJECT_NAME:-account-dev-db}
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+```
+
+`docker-compose` provider에서는 네트워크가 `account-dev-network`로 만들어지지만,
+`podman-compose`에서는 `postgres_account-network`(디렉터리\_키)로 만들어집니다.
+그 결과 루트 Compose가 만드는 네트워크와 `frontend/docker-compose.yml`이 찾는 네트워크
+이름이 서로 어긋나 **컨테이너들이 같은 네트워크에 붙지 못합니다.**
+
+증상 확인 — `docker network ls`에 `<디렉터리>_<키>` 형태 이름이 보이면 이 경우입니다.
+
+```
+account-network              ← 손으로 만든 것
+postgres_account-network     ← podman-compose가 name:을 무시하고 만든 것
+```
+
+**해결: `docker-compose` provider를 설치하면 podman이 자동으로 그쪽을 우선합니다.**
+
+```bash
+mkdir -p ~/.local/bin
+curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o ~/.local/bin/docker-compose
+chmod +x ~/.local/bin/docker-compose
+```
+
+확인 — `Docker Compose version ...`이 나오고 `podman-compose`가 아니어야 합니다.
+
+```bash
+podman compose version
+podman compose -f docker-compose.yml config | grep -A3 '^networks:'
+```
+
+두 번째 명령에서 `name: account-dev-network`가 보이면 정상입니다. 보이지 않으면 아직
+`podman-compose`가 쓰이고 있는 것입니다.
+
+전환한 뒤에는 잘못된 이름으로 만들어진 네트워크를 정리하고 다시 올립니다.
+
+```bash
+podman compose -f docker-compose.yml down
+podman network rm account-network postgres_account-network
+```
+
+Docker를 쓴다면 Ubuntu의 `apt install docker-compose`(v1.x)가 아니라
+`docker-compose-plugin`을 설치해 `docker compose`를 쓰세요. v1.x는 최상위 `name:` 키에서
+`Unsupported config option for top-level: 'name'`으로 실패합니다.
+
+`profiles`, `depends_on: condition: service_healthy`, `extra_hosts: host-gateway`도
+최신 Docker/Compose를 요구합니다 (Docker 20.10+).
+
+### 5-3. `host.docker.internal`은 Linux 기본이 아닙니다
+
+Docker Desktop(Mac/Windows)에는 내장이지만 **native Linux Docker에는 없습니다.**
+`compose.dev.yml`은 `extra_hosts: - "host.docker.internal:host-gateway"`로 직접
+매핑해 두었으므로 Docker 20.10+에서는 동작합니다. 직접 만든 Compose 파일에서 이 이름을
+쓸 때는 같은 `extra_hosts`를 반드시 넣어야 합니다.
+
+---
+
+## 6. 환경변수 정리
 
 | 변수 | 적용 시점 | 기본값 | 설명 |
 |------|-----------|--------|------|
@@ -319,7 +487,7 @@ docker network create account-dev-network
 
 ---
 
-## 6. 자주 겪는 문제
+## 7. 자주 겪는 문제
 
 ### `npm ci`가 실패합니다 (컨테이너 빌드가 통째로 막힘)
 
@@ -365,15 +533,68 @@ docker run --rm -v "${PWD}:/app" -w /app node:20-alpine `
 > docker compose -f compose.dev.yml build --no-cache
 > ```
 
-### `network account-network declared as external, but could not be found`
+### `network ... declared as external, but could not be found`
 
 `frontend/docker-compose.yml`을 루트 Compose 없이 실행한 경우입니다.
 위 4-3의 네트워크 생성 명령을 먼저 실행하거나, 개발 목적이라면 `compose.dev.yml`을 쓰세요.
+
+실제로 어떤 이름을 찾는지는 아래로 확인합니다. 여기 나오는 이름과 `docker network ls`의
+이름이 정확히 같아야 합니다.
+
+```bash
+docker compose -f docker-compose.yml config | grep -A3 '^networks:'
+docker network ls
+```
+
+`ACCOUNT_NETWORK_NAME`을 바꿔 쓰는 경우, 루트 Compose와 `frontend/docker-compose.yml`을
+**같은 값으로** 실행해야 합니다. 한쪽만 바꾸면 이름이 어긋나 붙지 않습니다.
+
+`config` 출력에 `name:`이 아예 안 보이거나 `docker network ls`에 `<디렉터리>_<키>` 형태
+(`postgres_account-network` 등) 이름이 있다면, Compose 파일이 아니라 **provider가 원인**
+입니다. [5-2](#5-2-️-podman-compose를-provider로-쓰면-네트워크가-어긋납니다)를 보세요.
 
 ### 화면은 뜨는데 `/api` 호출이 전부 404
 
 운영 이미지를 `GATEWAY_INTERNAL_URL` 없이 빌드한 경우입니다. 4-1의 경고를 참고해
 **다시 빌드**해야 합니다. 컨테이너 환경변수로는 고칠 수 없습니다.
+
+### 로그인이 안 됩니다
+
+원인을 위에서부터 순서대로 확인하세요. **Redis는 로그인 경로와 무관합니다**(아래 참고).
+
+1. **백엔드가 떠 있나요?** 프론트만 띄운 상태가 가장 흔한 원인입니다.
+
+   ```powershell
+   docker ps
+   curl.exe -i http://localhost:8000/actuator/health/readiness
+   ```
+
+2. **`auth-api`가 떠 있나요?** `--profile platform`만 켰다면 `auth-api`는 시작되지 않습니다.
+   `apis` 또는 `foundation` profile이 필요합니다(3-3 참고).
+
+3. **Eureka에 `auth-service`가 등록됐나요?** Gateway의 로그인 route는 `lb://auth-service`
+   입니다. 등록 전이면 503이 납니다.
+
+   ```powershell
+   curl.exe http://localhost:8761/eureka/apps
+   ```
+
+4. **프론트엔드가 Gateway를 볼 수 있나요?** 컨테이너 프론트 + 컨테이너 백엔드라면
+   2-2의 overlay가 필요합니다.
+
+   ```powershell
+   docker exec <frontend-container> sh -c "getent hosts gateway"
+   ```
+
+5. **DB migration이 끝났나요?** `auth_dev` 스키마가 없으면 `auth-api`는 Hibernate
+   `validate`에서 기동에 실패합니다.
+
+> **Redis는 로그인에 쓰이지 않습니다.** `auth` 모듈에는 Redis 코드가 없고,
+> 로그인 실패 잠금 저장소(`auth.login-security.store`)는 `memory`와 `jpa` 두 가지뿐입니다.
+> Gateway의 rate limiter도 Redis가 아니라 in-memory 구현(`@Primary inMemoryRateLimiter`)을
+> 명시적으로 사용합니다. Redis starter는 `shared-kernel`의 전이 의존성으로 classpath에만
+> 올라와 있고(해당 build.gradle에 정리 대상 `@todo`로 기록됨), Lettuce는 지연 연결이라
+> Redis가 꺼져 있어도 기동과 로그인에 영향을 주지 않습니다.
 
 ### 컨테이너 안에서 호스트의 Gateway에 연결이 안 됩니다
 
@@ -393,7 +614,7 @@ Config Server와 Discovery에 의존합니다. 프론트만 필요하다면 `com
 
 ---
 
-## 7. 관련 문서
+## 8. 관련 문서
 
 - [local-development.md](./local-development.md) — 백엔드 `local` 프로파일(H2) 실행
 - [development-compose.md](./development-compose.md) — 개발 Compose 전체 절차와 migration 순서
