@@ -30,7 +30,7 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
-    # SQL을 콘솔에 찍고 싶으면 아래 두 줄을 켠다. 기본은 끈 상태다 —
+    # SQL을 콘솔에 찍고 싶으면 아래 주석 블록을 켠다. 기본은 끈 상태다 —
     # 켜두면 테스트 로그가 Hibernate DDL/SQL 덤프로 덮여 실패 원인을 찾기 어렵다.
     # show-sql: true
     # properties:

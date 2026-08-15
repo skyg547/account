@@ -72,6 +72,12 @@ temp/
 # application-local.yaml was never ignored anywhere — the modules using that
 # spelling committed theirs without noticing, which is what made the gap look
 # arbitrary. Anything outside src/{main,test}/resources stays ignored.
+#
+# Note the .properties rows change behaviour rather than just restoring it:
+# that spelling was ignored everywhere before, including under
+# src/{main,test}/resources, and is now trackable there. No module ships one
+# today, so this only opens the door for a future one to be committed the same
+# way as its .yml/.yaml siblings.
 application-local.properties
 application-local.yml
 application-local.yaml

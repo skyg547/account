@@ -83,6 +83,9 @@ class JournalLedgerApiLocalProfileTest {
         assertThat(environment.getProperty("eureka.client.fetch-registry", Boolean.class)).isFalse();
         assertThat(environment.getProperty("management.tracing.enabled", Boolean.class)).isFalse();
         assertThat(environment.getProperty("spring.kafka.listener.auto-startup", Boolean.class)).isFalse();
+        // local 프로파일은 flyway 설정을 자체적으로 두지 않고 base application.yml에 기댄다.
+        // 이 단언이 없으면 base에서 그 값이 사라져도 아무 테스트도 알려주지 않는다.
+        assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isFalse();
 
         // 4. JPA Metamodel Managed Types (엔티티 스캔) 검증
         assertThat(entityManagerFactory.getMetamodel().getManagedTypes())
