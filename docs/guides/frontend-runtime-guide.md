@@ -333,9 +333,9 @@ docker compose up --build
 ```
 
 - 접속 포트는 **4000**입니다 (`4000:3000`).
-- ⚠️ 이 파일은 `account-network`를 `external: true`로 요구합니다. 즉 **루트 Compose를
-  최소 한 번 먼저 올려서** 그 네트워크(`account-dev-network`)가 이미 있어야 동작합니다.
-  없으면 `network account-network declared as external, but could not be found` 에러가 납니다.
+- ⚠️ 이 파일은 외부 네트워크를 `external: true`로 요구합니다. **루트 Compose를 최소 한 번
+  먼저 올려서** 그 네트워크가 이미 있어야 동작합니다. 없으면
+  `network ... declared as external, but could not be found` 에러가 납니다.
 
 네트워크만 따로 만들어도 됩니다.
 
@@ -343,9 +343,80 @@ docker compose up --build
 docker network create account-dev-network
 ```
 
+`ACCOUNT_NETWORK_NAME`을 바꿔 쓴다면 그 이름으로 만들어야 합니다.
+
 ---
 
-## 5. 환경변수 정리
+## 5. 원격 Linux 개발 서버에서 실행할 때
+
+로컬 PC가 아니라 Ubuntu 등 **원격 개발 서버**에 띄우고 노트북 브라우저로 접속하려는
+경우, 아래 세 가지를 먼저 확인하세요. "네트워크가 연동되지 않는다"의 대부분이 여기입니다.
+
+### 5-1. 공개 포트가 전부 `127.0.0.1`에 묶여 있습니다
+
+개발 Compose는 모든 host port를 loopback에만 bind합니다.
+
+```yaml
+- "127.0.0.1:${DEV_FRONTEND_PORT:-3000}:3000"
+- "127.0.0.1:${DEV_GATEWAY_PORT:-8000}:8000"
+- "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+```
+
+서버 자신에서 `curl localhost:3000`은 되지만, **노트북에서 `http://<서버IP>:3000`은
+연결되지 않습니다.** 컨테이너 네트워크 문제가 아니라 host bind 주소 때문입니다.
+
+bind 주소는 변수가 아니라 하드코딩이라 환경변수로 바꿀 수 없습니다. 권장 접근은
+**SSH 터널**입니다. 서버 포트를 외부에 열지 않으므로 가장 안전합니다.
+
+```bash
+ssh -L 3000:localhost:3000 -L 8000:localhost:8000 사용자@서버주소
+```
+
+이후 노트북 브라우저에서 <http://localhost:3000> 으로 접속합니다.
+
+굳이 서버 IP로 직접 열어야 한다면 override 파일을 따로 두세요(저장소에 커밋하지 않습니다).
+
+```yaml
+# compose.remote-dev.yml (untracked)
+services:
+  frontend:
+    ports: ["0.0.0.0:3000:3000"]
+  gateway:
+    ports: ["0.0.0.0:8000:8000"]
+```
+
+> ⚠️ DB·Redis·Kafka 포트는 절대 `0.0.0.0`으로 열지 마세요. 방화벽과 접근 통제가 없으면
+> 그대로 외부에 노출됩니다.
+
+### 5-2. `docker-compose`(v1)가 아니라 `docker compose`(v2)를 쓰세요
+
+이 저장소의 Compose 파일은 최상위 `name:` 키를 사용합니다. Compose **v2 전용** 문법이라
+Ubuntu에서 `apt install docker-compose`로 설치되는 v1.x는 다음처럼 실패합니다.
+
+```
+Unsupported config option for top-level: 'name'
+```
+
+확인과 설치:
+
+```bash
+docker compose version          # v2.x가 나와야 정상
+sudo apt install docker-compose-plugin
+```
+
+`profiles`, `depends_on: condition: service_healthy`, `extra_hosts: host-gateway`도
+모두 최신 Docker/Compose를 요구합니다 (Docker 20.10+).
+
+### 5-3. `host.docker.internal`은 Linux 기본이 아닙니다
+
+Docker Desktop(Mac/Windows)에는 내장이지만 **native Linux Docker에는 없습니다.**
+`compose.dev.yml`은 `extra_hosts: - "host.docker.internal:host-gateway"`로 직접
+매핑해 두었으므로 Docker 20.10+에서는 동작합니다. 직접 만든 Compose 파일에서 이 이름을
+쓸 때는 같은 `extra_hosts`를 반드시 넣어야 합니다.
+
+---
+
+## 6. 환경변수 정리
 
 | 변수 | 적용 시점 | 기본값 | 설명 |
 |------|-----------|--------|------|
@@ -359,7 +430,7 @@ docker network create account-dev-network
 
 ---
 
-## 6. 자주 겪는 문제
+## 7. 자주 겪는 문제
 
 ### `npm ci`가 실패합니다 (컨테이너 빌드가 통째로 막힘)
 
@@ -405,10 +476,21 @@ docker run --rm -v "${PWD}:/app" -w /app node:20-alpine `
 > docker compose -f compose.dev.yml build --no-cache
 > ```
 
-### `network account-network declared as external, but could not be found`
+### `network ... declared as external, but could not be found`
 
 `frontend/docker-compose.yml`을 루트 Compose 없이 실행한 경우입니다.
 위 4-3의 네트워크 생성 명령을 먼저 실행하거나, 개발 목적이라면 `compose.dev.yml`을 쓰세요.
+
+실제로 어떤 이름을 찾는지는 아래로 확인합니다. 여기 나오는 이름과 `docker network ls`의
+이름이 정확히 같아야 합니다.
+
+```bash
+docker compose -f docker-compose.yml config | grep -A3 '^networks:'
+docker network ls
+```
+
+`ACCOUNT_NETWORK_NAME`을 바꿔 쓰는 경우, 루트 Compose와 `frontend/docker-compose.yml`을
+**같은 값으로** 실행해야 합니다. 한쪽만 바꾸면 이름이 어긋나 붙지 않습니다.
 
 ### 화면은 뜨는데 `/api` 호출이 전부 404
 
@@ -471,7 +553,7 @@ Config Server와 Discovery에 의존합니다. 프론트만 필요하다면 `com
 
 ---
 
-## 7. 관련 문서
+## 8. 관련 문서
 
 - [local-development.md](./local-development.md) — 백엔드 `local` 프로파일(H2) 실행
 - [development-compose.md](./development-compose.md) — 개발 Compose 전체 절차와 migration 순서
