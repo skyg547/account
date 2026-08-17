@@ -24,6 +24,9 @@ services:
       - SPRING_CLOUD_LOADBALANCER_ENABLED=false
       - SPRING_CLOUD_VAULT_ENABLED=false
       - EUREKA_CLIENT_ENABLED=false
+      # 미지정 시 Spring Boot 기본값(localhost)으로 접속을 시도해 실제 Redis 컨테이너를 못 찾던 문제 수정
+      - SPRING_DATA_REDIS_HOST=account-redis
+      - SPRING_DATA_REDIS_PORT=6379
     networks:
       - account-network
 
