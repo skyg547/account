@@ -117,6 +117,10 @@ Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction Silent
 docker-compose up -d auth
 ```
 
+`auth/docker-compose.yml`은 Redis 접속 정보(`SPRING_DATA_REDIS_HOST=account-redis`, `SPRING_DATA_REDIS_PORT=6379`)를
+포함합니다. 빠지면 Spring Boot 기본값(`localhost`)으로 접속을 시도해 `account-redis` 컨테이너를 찾지 못하고
+`/actuator/health`가 503을 반환합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
+
 현재 변경의 실제 검증 기준은 H2 단독 Gradle 실행입니다. Docker와 실제 PostgreSQL/Flyway는 별도 통합 환경에서 확인해야 합니다.
 
 상세한 JAR 실행과 fail-closed 확인 절차는 [docs/local-run.md](./docs/local-run.md)를 따릅니다.

@@ -172,6 +172,11 @@ standalone 모드에서는 Config Server 라우트를 읽지 않으므로 정상
 - 토큰에 `subject`, `roles`, 양의 정수 `roleVersion`, `iat`, `exp`가 있는지 확인합니다.
 - 역할/부서 코드에 공백, 쉼표, 제어 문자가 없는지 확인합니다.
 
+### Docker 컨테이너에서 Eureka 등록이 계속 실패함 (`Connect to http://localhost:8761 ... Connection refused`)
+
+- `gateway-service.yml`(config-repo)의 `eureka.client.service-url.defaultZone`은 `${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}` 형태입니다. `spring.cloud.config.override-system-properties`(기본 `true`) 때문에 이 값이 일반 `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` 환경변수보다 우선 적용되므로, 컨테이너에서는 반드시 `EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/`라는 이름으로 환경변수를 줘야 합니다. `gateway/docker-compose.yml`에 이미 설정되어 있습니다.
+- `gateway/docker-compose.yml`에는 `AUTH_JWT_SECRET`도 설정되어 있어야 합니다(개발용 고정값). 빠지면 `JjwtAccessTokenVerifier` 빈 생성 실패로 Gateway가 기동 직후 크래시합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
+
 ### Config Server 없이 실행이 지연됨
 
 standalone 명령처럼 `--spring.profiles.active=local`을 명시합니다. `local` 프로파일이 Config/Discovery/Eureka 비활성화 정책을 소유합니다.

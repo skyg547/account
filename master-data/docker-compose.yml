@@ -15,7 +15,10 @@ services:
       - SERVER_PORT=8082
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka/
+      # config-repo의 master-data.yml은 spring.cloud.config.override-system-properties(기본 true) 때문에
+      # EUREKA_CLIENT_SERVICEURL_DEFAULTZONE을 무시합니다. master-data.yml이 ${EUREKA_DEFAULT_ZONE:...}
+      # 형태로 이 이름을 참조하므로 반드시 이 변수명을 써야 합니다.
+      - EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - LOGSTASH_HOST=logstash
       - LOGSTASH_PORT=5000

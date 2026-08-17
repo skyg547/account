@@ -53,6 +53,29 @@ root compose:   ./config-repo:/config-repo:ro
 module compose: ../config-repo:/config-repo:ro
 ```
 
+### Eureka `defaultZone`은 반드시 환경변수로 오버라이드 가능하게 작성합니다
+
+Spring Cloud Config 클라이언트는 `spring.cloud.config.override-system-properties`가 기본값 `true`이기
+때문에, config-repo에서 내려주는 값이 **OS 환경변수보다 우선 적용**됩니다. `eureka.client.service-url.defaultZone`을
+`http://localhost:8761/eureka/`처럼 그대로 고정값으로 적으면, 컨테이너 환경에서 `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE`
+같은 환경변수를 넣어도 무시되고 계속 `localhost`로 접속을 시도해 Discovery 등록이 실패합니다(로컬 PC에서
+Gradle로 직접 여러 서비스를 같은 머신에서 띄우는 local 프로파일에서는 `localhost`가 맞는 값이라 증상이 드러나지 않습니다).
+
+그래서 이 값은 항상 아래처럼 플레이스홀더 + 기본값 형태로 작성합니다.
+
+```yaml
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+```
+
+- 환경변수 `EUREKA_DEFAULT_ZONE`을 안 주면 → 기존과 동일하게 `http://localhost:8761/eureka/` (로컬 Gradle 실행 영향 없음)
+- 컨테이너로 띄울 때는 해당 서비스의 `docker-compose.yml`에 `EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/`를 넣어 오버라이드
+
+`auth-service.yml`, `gateway-service.yml`, `master-data.yml`이 이 패턴을 따릅니다. 새 파일을 추가하거나
+Eureka 클라이언트 설정을 손볼 때도 동일하게 작성합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
+
 Config Server를 저장소 루트에서 실행한 뒤 상태 코드만 확인합니다.
 
 ```powershell
