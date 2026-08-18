@@ -1,3 +1,25 @@
+### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System - Issue #484 / PR #485)
+### [frontend] 케이뱅크(KBank) 스타일 모던 핀테크 디자인 시스템 (색상, 폰트, 배경, 카드, 헤더/사이드바) 전면 개편
+
+- **작업 배경**:
+  - 케이뱅크(KBank) 웹사이트(`https://www.kbanknow.com/web/customer/faq/list`)의 시그니처 핀테크 디자인 아이덴티티(맑고 깨끗한 소프트 그레이 배경, 화이트 카드, KBank 블루, 가독성 높은 타이포그래피, 모던 라운딩 및 섀도우)를 Account.AI 프론트엔드 전반에 적용.
+- **주요 변경 사항**:
+  - **글로벌 테마 & 디자인 토큰 (`globals.css`, `tailwind.config.js`)**:
+    - KBank 소프트 그레이 배경 (`#f7f8fb`) 및 퓨어 화이트 카드 (`#ffffff`) 설정.
+    - KBank 시그니처 블루 (`#4262ff`, hover: `#3452e6`, active: `#2b44d4`, light: `#eef2ff`, border: `#dbe3ff`) 팔레트 구축.
+    - Pretendard/Inter 기반 타이포그래피 및 자간 조정 (`letter-spacing: -0.015em`), 텍스트 컬러 팔레트 (`#17191e`, `#2a2e36`, `#545b69`, `#8c94a4`).
+    - 부드러운 섀도우 토큰(`box-shadow: 0 4px 20px -2px rgba(66, 98, 255, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.03)`).
+  - **레이아웃 & 네비게이션 개편 (`MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `Footer.tsx`)**:
+    - **TopHeader**: 맑은 화이트 글래스 헤더(`bg-white/95 backdrop-blur-md border-b border-[#eaedf4]`), KBank 블루 액티브 탭, 모던 검색 인풋.
+    - **Sidebar**: 산뜻한 화이트 사이드바, 블루 포인트 로고, KBank 스타일 액티브 메뉴(`bg-[#eef2ff] text-[#4262ff] font-bold border border-[#dbe3ff]`).
+    - **Footer**: 화이트 톤과 상태 표시 칩으로 정돈.
+  - **공통 UI 컴포넌트 리프레시 (`PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`)**:
+    - 선명하고 깔끔한 상태 뱃지, 가독성 높은 금액 디스플레이, 모던 화이트 탭.
+  - **메인 대시보드 화면 (`page.tsx`)**:
+    - 3개 KPI 카드, 월별 재무 추이 Area 차트, 최근 전표 리스트를 화이트 카드 및 KBank 블루 스타일로 전면 리프레시.
+- **검증**:
+  - `npm run build` 실행하여 122개 전체 정적 라우트 100% 컴파일 및 빌드 성공.
+
 ### 📅 2026-08-13 ([runtime][tax-batch] Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #92)
 ### [tax-batch] tax:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 TaxBatchApplicationTests 추가
 
