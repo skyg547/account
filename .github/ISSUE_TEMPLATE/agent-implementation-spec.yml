@@ -18,6 +18,13 @@ body:
         > 채워진 뒤에 Integrator가 `status:ready`로 바꿉니다. `status:ready`가 아닌 Issue는
         > 구현 모델이 claim할 수 없습니다.
 
+        ### ✂️ 크게 만들지 마세요
+
+        **하나의 Issue = 하나의 근본 원인 = 하나의 PR.** 구현 모델은 큰 작업을 스스로 쪼개지
+        못하고, 일부만 고친 뒤 완료로 보고하거나 범위를 넘어 손을 댑니다.
+        상한(근본원인 1개 / 모듈 1개 / 파일 5개 / 지시 7단계)을 넘으면 **부모 Issue + 자식
+        Issue로 나눠서 발행**하세요. 기준과 분할 방법은 `87-spec-driven-delegation.md` 3절.
+
   - type: input
     id: spec_author
     attributes:
@@ -74,6 +81,34 @@ body:
         - other
     validations:
       required: true
+
+  - type: input
+    id: parent_deps
+    attributes:
+      label: 부모 / 선행 Issue
+      description: 큰 문제를 쪼갠 자식 Issue라면 부모 번호를 적습니다. 선행 Issue가 병합되어야 시작할 수 있으면 함께 적습니다.
+      placeholder: "Parent: #123 / Depends on: #124"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: sizing
+    attributes:
+      label: ✂️ 작업 단위 크기 확인 (필수)
+      description: 하나라도 체크되지 않으면 이 Issue를 쪼개서 다시 발행하세요. 상세 기준은 87-spec-driven-delegation.md 3절.
+      options:
+        - label: 근본 원인이 **1개**다 (2개 이상이면 원인별로 분리)
+          required: true
+        - label: 대상 모듈이 **1개**다 (contracts/shared-kernel 동반 변경은 별도 Issue)
+          required: true
+        - label: 실질 변경 파일이 **5개 이하**다 (같은 치환의 기계적 반복이면 초과해도 무방)
+          required: true
+        - label: 작업 지시가 **7단계 이하**다
+          required: true
+        - label: "**한 묶음의 검증 명령**으로 통과 판정이 가능하다"
+          required: true
+        - label: 이 Issue만 단독으로 병합해도 의미가 있고 빌드가 깨지지 않는다
+          required: true
 
   - type: textarea
     id: problem
@@ -260,6 +295,7 @@ body:
         - label: allowlist가 다른 진행 중 Issue와 겹치지 않는다
         - label: 검증 명령이 실행 가능하고 기대 결과가 적혀 있다
         - label: 구현 티어가 위험도에 맞게 선택되었다
+        - label: 작업 단위 크기 확인이 전부 통과했다 (더 쪼갤 여지가 없다)
 
   - type: checkboxes
     id: safety
