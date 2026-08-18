@@ -1,26 +1,24 @@
-### 📅 2026-08-19 ([frontend][ui] Implement K-Bank Style Customer FAQ Center & Global Navigation - Issue #484 / PR #485)
-### [frontend] 케이뱅크(KBank) 스타일 고객센터 자주 묻는 질문(FAQ) 센터 구축 및 글로벌 라우팅 연동
+### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System - Issue #484 / PR #485)
+### [frontend] 케이뱅크(KBank) 스타일 모던 핀테크 디자인 시스템 (색상, 폰트, 배경, 카드, 헤더/사이드바) 전면 개편
 
 - **작업 배경**:
-  - 케이뱅크(KBank) 고객센터 FAQ(`https://www.kbanknow.com/web/customer/faq/list`)의 모던 핀테크 UI/UX 디자인 시스템을 분석하여, Account.AI 시스템 전용의 고객센터 FAQ 안내 센터를 구축하고 전체 프론트엔드 네비게이션 라우팅을 연동.
+  - 케이뱅크(KBank) 웹사이트(`https://www.kbanknow.com/web/customer/faq/list`)의 시그니처 핀테크 디자인 아이덴티티(맑고 깨끗한 소프트 그레이 배경, 화이트 카드, KBank 블루, 가독성 높은 타이포그래피, 모던 라운딩 및 섀도우)를 Account.AI 프론트엔드 전반에 적용.
 - **주요 변경 사항**:
-  - **KBank 스타일 고객센터 FAQ 메인 및 목록 라우트 구축**:
-    - `frontend/src/app/customer/faq/page.tsx` 및 `frontend/src/app/customer/faq/list/page.tsx` 생성.
-    - KBank 시그니처 블루(`#4262ff`) 테마, 대형 라운드 비주얼 검색 헤더, 실시간 키워드 검색 및 인기 검색어 태그 칩(`FaqSearch.tsx`).
-    - 10개 카테고리 탭(`FaqCategoryTabs.tsx`: 전체, 자주 묻는 질문, 전표/원장, 결산/마감, 여신/대출, 수신/예금, 지출/경비, 세무/부가세, 인증/보안, 시스템/설정) 및 카운트 배지.
-  - **인터랙티브 FAQ 아코디언 컴포넌트(`FaqAccordionItem.tsx`)**:
-    - 카테고리 뱃지, Q 태그, 조회수, 불꽃(인기) 배지, 우측 180도 회전 Chevron 화살표.
-    - 펼침 시 구조화된 가이드: 요약 설명, 단계별 가이드(Step 1, 2, 3), 주의사항(Notice), 꿀팁(Tips), 시스템 관련 메뉴 바로가기 링크(`Link`).
-    - 유용성 평가 인터랙션: "이 답변이 도움이 되셨나요? 👍 네 / 👎 아니오" 클릭 시 실시간 카운트 증감 피드백.
-  - **하단 고객지원 배너 및 1:1 온라인 문의 모달(`FaqSupportSection.tsx`, `ContactInquiryModal.tsx`)**:
-    - 24시간 AI 챗봇 상담 시뮬레이션, 1:1 맞춤 문의 팝업 다이얼로그(유형 선택, 전표/계좌번호, 제목, 상세내용, 접수 완료 안내), 고객센터 전화상담(1522-1000) 채널 안내.
-  - **금융/회계 도메인 특화 12대 FAQ 데이터셋(`frontend/src/mocks/faq.ts`)**:
-    - 전표 역분개, 결산 마감 해제, 대출 EIR 유효이자율 상각, 전자세금계산서 국세청 전송 오류, 예산 초과 전용, 2FA 분실 초기화, 수신 낙관적 락, 일일 고시환율, GL/SL 대사 차이, PAT 토큰 발급, 리스 자산 장부가 하한, 계정과목 추가 등.
-  - **글로벌 네비게이션 & 라우팅 연동**:
-    - `TopHeader.tsx`: 상단 우측 [고객센터 FAQ] 바로가기 링크 버튼 연동.
-    - `Sidebar.tsx` / `menus/dashboard.ts`, `menus/system.ts`: 대시보드 및 시스템 메뉴에 고객지원 FAQ 링크 연동.
+  - **글로벌 테마 & 디자인 토큰 (`globals.css`, `tailwind.config.js`)**:
+    - KBank 소프트 그레이 배경 (`#f7f8fb`) 및 퓨어 화이트 카드 (`#ffffff`) 설정.
+    - KBank 시그니처 블루 (`#4262ff`, hover: `#3452e6`, active: `#2b44d4`, light: `#eef2ff`, border: `#dbe3ff`) 팔레트 구축.
+    - Pretendard/Inter 기반 타이포그래피 및 자간 조정 (`letter-spacing: -0.015em`), 텍스트 컬러 팔레트 (`#17191e`, `#2a2e36`, `#545b69`, `#8c94a4`).
+    - 부드러운 섀도우 토큰(`box-shadow: 0 4px 20px -2px rgba(66, 98, 255, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.03)`).
+  - **레이아웃 & 네비게이션 개편 (`MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `Footer.tsx`)**:
+    - **TopHeader**: 맑은 화이트 글래스 헤더(`bg-white/95 backdrop-blur-md border-b border-[#eaedf4]`), KBank 블루 액티브 탭, 모던 검색 인풋.
+    - **Sidebar**: 산뜻한 화이트 사이드바, 블루 포인트 로고, KBank 스타일 액티브 메뉴(`bg-[#eef2ff] text-[#4262ff] font-bold border border-[#dbe3ff]`).
+    - **Footer**: 화이트 톤과 상태 표시 칩으로 정돈.
+  - **공통 UI 컴포넌트 리프레시 (`PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`)**:
+    - 선명하고 깔끔한 상태 뱃지, 가독성 높은 금액 디스플레이, 모던 화이트 탭.
+  - **메인 대시보드 화면 (`page.tsx`)**:
+    - 3개 KPI 카드, 월별 재무 추이 Area 차트, 최근 전표 리스트를 화이트 카드 및 KBank 블루 스타일로 전면 리프레시.
 - **검증**:
-  - `npm run build` 실행하여 `/customer/faq`, `/customer/faq/list` 포함 124개 정적 라우트 100% 컴파일 및 Static Generation 성공.
+  - `npm run build` 실행하여 122개 전체 정적 라우트 100% 컴파일 및 빌드 성공.
 
 ### 📅 2026-08-13 ([runtime][tax-batch] Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #92)
 ### [tax-batch] tax:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 TaxBatchApplicationTests 추가
