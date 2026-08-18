@@ -1,11 +1,11 @@
 import { MenuGroup } from './types';
 
-/** 내부회계 관리 - backend: governance 모듈 */
+/** 내부통제 및 감사 - backend: internal-audit 모듈 */
 export const governanceMenu: MenuGroup[] = [
   {
-    category: 'SYSTEM',
-    group: '내부회계 관리',
-    module: 'governance',
+    category: 'AUDIT_SYSTEM',
+    group: '내부통제 및 직무분리(SoD)',
+    module: 'internal-audit',
     requiredRoles: ['AUDITOR', 'SYSTEM_ADMIN'],
     items: [
       { icon: 'FileSearch',     label: '감사 로그 탐색기',  href: '/governance/audit-logs' },

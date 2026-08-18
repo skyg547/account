@@ -1,8 +1,7 @@
 /**
  * 메뉴 정의 통합 인덱스
  * 
- * 각 백엔드 모듈별로 분리된 메뉴 정의를 하나로 조합합니다.
- * 새 모듈을 추가할 때는 해당 모듈의 메뉴 파일을 만들고 여기에 import/spread만 하면 됩니다.
+ * 백엔드 16대 마이크로서비스 모듈 경계와 1:1로 직결되는 프론트엔드 메뉴 정의를 하나로 조합합니다.
  */
 export type { MenuItem, MenuGroup } from './types';
 
@@ -25,34 +24,42 @@ import { governanceMenu }   from './governance';
 import { systemMenu }       from './system';
 
 /**
- * 전체 메뉴 정의 (순서 = 사이드바 표시 순서)
+ * 전체 메뉴 정의 (순서 = 사이드바 및 카테고리 매핑 순서)
  */
 export const allMenus: MenuGroup[] = [
-  // DASHBOARD
+  // 1. DASHBOARD
   ...dashboardMenu,
 
-  // ACCOUNTING: 원장 → 결산 → 보고서
+  // 2. JOURNAL: journal-ledger
   ...ledgerMenu,
+
+  // 3. CLOSING: closing, reporting
   ...closingMenu,
   ...reportsMenu,
 
-  // OPERATIONS: 지출 → 세무
+  // 4. EXPENDITURE: expenditure-resolution, payable, receivable, budget
   ...expenditureMenu,
+
+  // 5. TAX: tax
   ...taxMenu,
 
-  // CREDIT: 대출/이연 → 공정가치
+  // 6. LOAN: loan, deposit
   ...loanMenu,
+
+  // 7. ASSET_LEASE: asset-lease
   ...fairValueMenu,
 
-  // RISK: ECL → 마트/대사
+  // 8. ECL: ecl
   ...eclMenu,
+
+  // 9. MART_RECON: reconciliation, account-mart
   ...martMenu,
 
-  // MASTER: 계정과목 → 거래처
+  // 10. MASTER: master-data
   ...accountCodeMenu,
   ...partnerMenu,
 
-  // SYSTEM: 내부회계 → 시스템
+  // 11. AUDIT_SYSTEM: internal-audit, auth
   ...governanceMenu,
   ...systemMenu,
 ];

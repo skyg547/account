@@ -1,10 +1,10 @@
 import { MenuGroup } from './types';
 
-/** 대손충당금관리 (IFRS 9) - backend: ecl 모듈 */
+/** IFRS 9 기대신용손실(ECL) 대손충당금 - backend: ecl 모듈 */
 export const eclMenu: MenuGroup[] = [
   {
-    category: 'RISK',
-    group: '대손충당금관리 (IFRS 9)',
+    category: 'ECL',
+    group: 'IFRS 9 대손충당금 엔진',
     module: 'ecl',
     requiredRoles: ['RISK_MANAGER', 'RISK_ANALYST', 'SYSTEM_ADMIN'],
     items: [

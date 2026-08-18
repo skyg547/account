@@ -1,10 +1,10 @@
 import { MenuGroup } from './types';
 
-/** 세무관리 - backend: tax 모듈 */
+/** 세무회계 - backend: tax 모듈 */
 export const taxMenu: MenuGroup[] = [
   {
-    category: 'OPERATIONS',
-    group: '세무관리',
+    category: 'TAX',
+    group: '전자세금계산서 및 부가세',
     module: 'tax',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [

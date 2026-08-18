@@ -4,7 +4,7 @@ import { MenuGroup } from './types';
 export const accountCodeMenu: MenuGroup[] = [
   {
     category: 'MASTER',
-    group: '계정과목 코드 관리',
+    group: '표준 계정과목 체계',
     module: 'master-data',
     requiredRoles: ['MASTER_MANAGER', 'ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [

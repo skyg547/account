@@ -3,17 +3,21 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /**
- * [내비게이션 카테고리 정의]
- * 상단 헤더에서 선택할 수 있는 7개 대분류입니다.
+ * [백엔드 MSA 모듈 직결 내비게이션 카테고리 정의]
+ * 백엔드 16개 마이크로서비스 모듈 경계와 1:1로 매핑되는 상단 대메뉴입니다.
  */
 export type NavCategory = 
-  | 'DASHBOARD'    // 대시보드
-  | 'ACCOUNTING'   // 재무회계 (원장, 결산, 보고서)
-  | 'OPERATIONS'   // 자금운영 (지출, 세무)
-  | 'CREDIT'       // 여신·자산 (대출/이연, 공정가치)
-  | 'RISK'         // 리스크·데이터 (ECL, 마트/대사)
-  | 'MASTER'       // 기준정보 (계정과목, 거래처)
-  | 'SYSTEM';      // 시스템관리 (내부회계, 사용자/부서)
+  | 'DASHBOARD'           // 대시보드 (통합 재무 현황)
+  | 'JOURNAL'             // 분개·원장 (backend: journal-ledger)
+  | 'CLOSING'             // 결산·보고 (backend: closing, reporting)
+  | 'EXPENDITURE'         // 지출·지급·예산 (backend: expenditure-resolution, payable, receivable, budget)
+  | 'TAX'                 // 세무회계 (backend: tax)
+  | 'LOAN'                // 여신·수신 (backend: loan, deposit)
+  | 'ASSET_LEASE'         // 자산·리스 (backend: asset-lease)
+  | 'ECL'                 // 대손충당금/리스크 (backend: ecl)
+  | 'MART_RECON'          // 대사·데이터마트 (backend: account-mart, reconciliation)
+  | 'MASTER'              // 기준정보 (backend: master-data)
+  | 'AUDIT_SYSTEM';       // 내부통제·시스템 (backend: internal-audit, auth)
 
 /**
  * [보안 역할 정의]
@@ -99,8 +103,8 @@ export function NavProvider({ children }: { children: ReactNode }) {
           setUserAuthorizations(DEFAULT_ALL_ACCESS);
           setIsGovernanceConnected(false);
         }
-      } catch (e) {
-        // 백엔드 미구동 시 조용히 Mock 권한으로 안전하게 폴백
+      } catch {
+        // 네트워크 에러 또는 타임아웃 발생 시 안전하게 전체 데모 접근으로 폴백
         setUserAuthorizations(DEFAULT_ALL_ACCESS);
         setIsGovernanceConnected(false);
       }
@@ -110,15 +114,15 @@ export function NavProvider({ children }: { children: ReactNode }) {
   }, [userRole]);
 
   return (
-    <NavContext.Provider value={{ 
-      activeCategory, 
-      setActiveCategory, 
-      isCollapsed, 
+    <NavContext.Provider value={{
+      activeCategory,
+      setActiveCategory,
+      isCollapsed,
       toggleSidebar,
       userRole,
       setUserRole,
       userAuthorizations,
-      isGovernanceConnected
+      isGovernanceConnected,
     }}>
       {children}
     </NavContext.Provider>
