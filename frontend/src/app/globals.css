@@ -29,54 +29,6 @@
   }
 }
 
-@layer components {
-  /* K-Bank Style Clean Card */
-  .kbank-card {
-    background-color: #ffffff;
-    border: 1px solid #eaedf4;
-    border-radius: 1.25rem;
-    box-shadow: 0 4px 20px -2px rgba(66, 98, 255, 0.04), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .kbank-card:hover {
-    box-shadow: 0 8px 30px -4px rgba(66, 98, 255, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
-    border-color: rgba(66, 98, 255, 0.25);
-  }
-
-  /* K-Bank Primary Button */
-  .kbank-btn-primary {
-    background-color: #4262ff;
-    color: #ffffff !important;
-    font-weight: 700;
-    border-radius: 0.75rem;
-    padding: 0.625rem 1.25rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(66, 98, 255, 0.2);
-  }
-
-  .kbank-btn-primary:hover {
-    background-color: #3452e6;
-    box-shadow: 0 6px 16px rgba(66, 98, 255, 0.3);
-  }
-
-  .kbank-btn-primary:active {
-    background-color: #2b44d4;
-    transform: scale(0.98);
-  }
-
-  /* K-Bank Badge */
-  .kbank-badge {
-    background-color: #eef2ff;
-    color: #4262ff;
-    font-weight: 700;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.625rem;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(66, 98, 255, 0.15);
-  }
-}
-
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -119,48 +71,4 @@ input:focus, select:focus, textarea:focus {
 
 input::placeholder, textarea::placeholder {
   color: #8c94a4;
-}
-
-/* ─────────────────────────────────────────────────────────────
- * Legacy Dark Theme Classes Override to K-Bank Light/White Card
- * ───────────────────────────────────────────────────────────── */
-@layer utilities {
-  .bg-slate-950, 
-  .bg-slate-900, 
-  .bg-slate-900\/40,
-  .bg-slate-900\/50, 
-  .bg-slate-900\/60, 
-  .bg-slate-900\/80, 
-  .bg-slate-950\/50, 
-  .bg-slate-950\/60, 
-  .bg-slate-950\/80, 
-  .bg-slate-950\/90, 
-  .glass-card {
-    background-color: #ffffff !important;
-    border-color: #eaedf4 !important;
-    color: #17191e !important;
-  }
-
-  .border-white\/5, 
-  .border-white\/10, 
-  .border-white\/20,
-  .border-slate-800 {
-    border-color: #eaedf4 !important;
-  }
-
-  .text-slate-100, 
-  .text-slate-200, 
-  .text-slate-300 {
-    color: #2a2e36 !important;
-  }
-
-  .text-slate-400, 
-  .text-slate-500 {
-    color: #545b69 !important;
-  }
-
-  .text-slate-600, 
-  .text-slate-700 {
-    color: #8c94a4 !important;
-  }
 }
