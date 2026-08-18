@@ -1,3 +1,15 @@
+# AI Harness Handoff - 2026-08-19 Issue #484 Implement K-Bank Style Customer FAQ Center & Global Navigation
+
+- **Owner**: Gemini (Parent Integrator / Frontend)
+- **Issue**: #484 (`[frontend][ui] 케이뱅크(KBank) 스타일 고객센터 FAQ 페이지 구축 및 글로벌 라우팅 연동`)
+- **PR**: #485 (`[#484] 케이뱅크(KBank) 스타일 고객센터 FAQ 센터 구축 및 글로벌 라우팅 연동`)
+- **Status**: Draft PR Open / Review Ready
+- **Summary**:
+  - Implemented a complete K-Bank style customer support FAQ center (`/customer/faq`, `/customer/faq/list`).
+  - Created `FaqSearch` (wide round search bar with live filtering and popular tag chips), `FaqCategoryTabs` (10 business category filters with counts), `FaqAccordionItem` (structured Q/A accordion cards with steps, callouts, tips, deep links, and helpfulness feedback), `FaqSupportSection` (24/7 chatbot simulation, 1:1 online inquiry modal, phone support), `ContactInquiryModal`, and domain mock data `mocks/faq.ts`.
+  - Integrated global navigation in `TopHeader` (FAQ button) and sidebar menu modules (`dashboard.ts`, `system.ts`).
+  - Verification: `npm run build` executed successfully with 124 static routes generated with 0 errors.
+
 # AI Harness Handoff - 2026-08-13 Issue #92 Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)

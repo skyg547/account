@@ -1,3 +1,8 @@
+### 📅 2026-08-19 (GH-484: Implement K-Bank Style Customer FAQ Center & Global Navigation)
+- **Component**: `frontend/src/app/customer/faq`, `frontend/src/components/faq`, `frontend/src/mocks/faq.ts`, `frontend/src/components/layout`
+- **Changes**: Built a complete K-Bank style customer support FAQ center (`/customer/faq`, `/customer/faq/list`) with signature `#4262ff` blue palette, wide round search bar (`FaqSearch.tsx`), 10-category tab filtering (`FaqCategoryTabs.tsx`), interactive expandable Q/A cards (`FaqAccordionItem.tsx`) with steps, callouts, and helpfulness feedback (`👍/👎`), 24/7 AI chatbot & 1:1 online inquiry modal (`FaqSupportSection.tsx`, `ContactInquiryModal.tsx`), comprehensive financial/accounting mock dataset (`mocks/faq.ts`), and global navigation integration in `TopHeader` and sidebar menus (`dashboard.ts`, `system.ts`).
+- **Verification**: `npm run build` (124 routes 100% SUCCESSFUL).
+
 ### 📅 2026-08-14 (Premium Mermaid Diagram & Visual Chart Enhancement)
 - **Component**: `README.md`, `docs/guides/master-domain-glossary.md`
 - **Changes**: Enhanced all Mermaid flowcharts and system architecture diagrams with rich HSL/Hex color fills (`style`), explicit subgraphs, quoted node labels for rendering safety, and clear flow annotations across root `README.md` and `docs/guides/master-domain-glossary.md`.
