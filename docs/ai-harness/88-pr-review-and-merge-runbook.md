@@ -56,36 +56,51 @@ gh pr review <번호> --repo skyg547/account --request-changes --body-file <경�
 gh issue edit <이슈> --repo skyg547/account --remove-label "status:needs-review" --add-label "status:in-progress"
 ```
 
-### 3-2. 보류 (Hold — 사람 판단 필요)
+### 3-2. 심층 검토가 필요한 영역 (병합 가능)
 
-게이트는 통과했지만 리뷰어가 단독으로 병합을 결정하면 안 되는 경우다. **아래에 해당하면
-자동 병합하지 않고 `review:hold` 라벨을 붙여 사람에게 넘긴다.**
+아래 영역은 **병합 금지 영역이 아니라 검증 의무가 추가되는 영역**이다. 리뷰어가 High
+Reasoning 티어(Codex, Claude Code)라면 아래 확인을 마친 뒤 **병합할 수 있다.**
 
-- 금액 계산, 차변/대변 방향, 반올림·scale 등 **회계 정합성**에 영향
-- 동시성, 락, **멱등성**, 배치 재시작 동작 변경
-- **DB migration**, 스키마 변경, forward-only 제약
-- **보안 경계** — JWT, 권한, actor 신뢰, 인증 우회 가능성
-- **공개 계약 변경** — `contracts`, `shared-kernel`, Gateway route
-- 여러 모듈에 걸친 blast radius
-- 되돌리기 어려운 변경(데이터 이관, 삭제)
-- 검증을 리뷰어가 재현할 수 없었던 경우(Docker/DB 부재 등)
+| 영역 | 추가로 확인할 것 |
+| --- | --- |
+| 회계 정합성 | 차변/대변 합계 일치, `BigDecimal` 사용, scale·rounding 모드, 경계값(0·음수·null) |
+| 멱등성·재실행 | 같은 입력 재실행 시 중복 생성이 없는지, unique 제약이나 source reference가 있는지 |
+| 동시성·락 | 조회 후 갱신 race, 낙관적/비관적 락 적용 범위 |
+| 배치 재시작 | Job parameter identity, checkpoint, 실패 후 재시작 경로 |
+| DB migration | forward-only 여부, JPA 컬럼 정의와 migration 일치, precision/scale/nullability |
+| 보안 경계 | JWT 검증 경로, 권한 정책, actor를 body/header에서 신뢰하지 않는지, 우회 경로 |
+| 공개 계약 | `contracts`·`shared-kernel`·Gateway route 변경 시 직접 소비자 compile/test |
+| 다중 모듈 | 영향받는 모듈의 test를 함께 실행 |
 
-이 목록은 87 2절의 Fast 티어 금지 조건과 같은 축이다. **구현을 Fast에 맡기지 않는 영역이라면
-병합도 무인으로 하지 않는다.**
+**이 확인을 실제로 수행하지 못했다면 병합하지 않고 3-3 보류로 보낸다.** 영역에 해당한다는
+사실만으로 보류하지는 않지만, 확인 없이 통과시키지도 않는다.
+
+리뷰어가 Balanced 이하 티어라면 이 영역은 병합하지 않고 3-3 보류로 보낸다.
+
+### 3-3. 보류 (Hold — 사람 판단 필요)
+
+게이트는 통과했지만 **리뷰어가 판단할 수 있는 성질의 문제가 아닌** 경우로 한정한다.
+위험도가 높다는 이유만으로는 보류하지 않는다(3-2 참고).
+
+- **검증을 재현할 수 없었다** — 테스트 실행 불가, Docker/DB 부재, 결과 확인 불가.
+  근거가 없는 승인은 승인이 아니므로 병합하지 않는다.
+- **요구사항 자체가 불명확하다** — Spec과 구현의 의도가 어긋나는데 어느 쪽이 옳은지
+  판단하려면 작성자나 업무 담당자의 결정이 필요하다.
+- **되돌릴 수 없는 조작이 포함된다** — 실제 데이터 이관·삭제, 외부 시스템에 대한 비가역 호출.
+  가역성은 위험 성향의 문제가 아니라 범주의 문제다.
+- **저장소 정책 결정이 필요하다** — 의존성 정책, 아키텍처 방향, 플랜/비용이 걸린 변경.
 
 ```bash
 gh pr comment <번호> --repo skyg547/account --body-file <경로>
 gh pr edit <번호> --repo skyg547/account --add-label "review:hold"
 ```
 
-### 3-3. 승인·병합 (Approve And Merge)
+코멘트에 무엇이 통과했고 **사람이 무엇을 결정해야 하는지**를 적는다.
 
-게이트를 모두 통과하고 3-2에 해당하지 않을 때만 병합한다. 실질적으로 다음 성격의 변경이다.
+### 3-4. 승인·병합 (Approve And Merge)
 
-- 문서, 주석, 설정 placeholder
-- Spec의 작업 지시와 **1:1로 일치하는** 기계적 수정
-- 회귀 테스트 추가
-- 명확한 버그 수정이면서 위 위험 축에 걸리지 않는 것
+2절 게이트를 모두 통과하고, 3-2에 해당하면 그 추가 확인까지 마쳤으며, 3-3에 해당하지 않을 때
+병합한다. High Reasoning 리뷰어에게는 **위험 축 자체가 병합을 막지 않는다.**
 
 ```bash
 gh pr review <번호> --repo skyg547/account --approve --body-file <경로>
@@ -108,20 +123,28 @@ gh pr merge <번호> --repo skyg547/account --squash --delete-branch
       ▼
 [Reviewer]     2절 게이트 검증 (테스트 실제 재실행)
       │
-      ├─ 실패 ─────────→ 반려 (request changes) → Issue를 in-progress로
+      ├─ 게이트 실패 ──────→ 반려 (request changes) → Issue를 in-progress로
       │
-      ├─ 위험 축 해당 ──→ 보류 (review:hold) → 사람 판단
+      ├─ 3-2 영역 해당 ────→ 추가 확인 수행
+      │                        ├─ 확인 완료 ──→ 병합으로
+      │                        └─ 확인 불가 ──→ 보류
       │
-      └─ 통과 ─────────→ 승인 → squash merge → Issue 종료 → 브랜치 정리
+      ├─ 확인 불가 / 요구사항 불명확 / 비가역 / 정책 결정 ──→ 보류 (review:hold)
+      │
+      └─ 통과 ─────────────→ 승인 → squash merge → Issue 종료 → 브랜치 정리
 ```
+
+보류는 **"위험해서"가 아니라 "확인하지 못해서" 또는 "사람이 결정해야 해서"** 발생한다.
 
 ## 5. 자동(무인) 실행 시 추가 제약
 
 무인 리뷰는 사람이 지켜보지 않으므로 아래를 반드시 지킨다.
 
 - **한 번 실행에 PR 1건만** 처리한다. 여러 건을 몰아 처리하지 않는다.
-- **병합은 3-3 조건을 전부 만족할 때만** 한다. 애매하면 병합이 아니라 `review:hold`다.
-  판정이 갈리는 경우의 기본값은 **보류**다.
+- **리뷰어 티어가 병합 권한을 결정한다.** High Reasoning(Codex, Claude Code)은 3-2의 추가
+  확인을 마친 뒤 위험 축을 포함해 병합할 수 있다. Balanced 이하는 3-2 영역을 병합하지 않는다.
+- **근거가 없으면 병합하지 않는다.** 검증을 재현하지 못했다면 위험도와 무관하게 보류다.
+  "위험해서 보류"가 아니라 "확인하지 못해서 보류"만 남긴다.
 - 코드를 수정하지 않는다. 반려만 한다.
 - `main`에 직접 push하지 않는다. force push하지 않는다.
 - 자기가 만든 PR을 승인·병합하지 않는다.
@@ -136,7 +159,7 @@ gh pr merge <번호> --repo skyg547/account --squash --delete-branch
 
 | 라벨 | 의미 |
 | --- | --- |
-| `review:hold` | 게이트는 통과했으나 사람 판단이 필요해 자동 병합하지 않음 |
+| `review:hold` | 검증 재현 불가·요구사항 불명확·비가역 조작·정책 결정 등 리뷰어가 판단할 성질이 아니라 병합하지 않음 |
 | `review:changes-requested` | 반려됨, 구현 담당이 수정 중 |
 
 Issue 쪽 상태(`status:needs-review` 등)는 86번 문서 전이표를 따른다.
