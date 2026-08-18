@@ -49,6 +49,7 @@ This harness defines how AI agents work safely in the account project. The proje
 - `80-file-ownership.md`: role-based file ownership.
 - `85-github-issue-agent-loop.md`: Issue/branch/worktree/PR runbook.
 - `86-multi-tool-issue-ownership.md`: Codex/Gemini/Claude Code Issue status, claim, ownership, and handoff protocol.
+- `87-spec-driven-delegation.md`: high-tier spec authoring, fast-tier implementation, and merge authority separation.
 - `90-beginner-ai-agent-git-guide.md`: beginner guide.
 - `95-codex-skills-subagents.md`: skill and custom subagent map.
 - `worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: operating records.

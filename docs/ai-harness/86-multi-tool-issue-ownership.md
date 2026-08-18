@@ -19,6 +19,7 @@ Exactly one workflow status should be active on an open executable Issue.
 
 | Label | Meaning | May a new implementation tool claim it? |
 | --- | --- | --- |
+| `status:draft` | Spec authoring is still in progress; the design is not final | No |
 | `status:ready` | Scope and acceptance criteria are ready; no active writer owns it | Yes |
 | `status:in-progress` | One implementation owner has claimed the Issue | No |
 | `status:blocked` | The documented blocker prevents meaningful progress | No |
@@ -71,6 +72,8 @@ Verification: targeted tests, bootJar/JAR smoke, diff/marker checks
 
 | From | To | Required evidence |
 | --- | --- | --- |
+| Unscoped | `status:draft` | Spec authoring started with the Agent Implementation Spec form |
+| `status:draft` | `status:ready` | Root cause, design, ordered work instructions, allowlist, runnable verification (see [`87-spec-driven-delegation.md`](./87-spec-driven-delegation.md)) |
 | Unscoped | `status:ready` | Goal, non-goals, allowlist, acceptance criteria, verification, rollback, safety |
 | `status:ready` | `status:in-progress` | Valid claim, one owner label, branch/worktree/base and start comment |
 | `status:in-progress` | `status:blocked` | Blocker, attempts, preserved worktree state, next unblock action |
