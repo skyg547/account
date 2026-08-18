@@ -47,7 +47,7 @@
   /* K-Bank Primary Button */
   .kbank-btn-primary {
     background-color: #4262ff;
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: 700;
     border-radius: 0.75rem;
     padding: 0.625rem 1.25rem;
@@ -107,7 +107,6 @@ input, select, textarea {
   border: 1px solid #eaedf4;
   color: #17191e;
   border-radius: 0.75rem;
-  padding: 0.625rem 1rem;
   font-size: 0.875rem;
   transition: all 0.2s ease;
 }
@@ -120,4 +119,48 @@ input:focus, select:focus, textarea:focus {
 
 input::placeholder, textarea::placeholder {
   color: #8c94a4;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Legacy Dark Theme Classes Override to K-Bank Light/White Card
+ * ───────────────────────────────────────────────────────────── */
+@layer utilities {
+  .bg-slate-950, 
+  .bg-slate-900, 
+  .bg-slate-900\/40,
+  .bg-slate-900\/50, 
+  .bg-slate-900\/60, 
+  .bg-slate-900\/80, 
+  .bg-slate-950\/50, 
+  .bg-slate-950\/60, 
+  .bg-slate-950\/80, 
+  .bg-slate-950\/90, 
+  .glass-card {
+    background-color: #ffffff !important;
+    border-color: #eaedf4 !important;
+    color: #17191e !important;
+  }
+
+  .border-white\/5, 
+  .border-white\/10, 
+  .border-white\/20,
+  .border-slate-800 {
+    border-color: #eaedf4 !important;
+  }
+
+  .text-slate-100, 
+  .text-slate-200, 
+  .text-slate-300 {
+    color: #2a2e36 !important;
+  }
+
+  .text-slate-400, 
+  .text-slate-500 {
+    color: #545b69 !important;
+  }
+
+  .text-slate-600, 
+  .text-slate-700 {
+    color: #8c94a4 !important;
+  }
 }

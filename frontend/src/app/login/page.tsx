@@ -2,17 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle, Fingerprint, LockKeyhole } from 'lucide-react';
+import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle, Fingerprint, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { authService, LoginResponse } from '@/services/authService';
 
 /**
- * 🐣 [초보자를 위한 가이드: 다중 인증(MFA) 로그인 페이지]
+ * [K-Bank 스타일 통합 인증 (MFA) 로그인 페이지]
  * 
- * 이 컴포넌트는 사용자의 로그인 방식을 2가지(SSO 자동 로그인, 사내 LDAP+OTP 로그인)로 분기하여
- * 백엔드(`auth` 모듈)로 전달하는 역할을 합니다.
- * 
- * - SSO (Single Sign-On): 사번(username)만으로 인증을 위임받아 빠르게 로그인합니다.
- * - LDAP + OTP: 사번과 패스워드, 그리고 모바일 인증 앱 등에서 생성되는 6자리 OTP 코드를 함께 검증하는 강력한 보안 방식입니다.
+ * 맑은 소프트 그레이(#f7f8fb) 배경, 화이트 카드, KBank 시그니처 블루(#4262ff) 및 
+ * 아이콘 겹침 없는 넉넉한 입력창 구조를 제공합니다.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -47,103 +44,114 @@ export default function LoginPage() {
 
       setTimeout(() => {
         router.push('/');
-      }, 1500);
+      }, 1200);
     } catch (err: any) {
-      setError(err.message || '로그인 실패');
+      setError(err.message || '로그인 실패: 자격 증명을 확인해 주세요.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Glow Deco */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative z-10">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 mb-4 shadow-lg shadow-blue-500/10">
-            {loginType === 'SSO' ? <Fingerprint className="w-8 h-8" /> : <KeyRound className="w-8 h-8" />}
+    <div className="min-h-[calc(100vh-140px)] flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md bg-white border border-[#eaedf4] rounded-3xl p-8 sm:p-10 shadow-lg shadow-blue-600/5 relative z-10 transition-all">
+        {/* 상단 KBank 로고/아이콘 헤더 */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 text-[#4262ff] mb-4 shadow-sm">
+            {loginType === 'SSO' ? <Fingerprint size={32} /> : <KeyRound size={32} />}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">통합 인증 시스템</h1>
-          <p className="text-sm text-slate-400 mt-2">
-            다중 인증(Multi-Factor) 및 SSO를 지원합니다.
+          <h1 className="text-2xl font-black tracking-tight text-[#17191e]">통합 인증 시스템</h1>
+          <p className="text-xs text-[#545b69] font-medium mt-1.5">
+            다중 인증(Multi-Factor) 및 간편 SSO 로그인을 지원합니다.
           </p>
         </div>
 
-        {/* 탭 구조 UI */}
+        {/* 탭 구조 UI (KBank 세그먼트 컨트롤) */}
         {!userSession && (
-          <div className="flex bg-slate-950/50 rounded-xl p-1 mb-8 border border-white/5">
+          <div className="flex bg-[#f7f8fb] rounded-xl p-1 mb-7 border border-[#eaedf4]">
             <button
+              type="button"
               onClick={() => { setLoginType('SSO'); setError(null); }}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                loginType === 'SSO' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
+                loginType === 'SSO' 
+                  ? 'bg-white text-[#4262ff] shadow-sm border border-[#eaedf4]' 
+                  : 'text-[#545b69] hover:text-[#17191e]'
               }`}
             >
               SSO 자동 로그인
             </button>
             <button
+              type="button"
               onClick={() => { setLoginType('LDAP'); setError(null); }}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                loginType === 'LDAP' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
+                loginType === 'LDAP' 
+                  ? 'bg-white text-[#4262ff] shadow-sm border border-[#eaedf4]' 
+                  : 'text-[#545b69] hover:text-[#17191e]'
               }`}
             >
-              LDAP + OTP
+              LDAP + OTP (2FA)
             </button>
           </div>
         )}
 
+        {/* 오류 알림 */}
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
             <div>
-              <p className="font-semibold">인증 오류</p>
-              <p className="text-xs text-rose-400/90 mt-0.5">{error}</p>
+              <p className="font-bold">인증 오류</p>
+              <p className="text-[11px] text-rose-600 mt-0.5">{error}</p>
             </div>
           </div>
         )}
 
+        {/* 로그인 성공 화면 */}
         {userSession ? (
-          <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm text-center space-y-3 animate-fade-in">
-            <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
-            <h3 className="text-lg font-bold text-white">인증 성공!</h3>
-            <p className="text-xs text-emerald-400/90">
-              사용자: <span className="font-bold text-white">{userSession.username}</span> ({userSession.departmentCode} 부서)
+          <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs text-center space-y-3 animate-fade-in">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+            <h3 className="text-base font-black text-emerald-900">인증 성공!</h3>
+            <p className="text-xs text-emerald-700">
+              사용자: <span className="font-bold">{userSession.username}</span> ({userSession.departmentCode} 부서)
             </p>
-            <div className="bg-slate-950/80 p-3 rounded-xl text-left border border-white/5 font-mono text-[10px] text-slate-400 break-all max-h-24 overflow-y-auto">
-              <span className="text-emerald-400 font-bold">Bearer Token:</span> {userSession.token}
+            <div className="bg-white p-3 rounded-xl text-left border border-emerald-200 font-mono text-[11px] text-emerald-800 break-all max-h-24 overflow-y-auto">
+              <span className="text-[#4262ff] font-bold">Bearer Token:</span> {userSession.token}
             </div>
-            <p className="text-xs text-slate-400">잠시 후 대시보드로 이동합니다...</p>
+            <p className="text-[11px] text-[#545b69] font-medium">대시보드로 자동 이동 중입니다...</p>
           </div>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-5 animate-fade-in">
+          <form onSubmit={handleLogin} className="space-y-4 animate-fade-in">
+            {/* 사용자 아이디 입력창 */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-2">사용자 아이디 (Username)</label>
-              <div className="relative">
-                <User className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
+              <label className="block text-xs font-bold text-[#17191e] mb-1.5">사용자 아이디 (Username)</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c94a4] flex items-center justify-center pointer-events-none z-10">
+                  <User size={18} />
+                </span>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-                  placeholder="예: admin"
+                  className="w-full bg-[#f7f8fb] hover:bg-white focus:bg-white border border-[#eaedf4] focus:border-[#4262ff] rounded-xl py-3 !pl-11 pr-4 text-xs font-semibold text-[#17191e] placeholder-[#8c94a4] focus:outline-none transition-all shadow-xs"
+                  placeholder="아이디를 입력하세요 (예: admin)"
                   required
                 />
               </div>
             </div>
 
+            {/* LDAP 모드일 때 비밀번호 및 OTP 입력창 */}
             {loginType === 'LDAP' && (
               <>
                 <div className="animate-fade-in">
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">비밀번호 (Password)</label>
-                  <div className="relative">
-                    <KeyRound className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
+                  <label className="block text-xs font-bold text-[#17191e] mb-1.5">비밀번호 (Password)</label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c94a4] flex items-center justify-center pointer-events-none z-10">
+                      <KeyRound size={18} />
+                    </span>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full bg-[#f7f8fb] hover:bg-white focus:bg-white border border-[#eaedf4] focus:border-[#4262ff] rounded-xl py-3 !pl-11 pr-4 text-xs font-semibold text-[#17191e] placeholder-[#8c94a4] focus:outline-none transition-all shadow-xs"
                       placeholder="사내망 비밀번호 (예: 1234)"
                       required
                     />
@@ -151,38 +159,40 @@ export default function LoginPage() {
                 </div>
 
                 <div className="animate-fade-in">
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">OTP 코드 (2FA 인증)</label>
-                  <div className="relative">
-                    <LockKeyhole className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
+                  <label className="block text-xs font-bold text-[#17191e] mb-1.5">OTP 인증 코드 (2FA)</label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c94a4] flex items-center justify-center pointer-events-none z-10">
+                      <LockKeyhole size={18} />
+                    </span>
                     <input
                       type="text"
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                      className="w-full bg-[#f7f8fb] hover:bg-white focus:bg-white border border-[#eaedf4] focus:border-[#4262ff] rounded-xl py-3 !pl-11 pr-4 text-xs font-mono font-bold text-[#17191e] placeholder-[#8c94a4] focus:outline-none transition-all shadow-xs"
                       placeholder="6자리 숫자 (예: 123456)"
                       required
                     />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2 ml-1">※ 데모 테스트를 위해 OTP는 '123456'을 입력하세요.</p>
+                  <p className="text-[11px] text-[#8c94a4] mt-1.5 ml-1 flex items-center gap-1">
+                    <ShieldCheck size={13} className="text-[#4262ff]" />
+                    <span>데모 테스트 OTP: <b className="text-[#17191e]">123456</b></span>
+                  </p>
                 </div>
               </>
             )}
 
+            {/* KBank 시그니처 블루 로그인 버튼 */}
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 px-4 mt-4 bg-gradient-to-r text-white font-semibold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
-                loginType === 'SSO' 
-                ? 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-blue-600/20' 
-                : 'from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-600/20'
-              }`}
+              className="w-full py-3.5 px-4 mt-3 bg-[#4262ff] hover:bg-[#3452e6] active:bg-[#2b44d4] !text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <span>인증 확인 중...</span>
               ) : (
                 <>
-                  <span>{loginType === 'SSO' ? 'SSO로 빠른 로그인' : 'LDAP+OTP 안전 로그인'}</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span className="!text-white">{loginType === 'SSO' ? 'SSO로 빠른 로그인' : 'LDAP + OTP 안전 로그인'}</span>
+                  <ArrowRight size={15} className="!text-white" />
                 </>
               )}
             </button>
