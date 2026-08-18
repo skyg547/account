@@ -8,13 +8,13 @@ import { useNav } from "@/context/NavContext";
 
 /**
  * [메인 레이아웃 래퍼]
- * 사이드바 상태(접힘 여부)에 따라 메인 콘텐츠의 여백을 동적으로 조절합니다.
+ * 사이드바 상태(접힘 여부)에 따라 메인 콘텐츠의 여백을 동적으로 조절하며, 라이트/다크 테마를 지원합니다.
  */
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useNav();
 
   return (
-    <div className="flex bg-[#f7f8fb] min-h-screen selection:bg-[#4262ff]/15 selection:text-[#4262ff] overflow-x-hidden text-[#17191e]">
+    <div className="flex bg-[#f7f8fb] dark:bg-[#0b0f19] min-h-screen selection:bg-[#4262ff]/15 selection:text-[#4262ff] overflow-x-hidden text-[#17191e] dark:text-slate-100 transition-colors duration-300">
       {/* Sidebar - Fixed Left */}
       <Sidebar />
 
