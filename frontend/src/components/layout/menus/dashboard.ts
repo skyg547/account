@@ -8,7 +8,6 @@ export const dashboardMenu: MenuGroup[] = [
     module: 'dashboard',
     items: [
       { icon: 'LayoutDashboard', label: '통합 재무 현황', href: '/' },
-      { icon: 'HelpCircle', label: '고객센터 FAQ', href: '/customer/faq' },
     ],
   },
 ];
