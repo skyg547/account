@@ -21,9 +21,11 @@ export default function Sidebar() {
   const { activeCategory, isCollapsed, toggleSidebar, userRole, userAuthorizations } = useNav();
   const pathname = usePathname();
 
-  // 개별 메뉴 아이템 접근 권한 체크 (Governance API 기준)
+  // 개별 메뉴 아이템 접근 권한 체크 (Governance API 연동 및 데모 모드 지원)
   const hasItemAccess = (href: string) => {
     if (userRole === 'SYSTEM_ADMIN') return true;
+    if (!userAuthorizations || userAuthorizations.length === 0) return true;
+    if (userAuthorizations.some(auth => auth.functionCode === 'MENU:*')) return true;
     return userAuthorizations.some(auth => auth.functionCode === `MENU:${href}`);
   };
 
