@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Link from 'next/link';
 import { Bell, Search, User, Moon } from 'lucide-react';
 import { useNav, NavCategory } from '@/context/NavContext';
 
@@ -65,7 +66,7 @@ export default function TopHeader() {
           </button>
         </div>
 
-        <a href="/login" className="flex items-center gap-3 pl-5 border-l border-[#eaedf4] cursor-pointer group">
+        <Link href="/login" className="flex items-center gap-3 pl-5 border-l border-[#eaedf4] cursor-pointer group">
           <div className="text-right flex flex-col items-end">
             <div className="text-xs font-bold text-[#17191e] group-hover:text-[#4262ff] transition-colors leading-tight">관리자 세션</div>
             <div className="text-[10px] text-emerald-600 font-bold tracking-tight mt-0.5 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">인증 연동됨</div>
@@ -76,7 +77,7 @@ export default function TopHeader() {
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
           </div>
-        </a>
+        </Link>
       </div>
     </header>
   );

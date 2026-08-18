@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useSyncExternalStore } from 'react';
+import Link from 'next/link';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -220,9 +221,9 @@ export default function DashboardPage() {
               최근에 등록 및 검토 처리된 주요 전표 리스트
             </p>
           </div>
-          <a href="/ledger/list" className="text-xs font-bold text-[#4262ff] hover:text-[#3452e6] bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-lg transition-all border border-blue-200/50">
+          <Link href="/ledger/list" className="text-xs font-bold text-[#4262ff] hover:text-[#3452e6] bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-lg transition-all border border-blue-200/50">
             전표 전체보기 →
-          </a>
+          </Link>
         </div>
 
         <div className="space-y-2.5">
