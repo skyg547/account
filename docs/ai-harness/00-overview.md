@@ -40,6 +40,7 @@ This harness defines how AI agents work safely in the account project. The proje
 - `05-issue-1-compliance-audit.md`: Issue #1 compliance audit and remediation notes.
 - `10-rules.md`: mandatory rules.
 - `20-workflow.md`: end-to-end loop.
+- `25-issue-claim-verification.md`: verify an Issue's diagnosis before implementing it.
 - `30-agents.md`: agent roles.
 - `40-test-checklist.md`: verification checklist.
 - `45-ci-module-validation.md`: GitHub Actions changed-module test selection.

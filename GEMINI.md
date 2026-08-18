@@ -20,6 +20,7 @@
 - 사용자가 구현을 명시해도 `status:ready`인 GitHub Issue만 claim할 수 있다. 부모 Integrator에게 claim을 요청하고, 부모가 `status:in-progress`, `agent:gemini`, assignee 및 branch/worktree/base/allowlist 시작 댓글을 동기화했다고 확인할 때까지 편집하지 않는다. Gemini는 GitHub 상태를 직접 변경하지 않는다.
 - 다른 도구가 소유한 `status:in-progress` 또는 `status:blocked` Issue는 구현하지 않는다. 다른 `status:ready` Issue를 선택하거나 부모 Integrator가 기록한 handoff를 기다린다.
 - `status:needs-review` Issue에서는 독립 리뷰만 수행하고 구현 파일을 수정하지 않는다.
+- **Issue 구현을 맡으면 착수 전에 그 진단이 실제 코드와 맞는지 확인한다.** 절차는 `docs/ai-harness/25-issue-claim-verification.md`를 따른다. 진단이 틀렸으면 **구현하지 말고** 근거를 Issue에 기록한 뒤 종료를 제안한다. `agent-loop` 라벨 Issue는 추론된 증상을 적은 것이라 실제와 다른 사례가 반복 확인되었다.
 - Gemini는 Codex 변경분을 검수하고, 버그/회귀/아키텍처 위반/테스트 누락/문서 불일치를 우선순위별로 보고한다.
 - 리뷰 결과는 파일/라인 근거와 함께 작성하고, 재현 가능한 빌드/테스트 명령을 포함한다.
 - 리뷰 기록을 남기라는 요청이 있으면 `docs/WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
