@@ -18,7 +18,7 @@
 | --- | --- | --- | --- |
 | **Spec Author** | High Reasoning | 재현·근본원인·설계·대안기각·작업지시·allowlist·검증계획 작성 | 구현하지 않는다 |
 | **Implementer** | Fast/Low-Cost 또는 Balanced | 지시된 파일만 수정, 테스트 실행, Draft PR 생성 | 설계 판단, 범위 확장, 승인, 병합 |
-| **Reviewer / Integrator** | High Reasoning | 독립 검토, 승인, 병합, Issue 상태·라벨 갱신 | 구현 owner를 대신해 코드를 고치지 않는다 |
+| **Reviewer / Integrator** | High Reasoning | 독립 검토 후 **반려 또는 승인**, 병합, Issue 상태·라벨 갱신 | 구현 owner를 대신해 코드를 고치지 않는다 |
 
 Spec Author와 Reviewer는 같은 티어이나 **같은 세션이어서는 안 된다.** 자기 설계를 자기가
 검토하면 설계 전제의 오류가 그대로 통과한다.
@@ -143,9 +143,11 @@ make this repository public`). 즉 "required review", "required status check",
 - [`GEMINI.md`](../../GEMINI.md) — Gemini의 병합 금지 선언
 - [`CLAUDE.md`](../../CLAUDE.md), [`AGENTS.md`](../../AGENTS.md) — Claude/Codex 역할과 권한
 
-계약 파일이 이 문서보다 **더 엄격한** 제약을 선언하면 엄격한 쪽을 따른다. 예를 들어
-`GEMINI.md`는 Gemini의 PR을 사람이 직접 승인·병합하도록 요구하므로, Gemini 구현분에
-대해서는 상위 모델 Integrator 병합이 아니라 사람 병합이 적용된다.
+계약 파일이 이 문서보다 **더 엄격한** 제약을 선언하면 엄격한 쪽을 따른다.
+
+현재 `GEMINI.md`는 이 문서와 동일한 경계를 선언한다 — Gemini는 push와 PR 생성까지만 하고
+자기 PR을 승인하지 않으며, 검토·승인/반려·병합은 Codex 또는 Claude Code(상위 추론 모델)
+또는 사람이 수행한다. 리뷰어는 **반려와 병합 중 하나를 선택**한다.
 
 ## 6. CI 가드
 
