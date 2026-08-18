@@ -34,7 +34,7 @@
     letter-spacing: -0.015em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   ::selection {
@@ -108,4 +108,92 @@ input::placeholder, textarea::placeholder {
 
 .dark input::placeholder, .dark textarea::placeholder {
   color: #64748b;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * 1. LIGHT MODE AUTOMATIC THEME ENGINE (html:not(.dark))
+ * 모든 레거시 다크 클래스를 산뜻한 케이뱅크 퓨어 화이트 카드 & 소프트 그레이로 변환
+ * ───────────────────────────────────────────────────────────────────────── */
+html:not(.dark) [class*="bg-slate-950"],
+html:not(.dark) [class*="bg-slate-900"],
+html:not(.dark) [class*="bg-slate-800"],
+html:not(.dark) .glass-card {
+  background-color: #ffffff !important;
+  border-color: #eaedf4 !important;
+  color: #17191e !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02) !important;
+}
+
+html:not(.dark) [class*="border-white/"],
+html:not(.dark) [class*="border-slate-800"] {
+  border-color: #eaedf4 !important;
+}
+
+html:not(.dark) [class*="bg-white/"] {
+  background-color: #f7f8fb !important;
+  border-color: #eaedf4 !important;
+}
+
+html:not(.dark) [class*="text-white"],
+html:not(.dark) [class*="text-slate-100"],
+html:not(.dark) [class*="text-slate-200"] {
+  color: #17191e !important;
+}
+
+html:not(.dark) [class*="text-slate-300"],
+html:not(.dark) [class*="text-slate-400"] {
+  color: #545b69 !important;
+}
+
+html:not(.dark) [class*="text-slate-500"],
+html:not(.dark) [class*="text-slate-600"] {
+  color: #8c94a4 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * 2. DARK MODE AUTOMATIC THEME ENGINE (html.dark)
+ * 모든 화이트 카드 및 레거시 컨테이너를 프리미엄 슬레이트/네이비 다크 카드로 변환
+ * ───────────────────────────────────────────────────────────────────────── */
+html.dark [class*="bg-slate-950"],
+html.dark [class*="bg-slate-900"],
+html.dark [class*="bg-slate-800"],
+html.dark .bg-white,
+html.dark .glass-card {
+  background-color: #131b2e !important;
+  border-color: #1e293b !important;
+  color: #f8fafc !important;
+  backdrop-filter: none !important;
+}
+
+html.dark [class*="border-[#eaedf4]"],
+html.dark [class*="border-white/"],
+html.dark [class*="border-slate-800"],
+html.dark [class*="divide-[#eaedf4]"] {
+  border-color: #1e293b !important;
+}
+
+html.dark [class*="bg-[#f7f8fb]"],
+html.dark [class*="bg-white/"] {
+  background-color: #0b0f19 !important;
+  border-color: #1e293b !important;
+}
+
+html.dark [class*="text-[#17191e]"],
+html.dark [class*="text-slate-100"],
+html.dark [class*="text-slate-200"],
+html.dark [class*="text-white"] {
+  color: #f8fafc !important;
+}
+
+html.dark [class*="text-[#545b69]"],
+html.dark [class*="text-slate-300"],
+html.dark [class*="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+html.dark [class*="text-[#8c94a4]"],
+html.dark [class*="text-slate-500"],
+html.dark [class*="text-slate-600"] {
+  color: #64748b !important;
 }
