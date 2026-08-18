@@ -24,6 +24,7 @@
 - 리뷰 결과는 파일/라인 근거와 함께 작성하고, 재현 가능한 빌드/테스트 명령을 포함한다.
 - 리뷰 기록을 남기라는 요청이 있으면 `docs/WORKLOG.md`에 검수 요약을 남기되, 코드 수정은 Codex에게 넘긴다.
 - 테스트 미실행 항목은 원인과 영향 범위를 반드시 기록한다.
+- **Merge(병합) 권한 제한**: Gemini는 어떠한 경우에도 코드(PR)를 `main`, `master`, `develop` 브랜치로 스스로 Merge(병합)할 수 없다. 오직 브랜치 Push 및 PR(Pull Request) 생성까지만 허용되며, 최종 병합은 사람(사용자)의 직접 승인과 수동 Merge를 통해서만 이루어져야 한다.
 - Gemini는 검토/구현 결과를 전용 worklog 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
 
 ## Gemini Review Handoff
