@@ -1,7 +1,11 @@
-### 📅 2026-08-19 (GH-484: Apply K-Bank Modern Fintech Design System)
-- **Component**: `frontend/src/app/globals.css`, `tailwind.config.js`, `MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`, `app/page.tsx`
-- **Changes**: Transformed the frontend look-and-feel into the signature KBank modern fintech aesthetic: clean soft-gray canvas (`#f7f8fb`), pure white elevated cards (`#ffffff`, border `#eaedf4`, subtle shadow), KBank signature blue (`#4262ff`, light `#eef2ff`, border `#dbe3ff`), refined typography (`letter-spacing: -0.015em`), crisp text hierarchy (`#17191e`, `#545b69`, `#8c94a4`), and white-glass TopHeader and Sidebar navigation.
-- **Verification**: `npm run build` (122 routes 100% SUCCESSFUL).
+### 📅 2026-08-19 (GH-484: Apply K-Bank Modern Fintech Design System, Dual-Theme & Decoupled Navigation)
+- **Component**: `frontend/src/app/globals.css`, `ThemeContext.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `NavContext.tsx`, `menus/*.ts`, `frontend/docs/`
+- **Changes**: 
+  - Transformed frontend look-and-feel into signature KBank modern fintech aesthetic: clean soft-gray canvas (`#f7f8fb`), pure white cards (`#ffffff`), KBank signature blue (`#4262ff`), refined typography (`letter-spacing: -0.015em`), and robust global dual-theme engine (`html:not(.dark)` pure white vs `html.dark` navy dark card `#131b2e`).
+  - Decoupled combined menus and structured navigation into **6 Mega Business Groups** in TopHeader (eliminating horizontal scrollbars) while rendering all **16 discrete MSA module sections with tag badges** in Sidebar.
+  - Implemented 13 API domain services with 1.5s AbortController timeout fallback to resilient mock datasets.
+  - Created comprehensive master education guide (`frontend-core-education-guide.md`) and UI layout/screen specification (`ui-layout-and-screen-specification.md`).
+- **Verification**: `npm run build` (122 routes 100% SUCCESSFUL, 0 errors, 0 warnings). Independent subagent approved.
 
 ### 📅 2026-08-14 (Premium Mermaid Diagram & Visual Chart Enhancement)
 - **Component**: `README.md`, `docs/guides/master-domain-glossary.md`
