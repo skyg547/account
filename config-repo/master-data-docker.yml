@@ -1,0 +1,40 @@
+# docker 프로파일(개발 컨테이너) 전용 오버라이드입니다.
+#
+# master-data.yml은 프로파일과 무관하게 항상 적용되며 H2 인메모리를 지정하고 있습니다.
+# Spring Cloud Config에서 {application}-{profile}.yml은 {application}.yml보다 우선순위가
+# 높으므로, 컨테이너 실행에서만 PostgreSQL로 바꾸고 local/dev 경로는 건드리지 않습니다.
+#
+# 이 값들은 컨테이너 환경변수로 덮을 수 없습니다.
+# spring.cloud.config.override-system-properties가 기본 true라 Config Server가 내려준
+# 값이 환경변수를 이깁니다(#474/#475에서 Eureka defaultZone이 같은 함정에 걸렸습니다).
+# 따라서 접속 대상은 이 파일에서 placeholder로 받고, 실제 값은 컨테이너 환경변수로 넣습니다.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DEV_DB_HOST:account-postgres}:${DEV_DB_PORT:5432}/${DEV_DB_NAME:account_db}
+    driver-class-name: org.postgresql.Driver
+    username: ${DEV_DB_USER}
+    password: ${DEV_DB_PASSWORD}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      # 컨테이너가 스키마를 바꾸지 않습니다. 스키마 변경은 migration-runner 경로로만 합니다.
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    # account_db의 flyway_schema_history는 다른 컨텍스트가 관리합니다.
+    # 여기서 baseline-on-migrate를 켜면 남의 이력 위에 기준선을 잡게 됩니다.
+    enabled: false
+    clean-disabled: true
+    baseline-on-migrate: false
+  sql:
+    init:
+      mode: never
+  h2:
+    console:
+      enabled: false
+  data:
+    redis:
+      # 미지정 시 Spring Boot 기본값(localhost)으로 접속을 시도해 실제 Redis 컨테이너를
+      # 못 찾습니다(auth/docker-compose.yml에 같은 이유의 수정이 이미 있습니다).
+      host: ${REDIS_HOST:account-redis}
+      port: ${REDIS_PORT:6379}

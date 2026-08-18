@@ -22,6 +22,16 @@ services:
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - LOGSTASH_HOST=logstash
       - LOGSTASH_PORT=5000
+      # config-repo/master-data-docker.yml이 참조하는 placeholder입니다.
+      # datasource/redis 자체를 SPRING_* 환경변수로 지정하면 override-system-properties
+      # 때문에 Config Server 값에 덮이므로, 접속 대상만 이 이름으로 넘깁니다.
+      - DEV_DB_HOST=${DEV_DB_HOST:-account-postgres}
+      - DEV_DB_PORT=${DEV_DB_PORT:-5432}
+      - DEV_DB_NAME=${DEV_DB_NAME:-account_db}
+      - DEV_DB_USER=${DEV_DB_USER:?set DEV_DB_USER}
+      - DEV_DB_PASSWORD=${DEV_DB_PASSWORD:?set DEV_DB_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST:-account-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
       # Vault 서버가 없는 개발 환경에서는 비활성화하지 않으면 ClientAuthenticationFactory 생성 실패로
       # 기동 자체가 크래시합니다(auth/docker-compose.yml과 동일한 이유).
       - SPRING_CLOUD_VAULT_ENABLED=false
