@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 분개·원장 - backend: journal-ledger 모듈 */
 export const ledgerMenu: MenuGroup[] = [
   {
-    category: 'JOURNAL',
+    category: 'ACCOUNTING',
     group: '분개 및 원장 관리',
     module: 'journal-ledger',
     requiredRoles: ['ACCOUNTING_ADMIN', 'USER', 'SYSTEM_ADMIN', 'AUDITOR'],

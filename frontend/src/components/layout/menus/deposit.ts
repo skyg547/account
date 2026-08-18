@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 수신 및 법인계좌 관리 - backend: deposit 모듈 */
 export const depositMenu: MenuGroup[] = [
   {
-    category: 'DEPOSIT',
+    category: 'BANKING_ASSET',
     group: '수신 및 법인 예적금',
     module: 'deposit',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],

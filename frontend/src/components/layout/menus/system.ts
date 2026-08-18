@@ -3,8 +3,8 @@ import { MenuGroup } from './types';
 /** 시스템 및 보안 관리 - backend: auth, admin 모듈 */
 export const systemMenu: MenuGroup[] = [
   {
-    category: 'SYSTEM_SECURITY',
-    group: '시스템 계정 및 보안 통제',
+    category: 'GOVERNANCE_SYSTEM',
+    group: '시스템 계정 & 보안 통제 (admin/auth)',
     module: 'admin',
     requiredRoles: ['SYSTEM_ADMIN'],
     items: [

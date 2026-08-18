@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 고정자산 및 리스회계 - backend: asset-lease 모듈 */
 export const fairValueMenu: MenuGroup[] = [
   {
-    category: 'ASSET_LEASE',
+    category: 'BANKING_ASSET',
     group: '유형 및 무형 고정자산',
     module: 'asset-lease',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
@@ -15,7 +15,7 @@ export const fairValueMenu: MenuGroup[] = [
     ],
   },
   {
-    category: 'ASSET_LEASE',
+    category: 'BANKING_ASSET',
     group: 'IFRS 16 리스 회계',
     module: 'asset-lease',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],

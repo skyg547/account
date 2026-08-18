@@ -1,6 +1,6 @@
-# 📐 Account.AI 종합 화면 레이아웃 & 백엔드 MSA 모듈 1:1 완전 직결 화면 설계서
+# 📐 Account.AI 종합 화면 레이아웃 & 6대 메가 그룹 16대 모듈 화면 설계서
 
-본 문서는 **Account.AI 재무회계 및 자산운용 시스템**의 4단 반응형 레이아웃 구조와 **백엔드 16개 마이크로서비스(MSA) 모듈 경계와 1:1로 완전 분리된 16대 대메뉴 및 122개 화면 상세 명세서**입니다.
+본 문서는 **Account.AI 재무회계 및 자산운용 시스템**의 4단 반응형 레이아웃 구조와 **상단 6대 메가 비즈니스 그룹 + 사이드바 16개 마이크로서비스(MSA) 모듈 분리 체계 및 122개 화면 상세 명세서**입니다.
 
 ---
 
@@ -11,23 +11,23 @@
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │ 1. [TopHeader] (72px 고정, z-index: 90)                                            │
-│   • 백엔드 MSA 모듈 1:1 완전 분리 16대 대메뉴 바 (가로 스크롤 & 퀵 필터링)               │
-│     [대시보드] [분개·원장] [결산관리] [재무보고서] [지출·지급] [예산관리] [세무회계] ...     │
+│   • 스크롤바 제로! 한눈에 들어오는 6대 메가 그룹 바                                   │
+│     [📊 대시보드] [📝 회계·결산] [💳 자금·세무] [🏦 금융·자산] [📉 리스크·데이터] [⚙️ 거버넌스·시스템] │
 │   • 🔍 빠른 검색 │ 🌙/☀️ 다크·라이트 토글 버튼 │ 👤 사용자 프로필 & 세션                   │
 ├──────────────┬────────────────────────────────────────────────────────────────────┤
 │ 2. [Sidebar] │ 3. [Main Workspace] (최대 폭: 1600px, 반응형 그리드)                │
 │ (280px/80px) │                                                                    │
 │              │ ① [PageHeader]                                                     │
-│ 🏢 로고      │    • 빵부스러기(Breadcrumb): 대시보드 > 자금운영 > 선급금 관리     │
+│ 🏢 로고      │    • 빵부스러기(Breadcrumb): 회계·결산 > 결산 마감 > 결산 캘린더     │
 │ Account.AI   │    • 화면 타이틀, 업무 설명문, 화면 전용 액션 버튼                   │
 │              │                                                                    │
-│ 📂 업무 메뉴 │ ② [Summary KPI Metric Cards] (3~4열 그리드)                        │
-│ • 메뉴 1     │    • KBank 화이트 카드 (다크: 슬레이트 네이비 카드)                 │
-│ • 메뉴 2     │    • 핵심 재무 수치, 미결 잔액, 상태 뱃지                           │
-│ • 메뉴 3     │                                                                    │
+│ 📂 16대 모듈 │ ② [Summary KPI Metric Cards] (3~4열 그리드)                        │
+│ 🏷️ [closing] │    • KBank 화이트 카드 (다크: 슬레이트 네이비 카드)                 │
+│ • 결산 캘린더 │    • 핵심 재무 수치, 미결 잔액, 상태 뱃지                           │
+│ • 게이트 점검 │                                                                    │
 │              │ ③ [Main Data Area]                                                 │
-│ ⚙️ 시스템설정 │    • 검색/필터 바 (Tabs, Search Input, Date Picker)                 │
-│              │    • 금융 데이터 그리드 테이블 또는 Recharts 시각화 차트             │
+│ 🏷️ [reports] │    • 검색/필터 바 (Tabs, Search Input, Date Picker)                 │
+│ • 재무제표    │    • 금융 데이터 그리드 테이블 또는 Recharts 시각화 차트             │
 ├──────────────┴────────────────────────────────────────────────────────────────────┤
 │ 4. [Footer] (44px, 시스템 저작권 및 런타임 환경 상태 뱃지)                         │
 └───────────────────────────────────────────────────────────────────────────────────┘
@@ -35,48 +35,150 @@
 
 ---
 
-## 2. 🗂️ 백엔드 MSA 모듈 1:1 완전 분리 16대 대메뉴 & 화면 리스트 (122 Static Screens)
+## 2. 🗂️ 6대 메가 그룹 ↔ 16대 MSA 모듈 1:1 매핑 명세
 
 ```mermaid
 graph TD
-    Root["🌐 Account.AI (122개 정적 화면)"]
-    Root --> M1["1. 대시보드 (DASHBOARD) - BFF"]
-    Root --> M2["2. 분개·원장 (JOURNAL) - journal-ledger"]
-    Root --> M3["3. 결산관리 (CLOSING) - closing"]
-    Root --> M4["4. 재무보고서 (REPORTING) - reporting"]
-    Root --> M5["5. 지출·지급 (EXPENDITURE) - expenditure, payable, receivable"]
-    Root --> M6["6. 예산관리 (BUDGET) - budget"]
-    Root --> M7["7. 세무회계 (TAX) - tax"]
-    Root --> M8["8. 여신관리 (LOAN) - loan"]
-    Root --> M9["9. 수신관리 (DEPOSIT) - deposit"]
-    Root --> M10["10. 고정자산·리스 (ASSET_LEASE) - asset-lease"]
-    Root --> M11["11. 대손충당(ECL) (ECL) - ecl"]
-    Root --> M12["12. 회계대사 (RECONCILIATION) - reconciliation"]
-    Root --> M13["13. 데이터마트 (ACCOUNT_MART) - account-mart"]
-    Root --> M14["14. 기준정보 (MASTER) - master-data"]
-    Root --> M15["15. 내부통제·감사 (INTERNAL_AUDIT) - internal-audit"]
-    Root --> M16["16. 시스템·보안 (SYSTEM_SECURITY) - auth, admin"]
+    Root["🌐 Account.AI 6대 메가 그룹"]
+    Root --> G1["1. 대시보드 (DASHBOARD) - BFF"]
+    Root --> G2["2. 회계·결산 (ACCOUNTING)"]
+    Root --> G3["3. 자금·세무 (OPERATIONS)"]
+    Root --> G4["4. 금융·자산 (BANKING_ASSET)"]
+    Root --> G5["5. 리스크·데이터 (RISK_DATA)"]
+    Root --> G6["6. 거버넌스·시스템 (GOVERNANCE_SYSTEM)"]
+
+    G2 --> M1["🏷️ journal-ledger (분개 및 원장)"]
+    G2 --> M2["🏷️ closing (결산 마감)"]
+    G2 --> M3["🏷️ reporting (재무제표 및 보고서)"]
+
+    G3 --> M4["🏷️ expenditure-resolution / payable (지출 및 지급)"]
+    G3 --> M5["🏷️ budget (예산 및 자금수지)"]
+    G3 --> M6["🏷️ tax (세무 및 세금계산서)"]
+
+    G4 --> M7["🏷️ loan (여신 및 대출)"]
+    G4 --> M8["🏷️ deposit (수신 및 법인계좌)"]
+    G4 --> M9["🏷️ asset-lease (고정자산 및 리스회계)"]
+
+    G5 --> M10["🏷️ ecl (IFRS 9 대손충당금)"]
+    G5 --> M11["🏷️ reconciliation (원장 자동 대사)"]
+    G5 --> M12["🏷️ account-mart (재무 데이터마트)"]
+
+    G6 --> M13["🏷️ master-data (계정과목 & 거래처)"]
+    G6 --> M14["🏷️ internal-audit (내부통제 & 감사)"]
+    G6 --> M15["🏷️ admin / auth (시스템 & 보안)"]
 ```
 
 ---
 
-### 📋 16대 완전 분리 대메뉴 세부 화면 매핑
+### 📋 6대 그룹별 16개 마이크로서비스 상세 화면 목록
 
-| 대메뉴 ID | 대메뉴 명칭 | 매핑 백엔드 모듈 | 포함 화면 URL 경로 | 주요 기능 |
-| :--- | :--- | :--- | :--- | :--- |
-| **`DASHBOARD`** | **대시보드** | `BFF` | `/`, `/login`, `/profile/pat` | 통합 재무 현황, SSO/MFA 로그인, PAT 토큰 발급 |
-| **`JOURNAL`** | **분개·원장** | `journal-ledger` | `/ledger/entry`, `/ledger/list`, `/ledger/gl`, `/ledger/sl`, `/ledger/rules`, `/ledger/unsettled` | 전표입력, 전표조회, 총계정원장(GL), 보조원장(SL), 자동분개, 미결정산 |
-| **`CLOSING`** | **결산관리** | `closing` | `/closing/calendar`, `/closing/tasks`, `/closing/gates`, `/closing/period-lock`, `/closing/valuation`, `/closing/adjustment`, `/closing/annual` | 결산일정, 태스크, 게이트검증, 마감잠금, 외화평가, 결산조정, 연차결산 |
-| **`REPORTING`** | **재무보고서** | `reporting` | `/reports/statements`, `/reports/export`, `/reports/disclosure-notes`, `/reports/regulatory` | 재무제표(BS/PL/CF), 비동기 엑셀내보내기, IFRS 주석마트, 금감원 규제보고서 |
-| **`EXPENDITURE`**| **지출·지급** | `expenditure-resolution`, `payable`, `receivable` | `/expenditure/resolution`, `/expenditure/approval`, `/expenditure/payment`, `/expenditure/advance`, `/expenditure/payable`, `/expenditure/receivable`, `/expenditure/collection` | 지출결의서, 전자승인, 지급실행, 선급금, 매입채무(AP), 매출채권(AR), 수금 |
-| **`BUDGET`** | **예산관리** | `budget` | `/expenditure/budget`, `/expenditure/cashflow` | 부서별 연간 예산 편성 및 집행 통제, 일일 자금수지 계획표 |
-| **`TAX`** | **세무회계** | `tax` | `/tax/purchase`, `/tax/sales`, `/tax/vat`, `/tax/nts-verification` | 매입/매출 세금계산서, 부가세 신고서, 국세청 홈택스 진위확인 |
-| **`LOAN`** | **여신관리** | `loan` | `/loan/contracts`, `/loan/disbursal`, `/loan/deferred`, `/loan/amortization`, `/loan/events` | 대출 계약 원장, 대출 실행, 이연수수료, EIR 상환 스케줄러, 이벤트 처리 |
-| **`DEPOSIT`** | **수신관리** | `deposit` | `/loan/deposit` | 법인 정기예금/MMF 계좌 원장 및 만기 해지 |
-| **`ASSET_LEASE`**| **고정자산·리스** | `asset-lease` | `/fair-value/assets`, `/fair-value/depreciation`, `/fair-value/disposal`, `/fair-value/revaluation`, `/fair-value/lease`, `/fair-value/lease-monthly`, `/fair-value/lease-remeasure` | 유형/무형 고정자산, 감가상각, 처분/재평가, IFRS 16 리스계약 및 월차결산 |
-| **`ECL`** | **대손충당(ECL)** | `ecl` | `/ecl/batch`, `/ecl/exposures`, `/ecl/parameters`, `/ecl/results`, `/ecl/ead` | IFRS 9 ECL 대손충당금 산출 관제탑, 익스포저, PD/LGD 파라미터, EAD 엔진 |
-| **`RECONCILIATION`**| **회계대사** | `reconciliation` | `/mart/reconciliation-setup`, `/mart/reconciliation-run`, `/mart/reconciliation-diff` | 원장-보조원장 일일 자동 대사 규칙 설정, 대사 실행, 차이 원인 해소 |
-| **`ACCOUNT_MART`**| **데이터마트** | `account-mart` | `/mart/explorer`, `/mart/dq-audit`, `/mart/exchange-rates`, `/mart/market-rates`, `/mart/yield-curves` | 재무 데이터마트 탐색기, DQ 품질 감사, 실시간 환율, 시장금리, 수익률곡선 |
-| **`MASTER`** | **기준정보** | `master-data` | `/account-code/tree`, `/account-code/manage`, `/account-code/products`, `/partner/list`, `/master-data/partner`, `/system/departments` | 계정과목 Tree, 상품코드, 거래처 원장/승인, 조직/부서 관리 |
-| **`INTERNAL_AUDIT`**| **내부통제·감사**| `internal-audit` | `/governance/audit-logs`, `/governance/rbac`, `/governance/controls` | 감사 추적 로그, 역할/권한 매트릭스(RBAC), 내부회계 K-SOX 통제 체크리스트 |
-| **`SYSTEM_SECURITY`**| **시스템·보안** | `auth`, `admin` | `/system/users`, `/system/menus`, `/system/tokens`, `/system/logs` | 사용자 계정 관리, 메뉴 권한 관리, PAT 토큰 거버넌스, 시스템 로그 |
+#### ① 대시보드 (`DASHBOARD`)
+* **매핑 모듈**: `BFF (Frontend)`
+* **화면 목록**:
+  * `/`: 통합 재무 현황 (KPI 카드, 자산/부채 추이 차트, 최근 전표)
+  * `/login`: 통합 로그인/인증 (SSO, LDAP + OTP 2단계 MFA)
+  * `/profile/pat`: 개발자/운영자용 PAT 토큰 발급 및 거버넌스
+
+#### ② 회계·결산 (`ACCOUNTING`)
+* **포함 백엔드 모듈**: `journal-ledger`, `closing`, `reporting`
+* **사이드바 독립 섹션 & 화면**:
+  * **[journal-ledger] 분개 및 원장 관리**:
+    * `/ledger/entry`: 전표 입력 (대차평형 자동 검증)
+    * `/ledger/list`: 전표 조회 및 라인 검토
+    * `/ledger/gl`: 총계정원장(GL) 총괄 시산표
+    * `/ledger/sl`: 보조원장(SL) 세부 원면
+    * `/ledger/rules`: 자동 분개 규칙 템플릿
+    * `/ledger/unsettled`: 미결항목 정리 및 반제
+  * **[closing] 결산 마감 프로세스**:
+    * `/closing/calendar`: 결산 일정 캘린더
+    * `/closing/tasks`: 결산 태스크 진행 관리
+    * `/closing/gates`: 결산 사전 검증 게이트
+    * `/closing/period-lock`: 회계 기수별 전표 마감 잠금
+    * `/closing/valuation`: 외화 환산손익 평가 배치
+    * `/closing/adjustment`: 결산 조정 전표 발행
+    * `/closing/annual`: 연차 결산 및 이월
+  * **[reporting] 재무제표 및 공시 보고서**:
+    * `/reports/statements`: 재무제표(BS/PL/CF) 조회
+    * `/reports/export`: 보고서 비동기 내보내기
+    * `/reports/disclosure-notes`: IFRS 주석 정보 마트
+    * `/reports/regulatory`: 금감원 규제 보고 제출
+
+#### ③ 자금·세무 (`OPERATIONS`)
+* **포함 백엔드 모듈**: `expenditure-resolution`, `payable`, `receivable`, `budget`, `tax`
+* **사이드바 독립 섹션 & 화면**:
+  * **[expenditure-resolution / payable] 지출 및 지급 집행**:
+    * `/expenditure/resolution`: 지출결의서 작성
+    * `/expenditure/approval`: 지출 전자 결재 승인
+    * `/expenditure/payment`: 지급 실행 (Payment Run)
+    * `/expenditure/advance`: 선급금 관리 및 AP 상계
+    * `/expenditure/payable`: 매입채무(AP) 만기 관리
+    * `/expenditure/receivable`: 매출채권(AR) 연령 분석
+    * `/expenditure/collection`: 수금 관리 및 가상계좌 대사
+  * **[budget] 예산 및 자금수지**:
+    * `/expenditure/budget`: 부서별 연간 예산 편성 및 집행 통제
+    * `/expenditure/cashflow`: 일일 자금수지 계획표
+  * **[tax] 세무 및 세금계산서**:
+    * `/tax/purchase`: 매입 세금계산서 관리
+    * `/tax/sales`: 매출 전자세금계산서 발행
+    * `/tax/vat`: 부가세 신고서
+    * `/tax/nts-verification`: 국세청 홈택스 진위확인
+
+#### ④ 금융·자산 (`BANKING_ASSET`)
+* **포함 백엔드 모듈**: `loan`, `deposit`, `asset-lease`
+* **사이드바 독립 섹션 & 화면**:
+  * **[loan] 여신 및 대출 관리**:
+    * `/loan/contracts`: 대출 계약 원장
+    * `/loan/disbursal`: 대출 실행 및 계좌 입금
+    * `/loan/deferred`: 이연 대출 수수료/원가
+    * `/loan/amortization`: EIR 상환 스케줄러
+    * `/loan/events`: 대출 중도상환/만기연장 이벤트
+  * **[deposit] 수신 및 법인 예적금**:
+    * `/loan/deposit`: 법인 정기예금/MMF 계좌 원장
+  * **[asset-lease] 고정자산 및 IFRS 16 리스**:
+    * `/fair-value/assets`: 유형/무형 고정자산 대장
+    * `/fair-value/depreciation`: 감가상각 실행
+    * `/fair-value/disposal`: 자산 매각/처분/폐기
+    * `/fair-value/revaluation`: 공정가치 재평가/손상
+    * `/fair-value/lease`: IFRS 16 리스 계약
+    * `/fair-value/lease-monthly`: 리스 월차 결산
+    * `/fair-value/lease-remeasure`: 리스 재측정
+
+#### ⑤ 리스크·데이터 (`RISK_DATA`)
+* **포함 백엔드 모듈**: `ecl`, `reconciliation`, `account-mart`
+* **사이드바 독립 섹션 & 화면**:
+  * **[ecl] IFRS 9 대손충당금**:
+    * `/ecl/batch`: ECL 대량 산출 관제탑
+    * `/ecl/exposures`: 여신 신용 익스포저(EAD) 분석
+    * `/ecl/parameters`: PD/LGD 모델 파라미터
+    * `/ecl/results`: IFRS 9 기대신용손실 산출 결과
+    * `/ecl/ead`: EAD 엔진 검증 및 스트레스 테스트
+  * **[reconciliation] 원장·보조원장 자동 대사**:
+    * `/mart/reconciliation-setup`: 대사 규칙 설정
+    * `/mart/reconciliation-run`: 대사 배치 실행
+    * `/mart/reconciliation-diff`: 차이 원인 분석 및 해소
+  * **[account-mart] 재무 데이터 마트 & 시장정보**:
+    * `/mart/explorer`: 마트 탐색기
+    * `/mart/dq-audit`: DQ 품질 감사
+    * `/mart/exchange-rates`: 실시간 환율 관리
+    * `/mart/market-rates`: 시장금리 관리
+    * `/mart/yield-curves`: 국고채 무위험 수익률곡선
+
+#### ⑥ 거버넌스·시스템 (`GOVERNANCE_SYSTEM`)
+* **포함 백엔드 모듈**: `master-data`, `internal-audit`, `admin`, `auth`
+* **사이드바 독립 섹션 & 화면**:
+  * **[master-data] 기준정보 관리**:
+    * `/account-code/tree`: 표준 계정과목 Tree
+    * `/account-code/manage`: 계정과목 등록/수정
+    * `/account-code/products`: 상품 코드 관리
+    * `/partner/list`: 거래처 조회/등록
+    * `/master-data/partner`: 거래처 변경 승인
+    * `/system/departments`: 조직 및 부서 관리
+  * **[internal-audit] 내부통제 & 감사**:
+    * `/governance/audit-logs`: 감사 추적 로그 탐색기
+    * `/governance/rbac`: 역할/권한 매트릭스(RBAC)
+    * `/governance/controls`: 내부회계 K-SOX 점검 체크리스트
+  * **[admin/auth] 시스템 계정 & 보안**:
+    * `/system/users`: 사용자 계정 관리
+    * `/system/menus`: 메뉴 권한 관리
+    * `/system/tokens`: PAT 토큰 거버넌스
+    * `/system/logs`: 시스템 실행 로그

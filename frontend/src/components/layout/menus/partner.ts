@@ -3,8 +3,8 @@ import { MenuGroup } from './types';
 /** 거래처 및 조직 기준정보 - backend: master-data 모듈 */
 export const partnerMenu: MenuGroup[] = [
   {
-    category: 'MASTER',
-    group: '거래처 및 조직 정보',
+    category: 'GOVERNANCE_SYSTEM',
+    group: '거래처 및 조직 정보 (master-data)',
     module: 'master-data',
     requiredRoles: ['MASTER_MANAGER', 'ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [

@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 여신 및 대출 관리 - backend: loan 모듈 */
 export const loanMenu: MenuGroup[] = [
   {
-    category: 'LOAN',
+    category: 'BANKING_ASSET',
     group: '여신 및 대출 계약 관리',
     module: 'loan',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'RISK_MANAGER'],

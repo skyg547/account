@@ -3,26 +3,16 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /**
- * [백엔드 MSA 모듈 1:1 완전 분리형 내비게이션 카테고리 정의]
- * 결산/보고, 지출/예산, 대사/데이터마트, 내부통제/시스템보안을 완전히 개별 독립 탭으로 분리
+ * [상단 6대 메가 비즈니스 그룹 정의]
+ * 스크롤바 없이 한눈에 들어오는 최상위 6대 그룹입니다.
  */
 export type NavCategory = 
-  | 'DASHBOARD'           // 대시보드 (통합 재무 현황)
-  | 'JOURNAL'             // 분개·원장 (backend: journal-ledger)
-  | 'CLOSING'             // 결산관리 (backend: closing)
-  | 'REPORTING'           // 재무보고서 (backend: reporting)
-  | 'EXPENDITURE'         // 지출·지급 (backend: expenditure-resolution, payable, receivable)
-  | 'BUDGET'              // 예산관리 (backend: budget)
-  | 'TAX'                 // 세무회계 (backend: tax)
-  | 'LOAN'                // 여신관리 (backend: loan)
-  | 'DEPOSIT'             // 수신관리 (backend: deposit)
-  | 'ASSET_LEASE'         // 고정자산·리스 (backend: asset-lease)
-  | 'ECL'                 // 대손충당(ECL) (backend: ecl)
-  | 'RECONCILIATION'      // 회계대사 (backend: reconciliation)
-  | 'ACCOUNT_MART'        // 데이터마트 (backend: account-mart)
-  | 'MASTER'              // 기준정보 (backend: master-data)
-  | 'INTERNAL_AUDIT'      // 내부통제·감사 (backend: internal-audit)
-  | 'SYSTEM_SECURITY';    // 시스템·보안 (backend: auth, admin)
+  | 'DASHBOARD'           // 📊 대시보드 (통합 재무 현황)
+  | 'ACCOUNTING'          // 📝 회계·결산 (journal-ledger, closing, reporting)
+  | 'OPERATIONS'          // 💳 자금·세무 (expenditure, payable, receivable, budget, tax)
+  | 'BANKING_ASSET'       // 🏦 금융·자산 (loan, deposit, asset-lease)
+  | 'RISK_DATA'           // 📉 리스크·데이터 (ecl, reconciliation, account-mart)
+  | 'GOVERNANCE_SYSTEM';  // ⚙️ 거버넌스·시스템 (master-data, internal-audit, admin, auth)
 
 /**
  * [보안 역할 정의]

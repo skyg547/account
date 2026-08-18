@@ -3,8 +3,8 @@ import { MenuGroup } from './types';
 /** 원장·보조원장 자동 대사 - backend: reconciliation 모듈 */
 export const reconciliationMenu: MenuGroup[] = [
   {
-    category: 'RECONCILIATION',
-    group: '원장·보조원장 자동 대사',
+    category: 'RISK_DATA',
+    group: '원장·보조원장 자동 대사 (reconciliation)',
     module: 'reconciliation',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [

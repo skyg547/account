@@ -1,9 +1,9 @@
 import { MenuGroup } from './types';
 
-/** 재무제표 및 규제 보고서 - backend: reporting 모듈 */
+/** 재무제표 및 공시 보고서 - backend: reporting 모듈 */
 export const reportsMenu: MenuGroup[] = [
   {
-    category: 'REPORTING',
+    category: 'ACCOUNTING',
     group: '재무제표 및 공시 보고서',
     module: 'reporting',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'],

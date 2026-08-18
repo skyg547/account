@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 지출 및 채권채무 관리 - backend: expenditure-resolution, payable, receivable 모듈 */
 export const expenditureMenu: MenuGroup[] = [
   {
-    category: 'EXPENDITURE',
+    category: 'OPERATIONS',
     group: '지출 및 지급 집행',
     module: 'expenditure-resolution',
     requiredRoles: ['ACCOUNTING_ADMIN', 'USER', 'SYSTEM_ADMIN'],
@@ -15,7 +15,7 @@ export const expenditureMenu: MenuGroup[] = [
     ],
   },
   {
-    category: 'EXPENDITURE',
+    category: 'OPERATIONS',
     group: '채권 및 채무 관리',
     module: 'payable',
     requiredRoles: ['ACCOUNTING_ADMIN', 'USER', 'SYSTEM_ADMIN'],

@@ -3,8 +3,8 @@ import { MenuGroup } from './types';
 /** 재무 데이터 마트 & 시장정보 - backend: account-mart 모듈 */
 export const martMenu: MenuGroup[] = [
   {
-    category: 'ACCOUNT_MART',
-    group: '재무 데이터 마트 및 시장정보',
+    category: 'RISK_DATA',
+    group: '재무 데이터 마트 & 시장정보 (account-mart)',
     module: 'account-mart',
     requiredRoles: ['RISK_MANAGER', 'RISK_ANALYST', 'ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],
     items: [

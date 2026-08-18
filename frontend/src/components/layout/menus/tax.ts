@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 세무회계 - backend: tax 모듈 */
 export const taxMenu: MenuGroup[] = [
   {
-    category: 'TAX',
+    category: 'OPERATIONS',
     group: '전자세금계산서 및 부가세',
     module: 'tax',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],

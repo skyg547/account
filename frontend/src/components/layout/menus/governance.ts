@@ -3,8 +3,8 @@ import { MenuGroup } from './types';
 /** 내부통제 및 감사 - backend: internal-audit 모듈 */
 export const governanceMenu: MenuGroup[] = [
   {
-    category: 'INTERNAL_AUDIT',
-    group: '내부회계관리제도(K-SOX) & 감사',
+    category: 'GOVERNANCE_SYSTEM',
+    group: '내부회계관리제도 & 감사 (internal-audit)',
     module: 'internal-audit',
     requiredRoles: ['AUDITOR', 'SYSTEM_ADMIN'],
     items: [

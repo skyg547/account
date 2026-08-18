@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 예산 및 자금수지 관리 - backend: budget 모듈 */
 export const budgetMenu: MenuGroup[] = [
   {
-    category: 'BUDGET',
+    category: 'OPERATIONS',
     group: '예산 편성 및 집행 통제',
     module: 'budget',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN'],

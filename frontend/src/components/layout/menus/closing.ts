@@ -3,7 +3,7 @@ import { MenuGroup } from './types';
 /** 결산관리 - backend: closing 모듈 */
 export const closingMenu: MenuGroup[] = [
   {
-    category: 'CLOSING',
+    category: 'ACCOUNTING',
     group: '결산 마감 프로세스',
     module: 'closing',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'],
