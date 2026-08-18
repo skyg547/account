@@ -13,6 +13,7 @@ export const systemMenu: MenuGroup[] = [
       { icon: 'Layers',   label: '메뉴 권한 관리', href: '/system/menus' },
       { icon: 'KeyRound', label: 'PAT 토큰 거버넌스', href: '/system/tokens' },
       { icon: 'FileText', label: '시스템 로그',    href: '/system/logs' },
+      { icon: 'HelpCircle', label: '고객지원 FAQ', href: '/customer/faq' },
     ],
   },
 ];

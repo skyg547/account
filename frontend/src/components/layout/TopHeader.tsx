@@ -1,7 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Bell, Search, User, Moon } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Search, User, Moon, HelpCircle } from 'lucide-react';
 import { useNav, NavCategory } from '@/context/NavContext';
 
 /**
@@ -56,6 +57,14 @@ export default function TopHeader() {
         </div>
         
         <div className="flex items-center gap-3 pr-2">
+          <Link
+            href="/customer/faq"
+            className="h-10 px-3.5 rounded-xl flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 border border-white/5 hover:border-blue-500/30 transition-all group"
+            title="고객센터 자주 묻는 질문(FAQ)"
+          >
+            <HelpCircle size={17} className="text-[#4262ff] group-hover:scale-110 transition-transform" />
+            <span className="hidden md:inline">고객센터</span>
+          </Link>
           <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/5 transition-all relative group">
             <Moon size={18} className="group-hover:rotate-12 transition-transform" />
           </button>
