@@ -3,21 +3,26 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /**
- * [백엔드 MSA 모듈 직결 내비게이션 카테고리 정의]
- * 백엔드 16개 마이크로서비스 모듈 경계와 1:1로 매핑되는 상단 대메뉴입니다.
+ * [백엔드 MSA 모듈 1:1 완전 분리형 내비게이션 카테고리 정의]
+ * 결산/보고, 지출/예산, 대사/데이터마트, 내부통제/시스템보안을 완전히 개별 독립 탭으로 분리
  */
 export type NavCategory = 
   | 'DASHBOARD'           // 대시보드 (통합 재무 현황)
   | 'JOURNAL'             // 분개·원장 (backend: journal-ledger)
-  | 'CLOSING'             // 결산·보고 (backend: closing, reporting)
-  | 'EXPENDITURE'         // 지출·지급·예산 (backend: expenditure-resolution, payable, receivable, budget)
+  | 'CLOSING'             // 결산관리 (backend: closing)
+  | 'REPORTING'           // 재무보고서 (backend: reporting)
+  | 'EXPENDITURE'         // 지출·지급 (backend: expenditure-resolution, payable, receivable)
+  | 'BUDGET'              // 예산관리 (backend: budget)
   | 'TAX'                 // 세무회계 (backend: tax)
-  | 'LOAN'                // 여신·수신 (backend: loan, deposit)
-  | 'ASSET_LEASE'         // 자산·리스 (backend: asset-lease)
-  | 'ECL'                 // 대손충당금/리스크 (backend: ecl)
-  | 'MART_RECON'          // 대사·데이터마트 (backend: account-mart, reconciliation)
+  | 'LOAN'                // 여신관리 (backend: loan)
+  | 'DEPOSIT'             // 수신관리 (backend: deposit)
+  | 'ASSET_LEASE'         // 고정자산·리스 (backend: asset-lease)
+  | 'ECL'                 // 대손충당(ECL) (backend: ecl)
+  | 'RECONCILIATION'      // 회계대사 (backend: reconciliation)
+  | 'ACCOUNT_MART'        // 데이터마트 (backend: account-mart)
   | 'MASTER'              // 기준정보 (backend: master-data)
-  | 'AUDIT_SYSTEM';       // 내부통제·시스템 (backend: internal-audit, auth)
+  | 'INTERNAL_AUDIT'      // 내부통제·감사 (backend: internal-audit)
+  | 'SYSTEM_SECURITY';    // 시스템·보안 (backend: auth, admin)
 
 /**
  * [보안 역할 정의]
@@ -80,7 +85,6 @@ export function NavProvider({ children }: { children: ReactNode }) {
       }
 
       if (!GOVERNANCE_API_BASE_URL) {
-        // API Base URL이 설정되지 않은 로컬 독립 모드
         setUserAuthorizations(DEFAULT_ALL_ACCESS);
         setIsGovernanceConnected(false);
         return;
@@ -104,7 +108,6 @@ export function NavProvider({ children }: { children: ReactNode }) {
           setIsGovernanceConnected(false);
         }
       } catch {
-        // 네트워크 에러 또는 타임아웃 발생 시 안전하게 전체 데모 접근으로 폴백
         setUserAuthorizations(DEFAULT_ALL_ACCESS);
         setIsGovernanceConnected(false);
       }
