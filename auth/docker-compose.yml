@@ -19,11 +19,37 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD}
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - SPRING_CLOUD_CONFIG_ENABLED=false
-      - SPRING_CLOUD_DISCOVERY_ENABLED=false
-      - SPRING_CLOUD_LOADBALANCER_ENABLED=false
+      # account_db는 여러 컨텍스트가 공유하는 개발 DB라 flyway_schema_history에
+      # auth jar가 모르는 이력이 들어 있습니다. Flyway를 켠 채로 컨테이너를 재생성하면
+      # "Detected applied migration not resolved locally"로 기동이 실패합니다.
+      # 루트 docker-compose.yml:22와 auth/api의 application-dev.yml:8-10이 정한
+      # 개발 컨테이너 계약과 동일하게 끕니다. 스키마 변경은 migration-runner 경로로만 합니다.
+      - SPRING_FLYWAY_ENABLED=false
+      # AuthModuleProperties가 fail-closed로 요구합니다. 이 변수 없이는 기동이 실패합니다.
+      # Gateway가 같은 비밀키로 JWT를 검증하므로 gateway/docker-compose.yml의
+      # AUTH_JWT_SECRET과 반드시 같은 값이어야 합니다.
+      # 값은 저장소에 기록하지 않고 미설정 시 기동을 실패시킵니다.
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}
+      # 같은 fail-closed 검증 대상입니다. 내부 API 호출용 토큰으로 값은 커밋하지 않습니다.
+      - AUTH_INTERNAL_API_TOKEN=${AUTH_INTERNAL_API_TOKEN:?set AUTH_INTERNAL_API_TOKEN}
+      # config-repo/auth-service.yml의 eureka service-url을 받기 위해 켭니다.
+      # eureka.client.service-url이 Map이라 환경변수 이름이 키를 defaultzone으로
+      # 소문자화해 버려 Eureka가 찾는 defaultZone과 일치하지 않습니다.
+      # 그래서 이 저장소는 discovery/gateway/master-data 모두 YAML 안의
+      # ${EUREKA_DEFAULT_ZONE:...} placeholder를 쓰는 방식으로 통일되어 있습니다.
+      - SPRING_CLOUD_CONFIG_ENABLED=true
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888/
+      - EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/
+      - SPRING_CLOUD_DISCOVERY_ENABLED=true
+      - SPRING_CLOUD_LOADBALANCER_ENABLED=true
       - SPRING_CLOUD_VAULT_ENABLED=false
-      - EUREKA_CLIENT_ENABLED=false
+      # Gateway의 auth-login-api 라우트가 uri: lb://auth-service로 되어 있어
+      # auth가 Eureka에 등록되지 않으면 /api/auth/login이 503이 됩니다.
+      # Gateway의 토큰 버전 검증(AUTH_TOKEN_VERSION_VALIDATION_BASE_URL)도 같은 주소를 씁니다.
+      # jar 내부 application.yml:25-27의 eureka.client.enabled=false를 덮습니다.
+      # 이 이름은 단일 boolean이라 환경변수 relaxed binding이 정상 동작합니다.
+      # (위 service-url처럼 Map 키가 아니라서 대소문자 문제가 없습니다)
+      - EUREKA_CLIENT_ENABLED=true
       # 미지정 시 Spring Boot 기본값(localhost)으로 접속을 시도해 실제 Redis 컨테이너를 못 찾던 문제 수정
       - SPRING_DATA_REDIS_HOST=account-redis
       - SPRING_DATA_REDIS_PORT=6379
