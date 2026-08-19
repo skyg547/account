@@ -3,17 +3,16 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /**
- * [내비게이션 카테고리 정의]
- * 상단 헤더에서 선택할 수 있는 7개 대분류입니다.
+ * [상단 6대 메가 비즈니스 그룹 정의]
+ * 스크롤바 없이 한눈에 들어오는 최상위 6대 그룹입니다.
  */
 export type NavCategory = 
-  | 'DASHBOARD'    // 대시보드
-  | 'ACCOUNTING'   // 재무회계 (원장, 결산, 보고서)
-  | 'OPERATIONS'   // 자금운영 (지출, 세무)
-  | 'CREDIT'       // 여신·자산 (대출/이연, 공정가치)
-  | 'RISK'         // 리스크·데이터 (ECL, 마트/대사)
-  | 'MASTER'       // 기준정보 (계정과목, 거래처)
-  | 'SYSTEM';      // 시스템관리 (내부회계, 사용자/부서)
+  | 'DASHBOARD'           // 📊 대시보드 (통합 재무 현황)
+  | 'ACCOUNTING'          // 📝 회계·결산 (journal-ledger, closing, reporting)
+  | 'OPERATIONS'          // 💳 자금·세무 (expenditure, payable, receivable, budget, tax)
+  | 'BANKING_ASSET'       // 🏦 금융·자산 (loan, deposit, asset-lease)
+  | 'RISK_DATA'           // 📉 리스크·데이터 (ecl, reconciliation, account-mart)
+  | 'GOVERNANCE_SYSTEM';  // ⚙️ 거버넌스·시스템 (master-data, internal-audit, admin, auth)
 
 /**
  * [보안 역할 정의]
@@ -76,7 +75,6 @@ export function NavProvider({ children }: { children: ReactNode }) {
       }
 
       if (!GOVERNANCE_API_BASE_URL) {
-        // API Base URL이 설정되지 않은 로컬 독립 모드
         setUserAuthorizations(DEFAULT_ALL_ACCESS);
         setIsGovernanceConnected(false);
         return;
@@ -99,8 +97,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
           setUserAuthorizations(DEFAULT_ALL_ACCESS);
           setIsGovernanceConnected(false);
         }
-      } catch (e) {
-        // 백엔드 미구동 시 조용히 Mock 권한으로 안전하게 폴백
+      } catch {
         setUserAuthorizations(DEFAULT_ALL_ACCESS);
         setIsGovernanceConnected(false);
       }
@@ -110,15 +107,15 @@ export function NavProvider({ children }: { children: ReactNode }) {
   }, [userRole]);
 
   return (
-    <NavContext.Provider value={{ 
-      activeCategory, 
-      setActiveCategory, 
-      isCollapsed, 
+    <NavContext.Provider value={{
+      activeCategory,
+      setActiveCategory,
+      isCollapsed,
       toggleSidebar,
       userRole,
       setUserRole,
       userAuthorizations,
-      isGovernanceConnected
+      isGovernanceConnected,
     }}>
       {children}
     </NavContext.Provider>
