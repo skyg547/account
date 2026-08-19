@@ -16,6 +16,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
+    // 이 의존성이 없으면 spring.config.import의 configserver: 스킴을 해석할 수 없고,
+    // optional: 접두사가 그 실패를 조용히 삼켜 config-repo/gateway-service.yml이
+    // 통째로 무시됩니다. 라우트와 Eureka defaultZone이 전부 그 파일에 있습니다.
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'com.github.ben-manes.caffeine:caffeine'
