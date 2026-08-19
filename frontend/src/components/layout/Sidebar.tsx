@@ -67,9 +67,14 @@ export default function Sidebar() {
         {filteredMenuItems.map((group, idx) => (
           <div key={`${group.module}-${idx}`} className="animate-in slide-in-from-left duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
             {!isCollapsed && (
-              <h3 className="text-[11px] font-bold text-[#8c94a4] dark:text-slate-400 uppercase tracking-wider mb-2 px-3 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#4262ff]/40 rounded-full" /> {group.group}
-              </h3>
+              <div className="flex items-center justify-between mb-2 px-2.5">
+                <h3 className="text-[11px] font-bold text-[#545b69] dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-[#4262ff] rounded-full shrink-0" /> {group.group}
+                </h3>
+                <span className="text-[9px] font-mono font-bold text-[#4262ff] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-md border border-blue-200/70 dark:border-blue-900/60 shrink-0">
+                  {group.module}
+                </span>
+              </div>
             )}
             <ul className="space-y-1">
               {group.items.map((item, itemIdx) => {

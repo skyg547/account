@@ -19,6 +19,28 @@
     - 3개 KPI 카드, 월별 재무 추이 Area 차트, 최근 전표 리스트를 화이트 카드 및 KBank 블루 스타일로 전면 리프레시.
 - **검증**:
   - `npm run build` 실행하여 122개 전체 정적 라우트 100% 컴파일 및 빌드 성공.
+### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System & Dual-Theme Architecture - Issue #484 / PR #487)
+### [frontend] 케이뱅크(KBank) 스타일 핀테크 디자인 시스템, 글로벌 듀얼 테마 엔진, 6대 메가그룹-16대 MSA 모듈 네비게이션 및 마스터 교육 문서 구축
+
+- **작업 배경**:
+  - 케이뱅크(KBank) 웹사이트(`https://www.kbanknow.com/web/customer/faq/list`)의 시그니처 핀테크 디자인 아이덴티티(소프트 그레이 `#f7f8fb`, 퓨어 화이트 카드 `#ffffff`, KBank 블루 `#4262ff`, Pretendard 자간 `-0.015em`)를 Account.AI 프론트엔드 전반에 적용하고, 다크모드 및 백엔드 16개 MSA 모듈 직결 네비게이션 체계 구축.
+- **주요 변경 사항**:
+  - **글로벌 테마 & 듀얼 테마 엔진 (`globals.css`, `ThemeContext.tsx`)**:
+    - KBank 소프트 그레이 배경 (`#f7f8fb`), 퓨어 화이트 카드 (`#ffffff`), KBank 시그니처 블루 (`#4262ff`) 팔레트 구축.
+    - `html:not(.dark)` (라이트 화이트 카드) ↔ `html.dark` (네이비 다크 카드 `#131b2e`, `#0b0f19`) 스마트 속성 오버라이드 엔진 장착하여 122개 전체 화면 100% 테마 완벽 동기화.
+    - `ThemeContext.tsx`를 통한 `light` | `dark` | `system` 모드 지원, `localStorage` 영속화 및 SSR Hydration 안정성 확보(`suppressHydrationWarning`).
+  - **상단 6대 메가 그룹 & 사이드바 16대 MSA 모듈 뱃지 네비게이션 (`TopHeader.tsx`, `Sidebar.tsx`, `NavContext.tsx`, `menus/*.ts`)**:
+    - 상단 헤더의 가로 스크롤바를 완전히 제거한 **6대 메가 비즈니스 그룹**(대시보드, 회계·결산, 자금·세무, 금융·자산, 리스크·데이터, 거버넌스·시스템) 배치.
+    - 좌측 사이드바에 백엔드 16개 마이크로서비스 모듈(`journal-ledger`, `closing`, `reporting`, `budget`, `tax`, `ecl`, `reconciliation`, `account-mart` 등) 전용 블루 뱃지 태그를 부착하여 모듈 독립성 100% 가시화.
+  - **13대 도메인 API 서비스 레이어 & 오프라인 Mock Fallback (`src/services/`, `src/mocks/`)**:
+    - 13개 도메인 API 클라이언트 모듈 구축 및 `NavContext` 1.5초 AbortController 타임아웃 가드로 백엔드 오프라인 시 100% 자동 Mock Fallback 지원.
+  - **마스터 교육 문서 및 화면 설계서 체계 완비 (`frontend/docs/`)**:
+    - `frontend-core-education-guide.md`: 훅(Hook)의 본질, Context API vs Fetch/Axios, 상태 저장소 3단계, Next.js 15 아키텍처 총정리.
+    - `ui-layout-and-screen-specification.md`: 4단 레이아웃 규격 및 122개 전체 화면 명세서.
+    - `beginner-guide.md`, `development-guide.md`, `build-deploy-guide.md`, `README.md` 전면 최신화.
+- **검증**:
+  - `npm run build`: 122/122개 전체 정적 라우트 컴파일 100% 성공 (0 errors / 0 warnings).
+  - 독립 서브에이전트 최종 코드 리뷰 APPROVED 통과.
 
 ### 📅 2026-08-13 ([runtime][tax-batch] Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #92)
 ### [tax-batch] tax:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 TaxBatchApplicationTests 추가
