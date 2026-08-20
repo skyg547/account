@@ -49,13 +49,17 @@ public class AuthService implements AuthUseCase {
             throw new InvalidCredentialsException();
         }
         
-        boolean isSso = "SSO".equalsIgnoreCase(command.loginType());
+        boolean isNormal = "NORMAL".equalsIgnoreCase(command.loginType());
         boolean isLdap = "LDAP".equalsIgnoreCase(command.loginType());
+        boolean isSso = "SSO".equalsIgnoreCase(command.loginType());
 
-        if (!isSso) {
-            if (command.password() == null || command.password().isBlank()) {
-                throw new InvalidCredentialsException();
-            }
+        // 신뢰할 SSO 공급자가 연결되기 전에는 클라이언트가 지정한 SSO 유형만으로 인증하지 않습니다.
+        if (isSso) {
+            throw new InvalidCredentialsException();
+        }
+
+        if (!isNormal && !isLdap) {
+            throw new InvalidCredentialsException();
         }
 
         String username = command.username().trim();
@@ -65,23 +69,25 @@ public class AuthService implements AuthUseCase {
             throw new UserAccessDeniedException("User account is temporarily locked after repeated login failures");
         }
 
+        if (command.password() == null || command.password().isBlank()) {
+            throw new InvalidCredentialsException();
+        }
+
         AuthUser user = authUserQueryPort.findByUsername(username)
                 .orElseThrow(() -> {
                     loginAttemptPort.recordFailure(username, "USER_NOT_FOUND");
                     return new InvalidCredentialsException();
                 });
 
-        if (!isSso) {
-            if (!passwordVerifierPort.matches(command.password(), user.getStoredPassword())) {
-                loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
-                throw new InvalidCredentialsException();
-            }
+        if (!passwordVerifierPort.matches(command.password(), user.getStoredPassword())) {
+            loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
+            throw new InvalidCredentialsException();
+        }
 
-            if (isLdap) {
-                // LDAP OTP 인증 공급자가 연결되기 전에는 어떤 OTP도 신뢰하지 않습니다.
-                loginAttemptPort.recordFailure(username, "LDAP_OTP_VERIFIER_UNAVAILABLE");
-                throw new InvalidCredentialsException();
-            }
+        if (isLdap) {
+            // LDAP OTP 인증 공급자가 연결되기 전에는 어떤 OTP도 신뢰하지 않습니다.
+            loginAttemptPort.recordFailure(username, "LDAP_OTP_VERIFIER_UNAVAILABLE");
+            throw new InvalidCredentialsException();
         }
 
         if (!user.isActive()) {

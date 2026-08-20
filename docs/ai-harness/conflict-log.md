@@ -47,3 +47,11 @@ Merge and rebase conflict resolutions are recorded below.
 - Conflict: only the four append-only parent records `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`; no Config Server, Compose, validator or test path overlapped.
 - Resolution: preserved the complete #435 and upstream #462/Auth records in each file. Upstream Auth implementation/docs were accepted unchanged from main.
 - Verification: unmerged index and marker scans are empty, diff checks pass, and latest-main `:config-server:test :config-server:bootJar --rerun-tasks --offline` passed 45 tests in 7 suites.
+
+## 2026-08-21 - Issue #518 PR #531 latest-main harness sync
+
+- Branch/worktree: `agent/518-auth-sso-fail-closed` / `/tmp/account-518-auth-sso-fail-closed`.
+- Sync: after Draft PR #531 opened, `main` advanced from `1025417b` to `origin/main@6ed7f0c8` through Config Server PR #511.
+- Conflict: only `docs/ai-harness/agent-status.md` conflicted at the two append-only #518/#435 rows. The other shared logs auto-merged; no Auth, Config Server, Compose, validator or test implementation path overlapped.
+- Resolution: retained both complete rows and all auto-merged histories. Upstream Config Server and environment-example changes are accepted unchanged from main; the reviewed four-file Auth implementation remains unchanged.
+- Verification: rerun unmerged-index, marker, diff and main-relative Auth allowlist gates, then require fresh final-head Auth CI and independent review before Ready/merge.

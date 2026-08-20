@@ -1972,3 +1972,12 @@
 - Static gates passed and independent review found no P0-P3. Host Java 17 is absent; the offline cached JDK 17 container lacks `jjwt-api:0.11.5`, so no local test result is claimed and no package was downloaded.
 - Commit `1b4407f7` is pushed, Draft PR #525 is open with `Refs #462/#515`, and Issue #462 is `status:needs-review`. GitHub's actual Auth Core/API test tasks remain the Ready/merge gate; API packaging/build configuration is unchanged and local bootJar is explicitly unexecuted.
 - Final PR-head review found a P1 in the first handoff: it incorrectly claimed Module Validation runs bootJar with one worker. The records now match the workflow's Core/API test tasks and disclose the omitted packaging evidence; independent remediation re-review remains.
+- Final JDK 17 Auth Core/API CI and remediation re-review passed; PR #525 squash-merged as `1025417b`, Issue #462 closed, and active labels were removed.
+
+## 2026-08-21 (Issue #518 Auth client-selected login type fail-closed)
+
+- Claimed #518 in `agent/518-auth-sso-fail-closed` from merged #462 head `1025417b`, using an external worktree and leaving unrelated checkouts untouched.
+- Restricted success to explicit case-insensitive NORMAL. SSO and unsupported login types terminate before user, credential, login-attempt and token adapters; LDAP preserves password verification and provider-unavailable failure.
+- Added adapter non-invocation, repeated unsupported request, lowercase normal and retained LDAP tests, and aligned Auth documents.
+- Independent review found and remediation fixed a medium lockout DoS caused by counting provider/contract failures as credential failures. Re-review found no P0-P3; static gates pass.
+- Local JDK 17 execution is unavailable and the offline constrained container lacks one cached dependency. Commit `20e1806e` is pushed, Draft PR #531 is open, and final-head Auth Core/API CI remains the merge gate; bootJar is not required for unchanged packaging/build configuration.
