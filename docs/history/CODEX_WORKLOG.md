@@ -1956,4 +1956,5 @@
 - Replaced the fixed `123456` LDAP OTP success condition with a provider-unavailable fail-closed path that records an internal reason, returns the existing generic credentials failure and never reaches token issuance.
 - Added focused legacy/alternate OTP and no-JWT assertions while preserving the existing normal-login test, then aligned Auth README and process-flow documentation.
 - Static gates passed and independent review found no P0-P3. Host Java 17 is absent; the offline cached JDK 17 container lacks `jjwt-api:0.11.5`, so no local test result is claimed and no package was downloaded.
-- Commit `1b4407f7` is pushed, Draft PR #525 is open with `Refs #462/#515`, and Issue #462 is `status:needs-review`. GitHub Auth tests and bootJar remain the Ready/merge gate.
+- Commit `1b4407f7` is pushed, Draft PR #525 is open with `Refs #462/#515`, and Issue #462 is `status:needs-review`. GitHub's actual Auth Core/API test tasks remain the Ready/merge gate; API packaging/build configuration is unchanged and local bootJar is explicitly unexecuted.
+- Final PR-head review found a P1 in the first handoff: it incorrectly claimed Module Validation runs bootJar with one worker. The records now match the workflow's Core/API test tasks and disclose the omitted packaging evidence; independent remediation re-review remains.

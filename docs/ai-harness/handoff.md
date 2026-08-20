@@ -2762,5 +2762,6 @@
 
 - `git diff --check`, exact four-file implementation scope and changed-file conflict-marker checks pass. Independent review found no P0-P3.
 - Host testing stops before task execution because only Java 21 is installed. A network-disabled, CPU-1/memory-2-GiB JDK 17 container reached Gradle but cannot resolve uncached `jjwt-api:0.11.5`; no dependency was downloaded.
-- GitHub CI must pass `:auth:core:test :auth:api:test :auth:api:bootJar --max-workers=1` before Ready/merge. The next owner is an independent PR-head reviewer after CI, then the parent Integrator.
+- GitHub Module Validation must pass its actual `:auth:core:test :auth:api:test` tasks before Ready/merge. API packaging and build configuration are unchanged, so `:auth:api:bootJar` is not required for this core-only behavior fix and remains explicitly unexecuted local evidence. The workflow owns its runner worker setting; this low-resource host did not run that workload.
+- The first final-head review found the earlier bootJar/worker claim did not match the workflow. PR, Issue and harness wording must use the exact gate above, followed by an independent remediation re-review and then the parent Integrator.
 - Rollback uses a reviewed revert of only the four Auth implementation/test/docs paths and preserves these append-only records. There is no DB, container, credential or deployed-state rollback.
