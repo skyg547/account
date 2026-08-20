@@ -1808,6 +1808,7 @@
 - Filed follow-up Issue #530 as unclaimed `status:ready` for the pre-existing production Compose pids-limit model conflict; #435 remains limited to encryption-key fail-closed behavior.
 - Final independent re-review found no P0-P3. Exact-path commit/push, PR #511 reopen, fresh CI and remote-head review are the remaining merge gates.
 - Published commit `1ef36b71` and reopened PR #511. Main then advanced to `1025417b`; latest-main merge conflicts were limited to the four append-only harness records, where both #435 and upstream #462/Auth histories were retained. A forced Config Server rerun passed 45/45 and bootJar; push and refreshed PR gates remain.
+- Latest-main merge commit `70ca599c` is pushed. PR #511 is open, non-draft and MERGEABLE on exact base `1025417b`; fresh GitHub checks and a final remote-head review remain before merge.
 ## 2026-08-21 - Issue #462 Auth LDAP OTP fail-closed
 
 - Claimed `#462` on `agent/462-auth-otp-fail-closed` in `/tmp/account-462-auth-otp-fail-closed` from `origin/main@0b2280fd`; the primary checkout and unrelated dirty Frontend worktree were not changed.

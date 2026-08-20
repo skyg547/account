@@ -1963,6 +1963,7 @@
 - Opened follow-up Issue #530 (`status:ready`) for the unrelated production Compose pids-limit model conflict.
 - Final independent re-review found no P0-P3; publication and remote-head CI/review gates remain.
 - Pushed `1ef36b71` and reopened PR #511. Main advanced to `1025417b`; resolved only four append-only harness conflicts by preserving both #435 and upstream #462/Auth records, then force-reran Config Server 45/45 and bootJar successfully.
+- Pushed latest-main merge `70ca599c`; PR #511 is open/non-draft/MERGEABLE on exact main `1025417b`, pending fresh CI and final remote-head review.
 ## 2026-08-21 (Issue #462 Auth LDAP OTP fail-closed)
 
 - Claimed #462 on `agent/462-auth-otp-fail-closed` in an external worktree from `origin/main@0b2280fd`; unrelated checkouts and running containers were untouched.

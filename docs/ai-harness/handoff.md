@@ -2770,6 +2770,7 @@
 - Follow-up Issue #530 owns the pre-existing production Compose pids-limit render conflict and is queued as unclaimed `status:ready`.
 - Final independent re-review found no P0-P3. The next owner is the parent Integrator for exact-path commit/push and PR #511 reopen, followed by a fresh CI and remote-head review before merge/close.
 - Commit `1ef36b71` is pushed and PR #511 reopened. When main advanced to `1025417b`, only the four append-only harness records conflicted; resolution preserves both #435 and upstream #462/Auth blocks. Forced latest-main Config Server test/bootJar rerun passed 45/45; merge-commit push, fresh CI and final remote-head review remain.
+- Latest-main merge `70ca599c` is pushed and PR #511 is open, non-draft and MERGEABLE on exact base `1025417b`. Fresh CI and final review of the published head are the only remaining merge gates.
 # AI Harness Handoff - 2026-08-21 Issue #462 Auth LDAP OTP
 
 ## Published review state
