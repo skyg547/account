@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [loginType, setLoginType] = useState<'SSO' | 'LDAP'>('SSO');
   
   const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('1234');
+  const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   
   const [loading, setLoading] = useState(false);
