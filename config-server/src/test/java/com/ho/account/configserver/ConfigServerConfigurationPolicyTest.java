@@ -63,7 +63,7 @@ class ConfigServerConfigurationPolicyTest {
                 "config-server", "src", "main", "resources", "application.yml"));
 
         assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8888}");
-        assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY:account-config-server-secret-key}");
+        assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY:}");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
@@ -74,6 +74,17 @@ class ConfigServerConfigurationPolicyTest {
                 .isEqualTo("master-data");
         assertThat(properties.getProperty("management.endpoint.health.group.readiness.include"))
                 .isEqualTo("readinessState,configRepository");
+    }
+
+    @Test
+    void encryptionKeyConfigFailsClosedWithoutHardcodedDefaultSecrets() throws IOException {
+        Path configServerAppYml = resolveFromRepositoryRoot(
+                "config-server", "src", "main", "resources", "application.yml");
+        String content = Files.readString(configServerAppYml);
+
+        assertThat(content)
+                .contains("key: ${ENCRYPT_KEY:}")
+                .doesNotContain("account-config-server-secret-key");
     }
 
     @Test

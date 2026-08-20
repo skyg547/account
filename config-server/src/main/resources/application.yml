@@ -23,8 +23,9 @@ server:
 
 # Spring Cloud Config 대칭키(Symmetric Key) 암호화 설정
 # 운영 환경에서는 ENCRYPT_KEY 환경변수 또는 외부 Secret Manager(Vault 등)를 통해 주입받습니다.
+# Fail-Closed 보안 원칙에 따라 코드베이스 내에 기본 secret fallback을 두지 않습니다.
 encrypt:
-  key: ${ENCRYPT_KEY:account-config-server-secret-key}
+  key: ${ENCRYPT_KEY:}
 
 spring:
   application:
