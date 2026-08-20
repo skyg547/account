@@ -84,6 +84,7 @@ class ContainerImagePolicyTest {
             }
             String project = target.path("gradleProject").asText();
             String jarDirectory = target.path("jarDirectory").asText();
+            String libsDirectory = jarDirectory + "/build/libs";
             String dockerfile = Files.readString(resolve(jarDirectory, "Dockerfile"));
 
             assertThat(dockerfile).as(project)
@@ -92,8 +93,12 @@ class ContainerImagePolicyTest {
                     .contains("chown gradle:gradle /workspace")
                     .contains("USER gradle")
                     .contains("./gradlew " + project + ":bootJar")
+                    .contains("jar_count=\"$(find " + libsDirectory
+                            + " -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar'"
+                            + " | wc -l | tr -d ' ')\"")
                     .contains("test \"$jar_count\" -eq 1")
-                    .contains("! -name '*-plain.jar'")
+                    .contains("jar_file=\"$(find " + libsDirectory
+                            + " -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print)\"")
                     .contains("USER app:app")
                     .contains("ENTRYPOINT [\"java\", \"-jar\", \"/app/app.jar\"]")
                     .doesNotContain("jdk21")

@@ -63,8 +63,11 @@ plain JAR을 제외한 실행 JAR이 정확히 하나일 때만 이미지를 만
 
 ## MSA Module-Specific Dockerfiles (Canonical)
 
-과거 파편화되어 Java 21과 잘못된 복사 경로가 섞여 있던 레거시 개별 `Dockerfile`들은 전부 Java 17 표준(`gradle:8.7-jdk17-alpine`, `eclipse-temurin:17-jre-alpine`)으로 정상 교정되었습니다.
-현재 이 프로젝트의 신규 자동화 및 활성 통합 Compose(`docker-compose.yml`)는 **각 모듈에 위치한 이 개별 `Dockerfile`들을 공식 빌드 소스(Canonical Image Source)로 사용**하여 MSA 아키텍처의 격리성(Isolation)을 강제합니다.
+`deploy/image-targets.json`에 등록된 활성 Java target 35개의 모듈별 `Dockerfile`은 Java 17 표준
+(`gradle:8.7-jdk17-alpine`, `eclipse-temurin:17-jre-alpine`)과 단일 실행 JAR 계약을 따릅니다.
+신규 자동화와 활성 통합 Compose(`docker-compose.yml`)는 이 35개 파일만 공식 빌드 소스
+(Canonical Image Source)로 사용합니다. 모듈 상위 디렉터리에 남은 레거시 `Dockerfile`은
+비정본이며 이 계약의 검증 대상이 아닙니다.
 
 ## Rollback And Remaining Gate
 
