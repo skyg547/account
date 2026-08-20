@@ -59,7 +59,18 @@ public class InMemoryJournalQueryAdapter implements JournalQueryPort {
 
     @Override
     public JournalSummary getJournalSummary(Long journalEntryId) {
-        throw new UnsupportedOperationException("Memory mode does not support single journal lookup");
+        if (journalEntryId == null) {
+            return null;
+        }
+        JournalSummary summary = new JournalSummary();
+        summary.setId(journalEntryId);
+        summary.setSlipNo("MEM-JOURNAL-" + journalEntryId);
+        summary.setAccountingDate(LocalDate.now());
+        summary.setSlipDate(LocalDate.now());
+        summary.setStatus("POSTED");
+        summary.setCurrencyCode("KRW");
+        summary.setDescription("In-Memory drill-through journal summary placeholder");
+        return summary;
     }
 
     @Override
