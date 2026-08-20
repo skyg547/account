@@ -70,9 +70,14 @@ class AuthUserJpaEntity {
     }
 
     static AuthUserJpaEntity fromConfiguredUser(AuthModuleProperties.User user) {
+        String password = user.getPassword();
+        if (password == null || password.isBlank() || !password.startsWith("{") || !password.contains("}")) {
+            throw new IllegalArgumentException(
+                    "Configured password for user '" + user.getUsername() + "' must use a delegated encoding prefix (e.g. '{bcrypt}...'). Raw passwords are not permitted.");
+        }
         AuthUserJpaEntity entity = new AuthUserJpaEntity(
                 user.getUsername(),
-                user.getPassword(),
+                password,
                 user.getDepartmentCode(),
                 user.isActive(),
                 user.isLocked(),
