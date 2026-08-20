@@ -100,6 +100,20 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
+    @DisplayName("JWT signing key 길이가 32바이트 미만인 경우 시작 시점에 Fail-Closed 예외를 발생시킨다")
+    void devAndProdProfilesFailClosedWithShortJwtSecret() {
+        for (String profile : new String[] {null, "local", "dev", "prod"}) {
+            String shortSecret = "short-key-less-than-32-bytes";
+            String internalToken = ephemeralValue();
+
+            assertThatThrownBy(() -> securityPolicyContext(profile, shortSecret, internalToken))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .hasRootCauseMessage(
+                            "Fail-Closed Security Violation: 'auth.jwt.secret' must be at least 32 bytes (256 bits) for HS256.");
+        }
+    }
+
+    @Test
     @DisplayName("환경변수/프로퍼티를 주입받으면 dev 및 prod 프로파일도 정상적인 보안 구성을 유지한다")
     void devAndProdProfilesSucceedWithInjectedCredentials() {
         for (String profile : new String[] {"dev", "prod"}) {
