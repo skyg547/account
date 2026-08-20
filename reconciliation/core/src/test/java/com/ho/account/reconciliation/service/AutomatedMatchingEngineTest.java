@@ -240,6 +240,38 @@ class AutomatedMatchingEngineTest {
     }
 
     @Test
+    void matchThrowsNullPointerExceptionWhenAnyParameterIsNull() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+
+        assertThatThrownBy(() -> matchingEngine.match(null, List.of(detail)))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(statement), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("details must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(statement), List.of(detail), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("options must not be null");
+    }
+
+    @Test
+    void matchSubsetSumThrowsNullPointerExceptionWhenAnyParameterIsNull() {
+        BankStatement statement = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(null, List.of(detail), 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(List.of(statement), null, 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("details must not be null");
+    }
+
+    @Test
     void matchSubsetSumReturnsEmptyWhenNoSubsetMatches() {
         BankStatement stmt1 = bankStatement("30000.00", "0.00", LocalDate.of(2026, 5, 12));
         JournalDetailSummary detail1 = journalDetail("40000.00", LocalDate.of(2026, 5, 12));
