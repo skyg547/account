@@ -50,7 +50,8 @@ docker build --file master-data/api/Dockerfile --tag account/master-data-api:loc
 docker build --file frontend/Containerfile --tag account/frontend:local frontend
 ```
 
-각 모듈별 개별 `Dockerfile`은 하드코딩된 Gradle 경로(`:master-data:api:bootJar`)를 직접 호출하여 단일 진입점을 명확히 보장합니다.
+각 모듈별 `Dockerfile`은 하드코딩된 Gradle 경로(`:master-data:api:bootJar`)를 직접 호출하고,
+plain JAR을 제외한 실행 JAR이 정확히 하나일 때만 이미지를 만듭니다.
 
 ## Frontend
 
@@ -67,7 +68,7 @@ docker build --file frontend/Containerfile --tag account/frontend:local frontend
 
 ## Rollback And Remaining Gate
 
-- Rollback은 root Containerfile/Dockerfile, manifest, verification tool, frontend image selection, docs/policy tests를 revert합니다.
+- Rollback은 모듈별 Dockerfile, manifest, verification tool, Compose image selection, docs/policy tests를 revert합니다.
 - Registry image나 remote container는 자동 삭제하지 않습니다.
 - Docker/Compose가 없는 호스트에서는 actual image build가 미검증입니다.
 - Image가 생성돼도 application context/DB migration/health는 별도 runtime/Compose gate입니다.

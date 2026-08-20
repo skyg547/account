@@ -26,8 +26,8 @@ export const authService = {
       },
       body: JSON.stringify({
         username: credentials.username,
-        password: credentials.password || '1234',
-        loginType: credentials.loginType || 'LDAP',
+        password: credentials.password || '',
+        loginType: credentials.loginType || 'SSO',
         otpCode: credentials.otpCode,
       }),
     });

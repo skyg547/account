@@ -58,11 +58,8 @@ class DevelopmentComposePolicyTest {
             if (target.kind().startsWith("java-")) {
                 assertThat(build).as(target.name())
                         .containsEntry("context", ".")
-                        .containsEntry("dockerfile", "Containerfile");
-                assertThat(asMap(build.get("args"))).as(target.name())
-                        .containsExactlyInAnyOrderEntriesOf(Map.of(
-                                "GRADLE_PROJECT", target.gradleProject(),
-                                "JAR_DIRECTORY", target.jarDirectory()));
+                        .containsEntry("dockerfile", target.jarDirectory() + "/Dockerfile")
+                        .doesNotContainKey("args");
             } else {
                 assertThat(target.kind()).isEqualTo("frontend");
                 assertThat(build).as(target.name())
@@ -77,6 +74,16 @@ class DevelopmentComposePolicyTest {
         assertThat(services.keySet())
                 .filteredOn(name -> !LOCAL_INFRASTRUCTURE.contains(name))
                 .containsExactlyInAnyOrderElementsOf(union(expectedExecutables, DEVELOPMENT_HELPERS));
+
+        Map<String, Object> migrationBuild =
+                asMap(asMap(services.get("migration-runner")).get("build"));
+        assertThat(migrationBuild)
+                .containsEntry("context", ".")
+                .containsEntry("dockerfile", "Containerfile");
+        assertThat(asMap(migrationBuild.get("args")))
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "GRADLE_PROJECT", ":migration-runner",
+                        "JAR_DIRECTORY", "migration-runner"));
     }
 
     @Test

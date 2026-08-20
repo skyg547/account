@@ -40,8 +40,8 @@
 - Batch: 15개
 - 제외: 실제 Job/Step이 없는 Auth Batch와 Internal Audit Batch, 모든 Core/Library/Aggregator
 
-Java 서비스는 각 마이크로서비스 모듈 내에 위치한 개별 `Dockerfile`을 빌드 컨텍스트로 사용하며,
-독립적으로 컨테이너화됩니다. Frontend 개발 컨테이너는 `frontend/Containerfile.dev`, 운영 image는
+Java 서비스는 저장소 루트를 build context로 유지하면서 각 실행 모듈의 개별 `Dockerfile`을 선택해
+독립적으로 컨테이너화합니다. Frontend 개발 컨테이너는 `frontend/Containerfile.dev`, 운영 image는
 `frontend/Containerfile`을 사용합니다.
 
 ## 프로파일

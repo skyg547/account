@@ -4,10 +4,7 @@ services:
   allowance-ecl-api:
     build:
       context: ../..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":ecl:ecl-api"
-        JAR_DIRECTORY: ecl/ecl-api
+      dockerfile: ecl/ecl-api/Dockerfile
     container_name: allowance-ecl-api
     ports:
       - "8083:8083"

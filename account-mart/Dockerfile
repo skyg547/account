@@ -1,5 +1,5 @@
 # Stage 1: Build - Gradle 빌드 환경 (Java 21 활용)
-FROM docker.io/library/gradle:8.7-jdk17-alpine AS builder
+FROM docker.io/library/gradle:8.7-jdk21-alpine AS builder
 WORKDIR /app
 
 # 멀티 모듈 의존성 해결을 위해 필요한 설정 및 모듈 복사
@@ -14,7 +14,7 @@ COPY account-mart account-mart
 RUN ./gradlew :account-mart:mart-api:bootJar -x test
 
 # Stage 2: Runtime - 경량 실행 환경
-FROM docker.io/library/eclipse-temurin:17-jre-alpine
+FROM docker.io/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # 빌드 결과물(JAR) 복사

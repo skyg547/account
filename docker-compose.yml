@@ -236,7 +236,10 @@ services:
   migration-runner:
     build:
       context: .
-      dockerfile: migration-runner/Dockerfile
+      dockerfile: Containerfile
+      args:
+        GRADLE_PROJECT: ":migration-runner"
+        JAR_DIRECTORY: migration-runner
     profiles: ["migration"]
     restart: "no"
     environment:

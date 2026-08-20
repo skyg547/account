@@ -9,13 +9,7 @@
       "Bash(git -C C:/Users/skyg547/IdeaProjects/account status --short)",
       "Bash(git *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\skyg547\\\\IdeaProjects\\\\account\" -Directory)",
-      "Bash(Select-Object Name)",
-      "Bash(git checkout *)",
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(git push *)",
-      "Skill(schedule)",
-      "Skill(schedule:*)"
+      "Bash(Select-Object Name)"
     ]
   }
 }

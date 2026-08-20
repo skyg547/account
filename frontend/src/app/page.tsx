@@ -65,7 +65,9 @@ export default function DashboardPage() {
         actions={
           <div className="flex items-center gap-2 bg-white dark:bg-[#131b2e] px-3.5 py-2 rounded-xl border border-[#eaedf4] dark:border-slate-800 text-xs font-semibold text-[#545b69] dark:text-slate-400 shadow-xs">
             <Calendar size={14} className="text-[#4262ff]" />
-            <span>기준일: {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span suppressHydrationWarning>
+              기준일: {mounted ? new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+            </span>
           </div>
         }
       />
