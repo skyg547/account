@@ -23,6 +23,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class AuthServiceTest {
 
@@ -88,6 +91,88 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void rejectsSsoBeforeCredentialAdaptersWhenProviderIsUnavailable() {
+        AtomicBoolean userQueried = new AtomicBoolean();
+        AtomicBoolean passwordVerified = new AtomicBoolean();
+        AtomicBoolean tokenIssued = new AtomicBoolean();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService authService = service(
+                username -> {
+                    userQueried.set(true);
+                    return Optional.of(user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))));
+                },
+                code -> true,
+                (raw, stored) -> {
+                    passwordVerified.set(true);
+                    return true;
+                },
+                (subject, issuedAt) -> {
+                    tokenIssued.set(true);
+                    return new TokenIssuerPort.IssuedToken("token", 1L);
+                },
+                attempts);
+
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "", "SSO", null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(userQueried).isFalse();
+        assertThat(passwordVerified).isFalse();
+        assertThat(tokenIssued).isFalse();
+        assertThat(attempts.isLockedCalls).isZero();
+        assertThat(attempts.recordFailureCalls).isZero();
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "KERBEROS"})
+    void rejectsRepeatedUnsupportedLoginTypesBeforeAttemptPolicyAndCredentialAdapters(String loginType) {
+        AtomicBoolean userQueried = new AtomicBoolean();
+        AtomicBoolean passwordVerified = new AtomicBoolean();
+        AtomicBoolean tokenIssued = new AtomicBoolean();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService authService = service(
+                username -> {
+                    userQueried.set(true);
+                    return Optional.of(user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))));
+                },
+                code -> true,
+                (raw, stored) -> {
+                    passwordVerified.set(true);
+                    return true;
+                },
+                (subject, issuedAt) -> {
+                    tokenIssued.set(true);
+                    return new TokenIssuerPort.IssuedToken("token", 1L);
+                },
+                attempts);
+
+        for (int attempt = 0; attempt < 6; attempt++) {
+            assertThatThrownBy(
+                            () -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", loginType, null)))
+                    .isInstanceOf(InvalidCredentialsException.class);
+        }
+        assertThat(userQueried).isFalse();
+        assertThat(passwordVerified).isFalse();
+        assertThat(tokenIssued).isFalse();
+        assertThat(attempts.isLockedCalls).isZero();
+        assertThat(attempts.recordFailureCalls).isZero();
+    }
+
+    @Test
+    void acceptsNormalLoginTypeCaseInsensitively() {
+        AuthService authService = service(
+                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
+                code -> true,
+                String::equals,
+                tokenIssuer(),
+                new RecordingLoginAttemptPort());
+
+        AuthenticationResult result =
+                authService.login(new AuthUseCase.LoginCommand("admin", "1234", "normal", null));
+
+        assertThat(result.accessToken()).isEqualTo("token");
     }
 
     @Test
@@ -273,15 +358,19 @@ class AuthServiceTest {
 
     private static final class RecordingLoginAttemptPort implements LoginAttemptPort {
         private boolean locked;
+        private int isLockedCalls;
+        private int recordFailureCalls;
         private String lastFailureReason;
 
         @Override
         public boolean isLocked(String username) {
+            isLockedCalls++;
             return locked;
         }
 
         @Override
         public void recordFailure(String username, String reason) {
+            recordFailureCalls++;
             lastFailureReason = reason;
         }
 
