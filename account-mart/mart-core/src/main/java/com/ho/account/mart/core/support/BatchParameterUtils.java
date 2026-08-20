@@ -18,19 +18,19 @@ public final class BatchParameterUtils {
     }
 
     public static LocalDate resolveBaseDate(String baseDt, String baseDate) {
-        String resolvedBaseDate = firstNonBlank(baseDt, baseDate);
-        if (resolvedBaseDate == null) {
-            throw new IllegalStateException("baseDate(or baseDt) job parameter is required");
-        }
+        String resolvedBaseDate = firstNonBlank(baseDt, baseDate)
+                .orElseThrow(() -> new IllegalArgumentException("baseDate(or baseDt) job parameter is required"));
         return LocalDate.parse(resolvedBaseDate, DEFAULT_DATE_FORMAT);
     }
 
-    private static String firstNonBlank(String... candidates) {
-        for (String candidate : candidates) {
-            if (candidate != null && !candidate.isBlank()) {
-                return candidate;
+    private static java.util.Optional<String> firstNonBlank(String... candidates) {
+        if (candidates != null) {
+            for (String candidate : candidates) {
+                if (candidate != null && !candidate.isBlank()) {
+                    return java.util.Optional.of(candidate.trim());
+                }
             }
         }
-        return null;
+        return java.util.Optional.empty();
     }
 }

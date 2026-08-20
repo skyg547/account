@@ -24,35 +24,36 @@ public final class BatchDateRangeParameterUtils {
     }
 
     public static DateRange resolveDateRange(JobParameters jobParameters) {
-        String startDate = firstNonBlank(
+        LocalDate fallback = LocalDate.now().minusDays(1);
+        LocalDate resolvedStart = firstNonBlank(
                 jobParameters.getString("startDate"),
                 jobParameters.getString("fromDate"),
                 jobParameters.getString("baseDate"),
                 jobParameters.getString("targetDate")
-        );
-        String endDate = firstNonBlank(
+        ).map(val -> LocalDate.parse(val, DATE_FORMAT)).orElse(fallback);
+
+        LocalDate resolvedEnd = firstNonBlank(
                 jobParameters.getString("endDate"),
                 jobParameters.getString("toDate"),
                 jobParameters.getString("baseDate"),
                 jobParameters.getString("targetDate")
-        );
+        ).map(val -> LocalDate.parse(val, DATE_FORMAT)).orElse(resolvedStart);
 
-        LocalDate fallback = LocalDate.now().minusDays(1);
-        LocalDate resolvedStart = startDate == null ? fallback : LocalDate.parse(startDate, DATE_FORMAT);
-        LocalDate resolvedEnd = endDate == null ? resolvedStart : LocalDate.parse(endDate, DATE_FORMAT);
         if (resolvedEnd.isBefore(resolvedStart)) {
             throw new IllegalArgumentException("endDate must be greater than or equal to startDate");
         }
         return new DateRange(resolvedStart, resolvedEnd);
     }
 
-    private static String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value.trim();
+    private static java.util.Optional<String> firstNonBlank(String... values) {
+        if (values != null) {
+            for (String value : values) {
+                if (value != null && !value.isBlank()) {
+                    return java.util.Optional.of(value.trim());
+                }
             }
         }
-        return null;
+        return java.util.Optional.empty();
     }
 
     public record DateRange(LocalDate startDate, LocalDate endDate) {
