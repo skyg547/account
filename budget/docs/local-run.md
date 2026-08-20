@@ -42,8 +42,9 @@ Gateway는 `/api/budgets/**`를 `lb://budget-api`로 전달합니다. Eureka 기
 
 ## 개발 Compose
 
-`budget/docker-compose.yml`은 저장소 루트 `Containerfile`로 API/Batch bootJar를
-각각 빌드합니다. DB URL, DB 계정, JWT 키는 트래킹된 파일에 저장하지
+`budget/docker-compose.yml`은 저장소 루트를 build context로 유지하면서
+`budget/api/Dockerfile`과 `budget/batch/Dockerfile`로 각 bootJar를 빌드합니다.
+DB URL, DB 계정, JWT 키는 트래킹된 파일에 저장하지
 않고 실행 환경에서 필수로 주입합니다.
 
 ```powershell

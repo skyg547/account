@@ -2742,3 +2742,10 @@
 - No external DB, private endpoint, credential, Docker/Compose service, image registry, container or volume was accessed. Rollback is a reviewed revert of the PR #407 main-relative paths; there is no external-state rollback.
 - Independent final re-review found no P0-P3. Refreshed GitHub checks gate the conflict-resolution publication. Issue #66 remains `status:blocked` until an approved live Compose/PostgreSQL verification can be performed; this handoff does not claim that runtime gate.
 - Worktree cleanup removed only clean detached `C:\tmp\account-487-merge` for merged PR #487. The current #66 worktree and every dirty, unpublished, divergent or other-agent worktree remain intact.
+
+## First refreshed-CI remediation
+
+- The first pushed conflict-resolution head was mergeable but Budget, Gateway and Internal Audit CI failed because their module-local policy tests still asserted the removed central `Containerfile` arguments.
+- The three tests now assert `budget/api/Dockerfile`, `budget/batch/Dockerfile`, `gateway/Dockerfile` and `internal-audit/api/Dockerfile`, and reject legacy arguments. `budget/docs/local-run.md` now documents the same root-context/module-Dockerfile contract.
+- Seven focused tests passed. The full local CI-equivalent set for Budget Core/API/Batch, Gateway and Internal Audit Core/API passed 123 tests in 29 suites with zero failure/error/skip; independent remediation review found no P0-P3.
+- Commit/push must trigger a fresh GitHub run. Do not merge until that run is green; the separate live Compose/PostgreSQL blocker remains unchanged.

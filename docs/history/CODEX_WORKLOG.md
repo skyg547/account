@@ -1948,3 +1948,4 @@
 - Config Server policy tests passed 37/37 and package verification passed 35/35 with a single non-plain executable JAR per Java target. Independent review findings were remediated and final re-review found no P0-P3; refreshed GitHub checks remain.
 - No external DB, credential, private endpoint, Docker/Compose service, registry, container or volume was accessed. Issue #66 remains blocked on approved live Compose/PostgreSQL verification.
 - Safely removed only the clean detached completed worktree `C:\tmp\account-487-merge`; all dirty, divergent, active and other-agent worktrees were retained.
+- The first refreshed CI found three stale Compose policy assertions in Budget, Gateway and Internal Audit. Updated the exact module-Dockerfile expectations and Budget runbook; 7 focused tests and the six-project CI-equivalent set passed 123 tests in 29 suites, and independent remediation review found no P0-P3. A new GitHub run remains the merge gate.
