@@ -15,6 +15,7 @@ services:
       - SERVER_PORT=8888
       - SPRING_PROFILES_ACTIVE=native
       - CONFIG_REPO_LOCATION=file:/config-repo
+      - ENCRYPT_KEY=${ENCRYPT_KEY:?ENCRYPT_KEY must be supplied by an approved secret provider}
     # 로컬 편집 내용을 재빌드 없이 읽되 컨테이너가 설정 원본을 바꾸지 못하도록 read-only로 마운트합니다.
     volumes:
       - ../config-repo:/config-repo:ro

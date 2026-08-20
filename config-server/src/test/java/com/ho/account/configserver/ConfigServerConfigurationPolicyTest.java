@@ -63,7 +63,7 @@ class ConfigServerConfigurationPolicyTest {
                 "config-server", "src", "main", "resources", "application.yml"));
 
         assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8888}");
-        assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY:}");
+        assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY}");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
@@ -81,10 +81,38 @@ class ConfigServerConfigurationPolicyTest {
         Path configServerAppYml = resolveFromRepositoryRoot(
                 "config-server", "src", "main", "resources", "application.yml");
         String content = Files.readString(configServerAppYml);
+        String rootCompose = Files.readString(resolveFromRepositoryRoot("docker-compose.yml"));
+        String productionCompose = Files.readString(resolveFromRepositoryRoot("compose.prod.yml"));
+        String developmentValidator = Files.readString(resolveFromRepositoryRoot("validate-dev-env.ps1"));
+        String productionValidator = Files.readString(resolveFromRepositoryRoot("validate-prod-env.ps1"));
+        String runConfiguration = Files.readString(resolveFromRepositoryRoot(
+                ".run", "Config Server bootRun.run.xml"));
 
         assertThat(content)
-                .contains("key: ${ENCRYPT_KEY:}")
+                .contains("key: ${ENCRYPT_KEY}")
+                .doesNotContain("key: ${ENCRYPT_KEY:")
                 .doesNotContain("account-config-server-secret-key");
+        assertThat(rootCompose).contains(
+                "ENCRYPT_KEY: ${ENCRYPT_KEY:?ENCRYPT_KEY must be supplied by an approved secret provider}");
+        assertThat(productionCompose).contains(
+                "ENCRYPT_KEY: ${ENCRYPT_KEY:?set ENCRYPT_KEY from the approved production secret provider}");
+        assertThat(developmentValidator)
+                .contains("'ENCRYPT_KEY'")
+                .contains("ENCRYPT_KEY = [guid]::NewGuid().ToString()");
+        assertThat(productionValidator).contains("$Name -eq 'ENCRYPT_KEY' -or");
+        assertThat(productionValidator)
+                .contains("[string]::IsNullOrWhiteSpace($Value)")
+                .contains("Test-IsMissingRequiredValue -Name 'ENCRYPT_KEY' -Value '   '");
+        for (String template : List.of(
+                ".env.example",
+                ".env.dev.example",
+                ".env.external-dev.example",
+                ".env.prod.example")) {
+            assertThat(loadKeyValueProperties(resolveFromRepositoryRoot(template)).getProperty("ENCRYPT_KEY"))
+                    .as(template + " must expose only a blank injection contract")
+                    .isEmpty();
+        }
+        assertThat(runConfiguration).doesNotContain("ENCRYPT_KEY");
     }
 
     @Test
@@ -115,7 +143,10 @@ class ConfigServerConfigurationPolicyTest {
         assertThat(build).doesNotContainKey("args");
         assertThat(asList(configServer.get("volumes"))).contains("../config-repo:/config-repo:ro");
         assertThat(asList(configServer.get("environment")))
-                .contains("SPRING_PROFILES_ACTIVE=native", "CONFIG_REPO_LOCATION=file:/config-repo");
+                .contains(
+                        "SPRING_PROFILES_ACTIVE=native",
+                        "CONFIG_REPO_LOCATION=file:/config-repo",
+                        "ENCRYPT_KEY=${ENCRYPT_KEY:?ENCRYPT_KEY must be supplied by an approved secret provider}");
     }
 
     @Test

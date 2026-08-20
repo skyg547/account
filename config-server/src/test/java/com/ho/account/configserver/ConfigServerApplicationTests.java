@@ -22,7 +22,8 @@ import org.springframework.http.ResponseEntity;
                 "spring.cloud.config.server.health.repositories.master-data.name=policy-test-service",
                 "spring.cloud.config.server.health.repositories.master-data.profiles=default",
                 "config-server.repository-probe.application=policy-test-service",
-                "config-server.repository-probe.profile=default"
+                "config-server.repository-probe.profile=default",
+                "ENCRYPT_KEY=${random.uuid}"
         })
 class ConfigServerApplicationTests {
 

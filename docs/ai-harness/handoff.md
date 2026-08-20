@@ -2749,3 +2749,23 @@
 - The three tests now assert `budget/api/Dockerfile`, `budget/batch/Dockerfile`, `gateway/Dockerfile` and `internal-audit/api/Dockerfile`, and reject legacy arguments. `budget/docs/local-run.md` now documents the same root-context/module-Dockerfile contract.
 - Seven focused tests passed. The full local CI-equivalent set for Budget Core/API/Batch, Gateway and Internal Audit Core/API passed 123 tests in 29 suites with zero failure/error/skip; independent remediation review found no P0-P3.
 - Commit/push must trigger a fresh GitHub run. Do not merge until that run is green; the separate live Compose/PostgreSQL blocker remains unchanged.
+
+# AI Harness Handoff - 2026-08-21 Issue #435 Config Server Encryption Key
+
+## Current state and scope
+
+- Issue/branch/worktree/PR: `#435`, `agent/435-config-key-fail-closed`, `C:\tmp\account-435-config-key-fail-closed`, closed PR #511 to be reopened after remediation publication.
+- Latest-main merge `3a667584` contains `origin/main@0b2280fd` without conflict. The dirty primary checkout and Gemini-owned Issue #91 worktree were not modified.
+- Scope is limited to the Config Server composition root, encryption-key guard/config/tests, directly required root/module Compose and blank env contract, Config Server runbooks, and parent Integrator harness records.
+
+## Evidence, safety and next gate
+
+- Config Server test/bootJar passed 45 tests in 7 suites with zero failure/error/skip and exactly one executable JAR.
+- Packaged-JAR smokes proved missing, empty and whitespace input exit before `Started ConfigServerApplication`; a process-generated nonblank value reached startup and was absent from captured output. `podman compose -f config-server/docker-compose.yml config --quiet` used the installed external Compose provider and rendered successfully without service startup; executable fallback/diff/marker scans passed.
+- No real key, external service, DB, container, private endpoint or credential was read or changed. Rollback is a reviewed revert of the #435 paths with no external-state rollback.
+- Independent implementation review is required before exact-path staging, commit/push and PR #511 reopen. Fresh PR-head review and green GitHub checks gate merge and Issue close.
+- The first independent review found a P1 omission in production Compose/canonical templates and questioned render evidence. Production now passes a required `ENCRYPT_KEY`; dev/external-dev/prod templates expose blank contracts, actual validators require nonblank input, and only production template validation permits blank. The render command/provider is recorded above; rerun verification and independent review before publication.
+- Validator self-tests, production template validation and root development Compose rendering pass. Full production Compose rendering is independently blocked by its existing mutually exclusive `pids_limit` and `deploy.resources.limits.pids` model fields; #435 does not change that topology and a separate follow-up should own it.
+- Remediation re-review found that production validator truthiness could accept a whitespace-only quoted value. `Test-IsMissingRequiredValue` now uses `IsNullOrWhiteSpace`, keeps blank allowance limited to template mode, and self-tests both branches; final verification and re-review are required.
+- Follow-up Issue #530 owns the pre-existing production Compose pids-limit render conflict and is queued as unclaimed `status:ready`.
+- Final independent re-review found no P0-P3. The next owner is the parent Integrator for exact-path commit/push and PR #511 reopen, followed by a fresh CI and remote-head review before merge/close.

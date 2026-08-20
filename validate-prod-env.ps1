@@ -116,6 +116,35 @@ function Assert-Throws {
     throw 'Validator self-test expected a rejection.'
 }
 
+function Test-IsMissingRequiredValue {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Value,
+
+        [switch]$AllowTemplateEmpty
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    if ($AllowTemplateEmpty -and (
+            $Name -eq 'ENCRYPT_KEY' -or
+            $Name -like '*_DB_PASSWORD' -or
+            $Name -like '*_JWT_SECRET' -or
+            $Name -eq 'AUTH_DEFAULT_PASSWORD' -or
+            $Name -eq 'AUTH_INTERNAL_API_TOKEN'
+        )) {
+        return $false
+    }
+
+    return $true
+}
+
 if ($SelfTest) {
     if ((ConvertFrom-ComposeEnvValue -RawValue 'password # this text is not part of the value' -LineNumber 1) -ne 'password') {
         throw 'Validator self-test failed to apply Compose inline-comment semantics.'
@@ -131,6 +160,12 @@ if ($SelfTest) {
     }
     Assert-Throws {
         Assert-ProductionPostgreSqlUrl -Url 'jdbc:postgresql://db.example.invalid:5432/account?sslmode=verify-full&password=hidden' -AllowTemplateHost
+    }
+    if (-not (Test-IsMissingRequiredValue -Name 'ENCRYPT_KEY' -Value '   ')) {
+        throw 'Validator self-test failed to reject a whitespace-only production ENCRYPT_KEY.'
+    }
+    if (Test-IsMissingRequiredValue -Name 'ENCRYPT_KEY' -Value '' -AllowTemplateEmpty) {
+        throw 'Validator self-test failed to allow the blank ENCRYPT_KEY contract in template mode.'
     }
     [pscustomobject]@{
         Status = 'PASS'
@@ -217,14 +252,7 @@ if (-not $values.ContainsKey('PROD_BATCH_JOB_ENABLED') -or $values['PROD_BATCH_J
 $emptyNames = @(
     $requiredNames |
         Where-Object {
-            -not $values[$_] -and -not (
-                $Template -and (
-                    $_ -like '*_DB_PASSWORD' -or
-                    $_ -like '*_JWT_SECRET' -or
-                    $_ -eq 'AUTH_DEFAULT_PASSWORD' -or
-                    $_ -eq 'AUTH_INTERNAL_API_TOKEN'
-                )
-            )
+            Test-IsMissingRequiredValue -Name $_ -Value $values[$_] -AllowTemplateEmpty:$Template
         }
 )
 if ($emptyNames.Count -gt 0) {
