@@ -1795,6 +1795,20 @@
 - Removed only the clean detached temporary worktree `C:\tmp\account-487-merge` for already-merged PR #487. Dirty, unpublished, divergent, current and other-agent worktrees were intentionally retained.
 - The first refreshed PR-head CI exposed three stale module policy tests that still required the removed central build arguments: Budget, Gateway and Internal Audit. Their exact module-Dockerfile assertions and Budget runbook were corrected; 7 focused tests and the CI-equivalent six-project set passed 123 tests in 29 suites with zero failure/error/skip. Independent remediation review found no P0-P3; a new GitHub CI run is required after push.
 
+## 2026-08-21 - Issue #435 Config Server ENCRYPT_KEY fail-closed remediation
+
+- Took over rejected PR #511 on `agent/435-config-key-fail-closed` in `C:\tmp\account-435-config-key-fail-closed`, claimed Issue #435 as `agent:codex` / `status:in-progress`, and merged latest `origin/main@0b2280fd` without conflict. The dirty primary checkout and other-agent worktrees remained untouched.
+- Removed the empty encryption-key fallback and added a pre-context startup guard that rejects missing, empty, whitespace and surrounding-whitespace input without including key material in diagnostics. Tests inject only per-process generated values.
+- Root/module Compose now require `ENCRYPT_KEY` interpolation, `.env.example` exposes only a blank variable contract, and Config Server runbooks describe generated input with cleanup.
+- `:config-server:test :config-server:bootJar --offline` passed 45 tests in 7 suites. Packaged-JAR smokes rejected missing/empty/whitespace input and started with a generated nonblank input without logging it; `podman compose ... config --quiet` used the installed external Compose provider and passed without starting a service. Executable-default, diff and marker checks passed.
+- No real key, external Config Server, DB, container, private endpoint or credential was accessed. Independent review, commit/push, PR #511 reopen, fresh CI and merge remain the publication gates.
+- Independent review found a P1 production-path gap: `compose.prod.yml` and the canonical dev/external-dev/prod templates did not carry the required variable. The production service, all three templates and both environment validators now enforce the same contract; focused verification and re-review are required.
+- Both validator self-tests, production template validation and root development Compose rendering passed. A production Compose render reached model validation after generated dummy input injection but is blocked by the pre-existing `pids_limit` / `deploy.resources.limits.pids` conflict; this is outside #435 and requires a separate follow-up rather than an unreviewed topology change here.
+- Remediation re-review found a P2 PowerShell truthiness gap for whitespace-only production input. The production validator now uses `IsNullOrWhiteSpace` and its self-test covers actual whitespace rejection plus template-only blank allowance; verification and final re-review remain.
+- Filed follow-up Issue #530 as unclaimed `status:ready` for the pre-existing production Compose pids-limit model conflict; #435 remains limited to encryption-key fail-closed behavior.
+- Final independent re-review found no P0-P3. Exact-path commit/push, PR #511 reopen, fresh CI and remote-head review are the remaining merge gates.
+- Published commit `1ef36b71` and reopened PR #511. Main then advanced to `1025417b`; latest-main merge conflicts were limited to the four append-only harness records, where both #435 and upstream #462/Auth histories were retained. A forced Config Server rerun passed 45/45 and bootJar; push and refreshed PR gates remain.
+- Latest-main merge commit `70ca599c` is pushed. PR #511 is open, non-draft and MERGEABLE on exact base `1025417b`; fresh GitHub checks and a final remote-head review remain before merge.
 ## 2026-08-21 - Issue #462 Auth LDAP OTP fail-closed
 
 - Claimed `#462` on `agent/462-auth-otp-fail-closed` in `/tmp/account-462-auth-otp-fail-closed` from `origin/main@0b2280fd`; the primary checkout and unrelated dirty Frontend worktree were not changed.

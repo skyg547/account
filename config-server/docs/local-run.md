@@ -7,6 +7,7 @@
 - 저장소 루트 `C:\Users\skyg547\IdeaProjects\account`를 Gradle 프로젝트로 열기
 - `config-repo/master-data.yml` 존재
 - 8888 포트가 비어 있음
+- 승인된 secret provider 또는 실행 프로세스가 생성한 nonblank `ENCRYPT_KEY`
 
 이 모듈은 DB를 사용하지 않으므로 H2/PostgreSQL을 실행하지 않습니다.
 
@@ -38,9 +39,17 @@ search-locations=file:./config-repo
 ## Gradle로 서버 실행
 
 반드시 저장소 루트에서 실행합니다.
+키는 저장소·명령행·Run Configuration에 기록하지 않고 환경변수로만 전달합니다.
 
 ```powershell
-.\gradlew :config-server:bootRun --args="--spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo" --console=plain --no-daemon
+$keyBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($keyBytes)
+$env:ENCRYPT_KEY = [Convert]::ToBase64String($keyBytes)
+try {
+    .\gradlew :config-server:bootRun --args="--spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo" --console=plain --no-daemon
+} finally {
+    Remove-Item Env:ENCRYPT_KEY -ErrorAction SilentlyContinue
+}
 ```
 
 다른 경로를 사용해야 하면 승인된 절대 경로를 환경변수로 전달합니다.
@@ -70,6 +79,9 @@ docker compose -f config-server/docker-compose.yml up --build
 ```
 
 모듈 Compose는 저장소 루트를 build context로 사용하고 `../config-repo`를 `/config-repo:ro`로 마운트합니다. 루트 Compose에서는 `./config-repo:/config-repo:ro`를 사용합니다.
+Compose는 host의 `ENCRYPT_KEY`가 누락되거나 비어 있으면 interpolation 단계에서 실패합니다.
+`.env.dev.example`, `.env.external-dev.example`, `.env.prod.example`에는 변수 이름만 있고 값은 비어 있습니다. 복사한 ignored 환경 파일이나 승인된 secret provider에서 실행 직전에 값을 채웁니다.
+개발/운영 환경 validator는 실제 env 파일의 빈 `ENCRYPT_KEY`를 거부하고, 운영 template 검사에서만 의도적으로 빈 예시 값을 허용합니다.
 
 ## 전체 MSA 순서
 
@@ -99,5 +111,6 @@ jps -l
 | readiness DOWN | `config-repo` 경로와 `master-data.yml` |
 | 응답 property source가 비어 있음 | application/profile 이름 |
 | Docker에서 설정 없음 | volume 경로와 `CONFIG_REPO_LOCATION` |
+| 기동 즉시 키 입력 오류 | `ENCRYPT_KEY` 누락, 빈 값, 공백 또는 앞뒤 공백 |
 | 클라이언트 값이 안 바뀜 | 클라이언트 재시작 또는 승인된 refresh 전략 |
 | Config Server 없이 클라이언트가 뜸 | `optional:configserver:` fallback 여부 |

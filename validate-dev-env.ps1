@@ -62,6 +62,7 @@ function Test-DevelopmentValues {
     $errors = [System.Collections.Generic.List[string]]::new()
     $required = [System.Collections.Generic.List[string]]::new()
     $required.AddRange([string[]]@(
+        'ENCRYPT_KEY',
         'AUTH_JWT_SECRET',
         'AUTH_DEFAULT_PASSWORD',
         'AUTH_INTERNAL_API_TOKEN',
@@ -183,6 +184,7 @@ function Test-DevelopmentValues {
 
 function Invoke-SelfTest {
     $valid = @{
+        ENCRYPT_KEY = [guid]::NewGuid().ToString()
         AUTH_JWT_SECRET = 'j' * 32
         AUTH_DEFAULT_PASSWORD = 'local-auth-password'
         AUTH_INTERNAL_API_TOKEN = 't' * 32

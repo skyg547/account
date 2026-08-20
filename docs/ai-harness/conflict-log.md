@@ -39,3 +39,19 @@ Merge and rebase conflict resolutions are recorded below.
 - Semantic conflict: the stale branch mixed a central `Containerfile` policy, module Dockerfiles and unrelated application changes. Resolution kept module Dockerfiles as the canonical source for the 35 manifest Java targets, retained the central `Containerfile` only for migration-runner, preserved latest-main application/docs changes and cancelled stale PR-only artifacts.
 - Verification: 37 Config Server policy tests and 35/35 Java package checks passed; `git diff --check` and conflict-marker scans gate publication. Independent review findings were remediated and final re-review found no P0-P3.
 - First refreshed CI semantic conflict: Budget, Gateway and Internal Audit policy tests still enforced the old central build arguments after their Compose files moved to module Dockerfiles. Updated only those three tests plus the stale Budget runbook; 7 focused and 123 CI-equivalent tests passed, and independent re-review found no P0-P3.
+
+## 2026-08-21 - Issue #435 PR #511 latest-main harness sync
+
+- Branch/worktree: `agent/435-config-key-fail-closed` / `C:\tmp\account-435-config-key-fail-closed`.
+- Sync: after PR #511 reopened at `1ef36b71`, `main` advanced to `origin/main@1025417b` through Auth PR #525 and GitHub reported `DIRTY`.
+- Conflict: only the four append-only parent records `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`; no Config Server, Compose, validator or test path overlapped.
+- Resolution: preserved the complete #435 and upstream #462/Auth records in each file. Upstream Auth implementation/docs were accepted unchanged from main.
+- Verification: unmerged index and marker scans are empty, diff checks pass, and latest-main `:config-server:test :config-server:bootJar --rerun-tasks --offline` passed 45 tests in 7 suites.
+
+## 2026-08-21 - Issue #518 PR #531 latest-main harness sync
+
+- Branch/worktree: `agent/518-auth-sso-fail-closed` / `/tmp/account-518-auth-sso-fail-closed`.
+- Sync: after Draft PR #531 opened, `main` advanced from `1025417b` to `origin/main@6ed7f0c8` through Config Server PR #511.
+- Conflict: only `docs/ai-harness/agent-status.md` conflicted at the two append-only #518/#435 rows. The other shared logs auto-merged; no Auth, Config Server, Compose, validator or test implementation path overlapped.
+- Resolution: retained both complete rows and all auto-merged histories. Upstream Config Server and environment-example changes are accepted unchanged from main; the reviewed four-file Auth implementation remains unchanged.
+- Verification: rerun unmerged-index, marker, diff and main-relative Auth allowlist gates, then require fresh final-head Auth CI and independent review before Ready/merge.
