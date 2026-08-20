@@ -2,10 +2,7 @@ services:
   internal-audit-api:
     build:
       context: ..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":internal-audit:api"
-        JAR_DIRECTORY: internal-audit/api
+      dockerfile: internal-audit/api/Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: ${INTERNAL_AUDIT_DB_URL:?set INTERNAL_AUDIT_DB_URL}

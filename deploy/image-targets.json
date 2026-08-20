@@ -1,6 +1,5 @@
 {
   "schemaVersion": 1,
-  "javaContainerfile": "Containerfile",
   "targets": [
     {"name": "config-server", "kind": "java-infra", "enabled": true, "gradleProject": ":config-server", "jarDirectory": "config-server"},
     {"name": "discovery", "kind": "java-infra", "enabled": true, "gradleProject": ":discovery", "jarDirectory": "discovery"},

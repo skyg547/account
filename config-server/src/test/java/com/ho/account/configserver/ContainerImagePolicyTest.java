@@ -48,6 +48,9 @@ class ContainerImagePolicyTest {
             assertThat(gradleProjects.add(project)).as("unique Gradle project %s", project).isTrue();
             assertThat(project).isEqualTo(":" + jarDirectory.replace("/", ":"));
             assertThat(resolve(jarDirectory, "build.gradle")).exists();
+            assertThat(resolve(jarDirectory, "Dockerfile"))
+                    .as("module Dockerfile for %s", project)
+                    .isRegularFile();
             assertThat(containsSpringBootApplication(resolve(jarDirectory, "src", "main", "java")))
                     .as("Spring Boot entry point for %s", project)
                     .isTrue();
@@ -70,29 +73,39 @@ class ContainerImagePolicyTest {
     }
 
     @Test
-    void canonicalJavaContainerfilesUseJava17AndDeterministicArtifactSelection()
+    void canonicalModuleDockerfilesUseJava17AndDeterministicArtifactSelection()
             throws IOException {
-        String containerfile = Files.readString(resolve("Containerfile"));
-        String dockerfile = Files.readString(resolve("Dockerfile"));
+        JsonNode manifest = objectMapper.readTree(Files.readString(resolve("deploy", "image-targets.json")));
         String dockerignore = Files.readString(resolve(".dockerignore"));
 
-        assertThat(dockerfile).isEqualTo(containerfile);
-        assertThat(containerfile)
-                .contains("gradle:8.7-jdk17-alpine")
-                .contains("eclipse-temurin:17-jre-alpine")
-                .contains("ARG GRADLE_PROJECT")
-                .contains("ARG JAR_DIRECTORY")
-                .contains("chown gradle:gradle /workspace")
-                .contains("USER gradle")
-                .contains("./gradlew \"${GRADLE_PROJECT}:bootJar\"")
-                .contains("test \"$jar_count\" -eq 1")
-                .contains("! -name '*-plain.jar'")
-                .contains("USER app:app")
-                .contains("ENTRYPOINT [\"java\", \"-jar\", \"/app/app.jar\"]")
-                .doesNotContain("jdk21")
-                .doesNotContain("jre21")
-                .doesNotContain("COPY --from=builder /workspace/*")
-                .doesNotContain("ENTRYPOINT [\"sh\"");
+        for (JsonNode target : manifest.get("targets")) {
+            if ("frontend".equals(target.path("kind").asText())) {
+                continue;
+            }
+            String project = target.path("gradleProject").asText();
+            String jarDirectory = target.path("jarDirectory").asText();
+            String libsDirectory = jarDirectory + "/build/libs";
+            String dockerfile = Files.readString(resolve(jarDirectory, "Dockerfile"));
+
+            assertThat(dockerfile).as(project)
+                    .contains("gradle:8.7-jdk17-alpine")
+                    .contains("eclipse-temurin:17-jre-alpine")
+                    .contains("chown gradle:gradle /workspace")
+                    .contains("USER gradle")
+                    .contains("./gradlew " + project + ":bootJar")
+                    .contains("jar_count=\"$(find " + libsDirectory
+                            + " -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar'"
+                            + " | wc -l | tr -d ' ')\"")
+                    .contains("test \"$jar_count\" -eq 1")
+                    .contains("jar_file=\"$(find " + libsDirectory
+                            + " -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print)\"")
+                    .contains("USER app:app")
+                    .contains("ENTRYPOINT [\"java\", \"-jar\", \"/app/app.jar\"]")
+                    .doesNotContain("jdk21")
+                    .doesNotContain("jre21")
+                    .doesNotContain("COPY --from=builder /workspace/*")
+                    .doesNotContain("ENTRYPOINT [\"sh\"");
+        }
         assertThat(dockerignore)
                 .contains(
                         "**/.env",
@@ -139,6 +152,19 @@ class ContainerImagePolicyTest {
                 "**/*.pem",
                 "**/*.p12",
                 "**/*.jks");
+    }
+
+    @Test
+    void imageBuildToolUsesEachJavaTargetsModuleDockerfile() throws IOException {
+        String tooling = Files.readString(resolve("tools", "container-images.ps1"));
+
+        assertThat(tooling)
+                .contains("$moduleDockerfile = \"$($ImageTarget.jarDirectory)/Dockerfile\"")
+                .contains("'--file', $moduleDockerfile")
+                .doesNotContain(
+                        "$manifest.javaContainerfile",
+                        "GRADLE_PROJECT=$($ImageTarget.gradleProject)",
+                        "JAR_DIRECTORY=$($ImageTarget.jarDirectory)");
     }
 
     /**
@@ -211,7 +237,7 @@ class ContainerImagePolicyTest {
     }
 
     @Test
-    void moduleComposeFilesSelectTheCanonicalContainerfileAndExactGradleProject()
+    void moduleComposeFilesSelectTheirCanonicalModuleDockerfile()
             throws IOException {
         Map<String, ComposeTarget> targets = new LinkedHashMap<>();
         targets.put("auth/docker-compose.yml",
@@ -267,13 +293,11 @@ class ContainerImagePolicyTest {
             ComposeTarget target = entry.getValue();
             Map<String, Object> service = asMap(asMap(root.get("services")).get(target.service()));
             Map<String, Object> build = asMap(service.get("build"));
-            Map<String, Object> args = asMap(build.get("args"));
 
             assertThat(build.get("context")).as(entry.getKey()).isEqualTo(target.context());
-            assertThat(build.get("dockerfile")).as(entry.getKey()).isEqualTo("Containerfile");
-            assertThat(args).as(entry.getKey())
-                    .containsEntry("GRADLE_PROJECT", target.gradleProject())
-                    .containsEntry("JAR_DIRECTORY", target.jarDirectory());
+            assertThat(build.get("dockerfile")).as(entry.getKey())
+                    .isEqualTo(target.jarDirectory() + "/Dockerfile");
+            assertThat(build).as(entry.getKey()).doesNotContainKey("args");
         }
     }
 
