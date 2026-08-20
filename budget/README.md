@@ -27,9 +27,30 @@ bounded context입니다. `core`가 금액·상태 규칙과 트랜잭션 유즈
 
 ## 중요한 경계
 
-기존 `expenditure-resolution`의 월별 `Budget`은 기존 데이터와 호출 흐름을 위한 호환
-모델입니다. 이번 Issue는 새 `budget_*` 테이블을 사용하며 기존 `budgets` 테이블을
-dual-write하거나 자동 이관하지 않습니다. 단일 write owner 전환과 예약/확정/해제 연동은
-데이터 대사와 보상 설계가 필요한 후속 #17 범위입니다.
+## 로컬 실행 방법 (Local Run Guide)
 
-자세한 흐름은 [docs/README.md](docs/README.md)를 참고하세요.
+`budget:api`는 Fail-Closed 보안 원칙에 따라 토큰 검증용 비밀키(`AUTH_JWT_SECRET`)가 환경변수로 주입되지 않으면 안전하게 기동을 차단합니다 (`application.yml`의 의도된 설계).
+
+### 1. 빌드
+```powershell
+.\gradlew.bat :budget:api:bootJar
+```
+
+### 2. 환경변수 설정 및 실행
+- `AUTH_JWT_SECRET`: **필수 (Mandatory)**. HMAC-SHA256(HS256) 규격에 따라 **32바이트(256bit) 이상**의 개발용 비밀키를 주입해야 합니다.
+- `AUTH_JWT_ISSUER`: 선택 사항 (기본값: `auth-service`).
+- ⚠️ **주의**: 실제 운영 비밀키나 평문 시크릿을 저장소 코드나 커밋에 절대 포함하지 마십시오.
+
+**PowerShell:**
+```powershell
+$env:AUTH_JWT_SECRET = "<32바이트_이상의_로컬_개발용_임의_비밀키>"
+java -jar budget\api\build\libs\account-budget-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+```
+
+**Bash / Linux:**
+```bash
+export AUTH_JWT_SECRET="<32바이트_이상의_로컬_개발용_임의_비밀키>"
+java -jar budget/api/build/libs/account-budget-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+```
+
+자세한 흐름 및 개발 Compose 가이드는 [docs/local-run.md](docs/local-run.md)와 [docs/README.md](docs/README.md)를 참고하세요.
