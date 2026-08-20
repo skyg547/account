@@ -1950,6 +1950,20 @@
 - Safely removed only the clean detached completed worktree `C:\tmp\account-487-merge`; all dirty, divergent, active and other-agent worktrees were retained.
 - The first refreshed CI found three stale Compose policy assertions in Budget, Gateway and Internal Audit. Updated the exact module-Dockerfile expectations and Budget runbook; 7 focused tests and the six-project CI-equivalent set passed 123 tests in 29 suites, and independent remediation review found no P0-P3. A new GitHub run remains the merge gate.
 
+## 2026-08-21 (Issue #435 Config Server ENCRYPT_KEY fail-closed)
+
+- Claimed #435 for Codex, restored its rejected PR #511 branch in `C:\tmp\account-435-config-key-fail-closed`, and merged latest `origin/main@0b2280fd` without changing the dirty primary checkout or another agent's worktree.
+- Replaced the empty key fallback with a composition-root startup guard that rejects missing/empty/whitespace/surrounding-whitespace input before HTTP context creation and never includes the input in its diagnostic.
+- Added generated-input context coverage, required root/module Compose interpolation, a blank env template contract and safe local cleanup guidance.
+- Config Server passed 45 tests in 7 suites and bootJar. Packaged-JAR missing/empty/whitespace failures and generated-input startup passed, as did module Compose render and fallback/diff/marker scans.
+- No actual secret or external state was accessed. Independent review, exact-path commit/push, PR #511 reopen, fresh CI and final merge review remain.
+- The first independent review found the production Compose and canonical env templates omitted the new key contract. Added required production forwarding, blank dev/external-dev/prod template entries and validator enforcement; revalidation and re-review remain.
+- Development and production validator checks plus root development Compose rendering passed. The production Compose renderer is blocked later by a pre-existing pids-limit model conflict unrelated to the encryption-key contract, which remains a separate follow-up.
+- Re-review identified PowerShell truthiness accepting whitespace-only production key input. The validator now shares the startup guard's blank/whitespace semantics and self-tests the actual/template distinction.
+- Opened follow-up Issue #530 (`status:ready`) for the unrelated production Compose pids-limit model conflict.
+- Final independent re-review found no P0-P3; publication and remote-head CI/review gates remain.
+- Pushed `1ef36b71` and reopened PR #511. Main advanced to `1025417b`; resolved only four append-only harness conflicts by preserving both #435 and upstream #462/Auth records, then force-reran Config Server 45/45 and bootJar successfully.
+- Pushed latest-main merge `70ca599c`; PR #511 is open/non-draft/MERGEABLE on exact main `1025417b`, pending fresh CI and final remote-head review.
 ## 2026-08-21 (Issue #462 Auth LDAP OTP fail-closed)
 
 - Claimed #462 on `agent/462-auth-otp-fail-closed` in an external worktree from `origin/main@0b2280fd`; unrelated checkouts and running containers were untouched.

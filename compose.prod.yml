@@ -99,6 +99,7 @@ services:
       SPRING_PROFILES_ACTIVE: native
       CONFIG_REPO_LOCATION: file:/config-repo
       SERVER_PORT: "8888"
+      ENCRYPT_KEY: ${ENCRYPT_KEY:?set ENCRYPT_KEY from the approved production secret provider}
     volumes:
       - type: bind
         source: "${PROD_CONFIG_REPO_PATH:?set PROD_CONFIG_REPO_PATH}"

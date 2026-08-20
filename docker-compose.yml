@@ -140,6 +140,7 @@ services:
       SPRING_PROFILES_ACTIVE: native
       CONFIG_REPO_LOCATION: file:/config-repo
       SERVER_PORT: "8888"
+      ENCRYPT_KEY: ${ENCRYPT_KEY:?ENCRYPT_KEY must be supplied by an approved secret provider}
     volumes:
       - ./config-repo:/config-repo:ro
     healthcheck:

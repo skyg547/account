@@ -39,10 +39,19 @@ Config Client
 ## 실행과 검증
 
 IntelliJ에서는 `Config Server bootRun`을 실행합니다. 루트 폴더를 기준으로 native 저장소를 읽도록 실행 인자가 포함되어 있습니다.
+Config Server는 `ENCRYPT_KEY`가 없거나 빈 값·공백·앞뒤 공백이면 HTTP context 생성 전에 실패합니다.
+저장소나 Run Configuration에 기본 키를 저장하지 말고 실행 프로세스마다 임시 값을 주입합니다.
 
 ```powershell
-.\gradlew :config-server:test :config-server:bootJar --console=plain --max-workers=1 --no-daemon
-.\gradlew :config-server:bootRun --args="--spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo" --console=plain --no-daemon
+$keyBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($keyBytes)
+$env:ENCRYPT_KEY = [Convert]::ToBase64String($keyBytes)
+try {
+    .\gradlew :config-server:test :config-server:bootJar --console=plain --max-workers=1 --no-daemon
+    .\gradlew :config-server:bootRun --args="--spring.profiles.active=native --server.port=8888 --spring.cloud.config.server.native.search-locations=file:./config-repo" --console=plain --no-daemon
+} finally {
+    Remove-Item Env:ENCRYPT_KEY -ErrorAction SilentlyContinue
+}
 ```
 
 서버가 준비됐는지 확인합니다.

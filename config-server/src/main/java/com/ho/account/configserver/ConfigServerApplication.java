@@ -21,6 +21,12 @@ import org.springframework.cloud.config.server.EnableConfigServer;
 public class ConfigServerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ConfigServerApplication.class, args);
+        application().run(args);
+    }
+
+    static SpringApplication application() {
+        SpringApplication application = new SpringApplication(ConfigServerApplication.class);
+        application.addListeners(new EncryptionKeyStartupGuard());
+        return application;
     }
 }
