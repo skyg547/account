@@ -2765,3 +2765,21 @@
 - GitHub Module Validation must pass its actual `:auth:core:test :auth:api:test` tasks before Ready/merge. API packaging and build configuration are unchanged, so `:auth:api:bootJar` is not required for this core-only behavior fix and remains explicitly unexecuted local evidence. The workflow owns its runner worker setting; this low-resource host did not run that workload.
 - The first final-head review found the earlier bootJar/worker claim did not match the workflow. PR, Issue and harness wording must use the exact gate above, followed by an independent remediation re-review and then the parent Integrator.
 - Rollback uses a reviewed revert of only the four Auth implementation/test/docs paths and preserves these append-only records. There is no DB, container, credential or deployed-state rollback.
+
+## Issue #462 integration result
+
+- Final JDK 17 Module Validation passed Auth Core/API tests at reviewed head `ed1f6c9b`. PR #525 squash-merged as `1025417b`, Issue #462 closed, and active owner/status labels were removed.
+
+# AI Harness Handoff - 2026-08-21 Issue #518 Auth SSO fail-closed
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#518`, `agent/518-auth-sso-fail-closed`, `/tmp/account-518-auth-sso-fail-closed`, Draft PR #531 against `main`.
+- Commit `20e1806e` allows only explicit case-insensitive NORMAL password login. SSO and unsupported types fail before user, credential, login-attempt and token adapters; LDAP retains #462's fail-closed provider contract.
+- The first independent review found non-credential requests could consume the five-failure lockout and cause a 15-minute account DoS. Remediation removes all `LoginAttemptPort` interaction from those paths; repeated-request tests cover the boundary and re-review found no P0-P3.
+
+## Evidence, rollback, and next owner
+
+- Exact implementation allowlist, `git diff --check`, marker and secret scans pass. Host JDK 17 is absent, and an offline CPU-1/memory-1536-MiB container cannot resolve uncached `jjwt-api:0.11.5`; no dependency was downloaded.
+- Final-head Module Validation must pass `:auth:core:test :auth:api:test`. API packaging/build configuration is unchanged, so bootJar is disclosed as unexecuted and is not the merge gate.
+- Next owner is an independent final PR-head reviewer after CI, then the parent Integrator. Rollback is a reviewed revert of only the four Auth implementation/test/docs paths; no DB/container/credential rollback exists.
