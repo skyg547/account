@@ -3,8 +3,20 @@ package com.ho.account.contracts.ledger;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * [LedgerQueryPort] 원장(Ledger) 잔액 및 집계 조회를 위한 공통 계약 포트.
+ *
+ * 🐣 [초보자를 위한 개념 설명]
+ * - GL (General Ledger, 총계정원장): 전사 계정과목별 총 잔액과 발생액을 관리하는 장부입니다.
+ * - SL (Sub-Ledger, 보조원장): 거래처(Business Partner), 부서(Department) 등 관리 차원(Dimension)별 세부 잔액을 관리하는 보조 장부입니다.
+ * - 푸시다운 집계(Push-Down Aggregation): 수백만 건의 원장 라인을 애플리케이션 메모리에 모두 띄우지 않고,
+ *   SQL 데이터베이스 엔진의 `SUM/COUNT/GROUP BY` 집계 능력을 활용하여 초고속으로 잔액을 조회하는 최적화 패턴입니다.
+ */
 public interface LedgerQueryPort {
 
+    /**
+     * 지정된 기간, 계정코드, 통화 기준의 총계정원장(GL) 잔액 요약 목록을 조회합니다.
+     */
     List<LedgerBalanceSummary> getGlBalanceSummaries(LocalDate startDate,
                                                      LocalDate endDate,
                                                      String accountCode,
