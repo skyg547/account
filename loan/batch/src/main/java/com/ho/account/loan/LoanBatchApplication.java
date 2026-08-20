@@ -5,6 +5,8 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -22,15 +24,27 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  *   <li><strong>Spring Boot 3 Batch Auto-Configuration & Meta-schema Setup</strong>:
  *       Spring Boot 3에서는 {@code @EnableBatchProcessing}을 붙이면 {@code BatchAutoConfiguration}이 비활성화되므로
  *       이를 제거하여 H2 데이터베이스에 배치 메타데이터 테이블이 자동으로 생성되도록 보장합니다.</li>
+ *   <li><strong>Bounded Context Isolation (거버넌스 웹 컨트롤러 노출 차단)</strong>:
+ *       {@code shared-kernel}의 {@code AuditController} 등 거버넌스 REST 컨트롤러가 배치 프로세스에 로드되지 않도록
+ *       {@link ComponentScan.Filter}를 통해 {@code AuditController}를 컴포넌트 스캔에서 명시적으로 제외합니다.</li>
  * </ul>
  */
-@SpringBootApplication(scanBasePackages = {
-        "com.ho.account.loan",
-        "com.ho.account.journalledger",
-        "com.ho.account.common",
-        "com.ho.account.shared",
-        "com.ho.account.masterdata.core"
-})
+@SpringBootApplication
+@ComponentScan(
+        basePackages = {
+                "com.ho.account.loan",
+                "com.ho.account.journalledger",
+                "com.ho.account.common",
+                "com.ho.account.shared",
+                "com.ho.account.masterdata.core"
+        },
+        excludeFilters = {
+                @ComponentScan.Filter(
+                        type = FilterType.REGEX,
+                        pattern = "com\\.ho\\.account\\.shared\\.infrastructure\\.security\\.web\\..*"
+                )
+        }
+)
 @EntityScan(basePackages = {
         "com.ho.account.loan.domain",
         "com.ho.account.journalledger.domain",
