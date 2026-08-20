@@ -1939,3 +1939,12 @@
 - Closing API/Batch/Core passed 90 tests in 27 suites, Batch `bootJar` passed, and the packaged local H2 JAR started without missing ports or external attempts. No actual Job, DB, endpoint, credential, container or volume was used.
 - Independent review's P3 test-coverage finding was remediated and final re-review found no P0-P3. Commit `8a582592` is pushed and stacked Draft PR #448 is open; Issue #423 is `status:needs-review` pending PR-head checks and merge into the #422 branch.
 - PR #448 subsequently passed all GitHub checks and final PR-head review, then merged into the #422 branch as `dbedb96f`. Refreshed main-target PR #447 now owns the combined Closing API/Batch integration gate; neither Issue closes before that PR reaches main.
+
+## 2026-08-21 (Issue #66 PR #407 container topology conflict resolution)
+
+- Identified the user's “PR 66” as existing PR #407 for Issue #66; it is a separate follow-up from the earlier Codex PR #339. Reused its isolated worktree and left the dirty primary checkout untouched.
+- Merged latest `origin/main@07499d93` and reconciled the semantic image-policy conflict: 35 manifest Java targets use their module Dockerfiles, while migration-runner remains the explicit central `Containerfile` exception.
+- Cancelled stale PR-only compose/script/docs and unrelated stale-branch application changes. The final main-relative scope is container image definitions, Compose selection, manifest/tooling, policy tests and runbooks.
+- Config Server policy tests passed 37/37 and package verification passed 35/35 with a single non-plain executable JAR per Java target. Independent review findings were remediated and final re-review found no P0-P3; refreshed GitHub checks remain.
+- No external DB, credential, private endpoint, Docker/Compose service, registry, container or volume was accessed. Issue #66 remains blocked on approved live Compose/PostgreSQL verification.
+- Safely removed only the clean detached completed worktree `C:\tmp\account-487-merge`; all dirty, divergent, active and other-agent worktrees were retained.
