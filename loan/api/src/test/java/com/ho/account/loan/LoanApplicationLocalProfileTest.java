@@ -93,6 +93,13 @@ class LoanApplicationLocalProfileTest {
         assertThat(applicationContext.getBeanNamesForType(businessPartnerRepoClass)).isNotEmpty();
         assertThat(applicationContext.getBeanNamesForType(auditLogRepoClass)).isNotEmpty();
     }
+
+    @Test
+    @DisplayName("거버넌스 AuditController 웹 어댑터가 Loan API ApplicationContext에 빈으로 등록되지 않는다")
+    void auditControllerIsNotExposedInLoanApi() throws ClassNotFoundException {
+        Class<?> auditControllerClass = Class.forName("com.ho.account.shared.infrastructure.security.web.AuditController");
+        assertThat(applicationContext.getBeanNamesForType(auditControllerClass)).isEmpty();
+    }
 }
 
 

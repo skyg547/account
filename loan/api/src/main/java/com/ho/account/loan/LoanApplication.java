@@ -4,6 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -15,6 +17,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  *       마이크로서비스 진입점(Composition Root)에서 {@code com.ho.account} 전체 패키지를 모호하게 스캔(Broad Scan)하는 대신,
  *       대출(Loan) 마이크로서비스가 의존하는 원장(Journal Ledger), 기준정보(Master Data Core), 공통 보안/감사(Shared Security Audit)
  *       모듈의 JPA 엔티티 및 데이터 리포지토리 패키지를 명시적으로 구성합니다.</li>
+ *   <li><strong>Bounded Context Isolation & Governance Web Controller Exclusion (거버넌스 웹 컨트롤러 노출 차단)</strong>:
+ *       {@code shared-kernel}의 {@code AuditController} 등 거버넌스 REST 컨트롤러가 대출 서비스 API에 의도치 않게 노출되지 않도록
+ *       {@link ComponentScan.Filter} 정규표현식 필터({@code com.ho.account.shared.infrastructure.security.web.*})를 통해
+ *       거버넌스 인바운드 웹 어댑터를 컴포넌트 스캔에서 명시적으로 제외합니다.</li>
  *   <li><strong>Entity & Repository Management (엔티티 및 리포지토리 관리 정합성)</strong>:
  *       <ul>
  *         <li>{@link EntityScan}: 기준정보 persistence 엔티티 패키지({@code com.ho.account.masterdata.core.infrastructure.persistence.entity} 및 {@code com.ho.account.masterdata.core.infrastructure.persistence})와
@@ -28,13 +34,22 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  *       로컬 개발 환경({@code local} 프로파일)에서 인메모리 H2 DB로 독립 실행 가능하도록 설계되었습니다.</li>
  * </ul>
  */
-@SpringBootApplication(scanBasePackages = {
-        "com.ho.account.loan",
-        "com.ho.account.journalledger",
-        "com.ho.account.common",
-        "com.ho.account.shared",
-        "com.ho.account.masterdata.core"
-})
+@SpringBootApplication
+@ComponentScan(
+        basePackages = {
+                "com.ho.account.loan",
+                "com.ho.account.journalledger",
+                "com.ho.account.common",
+                "com.ho.account.shared",
+                "com.ho.account.masterdata.core"
+        },
+        excludeFilters = {
+                @ComponentScan.Filter(
+                        type = FilterType.REGEX,
+                        pattern = "com\\.ho\\.account\\.shared\\.infrastructure\\.security\\.web\\..*"
+                )
+        }
+)
 @EnableDiscoveryClient
 @EntityScan(basePackages = {
         "com.ho.account.loan.domain",
