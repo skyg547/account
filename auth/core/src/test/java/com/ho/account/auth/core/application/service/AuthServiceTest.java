@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -87,6 +88,46 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong", "NORMAL", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void rejectsLegacyFixedOtpForLdapWithoutIssuingToken() {
+        AtomicBoolean tokenIssued = new AtomicBoolean();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService authService = service(
+                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
+                code -> true,
+                String::equals,
+                (subject, issuedAt) -> {
+                    tokenIssued.set(true);
+                    return new TokenIssuerPort.IssuedToken("token", 1L);
+                },
+                attempts);
+
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "LDAP", "123456")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(tokenIssued).isFalse();
+        assertThat(attempts.lastFailureReason).isEqualTo("LDAP_OTP_VERIFIER_UNAVAILABLE");
+    }
+
+    @Test
+    void rejectsAnyOtherOtpForLdapWithoutIssuingToken() {
+        AtomicBoolean tokenIssued = new AtomicBoolean();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService authService = service(
+                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
+                code -> true,
+                String::equals,
+                (subject, issuedAt) -> {
+                    tokenIssued.set(true);
+                    return new TokenIssuerPort.IssuedToken("token", 1L);
+                },
+                attempts);
+
+        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "LDAP", "654321")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(tokenIssued).isFalse();
+        assertThat(attempts.lastFailureReason).isEqualTo("LDAP_OTP_VERIFIER_UNAVAILABLE");
     }
 
     @Test
@@ -232,6 +273,7 @@ class AuthServiceTest {
 
     private static final class RecordingLoginAttemptPort implements LoginAttemptPort {
         private boolean locked;
+        private String lastFailureReason;
 
         @Override
         public boolean isLocked(String username) {
@@ -240,6 +282,7 @@ class AuthServiceTest {
 
         @Override
         public void recordFailure(String username, String reason) {
+            lastFailureReason = reason;
         }
 
         @Override

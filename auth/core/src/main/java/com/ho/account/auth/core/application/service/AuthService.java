@@ -76,12 +76,11 @@ public class AuthService implements AuthUseCase {
                 loginAttemptPort.recordFailure(username, "INVALID_PASSWORD");
                 throw new InvalidCredentialsException();
             }
-            
+
             if (isLdap) {
-                if (!"123456".equals(command.otpCode())) {
-                    loginAttemptPort.recordFailure(username, "INVALID_OTP");
-                    throw new InvalidCredentialsException();
-                }
+                // LDAP OTP 인증 공급자가 연결되기 전에는 어떤 OTP도 신뢰하지 않습니다.
+                loginAttemptPort.recordFailure(username, "LDAP_OTP_VERIFIER_UNAVAILABLE");
+                throw new InvalidCredentialsException();
             }
         }
 
