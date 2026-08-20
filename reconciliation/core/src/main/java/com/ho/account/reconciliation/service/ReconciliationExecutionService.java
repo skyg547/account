@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -311,15 +313,13 @@ public class ReconciliationExecutionService {
     }
 
     private String readText(JsonNode root, String fieldName) {
-        JsonNode node = root.get(fieldName);
-        if (node == null || node.isNull()) {
-            return null;
-        }
-        String text = node.asText();
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        return text.trim();
+        return Optional.ofNullable(root)
+                .map(r -> r.get(fieldName))
+                .filter(n -> !n.isNull())
+                .map(JsonNode::asText)
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .orElse(null);
     }
 
     private JsonNode parseCriteriaJson(ReconciliationUnit reconciliationUnit) {

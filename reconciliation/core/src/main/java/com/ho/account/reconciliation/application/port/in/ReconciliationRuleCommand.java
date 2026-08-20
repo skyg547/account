@@ -3,6 +3,7 @@ package com.ho.account.reconciliation.application.port.in;
 import com.ho.account.reconciliation.domain.ReconciliationRule;
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 대사 규칙 생성/수정 유즈케이스 입력값입니다.
@@ -40,9 +41,9 @@ public record ReconciliationRuleCommand(
     }
 
     private static String trimToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+        return Optional.ofNullable(value)
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .orElse(null);
     }
 }

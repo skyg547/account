@@ -2,6 +2,7 @@ package com.ho.account.reconciliation.application.port.in;
 
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 대사 단위 생성/수정 유즈케이스 입력값입니다.
@@ -33,9 +34,9 @@ public record ReconciliationUnitCommand(
     }
 
     private static String trimToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+        return Optional.ofNullable(value)
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .orElse(null);
     }
 }
