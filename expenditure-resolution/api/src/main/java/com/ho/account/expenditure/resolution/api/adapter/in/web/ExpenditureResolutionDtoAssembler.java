@@ -8,6 +8,7 @@ import com.ho.account.expenditure.domain.ExpenditureDetail;
 import com.ho.account.expenditure.domain.ExpenditureResolution;
 import com.ho.account.expenditure.resolution.api.dto.ExpenditureResolutionDto;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,9 +21,11 @@ public class ExpenditureResolutionDtoAssembler {
     }
 
     public ExpenditureResolutionDto toDto(ExpenditureResolution resolution) {
-        List<ExpenditureResolutionDto.ExpenditureDetailDto> detailDtos = resolution.getDetails().stream()
-                .map(this::toDetailDto)
-                .toList();
+        List<ExpenditureResolutionDto.ExpenditureDetailDto> detailDtos = resolution.getDetails() == null
+                ? List.of()
+                : resolution.getDetails().stream()
+                        .map(this::toDetailDto)
+                        .toList();
 
         return new ExpenditureResolutionDto(
                 resolution.getId(),
@@ -59,28 +62,25 @@ public class ExpenditureResolutionDtoAssembler {
     }
 
     private String departmentName(String code) {
-        if (code == null) {
-            return null;
-        }
-        return masterDataQueryPort.findDepartment(code)
+        return Optional.ofNullable(code)
+                .filter(c -> !c.isBlank())
+                .flatMap(masterDataQueryPort::findDepartment)
                 .map(DepartmentRef::name)
                 .orElse(null);
     }
 
     private String accountSubjectName(String code) {
-        if (code == null) {
-            return null;
-        }
-        return masterDataQueryPort.findAccountSubject(code)
+        return Optional.ofNullable(code)
+                .filter(c -> !c.isBlank())
+                .flatMap(masterDataQueryPort::findAccountSubject)
                 .map(AccountSubjectRef::name)
                 .orElse(null);
     }
 
     private String businessPartnerName(String code) {
-        if (code == null) {
-            return null;
-        }
-        return masterDataQueryPort.findBusinessPartner(code)
+        return Optional.ofNullable(code)
+                .filter(c -> !c.isBlank())
+                .flatMap(masterDataQueryPort::findBusinessPartner)
                 .map(BusinessPartnerRef::name)
                 .orElse(null);
     }
