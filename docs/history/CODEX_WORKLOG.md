@@ -1949,3 +1949,11 @@
 - No external DB, credential, private endpoint, Docker/Compose service, registry, container or volume was accessed. Issue #66 remains blocked on approved live Compose/PostgreSQL verification.
 - Safely removed only the clean detached completed worktree `C:\tmp\account-487-merge`; all dirty, divergent, active and other-agent worktrees were retained.
 - The first refreshed CI found three stale Compose policy assertions in Budget, Gateway and Internal Audit. Updated the exact module-Dockerfile expectations and Budget runbook; 7 focused tests and the six-project CI-equivalent set passed 123 tests in 29 suites, and independent remediation review found no P0-P3. A new GitHub run remains the merge gate.
+
+## 2026-08-21 (Issue #462 Auth LDAP OTP fail-closed)
+
+- Claimed #462 on `agent/462-auth-otp-fail-closed` in an external worktree from `origin/main@0b2280fd`; unrelated checkouts and running containers were untouched.
+- Replaced the fixed `123456` LDAP OTP success condition with a provider-unavailable fail-closed path that records an internal reason, returns the existing generic credentials failure and never reaches token issuance.
+- Added focused legacy/alternate OTP and no-JWT assertions while preserving the existing normal-login test, then aligned Auth README and process-flow documentation.
+- Static gates passed and independent review found no P0-P3. Host Java 17 is absent; the offline cached JDK 17 container lacks `jjwt-api:0.11.5`, so no local test result is claimed and no package was downloaded.
+- Commit `1b4407f7` is pushed, Draft PR #525 is open with `Refs #462/#515`, and Issue #462 is `status:needs-review`. GitHub Auth tests and bootJar remain the Ready/merge gate.

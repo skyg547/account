@@ -2749,3 +2749,18 @@
 - The three tests now assert `budget/api/Dockerfile`, `budget/batch/Dockerfile`, `gateway/Dockerfile` and `internal-audit/api/Dockerfile`, and reject legacy arguments. `budget/docs/local-run.md` now documents the same root-context/module-Dockerfile contract.
 - Seven focused tests passed. The full local CI-equivalent set for Budget Core/API/Batch, Gateway and Internal Audit Core/API passed 123 tests in 29 suites with zero failure/error/skip; independent remediation review found no P0-P3.
 - Commit/push must trigger a fresh GitHub run. Do not merge until that run is green; the separate live Compose/PostgreSQL blocker remains unchanged.
+
+# AI Harness Handoff - 2026-08-21 Issue #462 Auth LDAP OTP
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#462`, `agent/462-auth-otp-fail-closed`, `/tmp/account-462-auth-otp-fail-closed`, Draft PR #525 against `main`.
+- Commit `1b4407f7` removes the fixed LDAP OTP success path, adds focused tests and updates Auth documentation. Issue #462 is `status:needs-review`; parent runtime plan is #515.
+- LDAP now fails closed while no OTP verifier provider exists, records `LDAP_OTP_VERIFIER_UNAVAILABLE`, exposes only the existing generic credentials error and cannot issue a JWT. Normal password behavior and the separate SSO remediation #518 are outside this change.
+
+## Evidence, rollback, and next owner
+
+- `git diff --check`, exact four-file implementation scope and changed-file conflict-marker checks pass. Independent review found no P0-P3.
+- Host testing stops before task execution because only Java 21 is installed. A network-disabled, CPU-1/memory-2-GiB JDK 17 container reached Gradle but cannot resolve uncached `jjwt-api:0.11.5`; no dependency was downloaded.
+- GitHub CI must pass `:auth:core:test :auth:api:test :auth:api:bootJar --max-workers=1` before Ready/merge. The next owner is an independent PR-head reviewer after CI, then the parent Integrator.
+- Rollback uses a reviewed revert of only the four Auth implementation/test/docs paths and preserves these append-only records. There is no DB, container, credential or deployed-state rollback.
