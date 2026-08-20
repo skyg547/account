@@ -66,6 +66,8 @@ class ConfigServerConfigurationPolicyTest {
         assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY:account-config-server-secret-key}");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
+        assertThat(properties.getProperty("spring.cloud.config.server.encrypt.enabled"))
+                .isEqualTo("${CONFIG_SERVER_ENCRYPT_ENDPOINT_ENABLED:false}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
                 .isEqualTo("${CONFIG_REPO_LOCATION:file:./config-repo}");
         assertThat(properties.getProperty("spring.cloud.config.server.health.repositories.master-data.name"))
