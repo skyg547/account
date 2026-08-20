@@ -27,12 +27,15 @@ class JwtAuthenticationFilterTest {
         AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.post("/api/auth/login")
                 .header(JwtAuthenticationFilter.AUTH_USER_HEADER, "attacker")
+                .header(JwtAuthenticationFilter.USER_ID_HEADER, "attacker")
                 .header(JwtAuthenticationFilter.AUTH_DEPARTMENT_HEADER, "FAKE"));
 
         StepVerifier.create(filter.filter(exchange, capture(forwarded))).verifyComplete();
 
         assertThat(forwarded.get()).isNotNull();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey(JwtAuthenticationFilter.AUTH_USER_HEADER))
+                .isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey(JwtAuthenticationFilter.USER_ID_HEADER))
                 .isFalse();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey(JwtAuthenticationFilter.AUTH_DEPARTMENT_HEADER))
                 .isFalse();
@@ -94,6 +97,7 @@ class JwtAuthenticationFilterTest {
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/api/basic/accounts")
                 .header(HttpHeaders.AUTHORIZATION, "bearer signed-token")
                 .header(JwtAuthenticationFilter.AUTH_USER_HEADER, "attacker")
+                .header(JwtAuthenticationFilter.USER_ID_HEADER, "attacker")
                 .header(JwtAuthenticationFilter.AUTH_ROLES_HEADER, "SUPER_ADMIN")
                 .header(JwtAuthenticationFilter.AUTH_ROLE_VERSION_HEADER, "999")
                 .header(JwtAuthenticationFilter.AUTH_DEPARTMENT_HEADER, "FAKE"));
@@ -102,6 +106,7 @@ class JwtAuthenticationFilterTest {
 
         HttpHeaders headers = forwarded.get().getRequest().getHeaders();
         assertThat(headers.getFirst(JwtAuthenticationFilter.AUTH_USER_HEADER)).isEqualTo("admin");
+        assertThat(headers.getFirst(JwtAuthenticationFilter.USER_ID_HEADER)).isEqualTo("admin");
         assertThat(headers.getFirst(JwtAuthenticationFilter.AUTH_ROLES_HEADER))
                 .isEqualTo("ACCOUNT_ADMIN,REPORT_READER");
         assertThat(headers.getFirst(JwtAuthenticationFilter.AUTH_ROLE_VERSION_HEADER)).isEqualTo("7");

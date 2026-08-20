@@ -35,6 +35,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
     static final String AUTH_ROLE_VERSION_HEADER = "X-Auth-Role-Version";
     static final String AUTH_DEPARTMENT_HEADER = "X-Auth-Department";
+    static final String USER_ID_HEADER = "X-User-ID";
 
     private static final String LOGIN_PATH = "/api/auth/login";
     private static final String TOKEN_VERSION_PATH = "/api/auth/validate-token-version";
@@ -45,6 +46,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             AUTH_ROLES_HEADER,
             AUTH_ROLE_VERSION_HEADER,
             AUTH_DEPARTMENT_HEADER,
+            USER_ID_HEADER,
             "X-Service-Identity",
             "X-Internal-Token",
             "X-Service-Name");
@@ -120,6 +122,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest authenticatedRequest = exchange.getRequest().mutate()
                 .headers(headers -> {
                     headers.set(AUTH_USER_HEADER, principal.username());
+                    headers.set(USER_ID_HEADER, principal.username());
                     headers.set(AUTH_ROLES_HEADER, String.join(",", principal.roles()));
                     headers.set(AUTH_ROLE_VERSION_HEADER, Long.toString(principal.roleVersion()));
                     if (principal.departmentCode() != null) {
