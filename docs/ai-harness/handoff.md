@@ -2769,3 +2769,19 @@
 - Remediation re-review found that production validator truthiness could accept a whitespace-only quoted value. `Test-IsMissingRequiredValue` now uses `IsNullOrWhiteSpace`, keeps blank allowance limited to template mode, and self-tests both branches; final verification and re-review are required.
 - Follow-up Issue #530 owns the pre-existing production Compose pids-limit render conflict and is queued as unclaimed `status:ready`.
 - Final independent re-review found no P0-P3. The next owner is the parent Integrator for exact-path commit/push and PR #511 reopen, followed by a fresh CI and remote-head review before merge/close.
+- Commit `1ef36b71` is pushed and PR #511 reopened. When main advanced to `1025417b`, only the four append-only harness records conflicted; resolution preserves both #435 and upstream #462/Auth blocks. Forced latest-main Config Server test/bootJar rerun passed 45/45; merge-commit push, fresh CI and final remote-head review remain.
+# AI Harness Handoff - 2026-08-21 Issue #462 Auth LDAP OTP
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#462`, `agent/462-auth-otp-fail-closed`, `/tmp/account-462-auth-otp-fail-closed`, Draft PR #525 against `main`.
+- Commit `1b4407f7` removes the fixed LDAP OTP success path, adds focused tests and updates Auth documentation. Issue #462 is `status:needs-review`; parent runtime plan is #515.
+- LDAP now fails closed while no OTP verifier provider exists, records `LDAP_OTP_VERIFIER_UNAVAILABLE`, exposes only the existing generic credentials error and cannot issue a JWT. Normal password behavior and the separate SSO remediation #518 are outside this change.
+
+## Evidence, rollback, and next owner
+
+- `git diff --check`, exact four-file implementation scope and changed-file conflict-marker checks pass. Independent review found no P0-P3.
+- Host testing stops before task execution because only Java 21 is installed. A network-disabled, CPU-1/memory-2-GiB JDK 17 container reached Gradle but cannot resolve uncached `jjwt-api:0.11.5`; no dependency was downloaded.
+- GitHub Module Validation must pass its actual `:auth:core:test :auth:api:test` tasks before Ready/merge. API packaging and build configuration are unchanged, so `:auth:api:bootJar` is not required for this core-only behavior fix and remains explicitly unexecuted local evidence. The workflow owns its runner worker setting; this low-resource host did not run that workload.
+- The first final-head review found the earlier bootJar/worker claim did not match the workflow. PR, Issue and harness wording must use the exact gate above, followed by an independent remediation re-review and then the parent Integrator.
+- Rollback uses a reviewed revert of only the four Auth implementation/test/docs paths and preserves these append-only records. There is no DB, container, credential or deployed-state rollback.

@@ -4,7 +4,7 @@
 
 | 메서드 | 경로 | 역할 |
 | --- | --- | --- |
-| `POST` | `/api/auth/login` | username/password로 로그인하고 JWT를 발급합니다. |
+| `POST` | `/api/auth/login` | 지원되는 로그인 경로의 자격 증명을 검증하고 JWT를 발급합니다. LDAP는 OTP 검증 공급자가 없어 fail-closed입니다. |
 | `POST` | `/api/auth/validate-token-version` | 버전과 현재 계정/유효 역할 상태를 확인합니다. |
 | `POST` | `/api/auth/internal/users/{username}/role-assignments` | Governance 승인 결과로 사용자 역할 목록을 멱등 교체합니다. |
 
@@ -33,6 +33,8 @@ sequenceDiagram
 ```
 
 core는 `api.dto`를 참조하지 않습니다. 역할 유효성 계산 시각을 서비스가 한 번 만들고 JWT 어댑터에 전달하므로 응답과 claim이 같은 스냅샷을 사용합니다.
+
+LDAP 요청은 사용자와 비밀번호 및 임시 잠금 정책을 확인한 뒤에도 OTP 검증 공급자가 없으면 항상 일반적인 자격 증명 오류로 끝납니다. 고정값 또는 기본값 OTP를 성공 조건으로 사용하지 않으며 JWT를 발급하지 않습니다.
 
 `AuthService`는 사용자 조회, master-data 원격 확인, 로그인 실패 저장 전체를 하나의 DB 트랜잭션으로 묶지 않습니다. JPA 조회/실패 기록 어댑터가 각각 짧은 read/write 트랜잭션을 소유해 외부 호출 중 DB 연결을 오래 잡거나 실패 기록이 readOnly 경계에 묻히는 일을 막습니다.
 
