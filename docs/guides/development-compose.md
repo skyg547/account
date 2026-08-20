@@ -59,12 +59,34 @@ Java 서비스는 저장소 루트 `Containerfile`과 정확한 `GRADLE_PROJECT`
 | `migration` | 한 context씩 실행하는 migration-runner와 runtime grant helper |
 | `batch` | 15개 Batch 정의; 자동 Job 실행은 기본 비활성 |
 
-Config Server와 Discovery는 선택된 업무 profile의 공통 선행 서비스입니다. Gateway는 특정
-업무 API 하나의 장애 때문에 시작이 차단되지 않으며, Frontend만 Gateway readiness를
-기다립니다. 업무 API/Batch는 host port를 공개하지 않습니다. 개발 host에는 Gateway와
-Frontend, self-contained 인프라만 `127.0.0.1`로 bind합니다.
+## Windows / Podman 환경 Compose 설치 가이드
 
-## Self-contained PostgreSQL
+Windows에서 WSL2 + Podman 또는 Docker를 사용할 때 `docker compose` 명령을 실행하기 위한 CLI 설치 방법입니다.
+
+### 방법 1: winget으로 Docker Compose CLI 설치 (권장)
+Windows PowerShell 관리자 권한에서 실행합니다.
+```powershell
+winget install Docker.DockerCompose
+```
+설치 완료 후 새 터미널에서 버전을 확인합니다.
+```powershell
+docker-compose --version
+# 또는
+docker compose version
+```
+
+### 방법 2: Python podman-compose 설치
+```powershell
+pip install podman-compose
+podman-compose --version
+```
+
+## Self-contained PostgreSQL vs Local H2 개념
+
+- **Local Profile (H2 In-Memory DB)**: 빠른 단위 테스트 및 모듈 단독 개발용 (`application-local.yml`). 외부 DB 설치 없이 `./gradlew :module:api:bootRun` 또는 IntelliJ에서 단독 구동.
+- **Dev Profile (PostgreSQL + Docker Compose)**: 마이크로서비스 간 연동 테스트 및 E2E 검증용 (`compose.self-contained.yml`). 실제 PostgreSQL 17개 DB 스키마, Redis, Kafka 컨테이너와 함께 풀스택 구동.
+
+## Self-contained PostgreSQL 실행 절차
 
 예제는 실제 secret이 아닙니다. 복사 후 모든 `replace-with-...` 값을 바꿉니다.
 

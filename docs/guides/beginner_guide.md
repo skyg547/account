@@ -58,7 +58,34 @@ Windows PowerShell 기준입니다.
 
 대규모 통합 검증은 오래 걸릴 수 있으므로 변경 모듈의 test/compileJava를 먼저 실행하고, 마지막에 연관 모듈을 넓혀 검증합니다.
 
-## 6. 변경 전후 체크리스트
+## 6. MSA 로컬 연동 테스트 3단계 튜토리얼 (3-Step Guide)
+
+프론트엔드 및 백엔드 개발자가 로컬에서 전체 또는 일부 MSA 모듈을 연동하여 E2E 테스트를 수행하는 표준 절차입니다.
+
+### [Step 1] Self-Contained 인프라 및 DB 기동
+PostgreSQL(17개 DB), Redis, Kafka 인프라를 백그라운드로 띄웁니다.
+```powershell
+Copy-Item .env.dev.example .env.dev
+docker compose --env-file .env.dev -f docker-compose.yml -f compose.self-contained.yml --profile self-contained up -d
+```
+
+### [Step 2] 핵심 MSA 서비스 및 Gateway 기동
+필요한 업무 도메인에 따라 프로파일을 선택해 기동합니다.
+- 전체 API 기동: `--profile apis`
+- 플랫폼 및 기반 업무(인증/기준정보)만 기동: `--profile platform --profile foundation`
+```powershell
+docker compose --env-file .env.dev -f docker-compose.yml -f compose.self-contained.yml --profile platform --profile foundation up -d
+```
+
+### [Step 3] 브라우저 및 프론트엔드 연동 확인
+- **Gateway 엔드포인트**: `http://localhost:8000` (API 라우팅 및 JWT 검증)
+- **Frontend 대시보드**: `http://localhost:3000` 접속 후 로그인 및 화면 기능 확인
+- **종료 시**:
+```powershell
+docker compose --env-file .env.dev -f docker-compose.yml -f compose.self-contained.yml --profile platform --profile foundation --profile self-contained down
+```
+
+## 7. 변경 전후 체크리스트
 
 변경 전:
 - 관련 모듈 README와 docs를 읽었는가?
@@ -71,6 +98,6 @@ Windows PowerShell 기준입니다.
 - 남은 리스크를 문서에 남겼는가?
 - Java 소스의 임시 `@todo`가 실제 후속 작업인지 확인했는가?
 
-## 7. 아카이브 안내
+## 8. 아카이브 안내
 
 이전 `docs/beginner_guide.md`에는 유효한 입문 내용 뒤에 깨진 레거시 App Schema 조각이 섞여 있었습니다. 원문은 삭제하지 않고 [archive/beginner_guide_legacy_corrupt_2026-06-10.md](./archive/beginner_guide_legacy_corrupt_2026-06-10.md)에 보존했습니다. 실행에 필요한 app/profile 정보는 이 문서와 [local-development.md](./local-development.md)에 복원했습니다.
