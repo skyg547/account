@@ -4,10 +4,7 @@ services:
   ifrs9-allowance-mart-batch:
     build:
       context: ../..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":account-mart:mart-batch"
-        JAR_DIRECTORY: account-mart/mart-batch
+      dockerfile: account-mart/mart-batch/Dockerfile
     container_name: ifrs9-allowance-mart-batch
     environment:
       - SPRING_PROFILES_ACTIVE=docker

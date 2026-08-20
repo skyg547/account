@@ -1,29 +1,25 @@
-# Stage 1: Build - ETL 배치 모듈 빌드
-FROM docker.io/library/gradle:8.7-jdk21-alpine AS builder
+FROM docker.io/library/gradle:8.7-jdk17-alpine AS builder
+USER root
+RUN mkdir -p /workspace && chown gradle:gradle /workspace
+USER gradle
+WORKDIR /workspace
+
+COPY --chown=gradle:gradle . .
+
+RUN set -eu; \
+    ./gradlew :account-mart:mart-batch:bootJar --console=plain --no-daemon; \
+    jar_count="$(find account-mart/mart-batch/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | wc -l | tr -d ' ')"; \
+    test "$jar_count" -eq 1; \
+    jar_file="$(find account-mart/mart-batch/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print)"; \
+    cp "$jar_file" /workspace/app.jar
+
+FROM docker.io/library/eclipse-temurin:17-jre-alpine AS runtime
 WORKDIR /app
 
-# 모든 연관 모듈 복제 (ETL은 전사 도메인 지식이 필요할 수 있음)
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-COPY shared-kernel shared-kernel
-COPY discovery-service discovery-service
-COPY gateway-service gateway-service
-COPY account-mart account-mart
+RUN addgroup -S app && adduser -S -G app app
+COPY --from=builder --chown=app:app /workspace/app.jar /app/app.jar
 
-# 마트 배치 모듈 빌드
-RUN ./gradlew :account-mart:mart-batch:bootJar -x test
+USER app:app
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
-# Stage 2: Runtime - 고성능 배치 실행 환경
-FROM docker.io/library/eclipse-temurin:21-jre-alpine
-WORKDIR /app
-
-# 빌드된 JAR 파일 복사
-COPY --from=builder /app/account-mart/mart-batch/build/libs/*-SNAPSHOT.jar app.jar
-
-# 컨테이너 환경 변수 설정
-ENV SPRING_PROFILES_ACTIVE=docker
-
-# 실행 명령어: JVM 난수 생성기 최적화로 부팅 속도 개선
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=docker", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

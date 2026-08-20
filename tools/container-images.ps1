@@ -175,11 +175,10 @@ function Build-Image {
         }
         $arguments += @('--tag', $tag, $ImageTarget.context)
     } else {
+        $moduleDockerfile = "$($ImageTarget.jarDirectory)/Dockerfile"
         $arguments = @(
             'build',
-            '--file', $manifest.javaContainerfile,
-            '--build-arg', "GRADLE_PROJECT=$($ImageTarget.gradleProject)",
-            '--build-arg', "JAR_DIRECTORY=$($ImageTarget.jarDirectory)",
+            '--file', $moduleDockerfile,
             '--tag', $tag,
             '.'
         )

@@ -4,10 +4,7 @@ services:
   allowance-ecl-batch:
     build:
       context: ../..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":ecl:ecl-batch"
-        JAR_DIRECTORY: ecl/ecl-batch
+      dockerfile: ecl/ecl-batch/Dockerfile
     container_name: allowance-ecl-batch
     environment:
       - SPRING_PROFILES_ACTIVE=docker

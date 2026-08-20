@@ -4,10 +4,7 @@ services:
   auth:
     build:
       context: ..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":auth:api"
-        JAR_DIRECTORY: auth/api
+      dockerfile: auth/api/Dockerfile
     container_name: auth
     ports:
       - "8084:8084"

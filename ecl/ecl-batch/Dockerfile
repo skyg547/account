@@ -1,23 +1,25 @@
-# Stage 1: Build
-FROM docker.io/library/gradle:8.7-jdk21-alpine AS builder
+FROM docker.io/library/gradle:8.7-jdk17-alpine AS builder
+USER root
+RUN mkdir -p /workspace && chown gradle:gradle /workspace
+USER gradle
+WORKDIR /workspace
+
+COPY --chown=gradle:gradle . .
+
+RUN set -eu; \
+    ./gradlew :ecl:ecl-batch:bootJar --console=plain --no-daemon; \
+    jar_count="$(find ecl/ecl-batch/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | wc -l | tr -d ' ')"; \
+    test "$jar_count" -eq 1; \
+    jar_file="$(find ecl/ecl-batch/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print)"; \
+    cp "$jar_file" /workspace/app.jar
+
+FROM docker.io/library/eclipse-temurin:17-jre-alpine AS runtime
 WORKDIR /app
 
-# 대손충당금 배치와 공통 모듈 복제
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-COPY shared-kernel shared-kernel
-COPY ecl ecl
+RUN addgroup -S app && adduser -S -G app app
+COPY --from=builder --chown=app:app /workspace/app.jar /app/app.jar
 
-RUN ./gradlew :ecl:ecl-batch:bootJar -x test
+USER app:app
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
-# Stage 2: Runtime
-FROM docker.io/library/eclipse-temurin:21-jre-alpine
-WORKDIR /app
-
-COPY --from=builder /app/ecl/ecl-batch/build/libs/*-SNAPSHOT.jar app.jar
-
-ENV SPRING_PROFILES_ACTIVE=docker
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom -jar app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

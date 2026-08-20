@@ -2,10 +2,7 @@ services:
   budget-api:
     build:
       context: ..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":budget:api"
-        JAR_DIRECTORY: budget/api
+      dockerfile: budget/api/Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: ${BUDGET_DB_URL:?set BUDGET_DB_URL}
@@ -27,10 +24,7 @@ services:
     profiles: ["batch"]
     build:
       context: ..
-      dockerfile: Containerfile
-      args:
-        GRADLE_PROJECT: ":budget:batch"
-        JAR_DIRECTORY: budget/batch
+      dockerfile: budget/batch/Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: ${BUDGET_DB_URL:?set BUDGET_DB_URL}

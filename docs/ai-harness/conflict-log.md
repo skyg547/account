@@ -31,3 +31,11 @@ Merge and rebase conflict resolutions are recorded below.
 - Merged `origin/main@191c5c28` into `agent/90-asset-lease-batch-local`. Discovery production/test paths and `docs/WORKLOG.md` came from upstream unchanged.
 - The only manual conflict was `docs/ai-harness/agent-status.md`; resolution preserved both the local Issue #90 row and upstream Issue #304/PR #360 row. `handoff.md` and `worklog.md` auto-merged append-only.
 - Re-run focused/static gates after resolution before updating the PR. The four Issue #90 implementation paths did not overlap upstream.
+
+## 2026-08-21 - Issue #66 PR #407 latest-main and topology reconciliation
+
+- Branch/worktree: `agent/66-infra-topology-redesign` / `C:\tmp\account-66-infra-topology-redesign`.
+- Sync: merged `origin/main@07499d93` through merge commit `763a25a5`; Git produced no textual conflict markers.
+- Semantic conflict: the stale branch mixed a central `Containerfile` policy, module Dockerfiles and unrelated application changes. Resolution kept module Dockerfiles as the canonical source for the 35 manifest Java targets, retained the central `Containerfile` only for migration-runner, preserved latest-main application/docs changes and cancelled stale PR-only artifacts.
+- Verification: 37 Config Server policy tests and 35/35 Java package checks passed; `git diff --check` and conflict-marker scans gate publication. Independent review findings were remediated and final re-review found no P0-P3.
+- First refreshed CI semantic conflict: Budget, Gateway and Internal Audit policy tests still enforced the old central build arguments after their Compose files moved to module Dockerfiles. Updated only those three tests plus the stale Budget runbook; 7 focused and 123 CI-equivalent tests passed, and independent re-review found no P0-P3.

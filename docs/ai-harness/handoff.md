@@ -2726,3 +2726,26 @@
 - PR #448 passed Detect/Closing/aggregate GitHub checks and a final PR-head review with no P0-P3.
 - It merged into `agent/422-closing-api-local-mapper` as `dbedb96f`; Issue #423 remains open until the combined main PR is integrated.
 - The next owner is an independent combined-head reviewer for refreshed PR #447, followed by the parent Integrator only after its main-target GitHub checks are green.
+
+# AI Harness Handoff - 2026-08-21 Issue #66 PR #407 Container Topology
+
+## Conflict-resolution state
+
+- Issue/branch/worktree/PR: `#66`, `agent/66-infra-topology-redesign`, `C:\tmp\account-66-infra-topology-redesign`, PR #407 against `main`.
+- Latest-main merge `763a25a5` contains `origin/main@07499d93`; remediation commits include `38eecb0b` and `447387bd`. The dirty primary checkout was not changed.
+- The main-relative scope is limited to the 35 active Java module Dockerfiles, their root/module Compose selections, image manifest/tooling, Config Server policy tests and two container runbooks. The migration-runner deliberately continues to use the central `Containerfile` with explicit build arguments.
+
+## Evidence, rollback, and remaining gate
+
+- `:config-server:test --rerun-tasks --offline` passed 37 tests in 6 suites with zero failure/error/skip. `tools/container-images.ps1 -Mode VerifyPackages` returned 35/35 PASS with one non-plain executable JAR for every Java target.
+- Latest Windows/Podman and local-H2-versus-Compose guidance is preserved. Canonical wording now applies only to manifest targets, and policy tests bind the `jar_count` and `jar_file` search directories to every target's `jarDirectory`.
+- No external DB, private endpoint, credential, Docker/Compose service, image registry, container or volume was accessed. Rollback is a reviewed revert of the PR #407 main-relative paths; there is no external-state rollback.
+- Independent final re-review found no P0-P3. Refreshed GitHub checks gate the conflict-resolution publication. Issue #66 remains `status:blocked` until an approved live Compose/PostgreSQL verification can be performed; this handoff does not claim that runtime gate.
+- Worktree cleanup removed only clean detached `C:\tmp\account-487-merge` for merged PR #487. The current #66 worktree and every dirty, unpublished, divergent or other-agent worktree remain intact.
+
+## First refreshed-CI remediation
+
+- The first pushed conflict-resolution head was mergeable but Budget, Gateway and Internal Audit CI failed because their module-local policy tests still asserted the removed central `Containerfile` arguments.
+- The three tests now assert `budget/api/Dockerfile`, `budget/batch/Dockerfile`, `gateway/Dockerfile` and `internal-audit/api/Dockerfile`, and reject legacy arguments. `budget/docs/local-run.md` now documents the same root-context/module-Dockerfile contract.
+- Seven focused tests passed. The full local CI-equivalent set for Budget Core/API/Batch, Gateway and Internal Audit Core/API passed 123 tests in 29 suites with zero failure/error/skip; independent remediation review found no P0-P3.
+- Commit/push must trigger a fresh GitHub run. Do not merge until that run is green; the separate live Compose/PostgreSQL blocker remains unchanged.

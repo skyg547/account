@@ -52,10 +52,8 @@ class BudgetApiRuntimePolicyTest {
         String compose = Files.readString(repositoryRoot().resolve("budget/docker-compose.yml"));
 
         assertThat(compose)
-                .contains("GRADLE_PROJECT: \":budget:api\"")
-                .contains("JAR_DIRECTORY: budget/api")
-                .contains("GRADLE_PROJECT: \":budget:batch\"")
-                .contains("JAR_DIRECTORY: budget/batch")
+                .contains("dockerfile: budget/api/Dockerfile")
+                .contains("dockerfile: budget/batch/Dockerfile")
                 .contains("${BUDGET_DB_URL:?set BUDGET_DB_URL}")
                 .contains("${BUDGET_DB_USER:?set BUDGET_DB_USER}")
                 .contains("${BUDGET_DB_PASSWORD:?set BUDGET_DB_PASSWORD}")
@@ -64,7 +62,7 @@ class BudgetApiRuntimePolicyTest {
                 .contains("profiles: [\"batch\"]")
                 .contains("SPRING_BATCH_JOB_ENABLED: \"false\"")
                 .contains("${BUDGET_API_PORT:-8096}:8096")
-                .doesNotContain("jdbc:postgresql://");
+                .doesNotContain("jdbc:postgresql://", "GRADLE_PROJECT", "JAR_DIRECTORY");
         String batch = compose.substring(compose.indexOf("  budget-batch:"));
         assertThat(batch).doesNotContain("ports:");
     }

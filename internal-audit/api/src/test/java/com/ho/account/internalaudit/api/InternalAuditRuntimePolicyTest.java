@@ -152,11 +152,14 @@ class InternalAuditRuntimePolicyTest {
                         "internal-audit/api/src/main/java/com/ho/account/internalaudit/api/adapter/in/web/RcmController.java"))
                 .exists();
         assertThat(compose)
-                .contains("GRADLE_PROJECT: \":internal-audit:api\"")
-                .contains("JAR_DIRECTORY: internal-audit/api")
+                .contains("dockerfile: internal-audit/api/Dockerfile")
                 .contains("${INTERNAL_AUDIT_DB_URL:?set INTERNAL_AUDIT_DB_URL}")
                 .contains("name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}")
-                .doesNotContain("internal-audit-batch", "jdbc:h2:");
+                .doesNotContain(
+                        "internal-audit-batch",
+                        "jdbc:h2:",
+                        "GRADLE_PROJECT",
+                        "JAR_DIRECTORY");
     }
 
     private ConfigurableApplicationContext context(String profile) {
