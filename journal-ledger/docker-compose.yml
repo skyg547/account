@@ -19,6 +19,10 @@ services: # 실행할 서비스(컨테이너)들의 목록을 정의합니다.
     ports:
       - "8081:8081"
       
+    environment:
+      # config-repo의 journal-ledger.yml이 ${EUREKA_DEFAULT_ZONE:...}을 참조하므로 컨테이너 Discovery URL을 명시적으로 주입합니다.
+      - EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/
+
     # 네트워크 설정: 다른 MSA 모듈들과 통신하기 위해 공통 네트워크망에 합류합니다.
     networks:
       - account-network
