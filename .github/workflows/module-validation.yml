@@ -115,7 +115,7 @@ jobs:
             #   공용 부품이다. 여기를 고치면 어느 모듈이 깨질지 알 수 없으므로
             #   선택 실행을 포기하고 전부 검사한다. 빌드 설정(build.gradle 등)도
             #   마찬가지다.
-            if echo "$CHANGED" | grep -qE '^(settings\.gradle|build\.gradle|gradle\.properties|gradlew|gradlew\.bat|gradle/|shared-kernel/|contracts/|\.github/workflows/)'; then
+            if echo "$CHANGED" | grep -qE '^(settings\.gradle|build\.gradle|gradle\.properties|gradlew|gradlew\.bat|gradle/|shared-kernel/|contracts/|\.github/workflows/|\.gitattributes|\.editorconfig)'; then
               FULL_RUN_REASON="공용 빌드 설정 또는 shared-kernel/contracts 변경"
             fi
           fi
