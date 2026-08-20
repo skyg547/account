@@ -1,58 +1,81 @@
 /**
  * 메뉴 정의 통합 인덱스
  * 
- * 각 백엔드 모듈별로 분리된 메뉴 정의를 하나로 조합합니다.
- * 새 모듈을 추가할 때는 해당 모듈의 메뉴 파일을 만들고 여기에 import/spread만 하면 됩니다.
+ * 백엔드 16대 마이크로서비스 모듈 경계와 1:1로 완전 분리된 프론트엔드 메뉴 정의를 하나로 조합합니다.
  */
 export type { MenuItem, MenuGroup } from './types';
 
 import { MenuGroup } from './types';
 
-// ─── 백엔드 모듈별 메뉴 import ───
-import { dashboardMenu }    from './dashboard';
-import { ledgerMenu }       from './ledger';
-import { closingMenu }      from './closing';
-import { reportsMenu }      from './reports';
-import { expenditureMenu }  from './expenditure';
-import { taxMenu }          from './tax';
-import { loanMenu }         from './loan';
-import { fairValueMenu }    from './fair-value';
-import { eclMenu }          from './ecl';
-import { martMenu }         from './mart';
-import { accountCodeMenu }  from './account-code';
-import { partnerMenu }      from './partner';
-import { governanceMenu }   from './governance';
-import { systemMenu }       from './system';
+// ─── 백엔드 모듈별 완전 분리 메뉴 import ───
+import { dashboardMenu }      from './dashboard';
+import { ledgerMenu }         from './ledger';
+import { closingMenu }        from './closing';
+import { reportsMenu }        from './reports';
+import { expenditureMenu }    from './expenditure';
+import { budgetMenu }         from './budget';
+import { taxMenu }            from './tax';
+import { loanMenu }           from './loan';
+import { depositMenu }        from './deposit';
+import { fairValueMenu }      from './fair-value';
+import { eclMenu }            from './ecl';
+import { reconciliationMenu } from './reconciliation';
+import { martMenu }           from './mart';
+import { accountCodeMenu }    from './account-code';
+import { partnerMenu }        from './partner';
+import { governanceMenu }     from './governance';
+import { systemMenu }         from './system';
 
 /**
- * 전체 메뉴 정의 (순서 = 사이드바 표시 순서)
+ * 전체 메뉴 정의 (순서 = 사이드바 및 카테고리 매핑 순서)
  */
 export const allMenus: MenuGroup[] = [
-  // DASHBOARD
+  // 1. DASHBOARD
   ...dashboardMenu,
 
-  // ACCOUNTING: 원장 → 결산 → 보고서
+  // 2. JOURNAL (journal-ledger)
   ...ledgerMenu,
+
+  // 3. CLOSING (closing)
   ...closingMenu,
+
+  // 4. REPORTING (reporting)
   ...reportsMenu,
 
-  // OPERATIONS: 지출 → 세무
+  // 5. EXPENDITURE (expenditure-resolution, payable, receivable)
   ...expenditureMenu,
+
+  // 6. BUDGET (budget)
+  ...budgetMenu,
+
+  // 7. TAX (tax)
   ...taxMenu,
 
-  // CREDIT: 대출/이연 → 공정가치
+  // 8. LOAN (loan)
   ...loanMenu,
+
+  // 9. DEPOSIT (deposit)
+  ...depositMenu,
+
+  // 10. ASSET_LEASE (asset-lease)
   ...fairValueMenu,
 
-  // RISK: ECL → 마트/대사
+  // 11. ECL (ecl)
   ...eclMenu,
+
+  // 12. RECONCILIATION (reconciliation)
+  ...reconciliationMenu,
+
+  // 13. ACCOUNT_MART (account-mart)
   ...martMenu,
 
-  // MASTER: 계정과목 → 거래처
+  // 14. MASTER (master-data)
   ...accountCodeMenu,
   ...partnerMenu,
 
-  // SYSTEM: 내부회계 → 시스템
+  // 15. INTERNAL_AUDIT (internal-audit)
   ...governanceMenu,
+
+  // 16. SYSTEM_SECURITY (auth, admin)
   ...systemMenu,
 ];

@@ -1,0 +1,118 @@
+name: Agent Merge Guard
+
+# 구현 담당 모델이 연 PR이 검토 없이 병합되는 것을 감지한다.
+#
+# 초보자 설명:
+#   이 저장소는 "설계는 상위 모델, 구현은 빠른 모델, 병합은 다시 상위 모델"로 나눠서
+#   일한다(docs/ai-harness/87-spec-driven-delegation.md). 구현 담당은 PR을 여는 데까지만
+#   하고, 승인과 병합은 하지 않기로 되어 있다.
+#
+#   이 워크플로는 그 약속이 지켜졌는지 PR에서 검사한다.
+#
+# ⚠️ 중요한 한계:
+#   이 저장소는 Free 플랜의 private 저장소라 branch protection을 켤 수 없다.
+#   따라서 이 검사가 실패해도 **병합이 실제로 막히지는 않는다.** 빨간 X로 보일 뿐이다.
+#   진짜로 막으려면 GitHub Pro로 올려 required status check로 지정하거나,
+#   구현 모델에 write 권한 없는 별도 계정을 주고 fork에서 PR을 열게 해야 한다.
+#   자세한 내용은 87-spec-driven-delegation.md 5절을 참고한다.
+
+# pull_request_target이 아니라 pull_request를 쓴다. 이 워크플로는 PR 메타데이터만 읽고
+# PR 코드를 checkout하지 않으므로 읽기 전용 토큰으로 충분하고, fork PR에서 권한이 상승하는
+# pull_request_target의 위험을 피한다.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    name: Check implementer PR discipline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate PR against delegation policy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map(l => l.name);
+            const body = pr.body || "";
+
+            // 구현 owner 라벨이 붙은 PR만 이 정책의 대상이다.
+            const ownerLabels = labels.filter(n => n.startsWith("agent:"));
+            const isImplementerPr = ownerLabels.length > 0;
+
+            const notes = [];
+            const problems = [];
+
+            if (!isImplementerPr) {
+              core.info("agent:* 라벨이 없어 구현 담당 PR로 보지 않는다. 검사를 건너뛴다.");
+              core.info("설계 위임 흐름을 따르는 PR이라면 agent:codex / agent:gemini / agent:claude-code 중 하나를 붙인다.");
+              return;
+            }
+
+            notes.push(`구현 owner 라벨: ${ownerLabels.join(", ")}`);
+
+            // 1. Draft를 벗어난 PR은 리뷰 준비가 되었다는 뜻이므로 검증 근거가 있어야 한다.
+            if (!pr.draft) {
+              if (!/```/.test(body)) {
+                problems.push(
+                  "PR 본문에 검증 출력(코드 블록)이 없다. " +
+                  "Draft를 벗어난 구현 PR은 실행한 명령과 결과를 본문에 포함해야 한다."
+                );
+              }
+              if (!/merge authority/i.test(body)) {
+                problems.push(
+                  "PR 본문에 merge authority 문구가 없다. " +
+                  "'Merge authority: Reviewer 승인 후 Integrator만 병합' 형태로 명시한다."
+                );
+              }
+            } else {
+              notes.push("Draft 상태 - 검증 근거 검사는 ready_for_review 이후에 적용된다.");
+            }
+
+            // 2. 승인이 구현 담당 본인에게서 나오지 않았는지 확인한다.
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              { owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number }
+            );
+            const approvals = reviews.filter(r => r.state === "APPROVED");
+            const selfApprovals = approvals.filter(r => r.user && r.user.login === pr.user.login);
+
+            if (selfApprovals.length > 0) {
+              problems.push(
+                `작성자(${pr.user.login})가 자신의 PR을 승인했다. ` +
+                "구현 담당은 자기 PR을 승인하지 않는다. 독립 Reviewer의 승인이 필요하다."
+              );
+            }
+
+            if (approvals.length === 0) {
+              notes.push("아직 승인 없음 - 병합 전에 독립 Reviewer 승인이 필요하다.");
+            } else {
+              notes.push(`승인 ${approvals.length}건: ${approvals.map(r => r.user.login).join(", ")}`);
+            }
+
+            // 3. 요약 출력
+            await core.summary
+              .addHeading("Agent Merge Guard")
+              .addRaw(
+                "구현 담당은 PR 생성까지만 하고, 승인과 병합은 상위 모델/사람이 한다.\n" +
+                "정책: `docs/ai-harness/87-spec-driven-delegation.md`\n\n"
+              )
+              .addRaw("**주의: 이 저장소는 branch protection이 없어 이 검사가 병합을 막지 못한다.**\n\n")
+              .addHeading("확인 사항", 3)
+              .addList(notes.length ? notes : ["없음"])
+              .addHeading("위반", 3)
+              .addList(problems.length ? problems : ["없음"])
+              .write();
+
+            for (const n of notes) core.info(n);
+
+            if (problems.length > 0) {
+              core.setFailed(
+                "위임 정책 위반 " + problems.length + "건:\n- " + problems.join("\n- ")
+              );
+            }

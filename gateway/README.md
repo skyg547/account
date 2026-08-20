@@ -110,10 +110,11 @@ auth:
 
 1. 루트 프로젝트를 Gradle 프로젝트로 엽니다.
 2. Gradle JVM을 JDK 17로 설정합니다.
-3. Run Configuration에서 `Gateway standalone bootRun`을 실행합니다.
-4. `http://localhost:8000/actuator/health`를 확인합니다.
+3. 현재 실행 세션에서 생성한 32바이트 이상 `AUTH_JWT_SECRET`을 Run Configuration 환경변수로 연결합니다.
+4. Run Configuration에서 `Gateway standalone bootRun`을 실행합니다.
+5. `http://localhost:8000/actuator/health`를 확인합니다.
 
-이 모드는 Config/Discovery/Auth와 token-version 검증을 끄므로 **기동 확인 전용**이며 실제 라우팅 검증은 하지 않습니다.
+`local` 프로파일은 Config/Discovery/Eureka/Auth token-version 원격 검증을 끄므로 **기동 확인 전용**이며 실제 라우팅 검증은 하지 않습니다. JWT 검증 키는 프로파일 파일에 저장하지 않고 실행자가 매번 임시 주입합니다.
 
 ### 전체 라우팅 실행 순서
 

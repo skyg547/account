@@ -1,3 +1,83 @@
+# AI Harness Handoff - 2026-08-19 Issue #484 Apply K-Bank Modern Fintech Design System
+
+- **Owner**: Gemini (Parent Integrator / Frontend)
+- **Issue**: #484 (`[frontend][ui] 케이뱅크(KBank) 스타일 디자인 시스템 전면 적용`)
+- **PR**: #485 (`[#484] 케이뱅크(KBank) 스타일 디자인 시스템 (색상, 폰트, 배경, 레이아웃) 전면 적용`)
+- **Status**: Draft PR Open / Review Ready
+- **Summary**:
+  - Transformed frontend styling into the signature K-Bank modern fintech look: soft gray background (`#f7f8fb`), pure white cards (`#ffffff`, border `#eaedf4`, shadow), KBank signature blue (`#4262ff`, hover `#3452e6`, light `#eef2ff`, border `#dbe3ff`), refined typography (`letter-spacing: -0.015em`, `#17191e` headings), white TopHeader, clean Sidebar, and crisp Dashboard cards.
+  - Verification: `npm run build` executed successfully with 122 static routes generated with 0 errors.
+# AI Harness Handoff - 2026-08-19 Issue #484 Apply K-Bank Modern Fintech Design System, Dual Theme & Decoupled Navigation
+
+- **Owner**: Gemini (Parent Integrator / Frontend)
+- **Issue**: #484 (`[frontend][ui] 케이뱅크(KBank) 스타일 디자인 시스템 전면 적용`)
+- **PR**: #487 (`[#484] 케이뱅크(KBank) 스타일 핀테크 디자인 시스템, 듀얼 테마 엔진 및 6대 메가그룹-16대 MSA 모듈 네비게이션 적용`)
+- **Status**: Review Ready / Subagent Approved (READY FOR MERGE)
+- **Summary**:
+  - Transformed frontend styling into signature K-Bank modern fintech look: soft gray background (`#f7f8fb`), pure white cards (`#ffffff`, border `#eaedf4`, shadow), KBank signature blue (`#4262ff`, hover `#3452e6`, light `#eef2ff`, border `#dbe3ff`), refined typography (`letter-spacing: -0.015em`, `#17191e` headings).
+  - Integrated global dual-theme engine (`globals.css`, `ThemeContext.tsx`) seamlessly synchronizing light pure white cards and dark navy cards across all 122 pages.
+  - Decoupled top-level navigation into **6 Mega Business Groups** (eliminating horizontal scrollbars) while displaying all **16 discrete MSA module sections with tag badges** in Sidebar.
+  - Implemented 13 API domain services with 1.5s AbortController timeout fallback to resilient mock datasets.
+  - Created master core education guide (`frontend-core-education-guide.md`) and UI layout/screen specification (`ui-layout-and-screen-specification.md`).
+  - Verification: `npm run build` executed successfully with 122 static routes generated with 0 errors and 0 warnings. Subagent review APPROVED.
+
+# AI Harness Handoff - 2026-08-13 Issue #92 Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #92 (`[bug] tax:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Pending
+- **Summary**:
+  - Created `tax/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/tax-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `TaxBatchApplicationTests.java` verifying ApplicationContext loading, Job/UseCase bean injection, and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Spring Batch Metadata Schema Auto-Initialization, and Bean Injection Verification.
+  - Verification: `./gradlew.bat :tax:batch:test` passed with 100% SUCCESS.
+
+# AI Harness Handoff - 2026-08-13 Issue #93 Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #93 (`[bug] expenditure-resolution:api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Pending
+- **Summary**:
+  - Created `expenditure-resolution/api/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_api_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ExpenditureResolutionApiApplicationTests.java` verifying ApplicationContext loading, Controller/UseCase/Port stub injection, and local profile isolation.
+  - Refactored `ExpenditureResolutionPostgresqlSchemaContextTest.java` to use `@ActiveProfiles("local")`.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Outbound Port Stub Adaptations.
+  - Verification: `./gradlew.bat :expenditure-resolution:api:test` passed with 100% SUCCESS.
+
+# AI Harness Handoff - 2026-08-13 Issue #94 Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #94 (`[bug] expenditure-resolution:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `expenditure-resolution/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_batch_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ExpenditureResolutionBatchApplicationTests.java` verifying ApplicationContext loading, Job/UseCase bean injection, and local profile isolation.
+  - Fixed `JournalPostingPort` anonymous stub implementation in `ExpenditureResolutionLocalExternalPortConfiguration.java` to adhere to multi-method interface contracts.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation, Spring Batch Metadata Schema Auto-Initialization, and Stub Interface Adaptations.
+  - Verification: `./gradlew.bat :expenditure-resolution:batch:test` passed with 100% SUCCESS.
+
+# AI Harness Handoff - 2026-08-13 Issue #96 Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #96 (`[bug] reporting:batch 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Review Ready / PR Created
+- **Summary**:
+  - Created `reporting/batch/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:reporting_batch_db;MODE=PostgreSQL`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: create-drop`, memory persistence mode (`account.reporting.persistence.mode: memory`), and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `ReportingBatchApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Spring Batch Metadata Schema Auto-Initialization.
+  - Verification: `./gradlew.bat :reporting:batch:test` passed with 100% SUCCESS.
+
+# AI Harness Handoff - 2026-08-13 Issue #97 Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile
+
+- **Owner**: Gemini (Agent loop subagent)
+- **Issue**: #97 (`[bug] account-mart:mart-api 로컬 실행 실패 (ApplicationContext 오류)`)
+- **Status**: Completed & Merged
+- **Summary**:
+  - Created `account-mart/mart-api/src/test/resources/application-local.yml` configuring isolated H2 in-memory DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, and disabled Cloud Config/Eureka/Vault/Kafka control plane services.
+  - Created `AccountMartApiApplicationTests.java` verifying ApplicationContext loading and local profile isolation.
+  - Added extensive pedagogical comments across changed files explaining Profile-Based Local Runtime Isolation and Flyway Baseline Migrations.
+  - Verification: `./gradlew.bat :account-mart:mart-api:test` passed with 100% SUCCESS.
+
 # AI Harness Handoff - 2026-08-13 Issue #98 Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile
 
 - **Owner**: Gemini (Agent loop subagent)
@@ -2549,3 +2629,100 @@
 - Rollback uses a reviewed revert of the four implementation paths while retaining append-only records. No external state exists. Next owner is an independent read-only reviewer, followed by the parent Integrator for commit/Draft PR.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main; Issue #90 is frozen at `status:needs-review`. Next owner is an independent final PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge/close gate.
 - PR #359 was promoted Ready after its first final review, but a concurrent Discovery PR #360 main merge made the head conflicting before merge execution. The parent merged `main@191c5c28`, preserved both harness histories and reran the focused test. Push the sync commit, recheck PR head/base, then repeat the independent final gate; Issue #90 remains open.
+
+# AI Harness Handoff - 2026-08-14 Issue #227 Runtime Matrix
+
+## Verification-ready state
+
+- Issue/branch/worktree/base: `#227`, `agent/227-latest-main-runtime-audit`, `C:\tmp\account-227-latest-main-runtime-audit`, `origin/main@1ae9e108` after a named-stash fast-forward; the dirty primary checkout was untouched.
+- Changed scope: `tools/runtime-smoke.ps1`, `docs/guides/runtime-execution-matrix.md`, `docs/guides/local-development.md`, root `README.md`, and parent-owned append-only harness records.
+- The audit distinguishes task existence, real packaging, non-executable module gates, diagnostic override startup and profile-only startup. Migration Runner is included as the 36th executable Java target.
+
+## Evidence and remaining work
+
+- Inventory/task contract passes for 72 subprojects: API 17, Batch 15, infra 3, CLI 1, library 19 and aggregator 17.
+- Actual offline packaging passes for all 36 executable targets with exactly one executable JAR each. Independent `test+jar` passes for all 36 library/aggregator boundaries.
+- Strict ProfileJar across the 36 artifacts is 16 `PASS_STARTED`, 15 `PASS_EXITED`, and five fail-closed results. Auth, Budget and Gateway require secure local JWT input; Closing API lacks `FiscalPeriodMapper`, and Closing Batch lacks `JournalPostingPort`.
+- Unclaimed `status:ready` follow-ups are #420 Auth, #421 Gateway, #422 Closing API, #423 Closing Batch and #424 Production Compose test path. Budget remains #249. No duplicate was opened for Frontend: PR #398 closed #362 after Node 20/lifecycle work; this worktree's no-install policy leaves only current-session `node_modules` verification blocked.
+- Static Java Compose mapping is dev 36/36 and prod server targets 35/35. Focused Compose/image policy execution is 20/21 because one production test still uses the pre-taxonomy runbook path (#424). Podman has no Compose provider, so live development/prod Compose, image build and PostgreSQL gates remain #66/#228/#230/#249.
+- The tool strips inherited application/network/secret/JVM/cloud-binding environment, uses an isolated user home, captures stdout/stderr concurrently, enforces timeouts and single-JAR results, redacts sensitive evidence, writes stable JSON arrays and returns nonzero for failed/BLOCKED contracts.
+- Dynamic tool verification preserved `Foo.java:123` while redacting host/URI/credential samples, reported a two-second timeout and left no child process alive. The unaffected Development Compose and Container Image policy tests reran green; the sole Production stale-path failure is isolated in #424.
+- First final review reported P2 termination fail-open and raw LocalJar command credential evidence plus P3 timeout wording and unrelated #90 scope. Remediation verifies `HasExited`, maps termination errors to failure, redacts command arguments, corrects timeout documentation and removes #90 additions. JDK version/source-location preservation, endpoint/credential removal, scoped process-tree termination and Budget LocalJar command redaction pass dynamically; re-review remains the commit gate.
+- Re-review's remaining P2 covered Windows user-home, IPv6 and `.java`-suffixed endpoints. Context-aware source preservation plus user-profile/IPv6/host redaction now passes adversarial samples and a real Budget LocalJar JSON; final re-review remains the commit gate.
+- A further bypass review restricted source preservation to real stack/path/standalone-line shapes and added parsed compressed/zone-id IPv6 handling. Parenthesized `.java` endpoints, `fe80::1`, `[fe80::1%zone]:port`, user paths and JWT values are absent from adversarial/real Budget JSON evidence. Final re-review remains the commit gate.
+- Final independent re-review found no P0-P3. The branch is ready for the user-authorized commit, push and Draft PR; PR-head review and merge gates still apply after publishing.
+- Commit `adade958` is pushed and Draft PR #433 targets `main` with `Refs #227`. Issue #227 is frozen at `status:needs-review`; next is independent PR-head review, then the user-authorized Ready/merge gate.
+- No external host, credential, DB, container or volume was read or changed. Rollback is a reviewed revert of only the #227 tool/document/harness commit.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for the user-authorized Ready/merge gate. Issue close remains outside this handoff.
+
+# AI Harness Handoff - 2026-08-14 Issue #420 Auth Local Runtime
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#420`, `agent/420-auth-local-runtime`, `C:\tmp\account-420-auth-local-runtime`, latest `origin/main@db5c865c`.
+- Scope: Auth local/base resources, focused API runtime tests, one JPA integration test, Auth local/schema docs, behavior-neutral core wording, and parent-owned append-only harness records.
+- The local profile owns H2 PostgreSQL mode, Flyway/JPA and disabled external control-plane clients, but owns no secret, internal token or user credential. Missing runtime input remains fail-closed in base/local/dev/prod.
+
+## Evidence, rollback, and next owner
+
+- Latest-main Core/API verification passed 45 tests in 14 suites with zero failure/error/skip and API bootJar. The executable JAR failed closed without input and started with process-generated 32-byte JWT/internal-token values; values were not printed or stored in tracked files.
+- `git diff --check`, marker and secret-default scans passed. Independent review findings were remediated and final re-review found no P0-P3.
+- `application-local.yml` is covered by an existing ignore rule, so the parent Integrator force-added its exact path and verified the non-empty staged blob against the reviewed file before commit.
+- No external host, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert and preserves append-only harness history.
+- Initial commit `62cc8717` is pushed, Draft PR #441 is open and Issue #420 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
+- Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close and #427 reevaluation.
+
+# AI Harness Handoff - 2026-08-14 Issue #421 Gateway Local Runtime
+
+## Review-ready state
+
+- Issue/branch/worktree/base: `#421`, `agent/421-gateway-local-jwt`, `C:\tmp\account-421-gateway-local-jwt`, latest `origin/main@eb7ce92b`.
+- Scope: Gateway local resource, runtime tests/test resource, standalone run configuration, Gateway/root local guides and parent-owned harness records.
+- The local profile disables Config/Discovery/LoadBalancer/Gateway locator/Eureka/tracing and Auth token-version remote validation. It owns no JWT secret, public key, JWKS URI or remote endpoint; missing verification input remains fail-closed.
+
+## Evidence, rollback, and next owner
+
+- Gateway verification passed 43 tests in 9 suites with zero failure/error/skip and bootJar. The executable JAR failed closed without input and started with a process-generated 32-byte input while making no Config/Eureka attempt.
+- Diff, marker, credential and packaged-resource gates passed. Independent review findings were remediated and final re-review found no P0-P3.
+- `application-local.yml` is covered by the repository ignore rule, so the parent Integrator force-added its exact path and verified the staged non-empty blob against the reviewed file before commit.
+- No external service, DB, credential, container or volume was accessed. Rollback uses a reviewed path-scoped revert while retaining append-only history.
+- Commit `f066eb31` is pushed, Draft PR #445 is open and Issue #421 is `status:needs-review`. The first PR-head review found only this handoff's stale publication state; the current harness-only follow-up corrects it.
+- Next owner is an independent PR-head re-reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #422 Closing API Composition
+
+## Published review state
+
+- Issue/branch/worktree/base: `#422`, `agent/422-closing-api-local-mapper`, `C:\tmp\account-422-closing-api-local-mapper`, `origin/main@305fa259`.
+- Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`.
+- Scope is exactly Closing API composition root, its local context test and Closing local-run documentation, plus this parent-owned harness handoff.
+
+## Evidence, rollback, and next owner
+
+- The broad Master Data adapter scan was replaced by explicit imports for Closing's `FiscalPeriodControlPort` and `MasterDataQueryPort` adapters and their minimal persistence/mapper dependencies. No local fallback, business rule or Master Data production source changed.
+- Closing Core/API passed 74 tests in 19 suites with zero failure/error/skip and API bootJar. The packaged local H2 JAR started without FiscalPeriodMapper failure or external attempt; static gates passed.
+- Independent implementation review found no P0-P3 and confirmed no duplicate/shadow bean or missing removed-adapter dependency.
+- No external state exists. Rollback uses a reviewed revert of the three implementation paths and retains append-only records.
+- Next owner is an independent PR-head reviewer, followed by the parent Integrator for green-check Ready/merge/close.
+
+# AI Harness Handoff - 2026-08-14 Issue #423 Closing Batch Composition
+
+## Published stacked review state
+
+- Issue/branch/worktree: `#423`, `agent/423-closing-batch-local-journal`, `C:\tmp\account-423-closing-batch-local-journal`.
+- Commit `8a582592` is pushed, stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`, and Issue #423 is `status:needs-review`.
+- Scope is Closing Batch composition, Closing Core's existing local external-port configuration, focused tests, Closing local-run documentation and parent-owned append-only harness records.
+
+## Evidence, rollback, and next owner
+
+- The local fallback is active only for `local`, backs off when approved Journal ports exist and never masks dev/prod. Batch uses exact Closing/FX Master Data imports instead of package-wide adapter scanning.
+- Closing API/Batch/Core passed 90 tests in 27 suites with zero failure/error/skip and Batch `bootJar`. The packaged local H2 JAR started with neither missing port nor external connection attempt.
+- Independent review's single P3 was remediated with explicit fallback back-off coverage; final re-review found no P0-P3. Diff, marker and five-file implementation allowlist gates passed.
+- No external state exists and no business Job ran. Rollback uses a reviewed path-scoped revert of the #423 implementation/test/docs paths while preserving append-only history.
+- Next owner is an independent PR #448 head reviewer, then the parent Integrator for green-check merge into the #422 branch. PR #447 must rerun its full gate before any main merge.
+
+## Stacked integration result
+
+- PR #448 passed Detect/Closing/aggregate GitHub checks and a final PR-head review with no P0-P3.
+- It merged into `agent/422-closing-api-local-mapper` as `dbedb96f`; Issue #423 remains open until the combined main PR is integrated.
+- The next owner is an independent combined-head reviewer for refreshed PR #447, followed by the parent Integrator only after its main-target GitHub checks are green.

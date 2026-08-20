@@ -4,7 +4,7 @@ import { MenuGroup } from './types';
 export const closingMenu: MenuGroup[] = [
   {
     category: 'ACCOUNTING',
-    group: '결산관리',
+    group: '결산 마감 프로세스',
     module: 'closing',
     requiredRoles: ['ACCOUNTING_ADMIN', 'SYSTEM_ADMIN', 'AUDITOR'],
     items: [

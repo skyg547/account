@@ -1,0 +1,81 @@
+# ==============================================================================
+# [프론트엔드 단독 개발 Compose]
+# ------------------------------------------------------------------------------
+# 이 파일은 Frontend "하나만" 개발 모드로 띄웁니다.
+#
+# 저장소에는 Frontend를 실행하는 Compose 정의가 셋 있고, 용도가 각각 다릅니다.
+#
+#   1. 이 파일 (frontend/compose.dev.yml)
+#      - Containerfile.dev + `next dev` (hot reload)
+#      - Gateway/Config Server/Discovery 없이 단독 기동
+#      - 자체 bridge network 사용 (사전 생성된 네트워크 불필요)
+#      - 프론트엔드 화면 개발용
+#
+#      백엔드를 "컨테이너"로 띄워 연동하려면 compose.dev.backend.yml을 함께 얹습니다.
+#      (루트 Compose는 Gateway를 127.0.0.1에만 publish하므로 host.docker.internal로는
+#       닿지 않습니다. overlay가 같은 네트워크에 합류시켜 줍니다.)
+#
+#        docker compose -f compose.dev.yml -f compose.dev.backend.yml up -d --build
+#
+#   2. 루트 docker-compose.yml 의 `frontend` 서비스
+#      - 같은 Containerfile.dev를 쓰지만 `depends_on: gateway(healthy)`가 있어
+#        Gateway -> Config Server + Discovery까지 함께 떠야 기동됩니다.
+#      - 백엔드 API까지 붙여 통합 확인할 때 사용
+#
+#   3. frontend/docker-compose.yml
+#      - Containerfile(운영 standalone 빌드) 기반 스모크 테스트
+#      - `account-network`를 external로 요구하므로 루트 Compose 선행 필요
+#
+# 사용법은 docs/guides/frontend-runtime-guide.md 를 참고하세요.
+# ==============================================================================
+
+name: ${FRONTEND_DEV_PROJECT_NAME:-account-frontend-dev}
+
+services:
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Containerfile.dev
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      # `next dev`는 next.config.ts를 실행 시점에 읽으므로, 개발 모드에서는
+      # GATEWAY_INTERNAL_URL이 런타임 환경변수로 동작합니다.
+      # (운영 standalone 이미지는 rewrite가 빌드 시점에 routes-manifest.json으로
+      #  구워지므로 반드시 --build-arg로 넘겨야 합니다. Containerfile 주석 참고.)
+      #
+      # 기본값은 "컨테이너 밖 호스트에서 도는 Gateway"를 가리킵니다.
+      # Gateway가 없으면 화면은 정상적으로 뜨고 /api 호출만 실패합니다.
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://host.docker.internal:8000}
+    # host.docker.internal을 호스트 게이트웨이로 매핑합니다.
+    # Docker Desktop과 Podman 모두 host-gateway를 지원합니다.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${FRONTEND_DEV_PORT:-3000}:3000"
+    volumes:
+      # 소스를 bind mount해서 저장하는 즉시 hot reload가 걸리게 합니다.
+      - .:/app
+      # node_modules와 .next는 named volume으로 덮어써서,
+      # 호스트(Windows)의 파일이 리눅스 컨테이너 빌드 산출물을 가리지 않게 합니다.
+      - frontend_dev_node_modules:/app/node_modules
+      - frontend_dev_next_cache:/app/.next
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # 첫 기동 시 Next가 초기 컴파일을 하므로 넉넉히 잡습니다.
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  frontend_dev_node_modules:
+  frontend_dev_next_cache:

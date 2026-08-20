@@ -66,6 +66,8 @@ EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Rol
 
 Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스를 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
+Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
+
 ## Batch 컨텍스트만 실행
 
 Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.
@@ -75,6 +77,15 @@ Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.
 ```
 
 이 명령은 Job을 실행하지 않고 Batch 설정과 Bean 로딩만 확인합니다. 신규 개발자는 이 명령으로 의존성 누락이나 설정 오류를 먼저 잡는 것이 안전합니다.
+
+`local` profile에서는 Closing Core의 in-memory `JournalPostingPort`/`JournalQueryPort`가
+Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 H2 컨텍스트와 파이프라인 조립을
+검증하기 위한 것으로 실제 전표를 저장하지 않으며, `dev`/`prod` profile에서는 등록되지 않아
+실제 Journal 연동을 가리지 않습니다. Batch 조합 루트도 FX 평가에 필요한 환율 조회와 Closing이
+사용하는 Master Data 포트 및 최소 persistence adapter/mapper만 명시 import합니다.
+
+따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용하지 말고 승인된
+개발 환경의 실제 Journal 어댑터 구성을 사용해야 합니다.
 
 ## 개발·운영 PostgreSQL profile
 

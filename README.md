@@ -75,7 +75,7 @@ flowchart TD
 본 시스템은 철저한 도메인 주도 설계(DDD)를 바탕으로, 각 기능별로 완전히 분리된 마이크로서비스 모듈로 구성되어 있습니다.
 
 ### ⚙️ 기반 모듈 (Foundation)
-* **서비스별 실행 모듈**: `auth:api`, `master-data:api`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 API/Batch/인프라 모듈이 실행 진입점을 소유합니다. Source와 build file이 없던 `:app`은 Gradle 프로젝트 목록에서 제거되었으며, 최신 감사 결과는 [runtime execution matrix](docs/runtime-execution-matrix.md)를 따릅니다.
+* **서비스별 실행 모듈**: `auth:api`, `master-data:api`, `journal-ledger:api`처럼 실제 `@SpringBootApplication`을 가진 API/Batch/인프라 모듈이 실행 진입점을 소유합니다. Source와 build file이 없던 `:app`은 Gradle 프로젝트 목록에서 제거되었으며, 최신 감사 결과는 [runtime execution matrix](docs/guides/runtime-execution-matrix.md)를 따릅니다.
 * **`contracts/`**: 모듈 간 Entity 직접 참조를 막는 Java Port/Command/Ref 계약입니다. 자체 서버가 아니며 같은 프로세스는 Bean, 원격 MSA는 별도 REST/Kafka 어댑터로 연결합니다.
 * **`shared-kernel/`**: 로컬 capability 메타정보와 JSON 마스킹 등 최소 공통 규칙을 담습니다. 현재 인프라 전이 의존성과 ECL/account-mart 전용 타입은 단계적 분리 TODO가 있습니다.
 * **`master-data/`**: 계정과목, 부서, 거래처, 환율 등 시스템 전반에서 사용되는 기준 정보를 SCD2(이력 관리) 방식으로 관리하고 제공합니다.
@@ -112,75 +112,76 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph "External Clients"
-        UI["Frontend App / Browser"]
+    subgraph CLIENTS["External Clients"]
+        UI["Frontend App / Browser<br/>(Next.js 15 App Router)"]
     end
 
-    subgraph "API Gateway Layer"
-        GW["API Gateway (Port: 8000)"]
-        CB["Resilience4j (Circuit Breaker)"]
+    subgraph GW_LAYER["API Gateway Layer"]
+        GW["API Gateway (Port: 8000)<br/>Spring Cloud Gateway"]
+        CB["Resilience4j<br/>(Circuit Breaker)"]
         GW -.-> CB
     end
 
-    subgraph "Service Discovery & Config"
-        EUREKA(("Eureka Server Port: 8761"))
-        CONFIG["Config Server Port: 8888"]
+    subgraph DISCOVERY_CFG["Service Discovery & Config"]
+        EUREKA(("Eureka Server<br/>Port: 8761"))
+        CONFIG["Config Server<br/>Port: 8888"]
     end
 
-    subgraph "Backend Microservices"
-        MS1["Master Data Service"]
-        MS2["Journal Ledger Service"]
-        MS3["Closing & Reporting"]
-        MS4["Finance Subledgers"]
+    subgraph SERVICES["Backend Microservices (Spring Boot 3.4 / Java 21)"]
+        MS1["Master Data Service<br/>(Port: 8081)"]
+        MS2["Journal Ledger Service<br/>(Port: 8082)"]
+        MS3["Closing & Reporting<br/>(Port: 8083)"]
+        MS4["Finance Subledgers<br/>(Loan, Deposit, Lease)"]
     end
 
-    subgraph "Data & Messaging"
-        DB[("PostgreSQL")]
-        KAFKA[["Apache Kafka Message Broker"]]
-        REDIS[("Redis Cache & Lock")]
+    subgraph STORAGE["Data & Messaging Infrastructure"]
+        DB[("PostgreSQL 16<br/>ACID Master DB")]
+        KAFKA[["Apache Kafka<br/>Event Streaming"]]
+        REDIS[("Redis Cache<br/>& Distributed Lock")]
     end
 
-    subgraph "Observability (모니터링 & 로깅)"
-        ZIPKIN["Zipkin Trace ID"]
-        ELK{{"ELK Stack Elasticsearch, Logstash, Kibana"}}
-        PROM["Prometheus & Grafana"]
+    subgraph OBSERVE["Observability & Monitoring"]
+        ZIPKIN["Zipkin Trace ID<br/>Distributed Tracing"]
+        ELK{{"ELK Stack<br/>Logs Centralization"}}
+        PROM["Prometheus & Grafana<br/>Metrics Dashboard"]
     end
 
     UI -->|HTTPS Request| GW
     
-    GW -.->|Routing| MS1
-    GW -.->|Routing| MS2
-    GW -.->|Routing| MS3
-    GW -.->|Routing| MS4
+    GW -.->|Dynamic Routing| MS1
+    GW -.->|Dynamic Routing| MS2
+    GW -.->|Dynamic Routing| MS3
+    GW -.->|Dynamic Routing| MS4
     
-    MS1 <-->|Register & Fetch| EUREKA
-    MS2 <-->|Register & Fetch| EUREKA
-    MS3 <-->|Register & Fetch| EUREKA
-    MS4 <-->|Register & Fetch| EUREKA
+    MS1 <-->|Register & Lookup| EUREKA
+    MS2 <-->|Register & Lookup| EUREKA
+    MS3 <-->|Register & Lookup| EUREKA
+    MS4 <-->|Register & Lookup| EUREKA
     
-    CONFIG -.->|Push Properties| MS1
-    CONFIG -.->|Push Properties| MS2
-    CONFIG -.->|Push Properties| MS3
-    CONFIG -.->|Push Properties| MS4
+    CONFIG -.->|Push Config| MS1 & MS2 & MS3 & MS4
 
-    MS1 --> DB
-    MS2 --> DB
-    MS3 --> DB
-    MS4 --> DB
-    
-    MS1 -.-> KAFKA
-    MS2 -.-> KAFKA
-    
-    MS1 -.-> REDIS
-    MS2 -.-> REDIS
+    MS1 & MS2 & MS3 & MS4 --> DB
+    MS1 & MS2 & MS3 & MS4 -.->|Outbox Event| KAFKA
+    MS1 & MS2 -.->|Lock / Cache| REDIS
 
-    MS1 -.->|Logs & Metrics| ELK
-    MS2 -.->|Traces| ZIPKIN
-    MS3 -.->|Metrics| PROM
-    
-    style EUREKA fill:#ff9,stroke:#333,stroke-width:2px
-    style GW fill:#bbf,stroke:#333,stroke-width:2px
-    style KAFKA fill:#dfd,stroke:#333,stroke-width:2px
+    MS1 & MS2 & MS3 & MS4 -.->|Logs| ELK
+    MS1 & MS2 & MS3 & MS4 -.->|Traces| ZIPKIN
+    MS1 & MS2 & MS3 & MS4 -.->|Metrics| PROM
+
+    style CLIENTS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style GW_LAYER fill:#e8eaf6,stroke:#283593,stroke-width:2px
+    style DISCOVERY_CFG fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    style SERVICES fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style STORAGE fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style OBSERVE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+
+    style UI fill:#90caf9,stroke:#1565c0,color:#0d47a1,stroke-width:2px
+    style GW fill:#9fa8da,stroke:#283593,color:#1a237e,stroke-width:2px
+    style EUREKA fill:#ffe082,stroke:#f57f17,color:#f57f17,stroke-width:2px
+    style CONFIG fill:#ffe082,stroke:#f57f17,color:#f57f17,stroke-width:2px
+    style DB fill:#ffcc80,stroke:#e65100,color:#bf360c,stroke-width:2px
+    style KAFKA fill:#a5d6a7,stroke:#2e7d32,color:#1b5e20,stroke-width:2px
+    style REDIS fill:#ffab91,stroke:#d84315,color:#bf360c,stroke-width:2px
 ```
 
 ### 기술 스택 (Tech Stack)
@@ -216,14 +217,14 @@ flowchart TD
 * **Micrometer Tracing (Zipkin):** 분산 환경에서 사용자 요청이 어떤 서비스들을 거쳐갔는지 전체 경로(Trace)를 추적합니다.
 
 **5. Deployment (배포 및 오케스트레이션)**
-* **Docker & Docker Compose:** 모든 마이크로서비스와 인프라 자원을 컨테이너화하여 '로컬-테스트-운영' 환경의 100% 일치성을 보장하며, 복잡한 시스템을 명령어 한 줄로 손쉽게 구동합니다.
+* **Docker/Podman Compose:** 개발은 root Compose와 PostgreSQL overlay, 운영은 immutable image와 외부 PostgreSQL Compose 계약을 사용합니다. 정적 매핑과 실제 환경 기동 검증은 구분하며, 현재 상태는 실행 매트릭스에 기록합니다.
 
 ---
 
 ## 🚀 빠른 시작 (Getting Started)
 
-일부 모듈은 독립 `Dockerfile`/Compose가 있으나 현재 멀티모듈 Gradle 경로와 맞지 않는 항목도 있습니다. [runtime execution matrix](docs/runtime-execution-matrix.md)에서 검증 상태와 후속 Issue를 먼저 확인하세요.
-IntelliJ IDEA에서 로컬 실행을 확인하려면 [docs/local-development.md](docs/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
+canonical root `Containerfile`과 개발/운영 Compose는 현재 API 17개, Batch 15개, 인프라 서버 3개와 Frontend를 매핑합니다. module-local Dockerfile/Compose는 레거시일 수 있으므로 직접 사용하기 전에 [runtime execution matrix](docs/guides/runtime-execution-matrix.md)에서 실제 검증 상태와 후속 Issue를 확인하세요.
+IntelliJ IDEA에서 로컬 실행을 확인하려면 [local development guide](docs/guides/local-development.md)를 기준으로 JDK 17과 Gradle JVM을 맞춘 뒤, 실제 `@SpringBootApplication`이 있는 모듈을 개별 실행하세요.
 
 > Source/build file이 없던 phantom `:app`은 Gradle 목록에서 제거되었습니다. 통합 실행 대신 `auth:api`, `master-data:api`, `journal-ledger:api`, `account-mart:mart-api`, `account-mart:mart-batch`, `ecl:ecl-api` 같은 모듈별 실행 클래스를 사용합니다.
 
@@ -234,22 +235,22 @@ IntelliJ IDEA에서 로컬 실행을 확인하려면 [docs/local-development.md]
 ```
 
 ### 애플리케이션 빌드 및 구동
-*(참고: 애플리케이션 모듈의 경우 컨테이너를 올리기 전 `./gradlew build` 등을 통해 `.jar` 파일이 `build/libs/`에 존재해야 정상적으로 `Dockerfile` 빌드가 완료됩니다.)*
+
+로컬은 모듈별 Gradle/JAR를 사용합니다. root Containerfile은 선택한 Gradle project의 `bootJar`를 builder stage에서 생성하므로 host의 과거 `build/libs`를 입력으로 사용하지 않습니다.
 
 ```bash
-# 전체 모듈 빌드
-./gradlew build -x test
+# 예시: 로컬 profile로 모듈 기동
+./gradlew :master-data:api:bootRun --args="--spring.profiles.active=local"
 
 # IntelliJ/로컬에서 먼저 확인할 Gradle 목록
 ./gradlew projects --console=plain
 
-# 예시: master-data 모듈 구동
-cd master-data
-docker-compose up -d
-
-# 로그 확인
-docker-compose logs -f
+# 개발 Compose는 저장소 루트에서 환경 검증과 DB mode overlay를 선택
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./validate-dev-env.ps1 -Mode SelfContained -EnvFile ./.env.dev
+docker compose --env-file .env.dev -f docker-compose.yml -f compose.self-contained.yml --profile self-contained --profile apis config --quiet
 ```
+
+실제 migration/grant/up 순서는 [개발 Compose 실행 가이드](docs/guides/development-compose.md)를 따릅니다. 공유 개발 PostgreSQL을 사용할 때는 `compose.external-dev.yml`을 선택하고 self-contained DB와 동시에 실행하지 않습니다.
 
 ---
 
@@ -257,12 +258,13 @@ docker-compose logs -f
 
 시스템의 세부 아키텍처 및 도메인 지식은 `docs/` 폴더 내에 마크다운과 Mermaid 차트로 상세하게 작성되어 있습니다. **새로 합류하신 분들은 아래 순서대로 문서를 확인해 주세요.**
 
-1. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
-2. 🐣 **[초보자 가이드 (beginner_guide.md)](docs/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
-3. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/local-development.md)**: IntelliJ, JDK 17, Gradle, 모듈별 bootRun 설정
-4. 🐳 **[개발 Compose 실행 가이드 (development-compose.md)](docs/development-compose.md)**: 전체 API/Batch, self-contained/external-dev PostgreSQL, Frontend 개발 컨테이너
-5. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태와 후속 Issue
-6. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
-7. 🗄️ **[문서 허브 (README.md)](docs/README.md)**: 그 외 개발 룰, 정책, 과거 의사결정 히스토리 모음
+1. 📖 **[마스터 도메인 용어집 (master-domain-glossary.md)](docs/guides/master-domain-glossary.md)**: ⭐ **초보자 필독!** 전표, 마감, 대사, IFRS 9 ECL 등을 쉬운 비유로 풀어낸 가이드
+2. 🏛️ **[통합 아키텍처 명세서 (architecture.md)](docs/architecture/architecture.md)**: 전체 시스템의 구조, 모듈 간 의존성 원칙, 데이터 정합성(라인리지, SCD2) 가이드
+3. 🐣 **[초보자 입문 가이드 (beginner_guide.md)](docs/guides/beginner_guide.md)**: 전체 시스템 컨텍스트 및 개발/검증 작업 순서
+4. 💻 **[로컬 개발 실행 가이드 (local-development.md)](docs/guides/local-development.md)**: IntelliJ, JDK 21, Gradle, `local` H2 프로파일 bootRun 설정
+5. 🐳 **[개발 Compose 실행 가이드 (development-compose.md)](docs/guides/development-compose.md)**: 전체 API/Batch, self-contained/external-dev PostgreSQL, Frontend 개발 컨테이너
+6. 🧪 **[실행 계약 매트릭스 (runtime-execution-matrix.md)](docs/guides/runtime-execution-matrix.md)**: 현재 main의 Gradle/JAR/NPM, H2/PostgreSQL, Docker/Compose 검증 상태
+7. ⚙️ **[인프라 운영 가이드 (infrastructure_runbook.md)](docs/guides/infrastructure_runbook.md)**: 도커, Kafka, 모니터링 등 각 MSA 인프라 요소의 역할 및 실행 방법
+8. 🗄️ **[전사 문서 허브 (README.md)](docs/README.md)**: 20+ MSA 모듈별 README 및 아키텍처/가이드 전체 목차
 
-각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`와 `schema.sql`이 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.
+각 도메인 모듈 폴더(예: `ecl`, `account-mart`, `journal-ledger` 등) 안에도 해당 도메인에 특화된 `README.md`가 존재합니다. 코드를 수정하기 전에 반드시 해당 모듈의 문서를 참조하십시오.

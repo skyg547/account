@@ -6,7 +6,3 @@ spring:
   cloud:
     compatibility-verifier:
       enabled: false
-
-auth:
-  jwt:
-    secret: "gateway-test-secret-key-must-have-at-least-32-bytes"

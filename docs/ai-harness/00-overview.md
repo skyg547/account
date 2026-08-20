@@ -40,14 +40,18 @@ This harness defines how AI agents work safely in the account project. The proje
 - `05-issue-1-compliance-audit.md`: Issue #1 compliance audit and remediation notes.
 - `10-rules.md`: mandatory rules.
 - `20-workflow.md`: end-to-end loop.
+- `25-issue-claim-verification.md`: verify an Issue's diagnosis before implementing it.
 - `30-agents.md`: agent roles.
 - `40-test-checklist.md`: verification checklist.
+- `45-ci-module-validation.md`: GitHub Actions changed-module test selection.
 - `50-git-worktree-guide.md`: branch/worktree guide.
 - `60-rebase-merge-policy.md`: rebase, merge, conflict policy.
 - `70-model-assignment-policy.md`: capability and risk based model assignment.
 - `80-file-ownership.md`: role-based file ownership.
 - `85-github-issue-agent-loop.md`: Issue/branch/worktree/PR runbook.
 - `86-multi-tool-issue-ownership.md`: Codex/Gemini/Claude Code Issue status, claim, ownership, and handoff protocol.
+- `87-spec-driven-delegation.md`: high-tier spec authoring, fast-tier implementation, and merge authority separation.
+- `88-pr-review-and-merge-runbook.md`: PR review gates, reject/hold/merge decision, and unattended-run constraints.
 - `90-beginner-ai-agent-git-guide.md`: beginner guide.
 - `95-codex-skills-subagents.md`: skill and custom subagent map.
 - `worklog.md`, `agent-status.md`, `decision-log.md`, `conflict-log.md`, `integration-log.md`, `handoff.md`: operating records.

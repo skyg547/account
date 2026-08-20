@@ -1,7 +1,15 @@
 package com.ho.account.closing.batch;
 
+import com.ho.account.contracts.journal.JournalPostingPort;
+import com.ho.account.contracts.journal.JournalQueryPort;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,9 +41,21 @@ class ClosingBatchApplicationContextTest {
     @Autowired
     private Environment environment;
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @Test
     void contextLoadsWithoutStartingAJob() {
         assertThat(environment.getProperty("spring.application.name"))
                 .isEqualTo("closing-batch");
+        assertThat(applicationContext.getBeansOfType(JournalPostingPort.class))
+                .containsOnlyKeys("closingLocalJournalPostingPort");
+        assertThat(applicationContext.getBeansOfType(JournalQueryPort.class))
+                .containsOnlyKeys("closingLocalJournalQueryPort");
+        assertThat(applicationContext.getBeansOfType(MonolithExchangeRateQueryAdapter.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(FiscalPeriodMapper.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(JpaFiscalPeriodPersistenceAdapter.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(MonolithFiscalPeriodControlAdapter.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(MonolithMasterDataQueryAdapter.class)).hasSize(1);
     }
 }

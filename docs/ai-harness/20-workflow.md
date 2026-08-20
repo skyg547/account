@@ -35,6 +35,7 @@
 1. Intake
    - Restate goal, non-goals, constraints, and done conditions.
    - Read an existing Issue and comments when supplied.
+   - Verify the Issue's diagnosis against the code before implementing it. See `25-issue-claim-verification.md`. Generated Issues describe an inferred symptom, not a confirmed one, and several have been wrong in ways that would have damaged the code if implemented as written.
 
 2. Impact analysis
    - Read applicable `AGENTS.md`, harness rules, module README, and module docs.

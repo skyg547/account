@@ -77,9 +77,31 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 **IntelliJ H2 단독 실행:**
 1. Gradle JVM을 JDK 17로 설정하고 Gradle Reload를 실행합니다.
-2. `Auth bootRun`을 실행합니다.
-3. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
-4. Flyway V70~V72 적용 후 Hibernate가 스키마를 검증합니다.
+2. 실행 구성에 `local` 프로파일과 매번 새로 만든 JWT/internal-token 환경변수를 주입합니다.
+3. `Auth bootRun`을 실행합니다.
+4. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
+5. Flyway V70~V73 적용 후 Hibernate가 스키마를 검증합니다.
+
+저장소에는 local JWT secret, internal token, 데모 사용자 비밀번호 기본값을 두지 않습니다. PowerShell에서는 값을 출력하지 않고 다음처럼 현재 프로세스에만 생성합니다.
+
+```powershell
+function New-EphemeralAuthValue {
+    $bytes = New-Object byte[] 32
+    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $random.GetBytes($bytes)
+        [Convert]::ToBase64String($bytes)
+    } finally {
+        $random.Dispose()
+    }
+}
+
+$env:AUTH_JWT_SECRET = New-EphemeralAuthValue
+$env:AUTH_INTERNAL_API_TOKEN = New-EphemeralAuthValue
+.\gradlew :auth:api:bootRun --args='--spring.profiles.active=local'
+
+Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction SilentlyContinue
+```
 
 **PowerShell 검증:**
 
@@ -95,13 +117,13 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 docker-compose up -d auth
 ```
 
+`auth/docker-compose.yml`은 Redis 접속 정보(`SPRING_DATA_REDIS_HOST=account-redis`, `SPRING_DATA_REDIS_PORT=6379`)를
+포함합니다. 빠지면 Spring Boot 기본값(`localhost`)으로 접속을 시도해 `account-redis` 컨테이너를 찾지 못하고
+`/actuator/health`가 503을 반환합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
+
 현재 변경의 실제 검증 기준은 H2 단독 Gradle 실행입니다. Docker와 실제 PostgreSQL/Flyway는 별도 통합 환경에서 확인해야 합니다.
 
-**내부 API 토큰 설정:**
-
-```powershell
-$env:AUTH_INTERNAL_API_TOKEN='local-internal-auth-token'
-```
+상세한 JAR 실행과 fail-closed 확인 절차는 [docs/local-run.md](./docs/local-run.md)를 따릅니다.
 
 ## 4. 남은 운영 고도화
 

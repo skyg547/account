@@ -4,6 +4,32 @@
 프로파일을 사용하고, 이 문서의 컨테이너 환경은 `dev` 프로파일과 PostgreSQL을 사용합니다.
 운영은 별도 [`compose.prod.yml`](../compose.prod.yml)과 불변 digest image 계약을 따릅니다.
 
+## 컨테이너 실행 경로는 두 가지다
+
+이 저장소에는 성격이 다른 Compose 경로가 둘 있고, **프로파일이 서로 다르다.**
+둘을 섞지 않는다.
+
+| 경로 | 파일 | 프로파일 | 용도 |
+| --- | --- | --- | --- |
+| 통합 | 루트 [`docker-compose.yml`](../../docker-compose.yml) + DB mode overlay | `dev` | 36개 target 전체. `.env.dev`와 profile 선택이 필수이며 이 문서의 나머지 절이 다룬다 |
+| 모듈별 | `<module>/docker-compose.yml` | **`docker`** | 이미 떠 있는 `account-network`에 서비스를 하나씩 붙일 때. 개발 중 흔히 쓰는 경로다 |
+
+모듈별 경로의 정본 프로파일은 `docker`다. `config-server`만 예외로 `native`를 쓰는데,
+이는 `native`가 파일시스템에서 설정을 읽는 모드를 켜는 스위치이기 때문이다
+(`CONFIG_REPO_LOCATION=file:/config-repo`). `dev`로 바꾸면 config-repo 서빙 자체가 깨진다.
+
+| 서비스 | 프로파일 |
+| --- | --- |
+| `config-server` | `native` (예외) |
+| `discovery`, `auth`, `master-data`, `gateway` | `docker` |
+
+프로파일에 대응하는 설정 파일이 없으면 그 프로파일은 **빈 라벨**이 되어 아무 설정도
+적용되지 않는다. Config Server는 `{application}-{profile}.yml`을 `{application}.yml`보다
+우선 적용하므로, 컨테이너 전용 오버라이드는
+[`config-repo/master-data-docker.yml`](../../config-repo/master-data-docker.yml)처럼
+`-docker` 접미사 파일에 둔다. 이 함정으로 master-data가 PostgreSQL 대신 H2로 동작한
+사례는 #480을 참고한다.
+
 ## 실행 인벤토리
 
 [`deploy/image-targets.json`](../deploy/image-targets.json)이 실행 대상의 단일 진실 원천입니다.

@@ -1,0 +1,67 @@
+# ==============================================================================
+# 🛠️ [account-mart:mart-api] 로컬(local) 환경 및 테스트 전용 설정 파일
+# ==============================================================================
+# 💡 [설계 이유 및 초보자 가이드]
+# - 본 설정 파일은 로컬 개발 및 자동화 테스트 실행 시 외부 인프라(PostgreSQL, Vault, Eureka 등)에
+#   의존하지 않고 독립된 H2 인메모리 데이터베이스 기반으로 스프링 애플리케이션 컨텍스트(ApplicationContext)를
+#   안정적으로 로드할 수 있도록 구성되었습니다.
+# - MODE=PostgreSQL: H2 데이터베이스를 PostgreSQL 호환 모드로 동작시켜 실제 운영 DB와의 SQL/데이터 타입 이질성을 최소화합니다.
+# - Flyway migration: 'classpath:db/account-mart-local-migration' 경로의 DDL 마이그레이션 스크립트를 통해
+#   테스트 실행 시 자동으로 데이터베이스 테이블 및 스키마를 초기화합니다.
+# - 외부 컨트롤 플레인(Cloud Config, Vault, Eureka) 및 메시징(Kafka) 서비스는 비활성화(enabled: false)하여
+#   외부 네트워크 통신 없이 격리된 고속 단위/통합 테스트 환경을 제공합니다.
+# ==============================================================================
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+  flyway:
+    enabled: true
+    locations: classpath:db/account-mart-local-migration
+    baseline-on-migrate: true
+    clean-disabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  batch:
+    jdbc:
+      initialize-schema: never
+
+  sql:
+    init:
+      mode: never
+
+  cloud:
+    vault:
+      enabled: false
+    discovery:
+      enabled: false
+    config:
+      enabled: false
+
+  kafka:
+    listener:
+      auto-startup: false
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    vault:
+      enabled: false
+    redis:
+      enabled: false
+  tracing:
+    enabled: false

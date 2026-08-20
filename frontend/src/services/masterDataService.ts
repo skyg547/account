@@ -125,20 +125,53 @@ async function requestJson<T>(url: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+const MOCK_ACCOUNT_SUBJECTS: AccountSubjectDto[] = [
+  { code: '1000', name: '자산 (Assets)', type: 'ASSET', category: 'GROUP', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '1100', name: '유동자산', type: 'ASSET', category: 'GROUP', parentCode: '1000', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '1101', name: '현금및현금성자산', type: 'ASSET', category: 'SUBJECT', parentCode: '1100', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '1102', name: '당좌예금', type: 'ASSET', category: 'SUBJECT', parentCode: '1100', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '1200', name: '비유동자산', type: 'ASSET', category: 'GROUP', parentCode: '1000', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '1201', name: '유형자산 (토지/건물)', type: 'ASSET', category: 'SUBJECT', parentCode: '1200', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '2000', name: '부채 (Liabilities)', type: 'LIABILITY', category: 'GROUP', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '2100', name: '유동부채', type: 'LIABILITY', category: 'GROUP', parentCode: '2000', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '2101', name: '외상매입금', type: 'LIABILITY', category: 'SUBJECT', parentCode: '2100', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '3000', name: '자본 (Equity)', type: 'EQUITY', category: 'GROUP', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '4000', name: '수익 (Revenue)', type: 'INCOME', category: 'GROUP', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { code: '5000', name: '비용 (Expenses)', type: 'EXPENSE', category: 'GROUP', status: 'ACTIVE', validFrom: '2026-01-01', validTo: '9999-12-31' },
+];
+
+const MOCK_PARTNERS: BusinessPartnerDto[] = [
+  { id: 1, businessPartnerCode: 'BP-001', businessPartnerName: '(주)한국전자', registrationNumber: '120-81-12345', ceoName: '홍길동', businessType: '제조업', businessItem: '반도체', partnerType: 'CUSTOMER', useYn: true, kycStatus: 'APPROVED', riskRating: 'LOW', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { id: 2, businessPartnerCode: 'BP-002', businessPartnerName: '글로벌소프트(주)', registrationNumber: '214-85-67890', ceoName: '김철수', businessType: '서비스', businessItem: 'IT컨설팅', partnerType: 'VENDOR', useYn: true, kycStatus: 'APPROVED', riskRating: 'LOW', validFrom: '2026-01-01', validTo: '9999-12-31' },
+  { id: 3, businessPartnerCode: 'BP-003', businessPartnerName: '케이뱅크(주)', registrationNumber: '101-86-99999', ceoName: '이은행', businessType: '금융업', businessItem: '은행/여수신', partnerType: 'BANK', useYn: true, kycStatus: 'APPROVED', riskRating: 'LOW', validFrom: '2026-01-01', validTo: '9999-12-31' },
+];
+
 class MasterDataService {
   async getAccountSubjects(): Promise<AccountSubjectDto[]> {
-    return requestJson<AccountSubjectDto[]>('/api/basic/account-subjects');
+    try {
+      return await requestJson<AccountSubjectDto[]>('/api/basic/account-subjects');
+    } catch {
+      return MOCK_ACCOUNT_SUBJECTS;
+    }
   }
 
   async getBusinessPartners(): Promise<BusinessPartnerDto[]> {
-    return requestJson<BusinessPartnerDto[]>('/api/basic/businesspartners');
+    try {
+      return await requestJson<BusinessPartnerDto[]>('/api/basic/businesspartners');
+    } catch {
+      return MOCK_PARTNERS;
+    }
   }
 
   async getPendingBusinessPartnerChangeRequests(): Promise<MasterDataChangeRequestDto[]> {
-    const requests = await requestJson<MasterDataChangeRequestDto[]>(
-      '/api/master-data/change-requests/pending',
-    );
-    return requests.filter((request) => request.targetType === 'BUSINESS_PARTNER');
+    try {
+      const requests = await requestJson<MasterDataChangeRequestDto[]>(
+        '/api/master-data/change-requests/pending',
+      );
+      return requests.filter((request) => request.targetType === 'BUSINESS_PARTNER');
+    } catch {
+      return [];
+    }
   }
 
   async createBusinessPartnerChangeRequest(

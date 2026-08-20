@@ -1,50 +1,112 @@
-# 🛠️ 프론트엔드 실전 개발 가이드 (초보용)
+# 🛠️ 프론트엔드 실전 개발 가이드 (Next.js 15 & Tailwind v4)
 
-이 문서는 실제로 코드를 짤 때 어떻게 해야 하는지 차근차근 설명해 드립니다.
-
----
-
-## 1. 새로운 페이지 만드는 법 (나만의 방 만들기)
-예를 들어 `공지사항` 페이지를 만들고 싶다면?
-
-1.  `src/app` 폴더 안에 `notice`라는 폴더를 만듭니다.
-2.  그 안에 `page.tsx`라는 파일을 만듭니다.
-3.  파일 안에 아래 내용을 복사해서 넣어보세요.
-    ```tsx
-    export default function NoticePage() {
-      return <div>공지사항 방에 오신 것을 환영합니다!</div>;
-    }
-    ```
-4.  이제 인터넷 주소창에 `localhost:3000/notice`라고 치면 내가 만든 화면이 보입니다!
+이 문서는 새로운 금융 도메인 화면을 추가하거나 기존 화면을 수정할 때 사용하는 실전 개발 매뉴얼입니다.
 
 ---
 
-## 2. 디자인 입히기 (CSS Modules)
-우리는 **Vanilla CSS**를 사용하며, 파일 이름에 `.module.css`를 붙여서 관리합니다.
+## 1. 🚀 새로운 화면 추가하기 (Step-by-Step)
 
-*   **왜 이렇게 하나요?**: `page.module.css`라고 이름을 지으면 이 스타일은 `page.tsx` 안에서만 적용됩니다. 다른 사람이 만든 디자인과 겹쳐서 화면이 망가지는 것을 방지해 줍니다.
-*   **사용법**:
-    1. `Notice.module.css` 파일을 만듭니다.
-    2. `.container { background: red; }` 라고 적습니다.
-    3. `page.tsx` 상단에 `import styles from './Notice.module.css';` 라고 불러옵니다.
-    4. `<div className={styles.container}>...</div>` 처럼 사용합니다.
+예시: 자금운영 카테고리에 **외화 송금 신청(`/expenditure/fx-transfer`)** 화면 만들기
+
+### Step 1. 라우트 폴더 및 `page.tsx` 생성
+`src/app/expenditure/fx-transfer/page.tsx` 파일을 생성합니다.
+
+```tsx
+'use client';
+
+import React, { useState } from 'react';
+import { Send, Building2, DollarSign } from 'lucide-react';
+import PageHeader from '@/components/ui/PageHeader';
+import AmountDisplay from '@/components/ui/AmountDisplay';
+import StatusBadge from '@/components/ui/StatusBadge';
+
+export default function FxTransferPage() {
+  const [amount, setAmount] = useState(50000);
+
+  return (
+    <div className="space-y-8 pb-16">
+      {/* 1. 표준 페이지 헤더 */}
+      <PageHeader
+        title="외화 송금 신청"
+        description="해외 거래처 결제를 위한 외화 송금 신청 및 실시간 환율을 조회합니다."
+        breadcrumbs={[
+          { label: '자금운영' },
+          { label: '외화 송금' }
+        ]}
+        icon={Send}
+      />
+
+      {/* 2. KBank 스타일 화이트/다크 카드 */}
+      <div className="rounded-2xl bg-white dark:bg-[#131b2e] border border-[#eaedf4] dark:border-slate-800 p-7 shadow-xs space-y-6">
+        <h3 className="text-base font-bold text-[#17191e] dark:text-slate-100">
+          송금 기본 정보
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#17191e] dark:text-slate-200">송금액 (USD)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full bg-[#f7f8fb] dark:bg-slate-900 border border-[#eaedf4] dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs text-[#17191e] dark:text-slate-100 font-mono font-bold"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button className="px-6 py-3 bg-[#4262ff] hover:bg-[#3452e6] rounded-xl text-white text-xs font-bold transition-all shadow-md shadow-blue-600/20">
+            송금 신청 확정
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Step 2. 사이드바 메뉴 등록
+[`src/components/layout/menus.ts`](file:///c:/dev/account/frontend/src/components/layout/menus.ts)의 해당 카테고리(`OPERATIONS`)에 메뉴 항목을 등록합니다.
+
+```typescript
+{
+  category: 'OPERATIONS',
+  group: '자금 집행 & 외환',
+  module: 'expenditure',
+  items: [
+    // ...
+    { label: '외화 송금', href: '/expenditure/fx-transfer', icon: 'Send' },
+  ]
+}
+```
 
 ---
 
-## 3. 프리미엄 디자인 규칙
-우리 시스템은 세련된 느낌을 주기 위해 **글래스모피즘(유리처럼 비치는 효과)**을 사용합니다.
+## 2. 🧩 주요 공통 UI 컴포넌트 사용법
 
-*   카드 형태를 만들 때는 `globals.css`에 미리 정의된 `.glass-card` 클래스를 사용하세요.
-*   색상을 직접 정하지 말고, 미리 만들어둔 변수(`var(--primary)`, `var(--bg-color)` 등)를 사용해 주세요. 그래야 다크 모드에서도 예쁘게 보입니다.
-
----
-
-## 4. 코딩 규칙 (팀 약속)
-*   **언어**: 모든 변수 이름은 영어로 지어주세요. 하지만 주석은 한국어로 아주 상세하게 적어주세요.
-*   **컴포넌트**: 가능하면 작은 조각으로 나누어 관리해 주세요. (예: `Header`, `Footer`, `Sidebar` 등)
-*   **커밋 메시지**: 내가 무엇을 고쳤는지 한글로 짧고 명확하게 적어주세요. (예: "로그인 버튼 색상 변경")
+| 컴포넌트 | 용도 | 사용 예시 |
+| :--- | :--- | :--- |
+| **`PageHeader`** | 화면 제목, 설명, 빵부스러기(Breadcrumbs) | `<PageHeader title="전표 목록" description="..." breadcrumbs={[{ label: '재무회계' }, { label: '전표' }]} icon={FileText} />` |
+| **`AmountDisplay`** | 통화 포맷팅 및 정밀 금액 표시 | `<AmountDisplay amount={12450000} />` |
+| **`StatusBadge`** | 승인 상태, 결재 단계 뱃지 | `<StatusBadge status="승인완료" variant="success" />` |
+| **`Tabs`** | 세그먼트 컨트롤 탭 | `<Tabs tabs={items} activeTab={active} onChange={setActive} />` |
+| **`EmptyState`** | 데이터 없음 안내 카드 | `<EmptyState icon={Inbox} title="내역이 없습니다" description="새로운 전표를 등록해보세요." />` |
+| **`LoadingSkeleton`**| 데이터 로딩 플레이스홀더 | `<LoadingSkeleton rows={4} height="h-14" />` |
 
 ---
 
-**담당자: [프론트]**
-*작성일: 2026-04-22*
+## 3. 🌙 다크 모드 작성 규칙
+
+* 모든 카드 및 컨테이너에는 기본 화이트 배경과 다크 모드 배경을 함께 부여합니다.
+  ```tsx
+  className="bg-white dark:bg-[#131b2e] border border-[#eaedf4] dark:border-slate-800"
+  ```
+* 텍스트 컬러:
+  ```tsx
+  className="text-[#17191e] dark:text-slate-100" // 제목/핵심 텍스트
+  className="text-[#545b69] dark:text-slate-400" // 서브텍스트
+  ```
+* 인풋/셀렉트:
+  ```tsx
+  className="bg-[#f7f8fb] dark:bg-slate-900 border border-[#eaedf4] dark:border-slate-700 text-[#17191e] dark:text-slate-100"
+  ```

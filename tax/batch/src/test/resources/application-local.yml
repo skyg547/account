@@ -1,0 +1,68 @@
+# ==============================================================================
+# Tax Batch Service - Test Local Profile Configuration
+# ==============================================================================
+# [Architecture & Pedagogical Explanation]
+# 1. Profile Isolation & Test Environment Decoupling:
+#    - 로컬 및 테스트 환경에서 외부 PostgreSQL DB, Eureka Discovery, Config Server, Vault 등
+#      인프라스트럭처 제어 플레인에 의존하지 않고 독립적으로 테스트를 구동하기 위한 local 프로파일 전용 설정입니다.
+# 2. In-Memory H2 Database Integration:
+#    - H2 인메모리 데이터베이스(`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`)를 사용하여
+#      PostgreSQL 호환 모드로 동작시킴으로써 실제 운영 RDB 환경과의 호환성을 유지하면서 속도 및 데이터 격리성을 보장합니다.
+# 3. Spring Batch Metadata Schema Auto-Initialization:
+#    - `spring.batch.jdbc.initialize-schema: always` 설정을 통해 배치 메타데이터 스키마(BATCH_JOB_INSTANCE 등)를
+#      인메모리 DB 구동 시 자동 생성합니다.
+#    - `spring.batch.job.enabled: false`를 통해 컨텍스트 로딩 시 테스트용 배치 Job이 불필요하게 자동 실행되는 것을 방지합니다.
+# 4. JPA Schema Generation & Flyway Migration:
+#    - Flyway 마이그레이션 활성화 및 baseline-on-migrate 설정으로 테스트 DB 스키마 정합성을 검증합니다.
+# ==============================================================================
+
+spring:
+  application:
+    name: tax-batch
+  datasource:
+    url: jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+  flyway:
+    enabled: true
+    locations: classpath:db/tax-migration
+    clean-disabled: true
+    baseline-on-migrate: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: never
+  cloud:
+    vault:
+      enabled: false
+    discovery:
+      enabled: false
+    config:
+      enabled: false
+  kafka:
+    listener:
+      auto-startup: false
+
+eureka:
+  client:
+    enabled: false
+
+management:
+  health:
+    vault:
+      enabled: false
+  tracing:
+    enabled: false

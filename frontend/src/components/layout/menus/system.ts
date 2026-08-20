@@ -1,18 +1,17 @@
 import { MenuGroup } from './types';
 
-/** 시스템관리 - backend: admin 모듈 */
+/** 시스템 및 보안 관리 - backend: auth, admin 모듈 */
 export const systemMenu: MenuGroup[] = [
   {
-    category: 'SYSTEM',
-    group: '시스템관리',
+    category: 'GOVERNANCE_SYSTEM',
+    group: '시스템 계정 & 보안 통제 (admin/auth)',
     module: 'admin',
     requiredRoles: ['SYSTEM_ADMIN'],
     items: [
-      { icon: 'Users',    label: '사용자 관리',    href: '/system/users' },
-      { icon: 'Building', label: '부서 관리',     href: '/system/departments' },
-      { icon: 'Layers',   label: '메뉴 권한 관리', href: '/system/menus' },
+      { icon: 'Users',    label: '사용자 계정 관리', href: '/system/users' },
+      { icon: 'Layers',   label: '메뉴 권한(RBAC)', href: '/system/menus' },
       { icon: 'KeyRound', label: 'PAT 토큰 거버넌스', href: '/system/tokens' },
-      { icon: 'FileText', label: '시스템 로그',    href: '/system/logs' },
+      { icon: 'FileText', label: '시스템 실행 로그',  href: '/system/logs' },
     ],
   },
 ];

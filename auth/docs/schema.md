@@ -2,7 +2,7 @@
 
 ## 핵심 테이블
 
-Flyway V70~V72 기준으로 Auth는 사용자, 역할, 로그인 실패, 승인 반영 이력을 저장합니다.
+Flyway V70~V73 기준으로 Auth는 사용자, 역할, 로그인 실패, 승인 반영 이력과 Personal Access Token을 저장합니다.
 
 ```mermaid
 erDiagram
@@ -51,18 +51,19 @@ erDiagram
 | `V70` | `auth_users`, `auth_role_assignments`와 조회 인덱스 |
 | `V71` | 여러 Auth 인스턴스가 공유하는 로그인 실패/잠금 상태 |
 | `V72` | Governance 역할 승인 재시도를 막는 멱등 수신 이력 |
+| `V73` | Personal Access Token 해시와 만료/폐기 상태 |
 
 ## 주요 설정
 
 | 설정 | 기본값 | 의미 |
 | --- | --- | --- |
 | `AUTH_PERSISTENCE_MODE` | `jpa` | JPA 또는 memory 사용자/역할 어댑터 |
-| `AUTH_INTERNAL_API_TOKEN` | 로컬 기본값 | 내부 역할 반영 API 토큰 |
+| `AUTH_INTERNAL_API_TOKEN` | 없음(필수 실행 입력) | 내부 역할 반영 API 토큰. local도 실행 시 임시 값을 주입 |
 | `AUTH_MASTER_DATA_BASE_URL` | `http://localhost:8082` | 부서 코드 검증용 master-data 주소 |
 | `AUTH_LOGIN_MAX_FAILURES` | `5` | 잠금 전 연속 실패 횟수 |
 | `AUTH_LOGIN_LOCK_DURATION_MINUTES` | `15` | 임시 잠금 시간 |
 | `AUTH_LOGIN_SECURITY_STORE` | `memory` | 로그인 실패 저장소. 운영 다중 인스턴스는 `jpa` |
-| `AUTH_JWT_SECRET` | 로컬 기본값 | JWT 서명키. HS256 기준 32바이트 이상 필요 |
+| `AUTH_JWT_SECRET` | 없음(필수 실행 입력) | JWT 서명키. local도 실행 시 임시 값을 주입하며 HS256 기준 32바이트 이상 필요 |
 | `AUTH_JWT_ISSUER` | `auth-service` | JWT issuer |
 | `AUTH_JWT_EXPIRATION_SECONDS` | `3600` | 토큰 만료 시간 |
 

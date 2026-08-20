@@ -1,9 +1,14 @@
 package com.ho.account.closing;
 
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
+import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
+import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
+import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +36,9 @@ class ClosingApplicationContextTest {
     @Autowired
     private Environment environment;
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @Test
     void contextLoadsWithOnlyClosingRuntimeBoundaries() {
         assertThat(environment.getProperty("spring.application.name"))
@@ -41,5 +49,9 @@ class ClosingApplicationContextTest {
                 .isEqualTo("flyway_schema_history_closing");
         assertThat(environment.getProperty("spring.flyway.baseline-version"))
                 .isEqualTo("49");
+        assertThat(applicationContext.getBeansOfType(FiscalPeriodMapper.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(JpaFiscalPeriodPersistenceAdapter.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(MonolithFiscalPeriodControlAdapter.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(MonolithMasterDataQueryAdapter.class)).hasSize(1);
     }
 }

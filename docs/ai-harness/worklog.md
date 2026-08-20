@@ -1,3 +1,61 @@
+### 📅 2026-08-19 (GH-484: Apply K-Bank Modern Fintech Design System)
+- **Component**: `frontend/src/app/globals.css`, `tailwind.config.js`, `MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`, `app/page.tsx`
+- **Changes**: Transformed the frontend look-and-feel into the signature KBank modern fintech aesthetic: clean soft-gray canvas (`#f7f8fb`), pure white elevated cards (`#ffffff`, border `#eaedf4`, subtle shadow), KBank signature blue (`#4262ff`, light `#eef2ff`, border `#dbe3ff`), refined typography (`letter-spacing: -0.015em`), crisp text hierarchy (`#17191e`, `#545b69`, `#8c94a4`), and white-glass TopHeader and Sidebar navigation.
+- **Verification**: `npm run build` (122 routes 100% SUCCESSFUL).
+### 📅 2026-08-19 (GH-484: Apply K-Bank Modern Fintech Design System, Dual-Theme & Decoupled Navigation)
+- **Component**: `frontend/src/app/globals.css`, `ThemeContext.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `NavContext.tsx`, `menus/*.ts`, `frontend/docs/`
+- **Changes**: 
+  - Transformed frontend look-and-feel into signature KBank modern fintech aesthetic: clean soft-gray canvas (`#f7f8fb`), pure white cards (`#ffffff`), KBank signature blue (`#4262ff`), refined typography (`letter-spacing: -0.015em`), and robust global dual-theme engine (`html:not(.dark)` pure white vs `html.dark` navy dark card `#131b2e`).
+  - Decoupled combined menus and structured navigation into **6 Mega Business Groups** in TopHeader (eliminating horizontal scrollbars) while rendering all **16 discrete MSA module sections with tag badges** in Sidebar.
+  - Implemented 13 API domain services with 1.5s AbortController timeout fallback to resilient mock datasets.
+  - Created comprehensive master education guide (`frontend-core-education-guide.md`) and UI layout/screen specification (`ui-layout-and-screen-specification.md`).
+- **Verification**: `npm run build` (122 routes 100% SUCCESSFUL, 0 errors, 0 warnings). Independent subagent approved.
+
+### 📅 2026-08-14 (Premium Mermaid Diagram & Visual Chart Enhancement)
+- **Component**: `README.md`, `docs/guides/master-domain-glossary.md`
+- **Changes**: Enhanced all Mermaid flowcharts and system architecture diagrams with rich HSL/Hex color fills (`style`), explicit subgraphs, quoted node labels for rendering safety, and clear flow annotations across root `README.md` and `docs/guides/master-domain-glossary.md`.
+- **Verification**: Verified Markdown and Mermaid rendering validity.
+
+### 📅 2026-08-13 (Enterprise Documentation Restructuring, Code-Sync & Master Glossary)
+- **Component**: `docs/`, `docs/architecture/`, `docs/guides/`
+- **Changes**: Restructured top-level `docs/` taxonomy into dedicated subdirectories (`docs/architecture/` for systemic architecture 명세 and `docs/guides/` for developer/runtime runbooks). Created `docs/guides/master-domain-glossary.md` providing intuitive analogies for core domain & technical concepts (전표, 마감, 대사, IFRS9 ECL, Outbox, Chunking, Circuit Breaker). Updated `docs/README.md` as the master navigation hub. All documentation synchronized 100% with current Spring Boot 3.4 / Java 21 / Hexagonal code implementation.
+- **Verification**: Verified directory structure and relative link integrity.
+
+### 📅 2026-08-13 (AI Harness Root Streamlining & Clean Root Directory Policy)
+- **Component**: Root directory, `AGENTS.md`, `docs/ai-harness/10-rules.md`, `docs/history/`
+- **Changes**: Deleted legacy root `SKILL.md` and empty `CLAUDE_WORKLOG.md`. Relocated `CODEX_WORKLOG.md` to `docs/history/CODEX_WORKLOG.md` and `CODEX_HANDOFF_TASKS.md` to `docs/ai-harness/codex-handoff-tasks.md`. Preserved tool-required root contracts (`README.md`, `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `GEMINI_REVIEW_PROMPT.md`). Updated `AGENTS.md` and `docs/ai-harness/10-rules.md` establishing the Clean Root Directory Policy.
+- **Verification**: Verified clean git status and updated document paths.
+
+### 📅 2026-08-13 (MSA Microservice Module Documentation Audit & Harness Synchronization)
+- **Component**: `docs/ai-harness`, MSA service modules (`journal-ledger`, `closing`, `deposit`, `loan`, `asset-lease`, `payable`, `receivable`, `tax`, `budget`, `expenditure-resolution`, `reporting`, `account-mart`, `ecl`, `shared-kernel`)
+- **Changes**: Audited and verified all MSA service module documentation (`README.md`, `docs/*.md`) under dedicated branch `docs/msa-module-docs-update`. Confirmed 100% alignment with Hexagonal Architecture boundaries (api/core/batch), H2 `local` profile isolation, and multi-module parallel execution standards ($account-module-parallel). Synchronized AI harness records (`agent-status.md`, `worklog.md`, `handoff.md`).
+- **Verification**: Verified Markdown syntax and git diff status.
+
+### 📅 2026-08-13 (GH-92: Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `tax/batch`
+- **Changes**: Created `tax/batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/tax-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `TaxBatchApplicationTests.java` with `@SpringBootTest(classes = TaxBatchApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading, Job/UseCase bean injection, and profile isolation. Added extensive pedagogical comments across changed files.
+- **Verification**: `./gradlew.bat :tax:batch:test` (100% SUCCESSFUL).
+
+### 📅 2026-08-13 (GH-93: Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `expenditure-resolution/api`
+- **Changes**: Created `expenditure-resolution/api/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_api_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `ExpenditureResolutionApiApplicationTests.java` with `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading, Controller/UseCase/Port stub injection, and profile isolation. Refactored `ExpenditureResolutionPostgresqlSchemaContextTest.java` to leverage local profile with detailed pedagogical comments.
+- **Verification**: `./gradlew.bat :expenditure-resolution:api:test` (100% SUCCESSFUL).
+
+### 📅 2026-08-13 (GH-94: Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `expenditure-resolution/batch`
+- **Changes**: Created `expenditure-resolution/batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:expenditure_resolution_batch_db;MODE=PostgreSQL`), Flyway migration (`locations: classpath:db/expenditure-resolution-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `ExpenditureResolutionBatchApplicationTests.java` with `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading, Job/UseCase injection, and profile isolation. Fixed `JournalPostingPort` anonymous stub implementation in `ExpenditureResolutionLocalExternalPortConfiguration.java`. Added extensive pedagogical comments across changed files.
+- **Verification**: `./gradlew.bat :expenditure-resolution:batch:test` (100% SUCCESSFUL).
+
+### 📅 2026-08-13 (GH-96: Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `reporting/batch`
+- **Changes**: Created `reporting/batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:reporting_batch_db;MODE=PostgreSQL`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: create-drop`, memory persistence mode (`account.reporting.persistence.mode: memory`), and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `ReportingBatchApplicationTests.java` with `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across changed files.
+- **Verification**: `./gradlew.bat :reporting:batch:test` (100% SUCCESSFUL).
+
+### 📅 2026-08-13 (GH-97: Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile)
+- **Component**: `account-mart/mart-api`
+- **Changes**: Created `account-mart/mart-api/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `AccountMartApiApplicationTests.java` with `@SpringBootTest(classes = AllowanceMartApiApplication.class)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across changed files.
+- **Verification**: `./gradlew.bat :account-mart:mart-api:test` (100% SUCCESSFUL).
+
 ### 📅 2026-08-13 (GH-98: Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile)
 - **Component**: `account-mart/mart-batch`
 - **Changes**: Created `account-mart/mart-batch/src/test/resources/application-local.yml` with isolated H2 in-memory DB (`jdbc:h2:mem:account-mart-batch-local;MODE=PostgreSQL`), Flyway baseline migration (`locations: classpath:db/account-mart-local-migration`), Spring Batch H2 metadata schema initialization (`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, and disabled external Cloud Config/Eureka/Vault/Kafka control plane services. Created `AccountMartBatchApplicationTests.java` with `@SpringBootTest(classes = AllowanceMartBatchApplication.class)` and `@ActiveProfiles("local")` verifying clean ApplicationContext loading and profile isolation. Added extensive pedagogical comments across changed files.
@@ -1662,3 +1720,66 @@
 - Rollback only the four Issue #90 implementation paths through a reviewed revert and append the result to shared records. No external DB/data/container rollback exists; no private host, credential, PostgreSQL, Kafka or Compose runtime was accessed.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main with `Refs #90/#227`; Issue #90 is `status:needs-review`. Ready/merge/close remain gated on final PR-head verification.
 - The first final PR-head review passed and PR #359 was promoted Ready, but main advanced through Discovery PR #360 before merge; GitHub correctly rejected the stale conflicting merge and Issue #90 remained open. Merged `origin/main@191c5c28`, preserved both append-only #90/#304 records, confirmed zero upstream overlap in the four implementation paths, and reran the focused local-context test successfully. A final PR-head recheck is required after pushing the sync commit.
+
+## 2026-08-14 - Issue #227 latest-main runtime audit
+
+- Synchronized the Issue worktree through a named stash to `origin/main@1ae9e108`; no conflict occurred and the dirty primary checkout remained untouched.
+- Inventory/task contract passed for 72 subprojects (17 API, 15 Batch, 3 infra, 1 CLI, 19 libraries, 17 aggregators). All 36 executable targets packaged offline with exactly one executable JAR, and all 36 non-executable library/aggregator `test+jar` gates passed.
+- Strict ProfileJar across all executable artifacts produced 16 `PASS_STARTED`, 15 `PASS_EXITED`, and five fail-closed results. Auth/Budget/Gateway lack secure JWT input in the intentionally stripped environment; Closing API lacks `FiscalPeriodMapper`; Closing Batch lacks `JournalPostingPort`.
+- Created unclaimed `status:ready` Issues #420 (Auth), #421 (Gateway), #422 (Closing API), #423 (Closing Batch), and #424 (Production Compose test runbook path). Reused existing #249 for Budget and #66/#228/#230 for live Compose/image/PostgreSQL gates. Did not duplicate closed #362 because PR #398 already owns the Node 20/frontend lifecycle change.
+- Updated the runtime matrix and local guide to separate actual H2 startup, secure local input, static resource location, and live Compose gates. Current Java Compose mapping is development 36/36 and production server targets 35/35.
+- Hardened `runtime-smoke.ps1`: bounded Gradle/process-tree termination, concurrent output capture, isolated environment/user home, evidence redaction without erasing Java `File.java:line` locations, exact single executable JAR checks, Migration Runner support, stable arrays, and nonzero failed/BLOCKED exits.
+- Frontend mode correctly wrote `BLOCKED` because this isolated worktree has no `node_modules` and package install was not authorized. Podman is installed but has no Compose provider. No external host, credential, DB, container or volume was accessed.
+- Parser, diff and marker checks pass. Focused Compose/image policy execution is 20/21; the single stale runbook-path failure is #424, while the unaffected Development/Container policy subset reruns green. Dynamic checks prove Java source locations survive redaction, host/URI/credential samples are removed, timeout is reported, and the scoped child process tree is terminated. Final independent review remains before the authorized commit/push/Draft PR.
+- Independent review found two P2s and two P3s: termination failure could still be classified `PASS_STARTED`, LocalJar command evidence retained a diagnostic JWT, timeout success semantics were misstated, and unrelated #90 completion records were in scope. The tool now verifies post-kill exit and fails on termination errors, redacts Command, preserves JDK versions/source locations while removing endpoint/credential samples, the guide distinguishes `PASS_STARTED`, and #90 additions were removed. Dynamic process-tree and Budget LocalJar command-redaction checks pass; independent re-review is required.
+- Re-review found one remaining P2: user-home, IPv6 and `.java`-suffixed endpoint text could evade or confuse redaction. Source preservation is now limited to parenthesized stack locations and path-qualified source locations; user-home, Windows profile paths, contextual/bare IPv6 and host tokens are redacted. Adversarial context/IPv6/user tests and the real Budget LocalJar JSON pass without exposing the user path or diagnostic JWT; final re-review remains.
+- The next re-review tightened that P2 further: only actual `at package.Method(File.java:line)`, standalone source lines and path-qualified sources are preserved; parenthesized endpoints are not. Bracketed zone-id and compressed one-group IPv6 candidates are parsed/redacted while loopback `::1` remains safe. Adversarial samples and the Budget JSON pass; final independent review is required.
+- Final independent re-review found no P0-P3. Publish the eight scoped #227 files, open a Draft PR, then repeat the PR-head gate before Ready/merge.
+- Committed `adade958`, pushed `agent/227-latest-main-runtime-audit`, and opened Draft PR #433 with `Refs #227`. Issue #227 moved to `status:needs-review`; PR-head review precedes the authorized Ready/merge.
+- Rollback is a reviewed revert of only the #227 tool/document/harness commit; no external-state rollback exists.
+
+## 2026-08-14 - Issue #420 Auth secure local H2 runtime
+
+- Claimed `#420` on `agent/420-auth-local-runtime` in `C:\tmp\account-420-auth-local-runtime`; synchronized the isolated worktree to non-overlapping `origin/main@db5c865c` while leaving the dirty primary checkout untouched.
+- Added the missing Auth `application-local.yml` with H2 PostgreSQL mode, Flyway/JPA ownership and disabled Config/Discovery/Vault/Eureka/tracing. The profile contains no JWT secret, internal token or default user credential; all profiles remain fail-closed without runtime input.
+- Runtime policy tests now load real base/local/dev/prod configuration. Base/dev/prod independently reject missing JWT and missing internal token, while local and injected dev/prod contexts bind process-generated ephemeral values.
+- Corrected Auth local-run/schema documentation for port `8081`, migrations V70-V73 and the no-default credential contract. The minimal core edit only corrects stale Javadoc/error wording and changes no behavior.
+- Latest-main Auth Core/API verification passed 45 tests in 14 suites with zero failure/error/skip, plus API `bootJar`. Direct packaged-JAR smokes passed both required paths: missing input failed closed and generated 32-byte inputs started the local H2 application.
+- `git diff --check`, scoped conflict-marker and secret-default scans passed. Independent review findings for port/docs/profile-binding/dual-credential coverage were remediated; final re-review found no P0-P3.
+- No external DB, private endpoint, credential, container or volume was accessed. Rollback is a reviewed revert of only the #420 Auth resource/test/docs/core-wording and harness paths; no external-state rollback exists.
+- The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Initial commit `62cc8717` is pushed and Draft PR #441 targets main with `Refs #420/#427`; Issue #420 is `status:needs-review`.
+- The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.
+
+## 2026-08-14 - Issue #421 Gateway secure standalone local runtime
+
+- Claimed `#421` on `agent/421-gateway-local-jwt` in `C:\tmp\account-421-gateway-local-jwt` from latest `origin/main@eb7ce92b`; the dirty primary checkout remained untouched.
+- Baseline Gateway tests/bootJar passed and the packaged JAR failed closed without a verification key. A process-generated 32-byte input started the profile-only local JAR, but an Eureka registration attempt proved the tracked local runtime policy was missing.
+- Added an explicit Gateway `application-local.yml` that disables Config/Discovery/LoadBalancer/Gateway locator/Eureka/tracing and token-version remote validation. It contains no JWT secret/public key/JWKS URI or Auth endpoint.
+- The shared standalone IntelliJ configuration and local guides now activate `local` and require a runtime-only ephemeral JWT input. Fixed test secrets were removed; actual Spring profile tests verify isolated startup, missing-key fail-closed behavior and the absence of any local JWT/key/remote URL section.
+- Latest-main Gateway verification passed 43 tests in 9 suites with zero failure/error/skip and bootJar. Packaged-JAR smokes passed missing-input fail-closed and ephemeral-input startup with no Config or Eureka attempt.
+- `git diff --check`, scoped marker, resource/run-config/test-resource credential and Boot JAR resource gates passed. Independent review findings for allowlist evidence, literal-secret test coverage and troubleshooting wording were resolved; final re-review found no P0-P3.
+- No external endpoint, credential, DB, container or volume was accessed. Rollback is a reviewed revert of the #421 Gateway profile/test/run-config/docs and harness paths; no external-state rollback exists.
+- The ignored local resource was force-added at its exact path and its staged blob matched the reviewed working file. Commit `f066eb31` is pushed and Draft PR #445 targets main with `Refs #421/#227`; Issue #421 is `status:needs-review`.
+- The first PR-head review found only a P3 stale-harness handoff after publication. This harness-only follow-up records the actual commit/PR/Issue state; repeat independent PR-head review and GitHub checks before Ready/merge.
+
+## 2026-08-14 - Issue #422 Closing API Master Data composition
+
+- Claimed `#422` on `agent/422-closing-api-local-mapper` in `C:\tmp\account-422-closing-api-local-mapper` from latest `origin/main@305fa259`; the dirty primary checkout remained untouched.
+- Reproduced the local context failure at `FiscalPeriodMapper`. The mapper-only fix exposed an already-active broad Master Data adapter scan with missing persistence ports, so the Closing composition root now imports only its two used contract adapters and their complete minimal persistence/mapper graph.
+- Closing business/domain behavior and Master Data production sources are unchanged. No profile-specific fallback was added, and dev/prod continue to use the same JPA production adapters without duplicate or shadow beans.
+- Latest-main Core/API verification passed 74 tests in 19 suites with zero failure/error/skip and API bootJar. The packaged local H2 JAR started with no FiscalPeriodMapper error or external attempt.
+- Exact three-file implementation allowlist, `git diff --check` and marker gates passed. Independent review found no P0-P3.
+- Commit `325b6e98` is pushed and Draft PR #447 targets main with `Refs #422/#227`; Issue #422 is `status:needs-review`.
+- No external endpoint, DB, credential, container or volume was accessed. Rollback is a reviewed path-scoped revert of the #422 composition/test/docs commit while retaining append-only history.
+- Next gate is independent PR-head review and green GitHub checks before Ready/merge/close.
+
+## 2026-08-14 - Issue #423 Closing Batch local Journal composition
+
+- Claimed `#423` on `agent/423-closing-batch-local-journal` in `C:\tmp\account-423-closing-batch-local-journal`; the branch is stacked on reviewed PR #447 because #422 and #423 are independent composition fixes whose shared Closing CI previously blocked each other.
+- Wired the existing Closing local Journal ports into the Batch composition root and restricted the fallback configuration to `local`. `@ConditionalOnMissingBean` keeps approved Journal implementations authoritative when they are present.
+- Removed the broad Master Data adapter scan from Closing Batch and explicitly imported only the Closing/FX contract adapters and their minimal persistence/mapper dependency closure.
+- Closing API/Batch/Core passed 90 tests in 27 suites with zero failure/error/skip and Closing Batch `bootJar`. The packaged local H2 JAR started without missing Journal/ExchangeRate ports or any external attempt.
+- Diff/marker/allowlist checks passed. Independent review's P3 about missing fallback back-off coverage was remediated; final re-review found no P0-P3.
+- Implementation commit `8a582592` is pushed and stacked Draft PR #448 targets `agent/422-closing-api-local-mapper`; Issue #423 is `status:needs-review`.
+- No external endpoint, DB, credential, container or volume was accessed. No Closing Job or journal posting ran. Rollback is a reviewed path-scoped revert of the five #423 implementation/test/docs paths while preserving append-only history.
+- PR #448 passed all GitHub checks and final PR-head review with no P0-P3, then merged into the #422 branch as `dbedb96f`. Main-target Draft PR #447 now carries both independently reviewed Closing composition fixes and must pass its refreshed full Closing CI before Ready/merge.

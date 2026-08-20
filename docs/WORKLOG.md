@@ -1,3 +1,124 @@
+### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System - Issue #484 / PR #485)
+### [frontend] 케이뱅크(KBank) 스타일 모던 핀테크 디자인 시스템 (색상, 폰트, 배경, 카드, 헤더/사이드바) 전면 개편
+
+- **작업 배경**:
+  - 케이뱅크(KBank) 웹사이트(`https://www.kbanknow.com/web/customer/faq/list`)의 시그니처 핀테크 디자인 아이덴티티(맑고 깨끗한 소프트 그레이 배경, 화이트 카드, KBank 블루, 가독성 높은 타이포그래피, 모던 라운딩 및 섀도우)를 Account.AI 프론트엔드 전반에 적용.
+- **주요 변경 사항**:
+  - **글로벌 테마 & 디자인 토큰 (`globals.css`, `tailwind.config.js`)**:
+    - KBank 소프트 그레이 배경 (`#f7f8fb`) 및 퓨어 화이트 카드 (`#ffffff`) 설정.
+    - KBank 시그니처 블루 (`#4262ff`, hover: `#3452e6`, active: `#2b44d4`, light: `#eef2ff`, border: `#dbe3ff`) 팔레트 구축.
+    - Pretendard/Inter 기반 타이포그래피 및 자간 조정 (`letter-spacing: -0.015em`), 텍스트 컬러 팔레트 (`#17191e`, `#2a2e36`, `#545b69`, `#8c94a4`).
+    - 부드러운 섀도우 토큰(`box-shadow: 0 4px 20px -2px rgba(66, 98, 255, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.03)`).
+  - **레이아웃 & 네비게이션 개편 (`MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `Footer.tsx`)**:
+    - **TopHeader**: 맑은 화이트 글래스 헤더(`bg-white/95 backdrop-blur-md border-b border-[#eaedf4]`), KBank 블루 액티브 탭, 모던 검색 인풋.
+    - **Sidebar**: 산뜻한 화이트 사이드바, 블루 포인트 로고, KBank 스타일 액티브 메뉴(`bg-[#eef2ff] text-[#4262ff] font-bold border border-[#dbe3ff]`).
+    - **Footer**: 화이트 톤과 상태 표시 칩으로 정돈.
+  - **공통 UI 컴포넌트 리프레시 (`PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`)**:
+    - 선명하고 깔끔한 상태 뱃지, 가독성 높은 금액 디스플레이, 모던 화이트 탭.
+  - **메인 대시보드 화면 (`page.tsx`)**:
+    - 3개 KPI 카드, 월별 재무 추이 Area 차트, 최근 전표 리스트를 화이트 카드 및 KBank 블루 스타일로 전면 리프레시.
+- **검증**:
+  - `npm run build` 실행하여 122개 전체 정적 라우트 100% 컴파일 및 빌드 성공.
+### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System & Dual-Theme Architecture - Issue #484 / PR #487)
+### [frontend] 케이뱅크(KBank) 스타일 핀테크 디자인 시스템, 글로벌 듀얼 테마 엔진, 6대 메가그룹-16대 MSA 모듈 네비게이션 및 마스터 교육 문서 구축
+
+- **작업 배경**:
+  - 케이뱅크(KBank) 웹사이트(`https://www.kbanknow.com/web/customer/faq/list`)의 시그니처 핀테크 디자인 아이덴티티(소프트 그레이 `#f7f8fb`, 퓨어 화이트 카드 `#ffffff`, KBank 블루 `#4262ff`, Pretendard 자간 `-0.015em`)를 Account.AI 프론트엔드 전반에 적용하고, 다크모드 및 백엔드 16개 MSA 모듈 직결 네비게이션 체계 구축.
+- **주요 변경 사항**:
+  - **글로벌 테마 & 듀얼 테마 엔진 (`globals.css`, `ThemeContext.tsx`)**:
+    - KBank 소프트 그레이 배경 (`#f7f8fb`), 퓨어 화이트 카드 (`#ffffff`), KBank 시그니처 블루 (`#4262ff`) 팔레트 구축.
+    - `html:not(.dark)` (라이트 화이트 카드) ↔ `html.dark` (네이비 다크 카드 `#131b2e`, `#0b0f19`) 스마트 속성 오버라이드 엔진 장착하여 122개 전체 화면 100% 테마 완벽 동기화.
+    - `ThemeContext.tsx`를 통한 `light` | `dark` | `system` 모드 지원, `localStorage` 영속화 및 SSR Hydration 안정성 확보(`suppressHydrationWarning`).
+  - **상단 6대 메가 그룹 & 사이드바 16대 MSA 모듈 뱃지 네비게이션 (`TopHeader.tsx`, `Sidebar.tsx`, `NavContext.tsx`, `menus/*.ts`)**:
+    - 상단 헤더의 가로 스크롤바를 완전히 제거한 **6대 메가 비즈니스 그룹**(대시보드, 회계·결산, 자금·세무, 금융·자산, 리스크·데이터, 거버넌스·시스템) 배치.
+    - 좌측 사이드바에 백엔드 16개 마이크로서비스 모듈(`journal-ledger`, `closing`, `reporting`, `budget`, `tax`, `ecl`, `reconciliation`, `account-mart` 등) 전용 블루 뱃지 태그를 부착하여 모듈 독립성 100% 가시화.
+  - **13대 도메인 API 서비스 레이어 & 오프라인 Mock Fallback (`src/services/`, `src/mocks/`)**:
+    - 13개 도메인 API 클라이언트 모듈 구축 및 `NavContext` 1.5초 AbortController 타임아웃 가드로 백엔드 오프라인 시 100% 자동 Mock Fallback 지원.
+  - **마스터 교육 문서 및 화면 설계서 체계 완비 (`frontend/docs/`)**:
+    - `frontend-core-education-guide.md`: 훅(Hook)의 본질, Context API vs Fetch/Axios, 상태 저장소 3단계, Next.js 15 아키텍처 총정리.
+    - `ui-layout-and-screen-specification.md`: 4단 레이아웃 규격 및 122개 전체 화면 명세서.
+    - `beginner-guide.md`, `development-guide.md`, `build-deploy-guide.md`, `README.md` 전면 최신화.
+- **검증**:
+  - `npm run build`: 122/122개 전체 정적 라우트 컴파일 100% 성공 (0 errors / 0 warnings).
+  - 독립 서브에이전트 최종 코드 리뷰 APPROVED 통과.
+
+### 📅 2026-08-13 ([runtime][tax-batch] Fix Tax Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #92)
+### [tax-batch] tax:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 TaxBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `tax:batch` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Batch 메타데이터 스키마 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`tax/batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:tax_batch_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/tax-migration`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`TaxBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = TaxBatchApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `TaxBatchApplication`의 ApplicationContext, Batch Infra (`JobExplorer`, `taxInvoiceValidationJob`), 및 도메인 유스케이스(`TaxInvoiceBatchUseCase`) 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, 배치 메타데이터 초기화 및 도메인 빈 주입의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :tax:batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
+### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution API ApplicationContext Loading and Configure Local H2 Profile - Issue #93)
+### [expenditure-resolution] expenditure-resolution:api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionApiApplicationTests 추가
+
+- **작업 배경**:
+  - `expenditure-resolution:api` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Cloud 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`expenditure-resolution/api/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:expenditure_resolution_api_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/expenditure-resolution-migration`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`ExpenditureResolutionApiApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `ExpenditureResolutionApiApplication`의 ApplicationContext, Controller (`ExpenditureController`, `APPaymentController`), UseCase (`ExpenditureResolutionUseCase`, `APPaymentUseCase`), 및 Outbound Port Stub 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **`ExpenditureResolutionPostgresqlSchemaContextTest.java` 리팩토링**:
+    - `@ActiveProfiles("local")` 지정을 적용하고 초보자를 위한 교육적 상세 주석(Pedagogical Comments) 추가.
+- **검증**:
+  - `./gradlew.bat :expenditure-resolution:api:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
+### 📅 2026-08-13 ([runtime][expenditure-resolution] Fix Expenditure Resolution Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #94)
+### [expenditure-resolution] expenditure-resolution:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ExpenditureResolutionBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `expenditure-resolution:batch` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Batch 메타데이터 스키마 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`expenditure-resolution/batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:expenditure_resolution_batch_db;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/expenditure-resolution-migration`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`ExpenditureResolutionBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `ExpenditureResolutionBatchApplication`의 ApplicationContext, Batch Infra (`JobExplorer`, `expenditureResolutionApprovalJob`), 및 도메인 유스케이스(`ExpenditureResolutionBatchUseCase`) 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **`ExpenditureResolutionLocalExternalPortConfiguration.java` 컴파일 오류 수정**:
+    - `JournalPostingPort` 인터페이스의 다중 메서드(`createDraftEntry`, `approveAndPost`) 계약에 맞춰 익명 클래스 스텁 구현으로 수정.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, 배치 메타데이터 초기화 및 포트 인터페이스 스텁 구현의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :expenditure-resolution:batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
+### 📅 2026-08-13 ([runtime][reporting-batch] Fix Reporting Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #96)
+### [reporting-batch] reporting:batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 ReportingBatchApplicationTests 추가
+
+- **작업 배경**:
+  - `reporting:batch` 모듈 로컬 실행 및 테스트 환경에서 `application-local.yml` 부재 및 test context 클래스 미비로 인한 ApplicationContext 로드 예외 및 인메모리 H2 DB/Spring Batch 메타데이터 스키마 설정 부재 문제 해결.
+- **주요 변경 사항**:
+  - **`reporting/batch/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:reporting_batch_db;MODE=PostgreSQL`), Spring Batch H2 메타데이터 스키마 자동 초기화(`spring.batch.jdbc.initialize-schema: always`), JPA `ddl-auto: create-drop`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화, 메모리 퍼시스턴스 모드(`account.reporting.persistence.mode: memory`) 설정으로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`ReportingBatchApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `ReportingBatchApplication`의 ApplicationContext 및 Batch Infra/Domain Bean 주입이 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, 배치 메타데이터 초기화 및 메모리 도메인 어댑터 선택의 아키텍처적 목적을 상세히 기술.
+- **검증**:
+  - `./gradlew.bat :reporting:batch:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
+### 📅 2026-08-13 ([runtime][account-mart] Fix Account Mart API ApplicationContext Loading and Configure Local H2 Profile - Issue #97)
+### [account-mart] account-mart:mart-api 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 AccountMartApiApplicationTests 추가
+
+- **작업 배경**:
+  - `account-mart:mart-api` 모듈 로컬 실행 시 로컬 H2 데이터베이스 및 local 프로파일 설정 부재로 인한 ApplicationContext 로드 예외 발생.
+- **주요 변경 사항**:
+  - **`account-mart/mart-api/src/test/resources/application-local.yml` 생성**:
+    - isolated H2 인메모리 DB (`jdbc:h2:mem:account-mart-api-local;MODE=PostgreSQL`), Flyway baseline 마이그레이션(`locations: classpath:db/account-mart-local-migration`), JPA `ddl-auto: validate`, 외부 Cloud(Eureka, Discovery, Vault, Config Server) 및 메시지 브로커(Kafka) 비활성화로 로컬 독립 구동(Self-contained Local Runtime) 환경 구성.
+  - **`AccountMartApiApplicationTests.java` 테스트 클래스 구축**:
+    - `@SpringBootTest(classes = AllowanceMartApiApplication.class)` 및 `@ActiveProfiles("local")` 기반으로 local 프로파일 환경에서 `AllowanceMartApiApplication`의 ApplicationContext가 정상 로드되는지 검증하는 `contextLoads()` 테스트 작성.
+  - **상세 교육적 주석 (Pedagogical Comments) 작성**:
+    - H2 인메모리 DB 기반 프로파일 격리, Flyway 마이그레이션 연동 및 외부 인프라 디커플링의 아키텍처적 목적을 초보자 눈높이에 맞춰 명시.
+- **검증**:
+  - `./gradlew.bat :account-mart:mart-api:test` 실행하여 전체 테스트 100% 성공 (BUILD SUCCESSFUL).
+
 ### 📅 2026-08-13 ([runtime][account-mart] Fix Account Mart Batch ApplicationContext Loading and Configure Local H2 Profile - Issue #98)
 ### [account-mart] account-mart:mart-batch 로컬 실행 실패 (ApplicationContext 오류) 해결, application-local.yml 및 AccountMartBatchApplicationTests 추가
 

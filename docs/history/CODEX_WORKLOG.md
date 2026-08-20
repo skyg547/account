@@ -1887,3 +1887,55 @@
 - The first focused test failed only from unsupported JUnit method-parameter injection; field injection fixed the test harness. Dev/prod PostgreSQL resources, depreciation logic and Job parameter semantics remain unchanged. Independent read-only review remains.
 - Independent review found no P0-P3. Commit `65396222` is pushed and Draft PR #359 targets main with `Refs #90/#227`; Issue #90 is `status:needs-review` pending final PR-head verification.
 - The first final PR-head review passed and PR #359 was promoted Ready, but concurrent Discovery PR #360 advanced main and GitHub rejected the now-conflicting merge. Merged `origin/main@191c5c28`, preserved #90/#304 append-only records and reran the focused local-context test successfully; final PR-head review must repeat after the sync commit.
+
+## 2026-08-14 (Issue #227 latest-main runtime audit)
+
+- Fast-forwarded the isolated Issue worktree to `origin/main@1ae9e108` through a named safety stash; no conflict occurred and the dirty primary checkout was untouched.
+- Classified 72 Gradle subprojects as 17 API, 15 Batch, 3 infra, 1 CLI, 19 libraries and 17 aggregators. Inventory/task contract, all 36 executable packages and all 36 library/aggregator `test+jar` boundaries passed.
+- Strict ProfileJar across 36 artifacts is 16 `PASS_STARTED`, 15 `PASS_EXITED`, and five fail-closed results. Auth/Budget/Gateway require secure local JWT input; Closing API/Batch expose `FiscalPeriodMapper`/`JournalPostingPort` composition gaps.
+- Opened unclaimed `status:ready` #420-#424 for Auth, Gateway, Closing API, Closing Batch and the stale Production Compose runbook test path. Existing #249 owns Budget; #66/#228/#230 own live Compose/image/PostgreSQL. Closed #362 was not duplicated because PR #398 already integrated the Frontend Node 20/lifecycle contract.
+- Rebuilt the runtime matrix from current JSON evidence and corrected the local guide. Java Compose mapping is development 36/36 and production server targets 35/35; Podman still has no Compose provider, so no live Compose or PostgreSQL operation occurred.
+- Hardened the audit tool with bounded Gradle/process-tree handling, concurrent output capture, isolated environment/user home, precise evidence redaction, single executable-JAR enforcement, CLI coverage, stable arrays and failure exit codes.
+- No external host, credential, DB, container or volume was accessed. Parser/diff/marker checks pass; focused Compose/image policy execution is 20/21 with the single stale-path failure tracked by #424. The unaffected policy subset passes, and dynamic redaction/timeout/process-tree checks pass. Independent review precedes commit/push/Draft PR.
+- Final review identified termination-error fail-open, raw diagnostic JWT command evidence, inaccurate timeout wording and unrelated #90 harness scope. All four were remediated; dynamic process-tree, JDK/source preservation, endpoint/credential redaction and Budget LocalJar command checks pass. Independent re-review remains.
+- Re-review's final P2 found user-home, IPv6 and `.java`-suffixed endpoint gaps. Redaction is now context-aware and adversarial samples plus real Budget LocalJar JSON confirm no user path, endpoint or diagnostic JWT leakage. Final re-review remains.
+- A further bypass review constrained stack source tokens and covered compressed/zone-id IPv6. Parenthesized `.java` endpoints and both IPv6 forms redact; source/JDK/loopback utility remains. Adversarial and real Budget JSON checks pass; final re-review remains.
+- Final independent re-review found no P0-P3. Commit/push/Draft PR and final PR-head merge gate are next.
+- Commit `adade958` is pushed and Draft PR #433 targets `main`; Issue #227 is `status:needs-review` pending the final PR-head merge gate.
+
+## 2026-08-14 (Issue #420 Auth secure local H2 runtime)
+
+- Claimed #420, created `agent/420-auth-local-runtime` in the external worktree and reproduced the two baseline Auth local-runtime failures. The dirty primary checkout was not modified.
+- Added the explicit local H2/Flyway/JPA/control-plane policy without tracked credentials. Base/local/dev/prod retain fail-closed JWT/internal-token requirements and tests use only generated ephemeral values.
+- Updated runtime policy/integration tests and Auth local/schema guidance. Review findings corrected the 8081 commands, V73/security documentation and actual profile-binding coverage for both missing credential guards.
+- Fast-forwarded to non-overlapping `origin/main@db5c865c`. Auth Core/API passed 45 tests in 14 suites, API bootJar passed, and the executable JAR passed missing-input fail-closed plus ephemeral-input local-start smokes.
+- Static gates passed and final independent review found no P0-P3. No external endpoint, DB, credential, container or volume was accessed.
+- Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `62cc8717`, pushed the branch and opened Draft PR #441. Issue #420 is `status:needs-review`.
+- The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate, and #427 is reevaluated only after #420 integration.
+
+## 2026-08-14 (Issue #421 Gateway secure standalone local runtime)
+
+- Claimed #421 and created `agent/421-gateway-local-jwt` in an external worktree from `origin/main@eb7ce92b`; the dirty primary checkout was not modified.
+- Baseline packaging passed and missing input failed closed, while generated-input profile-only startup still attempted Eureka. Added a tracked-intent local profile that disables external control-plane and token-version calls without storing any key or endpoint.
+- Updated the standalone IntelliJ entry, Gateway/root local guidance and actual-profile tests. Fixed test secret literals were replaced with generated values, and the tests reject any JWT/secret/public-key/JWKS/base-url section in the local resource.
+- Gateway passed 43 tests in 9 suites, bootJar and both packaged-JAR paths. Ephemeral-input startup observed no Config/Eureka attempt; static credential/resource/diff/marker gates passed.
+- Review findings for exact allowlist evidence, literal-secret coverage and local troubleshooting were remediated; final independent re-review found no P0-P3. No external endpoint, credential, DB, container or volume was accessed.
+- Force-added the ignored local resource by exact path, verified its non-empty staged blob, committed `f066eb31`, pushed the branch and opened Draft PR #445. Issue #421 is `status:needs-review`.
+- The first PR-head review found no implementation/security finding and one P3 stale-harness state. This harness-only follow-up records the published PR state; independent re-review and green checks remain the Ready/merge gate.
+
+## 2026-08-14 (Issue #422 Closing API Master Data composition)
+
+- Claimed #422 and created `agent/422-closing-api-local-mapper` from `origin/main@305fa259` in an external worktree; the dirty primary checkout was not modified.
+- Reproduced the missing `FiscalPeriodMapper` failure. Replacing the broad Master Data adapter scan with explicit Closing-used contract adapters and their minimal persistence/mapper dependency closure also removed the next hidden `AccountSubjectPersistencePort` startup failure.
+- Closing Core/API passed 74 tests in 19 suites, API bootJar passed and the packaged local H2 JAR started without mapper failure or external attempt. Exact implementation allowlist, diff and marker gates passed.
+- Independent implementation review found no P0-P3 and confirmed production adapters are neither duplicated nor shadowed. No business/domain or Master Data production source changed; no external state was accessed.
+- Commit `325b6e98` is pushed, Draft PR #447 is open and Issue #422 is `status:needs-review`. Independent PR-head review and green GitHub checks remain the Ready/merge gate.
+
+## 2026-08-14 (Issue #423 Closing Batch local Journal composition)
+
+- Claimed #423 and created `agent/423-closing-batch-local-journal` in an external worktree, leaving the dirty primary checkout untouched. The branch is stacked on PR #447 so the API and Batch fixes remain separately reviewable while clearing their shared Closing CI gate.
+- Added explicit Batch composition for the existing local Journal ports, restricted the fallback configuration to `local`, and verified that approved port beans make the fallback back off.
+- Replaced broad Master Data adapter scanning with the exact exchange-rate, fiscal-period and master-data adapters plus their minimal persistence/mapper closure.
+- Closing API/Batch/Core passed 90 tests in 27 suites, Batch `bootJar` passed, and the packaged local H2 JAR started without missing ports or external attempts. No actual Job, DB, endpoint, credential, container or volume was used.
+- Independent review's P3 test-coverage finding was remediated and final re-review found no P0-P3. Commit `8a582592` is pushed and stacked Draft PR #448 is open; Issue #423 is `status:needs-review` pending PR-head checks and merge into the #422 branch.
+- PR #448 subsequently passed all GitHub checks and final PR-head review, then merged into the #422 branch as `dbedb96f`. Refreshed main-target PR #447 now owns the combined Closing API/Batch integration gate; neither Issue closes before that PR reaches main.
