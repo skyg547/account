@@ -2005,3 +2005,11 @@
 - Independent review found P3 partial-session/error semantics on browser storage failure and missing async accessibility status. The remediation separates failures, best-effort clears both keys, blocks success/redirect and adds alert/status/aria-busy; latest-main re-review found no P0-P3.
 - CPU-1/memory-2-GiB/network-none Node 20 full lint passed at 0 errors / 244 warnings, TypeScript passed, and production build exited 0/OOM false with a 118-second compile and 122/122 static pages. Empty JSON POSTs at Frontend, Gateway and Auth all returned the same HTTP 400 validation response.
 - Exact static gates passed; the test container and 541 MiB output were removed. #540 tracks the remaining localStorage JWT/legacy fallback migration. Commit `1cf73e3d` is pushed, Draft PR #541 is open, and Issue #519 is `status:needs-review` pending final remote-head gates.
+
+## 2026-08-22 (Issues #519 integration and #497 Gateway discovery-route bypass)
+
+- Final #519 remote-head review, GitHub checks and Ready-event Guard passed; PR #541 squash-merged as `a0e0f8a6`, Issue #519 closed, and active labels were removed. #540 remains the explicit localStorage-to-HttpOnly follow-up.
+- Reproduced #497 on the unchanged dev Gateway without credentials: normal GET `/api/auth/login` was 401 with the JWT error, but `/auth-service/api/auth/login` reached discovery/rate-limit processing and returned 500 without that error.
+- Disabled discovery locator in both packaged/external Gateway configs, removed locator-only lower-case options and retained Eureka registration/fetch plus ten explicit `lb://` route targets. Tests parse both configs and assert the full explicit route contract; docs distinguish registry participation from external route generation.
+- Independent review's two P3s for route URI coverage and Eureka wording were remediated; re-review found no P0-P3. Exact YAML/diff/marker/secret/alternate-enable gates pass.
+- Local CPU-1/memory-1536-MiB/network-none JDK 17 Gradle stopped before compilation on uncached existing Spring/JJWT artifacts, with no download or success claim. Commit `e1456136` is pushed, Draft PR #542 is open, and Issue #497 is `status:needs-review` pending GitHub `:gateway:test` and final remote-head gates. #520 owns post-restart 404 smoke; #466 owns missing explicit business routes.
