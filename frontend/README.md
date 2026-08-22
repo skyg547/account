@@ -41,9 +41,10 @@ npm run dev -- --hostname 0.0.0.0
 
 상대 경로 `/api` 요청(로그인 포함)은 Next.js 개발 서버가 `GATEWAY_INTERNAL_URL`로 전달하며,
 로컬 npm 실행 시 기본 Gateway 주소는 `http://localhost:8000`입니다. Gateway를 다른 주소에서
-실행할 때만 환경 변수를 지정하세요. 기존 PAT/Governance 화면은 아직 Gateway 전용 route와
-권한 경계가 완성되지 않았으므로 기존 `NEXT_PUBLIC_AUTH_API_URL`,
-`NEXT_PUBLIC_GOVERNANCE_API_URL` 직접 override 계약을 유지합니다.
+실행할 때만 환경 변수를 지정하세요. 로그인은 항상 same-origin `/api/auth/login`을 사용하므로
+Gateway와 Auth가 모두 실행 중이어야 하며, Auth에 미리 발급된 계정의 아이디와 비밀번호가
+필요합니다. 운영자가 발급한 계정만 사용합니다. 기존 PAT/Governance 화면은 아직
+Gateway 전용 route와 권한 경계가 완성되지 않아 직접 override 계약을 유지합니다.
 
 ### 🧩 컨테이너로 프론트엔드만 단독 기동하기 (`compose.dev.yml`)
 

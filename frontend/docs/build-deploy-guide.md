@@ -23,8 +23,8 @@ npm run dev
 ```
 
 * **접속 주소**: [http://localhost:3000](http://localhost:3000)
-* **로그인 데모 계정**: 아이디 `admin`, 비밀번호 `1234`, OTP `123456`
-* 백엔드가 꺼져 있어도 Mock Fallback 엔진이 자동으로 동작하므로 모든 122개 페이지를 자유롭게 둘러볼 수 있습니다.
+* **로그인 준비**: Gateway와 Auth를 먼저 실행하고, 운영자가 Auth에 미리 발급한 계정의 아이디와 비밀번호를 준비합니다.
+* 로그인은 Mock Fallback 없이 same-origin `/api/auth/login`을 통해 실제 Gateway와 Auth를 호출합니다. 다른 업무 화면의 Mock 데이터는 백엔드가 꺼져 있어도 화면 개발에 사용할 수 있습니다.
 
 ---
 

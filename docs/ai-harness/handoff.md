@@ -2842,3 +2842,22 @@
 - Two earlier attempts are retained as harness evidence: a read-only type check could not write `tsconfig.tsbuildinfo`, and a build that compiled offline could not refresh `next-env.d.ts`. Redirecting build-info and using the isolated worktree with a separate `.next` output proved these were mount-policy EROFS failures, not source failures.
 - Exact one-file diff/allowlist, marker, secret and remote-font scans passed. Independent review found no P0-P3. The two stopped test containers and about 983 MiB of generated temporary output were removed after evidence capture.
 - Main's concurrent PR #534 was CI-only and non-overlapping; latest-main sync to `859fc21e` completed without conflict before commit. Final PR-head checks and independent remote review remain before Ready/merge, then the parent Integrator resumes #519. Rollback is a reviewed revert of `frontend/src/app/layout.tsx`; no external-state rollback exists.
+
+## Issue #538 integration result
+
+- Final remote-head review found no P0-P3; all checks and the Ready-event Guard passed on `146abbbe`. PR #539 squash-merged as `9c62b8e6`, Issue #538 closed, and active labels were removed.
+
+# AI Harness Handoff - 2026-08-22 Issue #519 Frontend password login contract
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#519`, `agent/519-frontend-auth-contract`, `/tmp/account-519-frontend-auth-contract`, Draft PR #541 against `main@9c62b8e6`.
+- Commit `1cf73e3d` changes exactly the login page, Auth client service and four directly related Frontend documents. Unsupported SSO/LDAP/OTP/demo flows are removed; blank input cannot fetch; username alone is normalized; the password is preserved; the request is exact same-origin with explicit `NORMAL`; server status/body and raw JWT are not rendered.
+- Browser storage failure is separated from credential failure, both session keys are best-effort cleared, and success/redirect follows only complete persistence. Error/success live regions and busy state cover the async UI. The first independent review's two P3s are remediated and final latest-main re-review found no P0-P3.
+
+## Evidence, rollback, and next owner
+
+- On cached Node 20.20.2 with CPU 1, memory 2 GiB and network none, full lint passed with 0 errors / 244 warnings, TypeScript passed, and production build exited 0 without OOM after a 118-second compile and 122/122 static pages. Frontend, Gateway and direct Auth empty-JSON probes each returned the same HTTP 400 validation failure; no credential or token was used.
+- Exact six-file allowlist, diff, marker and stale-auth scans passed. The stopped verification container and 541 MiB temporary output were removed. No running development service, image, DB, credential, package or lockfile changed.
+- The existing raw `auth_token` localStorage Bearer contract remains vulnerable to same-origin XSS and legacy `user_info.token` fallback persists outside this diff. Unclaimed Issue #540 owns the HttpOnly BFF/session migration and cleanup; it is not hidden as completed by #519.
+- Final PR-head GitHub checks and independent remote review remain before Ready/merge. Rollback is a reviewed revert of the six #519 files; no deployed/data/container rollback exists.
