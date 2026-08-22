@@ -2881,3 +2881,22 @@
 - A network-disabled cached JDK 17 run at CPU 1 / memory 1536 MiB stopped before compilation because several existing Spring/JJWT dependencies are absent from the cache. No package was downloaded and no local test/build success is claimed. GitHub Module Validation must pass `:gateway:test` before Ready/merge.
 - Post-merge runtime owner is #520: rebuild/restart the minimal Gateway path and confirm service-ID-prefixed requests now return 404 while normal login/protected routes retain their contracts. #466 owns unavailable explicit routes for other business modules; security does not retain the automatic bypass as a fallback.
 - Rollback is a reviewed six-file revert only after closing external Gateway exposure, because reverting reintroduces the P0 bypass. No data rollback exists.
+
+## Issue #497 integration result
+
+- GitHub JDK 17 `:gateway:test`, final remote-head review and the Ready-event Agent Merge Guard passed on unchanged head `3d4a15a7`. PR #542 squash-merged as `54003994`; Issue #497 closed and active labels were removed.
+
+# AI Harness Handoff - 2026-08-22 Issue #543 Gateway module Compose JWT input
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#543`, `agent/543-gateway-compose-jwt`, `/tmp/account-543-gateway-compose-jwt`, Draft PR #545 against `main@54003994`.
+- Commit `b1d50065` changes exactly the module Gateway Compose, its policy test and two Gateway documents. The tracked fixed JWT key is removed; Compose accepts only the required external `AUTH_JWT_SECRET` interpolation, and docs require a newly approved value shared with Auth plus retirement/rotation of the previously exposed key.
+- #520 remains blocked because `/home/ho/dev/account/.env.external-dev` is absent. Existing development containers, their environment, images, networks, PostgreSQL schema/data and volumes were not changed or inspected for secret values.
+
+## Evidence, rollback, and next owner
+
+- Docker Compose v5.4.0 through Podman 4.9.3 rejected missing input at quiet render and accepted a process-only generated input without printing config or the value. Exact four-file allowlist, `git diff --check`, marker and assignment-count gates passed; independent review found no P0-P3.
+- Local Java execution is not claimed: the host lacks JDK 17 and no toolchain/dependency download was approved. GitHub Module Validation must pass `:gateway:test` on the final remote head before Ready/merge.
+- #544 owns a Linux/Python minimal env validator because the existing PowerShell-only validator cannot run on this host without installation. #520 owns approved secret validation, coordinated Auth/Gateway key rotation, service-scoped recreation and status-only runtime smoke.
+- Rollback is a reviewed revert of the four #543 implementation/test/docs paths. Never restore the repository-exposed key. No data rollback exists, and branch/worktree deletion is not authorized.
