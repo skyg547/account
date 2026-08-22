@@ -2,6 +2,8 @@
 
 Internal Audit 서비스는 RCM(Risk Control Matrix) 및 설계·운영 평가, 내부통제 감사 이력을 관리하는 헥사고날 아키텍처 기반 모듈입니다.
 
+상세 문서는 [internal-audit/docs/README.md](./docs/README.md)에서 확인할 수 있습니다.
+
 ---
 
 ## 1. 🐣 초보자를 위한 개념 설명 (Beginner Guide)
