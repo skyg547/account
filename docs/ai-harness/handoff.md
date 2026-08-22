@@ -2823,3 +2823,22 @@
 - Failed discovery attempts remain disclosed: original ESM imports failed resolution, direct `.js` imports exposed non-iterable legacy configs, and the first compatibility load exposed 31 existing errors / 214 warnings. Build is unexecuted because #535 changes lint configuration only.
 - Independent review found no P1/P2 or merge-blocking finding. The first PR Guard passed; final PR-head checks and independent review remain before Ready/merge. After integration, the parent Integrator resumes #519 and reruns its actual modified files against the merged config.
 - Rollback is a reviewed one-file revert with no deployed or external-state rollback.
+
+## Issue #535 integration result
+
+- Final review found one P3 omission in the PR changed-file list; the append-only harness paths and impact scope were added without changing the head. Re-review, all checks and the Ready-event Guard passed. PR #537 squash-merged as `7364a926`, Issue #535 closed, and active labels were removed.
+
+# AI Harness Handoff - 2026-08-22 Issue #538 offline Frontend font build
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#538`, `agent/538-frontend-offline-font`, `/tmp/account-538-frontend-offline-font`, Draft PR #539 against `main`.
+- Commit `d7397aef` removes only `next/font/google` Inter loading and its body class from `frontend/src/app/layout.tsx`. The existing global system font stack and root metadata/provider/hydration structure remain unchanged. No package, lockfile, login/business source, image or running service changed.
+- #538 is the production-build prerequisite for the preserved six-file #519 login contract and later beginner image-build documentation #521.
+
+## Evidence, rollback, and next owner
+
+- Cached Node 20.20.2 validation at CPU 1, memory 2 GiB and network none passed full lint at 0 errors / 245 warnings, TypeScript and production build. The final build exited 0 without OOM after compiling in 117 seconds, generating 122/122 static pages and collecting final traces.
+- Two earlier attempts are retained as harness evidence: a read-only type check could not write `tsconfig.tsbuildinfo`, and a build that compiled offline could not refresh `next-env.d.ts`. Redirecting build-info and using the isolated worktree with a separate `.next` output proved these were mount-policy EROFS failures, not source failures.
+- Exact one-file diff/allowlist, marker, secret and remote-font scans passed. Independent review found no P0-P3. The two stopped test containers and about 983 MiB of generated temporary output were removed after evidence capture.
+- Main's concurrent PR #534 was CI-only and non-overlapping; latest-main sync to `859fc21e` completed without conflict before commit. Final PR-head checks and independent remote review remain before Ready/merge, then the parent Integrator resumes #519. Rollback is a reviewed revert of `frontend/src/app/layout.tsx`; no external-state rollback exists.
