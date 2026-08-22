@@ -144,18 +144,53 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
-    void eurekaDiscoveryLocatorAndGlobalCorsConfigured() {
-        Properties properties = loadGatewayProperties();
+    void explicitRoutesUseEurekaClientWithoutDiscoveryGeneratedRoutes() {
+        Properties packagedProperties = loadYamlProperties(
+                repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
+        Properties externalProperties = loadGatewayProperties();
 
-        assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+        assertThat(packagedProperties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+                .isEqualTo("false");
+        assertThat(externalProperties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+                .isEqualTo("false");
+        assertThat(packagedProperties)
+                .doesNotContainKeys(
+                        "spring.cloud.gateway.discovery.locator.lower-case-service-id",
+                        "spring.cloud.gateway.discovery.locator.lower-case-service-id-with-rest-site");
+        assertThat(externalProperties)
+                .doesNotContainKeys(
+                        "spring.cloud.gateway.discovery.locator.lower-case-service-id",
+                        "spring.cloud.gateway.discovery.locator.lower-case-service-id-with-rest-site");
+
+        assertThat(externalProperties.getProperty("eureka.client.enabled")).isEqualTo("true");
+        assertThat(externalProperties.getProperty("eureka.client.register-with-eureka"))
                 .isEqualTo("true");
-        assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.lower-case-service-id"))
+        assertThat(externalProperties.getProperty("eureka.client.fetch-registry"))
                 .isEqualTo("true");
-        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[0].name"))
+        assertRouteUri(externalProperties, "auth-login-api", "lb://auth-service");
+        assertRouteUri(externalProperties, "master-data-api", "lb://master-data");
+        assertRouteUri(externalProperties, "journal-ledger-api", "lb://journal-ledger");
+        assertRouteUri(externalProperties, "closing-api", "lb://closing-service");
+        assertRouteUri(externalProperties, "budget-api", "lb://budget-api");
+        assertRouteUri(externalProperties, "internal-audit-api", "lb://internal-audit-service");
+        assertRouteUri(externalProperties, "openapi-master-data", "lb://master-data");
+        assertRouteUri(externalProperties, "openapi-journal-ledger", "lb://journal-ledger");
+        assertRouteUri(externalProperties, "openapi-auth", "lb://auth-service");
+        assertRouteUri(externalProperties, "account-api", "lb://account");
+        assertThat(externalProperties.getProperty("spring.cloud.gateway.default-filters[0].name"))
                 .isEqualTo("RequestRateLimiter");
-        assertThat(properties.entrySet().stream()
+        assertThat(externalProperties.entrySet().stream()
                 .anyMatch(e -> e.getKey().toString().contains("globalcors") && e.getValue().toString().contains("3600")))
                 .isTrue();
+    }
+
+    private void assertRouteUri(Properties properties, String routeId, String expectedUri) {
+        int index = routeIndex(properties, routeId);
+
+        assertThat(index).as("route index for %s", routeId).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + index + "].uri"))
+                .as("route URI for %s", routeId)
+                .isEqualTo(expectedUri);
     }
 
     private int routeIndex(Properties properties, String routeId) {
@@ -169,25 +204,27 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     private Properties loadGatewayProperties() {
-        Path configurationPath = resolveConfigurationPath();
+        return loadYamlProperties(repositoryRoot().resolve("config-repo/gateway-service.yml"));
+    }
+
+    private Properties loadYamlProperties(Path configurationPath) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
         factory.setResources(new FileSystemResource(configurationPath));
         Properties properties = factory.getObject();
         if (properties == null) {
-            throw new IllegalStateException("gateway-service.yml could not be loaded");
+            throw new IllegalStateException(configurationPath + " could not be loaded");
         }
         return properties;
     }
 
-    private Path resolveConfigurationPath() {
-        Path rootWorkingDirectory = Path.of("config-repo", "gateway-service.yml");
-        if (Files.exists(rootWorkingDirectory)) {
-            return rootWorkingDirectory;
+    private Path repositoryRoot() {
+        Path candidate = Path.of("").toAbsolutePath();
+        while (candidate != null && !Files.exists(candidate.resolve("settings.gradle"))) {
+            candidate = candidate.getParent();
         }
-        Path moduleWorkingDirectory = Path.of("..", "config-repo", "gateway-service.yml");
-        if (Files.exists(moduleWorkingDirectory)) {
-            return moduleWorkingDirectory;
+        if (candidate == null) {
+            throw new IllegalStateException("repository root was not found");
         }
-        throw new IllegalStateException("config-repo/gateway-service.yml was not found");
+        return candidate;
     }
 }

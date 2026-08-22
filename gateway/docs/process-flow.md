@@ -45,9 +45,11 @@ Client
    - UNAVAILABLE: 503
 
 6. Spring Cloud Gateway route
+   - 설정에 명시된 route allowlist와 일치하는 외부 경로만 선택
    - `/api/basic/**`와 `/api/master-data/**`는 레거시 catch-all보다 앞선 `master-data-api`를 선택
    - `/api/budgets/**`는 레거시 catch-all보다 앞선 `budget-api`를 선택
    - Eureka에서 선택된 route의 `lb://master-data` 또는 `lb://budget-api` 인스턴스 확인
+   - Discovery locator는 비활성화되어 `/master-data/**`, `/budget-api/**` 같은 service-ID-prefixed 경로를 만들지 않음
    - 요청 전달
 ```
 

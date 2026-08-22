@@ -6,9 +6,10 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
-          lower-case-service-id-with-rest-site: true
+          # 명시적으로 허용한 lb:// route만 노출하고 /{serviceId}/** 자동 route는 생성하지 않습니다.
+          # 라우팅에서 Eureka는 아래 route의 대상 인스턴스 선택에 사용하며,
+          # Gateway 자체 Eureka 등록과 registry fetch 동작에는 영향을 주지 않습니다.
+          enabled: false
       globalcors:
         cors-configurations:
           '[/**]':
@@ -37,6 +38,7 @@ spring:
             key-resolver: "#{@ipKeyResolver}"
             rate-limiter: "#{@inMemoryRateLimiter}"
       routes:
+        # 아래 명시 route 목록만 외부 경로로 노출합니다. Eureka service ID를 경로 prefix로 노출하지 않습니다.
         # Auth 로그인만 외부 공개합니다. validate/internal 경로는 Gateway 전역 정책에서 차단합니다.
         - id: auth-login-api
           uri: lb://auth-service
