@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import MainLayout from "@/components/layout/MainLayout";
 import { NavProvider } from "@/context/NavContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 /**
  * [SEO 및 탭 이름 설정]
@@ -25,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body>
         <ThemeProvider>
           <NavProvider>
             <MainLayout>
