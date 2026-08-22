@@ -21,8 +21,8 @@ services:
       - EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/
       # 서비스 디스커버리(Eureka) 및 Spring Cloud LoadBalancer 연동을 위한 로드밸런싱 주소
       - AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service
-      # auth-service가 발급한 JWT를 검증하기 위한 공유 비밀키. auth 쪽 AUTH_JWT_SECRET과 반드시 같은 값이어야 합니다.
-      - AUTH_JWT_SECRET=dev-jwt-secret-key-must-be-at-least-256-bits-long-for-hmac-sha256
+      # 현재 shell 또는 secret provider에서 Auth와 동일한 신규 승인 값을 주입합니다. 미설정 시 Compose가 실행을 중단합니다.
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}
     networks:
       - account-network
 

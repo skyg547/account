@@ -97,7 +97,7 @@ auth:
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
 ```
 
-소스코드 내 평문 JWT Secret 기본값은 보안 강화를 위해 완전히 제거되었습니다. 운영 및 개발 환경에서는 `AUTH_JWT_SECRET` (또는 `JWT_SECRET`) 및 RS256 비대칭키 공개키(`AUTH_JWT_PUBLIC_KEY`)를 Secret Manager/Vault/환경변수로 주입해야 합니다.
+소스코드 내 평문 JWT Secret 기본값은 보안 강화를 위해 완전히 제거되었습니다. HS256을 사용하는 경우 Auth와 Gateway 모두에 현재 shell 또는 Secret Manager/Vault 같은 secret provider에서 같은 신규 승인 `AUTH_JWT_SECRET`을 주입해야 합니다. 과거 저장소에 노출된 키는 재사용하지 말고 Auth와 Gateway에서 폐기·회전해야 합니다. RS256은 공개키(`AUTH_JWT_PUBLIC_KEY`) 또는 JWKS URI를 안전하게 주입합니다.
 
 정상 검증 결과만 짧게 캐시합니다. 거절·장애 결과는 캐시하지 않으므로 계정 복구나 Auth 복구가 불필요하게 지연되지 않습니다.
 
@@ -143,6 +143,7 @@ docker compose up --build gateway
 ```
 
 루트 Compose는 서비스 디스커버리와 Spring Cloud LoadBalancer 기반의 `lb://auth-service`를 통해 동적으로 Auth 서비스에 접근합니다.
+모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET`이 없으면 Compose 보간 단계에서 fail-closed 합니다. Auth와 Gateway에 같은 신규 승인 값을 주입한 후 실행합니다.
 
 ---
 
