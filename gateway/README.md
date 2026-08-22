@@ -16,6 +16,7 @@ Gateway 하나만 외부에 공개하면 클라이언트는 `http://localhost:80
 Gateway의 책임은 다음과 같습니다.
 
 - **주소 은닉과 라우팅**: `/api/basic/**`, `/api/master-data/**`, `/api/journals/**` 같은 경로를 해당 서비스로 전달합니다.
+- **명시 경로만 공개**: 설정에 선언한 route allowlist만 외부에 노출하며 `/{serviceId}/**` 형태의 자동 경로는 만들지 않습니다. 라우팅에서는 Eureka로 명시적인 `lb://` route의 대상 인스턴스를 선택하고, Gateway 자체의 Eureka 등록과 registry fetch도 유지합니다.
 - **JWT 1차 검문**: 서명, issuer, 발급/만료 시각, 사용자, 역할, `roleVersion`을 검사합니다.
 - **권한 스냅샷 확인**: Auth의 현재 `roleVersion`과 JWT 값을 비교해 역할 변경 전 토큰을 거절합니다.
 - **신뢰 헤더 재생성**: 클라이언트가 보낸 `X-Auth-*`는 삭제하고 검증된 JWT 값으로 다시 만듭니다.

@@ -2861,3 +2861,23 @@
 - Exact six-file allowlist, diff, marker and stale-auth scans passed. The stopped verification container and 541 MiB temporary output were removed. No running development service, image, DB, credential, package or lockfile changed.
 - The existing raw `auth_token` localStorage Bearer contract remains vulnerable to same-origin XSS and legacy `user_info.token` fallback persists outside this diff. Unclaimed Issue #540 owns the HttpOnly BFF/session migration and cleanup; it is not hidden as completed by #519.
 - Final PR-head GitHub checks and independent remote review remain before Ready/merge. Rollback is a reviewed revert of the six #519 files; no deployed/data/container rollback exists.
+
+## Issue #519 integration result
+
+- Final remote-head review found no P0-P3; all checks and the Ready-event Guard passed on `5eabf167`. PR #541 squash-merged as `a0e0f8a6`, Issue #519 closed, and active labels were removed. #540 remains the explicit unclaimed HttpOnly-session follow-up.
+
+# AI Harness Handoff - 2026-08-22 Issue #497 Gateway discovery-route bypass
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#497`, `agent/497-gateway-discovery-locator`, `/tmp/account-497-gateway-discovery-locator`, Draft PR #542 against `main@a0e0f8a6`.
+- Commit `e1456136` disables Spring Cloud Gateway discovery locator in the packaged and Config Server configurations, removes locator-only lower-case options, preserves Eureka client registration/registry fetch and the ten explicit `lb://` route targets, and aligns policy tests plus direct module documents.
+- The unchanged running dev Gateway reproduced the pre-fix bypass without credentials: normal GET login was rejected 401 by JWT policy, while the service-ID-prefixed GET reached the discovery/rate-limit path and returned 500 without `X-Auth-Error`. No business data, image, service state or container changed.
+
+## Evidence, rollback, and next owner
+
+- Independent YAML parsing proves packaged/external locator false, Eureka enabled/register/fetch true, exact ten route ID/URI pairs, CORS maxAge and RequestRateLimiter preservation. Exact six-file diff, marker, changed-line secret and alternate-enable scans pass.
+- Independent review's P3 route-URI coverage and Eureka-role wording findings were remediated; re-review found no P0-P3. Base config has no automatic or explicit routes and therefore remains fail-closed when Config Server is absent.
+- A network-disabled cached JDK 17 run at CPU 1 / memory 1536 MiB stopped before compilation because several existing Spring/JJWT dependencies are absent from the cache. No package was downloaded and no local test/build success is claimed. GitHub Module Validation must pass `:gateway:test` before Ready/merge.
+- Post-merge runtime owner is #520: rebuild/restart the minimal Gateway path and confirm service-ID-prefixed requests now return 404 while normal login/protected routes retain their contracts. #466 owns unavailable explicit routes for other business modules; security does not retain the automatic bypass as a fallback.
+- Rollback is a reviewed six-file revert only after closing external Gateway exposure, because reverting reintroduces the P0 bypass. No data rollback exists.
