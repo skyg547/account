@@ -1981,3 +1981,11 @@
 - Added adapter non-invocation, repeated unsupported request, lowercase normal and retained LDAP tests, and aligned Auth documents.
 - Independent review found and remediation fixed a medium lockout DoS caused by counting provider/contract failures as credential failures. Re-review found no P0-P3; static gates pass.
 - Local JDK 17 execution is unavailable and the offline constrained container lacks one cached dependency. Commit `20e1806e` is pushed, Draft PR #531 is open, and final-head Auth Core/API CI remains the merge gate; bootJar is not required for unchanged packaging/build configuration.
+
+## 2026-08-22 (Issues #518 integration and #535 Frontend ESLint compatibility)
+
+- Final Auth Core/API CI and final-head review passed for #518; PR #531 squash-merged as `b6b43031`, Issue #518 closed, and its active labels were removed.
+- Isolated #519 after TypeScript passed but Node 20 lint failed before source analysis on the repository's extensionless Next ESLint ESM imports. Its network-disabled build reached the existing Google Fonts fetch and stopped there without a code failure; #535 now owns only the lint blocker.
+- Updated only `frontend/eslint.config.mjs` on `agent/535-frontend-eslint-esm`: `FlatCompat` loads the locked legacy Next config, a conditional compatibility rule covers the installed hooks plugin gap, and two legacy rule classes remain visible as warnings. #536 tracks cleanup and is non-blocking.
+- Network-disabled Node 20.20.2 verification with CPU 1 / memory 2 GiB passed full lint at 0 errors / 245 warnings and TypeScript at exit 0. Failed intermediate import and initial 31-error results are disclosed; package, lock, runtime source and container state remain unchanged.
+- Independent review found no P1/P2 or merge-blocking finding. Commit `c2364782` is pushed, Draft PR #537 is open, and Issue #535 is `status:needs-review`; final PR-head checks/review gate Ready/merge and then #519 resumes.

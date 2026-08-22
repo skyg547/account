@@ -2804,3 +2804,22 @@
 - Exact implementation allowlist, `git diff --check`, marker and secret scans pass. Host JDK 17 is absent, and an offline CPU-1/memory-1536-MiB container cannot resolve uncached `jjwt-api:0.11.5`; no dependency was downloaded.
 - Final-head Module Validation must pass `:auth:core:test :auth:api:test`. API packaging/build configuration is unchanged, so bootJar is disclosed as unexecuted and is not the merge gate.
 - Next owner is an independent final PR-head reviewer after CI, then the parent Integrator. Rollback is a reviewed revert of only the four Auth implementation/test/docs paths; no DB/container/credential rollback exists.
+
+## Issue #518 integration result
+
+- Final Auth Core/API JDK 17 CI and independent final-head review passed. PR #531 squash-merged as `b6b43031`, Issue #518 closed, and active owner/status labels were removed.
+
+# AI Harness Handoff - 2026-08-22 Issue #535 Frontend ESLint compatibility
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#535`, `agent/535-frontend-eslint-esm`, `/tmp/account-535-frontend-eslint-esm`, Draft PR #537 against `main`.
+- Commit `c2364782` changes only `frontend/eslint.config.mjs`. It loads the locked Next 15.5 legacy configs through `FlatCompat`, conditionally registers the rule absent from `react-hooks 5.2.0`, and keeps two pre-existing debt classes visible as warnings.
+- #535 blocks the already-isolated #519 Frontend login contract. #536 separately owns the 245-warning backlog and removal of this compatibility policy; it is intentionally not part of the user's necessary-module/low-resource execution path.
+
+## Evidence, rollback, and next owner
+
+- On cached Node 20.20.2 with CPU 1, memory 2 GiB and networking disabled, `npm run lint` passed with 0 errors / 245 warnings and `tsc --noEmit` passed. Diff, exact one-file allowlist, marker and secret-pattern checks passed. No package, lockfile, runtime source, image or running container changed.
+- Failed discovery attempts remain disclosed: original ESM imports failed resolution, direct `.js` imports exposed non-iterable legacy configs, and the first compatibility load exposed 31 existing errors / 214 warnings. Build is unexecuted because #535 changes lint configuration only.
+- Independent review found no P1/P2 or merge-blocking finding. The first PR Guard passed; final PR-head checks and independent review remain before Ready/merge. After integration, the parent Integrator resumes #519 and reruns its actual modified files against the merged config.
+- Rollback is a reviewed one-file revert with no deployed or external-state rollback.
