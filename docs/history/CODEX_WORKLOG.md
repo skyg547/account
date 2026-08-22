@@ -1989,3 +1989,11 @@
 - Updated only `frontend/eslint.config.mjs` on `agent/535-frontend-eslint-esm`: `FlatCompat` loads the locked legacy Next config, a conditional compatibility rule covers the installed hooks plugin gap, and two legacy rule classes remain visible as warnings. #536 tracks cleanup and is non-blocking.
 - Network-disabled Node 20.20.2 verification with CPU 1 / memory 2 GiB passed full lint at 0 errors / 245 warnings and TypeScript at exit 0. Failed intermediate import and initial 31-error results are disclosed; package, lock, runtime source and container state remain unchanged.
 - Independent review found no P1/P2 or merge-blocking finding. Commit `c2364782` is pushed, Draft PR #537 is open, and Issue #535 is `status:needs-review`; final PR-head checks/review gate Ready/merge and then #519 resumes.
+
+## 2026-08-22 (Issues #535 integration and #538 offline Frontend font build)
+
+- Corrected the final #535 P3 PR-body omission, passed remote-head review, all checks and the Ready-event Guard, then squash-merged PR #537 as `7364a926`; Issue #535 closed and active labels were removed.
+- After #519 passed lint and TypeScript on the merged config, its required network-none build still stopped only on the root Google Inter fetch. Split that prerequisite to #538 and preserved the six login files in the isolated blocked worktree.
+- #538 removes only the `next/font/google` Inter dependency and generated body class while retaining the existing system font stack and root layout contracts. A concurrent CI-only main advancement was fast-forwarded without conflict before publication.
+- CPU-1/memory-2-GiB/network-none Node 20 validation passed lint at 0 errors / 245 warnings, TypeScript and a complete production build with 122/122 static pages. Two read-only-mount EROFS attempts are disclosed; the final isolated writable-worktree/separate-output run exited 0 without OOM.
+- Independent review found no P0-P3; exact static gates passed. Temporary verification containers and about 983 MiB of output were removed. Commit `d7397aef` is pushed, Draft PR #539 is open, and Issue #538 is `status:needs-review` pending final PR-head gates before #519 resumes.
