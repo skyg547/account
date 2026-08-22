@@ -84,6 +84,7 @@ class ProductionComposePolicyTest {
                 .doesNotContain("ddl-auto: update")
                 .doesNotContain("ddl-auto: create")
                 .doesNotContain("POSTGRES_PASSWORD")
+                .doesNotContain("pids_limit:")
                 .doesNotContain("192.168.");
 
         for (Map.Entry<String, Object> entry : services.entrySet()) {
@@ -92,6 +93,7 @@ class ProductionComposePolicyTest {
 
             assertThat(service).as(name)
                     .doesNotContainKey("build")
+                    .doesNotContainKey("pids_limit")
                     .containsKeys("image", "restart", "read_only", "cap_drop",
                             "security_opt", "logging", "deploy");
             assertThat(service.get("image").toString()).as(name)
@@ -102,6 +104,19 @@ class ProductionComposePolicyTest {
             assertThat(asList(service.get("cap_drop"))).as(name).contains("ALL");
             assertThat(asList(service.get("security_opt"))).as(name)
                     .contains("no-new-privileges:true");
+
+            Map<String, Object> deploy = asMap(service.get("deploy"));
+            Map<String, Object> resources = asMap(deploy.get("resources"));
+            Map<String, Object> limits = asMap(resources.get("limits"));
+            assertThat(limits).as(name).containsKey("pids");
+            int pids = Integer.parseInt(limits.get("pids").toString());
+            if (name.endsWith("-batch")) {
+                assertThat(pids).as(name).isEqualTo(512);
+            } else if (Set.of("config-server", "discovery", "frontend").contains(name)) {
+                assertThat(pids).as(name).isEqualTo(128);
+            } else {
+                assertThat(pids).as(name).isEqualTo(256);
+            }
 
             if (name.endsWith("-batch")) {
                 assertThat(asList(service.get("profiles"))).containsExactly("batch");
