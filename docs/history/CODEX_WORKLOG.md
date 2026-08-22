@@ -1997,3 +1997,11 @@
 - #538 removes only the `next/font/google` Inter dependency and generated body class while retaining the existing system font stack and root layout contracts. A concurrent CI-only main advancement was fast-forwarded without conflict before publication.
 - CPU-1/memory-2-GiB/network-none Node 20 validation passed lint at 0 errors / 245 warnings, TypeScript and a complete production build with 122/122 static pages. Two read-only-mount EROFS attempts are disclosed; the final isolated writable-worktree/separate-output run exited 0 without OOM.
 - Independent review found no P0-P3; exact static gates passed. Temporary verification containers and about 983 MiB of output were removed. Commit `d7397aef` is pushed, Draft PR #539 is open, and Issue #538 is `status:needs-review` pending final PR-head gates before #519 resumes.
+
+## 2026-08-22 (Issues #538 integration and #519 Frontend password login contract)
+
+- Final remote-head review, GitHub checks and Ready-event Guard passed for #538; PR #539 squash-merged as `9c62b8e6`, Issue #538 closed, and active labels were removed.
+- Synced the preserved six-file #519 change to that main without conflict. Login now offers only provisioned username/password, blocks blank fetches, calls exact same-origin Auth through Gateway with explicit NORMAL, and removes demo/unsupported modes plus raw JWT display and `user_info` token duplication.
+- Independent review found P3 partial-session/error semantics on browser storage failure and missing async accessibility status. The remediation separates failures, best-effort clears both keys, blocks success/redirect and adds alert/status/aria-busy; latest-main re-review found no P0-P3.
+- CPU-1/memory-2-GiB/network-none Node 20 full lint passed at 0 errors / 244 warnings, TypeScript passed, and production build exited 0/OOM false with a 118-second compile and 122/122 static pages. Empty JSON POSTs at Frontend, Gateway and Auth all returned the same HTTP 400 validation response.
+- Exact static gates passed; the test container and 541 MiB output were removed. #540 tracks the remaining localStorage JWT/legacy fallback migration. Commit `1cf73e3d` is pushed, Draft PR #541 is open, and Issue #519 is `status:needs-review` pending final remote-head gates.
