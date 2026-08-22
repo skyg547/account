@@ -11,11 +11,12 @@
 0.  [**🚀 실행 가이드 (로컬·개발·운영)**](../docs/guides/frontend-runtime-guide.md): 실행 방법 4가지의 차이, 프로파일별 기동/배포 절차, 자주 겪는 문제를 한곳에 정리했습니다. **실행이 막히면 여기부터 보세요.**
 1.  [**🎓 프론트엔드 핵심 개념 & 교육 가이드**](./docs/frontend-core-education-guide.md): 훅(Hook)의 원리, Context API vs Fetch/Axios, 상태 저장소 3단계 및 Next.js 15 아키텍처를 총정리한 마스터 교육서입니다.
 2.  [**📐 종합 화면 레이아웃 & 화면 리스트 설계서**](./docs/ui-layout-and-screen-specification.md): 전체 4단 레이아웃 구조와 백엔드 16대 모듈 직결 122개 화면 상세 명세서입니다.
-3.  [**🐣 프론트엔드 입문 가이드**](./docs/beginner-guide.md): KBank 핀테크 디자인, 폴더 구조와 기초 개념을 설명합니다.
-4.  [**🖥️ 화면 목록 및 기능 명세 (인벤토리)**](./docs/screen-inventory.md): 현재 구축된 모든 화면과 주요 기능을 한눈에 확인합니다.
-5.  [**🛠️ 실전 개발 가이드**](./docs/development-guide.md): Next.js 15와 Tailwind v4로 새 페이지를 만들고 디자인을 입히는 법을 알려줍니다.
-6.  [**🚀 빌드 & 배포 완전 정복 가이드**](./docs/build-deploy-guide.md): 로컬 실행, 프로덕션 정적 빌드, Docker 컨테이너 배포 및 트러블슈팅을 다룹니다.
-7.  [**🚒 런북 (장애 해결)**](./docs/runbook.md): 에러가 났을 때 당황하지 않고 대처하는 법을 모았습니다.
+3.  [**🔗 16대 MSA 백엔드 API 정합성 명세서 (API Parity Matrix)**](./docs/frontend-backend-api-parity-matrix.md): 13대 도메인 서비스(`src/services/`)와 백엔드 `@RestController` 간 전수 매핑 명세서입니다.
+4.  [**🐣 프론트엔드 입문 가이드**](./docs/beginner-guide.md): KBank 핀테크 디자인, 폴더 구조와 기초 개념을 설명합니다.
+5.  [**🖥️ 화면 목록 및 기능 명세 (인벤토리)**](./docs/screen-inventory.md): 현재 구축된 모든 화면과 주요 기능을 한눈에 확인합니다.
+6.  [**🛠️ 실전 개발 가이드**](./docs/development-guide.md): Next.js 15와 Tailwind v4로 새 페이지를 만들고 디자인을 입히는 법을 알려줍니다.
+7.  [**🚀 빌드 & 배포 완전 정복 가이드**](./docs/build-deploy-guide.md): 로컬 실행, 프로덕션 정적 빌드, Docker 컨테이너 배포 및 트러블슈팅을 다룹니다.
+8.  [**🚒 런북 (장애 해결)**](./docs/runbook.md): 에러가 났을 때 당황하지 않고 대처하는 법을 모았습니다.
 
 ---
 
