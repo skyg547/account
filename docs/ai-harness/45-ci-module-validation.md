@@ -55,6 +55,7 @@ Selective execution is abandoned and every module runs when any of these change:
 - `gradlew`, `gradlew.bat`, `gradle/**`
 - `shared-kernel/**`, `contracts/**`
 - `.github/workflows/**`
+- `.gitattributes`, `.editorconfig`
 - the comparison base cannot be determined (new branch push, forced push)
 - `workflow_dispatch` manual run
 
