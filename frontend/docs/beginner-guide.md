@@ -27,7 +27,7 @@ frontend/
 │   ├── app/                 # 🌐 [페이지 라우터] 주소(URL)와 매핑되는 122개 화면
 │   │   ├── layout.tsx       # 전체 화면을 감싸는 최상위 껍데기 (ThemeProvider, NavProvider)
 │   │   ├── page.tsx         # 메인 대시보드 화면 (통합 재무 현황)
-│   │   ├── login/           # 통합 인증 및 로그인 (SSO, LDAP + OTP)
+│   │   ├── login/           # Gateway와 Auth를 통한 아이디/비밀번호 로그인
 │   │   ├── expenditure/     # 자금운영 (지출결의서, 지급실행, 선급금, 예산)
 │   │   ├── ledger/          # 원장 및 분개장 (총계정원장, 보조원장, 분개규칙)
 │   │   ├── fair-value/      # 공정가치 및 리스 회계 (IFRS 16, 감가상각)

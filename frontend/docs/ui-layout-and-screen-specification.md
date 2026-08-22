@@ -76,7 +76,7 @@ graph TD
 * **매핑 모듈**: `BFF (Frontend)`
 * **화면 목록**:
   * `/`: 통합 재무 현황 (KPI 카드, 자산/부채 추이 차트, 최근 전표)
-  * `/login`: 통합 로그인/인증 (SSO, LDAP + OTP 2단계 MFA)
+  * `/login`: Gateway와 Auth를 통한 발급 계정 아이디/비밀번호 로그인
   * `/profile/pat`: 개발자/운영자용 PAT 토큰 발급 및 거버넌스
 
 #### ② 회계·결산 (`ACCOUNTING`)

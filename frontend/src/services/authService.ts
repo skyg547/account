@@ -1,8 +1,6 @@
 export interface LoginRequest {
   username: string;
-  password?: string;
-  loginType?: string;
-  otpCode?: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -15,25 +13,27 @@ export interface LoginResponse {
   roleVersion: number;
 }
 
-const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || '';
-
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await fetch(`${AUTH_API_BASE_URL}/api/auth/login`, {
+    const normalizedUsername = credentials.username.trim();
+    if (!normalizedUsername || !credentials.password.trim()) {
+      throw new Error('아이디와 비밀번호를 모두 입력해 주세요.');
+    }
+
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        username: credentials.username,
-        password: credentials.password || '',
-        loginType: credentials.loginType || 'SSO',
-        otpCode: credentials.otpCode,
+        username: normalizedUsername,
+        password: credentials.password,
+        loginType: 'NORMAL',
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`로그인 실패 (상태 코드: ${response.status})`);
+      throw new Error('로그인에 실패했습니다.');
     }
 
     const data: LoginResponse = await response.json();
