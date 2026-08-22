@@ -11,7 +11,9 @@ Gateway는 H2나 PostgreSQL을 직접 사용하지 않습니다. 사용자와 �
 
 ## 2. 실행 시점 JWT 입력
 
-Gateway는 JWT secret, 공개키 또는 JWKS URI 중 하나가 없으면 fail-closed 합니다. standalone local smoke에서는 저장소에 값을 남기지 않고 현재 PowerShell 프로세스에 32바이트 이상 임시 secret을 생성합니다.
+Gateway는 JWT secret, 공개키 또는 JWKS URI 중 하나가 없으면 fail-closed 합니다. standalone local smoke에서는 저장소에 값을 남기지 않고 현재 PowerShell 프로세스에 32바이트 이상의 신규 승인 secret을 생성하거나 승인된 secret provider에서 주입합니다. Auth와 함께 실행할 때는 두 프로세스에 같은 `AUTH_JWT_SECRET` 값을 주입합니다.
+
+과거 저장소에 노출된 키는 개발용으로도 재사용하지 않습니다. Auth와 Gateway에서 해당 키를 폐기·회전하고, 현재 shell 또는 secret provider에서 신규 승인 값으로 교체합니다.
 
 ```powershell
 $bytes = New-Object byte[] 32
@@ -94,7 +96,7 @@ java -jar $jar.FullName --spring.profiles.active=local --server.port=8000
 .\gradlew :gateway:bootRun --console=plain
 ```
 
-Auth와 Gateway 터미널에는 같은 `AUTH_JWT_SECRET`과 `AUTH_JWT_ISSUER`를 안전한 로컬 환경변수로 주입합니다. 실제 값은 문서, Git, 명령 기록, 로그에 남기지 않습니다.
+Auth와 Gateway 터미널에는 현재 shell 또는 secret provider에서 가져온 같은 신규 승인 `AUTH_JWT_SECRET`과 같은 `AUTH_JWT_ISSUER`를 주입합니다. 실제 값은 문서, Git, 명령 기록, 로그에 남기지 않습니다.
 
 ### Config 확인
 
@@ -175,7 +177,7 @@ standalone 모드에서는 Config Server 라우트를 읽지 않으므로 정상
 ### Docker 컨테이너에서 Eureka 등록이 계속 실패함 (`Connect to http://localhost:8761 ... Connection refused`)
 
 - `gateway-service.yml`(config-repo)의 `eureka.client.service-url.defaultZone`은 `${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}` 형태입니다. `spring.cloud.config.override-system-properties`(기본 `true`) 때문에 이 값이 일반 `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` 환경변수보다 우선 적용되므로, 컨테이너에서는 반드시 `EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/`라는 이름으로 환경변수를 줘야 합니다. `gateway/docker-compose.yml`에 이미 설정되어 있습니다.
-- `gateway/docker-compose.yml`에는 `AUTH_JWT_SECRET`도 설정되어 있어야 합니다(개발용 고정값). 빠지면 `JjwtAccessTokenVerifier` 빈 생성 실패로 Gateway가 기동 직후 크래시합니다. (관련: [GH-474](https://github.com/skyg547/account/issues/474))
+- 모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET`이 없으면 Compose 보간 단계에서 실행을 중단합니다. Auth와 Gateway에 같은 신규 승인 값을 주입하고, 과거 저장소에 노출된 키는 폐기·회전합니다.
 
 ### Config Server 없이 실행이 지연됨
 

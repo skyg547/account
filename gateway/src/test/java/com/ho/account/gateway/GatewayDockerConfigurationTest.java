@@ -13,8 +13,6 @@ import org.yaml.snakeyaml.Yaml;
 
 class GatewayDockerConfigurationTest {
 
-
-
     @Test
     void moduleComposeBuildsFromRepositoryRoot() throws IOException {
         Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("gateway", "docker-compose.yml"));
@@ -27,6 +25,16 @@ class GatewayDockerConfigurationTest {
         assertThat(asList(gateway.get("ports"))).contains("8000:8000");
         assertThat(asList(gateway.get("environment")))
                 .contains("AUTH_TOKEN_VERSION_VALIDATION_BASE_URL=lb://auth-service");
+    }
+
+    @Test
+    void moduleComposeRequiresExternallyInjectedJwtSecretWithoutLiteralOrDefault() throws IOException {
+        Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("gateway", "docker-compose.yml"));
+        Map<String, Object> gateway = service(root, "gateway");
+
+        assertThat(asList(gateway.get("environment")))
+                .filteredOn(value -> value.toString().startsWith("AUTH_JWT_SECRET="))
+                .containsExactly("AUTH_JWT_SECRET=${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}");
     }
 
     private Map<String, Object> service(Map<String, Object> root, String serviceName) {

@@ -2013,3 +2013,11 @@
 - Disabled discovery locator in both packaged/external Gateway configs, removed locator-only lower-case options and retained Eureka registration/fetch plus ten explicit `lb://` route targets. Tests parse both configs and assert the full explicit route contract; docs distinguish registry participation from external route generation.
 - Independent review's two P3s for route URI coverage and Eureka wording were remediated; re-review found no P0-P3. Exact YAML/diff/marker/secret/alternate-enable gates pass.
 - Local CPU-1/memory-1536-MiB/network-none JDK 17 Gradle stopped before compilation on uncached existing Spring/JJWT artifacts, with no download or success claim. Commit `e1456136` is pushed, Draft PR #542 is open, and Issue #497 is `status:needs-review` pending GitHub `:gateway:test` and final remote-head gates. #520 owns post-restart 404 smoke; #466 owns missing explicit business routes.
+
+## 2026-08-22 (Issue #497 integration, #520 preflight and #543 Gateway Compose JWT input)
+
+- Final Gateway CI, remote-head review and Ready-event Guard passed for #497; PR #542 squash-merged as `54003994`, Issue #497 closed, and active labels were removed.
+- #520's read-only Linux preflight confirmed Podman/Compose and the unchanged minimal containers, but the approved external-dev env path is absent. No secret-bearing environment, DB, image, network or service state was changed. PowerShell is unavailable, so #544 owns a package-free Python minimal validator.
+- Found that the module Gateway Compose used a repository-fixed JWT verification key. Split P0 #543, removed the tracked key, required exact external fail-closed interpolation, strengthened the Compose policy test and documented coordinated Auth/Gateway rotation without exposing a value.
+- Missing-input quiet Compose render failed and process-only generated-input render passed without value/config output. Exact static gates and independent review found no P0-P3; no build/up/restart occurred.
+- Commit `b1d50065` is pushed and Draft PR #545 is open. GitHub JDK 17 `:gateway:test` plus final remote-head/Ready-event gates remain before merge; actual secret-backed rotation and runtime smoke remain blocked in #520.
