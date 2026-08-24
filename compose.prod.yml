@@ -27,7 +27,6 @@ x-api-service: &api-service
   restart: unless-stopped
   read_only: true
   init: true
-  pids_limit: 256
   cap_drop: ["ALL"]
   security_opt:
     - no-new-privileges:true
@@ -52,6 +51,7 @@ x-api-service: &api-service
       limits:
         cpus: "1.00"
         memory: 1g
+        pids: 256
       reservations:
         memory: 256m
 
@@ -60,7 +60,6 @@ x-batch-service: &batch-service
   restart: "no"
   read_only: true
   init: true
-  pids_limit: 512
   cap_drop: ["ALL"]
   security_opt:
     - no-new-privileges:true
@@ -79,6 +78,7 @@ x-batch-service: &batch-service
       limits:
         cpus: "2.00"
         memory: 2g
+        pids: 512
       reservations:
         memory: 512m
 
@@ -89,7 +89,6 @@ services:
     restart: unless-stopped
     read_only: true
     init: true
-    pids_limit: 128
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -118,6 +117,7 @@ services:
         limits:
           cpus: "0.75"
           memory: 768m
+          pids: 128
         reservations:
           memory: 256m
 
@@ -127,7 +127,6 @@ services:
     restart: unless-stopped
     read_only: true
     init: true
-    pids_limit: 128
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -152,6 +151,7 @@ services:
         limits:
           cpus: "0.75"
           memory: 768m
+          pids: 128
         reservations:
           memory: 256m
 
@@ -161,7 +161,6 @@ services:
     restart: unless-stopped
     read_only: true
     init: true
-    pids_limit: 256
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -195,6 +194,7 @@ services:
         limits:
           cpus: "1.00"
           memory: 1g
+          pids: 256
         reservations:
           memory: 256m
 
@@ -204,7 +204,6 @@ services:
     restart: unless-stopped
     read_only: true
     init: true
-    pids_limit: 128
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -234,6 +233,7 @@ services:
         limits:
           cpus: "0.75"
           memory: 512m
+          pids: 128
         reservations:
           memory: 128m
 

@@ -321,7 +321,7 @@ docker compose --env-file .env.prod -f compose.prod.yml --profile prod up -d
 
 - `read_only: true` (쓰기는 `/tmp`, `/app/.next/cache` tmpfs만)
 - `cap_drop: ALL`, `no-new-privileges`
-- `pids_limit: 128`, CPU 0.75 / 메모리 512m 상한
+- `deploy.resources.limits.pids: 128`, CPU 0.75 / 메모리 512m 상한
 - non-root `nextjs` 사용자로 실행
 
 호스트에 열리는 포트는 Gateway와 Frontend뿐이며, 공용 인터넷에 직접 노출하지 말고
