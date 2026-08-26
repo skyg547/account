@@ -1,4 +1,4 @@
-# Budget Control
+﻿# Budget Control
 
 `budget`은 월별 부서·계정 예산을 편성하고 승인한 뒤, 전용과 집행을 통제하는 독립
 bounded context입니다. `core`가 금액·상태 규칙과 트랜잭션 유즈케이스를 소유하고,
@@ -25,37 +25,21 @@ bounded context입니다. `core`가 금액·상태 규칙과 트랜잭션 유즈
 - API는 Auth가 서명한 JWT를 자체 검증하고 역할을 확인하며 감사 actor는 JWT `sub`만 사용합니다.
 - Batch는 마감 규칙을 계산하지 않고 core use case만 호출합니다.
 
+## 로컬 단독 실행
+
+`budget:api`를 `local` 프로파일로 실행할 때는 fail-closed 보안 가드로 인해 최소 32바이트 이상의 `AUTH_JWT_SECRET` (또는 `--auth.jwt.secret`)을 필수로 제공해야 합니다.
+
+```powershell
+.\gradlew.bat :budget:api:bootRun --args="--spring.profiles.active=local --auth.jwt.secret=ephemeral_test_secret_for_local_development_32bytes"
+```
+
+자세한 실행 옵션, 환경 변수 주입, Batch 실행 및 트러블슈팅은 [docs/local-run.md](docs/local-run.md)를 참고하세요.
+
 ## 중요한 경계
 
 기존 `expenditure-resolution`의 월별 `Budget`은 기존 데이터와 호출 흐름을 위한 호환
 모델입니다. 이번 Issue는 새 `budget_*` 테이블을 사용하며 기존 `budgets` 테이블을
 dual-write하거나 자동 이관하지 않습니다. 단일 write owner 전환과 예약/확정/해제 연동은
 데이터 대사와 보상 설계가 필요한 후속 #17 범위입니다.
-
-## 로컬 실행 및 검증 (Local Runtime Guide)
-
-`budget:api`는 자체 JWT 서명 검증을 수행하므로, 로컬 실행 시 유효한 HS256 서명용 임시 시크릿 키(`AUTH_JWT_SECRET`)를 환경변수로 주입해야 합니다.
-
-### 📌 1. 테스트 및 빌드 검증
-```powershell
-.\gradlew.bat :budget:core:test :budget:api:test :budget:batch:test :budget:api:bootJar --console=plain
-```
-
-### 📌 2. 로컬 `local` 프로파일 bootRun 실행
-임시 JWT Secret을 주입하여 실행합니다 (HS256 32바이트 이상):
-```powershell
-$env:AUTH_JWT_SECRET="local-ephemeral-secret-key-must-be-32bytes-long-12345"
-.\gradlew.bat :budget:api:bootRun --args="--spring.profiles.active=local" --console=plain
-```
-
-### 📌 3. 실행 가능 JAR로 직접 실행
-```powershell
-$env:AUTH_JWT_SECRET="local-ephemeral-secret-key-must-be-32bytes-long-12345"
-java -jar .\budget\api\build\libs\account-budget-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
-```
-
-- **기본 포트:** `8084`
-- **Health Check:** `http://localhost:8084/actuator/health`
-- **Readiness Probe:** `http://localhost:8084/actuator/health/readiness`
 
 자세한 흐름은 [docs/README.md](docs/README.md)를 참고하세요.

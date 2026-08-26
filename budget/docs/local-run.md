@@ -1,51 +1,90 @@
-# 로컬 실행과 검증
+﻿# 로컬 실행과 검증
 
-JDK 17과 저장소 Gradle wrapper를 사용합니다. 로컬 API/Batch는 공유 DB나 비밀정보 대신
-PostgreSQL mode의 메모리 H2를 사용하고 Flyway V50으로 새 Budget 테이블을 검증합니다.
+`budget` 모듈(API 및 Batch)을 로컬 환경에서 단독 실행하고 검증하는 방법입니다.
+JDK 17과 저장소 루트의 Gradle wrapper(`.\gradlew.bat`)를 사용합니다.
+
+로컬 환경(`local` 프로파일)에서는 외부 PostgreSQL, Config Server, Eureka 없이
+PostgreSQL 호환 모드의 인메모리 H2와 Flyway V50 마이그레이션으로 동작하며,
+Hibernate `ddl-auto=validate`로 엔티티와 스키마 일치성을 검증합니다.
+
+## 보안 및 fail-closed 가드 계약
+
+`budget:api`는 자체 보안 경계(`BudgetApiSecurityConfiguration`)에서 Auth 서비스가 발급한 HS256 JWT를 검증합니다.
+
+- **Fail-closed 보안 가드**: 저장소 파일에 기본 secret을 커밋하지 않으므로, 기동 시 `auth.jwt.secret`(환경 변수 `AUTH_JWT_SECRET`)이 지정되지 않거나 UTF-8 기준 32바이트(256비트) 미만이면 `IllegalStateException`을 던지고 애플리케이션 기동이 안전하게 실패합니다.
+- **로컬 실행 시 필수 조치**: 로컬 단독 실행 시에는 최소 32바이트 이상의 임시/테스트용 JWT secret(예: `ephemeral_test_secret_for_local_development_32bytes`)을 CLI 인자나 환경 변수로 반드시 주입해야 합니다.
+- **포트 및 라우팅**: 기본 포트는 `8096`입니다(Expenditure Resolution API의 `8095`와 충돌 방지). Gateway는 `/api/budgets/**` 요청을 `lb://budget-api`로 라우팅합니다.
+
+## PowerShell에서 로컬 실행하기
+
+### 1. API 단독 실행 (CLI 인자 방식 - 권장)
+
+`--args`에 `local` 프로파일과 32바이트 이상의 테스트 JWT secret을 함께 전달합니다.
 
 ```powershell
-.\gradlew.bat :budget:core:test :budget:api:test :budget:batch:test :budget:api:bootJar :budget:batch:bootJar :gateway:test --console=plain --max-workers=1 --no-daemon --rerun-tasks
+.\gradlew.bat :budget:api:bootRun --args="--spring.profiles.active=local --auth.jwt.secret=ephemeral_test_secret_for_local_development_32bytes"
 ```
 
-API 실행:
+### 2. API 단독 실행 (환경 변수 방식)
+
+PowerShell 세션에서 임시 환경 변수를 설정하고 실행합니다.
 
 ```powershell
-.\gradlew.bat :budget:api:bootRun --console=plain --no-daemon
+$env:AUTH_JWT_SECRET = "ephemeral_test_secret_for_local_development_32bytes"
+.\gradlew.bat :budget:api:bootRun --console=plain
 ```
 
-Batch 기동 확인(자동 Job 실행 없음):
+### 3. 컨텍스트 및 Flyway 스모크 검증 (웹 서버 기동 없음)
+
+Tomcat 서버를 띄우지 않고 Flyway 마이그레이션과 Spring ApplicationContext 로딩만 검증할 때 사용합니다.
 
 ```powershell
-.\gradlew.bat :budget:batch:bootRun --console=plain --no-daemon
+.\gradlew.bat :budget:api:bootRun --args="--spring.profiles.active=local --auth.jwt.secret=ephemeral_test_secret_for_local_development_32bytes --spring.main.web-application-type=none" --console=plain
 ```
 
-bootJar를 직접 실행할 때도 기본 `local` 프로파일과 메모리 H2, Flyway V50,
-JPA `validate`가 동일하게 적용됩니다.
+### 4. Batch 컨텍스트 기동 확인 (자동 Job 실행 없음)
+
+기본 설정(`spring.batch.job.enabled=false`)에 따라 애플리케이션 기동 시 마감 Job이 자동으로 실행되지 않습니다.
 
 ```powershell
-$env:AUTH_JWT_SECRET = '<Auth/Gateway와 동일한 32자 이상 개발 전용 키>'
+.\gradlew.bat :budget:batch:bootRun --console=plain
+```
+
+### 5. 연말마감 Batch Job 직접 실행
+
+실제 연말마감 배치를 실행할 때는 `spring.batch.job.enabled=true`, Job 이름 `budgetYearEndCloseJob`, 그리고 대상 회계연도 `fiscalYear=YYYY` 파라미터를 명시합니다.
+
+```powershell
+.\gradlew.bat :budget:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=budgetYearEndCloseJob fiscalYear=2026" --console=plain
+```
+
+### 6. 테스트 및 Executable Boot JAR 생성/실행
+
+모듈 단위 테스트 및 Boot JAR 빌드:
+
+```powershell
+.\gradlew.bat :budget:core:test :budget:api:test :budget:batch:test :budget:api:bootJar :budget:batch:bootJar --console=plain
+```
+
+빌드된 Boot JAR 직접 실행:
+
+```powershell
+$env:AUTH_JWT_SECRET = "ephemeral_test_secret_for_local_development_32bytes"
 $apiJar = (Get-ChildItem budget\api\build\libs\account-budget-api-*.jar |
     Where-Object Name -NotLike '*-plain.jar' | Select-Object -First 1).FullName
 $batchJar = (Get-ChildItem budget\batch\build\libs\account-budget-batch-*.jar |
     Where-Object Name -NotLike '*-plain.jar' | Select-Object -First 1).FullName
-java -jar $apiJar
-java -jar $batchJar
+
+# API 실행
+java -jar $apiJar --spring.profiles.active=local
+
+# Batch 컨텍스트 실행
+java -jar $batchJar --spring.profiles.active=local
 ```
 
-API 기동 전 `AUTH_JWT_SECRET`을 반드시 설정해야 합니다. 저장소 기본 secret은 없으며
-값이 빠지면 안전하게 기동 실패합니다. `AUTH_JWT_ISSUER`도 Auth/Gateway와 같아야 하고,
-호출에는 유효한 Bearer JWT가 필요합니다. 기본 포트는 Expenditure API와 겹치지 않는 `8096`입니다.
-Gateway는 `/api/budgets/**`를 `lb://budget-api`로 전달합니다. Eureka 기반 환경에서는
-`BUDGET_DISCOVERY_ENABLED=true`, `BUDGET_EUREKA_ENABLED=true`와 올바른
-`EUREKA_CLIENT_SERVICEURL_DEFAULTZONE`을 설정해야 합니다. 로컬 단독 실행은 Discovery를
-기본적으로 끕니다.
+## 개발 Compose (Docker Compose)
 
-## 개발 Compose
-
-`budget/docker-compose.yml`은 저장소 루트를 build context로 유지하면서
-`budget/api/Dockerfile`과 `budget/batch/Dockerfile`로 각 bootJar를 빌드합니다.
-DB URL, DB 계정, JWT 키는 트래킹된 파일에 저장하지
-않고 실행 환경에서 필수로 주입합니다.
+`budget/docker-compose.yml`은 저장소 루트 `Containerfile`로 API/Batch bootJar를 각각 빌드합니다. DB URL, DB 계정, JWT 키는 파일에 저장하지 않고 실행 환경에서 필수로 주입합니다.
 
 ```powershell
 $env:BUDGET_DB_URL = 'jdbc:postgresql://postgres-db:5432/budget_dev'
@@ -56,29 +95,19 @@ docker compose -f budget\docker-compose.yml up --build budget-api
 docker compose -f budget\docker-compose.yml --profile batch run --rm budget-batch
 ```
 
-API 호스트 포트는 `BUDGET_API_PORT`(기본 8096)로만 변경합니다. Batch는
-포트를 노출하지 않고 `batch` 프로파일을 명시해야 실행 대상이 되며,
-스프링 Job 자동 실행은 끌 상태를 유지합니다. 실제 마감은 승인된 launcher가
-Job name과 `fiscalYear`를 명시해 실행해야 합니다.
+- API 호스트 포트는 `BUDGET_API_PORT`(기본 `8096`)로 변경할 수 있습니다.
+- Batch는 포트를 노출하지 않으며 `batch` 프로파일을 명시해야 실행 대상이 됩니다.
+- 기본 외부 네트워크는 `account-dev-network`이며 필요 시 `ACCOUNT_NETWORK_NAME`으로 재정의합니다.
+- `dev`/`prod` 환경은 외부 PostgreSQL과 배포 전 release migration runner가 스키마를 관리하므로 앱 런타임의 Flyway/DDL/SQL init을 수행하지 않습니다.
 
-기본 외부 network 이름은 self-contained DB Compose와 같은 `account-dev-network`이며
-필요할 때만 `ACCOUNT_NETWORK_NAME`으로 바꿉니다. `budget_dev_owner`는 migration 전용이고
-장기 실행 API/Batch에는 `budget_dev_app` runtime role만 주입합니다.
-API/Batch 시작 전에 `docs/development-postgresql.md`의 release migration과
-`grant-runtime-privileges.sh` gate를 완료해 업무 테이블 권한을 부여하고
-`flyway_schema_history*` runtime 권한이 회수된 상태를 확인해야 합니다.
+## 로컬 검증 시 자주 보는 실패와 점검 항목
 
-`dev`/`prod`는 외부 PostgreSQL과 release migration runner가 소유하므로 앱 런타임의
-Flyway, Hibernate DDL, SQL init, Batch metadata 초기화를 수행하지 않습니다.
-`PROD_DB_URL`은 `jdbc:postgresql://...?...sslmode=verify-full` 계약으로 주입해야
-하며 사용자/비밀번호도 환경에서만 제공합니다. Config Server는
-`SPRING_CONFIG_IMPORT`와 `SPRING_CLOUD_CONFIG_ENABLED=true`를 모두 명시한 컨테이너에서만
-opt-in되며, API Eureka 등록도 `BUDGET_DISCOVERY_ENABLED=true` 및
-`BUDGET_EUREKA_ENABLED=true`를 명시해야 합니다. Batch는 Eureka에 등록하지 않습니다.
-
-연말마감 Job은 운영 launcher에서 `spring.batch.job.name=budgetYearEndCloseJob`과 식별
-파라미터 `fiscalYear=YYYY`를 명시해야 합니다. 설정 기본값은 job 자동 실행을 끕니다.
-
-API/Batch bootJar에는 PostgreSQL JDBC driver가 포함됩니다. 로컬 검증은 H2 PostgreSQL
-mode에서 migration·JPA·두 스레드 잠금 동작을 확인하지만 실제 PostgreSQL의 lock timeout,
-query plan과 대량 마감 성능을 대체하지 않습니다.
+| 증상 / 오류 메시지 | 원인 및 점검 항목 |
+| --- | --- |
+| `IllegalStateException: auth.jwt.secret must be at least 32 bytes for HS256` | `AUTH_JWT_SECRET` 환경 변수 또는 `--auth.jwt.secret` CLI 인자가 누락되었거나 32바이트 미만인 경우 발생합니다. 32바이트 이상의 시크릿을 지정하세요. |
+| `401 Unauthorized` | 요청 헤더에 `Authorization: Bearer <token>`이 없거나, `auth-service` 발급자가 아니거나, 토큰 서명이 맞지 않는 경우입니다. |
+| `403 Forbidden` | 역할(Role) 부족 오류입니다. 예산 편성/전용/집행은 `ROLE_BUDGET_MANAGER`, 승인은 `ROLE_BUDGET_APPROVER` (또는 `ROLE_ACCOUNTING_ADMIN`, `ROLE_ADMIN`) 권한이 필요합니다. |
+| `409 Conflict (DUPLICATE_TRANSFER_REQUEST / DUPLICATE_EXECUTION)` | 동일한 `requestKey` 또는 동일한 `sourceType+sourceId+sourceLineId`로 이미 처리된 멱등 요청입니다. |
+| `400 Bad Request (BUDGET_EXCEEDED)` | 집행액 또는 전출액이 해당 예산 계획의 현재 가용액(`배정 + 전입 - 전출 - 집행`)을 초과한 경우입니다. |
+| `400 Bad Request (CLOSED_FISCAL_YEAR)` | 이미 연말마감(`CLOSED`)된 회계연도의 예산 계획을 변경(승인/전용/집행)하려고 시도한 경우입니다. |
+| Config Server / Eureka 연결 실패 | 로컬 단독 실행에서는 기본적으로 꺼져 있습니다(`false`). 만약 활성화하려면 `BUDGET_DISCOVERY_ENABLED=true`, `BUDGET_EUREKA_ENABLED=true` 및 유효한 Eureka URL을 설정해야 합니다. |
