@@ -4,31 +4,8 @@
 프로파일을 사용하고, 이 문서의 컨테이너 환경은 `dev` 프로파일과 PostgreSQL을 사용합니다.
 운영은 별도 [`compose.prod.yml`](../compose.prod.yml)과 불변 digest image 계약을 따릅니다.
 
-## 컨테이너 실행 경로는 두 가지다
-
-이 저장소에는 성격이 다른 Compose 경로가 둘 있고, **프로파일이 서로 다르다.**
-둘을 섞지 않는다.
-
-| 경로 | 파일 | 프로파일 | 용도 |
-| --- | --- | --- | --- |
-| 통합 | 루트 [`docker-compose.yml`](../../docker-compose.yml) + DB mode overlay | `dev` | 36개 target 전체. `.env.dev`와 profile 선택이 필수이며 이 문서의 나머지 절이 다룬다 |
-| 모듈별 | `<module>/docker-compose.yml` | **`docker`** | 이미 떠 있는 `account-network`에 서비스를 하나씩 붙일 때. 개발 중 흔히 쓰는 경로다 |
-
-모듈별 경로의 정본 프로파일은 `docker`다. `config-server`만 예외로 `native`를 쓰는데,
-이는 `native`가 파일시스템에서 설정을 읽는 모드를 켜는 스위치이기 때문이다
-(`CONFIG_REPO_LOCATION=file:/config-repo`). `dev`로 바꾸면 config-repo 서빙 자체가 깨진다.
-
-| 서비스 | 프로파일 |
-| --- | --- |
-| `config-server` | `native` (예외) |
-| `discovery`, `auth`, `master-data`, `gateway` | `docker` |
-
-프로파일에 대응하는 설정 파일이 없으면 그 프로파일은 **빈 라벨**이 되어 아무 설정도
-적용되지 않는다. Config Server는 `{application}-{profile}.yml`을 `{application}.yml`보다
-우선 적용하므로, 컨테이너 전용 오버라이드는
-[`config-repo/master-data-docker.yml`](../../config-repo/master-data-docker.yml)처럼
-`-docker` 접미사 파일에 둔다. 이 함정으로 master-data가 PostgreSQL 대신 H2로 동작한
-사례는 #480을 참고한다.
+Docker Compose 및 Podman Compose 환경을 모두 지원합니다. Podman 사용자는 `docker compose`
+대신 `podman compose`를 사용할 수 있습니다.
 
 ## 실행 인벤토리
 
@@ -40,8 +17,8 @@
 - Batch: 15개
 - 제외: 실제 Job/Step이 없는 Auth Batch와 Internal Audit Batch, 모든 Core/Library/Aggregator
 
-Java 서비스는 저장소 루트를 build context로 유지하면서 각 실행 모듈의 개별 `Dockerfile`을 선택해
-독립적으로 컨테이너화합니다. Frontend 개발 컨테이너는 `frontend/Containerfile.dev`, 운영 image는
+Java 서비스는 저장소 루트 `Containerfile`과 정확한 `GRADLE_PROJECT`, `JAR_DIRECTORY`만
+사용합니다. Frontend 개발 컨테이너는 `frontend/Containerfile.dev`, 운영 image는
 `frontend/Containerfile`을 사용합니다.
 
 ## 프로파일
@@ -59,34 +36,77 @@ Java 서비스는 저장소 루트를 build context로 유지하면서 각 실�
 | `migration` | 한 context씩 실행하는 migration-runner와 runtime grant helper |
 | `batch` | 15개 Batch 정의; 자동 Job 실행은 기본 비활성 |
 
-## Windows / Podman 환경 Compose 설치 가이드
+Config Server와 Discovery는 선택된 업무 profile의 공통 선행 서비스입니다. Gateway는 특정
+업무 API 하나의 장애 때문에 시작이 차단되지 않으며, Frontend만 Gateway readiness를
+기다립니다. 업무 API/Batch는 host port를 공개하지 않습니다. 개발 host에는 Gateway와
+Frontend, self-contained 인프라만 `127.0.0.1`로 bind합니다.
 
-Windows에서 WSL2 + Podman 또는 Docker를 사용할 때 `docker compose` 명령을 실행하기 위한 CLI 설치 방법입니다.
+## 초보자용 Podman 빠른 시작 가이드 (Quickstart)
 
-### 방법 1: winget으로 Docker Compose CLI 설치 (권장)
-Windows PowerShell 관리자 권한에서 실행합니다.
-```powershell
-winget install Docker.DockerCompose
-```
-설치 완료 후 새 터미널에서 버전을 확인합니다.
-```powershell
-docker-compose --version
-# 또는
-docker compose version
-```
+Podman 환경에서 Self-contained 개발 환경을 처음 구동하는 최소 절차입니다.
 
-### 방법 2: Python podman-compose 설치
+### 1) 환경 파일 준비 및 사전 검증
+
 ```powershell
-pip install podman-compose
-podman-compose --version
+Copy-Item .env.dev.example .env.dev
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
+  -Mode SelfContained -EnvFile .\.env.dev
 ```
 
-## Self-contained PostgreSQL vs Local H2 개념
+### 2) Compose 렌더링 검증
 
-- **Local Profile (H2 In-Memory DB)**: 빠른 단위 테스트 및 모듈 단독 개발용 (`application-local.yml`). 외부 DB 설치 없이 `./gradlew :module:api:bootRun` 또는 IntelliJ에서 단독 구동.
-- **Dev Profile (PostgreSQL + Docker Compose)**: 마이크로서비스 간 연동 테스트 및 E2E 검증용 (`compose.self-contained.yml`). 실제 PostgreSQL 17개 DB 스키마, Redis, Kafka 컨테이너와 함께 풀스택 구동.
+환경 변수가 터미널에 노출되지 않도록 `config --quiet`로 구성 구문을 확인합니다.
 
-## Self-contained PostgreSQL 실행 절차
+```powershell
+# Podman 환경
+podman compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml `
+  --profile self-contained --profile apis config --quiet
+
+# Docker 환경
+docker compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml `
+  --profile self-contained --profile apis config --quiet
+```
+
+### 3) 인프라 및 플랫폼 기본 서비스 기동
+
+```powershell
+# PostgreSQL, Redis, Kafka, Config Server, Discovery 기동
+podman compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml `
+  --profile self-contained up -d postgres-db redis kafka config-server discovery
+```
+
+### 4) 전체 API 및 Edge 기동
+
+DB schema migration과 권한 설정이 완료된 후, 전체 17개 API와 Gateway, Frontend를 기동합니다.
+
+```powershell
+podman compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml `
+  --profile self-contained --profile apis up -d --build --wait
+```
+
+### 5) 헬스체크 및 서비스 상태 확인
+
+```powershell
+# 컨테이너 상태 확인
+podman compose -f docker-compose.yml -f compose.self-contained.yml ps
+
+# Gateway 및 Frontend readiness 확인
+Invoke-RestMethod http://localhost:8000/actuator/health/readiness
+```
+
+### 6) 종료 및 롤백
+
+```powershell
+# 컨테이너 정상 종료
+podman compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml down
+```
+
+## Self-contained PostgreSQL
 
 예제는 실제 secret이 아닙니다. 복사 후 모든 `replace-with-...` 값을 바꿉니다.
 
@@ -96,11 +116,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
   -Mode SelfContained -EnvFile .\.env.dev
 ```
 
-Docker Compose provider가 있는 환경에서 먼저 렌더링만 확인합니다. `config --quiet`을 사용해
+Docker/Podman Compose provider가 있는 환경에서 먼저 렌더링만 확인합니다. `config --quiet`을 사용해
 환경값이 터미널에 출력되지 않게 합니다.
 
 ```powershell
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile apis config --quiet
 ```
@@ -108,7 +128,7 @@ docker compose --env-file .env.dev `
 DB bootstrap과 플랫폼 기반을 먼저 시작합니다.
 
 ```powershell
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained up -d postgres-db redis kafka config-server discovery
 ```
@@ -127,12 +147,12 @@ $env:MIGRATION_ALLOW_MIGRATE = 'true'
 $env:MIGRATION_CHANGE_TICKET = 'LOCAL-DEV-BOOTSTRAP'
 $env:MIGRATION_ACTION = 'migrate'
 
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile migration run --rm migration-runner
 
 $env:MIGRATION_ACTION = 'validate'
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile migration run --rm migration-runner
 ```
@@ -141,7 +161,7 @@ docker compose --env-file .env.dev `
 권한을 회수합니다.
 
 ```powershell
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile migration run --rm runtime-grants
 ```
@@ -153,7 +173,7 @@ docker compose --env-file .env.dev `
 전체 API와 Edge를 시작합니다.
 
 ```powershell
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile apis up -d --build --wait
 ```
@@ -171,11 +191,11 @@ Copy-Item .env.external-dev.example .env.external-dev
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate-dev-env.ps1 `
   -Mode ExternalDev -EnvFile .\.env.external-dev
 
-docker compose --env-file .env.external-dev `
+podman compose --env-file .env.external-dev `
   -f docker-compose.yml -f compose.external-dev.yml `
   --profile external-dev --profile apis config --quiet
 
-docker compose --env-file .env.external-dev `
+podman compose --env-file .env.external-dev `
   -f docker-compose.yml -f compose.external-dev.yml `
   --profile external-dev --profile apis up -d --build --wait
 ```
@@ -191,7 +211,7 @@ DB migration과 권한 변경은 자동 실행하지 않습니다. JDBC URL에 �
 Batch 전체를 `up`하지 않습니다. 실행할 한 서비스와 승인된 Job/식별 파라미터를 명시합니다.
 
 ```powershell
-docker compose --env-file .env.dev `
+podman compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml `
   --profile self-contained --profile batch run --rm `
   -e SPRING_BATCH_JOB_ENABLED=true `
@@ -205,13 +225,38 @@ docker compose --env-file .env.dev `
 
 ## 종료와 롤백
 
+### 1. 컨테이너 종료 (Graceful Down)
+
 ```powershell
+# Podman 환경
+podman compose --env-file .env.dev `
+  -f docker-compose.yml -f compose.self-contained.yml down
+
+# Docker 환경
 docker compose --env-file .env.dev `
   -f docker-compose.yml -f compose.self-contained.yml down
 ```
 
-`down -v`를 사용하지 않습니다. Compose 변경 롤백은 Issue #66 커밋을 revert하고 컨테이너만
-내립니다. Named volume, 적용된 migration, 외부 DB와 registry image는 자동 삭제하지 않습니다.
+`down -v`를 사용하지 않습니다. 볼륨을 삭제하면 PostgreSQL 데이터와 스키마가 모두 초기화됩니다.
+Compose 변경 롤백은 Issue #66 커밋을 revert하고 컨테이너만 내립니다. Named volume, 적용된 migration,
+외부 DB와 registry image는 자동 삭제하지 않습니다.
+
+### 2. 이미지 롤백 및 로컬 리소스 정리 (Rollback & Cleanup)
+
+- **빌드된 로컬 이미지 삭제**: 문제 발생 시 새로 빌드된 로컬 이미지를 삭제합니다.
+  ```powershell
+  podman image rm account/master-data-api:local account/gateway:local account/frontend:local
+  ```
+- **미사용 컨테이너 및 댕글링 이미지 정리**:
+  ```powershell
+  podman container prune -f
+  podman image prune -f
+  ```
+- **롤백 절차**:
+  1. `podman compose ... down`으로 컨테이너를 중지합니다.
+  2. 문제가 발생한 이미지를 `podman image rm account/<service-name>:local`로 제거합니다.
+  3. Git에서 이전 안정 커밋으로 되돌립니다 (`git checkout <commit> -- <files>`).
+  4. 필요 시 안정 버전 기준으로 컨테이너를 다시 시작합니다.
 
 ## 검증 경계
 
