@@ -2021,3 +2021,10 @@
 - Found that the module Gateway Compose used a repository-fixed JWT verification key. Split P0 #543, removed the tracked key, required exact external fail-closed interpolation, strengthened the Compose policy test and documented coordinated Auth/Gateway rotation without exposing a value.
 - Missing-input quiet Compose render failed and process-only generated-input render passed without value/config output. Exact static gates and independent review found no P0-P3; no build/up/restart occurred.
 - Commit `b1d50065` is pushed and Draft PR #545 is open. GitHub JDK 17 `:gateway:test` plus final remote-head/Ready-event gates remain before merge; actual secret-backed rotation and runtime smoke remain blocked in #520.
+
+## 2026-08-27 (Issue #543 integration and #544 Linux minimal Auth env validator)
+
+- #543 passed final Gateway CI, independent remote-head review and the Ready-event Guard; PR #545 squash-merged as `a89ac260`, Issue #543 closed and active labels were removed. No running Auth/Gateway service was recreated, so actual key rotation remains #520 work.
+- Added one Python 3 standard-library validator for the bounded 11-key Auth/Master Data external-input preflight. It redacts values/paths, rejects unsafe dotenv syntax and placeholders, enforces exact DB targets/runtime roles and external host/JDBC contracts, and opens only secure regular non-symlink files with identity checks.
+- Independent test/review found frozen-exception classification, local Compose alias, JDBC delimiter, DEV IPv6, non-ASCII port and control-character gaps. All were remediated. In-memory compile, self-test 165, independent adversarial 91 and final P0-P3-clean review pass.
+- Commit `2a0b6ebd` is pushed and Draft PR #551 is open. No actual env/container/DB/image state was accessed. #520 remains blocked on an approved env and on reconciling the root Compose requirement for `AUTH_DEFAULT_PASSWORD` plus all 17 DB contexts; this validator does not claim full-root render readiness.

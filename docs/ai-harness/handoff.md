@@ -2900,3 +2900,22 @@
 - Local Java execution is not claimed: the host lacks JDK 17 and no toolchain/dependency download was approved. GitHub Module Validation must pass `:gateway:test` on the final remote head before Ready/merge.
 - #544 owns a Linux/Python minimal env validator because the existing PowerShell-only validator cannot run on this host without installation. #520 owns approved secret validation, coordinated Auth/Gateway key rotation, service-scoped recreation and status-only runtime smoke.
 - Rollback is a reviewed revert of the four #543 implementation/test/docs paths. Never restore the repository-exposed key. No data rollback exists, and branch/worktree deletion is not authorized.
+
+## Issue #543 integration result
+
+- Final JDK 17 Gateway validation, independent remote-head review and the Ready-event Agent Merge Guard passed. PR #545 squash-merged as `a89ac260`, Issue #543 closed, and active owner/status labels were removed. Existing Gateway/Auth containers were not recreated; coordinated key rotation remains #520 work.
+
+# AI Harness Handoff - 2026-08-27 Issue #544 Linux minimal Auth env validator
+
+## Published review state
+
+- Issue/branch/worktree/PR: `#544`, `agent/544-minimal-auth-env-validator`, `/tmp/account-544-minimal-auth-env-validator`, Draft PR #551 against `main@162f26c5`.
+- Implementation commit `2a0b6ebd` adds only `tools/validate-minimal-auth-env.py`. It uses Python 3 standard-library APIs to validate the documented 11-key Auth/Master Data input contract while emitting only fixed key/line/reason diagnostics.
+- Strict dotenv, placeholder, secret-length, exact DB/runtime-role, external-host, ASCII-port and exact JDBC/query checks are fail-closed. POSIX input must be a secure regular non-symlink file whose descriptor identity still matches `lstat`; FIFO and unsafe group/other permissions are rejected.
+
+## Evidence, rollback, and next owner
+
+- The initial independent test found that a frozen exception became `FrozenInstanceError` across the generator context manager. The initial review found a known local Compose alias bypass and gaps for raw JDBC delimiters, DEV IPv6 formatting, signed/Unicode ports and control characters. The remediation added direct regressions for every finding.
+- In-memory compile, self-test `PASS: 165`, independent synthetic adversarial `PASS: 91`, exact-path/diff/marker/pycache checks and final independent review all pass; final review has no P0-P3. No real env, secret, DB, image, container environment or running service was read or changed.
+- The validator is intentionally not the full root external-dev validator. Current root Compose additionally interpolates `AUTH_DEFAULT_PASSWORD` and every one of the 17 DB contexts. #520 must reconcile that topology and validate an approved untracked env before any quiet render, build, recreation or runtime smoke; #521 remains blocked on the tested runtime contract.
+- Rollback is a reviewed revert of the validator and append-only record commits. There is no data or container rollback. Branch/worktree deletion is not authorized.
