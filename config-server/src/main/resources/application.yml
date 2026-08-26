@@ -23,7 +23,6 @@ server:
 
 # Spring Cloud Config 대칭키(Symmetric Key) 암호화 설정
 # 운영 환경에서는 ENCRYPT_KEY 환경변수 또는 외부 Secret Manager(Vault 등)를 통해 주입받습니다.
-# Fail-Closed 보안 원칙에 따라 코드베이스 내에 기본 secret fallback을 두지 않습니다.
 encrypt:
   key: ${ENCRYPT_KEY}
 
@@ -33,6 +32,9 @@ spring:
   cloud:
     config:
       server:
+        # /encrypt, /decrypt 엔드포인트 기본 비활성화 (보안 노출 방지)
+        encrypt:
+          enabled: false
         native:
           # 로컬 개발 시 Git 연동 없이 로컬 디렉토리의 설정 파일들을 참조합니다.
           search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo}
