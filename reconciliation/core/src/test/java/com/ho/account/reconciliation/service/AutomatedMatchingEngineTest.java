@@ -3,6 +3,7 @@ package com.ho.account.reconciliation.service;
 import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.reconciliation.domain.BankStatement;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -250,6 +251,100 @@ class AutomatedMatchingEngineTest {
                 3);
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("match throws NullPointerException when statements, details, or options are null")
+    void matchThrowsNullPointerExceptionOnNullArguments() {
+        assertThatThrownBy(() -> matchingEngine.match(null, List.of()))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("details must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(), List.of(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("options must not be null");
+    }
+
+    @Test
+    @DisplayName("matchSubsetSum throws NullPointerException when statements or details are null")
+    void matchSubsetSumThrowsNullPointerExceptionOnNullArguments() {
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(null, List.of(), 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(List.of(), null, 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("details must not be null");
+    }
+
+    @Test
+    @DisplayName("MatchOptions throws NullPointerException when amountTolerance is null")
+    void matchOptionsThrowsNullPointerExceptionOnNullAmountTolerance() {
+        assertThatThrownBy(() -> AutomatedMatchingEngine.MatchOptions.of(null, 0))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("amountTolerance must not be null");
+
+        assertThatThrownBy(() -> AutomatedMatchingEngine.MatchOptions.complex(null, 0, true, true, true))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("amountTolerance must not be null");
+    }
+
+    @Test
+    @DisplayName("MatchResult throws NullPointerException when bankStatement or matchReason is null")
+    void matchResultThrowsNullPointerExceptionOnNullRequiredFields() {
+        assertThatThrownBy(() -> new AutomatedMatchingEngine.MatchResult(null, null, false, "REASON"))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("bankStatement must not be null");
+
+        BankStatement stmt = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        assertThatThrownBy(() -> new AutomatedMatchingEngine.MatchResult(stmt, null, false, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("matchReason must not be null");
+    }
+
+    @Test
+    @DisplayName("SubsetMatchResult throws NullPointerException when matchReason is null and handles null lists safely")
+    void subsetMatchResultHandlesNullsSafely() {
+        assertThatThrownBy(() -> new AutomatedMatchingEngine.SubsetMatchResult(null, null, null, false, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("matchReason must not be null");
+
+        AutomatedMatchingEngine.SubsetMatchResult result = new AutomatedMatchingEngine.SubsetMatchResult(null, null, null, false, "TEST");
+        assertThat(result.getStatements()).isEmpty();
+        assertThat(result.getJournalDetails()).isEmpty();
+        assertThat(result.getTotalAmount()).isEqualTo(BigDecimal.ZERO);
+        assertThat(result.getMatchReason()).isEqualTo("TEST");
+    }
+
+    @Test
+    @DisplayName("match handles statements and details with null amounts or blank fields safely")
+    void matchHandlesNullAmountsAndBlankFieldsSafely() {
+        BankStatement stmtWithNulls = new BankStatement();
+        stmtWithNulls.setDepositAmount(null);
+        stmtWithNulls.setWithdrawalAmount(null);
+        stmtWithNulls.setTransactionDate(null);
+        stmtWithNulls.setDescription(null);
+        stmtWithNulls.setAccountNo(null);
+
+        JournalDetailSummary detailWithNulls = new JournalDetailSummary();
+        detailWithNulls.setAmount(null);
+        detailWithNulls.setBaseAmount(null);
+        detailWithNulls.setAccountingDate(null);
+        detailWithNulls.setSlipNo(null);
+        detailWithNulls.setAccountNo(null);
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(stmtWithNulls),
+                List.of(detailWithNulls),
+                AutomatedMatchingEngine.MatchOptions.complex(BigDecimal.ZERO, 0, true, true, true));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isFalse();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.NO_MATCH_FOUND);
     }
 
     private BankStatement bankStatement(String depositAmount, String withdrawalAmount, LocalDate transactionDate) {
