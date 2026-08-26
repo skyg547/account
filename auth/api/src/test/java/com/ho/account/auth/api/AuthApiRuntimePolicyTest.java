@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.AuthApplication;
+import com.ho.account.auth.core.domain.model.AuthUser;
+import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.infrastructure.config.AuthConfiguration;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import java.nio.file.Files;
@@ -34,6 +36,10 @@ import org.springframework.core.env.StandardEnvironment;
  * 2. Fail-Closed Security Policy Test (보안 실패 기본 차단 검증)
  *    - base/dev/prod 프로파일에서 필수 보안 키(AUTH_JWT_SECRET, AUTH_INTERNAL_API_TOKEN)가 제공되지 않는 경우,
  *      애플리케이션 초기화 과정에서 Fail-Closed 예외가 발생하여 오구성된 구동을 방지함을 검증합니다.
+ *
+ * 3. Configured User Password Encoding Contract Test (설정 사용자 비밀번호 인코딩 계약 검증)
+ *    - auth 모듈의 설정 사용자는 반드시 유효한 위임 비밀번호 접두사({id}, 예: {bcrypt})를 가져야 합니다.
+ *    - 접두사가 없는 raw 비밀번호, {noop} 평문 접두사, 빈 접두사({}) 또는 malformed 접두사는 구동 시 차단됩니다.
  * ==============================================================================
  */
 class AuthApiRuntimePolicyTest {
@@ -112,6 +118,142 @@ class AuthApiRuntimePolicyTest {
                 assertThat(properties.getJwt().getSecret()).isEqualTo(jwtSecret);
                 assertThat(properties.getInternalApi().getToken()).isEqualTo(internalToken);
             }
+        }
+    }
+
+    @Test
+    @DisplayName("유효한 {bcrypt} 인코딩 패스워드를 가진 설정 사용자는 정상 구동되고 DB에 적재된다")
+    void configuredUserWithValidBcryptPasswordIsAcceptedAndPersisted() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+        String bcryptPassword = "{bcrypt}$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG";
+
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("spring.profiles.active", "local");
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("auth.users[0].username", "seed_admin");
+        overrides.put("auth.users[0].password", bcryptPassword);
+        overrides.put("auth.users[0].department-code", "FIN");
+        overrides.put("auth.users[0].roles[0]", "ROLE_ADMIN");
+
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
+
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AuthApplication.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run()) {
+
+            AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
+            assertThat(properties.getUsers()).hasSize(1);
+            assertThat(properties.getUsers().get(0).getUsername()).isEqualTo("seed_admin");
+            assertThat(properties.getUsers().get(0).getPassword()).isEqualTo(bcryptPassword);
+
+            AuthUserQueryPort userQueryPort = context.getBean(AuthUserQueryPort.class);
+            AuthUser user = userQueryPort.findByUsername("seed_admin").orElseThrow();
+            assertThat(user.getUsername()).isEqualTo("seed_admin");
+            assertThat(user.getStoredPassword()).isEqualTo(bcryptPassword);
+        }
+    }
+
+    @Test
+    @DisplayName("접두사가 없는 raw 비밀번호를 가진 설정 사용자는 Fail-Closed 예외로 구동이 차단된다")
+    void configuredUserWithRawPasswordFailsClosed() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("auth.users[0].username", "raw_user");
+        overrides.put("auth.users[0].password", "plainPassword123");
+
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
+
+        assertThatThrownBy(() -> new SpringApplicationBuilder(AuthConfiguration.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run())
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'raw_user' must have a delegated encoding prefix (e.g., '{bcrypt}'). Raw passwords are not allowed.");
+    }
+
+    @Test
+    @DisplayName("{noop} 평문 비밀번호를 가진 설정 사용자는 Fail-Closed 예외로 구동이 차단된다")
+    void configuredUserWithNoopPasswordFailsClosed() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("auth.users[0].username", "noop_user");
+        overrides.put("auth.users[0].password", "{noop}plainPassword123");
+
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
+
+        assertThatThrownBy(() -> new SpringApplicationBuilder(AuthConfiguration.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run())
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'noop_user' uses forbidden '{noop}' prefix. Plaintext passwords are not allowed in configuration.");
+    }
+
+    @Test
+    @DisplayName("빈 접두사 또는 잘못된 형식의 접두사를 가진 설정 사용자는 Fail-Closed 예외로 구동이 차단된다")
+    void configuredUserWithEmptyOrMalformedPrefixFailsClosed() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        for (String malformedPassword : new String[] {"{}secret", "{ }secret", "{bcrypt", "{}"}) {
+            Map<String, Object> overrides = new LinkedHashMap<>();
+            overrides.put("auth.jwt.secret", jwtSecret);
+            overrides.put("auth.internal-api.token", internalToken);
+            overrides.put("auth.users[0].username", "malformed_user");
+            overrides.put("auth.users[0].password", malformedPassword);
+
+            StandardEnvironment environment = new StandardEnvironment();
+            environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
+
+            assertThatThrownBy(() -> new SpringApplicationBuilder(AuthConfiguration.class)
+                    .environment(environment)
+                    .web(WebApplicationType.NONE)
+                    .registerShutdownHook(false)
+                    .properties(
+                            "spring.config.location="
+                                    + repositoryRoot()
+                                            .resolve("auth/api/src/main/resources/")
+                                            .toUri(),
+                            "spring.main.banner-mode=off")
+                    .run())
+                    .hasRootCauseInstanceOf(IllegalStateException.class);
         }
     }
 

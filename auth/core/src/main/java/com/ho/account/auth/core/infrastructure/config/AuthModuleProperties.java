@@ -1,8 +1,8 @@
 package com.ho.account.auth.core.infrastructure.config;
 
+import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
-import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -40,6 +40,52 @@ public class AuthModuleProperties {
         if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
+        }
+        if (users != null) {
+            for (User user : users) {
+                if (user != null) {
+                    validateConfiguredUserPassword(
+                            user.getPassword(),
+                            user.getUsername() != null ? user.getUsername() : "unknown");
+                }
+            }
+        }
+    }
+
+    public static void validateConfiguredUserPassword(String password, String username) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' must not be blank.");
+        }
+        String trimmed = password.trim();
+        if (!trimmed.startsWith("{")) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' must have a delegated encoding prefix (e.g., '{bcrypt}'). Raw passwords are not allowed.");
+        }
+        int closingBrace = trimmed.indexOf('}');
+        if (closingBrace <= 1) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' has an empty or malformed encoding prefix: '" + trimmed + "'.");
+        }
+        String id = trimmed.substring(1, closingBrace).trim();
+        if (id.isEmpty()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' has an empty encoding prefix: '" + trimmed + "'.");
+        }
+        if ("noop".equalsIgnoreCase(id)) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' uses forbidden '{noop}' prefix. Plaintext passwords are not allowed in configuration.");
+        }
+        String payload = trimmed.substring(closingBrace + 1);
+        if (payload.isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' must contain encoded hash content after the prefix.");
         }
     }
 
@@ -244,4 +290,3 @@ public class AuthModuleProperties {
         }
     }
 }
-

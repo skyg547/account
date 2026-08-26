@@ -28,6 +28,7 @@ import org.springframework.test.context.ContextConfiguration;
 class JpaAuthUserPersistenceAdapterTest {
 
     private static final Instant NOW = Instant.parse("2026-07-14T00:00:00Z");
+    private static final String ENCODED_PW = "{bcrypt}$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG";
 
     @Autowired
     private JpaAuthUserQueryAdapter adapter;
@@ -50,7 +51,7 @@ class JpaAuthUserPersistenceAdapterTest {
                 .orElseThrow();
 
         assertThat(user.getUsername()).isEqualTo("teller");
-        assertThat(user.getStoredPassword()).isEqualTo("{noop}1234");
+        assertThat(user.getStoredPassword()).isEqualTo(ENCODED_PW);
         assertThat(user.getDepartmentCode()).isEqualTo("BR001");
         assertThat(user.getRoleVersion()).isEqualTo(3L);
         assertThat(user.getRoleAssignments()).hasSize(3);
@@ -62,7 +63,7 @@ class JpaAuthUserPersistenceAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User configured = new AuthModuleProperties.User();
         configured.setUsername("ops");
-        configured.setPassword("{noop}ops");
+        configured.setPassword(ENCODED_PW);
         configured.setDepartmentCode("OPS");
         configured.setRoles(List.of("ROLE_OPS", "ROLE_AUDITOR"));
         properties.setUsers(List.of(configured));
@@ -157,7 +158,7 @@ class JpaAuthUserPersistenceAdapterTest {
     private AuthUserJpaEntity userWithRoles() {
         AuthUserJpaEntity user = new AuthUserJpaEntity(
                 "teller",
-                "{noop}1234",
+                ENCODED_PW,
                 "BR001",
                 true,
                 false,

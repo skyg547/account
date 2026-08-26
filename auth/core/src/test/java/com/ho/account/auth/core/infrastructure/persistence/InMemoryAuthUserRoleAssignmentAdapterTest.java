@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 
 class InMemoryAuthUserRoleAssignmentAdapterTest {
 
+    private static final String ENCODED_PW = "{bcrypt}$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG";
+
     @Test
     void preservesRoleMetadataAndMakesApprovalRetryIdempotent() {
         InMemoryAuthUserQueryAdapter queryAdapter = queryAdapter();
@@ -69,7 +71,7 @@ class InMemoryAuthUserRoleAssignmentAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User user = new AuthModuleProperties.User();
         user.setUsername("admin");
-        user.setPassword("{noop}1234");
+        user.setPassword(ENCODED_PW);
         user.setDepartmentCode("FIN");
         user.setRoles(List.of("ROLE_ADMIN"));
         properties.setUsers(List.of(user));

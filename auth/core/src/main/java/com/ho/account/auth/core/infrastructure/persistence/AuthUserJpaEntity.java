@@ -60,7 +60,7 @@ class AuthUserJpaEntity {
             boolean locked,
             long roleVersion) {
         this.username = requireText(username, "username is required.");
-        this.storedPassword = requireText(storedPassword, "storedPassword is required.");
+        this.storedPassword = requireValidEncodedPassword(storedPassword, "storedPassword");
         this.departmentCode = normalize(departmentCode);
         this.active = active;
         this.locked = locked;
@@ -70,6 +70,9 @@ class AuthUserJpaEntity {
     }
 
     static AuthUserJpaEntity fromConfiguredUser(AuthModuleProperties.User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("user is required.");
+        }
         AuthUserJpaEntity entity = new AuthUserJpaEntity(
                 user.getUsername(),
                 user.getPassword(),
@@ -120,6 +123,37 @@ class AuthUserJpaEntity {
             throw new IllegalArgumentException(message);
         }
         return value.trim();
+    }
+
+    private static String requireValidEncodedPassword(String storedPassword, String fieldName) {
+        if (storedPassword == null || storedPassword.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required.");
+        }
+        String trimmed = storedPassword.trim();
+        if (!trimmed.startsWith("{")) {
+            throw new IllegalArgumentException(
+                    fieldName + " must have a delegated encoding prefix (e.g., '{bcrypt}'). Raw passwords are not allowed.");
+        }
+        int closingBrace = trimmed.indexOf('}');
+        if (closingBrace <= 1) {
+            throw new IllegalArgumentException(
+                    fieldName + " has an empty or malformed encoding prefix: '" + trimmed + "'.");
+        }
+        String id = trimmed.substring(1, closingBrace).trim();
+        if (id.isEmpty()) {
+            throw new IllegalArgumentException(
+                    fieldName + " has an empty encoding prefix: '" + trimmed + "'.");
+        }
+        if ("noop".equalsIgnoreCase(id)) {
+            throw new IllegalArgumentException(
+                    fieldName + " must not use '{noop}' prefix. Plaintext passwords are not allowed.");
+        }
+        String payload = trimmed.substring(closingBrace + 1);
+        if (payload.isBlank()) {
+            throw new IllegalArgumentException(
+                    fieldName + " must contain encoded hash content after the prefix.");
+        }
+        return trimmed;
     }
 
     private static String normalize(String value) {
