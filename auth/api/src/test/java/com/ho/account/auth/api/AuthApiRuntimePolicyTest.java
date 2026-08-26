@@ -82,20 +82,67 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
-    @DisplayName("필수 보안 환경변수가 누락된 경우 base/dev/prod 환경은 Fail-Closed 예외를 발생시킨다")
+    @DisplayName("필수 보안 환경변수가 누락되거나 공백인 경우 base/dev/prod 환경은 Fail-Closed 예외를 발생시킨다")
     void devAndProdProfilesFailClosedWithoutRequiredCredentials() {
         for (String profile : new String[] {null, "dev", "prod"}) {
             String jwtSecret = ephemeralValue();
             String internalToken = ephemeralValue();
 
-            assertThatThrownBy(() -> securityPolicyContext(profile, "", internalToken))
-                    .hasRootCauseInstanceOf(IllegalStateException.class)
-                    .hasRootCauseMessage(
-                            "Fail-Closed Security Violation: 'auth.jwt.secret' must be provided via AUTH_JWT_SECRET environment variable.");
-            assertThatThrownBy(() -> securityPolicyContext(profile, jwtSecret, ""))
-                    .hasRootCauseInstanceOf(IllegalStateException.class)
-                    .hasRootCauseMessage(
-                            "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
+            for (String blankSecret : new String[] {"", "   ", "\t\n  "}) {
+                assertThatThrownBy(() -> securityPolicyContext(profile, blankSecret, internalToken))
+                        .hasRootCauseInstanceOf(IllegalStateException.class)
+                        .hasRootCauseMessage(
+                                "Fail-Closed Security Violation: 'auth.jwt.secret' must be provided via AUTH_JWT_SECRET environment variable.");
+            }
+            for (String blankToken : new String[] {"", "   ", "\t\n  "}) {
+                assertThatThrownBy(() -> securityPolicyContext(profile, jwtSecret, blankToken))
+                        .hasRootCauseInstanceOf(IllegalStateException.class)
+                        .hasRootCauseMessage(
+                                "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("JWT signing key가 32바이트 미만(31바이트 이하)인 경우 모든 프로파일에서 Fail-Closed 예외가 발생한다")
+    void jwtSecretFailsBelow32BytesAcrossAllProfiles() {
+        String exact31Bytes = "1234567890123456789012345678901"; // 31 ASCII bytes
+        assertThat(exact31Bytes.getBytes(java.nio.charset.StandardCharsets.UTF_8)).hasSize(31);
+
+        String multiByte31Bytes = "가나다라마바사아자차x"; // 10 Korean chars (30 bytes) + 1 ASCII (1 byte) = 31 bytes (11 chars)
+        assertThat(multiByte31Bytes.getBytes(java.nio.charset.StandardCharsets.UTF_8)).hasSize(31);
+
+        String internalToken = ephemeralValue();
+
+        for (String profile : new String[] {null, "local", "dev", "prod"}) {
+            for (String shortSecret : new String[] {exact31Bytes, multiByte31Bytes}) {
+                assertThatThrownBy(() -> securityPolicyContext(profile, shortSecret, internalToken))
+                        .hasRootCauseInstanceOf(IllegalStateException.class)
+                        .hasRootCauseMessage(
+                                "Fail-Closed Security Violation: 'auth.jwt.secret' must be at least 32 UTF-8 bytes for secure HS256 signing.");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("JWT signing key가 정확히 32바이트 이상인 경우 모든 프로파일에서 정상 기동한다")
+    void jwtSecretSucceedsAt32BytesOrAboveAcrossAllProfiles() {
+        String exact32Bytes = "12345678901234567890123456789012"; // exactly 32 ASCII bytes
+        assertThat(exact32Bytes.getBytes(java.nio.charset.StandardCharsets.UTF_8)).hasSize(32);
+
+        String multiByte33Bytes = "가나다라마바사아자차카"; // 11 Korean chars = 33 UTF-8 bytes (11 chars)
+        assertThat(multiByte33Bytes.getBytes(java.nio.charset.StandardCharsets.UTF_8)).hasSize(33);
+
+        String internalToken = ephemeralValue();
+
+        for (String profile : new String[] {null, "local", "dev", "prod"}) {
+            for (String validSecret : new String[] {exact32Bytes, multiByte33Bytes}) {
+                try (ConfigurableApplicationContext context =
+                        securityPolicyContext(profile, validSecret, internalToken)) {
+                    AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
+                    assertThat(properties.getJwt().getSecret()).isEqualTo(validSecret);
+                }
+            }
         }
     }
 
