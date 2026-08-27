@@ -13,10 +13,15 @@ services:
     container_name: kibana
     
     # 포트 연결 (내 PC의 포트 : 컨테이너의 포트)
-    # 내 PC에서 5601 포트로 접속하면, 이 인프라 컨테이너의 5601 포트로 연결됩니다.
+    # Nginx 단일 진입점(/kibana/)을 통해 접속하거나 개발 시 직접 접근할 수 있습니다.
     ports:
-      - "5601:5601"
+      - "${KIBANA_PORT:-5601}:5601"
       
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_BASEPATH=/kibana
+      - SERVER_REWRITEBASEPATH=false
+
     # 공통 네트워크망에 합류하여 다른 MSA 애플리케이션들이 이 인프라를 찾을 수 있게 합니다.
     networks:
       - account-network

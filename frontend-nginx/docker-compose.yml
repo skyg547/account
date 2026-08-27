@@ -1,0 +1,23 @@
+version: '3.8'
+
+name: ${COMPOSE_PROJECT_NAME:-account-frontend-nginx}
+
+services:
+  frontend-nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frontend-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    depends_on:
+      - frontend
+      - gateway
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+    external: true
