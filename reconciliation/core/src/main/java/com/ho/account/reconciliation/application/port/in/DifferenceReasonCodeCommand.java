@@ -1,5 +1,7 @@
 package com.ho.account.reconciliation.application.port.in;
 
+import java.util.Optional;
+
 /**
  * 대사 차이 사유 코드 생성/수정 유즈케이스 입력값입니다.
  *
@@ -16,7 +18,7 @@ public record DifferenceReasonCodeCommand(
     public DifferenceReasonCodeCommand {
         code = requireText(code, "code");
         name = requireText(name, "name");
-        description = trimToNull(description);
+        description = optionalText(description).orElse(null);
     }
 
     private static String requireText(String value, String fieldName) {
@@ -26,10 +28,10 @@ public record DifferenceReasonCodeCommand(
         return value.trim();
     }
 
-    private static String trimToNull(String value) {
+    private static Optional<String> optionalText(String value) {
         if (value == null || value.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return value.trim();
+        return Optional.of(value.trim());
     }
 }

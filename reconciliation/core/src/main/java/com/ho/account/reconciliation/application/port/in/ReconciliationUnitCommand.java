@@ -2,6 +2,7 @@ package com.ho.account.reconciliation.application.port.in;
 
 import com.ho.account.reconciliation.domain.ReconciliationUnit;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 대사 단위 생성/수정 유즈케이스 입력값입니다.
@@ -19,10 +20,10 @@ public record ReconciliationUnitCommand(
 ) {
     public ReconciliationUnitCommand {
         name = requireText(name, "name");
-        description = trimToNull(description);
+        description = optionalText(description).orElse(null);
         frequency = Objects.requireNonNull(frequency, "frequency is required");
         reconciliationType = Objects.requireNonNull(reconciliationType, "reconciliationType is required");
-        criteriaJson = trimToNull(criteriaJson);
+        criteriaJson = optionalText(criteriaJson).orElse(null);
     }
 
     private static String requireText(String value, String fieldName) {
@@ -32,10 +33,10 @@ public record ReconciliationUnitCommand(
         return value.trim();
     }
 
-    private static String trimToNull(String value) {
+    private static Optional<String> optionalText(String value) {
         if (value == null || value.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return value.trim();
+        return Optional.of(value.trim());
     }
 }

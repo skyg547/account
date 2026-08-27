@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -274,9 +275,9 @@ public class ReconciliationExecutionService {
                         String.valueOf(reconciliationUnit.getId()),
                         com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.SOURCE_STAGE,
                         reconciliationDate,
-                        readText(root, "sourceProductCode"),
-                        readText(root, "sourceCurrencyCode"),
-                        readText(root, "legalEntityCode")
+                        readOptionalText(root, "sourceProductCode").orElse(null),
+                        readOptionalText(root, "sourceCurrencyCode").orElse(null),
+                        readOptionalText(root, "legalEntityCode").orElse(null)
                 )
         );
 
@@ -289,8 +290,8 @@ public class ReconciliationExecutionService {
 
     private ReconciliationSnapshot buildTargetSnapshot(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
-        String targetAccountCode = readText(root, "targetAccountCode");
-        String sideStr = readText(root, "targetSide");
+        String targetAccountCode = readOptionalText(root, "targetAccountCode").orElse(null);
+        String sideStr = readOptionalText(root, "targetSide").orElse(null);
         JournalSide targetSide = sideStr != null && !sideStr.isBlank() ? JournalSide.valueOf(sideStr.trim().toUpperCase()) : JournalSide.DEBIT;
 
         JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
@@ -310,16 +311,16 @@ public class ReconciliationExecutionService {
         return new ReconciliationSnapshot((int) detailCount, totalAmount);
     }
 
-    private String readText(JsonNode root, String fieldName) {
+    private Optional<String> readOptionalText(JsonNode root, String fieldName) {
         JsonNode node = root.get(fieldName);
         if (node == null || node.isNull()) {
-            return null;
+            return Optional.empty();
         }
         String text = node.asText();
         if (text == null || text.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return text.trim();
+        return Optional.of(text.trim());
     }
 
     private JsonNode parseCriteriaJson(ReconciliationUnit reconciliationUnit) {
@@ -342,9 +343,9 @@ public class ReconciliationExecutionService {
                         String.valueOf(reconciliationUnit.getId()),
                         com.ho.account.reconciliation.application.port.out.ExternalReconSnapshotRequest.SOURCE_STAGE,
                         reconciliationDate,
-                        readText(root, "sourceProductCode"),
-                        readText(root, "sourceCurrencyCode"),
-                        readText(root, "legalEntityCode")
+                        readOptionalText(root, "sourceProductCode").orElse(null),
+                        readOptionalText(root, "sourceCurrencyCode").orElse(null),
+                        readOptionalText(root, "legalEntityCode").orElse(null)
                 )
         );
         if (items != null && !items.isEmpty()) {
@@ -355,8 +356,8 @@ public class ReconciliationExecutionService {
                     "SUMMARY-SRC-" + reconciliationUnit.getId(),
                     reconciliationDate,
                     "SUMMARY",
-                    readText(root, "legalEntityCode"),
-                    readText(root, "sourceProductCode"),
+                    readOptionalText(root, "legalEntityCode").orElse(null),
+                    readOptionalText(root, "sourceProductCode").orElse(null),
                     snapshot.amount(),
                     reconciliationUnit.getName()
             ));
@@ -366,7 +367,7 @@ public class ReconciliationExecutionService {
 
     private List<ReconciliationItem> buildTargetItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
-        String targetAccountCode = readText(root, "targetAccountCode");
+        String targetAccountCode = readOptionalText(root, "targetAccountCode").orElse(null);
         List<String> accountCodes = targetAccountCode != null && !targetAccountCode.isBlank() ? List.of(targetAccountCode) : List.of();
         List<JournalDetailSummary> details = journalQueryPort.getJournalDetailsByAccountCodes(
                 reconciliationDate, reconciliationDate, accountCodes
@@ -442,8 +443,7 @@ public class ReconciliationExecutionService {
                                               ReconciliationDifference difference) {
         ReconciliationUnit unit = run.getReconciliationUnit();
         JsonNode root = parseCriteriaJson(unit);
-        String currencyCode = readText(root, "adjustmentCurrencyCode");
-        currencyCode = currencyCode != null ? currencyCode : "KRW";
+        String currencyCode = readOptionalText(root, "adjustmentCurrencyCode").orElse("KRW");
         String sourceDocumentId = buildAdjustmentSourceDocumentId(run, difference, accountingDate, amount, accountCodes);
 
         JournalEntryCommand command = new JournalEntryCommand(

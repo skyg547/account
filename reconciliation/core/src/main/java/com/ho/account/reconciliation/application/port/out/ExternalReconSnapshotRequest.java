@@ -3,6 +3,7 @@ package com.ho.account.reconciliation.application.port.out;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 public record ExternalReconSnapshotRequest(
         String unitId,
@@ -20,9 +21,9 @@ public record ExternalReconSnapshotRequest(
         unitId = requiredText(unitId, "unitId");
         stageCode = requiredText(stageCode, "stageCode").toUpperCase(Locale.ROOT);
         reconciliationDate = Objects.requireNonNull(reconciliationDate, "reconciliationDate must not be null");
-        productCode = optionalText(productCode);
-        currencyCode = optionalText(currencyCode);
-        legalEntityCode = optionalText(legalEntityCode);
+        productCode = optionalText(productCode).orElse(null);
+        currencyCode = optionalText(currencyCode).orElse(null);
+        legalEntityCode = optionalText(legalEntityCode).orElse(null);
     }
 
     public static ExternalReconSnapshotRequest of(
@@ -50,10 +51,10 @@ public record ExternalReconSnapshotRequest(
         return value.trim();
     }
 
-    private static String optionalText(String value) {
+    private static Optional<String> optionalText(String value) {
         if (value == null || value.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return value.trim();
+        return Optional.of(value.trim());
     }
 }
