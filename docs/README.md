@@ -40,6 +40,7 @@
 - **[development-postgresql.md](guides/development-postgresql.md):** PostgreSQL 개발 DB 스키마 및 계정 권한 정책.
 - **[production-compose.md](guides/production-compose.md):** 프로덕션 Compose 및 보안 환경변수 검증.
 - **[container-images.md](guides/container-images.md):** OCI 컨테이너 이미지 (Java 21 / Node 20) 빌드 규격.
+- **[ssl-nginx-reverse-proxy-guide.md](guides/ssl-nginx-reverse-proxy-guide.md):** Nginx SSL/TLS 인증서 구축 및 단일 진입점(Single Entry Point) 라우팅 가이드.
 - **[infrastructure_runbook.md](guides/infrastructure_runbook.md):** 인프라 구동 및 서비스 디스커버리 런북.
 - **[runtime-execution-matrix.md](guides/runtime-execution-matrix.md):** 모듈별 실행 검증 매트릭스.
 
