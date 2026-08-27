@@ -71,6 +71,12 @@ try {
 4. [docs/README.md](./docs/README.md)
 5. [../config-repo/README.md](../config-repo/README.md)
 
+## 🔒 암호화 엔드포인트 보안 정책 (Encryption Endpoint Security)
+
+- **기본 비활성화 (Endpoint Disabled)**: `spring.cloud.config.server.encrypt.enabled=false` 설정에 따라 `/encrypt` 및 `/decrypt` REST 엔드포인트는 기본적으로 비활성화되며, 외부/익명 요청 시 `404 Not Found`를 반환합니다.
+- **인증된 내부 운영 접근 (Authenticated Access)**: 내부 운영 목적으로 활성화 시 `X-Config-Internal-Token` 헤더를 검증하며, 인증되지 않거나 변조된 요청은 `401 Unauthorized`로 차단(Fail-Closed)됩니다.
+- **설정 조회 및 헬스체크 무회귀**: `/actuator/health/readiness` 및 `/{application}/{profile}` 설정 조회 엔드포인트는 보안 필터의 간섭 없이 정상 동작합니다.
+
 ## 남은 운영 과제
 
 코드의 `@todo` 두 건이 운영 전 필수 결정 사항입니다.

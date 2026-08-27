@@ -64,6 +64,7 @@ class ConfigServerConfigurationPolicyTest {
 
         assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8888}");
         assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY}");
+        assertThat(properties.getProperty("spring.cloud.config.server.encrypt.enabled")).isEqualTo("false");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
