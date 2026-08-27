@@ -45,6 +45,14 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
         }
+        if (users != null) {
+            for (int i = 0; i < users.size(); i++) {
+                User user = users.get(i);
+                String userContext = "Fail-Closed Security Violation: 'auth.users[" + i + "]' (" + user.getUsername() + ")";
+                com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy.requireValidEncodedPassword(
+                        user.getPassword(), userContext);
+            }
+        }
     }
 
     public Jwt getJwt() {

@@ -91,7 +91,7 @@ Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction Silent
 java -jar $jar.FullName --spring.profiles.active=local --server.port=8081
 ```
 
-local profile은 사용자를 자동 생성하지 않습니다. 로그인 사용자는 저장소 밖의 승인된 입력이나 별도 개발 bootstrap 절차로 제공하며, 비밀번호 기본값을 커밋하지 않습니다.
+local profile은 사용자를 자동 생성하지 않습니다. 로그인 사용자는 저장소 밖의 승인된 입력이나 별도 개발 bootstrap 절차로 제공하며, 비밀번호 기본값을 커밋하지 않습니다. 주입 시 비밀번호는 반드시 `{bcrypt}<ENCODED_HASH>` 형식을 준수해야 하며, 평문 및 `{noop}`은 fail-closed로 거부됩니다.
 
 ## 종료와 정리
 

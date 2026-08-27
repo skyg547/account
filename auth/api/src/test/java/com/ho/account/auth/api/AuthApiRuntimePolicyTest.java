@@ -163,6 +163,78 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
+    @DisplayName("Configured user 비밀번호가 {bcrypt} 형식인 경우 정상 기동한다")
+    void configuredUserPasswordSucceedsWithBcryptPrefix() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+        String dynamicHash = "{bcrypt}" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(ephemeralValue());
+
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("spring.profiles.active", "local");
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("auth.users[0].username", "testuser");
+        overrides.put("auth.users[0].password", dynamicHash);
+
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("userOverrides", overrides));
+
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AuthConfiguration.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot().resolve("auth/api/src/main/resources/").toUri(),
+                        "spring.main.banner-mode=off")
+                .run()) {
+            AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
+            assertThat(properties.getUsers()).hasSize(1);
+            assertThat(properties.getUsers().get(0).getPassword()).isEqualTo(dynamicHash);
+        }
+    }
+
+    @Test
+    @DisplayName("Configured user 비밀번호가 raw 평문, {noop}, {unknown}, 빈 prefix, 빈 payload인 경우 Fail-Closed 예외가 발생한다")
+    void configuredUserPasswordFailsClosedOnInvalidPrefixOrPayload() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        String[] invalidPasswords = new String[] {
+                "raw_unencoded_plaintext_password",
+                "{noop}plaintext_not_allowed",
+                "{unknown}unsupported_algorithm",
+                "{}",
+                "{ }",
+                "{bcrypt}",
+                "{bcrypt}   "
+        };
+
+        for (String invalidPassword : invalidPasswords) {
+            Map<String, Object> overrides = new LinkedHashMap<>();
+            overrides.put("spring.profiles.active", "local");
+            overrides.put("auth.jwt.secret", jwtSecret);
+            overrides.put("auth.internal-api.token", internalToken);
+            overrides.put("auth.users[0].username", "testuser");
+            overrides.put("auth.users[0].password", invalidPassword);
+
+            StandardEnvironment environment = new StandardEnvironment();
+            environment.getPropertySources().addFirst(new MapPropertySource("invalidUserOverrides", overrides));
+
+            assertThatThrownBy(() -> new SpringApplicationBuilder(AuthConfiguration.class)
+                    .environment(environment)
+                    .web(WebApplicationType.NONE)
+                    .registerShutdownHook(false)
+                    .properties(
+                            "spring.config.location="
+                                    + repositoryRoot().resolve("auth/api/src/main/resources/").toUri(),
+                            "spring.main.banner-mode=off")
+                    .run())
+                    .hasRootCauseInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Test
     @DisplayName("Auth API 모듈만이 실행 가능한 Boot JAR 애플리케이션이다")
     void onlyAuthApiIsExecutableApplication() throws Exception {
         Path root = repositoryRoot();

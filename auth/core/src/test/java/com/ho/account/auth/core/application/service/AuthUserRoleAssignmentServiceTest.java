@@ -19,6 +19,10 @@ class AuthUserRoleAssignmentServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-14T00:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
+    private static String dynamicBcrypt(String raw) {
+        return "{bcrypt}" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(raw);
+    }
+
     @Test
     void replaceRoleAssignmentsNormalizesRolesAndBuildsIdempotentReplacement() {
         AtomicReference<AuthUserRoleAssignmentPersistencePort.RoleAssignmentReplacement> saved =
@@ -27,7 +31,7 @@ class AuthUserRoleAssignmentServiceTest {
             saved.set(replacement);
             return new AuthUser(
                     replacement.username(),
-                    "{noop}pw",
+                    dynamicBcrypt("pw123"),
                     "FIN",
                     true,
                     false,
@@ -59,7 +63,7 @@ class AuthUserRoleAssignmentServiceTest {
         AuthUserRoleAssignmentService service = new AuthUserRoleAssignmentService(replacement ->
                 new AuthUser(
                         replacement.username(),
-                        "{noop}pw",
+                        dynamicBcrypt("pw123"),
                         "FIN",
                         true,
                         false,
@@ -113,7 +117,7 @@ class AuthUserRoleAssignmentServiceTest {
     private AuthUserRoleAssignmentService service() {
         return new AuthUserRoleAssignmentService(replacement -> new AuthUser(
                 replacement.username(),
-                "{noop}pw",
+                dynamicBcrypt("pw123"),
                 true,
                 false,
                 List.of("ROLE_ADMIN")), CLOCK);

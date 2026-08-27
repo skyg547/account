@@ -60,7 +60,8 @@ class AuthUserJpaEntity {
             boolean locked,
             long roleVersion) {
         this.username = requireText(username, "username is required.");
-        this.storedPassword = requireText(storedPassword, "storedPassword is required.");
+        this.storedPassword = com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy.requireValidEncodedPassword(
+                storedPassword, "AuthUserJpaEntity username '" + username + "'");
         this.departmentCode = normalize(departmentCode);
         this.active = active;
         this.locked = locked;
@@ -70,9 +71,11 @@ class AuthUserJpaEntity {
     }
 
     static AuthUserJpaEntity fromConfiguredUser(AuthModuleProperties.User user) {
+        String validatedPassword = com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy.requireValidEncodedPassword(
+                user.getPassword(), "User entity for '" + user.getUsername() + "'");
         AuthUserJpaEntity entity = new AuthUserJpaEntity(
                 user.getUsername(),
-                user.getPassword(),
+                validatedPassword,
                 user.getDepartmentCode(),
                 user.isActive(),
                 user.isLocked(),

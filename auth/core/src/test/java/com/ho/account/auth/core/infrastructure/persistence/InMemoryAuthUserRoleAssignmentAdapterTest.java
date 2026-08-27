@@ -69,7 +69,7 @@ class InMemoryAuthUserRoleAssignmentAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User user = new AuthModuleProperties.User();
         user.setUsername("admin");
-        user.setPassword("{noop}1234");
+        user.setPassword("{bcrypt}" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("admin123"));
         user.setDepartmentCode("FIN");
         user.setRoles(List.of("ROLE_ADMIN"));
         properties.setUsers(List.of(user));

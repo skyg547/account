@@ -38,9 +38,10 @@ class AuthServiceTest {
                 "ROLE_ADMIN", "FIN", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
         RoleAssignment future = new RoleAssignment(
                 "ROLE_FUTURE", "FIN", AUTHENTICATED_AT.plusSeconds(1), null, true);
+        String encodedPassword = "{bcrypt}" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("1234");
         AuthUserQueryPort userQueryPort = users(Map.of(
                 "admin", new AuthUser(
-                        "admin", "{noop}1234", "FIN", true, false, List.of(effective, future), 3L)));
+                        "admin", encodedPassword, "FIN", true, false, List.of(effective, future), 3L)));
         AtomicReference<TokenIssuerPort.TokenSubject> issuedSubject = new AtomicReference<>();
         AtomicReference<Instant> issuedAt = new AtomicReference<>();
         TokenIssuerPort tokenIssuerPort = (subject, instant) -> {
@@ -51,7 +52,7 @@ class AuthServiceTest {
         AuthService authService = service(
                 userQueryPort,
                 code -> true,
-                (raw, stored) -> "{noop}".concat(raw).equals(stored),
+                new com.ho.account.auth.core.infrastructure.security.DelegatingPasswordVerifier(),
                 tokenIssuerPort,
                 new RecordingLoginAttemptPort());
 

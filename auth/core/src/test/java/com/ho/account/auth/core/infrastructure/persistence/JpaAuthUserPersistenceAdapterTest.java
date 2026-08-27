@@ -50,7 +50,7 @@ class JpaAuthUserPersistenceAdapterTest {
                 .orElseThrow();
 
         assertThat(user.getUsername()).isEqualTo("teller");
-        assertThat(user.getStoredPassword()).isEqualTo("{noop}1234");
+        assertThat(user.getStoredPassword()).startsWith("{bcrypt}");
         assertThat(user.getDepartmentCode()).isEqualTo("BR001");
         assertThat(user.getRoleVersion()).isEqualTo(3L);
         assertThat(user.getRoleAssignments()).hasSize(3);
@@ -62,7 +62,7 @@ class JpaAuthUserPersistenceAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User configured = new AuthModuleProperties.User();
         configured.setUsername("ops");
-        configured.setPassword("{noop}ops");
+        configured.setPassword(dynamicBcrypt("ops123"));
         configured.setDepartmentCode("OPS");
         configured.setRoles(List.of("ROLE_OPS", "ROLE_AUDITOR"));
         properties.setUsers(List.of(configured));
@@ -157,7 +157,7 @@ class JpaAuthUserPersistenceAdapterTest {
     private AuthUserJpaEntity userWithRoles() {
         AuthUserJpaEntity user = new AuthUserJpaEntity(
                 "teller",
-                "{noop}1234",
+                dynamicBcrypt("teller123"),
                 "BR001",
                 true,
                 false,
@@ -181,6 +181,10 @@ class JpaAuthUserPersistenceAdapterTest {
                 NOW.minus(1, ChronoUnit.DAYS),
                 true)));
         return user;
+    }
+
+    private static String dynamicBcrypt(String raw) {
+        return "{bcrypt}" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(raw);
     }
 
     @SpringBootConfiguration

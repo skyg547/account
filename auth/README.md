@@ -127,8 +127,22 @@ docker-compose up -d auth
 
 상세한 JAR 실행과 fail-closed 확인 절차는 [docs/local-run.md](./docs/local-run.md)를 따릅니다.
 
-## 4. 남은 운영 고도화
+## 4. 🔒 비밀번호 인코딩 정책 (Password Encoder Policy)
 
-- 레거시 접두사 없는 평문 비밀번호를 해시로 승격한 뒤 운영에서 평문 비교를 제거해야 합니다.
+- **Fail-Closed 인코딩 계약**: `auth` 모듈은 Spring Security의 위임형 인코딩 계약을 강제하며, 지원되는 알고리즘은 `{bcrypt}`입니다.
+- **차단 규칙**: 접두사 없는 raw 평문 비밀번호, `{noop}` 평문 접두사, `{unknown}` 미지원 알고리즘, 빈 prefix `{}`, 빈 해시 payload는 애플리케이션 시작 시점(`AuthModuleProperties`) 및 Entity 영속화 시점(`AuthUserJpaEntity`)에 즉시 거부(Fail-Closed `IllegalStateException`)됩니다.
+- **주입 형식 (Placeholder Example)**:
+  ```yaml
+  auth:
+    users:
+      - username: "<USERNAME>"
+        password: "{bcrypt}<ENCODED_BCRYPT_HASH>"
+        departmentCode: "<DEPT_CODE>"
+        roles:
+          - "ROLE_USER"
+  ```
+
+## 5. 남은 운영 고도화
+
 - 다중 노드 최초 로그인 실패 insert를 원자적 upsert 또는 DB lock으로 바꿔야 합니다.
 - 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.
