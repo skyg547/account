@@ -2924,7 +2924,7 @@
 
 ## Reviewed implementation state
 
-- Issue/branch/worktree/base: `#520`, `agent/520-dev-minimal-auth-stack`, `/tmp/account-520-dev-minimal-auth-stack`, `origin/main@a1d30721`. Draft PR publication follows this record; the Issue remains `status:blocked` on approved runtime input.
+- Issue/branch/worktree/PR/base: `#520`, `agent/520-dev-minimal-auth-stack`, `/tmp/account-520-dev-minimal-auth-stack`, Draft PR #576, `origin/main@a1d30721`. Implementation commit `111a99a4` is pushed; the Issue remains `status:blocked` on approved runtime input.
 - The standalone `tools/compose.minimal-auth-external-dev.yml` selects exactly seven `external-dev` services and uses Spring `native` only for Config Server and `docker` for the four other Java services. Existing external PostgreSQL, `account-redis` and `account-network` are referenced but never created, restarted or deleted.
 - The runner validates the 11-key file without value output, builds six images sequentially, waits for health, retries the Frontend-to-Gateway-to-Auth empty-login contract with hard timeouts, reports engine-correct stats and scopes all failure/stop operations to `com.docker.compose.project=account-minimal-auth-external-dev`.
 
