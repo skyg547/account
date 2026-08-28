@@ -2931,6 +2931,6 @@
 ## Evidence, rollback, and next owner
 
 - Standard-library runner tests pass 7/7; env validator self-test passes 165; `sh -n`, fixture Docker Compose v5.4 quiet/JSON render, exact-service/resource/loopback assertions, diff, marker and secret-pattern scans pass. A bounded ephemeral probe confirmed `account-redis` PING and was auto-removed. Independent final review found no P0-P3.
-- The Java policy test is locally unverified because the host has JDK 21 but not the required JDK 17, while the network-disabled JDK 17 cache lacks an existing OW2 POM. GitHub JDK 17 validation must be recorded before any Ready/merge decision.
+- The Java policy test is locally unverified because the host has JDK 21 but not the required JDK 17, while the network-disabled JDK 17 cache lacks an existing OW2 POM. Draft PR #576 subsequently passed all four GitHub checks, including JDK 17 Config Server validation; the approved live gate remains before Ready/merge.
 - The mode-600 `.env.external-dev` is a blank scaffold and fails closed at the first required key. Do not extract values from existing container environments. The next authorized owner supplies all 11 approved values, reruns preflight, then builds and replaces only the six exact legacy targets before `up/smoke/status`.
 - Runtime rollback is `python3 tools/run-minimal-auth-external-dev.py stop --engine podman`; it stops only the fixed project label and preserves named volumes. Code rollback is a reviewed path-scoped revert. Never use `down -v`, prune, broad container stop or external DB/Redis mutation.
