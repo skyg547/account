@@ -9,9 +9,9 @@
 
 ---
 
-## 0. 먼저 읽기: 실행 방법이 4개인 이유
+## 0. 먼저 읽기: 실행 방법이 5개인 이유
 
-저장소에는 Frontend를 실행하는 방법이 4가지 있고, 처음 보면 헷갈리기 쉽습니다.
+저장소에는 Frontend를 실행하는 방법이 5가지 있고, 처음 보면 헷갈리기 쉽습니다.
 **목적이 다르므로 필요한 것 하나만 고르면 됩니다.**
 
 | # | 방법 | 실행 위치 | 빌드 파일 | 포트 | 언제 쓰나 |
@@ -20,6 +20,7 @@
 | 2 | `frontend/compose.dev.yml` | `frontend/` | `Containerfile.dev` | 3000 | 컨테이너로 프론트만 단독 기동 (백엔드 연동은 `compose.dev.backend.yml` overlay 추가) |
 | 3 | 루트 `docker-compose.yml` | **저장소 루트** | `Containerfile.dev` | 3000 | 백엔드 API까지 붙여 통합 확인 |
 | 4 | `frontend/docker-compose.yml` | `frontend/` | `Containerfile` | **4000** | 운영 이미지 스모크 테스트 |
+| 5 | `tools/run-minimal-auth-external-dev.py` | **저장소 루트** | `Containerfile.dev` | **13000** | 외부 개발 DB에서 로그인에 필요한 최소 스택만 저자원으로 확인 |
 
 > **가장 흔한 실수**: 3번(루트)과 4번(frontend 폴더)을 헷갈려서 엉뚱한 디렉터리에서
 > `docker compose up`을 실행하는 것입니다. 3번은 반드시 **저장소 루트**에서,
@@ -152,6 +153,36 @@ overlay 없이 `compose.dev.yml` 기본값이 그대로 동작합니다.
 루트 `docker-compose.yml`의 `frontend` 서비스는 `depends_on: gateway(healthy)`가 걸려
 있어 **Gateway → Config Server + Discovery**가 함께 떠야 기동됩니다. 프론트엔드도 같은
 네트워크 안에 있으므로 위 overlay 없이 바로 연동됩니다. 자세한 내용은 아래 3장을 보세요.
+
+### 2-4. 저자원 external-dev 로그인 스택
+
+4 CPU 개발 서버에서 17개 API를 모두 띄우지 않으려면 Issue #520 실행기를 사용합니다.
+Frontend, Gateway, Auth, Master Data, Config Server, Discovery와 DB readiness gate만 포함하며
+Batch는 하나도 시작하지 않습니다. gate는 두 PostgreSQL context의 권한과 기존 Redis의
+값 없는 `PING`만 확인합니다.
+
+```bash
+python3 tools/run-minimal-auth-external-dev.py preflight \
+  --env-file .env.external-dev --engine podman
+python3 tools/run-minimal-auth-external-dev.py build \
+  --env-file .env.external-dev --engine podman
+python3 tools/run-minimal-auth-external-dev.py up \
+  --env-file .env.external-dev --engine podman
+python3 tools/run-minimal-auth-external-dev.py smoke \
+  --env-file .env.external-dev --engine podman
+```
+
+브라우저는 <http://127.0.0.1:13000> 을 엽니다. 기존 Frontend 3000과 Gateway 8000을
+건드리지 않고 격리 포트 13000/18000을 씁니다. 환경 파일 값과 로그인 응답 본문은
+출력하지 않습니다. 종료는 다음 한 줄이며 volume을 삭제하지 않습니다.
+
+```bash
+python3 tools/run-minimal-auth-external-dev.py stop --engine podman
+```
+
+환경 파일의 11개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate와 롤백 설명은
+[development-compose.md의 #520 절](./development-compose.md#저자원-external-dev-인증-스택-520)을
+먼저 읽으세요.
 
 ---
 

@@ -85,7 +85,15 @@ H2를 사용한 실제 기동 성공과 각 실행 모듈에 중복된 datasourc
 
 현재 inventory에서 Java 실행 대상은 root development Compose에 36/36, production Compose에 서버형 Java 대상 35/35가 매핑됩니다. Frontend와 개발 인프라 서비스는 별도 Compose entry로 관리됩니다. DB app 32개는 dev/prod에서 PostgreSQL driver와 profile을 사용하며 Compose에 H2 URL을 두지 않습니다.
 
-정적 Compose/image policy는 Config Server의 `DevelopmentComposePolicyTest`, `ProductionComposePolicyTest`, `ContainerImagePolicyTest`가 소유합니다. 최신 실행 21개 중 20개는 통과했고, production test 하나가 이동 전 `docs/production-compose.md`를 참조하는 경로 회귀로 실패해 `#424`로 분리했습니다. 실제 canonical runbook은 `docs/guides/production-compose.md`입니다. 현재 호스트에는 Podman CLI만 있고 `podman-compose`/`docker-compose` provider가 없어 실제 `compose config`, image build, `up`, health, PostgreSQL 연결은 수행하지 않았습니다.
+정적 Compose/image policy는 Config Server의 `DevelopmentComposePolicyTest`, `ProductionComposePolicyTest`, `ContainerImagePolicyTest`가 소유합니다. 최신 실행 21개 중 20개는 통과했고, production test 하나가 이동 전 `docs/production-compose.md`를 참조하는 경로 회귀로 실패해 `#424`로 분리했습니다. 실제 canonical runbook은 `docs/guides/production-compose.md`입니다. 이 매트릭스의 2026-08-14 감사 호스트에는 Podman CLI만 있고 Compose provider가 없어 실제 `compose config`, image build, `up`, health, PostgreSQL 연결을 수행하지 않았습니다.
+
+2026-08-28의 Issue #520은 전체 17-context external-dev와 별도로, Auth/Master Data
+외부 DB와 Frontend 로그인 경로만 선택하는 저자원 Compose를 `tools/**`에 추가합니다.
+Config Server, Discovery, Auth, Master Data, Gateway, Frontend와 2-context DB gate만 정의하고
+Java image는 Gradle worker 1로 순차 빌드합니다. 이 개발 서버의 Podman은 Docker Compose
+v5.4 provider를 사용하며, 값 비노출 validator self-test와 generated fixture
+`config --quiet`은 통과했습니다. 승인된 `.env.external-dev`의 11개 값이 준비되기 전에는
+실제 DB 접속, image 재생성, `up`, 로그인 경로 성공을 주장하지 않습니다.
 
 중복 없이 기존 Issue를 계속 사용합니다.
 

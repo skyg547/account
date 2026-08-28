@@ -1,0 +1,286 @@
+name: account-minimal-auth-external-dev
+
+x-external-dev-profile: &external-dev-profile
+  profiles: ["external-dev"]
+
+x-java-resource-limit: &java-resource-limit
+  deploy:
+    resources:
+      limits:
+        cpus: "0.60"
+        memory: 1024m
+        pids: 256
+
+x-java-healthcheck: &java-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 45s
+
+services:
+  minimal-db-check:
+    <<: *external-dev-profile
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    read_only: true
+    environment:
+      AUTH_DB_URL: "${AUTH_DB_URL:?Set AUTH_DB_URL in the approved env file}"
+      AUTH_DB_USER: "${AUTH_DB_USER:?Set AUTH_DB_USER in the approved env file}"
+      AUTH_DB_PASSWORD: "${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in the approved env file}"
+      DEV_DB_HOST: "${DEV_DB_HOST:?Set DEV_DB_HOST in the approved env file}"
+      DEV_DB_PORT: "${DEV_DB_PORT:?Set DEV_DB_PORT in the approved env file}"
+      DEV_DB_NAME: "${DEV_DB_NAME:?Set DEV_DB_NAME in the approved env file}"
+      DEV_DB_USER: "${DEV_DB_USER:?Set DEV_DB_USER in the approved env file}"
+      DEV_DB_PASSWORD: "${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in the approved env file}"
+      REDIS_HOST: account-redis
+      REDIS_PORT: "6379"
+    command: ["sh", "-c", "while :; do sleep 3600; done"]
+    volumes:
+      - ./check-minimal-auth-databases.sh:/account-runtime/check-minimal-auth-databases.sh:ro
+    healthcheck:
+      test: ["CMD", "sh", "/account-runtime/check-minimal-auth-databases.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20"
+          memory: 192m
+          pids: 64
+    networks: [account-network]
+
+  minimal-config-server:
+    <<: [*external-dev-profile, *java-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :config-server
+        JAR_DIRECTORY: config-server
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      SERVER_PORT: "8888"
+      CONFIG_REPO_LOCATION: file:/config-repo
+      ENCRYPT_KEY: "${ENCRYPT_KEY:?Set ENCRYPT_KEY in the approved env file}"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      MANAGEMENT_TRACING_ENABLED: "false"
+    volumes:
+      - ../config-repo:/config-repo:ro
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *java-healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8888/actuator/health/readiness || exit 1"]
+      start_period: 30s
+    networks: [account-network]
+
+  minimal-discovery:
+    <<: [*external-dev-profile, *java-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :discovery
+        JAR_DIRECTORY: discovery
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8761"
+      SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      minimal-config-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8761/actuator/health/readiness || exit 1"]
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    networks: [account-network]
+
+  minimal-auth:
+    <<: [*external-dev-profile, *java-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :auth:api
+        JAR_DIRECTORY: auth/api
+    restart: on-failure
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8084"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
+      EUREKA_DEFAULT_ZONE: http://minimal-discovery:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      SPRING_CLOUD_LOADBALANCER_ENABLED: "true"
+      SPRING_CLOUD_VAULT_ENABLED: "false"
+      SPRING_DATASOURCE_URL: "${AUTH_DB_URL:?Set AUTH_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${AUTH_DB_USER:?Set AUTH_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${AUTH_DB_PASSWORD:?Set AUTH_DB_PASSWORD in the approved env file}"
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_SQL_INIT_MODE: never
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the approved env file}"
+      AUTH_INTERNAL_API_TOKEN: "${AUTH_INTERNAL_API_TOKEN:?Set AUTH_INTERNAL_API_TOKEN in the approved env file}"
+      AUTH_MASTER_DATA_ENABLED: "true"
+      AUTH_MASTER_DATA_BASE_URL: http://minimal-master-data:8082
+      SPRING_DATA_REDIS_HOST: account-redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      minimal-db-check:
+        condition: service_healthy
+      minimal-config-server:
+        condition: service_healthy
+      minimal-discovery:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8084/actuator/health/readiness || exit 1"]
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    networks: [account-network]
+
+  minimal-master-data:
+    <<: [*external-dev-profile, *java-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :master-data:api
+        JAR_DIRECTORY: master-data/api
+    restart: on-failure
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8082"
+      SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
+      EUREKA_DEFAULT_ZONE: http://minimal-discovery:8761/eureka/
+      SPRING_CLOUD_VAULT_ENABLED: "false"
+      DEV_DB_HOST: "${DEV_DB_HOST:?Set DEV_DB_HOST in the approved env file}"
+      DEV_DB_PORT: "${DEV_DB_PORT:?Set DEV_DB_PORT in the approved env file}"
+      DEV_DB_NAME: "${DEV_DB_NAME:?Set DEV_DB_NAME in the approved env file}"
+      DEV_DB_USER: "${DEV_DB_USER:?Set DEV_DB_USER in the approved env file}"
+      DEV_DB_PASSWORD: "${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in the approved env file}"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${DEV_DB_HOST:?Set DEV_DB_HOST in the approved env file}:${DEV_DB_PORT:?Set DEV_DB_PORT in the approved env file}/${DEV_DB_NAME:?Set DEV_DB_NAME in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${DEV_DB_USER:?Set DEV_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in the approved env file}"
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_SQL_INIT_MODE: never
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      minimal-db-check:
+        condition: service_healthy
+      minimal-config-server:
+        condition: service_healthy
+      minimal-discovery:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8082/actuator/health/readiness || exit 1"]
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    networks: [account-network]
+
+  minimal-gateway:
+    <<: [*external-dev-profile, *java-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :gateway
+        JAR_DIRECTORY: gateway
+    restart: on-failure
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8000"
+      SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
+      EUREKA_DEFAULT_ZONE: http://minimal-discovery:8761/eureka/
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the approved env file}"
+      AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: lb://auth-service
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      minimal-config-server:
+        condition: service_healthy
+      minimal-discovery:
+        condition: service_healthy
+      minimal-auth:
+        condition: service_healthy
+      minimal-master-data:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MINIMAL_DEV_GATEWAY_PORT:-18000}:8000"
+    healthcheck:
+      <<: *java-healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/actuator/health/readiness || exit 1"]
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    networks: [account-network]
+
+  minimal-frontend:
+    <<: *external-dev-profile
+    build:
+      context: ../frontend
+      dockerfile: Containerfile.dev
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      GATEWAY_INTERNAL_URL: http://minimal-gateway:8000
+    depends_on:
+      minimal-gateway:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MINIMAL_DEV_FRONTEND_PORT:-13000}:3000"
+    volumes:
+      - ../frontend:/app
+      - minimal_frontend_node_modules:/app/node_modules
+      - minimal_frontend_next_cache:/app/.next
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768m
+          pids: 256
+    networks: [account-network]
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true
+
+volumes:
+  minimal_frontend_node_modules:
+  minimal_frontend_next_cache:
