@@ -62,6 +62,7 @@
 - **보고서 엔진**: [reporting/README.md](../reporting/README.md)
 - **재무 마트**: [account-mart/README.md](../account-mart/README.md)
 - **IFRS9 대손**: [ecl/README.md](../ecl/README.md)
+- **내부 감사/통제**: [internal-audit/README.md](../internal-audit/README.md)
 - **공통 커널/계약**: [shared-kernel/README.md](../shared-kernel/README.md), [contracts/README.md](../contracts/README.md)
 
 ---
