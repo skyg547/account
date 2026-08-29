@@ -11,11 +11,13 @@
 처음 합류하신 개발자나 기획자분들은 아래 순서대로 문서를 확인해 주세요.
 
 1. **[master-domain-glossary.md](guides/master-domain-glossary.md) (⭐ 필수):** 초보자를 위한 쉽게 배우는 마스터 도메인 용어집 (전표, 마감, 대사, IFRS 9 ECL 등을 쉬운 비유로 설명).
-2. **[beginner_guide.md](guides/beginner_guide.md):** 프로젝트 통합 가이드. 시스템의 큰 그림과 전체 비즈니스 파이프라인을 다룹니다.
-3. **[local-development.md](guides/local-development.md):** IntelliJ IDEA, JDK 21, Gradle, `local` H2 프로파일 실행 방법 가이드.
-4. **[development-compose.md](guides/development-compose.md):** Docker/Podman Compose 기반 개발 환경 및 36개 실행 target 연동 절차.
-5. **[frontend-runtime-guide.md](guides/frontend-runtime-guide.md):** 프론트엔드를 로컬/개발/운영 프로파일별로 실행·배포하는 초보자 가이드 (루트 Compose 사용법 포함).
-6. **[infrastructure_runbook.md](guides/infrastructure_runbook.md):** Gateway, Eureka, Kafka, Config-Server 등 인프라 아키텍처 가이드.
+2. **[beginner_guide.md](guides/beginner_guide.md):** 프로젝트 통합 입문 가이드. 6단계 파이프라인, 72개 모듈 vs 36개 실행 파일 분해 및 4대 실행 모드를 다룹니다.
+3. **[hexagonal-ddd-architecture-guide.md](guides/hexagonal-ddd-architecture-guide.md):** 헥사고날 포트/어댑터, 도메인 vs JPA 엔티티, 유스케이스/서비스/리포지토리 및 함수형(FP) 융합 가이드.
+4. **[flyway-migration-guide.md](guides/flyway-migration-guide.md):** Flyway DB 버전 관리 원리, H2 vs PostgreSQL 라이프사이클 및 migration-runner 전담 아키텍처.
+5. **[local-development.md](guides/local-development.md):** IntelliJ IDEA, JDK 21, Gradle, `local` H2 프로파일 실행 방법 가이드.
+6. **[development-compose.md](guides/development-compose.md):** Docker/Podman Compose 기반 개발 환경 및 36개 실행 target 연동 절차.
+7. **[frontend-runtime-guide.md](guides/frontend-runtime-guide.md):** 프론트엔드를 로컬/개발/운영 프로파일별로 실행·배포하는 초보자 가이드 (루트 Compose 사용법 포함).
+8. **[infrastructure_runbook.md](guides/infrastructure_runbook.md):** Gateway, Eureka, Kafka, Config-Server 등 인프라 아키텍처 가이드.
 
 ---
 
@@ -34,6 +36,9 @@
 ## 3. 🛠️ 개발 및 인프라 운영 가이드 (`docs/guides/`)
 
 - **[master-domain-glossary.md](guides/master-domain-glossary.md):** 비유 중심 회계/재무/기술 마스터 용어집.
+- **[beginner_guide.md](guides/beginner_guide.md):** 6단계 파이프라인 및 4대 개발자 실행 모드 입문 가이드.
+- **[hexagonal-ddd-architecture-guide.md](guides/hexagonal-ddd-architecture-guide.md):** 헥사고날 포트/어댑터, 도메인 vs JPA 엔티티, 유스케이스/서비스/리포지토리 및 함수형(FP) 융합 가이드.
+- **[flyway-migration-guide.md](guides/flyway-migration-guide.md):** Flyway DB 버전 관리 원리, H2 vs PostgreSQL 라이프사이클 및 migration-runner 전담 아키텍처.
 - **[local-development.md](guides/local-development.md):** 로컬 환경 구축 및 `local` 프로파일 독립 H2 실행 가이드.
 - **[development-compose.md](guides/development-compose.md):** 개발용 Compose (`account-dev-network`) 구성.
 - **[frontend-runtime-guide.md](guides/frontend-runtime-guide.md):** 프론트엔드 로컬/개발/운영 실행 및 배포 가이드.
