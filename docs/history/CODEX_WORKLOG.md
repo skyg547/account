@@ -2043,3 +2043,11 @@
 - Independent review found a P2 because HTTP 200 alone could accept red/timed-out Elasticsearch. Health now requires curl success, `timed_out=false` and yellow/green status; green is accepted while red/timeout fixtures are rejected. The policy test enforces those predicates and final independent re-review found no P0-P3.
 - Local Java success is not claimed: host Java 17 is absent and the cached network-disabled JDK 17 Gradle run lacks one existing OW2 POM. No dependency/image download occurred; GitHub Module Validation remains required before integration. Commit `c48bca76` is pushed, Draft PR #585 is open, Issue #561 is `status:needs-review`, and rollback remains service-scoped without prune or volume deletion.
 - GitHub JDK 17 Config Server validation and all four checks passed on final head `3e23cf65`. Independent exact-head review found no P0-P3, the Ready-event Guard passed, and PR #585 squash-merged as `67c53f2f`; Issue #561 closed with active labels removed. The bounded live Logstash service remains healthy.
+
+## 2026-08-30 (Issues #592/#593 external-dev PostgreSQL migration verification)
+
+- Reused the existing PostgreSQL 16.13 and Redis containers while preserving volumes and prior data. Canonical Auth/Master Data databases and least-privilege owner/runtime roles are ready, and ignored mode-600 external-dev files hold local-only inputs without value disclosure.
+- Reproduced migration-runner SQLSTATE `22023` at the nullable `character_maximum_length` read and isolated the repair as #593. The verifier now uses `getLong`/`wasNull`; tests cover positive, zero and SQL NULL values, enforce call order and prohibit the failing typed `getObject` path.
+- CPU-1/memory-1-GiB JDK-17 verification passed all 85 migration-runner tests. The rebuilt runner passed migrate/validate for both canonical databases against PostgreSQL 16.13.
+- The existing runtime-grant script missed one identity sequence. Current DB privileges were completed safely and the final two-database/Redis gate passed; #594 separately tracks the reusable enumeration fix. No volume, database or existing record was deleted.
+- Static gates pass. Independent review and #593 PR/CI/merge remain before the now-unblocked #520 six-image sequential build and external-dev cutover.

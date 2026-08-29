@@ -55,7 +55,7 @@ final class BatchMetadataVerifier {
                             key(table, resultSet.getString(2)),
                             new ColumnDefinition(
                                     normalized(resultSet.getString(3)),
-                                    resultSet.getObject(4, Long.class),
+                                    readNullableLong(resultSet, 4),
                                     "YES".equalsIgnoreCase(resultSet.getString(5))));
                 }
             }
@@ -69,6 +69,11 @@ final class BatchMetadataVerifier {
         });
         verifyCriticalDefinitions(definitions);
         verifyKeyConstraints(connection);
+    }
+
+    static Long readNullableLong(ResultSet resultSet, int columnIndex) throws SQLException {
+        long value = resultSet.getLong(columnIndex);
+        return resultSet.wasNull() ? null : value;
     }
 
     private void verifyCriticalDefinitions(Map<String, ColumnDefinition> definitions) {
