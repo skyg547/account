@@ -2924,7 +2924,7 @@
 
 ## Review-ready state
 
-- Issue/branch/worktree: `#561`, `agent/561-logstash-pipeline`, `/tmp/account-561-logstash-pipeline`, based on `main@38ad309c`; Draft PR publication is next.
+- Issue/branch/worktree/PR: `#561`, `agent/561-logstash-pipeline`, `/tmp/account-561-logstash-pipeline`, Draft PR #585 based on `main@38ad309c`; implementation commit `c48bca76` is pushed and the Issue is `status:needs-review`.
 - The change is limited to `logstash/docker-compose.yml`, `logstash/config/logstash.yml`, `logstash/pipeline/logstash.conf`, `logstash/README.md`, one direct policy test and these parent harness records. It does not change application Logback destinations, credentials, production indices, Elasticsearch volumes or document data.
 - `account-logstash-dev` is currently healthy with both repository files mounted read-only, internal TCP 5000 available, 5044 unavailable, no host binding, 640 MiB memory cap, restart count zero and no OOM. A redacted synthetic probe reached the development index with count 1 and main pipeline in/out 1/1.
 
