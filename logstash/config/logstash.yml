@@ -1,13 +1,17 @@
-# ======================== Logstash Configuration =========================
-# 초보자를 위한 로그스태시 자체 설정 파일입니다.
-
-# 네트워크 설정: 모든 IP에서 로그를 받을 수 있도록 열어둡니다.
+# Development-only Logstash node settings. The Compose mount is read-only.
 http.host: "0.0.0.0"
+http.port: 9600
 
-# 파이프라인 설정 자동 새로고침 
-# (컨테이너 재시작 없이 logstash.conf 수정 시 즉시 반영됨)
-config.reload.automatic: true
-config.reload.interval: 3s
+# One small pipeline is enough for the constrained development server.
+pipeline.id: main
+pipeline.workers: 1
+pipeline.batch.size: 64
+pipeline.ecs_compatibility: disabled
+queue.type: memory
 
-# X-Pack 모니터링 기능 끄기 (로컬 메모리 절약)
+# The mounted pipeline is immutable for one container lifecycle.
+config.reload.automatic: false
+
+# Local development monitoring is provided by the HTTP API and Prometheus work.
 xpack.monitoring.enabled: false
+log.level: info

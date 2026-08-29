@@ -2919,3 +2919,17 @@
 - In-memory compile, self-test `PASS: 165`, independent synthetic adversarial `PASS: 91`, exact-path/diff/marker/pycache checks and final independent review all pass; final review has no P0-P3. No real env, secret, DB, image, container environment or running service was read or changed.
 - The validator is intentionally not the full root external-dev validator. Current root Compose additionally interpolates `AUTH_DEFAULT_PASSWORD` and every one of the 17 DB contexts. #520 must reconcile that topology and validate an approved untracked env before any quiet render, build, recreation or runtime smoke; #521 remains blocked on the tested runtime contract.
 - Rollback is a reviewed revert of the validator and append-only record commits. There is no data or container rollback. Branch/worktree deletion is not authorized.
+
+# AI Harness Handoff - 2026-08-29 Issue #561 Logstash development pipeline
+
+## Review-ready state
+
+- Issue/branch/worktree: `#561`, `agent/561-logstash-pipeline`, `/tmp/account-561-logstash-pipeline`, based on `main@38ad309c`; Draft PR publication is next.
+- The change is limited to `logstash/docker-compose.yml`, `logstash/config/logstash.yml`, `logstash/pipeline/logstash.conf`, `logstash/README.md`, one direct policy test and these parent harness records. It does not change application Logback destinations, credentials, production indices, Elasticsearch volumes or document data.
+- `account-logstash-dev` is currently healthy with both repository files mounted read-only, internal TCP 5000 available, 5044 unavailable, no host binding, 640 MiB memory cap, restart count zero and no OOM. A redacted synthetic probe reached the development index with count 1 and main pipeline in/out 1/1.
+
+## Evidence, rollback, and next owner
+
+- Quiet Compose render, Logstash syntax checks, stop/recovery, rendered policy, allowlist/diff/marker checks and positive/negative readiness fixtures pass. Independent review's P2 HTTP-only Elasticsearch readiness finding was remediated; final re-review found no P0-P3.
+- Host Java 21 cannot satisfy the Java 17 toolchain. A cached Gradle JDK 17 container with network disabled stopped on one uncached existing POM, so no local Java success is claimed and no download occurred. GitHub JDK 17 Config Server test/Module Validation must pass before Ready/merge.
+- Rollback targets only `podman compose -f logstash/docker-compose.yml stop logstash` followed by a reviewed recreate. Never delete Elasticsearch data, use `down -v`, prune, or stop unrelated containers. The obsolete stateless `logstash` container was already force-removed after it became stuck with no PID/mounts; that container identity cannot be recovered, although its image remains.
