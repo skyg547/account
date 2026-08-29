@@ -163,6 +163,30 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
+    @DisplayName("demo user seed runner는 local 프로파일에서만 활성화되고 dev/prod에서는 비활성화된다")
+    void demoUserSeedRunnerIsolatedToLocalProfile() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        // 1. local profile: AuthUserSeedRunner bean is present
+        try (ConfigurableApplicationContext localCtx = localContext(jwtSecret, internalToken)) {
+            assertThat(localCtx.containsBean("authUserSeedRunner")).isTrue();
+        }
+
+        // 2. dev profile: AuthUserSeedRunner bean is NOT present
+        try (ConfigurableApplicationContext devCtx =
+                fullApplicationContext("dev", jwtSecret, internalToken)) {
+            assertThat(devCtx.containsBean("authUserSeedRunner")).isFalse();
+        }
+
+        // 3. prod profile: AuthUserSeedRunner bean is NOT present
+        try (ConfigurableApplicationContext prodCtx =
+                fullApplicationContext("prod", jwtSecret, internalToken)) {
+            assertThat(prodCtx.containsBean("authUserSeedRunner")).isFalse();
+        }
+    }
+
+    @Test
     @DisplayName("Auth API 모듈만이 실행 가능한 Boot JAR 애플리케이션이다")
     void onlyAuthApiIsExecutableApplication() throws Exception {
         Path root = repositoryRoot();
@@ -182,6 +206,34 @@ class AuthApiRuntimePolicyTest {
         overrides.put("spring.profiles.active", "local");
         overrides.put("auth.jwt.secret", jwtSecret);
         overrides.put("auth.internal-api.token", internalToken);
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
+
+        return new SpringApplicationBuilder(AuthApplication.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run();
+    }
+
+    private ConfigurableApplicationContext fullApplicationContext(
+            String profile, String jwtSecret, String internalToken) {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        overrides.put("spring.profiles.active", profile);
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("spring.datasource.url", "jdbc:h2:mem:auth_policy_test_" + profile + ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL");
+        overrides.put("spring.datasource.driver-class-name", "org.h2.Driver");
+        overrides.put("spring.jpa.hibernate.ddl-auto", "none");
+        overrides.put("spring.flyway.enabled", "false");
+        overrides.put("spring.cloud.config.enabled", "false");
+        overrides.put("spring.cloud.discovery.enabled", "false");
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
 
