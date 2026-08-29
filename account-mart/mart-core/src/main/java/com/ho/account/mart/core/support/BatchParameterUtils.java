@@ -2,6 +2,7 @@ package com.ho.account.mart.core.support;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 /**
  * 배치 기준일 파라미터 해석 유틸리티.
@@ -18,19 +19,20 @@ public final class BatchParameterUtils {
     }
 
     public static LocalDate resolveBaseDate(String baseDt, String baseDate) {
-        String resolvedBaseDate = firstNonBlank(baseDt, baseDate);
-        if (resolvedBaseDate == null) {
-            throw new IllegalStateException("baseDate(or baseDt) job parameter is required");
-        }
+        String resolvedBaseDate = findFirstNonBlank(baseDt, baseDate)
+                .orElseThrow(() -> new IllegalArgumentException("baseDate(or baseDt) job parameter is required"));
         return LocalDate.parse(resolvedBaseDate, DEFAULT_DATE_FORMAT);
     }
 
-    private static String firstNonBlank(String... candidates) {
+    private static Optional<String> findFirstNonBlank(String... candidates) {
+        if (candidates == null) {
+            return Optional.empty();
+        }
         for (String candidate : candidates) {
             if (candidate != null && !candidate.isBlank()) {
-                return candidate;
+                return Optional.of(candidate.trim());
             }
         }
-        return null;
+        return Optional.empty();
     }
 }
