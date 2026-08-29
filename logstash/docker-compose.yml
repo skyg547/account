@@ -1,26 +1,55 @@
-# [초보자를 위한 개념 설명]
-# docker-compose.yml은 복잡한 도커 실행 명령어를 쉽게 설정 파일로 만들어둔 것입니다.
-# 인프라스트럭처(DB, 메시지 큐 등)는 직접 코드를 빌드하지 않고 이미 만들어진 이미지를 가져와서 실행합니다.
-
-version: '3.8' # Docker Compose 파일의 문법 버전
+name: account-logstash-dev
 
 services:
   logstash:
-    # 사용할 미리 만들어진 도커 이미지를 지정합니다. (도커 허브에서 다운로드 받습니다)
     image: docker.elastic.co/logstash/logstash:7.17.10
-    
-    # 컨테이너의 이름을 지정합니다.
-    container_name: logstash
-    
-    # 포트 연결 (내 PC의 포트 : 컨테이너의 포트)
-    # 내 PC에서 5044 포트로 접속하면, 이 인프라 컨테이너의 5044 포트로 연결됩니다.
-    ports:
-      - "5044:5044"
-      
-    # 공통 네트워크망에 합류하여 다른 MSA 애플리케이션들이 이 인프라를 찾을 수 있게 합니다.
+    container_name: account-logstash-dev
+    restart: unless-stopped
+    stop_grace_period: 30s
+    init: true
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+    volumes:
+      - ./config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    expose:
+      - "5000"
+      - "9600"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --fail --silent --show-error
+          http://127.0.0.1:9600/_node/pipelines/main >/dev/null
+          && ES_HEALTH="$$(curl --fail --silent --show-error
+          'http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=2s')"
+          && printf '%s' "$${ES_HEALTH}"
+          | grep -Eq '"timed_out"[[:space:]]*:[[:space:]]*false'
+          && printf '%s' "$${ES_HEALTH}"
+          | grep -Eq '"status"[[:space:]]*:[[:space:]]*"(yellow|green)"'
+      interval: 10s
+      timeout: 6s
+      retries: 18
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 640m
+          pids: 256
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     networks:
-      - account-network
+      account-network:
+        aliases:
+          - logstash
 
 networks:
   account-network:
-    external: true # 공통 네트워크망을 사용합니다.
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true

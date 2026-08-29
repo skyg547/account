@@ -2932,5 +2932,24 @@
 
 - Standard-library runner tests pass 7/7; env validator self-test passes 165; `sh -n`, fixture Docker Compose v5.4 quiet/JSON render, exact-service/resource/loopback assertions, diff, marker and secret-pattern scans pass. A bounded ephemeral probe confirmed `account-redis` PING and was auto-removed. Independent final review found no P0-P3.
 - The Java policy test is locally unverified because the host has JDK 21 but not the required JDK 17, while the network-disabled JDK 17 cache lacks an existing OW2 POM. Draft PR #576 subsequently passed all four GitHub checks, including JDK 17 Config Server validation; the approved live gate remains before Ready/merge.
-- The mode-600 `.env.external-dev` is a blank scaffold and fails closed at the first required key. Do not extract values from existing container environments. The next authorized owner supplies all 11 approved values, reruns preflight, then builds and replaces only the six exact legacy targets before `up/smoke/status`.
+- The ignored mode-600 `.env.external-dev` now contains newly generated local-only encryption, JWT and internal-token inputs; their values were not printed or committed. The redacting validator advances to blank `AUTH_DB_URL`. Do not extract values from existing container environments. The next authorized owner supplies the remaining eight approved external Auth/Master Data DB inputs, reruns preflight, then builds and replaces only the six exact legacy targets before `up/smoke/status`.
 - Runtime rollback is `python3 tools/run-minimal-auth-external-dev.py stop --engine podman`; it stops only the fixed project label and preserves named volumes. Code rollback is a reviewed path-scoped revert. Never use `down -v`, prune, broad container stop or external DB/Redis mutation.
+
+# AI Harness Handoff - 2026-08-29 Issue #561 Logstash development pipeline
+
+## Review-ready state
+
+- Issue/branch/worktree/PR: `#561`, `agent/561-logstash-pipeline`, `/tmp/account-561-logstash-pipeline`, Draft PR #585 based on `main@38ad309c`; implementation commit `c48bca76` is pushed and the Issue is `status:needs-review`.
+- The change is limited to `logstash/docker-compose.yml`, `logstash/config/logstash.yml`, `logstash/pipeline/logstash.conf`, `logstash/README.md`, one direct policy test and these parent harness records. It does not change application Logback destinations, credentials, production indices, Elasticsearch volumes or document data.
+- `account-logstash-dev` is currently healthy with both repository files mounted read-only, internal TCP 5000 available, 5044 unavailable, no host binding, 640 MiB memory cap, restart count zero and no OOM. A redacted synthetic probe reached the development index with count 1 and main pipeline in/out 1/1.
+
+## Evidence, rollback, and next owner
+
+- Quiet Compose render, Logstash syntax checks, stop/recovery, rendered policy, allowlist/diff/marker checks and positive/negative readiness fixtures pass. Independent review's P2 HTTP-only Elasticsearch readiness finding was remediated; final re-review found no P0-P3.
+- Host Java 21 cannot satisfy the Java 17 toolchain. A cached Gradle JDK 17 container with network disabled stopped on one uncached existing POM, so no local Java success is claimed and no download occurred. GitHub JDK 17 Config Server test/Module Validation must pass before Ready/merge.
+- Rollback targets only `podman compose -f logstash/docker-compose.yml stop logstash` followed by a reviewed recreate. Never delete Elasticsearch data, use `down -v`, prune, or stop unrelated containers. The obsolete stateless `logstash` container was already force-removed after it became stuck with no PID/mounts; that container identity cannot be recovered, although its image remains.
+
+## Issue #561 integration result
+
+- GitHub JDK 17 Config Server validation and all four PR checks passed on final head `3e23cf65`. Independent exact-head review found no P0-P3 and the Ready-event Guard passed.
+- PR #585 squash-merged as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. The live `account-logstash-dev` service remains healthy. Follow-up observability sequencing continues with #562; #520 remains separately gated by its approved external environment inputs.
