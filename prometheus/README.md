@@ -1,24 +1,41 @@
-# 🌡️ Prometheus (프로메테우스) - "건강 상태 측정기 (메트릭 수집기)"
+# 📊 Prometheus (프로메테우스) - "MSA 시계열 메트릭 수집 엔진"
 
 ## 1. 초보자를 위한 개념 설명
-프로메테우스는 흩어져 있는 MSA 서버들(Spring Boot)을 주기적으로 돌아다니며 **"너 지금 CPU 온도 몇 도야? 메모리 혈압은 어때?"** 하고 체온을 재서(Scraping) 기록하는 '종합 검진 센터'입니다.
-에러 로그(텍스트)를 모으는 ELK와 달리, 프로메테우스는 철저하게 **숫자 데이터(메트릭)**만 수집합니다.
+프로메테우스는 각 MSA 서비스(Spring Boot)의 `/actuator/prometheus` 엔드포인트를 주기적으로 방문(Scraping)하여,
+**CPU 사용률, 메모리 점유율, 초당 HTTP 요청 수(TPS), 응답 지연시간** 등의 숫자를 수집하고 저장하는 시계열 데이터베이스입니다.
 
-## 2. 이 폴더의 역할
-- `prometheus.yml`: 프로메테우스 간호사가 **어떤 병실(서버)을, 몇 초마다 방문할 것인지** 명세한 순찰 일정표입니다.
-- `docker-compose.yml`: 이 종합 검진 센터를 띄우기 위한 실행 스크립트입니다.
+---
 
-## 3. 실행 및 확인 방법
-- MSA 철학에 따라, 이 모듈은 **독자적인 `docker-compose.yml`**을 가집니다.
+## 2. 이 폴더의 구성
+- `prometheus.yml`: 메트릭을 수집할 대상 서비스(auth, master-data, discovery, config-server, gateway) 설정.
+- `docker-compose.yml`: 프로메테우스 컨테이너 실행 명세서 (설정 파일 `read-only` 마운트 및 리소스 상한선 포함).
 
-### ⚠️ 필수 선행 작업
-이전에 실행했던 프로젝트 최상단의 `setup-network.bat`를 통해 `account-network`가 이미 만들어져 있어야 합니다.
+---
 
-### 🚀 실행 순서
-1. 터미널을 열고 **`prometheus` 폴더 안으로 이동**합니다. (`cd prometheus`)
-2. 아래 명령어를 실행합니다:
-   ```bash
-   docker-compose up -d
-   ```
-3. 브라우저에서 [http://localhost:9090](http://localhost:9090) 에 접속하면 프로메테우스 화면이 나옵니다.
-4. 상단 메뉴의 **Status -> Targets**를 눌러보면, 우리가 설정한 Spring Boot 서버들이 정상적으로 체온을 제출(UP)하고 있는지 확인할 수 있습니다!
+## 3. 실행 및 검증 방법
+
+### ⚠️ 필수 선행 조건
+- Docker 공유 네트워크 `account-network`가 생성되어 있어야 합니다.
+
+### 🚀 실행 명령어
+```bash
+# 프로메테우스 독립 실행
+docker compose -f prometheus/docker-compose.yml up -d
+```
+
+### 🔍 헬스체크 및 검증
+```bash
+# 1. 프로메테우스 준비 상태 확인 (HTTP 200)
+curl -s http://localhost:9090/-/ready
+
+# 2. 타깃 수집 현황 확인
+curl -s http://localhost:9090/api/v1/targets
+```
+
+---
+
+## 4. 롤백(Rollback) 절차
+```bash
+# 프로메테우스 컨테이너만 안전하게 종료 (데이터 볼륨 및 타 서비스 보존)
+docker compose -f prometheus/docker-compose.yml down
+```
