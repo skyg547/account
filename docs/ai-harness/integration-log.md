@@ -207,3 +207,10 @@ Recommended integration order remains:
 - Gate: focused/full Internal Audit tests, bootJar, direct local H2/Flyway V60/JPA startup, root 349-task forced build, latest-main sync and final independent PR-head review passed with no P0-P3.
 - Result: PR #357 merged to main as `21395eb3`; Issue #344 closed and active workflow/owner labels were removed.
 - Rollback: use a reviewed revert of only the two #344 runtime-test/documentation paths while preserving append-only harness history; no schema, data, container, credential or external runtime rollback is required.
+
+## 2026-08-29 - GH-561 Development Logstash Pipeline Integration
+
+- Source: Issue #561, PR #585, branch `agent/561-logstash-pipeline`.
+- Gate: two Logstash syntax checks, quiet Compose render, live read-only mount/TCP 5000/closed 5044/redacted synthetic/stop-recovery checks, exact green/red/timeout readiness predicates, GitHub JDK 17 Config Server validation, four final checks, Ready-event Guard and independent exact-head review all passed; final review found no P0-P3.
+- Result: PR #585 squash-merged to `main` as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. `account-logstash-dev` remains healthy with no host port and bounded resources.
+- Rollback: use a reviewed revert of the four Logstash files, direct policy test and harness records, then stop/recreate only the exact Logstash Compose service. Never use `down -v`, prune or Elasticsearch data deletion. The obsolete stateless `logstash` container removed during recovery is not recoverable as a container; its image and Elasticsearch data remain.

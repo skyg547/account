@@ -2933,3 +2933,8 @@
 - Quiet Compose render, Logstash syntax checks, stop/recovery, rendered policy, allowlist/diff/marker checks and positive/negative readiness fixtures pass. Independent review's P2 HTTP-only Elasticsearch readiness finding was remediated; final re-review found no P0-P3.
 - Host Java 21 cannot satisfy the Java 17 toolchain. A cached Gradle JDK 17 container with network disabled stopped on one uncached existing POM, so no local Java success is claimed and no download occurred. GitHub JDK 17 Config Server test/Module Validation must pass before Ready/merge.
 - Rollback targets only `podman compose -f logstash/docker-compose.yml stop logstash` followed by a reviewed recreate. Never delete Elasticsearch data, use `down -v`, prune, or stop unrelated containers. The obsolete stateless `logstash` container was already force-removed after it became stuck with no PID/mounts; that container identity cannot be recovered, although its image remains.
+
+## Issue #561 integration result
+
+- GitHub JDK 17 Config Server validation and all four PR checks passed on final head `3e23cf65`. Independent exact-head review found no P0-P3 and the Ready-event Guard passed.
+- PR #585 squash-merged as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. The live `account-logstash-dev` service remains healthy. Follow-up observability sequencing continues with #562; #520 remains separately gated by its approved external environment inputs.
