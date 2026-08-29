@@ -2953,3 +2953,18 @@
 
 - GitHub JDK 17 Config Server validation and all four PR checks passed on final head `3e23cf65`. Independent exact-head review found no P0-P3 and the Ready-event Guard passed.
 - PR #585 squash-merged as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. The live `account-logstash-dev` service remains healthy. Follow-up observability sequencing continues with #562; #520 remains separately gated by its approved external environment inputs.
+
+# AI Harness Handoff - 2026-08-30 Issues #592/#593 external-dev database gate
+
+## Review-ready state
+
+- Issue/branch/worktree: `#593`, `agent/593-postgresql-nullable-length`, `/tmp/account-593-postgresql-nullable-length`, based on `origin/main@69aa729f`. The production change is limited to the migration-runner's nullable metadata read, with focused regression tests and these append-only parent records.
+- Root cause is reproduced on the existing PostgreSQL 16.13 dependency without exposing credentials: JDBC 42.6.2 throws SQLSTATE `22023` when typed `getObject(..., Long.class)` receives SQL NULL for a numeric column's `character_maximum_length`.
+- The implementation uses primitive `getLong` followed by `wasNull`. Tests cover a positive length, zero and SQL NULL, assert call order, and reject typed `getObject` use.
+
+## Evidence, runtime state, and next owner
+
+- The full migration-runner JDK-17 suite passed 85/85 in a CPU-1/memory-1-GiB container. A locally rebuilt runner then passed Auth and Master Data migrate/validate against the existing PostgreSQL server, and the two-database/Redis dependency gate passed.
+- Existing PostgreSQL/Redis containers, volumes and old databases were preserved. Canonical external-dev contexts and local-only credentials are stored only in ignored mode-600 files and must never be printed or committed.
+- The current DB required one safe manual identity-sequence privilege grant because the reusable script misses that sequence; `#594` owns the script fix. This does not invalidate the current passing dependency gate, but fresh database bootstrap must not claim repaired automation until #594 is integrated.
+- Final independent review, commit/push, Draft PR, GitHub checks and merge remain. After integration, continue `#520` by building the six application images sequentially before stopping only the six exact legacy application containers; never remove the PostgreSQL/Redis containers or use volume deletion/prune.
