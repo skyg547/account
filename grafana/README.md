@@ -2,26 +2,41 @@
 
 ## 1. 초보자를 위한 개념 설명
 프로메테우스가 각 병실(서버)을 돌아다니며 환자들(Spring Boot)의 체온과 심박수(숫자 데이터)를 재서 노트에 빼곡히 적어두었다면,
-**그라파나**는 그 노트를 넘겨받아 의사 선생님(개발자)이 한눈에 알아보기 쉽게 **'예쁜 그래프와 전광판 대시보드'**로 그려주는 도구입니다.
+**그라파나**는 그 노트를 넘겨받아 개발자가 한눈에 알아보기 쉽게 **'예쁜 그래프와 전광판 대시보드'**로 그려주는 시각화 도구입니다.
 
-## 2. 이 폴더의 역할
-- `docker-compose.yml`: 그라파나 전광판을 띄우기 위한 스크립트입니다.
-- `provisioning/datasources/datasource.yml`: 초보자가 그라파나 화면에 들어가서 귀찮게 프로메테우스 주소를 일일이 치지 않아도, **켜지자마자 프로메테우스의 체온 노트를 자동으로 읽어오도록 연결해주는** 설정 파일입니다.
+---
 
-## 3. 실행 및 확인 방법
-- MSA 철학에 따라, 이 모듈은 **독자적인 `docker-compose.yml`**을 가집니다.
+## 2. 이 폴더의 구성
+- `docker-compose.yml`: 그라파나 대시보드 컨테이너 실행 명세서.
+- `provisioning/datasources/datasource.yml`: 그라파나 부팅 시 `http://prometheus:9090`을 기본 데이터소스로 자동 연결(`read-only` 마운트)하는 프로비저닝 설정.
+- `Dockerfile`: Grafana 공식 이미지를 상속하는 OCI 빌드 파일.
 
-### ⚠️ 필수 선행 작업
-이전에 실행했던 프로젝트 최상단의 `setup-network.bat`를 통해 `account-network`가 이미 만들어져 있어야 하며, 가급적 `prometheus`가 먼저 켜져 있는 것이 좋습니다.
+---
 
-### 🚀 실행 순서
-1. 터미널을 열고 **`grafana` 폴더 안으로 이동**합니다. (`cd grafana`)
-2. 아래 명령어를 실행합니다:
-   ```bash
-   docker-compose up -d
-   ```
-3. 브라우저에서 [http://localhost:3000](http://localhost:3000) 에 접속합니다.
-   - **기본 아이디:** admin
-   - **기본 비밀번호:** admin (첫 로그인 시 새 비밀번호로 변경을 요구합니다)
-4. 왼쪽 메뉴의 **Connections -> Data Sources** 에 들어가 보면 우리가 만든 프로메테우스가 이미 떡하니 연결되어 있는 것을 볼 수 있습니다!
-5. **Dashboards** 메뉴에서 맘에 드는 형태의 그래프를 추가하고 놀아보세요.
+## 3. 실행 및 검증 방법
+
+### ⚠️ 필수 선행 조건
+- Docker 공유 네트워크 `account-network`가 생성되어 있어야 합니다.
+
+### 🚀 실행 명령어
+```bash
+# 독립 실행
+docker compose -f grafana/docker-compose.yml up -d
+```
+
+### 🔍 헬스체크 및 검증
+```bash
+# 1. 헬스 상태 확인 (HTTP 200)
+curl -s http://localhost:3000/api/health
+
+# 2. Nginx 단일 진입점 서브패스 접속
+http://localhost/grafana/
+```
+
+---
+
+## 4. 롤백(Rollback) 절차
+```bash
+# Grafana 컨테이너만 안전하게 종료 (데이터 볼륨 및 타 서비스 보존)
+docker compose -f grafana/docker-compose.yml down
+```
