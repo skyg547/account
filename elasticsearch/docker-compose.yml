@@ -1,26 +1,40 @@
-# [초보자를 위한 개념 설명]
-# docker-compose.yml은 복잡한 도커 실행 명령어를 쉽게 설정 파일로 만들어둔 것입니다.
-# 인프라스트럭처(DB, 메시지 큐 등)는 직접 코드를 빌드하지 않고 이미 만들어진 이미지를 가져와서 실행합니다.
+# ======================== Elasticsearch Infrastructure Compose =========================
+# 초보자를 위한 개념 설명:
+# Elasticsearch는 분산 검색 및 로그(Log) 인덱싱 저장소입니다.
 
-version: '3.8' # Docker Compose 파일의 문법 버전
+version: '3.8'
 
 services:
   elasticsearch:
-    # 사용할 미리 만들어진 도커 이미지를 지정합니다. (도커 허브에서 다운로드 받습니다)
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
-    
-    # 컨테이너의 이름을 지정합니다.
     container_name: elasticsearch
-    
-    # 포트 연결 (내 PC의 포트 : 컨테이너의 포트)
-    # 내 PC에서 9200 포트로 접속하면, 이 인프라 컨테이너의 9200 포트로 연결됩니다.
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
     ports:
-      - "9200:9200"
-      
-    # 공통 네트워크망에 합류하여 다른 MSA 애플리케이션들이 이 인프라를 찾을 수 있게 합니다.
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1536m
+        reservations:
+          memory: 512m
     networks:
       - account-network
 
+volumes:
+  es-data:
+
 networks:
   account-network:
-    external: true # 공통 네트워크망을 사용합니다.
+    external: true
