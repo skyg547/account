@@ -2920,6 +2920,21 @@
 - The validator is intentionally not the full root external-dev validator. Current root Compose additionally interpolates `AUTH_DEFAULT_PASSWORD` and every one of the 17 DB contexts. #520 must reconcile that topology and validate an approved untracked env before any quiet render, build, recreation or runtime smoke; #521 remains blocked on the tested runtime contract.
 - Rollback is a reviewed revert of the validator and append-only record commits. There is no data or container rollback. Branch/worktree deletion is not authorized.
 
+# AI Harness Handoff - 2026-08-28 Issue #520 minimal external-dev Auth stack
+
+## Reviewed implementation state
+
+- Issue/branch/worktree/PR/base: `#520`, `agent/520-dev-minimal-auth-stack`, `/tmp/account-520-dev-minimal-auth-stack`, Draft PR #576, `origin/main@a1d30721`. Implementation commit `111a99a4` is pushed; the Issue remains `status:blocked` on approved runtime input.
+- The standalone `tools/compose.minimal-auth-external-dev.yml` selects exactly seven `external-dev` services and uses Spring `native` only for Config Server and `docker` for the four other Java services. Existing external PostgreSQL, `account-redis` and `account-network` are referenced but never created, restarted or deleted.
+- The runner validates the 11-key file without value output, builds six images sequentially, waits for health, retries the Frontend-to-Gateway-to-Auth empty-login contract with hard timeouts, reports engine-correct stats and scopes all failure/stop operations to `com.docker.compose.project=account-minimal-auth-external-dev`.
+
+## Evidence, rollback, and next owner
+
+- Standard-library runner tests pass 7/7; env validator self-test passes 165; `sh -n`, fixture Docker Compose v5.4 quiet/JSON render, exact-service/resource/loopback assertions, diff, marker and secret-pattern scans pass. A bounded ephemeral probe confirmed `account-redis` PING and was auto-removed. Independent final review found no P0-P3.
+- The Java policy test is locally unverified because the host has JDK 21 but not the required JDK 17, while the network-disabled JDK 17 cache lacks an existing OW2 POM. Draft PR #576 subsequently passed all four GitHub checks, including JDK 17 Config Server validation; the approved live gate remains before Ready/merge.
+- The ignored mode-600 `.env.external-dev` now contains newly generated local-only encryption, JWT and internal-token inputs; their values were not printed or committed. The redacting validator advances to blank `AUTH_DB_URL`. Do not extract values from existing container environments. The next authorized owner supplies the remaining eight approved external Auth/Master Data DB inputs, reruns preflight, then builds and replaces only the six exact legacy targets before `up/smoke/status`.
+- Runtime rollback is `python3 tools/run-minimal-auth-external-dev.py stop --engine podman`; it stops only the fixed project label and preserves named volumes. Code rollback is a reviewed path-scoped revert. Never use `down -v`, prune, broad container stop or external DB/Redis mutation.
+
 # AI Harness Handoff - 2026-08-29 Issue #561 Logstash development pipeline
 
 ## Review-ready state

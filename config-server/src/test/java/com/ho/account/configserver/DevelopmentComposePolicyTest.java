@@ -31,6 +31,14 @@ class DevelopmentComposePolicyTest {
             Set.of("postgres-db", "redis", "kafka");
     private static final Set<String> DEVELOPMENT_HELPERS =
             Set.of("migration-runner", "runtime-grants");
+    private static final Set<String> MINIMAL_EXTERNAL_DEV_SERVICES = Set.of(
+            "minimal-db-check",
+            "minimal-config-server",
+            "minimal-discovery",
+            "minimal-auth",
+            "minimal-master-data",
+            "minimal-gateway",
+            "minimal-frontend");
     private static final Set<String> ALLOWED_HOST_PORT_SERVICES =
             Set.of("gateway", "frontend", "postgres-db", "redis", "kafka");
     private static final Pattern PRIVATE_IPV4 = Pattern.compile(
@@ -260,6 +268,204 @@ class DevelopmentComposePolicyTest {
     }
 
     @Test
+    void minimalExternalDevelopmentComposeIsBoundedAndRollbackSafe() throws IOException {
+        Path composePath = resolve("tools", "compose.minimal-auth-external-dev.yml");
+        Map<String, Object> services = services(composePath);
+        String compose = Files.readString(composePath);
+        String probeScript = Files.readString(
+                resolve("tools", "check-minimal-auth-databases.sh"));
+        String containerfile = Files.readString(
+                resolve("tools", "Containerfile.minimal-auth-java"));
+        String minimalLogging = Files.readString(
+                resolve("tools", "logback-minimal-console.xml"));
+        String runner = Files.readString(
+                resolve("tools", "run-minimal-auth-external-dev.py"));
+        String runnerTest = Files.readString(
+                resolve("tools", "test_run_minimal_auth_external_dev.py"));
+
+        assertThat(services.keySet()).containsExactlyInAnyOrderElementsOf(
+                MINIMAL_EXTERNAL_DEV_SERVICES);
+        assertThat(services).doesNotContainKeys(
+                "postgres-db", "redis", "kafka", "migration-runner", "runtime-grants");
+        assertThat(compose)
+                .doesNotContain(
+                        "AUTH_DEFAULT_PASSWORD",
+                        "BUDGET_DB_",
+                        "INTERNAL_AUDIT_DB_",
+                        "--profile apis",
+                        "down -v")
+                .contains(
+                        "${ENCRYPT_KEY:?",
+                        "${AUTH_JWT_SECRET:?",
+                        "${AUTH_INTERNAL_API_TOKEN:?",
+                        "${AUTH_DB_URL:?",
+                        "${AUTH_DB_USER:?",
+                        "${AUTH_DB_PASSWORD:?",
+                        "${DEV_DB_HOST:?",
+                        "${DEV_DB_PORT:?",
+                        "${DEV_DB_NAME:?",
+                        "${DEV_DB_USER:?",
+                        "${DEV_DB_PASSWORD:?");
+
+        services.forEach((name, rawService) -> {
+            Map<String, Object> service = asMap(rawService);
+            assertThat(asList(service.get("profiles"))).as(name)
+                    .containsExactly("external-dev");
+            assertThat(asMap(asMap(asMap(service.get("deploy"))
+                                    .get("resources"))
+                            .get("limits")))
+                    .as(name)
+                    .containsKeys("cpus", "memory", "pids");
+        });
+        for (String name : List.of(
+                "minimal-config-server",
+                "minimal-discovery",
+                "minimal-auth",
+                "minimal-master-data",
+                "minimal-gateway")) {
+            assertThat(asMap(asMap(asMap(asMap(services.get(name)).get("deploy"))
+                                    .get("resources"))
+                            .get("limits")))
+                    .as(name)
+                    .containsEntry("cpus", "0.60")
+                    .containsEntry("memory", "1024m");
+        }
+
+        assertThat(services.entrySet())
+                .filteredOn(entry -> !Set.of("minimal-gateway", "minimal-frontend")
+                        .contains(entry.getKey()))
+                .allSatisfy(entry -> assertThat(asMap(entry.getValue()))
+                        .as(entry.getKey())
+                        .doesNotContainKey("ports"));
+        assertThat(asList(asMap(services.get("minimal-gateway")).get("ports")))
+                .containsExactly("127.0.0.1:${MINIMAL_DEV_GATEWAY_PORT:-18000}:8000");
+        assertThat(asList(asMap(services.get("minimal-frontend")).get("ports")))
+                .containsExactly("127.0.0.1:${MINIMAL_DEV_FRONTEND_PORT:-13000}:3000");
+
+        assertThat(asMap(asMap(services.get("minimal-config-server")).get("environment")))
+                .containsEntry("SPRING_PROFILES_ACTIVE", "native");
+        for (String name : List.of(
+                "minimal-config-server",
+                "minimal-discovery",
+                "minimal-auth",
+                "minimal-master-data",
+                "minimal-gateway")) {
+            assertThat(asMap(asMap(services.get(name)).get("environment")))
+                    .as(name)
+                    .containsEntry("MANAGEMENT_TRACING_ENABLED", "false")
+                    .containsEntry(
+                            "LOGGING_CONFIG",
+                            "file:/account-runtime/logback-minimal-console.xml");
+            assertThat(asList(asMap(services.get(name)).get("volumes")))
+                    .as(name)
+                    .contains("./logback-minimal-console.xml:"
+                            + "/account-runtime/logback-minimal-console.xml:ro");
+        }
+        for (String name : List.of(
+                "minimal-discovery", "minimal-auth", "minimal-master-data", "minimal-gateway")) {
+            assertThat(asMap(asMap(services.get(name)).get("environment")))
+                    .as(name)
+                    .containsEntry("SPRING_PROFILES_ACTIVE", "docker")
+                    .containsEntry("MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED", "true");
+        }
+        assertThat(minimalLogging)
+                .contains("<appender-ref ref=\"CONSOLE\"/>")
+                .doesNotContain("LogstashTcpSocketAppender", "localhost:5000");
+        assertThat(asMap(asMap(services.get("minimal-master-data")).get("environment")))
+                .containsEntry(
+                        "SPRING_DATASOURCE_URL",
+                        "jdbc:postgresql://${DEV_DB_HOST:?Set DEV_DB_HOST in the approved env file}:"
+                                + "${DEV_DB_PORT:?Set DEV_DB_PORT in the approved env file}/"
+                                + "${DEV_DB_NAME:?Set DEV_DB_NAME in the approved env file}")
+                .containsEntry("SPRING_JPA_HIBERNATE_DDL_AUTO", "validate")
+                .containsEntry("SPRING_FLYWAY_ENABLED", "false")
+                .containsEntry("SPRING_SQL_INIT_MODE", "never");
+        assertThat(asMap(asMap(services.get("minimal-auth")).get("environment")))
+                .containsEntry("SPRING_DATA_REDIS_HOST", "account-redis")
+                .containsEntry("SPRING_DATA_REDIS_PORT", "6379");
+
+        assertThat(asMap(services.get("minimal-db-check")))
+                .containsEntry("read_only", true)
+                .doesNotContainKeys("ports", "build");
+        assertThat(probeScript)
+                .contains(
+                        "SELECT CASE WHEN",
+                        "has_table_privilege(current_user",
+                        "has_sequence_privilege(current_user",
+                        "2>/dev/null",
+                        "printf '*1\\r\\n$4\\r\\nPING\\r\\n'",
+                        "External development dependency gate PASS "
+                                + "(2 PostgreSQL contexts, Redis PING)")
+                .doesNotContain(
+                        "echo \"$AUTH_",
+                        "echo \"$DEV_",
+                        "set -x");
+        assertThat(probeScript.lines())
+                .filteredOn(line -> line.startsWith("check_database "))
+                .hasSize(2);
+
+        for (String name : List.of(
+                "minimal-config-server",
+                "minimal-discovery",
+                "minimal-auth",
+                "minimal-master-data",
+                "minimal-gateway")) {
+            Map<String, Object> build =
+                    asMap(asMap(services.get(name)).get("build"));
+            assertThat(build)
+                    .as(name)
+                    .containsEntry("context", "..")
+                    .containsEntry("dockerfile", "tools/Containerfile.minimal-auth-java");
+        }
+        assertThat(containerfile)
+                .contains("--max-workers=1")
+                .doesNotContain("--parallel");
+        assertThat(runner)
+                .contains(
+                        "COMPOSE_PARALLEL_LIMIT",
+                        "--no-build",
+                        "--wait",
+                        "PROJECT_LABEL",
+                        "LEGACY_TARGET_CONTAINERS",
+                        "LEGACY_TARGET_SERVICES",
+                        "com.docker.compose.service",
+                        "ensure_legacy_targets_are_stopped",
+                        "env_file_identity",
+                        "LOGIN_PATH_ATTEMPTS",
+                        "project-scoped stop completed",
+                        "{{.CPUPerc}}",
+                        "{{.CPU}}")
+                .doesNotContain("args.env_file.resolve()")
+                .doesNotContain("down -v", "prune");
+        assertThat(runnerTest)
+                .contains(
+                        "test_env_file_identity_rejects_symlink_before_validation",
+                        "test_legacy_compose_service_label_is_rejected",
+                        "test_status_uses_engine_specific_cpu_field",
+                        "test_smoke_retries_registration_without_printing_response_body",
+                        "test_compose_exec_timeout_becomes_bounded_runner_error",
+                        "test_all_stops_only_project_scope_after_smoke_failure");
+
+        Map<String, Object> frontend = asMap(services.get("minimal-frontend"));
+        assertThat(asMap(frontend.get("build")))
+                .containsEntry("context", "../frontend")
+                .containsEntry("dockerfile", "Containerfile.dev");
+        assertThat(asList(frontend.get("volumes")))
+                .contains(
+                        "../frontend:/app",
+                        "minimal_frontend_node_modules:/app/node_modules",
+                        "minimal_frontend_next_cache:/app/.next");
+
+        assertHealthyDependency(services, "minimal-discovery", "minimal-config-server");
+        assertHealthyDependency(services, "minimal-auth", "minimal-db-check");
+        assertHealthyDependency(services, "minimal-auth", "minimal-discovery");
+        assertHealthyDependency(services, "minimal-master-data", "minimal-db-check");
+        assertHealthyDependency(services, "minimal-gateway", "minimal-auth");
+        assertHealthyDependency(services, "minimal-gateway", "minimal-master-data");
+        assertHealthyDependency(services, "minimal-frontend", "minimal-gateway");
+    }
+
+    @Test
     void developmentEnvironmentExamplesContainOnlyDummyValues() throws IOException {
         for (String file : List.of(".env.dev.example", ".env.external-dev.example")) {
             String text = Files.readString(resolve(file));
@@ -330,6 +536,15 @@ class DevelopmentComposePolicyTest {
                 .contains(suffix)
                 .contains(":?")
                 .endsWith("}");
+    }
+
+    private void assertHealthyDependency(
+            Map<String, Object> services, String serviceName, String dependencyName) {
+        Map<String, Object> dependency = asMap(asMap(
+                        asMap(services.get(serviceName)).get("depends_on"))
+                .get(dependencyName));
+        assertThat(dependency).as(serviceName + " -> " + dependencyName)
+                .containsEntry("condition", "service_healthy");
     }
 
     private List<ImageTarget> enabledImageTargets() throws IOException {

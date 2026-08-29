@@ -55,3 +55,11 @@ Merge and rebase conflict resolutions are recorded below.
 - Conflict: only `docs/ai-harness/agent-status.md` conflicted at the two append-only #518/#435 rows. The other shared logs auto-merged; no Auth, Config Server, Compose, validator or test implementation path overlapped.
 - Resolution: retained both complete rows and all auto-merged histories. Upstream Config Server and environment-example changes are accepted unchanged from main; the reviewed four-file Auth implementation remains unchanged.
 - Verification: rerun unmerged-index, marker, diff and main-relative Auth allowlist gates, then require fresh final-head Auth CI and independent review before Ready/merge.
+
+## 2026-08-29 - Issue #520 PR #576 latest-main harness sync
+
+- Branch/worktree: `agent/520-dev-minimal-auth-stack` / `/tmp/account-520-dev-minimal-auth-stack`.
+- Sync: PR #576 became `DIRTY` after main advanced from `a1d30721` to `origin/main@c7dfe647` through the reviewed #561 implementation and integration-record PRs.
+- Conflict: only the four append-only parent records `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`; no #520 runner, Compose, container image, policy test or beginner-guide path overlapped.
+- Resolution: retained the complete #520 records followed by both upstream #561 review-ready/integrated histories. Updated only #520 runtime-state wording to record the three locally generated, undisclosed inputs and the remaining blank `AUTH_DB_URL` gate.
+- Verification: require an empty unmerged index and marker scan, `git diff --check`, exact latest-main allowlist, focused runner/validator/static gates, refreshed GitHub JDK 17 CI and independent final-head review before any Ready/merge decision. The approved external DB/live runtime gate remains separate and blocked.

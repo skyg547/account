@@ -2029,6 +2029,13 @@
 - Independent test/review found frozen-exception classification, local Compose alias, JDBC delimiter, DEV IPv6, non-ASCII port and control-character gaps. All were remediated. In-memory compile, self-test 165, independent adversarial 91 and final P0-P3-clean review pass.
 - Commit `2a0b6ebd` is pushed and Draft PR #551 is open. No actual env/container/DB/image state was accessed. #520 remains blocked on an approved env and on reconciling the root Compose requirement for `AUTH_DEFAULT_PASSWORD` plus all 17 DB contexts; this validator does not claim full-root render readiness.
 
+## 2026-08-28 (Issue #520 low-resource external-dev Auth stack)
+
+- Created an isolated seven-container Compose path for the two-context external PostgreSQL/Redis gate, Config Server, Discovery, Auth, Master Data, Gateway and Frontend. It excludes every Batch, unrelated API, Kafka and observability service and publishes only loopback ports 13000/18000.
+- Added sequential one-worker image tooling, explicit external PostgreSQL runtime hardening, 3.95-CPU/about-6-GiB limits, tracing-off console logging, env identity/symlink checks, legacy Compose-label conflict detection, engine-specific stats, bounded Eureka retry and fixed-project failure rollback.
+- Runner tests pass 7/7, validator self-test passes 165, fixture Compose renders and static gates pass. A temporary resource-bounded probe received existing Redis `PONG` and removed itself. Review-found retry, rollback, symlink, legacy-name, Docker stats, Redis and logging gaps were fixed; final independent review found no P0-P3.
+- Local JDK 17 policy execution is blocked by the unavailable toolchain/offline missing OW2 POM, with no download. Draft PR #576 nevertheless passed all four GitHub checks, including JDK 17 Config Server validation. The ignored mode-600 `.env.external-dev` now has newly generated local-only encryption/JWT/internal-token values without disclosure, but the redacting validator stops at blank `AUTH_DB_URL`; no image build, external DB access, new-stack start, login smoke or legacy-target stop is claimed, and Ready/merge remains gated on the eight approved external DB inputs.
+
 ## 2026-08-29 (Issue #561 Logstash development pipeline recovery)
 
 - Claimed #561 on `agent/561-logstash-pipeline` in an isolated worktree from `main@38ad309c`. Added a bounded one-service development Compose project with exact read-only config/pipeline mounts, JSON TCP 5000 to a development-only Elasticsearch index, internal-only ports, a 256 MiB JVM heap and 0.5 CPU/640 MiB/256-pid caps.
