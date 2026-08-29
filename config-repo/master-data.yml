@@ -54,4 +54,4 @@ management:
       probability: 1.0
   zipkin:
     tracing:
-      endpoint: "http://localhost:9411/api/v2/spans"
+      endpoint: "${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}}"
