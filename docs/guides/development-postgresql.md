@@ -69,10 +69,13 @@ docker compose --env-file .env -f postgres/docker-compose.yml --profile self-con
 init script는 named volume이 처음 만들어질 때만 실행됩니다. `ACCOUNT_DATABASES`를 바꿨다고 기존 volume에 자동 적용되지 않습니다. 기존 개발 DB에 database를 추가할 때는 승인된 DBA 절차를 사용하고, 자동화를 위해 volume을 삭제하지 않습니다.
 
 owner role로 release migration을 모두 적용·validate한 뒤, API/Batch를 시작하기 전에
-runtime grant gate를 실행합니다. 이 gate는 현재 업무 테이블과 sequence에만 app 권한을
-부여하고 `flyway_schema_history*` 이력 테이블의 모든 runtime 권한을 명시적으로 회수합니다.
-default privilege를 사용하지 않으므로 새 migration 뒤에는 반드시 다시 실행해야 하며,
-gate가 끝나기 전에는 앱 컨테이너를 시작하지 않습니다.
+runtime grant gate를 실행합니다. 이 gate는 현재 업무 테이블과 public schema의 일반
+sequence, `SERIAL` sequence, identity column sequence에만 app 권한을 부여하고
+`flyway_schema_history*` 이력 테이블의 모든 runtime 권한을 명시적으로 회수합니다.
+PostgreSQL identity sequence는 `information_schema.sequences`에 보이지 않을 수 있으므로
+스크립트와 health gate 모두 `pg_class`의 `relkind = 'S'`를 정본으로 사용합니다. default
+privilege를 사용하지 않으므로 새 migration 뒤에는 반드시 다시 실행해야 하며, gate가 끝나기
+전에는 앱 컨테이너를 시작하지 않습니다.
 
 ```powershell
 docker compose --env-file .env -f postgres/docker-compose.yml exec -T postgres-db `

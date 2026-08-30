@@ -227,9 +227,20 @@ class ConfigServerConfigurationPolicyTest {
                 .contains(
                         "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I.%I TO %I",
                         "GRANT USAGE, SELECT ON SEQUENCE %I.%I TO %I",
+                        "FROM pg_class sequence",
+                        "JOIN pg_namespace namespace ON namespace.oid = sequence.relnamespace",
+                        "namespace.nspname",
+                        "sequence.relname",
+                        "WHERE namespace.nspname = 'public'",
+                        "sequence.relkind = 'S'",
                         "REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I",
                         "tablename LIKE 'flyway\\_schema\\_history%' ESCAPE '\\'")
-                .doesNotContain("set -x", "ALTER DEFAULT PRIVILEGES");
+                .doesNotContain(
+                        "FROM information_schema.sequences",
+                        "sequence_schema",
+                        "sequence_name",
+                        "set -x",
+                        "ALTER DEFAULT PRIVILEGES");
         assertThat(exampleEnvironment)
                 .contains("ACCOUNT_DATABASES=auth_dev,master_data_dev")
                 .contains("POSTGRES_ADMIN_PASSWORD=replace-with-local-admin-password")
