@@ -258,6 +258,9 @@ Batch image는 빌드하지 않습니다.
 다시 시작할 수 있게 기존 컨테이너를 삭제하지 않습니다.
 
 ```bash
+# preflight와 6개 image build가 모두 성공한 뒤에만 실행합니다.
+podman stop config-server discovery master-data auth gateway account-frontend
+
 python3 tools/run-minimal-auth-external-dev.py up \
   --env-file .env.external-dev --engine podman
 python3 tools/run-minimal-auth-external-dev.py smoke \
@@ -265,7 +268,19 @@ python3 tools/run-minimal-auth-external-dev.py smoke \
 python3 tools/run-minimal-auth-external-dev.py status --engine podman
 ```
 
-- Frontend: <http://127.0.0.1:13000>
+Docker이면 위 `podman stop`을 `docker stop`으로, runner의 `--engine podman`을
+`--engine docker`로 바꿉니다. `up` 또는 `smoke`가 실패하면 새 프로젝트만 정지한 다음
+보존된 기존 6개를 정확한 이름으로 복구합니다.
+
+```bash
+python3 tools/run-minimal-auth-external-dev.py stop --engine podman
+podman start config-server discovery master-data auth gateway account-frontend
+```
+
+이 복구 명령도 Docker에서는 `podman`을 `docker`로, runner 인자를 `--engine docker`로
+바꿉니다. `podman stop --all`, `compose down -v`, `prune`는 사용하지 않습니다.
+
+- Frontend 로그인: <http://127.0.0.1:13000/login>
 - Gateway: <http://127.0.0.1:18000>
 - 기존 3000/8000 컨테이너와 충돌하지 않도록 격리 기본 포트를 사용합니다.
 - `MINIMAL_DEV_FRONTEND_PORT`, `MINIMAL_DEV_GATEWAY_PORT`로 바꿀 수 있습니다.
@@ -277,18 +292,31 @@ python3 tools/run-minimal-auth-external-dev.py status --engine podman
   돌아오는지만 최대 30회, 5초 간격으로 확인하고 응답 본문·토큰·계정정보를 출력하지
   않습니다. 각 요청은 Node에서 4초, Compose exec 프로세스에서 15초로 제한됩니다. Eureka
   등록이 health보다 늦는 정상 첫 기동을 위한 제한된 재시도입니다.
-- Java 컨테이너 CPU 합계는 3 CPU, 전체 7개 제한 합계는 4 CPU 미만입니다. Java는 각
-  1 GiB, Frontend는 768 MiB 상한을 사용하며 실제 사용량은 `status`로 확인합니다.
+- Frontend는 빌드 이미지의 `/app`을 사용하며 호스트 소스를 bind mount하지 않습니다.
+  rootless Podman의 non-root 사용자가 `next-env.d.ts`를 만들 수 있게 하면서 tracked host
+  파일 쓰기를 피하기 위한 계약입니다. 소스 변경 후에는 hot reload 대신 `build`를 다시
+  실행하고, 쓰기 경로는 프로젝트 전용 `node_modules`와 `.next` named volume으로 제한합니다.
+- Frontend healthcheck는 public `next.svg`를 `wget -T 4 -t 1`로 조회합니다. `/`를 probe하면
+  저자원 첫 기동에서 수천 개 화면 모듈을 컴파일하고 Podman health process가 길게 점유될 수
+  있기 때문입니다. 실제 인증 연결은 이어지는 값 비노출 로그인 `smoke`가 별도로 검증합니다.
+- Java 컨테이너 CPU 합계는 3 CPU, 전체 7개 제한 합계는 4 CPU 미만입니다. Java와
+  Frontend는 각각 1 GiB 상한을 사용합니다. Frontend의 평상시 실제 사용량은 훨씬 작지만
+  첫 로그인 화면 컴파일은 768 MiB에서 완료되지 않았고 1 GiB에서는 HTTP 200과 후속 인증
+  smoke까지 완료됐습니다. 1 GiB에서도 첫 컴파일 중 cgroup `max` 이벤트가 발생할 수 있어
+  느릴 수 있지만 OOM이나 재시작이 발생해서는 안 됩니다. 상한은 예약 메모리가 아니며 실제
+  사용량은 `status`로 확인합니다.
 - 이 최소 모드에서는 tracing을 끄고 console-only Logback 파일을 사용해 아직 복구 전인
   `localhost:5000` Logstash로 재접속하지 않습니다. 실제 관측 주소 통일은 #565가 담당합니다.
 
 Compose 서비스 이름을 `minimal-*`로 분리했기 때문에 같은 `account-network`의 기존
 `config-server`, `auth`, `gateway` 컨테이너 DNS와 충돌하지 않습니다. 기존
 `account-redis`에는 gate가 값 없는 `PING`을 보내고, Auth에는 기존 모듈 Docker 계약과 같은
-`SPRING_DATA_REDIS_HOST/PORT`를 전달합니다. 이 브랜치에서 실제로 확인한 것은 PING까지이며
-Auth health 반영은 승인된 env로 하는 live gate에 남겨 둡니다. 기존 Redis를 생성·재시작·삭제하지
-않습니다. Zipkin, Logstash, Elasticsearch, Kibana, Prometheus, Grafana와 Batch는 이
-최소 스택에 포함하지 않으며 각각 #561~#566이 담당합니다.
+`SPRING_DATA_REDIS_HOST/PORT`를 전달합니다. 승인된 env를 사용한 실제 검증에서는 DB/Redis
+gate, Java 서비스와 Frontend health, `/login` HTTP 200, Frontend → Gateway → Auth HTTP 400
+계약까지 통과했습니다. 전환할 때 기존 6개 애플리케이션 컨테이너는 정확한 이름으로
+정지하지만 삭제하지 않으며, 기존 PostgreSQL과 Redis는 생성·재시작·삭제하지 않습니다.
+Zipkin, Logstash, Elasticsearch, Kibana, Prometheus, Grafana와 Batch는 이 최소 스택에
+포함하지 않으며 각각 #561~#566이 담당합니다.
 
 빌드부터 smoke까지 한 번에 실행하려면 같은 인자로 `all`을 사용할 수 있습니다. `up --wait`
 또는 `all`의 smoke/status가 실패하면 실행기가 고정 project label의 컨테이너만 자동 정지하고

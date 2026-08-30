@@ -85,6 +85,14 @@ class MinimalAuthRunnerTest(unittest.TestCase):
 
         self.assertEqual(9, compose_exec.call_count)
         self.assertEqual(2, sleep.call_count)
+        frontend_readiness_command = compose_exec.call_args_list[5].args[-1]
+        self.assertEqual(
+            [
+                "wget", "-q", "-T", "4", "-t", "1", "-O", "/dev/null",
+                "http://127.0.0.1:3000/next.svg",
+            ],
+            frontend_readiness_command,
+        )
         login_command = compose_exec.call_args_list[-1].args[-1]
         self.assertIn("AbortSignal.timeout(4000)", login_command[-1])
 

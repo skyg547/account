@@ -190,11 +190,15 @@ def smoke(engine: str, env_file: Path) -> None:
         ("minimal-auth", "http://127.0.0.1:8084/actuator/health/readiness"),
         ("minimal-master-data", "http://127.0.0.1:8082/actuator/health/readiness"),
         ("minimal-gateway", "http://127.0.0.1:8000/actuator/health/readiness"),
-        ("minimal-frontend", "http://127.0.0.1:3000/"),
+        ("minimal-frontend", "http://127.0.0.1:3000/next.svg"),
     )
     for service, url in probes:
         compose_exec(
-            base, env_file, identity, service, ["wget", "-q", "-O", "/dev/null", url]
+            base,
+            env_file,
+            identity,
+            service,
+            ["wget", "-q", "-T", "4", "-t", "1", "-O", "/dev/null", url],
         )
         print(f"PASS: {service} readiness")
 

@@ -259,11 +259,10 @@ services:
     ports:
       - "127.0.0.1:${MINIMAL_DEV_FRONTEND_PORT:-13000}:3000"
     volumes:
-      - ../frontend:/app
       - minimal_frontend_node_modules:/app/node_modules
       - minimal_frontend_next_cache:/app/.next
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -T 4 -t 1 -O /dev/null http://127.0.0.1:3000/next.svg || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 18
@@ -272,7 +271,7 @@ services:
       resources:
         limits:
           cpus: "0.75"
-          memory: 768m
+          memory: 1024m
           pids: 256
     networks: [account-network]
 

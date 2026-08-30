@@ -444,17 +444,27 @@ class DevelopmentComposePolicyTest {
                         "test_status_uses_engine_specific_cpu_field",
                         "test_smoke_retries_registration_without_printing_response_body",
                         "test_compose_exec_timeout_becomes_bounded_runner_error",
-                        "test_all_stops_only_project_scope_after_smoke_failure");
+                        "test_all_stops_only_project_scope_after_smoke_failure",
+                        "http://127.0.0.1:3000/next.svg");
 
         Map<String, Object> frontend = asMap(services.get("minimal-frontend"));
         assertThat(asMap(frontend.get("build")))
                 .containsEntry("context", "../frontend")
                 .containsEntry("dockerfile", "Containerfile.dev");
         assertThat(asList(frontend.get("volumes")))
-                .contains(
-                        "../frontend:/app",
+                .containsExactly(
                         "minimal_frontend_node_modules:/app/node_modules",
-                        "minimal_frontend_next_cache:/app/.next");
+                        "minimal_frontend_next_cache:/app/.next")
+                .doesNotContain("../frontend:/app");
+        assertThat(asList(asMap(frontend.get("healthcheck")).get("test")))
+                .containsExactly(
+                        "CMD-SHELL",
+                        "wget -q -T 4 -t 1 -O /dev/null "
+                                + "http://127.0.0.1:3000/next.svg || exit 1");
+        assertThat(asMap(asMap(asMap(frontend.get("deploy")).get("resources")).get("limits")))
+                .containsEntry("cpus", "0.75")
+                .containsEntry("memory", "1024m")
+                .containsEntry("pids", 256);
 
         assertHealthyDependency(services, "minimal-discovery", "minimal-config-server");
         assertHealthyDependency(services, "minimal-auth", "minimal-db-check");
