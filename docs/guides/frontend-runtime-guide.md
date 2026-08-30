@@ -166,19 +166,44 @@ python3 tools/run-minimal-auth-external-dev.py preflight \
   --env-file .env.external-dev --engine podman
 python3 tools/run-minimal-auth-external-dev.py build \
   --env-file .env.external-dev --engine podman
+
+# 위 build가 모두 성공한 뒤 기존 6개만 정지합니다.
+podman stop config-server discovery master-data auth gateway account-frontend
+
 python3 tools/run-minimal-auth-external-dev.py up \
   --env-file .env.external-dev --engine podman
 python3 tools/run-minimal-auth-external-dev.py smoke \
   --env-file .env.external-dev --engine podman
 ```
 
-브라우저는 <http://127.0.0.1:13000> 을 엽니다. 기존 Frontend 3000과 Gateway 8000을
-건드리지 않고 격리 포트 13000/18000을 씁니다. 환경 파일 값과 로그인 응답 본문은
-출력하지 않습니다. 종료는 다음 한 줄이며 volume을 삭제하지 않습니다.
+이 최소 스택의 Frontend는 빌드된 이미지 안의 소스를 실행합니다. 일반 Frontend 개발
+Compose와 달리 호스트 소스를 `/app`에 bind mount하지 않습니다. 그래서 rootless Podman의
+non-root `node` 사용자도 시작 시 `next-env.d.ts`를 안전하게 갱신할 수 있습니다. 화면 코드를
+바꿨다면 hot reload 대신 위 `build`를 다시 실행한 뒤 `up` 하세요. `node_modules`와 `.next`만
+프로젝트 전용 named volume에서 쓰기 가능합니다. 컨테이너 healthcheck는 첫 화면 전체를
+미리 컴파일하지 않고 public `next.svg`를 4초 내부 timeout으로 조회합니다. 로그인 경로는
+별도의 `smoke` 단계가 Frontend → Gateway → Auth까지 확인합니다.
+
+브라우저는 <http://127.0.0.1:13000/login> 을 엽니다. 포트 충돌과 중복 메모리 사용을 막기 위해
+전환 시 기존 `config-server`, `discovery`, `auth`, `master-data`, `gateway`,
+`account-frontend` 6개는 정지하지만 삭제하지 않습니다. 새 Frontend/Gateway는 격리된
+loopback 포트 13000/18000을 사용하고, 기존 PostgreSQL/Redis는 계속 사용합니다. 환경 파일
+값과 로그인 응답 본문은 출력하지 않습니다. 종료는 다음 한 줄이며 volume을 삭제하지
+않습니다.
 
 ```bash
 python3 tools/run-minimal-auth-external-dev.py stop --engine podman
 ```
+
+새 스택 검증이 실패해 기존 경로로 돌아가려면 위 `stop` 다음에 보존된 6개만 다시
+시작합니다.
+
+```bash
+podman start config-server discovery master-data auth gateway account-frontend
+```
+
+Docker 사용자는 `podman`을 `docker`로, runner 인자의 `--engine podman`을
+`--engine docker`로 바꿉니다. 전체 컨테이너 stop, `down -v`, `prune`는 사용하지 마세요.
 
 환경 파일의 11개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate와 롤백 설명은
 [development-compose.md의 #520 절](./development-compose.md#저자원-external-dev-인증-스택-520)을

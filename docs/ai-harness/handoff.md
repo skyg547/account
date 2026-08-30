@@ -2968,3 +2968,25 @@
 - Existing PostgreSQL/Redis containers, volumes and old databases were preserved. Canonical external-dev contexts and local-only credentials are stored only in ignored mode-600 files and must never be printed or committed.
 - The current DB required one safe manual identity-sequence privilege grant because the reusable script misses that sequence; `#594` owns the script fix. This does not invalidate the current passing dependency gate, but fresh database bootstrap must not claim repaired automation until #594 is integrated.
 - Final independent review, commit/push, Draft PR, GitHub checks and merge remain. After integration, continue `#520` by building the six application images sequentially before stopping only the six exact legacy application containers; never remove the PostgreSQL/Redis containers or use volume deletion/prune.
+
+# AI Harness Handoff - 2026-08-30 Issue #596 rootless Frontend external-dev runtime
+
+## Review-ready state
+
+- Issue/branch/worktree: `#596`, `agent/596-frontend-rootless`, `/tmp/account-596-frontend-rootless`, based on merged `origin/main@89a770cc`. PR #595/#593 is integrated; #594 separately owns the reusable identity-sequence grant script fix.
+- The seven-container external-dev project is live. DB gate, Config Server, Discovery, Auth, Master Data, Gateway and Frontend are healthy with restart count zero and no OOM. Gateway is bound only to `127.0.0.1:18000` and Frontend only to `127.0.0.1:13000`; other project services have no host port.
+- Existing `account-postgres` and `account-redis` remain running with their data and volumes preserved. The six exact legacy application containers are stopped but not deleted, providing the rollback target without duplicate memory usage.
+
+## Change, evidence, and residual risk
+
+- The Frontend no longer bind-mounts host source at `/app`; it runs the sequentially built development image and writes only to project-owned `node_modules` and `.next` named volumes. This fixes rootless Podman EACCES for the non-root Node user. Source edits require a sequential image rebuild rather than hot reload.
+- Health uses bounded `wget -T 4 -t 1` against public `/next.svg`; the value-redacting smoke separately verifies all six application readiness checks and Frontend → Gateway → Auth HTTP 400. Actual `/login` returned HTTP 200 and the same smoke passed again after compilation.
+- Frontend is capped at 1 GiB. The old 768 MiB cap failed during a 4,726-module first-page compile. The final first login completed without OOM/restart but recorded seven cgroup max events and briefly approached the cap, so first navigation can be slow. Do not lower the cap without repeating the actual login gate.
+- Python runner tests pass 7/7. Actual 11-key preflight passes. The focused JDK-17 policy test passes under CPU 1, memory 1.5 GiB, pids 512 and one Gradle worker. Static/diff/conflict checks pass. Independent review found one P3 because beginner cutover/restore commands were implicit; both guides now give only the exact six-container stop/start commands and prohibit broad stop, `down -v` and prune. Final re-review found no P0-P3.
+- Live runtime evidence is rootless Podman-specific. Docker engine substitution is documented but not locally claimed; GitHub checks remain a publication gate. Because static readiness intentionally avoids full UI compilation, repeat `/login` after future Frontend changes.
+
+## Safe operation and rollback
+
+- Check with `python3 tools/run-minimal-auth-external-dev.py status --engine podman`; rerun the value-redacting smoke with the ignored env file after any recreate. Never print that file or container environments.
+- Runtime rollback is `python3 tools/run-minimal-auth-external-dev.py stop --engine podman`, followed by starting only `config-server discovery master-data auth gateway account-frontend` if the legacy path is needed. Never use `down -v`, prune, broad stops or PostgreSQL/Redis removal.
+- After #596 publication gates and merge, close #520/#592 with the final runtime evidence, then continue the fresh-bootstrap script fix #594 or the separately scoped observability issues #562-#566 one at a time.

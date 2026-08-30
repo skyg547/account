@@ -2051,3 +2051,11 @@
 - CPU-1/memory-1-GiB JDK-17 verification passed all 85 migration-runner tests. The rebuilt runner passed migrate/validate for both canonical databases against PostgreSQL 16.13.
 - The existing runtime-grant script missed one identity sequence. Current DB privileges were completed safely and the final two-database/Redis gate passed; #594 separately tracks the reusable enumeration fix. No volume, database or existing record was deleted.
 - Static gates pass. Independent review and #593 PR/CI/merge remain before the now-unblocked #520 six-image sequential build and external-dev cutover.
+
+## 2026-08-30 (Issues #593 integration and #596 external-dev Frontend runtime)
+
+- #593 passed independent review and all GitHub checks; PR #595 squash-merged as `89a770cc` and the Issue closed. #594 retains the reusable identity-sequence grant enumeration follow-up.
+- Completed #520's approved 11-key preflight, Auth/Master Data PostgreSQL 16.13 migrate/validate, two-DB/Redis gate and six-image sequential build without disclosing inputs. Existing database and cache containers, volumes and data were preserved.
+- Split #596 after the first real rootless cutover exposed EACCES from the host `/app` bind. Removed that bind, retained only named write volumes and moved readiness from `/` to bounded public `/next.svg`; the separate value-redacting smoke still proves Frontend → Gateway → Auth.
+- A second attempt proved permissions but exposed the former 768 MiB cap during the 4,726-module first compile; both failed attempts used project-scoped rollback and restored the retained legacy six. The final 1 GiB run is healthy with restart 0/OOM false, `/login` HTTP 200 and repeat authentication smoke PASS. Seven cgroup max events document a slow-first-compile residual risk without OOM.
+- Python tests pass 7/7, actual preflight/live smoke pass, and the focused JDK-17 policy test passes with CPU 1, memory 1.5 GiB and one Gradle worker. Independent review's P3 beginner cutover/restore command omission was remediated and final re-review found no P0-P3. Rootless Podman is the live-evidence engine; PR checks and merge remain before #520/#592 closure.
