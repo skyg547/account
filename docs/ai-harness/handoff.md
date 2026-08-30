@@ -2990,3 +2990,19 @@
 - Check with `python3 tools/run-minimal-auth-external-dev.py status --engine podman`; rerun the value-redacting smoke with the ignored env file after any recreate. Never print that file or container environments.
 - Runtime rollback is `python3 tools/run-minimal-auth-external-dev.py stop --engine podman`, followed by starting only `config-server discovery master-data auth gateway account-frontend` if the legacy path is needed. Never use `down -v`, prune, broad stops or PostgreSQL/Redis removal.
 - After #596 publication gates and merge, close #520/#592 with the final runtime evidence, then continue the fresh-bootstrap script fix #594 or the separately scoped observability issues #562-#566 one at a time.
+
+# AI Harness Handoff - 2026-08-30 Issue #594 identity-sequence runtime grants
+
+## Review-ready state
+
+- Issue/branch/worktree: `#594`, `agent/594-identity-sequences`, `/tmp/account-594-identity-sequences`, synchronized without conflict to `origin/main@e5b0fa9e`. PR #597 is integrated as `866c4de0`; Issues #596/#520/#592 are closed.
+- The implementation changes only the runtime grant script, one directly related Config Server policy test, the beginner PostgreSQL guide and append-only harness records. It does not create, delete or redefine database objects and does not change migrations, application code, credentials or Compose topology; executing the script intentionally changes only runtime ACLs.
+- Sequence enumeration now uses `pg_class` joined to `pg_namespace`, constrained to public schema and `relkind = 'S'`. This matches both existing health gates and includes ordinary, SERIAL-owned and identity-column-owned sequences while retaining business-table DML and Flyway-history revocation contracts.
+
+## Evidence, rollback, and next owner
+
+- A bounded temporary PostgreSQL 16 integration test passed after two script runs: three sequence kinds detected, zero sequence privilege gaps, zero business-table DML gaps and zero Flyway-history exposure. The exact no-volume test container was stopped and auto-removed.
+- The same script reran successfully against the existing `auth_dev` and `master_data_dev`; the value-redacting two-database/Redis gate is healthy with restart 0 and OOM false. Existing PostgreSQL/Redis, schemas, rows, volumes and live external-dev services were preserved.
+- `sh -n`, diff checks and the final exact-assertion JDK-17 Config Server policy test pass under CPU 1 / memory 1.5 GiB / one Gradle worker. Independent review's two P3s about pre-rerun evidence and ACL wording were remediated; final re-review found no P0-P3. Commit/push, Draft PR, GitHub checks and merge remain.
+- The grant remains current-object and `public`-schema scoped. Rerun it and the dependency gate after every migration that creates a sequence; define a separate reviewed contract before introducing another application schema.
+- Code rollback is a reviewed path-scoped revert to the previous enumeration only. The new sequence grant is additive and idempotent, while the script also retains its existing idempotent Flyway-history ACL revoke. Do not try to reverse live ACLs, delete databases/volumes or stop PostgreSQL/Redis as rollback.

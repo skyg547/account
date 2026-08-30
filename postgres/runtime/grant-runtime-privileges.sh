@@ -49,11 +49,13 @@ WHERE schemaname = 'public'
 
 SELECT format(
     'GRANT USAGE, SELECT ON SEQUENCE %I.%I TO %I',
-    sequence_schema,
-    sequence_name,
+    namespace.nspname,
+    sequence.relname,
     :'app')
-FROM information_schema.sequences
-WHERE sequence_schema = 'public'
+FROM pg_class sequence
+JOIN pg_namespace namespace ON namespace.oid = sequence.relnamespace
+WHERE namespace.nspname = 'public'
+  AND sequence.relkind = 'S'
 \gexec
 SQL
 done
