@@ -5,6 +5,7 @@ import org.springframework.batch.core.StepExecution;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 /**
  * journal-ledger Batch JobParameter를 업무 기준 기간으로 변환한다.
@@ -20,39 +21,47 @@ public final class BatchDateRangeParameterUtils {
     }
 
     public static DateRange resolveDateRange(StepExecution stepExecution) {
+        if (stepExecution == null) {
+            throw new IllegalArgumentException("stepExecution must not be null");
+        }
         return resolveDateRange(stepExecution.getJobParameters());
     }
 
     public static DateRange resolveDateRange(JobParameters jobParameters) {
-        String startDate = firstNonBlank(
+        if (jobParameters == null) {
+            throw new IllegalArgumentException("jobParameters must not be null");
+        }
+        LocalDate fallback = LocalDate.now().minusDays(1);
+        LocalDate resolvedStart = findFirstNonBlank(
                 jobParameters.getString("startDate"),
                 jobParameters.getString("fromDate"),
                 jobParameters.getString("baseDate"),
                 jobParameters.getString("targetDate")
-        );
-        String endDate = firstNonBlank(
+        ).map(date -> LocalDate.parse(date, DATE_FORMAT)).orElse(fallback);
+
+        LocalDate resolvedEnd = findFirstNonBlank(
                 jobParameters.getString("endDate"),
                 jobParameters.getString("toDate"),
                 jobParameters.getString("baseDate"),
                 jobParameters.getString("targetDate")
-        );
+        ).map(date -> LocalDate.parse(date, DATE_FORMAT)).orElse(resolvedStart);
 
-        LocalDate fallback = LocalDate.now().minusDays(1);
-        LocalDate resolvedStart = startDate == null ? fallback : LocalDate.parse(startDate, DATE_FORMAT);
-        LocalDate resolvedEnd = endDate == null ? resolvedStart : LocalDate.parse(endDate, DATE_FORMAT);
         if (resolvedEnd.isBefore(resolvedStart)) {
             throw new IllegalArgumentException("endDate must be greater than or equal to startDate");
         }
         return new DateRange(resolvedStart, resolvedEnd);
     }
 
-    private static String firstNonBlank(String... values) {
+    private static Optional<String> findFirstNonBlank(String... values) {
+        if (values == null) {
+            return Optional.empty();
+        }
         for (String value : values) {
             if (value != null && !value.isBlank()) {
-                return value.trim();
+                return Optional.of(value.trim());
             }
         }
-        return null;
+        return Optional.empty();
     }
 
     public record DateRange(LocalDate startDate, LocalDate endDate) {

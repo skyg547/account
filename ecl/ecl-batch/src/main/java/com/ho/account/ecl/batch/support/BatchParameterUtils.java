@@ -5,6 +5,7 @@ import org.springframework.batch.core.StepExecution;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public final class BatchParameterUtils {
 
@@ -14,27 +15,34 @@ public final class BatchParameterUtils {
     }
 
     public static LocalDate resolveBaseDate(StepExecution stepExecution) {
+        if (stepExecution == null) {
+            throw new IllegalArgumentException("stepExecution must not be null");
+        }
         return resolveBaseDate(stepExecution.getJobParameters());
     }
 
     public static LocalDate resolveBaseDate(JobParameters jobParameters) {
+        if (jobParameters == null) {
+            throw new IllegalArgumentException("jobParameters must not be null");
+        }
         return resolveBaseDate(jobParameters.getString("baseDate"), jobParameters.getString("baseDt"));
     }
 
     public static LocalDate resolveBaseDate(String baseDate, String baseDt) {
-        String resolved = firstNonBlank(baseDate, baseDt);
-        if (resolved == null) {
-            throw new IllegalStateException("baseDate(or baseDt) job parameter is required");
-        }
+        String resolved = findFirstNonBlank(baseDate, baseDt)
+                .orElseThrow(() -> new IllegalArgumentException("baseDate(or baseDt) job parameter is required"));
         return LocalDate.parse(resolved, DEFAULT_DATE_FORMAT);
     }
 
-    private static String firstNonBlank(String... candidates) {
+    private static Optional<String> findFirstNonBlank(String... candidates) {
+        if (candidates == null) {
+            return Optional.empty();
+        }
         for (String candidate : candidates) {
             if (candidate != null && !candidate.isBlank()) {
-                return candidate;
+                return Optional.of(candidate.trim());
             }
         }
-        return null;
+        return Optional.empty();
     }
 }
