@@ -6,7 +6,9 @@ import com.ho.account.internalaudit.core.domain.evaluation.Deficiency;
 import com.ho.account.internalaudit.core.domain.evaluation.DesignEvaluation;
 import com.ho.account.internalaudit.core.domain.evaluation.OperatingEvaluation;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,12 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class EvaluationService implements EvaluationUseCase {
 
+    private static final Set<String> VALID_RESULTS = Set.of("EFFECTIVE", "INEFFECTIVE");
+
     private final EvaluationPersistencePort persistencePort;
 
     @Override
     public DesignEvaluation submitDesignEvaluation(DesignEvaluation command) {
         requireIdentifier(command.evaluationId(), "evaluationId");
         requireIdentifier(command.controlId(), "controlId");
+        requireEvaluationResult(command.result());
         requireControl(command.controlId());
         return persistencePort.saveDesignEvaluation(command);
     }
@@ -30,6 +35,7 @@ public class EvaluationService implements EvaluationUseCase {
     public OperatingEvaluation submitOperatingEvaluation(OperatingEvaluation command) {
         requireIdentifier(command.evaluationId(), "evaluationId");
         requireIdentifier(command.controlId(), "controlId");
+        requireEvaluationResult(command.result());
         requireControl(command.controlId());
         return persistencePort.saveOperatingEvaluation(command);
     }
@@ -59,6 +65,16 @@ public class EvaluationService implements EvaluationUseCase {
     private void requireControl(String controlId) {
         if (!persistencePort.controlActivityExists(controlId)) {
             throw new NoSuchElementException("RCM control activity was not found");
+        }
+    }
+
+    private void requireEvaluationResult(String result) {
+        if (result == null || result.isBlank()) {
+            throw new IllegalArgumentException("Evaluation result is required");
+        }
+        String normalized = result.trim().toUpperCase(Locale.ROOT);
+        if (!VALID_RESULTS.contains(normalized)) {
+            throw new IllegalArgumentException("Evaluation result must be EFFECTIVE or INEFFECTIVE: " + result);
         }
     }
 
