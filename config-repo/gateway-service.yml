@@ -17,6 +17,7 @@ spring:
               - http://localhost:*
               - http://127.0.0.1:*
               - https://*.myaccount.com
+              - https://*.trycloudflare.com
             allowedMethods:
               - GET
               - POST
