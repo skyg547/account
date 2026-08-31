@@ -31,6 +31,9 @@
 - **[domain-catalog.md](architecture/domain-catalog.md):** 전사 도메인 카탈로그 및 20+ 마이크로서비스 맵.
 - **[principles_and_policies.md](architecture/principles_and_policies.md):** 헥사고날 아키텍처 원칙, SCD2 이력 관리, `BigDecimal` 정밀도 전사 개발 정책.
 - **[msa_roadmap.md](architecture/msa_roadmap.md):** MSA 전환 및 도메인 분리 로드맵.
+- **[next-gen-cloud-native-roadmap.md](architecture/next-gen-cloud-native-roadmap.md):** 차세대 클라우드 네이티브 아키텍처 로드맵 및 운영 가이드.
+- **[enterprise-tech-stack-and-dev-environment-guide.md](architecture/enterprise-tech-stack-and-dev-environment-guide.md):** 2026 엔터프라이즈 모던 기술 스택 마스터 가이드 및 개발서버 적용 매트릭스.
+- **[java25-migration-feasibility-study.md](architecture/java25-migration-feasibility-study.md):** Java 25 (LTS) 마이그레이션 타당성 분석 및 72개 멀티모듈 아키텍처 전환 로드맵.
 
 ---
 
