@@ -9,8 +9,6 @@ services:
       context: ..
       dockerfile: config-server/Dockerfile
     container_name: config-server
-    ports:
-      - "8888:8888"
     environment:
       - SERVER_PORT=8888
       - SPRING_PROFILES_ACTIVE=native
