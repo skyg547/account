@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -102,6 +104,67 @@ class CollectionServiceTest {
 
         assertThat(commandCaptor.getValue().lines()).extracting("accountCode")
                 .containsExactly("CASH-001", "CLR-001");
+    }
+
+    @Test
+    @DisplayName("동일한 referenceNo로 수납 요청 재시도 시 기존 수납을 반환하고 중복 저장 및 분개를 발생시키지 않는다")
+    void receivePayment_withDuplicateReferenceNo_returnsExistingCollectionWithoutPostingJournal() {
+        Collection existingCollection = collection();
+        existingCollection.setReferenceNo("REF-DUPLICATE-001");
+        CollectionCommand duplicateCommand = new CollectionCommand(
+                LocalDate.of(2026, 5, 29),
+                "C001",
+                new BigDecimal("100.00"),
+                "BANK-001",
+                "VA-001",
+                "REF-DUPLICATE-001");
+
+        when(collectionPersistencePort.findByReferenceNo("REF-DUPLICATE-001"))
+                .thenReturn(Optional.of(existingCollection));
+
+        Collection result = service.receivePayment(duplicateCommand);
+
+        assertThat(result).isSameAs(existingCollection);
+        verify(collectionPersistencePort, never()).save(any());
+        verify(journalPostingPort, never()).createDraftEntry(any());
+        verify(masterDataQueryPort, never()).findBusinessPartner(any());
+    }
+
+    @Test
+    @DisplayName("동일한 referenceNo로 두 번 호출 시 첫 번째만 영속화 및 전표를 발행하고 두 번째는 멱등하게 반환한다")
+    void receivePayment_calledTwiceWithSameReferenceNo_persistsOnceAndPostsJournalOnce() {
+        CollectionCommand command = new CollectionCommand(
+                LocalDate.of(2026, 5, 29),
+                "C001",
+                new BigDecimal("100.00"),
+                "BANK-001",
+                "VA-001",
+                "REF-IDEMPOTENT-002");
+
+        Collection savedCollection = collection();
+        savedCollection.setReferenceNo("REF-IDEMPOTENT-002");
+
+        when(collectionPersistencePort.findByReferenceNo("REF-IDEMPOTENT-002"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(savedCollection));
+        when(accountingPeriodStatusPort.isClosed(command.collectionDate())).thenReturn(false);
+        when(masterDataQueryPort.findBusinessPartner("C001")).thenReturn(Optional.of(customer()));
+        when(collectionPersistencePort.save(any(Collection.class))).thenReturn(savedCollection);
+        when(receivableAccountMappingPort.resolveCollectionRecognitionAccounts(any(Collection.class)))
+                .thenReturn(new ReceivableAccountMappingPort.CollectionRecognitionAccounts("CASH-001", "CLR-001"));
+        when(masterDataQueryPort.findAccountSubject(anyString()))
+                .thenReturn(Optional.of(new AccountSubjectRef("account", "Account", false, false)));
+        when(journalPostingPort.createDraftEntry(any()))
+                .thenReturn(new JournalPostingResult(200L, "SLIP-200", "DRAFT"));
+
+        Collection firstResult = service.receivePayment(command);
+        Collection secondResult = service.receivePayment(command);
+
+        assertThat(firstResult).isNotNull();
+        assertThat(secondResult).isSameAs(savedCollection);
+
+        verify(collectionPersistencePort, times(1)).save(any(Collection.class));
+        verify(journalPostingPort, times(1)).createDraftEntry(any(JournalEntryCommand.class));
     }
 
     @Test

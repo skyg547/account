@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -57,6 +58,14 @@ public class CollectionService implements CollectionUseCase {
 
     @Override
     public Collection receivePayment(CollectionCommand command) {
+        // 멱등성 가드: 동일 referenceNo를 가진 수납 요청 재시도 시 중복 생성 및 중복 분개 방지
+        if (command.referenceNo() != null && !command.referenceNo().isBlank()) {
+            Optional<Collection> existing = collectionPersistencePort.findByReferenceNo(command.referenceNo());
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
+
         validateAccountingPeriodOpen(command.collectionDate());
 
         Collection collection = toCollection(command);
