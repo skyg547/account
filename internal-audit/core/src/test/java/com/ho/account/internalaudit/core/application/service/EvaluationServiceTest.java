@@ -85,4 +85,42 @@ class EvaluationServiceTest {
         verify(persistencePort, never()).evaluationExists(any());
         verify(persistencePort, never()).saveDeficiency(any());
     }
+
+    @Test
+    void designEvaluationRejectsInvalidResultFailClosed() {
+        assertThatThrownBy(() -> new DesignEvaluation(
+                "design-a", "ctrl-1", "evaluator", "2026-08-11", "INVALID_RESULT", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("EFFECTIVE or INEFFECTIVE");
+    }
+
+    @Test
+    void designEvaluationRejectsNullResultFailClosed() {
+        DesignEvaluation command = new DesignEvaluation(
+                "design-a", "ctrl-1", "evaluator", "2026-08-11", null, null);
+
+        assertThatThrownBy(() -> service.submitDesignEvaluation(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Evaluation result is required");
+        verify(persistencePort, never()).saveDesignEvaluation(any());
+    }
+
+    @Test
+    void operatingEvaluationRejectsInvalidResultFailClosed() {
+        assertThatThrownBy(() -> new OperatingEvaluation(
+                "operating-a", "ctrl-1", "evaluator", "2026-08-11", 10, 0, List.of(), "MAYBE", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("EFFECTIVE or INEFFECTIVE");
+    }
+
+    @Test
+    void operatingEvaluationRejectsNullResultFailClosed() {
+        OperatingEvaluation command = new OperatingEvaluation(
+                "operating-a", "ctrl-1", "evaluator", "2026-08-11", 10, 0, List.of(), null, null);
+
+        assertThatThrownBy(() -> service.submitOperatingEvaluation(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Evaluation result is required");
+        verify(persistencePort, never()).saveOperatingEvaluation(any());
+    }
 }
