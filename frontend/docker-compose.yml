@@ -6,8 +6,6 @@ services:
     build:
       context: .
       dockerfile: Containerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     # 브라우저에서 'http://localhost:4000' 이라고 치면 
     # 컨테이너 안의 3000번 포트로 연결해줍니다.
     ports:
@@ -15,6 +13,8 @@ services:
     # standalone production image를 그대로 실행합니다. 개발용 bind mount는 별도 Compose에서 정의합니다.
     environment:
       - NODE_ENV=production
+      - GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL:-http://gateway:8000}
+      - FRONTEND_PUBLIC_ORIGIN=${FRONTEND_PUBLIC_ORIGIN:-}
     networks:
       - account-network
 

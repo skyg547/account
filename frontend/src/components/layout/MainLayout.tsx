@@ -1,10 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Sidebar from "./Sidebar";
 import TopHeader from "./TopHeader";
 import Footer from "./Footer";
 import { useNav } from "@/context/NavContext";
+import { clearLegacyBrowserSession } from '@/services/browserSession';
 
 /**
  * [메인 레이아웃 래퍼]
@@ -12,6 +13,10 @@ import { useNav } from "@/context/NavContext";
  */
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useNav();
+
+  useEffect(() => {
+    clearLegacyBrowserSession();
+  }, []);
 
   return (
     <div className="flex bg-[#f7f8fb] dark:bg-[#0b0f19] min-h-screen selection:bg-[#4262ff]/15 selection:text-[#4262ff] overflow-x-hidden text-[#17191e] dark:text-slate-100 transition-colors duration-300">

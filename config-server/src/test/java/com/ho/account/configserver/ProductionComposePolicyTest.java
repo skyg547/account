@@ -188,6 +188,8 @@ class ProductionComposePolicyTest {
                 asMap(asMap(services.get("auth-api")).get("environment"));
         Map<String, Object> gatewayEnvironment =
                 asMap(asMap(services.get("gateway")).get("environment"));
+        Map<String, Object> frontendEnvironment =
+                asMap(asMap(services.get("frontend")).get("environment"));
         Map<String, Object> apiEnvironment =
                 asMap(asMap(services.get("budget-api")).get("environment"));
         Map<String, Object> batchEnvironment =
@@ -207,6 +209,10 @@ class ProductionComposePolicyTest {
                 .containsEntry(
                         "AUTH_TOKEN_VERSION_VALIDATION_BASE_URL",
                         "http://auth-api:8080");
+        assertThat(frontendEnvironment)
+                .containsEntry("NODE_ENV", "production")
+                .containsEntry("GATEWAY_INTERNAL_URL", "http://gateway:8000")
+                .containsEntry("FRONTEND_PUBLIC_ORIGIN", "${FRONTEND_PUBLIC_ORIGIN:-}");
         assertThat(apiEnvironment)
                 .containsEntry(
                         "AUTH_JWT_SECRET",

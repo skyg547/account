@@ -3,19 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
-import { authService, LoginResponse } from '@/services/authService';
-
-type AuthenticatedUser = Omit<LoginResponse, 'token'>;
-
-function clearStoredSession() {
-  for (const key of ['auth_token', 'user_info']) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Storage access can be blocked; cleanup is best-effort.
-    }
-  }
-}
+import { authService, AuthenticatedSession } from '@/services/authService';
 
 /**
  * [K-Bank 스타일 비밀번호 로그인 페이지]
@@ -30,7 +18,7 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userSession, setUserSession] = useState<AuthenticatedUser | null>(null);
+  const [userSession, setUserSession] = useState<AuthenticatedSession | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +32,7 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    let data: LoginResponse;
+    let data: AuthenticatedSession;
     try {
       data = await authService.login({
         username: normalizedUsername,
@@ -56,18 +44,7 @@ export default function LoginPage() {
       return;
     }
 
-    const { token, ...userInfo } = data;
-    try {
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user_info', JSON.stringify(userInfo));
-    } catch {
-      clearStoredSession();
-      setError('로그인 세션을 저장할 수 없습니다. 브라우저 설정을 확인해 주세요.');
-      setLoading(false);
-      return;
-    }
-
-    setUserSession(userInfo);
+    setUserSession(data);
     setLoading(false);
     setTimeout(() => {
       router.push('/');

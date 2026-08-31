@@ -3023,3 +3023,18 @@
 - Runtime rollback is only `podman compose -f prometheus/docker-compose.yml stop prometheus-dev`; never use `down -v`, prune, broad stop or legacy/application removal. A deliberately stopped application target leaves Prometheus ready but makes the 6/6 gate fail, so distinguish service readiness from scrape completeness.
 - Independent review found P2 unauthenticated lifecycle shutdown exposure, P2 ineffective bind-config update guidance and P3 duplicate-job/rootfs-evidence gaps. Lifecycle is now absent from the exact runtime command, config changes require promtool plus `--force-recreate prometheus-dev`, policy enforces six unique scrape jobs, and the record distinguishes mount modes from rootfs. Live lifecycle-disabled recreate returned 6/6, the strengthened JDK-17 test passed and final re-review found no P0-P3. Commit/push, Draft PR, GitHub checks and merge remain. Grafana datasource integration stays separate under #563 follow-up.
 - Live evidence is rootless Podman-specific; Docker is documented but not run here. The version tag is fixed but not digest-pinned, and the named TSDB volume has no separate size cap. Monitor development disk growth and open a bounded retention follow-up if needed.
+
+# AI Harness Handoff - 2026-08-31 Issue #540 HttpOnly BFF
+
+## Current state
+
+- Issue/branch/worktree: `#540`, `agent/540-http-only-bff`, `/tmp/account-540-http-only-bff`, based on exact `origin/main@85fa1adf`.
+- Login and authenticated Master Data browser traffic use same-origin Route Handlers. The BFF owns the JWT in an HttpOnly, SameSite Strict cookie, reconstructs the Gateway Authorization header server-side, requires same-origin evidence for mutations, blocks upstream redirects and strips browser Cookie/Authorization/identity headers.
+- PAT and governance files are unchanged from main. Those clients retain their existing override/mock behavior until separate route and authorization contracts are implemented.
+
+## Evidence, gate, and rollback
+
+- CPU-1/memory-1536-MiB/network-none Node 20 TypeScript passes. Development live tests pass 12/12 after the final streamed-body and response-header remediation. ESLint passes with 0 errors and the unchanged 244-warning #536 baseline. Prior production build completed 122/122 pages and prior production live tests passed 9/9; repeat both against the final head before publication.
+- Compose/config/image-policy/external-dev preflight and runner checks previously passed without input disclosure. Local offline Config Server compilation remains unavailable only because an existing dependency is not cached; use GitHub JDK 17 validation.
+- Independent review's remaining merge blocker is Gateway rate-limit identity collapse behind the BFF. Issue #607 is the required stacked change: a runtime-only shared secret signs opaque per-login keys, Gateway uses verified principals for protected calls, and spoofed/expired inputs fall back to the direct peer. #540 must not become Ready or merge before #607 is reviewed and integrated.
+- Code rollback is a reviewed revert of the BFF/session/runtime-routing changes. Existing development and production cookie names are both cleared during logout/401 migration. Never expose a shared secret through `NEXT_PUBLIC_*`, build args, tracked dotenv files, logs or issue comments.

@@ -16,6 +16,7 @@
 5.  [**🛠️ 실전 개발 가이드**](./docs/development-guide.md): Next.js 15와 Tailwind v4로 새 페이지를 만들고 디자인을 입히는 법을 알려줍니다.
 6.  [**🚀 빌드 & 배포 완전 정복 가이드**](./docs/build-deploy-guide.md): 로컬 실행, 프로덕션 정적 빌드, Docker 컨테이너 배포 및 트러블슈팅을 다룹니다.
 7.  [**🚒 런북 (장애 해결)**](./docs/runbook.md): 에러가 났을 때 당황하지 않고 대처하는 법을 모았습니다.
+8.  [**🔐 HttpOnly BFF 인증 세션 가이드**](./docs/auth-session-guide.md): 로그인, 쿠키, 로그아웃, 보안 검증과 롤백을 설명합니다.
 
 ---
 
@@ -39,7 +40,7 @@ npm run dev -- --hostname 0.0.0.0
 ```
 이제 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어보세요!
 
-상대 경로 `/api` 요청(로그인 포함)은 Next.js 개발 서버가 `GATEWAY_INTERNAL_URL`로 전달하며,
+상대 경로 `/api` 요청(로그인 포함)은 Next.js BFF가 `GATEWAY_INTERNAL_URL`로 전달하며,
 로컬 npm 실행 시 기본 Gateway 주소는 `http://localhost:8000`입니다. Gateway를 다른 주소에서
 실행할 때만 환경 변수를 지정하세요. 로그인은 항상 same-origin `/api/auth/login`을 사용하므로
 Gateway와 Auth가 모두 실행 중이어야 하며, Auth에 미리 발급된 계정의 아이디와 비밀번호가
@@ -112,27 +113,25 @@ docker compose --env-file .env.dev `
 Node.js 20과 `npm ci` 의존성 레이어를 사용하고 non-root 사용자로 Next 개발 서버를 실행합니다.
 production 이미지는 별도 `frontend/Containerfile` 계약을 그대로 사용합니다.
 
-`/api/*` rewrite는 **빌드 시점에** `.next/routes-manifest.json`에 고정됩니다. 그래서
-`GATEWAY_INTERNAL_URL`은 컨테이너 런타임이 아니라 **이미지 빌드 시점에** 있어야 하며,
-`frontend/Containerfile`이 `ARG GATEWAY_INTERNAL_URL=http://gateway:8000`으로 기본값을
-제공합니다. Gateway가 다른 주소에 있으면 빌드할 때 override 하세요.
+`/api/*`는 build-time rewrite가 아니라 Route Handler BFF가 처리합니다. 따라서
+`GATEWAY_INTERNAL_URL`은 **컨테이너 런타임**에 주입하고 브라우저 공개 변수로 만들지 않습니다.
+Gateway가 다른 주소여도 Frontend image를 다시 빌드할 필요가 없습니다.
 
 ```powershell
-podman build -f frontend/Containerfile `
-  --build-arg GATEWAY_INTERNAL_URL=http://my-gateway:8000 frontend
+podman build -f frontend/Containerfile -t account/frontend:local frontend
+podman run --rm -p 3000:3000 `
+  -e GATEWAY_INTERNAL_URL=http://my-gateway:8000 account/frontend:local
 ```
 
-저장소 빌드 도구(`tools/container-images.ps1`)를 쓸 때는 `deploy/image-targets.json`의
-frontend `buildArgs`가 전달됩니다. 동일한 이름의 환경 변수를 두면 manifest를 수정하지 않고
-override 됩니다.
+저장소 빌드 도구(`tools/container-images.ps1`)는 Gateway 주소 없이 동일한 Frontend image를
+만듭니다. 주소 변경은 실행 Compose나 orchestrator의 런타임 환경에서만 합니다.
 
 ```powershell
-$env:GATEWAY_INTERNAL_URL = "http://my-gateway:8000"
 pwsh tools/container-images.ps1
 ```
 
-이 값 없이 빌드하면 manifest에 `rewrites: []`가 박혀, `NEXT_PUBLIC_API_URL=/api`가 만드는
-`/api/*` 호출이 Gateway에 닿지 못하고 404가 됩니다. 런타임 환경변수로는 고칠 수 없습니다.
+운영 BFF는 `GATEWAY_INTERNAL_URL`이 비어 있거나 URL 형식이 안전하지 않으면 요청을 503으로
+fail-closed 합니다. 저장소 Compose는 `http://gateway:8000`을 런타임에 제공합니다.
 
 새 self-contained DB에서는 API보다 먼저 17개 migration과 runtime grant를 완료해야 합니다.
 전체 순서는 [`docs/guides/development-compose.md`](../docs/guides/development-compose.md)를 따릅니다.
@@ -175,9 +174,9 @@ docker compose up --build
 - `/master-data/partner`는 거래처 목록과 `BUSINESS_PARTNER` 변경 요청의 승인 대기열을 실제 Master Data API에서 조회합니다.
 - 신규 거래처는 직접 저장 API를 호출하지 않고 `POST /api/master-data/change-requests`로 `REQUESTED` 요청을 만듭니다.
 - 승인과 반려는 각각 `POST /api/master-data/change-requests/{id}/approve`, `POST /api/master-data/change-requests/{id}/reject`를 사용합니다.
-- API 주소는 build-time `NEXT_PUBLIC_API_URL`을 사용합니다. `.env.local`은 Gateway `http://localhost:8000/api`, production 기본은 ingress/reverse proxy를 통과하는 same-origin `/api`입니다.
-- Docker build에서는 `NEXT_PUBLIC_API_URL` build argument를 주입해야 하며, 저장소 Compose는 로컬 Gateway 8000을 기본값으로 전달합니다.
-- 브라우저가 임의의 사용자 ID/역할 헤더를 만들지 않고 로그인 응답의 Bearer 토큰만 전달합니다. Backend actor와 권한은 Gateway의 검증된 JWT 정보에서 결정됩니다.
+- 브라우저는 same-origin `/api`만 호출하고 Gateway 주소와 JWT를 알지 못합니다.
+- BFF가 HttpOnly 세션 쿠키를 읽어 Gateway Bearer 헤더를 서버에서 만들며 브라우저가 보낸 사용자 ID/역할/Authorization 헤더는 전달하지 않습니다.
+- Backend actor와 권한은 Gateway가 검증한 JWT 정보에서 결정됩니다. 자세한 실행·검증은 [HttpOnly BFF 인증 세션 가이드](./docs/auth-session-guide.md)를 따릅니다.
 - API 오류는 빈 목록이나 Mock 데이터로 숨기지 않고 화면에 표시합니다.
 
 ---

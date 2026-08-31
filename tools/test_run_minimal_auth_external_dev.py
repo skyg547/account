@@ -95,6 +95,8 @@ class MinimalAuthRunnerTest(unittest.TestCase):
         )
         login_command = compose_exec.call_args_list[-1].args[-1]
         self.assertIn("AbortSignal.timeout(4000)", login_command[-1])
+        self.assertIn("'origin':'http://127.0.0.1:3000'", login_command[-1])
+        self.assertIn("'sec-fetch-site':'same-origin'", login_command[-1])
 
     @mock.patch.object(
         runner.subprocess,

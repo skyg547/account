@@ -151,12 +151,6 @@ function Build-Image {
 
     $tag = "$TagPrefix/$($ImageTarget.name):local"
     if ($ImageTarget.kind -eq 'frontend') {
-        # Next bakes rewrites() into routes-manifest.json during `npm run build`,
-        # so GATEWAY_INTERNAL_URL has to reach the builder stage as a build arg.
-        # Supplying it at container runtime is too late. Without forwarding
-        # buildArgs the Containerfile default becomes the only reachable value,
-        # and a gateway at a different address silently yields an image whose
-        # /api/* calls 404.
         $arguments = @(
             'build',
             '--file', $ImageTarget.containerfile

@@ -1,10 +1,12 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, Search, User, Moon, Sun } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Bell, Search, User, Moon, Sun, LogOut } from 'lucide-react';
 import { useNav, NavCategory } from '@/context/NavContext';
 import { useTheme } from '@/context/ThemeContext';
+import { clearLegacyBrowserSession } from '@/services/browserSession';
 
 /**
  * [K-Bank Style 최상단 시스템 헤더 - 스크롤바 없는 6대 메가 카테고리 바]
@@ -13,6 +15,57 @@ import { useTheme } from '@/context/ThemeContext';
 export default function TopHeader() {
   const { activeCategory, setActiveCategory, isCollapsed } = useNav();
   const { resolvedTheme, toggleTheme } = useTheme();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [sessionState, setSessionState] = useState<'unknown' | 'authenticated' | 'anonymous'>('unknown');
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/auth/session', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return false;
+        }
+        const body = (await response.json()) as { authenticated?: unknown };
+        return body.authenticated === true;
+      })
+      .then((authenticated) => {
+        setSessionState(authenticated ? 'authenticated' : 'anonymous');
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setSessionState('anonymous');
+        }
+      });
+
+    return () => controller.abort();
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        return;
+      }
+      clearLegacyBrowserSession();
+      setSessionState('anonymous');
+      router.push('/login');
+      router.refresh();
+    } catch {
+      // Keep the current UI state when the server could not expire the cookie.
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const handleCategoryClick = (category: NavCategory) => {
     setActiveCategory(category);
@@ -81,18 +134,40 @@ export default function TopHeader() {
           </button>
         </div>
 
-        <Link href="/login" className="flex items-center gap-3 pl-3.5 border-l border-[#eaedf4] dark:border-slate-800 cursor-pointer group">
-          <div className="text-right hidden sm:flex flex-col items-end">
-            <div className="text-xs font-bold text-[#17191e] dark:text-slate-200 group-hover:text-[#4262ff] transition-colors leading-tight">관리자</div>
-            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold tracking-tight mt-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">인증 연동됨</div>
-          </div>
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#4262ff] group-hover:bg-[#4262ff] group-hover:text-white transition-all overflow-hidden shadow-xs">
-               <User size={18} className="transition-transform duration-300" />
+        {sessionState === 'authenticated' ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            aria-label="로그아웃"
+            className="flex items-center gap-3 pl-3.5 border-l border-[#eaedf4] dark:border-slate-800 cursor-pointer group disabled:opacity-60"
+          >
+            <div className="text-right hidden sm:flex flex-col items-end">
+              <div className="text-xs font-bold text-[#17191e] dark:text-slate-200 group-hover:text-[#4262ff] transition-colors leading-tight">인증 사용자</div>
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold tracking-tight mt-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-200 dark:border-emerald-800">
+                {loggingOut ? '종료 중' : '세션 활성'}
+              </div>
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
-          </div>
-        </Link>
+            <div className="relative">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#4262ff] group-hover:bg-[#4262ff] group-hover:text-white transition-all overflow-hidden shadow-xs">
+                <LogOut size={18} className="transition-transform duration-300" />
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+            </div>
+          </button>
+        ) : (
+          <Link href="/login" className="flex items-center gap-3 pl-3.5 border-l border-[#eaedf4] dark:border-slate-800 cursor-pointer group">
+            <div className="text-right hidden sm:flex flex-col items-end">
+              <div className="text-xs font-bold text-[#17191e] dark:text-slate-200 group-hover:text-[#4262ff] transition-colors leading-tight">로그인</div>
+              <div className="text-[10px] text-[#545b69] dark:text-slate-400 font-bold tracking-tight mt-0.5 bg-slate-50 dark:bg-slate-900 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-800">
+                {sessionState === 'unknown' ? '확인 중' : '세션 없음'}
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-[#4262ff] group-hover:bg-[#4262ff] group-hover:text-white transition-all overflow-hidden shadow-xs">
+              <User size={18} className="transition-transform duration-300" />
+            </div>
+          </Link>
+        )}
       </div>
     </header>
   );

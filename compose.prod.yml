@@ -214,6 +214,8 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
+      GATEWAY_INTERNAL_URL: http://gateway:8000
+      FRONTEND_PUBLIC_ORIGIN: "${FRONTEND_PUBLIC_ORIGIN:-}"
     depends_on:
       gateway:
         condition: service_healthy

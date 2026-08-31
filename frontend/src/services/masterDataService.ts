@@ -52,14 +52,7 @@ export interface MasterDataChangeRequestDto {
   appliedAt: string | null;
 }
 
-interface LoginSession {
-  token?: unknown;
-}
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(
-  /\/+$/,
-  '',
-);
+const API_BASE_URL = '/api';
 
 function apiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -69,38 +62,12 @@ function apiUrl(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
-function getAuthToken(): string {
-  if (typeof window === 'undefined') {
-    throw new Error('로그인 세션은 브라우저에서만 사용할 수 있습니다.');
-  }
-
-  const rawUserInfo = localStorage.getItem('user_info');
-  const storedToken = localStorage.getItem('auth_token');
-  let sessionToken = '';
-  if (rawUserInfo) {
-    try {
-      const session = JSON.parse(rawUserInfo) as LoginSession;
-      sessionToken = typeof session.token === 'string' ? session.token.trim() : '';
-    } catch {
-      throw new Error('로그인 세션이 올바르지 않습니다. 다시 로그인해 주세요.');
-    }
-  }
-
-  const token = storedToken?.trim() || sessionToken;
-  if (!token) {
-    throw new Error('인증 토큰이 없습니다. 다시 로그인해 주세요.');
-  }
-
-  return token;
-}
-
 async function requestJson<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
   const response = await fetch(apiUrl(url), {
     ...init,
+    credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
       ...init.headers,
     },
   });

@@ -42,10 +42,8 @@ services:
       NODE_ENV: development
       PORT: "3000"
       HOSTNAME: 0.0.0.0
-      # `next dev`는 next.config.ts를 실행 시점에 읽으므로, 개발 모드에서는
-      # GATEWAY_INTERNAL_URL이 런타임 환경변수로 동작합니다.
-      # (운영 standalone 이미지는 rewrite가 빌드 시점에 routes-manifest.json으로
-      #  구워지므로 반드시 --build-arg로 넘겨야 합니다. Containerfile 주석 참고.)
+      # Next Route Handler BFF가 요청 시점에 읽는 서버 전용 값입니다.
+      # 브라우저 번들에는 포함되지 않으며 운영 standalone도 같은 런타임 계약입니다.
       #
       # 기본값은 "컨테이너 밖 호스트에서 도는 Gateway"를 가리킵니다.
       # Gateway가 없으면 화면은 정상적으로 뜨고 /api 호출만 실패합니다.
