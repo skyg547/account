@@ -15,17 +15,15 @@ Gateway가 하지 않는 일도 중요합니다.
 ## 2. 현재 라우팅 모델
 
 - `gateway-service`는 포트 `8000`으로 실행되고 Eureka에 등록되며 registry를 조회합니다.
-- `config-repo/gateway-service.yml`이 `lb://auth-service`, `lb://master-data`, `lb://journal-ledger`, `lb://closing-service`, `lb://budget-api`, 레거시 `lb://account` 라우트를 정의합니다.
+- `application.yml`에 모든 분리 마이크로서비스(`auth-service`, `master-data`, `journal-ledger`, `closing-service`, `budget-api`, `internal-audit-service`, `deposit-api`, `receivable-api`, `payable-api`, `tax-api`, `reconciliation-api`, `asset-lease-api`, `reporting-api`, `expenditure-resolution-api`, `account-mart-api`, `ecl-api`)의 명시 라우트가 선언되어 있습니다.
 - 외부에는 이 설정에 명시된 route allowlist만 노출합니다. Discovery locator는 비활성화되어 있으므로 `/auth-service/**`, `/master-data/**` 같은 service-ID-prefixed 자동 경로는 생성되지 않습니다.
 - 라우팅에서는 Eureka로 명시적인 `lb://` route의 서비스 인스턴스를 선택합니다. Gateway 자체의 Eureka 등록과 registry fetch는 유지되지만, Discovery locator가 외부 URL이나 route를 자동 생성하지는 않습니다.
-- `/api/basic/**`와 `/api/master-data/**`는 레거시 `/api/**` catch-all보다 먼저 명시적인 `master-data-api` 라우트와 동일한 circuit breaker를 사용합니다.
-- `/api/budgets/**`는 전용 `budget-api` route와 circuit breaker를 거쳐 Budget 서비스로 전달됩니다.
+- 각 업무 서비스 경로는 전용 `lb://` 대상과 독립된 CircuitBreaker 및 fallback 엔드포인트를 사용합니다.
 - Auth 외부 공개 라우트는 `/api/auth/login`의 POST 하나입니다.
 - `/api/auth/validate-token-version`과 `/api/auth/internal/**`는 서비스 간 통신용이므로 전역 필터가 외부 요청을 차단합니다.
 - `/api/**`는 라우트 목록과 무관하게 전역 JWT 필터가 기본 보호합니다.
 - OpenAPI 문서 경로와 actuator처럼 `/api` 밖의 경로는 JWT 필터 대상이 아닙니다. 운영에서는 별도 네트워크/관리 포트 정책으로 제한해야 합니다.
-
-레거시 `account-api` catch-all은 이전 기간 호환을 위한 임시 라우트입니다. 전역 필터 덕분에 인증 우회는 막지만, 도메인별 서비스 이전이 끝나면 제거해야 합니다.
+- 레거시 monolith `account-api` catch-all 라우트는 완전히 제거되어 미정의 경로로의 요청이 모놀리스로 낙하하지 않습니다.
 
 ## 3. 헥사고날 구조
 
@@ -97,4 +95,3 @@ Gateway 이벤트 루프에서 네트워크 호출을 `block()`하면 적은 수
 - Auth 내부 API에 mTLS/서비스 자격 증명 적용.
 - 역할 변경 이벤트 기반 다중 노드 cache 즉시 무효화.
 - rate limiting과 circuit breaker를 업무 중요도별로 세분화.
-- 레거시 `account-api` catch-all 제거.

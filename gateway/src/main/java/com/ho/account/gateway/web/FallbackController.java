@@ -71,4 +71,94 @@ public class FallbackController {
         response.put("message", "Internal Audit service is temporarily unavailable.");
         return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
     }
+
+    @RequestMapping("/deposit")
+    public Mono<ResponseEntity<Map<String, Object>>> depositFallback() {
+        log.error("[서킷 브레이커 발생] Deposit 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 입금(Deposit) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/receivable")
+    public Mono<ResponseEntity<Map<String, Object>>> receivableFallback() {
+        log.error("[서킷 브레이커 발생] Receivable 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 채권(Receivable) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/payable")
+    public Mono<ResponseEntity<Map<String, Object>>> payableFallback() {
+        log.error("[서킷 브레이커 발생] Payable 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 채무(Payable) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/tax")
+    public Mono<ResponseEntity<Map<String, Object>>> taxFallback() {
+        log.error("[서킷 브레이커 발생] Tax 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 세무(Tax) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/reconciliation")
+    public Mono<ResponseEntity<Map<String, Object>>> reconciliationFallback() {
+        log.error("[서킷 브레이커 발생] Reconciliation 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 대사(Reconciliation) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/asset-lease")
+    public Mono<ResponseEntity<Map<String, Object>>> assetLeaseFallback() {
+        log.error("[서킷 브레이커 발생] Asset Lease 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 자산/리스(Asset/Lease) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/reporting")
+    public Mono<ResponseEntity<Map<String, Object>>> reportingFallback() {
+        log.error("[서킷 브레이커 발생] Reporting 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 보고서(Reporting) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/expenditure")
+    public Mono<ResponseEntity<Map<String, Object>>> expenditureFallback() {
+        log.error("[서킷 브레이커 발생] Expenditure Resolution 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 지출결의(Expenditure Resolution) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping({"/mart", "/account-mart"})
+    public Mono<ResponseEntity<Map<String, Object>>> martFallback() {
+        log.error("[서킷 브레이커 발생] Account Mart 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 데이터마트(Account Mart) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
+
+    @RequestMapping("/ecl")
+    public Mono<ResponseEntity<Map<String, Object>>> eclFallback() {
+        log.error("[서킷 브레이커 발생] ECL 서비스에 연결할 수 없습니다.");
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("message", "현재 기대신용손실(ECL) 시스템 점검 중이거나 장애가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response));
+    }
 }

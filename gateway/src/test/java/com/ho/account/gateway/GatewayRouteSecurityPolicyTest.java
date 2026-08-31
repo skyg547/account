@@ -32,13 +32,13 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
-    void masterDataPathsUseExplicitRouteBeforeLegacyCatchAll() {
+    void masterDataPathsUseExplicitCircuitBreakerRoute() {
         Properties properties = loadGatewayProperties();
         int masterDataRouteIndex = routeIndex(properties, "master-data-api");
-        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
 
         assertThat(masterDataRouteIndex).isGreaterThanOrEqualTo(0);
-        assertThat(legacyCatchAllRouteIndex).isGreaterThan(masterDataRouteIndex);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + masterDataRouteIndex + "].uri"))
+                .isEqualTo("lb://master-data");
         assertThat(properties.getProperty(
                         "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].predicates[0]"))
                 .isEqualTo("Path=/api/basic/**,/api/master-data/**");
@@ -49,18 +49,16 @@ class GatewayRouteSecurityPolicyTest {
                         "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].filters[0].args.name"))
                 .isEqualTo("masterDataCircuitBreaker");
         assertThat(properties.getProperty(
-                        "spring.cloud.gateway.routes[" + legacyCatchAllRouteIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/**");
+                        "spring.cloud.gateway.routes[" + masterDataRouteIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/master-data");
     }
 
     @Test
-    void closingPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+    void closingPathsUseDedicatedCircuitBreakerRoute() {
         Properties properties = loadGatewayProperties();
         int closingRouteIndex = routeIndex(properties, "closing-api");
-        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
 
         assertThat(closingRouteIndex).isGreaterThanOrEqualTo(0);
-        assertThat(legacyCatchAllRouteIndex).isGreaterThan(closingRouteIndex);
         assertThat(properties.getProperty(
                         "spring.cloud.gateway.routes[" + closingRouteIndex + "].uri"))
                 .isEqualTo("lb://closing-service");
@@ -79,13 +77,11 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
-    void budgetPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+    void budgetPathsUseDedicatedCircuitBreakerRoute() {
         Properties properties = loadGatewayProperties();
         int budgetRouteIndex = routeIndex(properties, "budget-api");
-        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
 
         assertThat(budgetRouteIndex).isGreaterThanOrEqualTo(0);
-        assertThat(legacyCatchAllRouteIndex).isGreaterThan(budgetRouteIndex);
         assertThat(properties.getProperty(
                         "spring.cloud.gateway.routes[" + budgetRouteIndex + "].uri"))
                 .isEqualTo("lb://budget-api");
@@ -115,13 +111,11 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
-    void internalAuditPathsUseDedicatedCircuitBreakerRouteBeforeLegacyCatchAll() {
+    void internalAuditPathsUseDedicatedCircuitBreakerRoute() {
         Properties properties = loadGatewayProperties();
         int routeIndex = routeIndex(properties, "internal-audit-api");
-        int legacyCatchAllRouteIndex = routeIndex(properties, "account-api");
 
         assertThat(routeIndex).isGreaterThanOrEqualTo(0);
-        assertThat(legacyCatchAllRouteIndex).isGreaterThan(routeIndex);
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://internal-audit-service");
         assertThat(properties.getProperty(
@@ -144,42 +138,344 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
+    void depositPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "deposit-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://deposit-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/deposit/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("depositCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/deposit");
+    }
+
+    @Test
+    void depositFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().depositFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void receivablePathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "receivable-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://receivable-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/receivable/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("receivableCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/receivable");
+    }
+
+    @Test
+    void receivableFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().receivableFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void payablePathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "payable-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://payable-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/payable/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("payableCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/payable");
+    }
+
+    @Test
+    void payableFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().payableFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void taxPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "tax-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://tax-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/tax/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("taxCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/tax");
+    }
+
+    @Test
+    void taxFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().taxFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void reconciliationPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "reconciliation-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://reconciliation-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/reconciliation/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("reconciliationCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/reconciliation");
+    }
+
+    @Test
+    void reconciliationFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().reconciliationFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void assetLeasePathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "asset-lease-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://asset-lease-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/asset-lease/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("assetLeaseCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/asset-lease");
+    }
+
+    @Test
+    void assetLeaseFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().assetLeaseFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void reportingPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "reporting-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://reporting-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/reporting/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("reportingCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/reporting");
+    }
+
+    @Test
+    void reportingFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().reportingFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void expenditureResolutionPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "expenditure-resolution-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://expenditure-resolution-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/expenditure/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("expenditureResolutionCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/expenditure");
+    }
+
+    @Test
+    void expenditureResolutionFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().expenditureFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void accountMartPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "account-mart-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://account-mart-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/mart/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("accountMartCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/mart");
+    }
+
+    @Test
+    void accountMartFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().martFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void eclPathsUseDedicatedCircuitBreakerRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "ecl-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://ecl-api");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/v1/ecl/**");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isEqualTo("CircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
+                .isEqualTo("eclCircuitBreaker");
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/ecl");
+    }
+
+    @Test
+    void eclFallbackReturnsServiceUnavailable() {
+        ResponseEntity<Map<String, Object>> response = Objects.requireNonNull(
+                new FallbackController().eclFallback().block());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
+        assertThat(response.getBody())
+                .containsEntry("status", 503)
+                .containsKey("message");
+    }
+
+    @Test
+    void legacyAccountMonolithCatchAllRouteIsRemoved() {
+        Properties properties = loadGatewayProperties();
+
+        assertThat(routeIndex(properties, "account-api")).isEqualTo(-1);
+        assertThat(properties.values())
+                .doesNotContain("lb://account")
+                .doesNotContain("Path=/api/**");
+    }
+
+    @Test
     void explicitRoutesUseEurekaClientWithoutDiscoveryGeneratedRoutes() {
-        Properties packagedProperties = loadYamlProperties(
-                repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
-        Properties externalProperties = loadGatewayProperties();
+        Properties properties = loadGatewayProperties();
 
-        assertThat(packagedProperties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
+        assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
                 .isEqualTo("false");
-        assertThat(externalProperties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
-                .isEqualTo("false");
-        assertThat(packagedProperties)
-                .doesNotContainKeys(
-                        "spring.cloud.gateway.discovery.locator.lower-case-service-id",
-                        "spring.cloud.gateway.discovery.locator.lower-case-service-id-with-rest-site");
-        assertThat(externalProperties)
+        assertThat(properties)
                 .doesNotContainKeys(
                         "spring.cloud.gateway.discovery.locator.lower-case-service-id",
                         "spring.cloud.gateway.discovery.locator.lower-case-service-id-with-rest-site");
 
-        assertThat(externalProperties.getProperty("eureka.client.enabled")).isEqualTo("true");
-        assertThat(externalProperties.getProperty("eureka.client.register-with-eureka"))
+        assertThat(properties.getProperty("eureka.client.enabled")).isEqualTo("true");
+        assertThat(properties.getProperty("eureka.client.register-with-eureka"))
                 .isEqualTo("true");
-        assertThat(externalProperties.getProperty("eureka.client.fetch-registry"))
+        assertThat(properties.getProperty("eureka.client.fetch-registry"))
                 .isEqualTo("true");
-        assertRouteUri(externalProperties, "auth-login-api", "lb://auth-service");
-        assertRouteUri(externalProperties, "master-data-api", "lb://master-data");
-        assertRouteUri(externalProperties, "journal-ledger-api", "lb://journal-ledger");
-        assertRouteUri(externalProperties, "closing-api", "lb://closing-service");
-        assertRouteUri(externalProperties, "budget-api", "lb://budget-api");
-        assertRouteUri(externalProperties, "internal-audit-api", "lb://internal-audit-service");
-        assertRouteUri(externalProperties, "openapi-master-data", "lb://master-data");
-        assertRouteUri(externalProperties, "openapi-journal-ledger", "lb://journal-ledger");
-        assertRouteUri(externalProperties, "openapi-auth", "lb://auth-service");
-        assertRouteUri(externalProperties, "account-api", "lb://account");
-        assertThat(externalProperties.getProperty("spring.cloud.gateway.default-filters[0].name"))
+        assertRouteUri(properties, "auth-login-api", "lb://auth-service");
+        assertRouteUri(properties, "master-data-api", "lb://master-data");
+        assertRouteUri(properties, "journal-ledger-api", "lb://journal-ledger");
+        assertRouteUri(properties, "closing-api", "lb://closing-service");
+        assertRouteUri(properties, "budget-api", "lb://budget-api");
+        assertRouteUri(properties, "internal-audit-api", "lb://internal-audit-service");
+        assertRouteUri(properties, "deposit-api", "lb://deposit-api");
+        assertRouteUri(properties, "receivable-api", "lb://receivable-api");
+        assertRouteUri(properties, "payable-api", "lb://payable-api");
+        assertRouteUri(properties, "tax-api", "lb://tax-api");
+        assertRouteUri(properties, "reconciliation-api", "lb://reconciliation-api");
+        assertRouteUri(properties, "asset-lease-api", "lb://asset-lease-api");
+        assertRouteUri(properties, "reporting-api", "lb://reporting-api");
+        assertRouteUri(properties, "expenditure-resolution-api", "lb://expenditure-resolution-api");
+        assertRouteUri(properties, "account-mart-api", "lb://account-mart-api");
+        assertRouteUri(properties, "ecl-api", "lb://ecl-api");
+        assertRouteUri(properties, "openapi-master-data", "lb://master-data");
+        assertRouteUri(properties, "openapi-journal-ledger", "lb://journal-ledger");
+        assertRouteUri(properties, "openapi-auth", "lb://auth-service");
+        assertThat(routeIndex(properties, "account-api")).isEqualTo(-1);
+        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[0].name"))
                 .isEqualTo("RequestRateLimiter");
-        assertThat(externalProperties.entrySet().stream()
+        assertThat(properties.entrySet().stream()
                 .anyMatch(e -> e.getKey().toString().contains("globalcors") && e.getValue().toString().contains("3600")))
                 .isTrue();
     }
@@ -204,7 +500,7 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     private Properties loadGatewayProperties() {
-        return loadYamlProperties(repositoryRoot().resolve("config-repo/gateway-service.yml"));
+        return loadYamlProperties(repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
     }
 
     private Properties loadYamlProperties(Path configurationPath) {
