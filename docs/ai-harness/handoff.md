@@ -3006,3 +3006,20 @@
 - `sh -n`, diff checks and the final exact-assertion JDK-17 Config Server policy test pass under CPU 1 / memory 1.5 GiB / one Gradle worker. Independent review's two P3s about pre-rerun evidence and ACL wording were remediated; final re-review found no P0-P3. Commit/push, Draft PR, GitHub checks and merge remain.
 - The grant remains current-object and `public`-schema scoped. Rerun it and the dependency gate after every migration that creates a sequence; define a separate reviewed contract before introducing another application schema.
 - Code rollback is a reviewed path-scoped revert to the previous enumeration only. The new sequence grant is additive and idempotent, while the script also retains its existing idempotent Flyway-history ACL revoke. Do not try to reverse live ACLs, delete databases/volumes or stop PostgreSQL/Redis as rollback.
+
+# AI Harness Handoff - 2026-08-30 Issue #601 Prometheus live external-dev targets
+
+## Review-ready state
+
+- Issue/branch/worktree: `#601`, `agent/601-prometheus-external-dev`, `/tmp/account-601-prometheus-external-dev`, based on merged `origin/main@5f84c30b`. #594 is integrated and closed. #601 is a bounded follow-up because closed #562/PR #582 did not perform its live acceptance and retained legacy/stale targets.
+- The live service is `account-prometheus-dev` in fixed Compose project `account-prometheus-dev`. It uses `docker.io/prom/prometheus:v3.14.0`, only loopback `127.0.0.1:19090`, a read-only tracked config and its own named data volume with 0.5 CPU, 512 MiB and 128 pids.
+- The only six targets are Prometheus self and the five live external-dev aliases: Auth 8084, Master Data 8082, Discovery 8761, Config Server 8888 and Gateway 8000. No legacy name or `host.docker.internal` duplicate remains.
+
+## Evidence, rollback, and residual risk
+
+- Compose quiet/rendered assertions and `promtool check config` pass. The final dedicated JDK-17 policy test passes under CPU 1 / memory 1.5 GiB / one Gradle worker. The first Java attempt failed only because exact map entries were compared in insertion order; the order-independent exact-set assertion then passed and target strictness remains.
+- Live readiness and value-redacting target count pass repeatedly at total 6/up 6/down 0. The container is healthy with restart 0/OOM false and used about 31 MiB at the measured snapshot. The tracked config mount is read-only and the TSDB path writes to the named data volume; a read-only container root filesystem is not claimed.
+- Exact `stop prometheus-dev` preserved the project volume, retained legacy `prometheus` Created container and all seven application container health states. `up -d --wait` and a pinned-image force recreate both recovered to 6/6. PostgreSQL/Redis and all application services were untouched.
+- Runtime rollback is only `podman compose -f prometheus/docker-compose.yml stop prometheus-dev`; never use `down -v`, prune, broad stop or legacy/application removal. A deliberately stopped application target leaves Prometheus ready but makes the 6/6 gate fail, so distinguish service readiness from scrape completeness.
+- Independent review found P2 unauthenticated lifecycle shutdown exposure, P2 ineffective bind-config update guidance and P3 duplicate-job/rootfs-evidence gaps. Lifecycle is now absent from the exact runtime command, config changes require promtool plus `--force-recreate prometheus-dev`, policy enforces six unique scrape jobs, and the record distinguishes mount modes from rootfs. Live lifecycle-disabled recreate returned 6/6, the strengthened JDK-17 test passed and final re-review found no P0-P3. Commit/push, Draft PR, GitHub checks and merge remain. Grafana datasource integration stays separate under #563 follow-up.
+- Live evidence is rootless Podman-specific; Docker is documented but not run here. The version tag is fixed but not digest-pinned, and the named TSDB volume has no separate size cap. Monitor development disk growth and open a bounded retention follow-up if needed.
