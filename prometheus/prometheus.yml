@@ -1,43 +1,33 @@
-# ======================== Prometheus Configuration =========================
-# 초보자를 위한 프로메테우스 순찰(Scraping) 일정표입니다.
-# account-network 내부 DNS 및 Actuator prometheus 엔드포인트를 수집합니다.
-
 global:
-  scrape_interval: 15s # 15초마다 각 서비스의 메트릭을 수집합니다.
+  scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
-  # 1. Prometheus 자체 메트릭
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # 2. Auth 인증 서비스
-  - job_name: 'auth'
+  - job_name: 'minimal-auth'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['auth:8081', 'host.docker.internal:8081']
+      - targets: ['minimal-auth:8084']
 
-  # 3. Master Data 기준정보 서비스
-  - job_name: 'master-data'
+  - job_name: 'minimal-master-data'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['master-data:8082', 'host.docker.internal:8082']
+      - targets: ['minimal-master-data:8082']
 
-  # 4. Eureka Discovery 서비스
-  - job_name: 'discovery'
+  - job_name: 'minimal-discovery'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['discovery:8761', 'host.docker.internal:8761']
+      - targets: ['minimal-discovery:8761']
 
-  # 5. Config Server 설정 서버
-  - job_name: 'config-server'
+  - job_name: 'minimal-config-server'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['config-server:8888', 'host.docker.internal:8888']
+      - targets: ['minimal-config-server:8888']
 
-  # 6. Gateway 라우팅 서비스
-  - job_name: 'gateway'
+  - job_name: 'minimal-gateway'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['gateway:8000', 'host.docker.internal:8000']
+      - targets: ['minimal-gateway:8000']
