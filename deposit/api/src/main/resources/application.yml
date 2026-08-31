@@ -58,3 +58,10 @@ management:
       enabled: false
   tracing:
     enabled: false
+
+account:
+  deposit:
+    outbox:
+      scheduler:
+        enabled: ${DEPOSIT_OUTBOX_SCHEDULER_ENABLED:true}
+      relay-interval-ms: ${DEPOSIT_OUTBOX_RELAY_INTERVAL_MS:5000}

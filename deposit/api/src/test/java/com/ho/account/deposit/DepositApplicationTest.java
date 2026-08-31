@@ -39,13 +39,25 @@ class DepositApplicationTest {
     @Autowired
     private DepositUseCase depositUseCase;
 
+    @Autowired
+    private com.ho.account.contracts.outbox.OutboxPort outboxPort;
+
+    @Autowired
+    private com.ho.account.contracts.outbox.OutboxEventPublisher outboxEventPublisher;
+
+    @Autowired
+    private com.ho.account.deposit.infrastructure.adapter.out.persistence.DepositOutboxRelayScheduler outboxRelayScheduler;
+
     @Test
-    @DisplayName("local 프로파일 구동 시 ApplicationContext 및 컨트롤러/유즈케이스 빈 주입 정상 검증")
+    @DisplayName("local 프로파일 구동 시 ApplicationContext 및 컨트롤러/유즈케이스/아웃박스 빈 주입 정상 검증")
     void contextLoadsAndBeansInjectedSuccessfully() {
         assertThat(depositController).isNotNull();
         assertThat(openAccountUseCase).isNotNull();
         assertThat(depositTransactionUseCase).isNotNull();
         assertThat(depositQueryUseCase).isNotNull();
         assertThat(depositUseCase).isNotNull();
+        assertThat(outboxPort).isNotNull();
+        assertThat(outboxEventPublisher).isNotNull();
+        assertThat(outboxRelayScheduler).isNotNull();
     }
 }
