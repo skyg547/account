@@ -61,17 +61,9 @@ public class DepositService implements DepositUseCase {
     public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
                           DepositAccountMappingPort depositAccountMappingPort,
                           MasterDataQueryPort masterDataQueryPort,
-                          JournalPostingPort journalPostingPort) {
-        this(depositAccountPersistencePort, depositAccountMappingPort, masterDataQueryPort,
-                journalPostingPort, new InMemoryOutboxAdapter(), null);
-    }
-
-    public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
-                          DepositAccountMappingPort depositAccountMappingPort,
-                          MasterDataQueryPort masterDataQueryPort,
                           JournalPostingPort journalPostingPort,
-                          OutboxPort outboxPort,
-                          OutboxEventPublisher outboxEventPublisher) {
+                          @Autowired(required = false) OutboxPort outboxPort,
+                          @Autowired(required = false) OutboxEventPublisher outboxEventPublisher) {
         this.depositAccountPersistencePort = depositAccountPersistencePort;
         this.depositAccountMappingPort = depositAccountMappingPort;
         this.masterDataQueryPort = masterDataQueryPort;
@@ -79,6 +71,14 @@ public class DepositService implements DepositUseCase {
         this.outboxPort = outboxPort != null ? outboxPort : new InMemoryOutboxAdapter();
         this.outboxEventPublisher = outboxEventPublisher != null ? outboxEventPublisher
                 : new JournalOutboxRelayService(this.outboxPort, this.journalPostingPort);
+    }
+
+    public DepositService(DepositAccountPersistencePort depositAccountPersistencePort,
+                          DepositAccountMappingPort depositAccountMappingPort,
+                          MasterDataQueryPort masterDataQueryPort,
+                          JournalPostingPort journalPostingPort) {
+        this(depositAccountPersistencePort, depositAccountMappingPort, masterDataQueryPort,
+                journalPostingPort, new InMemoryOutboxAdapter(), null);
     }
 
     @Override
@@ -216,7 +216,12 @@ public class DepositService implements DepositUseCase {
         outboxPort.saveJournalEvent(outboxEvent);
 
         // 2. 비동기/동기 릴레이 엔진을 통한 외부 전달 (At-Least-Once Delivery & Eventual Consistency)
-        outboxEventPublisher.publish(outboxEvent);
+        try {
+            outboxEventPublisher.publish(outboxEvent);
+        } catch (Exception ex) {
+            // 외부 전표 발행 실패는 로컬 트랜잭션을 롤백시키지 않음 (Eventual Consistency 보장)
+            // OutboxRelay가 스케줄러를 통해 재시도함.
+        }
     }
 
     private void requireAccounts(List<String> accountCodes) {
