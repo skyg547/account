@@ -30,9 +30,13 @@ Copy-Item .env.prod.example .env.prod
 - Internal Audit과 Budget을 포함한 17개 bounded context별 PostgreSQL JDBC URL, 최소 권한 runtime user, password
 - Auth, Gateway, Budget API가 함께 사용하는 32자 이상의 `AUTH_JWT_SECRET`
 - 운영 bootstrap용 16자 이상의 `AUTH_DEFAULT_PASSWORD`와 32자 이상의 `AUTH_INTERNAL_API_TOKEN`
+- Frontend BFF와 Gateway만 공유하는 별도 32~512-byte `BFF_GATEWAY_SHARED_SECRET`
 - 필요하면 Gateway/Frontend host port
 
-예제의 빈 password와 zero digest는 운영 검증에서 거부됩니다. 자격증명은 저장소, PR, Issue, shell history에 넣지 않습니다. 실제 배포에서는 secret manager가 보호된 임시 env 파일을 생성하게 하고, host 접근권한과 보존 정책을 배포 플랫폼에서 통제합니다.
+예제의 빈 password와 zero digest는 운영 검증에서 거부됩니다. BFF 공유 키는 JWT나 내부 API
+token과 별도 생성하고 Frontend/Gateway에 동일하게 주입합니다. 자격증명은 저장소, PR, Issue,
+shell history에 넣지 않습니다. 실제 배포에서는 secret manager가 보호된 임시 env 파일을
+생성하게 하고, host 접근권한과 보존 정책을 배포 플랫폼에서 통제합니다.
 
 ## Validate Without Printing Secrets
 

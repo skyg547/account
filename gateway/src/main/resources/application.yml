@@ -37,12 +37,15 @@ spring:
               - Authorization
             allowCredentials: true
             maxAge: 3600
-      # 전역 RequestRateLimiter 및 IP/KeyResolver 기반 API 호출 제한 정책 (DDoS 차단 및 백엔드 서버 보호)
+      # 전역 RequestRateLimiter: 검증 주체 -> 서명된 BFF 로그인 키 -> 직접 peer 순서로 식별합니다.
       default-filters:
         - name: RequestRateLimiter
           args:
-            key-resolver: "#{@ipKeyResolver}"
+            key-resolver: "#{@requestRateKeyResolver}"
             rate-limiter: "#{@inMemoryRateLimiter}"
+        - RemoveRequestHeader=X-Bff-Rate-Key
+        - RemoveRequestHeader=X-Bff-Rate-Timestamp
+        - RemoveRequestHeader=X-Bff-Rate-Signature
       routes:
         # 아래 명시 route 목록만 외부 경로로 노출합니다. Eureka service ID를 경로 prefix로 노출하지 않습니다.
         # Auth 로그인만 외부 공개합니다. validate/internal 경로는 Gateway 전역 정책에서 차단합니다.
@@ -236,6 +239,10 @@ spring:
             - Path=/v3/api-docs/auth-service
           filters:
             - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
+
+gateway:
+  bff:
+    shared-secret: ${BFF_GATEWAY_SHARED_SECRET:}
 
 auth:
   jwt:

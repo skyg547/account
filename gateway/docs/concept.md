@@ -58,6 +58,11 @@ HTTP request
 
 Gateway는 모든 요청에서 위 헤더를 먼저 제거합니다. 보호 API의 JWT와 roleVersion이 모두 검증된 경우에만 `AuthenticatedPrincipal`에서 새로 생성합니다. 토큰에 부서가 없으면 기존 부서 헤더도 남기지 않습니다.
 
+Rate limiter도 브라우저 신원 헤더를 직접 신뢰하지 않습니다. 보호 API는 JWT 필터가
+`ServerWebExchange` 내부 attribute에 기록한 검증 주체의 SHA-256을, 공개 로그인은 BFF 전용
+secret으로 30초 HMAC 서명된 사용자 SHA-256을 사용합니다. 서명이 없거나 틀리면
+`X-Forwarded-For`가 아니라 직접 연결 peer 주소로 되돌아갑니다.
+
 역할은 쉼표로 연결해 전달하므로 사용자/역할/부서 코드는 제어 문자, 공백, 쉼표가 없는 ASCII 코드여야 합니다. 이는 다운스트림 헤더 파싱이 사용자 입력에 의해 달라지지 않게 하는 경계 규칙입니다.
 
 ## 5. roleVersion 결과 모델

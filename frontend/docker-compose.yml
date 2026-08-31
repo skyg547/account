@@ -14,6 +14,7 @@ services:
     environment:
       - NODE_ENV=production
       - GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL:-http://gateway:8000}
+      - BFF_GATEWAY_SHARED_SECRET=${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}
       - FRONTEND_PUBLIC_ORIGIN=${FRONTEND_PUBLIC_ORIGIN:-}
     networks:
       - account-network

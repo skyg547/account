@@ -48,6 +48,8 @@ services:
       # 기본값은 "컨테이너 밖 호스트에서 도는 Gateway"를 가리킵니다.
       # Gateway가 없으면 화면은 정상적으로 뜨고 /api 호출만 실패합니다.
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://host.docker.internal:8000}
+      # Gateway에도 동일한 32-byte 이상 값을 주입합니다. 브라우저에는 공개되지 않습니다.
+      BFF_GATEWAY_SHARED_SECRET: ${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}
     # host.docker.internal을 호스트 게이트웨이로 매핑합니다.
     # Docker Desktop과 Podman 모두 host-gateway를 지원합니다.
     extra_hosts:

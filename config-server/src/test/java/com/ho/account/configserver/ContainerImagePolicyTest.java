@@ -174,14 +174,16 @@ class ContainerImagePolicyTest {
 
         assertThat(containerfile)
                 .contains("ENV GATEWAY_INTERNAL_URL=http://gateway:8000")
-                .doesNotContain("ARG GATEWAY_INTERNAL_URL");
+                .doesNotContain("ARG GATEWAY_INTERNAL_URL", "BFF_GATEWAY_SHARED_SECRET");
         assertThat(nextConfig).doesNotContain("rewrites()", "GATEWAY_INTERNAL_URL");
         assertThat(bff)
                 .contains("process.env.GATEWAY_INTERNAL_URL")
+                .contains("process.env.BFF_GATEWAY_SHARED_SECRET")
                 .contains("httpOnly: true")
                 .contains("secure: isProduction()")
                 .contains("sameSite: 'strict'")
                 .contains("headers.set('authorization', `Bearer ${sessionToken}`)");
+        assertThat(bff).doesNotContain("NEXT_PUBLIC_BFF_GATEWAY_SHARED_SECRET");
     }
 
     @Test

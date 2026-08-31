@@ -22,6 +22,7 @@ REQUIRED_KEYS = (
     "ENCRYPT_KEY",
     "AUTH_JWT_SECRET",
     "AUTH_INTERNAL_API_TOKEN",
+    "BFF_GATEWAY_SHARED_SECRET",
     "AUTH_DB_URL",
     "AUTH_DB_USER",
     "AUTH_DB_PASSWORD",
@@ -285,6 +286,10 @@ def validate_values(values: Mapping[str, str]) -> None:
         raise ValidationError("AUTH_JWT_SECRET", "does not meet the minimum length")
     if len(values["AUTH_INTERNAL_API_TOKEN"]) < 32:
         raise ValidationError("AUTH_INTERNAL_API_TOKEN", "does not meet the minimum length")
+    if len(values["BFF_GATEWAY_SHARED_SECRET"].encode("utf-8")) < 32:
+        raise ValidationError("BFF_GATEWAY_SHARED_SECRET", "does not meet the minimum length")
+    if len(values["BFF_GATEWAY_SHARED_SECRET"].encode("utf-8")) > 512:
+        raise ValidationError("BFF_GATEWAY_SHARED_SECRET", "exceeds the maximum length")
 
     validate_postgresql_url(values["AUTH_DB_URL"])
     if values["AUTH_DB_USER"] != "auth_dev_app":
@@ -351,6 +356,7 @@ def valid_fixture() -> dict[str, str]:
         "ENCRYPT_KEY": "fixture-encryption-key",
         "AUTH_JWT_SECRET": "j" * 32,
         "AUTH_INTERNAL_API_TOKEN": "t" * 32,
+        "BFF_GATEWAY_SHARED_SECRET": "b" * 32,
         "AUTH_DB_URL": "jdbc:postgresql://auth-db.internal:5432/auth_dev?sslmode=require",
         "AUTH_DB_USER": "auth_dev_app",
         "AUTH_DB_PASSWORD": "fixture-auth-password",
@@ -397,6 +403,8 @@ def run_self_test() -> int:
         ("DEV_DB_HOST", "database.example.invalid", "DEV_DB_HOST"),
         ("AUTH_JWT_SECRET", "secret-fixture-too-short", "AUTH_JWT_SECRET"),
         ("AUTH_INTERNAL_API_TOKEN", "t" * 31, "AUTH_INTERNAL_API_TOKEN"),
+        ("BFF_GATEWAY_SHARED_SECRET", "b" * 31, "BFF_GATEWAY_SHARED_SECRET"),
+        ("BFF_GATEWAY_SHARED_SECRET", "b" * 513, "BFF_GATEWAY_SHARED_SECRET"),
         (
             "AUTH_DB_URL",
             "jdbc:postgresql://auth-db.internal:5432/auth_dev?password=credential-fixture",
@@ -429,6 +437,11 @@ def run_self_test() -> int:
     token_boundary = dict(base)
     token_boundary["AUTH_INTERNAL_API_TOKEN"] = "t" * 32
     validate_values(token_boundary)
+    checks += 1
+
+    bff_secret_boundary = dict(base)
+    bff_secret_boundary["BFF_GATEWAY_SHARED_SECRET"] = "b" * 512
+    validate_values(bff_secret_boundary)
     checks += 1
 
     for quoted_value in ('""', "'   '", '"' + ("s" * 30) + '"'):

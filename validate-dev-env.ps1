@@ -66,6 +66,7 @@ function Test-DevelopmentValues {
         'AUTH_JWT_SECRET',
         'AUTH_DEFAULT_PASSWORD',
         'AUTH_INTERNAL_API_TOKEN',
+        'BFF_GATEWAY_SHARED_SECRET',
         'DEV_KAFKA_BOOTSTRAP_SERVERS',
         'DEV_REDIS_HOST',
         'DEV_REDIS_PORT'
@@ -172,6 +173,13 @@ function Test-DevelopmentValues {
     if ($Values.ContainsKey('AUTH_INTERNAL_API_TOKEN') -and $Values['AUTH_INTERNAL_API_TOKEN'].Length -lt 32) {
         $errors.Add('AUTH_INTERNAL_API_TOKEN must be at least 32 characters')
     }
+    if ($Values.ContainsKey('BFF_GATEWAY_SHARED_SECRET')) {
+        $bffSecretBytes = [System.Text.Encoding]::UTF8.GetByteCount(
+            $Values['BFF_GATEWAY_SHARED_SECRET'])
+        if ($bffSecretBytes -lt 32 -or $bffSecretBytes -gt 512) {
+            $errors.Add('BFF_GATEWAY_SHARED_SECRET must be between 32 and 512 UTF-8 bytes')
+        }
+    }
     if ($ValidationMode -eq 'SelfContained' -and
         $Values.ContainsKey('ACCOUNT_DB_OWNER_PASSWORD') -and
         $Values.ContainsKey('ACCOUNT_DB_APP_PASSWORD') -and
@@ -188,6 +196,7 @@ function Invoke-SelfTest {
         AUTH_JWT_SECRET = 'j' * 32
         AUTH_DEFAULT_PASSWORD = 'local-auth-password'
         AUTH_INTERNAL_API_TOKEN = 't' * 32
+        BFF_GATEWAY_SHARED_SECRET = 'b' * 32
         DEV_KAFKA_BOOTSTRAP_SERVERS = 'kafka:9092'
         DEV_REDIS_HOST = 'redis'
         DEV_REDIS_PORT = '6379'
@@ -208,9 +217,10 @@ function Invoke-SelfTest {
 
     $invalid = $valid.Clone()
     $invalid['AUTH_JWT_SECRET'] = 'short'
+    $invalid['BFF_GATEWAY_SHARED_SECRET'] = 'short'
     $invalid['ACCOUNT_DB_APP_PASSWORD'] = $invalid['ACCOUNT_DB_OWNER_PASSWORD']
     $invalid['AUTH_DB_PASSWORD'] = 'mismatched-runtime-secret'
-    if ((Test-DevelopmentValues -Values $invalid -ValidationMode 'SelfContained').Count -lt 3) {
+    if ((Test-DevelopmentValues -Values $invalid -ValidationMode 'SelfContained').Count -lt 4) {
         throw 'Negative security fixtures were not rejected.'
     }
 

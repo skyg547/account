@@ -1,3 +1,4 @@
+import { createHash, createHmac } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DEVELOPMENT_SESSION_COOKIE = 'account_session';
@@ -7,6 +8,11 @@ const MAX_PROXY_BODY_BYTES = 1024 * 1024;
 const MAX_SESSION_AGE_SECONDS = 8 * 60 * 60;
 const MAX_SESSION_TOKEN_LENGTH = 3800;
 const GATEWAY_TIMEOUT_MILLISECONDS = 10_000;
+const MINIMUM_BFF_GATEWAY_SECRET_BYTES = 32;
+const MAXIMUM_BFF_GATEWAY_SECRET_BYTES = 512;
+const BFF_RATE_KEY_HEADER = 'X-Bff-Rate-Key';
+const BFF_RATE_TIMESTAMP_HEADER = 'X-Bff-Rate-Timestamp';
+const BFF_RATE_SIGNATURE_HEADER = 'X-Bff-Rate-Signature';
 
 const FORWARDED_REQUEST_HEADERS = [
   'accept',
@@ -219,6 +225,33 @@ function gatewayBaseUrl(): URL {
   return parsed;
 }
 
+function bffGatewaySharedSecret(): string {
+  const secret = process.env.BFF_GATEWAY_SHARED_SECRET ?? '';
+  const byteLength = Buffer.byteLength(secret, 'utf8');
+  if (
+    byteLength < MINIMUM_BFF_GATEWAY_SECRET_BYTES ||
+    byteLength > MAXIMUM_BFF_GATEWAY_SECRET_BYTES
+  ) {
+    throw new BffRequestError(503, 'BFF와 Gateway 간 보안 설정이 올바르지 않습니다.');
+  }
+  return secret;
+}
+
+function signedLoginRateHeaders(username: string): Record<string, string> {
+  const rateKey = createHash('sha256').update(username, 'utf8').digest('hex');
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const canonicalRequest = `POST\n/api/auth/login\n${timestamp}\n${rateKey}`;
+  const signature = createHmac('sha256', bffGatewaySharedSecret())
+    .update(canonicalRequest, 'utf8')
+    .digest('hex');
+
+  return {
+    [BFF_RATE_KEY_HEADER]: rateKey,
+    [BFF_RATE_TIMESTAMP_HEADER]: timestamp,
+    [BFF_RATE_SIGNATURE_HEADER]: signature,
+  };
+}
+
 export function gatewayApiUrl(path: readonly string[], search = ''): URL {
   if (!path.length || path.some((segment) => !segment || segment === '.' || segment === '..')) {
     throw new BffRequestError(400, 'API 경로가 올바르지 않습니다.');
@@ -421,6 +454,7 @@ export async function loginThroughGateway(request: NextRequest): Promise<NextRes
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
+        ...signedLoginRateHeaders(credentials.username),
       },
       body: JSON.stringify({ ...credentials, loginType: 'NORMAL' }),
       cache: 'no-store',

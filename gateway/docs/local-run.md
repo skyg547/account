@@ -97,6 +97,10 @@ java -jar $jar.FullName --spring.profiles.active=local --server.port=8000
 ```
 
 Auth와 Gateway 터미널에는 현재 shell 또는 secret provider에서 가져온 같은 신규 승인 `AUTH_JWT_SECRET`과 같은 `AUTH_JWT_ISSUER`를 주입합니다. 실제 값은 문서, Git, 명령 기록, 로그에 남기지 않습니다.
+Frontend BFF까지 통합할 때는 별도로 생성한 32~512-byte `BFF_GATEWAY_SHARED_SECRET`을
+Frontend와 Gateway에만 같은 값으로 주입합니다. JWT secret이나 Auth 내부 token을 재사용하지
+않습니다. Gateway 단독 local 기동에서는 비워 둘 수 있지만 그 상태는 BFF 로그인 공정성
+검증을 뜻하지 않습니다.
 
 ### Config 확인
 
@@ -177,7 +181,9 @@ standalone 모드에서는 Config Server 라우트를 읽지 않으므로 정상
 ### Docker 컨테이너에서 Eureka 등록이 계속 실패함 (`Connect to http://localhost:8761 ... Connection refused`)
 
 - `gateway-service.yml`(config-repo)의 `eureka.client.service-url.defaultZone`은 `${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}` 형태입니다. `spring.cloud.config.override-system-properties`(기본 `true`) 때문에 이 값이 일반 `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` 환경변수보다 우선 적용되므로, 컨테이너에서는 반드시 `EUREKA_DEFAULT_ZONE=http://discovery:8761/eureka/`라는 이름으로 환경변수를 줘야 합니다. `gateway/docker-compose.yml`에 이미 설정되어 있습니다.
-- 모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET`이 없으면 Compose 보간 단계에서 실행을 중단합니다. Auth와 Gateway에 같은 신규 승인 값을 주입하고, 과거 저장소에 노출된 키는 폐기·회전합니다.
+- 모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET` 또는
+  `BFF_GATEWAY_SHARED_SECRET`이 없으면 Compose 보간 단계에서 실행을 중단합니다. 각 값을
+  별도 생성해 해당 서비스에만 주입하고, 과거 저장소에 노출된 키는 폐기·회전합니다.
 
 ### Config Server 없이 실행이 지연됨
 

@@ -92,7 +92,7 @@ H2를 사용한 실제 기동 성공과 각 실행 모듈에 중복된 datasourc
 Config Server, Discovery, Auth, Master Data, Gateway, Frontend와 2-context DB gate만 정의하고
 Java image는 Gradle worker 1로 순차 빌드합니다. 이 개발 서버의 Podman은 Docker Compose
 v5.4 provider를 사용하며, 값 비노출 validator self-test와 generated fixture
-`config --quiet`은 통과했습니다. 승인된 `.env.external-dev`의 11개 값이 준비되기 전에는
+`config --quiet`은 통과했습니다. 승인된 `.env.external-dev`의 12개 값이 준비되기 전에는
 실제 DB 접속, image 재생성, `up`, 로그인 경로 성공을 주장하지 않습니다.
 
 중복 없이 기존 Issue를 계속 사용합니다.

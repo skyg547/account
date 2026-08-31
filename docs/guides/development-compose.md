@@ -210,16 +210,21 @@ Java 서비스는 모듈별 컨테이너 정본인 `docker`를 사용합니다. 
 
 ### 1단계: 승인된 환경 파일 준비
 
-`.env.external-dev`는 Git에 커밋하지 않고 mode `600`으로 보관합니다. 다음 11개 키가
+`.env.external-dev`는 Git에 커밋하지 않고 mode `600`으로 보관합니다. 다음 12개 키가
 필요하지만, 값은 문서·Issue·터미널 출력에 붙이지 않습니다.
 
 ```text
 ENCRYPT_KEY
 AUTH_JWT_SECRET
 AUTH_INTERNAL_API_TOKEN
+BFF_GATEWAY_SHARED_SECRET
 AUTH_DB_URL / AUTH_DB_USER / AUTH_DB_PASSWORD
 DEV_DB_HOST / DEV_DB_PORT / DEV_DB_NAME / DEV_DB_USER / DEV_DB_PASSWORD
 ```
+
+`BFF_GATEWAY_SHARED_SECRET`은 32~512-byte 신규 난수로 만들고 Frontend/Gateway에만 같은 값을
+주입합니다. `AUTH_JWT_SECRET`이나 `AUTH_INTERNAL_API_TOKEN`을 재사용하지 않습니다. 검증기는
+값 자체를 출력하지 않습니다.
 
 파일이 빈 스캐폴드이거나 승인된 외부 Auth/Master Data DB 정보가 없으면 여기서 멈춥니다.
 현재 실행 중인 컨테이너 환경이나 PostgreSQL 컨테이너에서 값을 추출하지 않습니다.

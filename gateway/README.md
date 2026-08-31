@@ -72,6 +72,9 @@ Gateway는 회계 계산이나 승인 상태 변경을 수행하지 않습니다
 - `TokenVersionValidator`: 현재 권한 스냅샷 확인 포트.
 - `AuthTokenVersionValidator`: WebClient/Caffeine 기반 Auth 연동 어댑터.
 - `RequestIdFilter`, `ResponseHeaderFilter`, `RequestLoggingFilter`: 공통 기술 필터.
+- `RateLimiterConfig`: 검증 주체, 서명된 BFF 로그인 키, 직접 peer 순서로 불투명 bucket을 선택.
+  로그인은 사용자별 bucket과 더 큰 BFF peer aggregate bucket을 함께 사용하고 in-memory 저장소는
+  최대 10,000개 bucket으로 제한해 사용자명 회전 우회와 무제한 heap 증가를 막습니다.
 
 Reactor 흐름에서는 `block()`을 사용하지 않습니다. Auth 검증도 `Mono`로 이어서 Gateway 이벤트 루프를 막지 않습니다.
 
@@ -98,6 +101,11 @@ auth:
 ```
 
 소스코드 내 평문 JWT Secret 기본값은 보안 강화를 위해 완전히 제거되었습니다. HS256을 사용하는 경우 Auth와 Gateway 모두에 현재 shell 또는 Secret Manager/Vault 같은 secret provider에서 같은 신규 승인 `AUTH_JWT_SECRET`을 주입해야 합니다. 과거 저장소에 노출된 키는 재사용하지 말고 Auth와 Gateway에서 폐기·회전해야 합니다. RS256은 공개키(`AUTH_JWT_PUBLIC_KEY`) 또는 JWKS URI를 안전하게 주입합니다.
+
+Frontend BFF를 함께 쓰면 `BFF_GATEWAY_SHARED_SECRET`도 필요합니다. JWT/Auth 내부 token과 별도인
+32~512-byte 값을 Frontend와 Gateway에만 동일하게 주입합니다. Gateway는 보호 API에서 JWT
+필터가 내부 attribute에 기록한 검증 주체를 사용하고, 공개 로그인에서는 30초 이내 HMAC이
+맞는 불투명 SHA-256 키만 사용합니다. 임의 `X-Forwarded-For`와 위조 BFF 헤더는 신뢰하지 않습니다.
 
 정상 검증 결과만 짧게 캐시합니다. 거절·장애 결과는 캐시하지 않으므로 계정 복구나 Auth 복구가 불필요하게 지연되지 않습니다.
 
@@ -143,7 +151,9 @@ docker compose up --build gateway
 ```
 
 루트 Compose는 서비스 디스커버리와 Spring Cloud LoadBalancer 기반의 `lb://auth-service`를 통해 동적으로 Auth 서비스에 접근합니다.
-모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET`이 없으면 Compose 보간 단계에서 fail-closed 합니다. Auth와 Gateway에 같은 신규 승인 값을 주입한 후 실행합니다.
+모듈 `gateway/docker-compose.yml`은 현재 shell에 `AUTH_JWT_SECRET` 또는
+`BFF_GATEWAY_SHARED_SECRET`이 없으면 Compose 보간 단계에서 fail-closed 합니다. 각 키를
+용도별로 별도 생성하고 필요한 두 서비스에만 같은 값을 주입한 후 실행합니다.
 
 ---
 

@@ -28,13 +28,18 @@ class GatewayDockerConfigurationTest {
     }
 
     @Test
-    void moduleComposeRequiresExternallyInjectedJwtSecretWithoutLiteralOrDefault() throws IOException {
+    void moduleComposeRequiresExternallyInjectedSecretsWithoutLiteralOrDefault() throws IOException {
         Map<String, Object> root = loadYaml(resolveFromRepositoryRoot("gateway", "docker-compose.yml"));
         Map<String, Object> gateway = service(root, "gateway");
 
         assertThat(asList(gateway.get("environment")))
                 .filteredOn(value -> value.toString().startsWith("AUTH_JWT_SECRET="))
                 .containsExactly("AUTH_JWT_SECRET=${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}");
+        assertThat(asList(gateway.get("environment")))
+                .filteredOn(value -> value.toString().startsWith("BFF_GATEWAY_SHARED_SECRET="))
+                .containsExactly(
+                        "BFF_GATEWAY_SHARED_SECRET="
+                                + "${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}");
     }
 
     private Map<String, Object> service(Map<String, Object> root, String serviceName) {

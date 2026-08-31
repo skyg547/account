@@ -439,6 +439,8 @@ class GatewayRouteSecurityPolicyTest {
 
     @Test
     void explicitRoutesUseEurekaClientWithoutDiscoveryGeneratedRoutes() {
+        Properties packagedProperties = loadYamlProperties(
+                repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
         Properties properties = loadGatewayProperties();
 
         assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
@@ -475,6 +477,28 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(routeIndex(properties, "account-api")).isEqualTo(-1);
         assertThat(properties.getProperty("spring.cloud.gateway.default-filters[0].name"))
                 .isEqualTo("RequestRateLimiter");
+        assertThat(packagedProperties.getProperty(
+                        "spring.cloud.gateway.default-filters[0].args.key-resolver"))
+                .isEqualTo("#{@requestRateKeyResolver}");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.default-filters[0].args.key-resolver"))
+                .isEqualTo("#{@requestRateKeyResolver}");
+        assertThat(packagedProperties.getProperty("spring.cloud.gateway.default-filters[1]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Key");
+        assertThat(packagedProperties.getProperty("spring.cloud.gateway.default-filters[2]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Timestamp");
+        assertThat(packagedProperties.getProperty("spring.cloud.gateway.default-filters[3]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Signature");
+        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[1]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Key");
+        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[2]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Timestamp");
+        assertThat(properties.getProperty("spring.cloud.gateway.default-filters[3]"))
+                .isEqualTo("RemoveRequestHeader=X-Bff-Rate-Signature");
+        assertThat(packagedProperties.getProperty("gateway.bff.shared-secret"))
+                .isEqualTo("${BFF_GATEWAY_SHARED_SECRET:}");
+        assertThat(properties.getProperty("gateway.bff.shared-secret"))
+                .isEqualTo("${BFF_GATEWAY_SHARED_SECRET:}");
         assertThat(properties.entrySet().stream()
                 .anyMatch(e -> e.getKey().toString().contains("globalcors") && e.getValue().toString().contains("3600")))
                 .isTrue();
