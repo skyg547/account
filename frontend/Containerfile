@@ -24,20 +24,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Environment setup
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_API_URL=/api
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-
-# next.config.ts turns GATEWAY_INTERNAL_URL into an /api/* rewrite, and Next
-# bakes rewrites into .next/routes-manifest.json at BUILD time. Supplying this
-# only as a runtime container env var has no effect — the manifest is already
-# fixed. Without it the standalone image ships `rewrites: []`, so the /api
-# calls that NEXT_PUBLIC_API_URL=/api produces return 404 instead of reaching
-# the gateway. Override with --build-arg when the gateway is not at this
-# address.
-ARG GATEWAY_INTERNAL_URL=http://gateway:8000
-ENV GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL}
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -45,6 +32,11 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# The HttpOnly BFF resolves its upstream at request time. Compose or the
+# orchestrator must inject this server-only runtime value; it is never exposed
+# through a NEXT_PUBLIC_* variable or baked into the browser bundle.
+ENV GATEWAY_INTERNAL_URL=http://gateway:8000
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

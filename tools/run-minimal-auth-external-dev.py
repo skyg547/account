@@ -204,7 +204,8 @@ def smoke(engine: str, env_file: Path) -> None:
 
     frontend_path_probe = (
         "fetch('http://127.0.0.1:3000/api/auth/login',"
-        "{method:'POST',headers:{'content-type':'application/json'},body:'{}',"
+        "{method:'POST',headers:{'content-type':'application/json',"
+        "'origin':'http://127.0.0.1:3000','sec-fetch-site':'same-origin'},body:'{}',"
         "signal:AbortSignal.timeout(4000)})"
         ".then(response=>{if(response.status!==400)process.exit(1)})"
         ".catch(()=>process.exit(1))"

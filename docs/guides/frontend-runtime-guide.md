@@ -57,9 +57,9 @@ npm run dev
 
 ### API 연결은 어떻게 되나요?
 
-- `.env.local`의 `NEXT_PUBLIC_API_URL=http://localhost:8000/api` → 브라우저가 Gateway를
-  직접 호출합니다.
-- 상대 경로 `/api/*` 요청은 `next.config.ts`의 rewrite가 `GATEWAY_INTERNAL_URL`로
+- 브라우저는 항상 same-origin `/api/*`만 호출합니다. Gateway 주소와 JWT는 브라우저
+  JavaScript에 노출하지 않습니다.
+- Next.js Route Handler BFF가 HttpOnly 세션을 읽고 `GATEWAY_INTERNAL_URL`로 요청을
   넘겨주며, 개발 모드 기본값은 `http://localhost:8000`입니다.
 
 **Gateway가 안 떠 있어도 화면은 정상적으로 뜹니다.** API 호출만 실패하므로
@@ -333,34 +333,28 @@ docker compose --env-file .env.dev `
 
 ```powershell
 docker build -f frontend/Containerfile `
-  --build-arg GATEWAY_INTERNAL_URL=http://gateway:8000 `
-  --build-arg NEXT_PUBLIC_API_URL=/api `
   -t account/frontend:local frontend
 ```
 
-> ⚠️ **가장 중요한 함정 — `GATEWAY_INTERNAL_URL`은 빌드 시점 값입니다.**
+> `GATEWAY_INTERNAL_URL`은 **빌드 인자가 아니라 런타임 서버 전용 값**입니다.
 >
-> `next.config.ts`의 `/api/*` rewrite는 `next build` 때 `.next/routes-manifest.json`에
-> **구워집니다.** 그래서 이 값을 컨테이너 실행 시 환경변수로 넘겨도 **아무 효과가 없습니다.**
-> 빠뜨리고 빌드하면 manifest에 `rewrites: []`가 박혀서, `NEXT_PUBLIC_API_URL=/api`가
-> 만드는 `/api/*` 호출이 Gateway에 닿지 못하고 전부 404가 됩니다.
+> `/api/*`는 Next.js Route Handler BFF가 요청 시 처리합니다. 같은 image digest를 여러
+> 환경에서 재사용하고, 실행할 때만 내부 Gateway 주소를 바꿉니다. `NEXT_PUBLIC_*`로 만들면
+> 브라우저 번들에 노출되므로 사용하지 않습니다.
 >
-> 개발 모드(`next dev`)는 설정을 실행 시점에 읽으므로 런타임 환경변수로 동작합니다.
-> **개발에서는 되는데 운영 이미지에서만 404**가 나면 대부분 이 문제입니다.
+> 운영은 HttpOnly `Secure` 쿠키를 사용하므로 실제 브라우저 로그인은 HTTPS가 필요합니다.
 
-빌드된 이미지에 rewrite가 제대로 들어갔는지 확인하는 방법:
+빌드된 image를 Gateway와 함께 실행하는 방법:
 
 ```powershell
-docker run --rm --entrypoint sh account/frontend:local -c "cat .next/routes-manifest.json"
+docker run --rm -p 3000:3000 `
+  -e GATEWAY_INTERNAL_URL=http://gateway:8000 `
+  account/frontend:local
 ```
 
-출력의 `rewrites`에 `/api/:path*` → Gateway 주소가 보이면 정상입니다.
-
-저장소 빌드 도구를 쓸 때는 `deploy/image-targets.json`의 frontend `buildArgs`가
-전달되며, 같은 이름의 환경변수를 두면 manifest 수정 없이 override 됩니다.
+저장소 빌드 도구는 환경별 Gateway 주소를 image에 굽지 않습니다.
 
 ```powershell
-$env:GATEWAY_INTERNAL_URL = "http://my-gateway:8000"
 pwsh tools/container-images.ps1
 ```
 
@@ -533,8 +527,8 @@ Docker Desktop(Mac/Windows)에는 내장이지만 **native Linux Docker에는 �
 
 | 변수 | 적용 시점 | 기본값 | 설명 |
 |------|-----------|--------|------|
-| `NEXT_PUBLIC_API_URL` | **빌드** | `/api` | 브라우저가 호출할 API 주소 |
-| `GATEWAY_INTERNAL_URL` | 운영은 **빌드**, 개발은 런타임 | `http://gateway:8000` | `/api/*` rewrite 대상 |
+| `GATEWAY_INTERNAL_URL` | 런타임 | 운영 Compose `http://gateway:8000`, 로컬 개발 `http://localhost:8000` | BFF가 호출할 내부 Gateway origin |
+| `FRONTEND_PUBLIC_ORIGIN` | 런타임(선택) | 요청 Host 기반 | reverse proxy 뒤 CSRF 비교용 공개 origin |
 | `FRONTEND_DEV_PORT` | 런타임 | `3000` | `compose.dev.yml` 호스트 포트 |
 | `DEV_FRONTEND_PORT` | 런타임 | `3000` | 루트 개발 Compose 호스트 포트 |
 | `PROD_FRONTEND_PORT` | 런타임 | `3000` | 운영 Compose 호스트 포트 |
@@ -611,8 +605,9 @@ docker network ls
 
 ### 화면은 뜨는데 `/api` 호출이 전부 404
 
-운영 이미지를 `GATEWAY_INTERNAL_URL` 없이 빌드한 경우입니다. 4-1의 경고를 참고해
-**다시 빌드**해야 합니다. 컨테이너 환경변수로는 고칠 수 없습니다.
+BFF가 아닌 오래된 Frontend image가 실행 중이거나 Gateway에 해당 명시적 route가 없는
+경우입니다. 먼저 image/commit을 확인하고 Gateway route 목록을 확인하세요. BFF의 내부 주소
+설정 오류는 404가 아니라 502 또는 503으로 fail-closed 합니다.
 
 ### 로그인이 안 됩니다
 

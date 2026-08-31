@@ -55,7 +55,7 @@ plain JAR을 제외한 실행 JAR이 정확히 하나일 때만 이미지를 만
 
 ## Frontend
 
-`frontend/Containerfile`만 canonical production image definition입니다. `next.config.ts`의 `output: "standalone"`과 일치하게 standalone server, static files와 public assets만 runtime image로 복사하고 non-root `nextjs` user로 실행합니다. `NEXT_PUBLIC_API_URL`은 build argument이며 운영 기본은 same-origin `/api`입니다.
+`frontend/Containerfile`만 canonical production image definition입니다. `next.config.ts`의 `output: "standalone"`과 일치하게 standalone server, static files와 public assets만 runtime image로 복사하고 non-root `nextjs` user로 실행합니다. 브라우저는 same-origin `/api`만 사용하고 HttpOnly BFF의 `GATEWAY_INTERNAL_URL`은 image build가 아니라 컨테이너 런타임에 주입합니다.
 
 `frontend/docker-compose.yml`은 standalone production image를 그대로 실행하며 소스 bind mount로 runtime artifact를 가리지 않습니다. 루트 개발 Compose는 별도 `frontend/Containerfile.dev`, source bind mount, named dependency/cache volume과 `next dev`를 사용합니다. 운영은 계속 canonical `frontend/Containerfile` standalone image를 사용합니다.
 

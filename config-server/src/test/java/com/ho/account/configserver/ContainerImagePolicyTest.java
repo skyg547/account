@@ -138,10 +138,9 @@ class ContainerImagePolicyTest {
                 .contains("CMD [\"node\", \"server.js\"]");
         assertThat(compose)
                 .contains("dockerfile: Containerfile")
-                .contains("NEXT_PUBLIC_API_URL:-/api")
                 .contains("NODE_ENV=production")
                 .doesNotContain("volumes:")
-                .doesNotContain("NODE_ENV=development");
+                .doesNotContain("NODE_ENV=development", "NEXT_PUBLIC_API_URL");
         assertThat(dockerignore).contains(
                 "node_modules",
                 ".next",
@@ -167,54 +166,26 @@ class ContainerImagePolicyTest {
                         "JAR_DIRECTORY=$($ImageTarget.jarDirectory)");
     }
 
-    /**
-     * Next bakes {@code rewrites()} into {@code .next/routes-manifest.json} at build time, so
-     * {@code GATEWAY_INTERNAL_URL} has to be present while {@code npm run build} runs. Supplying it
-     * only as a runtime container variable leaves the manifest with {@code rewrites: []}, and the
-     * {@code /api/*} calls that {@code NEXT_PUBLIC_API_URL=/api} produces then return 404 instead of
-     * reaching the gateway.
-     */
     @Test
-    void frontendBuildStageResolvesGatewayRewriteBeforeNextBuild() throws IOException {
+    void frontendBffResolvesGatewayOnlyAtServerRuntime() throws IOException {
         String containerfile = Files.readString(resolve("frontend", "Containerfile"));
+        String nextConfig = Files.readString(resolve("frontend", "next.config.ts"));
+        String bff = Files.readString(resolve("frontend", "src", "server", "auth", "bff.ts"));
 
         assertThat(containerfile)
-                .contains("ARG GATEWAY_INTERNAL_URL=http://gateway:8000")
-                .contains("ENV GATEWAY_INTERNAL_URL=${GATEWAY_INTERNAL_URL}");
-
-        int builderStage = containerfile.indexOf("FROM base AS builder");
-        int gatewayArg = containerfile.indexOf("ARG GATEWAY_INTERNAL_URL=");
-        int gatewayEnv = containerfile.indexOf("ENV GATEWAY_INTERNAL_URL=");
-        int build = containerfile.indexOf("RUN npm run build");
-
-        assertThat(builderStage).as("builder stage must exist").isNotNegative();
-        assertThat(gatewayArg).as("GATEWAY_INTERNAL_URL ARG must be declared").isNotNegative();
-        assertThat(gatewayEnv).as("GATEWAY_INTERNAL_URL ENV must be declared").isNotNegative();
-        assertThat(build).as("build step must exist").isNotNegative();
-
-        // Docker ARG is scoped to its stage. Declaring it in an earlier stage would still
-        // read as "before the build" in plain text order while never reaching the builder,
-        // so pin the declarations to the builder stage rather than to file position alone.
-        assertThat(gatewayArg)
-                .as("GATEWAY_INTERNAL_URL must be declared inside the builder stage; "
-                        + "an ARG in an earlier stage does not reach `npm run build`")
-                .isGreaterThan(builderStage);
-        assertThat(gatewayEnv)
-                .as("GATEWAY_INTERNAL_URL ENV must be inside the builder stage")
-                .isGreaterThan(builderStage);
-        assertThat(gatewayEnv)
-                .as("GATEWAY_INTERNAL_URL must be set before npm run build, "
-                        + "otherwise the rewrite is never baked into the manifest")
-                .isLessThan(build);
+                .contains("ENV GATEWAY_INTERNAL_URL=http://gateway:8000")
+                .doesNotContain("ARG GATEWAY_INTERNAL_URL");
+        assertThat(nextConfig).doesNotContain("rewrites()", "GATEWAY_INTERNAL_URL");
+        assertThat(bff)
+                .contains("process.env.GATEWAY_INTERNAL_URL")
+                .contains("httpOnly: true")
+                .contains("secure: isProduction()")
+                .contains("sameSite: 'strict'")
+                .contains("headers.set('authorization', `Bearer ${sessionToken}`)");
     }
 
-    /**
-     * The Containerfile default only helps when the repository's own build tooling can override
-     * it. {@code container-images.ps1} previously passed no {@code --build-arg} for the frontend,
-     * which made the hardcoded default the only reachable value.
-     */
     @Test
-    void frontendImageTargetDeclaresGatewayBuildArgAndToolingForwardsIt() throws IOException {
+    void frontendImageTargetDoesNotBakeGatewayAddressIntoBrowserBuild() throws IOException {
         JsonNode manifest = objectMapper.readTree(Files.readString(resolve("deploy", "image-targets.json")));
         JsonNode frontend = null;
         for (JsonNode target : manifest.get("targets")) {
@@ -224,16 +195,7 @@ class ContainerImagePolicyTest {
         }
 
         assertThat(frontend).as("frontend image target must exist").isNotNull();
-        assertThat(frontend.path("buildArgs").path("GATEWAY_INTERNAL_URL").asText())
-                .as("frontend target must declare the gateway build arg")
-                .isEqualTo("http://gateway:8000");
-
-        String tooling = Files.readString(resolve("tools", "container-images.ps1"));
-        assertThat(tooling)
-                .as("frontend build must forward declared buildArgs, "
-                        + "otherwise the Containerfile default cannot be overridden")
-                .contains("buildArgs")
-                .contains("'--build-arg', \"$name=$value\"");
+        assertThat(frontend.has("buildArgs")).isFalse();
     }
 
     @Test
