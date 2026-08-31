@@ -33,6 +33,9 @@ spring:
   cloud:
     config:
       server:
+        encrypt:
+          # 임의의 /encrypt 및 /decrypt REST 엔드포인트 노출을 기본적으로 비활성화(fail-closed)합니다.
+          enabled: false
         native:
           # 로컬 개발 시 Git 연동 없이 로컬 디렉토리의 설정 파일들을 참조합니다.
           search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo}

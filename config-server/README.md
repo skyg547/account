@@ -63,6 +63,26 @@ try {
 
 설정 조회 응답에는 내부 설정이 포함될 수 있으므로 공유 로그나 이슈에 응답 본문을 붙이지 않습니다. 이 모듈은 DB를 사용하지 않으므로 H2/PostgreSQL 설정이 필요하지 않습니다.
 
+## 암복호화 엔드포인트 보안 (Encryption Endpoint Security)
+
+- `/encrypt` 및 `/decrypt` REST 엔드포인트는 비인가 암복호화 시도를 원천 차단하기 위해 기본적으로 비활성화(`spring.cloud.config.server.encrypt.enabled=false`, 404 Not Found 반환)되어 있습니다.
+- 내부 운영 등 명시적인 사유로 엔드포인트를 활성화하더라도 외부 주입 토큰(`config.crypto.endpoint.token` 또는 `config-server.internal-crypto-token`)이 주입되지 않으면 403 Forbidden으로 Fail-Closed 차단됩니다.
+- 토큰이 구성된 경우 `X-Config-Token`, `X-Config-Internal-Token`, 또는 `Authorization: Bearer <token>` 헤더를 통해서만 접근이 허용되며, 미인증/위조 요청은 401 Unauthorized로 거부됩니다.
+- `/actuator/health`, `/actuator/info` 및 마이크로서비스 설정 조회 엔드포인트(`/{application}/{profile}`)는 필터의 영향을 받지 않고 투명하게 동작하여 무회귀를 보장합니다.
+
+## 네트워크 심층 방어 및 Compose 포트 정책 (Network Defense-in-Depth)
+
+- 기본 Compose 토폴로지(`config-server/docker-compose.yml`, `docker-compose.yml`, `compose.prod.yml`)에서 Config Server의 호스트 포트(`8888`) 직접 게시는 제거되어 있습니다.
+- Config Server는 내부 가상 네트워크(`account-network`) 내에서만 마이크로서비스 간 통신을 지원하여 외부 직접 접근을 원천 차단합니다.
+- 로컬 단독 환경에서 호스트 직접 접근이 필요한 경우 기본 Compose를 수정하지 않고 명시적인 로컬 오버라이드 파일(`docker-compose.override.yml`)을 사용합니다:
+  ```yaml
+  # docker-compose.override.yml 예시 (로컬 단독 디버깅용)
+  services:
+    config-server:
+      ports:
+        - "127.0.0.1:8888:8888"
+  ```
+
 ## 문서 읽기 순서
 
 1. [docs/beginner-guide.md](./docs/beginner-guide.md)

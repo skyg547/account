@@ -10,8 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 @SpringBootTest(
@@ -29,6 +32,33 @@ class ConfigServerApplicationTests {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Test
+    void encryptAndDecryptEndpointsAreDisabledByDefault() {
+        HttpEntity<String> textRequest = new HttpEntity<>("ephemeralSecretValue");
+        ResponseEntity<String> encryptResponse =
+                restTemplate.postForEntity("/encrypt", textRequest, String.class);
+        assertThat(encryptResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        ResponseEntity<String> decryptResponse =
+                restTemplate.postForEntity("/decrypt", textRequest, String.class);
+        assertThat(decryptResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        // Boundary checks: empty body, json content type, subpath
+        HttpEntity<String> emptyRequest = new HttpEntity<>("");
+        assertThat(restTemplate.postForEntity("/encrypt", emptyRequest, String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(restTemplate.postForEntity("/decrypt", emptyRequest, String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        HttpHeaders jsonHeaders = new HttpHeaders();
+        jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> jsonRequest = new HttpEntity<>("{\"data\":\"test\"}", jsonHeaders);
+        assertThat(restTemplate.postForEntity("/encrypt", jsonRequest, String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(restTemplate.postForEntity("/decrypt", jsonRequest, String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
 
     @Test
     void readinessIsUpWhenRepresentativeConfigurationCanBeRead() {

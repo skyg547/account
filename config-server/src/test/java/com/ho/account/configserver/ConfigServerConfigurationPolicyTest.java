@@ -12,7 +12,9 @@ import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.FileSystemResource;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 class ConfigServerConfigurationPolicyTest {
 
@@ -64,6 +66,7 @@ class ConfigServerConfigurationPolicyTest {
 
         assertThat(properties.getProperty("server.port")).isEqualTo("${SERVER_PORT:8888}");
         assertThat(properties.getProperty("encrypt.key")).isEqualTo("${ENCRYPT_KEY}");
+        assertThat(properties.getProperty("spring.cloud.config.server.encrypt.enabled")).isEqualTo("false");
         assertThat(properties.getProperty("spring.profiles.active"))
                 .isEqualTo("${SPRING_PROFILES_ACTIVE:native}");
         assertThat(properties.getProperty("spring.cloud.config.server.native.search-locations"))
@@ -141,12 +144,33 @@ class ConfigServerConfigurationPolicyTest {
         assertThat(build.get("context")).isEqualTo("..");
         assertThat(build.get("dockerfile")).isEqualTo("config-server/Dockerfile");
         assertThat(build).doesNotContainKey("args");
+        assertThat(configServer).doesNotContainKey("ports");
         assertThat(asList(configServer.get("volumes"))).contains("../config-repo:/config-repo:ro");
         assertThat(asList(configServer.get("environment")))
                 .contains(
                         "SPRING_PROFILES_ACTIVE=native",
                         "CONFIG_REPO_LOCATION=file:/config-repo",
                         "ENCRYPT_KEY=${ENCRYPT_KEY:?ENCRYPT_KEY must be supplied by an approved secret provider}");
+    }
+
+    @Test
+    void composeTopologyEnforcesConfigServerNetworkIsolationAndZeroPublishedPorts() throws IOException {
+        for (String composeFile : List.of(
+                "config-server/docker-compose.yml",
+                "docker-compose.yml",
+                "compose.prod.yml",
+                "tools/compose.minimal-auth-external-dev.yml")) {
+            Map<String, Object> root = loadYaml(resolveFromRepositoryRoot(composeFile.split("/")));
+            Map<String, Object> services = asMap(root.get("services"));
+            for (String serviceName : List.of("config-server", "minimal-config-server")) {
+                if (services.containsKey(serviceName)) {
+                    Map<String, Object> configService = asMap(services.get(serviceName));
+                    assertThat(configService)
+                            .as(composeFile + " -> " + serviceName + " must not publish host ports")
+                            .doesNotContainKey("ports");
+                }
+            }
+        }
     }
 
     @Test
@@ -341,8 +365,10 @@ class ConfigServerConfigurationPolicyTest {
     }
 
     private Map<String, Object> loadYaml(Path path) throws IOException {
+        LoaderOptions options = new LoaderOptions();
+        options.setMaxAliasesForCollections(500);
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return asMap(new Yaml().load(inputStream));
+            return asMap(new Yaml(new SafeConstructor(options)).load(inputStream));
         }
     }
 
