@@ -209,13 +209,13 @@ public class ReconManagerService {
 
     private String requireText(JsonNode root, String field, ReconciliationUnit unit) {
         String value = readText(root, field);
-        if (value == null) throw new IllegalArgumentException(field + " is required for unit " + unit.getId());
+        if (value.isBlank()) throw new IllegalArgumentException(field + " is required for unit " + unit.getId());
         return value;
     }
 
     private String readText(JsonNode root, String field) {
         JsonNode value = root.get(field);
-        return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText().trim();
+        return value == null || value.isNull() || value.asText().isBlank() ? "" : value.asText().trim();
     }
 
     private BigDecimal readDecimal(JsonNode root, String field, BigDecimal defaultValue) {
@@ -259,7 +259,7 @@ public class ReconManagerService {
         DEBIT, CREDIT, ENDING_BALANCE, ABS_ENDING_BALANCE;
 
         private static LedgerAmountBasis from(String value) {
-            if (value == null) return DEBIT;
+            if (value == null || value.isBlank()) return DEBIT;
             try {
                 return valueOf(value.toUpperCase());
             } catch (IllegalArgumentException e) {

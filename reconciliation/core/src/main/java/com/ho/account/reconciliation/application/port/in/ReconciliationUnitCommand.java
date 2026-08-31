@@ -19,10 +19,14 @@ public record ReconciliationUnitCommand(
 ) {
     public ReconciliationUnitCommand {
         name = requireText(name, "name");
-        description = trimToNull(description);
-        frequency = Objects.requireNonNull(frequency, "frequency is required");
-        reconciliationType = Objects.requireNonNull(reconciliationType, "reconciliationType is required");
-        criteriaJson = trimToNull(criteriaJson);
+        description = defaultString(description);
+        if (frequency == null) {
+            throw new IllegalArgumentException("frequency is required");
+        }
+        if (reconciliationType == null) {
+            throw new IllegalArgumentException("reconciliationType is required");
+        }
+        criteriaJson = defaultString(criteriaJson);
     }
 
     private static String requireText(String value, String fieldName) {
@@ -32,10 +36,7 @@ public record ReconciliationUnitCommand(
         return value.trim();
     }
 
-    private static String trimToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+    private static String defaultString(String value) {
+        return (value == null || value.isBlank()) ? "" : value.trim();
     }
 }

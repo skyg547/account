@@ -18,9 +18,9 @@ public interface ExternalReconStageRecordRepository extends JpaRepository<Extern
             WHERE r.unitId = :unitId
               AND r.stageCode = :stageCode
               AND r.reconciliationDate = :reconciliationDate
-              AND (:productCode IS NULL OR r.productCode = :productCode)
-              AND (:currencyCode IS NULL OR r.currencyCode = :currencyCode)
-              AND (:legalEntityCode IS NULL OR r.legalEntityCode = :legalEntityCode)
+              AND (:productCode IS NULL OR :productCode = '' OR r.productCode = :productCode)
+              AND (:currencyCode IS NULL OR :currencyCode = '' OR r.currencyCode = :currencyCode)
+              AND (:legalEntityCode IS NULL OR :legalEntityCode = '' OR r.legalEntityCode = :legalEntityCode)
             """)
     SnapshotAggregateProjection summarize(
             @Param("unitId") String unitId,
@@ -36,9 +36,9 @@ public interface ExternalReconStageRecordRepository extends JpaRepository<Extern
             WHERE r.unitId = :unitId
               AND r.stageCode = :stageCode
               AND r.reconciliationDate = :reconciliationDate
-              AND (:productCode IS NULL OR r.productCode = :productCode)
-              AND (:currencyCode IS NULL OR r.currencyCode = :currencyCode)
-              AND (:legalEntityCode IS NULL OR r.legalEntityCode = :legalEntityCode)
+              AND (:productCode IS NULL OR :productCode = '' OR r.productCode = :productCode)
+              AND (:currencyCode IS NULL OR :currencyCode = '' OR r.currencyCode = :currencyCode)
+              AND (:legalEntityCode IS NULL OR :legalEntityCode = '' OR r.legalEntityCode = :legalEntityCode)
             """)
     java.util.List<ExternalReconStageRecord> findStageRecords(
             @Param("unitId") String unitId,

@@ -62,15 +62,6 @@ public class ReconciliationAdjustmentPolicy {
                 + " requires adjustmentDebitAccountCode and adjustmentCreditAccountCode in criteriaJson.");
     }
 
-    private String readText(JsonNode root, String fieldName) {
-        JsonNode node = root.get(fieldName);
-        if (node == null || node.isNull()) {
-            return null;
-        }
-        String text = node.asText();
-        return (text == null || text.isBlank()) ? null : text.trim();
-    }
-
     /**
      * 조정 계정 코드 쌍을 담는 레코드
      */

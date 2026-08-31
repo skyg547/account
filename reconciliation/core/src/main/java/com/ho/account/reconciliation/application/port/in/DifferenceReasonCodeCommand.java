@@ -16,7 +16,7 @@ public record DifferenceReasonCodeCommand(
     public DifferenceReasonCodeCommand {
         code = requireText(code, "code");
         name = requireText(name, "name");
-        description = trimToNull(description);
+        description = defaultString(description);
     }
 
     private static String requireText(String value, String fieldName) {
@@ -26,10 +26,7 @@ public record DifferenceReasonCodeCommand(
         return value.trim();
     }
 
-    private static String trimToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+    private static String defaultString(String value) {
+        return (value == null || value.isBlank()) ? "" : value.trim();
     }
 }
