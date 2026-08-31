@@ -252,6 +252,69 @@ class AutomatedMatchingEngineTest {
         assertThat(results).isEmpty();
     }
 
+    @Test
+    void matchFailsFastOnNullInputs() {
+        assertThatThrownBy(() -> matchingEngine.match(null, List.of()))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("details must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.match(List.of(), List.of(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("options must not be null");
+    }
+
+    @Test
+    void matchSubsetSumFailsFastOnNullInputs() {
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(null, List.of(), 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("statements must not be null");
+
+        assertThatThrownBy(() -> matchingEngine.matchSubsetSum(List.of(), null, 3))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("details must not be null");
+    }
+
+    @Test
+    void matchHandlesEmptyListsAndNullAmountsGracefully() {
+        List<AutomatedMatchingEngine.MatchResult> emptyResults = matchingEngine.match(List.of(), List.of());
+        assertThat(emptyResults).isEmpty();
+
+        List<AutomatedMatchingEngine.SubsetMatchResult> emptySubsetResults = matchingEngine.matchSubsetSum(List.of(), List.of(), 0);
+        assertThat(emptySubsetResults).isEmpty();
+
+        BankStatement stmtWithNullAmounts = new BankStatement();
+        stmtWithNullAmounts.setTransactionDate(LocalDate.of(2026, 5, 12));
+
+        JournalDetailSummary detailWithNullAmount = new JournalDetailSummary();
+        detailWithNullAmount.setAccountingDate(LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.MatchResult> results = matchingEngine.match(
+                List.of(stmtWithNullAmounts),
+                List.of(detailWithNullAmount)
+        );
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).isMatch()).isFalse();
+        assertThat(results.get(0).getMatchReason()).isEqualTo(AutomatedMatchingEngine.NO_MATCH_FOUND);
+    }
+
+    @Test
+    void matchIsRepeatableAndDeterministic() {
+        BankStatement stmt = bankStatement("100.00", "0.00", LocalDate.of(2026, 5, 12));
+        JournalDetailSummary detail = journalDetail("100.00", LocalDate.of(2026, 5, 12));
+
+        List<AutomatedMatchingEngine.MatchResult> run1 = matchingEngine.match(List.of(stmt), List.of(detail));
+        List<AutomatedMatchingEngine.MatchResult> run2 = matchingEngine.match(List.of(stmt), List.of(detail));
+
+        assertThat(run1).hasSize(1);
+        assertThat(run2).hasSize(1);
+        assertThat(run1.get(0).isMatch()).isEqualTo(run2.get(0).isMatch());
+        assertThat(run1.get(0).getMatchReason()).isEqualTo(run2.get(0).getMatchReason());
+    }
+
     private BankStatement bankStatement(String depositAmount, String withdrawalAmount, LocalDate transactionDate) {
         BankStatement statement = new BankStatement();
         statement.setDepositAmount(new BigDecimal(depositAmount));

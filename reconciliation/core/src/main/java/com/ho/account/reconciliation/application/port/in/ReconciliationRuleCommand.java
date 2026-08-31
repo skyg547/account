@@ -24,9 +24,14 @@ public record ReconciliationRuleCommand(
             throw new IllegalArgumentException("reconciliationUnitId must be greater than zero");
         }
         name = requireText(name, "name");
-        ruleDefinitionJson = trimToNull(ruleDefinitionJson);
-        toleranceType = Objects.requireNonNull(toleranceType, "toleranceType is required");
-        priority = Objects.requireNonNull(priority, "priority is required");
+        ruleDefinitionJson = defaultString(ruleDefinitionJson);
+        if (toleranceType == null) {
+            throw new IllegalArgumentException("toleranceType is required");
+        }
+        toleranceValue = toleranceValue == null ? BigDecimal.ZERO : toleranceValue;
+        if (priority == null) {
+            throw new IllegalArgumentException("priority is required");
+        }
         if (priority < 0) {
             throw new IllegalArgumentException("priority must be zero or greater");
         }
@@ -39,10 +44,7 @@ public record ReconciliationRuleCommand(
         return value.trim();
     }
 
-    private static String trimToNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+    private static String defaultString(String value) {
+        return (value == null || value.isBlank()) ? "" : value.trim();
     }
 }

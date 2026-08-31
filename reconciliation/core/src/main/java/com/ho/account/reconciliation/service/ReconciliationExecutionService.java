@@ -291,7 +291,7 @@ public class ReconciliationExecutionService {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
         String sideStr = readText(root, "targetSide");
-        JournalSide targetSide = sideStr != null && !sideStr.isBlank() ? JournalSide.valueOf(sideStr.trim().toUpperCase()) : JournalSide.DEBIT;
+        JournalSide targetSide = !sideStr.isBlank() ? JournalSide.valueOf(sideStr.trim().toUpperCase()) : JournalSide.DEBIT;
 
         JournalDetailAggregateSummary aggregate = journalQueryPort.getJournalDetailAggregateByAccount(
                 reconciliationDate,
@@ -313,11 +313,11 @@ public class ReconciliationExecutionService {
     private String readText(JsonNode root, String fieldName) {
         JsonNode node = root.get(fieldName);
         if (node == null || node.isNull()) {
-            return null;
+            return "";
         }
         String text = node.asText();
         if (text == null || text.isBlank()) {
-            return null;
+            return "";
         }
         return text.trim();
     }
@@ -367,7 +367,7 @@ public class ReconciliationExecutionService {
     private List<ReconciliationItem> buildTargetItems(ReconciliationUnit reconciliationUnit, LocalDate reconciliationDate, ReconciliationSnapshot snapshot) {
         JsonNode root = parseCriteriaJson(reconciliationUnit);
         String targetAccountCode = readText(root, "targetAccountCode");
-        List<String> accountCodes = targetAccountCode != null && !targetAccountCode.isBlank() ? List.of(targetAccountCode) : List.of();
+        List<String> accountCodes = !targetAccountCode.isBlank() ? List.of(targetAccountCode) : List.of();
         List<JournalDetailSummary> details = journalQueryPort.getJournalDetailsByAccountCodes(
                 reconciliationDate, reconciliationDate, accountCodes
         );
@@ -443,7 +443,7 @@ public class ReconciliationExecutionService {
         ReconciliationUnit unit = run.getReconciliationUnit();
         JsonNode root = parseCriteriaJson(unit);
         String currencyCode = readText(root, "adjustmentCurrencyCode");
-        currencyCode = currencyCode != null ? currencyCode : "KRW";
+        currencyCode = !currencyCode.isBlank() ? currencyCode : "KRW";
         String sourceDocumentId = buildAdjustmentSourceDocumentId(run, difference, accountingDate, amount, accountCodes);
 
         JournalEntryCommand command = new JournalEntryCommand(

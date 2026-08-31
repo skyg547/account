@@ -19,10 +19,12 @@ public record ExternalReconSnapshotRequest(
     public ExternalReconSnapshotRequest {
         unitId = requiredText(unitId, "unitId");
         stageCode = requiredText(stageCode, "stageCode").toUpperCase(Locale.ROOT);
-        reconciliationDate = Objects.requireNonNull(reconciliationDate, "reconciliationDate must not be null");
-        productCode = optionalText(productCode);
-        currencyCode = optionalText(currencyCode);
-        legalEntityCode = optionalText(legalEntityCode);
+        if (reconciliationDate == null) {
+            throw new IllegalArgumentException("reconciliationDate must not be null");
+        }
+        productCode = defaultString(productCode);
+        currencyCode = defaultString(currencyCode);
+        legalEntityCode = defaultString(legalEntityCode);
     }
 
     public static ExternalReconSnapshotRequest of(
@@ -50,10 +52,7 @@ public record ExternalReconSnapshotRequest(
         return value.trim();
     }
 
-    private static String optionalText(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
+    private static String defaultString(String value) {
+        return (value == null || value.isBlank()) ? "" : value.trim();
     }
 }

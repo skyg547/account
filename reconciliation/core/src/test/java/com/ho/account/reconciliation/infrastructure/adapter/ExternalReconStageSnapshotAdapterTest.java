@@ -61,7 +61,7 @@ class ExternalReconStageSnapshotAdapterTest {
                 null,
                 null
         );
-        when(repository.summarize("UNIT-001", "INTERFACE", reconDate, null, null, null))
+        when(repository.summarize("UNIT-001", "INTERFACE", reconDate, "", "", ""))
                 .thenReturn(null);
 
         ExternalReconSnapshot snapshot = adapter.loadSnapshot(request);

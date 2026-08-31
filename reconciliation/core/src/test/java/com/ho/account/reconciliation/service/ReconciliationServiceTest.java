@@ -306,7 +306,7 @@ class ReconciliationServiceTest {
     }
 
     private void stubJournalTarget(LocalDate reconciliationDate, String debitAmount) {
-        when(journalQueryPort.getJournalDetailAggregateByAccount(reconciliationDate, reconciliationDate, JournalSide.DEBIT, null))
+        when(journalQueryPort.getJournalDetailAggregateByAccount(reconciliationDate, reconciliationDate, JournalSide.DEBIT, ""))
                 .thenReturn(new JournalDetailAggregateSummary(1L, new BigDecimal(debitAmount)));
     }
 

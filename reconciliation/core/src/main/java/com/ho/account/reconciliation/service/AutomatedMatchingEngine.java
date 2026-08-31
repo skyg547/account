@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -148,10 +149,10 @@ public class AutomatedMatchingEngine {
                 }
 
                 JournalDetailSummary detail = candidate.detail();
-                String matchReason = resolveMatchReason(stmt, detail, options);
-                if (matchReason != null) {
+                Optional<String> matchReason = resolveMatchReason(stmt, detail, options);
+                if (matchReason.isPresent()) {
                     matchedDetailIndexes.add(candidate.index());
-                    results.add(new MatchResult(stmt, detail, true, matchReason));
+                    results.add(new MatchResult(stmt, detail, true, matchReason.get()));
                     found = true;
                     break;
                 }
@@ -167,11 +168,11 @@ public class AutomatedMatchingEngine {
         NavigableMap<BigDecimal, List<IndexedDetail>> index = new TreeMap<>();
         for (int detailIndex = 0; detailIndex < details.size(); detailIndex++) {
             JournalDetailSummary detail = details.get(detailIndex);
-            BigDecimal signedAmount = detailAmount(detail);
-            if (signedAmount == null) {
+            Optional<BigDecimal> signedAmount = detailAmount(detail);
+            if (signedAmount.isEmpty()) {
                 continue;
             }
-            index.computeIfAbsent(signedAmount, ignored -> new ArrayList<>())
+            index.computeIfAbsent(signedAmount.get(), ignored -> new ArrayList<>())
                     .add(new IndexedDetail(detailIndex, detail));
         }
         return index;
@@ -180,9 +181,6 @@ public class AutomatedMatchingEngine {
     private List<IndexedDetail> candidateDetails(BankStatement stmt, MatchOptions options,
             NavigableMap<BigDecimal, List<IndexedDetail>> indexedDetails) {
         BigDecimal signedAmount = statementAmount(stmt);
-        if (signedAmount == null) {
-            return List.of();
-        }
 
         BigDecimal fromAmount = signedAmount.subtract(options.getAmountTolerance());
         BigDecimal toAmount = signedAmount.add(options.getAmountTolerance());
@@ -194,77 +192,89 @@ public class AutomatedMatchingEngine {
         return candidates;
     }
 
-    private String resolveMatchReason(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
-        BigDecimal stmtAmount = statementAmount(stmt);
-        BigDecimal detailAmount = detailAmount(detail);
-        if (stmtAmount == null || detailAmount == null) {
-            return null;
+    private Optional<String> resolveMatchReason(BankStatement stmt, JournalDetailSummary detail, MatchOptions options) {
+        if (stmt == null || detail == null) {
+            return Optional.empty();
         }
+        BigDecimal stmtAmount = statementAmount(stmt);
+        Optional<BigDecimal> detailAmountOpt = detailAmount(detail);
+        if (detailAmountOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        BigDecimal detailAmount = detailAmountOpt.get();
 
         BigDecimal amountDifference = stmtAmount.subtract(detailAmount).abs();
         if (amountDifference.compareTo(options.getAmountTolerance()) > 0) {
-            return null;
+            return Optional.empty();
         }
 
         if (options.isUseSlipNoMatch() && containsNormalized(stmt.getDescription(), detail.getSlipNo())) {
-            return SLIP_NO_MATCH;
+            return Optional.of(SLIP_NO_MATCH);
         }
 
         if (options.isUseAccountNoMatch() && sameAccountNo(stmt.getAccountNo(), detail.getAccountNo())) {
-            return ACCOUNT_NO_MATCH;
+            return Optional.of(ACCOUNT_NO_MATCH);
         }
 
         if (options.isUseDescriptionMatch()
                 && (containsNormalized(stmt.getDescription(), detail.getDetailDescription())
                 || containsNormalized(stmt.getDescription(), detail.getHeaderDescription()))) {
-            return COMPLEX_DESCRIPTION_MATCH;
+            return Optional.of(COMPLEX_DESCRIPTION_MATCH);
         }
 
         LocalDate stmtDate = stmt.getTransactionDate();
         LocalDate glDate = detail.getAccountingDate();
         if (stmtDate == null || glDate == null) {
-            return null;
+            return Optional.empty();
         }
 
         long dateDifference = Math.abs(ChronoUnit.DAYS.between(stmtDate, glDate));
         if (dateDifference > options.getDateToleranceDays()) {
-            return null;
+            return Optional.empty();
         }
 
-        return amountDifference.compareTo(BigDecimal.ZERO) == 0 && dateDifference == 0
+        return Optional.of(amountDifference.compareTo(BigDecimal.ZERO) == 0 && dateDifference == 0
                 ? EXACT_DATE_AMOUNT_MATCH
-                : TOLERANCE_DATE_AMOUNT_MATCH;
+                : TOLERANCE_DATE_AMOUNT_MATCH);
     }
 
     private boolean containsNormalized(String source, String token) {
-        String normalizedSource = normalizeText(source);
-        String normalizedToken = normalizeText(token);
-        return normalizedSource != null && normalizedToken != null
-                && normalizedSource.contains(normalizedToken);
+        Optional<String> normalizedSource = normalizeText(source);
+        Optional<String> normalizedToken = normalizeText(token);
+        if (normalizedSource.isEmpty() || normalizedToken.isEmpty()) {
+            return false;
+        }
+        return normalizedSource.get().contains(normalizedToken.get());
     }
 
     private boolean sameAccountNo(String left, String right) {
-        String normalizedLeft = normalizeAccountNo(left);
-        String normalizedRight = normalizeAccountNo(right);
-        return normalizedLeft != null && normalizedLeft.equals(normalizedRight);
-    }
-
-    private String normalizeText(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+        Optional<String> normalizedLeft = normalizeAccountNo(left);
+        Optional<String> normalizedRight = normalizeAccountNo(right);
+        if (normalizedLeft.isEmpty() || normalizedRight.isEmpty()) {
+            return false;
         }
-        return value.trim().toUpperCase(Locale.ROOT);
+        return normalizedLeft.get().equals(normalizedRight.get());
     }
 
-    private String normalizeAccountNo(String value) {
+    private Optional<String> normalizeText(String value) {
         if (value == null || value.isBlank()) {
-            return null;
+            return Optional.empty();
+        }
+        return Optional.of(value.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private Optional<String> normalizeAccountNo(String value) {
+        if (value == null || value.isBlank()) {
+            return Optional.empty();
         }
         String normalized = value.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
-        return normalized.isBlank() ? null : normalized;
+        return normalized.isBlank() ? Optional.empty() : Optional.of(normalized);
     }
 
     private BigDecimal statementAmount(BankStatement statement) {
+        if (statement == null) {
+            return BigDecimal.ZERO;
+        }
         BigDecimal depositAmount = zeroIfNull(statement.getDepositAmount());
         BigDecimal withdrawalAmount = zeroIfNull(statement.getWithdrawalAmount());
         if (depositAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -276,12 +286,15 @@ public class AutomatedMatchingEngine {
         return BigDecimal.ZERO;
     }
 
-    private BigDecimal detailAmount(JournalDetailSummary detail) {
+    private Optional<BigDecimal> detailAmount(JournalDetailSummary detail) {
+        if (detail == null) {
+            return Optional.empty();
+        }
         BigDecimal amount = detail.getBaseAmount() != null ? detail.getBaseAmount() : detail.getAmount();
         if (amount == null) {
-            return null;
+            return Optional.empty();
         }
-        return detail.getSide() == JournalSide.CREDIT ? amount.negate() : amount;
+        return Optional.of(detail.getSide() == JournalSide.CREDIT ? amount.negate() : amount);
     }
 
     private BigDecimal zeroIfNull(BigDecimal amount) {
@@ -354,7 +367,6 @@ public class AutomatedMatchingEngine {
             }
             BigDecimal stmtSum = stmtSub.stream()
                     .map(this::statementAmount)
-                    .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             for (List<JournalDetailSummary> detailSub : detailSubsets) {
@@ -363,7 +375,7 @@ public class AutomatedMatchingEngine {
                 }
                 BigDecimal detailSum = detailSub.stream()
                         .map(this::detailAmount)
-                        .filter(Objects::nonNull)
+                        .flatMap(Optional::stream)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 if (stmtSum.compareTo(detailSum) == 0 && stmtSum.compareTo(BigDecimal.ZERO) != 0) {
