@@ -33,7 +33,10 @@ class AssetJdbcAdapterTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Object[]>> argsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(jdbcTemplate).batchUpdate(anyString(), argsCaptor.capture());
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).batchUpdate(sqlCaptor.capture(), argsCaptor.capture());
+
+        assertThat(sqlCaptor.getValue()).contains("last_depreciation_date IS NULL OR last_depreciation_date < ?");
 
         Object[] args = argsCaptor.getValue().get(0);
         assertThat(args[0]).isEqualTo(new BigDecimal("300000.00"));
@@ -41,11 +44,26 @@ class AssetJdbcAdapterTest {
         assertThat(args[2]).isEqualTo("ACTIVE");
         assertThat(args[3]).isEqualTo(LocalDate.of(2026, 4, 30));
         assertThat(args[4]).isEqualTo(10L);
+        assertThat(args[5]).isEqualTo(LocalDate.of(2026, 4, 1));
     }
 
     @Test
     void updateDepreciationBulkSkipsEmptyResults() {
         adapter.updateDepreciationBulk(List.of(), LocalDate.of(2026, 4, 30));
+
+        verify(jdbcTemplate, never()).batchUpdate(anyString(), org.mockito.ArgumentMatchers.<List<Object[]>>any());
+    }
+
+    @Test
+    void updateDepreciationBulkSkipsNullDate() {
+        FixedAssetDepreciationResult result = new FixedAssetDepreciationResult(
+                10L,
+                new BigDecimal("100000.00"),
+                new BigDecimal("300000.00"),
+                new BigDecimal("900000.00"),
+                "ACTIVE");
+
+        adapter.updateDepreciationBulk(List.of(result), null);
 
         verify(jdbcTemplate, never()).batchUpdate(anyString(), org.mockito.ArgumentMatchers.<List<Object[]>>any());
     }

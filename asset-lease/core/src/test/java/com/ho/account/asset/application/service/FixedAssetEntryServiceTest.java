@@ -44,4 +44,24 @@ class FixedAssetEntryServiceTest {
         verify(persistencePort).saveHistory(any(AssetHistory.class));
         verify(eventPort).sendAssetEvent(any(), any());
     }
+
+    @Test
+    void processMonthlyDepreciationSkipsAlreadyDepreciatedAssets() {
+        FixedAsset alreadyDepreciated = new FixedAsset();
+        alreadyDepreciated.setAssetCode("FA-002");
+        alreadyDepreciated.setStatus("ACTIVE");
+        alreadyDepreciated.setAcquisitionCost(new BigDecimal("12000000.00"));
+        alreadyDepreciated.setCurrentBookValue(new BigDecimal("11800000.00"));
+        alreadyDepreciated.setAccumulatedDepreciation(new BigDecimal("200000.00"));
+        alreadyDepreciated.setDepreciationAmountPerPeriod(new BigDecimal("200000.00"));
+        alreadyDepreciated.setLastDepreciationDate(LocalDate.of(2026, 8, 31));
+
+        when(persistencePort.findByStatus("ACTIVE")).thenReturn(java.util.List.of(alreadyDepreciated));
+
+        service.processMonthlyDepreciation(LocalDate.of(2026, 8, 31), "asset-admin");
+
+        org.mockito.Mockito.verify(persistencePort, org.mockito.Mockito.never()).save(any(FixedAsset.class));
+        org.mockito.Mockito.verify(persistencePort, org.mockito.Mockito.never()).saveHistory(any(AssetHistory.class));
+        org.mockito.Mockito.verify(eventPort, org.mockito.Mockito.never()).sendAssetEvent(any(), any());
+    }
 }

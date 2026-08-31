@@ -8,6 +8,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 
 /**
  * [DDD(도메인 주도 설계) - Aggregate Root]
@@ -132,6 +133,23 @@ public class FixedAsset {
     }
 
     /**
+     * 🎓 [교육적 주석 - 회계 기간 단위 감가상각 멱등성(Idempotency) 검증]
+     * 동일한 회계 기간(동일 연-월) 내에서 이미 감가상각이 완료되었거나,
+     * 마지막 상각일자 이전/당일자로 중복 상각을 시도하는 경우를 방지합니다.
+     * 이를 통해 월말 배치 재실행 또는 중복 호출 시 이중 상각 및 장부가액 훼손을 방지합니다.
+     *
+     * @param processDate 상각 처리 기준일자
+     * @return 이미 해당 기간에 상각이 반영되었으면 true, 그렇지 않으면 false
+     */
+    public boolean isDepreciatedForPeriod(LocalDate processDate) {
+        if (processDate == null || lastDepreciationDate == null) {
+            return false;
+        }
+        return !processDate.isAfter(lastDepreciationDate)
+                || YearMonth.from(processDate).equals(YearMonth.from(lastDepreciationDate));
+    }
+
+    /**
      * 감가상각 결과를 미리 계산합니다. 이 메서드는 자산 상태를 바꾸지 않습니다.
      *
      * <p>초보자 설명: 단건 API는 `depreciate`로 객체를 바로 바꾸지만, Batch는 계산값만 모아
@@ -143,6 +161,10 @@ public class FixedAsset {
         BigDecimal bookValue = defaultZero(currentBookValue);
 
         if (!STATUS_ACTIVE.equals(status)) {
+            return FixedAssetDepreciationResult.noChange(id, accumulated, bookValue, status);
+        }
+
+        if (isDepreciatedForPeriod(processDate)) {
             return FixedAssetDepreciationResult.noChange(id, accumulated, bookValue, status);
         }
 
@@ -196,6 +218,10 @@ public class FixedAsset {
      * 도메인 불변성 방어막을 형성합니다.
      */
     public BigDecimal depreciate(LocalDate processDate) {
+        if (!STATUS_ACTIVE.equals(status) || isDepreciatedForPeriod(processDate)) {
+            return BigDecimal.ZERO;
+        }
+
         FixedAssetDepreciationResult result = calculateDepreciation(processDate);
         if (!result.shouldPersist()) {
             return result.depreciationAmount();

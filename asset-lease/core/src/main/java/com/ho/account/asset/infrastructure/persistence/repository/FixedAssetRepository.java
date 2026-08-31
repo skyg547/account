@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * [헥사고날 아키텍처 - 인프라스트럭처 영속성 계층 (Infrastructure Persistence Repository)]
@@ -26,6 +27,8 @@ import java.util.List;
 @Repository
 public interface FixedAssetRepository extends JpaRepository<FixedAsset, Long> {
     List<FixedAsset> findByStatus(String status);
+
+    Optional<FixedAsset> findByAssetCode(String assetCode);
 
     // Spring Batch RepositoryItemReader는 마지막 인자로 Pageable을 붙여 호출합니다.
     Page<FixedAsset> findByStatus(String status, Pageable pageable);

@@ -31,6 +31,7 @@ public class DepreciationPipeline {
     public List<FixedAssetDepreciationResult> calculateBatch(List<FixedAsset> assets, LocalDate targetDate) {
         return assets.stream()
                 .filter(asset -> "ACTIVE".equals(asset.getStatus()))
+                .filter(asset -> !asset.isDepreciatedForPeriod(targetDate))
                 .map(asset -> asset.calculateDepreciation(targetDate))
                 .filter(FixedAssetDepreciationResult::shouldPersist)
                 .collect(Collectors.toList());
