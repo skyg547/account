@@ -1,5 +1,6 @@
 package com.ho.account.auth.core.infrastructure.config;
 
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import jakarta.annotation.PostConstruct;
@@ -15,6 +16,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *    - 환경변수(AUTH_JWT_SECRET, AUTH_INTERNAL_API_TOKEN)가 제공되지 않은 경우,
  *      애플리케이션 시작 시점(@PostConstruct)에 Fail-Closed 예외(IllegalStateException)를 발생시켜
  *      보안이 취약한 상태로 서비스가 작동되는 위험을 원천 차단합니다.
+ *    - 설정된 사용자의 비밀번호(auth.users[].password)가 PasswordEncoderPolicy를 준수하지 않는 경우
+ *      (예: 평문, noop, 잘못된 BCrypt 페이로드, cost factor 위반) 시작 시점에 즉시 실패 처리합니다.
  *
  * 2. Runtime Credential Isolation (실행 시점 민감 정보 격리)
  *    - local을 포함한 모든 프로파일은 JWT secret, internal token, 사용자 비밀번호 기본값을 포함하지 않습니다.
@@ -44,6 +47,28 @@ public class AuthModuleProperties {
         if (internalApi.getToken() == null || internalApi.getToken().isBlank()) {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
+        }
+        for (User user : users) {
+            if (user != null) {
+                validateConfiguredUserPassword(
+                        user.getPassword(),
+                        user.getUsername() != null ? user.getUsername() : "unknown");
+            }
+        }
+    }
+
+    public static void validateConfiguredUserPassword(String password, String username) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' must not be blank.");
+        }
+        try {
+            PasswordEncoderPolicy.validate(password, "Password for configured user '" + username + "'");
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: Password for configured user '" + username
+                            + "' is invalid: " + ex.getMessage());
         }
     }
 

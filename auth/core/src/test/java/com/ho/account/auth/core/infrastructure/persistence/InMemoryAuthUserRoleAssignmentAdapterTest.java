@@ -7,7 +7,10 @@ import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersi
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +72,9 @@ class InMemoryAuthUserRoleAssignmentAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User user = new AuthModuleProperties.User();
         user.setUsername("admin");
-        user.setPassword("{noop}1234");
+        byte[] bytes = new byte[16];
+        new SecureRandom().nextBytes(bytes);
+        user.setPassword(PasswordEncoderPolicy.encode(Base64.getUrlEncoder().withoutPadding().encodeToString(bytes), 4));
         user.setDepartmentCode("FIN");
         user.setRoles(List.of("ROLE_ADMIN"));
         properties.setUsers(List.of(user));

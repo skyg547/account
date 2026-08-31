@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ho.account.auth.AuthApplication;
 import com.ho.account.auth.core.infrastructure.config.AuthConfiguration;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -187,6 +188,82 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
+    @DisplayName("설정된 사용자의 비밀번호가 평문이거나 {noop}인 경우 Fail-Closed 예외가 발생한다")
+    void configuredUserRejectsPlaintextAndNoopPassword() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "plaintext123"))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 12.");
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{noop}secret"))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' uses forbidden '{noop}' prefix. Plaintext passwords are not allowed.");
+    }
+
+    @Test
+    @DisplayName("설정된 사용자의 비밀번호가 알 수 없는 접두사이거나 malformed 페이로드인 경우 Fail-Closed 예외가 발생한다")
+    void configuredUserRejectsUnknownPrefixAndMalformedPayload() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{unknown}$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' uses unsupported encoding prefix '{unknown}'. Only '{bcrypt}' is allowed.");
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{bcrypt}x"))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 1.");
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{bcrypt}not-valid"))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 9.");
+    }
+
+    @Test
+    @DisplayName("설정된 사용자의 비밀번호 cost factor가 범위를 벗어난 경우 Fail-Closed 예외가 발생한다")
+    void configuredUserRejectsOutOfRangeCostFactor() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+        String validHash = PasswordEncoderPolicy.encode("test-secret", 4);
+        String suffix53 = validHash.substring(15); // {bcrypt}$2a$04$... -> 15 chars before suffix53
+
+        String cost03 = "{bcrypt}$2a$03$" + suffix53;
+        String cost32 = "{bcrypt}$2a$32$" + suffix53;
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", cost03))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt cost factor must be between 4 and 31 (inclusive), but was 3.");
+
+        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", cost32))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage(
+                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt cost factor must be between 4 and 31 (inclusive), but was 32.");
+    }
+
+    @Test
+    @DisplayName("설정된 사용자의 비밀번호가 유효한 동적 BCrypt 해시인 경우 정상 기동한다")
+    void configuredUserSucceedsWithValidBcryptPassword() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+        String validPassword = PasswordEncoderPolicy.encode("dynamic-secret", 4);
+
+        try (ConfigurableApplicationContext context =
+                securityPolicyContextWithUser("local", jwtSecret, internalToken, "ops", validPassword)) {
+            AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
+            assertThat(properties.getUsers()).hasSize(1);
+            assertThat(properties.getUsers().get(0).getPassword()).isEqualTo(validPassword);
+        }
+    }
+
+    @Test
     @DisplayName("Auth API 모듈만이 실행 가능한 Boot JAR 애플리케이션이다")
     void onlyAuthApiIsExecutableApplication() throws Exception {
         Path root = repositoryRoot();
@@ -260,6 +337,33 @@ class AuthApiRuntimePolicyTest {
         overrides.put("auth.internal-api.token", internalToken);
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("credentialIsolation", overrides));
+
+        return new SpringApplicationBuilder(AuthConfiguration.class)
+                .environment(environment)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .properties(
+                        "spring.config.location="
+                                + repositoryRoot()
+                                        .resolve("auth/api/src/main/resources/")
+                                        .toUri(),
+                        "spring.main.banner-mode=off")
+                .run();
+    }
+
+    private ConfigurableApplicationContext securityPolicyContextWithUser(
+            String profile, String jwtSecret, String internalToken, String username, String password) {
+        Map<String, Object> overrides = new LinkedHashMap<>();
+        if (profile != null) {
+            overrides.put("spring.profiles.active", profile);
+        }
+        overrides.put("auth.jwt.secret", jwtSecret);
+        overrides.put("auth.internal-api.token", internalToken);
+        overrides.put("auth.users[0].username", username);
+        overrides.put("auth.users[0].password", password);
+        overrides.put("auth.users[0].roles[0]", "ROLE_ADMIN");
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("userCredentialIsolation", overrides));
 
         return new SpringApplicationBuilder(AuthConfiguration.class)
                 .environment(environment)
