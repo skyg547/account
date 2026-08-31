@@ -46,6 +46,28 @@ class DepreciationPipelineTest {
         assertThat(asset.getStatus()).isEqualTo("ACTIVE");
     }
 
+    @Test
+    void calculateBatchExcludesAssetsAlreadyDepreciatedForPeriod() {
+        FixedAsset notDepreciated = activeAsset(1L, new BigDecimal("1000000"), BigDecimal.ZERO, new BigDecimal("100000"));
+
+        FixedAsset alreadyDepreciatedSameDay = activeAsset(2L, new BigDecimal("900000"), BigDecimal.ZERO, new BigDecimal("100000"));
+        alreadyDepreciatedSameDay.setLastDepreciationDate(LocalDate.of(2026, 4, 30));
+
+        FixedAsset alreadyDepreciatedEarlierInMonth = activeAsset(3L, new BigDecimal("900000"), BigDecimal.ZERO, new BigDecimal("100000"));
+        alreadyDepreciatedEarlierInMonth.setLastDepreciationDate(LocalDate.of(2026, 4, 15));
+
+        FixedAsset depreciatedLastMonth = activeAsset(4L, new BigDecimal("900000"), BigDecimal.ZERO, new BigDecimal("100000"));
+        depreciatedLastMonth.setLastDepreciationDate(LocalDate.of(2026, 3, 31));
+
+        List<FixedAssetDepreciationResult> results = pipeline.calculateBatch(
+                List.of(notDepreciated, alreadyDepreciatedSameDay, alreadyDepreciatedEarlierInMonth, depreciatedLastMonth),
+                LocalDate.of(2026, 4, 30));
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(FixedAssetDepreciationResult::assetId)
+                .containsExactly(1L, 4L);
+    }
+
     private FixedAsset activeAsset(Long id, BigDecimal currentBookValue, BigDecimal residualValue, BigDecimal periodAmount) {
         FixedAsset asset = new FixedAsset();
         asset.setId(id);

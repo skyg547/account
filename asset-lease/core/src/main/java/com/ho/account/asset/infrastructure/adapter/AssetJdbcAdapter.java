@@ -22,17 +22,18 @@ public class AssetJdbcAdapter implements AssetPersistencePort {
 
     @Override
     public void updateDepreciationBulk(List<FixedAssetDepreciationResult> results, LocalDate lastDate) {
-        if (results == null || results.isEmpty()) {
+        if (results == null || results.isEmpty() || lastDate == null) {
             return;
         }
 
+        LocalDate periodStart = lastDate.withDayOfMonth(1);
         String sql = "UPDATE fixed_assets SET " +
                      "accumulated_depreciation = ?, " +
                      "current_book_value = ?, " +
                      "status = ?, " +
                      "last_depreciation_date = ?, " +
                      "updated_at = NOW() " +
-                     "WHERE id = ?";
+                     "WHERE id = ? AND (last_depreciation_date IS NULL OR last_depreciation_date < ?)";
 
         List<Object[]> batchArgs = new ArrayList<>();
         for (FixedAssetDepreciationResult result : results) {
@@ -42,7 +43,8 @@ public class AssetJdbcAdapter implements AssetPersistencePort {
                         result.currentBookValue(),
                         result.status(),
                         lastDate,
-                        result.assetId()
+                        result.assetId(),
+                        periodStart
                 });
             }
         }

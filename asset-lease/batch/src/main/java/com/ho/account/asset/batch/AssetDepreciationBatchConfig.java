@@ -56,11 +56,12 @@ public class AssetDepreciationBatchConfig {
     @Bean
     public Step fixedAssetBulkStep(JobRepository jobRepository,
                                    PlatformTransactionManager transactionManager,
+                                   ItemProcessor<FixedAsset, FixedAsset> assetProcessor,
                                    ItemWriter<FixedAsset> assetBulkWriter) {
         return new StepBuilder("fixedAssetBulkStep", jobRepository)
                 .<FixedAsset, FixedAsset>chunk(1000, transactionManager) // 1,000건 단위 Chunk 처리
                 .reader(assetReader())
-                .processor(assetProcessor())
+                .processor(assetProcessor)
                 .writer(assetBulkWriter)
                 .build();
     }
@@ -78,8 +79,16 @@ public class AssetDepreciationBatchConfig {
     }
 
     @Bean
-    public ItemProcessor<FixedAsset, FixedAsset> assetProcessor() {
-        return asset -> asset;
+    @StepScope
+    public ItemProcessor<FixedAsset, FixedAsset> assetProcessor(
+            @Value("#{jobParameters['targetDate']}") String targetDateParameter) {
+        LocalDate targetDate = requireTargetDate(targetDateParameter);
+        return asset -> {
+            if (asset.isDepreciatedForPeriod(targetDate)) {
+                return null;
+            }
+            return asset;
+        };
     }
 
     @Bean
