@@ -30,16 +30,16 @@ public class BudgetControlAdapter implements BudgetControlPort {
         masterDataQueryPort.findAccountSubject(accountCode)
                 .orElseThrow(() -> new IllegalArgumentException("Account subject not found. code=" + accountCode));
 
-        if (budgetPersistencePort
-                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode)
-                .isEmpty()) {
-            return;
-        }
         budgetService.checkBudgetAvailability(yearMonth, departmentCode, accountCode, amount);
     }
 
     @Override
     public void useBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+        masterDataQueryPort.findDepartment(departmentCode)
+                .orElseThrow(() -> new IllegalArgumentException("Department not found. code=" + departmentCode));
+        masterDataQueryPort.findAccountSubject(accountCode)
+                .orElseThrow(() -> new IllegalArgumentException("Account subject not found. code=" + accountCode));
+
         budgetService.useBudget(yearMonth, departmentCode, accountCode, amount);
     }
 

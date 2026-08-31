@@ -3,6 +3,7 @@ package com.ho.account.expenditure.application.service;
 import com.ho.account.expenditure.application.port.out.BudgetPersistencePort;
 import com.ho.account.expenditure.domain.Budget;
 import java.math.BigDecimal;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,29 @@ public class BudgetService {
         return budgetPersistencePort.save(budget);
     }
 
-    public void useBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+    public Budget assignBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal assignedAmount) {
         Budget budget = budgetPersistencePort
                 .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode)
-                .orElseThrow(() -> new IllegalArgumentException("해당 부서와 계정의 예산이 설정되지 않았습니다."));
+                .orElseGet(() -> {
+                    Budget b = new Budget();
+                    b.setYearMonth(yearMonth);
+                    b.setDeptCode(departmentCode);
+                    b.setAccountCode(accountCode);
+                    b.setAssignedAmount(BigDecimal.ZERO);
+                    b.setUsedAmount(BigDecimal.ZERO);
+                    return b;
+                });
+        budget.setAssignedAmount(assignedAmount != null ? assignedAmount : BigDecimal.ZERO);
+        return budgetPersistencePort.save(budget);
+    }
+
+    public void useBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
+        Optional<Budget> optionalBudget = budgetPersistencePort
+                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode);
+        if (optionalBudget.isEmpty()) {
+            return;
+        }
+        Budget budget = optionalBudget.get();
         budget.useBudget(amount);
         budgetPersistencePort.save(budget);
     }
@@ -44,9 +64,12 @@ public class BudgetService {
      * @param amount 복원할 예산 금액
      */
     public void restoreBudget(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
-        Budget budget = budgetPersistencePort
-                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode)
-                .orElseThrow(() -> new IllegalArgumentException("해당 부서와 계정의 예산이 설정되지 않았습니다."));
+        Optional<Budget> optionalBudget = budgetPersistencePort
+                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode);
+        if (optionalBudget.isEmpty()) {
+            return;
+        }
+        Budget budget = optionalBudget.get();
         budget.restoreBudget(amount);
         budgetPersistencePort.save(budget);
     }
@@ -61,11 +84,12 @@ public class BudgetService {
 
     @Transactional(readOnly = true)
     public void checkBudgetAvailability(String yearMonth, String departmentCode, String accountCode, BigDecimal amount) {
-        Budget budget = budgetPersistencePort
-                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("예산이 설정되지 않았습니다. [연월: %s, 부서: %s, 계정과목: %s]",
-                                yearMonth, departmentCode, accountCode)));
+        Optional<Budget> optionalBudget = budgetPersistencePort
+                .findByYearMonthAndDepartmentCodeAndAccountCode(yearMonth, departmentCode, accountCode);
+        if (optionalBudget.isEmpty()) {
+            return;
+        }
+        Budget budget = optionalBudget.get();
         if (budget.getRemainingAmount().compareTo(amount) < 0) {
             throw new IllegalStateException(
                     String.format("예산이 초과됩니다. [연월: %s, 부서: %s, 계정과목: %s, 요청금액: %s, 잔여예산: %s]",
