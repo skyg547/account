@@ -7,6 +7,7 @@ import java.util.Optional;
 public interface CollectionPersistencePort {
     Collection save(Collection collection);
     Optional<Collection> findById(Long id);
+    Optional<Collection> findByReferenceNo(String referenceNo);
     List<Collection> findByUnmatched();
     List<Collection> findAutoMatchingCandidates();
 }

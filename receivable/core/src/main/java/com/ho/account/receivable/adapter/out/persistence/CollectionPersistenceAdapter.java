@@ -37,6 +37,15 @@ public class CollectionPersistenceAdapter implements CollectionPersistencePort {
     }
 
     @Override
+    public Optional<Collection> findByReferenceNo(String referenceNo) {
+        if (referenceNo == null || referenceNo.isBlank()) {
+            return Optional.empty();
+        }
+        return collectionRepository.findByReferenceNo(referenceNo)
+                .map(collectionMapper::toDomain);
+    }
+
+    @Override
     public List<Collection> findByUnmatched() {
         return collectionRepository.findByStatus(CollectionStatus.UNMATCHED).stream()
                 .map(collectionMapper::toDomain)
