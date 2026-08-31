@@ -6,12 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 /**
  * 대사 조정 정책(Reconciliation Adjustment Policy).
  *
  * 조정분개 계정 산정 규칙을 서비스에서 분리해 검증한다. 숨은 기본 계정을 사용하면
  * 회계 처리가 잘못된 계정으로 전기될 수 있으므로, 조정 가능한 대사 단위는 명시적인
  * 차변/대변 계정 설정을 반드시 제공해야 한다.
+ * 또한 동일 논리적 대사 기간(Unit + Date)에 대해 조정 전표가 중복 발행되지 않도록
+ * 멱등성 판정 및 결정론적 원천 문서 식별자 생성을 전담한다.
  */
 @Component
 public class ReconciliationAdjustmentPolicy {
@@ -49,6 +54,53 @@ public class ReconciliationAdjustmentPolicy {
             throw new IllegalArgumentException("Reconciliation unit " + unit.getId()
                     + " has invalid criteriaJson for adjustment account policy.", e);
         }
+    }
+
+    /**
+     * 특정 대사 단위와 대사 기준일(논리적 대사 기간)에 대해 조정 전표 생성이 가능한지 정책을 판정합니다.
+     * 해당 기간에 이미 조정 전표가 발행된 경우 중복 발행을 불허합니다.
+     *
+     * @param hasExistingAdjustment 해당 기간에 이미 발행된 조정 전표 존재 여부
+     * @return 조정 전표 생성 허용 여부
+     */
+    public boolean canGenerateAdjustment(boolean hasExistingAdjustment) {
+        return !hasExistingAdjustment;
+    }
+
+    /**
+     * 논리적 대사 기간(Reconciliation Unit ID + Reconciliation Date)에 대한 고유 식별 키를 생성합니다.
+     */
+    public String buildLogicalPeriodKey(Long unitId, LocalDate reconciliationDate) {
+        if (unitId == null || reconciliationDate == null) {
+            throw new IllegalArgumentException("Unit ID and reconciliation date are required.");
+        }
+        return "UNIT-" + unitId + "-DATE-" + reconciliationDate;
+    }
+
+    /**
+     * 조정 전표의 멱등적 추적을 위한 lineageSourceId를 생성합니다.
+     */
+    public String buildAdjustmentSourceDocumentId(ReconciliationRun run,
+                                                   ReconciliationDifference difference,
+                                                   LocalDate accountingDate,
+                                                   BigDecimal amount,
+                                                   AdjustmentAccountCodes accountCodes) {
+        String runKey = (run != null && run.getId() != null)
+                ? "RUN-" + run.getId()
+                : "UNIT-" + (run != null && run.getReconciliationUnit() != null ? run.getReconciliationUnit().getId() : "NA") + "-DATE-" + accountingDate;
+        String differenceKey = (difference != null && difference.getId() != null)
+                ? "DIFF-" + difference.getId()
+                : "DIFF-" + (difference != null && difference.getDifferenceType() != null ? difference.getDifferenceType() : "MISMATCH") + "-AMOUNT-" + normalizeAmountKey(amount);
+        return "RECON_ADJ-" + runKey + "-" + differenceKey
+                + "-DR-" + accountCodes.debitAccountCode()
+                + "-CR-" + accountCodes.creditAccountCode();
+    }
+
+    private String normalizeAmountKey(BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return amount.stripTrailingZeros().toPlainString().replace('.', '_');
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

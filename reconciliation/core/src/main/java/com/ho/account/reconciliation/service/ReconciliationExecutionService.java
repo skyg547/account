@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -172,6 +173,17 @@ public class ReconciliationExecutionService {
         String runBy = command.runBy();
         ReconciliationUnit reconciliationUnit = reconciliationUnitRepository.findById(unitId)
                 .orElseThrow(() -> new EntityNotFoundException("ReconciliationUnit not found with id: " + unitId));
+
+        // 1. Idempotency Guard: Check if a completed run or run with posted adjustments already exists for the given unit and date
+        List<ReconciliationRun> existingRuns = reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(reconciliationUnit, reconciliationDate);
+        Optional<ReconciliationRun> alreadyCompletedRun = existingRuns.stream()
+                .filter(this::isRunCompletedOrAdjusted)
+                .reduce((first, second) -> second);
+
+        if (alreadyCompletedRun.isPresent()) {
+            return alreadyCompletedRun.get();
+        }
+
         List<ReconciliationRule> rules = reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(reconciliationUnit);
 
         ReconciliationRun run = ReconciliationRun.startRun(reconciliationUnit, reconciliationDate, runBy);
@@ -192,6 +204,8 @@ public class ReconciliationExecutionService {
             if (!result.discrepancyGroups().isEmpty()) {
                 DifferenceReasonCode defaultReason = differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")
                         .orElseThrow(() -> new IllegalStateException("Required generic mismatch reason code is missing. Please seed reference data."));
+
+                boolean hasExistingAdjustmentForPeriod = existingRuns.stream().anyMatch(this::hasPostedAdjustments);
 
                 for (ItemLevelMatcher.ItemMatchGroup discrepancy : result.discrepancyGroups()) {
                     ReconciliationDifference.DifferenceType diffType = switch (discrepancy.matchType()) {
@@ -217,19 +231,22 @@ public class ReconciliationExecutionService {
                     );
 
                     if (defaultReason.isAdjustable() && discrepancy.differenceAmount().compareTo(BigDecimal.ZERO) > 0) {
-                        ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
-                        diff = reconciliationDifferenceRepository.save(diff);
+                        if (adjustmentPolicy.canGenerateAdjustment(hasExistingAdjustmentForPeriod)) {
+                            ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes = adjustmentPolicy.resolveAdjustmentAccountCodes(reconciliationUnit);
+                            diff = reconciliationDifferenceRepository.save(diff);
 
-                        Long adjustmentEntryId = createAdjustmentJournalEntry(
-                                reconciliationDate,
-                                discrepancy.differenceAmount(),
-                                reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
-                                accountCodes,
-                                "SYSTEM",
-                                run,
-                                diff
-                        );
-                        diff.attachAdjustmentJournalEntry(adjustmentEntryId);
+                            Long adjustmentEntryId = createAdjustmentJournalEntry(
+                                    reconciliationDate,
+                                    discrepancy.differenceAmount(),
+                                    reconciliationUnit.getName() + " reconciliation difference adjustment (" + defaultReason.getName() + ")",
+                                    accountCodes,
+                                    "SYSTEM",
+                                    run,
+                                    diff
+                            );
+                            diff.attachAdjustmentJournalEntry(adjustmentEntryId);
+                            hasExistingAdjustmentForPeriod = true;
+                        }
                     }
                     reconciliationDifferenceRepository.save(diff);
                 }
@@ -443,8 +460,8 @@ public class ReconciliationExecutionService {
         ReconciliationUnit unit = run.getReconciliationUnit();
         JsonNode root = parseCriteriaJson(unit);
         String currencyCode = readText(root, "adjustmentCurrencyCode");
-        currencyCode = !currencyCode.isBlank() ? currencyCode : "KRW";
-        String sourceDocumentId = buildAdjustmentSourceDocumentId(run, difference, accountingDate, amount, accountCodes);
+        currencyCode = (currencyCode != null && !currencyCode.isBlank()) ? currencyCode : "KRW";
+        String sourceDocumentId = adjustmentPolicy.buildAdjustmentSourceDocumentId(run, difference, accountingDate, amount, accountCodes);
 
         JournalEntryCommand command = new JournalEntryCommand(
                 accountingDate,
@@ -470,27 +487,23 @@ public class ReconciliationExecutionService {
         return result.journalEntryId();
     }
 
-    private String buildAdjustmentSourceDocumentId(ReconciliationRun run,
-                                                   ReconciliationDifference difference,
-                                                   LocalDate accountingDate,
-                                                   BigDecimal amount,
-                                                   ReconciliationAdjustmentPolicy.AdjustmentAccountCodes accountCodes) {
-        String runKey = run.getId() != null
-                ? "RUN-" + run.getId()
-                : "UNIT-" + run.getReconciliationUnit().getId() + "-DATE-" + accountingDate;
-        String differenceKey = difference.getId() != null
-                ? "DIFF-" + difference.getId()
-                : "DIFF-" + difference.getDifferenceType() + "-AMOUNT-" + normalizeAmountKey(amount);
-        return "RECON_ADJ-" + runKey + "-" + differenceKey
-                + "-DR-" + accountCodes.debitAccountCode()
-                + "-CR-" + accountCodes.creditAccountCode();
+    private boolean isRunCompletedOrAdjusted(ReconciliationRun run) {
+        if (run == null) {
+            return false;
+        }
+        if (run.getStatus() == ReconciliationRun.ReconciliationRunStatus.SUCCESS
+                || run.getStatus() == ReconciliationRun.ReconciliationRunStatus.PARTIAL) {
+            return true;
+        }
+        return hasPostedAdjustments(run);
     }
 
-    private String normalizeAmountKey(BigDecimal amount) {
-        if (amount == null) {
-            return "0";
+    private boolean hasPostedAdjustments(ReconciliationRun run) {
+        if (run == null || run.getId() == null) {
+            return false;
         }
-        return amount.stripTrailingZeros().toPlainString().replace('.', '_');
+        List<ReconciliationDifference> differences = reconciliationDifferenceRepository.findByReconciliationRun(run);
+        return differences.stream().anyMatch(d -> d.getAdjustmentJournalEntryId() != null);
     }
 
     private void validateAdjustmentJournalEntry(Long adjustmentJournalEntryId) {

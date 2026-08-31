@@ -373,4 +373,118 @@ class ReconciliationServiceTest {
             objectMapper.readTree(difference.getTargetItemRef());
         });
     }
+
+    @Test
+    void performReconciliationReturnsExistingRunWhenAlreadyCompleted() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = reconciliationUnit("""
+                {
+                  "sourceAmount": "1000.00",
+                  "sourceCount": 2,
+                  "adjustmentDebitAccountCode": "131000",
+                  "adjustmentCreditAccountCode": "211000"
+                }
+                """);
+        ReconciliationRun completedRun = ReconciliationRun.startRun(unit, reconciliationDate, "PREVIOUS_USER");
+        completedRun.setId(888L);
+        completedRun.completeRun(2L, new BigDecimal("1000.00"), 1L, new BigDecimal("950.00"), 1L, new BigDecimal("950.00"), 1L, new BigDecimal("50.00"));
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(unit, reconciliationDate))
+                .thenReturn(List.of(completedRun));
+
+        ReconciliationRun resultRun = reconciliationService.performReconciliation(
+                new RunReconciliationCommand(10L, reconciliationDate, "RETRY_USER"));
+
+        assertThat(resultRun).isSameAs(completedRun);
+        assertThat(resultRun.getId()).isEqualTo(888L);
+        assertThat(resultRun.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+
+        // Idempotency: 외부 스냅샷 조회나 전표 전기가 전혀 발생하지 않아야 함
+        verify(journalPostingPort, never()).createDraftEntry(any());
+        verify(externalReconSnapshotPort, never()).loadSnapshot(any());
+        verify(reconciliationDifferenceRepository, never()).save(any());
+    }
+
+    @Test
+    void performReconciliationCalledTwiceInSequenceDoesNotDuplicateAdjustmentEntries() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = reconciliationUnit("""
+                {
+                  "sourceAmount": "1000.00",
+                  "sourceCount": 2,
+                  "adjustmentDebitAccountCode": "131000",
+                  "adjustmentCreditAccountCode": "211000"
+                }
+                """);
+        DifferenceReasonCode reasonCode = reasonCode(true);
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        stubRunAndDifferenceSaves();
+        when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
+        stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(new JournalPostingResult(77L, "JE-20260511-0001", "DRAFT"));
+
+        // 1차 실행: 기존 실행 이력 없음
+        when(reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(unit, reconciliationDate))
+                .thenReturn(List.of());
+
+        ReconciliationRun firstRun = reconciliationService.performReconciliation(
+                new RunReconciliationCommand(10L, reconciliationDate, "FIRST_RUN"));
+
+        assertThat(firstRun.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+        verify(journalPostingPort, times(1)).createDraftEntry(any());
+
+        // 2차 실행: 1차 완료된 실행 이력이 조회됨
+        when(reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(unit, reconciliationDate))
+                .thenReturn(List.of(firstRun));
+
+        ReconciliationRun secondRun = reconciliationService.performReconciliation(
+                new RunReconciliationCommand(10L, reconciliationDate, "RETRY_RUN"));
+
+        assertThat(secondRun).isSameAs(firstRun);
+        // 2차 실행 후에도 journalPostingPort.createDraftEntry 호출 횟수는 여전히 1회여야 함
+        verify(journalPostingPort, times(1)).createDraftEntry(any());
+    }
+
+    @Test
+    void performReconciliationRetriesFailedRunWithoutAdjustments() {
+        LocalDate reconciliationDate = LocalDate.of(2026, 5, 11);
+        ReconciliationUnit unit = reconciliationUnit("""
+                {
+                  "sourceAmount": "1000.00",
+                  "sourceCount": 2,
+                  "adjustmentDebitAccountCode": "131000",
+                  "adjustmentCreditAccountCode": "211000"
+                }
+                """);
+        ReconciliationRun failedRun = ReconciliationRun.startRun(unit, reconciliationDate, "PREVIOUS_USER");
+        failedRun.setId(777L);
+        failedRun.failRun();
+
+        DifferenceReasonCode reasonCode = reasonCode(true);
+
+        when(reconciliationUnitRepository.findById(10L)).thenReturn(Optional.of(unit));
+        when(reconciliationRunRepository.findByReconciliationUnitAndReconciliationDate(unit, reconciliationDate))
+                .thenReturn(List.of(failedRun));
+        when(reconciliationDifferenceRepository.findByReconciliationRun(failedRun)).thenReturn(List.of());
+
+        when(reconciliationRuleRepository.findByReconciliationUnitOrderByPriorityAsc(unit)).thenReturn(List.of());
+        stubRunAndDifferenceSaves();
+        when(differenceReasonCodeRepository.findByCode("GENERIC_MISMATCH")).thenReturn(Optional.of(reasonCode));
+        stubJournalTarget(reconciliationDate, "950.00");
+        stubExternalSnapshot(2, "1000.00");
+        when(journalPostingPort.createDraftEntry(any(JournalEntryCommand.class)))
+                .thenReturn(new JournalPostingResult(77L, "JE-20260511-0001", "DRAFT"));
+
+        ReconciliationRun retriedRun = reconciliationService.performReconciliation(
+                new RunReconciliationCommand(10L, reconciliationDate, "RETRY_USER"));
+
+        assertThat(retriedRun.getStatus()).isEqualTo(ReconciliationRun.ReconciliationRunStatus.SUCCESS);
+        assertThat(retriedRun.getId()).isEqualTo(900L);
+        verify(journalPostingPort, times(1)).createDraftEntry(any());
+    }
 }
