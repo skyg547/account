@@ -3,6 +3,7 @@ package com.ho.account.auth.core.infrastructure.persistence;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -60,7 +61,7 @@ class AuthUserJpaEntity {
             boolean locked,
             long roleVersion) {
         this.username = requireText(username, "username is required.");
-        this.storedPassword = requireText(storedPassword, "storedPassword is required.");
+        this.storedPassword = requireValidEncodedPassword(storedPassword, "storedPassword");
         this.departmentCode = normalize(departmentCode);
         this.active = active;
         this.locked = locked;
@@ -70,6 +71,9 @@ class AuthUserJpaEntity {
     }
 
     static AuthUserJpaEntity fromConfiguredUser(AuthModuleProperties.User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("user is required.");
+        }
         AuthUserJpaEntity entity = new AuthUserJpaEntity(
                 user.getUsername(),
                 user.getPassword(),
@@ -120,6 +124,14 @@ class AuthUserJpaEntity {
             throw new IllegalArgumentException(message);
         }
         return value.trim();
+    }
+
+    private static String requireValidEncodedPassword(String storedPassword, String fieldName) {
+        if (storedPassword == null || storedPassword.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required.");
+        }
+        PasswordEncoderPolicy.validate(storedPassword, fieldName);
+        return storedPassword.trim();
     }
 
     private static String normalize(String value) {

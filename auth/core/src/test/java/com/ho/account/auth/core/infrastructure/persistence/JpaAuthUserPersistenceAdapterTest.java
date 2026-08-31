@@ -7,10 +7,13 @@ import com.ho.account.auth.core.application.port.out.AuthUserRoleAssignmentPersi
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +31,7 @@ import org.springframework.test.context.ContextConfiguration;
 class JpaAuthUserPersistenceAdapterTest {
 
     private static final Instant NOW = Instant.parse("2026-07-14T00:00:00Z");
+    private final String dynamicPassword = PasswordEncoderPolicy.encode(randomSecret(), 4);
 
     @Autowired
     private JpaAuthUserQueryAdapter adapter;
@@ -50,7 +54,7 @@ class JpaAuthUserPersistenceAdapterTest {
                 .orElseThrow();
 
         assertThat(user.getUsername()).isEqualTo("teller");
-        assertThat(user.getStoredPassword()).isEqualTo("{noop}1234");
+        assertThat(user.getStoredPassword()).isEqualTo(dynamicPassword);
         assertThat(user.getDepartmentCode()).isEqualTo("BR001");
         assertThat(user.getRoleVersion()).isEqualTo(3L);
         assertThat(user.getRoleAssignments()).hasSize(3);
@@ -62,7 +66,7 @@ class JpaAuthUserPersistenceAdapterTest {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User configured = new AuthModuleProperties.User();
         configured.setUsername("ops");
-        configured.setPassword("{noop}ops");
+        configured.setPassword(dynamicPassword);
         configured.setDepartmentCode("OPS");
         configured.setRoles(List.of("ROLE_OPS", "ROLE_AUDITOR"));
         properties.setUsers(List.of(configured));
@@ -75,6 +79,7 @@ class JpaAuthUserPersistenceAdapterTest {
                 .orElseThrow();
 
         assertThat(userRepository.count()).isEqualTo(1L);
+        assertThat(user.getStoredPassword()).isEqualTo(dynamicPassword);
         assertThat(user.effectiveRolesAt(NOW)).containsExactly("ROLE_OPS", "ROLE_AUDITOR");
         assertThat(user.getRoleVersion()).isEqualTo(1L);
     }
@@ -154,10 +159,16 @@ class JpaAuthUserPersistenceAdapterTest {
                 fingerprint);
     }
 
+    private static String randomSecret() {
+        byte[] bytes = new byte[16];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     private AuthUserJpaEntity userWithRoles() {
         AuthUserJpaEntity user = new AuthUserJpaEntity(
                 "teller",
-                "{noop}1234",
+                dynamicPassword,
                 "BR001",
                 true,
                 false,

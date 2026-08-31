@@ -65,6 +65,21 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 - 같은 trace와 같은 내용의 재시도는 이미 적용된 요청으로 판단해 역할과 버전을 다시 바꾸지 않습니다.
 - 같은 trace를 다른 사용자나 역할 내용에 재사용하면 fail-closed 예외로 중단합니다.
 
+### 📌 통합 비밀번호 인코딩 정책 (PasswordEncoderPolicy)
+
+- **BCrypt 구조 및 포맷 검증**:
+  - Spring Security 위임 접두사 `{bcrypt}` 지원 (선택적 접두사).
+  - BCrypt 페이로드 Regex: `^\$2[aby]\$[0-9]{2}\$[./0-9A-Za-z]{53}$`
+  - 지원 버전: `$2a$`, `$2b$`, `$2y$`
+  - Cost factor: `04` ~ `31` (04 미만 또는 31 초과 시 거부)
+  - 페이로드 길이: 접두사 제외 정확히 60자 (Radix64 문자 집합: `.` `/` `0-9` `A-Z` `a-z`)
+- **Fail-Closed 검증 통합**:
+  - 부트스트랩 설정 프로퍼티(`AuthModuleProperties`)와 JPA 엔티티(`AuthUserJpaEntity`) 모두 `PasswordEncoderPolicy`를 사용하여 평문(raw text), `{noop}`, 미지원 접두사(`{unknown}` 등), malformed 페이로드를 애플리케이션 시작 및 엔티티 생성 시점에 즉시 차단합니다.
+- **검증 어댑터 격리 (`DelegatingPasswordVerifier`)**:
+  - 저장된 비밀번호가 올바른 BCrypt 포맷이 아닌 경우 예외(500)를 발생시키지 않고 안전하게 `false`를 반환하며, 로그나 에러 메시지에 민감한 비밀번호 페이로드를 노출하지 않습니다.
+- **테스트 규칙**:
+  - 저장소에 정적 비밀번호, 평문, 하드코딩된 해시 문자열을 커밋하지 않으며, 테스트 시 `BCryptPasswordEncoder` 또는 `PasswordEncoderPolicy.encode()`를 통해 런타임에 동적으로 자격 증명을 생성합니다.
+
 ### 🚨 모듈 경계
 
 - 사용자 식별, 인증 상태, 역할 할당은 `auth`가 소유합니다.
@@ -129,6 +144,5 @@ docker-compose up -d auth
 
 ## 4. 남은 운영 고도화
 
-- 레거시 접두사 없는 평문 비밀번호를 해시로 승격한 뒤 운영에서 평문 비교를 제거해야 합니다.
 - 다중 노드 최초 로그인 실패 insert를 원자적 upsert 또는 DB lock으로 바꿔야 합니다.
 - 승인 멱등 이력은 감사 보존기간과 최대 재시도 기간을 고려한 archive/retention 정책이 필요합니다.

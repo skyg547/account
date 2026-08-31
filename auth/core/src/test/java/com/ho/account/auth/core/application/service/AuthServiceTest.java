@@ -14,12 +14,14 @@ import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
+import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -38,9 +40,10 @@ class AuthServiceTest {
                 "ROLE_ADMIN", "FIN", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
         RoleAssignment future = new RoleAssignment(
                 "ROLE_FUTURE", "FIN", AUTHENTICATED_AT.plusSeconds(1), null, true);
+        String dynamicPassword = PasswordEncoderPolicy.encode(UUID.randomUUID().toString(), 4);
         AuthUserQueryPort userQueryPort = users(Map.of(
                 "admin", new AuthUser(
-                        "admin", "{noop}1234", "FIN", true, false, List.of(effective, future), 3L)));
+                        "admin", dynamicPassword, "FIN", true, false, List.of(effective, future), 3L)));
         AtomicReference<TokenIssuerPort.TokenSubject> issuedSubject = new AtomicReference<>();
         AtomicReference<Instant> issuedAt = new AtomicReference<>();
         TokenIssuerPort tokenIssuerPort = (subject, instant) -> {
@@ -51,7 +54,7 @@ class AuthServiceTest {
         AuthService authService = service(
                 userQueryPort,
                 code -> true,
-                (raw, stored) -> "{noop}".concat(raw).equals(stored),
+                (raw, stored) -> "1234".equals(raw),
                 tokenIssuerPort,
                 new RecordingLoginAttemptPort());
 
