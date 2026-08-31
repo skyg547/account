@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8000}
+  port: 8000
 
 spring:
   application:
@@ -43,6 +43,199 @@ spring:
           args:
             key-resolver: "#{@ipKeyResolver}"
             rate-limiter: "#{@inMemoryRateLimiter}"
+      routes:
+        # 아래 명시 route 목록만 외부 경로로 노출합니다. Eureka service ID를 경로 prefix로 노출하지 않습니다.
+        # Auth 로그인만 외부 공개합니다. validate/internal 경로는 Gateway 전역 정책에서 차단합니다.
+        - id: auth-login-api
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/login
+            - Method=POST
+
+        # Master Data Service 라우팅
+        - id: master-data-api
+          uri: lb://master-data
+          predicates:
+            - Path=/api/basic/**,/api/master-data/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: masterDataCircuitBreaker
+                fallbackUri: forward:/fallback/master-data
+
+        # Journal Ledger Service 라우팅
+        - id: journal-ledger-api
+          uri: lb://journal-ledger
+          predicates:
+            - Path=/api/journals/**,/api/ledgers/**,/api/unsettled/**,/api/gl-sl/**,/api/drilldown/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: journalLedgerCircuitBreaker
+                fallbackUri: forward:/fallback/journal-ledger
+
+        # Closing Service 라우팅
+        - id: closing-api
+          uri: lb://closing-service
+          predicates:
+            - Path=/api/closing/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: closingCircuitBreaker
+                fallbackUri: forward:/fallback/closing
+
+        # Budget Service 라우팅
+        - id: budget-api
+          uri: lb://budget-api
+          predicates:
+            - Path=/api/budgets/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: budgetCircuitBreaker
+                fallbackUri: forward:/fallback/budget
+
+        # Internal Audit Service 라우팅
+        - id: internal-audit-api
+          uri: lb://internal-audit-service
+          predicates:
+            - Path=/api/v1/internalaudit/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: internalAuditCircuitBreaker
+                fallbackUri: forward:/fallback/internal-audit
+
+        # Deposit Service 라우팅
+        - id: deposit-api
+          uri: lb://deposit-api
+          predicates:
+            - Path=/api/v1/deposit/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: depositCircuitBreaker
+                fallbackUri: forward:/fallback/deposit
+
+        # Receivable Service 라우팅
+        - id: receivable-api
+          uri: lb://receivable-api
+          predicates:
+            - Path=/api/v1/receivable/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: receivableCircuitBreaker
+                fallbackUri: forward:/fallback/receivable
+
+        # Payable Service 라우팅
+        - id: payable-api
+          uri: lb://payable-api
+          predicates:
+            - Path=/api/v1/payable/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: payableCircuitBreaker
+                fallbackUri: forward:/fallback/payable
+
+        # Tax Service 라우팅
+        - id: tax-api
+          uri: lb://tax-api
+          predicates:
+            - Path=/api/v1/tax/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: taxCircuitBreaker
+                fallbackUri: forward:/fallback/tax
+
+        # Reconciliation Service 라우팅
+        - id: reconciliation-api
+          uri: lb://reconciliation-api
+          predicates:
+            - Path=/api/v1/reconciliation/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: reconciliationCircuitBreaker
+                fallbackUri: forward:/fallback/reconciliation
+
+        # Asset Lease Service 라우팅
+        - id: asset-lease-api
+          uri: lb://asset-lease-api
+          predicates:
+            - Path=/api/v1/asset-lease/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: assetLeaseCircuitBreaker
+                fallbackUri: forward:/fallback/asset-lease
+
+        # Reporting Service 라우팅
+        - id: reporting-api
+          uri: lb://reporting-api
+          predicates:
+            - Path=/api/v1/reporting/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: reportingCircuitBreaker
+                fallbackUri: forward:/fallback/reporting
+
+        # Expenditure Resolution Service 라우팅
+        - id: expenditure-resolution-api
+          uri: lb://expenditure-resolution-api
+          predicates:
+            - Path=/api/v1/expenditure/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: expenditureResolutionCircuitBreaker
+                fallbackUri: forward:/fallback/expenditure
+
+        # Account Mart Service 라우팅
+        - id: account-mart-api
+          uri: lb://account-mart-api
+          predicates:
+            - Path=/api/v1/mart/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: accountMartCircuitBreaker
+                fallbackUri: forward:/fallback/mart
+
+        # ECL Service 라우팅
+        - id: ecl-api
+          uri: lb://ecl-api
+          predicates:
+            - Path=/api/v1/ecl/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: eclCircuitBreaker
+                fallbackUri: forward:/fallback/ecl
+
+        # OpenAPI (Swagger) 문서 집계 라우팅
+        - id: openapi-master-data
+          uri: lb://master-data
+          predicates:
+            - Path=/v3/api-docs/master-data
+          filters:
+            - RewritePath=/v3/api-docs/master-data, /v3/api-docs
+        - id: openapi-journal-ledger
+          uri: lb://journal-ledger
+          predicates:
+            - Path=/v3/api-docs/journal-ledger
+          filters:
+            - RewritePath=/v3/api-docs/journal-ledger, /v3/api-docs
+        - id: openapi-auth
+          uri: lb://auth-service
+          predicates:
+            - Path=/v3/api-docs/auth-service
+          filters:
+            - RewritePath=/v3/api-docs/auth-service, /v3/api-docs
 
 auth:
   jwt:
@@ -57,3 +250,34 @@ auth:
     cache-ttl-seconds: ${AUTH_TOKEN_VERSION_VALIDATION_CACHE_TTL_SECONDS:30}
     timeout-millis: ${AUTH_TOKEN_VERSION_VALIDATION_TIMEOUT_MILLIS:500}
     maximum-cache-size: ${AUTH_TOKEN_VERSION_VALIDATION_MAXIMUM_CACHE_SIZE:10000}
+
+springdoc:
+  swagger-ui:
+    urls:
+      - {name: "Master Data Service", url: "/v3/api-docs/master-data"}
+      - {name: "Journal Ledger Service", url: "/v3/api-docs/journal-ledger"}
+      - {name: "Auth Service", url: "/v3/api-docs/auth-service"}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+
+eureka:
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: false
