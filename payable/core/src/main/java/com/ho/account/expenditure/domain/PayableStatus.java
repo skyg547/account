@@ -4,7 +4,10 @@ package com.ho.account.expenditure.domain;
  * 매입채무의 상태를 정의하는 Enum.
  */
 public enum PayableStatus {
-    OPEN,          // 미지급금 존재
+    OPEN,          // 미지급금 존재 (기본 상태)
+    APPROVED,      // 지급 승인됨
+    UNPAID,        // 미지급 상태
+    IN_PAYMENT,    // 지급 진행 중 (지급 런에 포함되어 락 상태)
     PARTIAL_PAID,  // 부분 지급됨
     PAID,          // 전액 지급됨
     OVERDUE,       // 만기일 경과

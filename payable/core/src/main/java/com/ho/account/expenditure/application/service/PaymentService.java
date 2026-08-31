@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -64,12 +65,31 @@ public class PaymentService implements PaymentUseCase {
 
     @Override
     public PaymentRun initiatePaymentRun(PaymentRunCommand command) {
-        PaymentRun savedPaymentRun = createPaymentRun(command);
+        LocalDate runDate = command.runDate();
+        validateAccountingPeriodOpen(runDate);
 
+        // 1. 지급 런 멱등성 검증 (동일 파라미터로 이미 생성되었고 처리 중이거나 지급 내역이 있는 경우 중복 생성 방지)
+        Optional<PaymentRun> existing = paymentRunPersistencePort.findByRunDateAndDescriptionAndCreatedBy(
+                command.runDate(), command.description(), command.createdBy());
+
+        if (existing.isPresent()) {
+            PaymentRun existingRun = existing.get();
+            List<Payment> existingPayments = paymentPersistencePort.findByPaymentRunId(existingRun.getId());
+            if (!existingPayments.isEmpty()
+                    || existingRun.getStatus() == PaymentRunStatus.PROCESSING
+                    || existingRun.getStatus() == PaymentRunStatus.COMPLETED) {
+                return existingRun;
+            }
+        }
+
+        PaymentRun savedPaymentRun = existing.orElseGet(() -> createPaymentRun(command));
+
+        // 2. 만기 도래 채무 중 지급 적격(OPEN, APPROVED, UNPAID, PARTIAL_PAID, OVERDUE) 채무만 필터링 (IN_PAYMENT, PAID 제외)
         List<Payable> duePayables = payablePersistencePort.findByDueDateBeforeAndStatusNot(
                 command.runDate().plusDays(1), PayableStatus.PAID);
 
         List<Long> payableIds = duePayables.stream()
+                .filter(Payable::isEligibleForPayment)
                 .map(payable -> {
                     if (payable.getId() == null) {
                         throw new IllegalStateException("Persisted payable must have an ID before payment run creation");
@@ -91,6 +111,12 @@ public class PaymentService implements PaymentUseCase {
         LocalDate runDate = command.runDate();
         validateAccountingPeriodOpen(runDate);
 
+        Optional<PaymentRun> existing = paymentRunPersistencePort.findByRunDateAndDescriptionAndCreatedBy(
+                command.runDate(), command.description(), command.createdBy());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
         String description = command.description();
         String createdBy = command.createdBy();
         PaymentRun paymentRun = new PaymentRun();
@@ -109,6 +135,15 @@ public class PaymentService implements PaymentUseCase {
         for (Long payableId : payableIds) {
             Payable payable = payablePersistencePort.findById(payableId)
                     .orElseThrow(() -> new IllegalStateException("Payable not found: " + payableId));
+
+            // 지급 적격성 검증 (이미 지급 진행중이거나 완료된 채무의 중복 지급 생성 방지)
+            if (!payable.isEligibleForPayment()) {
+                continue;
+            }
+
+            // 채무 상태를 IN_PAYMENT로 원자적 전이 및 영속화
+            payable.markAsInPayment();
+            payablePersistencePort.save(payable);
 
             Payment payment = new Payment();
             payment.setPaymentDate(runDate);

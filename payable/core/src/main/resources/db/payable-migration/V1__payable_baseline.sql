@@ -44,6 +44,9 @@ CREATE TABLE payables (
         AND outstanding_amount <= original_amount),
     CONSTRAINT ck_payable_status CHECK (
         (status = 'OPEN' AND outstanding_amount = original_amount)
+        OR (status = 'APPROVED' AND outstanding_amount > 0)
+        OR (status = 'UNPAID' AND outstanding_amount > 0)
+        OR (status = 'IN_PAYMENT' AND outstanding_amount > 0)
         OR (status = 'PARTIAL_PAID'
             AND outstanding_amount > 0 AND outstanding_amount < original_amount)
         OR (status = 'PAID' AND outstanding_amount = 0)

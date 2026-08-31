@@ -115,10 +115,12 @@ public class PayablePaymentRunBatchConfig {
         return new JpaPagingItemReaderBuilder<PayableJpaEntity>()
                 .name("payablePaymentRunItemReader")
                 .entityManagerFactory(entityManagerFactory)
-                .queryString("SELECT p FROM PayableJpaEntity p WHERE p.dueDate < :cutoffDate AND p.status != :paidStatus ORDER BY p.id")
+                .queryString("SELECT p FROM PayableJpaEntity p WHERE p.dueDate < :cutoffDate AND p.status != :paidStatus AND p.status != :inPaymentStatus AND p.status != :writtenOffStatus ORDER BY p.id")
                 .parameterValues(Map.of(
                         "cutoffDate", runDate.plusDays(1),
-                        "paidStatus", PayableStatus.PAID))
+                        "paidStatus", PayableStatus.PAID,
+                        "inPaymentStatus", PayableStatus.IN_PAYMENT,
+                        "writtenOffStatus", PayableStatus.WRITTEN_OFF))
                 .pageSize(CHUNK_SIZE)
                 .build();
     }
