@@ -7,6 +7,8 @@ import com.ho.account.expenditure.infrastructure.persistence.mapper.PaymentRunMa
 import com.ho.account.expenditure.repository.PaymentRunRepository;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -36,5 +38,15 @@ public class PaymentRunPersistenceAdapter implements PaymentRunPersistencePort {
     public Optional<PaymentRun> findById(Long id) {
         return paymentRunRepository.findById(id)
                 .map(paymentRunMapper::toDomain);
+    }
+
+    @Override
+    public Optional<PaymentRun> findByRunDateAndDescriptionAndCreatedBy(
+            LocalDate runDate, String description, String createdBy) {
+        List<PaymentRunJpaEntity> matches = paymentRunRepository.findMatchingPaymentRuns(runDate, description, createdBy);
+        if (matches.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(paymentRunMapper.toDomain(matches.get(0)));
     }
 }

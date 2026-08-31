@@ -65,8 +65,52 @@ public class Payable {
     }
 
     public void markAsOverdue() {
-        if (this.status != PayableStatus.PAID) {
+        if (this.status != PayableStatus.PAID && this.status != PayableStatus.IN_PAYMENT) {
             this.status = PayableStatus.OVERDUE;
+        }
+    }
+
+    /**
+     * 지급 대상 적격 여부를 확인합니다.
+     * 잔액이 존재하고, 이미 지급완료(PAID), 지급진행중(IN_PAYMENT), 상각(WRITTEN_OFF) 상태가 아닌 경우에만 적격합니다.
+     */
+    public boolean isEligibleForPayment() {
+        if (this.outstandingAmount == null || this.outstandingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        if (this.status == PayableStatus.PAID
+                || this.status == PayableStatus.IN_PAYMENT
+                || this.status == PayableStatus.WRITTEN_OFF) {
+            return false;
+        }
+        return this.status == PayableStatus.OPEN
+                || this.status == PayableStatus.APPROVED
+                || this.status == PayableStatus.UNPAID
+                || this.status == PayableStatus.PARTIAL_PAID
+                || this.status == PayableStatus.OVERDUE;
+    }
+
+    /**
+     * 지급 런에 포함되어 지급 진행 중 상태로 원자적 잠금 처리합니다.
+     */
+    public void markAsInPayment() {
+        if (!isEligibleForPayment()) {
+            throw new IllegalStateException("현재 상태(" + this.status + ")에서는 지급 진행 상태(IN_PAYMENT)로 변경할 수 없습니다.");
+        }
+        this.status = PayableStatus.IN_PAYMENT;
+    }
+
+    /**
+     * 지급 진행 중(IN_PAYMENT) 상태를 해제하고 잔액에 맞는 상태로 복원합니다.
+     */
+    public void releaseFromPayment() {
+        if (this.status == PayableStatus.IN_PAYMENT) {
+            if (this.outstandingAmount != null && this.originalAmount != null
+                    && this.outstandingAmount.compareTo(this.originalAmount) < 0) {
+                this.status = PayableStatus.PARTIAL_PAID;
+            } else {
+                this.status = PayableStatus.OPEN;
+            }
         }
     }
 

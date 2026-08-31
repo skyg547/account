@@ -76,9 +76,13 @@ erDiagram
 | 상태 | 의미 | 주요 진입 조건 |
 | --- | --- | --- |
 | `OPEN` | 아직 지급이 시작되지 않은 채무 | 인보이스 등록 후 채무 생성 |
+| `APPROVED` | 지급 승인된 채무 | 승인 프로세스 완료 |
+| `UNPAID` | 미지급 상태의 채무 | 미지급 상태 지정 |
+| `IN_PAYMENT` | 지급 런에 포함되어 지급 진행 중 (중복 방지 잠금) | `PaymentService.initiatePaymentRun`, `processPaymentRunChunk` |
 | `PARTIAL_PAID` | 일부 지급 또는 일부 상계 후 잔액 존재 | `Payable.applyPayment`, `Payable.applyOffset` |
 | `PAID` | 잔액이 0인 채무 | 지급/상계 후 잔액 0 |
 | `OVERDUE` | 지급기일이 지난 미지급 채무 | `updatePayableStatus(asOfDate)` |
+| `WRITTEN_OFF` | 상각 처리된 채무 | 대손/상각 처리 |
 
 ### Payment
 

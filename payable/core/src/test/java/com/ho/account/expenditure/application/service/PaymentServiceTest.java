@@ -10,6 +10,7 @@ import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.expenditure.application.port.in.AdvancePaymentCommand;
 import com.ho.account.expenditure.application.port.in.ExecutePaymentCommand;
 import com.ho.account.expenditure.application.port.in.OffsetPayableCommand;
+import com.ho.account.expenditure.application.port.in.PaymentRunCommand;
 import com.ho.account.expenditure.application.port.out.AdvancePaymentPersistencePort;
 import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort;
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
@@ -21,6 +22,7 @@ import com.ho.account.expenditure.domain.Payable;
 import com.ho.account.expenditure.domain.PayableStatus;
 import com.ho.account.expenditure.domain.Payment;
 import com.ho.account.expenditure.domain.PaymentRun;
+import com.ho.account.expenditure.domain.PaymentRunStatus;
 import com.ho.account.expenditure.domain.PaymentStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -240,6 +242,120 @@ class PaymentServiceTest {
                 service, "validateJournalBalance", imbalancedCommand))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("차변 합계(100.00)와 대변 합계(90.00)가 일치하지 않습니다");
+    }
+
+    @Test
+    @DisplayName("initiatePaymentRun 호출 시 적격 채무를 IN_PAYMENT로 잠금 처리하고 Payment를 생성한다")
+    void initiatePaymentRunLocksPayablesInPaymentAndCreatesPayments() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRunCommand command = new PaymentRunCommand(runDate, "Batch Payment Run", "admin-user");
+
+        when(accountingPeriodStatusPort.isClosed(runDate)).thenReturn(false);
+        when(paymentRunPersistencePort.findByRunDateAndDescriptionAndCreatedBy(runDate, "Batch Payment Run", "admin-user"))
+                .thenReturn(Optional.empty());
+
+        PaymentRun savedRun = new PaymentRun();
+        savedRun.setId(50L);
+        savedRun.setRunDate(runDate);
+        savedRun.setDescription("Batch Payment Run");
+        savedRun.setCreatedBy("admin-user");
+        savedRun.setStatus(PaymentRunStatus.INITIATED);
+        when(paymentRunPersistencePort.save(any(PaymentRun.class))).thenReturn(savedRun);
+        when(paymentRunPersistencePort.findById(50L)).thenReturn(Optional.of(savedRun));
+
+        Payable payable = payable();
+        payable.setId(101L);
+        payable.setStatus(PayableStatus.OPEN);
+
+        when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
+                .thenReturn(List.of(payable));
+        when(payablePersistencePort.findById(101L)).thenReturn(Optional.of(payable));
+        when(payablePersistencePort.save(payable)).thenReturn(payable);
+        when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentRun result = service.initiatePaymentRun(command);
+
+        assertThat(result).isNotNull();
+        assertThat(payable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentPersistencePort).save(paymentCaptor.capture());
+        Payment savedPayment = paymentCaptor.getValue();
+        assertThat(savedPayment.getPayableId()).isEqualTo(101L);
+        assertThat(savedPayment.getAmount()).isEqualByComparingTo("500.00");
+        assertThat(savedPayment.getStatus()).isEqualTo(PaymentStatus.INITIATED);
+        assertThat(savedPayment.getPaymentRun().getId()).isEqualTo(50L);
+    }
+
+    @Test
+    @DisplayName("동일한 파라미터로 initiatePaymentRun 반복 호출 시 기존 PaymentRun을 반환하고 중복 결제/전표 생성을 방지한다")
+    void initiatePaymentRunIdempotencyPreventsDuplicatePayments() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRunCommand command = new PaymentRunCommand(runDate, "Batch Payment Run", "admin-user");
+
+        PaymentRun existingRun = new PaymentRun();
+        existingRun.setId(50L);
+        existingRun.setRunDate(runDate);
+        existingRun.setDescription("Batch Payment Run");
+        existingRun.setCreatedBy("admin-user");
+        existingRun.setStatus(PaymentRunStatus.PROCESSING);
+
+        when(accountingPeriodStatusPort.isClosed(runDate)).thenReturn(false);
+        when(paymentRunPersistencePort.findByRunDateAndDescriptionAndCreatedBy(runDate, "Batch Payment Run", "admin-user"))
+                .thenReturn(Optional.of(existingRun));
+
+        PaymentRun result = service.initiatePaymentRun(command);
+
+        assertThat(result).isSameAs(existingRun);
+        verify(paymentPersistencePort, org.mockito.Mockito.never()).save(any(Payment.class));
+        verify(payablePersistencePort, org.mockito.Mockito.never()).save(any(Payable.class));
+    }
+
+    @Test
+    @DisplayName("이미 IN_PAYMENT 또는 PAID 상태인 채무는 지급 런 대상에서 제외된다")
+    void initiatePaymentRunFiltersOutInPaymentAndPaidPayables() {
+        LocalDate runDate = LocalDate.of(2026, 6, 30);
+        PaymentRunCommand command = new PaymentRunCommand(runDate, "Batch Payment Run 2", "admin-user");
+
+        when(accountingPeriodStatusPort.isClosed(runDate)).thenReturn(false);
+        when(paymentRunPersistencePort.findByRunDateAndDescriptionAndCreatedBy(runDate, "Batch Payment Run 2", "admin-user"))
+                .thenReturn(Optional.empty());
+
+        PaymentRun savedRun = new PaymentRun();
+        savedRun.setId(51L);
+        savedRun.setRunDate(runDate);
+        savedRun.setStatus(PaymentRunStatus.INITIATED);
+        when(paymentRunPersistencePort.save(any(PaymentRun.class))).thenReturn(savedRun);
+        when(paymentRunPersistencePort.findById(51L)).thenReturn(Optional.of(savedRun));
+
+        Payable inPaymentPayable = payable();
+        inPaymentPayable.setId(102L);
+        inPaymentPayable.setStatus(PayableStatus.IN_PAYMENT);
+
+        Payable paidPayable = payable();
+        paidPayable.setId(103L);
+        paidPayable.setStatus(PayableStatus.PAID);
+        paidPayable.setOutstandingAmount(BigDecimal.ZERO);
+
+        Payable eligiblePayable = payable();
+        eligiblePayable.setId(104L);
+        eligiblePayable.setStatus(PayableStatus.APPROVED);
+
+        when(payablePersistencePort.findByDueDateBeforeAndStatusNot(runDate.plusDays(1), PayableStatus.PAID))
+                .thenReturn(List.of(inPaymentPayable, paidPayable, eligiblePayable));
+        when(payablePersistencePort.findById(104L)).thenReturn(Optional.of(eligiblePayable));
+        when(payablePersistencePort.save(eligiblePayable)).thenReturn(eligiblePayable);
+        when(paymentPersistencePort.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentRun result = service.initiatePaymentRun(command);
+
+        assertThat(result).isNotNull();
+        assertThat(eligiblePayable.getStatus()).isEqualTo(PayableStatus.IN_PAYMENT);
+
+        // 104L만 처리되고 102L, 103L은 제외됨
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentPersistencePort, org.mockito.Mockito.times(1)).save(paymentCaptor.capture());
+        assertThat(paymentCaptor.getValue().getPayableId()).isEqualTo(104L);
     }
 
     private Payment payment() {
