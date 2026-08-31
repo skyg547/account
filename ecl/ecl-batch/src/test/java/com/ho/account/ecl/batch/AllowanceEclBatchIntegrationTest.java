@@ -300,5 +300,46 @@ public class AllowanceEclBatchIntegrationTest {
         assertThat(targetAllowanceAmount).isNotNull();
         assertThat(targetAllowanceAmount).isGreaterThan(BigDecimal.ZERO);
     }
+
+    @Test
+    @DisplayName("allowanceEclJob 실행 시 Spring Batch 메타데이터 테이블에 스텝별 실행 상태가 정확히 기록된다")
+    void testBatchMetadataTrackingAndStepExecutionProgress() throws Exception {
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addString("baseDate", "2026-04-15")
+                .addString("runId", "TEST-RUN-METADATA-001")
+                .addString("eventId", "EVT-TEST-001")
+                .addLong("time", System.currentTimeMillis())
+                .toJobParameters();
+
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+
+        // BATCH_JOB_EXECUTION 테이블 상태 검증
+        String status = jdbcTemplate.queryForObject(
+                "SELECT STATUS FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = ?",
+                String.class,
+                jobExecution.getId());
+        assertThat(status).isEqualTo("COMPLETED");
+
+        // BATCH_STEP_EXECUTION 테이블 스텝 목록 검증
+        List<String> executedSteps = jdbcTemplate.queryForList(
+                "SELECT STEP_NAME FROM BATCH_STEP_EXECUTION WHERE JOB_EXECUTION_ID = ? ORDER BY STEP_EXECUTION_ID ASC",
+                String.class,
+                jobExecution.getId());
+
+        assertThat(executedSteps).contains(
+                "allowanceExposureSyncStep",
+                "dqStep",
+                "stagingWarmingStep",
+                "resultPreparationStep",
+                "stagingManagerStep",
+                "exposureWarmingStep",
+                "eadCrmManagerStep",
+                "reportingWarmingStep",
+                "eclManagerStep",
+                "allowanceEclCompletionStep",
+                "allowanceSummaryStep"
+        );
+    }
 }
 
