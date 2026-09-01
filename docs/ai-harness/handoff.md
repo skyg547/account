@@ -3038,3 +3038,18 @@
 - Compose/config/image-policy/external-dev preflight and runner checks previously passed without input disclosure. Local offline Config Server compilation remains unavailable only because an existing dependency is not cached; use GitHub JDK 17 validation.
 - Independent review's remaining merge blocker is Gateway rate-limit identity collapse behind the BFF. Issue #607 is the required stacked change: a runtime-only shared secret signs opaque per-login keys, Gateway uses verified principals for protected calls, and spoofed/expired inputs fall back to the direct peer. #540 must not become Ready or merge before #607 is reviewed and integrated.
 - Code rollback is a reviewed revert of the BFF/session/runtime-routing changes. Existing development and production cookie names are both cleared during logout/401 migration. Never expose a shared secret through `NEXT_PUBLIC_*`, build args, tracked dotenv files, logs or issue comments.
+
+# AI Harness Handoff - 2026-09-01 Issue #607 BFF rate-limit trust boundary
+
+## Review-ready state
+
+- Issue/branch/worktree/PR: `#607`, `agent/607-bff-rate-limit`, `/tmp/account-607-bff-rate-limit`, Draft PR #623 against `main`. The branch is based on `origin/main@4d01f240`; already-merged PR #608 supplied the #540 BFF base and is not reopened or rewritten.
+- Protected calls use only the principal attribute written after Gateway JWT and role-version validation. Public login accepts only one lowercase SHA-256 key, timestamp and HMAC header set bound to POST `/api/auth/login` within plus/minus 30 seconds. Invalid inputs and arbitrary `X-Forwarded-For` use the direct peer bucket.
+- The rate limiter consumes user and BFF-peer aggregate buckets, scopes them by route and caps its access-order store at 10,000 entries. The BFF headers are removed before the Auth route. A distinct 32-512 UTF-8-byte shared secret is injected only at Frontend/Gateway runtime and validators never print it.
+
+## Evidence, rollback, and next owner
+
+- Node 20 with networking disabled and bounded CPU/memory: development BFF live 12/12, production BFF live 12/12, TypeScript pass, ESLint 0 errors/244 inherited #536 warnings, production build 122/122 pages. The initial live attempt failed only because this worktree had no installed Next executable; the lockfile-identical dependency tree was mounted read-only for the passing rerun and no package was installed.
+- Forced JDK 17 Gateway test and the three affected Config Server policy suites pass offline with CPU 1, memory 1.5 GiB and one worker. Python compile/self-test passes 168. `pwsh` is unavailable, so PowerShell validators were not directly run; passing Java policy tests cover their changed required-input/error contracts. Diff, marker and clean-tree gates pass.
+- Independent review found no P0-P3. Residual coverage gaps are a single live BFF-to-Gateway-to-Auth process chain and direct tests for duplicate headers, a future-expired signature, the 512-byte boundary and BFF secret error responses. These remain non-blocking because the separated live/unit/policy evidence and code review found no failing behavior.
+- Publication owner is the parent Integrator: wait for all GitHub checks on the unchanged PR #623 head, perform the Ready-event gate, then squash-merge and confirm Issue #607 closure. Rollback is a reviewed PR revert; no schema, data, secret value, image, container or external service state changed.
