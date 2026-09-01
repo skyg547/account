@@ -1,3 +1,23 @@
+# AI Harness Handoff - 2026-09-02 Issue #521 Beginner Podman Minimal Build, Run, and Rollback Guide
+
+- **Owner**: Gemini (Implementer / Documentation)
+- **Issue**: #521 (`[frontend] 초보자용 Podman 최소 이미지 빌드·실행·롤백 가이드 최신화`)
+- **Branch**: `agent/521-beginner-podman-auth-runtime` (Base: `origin/main@9816670d`)
+- **Worktree**: `/tmp/account-521-beginner-podman-auth-runtime`
+- **Status**: Draft PR Ready
+- **Summary**:
+  - `development-compose.md`: Detailed Docker vs Podman provider comparison table and clear instructions on using `docker-compose` v2.x plugin while strictly prohibiting Python `podman-compose`.
+  - Added structured beginner guide for the 7-container low-resource external-dev authentication stack (`tools/compose.minimal-auth-external-dev.yml`), including prerequisites, value-redacting preflight, sequential one-worker build (`--max-workers=1`), smoke verification, and troubleshooting (EACCES permission issues, HTTP 400 vs 503, and memory guardrails).
+  - Explicitly documented image rebuild impact (source updates requiring image re-build) and container recreate conditions (`up --force-recreate` / `up -d`).
+  - Documented safe project-level stop/down rollback while strictly prohibiting destructive commands: `down -v`, `container prune -f`, `image prune -f`, and `git checkout <commit> -- <files>`.
+  - Synchronized references and safety warnings across `container-images.md`, `frontend-runtime-guide.md`, and `runtime-execution-matrix.md`.
+- **Verification**:
+  - `python3 tools/test_run_minimal_auth_external_dev.py`: 7 tests PASS.
+  - `./gradlew :config-server:test --tests "com.ho.account.configserver.DevelopmentComposePolicyTest" --tests "com.ho.account.configserver.ContainerImagePolicyTest"`: 5/5 tasks executed, BUILD SUCCESSFUL.
+  - `git diff --check`: 0 errors.
+  - Conflict marker & credential scan: 0 occurrences.
+- **Rollback**: Reviewed git revert of documentation commits; no external state changed.
+
 # AI Harness Handoff - 2026-08-19 Issue #484 Apply K-Bank Modern Fintech Design System
 
 - **Owner**: Gemini (Parent Integrator / Frontend)

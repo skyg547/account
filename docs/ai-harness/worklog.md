@@ -1,3 +1,17 @@
+### 📅 2026-09-02 (GH-521: 초보자용 Podman 최소 이미지 빌드·실행·롤백 가이드 최신화)
+- **Component**: `docs/guides/development-compose.md`, `docs/guides/container-images.md`, `docs/guides/frontend-runtime-guide.md`, `docs/guides/runtime-execution-matrix.md`
+- **Changes**:
+  - `development-compose.md`: Podman vs Docker 차이점 및 Provider 요구사항(Python `podman-compose` 금지 및 Go 바이너리 `docker-compose` v2.x 플러그인 연결 필수) 정합화.
+  - 초보자용 저자원 7개 최소 인증 스택(`tools/compose.minimal-auth-external-dev.yml`) 1-Worker 순차 빌드(`--max-workers=1`), 기동, smoke, 헬스체크 및 트러블슈팅(EACCES, HTTP 400 vs 503, OOM 방지) 가이드 구성.
+  - 이미지 재빌드 시 영향(소스 변경 시 재빌드 필수) 및 컨테이너 재생성 조건(`up --force-recreate` / `up -d`) 명시.
+  - 안전한 프로젝트 단위 중지/롤백 절차 및 절대 금지 명령어(`down -v`, `container/image prune -f`, `git checkout <commit> -- <files>`) 명시.
+  - `container-images.md`, `frontend-runtime-guide.md`, `runtime-execution-matrix.md` 연계 링크 및 금지 명령어 경고 동기화.
+- **Verification**:
+  - `python3 tools/test_run_minimal_auth_external_dev.py` (7 tests PASS)
+  - `./gradlew :config-server:test --tests "com.ho.account.configserver.DevelopmentComposePolicyTest" --tests "com.ho.account.configserver.ContainerImagePolicyTest"` (BUILD SUCCESSFUL, 5/5 tasks executed)
+  - `git diff --check` (오류 0건)
+  - Conflict markers & credential scan (0건)
+
 ### 📅 2026-08-19 (GH-484: Apply K-Bank Modern Fintech Design System)
 - **Component**: `frontend/src/app/globals.css`, `tailwind.config.js`, `MainLayout.tsx`, `TopHeader.tsx`, `Sidebar.tsx`, `PageHeader.tsx`, `StatusBadge.tsx`, `AmountDisplay.tsx`, `Tabs.tsx`, `app/page.tsx`
 - **Changes**: Transformed the frontend look-and-feel into the signature KBank modern fintech aesthetic: clean soft-gray canvas (`#f7f8fb`), pure white elevated cards (`#ffffff`, border `#eaedf4`, subtle shadow), KBank signature blue (`#4262ff`, light `#eef2ff`, border `#dbe3ff`), refined typography (`letter-spacing: -0.015em`), crisp text hierarchy (`#17191e`, `#545b69`, `#8c94a4`), and white-glass TopHeader and Sidebar navigation.

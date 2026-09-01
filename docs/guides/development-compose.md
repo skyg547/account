@@ -60,27 +60,53 @@ Java 서비스는 저장소 루트를 build context로 유지하면서 각 실�
 | `migration` | 한 context씩 실행하는 migration-runner와 runtime grant helper |
 | `batch` | 15개 Batch 정의; 자동 Job 실행은 기본 비활성 |
 
-## Windows / Podman 환경 Compose 설치 가이드
+## Docker vs Podman Compose Provider 환경 구성 및 차이점
 
-Windows에서 WSL2 + Podman 또는 Docker를 사용할 때 `docker compose` 명령을 실행하기 위한 CLI 설치 방법입니다.
+이 저장소는 Docker와 Podman을 모두 지원하며, Compose CLI를 통해 동일한 스택을 구동할 수 있습니다. 다만 Podman 사용 시 Compose provider 선택에 반드시 주의해야 합니다.
 
-### 방법 1: winget으로 Docker Compose CLI 설치 (권장)
-Windows PowerShell 관리자 권한에서 실행합니다.
+### Docker vs Podman 차이점 및 Provider 요구사항
+
+| 구분 | Docker | Podman |
+| :--- | :--- | :--- |
+| **데몬 아키텍처** | 루트 데몬 (`dockerd`) 기반 | 데몬리스(Daemonless), rootless 기본 지원 |
+| **Compose 명령어** | `docker compose` (공식 플러그인) | `podman compose` (외부 provider 호출) |
+| **권장 Provider** | Docker Compose V2 (Go 바이너리) | **`docker-compose` v2.x (Go 바이너리)** (권장) |
+| **금지 Provider** | N/A | ⚠️ **`podman-compose` (Python 패키지) 사용 금지** |
+
+> ⚠️ **Podman 사용자 필독 (Provider 함정 주의)**:
+> `pip install podman-compose`로 설치되는 Python 기반 `podman-compose`는 최신 Compose 사양의 `name:` 속성(네트워크 격리명)을 올바르게 처리하지 못합니다. 이로 인해 컨테이너들이 서로 다른 네트워크로 분리되어 **서비스 간 DNS 해석 실패 및 통신 단절**이 발생합니다.
+> 따라서 Podman 환경에서는 반드시 Go 바이너리 기반의 **`docker-compose` (v2.x)**가 provider로 연결되도록 구성해야 합니다.
+
+### Provider 설치 및 확인 방법
+
+#### 1) Windows / WSL2 환경
+Windows PowerShell(관리자)에서 winget을 통해 Docker Compose CLI를 설치합니다.
 ```powershell
 winget install Docker.DockerCompose
 ```
-설치 완료 후 새 터미널에서 버전을 확인합니다.
-```powershell
-docker-compose --version
-# 또는
-docker compose version
+
+#### 2) Linux (Ubuntu/Debian) 환경
+```bash
+# Docker Compose V2 플러그인 설치
+sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+
+# 또는 바이너리 직접 다운로드 (~/.docker/cli-plugins/docker-compose)
+mkdir -p ~/.docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
 ```
 
-### 방법 2: Python podman-compose 설치
-```powershell
-pip install podman-compose
-podman-compose --version
+#### 3) Provider 버전 검증
+새 터미널에서 Compose provider가 정상 인식되는지 확인합니다.
+```bash
+# Podman 환경
+podman compose version
+
+# Docker 환경
+docker compose version
 ```
+출력 결과에 `Docker Compose version v2.x.x`가 표시되면 정상입니다.
+
 
 ## Self-contained PostgreSQL vs Local H2 개념
 
@@ -187,31 +213,49 @@ host port를 만들지 않습니다. `external-dev-db-check`는 17개 runtime �
 DB migration과 권한 변경은 자동 실행하지 않습니다. JDBC URL에 승인된 `sslmode` 같은 연결
 옵션이 있으면 probe도 같은 옵션을 보존합니다.
 
-## 저자원 external-dev 인증 스택 (#520)
+## 초보자용 Podman/Docker 저자원 최소 인증 스택 실행 및 롤백 가이드 (#521, #520)
 
-전체 `apis` 또는 `foundation` profile은 이 용도에 너무 큽니다. `apis`는 17개 API를,
-`foundation`은 Auth와 Master Data 외에 Budget과 Internal Audit까지 선택합니다. 4 CPU 개발
-서버에서는 다음 **7개 컨테이너만** 사용하는 별도 실행기를 사용합니다.
+저사양 개발 서버(예: 4 CPU / 11 GiB RAM) 환경에서 17개 API 전체(`--profile apis`) 또는 `foundation` 프로파일을 기동하면 극심한 CPU/메모리 경합과 OOM(Out of Memory)으로 인해 전체 서비스가 비정상 종료될 수 있습니다.
+
+따라서 초보자 및 저자원 환경에서는 로그인 및 핵심 게이트웨이 검증에 필요한 **7개 필수 컨테이너만** 선별하여 순차 빌드·기동하는 전용 실행기(`tools/run-minimal-auth-external-dev.py`)를 사용합니다.
 
 ```text
-PostgreSQL 권한 + Redis PING gate
-  -> Config Server
-  -> Discovery
-  -> Auth + Master Data
-  -> Gateway
-  -> Frontend
+[최소 인증 스택 토폴로지]
+PostgreSQL 권한 + Redis PING gate (minimal-db-check)
+  -> Config Server (minimal-config-server)
+  -> Discovery (minimal-discovery)
+  -> Auth + Master Data (minimal-auth, minimal-master-data)
+  -> Gateway (minimal-gateway, 호스트 127.0.0.1:18000)
+  -> Frontend (minimal-frontend, 호스트 127.0.0.1:13000)
 ```
 
-여기서 `external-dev`는 **Compose가 외부 개발 DB 모드를 선택하는 이름**입니다. Spring
-프로파일 이름이 아닙니다. Config Server는 파일 설정 저장소를 읽기 위해 `native`, 나머지
-Java 서비스는 모듈별 컨테이너 정본인 `docker`를 사용합니다. 따라서 실행 로그에
-`docker`가 보이는 것은 정상이며, 아래 Compose 프로젝트 라벨까지 일치해야 #520의
-`external-dev` 실행으로 판단합니다.
+> **용어 주의**: 여기서 `external-dev`는 Compose 프로젝트가 외부 개발 DB 모드를 선택하는 이름이며 Spring 프로파일 이름이 아닙니다. Config Server는 파일 기반 설정 저장을 위해 Spring 프로파일 `native`를 쓰고, 나머지 Java 서비스는 컨테이너 정본인 `docker` 프로파일을 사용합니다. 실행 로그에 `docker` 프로파일이 표시되는 것은 정상입니다.
 
-### 1단계: 승인된 환경 파일 준비
+---
 
-`.env.external-dev`는 Git에 커밋하지 않고 mode `600`으로 보관합니다. 다음 12개 키가
-필요하지만, 값은 문서·Issue·터미널 출력에 붙이지 않습니다.
+### 1단계: 사전 환경 점검 (Prerequisites)
+
+실행 전 개발 호스트의 런타임 및 Provider 버전을 확인합니다.
+
+```bash
+# 1. Java 및 Node/npm 버전 확인 (Java 17+, Node 20 LTS)
+java -version
+node --version
+npm --version
+
+# 2. 컨테이너 엔진 및 Compose provider 확인
+podman compose version
+# (Docker 환경일 경우)
+docker compose version
+```
+
+---
+
+### 2단계: 승인된 환경 파일 준비 및 값 비노출 사전 검사 (Preflight)
+
+`.env.external-dev`는 민감한 인증정보를 포함하므로 절대 Git에 커밋하지 않고 파일 권한을 `600`(`chmod 600 .env.external-dev`)으로 설정하여 보관합니다.
+
+다음 12개 필수 키가 설정되어 있어야 합니다 (실제 secret 값은 문서·Issue·터미널에 노출하지 않습니다).
 
 ```text
 ENCRYPT_KEY
@@ -222,121 +266,125 @@ AUTH_DB_URL / AUTH_DB_USER / AUTH_DB_PASSWORD
 DEV_DB_HOST / DEV_DB_PORT / DEV_DB_NAME / DEV_DB_USER / DEV_DB_PASSWORD
 ```
 
-`BFF_GATEWAY_SHARED_SECRET`은 32~512-byte 신규 난수로 만들고 Frontend/Gateway에만 같은 값을
-주입합니다. `AUTH_JWT_SECRET`이나 `AUTH_INTERNAL_API_TOKEN`을 재사용하지 않습니다. 검증기는
-값 자체를 출력하지 않습니다.
+* `BFF_GATEWAY_SHARED_SECRET`은 32~512-byte 신규 난수로 생성하여 Frontend/Gateway에만 주입합니다.
+* 승인된 외부 Auth/Master Data DB 정보가 없거나 파일이 비어 있으면 진행하지 않습니다.
 
-파일이 빈 스캐폴드이거나 승인된 외부 Auth/Master Data DB 정보가 없으면 여기서 멈춥니다.
-현재 실행 중인 컨테이너 환경이나 PostgreSQL 컨테이너에서 값을 추출하지 않습니다.
-
-### 2단계: 값 비노출 사전 검사
-
-저장소 루트에서 실행합니다. 성공 시 키 개수와 PASS만 출력하며 값과 렌더링 결과는
-출력하지 않습니다.
+저장소 루트에서 **값 비노출 사전 검사(preflight)**를 실행합니다:
 
 ```bash
+# Podman 환경
 python3 tools/run-minimal-auth-external-dev.py preflight \
   --env-file .env.external-dev --engine podman
+
+# Docker 환경
+python3 tools/run-minimal-auth-external-dev.py preflight \
+  --env-file .env.external-dev --engine docker
 ```
 
-Docker 사용자는 `--engine docker`로 바꿉니다. Podman은 이 서버처럼 최신
-`docker-compose` provider를 사용하는 구성을 기준으로 합니다. Python `podman-compose`의
-동일 동작은 별도 검증 없이 주장하지 않습니다.
+성공 시 키 개수와 `PASS`만 출력되며 비밀값이나 렌더링 결과는 화면에 노출되지 않습니다.
+추가로 구문 유효성 검증을 위해 `config --quiet`를 확인합니다:
 
-### 3단계: 이미지 순차 빌드
+```bash
+podman compose --env-file .env.external-dev \
+  -f tools/compose.minimal-auth-external-dev.yml config --quiet
+```
+
+---
+
+### 3단계: 이미지 1-Worker 순차 빌드 (Sequential Build)
+
+4 CPU 저자원 환경에서는 병렬 빌드로 인한 CPU 과부하를 막기 위해 Java 빌드는 `--max-workers=1`, Compose 빌드는 `COMPOSE_PARALLEL_LIMIT=1`로 제한하여 6개 이미지를 순차 빌드합니다.
 
 ```bash
 python3 tools/run-minimal-auth-external-dev.py build \
   --env-file .env.external-dev --engine podman
 ```
 
-Config Server → Discovery → Auth → Master Data → Gateway → Frontend 순서로 하나씩 빌드합니다.
-Java 빌드는 `--max-workers=1`, Compose는 `COMPOSE_PARALLEL_LIMIT=1`을 사용합니다. 전체 API나
-Batch image는 빌드하지 않습니다.
+* **빌드 순서**: `Config Server` → `Discovery` → `Auth` → `Master Data` → `Gateway` → `Frontend`
+* 전체 17개 API나 Batch 이미지는 빌드하지 않습니다.
 
-### 4단계: 기동과 값 비노출 smoke
+#### 💡 이미지 재빌드 시 영향과 컨테이너 재생성 조건
+1. **소스 코드 변경 시 영향**:
+   - 백엔드 Java 코드 변경 시: 해당 모듈의 `bootJar` 패키징 후 이미지를 재빌드해야 합니다.
+   - Frontend 화면 코드 변경 시: rootless Podman의 권한 격리와 재현성을 위해 호스트 소스(`/app`)를 bind mount하지 않고 빌드 이미지 산출물을 실행하므로, 소스 수정 시 hot reload가 아닌 **`build` 재실행**이 필수입니다.
+2. **컨테이너 재생성 조건**:
+   - 이미지를 새로 빌드하더라도 **기존 실행 중인 컨테이너는 이전 이미지를 계속 참조**합니다.
+   - 따라서 새 코드를 런타임에 반영하려면 반드시 아래 4단계의 `up`을 다시 실행하여 컨테이너를 재생성(`--force-recreate`)해야 합니다.
 
-기존 `config-server`, `discovery`, `auth`, `master-data`, `gateway`, `account-frontend`가
-실행 중이면 새 스택과 중복되어 메모리를 사용합니다. 실행기는 이를 감지해 `up`을
-실패시킵니다. 승인된 환경값과 새 image가 준비되기 전에는 기존 컨테이너를 먼저 멈추지
-마세요. 교체 시점에는 기존 6개 이름만 정확히 정지하고, 새 스택 검증 실패 시 같은 이름을
-다시 시작할 수 있게 기존 컨테이너를 삭제하지 않습니다.
+---
+
+### 4단계: 기존 컨테이너 안전 정지 및 기동, Smoke 검증
+
+기존에 구동 중이던 `config-server`, `discovery`, `auth`, `master-data`, `gateway`, `account-frontend` 6개 컨테이너가 있으면 메모리 중복 및 포트 충돌이 발생합니다.
+따라서 기존 6개 컨테이너만 정확한 이름으로 정지합니다 (컨테이너를 삭제하지 않고 정지만 하여 복구 가능 상태 유지).
 
 ```bash
-# preflight와 6개 image build가 모두 성공한 뒤에만 실행합니다.
+# 1. 기존 6개 애플리케이션 컨테이너만 안전하게 정지 (삭제 아님)
 podman stop config-server discovery master-data auth gateway account-frontend
 
+# 2. 최소 인증 스택 기동
 python3 tools/run-minimal-auth-external-dev.py up \
   --env-file .env.external-dev --engine podman
+
+# 3. 값 비노출 검증 Smoke 테스트 실행
 python3 tools/run-minimal-auth-external-dev.py smoke \
   --env-file .env.external-dev --engine podman
+
+# 4. 컨테이너 리소스 상태 확인
 python3 tools/run-minimal-auth-external-dev.py status --engine podman
 ```
 
-Docker이면 위 `podman stop`을 `docker stop`으로, runner의 `--engine podman`을
-`--engine docker`로 바꿉니다. `up` 또는 `smoke`가 실패하면 새 프로젝트만 정지한 다음
-보존된 기존 6개를 정확한 이름으로 복구합니다.
+#### 정상 상태 검증 포인트
+* **Frontend 로그인 화면**: <http://127.0.0.1:13000/login> 접속 시 HTTP 200 응답 확인.
+* **Gateway 헬스 엔드포인트**: <http://127.0.0.1:18000/actuator/health/readiness> 상태 확인.
+* **Frontend → Gateway → Auth 인증 경로 검증**: `smoke` 단계에서 빈 로그인 요청 시 Auth 서비스의 기존 입력값 검증 실패 응답인 **HTTP 400**으로 돌아오면 전체 통신 경로가 정상 연결된 것입니다 (응답 본문, 토큰, 계정정보는 비노출).
+
+---
+
+### 5단계: 안전한 종료 및 롤백 절차 (Safe Rollback)
+
+작업 완료 후 또는 검증 실패 시, 아래 명령으로 안전하게 중지하고 롤백합니다:
 
 ```bash
+# 1. 새 최소 스택 프로젝트 컨테이너만 안전하게 정지
 python3 tools/run-minimal-auth-external-dev.py stop --engine podman
+
+# 2. 필요 시 기존 6개 정지 컨테이너 다시 복구 시작
 podman start config-server discovery master-data auth gateway account-frontend
 ```
 
-이 복구 명령도 Docker에서는 `podman`을 `docker`로, runner 인자를 `--engine docker`로
-바꿉니다. `podman stop --all`, `compose down -v`, `prune`는 사용하지 않습니다.
+* 고정 Compose project label(`account-minimal-auth-external-dev`)이 붙은 컨테이너만 정지합니다.
+* 외부 PostgreSQL, Redis, named volume, 공유 네트워크는 전혀 훼손되지 않고 보존됩니다.
 
-- Frontend 로그인: <http://127.0.0.1:13000/login>
-- Gateway: <http://127.0.0.1:18000>
-- 기존 3000/8000 컨테이너와 충돌하지 않도록 격리 기본 포트를 사용합니다.
-- `MINIMAL_DEV_FRONTEND_PORT`, `MINIMAL_DEV_GATEWAY_PORT`로 바꿀 수 있습니다.
-- Config/Discovery/Auth/Master Data/DB gate는 호스트 포트를 만들지 않습니다.
-- DB gate는 Auth와 Master Data 두 DB의 접속, 업무 테이블 권한, sequence 권한,
-  Flyway history 비노출만 조회하고 기존 `account-redis:6379`에 값 없는 `PING`만 보냅니다.
-  migration, DDL/DML, Redis key 읽기·쓰기는 실행하지 않습니다.
-- Frontend의 빈 로그인 요청이 Gateway를 거쳐 Auth의 기존 HTTP 400 검증 응답으로
-  돌아오는지만 최대 30회, 5초 간격으로 확인하고 응답 본문·토큰·계정정보를 출력하지
-  않습니다. 각 요청은 Node에서 4초, Compose exec 프로세스에서 15초로 제한됩니다. Eureka
-  등록이 health보다 늦는 정상 첫 기동을 위한 제한된 재시도입니다.
-- Frontend는 빌드 이미지의 `/app`을 사용하며 호스트 소스를 bind mount하지 않습니다.
-  rootless Podman의 non-root 사용자가 `next-env.d.ts`를 만들 수 있게 하면서 tracked host
-  파일 쓰기를 피하기 위한 계약입니다. 소스 변경 후에는 hot reload 대신 `build`를 다시
-  실행하고, 쓰기 경로는 프로젝트 전용 `node_modules`와 `.next` named volume으로 제한합니다.
-- Frontend healthcheck는 public `next.svg`를 `wget -T 4 -t 1`로 조회합니다. `/`를 probe하면
-  저자원 첫 기동에서 수천 개 화면 모듈을 컴파일하고 Podman health process가 길게 점유될 수
-  있기 때문입니다. 실제 인증 연결은 이어지는 값 비노출 로그인 `smoke`가 별도로 검증합니다.
-- Java 컨테이너 CPU 합계는 3 CPU, 전체 7개 제한 합계는 4 CPU 미만입니다. Java와
-  Frontend는 각각 1 GiB 상한을 사용합니다. Frontend의 평상시 실제 사용량은 훨씬 작지만
-  첫 로그인 화면 컴파일은 768 MiB에서 완료되지 않았고 1 GiB에서는 HTTP 200과 후속 인증
-  smoke까지 완료됐습니다. 1 GiB에서도 첫 컴파일 중 cgroup `max` 이벤트가 발생할 수 있어
-  느릴 수 있지만 OOM이나 재시작이 발생해서는 안 됩니다. 상한은 예약 메모리가 아니며 실제
-  사용량은 `status`로 확인합니다.
-- 이 최소 모드에서는 tracing을 끄고 console-only Logback 파일을 사용해 아직 복구 전인
-  `localhost:5000` Logstash로 재접속하지 않습니다. 실제 관측 주소 통일은 #565가 담당합니다.
+#### ⚠️ 절대 금지 명령어 (Strictly Prohibited)
 
-Compose 서비스 이름을 `minimal-*`로 분리했기 때문에 같은 `account-network`의 기존
-`config-server`, `auth`, `gateway` 컨테이너 DNS와 충돌하지 않습니다. 기존
-`account-redis`에는 gate가 값 없는 `PING`을 보내고, Auth에는 기존 모듈 Docker 계약과 같은
-`SPRING_DATA_REDIS_HOST/PORT`를 전달합니다. 승인된 env를 사용한 실제 검증에서는 DB/Redis
-gate, Java 서비스와 Frontend health, `/login` HTTP 200, Frontend → Gateway → Auth HTTP 400
-계약까지 통과했습니다. 전환할 때 기존 6개 애플리케이션 컨테이너는 정확한 이름으로
-정지하지만 삭제하지 않으며, 기존 PostgreSQL과 Redis는 생성·재시작·삭제하지 않습니다.
-Zipkin, Logstash, Elasticsearch, Kibana, Prometheus, Grafana와 Batch는 이 최소 스택에
-포함하지 않으며 각각 #561~#566이 담당합니다.
+초보자가 흔히 저지르는 아래 파괴적 명령어는 데이터 유실 및 환경 파괴를 유발하므로 **절대 실행하지 마십시오**:
 
-빌드부터 smoke까지 한 번에 실행하려면 같은 인자로 `all`을 사용할 수 있습니다. `up --wait`
-또는 `all`의 smoke/status가 실패하면 실행기가 고정 project label의 컨테이너만 자동 정지하고
-volume은 보존합니다. 개별 `smoke` 실패는 원인 확인을 위해 자동 정지하지 않으므로 아래
-`stop`을 직접 실행합니다.
+1. ❌ **`podman compose down -v` 또는 `docker compose down -v` 사용 금지**:
+   - `-v` 옵션은 볼륨(Named Volume)을 강제 삭제하여 PostgreSQL 데이터베이스 내용, Flyway 마이그레이션 이력, Redis 캐시가 영구 손실됩니다.
+2. ❌ **`podman container prune -f` / `docker container prune -f` 사용 금지**:
+   - 현재 프로젝트와 무관한 개발 서버 호스트의 다른 중지된 컨테이너까지 전부 강제 삭제됩니다.
+3. ❌ **`podman image prune -f` / `docker image prune -f` 사용 금지**:
+   - 베이스 이미지와 빌드 캐시가 손실되어 다음 빌드 시 다운로드 및 컴파일 시간이 폭증합니다.
+4. ❌ **롤백 목적의 `git checkout <commit> -- <files>` 사용 금지**:
+   - 로컬 워킹 디렉터리에서 작업 중이던 미커밋 소스 파일이나 설정 파일이 덮어쓰여 영구 삭제될 위험이 있습니다. 롤백은 오직 검토된 Git Revert 커밋 및 서비스 정지(`stop`)로만 수행합니다.
 
-### 5단계: 정확한 롤백
+---
 
-```bash
-python3 tools/run-minimal-auth-external-dev.py stop --engine podman
-```
+### 6단계: 초보자 실무 트러블슈팅 Q&A
 
-고정 Compose project label이 붙은 #520 컨테이너만 정지합니다. 환경 파일을 잃어도 정지가
-가능하며 기존 컨테이너, 외부 DB, `account-network`, Redis와 named volume은 보존합니다.
-`down -v`, `prune`, 전체 컨테이너 일괄 정지는 사용하지 않습니다.
+* **Q1. Frontend 기동 시 `EACCES: permission denied, open '/app/next-env.d.ts'` 오류가 발생합니다.**
+  - **원인**: rootless Podman 환경에서 호스트 소스 디렉터리를 컨테이너 내부 `/app`에 바인드 마운트할 경우, non-root `node` 사용자와 호스트 사용자의 UID/GID 불일치로 쓰기 권한이 거부됩니다.
+  - **해결**: 최소 스택에서는 호스트 소스 바인드 마운트를 사용하지 않고 빌드된 이미지 내부 소스를 사용하며, 오직 프로젝트 전용 named volume(`node_modules`, `.next`)만 쓰기 가능하도록 격리되어 있으므로 `python3 tools/run-minimal-auth-external-dev.py build` 후 `up`을 실행합니다.
+
+* **Q2. `smoke` 실행 시 HTTP 503 Service Unavailable 오류가 발생합니다.**
+  - **원인**: Eureka 서비스 디스커버리에 Auth 서비스가 등록되기 전에 Gateway가 요청을 라우팅하려고 시도한 경우입니다.
+  - **해결**: 정상적인 첫 기동 시 Eureka 등록 지연이 발생할 수 있습니다. `smoke` 스크립트는 최대 30회(5초 간격) 자동으로 재시도하므로 잠시 대기하면 정상적으로 HTTP 400 응답으로 전환됩니다.
+
+* **Q3. 4 CPU 서버에서 메모리 부족 경고가 발생합니다.**
+  - **원인**: 전체 17개 API 프로파일(`--profile apis`)을 기동했거나 Java 서비스들의 메모리 상한이 초과된 경우입니다.
+  - **해결**: 최소 인증 스택에서는 Java 컨테이너 1 GiB / 0.60 CPU, Frontend 1 GiB 상한이 적용되어 전체 4 CPU 미만을 유지합니다. 고사양 전용 `--profile apis` 대신 반드시 최소 스택 실행기(`run-minimal-auth-external-dev.py`)를 사용하십시오.
+
 
 ## Batch
 

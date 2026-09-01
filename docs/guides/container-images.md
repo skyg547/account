@@ -39,19 +39,33 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\container-images
 
 Docker/Podman 사용과 dependency download가 승인된 환경에서만 `Build`를 실행합니다. 이 도구는 local image만 만들고 registry push는 하지 않습니다.
 
+### 1) PowerShell 도구를 통한 로컬 이미지 빌드
 ```powershell
+# Docker 환경
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\container-images.ps1 -Mode Build -Engine docker -Target master-data-api
+
+# Podman 환경
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\container-images.ps1 -Mode Build -Engine podman -Target master-data-api
 ```
 
-동등한 직접 명령:
-
+### 2) 직접 빌드 명령 (동등한 Docker / Podman 명령)
 ```powershell
+# Docker
 docker build --file master-data/api/Dockerfile --tag account/master-data-api:local .
 docker build --file frontend/Containerfile --tag account/frontend:local frontend
+
+# Podman
+podman build --file master-data/api/Dockerfile --tag account/master-data-api:local .
+podman build --file frontend/Containerfile --tag account/frontend:local frontend
 ```
 
 각 모듈별 `Dockerfile`은 하드코딩된 Gradle 경로(`:master-data:api:bootJar`)를 직접 호출하고,
 plain JAR을 제외한 실행 JAR이 정확히 하나일 때만 이미지를 만듭니다.
+
+### 3) 저자원 환경 순차 1-Worker 빌드 및 컨테이너 재생성 조건
+* **저자원 순차 빌드**: 4 CPU 등 저사양 환경에서는 전체 이미지를 병렬 빌드하지 않고, `python3 tools/run-minimal-auth-external-dev.py build --engine podman`을 통해 `--max-workers=1`로 순차 빌드합니다.
+* **이미지 재빌드 영향**: 소스 수정 후 이미지를 재빌드하더라도 이미 실행 중인 컨테이너는 이전 이미지를 참조하므로, 컨테이너를 재생성(`up --force-recreate` 또는 `up -d`)해야 변경 사항이 반영됩니다.
+
 
 ## Frontend
 
@@ -71,7 +85,8 @@ plain JAR을 제외한 실행 JAR이 정확히 하나일 때만 이미지를 만
 
 ## Rollback And Remaining Gate
 
-- Rollback은 모듈별 Dockerfile, manifest, verification tool, Compose image selection, docs/policy tests를 revert합니다.
+- Rollback은 모듈별 Dockerfile, manifest, verification tool, Compose image selection, docs/policy tests를 Reviewed Git Revert로 안전하게 되돌립니다.
 - Registry image나 remote container는 자동 삭제하지 않습니다.
 - Docker/Compose가 없는 호스트에서는 actual image build가 미검증입니다.
 - Image가 생성돼도 application context/DB migration/health는 별도 runtime/Compose gate입니다.
+- ⚠️ **금지 명령어**: 롤백 시 `podman/docker image prune -f`, `container prune -f`, `down -v`, 또는 작업 파일을 덮어쓰는 `git checkout <commit> -- <files>`는 절대 사용하지 않습니다.
