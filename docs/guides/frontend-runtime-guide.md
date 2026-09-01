@@ -61,6 +61,8 @@ npm run dev
   JavaScript에 노출하지 않습니다.
 - Next.js Route Handler BFF가 HttpOnly 세션을 읽고 `GATEWAY_INTERNAL_URL`로 요청을
   넘겨주며, 개발 모드 기본값은 `http://localhost:8000`입니다.
+- 로그인 rate-limit 식별자는 `BFF_GATEWAY_SHARED_SECRET`으로 서명합니다. 이 값은
+  Frontend/Gateway 서버에만 같은 32~512-byte 값으로 주입하고 브라우저에 공개하지 않습니다.
 
 **Gateway가 안 떠 있어도 화면은 정상적으로 뜹니다.** API 호출만 실패하므로
 레이아웃·스타일 작업은 백엔드 없이 그대로 진행할 수 있습니다.
@@ -69,6 +71,7 @@ Gateway를 다른 주소에서 돌린다면:
 
 ```powershell
 $env:GATEWAY_INTERNAL_URL = "http://localhost:9000"
+$env:BFF_GATEWAY_SHARED_SECRET = "<현재 shell의 승인된 별도 값>"
 npm run dev
 ```
 
@@ -205,7 +208,7 @@ podman start config-server discovery master-data auth gateway account-frontend
 Docker 사용자는 `podman`을 `docker`로, runner 인자의 `--engine podman`을
 `--engine docker`로 바꿉니다. 전체 컨테이너 stop, `down -v`, `prune`는 사용하지 마세요.
 
-환경 파일의 11개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate와 롤백 설명은
+환경 파일의 12개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate와 롤백 설명은
 [development-compose.md의 #520 절](./development-compose.md#저자원-external-dev-인증-스택-520)을
 먼저 읽으세요.
 
@@ -528,6 +531,7 @@ Docker Desktop(Mac/Windows)에는 내장이지만 **native Linux Docker에는 �
 | 변수 | 적용 시점 | 기본값 | 설명 |
 |------|-----------|--------|------|
 | `GATEWAY_INTERNAL_URL` | 런타임 | 운영 Compose `http://gateway:8000`, 로컬 개발 `http://localhost:8000` | BFF가 호출할 내부 Gateway origin |
+| `BFF_GATEWAY_SHARED_SECRET` | 런타임(필수) | 없음 | 불투명 로그인 rate key HMAC용 BFF/Gateway 전용 32~512-byte 값 |
 | `FRONTEND_PUBLIC_ORIGIN` | 런타임(선택) | 요청 Host 기반 | reverse proxy 뒤 CSRF 비교용 공개 origin |
 | `FRONTEND_DEV_PORT` | 런타임 | `3000` | `compose.dev.yml` 호스트 포트 |
 | `DEV_FRONTEND_PORT` | 런타임 | `3000` | 루트 개발 Compose 호스트 포트 |

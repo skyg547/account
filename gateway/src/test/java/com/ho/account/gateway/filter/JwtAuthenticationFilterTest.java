@@ -2,6 +2,7 @@ package com.ho.account.gateway.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ho.account.gateway.config.RateLimiterConfig;
 import com.ho.account.gateway.security.AccessTokenVerifier;
 import com.ho.account.gateway.security.AuthenticatedPrincipal;
 import com.ho.account.gateway.security.TokenVersionValidationResult;
@@ -111,6 +112,8 @@ class JwtAuthenticationFilterTest {
                 .isEqualTo("ACCOUNT_ADMIN,REPORT_READER");
         assertThat(headers.getFirst(JwtAuthenticationFilter.AUTH_ROLE_VERSION_HEADER)).isEqualTo("7");
         assertThat(headers.containsKey(JwtAuthenticationFilter.AUTH_DEPARTMENT_HEADER)).isFalse();
+        assertThat((String) forwarded.get().getAttribute(
+                RateLimiterConfig.AUTHENTICATED_PRINCIPAL_ATTRIBUTE)).isEqualTo("admin");
     }
 
     @Test

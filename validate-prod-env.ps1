@@ -137,7 +137,8 @@ function Test-IsMissingRequiredValue {
             $Name -like '*_DB_PASSWORD' -or
             $Name -like '*_JWT_SECRET' -or
             $Name -eq 'AUTH_DEFAULT_PASSWORD' -or
-            $Name -eq 'AUTH_INTERNAL_API_TOKEN'
+            $Name -eq 'AUTH_INTERNAL_API_TOKEN' -or
+            $Name -eq 'BFF_GATEWAY_SHARED_SECRET'
         )) {
         return $false
     }
@@ -166,6 +167,9 @@ if ($SelfTest) {
     }
     if (Test-IsMissingRequiredValue -Name 'ENCRYPT_KEY' -Value '' -AllowTemplateEmpty) {
         throw 'Validator self-test failed to allow the blank ENCRYPT_KEY contract in template mode.'
+    }
+    if (Test-IsMissingRequiredValue -Name 'BFF_GATEWAY_SHARED_SECRET' -Value '' -AllowTemplateEmpty) {
+        throw 'Validator self-test failed to allow the blank BFF shared secret in template mode.'
     }
     [pscustomobject]@{
         Status = 'PASS'
@@ -303,6 +307,11 @@ if (-not $Template) {
     }
     if ($values['AUTH_INTERNAL_API_TOKEN'].Length -lt 32) {
         throw 'AUTH_INTERNAL_API_TOKEN must be at least 32 characters.'
+    }
+    $bffSecretBytes = [System.Text.Encoding]::UTF8.GetByteCount(
+        $values['BFF_GATEWAY_SHARED_SECRET'])
+    if ($bffSecretBytes -lt 32 -or $bffSecretBytes -gt 512) {
+        throw 'BFF_GATEWAY_SHARED_SECRET must be between 32 and 512 UTF-8 bytes.'
     }
 }
 

@@ -234,6 +234,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery:8761/eureka/
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the untracked environment file}"
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?Set BFF_GATEWAY_SHARED_SECRET in the untracked environment file}"
       AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: http://auth-api:8080
     depends_on:
       config-server:
@@ -270,6 +271,7 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       GATEWAY_INTERNAL_URL: http://gateway:8000
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?Set BFF_GATEWAY_SHARED_SECRET in the untracked environment file}"
     depends_on:
       gateway:
         condition: service_healthy

@@ -1,5 +1,6 @@
 package com.ho.account.gateway.filter;
 
+import com.ho.account.gateway.config.RateLimiterConfig;
 import com.ho.account.gateway.security.AccessTokenVerifier;
 import com.ho.account.gateway.security.AuthenticatedPrincipal;
 import com.ho.account.gateway.security.InvalidAccessTokenException;
@@ -130,7 +131,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     }
                 })
                 .build();
-        return exchange.mutate().request(authenticatedRequest).build();
+        ServerWebExchange authenticatedExchange = exchange.mutate().request(authenticatedRequest).build();
+        authenticatedExchange.getAttributes().put(
+                RateLimiterConfig.AUTHENTICATED_PRINCIPAL_ATTRIBUTE,
+                principal.username());
+        return authenticatedExchange;
     }
 
     private Optional<String> resolveBearerToken(ServerHttpRequest request) {

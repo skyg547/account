@@ -144,6 +144,15 @@ class DevelopmentComposePolicyTest {
                 gatewayEnvironment.get("AUTH_JWT_SECRET"),
                 "gateway",
                 "AUTH_JWT_SECRET");
+        assertRequiredVariable(
+                gatewayEnvironment.get("BFF_GATEWAY_SHARED_SECRET"),
+                "gateway",
+                "BFF_GATEWAY_SHARED_SECRET");
+        assertRequiredVariable(
+                asMap(asMap(services.get("frontend")).get("environment"))
+                        .get("BFF_GATEWAY_SHARED_SECRET"),
+                "frontend",
+                "BFF_GATEWAY_SHARED_SECRET");
         Map<String, Object> authEnvironment =
                 asMap(asMap(services.get("auth-api")).get("environment"));
         assertRequiredVariable(
@@ -298,6 +307,7 @@ class DevelopmentComposePolicyTest {
                         "${ENCRYPT_KEY:?",
                         "${AUTH_JWT_SECRET:?",
                         "${AUTH_INTERNAL_API_TOKEN:?",
+                        "${BFF_GATEWAY_SHARED_SECRET:?",
                         "${AUTH_DB_URL:?",
                         "${AUTH_DB_USER:?",
                         "${AUTH_DB_PASSWORD:?",
@@ -448,6 +458,20 @@ class DevelopmentComposePolicyTest {
                         "http://127.0.0.1:3000/next.svg");
 
         Map<String, Object> frontend = asMap(services.get("minimal-frontend"));
+        Map<String, Object> minimalGatewayEnvironment =
+                asMap(asMap(services.get("minimal-gateway")).get("environment"));
+        Map<String, Object> minimalFrontendEnvironment =
+                asMap(frontend.get("environment"));
+        assertRequiredVariable(
+                minimalGatewayEnvironment.get("BFF_GATEWAY_SHARED_SECRET"),
+                "minimal-gateway",
+                "BFF_GATEWAY_SHARED_SECRET");
+        assertRequiredVariable(
+                minimalFrontendEnvironment.get("BFF_GATEWAY_SHARED_SECRET"),
+                "minimal-frontend",
+                "BFF_GATEWAY_SHARED_SECRET");
+        assertThat(minimalGatewayEnvironment.get("BFF_GATEWAY_SHARED_SECRET"))
+                .isEqualTo(minimalFrontendEnvironment.get("BFF_GATEWAY_SHARED_SECRET"));
         assertThat(asMap(frontend.get("build")))
                 .containsEntry("context", "../frontend")
                 .containsEntry("dockerfile", "Containerfile.dev");

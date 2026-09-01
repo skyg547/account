@@ -44,7 +44,8 @@ npm run dev -- --hostname 0.0.0.0
 로컬 npm 실행 시 기본 Gateway 주소는 `http://localhost:8000`입니다. Gateway를 다른 주소에서
 실행할 때만 환경 변수를 지정하세요. 로그인은 항상 same-origin `/api/auth/login`을 사용하므로
 Gateway와 Auth가 모두 실행 중이어야 하며, Auth에 미리 발급된 계정의 아이디와 비밀번호가
-필요합니다. 운영자가 발급한 계정만 사용합니다. 기존 PAT/Governance 화면은 아직
+필요합니다. Frontend와 Gateway에는 별도 `BFF_GATEWAY_SHARED_SECRET`을 같은 값으로 주입해야
+하며 JWT 키나 내부 API token을 재사용하지 않습니다. 운영자가 발급한 계정만 사용합니다. 기존 PAT/Governance 화면은 아직
 Gateway 전용 route와 권한 경계가 완성되지 않아 직접 override 계약을 유지합니다.
 
 ### 🧩 컨테이너로 프론트엔드만 단독 기동하기 (`compose.dev.yml`)
@@ -116,11 +117,14 @@ production 이미지는 별도 `frontend/Containerfile` 계약을 그대로 사�
 `/api/*`는 build-time rewrite가 아니라 Route Handler BFF가 처리합니다. 따라서
 `GATEWAY_INTERNAL_URL`은 **컨테이너 런타임**에 주입하고 브라우저 공개 변수로 만들지 않습니다.
 Gateway가 다른 주소여도 Frontend image를 다시 빌드할 필요가 없습니다.
+서명된 로그인 rate key용 `BFF_GATEWAY_SHARED_SECRET`도 런타임 서버 전용이며 두 서비스에
+동일한 32~512-byte 값을 주입합니다.
 
 ```powershell
 podman build -f frontend/Containerfile -t account/frontend:local frontend
 podman run --rm -p 3000:3000 `
-  -e GATEWAY_INTERNAL_URL=http://my-gateway:8000 account/frontend:local
+  -e GATEWAY_INTERNAL_URL=http://my-gateway:8000 `
+  -e BFF_GATEWAY_SHARED_SECRET=$env:BFF_GATEWAY_SHARED_SECRET account/frontend:local
 ```
 
 저장소 빌드 도구(`tools/container-images.ps1`)는 Gateway 주소 없이 동일한 Frontend image를

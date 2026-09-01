@@ -196,6 +196,8 @@ class ProductionComposePolicyTest {
                 asMap(asMap(services.get("budget-batch")).get("environment"));
 
         String requiredJwt = "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}";
+        String requiredBffSecret =
+                "${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}";
         assertThat(authEnvironment)
                 .containsEntry("AUTH_JWT_SECRET", requiredJwt)
                 .containsEntry(
@@ -206,12 +208,14 @@ class ProductionComposePolicyTest {
                         "${AUTH_INTERNAL_API_TOKEN:?set AUTH_INTERNAL_API_TOKEN}");
         assertThat(gatewayEnvironment)
                 .containsEntry("AUTH_JWT_SECRET", requiredJwt)
+                .containsEntry("BFF_GATEWAY_SHARED_SECRET", requiredBffSecret)
                 .containsEntry(
                         "AUTH_TOKEN_VERSION_VALIDATION_BASE_URL",
                         "http://auth-api:8080");
         assertThat(frontendEnvironment)
                 .containsEntry("NODE_ENV", "production")
                 .containsEntry("GATEWAY_INTERNAL_URL", "http://gateway:8000")
+                .containsEntry("BFF_GATEWAY_SHARED_SECRET", requiredBffSecret)
                 .containsEntry("FRONTEND_PUBLIC_ORIGIN", "${FRONTEND_PUBLIC_ORIGIN:-}");
         assertThat(apiEnvironment)
                 .containsEntry(
@@ -275,7 +279,8 @@ class ProductionComposePolicyTest {
                 .contains(
                         "AUTH_JWT_SECRET=",
                         "AUTH_DEFAULT_PASSWORD=",
-                        "AUTH_INTERNAL_API_TOKEN=")
+                        "AUTH_INTERNAL_API_TOKEN=",
+                        "BFF_GATEWAY_SHARED_SECRET=")
                 .doesNotContain("192.168.", "localhost", "dev_pass", "password=password");
         assertThat(digest.matcher(template).results()).hasSize(36);
         assertThat(emptyPassword.matcher(template).results()).hasSize(17);
@@ -303,6 +308,7 @@ class ProductionComposePolicyTest {
                         "JWT secrets must be at least 32 characters",
                         "AUTH_DEFAULT_PASSWORD does not meet the minimum production policy",
                         "AUTH_INTERNAL_API_TOKEN must be at least 32 characters",
+                        "BFF_GATEWAY_SHARED_SECRET must be between 32 and 512 UTF-8 bytes",
                         "password.Length -lt 16",
                         "Production Compose must not contain source build directives")
                 .doesNotContain("Write-Output $values", "Write-Host $values");

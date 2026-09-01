@@ -36,8 +36,11 @@ spring:
       default-filters:
         - name: RequestRateLimiter
           args:
-            key-resolver: "#{@ipKeyResolver}"
+            key-resolver: "#{@requestRateKeyResolver}"
             rate-limiter: "#{@inMemoryRateLimiter}"
+        - RemoveRequestHeader=X-Bff-Rate-Key
+        - RemoveRequestHeader=X-Bff-Rate-Timestamp
+        - RemoveRequestHeader=X-Bff-Rate-Signature
       routes:
         # 아래 명시 route 목록만 외부 경로로 노출합니다. Eureka service ID를 경로 prefix로 노출하지 않습니다.
         # Auth 로그인만 외부 공개합니다. validate/internal 경로는 Gateway 전역 정책에서 차단합니다.
@@ -185,3 +188,7 @@ management:
 logging:
   level:
     com.ho.account.gateway: INFO
+
+gateway:
+  bff:
+    shared-secret: ${BFF_GATEWAY_SHARED_SECRET:}

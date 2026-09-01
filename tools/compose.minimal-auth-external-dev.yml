@@ -218,6 +218,7 @@ services:
       SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
       EUREKA_DEFAULT_ZONE: http://minimal-discovery:8761/eureka/
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?Set AUTH_JWT_SECRET in the approved env file}"
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?Set BFF_GATEWAY_SHARED_SECRET in the approved env file}"
       AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: lb://auth-service
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
       MANAGEMENT_TRACING_ENABLED: "false"
@@ -253,6 +254,7 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       GATEWAY_INTERNAL_URL: http://minimal-gateway:8000
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?Set BFF_GATEWAY_SHARED_SECRET in the approved env file}"
     depends_on:
       minimal-gateway:
         condition: service_healthy

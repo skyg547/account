@@ -172,6 +172,7 @@ services:
       SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery:8761/eureka/
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET}"
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}"
       AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: http://auth-api:8080
     depends_on:
       config-server:
@@ -215,6 +216,7 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       GATEWAY_INTERNAL_URL: http://gateway:8000
+      BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?set BFF_GATEWAY_SHARED_SECRET}"
       FRONTEND_PUBLIC_ORIGIN: "${FRONTEND_PUBLIC_ORIGIN:-}"
     depends_on:
       gateway:

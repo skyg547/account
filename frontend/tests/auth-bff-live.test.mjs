@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash, createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
@@ -7,6 +8,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 const MOCK_SESSION_TOKEN = 'mockHeader.mockPayload.mockSignature';
+const MOCK_BFF_GATEWAY_SECRET = 'test-bff-gateway-secret-that-is-long-enough';
 const productionMode = process.env.AUTH_BFF_TEST_MODE === 'production';
 const expectedCookieName = productionMode ? '__Host-account_session' : 'account_session';
 const upstreamRequests = [];
@@ -77,6 +79,10 @@ before(async () => {
       authorization: request.headers.authorization,
       cookie: request.headers.cookie,
       userId: request.headers['x-user-id'],
+      forwardedFor: request.headers['x-forwarded-for'],
+      bffRateKey: request.headers['x-bff-rate-key'],
+      bffRateTimestamp: request.headers['x-bff-rate-timestamp'],
+      bffRateSignature: request.headers['x-bff-rate-signature'],
       body,
     });
 
@@ -140,6 +146,7 @@ before(async () => {
       cwd: process.cwd(),
       env: {
         ...process.env,
+        BFF_GATEWAY_SHARED_SECRET: MOCK_BFF_GATEWAY_SECRET,
         GATEWAY_INTERNAL_URL: `http://127.0.0.1:${gatewayPort}`,
         NEXT_TELEMETRY_DISABLED: '1',
       },
@@ -241,7 +248,13 @@ test('chunked oversized login body is stopped before Gateway', async () => {
 test('same-origin login stores an HttpOnly session and hides JWT', async () => {
   const response = await fetch(`${frontendOrigin}/api/auth/login`, {
     method: 'POST',
-    headers: sameOriginHeaders({ 'Content-Type': 'application/json' }),
+    headers: sameOriginHeaders({
+      'Content-Type': 'application/json',
+      'X-Bff-Rate-Key': 'browser-chosen-key',
+      'X-Bff-Rate-Timestamp': '1',
+      'X-Bff-Rate-Signature': 'browser-chosen-signature',
+      'X-Forwarded-For': '203.0.113.195',
+    }),
     body: JSON.stringify({ username: 'valid-user', password: 'test-password' }),
   });
   assert.equal(response.status, 200);
@@ -265,6 +278,21 @@ test('same-origin login stores an HttpOnly session and hides JWT', async () => {
   assert.equal(body.token, undefined);
   assert.equal(body.tokenType, undefined);
   assert.doesNotMatch(JSON.stringify(body), new RegExp(MOCK_SESSION_TOKEN));
+
+  const forwarded = upstreamRequests.at(-1);
+  const expectedRateKey = createHash('sha256').update('valid-user', 'utf8').digest('hex');
+  assert.equal(forwarded.forwardedFor, undefined);
+  assert.equal(forwarded.bffRateKey, expectedRateKey);
+  assert.match(forwarded.bffRateTimestamp, /^[0-9]{10}$/);
+  const canonicalRequest =
+    `POST\n/api/auth/login\n${forwarded.bffRateTimestamp}\n${expectedRateKey}`;
+  assert.equal(
+    forwarded.bffRateSignature,
+    createHmac('sha256', MOCK_BFF_GATEWAY_SECRET)
+      .update(canonicalRequest, 'utf8')
+      .digest('hex'),
+  );
+  assert.doesNotMatch(forwarded.bffRateKey, /valid-user/);
 });
 
 test('protected proxy injects only the server cookie token and strips spoofed identity', async () => {
@@ -273,6 +301,10 @@ test('protected proxy injects only the server cookie token and strips spoofed id
       Cookie: `${sessionCookie}; theme=dark`,
       Authorization: 'Bearer browser-controlled-value',
       'X-User-ID': 'spoofed-browser-user',
+      'X-Bff-Rate-Key': 'browser-chosen-key',
+      'X-Bff-Rate-Timestamp': '1',
+      'X-Bff-Rate-Signature': 'browser-chosen-signature',
+      'X-Forwarded-For': '203.0.113.195',
     },
   });
   assert.equal(response.status, 200);
@@ -285,6 +317,10 @@ test('protected proxy injects only the server cookie token and strips spoofed id
   assert.equal(forwarded.authorization, `Bearer ${MOCK_SESSION_TOKEN}`);
   assert.equal(forwarded.cookie, undefined);
   assert.equal(forwarded.userId, undefined);
+  assert.equal(forwarded.forwardedFor, undefined);
+  assert.equal(forwarded.bffRateKey, undefined);
+  assert.equal(forwarded.bffRateTimestamp, undefined);
+  assert.equal(forwarded.bffRateSignature, undefined);
 });
 
 test('missing session is rejected without reaching Gateway', async () => {

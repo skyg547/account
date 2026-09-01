@@ -7,12 +7,18 @@ Client
   -> POST /api/auth/login
   -> RequestIdFilter: X-Request-Id 확인/발급
   -> JwtAuthenticationFilter: 외부 X-Auth-* 제거, 로그인 공개 경로 확인
+  -> RequestRateLimiter: BFF HMAC 검증 후 불투명 사용자별 + BFF peer aggregate bucket 선택
   -> auth-login-api route
   -> Auth: 계정/비밀번호/잠금/역할 확인 후 JWT 발급
   -> Client
 ```
 
-로그인은 JWT를 발급받기 위한 시작점이므로 기존 JWT를 요구하지 않습니다. 공개 경로라도 클라이언트가 넣은 `X-Auth-User` 같은 내부 신원 헤더는 Auth에 전달하지 않습니다.
+로그인은 JWT를 발급받기 위한 시작점이므로 기존 JWT를 요구하지 않습니다. 공개 경로라도
+클라이언트가 넣은 `X-Auth-User` 같은 내부 신원 헤더는 Auth에 전달하지 않습니다. BFF가 보낸
+로그인 사용자 SHA-256 키는 30초 HMAC이 맞을 때만 rate-limit bucket으로 사용하며 Auth에는
+전달되지 않습니다. 사용자별 bucket 외에 더 큰 BFF peer aggregate bucket도 함께 소모하므로
+사용자명을 계속 바꿔 quota를 무한히 새로 만들 수 없습니다. in-memory 저장소는 최대 10,000개
+bucket으로 제한됩니다. 위조·만료·잘못된 경로는 직접 연결 peer bucket으로 안전하게 대체합니다.
 
 ## 2. 보호 업무 API 요청
 
@@ -45,6 +51,7 @@ Client
    - UNAVAILABLE: 503
 
 6. Spring Cloud Gateway route
+   - RequestRateLimiter는 JWT 필터가 기록한 내부 principal attribute로 사용자별 bucket 선택
    - 설정에 명시된 route allowlist와 일치하는 외부 경로만 선택
    - 기준정보, 전표/원장, 결산, 예산, 내부감사, 입금, 채권, 채무, 세무, 대사, 자산/리스, 보고서, 지출결의, 마트, ECL 등 분리된 서비스의 전용 route를 선택
    - Eureka에서 선택된 route의 대상 인스턴스(`lb://...`) 확인

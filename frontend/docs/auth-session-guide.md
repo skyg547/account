@@ -20,7 +20,7 @@ sequenceDiagram
     participant Auth
 
     Browser->>BFF: POST /api/auth/login (아이디/비밀번호)
-    BFF->>Gateway: POST /api/auth/login (NORMAL)
+    BFF->>Gateway: POST /api/auth/login (NORMAL + signed opaque rate key)
     Gateway->>Auth: 로그인 전달
     Auth-->>Gateway: JWT + 사용자 메타데이터
     Gateway-->>BFF: JWT + 사용자 메타데이터
@@ -53,6 +53,8 @@ sequenceDiagram
 ## 3. 요청별 보안 동작
 
 - 로그인: BFF가 입력 크기와 형식을 검사하고 `loginType=NORMAL`을 서버에서 고정합니다.
+  사용자명 원문 대신 SHA-256 해시에 30초 HMAC 서명을 붙여 Gateway rate-limit 식별자로
+  보냅니다. 브라우저가 보낸 `X-Bff-Rate-*`와 `X-Forwarded-For`는 사용하지 않습니다.
 - 보호 API: 브라우저가 보낸 `Authorization`, `Cookie`, `X-User-ID` 같은 신원 헤더를
   Gateway로 전달하지 않습니다. BFF가 HttpOnly 쿠키의 JWT로 새 Bearer 헤더를 만듭니다.
 - 상태 변경(`POST`, `PUT`, `PATCH`, `DELETE`): `Origin`과 `Sec-Fetch-Site`가 동일 출처인지
@@ -69,6 +71,10 @@ Gateway와 Auth가 호스트에서 실행 중이면:
 ```powershell
 cd frontend
 $env:GATEWAY_INTERNAL_URL = "http://localhost:8000"
+$bffBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bffBytes)
+$env:BFF_GATEWAY_SHARED_SECRET = [Convert]::ToBase64String($bffBytes)
+# Gateway 프로세스에도 같은 BFF_GATEWAY_SHARED_SECRET을 안전한 Run Configuration으로 주입합니다.
 npm run dev
 ```
 
@@ -96,10 +102,16 @@ Gateway 주소는 더 이상 이미지 빌드 인자가 아닙니다. BFF 서버
 docker build -f frontend/Containerfile -t account/frontend:local frontend
 docker run --rm -p 3000:3000 `
   -e GATEWAY_INTERNAL_URL=http://gateway:8000 `
+  -e BFF_GATEWAY_SHARED_SECRET=$env:BFF_GATEWAY_SHARED_SECRET `
   account/frontend:local
 ```
 
 `compose.prod.yml`과 저장소 개발 Compose는 이 값을 서비스 이름으로 자동 설정합니다.
+`BFF_GATEWAY_SHARED_SECRET`은 BFF와 Gateway만 공유하는 별도 32~512-byte 런타임 secret입니다.
+JWT 서명 키나 Auth 내부 API token을 재사용하지 말고 두 서비스에 같은 값을 주입하세요. 값이
+없거나 길이가 잘못되면 BFF 로그인은 503으로 실패하며, Gateway는 잘못된 BFF 키를 신뢰하지
+않고 직접 peer bucket으로 되돌아갑니다. 유효한 로그인 키도 사용자별 bucket과 BFF peer
+aggregate bucket을 함께 소모하므로 사용자명을 계속 바꿔 제한을 무한히 우회할 수 없습니다.
 외부 reverse proxy 때문에 브라우저의 공개 Origin과 Next가 인식한 Origin이 다르면 서버 전용
 `FRONTEND_PUBLIC_ORIGIN=https://frontend.example`을 런타임에 정확히 한 개 지정합니다. 경로,
 query, 사용자정보가 포함된 값은 거부됩니다.
@@ -123,7 +135,7 @@ npm run build
 1. 교차 출처 로그인/변경 요청 403
 2. 로그인 응답에서 JWT 제거
 3. HttpOnly/SameSite/만료 쿠키
-4. 브라우저가 위조한 Authorization/사용자 헤더 제거
+4. 브라우저가 위조한 Authorization/사용자/BFF/forwarding 헤더 제거와 HMAC 계약
 5. 쿠키가 없으면 Gateway 호출 없이 401
 6. Gateway 401 시 쿠키 만료
 7. same-origin 로그아웃
@@ -144,6 +156,7 @@ npm run build
 | 증상 | 확인할 것 |
 |---|---|
 | 로그인/업무 API가 502 | Frontend 컨테이너의 `GATEWAY_INTERNAL_URL`과 Gateway health |
+| 로그인 API가 503 | 두 서비스의 `BFF_GATEWAY_SHARED_SECRET` 존재·동일성·32~512-byte 길이 |
 | 상태 변경이 403 | 브라우저 Origin, reverse proxy Host 보존, 필요 시 `FRONTEND_PUBLIC_ORIGIN` |
 | 운영 로그인 직후 세션 없음 | HTTPS 접속인지 확인(`Secure` 쿠키는 일반 HTTP에서 저장되지 않음) |
 | 업무 API가 401 | 세션 만료 또는 역할 버전 변경. 다시 로그인 |
@@ -161,4 +174,6 @@ npm run build
 HttpOnly는 XSS가 JWT 원문을 훔치는 것을 막지만, 이미 실행 중인 악성 스크립트의 same-origin
 요청 자체까지 막지는 못합니다. CSP 강화, 입력값 정제, 의존성 점검은 계속 필요합니다. 현재
 구현은 refresh token이나 서버 측 분산 세션 저장소를 추가하지 않으며 Auth가 발급한 짧은 수명
-JWT를 BFF 전용 쿠키로 보관합니다.
+JWT를 BFF 전용 쿠키로 보관합니다. 현재 rate limiter는 Gateway 인스턴스별 메모리 bucket이므로
+여러 Gateway 인스턴스 간 전역 quota가 필요하면 Redis 같은 분산 저장소를 별도 이슈로 도입해야
+합니다.
