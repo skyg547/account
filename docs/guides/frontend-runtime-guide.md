@@ -206,11 +206,11 @@ podman start config-server discovery master-data auth gateway account-frontend
 ```
 
 Docker 사용자는 `podman`을 `docker`로, runner 인자의 `--engine podman`을
-`--engine docker`로 바꿉니다. 전체 컨테이너 stop, `down -v`, `prune`는 사용하지 마세요.
+`--engine docker`로 바꿉니다. 전체 컨테이너 stop, `down -v`, `container/image prune -f`, 작업 파일 덮어쓰기(`git checkout <commit> -- <files>`)는 절대 사용하지 마세요.
 
-환경 파일의 12개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate와 롤백 설명은
-[development-compose.md의 #520 절](./development-compose.md#저자원-external-dev-인증-스택-520)을
-먼저 읽으세요.
+환경 파일의 12개 필수 키, Spring/Compose 프로파일 차이, DB 읽기 전용 gate, 이미지 재빌드 및 컨테이너 재생성 조건, 안전한 롤백 설명은
+[development-compose.md의 #521 초보자 가이드](./development-compose.md#초보자용-podmandocker-저자원-최소-인증-스택-실행-및-롤백-가이드-521-520)를
+참조하세요.
 
 ---
 
