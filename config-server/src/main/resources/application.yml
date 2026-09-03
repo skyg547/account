@@ -16,6 +16,11 @@
 # 3. 멀티 프로파일 기반 환경 분리 (Profile Separation):
 #    - 로컬 개발 환경: `native` 프로파일을 사용하여 로컬 파일 시스템(`./config-repo`)에서 빠르게 읽어옵니다.
 #    - 운영 환경: `prod` 프로파일을 사용하여 Git 저장소 기반 버전 추적 및 보안 강화를 달성합니다.
+#
+# 4. HashiCorp Vault 하이브리드 시크릿 연동 (Vault Hybrid Architecture - Issue #574):
+#    - 일반 업무/인프라 설정(Git/Native)과 민감 기밀값(Vault ACL/암호화 금고)을 분리합니다.
+#    - `vault` 프로파일 활성화 시 HashiCorp Vault 백엔드와 연동되어 암호화된 시크릿을 조회합니다.
+#    - 로컬/개발 환경은 `SPRING_CLOUD_VAULT_ENABLED=false`로 Vault 없이도 동작 가능(Fail-Closed & Developer Ergonomics).
 # ==============================================================================
 
 server:
@@ -30,6 +35,12 @@ encrypt:
 spring:
   application:
     name: config-server
+  profiles:
+    # 기본 프로파일은 로컬 개발용 'native'로 지정됩니다.
+    active: ${SPRING_PROFILES_ACTIVE:native}
+    # Vault 프로파일 그룹 정의 (필요 시 vault 프로파일 그룹을 활성화할 수 있습니다)
+    group:
+      vault: vault
   cloud:
     config:
       server:
@@ -39,15 +50,15 @@ spring:
         native:
           # 로컬 개발 시 Git 연동 없이 로컬 디렉토리의 설정 파일들을 참조합니다.
           search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo}
+        vault:
+          host: ${VAULT_HOST:127.0.0.1}
+          port: ${VAULT_PORT:8200}
+          scheme: ${VAULT_SCHEME:http}
         health:
           repositories:
             master-data:
               name: master-data
               profiles: default
-
-  profiles:
-    # 기본 프로파일은 로컬 개발용 'native'로 지정됩니다.
-    active: ${SPRING_PROFILES_ACTIVE:native}
 
 config-server:
   repository-probe:

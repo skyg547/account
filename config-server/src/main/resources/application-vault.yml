@@ -1,0 +1,47 @@
+# ==============================================================================
+# Spring Cloud Config Server HashiCorp Vault 프로파일 설정 (Vault Profile)
+# ==============================================================================
+# [아키텍처 및 보안 설계 - Issue #574]
+# HashiCorp Vault 백엔드와 연동하여 DB 비밀번호, JWT 시크릿, 외부 API Key 등 민감 기밀값을
+# 격리된 암호화 금고에서 조회합니다.
+#
+# 1. 역할 분리 (Separation of Concerns):
+#    - 일반 비즈니스/인프라 설정은 Git/Native 저장소에서 버전 이력 관리 (Git Commit 기반)
+#    - 민감 기밀값(DB 비밀번호, JWT 시크릿, 외부 연계 API 키 등)은 HashiCorp Vault에서 ACL 및 암호화 관리
+#
+# 2. 엔드포인트 및 KV v2 설정:
+#    - host, port, scheme은 application.yml 및 환경변수(VAULT_HOST, VAULT_PORT, VAULT_SCHEME)를 상속
+#    - backend: secret (Vault 기본 KV v2 마운트 지점)
+#    - default-key: application
+#    - profile-separator: /
+#    - kv-version: 2
+#    - order: 1 (Git/Native보다 높은 우선순위로 기밀값 병합)
+#
+# 3. 인증 방식 (Authentication Strategy):
+#    - 로컬/개발 환경: Token 인증 (VAULT_TOKEN)
+#    - 스테이징/운영 환경: AppRole 인증 (VAULT_APPROLE_ROLE_ID, VAULT_APPROLE_SECRET_ID)
+#
+# 4. Fail-Closed 보안 원칙:
+#    - 하드코딩된 기본 시크릿 없이 환경변수 주입 계약만 명시
+#    - Vault 비활성화 시(SPRING_CLOUD_VAULT_ENABLED=false) 로컬 개발 환경에 영향 없음
+# ==============================================================================
+
+spring:
+  cloud:
+    config:
+      server:
+        vault:
+          host: ${VAULT_HOST:127.0.0.1}
+          port: ${VAULT_PORT:8200}
+          scheme: ${VAULT_SCHEME:http}
+          backend: ${VAULT_BACKEND:secret}
+          default-key: ${VAULT_DEFAULT_KEY:application}
+          profile-separator: ${VAULT_PROFILE_SEPARATOR:/}
+          kv-version: ${VAULT_KV_VERSION:2}
+          order: ${VAULT_ORDER:1}
+          token: ${VAULT_TOKEN:}
+          app-role:
+            role-id: ${VAULT_APPROLE_ROLE_ID:}
+            secret-id: ${VAULT_APPROLE_SECRET_ID:}
+            role: ${VAULT_APPROLE_ROLE:account-service}
+            app-role-path: ${VAULT_APPROLE_PATH:approle}
