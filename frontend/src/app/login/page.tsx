@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
+import { KeyRound, User, CheckCircle2, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { authService, AuthenticatedSession } from '@/services/authService';
+import { useToast } from '@/context/ToastContext';
 
 /**
  * [K-Bank 스타일 비밀번호 로그인 페이지]
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
+  const { error: showErrorToast, success: showSuccessToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userSession, setUserSession] = useState<AuthenticatedSession | null>(null);
@@ -26,7 +28,9 @@ export default function LoginPage() {
 
     const normalizedUsername = username.trim();
     if (!normalizedUsername || !password.trim()) {
-      setError('아이디와 비밀번호를 모두 입력해 주세요.');
+      const msg = '아이디와 비밀번호를 모두 입력해 주세요.';
+      setError(msg);
+      showErrorToast(msg, { title: '입력 확인' });
       return;
     }
 
@@ -38,12 +42,15 @@ export default function LoginPage() {
         username: normalizedUsername,
         password,
       });
-    } catch {
-      setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '아이디 또는 비밀번호가 올바르지 않습니다.';
+      setError(msg);
+      showErrorToast(msg, { title: '인증 실패' });
       setLoading(false);
       return;
     }
 
+    showSuccessToast(`${data.username} 계정으로 로그인되었습니다.`, { title: '인증 성공' });
     setUserSession(data);
     setLoading(false);
     setTimeout(() => {
@@ -135,14 +142,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 mt-3 bg-[#4262ff] hover:bg-[#3452e6] active:bg-[#2b44d4] !text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              aria-busy={loading}
+              className="w-full py-3.5 px-4 mt-3 bg-[#4262ff] hover:bg-[#3452e6] active:bg-[#2b44d4] !text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer"
             >
               {loading ? (
-                <span>인증 확인 중...</span>
+                <>
+                  <Loader2 size={16} className="animate-spin !text-white shrink-0" />
+                  <span className="!text-white">인증 확인 중...</span>
+                </>
               ) : (
                 <>
                   <span className="!text-white">로그인</span>
-                  <ArrowRight size={15} className="!text-white" />
+                  <ArrowRight size={15} className="!text-white shrink-0" />
                 </>
               )}
             </button>

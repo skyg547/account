@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Trash2, User, KeyRound, Clock, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Trash2, User, KeyRound, RefreshCw, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { useToast } from '@/context/ToastContext';
 
 interface PatItem {
   id: string;
@@ -52,8 +53,10 @@ const MOCK_ADMIN_TOKENS: PatItem[] = [
 ];
 
 export default function SystemTokenGovernancePage() {
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
   const [tokens, setTokens] = useState<PatItem[]>(MOCK_ADMIN_TOKENS);
   const [loading, setLoading] = useState(false);
+  const [revokingTokenId, setRevokingTokenId] = useState<string | null>(null);
 
   const fetchAllTokens = async () => {
     if (!AUTH_API_BASE_URL) {
@@ -64,7 +67,7 @@ export default function SystemTokenGovernancePage() {
     setLoading(true);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
       const res = await fetch(`${AUTH_API_BASE_URL}/api/auth/admin/pat`, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -87,10 +90,14 @@ export default function SystemTokenGovernancePage() {
   }, []);
 
   const handleForceRevoke = async (id: string, username: string, tokenName: string) => {
+    if (revokingTokenId !== null) return;
     if (!confirm(`[관리자 경고] 사용자 '${username}'의 토큰 '${tokenName}'을 강제 폐기(Force Revoke)하시겠습니까?\n폐기 시 해당 토큰을 사용하는 외부 AI 에이전트의 접근이 즉시 차단됩니다.`)) return;
 
+    setRevokingTokenId(id);
     if (!AUTH_API_BASE_URL) {
       setTokens(prev => prev.map(t => t.id === id ? { ...t, status: 'REVOKED' as const } : t));
+      showSuccessToast(`토큰 '${tokenName}'이 강제 폐기되었습니다.`, { title: '토큰 폐기 완료' });
+      setRevokingTokenId(null);
       return;
     }
 
@@ -99,10 +106,16 @@ export default function SystemTokenGovernancePage() {
         method: 'DELETE',
       });
       if (res.ok) {
-        fetchAllTokens();
+        showSuccessToast(`토큰 '${tokenName}'이 강제 폐기되었습니다.`, { title: '토큰 폐기 완료' });
+        await fetchAllTokens();
+      } else {
+        showErrorToast('토큰 폐기 요청에 실패했습니다.', { title: '폐기 실패' });
       }
-    } catch {
+    } catch (err: unknown) {
       setTokens(prev => prev.map(t => t.id === id ? { ...t, status: 'REVOKED' as const } : t));
+      showErrorToast(err instanceof Error ? err.message : '토큰 폐기 처리 중 오류가 발생했습니다.');
+    } finally {
+      setRevokingTokenId(null);
     }
   };
 
@@ -172,10 +185,21 @@ export default function SystemTokenGovernancePage() {
                     {token.status === 'ACTIVE' && (
                       <button
                         onClick={() => handleForceRevoke(token.id, token.username, token.tokenName)}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold rounded-xl text-xs transition-all flex items-center gap-1 ml-auto shadow-xs"
+                        disabled={revokingTokenId === token.id}
+                        aria-busy={revokingTokenId === token.id}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 ml-auto shadow-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>관리자 강제 폐기</span>
+                        {revokingTokenId === token.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>폐기 처리 중...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>관리자 강제 폐기</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </td>

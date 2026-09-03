@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import MainLayout from "@/components/layout/MainLayout";
 import { NavProvider } from "@/context/NavContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastProvider } from "@/context/ToastContext";
 import "./globals.css";
 
 /**
@@ -25,9 +26,11 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <NavProvider>
-            <MainLayout>
-              {children}
-            </MainLayout>
+            <ToastProvider>
+              <MainLayout>
+                {children}
+              </MainLayout>
+            </ToastProvider>
           </NavProvider>
         </ThemeProvider>
       </body>

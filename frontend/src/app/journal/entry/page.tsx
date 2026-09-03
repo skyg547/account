@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { Save, AlertCircle, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Save, AlertCircle, Plus, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import styles from './JournalEntry.module.css';
 import { journalService, JournalEntryDto, JournalDetailDto, JournalSide } from '@/services/journalService';
+import { useToast } from '@/context/ToastContext';
 
 /**
  * [전표 입력 화면]
@@ -13,6 +14,7 @@ import { journalService, JournalEntryDto, JournalDetailDto, JournalSide } from '
  */
 export default function JournalEntryPage() {
   const router = useRouter();
+  const { success: showSuccessToast, error: showErrorToast, warning: showWarningToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // 전표 헤더 상태
@@ -49,7 +51,7 @@ export default function JournalEntryPage() {
 
   const handleRemoveLine = (index: number) => {
     if (details.length <= 2) {
-      alert('최소 2개의 분개 라인이 필요합니다.');
+      showWarningToast('최소 2개의 분개 라인이 필요합니다.');
       return;
     }
     const newDetails = [...details];
@@ -65,12 +67,14 @@ export default function JournalEntryPage() {
   };
 
   const handleSave = async () => {
+    if (isSubmitting) return;
+
     if (!description.trim()) {
-      alert('전표 적요를 입력해주세요.');
+      showWarningToast('전표 적요(설명)를 입력해주세요.', { title: '입력 확인' });
       return;
     }
     if (!isBalanced) {
-      alert('차대변 합계가 일치하지 않거나 0원입니다.');
+      showWarningToast('차대변 합계가 일치하지 않거나 0원입니다.', { title: '대차 평형 불일치' });
       return;
     }
 
@@ -78,11 +82,11 @@ export default function JournalEntryPage() {
     for (let i = 0; i < details.length; i++) {
       const d = details[i];
       if (!d.accountCode?.trim()) {
-        alert(`${i + 1}번째 줄의 계정 과목을 입력해주세요.`);
+        showWarningToast(`${i + 1}번째 줄의 계정 과목을 입력해주세요.`, { title: '계정 과목 누락' });
         return;
       }
       if (!d.amount || d.amount <= 0) {
-        alert(`${i + 1}번째 줄의 금액을 올바르게 입력해주세요.`);
+        showWarningToast(`${i + 1}번째 줄의 금액을 올바르게 입력해주세요.`, { title: '금액 오류' });
         return;
       }
     }
@@ -101,11 +105,11 @@ export default function JournalEntryPage() {
 
       const result = await journalService.createJournalEntry(payload);
       if (result) {
-        alert('전표가 성공적으로 생성되었습니다.');
+        showSuccessToast('전표가 성공적으로 생성되었습니다.', { title: '전표 저장 완료' });
         router.push('/journal/list');
       }
     } catch (err: unknown) {
-      alert('전표 생성 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : String(err)));
+      showErrorToast('전표 생성 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : String(err)), { title: '저장 실패' });
     } finally {
       setIsSubmitting(false);
     }
@@ -121,11 +125,22 @@ export default function JournalEntryPage() {
         <div className={styles.headerActions}>
           <button className={styles.draftBtn}>임시 저장</button>
           <button 
-            className={`${styles.saveBtn} ${(!isBalanced || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`${styles.saveBtn} ${(!isBalanced || isSubmitting) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
             onClick={handleSave}
             disabled={!isBalanced || isSubmitting}
+            aria-busy={isSubmitting}
           >
-            <Save size={18} /> {isSubmitting ? '저장 중...' : '전표 확정'}
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>저장 중...</span>
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                <span>전표 확정</span>
+              </>
+            )}
           </button>
         </div>
       </header>
