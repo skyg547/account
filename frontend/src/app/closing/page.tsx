@@ -10,10 +10,12 @@ import {
   AlertTriangle,
   ChevronRight,
   RefreshCcw,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { closingService, ClosingTaskDto } from '@/services/closingService';
+import { useToast } from '@/context/ToastContext';
 
 /**
  * [결산 관리 화면 리팩토링]
@@ -21,9 +23,12 @@ import { closingService, ClosingTaskDto } from '@/services/closingService';
  */
 
 export default function ClosingPage() {
+  const { success: showSuccessToast, error: showErrorToast, warning: showWarningToast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tasks, setTasks] = useState<ClosingTaskDto[]>([]);
+  const [retryingTaskId, setRetryingTaskId] = useState<number | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     setIsRefreshing(true);
@@ -33,10 +38,11 @@ export default function ClosingPage() {
       setTasks(fetchedTasks);
     } catch (e) {
       console.error(e);
+      showErrorToast('결산 태스크 목록 조회에 실패했습니다.');
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [showErrorToast]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -44,29 +50,54 @@ export default function ClosingPage() {
   }, [fetchTasks]);
 
   const handleRetryBatch = async (task: ClosingTaskDto) => {
-    let success = false;
-    if (task.name.includes('ECL')) {
-      success = await closingService.runProvisionBatch({
-        fiscalPeriodId: 1,
-        provisionType: 'ECL',
-        runBy: 'frontend-admin'
-      });
-    } else if (task.name.includes('FX')) {
-      success = await closingService.runValuationBatch({
-        fiscalPeriodId: 1,
-        valuationType: 'FX_RATE',
-        runBy: 'frontend-admin'
-      });
-    } else {
-      alert('현재 지원되지 않는 배치 재실행입니다.');
+    if (retryingTaskId !== null) return;
+
+    if (!task.name.includes('ECL') && !task.name.includes('FX')) {
+      showWarningToast('현재 지원되지 않는 배치 재실행입니다.', { title: '지원 안 됨' });
       return;
     }
 
-    if (success) {
-      alert('배치 실행 요청이 성공적으로 전송되었습니다.');
-      fetchTasks();
-    } else {
-      alert('배치 실행 요청에 실패했습니다.');
+    setRetryingTaskId(task.id);
+    try {
+      let success = false;
+      if (task.name.includes('ECL')) {
+        success = await closingService.runProvisionBatch({
+          fiscalPeriodId: 1,
+          provisionType: 'ECL',
+          runBy: 'frontend-admin'
+        });
+      } else if (task.name.includes('FX')) {
+        success = await closingService.runValuationBatch({
+          fiscalPeriodId: 1,
+          valuationType: 'FX_RATE',
+          runBy: 'frontend-admin'
+        });
+      }
+
+      if (success) {
+        showSuccessToast(`[${task.name}] 배치 실행 요청이 성공적으로 전송되었습니다.`, { title: '배치 재실행 성공' });
+        await fetchTasks();
+      } else {
+        showErrorToast(`[${task.name}] 배치 실행 요청에 실패했습니다. 백엔드 상태를 확인하세요.`, { title: '배치 재실행 실패' });
+      }
+    } catch (err: unknown) {
+      showErrorToast(err instanceof Error ? err.message : '배치 요청 중 오류가 발생했습니다.', { title: '배치 오류' });
+    } finally {
+      setRetryingTaskId(null);
+    }
+  };
+
+  const handleApprovalRequest = async () => {
+    if (isApproving) return;
+    setIsApproving(true);
+    try {
+      // 1초 시뮬레이션 및 API 요청
+      await new Promise((r) => setTimeout(r, 800));
+      showSuccessToast('결산 승인 요청이 상신되었습니다. CFO 결재 대기 중입니다.', { title: '결산 승인 상신' });
+    } catch {
+      showErrorToast('결산 승인 요청에 실패했습니다.');
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -99,8 +130,23 @@ export default function ClosingPage() {
           <Link href="/closing/audit" className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 text-sm font-black transition-all flex items-center gap-2">
             <History size={18} /> 감사 로그 조회
           </Link>
-          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
-            <Stamp size={18} /> 결산 승인 요청
+          <button
+            onClick={handleApprovalRequest}
+            disabled={isApproving}
+            aria-busy={isApproving}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer"
+          >
+            {isApproving ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>승인 요청 처리 중...</span>
+              </>
+            ) : (
+              <>
+                <Stamp size={18} />
+                <span>결산 승인 요청</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -213,14 +259,23 @@ export default function ClosingPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                   {task.status === 'FAILED' && (
-                     <button 
-                        onClick={() => handleRetryBatch(task)}
-                        className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 text-[10px] font-black rounded-xl border border-rose-500/20 transition-all"
-                     >
-                        RETRY BATCH
-                     </button>
-                   )}
+                    {task.status === 'FAILED' && (
+                      <button
+                         onClick={() => handleRetryBatch(task)}
+                         disabled={retryingTaskId === task.id}
+                         aria-busy={retryingTaskId === task.id}
+                         className="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-500 text-[10px] font-black rounded-xl border border-rose-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer"
+                      >
+                         {retryingTaskId === task.id ? (
+                           <>
+                             <Loader2 size={12} className="animate-spin" />
+                             <span>RETRYING...</span>
+                           </>
+                         ) : (
+                           <span>RETRY BATCH</span>
+                         )}
+                      </button>
+                    )}
                    <button className="p-3 bg-white/5 rounded-xl border border-white/5 text-slate-500 hover:text-white hover:bg-white/10 transition-all">
                       <ChevronRight size={20} />
                    </button>

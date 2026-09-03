@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import Sidebar from "./Sidebar";
 import TopHeader from "./TopHeader";
 import Footer from "./Footer";
+import NavigationProgressBar from "./NavigationProgressBar";
 import { useNav } from "@/context/NavContext";
 import { clearLegacyBrowserSession } from '@/services/browserSession';
 
@@ -20,6 +21,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="flex bg-[#f7f8fb] dark:bg-[#0b0f19] min-h-screen selection:bg-[#4262ff]/15 selection:text-[#4262ff] overflow-x-hidden text-[#17191e] dark:text-slate-100 transition-colors duration-300">
+      {/* 상단 라우트 전환 프로그레스 바 */}
+      <NavigationProgressBar />
+
       {/* Sidebar - Fixed Left */}
       <Sidebar />
 

@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './apiClient';
+
 export type TaskCategory = 'PRE_CLOSING' | 'CLOSING_ENTRY' | 'POST_CLOSING' | 'REPORTING';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
 
@@ -30,9 +32,10 @@ class ClosingService {
    */
   async getTasks(calendarId: number): Promise<ClosingTaskDto[]> {
     try {
-      const response = await fetch(`/api/closing/calendars/${calendarId}/tasks`, {
+      const response = await fetchWithTimeout(`/api/closing/calendars/${calendarId}/tasks`, {
         method: 'GET',
         headers: { 'X-User-ID': 'frontend-admin' },
+        silentToast: true
       });
       if (response.ok) {
         return response.json();
@@ -48,13 +51,14 @@ class ClosingService {
    */
   async updateTaskStatus(taskId: number, status: TaskStatus, user: string): Promise<ClosingTaskDto | null> {
     try {
-      const response = await fetch(`/api/closing/tasks/${taskId}/status`, {
+      const response = await fetchWithTimeout(`/api/closing/tasks/${taskId}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'X-User-ID': user 
         },
-        body: JSON.stringify({ status, user })
+        body: JSON.stringify({ status, user }),
+        timeoutMs: 15000
       });
       if (response.ok) {
         return response.json();
@@ -70,10 +74,11 @@ class ClosingService {
    */
   async runValuationBatch(request: ValuationBatchRequestDto): Promise<boolean> {
     try {
-      const response = await fetch('/api/closing/valuation-batches/run', {
+      const response = await fetchWithTimeout('/api/closing/valuation-batches/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        timeoutMs: 20000
       });
       return response.ok;
     } catch (err) {
@@ -87,10 +92,11 @@ class ClosingService {
    */
   async runProvisionBatch(request: ProvisionBatchRequestDto): Promise<boolean> {
     try {
-      const response = await fetch('/api/closing/provision-batches/run', {
+      const response = await fetchWithTimeout('/api/closing/provision-batches/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        timeoutMs: 20000
       });
       return response.ok;
     } catch (err) {

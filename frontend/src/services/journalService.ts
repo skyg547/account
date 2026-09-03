@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './apiClient';
+
 export type JournalSide = 'DEBIT' | 'CREDIT';
 
 export interface JournalDetailDto {
@@ -25,12 +27,13 @@ export interface JournalEntryDto {
 class JournalService {
   async getJournalEntries(): Promise<JournalEntryDto[]> {
     try {
-      const response = await fetch('/api/journals', {
+      const response = await fetchWithTimeout('/api/journals', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'X-User-ID': 'frontend-user' // 임시 하드코딩
-        }
+        },
+        silentToast: true // 조회 실패 시 mock 폴백하므로 토스트 억제
       });
       if (response.ok) {
         return response.json();
@@ -59,13 +62,14 @@ class JournalService {
 
   async createJournalEntry(entry: JournalEntryDto): Promise<JournalEntryDto | null> {
     try {
-      const response = await fetch('/api/journals', {
+      const response = await fetchWithTimeout('/api/journals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-ID': 'frontend-user'
         },
-        body: JSON.stringify(entry)
+        body: JSON.stringify(entry),
+        timeoutMs: 15000
       });
       
       if (response.ok) {

@@ -15,9 +15,11 @@ import {
   Eye,
   Edit2,
   Server,
-  History
+  History,
+  Loader2
 } from 'lucide-react';
 import { useNav, UserRole } from '@/context/NavContext';
+import { useToast } from '@/context/ToastContext';
 import { adminService, UserInfo } from '@/services/adminService';
 import React, { useCallback } from 'react';
 
@@ -50,9 +52,11 @@ const roleOptions = Object.keys(roleStyles) as UserRole[];
  * 여기서 역할을 변경하면, 즉시 사용자의 사이드바 메뉴가 바뀌는 것을 볼 수 있습니다.
  */
 export default function UserManagementPage() {
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInviting, setIsInviting] = useState(false);
   const [message, setMessage] = useState('');
   const { userRole } = useNav();
 
@@ -62,10 +66,11 @@ export default function UserManagementPage() {
       setUsers(data);
     } catch (err: unknown) {
       console.error('Failed to load users:', err);
+      showErrorToast('사용자 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showErrorToast]);
 
   useEffect(() => {
     let ignore = false;
@@ -77,16 +82,30 @@ export default function UserManagementPage() {
   }, [loadUsers]);
 
   const handleRoleChange = async (targetUser: UserInfo, role: UserRole) => {
-    const result = await adminService.requestRoleChange(targetUser, role);
-    setUsers(current => current.map(user => user.id === targetUser.id
-      ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
-      : user));
-    setMessage(`승인 요청 ${result.requestId} 생성됨 · ${result.effectiveDate}`);
+    try {
+      const result = await adminService.requestRoleChange(targetUser, role);
+      setUsers(current => current.map(user => user.id === targetUser.id
+        ? { ...user, status: 'PENDING', pendingRequestId: result.requestId }
+        : user));
+      setMessage(`승인 요청 ${result.requestId} 생성됨 · ${result.effectiveDate}`);
+      showSuccessToast(`권한 변경 승인 요청(${result.requestId})이 생성되었습니다.`);
+    } catch (err: unknown) {
+      showErrorToast(err instanceof Error ? err.message : '권한 변경 요청에 실패했습니다.');
+    }
   };
 
   const handleInvite = async () => {
-    const result = await adminService.requestUserOnboarding();
-    setMessage(`신규 사용자 온보딩 승인 요청 ${result.requestId} 생성됨`);
+    if (isInviting) return;
+    setIsInviting(true);
+    try {
+      const result = await adminService.requestUserOnboarding();
+      setMessage(`신규 사용자 온보딩 승인 요청 ${result.requestId} 생성됨`);
+      showSuccessToast(`신규 사용자 온보딩 승인 요청(${result.requestId})이 생성되었습니다.`, { title: '온보딩 요청 완료' });
+    } catch (err: unknown) {
+      showErrorToast(err instanceof Error ? err.message : '초대 요청 중 오류가 발생했습니다.');
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   const filteredUsers = users.filter(u => 
@@ -118,9 +137,21 @@ export default function UserManagementPage() {
           </button>
           <button
             onClick={handleInvite}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
+            disabled={isInviting}
+            aria-busy={isInviting}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer"
           >
-            <UserPlus size={18} /> 신규 사용자 초대
+            {isInviting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>초대 요청 처리 중...</span>
+              </>
+            ) : (
+              <>
+                <UserPlus size={18} />
+                <span>신규 사용자 초대</span>
+              </>
+            )}
           </button>
         </div>
       </div>
