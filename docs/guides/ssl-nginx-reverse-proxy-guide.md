@@ -27,9 +27,29 @@ Next.js 웹          Spring Cloud Gateway      Grafana / Zipkin      pgAdmin
 :3000                 :8000                     :3000 / :9411         :80
 ```
 
-### 0.2 Issue #570 선행 조건 (Prerequisite Note)
-- 본 가이드의 서비스 DNS 별칭(`account-frontend`, `account-gateway`, `account-grafana`, `account-zipkin`, `account-kibana`, `account-pgadmin`) 및 단일 진입점 라우팅 토폴로지는 **Issue #570 (`agent/570-frontend-nginx-routing`)**에서 정규화 및 표준화가 진행 중입니다.
-- Issue #570이 머지되기 전 환경에서는 실행 중인 Compose 파일의 `services:` 이름 및 `networks:` 명칭(`account-network` / `account-dev-network` / `account-prod`)이 일치하는지 반드시 확인해야 합니다.
+### 0.2 단일 진입점 라우팅 토폴로지 및 컨테이너 별칭 (Single Entry Point Routing Topology)
+
+Issue #570 (`agent/570-frontend-nginx-routing`)을 통해 단일 진입점 라우팅 토폴로지와 서비스 DNS 별칭 정규화가 완료되었습니다. 모든 내부 서비스는 `account-network` 내에서 네트워크 별칭(Network Alias)을 통해 상호 통신하며, 호스트 포트는 Nginx(80/443) 외에 직접 노출되지 않습니다.
+
+#### 🌐 서브패스 라우팅 및 환경변수 정규화 명세표 (Routing Matrix)
+
+| 서브패스 (Sub-path) | 대상 업스트림 (Target Upstream) | 포트 | 목적 및 설명 | 주요 프록시 헤더 및 컨테이너 환경변수 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/` | `account-frontend` | 3000 | Next.js 웹 프론트엔드 (SSR & Pages) | `Upgrade $http_upgrade`, `Connection $connection_upgrade` (HMR 지원) |
+| `/_next/static/` | `account-frontend` | 3000 | Next.js 정적 빌드 에셋 (정적 캐싱) | `expires 365d; access_log off;` |
+| `/api/` | `account-gateway` | 8000 | Spring Cloud Gateway MSA 백엔드 통합 API | `proxy_set_header X-Forwarded-Prefix /api;`<br>`proxy_set_header X-Forwarded-Host $host;`<br>`proxy_set_header X-Forwarded-Proto $scheme;` |
+| `/grafana/` | `account-grafana` | 3000 | Grafana 서버 메트릭 대시보드 | `proxy_set_header X-Forwarded-Prefix /grafana;`<br>`GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/`<br>`GF_SERVER_SERVE_FROM_SUB_PATH=true`<br>`Upgrade`, `Connection` (WebSocket 지원) |
+| `/zipkin/` | `account-zipkin` | 9411 | Zipkin 분산 트레이싱 추적 콘솔 | `proxy_pass http://account-zipkin:9411/zipkin/;`<br>`proxy_set_header X-Forwarded-Prefix /zipkin;` |
+| `/kibana/` | `account-kibana` | 5601 | Kibana Elasticsearch 통합 로그 검색 | `proxy_set_header X-Forwarded-Prefix /kibana;`<br>`SERVER_BASEPATH=/kibana`<br>`SERVER_REWRITEBASEPATH=true`<br>`Upgrade`, `Connection` (WebSocket 지원) |
+| `/pgadmin/` | `account-pgadmin` | 80 | pgAdmin PostgreSQL 데이터베이스 관리자 | `proxy_pass http://account-pgadmin:80/;`<br>`proxy_set_header X-Forwarded-Prefix /pgadmin;`<br>`proxy_set_header X-Script-Name /pgadmin;`<br>`proxy_redirect off;` |
+
+#### 🔒 제로 포트 노출 정책 (Zero Direct Host Port Exposure)
+- **표준 운영/개발 토폴로지**: Nginx 리버스 프록시(`account-frontend-nginx`)만 호스트의 80/443 포트를 바인딩하며, `frontend`, `gateway`, `grafana`, `zipkin`, `kibana`, `pgadmin` 컨테이너는 호스트 포트를 직접 게시(`ports:`)하지 않고 내부 `expose:` 및 도커 브리지 네트워크(`account-network`)로 격리됩니다.
+- **컨테이너 네트워크 별칭**: 개별 Compose 프로젝트 분리 시에도 Nginx가 일관되게 대상 컨테이너를 찾을 수 있도록 각 서비스 정의에 `networks.account-network.aliases`로 표준 별칭(`account-frontend`, `account-gateway`, `account-grafana`, `account-zipkin`, `account-kibana`, `account-pgadmin`)을 부여합니다.
+- **Compose 파일 분리 및 연동**:
+  - `docker-compose.yml`: 플랫폼 코어 서비스 (`frontend`, `gateway`, `account-frontend-nginx` 등)
+  - `docker-compose.monitoring.yml`: 관측성 및 모니터링 서비스 (`grafana`, `zipkin`, `kibana`, `pgadmin`)
+  - `frontend-nginx/docker-compose.yml`: Nginx 단독 기동용 Compose 설정 (외부 Compose 서비스에 대한 직접 `depends_on`을 제거하여 독립 검증 가능)
 
 ---
 
