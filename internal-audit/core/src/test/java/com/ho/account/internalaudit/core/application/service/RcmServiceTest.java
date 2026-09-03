@@ -7,12 +7,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ho.account.internalaudit.core.application.AuditActorContext;
+import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
 import com.ho.account.internalaudit.core.application.port.out.RcmPersistencePort;
+import com.ho.account.internalaudit.core.domain.AuditLogEntry;
 import com.ho.account.internalaudit.core.domain.rcm.ControlActivity;
 import com.ho.account.internalaudit.core.domain.rcm.RcmProcess;
 import com.ho.account.internalaudit.core.domain.rcm.RcmRisk;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,11 +30,93 @@ class RcmServiceTest {
     @Mock
     private RcmPersistencePort persistencePort;
 
+    @Mock
+    private AuditLogPersistencePort auditLogPersistencePort;
+
     private RcmService service;
 
     @BeforeEach
     void setUp() {
-        service = new RcmService(persistencePort);
+        service = new RcmService(persistencePort, auditLogPersistencePort);
+    }
+
+    @AfterEach
+    void tearDown() {
+        AuditActorContext.clear();
+    }
+
+    @Test
+    void createProcessProducesAppendOnlyAuditRecord() {
+        RcmProcess command = new RcmProcess("proc-1", "Financial Reporting", "Controls over financial closing", "auditor_kim");
+        when(persistencePort.saveProcess(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        AuditActorContext.setCorrelationId("corr-proc-1");
+        AuditActorContext.setIdempotencyKey("idem-proc-1");
+
+        RcmProcess result = service.createProcess(command);
+
+        assertThat(result).isNotNull();
+        ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(auditLogPersistencePort).append(captor.capture());
+
+        AuditLogEntry entry = captor.getValue();
+        assertThat(entry.actor()).isEqualTo("auditor_kim");
+        assertThat(entry.action()).isEqualTo("CREATE_PROCESS");
+        assertThat(entry.aggregateType()).isEqualTo("RCM_PROCESS");
+        assertThat(entry.aggregateId()).isEqualTo("proc-1");
+        assertThat(entry.correlationId()).isEqualTo("corr-proc-1");
+        assertThat(entry.idempotencyKey()).isEqualTo("idem-proc-1");
+        assertThat(entry.actionTimestamp()).isNotNull();
+        assertThat(entry.detailsJson()).contains("Financial Reporting");
+    }
+
+    @Test
+    void addRiskProducesAppendOnlyAuditRecord() {
+        when(persistencePort.findProcessById("proc-1"))
+                .thenReturn(Optional.of(new RcmProcess("proc-1", "Process", null, "owner")));
+        RcmRisk command = new RcmRisk("risk-1", "proc-1", "Risk of material misstatement", "HIGH", "LIKELY");
+        when(persistencePort.saveRisk(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        AuditActorContext.setActor("auditor_park");
+        AuditActorContext.setCorrelationId("corr-risk-1");
+        AuditActorContext.setIdempotencyKey("idem-risk-1");
+
+        RcmRisk result = service.addRisk("proc-1", command);
+
+        assertThat(result).isNotNull();
+        ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(auditLogPersistencePort).append(captor.capture());
+
+        AuditLogEntry entry = captor.getValue();
+        assertThat(entry.actor()).isEqualTo("auditor_park");
+        assertThat(entry.action()).isEqualTo("ADD_RISK");
+        assertThat(entry.aggregateType()).isEqualTo("RCM_RISK");
+        assertThat(entry.aggregateId()).isEqualTo("risk-1");
+        assertThat(entry.correlationId()).isEqualTo("corr-risk-1");
+        assertThat(entry.idempotencyKey()).isEqualTo("idem-risk-1");
+        assertThat(entry.detailsJson()).contains("material misstatement");
+    }
+
+    @Test
+    void addControlProducesAppendOnlyAuditRecord() {
+        when(persistencePort.findRiskById("risk-1"))
+                .thenReturn(Optional.of(new RcmRisk("risk-1", "proc-1", "Risk", "HIGH", "LIKELY")));
+        ControlActivity command = new ControlActivity(
+                "ctrl-1", "risk-1", "Quarterly balance review", "PREVENTIVE", "MANUAL", "QUARTERLY", "auditor_choi");
+        when(persistencePort.saveControlActivity(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ControlActivity result = service.addControl("risk-1", command);
+
+        assertThat(result).isNotNull();
+        ArgumentCaptor<AuditLogEntry> captor = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(auditLogPersistencePort).append(captor.capture());
+
+        AuditLogEntry entry = captor.getValue();
+        assertThat(entry.actor()).isEqualTo("auditor_choi");
+        assertThat(entry.action()).isEqualTo("ADD_CONTROL");
+        assertThat(entry.aggregateType()).isEqualTo("CONTROL_ACTIVITY");
+        assertThat(entry.aggregateId()).isEqualTo("ctrl-1");
+        assertThat(entry.detailsJson()).contains("Quarterly balance review");
     }
 
     @Test
@@ -56,6 +142,7 @@ class RcmServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("processId");
         verify(persistencePort, never()).saveRisk(any());
+        verify(auditLogPersistencePort, never()).append(any());
     }
 
     @Test
@@ -66,6 +153,7 @@ class RcmServiceTest {
         assertThatThrownBy(() -> service.addRisk("missing", command))
                 .isInstanceOf(NoSuchElementException.class);
         verify(persistencePort, never()).saveRisk(any());
+        verify(auditLogPersistencePort, never()).append(any());
     }
 
     @Test
@@ -91,6 +179,7 @@ class RcmServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("riskId");
         verify(persistencePort, never()).saveControlActivity(any());
+        verify(auditLogPersistencePort, never()).append(any());
     }
 
     @Test
@@ -101,5 +190,6 @@ class RcmServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("riskId");
         verify(persistencePort, never()).saveRisk(any());
+        verify(auditLogPersistencePort, never()).append(any());
     }
 }
