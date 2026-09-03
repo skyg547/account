@@ -55,7 +55,7 @@ class InternalAuditRuntimePolicyTest {
      * 를 철저하게 검증하여 독립 단독 구동(Self-contained local execution)을 보장합니다.
      */
     @Test
-    @DisplayName("local 프로파일은 외부 제어 평면 없이 Flyway V60 기반 H2 인메모리 DB로 독립 구동된다")
+    @DisplayName("local 프로파일은 외부 제어 평면 없이 Flyway V61 기반 H2 인메모리 DB로 독립 구동된다")
     void localProfileUsesFlywayOwnedH2WithoutControlPlaneDependencies() {
         try (ConfigurableApplicationContext context = context("local")) {
             Environment environment = context.getEnvironment();
@@ -70,11 +70,11 @@ class InternalAuditRuntimePolicyTest {
             assertThat(environment.getProperty("spring.datasource.driver-class-name"))
                     .isEqualTo("org.h2.Driver");
 
-            // 3. Flyway V60 타깃 마이그레이션 및 JPA validate 정책 검증
+            // 3. Flyway V61 타깃 마이그레이션 및 JPA validate 정책 검증
             assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
             assertThat(environment.getProperty("spring.flyway.locations"))
                     .isEqualTo("classpath:db/migration");
-            assertThat(environment.getProperty("spring.flyway.target")).isEqualTo("60");
+            assertThat(environment.getProperty("spring.flyway.target")).isEqualTo("61");
             assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto"))
                     .isEqualTo("validate");
             assertThat(environment.getProperty("spring.sql.init.mode")).isEqualTo("never");

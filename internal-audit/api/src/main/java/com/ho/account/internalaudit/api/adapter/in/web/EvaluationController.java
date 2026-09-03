@@ -1,5 +1,6 @@
 package com.ho.account.internalaudit.api.adapter.in.web;
 
+import com.ho.account.internalaudit.core.application.AuditActorContext;
 import com.ho.account.internalaudit.core.application.port.in.EvaluationUseCase;
 import com.ho.account.internalaudit.core.domain.evaluation.Deficiency;
 import com.ho.account.internalaudit.core.domain.evaluation.DesignEvaluation;
@@ -25,6 +26,8 @@ public class EvaluationController {
 
     public static final String AUTH_USER_HEADER = "X-Auth-User";
     public static final String AUTH_ROLES_HEADER = "X-Auth-Roles";
+    public static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
+    public static final String IDEMPOTENCY_KEY_HEADER = "X-Idempotency-Key";
     private static final Set<String> ALLOWED_ROLES = Set.of("ROLE_AUDITOR", "ROLE_ADMIN");
 
     private final EvaluationUseCase evaluationUseCase;
@@ -37,44 +40,71 @@ public class EvaluationController {
     public ResponseEntity<DesignEvaluation> submitDesignEvaluation(
             @RequestHeader(value = AUTH_USER_HEADER, required = false) String authUser,
             @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authRoles,
+            @RequestHeader(value = CORRELATION_ID_HEADER, required = false) String correlationId,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @RequestBody DesignEvaluation command) {
         String actor = requireAuthorizedAuditor(authUser, authRoles);
-        DesignEvaluation toSubmit = new DesignEvaluation(
-                command.evaluationId(),
-                command.controlId(),
-                actor,
-                command.evaluationDate(),
-                command.result(),
-                command.remarks());
-        return ResponseEntity.ok(evaluationUseCase.submitDesignEvaluation(toSubmit));
+        try {
+            AuditActorContext.setActor(actor);
+            AuditActorContext.setCorrelationId(correlationId);
+            AuditActorContext.setIdempotencyKey(idempotencyKey);
+            DesignEvaluation toSubmit = new DesignEvaluation(
+                    command.evaluationId(),
+                    command.controlId(),
+                    actor,
+                    command.evaluationDate(),
+                    command.result(),
+                    command.remarks());
+            return ResponseEntity.ok(evaluationUseCase.submitDesignEvaluation(toSubmit));
+        } finally {
+            AuditActorContext.clear();
+        }
     }
 
     @PostMapping("/operating")
     public ResponseEntity<OperatingEvaluation> submitOperatingEvaluation(
             @RequestHeader(value = AUTH_USER_HEADER, required = false) String authUser,
             @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authRoles,
+            @RequestHeader(value = CORRELATION_ID_HEADER, required = false) String correlationId,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @RequestBody OperatingEvaluation command) {
         String actor = requireAuthorizedAuditor(authUser, authRoles);
-        OperatingEvaluation toSubmit = new OperatingEvaluation(
-                command.evaluationId(),
-                command.controlId(),
-                actor,
-                command.evaluationDate(),
-                command.sampleSize(),
-                command.exceptionCount(),
-                command.evidenceFilePaths(),
-                command.result(),
-                command.remarks());
-        return ResponseEntity.ok(evaluationUseCase.submitOperatingEvaluation(toSubmit));
+        try {
+            AuditActorContext.setActor(actor);
+            AuditActorContext.setCorrelationId(correlationId);
+            AuditActorContext.setIdempotencyKey(idempotencyKey);
+            OperatingEvaluation toSubmit = new OperatingEvaluation(
+                    command.evaluationId(),
+                    command.controlId(),
+                    actor,
+                    command.evaluationDate(),
+                    command.sampleSize(),
+                    command.exceptionCount(),
+                    command.evidenceFilePaths(),
+                    command.result(),
+                    command.remarks());
+            return ResponseEntity.ok(evaluationUseCase.submitOperatingEvaluation(toSubmit));
+        } finally {
+            AuditActorContext.clear();
+        }
     }
 
     @PostMapping("/deficiencies")
     public ResponseEntity<Deficiency> registerDeficiency(
             @RequestHeader(value = AUTH_USER_HEADER, required = false) String authUser,
             @RequestHeader(value = AUTH_ROLES_HEADER, required = false) String authRoles,
+            @RequestHeader(value = CORRELATION_ID_HEADER, required = false) String correlationId,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
             @RequestBody Deficiency command) {
-        requireAuthorizedAuditor(authUser, authRoles);
-        return ResponseEntity.ok(evaluationUseCase.registerDeficiency(command));
+        String actor = requireAuthorizedAuditor(authUser, authRoles);
+        try {
+            AuditActorContext.setActor(actor);
+            AuditActorContext.setCorrelationId(correlationId);
+            AuditActorContext.setIdempotencyKey(idempotencyKey);
+            return ResponseEntity.ok(evaluationUseCase.registerDeficiency(command));
+        } finally {
+            AuditActorContext.clear();
+        }
     }
 
     @GetMapping("/controls/{controlId}/design")

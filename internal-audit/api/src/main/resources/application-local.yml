@@ -33,7 +33,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    target: "60"
+    target: "61"
   jpa:
     hibernate:
       ddl-auto: validate
