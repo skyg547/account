@@ -1,0 +1,70 @@
+version: "3.8"
+
+name: ${COMPOSE_PROJECT_NAME:-account-dev}
+
+services:
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
+    container_name: account-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    expose:
+      - "3000"
+    networks:
+      account-network:
+        aliases:
+          - account-grafana
+
+  zipkin:
+    image: ${ZIPKIN_IMAGE:-openzipkin/zipkin:latest}
+    container_name: account-zipkin
+    restart: unless-stopped
+    expose:
+      - "9411"
+    networks:
+      account-network:
+        aliases:
+          - account-zipkin
+
+  kibana:
+    image: ${KIBANA_IMAGE:-docker.elastic.co/kibana/kibana:7.17.10}
+    container_name: account-kibana
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HOSTS: "${ELASTICSEARCH_HOSTS:-http://elasticsearch:9200}"
+      SERVER_BASEPATH: "/kibana"
+      SERVER_REWRITEBASEPATH: "true"
+    expose:
+      - "5601"
+    networks:
+      account-network:
+        aliases:
+          - account-kibana
+
+  pgadmin:
+    image: ${PGADMIN_IMAGE:-dpage/pgadmin4:8}
+    container_name: account-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@example.invalid}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:-admin}"
+      SCRIPT_NAME: "/pgadmin"
+    expose:
+      - "80"
+    networks:
+      account-network:
+        aliases:
+          - account-pgadmin
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+
+volumes:
+  grafana_data:

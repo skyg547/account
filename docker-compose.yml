@@ -241,8 +241,8 @@ services:
         condition: service_healthy
       discovery:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:${DEV_GATEWAY_PORT:-8000}:8000"
+    expose:
+      - "8000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/actuator/health/readiness || exit 1"]
       interval: 20s
@@ -257,7 +257,10 @@ services:
         reservations:
           memory: 256m
     logging: *default-logging
-    networks: [account-network]
+    networks:
+      account-network:
+        aliases:
+          - account-gateway
 
   frontend:
     build:
@@ -275,8 +278,8 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:${DEV_FRONTEND_PORT:-3000}:3000"
+    expose:
+      - "3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
       interval: 10s
@@ -295,7 +298,31 @@ services:
         reservations:
           memory: 256m
     logging: *default-logging
-    networks: [account-network]
+    networks:
+      account-network:
+        aliases:
+          - account-frontend
+
+  frontend-nginx:
+    build:
+      context: ./frontend-nginx
+      dockerfile: Dockerfile
+    image: account-frontend-nginx:latest
+    container_name: account-frontend-nginx
+    profiles: ["platform", "apis"]
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    depends_on:
+      frontend:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+    networks:
+      account-network:
+        aliases:
+          - account-frontend-nginx
 
   migration-runner:
     build:
