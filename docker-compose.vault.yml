@@ -1,0 +1,95 @@
+# ==============================================================================
+# HashiCorp Vault 로컬 개발 환경용 Standalone Docker Compose
+# ==============================================================================
+# [아키텍처 및 보안 설계 - Issue #574]
+# - Vault Dev 모드(vault:1.13.3): 자동 언실(Auto-unseal), 인메모리 KV v2 시크릿 엔진
+# - 헬스체크: vault status 프로브를 통한 준비 상태 검증
+# - 시크릿 시딩(vault-seed): secret/account/auth, secret/account/master-data 초기화
+# - AppRole 인증: account-service 롤 및 정책(account-policy) 자동 구성
+# ==============================================================================
+
+version: "3.8"
+
+name: ${COMPOSE_PROJECT_NAME:-account-vault}
+
+services:
+  vault:
+    image: ${VAULT_IMAGE:-vault:1.13.3}
+    container_name: account-vault
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${VAULT_PORT:-8200}:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_DEV_ROOT_TOKEN_ID:-root}"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://127.0.0.1:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "vault status || exit 1"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - account-network
+
+  vault-seed:
+    image: ${VAULT_IMAGE:-vault:1.13.3}
+    container_name: account-vault-seed
+    restart: "no"
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_DEV_ROOT_TOKEN_ID:-root}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-dev-insecure-jwt-secret-key-must-be-changed-in-prod-32bytes}"
+      AUTH_DB_PASSWORD: "${AUTH_DB_PASSWORD:-replace-with-local-app-password}"
+      MASTER_DATA_DB_PASSWORD: "${MASTER_DATA_DB_PASSWORD:-replace-with-local-app-password}"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        echo "==> Verifying Vault connectivity..."
+        vault status
+
+        echo "==> Seeding secrets for secret/account/auth..."
+        vault kv put secret/account/auth \
+          AUTH_JWT_SECRET="$$AUTH_JWT_SECRET" \
+          DEV_DB_PASSWORD="$$AUTH_DB_PASSWORD"
+
+        echo "==> Seeding secrets for secret/account/master-data..."
+        vault kv put secret/account/master-data \
+          DEV_DB_PASSWORD="$$MASTER_DATA_DB_PASSWORD"
+
+        echo "==> Configuring AppRole authentication..."
+        vault auth enable approle 2>/dev/null || true
+
+        # Write access policy for account microservices
+        vault policy write account-policy - <<'EOF'
+        path "secret/data/account/*" {
+          capabilities = ["read", "list"]
+        }
+        path "secret/data/application" {
+          capabilities = ["read", "list"]
+        }
+        EOF
+
+        vault write auth/approle/role/account-service \
+          token_policies="account-policy" \
+          token_ttl=1h \
+          token_max_ttl=4h \
+          secret_id_ttl=0
+
+        echo "==> Vault seed placeholder completed successfully."
+    networks:
+      - account-network
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-dev-network}
+    driver: bridge

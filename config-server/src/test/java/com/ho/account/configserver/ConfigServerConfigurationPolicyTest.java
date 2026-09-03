@@ -346,6 +346,69 @@ class ConfigServerConfigurationPolicyTest {
                 .contains("--no-daemon");
     }
 
+    @Test
+    void vaultHybridConfigurationMatchesEnterpriseSecurityPolicy() {
+        Properties properties = loadProperties(resolveFromRepositoryRoot(
+                "config-server", "src", "main", "resources", "application.yml"));
+
+        assertThat(properties.getProperty("spring.profiles.group.vault")).isEqualTo("vault");
+        assertThat(properties.getProperty("spring.cloud.config.server.vault.host"))
+                .isEqualTo("${VAULT_HOST:127.0.0.1}");
+        assertThat(properties.getProperty("spring.cloud.config.server.vault.port"))
+                .isEqualTo("${VAULT_PORT:8200}");
+        assertThat(properties.getProperty("spring.cloud.config.server.vault.scheme"))
+                .isEqualTo("${VAULT_SCHEME:http}");
+
+        Properties vaultProperties = loadProperties(resolveFromRepositoryRoot(
+                "config-server", "src", "main", "resources", "application-vault.yml"));
+
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.backend"))
+                .isEqualTo("${VAULT_BACKEND:secret}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.default-key"))
+                .isEqualTo("${VAULT_DEFAULT_KEY:application}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.profile-separator"))
+                .isEqualTo("${VAULT_PROFILE_SEPARATOR:/}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.kv-version"))
+                .isEqualTo("${VAULT_KV_VERSION:2}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.order"))
+                .isEqualTo("${VAULT_ORDER:1}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.token"))
+                .isEqualTo("${VAULT_TOKEN:}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.app-role.role-id"))
+                .isEqualTo("${VAULT_APPROLE_ROLE_ID:}");
+        assertThat(vaultProperties.getProperty("spring.cloud.config.server.vault.app-role.secret-id"))
+                .isEqualTo("${VAULT_APPROLE_SECRET_ID:}");
+    }
+
+    @Test
+    void vaultComposeDefinitionEnforcesAutoUnsealHealthcheckAndSecretSeeding() throws IOException {
+        Path vaultComposePath = resolveFromRepositoryRoot("docker-compose.vault.yml");
+        Map<String, Object> root = loadYaml(vaultComposePath);
+        Map<String, Object> services = asMap(root.get("services"));
+
+        assertThat(services).containsKeys("vault", "vault-seed");
+
+        Map<String, Object> vault = asMap(services.get("vault"));
+        assertThat(vault.get("image").toString()).contains("vault:1.13.3");
+        assertThat(vault.get("environment").toString()).contains("VAULT_DEV_ROOT_TOKEN_ID");
+        assertThat(vault.get("environment").toString()).contains("VAULT_DEV_LISTEN_ADDRESS");
+
+        Map<String, Object> healthcheck = asMap(vault.get("healthcheck"));
+        assertThat(asList(healthcheck.get("test")).toString()).contains("vault status");
+
+        Map<String, Object> vaultSeed = asMap(services.get("vault-seed"));
+        assertThat(vaultSeed.get("restart")).isEqualTo("no");
+        Map<String, Object> dependsOn = asMap(vaultSeed.get("depends_on"));
+        assertThat(asMap(dependsOn.get("vault")).get("condition")).isEqualTo("service_healthy");
+
+        String rawContent = Files.readString(vaultComposePath);
+        assertThat(rawContent)
+                .contains("secret/account/auth")
+                .contains("secret/account/master-data")
+                .contains("approle")
+                .contains("account-policy");
+    }
+
     private Properties loadProperties(Path path) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
         factory.setResources(new FileSystemResource(path));
