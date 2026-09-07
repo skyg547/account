@@ -1,3 +1,19 @@
+# AI Harness Handoff - 2026-09-07 Issue #630 Architecture Docs Normalization and 2026 MSA Topology Update
+
+- **Owner**: Gemini (Implementer / Documentation)
+- **Issue**: #630 (`[docs][architecture] 통합 아키텍처 명세서(architecture.md) 위치 정규화 및 최신 2026 MSA 구성도 업데이트`)
+- **Branch**: `agent/630-architecture-docs-update` (Base: `origin/main@ad44f873`)
+- **Worktree**: `/tmp/account-630-architecture-docs-update`
+- **Status**: Draft PR Ready
+- **Summary**:
+  - Normalized `docs/architecture.md` to `docs/architecture/architecture.md`, eliminating 404 broken link from `docs/README.md` and `README.md`.
+  - Updated comprehensive 2026 enterprise system topology diagram, 6-phase financial business pipeline diagram, and hexagonal ports & adapters architecture diagram.
+  - Updated relative link in `docs/guides/master-domain-glossary.md`.
+- **Verification**:
+  - `git diff --check`: 0 errors
+  - Conflict markers & credential scan: 0 occurrences
+- **Rollback**: Reviewed git revert of documentation commit; no external state changed.
+
 # AI Harness Handoff - 2026-09-02 Issue #521 Beginner Podman Minimal Build, Run, and Rollback Guide
 
 - **Owner**: Gemini (Implementer / Documentation)

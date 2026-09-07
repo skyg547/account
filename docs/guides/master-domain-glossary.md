@@ -56,5 +56,5 @@ flowchart LR
 ## 🎯 4. 개발자 입문 학습 로드맵 (Quick Start Guide)
 
 1. **1단계**: 본 [마스터 용어집](master-domain-glossary.md)을 읽어 전표, 원장, 마감, 대사의 비즈니스 의미 파악.
-2. **2단계**: [통합 아키텍처 명세서](../architecture.md) 및 [개발자 환경 구축 가이드](local-development.md) 확인.
+2. **2단계**: [통합 아키텍처 명세서](../architecture/architecture.md) 및 [개발자 환경 구축 가이드](local-development.md) 확인.
 3. **3단계**: 개별 모듈 README (예: [journal-ledger/README.md](../../journal-ledger/README.md))로 이동하여 해당 모듈의 Inbound/Outbound Port와 단위 테스트 구동.
