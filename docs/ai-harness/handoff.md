@@ -3103,3 +3103,19 @@
 - `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :gateway:test` passes 72 tests with zero failures/errors/skips. `git diff --check` and tracked conflict-marker checks pass. Independent review found no parity-scope defect.
 - The copied PR #617 baseline still has a separately identified P0: several public predicates do not cover the actual Controller base paths, while deposit and ECL use Eureka IDs different from their application names. Because this task explicitly requires 100% parity with the packaged source, those source definitions were not redesigned here. Do not mark the original outage resolved or make a PR Ready until that contract receives approved correction and routed verification.
 - Rollback is a reviewed revert of this configuration/test/record commit. No database, schema, data, credential, service, container, or remote GitHub state was changed; no PR was created or pushed.
+
+# AI Harness Handoff - 2026-09-07 Issue #466 stage 2 route contracts
+
+## Current state and ownership
+
+- The user explicitly authorized stage-2 implementation, the exact Java 21 Gateway test command, commit message `[#466] Align Gateway Route Predicates and Eureka Service IDs with Controller Contracts`, and push to `origin agent/466-gateway-config-repo-sync`.
+- Branch/worktree: `agent/466-gateway-config-repo-sync`, `/tmp/account-466-gateway-config-repo-sync`, starting at stage-1 commit `e49989c4`. Read-only GitHub inspection found PR #632 merged and Issue #466 closed, superseding the prior entry. The remote branch is absent and will be recreated by the authorized push. No new PR or Issue state change is part of this request.
+- Changed implementation files: `gateway/src/main/resources/application.yml`, `config-repo/gateway-service.yml`, and `gateway/src/test/java/com/ho/account/gateway/GatewayRouteSecurityPolicyTest.java`. The parent also updates `worklog.md`, `agent-status.md`, this handoff and `docs/history/CODEX_WORKLOG.md`; the Test Agent wrote only the policy test and the Reviewer remains read-only.
+- The ten routes match the supplied URI/Path/breaker/fallback specification. Three service IDs and nine Path predicates are corrected, including market-data and both AP endpoint families; reporting already matched. Existing versioned aliases remain route predicates without adding path rewrites. Full routes/default-filters/CORS/Resilience4j parity is preserved.
+
+## Verification, remaining runtime evidence, and rollback
+
+- `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :gateway:test`: BUILD SUCCESSFUL in 28 seconds, five tasks executed. Parsed XML: nine suites, 72 tests, zero failures/errors/skips. Policy tests pass 30/30, including the named full-configuration parity test. Diff whitespace and tracked source/docs conflict-marker checks pass.
+- Independent review is pending final confirmation. Local Controller mappings and nine service application IDs were inspected. The reporting URI remains the user-specified `lb://reporting-api`; its API module has no base application-name declaration in this checkout, so actual reporting registration remains a pre-existing runtime verification item.
+- No live Gateway/Eureka routed smoke, deployment, service restart, database or credential access was performed. Static parity and unit/policy tests establish the requested configuration contract; they do not prove that every live backend is registered or that preserved aliases are backend endpoints.
+- The parent completes the authorized commit/push after final review. A subsequent integration owner handles any new Draft PR, CI and runtime smoke. Rollback is a reviewed revert of this stage-2 commit, restoring the previous configuration (including its known route mismatches), with no schema/data rollback.

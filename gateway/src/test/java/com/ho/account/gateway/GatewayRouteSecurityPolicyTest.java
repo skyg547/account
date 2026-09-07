@@ -146,9 +146,9 @@ class GatewayRouteSecurityPolicyTest {
 
         assertThat(routeIndex).isGreaterThanOrEqualTo(0);
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
-                .isEqualTo("lb://deposit-api");
+                .isEqualTo("lb://deposit-service");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/deposit/**");
+                .isEqualTo("Path=/api/deposits/**,/api/v1/deposit/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -177,7 +177,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://receivable-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/receivable/**");
+                .isEqualTo("Path=/api/collections/**,/api/sales/**,/api/v1/receivable/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -206,7 +206,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://payable-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/payable/**");
+                .isEqualTo("Path=/api/payments/**,/api/purchase/**,/api/v1/payable/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -235,7 +235,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://tax-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/tax/**");
+                .isEqualTo("Path=/api/ap/invoices/**,/api/v1/tax/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -264,7 +264,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://reconciliation-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/reconciliation/**");
+                .isEqualTo("Path=/api/reconciliation/**,/api/v1/reconciliation/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -291,9 +291,9 @@ class GatewayRouteSecurityPolicyTest {
 
         assertThat(routeIndex).isGreaterThanOrEqualTo(0);
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
-                .isEqualTo("lb://asset-lease-api");
+                .isEqualTo("lb://asset-lease-service");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/asset-lease/**");
+                .isEqualTo("Path=/api/fixed-assets/**,/api/ifrs16/leases/**,/api/v1/asset-lease/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -351,7 +351,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://expenditure-resolution-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/expenditure/**");
+                .isEqualTo("Path=/api/ap/payments/**,/api/expenditures/**,/api/v1/expenditure/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -380,7 +380,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://account-mart-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/mart/**");
+                .isEqualTo("Path=/api/v1/mart/**,/api/v1/market-data/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -407,9 +407,9 @@ class GatewayRouteSecurityPolicyTest {
 
         assertThat(routeIndex).isGreaterThanOrEqualTo(0);
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
-                .isEqualTo("lb://ecl-api");
+                .isEqualTo("lb://ifrs9-allowance-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/v1/ecl/**");
+                .isEqualTo("Path=/api/v1/ifrs/allowance/**,/api/v1/ecl/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -463,16 +463,16 @@ class GatewayRouteSecurityPolicyTest {
         assertRouteUri(properties, "closing-api", "lb://closing-service");
         assertRouteUri(properties, "budget-api", "lb://budget-api");
         assertRouteUri(properties, "internal-audit-api", "lb://internal-audit-service");
-        assertRouteUri(properties, "deposit-api", "lb://deposit-api");
+        assertRouteUri(properties, "deposit-api", "lb://deposit-service");
         assertRouteUri(properties, "receivable-api", "lb://receivable-api");
         assertRouteUri(properties, "payable-api", "lb://payable-api");
         assertRouteUri(properties, "tax-api", "lb://tax-api");
         assertRouteUri(properties, "reconciliation-api", "lb://reconciliation-api");
-        assertRouteUri(properties, "asset-lease-api", "lb://asset-lease-api");
+        assertRouteUri(properties, "asset-lease-api", "lb://asset-lease-service");
         assertRouteUri(properties, "reporting-api", "lb://reporting-api");
         assertRouteUri(properties, "expenditure-resolution-api", "lb://expenditure-resolution-api");
         assertRouteUri(properties, "account-mart-api", "lb://account-mart-api");
-        assertRouteUri(properties, "ecl-api", "lb://ecl-api");
+        assertRouteUri(properties, "ecl-api", "lb://ifrs9-allowance-api");
         assertRouteUri(properties, "openapi-master-data", "lb://master-data");
         assertRouteUri(properties, "openapi-journal-ledger", "lb://journal-ledger");
         assertRouteUri(properties, "openapi-auth", "lb://auth-service");
