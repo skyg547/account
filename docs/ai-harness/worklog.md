@@ -1,3 +1,16 @@
+### 📅 2026-09-07 (GH-630: 통합 아키텍처 명세서 위치 정규화 및 최신 2026 MSA 구성도 업데이트)
+- **Component**: `docs/architecture/architecture.md`, `docs/guides/master-domain-glossary.md`, `docs/README.md`
+- **Changes**:
+  - `docs/architecture.md`를 `docs/architecture/architecture.md`로 위치 정규화 이동하여 `docs/README.md`(29행) 및 루트 `README.md`(262행)와의 링크 정합성 100% 일치.
+  - `docs/architecture/architecture.md` 전면 개편:
+    - 2026 엔터프라이즈 최신 시스템 전체 토폴로지 다이어그램(Nginx 단일 진입점, Next.js 15 BFF, Gateway :18000, 16개 마이크로서비스, 17개 격리 DB 컨텍스트, Prometheus/Grafana/ELK/Zipkin 관측 인프라) 반영.
+    - 6단계 엔드투엔드 금융 비즈니스 파이프라인 Mermaid 흐름도 반영.
+    - 마이크로서비스 내부 헥사고날 아키텍처(Inbound UseCase, Core POJO, Outbound SPI, JPA/Kafka Adapter) 상세 설계도 반영.
+  - `docs/guides/master-domain-glossary.md` 내 상대 경로 링크(`../architecture/architecture.md`) 보정.
+- **Verification**:
+  - `git diff --check`: 0 errors
+  - Conflict markers & credential pattern scan: 0 occurrences
+
 ### 📅 2026-09-02 (GH-521: 초보자용 Podman 최소 이미지 빌드·실행·롤백 가이드 최신화)
 - **Component**: `docs/guides/development-compose.md`, `docs/guides/container-images.md`, `docs/guides/frontend-runtime-guide.md`, `docs/guides/runtime-execution-matrix.md`
 - **Changes**:
