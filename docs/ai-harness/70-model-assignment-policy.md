@@ -12,10 +12,10 @@ Assign models by capability tier, task risk, and task difficulty, not by vendor 
 
 | 난이도 | 라벨 | 대상 작업 성격 | 권장 모델 티어 | Codex `model_reasoning_effort` | Claude / 타 도구 권장 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **하 (Low)** | `difficulty:low` | 단순 기계적 치환, 문서/오탈자 수정, 주석 보강, 정형화된 YAML 설정 미러링, 단일 상수 변경 | **Fast / Low-Cost** | `low` | Haiku, Flash, GPT-4o-mini |
-| **중 (Medium)** | `difficulty:medium` | 단일 모듈 내 경계가 명확한 비즈니스 로직, Remote REST Outbound Port Adapter 연동, 단위/통합 테스트 보강, DTO 매핑 | **Balanced** | `medium` (또는 기본 `high`) | Sonnet, GPT-5 / GPT-6 Astra |
-| **상 (High)** | `difficulty:high` | 멀티 모듈 공통 계약(`contracts`, `shared-kernel`), 헥사고날 아키텍처 리팩토링, DB 마이그레이션(Flyway) 및 권한 분리, 보안 정책(JWT, HttpOnly BFF, Vault 시크릿 관리), 멀티 컨테이너 Compose 오버레이 | **Frontier / Pro** | `high` | Sonnet 3.5+, GPT-6 Astra |
-| **최상 (Very-High)** | `difficulty:very-high` | 금융 정밀도(`BigDecimal` 반올림/스케일, 외환 환율, 복합 이자/상각 계산), 분산 락 및 원장 마감(Closing) 동시성 제어, 다중 트랜잭션 멱등성 가드(Idempotency Guard), 감사 로그 불변성(Append-only), IFRS9 대손충당금(ECL) 스테이지 전이, 원장 정합성/대사 엔진 | **Frontier SOTA / Deep Reasoning** | **`xhigh`** | GPT-6 Astra (`xhigh`), Claude Opus |
+| **하 (Low)** | `difficulty:low` | 단순 기계적 치환, 문서/오탈자 수정, 주석 보강, 정형화된 YAML 설정 미러링, 단일 상수 변경 | **Fast / Low-Cost** | `low` | **Gemini 3.8 Flash (제미나이 플래시 3.8)**, Claude Haiku, GPT-4o-mini |
+| **중 (Medium)** | `difficulty:medium` | 단일 모듈 내 경계가 명확한 비즈니스 로직, Remote REST Outbound Port Adapter 연동, 단위/통합 테스트 보강, DTO 매핑 | **Balanced** | `medium` (또는 기본 `high`) | Gemini 3.8 Pro, Claude Sonnet, GPT-5 / GPT-6 Astra |
+| **상 (High)** | `difficulty:high` | 멀티 모듈 공통 계약(`contracts`, `shared-kernel`), 헥사고날 아키텍처 리팩토링, DB 마이그레이션(Flyway) 및 권한 분리, 보안 정책(JWT, HttpOnly BFF, Vault 시크릿 관리), 멀티 컨테이너 Compose 오버레이 | **Frontier / Pro** | `high` | Gemini 3.8 Pro (Deep Think), Claude 3.5 Sonnet, GPT-6 Astra |
+| **최상 (Very-High)** | `difficulty:very-high` | 금융 정밀도(`BigDecimal` 반올림/스케일, 외환 환율, 복합 이자/상각 계산), 분산 락 및 원장 마감(Closing) 동시성 제어, 다중 트랜잭션 멱등성 가드(Idempotency Guard), 감사 로그 불변성(Append-only), IFRS9 대손충당금(ECL) 스테이지 전이, 원장 정합성/대사 엔진 | **Frontier SOTA / Deep Reasoning** | **`xhigh`** | GPT-6 Astra (`xhigh`), Claude Opus, Gemini Ultra / Advanced Reasoning |
 
 ---
 
