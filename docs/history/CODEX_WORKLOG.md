@@ -1,15 +1,15 @@
-## 2026-09-07 (Issue #639 Isolated Business Package Compose Overlays)
-- 요청 목표: 저자원 환경(13GiB RAM)을 위한 업무 패키지별(accounting, products, risk) 독립 Compose 오버레이 정의 (Gemini Flash 구현, Issue #639).
+## 2026-09-08 (Issue #640 external-dev PostgreSQL accounting packages DB provisioning and migration)
+- 요청 목표: external-dev 환경의 PostgreSQL에 accounting 업무 패키지 7개 DB(`journal-ledger`, `closing`, `payable`, `receivable`, `tax`, `expenditure-resolution`, `reporting`)를 프로비저닝하고 마이그레이션 적용 및 validate 검증을 수행한다.
 - 변경:
-  - `tools/compose.accounting-external-dev.yml`: 회계 7개 서비스 및 DB 독립 검증 정의.
-  - `tools/compose.products-external-dev.yml`: 금융 상품 3개 서비스 및 DB 독립 검증 정의.
-  - `tools/compose.risk-external-dev.yml`: 리스크 3개 서비스 및 DB 독립 검증 정의.
-  - `tools/check-*-databases.sh`: 패키지별 격리 DB 체크 셸 스크립트 3종 작성.
-  - `account-network` 공유(external: true) 및 컨테이너별 0.50 CPU, 768m 메모리 상한선 적용.
-  - `docs/guides/development-compose.md`에 업무 패키지별 실행 절차 가이드 반영.
+  - `postgres/runtime/provision-accounting-external-dev.py`: 7개 DB에 대한 멱등성 보장 프로비저닝 스크립트 작성.
+  - Podman `account-network` 브릿지를 통한 `account-external-dev-db` 네트워크 컨테이너 통신 연동.
+  - `account-migration-runner.jar` 기반 마이그레이션 및 사후 Flyway validate 검증 적용.
+  - Fail-closed 런타임 보안 게이트(런타임 DDL 차단, `flyway_schema_history` 접근 차단, 패스워드 부정 로그인 차단) 구현.
+  - `.env.external-dev` 보안 난수 패스워드 생성 및 0600 권한 갱신 (미커밋 보존).
 - 검증:
-  - `podman compose -f tools/compose.{accounting|products|risk}-external-dev.yml config --quiet` 3종 전수 통과.
-  - 타 패키지 환경변수 미입력 상태에서도 렌더링 정상 통과 (독립 격리성 입증).
+  - 7/7개 DB 마이그레이션 및 validate 완료, 테이블 카탈로그 및 DDL 거부 검증 통과.
+  - Preflight dry-run 재실행 100% 통과.
+  - `tools/check-accounting-databases.sh` 7개 DB 헬스체크 통과.
 
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.

@@ -1,8 +1,8 @@
 # Agent Status
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 2026-09-07 | Gemini | Implementer / Infrastructure | `agent/639-package-compose-overlays` | Draft PR ready | Defined 3 isolated business package Compose overlays (accounting, products, risk) with 0.5 CPU / 768MB resource limits, independent DB check scripts, and account-network sharing. Passed podman compose config --quiet. |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-08 | Gemini / Codex | Implementer | `agent/640-accounting-dev-db` / `/tmp/account-640-accounting-dev-db` | Draft PR ready | Provisioned and migrated 7 accounting databases on external-dev PostgreSQL via `provision-accounting-external-dev.py`, verified with fail-closed ACL gates and check-accounting-databases.sh. |
 | 2026-09-07 | Gemini | Implementer / Documentation | `agent/630-architecture-docs-update` | Draft PR ready | Normalized architecture.md path to docs/architecture/architecture.md, fixed broken link from docs/README.md and master-domain-glossary.md, and updated comprehensive 2026 enterprise MSA topology, 6-phase pipeline, and hexagonal architecture diagrams. |
 | 2026-09-02 | Gemini | Implementer / Documentation | `agent/521-beginner-podman-auth-runtime` | Draft PR ready | Updated beginner Podman/Docker low-resource external-dev compose runbook, sequential one-worker build rules, container recreate conditions, and strict prohibitions against down -v, prune, and destructive checkout. Verified python tests and DevelopmentComposePolicyTest / ContainerImagePolicyTest (100% PASS). |
 | 2026-08-19 | Gemini | Parent Integrator / Frontend | `agent/frontend-kbank-faq-style` | Draft PR #485 | Enhanced global dual-theme engine in `globals.css` with attribute selector rules (`html:not(.dark)` pure white cards vs `html.dark` navy dark cards) ensuring 100% theme consistency across all 122 pages. Refactored `expenditure/advance` and tested builds with 0 errors. |
