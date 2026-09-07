@@ -1,14 +1,15 @@
-## 2026-09-07 (Issue #638 Centralized Configuration Repository for 12 Business Microservices)
-- 요청 목표: 12개 비즈니스 마이크로서비스 중앙 설정 파일(`config-repo/*.yml`) 생성 및 정합화 (Gemini Flash 구현, Issue #638).
+## 2026-09-07 (Issue #639 Isolated Business Package Compose Overlays)
+- 요청 목표: 저자원 환경(13GiB RAM)을 위한 업무 패키지별(accounting, products, risk) 독립 Compose 오버레이 정의 (Gemini Flash 구현, Issue #639).
 - 변경:
-  - `config-repo/` 하위에 12개 비즈니스 서비스 및 별칭(18개 파일) 추가 (`closing-service.yml`, `closing-api.yml`, `deposit-service.yml`, `deposit-api.yml`, `receivable-api.yml`, `payable-api.yml`, `tax-api.yml`, `reconciliation-api.yml`, `asset-lease-service.yml`, `asset-lease-api.yml`, `reporting-api.yml`, `expenditure-resolution-api.yml`, `account-mart-api.yml`, `ifrs9-allowance-api.yml`, `ecl-api.yml`, `budget-api.yml`, `loan-api.yml`, `loan-service.yml`).
-  - Eureka 클라이언트 표준 계약(`service-url.defaultZone`, `prefer-ip-address: true`), `${SERVER_PORT}` 포트 플레이스홀더, Prometheus 및 Zipkin 관측성 표준 설정 적용.
-  - `ConfigServerConfigurationPolicyTest`에 12개 비즈니스 서비스 설정 검증 테스트(`allBusinessMicroserviceConfigurationsExistAndFollowStandards`) 추가.
+  - `tools/compose.accounting-external-dev.yml`: 회계 7개 서비스 및 DB 독립 검증 정의.
+  - `tools/compose.products-external-dev.yml`: 금융 상품 3개 서비스 및 DB 독립 검증 정의.
+  - `tools/compose.risk-external-dev.yml`: 리스크 3개 서비스 및 DB 독립 검증 정의.
+  - `tools/check-*-databases.sh`: 패키지별 격리 DB 체크 셸 스크립트 3종 작성.
+  - `account-network` 공유(external: true) 및 컨테이너별 0.50 CPU, 768m 메모리 상한선 적용.
+  - `docs/guides/development-compose.md`에 업무 패키지별 실행 절차 가이드 반영.
 - 검증:
-  - YAML 구문 파싱 검사 전수 통과.
-  - `./gradlew :config-server:test` (5/5 tasks 통과, BUILD SUCCESSFUL).
-- 리스크:
-  - 운영 배포 시 환경별 override 파일(`application-prod.yml` 등)과의 추가 정합성 점검 권장.
+  - `podman compose -f tools/compose.{accounting|products|risk}-external-dev.yml config --quiet` 3종 전수 통과.
+  - 타 패키지 환경변수 미입력 상태에서도 렌더링 정상 통과 (독립 격리성 입증).
 
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.
