@@ -21,3 +21,11 @@ spring:
     init:
       mode: never
 
+tax:
+  master-data:
+    base-url: ${MASTER_DATA_BASE_URL:http://master-data-api:8083}
+    connect-timeout: ${MASTER_DATA_CONNECT_TIMEOUT:2s}
+    read-timeout: ${MASTER_DATA_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
+

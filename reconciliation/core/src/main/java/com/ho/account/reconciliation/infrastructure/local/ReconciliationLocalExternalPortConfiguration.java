@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -27,6 +28,11 @@ import org.springframework.context.annotation.Profile;
  */
 @Configuration
 @Profile("local")
+@ConditionalOnProperty(
+        prefix = "reconciliation.journal-ledger.remote",
+        name = "enabled",
+        havingValue = "false",
+        matchIfMissing = true)
 public class ReconciliationLocalExternalPortConfiguration {
 
     private final AtomicLong journalSequence = new AtomicLong(1L);
