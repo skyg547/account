@@ -76,8 +76,10 @@ Assign models by capability tier, task risk, and task difficulty, not by vendor 
 - 원래 `difficulty:high` 성격의 문제라도, **Spec Author(상위 모델)가 `spec-driven`으로 근본 원인 분석, 파일 단위 작업 지시, allowlist, 검증 명령을 완벽히 명시한 경우**, Implementer는 `difficulty:medium` (Balanced tier) 수준에서 안전하게 지시를 기계적으로 실행할 수 있습니다.
 - 단, `difficulty:very-high`의 금융 정밀도와 동시성 로직은 스펙이 명시되어 있더라도 검증 및 구현 시 반드시 최고 수준의 추론 모델과 리뷰어 게이트를 거쳐야 합니다.
 
-### 3-4. 도구별 전담 분담 및 역할 제한 원칙 (Gemini Flash vs Codex 분담)
-- **하 (Low) & 중 (Medium) 난이도**: **Gemini 3.8 Flash (`thinking: low / middle`)**가 전담합니다.
-  - Codex의 토큰 쿼터를 절약하기 위해, 단순 설정, YAML 미러링, 문서, 프론트엔드 UI, 단위 테스트, 단일 모듈 로직 등은 **원칙적으로 Codex에게 배정하지 않습니다** (이슈에 명시적으로 `agent:codex`가 지정된 꼭 필요한 예외 상황 제외).
-- **상 (High) & 최상 (Very-High) 난이도**: **Codex (`reasoning: high / xhigh`)**가 전담합니다.
-  - 멀티 모듈 계약, DB 마이그레이션(Flyway) 및 권한 격리, 보안 정책, 금융 정밀도(BigDecimal), 원장 마감 동시성 락, 멱등성 가드 등 고난도 핵심 도메인에만 Codex의 최고 추론 역량을 집중 투입합니다.
+### 3-4. 연속성 보장형 추론 강도 배정 및 분담 원칙
+- **최상 (Very-High) 난이도**: **Codex (`reasoning: xhigh`)** 전담.
+  - 금융 정밀도(`BigDecimal`), 원장 마감 동시성 락, IFRS9 대손충당금 등 극한의 수학적·회계적 무결성이 요구되는 핵심 도메인에 `xhigh` 최고 추론을 집중 투입합니다.
+- **상 (High), 중 (Medium), 하 (Low) 난이도**: **Codex (`reasoning: high`)** 및 **Gemini 3.8 Flash** 유연 지원.
+  - 작업 간 컨텍스트 연속성(Continuity)이 끊기는 것을 방지하고 빠른 파이프라인 흐름을 유지하기 위해, Codex 자동 러너 실행 시에는 `very-high`를 제외한 모든 작업(High/Medium/Low)을 `high` 추론 강도로 연속 수행합니다.
+  - 상대적으로 쉬운 작업은 내부 추론 토큰 소진량이 적으므로 `high` 강도에서도 쿼터에 큰 부담 없이 정확하고 신속하게 기계적 완료가 가능합니다.
+  - Gemini 3.8 Flash는 빠른 설정 반영, 독립 코드 리뷰, 병렬 탐색 및 프론트엔드/인프라 오버레이 작업에 상시 투입됩니다.
