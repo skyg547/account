@@ -113,9 +113,9 @@ spring:
 
         # Deposit Service 라우팅
         - id: deposit-api
-          uri: lb://deposit-api
+          uri: lb://deposit-service
           predicates:
-            - Path=/api/v1/deposit/**
+            - Path=/api/deposits/**,/api/v1/deposit/**
           filters:
             - name: CircuitBreaker
               args:
@@ -126,7 +126,7 @@ spring:
         - id: receivable-api
           uri: lb://receivable-api
           predicates:
-            - Path=/api/v1/receivable/**
+            - Path=/api/collections/**,/api/sales/**,/api/v1/receivable/**
           filters:
             - name: CircuitBreaker
               args:
@@ -137,7 +137,7 @@ spring:
         - id: payable-api
           uri: lb://payable-api
           predicates:
-            - Path=/api/v1/payable/**
+            - Path=/api/payments/**,/api/purchase/**,/api/v1/payable/**
           filters:
             - name: CircuitBreaker
               args:
@@ -148,7 +148,7 @@ spring:
         - id: tax-api
           uri: lb://tax-api
           predicates:
-            - Path=/api/v1/tax/**
+            - Path=/api/ap/invoices/**,/api/v1/tax/**
           filters:
             - name: CircuitBreaker
               args:
@@ -159,7 +159,7 @@ spring:
         - id: reconciliation-api
           uri: lb://reconciliation-api
           predicates:
-            - Path=/api/v1/reconciliation/**
+            - Path=/api/reconciliation/**,/api/v1/reconciliation/**
           filters:
             - name: CircuitBreaker
               args:
@@ -168,9 +168,9 @@ spring:
 
         # Asset Lease Service 라우팅
         - id: asset-lease-api
-          uri: lb://asset-lease-api
+          uri: lb://asset-lease-service
           predicates:
-            - Path=/api/v1/asset-lease/**
+            - Path=/api/fixed-assets/**,/api/ifrs16/leases/**,/api/v1/asset-lease/**
           filters:
             - name: CircuitBreaker
               args:
@@ -192,7 +192,7 @@ spring:
         - id: expenditure-resolution-api
           uri: lb://expenditure-resolution-api
           predicates:
-            - Path=/api/v1/expenditure/**
+            - Path=/api/ap/payments/**,/api/expenditures/**,/api/v1/expenditure/**
           filters:
             - name: CircuitBreaker
               args:
@@ -203,7 +203,7 @@ spring:
         - id: account-mart-api
           uri: lb://account-mart-api
           predicates:
-            - Path=/api/v1/mart/**
+            - Path=/api/v1/mart/**,/api/v1/market-data/**
           filters:
             - name: CircuitBreaker
               args:
@@ -212,9 +212,9 @@ spring:
 
         # ECL Service 라우팅
         - id: ecl-api
-          uri: lb://ecl-api
+          uri: lb://ifrs9-allowance-api
           predicates:
-            - Path=/api/v1/ecl/**
+            - Path=/api/v1/ifrs/allowance/**,/api/v1/ecl/**
           filters:
             - name: CircuitBreaker
               args:
