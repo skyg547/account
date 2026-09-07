@@ -10,6 +10,7 @@ import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -20,12 +21,22 @@ import org.springframework.context.annotation.Profile;
  */
 @Configuration
 @Profile("local")
+@ConditionalOnProperty(
+        prefix = "payable.remote",
+        name = "enabled",
+        havingValue = "false",
+        matchIfMissing = true)
 public class PayableLocalExternalPortConfiguration {
 
     private final AtomicLong journalSequence = new AtomicLong(1L);
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "payable.master-data.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     MasterDataQueryPort payableLocalMasterDataQueryPort() {
         return new MasterDataQueryPort() {
             @Override
@@ -47,6 +58,11 @@ public class PayableLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "payable.journal-ledger.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     JournalPostingPort payableLocalJournalPostingPort() {
         return new JournalPostingPort() {
             @Override
@@ -63,6 +79,11 @@ public class PayableLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "payable.master-data.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     AccountingPeriodStatusPort payableLocalAccountingPeriodStatusPort() {
         return date -> false;
     }

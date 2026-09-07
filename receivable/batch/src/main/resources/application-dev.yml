@@ -22,3 +22,17 @@ spring:
   sql:
     init:
       mode: never
+
+receivable:
+  master-data:
+    base-url: ${MASTER_DATA_BASE_URL:http://master-data-api:8083}
+    connect-timeout: ${MASTER_DATA_CONNECT_TIMEOUT:2s}
+    read-timeout: ${MASTER_DATA_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
+  journal-ledger:
+    base-url: ${JOURNAL_LEDGER_BASE_URL:http://journal-ledger-api:8084}
+    connect-timeout: ${JOURNAL_LEDGER_CONNECT_TIMEOUT:2s}
+    read-timeout: ${JOURNAL_LEDGER_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
