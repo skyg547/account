@@ -409,6 +409,40 @@ class ConfigServerConfigurationPolicyTest {
                 .contains("account-policy");
     }
 
+    @Test
+    void allBusinessMicroserviceConfigurationsExistAndFollowStandards() {
+        List<String> requiredServices = List.of(
+                "closing-service.yml",
+                "deposit-service.yml",
+                "receivable-api.yml",
+                "payable-api.yml",
+                "tax-api.yml",
+                "reconciliation-api.yml",
+                "asset-lease-service.yml",
+                "reporting-api.yml",
+                "expenditure-resolution-api.yml",
+                "account-mart-api.yml",
+                "ifrs9-allowance-api.yml",
+                "budget-api.yml",
+                "loan-api.yml"
+        );
+
+        for (String fileName : requiredServices) {
+            Path configPath = resolveFromRepositoryRoot("config-repo", fileName);
+            Properties properties = loadProperties(configPath);
+
+            assertThat(properties.getProperty("server.port"))
+                    .as(fileName + " must specify server.port")
+                    .isNotBlank();
+            assertThat(properties.getProperty("eureka.client.service-url.defaultZone"))
+                    .as(fileName + " must specify Eureka defaultZone")
+                    .contains("8761");
+            assertThat(properties.getProperty("management.endpoints.web.exposure.include"))
+                    .as(fileName + " must expose monitoring endpoints")
+                    .contains("health");
+        }
+    }
+
     private Properties loadProperties(Path path) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
         factory.setResources(new FileSystemResource(path));

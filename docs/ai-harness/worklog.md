@@ -1,19 +1,27 @@
-### 📅 2026-09-07 (Harness: 4단계 작업 난이도(하/중/상/최상) 및 모델 추론 강도(high/xhigh) 매핑 정책 수립)
-- **Component**: `docs/ai-harness/70-model-assignment-policy.md`, `docs/ai-harness/85-github-issue-agent-loop.md`, `docs/ai-harness/87-spec-driven-delegation.md`, `docs/ai-harness/00-overview.md`, `.github/ISSUE_TEMPLATE/*`
+### 📅 2026-09-07 (GH-638: 12개 비즈니스 마이크로서비스 중앙 설정 파일 config-repo/*.yml 추가 및 정합화)
+- **Component**: `config-repo/*.yml`, `config-server/src/test/java/com/ho/account/configserver/ConfigServerConfigurationPolicyTest.java`
 - **Changes**:
-  - 4단계 작업 난이도 체계 정립:
-    - **하 (`difficulty:low`)**: 단순 기계적 치환, 오탈자, 주석 보강, 정형화된 YAML 설정 미러링 (Fast/Low-Cost 티어, `reasoning_effort: low`)
-    - **중 (`difficulty:medium`)**: 단일 모듈 비즈니스 로직, Port Adapter 연동, 단위/통합 테스트 (Balanced 티어, `reasoning_effort: medium/high`)
-    - **상 (`difficulty:high`)**: 멀티 모듈 계약, DB 마이그레이션(Flyway), 보안 정책(JWT/Vault), Compose 오버레이 (Frontier/Pro 티어, `reasoning_effort: high`)
-    - **최상 (`difficulty:very-high`)**: 금융 정밀도(BigDecimal), 원장 마감 동시성 락, 멱등성 가드(Idempotency), 감사 불변성, IFRS9 ECL (Frontier SOTA, `reasoning_effort: xhigh`)
-  - `70-model-assignment-policy.md`: 난이도 매핑 매트릭스, 추론 토큰 한도 보호 원칙(상시 기본값 `high`, `very-high` 대상 선별 `xhigh` 승격), 에스컬레이션/디에스컬레이션 규칙 명시.
-  - `85-github-issue-agent-loop.md`: 4개 난이도 라벨 정의 및 이슈당 정확히 1개 라벨 강제 규약 추가.
-  - `87-spec-driven-delegation.md`: Spec Author/Implementer/Reviewer 역할별 난이도 대응 매핑.
-  - `.github/ISSUE_TEMPLATE/*.yml`: Issue 템플릿에 난이도 4단계 드롭다운 필드 추가.
-  - GitHub 원격 저장소에 `difficulty:very-high` 라벨 생성 및 `difficulty:high` 라벨 설명 최신화 완료.
+  - `config-repo/` 내 12개 비즈니스 마이크로서비스 및 주요 별칭 설정 파일(총 18개 YAML) 생성:
+    - `closing-service.yml`, `closing-api.yml`
+    - `deposit-service.yml`, `deposit-api.yml`
+    - `receivable-api.yml`
+    - `payable-api.yml`
+    - `tax-api.yml`
+    - `reconciliation-api.yml`
+    - `asset-lease-service.yml`, `asset-lease-api.yml`
+    - `reporting-api.yml`
+    - `expenditure-resolution-api.yml`
+    - `account-mart-api.yml`
+    - `ifrs9-allowance-api.yml`, `ecl-api.yml`
+    - `budget-api.yml`
+    - `loan-api.yml`, `loan-service.yml`
+  - 각 설정 파일에 표준 Eureka 서비스 디스커버리(`${EUREKA_DEFAULT_ZONE}`, `prefer-ip-address: true`), 포트(`${SERVER_PORT}`), 프로메테우스/Zipkin 분산 트레이싱 관측성 설정 반영.
+  - Fail-Closed 원칙에 따라 비밀번호/토큰/시크릿 하드코딩 배제 및 플레이스홀더 외부 주입 준수.
+  - `ConfigServerConfigurationPolicyTest`에 `allBusinessMicroserviceConfigurationsExistAndFollowStandards` 정책 테스트 추가.
 - **Verification**:
-  - `git diff --check`: 0 errors
-  - GitHub Labels 조회 검증: `difficulty:low`, `difficulty:medium`, `difficulty:high`, `difficulty:very-high` 정상 확인.
+  - SnakeYAML 파싱 구문 검사 전수 통과 (18/18 파일 정상).
+  - `./gradlew :config-server:test` (BUILD SUCCESSFUL, 5/5 tasks executed).
+  - `git diff --check`: 오류 0건, Conflict marker 및 민감정보 0건.
 
 ### 📅 2026-09-07 (GH-630: 통합 아키텍처 명세서 위치 정규화 및 최신 2026 MSA 구성도 업데이트)
 - **Component**: `docs/architecture/architecture.md`, `docs/guides/master-domain-glossary.md`, `docs/README.md`
