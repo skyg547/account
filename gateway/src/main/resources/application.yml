@@ -275,6 +275,27 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 10000
         permittedNumberOfCallsInHalfOpenState: 3
+    instances:
+      depositCircuitBreaker:
+        baseConfig: default
+      receivableCircuitBreaker:
+        baseConfig: default
+      payableCircuitBreaker:
+        baseConfig: default
+      taxCircuitBreaker:
+        baseConfig: default
+      reconciliationCircuitBreaker:
+        baseConfig: default
+      assetLeaseCircuitBreaker:
+        baseConfig: default
+      reportingCircuitBreaker:
+        baseConfig: default
+      expenditureResolutionCircuitBreaker:
+        baseConfig: default
+      accountMartCircuitBreaker:
+        baseConfig: default
+      eclCircuitBreaker:
+        baseConfig: default
   timelimiter:
     configs:
       default:
