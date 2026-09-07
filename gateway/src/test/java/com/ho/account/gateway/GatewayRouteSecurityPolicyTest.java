@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.FileSystemResource;
@@ -441,7 +443,7 @@ class GatewayRouteSecurityPolicyTest {
     void explicitRoutesUseEurekaClientWithoutDiscoveryGeneratedRoutes() {
         Properties packagedProperties = loadYamlProperties(
                 repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
-        Properties properties = loadGatewayProperties();
+        Properties properties = loadExternalGatewayProperties();
 
         assertThat(properties.getProperty("spring.cloud.gateway.discovery.locator.enabled"))
                 .isEqualTo("false");
@@ -504,6 +506,29 @@ class GatewayRouteSecurityPolicyTest {
                 .isTrue();
     }
 
+    @Test
+    void externalRoutesRateLimitsCorsAndResilienceSettingsMatchPackagedConfiguration() {
+        Properties packagedProperties = loadGatewayProperties();
+        Properties externalProperties = loadExternalGatewayProperties();
+
+        assertThat(selectProperties(
+                        packagedProperties, key -> key.startsWith("spring.cloud.gateway.routes[")))
+                .isEqualTo(selectProperties(
+                        externalProperties, key -> key.startsWith("spring.cloud.gateway.routes[")));
+        assertThat(selectProperties(
+                        packagedProperties,
+                        key -> key.startsWith("spring.cloud.gateway.default-filters[")))
+                .isEqualTo(selectProperties(
+                        externalProperties,
+                        key -> key.startsWith("spring.cloud.gateway.default-filters[")));
+        assertThat(selectProperties(
+                        packagedProperties, key -> key.startsWith("spring.cloud.gateway.globalcors.")))
+                .isEqualTo(selectProperties(
+                        externalProperties, key -> key.startsWith("spring.cloud.gateway.globalcors.")));
+        assertThat(selectProperties(packagedProperties, key -> key.startsWith("resilience4j.")))
+                .isEqualTo(selectProperties(externalProperties, key -> key.startsWith("resilience4j.")));
+    }
+
     private void assertRouteUri(Properties properties, String routeId, String expectedUri) {
         int index = routeIndex(properties, routeId);
 
@@ -525,6 +550,16 @@ class GatewayRouteSecurityPolicyTest {
 
     private Properties loadGatewayProperties() {
         return loadYamlProperties(repositoryRoot().resolve("gateway/src/main/resources/application.yml"));
+    }
+
+    private Properties loadExternalGatewayProperties() {
+        return loadYamlProperties(repositoryRoot().resolve("config-repo/gateway-service.yml"));
+    }
+
+    private Map<String, String> selectProperties(Properties properties, Predicate<String> selector) {
+        return properties.stringPropertyNames().stream()
+                .filter(selector)
+                .collect(Collectors.toMap(key -> key, properties::getProperty));
     }
 
     private Properties loadYamlProperties(Path configurationPath) {

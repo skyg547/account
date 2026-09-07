@@ -2088,3 +2088,9 @@
 - Frontend/Gateway share a distinct runtime-only 32-512-byte secret through required Compose inputs and value-redacting validators. No secret value, public browser variable, build argument, runtime container or external service was changed.
 - Node 20 development/production BFF live tests pass 12/12 each, TypeScript passes, ESLint remains 0 errors/244 inherited #536 warnings and production build passes 122/122 pages. Forced offline JDK-17 Gateway and affected Config policy tests pass; Python validator self-test passes 168. PowerShell is unavailable and this skipped runner is covered only by static Java policy assertions.
 - Independent review found no P0-P3. Diff/conflict/clean-tree gates pass. GitHub checks, final exact-head confirmation and the Ready-event Guard remain before the user-approved squash merge; rollback is a reviewed PR #623 revert.
+
+## 2026-09-07 (Issue #466 Gateway external-config sync)
+
+- On isolated `agent/466-gateway-config-repo-sync`, synchronized the ten business routes, named CircuitBreaker fallbacks and explicit Resilience4j instances across packaged/external Gateway configuration, removed the dead `account-api` / `lb://account` catch-all, and preserved the signed-BFF rate-limit filters and Cloudflare CORS policy.
+- Strengthened `GatewayRouteSecurityPolicyTest` so the external Config Server YAML must match the packaged routes, default filters, global CORS and Resilience4j properties. The exact Java 21 Gateway command passes 72/72; diff and marker gates pass.
+- Independent parity review is clean. It also found that the pre-existing PR #617 predicates and deposit/ECL Eureka IDs do not match several current Controller/application contracts. This task's exact-source-mirror constraint leaves that P0 for separately approved correction before Ready/merge. No runtime or external state changed; rollback is a reviewed commit revert.

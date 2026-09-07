@@ -3073,3 +3073,17 @@
 - Forced JDK 17 Gateway test and the three affected Config Server policy suites pass offline with CPU 1, memory 1.5 GiB and one worker. Python compile/self-test passes 168. `pwsh` is unavailable, so PowerShell validators were not directly run; passing Java policy tests cover their changed required-input/error contracts. Diff, marker and clean-tree gates pass.
 - Independent review found no P0-P3. Residual coverage gaps are a single live BFF-to-Gateway-to-Auth process chain and direct tests for duplicate headers, a future-expired signature, the 512-byte boundary and BFF secret error responses. These remain non-blocking because the separated live/unit/policy evidence and code review found no failing behavior.
 - Publication owner is the parent Integrator: wait for all GitHub checks on the unchanged PR #623 head, perform the Ready-event gate, then squash-merge and confirm Issue #607 closure. Rollback is a reviewed PR revert; no schema, data, secret value, image, container or external service state changed.
+
+# AI Harness Handoff - 2026-09-07 Issue #466 Gateway external-config sync
+
+## Current state
+
+- Issue/branch/worktree: open `#466`, `agent/466-gateway-config-repo-sync`, `/tmp/account-466-gateway-config-repo-sync`, based on `origin/main@ad44f873`.
+- The Config Server Gateway YAML now carries the same ten business route definitions, CircuitBreaker names/fallbacks, explicit Resilience4j instances, BFF rate-limit header stripping and Cloudflare CORS as the packaged Gateway configuration. The legacy `account-api` catch-all is absent.
+- A focused policy regression compares packaged and external route/default-filter/CORS/Resilience4j properties, rather than validating only the packaged file.
+
+## Evidence, residual risk, and rollback
+
+- `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :gateway:test` passes 72 tests with zero failures/errors/skips. `git diff --check` and tracked conflict-marker checks pass. Independent review found no parity-scope defect.
+- The copied PR #617 baseline still has a separately identified P0: several public predicates do not cover the actual Controller base paths, while deposit and ECL use Eureka IDs different from their application names. Because this task explicitly requires 100% parity with the packaged source, those source definitions were not redesigned here. Do not mark the original outage resolved or make a PR Ready until that contract receives approved correction and routed verification.
+- Rollback is a reviewed revert of this configuration/test/record commit. No database, schema, data, credential, service, container, or remote GitHub state was changed; no PR was created or pushed.
