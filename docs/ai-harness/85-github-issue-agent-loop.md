@@ -93,8 +93,14 @@ Recommended labels:
 - `status:in-progress`
 - `status:blocked`
 - `status:needs-review`
+- `difficulty:low` (하: 기계적 치환, 문서/오탈자, 정형화된 YAML 설정 미러링 — Fast/Low-Cost 티어)
+- `difficulty:medium` (중: 단일 모듈 비즈니스 로직, Port Adapter 연동, 단위/통합 테스트 — Balanced 티어)
+- `difficulty:high` (상: 멀티 모듈 계약, DB 마이그레이션, 보안 정책, Compose 오버레이 — Frontier/Pro, high reasoning)
+- `difficulty:very-high` (최상: 금융 정밀도 BigDecimal, 원장 마감 동시성 락, 멱등성 가드, IFRS9 ECL — Frontier SOTA, xhigh reasoning)
 
-The `agent:<tool>` labels identify the current implementation tool. Role labels such as `agent:coder` identify responsibility and do not reserve the Issue. Keep exactly one `status:*` workflow label and one implementation-owner label on a claimed open Issue.
+The `agent:<tool>` labels identify the current implementation tool. Role labels such as `agent:coder` identify responsibility and do not reserve the Issue. Keep exactly one `status:*` workflow label, one implementation-owner label, and **정확히 1개의 `difficulty:*` 난이도 라벨** on a claimed open Issue.
+
+난이도 라벨(`difficulty:*`)은 실행 모델 티어 배정과 Codex `model_reasoning_effort` 결정의 기준이 되며, 상세 정책은 [`70-model-assignment-policy.md`](./70-model-assignment-policy.md)를 따릅니다.
 
 If repository labels do not exist yet, the parent Integrator creates them manually or with an approved GitHub CLI/API step. The current repository uses labels as its workflow state because no GitHub Projects Status field is configured.
 

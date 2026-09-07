@@ -35,14 +35,28 @@ body:
       required: true
 
   - type: dropdown
+    id: difficulty
+    attributes:
+      label: 작업 난이도 (Task Difficulty)
+      description: 70-model-assignment-policy.md 난이도 4단계 기준. 정확히 1개를 선택하세요.
+      options:
+        - "하 (difficulty:low) — 단순 치환/문서/설정 미러링 (Fast/Low-Cost, reasoning: low)"
+        - "중 (difficulty:medium) — 단일 모듈 로직/어댑터/테스트 (Balanced, reasoning: medium/high)"
+        - "상 (difficulty:high) — 멀티 모듈 계약/DB 마이그레이션/보안 (Frontier/Pro, reasoning: high)"
+        - "최상 (difficulty:very-high) — 금융 정밀도/원장 마감 동시성/멱등성 가드 (Frontier SOTA, reasoning: xhigh)"
+    validations:
+      required: true
+
+  - type: dropdown
     id: implementer_tier
     attributes:
       label: 구현 담당 티어
       description: 70-model-assignment-policy.md의 capability 기준. 금융 계산·동시성·마이그레이션이 걸리면 Fast를 쓰지 않는다.
       options:
-        - "Fast/Low-Cost (기계적 실행, 지시가 완전할 때만)"
-        - "Balanced (경계가 분명한 구현)"
-        - "High Reasoning (설계 판단이 남아 있음)"
+        - "Fast/Low-Cost (기계적 실행, difficulty:low)"
+        - "Balanced (경계가 분명한 구현, difficulty:medium)"
+        - "Frontier/Pro (설계·보안·계약 판단 필요, difficulty:high)"
+        - "Frontier SOTA / Deep Reasoning (금융 정밀도·동시성 락·멱등성, difficulty:very-high, reasoning: xhigh)"
     validations:
       required: true
 
