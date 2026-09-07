@@ -30,7 +30,7 @@ class DevelopmentComposePolicyTest {
     private static final Set<String> LOCAL_INFRASTRUCTURE =
             Set.of("postgres-db", "redis", "kafka");
     private static final Set<String> DEVELOPMENT_HELPERS =
-            Set.of("migration-runner", "runtime-grants");
+            Set.of("migration-runner", "runtime-grants", "frontend-nginx");
     private static final Set<String> MINIMAL_EXTERNAL_DEV_SERVICES = Set.of(
             "minimal-db-check",
             "minimal-config-server",
@@ -40,7 +40,7 @@ class DevelopmentComposePolicyTest {
             "minimal-gateway",
             "minimal-frontend");
     private static final Set<String> ALLOWED_HOST_PORT_SERVICES =
-            Set.of("gateway", "frontend", "postgres-db", "redis", "kafka");
+            Set.of("frontend-nginx", "postgres-db", "redis", "kafka");
     private static final Pattern PRIVATE_IPV4 = Pattern.compile(
             "(?m)(?:^|[^0-9])(?:10\\.|192\\.168\\.|172\\.(?:1[6-9]|2[0-9]|3[01])\\.)");
 
@@ -124,10 +124,14 @@ class DevelopmentComposePolicyTest {
                 "postgres-db",
                 "ACCOUNT_DB_APP_PASSWORD");
 
-        assertThat(asList(asMap(services.get("gateway")).get("ports")))
-                .containsExactly("127.0.0.1:${DEV_GATEWAY_PORT:-8000}:8000");
-        assertThat(asList(asMap(services.get("frontend")).get("ports")))
-                .containsExactly("127.0.0.1:${DEV_FRONTEND_PORT:-3000}:3000");
+        assertThat(asList(asMap(services.get("frontend-nginx")).get("ports")))
+                .containsExactly(
+                        "${NGINX_HTTP_PORT:-80}:80",
+                        "${NGINX_HTTPS_PORT:-443}:443");
+        assertThat(asMap(services.get("gateway"))).doesNotContainKey("ports");
+        assertThat(asList(asMap(services.get("gateway")).get("expose"))).contains("8000");
+        assertThat(asMap(services.get("frontend"))).doesNotContainKey("ports");
+        assertThat(asList(asMap(services.get("frontend")).get("expose"))).contains("3000");
         assertThat(asList(asMap(asMap(services.get("frontend")).get("healthcheck")).get("test")))
                 .contains("wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1");
         assertThat(asList(asMap(services.get("postgres-db")).get("ports")))
@@ -353,7 +357,8 @@ class DevelopmentComposePolicyTest {
                 .containsExactly("127.0.0.1:${MINIMAL_DEV_FRONTEND_PORT:-13000}:3000");
 
         assertThat(asMap(asMap(services.get("minimal-config-server")).get("environment")))
-                .containsEntry("SPRING_PROFILES_ACTIVE", "native");
+                .containsEntry("SPRING_PROFILES_ACTIVE", "native")
+                .containsEntry("MANAGEMENT_TRACING_ENABLED", "false");
         for (String name : List.of(
                 "minimal-config-server",
                 "minimal-discovery",
@@ -362,10 +367,13 @@ class DevelopmentComposePolicyTest {
                 "minimal-gateway")) {
             assertThat(asMap(asMap(services.get(name)).get("environment")))
                     .as(name)
-                    .containsEntry("MANAGEMENT_TRACING_ENABLED", "false")
                     .containsEntry(
                             "LOGGING_CONFIG",
-                            "file:/account-runtime/logback-minimal-console.xml");
+                            "file:/account-runtime/logback-minimal-console.xml")
+                    .containsEntry(
+                            "LOGSTASH_HOST",
+                            "${LOGSTASH_HOST:-account-logstash-dev}")
+                    .containsEntry("LOGSTASH_PORT", "5000");
             assertThat(asList(asMap(services.get(name)).get("volumes")))
                     .as(name)
                     .contains("./logback-minimal-console.xml:"
@@ -376,11 +384,23 @@ class DevelopmentComposePolicyTest {
             assertThat(asMap(asMap(services.get(name)).get("environment")))
                     .as(name)
                     .containsEntry("SPRING_PROFILES_ACTIVE", "docker")
-                    .containsEntry("MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED", "true");
+                    .containsEntry("MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED", "true")
+                    .containsEntry("MANAGEMENT_TRACING_ENABLED", "true")
+                    .containsEntry(
+                            "MANAGEMENT_ZIPKIN_TRACING_ENDPOINT",
+                            "${ZIPKIN_ENDPOINT:-http://account-zipkin:9411/api/v2/spans}");
         }
         assertThat(minimalLogging)
                 .contains("<appender-ref ref=\"CONSOLE\"/>")
-                .doesNotContain("LogstashTcpSocketAppender", "localhost:5000");
+                .contains("<appender-ref ref=\"LOGSTASH\"/>")
+                .contains("LogstashTcpSocketAppender")
+                .contains("${LOGSTASH_HOST:-account-logstash-dev}:${LOGSTASH_PORT:-5000}")
+                .contains("LogstashEncoder")
+                .contains("\"service\":\"${appName:-account-service}\"")
+                .contains("\"environment\":\"external-dev\"")
+                .contains("<queueSize>512</queueSize>")
+                .contains("<roundRobin/>")
+                .doesNotContain("localhost:5000");
         assertThat(asMap(asMap(services.get("minimal-master-data")).get("environment")))
                 .containsEntry(
                         "SPRING_DATASOURCE_URL",
