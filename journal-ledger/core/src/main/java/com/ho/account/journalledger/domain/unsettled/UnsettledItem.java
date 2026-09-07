@@ -9,6 +9,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "unsettled_items")
@@ -57,6 +59,11 @@ public class UnsettledItem {
     @Column(length = 100)
     private String lastSettlementReference;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "unsettled_item_settlement_references", joinColumns = @JoinColumn(name = "unsettled_item_id"))
+    @Column(name = "settlement_reference", length = 100, nullable = false)
+    private Set<String> settlementReferences = new LinkedHashSet<>();
+
     private LocalDateTime lastSettledAt;
 
     @PrePersist
@@ -65,6 +72,9 @@ public class UnsettledItem {
         if (remainingAmount == null) remainingAmount = originalAmount;
         if (managementNo == null) {
             managementNo = "UNS-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+        if (settlementReferences == null) {
+            settlementReferences = new LinkedHashSet<>();
         }
         updateResolvedStatus();
     }
@@ -80,7 +90,11 @@ public class UnsettledItem {
         if (settlementReference == null || settlementReference.isBlank()) {
             throw new IllegalArgumentException("반제 참조번호는 필수입니다.");
         }
-        if (settlementReference.trim().equals(this.lastSettlementReference)) {
+        if (this.settlementReferences == null) {
+            this.settlementReferences = new LinkedHashSet<>();
+        }
+        String trimmedReference = settlementReference.trim();
+        if (this.settlementReferences.contains(trimmedReference) || trimmedReference.equals(this.lastSettlementReference)) {
             return;
         }
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -97,8 +111,9 @@ public class UnsettledItem {
         } else {
             this.status = "PARTIAL";
         }
+        this.settlementReferences.add(trimmedReference);
         this.lastSettledBy = actor.trim();
-        this.lastSettlementReference = settlementReference.trim();
+        this.lastSettlementReference = trimmedReference;
         this.lastSettledAt = LocalDateTime.now();
         updateResolvedStatus();
     }
