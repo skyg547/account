@@ -14,6 +14,7 @@ import com.ho.account.contracts.journal.JournalPostingResult;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -24,12 +25,22 @@ import org.springframework.context.annotation.Profile;
  */
 @Configuration
 @Profile("local")
+@ConditionalOnProperty(
+        prefix = "expenditure.remote",
+        name = "enabled",
+        havingValue = "false",
+        matchIfMissing = true)
 public class ExpenditureResolutionLocalExternalPortConfiguration {
 
     private final AtomicLong journalSequence = new AtomicLong(1L);
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "expenditure.master-data.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     MasterDataQueryPort expenditureLocalMasterDataQueryPort() {
         return new MasterDataQueryPort() {
             @Override
@@ -51,12 +62,22 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "expenditure.tax.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     TaxInvoiceQueryPort expenditureLocalTaxInvoiceQueryPort() {
         return taxInvoiceId -> Optional.of(new TaxInvoiceRef(taxInvoiceId, "LOCAL-TAX-" + taxInvoiceId, "PURCHASE", "ACTIVE"));
     }
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "expenditure.asset.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     AssetRegistrationPort expenditureLocalAssetRegistrationPort() {
         return new AssetRegistrationPort() {
             @Override
@@ -86,6 +107,11 @@ public class ExpenditureResolutionLocalExternalPortConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "expenditure.journal-ledger.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     JournalPostingPort expenditureLocalJournalPostingPort() {
         return new JournalPostingPort() {
             @Override

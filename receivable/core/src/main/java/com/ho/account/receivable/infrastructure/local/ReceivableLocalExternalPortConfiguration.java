@@ -10,6 +10,7 @@ import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -20,12 +21,22 @@ import org.springframework.context.annotation.Profile;
  */
 @Configuration
 @Profile("local")
+@ConditionalOnProperty(
+        prefix = "receivable.remote",
+        name = "enabled",
+        havingValue = "false",
+        matchIfMissing = true)
 public class ReceivableLocalExternalPortConfiguration {
 
     private final AtomicLong journalSequence = new AtomicLong(1L);
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "receivable.master-data.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     MasterDataQueryPort receivableLocalMasterDataQueryPort() {
         return new MasterDataQueryPort() {
             @Override
@@ -47,6 +58,11 @@ public class ReceivableLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "receivable.journal-ledger.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     JournalPostingPort receivableLocalJournalPostingPort() {
         return new JournalPostingPort() {
             @Override
@@ -63,6 +79,11 @@ public class ReceivableLocalExternalPortConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(
+            prefix = "receivable.master-data.remote",
+            name = "enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     AccountingPeriodStatusPort receivableLocalAccountingPeriodStatusPort() {
         return date -> false;
     }

@@ -22,3 +22,29 @@ spring:
   sql:
     init:
       mode: never
+
+expenditure:
+  master-data:
+    base-url: ${MASTER_DATA_BASE_URL:http://master-data-api:8083}
+    connect-timeout: ${MASTER_DATA_CONNECT_TIMEOUT:2s}
+    read-timeout: ${MASTER_DATA_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
+  journal-ledger:
+    base-url: ${JOURNAL_LEDGER_BASE_URL:http://journal-ledger-api:8084}
+    connect-timeout: ${JOURNAL_LEDGER_CONNECT_TIMEOUT:2s}
+    read-timeout: ${JOURNAL_LEDGER_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
+  tax:
+    base-url: ${TAX_BASE_URL:http://tax-api:8087}
+    connect-timeout: ${TAX_CONNECT_TIMEOUT:2s}
+    read-timeout: ${TAX_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
+  asset:
+    base-url: ${ASSET_BASE_URL:http://asset-lease-api:8089}
+    connect-timeout: ${ASSET_CONNECT_TIMEOUT:2s}
+    read-timeout: ${ASSET_READ_TIMEOUT:5s}
+    remote:
+      enabled: true
