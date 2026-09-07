@@ -67,6 +67,8 @@ services:
       CONFIG_REPO_LOCATION: file:/config-repo
       ENCRYPT_KEY: "${ENCRYPT_KEY:?Set ENCRYPT_KEY in the approved env file}"
       LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      LOGSTASH_HOST: "${LOGSTASH_HOST:-account-logstash-dev}"
+      LOGSTASH_PORT: "5000"
       MANAGEMENT_TRACING_ENABLED: "false"
     volumes:
       - ../config-repo:/config-repo:ro
@@ -92,9 +94,11 @@ services:
       SERVER_PORT: "8761"
       SPRING_CONFIG_IMPORT: configserver:http://minimal-config-server:8888/
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-      MANAGEMENT_TRACING_ENABLED: "false"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
       LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      LOGSTASH_HOST: "${LOGSTASH_HOST:-account-logstash-dev}"
+      LOGSTASH_PORT: "5000"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "${ZIPKIN_ENDPOINT:-http://account-zipkin:9411/api/v2/spans}"
+      MANAGEMENT_TRACING_ENABLED: "true"
     depends_on:
       minimal-config-server:
         condition: service_healthy
@@ -139,9 +143,11 @@ services:
       SPRING_DATA_REDIS_HOST: account-redis
       SPRING_DATA_REDIS_PORT: "6379"
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-      MANAGEMENT_TRACING_ENABLED: "false"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
       LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      LOGSTASH_HOST: "${LOGSTASH_HOST:-account-logstash-dev}"
+      LOGSTASH_PORT: "5000"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "${ZIPKIN_ENDPOINT:-http://account-zipkin:9411/api/v2/spans}"
+      MANAGEMENT_TRACING_ENABLED: "true"
     depends_on:
       minimal-db-check:
         condition: service_healthy
@@ -185,9 +191,11 @@ services:
       SPRING_FLYWAY_ENABLED: "false"
       SPRING_SQL_INIT_MODE: never
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-      MANAGEMENT_TRACING_ENABLED: "false"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
       LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      LOGSTASH_HOST: "${LOGSTASH_HOST:-account-logstash-dev}"
+      LOGSTASH_PORT: "5000"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "${ZIPKIN_ENDPOINT:-http://account-zipkin:9411/api/v2/spans}"
+      MANAGEMENT_TRACING_ENABLED: "true"
     depends_on:
       minimal-db-check:
         condition: service_healthy
@@ -221,9 +229,11 @@ services:
       BFF_GATEWAY_SHARED_SECRET: "${BFF_GATEWAY_SHARED_SECRET:?Set BFF_GATEWAY_SHARED_SECRET in the approved env file}"
       AUTH_TOKEN_VERSION_VALIDATION_BASE_URL: lb://auth-service
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-      MANAGEMENT_TRACING_ENABLED: "false"
-      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
       LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+      LOGSTASH_HOST: "${LOGSTASH_HOST:-account-logstash-dev}"
+      LOGSTASH_PORT: "5000"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "${ZIPKIN_ENDPOINT:-http://account-zipkin:9411/api/v2/spans}"
+      MANAGEMENT_TRACING_ENABLED: "true"
     depends_on:
       minimal-config-server:
         condition: service_healthy
