@@ -1,6 +1,6 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
-import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
+import com.ho.account.auth.core.application.port.out.AuthUserRepository;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
-public class JpaAuthUserQueryAdapter implements AuthUserQueryPort {
+public class JpaAuthUserQueryAdapter implements AuthUserRepository {
 
     private final AuthUserJpaRepository repository;
 

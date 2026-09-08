@@ -1,6 +1,6 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
-import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
+import com.ho.account.auth.core.application.port.out.AuthUserRepository;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "auth.persistence", name = "mode", havingValue = "memory")
-public class InMemoryAuthUserQueryAdapter implements AuthUserQueryPort {
+public class InMemoryAuthUserQueryAdapter implements AuthUserRepository {
 
     private final Map<String, AuthUser> usersByUsername;
 
