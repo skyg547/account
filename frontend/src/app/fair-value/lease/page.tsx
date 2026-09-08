@@ -1,20 +1,17 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  FileText, 
-  Plus, 
-  Search, 
-  Building2, 
-  Percent, 
-  Calendar, 
-  CheckCircle2, 
-  XCircle, 
-  Eye, 
-  SlidersHorizontal,
+import {
+  FileText,
+  Plus,
+  Search,
+  Building2,
+  Percent,
+  CheckCircle2,
+  XCircle,
+  Eye,
   CreditCard,
-  Layers,
-  Sparkles
+  Layers
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -36,7 +33,7 @@ export default function LeaseContractsPage() {
     contractName: '',
     lessor: '',
     lesseeDepartment: '경영지원본부',
-    assetType: '부동산' as const,
+    assetType: '부동산' as LeaseContractDto['assetType'],
     startDate: new Date().toISOString().split('T')[0],
     leaseTermMonths: 36,
     monthlyPayment: 10000000,
@@ -411,7 +408,7 @@ export default function LeaseContractsPage() {
                   <label className="font-bold text-slate-400">자산 유형</label>
                   <select
                     value={newLease.assetType}
-                    onChange={e => setNewLease({ ...newLease, assetType: e.target.value as any })}
+                    onChange={e => setNewLease({ ...newLease, assetType: e.target.value as LeaseContractDto['assetType'] })}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="부동산">부동산 (임대차)</option>

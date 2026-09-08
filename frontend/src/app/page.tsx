@@ -2,18 +2,17 @@
 
 import React, { useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  CreditCard, 
-  PieChart, 
-  ArrowUpRight, 
-  Clock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  CreditCard,
+  PieChart,
+  ArrowUpRight,
+  Clock,
   FileText,
   Calendar,
-  Layers,
-  Sparkles
+  Layers
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 

@@ -6,14 +6,10 @@ import {
   Plus,
   RotateCcw,
   CheckCircle2,
-  AlertCircle,
-  Clock,
   TrendingUp,
   Percent,
   Search,
   Edit,
-  History,
-  FileSpreadsheet,
   Zap,
   X
 } from 'lucide-react';

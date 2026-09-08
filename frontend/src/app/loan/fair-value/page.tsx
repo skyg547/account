@@ -13,7 +13,7 @@ interface AssetFairValue {
 }
 
 export default function LoanFairValuePage() {
-  const [assets, setAssets] = useState<AssetFairValue[]>([
+  const [assets] = useState<AssetFairValue[]>([
     {
       id: 'LFA-2026-01',
       assetName: '기업 대출 채권 (A등급 중소기업)',

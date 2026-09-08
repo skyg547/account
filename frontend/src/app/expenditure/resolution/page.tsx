@@ -1,26 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Receipt, 
-  Plus, 
-  Trash2, 
-  Send, 
-  Save, 
-  RotateCcw, 
-  UserCheck, 
-  Building2, 
-  Calendar, 
-  CreditCard, 
+import {
+  Receipt,
+  Plus,
+  Trash2,
+  Send,
+  Save,
+  RotateCcw,
+  UserCheck,
+  Building2,
+  CreditCard,
   HelpCircle,
-  FileText,
-  CheckCircle2,
-  ChevronRight
+  FileText
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
-import AmountDisplay from '@/components/ui/AmountDisplay';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { mockResolutions, ResolutionLineItem } from '@/mocks/expenditure';
+import AmountDisplay from '@/components/ui/AmountDisplay';import { ResolutionLineItem } from '@/mocks/expenditure';
 
 export default function ResolutionPage() {
   // Form State
@@ -31,7 +26,6 @@ export default function ResolutionPage() {
   const [vendorAccount, setVendorAccount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'BANK_TRANSFER' | 'CORPORATE_CARD' | 'CASH'>('BANK_TRANSFER');
   const [dueDate, setDueDate] = useState('2026-08-15');
-  const [remarks, setRemarks] = useState('');
 
   // Line items state
   const [lineItems, setLineItems] = useState<ResolutionLineItem[]>([
@@ -48,7 +42,7 @@ export default function ResolutionPage() {
   ]);
 
   // Approval Line state
-  const [approvalLine, setApprovalLine] = useState([
+  const [approvalLine] = useState([
     { step: 1, name: '김민준', position: '대리 (작성자)', dept: 'IT개발팀', role: 'DRAFTER' },
     { step: 2, name: '박서준', position: '팀장 (1차승인)', dept: 'IT개발팀', role: 'APPROVER' },
     { step: 3, name: '이현우', position: '재무이사 (2차승인)', dept: '재무기획본부', role: 'APPROVER' },
@@ -85,7 +79,7 @@ export default function ResolutionPage() {
     setLineItems(lineItems.filter(item => item.id !== id));
   };
 
-  const handleLineChange = (id: string, field: keyof ResolutionLineItem, value: any) => {
+  const handleLineChange = (id: string, field: keyof ResolutionLineItem, value: ResolutionLineItem[keyof ResolutionLineItem]) => {
     setLineItems(lineItems.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
@@ -200,7 +194,7 @@ export default function ResolutionPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setPaymentMethod(item.id as any)}
+                    onClick={() => setPaymentMethod(item.id as 'BANK_TRANSFER' | 'CORPORATE_CARD' | 'CASH')}
                     className={`flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-black border transition-all ${
                       paymentMethod === item.id 
                         ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
@@ -299,7 +293,7 @@ export default function ResolutionPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {lineItems.map((item, idx) => {
+                {lineItems.map((item) => {
                   const itemTotal = (Number(item.amount) || 0) + (Number(item.taxAmount) || 0);
                   return (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">

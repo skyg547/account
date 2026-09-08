@@ -27,7 +27,7 @@ export default function PartnerPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchPartners();
   }, []);
 
@@ -43,7 +43,7 @@ export default function PartnerPage() {
           <p className="text-slate-500 mt-2 text-sm font-medium leading-none">전사 파트너 DB 관리 및 사용자의 신규 등록 요청 워크플로우 지원</p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={() => setIsRequestModalOpen(true)}
             className="bg-white/5 hover:bg-white/10 text-white px-8 py-3.5 rounded-2xl border border-white/10 transition-all flex items-center gap-3 text-sm font-black uppercase tracking-widest active:scale-95 shadow-2xl"
           >
@@ -59,9 +59,9 @@ export default function PartnerPage() {
       <section className="bg-white/5 border border-white/10 rounded-[32px] p-6 backdrop-blur-xl flex flex-col sm:flex-row justify-between items-center gap-6">
         <div className="relative w-full max-w-md group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-500 transition-colors" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search by name, tax ID, or owner..." 
+          <input
+            type="text"
+            placeholder="Search by name, tax ID, or owner..."
             className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm text-white outline-none focus:border-blue-500/50 transition-all shadow-inner font-bold"
           />
         </div>
@@ -192,7 +192,7 @@ export default function PartnerPage() {
               </div>
 
               <div className="flex gap-4 pt-10">
-                 <button 
+                 <button
                    onClick={() => setIsRequestModalOpen(false)}
                    className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 font-black tracking-widest text-xs transition-all uppercase"
                  >

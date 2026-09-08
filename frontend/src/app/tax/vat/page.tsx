@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  Calculator, 
-  FileCheck, 
-  Download, 
-  CheckCircle2, 
-  Calendar, 
-  AlertCircle, 
-  PieChart, 
-  ArrowRight, 
+import {
+  Calculator,
+  FileCheck,
+  CheckCircle2,
+  Calendar,
+  AlertCircle,
+  PieChart,
+  ArrowRight,
   Lock,
   Layers,
-  Sparkles,
-  Info
+  Sparkles
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';

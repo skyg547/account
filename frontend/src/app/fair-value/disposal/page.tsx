@@ -348,7 +348,7 @@ export default function AssetDisposalPage() {
                   <label className="font-bold text-slate-400">처분 구분</label>
                   <select
                     value={disposalType}
-                    onChange={(e) => setDisposalType(e.target.value as any)}
+                    onChange={(e) => setDisposalType(e.target.value as AssetDisposalDto['disposalType'])}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="SALE">매각 (Sale)</option>

@@ -13,7 +13,7 @@ interface PartnerDoc {
 }
 
 export default function PartnerDocumentsPage() {
-  const [docs, setDocs] = useState<PartnerDoc[]>([
+  const [docs] = useState<PartnerDoc[]>([
     {
       id: 'DOC-101',
       partnerName: '(주) 테크노솔루션',

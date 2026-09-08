@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  ShieldCheck, 
-  RefreshCw, 
-  Search, 
-  AlertTriangle, 
-  CheckCircle2, 
-  XCircle, 
-  FileDiff, 
-  Check, 
-  X, 
+import {
+  ShieldCheck,
+  RefreshCw,
+  Search,
+  AlertTriangle,
+  CheckCircle2,
+  FileDiff,
+  Check,
+  X,
   ArrowUpRight,
   Database,
-  Building,
   HelpCircle
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';

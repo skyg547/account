@@ -1,17 +1,13 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  Calendar, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Clock, 
-  CheckCircle2, 
-  Layers, 
-  Plus, 
+import {
+  TrendingUp,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Layers,
+  Plus,
   Search,
   SlidersHorizontal
 } from 'lucide-react';
@@ -36,7 +32,7 @@ const emptySubscribe = () => () => {};
 
 export default function CashflowPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>(mockCashflow.items);
+  const [cashflowItems] = useState<CashflowItem[]>(mockCashflow.items);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 

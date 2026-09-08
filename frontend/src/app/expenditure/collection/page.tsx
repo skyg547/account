@@ -1,24 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  ArrowDownToLine, 
-  Plus, 
-  CheckCircle2, 
-  Clock, 
-  Building, 
-  Search, 
-  FileCheck, 
-  Calendar,
-  DollarSign,
-  Link as LinkIcon,
-  ShieldCheck
+import {
+  ArrowDownToLine,
+  Plus,
+  CheckCircle2,
+  Clock,
+  Search,
+  FileCheck,
+  Link as LinkIcon
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
 import Tabs, { TabItem } from '@/components/ui/Tabs';
-import { mockReceivables, ReceivableDto } from '@/mocks/expenditure';
+import { mockReceivables } from '@/mocks/expenditure';
 
 interface CollectionRecord {
   id: string;
@@ -86,7 +82,7 @@ export default function CollectionPage() {
   const [newAmount, setNewAmount] = useState<number>(0);
   const [newDate, setNewDate] = useState('2026-07-28');
   const [newBank, setNewBank] = useState('신한은행');
-  const [newType, setNewType] = useState<'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT' | 'BILL'>('BANK_TRANSFER');
+  const [newType] = useState<'BANK_TRANSFER' | 'VIRTUAL_ACCOUNT' | 'BILL'>('BANK_TRANSFER');
 
   const mainTabs: TabItem[] = [
     { id: 'LIST', label: '수금 입금 내역', icon: ArrowDownToLine },

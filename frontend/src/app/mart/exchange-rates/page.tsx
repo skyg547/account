@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
-  RefreshCw, 
-  Plus, 
-  Search, 
-  Calendar, 
-  ArrowUpRight, 
+import {
+  DollarSign,
+  TrendingUp,
+  RefreshCw,
+  Plus,
+  Search,
+  Calendar,
+  ArrowUpRight,
   ArrowDownRight,
-  Globe,
-  Building
+  Globe
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -25,9 +23,7 @@ import {
   CartesianGrid 
 } from 'recharts';
 import PageHeader from '@/components/ui/PageHeader';
-import StatusBadge from '@/components/ui/StatusBadge';
-import AmountDisplay from '@/components/ui/AmountDisplay';
-import Tabs, { TabItem } from '@/components/ui/Tabs';
+import StatusBadge from '@/components/ui/StatusBadge';import Tabs, { TabItem } from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
 import { 
   mockExchangeRates, 
@@ -39,7 +35,7 @@ const emptySubscribe = () => () => {};
 
 export default function ExchangeRatesPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [rates, setRates] = useState<ExchangeRateDto[]>(mockExchangeRates);
+  const [rates] = useState<ExchangeRateDto[]>(mockExchangeRates);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);

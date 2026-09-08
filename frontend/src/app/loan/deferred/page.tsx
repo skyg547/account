@@ -1,21 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Layers, 
-  Plus, 
-  Search, 
-  Filter, 
-  TrendingDown, 
-  TrendingUp, 
-  PieChart, 
-  ArrowRightLeft, 
-  Calendar, 
+import {
+  Layers,
+  Plus,
+  Search,
+  TrendingDown,
+  TrendingUp,
+  PieChart,
   Sparkles,
-  CheckCircle,
-  Clock,
-  Download,
-  AlertCircle
+  Download
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';

@@ -6,7 +6,6 @@ import {
   BarChart3,
   TrendingUp,
   FileSpreadsheet,
-  CheckCircle2,
   AlertTriangle,
   FileCheck,
   Layers,
@@ -25,20 +24,16 @@ import {
   CartesianGrid,
   PieChart,
   Pie,
-  Cell,
-  LineChart,
-  Line
+  Cell
 } from 'recharts';
-import PageHeader from '@/components/ui/PageHeader';
-import StatusBadge from '@/components/ui/StatusBadge';
-import AmountDisplay from '@/components/ui/AmountDisplay';
+import PageHeader from '@/components/ui/PageHeader';import AmountDisplay from '@/components/ui/AmountDisplay';
 import { mockResults, EclResultDto } from '@/mocks/ecl';
 
 const emptySubscribe = () => () => {};
 
 export default function EclResultsPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [results, setResults] = useState<EclResultDto[]>(mockResults);
+  const [results] = useState<EclResultDto[]>(mockResults);
   const [notification, setNotification] = useState<string | null>(null);
 
   const totalExposure = results.reduce((sum, item) => sum + item.exposureAmount, 0);
@@ -63,15 +58,7 @@ export default function EclResultsPage() {
     { name: 'Stage 3 (Impaired ECL)', value: totalStage3, color: '#EF4444' },
   ];
 
-  // Chart 3 Data: 6-Month Trend
-  const trendData = [
-    { month: '2026-01', ecl: 25.8, coverage: 1.82 },
-    { month: '2026-02', ecl: 26.2, coverage: 1.85 },
-    { month: '2026-03', ecl: 26.9, coverage: 1.90 },
-    { month: '2026-04', ecl: 27.1, coverage: 1.93 },
-    { month: '2026-05', ecl: 27.0, coverage: 1.91 },
-    { month: '2026-06', ecl: 27.45, coverage: 1.96 },
-  ];
+
 
   const handleIssueJournal = () => {
     setNotification('IFRS9 대손충당금 분개 전표가 재무회계 시스템으로 발행되었습니다. (전표번호: JV-20260630-ECL01)');
@@ -191,7 +178,7 @@ export default function EclResultsPage() {
                 <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
-                  formatter={(val: any) => [`${Number(val || 0).toFixed(1)}억원`, '']}
+                  formatter={(val: unknown) => [`${Number(val || 0).toFixed(1)}억원`, '']}
                 />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 <Bar dataKey="Stage1" name="Stage 1 (12M)" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
@@ -228,7 +215,7 @@ export default function EclResultsPage() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
-                  formatter={(val: any) => [`₩${(Number(val || 0) / 100000000).toFixed(1)}억원`, '충당금']}
+                  formatter={(val: unknown) => [`₩${(Number(val || 0) / 100000000).toFixed(1)}억원`, '충당금']}
                 />
               </PieChart>
             </ResponsiveContainer>

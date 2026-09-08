@@ -33,7 +33,7 @@ const emptySubscribe = () => () => {};
 
 export default function DqAuditPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [metrics, setMetrics] = useState<DqMetricDto[]>(mockDqMetrics);
+  const [metrics] = useState<DqMetricDto[]>(mockDqMetrics);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);

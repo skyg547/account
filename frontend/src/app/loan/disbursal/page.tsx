@@ -1,20 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Coins, 
-  Send, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle, 
-  Building2, 
-  ArrowRight, 
-  CreditCard, 
-  Search, 
-  Plus, 
-  FileCheck,
-  ShieldAlert,
-  ArrowUpRight
+import {
+  Coins,
+  Send,
+  CheckCircle2,
+  ArrowRight,
+  Search,
+  ShieldAlert
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';

@@ -1,20 +1,18 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Building2, 
-  Search, 
-  Plus, 
-  Filter, 
-  Download, 
-  TrendingUp, 
-  Boxes, 
+import {
+  Building2,
+  Search,
+  Plus,
+  Download,
+  TrendingUp,
+  Boxes,
   FileSpreadsheet,
   CheckCircle2,
   XCircle,
   Eye,
-  SlidersHorizontal,
-  ArrowUpDown
+  SlidersHorizontal
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -35,12 +33,12 @@ export default function FixedAssetsPage() {
   // New asset form state
   const [newAsset, setNewAsset] = useState({
     assetName: '',
-    category: '유형자산' as const,
+    category: '유형자산' as AssetDto['category'],
     subCategory: '건물',
     acquisitionDate: new Date().toISOString().split('T')[0],
     acquisitionCost: 0,
     usefulLifeYears: 5,
-    depreciationMethod: 'STRAIGHT_LINE' as const,
+    depreciationMethod: 'STRAIGHT_LINE' as AssetDto['depreciationMethod'],
     salvageValue: 0,
     department: '경영지원팀',
     location: '본사 5층',
@@ -477,7 +475,7 @@ export default function FixedAssetsPage() {
                   <label className="font-bold text-slate-400">자산 대분류</label>
                   <select
                     value={newAsset.category}
-                    onChange={e => setNewAsset({ ...newAsset, category: e.target.value as any })}
+                    onChange={e => setNewAsset({ ...newAsset, category: e.target.value as AssetDto['category'] })}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="유형자산">유형자산</option>
@@ -533,7 +531,7 @@ export default function FixedAssetsPage() {
                   <label className="font-bold text-slate-400">상각 방법</label>
                   <select
                     value={newAsset.depreciationMethod}
-                    onChange={e => setNewAsset({ ...newAsset, depreciationMethod: e.target.value as any })}
+                    onChange={e => setNewAsset({ ...newAsset, depreciationMethod: e.target.value as AssetDto['depreciationMethod'] })}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="STRAIGHT_LINE">정액법 (Straight Line)</option>

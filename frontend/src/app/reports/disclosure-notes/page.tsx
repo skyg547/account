@@ -9,15 +9,10 @@ import {
   ChevronRight,
   ChevronDown,
   Search,
-  FileText,
   Eye,
   CheckCircle2,
-  ExternalLink,
-  SlidersHorizontal,
   Sparkles,
   X,
-  Building,
-  ArrowRight,
   ShieldCheck,
   Table
 } from 'lucide-react';
@@ -25,8 +20,6 @@ import PageHeader from '@/components/ui/PageHeader';
 import AmountDisplay from '@/components/ui/AmountDisplay';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Tabs from '@/components/ui/Tabs';
-import EmptyState from '@/components/ui/EmptyState';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
 import { mockDisclosureNotes, DisclosureNoteDto } from '@/mocks/reporting';
 
 export default function DisclosureNotesPage() {

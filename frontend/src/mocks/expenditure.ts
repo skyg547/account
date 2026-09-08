@@ -531,13 +531,13 @@ export const mockReceivables: ReceivableDto[] = [
     issueDate: '2026-04-10',
     dueDate: '2026-05-10',
     amount: 24000000,
-    paidAmount: 0,
+    collectedAmount: 0,
     balance: 24000000,
     status: 'OVERDUE',
     agingDays: 79,
     agingCategory: '61-90',
     description: '보험 청구 API 연동 개발비'
-  } as any,
+  },
   {
     id: 'ar-005',
     arNumber: 'AR-2026-0201',

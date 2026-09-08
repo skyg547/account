@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, 
-  Search, 
-  ChevronRight, 
-  ChevronDown, 
-  CheckCircle2, 
-  Clock, 
+import {
+  BookOpen,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Layers,
   Send
@@ -77,7 +77,7 @@ export default function AccountSubjectPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchData();
   }, []);
 
@@ -91,8 +91,8 @@ export default function AccountSubjectPage() {
 
     return (
       <div key={node.id} className="space-y-4">
-        <div 
-          className={`flex items-center gap-4 group/item ${node.type === 'GROUP' ? 'cursor-pointer' : ''} ${depth > 0 ? 'ml-12' : ''}`} 
+        <div
+          className={`flex items-center gap-4 group/item ${node.type === 'GROUP' ? 'cursor-pointer' : ''} ${depth > 0 ? 'ml-12' : ''}`}
           onClick={() => node.type === 'GROUP' && toggleGroup(node.id)}
         >
           {node.type === 'GROUP' ? (
@@ -102,10 +102,10 @@ export default function AccountSubjectPage() {
           ) : (
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mx-2" />
           )}
-          
+
           <span className="text-sm font-black text-slate-500 tracking-widest uppercase">{node.id}</span>
           <span className={`text-lg font-black tracking-tight ${node.type === 'GROUP' ? 'text-slate-300' : 'text-white'}`}>{node.name}</span>
-          
+
           {node.status === 'ACTIVE' && node.type === 'SUBJECT' && (
             <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 ml-2">ACTIVE</span>
           )}
@@ -143,7 +143,7 @@ export default function AccountSubjectPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => setIsRequestModalOpen(true)}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white text-sm font-black transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 px-8"
           >
@@ -164,8 +164,8 @@ export default function AccountSubjectPage() {
               </div>
               <div className="relative group/search max-w-xs w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="계정명, 코드 검색..."
                   className="w-full bg-slate-950 border border-white/5 focus:border-blue-500/30 rounded-xl py-3 pl-12 pr-4 text-white text-sm outline-none transition-all placeholder:text-slate-700"
                 />
@@ -240,7 +240,7 @@ export default function AccountSubjectPage() {
                  </div>
 
                  <div className="flex gap-4 pt-4">
-                    <button 
+                    <button
                       onClick={() => setIsRequestModalOpen(false)}
                       className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-black tracking-widest text-xs transition-all uppercase"
                     >

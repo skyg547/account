@@ -23,7 +23,7 @@ export default function InterBranchPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchData();
   }, []);
 
@@ -80,8 +80,8 @@ export default function InterBranchPage() {
         <section className={styles.listSection + " glass-card"}>
           <div className={styles.sectionHeader}>
             <h3>미정산 내역 대조</h3>
-            <button 
-              className={styles.autoMatchBtn} 
+            <button
+              className={styles.autoMatchBtn}
               onClick={handleAutoMatch}
               disabled={isMatching}
             >

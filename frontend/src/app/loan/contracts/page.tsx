@@ -1,23 +1,17 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-  FileText, 
-  Plus, 
-  Search, 
-  Filter, 
-  TrendingUp, 
-  Building2, 
-  Calendar, 
-  Percent, 
-  ShieldCheck, 
-  ChevronRight, 
-  Eye, 
+import {
+  FileText,
+  Plus,
+  Search,
+  TrendingUp,
+  Building2,
+  Percent,
+  ShieldCheck,
+  Eye,
   Download,
-  AlertCircle,
-  Clock,
-  ArrowUpRight,
-  Sparkles
+  ArrowUpRight
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
