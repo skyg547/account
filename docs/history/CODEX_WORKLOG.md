@@ -1,14 +1,14 @@
-## 2026-09-07 (Harness: 4단계 작업 난이도(하/중/상/최상) 및 모델 추론 강도(high/xhigh) 매핑 정책 수립)
-- 요청 목표: 작업 난이도 4단계(하/중/상/최상) 및 모델 추론 강도(low/medium/high/xhigh) 연계 하네스 정책을 수립하고, GitHub 라벨과 Issue 템플릿에 동기화한다.
+## 2026-09-07 (Issue #638 Centralized Configuration Repository for 12 Business Microservices)
+- 요청 목표: 12개 비즈니스 마이크로서비스 중앙 설정 파일(`config-repo/*.yml`) 생성 및 정합화 (Gemini Flash 구현, Issue #638).
 - 변경:
-  - `70-model-assignment-policy.md`: 4단계 난이도(하: `difficulty:low`, 중: `difficulty:medium`, 상: `difficulty:high`, 최상: `difficulty:very-high`)와 Codex `model_reasoning_effort`(low, medium, high, xhigh) 매핑 매트릭스, 토큰 보호 원칙(기본값 `high`, 최상 작업 선별 `xhigh`), 에스컬레이션/디에스컬레이션 규칙 명시.
-  - `85-github-issue-agent-loop.md`: 4개 난이도 라벨 정의 및 이슈별 단일 라벨 지정 규약 추가.
-  - `87-spec-driven-delegation.md`: Spec Author, Implementer, Reviewer 역할별 난이도 대응 매핑.
-  - `.github/ISSUE_TEMPLATE/agent-implementation-spec.yml`, `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml`: 난이도 4단계 드롭다운 필드 추가.
-  - GitHub 원격 저장소에 `difficulty:very-high` 라벨 신설 및 `difficulty:high` 설명 보정.
+  - `config-repo/` 하위에 12개 비즈니스 서비스 및 별칭(18개 파일) 추가 (`closing-service.yml`, `closing-api.yml`, `deposit-service.yml`, `deposit-api.yml`, `receivable-api.yml`, `payable-api.yml`, `tax-api.yml`, `reconciliation-api.yml`, `asset-lease-service.yml`, `asset-lease-api.yml`, `reporting-api.yml`, `expenditure-resolution-api.yml`, `account-mart-api.yml`, `ifrs9-allowance-api.yml`, `ecl-api.yml`, `budget-api.yml`, `loan-api.yml`, `loan-service.yml`).
+  - Eureka 클라이언트 표준 계약(`service-url.defaultZone`, `prefer-ip-address: true`), `${SERVER_PORT}` 포트 플레이스홀더, Prometheus 및 Zipkin 관측성 표준 설정 적용.
+  - `ConfigServerConfigurationPolicyTest`에 12개 비즈니스 서비스 설정 검증 테스트(`allBusinessMicroserviceConfigurationsExistAndFollowStandards`) 추가.
 - 검증:
-  - `git diff --check`: whitespace/format 오류 0건.
-  - GitHub 라벨 4종(`difficulty:low`, `difficulty:medium`, `difficulty:high`, `difficulty:very-high`) 정상 등록 확인.
+  - YAML 구문 파싱 검사 전수 통과.
+  - `./gradlew :config-server:test` (5/5 tasks 통과, BUILD SUCCESSFUL).
+- 리스크:
+  - 운영 배포 시 환경별 override 파일(`application-prod.yml` 등)과의 추가 정합성 점검 권장.
 
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.

@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: loan-api
+  flyway:
+    enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: "${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}}"
+
+account:
+  loan:
+    accounting:
+      cash-account-code: "101000"
+      loan-receivable-account-code: "131000"
+      deferred-asset-account-code: "118000"
+      recognized-income-account-code: "410000"
+      accrued-interest-receivable-account-code: "115010"
+      interest-income-account-code: "410100"
