@@ -98,6 +98,7 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      SPRING_KAFKA_LISTENER_AUTO_STARTUP: "false"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"

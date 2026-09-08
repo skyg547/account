@@ -1,4 +1,7 @@
 spring:
+  kafka:
+    listener:
+      auto-startup: ${SPRING_KAFKA_LISTENER_AUTO_STARTUP:false}
   cloud:
     config:
       enabled: false
