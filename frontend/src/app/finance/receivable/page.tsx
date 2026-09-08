@@ -26,12 +26,12 @@ export default function ReceivableAgingPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchInvoices();
   }, []);
 
   const totalReceivable = invoices.reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
-  
+
   // Calculate critical aging (e.g. past due > 90 days). Here we just simulate with a logic if needed, or default to 0
   const criticalAging = invoices.filter(inv => inv.status === 'DEFAULTED').reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
 
@@ -45,7 +45,7 @@ export default function ReceivableAgingPage() {
           <p className="text-slate-500 mt-2 text-sm font-medium leading-none">미수 채권의 회수 상태 실시간 모니터링 및 연령별 부실 리스크 조기 식별</p>
         </div>
         <div className="flex gap-2">
-           <button 
+           <button
              onClick={fetchInvoices}
              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg"
            >
@@ -76,7 +76,7 @@ export default function ReceivableAgingPage() {
                   <div className="mb-2 opacity-0 group-hover/bar:opacity-100 transition-opacity">
                     <span className="text-[10px] font-mono font-black text-white bg-slate-800 px-2 py-1 rounded shadow-xl">{bar.val}</span>
                   </div>
-                  <div 
+                  <div
                     className={`w-full rounded-t-xl bg-gradient-to-t ${bar.color} shadow-lg group-hover/bar:brightness-125 transition-all duration-500 cursor-pointer relative`}
                     style={{ height: bar.height }}
                   >
@@ -87,12 +87,12 @@ export default function ReceivableAgingPage() {
               ))}
             </div>
           </div>
-          
+
           <div className="absolute -right-10 -top-10 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity duration-1000 pointer-events-none">
              <TrendingUp size={280} className="text-white" />
           </div>
         </div>
-        
+
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.08] transition-all group overflow-hidden relative">
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Total Receivable Balance</span>
@@ -139,7 +139,7 @@ export default function ReceivableAgingPage() {
                </div>
             </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>

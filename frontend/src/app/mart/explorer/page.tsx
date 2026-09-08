@@ -109,7 +109,7 @@ export default function MartExplorerPage() {
             <span className="text-[10px] text-slate-500">Read-Only View</span>
           </div>
           <p><span className="text-purple-400">SELECT</span> * <span className="text-purple-400">FROM</span> financial_mart.{selectedDataset.datasetName}</p>
-          <p><span className="text-purple-400">WHERE</span> PARTITION_KEY = <span className="text-emerald-400">'2026-07-28'</span></p>
+          <p><span className="text-purple-400">WHERE</span> PARTITION_KEY = <span className="text-emerald-400">&apos;2026-07-28&apos;</span></p>
           <p><span className="text-purple-400">ORDER BY</span> POSTING_DATE <span className="text-purple-400">DESC</span> <span className="text-purple-400">LIMIT</span> 500;</p>
         </div>
       )}

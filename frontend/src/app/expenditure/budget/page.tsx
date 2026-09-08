@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  Calculator, 
-  Search, 
-  AlertTriangle, 
-  CheckCircle2, 
-  TrendingUp, 
-  Plus, 
-  ArrowRightLeft, 
-  BarChart3, 
-  Building2,
+import {
+  Calculator,
+  Search,
+  CheckCircle2,
+  TrendingUp,
+  Plus,
+  ArrowRightLeft,
+  BarChart3,
   PieChart
 } from 'lucide-react';
 import { 
@@ -33,7 +31,7 @@ const emptySubscribe = () => () => {};
 
 export default function BudgetPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [budgetList, setBudgetList] = useState<BudgetItem[]>(mockBudget);
+  const [budgetList] = useState<BudgetItem[]>(mockBudget);
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -41,7 +39,6 @@ export default function BudgetPage() {
   const totalAllocated = budgetList.reduce((sum, b) => sum + b.allocatedBudget, 0);
   const totalUsed = budgetList.reduce((sum, b) => sum + b.usedAmount, 0);
   const totalEncumbered = budgetList.reduce((sum, b) => sum + b.encumberedAmount, 0);
-  const totalRemaining = totalAllocated - (totalUsed + totalEncumbered);
   const totalRate = totalAllocated > 0 ? (((totalUsed + totalEncumbered) / totalAllocated) * 100).toFixed(1) : '0';
 
   const filterTabs: TabItem[] = [

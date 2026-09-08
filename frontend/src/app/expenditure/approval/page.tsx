@@ -1,16 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  CheckSquare, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  FileText, 
-  User, 
-  Building, 
+import {
+  CheckSquare,
+  Search,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  FileText,
+  User,
+  Building,
   Calendar,
   X,
   MessageSquare,
@@ -319,7 +318,7 @@ export default function ApprovalPage() {
                       />
                     </div>
                     <div className="text-xs font-black text-white">{step.approverName} ({step.position})</div>
-                    {step.comment && <p className="text-[11px] text-slate-400 italic">"{step.comment}"</p>}
+                    {step.comment && <p className="text-[11px] text-slate-400 italic">&quot;{step.comment}&quot;</p>}
                     {step.approvedAt && <span className="text-[10px] text-slate-500 block font-mono">{step.approvedAt}</span>}
                   </div>
                 ))}

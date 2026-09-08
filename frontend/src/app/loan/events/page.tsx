@@ -1,27 +1,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Zap, 
-  RotateCcw, 
-  FileText, 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
-  Plus, 
-  Search, 
-  Sparkles, 
-  TrendingUp, 
-  Percent, 
-  ArrowRight,
-  Filter,
-  RefreshCw,
+import {
+  Zap,
+  RotateCcw,
+  Plus,
+  Search,
+  Sparkles,
   Play
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
-import StatusBadge from '@/components/ui/StatusBadge';
-import AmountDisplay from '@/components/ui/AmountDisplay';
-import Tabs, { TabItem } from '@/components/ui/Tabs';
+import StatusBadge from '@/components/ui/StatusBadge';import Tabs, { TabItem } from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
 import { mockLoanEvents, mockContracts, LoanEventDto } from '@/mocks/loan';
 

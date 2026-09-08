@@ -12,7 +12,7 @@ interface BudgetItem {
 }
 
 export default function BudgetControlPage() {
-  const [budgets, setBudgets] = useState<BudgetItem[]>([
+  const [budgets] = useState<BudgetItem[]>([
     {
       id: 'BDG-2026-01',
       deptName: 'IT개발팀',

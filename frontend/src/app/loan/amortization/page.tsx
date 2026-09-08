@@ -1,26 +1,20 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Table, 
-  Calculator, 
-  Calendar, 
-  Percent, 
-  TrendingUp, 
-  Download, 
-  RefreshCw, 
-  ChevronRight, 
-  Sparkles, 
-  FileSpreadsheet,
-  CheckCircle2,
-  Clock,
-  AlertTriangle
+import {
+  Table,
+  Calculator,
+  Percent,
+  TrendingUp,
+  RefreshCw,
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
 import EmptyState from '@/components/ui/EmptyState';
-import { mockSchedules, mockContracts, AmortizationScheduleDto, LoanContractDto } from '@/mocks/loan';
+import { mockSchedules, mockContracts, AmortizationScheduleDto } from '@/mocks/loan';
 
 export default function LoanAmortizationPage() {
   const [selectedContractId, setSelectedContractId] = useState<string>(mockContracts[0].id);

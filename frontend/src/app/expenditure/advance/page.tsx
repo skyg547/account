@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Wallet, 
-  Plus, 
-  ArrowRightLeft, 
-  Building2, 
-  Calendar, 
-  CheckCircle2, 
-  Clock, 
-  FileText, 
-  Search, 
-  ArrowRight,
-  ShieldAlert
+import {
+  Wallet,
+  Plus,
+  ArrowRightLeft,
+  CheckCircle2,
+  Clock,
+  FileText,
+  ArrowRight
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -70,7 +66,6 @@ export default function AdvancePage() {
   ]);
 
   const [activeTab, setActiveTab] = useState('LIST');
-  const [selectedVendor, setSelectedVendor] = useState('(주)삼성SDS');
   const [selectedAdvId, setSelectedAdvId] = useState('adv-001');
   const [selectedApId, setSelectedApId] = useState('ap-001');
   const [offsetInput, setOffsetInput] = useState<number>(10000000);

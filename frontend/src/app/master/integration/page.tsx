@@ -10,7 +10,7 @@ interface MasterSyncItem {
 }
 
 export default function MasterIntegrationPage() {
-  const [items, setItems] = useState<MasterSyncItem[]>([
+  const [items] = useState<MasterSyncItem[]>([
     { domain: '법인/조직 (Company & Dept)', totalRecords: 48, lastSyncedAt: '2026-07-28 10:00:00', status: 'SYNCED' },
     { domain: '계정과목 체계 (Chart of Accounts)', totalRecords: 320, lastSyncedAt: '2026-07-28 10:00:00', status: 'SYNCED' },
     { domain: '거래처 마스터 (Partner Master)', totalRecords: 1420, lastSyncedAt: '2026-07-28 11:30:00', status: 'SYNCED' },

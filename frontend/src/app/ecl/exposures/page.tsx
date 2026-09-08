@@ -4,17 +4,12 @@ import React, { useState, useSyncExternalStore } from 'react';
 import {
   Layers,
   Search,
-  Filter,
   ShieldAlert,
   ShieldCheck,
   AlertTriangle,
   FileSpreadsheet,
-  ArrowUpDown,
   Eye,
   Building2,
-  UserCheck,
-  Percent,
-  TrendingUp,
   X
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -27,7 +22,7 @@ const emptySubscribe = () => () => {};
 
 export default function EclExposuresPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [exposures, setExposures] = useState<EclExposureDto[]>(mockExposures);
+  const [exposures] = useState<EclExposureDto[]>(mockExposures);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPortfolio, setSelectedPortfolio] = useState('ALL');
   const [selectedStage, setSelectedStage] = useState('ALL');

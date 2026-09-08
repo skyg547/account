@@ -1,19 +1,13 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  CreditCard, 
-  Search, 
-  Filter, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
-  BarChart3, 
-  ArrowUpRight, 
-  DollarSign, 
+import {
+  CreditCard,
+  Search,
+  AlertTriangle,
+  BarChart3,
   Building2,
-  Calendar,
-  ExternalLink
+  Calendar
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -35,7 +29,7 @@ const emptySubscribe = () => () => {};
 
 export default function PayablePage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [payables, setPayables] = useState<PayableDto[]>(mockPayables);
+  const [payables] = useState<PayableDto[]>(mockPayables);
   const [selectedAging, setSelectedAging] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 

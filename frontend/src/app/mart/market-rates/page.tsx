@@ -1,21 +1,15 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  Percent, 
-  Search, 
-  RefreshCw, 
-  Plus, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Landmark, 
-  TrendingDown, 
-  Clock,
-  Building2
+import {
+  Percent,
+  Search,
+  RefreshCw,
+  Plus,
+  ArrowUpRight,
+  ArrowDownRight
 } from 'lucide-react';
-import PageHeader from '@/components/ui/PageHeader';
-import StatusBadge from '@/components/ui/StatusBadge';
-import Tabs, { TabItem } from '@/components/ui/Tabs';
+import PageHeader from '@/components/ui/PageHeader';import Tabs, { TabItem } from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
 import { mockMarketRates, MarketRateDto } from '@/mocks/mart';
 
@@ -23,7 +17,7 @@ const emptySubscribe = () => () => {};
 
 export default function MarketRatesPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [rates, setRates] = useState<MarketRateDto[]>(mockMarketRates);
+  const [rates] = useState<MarketRateDto[]>(mockMarketRates);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);

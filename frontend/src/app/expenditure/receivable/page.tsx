@@ -1,17 +1,14 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  DollarSign, 
-  Search, 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
-  TrendingUp, 
-  Building, 
-  Mail, 
+import {
+  DollarSign,
+  Search,
+  AlertCircle,
+  TrendingUp,
+  Building,
+  Mail,
   FileCheck,
-  Calendar,
   BarChart3
 } from 'lucide-react';
 import { 
@@ -34,7 +31,7 @@ const emptySubscribe = () => () => {};
 
 export default function ReceivablePage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [receivables, setReceivables] = useState<ReceivableDto[]>(mockReceivables);
+  const [receivables] = useState<ReceivableDto[]>(mockReceivables);
   const [selectedAging, setSelectedAging] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  CalendarDays, 
-  CheckCircle2, 
+import {
+  CalendarDays,
+  CheckCircle2,
   Activity,
   Stamp,
   History,
@@ -45,7 +45,7 @@ export default function ClosingPage() {
   }, [showErrorToast]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchTasks();
   }, [fetchTasks]);
 
@@ -101,11 +101,11 @@ export default function ClosingPage() {
     }
   };
 
-  const filteredTasks = selectedCategory === 'ALL' 
-    ? tasks 
+  const filteredTasks = selectedCategory === 'ALL'
+    ? tasks
     : tasks.filter(t => t.category === selectedCategory);
 
-  const progress = tasks.length > 0 
+  const progress = tasks.length > 0
     ? Math.round((tasks.filter(t => t.status === 'COMPLETED').length / tasks.length) * 100)
     : 0;
 
@@ -157,7 +157,7 @@ export default function ClosingPage() {
            <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
                  <h3 className="text-xl font-black text-white italic tracking-tight uppercase">Overall Progress</h3>
-                 <button 
+                 <button
                   onClick={fetchTasks}
                   className={`p-2 rounded-full hover:bg-white/5 transition-all ${isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-600'}`}
                  >
@@ -166,7 +166,7 @@ export default function ClosingPage() {
               </div>
               <span className="text-xs font-black text-blue-500 bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/20">{progress}% COMPLETED</span>
            </div>
-           
+
            <div className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-white/5 p-0.5 mb-8">
               <div className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
            </div>
@@ -211,7 +211,7 @@ export default function ClosingPage() {
            <h3 className="text-xl font-black text-white italic tracking-tight">Closing Task Explorer</h3>
            <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
               {['ALL', 'PRE_CLOSING', 'CLOSING_ENTRY', 'POST_CLOSING', 'REPORTING'].map(cat => (
-                <button 
+                <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
@@ -234,11 +234,11 @@ export default function ClosingPage() {
                       task.status === 'IN_PROGRESS' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
                       'bg-slate-800 border-white/5 text-slate-600'
                    }`}>
-                      {task.status === 'COMPLETED' ? <CheckCircle2 size={24} /> : 
+                      {task.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
                        task.status === 'FAILED' ? <AlertTriangle size={24} /> :
                        <Activity size={24} className={task.status === 'IN_PROGRESS' ? 'animate-spin-slow' : ''} />}
                    </div>
-                   
+
                    <div className="space-y-1">
                       <div className="flex items-center gap-3">
                          <h4 className="text-lg font-black text-white group-hover:text-blue-400 transition-colors">{task.name}</h4>
@@ -292,7 +292,7 @@ export default function ClosingPage() {
            <div className="space-y-4">
               <h3 className="text-2xl font-black text-white italic tracking-tighter">실시간 재무 정합성 검증</h3>
               <p className="text-slate-500 text-sm font-medium max-w-xl">
-                 결산 확정 전, 시스템이 전표의 차/대 평형, 미승인 건수, 마스터 데이터 정합성을 자동으로 검수합니다. 
+                 결산 확정 전, 시스템이 전표의 차/대 평형, 미승인 건수, 마스터 데이터 정합성을 자동으로 검수합니다.
                  모든 항목이 <span className="text-emerald-500 font-bold">PASS</span> 상태여야 결산 승인이 가능합니다.
               </p>
            </div>

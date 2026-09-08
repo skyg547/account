@@ -10,12 +10,10 @@ import {
   Maximize2,
   Minimize2,
   TrendingUp,
-  TrendingDown,
   Building2,
   DollarSign,
   PieChart,
   RefreshCw,
-  Printer,
   FileSpreadsheet
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -47,7 +45,6 @@ export default function FinancialStatementsPage() {
     const assetVar = totalAssets - prevAssets;
 
     const totalLiab = mockStatements.find(s => s.accountCode === '2000000')?.amountCurrent || 0;
-    const prevLiab = mockStatements.find(s => s.accountCode === '2000000')?.amountPrevious || 0;
     
     const totalEquity = mockStatements.find(s => s.accountCode === '3000000')?.amountCurrent || 0;
     

@@ -1,18 +1,16 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  GitBranch, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  XCircle, 
-  TrendingUp, 
-  TrendingDown, 
-  FileText, 
-  Percent, 
-  Calculator,
-  SlidersHorizontal
+import {
+  GitBranch,
+  Plus,
+  Search,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  Calculator
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -33,7 +31,6 @@ export default function LeaseRemeasurementPage() {
   const [changeReason, setChangeReason] = useState<'OPTION_EXERCISE' | 'RATE_CHANGE' | 'PAYMENT_MODIFICATION' | 'TERM_EXTENSION'>('TERM_EXTENSION');
   const [remeasureDate, setRemeasureDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [newDiscountRate, setNewDiscountRate] = useState<number>(4.8);
-  const [adjustedPayment, setAdjustedPayment] = useState<number>(0);
   const [postLiability, setPostLiability] = useState<number>(0);
 
   const activeContract = useMemo(() => {
@@ -338,7 +335,7 @@ export default function LeaseRemeasurementPage() {
                   <label className="font-bold text-slate-400">계약 변동 사유</label>
                   <select
                     value={changeReason}
-                    onChange={(e) => setChangeReason(e.target.value as any)}
+                    onChange={(e) => setChangeReason(e.target.value as LeaseRemeasureDto['changeReason'])}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="TERM_EXTENSION">리스기간 연장 (Term Extension)</option>

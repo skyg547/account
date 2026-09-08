@@ -1,19 +1,12 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  PlayCircle, 
-  RefreshCw, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  Clock, 
-  Calendar, 
-  Filter, 
+import {
+  PlayCircle,
+  CheckCircle2,
+  Clock,
   Search,
-  Zap,
-  Sliders,
-  Layers
+  Zap
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';

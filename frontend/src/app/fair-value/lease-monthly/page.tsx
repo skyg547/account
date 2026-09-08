@@ -1,24 +1,22 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  CalendarCheck2, 
-  Play, 
-  CheckCircle2, 
-  DollarSign, 
-  Percent, 
-  TrendingDown, 
-  Building2, 
+import {
+  CalendarCheck2,
+  Play,
+  CheckCircle2,
+  DollarSign,
+  Percent,
+  TrendingDown,
+  Building2,
   Search,
-  FileCheck,
-  AlertCircle,
-  RefreshCw
+  FileCheck
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
 import EmptyState from '@/components/ui/EmptyState';
-import { mockLeaseMonthlies, mockLeases, LeaseMonthlyDto } from '@/mocks/fair-value';
+import { mockLeaseMonthlies, LeaseMonthlyDto } from '@/mocks/fair-value';
 
 export default function LeaseMonthlyClosingPage() {
   const [monthlies, setMonthlies] = useState<LeaseMonthlyDto[]>(mockLeaseMonthlies);

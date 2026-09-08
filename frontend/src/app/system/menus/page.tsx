@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Lock, Check, X, RotateCcw, ShieldCheck, Sliders, Layers, FileText, Settings, PieChart, BookOpen, AlertCircle
+import {
+  Check,
+  X,
+  RotateCcw,
+  Layers
 } from 'lucide-react';
-import PageHeader from '@/components/ui/PageHeader';
-import StatusBadge from '@/components/ui/StatusBadge';
-import { allMenus } from '@/components/layout/menus';
+import PageHeader from '@/components/ui/PageHeader';import { allMenus } from '@/components/layout/menus';
 
 const GOVERNANCE_API_BASE_URL = process.env.NEXT_PUBLIC_GOVERNANCE_API_URL || '';
 

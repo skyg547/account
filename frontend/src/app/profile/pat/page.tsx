@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { KeyRound, Plus, Trash2, Copy, Check, ShieldAlert, Clock, Sparkles } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -52,9 +52,9 @@ export default function PersonalAccessTokenPage() {
   const [loading, setLoading] = useState(false);
   const [createdPat, setCreatedPat] = useState<NewPatResponse | null>(null);
   const [copied, setCopied] = useState(false);
-  const [username, setUsername] = useState('admin');
+  const [username] = useState('admin');
 
-  const fetchTokens = async () => {
+  const fetchTokens = useCallback(async () => {
     if (!AUTH_API_BASE_URL) {
       setTokens(MOCK_PATS);
       return;
@@ -78,11 +78,11 @@ export default function PersonalAccessTokenPage() {
     } catch {
       setTokens(MOCK_PATS);
     }
-  };
+  }, [username]);
 
   useEffect(() => {
     fetchTokens();
-  }, []);
+  }, [fetchTokens]);
 
   const handleCreatePat = async (e: React.FormEvent) => {
     e.preventDefault();

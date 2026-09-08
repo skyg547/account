@@ -14,7 +14,7 @@ interface EclExposure {
 }
 
 export default function EclStageTransitionPage() {
-  const [exposures, setExposures] = useState<EclExposure[]>([
+  const [exposures] = useState<EclExposure[]>([
     {
       id: 'ECL-2026-001',
       customerName: '(주) 테크노솔루션',

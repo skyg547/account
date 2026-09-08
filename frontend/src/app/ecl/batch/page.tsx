@@ -6,19 +6,13 @@ import {
   Play,
   RotateCcw,
   Terminal,
-  CheckCircle2,
   AlertTriangle,
   Clock,
   Database,
   Cpu,
   FileText,
-  Pause,
-  Download,
-  Filter,
-  RefreshCw,
   Search,
   CheckCircle,
-  XCircle,
   Zap,
   Server
 } from 'lucide-react';
@@ -31,7 +25,7 @@ const emptySubscribe = () => () => {};
 export default function EclBatchPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [batches, setBatches] = useState<EclBatchDto[]>(mockBatches);
-  const [logs, setLogs] = useState<EclBatchLogDto[]>(mockBatchLogs);
+  const [logs] = useState<EclBatchLogDto[]>(mockBatchLogs);
   const [logFilter, setLogFilter] = useState<'ALL' | 'INFO' | 'WARN' | 'ERROR'>('ALL');
   const [logSearch, setLogSearch] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);

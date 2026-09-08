@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  LineChart as LineChartIcon, 
-  TrendingUp, 
-  Settings2, 
-  Download, 
-  RefreshCw, 
-  Layers, 
+import {
+  LineChart as LineChartIcon,
+  TrendingUp,
+  Download,
+  RefreshCw,
   Calendar,
   Zap,
   Sliders
@@ -24,15 +22,13 @@ import {
 } from 'recharts';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
-import Tabs, { TabItem } from '@/components/ui/Tabs';
-import EmptyState from '@/components/ui/EmptyState';
-import { mockYieldCurves, YieldCurveDto } from '@/mocks/mart';
+import Tabs, { TabItem } from '@/components/ui/Tabs';import { mockYieldCurves, YieldCurveDto } from '@/mocks/mart';
 
 const emptySubscribe = () => () => {};
 
 export default function YieldCurvesPage() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-  const [curves, setCurves] = useState<YieldCurveDto[]>(mockYieldCurves);
+  const [curves] = useState<YieldCurveDto[]>(mockYieldCurves);
   const [selectedCurveId, setSelectedCurveId] = useState<string>('ALL');
   const [interpolator, setInterpolator] = useState<'CUBIC_SPLINE' | 'NELSON_SIEGEL' | 'LINEAR'>('CUBIC_SPLINE');
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -122,7 +118,7 @@ export default function YieldCurvesPage() {
           <div className="flex items-center gap-2">
             <select
               value={interpolator}
-              onChange={e => setInterpolator(e.target.value as any)}
+              onChange={e => setInterpolator(e.target.value as 'CUBIC_SPLINE' | 'NELSON_SIEGEL' | 'LINEAR')}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
             >
               <option value="CUBIC_SPLINE" className="bg-slate-900">CUBIC SPLINE (3차 스플라인)</option>

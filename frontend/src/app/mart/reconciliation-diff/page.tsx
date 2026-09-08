@@ -1,19 +1,15 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  FileCheck, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Search, 
-  Edit3, 
-  X, 
-  MessageSquare, 
-  ArrowRightLeft, 
-  ShieldAlert, 
-  Clock,
-  Send,
-  FileText
+import {
+  FileCheck,
+  AlertTriangle,
+  CheckCircle2,
+  Search,
+  Edit3,
+  X,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -300,7 +296,7 @@ export default function ReconciliationDiffPage() {
                 <label className="block text-slate-400 font-bold mb-1.5">차이 발생 원인 분류 (Reason Category) *</label>
                 <select
                   value={memoReason}
-                  onChange={e => setMemoReason(e.target.value as any)}
+                  onChange={e => setMemoReason(e.target.value as '시차 반영' | '환율 차이' | '수수료 미계상' | '시스템 오류' | '단수 차이')}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-blue-500"
                 >
                   <option value="시차 반영" className="bg-slate-900">시차 반영 (Timing Difference)</option>

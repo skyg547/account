@@ -26,13 +26,13 @@ export default function PayableManagementPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     fetchInvoices();
   }, []);
 
   const totalPending = invoices.filter(inv => inv.status !== 'FULLY_PAID' && inv.status !== 'CANCELLED').length;
   const totalPaidAmount = invoices.filter(inv => inv.status === 'FULLY_PAID' || inv.status === 'PARTIALLY_PAID').reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
-  
+
   const formatAmount = (val: number) => `₩${(val || 0).toLocaleString()}`;
 
   return (
@@ -43,7 +43,7 @@ export default function PayableManagementPage() {
           <p className="text-slate-500 mt-2 text-sm font-medium leading-none">공급업체 지급 대기 내역 정합성 확인 및 최적 자금 계획 기반 일괄 지급 실행</p>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={fetchInvoices}
             className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-white/5 transition-all flex items-center gap-2 text-sm font-bold shadow-lg"
           >
@@ -64,7 +64,7 @@ export default function PayableManagementPage() {
             </h3>
             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">NEXT 7 DAYS</span>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
             {[
               { date: '4월 22일 (수)', amount: '4,500,000', status: 'D-Day', color: 'text-rose-500' },
@@ -143,7 +143,7 @@ export default function PayableManagementPage() {
               </select>
             </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -192,7 +192,7 @@ export default function PayableManagementPage() {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${
-                          isUrgent ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 animate-pulse' : 
+                          isUrgent ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 animate-pulse' :
                           row.status === 'FULLY_PAID' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                           'bg-slate-500/10 text-slate-500 border-white/5'
                         }`}>

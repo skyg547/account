@@ -2,18 +2,13 @@
 
 import React, { useState, useSyncExternalStore } from 'react';
 import {
-  Calculator,
   Cpu,
   Sliders,
-  CheckCircle2,
-  AlertTriangle,
   Play,
   RotateCcw,
   BarChart3,
-  Layers,
   ArrowRight,
-  Zap,
-  Info
+  Zap
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -42,7 +37,7 @@ export default function EclEadPage() {
   const [undrawnAmount, setUndrawnAmount] = useState<number>(400000000); // 4억
   const [ccf, setCcf] = useState<number>(75); // 75%
   const [amortization, setAmortization] = useState('만기일시');
-  const [remainingMonths, setRemainingMonths] = useState<number>(36);
+  const [remainingMonths] = useState<number>(36);
 
   // Dynamic Calculation
   const calculatedEad = drawnAmount + (undrawnAmount * (ccf / 100));
@@ -253,7 +248,7 @@ export default function EclEadPage() {
                 undrawnAmount: undrawnAmount,
                 ccf: ccf,
                 calculatedEad: calculatedEad,
-                amortizationMethod: amortization as any,
+                amortizationMethod: amortization as EadSimulationDto['amortizationMethod'],
                 remainingMonths: remainingMonths,
                 status: 'PASS',
               };
@@ -283,7 +278,7 @@ export default function EclEadPage() {
               <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
-                formatter={(val: any) => [`${Number(val || 0).toFixed(2)}억원`, '']}
+                formatter={(val: unknown) => [`${Number(val || 0).toFixed(2)}억원`, '']}
               />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Bar dataKey="Drawn" name="미상환 잔액 (Drawn)" stackId="a" fill="#10B981" />

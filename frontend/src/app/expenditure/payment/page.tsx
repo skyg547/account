@@ -1,23 +1,20 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  Banknote, 
-  Building2, 
-  CheckCircle2, 
-  Clock, 
-  FileText, 
-  CreditCard, 
-  ArrowRight, 
+import {
+  Banknote,
+  Building2,
+  Clock,
+  FileText,
+  CreditCard,
   ShieldCheck,
-  AlertCircle,
   Play,
   Zap
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
-import { mockResolutions, mockPayables, ResolutionDto, PayableDto } from '@/mocks/expenditure';
+import { mockResolutions, mockPayables } from '@/mocks/expenditure';
 
 interface BankAccount {
   id: string;
@@ -37,7 +34,7 @@ export default function PaymentRunPage() {
   const [selectedResolutions, setSelectedResolutions] = useState<string[]>(['res-1']);
   const [selectedPayables, setSelectedPayables] = useState<string[]>(['ap-1', 'ap-2']);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [executionStep, setExecutionStep] = useState<'IDLE' | 'PROCESSING' | 'DONE'>('IDLE');
+  const [, setExecutionStep] = useState<'IDLE' | 'PROCESSING' | 'DONE'>('IDLE');
 
   // Filter approved resolutions and unpaid payables
   const approvedResolutions = mockResolutions.filter(r => r.status === 'APPROVED' || r.status === 'PENDING');

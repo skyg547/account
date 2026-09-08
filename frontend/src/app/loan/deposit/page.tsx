@@ -1,22 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Landmark, 
-  PiggyBank, 
-  Percent, 
-  TrendingUp, 
-  Plus, 
-  Search, 
-  Building, 
-  Coins, 
-  Download, 
-  Sparkles, 
-  Calendar,
-  CheckCircle2,
-  Clock,
-  ArrowUpRight,
-  ShieldCheck
+import {
+  Landmark,
+  PiggyBank,
+  Percent,
+  TrendingUp,
+  Plus,
+  Search,
+  Download,
+  Sparkles
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';

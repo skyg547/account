@@ -4,28 +4,20 @@ import React, { useState, useMemo } from 'react';
 import {
   ShieldAlert,
   Send,
-  FileCheck,
-  Calendar,
   Building2,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Plus,
   Search,
-  FileText,
   X,
   UploadCloud,
   Sparkles,
-  ChevronRight,
-  Eye,
-  Check
+  Eye
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Tabs from '@/components/ui/Tabs';
-import EmptyState from '@/components/ui/EmptyState';
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import { mockRegulatorySubmissions, RegulatorySubmissionDto } from '@/mocks/reporting';
+import EmptyState from '@/components/ui/EmptyState';import { mockRegulatorySubmissions, RegulatorySubmissionDto } from '@/mocks/reporting';
 
 export default function RegulatoryReportsPage() {
   const [submissions, setSubmissions] = useState<RegulatorySubmissionDto[]>(mockRegulatorySubmissions);
@@ -329,7 +321,7 @@ export default function RegulatoryReportsPage() {
                 </label>
                 <select
                   value={formType}
-                  onChange={e => setFormType(e.target.value as any)}
+                  onChange={e => setFormType(e.target.value as 'FSS_KIFRS' | 'TAX_VAT' | 'TAX_CIT' | 'BANK_REGULATORY')}
                   className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white outline-none focus:border-blue-500 font-bold"
                 >
                   <option value="FSS_KIFRS">금융감독원 (DART) - K-IFRS 보고서</option>

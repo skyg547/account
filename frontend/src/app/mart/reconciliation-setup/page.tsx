@@ -1,17 +1,14 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { 
-  Settings, 
-  Plus, 
-  Search, 
-  Sliders, 
-  Play, 
-  CheckCircle2, 
-  Database, 
-  Clock, 
-  Edit3, 
-  Trash2,
+import {
+  Settings,
+  Plus,
+  Search,
+  Sliders,
+  Play,
+  CheckCircle2,
+  Edit3,
   X
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -282,7 +279,7 @@ export default function ReconciliationSetupPage() {
                   <label className="block text-slate-400 font-bold mb-1">카테고리</label>
                   <select
                     value={newCategory}
-                    onChange={e => setNewCategory(e.target.value as any)}
+                    onChange={e => setNewCategory(e.target.value as '원장vs마트' | '계정대계정' | '파생/외화' | '시스템간')}
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500"
                   >
                     <option value="원장vs마트" className="bg-slate-900">원장 vs 마트</option>
@@ -296,7 +293,7 @@ export default function ReconciliationSetupPage() {
                   <label className="block text-slate-400 font-bold mb-1">스케줄 방식</label>
                   <select
                     value={newSchedule}
-                    onChange={e => setNewSchedule(e.target.value as any)}
+                    onChange={e => setNewSchedule(e.target.value as 'REALTIME' | 'DAILY' | 'MONTHLY')}
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500"
                   >
                     <option value="DAILY" className="bg-slate-900">일별 배치 (DAILY)</option>

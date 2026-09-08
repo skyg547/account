@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  FileText, 
-  RefreshCw, 
-  Search, 
-  Download, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Building, 
-  Filter, 
-  ShieldCheck, 
-  X, 
+import {
+  FileText,
+  RefreshCw,
+  Search,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  Building,
+  ShieldCheck,
+  X,
   ArrowUpRight,
   Sparkles,
   Info
@@ -23,7 +22,7 @@ import Tabs from '@/components/ui/Tabs';
 import { mockPurchaseInvoices, TaxInvoiceDto } from '@/mocks/tax';
 
 export default function PurchaseTaxInvoicePage() {
-  const [invoices, setInvoices] = useState<TaxInvoiceDto[]>(mockPurchaseInvoices);
+  const [invoices] = useState<TaxInvoiceDto[]>(mockPurchaseInvoices);
   const [activeTab, setActiveTab] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedInvoice, setSelectedInvoice] = useState<TaxInvoiceDto | null>(null);

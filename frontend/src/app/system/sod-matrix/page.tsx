@@ -12,7 +12,7 @@ interface SodRule {
 }
 
 export default function SodMatrixPage() {
-  const [rules, setRules] = useState<SodRule[]>([
+  const [rules] = useState<SodRule[]>([
     {
       id: 'SOD-001',
       roleA: '전표 작성자 (Journal Creator)',

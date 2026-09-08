@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Scale, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  XCircle, 
-  TrendingUp, 
-  TrendingDown, 
-  Building, 
+import {
+  Scale,
+  Plus,
+  Search,
+  CheckCircle2,
+  XCircle,
+  TrendingUp,
+  Building,
   FileCheck2,
-  ShieldCheck,
   AlertOctagon
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -339,7 +337,7 @@ export default function AssetRevaluationPage() {
                   <label className="font-bold text-slate-400">평가 구분</label>
                   <select
                     value={valuationType}
-                    onChange={(e) => setValuationType(e.target.value as any)}
+                    onChange={(e) => setValuationType(e.target.value as 'REVALUATION' | 'IMPAIRMENT' | 'REVERSAL')}
                     className="w-full p-3 rounded-xl bg-slate-900 border border-white/10 text-white outline-none focus:border-blue-500"
                   >
                     <option value="REVALUATION">공정가치 재평가 (Revaluation)</option>

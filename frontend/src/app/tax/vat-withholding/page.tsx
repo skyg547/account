@@ -13,7 +13,7 @@ interface TaxDeclaration {
 }
 
 export default function VatWithholdingPage() {
-  const [declarations, setDeclarations] = useState<TaxDeclaration[]>([
+  const [declarations] = useState<TaxDeclaration[]>([
     {
       id: 'TAX-2026-Q2-VAT',
       taxType: 'VAT',

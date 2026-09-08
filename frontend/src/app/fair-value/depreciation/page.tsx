@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { 
-  Calculator, 
-  Play, 
-  CheckCircle2, 
-  FileText, 
-  History, 
-  AlertCircle, 
-  RefreshCw, 
-  Layers, 
-  TrendingDown,
+import {
+  Calculator,
+  Play,
+  CheckCircle2,
+  History,
+  AlertCircle,
+  RefreshCw,
   Calendar,
   Sparkles,
   Loader2
