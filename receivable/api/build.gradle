@@ -17,6 +17,7 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation project(':receivable:core')
     implementation project(':shared-kernel')
 
