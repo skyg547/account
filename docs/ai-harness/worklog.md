@@ -1,20 +1,15 @@
-### 📅 2026-09-07 (GH-639: 업무 패키지별 accounting, products, risk 독립 실행 Compose 오버레이 정의)
-- **Component**: `tools/compose.accounting-external-dev.yml`, `tools/compose.products-external-dev.yml`, `tools/compose.risk-external-dev.yml`, `tools/check-*-databases.sh`, `docs/guides/development-compose.md`
+### 📅 2026-09-08 (GH-640: external-dev PostgreSQL에 accounting 업무 패키지 DB 프로비저닝 및 마이그레이션 적용)
+- **Component**: `postgres/runtime/provision-accounting-external-dev.py`, `docs/ai-harness/`
 - **Changes**:
-  - 저자원 개발 환경(가용 메모리 13GiB 호스트) 최적화를 위한 3종의 업무 패키지별 독립 Compose 오버레이 정의:
-    - `accounting`: `accounting-db-check`, `journal-ledger-api`, `closing-api`, `payable-api`, `receivable-api`, `expenditure-resolution-api`, `tax-api`, `reporting-api` (회계 7개 DB 격리 검증)
-    - `products`: `products-db-check`, `deposit-api`, `loan-api`, `asset-lease-api` (상품 3개 DB 격리 검증)
-    - `risk`: `risk-db-check`, `account-mart-api`, `ecl-api`, `reconciliation-api` (리스크 3개 DB 격리 검증)
-  - 기존 실행 중인 `account-network` 브릿지를 공유(external: true)하여 Discovery, Config Server, PostgreSQL과의 완벽한 통신 지원.
-  - 패키지별 독립 DB 권한 검증 셸 스크립트 3종(`tools/check-accounting-databases.sh`, `tools/check-products-databases.sh`, `tools/check-risk-databases.sh`) 추가. 미관련 패키지 변수가 누락되어도 기동 차단 방지.
-  - 각 API 컨테이너에 CPU 0.50, Memory 768m (reservation 256m) 리소스 상한선 강제.
-  - `docs/guides/development-compose.md`에 업무 패키지별 독립 실행 가이드 및 명령어 추가.
+  - `postgres/runtime/provision-accounting-external-dev.py`: external-dev PostgreSQL 컨테이너(`account-postgres`)에 accounting 7개 서비스(`journal-ledger`, `closing`, `payable`, `receivable`, `tax`, `expenditure-resolution`, `reporting`) DB 생성, `_owner` 및 `_app` 역할 프로비저닝, `account-migration-runner.jar` 기반 마이그레이션 적용 및 validate 검증 스크립트 작성.
+  - Podman 사용자 정의 브릿지 네트워크(`account-network`)를 사용하여 `account-external-dev-db` 별칭을 컨테이너 내에서 안전하게 통신하도록 설정.
+  - Fail-closed 보안 검증: DDL 거부(`_app` 사용자의 `CREATE TABLE` 실패 확인), `flyway_schema_history` 격리, `_app` 패스워드 인증 검증.
+  - 환경 변수(`.env.external-dev`)에 안전하게 32바이트 보안 난수 비밀번호 및 JDBC URL 자동 주입(0600 권한 보장, 미커밋 보존).
 - **Verification**:
-  - `podman compose -f tools/compose.accounting-external-dev.yml config --quiet` (PASS).
-  - `podman compose -f tools/compose.products-external-dev.yml config --quiet` (PASS).
-  - `podman compose -f tools/compose.risk-external-dev.yml config --quiet` (PASS).
-  - 미관련 타 패키지 환경변수 부재 시에도 정상 렌더링 격리성 검증 통과.
-  - `git diff --check`: 오류 0건, 민감정보 노출 0건.
+  - `provision-accounting-external-dev.py --apply`: 7/7 databases migrate, validate, login, ACL, DDL denial PASS.
+  - Dry-run preflight check: PASS (seven canonical development targets; existing state preserved).
+  - `tools/check-accounting-databases.sh`: 7개 DB 격리 게이트 PASS.
+  - Git diff check & secret leak check: 0 issues.
 
 ### 📅 2026-09-07 (GH-630: 통합 아키텍처 명세서 위치 정규화 및 최신 2026 MSA 구성도 업데이트)
 - **Component**: `docs/architecture/architecture.md`, `docs/guides/master-domain-glossary.md`, `docs/README.md`
