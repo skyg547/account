@@ -1,7 +1,8 @@
 # Agent Status
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
+| 2026-09-08 | Codex / Gemini | Implementer | `agent/436-config-crypto-endpoint-auth` / `/tmp/account-436-config-crypto-endpoint-auth` | Draft PR ready | Enforced authentication, disabled-default policy, and public ingress isolation for Config Server encrypt/decrypt endpoints. Verified 118 tests in :config-server. |
 | 2026-09-08 | Gemini / Codex | Implementer | `agent/640-accounting-dev-db` / `/tmp/account-640-accounting-dev-db` | Draft PR ready | Provisioned and migrated 7 accounting databases on external-dev PostgreSQL via `provision-accounting-external-dev.py`, verified with fail-closed ACL gates and check-accounting-databases.sh. |
 | 2026-09-07 | Gemini | Implementer / Documentation | `agent/630-architecture-docs-update` | Draft PR ready | Normalized architecture.md path to docs/architecture/architecture.md, fixed broken link from docs/README.md and master-domain-glossary.md, and updated comprehensive 2026 enterprise MSA topology, 6-phase pipeline, and hexagonal architecture diagrams. |
 | 2026-09-02 | Gemini | Implementer / Documentation | `agent/521-beginner-podman-auth-runtime` | Draft PR ready | Updated beginner Podman/Docker low-resource external-dev compose runbook, sequential one-worker build rules, container recreate conditions, and strict prohibitions against down -v, prune, and destructive checkout. Verified python tests and DevelopmentComposePolicyTest / ContainerImagePolicyTest (100% PASS). |

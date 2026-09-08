@@ -1,3 +1,17 @@
+### 📅 2026-09-08 (GH-436: Config Server encrypt/decrypt endpoint 인증 및 네트워크 노출 제한)
+- **Component**: `config-server`, `compose.prod.yml`, `docs/ai-harness/`
+- **Changes**:
+  - `EncryptionEndpointSecurityFilter.java`: Config Server 암복호화 엔드포인트(`/encrypt`, `/decrypt` 및 URL 인코딩, 세미콜론 매트릭스 파라미터 변형 포함)에 대해 승인된 내부 토큰(`X-Config-Token`, `X-Config-Internal-Token`) 인증 강제 및 비활성화 기본 정책 구현.
+  - `EncryptionEndpointWebSecurity.java`: `EncryptionController` 핸들러 매핑 변경 시에도 최고 우선순위 인터셉터로 인증 인가를 보장하도록 WebMvcConfigurer 구현.
+  - `application.yml`: 기본값으로 `spring.cloud.config.server.encrypt.enabled: false` 설정 및 `EncryptionController` 로깅 OFF 지정하여 민감정보/평문 노출 원천 차단.
+  - `compose.prod.yml`: `SPRING_CLOUD_CONFIG_SERVER_ENCRYPT_ENABLED: "false"` 명시 및 외부 포트 미노출 유지.
+  - `ConfigServerEncryptionEndpointSecurityIntegrationTest.java`: 비활성화 404, 무인증/잘못된 토큰 401, 토큰 미설정 403 fail-closed, 유효 토큰 200 허용, health/readiness 및 마이크로서비스 설정 조회 무회귀 통합 테스트 작성.
+  - `ConfigCryptoExposurePolicyTest.java`: Compose 및 Gateway 라우팅에서 Config Server가 공용 ingress로 노출되지 않음을 보증하는 정적 정책 테스트 추가.
+- **Verification**:
+  - `./gradlew :config-server:test :config-server:bootJar` (118 tests 100% SUCCESSFUL).
+  - Compose 및 Gateway 라우팅 정적 검사 통과.
+  - `git diff --check`: 오류 0건.
+
 ### 📅 2026-09-08 (GH-640: external-dev PostgreSQL에 accounting 업무 패키지 DB 프로비저닝 및 마이그레이션 적용)
 - **Component**: `postgres/runtime/provision-accounting-external-dev.py`, `docs/ai-harness/`
 - **Changes**:
@@ -10,6 +24,9 @@
   - Dry-run preflight check: PASS (seven canonical development targets; existing state preserved).
   - `tools/check-accounting-databases.sh`: 7개 DB 격리 게이트 PASS.
   - Git diff check & secret leak check: 0 issues.
+
+### 📅 2026-09-07 (Harness: 4단계 작업 난이도(하/중/상/최상) 및 모델 추론 강도(high/xhigh) 매핑 정책 수립)
+- **Component**: `docs/ai-harness/70-model-assignment-policy.md`, `docs/ai-harness/85-github-issue-agent-loop.md`, `docs/ai-harness/87-spec-driven-delegation.md`, `docs/ai-harness/00-overview.md`, `.github/ISSUE_TEMPLATE/*`
 
 ### 📅 2026-09-07 (GH-630: 통합 아키텍처 명세서 위치 정규화 및 최신 2026 MSA 구성도 업데이트)
 - **Component**: `docs/architecture/architecture.md`, `docs/guides/master-domain-glossary.md`, `docs/README.md`

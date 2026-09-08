@@ -3,275 +3,292 @@ package com.ho.account.configserver.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ho.account.configserver.ConfigServerApplication;
+import java.net.URI;
 import java.util.List;
-import java.util.Map;
-import org.junit.jupiter.api.DisplayName;
+import java.util.UUID;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
-/**
- * ==============================================================================
- * Config Server Encryption Endpoint Security Integration Tests
- * ==============================================================================
- * 검증 항목:
- * 1. 암복호화 엔드포인트 비활성화(Disabled) 시 404 Not Found 반환 (Fail-Closed)
- * 2. 엔드포인트 활성화 상태에서 외부 토큰 미설정 시 403 Forbidden 반환 (Fail-Closed)
- * 3. 엔드포인트 활성화 + 토큰 설정 상태에서:
- *    - 익명(무인증) 요청 시 401 Unauthorized 거부
- *    - 변조/오류 토큰 요청 시 401 Unauthorized 거부
- *    - X-Config-Token 헤더 인증 시 200 OK 정상 처리
- *    - X-Config-Internal-Token 헤더 인증 시 200 OK 정상 처리
- *    - Authorization Bearer 헤더 인증 시 200 OK 정상 처리
- *    - Encrypt -> Decrypt 라운드트립 일관성
- *    - 동일 요청 반복 실행(Idempotence) 일관성
- *    - 공백 및 경계값 처리
- * 4. 보안 필터 활성화 상태에서도 Actuator(/actuator/health/readiness) 및
- *    일반 설정 조회(/{application}/{profile})는 100% 무회귀 200 OK 동작
- * ==============================================================================
- */
+/** Real servlet-container tests: URI overloads deliberately preserve percent encoding. */
+@ExtendWith(OutputCaptureExtension.class)
 class ConfigServerEncryptionEndpointSecurityIntegrationTest {
+    private static final String TOKEN = UUID.randomUUID().toString();
+    private static final String KEY = UUID.randomUUID().toString();
 
-    private static final String TEST_CRYPTO_TOKEN = "test-crypto-token-sec-99887766";
-    private static final String TEST_SYMMETRIC_KEY = "test-symmetric-encryption-key-32bytes-len";
-
-    @Nested
-    @SpringBootTest(
-            classes = ConfigServerApplication.class,
+    @SpringBootTest(classes = ConfigServerApplication.class,
             webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
             properties = {
                     "spring.profiles.active=native",
                     "spring.cloud.config.server.native.search-locations=classpath:/config-repository",
-                    "spring.cloud.config.server.encrypt.enabled=true",
-                    "config.crypto.endpoint.token=" + TEST_CRYPTO_TOKEN,
-                    "ENCRYPT_KEY=" + TEST_SYMMETRIC_KEY,
                     "config-server.repository-probe.application=policy-test-service",
-                    "config-server.repository-probe.profile=default"
+                    "config-server.repository-probe.profile=default",
+                    "spring.cloud.config.server.health.repositories.master-data.name=policy-test-service",
+                    "spring.cloud.config.server.health.repositories.master-data.profiles=default"
             })
-    @DisplayName("암복호화 엔드포인트 활성화 및 토큰 구성 시 보안 정책 검증")
-    class AuthenticatedEndpointSecurityTests {
+    abstract static class HttpHarness {
+        @Autowired TestRestTemplate http;
+        @Autowired Environment environment;
+        @LocalServerPort int port;
 
-        @Autowired
-        private TestRestTemplate restTemplate;
-
-        @Test
-        @DisplayName("인증 헤더가 없는 익명 /encrypt 요청은 401 Unauthorized로 거부된다")
-        void anonymousEncryptRequestIsRejectedWith401() {
-            HttpEntity<String> request = new HttpEntity<>("sampleSecretData");
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        @DynamicPropertySource
+        static void key(DynamicPropertyRegistry registry) {
+            registry.add("ENCRYPT_KEY", () -> KEY);
         }
 
-        @Test
-        @DisplayName("인증 헤더가 없는 익명 /decrypt 요청은 401 Unauthorized로 거부된다")
-        void anonymousDecryptRequestIsRejectedWith401() {
-            HttpEntity<String> request = new HttpEntity<>("sampleCipherData");
-            ResponseEntity<String> response = restTemplate.postForEntity("/decrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        String root() {
+            return "http://127.0.0.1:" + port
+                    + environment.getProperty("server.servlet.context-path", "")
+                    + environment.getProperty("spring.mvc.servlet.path", "");
         }
 
-        @Test
-        @DisplayName("잘못된 X-Config-Token 헤더 요청은 401 Unauthorized로 거부된다")
-        void invalidXConfigTokenIsRejectedWith401() {
+        String cryptoRoot() {
+            return root() + environment.getProperty("spring.cloud.config.server.prefix", "");
+        }
+
+        ResponseEntity<String> post(String path, HttpHeaders headers, String body) {
+            return http.exchange(URI.create(cryptoRoot() + path), HttpMethod.POST,
+                    new HttpEntity<>(body, headers), String.class);
+        }
+
+        HttpHeaders authenticated(String header) {
             HttpHeaders headers = new HttpHeaders();
-            headers.set(EncryptionEndpointSecurityFilter.CONFIG_TOKEN_HEADER, "invalid-forged-token");
-            HttpEntity<String> request = new HttpEntity<>("sampleSecretData", headers);
+            headers.setContentType(MediaType.TEXT_PLAIN);
+            headers.set(header, HttpHeaders.AUTHORIZATION.equals(header) ? "Bearer " + TOKEN : TOKEN);
+            return headers;
+        }
 
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        void safe(ResponseEntity<String> response, CapturedOutput output, String... values) {
+            String body = response.getBody() == null ? "" : response.getBody();
+            for (String value : values) {
+                assertThat(body.contains(value)).as("error body must not echo test input").isFalse();
+                assertThat(output.getAll().contains(value)).as("logs must not echo test input").isFalse();
+            }
+            assertThat(body.contains(TOKEN) || body.contains(KEY)).as("error body must not echo credentials").isFalse();
+            assertThat(output.getAll().contains(TOKEN) || output.getAll().contains(KEY))
+                    .as("logs must not echo credentials").isFalse();
         }
 
         @Test
-        @DisplayName("잘못된 Authorization Bearer 헤더 요청은 401 Unauthorized로 거부된다")
-        void invalidBearerTokenIsRejectedWith401() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.AUTHORIZATION, "Bearer invalid-forged-token");
-            HttpEntity<String> request = new HttpEntity<>("sampleSecretData", headers);
+        void healthReadinessAndConfigRemainPublic() {
+            for (String path : List.of("/actuator/health", "/actuator/health/readiness")) {
+                ResponseEntity<String> response = http.getForEntity(URI.create(root() + path), String.class);
+                assertThat(response.getStatusCode().value()).isEqualTo(200);
+                assertThat(response.getBody() != null && response.getBody().contains("\"status\":\"UP\""))
+                        .as("health must remain UP").isTrue();
+            }
+            ResponseEntity<String> config = http.getForEntity(
+                    URI.create(cryptoRoot() + "/policy-test-service/default"), String.class);
+            assertThat(config.getStatusCode().value()).isEqualTo(200);
+            assertThat(config.getBody() != null && config.getBody().contains("config-server-test"))
+                    .as("native repository fixture must still be served").isTrue();
+        }
+    }
 
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    @Nested
+    @TestPropertySource(properties = "spring.cloud.config.server.encrypt.enabled=true")
+    class Enabled extends HttpHarness {
+        @DynamicPropertySource
+        static void token(DynamicPropertyRegistry registry) {
+            registry.add("config.crypto.endpoint.token", () -> TOKEN);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"/encrypt", "/decrypt", "/%65ncrypt", "/d%65crypt",
+                "/encrypt;matrix=value", "/decrypt;matrix=value", "/encrypt/policy-test-service/default",
+                "/decrypt/policy-test-service/default", "/%65ncrypt/policy-test-service/default",
+                "/d%65crypt/policy-test-service/default", "/encrypt/", "/decrypt/"})
+        void anonymousRequestsCannotReachCrypto(String path, CapturedOutput output) {
+            String payload = UUID.randomUUID().toString();
+            ResponseEntity<String> response = post(path, new HttpHeaders(), payload);
+            assertThat(response.getStatusCode().value()).isEqualTo(401);
+            safe(response, output, payload);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"X-Config-Token", "X-Config-Internal-Token", "Authorization"})
+        void approvedHeadersAllowActualRoundTrip(String header, CapturedOutput output) {
+            String payload = UUID.randomUUID().toString();
+            for (int attempt = 0; attempt < 2; attempt++) {
+                ResponseEntity<String> encrypted = post("/encrypt", authenticated(header), payload);
+                assertThat(encrypted.getStatusCode().value()).isEqualTo(200);
+                assertThat(encrypted.getBody() != null && !encrypted.getBody().isBlank()
+                        && !encrypted.getBody().equals(payload)).as("encryption produces ciphertext").isTrue();
+                ResponseEntity<String> decrypted = post("/decrypt", authenticated(header), encrypted.getBody());
+                assertThat(decrypted.getStatusCode().value()).isEqualTo(200);
+                assertThat(payload.equals(decrypted.getBody())).as("roundtrip preserves generated input").isTrue();
+                assertThat(output.getAll().contains(payload) || output.getAll().contains(encrypted.getBody())
+                        || output.getAll().contains(TOKEN) || output.getAll().contains(KEY))
+                        .as("successful operations must not log sensitive input/output").isFalse();
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"/encrypt/policy-test-service/default", "/encrypt;matrix=value", "/%65ncrypt"})
+        void authorizedAlternateRoutesUseRealController(String path) {
+            ResponseEntity<String> response = post(path, authenticated("X-Config-Token"), UUID.randomUUID().toString());
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
         }
 
         @Test
-        @DisplayName("올바른 X-Config-Token 헤더 요청은 /encrypt 및 /decrypt 성공(200 OK)")
-        void validXConfigTokenAllowsEncryptAndDecrypt() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(EncryptionEndpointSecurityFilter.CONFIG_TOKEN_HEADER, TEST_CRYPTO_TOKEN);
-            HttpEntity<String> encryptRequest = new HttpEntity<>("myDatabasePassword123!", headers);
-
-            ResponseEntity<String> encryptResponse =
-                    restTemplate.postForEntity("/encrypt", encryptRequest, String.class);
-            assertThat(encryptResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(encryptResponse.getBody()).isNotBlank();
-
-            String encryptedCipher = encryptResponse.getBody();
-            HttpEntity<String> decryptRequest = new HttpEntity<>(encryptedCipher, headers);
-            ResponseEntity<String> decryptResponse =
-                    restTemplate.postForEntity("/decrypt", decryptRequest, String.class);
-            assertThat(decryptResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(decryptResponse.getBody()).isEqualTo("myDatabasePassword123!");
+        void wrongMalformedDuplicateAndConflictingCredentialsAreRejected(CapturedOutput output) {
+            String wrong = UUID.randomUUID().toString();
+            String payload = UUID.randomUUID().toString();
+            for (String header : List.of("X-Config-Token", "X-Config-Internal-Token", "Authorization")) {
+                HttpHeaders invalid = authenticated(header);
+                invalid.set(header, HttpHeaders.AUTHORIZATION.equals(header) ? "Bearer " + wrong : wrong);
+                assertDenied(invalid, payload, output, wrong);
+                HttpHeaders duplicate = authenticated(header);
+                duplicate.add(header, duplicate.getFirst(header));
+                assertDenied(duplicate, payload, output, wrong);
+            }
+            HttpHeaders conflict = authenticated("X-Config-Token");
+            conflict.set("X-Config-Internal-Token", wrong);
+            assertDenied(conflict, payload, output, wrong);
+            HttpHeaders malformed = authenticated("X-Config-Token");
+            malformed.set(HttpHeaders.AUTHORIZATION, "Basic " + wrong);
+            assertDenied(malformed, payload, output, wrong);
+            for (String value : List.of("Bearer", "Bearer ", "Bearer  " + TOKEN, "Basic " + TOKEN)) {
+                HttpHeaders bearer = new HttpHeaders();
+                bearer.set(HttpHeaders.AUTHORIZATION, value);
+                assertDenied(bearer, payload, output, wrong);
+            }
         }
 
-        @Test
-        @DisplayName("올바른 X-Config-Internal-Token 헤더 요청도 /encrypt 성공(200 OK)")
-        void validInternalTokenHeaderAllowsEncrypt() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(EncryptionEndpointSecurityFilter.INTERNAL_CONFIG_TOKEN_HEADER, TEST_CRYPTO_TOKEN);
-            HttpEntity<String> request = new HttpEntity<>("internalSecretData", headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isNotBlank();
-        }
-
-        @Test
-        @DisplayName("올바른 Authorization Bearer 헤더 요청도 /encrypt 성공(200 OK)")
-        void validBearerTokenAllowsEncrypt() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + TEST_CRYPTO_TOKEN);
-            HttpEntity<String> request = new HttpEntity<>("bearerSecretData", headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isNotBlank();
-        }
-
-        @Test
-        @DisplayName("동일한 평문에 대해 반복 요청 시 일관되게 암복호화 수행(재실행 정합성)")
-        void repeatedRequestsAreConsistent() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(EncryptionEndpointSecurityFilter.CONFIG_TOKEN_HEADER, TEST_CRYPTO_TOKEN);
-            HttpEntity<String> request = new HttpEntity<>("repeatableSecret", headers);
-
-            for (int i = 0; i < 3; i++) {
-                ResponseEntity<String> encryptResponse =
-                        restTemplate.postForEntity("/encrypt", request, String.class);
-                assertThat(encryptResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-                assertThat(encryptResponse.getBody()).isNotBlank();
-
-                HttpEntity<String> decryptRequest = new HttpEntity<>(encryptResponse.getBody(), headers);
-                ResponseEntity<String> decryptResponse =
-                        restTemplate.postForEntity("/decrypt", decryptRequest, String.class);
-                assertThat(decryptResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-                assertThat(decryptResponse.getBody()).isEqualTo("repeatableSecret");
+        private void assertDenied(HttpHeaders headers, String payload, CapturedOutput output, String wrong) {
+            for (String path : List.of("/encrypt", "/decrypt")) {
+                ResponseEntity<String> response = post(path, headers, payload);
+                assertThat(response.getStatusCode().value()).isEqualTo(401);
+                safe(response, output, payload, wrong);
             }
         }
 
         @Test
-        @DisplayName("하위 경로 및 슬래시 변형(/encrypt/, /decrypt/)에 대해서도 보안 필터가 동일하게 적용된다")
-        void subpathAndSlashVariationsAreProtected() {
-            HttpEntity<String> unauthenticatedRequest = new HttpEntity<>("secretData");
-            ResponseEntity<String> slashEncryptResponse =
-                    restTemplate.postForEntity("/encrypt/", unauthenticatedRequest, String.class);
-            assertThat(slashEncryptResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-
-            ResponseEntity<String> slashDecryptResponse =
-                    restTemplate.postForEntity("/decrypt/", unauthenticatedRequest, String.class);
-            assertThat(slashDecryptResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        void unauthorizedBodyAndContentTypeDoNotBypassAuthentication(CapturedOutput output) {
+            for (String path : List.of("/encrypt", "/decrypt")) {
+                for (MediaType type : List.of(MediaType.TEXT_PLAIN, MediaType.APPLICATION_JSON)) {
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(type);
+                    ResponseEntity<String> response = post(path, headers, "");
+                    assertThat(response.getStatusCode().value()).isEqualTo(401);
+                    safe(response, output);
+                }
+            }
         }
 
         @Test
-        @DisplayName("보안 필터가 활성화된 상태에서도 /actuator/health/readiness는 200 OK UP으로 정상 동작한다")
-        void readinessEndpointIsUnaffectedByFilter() {
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    "/actuator/health/readiness",
-                    HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<>() {});
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).containsEntry("status", "UP");
-        }
-
-        @Test
-        @DisplayName("보안 필터가 활성화된 상태에서도 마이크로서비스 설정 조회(/{app}/{profile})는 200 OK로 정상 동작한다")
-        void configurationEndpointIsUnaffectedByFilter() {
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    "/policy-test-service/default",
-                    HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<>() {});
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().get("name")).isEqualTo("policy-test-service");
+        void invalidCiphertextAndEmptyBodyHaveSafeErrors(CapturedOutput output) {
+            String invalid = UUID.randomUUID().toString();
+            for (MediaType type : List.of(MediaType.TEXT_PLAIN, MediaType.APPLICATION_JSON)) {
+                HttpHeaders headers = authenticated("X-Config-Token");
+                headers.setContentType(type);
+                ResponseEntity<String> response = post("/decrypt", headers, invalid);
+                assertThat(response.getStatusCode().is4xxClientError()).isTrue();
+                safe(response, output, invalid);
+            }
+            ResponseEntity<String> empty = post("/encrypt", authenticated("X-Config-Token"), "");
+            assertThat(empty.getStatusCode().is4xxClientError()).isTrue();
+            safe(empty, output);
         }
     }
 
     @Nested
-    @SpringBootTest(
-            classes = ConfigServerApplication.class,
-            webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-            properties = {
-                    "spring.profiles.active=native",
-                    "spring.cloud.config.server.native.search-locations=classpath:/config-repository",
-                    "spring.cloud.config.server.encrypt.enabled=false",
-                    "ENCRYPT_KEY=" + TEST_SYMMETRIC_KEY
-            })
-    @DisplayName("암복호화 엔드포인트 비활성화(Disabled) 시 보안 정책 검증")
-    class DisabledEndpointSecurityTests {
+    @TestPropertySource(properties = {"spring.cloud.config.server.encrypt.enabled=true",
+            "server.servlet.context-path=/context", "spring.mvc.servlet.path=/dispatcher",
+            "spring.cloud.config.server.prefix=/configuration"})
+    class Prefixed extends Enabled { }
 
-        @Autowired
-        private TestRestTemplate restTemplate;
-
-        @Test
-        @DisplayName("비활성화 상태에서는 유효한 토큰이 제공되어도 /encrypt는 404 Not Found를 반환한다")
-        void disabledEncryptReturns404EvenWithToken() {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(EncryptionEndpointSecurityFilter.CONFIG_TOKEN_HEADER, TEST_CRYPTO_TOKEN);
-            HttpEntity<String> request = new HttpEntity<>("secretData", headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    @Nested
+    @TestPropertySource(properties = {"spring.cloud.config.server.encrypt.enabled=false"})
+    class Disabled extends HttpHarness {
+        @DynamicPropertySource
+        static void token(DynamicPropertyRegistry registry) {
+            registry.add("config.crypto.endpoint.token", () -> TOKEN);
         }
 
-        @Test
-        @DisplayName("비활성화 상태에서는 /decrypt도 404 Not Found를 반환한다")
-        void disabledDecryptReturns404() {
-            HttpEntity<String> request = new HttpEntity<>("secretData");
-            ResponseEntity<String> response = restTemplate.postForEntity("/decrypt", request, String.class);
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        @ParameterizedTest
+        @ValueSource(strings = {"/encrypt", "/decrypt", "/%65ncrypt", "/d%65crypt",
+                "/encrypt;matrix=value", "/decrypt;matrix=value",
+                "/encrypt/policy-test-service/default", "/decrypt/policy-test-service/default"})
+        void disabledRejectsAnonymousAndAuthenticated(String path, CapturedOutput output) {
+            String payload = UUID.randomUUID().toString();
+            for (HttpHeaders headers : List.of(new HttpHeaders(), authenticated("X-Config-Token"))) {
+                ResponseEntity<String> response = post(path, headers, payload);
+                assertThat(response.getStatusCode().value()).isEqualTo(404);
+                safe(response, output, payload);
+            }
         }
     }
 
     @Nested
-    @SpringBootTest(
-            classes = ConfigServerApplication.class,
-            webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-            properties = {
-                    "spring.profiles.active=native",
-                    "spring.cloud.config.server.native.search-locations=classpath:/config-repository",
-                    "spring.cloud.config.server.encrypt.enabled=true",
-                    "config.crypto.endpoint.token=",
-                    "config-server.internal-crypto-token=",
-                    "ENCRYPT_KEY=" + TEST_SYMMETRIC_KEY
-            })
-    @DisplayName("암복호화 엔드포인트 활성화되었으나 토큰 미설정(Fail-Closed) 시 보안 정책 검증")
-    class MissingTokenEndpointSecurityTests {
+    @TestPropertySource(properties = {"spring.cloud.config.server.encrypt.enabled=true",
+            "config.crypto.endpoint.token=", "config-server.internal-crypto-token="})
+    class MissingToken extends HttpHarness {
+        @Test
+        void invalidConfigurationFailsClosed(CapturedOutput output) {
+            for (String path : List.of("/encrypt", "/decrypt", "/%65ncrypt", "/decrypt;matrix=value")) {
+                String payload = UUID.randomUUID().toString();
+                ResponseEntity<String> response = post(path, authenticated("X-Config-Token"), payload);
+                assertThat(response.getStatusCode().value()).isEqualTo(403);
+                safe(response, output, payload);
+            }
+        }
+    }
 
-        @Autowired
-        private TestRestTemplate restTemplate;
+    @Nested
+    class BlankToken extends MissingToken {
+        @DynamicPropertySource
+        static void blank(DynamicPropertyRegistry registry) {
+            registry.add("config.crypto.endpoint.token", () -> " \t ");
+        }
+    }
+
+    @Nested
+    class LeadingWhitespaceToken extends MissingToken {
+        @DynamicPropertySource
+        static void leadingWhitespace(DynamicPropertyRegistry registry) {
+            registry.add("config.crypto.endpoint.token", () -> " " + TOKEN);
+        }
+    }
+
+    @Nested
+    class TrailingWhitespaceToken extends MissingToken {
+        @DynamicPropertySource
+        static void trailingWhitespace(DynamicPropertyRegistry registry) {
+            registry.add("config.crypto.endpoint.token", () -> TOKEN + " ");
+        }
+    }
+
+    @Nested
+    class LegacyToken extends HttpHarness {
+        @DynamicPropertySource
+        static void legacy(DynamicPropertyRegistry registry) {
+            registry.add("spring.cloud.config.server.encrypt.enabled", () -> "true");
+            registry.add("config-server.internal-crypto-token", () -> TOKEN);
+        }
 
         @Test
-        @DisplayName("토큰이 설정되지 않은 상태에서는 403 Forbidden으로 Fail-Closed 차단된다")
-        void missingTokenFailsClosedWith403() {
-            HttpEntity<String> request = new HttpEntity<>("secretData");
-            ResponseEntity<String> encryptResponse =
-                    restTemplate.postForEntity("/encrypt", request, String.class);
-            assertThat(encryptResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-
-            ResponseEntity<String> decryptResponse =
-                    restTemplate.postForEntity("/decrypt", request, String.class);
-            assertThat(decryptResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        void externalLegacyPropertyRemainsSupported() {
+            ResponseEntity<String> response = post("/encrypt", authenticated("X-Config-Internal-Token"),
+                    UUID.randomUUID().toString());
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
         }
     }
 }

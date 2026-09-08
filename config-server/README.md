@@ -63,25 +63,34 @@ try {
 
 설정 조회 응답에는 내부 설정이 포함될 수 있으므로 공유 로그나 이슈에 응답 본문을 붙이지 않습니다. 이 모듈은 DB를 사용하지 않으므로 H2/PostgreSQL 설정이 필요하지 않습니다.
 
-## 암복호화 엔드포인트 보안 (Encryption Endpoint Security)
+## 암복호화 엔드포인트 보안 (Issue #436)
 
-- `/encrypt` 및 `/decrypt` REST 엔드포인트는 비인가 암복호화 시도를 원천 차단하기 위해 기본적으로 비활성화(`spring.cloud.config.server.encrypt.enabled=false`, 404 Not Found 반환)되어 있습니다.
-- 내부 운영 등 명시적인 사유로 엔드포인트를 활성화하더라도 외부 주입 토큰(`config.crypto.endpoint.token` 또는 `config-server.internal-crypto-token`)이 주입되지 않으면 403 Forbidden으로 Fail-Closed 차단됩니다.
-- 토큰이 구성된 경우 `X-Config-Token`, `X-Config-Internal-Token`, 또는 `Authorization: Bearer <token>` 헤더를 통해서만 접근이 허용되며, 미인증/위조 요청은 401 Unauthorized로 거부됩니다.
-- `/actuator/health`, `/actuator/info` 및 마이크로서비스 설정 조회 엔드포인트(`/{application}/{profile}`)는 필터의 영향을 받지 않고 투명하게 동작하여 무회귀를 보장합니다.
+- 기본값 `spring.cloud.config.server.encrypt.enabled=false`에서는 HTTP 보안 필터가 `/encrypt`, `/decrypt`와 하위 경로를 404로 거부합니다. 이 Spring 설정만으로 endpoint가 미등록되는 것은 아닙니다. MVC가 선택한 실제 `EncryptionController`에도 같은 인증 검사를 적용하여 인코딩·matrix parameter·context/servlet/Config prefix로 우회되지 않게 합니다. 해당 controller의 `/encrypt/status`, `/key` 계열도 같은 정책을 따릅니다.
+- 승인된 내부 운영 프로세스에서만 `SPRING_CLOUD_CONFIG_SERVER_ENCRYPT_ENABLED=true`와 별도의 `CONFIG_CRYPTO_ENDPOINT_TOKEN`을 외부 secret provider 또는 실행 시 생성한 임시 값으로 주입합니다. 토큰은 암호화 키와 별개이며 저장소 기본값이나 자동 생성 계정은 없습니다. 기존 `config-server.internal-crypto-token`은 호환용 대체 property입니다. 첫 property가 설정되어 있으면 우선하며, 빈 값이더라도 대체값으로 우회하지 않습니다.
+- 토큰이 없거나 빈 값·공백·비 ASCII·쉼표를 포함하면 403으로 차단합니다. 토큰을 임의로 trim하지 않습니다. 충분한 엔트로피의 토큰(예: 32 random bytes의 Base64)을 사용합니다.
+- 요청은 `Authorization: Bearer <token>`, `X-Config-Token`, `X-Config-Internal-Token` 중 **하나의 헤더 하나**로 인증합니다. 누락·잘못된 값·중복/혼합 헤더는 401입니다. 토큰을 URL, query string, 명령행 인자, Config repository, 추적되는 env 파일에 넣지 않습니다. 헤더·본문·응답을 출력하지 않는 승인된 내부 클라이언트를 사용합니다.
+- 거부 응답은 입력을 반영하지 않는 빈 본문이며 crypto 응답은 `Cache-Control: no-store`입니다. Spring Cloud Config의 `EncryptionController`는 실패한 복호화 입력을 ERROR로 기록하므로 해당 로거는 `OFF`로 유지합니다. HTTP payload/header debug·trace 및 프록시 요청 본문 기록을 활성화하지 않습니다.
+- `/actuator/health`, readiness, info, prometheus와 일반 Config 조회 인증 계약은 유지됩니다. 키 fail-closed 정책은 #435의 소유이며 이 작업은 실제 키·암호문·credential을 다루지 않습니다.
 
-## 네트워크 심층 방어 및 Compose 포트 정책 (Network Defense-in-Depth)
+## 내부 운영 경로와 Compose 노출 계약
 
-- 기본 Compose 토폴로지(`config-server/docker-compose.yml`, `docker-compose.yml`, `compose.prod.yml`)에서 Config Server의 호스트 포트(`8888`) 직접 게시는 제거되어 있습니다.
-- Config Server는 내부 가상 네트워크(`account-network`) 내에서만 마이크로서비스 간 통신을 지원하여 외부 직접 접근을 원천 차단합니다.
-- 로컬 단독 환경에서 호스트 직접 접근이 필요한 경우 기본 Compose를 수정하지 않고 명시적인 로컬 오버라이드 파일(`docker-compose.override.yml`)을 사용합니다:
-  ```yaml
-  # docker-compose.override.yml 예시 (로컬 단독 디버깅용)
-  services:
-    config-server:
-      ports:
-        - "127.0.0.1:8888:8888"
-  ```
+기본 루트·모듈·production·minimal external-dev Compose는 Config Server host port를 게시하지 않습니다. `compose.prod.yml`은 crypto enable flag도 명시적으로 false로 고정합니다. 공용 Gateway/Frontend ingress에는 Config Server route를 추가하지 않습니다. Compose 네트워크에 연결된 것만으로 운영 권한이 부여되지는 않습니다.
+
+운영자는 승인된 내부 네트워크의 클라이언트만 사용하고, 환경에 맞는 TLS/mTLS 또는 승인된 암호화 터널을 구성해야 합니다. Basic HTTP 내부 통신 자체가 전송 암호화를 제공하지는 않습니다. 이 PR은 외부 배포·방화벽·TLS 설정을 변경하지 않습니다.
+
+임시 운영 창구가 필요하면 추적하지 않는 승인된 Compose override에서 **config-server 서비스에만** 아래 입력을 연결합니다. 기본 Compose나 공용 ingress에 포트를 추가하지 않습니다.
+
+```yaml
+services:
+  config-server:
+    environment:
+      SPRING_CLOUD_CONFIG_SERVER_ENCRYPT_ENABLED: "true"
+      CONFIG_CRYPTO_ENDPOINT_TOKEN: ${CONFIG_CRYPTO_ENDPOINT_TOKEN:?inject approved ephemeral operation token}
+```
+
+작업 종료 후 override와 임시 입력을 제거하고 기본 Compose로 해당 서비스만 재생성하여 비활성 정책을 복원합니다. 실제 credential 발급·회전은 별도 승인 절차입니다. 로컬 디버깅을 위해 포트가 필요할 때만 별도 로컬 override로 `127.0.0.1:8888:8888`을 사용하고 인증 정책을 유지합니다.
+
+검증: Windows에서는 `gradlew.bat :config-server:test :config-server:bootJar --offline`, Linux에서는 동일 Gradle 8.7/JDK 17 task를 실행합니다. HTTP 허용/거부, encoded/prefixed 경로, 오류·로그 미노출, health/config 무회귀와 Compose 정책을 테스트합니다.
 
 ## 문서 읽기 순서
 
