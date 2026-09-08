@@ -1,27 +1,20 @@
-### 📅 2026-09-07 (GH-638: 12개 비즈니스 마이크로서비스 중앙 설정 파일 config-repo/*.yml 추가 및 정합화)
-- **Component**: `config-repo/*.yml`, `config-server/src/test/java/com/ho/account/configserver/ConfigServerConfigurationPolicyTest.java`
+### 📅 2026-09-07 (GH-639: 업무 패키지별 accounting, products, risk 독립 실행 Compose 오버레이 정의)
+- **Component**: `tools/compose.accounting-external-dev.yml`, `tools/compose.products-external-dev.yml`, `tools/compose.risk-external-dev.yml`, `tools/check-*-databases.sh`, `docs/guides/development-compose.md`
 - **Changes**:
-  - `config-repo/` 내 12개 비즈니스 마이크로서비스 및 주요 별칭 설정 파일(총 18개 YAML) 생성:
-    - `closing-service.yml`, `closing-api.yml`
-    - `deposit-service.yml`, `deposit-api.yml`
-    - `receivable-api.yml`
-    - `payable-api.yml`
-    - `tax-api.yml`
-    - `reconciliation-api.yml`
-    - `asset-lease-service.yml`, `asset-lease-api.yml`
-    - `reporting-api.yml`
-    - `expenditure-resolution-api.yml`
-    - `account-mart-api.yml`
-    - `ifrs9-allowance-api.yml`, `ecl-api.yml`
-    - `budget-api.yml`
-    - `loan-api.yml`, `loan-service.yml`
-  - 각 설정 파일에 표준 Eureka 서비스 디스커버리(`${EUREKA_DEFAULT_ZONE}`, `prefer-ip-address: true`), 포트(`${SERVER_PORT}`), 프로메테우스/Zipkin 분산 트레이싱 관측성 설정 반영.
-  - Fail-Closed 원칙에 따라 비밀번호/토큰/시크릿 하드코딩 배제 및 플레이스홀더 외부 주입 준수.
-  - `ConfigServerConfigurationPolicyTest`에 `allBusinessMicroserviceConfigurationsExistAndFollowStandards` 정책 테스트 추가.
+  - 저자원 개발 환경(가용 메모리 13GiB 호스트) 최적화를 위한 3종의 업무 패키지별 독립 Compose 오버레이 정의:
+    - `accounting`: `accounting-db-check`, `journal-ledger-api`, `closing-api`, `payable-api`, `receivable-api`, `expenditure-resolution-api`, `tax-api`, `reporting-api` (회계 7개 DB 격리 검증)
+    - `products`: `products-db-check`, `deposit-api`, `loan-api`, `asset-lease-api` (상품 3개 DB 격리 검증)
+    - `risk`: `risk-db-check`, `account-mart-api`, `ecl-api`, `reconciliation-api` (리스크 3개 DB 격리 검증)
+  - 기존 실행 중인 `account-network` 브릿지를 공유(external: true)하여 Discovery, Config Server, PostgreSQL과의 완벽한 통신 지원.
+  - 패키지별 독립 DB 권한 검증 셸 스크립트 3종(`tools/check-accounting-databases.sh`, `tools/check-products-databases.sh`, `tools/check-risk-databases.sh`) 추가. 미관련 패키지 변수가 누락되어도 기동 차단 방지.
+  - 각 API 컨테이너에 CPU 0.50, Memory 768m (reservation 256m) 리소스 상한선 강제.
+  - `docs/guides/development-compose.md`에 업무 패키지별 독립 실행 가이드 및 명령어 추가.
 - **Verification**:
-  - SnakeYAML 파싱 구문 검사 전수 통과 (18/18 파일 정상).
-  - `./gradlew :config-server:test` (BUILD SUCCESSFUL, 5/5 tasks executed).
-  - `git diff --check`: 오류 0건, Conflict marker 및 민감정보 0건.
+  - `podman compose -f tools/compose.accounting-external-dev.yml config --quiet` (PASS).
+  - `podman compose -f tools/compose.products-external-dev.yml config --quiet` (PASS).
+  - `podman compose -f tools/compose.risk-external-dev.yml config --quiet` (PASS).
+  - 미관련 타 패키지 환경변수 부재 시에도 정상 렌더링 격리성 검증 통과.
+  - `git diff --check`: 오류 0건, 민감정보 노출 0건.
 
 ### 📅 2026-09-07 (GH-630: 통합 아키텍처 명세서 위치 정규화 및 최신 2026 MSA 구성도 업데이트)
 - **Component**: `docs/architecture/architecture.md`, `docs/guides/master-domain-glossary.md`, `docs/README.md`

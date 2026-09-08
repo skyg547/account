@@ -14,6 +14,7 @@
 | 통합 | 루트 [`docker-compose.yml`](../../docker-compose.yml) + DB mode overlay | `dev` | 36개 target 전체. `.env.dev`와 profile 선택이 필수이며 이 문서의 나머지 절이 다룬다 |
 | 모듈별 | `<module>/docker-compose.yml` | **`docker`** | 이미 떠 있는 `account-network`에 서비스를 하나씩 붙일 때. 개발 중 흔히 쓰는 경로다 |
 | 저자원 인증 | [`tools/compose.minimal-auth-external-dev.yml`](../../tools/compose.minimal-auth-external-dev.yml) | Compose=`external-dev`, Spring=`native`/`docker` | 외부 Auth/Master Data DB를 사용하는 Frontend 로그인 경로만 순차 빌드·기동한다 |
+| 업무 패키지 오버레이 | [`tools/compose.{accounting\|products\|risk}-external-dev.yml`](../../tools/) | `external-dev` | 저자원 인증 기반 스택 위에 특정 업무 패키지만 격리 기동 (가용 메모리 13GiB 최적화) |
 
 모듈별 경로의 정본 프로파일은 `docker`다. `config-server`만 예외로 `native`를 쓰는데,
 이는 `native`가 파일시스템에서 설정을 읽는 모드를 켜는 스위치이기 때문이다
@@ -59,6 +60,45 @@ Java 서비스는 저장소 루트를 build context로 유지하면서 각 실�
 | `apis` | 17개 API, Gateway, Frontend |
 | `migration` | 한 context씩 실행하는 migration-runner와 runtime grant helper |
 | `batch` | 15개 Batch 정의; 자동 Job 실행은 기본 비활성 |
+
+## 업무 패키지별 독립 실행 오버레이 (Accounting, Products, Risk)
+
+저자원 환경(예: 가용 메모리 13GiB 호스트)에서 36개 전체 컨테이너를 동시에 기동하면 JVM 힙 메모리 및 호스트 메모리 부족으로 인해 OOM이 발생할 수 있습니다. 또한 루트 `compose.external-dev.yml`은 17개 DB 환경변수를 모두 필수로 요구(`:?`)하므로, 특정 패키지만 테스트하려 해도 미관련 변수 미입력으로 인해 렌더링 자체가 차단됩니다.
+
+이를 해결하기 위해 이미 검증된 저자원 인증 기반 스택([`tools/compose.minimal-auth-external-dev.yml`](../../tools/compose.minimal-auth-external-dev.yml)) 위에 원하는 업무 패키지만 선별하여 독립 기동할 수 있는 3종의 독립 Compose 오버레이를 제공합니다:
+
+1. **Accounting (회계 코어 패키지)**:
+   - 파일: `tools/compose.accounting-external-dev.yml`
+   - 서비스: `accounting-db-check`, `journal-ledger-api`, `closing-api`, `payable-api`, `receivable-api`, `expenditure-resolution-api`, `tax-api`, `reporting-api`
+   - 의존성: 회계 7개 DB 컨텍스트 검증
+2. **Products (금융 상품 패키지)**:
+   - 파일: `tools/compose.products-external-dev.yml`
+   - 서비스: `products-db-check`, `deposit-api`, `loan-api`, `asset-lease-api`
+   - 의존성: 금융 상품 3개 DB 컨텍스트 검증
+3. **Risk (리스크/데이터 패키지)**:
+   - 파일: `tools/compose.risk-external-dev.yml`
+   - 서비스: `risk-db-check`, `account-mart-api`, `ecl-api`, `reconciliation-api`
+   - 의존성: 리스크 3개 DB 컨텍스트 검증
+
+### 주요 설계 및 리소스 제약
+- **네트워크 공유**: `account-network` (external: true)를 통해 실행 중인 Discovery, Config Server, PostgreSQL 컨테이너와 통신합니다.
+- **리소스 제한**: API 서비스 당 CPU 0.50, Memory 768m (reservation 256m) 한도를 강제하여 호스트 OOM을 차단합니다.
+- **Fail-Closed DB 게이트**: 선택한 패키지의 DB만 검증하며, 타 패키지의 미입력 환경변수로 인한 기동 실패를 방지합니다.
+
+### 기동 및 종료 가이드
+```bash
+# 1. 기반 스택이 먼저 실행 중이어야 함 (network: account-network 공유)
+# podman compose -f tools/compose.minimal-auth-external-dev.yml up -d
+
+# 2. 원하는 업무 패키지 기동 (예: Accounting 패키지)
+podman compose -f tools/compose.accounting-external-dev.yml up -d
+
+# 3. 상태 확인
+podman compose -f tools/compose.accounting-external-dev.yml ps
+
+# 4. 업무 패키지 중지 (기반 스택은 유지)
+podman compose -f tools/compose.accounting-external-dev.yml stop
+```
 
 ## Docker vs Podman Compose Provider 환경 구성 및 차이점
 

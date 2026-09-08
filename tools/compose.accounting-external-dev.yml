@@ -1,0 +1,302 @@
+name: account-accounting-external-dev
+
+x-external-dev-profile: &external-dev-profile
+  profiles: ["external-dev"]
+
+x-api-resource-limit: &api-resource-limit
+  deploy:
+    resources:
+      limits:
+        cpus: "0.50"
+        memory: 768m
+        pids: 256
+      reservations:
+        memory: 256m
+
+x-api-healthcheck: &api-healthcheck
+  test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 45s
+
+services:
+  accounting-db-check:
+    <<: *external-dev-profile
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    read_only: true
+    environment:
+      JOURNAL_LEDGER_DB_URL: "${JOURNAL_LEDGER_DB_URL:?Set JOURNAL_LEDGER_DB_URL in the approved env file}"
+      JOURNAL_LEDGER_DB_USER: "${JOURNAL_LEDGER_DB_USER:?Set JOURNAL_LEDGER_DB_USER in the approved env file}"
+      JOURNAL_LEDGER_DB_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?Set JOURNAL_LEDGER_DB_PASSWORD in the approved env file}"
+      CLOSING_DB_URL: "${CLOSING_DB_URL:?Set CLOSING_DB_URL in the approved env file}"
+      CLOSING_DB_USER: "${CLOSING_DB_USER:?Set CLOSING_DB_USER in the approved env file}"
+      CLOSING_DB_PASSWORD: "${CLOSING_DB_PASSWORD:?Set CLOSING_DB_PASSWORD in the approved env file}"
+      PAYABLE_DB_URL: "${PAYABLE_DB_URL:?Set PAYABLE_DB_URL in the approved env file}"
+      PAYABLE_DB_USER: "${PAYABLE_DB_USER:?Set PAYABLE_DB_USER in the approved env file}"
+      PAYABLE_DB_PASSWORD: "${PAYABLE_DB_PASSWORD:?Set PAYABLE_DB_PASSWORD in the approved env file}"
+      RECEIVABLE_DB_URL: "${RECEIVABLE_DB_URL:?Set RECEIVABLE_DB_URL in the approved env file}"
+      RECEIVABLE_DB_USER: "${RECEIVABLE_DB_USER:?Set RECEIVABLE_DB_USER in the approved env file}"
+      RECEIVABLE_DB_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?Set RECEIVABLE_DB_PASSWORD in the approved env file}"
+      EXPENDITURE_RESOLUTION_DB_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?Set EXPENDITURE_RESOLUTION_DB_URL in the approved env file}"
+      EXPENDITURE_RESOLUTION_DB_USER: "${EXPENDITURE_RESOLUTION_DB_USER:?Set EXPENDITURE_RESOLUTION_DB_USER in the approved env file}"
+      EXPENDITURE_RESOLUTION_DB_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?Set EXPENDITURE_RESOLUTION_DB_PASSWORD in the approved env file}"
+      TAX_DB_URL: "${TAX_DB_URL:?Set TAX_DB_URL in the approved env file}"
+      TAX_DB_USER: "${TAX_DB_USER:?Set TAX_DB_USER in the approved env file}"
+      TAX_DB_PASSWORD: "${TAX_DB_PASSWORD:?Set TAX_DB_PASSWORD in the approved env file}"
+      REPORTING_DB_URL: "${REPORTING_DB_URL:?Set REPORTING_DB_URL in the approved env file}"
+      REPORTING_DB_USER: "${REPORTING_DB_USER:?Set REPORTING_DB_USER in the approved env file}"
+      REPORTING_DB_PASSWORD: "${REPORTING_DB_PASSWORD:?Set REPORTING_DB_PASSWORD in the approved env file}"
+    command: ["sh", "-c", "while :; do sleep 3600; done"]
+    volumes:
+      - ./check-accounting-databases.sh:/account-runtime/check-accounting-databases.sh:ro
+    healthcheck:
+      test: ["CMD", "sh", "/account-runtime/check-accounting-databases.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20"
+          memory: 192m
+          pids: 64
+    networks: [account-network]
+
+  journal-ledger-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :journal-ledger:api
+        JAR_DIRECTORY: journal-ledger/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?Set JOURNAL_LEDGER_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?Set JOURNAL_LEDGER_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${JOURNAL_LEDGER_DB_PASSWORD:?Set JOURNAL_LEDGER_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  closing-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :closing:api
+        JAR_DIRECTORY: closing/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?Set CLOSING_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?Set CLOSING_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${CLOSING_DB_PASSWORD:?Set CLOSING_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  payable-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :payable:api
+        JAR_DIRECTORY: payable/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?Set PAYABLE_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?Set PAYABLE_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${PAYABLE_DB_PASSWORD:?Set PAYABLE_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  receivable-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :receivable:api
+        JAR_DIRECTORY: receivable/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?Set RECEIVABLE_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?Set RECEIVABLE_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${RECEIVABLE_DB_PASSWORD:?Set RECEIVABLE_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  expenditure-resolution-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :expenditure-resolution:api
+        JAR_DIRECTORY: expenditure-resolution/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?Set EXPENDITURE_RESOLUTION_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?Set EXPENDITURE_RESOLUTION_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${EXPENDITURE_RESOLUTION_DB_PASSWORD:?Set EXPENDITURE_RESOLUTION_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  tax-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :tax:api
+        JAR_DIRECTORY: tax/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${TAX_DB_URL:?Set TAX_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?Set TAX_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${TAX_DB_PASSWORD:?Set TAX_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+  reporting-api:
+    <<: [*external-dev-profile, *api-resource-limit]
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :reporting:api
+        JAR_DIRECTORY: reporting/api
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?Set REPORTING_DB_URL in the approved env file}"
+      SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?Set REPORTING_DB_USER in the approved env file}"
+      SPRING_DATASOURCE_PASSWORD: "${REPORTING_DB_PASSWORD:?Set REPORTING_DB_PASSWORD in the approved env file}"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+      MANAGEMENT_TRACING_ENABLED: "false"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.0"
+      LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+    depends_on:
+      accounting-db-check:
+        condition: service_healthy
+    volumes:
+      - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+    healthcheck:
+      <<: *api-healthcheck
+    networks: [account-network]
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true
