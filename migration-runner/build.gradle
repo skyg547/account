@@ -50,19 +50,19 @@ def contextMigrationSources = [
 
 def postgresqlOverrides = [
         'asset-lease': [
-                file: 'V20__init_asset_lease.sql',
+                files: ['V20__init_asset_lease.sql'],
                 source: 'asset-lease/core/src/main/resources/db/postgresql-migration'
         ],
         'deposit': [
-                file: 'V40__init_deposit_schema.sql',
+                files: ['V40__init_deposit_schema.sql', 'V42__create_deposit_outbox_table.sql'],
                 source: 'deposit/core/src/main/resources/db/postgresql-migration'
         ],
         'loan': [
-                file: 'V30__init_loan_schema.sql',
+                files: ['V30__init_loan_schema.sql'],
                 source: 'loan/core/src/main/resources/db/postgresql-migration'
         ],
         'internal-audit': [
-                file: 'V60__init_internal_audit_schema.sql',
+                files: ['V60__init_internal_audit_schema.sql'],
                 source: 'internal-audit/core/src/main/resources/db/postgresql-migration'
         ]
 ]
@@ -72,13 +72,13 @@ tasks.named('processResources') {
         from(rootProject.file(sourcePath)) {
             include '*.sql'
             if (postgresqlOverrides.containsKey(context)) {
-                exclude postgresqlOverrides[context].file
+                exclude postgresqlOverrides[context].files
             }
             into "db/contexts/${context}"
         }
         if (postgresqlOverrides.containsKey(context)) {
             from(rootProject.file(postgresqlOverrides[context].source)) {
-                include postgresqlOverrides[context].file
+                include postgresqlOverrides[context].files
                 into "db/contexts/${context}"
             }
         }

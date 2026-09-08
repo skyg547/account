@@ -214,7 +214,7 @@ class MigrationExecutorH2Test {
                 .dataSource(url, "sa", "")
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(flyway.migrate().migrationsExecuted).isOne();
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
