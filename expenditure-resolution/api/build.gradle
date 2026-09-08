@@ -17,6 +17,7 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
     implementation project(':expenditure-resolution:core')
     implementation project(':contracts')
     implementation project(':shared-kernel')
