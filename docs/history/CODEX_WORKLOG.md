@@ -1,3 +1,15 @@
+## 2026-09-07 (Harness: 4단계 작업 난이도(하/중/상/최상) 및 모델 추론 강도(high/xhigh) 매핑 정책 수립)
+- 요청 목표: 작업 난이도 4단계(하/중/상/최상) 및 모델 추론 강도(low/medium/high/xhigh) 연계 하네스 정책을 수립하고, GitHub 라벨과 Issue 템플릿에 동기화한다.
+- 변경:
+  - `70-model-assignment-policy.md`: 4단계 난이도(하: `difficulty:low`, 중: `difficulty:medium`, 상: `difficulty:high`, 최상: `difficulty:very-high`)와 Codex `model_reasoning_effort`(low, medium, high, xhigh) 매핑 매트릭스, 토큰 보호 원칙(기본값 `high`, 최상 작업 선별 `xhigh`), 에스컬레이션/디에스컬레이션 규칙 명시.
+  - `85-github-issue-agent-loop.md`: 4개 난이도 라벨 정의 및 이슈별 단일 라벨 지정 규약 추가.
+  - `87-spec-driven-delegation.md`: Spec Author, Implementer, Reviewer 역할별 난이도 대응 매핑.
+  - `.github/ISSUE_TEMPLATE/agent-implementation-spec.yml`, `.github/ISSUE_TEMPLATE/ai-agent-loop-task.yml`: 난이도 4단계 드롭다운 필드 추가.
+  - GitHub 원격 저장소에 `difficulty:very-high` 라벨 신설 및 `difficulty:high` 설명 보정.
+- 검증:
+  - `git diff --check`: whitespace/format 오류 0건.
+  - GitHub 라벨 4종(`difficulty:low`, `difficulty:medium`, `difficulty:high`, `difficulty:very-high`) 정상 등록 확인.
+
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.
 - 통합: PR `#246`이 source commit `5f06cad1`, merge commit `db7feeb4`로 `main`에 병합됐고 `Fixes #45`로 Issue가 닫혔다. 원격 feature branch도 삭제됐다.

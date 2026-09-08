@@ -46,7 +46,7 @@ This harness defines how AI agents work safely in the account project. The proje
 - `45-ci-module-validation.md`: GitHub Actions changed-module test selection.
 - `50-git-worktree-guide.md`: branch/worktree guide.
 - `60-rebase-merge-policy.md`: rebase, merge, conflict policy.
-- `70-model-assignment-policy.md`: capability and risk based model assignment.
+- `70-model-assignment-policy.md`: capability, 4-tier task difficulty (하/중/상/최상), and reasoning effort assignment policy.
 - `80-file-ownership.md`: role-based file ownership.
 - `85-github-issue-agent-loop.md`: Issue/branch/worktree/PR runbook.
 - `86-multi-tool-issue-ownership.md`: Codex/Gemini/Claude Code Issue status, claim, ownership, and handoff protocol.

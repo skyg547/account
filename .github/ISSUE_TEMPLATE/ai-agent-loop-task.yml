@@ -63,6 +63,19 @@ body:
         - label: infra/config
         - label: tests
 
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Task Difficulty (난이도)
+      description: 70-model-assignment-policy.md 기준 난이도 4단계 중 1개를 선택하세요.
+      options:
+        - "하 (difficulty:low) — 단순 치환/문서/설정 미러링 (Fast/Low-Cost, reasoning: low)"
+        - "중 (difficulty:medium) — 단일 모듈 로직/어댑터/테스트 (Balanced, reasoning: medium/high)"
+        - "상 (difficulty:high) — 멀티 모듈 계약/DB 마이그레이션/보안 (Frontier/Pro, reasoning: high)"
+        - "최상 (difficulty:very-high) — 금융 정밀도/원장 마감 동시성/멱등성 가드 (Frontier SOTA, reasoning: xhigh)"
+    validations:
+      required: true
+
   - type: checkboxes
     id: agent_roles
     attributes:

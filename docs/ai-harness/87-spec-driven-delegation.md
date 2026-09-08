@@ -14,14 +14,14 @@
 
 역할은 벤더 이름이 아니라 **capability tier**로 정의한다(70번 문서 원칙과 동일).
 
-| 역할 | 티어 | 하는 일 | 하지 않는 일 |
-| --- | --- | --- | --- |
-| **Spec Author** | High Reasoning | 재현·근본원인·설계·대안기각·작업지시·allowlist·검증계획 작성 | 구현하지 않는다 |
-| **Implementer** | Fast/Low-Cost 또는 Balanced | 지시된 파일만 수정, 테스트 실행, Draft PR 생성 | 설계 판단, 범위 확장, 승인, 병합 |
-| **Reviewer / Integrator** | High Reasoning | 독립 검토 후 **반려 또는 승인**, 병합, Issue 상태·라벨 갱신 | 구현 owner를 대신해 코드를 고치지 않는다 |
+| 역할 | 티어 | 대응 난이도 | 하는 일 | 하지 않는 일 |
+| --- | --- | --- | --- | --- |
+| **Spec Author** | High Reasoning (`high` / `xhigh`) | 상(`difficulty:high`), 최상(`difficulty:very-high`) | 재현·근본원인·설계·대안기각·작업지시·allowlist·검증계획 작성 | 구현하지 않는다 |
+| **Implementer** | Fast/Low-Cost 또는 Balanced | 하(`difficulty:low`), 중(`difficulty:medium`) | 지시된 파일만 수정, 테스트 실행, Draft PR 생성 | 설계 판단, 범위 확장, 승인, 병합 |
+| **Reviewer / Integrator** | High Reasoning (`high` / `xhigh`) | 전 난이도 독립 검증 | 독립 검토 후 **반려 또는 승인**, 병합, Issue 상태·라벨 갱신 | 구현 owner를 대신해 코드를 고치지 않는다 |
 
 Spec Author와 Reviewer는 같은 티어이나 **같은 세션이어서는 안 된다.** 자기 설계를 자기가
-검토하면 설계 전제의 오류가 그대로 통과한다.
+검토하면 설계 전제의 오류가 그대로 통과한다. 상세 난이도 체계와 추론 강도 매핑은 [`70-model-assignment-policy.md`](./70-model-assignment-policy.md)를 따른다.
 
 ## 2. Fast 티어에 넘겨도 되는 조건
 
