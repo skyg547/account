@@ -45,7 +45,7 @@ spring:
     config:
       server:
         encrypt:
-          # 임의의 /encrypt 및 /decrypt REST 엔드포인트 노출을 기본적으로 비활성화(fail-closed)합니다.
+          # HTTP 차단은 EncryptionEndpointSecurityFilter가 집행합니다. 이 플래그만으로 endpoint가 미등록되지는 않습니다.
           enabled: false
         native:
           # 로컬 개발 시 Git 연동 없이 로컬 디렉토리의 설정 파일들을 참조합니다.
@@ -78,3 +78,9 @@ management:
         # 프로세스 상태뿐만 아니라 설정 저장소(configRepository) 접근 가능 여부를 readiness probe에 포함합니다.
         readiness:
           include: readinessState,configRepository
+
+# Spring Cloud Config 4.1.x logs the submitted body on decryption failure at ERROR.
+# Suppress this logger even for authenticated requests; never enable it in operations.
+logging:
+  level:
+    org.springframework.cloud.config.server.encryption.EncryptionController: "OFF"

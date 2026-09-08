@@ -1,3 +1,15 @@
+## 2026-09-08 (Issue #436 Config Server encrypt/decrypt endpoint authentication and exposure hardening)
+- 요청 목표: Config Server의 encrypt/decrypt HTTP endpoint를 무인증 접근에서 차단하고, 승인된 내부 운영 경로만 사용할 수 있도록 인증과 네트워크 노출 계약을 구현한다.
+- 변경:
+  - `EncryptionEndpointSecurityFilter.java`: `/encrypt`, `/decrypt` 요청(변형 및 인코딩 URL 포함)에 대해 승인된 내부 토큰(`X-Config-Token`, `X-Config-Internal-Token`) 인증 강제 및 disabled 기본 정책 구현.
+  - `EncryptionEndpointWebSecurity.java`: HandlerInterceptor 최고 우선순위로 매핑 무관 인가 게이트 강제.
+  - `application.yml`, `compose.prod.yml`: 기본 비활성화(`spring.cloud.config.server.encrypt.enabled: false`) 및 로그 차단(`OFF`) 설정.
+  - `ConfigServerEncryptionEndpointSecurityIntegrationTest.java`: 비활성화 404, 401 Unauthorized, fail-closed 403, 200 OK, Actuator/config 조회 무회귀 통합 검증.
+  - `ConfigCryptoExposurePolicyTest.java`: Compose 및 Gateway 라우팅에서 Config Server 공용 ingress 미노출 정적 정책 검증.
+- 검증:
+  - `./gradlew :config-server:test :config-server:bootJar` (118 tests 100% PASS).
+  - Compose 및 Gateway 라우팅 무회귀 검증.
+
 ## 2026-09-08 (Issue #640 external-dev PostgreSQL accounting packages DB provisioning and migration)
 - 요청 목표: external-dev 환경의 PostgreSQL에 accounting 업무 패키지 7개 DB(`journal-ledger`, `closing`, `payable`, `receivable`, `tax`, `expenditure-resolution`, `reporting`)를 프로비저닝하고 마이그레이션 적용 및 validate 검증을 수행한다.
 - 변경:
@@ -10,6 +22,9 @@
   - 7/7개 DB 마이그레이션 및 validate 완료, 테이블 카탈로그 및 DDL 거부 검증 통과.
   - Preflight dry-run 재실행 100% 통과.
   - `tools/check-accounting-databases.sh` 7개 DB 헬스체크 통과.
+
+## 2026-09-07 (Harness: 4단계 작업 난이도(하/중/상/최상) 및 모델 추론 강도(high/xhigh) 매핑 정책 수립)
+- 요청 목표: 작업 난이도 4단계(하/중/상/최상) 및 모델 추론 강도(low/medium/high/xhigh) 연계 하네스 정책을 수립하고, GitHub 라벨과 Issue 템플릿에 동기화한다.
 
 ## 2026-07-30 (Issue #45 executable Budget Control foundation)
 - 요청 목표: 예산 계획·전용·집행을 실제 core/API/Batch 헥사고날 경계와 영속성으로 구현한다.
