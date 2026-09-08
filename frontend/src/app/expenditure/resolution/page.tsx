@@ -118,7 +118,6 @@ export default function ResolutionPage() {
               onClick={() => {
                 setTitle('');
                 setVendorName('');
-                setRemarks('');
               }}
               className="px-4 py-2.5 bg-slate-900/50 hover:bg-slate-800 border border-white/5 rounded-xl text-slate-400 hover:text-white text-xs font-black transition-all flex items-center gap-2"
             >
