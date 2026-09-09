@@ -1,3 +1,27 @@
+# AI Harness Handoff - 2026-09-09 Issue #659 Nginx Single Entry Point Observability Upstream Mapping and Fallback Resilience
+
+- **Owner**: Gemini (Implementer)
+- **Issue**: #659 (`[infra][nginx] Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화`)
+- **Branch**: `agent/659-nginx-monitoring-upstreams` (Base: `origin/main@26f26698` + commit `72f229d0`)
+- **Worktree**: `/tmp/account-659-nginx-monitoring-upstreams`
+- **Status**: Draft PR Ready
+- **Summary**:
+  - `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`:
+    - Added dual network aliases (`grafana`/`account-grafana`, `zipkin`/`account-zipkin`, `kibana`/`account-kibana`) to each service under `account-network`.
+    - Removed undefined external `depends_on: elasticsearch` from `kibana/docker-compose.yml` to restore standalone compose startup compatibility in Docker Compose v2 and Podman.
+  - `frontend-nginx/nginx.conf`:
+    - Added `@fallback_grafana`, `@fallback_zipkin`, `@fallback_kibana`, `@fallback_pgadmin` named locations and `error_page 502 = @fallback_...` directives.
+    - Enables transparent two-stage upstream routing (`account-<service>` -> `<service>`), providing seamless compatibility whether monitoring containers were started via unified compose or individual standalone compose files.
+- **Verification**:
+  - Live local curl verification via Nginx (`localhost:8080`) and Cloudflare Quick Tunnel:
+    - `/` -> Next.js Frontend (200 OK)
+    - `/api/actuator/health` -> Spring Cloud Gateway (401 Unauthorized via JWT Filter)
+    - `/zipkin/` -> Zipkin Tracing UI (200 OK via `@fallback_zipkin`)
+    - Cloudflare Tunnel external ingress verified across HTTP/2.
+  - `git diff --check`: 0 errors.
+  - Sensitive information & secret scan: 0 leaks.
+- **Rollback**: Clean `git revert` of commit; no persistent storage or database schemas touched.
+
 # AI Harness Handoff - 2026-09-09 Issue #657 Nginx Single Entry Point DNS Alignment and Dynamic Upstream Resilience
 
 - **Owner**: Gemini (Implementer)

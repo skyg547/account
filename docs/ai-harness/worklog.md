@@ -1,3 +1,17 @@
+### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
+- **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`
+- **Changes**:
+  - `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`:
+    - `account-network` 네트워크 섹션에 `grafana`/`account-grafana`, `zipkin`/`account-zipkin`, `kibana`/`account-kibana` 별칭(aliases)을 추가하여 독립형(standalone) compose와 통합 모니터링 compose 간 DNS 이름 정합화.
+    - `kibana/docker-compose.yml`: 단독 기동 시 외부 컨테이너 의존성 오류를 일으키는 미정의 `depends_on: elasticsearch` 블록을 제거하여 Docker Compose v2 및 Podman 호환성 복구.
+  - `frontend-nginx/nginx.conf`:
+    - 관측성 도구 엔드포인트(`/grafana/`, `/zipkin/`, `/kibana/`, `/pgadmin/`)에 대해 `@fallback_...` 네임드 로케이션 및 `error_page 502 = @fallback_...` 지시자를 추가.
+    - `account-grafana` -> `grafana`, `account-zipkin` -> `zipkin`, `account-kibana` -> `kibana`, `account-pgadmin` -> `pgadmin` 순차 폴백을 지원하여 어떤 compose 방식으로 기동되더라도 Nginx 프록시가 투명하게 트래픽을 전달하도록 구성.
+- **Verification**:
+  - `DevelopmentComposePolicyTest` 및 전체 빌드 검증 성공.
+  - Nginx 단일 진입점(`localhost:8080`) 및 Cloudflare 터널을 통해 `/` (Next.js 200 OK), `/api/actuator/health` (Gateway 401 Unauthorized), `/zipkin/` (Zipkin UI 200 OK) 연결 확인.
+  - `git diff --check`: 오류 0건, credential 노출 0건.
+
 ### 📅 2026-09-09 (GH-657: 저자원 minimal external-dev 스택을 위한 Nginx 단일 진입점 DNS 별칭 동기화 및 런타임 업스트림 내성 강화)
 - **Component**: `frontend-nginx/`, `tools/compose.minimal-auth-external-dev.yml`, `docs/ai-harness/`
 - **Changes**:

@@ -22,9 +22,6 @@ services:
       timeout: 10s
       retries: 15
       start_period: 45s
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -33,7 +30,10 @@ services:
         reservations:
           memory: 256m
     networks:
-      - account-network
+      account-network:
+        aliases:
+          - kibana
+          - account-kibana
 
 networks:
   account-network:
