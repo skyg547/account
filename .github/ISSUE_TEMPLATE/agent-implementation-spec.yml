@@ -15,7 +15,7 @@ body:
         - Issue 소유·claim 규약: `docs/ai-harness/86-multi-tool-issue-ownership.md`
 
         > **작성이 끝나기 전에는 `status:draft`를 유지하세요.** 아래 "Ready 체크리스트"가 전부
-        > 채워진 뒤에 Integrator가 `status:ready`로 바꿉니다. `status:ready`가 아닌 Issue는
+        > 채워진 뒤에 승인된 부모 Integrator가 `status:ready`로 바꿉니다. `status:ready`가 아닌 Issue는
         > 구현 모델이 claim할 수 없습니다.
 
         ### ✂️ 크게 만들지 마세요
@@ -289,13 +289,17 @@ body:
     id: merge_authority
     attributes:
       label: 13. 병합 권한 (Merge Authority)
-      description: 구현 담당은 PR 생성까지만 한다. 검토·승인·병합은 상위 모델 또는 사람이 한다.
+      description: 구현 담당은 구현·검증·PR 본문 초안을 반환한다. Reviewer는 읽기 전용이며 티어는 외부 변경 권한이 아니다. 부모 Integrator만 승인 범위 내 Git/GitHub 변경을 수행한다.
       options:
-        - label: 구현 담당은 PR을 열기만 하고, `main` 병합을 시도하지 않는다.
+        - label: 구현 담당은 PR 본문 초안과 검증 증거만 반환하고 commit/push/PR 생성/Ready 등 Git/GitHub 변경을 하지 않는다.
           required: true
         - label: 구현 담당은 자신의 PR을 스스로 승인(approve)하지 않는다.
           required: true
-        - label: 병합은 Reviewer 승인 후 Integrator(상위 모델 또는 사람)만 수행한다.
+        - label: Reviewer는 독립 읽기 전용으로 동결 Draft 사전리뷰 및 최신 head/base·CI 최종 검토 증거를 부모에게 반환한다.
+          required: true
+        - label: 부모 Integrator만 사람 리뷰 기본 게이트 또는 기존 명시 승인 workflow 범위에 따라 Draft PR/Ready/리뷰 게시를 수행한다.
+          required: true
+        - label: merge commit, Issue close, cleanup은 각각 별도 승인 게이트이며 Draft PR 요청만으로 승인되지 않는다.
           required: true
 
   - type: checkboxes

@@ -1,3 +1,23 @@
+## 2026-09-10 — 승인된 Issue 루프 재개
+
+- 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 부모가 최신 검증 후 PR #680을 Ready로 인계한다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+- 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
+
+---
+
+### 이전 제출 시점 기록
+
+## 2026-09-10 — GH-661 active-harness audit / GH-662 first implementation
+
+- Three independent read-only audits plus official Codex/GitHub guidance covered current instruction layers and CI. Parent #661 tracks 10 improvement Issues; only #662 is claimed. Mock execution demonstrated existing Guard review-state/label bypass without live approvals or merges.
+- Preserved the dirty primary checkout and every other worktree. Created `agent/662-harness-pr-lifecycle` at `34c75839af2edf10f80ff60d8f24e89504d69e9e` in `C:\tmp\account-662-harness-pr-lifecycle`.
+- Astra coder/medium implemented four central PR policy/form files and Node negative-fixture checks. Initial RED: 9/23 failures. Independent review caught a remaining Ready-only CI deadlock; new tests reproduced three actual-document failures before repair. Final local and independent GREEN: 32/32. Existing js-yaml verified 21 unique form IDs, labels and non-authority field preservation without installation; 19 local links passed.
+- Independent Astra high re-review approved with no remaining finding; scoped diff/marker/allowlist checks passed. Implementation `af95eca1` was pushed and Draft PR [#680](https://github.com/skyg547/account/pull/680) created; this record-only follow-up synchronizes publication, not the reviewed policy/test implementation. No Ready/merge/Issue close/deletion. Application/DB/container tests not run: no runtime files changed.
+- Limit: the local regex test is not an authorization engine and is not yet wired to CI (#672). Guard trust policy is separate #671. Rollback only reviewed #662 policy/test changes; preserve trace history.
+
 ## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
 - 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
 - 변경:

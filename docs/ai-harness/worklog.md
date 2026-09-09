@@ -1,3 +1,24 @@
+## 2026-09-10 — 승인된 Issue 루프 재개
+
+- 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 부모가 최신 검증 후 PR #680을 Ready로 인계한다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+- 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
+
+---
+
+### 이전 제출 시점 기록
+
+## 2026-09-10 — GH-661 audit / GH-662 PR lifecycle contract
+
+- Audited active repository/tool/skill/role guidance, Issue/PR forms and all three CI workflows against `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e`. Parent #661 links implementation #662 and Draft follow-ups #670/#671/#672/#673/#674/#675/#677/#678/#679. Historical logs were sampled for current routing, not fully re-certified; secret-capable local settings contents were not read.
+- Separate Astra coder/medium owns four central PR policy/form files and `tools/ci/harness-pr-contract.test.cjs`; parent alone owns shared records/Git/GitHub. External worktree: `C:\tmp\account-662-harness-pr-lifecycle`.
+- Reconciled frozen-Draft pre-review, approved parent Ready, independent current-head/base final review and separate merge/close/cleanup approvals. Model capability does not grant mutation authority. Tool-specific follow-ups remain #670.
+- Verification: initial RED (23 cases, 9 failures); independent review found a Ready-only CI prerequisite deadlock. The new 32-case regression first failed on three actual documents, then passed 32/32 after repair. Independent Astra high re-review approved with no remaining finding. Existing js-yaml verified 21 unique form IDs and field/label preservation; 19 local links and scoped diff/marker/allowlist checks passed. No dependency installed.
+- Limits: regex documentation checks are not runtime access control; CI wiring remains #672 and Guard trust/evidence design #671. No application/DB/container tests apply to this docs/test-only change.
+- Published implementation `af95eca1` in Draft PR [#680](https://github.com/skyg547/account/pull/680), `Refs #662`. This record-only follow-up synchronizes the published handoff; reviewed policy/test files are unchanged. No Ready/merge/Issue close/deletion. Rollback: reviewed reversal of #662 policy/test paths, preserving history and all primary checkout changes.
+
 ### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
 - **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`
 - **Changes**:
