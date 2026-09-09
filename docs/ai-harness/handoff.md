@@ -1,3 +1,29 @@
+# AI Harness Handoff - 2026-09-09 Issue #657 Nginx Single Entry Point DNS Alignment and Dynamic Upstream Resilience
+
+- **Owner**: Gemini (Implementer)
+- **Issue**: #657 (`[infra][nginx] 저자원 minimal external-dev 스택을 위한 Nginx 단일 진입점 DNS 별칭 동기화 및 런타임 업스트림 내성 강화`)
+- **Branch**: `agent/657-nginx-minimal-upstream` (Base: `origin/main@26f26698`)
+- **Worktree**: `/tmp/account-657-nginx-minimal-upstream`
+- **Status**: Draft PR Ready
+- **Summary**:
+  - `tools/compose.minimal-auth-external-dev.yml`: Added network aliases `account-gateway` and `account-frontend` under `minimal-gateway` and `minimal-frontend` to align service discovery with root Nginx upstream definitions.
+  - `frontend-nginx/nginx.conf`:
+    - Added dynamic DNS resolver directive (`resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;`) with variable-based proxying (`set $...; proxy_pass $...;`) across all upstreams to prevent boot-time crashes when optional monitoring tools are offline.
+    - Added graceful 502 fallbacks (`error_page 502 = @minimal_frontend;`, `@minimal_gateway;`, `@minimal_static;`) to ensure uninterrupted proxying even when running against legacy containers lacking DNS aliases.
+    - Added URL rewrite break for `/pgadmin/` before variable proxying.
+  - `frontend-nginx/Dockerfile` & `docker-compose.yml`:
+    - Configured `NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` and template mount (`/etc/nginx/templates/default.conf.template`) so runtime entrypoint automatically injects the container's exact nameserver (Docker `127.0.0.11`, Podman `10.89.4.1`, K8s CoreDNS).
+    - Defaulted network name to `${ACCOUNT_NETWORK_NAME:-account-network}`.
+- **Verification**:
+  - `./gradlew :config-server:test --tests "com.ho.account.configserver.DevelopmentComposePolicyTest"`: 100% PASS.
+  - `./gradlew :config-server:test`: 118 tests 100% PASS.
+  - Live Nginx container execution in `account-network`:
+    - `curl http://localhost:8080/`: 200 OK (Next.js frontend rendered cleanly).
+    - `curl http://localhost:8080/api/actuator/health`: 401 Unauthorized (`X-Auth-Error: BEARER_TOKEN_REQUIRED` from Spring Cloud Gateway).
+  - `git diff --check`: 0 errors.
+  - Secret & credential leak check: 0 occurrences.
+- **Rollback**: Clean git revert of commit; no stateful DB or external infrastructure impacted.
+
 # AI Harness Handoff - 2026-09-07 Issue #630 Architecture Docs Normalization and 2026 MSA Topology Update
 
 - **Owner**: Gemini (Implementer / Documentation)

@@ -250,7 +250,10 @@ services:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8000/actuator/health/readiness || exit 1"]
     volumes:
       - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
-    networks: [account-network]
+    networks:
+      account-network:
+        aliases:
+          - account-gateway
 
   minimal-frontend:
     <<: *external-dev-profile
@@ -285,7 +288,10 @@ services:
           cpus: "0.75"
           memory: 1024m
           pids: 256
-    networks: [account-network]
+    networks:
+      account-network:
+        aliases:
+          - account-frontend
 
 networks:
   account-network:
