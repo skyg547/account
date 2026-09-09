@@ -25,7 +25,10 @@ services:
           cpus: '0.50'
           memory: 256M
     networks:
-      - account-network
+      account-network:
+        aliases:
+          - grafana
+          - account-grafana
 
 volumes:
   grafana-storage:

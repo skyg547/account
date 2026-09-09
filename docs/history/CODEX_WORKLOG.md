@@ -1,3 +1,12 @@
+## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
+- 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
+- 변경:
+  - `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`: `account-network` 네트워크 섹션에 `grafana`/`account-grafana`, `zipkin`/`account-zipkin`, `kibana`/`account-kibana` 별칭 추가. `kibana/docker-compose.yml`에서 미정의 `depends_on: elasticsearch` 제거하여 standalone compose 기동 복구.
+  - `frontend-nginx/nginx.conf`: `@fallback_grafana`, `@fallback_zipkin`, `@fallback_kibana`, `@fallback_pgadmin` named location 및 `error_page 502 = @fallback_...` 추가로 `account-<svc>` ➔ `<svc>` 투명 페일오버 지원.
+- 검증:
+  - Nginx 프록시(`localhost:8080`) 및 Cloudflare tunnel 검증: Next.js(200), Gateway(401), Zipkin(200).
+  - `git diff --check`: 0 errors.
+
 ## 2026-09-09 (Issue #657 Nginx Single Entry Point DNS Alignment and Dynamic Upstream Resilience)
 - 요청 목표: 저자원 minimal external-dev 스택을 위한 Nginx 단일 진입점 DNS 별칭 동기화 및 런타임 업스트림 내성을 강화한다.
 - 변경:
