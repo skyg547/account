@@ -1,3 +1,12 @@
+## 2026-09-10 — GH-661 audit / GH-662 PR lifecycle contract
+
+- Audited active repository/tool/skill/role guidance, Issue/PR forms and all three CI workflows against `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e`. Parent #661 links implementation #662 and Draft follow-ups #670/#671/#672/#673/#674/#675/#677/#678/#679. Historical logs were sampled for current routing, not fully re-certified; secret-capable local settings contents were not read.
+- Separate Astra coder/medium owns four central PR policy/form files and `tools/ci/harness-pr-contract.test.cjs`; parent alone owns shared records/Git/GitHub. External worktree: `C:\tmp\account-662-harness-pr-lifecycle`.
+- Reconciled frozen-Draft pre-review, approved parent Ready, independent current-head/base final review and separate merge/close/cleanup approvals. Model capability does not grant mutation authority. Tool-specific follow-ups remain #670.
+- Verification: initial RED (23 cases, 9 failures); independent review found a Ready-only CI prerequisite deadlock. The new 32-case regression first failed on three actual documents, then passed 32/32 after repair. Independent Astra high re-review approved with no remaining finding. Existing js-yaml verified 21 unique form IDs and field/label preservation; 19 local links and scoped diff/marker/allowlist checks passed. No dependency installed.
+- Limits: regex documentation checks are not runtime access control; CI wiring remains #672 and Guard trust/evidence design #671. No application/DB/container tests apply to this docs/test-only change.
+- Next: authorized commit/push/Draft PR with `Refs #662`. No Ready/merge/Issue close/deletion. Rollback: reviewed reversal of #662 policy/test paths, preserving history and all primary checkout changes.
+
 ### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
 - **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`
 - **Changes**:

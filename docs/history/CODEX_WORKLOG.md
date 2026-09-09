@@ -1,3 +1,11 @@
+## 2026-09-10 — GH-661 active-harness audit / GH-662 first implementation
+
+- Three independent read-only audits plus official Codex/GitHub guidance covered current instruction layers and CI. Parent #661 tracks 10 improvement Issues; only #662 is claimed. Mock execution demonstrated existing Guard review-state/label bypass without live approvals or merges.
+- Preserved the dirty primary checkout and every other worktree. Created `agent/662-harness-pr-lifecycle` at `34c75839af2edf10f80ff60d8f24e89504d69e9e` in `C:\tmp\account-662-harness-pr-lifecycle`.
+- Astra coder/medium implemented four central PR policy/form files and Node negative-fixture checks. Initial RED: 9/23 failures. Independent review caught a remaining Ready-only CI deadlock; new tests reproduced three actual-document failures before repair. Final local and independent GREEN: 32/32. Existing js-yaml verified 21 unique form IDs, labels and non-authority field preservation without installation; 19 local links passed.
+- Independent Astra high re-review approved with no remaining finding; scoped diff/marker/allowlist checks passed. Next: authorized Draft PR only. No Ready/merge/Issue close/deletion. Application/DB/container tests not run: no runtime files changed.
+- Limit: the local regex test is not an authorization engine and is not yet wired to CI (#672). Guard trust policy is separate #671. Rollback only reviewed #662 policy/test changes; preserve trace history.
+
 ## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
 - 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
 - 변경:

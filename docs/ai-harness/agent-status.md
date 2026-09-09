@@ -1,5 +1,13 @@
 # Agent Status
 
+## 2026-09-10 — GH-662 (parent audit GH-661)
+
+- Owner: parent Codex Integrator; writer `/root/harness_lifecycle_writer` (coder, Astra medium); independent `/root/harness_lifecycle_review` (Astra high) approved after one P2 remediation.
+- Branch/worktree: `agent/662-harness-pr-lifecycle` / `C:\tmp\account-662-harness-pr-lifecycle`; base `34c75839af2edf10f80ff60d8f24e89504d69e9e`.
+- Frozen scope: four central policy/form files and one Node test. Local and independent 32/32 tests, YAML/21 unique IDs/field preservation, 19 local links and scoped diff/marker/allowlist checks pass.
+- Next: authorized commit/push/Draft PR only. No Ready/merge/close/cleanup authority inferred; primary dirty checkout and other worktrees preserved.
+
+
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-09-09 | Gemini | Implementer | `agent/659-nginx-monitoring-upstreams` / `/tmp/account-659-nginx-monitoring-upstreams` | Draft PR ready | Aligned Nginx single entry point observability upstreams (Grafana, Zipkin, Kibana, pgAdmin) and dynamic proxy 502 fallbacks between standalone and unified compose (Issue #659). Added network aliases (grafana, account-grafana, kibana, account-kibana, zipkin, account-zipkin) to standalone composes. Fixed Kibana standalone compose dependency error. Verified Next.js (200), Gateway (401), Zipkin (200), Grafana/Kibana through Nginx and Cloudflare tunnel. |
