@@ -2175,6 +2175,7 @@
 
 ## 2026-09-10 - GH-653 Closing live PASS; Payable Eureka dependency gate
 
+- Final `up --package accounting` exited 1 with `payable-api: health/Eureka deadline exceeded`; no later service was started. Existing containers remain preserved.
 - Closing repair commit `44eb41b5` is verified: JDK17 one-worker core/API/batch 124/124 (59/49/16), Python runner 38/38; independent final review clean after P3 adapter relocation. Actual rebuilt Closing and repeated Journal Ledger both pass health/Eureka UP, restart0/OOMfalse, CPU 0.50/RAM 768MiB and all checked error markers 0.
 - Accounting quiet Compose and seven-context DB prerequisite pass. Payable is running, health UP, restart0/OOMfalse, error/startup/database markers 0, but expected Eureka registration is false. Value-suppressing live JAR inventory confirms ConfigClient present and all three Eureka starter/client libraries absent. No raw logs/env/responses were exposed.
 - Independent review identifies a pre-existing P1 in the six API runtime dependency closures: payable, receivable, expenditure-resolution, tax, reporting, reconciliation. Each API build.gradle needs one `spring-cloud-starter-netflix-eureka-client` dependency using the existing BOM. These six paths are outside the current allowlist: no edits made, review-only patch `/tmp/issue-653-eureka-dependency.patch` prepared, scope expansion asked asynchronously.

@@ -167,7 +167,8 @@ DB/schema/startup 오류는 없었으며 원본 로그·env·HTTP 응답 내용�
 Loan의 외부 JPA 스캔과 자체 스키마 불일치도 정적 선행 점검에서 발견했으나 Loan 실기동
 실패를 주장하지 않는다. Loan 수정은 현 범위 밖이며 실제 증거 확인 시 별도 판단이 필요하다.
 
-Accounting 패키지 checkpoint 및 13/13 수용 조건은 아직 미충족이다. 정상 확인된
+`up --package accounting`은 `payable-api: health/Eureka deadline exceeded`로 exit 1 종료했고
+후속 서비스를 시작하지 않았다. Accounting 패키지 checkpoint 및 13/13 수용 조건은 아직 미충족이다. 정상 확인된
 Journal Ledger/Closing과 진단용 Payable, 기존 인프라를 유지한다. 검증 완료 후 게시한다는
 사용자 게이트에 따라 Draft PR은 아직 생성하지 않았다.
 
