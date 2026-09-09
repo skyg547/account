@@ -17,6 +17,7 @@
 6.  [**🚀 빌드 & 배포 완전 정복 가이드**](./docs/build-deploy-guide.md): 로컬 실행, 프로덕션 정적 빌드, Docker 컨테이너 배포 및 트러블슈팅을 다룹니다.
 7.  [**🚒 런북 (장애 해결)**](./docs/runbook.md): 에러가 났을 때 당황하지 않고 대처하는 법을 모았습니다.
 8.  [**🔐 HttpOnly BFF 인증 세션 가이드**](./docs/auth-session-guide.md): 로그인, 쿠키, 로그아웃, 보안 검증과 롤백을 설명합니다.
+9.  [**Frontend–Backend API 정합성 감사**](./docs/frontend-backend-api-parity-matrix.md): 전체 서비스 호출과 Controller·DTO를 대조한 근거, 누락 경로와 불일치, 재검증 방법입니다.
 
 ---
 
