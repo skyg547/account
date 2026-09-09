@@ -4,7 +4,7 @@
 - `AGENTS.md`, 공통 규칙 10, 검증표 40, 신규 품질 계약 42, Node 계약 테스트의 실질 5파일 변경이다. 업무 코드·DB·CI workflow는 변경하지 않았다.
 - Node 32/32, 로컬 링크 3개, diff/실제 conflict marker 검사 및 별도 Astra high 리뷰 통과. 문서 수정 전 baseline은 24개 중 15개 실패했다. 구조 테스트는 의미 품질 검토를 대신하지 않으며 CI 연결은 #672에 남는다.
 - 기존 `account-issue-2` 예약에 품질 블록만 추가했다. 이전 프롬프트 보존, 30분 주기·연결 작업·활성 상태·모델/권한 유지와 다른 두 예약의 해시 불변을 확인했다.
-- `agent/681-harness-quality-contract`의 Draft PR 제출까지만 진행한다. 기존 #662 / Draft #680은 보존하며 Ready·merge·Issue 종료·자원 삭제는 수행하지 않는다.
+- `agent/681-harness-quality-contract`를 [Draft PR #682](https://github.com/skyg547/account/pull/682)로 제출했다. 기존 #662 / Draft #680은 보존하며 Ready·merge·Issue 종료·자원 삭제는 수행하지 않는다.
 
 ### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System - Issue #484 / PR #485)
 ### [frontend] 케이뱅크(KBank) 스타일 모던 핀테크 디자인 시스템 (색상, 폰트, 배경, 카드, 헤더/사이드바) 전면 개편

@@ -2,7 +2,7 @@
 
 - User-requested harness quality follow-up; task `019fa3ea-ac4c-7022-bb45-951559750df7`, branch `agent/681-harness-quality-contract`, worktree `C:/tmp/account-681-harness-quality-contract`, base `34c75839af2edf10f80ff60d8f24e89504d69e9e`.
 - Writer `harness_lifecycle_writer` (coder / Astra medium): five approved substantive files complete and frozen. Independent `harness_lifecycle_review` (Astra high): APPROVE, Q1–Q4 PASS, Node 32/32 verified.
-- Parent Integrator: implementation automation quality block updated and invariants checked; records/commit/Draft PR preparation. No Ready/merge/close/cleanup; #662/#680 remains separately frozen Draft.
+- Parent Integrator: implementation automation quality block updated and invariants checked; [Draft PR #682](https://github.com/skyg547/account/pull/682) submitted at implementation commit `063199e3`, with record-only publication follow-up. Verify CI against the current PR head. No Ready/merge/close/cleanup; #662/#680 remains separately frozen Draft.
 - Risks: structural tests are not semantic enforcement; CI wiring #672 remains. Other user changes and automations are preserved.
 
 ## Preserved prior status

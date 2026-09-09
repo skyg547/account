@@ -16,7 +16,7 @@
 - 독립 실질 변경 판정: APPROVE, finding 없음. 신규 구조 테스트는 CI 미연결이며 기존 CI를 실행 증거로 쓰지 않는다. 업무 변경이 없어 Gradle·실DB·서버 검증은 비대상이다.
 - 안전: 처음 Issue 게시가 외부 전송 검증으로 보류됐다. origin과 일치하는 비공개 저장소 및 ADMIN 권한을 읽기 확인한 후 같은 대상 게시가 허용됐다. 비밀정보나 운영 접속정보를 읽거나 전송하지 않았다.
 - 롤백: 승인된 후속 revert로 이번 5실질 파일을 복원하고 부모 기록은 이력을 보존한다. 예약은 이번 추가 품질 블록만 제거한다. 새 의존성/설치/파괴적 작업 없음.
-- 다음: Draft PR 제출. Ready·merge·Issue close·branch/worktree 삭제는 별도 승인 대기이며 다른 Issue를 자동 착수하지 않는다.
+- 게시: [Draft PR #682](https://github.com/skyg547/account/pull/682), 구현 커밋 `063199e301aa51daa8e90c606a7d21647528ff2c`. 후속 기록 전용 커밋에서 실질 5파일은 불변이다. 다음은 현재 PR head의 CI 확인이며, 이 기록은 CI 통과를 주장하지 않는다. Ready·merge·Issue close·branch/worktree 삭제는 별도 승인 대기이며 다른 Issue를 자동 착수하지 않는다.
 
 ### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
 - **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`

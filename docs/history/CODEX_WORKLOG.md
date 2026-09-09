@@ -1,6 +1,7 @@
 ## 2026-09-10 — GH-681 공통 코드·문서 품질 계약
 
 - Issue: [#681](https://github.com/skyg547/account/issues/681), parent #661. 사용자 후속 요청이며 기존 #662 / Draft #680을 재개하거나 바꾸지 않았다.
+- 게시: [Draft PR #682](https://github.com/skyg547/account/pull/682), 구현 커밋 `063199e301aa51daa8e90c606a7d21647528ff2c`. 후속 기록 전용 커밋은 검토한 실질 5파일을 바꾸지 않는다. CI 결과는 GitHub의 현재 PR head 기준으로 별도 확인한다.
 - Base `34c75839af2edf10f80ff60d8f24e89504d69e9e`, branch `agent/681-harness-quality-contract`, worktree `C:/tmp/account-681-harness-quality-contract`.
 - Writer `/root/harness_lifecycle_writer` (coder, Astra medium), 독립 Reviewer `/root/harness_lifecycle_review` (Astra high). 부모는 계약·예약·공유 기록·Git/PR을 담당했다.
 - AGENTS/10/40에서 신규 42 품질 계약과 Q1–Q4 증거표를 필수 연결했다. 변경 범위에 한정한 명확한 이름/책임, 입력→처리→출력/설계 이유, 기능 문서 최신화·초보자 안내, 의도 주석을 검토한다. 과잉 주석·무관 리팩터링 금지, N/A 근거·독립 확인, 미실행 PASS 금지와 기존 권한 경계를 보존했다.
