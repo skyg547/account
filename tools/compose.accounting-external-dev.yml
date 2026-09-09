@@ -54,7 +54,7 @@ services:
     healthcheck:
       test: ["CMD", "sh", "/account-runtime/check-accounting-databases.sh"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 12
       start_period: 5s
     deploy:
@@ -82,7 +82,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${JOURNAL_LEDGER_DB_URL:?Set JOURNAL_LEDGER_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${JOURNAL_LEDGER_DB_USER:?Set JOURNAL_LEDGER_DB_USER in the approved env file}"
@@ -115,7 +120,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${CLOSING_DB_URL:?Set CLOSING_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${CLOSING_DB_USER:?Set CLOSING_DB_USER in the approved env file}"
@@ -148,7 +158,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${PAYABLE_DB_URL:?Set PAYABLE_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${PAYABLE_DB_USER:?Set PAYABLE_DB_USER in the approved env file}"
@@ -181,7 +196,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${RECEIVABLE_DB_URL:?Set RECEIVABLE_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${RECEIVABLE_DB_USER:?Set RECEIVABLE_DB_USER in the approved env file}"
@@ -214,7 +234,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${EXPENDITURE_RESOLUTION_DB_URL:?Set EXPENDITURE_RESOLUTION_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${EXPENDITURE_RESOLUTION_DB_USER:?Set EXPENDITURE_RESOLUTION_DB_USER in the approved env file}"
@@ -247,7 +272,12 @@ services:
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${TAX_DB_URL:?Set TAX_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${TAX_DB_USER:?Set TAX_DB_USER in the approved env file}"
@@ -277,10 +307,16 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      SPRING_APPLICATION_NAME: reporting-api
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${REPORTING_DB_URL:?Set REPORTING_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${REPORTING_DB_USER:?Set REPORTING_DB_USER in the approved env file}"
