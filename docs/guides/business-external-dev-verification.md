@@ -135,6 +135,42 @@ JPA validate로 시작하는 회귀 테스트가 외부 엔티티 유입 및 포
 HTTP 계약 테스트는 응답 실패·미지원 조회·timeout 입력을 검증한다.
 기존 core/API/batch 테스트도 실행하며, 실제 PostgreSQL 증거는 컨테이너 gate에서 수집한다.
 
+## 승인 후 실기동 결과 (2026-09-10 KST)
+
+Closing 수정은 `44eb41b5`에 저장했다. JDK17 컨테이너(CPU1, RAM1536MiB,
+network none)에서 `:closing:core:test :closing:api:test :closing:batch:test --offline
+--console=plain --no-daemon --max-workers=1` 최종 실행이 124/124(59/49/16),
+실행기 회귀 테스트가 38/38 통과했다. 독립 리뷰의 Core outbound adapter 위치 P3를
+수정했고 최종 소스 리뷰에 남은 P0–P3는 없다.
+
+| 서비스/검증 | 결과 |
+| --- | --- |
+| Accounting quiet Compose / DB prerequisite | PASS |
+| journal-ledger-api | 반복 PASS: health/Eureka UP, restart0/OOMfalse, CPU0.50/RAM768MiB, 검사 오류0 |
+| closing-api | 재빌드 및 실제 PostgreSQL PASS: health/Eureka UP, restart0/OOMfalse, CPU0.50/RAM768MiB, 검사 오류0 |
+| payable-api | health UP, running/restart0/OOMfalse, 검사 오류0; Eureka 등록 조건 미충족 |
+| 나머지 Accounting 4개 API | 이미지 빌드 완료, Payable gate 때문에 미기동 |
+| Products / Risk 각 3개 API | 이전 패키지 gate 미충족으로 빌드·기동 미실행 |
+
+Payable 실행 JAR 목록을 값 비출력 방식으로 확인했다. `spring-cloud-config-client`는
+있지만 `spring-cloud-starter-netflix-eureka-client`, `spring-cloud-netflix-eureka-client`,
+`eureka-client`가 모두 없다. 이 때문에 health UP을 Eureka 성공으로 간주할 수 없다.
+같은 누락을 독립 리뷰로 다음 여섯 API `build.gradle`과 전이 의존성에서 확인했다:
+`payable`, `receivable`, `expenditure-resolution`, `tax`, `reporting`, `reconciliation`.
+수정안은 각각 `implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'`
+한 줄 추가이며, 기존 Spring Cloud BOM을 재사용한다. 현재 allowlist 밖이므로 소스는
+변경하지 않았고 `/tmp/issue-653-eureka-dependency.patch`에 검토용 패치만 준비했다.
+사용자에게 6개 빌드 파일 범위 확장을 요청했다.
+
+Payable의 Connection refused 경고는 ERROR/DB 실패와 별도로 집계했다. 실제 진단에서
+DB/schema/startup 오류는 없었으며 원본 로그·env·HTTP 응답 내용은 출력하지 않았다.
+Loan의 외부 JPA 스캔과 자체 스키마 불일치도 정적 선행 점검에서 발견했으나 Loan 실기동
+실패를 주장하지 않는다. Loan 수정은 현 범위 밖이며 실제 증거 확인 시 별도 판단이 필요하다.
+
+Accounting 패키지 checkpoint 및 13/13 수용 조건은 아직 미충족이다. 정상 확인된
+Journal Ledger/Closing과 진단용 Payable, 기존 인프라를 유지한다. 검증 완료 후 게시한다는
+사용자 게이트에 따라 Draft PR은 아직 생성하지 않았다.
+
 ## 롤백과 다음 담당자
 
 정상 패키지는 유지한다. 실패한 이번 실행에서 생성/재생성한 API만 정확한 Compose project와
