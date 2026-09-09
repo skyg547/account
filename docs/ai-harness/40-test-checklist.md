@@ -60,11 +60,22 @@ git diff --stat
 ## Documentation
 
 - Update module README or docs when behavior, commands, parameters, or architecture changed.
-- Update harness logs:
+- The parent Integrator updates harness logs (not a substitute for module documentation):
   - `worklog.md`
   - `agent-status.md`
   - `handoff.md`
   - `conflict-log.md` if applicable
+
+## Quality Completion Gate
+
+- 구현 완료와 독립 리뷰에서 [코드·문서 품질 계약](42-code-documentation-quality.md)의 Q1–Q4 완료표 확인은 필수다. 변경 파일·테스트와 설명을 대조해 코드 품질, 흐름, 모듈/초보자 문서, 비자명 로직의 의도 주석을 검토한다.
+- 각 항목은 PASS/FAIL/N/A 및 파일·테스트 근거로 보고한다. 문서 전용 변경의 코드 주석은 구체적 사유가 있을 때 N/A 가능하며 독립 리뷰어가 이를 확인한다.
+- 테스트 미실행은 PASS가 아니다. 미실행 사유·위험·다음 검증 게이트를 남기고, FAIL 또는 근거 누락이 있으면 완료 처리하지 않는다. 읽기 전용 리뷰어는 원래 작성자에게 수정 요청을 반환한다.
+- 이 품질 확인은 기존 검증·Ready·merge 승인 게이트를 대체하지 않는다. 아래 로컬 구조 검사는 CI 미연결 상태이며 연결은 #672에서 별도 추적한다.
+
+```powershell
+node --test tools/ci/harness-quality-contract.test.cjs
+```
 
 ## Rollback Note
 

@@ -1,3 +1,23 @@
+### 2026-09-10 — GH-681 코드·문서 품질 계약
+
+- Issue [#681](https://github.com/skyg547/account/issues/681), parent #661; base `34c75839af2edf10f80ff60d8f24e89504d69e9e`; branch `agent/681-harness-quality-contract`; worktree `C:/tmp/account-681-harness-quality-contract`.
+- 범위: AGENTS, 10/40 정책 연결, 신규 42 품질 문서와 `tools/ci/harness-quality-contract.test.cjs`의 실질 5파일 및 부모 기록 5파일. 승인 범위 밖 기능 개선, 역할/skill, CI workflow, 기존 #662/#680은 변경하지 않았다.
+- 역할: 부모 Spec/Integrator, `/root/harness_lifecycle_writer` Astra medium 구현, 별도 `/root/harness_lifecycle_review` Astra high 독립 검수. `/root/harness_workflow_audit`가 명세를, `/root/harness_ci_audit`가 예약 품질 요약을 읽기 전용 검토했다.
+- 명령/결과: `node --test tools/ci/harness-quality-contract.test.cjs` 최종 32/32, `git diff --check` 통과, 승인 파일의 실제 conflict marker 없음, Markdown 로컬 링크 3개 정상. 최초 문서 누락 baseline은 24개 중 15개 실패. 부모와 Reviewer가 GREEN을 직접 재실행했다.
+- 예약: 부모가 앱 도구로 기존 `account-issue-2`에 품질 블록만 추가했다. 제거 비교로 원래 prompt 완전 보존 확인; 30분 주기, 동일 task `019fa3ea-ac4c-7022-bb45-951559750df7`, ACTIVE, 모델/권한·다른 설정 유지. `account` SHA256 `78A16628C64F363883772E4CC94510065B17050F075821D79205970474D06445`, `account-issue` SHA256 `F44B7E625281582FCD16CDB6E4FF36E48365307D774259BD18E0C2A99780AB56` 전후 동일.
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `tools/ci/harness-quality-contract.test.cjs:24`, `:29`, `:52` 책임 분리; Node 32/32 | 해당 없음: 테스트 코드 추가 | 구조 검사 외 의미 판단은 독립 리뷰 | harness_lifecycle_review 확인 |
+| Q2 | PASS | `docs/ai-harness/42-code-documentation-quality.md:20` 입력/처리/출력·예외·재실행 설명과 구현 대조 | 해당 없음: 검사 흐름 추가 | 해당 없음: 현재 설명 대조 완료 | harness_lifecycle_review 확인 |
+| Q3 | PASS | `docs/ai-harness/42-code-documentation-quality.md:71` 전제/명령/기대결과/제약; 링크 3개 정상 | 해당 없음: 기능 문서 추가 | CI 연결 #672, 자동 의미 판정 아님 | harness_lifecycle_review 확인 |
+| Q4 | PASS | `tools/ci/harness-quality-contract.test.cjs:13`, `:40`, `:114` 입력 범위·검사 의도·한계 주석 | 해당 없음: 비자명 검사 추가 | 해당 없음: 구현과 주석 대조 완료 | harness_lifecycle_review 확인 |
+
+- 독립 실질 변경 판정: APPROVE, finding 없음. 신규 구조 테스트는 CI 미연결이며 기존 CI를 실행 증거로 쓰지 않는다. 업무 변경이 없어 Gradle·실DB·서버 검증은 비대상이다.
+- 안전: 처음 Issue 게시가 외부 전송 검증으로 보류됐다. origin과 일치하는 비공개 저장소 및 ADMIN 권한을 읽기 확인한 후 같은 대상 게시가 허용됐다. 비밀정보나 운영 접속정보를 읽거나 전송하지 않았다.
+- 롤백: 승인된 후속 revert로 이번 5실질 파일을 복원하고 부모 기록은 이력을 보존한다. 예약은 이번 추가 품질 블록만 제거한다. 새 의존성/설치/파괴적 작업 없음.
+- 다음: Draft PR 제출. Ready·merge·Issue close·branch/worktree 삭제는 별도 승인 대기이며 다른 Issue를 자동 착수하지 않는다.
+
 ### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
 - **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`
 - **Changes**:

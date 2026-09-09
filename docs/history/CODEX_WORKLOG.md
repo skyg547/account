@@ -1,3 +1,14 @@
+## 2026-09-10 — GH-681 공통 코드·문서 품질 계약
+
+- Issue: [#681](https://github.com/skyg547/account/issues/681), parent #661. 사용자 후속 요청이며 기존 #662 / Draft #680을 재개하거나 바꾸지 않았다.
+- Base `34c75839af2edf10f80ff60d8f24e89504d69e9e`, branch `agent/681-harness-quality-contract`, worktree `C:/tmp/account-681-harness-quality-contract`.
+- Writer `/root/harness_lifecycle_writer` (coder, Astra medium), 독립 Reviewer `/root/harness_lifecycle_review` (Astra high). 부모는 계약·예약·공유 기록·Git/PR을 담당했다.
+- AGENTS/10/40에서 신규 42 품질 계약과 Q1–Q4 증거표를 필수 연결했다. 변경 범위에 한정한 명확한 이름/책임, 입력→처리→출력/설계 이유, 기능 문서 최신화·초보자 안내, 의도 주석을 검토한다. 과잉 주석·무관 리팩터링 금지, N/A 근거·독립 확인, 미실행 PASS 금지와 기존 권한 경계를 보존했다.
+- 검증: Node baseline RED 24개 중 15개 실패 → 최종 32/32 GREEN(부모와 별도 Reviewer 재실행), diff check·실제 marker·3개 로컬 링크 통과. 최종 실질 변경 리뷰 APPROVE, Q1–Q4 PASS.
+- 예약 `account-issue-2`는 품질 블록 삽입만 반영했다. 블록 제거 시 기존 prompt와 완전 일치하고 30분 주기·대상·활성 상태 등 불변을 재조회했다. 타 예약 `account`, `account-issue` 해시도 불변이다.
+- 미실행: 업무 코드/빌드 변경이 없어 Gradle·DB·서버 실행 비대상. 신규 테스트는 CI 미연결(#672), 구조 검사는 설명의 사실성·코드 품질을 자동 보장하지 않는다.
+- 롤백: 승인된 후속 revert로 이번 변경만 되돌리고 예약은 추가한 품질 블록만 제거한다. 기존 기록·사용자 dirty checkout·다른 worktree는 보존한다. Draft 제출 이후 Ready/merge/close/cleanup은 별도 지시 대기다.
+
 ## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
 - 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
 - 변경:

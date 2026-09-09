@@ -1,3 +1,16 @@
+# Active handoff — 2026-09-10 GH-681
+
+- Issue [#681](https://github.com/skyg547/account/issues/681), parent #661. Explicit user-requested quality follow-up, not an automatic restart of a historical Goal or another worker's Issue.
+- Task `019fa3ea-ac4c-7022-bb45-951559750df7`; branch `agent/681-harness-quality-contract`; worktree `C:/tmp/account-681-harness-quality-contract`; base `34c75839af2edf10f80ff60d8f24e89504d69e9e`.
+- Writer `/root/harness_lifecycle_writer` (coder / Astra medium), separate `/root/harness_lifecycle_review` (Astra high) APPROVE. Scope: AGENTS/10/40 quality links, new 42 contract, Node contract test; five parent tracking files in addition.
+- Verified: Node 32/32, diff check, actual conflict-marker check, three local links; Q1–Q4 PASS with evidence in worklog. Automation `account-issue-2` quality-only insertion verified; prior prompt, 30-minute cadence, target, ACTIVE, model/authority and other two automations preserved.
+- State: implementation frozen; parent preparing commit and Draft PR. No code rework. Next owner: parent verifies published head/CI and then waits for explicit next-gate direction.
+- Stop boundary: Draft submission only. Do not automatically mark Ready, merge, close the Issue, remove branches/worktrees or start another Issue. This user request did not lift the existing #662 / Draft #680 stop boundary; preserve that separate worktree and PR as well.
+- Risks: local structure tests do not prove semantic quality or enforce GitHub permissions; CI wiring #672 remains. Gradle/DB/server tests are not applicable to this documentation/local-test change. No secret access, installs, operational execution or user-checkout edits.
+- Rollback: approved follow-up revert of the five substantive files, retain history; remove only the added quality block from the implementation automation. Preserve unrelated fields and resources.
+
+## Preserved prior handoff
+
 # AI Harness Handoff - 2026-09-09 Issue #659 Nginx Single Entry Point Observability Upstream Mapping and Fallback Resilience
 
 - **Owner**: Gemini (Implementer)
