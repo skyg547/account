@@ -118,6 +118,9 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SERVER_PORT: "8080"
+      CLOSING_MASTER_DATA_REMOTE_ENABLED: "true"
+      CLOSING_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      CLOSING_JOURNAL_LEDGER_BASE_URL: "http://journal-ledger-api:8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
       SPRING_CLOUD_DISCOVERY_ENABLED: "true"

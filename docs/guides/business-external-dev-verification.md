@@ -8,7 +8,9 @@
 허용 파일은 세 패키지 Compose, `tools/run-business-external-dev.py`,
 `tools/test_run_business_external_dev.py`, 이 문서, AI harness의
 `agent-status.md`, `worklog.md`, `handoff.md`, `docs/history/CODEX_WORKLOG.md`다.
-업무 Java, SQL, 스키마, 플랫폼 설정은 변경하지 않는다.
+이후 [사용자 승인 댓글](https://github.com/skyg547/account/issues/653#issuecomment-5604915412)로
+ClosingApplication 및 필요한 Closing 설정/어댑터와 직접 회귀 검증 범위를 추가했다.
+SQL, 스키마, 공유 계약, 다른 업무 모듈과 플랫폼 설정은 변경하지 않는다.
 
 기존 PostgreSQL, Redis, minimal Config Server/Discovery/Auth/Master Data/Gateway/Frontend와
 외부 `account-network`가 준비되어 있어야 한다. `.env.external-dev`는 승인된 경로의
@@ -75,9 +77,9 @@ health/Eureka 확인이 끝나야 다음 API를 시작한다. 패키지 종료 �
 로그 검사는 제한된 패턴과 최근 로그 범위의 검사다. 모든 경고나 과거의 잘린 오류 부재를
 증명하지 않는다. Eureka 등록은 업무 API의 권한·회계 처리·서비스 간 업무 연동 성공을 뜻하지 않는다.
 
-## 검증 기록 (2026-09-10 KST)
+## 이전 실행 기록 (2026-09-10 KST, Closing 수정 전)
 
-13/13 실기동 수용 조건은 **미충족**이다. 재개 세션에서 Podman 조회와 로컬 API ping이
+이전 실행 시점의 13/13 실기동 수용 조건은 **미충족**이었다. 재개 세션에서 Podman 조회와 로컬 API ping이
 응답했고, 회계 이미지 7개를 모두 지정 Containerfile의 `bootJar --max-workers=1`로
 순차 빌드했다. 실제 env quiet Compose preflight와 회계 DB prerequisite가 통과했다.
 DB gate의 healthcheck timeout은 세 패키지 모두 10초에서 30초로 늘렸다.
@@ -103,7 +105,7 @@ adapter를 import한다. Master Data의 `AccountSubjectEntity`는 `account_subje
 Closing 전용 테이블만 생성한다. 이는 허용된 Compose/runner 수정으로 해결할 수 있는
 Eureka 또는 timeout 문제가 아니다. JPA validate 비활성화, 다른 모듈 DB 연결, 임의 DDL은
 수행하지 않았다. 기존 [Issue #250](https://github.com/skyg547/account/issues/250)의
-Closing PostgreSQL/JPA 부팅 검증 범위와 관련되며, 수정 소유권/범위 확인 후 재검증한다.
+Closing PostgreSQL/JPA 부팅 검증 범위와 관련되며, 이후 승인된 Closing 수정 범위에서 재검증한다.
 
 회귀 검증은 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools
 -p 'test_run_business_external_dev.py' -v`로 38/38 PASS다. 독립 Reviewer도 같은 테스트와
@@ -114,6 +116,25 @@ diff/marker 검사를 통과했고 현재 코드 변경의 확정 결함을 찾�
 unhealthy였다. 해당 관측성 서비스는 이 작업에서 수정/재시작하지 않았다. 가용 메모리는
 대략 11–12 GiB였고 I/O 대기가 관측됐다. 원본 env, 응답 본문, 원본 로그는 출력하지 않았다.
 
+## 승인된 Closing dev 구성 수정
+
+`ClosingApplication`의 기본 엔티티·리포지토리 스캔은 Closing 소유 범위만 포함한다.
+기존 외부 JPA 조합은 `ClosingMonolithConfiguration`의 `!dev` 프로파일에 보존했으므로
+이번 변경은 dev 컨테이너 분리에 한정되며 prod의 스키마 분리 해결을 주장하지 않는다.
+Compose는 회계기간 HTTP 어댑터를 활성화하고 Master Data와 Journal의 내부 주소를 지정한다.
+
+Closing의 Journal HTTP 어댑터는 기간별 전표 목록, 전표번호 조회, draft 생성, 승인·전기를
+실제 공개된 계약으로 호출한다. 숫자 ID 조회·상세 조회·집계는 현재 Journal REST에 대응하는
+계약이 없어 `UnsupportedOperationException`으로 명시적으로 실패한다. 빈 결과나 0을
+성공으로 반환하지 않는다. 따라서 조정 전표 등록, 연차 결산 등 해당 포트를 사용하는 업무는
+후속 Journal HTTP 계약 확장·정합성 검증이 필요하다. health/Eureka UP은 이 업무의 완료를 뜻하지 않는다.
+회계기간 HTTP 변경과 Closing DB 트랜잭션 사이의 분산 원자성도 이번 검증 범위 밖이다.
+
+실제 `ClosingApplication`을 dev/H2 PostgreSQL mode에서 Closing V49–V51 migration과
+JPA validate로 시작하는 회귀 테스트가 외부 엔티티 유입 및 포트 누락을 확인한다.
+HTTP 계약 테스트는 응답 실패·미지원 조회·timeout 입력을 검증한다.
+기존 core/API/batch 테스트도 실행하며, 실제 PostgreSQL 증거는 컨테이너 gate에서 수집한다.
+
 ## 롤백과 다음 담당자
 
 정상 패키지는 유지한다. 실패한 이번 실행에서 생성/재생성한 API만 정확한 Compose project와
@@ -122,8 +143,7 @@ service label을 확인한 후 `podman stop <확인한-container-id>`로 중지�
 이미지/설정 변경 전 버전 복구가 필요하면 보관된 이전 이미지와 이전 Compose 설정으로
 해당 서비스만 재생성하고 동일 검증을 수행한다. 소스 롤백은 리뷰된 PR revert를 사용한다.
 
-Closing의 격리된 PostgreSQL 부팅 계약을 수정·검증한 뒤 Integrator가 위 순서로
-13/13 실기동 증거를 완성한다. 실패 이후 패키지 진행 및 allowlist 확장은 사용자 지시에 따른다.
+Integrator가 승인된 Closing 수정 및 위 순서로 13/13 실기동 검증을 진행한다.
 검증 통과 후 Draft PR을 생성한다는 요청에 따라, 현재 PR은 게시하지 않고 본문을 준비한다. 이후 독립 Reviewer와 사람이 결과를 검토한다.
 `Refs #653`을 유지하며 실기동 성공 전 Ready, merge, Issue close를 하지 않는다.
 

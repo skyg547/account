@@ -7,10 +7,12 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
@@ -33,14 +35,23 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
     public HttpFiscalPeriodControlAdapter(
             RestClient.Builder builder,
             @Value("${closing.master-data.base-url}") String baseUrl,
-            @Value("${closing.master-data.connect-timeout:2s}") Duration connectTimeout,
-            @Value("${closing.master-data.read-timeout:5s}") Duration readTimeout) {
+            @Value("${closing.master-data.connect-timeout:2s}") String connectTimeout,
+            @Value("${closing.master-data.read-timeout:5s}") String readTimeout) {
+        this(builder, baseUrl, parseDuration(connectTimeout, "connect-timeout"),
+                parseDuration(readTimeout, "read-timeout"));
+    }
+
+    public HttpFiscalPeriodControlAdapter(
+            RestClient.Builder builder,
+            String baseUrl,
+            Duration connectTimeout,
+            Duration readTimeout) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("closing.master-data.base-url must not be blank");
         }
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Math.toIntExact(connectTimeout.toMillis()));
-        requestFactory.setReadTimeout(Math.toIntExact(readTimeout.toMillis()));
+        requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
+        requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
         this.restClient = builder
                 .baseUrl(baseUrl.trim())
                 .requestFactory(requestFactory)
@@ -65,7 +76,9 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
             }
-            throw new IllegalStateException("master-data lookup failed", e);
+            throw remoteFailure("lookup", e);
+        } catch (RestClientException e) {
+            throw remoteFailure("lookup", e);
         }
     }
 
@@ -83,7 +96,9 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
             }
-            throw new IllegalStateException("master-data lookup failed", e);
+            throw remoteFailure("lookup", e);
+        } catch (RestClientException e) {
+            throw remoteFailure("lookup", e);
         }
     }
 
@@ -93,18 +108,52 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             throw new IllegalArgumentException("arguments must not be null");
         }
         try {
-            return restClient.put()
+            FiscalPeriodRef response = restClient.put()
                     .uri("/api/internal/fiscal-periods/{id}/closing-status", fiscalPeriodId)
                     .header(SERVICE_IDENTITY_HEADER, SERVICE_IDENTITY_VALUE)
                     .body(new UpdateStatusRequest(closingStatus, auditUser))
                     .retrieve()
                     .body(FiscalPeriodRef.class);
+            if (response == null) {
+                throw new IllegalStateException("master-data closing status update returned an empty response body");
+            }
+            return response;
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.FORBIDDEN || e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                throw new SecurityException("Service authentication rejected by master-data: " + e.getMessage(), e);
+                throw new SecurityException("Service authentication rejected by master-data");
             }
-            throw new IllegalStateException("master-data closing status update failed: " + e.getMessage(), e);
+            throw remoteFailure("closing status update", e);
+        } catch (RestClientException e) {
+            throw remoteFailure("closing status update", e);
         }
+    }
+
+    private static IllegalStateException remoteFailure(String operation, RestClientException error) {
+        // RestClient causes can contain URLs and response bodies; expose only the HTTP status.
+        String status = error instanceof RestClientResponseException response
+                ? " (HTTP " + response.getStatusCode().value() + ")" : "";
+        return new IllegalStateException("master-data " + operation + " failed" + status);
+    }
+
+    private static Duration parseDuration(String value, String propertyName) {
+        try {
+            return DurationStyle.detectAndParse(value == null ? "" : value.trim());
+        } catch (RuntimeException e) {
+            throw invalidTimeout(propertyName);
+        }
+    }
+
+    private static int timeoutMillis(Duration timeout, String propertyName) {
+        if (timeout == null || timeout.compareTo(Duration.ofMillis(1)) < 0
+                || timeout.compareTo(Duration.ofMillis(Integer.MAX_VALUE)) > 0) {
+            throw invalidTimeout(propertyName);
+        }
+        return (int) timeout.toMillis();
+    }
+
+    private static IllegalArgumentException invalidTimeout(String propertyName) {
+        return new IllegalArgumentException(
+                "closing.master-data." + propertyName + " must be a positive bounded duration");
     }
 
     private record UpdateStatusRequest(String closingStatus, String auditUser) {
