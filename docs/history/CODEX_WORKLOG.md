@@ -1,3 +1,14 @@
+## 2026-09-09 (Issue #657 Nginx Single Entry Point DNS Alignment and Dynamic Upstream Resilience)
+- 요청 목표: 저자원 minimal external-dev 스택을 위한 Nginx 단일 진입점 DNS 별칭 동기화 및 런타임 업스트림 내성을 강화한다.
+- 변경:
+  - `tools/compose.minimal-auth-external-dev.yml`: `minimal-gateway` 및 `minimal-frontend`에 `account-gateway` 및 `account-frontend` 네트워크 별칭 추가.
+  - `frontend-nginx/nginx.conf`: Nginx 런타임 동적 DNS 리졸버 연동(`resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;`) 및 변수 기반 `proxy_pass` 전환, 미실행 서비스로 인한 부팅 crash 방지, `error_page 502 = @minimal_...` 기반 프론트/게이트웨이 graceful fallback 구현.
+  - `frontend-nginx/Dockerfile` & `docker-compose.yml`: `NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` 및 템플릿 마운트 방식을 채택하여 Docker/Podman/K8s DNS 리졸버 자동 주입, 기본 네트워크명 `${ACCOUNT_NETWORK_NAME:-account-network}` 정합화.
+- 검증:
+  - `./gradlew :config-server:test --tests "com.ho.account.configserver.DevelopmentComposePolicyTest"` 및 `:config-server:test` (118 tests 100% PASS).
+  - Podman `test-nginx-template` 기동 실시간 검증: `curl http://localhost:8080/` (Next.js 200 OK) 및 `curl http://localhost:8080/api/actuator/health` (Gateway 401 Unauthorized via JWT Filter) 정상 프록시 확인.
+  - `git diff --check`: 0 errors.
+
 ## 2026-09-08 (Issue #436 Config Server encrypt/decrypt endpoint authentication and exposure hardening)
 - 요청 목표: Config Server의 encrypt/decrypt HTTP endpoint를 무인증 접근에서 차단하고, 승인된 내부 운영 경로만 사용할 수 있도록 인증과 네트워크 노출 계약을 구현한다.
 - 변경:

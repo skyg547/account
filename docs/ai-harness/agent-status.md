@@ -1,7 +1,8 @@
 # Agent Status
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
-| --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-09 | Gemini | Implementer | `agent/657-nginx-minimal-upstream` / `/tmp/account-657-nginx-minimal-upstream` | Draft PR ready | Aligned Nginx single entry point DNS aliases and runtime dynamic upstreams for low-resource minimal external-dev stack (Issue #657). Added account-gateway & account-frontend aliases to compose.minimal-auth-external-dev.yml, dynamic NGINX_LOCAL_RESOLVERS and 502 fallbacks to nginx.conf/Dockerfile/compose. Verified with DevelopmentComposePolicyTest and live curl checks. |
 | 2026-09-08 | Codex / Gemini | Implementer | `agent/436-config-crypto-endpoint-auth` / `/tmp/account-436-config-crypto-endpoint-auth` | Draft PR ready | Enforced authentication, disabled-default policy, and public ingress isolation for Config Server encrypt/decrypt endpoints. Verified 118 tests in :config-server. |
 | 2026-09-08 | Gemini / Codex | Implementer | `agent/640-accounting-dev-db` / `/tmp/account-640-accounting-dev-db` | Draft PR ready | Provisioned and migrated 7 accounting databases on external-dev PostgreSQL via `provision-accounting-external-dev.py`, verified with fail-closed ACL gates and check-accounting-databases.sh. |
 | 2026-09-07 | Gemini | Implementer / Documentation | `agent/630-architecture-docs-update` | Draft PR ready | Normalized architecture.md path to docs/architecture/architecture.md, fixed broken link from docs/README.md and master-domain-glossary.md, and updated comprehensive 2026 enterprise MSA topology, 6-phase pipeline, and hexagonal architecture diagrams. |

@@ -1,3 +1,18 @@
+### 📅 2026-09-09 (GH-657: 저자원 minimal external-dev 스택을 위한 Nginx 단일 진입점 DNS 별칭 동기화 및 런타임 업스트림 내성 강화)
+- **Component**: `frontend-nginx/`, `tools/compose.minimal-auth-external-dev.yml`, `docs/ai-harness/`
+- **Changes**:
+  - `tools/compose.minimal-auth-external-dev.yml`: `minimal-gateway` 및 `minimal-frontend` 컨테이너 네트워크에 `account-gateway` 및 `account-frontend` 네트워크 별칭(aliases)을 추가하여 표준 전체 스택과 DNS 일관성 확보.
+  - `frontend-nginx/nginx.conf`:
+    - 컨테이너 런타임 DNS 리졸버 자동 연동(`resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;`)을 추가하고 모든 업스트림을 변수 기반 동적 해석(`set $...; proxy_pass $...;`)으로 전환하여 미실행 모니터링 컨테이너로 인한 Nginx 부팅 시 crash 원천 방지.
+    - `minimal-frontend` 및 `minimal-gateway` 대상 `error_page 502 = @minimal_...` 우아한 장애 조치(graceful fallback)를 구성하여 별칭 미지정 레거시 컨테이너 및 신규 컨테이너 환경 모두 무중단 지원.
+  - `frontend-nginx/Dockerfile` & `docker-compose.yml`:
+    - `NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1` 환경변수 주입 및 `/etc/nginx/templates/default.conf.template` 템플릿 마운트 방식을 채택하여 Docker(127.0.0.11), Podman(10.89.4.1), K8s DNS를 자동 감지/주입.
+    - 네트워크 기본값을 `${ACCOUNT_NETWORK_NAME:-account-network}`로 정합화.
+- **Verification**:
+  - `DevelopmentComposePolicyTest` 단독 및 `:config-server:test` 전체 118개 테스트 성공 (BUILD SUCCESSFUL).
+  - Podman 기반 `test-nginx-template` 기동 후 `curl http://localhost:8080/` (Next.js 200 OK) 및 `curl http://localhost:8080/api/actuator/health` (Gateway 401 Unauthorized via JWT Filter) 정상 프록시 실시간 검증 완료.
+  - `git diff --check`: 0 errors, credentials/secrets 0건.
+
 ### 📅 2026-09-08 (GH-436: Config Server encrypt/decrypt endpoint 인증 및 네트워크 노출 제한)
 - **Component**: `config-server`, `compose.prod.yml`, `docs/ai-harness/`
 - **Changes**:
