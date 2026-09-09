@@ -5,7 +5,7 @@
 - Reconciled frozen-Draft pre-review, approved parent Ready, independent current-head/base final review and separate merge/close/cleanup approvals. Model capability does not grant mutation authority. Tool-specific follow-ups remain #670.
 - Verification: initial RED (23 cases, 9 failures); independent review found a Ready-only CI prerequisite deadlock. The new 32-case regression first failed on three actual documents, then passed 32/32 after repair. Independent Astra high re-review approved with no remaining finding. Existing js-yaml verified 21 unique form IDs and field/label preservation; 19 local links and scoped diff/marker/allowlist checks passed. No dependency installed.
 - Limits: regex documentation checks are not runtime access control; CI wiring remains #672 and Guard trust/evidence design #671. No application/DB/container tests apply to this docs/test-only change.
-- Next: authorized commit/push/Draft PR with `Refs #662`. No Ready/merge/Issue close/deletion. Rollback: reviewed reversal of #662 policy/test paths, preserving history and all primary checkout changes.
+- Published implementation `af95eca1` in Draft PR [#680](https://github.com/skyg547/account/pull/680), `Refs #662`. This record-only follow-up synchronizes the published handoff; reviewed policy/test files are unchanged. No Ready/merge/Issue close/deletion. Rollback: reviewed reversal of #662 policy/test paths, preserving history and all primary checkout changes.
 
 ### 📅 2026-09-09 (GH-659: Nginx 단일 진입점 관측성 업스트림 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback) 강화)
 - **Component**: `frontend-nginx/nginx.conf`, `grafana/docker-compose.yml`, `zipkin/docker-compose.yml`, `kibana/docker-compose.yml`, `docs/ai-harness/`

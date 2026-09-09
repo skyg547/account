@@ -2,9 +2,9 @@
 
 - Workflow: Account Issue 구현 오케스트레이터; user-prioritized harness work, not a restart of the historical Goal.
 - Task: `019fa3ea-ac4c-7022-bb45-951559750df7`; writer `/root/harness_lifecycle_writer` (coder, Astra medium); independent `/root/harness_lifecycle_review` (Astra high) approved with no remaining finding.
-- Base: `34c75839af2edf10f80ff60d8f24e89504d69e9e`; branch `agent/662-harness-pr-lifecycle`; worktree `C:\tmp\account-662-harness-pr-lifecycle`; PR not yet created.
+- Base: `34c75839af2edf10f80ff60d8f24e89504d69e9e`; branch `agent/662-harness-pr-lifecycle`; worktree `C:\tmp\account-662-harness-pr-lifecycle`; Draft PR [#680](https://github.com/skyg547/account/pull/680), implementation commit `af95eca1`.
 - Scope: 20/87/88 policy docs, Issue spec form, Node PR contract test; five parent-owned tracking files in addition. No primary checkout changes.
-- State: frozen implementation; local and independent Node 32/32, YAML/field preservation, 19 local links and scoped checks pass. Rework count 1: fixed Draft waiting for Ready-only CI. Next: approved commit/push/Draft PR. No new Issue writer while this handoff is active.
+- State: submitted Draft, implementation frozen; local and independent Node 32/32, YAML/field preservation, 19 local links and scoped checks pass. Rework count 1: fixed Draft waiting for Ready-only CI. Next: observe exact PR-head CI and wait for explicit next-gate direction. No new Issue writer while this handoff is active; follow-up record-only commit does not alter the reviewed policy/test files.
 - Stop boundary: keep the submitted PR Draft. This request does not authorize automatic Ready/merge/close/cleanup; future runs must preserve this boundary instead of inheriting the generic loop's broader actions.
 - Risks: documentation assertions cannot enforce GitHub permissions; local test CI wiring #672 and Guard trust policy #671 remain. No secrets/live systems/dependencies/runtime behavior changed. Rollback: reviewed policy/test reversal, preserve history.
 

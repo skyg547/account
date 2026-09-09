@@ -5,7 +5,7 @@
 - Owner: parent Codex Integrator; writer `/root/harness_lifecycle_writer` (coder, Astra medium); independent `/root/harness_lifecycle_review` (Astra high) approved after one P2 remediation.
 - Branch/worktree: `agent/662-harness-pr-lifecycle` / `C:\tmp\account-662-harness-pr-lifecycle`; base `34c75839af2edf10f80ff60d8f24e89504d69e9e`.
 - Frozen scope: four central policy/form files and one Node test. Local and independent 32/32 tests, YAML/21 unique IDs/field preservation, 19 local links and scoped diff/marker/allowlist checks pass.
-- Next: authorized commit/push/Draft PR only. No Ready/merge/close/cleanup authority inferred; primary dirty checkout and other worktrees preserved.
+- Published: Draft PR [#680](https://github.com/skyg547/account/pull/680), implementation commit `af95eca1`. Next: retain Draft for explicit review/next-gate direction. No Ready/merge/close/cleanup authority inferred; primary dirty checkout and other worktrees preserved.
 
 
 | Date | Agent | Role | Branch/Worktree | Status | Notes |
