@@ -13,10 +13,10 @@
 - Writer `/root/fiscal_683_writer` (service / GPT-6 Astra high), 별도 Reviewer `/root/harness_lifecycle_review` (Astra high). 단일 원인의 응집된 수정에 한해 부모가 정확한 Mapper 1개와 matching tests까지 서비스 역할 범위를 명시 승인했다. 부모만 공유 기록·Git/GitHub를 담당한다.
 - 원인: 저장된 상태를 Mapper가 빈 domain의 새 업무 전이로 실행하여 영구 마감 조회·합법 전이 후 저장 결과 복원을 거부했다. 부모의 현재 compiled class 합성 probe 두 건으로 재현했다.
 - 변경: 순수 `FiscalPeriod.reconstitute`가 9개 원값과 nullable 감사 필드를 보존하며 null 상태는 거부한다. Mapper는 업무 전이를 호출하지 않는다. 기존 `changeClosingStatus` 본문·actor 검증은 동일하고 API/contracts/JPA entity/DB schema는 변경하지 않았다.
-- 검증: production 수정 전 실제 Mapper RED 10건 중 3실패, 오류/skip 0. GREEN Domain21+Mapper10+H2 12=43건, core/API/batch 전체 87건(58/24/5), 22 suites, 실패/오류/skip 0(기존44+신규43). 별도 `/root/harness_lifecycle_review`가 3모듈을 `--rerun-tasks`로 재실행해 87/87 PASS(47초) 및 실질5파일 APPROVE, Q1–Q4 PASS를 확인했다. 부모 기록을 포함한 최종 후보 리뷰와 게시 head CI는 다음 게이트다.
+- 검증: production 수정 전 실제 Mapper RED 10건 중 3실패, 오류/skip 0. GREEN Domain21+Mapper10+H2 12=43건, core/API/batch 전체 87건(58/24/5), 22 suites, 실패/오류/skip 0(기존44+신규43). 별도 `/root/harness_lifecycle_review`가 3모듈을 `--rerun-tasks`로 재실행해 87/87 PASS(47초) 및 실질5파일 APPROVE, Q1–Q4 PASS를 확인했다. 게시 head CI는 별도 후속 게이트이며 로컬 성공과 구분한다.
 - H2는 실제 Repository/Mapper/Adapter 및 Spring control 프록시를 사용한다. 외부 테스트 rollback 트랜잭션을 끄고 실제 커밋 후 별도 트랜잭션/clear로 ID·잠금 ID·연월 조회를 확인했다. 거부된 명령은 저장 상태·감사값을 보존한다. PostgreSQL 잠금 경합/동시 마감 검증은 아니다.
 - 실질 allowlist 5파일 + 부모 기록4파일. 기존 변경 보존, diff/marker/unmerged 검사 통과. 실제 DB/서버/업무 Batch·비밀정보·설치/다운로드·기존 행/로그 삭제 없음. 자동화 테스트의 H2 fixture만 정리했다.
-- PR은 아직 게시 전 검증 시점이다. 독립 최종 승인 후 부모가 commit/push/Draft 게시 및 새 head CI를 확인해 Ready로 인계한다. 최종 merge/close는 기존 `account` 예약 소유다. 02:03 UTC 배정 시 #663/PR684·#664/PR685는 동결 Ready였으며, 선행 병합이나 #662 종료를 기다리지 않았다.
+- 게시: [Draft PR #686](https://github.com/skyg547/account/pull/686), 구현 커밋 `9a424d2ac8a19d035e7b350fac8ce422256ea570`. 최종9파일 독립 APPROVE 후 게시했으며 이 후속 커밋은 게시 식별자 반영 기록 전용으로 실질5파일은 동일하다. 새 게시 head CI를 확인한 뒤 Ready로 인계한다. 최종 merge/close는 기존 `account` 예약 소유다. 02:03 UTC 배정 당시 #663/PR684·#664/PR685는 동결 Ready였고 선행 병합이나 #662 종료를 기다리지 않았다. 이후 상태 변화는 각 원격 PR과 오케스트레이터 대기열을 따른다.
 - 롤백: 승인된 코드/테스트의 검토된 revert이며 DB·감사 행은 바꾸지 않는다. 롤백하면 원래 영구 마감 복원 결함이 돌아온다. 기능 문서는 기존 전이/terminal 계약을 복원하므로 수정하지 않는다. `local-run.md:83`의 기존18건은 변경 전44건과도 맞지 않던 범위 밖 차이이며 모든 문서가 최신이라고 주장하지 않는다.
 
 ### 실행 명령과 품질 근거
