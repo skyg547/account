@@ -351,3 +351,9 @@
 - One substantive writer `/root/issue691_implementation` (Astra xhigh), four-file allowlist. Parent owns five appended records, remote claim and Git/PR publication. No other writer or unapproved takeover.
 - Writer frozen: RED GL/SL forward/reverse4/4 reproduced; writer and independent `/root/issue691_code_review` Astra xhigh each forced offline GREEN81/81 in28suites, failure/error/skip0,37tasks executed. Frozen four-file hashes match, independent P0–P3 none and Q1–Q4 PASS. Parent final-record delta confirmation precedes publication. No Ready/merge/Issue-close claim at this checkpoint.
 - Source/test/doc freeze and independent review precede Draft PR/current-head CI. Final remote state supersedes this committed checkpoint; separate account automation owns final merge/close. Other Issues and resources are preserved.
+
+## 2026-09-11 GH-673 parent checkpoint
+
+- Workflow/task Account Issue 구현 오케스트레이터 / `019fa3ea-ac4c-7022-bb45-951559750df7`, original Issue673/claim5624214896. Branch/worktree `agent/673-review-read-scope` / `C:/tmp/account-673-review-read-scope`, base65af7e6f. Preparation ownership was released before a separate implementation claim.
+- Writer `/root/issue673_implementation` Astra high: exact2 source files frozen, actual RED1 then full Node60/60 PASS. Separate `/root/issue673_code_review` Astra high: independent60/60 PASS/source2 hashes unchanged/Q1–Q4PASS/no required finding. Parent records5 and final PR delta review precede Git publication; headCI/Ready follows separately.
+- No real secret probes/runtime sandbox claim, package/CI/global setting changes or primary checkout edits. Parent-only Git/GH/shared records; account final review/merge/Issue close. This implementation started at account9% below first-day new-work9.43%; subsequent10% stops new implementation/preparation while this already-started review/checkpoint is completed safely.
