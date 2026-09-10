@@ -344,3 +344,10 @@
 - `/root/migration_663_writer` Astra high: two-file security fix implemented and frozen; RED46/16fail → GREEN target46/full125, failure/error/skip0. Independent `/root/harness_ci_audit` Astra high reran full125/125; final review and parent publication gates tracked remotely.
 - This work proceeds independently of GH-662 Issue-close approval and GH-681 record rework. The current automation uses separate implementation/PR-wait/rework/cleanup queues. Previous global serial stop prose is historical, not current authorization.
 - Final merge/close belongs to account. No primary checkout change, live DB/TLS, installs or resource removal.
+
+## 2026-09-11 — GH-691 implementation checkpoint
+
+- Owner: `Account Issue 구현 오케스트레이터` / task `019fa3ea-ac4c-7022-bb45-951559750df7`. [Claim #691](https://github.com/skyg547/account/issues/691#issuecomment-5623212221); branch `agent/691-ledger-period-summary`, external worktree `C:/tmp/account-691-ledger-period-summary`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
+- One substantive writer `/root/issue691_implementation` (Astra xhigh), four-file allowlist. Parent owns five appended records, remote claim and Git/PR publication. No other writer or unapproved takeover.
+- Writer frozen: RED GL/SL forward/reverse4/4 reproduced; writer and independent `/root/issue691_code_review` Astra xhigh each forced offline GREEN81/81 in28suites, failure/error/skip0,37tasks executed. Frozen four-file hashes match, independent P0–P3 none and Q1–Q4 PASS. Parent final-record delta confirmation precedes publication. No Ready/merge/Issue-close claim at this checkpoint.
+- Source/test/doc freeze and independent review precede Draft PR/current-head CI. Final remote state supersedes this committed checkpoint; separate account automation owns final merge/close. Other Issues and resources are preserved.
