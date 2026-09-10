@@ -3792,3 +3792,12 @@
 - 응답 날짜·기간·그룹 순서와 기존 key를 유지하고 원본 엔티티나 입력 목록은 변경하지 않는다. 기능 문서와 실제 서비스 기반 HTTP 회귀를 함께 갱신한다.
 - 수정 전 GL/SL 정순·역순 4건의 실패로 원인을 재현했다. 수정 후 JDK17/Gradle8.7 오프라인 강제 전체 실행과 별도 Astra xhigh 리뷰어의 독립 재실행 모두 core65/API11/Batch5, 총81건(28 suites) 실패·오류·skip0으로 통과했다. 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
 - `agent/691-ledger-period-summary` / 외부 전용 worktree에서만 작업한다. 게시 SHA·CI·Ready 상태는 Issue/PR에서 추적하며 최종 병합과 Issue 종료는 별도 `account` 예약의 소유다. 데이터 복구·운영 DB·Batch 실행은 하지 않는다.
+
+## 2026-09-11 GH-693 전기 직전 회계기간 재확인
+
+- `PostingService`는 승인 전표 스냅샷 검증 후 첫 상태 변경 전에 기존 마감 검증기를 호출한다. 닫힘·기간 부재·조회 실패면 전표/감사 사용자/상세를 유지하고 전표·원장·잔액 쓰기를 시작하지 않는다.
+- OPEN 정상 전기, 회계일자/SYSTEM 처리와 기존 잘못된 전표 거부를 보존했다. 초보자용 흐름·실패·재시도·동시성 한계를 `journal-ledger/docs/process-flow.md`에 설명한다.
+- 독립 리뷰가 Loan 직접 소비자 fixture의 생성자 컴파일 실패를 재현하여 초기 영향 조사 누락을 바로잡았다. 원 Issue의 검토된 4파일 범위로 보완하며, 실제 필터를 생략하는 우회 생성자는 만들지 않는다.
+- GH-693 작성자 보완 검증: journal-ledger 74개 + Loan 108개, 합계 48 suites/182 tests 실패·오류·skip 0, Loan API/Batch 패키징 통과. 독립 리뷰는 동일 Journal 소스의74개와 보완 Loan108개/패키징을 직접 검증하여 P1 해소·Q1–Q4 PASS를 확인했다. 이는 base65e6b1e3 로컬 체크포인트이며 최신 main 통합 재검증/CI/Ready는 별도 게이트다.
+- 별도 `account` 예약이 최종 리뷰·병합·Issue 종료를 맡는다. 이 구현 예약은 검증/독립 리뷰 뒤 Draft PR과 해당 head CI/Ready 인계까지만 수행한다. 실제 DB·서버·업무 Batch·배포·기존 오전기 복구는 범위 밖이다.
+- 최신 main `65af7e6f` 통합: 기록5의 EOF 충돌은 양쪽 이력을 모두 보존했고 업무 코드 충돌은 없었다. 별도 xhigh 리뷰어의 강제 통합 재실행은 journal-ledger95개+Loan108개=49 suites/203 tests 실패·오류·skip0, Loan 패키징2개 PASS였다. 검토된 기존182개와 main에서 들어온21개를 함께 확인한 결과이며 원격 CI/Ready·최종 병합은 후속 게이트다.

@@ -4,6 +4,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
+import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
 import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class PostingService {
     private final JournalPersistencePort journalPersistencePort;
     private final LedgerEntryPersistencePort ledgerEntryPersistencePort;
     private final LedgerService ledgerService;
+    private final ClosingLockValidationFilter closingLockValidationFilter;
 
     @Transactional
     public void postJournalEntry(Long journalEntryId) {
@@ -44,6 +46,10 @@ public class PostingService {
         // 승인된 전표의 값을 먼저 불변 스냅샷으로 고정합니다. 이후 adapter 두 개가 같은
         // Aggregate를 소비하므로 GL과 SL 중 한쪽만 다른 값으로 조립될 여지가 없습니다.
         GeneralLedger generalLedger = GeneralLedger.fromApproved(journalEntry);
+
+        // 작성·승인 이후 기간이 닫힐 수 있으므로 전기 직전에 다시 확인합니다.
+        // 조회 실패도 상태·감사 사용자 변경보다 먼저 전파하여 쓰기를 시작하지 않습니다.
+        closingLockValidationFilter.validate(journalEntry);
         journalEntry.post(poster);
         journalPersistencePort.save(journalEntry);
 
