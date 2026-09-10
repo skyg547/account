@@ -288,24 +288,41 @@ public class LedgerService {
 
     private List<GlBalance> aggregateGlBalances(List<GlBalance> balances, LocalDate balanceDate) {
         Map<String, GlBalance> aggregated = new LinkedHashMap<>();
+        Map<String, LocalDate> earliestDates = new LinkedHashMap<>();
         for (GlBalance balance : balances) {
             String key = balance.getAccountCode() + "|" + (balance.getCurrencyCode() != null ? balance.getCurrencyCode() : "");
             GlBalance target = aggregated.computeIfAbsent(key, ignored -> createGlAggregate(balance, balanceDate));
-            mergeIntoGlBalance(target, balance);
+            LocalDate earliestDate = earliestDates.get(key);
+            // 일별 기초에는 이전 기말이 이미 이월되어 있다. 응답 날짜와 별도로 최소 날짜의 기초만 선택한다.
+            if (earliestDate == null || balance.getBalanceDate().isBefore(earliestDate)) {
+                earliestDates.put(key, balance.getBalanceDate());
+                target.setBeginningBalance(zeroIfNull(balance.getBeginningBalance()));
+            }
+            mergeGlMovements(target, balance);
         }
+        // 입력 순서에 따른 미완성 기초/흐름 조합을 평가하지 않고, 그룹 집계가 끝난 뒤 기말을 계산한다.
+        aggregated.values().forEach(GlBalance::recalculate);
         return new ArrayList<>(aggregated.values());
     }
 
     private List<SlBalance> aggregateSlBalances(List<SlBalance> balances, LocalDate balanceDate) {
         Map<String, SlBalance> aggregated = new LinkedHashMap<>();
+        Map<String, LocalDate> earliestDates = new LinkedHashMap<>();
         for (SlBalance balance : balances) {
             String key = balance.getAccountCode() + "|"
                     + (balance.getBusinessPartnerCode() != null ? balance.getBusinessPartnerCode() : "") + "|"
                     + (balance.getDepartmentCode() != null ? balance.getDepartmentCode() : "") + "|"
                     + (balance.getCurrencyCode() != null ? balance.getCurrencyCode() : "");
             SlBalance target = aggregated.computeIfAbsent(key, ignored -> createSlAggregate(balance, balanceDate));
-            mergeIntoSlBalance(target, balance);
+            LocalDate earliestDate = earliestDates.get(key);
+            // 거래처·부서별로도 날짜가 가장 이른 조회 행의 기초만 취하고, 원본 행과 목록은 변경하지 않는다.
+            if (earliestDate == null || balance.getBalanceDate().isBefore(earliestDate)) {
+                earliestDates.put(key, balance.getBalanceDate());
+                target.setBeginningBalance(zeroIfNull(balance.getBeginningBalance()));
+            }
+            mergeSlMovements(target, balance);
         }
+        aggregated.values().forEach(SlBalance::recalculate);
         return new ArrayList<>(aggregated.values());
     }
 
@@ -337,18 +354,14 @@ public class LedgerService {
         return aggregated;
     }
 
-    private void mergeIntoGlBalance(GlBalance target, GlBalance source) {
-        target.setBeginningBalance(target.getBeginningBalance().add(zeroIfNull(source.getBeginningBalance())));
+    private void mergeGlMovements(GlBalance target, GlBalance source) {
         target.setDebitAmount(target.getDebitAmount().add(zeroIfNull(source.getDebitAmount())));
         target.setCreditAmount(target.getCreditAmount().add(zeroIfNull(source.getCreditAmount())));
-        target.recalculate();
     }
 
-    private void mergeIntoSlBalance(SlBalance target, SlBalance source) {
-        target.setBeginningBalance(target.getBeginningBalance().add(zeroIfNull(source.getBeginningBalance())));
+    private void mergeSlMovements(SlBalance target, SlBalance source) {
         target.setDebitAmount(target.getDebitAmount().add(zeroIfNull(source.getDebitAmount())));
         target.setCreditAmount(target.getCreditAmount().add(zeroIfNull(source.getCreditAmount())));
-        target.recalculate();
     }
 
     private BigDecimal zeroIfNull(BigDecimal value) {
