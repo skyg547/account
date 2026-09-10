@@ -3785,3 +3785,10 @@
 - 정책 테스트 6개, Config/Gateway/migration-runner 및 159-task 패키징 검증, 환경 validator, shell 정적 검사와 122-route 프런트엔드 production build가 통과했다. 독립 최종 리뷰에 남은 P0-P3가 없다.
 - Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
 - commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.
+
+### 📅 2026-09-11 (Issue #692 반제 금액 정밀도와 실패 원자성)
+
+- 신규 반제 금액과 다음 누적 반제액·잔액을 기존 `AccountingPrecision` 정책으로 모두 검증한 뒤 상태를 변경한다. DB가 0.999를 1.00으로 반올림하여 잔액0/미결 상태가 갈라지는 입력은 저장 전에 거부한다.
+- 표현만 긴 1.000은 무손실로 허용하고, 이미 처리한 전체 ref/legacy ref 재시도는 기존 no-op을 보존한다. 실패 시 금액·상태·ref 내용·감사 정보뿐 아니라 null ref Set도 먼저 변경하지 않는다.
+- 수정 전 실제 도메인 테스트40건 중22건 실패로 결함을 재현했다. 수정 후 writer와 별도 Astra xhigh 리뷰어의 강제 전체 실행 모두 core86/API26/Batch5, 총117건(29 suites) 실패·오류·skip0으로 통과했다. 합성 H2/JPA 저장 후 조회 및 실제 서비스 기반 HTTP 검증을 포함하며 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
+- 격리 `agent/692-unsettled-precision`에서만 변경하고 기능 schema 문서의 초보자 설명을 갱신한다. 기존 데이터·migration·운영 DB는 건드리지 않는다. 게시 SHA·CI·Ready는 Issue/PR에 기록하고 최종 병합/종료는 별도 account 예약이 담당한다.

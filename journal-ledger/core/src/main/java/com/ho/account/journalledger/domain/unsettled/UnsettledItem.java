@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.domain.unsettled;
 
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.ledger.domain.AccountingPrecision;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -90,26 +91,29 @@ public class UnsettledItem {
         if (settlementReference == null || settlementReference.isBlank()) {
             throw new IllegalArgumentException("반제 참조번호는 필수입니다.");
         }
-        if (this.settlementReferences == null) {
-            this.settlementReferences = new LinkedHashSet<>();
-        }
         String trimmedReference = settlementReference.trim();
-        if (this.settlementReferences.contains(trimmedReference) || trimmedReference.equals(this.lastSettlementReference)) {
+        // 처리한 참조번호는 재시도 금액의 유효성과 무관하게 다시 반제하지 않습니다.
+        if ((this.settlementReferences != null && this.settlementReferences.contains(trimmedReference))
+                || trimmedReference.equals(this.lastSettlementReference)) {
             return;
         }
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("반제 금액은 0보다 커야 합니다.");
+        BigDecimal normalizedAmount = AccountingPrecision.positiveLedgerAmount(amount);
+        if (remainingAmount.compareTo(normalizedAmount) < 0) {
+            throw new IllegalArgumentException("반제 금액이 잔액보다 클 수 없습니다. 잔액: " + remainingAmount + ", 반제요청: " + normalizedAmount);
         }
-        if (remainingAmount.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("반제 금액이 잔액보다 클 수 없습니다. 잔액: " + remainingAmount + ", 반제요청: " + amount);
-        }
-        this.settledAmount = this.settledAmount.add(amount);
-        this.remainingAmount = this.remainingAmount.subtract(amount);
+        // DB의 NUMERIC(19,2) 반올림으로 잔액과 상태가 어긋나지 않도록 두 다음 금액을 대입 전에 검증합니다.
+        BigDecimal nextSettledAmount = AccountingPrecision.nonNegativeLedgerAmount(this.settledAmount.add(normalizedAmount));
+        BigDecimal nextRemainingAmount = AccountingPrecision.nonNegativeLedgerAmount(this.remainingAmount.subtract(normalizedAmount));
+        this.settledAmount = nextSettledAmount;
+        this.remainingAmount = nextRemainingAmount;
 
         if (this.remainingAmount.compareTo(BigDecimal.ZERO) == 0) {
             this.status = "CLEARED";
         } else {
             this.status = "PARTIAL";
+        }
+        if (this.settlementReferences == null) {
+            this.settlementReferences = new LinkedHashSet<>();
         }
         this.settlementReferences.add(trimmedReference);
         this.lastSettledBy = actor.trim();
