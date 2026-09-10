@@ -248,7 +248,7 @@ service label을 확인한 후 `podman stop <확인한-container-id>`로 중지�
 해당 서비스만 재생성하고 동일 검증을 수행한다. 소스 롤백은 리뷰된 PR revert를 사용한다.
 
 Integrator가 승인된 범위의 수정을 적용하고 13/13 실기동 검증을 완료했다.
-다음 단계는 `Refs #653` Draft PR에서 독립 Reviewer와 사람의 검토다.
+다음 단계는 `Refs #653` [Draft PR #689](https://github.com/skyg547/account/pull/689)에서 독립 Reviewer와 사람의 검토다.
 Ready 전환, main 병합, Issue close, branch/worktree 삭제는 각각 별도 승인 대상이며 이번 실행에 포함하지 않는다.
 
 Implementer tier: High reasoning (difficulty:high)
@@ -389,3 +389,5 @@ node --test tools/ci/harness-pr-contract.test.cjs tools/ci/harness-quality-contr
 Node v22.23.2에서64/64 PASS, failure/skip0, exit0이다. 이 로컬 검사는 CI에 연결되어 있지 않으며 문서 구조 검사 성공이 실제 코드·설명 의미의 독립 리뷰를 대신하지 않는다. Draft PR의 Module Validation, Reporting Validation, Agent Merge Guard 결과와 사람 리뷰는 별도로 확인한다.
 
 독립 읽기 전용 Reviewer `/root/runtime_review`가 결과표·실행 증거·양쪽 이력 보존·문서 의미를 대조하고 Q1–Q4 PASS, 남은 P0–P3 없음으로 확인했다. Node64도 별도 재실행해 통과했다. 이 검수는 GitHub 사람 승인이나 Ready·merge 권한을 대신하지 않는다.
+
+게시된 [Draft PR #689](https://github.com/skyg547/account/pull/689)의 본문에서 최종 head/base SHA와 실제 CI 결과를 확인한다. 원래 checkout의 사용자 변경과 이 작업의 컨테이너·브랜치·worktree는 보존한다.
