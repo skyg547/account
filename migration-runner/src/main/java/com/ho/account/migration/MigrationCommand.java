@@ -46,7 +46,9 @@ final class MigrationCommand {
                     migrationsExecuted);
             return 0;
         } catch (IllegalArgumentException exception) {
-            error.println(exception.getMessage());
+            // Input-validation exceptions can embed URLs or other values; use only a fixed diagnostic
+            // plus usage and exit 2, never the exception message, cause or stack trace.
+            error.println("Invalid migration arguments or configuration; values were not logged.");
             usage();
             return 2;
         } catch (RuntimeException exception) {

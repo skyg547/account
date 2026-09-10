@@ -1,3 +1,18 @@
+## 2026-09-10 — GH-664 안전한 migration CLI 오류 출력
+
+- Issue [#664](https://github.com/skyg547/account/issues/664); branch `agent/664-migration-safe-errors`; worktree `C:/tmp/account-664-migration-safe-errors`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`.
+- 구현자 `/root/migration_663_writer` (이번 할당은 GH-664, GPT-6 Astra/high), 독립 Reviewer `/root/harness_ci_audit` (Astra/high). 부모 Integrator만 공유 기록과 Git/GitHub를 담당한다.
+- 변경: `MigrationCommand`의 IllegalArgumentException 원문 출력을 지정 고정 문구로 교체하고 가까이에 보안 이유를 설명했다. usage 두 줄과 exit 2, 기존 정상/list·baseline exit 3·runtime exit 4 흐름을 유지한다.
+- 검증: 테스트만 추가한 RED 16건 중 14실패(오류/skip 0); 합성 malformed URL 세 건에서 기존 합성 호스트 노출 확인. GREEN 대상 16/16, 전체 98/98(기존 85+신규 13), 독립 `--rerun-tasks` 재실행도 98/98, 실패/오류/skip 0. RED는 구현자 실행 근거, 독립 Reviewer는 현재 GREEN을 재실행했다.
+- 범위는 실질 Java/테스트 2파일과 부모 기록 4파일뿐이다. Reviewer APPROVE, P0–P3 finding 없음. `git diff --check`, unmerged 및 실제 conflict marker 검사 통과. 실제 DB/TLS·외부 장애 연결·환경 비밀정보 접근·설치·다운로드·기존 로그 삭제 없음.
+- PR은 게시 전 로컬 검증 시점이다. 아래 과거 기록은 이력이며 현재 상태는 원격 Issue/PR을 우선한다. 게시 head CI와 최신 main 통합 가능성을 확인한 뒤 Ready로 인계하고 구현 슬롯을 해제한다. 최종 merge/close는 기존 `account` 예약 소유이며 대기 자체로 독립 Issue를 멈추지 않는다.
+- 관련 대기열: #663/PR #684는 동결 Ready, #662/PR #680은 병합 후 account 소유 Issue-close 승인 대기다. #681/PR #682는 병합·종료·main CI 34424476862 성공 확인 후 전용 자원만 정리했고 코드/이력은 main에 보존했다.
+- 롤백: 이 두 코드/테스트 파일의 검토된 revert. 원래 입력값 노출 위험이 돌아오므로 후속 보안 검토가 필요하며 DB나 과거 로그를 지우는 작업은 포함하지 않는다.
+
+다음 담당: 부모가 최종 6파일 리뷰와 Draft 게시/current-head CI를 확인해 Ready로 전달한다. 기존 `account` 예약이 최종 독립 검수·merge·Issue close를 담당한다. 반려는 원래 Issue/branch/worktree 재작업으로 돌리고, 대기 중에도 독립 ready Issue 선택을 계속한다. Q1–Q4의 근거·실행 명령은 동시 기록한 `worklog.md` GH-664 절을 참조한다.
+
+### 보존된 이전 이력 (아래는 현재 지시가 아님)
+
 ## 2026-09-10 — 현재 비동기 Issue 루프 / GH-681 통합 재작업
 
 - 최신 사용자 정정: 구현, PR 검수·병합 대기, 반려 재작업, 종료·정리는 별도 대기열이다. 이전 전역 순차/Draft-only 중단 조건은 폐기하며 아래 기록은 당시 이력이다.
