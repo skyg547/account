@@ -27,6 +27,16 @@
 
 ---
 
+## 2026-09-10 — GH-668 payload validation handoff snapshot
+
+- Issue https://github.com/skyg547/account/issues/668; claim https://github.com/skyg547/account/issues/668#issuecomment-5611884163. Workflow Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; `agent/668-master-data-payload-validation` / `C:/tmp/account-668-master-data-payload-validation`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Writer `/root/fiscal_683_writer` service/Astra high, independent `/root/harness_lifecycle_review` Astra high; parent alone owns shared records and Git/GitHub.
+- Substantive allowlist5: MasterDataChangeApplier interface, AccountSubject/Department/Product appliers and existing MasterDataChangeRequestPayloadValidationTest. Parent worklog/status/handoff/CODEX_WORKLOG4 only; no controller, persistence, command, domain-policy, build or migration edits.
+- Worker RED211/174 expected no-throw failures,0error/skip (37 prior PASS = BP1 + constructor raw-null/empty/blank36); target GREEN338, full381/19suites = core352/API24/batch5,0failure/error/skip. Independent Astra high forced offline full rerun381/381,48s, same frozen test hash; reviewer APPROVE with no P0–P3 findings.
+- CREATE/UPDATE decode→null guard→key/effectiveDate command assembly→required-field/domain-date validation has no business-port calls. Required null fields follow the Issue table; Department/Product partial UPDATE, JPA default inputs, same-day/end-date omission and DEACTIVATE remain. Product lookup stays apply-only; same sourceReference replay may return an old malformed APPROVED request unchanged.
+- Q1–Q4 evidence is in this Issue's worklog and final PR body. Functional docs were not edited because existing pretransition/key/date/replay contracts and execution commands are restored; local-run's already-inaccurate test count/absence text remains disclosed out-of-scope debt.
+- Next: parent final record review, exact-file commit/push/Draft, exact-head CI and latest-main integration check, Ready handoff. account alone owns final independent review and authorized merge/Issue close. Code freezes and releases the implementation slot at Ready; rejection returns to this original Issue, not a duplicate.
+- New tests use real decoder/appliers/request service with mocked ports; no claim of actual JPA defaults, Spring rollback, PostgreSQL concurrency or existing APPROVED-row repair. Rollback is reviewed code/test revert (validation gap returns); no request/audit/DB/history edits or cleanup. Prior global-stop and publication snapshots remain historical, not current queue instructions.
+
 ### 이전 제출 시점 기록
 
 ### GH-681 측 당시 기록

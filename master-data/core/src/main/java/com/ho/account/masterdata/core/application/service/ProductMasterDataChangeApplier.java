@@ -6,6 +6,8 @@ import com.ho.account.masterdata.core.application.port.out.MasterDataChangePaylo
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
 import com.ho.account.masterdata.core.domain.model.Product;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,25 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
     }
 
     @Override
+    public void validate(MasterDataChangeRequest request) {
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            return;
+        }
+        ProductCommand command = command(request);
+        // currentId 조회는 apply에만 둡니다. 부분 UPDATE와 CREATE의 price 기본값을 검증으로 덮지 않습니다.
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE) {
+            if (command.name() == null) {
+                throw new IllegalArgumentException("Product name is required.");
+            }
+            if (command.productType() == null) {
+                throw new IllegalArgumentException("Product productType is required.");
+            }
+        }
+        MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
+                command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+    }
+
+    @Override
     public void apply(MasterDataChangeRequest request) {
         switch (request.getChangeType()) {
             case CREATE -> productUseCase.createProduct(command(request));
@@ -36,6 +57,9 @@ public class ProductMasterDataChangeApplier implements MasterDataChangeApplier {
     private ProductCommand command(MasterDataChangeRequest request) {
         ProductCommand payload = MasterDataChangeApplierSupport.decode(
                 request, payloadDecoder, ProductCommand.class);
+        if (payload == null) {
+            throw new IllegalArgumentException("Product change payload must not be null.");
+        }
         String code = MasterDataChangeApplierSupport.targetKey(request, payload.productCode());
         return new ProductCommand(
                 code,
