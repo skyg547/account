@@ -19,6 +19,7 @@ dependencyManagement {
 
 dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation project(':reporting:core')
 
     implementation 'org.springframework.boot:spring-boot-starter-web'

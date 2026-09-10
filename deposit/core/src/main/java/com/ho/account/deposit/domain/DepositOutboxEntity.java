@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -61,7 +60,8 @@ public class DepositOutboxEntity {
     @Column(name = "event_type", nullable = false, length = 50)
     private String eventType = "JOURNAL_ENTRY";
 
-    @Lob
+    // Published V42 stores inline TEXT; keep @Lob absent to avoid CLOB/large-object binding.
+    // Runtime evidence: docs/guides/business-external-dev-verification.md.
     @Column(name = "payload", columnDefinition = "TEXT", nullable = false)
     private String payload;
 

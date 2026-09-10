@@ -32,7 +32,7 @@ class GateError(Exception):
     """Messages must contain only fixed labels, never subprocess output."""
 
 
-def run(command, timeout=180, check=True):
+def run(command, timeout=300, check=True):
     process = None
     try:
         process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE,
@@ -182,7 +182,7 @@ def execute(args):
             "--env-file", str(path), "-f", str(ROOT / "tools" /
             f"compose.{args.package}-external-dev.yml"), "--profile", "external-dev"]
 
-    def compose(*command, timeout=180):
+    def compose(*command, timeout=300):
         if identity(path) != expected:
             raise GateError("env input identity changed")
         result = run([*base, *command], timeout=timeout)
@@ -209,7 +209,7 @@ def execute(args):
             memory_gate()
             print(f"START {service}", flush=True)
             compose("up", "-d", "--no-build", "--pull", "never", "--no-deps",
-                    service, timeout=180)
+                    service, timeout=300)
             verify(args.engine, args.package, service, args.timeout)
     if args.action == "up" and not args.service:
         # The first API must still be healthy after the last API has started.

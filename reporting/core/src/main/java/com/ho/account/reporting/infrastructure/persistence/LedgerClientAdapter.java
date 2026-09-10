@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Component;
  * Adapter that provides ledger balances and historical reporting snapshots.
  */
 @Component
-@ConditionalOnBean(LedgerQueryPort.class)
 @ConditionalOnProperty(prefix = "account.reporting.persistence", name = "mode", havingValue = "jpa", matchIfMissing = true)
 public class LedgerClientAdapter implements LoadLedgerPort {
 

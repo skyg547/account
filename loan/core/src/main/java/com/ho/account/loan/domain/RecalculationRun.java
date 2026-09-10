@@ -29,10 +29,10 @@ public class RecalculationRun {
     @Column(nullable = false, length = 50)
     private RecalculationReason reason; // 재계산 사유 (EARLY_REPAYMENT, CONDITION_CHANGE 등)
 
-    @Column(precision = 5, scale = 4)
+    @Column(name = "old_eir", precision = 5, scale = 4)
     private BigDecimal oldEIR; // 이전 유효이자율
 
-    @Column(precision = 5, scale = 4)
+    @Column(name = "new_eir", precision = 5, scale = 4)
     private BigDecimal newEIR; // 새로운 유효이자율
 
     private LocalDate oldMaturityDate; // 이전 만기일
