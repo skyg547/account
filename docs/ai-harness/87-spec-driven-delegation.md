@@ -1,24 +1,27 @@
 # Spec-Driven Delegation
 
 상위 추론 모델이 **원인 분석·설계·작업 지시**까지 끝낸 Issue를 만들고, 저비용/고속 모델이 그
-지시를 **실행만** 하며, 검토·승인·병합은 다시 상위 모델이나 사람이 맡는 운영 방식이다.
+지시를 **실행만** 하며, 별도 Reviewer가 검토 증거를 반환하고 승인된 부모 Integrator가 외부 변경을 맡는 운영 방식이다.
 
 초보자 설명: 설계도를 잘 그리는 사람이 도면을 끝까지 그리고, 시공은 빠른 작업자가 하고,
-준공 검사는 다시 설계자가 한다. 시공자가 스스로 "준공 승인"을 내지 못하게 하는 것이 핵심이다.
+준공 검사는 별도 검사자가 한다. 시공자나 설계자가 자기 작업을 독립 검토한 것으로 취급하지 않는 것이 핵심이다.
 
 이 문서는 [`86-multi-tool-issue-ownership.md`](./86-multi-tool-issue-ownership.md)의 Issue
 소유 규약과 [`70-model-assignment-policy.md`](./70-model-assignment-policy.md)의 capability
-기준을 전제로 하며, 그 위에 **티어 분리, 작업 단위 분할, 병합 권한**을 추가한다.
+기준을 전제로 하며, **티어 분리와 작업 단위 분할**을 설명한다. Git/GitHub 권한은 30/80/85/86의 부모 단일 writer 계약을 따른다.
 
-## 1. 세 가지 역할
+## 1. 역할과 권한 분리
 
 역할은 벤더 이름이 아니라 **capability tier**로 정의한다(70번 문서 원칙과 동일).
 
 | 역할 | 티어 | 대응 난이도 | 하는 일 | 하지 않는 일 |
 | --- | --- | --- | --- | --- |
 | **Spec Author** | High Reasoning (`high` / `xhigh`) | 상(`difficulty:high`), 최상(`difficulty:very-high`) | 재현·근본원인·설계·대안기각·작업지시·allowlist·검증계획 작성 | 구현하지 않는다 |
-| **Implementer** | Fast/Low-Cost 또는 Balanced | 하(`difficulty:low`), 중(`difficulty:medium`) | 지시된 파일만 수정, 테스트 실행, Draft PR 생성 | 설계 판단, 범위 확장, 승인, 병합 |
-| **Reviewer / Integrator** | High Reasoning (`high` / `xhigh`) | 전 난이도 독립 검증 | 독립 검토 후 **반려 또는 승인**, 병합, Issue 상태·라벨 갱신 | 구현 owner를 대신해 코드를 고치지 않는다 |
+| **Implementer** | Fast/Low-Cost 또는 Balanced | 하(`difficulty:low`), 중(`difficulty:medium`) | 지시된 파일만 수정, 테스트 실행, PR 본문 초안·증거 반환 | 설계 판단, 범위 확장, Git/GitHub 변경, 승인, 병합 |
+| **Reviewer / advisory Integrator** | High Reasoning (`high` / `xhigh`) | 전 난이도 독립 검증 | 읽기 전용 검토 후 통과·반려·보류 의견과 증거 반환 | 코드·로그 수정, Git/GitHub 변경 |
+| **부모 Integrator** | 작업 위험도에 맞게 선택 | 승인 범위 내 조정 | 증거 수집, 공유 기록, 승인된 Git/GitHub 변경 | 승인 범위 확대, 독립 리뷰 생략 |
+
+모델 티어는 검토 역량이며 외부 변경 권한이 아니다. 부모 Integrator만 사용자 요청 또는 명시 workflow 승인 범위 안에서 Git/GitHub 상태를 변경한다.
 
 Spec Author와 Reviewer는 같은 티어이나 **같은 세션이어서는 안 된다.** 자기 설계를 자기가
 검토하면 설계 전제의 오류가 그대로 통과한다. 상세 난이도 체계와 추론 강도 매핑은 [`70-model-assignment-policy.md`](./70-model-assignment-policy.md)를 따른다.
@@ -117,30 +120,39 @@ executable Issue 하나는 아래를 **모두** 만족해야 한다. 하나라�
 [Spec Author]  Issue 작성 (status:draft)
       │        원인·설계·작업지시·allowlist·검증
       ▼
-[Integrator]   Ready 체크리스트 검증 → status:ready
+[부모]         Issue Ready 체크리스트 검증 → status:ready
       │
       ▼
-[Integrator]   claim 승인 → status:in-progress + agent:<tool>
+[부모]         claim 승인 → status:in-progress + agent:<tool>
       │
       ▼
-[Implementer]  브랜치/워크트리에서 지시 실행 → 검증 → Draft PR (Refs #N)
-      │        ※ 여기서 멈춘다. 병합하지 않는다.
+[Implementer]  브랜치/워크트리에서 지시 실행 → 검증 → PR 본문 초안·증거 반환
+      │        ※ Git/GitHub 상태를 변경하지 않는다.
       ▼
-[Integrator]   status:needs-review
+[부모]         승인 범위 내 commit/push/Draft PR (Refs #N), status:needs-review
       │
       ▼
-[Reviewer]     독립 검토 (read-only) → 승인 또는 findings 반려
+[Reviewer]     명시 요청된 동결 Draft 사전리뷰 (읽기 전용), 실행 가능한 Draft 단계 필수 검사 통과
       │
       ▼
-[Integrator]   병합 → Issue 종료 → 브랜치/워크트리 정리
+[부모]         승인된 Ready 전환
+      ▼
+[Reviewer]     최신 head/base 기준 최종 독립 검토, Ready-only 포함 모든 필수 CI 통과 → 통과·반려·보류 증거
+      ▼
+[부모]         별도 승인된 merge commit → 종료 승인·조건 확인 → 별도 승인된 cleanup
 ```
 
 `status:draft`는 이 문서에서 추가하는 상태다. 설계가 아직 완성되지 않은 Issue를 구현
 모델이 집어가는 것을 막는다. 나머지 상태 전이는 86번 문서 표를 따른다.
 
+Draft 사전리뷰는 동결 diff와 그 단계에서 실행 가능한 검사를 대상으로 한다.
+Ready-only 검사는 미도래/pending으로 기록하며 PASS가 아니지만 Draft 사전리뷰를 막지 않는다.
+Draft 단계 필수 검사의 오류·실패는 여전히 보류 또는 확인된 코드 결함 반려다.
+Draft 검사와 사전리뷰 완료 후 부모의 승인된 Ready 전환을 거쳐 최종 독립 검토를 진행한다.
+
 ## 5. 병합 권한 (Merge Authority)
 
-**구현 담당은 PR 생성까지만 한다.**
+**구현 담당은 구현·검증·PR 본문 초안 반환까지만 한다.** PR 생성과 Ready 전환도 부모 소유다.
 
 구현 담당이 하지 않는 것:
 
@@ -149,20 +161,25 @@ executable Issue 하나는 아래를 **모두** 만족해야 한다. 하나라�
 - `main`에 직접 push
 - Issue 라벨·assignee·상태 변경 (86번 문서에 따라 Integrator 전용)
 - 다른 Issue의 브랜치나 PR 조작
+- commit/stage/push, Draft PR 생성, Ready 전환, 리뷰 게시 등 Git/GitHub 변경
 
 구현 담당이 하는 것:
 
 - 배정된 브랜치/워크트리에서 allowlist 내 파일 수정
 - 검증 명령 실행과 결과 기록
-- **Draft** PR 생성, 본문에 검증 출력 첨부, `Refs #<issue>` 사용
+- PR 본문 초안에 검증 결과·미실행 사유·롤백과 `Refs #<issue>`를 넣어 부모에게 반환
 - 막히면 진행하지 말고 Integrator에게 보고
 
 PR 본문에는 다음 줄을 넣어 권한을 명시한다.
 
 ```text
 Implementer tier: Fast/Low-Cost
-Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
+Merge authority: 독립 Reviewer 증거와 최신 head/base·CI 확인 후, 별도 승인된 부모 Integrator만 merge commit 수행. 구현자/Reviewer는 Git/GitHub 변경 없음.
 ```
+
+사람 리뷰가 기본 게이트다. 기존 명시 승인 workflow 예외는 등록된 승인 범위에서만 적용한다.
+Draft PR 제출 요청은 Ready/merge/Issue close/cleanup 승인으로 확대하지 않는다. head/base 또는
+검증 결과가 바뀌면 재검토하며, 확인 불가·충돌은 보류한다. 단계별 기준은 [88번 문서](./88-pr-review-and-merge-runbook.md)를 따른다.
 
 ## 6. 강제 수준 — 솔직한 한계
 
@@ -211,9 +228,9 @@ make this repository public`). 즉 "required review", "required status check",
 
 계약 파일이 이 문서보다 **더 엄격한** 제약을 선언하면 엄격한 쪽을 따른다.
 
-현재 `GEMINI.md`는 이 문서와 동일한 경계를 선언한다 — Gemini는 push와 PR 생성까지만 하고
-자기 PR을 승인하지 않으며, 검토·승인/반려·병합은 Codex 또는 Claude Code(상위 추론 모델)
-또는 사람이 수행한다. 리뷰어는 **반려와 병합 중 하나를 선택**한다.
+도구별 보조 문서에 push/PR 생성 또는 티어 기반 병합을 허용하는 오래된 문구가 남아 있어도
+부모 단일 writer 계약을 넓히지 않는다. 도구 이름과 관계없이 구현자/Reviewer는 증거를
+반환하고, 승인된 부모가 게시·상태 변경을 맡는다. 보조 문서 전체 정비는 별도 범위다.
 
 ## 7. CI 가드
 
