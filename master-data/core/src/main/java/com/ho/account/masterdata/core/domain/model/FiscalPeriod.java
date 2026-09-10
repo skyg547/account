@@ -41,6 +41,27 @@ public class FiscalPeriod {
     }
 
     /**
+     * 저장된 값을 새 업무 전이 없이 복원합니다. 영구 마감 행을 읽는 것은 영구 마감 명령이 아닙니다.
+     * 감사 시간과 사용자(공백/null 포함)는 당시 값 그대로 두며, 상태 누락은 OPEN으로 숨기지 않습니다.
+     * 새 상태 변경은 반드시 changeClosingStatus를 사용합니다. 전이 계약은 master-data/docs/schema.md 참조.
+     */
+    public static FiscalPeriod reconstitute(
+            Long id, String fiscalYear, String fiscalPeriod, LocalDate startDate, LocalDate endDate,
+            ClosingStatus closingStatus, LocalDateTime createdAt, LocalDateTime updatedAt, String auditUser) {
+        FiscalPeriod restored = new FiscalPeriod();
+        restored.id = id;
+        restored.fiscalYear = fiscalYear;
+        restored.fiscalPeriod = fiscalPeriod;
+        restored.startDate = startDate;
+        restored.endDate = endDate;
+        restored.closingStatus = Objects.requireNonNull(closingStatus, "Closing status is required.");
+        restored.createdAt = createdAt;
+        restored.updatedAt = updatedAt;
+        restored.auditUser = auditUser;
+        return restored;
+    }
+
+    /**
      * 회계기간 상태를 도메인 규칙과 감사 사용자 검증을 거쳐 변경합니다.
      * 영구 마감은 되돌릴 수 없고, 열린 기간은 일반 마감을 거치지 않고 영구 마감할 수 없습니다.
      */

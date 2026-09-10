@@ -41,6 +41,37 @@
 - Next: Reporting/Deposit tests and separate review, rebuild/start Reporting, Accounting checkpoint, sequential Products then Risk, final13 verification, docs/commit/requested Draft PR with Refs #653. No Ready, merge, Issue close or cleanup authorized/performed. Rollback retains healthy containers, DBs, networks, volumes and prior images; only exact failed service is stopped and source reversion follows review.
 - Implementer tier: High reasoning (difficulty:high). Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
 
+## 2026-09-10 — GH-664 안전한 migration CLI 오류 출력
+
+- Issue [#664](https://github.com/skyg547/account/issues/664); branch `agent/664-migration-safe-errors`; worktree `C:/tmp/account-664-migration-safe-errors`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`.
+- 구현자 `/root/migration_663_writer` (이번 할당은 GH-664, GPT-6 Astra/high), 독립 Reviewer `/root/harness_ci_audit` (Astra/high). 부모 Integrator만 공유 기록과 Git/GitHub를 담당한다.
+- 변경: `MigrationCommand`의 IllegalArgumentException 원문 출력을 지정 고정 문구로 교체하고 가까이에 보안 이유를 설명했다. usage 두 줄과 exit 2, 기존 정상/list·baseline exit 3·runtime exit 4 흐름을 유지한다.
+- 검증: 테스트만 추가한 RED 16건 중 14실패(오류/skip 0); 합성 malformed URL 세 건에서 기존 합성 호스트 노출 확인. GREEN 대상 16/16, 전체 98/98(기존 85+신규 13), 독립 `--rerun-tasks` 재실행도 98/98, 실패/오류/skip 0. RED는 구현자 실행 근거, 독립 Reviewer는 현재 GREEN을 재실행했다.
+- 범위는 실질 Java/테스트 2파일과 부모 기록 4파일뿐이다. Reviewer APPROVE, P0–P3 finding 없음. `git diff --check`, unmerged 및 실제 conflict marker 검사 통과. 실제 DB/TLS·외부 장애 연결·환경 비밀정보 접근·설치·다운로드·기존 로그 삭제 없음.
+- 게시: [Draft PR #685](https://github.com/skyg547/account/pull/685), 구현 커밋 `d571a5f7760f147eafe85d6d0ae270e1d8a59538`. 이번 후속 커밋은 PR 식별자를 반영한 기록 전용이며 검토한 실질 2파일은 동일하다. 아래 과거 기록은 이력이며 원격 Issue/PR이 최신 상태다. 새 게시 head CI와 최신 main 통합 가능성을 확인한 뒤 Ready로 인계하고 구현 슬롯을 해제한다. 최종 merge/close는 기존 `account` 예약 소유이며 대기 자체로 독립 Issue를 멈추지 않는다.
+- 관련 대기열: #663/PR #684는 동결 Ready, #662/PR #680은 병합 후 account 소유 Issue-close 승인 대기다. #681/PR #682는 병합·종료·main CI 34424476862 성공 확인 후 전용 자원만 정리했고 코드/이력은 main에 보존했다.
+- 롤백: 이 두 코드/테스트 파일의 검토된 revert. 원래 입력값 노출 위험이 돌아오므로 후속 보안 검토가 필요하며 DB나 과거 로그를 지우는 작업은 포함하지 않는다.
+### 실행 근거와 품질
+
+```powershell
+$env:JAVA_HOME = 'C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+& 'C:/Users/skyg5/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/bin/gradle.bat' :migration-runner:test --tests com.ho.account.migration.MigrationCommandTest --offline --no-daemon --console=plain --max-workers=1 '-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+& 'C:/Users/skyg5/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/bin/gradle.bat' :migration-runner:test --offline --rerun-tasks --no-daemon --console=plain --max-workers=1 '-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+git diff --check
+git diff --name-only --diff-filter=U
+```
+
+초보자 설명: 잘못된 URL을 설명하는 예외 메시지 자체에 URL이 들어갈 수 있다. 예외 문자열 일부만 지우면 새 입력 형식을 놓칠 수 있으므로, CLI는 값 없는 고정 안내와 사용법만 출력한다. malformed 입력은 연결 전에 실패하므로 이 테스트는 실제 DB를 사용하지 않는다.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `migration-runner/src/main/java/com/ho/account/migration/MigrationCommand.java:48`; `migration-runner/src/test/java/com/ho/account/migration/MigrationCommandTest.java:142`의 공통 assertion, 전체 98/98 | 해당 없음: 코드 변경 | 게시 head CI | `/root/harness_ci_audit` 최소 책임·diff 확인 |
+| Q2 | PASS | `MigrationCommand.java:49`, `MigrationCommandTest.java:77`와 `:123`; 입력→예외→고정 출력/종료 흐름 및 연결 없는 테스트 이유 | 해당 없음: 오류 흐름 변경 | 실제 DB 장애는 비목표 | 설명과 실제 호출 경로 대조 완료 |
+| Q3 | PASS | `migration-runner/README.md:52`, `docs/db/postgresql-migration-runbook.md:83`의 exit·비노출·안전한 오류 수집 계약 유지 | 해당 없음: 문서 정확성 검토 적용 | 기존 문서 계약 복원으로 기능 문서 수정 불필요; 무관한 문서 정리 제외 | no-edit 사유 독립 확인 |
+| Q4 | PASS | `MigrationCommand.java:49`와 `MigrationCommandTest.java:77`, `:123`의 입력 노출 위험 및 합성 입력 의도 주석 | 해당 없음: 비자명 보안 변경 | 최종 독립 merge gate | 코드·테스트와 주석 일치 확인 |
+
+### 보존된 이전 이력 (아래는 현재 지시가 아님)
+
 ## 2026-09-10 — 현재 비동기 Issue 루프 / GH-681 통합 재작업
 
 - 최신 사용자 정정: 구현, PR 검수·병합 대기, 반려 재작업, 종료·정리는 별도 대기열이다. 이전 전역 순차/Draft-only 중단 조건은 폐기하며 아래 기록은 당시 이력이다.
@@ -49,6 +80,39 @@
 - GH-663: 별도 `agent/663-migration-canonical-sslmode`, `C:/tmp/account-663-migration-canonical-sslmode`에서 `/root/migration_663_writer` Astra high가 독립된 Java/테스트2파일을 구현 중이다. 부모 기록은 한 Integrator가 순서대로 갱신한다.
 - 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
 - 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
+
+## 2026-09-10 — GH-683 회계기간 저장 상태 복원
+
+- Issue [#683](https://github.com/skyg547/account/issues/683); branch `agent/683-fiscal-period-reconstitution`; worktree `C:/tmp/account-683-fiscal-period-reconstitution`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`. 위 GH-681 블록과 아래 이전 항목은 당시 이력이며 원격 Issue/PR과 최신 대화 체크포인트가 우선한다.
+- Writer `/root/fiscal_683_writer` (service / GPT-6 Astra high), 별도 Reviewer `/root/harness_lifecycle_review` (Astra high). 단일 원인의 응집된 수정에 한해 부모가 정확한 Mapper 1개와 matching tests까지 서비스 역할 범위를 명시 승인했다. 부모만 공유 기록·Git/GitHub를 담당한다.
+- 원인: 저장된 상태를 Mapper가 빈 domain의 새 업무 전이로 실행하여 영구 마감 조회·합법 전이 후 저장 결과 복원을 거부했다. 부모의 현재 compiled class 합성 probe 두 건으로 재현했다.
+- 변경: 순수 `FiscalPeriod.reconstitute`가 9개 원값과 nullable 감사 필드를 보존하며 null 상태는 거부한다. Mapper는 업무 전이를 호출하지 않는다. 기존 `changeClosingStatus` 본문·actor 검증은 동일하고 API/contracts/JPA entity/DB schema는 변경하지 않았다.
+- 검증: production 수정 전 실제 Mapper RED 10건 중 3실패, 오류/skip 0. GREEN Domain21+Mapper10+H2 12=43건, core/API/batch 전체 87건(58/24/5), 22 suites, 실패/오류/skip 0(기존44+신규43). 별도 `/root/harness_lifecycle_review`가 3모듈을 `--rerun-tasks`로 재실행해 87/87 PASS(47초) 및 실질5파일 APPROVE, Q1–Q4 PASS를 확인했다. 게시 head CI는 별도 후속 게이트이며 로컬 성공과 구분한다.
+- H2는 실제 Repository/Mapper/Adapter 및 Spring control 프록시를 사용한다. 외부 테스트 rollback 트랜잭션을 끄고 실제 커밋 후 별도 트랜잭션/clear로 ID·잠금 ID·연월 조회를 확인했다. 거부된 명령은 저장 상태·감사값을 보존한다. PostgreSQL 잠금 경합/동시 마감 검증은 아니다.
+- 실질 allowlist 5파일 + 부모 기록4파일. 기존 변경 보존, diff/marker/unmerged 검사 통과. 실제 DB/서버/업무 Batch·비밀정보·설치/다운로드·기존 행/로그 삭제 없음. 자동화 테스트의 H2 fixture만 정리했다.
+- 게시: [Draft PR #686](https://github.com/skyg547/account/pull/686), 구현 커밋 `9a424d2ac8a19d035e7b350fac8ce422256ea570`. 최종9파일 독립 APPROVE 후 게시했으며 이 후속 커밋은 게시 식별자 반영 기록 전용으로 실질5파일은 동일하다. 새 게시 head CI를 확인한 뒤 Ready로 인계한다. 최종 merge/close는 기존 `account` 예약 소유다. 02:03 UTC 배정 당시 #663/PR684·#664/PR685는 동결 Ready였고 선행 병합이나 #662 종료를 기다리지 않았다. 이후 상태 변화는 각 원격 PR과 오케스트레이터 대기열을 따른다.
+- 롤백: 승인된 코드/테스트의 검토된 revert이며 DB·감사 행은 바꾸지 않는다. 롤백하면 원래 영구 마감 복원 결함이 돌아온다. 기능 문서는 기존 전이/terminal 계약을 복원하므로 수정하지 않는다. `local-run.md:83`의 기존18건은 변경 전44건과도 맞지 않던 범위 밖 차이이며 모든 문서가 최신이라고 주장하지 않는다.
+
+### 실행 명령과 품질 근거
+
+```powershell
+$env:JAVA_HOME = 'C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+& 'C:/Users/skyg5/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/bin/gradle.bat' :master-data:core:test --tests '*FiscalPeriodMapperTest' --offline --no-daemon --console=plain --max-workers=1 '-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+& 'C:/Users/skyg5/.gradle/wrapper/dists/gradle-8.7-bin/bhs2wmbdwecv87pi65oeuq5iu/gradle-8.7/bin/gradle.bat' :master-data:core:test :master-data:api:test :master-data:batch:test --offline --no-daemon --console=plain --max-workers=1 '-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+git diff --check
+git diff --name-only --diff-filter=U
+```
+
+초보자 설명: 이미 보관된 결재 상태를 읽는 것과 새 결재를 실행하는 것은 다르다. 저장 상태를 복원할 때 새 마감 명령을 실행하지 않아야 영구 마감 이력과 원래 감사값을 읽을 수 있다. 새 명령의 전이 제한은 그대로 지킨다. 실제 JPA 수정의 PreUpdate 시간 변경과 순수 복원의 원값 보존도 구분한다.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `FiscalPeriod.java:48`의 단일 복원 책임, `FiscalPeriodMapper.java:16` 값 변환; Domain21/Mapper10 GREEN | 해당 없음: 코드 변경 | 게시 head CI | `/root/harness_lifecycle_review` 책임·경계 확인 |
+| Q2 | PASS | Domain:43 복원≠명령 설명, H2 Test:52·112·202 실제 커밋과 별도 조회 이유; H2 12 GREEN | 해당 없음: 비자명 흐름 | PostgreSQL 동시성은 비목표 | 흐름·JPA 콜백 구분 독립 확인 |
+| Q3 | PASS | `master-data/docs/schema.md:65`, `beginner-guide.md:71` 기존 전이/terminal 계약 및 실행 명령 유지 | 검토 적용: 문서 무수정 사유를 명시함 | 기존 local-run18건 차이는 범위 밖, 전체 문서 정확성 주장 없음 | 무수정 사유와 기존 부채 독립 확인 |
+| Q4 | PASS | Domain:43, Mapper:18, H2 Test:52·112·120·180·205의 복원·커밋·JPA 콜백 구분 주석 | 해당 없음: 비자명 코드 변경 | 최종 게시·독립 merge gate | 코드·주석 일치 독립 확인 |
+
+파일 전체 경로는 Issue allowlist와 PR diff에 고정한다. RED는 구현자 실행 근거이며 독립 리뷰어는 원본을 되돌리지 않고 GREEN을 재실행한다.
 
 ### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
 
@@ -64,6 +128,33 @@
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 공용 MVC 요청 오류 분류 / 제출 전 검증 체크포인트
+
+- Issue [#669](https://github.com/skyg547/account/issues/669), [승인 범위·claim](https://github.com/skyg547/account/issues/669#issuecomment-5612175131). 사용자의 "허용해줘"는 `shared-kernel/docs/process-flow.md`를 추가한 5실질 파일 승인이다. 기존 merge/Issue close 게이트를 넓히지 않는다.
+- Branch `agent/669-mvc-request-errors`, worktree `C:/tmp/account-669-mvc-request-errors`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. 부모 task `019fa3ea-ac4c-7022-bb45-951559750df7`; primary checkout과 다른 동결 PR은 보존했다.
+- 단일 구현 writer `/root/migration_663_writer`는 shared-kernel Module Writer로 명시 재배정(Astra high), 별도 `/root/harness_lifecycle_review` Astra high가 실질 5파일 APPROVE, 잔여 P0–P3 없음. 부모만 아래 기록 4종과 Git/GitHub 후속 단계를 맡는다.
+- 실질 범위: 공용 `GlobalExceptionAdvice.java`, 기존 직접 테스트, 신규 `GlobalExceptionAdviceMvcTest.java`, `shared-kernel/build.gradle`의 test Servlet 6.0.0/BOM 정렬 jsr310 두 줄, 승인된 `process-flow.md`. 공유 기록 포함 최종 9파일 후보이며 production 의존성/BOM/소비자 코드는 불변이다.
+- 정확히 네 요청 예외만 400/405/415 고정 메시지로 처리한다. Spring `Allow/Accept/Accept-Patch`와 failure JSON 네 필드를 보존하고 원문/cause/ProblemDetail을 새 응답에 복사하지 않는다. 기존 400/404/하위 구체 409/비노출 500 의미는 유지한다.
+- 확정 RED: production 미수정 상태에서 직접 3 + MVC 11 = 14건 중 요청 오류 5건이 실제 500으로 실패, error/skip 0. 원인별로 query/깨진 JSON→기대400, method→405, POST/PATCH media→415. 처음의 추가 fixture validation 실패 1건은 합성 Spring Validator로 보완한 뒤 이 RED를 재확인했으며 production 결함으로 집계하지 않는다.
+- 작성자 GREEN: `:shared-kernel:test --tests '*GlobalExceptionAdvice*'` 19/19(직접8+MVC11); 소비자 `:shared-kernel:test :contracts:test :master-data:api:test :account-mart:mart-api:test :ecl:ecl-api:test` 149/149, 36 suites(102/7/24/3/13), failure/error/skip 0. 기존 133 + 신규16이며 중복 실행 횟수를 신규 테스트 수로 더하지 않는다.
+- 독립 Reviewer는 위 소비자 명령에 `--rerun-tasks`를 붙여 1m2s/32 tasks를 실제 재실행, XML149/36·failure/error/skip0 확인. RED는 작성자/부모 증거이며 Reviewer의 RED 재실행 주장이 아니다.
+- 명령 공통: 기설치 JDK17/캐시 Gradle8.7, `--offline --no-daemon --console=plain --max-workers=1` 및 `-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot`. 실제 설치 경로·전체 예는 `shared-kernel/docs/process-flow.md:137`부터다.
+- 부모 패키징: 같은 환경에서 `:shared-kernel:build :contracts:build :master-data:api:bootJar :account-mart:mart-api:bootJar :ecl:ecl-api:bootJar` 성공(12s, 6 executed/24 up-to-date). 이 단계의 test는 up-to-date이며 별도 신규149회 실행으로 주장하지 않는다. Node 하네스 계약 두 파일 64/64도 통과했다.
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `GlobalExceptionAdvice.java:41`의 명시 handler 3개; `shared-kernel/build.gradle:45`의 test 의존성만 추가; 대상 19건 | 해당 없음: 코드 변경 | 전체 모듈 CI | harness_lifecycle_review: 기존 책임/handler/의존성 보존 확인 |
+| Q2 | PASS | `shared-kernel/docs/process-flow.md:80`, `GlobalExceptionAdviceMvcTest.java:83`의 입력→MVC→응답 흐름 | 해당 없음: 흐름 설명 적용 | 실제 배포·인증은 제외 | harness_lifecycle_review: 상태/헤더/비노출 설명 일치 |
+| Q3 | PASS | `shared-kernel/docs/process-flow.md:107`, `:119`의 계약·전제·실행 명령·기대 결과·한계 | 해당 없음: 사용자가 기능 문서 승인 | 합성 Validator는 실제 provider 배선 증거가 아님; 전체 CI 대기 | harness_lifecycle_review: 문서 의미/명령 직접 대조 |
+| Q4 | PASS | `GlobalExceptionAdvice.java:41/49/57`, `GlobalExceptionAdviceMvcTest.java:61/65`의 의도 주석 | 해당 없음: 비자명 로직 변경 | 최종 9파일 기록 검수 | harness_lifecycle_review: 날짜 fallback·헤더·비노출 이유 확인 |
+
+- Diff whitespace/실제 marker/unmerged/allowlist 검사 통과. 다음은 부모 기록을 포함한 최종9파일 독립 검수 → 승인된 commit/push/Draft PR(`Refs #669`) → 게시 head의 전체 Module Validation·Guard 및 최신 main 통합 확인 → 승인된 Ready다. PR 번호·head·CI 증거는 원격 Issue/PR 인계에서 확정하며 이 제출 전 기록은 CI 성공이나 게시 완료 주장이 아니다.
+- shared-kernel 변경은 CI의 62 Gradle project/23 모듈 그룹 대상이다. 로컬 소비자 테스트/제한 패키징은 루트 전체 build·전체 CI·실제 배포의 성공 증거가 아니다. 기존 When.MAYBE/Gradle deprecation 경고는 범위 밖으로 남긴다.
+- 한계: fixture/controller/use case는 합성, 검증기는 테스트용 Spring Validator이며 실제 Bean Validation provider 배선을 검증하지 않는다. ResponseStatusException·전체 ErrorResponse·인증/인가·실서버/실DB·업무 Batch·배포는 제외했고 설치/다운로드/민감정보 접근은 하지 않았다.
+- 롤백: 검토된 5실질 파일 변경을 승인된 revert로 되돌리고 이력은 보존한다. DB/소비자 임시 수정 없음. 최종 독립 검토·실제 merge/Issue close는 기존 `account` 예약 소유다. 이전 PR 대기는 독립 구현의 전역 blocker가 아니다.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
@@ -73,6 +164,29 @@
 - 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
 
 ---
+
+## 2026-09-10 — GH-668 required side-effect-free payload validation
+
+- Workflow Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; `agent/668-master-data-payload-validation` / `C:/tmp/account-668-master-data-payload-validation`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Writer `/root/fiscal_683_writer` service/Astra high, independent `/root/harness_lifecycle_review` Astra high; parent alone owns shared records and Git/GitHub.
+- Fresh OPEN ready+atomic/unclaimed state, no linked PR and no overlapping active file/contract ownership were verified; claim https://github.com/skyg547/account/issues/668#issuecomment-5611884163. This follows GH-663 rework Ready, independent of its final merge/close.
+- Root cause: default validate no-op let three typed appliers omit the existing pretransition contract. The interface now requires implementation; each missing applier decodes once into its existing effectiveDate/targetKey command, rejects null payload before dereference, checks only the approved null fields and delegates the window invariant to MasterDataValidityPolicy. No business query or write occurs in validate; DEACTIVATE needs no decoder.
+- Preserved: BP implementation/test, service transition/version/replay flow, null/blank key fallback, null default inputs, Department/Product partial UPDATE, equal-day validTo, omitted validTo interpreted as9999-12-31 for validation, payload validFrom overridden by effectiveDate, and Product currentId lookup only during apply. No new blank-name/negative-price/scalar-coercion policy or old APPROVED-row repair.
+- Scope is source/test5 (478 additions/6 deletions, including three missing EOF newlines) plus parent records4. Existing histories are retained and the record insertion is separated from other queued PR record positions. No changes to functional docs, interface DTO shapes, persistence/schema, dependencies, other agents or primary checkout.
+- Worker RED211/174 expected no-throw failures,0error/skip (37 prior PASS = BP1 + constructor raw-null/empty/blank36); target GREEN338, full381/19suites = core352/API24/batch5,0failure/error/skip. Independent Astra high forced offline full rerun381/381,48s, same frozen test hash; reviewer APPROVE with no P0–P3 findings.
+- Executed with installed JDK17.0.19 and cached Gradle8.7: targeted `:master-data:core:test --tests '*MasterDataChangeRequestPayloadValidationTest'`, then `:master-data:core:test :master-data:api:test :master-data:batch:test`, both `--offline --no-daemon --console=plain --max-workers=1` plus explicit installed JDK path. Target GREEN12s, worker full44s; separate reviewer adds `--rerun-tasks` and checks fresh XML. RED is actual implementer evidence (test-only diff), not independently rerun or confused with the later expanded338-case suite.
+- Target338 =210 negative pathway cases +118 normal accept/apply cases +9 DEACTIVATE/replay/conflict cases +existingBP1. Full381 =baseline44+337new. Failing new request paths assert save(any())0; failed approval preserves REQUESTED, approver/times/requester, lockVersion7 and appliedAt; valid stubs prevent version failures masking payload defects. Exact command equality and business-port no-interaction checks test observable behavior, not copied validator predicates.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Account/Department/Product validate:29/32/30, existing decoder/key helper/domain date policy; target338/full381 | 해당 없음: 코드 변경 | exact published-head CI | separate reviewer verified cohesive responsibilities |
+| Q2 | PASS | Interface:19–21, Test:75/88/102/149/235 actual request/approve/apply/replay | 해당 없음: 비자명 흐름 | mock tests are not real DB rollback | separate reviewer verified input→validation→transition and replay boundary |
+| Q3 | PASS | Existing Interface pretransition contract and master-data/docs/process-flow.md:72–85; commands/defaults unchanged | 문서 미편집: 기존 계약 복원, 새 공개정책/실행법 없음 | local-run.md:83,93–95 inherited count/test-absence debt; no blanket doc-accuracy claim | separate reviewer approved scoped no-edit rationale |
+| Q4 | PASS | Interface:19–21, Account:34, Department:37, Product:35; Test:104/244/372/421 | 해당 없음: 비자명 코드 | final record review and remote CI | separate reviewer checked comments against behavior |
+
+- 기능 문서 판단: process-flow72–85의 기존 sourceReference/버전/업무 키/DEACTIVATE 계약과 기존 상태 전이 전 validate 의무를 복원합니다. 실행법/기본값/공개 정책은 바뀌지 않아 승인된5파일 안에서 가까운 흐름·의도 주석을 보강했습니다. local-run83의18건 및93–95의 테스트 부재 설명은 baseline44에도 맞지 않던 별도 문서 부채입니다. WORKLOG를 기능 문서 대용으로 삼거나 모듈 문서 전체 최신화를 주장하지 않습니다.
+- Limits: new regressions are unit tests with real Jackson/applier/service and mocked persistence/version/business ports. They preserve null/default inputs but do not execute actual JPA fallback, Spring transaction rollback or PostgreSQL concurrency. Existing APPROVED malformed rows and SCD2 inter-version interval policy remain out of scope; no real database/server/business Batch or deployment was run.
+- Static diff/marker/unmerged and final parent-record review gate commit/push. Exact published-head CI and latest-main integration gate Ready; remote Issue/PR records subsequent SHA/CI/status without record-only commit churn. account's final merge/close approval wait is not bypassed and does not block independent new implementation. No cleanup in this change.
+- Rollback: reviewed five-file revert; the previous acceptance/approval validation gap may reopen, while request/audit/schema/data/history remain unchanged. Earlier global serial-stop checkpoints are historical and superseded by the saved asynchronous queue contract.
 
 ### 이전 제출 시점 기록
 
@@ -2206,3 +2320,24 @@
 - Verification: embedded `node /tmp/account-179-verify.cjs` PASS including row/method/path/Controller/backend-only evidence and known DTO/query drift; in-memory negative checks PASS 7/7. `node frontend/node_modules/typescript/bin/tsc --project frontend/tsconfig.json --noEmit --incremental false` exit0. From frontend, `NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=3072 taskset -c 0 npm run build` exit0, Next15.5.23/static pages122/122. Existing dependencies reused without installation/lockfile changes. Node22.23.2 differs from engine Node20; Node20 run remains unclaimed.
 - Independent Reviewer found one P3: Closing PUT JSON decode errors propagate while HTTP/transport errors return null. Corrected the audit wording; final independent review found no remaining P0-P3. Diff/marker/new-content control checks pass. One pre-existing worklog control byte is unchanged and outside this edit. No production code, credentials, remote API/DB, or runtime state was changed; no secret values were output.
 - Skipped: Gradle (no Java changes), Node20 build (current runtime22), live Gateway/Jackson/UI/DB checks (static audit scope). Known MISSING/DRIFT and serializer/runtime TODOs remain follow-up work. Rollback: revert audit commit(s). Next owner: independent Reviewer / human Integrator for Draft PR review and follow-up scope; no Ready/merge/Issue close/worktree removal authorized.
+
+## 2026-09-10 — GH-663 current-main record conflict rework
+
+- Current rework round1/2: parent integrated `origin/main@b7c1c7c1fa45ec6550ab2431674fcf22a519bcea` into original GH-663 head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02` by ordinary merge; no force/rebase/automatic side selection. Four EOF conflicts retain main GH-179 records before the original GH-663 records; both-parent line-order preservation is 8/8 PASS.
+- Trigger: account's independent final content APPROVE identified latest-main integration conflicts in parent records only. Original branch `agent/663-migration-canonical-sslmode` / `C:/tmp/account-663-migration-canonical-sslmode`, original owner retained. Parent4+required conflict-log5 are the only rework edits; MigrationConfiguration and its test remain byte-identical to reviewed62836e6c. Incoming GH-681 policy and GH-179 frontend records are carried unchanged, not new issue scope.
+- Actual verification after manual resolution: forced cached JDK17/Gradle8.7 target46/46 (10s), full8suites125/125 plus bootJar (16s),0failures/errors/skips; `--offline --no-daemon --console=plain --max-workers=1 --rerun-tasks`. Target command selects `com.ho.account.migration.MigrationConfigurationTest`; full command is `:migration-runner:test :migration-runner:bootJar`. Parent checked fresh XML; old RED evidence remains historical, not rerun.
+- The four record files retain every line from both parents in relative order (8/8), including inherited control-byte history. No unrelated text cleanup; conflict-log explains why both EOF additions belong. Static checks and independent review gate commit/push; exact published-head CI gates Ready. Record-only follow-up status stays on the remote PR to avoid commit churn.
+- Q1/Q2/Q4: original helper105 and comments110/115/122, Test116 preserve readable one-purpose validation, raw input→count→reject/accept and no-connection intent; current target/full GREEN. Q3: README49–54/runbook55–58 still state required verify-full; no production usage/parameter change during rework, functional docs remain untouched with independent rationale review. Parent record explanations distinguish historic vs current states and implementation vs final-merge authority.
+- Latest queue supersedes earlier checkpoints: GH-681 merged/closed/cleaned, GH-664 and GH-683 frozen Ready; this actionable original-Issue rework occupies this automation's one implementation slot. #668 follows Ready independently of unrelated merge/close waits. account's rejected merge execution remains approval-gated; parent does not retry or bypass it.
+- Rollback: reviewed code/test revert for original bugfix (may reintroduce TLS policy mismatch), or scoped record correction preserving both histories for this integration. No SQL/data/certificates, build/dependency changes, live services, package installation or primary checkout edits.
+
+## 2026-09-10 — GH-663 production TLS canonical query validation
+
+- Workflow: Account Issue 구현 오케스트레이터; task `019fa3ea-ac4c-7022-bb45-951559750df7`. Parent remote claim: https://github.com/skyg547/account/issues/663#issuecomment-5611047479. Original ready+atomic spec has no dependency on GH-662/GH-681.
+- Branch `agent/663-migration-canonical-sslmode`, worktree `C:/tmp/account-663-migration-canonical-sslmode`, base `5f8103afd4f018723302fd4b15b740b3bcf189c1`. Writer `/root/migration_663_writer` GPT-6 Astra high (security boundary), independent `/root/harness_ci_audit` Astra high; parent alone owns these four records and Git/GitHub.
+- Substantive scope: MigrationConfiguration.java and MigrationConfigurationTest.java only. Production accepts exactly one case-sensitive raw `sslmode=verify-full` entry, counting all case-insensitive sslmode keys to reject ambiguous duplicates/bare/empty keys. URL is never decoded/rewritten; development, database binding, approvals and credential handling remain unchanged.
+- RED before source fix: targeted46 tests/16 expected failures/0 errors/0 skips. GREEN targeted46 and full125 (existing85+40),0 failures/errors/skips. Existing runtime PostgreSQL Driver.parseURL reflection reproduces original effective disable and confirms five unchanged accepted URLs effective verify-full without a connection.
+- Commands: cached Gradle8.7/JDK17, `:migration-runner:test --tests com.ho.account.migration.MigrationConfigurationTest` then `:migration-runner:test`, both with `--offline --no-daemon --console=plain --max-workers=1` and explicit installed JDK path. Independent reviewer reran full task with `--rerun-tasks`:8 suites125/125. Parent parsed fresh XML and checked diff/markers. No installs/downloads/live DB/TLS/credentials or primary-checkout edits.
+- Q1 PASS: helper105 has single validation responsibility and expressive naming. Q2 PASS: raw input→count/reject→boolean comments110–122 match regression/driver behavior. Q3 PASS: README canonical example24 and production requirement49–50 already express intended contract; this bugfix restores it and does not require out-of-allowlist docs. Q4 PASS: nearby raw/no-rewrite/ambiguous-key comments and reflection no-connection comment116. Independent `/root/harness_ci_audit` confirmed Q1–Q4 and returned APPROVE, no P0–P3 findings. RED counts are implementer-provided execution evidence; the independent reviewer reran current GREEN rather than reverting production to reproduce RED.
+- Parent appends records here to preserve existing histories and avoid the unrelated GH-681 top-of-file insertions. Latest queue authority is the updated automation and remote Issue/PR, not old global-stop checkpoints. PR handoff releases implementation slot; rejection returns this original Issue for rework. Final merge/close belongs to account; no self-merge/close or cleanup here.
+- Rollback: reviewed revert of the two substantive files; no SQL/schema/data/certificate operations. Residual scope: actual TLS handshake/other JDBC option audit not performed; no claim of a real exposure incident. After independent review, the parent commits, pushes and publishes a Draft PR; only after checking CI at that exact published head does the parent mark Ready. Remote publication status is recorded on the Issue/PR to avoid record-only commit churn.

@@ -16,10 +16,11 @@ public interface MasterDataChangeApplier {
 
     /**
      * 상태 전이 전에 payload를 typed command/domain 규칙으로 검증합니다.
+     * JSON 해석 → 실제 시행일/업무 키로 command 조립 → 필수 입력/도메인 날짜 검사만 수행하며,
+     * 조회를 포함한 업무 유즈케이스는 호출하지 않습니다. 실제 저장/참조 검증은 apply의 책임입니다.
+     * 최초 접수와 승인 전에 실행되지만, 같은 sourceReference의 동일 명령 replay는 기존 요청을 반환합니다.
      */
-    default void validate(MasterDataChangeRequest request) {
-        // Target-specific appliers opt in when their command/domain exposes validation.
-    }
+    void validate(MasterDataChangeRequest request);
 
     void apply(MasterDataChangeRequest request);
 }
