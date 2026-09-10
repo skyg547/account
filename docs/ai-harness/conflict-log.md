@@ -1,5 +1,21 @@
 # Conflict Log
 
+## 2026-09-10 — GH-663 / PR #684 reviewed record-only integration
+
+- Rework1/2, original branch `agent/663-migration-canonical-sslmode`, worktree `C:/tmp/account-663-migration-canonical-sslmode`, own head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02`, incoming main `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Parent manually read each conflict; ordinary `git merge --no-commit --no-ff origin/main`, no automatic ours/theirs or history rewrite.
+- Four EOF record conflicts: `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`. Preserve main GH-179 table row/sections before original GH-663 section; retain all earlier GH-681/GH-662 history. Both parents' ordered lines checked for all four files:8/8 PASS. The later current-rework checkpoint explicitly supersedes historical global-stop states without deleting them.
+- MigrationConfiguration.java and its test are identical to original reviewed head; no production/test/build/dependency or frontend edits. Full PR scope is original2+parent5. Target46/full125/bootJar rerun PASS with cached offline JDK17/Gradle8.7; separate Astra high re-review and exact-head CI are next gates.
+- Beginner rationale: two tasks appended valid independent history at the same place. Keeping only one side would erase evidence; keeping both ordered blocks removes the text conflict without changing either implementation. A local issue-branch main merge is not the final GitHub PR merge.
+- PR remains Draft until re-review and publication CI. Parent may normal-commit/push/Ready handoff only; account owns final merge/close and its execution approval wait is not bypassed. No force/rebase/reset/clean, record deletion, resource cleanup or DB operations. Rollback is reviewed scoped correction preserving both histories.
+
+## 2026-09-10 — GH-681 / PR #682 current-main integration
+
+- Parent Integrator manually reviewed the five add-at-top record conflicts in `docs/WORKLOG.md`, `docs/history/CODEX_WORKLOG.md`, and `docs/ai-harness/{worklog,agent-status,handoff}.md`.
+- Original Issue branch `agent/681-harness-quality-contract` at `3ce95d35b2da692d86e12bb94ad3a0bee039c4fe` merges `origin/main@5f8103afd4f018723302fd4b15b740b3bcf189c1` with an ordinary merge commit. Both GH-681 and merged GH-662 histories are retained, labelled as historical, and preceded by the latest asynchronous queue checkpoint.
+- This is a parent record-only resolution: no automatic ours/theirs, force, rebase, reset, clean, or substantive policy/test changes. Conflict-log is the required sixth parent record, not expanded implementation scope.
+- The latest user correction removes unrelated merge/Issue-close/cleanup as a global implementation gate. GH-662 close approval remains with account; GH-663 has a separate non-overlapping writer. Final merge/close/cleanup authority is unchanged.
+- Verify both Node contracts, source identity, both-parent record preservation, diff/markers and links; separate Astra high reviewer and current-head CI are required before Ready. No final PR merge or resource removal is performed by this integration.
+
 Merge and rebase conflict resolutions are recorded below.
 
 ## Template

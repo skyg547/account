@@ -1,15 +1,48 @@
+## 2026-09-10 — 현재 비동기 Issue 루프 / GH-681 통합 재작업
+
+- 최신 사용자 정정: 구현, PR 검수·병합 대기, 반려 재작업, 종료·정리는 별도 대기열이다. 이전 전역 순차/Draft-only 중단 조건은 폐기하며 아래 기록은 당시 이력이다.
+- GH-662 / PR #680: main `5f8103afd4f018723302fd4b15b740b3bcf189c1`에 병합 및 main CI 34381040992 성공. Issue 종료 승인 대기는 기존 account 예약 소유이며 자원을 보존한다. 독립 Issue의 blocker가 아니다.
+- GH-681 / PR #682: 원래 `agent/681-harness-quality-contract`, `C:/tmp/account-681-harness-quality-contract`에서 부모가 최신 main 일반 merge로 기록5파일 충돌을 해결한다. 양쪽 이력을 보존하고 실질 정책/테스트5파일은 바꾸지 않는다. 충돌 결정은 conflict-log.md에 기록한다.
+- GH-663: 별도 `agent/663-migration-canonical-sslmode`, `C:/tmp/account-663-migration-canonical-sslmode`에서 `/root/migration_663_writer` Astra high가 독립된 Java/테스트2파일을 구현 중이다. 부모 기록은 한 Integrator가 순서대로 갱신한다.
+- 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
+- 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
+
+### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
+
 ## 2026-09-10 — 승인된 Issue 루프 재개
 
+### GH-681 측 당시 기록
+- 대상: GH-681 / PR #682. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
+### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 부모가 최신 검증 후 PR #680을 Ready로 인계한다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
 - 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
 
 ---
 
 ### 이전 제출 시점 기록
 
+### GH-681 측 당시 기록
+## 2026-09-10 — GH-681 공통 코드·문서 품질 계약
+
+- Issue: [#681](https://github.com/skyg547/account/issues/681), parent #661. 사용자 후속 요청이며 기존 #662 / Draft #680을 재개하거나 바꾸지 않았다.
+- 게시: [Draft PR #682](https://github.com/skyg547/account/pull/682), 구현 커밋 `063199e301aa51daa8e90c606a7d21647528ff2c`. 후속 기록 전용 커밋은 검토한 실질 5파일을 바꾸지 않는다. CI 결과는 GitHub의 현재 PR head 기준으로 별도 확인한다.
+- Base `34c75839af2edf10f80ff60d8f24e89504d69e9e`, branch `agent/681-harness-quality-contract`, worktree `C:/tmp/account-681-harness-quality-contract`.
+- Writer `/root/harness_lifecycle_writer` (coder, Astra medium), 독립 Reviewer `/root/harness_lifecycle_review` (Astra high). 부모는 계약·예약·공유 기록·Git/PR을 담당했다.
+- AGENTS/10/40에서 신규 42 품질 계약과 Q1–Q4 증거표를 필수 연결했다. 변경 범위에 한정한 명확한 이름/책임, 입력→처리→출력/설계 이유, 기능 문서 최신화·초보자 안내, 의도 주석을 검토한다. 과잉 주석·무관 리팩터링 금지, N/A 근거·독립 확인, 미실행 PASS 금지와 기존 권한 경계를 보존했다.
+- 검증: Node baseline RED 24개 중 15개 실패 → 최종 32/32 GREEN(부모와 별도 Reviewer 재실행), diff check·실제 marker·3개 로컬 링크 통과. 최종 실질 변경 리뷰 APPROVE, Q1–Q4 PASS.
+- 예약 `account-issue-2`는 품질 블록 삽입만 반영했다. 블록 제거 시 기존 prompt와 완전 일치하고 30분 주기·대상·활성 상태 등 불변을 재조회했다. 타 예약 `account`, `account-issue` 해시도 불변이다.
+- 미실행: 업무 코드/빌드 변경이 없어 Gradle·DB·서버 실행 비대상. 신규 테스트는 CI 미연결(#672), 구조 검사는 설명의 사실성·코드 품질을 자동 보장하지 않는다.
+- 롤백: 승인된 후속 revert로 이번 변경만 되돌리고 예약은 추가한 품질 블록만 제거한다. 기존 기록·사용자 dirty checkout·다른 worktree는 보존한다. Draft 제출 이후 Ready/merge/close/cleanup은 별도 지시 대기다.
+
+### 병합된 GH-662 측 당시 기록
 ## 2026-09-10 — GH-661 active-harness audit / GH-662 first implementation
 
 - Three independent read-only audits plus official Codex/GitHub guidance covered current instruction layers and CI. Parent #661 tracks 10 improvement Issues; only #662 is claimed. Mock execution demonstrated existing Guard review-state/label bypass without live approvals or merges.
@@ -17,6 +50,7 @@
 - Astra coder/medium implemented four central PR policy/form files and Node negative-fixture checks. Initial RED: 9/23 failures. Independent review caught a remaining Ready-only CI deadlock; new tests reproduced three actual-document failures before repair. Final local and independent GREEN: 32/32. Existing js-yaml verified 21 unique form IDs, labels and non-authority field preservation without installation; 19 local links passed.
 - Independent Astra high re-review approved with no remaining finding; scoped diff/marker/allowlist checks passed. Implementation `af95eca1` was pushed and Draft PR [#680](https://github.com/skyg547/account/pull/680) created; this record-only follow-up synchronizes publication, not the reviewed policy/test implementation. No Ready/merge/Issue close/deletion. Application/DB/container tests not run: no runtime files changed.
 - Limit: the local regex test is not an authorization engine and is not yet wired to CI (#672). Guard trust policy is separate #671. Rollback only reviewed #662 policy/test changes; preserve trace history.
+
 
 ## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
 - 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
@@ -2169,6 +2203,23 @@
 - Corrected deposit, asset-lease and ECL targets to `deposit-service`, `asset-lease-service` and `ifrs9-allowance-api`. Added actual Controller prefixes to nine routes in both YAML files, retaining the specified versioned aliases and all breaker/fallback contracts; reporting already matched. Updated nine Path and six URI assertions in the existing policy suite.
 - The exact Java 21 `:gateway:test` command passes 72/72 across nine suites with no failures/errors/skips, including all 30 policy tests and full routes/default-filter/CORS/Resilience4j parity. Diff and tracked conflict-marker checks pass. Independent review is pending final confirmation before the authorized commit/push.
 - Live Eureka smoke and deployment are not claimed. Reporting's supplied service ID still needs actual registration verification because its API has no base application-name declaration here; this is pre-existing and outside the mapping-only change. Rollback is a reviewed stage-2 commit revert, which restores the prior known route mismatches without schema/data changes. A later integration owner handles any new PR/CI/runtime gate.
+
+## 2026-09-10 — GH-179 frontend/backend API parity audit
+
+- Issue #179; difficulty:medium, requested reasoning high. Branch `agent/179-api-parity-audit`, worktree `/tmp/account-179-api-parity-audit`, base `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e`. Dirty primary checkout was preserved. Audit commit `d15632a0` was pushed; [Draft PR #676](https://github.com/skyg547/account/pull/676) is open with `Refs #179`, verification results and the merge-authority statement. Issue status: `status:needs-review`.
+- Scope follows rejected PR #548 instructions: read-only production evidence, 15 current service/helper files, exhaustive actual method/URL and field/type/nullability/enum comparison. Write allowlist: `frontend/docs/frontend-backend-api-parity-matrix.md`, `frontend/README.md`, `docs/ai-harness/worklog.md`, `docs/ai-harness/agent-status.md`, `docs/ai-harness/handoff.md`, `docs/history/CODEX_WORKLOG.md` only.
+- Result: 42 endpoint calls + 3 transport helper calls; 33 mapped and 9 MISSING. Corresponding 13 Controllers have 87 mappings, 54 backend-only. Nested DTOs, missing required query/body fields, enum/nullability drift, BFF transformation/actor injection and actual fallback behavior are documented. Universal endpoint/DTO compatibility is not claimed; Issue stays open.
+- Verification: embedded `node /tmp/account-179-verify.cjs` PASS including row/method/path/Controller/backend-only evidence and known DTO/query drift; in-memory negative checks PASS 7/7. `node frontend/node_modules/typescript/bin/tsc --project frontend/tsconfig.json --noEmit --incremental false` exit0. From frontend, `NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=3072 taskset -c 0 npm run build` exit0, Next15.5.23/static pages122/122. Existing dependencies reused without installation/lockfile changes. Node22.23.2 differs from engine Node20; Node20 run remains unclaimed.
+- Independent Reviewer found one P3: Closing PUT JSON decode errors propagate while HTTP/transport errors return null. Corrected the audit wording; final independent review found no remaining P0-P3. Diff/marker/new-content control checks pass. One pre-existing worklog control byte is unchanged and outside this edit. No production code, credentials, remote API/DB, or runtime state was changed; no secret values were output.
+- Skipped: Gradle (no Java changes), Node20 build (current runtime22), live Gateway/Jackson/UI/DB checks (static audit scope). Known MISSING/DRIFT and serializer/runtime TODOs remain follow-up work. Rollback: revert audit commit(s). Next owner: independent Reviewer / human Integrator for Draft PR review and follow-up scope; no Ready/merge/Issue close/worktree removal authorized.
+
+## 2026-09-10 — GH-663 original-Issue record integration rework
+
+- Current rework round1/2: parent integrated `origin/main@b7c1c7c1fa45ec6550ab2431674fcf22a519bcea` into original GH-663 head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02` by ordinary merge; no force/rebase/automatic side selection. Four EOF conflicts retain main GH-179 records before the original GH-663 records; both-parent line-order preservation is 8/8 PASS.
+- Original parent/task/worktree retained, PR684 Draft and Issue663 in-progress during verification. The reviewer-approved source/test2 remain unchanged; parent records4 plus required conflict-log are the rework scope.
+- Re-executed cached offline JDK17/Gradle8.7 with forced tasks: target46/46, full125/125 across8suites and bootJar,0failure/error/skip. Source identity and both-parent history checks pass; separate Astra high re-review and current-head remote CI precede Ready.
+- Earlier local Draft/global-stop wording is historical; current queue uses separate implementation, review/merge wait, original rework and cleanup states. #683 already reached Ready; #668 follows this rework's Ready release. account merge/close authority and its approval wait remain unchanged; no self-merge/close or cleanup.
+- New commit/head/CI/Ready evidence belongs on PR684. No DB/TLS execution, installation, dependency/code change, other owner edits or primary checkout mutations. Rollback requires reviewed scoped correction and history preservation.
 
 ## 2026-09-10 — GH-663 production sslmode validator/JDBC parity
 
