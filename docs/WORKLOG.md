@@ -3785,3 +3785,10 @@
 - 정책 테스트 6개, Config/Gateway/migration-runner 및 159-task 패키징 검증, 환경 validator, shell 정적 검사와 122-route 프런트엔드 production build가 통과했다. 독립 최종 리뷰에 남은 P0-P3가 없다.
 - Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
 - commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.
+
+### 📅 2026-09-11 (Issue #691 기간 잔액의 일별 이월 중복 합산 수정)
+
+- GL/SL 기간 조회는 그룹별 가장 이른 일별 기초를 한 번만 선택하고 기간 차변·대변을 합산하도록 수정했다. 예시의 기초/기말은 잘못된 2,080/2,200이 아니라 1,000/1,120이다.
+- 응답 날짜·기간·그룹 순서와 기존 key를 유지하고 원본 엔티티나 입력 목록은 변경하지 않는다. 기능 문서와 실제 서비스 기반 HTTP 회귀를 함께 갱신한다.
+- 수정 전 GL/SL 정순·역순 4건의 실패로 원인을 재현했다. 수정 후 JDK17/Gradle8.7 오프라인 강제 전체 실행과 별도 Astra xhigh 리뷰어의 독립 재실행 모두 core65/API11/Batch5, 총81건(28 suites) 실패·오류·skip0으로 통과했다. 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
+- `agent/691-ledger-period-summary` / 외부 전용 worktree에서만 작업한다. 게시 SHA·CI·Ready 상태는 Issue/PR에서 추적하며 최종 병합과 Issue 종료는 별도 `account` 예약의 소유다. 데이터 복구·운영 DB·Batch 실행은 하지 않는다.
