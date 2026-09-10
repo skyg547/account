@@ -7,6 +7,20 @@
 - 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
 - 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
 
+## 2026-09-10 — GH-683 회계기간 저장 상태 복원
+
+- Issue [#683](https://github.com/skyg547/account/issues/683); branch `agent/683-fiscal-period-reconstitution`; worktree `C:/tmp/account-683-fiscal-period-reconstitution`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`. 위 GH-681 블록과 아래 이전 항목은 당시 이력이며 원격 Issue/PR과 최신 대화 체크포인트가 우선한다.
+- Writer `/root/fiscal_683_writer` (service / GPT-6 Astra high), 별도 Reviewer `/root/harness_lifecycle_review` (Astra high). 단일 원인의 응집된 수정에 한해 부모가 정확한 Mapper 1개와 matching tests까지 서비스 역할 범위를 명시 승인했다. 부모만 공유 기록·Git/GitHub를 담당한다.
+- 원인: 저장된 상태를 Mapper가 빈 domain의 새 업무 전이로 실행하여 영구 마감 조회·합법 전이 후 저장 결과 복원을 거부했다. 부모의 현재 compiled class 합성 probe 두 건으로 재현했다.
+- 변경: 순수 `FiscalPeriod.reconstitute`가 9개 원값과 nullable 감사 필드를 보존하며 null 상태는 거부한다. Mapper는 업무 전이를 호출하지 않는다. 기존 `changeClosingStatus` 본문·actor 검증은 동일하고 API/contracts/JPA entity/DB schema는 변경하지 않았다.
+- 검증: production 수정 전 실제 Mapper RED 10건 중 3실패, 오류/skip 0. GREEN Domain21+Mapper10+H2 12=43건, core/API/batch 전체 87건(58/24/5), 22 suites, 실패/오류/skip 0(기존44+신규43). 별도 `/root/harness_lifecycle_review`가 3모듈을 `--rerun-tasks`로 재실행해 87/87 PASS(47초) 및 실질5파일 APPROVE, Q1–Q4 PASS를 확인했다. 부모 기록을 포함한 최종 후보 리뷰와 게시 head CI는 다음 게이트다.
+- H2는 실제 Repository/Mapper/Adapter 및 Spring control 프록시를 사용한다. 외부 테스트 rollback 트랜잭션을 끄고 실제 커밋 후 별도 트랜잭션/clear로 ID·잠금 ID·연월 조회를 확인했다. 거부된 명령은 저장 상태·감사값을 보존한다. PostgreSQL 잠금 경합/동시 마감 검증은 아니다.
+- 실질 allowlist 5파일 + 부모 기록4파일. 기존 변경 보존, diff/marker/unmerged 검사 통과. 실제 DB/서버/업무 Batch·비밀정보·설치/다운로드·기존 행/로그 삭제 없음. 자동화 테스트의 H2 fixture만 정리했다.
+- PR은 아직 게시 전 검증 시점이다. 독립 최종 승인 후 부모가 commit/push/Draft 게시 및 새 head CI를 확인해 Ready로 인계한다. 최종 merge/close는 기존 `account` 예약 소유다. 02:03 UTC 배정 시 #663/PR684·#664/PR685는 동결 Ready였으며, 선행 병합이나 #662 종료를 기다리지 않았다.
+- 롤백: 승인된 코드/테스트의 검토된 revert이며 DB·감사 행은 바꾸지 않는다. 롤백하면 원래 영구 마감 복원 결함이 돌아온다. 기능 문서는 기존 전이/terminal 계약을 복원하므로 수정하지 않는다. `local-run.md:83`의 기존18건은 변경 전44건과도 맞지 않던 범위 밖 차이이며 모든 문서가 최신이라고 주장하지 않는다.
+
+상세 Q1–Q4 완료표와 실행 명령은 `docs/ai-harness/worklog.md`의 GH-683 절에 있다. 게시/Ready/병합/종료는 각각 실제 원격 게이트로 구분하며 반려는 원래 Issue 재작업으로 회수한다.
+
 ### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
 
 # Current checkpoint — 2026-09-10 승인된 Issue 루프 재개
