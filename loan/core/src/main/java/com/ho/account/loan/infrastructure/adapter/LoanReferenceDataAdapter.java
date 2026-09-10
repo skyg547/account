@@ -7,12 +7,15 @@ import com.ho.account.masterdata.core.application.port.out.CurrencyPersistencePo
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDate;
 import java.util.Locale;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
  * 기존 Master Data 내부 포트를 Loan 소유 출력 포트 뒤에 격리하는 모놀리스 어댑터.
  */
 @Component
+@ConditionalOnProperty(prefix = "account.loan.remote", name = "enabled",
+        havingValue = "false", matchIfMissing = true)
 public class LoanReferenceDataAdapter implements LoanReferenceDataPort {
 
     private final BusinessPartnerPersistencePort businessPartnerPort;

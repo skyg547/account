@@ -39,10 +39,11 @@ services:
     command: ["sh", "-c", "while :; do sleep 3600; done"]
     volumes:
       - ./check-products-databases.sh:/account-runtime/check-products-databases.sh:ro
+      - ../postgres/runtime/check-products-risk-database.sh:/postgres/runtime/check-products-risk-database.sh:ro
     healthcheck:
       test: ["CMD", "sh", "/account-runtime/check-products-databases.sh"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 12
       start_period: 5s
     deploy:
@@ -65,10 +66,22 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
+      ACCOUNT_DEPOSIT_REMOTE_ENABLED: "true"
+      ACCOUNT_DEPOSIT_OUTBOX_SCHEDULER_ENABLED: "false"
+      ACCOUNT_DEPOSIT_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      ACCOUNT_DEPOSIT_JOURNAL_BASE_URL: "http://journal-ledger-api:8080"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${DEPOSIT_DB_URL:?Set DEPOSIT_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${DEPOSIT_DB_USER:?Set DEPOSIT_DB_USER in the approved env file}"
@@ -98,10 +111,21 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
+      ACCOUNT_LOAN_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      ACCOUNT_LOAN_JOURNAL_BASE_URL: "http://journal-ledger-api:8080"
+      ACCOUNT_LOAN_REMOTE_ENABLED: "true"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${LOAN_DB_URL:?Set LOAN_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${LOAN_DB_USER:?Set LOAN_DB_USER in the approved env file}"
@@ -131,10 +155,18 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${ASSET_LEASE_DB_URL:?Set ASSET_LEASE_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${ASSET_LEASE_DB_USER:?Set ASSET_LEASE_DB_USER in the approved env file}"

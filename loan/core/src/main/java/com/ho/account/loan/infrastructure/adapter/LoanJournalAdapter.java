@@ -11,6 +11,7 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,8 @@ import java.util.stream.Collectors;
  *    전표 원장과의 최종 정합성(Eventual Consistency)과 멱등성을 보장합니다.
  */
 @Component
+@ConditionalOnProperty(prefix = "account.loan.remote", name = "enabled",
+        havingValue = "false", matchIfMissing = true)
 public class LoanJournalAdapter implements LoanJournalPort {
 
     private final JournalUseCase journalUseCase;

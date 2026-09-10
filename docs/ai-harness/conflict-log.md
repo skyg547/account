@@ -1,3 +1,16 @@
+## 2026-09-11 — GH-653 task branch main synchronization (PR #689 resolution)
+
+- Scope: Parent Integrator resolved append-only log conflicts in agent-status.md, handoff.md, worklog.md, and CODEX_WORKLOG.md when integrating latest origin/main@6be62f91 into agent/653-business-runtime.
+- Decision: Retained both the Issue #653 all-13 runtime verification history and upstream GH-663, GH-664, GH-683, GH-668, GH-669 merge records. Production code in PR #689 had zero semantic conflicts. The independent review findings on HTTP Journal adapters (Closing 302 handling and Loan amount validation) are partitioned into new dedicated Issue #695 per user instruction.
+- Verification: git diff --check PASS (0 conflict markers), Node harness contract tests PASS.
+
+## 2026-09-10 — GH-653 task branch main synchronization
+
+- Scope: parent Integrator resolved only concurrent history additions in `agent-status.md`, `handoff.md`, `worklog.md`, and `docs/history/CODEX_WORKLOG.md` while merging `origin/main@b7c1c7c1fa45` into `agent/653-business-runtime` after verified implementation commit `4fcf1cfd6937`. This is task-branch synchronization, not a PR merge into main.
+- Decision: retain every side of all six conflict blocks, with GH-653 runtime/repair history and upstream GH-662/GH-681/GH-179 histories preserved. No blanket ours/theirs selection, rebase, force push, or source-code conflict resolution. The parent adds this required conflict record under the repository Completion Contract; the implementation allowlist remains unchanged.
+- Evidence: all13 actual final runtime gates passed before the implementation commit. Incoming main changes are documentation/policy/Node tests only. Both local Node contracts pass64/64 (fail/skip0, exit0); independent merged-document review confirms both histories preserved and Q1–Q4 PASS; Java source/images are unchanged by this merge.
+- Authority: parent owns records/Git; reviewer stays read-only. This request authorizes Draft PR only. Ready, merge into main, Issue close and cleanup remain separately gated.
+
 # Conflict Log
 
 ## 2026-09-10 — GH-663 / PR #684 reviewed record-only integration

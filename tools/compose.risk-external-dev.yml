@@ -39,10 +39,11 @@ services:
     command: ["sh", "-c", "while :; do sleep 3600; done"]
     volumes:
       - ./check-risk-databases.sh:/account-runtime/check-risk-databases.sh:ro
+      - ../postgres/runtime/check-products-risk-database.sh:/postgres/runtime/check-products-risk-database.sh:ro
     healthcheck:
       test: ["CMD", "sh", "/account-runtime/check-risk-databases.sh"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 12
       start_period: 5s
     deploy:
@@ -65,10 +66,18 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${ACCOUNT_MART_DB_URL:?Set ACCOUNT_MART_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${ACCOUNT_MART_DB_USER:?Set ACCOUNT_MART_DB_USER in the approved env file}"
@@ -98,11 +107,19 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       SPRING_KAFKA_LISTENER_AUTO_STARTUP: "false"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${ECL_DB_URL:?Set ECL_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${ECL_DB_USER:?Set ECL_DB_USER in the approved env file}"
@@ -132,10 +149,18 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Bound aggregate connections across all 13 low-resource APIs.
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:-http://minimal-discovery:8761/eureka/}"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      # Preserve the case-sensitive Eureka Map key through a JVM property.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/"
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "${RECONCILIATION_DB_URL:?Set RECONCILIATION_DB_URL in the approved env file}"
       SPRING_DATASOURCE_USERNAME: "${RECONCILIATION_DB_USER:?Set RECONCILIATION_DB_USER in the approved env file}"
