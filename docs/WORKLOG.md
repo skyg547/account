@@ -1,20 +1,50 @@
+## 2026-09-10 — 현재 비동기 Issue 루프 / GH-681 통합 재작업
+
+- 최신 사용자 정정: 구현, PR 검수·병합 대기, 반려 재작업, 종료·정리는 별도 대기열이다. 이전 전역 순차/Draft-only 중단 조건은 폐기하며 아래 기록은 당시 이력이다.
+- GH-662 / PR #680: main `5f8103afd4f018723302fd4b15b740b3bcf189c1`에 병합 및 main CI 34381040992 성공. Issue 종료 승인 대기는 기존 account 예약 소유이며 자원을 보존한다. 독립 Issue의 blocker가 아니다.
+- GH-681 / PR #682: 원래 `agent/681-harness-quality-contract`, `C:/tmp/account-681-harness-quality-contract`에서 부모가 최신 main 일반 merge로 기록5파일 충돌을 해결한다. 양쪽 이력을 보존하고 실질 정책/테스트5파일은 바꾸지 않는다. 충돌 결정은 conflict-log.md에 기록한다.
+- GH-663: 별도 `agent/663-migration-canonical-sslmode`, `C:/tmp/account-663-migration-canonical-sslmode`에서 `/root/migration_663_writer` Astra high가 독립된 Java/테스트2파일을 구현 중이다. 부모 기록은 한 Integrator가 순서대로 갱신한다.
+- 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
+- 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
+
+### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
+
 ## 2026-09-10 — 승인된 Issue 루프 재개
 
+### GH-681 측 당시 기록
+- 대상: GH-681 / PR #682. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
+### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 부모가 최신 검증 후 PR #680을 Ready로 인계한다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
 - 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
 
 ---
 
 ### 이전 제출 시점 기록
 
+### GH-681 측 당시 기록
+### 2026-09-10 — GH-681 공통 코드·문서 품질 계약
+
+- 사용자 후속 승인으로 클린코드, 핵심 로직 설명, 기능 문서 최신화/초보자 안내, 비자명 로직의 의도 주석을 공통 구현·완료·독립 리뷰 기준으로 연결했다. 상세 사용법과 증거표는 [품질 계약](ai-harness/42-code-documentation-quality.md)에 있다.
+- `AGENTS.md`, 공통 규칙 10, 검증표 40, 신규 품질 계약 42, Node 계약 테스트의 실질 5파일 변경이다. 업무 코드·DB·CI workflow는 변경하지 않았다.
+- Node 32/32, 로컬 링크 3개, diff/실제 conflict marker 검사 및 별도 Astra high 리뷰 통과. 문서 수정 전 baseline은 24개 중 15개 실패했다. 구조 테스트는 의미 품질 검토를 대신하지 않으며 CI 연결은 #672에 남는다.
+- 기존 `account-issue-2` 예약에 품질 블록만 추가했다. 이전 프롬프트 보존, 30분 주기·연결 작업·활성 상태·모델/권한 유지와 다른 두 예약의 해시 불변을 확인했다.
+- `agent/681-harness-quality-contract`를 [Draft PR #682](https://github.com/skyg547/account/pull/682)로 제출했다. 기존 #662 / Draft #680은 보존하며 Ready·merge·Issue 종료·자원 삭제는 수행하지 않는다.
+
+### 병합된 GH-662 측 당시 기록
 ## 2026-09-10 — AI 하네스 전수 점검과 첫 개선 (GH-661 / GH-662)
 
 - 활성 하네스의 역할·스킬·도구 지침·Issue/PR 폼·CI를 최신 main 기준으로 점검하고 개선 10건을 부모 #661에 연결했다. 과거 기록 전체나 민감 설정 본문을 재검증한 것은 아니다.
 - 첫 개선 #662는 작성자·검사자·게시 담당자를 구분하고 Draft 사전검토부터 별도 승인 병합/정리까지 중앙 계약을 통일한다. 모델 역량과 원격 변경 권한은 다르다는 초보자 설명을 포함한다.
 - 독립 검수에서 남은 Ready-only 검사 순환 대기를 재현·수정했고, 정책 회귀 검사 32/32·폼 구문/필드 보존·문서 링크 검증 및 독립 재검수를 통과했다. [Draft PR #680](https://github.com/skyg547/account/pull/680)을 제출했다. 업무 코드·운영 환경·예약·사용자 기본 checkout은 변경하지 않았고, Ready/병합/종료/삭제는 수행하지 않았다.
+
 
 ### 📅 2026-08-19 ([frontend][ui] Apply K-Bank Modern Fintech Design System - Issue #484 / PR #485)
 ### [frontend] 케이뱅크(KBank) 스타일 모던 핀테크 디자인 시스템 (색상, 폰트, 배경, 카드, 헤더/사이드바) 전면 개편
