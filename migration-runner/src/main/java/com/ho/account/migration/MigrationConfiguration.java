@@ -23,7 +23,7 @@ record MigrationConfiguration(String url, String user, String password, String e
                     "MIGRATION_TARGET_ENV must be development or production");
         }
         if ("production".equals(targetEnvironment)
-                && !hasParameter(url, "sslmode", "verify-full")) {
+                && !hasSingleCanonicalSslmode(url)) {
             throw new IllegalArgumentException(
                     "Production MIGRATION_DB_URL must use sslmode=verify-full");
         }
@@ -102,19 +102,24 @@ record MigrationConfiguration(String url, String user, String password, String e
         }
     }
 
-    private static boolean hasParameter(String url, String expectedName, String expectedValue) {
+    private static boolean hasSingleCanonicalSslmode(String url) {
         int queryStart = url.indexOf('?');
         if (queryStart < 0) {
             return false;
         }
+        // Read raw query entries without decoding or rewriting the URL passed to JDBC.
+        int sslmodeCount = 0;
         for (String parameter : url.substring(queryStart + 1).split("&")) {
             String[] pair = parameter.split("=", 2);
-            if (pair.length == 2
-                    && expectedName.equalsIgnoreCase(pair[0])
-                    && expectedValue.equalsIgnoreCase(pair[1])) {
-                return true;
+            if ("sslmode".equalsIgnoreCase(pair[0])) {
+                // Count even empty/bare or differently cased keys; a second key is ambiguous.
+                sslmodeCount++;
+                if (sslmodeCount > 1 || !"sslmode=verify-full".equals(parameter)) {
+                    return false;
+                }
             }
         }
-        return false;
+        // Exactly one canonical entry makes the validator and JDBC agree on verify-full.
+        return sslmodeCount == 1;
     }
 }
