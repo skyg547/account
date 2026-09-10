@@ -15,17 +15,11 @@ public class FiscalPeriodMapper {
 
     public FiscalPeriod toDomain(FiscalPeriodEntity entity) {
         if (entity == null) return null;
-        FiscalPeriod domain = new FiscalPeriod();
-        domain.setId(entity.getId());
-        domain.setFiscalYear(entity.getFiscalYear());
-        domain.setFiscalPeriod(entity.getFiscalPeriod());
-        domain.setStartDate(entity.getStartDate());
-        domain.setEndDate(entity.getEndDate());
-        domain.changeClosingStatus(entity.getClosingStatus(), entity.getAuditUser() != null ? entity.getAuditUser() : "SYSTEM");
-        domain.setCreatedAt(entity.getCreatedAt());
-        domain.setUpdatedAt(entity.getUpdatedAt());
-        domain.setAuditUser(entity.getAuditUser());
-        return domain;
+        // 조회/저장 결과 매핑은 명령을 재실행하지 않고 상태와 감사 이력을 그대로 복원합니다.
+        return FiscalPeriod.reconstitute(
+                entity.getId(), entity.getFiscalYear(), entity.getFiscalPeriod(),
+                entity.getStartDate(), entity.getEndDate(), entity.getClosingStatus(),
+                entity.getCreatedAt(), entity.getUpdatedAt(), entity.getAuditUser());
     }
 
     public FiscalPeriodEntity toEntity(FiscalPeriod domain) {
