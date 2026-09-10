@@ -95,6 +95,29 @@ git diff --name-only --diff-filter=U
 
 ---
 
+## 2026-09-10 — GH-668 required side-effect-free payload validation
+
+- Workflow Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; `agent/668-master-data-payload-validation` / `C:/tmp/account-668-master-data-payload-validation`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Writer `/root/fiscal_683_writer` service/Astra high, independent `/root/harness_lifecycle_review` Astra high; parent alone owns shared records and Git/GitHub.
+- Fresh OPEN ready+atomic/unclaimed state, no linked PR and no overlapping active file/contract ownership were verified; claim https://github.com/skyg547/account/issues/668#issuecomment-5611884163. This follows GH-663 rework Ready, independent of its final merge/close.
+- Root cause: default validate no-op let three typed appliers omit the existing pretransition contract. The interface now requires implementation; each missing applier decodes once into its existing effectiveDate/targetKey command, rejects null payload before dereference, checks only the approved null fields and delegates the window invariant to MasterDataValidityPolicy. No business query or write occurs in validate; DEACTIVATE needs no decoder.
+- Preserved: BP implementation/test, service transition/version/replay flow, null/blank key fallback, null default inputs, Department/Product partial UPDATE, equal-day validTo, omitted validTo interpreted as9999-12-31 for validation, payload validFrom overridden by effectiveDate, and Product currentId lookup only during apply. No new blank-name/negative-price/scalar-coercion policy or old APPROVED-row repair.
+- Scope is source/test5 (478 additions/6 deletions, including three missing EOF newlines) plus parent records4. Existing histories are retained and the record insertion is separated from other queued PR record positions. No changes to functional docs, interface DTO shapes, persistence/schema, dependencies, other agents or primary checkout.
+- Worker RED211/174 expected no-throw failures,0error/skip (37 prior PASS = BP1 + constructor raw-null/empty/blank36); target GREEN338, full381/19suites = core352/API24/batch5,0failure/error/skip. Independent Astra high forced offline full rerun381/381,48s, same frozen test hash; reviewer APPROVE with no P0–P3 findings.
+- Executed with installed JDK17.0.19 and cached Gradle8.7: targeted `:master-data:core:test --tests '*MasterDataChangeRequestPayloadValidationTest'`, then `:master-data:core:test :master-data:api:test :master-data:batch:test`, both `--offline --no-daemon --console=plain --max-workers=1` plus explicit installed JDK path. Target GREEN12s, worker full44s; separate reviewer adds `--rerun-tasks` and checks fresh XML. RED is actual implementer evidence (test-only diff), not independently rerun or confused with the later expanded338-case suite.
+- Target338 =210 negative pathway cases +118 normal accept/apply cases +9 DEACTIVATE/replay/conflict cases +existingBP1. Full381 =baseline44+337new. Failing new request paths assert save(any())0; failed approval preserves REQUESTED, approver/times/requester, lockVersion7 and appliedAt; valid stubs prevent version failures masking payload defects. Exact command equality and business-port no-interaction checks test observable behavior, not copied validator predicates.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Account/Department/Product validate:29/32/30, existing decoder/key helper/domain date policy; target338/full381 | 해당 없음: 코드 변경 | exact published-head CI | separate reviewer verified cohesive responsibilities |
+| Q2 | PASS | Interface:19–21, Test:75/88/102/149/235 actual request/approve/apply/replay | 해당 없음: 비자명 흐름 | mock tests are not real DB rollback | separate reviewer verified input→validation→transition and replay boundary |
+| Q3 | PASS | Existing Interface pretransition contract and master-data/docs/process-flow.md:72–85; commands/defaults unchanged | 문서 미편집: 기존 계약 복원, 새 공개정책/실행법 없음 | local-run.md:83,93–95 inherited count/test-absence debt; no blanket doc-accuracy claim | separate reviewer approved scoped no-edit rationale |
+| Q4 | PASS | Interface:19–21, Account:34, Department:37, Product:35; Test:104/244/372/421 | 해당 없음: 비자명 코드 | final record review and remote CI | separate reviewer checked comments against behavior |
+
+- 기능 문서 판단: process-flow72–85의 기존 sourceReference/버전/업무 키/DEACTIVATE 계약과 기존 상태 전이 전 validate 의무를 복원합니다. 실행법/기본값/공개 정책은 바뀌지 않아 승인된5파일 안에서 가까운 흐름·의도 주석을 보강했습니다. local-run83의18건 및93–95의 테스트 부재 설명은 baseline44에도 맞지 않던 별도 문서 부채입니다. WORKLOG를 기능 문서 대용으로 삼거나 모듈 문서 전체 최신화를 주장하지 않습니다.
+- Limits: new regressions are unit tests with real Jackson/applier/service and mocked persistence/version/business ports. They preserve null/default inputs but do not execute actual JPA fallback, Spring transaction rollback or PostgreSQL concurrency. Existing APPROVED malformed rows and SCD2 inter-version interval policy remain out of scope; no real database/server/business Batch or deployment was run.
+- Static diff/marker/unmerged and final parent-record review gate commit/push. Exact published-head CI and latest-main integration gate Ready; remote Issue/PR records subsequent SHA/CI/status without record-only commit churn. account's final merge/close approval wait is not bypassed and does not block independent new implementation. No cleanup in this change.
+- Rollback: reviewed five-file revert; the previous acceptance/approval validation gap may reopen, while request/audit/schema/data/history remain unchanged. Earlier global serial-stop checkpoints are historical and superseded by the saved asynchronous queue contract.
+
 ### 이전 제출 시점 기록
 
 ### GH-681 측 당시 기록

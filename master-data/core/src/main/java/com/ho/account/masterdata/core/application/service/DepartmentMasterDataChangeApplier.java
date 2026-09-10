@@ -5,6 +5,8 @@ import com.ho.account.masterdata.core.application.port.in.DepartmentUseCase;
 import com.ho.account.masterdata.core.application.port.out.MasterDataChangePayloadDecoder;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest;
 import com.ho.account.masterdata.core.domain.changerequest.MasterDataChangeRequest.MasterDataType;
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +29,20 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
     }
 
     @Override
+    public void validate(MasterDataChangeRequest request) {
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.DEACTIVATE) {
+            return;
+        }
+        DepartmentCommand command = command(request);
+        // UPDATE의 null 필드는 서비스가 기존 값으로 채웁니다. 검증을 위해 기존 부서를 조회하지 않습니다.
+        if (request.getChangeType() == MasterDataChangeRequest.ChangeType.CREATE && command.name() == null) {
+            throw new IllegalArgumentException("Department name is required.");
+        }
+        MasterDataValidityPolicy.requireValidityWindow(command.validFrom(),
+                command.validTo() != null ? command.validTo() : LocalDate.of(9999, 12, 31));
+    }
+
+    @Override
     public void apply(MasterDataChangeRequest request) {
         switch (request.getChangeType()) {
             case CREATE -> departmentUseCase.createDepartment(command(request));
@@ -39,6 +55,9 @@ public class DepartmentMasterDataChangeApplier implements MasterDataChangeApplie
     private DepartmentCommand command(MasterDataChangeRequest request) {
         DepartmentCommand payload = MasterDataChangeApplierSupport.decode(
                 request, payloadDecoder, DepartmentCommand.class);
+        if (payload == null) {
+            throw new IllegalArgumentException("Department change payload must not be null.");
+        }
         String code = MasterDataChangeApplierSupport.targetKey(request, payload.code());
         return new DepartmentCommand(
                 code,

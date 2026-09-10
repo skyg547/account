@@ -56,6 +56,16 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 
 ---
 
+## 2026-09-10 — GH-668 three typed pretransition validation gaps
+
+- Workflow Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; `agent/668-master-data-payload-validation` / `C:/tmp/account-668-master-data-payload-validation`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Writer `/root/fiscal_683_writer` service/Astra high, independent `/root/harness_lifecycle_review` Astra high; parent alone owns shared records and Git/GitHub.
+- Parent claimed ready+atomic GH-668 after original GH-663 record rework reached Ready, without waiting for PRs684/685/686 to merge. Only this automation's active implementation writer is serialized; frozen PRs and merge/close waits are separate.
+- Interface validate is mandatory, three implementations perform pure typed input/key/null-field/date checks, and existing BP/apply/version/replay/default/partial-update semantics are retained. Five substantive files; parent adds four records preserving all prior histories.
+- Worker RED211/174 expected no-throw failures,0error/skip (37 prior PASS = BP1 + constructor raw-null/empty/blank36); target GREEN338, full381/19suites = core352/API24/batch5,0failure/error/skip. Independent Astra high forced offline full rerun381/381,48s, same frozen test hash; reviewer APPROVE with no P0–P3 findings.
+- Added337 real decoder/applier/service unit regressions; save(any())0, failed-approval audit/lock invariance, no business lookup during validate, exact normal apply commands and replay preservation. Existing BP method body is unchanged. Q1–Q4 and disclosed no-functional-doc-edit rationale are independently verified; local-run's pre-existing inaccurate test text is not certified.
+- Final parent-record review precedes commit/push/Draft; published-head CI and latest-main check precede Ready. Subsequent head/PR/CI evidence lives remotely. Final account merge/close requires its own approval; no self-merge, data/history modification, live DB, installs, resource cleanup or primary-checkout changes.
+- Rollback is reviewed source/test revert with possible re-exposure of missing validation. Unit tests do not establish real JPA defaults, Spring rollback or PostgreSQL concurrency; old malformed APPROVED-row repair remains outside scope.
+
 ### 이전 제출 시점 기록
 
 ### GH-681 측 당시 기록
