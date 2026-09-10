@@ -17,6 +17,18 @@
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 제출 전 인계
+
+- 계약: [Issue #669](https://github.com/skyg547/account/issues/669), [사용자 승인5파일·claim](https://github.com/skyg547/account/issues/669#issuecomment-5612175131). `agent/669-mvc-request-errors` / `C:/tmp/account-669-mvc-request-errors` / base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`.
+- 목적: 네 MVC 요청 예외를 고정 메시지400/405/415와 원래 Allow/Accept/Accept-Patch로 반환. 실제 상속 MockMvc 회귀와 초보자용 process-flow 문서를 함께 추가했다. 기존400/404/하위409/비노출500 및 production 의존성/BOM 유지.
+- 검증: production 미수정 RED14/5fail → 대상19 PASS; 작성자 소비자149/36suites PASS, 독립 강제149/36 PASS(1m2s). 부모 library build와 직접 소비자3 bootJar PASS(12s), Node64 PASS. 모든 완료 테스트 failure/error/skip0.
+- 실질5파일 독립 APPROVE/Q1–Q4 PASS, 나머지4파일은 부모 기록이다. 다음 담당: 별도 Reviewer의 최종9파일 기록 대조 후 부모 commit/push/Draft(`Refs #669`), 게시 head의 전체 CI·최신 main·통합 확인 후 Ready. 이 기록은 아직 게시/CI 완료 주장이 아니며 실제 PR 번호/head/CI는 원격 Issue/PR 인계에 기록한다.
+- 그 다음은 기존 `account`의 최신 head/base·CI 독립 최종 검수 및 별도 승인된 merge/close다. 미병합 PR이나 종료 승인 대기만으로 다른 독립 Issue를 막지 않는다.
+- 한계: 합성 Validator는 실제 provider 배선 검증이 아니며 인증/ResponseStatusException/전체 ErrorResponse/실DB/서버/배포 제외. CI 전체62project/23그룹 통과 전 Ready 불가. 루트 전체 build를 실행한 것으로 해석하지 않는다.
+- 롤백: 검토된5실질 파일 revert, 기록·사용자 변경·타 worktree 보존. 이번 사용자 승인은 기능 문서1개 추가에 한정되며 무승인 merge/close/cleanup을 허용하지 않는다.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.

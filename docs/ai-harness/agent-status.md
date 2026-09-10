@@ -17,6 +17,17 @@
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 제출 전 상태 체크포인트
+
+- [Issue #669](https://github.com/skyg547/account/issues/669), 사용자 승인 기능 문서 포함 실질5 + 부모 기록4. Branch `agent/669-mvc-request-errors`, worktree `C:/tmp/account-669-mvc-request-errors`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`.
+- Writer `/root/migration_663_writer`(shared-kernel Module Writer, Astra high), 독립 `/root/harness_lifecycle_review`(Astra high). 실질5파일 동결/APPROVE, Q1–Q4 PASS, 잔여 finding 없음. 부모의 최종 기록 포함9파일 검수·게시 단계가 남는다.
+- 확정 RED14/5fail, 대상 GREEN19, 작성자/독립 소비자149/36suites 각각 PASS(failure/error/skip0), 부모 library build/소비자3 bootJar PASS, Node64 PASS. 실제 provider/인증/외부 시스템 및 전체 CI 성공은 주장하지 않는다.
+- 다음 순서: 최종9파일 검수 → commit/push/Draft(`Refs #669`) → 게시 head의 전체 CI/최신 main 확인 → Ready 인계. PR 번호·현재 SHA/CI/상태는 원격 Issue/PR이 기준이며 이 절은 제출 전 체크포인트다.
+- 최종 merge/Issue close는 `account` 예약 소유. 이번 문서 추가 승인으로 다른 승인 게이트를 우회하지 않는다. 다른 동결 PR/primary checkout/예약은 변경하지 않았다.
+- 롤백은 검토된5파일 revert, 데이터 변경 없음. 상세 검증·Q1–Q4·잔여 위험은 같은 GH-669 worklog 참조.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.

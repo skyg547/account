@@ -3,7 +3,11 @@ package com.ho.account.shared.finance.exception;
 import com.ho.account.shared.finance.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.util.stream.Collectors;
@@ -32,6 +36,28 @@ public class GlobalExceptionAdvice {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(ApiResponse.failure(exception.getMessage()));
+    }
+
+    // Request parsing failures are client errors; their input-bearing details must not reach the response.
+    @ExceptionHandler({MissingServletRequestParameterException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.failure("Bad request"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+        // Preserve Spring's Allow hint without copying its input-derived ProblemDetail body.
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .headers(exception.getHeaders())
+                .body(ApiResponse.failure("Method not allowed"));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException exception) {
+        // Spring supplies Accept and, for PATCH, Accept-Patch so clients can correct their request.
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .headers(exception.getHeaders())
+                .body(ApiResponse.failure("Unsupported media type"));
     }
 
     @ExceptionHandler(Exception.class)
