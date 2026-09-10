@@ -344,3 +344,11 @@
 - `/root/migration_663_writer` Astra high: two-file security fix implemented and frozen; RED46/16fail → GREEN target46/full125, failure/error/skip0. Independent `/root/harness_ci_audit` Astra high reran full125/125; final review and parent publication gates tracked remotely.
 - This work proceeds independently of GH-662 Issue-close approval and GH-681 record rework. The current automation uses separate implementation/PR-wait/rework/cleanup queues. Previous global serial stop prose is historical, not current authorization.
 - Final merge/close belongs to account. No primary checkout change, live DB/TLS, installs or resource removal.
+
+## 2026-09-11 GH-693 parent checkpoint
+
+- Owner: Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; parent-only Git/GitHub and shared records. Branch/worktree `agent/693-posting-period-recheck` / `C:/tmp/account-693-posting-period-recheck`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
+- Writer `/root/issue693_implementation` Astra xhigh; independent `/root/issue693_code_review` Astra xhigh, separate from writer and parent spec author. Four substantive files after independently approved direct Loan consumer amendment; parent records5 append-only.
+- GH-693 stage: rework1 source4 frozen; writer182/48suites and bootJar2 PASS. Independent unchanged Journal74 + revised Loan108/21suites/bootJar2 PASS, original P1 resolved/no additional P0–P3/Q1–Q4 PASS. Parent final record/PR delta precedes local checkpoint commit; latest-main integration/full rerun/CI/Ready is a separate next gate, not completed by this checkpoint.
+- Initial journal74/74 writer and independent success is preserved as evidence, not mistaken for Loan compatibility. Same Issue/claim/resources retained; no new duplicate Issue or guard bypass. Final published head/CI/Ready status will be on the remote Issue.
+- Existing PR697/698 merge waits do not block this independent implementation. Final account review/merge/close remains separate. Primary dirty checkout, other owners/resources, DB and external systems remain untouched.

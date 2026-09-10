@@ -3785,3 +3785,11 @@
 - 정책 테스트 6개, Config/Gateway/migration-runner 및 159-task 패키징 검증, 환경 validator, shell 정적 검사와 122-route 프런트엔드 production build가 통과했다. 독립 최종 리뷰에 남은 P0-P3가 없다.
 - Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
 - commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.
+
+## 2026-09-11 GH-693 전기 직전 회계기간 재확인
+
+- `PostingService`는 승인 전표 스냅샷 검증 후 첫 상태 변경 전에 기존 마감 검증기를 호출한다. 닫힘·기간 부재·조회 실패면 전표/감사 사용자/상세를 유지하고 전표·원장·잔액 쓰기를 시작하지 않는다.
+- OPEN 정상 전기, 회계일자/SYSTEM 처리와 기존 잘못된 전표 거부를 보존했다. 초보자용 흐름·실패·재시도·동시성 한계를 `journal-ledger/docs/process-flow.md`에 설명한다.
+- 독립 리뷰가 Loan 직접 소비자 fixture의 생성자 컴파일 실패를 재현하여 초기 영향 조사 누락을 바로잡았다. 원 Issue의 검토된 4파일 범위로 보완하며, 실제 필터를 생략하는 우회 생성자는 만들지 않는다.
+- GH-693 작성자 보완 검증: journal-ledger 74개 + Loan 108개, 합계 48 suites/182 tests 실패·오류·skip 0, Loan API/Batch 패키징 통과. 독립 리뷰는 동일 Journal 소스의74개와 보완 Loan108개/패키징을 직접 검증하여 P1 해소·Q1–Q4 PASS를 확인했다. 이는 base65e6b1e3 로컬 체크포인트이며 최신 main 통합 재검증/CI/Ready는 별도 게이트다.
+- 별도 `account` 예약이 최종 리뷰·병합·Issue 종료를 맡는다. 이 구현 예약은 검증/독립 리뷰 뒤 Draft PR과 해당 head CI/Ready 인계까지만 수행한다. 실제 DB·서버·업무 Batch·배포·기존 오전기 복구는 범위 밖이다.
