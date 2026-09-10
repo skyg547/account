@@ -1,4 +1,19 @@
+## 2026-09-10 — GH-653 task branch main synchronization
+
+- Scope: parent Integrator resolved only concurrent history additions in `agent-status.md`, `handoff.md`, `worklog.md`, and `docs/history/CODEX_WORKLOG.md` while merging `origin/main@b7c1c7c1fa45` into `agent/653-business-runtime` after verified implementation commit `4fcf1cfd6937`. This is task-branch synchronization, not a PR merge into main.
+- Decision: retain every side of all six conflict blocks, with GH-653 runtime/repair history and upstream GH-662/GH-681/GH-179 histories preserved. No blanket ours/theirs selection, rebase, force push, or source-code conflict resolution. The parent adds this required conflict record under the repository Completion Contract; the implementation allowlist remains unchanged.
+- Evidence: all13 actual final runtime gates passed before the implementation commit. Incoming main changes are documentation/policy/Node tests only. Both local Node contracts pass64/64 (fail/skip0, exit0); independent merged-document review confirms both histories preserved and Q1–Q4 PASS; Java source/images are unchanged by this merge.
+- Authority: parent owns records/Git; reviewer stays read-only. This request authorizes Draft PR only. Ready, merge into main, Issue close and cleanup remain separately gated.
+
 # Conflict Log
+
+## 2026-09-10 — GH-681 / PR #682 current-main integration
+
+- Parent Integrator manually reviewed the five add-at-top record conflicts in `docs/WORKLOG.md`, `docs/history/CODEX_WORKLOG.md`, and `docs/ai-harness/{worklog,agent-status,handoff}.md`.
+- Original Issue branch `agent/681-harness-quality-contract` at `3ce95d35b2da692d86e12bb94ad3a0bee039c4fe` merges `origin/main@5f8103afd4f018723302fd4b15b740b3bcf189c1` with an ordinary merge commit. Both GH-681 and merged GH-662 histories are retained, labelled as historical, and preceded by the latest asynchronous queue checkpoint.
+- This is a parent record-only resolution: no automatic ours/theirs, force, rebase, reset, clean, or substantive policy/test changes. Conflict-log is the required sixth parent record, not expanded implementation scope.
+- The latest user correction removes unrelated merge/Issue-close/cleanup as a global implementation gate. GH-662 close approval remains with account; GH-663 has a separate non-overlapping writer. Final merge/close/cleanup authority is unchanged.
+- Verify both Node contracts, source identity, both-parent record preservation, diff/markers and links; separate Astra high reviewer and current-head CI are required before Ready. No final PR merge or resource removal is performed by this integration.
 
 Merge and rebase conflict resolutions are recorded below.
 

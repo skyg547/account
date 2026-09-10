@@ -377,3 +377,15 @@ running/restart0/OOMfalse/healthy였고 기존 ACL 검사 스크립트를 직접
 전체 소요 시간이 기존 단일 Compose240초보다 길 수 있으며 timeout을 성공으로 처리하지 않는다.
 
 Asset Lease의 기존 지급결의 연동 fallback은 호출 시 명시적으로 실패하며, Kafka 이벤트 발행도 별도 브로커 연결에 의존한다. 이번 기동 검증은 해당 지급결의·이벤트 처리의 성공을 증명하지 않는다.
+
+## 문서 기준 통합과 로컬 계약 검증
+
+최종 구현 커밋 `4fcf1cfd6937` 이후 `origin/main@b7c1c7c1fa45`의 문서·정책·Node 테스트를 작업 브랜치에 통합했다. 기록4파일의 충돌6곳은 양쪽 이력을 모두 보존했고 `docs/ai-harness/conflict-log.md`에 판단을 남겼다. main으로 PR을 병합한 것은 아니다. Java/빌드 구성은 이 통합에서 바뀌지 않아 기존547개 Java 증거와13개 이미지·실기동 결과를 유지한다.
+
+```bash
+node --test tools/ci/harness-pr-contract.test.cjs tools/ci/harness-quality-contract.test.cjs
+```
+
+Node v22.23.2에서64/64 PASS, failure/skip0, exit0이다. 이 로컬 검사는 CI에 연결되어 있지 않으며 문서 구조 검사 성공이 실제 코드·설명 의미의 독립 리뷰를 대신하지 않는다. Draft PR의 Module Validation, Reporting Validation, Agent Merge Guard 결과와 사람 리뷰는 별도로 확인한다.
+
+독립 읽기 전용 Reviewer `/root/runtime_review`가 결과표·실행 증거·양쪽 이력 보존·문서 의미를 대조하고 Q1–Q4 PASS, 남은 P0–P3 없음으로 확인했다. Node64도 별도 재실행해 통과했다. 이 검수는 GitHub 사람 승인이나 Ready·merge 권한을 대신하지 않는다.

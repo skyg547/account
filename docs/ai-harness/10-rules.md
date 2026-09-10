@@ -50,6 +50,14 @@ User approval is required before running:
 - Batch modules are orchestrators. Business rules, formulas, and state changes belong in core/application/domain.
 - Large refactors must be split into a separate branch and reviewed independently.
 
+## Code Quality Rules
+
+- 승인된 변경의 구현·완료·독립 리뷰에는 [코드·문서 품질 계약](42-code-documentation-quality.md)의 Q1–Q4와 완료표를 필수 적용한다.
+- 명확한 이름·응집된 작은 함수·단일 책임·중복 최소화·불필요한 추상화 방지를 확인하되 MSA·헥사고날·DDD, 성능과 금융 정합성을 우선한다.
+- 입력→처리→출력과 설계 이유·예외·경계·해당 시 재실행을 설명하고, 검증된 코드·명령에 맞는 모듈 기능 문서와 초보자 안내를 유지한다. WORKLOG는 기능 문서를 대체하지 않는다.
+- 변경된 비자명 로직의 의도 주석과 유익한 기존 주석을 유지하고 오래된 주석을 수정한다. 매줄 주석이나 동일 장문 중복, 범위 밖 전수 정리는 요구하지 않는다.
+- 항목별 PASS/FAIL/N/A에 파일·테스트 근거를 붙인다. 독립 리뷰어가 구체적 N/A 사유를 확인하고 FAIL·근거 누락을 원래 작성자에게 반환한다. 테스트 미실행을 PASS로 처리하지 말고 위험과 다음 검증 게이트를 기록한다.
+
 ## Completion Rules
 
 Every meaningful change must document:

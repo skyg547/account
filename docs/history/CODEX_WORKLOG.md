@@ -1,12 +1,12 @@
-## 2026-09-10 - GH-653 final13 runtime PASS / Draft preparation
+## 2026-09-10 - GH-653 runtime and Q1–Q4 PASS / Draft preparation
 
 - Issue #653; branch `agent/653-business-runtime`; isolated worktree `/tmp/account-653-business-runtime`. Final runtime observed at 2026-09-10 15:51 KST: all13 sequential images built, Accounting7/Products3/Risk3 package checkpoints and final full13 re-verification PASS; retained all13 and existing platform.
 - Every API: root actuator health UP, Eureka current IP:8080 UP, running=true/restart0/OOMfalse, CPU0.50/RAM768MiB, last10000 log ERROR/startup/DB pattern counts0. Accounting/Products actual ACL + desired config hash/healthy reuse and normal Risk Compose DB gate passed. Evidence `/tmp/issue653-runtime-evidence.log` ends with final13 PASS; helper exit0. Per-service results and reproducible commands: `docs/guides/business-external-dev-verification.md`.
-- Verification: current affected Java423 + unchanged prior Closing124 =547 unique tests, failures/errors/skips0; Python runner38/38 after timeout300 change. All13 actual bootJar images pass. No repeated Java run for subsequent two comment lines or documentation-only main synchronization. Node policy checks and final quality review remain before publication.
+- Verification: current affected Java423 + unchanged prior Closing124 =547 unique tests, failures/errors/skips0; Python runner38/38 after timeout300 change. All13 actual bootJar images pass. No repeated Java run for subsequent two comment lines or documentation-only main synchronization. After documentation-only main synchronization to b7c1c7c1fa45, both local Node contracts pass64/64 (Node22.23.2, failures/skips0, exit0). Four history conflicts/six blocks preserve both sides; required conflict-log updated. Independent reviewer confirms Q1–Q4 PASS, Node64 rerun PASS, both-parent history preservation and no remaining P0–P3 findings. Draft CI and human review are separate next gates.
 - Approved changes: three Compose files/runner/tests, six Eureka dependencies, Closing/Loan dev persistence isolation, real dev HTTP adapters for Closing/Loan/Reporting/Deposit, Loan column/Deposit TEXT mapping, Reporting Vault off, Deposit automatic outbox relay off, Products/Risk readonly common DB gate mount, API Hikari3/1. No DDL/provider contract/platform/credential/DB-server changes. Bounded file scopes and recovery evidence are linked in Issue comments and feature guide.
 - Actual startup failures were repaired and reverified; timeouts never counted as success. Reviewed same-engine recovery started only hash-matched never-started Closing. Existing Accounting/Products DB gates were verified by hash + original readonly ACL + state when no-change Compose timed out. Risk used normal DB Compose. No broad teardown or unrelated service stop.
 - Limitations: health is not financial transaction/load certification; provider-missing Loan reference, Closing/Reporting detail/aggregate, Deposit ID approval/recovery contracts explicitly fail; Asset Lease payment fallback/Kafka flows remain separately unverified. Small Hikari pools may queue/time out under load; remote writes do not guarantee distributed atomicity or exactly-once. Java-unchanged modules use bootJar/runtime gates rather than new unit suites; unchanged Batch suites were not broadened.
-- Rollback: exact service label only, retain previous images/healthy APIs/DB/network/volumes; reviewed source revert. Parent Integrator owns Git/harness/runtime, independent reviewer stays read-only. Next owner: parent to synchronize main documentation, run Node contracts, finalize Q3 and create requested Draft PR; human reviewer then reviews. Ready/merge/Issue close/cleanup require separate approval.
+- Rollback: exact service label only, retain previous images/healthy APIs/DB/network/volumes; reviewed source revert. Parent Integrator owns Git/harness/runtime, independent reviewer stays read-only. Next owner: parent to create requested Draft PR and check its CI; human reviewer then reviews. Ready/merge/Issue close/cleanup require separate approval.
 - Implementer tier: High reasoning (difficulty:high)
 - Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
 
@@ -38,6 +38,60 @@
 - HTTP provider gaps remain explicit failures (Loan numeric partner/currency references, unsupported Closing/Reporting journal queries, Deposit approval status-by-ID); health/Eureka does not certify those financial workflows or distributed atomicity.
 - Next: Reporting/Deposit tests and separate review, rebuild/start Reporting, Accounting checkpoint, sequential Products then Risk, final13 verification, docs/commit/requested Draft PR with Refs #653. No Ready, merge, Issue close or cleanup authorized/performed. Rollback retains healthy containers, DBs, networks, volumes and prior images; only exact failed service is stopped and source reversion follows review.
 - Implementer tier: High reasoning (difficulty:high). Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
+
+## 2026-09-10 — 현재 비동기 Issue 루프 / GH-681 통합 재작업
+
+- 최신 사용자 정정: 구현, PR 검수·병합 대기, 반려 재작업, 종료·정리는 별도 대기열이다. 이전 전역 순차/Draft-only 중단 조건은 폐기하며 아래 기록은 당시 이력이다.
+- GH-662 / PR #680: main `5f8103afd4f018723302fd4b15b740b3bcf189c1`에 병합 및 main CI 34381040992 성공. Issue 종료 승인 대기는 기존 account 예약 소유이며 자원을 보존한다. 독립 Issue의 blocker가 아니다.
+- GH-681 / PR #682: 원래 `agent/681-harness-quality-contract`, `C:/tmp/account-681-harness-quality-contract`에서 부모가 최신 main 일반 merge로 기록5파일 충돌을 해결한다. 양쪽 이력을 보존하고 실질 정책/테스트5파일은 바꾸지 않는다. 충돌 결정은 conflict-log.md에 기록한다.
+- GH-663: 별도 `agent/663-migration-canonical-sslmode`, `C:/tmp/account-663-migration-canonical-sslmode`에서 `/root/migration_663_writer` Astra high가 독립된 Java/테스트2파일을 구현 중이다. 부모 기록은 한 Integrator가 순서대로 갱신한다.
+- 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
+- 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
+
+### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
+
+## 2026-09-10 — 승인된 Issue 루프 재개
+
+### GH-681 측 당시 기록
+- 대상: GH-681 / PR #682. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
+### 병합된 GH-662 측 당시 기록
+- 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
+- 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
+- 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
+- 다음 행동: 부모가 최신 검증 후 PR #680을 Ready로 인계한다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
+
+- 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
+
+---
+
+### 이전 제출 시점 기록
+
+### GH-681 측 당시 기록
+## 2026-09-10 — GH-681 공통 코드·문서 품질 계약
+
+- Issue: [#681](https://github.com/skyg547/account/issues/681), parent #661. 사용자 후속 요청이며 기존 #662 / Draft #680을 재개하거나 바꾸지 않았다.
+- 게시: [Draft PR #682](https://github.com/skyg547/account/pull/682), 구현 커밋 `063199e301aa51daa8e90c606a7d21647528ff2c`. 후속 기록 전용 커밋은 검토한 실질 5파일을 바꾸지 않는다. CI 결과는 GitHub의 현재 PR head 기준으로 별도 확인한다.
+- Base `34c75839af2edf10f80ff60d8f24e89504d69e9e`, branch `agent/681-harness-quality-contract`, worktree `C:/tmp/account-681-harness-quality-contract`.
+- Writer `/root/harness_lifecycle_writer` (coder, Astra medium), 독립 Reviewer `/root/harness_lifecycle_review` (Astra high). 부모는 계약·예약·공유 기록·Git/PR을 담당했다.
+- AGENTS/10/40에서 신규 42 품질 계약과 Q1–Q4 증거표를 필수 연결했다. 변경 범위에 한정한 명확한 이름/책임, 입력→처리→출력/설계 이유, 기능 문서 최신화·초보자 안내, 의도 주석을 검토한다. 과잉 주석·무관 리팩터링 금지, N/A 근거·독립 확인, 미실행 PASS 금지와 기존 권한 경계를 보존했다.
+- 검증: Node baseline RED 24개 중 15개 실패 → 최종 32/32 GREEN(부모와 별도 Reviewer 재실행), diff check·실제 marker·3개 로컬 링크 통과. 최종 실질 변경 리뷰 APPROVE, Q1–Q4 PASS.
+- 예약 `account-issue-2`는 품질 블록 삽입만 반영했다. 블록 제거 시 기존 prompt와 완전 일치하고 30분 주기·대상·활성 상태 등 불변을 재조회했다. 타 예약 `account`, `account-issue` 해시도 불변이다.
+- 미실행: 업무 코드/빌드 변경이 없어 Gradle·DB·서버 실행 비대상. 신규 테스트는 CI 미연결(#672), 구조 검사는 설명의 사실성·코드 품질을 자동 보장하지 않는다.
+- 롤백: 승인된 후속 revert로 이번 변경만 되돌리고 예약은 추가한 품질 블록만 제거한다. 기존 기록·사용자 dirty checkout·다른 worktree는 보존한다. Draft 제출 이후 Ready/merge/close/cleanup은 별도 지시 대기다.
+
+### 병합된 GH-662 측 당시 기록
+## 2026-09-10 — GH-661 active-harness audit / GH-662 first implementation
+
+- Three independent read-only audits plus official Codex/GitHub guidance covered current instruction layers and CI. Parent #661 tracks 10 improvement Issues; only #662 is claimed. Mock execution demonstrated existing Guard review-state/label bypass without live approvals or merges.
+- Preserved the dirty primary checkout and every other worktree. Created `agent/662-harness-pr-lifecycle` at `34c75839af2edf10f80ff60d8f24e89504d69e9e` in `C:\tmp\account-662-harness-pr-lifecycle`.
+- Astra coder/medium implemented four central PR policy/form files and Node negative-fixture checks. Initial RED: 9/23 failures. Independent review caught a remaining Ready-only CI deadlock; new tests reproduced three actual-document failures before repair. Final local and independent GREEN: 32/32. Existing js-yaml verified 21 unique form IDs, labels and non-authority field preservation without installation; 19 local links passed.
+- Independent Astra high re-review approved with no remaining finding; scoped diff/marker/allowlist checks passed. Implementation `af95eca1` was pushed and Draft PR [#680](https://github.com/skyg547/account/pull/680) created; this record-only follow-up synchronizes publication, not the reviewed policy/test implementation. No Ready/merge/Issue close/deletion. Application/DB/container tests not run: no runtime files changed.
+- Limit: the local regex test is not an authorization engine and is not yet wired to CI (#672). Guard trust policy is separate #671. Rollback only reviewed #662 policy/test changes; preserve trace history.
+
 
 ## 2026-09-09 (Issue #659 Nginx Observability Upstreams Alignment and Fallback Resilience)
 - 요청 목표: Nginx 단일 진입점 관측성 업스트림(Grafana/Zipkin/Kibana/pgAdmin) 컨테이너 명칭 매핑 및 동적 프록시 장애복구(Fallback)를 강화한다.
@@ -2224,3 +2278,12 @@
 - Static Loan inspection additionally found unconditional foreign JPA scans/internal persistence dependencies versus Loan-only migrations; no Loan live failure is claimed and no Loan edit is authorized/performed.
 - Branch/worktree: `agent/653-business-runtime`, `/tmp/account-653-business-runtime`; base `origin/main@34c75839`. Guide and prepared Draft body record exact passed/failed/skipped gates. Draft publication remains gated on the requested live verification; no push/Ready/merge/Issue close/cleanup. Parent next action after scope response: six API tests/classpath checks/one-worker image rebuilds and resume sequential package gates.
 - Rollback remains exact failed/new package service only with label checks and all data/images/volumes preserved. Implementer tier: High reasoning (difficulty:high). Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
+
+## 2026-09-10 — GH-179 frontend/backend API parity audit
+
+- Issue #179; difficulty:medium, requested reasoning high. Branch `agent/179-api-parity-audit`, worktree `/tmp/account-179-api-parity-audit`, base `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e`. Dirty primary checkout was preserved. Audit commit `d15632a0` was pushed; [Draft PR #676](https://github.com/skyg547/account/pull/676) is open with `Refs #179`, verification results and the merge-authority statement. Issue status: `status:needs-review`.
+- Scope follows rejected PR #548 instructions: read-only production evidence, 15 current service/helper files, exhaustive actual method/URL and field/type/nullability/enum comparison. Write allowlist: `frontend/docs/frontend-backend-api-parity-matrix.md`, `frontend/README.md`, `docs/ai-harness/worklog.md`, `docs/ai-harness/agent-status.md`, `docs/ai-harness/handoff.md`, `docs/history/CODEX_WORKLOG.md` only.
+- Result: 42 endpoint calls + 3 transport helper calls; 33 mapped and 9 MISSING. Corresponding 13 Controllers have 87 mappings, 54 backend-only. Nested DTOs, missing required query/body fields, enum/nullability drift, BFF transformation/actor injection and actual fallback behavior are documented. Universal endpoint/DTO compatibility is not claimed; Issue stays open.
+- Verification: embedded `node /tmp/account-179-verify.cjs` PASS including row/method/path/Controller/backend-only evidence and known DTO/query drift; in-memory negative checks PASS 7/7. `node frontend/node_modules/typescript/bin/tsc --project frontend/tsconfig.json --noEmit --incremental false` exit0. From frontend, `NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=3072 taskset -c 0 npm run build` exit0, Next15.5.23/static pages122/122. Existing dependencies reused without installation/lockfile changes. Node22.23.2 differs from engine Node20; Node20 run remains unclaimed.
+- Independent Reviewer found one P3: Closing PUT JSON decode errors propagate while HTTP/transport errors return null. Corrected the audit wording; final independent review found no remaining P0-P3. Diff/marker/new-content control checks pass. One pre-existing worklog control byte is unchanged and outside this edit. No production code, credentials, remote API/DB, or runtime state was changed; no secret values were output.
+- Skipped: Gradle (no Java changes), Node20 build (current runtime22), live Gateway/Jackson/UI/DB checks (static audit scope). Known MISSING/DRIFT and serializer/runtime TODOs remain follow-up work. Rollback: revert audit commit(s). Next owner: independent Reviewer / human Integrator for Draft PR review and follow-up scope; no Ready/merge/Issue close/worktree removal authorized.

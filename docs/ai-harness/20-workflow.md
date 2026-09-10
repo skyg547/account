@@ -13,11 +13,13 @@
 → 부모 Integrator 결과 수집
 → 테스트/검증
 → conflict 판단 및 기록
-→ Draft MR/PR 생성
-→ 사람 리뷰
-→ merge
-→ Issue/로그 동기화
-→ branch/worktree 정리
+→ 부모 Integrator의 승인 범위 내 Draft MR/PR 생성
+→ 동결 Draft 사전리뷰 및 Draft 단계 필수 검사 통과 (사람 리뷰 기본)
+→ 부모 Ready 전환
+→ 최신 head/base 기준 최종 독립 검토 및 Ready-only 포함 모든 필수 CI 통과
+→ 별도 승인된 부모 merge
+→ 종료 조건·승인 확인 후 Issue/로그 동기화
+→ 별도 cleanup 승인 후 branch/worktree 정리
 → handoff 완료
 ```
 
@@ -56,7 +58,7 @@
 5. Implementation
    - Follow existing architecture and the approved allowlist.
    - Do not let subagents update shared harness logs.
-   - Return changed files and verification evidence to the parent.
+   - Return changed files, verification evidence, and a PR body draft to the parent; implementers do not mutate Git/GitHub state.
 
 6. Verification and review
    - Run targeted tests first and expand when shared contracts or wiring changed.
@@ -66,11 +68,15 @@
 7. Integration
    - Let the parent Integrator make final conflict, Git, PR, and shared-log decisions.
    - Record semantic conflicts in `conflict-log.md`.
-   - Keep the PR draft until checks and human review are complete.
+   - 부모 Integrator만 승인 범위 안에서 commit/push/Draft PR 생성·리뷰 결과 게시·Ready 전환을 수행한다. Reviewer와 advisory Integrator는 읽기 전용이다.
+   - 부모가 명시 요청한 동결 Draft 사전리뷰는 가능하다. 작업 중 Draft를 전역 자동 인수하거나 병합하지 않는다.
+   - 동결 diff 사전리뷰와 실행 가능한 Draft 단계 필수 검사 통과 후 승인된 부모 Ready 전환을 한다. Ready-only 검사는 미도래/pending으로 기록하며 PASS가 아니지만 Draft 사전리뷰를 막지 않는다.
+   - Draft 단계 필수 검사의 오류·실패는 여전히 보류 또는 확인된 코드 결함 반려다. Ready 후 최종 독립 검토에서는 최신 head/base·수용 기준과 Ready-only 포함 모든 필수 CI 통과를 비작성자 독립 세션에서 확인한다. head/base 또는 검증 결과가 달라지면 재검토한다.
+   - 사람 리뷰는 기본 게이트다. 기존 명시 승인 workflow 예외는 등록된 범위에서만 적용하며, 모델 티어 선택이나 Draft PR 요청 자체는 Ready/merge 승인이 아니다. 상세 단계와 보류 기준은 `88-pr-review-and-merge-runbook.md`를 따른다.
 
 8. Completion
-   - Merge through the PR gate.
-   - Verify PR and Issue state.
+   - Merge through the separately approved parent PR gate (merge commit per `85-github-issue-agent-loop.md`).
+   - Verify the merge before the separately approved Issue close gate; do not combine merge and cleanup.
    - Update worklog, status, integration log, and handoff.
    - Remove branches/worktrees only after merge verification and cleanup approval.
 
