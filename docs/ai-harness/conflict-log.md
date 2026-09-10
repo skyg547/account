@@ -1,5 +1,13 @@
 # Conflict Log
 
+## 2026-09-10 — GH-663 / PR #684 reviewed record-only integration
+
+- Rework1/2, original branch `agent/663-migration-canonical-sslmode`, worktree `C:/tmp/account-663-migration-canonical-sslmode`, own head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02`, incoming main `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Parent manually read each conflict; ordinary `git merge --no-commit --no-ff origin/main`, no automatic ours/theirs or history rewrite.
+- Four EOF record conflicts: `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`. Preserve main GH-179 table row/sections before original GH-663 section; retain all earlier GH-681/GH-662 history. Both parents' ordered lines checked for all four files:8/8 PASS. The later current-rework checkpoint explicitly supersedes historical global-stop states without deleting them.
+- MigrationConfiguration.java and its test are identical to original reviewed head; no production/test/build/dependency or frontend edits. Full PR scope is original2+parent5. Target46/full125/bootJar rerun PASS with cached offline JDK17/Gradle8.7; separate Astra high re-review and exact-head CI are next gates.
+- Beginner rationale: two tasks appended valid independent history at the same place. Keeping only one side would erase evidence; keeping both ordered blocks removes the text conflict without changing either implementation. A local issue-branch main merge is not the final GitHub PR merge.
+- PR remains Draft until re-review and publication CI. Parent may normal-commit/push/Ready handoff only; account owns final merge/close and its execution approval wait is not bypassed. No force/rebase/reset/clean, record deletion, resource cleanup or DB operations. Rollback is reviewed scoped correction preserving both histories.
+
 ## 2026-09-10 — GH-681 / PR #682 current-main integration
 
 - Parent Integrator manually reviewed the five add-at-top record conflicts in `docs/WORKLOG.md`, `docs/history/CODEX_WORKLOG.md`, and `docs/ai-harness/{worklog,agent-status,handoff}.md`.

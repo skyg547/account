@@ -238,3 +238,17 @@
 | 2026-09-07 | Codex + Test Agent + independent Reviewer | Parent Integrator / Gateway Route Contracts / Reviewer | `agent/466-gateway-config-repo-sync` / `/tmp/account-466-gateway-config-repo-sync` | Stage 2 verified; final review and authorized commit/push pending | Corrected deposit/asset-lease/ECL Eureka targets and nine Controller Path mappings in both YAML files; reporting already matched. Policy assertions and full configuration parity pass, with Java 21 Gateway tests 72/72 and no failures/errors/skips. Prior PR #632 is merged and Issue #466 is closed; no Issue/PR state mutation is requested. Live Eureka smoke remains unperformed. |
 
 | 2026-09-10 | Codex + 4 read-only Explorers + independent Reviewer | Parent Integrator / API contract audit | `agent/179-api-parity-audit` / `/tmp/account-179-api-parity-audit` | [Draft PR #676](https://github.com/skyg547/account/pull/676) / `status:needs-review` | Base `34c75839`; docs-only allowlist. 42 calls:33 mapped/9 MISSING, 3 helpers,54 backend-only. Source validator and 7 negative checks, tsc, build122/122 pass on Node22 (Node20 unverified). Reviewer P3 wording fixed; final independent review found no remaining P0-P3. New-content control checks pass (pre-existing worklog byte unchanged). Universal compatibility not claimed; no merge/close. |
+
+## 2026-09-10 — GH-663 current record-only rework
+
+- Current rework round1/2: parent integrated `origin/main@b7c1c7c1fa45ec6550ab2431674fcf22a519bcea` into original GH-663 head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02` by ordinary merge; no force/rebase/automatic side selection. Four EOF conflicts retain main GH-179 records before the original GH-663 records; both-parent line-order preservation is 8/8 PASS.
+- Owner remains Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`, original branch/worktree. Substantive code/test2 are identical to reviewed62836e6c. Parent alone edits records4 plus required conflict-log.
+- Current-candidate forced offline target46/full125 (8suites,0fail/error/skip) and bootJar PASS. Separate Astra high re-review, publication head CI and Ready are subsequent gates; exact remote state is on PR #684.
+- Earlier checkpoints are historical. GH-681 is now merged/closed/cleaned; GH-664/PR685 and GH-683/PR686 are frozen for final review/merge. GH-662 close and account merge authorization waits do not block independent implementation. Rejected original-Issue rework has priority; #668 follows this Ready handoff. No final merge/close/resource deletion here.
+
+## 2026-09-10 — GH-663 independent implementation checkpoint
+
+- Owner: Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; parent Integrator only Git/GitHub writer. `agent/663-migration-canonical-sslmode` in `C:/tmp/account-663-migration-canonical-sslmode`, base `5f8103afd4f018723302fd4b15b740b3bcf189c1`.
+- `/root/migration_663_writer` Astra high: two-file security fix implemented and frozen; RED46/16fail → GREEN target46/full125, failure/error/skip0. Independent `/root/harness_ci_audit` Astra high reran full125/125; final review and parent publication gates tracked remotely.
+- This work proceeds independently of GH-662 Issue-close approval and GH-681 record rework. The current automation uses separate implementation/PR-wait/rework/cleanup queues. Previous global serial stop prose is historical, not current authorization.
+- Final merge/close belongs to account. No primary checkout change, live DB/TLS, installs or resource removal.
