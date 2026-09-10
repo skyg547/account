@@ -46,6 +46,17 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 MVC 요청 오류 분류와 승인된 기능 문서
+
+- 사용자가 Q3 충족을 위해 `shared-kernel/docs/process-flow.md` 추가를 승인했다. 원격 [claim](https://github.com/skyg547/account/issues/669#issuecomment-5612175131) 후 최신 main `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`에서 `agent/669-mvc-request-errors`, `C:/tmp/account-669-mvc-request-errors`를 만들었다.
+- Astra high writer는 shared-kernel advice/test2/build test 의존성/doc의 실질5파일만 수정했다. 네 요청 예외에400/405/415·고정 메시지·Spring 헤더를 보존하고 기존 오류 계약을 유지한다. 부모만 기록4종과 후속 Git/PR을 담당한다.
+- 확정 RED14/5fail/0error/0skip로 요청 오류500을 먼저 재현했다. 앞선 fixture validation 설정 실패는 합성 Spring Validator로 고친 뒤 RED를 다시 확인했다. GREEN대상19, 소비자149/36suites, 독립 강제149/36 모두 PASS. 기존133+신규16이며 반복 실행은 중복 집계하지 않는다.
+- 부모는 library2 build/소비자3 bootJar를 검증(12s,6실행/24up-to-date)했고 Node64도 PASS다. Q1–Q4는 별도 Astra high Reviewer APPROVE, 잔여 P0–P3 없음. 정확한 명령·행 근거·한계는 GH-669 worklog와 process-flow에 있다.
+- 다음은 기록을 포함한9파일 최종 검수 → commit/push/Draft PR(`Refs #669`) → 게시 head의 전체 CI·최신 main 확인 → Ready 인계다. 원격 Issue/PR에 게시 번호/head/CI를 확정하며 이 제출 전 기록 자체로 CI/병합 성공을 주장하지 않는다.
+- 실제 provider 배선/인증/서버/DB/배포/루트 전체 build 미검증; 오프라인 캐시만 사용했고 민감정보·설치·다운로드 없음. 최종 merge/close는 `account` 담당으로 유지했다. 승인된5파일 revert로 롤백하며 타 PR·worktree·기존 이력과 사용자 primary checkout을 보존한다.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.

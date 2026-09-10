@@ -85,6 +85,33 @@ git diff --name-only --diff-filter=U
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 공용 MVC 요청 오류 분류 / 제출 전 검증 체크포인트
+
+- Issue [#669](https://github.com/skyg547/account/issues/669), [승인 범위·claim](https://github.com/skyg547/account/issues/669#issuecomment-5612175131). 사용자의 "허용해줘"는 `shared-kernel/docs/process-flow.md`를 추가한 5실질 파일 승인이다. 기존 merge/Issue close 게이트를 넓히지 않는다.
+- Branch `agent/669-mvc-request-errors`, worktree `C:/tmp/account-669-mvc-request-errors`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. 부모 task `019fa3ea-ac4c-7022-bb45-951559750df7`; primary checkout과 다른 동결 PR은 보존했다.
+- 단일 구현 writer `/root/migration_663_writer`는 shared-kernel Module Writer로 명시 재배정(Astra high), 별도 `/root/harness_lifecycle_review` Astra high가 실질 5파일 APPROVE, 잔여 P0–P3 없음. 부모만 아래 기록 4종과 Git/GitHub 후속 단계를 맡는다.
+- 실질 범위: 공용 `GlobalExceptionAdvice.java`, 기존 직접 테스트, 신규 `GlobalExceptionAdviceMvcTest.java`, `shared-kernel/build.gradle`의 test Servlet 6.0.0/BOM 정렬 jsr310 두 줄, 승인된 `process-flow.md`. 공유 기록 포함 최종 9파일 후보이며 production 의존성/BOM/소비자 코드는 불변이다.
+- 정확히 네 요청 예외만 400/405/415 고정 메시지로 처리한다. Spring `Allow/Accept/Accept-Patch`와 failure JSON 네 필드를 보존하고 원문/cause/ProblemDetail을 새 응답에 복사하지 않는다. 기존 400/404/하위 구체 409/비노출 500 의미는 유지한다.
+- 확정 RED: production 미수정 상태에서 직접 3 + MVC 11 = 14건 중 요청 오류 5건이 실제 500으로 실패, error/skip 0. 원인별로 query/깨진 JSON→기대400, method→405, POST/PATCH media→415. 처음의 추가 fixture validation 실패 1건은 합성 Spring Validator로 보완한 뒤 이 RED를 재확인했으며 production 결함으로 집계하지 않는다.
+- 작성자 GREEN: `:shared-kernel:test --tests '*GlobalExceptionAdvice*'` 19/19(직접8+MVC11); 소비자 `:shared-kernel:test :contracts:test :master-data:api:test :account-mart:mart-api:test :ecl:ecl-api:test` 149/149, 36 suites(102/7/24/3/13), failure/error/skip 0. 기존 133 + 신규16이며 중복 실행 횟수를 신규 테스트 수로 더하지 않는다.
+- 독립 Reviewer는 위 소비자 명령에 `--rerun-tasks`를 붙여 1m2s/32 tasks를 실제 재실행, XML149/36·failure/error/skip0 확인. RED는 작성자/부모 증거이며 Reviewer의 RED 재실행 주장이 아니다.
+- 명령 공통: 기설치 JDK17/캐시 Gradle8.7, `--offline --no-daemon --console=plain --max-workers=1` 및 `-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot`. 실제 설치 경로·전체 예는 `shared-kernel/docs/process-flow.md:137`부터다.
+- 부모 패키징: 같은 환경에서 `:shared-kernel:build :contracts:build :master-data:api:bootJar :account-mart:mart-api:bootJar :ecl:ecl-api:bootJar` 성공(12s, 6 executed/24 up-to-date). 이 단계의 test는 up-to-date이며 별도 신규149회 실행으로 주장하지 않는다. Node 하네스 계약 두 파일 64/64도 통과했다.
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `GlobalExceptionAdvice.java:41`의 명시 handler 3개; `shared-kernel/build.gradle:45`의 test 의존성만 추가; 대상 19건 | 해당 없음: 코드 변경 | 전체 모듈 CI | harness_lifecycle_review: 기존 책임/handler/의존성 보존 확인 |
+| Q2 | PASS | `shared-kernel/docs/process-flow.md:80`, `GlobalExceptionAdviceMvcTest.java:83`의 입력→MVC→응답 흐름 | 해당 없음: 흐름 설명 적용 | 실제 배포·인증은 제외 | harness_lifecycle_review: 상태/헤더/비노출 설명 일치 |
+| Q3 | PASS | `shared-kernel/docs/process-flow.md:107`, `:119`의 계약·전제·실행 명령·기대 결과·한계 | 해당 없음: 사용자가 기능 문서 승인 | 합성 Validator는 실제 provider 배선 증거가 아님; 전체 CI 대기 | harness_lifecycle_review: 문서 의미/명령 직접 대조 |
+| Q4 | PASS | `GlobalExceptionAdvice.java:41/49/57`, `GlobalExceptionAdviceMvcTest.java:61/65`의 의도 주석 | 해당 없음: 비자명 로직 변경 | 최종 9파일 기록 검수 | harness_lifecycle_review: 날짜 fallback·헤더·비노출 이유 확인 |
+
+- Diff whitespace/실제 marker/unmerged/allowlist 검사 통과. 다음은 부모 기록을 포함한 최종9파일 독립 검수 → 승인된 commit/push/Draft PR(`Refs #669`) → 게시 head의 전체 Module Validation·Guard 및 최신 main 통합 확인 → 승인된 Ready다. PR 번호·head·CI 증거는 원격 Issue/PR 인계에서 확정하며 이 제출 전 기록은 CI 성공이나 게시 완료 주장이 아니다.
+- shared-kernel 변경은 CI의 62 Gradle project/23 모듈 그룹 대상이다. 로컬 소비자 테스트/제한 패키징은 루트 전체 build·전체 CI·실제 배포의 성공 증거가 아니다. 기존 When.MAYBE/Gradle deprecation 경고는 범위 밖으로 남긴다.
+- 한계: fixture/controller/use case는 합성, 검증기는 테스트용 Spring Validator이며 실제 Bean Validation provider 배선을 검증하지 않는다. ResponseStatusException·전체 ErrorResponse·인증/인가·실서버/실DB·업무 Batch·배포는 제외했고 설치/다운로드/민감정보 접근은 하지 않았다.
+- 롤백: 검토된 5실질 파일 변경을 승인된 revert로 되돌리고 이력은 보존한다. DB/소비자 임시 수정 없음. 최종 독립 검토·실제 merge/Issue close는 기존 `account` 예약 소유다. 이전 PR 대기는 독립 구현의 전역 blocker가 아니다.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
