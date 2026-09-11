@@ -2376,7 +2376,7 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 
 ## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
 
-- Implemented #696 from `origin/main@c94afec5` on `agent/696-governance-runtime` in `/tmp/account-696-governance-runtime`; primary user changes preserved. PR: PENDING-GH-696-DRAFT.
+- Implemented #696 from `origin/main@c94afec5` on `agent/696-governance-runtime` in `/tmp/account-696-governance-runtime`; primary user changes preserved. PR: https://github.com/skyg547/account/pull/701.
 - Added two governance APIs with exact development PostgreSQL databases, separate migration/runtime roles, Redis/Eureka configuration and .50CPU/768MiB caps. Restored Nginx/Grafana with preserved Grafana data/image, current DNS, loopback publication and corrected Prometheus datasource. Recovered the unresponsive dependent frontend with its original image/volumes/configuration.
 - Java112/112, Python12/12, both bootJars/current runner, DB migrate/validate/ACL/DDL and independent live health/current-IP Eureka/proxy/datasource/resource gates pass. Image jars match tested artifacts; full multi-stage source image rebuild and new BFF rollout are not claimed. Initial Redis/PID/replay/wording defects were corrected.
 - Rollback preserves databases, generated secure env, volumes and retained images. Runtime mounts require keeping this worktree. Parent owns GitHub publication, separate Reviewer verified read-only, human review owns next gate; no Ready/merge/Issue close/cleanup performed.

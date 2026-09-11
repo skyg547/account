@@ -3402,7 +3402,7 @@
 
 ## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
 
-- Trace: Issue #696, branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, fetched base `c94afec5`. PR: PENDING-GH-696-DRAFT. Next owner: human Draft PR reviewer.
+- Trace: Issue #696, branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, fetched base `c94afec5`. PR: https://github.com/skyg547/account/pull/701. Next owner: human Draft PR reviewer.
 - Implementation: dedicated governance Compose/DB provisioner/Nginx template, Grafana recovery and runtime guide, two Python regression suites/live verifier, module README links and parent harness/history. API business Java/Gradle unchanged. PostgreSQL databases `budget_db` / `internal_audit_db` use separate owner/app roles and runtime schema validation; existing Redis/Eureka are explicitly selected.
 - Verification: JDK17 one-worker `:budget:core:test :budget:api:test :internal-audit:core:test :internal-audit:api:test :budget:api:bootJar :internal-audit:api:bootJar` PASS112/112; `:migration-runner:bootJar --offline` PASS. `python3 -B -m unittest discover -s tools -p 'test_governance*.py' -q` PASS12/12. Actual quiet Compose, two-DB migrate/validate/schema/ACL/DDL gates PASS. Image JAR hashes equal tested JARs.
 - `python3 -B tools/verify-governance-runtime.py` and separate Reviewer execution PASS: exact current-IP/port Eureka and API health UP; Nginx login and Grafana direct/proxy200, frontend API400/403, persisted datasource and Prometheus6 results; all four targets healthy/restart0/OOMfalse/CPU.50/RAM768MiB. Runtime PostgreSQL sessions observed2 per DB. Diff/markers clean; replay and documentation review findings fixed.

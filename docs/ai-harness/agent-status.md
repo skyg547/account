@@ -363,6 +363,6 @@
 
 ## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
 
-- GH-696: `difficulty:high`, implementation/live verification complete; pending Draft publication / human review. Branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, base `c94afec5`. PR: PENDING-GH-696-DRAFT.
+- GH-696: `difficulty:high`, implementation/live verification complete; Draft PR #701 open, awaiting human review. Branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, base `c94afec5`. PR: https://github.com/skyg547/account/pull/701.
 - Parent Integrator owns Git/harness; SQL/Coder/Test writers and independent read-only Reviewer were separate. Python12/12, Java112/112, DB2/2 and independently repeated live gates PASS. Four issue services healthy, restart0/OOMfalse, CPU0.50/RAM768MiB.
 - Next owner: human reviewer; retain runtime-mounted worktree and Draft state. Ready/merge/close/cleanup need separate authorization. Detailed changes, commands, limitations and rollback are in the GH-696 worklog and governance runtime guide.
