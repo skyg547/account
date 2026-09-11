@@ -87,6 +87,19 @@ Batch 조합 루트에만 명시적으로 연결됩니다. 이 포트는 로컬 
 따라서 실제 전표 생성·승인·전기 결과를 검증할 때는 local 스텁을 사용하지 말고 승인된
 개발 환경의 실제 Journal 어댑터 구성을 사용해야 합니다.
 
+`dev`의 `HttpClosingJournalAdapter`는 생성·승인·전기·조회에서 HTTP 3xx를 정상 처리하지 않고
+`IllegalStateException`으로 실패시킵니다. `Location`에 대한 추가 요청도 하지 않습니다.
+초안 생성 실패 시 호출 흐름은 승인·전기로 진행하지 않고, 승인 실패 시 전기를 호출하지 않습니다.
+조회에서 404만 전표 없음으로 처리하며 302를 전표 없음이나 성공으로 바꾸지 않습니다.
+기존 actor·lineage 전달은 유지됩니다. 원격 쓰기는 각각 별도 트랜잭션이므로 실패 후 자동 재시도하지
+않고, 이미 생성·승인된 전표가 있는지 대사해야 합니다.
+
+```bash
+bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --console=plain --max-workers=1 --no-daemon
+```
+
+이 테스트는 실제 loopback HTTP 서버로 리다이렉트와 후속 호출 차단을 검증하며 외부 Journal 서버·DB는 사용하지 않습니다.
+
 ## 개발·운영 PostgreSQL profile
 
 - `dev`: `DEV_DB_HOST`, `DEV_DB_PORT`, `DEV_DB_NAME`, `DEV_DB_USER`, `DEV_DB_PASSWORD`

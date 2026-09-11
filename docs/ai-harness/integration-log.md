@@ -232,3 +232,9 @@ Recommended integration order remains:
 
 - PR698 merged UTC01:11:59Z as5b2d184f27c084b4139722fdb6d3215dcb17fd96; Issue692 COMPLETED. Actual merge tree equals independently reviewed head, main CI34549693134 SUCCESS with Journal tests. PR702 (replacing rejected CLOSED/unmerged700) merged UTC01:23:37Z as ef5679b2e3ff01c5caccf8ad6102f3883c632051; Issue673 COMPLETED. Actual merge tree68be5d8fef0f77fae5405eedd6e127ecdcdc2c8f equals reviewed head, main CI34550480459 SUCCESS, Gradle matrix skipped only because no module changes. Independent local71/71 is separate from CI. Resources preserved.
 - PR701 rework integrates that actual latest main into a separate local branch based on3c6f04f9. Four shared-history EOF conflicts resolved by parent; writer owns only Nginx redirect/config regression, parent guide+records. Current user-authorized manual merge gate still requires independent re-review and exact published-head CI/Ready/latest-main; no701 merge or new live verification is claimed at this checkpoint. Scheduled loops remain PAUSED.
+
+
+## 2026-09-11 GH-695 integration after PR701 merge
+
+- PR701 actually merged UTC01:39:00Z as53ada41b0f869286e8930bb5f6e390d59e57a630; treec6817c9f047df5fef872b0b9f6ec3573dbeb55fe equals reviewed headd5eba2dc. Independent13/13/Q1–Q4PASS, current-head Module34551173781 and Readyguard34551390507 SUCCESS. Source-only merge, no runtime rollout or new live-health assertion; main CI34551513753 is tracked remotely. Original runtime worktree/resources preserved.
+- Parent integrates that actual main into PR703 original086a4af9 via ordinary merge and manually preserves four record conflicts. Original substantive6 unchanged, no relevant incoming dependency/build change; fresh independent core242/242 applies to that unchanged scope. Published-head affected core/API CI and final record/Ready/main review remain separate gates before PR703 merge. Paused schedules remain paused; no auto-cleanup.

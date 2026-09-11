@@ -119,3 +119,8 @@ Merge and rebase conflict resolutions are recorded below.
 ## 2026-09-11 GH-696 manual conflict resolution
 
 - Parent inspected all four EOF blocks in agent-status, handoff, worklog and CODEX_WORKLOG: original3c6f04f9 versus main ef5679b2. Retained complete main692/673 histories first, then original696 entries, with no source conflict or whole-side replacement. Raw Git/Node comparison confirms main prefix4/4 and original ordered history4/4. Original live runtime worktree is untouched; no rebase/force/reset/delete. Two writer files are disjoint from all incoming main changes.
+
+
+## 2026-09-11 GH-695 manual conflict resolution
+
+- Parent inspected four original695 EOF blocks versus incoming main53ada41b in agent-status/handoff/worklog/CODEX_WORKLOG. Incoming block content exactly matches the already independently reviewed PR701 main records; retained complete incoming history then all original695 entries. Main prefix7/7 and original ordered histories7/7 pass. No source conflict, wholesale side discard, force/rebase/reset/delete. Substantive6 unchanged; only parent7 records are newly edited after original review.
