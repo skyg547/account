@@ -8,6 +8,7 @@ import copy
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -27,6 +28,16 @@ def contract(relative):
 
 def workflow():
     return harness.load_yaml(contract(".github/workflows/harness-validation.yml"))
+
+
+def run_node(script, input_text=""):
+    # Hosted runners expose Node through toolcache PATH entries. Resolve that
+    # executable before scrubbing the child's environment to avoid credentials.
+    executable = shutil.which("node")
+    if executable is None:
+        raise RuntimeError("Node executable is required for offline workflow tests")
+    return subprocess.run([str(Path(executable).absolute()), "-e", script], input=input_text,
+        capture_output=True, text=True, timeout=10, env={"PATH": os.defpath})
 
 
 class FixtureTests(unittest.TestCase):
@@ -285,6 +296,21 @@ class WorkflowExecutionTests(unittest.TestCase):
                             capture_output=True, text=True, timeout=10)
                         self.assertEqual(process.returncode == 0, expected, process.stdout + process.stderr)
 
+    def test_node_toolcache_path_is_resolved_before_environment_scrub(self):
+        executable = shutil.which("node")
+        self.assertIsNotNone(executable, "Node executable is required for offline workflow tests")
+        with tempfile.TemporaryDirectory() as directory:
+            link = Path(directory) / "node"
+            link.symlink_to(Path(executable).resolve())
+            with patch.dict(os.environ, {"PATH": directory, "HARNESS_SYNTHETIC_SECRET": "fixture"}):
+                process = run_node("console.log(JSON.stringify(process.env))")
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(process.args[0], str(link))
+                self.assertEqual(json.loads(process.stdout), {"PATH": os.defpath})
+                link.unlink()
+                with self.assertRaisesRegex(RuntimeError, "Node executable is required"):
+                    run_node("process.exit(0)")
+
     def test_actual_merge_guard_lifecycle_and_api_failure(self):
         data = harness.load_yaml(contract(".github/workflows/agent-merge-guard.yml"))
         script = data["jobs"]["guard"]["steps"][0]["with"]["script"]
@@ -322,8 +348,7 @@ process.stdin.on('end', async () => {
                 "pr": {"number": 1, "draft": draft, "body": body, "labels": [{"name": "agent:codex"}], "user": {"login": "author"}},
                 "reviews": [{"state": "APPROVED", "user": {"login": user}} for user in reviewers]}
             with self.subTest(case=label):
-                process = subprocess.run(["node", "-e", runner], input=json.dumps(payload),
-                    capture_output=True, text=True, timeout=10, env={"PATH": os.defpath})
+                process = run_node(runner, json.dumps(payload))
                 self.assertEqual(process.returncode == 0, expected, process.stdout + process.stderr)
 
 
