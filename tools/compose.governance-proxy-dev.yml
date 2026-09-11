@@ -1,0 +1,34 @@
+name: account-governance-proxy-dev
+
+services:
+  governance-proxy:
+    image: nginx:1.27-alpine
+    container_name: account-frontend-nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GOVERNANCE_PROXY_PORT:-8080}:80"
+    environment:
+      # The official entrypoint discovers Podman/Docker DNS after recreation.
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: "1"
+      NGINX_ENVSUBST_FILTER: "NGINX_LOCAL_RESOLVERS"
+    volumes:
+      - ./nginx-governance-dev.conf:/etc/nginx/templates/default.conf.template:ro
+    cpus: 0.50
+    mem_limit: 768m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    networks: [account-network]
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true

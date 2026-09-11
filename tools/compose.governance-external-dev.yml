@@ -1,0 +1,98 @@
+name: account-governance-external-dev
+
+x-api: &api
+  restart: unless-stopped
+  init: true
+  cpus: 0.50
+  mem_limit: 768m
+  pids_limit: 256
+  deploy:
+    resources:
+      limits:
+        cpus: '0.50'
+        memory: 768m
+        pids: 256
+  networks: [account-network]
+  volumes:
+    - ./logback-minimal-console.xml:/account-runtime/logback-minimal-console.xml:ro
+
+x-environment: &environment
+  SPRING_PROFILES_ACTIVE: dev
+  SPRING_CLOUD_CONFIG_ENABLED: 'false'
+  SPRING_CLOUD_CONFIG_IMPORT_CHECK_ENABLED: 'false'
+  SPRING_CLOUD_DISCOVERY_ENABLED: 'true'
+  EUREKA_CLIENT_ENABLED: 'true'
+  EUREKA_CLIENT_REGISTER_WITH_EUREKA: 'true'
+  EUREKA_CLIENT_FETCH_REGISTRY: 'true'
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: 'true'
+  JAVA_TOOL_OPTIONS: '-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom -Deureka.client.serviceUrl.defaultZone=http://minimal-discovery:8761/eureka/'
+  SPRING_DATA_REDIS_HOST: account-redis
+  SPRING_DATA_REDIS_PORT: '6379'
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: '3'
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: '1'
+  SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+  SPRING_FLYWAY_ENABLED: 'false'
+  SPRING_SQL_INIT_MODE: never
+  SPRING_BATCH_JDBC_INITIALIZE_SCHEMA: never
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: 'true'
+  MANAGEMENT_TRACING_ENABLED: 'false'
+  LOGGING_CONFIG: file:/account-runtime/logback-minimal-console.xml
+
+services:
+  budget-api:
+    container_name: budget-api
+    <<: *api
+    image: localhost/account-696-budget-api:dev
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :budget:api
+        JAR_DIRECTORY: budget/api
+    environment:
+      <<: *environment
+      SERVER_PORT: '8096'
+      BUDGET_DISCOVERY_ENABLED: 'true'
+      BUDGET_EUREKA_ENABLED: 'true'
+      SPRING_DATASOURCE_URL: '${BUDGET_DB_URL:?Provide the approved budget_db URL}'
+      SPRING_DATASOURCE_USERNAME: '${BUDGET_DB_USER:?Provide the budget runtime role}'
+      SPRING_DATASOURCE_PASSWORD: '${BUDGET_DB_PASSWORD:?Provide the budget runtime password}'
+      AUTH_JWT_SECRET: '${AUTH_JWT_SECRET:?Provide the shared development Auth JWT key}'
+      AUTH_JWT_ISSUER: '${AUTH_JWT_ISSUER:-auth-service}'
+    ports: ['127.0.0.1:8096:8096']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8096/actuator/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+
+  internal-audit-api:
+    container_name: internal-audit-api
+    <<: *api
+    image: localhost/account-696-internal-audit-api:dev
+    build:
+      context: ..
+      dockerfile: tools/Containerfile.minimal-auth-java
+      args:
+        GRADLE_PROJECT: :internal-audit:api
+        JAR_DIRECTORY: internal-audit/api
+    environment:
+      <<: *environment
+      SERVER_PORT: '8083'
+      INTERNAL_AUDIT_EUREKA_ENABLED: 'true'
+      SPRING_DATASOURCE_URL: '${INTERNAL_AUDIT_DB_URL:?Provide the approved internal_audit_db URL}'
+      SPRING_DATASOURCE_USERNAME: '${INTERNAL_AUDIT_DB_USER:?Provide the internal-audit runtime role}'
+      SPRING_DATASOURCE_PASSWORD: '${INTERNAL_AUDIT_DB_PASSWORD:?Provide the internal-audit runtime password}'
+    ports: ['127.0.0.1:8083:8083']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8083/actuator/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+
+networks:
+  account-network:
+    external: true

@@ -361,6 +361,45 @@
 - Existing PR697/698 merge waits do not block this independent implementation. Final account review/merge/close remains separate. Primary dirty checkout, other owners/resources, DB and external systems remain untouched.
 - Integrated checkpoint update: local7ed966ea + main65af7e6f, shared-record5 conflicts resolved preserving both histories/conflict-log. Independent xhigh forced full203tests/49suites/bootJar2 PASS, no failures/errors/skips/testNO-SOURCE,54tasks/91.3922881s. Source4 unchanged, no new P0–P3/Q1–Q4PASS; parent integration-record/PR delta precedes mergecommit/Draft, headCI/Ready follows separately. Writer slot is returned; #673 has its own disjoint worktree/writer.
 
+## 2026-09-11 — GH-692 precision implementation checkpoint
+
+- Owner: `Account Issue 구현 오케스트레이터` / task `019fa3ea-ac4c-7022-bb45-951559750df7`, [claim #692](https://github.com/skyg547/account/issues/692#issuecomment-5623500253). Isolated `agent/692-unsettled-precision` / `C:/tmp/account-692-unsettled-precision`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
+- Single substantive writer `/root/issue692_implementation`, Astra xhigh, five-file allowlist. Parent-only shared records5 and Git/GitHub. Other owners and primary checkout preserved.
+- Writer frozen: RED40tests/22failures reproduced with original source; writer and separate `/root/issue692_code_review` Astra xhigh each forced full GREEN117/117 in29suites, failure/error/skip0,37tasks executed. Independent P0–P3 none/Q1–Q4 PASS, five hashes match. Parent-record/PR final delta confirmation precedes publication; no Ready/merge/Issue-close claim. PR697 is already a separate frozen review queue, not a global blocker.
+
+## 2026-09-11 GH-692 수동 통합 재작업
+
+- 사용자 직접 요청으로 PR #698의 공유 기록 충돌을 원 브랜치/외부 worktree에서 보완한다. 세 예약은 PAUSED 상태이며 이번 수동 실행이 예약을 재개하지 않는다. 최신 main c94afec5와 원 head f5e32b3의 양쪽 역사를 모두 보존했다.
+- 실질5파일은 원 head와 Git blob까지 일치한다. 별도 GPT-6 Astra xhigh /root/manual_review_698의 새 통합본 강제 offline 실행은 core117/API30/Batch5, 총152 tests/30 suites, 실패·오류·skip·stale0, exit0/58초/41tasks 모두 실행이다(UTC2026-09-11 01:00:33.8897880–01:01:33.3742691). API/Batch bootJar2도 새로 생성되었으며 패키징 증거이지 실제 서버 기동 증거는 아니다. 독립 코드 검수 P0–P3 없음/Q1–Q4 PASS; 최종 기록 delta와 원격 CI/Ready 검토가 남는다.
+- 부모가 최종 기록·검증 근거와 독립 리뷰를 모아 새 head를 push하고 CI/Ready-only를 확인한다. 사용자 수동 병합 승인 아래 부모만 최종 merge commit/수용 완료 Issue 종료를 수행한다. 기존 자동화 전용 소유 문구는 역사이며 현재 수동 실행의 게이트는 원격 claim5627728952다. 자원 삭제·DB/설정/예약/공유계약 변경은 없다.
+
+## 2026-09-11 GH-673 parent checkpoint
+
+- Workflow/task Account Issue 구현 오케스트레이터 / `019fa3ea-ac4c-7022-bb45-951559750df7`, original Issue673/claim5624214896. Branch/worktree `agent/673-review-read-scope` / `C:/tmp/account-673-review-read-scope`, base65af7e6f. Preparation ownership was released before a separate implementation claim.
+- Writer `/root/issue673_implementation` Astra high: exact2 source files frozen, actual RED1 then full Node60/60 PASS. Separate `/root/issue673_code_review` Astra high: independent60/60 PASS/source2 hashes unchanged/Q1–Q4PASS/no required finding. Parent records5 and final PR delta review precede Git publication; headCI/Ready follows separately.
+- No real secret probes/runtime sandbox claim, package/CI/global setting changes or primary checkout edits. Parent-only Git/GH/shared records; account final review/merge/Issue close. This implementation started at account9% below first-day new-work9.43%; subsequent10% stops new implementation/preparation while this already-started review/checkpoint is completed safely.
+
+## 2026-09-11 GH-673 manual rework1 — PR700 P2
+
+- User manually authorized review/fix/review/merge; all automations remain PAUSED. Original branch/worktree/Issue retained, new claim5627729450. Removed active bare whitespace-check exemption, applied the same nonempty exact content gate to state-specific whitespace comparisons, preserved historical prose and scope.
+- Original writer Astra high: actual unchanged-document RED1/fail1 exit1 (UTC01:01:18.1185470–01:01:18.2962500), then full Node71/71 PASS/fail,skip,cancel,todo0/exit0 (UTC01:03:20.1429198–01:03:20.3555019). Parent separately used only safe synthetic approved.txt/outside-review.txt in an external fixture: unscoped unstaged/staged checks each exit2 with synthetic outside-line output; exact approved-path alternatives each exit0/no output. This is no real-secret probe; test-file diagnostics remain in-memory, not a claimed real Git execution.
+- Independent /root/manual_review_673 Astra high source/test/history review APPROVE, P0–P3 none/Q1–Q4 PASS; ONE direct full Node run UTC2026-09-11 01:06:00.0622846–01:06:00.2262431, exit0/71tests71pass/fail,skip,cancel,todo0/runner108.3914ms. Frozen2 hashes unchanged and historical lines remain ordered. Final record/PR delta remains a separate gate. Parent alone replaces CLOSED/unmerged700 with a new Draft after acceptance, then checks fresh head CI/Ready/main before user-authorized merge. Runtime sandbox, exhaustive secret detection, CI wiring, business code and history split#675 remain non-goals; preserve histories/resources.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
+
+- GH-696: `difficulty:high`, implementation/live verification complete; Draft PR #701 open, awaiting human review. Branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, base `c94afec5`. PR: https://github.com/skyg547/account/pull/701.
+- Parent Integrator owns Git/harness; SQL/Coder/Test writers and independent read-only Reviewer were separate. Python12/12, Java112/112, DB2/2 and independently repeated live gates PASS. Four issue services healthy, restart0/OOMfalse, CPU0.50/RAM768MiB.
+- Next owner: human reviewer; retain runtime-mounted worktree and Draft state. Ready/merge/close/cleanup need separate authorization. Detailed changes, commands, limitations and rollback are in the GH-696 worklog and governance runtime guide.
+
+
+## 2026-09-11 GH-696 manual PR701 redirect rework
+
+- User authorized manual PR review, rejected-code repair and merge; all three automations remain PAUSED. Published implementation-complete handoff was verified before claim5627974078. Parent uses agent/696-review-redirect / C:/tmp/account-696-review-redirect; original live-mounted /tmp/account-696-governance-runtime is preserved and never modified.
+- Independent Astra high /root/manual_review_701 found P2: default absolute redirect loses the published port for bare /grafana. Separate Astra high writer /root/manual_fix_701 changes only the exact-location relative-redirect policy and its regression; parent owns functional guide/shared records and Git/GitHub. Offline rework only: no live DB/container/credentials/deployment/cleanup.
+- Ordinary integration of original head3c6f04f9 with latest main ef5679b2 preserves both histories. Parent resolved four record-only EOF conflicts, complete main prefixes4/4 and original ordered histories4/4 PASS. Earlier PR698 and PR702 are actually MERGED, Issues692/673 COMPLETED; see their remote completion evidence. Independent re-review, published-head CI and Ready/latest-main checks remain required for PR701; actual final state belongs to the remote PR, not a prediction in this checkpoint.
+
 ## 2026-09-11 — GH-695 verification complete / Draft publication pending
 
 - Issue #695; `agent/695-journal-adapter-precision`; `/tmp/account-695-journal-adapter-precision`; base `c94afec5`. Primary checkout preserved; parent owns Git/PR/shared records, separate Test writer and read-only Reviewer.
@@ -373,3 +412,10 @@
 
 - Published requested Draft PR [#703](https://github.com/skyg547/account/pull/703), `Refs #695`, from `agent/695-journal-adapter-precision`; implementation commit `35c70c83`. Independent final source/test/record/PR-body review found no P0–P3 and Q1–Q4 PASS. This publication-only update changes no code/tests; all316 Java tests,32 harness tests and two API JAR results remain valid.
 - Issue #695 is `status:needs-review`. Next owner: independent human Reviewer / approved Integrator for current-head GitHub CI and review; implementation approval is not self-approval. Ready/merge/Issue close and branch/worktree cleanup remain unperformed. Worktree `/tmp/account-695-journal-adapter-precision` is retained. PR body contains full commands/results, authority separation, rollback and remote partial-transaction limits.
+
+
+## 2026-09-11 GH-695 manual PR703 integration
+
+- User requested manual review/rework/merge; schedules3 remain PAUSED. Original implementation-complete handoff verified, manual claim5628076042. Parent uses agent/695-manual-pr-integration / C:/tmp/account-695-manual-pr-integration; original agent/695-journal-adapter-precision worktree preserved. No production changes were needed after separate /root/manual_review_703 Astra xhigh review: no P0–P3, Q1–Q4 PASS.
+- Parent ordinary-merges original086a4af9 with actual latest main53ada41b (PR701 merged UTC01:39:00Z). Four record-only EOF conflicts retain complete reviewed main histories then original695 histories. Main prefix7/7 and original ordered histories7/7 pass; substantive6 files unchanged, no incoming Loan/Closing/shared-kernel/build change. Exact main-relative13 paths are original10 plus parent record3. Primary checkout and all other owners preserved.
+- Independent new local core run242/242, failure/error/skip0; focused112 are included, not additive. Original316/bootJar evidence remains historical. Current-head core/API CI, final integrated-record review and Ready/latest-main gates are required before user-authorized parent merge; actual publication/completion state is recorded on PR703. No real Journal/DB, deployment, installs/downloads, force/rebase/reset or resource cleanup.
