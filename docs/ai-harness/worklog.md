@@ -2632,3 +2632,5 @@ git diff --name-only --diff-filter=U
 - Rollback: reviewed follow-up PR reverts only this Issue's substantive changes, preserving shared history. No schema/data rollback. Next owner after Draft publication: human Reviewer and separately authorized Integrator for latest head/base/CI integration gates. No conflict occurred.
 
 - Independent final review: `/root/review_672` (Astra high, read-only) found no remaining P0–P3. Independently reran schema PASS, Python20/20 (1.791s), Node32/32 (96.922ms), report20/32 and scoped whitespace/markers; Q1–Q4 all PASS. Initial findings are resolved. Hosted CI remains a postpublication gate.
+
+- Publication: Draft PR [#712](https://github.com/skyg547/account/pull/712) created with `Refs #672`, implementation commit `47e275d0` pushed. Final independent staged9-file/log/PR-text review found no P0–P3; Q-table file:line evidence was completed before creation. Issue moves to `status:needs-review`. This record-only update preserves the reviewed five substantive files. Actual hosted checks remain pending at publication; no Ready/merge/close/cleanup.
