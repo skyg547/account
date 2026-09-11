@@ -5,7 +5,8 @@
 - 공통 아키텍처/검증/안전 원칙은 루트 `AGENTS.md`를 따른다.
 - Claude/Antigravity/기타 리뷰 에이전트도 공통 브랜치, 보안, worklog, handoff 규칙은 `docs/ai-harness/`를 따른다.
 - 이 파일의 Claude 전용 검수 역할은 유지하되, 다중 에이전트 통합 흐름은 `docs/ai-harness/20-workflow.md`, `30-agents.md`, `86-multi-tool-issue-ownership.md`를 우선 확인한다.
-- 리뷰 결과나 handoff는 `CLAUDE_WORKLOG.md` 또는 현재 작업 대화로 부모 Integrator에게 전달한다. Issue 댓글과 공용 `docs/ai-harness/agent-status.md`, `handoff.md`, Git/GitHub 상태는 부모 Integrator만 갱신한다.
+- 리뷰 결과, 검증 증거, handoff와 기록 변경 요청은 현재 작업 대화로 부모 Integrator에게 반환한다. 전용 worklog를 포함한 공유 기록, Issue 댓글 및 Git/GitHub 상태는 부모 Integrator 한 명만 갱신한다. 역할/파일 소유권은 `docs/ai-harness/30-agents.md`, `80-file-ownership.md`, 게시 절차는 `85-github-issue-agent-loop.md`, `86-multi-tool-issue-ownership.md`를 따른다.
+- 구현자·Reviewer·advisory Integrator는 stage/commit/push, Issue/PR 생성·수정·리뷰 게시를 직접 수행하지 않는다. 부모만 사용자 또는 명시 workflow 승인 범위에서 게시하며, Draft PR 요청은 Ready/merge/Issue close/cleanup 승인으로 확대하지 않는다. 모델 수준이나 도구 이름은 외부 변경 권한이 아니다. PR 단계와 별도 독립 검토는 `docs/ai-harness/20-workflow.md`, `88-pr-review-and-merge-runbook.md`를 따른다.
 
 ## Claude Code 구현 할당
 
@@ -130,7 +131,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ### 현재 알려진 미해결 리스크 (2026-08-13 재확인)
 
-이 목록은 세션마다 고정되지 않는다. 검수 시작 시 `docs/history/CODEX_WORKLOG.md` 최신 항목과 아래 grep으로 실제 코드 상태를 다시 확인한 뒤 갱신한다.
+이 목록은 세션마다 고정되지 않는다. 검수 시작 시 `docs/history/CODEX_WORKLOG.md` 최신 항목과 아래 grep으로 실제 코드 상태를 다시 확인한 뒤 갱신 제안과 근거를 부모에게 반환한다.
 
 - `closing`: 더미 계정 `999998`/`999999` — 2026-08-13 grep 결과 `closing/` 내 잔존 없음. **해소 추정**, 재검수 시 확정 필요
 - `loan`: `Loan`/`LoanContract` 병행 모델 — 2026-08-13 grep 결과 `loan/` 내 `LoanContract` 클래스 없음. **해소 추정**, 계정코드 하드코딩·E2E 전기 수렴은 재확인 필요
@@ -142,7 +143,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ## Claude 워크로그
 
-검수 결과는 **`CLAUDE_WORKLOG.md`** 에 기록한다.
+검수 결과와 전용 worklog에 남길 아래 항목을 부모 Integrator에게 반환한다. 검수자는 파일을 직접 갱신하지 않으며, 부모가 승인된 기록 범위에 반영한다.
 
 - 검수 대상 모듈/기능명
 - 수행한 빌드/테스트 명령과 결과
@@ -155,12 +156,12 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 1. **검수 시작 전**: `docs/history/CODEX_WORKLOG.md`와 `docs/WORKLOG.md` 최신 항목을 읽고 맥락을 파악한다
 2. 검수 전 해당 모듈의 `README.md`와 `docs/*.md`를 먼저 확인한다
-3. **Issue 구현을 맡으면 착수 전에 그 진단이 실제 코드와 맞는지 확인한다.** 절차는 `docs/ai-harness/25-issue-claim-verification.md`를 따른다. 진단이 틀렸으면 **구현하지 말고** 근거를 Issue에 기록한 뒤 종료를 제안한다. `agent-loop` 라벨 Issue는 추론된 증상을 적은 것이라 실제와 다른 사례가 반복 확인되었다
+3. **Issue 구현을 맡으면 착수 전에 그 진단이 실제 코드와 맞는지 확인한다.** 절차는 `docs/ai-harness/25-issue-claim-verification.md`를 따른다. 진단이 틀렸으면 **구현하지 말고** 근거와 Issue 기록·종료 검토 요청을 부모 Integrator에게 반환한다. 부모만 승인된 Issue 변경을 수행한다. `agent-loop` 라벨 Issue는 추론된 증상을 적은 것이라 실제와 다른 사례가 반복 확인되었다
 4. 요청 범위를 벗어난 리팩터링은 제안만 하고 직접 수정하지 않는다
 5. 헥사고날 원칙 위반이 발견되면 파일 경로와 라인 번호를 명시한다
-6. `git push`, 파괴적 삭제, 대규모 포맷 변경은 사용자 명시 없이 하지 않는다
+6. Git/GitHub 변경은 부모에게 요청한다. 부모도 push와 파괴적 삭제 등 각 단계의 승인 범위를 확인하며, 구현/검수 요청만으로 게시하지 않는다
 7. 기존 문서를 대체하기보다 보강하는 방향을 우선한다
-8. **검수 완료 후**: `CLAUDE_WORKLOG.md`에 결과를 기록한다
+8. **검수 완료 후**: 결과·미실행 사유·남은 위험과 공유 기록 변경 요청을 부모에게 반환한다
 
 ---
 
