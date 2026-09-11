@@ -102,7 +102,15 @@ Merge and rebase conflict resolutions are recorded below.
 - Verified integration: separate xhigh reviewer independently confirmed source4/incoming4 unchanged, upstream5 prefixes and original693 blocks intact, mainrelative10/unresolved0/marker0/diff PASS, and forced full49suites203tests+LoanbootJar2 PASS with0failure/error/skip/testNO-SOURCE. UTC19:23:01.2608176–19:24:32.6531057, exit0/91.3922881s/54tasks executed; all XML/JARs fresh. No P0–P3/Q1–Q4PASS. This resolves the preceding pending test gate; final parent record/PR delta and published-head CI/Ready are still distinct gates.
 - Final repository PR merge/Issue close remains account-owned. This is only latest-main integration into the Issue branch; no base push, rebase/force, data/schema change or resource cleanup.
 
+## 2026-09-11 GH-692 manual integration rework
+
+- Parent personally inspected all five EOF conflict blocks in WORKLOG, ai-harness worklog/agent-status/handoff and history/CODEX_WORKLOG. Retained complete incoming GH-691/GH-693 histories first, then complete original GH-692 entries; no whole-side replacement or automatic ours/theirs.
+- Original f5e32b3 + main c94afec5 ordinary merge. Raw Git blob/Node comparisons verified complete main prefixes5/5 and original ordered histories5/5, markers0; all five substantive blobs unchanged. An initial PowerShell line-based comparison failed because historical standalone carriage returns were split; no edit was made to those historical bytes, and raw-byte-aware comparison passed.
+- Source tree fd3e804917443fc9a479df93bb615f2c7eef2dca is staged with unmerged index0 before new record appends. Separate xhigh review/fresh integrated tests and subsequent exact-head CI/Ready gates are required. User expressly authorized manual fixes/review/merge; paused automations remain paused, original resources remain preserved.
+
 ## 2026-09-11 GH-673 manual rework integration
 
 - Original613a556a + incoming mainc94afec5 ordinary merge; exact5 EOF record conflicts only. Parent inspected all blocks and retained complete incoming693 entries then original673 entries, without rewriting history or choosing one side wholesale. Raw Git/Node checks main prefixes5/5 and original ordered histories5/5 PASS, markers0/unmerged0.
 - Substantive2 are separately repaired for reviewer P2, not involved in merge conflicts. Original local/test approval60 is historical and insufficient; actual rework71 plus new independent review and head CI are required. Same original resources retained; no rebase/reset/force/delete or secret/DB operations. All automations remain PAUSED under current manual user request.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.

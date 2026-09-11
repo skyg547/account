@@ -3802,6 +3802,19 @@
 - 별도 `account` 예약이 최종 리뷰·병합·Issue 종료를 맡는다. 이 구현 예약은 검증/독립 리뷰 뒤 Draft PR과 해당 head CI/Ready 인계까지만 수행한다. 실제 DB·서버·업무 Batch·배포·기존 오전기 복구는 범위 밖이다.
 - 최신 main `65af7e6f` 통합: 기록5의 EOF 충돌은 양쪽 이력을 모두 보존했고 업무 코드 충돌은 없었다. 별도 xhigh 리뷰어의 강제 통합 재실행은 journal-ledger95개+Loan108개=49 suites/203 tests 실패·오류·skip0, Loan 패키징2개 PASS였다. 검토된 기존182개와 main에서 들어온21개를 함께 확인한 결과이며 원격 CI/Ready·최종 병합은 후속 게이트다.
 
+### 📅 2026-09-11 (Issue #692 반제 금액 정밀도와 실패 원자성)
+
+- 신규 반제 금액과 다음 누적 반제액·잔액을 기존 `AccountingPrecision` 정책으로 모두 검증한 뒤 상태를 변경한다. DB가 0.999를 1.00으로 반올림하여 잔액0/미결 상태가 갈라지는 입력은 저장 전에 거부한다.
+- 표현만 긴 1.000은 무손실로 허용하고, 이미 처리한 전체 ref/legacy ref 재시도는 기존 no-op을 보존한다. 실패 시 금액·상태·ref 내용·감사 정보뿐 아니라 null ref Set도 먼저 변경하지 않는다.
+- 수정 전 실제 도메인 테스트40건 중22건 실패로 결함을 재현했다. 수정 후 writer와 별도 Astra xhigh 리뷰어의 강제 전체 실행 모두 core86/API26/Batch5, 총117건(29 suites) 실패·오류·skip0으로 통과했다. 합성 H2/JPA 저장 후 조회 및 실제 서비스 기반 HTTP 검증을 포함하며 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
+- 격리 `agent/692-unsettled-precision`에서만 변경하고 기능 schema 문서의 초보자 설명을 갱신한다. 기존 데이터·migration·운영 DB는 건드리지 않는다. 게시 SHA·CI·Ready는 Issue/PR에 기록하고 최종 병합/종료는 별도 account 예약이 담당한다.
+
+## 2026-09-11 GH-692 수동 통합 재작업
+
+- 사용자 직접 요청으로 PR #698의 공유 기록 충돌을 원 브랜치/외부 worktree에서 보완한다. 세 예약은 PAUSED 상태이며 이번 수동 실행이 예약을 재개하지 않는다. 최신 main c94afec5와 원 head f5e32b3의 양쪽 역사를 모두 보존했다.
+- 실질5파일은 원 head와 Git blob까지 일치한다. 별도 GPT-6 Astra xhigh /root/manual_review_698의 새 통합본 강제 offline 실행은 core117/API30/Batch5, 총152 tests/30 suites, 실패·오류·skip·stale0, exit0/58초/41tasks 모두 실행이다(UTC2026-09-11 01:00:33.8897880–01:01:33.3742691). API/Batch bootJar2도 새로 생성되었으며 패키징 증거이지 실제 서버 기동 증거는 아니다. 독립 코드 검수 P0–P3 없음/Q1–Q4 PASS; 최종 기록 delta와 원격 CI/Ready 검토가 남는다.
+- 부모가 최종 기록·검증 근거와 독립 리뷰를 모아 새 head를 push하고 CI/Ready-only를 확인한다. 사용자 수동 병합 승인 아래 부모만 최종 merge commit/수용 완료 Issue 종료를 수행한다. 기존 자동화 전용 소유 문구는 역사이며 현재 수동 실행의 게이트는 원격 claim5627728952다. 자원 삭제·DB/설정/예약/공유계약 변경은 없다.
+
 ## 2026-09-11 GH-673 검수 콘텐츠 읽기 범위
 
 - Gemini 검수표 상단·복붙 프롬프트·handoff는 파일명 조사 → 현재의 명시적 비민감 exact 범위와 변경목록 교집합 → 상태별 한 파일 조회/보류 순서를 따른다. 빈 범위·민감·불명확한 경로는 내용을 읽지 않고 부모에게 확인한다.
@@ -3813,3 +3826,5 @@
 - User manually authorized review/fix/review/merge; all automations remain PAUSED. Original branch/worktree/Issue retained, new claim5627729450. Removed active bare whitespace-check exemption, applied the same nonempty exact content gate to state-specific whitespace comparisons, preserved historical prose and scope.
 - Original writer Astra high: actual unchanged-document RED1/fail1 exit1 (UTC01:01:18.1185470–01:01:18.2962500), then full Node71/71 PASS/fail,skip,cancel,todo0/exit0 (UTC01:03:20.1429198–01:03:20.3555019). Parent separately used only safe synthetic approved.txt/outside-review.txt in an external fixture: unscoped unstaged/staged checks each exit2 with synthetic outside-line output; exact approved-path alternatives each exit0/no output. This is no real-secret probe; test-file diagnostics remain in-memory, not a claimed real Git execution.
 - Independent /root/manual_review_673 Astra high source/test/history review APPROVE, P0–P3 none/Q1–Q4 PASS; ONE direct full Node run UTC2026-09-11 01:06:00.0622846–01:06:00.2262431, exit0/71tests71pass/fail,skip,cancel,todo0/runner108.3914ms. Frozen2 hashes unchanged and historical lines remain ordered. Final record/PR delta remains a separate gate. Parent alone replaces CLOSED/unmerged700 with a new Draft after acceptance, then checks fresh head CI/Ready/main before user-authorized merge. Runtime sandbox, exhaustive secret detection, CI wiring, business code and history split#675 remain non-goals; preserve histories/resources.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
