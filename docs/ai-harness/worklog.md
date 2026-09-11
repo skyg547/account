@@ -2554,3 +2554,8 @@ git diff --name-only --diff-filter=U
 - 별도 read-only Astra high `/root/review_678`: P0–P3 없음, 독립 verifier 재실행 PASS, 라벨·안내 외 바이트 보존 확인. Q1 N/A(실행 코드 없음), Q2 PASS(접수→명세→부모 승인), Q3 PASS(87 링크/폼 안내), Q4 N/A(비자명 코드 없음). 동결 폼 SHA256 `7b5c03b2e2f7ecc69ddc1471bd68ce4751bb6173919e47ea96f320cb853340c9`.
 - Draft PR: 게시 전, `Refs #678` 본문 준비 완료. 다음 체크포인트에서 실제 URL을 추가한다. 부모만 공유 기록/commit/push/PR/Issue 상태 변경; 이번 작은 폼은 부모 직접 구현, 별도 Reviewer 독립 검토. 모델 티어는 외부 변경 권한이 아니다. Ready/merge/Issue close/cleanup은 미실행이며 별도 승인 게이트다.
 - 다음 담당: 독립 사람 Reviewer 및 승인된 부모 Integrator. 현재 head CI/최신 base를 확인하고, 공유 로그 중첩 시 양쪽 역사를 보존한다. 안내는 운영 규율이며 접근 권한 강제 기능은 아니다. 롤백은 이번 폼 변경만 검토된 후속 PR로 되돌리고 공유 역사 기록을 보존한다. 스키마/데이터 변경 없음.
+
+### GH-678 Draft publication
+
+- Draft PR [#706](https://github.com/skyg547/account/pull/706) 게시 완료 (`Refs #678`), 구현 commit `b0b7c6bc`; Issue #678은 `status:needs-review`. 별도 `/root/review_678`의 최종 5파일/기록/PR 본문 리뷰도 P0–P3 없음, 기존 기록 prefix 4/4와 동결 폼 동일성 확인.
+- PR 본문에 재현 스크립트, 검증 결과·미실행 사유, Q1–Q4 및 부모/구현/Reviewer 권한 분리를 기록했다. 이 게시 기록 추가는 폼 변경 없이 실제 URL/상태를 동기화한다. 최종 게시 head CI는 다음 확인 게이트이며 Ready/merge/Issue close/cleanup은 수행하지 않았다.
