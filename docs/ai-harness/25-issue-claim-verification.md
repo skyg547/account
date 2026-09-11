@@ -70,17 +70,129 @@ If the Issue asks for something the code contradicts, the Issue is the thing to 
 
 An Issue can be fixed by unrelated work and stay open. #182 and #165 both ask to remove `return null` occurrences that no longer exist.
 
-For the `return null` family the check is one command per module. Exclude tests — the Issues target production paths.
+For the `return null` family, first identify every production Java root from the module layout and the Issue's scope. For example, a standalone module may use `<module>/src/main/java`, while a split module may use `<module>/api/src/main/java`, `<module>/core/src/main/java` and `<module>/batch/src/main/java`. List only actual, intended production roots; do not guess both layouts with wildcards or silently drop a missing root. Tests are outside this search.
 
-```bash
-grep -rn "return null" <module>/src <module>/*/src --include="*.java" | grep -v "/test/" | wc -l
+A count is meaningful only after the declared scope exists, contains Java files, and the entire search succeeds. Save the following as `Test-IssuePattern.ps1` outside the repository. Run it from the verified checkout with PowerShell 7.2+ and `rg` (ripgrep) already available. This example does not install tools.
+
+```powershell
+#requires -Version 7.2
+param(
+    [string[]] $ProductionRoots = @(),
+    [string] $Pattern = 'return null'
+)
+
+$ErrorActionPreference = 'Stop'
+# rg exit 1 means a successful search with no matches, not a PowerShell failure.
+$PSNativeCommandUseErrorActionPreference = $false
+try {
+    if ($ProductionRoots.Count -eq 0 -or [string]::IsNullOrWhiteSpace($Pattern)) {
+        throw 'Declare nonempty production roots and a nonempty pattern.'
+    }
+    $rg = (Get-Command rg -CommandType Application -ErrorAction Stop).Source
+    $resolvedRoots = @(foreach ($root in $ProductionRoots) {
+        if ([string]::IsNullOrWhiteSpace($root) -or
+            -not (Test-Path -LiteralPath $root -PathType Container -ErrorAction Stop)) {
+            throw "Missing production directory: $root"
+        }
+        $directory = Get-Item -LiteralPath $root -Force -ErrorAction Stop
+        # Require the production Java boundary; a module/test directory is not a scope.
+        if ($directory.FullName -notmatch '[/\\]src[/\\]main[/\\]java$') {
+            throw "Expected an explicit src/main/java root: $root"
+        }
+        # Use the search tool's own filters, including its symlink/case rules.
+        $javaFiles = @(& $rg --no-config --no-ignore --hidden --files `
+            --glob '*.java' -- $directory.FullName)
+        $scopeExit = $LASTEXITCODE
+        if ($scopeExit -notin @(0, 1)) {
+            throw "Production enumeration failed (rg exit $scopeExit): $root"
+        }
+        if ($javaFiles.Count -eq 0) {
+            throw "Empty production Java scope: $root"
+        }
+        $directory.FullName
+    })
+    # Ignore local rg configuration and ignore files so approved roots are fully searched.
+    $matchingLines = @(& $rg --no-config --no-ignore --hidden --text --case-sensitive `
+        --line-number --with-filename --fixed-strings --glob '*.java' -- $Pattern @resolvedRoots)
+    $searchExit = $LASTEXITCODE
+    # Capture the native status immediately; never interpret partial output as success.
+    switch ($searchExit) {
+        0 {
+            "MATCHES: $($matchingLines.Count) matching lines; inspect their meaning."
+            $matchingLines
+        }
+        1 { 'ZERO_CANDIDATE: search succeeded; recheck all acceptance criteria.' }
+        default { throw "Search failed (rg exit $searchExit); no resolution judgment." }
+    }
+    exit 0
+} catch {
+    [Console]::Error.WriteLine("ERROR: $($_.Exception.Message)")
+    exit 2
+}
 ```
 
-Zero means the Issue is already satisfied. Record the count and the commit you checked against, then propose closure.
+Invoke the saved script in a separate PowerShell process so its `exit` does not close the calling shell. Supply the complete array in that process, for example:
 
-The same shape works for any Issue that names a concrete pattern: run the check the Issue implies before assuming the work remains. There is no general command — the point is that the Issue's own acceptance criteria usually suggest one.
+```powershell
+pwsh -NoProfile -Command '& /tmp/Test-IssuePattern.ps1 -ProductionRoots @("module/core/src/main/java", "module/api/src/main/java")'
+$checkExit = $LASTEXITCODE
+if ($checkExit -ne 0) { throw "Verification failed (exit $checkExit)." }
+```
 
-초보자 설명: 이슈가 오래 열려 있으면 그 사이 누가 이미 고쳤을 수 있다. 착수 전에 "정말 아직 남아 있나"를 한 번 세어보면 헛수고를 피한다.
+Replace the script path and roots with the reviewed paths for your platform/module. Record the base commit, declared roots, command, stdout, stderr and exit code. A successful result describes that scope at that time; missing required roots must not be omitted just to obtain zero.
+
+| Result | Script exit | Meaning / next action |
+| --- | --- | --- |
+| `MATCHES` | 0 | Search succeeded and found matching lines. Read their semantics before deciding whether the diagnosis holds. |
+| `ZERO_CANDIDATE` | 0 | Search succeeded over nonempty production Java scope with no matches. Candidate for resolution only: recheck every Issue acceptance criterion and related behavior/test evidence. |
+| `ERROR` | 2 | Missing/invalid root, empty Java scope, enumeration failure, missing tool or failed search. Verification is incomplete; never classify it as resolved. |
+
+Only the parent Integrator decides whether the complete evidence supports proposing closure. Neither a successful zero count nor this script authorizes label changes or Issue closure. The same approach applies to other concrete patterns, but the scope and semantic/behavioral checks must come from that Issue's acceptance criteria.
+
+초보자 설명: 책을 못 펼쳐서 아무 글자도 못 읽은 것과, 정해진 책을 끝까지 읽었는데 찾는 글자가 없는 것은 다르다. 검색에 성공해 0건이어도 이슈의 다른 완료 조건까지 확인한 뒤 부모 Integrator가 판단한다.
+
+### Reproduce the search boundaries
+
+Use synthetic files only. With the script above saved as `Test-IssuePattern.ps1`, run this PowerShell fixture from its directory. It leaves a uniquely named temporary directory for inspection; it never touches repository production files.
+
+```powershell
+#requires -Version 7.2
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
+$scriptPath = (Resolve-Path -LiteralPath './Test-IssuePattern.ps1').Path
+$fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('issue-679-' + [guid]::NewGuid())
+foreach ($case in @('match', 'zero', 'empty', 'test-only')) {
+    $javaRoot = Join-Path $fixtureRoot "$case/src/main/java"
+    New-Item -ItemType Directory -Path $javaRoot -Force | Out-Null
+}
+Set-Content -LiteralPath (Join-Path $fixtureRoot 'match/src/main/java/Sample.java') `
+    -Value 'class Sample { Object value() { return null; } }'
+Set-Content -LiteralPath (Join-Path $fixtureRoot 'zero/src/main/java/Sample.java') `
+    -Value 'class Sample {}'
+$testRoot = Join-Path $fixtureRoot 'test-only/src/test/java'
+New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+Set-Content -LiteralPath (Join-Path $testRoot 'SampleTest.java') -Value 'return null;'
+
+foreach ($case in @('match', 'zero', 'missing', 'empty', 'test-only')) {
+    $root = Join-Path $fixtureRoot "$case/src/main/java"
+    $output = @(& pwsh -NoProfile -File $scriptPath -ProductionRoots $root 2>&1)
+    $actualExit = $LASTEXITCODE
+    $expectedExit = if ($case -in @('match', 'zero')) { 0 } else { 2 }
+    $expectedResult = switch ($case) {
+        'match' { 'MATCHES: 1 ' }
+        'zero' { 'ZERO_CANDIDATE:' }
+        default { 'ERROR:' }
+    }
+    if ($actualExit -ne $expectedExit -or
+        ($output -join "`n") -notmatch "(?m)^$expectedResult") {
+        throw "Fixture $case failed: exit=$actualExit; output=$output"
+    }
+    "$case PASS: exit=$actualExit; result=$expectedResult"
+}
+"Fixture retained at $fixtureRoot"
+```
+
+Expected: matching production file → `MATCHES`; nonmatching production file → `ZERO_CANDIDATE`; nonexistent root, empty directory and test-only module → `ERROR`. An absent `rg` or native search error must also terminate with `ERROR`/exit 2, even if a tool emits partial matches first. These fixtures test the diagnostic mechanism; they do not establish that a real business Issue is resolved.
 
 ## Recording a Failed Verification
 
