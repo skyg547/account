@@ -14,6 +14,24 @@
 
 Flyway 검증은 core 테스트의 `LoanFlywayMigrationTest`에 포함됩니다.
 
+## 개발 HTTP 전표 검증
+
+`dev`에서 `account.loan.remote.enabled=true`인 경우 `HttpLoanJournalAdapter`는 다음 순서로 호출합니다.
+
+1. 전표 초안을 생성하고 ID·전표번호·`DRAFT` 상태를 확인합니다.
+2. 생성 응답에는 상세 라인이 없으므로 전표번호로 조회하여 `DRAFT`, ID, 회계일자, 통화, lineage를 확인합니다. 응답 `lines`의 양수 금액을 `side`별로 합산해 요청의 차변·대변 합계와 각각 비교합니다.
+3. 검증이 통과하면 요청 actor로 승인·전기하고, 다시 조회하여 `POSTED` 상태와 같은 헤더·금액 조건을 확인합니다.
+
+예를 들어 요청이 차변 200/대변 200인데 제공자 전표가 100/100이면 승인·전기는 호출하지 않고 `IllegalStateException`을 발생시킵니다. 누락된 라인·알 수 없는 차대변·0/음수도 실패합니다. 합산과 비교는 반올림 없이 `BigDecimal`로 수행하므로 `200`과 `200.00`은 같습니다. 생성 본문의 actor·lineage와 승인·전기 헤더의 actor는 유지됩니다.
+
+HTTP 3xx는 `Location`을 따라가지 않고 실패합니다. 정상 처리에는 HTTP 호출 5회가 필요하며 자동 재시도는 없습니다. 예외는 호출자의 트랜잭션 실패로 전달되지만, 이미 생성한 원격 초안이나 승인·전기는 자동 롤백되지 않으므로 재시도 전에 원격 상태를 대사해야 합니다. 검증 조회와 후속 쓰기는 원격 단일 트랜잭션이 아닙니다.
+
+```bash
+bash gradlew :loan:core:test --tests '*HttpLoanJournalAdapterTest' --console=plain --max-workers=1 --no-daemon
+```
+
+이 테스트는 요청/응답 계약과 실제 loopback HTTP 리다이렉트를 확인하며 외부 Journal 서버·DB는 사용하지 않습니다.
+
 ## API 컨텍스트
 
 ```powershell

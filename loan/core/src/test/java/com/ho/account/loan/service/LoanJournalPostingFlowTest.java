@@ -4,13 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
 import com.ho.account.journalledger.application.service.journal.JournalEntryService;
 import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.application.service.journal.validator.BalanceValidationFilter;
+import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
@@ -39,10 +42,13 @@ class LoanJournalPostingFlowTest {
         InMemoryJournalPersistencePort journalStore = new InMemoryJournalPersistencePort();
         LedgerEntryPersistencePort ledgerEntryPersistencePort = mock(LedgerEntryPersistencePort.class);
         LedgerService ledgerService = mock(LedgerService.class);
+        AccountingPeriodStatusPort periodStatusPort = mock(AccountingPeriodStatusPort.class);
+        // 기간 조회만 대체하고 실제 필터를 연결하여 Loan 경로도 전기 직전 검증을 거치게 합니다.
         PostingService postingService = new PostingService(
                 journalStore,
                 ledgerEntryPersistencePort,
-                ledgerService);
+                ledgerService,
+                new ClosingLockValidationFilter(periodStatusPort));
         JournalEntryService journalUseCase = new JournalEntryService(
                 journalStore,
                 mock(JournalRuleEngine.class),
@@ -63,6 +69,7 @@ class LoanJournalPostingFlowTest {
                 new LoanJournalAdapter(journalUseCase));
 
         LocalDate disbursalDate = LocalDate.of(2026, 5, 18);
+        when(periodStatusPort.isClosed(disbursalDate)).thenReturn(false);
         Loan loan = Loan.create(
                 "LN-E2E-001",
                 100L,
@@ -96,6 +103,8 @@ class LoanJournalPostingFlowTest {
         assertThat(postedEntry.getAccountingDate()).isEqualTo(disbursalDate);
         assertThat(postedEntry.getLineageSourceType()).isEqualTo("LOAN_DISBURSAL");
         assertThat(disbursal.getJournalEntrySlipNo()).isEqualTo(postedEntry.getSlipNo());
+        verify(periodStatusPort).isClosed(disbursalDate);
+        verifyNoMoreInteractions(periodStatusPort);
 
         ArgumentCaptor<GeneralLedger> ledgerCaptor = ArgumentCaptor.forClass(GeneralLedger.class);
         verify(ledgerEntryPersistencePort).save(ledgerCaptor.capture());

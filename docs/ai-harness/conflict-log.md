@@ -1,3 +1,9 @@
+## 2026-09-11 — GH-653 task branch main synchronization (PR #689 resolution)
+
+- Scope: Parent Integrator resolved append-only log conflicts in agent-status.md, handoff.md, worklog.md, and CODEX_WORKLOG.md when integrating latest origin/main@6be62f91 into agent/653-business-runtime.
+- Decision: Retained both the Issue #653 all-13 runtime verification history and upstream GH-663, GH-664, GH-683, GH-668, GH-669 merge records. Production code in PR #689 had zero semantic conflicts. The independent review findings on HTTP Journal adapters (Closing 302 handling and Loan amount validation) are partitioned into new dedicated Issue #695 per user instruction.
+- Verification: git diff --check PASS (0 conflict markers), Node harness contract tests PASS.
+
 ## 2026-09-11 — GH-690 main synchronization
 
 - Parent Integrator merged `origin/main@6be62f91` into `agent/690-business-batch-seeds` from prerequisite `4fc955d7`. Four leading history blocks conflicted: `agent-status.md`, `handoff.md`, `worklog.md`, `docs/history/CODEX_WORKLOG.md`.
@@ -92,3 +98,35 @@ Merge and rebase conflict resolutions are recorded below.
 - Conflict: only the four append-only parent records `docs/ai-harness/{agent-status,handoff,worklog}.md` and `docs/history/CODEX_WORKLOG.md`; no #520 runner, Compose, container image, policy test or beginner-guide path overlapped.
 - Resolution: retained the complete #520 records followed by both upstream #561 review-ready/integrated histories. Updated only #520 runtime-state wording to record the three locally generated, undisclosed inputs and the remaining blank `AUTH_DB_URL` gate.
 - Verification: require an empty unmerged index and marker scan, `git diff --check`, exact latest-main allowlist, focused runner/validator/static gates, refreshed GitHub JDK 17 CI and independent final-head review before any Ready/merge decision. The approved external DB/live runtime gate remains separate and blocked.
+
+## 2026-09-11 GH-693 latest-main integration before Draft PR
+
+- Branch/worktree: `agent/693-posting-period-recheck` / `C:/tmp/account-693-posting-period-recheck`. Independently reviewed local checkpoint `7ed966ea2ebb9e5c716019fabaacec3c56ddffb8`, incoming main `65af7e6f07a642ecf683e7e67b17049eb467da8b` (separate account workflow merged PR697/closed Issue691).
+- Normal `git merge --no-ff --no-commit origin/main` found content conflicts only in five append-only records: docs/WORKLOG.md, docs/history/CODEX_WORKLOG.md and docs/ai-harness/worklog.md, agent-status.md, handoff.md. Four substantive GH-693 files do not overlap the four incoming GH-691 implementation/test/doc files.
+- Parent inspected every conflict block. Each held a complete GH-693 EOF entry versus a complete GH-691 EOF entry. Resolution keeps the full upstream691 entry first and the full693 entry afterward, without rewriting either historical entry or using automatic ours/theirs. Incoming source/test/doc stay byte-equivalent to main; GH-693 source4 hashes remain frozen.
+- Verification gate: verify upstream record prefixes and original693 entries, exact main-relative source4+record5+this log, empty unresolved index/marker and diff checks; independent forced full Journal/Loan tests and Loan bootJar2 on the integrated tree; final record/PR delta before merge-commit publication and exact-head CI/Ready. No successful integrated test is claimed yet.
+- Verified integration: separate xhigh reviewer independently confirmed source4/incoming4 unchanged, upstream5 prefixes and original693 blocks intact, mainrelative10/unresolved0/marker0/diff PASS, and forced full49suites203tests+LoanbootJar2 PASS with0failure/error/skip/testNO-SOURCE. UTC19:23:01.2608176–19:24:32.6531057, exit0/91.3922881s/54tasks executed; all XML/JARs fresh. No P0–P3/Q1–Q4PASS. This resolves the preceding pending test gate; final parent record/PR delta and published-head CI/Ready are still distinct gates.
+- Final repository PR merge/Issue close remains account-owned. This is only latest-main integration into the Issue branch; no base push, rebase/force, data/schema change or resource cleanup.
+
+## 2026-09-11 GH-692 manual integration rework
+
+- Parent personally inspected all five EOF conflict blocks in WORKLOG, ai-harness worklog/agent-status/handoff and history/CODEX_WORKLOG. Retained complete incoming GH-691/GH-693 histories first, then complete original GH-692 entries; no whole-side replacement or automatic ours/theirs.
+- Original f5e32b3 + main c94afec5 ordinary merge. Raw Git blob/Node comparisons verified complete main prefixes5/5 and original ordered histories5/5, markers0; all five substantive blobs unchanged. An initial PowerShell line-based comparison failed because historical standalone carriage returns were split; no edit was made to those historical bytes, and raw-byte-aware comparison passed.
+- Source tree fd3e804917443fc9a479df93bb615f2c7eef2dca is staged with unmerged index0 before new record appends. Separate xhigh review/fresh integrated tests and subsequent exact-head CI/Ready gates are required. User expressly authorized manual fixes/review/merge; paused automations remain paused, original resources remain preserved.
+
+## 2026-09-11 GH-673 manual rework integration
+
+- Original613a556a + incoming mainc94afec5 ordinary merge; exact5 EOF record conflicts only. Parent inspected all blocks and retained complete incoming693 entries then original673 entries, without rewriting history or choosing one side wholesale. Raw Git/Node checks main prefixes5/5 and original ordered histories5/5 PASS, markers0/unmerged0.
+- Substantive2 are separately repaired for reviewer P2, not involved in merge conflicts. Original local/test approval60 is historical and insufficient; actual rework71 plus new independent review and head CI are required. Same original resources retained; no rebase/reset/force/delete or secret/DB operations. All automations remain PAUSED under current manual user request.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+
+## 2026-09-11 GH-696 manual conflict resolution
+
+- Parent inspected all four EOF blocks in agent-status, handoff, worklog and CODEX_WORKLOG: original3c6f04f9 versus main ef5679b2. Retained complete main692/673 histories first, then original696 entries, with no source conflict or whole-side replacement. Raw Git/Node comparison confirms main prefix4/4 and original ordered history4/4. Original live runtime worktree is untouched; no rebase/force/reset/delete. Two writer files are disjoint from all incoming main changes.
+
+
+## 2026-09-11 GH-695 manual conflict resolution
+
+- Parent inspected four original695 EOF blocks versus incoming main53ada41b in agent-status/handoff/worklog/CODEX_WORKLOG. Incoming block content exactly matches the already independently reviewed PR701 main records; retained complete incoming history then all original695 entries. Main prefix7/7 and original ordered histories7/7 pass. No source conflict, wholesale side discard, force/rebase/reset/delete. Substantive6 unchanged; only parent7 records are newly edited after original review.

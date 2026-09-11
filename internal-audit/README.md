@@ -67,3 +67,6 @@ docker compose -f .\internal-audit\docker-compose.yml up --build internal-audit-
 ```
 
 - **필수 환경변수:** `INTERNAL_AUDIT_DB_URL`, `INTERNAL_AUDIT_DB_USER`, `INTERNAL_AUDIT_DB_PASSWORD`
+
+기존 개발 인프라에 `internal_audit_db`를 준비하고 Eureka에 등록하는 절차는
+[Governance 개발 실행 안내](../docs/guides/governance-external-dev.md)를 참고하세요.

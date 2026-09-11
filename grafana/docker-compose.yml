@@ -1,29 +1,33 @@
-# ======================== Grafana Infrastructure Compose =========================
-# 초보자를 위한 개념 설명:
-# 그라파나는 메트릭(Prometheus 등)을 시각화해 주는 대시보드 서버입니다.
-# provisioning 디렉터리를 read-only(:ro)로 마운트하여 Prometheus를 기본 데이터소스로 자동 연결합니다.
-
-version: '3.8'
-
+# Existing-volume development recovery; see README.md before recreating Grafana.
 services:
   grafana:
-    image: grafana/grafana:latest
+    # Override with the existing image digest to avoid upgrading during recovery.
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     container_name: grafana
+    restart: unless-stopped
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_PORT:-13001}:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Existing admin credentials remain in the preserved database volume.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-http://localhost:8080/grafana/}"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - ./provisioning:/etc/grafana/provisioning:ro
       - grafana-storage:/var/lib/grafana
+    cpus: 0.50
+    mem_limit: 768m
     deploy:
       resources:
         limits:
           cpus: '0.50'
-          memory: 256M
+          memory: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/grafana/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
       account-network:
         aliases:
@@ -31,8 +35,12 @@ services:
           - account-grafana
 
 volumes:
+  # An external exact name prevents Compose from silently creating an empty DB.
   grafana-storage:
+    name: grafana-storage
+    external: true
 
 networks:
   account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
     external: true
