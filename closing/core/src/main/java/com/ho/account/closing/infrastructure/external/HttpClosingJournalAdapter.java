@@ -9,6 +9,8 @@ import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -59,7 +61,14 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("closing.journal-ledger.base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
+                super.prepareConnection(connection, method);
+                // Inspect the original response, including GET redirects, without a second request.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
         requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(requestFactory).build();
@@ -69,11 +78,11 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
     public JournalPostingResult createDraftEntry(JournalEntryCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         try {
-            PostingResponse response = restClient.post()
+            PostingResponse response = successful(restClient.post()
                     .uri("/api/v1/journals/posting")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(command)
-                    .retrieve()
+                    .retrieve())
                     .body(PostingResponse.class);
             if (response == null || response.journalEntryId() == null
                     || response.journalEntryId() < 1 || isBlank(response.slipNo())
@@ -95,14 +104,14 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
             throw new IllegalArgumentException("X-User-ID is required");
         }
         try {
-            restClient.post().uri("/api/journals/{id}/approve", journalEntryId)
-                    .header("X-User-ID", actor.trim()).retrieve().toBodilessEntity();
+            successful(restClient.post().uri("/api/journals/{id}/approve", journalEntryId)
+                    .header("X-User-ID", actor.trim()).retrieve()).toBodilessEntity();
         } catch (RestClientException e) {
             throw remoteFailure("approval; verify remote state before retrying", e);
         }
         try {
-            restClient.post().uri("/api/journals/{id}/post", journalEntryId)
-                    .header("X-User-ID", actor.trim()).retrieve().toBodilessEntity();
+            successful(restClient.post().uri("/api/journals/{id}/post", journalEntryId)
+                    .header("X-User-ID", actor.trim()).retrieve()).toBodilessEntity();
         } catch (RestClientException e) {
             throw remoteFailure("posting after approval; verify remote state before retrying", e);
         }
@@ -114,9 +123,9 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
             throw new IllegalArgumentException("A valid inclusive journal date range is required");
         }
         try {
-            JournalViewResponse[] responses = restClient.get()
+            JournalViewResponse[] responses = successful(restClient.get()
                     .uri("/api/journals?startDate={startDate}&endDate={endDate}", startDate, endDate)
-                    .retrieve().body(JournalViewResponse[].class);
+                    .retrieve()).body(JournalViewResponse[].class);
             if (responses == null) {
                 throw new IllegalStateException("Journal Ledger summaries returned an empty response body");
             }
@@ -132,9 +141,9 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
             throw new IllegalArgumentException("slipNo must not be blank");
         }
         try {
-            JournalViewResponse response = restClient.get()
+            JournalViewResponse response = successful(restClient.get()
                     .uri("/api/journals/{slipNo}", slipNo.trim())
-                    .retrieve().body(JournalViewResponse.class);
+                    .retrieve()).body(JournalViewResponse.class);
             JournalSummary summary = toSummary(response);
             if (!slipNo.trim().equals(summary.getSlipNo())) {
                 throw new IllegalStateException("Journal Ledger lookup returned a different slip number");
@@ -196,6 +205,14 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         summary.setLineageSourceType(response.lineageSourceType());
         summary.setLineageSourceId(response.lineageSourceId());
         return summary;
+    }
+
+    private static RestClient.ResponseSpec successful(RestClient.ResponseSpec response) {
+        // Keep the default 4xx/5xx handlers so slip lookup can still distinguish HTTP 404.
+        return response.onStatus(status -> !status.is2xxSuccessful() && !status.isError(), (request, result) -> {
+            throw new IllegalStateException("Journal Ledger request failed (HTTP "
+                    + result.getStatusCode().value() + "); verify remote state before retrying");
+        });
     }
 
     private static boolean isBlank(String value) {

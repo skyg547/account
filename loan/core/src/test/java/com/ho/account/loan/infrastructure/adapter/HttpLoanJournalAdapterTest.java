@@ -8,6 +8,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.loan.application.port.out.LoanJournalPort.LoanJournalCommand;
 import com.ho.account.loan.application.port.out.LoanJournalPort.LoanJournalLine;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -33,8 +37,10 @@ class HttpLoanJournalAdapterTest {
     private static final String DRAFT = "{\"journalEntryId\":42,\"slipNo\":\"LN-42\",\"status\":\"DRAFT\"}";
     private static final String POSTED = """
             {"id":42,"slipNo":"LN-42","status":"POSTED","currencyCode":"KRW",
-             "accountingDate":"2026-09-10","lineageSourceType":"LOAN_DISBURSAL","lineageSourceId":"7"}
+             "accountingDate":"2026-09-10","lineageSourceType":"LOAN_DISBURSAL","lineageSourceId":"7",
+             "lines":[{"side":"DEBIT","amount":123456789.12},{"side":"CREDIT","amount":123456789.12}]}
             """;
+    private static final String STORED_DRAFT = POSTED.replace("POSTED", "DRAFT");
     private MockRestServiceServer server;
     private HttpLoanJournalAdapter adapter;
 
@@ -81,6 +87,7 @@ class HttpLoanJournalAdapterTest {
                 assertThat(line.path("baseAmount").decimalValue()).isEqualByComparingTo("123456789.12");
             }
         }).andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(POSTED, MediaType.APPLICATION_JSON));
@@ -91,25 +98,21 @@ class HttpLoanJournalAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2, 3})
+    @ValueSource(ints = {0, 1, 2, 3, 4})
     void failedStageStopsBeforeAnyLaterRequestOrRetry(int failedStage) {
-        var create = create();
-        if (failedStage == 0) create.andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
-        else {
-            create.andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
-            var approve = approve();
-            if (failedStage == 1) approve.andRespond(withStatus(HttpStatus.BAD_REQUEST));
-            else {
-                approve.andRespond(withSuccess());
-                var post = post();
-                if (failedStage == 2) post.andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
-                else {
-                    post.andRespond(withSuccess());
-                    lookup().andRespond(withStatus(HttpStatus.NOT_FOUND));
-                }
-            }
+        for (int stage = 0; stage <= failedStage; stage++) {
+            ResponseActions action = switch (stage) {
+                case 0 -> create();
+                case 1, 4 -> lookup();
+                case 2 -> approve();
+                default -> post();
+            };
+            if (stage == failedStage) action.andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+            else if (stage == 0) action.andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+            else if (stage == 1) action.andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
+            else action.andRespond(withSuccess());
         }
-        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
     }
 
@@ -131,6 +134,7 @@ class HttpLoanJournalAdapterTest {
         ((com.fasterxml.jackson.databind.node.ObjectNode) response).put(field,
                 field.equals("id") ? "43" : field.equals("accountingDate") ? "2026-09-11" : "OTHER");
         create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(response.toString(), MediaType.APPLICATION_JSON));
@@ -142,6 +146,7 @@ class HttpLoanJournalAdapterTest {
     @ValueSource(strings = {"", "null", "{}", "not-json"})
     void emptyOrMalformedPostedLookupCannotReturnSuccess(String response) {
         create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
@@ -169,6 +174,156 @@ class HttpLoanJournalAdapterTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"id", "slipNo", "status", "currencyCode", "accountingDate", "lineageSourceType", "lineageSourceId"})
+    void rejectsMismatchedDraftIdentityStateOrLineageBeforeApproval(String field) throws Exception {
+        var response = (com.fasterxml.jackson.databind.node.ObjectNode) new ObjectMapper().readTree(STORED_DRAFT);
+        response.put(field, field.equals("id") ? "43" : field.equals("accountingDate") ? "2026-09-11" : "OTHER");
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(response.toString(), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify(); // Any approve/post or retry is an unexpected request and fails this test.
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "null", "{}", "not-json"})
+    void emptyOrMalformedDraftLookupCannotTriggerApproval(String response) {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "null", "[]", "[null]", "[{}]",
+            "[{\"side\":\"DEBIT\",\"amount\":123456789.12}]",
+            "[{\"side\":\"CREDIT\",\"amount\":123456789.12}]",
+            "[{\"side\":null,\"amount\":123456789.12}]",
+            "[{\"side\":\"OTHER\",\"amount\":123456789.12}]",
+            "[{\"side\":\"DEBIT\",\"amount\":null}]",
+            "[{\"side\":\"DEBIT\",\"amount\":-1}]",
+            "[{\"side\":\"DEBIT\",\"amount\":0}]",
+            "[{\"side\":\"DEBIT\",\"amount\":123456789.13},{\"side\":\"CREDIT\",\"amount\":123456789.12}]",
+            "[{\"side\":\"DEBIT\",\"amount\":123456789.12},{\"side\":\"CREDIT\",\"amount\":123456789.11}]"})
+    void invalidDraftLinesCannotTriggerApproval(String lines) throws Exception {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(withLines(STORED_DRAFT, lines), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @Test
+    void missingDraftLinesCannotTriggerApproval() throws Exception {
+        var response = (com.fasterxml.jackson.databind.node.ObjectNode) new ObjectMapper().readTree(STORED_DRAFT);
+        response.remove("lines");
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(response.toString(), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @Test
+    void requestedTwoHundredButProviderOneHundredCannotTriggerApprovalOrPosting() {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT.replace("123456789.12", "100"), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command("200"))).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1"})
+    void balancedNegativeOrZeroExtraLinesAreStillRejected(String amount) throws Exception {
+        // Keep totals equal to the requested amount so rejecting individual invalid lines is essential.
+        String positiveAmount = new BigDecimal("123456789.12").subtract(new BigDecimal(amount)).toPlainString();
+        String lines = "[{\"side\":\"DEBIT\",\"amount\":" + positiveAmount + "},"
+                + "{\"side\":\"CREDIT\",\"amount\":" + positiveAmount + "},"
+                + "{\"side\":\"DEBIT\",\"amount\":" + amount + "},{\"side\":\"CREDIT\",\"amount\":" + amount + "}]";
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(withLines(STORED_DRAFT, lines), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @Test
+    void sumsMultipleLinesExactlyAndIgnoresScaleDifferences() throws Exception {
+        String lines = """
+                [{"side":"DEBIT","amount":99999999999999999.90},
+                 {"side":"DEBIT","amount":0.09},
+                 {"side":"CREDIT","amount":99999999999999999.9900}]
+                """;
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(withLines(STORED_DRAFT, lines), MediaType.APPLICATION_JSON));
+        approve().andRespond(withSuccess());
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(withLines(POSTED, lines), MediaType.APPLICATION_JSON));
+        assertThat(adapter.post(command("99999999999999999.99")).journalEntryId()).isEqualTo(42L);
+        server.verify();
+    }
+
+    @Test
+    void amountChangedAfterPostingCannotReturnSuccess() {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
+        approve().andRespond(withSuccess());
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(POSTED.replace("123456789.12", "100"), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {300, 301, 302, 303, 304, 307, 308})
+    void productionTransportNeverFollowsDraftLookupRedirect(int status) throws Exception {
+        HttpServer http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var creates = new AtomicInteger();
+        var lookups = new AtomicInteger();
+        var unexpected = new AtomicInteger();
+        http.createContext("/", exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String body;
+            int responseStatus;
+            if (path.equals("/api/v1/journals/posting")) {
+                creates.incrementAndGet();
+                responseStatus = 200;
+                body = DRAFT;
+            } else if (path.equals("/api/journals/LN-42")) {
+                lookups.incrementAndGet();
+                responseStatus = status;
+                body = STORED_DRAFT;
+                exchange.getResponseHeaders().set("Location", "/redirect-target");
+            } else {
+                unexpected.incrementAndGet();
+                responseStatus = 200;
+                body = STORED_DRAFT;
+            }
+            exchange.getRequestBody().readAllBytes();
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(responseStatus, responseStatus == 304 ? -1 : bytes.length);
+            if (responseStatus != 304) exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        http.start();
+        try {
+            var real = new HttpLoanJournalAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + http.getAddress().getPort(), "2s", "2s");
+            assertThatThrownBy(() -> real.post(command())).isInstanceOf(IllegalStateException.class);
+            assertThat(creates.get()).isEqualTo(1);
+            assertThat(lookups.get()).isEqualTo(1);
+            assertThat(unexpected.get()).isZero();
+        } finally {
+            http.stop(0);
+        }
+    }
+
+    private static String withLines(String response, String lines) throws Exception {
+        var mapper = new ObjectMapper().enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(response);
+        json.set("lines", mapper.readTree(lines));
+        return json.toString();
+    }
+
     private ResponseActions create() {
         return server.expect(requestTo(ROOT + "/api/v1/journals/posting")).andExpect(method(HttpMethod.POST));
     }
@@ -188,9 +343,13 @@ class HttpLoanJournalAdapterTest {
     }
 
     private LoanJournalCommand command() {
+        return command("123456789.12");
+    }
+
+    private LoanJournalCommand command(String amount) {
         return new LoanJournalCommand(LocalDate.of(2026, 9, 10), "Loan disbursal", "loan-operator",
                 "LOAN_DISBURSAL", "7", "KRW", List.of(
-                        new LoanJournalLine("DEBIT", "131000", new BigDecimal("123456789.12"), "Loan"),
-                        new LoanJournalLine("CREDIT", "101000", new BigDecimal("123456789.12"), "Cash")));
+                        new LoanJournalLine("DEBIT", "131000", new BigDecimal(amount), "Loan"),
+                        new LoanJournalLine("CREDIT", "101000", new BigDecimal(amount), "Cash")));
     }
 }

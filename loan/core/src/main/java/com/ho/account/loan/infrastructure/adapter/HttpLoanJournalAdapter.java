@@ -4,8 +4,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +48,13 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("account.loan.journal-base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
+                super.prepareConnection(connection, method);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(timeoutMillis(connectTimeout));
         factory.setReadTimeout(timeoutMillis(readTimeout));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(factory).build();
@@ -71,6 +81,12 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
                 throw new IllegalStateException(
                         "Journal Ledger returned an invalid or non-draft response; verify remote state before retrying");
             }
+            // Creation returns only a summary. Verify the stored lines before authorizing any write.
+            operation = "draft-state confirmation";
+            JournalResponse storedDraft = successful(restClient.get()
+                    .uri("/api/journals/{slipNo}", draft.slipNo()).retrieve())
+                    .body(JournalResponse.class);
+            validateJournal(storedDraft, draft, command, "DRAFT");
             operation = "approval";
             successful(restClient.post().uri("/api/journals/{id}/approve", draft.journalEntryId())
                     .header("X-User-ID", command.actor()).retrieve()).toBodilessEntity();
@@ -81,15 +97,7 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
             JournalResponse posted = successful(restClient.get()
                     .uri("/api/journals/{slipNo}", draft.slipNo()).retrieve())
                     .body(JournalResponse.class);
-            if (posted == null || !draft.journalEntryId().equals(posted.id())
-                    || !draft.slipNo().equals(posted.slipNo()) || !"POSTED".equals(posted.status())
-                    || !command.accountingDate().equals(posted.accountingDate())
-                    || !command.currencyCode().equals(posted.currencyCode())
-                    || !command.lineageSourceType().equals(posted.lineageSourceType())
-                    || !command.lineageSourceId().equals(posted.lineageSourceId())) {
-                throw new IllegalStateException(
-                        "Journal Ledger posted-state confirmation failed; verify remote state before retrying");
-            }
+            validateJournal(posted, draft, command, "POSTED");
             return new PostedJournal(posted.id(), posted.slipNo());
         } catch (RestClientException error) {
             String status = error instanceof RestClientResponseException response
@@ -98,6 +106,50 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
             throw new IllegalStateException("Journal Ledger " + operation + " failed" + status
                     + "; verify remote state before retrying");
         }
+    }
+
+    private static void validateJournal(
+            JournalResponse journal, PostingResponse draft, LoanJournalCommand command, String expectedStatus) {
+        if (journal == null || !draft.journalEntryId().equals(journal.id())
+                || !draft.slipNo().equals(journal.slipNo()) || !expectedStatus.equals(journal.status())
+                || !command.accountingDate().equals(journal.accountingDate())
+                || !command.currencyCode().equals(journal.currencyCode())
+                || !command.lineageSourceType().equals(journal.lineageSourceType())
+                || !command.lineageSourceId().equals(journal.lineageSourceId())) {
+            throw invalidJournal();
+        }
+        if (journal.lines() == null || journal.lines().isEmpty()) {
+            throw invalidJournal();
+        }
+        BigDecimal debits = BigDecimal.ZERO;
+        BigDecimal credits = BigDecimal.ZERO;
+        for (JournalLineResponse line : journal.lines()) {
+            if (line == null || line.amount() == null || line.amount().signum() <= 0) {
+                throw invalidJournal();
+            }
+            if ("DEBIT".equals(line.side())) {
+                debits = debits.add(line.amount());
+            } else if ("CREDIT".equals(line.side())) {
+                credits = credits.add(line.amount());
+            } else {
+                throw invalidJournal();
+            }
+        }
+        BigDecimal requestedDebits = command.lines().stream()
+                .filter(line -> "DEBIT".equals(line.side())).map(LoanJournalLine::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal requestedCredits = command.lines().stream()
+                .filter(line -> "CREDIT".equals(line.side())).map(LoanJournalLine::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Scale is representational: compare exact numeric values without rounding or double conversion.
+        if (debits.compareTo(requestedDebits) != 0 || credits.compareTo(requestedCredits) != 0) {
+            throw invalidJournal();
+        }
+    }
+
+    private static IllegalStateException invalidJournal() {
+        return new IllegalStateException(
+                "Journal Ledger identity, state or amount confirmation failed; verify remote state before retrying");
     }
 
     private static RestClient.ResponseSpec successful(RestClient.ResponseSpec response) {
@@ -142,6 +194,11 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record JournalResponse(Long id, String slipNo, String status, LocalDate accountingDate,
-                                   String currencyCode, String lineageSourceType, String lineageSourceId) {
+                                   String currencyCode, String lineageSourceType, String lineageSourceId,
+                                   List<JournalLineResponse> lines) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record JournalLineResponse(String side, BigDecimal amount) {
     }
 }
