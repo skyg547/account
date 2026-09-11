@@ -119,7 +119,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 | 파일 | 용도 |
 |------|------|
-| `CODEX_WORKLOG.md` | Codex가 세션별로 무엇을 했는지 요약 (실행 명령, 결과, 남은 리스크) |
+| `docs/history/CODEX_WORKLOG.md` | Codex가 세션별로 무엇을 했는지 요약 (실행 명령, 결과, 남은 리스크) |
 | `docs/WORKLOG.md` | 전체 팀의 Source of Truth — 모듈별 완료/미완료 상태, 핵심 발견 사항 |
 
 ### 파악해야 할 내용
@@ -130,7 +130,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ### 현재 알려진 미해결 리스크 (2026-08-13 재확인)
 
-이 목록은 세션마다 고정되지 않는다. 검수 시작 시 `CODEX_WORKLOG.md` 최신 항목과 아래 grep으로 실제 코드 상태를 다시 확인한 뒤 갱신한다.
+이 목록은 세션마다 고정되지 않는다. 검수 시작 시 `docs/history/CODEX_WORKLOG.md` 최신 항목과 아래 grep으로 실제 코드 상태를 다시 확인한 뒤 갱신한다.
 
 - `closing`: 더미 계정 `999998`/`999999` — 2026-08-13 grep 결과 `closing/` 내 잔존 없음. **해소 추정**, 재검수 시 확정 필요
 - `loan`: `Loan`/`LoanContract` 병행 모델 — 2026-08-13 grep 결과 `loan/` 내 `LoanContract` 클래스 없음. **해소 추정**, 계정코드 하드코딩·E2E 전기 수렴은 재확인 필요
@@ -153,7 +153,7 @@ Codex 작업물 검수 시 아래 형식으로 결과를 보고한다:
 
 ## 작업 규칙 (워크플로우)
 
-1. **검수 시작 전**: `CODEX_WORKLOG.md`와 `docs/WORKLOG.md` 최신 항목을 읽고 맥락을 파악한다
+1. **검수 시작 전**: `docs/history/CODEX_WORKLOG.md`와 `docs/WORKLOG.md` 최신 항목을 읽고 맥락을 파악한다
 2. 검수 전 해당 모듈의 `README.md`와 `docs/*.md`를 먼저 확인한다
 3. **Issue 구현을 맡으면 착수 전에 그 진단이 실제 코드와 맞는지 확인한다.** 절차는 `docs/ai-harness/25-issue-claim-verification.md`를 따른다. 진단이 틀렸으면 **구현하지 말고** 근거를 Issue에 기록한 뒤 종료를 제안한다. `agent-loop` 라벨 Issue는 추론된 증상을 적은 것이라 실제와 다른 사례가 반복 확인되었다
 4. 요청 범위를 벗어난 리팩터링은 제안만 하고 직접 수정하지 않는다

@@ -38,7 +38,7 @@ If the task requires changing shared domain models, common DTOs, or base utiliti
 3. Subagent Prompt Requirements:
    - Must follow Hexagonal Architecture principles inside its target module.
    - Must run module-scoped tests: `./gradlew :<module-name>:test`.
-   - **MUST NOT** edit shared harness logs (`docs/ai-harness/*.md`, `CODEX_WORKLOG.md`) or files outside its designated module.
+   - **MUST NOT** edit shared harness logs (`docs/ai-harness/*.md`, `docs/history/CODEX_WORKLOG.md`) or files outside its designated module.
    - Must report completed files, test results, and any architectural decisions back to parent.
 
 ---

@@ -70,6 +70,6 @@ After changing skills or custom agents:
 
 ## Compatibility Notes
 
-- Root `SKILL.md` is a legacy pointer; Codex discovery uses `.agents/skills/`.
+- Codex discovers repository skills in `.agents/skills/<skill-name>/SKILL.md`; no root `SKILL.md` is required.
 - `.agent/workflows/feature-dev.md` remains for Antigravity/Cline-compatible workflows but defers to `AGENTS.md` and this harness.
 - `.clinerules` is legacy context and must not override current safety, Git, or architecture policy.
