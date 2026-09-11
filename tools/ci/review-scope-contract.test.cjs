@@ -8,7 +8,7 @@ const test = require('node:test');
 // This approved document is the only disk input. Fixture paths are never opened,
 // resolved or inspected: the plan models the document, not an AI runtime sandbox.
 const document = readFileSync(path.join(__dirname, '../../GEMINI_REVIEW_PROMPT.md'), 'utf8');
-const heading = '# Review Content Read Scope';
+const heading = '## Review Content Read Scope';
 const inventoryCommands = [
   'git status --short --branch',
   'git diff --name-only',
@@ -40,12 +40,12 @@ function section(text, start, end) {
 }
 
 function assertDocumentContract(text) {
-  assert.ok(text.startsWith(heading), 'The read-scope contract must precede historical review requests');
-  const contract = section(text, heading, '# 2026-07-29');
-  const prompt = section(text, '## Gemini에게 전달할 프롬프트', '## Current Handoff Context');
-  const handoff = section(text, '## Review Handoff Checklist', '## Current Review Request');
+  assert.ok(text.startsWith('# Gemini Review Prompt\n'), 'The reusable template must be the active entry point');
+  const contract = section(text, heading, '## Review Handoff Checklist');
+  const handoff = section(text, '## Review Handoff Checklist', '## Inactive History');
+  assert.equal(text.split(heading).length - 1, 1, 'Keep a single active read-scope contract');
 
-  for (const [name, entry] of [['top contract', contract], ['copyable prompt', prompt]]) {
+  for (const [name, entry] of [['active contract', contract]]) {
     for (const command of inventoryCommands) assert.ok(entry.includes(command), `${name}: filename inventory ${command}`);
     for (const rule of requiredRules) assert.ok(entry.includes(rule), `${name}: missing rule ${rule}`);
     for (const command of [trackedCommand, stagedCommand, untrackedCommand, whitespaceCommand, stagedWhitespaceCommand]) {
@@ -62,7 +62,6 @@ function assertDocumentContract(text) {
     }
   }
   assert.ok(contract.includes('과거 날짜·모듈 목록·검증 명령은 현재의 읽기/실행 승인이 아니다'), 'Historical scope must not authorize current reads');
-  assert.ok(prompt.includes('아래 3–5번의 과거 범위·검증 명령은 현재의 읽기/실행 승인이 아니다'), 'Copied historical scope must not authorize current reads');
   assert.ok(handoff.includes('[Review Content Read Scope](#review-content-read-scope)'), 'Handoff must link the read gate');
   assert.ok(handoff.includes('filename-first → 명시된 비민감 exact allowlist ∩ 변경목록 → scoped 조회/보류'), 'Handoff must retain the ordered gate');
   assert.ok(handoff.includes('범위가 없거나 비어 있거나 불명확하면 내용은 읽지 않고 부모에게 확인한다'), 'Handoff must fail closed');
@@ -78,7 +77,7 @@ function assertDocumentContract(text) {
       assert.ok(allowed.has(command), `Unapproved active content command: ${command}`);
     }
   }
-  assert.doesNotMatch(prompt, /새 파일이 있으면 해당 파일도 확인|(?:read|open) all (?:new|untracked) files/i, 'Automatic new-file fallback is forbidden');
+  assert.doesNotMatch(text, /새 파일이 있으면 해당 파일도 확인|(?:read|open) all (?:new|untracked) files/i, 'Automatic new-file fallback is forbidden');
   assert.ok(contract.includes('AI의 실제 파일 접근을 강제하는 sandbox가 아니다'), 'Document must state the runtime limitation');
   assert.ok(contract.includes('CI 미연결'), 'Local test must not imply CI coverage');
 }
@@ -209,28 +208,27 @@ test('synthetic outside-scope whitespace line is excluded from diagnostic select
   assert.deepEqual(diagnostics(rows.filter(row => plan.reads.some(read => read.path === row.path))), []);
 });
 
-test('historical prose reporting a whitespace PASS is not an active command', () => {
-  const evidence = '- `git diff --check` passed.';
-  assert.ok(document.includes(evidence), 'Existing historical result must remain intact');
+test('historical success prose is absent from the active template', () => {
+  assert.ok(!document.includes('- `git diff --check` passed.'));
+  assert.doesNotMatch(document, /## Current Review Request|## Current Handoff Context|# 2026-07-29/);
   assertDocumentContract(document);
-  assertDocumentContract(document.replace(evidence, '- `git diff --check` passed. Historical evidence, not a current command.'));
 });
 
 const mutations = [
-  ['remove top gate', text => text.slice(text.indexOf('# 2026-07-29'))],
+  ['remove top gate', text => text.replace(heading, '## Removed Scope')],
   ['remove inventory', text => text.replaceAll('git diff --cached --name-only', '')],
   ...requiredRules.map(rule => [`remove ${rule}`, text => text.replaceAll(rule, '')]),
   ['remove handoff gate', text => text.replace('[Review Content Read Scope](#review-content-read-scope)', 'review')],
-  ['unscoped diff fallback', text => text.replace('Notes:', 'Notes:\n- git diff')],
-  ['unscoped staged fallback', text => text.replace('Notes:', 'Notes:\n- git diff --cached')],
-  ['active bare whitespace fallback', text => text.replace('Notes:', 'Notes:\n- git diff --check')],
-  ['active staged bare whitespace fallback', text => text.replace('Notes:', 'Notes:\n- git diff --check --cached')],
+  ['unscoped diff fallback', text => text.replace(heading, heading + '\n- git diff')],
+  ['unscoped staged fallback', text => text.replace(heading, heading + '\n- git diff --cached')],
+  ['active bare whitespace fallback', text => text.replace(heading, heading + '\n- git diff --check')],
+  ['active staged bare whitespace fallback', text => text.replace(heading, heading + '\n- git diff --check --cached')],
   ['replace scoped whitespace with bare check', text => text.replace(whitespaceCommand, 'git diff --check')],
   ['remove whitespace content gate', text => text.replaceAll(whitespaceRule, '')],
   ['remove whitespace state-specific scope', text => text.replaceAll(whitespaceScope, '')],
-  ['folder diff fallback', text => text.replace('Notes:', 'Notes:\n- git diff -- docs/')],
-  ['new-file fallback', text => text.replace('Notes:', 'Notes:\n- 새 파일이 있으면 해당 파일도 확인')],
-  ['English new-file fallback', text => text.replace('Notes:', 'Notes:\n- Read all untracked files')],
+  ['folder diff fallback', text => text.replace(heading, heading + '\n- git diff -- docs/')],
+  ['new-file fallback', text => text.replace(heading, heading + '\n- 새 파일이 있으면 해당 파일도 확인')],
+  ['English new-file fallback', text => text.replace(heading, heading + '\n- Read all untracked files')],
   ['move approval before inventory', text => text.replace('git status --short --branch', requiredRules[0] + '\ngit status --short --branch')],
   ['move content before approval', text => text.replace('git status --short --branch', trackedCommand + '\ngit status --short --branch')],
 ];
