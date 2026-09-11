@@ -52,13 +52,24 @@ untracked에도 동일한 승인/제외/정체 확인을 적용한 뒤 그 파�
 
 ```powershell
 node --test tools/ci/review-scope-contract.test.cjs
-git diff --check
 ```
 
+공백 검사도 변경 행 본문을 출력할 수 있으므로 위 filename-first/승인/제외 게이트를 동일하게 적용한다.
+현재 비어 있지 않은 exact allowlist ∩ 해당 상태의 변경목록에서 확정한 한 파일만 검사한다. 범위 누락·빈 교집합·범위 밖·민감/불명확 경로는 보류한다.
+아래 `<exact-path>`는 그 정확 경로 하나로 바꾼다. 첫째는 tracked unstaged, 둘째는 staged용이며 양쪽 상태라면 각각 검사한다.
+untracked는 이 Git 공백 검사의 대상이 아니므로 자동 전체 검사로 대체하지 않고 보류한다. 승인된 개별 내용 조회는 위 3단계를 따른다.
+
+```powershell
+git --literal-pathspecs diff --check --no-ext-diff --no-textconv -- '<exact-path>'
+git --literal-pathspecs diff --check --cached --no-ext-diff --no-textconv -- '<exact-path>'
+```
+
+초보자 설명: 공백 오류를 알려주는 검사도 잘못된 줄 자체를 보여줄 수 있다. 따라서 이름만 보는 검사가 아니며 승인 밖 파일의 줄을 출력해서는 안 된다.
 Windows의 설치 경로를 직접 쓰려면 `& 'C:/Program Files/nodejs/node.exe' --test tools/ci/review-scope-contract.test.cjs`로 실행한다.
 기대 결과는 모든 테스트 통과/실패 0/종료 코드 0, 공백 오류 없는 diff check의 종료 코드 0이다. 실제 실행 수·시간·결과는 실행자가 별도 기록한다.
 검사는 승인된 이 문서 하나를 디스크 입력으로 삼고 필수 순서/범위 절과 위험한 diff·신규파일 fallback 회귀를 확인한다.
 합성 경로·변경 상태·일반 파일 정체 입력 → 문서 계약 확인 → exact 조회 계획 또는 보류 이유를 만든다. 문서 규칙 삭제/위험 fallback 삽입은 인메모리 mutation으로 거부 여부를 확인한다.
+합성 공백 진단은 승인 밖 가짜 변경 행이 전체 선택에서는 진단에 포함되지만 scoped 계획에서는 제외되는지를 메모리에서 비교한다. 실제 Git 실행 재현이나 전체 공백 규칙 구현은 아니다.
 가짜 경로의 존재·본문·실제 secret을 조사하지 않으며 계획의 명령을 실행하지 않는다. 같은 입력으로 재실행해도 파일이나 외부 상태를 쓰지 않는다.
 보수적인 가짜 경로 검사와 문서 정적 회귀는 AI의 실제 파일 접근을 강제하는 sandbox가 아니다. 모든 경로/비밀 탐지나 실제 노출 여부를 보장하지 않고 독립 의미 리뷰가 필요하다.
 CI 미연결 상태이며 연결은 이 변경의 범위 밖이다. 기존 CI 성공을 신규 검사 실행 증거로 사용하지 않는다.
@@ -608,6 +619,11 @@ allowlist로 기존 보안 금지나 승인 범위를 넓힐 수 없다. 필수 
 - git --literal-pathspecs diff --cached --no-ext-diff --no-textconv -- '<exact-path>'
 - Get-Content -LiteralPath '<exact-path>'
 첫째는 tracked unstaged, 둘째는 staged, 셋째는 같은 승인 절차를 통과한 untracked 한 파일용이다. 양쪽 상태인 파일은 두 diff를 구별한다.
+공백 검사도 변경 행 본문을 출력할 수 있으므로 위 filename-first/승인/제외 게이트를 동일하게 적용한다.
+현재 비어 있지 않은 exact allowlist ∩ 해당 상태의 변경목록에서 확정한 한 파일만 검사한다. 범위 누락·빈 교집합·범위 밖·민감/불명확 경로는 보류한다.
+- git --literal-pathspecs diff --check --no-ext-diff --no-textconv -- '<exact-path>'
+- git --literal-pathspecs diff --check --cached --no-ext-diff --no-textconv -- '<exact-path>'
+공백 검사의 첫째는 tracked unstaged, 둘째는 staged용이다. untracked를 전체 diff 공백 검사로 대체하지 않고 보류한다.
 상태나 범위가 바뀌면 0번부터 다시 판단한다. 빈 인자/누락 범위를 전체 diff로 대체하지 않고 보류 이유와 부모 확인만 보고한다.
 
 다음은 과거 요청의 문서/모듈 참고 목록이다. 현재 콘텐츠 승인 목록이 아니며 필요한 문서는 정확 경로와 이유를 부모에게 요청한다.
@@ -786,6 +802,7 @@ Notes:
 
 - [Review Content Read Scope](#review-content-read-scope)를 먼저 적용한다: filename-first → 명시된 비민감 exact allowlist ∩ 변경목록 → scoped 조회/보류.
 - staged/unstaged/untracked를 구별하고 민감/불명확 경로를 제외한다. 범위가 없거나 비어 있거나 불명확하면 내용은 읽지 않고 부모에게 확인한다.
+- 공백 검사도 본문 출력 가능성이 있으므로 동일 게이트와 상태별 exact 경로 제한을 적용한다. 경로 없는 전체 검사 fallback은 금지한다.
 - 변경 대상 모듈 문서는 현재 승인된 정확 파일만 읽는다. 과거 목록이 범위를 늘리지 않는다.
 - `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `MODULE_REVIEW_2026-05-06.md`의 과거 참조도 현재 적용 규칙/명시적 읽기 승인에 해당하는 정확 파일만 확인한다.
 - Findings는 요약보다 먼저 작성한다.

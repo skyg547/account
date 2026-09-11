@@ -3793,8 +3793,23 @@
 - 수정 전 GL/SL 정순·역순 4건의 실패로 원인을 재현했다. 수정 후 JDK17/Gradle8.7 오프라인 강제 전체 실행과 별도 Astra xhigh 리뷰어의 독립 재실행 모두 core65/API11/Batch5, 총81건(28 suites) 실패·오류·skip0으로 통과했다. 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
 - `agent/691-ledger-period-summary` / 외부 전용 worktree에서만 작업한다. 게시 SHA·CI·Ready 상태는 Issue/PR에서 추적하며 최종 병합과 Issue 종료는 별도 `account` 예약의 소유다. 데이터 복구·운영 DB·Batch 실행은 하지 않는다.
 
+## 2026-09-11 GH-693 전기 직전 회계기간 재확인
+
+- `PostingService`는 승인 전표 스냅샷 검증 후 첫 상태 변경 전에 기존 마감 검증기를 호출한다. 닫힘·기간 부재·조회 실패면 전표/감사 사용자/상세를 유지하고 전표·원장·잔액 쓰기를 시작하지 않는다.
+- OPEN 정상 전기, 회계일자/SYSTEM 처리와 기존 잘못된 전표 거부를 보존했다. 초보자용 흐름·실패·재시도·동시성 한계를 `journal-ledger/docs/process-flow.md`에 설명한다.
+- 독립 리뷰가 Loan 직접 소비자 fixture의 생성자 컴파일 실패를 재현하여 초기 영향 조사 누락을 바로잡았다. 원 Issue의 검토된 4파일 범위로 보완하며, 실제 필터를 생략하는 우회 생성자는 만들지 않는다.
+- GH-693 작성자 보완 검증: journal-ledger 74개 + Loan 108개, 합계 48 suites/182 tests 실패·오류·skip 0, Loan API/Batch 패키징 통과. 독립 리뷰는 동일 Journal 소스의74개와 보완 Loan108개/패키징을 직접 검증하여 P1 해소·Q1–Q4 PASS를 확인했다. 이는 base65e6b1e3 로컬 체크포인트이며 최신 main 통합 재검증/CI/Ready는 별도 게이트다.
+- 별도 `account` 예약이 최종 리뷰·병합·Issue 종료를 맡는다. 이 구현 예약은 검증/독립 리뷰 뒤 Draft PR과 해당 head CI/Ready 인계까지만 수행한다. 실제 DB·서버·업무 Batch·배포·기존 오전기 복구는 범위 밖이다.
+- 최신 main `65af7e6f` 통합: 기록5의 EOF 충돌은 양쪽 이력을 모두 보존했고 업무 코드 충돌은 없었다. 별도 xhigh 리뷰어의 강제 통합 재실행은 journal-ledger95개+Loan108개=49 suites/203 tests 실패·오류·skip0, Loan 패키징2개 PASS였다. 검토된 기존182개와 main에서 들어온21개를 함께 확인한 결과이며 원격 CI/Ready·최종 병합은 후속 게이트다.
+
 ## 2026-09-11 GH-673 검수 콘텐츠 읽기 범위
 
 - Gemini 검수표 상단·복붙 프롬프트·handoff는 파일명 조사 → 현재의 명시적 비민감 exact 범위와 변경목록 교집합 → 상태별 한 파일 조회/보류 순서를 따른다. 빈 범위·민감·불명확한 경로는 내용을 읽지 않고 부모에게 확인한다.
 - 실제 문서 정적 회귀와 합성 경로/문서 mutation 테스트를 연결했다. 작성자와 별도 Astra high 리뷰어의 Node 실행 각각60/60 PASS이며, 기존 날짜·모듈·검증 결과는 보존했다. 문서와 테스트의 한계·실행법·초보자 예시를 함께 설명한다.
 - 이 검사는 실제 AI 접근 sandbox나 완전한 비밀 탐지가 아니며, 민감 파일의 존재·내용을 조사하지 않았다. CI 연결과 과거 역사 분리(#675)는 범위 밖이다. 부모 기록 최종 독립 검토 후 Draft/CI/Ready 인계하며 최종 병합·Issue 종료는 별도 account 소유다.
+
+## 2026-09-11 GH-673 manual rework1 — PR700 P2
+
+- User manually authorized review/fix/review/merge; all automations remain PAUSED. Original branch/worktree/Issue retained, new claim5627729450. Removed active bare whitespace-check exemption, applied the same nonempty exact content gate to state-specific whitespace comparisons, preserved historical prose and scope.
+- Original writer Astra high: actual unchanged-document RED1/fail1 exit1 (UTC01:01:18.1185470–01:01:18.2962500), then full Node71/71 PASS/fail,skip,cancel,todo0/exit0 (UTC01:03:20.1429198–01:03:20.3555019). Parent separately used only safe synthetic approved.txt/outside-review.txt in an external fixture: unscoped unstaged/staged checks each exit2 with synthetic outside-line output; exact approved-path alternatives each exit0/no output. This is no real-secret probe; test-file diagnostics remain in-memory, not a claimed real Git execution.
+- Independent /root/manual_review_673 Astra high source/test/history review APPROVE, P0–P3 none/Q1–Q4 PASS; ONE direct full Node run UTC2026-09-11 01:06:00.0622846–01:06:00.2262431, exit0/71tests71pass/fail,skip,cancel,todo0/runner108.3914ms. Frozen2 hashes unchanged and historical lines remain ordered. Final record/PR delta remains a separate gate. Parent alone replaces CLOSED/unmerged700 with a new Draft after acceptance, then checks fresh head CI/Ready/main before user-authorized merge. Runtime sandbox, exhaustive secret detection, CI wiring, business code and history split#675 remain non-goals; preserve histories/resources.

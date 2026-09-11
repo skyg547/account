@@ -18,6 +18,10 @@ const inventoryCommands = [
 const trackedCommand = "git --literal-pathspecs diff --no-ext-diff --no-textconv -- '<exact-path>'";
 const stagedCommand = "git --literal-pathspecs diff --cached --no-ext-diff --no-textconv -- '<exact-path>'";
 const untrackedCommand = "Get-Content -LiteralPath '<exact-path>'";
+const whitespaceCommand = "git --literal-pathspecs diff --check --no-ext-diff --no-textconv -- '<exact-path>'";
+const stagedWhitespaceCommand = "git --literal-pathspecs diff --check --cached --no-ext-diff --no-textconv -- '<exact-path>'";
+const whitespaceRule = '공백 검사도 변경 행 본문을 출력할 수 있으므로 위 filename-first/승인/제외 게이트를 동일하게 적용한다';
+const whitespaceScope = '현재 비어 있지 않은 exact allowlist ∩ 해당 상태의 변경목록에서 확정한 한 파일만 검사한다';
 const requiredRules = [
   '현재 Issue/부모의 명시적 콘텐츠 review allowlist ∩ 실제 변경목록',
   '없거나 비어 있으면 내용을 읽지 않고 부모에게 확인한다',
@@ -44,9 +48,13 @@ function assertDocumentContract(text) {
   for (const [name, entry] of [['top contract', contract], ['copyable prompt', prompt]]) {
     for (const command of inventoryCommands) assert.ok(entry.includes(command), `${name}: filename inventory ${command}`);
     for (const rule of requiredRules) assert.ok(entry.includes(rule), `${name}: missing rule ${rule}`);
-    for (const command of [trackedCommand, stagedCommand, untrackedCommand]) {
+    for (const command of [trackedCommand, stagedCommand, untrackedCommand, whitespaceCommand, stagedWhitespaceCommand]) {
       assert.ok(entry.includes(command), `${name}: missing scoped content command ${command}`);
     }
+    assert.ok(entry.includes(whitespaceRule), `${name}: whitespace output needs the content gate`);
+    assert.ok(entry.includes(whitespaceScope), `${name}: whitespace needs a nonempty state-specific intersection`);
+    assert.ok(entry.indexOf(requiredRules[0]) < entry.indexOf(whitespaceRule), `${name}: approval before whitespace gate`);
+    assert.ok(entry.indexOf(whitespaceScope) < entry.indexOf(whitespaceCommand), `${name}: whitespace scope before command`);
     assert.ok(entry.indexOf('git ls-files --others --exclude-standard') < entry.indexOf(requiredRules[0]), `${name}: inventory before approval`);
     assert.ok(entry.indexOf(requiredRules[0]) < entry.indexOf(trackedCommand), `${name}: approval before content`);
     for (const sensitiveExample of ['.env*', '.claude/settings.local.json', 'credential', 'key']) {
@@ -58,10 +66,12 @@ function assertDocumentContract(text) {
   assert.ok(handoff.includes('[Review Content Read Scope](#review-content-read-scope)'), 'Handoff must link the read gate');
   assert.ok(handoff.includes('filename-first → 명시된 비민감 exact allowlist ∩ 변경목록 → scoped 조회/보류'), 'Handoff must retain the ordered gate');
   assert.ok(handoff.includes('범위가 없거나 비어 있거나 불명확하면 내용은 읽지 않고 부모에게 확인한다'), 'Handoff must fail closed');
+  assert.ok(handoff.includes('공백 검사도 본문 출력 가능성이 있으므로 동일 게이트와 상태별 exact 경로 제한을 적용한다'), 'Handoff must scope whitespace diagnostics too');
 
   // Check executable-looking diff/read lines, not old prose reporting --check PASS.
   // This deliberately small regression guard is not a shell or natural-language parser.
-  const allowed = new Set([...inventoryCommands, trackedCommand, stagedCommand, untrackedCommand, 'git diff --check']);
+  // --check can print offending line contents; it is not a metadata-only exception.
+  const allowed = new Set([...inventoryCommands, trackedCommand, stagedCommand, untrackedCommand, whitespaceCommand, stagedWhitespaceCommand]);
   for (const line of text.split(/\r?\n/)) {
     const command = line.trim().replace(/^-\s+/, '');
     if (/^git(?: --literal-pathspecs)? diff\b|^Get-Content\b/.test(command)) {
@@ -87,7 +97,7 @@ function unsafePathReason(file) {
   return null;
 }
 
-function planContentReads(text, { allowlist, changes }) {
+function planContentReads(text, { allowlist, changes, whitespaceOnly = false }) {
   // Couple every fixture to the actual document gate: removing a rule cannot
   // leave an independent, self-validating path planner green.
   try { assertDocumentContract(text); } catch { return { reads: [], holds: ['invalid-document'] }; }
@@ -103,9 +113,12 @@ function planContentReads(text, { allowlist, changes }) {
     // Identity is explicitly supplied synthetic evidence, never an fs probe.
     if (change.identity !== 'regular-file') { holds.push('unresolved-link-or-identity'); continue; }
     if (!['tracked', 'staged', 'untracked'].includes(change.kind)) { holds.push('unknown-change-kind'); continue; }
+    // Whitespace plans share all content gates. Untracked has no index/HEAD diff;
+    // never replace that missing comparison with an unscoped repository check.
+    if (whitespaceOnly && change.kind === 'untracked') { holds.push('untracked-not-diff-check'); continue; }
     const args = change.kind === 'untracked'
       ? ['Get-Content', '-LiteralPath', change.path]
-      : ['git', '--literal-pathspecs', 'diff', ...(change.kind === 'staged' ? ['--cached'] : []), '--no-ext-diff', '--no-textconv', '--', change.path];
+      : ['git', '--literal-pathspecs', 'diff', ...(whitespaceOnly ? ['--check'] : []), ...(change.kind === 'staged' ? ['--cached'] : []), '--no-ext-diff', '--no-textconv', '--', change.path];
     reads.push({ kind: change.kind, path: change.path, args });
   }
   return { reads, holds };
@@ -148,10 +161,12 @@ for (const [file, reason] of [
   deniedCases.push([`invalid allowlist ${file || '(empty)'}`, [file], [safe], 'unsafe-allowlist']);
 }
 for (const [name, allowlist, changes, reason] of deniedCases) {
-  test(`${name} produces no content-read fallback`, () => {
-    const result = planContentReads(document, { allowlist, changes });
-    assert.deepEqual(result.reads, [], 'Denied scope must never become an unscoped diff/read');
-    assert.deepEqual(result.holds, [reason]);
+  test(`${name} produces no content-read or whitespace fallback`, () => {
+    for (const whitespaceOnly of [false, true]) {
+      const result = planContentReads(document, { allowlist, changes, whitespaceOnly });
+      assert.deepEqual(result.reads, [], `Denied scope must never become an unscoped diff/read (whitespace=${whitespaceOnly})`);
+      assert.deepEqual(result.holds, [reason]);
+    }
   });
 }
 
@@ -161,6 +176,46 @@ test('mixed inventory reads only the exact safe intersection, holding the rest',
   assert.deepEqual(result.holds, ['outside-allowlist', 'sensitive-path']);
 });
 
+for (const kind of ['tracked', 'staged']) {
+  test(`approved ${kind} whitespace plan selects only its exact changed file`, () => {
+    const change = { ...safe, kind };
+    const result = planContentReads(document, { allowlist: [safe.path], changes: [change], whitespaceOnly: true });
+    assert.deepEqual(result.holds, []);
+    assert.deepEqual(result.reads, [{ kind, path: safe.path, args: ['git', '--literal-pathspecs', 'diff', '--check', ...(kind === 'staged' ? ['--cached'] : []), '--no-ext-diff', '--no-textconv', '--', safe.path] }]);
+    assert.deepEqual(planContentReads(document, { allowlist: [safe.path], changes: [change], whitespaceOnly: true }), result, 'Same input produces the same plan without side effects');
+  });
+}
+
+test('one file in both states keeps separate exact whitespace comparisons', () => {
+  const result = planContentReads(document, { allowlist: [safe.path], changes: [safe, { ...safe, kind: 'staged' }], whitespaceOnly: true });
+  assert.deepEqual(result.holds, []);
+  assert.deepEqual(result.reads.map(read => read.args.includes('--cached')), [false, true]);
+  assert.deepEqual(result.reads.map(read => read.path), [safe.path, safe.path]);
+});
+
+test('untracked whitespace comparison is held without a whole-repository fallback', () => {
+  assert.deepEqual(planContentReads(document, { allowlist: [safe.path], changes: [{ ...safe, kind: 'untracked' }], whitespaceOnly: true }), { reads: [], holds: ['untracked-not-diff-check'] });
+});
+
+test('synthetic outside-scope whitespace line is excluded from diagnostic selection', () => {
+  // In-memory output model only: demonstrate why line diagnostics require scope,
+  // without executing Git, reading fixture files or claiming to emulate Git fully.
+  const rows = [{ ...safe, line: 'SYNTHETIC_APPROVED' }, { ...safe, path: 'docs/outside.md', line: 'SYNTHETIC_OUTSIDE_ALLOWLIST   ' }];
+  const diagnostics = selected => selected.filter(row => /[ \t]+$/.test(row.line)).map(row => `${row.path}: ${row.line}`);
+  assert.deepEqual(diagnostics(rows), ['docs/outside.md: SYNTHETIC_OUTSIDE_ALLOWLIST   ']);
+  const plan = planContentReads(document, { allowlist: [safe.path], changes: rows, whitespaceOnly: true });
+  assert.deepEqual(plan.reads.map(read => read.path), [safe.path]);
+  assert.deepEqual(plan.holds, ['outside-allowlist']);
+  assert.deepEqual(diagnostics(rows.filter(row => plan.reads.some(read => read.path === row.path))), []);
+});
+
+test('historical prose reporting a whitespace PASS is not an active command', () => {
+  const evidence = '- `git diff --check` passed.';
+  assert.ok(document.includes(evidence), 'Existing historical result must remain intact');
+  assertDocumentContract(document);
+  assertDocumentContract(document.replace(evidence, '- `git diff --check` passed. Historical evidence, not a current command.'));
+});
+
 const mutations = [
   ['remove top gate', text => text.slice(text.indexOf('# 2026-07-29'))],
   ['remove inventory', text => text.replaceAll('git diff --cached --name-only', '')],
@@ -168,6 +223,11 @@ const mutations = [
   ['remove handoff gate', text => text.replace('[Review Content Read Scope](#review-content-read-scope)', 'review')],
   ['unscoped diff fallback', text => text.replace('Notes:', 'Notes:\n- git diff')],
   ['unscoped staged fallback', text => text.replace('Notes:', 'Notes:\n- git diff --cached')],
+  ['active bare whitespace fallback', text => text.replace('Notes:', 'Notes:\n- git diff --check')],
+  ['active staged bare whitespace fallback', text => text.replace('Notes:', 'Notes:\n- git diff --check --cached')],
+  ['replace scoped whitespace with bare check', text => text.replace(whitespaceCommand, 'git diff --check')],
+  ['remove whitespace content gate', text => text.replaceAll(whitespaceRule, '')],
+  ['remove whitespace state-specific scope', text => text.replaceAll(whitespaceScope, '')],
   ['folder diff fallback', text => text.replace('Notes:', 'Notes:\n- git diff -- docs/')],
   ['new-file fallback', text => text.replace('Notes:', 'Notes:\n- 새 파일이 있으면 해당 파일도 확인')],
   ['English new-file fallback', text => text.replace('Notes:', 'Notes:\n- Read all untracked files')],
@@ -181,5 +241,6 @@ for (const [name, mutate] of mutations) {
     assert.notEqual(mutated, document, 'Mutation must actually change the approved document');
     assert.throws(() => assertDocumentContract(mutated), assert.AssertionError);
     assert.deepEqual(planContentReads(mutated, { allowlist: [safe.path], changes: [safe] }), { reads: [], holds: ['invalid-document'] });
+    assert.deepEqual(planContentReads(mutated, { allowlist: [safe.path], changes: [safe], whitespaceOnly: true }), { reads: [], holds: ['invalid-document'] });
   });
 }

@@ -214,3 +214,8 @@ Recommended integration order remains:
 - Gate: two Logstash syntax checks, quiet Compose render, live read-only mount/TCP 5000/closed 5044/redacted synthetic/stop-recovery checks, exact green/red/timeout readiness predicates, GitHub JDK 17 Config Server validation, four final checks, Ready-event Guard and independent exact-head review all passed; final review found no P0-P3.
 - Result: PR #585 squash-merged to `main` as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. `account-logstash-dev` remains healthy with no host port and bounded resources.
 - Rollback: use a reviewed revert of the four Logstash files, direct policy test and harness records, then stop/recreate only the exact Logstash Compose service. Never use `down -v`, prune or Elasticsearch data deletion. The obsolete stateless `logstash` container removed during recovery is not recoverable as a container; its image and Elasticsearch data remain.
+
+## 2026-09-11 GH-673 manual rework integration gate
+
+- Issue673 / CLOSED-unmerged PR700 P2, original613a556a + mainc94afec5. Parent preserved both record histories; original writer repaired only active whitespace read scope and its Node regression contract. No repository PR merge is claimed at this checkpoint.
+- Separate high Reviewer and actual tests precede new Draft PR, exact-head CI/Ready/latest-main and user-authorized parent merge. Actual PR/merge/main-CI/Issue result is recorded on the new PR and original Issue. Paused schedules and existing branches/worktrees remain preserved.
