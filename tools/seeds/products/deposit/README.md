@@ -1,0 +1,7 @@
+# Deposit synthetic package
+
+DB: `deposit`. `depositAccountIntegrityJob asOfDate=2090-01-15` validates an active KRW account with a 1,000,000 balance and 3% annual rate. The opening transaction reconciles to that balance. This job does not create a business result table; check its exact Spring Batch execution separately.
+
+Schema source: `deposit/core/src/main/resources/db/postgresql-migration/V40__init_deposit_schema.sql`; behavior: `DepositAccountIntegrityBatchConfig`. Only reserved ID 6900001 / GH690 records are inserted. Repeated injection preserves existing state. `rollback.sql` checks account ownership, opening transaction, journal references, extra transactions, interest schedules and outbox lineage before any delete. The child tables have no account FK, so those checks are explicit. Missing/replaced parents or subsequent activity refuse cleanup and preserve every row. Safe cleanup removes the transaction before its account, with no sequence reset or metadata deletion.
+
+This manual rollback is one atomic `DO` statement taking `SHARE ROW EXCLUSIVE` locks on the four inspected tables; stop writers first, set a bounded lock timeout and end the transaction promptly. Remote references still require separate review. For the offline relational regression command and PostgreSQL verification limitation, see [accounting execution and rollback constraints](../../accounting/README.md#execution-and-rollback-constraints).

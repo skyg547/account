@@ -1,0 +1,4 @@
+SELECT EXISTS (SELECT 1 FROM allowance_input_positions WHERE base_dt=DATE '2090-01-15' AND acc_no='GH690-MART-ACCOUNT' AND customer_code='GH690-MART-CUSTOMER' AND outstd_amt=1000000 AND staging='STAGE1')
+AND EXISTS (SELECT 1 FROM allowance_exposure_snapshots WHERE base_date=DATE '2090-01-15' AND exposure_id='GH690-MART-ACCOUNT' AND source_account_no='GH690-MART-ACCOUNT' AND outstanding_amount=1000000 AND undrawn_amount=0 AND accounting_account_code='GH690-LOAN' AND staging='STAGE1')
+AND EXISTS (SELECT 1 FROM ods_reconcile_hist WHERE base_dt=DATE '2090-01-15' AND reconcile_item='GH690-LOAN_KRW' AND source_amount=1000000 AND target_amount=1000000 AND diff_amount=0 AND status='정상(MATCH)')
+AND NOT EXISTS (SELECT 1 FROM ods_dq_audit WHERE base_date=DATE '2090-01-15' AND account_no='GH690-MART-ACCOUNT') AS verified;

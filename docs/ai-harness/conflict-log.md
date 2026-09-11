@@ -1,8 +1,21 @@
+## 2026-09-11 — GH-690 resumed integration
+
+- Completed the pre-existing merge of main `6be62f91` as `20fc07c3`, then integrated fetched main `56c07971` (including merged #689 and #695) as `a936d82b`.
+- Five history files conflicted; reconstructed the three-way merge and preserved every nonempty line from both parents (10/10 parent-file checks PASS). A temporary faulty text merge was corrected before publication; no history loss remains.
+- Reapplied the preserved #690 work-in-progress stash without dropping it. Four record conflicts retain both versions, checked against both index stages (8/8 PASS). Three HTTP adapter/test conflicts were reconciled by the Service writer: preserve incoming financial draft/header checks and redirect rejection, plus #690 persisted-decimal/multiset comparison, phase-aware sanitized HTTP failures and retry recovery. Parent owns staging; independent reviewer confirmed the union and no main test was dropped. Final distinct affected Java suites passed:972 tests with zero failures/errors/skips; all10 real batch gates and same-parameter rechecks passed.
+- No unrelated primary-checkout changes, databases, volumes or images were removed. Final source conflict resolution and tests are recorded in the completion entry.
+
 ## 2026-09-11 — GH-653 task branch main synchronization (PR #689 resolution)
 
 - Scope: Parent Integrator resolved append-only log conflicts in agent-status.md, handoff.md, worklog.md, and CODEX_WORKLOG.md when integrating latest origin/main@6be62f91 into agent/653-business-runtime.
 - Decision: Retained both the Issue #653 all-13 runtime verification history and upstream GH-663, GH-664, GH-683, GH-668, GH-669 merge records. Production code in PR #689 had zero semantic conflicts. The independent review findings on HTTP Journal adapters (Closing 302 handling and Loan amount validation) are partitioned into new dedicated Issue #695 per user instruction.
 - Verification: git diff --check PASS (0 conflict markers), Node harness contract tests PASS.
+
+## 2026-09-11 — GH-690 main synchronization
+
+- Parent Integrator merged `origin/main@6be62f91` into `agent/690-business-batch-seeds` from prerequisite `4fc955d7`. Four leading history blocks conflicted: `agent-status.md`, `handoff.md`, `worklog.md`, `docs/history/CODEX_WORKLOG.md`.
+- Both complete sides are preserved, incoming records followed by historical #653 records; no implementation conflict or contributor record was discarded. Earlier #653 Draft/approval statements are historical: PR #689 is closed without merge, and #690 includes the required prerequisite code plus the Loan/Closing rejection repairs for renewed review against main.
+- Uncommitted #690 implementation files remain preserved. Shared Kernel/Master Data incoming changes require rebuilt JARs and affected tests before live batch verification. Parent owns this decision; Reviewer remains read-only.
 
 ## 2026-09-10 — GH-653 task branch main synchronization
 

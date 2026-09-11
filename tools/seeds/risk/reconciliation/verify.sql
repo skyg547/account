@@ -1,0 +1,2 @@
+SELECT EXISTS (SELECT 1 FROM reconciliation_units WHERE id=6900001 AND name='GH690 source-to-journal' AND is_active=TRUE AND reconciliation_type='SOURCE_GL' AND criteria_json::jsonb->>'targetAccountCode'='GH690-CASH' AND criteria_json::jsonb->>'targetSide'='DEBIT')
+AND EXISTS (SELECT 1 FROM recon_external_stage_record WHERE id=6900001 AND unit_id='6900001' AND stage_code='SOURCE' AND reconciliation_date=DATE '2090-01-15' AND product_code='GH690-CASH' AND currency_code='KRW' AND legal_entity_code='GH690' AND amount=1000000) AS verified;

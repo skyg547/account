@@ -141,18 +141,17 @@ public class BatchInfrastructureConfig {
      */
     @Bean
     public TaskExecutor allowanceTaskExecutor(
-            @Value("${spring.profiles.active:default}") String activeProfile) {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        
-        // [테스트 최적화] 테스트 환경에서는 스레드를 1개로 제한하여 컨텍스트 부하 및 메모리 크래시 방지
-        if ("test".equalsIgnoreCase(activeProfile)) {
-            executor.setCorePoolSize(1);
-            executor.setMaxPoolSize(1);
-        } else {
-            executor.setCorePoolSize(4);
-            executor.setMaxPoolSize(8);
+            @Value("${spring.profiles.active:default}") String activeProfile,
+            @Value("${account.ecl.batch.worker-threads:#{null}}") Integer workerThreads) {
+        if (workerThreads != null && workerThreads < 1) {
+            throw new IllegalArgumentException("account.ecl.batch.worker-threads must be positive");
         }
-        
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        // Preserve established throughput; the seed runner explicitly sets worker-threads=1.
+        // An explicit limit bounds both pool sizes, while the test profile remains single-threaded by default.
+        boolean testProfile = "test".equalsIgnoreCase(activeProfile);
+        executor.setCorePoolSize(workerThreads != null ? workerThreads : (testProfile ? 1 : 4));
+        executor.setMaxPoolSize(workerThreads != null ? workerThreads : (testProfile ? 1 : 8));
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("ALW-Worker-");
         executor.initialize();
@@ -255,4 +254,3 @@ public class BatchInfrastructureConfig {
         );
     }
 }
-

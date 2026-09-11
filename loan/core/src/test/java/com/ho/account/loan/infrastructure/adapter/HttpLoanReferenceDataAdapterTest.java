@@ -5,7 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
 import com.ho.account.loan.application.port.out.LoanJournalPort;
 import com.ho.account.masterdata.core.application.port.out.AccountSubjectPersistencePort;
@@ -34,6 +39,41 @@ class HttpLoanReferenceDataAdapterTest {
         var builder = RestClient.builder().baseUrl("http://reference.invalid");
         server = MockRestServiceServer.bindTo(builder).build();
         adapter = new HttpLoanReferenceDataAdapter(builder.build());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {302, 303, 307, 308})
+    void productionTransportRejectsRedirectInsteadOfAcceptingReference(int status) throws Exception {
+        HttpServer provider = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicInteger requests = new AtomicInteger();
+        AtomicInteger followed = new AtomicInteger();
+        provider.createContext("/", exchange -> {
+            requests.incrementAndGet();
+            if (exchange.getRequestURI().getPath().equals("/redirect-target")) {
+                followed.incrementAndGet();
+                byte[] body = ("{\"code\":\"131000\",\"name\":\"Loan receivable\"}").getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+            } else {
+                exchange.getResponseHeaders().set("Location", "/redirect-target");
+                exchange.sendResponseHeaders(status, -1);
+            }
+            exchange.close();
+        });
+        provider.start();
+        try {
+            var remote = new HttpLoanReferenceDataAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + provider.getAddress().getPort(),
+                    Duration.ofSeconds(2), Duration.ofSeconds(2));
+            // Use the production request factory: a mock response cannot reveal automatic redirects.
+            assertThatThrownBy(() -> remote.requireAccount("131000", DATE)).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("HTTP " + status).hasNoCause();
+            assertThat(requests.get()).isEqualTo(1);
+            assertThat(followed.get()).isZero();
+        } finally {
+            provider.stop(0);
+        }
     }
 
     @Test

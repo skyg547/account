@@ -18,3 +18,9 @@ spring:
   sql:
     init:
       mode: never
+
+account:
+  deposit:
+    local-adapters:
+      # Override the standalone default: dev jobs must use the configured remote ports.
+      enabled: false

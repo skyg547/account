@@ -1,0 +1,3 @@
+SELECT EXISTS (SELECT 1 FROM fixed_assets WHERE id=6900001 AND asset_code='GH690-ASSET' AND acquisition_cost=12000000 AND depreciation_amount_per_period=200000 AND ((current_book_value=12000000 AND accumulated_depreciation=0 AND last_depreciation_date IS NULL) OR (current_book_value=11800000 AND accumulated_depreciation=200000 AND last_depreciation_date=DATE '2090-01-15')))
+AND EXISTS (SELECT 1 FROM lease_contracts WHERE id=6900001 AND contract_no='GH690-LEASE' AND monthly_payment=1060000 AND payment_day=15)
+AND EXISTS (SELECT 1 FROM lease_payment_schedules WHERE id=6900001 AND lease_contract_id=6900001 AND payment_date=DATE '2090-01-15' AND principal_portion=1000000 AND interest_portion=60000 AND remaining_lease_liability=11000000) AS verified;

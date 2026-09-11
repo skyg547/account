@@ -1,0 +1,10 @@
+DELETE FROM allowance_exposure_snapshots WHERE base_date=DATE '2090-01-15' AND exposure_id='GH690-MART-ACCOUNT';
+DELETE FROM allowance_input_positions WHERE base_dt=DATE '2090-01-15' AND acc_no='GH690-MART-ACCOUNT';
+DELETE FROM ods_reconcile_hist WHERE base_dt=DATE '2090-01-15' AND reconcile_item='GH690-LOAN_KRW';
+DELETE FROM ods_dq_audit WHERE base_date=DATE '2090-01-15' AND account_no='GH690-MART-ACCOUNT';
+DELETE FROM ods_general_ledger WHERE base_dt=DATE '2090-01-15' AND gl_code='GH690-LOAN' AND branch_cd='GH690';
+DELETE FROM ods_balance_hist WHERE base_dt=DATE '2090-01-15' AND account_no='GH690-MART-ACCOUNT';
+DELETE FROM ods_acc_ledger WHERE acc_no='GH690-MART-ACCOUNT';
+DELETE FROM ods_customer_mst WHERE customer_code='GH690-MART-CUSTOMER';
+DELETE FROM ods_product_mst WHERE prod_cd='GH690-LOAN';
+DELETE FROM ods_acc_mst WHERE subj_cd='GH690-LOAN';

@@ -25,6 +25,8 @@ public interface LoanPersistencePort {
 
     Optional<Loan> findLoanForUpdate(Long id);
 
+    boolean hasPendingScheduledRepayment(Long loanId);
+
     boolean existsDisbursal(Long loanId);
 
     LoanDisbursal saveDisbursal(LoanDisbursal disbursal);

@@ -6,6 +6,8 @@ import com.ho.account.contracts.journal.JournalLineCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -51,7 +53,14 @@ public class HttpDepositJournalPostingAdapter implements JournalPostingPort {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("account.deposit.journal-base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                // Preserve the original status: a followed GET redirect would bypass non-2xx rejection.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(timeoutMillis(connectTimeout));
         factory.setReadTimeout(timeoutMillis(readTimeout));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(factory).build();

@@ -1,0 +1,2 @@
+SELECT EXISTS (SELECT 1 FROM loans WHERE id=6900001 AND loan_number='GH690-LOAN' AND principal_amount=12000000 AND interest_rate=0.06 AND currency_code='KRW' AND current_principal_balance IN (12000000,11000000) AND status='ACTIVE')
+AND EXISTS (SELECT 1 FROM eir_amortization_schedules WHERE id=6900001 AND loan_id=6900001 AND schedule_date=DATE '2090-01-15' AND beginning_balance=12000000 AND interest_income=60000 AND principal_repayment=1000000 AND ending_balance=11000000 AND cash_flow=1060000) AS verified;

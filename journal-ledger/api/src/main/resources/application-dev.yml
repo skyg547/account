@@ -26,7 +26,7 @@ spring:
 
 journal-ledger:
   master-data:
-    base-url: ${MASTER_DATA_BASE_URL:http://minimal-master-data:8080}
+    base-url: ${MASTER_DATA_BASE_URL:http://minimal-master-data:8082}
     connect-timeout: ${MASTER_DATA_CONNECT_TIMEOUT:2s}
     read-timeout: ${MASTER_DATA_READ_TIMEOUT:5s}
     local-adapter:

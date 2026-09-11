@@ -61,6 +61,20 @@ flowchart TD
 
 원천 집계는 `RECON_EXTERNAL_STAGE_RECORD`를 기준으로 `unitId`, `stageCode`, `reconciliationDate`, 상품, 통화, 법인 조건을 적용한다. 대상 집계는 `criteriaJson`의 `targetAccountCode`와 `targetSide`를 읽어 원장 상세 집계를 조회한다.
 
+### 개발서버의 실제 원장 조회
+
+원격 연동이 활성화되면 `HttpReconciliationJournalAdapter`가 기존 Journal API의 `GET /api/journals?startDate=...&endDate=...`를 호출한다. 이 API는 `JournalEntryService.getJournalEntriesByDate`에서 회계일자 범위를 조회하고 `JournalApiDto.View.lines`에 상세 라인을 함께 반환한다. 어댑터는 응답에서 양끝을 포함한 회계일자, `POSTED`, 대상 계정, 차대 구분을 적용한다. 아직 전기되지 않은 FX 평가·충당금 `DRAFT` 전표는 대사 금액에 포함하지 않는다.
+
+집계는 선택된 상세 라인 수와 기준통화 금액의 합계다. `BigDecimal`을 사용하며 `baseAmount`가 없는 과거 라인만 `amount`로 대체한다. 이는 기존 `JournalDetailRepository` 집계의 `SUM(COALESCE(baseAmount, amount))`와 같은 기준이다. 예를 들어 원천이 1건·1,000원이고 같은 회계일자의 전기된 대상 계정 차변이 1건·1,000원이면 실제 데이터로 대조한다. 고정된 0건·0원이나 임의의 차이 사유로 성공을 만들지 않는다.
+
+상세 대사도 같은 기간 응답에서 요청 계정의 전기된 라인을 추출해 ID, 회계일자, 전표번호, 금액, 부서·거래처·적요를 전달한다. 이 메서드는 차변과 대변을 모두 반환하는 기존 상세 조회 계약을 유지한다. 개별 ID 조회는 전표번호 경로와 구분되는 `/api/journals/by-id/{id}`를 사용한다.
+
+금액 조회에서 정상 응답 `[]`는 실제 0건이다. HTTP 오류(404 포함), 리다이렉트, 비어 있거나 잘못된 JSON, 필수 정보가 없는 전기된 라인, 중복 ID는 예외로 처리하여 대사를 중단한다. 리다이렉트는 따라가지 않으며 외부 응답 본문·헤더·원인 예외를 오류에 담지 않는다. 기존 일반 전표 목록/번호 조회의 빈 값·404 처리 계약은 유지하지만, 대사 금액 계산은 이 느슨한 목록 메서드를 사용하지 않는다.
+
+현재 기간 조회 API에는 페이지 구분이 없어 해당 기간의 전표와 라인을 한 번에 메모리에 읽는다. 전표마다 추가 HTTP 요청을 하지 않지만, 대용량 운영 처리에는 제공자 측 집계/페이지 조회와 일관된 스냅샷 계약이 필요하다. 개발서버에서는 합성 데이터와 하루 단위 범위로 검증한다. 조회와 대사 저장은 서로 다른 서비스 트랜잭션이므로 동일 시점의 분산 스냅샷까지 보장하지 않는다.
+
+`HttpReconciliationJournalFinancialQueryTest`는 실제 POSTED/날짜/계정/차대 필터, 큰 소수 금액과 기준금액 대체, 상세 매핑, 중복·누락 응답, HTTP 오류 및 실제 HTTP 리다이렉트 차단을 검증한다. 실행 명령은 `./gradlew :reconciliation:core:test :reconciliation:api:test :reconciliation:batch:test --max-workers=1 --no-daemon --console=plain`이며, 실기동 결과는 [업무 배치 개발서버 검증 가이드](../../docs/guides/business-batch-dev-verification.md)와 해당 실행 기록에서 확인한다.
+
 ## criteriaJson 주요 키
 
 | 키 | 용도 |

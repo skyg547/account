@@ -1,0 +1,7 @@
+# Asset and lease synthetic package
+
+DB: `asset-lease`. `assetDepreciationJob targetDate=2090-01-15` depreciates a 12,000,000 asset over 60 months by 200,000, leaving 11,800,000. `result.sql` requires exactly one month's accumulated depreciation and the requested date, including on repeated runs. The job persists with JDBC bulk updates and has no journal/history side effect.
+
+A synthetic lease contract and its 1,060,000 payment (60,000 interest + 1,000,000 principal) are packaged too; the fixed-asset job does not process lease payments. Schema source is the **PostgreSQL** V20 baseline (lease columns differ from older H2 V20). Rollback removes lease schedule/contract and the reserved asset only; it never resets identities or batch metadata.
+
+Manual rollback first checks both parent owners, scheduled/unpaid lease state and absence of lifecycle histories, recognized right-of-use assets and lease liabilities. A collision or later lifecycle activity raises an exception before any delete. The expected 200,000 depreciation-only batch output may be cleaned. The single atomic `DO` statement takes `SHARE ROW EXCLUSIVE` locks on inspected tables: stop writers first, set a bounded lock timeout and end the transaction promptly. Remote activity needs separate review. For the offline relational regression command and PostgreSQL verification limitation, see [accounting execution and rollback constraints](../../accounting/README.md#execution-and-rollback-constraints).

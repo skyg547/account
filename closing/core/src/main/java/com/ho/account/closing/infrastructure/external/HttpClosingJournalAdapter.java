@@ -31,7 +31,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Dev runtime adapter for the Journal Ledger HTTP contract.
- * ID/detail/aggregate queries remain unavailable until the provider exposes them.
+ * ID/detail queries preserve the financial content checked on deterministic closing reruns.
  * Financial writes are never retried: approval and posting are separate remote transactions.
  */
 @Component
@@ -71,7 +71,12 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
         };
         requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
         requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
-        this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(requestFactory).build();
+        this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(requestFactory)
+                .defaultStatusHandler(status -> !status.is2xxSuccessful(), (request, response) -> {
+                    // Keep only status: Location headers, URLs and response bodies may be sensitive.
+                    throw new RestClientResponseException("Journal Ledger returned a non-success status",
+                            response.getStatusCode().value(), "", null, null, null);
+                }).build();
     }
 
     @Override
@@ -161,12 +166,54 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
 
     @Override
     public JournalSummary getJournalSummary(Long journalEntryId) {
-        throw new UnsupportedOperationException(UNSUPPORTED_QUERY);
+        return toSummary(findById(journalEntryId));
     }
 
     @Override
     public List<JournalDetailSummary> getJournalDetails(Long journalEntryId) {
-        throw new UnsupportedOperationException(UNSUPPORTED_QUERY);
+        JournalViewResponse response = findById(journalEntryId);
+        if (response.lines() == null || response.lines().isEmpty()) {
+            throw new IllegalStateException("Journal Ledger detail lookup returned no journal lines");
+        }
+        return response.lines().stream().map(line -> toDetail(response, line)).toList();
+    }
+
+    private JournalViewResponse findById(Long journalEntryId) {
+        if (journalEntryId == null || journalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive");
+        }
+        try {
+            JournalViewResponse response = successful(restClient.get()
+                    .uri("/api/journals/by-id/{id}", journalEntryId).retrieve()).body(JournalViewResponse.class);
+            JournalSummary summary = toSummary(response);
+            if (!journalEntryId.equals(summary.getId())) {
+                throw new IllegalStateException("Journal Ledger lookup returned a different journal ID");
+            }
+            return response;
+        } catch (RestClientException e) {
+            throw remoteFailure("ID lookup", e);
+        }
+    }
+
+    private static JournalDetailSummary toDetail(JournalViewResponse header, JournalLineResponse line) {
+        if (line == null || line.id() == null || line.id() < 1 || isBlank(line.accountCode())
+                || !("DEBIT".equals(line.side()) || "CREDIT".equals(line.side()))
+                || line.amount() == null || line.baseAmount() == null) {
+            throw new IllegalStateException("Journal Ledger detail lookup returned an invalid journal line");
+        }
+        JournalDetailSummary detail = new JournalDetailSummary();
+        detail.setId(line.id());
+        detail.setSide(JournalSide.valueOf(line.side()));
+        detail.setAccountCode(line.accountCode());
+        detail.setAmount(line.amount());
+        detail.setBaseAmount(line.baseAmount());
+        detail.setDepartmentCode(line.departmentCode());
+        detail.setBusinessPartnerCode(line.businessPartnerCode());
+        detail.setDetailDescription(line.description());
+        detail.setAccountingDate(header.accountingDate());
+        detail.setSlipNo(header.slipNo());
+        detail.setHeaderDescription(header.description());
+        return detail;
     }
 
     @Override
@@ -208,10 +255,11 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
     }
 
     private static RestClient.ResponseSpec successful(RestClient.ResponseSpec response) {
-        // Keep the default 4xx/5xx handlers so slip lookup can still distinguish HTTP 404.
+        // Route redirects through the same operation-aware catch blocks as 4xx/5xx failures.
+        // Keep only the status: response bodies, headers and Location can expose sensitive data.
         return response.onStatus(status -> !status.is2xxSuccessful() && !status.isError(), (request, result) -> {
-            throw new IllegalStateException("Journal Ledger request failed (HTTP "
-                    + result.getStatusCode().value() + "); verify remote state before retrying");
+            throw new RestClientResponseException("Journal Ledger returned a non-success status",
+                    result.getStatusCode().value(), "", null, null, null);
         });
     }
 
@@ -255,6 +303,12 @@ public class HttpClosingJournalAdapter implements JournalPostingPort, JournalQue
     private record JournalViewResponse(
             Long id, String slipNo, LocalDate slipDate, LocalDate accountingDate,
             String description, String status, String entryType, String currencyCode,
-            String lineageSourceType, String lineageSourceId) {
+            String lineageSourceType, String lineageSourceId, List<JournalLineResponse> lines) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record JournalLineResponse(Long id, String side, String accountCode,
+            java.math.BigDecimal amount, java.math.BigDecimal baseAmount,
+            String departmentCode, String businessPartnerCode, String description) {
     }
 }

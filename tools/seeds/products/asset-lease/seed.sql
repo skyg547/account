@@ -1,0 +1,6 @@
+INSERT INTO fixed_assets (id,asset_code,asset_name,account_code,accumulated_account_code,expense_account_code,dept_code,acquisition_date,acquisition_cost,useful_life,depreciation_method,residual_value,accumulated_depreciation,current_book_value,depreciation_amount_per_period,status,created_at,updated_at)
+VALUES (6900001,'GH690-ASSET','GH690 synthetic equipment','GH690-ASSET','GH690-ACCDEPR','GH690-DEPR','GH690-DEPT',DATE '2090-01-01',12000000,60,'STRAIGHT_LINE',0,0,12000000,200000,'ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
+INSERT INTO lease_contracts (id,contract_no,contract_name,lessor_code,start_date,end_date,monthly_payment,payment_day,discount_rate,initial_right_of_use_asset_value,initial_lease_liability_value,status,dept_code,expense_account_code,ifrs16_applicable,short_term_lease,low_value_lease)
+VALUES (6900001,'GH690-LEASE','GH690 synthetic lease','GH690-VENDOR',DATE '2090-01-01',DATE '2090-12-31',1060000,15,0.06,12000000,12000000,'ACTIVE','GH690-DEPT','GH690-EXPENSE',TRUE,FALSE,FALSE) ON CONFLICT DO NOTHING;
+INSERT INTO lease_payment_schedules (id,lease_contract_id,payment_date,scheduled_payment_amount,interest_portion,principal_portion,remaining_lease_liability,status,created_at)
+VALUES (6900001,6900001,DATE '2090-01-15',1060000,60000,1000000,11000000,'SCHEDULED',CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;

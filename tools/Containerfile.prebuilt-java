@@ -1,0 +1,9 @@
+# Runtime-only packaging for a JAR already built and tested with one Gradle worker.
+# The build context must contain only app.jar; never send an input/credential file.
+FROM docker.io/library/eclipse-temurin:17-jre-alpine
+WORKDIR /app
+RUN addgroup -S app && adduser -S -G app app
+COPY --chown=app:app app.jar /app/app.jar
+USER app:app
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=65.0 -Djava.security.egd=file:/dev/./urandom"
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

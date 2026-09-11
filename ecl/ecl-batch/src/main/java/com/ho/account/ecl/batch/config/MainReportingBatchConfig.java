@@ -32,6 +32,16 @@ import java.util.ArrayList;
 @RequiredArgsConstructor
 public class MainReportingBatchConfig {
 
+    // Keep four partitions by default; low-resource runs explicitly select one.
+    @org.springframework.beans.factory.annotation.Value("${account.ecl.batch.grid-size:4}")
+    private int gridSize = 4;
+
+    private int configuredGridSize() {
+        if (gridSize < 1) {
+            throw new IllegalArgumentException("account.ecl.batch.grid-size must be positive");
+        }
+        return gridSize;
+    }
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
 
@@ -74,14 +84,14 @@ public class MainReportingBatchConfig {
      * 
      * 💡 [초보자를 위한 개념 설명]
      * 공식: ECL = PD(망할 확률) * EAD(망했을 때 빌린돈) * LGD(망했을 때 못받는 비율)
-     * 이 단계에서는 수백만 건의 계좌를 4개의 채널(Step)로 나누어 동시에 계산기를 두드립니다 (병렬 처리).
+     * 기본 4개의 채널(Step)로 나누며, 개발 검증은 grid-size=1로 순차 처리합니다.
      */
     @Bean
     public Step eclManagerStep() {
         return new StepBuilder("eclManagerStep", jobRepository)
                 .partitioner("eclWorkerStep", resultPartitioner) // ID 범위별로 구역 나누기
                 .step(eclWorkerStep())
-                .gridSize(4)
+                .gridSize(configuredGridSize())
                 .taskExecutor(allowanceTaskExecutor)       // 비동기 스레드 풀 사용
                 .build();
     }
@@ -106,4 +116,3 @@ public class MainReportingBatchConfig {
                 .build();
     }
 }
-

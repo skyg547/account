@@ -1,0 +1,4 @@
+INSERT INTO reconciliation_units (id,name,description,frequency,reconciliation_type,criteria_json,is_active,created_at,updated_at,audit_user)
+VALUES (6900001,'GH690 source-to-journal','GH690 synthetic exact match','DAILY','SOURCE_GL','{"sourceProductCode":"GH690-CASH","sourceCurrencyCode":"KRW","legalEntityCode":"GH690","targetAccountCode":"GH690-CASH","targetSide":"DEBIT"}',TRUE,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'GH690') ON CONFLICT DO NOTHING;
+INSERT INTO recon_external_stage_record (id,unit_id,stage_code,reconciliation_date,source_system_code,item_reference,product_code,currency_code,legal_entity_code,amount,create_date,update_date,audit_user)
+VALUES (6900001,'6900001','SOURCE',DATE '2090-01-15','GH690','GH690-SOURCE','GH690-CASH','KRW','GH690',1000000,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'GH690') ON CONFLICT DO NOTHING;

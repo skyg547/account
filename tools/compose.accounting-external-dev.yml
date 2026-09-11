@@ -80,7 +80,7 @@ services:
       # Bound aggregate connections across all 13 low-resource APIs.
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
-      MASTER_DATA_BASE_URL: "${MASTER_DATA_BASE_URL:-http://minimal-master-data:8080}"
+      MASTER_DATA_BASE_URL: "${MASTER_DATA_BASE_URL:-http://minimal-master-data:8082}"
       SPRING_KAFKA_LISTENER_AUTO_STARTUP: "false"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
@@ -125,7 +125,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       SERVER_PORT: "8080"
       CLOSING_MASTER_DATA_REMOTE_ENABLED: "true"
-      CLOSING_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      CLOSING_MASTER_DATA_BASE_URL: "http://minimal-master-data:8082"
       CLOSING_JOURNAL_LEDGER_BASE_URL: "http://journal-ledger-api:8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
       SPRING_CLOUD_CONFIG_ENABLED: "true"

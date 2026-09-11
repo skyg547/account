@@ -1,0 +1,3 @@
+SELECT (SELECT COUNT(*) FROM reconciliation_runs WHERE reconciliation_unit_id=6900001 AND reconciliation_date=DATE '2090-01-15' AND status='SUCCESS')=1
+AND EXISTS (SELECT 1 FROM reconciliation_runs WHERE reconciliation_unit_id=6900001 AND reconciliation_date=DATE '2090-01-15' AND status='SUCCESS' AND total_items_source=1 AND total_items_target=1 AND total_amount_source=1000000 AND total_amount_target=1000000 AND matched_items_count=1 AND matched_amount=1000000 AND unmatched_items_count=0 AND unmatched_amount=0 AND run_by='GH690')
+AND NOT EXISTS (SELECT 1 FROM reconciliation_differences d JOIN reconciliation_runs r ON r.id=d.reconciliation_run_id WHERE r.reconciliation_unit_id=6900001 AND r.reconciliation_date=DATE '2090-01-15') AS verified;

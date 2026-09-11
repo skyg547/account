@@ -139,17 +139,124 @@ class HttpClosingJournalAdapterTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("after approval");
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {301, 302, 303, 307, 308})
+    void redirectedApprovalNeverCallsPostingOrRetries(int status) {
+        server.expect(requestTo(BASE + "/api/journals/42/approve"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.valueOf(status))
+                        .header("Location", "https://sensitive-fixture.invalid/approval")
+                        .body("sensitive-fixture-detail"));
+
+        assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("approval").hasMessageContaining("HTTP " + status)
+                .hasMessageNotContaining("sensitive-fixture").hasNoCause();
+        // Any additional POST or retry is an unexpected request rejected by the mock server.
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {301, 302, 303, 307, 308})
+    void redirectedPostingReportsPartialProgressWithoutRetry(int status) {
+        server.expect(requestTo(BASE + "/api/journals/42/approve")).andRespond(withSuccess());
+        server.expect(requestTo(BASE + "/api/journals/42/post"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.valueOf(status))
+                        .header("Location", "https://sensitive-fixture.invalid/posting")
+                        .body("sensitive-fixture-detail"));
+
+        assertThatThrownBy(() -> adapter.approveAndPost(42L, "operator"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("after approval").hasMessageContaining("HTTP " + status)
+                .hasMessageNotContaining("sensitive-fixture").hasNoCause();
+    }
+
+    @Test
+    void redirectedQueryCannotBeAcceptedAsSuccessfulFinancialContent() {
+        server.expect(requestTo(BASE + "/api/journals/CLOSE-42"))
+                .andRespond(withStatus(HttpStatus.FOUND).body(VIEW).contentType(MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.findBySlipNo("CLOSE-42"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+    }
+
+    @Test
+    void actualHttpTransportDoesNotFollowGetRedirects() throws Exception {
+        var forwardedRequests = new java.util.concurrent.atomic.AtomicInteger();
+        var http = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        http.createContext("/api/journals/CLOSE-42", exchange -> {
+            exchange.getResponseHeaders().set("Location", "/redirected");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        http.createContext("/redirected", exchange -> {
+            forwardedRequests.incrementAndGet();
+            byte[] body = VIEW.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        http.start();
+        try {
+            var direct = new HttpClosingJournalAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + http.getAddress().getPort(), "2s", "2s");
+            assertThatThrownBy(() -> direct.findBySlipNo("CLOSE-42"))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+            assertThat(forwardedRequests.get()).isZero();
+        } finally {
+            http.stop(0);
+        }
+    }
+
     @Test
     void invalidInputsAndUnavailableQueriesFailWithoutRemoteCalls() {
         assertThatThrownBy(() -> adapter.getJournalSummaries(DATE.plusDays(1), DATE)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> adapter.findBySlipNo(" ")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> adapter.approveAndPost(0L, "operator")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> adapter.approveAndPost(42L, " ")).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> adapter.getJournalSummary(42L)).isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> adapter.getJournalDetails(42L)).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> adapter.getJournalSummary(0L)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.getJournalDetails(null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> adapter.getJournalDetailsByAccountCodes(DATE, DATE, List.of("11000"))).isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> adapter.getJournalDetailAggregate(DATE, DATE, JournalSide.DEBIT)).isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> adapter.getJournalDetailAggregateByAccount(DATE, DATE, JournalSide.DEBIT, "11000")).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void idAndDetailsPreserveClosingRerunContentWithoutDecimalLoss() {
+        String view = VIEW.replace("\"details\":[]", """
+                "lines":[{"id":101,"side":"CREDIT","accountCode":"21000",
+                "amount":123456789012345.67,"baseAmount":123456789012345.67,
+                "departmentCode":"D1","businessPartnerCode":"BP1","description":"provision"}]
+                """);
+        server.expect(requestTo(BASE + "/api/journals/by-id/42"))
+                .andRespond(withSuccess(view, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/journals/by-id/42"))
+                .andRespond(withSuccess(view, MediaType.APPLICATION_JSON));
+        assertThat(adapter.getJournalSummary(42L).getLineageSourceId()).isEqualTo("42");
+        var line = adapter.getJournalDetails(42L).get(0);
+        assertThat(line.getAmount()).isEqualByComparingTo("123456789012345.67");
+        assertThat(line.getBaseAmount()).isEqualByComparingTo("123456789012345.67");
+        assertThat(line.getSide()).isEqualTo(JournalSide.CREDIT);
+        assertThat(line.getDepartmentCode()).isEqualTo("D1");
+        assertThat(line.getBusinessPartnerCode()).isEqualTo("BP1");
+        assertThat(line.getDetailDescription()).isEqualTo("provision");
+        assertThat(line.getSlipNo()).isEqualTo("CLOSE-42");
+    }
+
+    @Test
+    void idLookupRejectsWrongIdMissingLinesAndProviderFailure() {
+        server.expect(requestTo(BASE + "/api/journals/by-id/43"))
+                .andRespond(withSuccess(VIEW, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/journals/by-id/42"))
+                .andRespond(withSuccess(VIEW, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/journals/by-id/42"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR).body("sensitive-fixture-detail"));
+        assertThatThrownBy(() -> adapter.getJournalSummary(43L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different journal ID");
+        assertThatThrownBy(() -> adapter.getJournalDetails(42L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("no journal lines");
+        assertThatThrownBy(() -> adapter.getJournalDetails(42L))
+                .isInstanceOf(IllegalStateException.class).hasNoCause()
+                .hasMessageNotContaining("sensitive-fixture-detail");
     }
 
     @ParameterizedTest

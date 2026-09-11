@@ -5,59 +5,44 @@ import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.application.service.FxValuationService;
 import com.ho.account.closing.infrastructure.local.ClosingLocalExternalPortConfiguration;
-import com.ho.account.masterdata.core.infrastructure.adapter.MonolithExchangeRateQueryAdapter;
-import com.ho.account.masterdata.core.infrastructure.adapter.MonolithFiscalPeriodControlAdapter;
-import com.ho.account.masterdata.core.infrastructure.adapter.MonolithMasterDataQueryAdapter;
-import com.ho.account.masterdata.core.infrastructure.persistence.JpaAccountSubjectPersistenceAdapter;
-import com.ho.account.masterdata.core.infrastructure.persistence.JpaBusinessPartnerPersistenceAdapter;
-import com.ho.account.masterdata.core.infrastructure.persistence.JpaDepartmentPersistenceAdapter;
-import com.ho.account.masterdata.core.infrastructure.persistence.JpaFiscalPeriodPersistenceAdapter;
-import com.ho.account.masterdata.core.infrastructure.persistence.mapper.AccountSubjectMapper;
-import com.ho.account.masterdata.core.infrastructure.persistence.mapper.DepartmentMapper;
-import com.ho.account.masterdata.core.infrastructure.persistence.mapper.FiscalPeriodMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
+import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
+import com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapter;
+import com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapter;
+import com.ho.account.closing.batch.adapter.out.MasterDataFxExchangeRateLookupAdapter;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.context.ConfigurableApplicationContext;
 
-@SpringBootApplication(scanBasePackages = {
-    "com.ho.account.closing.batch",
-    "com.ho.account.journalledger.application.service",
-    "com.ho.account.journalledger.infrastructure",
-    "com.ho.account.common.adapter"
+@SpringBootApplication
+@ComponentScan(basePackages = "com.ho.account.closing.batch", excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+        @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
+                JournalFxValuationBalanceSource.class, GlAllowanceBalanceLookupAdapter.class,
+                JdbcEclAllowanceResultAdapter.class, MasterDataFxExchangeRateLookupAdapter.class
+        })
 })
-@EntityScan(basePackages = {
-    "com.ho.account.closing.domain",
-    "com.ho.account.journalledger.domain",
-    "com.ho.account.masterdata.core.domain",
-    "com.ho.account.masterdata.core.infrastructure.persistence"
-})
-@EnableJpaRepositories(basePackages = {
-    "com.ho.account.journalledger.domain",
-    "com.ho.account.journalledger.adapter.out.persistence",
-    "com.ho.account.masterdata.core.infrastructure.persistence.repository"
-})
+@EntityScan(basePackages = "com.ho.account.closing.domain")
 @EnableConfigurationProperties(ClosingAccountingProperties.class)
-@Import({
-    FxValuationService.class,
-    FxValuationPipeline.class,
-    EclProvisionService.class,
-    ClosingLocalExternalPortConfiguration.class,
-    MonolithExchangeRateQueryAdapter.class,
-    MonolithFiscalPeriodControlAdapter.class,
-    MonolithMasterDataQueryAdapter.class,
-    JpaFiscalPeriodPersistenceAdapter.class,
-    FiscalPeriodMapper.class,
-    JpaAccountSubjectPersistenceAdapter.class,
-    AccountSubjectMapper.class,
-    JpaBusinessPartnerPersistenceAdapter.class,
-    JpaDepartmentPersistenceAdapter.class,
-    DepartmentMapper.class
-})
+@Import({FxValuationService.class, FxValuationPipeline.class, EclProvisionService.class,
+        ClosingLocalExternalPortConfiguration.class})
 public class ClosingBatchApplication {
     public static void main(String[] args) {
-        SpringApplication.run(ClosingBatchApplication.class, args);
+        SpringApplication application = new SpringApplication(ClosingBatchApplication.class);
+        application.setWebApplicationType(WebApplicationType.NONE);
+        ConfigurableApplicationContext context = application.run(args);
+        // The Boot runner has completed synchronously; propagate Batch failures and close pools.
+        if (context.getEnvironment().getProperty("spring.batch.job.enabled", Boolean.class, true)
+                && !context.getEnvironment().getProperty("spring.batch.job.name", "").isBlank()) {
+            System.exit(SpringApplication.exit(context));
+        }
     }
 }

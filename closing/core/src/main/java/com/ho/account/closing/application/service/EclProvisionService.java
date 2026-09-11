@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -80,7 +81,11 @@ public class EclProvisionService {
                 group.key().allowanceAccountCode(),
                 group.key().currencyCode(),
                 closingDate);
-        BigDecimal difference = group.targetAllowanceAmount().subtract(existingAllowance);
+        // ECL model precision is retained until the posting group is complete. Journal amounts
+        // are NUMERIC(19,2), as in FX valuation: round exactly once before constructing the
+        // deterministic request so a persisted draft can be compared unchanged on restart.
+        BigDecimal postingTarget = group.targetAllowanceAmount().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal difference = postingTarget.subtract(existingAllowance.setScale(2, RoundingMode.UNNECESSARY));
 
         if (difference.signum() == 0) {
             log.info("ECL provision target equals existing allowance. No journal required. group={}",

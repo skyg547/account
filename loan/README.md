@@ -20,6 +20,9 @@
    - `EIRAmortizationEngine`: IFRS 9 기준 수수료 수익(Inflow)과 부대비용(Outflow)을 순 이연 금액(Net Deferred Amount)으로 산출하고, 유효이자율(EIR) 방식 매월 부대손익 상각 스케줄을 정밀 계산하여 마지막 회차 단수 차이를 자동 보정합니다.
 5. 조건 변경: 원래 약정 원금은 보존하고 현재 미상환 잔액·만기·EIR을 변경하며 `RecalculationRun`과 `LoanEvent`를 남깁니다.
 6. 이자 발생 Batch: 필수 `accrualDate`에 해당하는 EIR 스케줄을 읽고 성공 건은 건너뛰며 실패 건은 재시도합니다.
+7. 약정 상환 Batch: `loanScheduledRepaymentJob`은 필수 식별 파라미터 `repaymentDate`(`YYYY-MM-DD`)의 스케줄을 처리합니다. 같은 날짜의 이자 발생 성공을 확인한 뒤 현금 수취 전표를 전기하고 현재 원금·누적 원리금 상환액·전표 계보를 저장합니다. 이자가 0이면 이자 발생 선행 조건을 생략합니다.
+
+상환은 `SCHEDULED_REPAYMENT_PENDING` 예약을 별도 트랜잭션에 먼저 저장합니다. 완료된 동일 대출·날짜는 core에서 건너뛰지만, 미확정 예약은 자동 재전기하지 않고 배치를 실패시킵니다. 담당자가 원격 전표와 로컬 잔액을 대사한 뒤 복구해야 합니다. 자세한 [상환 흐름과 재시작 조건](docs/process-flow.md#약정-상환-batch)을 확인하세요.
 
 `DEFAULT`와 `RECOVERY`는 재계산 사유로 억지 변환하지 않고 상태 이벤트로 처리합니다. 중도상환·조건 변경·리스케줄만 EIR 재계산 흐름을 탑니다.
 
@@ -54,6 +57,8 @@ account.loan.accounting:
 ```
 
 상세 로컬 실행 명령은 [local-run.md](docs/local-run.md)를 참고합니다. 로컬 API 예시는 8087을 쓰며, 전체 루트 Compose에서는 Governance와의 충돌을 피하려고 Loan을 8088로 노출합니다. `loan/Dockerfile`은 프로젝트 기준 Java 17과 `:loan:api:bootJar`를 사용합니다.
+
+개발서버 합성 데이터 주입, `loan-interest` → `loan-repayment` 순차 실행과 결과 확인은 [업무 배치 개발 검증 가이드](../docs/guides/business-batch-dev-verification.md)를 따릅니다. 이 문서의 동작 설명은 실기동 검증 완료를 의미하지 않습니다.
 
 ## 남은 운영 리스크
 

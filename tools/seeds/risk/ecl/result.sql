@@ -1,0 +1,4 @@
+-- 1,100,000 EAD * .45 LGD * .01 PD * (0.8*.2+1*.6+1.3*.2) / 1.05.
+SELECT (SELECT COUNT(*) FROM allowance_ecl_results r JOIN cr_accounts a ON a.id=r.account_id WHERE r.base_date=DATE '2090-01-15' AND a.account_no='GH690-ECL-ACCOUNT')=1
+AND EXISTS (SELECT 1 FROM allowance_ecl_results r JOIN cr_accounts a ON a.id=r.account_id WHERE r.base_date=DATE '2090-01-15' AND a.account_no='GH690-ECL-ACCOUNT' AND r.status='COMPLETED' AND r.staging='STAGE1' AND r.ead=1100000 AND r.applied_ccf=0.5 AND r.lgd=0.45 AND r.weighted_ecl=4808.5714)
+AND EXISTS (SELECT 1 FROM allowance_summary WHERE base_date=DATE '2090-01-15' AND run_id='GH690' AND model_version='GH690' AND legal_entity_code='GH690' AND exposure_account_code='GH690-LOAN' AND allowance_account_code='GH690-ALLOWANCE' AND source_exposure_amount=1100000 AND target_allowance_amount=4808.5714 AND stage1_allowance_amount=4808.5714 AND stage2_allowance_amount=0 AND stage3_allowance_amount=0) AS verified;

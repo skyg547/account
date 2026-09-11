@@ -21,10 +21,15 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,7 +68,14 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("reconciliation.journal-ledger.base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
+                super.prepareConnection(connection, method);
+                // A redirect must not become an apparently successful financial read from another host.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
         requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
         this.restClient = builder
@@ -82,20 +94,20 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
             throw new IllegalArgumentException("JournalEntryCommand must not be null");
         }
         try {
-            JournalPostingResult result = restClient.post()
+            JournalPostingResult result = successful(restClient.post()
                     .uri("/api/v1/journals/posting")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(command)
-                    .retrieve()
+                    .retrieve())
                     .body(JournalPostingResult.class);
             if (result == null) {
                 throw new IllegalStateException("Remote journal posting returned empty response body");
             }
             return result;
         } catch (RestClientResponseException e) {
-            throw new IllegalStateException("Remote journal posting failed with status " + e.getStatusCode().value(), e);
+            throw new IllegalStateException("Remote journal posting failed with status " + e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new IllegalStateException("Remote journal posting failed", e);
+            throw new IllegalStateException("Remote journal posting failed");
         }
     }
 
@@ -106,21 +118,21 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
         }
         String effectiveActor = (actor == null || actor.isBlank()) ? "reconciliation" : actor.trim();
         try {
-            restClient.post()
+            successful(restClient.post()
                     .uri("/api/journals/{id}/approve", journalEntryId)
                     .header("X-User-ID", effectiveActor)
-                    .retrieve()
+                    .retrieve())
                     .toBodilessEntity();
 
-            restClient.post()
+            successful(restClient.post()
                     .uri("/api/journals/{id}/post", journalEntryId)
                     .header("X-User-ID", effectiveActor)
-                    .retrieve()
+                    .retrieve())
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
-            throw new IllegalStateException("Remote journal approve/post failed with status " + e.getStatusCode().value(), e);
+            throw new IllegalStateException("Remote journal approve/post failed with status " + e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new IllegalStateException("Remote journal approve/post failed", e);
+            throw new IllegalStateException("Remote journal approve/post failed");
         }
     }
 
@@ -130,9 +142,9 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
             return List.of();
         }
         try {
-            JournalViewResponse[] responses = restClient.get()
+            JournalViewResponse[] responses = successful(restClient.get()
                     .uri("/api/journals?startDate={startDate}&endDate={endDate}", startDate, endDate)
-                    .retrieve()
+                    .retrieve())
                     .body(JournalViewResponse[].class);
             if (responses == null || responses.length == 0) {
                 return List.of();
@@ -144,9 +156,9 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return List.of();
             }
-            throw new IllegalStateException("Remote journal summaries lookup failed with status " + e.getStatusCode().value(), e);
+            throw new IllegalStateException("Remote journal summaries lookup failed with status " + e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new IllegalStateException("Remote journal summaries lookup failed", e);
+            throw new IllegalStateException("Remote journal summaries lookup failed");
         }
     }
 
@@ -155,7 +167,12 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
         if (journalEntryId == null) {
             return null;
         }
-        return fetchJournal("/api/journals/{id}", journalEntryId).orElse(null);
+        if (journalEntryId < 1) throw new IllegalArgumentException("journalEntryId must be positive");
+        Optional<JournalSummary> result = fetchJournal("/api/journals/by-id/{id}", journalEntryId);
+        if (result.isPresent() && !journalEntryId.equals(result.get().getId())) {
+            throw invalidFinancialResponse();
+        }
+        return result.orElse(null);
     }
 
     @Override
@@ -168,48 +185,155 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
 
     @Override
     public List<JournalDetailSummary> getJournalDetails(Long journalEntryId) {
-        return List.of();
+        if (journalEntryId == null || journalEntryId < 1) {
+            throw new IllegalArgumentException("journalEntryId must be positive");
+        }
+        try {
+            JournalViewResponse entry = successful(restClient.get()
+                    .uri("/api/journals/by-id/{id}", journalEntryId).retrieve()).body(JournalViewResponse.class);
+            validateHeader(entry);
+            if (!journalEntryId.equals(entry.id())) throw invalidFinancialResponse();
+            return details(entry);
+        } catch (RestClientException error) {
+            throw financialReadFailure(error);
+        }
     }
 
     @Override
     public List<JournalDetailSummary> getJournalDetailsByAccountCodes(
-            LocalDate startDate,
-            LocalDate endDate,
-            List<String> accountCodes) {
-        return List.of();
+            LocalDate startDate, LocalDate endDate, List<String> accountCodes) {
+        validateRange(startDate, endDate);
+        // Match the local port contract: no requested accounts means no item-level selection.
+        if (accountCodes == null || accountCodes.isEmpty()) return List.of();
+        if (accountCodes.stream().anyMatch(code -> code == null || code.isBlank())) {
+            throw new IllegalArgumentException("accountCodes must contain nonblank account codes");
+        }
+        Set<String> requested = new HashSet<>(accountCodes);
+        return postedDetails(startDate, endDate).stream()
+                .filter(line -> requested.contains(line.getAccountCode())).toList();
     }
 
     @Override
     public JournalDetailAggregateSummary getJournalDetailAggregate(
-            LocalDate startDate,
-            LocalDate endDate,
-            JournalSide side) {
-        return new JournalDetailAggregateSummary(0L, BigDecimal.ZERO);
+            LocalDate startDate, LocalDate endDate, JournalSide side) {
+        return getJournalDetailAggregateByAccount(startDate, endDate, side, null);
     }
 
     @Override
     public JournalDetailAggregateSummary getJournalDetailAggregateByAccount(
-            LocalDate startDate,
-            LocalDate endDate,
-            JournalSide side,
-            String accountCode) {
-        return new JournalDetailAggregateSummary(0L, BigDecimal.ZERO);
+            LocalDate startDate, LocalDate endDate, JournalSide side, String accountCode) {
+        Objects.requireNonNull(side, "side must not be null");
+        long count = 0;
+        BigDecimal amount = BigDecimal.ZERO;
+        for (JournalDetailSummary line : postedDetails(startDate, endDate)) {
+            if (line.getSide() == side && (accountCode == null || accountCode.equals(line.getAccountCode()))) {
+                count++;
+                // Same accounting measure as the provider's local aggregate SQL COALESCE(baseAmount, amount).
+                amount = amount.add(line.getBaseAmount() == null ? line.getAmount() : line.getBaseAmount());
+            }
+        }
+        return new JournalDetailAggregateSummary(count, amount);
+    }
+
+    private List<JournalDetailSummary> postedDetails(LocalDate startDate, LocalDate endDate) {
+        validateRange(startDate, endDate);
+        try {
+            // The existing API returns headers and lines together: avoid one remote call per journal.
+            JournalViewResponse[] entries = successful(restClient.get()
+                    .uri("/api/journals?startDate={startDate}&endDate={endDate}", startDate, endDate)
+                    .retrieve()).body(JournalViewResponse[].class);
+            if (entries == null) throw invalidFinancialResponse();
+            List<JournalDetailSummary> result = new ArrayList<>();
+            Set<Long> journalIds = new HashSet<>();
+            Set<Long> lineIds = new HashSet<>();
+            for (JournalViewResponse entry : entries) {
+                validateHeader(entry);
+                if (!journalIds.add(entry.id())) throw invalidFinancialResponse();
+                if (!"POSTED".equals(entry.status()) || entry.accountingDate().isBefore(startDate)
+                        || entry.accountingDate().isAfter(endDate)) continue;
+                for (JournalDetailSummary line : details(entry)) {
+                    if (!lineIds.add(line.getId())) throw invalidFinancialResponse();
+                    result.add(line);
+                }
+            }
+            return List.copyOf(result);
+        } catch (RestClientException error) {
+            // A failed/malformed response is not a zero balance. Never conceal it as successful matching.
+            throw financialReadFailure(error);
+        }
+    }
+
+    private static void validateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("A valid inclusive accounting date range is required");
+        }
+    }
+
+    private static void validateHeader(JournalViewResponse entry) {
+        if (entry == null || entry.id() == null || entry.id() < 1 || entry.slipNo() == null
+                || entry.slipNo().isBlank() || entry.accountingDate() == null || entry.status() == null
+                || !List.of("DRAFT", "REQUESTED", "APPROVED", "POSTED", "REJECTED", "REVERSED").contains(entry.status())) {
+            throw invalidFinancialResponse();
+        }
+    }
+
+    private static List<JournalDetailSummary> details(JournalViewResponse entry) {
+        if (entry.lines() == null || entry.lines().isEmpty()) throw invalidFinancialResponse();
+        Set<Long> identities = new HashSet<>();
+        return entry.lines().stream().map(line -> {
+            if (line == null || line.id() == null || line.id() < 1 || !identities.add(line.id())
+                    || line.accountCode() == null || line.accountCode().isBlank()
+                    || !("DEBIT".equals(line.side()) || "CREDIT".equals(line.side())) || line.amount() == null) {
+                throw invalidFinancialResponse();
+            }
+            JournalDetailSummary detail = new JournalDetailSummary();
+            detail.setId(line.id());
+            detail.setSide(JournalSide.valueOf(line.side()));
+            detail.setAccountCode(line.accountCode());
+            detail.setAmount(line.amount());
+            detail.setBaseAmount(line.baseAmount());
+            detail.setDepartmentCode(line.departmentCode());
+            detail.setBusinessPartnerCode(line.businessPartnerCode());
+            detail.setDetailDescription(line.description());
+            detail.setAccountingDate(entry.accountingDate());
+            detail.setSlipNo(entry.slipNo());
+            detail.setHeaderDescription(entry.description());
+            return detail;
+        }).toList();
+    }
+
+    private static RestClient.ResponseSpec successful(RestClient.ResponseSpec response) {
+        return response.onStatus(status -> !status.is2xxSuccessful(), (request, result) -> {
+            throw new RestClientResponseException("Remote journal returned a non-success status",
+                    result.getStatusCode().value(), "", null, null, null);
+        });
+    }
+
+    private static IllegalStateException invalidFinancialResponse() {
+        return new IllegalStateException("Remote journal financial lookup returned invalid or incomplete data");
+    }
+
+    private static IllegalStateException financialReadFailure(RestClientException error) {
+        String status = error instanceof RestClientResponseException response
+                ? " (HTTP " + response.getStatusCode().value() + ")" : "";
+        // Omit cause/body/headers: transport diagnostics can contain credentials or provider URLs.
+        return new IllegalStateException("Remote journal financial lookup failed" + status);
     }
 
     private Optional<JournalSummary> fetchJournal(String path, Object uriVariable) {
         try {
-            JournalViewResponse response = restClient.get()
+            JournalViewResponse response = successful(restClient.get()
                     .uri(path, uriVariable)
-                    .retrieve()
+                    .retrieve())
                     .body(JournalViewResponse.class);
             return Optional.ofNullable(response).map(JournalViewResponse::toJournalSummary);
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
             }
-            throw new IllegalStateException("Remote journal lookup failed with status " + e.getStatusCode().value(), e);
+            throw new IllegalStateException("Remote journal lookup failed with status " + e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new IllegalStateException("Remote journal lookup failed", e);
+            throw new IllegalStateException("Remote journal lookup failed");
         }
     }
 
@@ -246,7 +370,8 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
             String entryType,
             String currencyCode,
             String lineageSourceType,
-            String lineageSourceId) {
+            String lineageSourceId,
+            List<JournalLineResponse> lines) {
 
         JournalSummary toJournalSummary() {
             JournalSummary summary = new JournalSummary();
@@ -263,4 +388,10 @@ public class HttpReconciliationJournalAdapter implements JournalQueryPort, Journ
             return summary;
         }
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record JournalLineResponse(Long id, String side, String accountCode, BigDecimal amount,
+            BigDecimal baseAmount, String departmentCode, String businessPartnerCode, String description) {
+    }
+
 }

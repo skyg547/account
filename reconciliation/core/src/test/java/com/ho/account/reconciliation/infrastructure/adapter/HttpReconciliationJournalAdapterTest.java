@@ -211,11 +211,11 @@ class HttpReconciliationJournalAdapterTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpReconciliationJournalAdapter adapter = new HttpReconciliationJournalAdapter(builder.build());
 
-        server.expect(requestTo("http://journal-ledger.test/api/journals/101"))
+        server.expect(requestTo("http://journal-ledger.test/api/journals/by-id/101"))
                 .andRespond(withSuccess("""
                         {"id":101,"slipNo":"SLIP-101","status":"POSTED"}
                         """, MediaType.APPLICATION_JSON));
-        server.expect(requestTo("http://journal-ledger.test/api/journals/999"))
+        server.expect(requestTo("http://journal-ledger.test/api/journals/by-id/999"))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
         server.expect(requestTo("http://journal-ledger.test/api/journals/SLIP-101"))
                 .andRespond(withSuccess("""
@@ -246,7 +246,7 @@ class HttpReconciliationJournalAdapterTest {
     @Test
     void failsClosedWithinConfiguredReadTimeout() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/journals/101", exchange -> {
+        server.createContext("/api/journals/by-id/101", exchange -> {
             try {
                 Thread.sleep(500);
                 byte[] body = "{\"id\":101}".getBytes(StandardCharsets.UTF_8);

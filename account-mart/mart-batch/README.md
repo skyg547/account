@@ -41,6 +41,8 @@ IntelliJ에서는 `AllowanceMartBatchApplication`을 실행 클래스로 선택�
 
 CLI 인자에 `spring.batch.job.name`이 있으면 웹 서버를 띄우지 않고 배치 실행 후 종료합니다. 포트 충돌 없이 Job만 확인하고 싶을 때 이 방식을 사용합니다.
 
+`spring.batch.job.enabled=true`이면 Spring Boot 실행기만 잡을 실행합니다. 개발 검증은 `baseDate=2090-01-15 run.id=6900001,java.lang.Long`을 전달해 동일한 식별 파라미터로 재시작하며 `time`을 추가하지 않습니다. 기본 설정의 `enabled=false`에서는 이름을 지정한 경우 기존 `MartBatchJobRunner`가 `time`을 추가하는 실행 방식을 유지합니다.
+
 ## 대용량 처리
 
 - DQ와 CDM 적재는 chunk 기반으로 처리합니다.
