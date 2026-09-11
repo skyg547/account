@@ -187,7 +187,7 @@ For every issue loop, update:
 - `docs/ai-harness/agent-status.md`
 - `docs/ai-harness/handoff.md`
 - `docs/ai-harness/conflict-log.md` when conflicts occur
-- `CODEX_WORKLOG.md` when Codex implements or verifies changes
+- `docs/history/CODEX_WORKLOG.md` when Codex implements or verifies changes
 
 ## Issue / Branch / Worktree / PR Traceability Model
 

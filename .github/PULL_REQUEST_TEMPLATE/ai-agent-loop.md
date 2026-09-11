@@ -26,7 +26,7 @@ Use `Fixes #` only when this PR should close the issue after merge.
 - [ ] `docs/ai-harness/agent-status.md` updated
 - [ ] `docs/ai-harness/handoff.md` updated
 - [ ] `docs/ai-harness/conflict-log.md` updated, or no conflicts occurred
-- [ ] `CODEX_WORKLOG.md` updated when Codex implemented or verified the change
+- [ ] `docs/history/CODEX_WORKLOG.md` updated when Codex implemented or verified the change
 
 ## Verification
 

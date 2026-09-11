@@ -35,7 +35,7 @@ Let only the parent Integrator update shared records:
 - `docs/ai-harness/handoff.md`
 - `docs/ai-harness/conflict-log.md` when conflicts occurred
 - `docs/ai-harness/integration-log.md` after integration
-- `CODEX_WORKLOG.md` for Codex implementation or verification
+- `docs/history/CODEX_WORKLOG.md` for Codex implementation or verification
 
 Include Issue, branch, worktree, PR, changed files, impact, commands/results, rollback, risks, and next owner. Keep `docs/WORKLOG.md` for durable project-level milestones rather than every subagent action.
 

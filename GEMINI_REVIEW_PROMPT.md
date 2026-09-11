@@ -804,7 +804,8 @@ Notes:
 - staged/unstaged/untracked를 구별하고 민감/불명확 경로를 제외한다. 범위가 없거나 비어 있거나 불명확하면 내용은 읽지 않고 부모에게 확인한다.
 - 공백 검사도 본문 출력 가능성이 있으므로 동일 게이트와 상태별 exact 경로 제한을 적용한다. 경로 없는 전체 검사 fallback은 금지한다.
 - 변경 대상 모듈 문서는 현재 승인된 정확 파일만 읽는다. 과거 목록이 범위를 늘리지 않는다.
-- `docs/WORKLOG.md`, `CODEX_WORKLOG.md`, `MODULE_REVIEW_2026-05-06.md`의 과거 참조도 현재 적용 규칙/명시적 읽기 승인에 해당하는 정확 파일만 확인한다.
+- `docs/WORKLOG.md`, `docs/history/CODEX_WORKLOG.md`, `docs/history/MODULE_REVIEW_2026-05-06.md`의 과거 참조도 현재 적용 규칙/명시적 읽기 승인에 해당하는 정확 파일만 확인한다.
+- 과거 목록의 `docs/GEMINI.md`, `docs/GEMINI_SKILL.md`는 현재 `docs/history/GEMINI.md`, `docs/history/GEMINI_SKILL.md`에 있다. 현재 적용 규칙/명시적 읽기 승인을 통과한 정확 파일만 확인한다.
 - Findings는 요약보다 먼저 작성한다.
 - 각 Finding은 파일/라인 근거를 포함한다.
 - Gemini는 코드를 수정하지 않는다.

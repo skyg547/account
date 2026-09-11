@@ -26,7 +26,7 @@ Only the parent Integrator updates:
 - `docs/ai-harness/conflict-log.md`
 - `docs/ai-harness/integration-log.md`
 - `docs/ai-harness/handoff.md`
-- `CODEX_WORKLOG.md`
+- `docs/history/CODEX_WORKLOG.md`
 - `docs/WORKLOG.md` for durable project milestones
 
 ## Boundary Rules

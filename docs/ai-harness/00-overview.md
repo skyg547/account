@@ -31,9 +31,9 @@ This harness defines how AI agents work safely in the account project. The proje
 - `GEMINI.md`: Gemini independent review role.
 - `CLAUDE.md`: Claude role guidance.
 - `.clinerules`: legacy persona guidance; common safety and architecture rules in `AGENTS.md` take precedence.
-- `SKILL.md`: compatibility pointer to the discoverable repository skills.
+- `.agents/skills/<skill-name>/SKILL.md`: discoverable repository skill instructions.
 - `docs/WORKLOG.md`: durable project milestones.
-- `CODEX_WORKLOG.md`, `CLAUDE_WORKLOG.md`: agent-specific history.
+- `docs/history/CODEX_WORKLOG.md`, `CLAUDE_WORKLOG.md`: agent-specific history.
 
 ## Harness Documents
 
