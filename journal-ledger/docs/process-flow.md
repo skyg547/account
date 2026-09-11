@@ -12,8 +12,11 @@ flowchart LR
     DRAFT --> APPROVE[APPROVED]
     APPROVE --> POST[PostingService]
     POST --> SNAPSHOT[GeneralLedger immutable snapshot]
-    SNAPSHOT --> GL[GL Entry / Balance]
-    SNAPSHOT --> SL[SL Entry / Balance]
+    SNAPSHOT --> PERIOD{회계기간 OPEN 확인}
+    PERIOD -->|성공| POSTED[POSTED 전환 / 전표 저장]
+    POSTED --> GL[GL Entry / Balance]
+    POSTED --> SL[SL Entry / Balance]
+    PERIOD -->|마감 / 조회 불가| REJECT[전기 거부 / 쓰기 없음]
     POST --> UNSETTLED[미결 항목 등록]
     UNSETTLED --> SETTLE[수금·지급 반제]
 ```
@@ -24,7 +27,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 작성 | `DRAFT` | 라인 금액, 차대변, 처리자, 원천 추적 | `journal_entries`, `journal_details` |
 | 승인 | `APPROVED` | 승인 가능한 상태와 권한 | 승인 이력과 처리자 |
-| 전기 | `POSTED` | 결산 잠금, 차대일치, 중복 전기 | GL/SL 엔트리와 잔액 |
+| 전기 | `POSTED` | 승인·차대일치·상세 ID 검증 후 회계기간 재확인 | 전표 상태, GL/SL 엔트리와 잔액 |
 
 재무 잔액과 기간 집계에는 `POSTED` 전표만 포함합니다. `APPROVED`는 승인됐지만 아직 원장에 반영되지 않은 상태입니다.
 
@@ -39,6 +42,54 @@ JPA와 JDBC bulk adapter는 이 같은 불변 snapshot을 각 저장 형태로 �
 원장 금액은 `Debit`/`Credit` VO와 `AccountingPrecision`을 거칩니다. 저장 계약은
 `DECIMAL(19,2)`이며 소수 센트를 무음 반올림하지 않습니다. 거래통화 합계뿐 아니라
 기준통화 합계도 차대일치해야 전기할 수 있습니다.
+
+### 작성 때와 전기 직전의 회계기간 확인
+
+초보자 설명: 작성할 때 열려 있던 장부도 승인 후 전기하기 전에는 닫힐 수 있습니다.
+따라서 저장된 `APPROVED` 상태만 믿지 않고, 실제 장부에 반영하기 직전에 다시 확인합니다.
+
+1. 입력은 전표 ID와 처리자입니다. `PostingService`가 상세를 포함한 전표를 조회하고
+   `GeneralLedger.fromApproved()`로 승인 상태, 거래/기준통화 차대일치, 저장된 상세 ID를
+   먼저 검증하여 불변 스냅샷을 만듭니다. 비승인·이미 `POSTED`·잘못된 전표는 기간 조회 전에 거부됩니다.
+2. 기존 `ClosingLockValidationFilter`가 `AccountingPeriodStatusPort`로 **회계 반영일
+   (`accountingDate`)**의 기간을 다시 확인합니다. 전표 작성일(`slipDate`)이 다른 달이어도
+   작성일의 기간을 조회하지 않습니다. 생성 시 `JournalValidationEngine`이 수행하는 기간 검증과
+   별개이며, 전기 때 전체 엔진을 재실행하거나 계정 정보를 다시 조회하지 않습니다.
+3. 기간 확인을 통과한 뒤에만 `post(poster)`로 상태와 감사 사용자를 변경하고,
+   전표 저장 → 같은 스냅샷으로 GL/SL 엔트리 저장 → bulk 잔액 갱신을 각각 한 번 호출합니다.
+   처리자를 생략하는 `postJournalEntry(id)`도 같은 검증을 거치며 성공 처리자는 `SYSTEM`입니다.
+
+기존 `FiscalPeriodAccountingPeriodStatusAdapter`는 `OPEN`을 허용하고 `CLOSED`와
+`PERMANENTLY_CLOSED`를 닫힌 기간으로 판단합니다. 기간 부재와 조회 예외도 전기 실패로
+전파합니다. 이 거부 경로에서는 원래 `APPROVED` 상태, 감사 사용자와 상세가 유지되고,
+전표·GL/SL 엔트리 저장 및 잔액 갱신 호출은 모두 0회입니다. Controller의 HTTP 계약은 바꾸지 않습니다.
+
+유효 전표의 전기 요청마다 기간 조회가 한 번 추가됩니다. 이는 조회 당시 이미 닫힌 기간의
+전기를 차단하는 통제이며, 조회 후 동시에 마감되는 경쟁이나 같은 전표의 동시 전기를
+원자적으로 막는 분산 락은 아닙니다. 기존 오전기 데이터를 복구하는 기능도 포함하지 않습니다.
+
+### 로컬 회귀 검증
+
+전제: 저장소 루트의 PowerShell, 설치된 JDK 17과 Gradle 8.7/의존성 캐시입니다.
+JDK 경로는 실제 설치 위치에 맞춥니다. 아래 명령은 오프라인 테스트만 실행하며 업무 Batch나
+외부 DB/서버를 실행하지 않습니다.
+
+```powershell
+$env:JAVA_HOME = 'C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot'
+.\gradlew.bat :journal-ledger:core:test :journal-ledger:api:test :journal-ledger:batch:test :loan:core:test :loan:api:test :loan:batch:test :loan:api:bootJar :loan:batch:bootJar --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks '-Porg.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-17.0.19.10-hotspot' '-Porg.gradle.java.installations.auto-download=false'
+```
+
+기대 결과는 종료 코드 0과 테스트 실패/오류/skip 0입니다. `PostingServiceTest`는 실제 필터와
+기간 port 대역, 실제 Fiscal adapter와 조회 port 대역을 사용하여 기간별 허용·거부, 원본 불변,
+쓰기 횟수, 서로 다른 작성일/회계일, 처리자/SYSTEM과 기존 전표 검증 우선순위를 확인합니다.
+직접 생성자 소비자인 `LoanJournalPostingFlowTest`도 실제 필터와 명시적 OPEN 기간 대역을
+연결하여 Loan → Journal → Ledger 흐름의 회계일자 조회를 확인합니다. 생성자 변경과 이
+fixture를 분리하면 소비자 컴파일이 깨지므로 같은 변경에서 검증하며 Loan 업무 로직은 바꾸지 않습니다.
+Loan core/API/Batch 테스트와 API/Batch 패키징까지 확인하고, `NO-SOURCE`인 task는
+테스트 통과 수에 포함하지 않습니다. `bootJar`는 패키징 검증이며 서버나 업무 Job 실행이 아닙니다.
+이 로컬 검증은 실제 PostgreSQL 커밋이나 분산 마감 경합의 증거가 아닙니다.
+
+### 전기 저장 어댑터 선택
 
 기본 어댑터는 JPA입니다. 운영에서 대량 전기/재집계가 필요하면 아래 설정으로 JDBC bulk 구현체를 사용합니다.
 
@@ -123,7 +174,8 @@ sequenceDiagram
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
-- 전기 요청은 이미 `POSTED`인지 확인해 중복 원장 반영을 막아야 합니다.
+- 순차 재요청에서 이미 `POSTED`인 전표는 승인 상태 검증으로 거부합니다. 동시 중복 요청의 원자적 차단은 별도 통제 대상입니다.
+- 기간 검증 실패 후 재시도해도 기간을 다시 조회합니다. 재개 가능 여부는 별도 승인된 기간 관리 절차로 판단합니다.
 - 과거 날짜 전표는 이후 잔액 재집계 범위를 확인해야 합니다.
 - 거래처별 미결 조회는 출력 포트의 DB 조건 조회를 사용해 대량 데이터를 메모리에 올리지 않습니다.
 - GL/SL 조건 조회도 `LedgerBalancePersistenceAdapter`의 DB 쿼리에서 필터링합니다.

@@ -214,3 +214,8 @@ Recommended integration order remains:
 - Gate: two Logstash syntax checks, quiet Compose render, live read-only mount/TCP 5000/closed 5044/redacted synthetic/stop-recovery checks, exact green/red/timeout readiness predicates, GitHub JDK 17 Config Server validation, four final checks, Ready-event Guard and independent exact-head review all passed; final review found no P0-P3.
 - Result: PR #585 squash-merged to `main` as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. `account-logstash-dev` remains healthy with no host port and bounded resources.
 - Rollback: use a reviewed revert of the four Logstash files, direct policy test and harness records, then stop/recreate only the exact Logstash Compose service. Never use `down -v`, prune or Elasticsearch data deletion. The obsolete stateless `logstash` container removed during recovery is not recoverable as a container; its image and Elasticsearch data remain.
+
+## 2026-09-11 GH-692 manual PR integration gate
+
+- PR #698, original f5e32b3; incoming main c94afec5. Parent resolved record-only EOF conflicts while preserving complete source and both histories. This is integration into the Issue branch, not a claim of repository PR merge.
+- Separate /root/manual_review_698 GPT-6 Astra xhigh checks fresh integrated tests and source/record semantics. After verified-head CI, Ready-only checks and final main/head check, user-authorized parent alone may merge. Actual publication, merge SHA, main CI and Issue completion are recorded on PR698/Issue692; no resource deletion is implied.

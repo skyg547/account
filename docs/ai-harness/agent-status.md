@@ -345,8 +345,30 @@
 - This work proceeds independently of GH-662 Issue-close approval and GH-681 record rework. The current automation uses separate implementation/PR-wait/rework/cleanup queues. Previous global serial stop prose is historical, not current authorization.
 - Final merge/close belongs to account. No primary checkout change, live DB/TLS, installs or resource removal.
 
+## 2026-09-11 — GH-691 implementation checkpoint
+
+- Owner: `Account Issue 구현 오케스트레이터` / task `019fa3ea-ac4c-7022-bb45-951559750df7`. [Claim #691](https://github.com/skyg547/account/issues/691#issuecomment-5623212221); branch `agent/691-ledger-period-summary`, external worktree `C:/tmp/account-691-ledger-period-summary`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
+- One substantive writer `/root/issue691_implementation` (Astra xhigh), four-file allowlist. Parent owns five appended records, remote claim and Git/PR publication. No other writer or unapproved takeover.
+- Writer frozen: RED GL/SL forward/reverse4/4 reproduced; writer and independent `/root/issue691_code_review` Astra xhigh each forced offline GREEN81/81 in28suites, failure/error/skip0,37tasks executed. Frozen four-file hashes match, independent P0–P3 none and Q1–Q4 PASS. Parent final-record delta confirmation precedes publication. No Ready/merge/Issue-close claim at this checkpoint.
+- Source/test/doc freeze and independent review precede Draft PR/current-head CI. Final remote state supersedes this committed checkpoint; separate account automation owns final merge/close. Other Issues and resources are preserved.
+
+## 2026-09-11 GH-693 parent checkpoint
+
+- Owner: Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; parent-only Git/GitHub and shared records. Branch/worktree `agent/693-posting-period-recheck` / `C:/tmp/account-693-posting-period-recheck`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
+- Writer `/root/issue693_implementation` Astra xhigh; independent `/root/issue693_code_review` Astra xhigh, separate from writer and parent spec author. Four substantive files after independently approved direct Loan consumer amendment; parent records5 append-only.
+- GH-693 stage: rework1 source4 frozen; writer182/48suites and bootJar2 PASS. Independent unchanged Journal74 + revised Loan108/21suites/bootJar2 PASS, original P1 resolved/no additional P0–P3/Q1–Q4 PASS. Parent final record/PR delta precedes local checkpoint commit; latest-main integration/full rerun/CI/Ready is a separate next gate, not completed by this checkpoint.
+- Initial journal74/74 writer and independent success is preserved as evidence, not mistaken for Loan compatibility. Same Issue/claim/resources retained; no new duplicate Issue or guard bypass. Final published head/CI/Ready status will be on the remote Issue.
+- Existing PR697/698 merge waits do not block this independent implementation. Final account review/merge/close remains separate. Primary dirty checkout, other owners/resources, DB and external systems remain untouched.
+- Integrated checkpoint update: local7ed966ea + main65af7e6f, shared-record5 conflicts resolved preserving both histories/conflict-log. Independent xhigh forced full203tests/49suites/bootJar2 PASS, no failures/errors/skips/testNO-SOURCE,54tasks/91.3922881s. Source4 unchanged, no new P0–P3/Q1–Q4PASS; parent integration-record/PR delta precedes mergecommit/Draft, headCI/Ready follows separately. Writer slot is returned; #673 has its own disjoint worktree/writer.
+
 ## 2026-09-11 — GH-692 precision implementation checkpoint
 
 - Owner: `Account Issue 구현 오케스트레이터` / task `019fa3ea-ac4c-7022-bb45-951559750df7`, [claim #692](https://github.com/skyg547/account/issues/692#issuecomment-5623500253). Isolated `agent/692-unsettled-precision` / `C:/tmp/account-692-unsettled-precision`, base `65e6b1e36554ed3adb9616b4eedb579843f0e748`.
 - Single substantive writer `/root/issue692_implementation`, Astra xhigh, five-file allowlist. Parent-only shared records5 and Git/GitHub. Other owners and primary checkout preserved.
 - Writer frozen: RED40tests/22failures reproduced with original source; writer and separate `/root/issue692_code_review` Astra xhigh each forced full GREEN117/117 in29suites, failure/error/skip0,37tasks executed. Independent P0–P3 none/Q1–Q4 PASS, five hashes match. Parent-record/PR final delta confirmation precedes publication; no Ready/merge/Issue-close claim. PR697 is already a separate frozen review queue, not a global blocker.
+
+## 2026-09-11 GH-692 수동 통합 재작업
+
+- 사용자 직접 요청으로 PR #698의 공유 기록 충돌을 원 브랜치/외부 worktree에서 보완한다. 세 예약은 PAUSED 상태이며 이번 수동 실행이 예약을 재개하지 않는다. 최신 main c94afec5와 원 head f5e32b3의 양쪽 역사를 모두 보존했다.
+- 실질5파일은 원 head와 Git blob까지 일치한다. 별도 GPT-6 Astra xhigh /root/manual_review_698의 새 통합본 강제 offline 실행은 core117/API30/Batch5, 총152 tests/30 suites, 실패·오류·skip·stale0, exit0/58초/41tasks 모두 실행이다(UTC2026-09-11 01:00:33.8897880–01:01:33.3742691). API/Batch bootJar2도 새로 생성되었으며 패키징 증거이지 실제 서버 기동 증거는 아니다. 독립 코드 검수 P0–P3 없음/Q1–Q4 PASS; 최종 기록 delta와 원격 CI/Ready 검토가 남는다.
+- 부모가 최종 기록·검증 근거와 독립 리뷰를 모아 새 head를 push하고 CI/Ready-only를 확인한다. 사용자 수동 병합 승인 아래 부모만 최종 merge commit/수용 완료 Issue 종료를 수행한다. 기존 자동화 전용 소유 문구는 역사이며 현재 수동 실행의 게이트는 원격 claim5627728952다. 자원 삭제·DB/설정/예약/공유계약 변경은 없다.

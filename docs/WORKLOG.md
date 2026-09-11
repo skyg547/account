@@ -3786,9 +3786,31 @@
 - Docker/Compose provider와 승인된 실 PostgreSQL이 없어 실제 render/build/up 및 17개 DB 권한 검사는 수행하지 않았다. 외부 서버·비밀정보·기존 컨테이너는 접근하거나 변경하지 않았으며, 이 live gate 전까지 Issue #66은 열린 상태로 유지한다.
 - commit `375105ab`을 push하고 `Refs #66` Draft PR #339를 열었다. live gate를 자동 완료로 오인하지 않도록 Issue는 닫지 않는다.
 
+### 📅 2026-09-11 (Issue #691 기간 잔액의 일별 이월 중복 합산 수정)
+
+- GL/SL 기간 조회는 그룹별 가장 이른 일별 기초를 한 번만 선택하고 기간 차변·대변을 합산하도록 수정했다. 예시의 기초/기말은 잘못된 2,080/2,200이 아니라 1,000/1,120이다.
+- 응답 날짜·기간·그룹 순서와 기존 key를 유지하고 원본 엔티티나 입력 목록은 변경하지 않는다. 기능 문서와 실제 서비스 기반 HTTP 회귀를 함께 갱신한다.
+- 수정 전 GL/SL 정순·역순 4건의 실패로 원인을 재현했다. 수정 후 JDK17/Gradle8.7 오프라인 강제 전체 실행과 별도 Astra xhigh 리뷰어의 독립 재실행 모두 core65/API11/Batch5, 총81건(28 suites) 실패·오류·skip0으로 통과했다. 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
+- `agent/691-ledger-period-summary` / 외부 전용 worktree에서만 작업한다. 게시 SHA·CI·Ready 상태는 Issue/PR에서 추적하며 최종 병합과 Issue 종료는 별도 `account` 예약의 소유다. 데이터 복구·운영 DB·Batch 실행은 하지 않는다.
+
+## 2026-09-11 GH-693 전기 직전 회계기간 재확인
+
+- `PostingService`는 승인 전표 스냅샷 검증 후 첫 상태 변경 전에 기존 마감 검증기를 호출한다. 닫힘·기간 부재·조회 실패면 전표/감사 사용자/상세를 유지하고 전표·원장·잔액 쓰기를 시작하지 않는다.
+- OPEN 정상 전기, 회계일자/SYSTEM 처리와 기존 잘못된 전표 거부를 보존했다. 초보자용 흐름·실패·재시도·동시성 한계를 `journal-ledger/docs/process-flow.md`에 설명한다.
+- 독립 리뷰가 Loan 직접 소비자 fixture의 생성자 컴파일 실패를 재현하여 초기 영향 조사 누락을 바로잡았다. 원 Issue의 검토된 4파일 범위로 보완하며, 실제 필터를 생략하는 우회 생성자는 만들지 않는다.
+- GH-693 작성자 보완 검증: journal-ledger 74개 + Loan 108개, 합계 48 suites/182 tests 실패·오류·skip 0, Loan API/Batch 패키징 통과. 독립 리뷰는 동일 Journal 소스의74개와 보완 Loan108개/패키징을 직접 검증하여 P1 해소·Q1–Q4 PASS를 확인했다. 이는 base65e6b1e3 로컬 체크포인트이며 최신 main 통합 재검증/CI/Ready는 별도 게이트다.
+- 별도 `account` 예약이 최종 리뷰·병합·Issue 종료를 맡는다. 이 구현 예약은 검증/독립 리뷰 뒤 Draft PR과 해당 head CI/Ready 인계까지만 수행한다. 실제 DB·서버·업무 Batch·배포·기존 오전기 복구는 범위 밖이다.
+- 최신 main `65af7e6f` 통합: 기록5의 EOF 충돌은 양쪽 이력을 모두 보존했고 업무 코드 충돌은 없었다. 별도 xhigh 리뷰어의 강제 통합 재실행은 journal-ledger95개+Loan108개=49 suites/203 tests 실패·오류·skip0, Loan 패키징2개 PASS였다. 검토된 기존182개와 main에서 들어온21개를 함께 확인한 결과이며 원격 CI/Ready·최종 병합은 후속 게이트다.
+
 ### 📅 2026-09-11 (Issue #692 반제 금액 정밀도와 실패 원자성)
 
 - 신규 반제 금액과 다음 누적 반제액·잔액을 기존 `AccountingPrecision` 정책으로 모두 검증한 뒤 상태를 변경한다. DB가 0.999를 1.00으로 반올림하여 잔액0/미결 상태가 갈라지는 입력은 저장 전에 거부한다.
 - 표현만 긴 1.000은 무손실로 허용하고, 이미 처리한 전체 ref/legacy ref 재시도는 기존 no-op을 보존한다. 실패 시 금액·상태·ref 내용·감사 정보뿐 아니라 null ref Set도 먼저 변경하지 않는다.
 - 수정 전 실제 도메인 테스트40건 중22건 실패로 결함을 재현했다. 수정 후 writer와 별도 Astra xhigh 리뷰어의 강제 전체 실행 모두 core86/API26/Batch5, 총117건(29 suites) 실패·오류·skip0으로 통과했다. 합성 H2/JPA 저장 후 조회 및 실제 서비스 기반 HTTP 검증을 포함하며 독립 코드·설명·문서 검토에 남은 P0–P3가 없다.
 - 격리 `agent/692-unsettled-precision`에서만 변경하고 기능 schema 문서의 초보자 설명을 갱신한다. 기존 데이터·migration·운영 DB는 건드리지 않는다. 게시 SHA·CI·Ready는 Issue/PR에 기록하고 최종 병합/종료는 별도 account 예약이 담당한다.
+
+## 2026-09-11 GH-692 수동 통합 재작업
+
+- 사용자 직접 요청으로 PR #698의 공유 기록 충돌을 원 브랜치/외부 worktree에서 보완한다. 세 예약은 PAUSED 상태이며 이번 수동 실행이 예약을 재개하지 않는다. 최신 main c94afec5와 원 head f5e32b3의 양쪽 역사를 모두 보존했다.
+- 실질5파일은 원 head와 Git blob까지 일치한다. 별도 GPT-6 Astra xhigh /root/manual_review_698의 새 통합본 강제 offline 실행은 core117/API30/Batch5, 총152 tests/30 suites, 실패·오류·skip·stale0, exit0/58초/41tasks 모두 실행이다(UTC2026-09-11 01:00:33.8897880–01:01:33.3742691). API/Batch bootJar2도 새로 생성되었으며 패키징 증거이지 실제 서버 기동 증거는 아니다. 독립 코드 검수 P0–P3 없음/Q1–Q4 PASS; 최종 기록 delta와 원격 CI/Ready 검토가 남는다.
+- 부모가 최종 기록·검증 근거와 독립 리뷰를 모아 새 head를 push하고 CI/Ready-only를 확인한다. 사용자 수동 병합 승인 아래 부모만 최종 merge commit/수용 완료 Issue 종료를 수행한다. 기존 자동화 전용 소유 문구는 역사이며 현재 수동 실행의 게이트는 원격 claim5627728952다. 자원 삭제·DB/설정/예약/공유계약 변경은 없다.
