@@ -2573,3 +2573,13 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Rollback: reviewed follow-up PR reverses only four substantive changes and preserves shared history; no schema/data rollback. Next owner: human Reviewer and separately authorized parent Integrator for latest-head/base/CI integration gates.
 
 - Publication: Draft PR [#708](https://github.com/skyg547/account/pull/708) created with `Refs #675`; implementation commit `6a42c579` pushed. Final staged8-file/log/PR-text independent review found no P0–P3; exact scope/archive/prefix/marker/scoped whitespace verifier PASS. Issue #675 is `status:needs-review`. This publication entry adds only the actual PR identity/status; substantive files remain frozen. Final remote-head CI and human review remain integration gates; no Ready/merge/close/cleanup.
+
+
+## 2026-09-12 — GH-672 dedicated harness CI gate
+
+- Added unconditional PR/main/manual harness CI and fixed `Harness Validation Result`, with read-only contents, no persisted checkout credentials and no install fallback. Existing Gradle workflow and full-matrix trigger remain unchanged.
+- Added bounded TOML/YAML/role/skill/required-path validation and negative Python fixtures including actual result/pipeline shell and mocked Guard JavaScript execution. History/private content is excluded; metadata-only history existence checks remain. Two guides explain local/CI commands, counts, limits and rollback.
+- Local schema PASS (11 roles,4 skills,3 UI,4 workflows,2 forms,55 required paths); unittest20/20 and #662 Node32/32 PASS, zero skips/failures. Fixed initial grouped-path false positives and early-exit script bypass with regression tests. Diff/marker/scope PASS; hosted CI unrun before Draft publication.
+- Trace: Issue #672, `agent/672-harness-ci-gate`, `/tmp/account-672-harness-ci-gate`, base `e83212a7`. Separate Test/Reviewer roles; parent alone writes shared records/Git/GH. Independent final review and requested Refs #672 Draft publication follow. No Ready/merge/close/cleanup. See [detailed evidence and rollback](../ai-harness/worklog.md#2026-09-12--gh-672-dedicated-harness-ci-gate).
+
+- Independent final review: `/root/review_672` (Astra high, read-only) found no remaining P0–P3. Independently reran schema PASS, Python20/20 (1.791s), Node32/32 (96.922ms), report20/32 and scoped whitespace/markers; Q1–Q4 all PASS. Initial findings are resolved. Hosted CI remains a postpublication gate.

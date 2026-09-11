@@ -550,3 +550,13 @@
 - Rollback: reviewed follow-up PR reverses only four substantive changes and preserves shared history; no schema/data rollback. Next owner: human Reviewer and separately authorized parent Integrator for latest-head/base/CI integration gates.
 
 - Publication: Draft PR [#708](https://github.com/skyg547/account/pull/708) created with `Refs #675`; implementation commit `6a42c579` pushed. Final staged8-file/log/PR-text independent review found no P0–P3; exact scope/archive/prefix/marker/scoped whitespace verifier PASS. Issue #675 is `status:needs-review`. This publication entry adds only the actual PR identity/status; substantive files remain frozen. Final remote-head CI and human review remain integration gates; no Ready/merge/close/cleanup.
+
+
+## 2026-09-12 — GH-672 dedicated harness CI gate
+
+- Issue #672; branch `agent/672-harness-ci-gate`; worktree `/tmp/account-672-harness-ci-gate`; base `e83212a773cfabd3a505615554e12f3f0ed555f3`. Parent intake/claim complete; #662 and #674 merged; original dirty checkout preserved.
+- Implementation frozen: five Issue-allowlisted substantive files plus four parent records. Schema (11 roles/4 skills/3 UI/4 workflows/2 forms/55 paths), Python20 and Node32 PASS; diff/marker/scope PASS. Independent re-review and authorized Refs #672 Draft publication pending; hosted CI unrun before publication.
+- Parent owns workflow/validator/guides/Git/GH/shared logs; Test agent owns fixture; Reviewer is read-only. User requested high reasoning; model tier is not mutation authority. No Ready/merge/close/cleanup.
+- Details, initial RED corrections, Q1–Q4 evidence, scope exclusions and rollback: [worklog](worklog.md#2026-09-12--gh-672-dedicated-harness-ci-gate). Next: independent review, parent Draft publication, then human/authorized integration gates.
+
+- Independent final review: `/root/review_672` (Astra high, read-only) found no remaining P0–P3. Independently reran schema PASS, Python20/20 (1.791s), Node32/32 (96.922ms), report20/32 and scoped whitespace/markers; Q1–Q4 all PASS. Initial findings are resolved. Hosted CI remains a postpublication gate.

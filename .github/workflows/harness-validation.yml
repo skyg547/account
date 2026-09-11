@@ -1,0 +1,58 @@
+name: Harness Validation
+
+# Cheap checks run for every PR, including tools-only changes. No path filter
+# can leave the fixed result pending or accidentally omit a harness input.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate harness contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check existing runtimes
+        run: |
+          /usr/bin/python3 -c 'import sys, tomllib, yaml; assert yaml.__version__ == "6.0.1"; print("Python", sys.version.split()[0], "PyYAML", yaml.__version__)'
+          node --version
+      - name: Validate schema and required paths
+        run: /usr/bin/python3 tools/ci/validate-harness.py
+      - name: Python contract fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -m unittest discover -s tools/ci -p test_validate_harness.py -v 2>&1 | tee "$RUNNER_TEMP/harness-python.log"
+          /usr/bin/python3 tools/ci/validate-harness.py --test-report unittest "$RUNNER_TEMP/harness-python.log"
+      - name: Node PR lifecycle contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tools/ci/harness-pr-contract.test.cjs | tee "$RUNNER_TEMP/harness-node.tap"
+          /usr/bin/python3 tools/ci/validate-harness.py --test-report node "$RUNNER_TEMP/harness-node.tap"
+
+  result:
+    name: Harness Validation Result
+    needs: [validate]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require executed successful validation
+        env:
+          VALIDATION_RESULT: ${{ needs.validate.result }}
+        run: |
+          if [ "$VALIDATION_RESULT" != "success" ]; then
+            echo "::error::Harness validation did not succeed ($VALIDATION_RESULT)."
+            exit 1
+          fi
+          echo "Harness schema and Python/Node contract tests passed."

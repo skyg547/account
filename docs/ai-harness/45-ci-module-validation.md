@@ -93,6 +93,30 @@ The first full run failed `master-data` with `429 Too Many Requests` from Maven 
 
 `frontend/` is a Node project and is not covered by this matrix. `docs/` and other non-module paths produce no matrix entries, and the `test` job is skipped entirely rather than run empty.
 
+## Harness Validation
+
+`.github/workflows/harness-validation.yml` adds a separate, lightweight gate for repository instructions. It runs on **every pull request**, pushes to `main`, and manual dispatch, without path or draft filters. Thus `AGENTS.md`, `.agents/**`, `.codex/**`, Issue templates, `docs/ai-harness/**`, and **`tools/**` alone** all execute the checks. Running this small suite unconditionally avoids changed-path detection failures and missing required-check results.
+
+| Job | Behavior |
+| --- | --- |
+| `validate` | Check existing Python/PyYAML/Node runtimes, validate TOML/YAML/role/skill/path contracts, execute Python fixtures and #662 Node PR lifecycle tests, verify nonzero test counts and no skips |
+| `result` | Always run after `validate`, expose the fixed **Harness Validation Result**, pass only for `needs.validate.result == success` |
+
+| `validate` outcome | Harness Validation Result |
+| --- | --- |
+| success, including executed schema and Python/Node checks | pass |
+| failure / cancelled / skipped / unknown | fail |
+
+Missing files/parsers, malformed syntax, test failures, empty test discovery and skipped tests fail the gate. `set -euo pipefail` preserves test-runner errors through `tee`; report validation also requires actual test counts. Logs contain the runtime versions, schema category counts, Python `Ran N tests`, and Node `# tests`/`# pass`/failure counters. A fully cancelled workflow may prevent the result job from finishing; absence or cancellation is never success evidence.
+
+The new workflow has only `contents: read`, uses `pull_request` rather than `pull_request_target`, disables persisted checkout credentials and performs no installation, publication, Issue/PR mutation or secret-backed operation. Python uses the runner's existing PyYAML 6.0.1; runtime drift fails for a reviewed correction. See [fixed inputs, local commands and limitations](95-codex-skills-subagents.md#validation).
+
+초보자 설명: Gradle 검사는 업무 프로그램을 시험하고, 하네스 검사는 AI 작업 지시서와 역할 약속을 시험한다. 하네스 파일만 바뀌어 Gradle 시험이 생략되더라도 하네스 시험의 건수와 결과는 따로 표시된다. 둘 다 필요한 변경이면 두 검사 모두 확인한다.
+
+The Gradle workflow and its existing full-run triggers are unchanged: adding or modifying `.github/workflows/**` still selects all Gradle modules. Harness success does not replace **Module Validation Result** or certify business code. Where branch protection supports required checks, an authorized administrator can require both fixed names; creating this workflow does not change repository rules or grant merge authority.
+
+Rollback uses a reviewed follow-up PR to revert this Issue's workflow/validator/fixtures and guide changes while preserving shared historical records. No application schema or data changes are involved. Independent review and separately approved merge remain external gates.
+
 ## Local Equivalent
 
 Before pushing, run the same narrow scope locally. See `40-test-checklist.md` for the full checklist.
