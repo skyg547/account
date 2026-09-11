@@ -71,7 +71,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
       ACCOUNT_DEPOSIT_REMOTE_ENABLED: "true"
       ACCOUNT_DEPOSIT_OUTBOX_SCHEDULER_ENABLED: "false"
-      ACCOUNT_DEPOSIT_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      ACCOUNT_DEPOSIT_MASTER_DATA_BASE_URL: "http://minimal-master-data:8082"
       ACCOUNT_DEPOSIT_JOURNAL_BASE_URL: "http://journal-ledger-api:8080"
       SERVER_PORT: "8080"
       SPRING_CONFIG_IMPORT: "${SPRING_CONFIG_IMPORT:-configserver:http://minimal-config-server:8888/}"
@@ -114,7 +114,7 @@ services:
       # Bound aggregate connections across all 13 low-resource APIs.
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
-      ACCOUNT_LOAN_MASTER_DATA_BASE_URL: "http://minimal-master-data:8080"
+      ACCOUNT_LOAN_MASTER_DATA_BASE_URL: "http://minimal-master-data:8082"
       ACCOUNT_LOAN_JOURNAL_BASE_URL: "http://journal-ledger-api:8080"
       ACCOUNT_LOAN_REMOTE_ENABLED: "true"
       SERVER_PORT: "8080"

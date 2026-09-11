@@ -52,7 +52,8 @@ public class LoanEvent {
     private String auditUser;
 
     public enum EventType {
-        EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE, DEFAULT, RECOVERY, OTHER
+        EARLY_REPAYMENT, CONDITION_CHANGE, RESCHEDULE, DEFAULT, RECOVERY, OTHER,
+        SCHEDULED_REPAYMENT_PENDING, SCHEDULED_REPAYMENT
     }
 
     @PrePersist
@@ -179,6 +180,19 @@ public class LoanEvent {
         }
         event.auditUser = requireText(actor, "actor", 50);
         return event;
+    }
+
+    public void completeScheduledRepayment(Long journalId, String slipNo) {
+        if (eventType != EventType.SCHEDULED_REPAYMENT_PENDING) {
+            throw new IllegalStateException("Only a reserved scheduled repayment can complete.");
+        }
+        if (journalId == null || journalId < 1) {
+            throw new IllegalArgumentException("A posted journal id is required.");
+        }
+        String normalizedSlip = requireText(slipNo, "slipNo", 50);
+        relatedJournalEntryId = journalId;
+        relatedJournalEntrySlipNo = normalizedSlip;
+        eventType = EventType.SCHEDULED_REPAYMENT;
     }
 
     private static String normalizeNullableText(String value, int maxLength) {

@@ -10,6 +10,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -17,12 +18,14 @@ import java.util.Map;
 
 /**
  * spring.batch.job.name이 주어진 경우 명시적으로 잡을 실행한다.
- * Boot 기본 러너 대신 고유 time 파라미터를 보강해 동일 기준일 재실행을 허용한다.
+ * Boot 기본 러너가 비활성화된 기존 실행에서만 time 파라미터를 보강한다.
+ * enabled=true이면 Boot가 타입과 식별 파라미터를 보존해 단독 실행한다.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "spring.batch.job", name = "name")
+@ConditionalOnExpression("!${spring.batch.job.enabled:true}")
 public class MartBatchJobRunner implements ApplicationRunner {
 
     private final Map<String, Job> jobs;

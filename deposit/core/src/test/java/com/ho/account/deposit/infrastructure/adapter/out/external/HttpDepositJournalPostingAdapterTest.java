@@ -9,8 +9,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalLineCommand;
+import com.sun.net.httpserver.HttpServer;
 import java.math.BigDecimal;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +58,42 @@ class HttpDepositJournalPostingAdapterTest {
             server = MockRestServiceServer.bindTo(builder).build();
             adapter = new HttpDepositJournalPostingAdapter(builder.build());
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {302, 303, 307, 308})
+    void productionTransportRejectsLookupRedirectBeforeAcknowledgingDraft(int status) throws Exception {
+        HttpServer provider = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicInteger requests = new AtomicInteger();
+        AtomicInteger followed = new AtomicInteger();
+        provider.createContext("/", exchange -> {
+            requests.incrementAndGet();
+            String path = exchange.getRequestURI().getPath();
+            if (path.equals("/api/v1/journals/posting") || path.equals("/redirect-target")) {
+                if (path.equals("/redirect-target")) followed.incrementAndGet();
+                byte[] body = (path.equals("/redirect-target") ? VIEW : RESULT).getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+            } else {
+                exchange.getResponseHeaders().set("Location", "/redirect-target");
+                exchange.sendResponseHeaders(status, -1);
+            }
+            exchange.close();
+        });
+        provider.start();
+        try {
+            var remote = new HttpDepositJournalPostingAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + provider.getAddress().getPort(),
+                    Duration.ofSeconds(2), Duration.ofSeconds(2));
+            // The POST succeeds, but a redirected verification must leave the outbox unacknowledged.
+            assertThatThrownBy(() -> remote.createDraftEntry(command())).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("HTTP " + status).hasMessageContaining("verify remote state").hasNoCause();
+            assertThat(requests.get()).isEqualTo(2);
+            assertThat(followed.get()).isZero();
+        } finally {
+            provider.stop(0);
+        }
     }
 
     @Test

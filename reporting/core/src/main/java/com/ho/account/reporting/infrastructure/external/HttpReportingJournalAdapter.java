@@ -6,6 +6,8 @@ import com.ho.account.contracts.journal.JournalDetailSummary;
 import com.ho.account.contracts.journal.JournalQueryPort;
 import com.ho.account.contracts.journal.JournalSide;
 import com.ho.account.contracts.journal.JournalSummary;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -57,7 +59,14 @@ public class HttpReportingJournalAdapter implements JournalQueryPort {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("account.reporting.journal-base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                // Preserve the original status: a followed GET redirect would bypass non-2xx rejection.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
         requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(requestFactory).build();

@@ -82,7 +82,7 @@ class LoanBatchLocalProfileTest {
 
         // 5. JobLauncherApplicationRunner 비활성화 상태 및 배치 Job 등록 확인
         assertThat(context.getBeansOfType(JobLauncherApplicationRunner.class)).isEmpty();
-        assertThat(jobRegistry.getJobNames()).containsExactly("loanInterestAccrualJob");
+        assertThat(jobRegistry.getJobNames()).containsExactlyInAnyOrder("loanInterestAccrualJob", "loanScheduledRepaymentJob");
         assertThat(jobExplorer.getJobInstanceCount("loanInterestAccrualJob")).isZero();
     }
 }

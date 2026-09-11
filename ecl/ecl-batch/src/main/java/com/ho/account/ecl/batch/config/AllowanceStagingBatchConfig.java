@@ -38,6 +38,16 @@ import java.util.ArrayList;
 @RequiredArgsConstructor
 public class AllowanceStagingBatchConfig {
 
+    // Keep four partitions by default; low-resource runs explicitly select one.
+    @org.springframework.beans.factory.annotation.Value("${account.ecl.batch.grid-size:4}")
+    private int gridSize = 4;
+
+    private int configuredGridSize() {
+        if (gridSize < 1) {
+            throw new IllegalArgumentException("account.ecl.batch.grid-size must be positive");
+        }
+        return gridSize;
+    }
     /** 💡 [초보자 가이드] 배치의 전반적인 메타데이터를 관리하는 저장소입니다. */
     private final JobRepository jobRepository;
     
@@ -116,7 +126,7 @@ public class AllowanceStagingBatchConfig {
         return new StepBuilder("stagingManagerStep", jobRepository)
                 .partitioner("stagingWorkerStep", accountPartitioner) // ID 범위 기반으로 구역 나누기
                 .step(stagingWorkerStep())                     // 실제 일은 Worker가 수행
-                .gridSize(4)                                   // 4개 구역으로 분할 처리 (일꾼 4명)
+                .gridSize(configuredGridSize())                // 설정된 개수의 고정 범위로 분할
                 .taskExecutor(allowanceTaskExecutor)           // 병렬 스레드풀 사용
                 .build();
     }
@@ -135,4 +145,3 @@ public class AllowanceStagingBatchConfig {
                 .build();
     }
 }
-

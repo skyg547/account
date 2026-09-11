@@ -1,0 +1,2 @@
+SELECT EXISTS (SELECT 1 FROM deposit_accounts WHERE id=6900001 AND account_number='GH690-DEPOSIT' AND balance=1000000 AND currency_code='KRW' AND interest_rate=0.03 AND status='ACTIVE' AND valid_from<=DATE '2090-01-15' AND valid_to>=DATE '2090-01-15')
+AND EXISTS (SELECT 1 FROM deposit_transactions WHERE id=6900001 AND account_number='GH690-DEPOSIT' AND amount=1000000 AND balance_after=1000000 AND type='DEPOSIT') AS verified;

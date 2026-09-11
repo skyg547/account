@@ -37,6 +37,16 @@ import java.util.ArrayList;
 @RequiredArgsConstructor
 public class ExposureLgdBatchConfig {
 
+    // Keep four partitions by default; low-resource runs explicitly select one.
+    @org.springframework.beans.factory.annotation.Value("${account.ecl.batch.grid-size:4}")
+    private int gridSize = 4;
+
+    private int configuredGridSize() {
+        if (gridSize < 1) {
+            throw new IllegalArgumentException("account.ecl.batch.grid-size must be positive");
+        }
+        return gridSize;
+    }
     /** 💡 [초보자 가이드] 배치의 실행 상태와 이력을 기록하는 핵심 저장소입니다. */
     private final JobRepository jobRepository;
     
@@ -89,14 +99,14 @@ public class ExposureLgdBatchConfig {
 
     /**
      * [EAD/CRM Manager Step] 산출 파티셔너 (Master Step)
-     * 💡 [초보자 가이드] 데이터를 4개 구역으로 나누어 4개의 스레드가 동시에 일하도록 지시합니다.
+     * 💡 [초보자 가이드] 기본 4개 구역으로 나누며, 개발 검증은 grid-size=1로 순차 처리합니다.
      */
     @Bean
     public Step eadCrmManagerStep() {
         return new StepBuilder("eadCrmManagerStep", jobRepository)
                 .partitioner("eadCrmWorkerStep", resultPartitioner)
                 .step(eadCrmWorkerStep())
-                .gridSize(4)
+                .gridSize(configuredGridSize())
                 .taskExecutor(allowanceTaskExecutor)
                 .build();
     }
@@ -115,5 +125,4 @@ public class ExposureLgdBatchConfig {
                 .build();
     }
 }
-
 

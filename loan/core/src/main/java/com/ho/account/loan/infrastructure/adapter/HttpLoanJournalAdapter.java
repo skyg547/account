@@ -10,7 +10,10 @@ import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -50,8 +53,8 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
         }
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
             @Override
-            protected void prepareConnection(HttpURLConnection connection, String method) throws IOException {
-                super.prepareConnection(connection, method);
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
                 connection.setInstanceFollowRedirects(false);
             }
         };
@@ -77,27 +80,28 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
                     .body(PostingResponse.class);
             if (draft == null || draft.journalEntryId() == null || draft.journalEntryId() < 1
                     || draft.slipNo() == null || draft.slipNo().isBlank()
-                    || !"DRAFT".equals(draft.status())) {
-                throw new IllegalStateException(
-                        "Journal Ledger returned an invalid or non-draft response; verify remote state before retrying");
+                    || !List.of("DRAFT", "APPROVED", "POSTED").contains(Objects.toString(draft.status(), ""))) {
+                throw invalidJournal("draft identity/state");
             }
-            // Creation returns only a summary. Verify the stored lines before authorizing any write.
-            operation = "draft-state confirmation";
-            JournalResponse storedDraft = successful(restClient.get()
-                    .uri("/api/journals/{slipNo}", draft.slipNo()).retrieve())
-                    .body(JournalResponse.class);
-            validateJournal(storedDraft, draft, command, "DRAFT");
-            operation = "approval";
-            successful(restClient.post().uri("/api/journals/{id}/approve", draft.journalEntryId())
-                    .header("X-User-ID", command.actor()).retrieve()).toBodilessEntity();
+            // The provider can return an existing journal solely by lineage, even for a different payload.
+            // Confirm its entire financial content before any approval or posting write.
+            operation = "pre-approval confirmation";
+            JournalResponse existing = lookup(draft.slipNo());
+            requireMatchingJournal(command, draft, existing, draft.status());
+            if ("POSTED".equals(existing.status())) {
+                return new PostedJournal(existing.id(), existing.slipNo());
+            }
+            if ("DRAFT".equals(existing.status())) {
+                operation = "approval";
+                successful(restClient.post().uri("/api/journals/{id}/approve", draft.journalEntryId())
+                        .header("X-User-ID", command.actor()).retrieve()).toBodilessEntity();
+            }
             operation = "posting after approval";
             successful(restClient.post().uri("/api/journals/{id}/post", draft.journalEntryId())
                     .header("X-User-ID", command.actor()).retrieve()).toBodilessEntity();
             operation = "posted-state confirmation";
-            JournalResponse posted = successful(restClient.get()
-                    .uri("/api/journals/{slipNo}", draft.slipNo()).retrieve())
-                    .body(JournalResponse.class);
-            validateJournal(posted, draft, command, "POSTED");
+            JournalResponse posted = lookup(draft.slipNo());
+            requireMatchingJournal(command, draft, posted, "POSTED");
             return new PostedJournal(posted.id(), posted.slipNo());
         } catch (RestClientException error) {
             String status = error instanceof RestClientResponseException response
@@ -108,48 +112,48 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
         }
     }
 
-    private static void validateJournal(
-            JournalResponse journal, PostingResponse draft, LoanJournalCommand command, String expectedStatus) {
-        if (journal == null || !draft.journalEntryId().equals(journal.id())
-                || !draft.slipNo().equals(journal.slipNo()) || !expectedStatus.equals(journal.status())
-                || !command.accountingDate().equals(journal.accountingDate())
-                || !command.currencyCode().equals(journal.currencyCode())
-                || !command.lineageSourceType().equals(journal.lineageSourceType())
-                || !command.lineageSourceId().equals(journal.lineageSourceId())) {
-            throw invalidJournal();
+    private JournalResponse lookup(String slipNo) {
+        return successful(restClient.get().uri("/api/journals/{slipNo}", slipNo).retrieve())
+                .body(JournalResponse.class);
+    }
+
+    private static void requireMatchingJournal(LoanJournalCommand command, PostingResponse identity,
+            JournalResponse actual, String expectedStatus) {
+        if (actual == null || !identity.journalEntryId().equals(actual.id())
+                || !identity.slipNo().equals(actual.slipNo()) || !expectedStatus.equals(actual.status())
+                || !command.accountingDate().equals(actual.slipDate())
+                || !command.accountingDate().equals(actual.accountingDate())
+                || !command.description().equals(actual.description())
+                || !command.currencyCode().equals(actual.currencyCode())
+                || !"NORMAL".equals(actual.entryType())
+                || actual.exchangeRate() == null || actual.exchangeRate().compareTo(BigDecimal.ONE) != 0
+                || !command.actor().equals(actual.createdBy()) || !command.actor().equals(actual.auditUser())
+                || !command.lineageSourceType().equals(actual.lineageSourceType())
+                || !command.lineageSourceId().equals(actual.lineageSourceId())
+                || actual.lines() == null || actual.lines().size() != command.lines().size()
+                || actual.lines().stream().anyMatch(line -> line == null || line.amount() == null
+                        || line.baseAmount() == null || line.amount().signum() <= 0 || line.baseAmount().signum() <= 0
+                        || line.accountCode() == null || !("DEBIT".equals(line.side()) || "CREDIT".equals(line.side())))) {
+            throw invalidJournal("financial content/state confirmation");
         }
-        if (journal.lines() == null || journal.lines().isEmpty()) {
-            throw invalidJournal();
-        }
-        BigDecimal debits = BigDecimal.ZERO;
-        BigDecimal credits = BigDecimal.ZERO;
-        for (JournalLineResponse line : journal.lines()) {
-            if (line == null || line.amount() == null || line.amount().signum() <= 0) {
-                throw invalidJournal();
-            }
-            if ("DEBIT".equals(line.side())) {
-                debits = debits.add(line.amount());
-            } else if ("CREDIT".equals(line.side())) {
-                credits = credits.add(line.amount());
-            } else {
-                throw invalidJournal();
-            }
-        }
-        BigDecimal requestedDebits = command.lines().stream()
-                .filter(line -> "DEBIT".equals(line.side())).map(LoanJournalLine::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal requestedCredits = command.lines().stream()
-                .filter(line -> "CREDIT".equals(line.side())).map(LoanJournalLine::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        // Scale is representational: compare exact numeric values without rounding or double conversion.
-        if (debits.compareTo(requestedDebits) != 0 || credits.compareTo(requestedCredits) != 0) {
-            throw invalidJournal();
+        // Equal multisets preserve each account, side and amount (and thus debit/credit totals),
+        // while allowing provider line order and decimal scale to differ. Counts reject duplicate lines.
+        Map<ComparedLine, Long> requested = command.lines().stream().map(line -> new ComparedLine(
+                line.side(), line.accountCode(), line.amount().stripTrailingZeros(),
+                line.amount().stripTrailingZeros(), null, null, line.description()))
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        Map<ComparedLine, Long> stored = actual.lines().stream().map(line -> new ComparedLine(
+                line.side(), line.accountCode(), line.amount().stripTrailingZeros(),
+                line.baseAmount().stripTrailingZeros(), line.departmentCode(), line.businessPartnerCode(),
+                line.description())).collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        if (!requested.equals(stored)) {
+            throw invalidJournal("financial line confirmation");
         }
     }
 
-    private static IllegalStateException invalidJournal() {
-        return new IllegalStateException(
-                "Journal Ledger identity, state or amount confirmation failed; verify remote state before retrying");
+    private static IllegalStateException invalidJournal(String operation) {
+        return new IllegalStateException("Journal Ledger " + operation
+                + " failed; verify remote state before retrying");
     }
 
     private static RestClient.ResponseSpec successful(RestClient.ResponseSpec response) {
@@ -193,12 +197,18 @@ public class HttpLoanJournalAdapter implements LoanJournalPort {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record JournalResponse(Long id, String slipNo, String status, LocalDate accountingDate,
-                                   String currencyCode, String lineageSourceType, String lineageSourceId,
-                                   List<JournalLineResponse> lines) {
+    private record JournalResponse(Long id, String slipNo, LocalDate slipDate, LocalDate accountingDate,
+            String description, String status, String entryType, String currencyCode, BigDecimal exchangeRate,
+            String createdBy, String auditUser, String lineageSourceType, String lineageSourceId,
+            List<JournalLineResponse> lines) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record JournalLineResponse(String side, BigDecimal amount) {
+    private record JournalLineResponse(String side, String accountCode, BigDecimal amount, BigDecimal baseAmount,
+            String departmentCode, String businessPartnerCode, String description) {
+    }
+
+    private record ComparedLine(String side, String accountCode, BigDecimal amount, BigDecimal baseAmount,
+            String departmentCode, String businessPartnerCode, String description) {
     }
 }

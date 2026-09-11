@@ -248,6 +248,8 @@ public class LoanService implements LoanUseCase {
             case RESCHEDULE -> recalculateLoanWithEvent(
                     loanId, eventDate, RecalculationReason.RESCHEDULE, eventType,
                     description, user, principal, maturity);
+            case SCHEDULED_REPAYMENT_PENDING, SCHEDULED_REPAYMENT -> throw new IllegalArgumentException(
+                    "Scheduled repayment events must use the scheduled repayment use case.");
             case DEFAULT, RECOVERY, OTHER -> recordLifecycleEvent(
                     loanId, eventType, eventDate, description, user, principal, maturity);
         };
@@ -516,8 +518,12 @@ public class LoanService implements LoanUseCase {
         if (loanId == null || loanId < 1) {
             throw new IllegalArgumentException("loanId must be positive.");
         }
-        return persistencePort.findLoanForUpdate(loanId)
+        Loan loan = persistencePort.findLoanForUpdate(loanId)
                 .orElseThrow(() -> new EntityNotFoundException("Loan not found with id: " + loanId));
+        if (persistencePort.hasPendingScheduledRepayment(loanId)) {
+            throw new IllegalStateException("Pending scheduled repayment requires reconciliation before loan changes.");
+        }
+        return loan;
     }
 
     private void attachReferenceDescription(Loan loan) {

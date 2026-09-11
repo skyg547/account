@@ -82,6 +82,16 @@ public class JournalController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** Stable identifier lookup including lines, used to validate closing reruns. */
+    @GetMapping("/by-id/{id}")
+    public ResponseEntity<JournalApiDto.View> getJournalEntryById(@PathVariable Long id) {
+        if (id < 1) return ResponseEntity.badRequest().build();
+        return journalUseCase.getJournalEntryWithDetails(id)
+                .map(JournalApiDto.View::from)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     /**
      * 전표 승인
      */

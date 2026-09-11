@@ -1,0 +1,3 @@
+# Local Python bytecode produced by the development seed and batch tools.
+__pycache__/
+*.py[cod]

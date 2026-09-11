@@ -12,6 +12,8 @@ import com.ho.account.closing.domain.ProvisionBatch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -179,6 +181,79 @@ class EclProvisionServiceTest {
         assertThatThrownBy(() -> service.processEclProvision(closingDate, 46L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("does not match closingDate");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "4808.5714, 0.00, 4808.57, DEBIT, 550100",
+            "100.0050, 100.00, 0.01, DEBIT, 550100",
+            "99.9949, 100.00, 0.01, DEBIT, 129100"
+    })
+    void quantizesAdditionalAndReversalPostingsToJournalPrecision(
+            String target, String existing, String amount, String side, String firstAccount) {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
+                date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", target)));
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
+                .thenReturn(new BigDecimal(existing));
+        when(closingJournalEntryPort.createDraftAdjustment(any()))
+                .thenReturn(new ClosingJournalEntryResult(901L, "ECL-TEST"));
+
+        service.processEclProvision(date, 690L);
+
+        var captor = ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
+        verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
+        var lines = captor.getValue().lines();
+        assertLine(lines.get(0), ClosingJournalSide.valueOf(side), firstAccount, amount);
+        assertThat(lines.get(0).amount().scale()).isEqualTo(2);
+        assertThat(lines.get(1).amount()).isEqualTo(lines.get(0).amount());
+        assertThat(lines.get(1).side()).isNotEqualTo(lines.get(0).side());
+    }
+
+    @Test
+    void roundsAfterSummingExposuresAndSubtractingExistingAllowanceOnlyOnce() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(
+                summary(date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "50.004"),
+                summary(date, "RUN-A", "KRW", "12100", "129100", "550100", "480100", "50.004")));
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
+                .thenReturn(new BigDecimal("100.00"));
+        when(closingJournalEntryPort.createDraftAdjustment(any()))
+                .thenReturn(new ClosingJournalEntryResult(901L, "ECL-TEST"));
+
+        service.processEclProvision(date, 690L);
+
+        var captor = ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
+        verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
+        assertLine(captor.getValue().lines().get(0), ClosingJournalSide.DEBIT, "550100", "0.01");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"100.0049", "99.9951", "99.9950"})
+    void subCentDifferenceDoesNotCreateZeroAmountJournal(String target) {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
+                date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", target)));
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
+                .thenReturn(new BigDecimal("100.00"));
+
+        service.processEclProvision(date, 690L);
+
+        verifyNoInteractions(closingJournalEntryPort);
+    }
+
+    @Test
+    void invalidGlPrecisionFailsBeforeCreatingAnAdjustment() {
+        LocalDate date = LocalDate.of(2026, 5, 31);
+        when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
+                date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "200.00")));
+        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
+                .thenReturn(new BigDecimal("100.001"));
+
+        assertThatThrownBy(() -> service.processEclProvision(date, 690L))
+                .isInstanceOf(ArithmeticException.class);
+
+        verifyNoInteractions(closingJournalEntryPort);
     }
 
     private static EclAllowanceSummary summary(LocalDate baseDate,

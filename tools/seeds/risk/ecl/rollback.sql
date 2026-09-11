@@ -1,0 +1,12 @@
+DELETE FROM allowance_summary WHERE base_date=DATE '2090-01-15' AND run_id='GH690' AND legal_entity_code='GH690';
+DELETE FROM allowance_ecl_results WHERE base_date=DATE '2090-01-15' AND account_id IN (SELECT id FROM cr_accounts WHERE account_no='GH690-ECL-ACCOUNT');
+DELETE FROM allowance_exposure_snapshots WHERE base_date=DATE '2090-01-15' AND exposure_id='GH690-EXPOSURE';
+DELETE FROM cr_accounts WHERE account_no='GH690-ECL-ACCOUNT' AND customer_id=6900001;
+DELETE FROM cr_collaterals WHERE id=6900001 AND collateral_code='GH690-COLLATERAL';
+DELETE FROM cr_customers WHERE id=6900001 AND customer_code='GH690-CUSTOMER';
+DELETE FROM allowance_account_mappings WHERE id=6900001 AND product_code='GH690-LOAN';
+DELETE FROM cr_product_masters WHERE id=6900001 AND product_code='GH690-LOAN';
+DELETE FROM cr_grade_masters WHERE id=6900001 AND rating_code='GH690-A';
+DELETE FROM cr_macro_scenario WHERE id IN (6900001,6900002,6900003) AND apply_year=2090 AND description='GH690';
+DELETE FROM cr_lgd_segment_masters WHERE id=6900001 AND segment_name='GH690 unsecured corporate';
+DELETE FROM allowance_model_parameters WHERE param_key IN ('PD_FLOOR','SECURED_LGD_FLOOR','UNSECURED_LGD_FLOOR','DEFAULT_DISCOUNT_RATE') AND description='GH690';

@@ -3,7 +3,12 @@ package com.ho.account.reporting.infrastructure.external;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +35,41 @@ class HttpReportingJournalAdapterTest {
         var builder = RestClient.builder().baseUrl("http://journal.invalid");
         server = MockRestServiceServer.bindTo(builder).build();
         adapter = new HttpReportingJournalAdapter(builder.build());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {302, 303, 307, 308})
+    void productionTransportRejectsRedirectInsteadOfAcceptingJournal(int status) throws Exception {
+        HttpServer provider = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicInteger requests = new AtomicInteger();
+        AtomicInteger followed = new AtomicInteger();
+        provider.createContext("/", exchange -> {
+            requests.incrementAndGet();
+            if (exchange.getRequestURI().getPath().equals("/redirect-target")) {
+                followed.incrementAndGet();
+                byte[] body = VIEW.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+            } else {
+                exchange.getResponseHeaders().set("Location", "/redirect-target");
+                exchange.sendResponseHeaders(status, -1);
+            }
+            exchange.close();
+        });
+        provider.start();
+        try {
+            var remote = new HttpReportingJournalAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + provider.getAddress().getPort(),
+                    Duration.ofSeconds(2), Duration.ofSeconds(2));
+            // Use the production request factory: a mock response cannot reveal automatic redirects.
+            assertThatThrownBy(() -> remote.findBySlipNo("J-42")).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("HTTP " + status).hasNoCause();
+            assertThat(requests.get()).isEqualTo(1);
+            assertThat(followed.get()).isZero();
+        } finally {
+            provider.stop(0);
+        }
     }
 
     @Test

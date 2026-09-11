@@ -1,0 +1,13 @@
+# Loan synthetic package
+
+DB: `loan`. `loanInterestAccrualJob accrualDate=2090-01-15` reads one EIR period: principal 12,000,000 × 6% / 12 = interest 60,000; scheduled principal repayment 1,000,000; scheduled ending balance 11,000,000. Its current implementation accrues interest and posts a journal; it does not execute repayment. The schedule alone is not evidence that repayment happened.
+
+Required master-data/journal accounts: `115010` (interest receivable), `410100` (interest income), `GH690-LOAN` (loan principal), and `GH690-REPAYCASH` (payment cash). `result.sql` checks a unique successful accrual with real journal ID/number. The runner also verifies its remote POSTED journal and exact lines.
+
+After interest succeeds, `loanScheduledRepaymentJob repaymentDate=2090-01-15` settles principal 1,000,000 and the accrued interest 60,000. `result-repayment.sql` requires principal balance 11,000,000, paid counters 1,000,000/60,000 and one completed event. The runner verifies cash debit 1,060,000, loan credit 1,000,000 and accrued-interest credit 60,000 in Journal Ledger. The separate cash account preserves the reconciliation fixture's 1,000,000 balance.
+
+The core service commits a reservation before remote posting and commits principal/event changes after success. An uncertain response or failed final commit leaves `SCHEDULED_REPAYMENT_PENDING`; rerun refuses another posting until the remote journal is reconciled. Normal completed reruns reuse the same date and do not change principal, EIR or schedules. Deferred-amortization schedules are rejected by this bounded settlement path.
+
+Source: Loan PostgreSQL V30 plus V31–V33, `LoanInterestAccrualBatchConfig`, `LoanScheduledRepaymentBatchConfig` and their core services. Seed IDs are 6900001 and strings GH690. Injection never updates a completed accrual or principal. Seed-only rollback refuses **any** accrual log or event, including completed repayments and pending reservations, plus schedule journal references, changed principal/counters and other loan dependants. Their local journal lineage must survive for a separately reviewed remote reversal; never delete or clear it to make this cleanup pass. Before any batch activity, cleanup removes only the owned schedule and loan.
+
+The manual rollback checks ownership/activity before any delete in one atomic `DO` statement, taking `SHARE ROW EXCLUSIVE` locks on inspected tables. Stop writers first, use a bounded lock timeout and end the transaction promptly. For the offline relational regression command and PostgreSQL verification limitation, see [accounting execution and rollback constraints](../../accounting/README.md#execution-and-rollback-constraints).

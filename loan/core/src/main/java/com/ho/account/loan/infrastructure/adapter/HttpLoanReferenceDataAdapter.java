@@ -2,6 +2,8 @@ package com.ho.account.loan.infrastructure.adapter;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.ho.account.loan.application.port.out.LoanReferenceDataPort;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -38,7 +40,14 @@ public class HttpLoanReferenceDataAdapter implements LoanReferenceDataPort {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("account.loan.master-data-base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                // Preserve the original status: a followed GET redirect would bypass non-2xx rejection.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(timeoutMillis(connectTimeout));
         factory.setReadTimeout(timeoutMillis(readTimeout));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(factory).build();

@@ -102,6 +102,98 @@ class HttpFiscalPeriodControlAdapterTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {301, 302, 303, 307, 308})
+    void redirectWithValidPeriodBodyCannotReportSuccessfulTransition(int status) {
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
+                .andExpect(method(HttpMethod.PUT))
+                .andRespond(withStatus(HttpStatus.valueOf(status))
+                        .header("Location", "https://sensitive-fixture.invalid/closing")
+                        .body(PERIOD).contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "CLOSED", "operator"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("HTTP " + status)
+                .hasMessageNotContaining("sensitive-fixture").hasNoCause();
+        // An extra PUT or retry is rejected as an unexpected mock-server request.
+    }
+
+    @Test
+    void lookupRedirectWithValidPeriodBodyIsNotAnExistingPeriod() {
+        server.expect(requestTo(BASE + "/api/basic/fiscal-periods/id/9"))
+                .andRespond(withStatus(HttpStatus.FOUND).body(PERIOD).contentType(MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/basic/fiscal-periods/2026/09"))
+                .andRespond(withStatus(HttpStatus.FOUND).body(PERIOD).contentType(MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.findFiscalPeriodById(9L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+        assertThatThrownBy(() -> adapter.findFiscalPeriod("2026", "09"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+    }
+
+    @Test
+    void successfulHttpLookupStillRejectsWrongPeriodIdentity() {
+        server.expect(requestTo(BASE + "/api/basic/fiscal-periods/id/10"))
+                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/basic/fiscal-periods/2027/09"))
+                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/basic/fiscal-periods/2026/10"))
+                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.findFiscalPeriodById(10L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different fiscal period ID");
+        assertThatThrownBy(() -> adapter.findFiscalPeriod("2027", "09"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different fiscal year or period");
+        assertThatThrownBy(() -> adapter.findFiscalPeriod("2026", "10"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different fiscal year or period");
+    }
+
+    @Test
+    void successfulHttpUpdateStillRequiresRequestedPeriodAndTargetStatus() {
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/10/closing-status"))
+                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE + "/api/internal/fiscal-periods/9/closing-status"))
+                .andRespond(withSuccess(PERIOD, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.updateClosingStatus(10L, "CLOSED", "operator"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different period or status");
+        assertThatThrownBy(() -> adapter.updateClosingStatus(9L, "OPEN", "operator"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("different period or status");
+    }
+
+    @Test
+    void actualTransportRejectsPutRedirectAndNeverFollowsGetRedirectToSuccessfulPeriod() throws Exception {
+        var forwardedRequests = new java.util.concurrent.atomic.AtomicInteger();
+        var originalRequests = new java.util.concurrent.atomic.AtomicInteger();
+        var http = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        http.createContext("/api", exchange -> {
+            originalRequests.incrementAndGet();
+            try (var body = exchange.getRequestBody()) { body.readAllBytes(); }
+            byte[] response = PERIOD.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Location", "/redirected");
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(302, response.length);
+            try (var output = exchange.getResponseBody()) { output.write(response); }
+        });
+        http.createContext("/redirected", exchange -> {
+            forwardedRequests.incrementAndGet();
+            byte[] response = PERIOD.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) { output.write(response); }
+        });
+        http.start();
+        try {
+            var direct = new HttpFiscalPeriodControlAdapter(RestClient.builder(),
+                    "http://127.0.0.1:" + http.getAddress().getPort(), "2s", "2s");
+            assertThatThrownBy(() -> direct.updateClosingStatus(9L, "CLOSED", "operator"))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+            assertThatThrownBy(() -> direct.findFiscalPeriodById(9L))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("HTTP 302");
+            assertThat(originalRequests.get()).isEqualTo(2);
+            assertThat(forwardedRequests.get()).isZero();
+        } finally {
+            http.stop(0);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"0ms", "-1s", "2147483648ms", "PT0.000001S", "garbage", ""})
     void rejectsInvalidOrUnboundedTimeouts(String timeout) {
         assertThatThrownBy(() -> new HttpFiscalPeriodControlAdapter(RestClient.builder(), BASE, timeout, "5s"))

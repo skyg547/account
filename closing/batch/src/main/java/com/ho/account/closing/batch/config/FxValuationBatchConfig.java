@@ -18,6 +18,7 @@ import org.springframework.batch.core.partition.support.Partitioner;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -52,7 +53,7 @@ public class FxValuationBatchConfig {
     @Value("${account.closing.batch.fx.chunk-size:1000}")
     private int chunkSize;
 
-    @Value("${account.closing.batch.fx.grid-size:4}")
+    @Value("${account.closing.batch.fx.grid-size:1}")
     private int gridSize;
 
     @Bean
@@ -110,7 +111,8 @@ public class FxValuationBatchConfig {
 
     @Bean
     @StepScope
-    public ItemReader<FxValuationBalance> fxValuationItemReader(
+    // Expose ItemStream through the scoped proxy so Step opens, checkpoints and closes the cursor.
+    public JdbcCursorItemReader<FxValuationBalance> fxValuationItemReader(
             @Value("#{jobParameters['valuationDate']}") String valuationDateValue,
             @Value("#{stepExecutionContext['startAccountCode']}") String startAccountCode,
             @Value("#{stepExecutionContext['endAccountCode']}") String endAccountCode) {

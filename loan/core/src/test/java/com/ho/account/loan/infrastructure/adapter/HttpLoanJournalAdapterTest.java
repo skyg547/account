@@ -8,11 +8,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.loan.application.port.out.LoanJournalPort.LoanJournalCommand;
 import com.ho.account.loan.application.port.out.LoanJournalPort.LoanJournalLine;
-import com.sun.net.httpserver.HttpServer;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.math.BigDecimal;
+import com.sun.net.httpserver.HttpServer;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,12 +36,18 @@ import org.springframework.web.client.RestClient;
 class HttpLoanJournalAdapterTest {
     private static final String ROOT = "http://journal.invalid";
     private static final String DRAFT = "{\"journalEntryId\":42,\"slipNo\":\"LN-42\",\"status\":\"DRAFT\"}";
-    private static final String POSTED = """
-            {"id":42,"slipNo":"LN-42","status":"POSTED","currencyCode":"KRW",
-             "accountingDate":"2026-09-10","lineageSourceType":"LOAN_DISBURSAL","lineageSourceId":"7",
-             "lines":[{"side":"DEBIT","amount":123456789.12},{"side":"CREDIT","amount":123456789.12}]}
+    private static final String STORED_DRAFT = """
+            {"id":42,"slipNo":"LN-42","status":"DRAFT","currencyCode":"KRW",
+             "slipDate":"2026-09-10","accountingDate":"2026-09-10","description":"Loan disbursal",
+             "entryType":"NORMAL","exchangeRate":1,"createdBy":"loan-operator","auditUser":"loan-operator",
+             "lineageSourceType":"LOAN_DISBURSAL","lineageSourceId":"7",
+             "lines":[
+               {"id":81,"side":"DEBIT","accountCode":"131000","amount":123456789.12,
+                "baseAmount":123456789.12,"departmentCode":null,"businessPartnerCode":null,"description":"Loan"},
+               {"id":82,"side":"CREDIT","accountCode":"101000","amount":123456789.12,
+                "baseAmount":123456789.12,"departmentCode":null,"businessPartnerCode":null,"description":"Cash"}]}
             """;
-    private static final String STORED_DRAFT = POSTED.replace("POSTED", "DRAFT");
+    private static final String POSTED = STORED_DRAFT.replace("DRAFT", "POSTED");
     private MockRestServiceServer server;
     private HttpLoanJournalAdapter adapter;
 
@@ -101,16 +108,18 @@ class HttpLoanJournalAdapterTest {
     @ValueSource(ints = {0, 1, 2, 3, 4})
     void failedStageStopsBeforeAnyLaterRequestOrRetry(int failedStage) {
         for (int stage = 0; stage <= failedStage; stage++) {
-            ResponseActions action = switch (stage) {
+            ResponseActions request = switch (stage) {
                 case 0 -> create();
                 case 1, 4 -> lookup();
                 case 2 -> approve();
                 default -> post();
             };
-            if (stage == failedStage) action.andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
-            else if (stage == 0) action.andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
-            else if (stage == 1) action.andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
-            else action.andRespond(withSuccess());
+            if (stage == failedStage) {
+                request.andRespond(withStatus(stage == 2 ? HttpStatus.FORBIDDEN : HttpStatus.INTERNAL_SERVER_ERROR));
+            } else {
+                request.andRespond(withSuccess(stage == 0 ? DRAFT : stage == 1 ? STORED_DRAFT : "",
+                        MediaType.APPLICATION_JSON));
+            }
         }
         assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
@@ -120,10 +129,10 @@ class HttpLoanJournalAdapterTest {
     @ValueSource(strings = {"", "null", "{}", "not-json",
             "{\"journalEntryId\":0,\"slipNo\":\"LN-42\",\"status\":\"DRAFT\"}",
             "{\"journalEntryId\":42,\"slipNo\":\" \",\"status\":\"DRAFT\"}",
-            "{\"journalEntryId\":42,\"slipNo\":\"LN-42\",\"status\":\"POSTED\"}"})
+            "{\"journalEntryId\":42,\"slipNo\":\"LN-42\",\"status\":\"CANCELLED\"}"})
     void malformedDraftCannotTriggerApproval(String response) {
         create().andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
     }
 
@@ -138,7 +147,7 @@ class HttpLoanJournalAdapterTest {
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(response.toString(), MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
     }
 
@@ -150,7 +159,7 @@ class HttpLoanJournalAdapterTest {
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
     }
 
@@ -175,23 +184,123 @@ class HttpLoanJournalAdapterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"id", "slipNo", "status", "currencyCode", "accountingDate", "lineageSourceType", "lineageSourceId"})
-    void rejectsMismatchedDraftIdentityStateOrLineageBeforeApproval(String field) throws Exception {
-        var response = (com.fasterxml.jackson.databind.node.ObjectNode) new ObjectMapper().readTree(STORED_DRAFT);
-        response.put(field, field.equals("id") ? "43" : field.equals("accountingDate") ? "2026-09-11" : "OTHER");
+    @ValueSource(strings = {"id", "slipNo", "status", "currencyCode", "accountingDate", "slipDate",
+            "description", "entryType", "exchangeRate", "createdBy", "auditUser", "lineageSourceType",
+            "lineageSourceId", "missingLines", "missingLine", "duplicateLine", "nullLine",
+            "line.side", "line.accountCode", "line.amount", "line.baseAmount", "line.description",
+            "line.departmentCode", "line.businessPartnerCode", "line.missingAmount", "line.missingBaseAmount"})
+    void mismatchedStoredDraftFailsBeforeApprovalOrPosting(String field) throws Exception {
         create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
-        lookup().andRespond(withSuccess(response.toString(), MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(changed(STORED_DRAFT, field), MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
-        server.verify(); // Any approve/post or retry is an unexpected request and fails this test.
+        // No approve/post expectations: any later write makes this regression fail.
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"slipDate", "description", "entryType", "exchangeRate", "createdBy", "auditUser",
+            "missingLines", "missingLine", "duplicateLine", "nullLine", "line.side", "line.accountCode",
+            "line.amount", "line.baseAmount", "line.description", "line.departmentCode",
+            "line.businessPartnerCode", "line.missingAmount", "line.missingBaseAmount"})
+    void finalPostedFinancialContentMustStillMatch(String field) throws Exception {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
+        approve().andRespond(withSuccess());
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(changed(POSTED, field), MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
+        server.verify();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "null", "{}", "not-json"})
-    void emptyOrMalformedDraftLookupCannotTriggerApproval(String response) {
+    void malformedPreApprovalLookupCannotTriggerFurtherWrites(String response) {
         create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
         lookup().andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class);
         server.verify();
+    }
+
+    @Test
+    void reusedHundredDraftCannotBeApprovedForTwoHundredRequest() {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT.replace("123456789.12", "100.00"), MediaType.APPLICATION_JSON));
+        var source = command();
+        var twoHundred = new LoanJournalCommand(source.accountingDate(), source.description(), source.actor(),
+                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), source.lines().stream()
+                    .map(line -> new LoanJournalLine(line.side(), line.accountCode(), new BigDecimal("200.00"),
+                            line.description())).toList());
+        assertThatThrownBy(() -> adapter.post(twoHundred)).hasMessageContaining("financial line confirmation");
+        server.verify();
+    }
+
+    @Test
+    void identicalCompletedRetryValidatesWithoutAdditionalApprovalOrPosting() {
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT, MediaType.APPLICATION_JSON));
+        approve().andRespond(withSuccess());
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(POSTED, MediaType.APPLICATION_JSON));
+        create().andRespond(withSuccess(DRAFT.replace("DRAFT", "POSTED"), MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(POSTED, MediaType.APPLICATION_JSON));
+        assertThat(adapter.post(command()).journalEntryId()).isEqualTo(42L);
+        assertThat(adapter.post(command()).journalEntryId()).isEqualTo(42L);
+        server.verify();
+    }
+
+    @Test
+    void matchingApprovedRetryPostsWithoutDuplicateApproval() {
+        create().andRespond(withSuccess(DRAFT.replace("DRAFT", "APPROVED"), MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(STORED_DRAFT.replace("DRAFT", "APPROVED"), MediaType.APPLICATION_JSON));
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(POSTED, MediaType.APPLICATION_JSON));
+        assertThat(adapter.post(command()).journalEntryId()).isEqualTo(42L);
+        server.verify();
+    }
+
+    @Test
+    void lineOrderAndDecimalScaleDoNotChangeFinancialIdentity() throws Exception {
+        var stored = (com.fasterxml.jackson.databind.node.ObjectNode) new ObjectMapper()
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                .readTree(STORED_DRAFT.replace("123456789.12", "123456789.1200"));
+        var lines = stored.withArray("lines");
+        var first = lines.remove(0);
+        lines.add(first);
+        create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
+        lookup().andRespond(withSuccess(stored.toString(), MediaType.APPLICATION_JSON));
+        approve().andRespond(withSuccess());
+        post().andRespond(withSuccess());
+        lookup().andRespond(withSuccess(stored.toString().replace("DRAFT", "POSTED"), MediaType.APPLICATION_JSON));
+        assertThat(adapter.post(command()).journalEntryId()).isEqualTo(42L);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("redirectStages")
+    void everyRedirectStageFailsWithoutLaterRequestsOrRetry(int status, int failedStage) {
+        for (int stage = 0; stage <= failedStage; stage++) {
+            ResponseActions request = switch (stage) {
+                case 0 -> create();
+                case 1, 4 -> lookup();
+                case 2 -> approve();
+                default -> post();
+            };
+            if (stage == failedStage) {
+                request.andRespond(withStatus(HttpStatus.valueOf(status)).location(java.net.URI.create(ROOT + "/unexpected")));
+            } else {
+                request.andRespond(withSuccess(stage == 0 ? DRAFT : stage == 1 ? STORED_DRAFT : "",
+                        MediaType.APPLICATION_JSON));
+            }
+        }
+        assertThatThrownBy(() -> adapter.post(command())).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("HTTP " + status);
+        server.verify();
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> redirectStages() {
+        return java.util.stream.IntStream.of(300, 301, 302, 303, 304, 307, 308).boxed().flatMap(status ->
+                java.util.stream.IntStream.range(0, 5).mapToObj(stage ->
+                        org.junit.jupiter.params.provider.Arguments.of(status, stage)));
     }
 
     @ParameterizedTest
@@ -248,16 +357,25 @@ class HttpLoanJournalAdapterTest {
     @Test
     void sumsMultipleLinesExactlyAndIgnoresScaleDifferences() throws Exception {
         String lines = """
-                [{"side":"DEBIT","amount":99999999999999999.90},
-                 {"side":"DEBIT","amount":0.09},
-                 {"side":"CREDIT","amount":99999999999999999.9900}]
+                [{"side":"DEBIT","accountCode":"131000","amount":99999999999999999.9000,
+                  "baseAmount":99999999999999999.90,"description":"Loan"},
+                 {"side":"DEBIT","accountCode":"131000","amount":0.09,
+                  "baseAmount":0.0900,"description":"Loan remainder"},
+                 {"side":"CREDIT","accountCode":"101000","amount":99999999999999999.9900,
+                  "baseAmount":99999999999999999.99,"description":"Cash"}]
                 """;
+        var source = command();
+        var precise = new LoanJournalCommand(source.accountingDate(), source.description(), source.actor(),
+                source.lineageSourceType(), source.lineageSourceId(), source.currencyCode(), List.of(
+                        new LoanJournalLine("DEBIT", "131000", new BigDecimal("99999999999999999.90"), "Loan"),
+                        new LoanJournalLine("DEBIT", "131000", new BigDecimal("0.09"), "Loan remainder"),
+                        new LoanJournalLine("CREDIT", "101000", new BigDecimal("99999999999999999.99"), "Cash")));
         create().andRespond(withSuccess(DRAFT, MediaType.APPLICATION_JSON));
         lookup().andRespond(withSuccess(withLines(STORED_DRAFT, lines), MediaType.APPLICATION_JSON));
         approve().andRespond(withSuccess());
         post().andRespond(withSuccess());
         lookup().andRespond(withSuccess(withLines(POSTED, lines), MediaType.APPLICATION_JSON));
-        assertThat(adapter.post(command("99999999999999999.99")).journalEntryId()).isEqualTo(42L);
+        assertThat(adapter.post(precise).journalEntryId()).isEqualTo(42L);
         server.verify();
     }
 
@@ -321,6 +439,29 @@ class HttpLoanJournalAdapterTest {
         var mapper = new ObjectMapper().enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         var json = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(response);
         json.set("lines", mapper.readTree(lines));
+        return json.toString();
+    }
+
+    private static String changed(String source, String field) throws Exception {
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) new ObjectMapper().readTree(source);
+        var lines = json.withArray("lines");
+        var first = (com.fasterxml.jackson.databind.node.ObjectNode) lines.get(0);
+        switch (field) {
+            case "id" -> json.put("id", 43);
+            case "slipDate", "accountingDate" -> json.put(field, "2026-09-11");
+            case "exchangeRate" -> json.put(field, new BigDecimal("2"));
+            case "missingLines" -> json.remove("lines");
+            case "missingLine" -> lines.remove(1);
+            case "duplicateLine" -> lines.set(1, first.deepCopy());
+            case "nullLine" -> lines.set(1, com.fasterxml.jackson.databind.node.NullNode.instance);
+            case "line.amount", "line.baseAmount" -> first.put(field.substring(5), new BigDecimal("100"));
+            case "line.missingAmount" -> first.remove("amount");
+            case "line.missingBaseAmount" -> first.remove("baseAmount");
+            default -> {
+                if (field.startsWith("line.")) first.put(field.substring(5), "OTHER");
+                else json.put(field, "OTHER");
+            }
+        }
         return json.toString();
     }
 

@@ -1,0 +1,1 @@
+SELECT EXISTS (SELECT 1 FROM fixed_assets WHERE id=6900001 AND asset_code='GH690-ASSET' AND acquisition_cost=12000000 AND accumulated_depreciation=200000 AND current_book_value=11800000 AND last_depreciation_date=DATE '2090-01-15' AND status='ACTIVE') AS verified;

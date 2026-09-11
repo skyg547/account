@@ -1,3 +1,24 @@
+## 2026-09-11 — GH-690 all10 real batches verified / Draft preparation
+
+- Issue #690, `difficulty:high`; branch `agent/690-business-batch-seeds`; isolated worktree `/tmp/account-690-business-batch-seeds`. Full authority covers directly required repairs, runtime/tests and Draft publication. Primary dirty checkout is preserved.
+- Integrated `main@56c07971` (already-merged #689/#695) as `a936d82b`; older unmerged-PR statements below are historical. Both-parent record checks10/10 and stash-stage checks8/8 passed; financial/security tests retained. See conflict-log and integration-log.
+- Changes: Accounting/Products/Risk seeds; safe idempotent injection and exact-identity sequential runners; dev composition/reader/executor fixes; Loan durable scheduled repayment and remote journal validation; Closing read-only sources; actual Reconciliation posted financial queries; beginner and module documentation. Parent owns shared records/Git/runtime; independent reviewer is read-only.
+- Validation: Seed12/12 (11 business DB + Closing readiness); Python55+38, SQL10, PostgreSQL rollback probes6 and linked-expenditure rejection, Node135. Java972 across18 project test tasks, failures/errors/skips0 (unchanged Asset Batch3 reused valid up-to-date results); eight batch JARs and affected API builds/compilation pass. Commands/details: [business batch guide](../guides/business-batch-dev-verification.md).
+- All10 real batch gates passed: balances1, fx4, deposit1, loan-interest3, loan-repayment4, depreciation1, ecl1, mart1, reconciliation2, provision5. Every metadata status/exit is COMPLETED with expected outputs, exit0/OOMfalse and inspected CPU0.5/RAM768MiB. Same-parameter all10 verification passed without new execution; Mart exactly1 execution; Loan cross-DB journal ID/slip agree and pending0.
+- Journal API actual bytes/label match tested SHA256 `65eb68586b08cb7d86ec964ed2cbe6b67205cf5e74181a3f9fc43858945dd28c`; health/Eureka/resource/restart0/OOMfalse/error0/by-id gates pass. Previous image retained. Balances is explicitly a valid prior completed execution, not a claim that the newest compiled JAR was rerun.
+- Preserved failure evidence: FX reader lifecycle, provider port and ambiguous response with one persisted draft (same-instance4 reused safely); Deposit duplicate adapters; Loan insufficient pool and missing income mapping; Reconciliation placeholder reads. Corrected and reverified; no metadata deletion or random IDs used to bypass failure.
+- Independent final review Q1–Q4 PASS with no remaining P0–P3; reviewer independently checked XML totals, JAR hashes and safe runtime/repeat logs. Draft PR URL pending publication after review. No Ready/merge/Issue close/cleanup performed.
+- Limits/rollback: rootless Podman, small synthetic Stage1/shallow reconciliation, FX/ECL drafts, Deposit read-only; no load/distributed atomicity claim. Reconciliation range response is unpaged. Reviewed source revert; manual guarded seed cleanup only after lineage review, unresolved Loan pending/posted journals block blind cleanup. Preserve DB/volumes/metadata and original Journal image.
+- Implementer tier: High reasoning (difficulty:high)
+- Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Core Loan 예약·전표 정합성, Closing source ports, Reconciliation HTTP 조회; Java972·실제10잡·SQL 결과 | 전 항목 적용 | 작은 합성 데이터 검증; 대량·운영 검증 별도 | 독립 XML·해시·실기동 증거 대조 PASS |
+| Q2 | PASS | Loan process-flow, 동일 식별 파라미터·완료 재사용, 실패/부분 원격 쓰기 복구 기록 | 전 항목 적용 | pending 수동 대사·복구 | 독립 source review PASS |
+| Q3 | PASS | business-batch-dev-verification, Loan/Mart/Reconciliation 모듈 문서와 실제 실행표 | 전 항목 적용 | Draft CI·사람 리뷰 | 독립 문서·실행 결과 대조 PASS |
+| Q4 | PASS | scoped reader, 정확한 전표 multiset, 읽기전용 source pool, 원자적 SQL 정리, 실제 HTTP 필터 주석 | 전 항목 적용 | 기간 HTTP 조회의 메모리·분산 스냅샷 한계 문서화 | 독립 source review PASS |
+
 ## 2026-09-10 - GH-653 runtime and Q1–Q4 PASS / Draft PR #689
 
 - Requested Draft PR published: [#689](https://github.com/skyg547/account/pull/689), `Refs #653`, branch `agent/653-business-runtime`. Only this dedicated branch was pushed. Final frozen head/base and live CI results are recorded in the PR body/checks; this handoff-only commit changes no production code. Issue remains open. Ready/main merge/Issue close/cleanup were not performed.

@@ -61,6 +61,27 @@ class LoanServiceTest {
     }
 
     @Test
+    void pendingScheduledRepaymentBlocksScheduleChanges() {
+        Loan loan = activeLoan();
+        when(persistencePort.findLoanForUpdate(1L)).thenReturn(Optional.of(loan));
+        when(persistencePort.hasPendingScheduledRepayment(1L)).thenReturn(true);
+        assertThatThrownBy(() -> service.generateAmortizationSchedule(
+                1L, loan.getDisbursalDate(), loan.getCurrentEIR(), "SYSTEM"))
+                .hasMessageContaining("Pending scheduled repayment");
+        verify(persistencePort, never()).deleteSchedules(anyList());
+        verify(persistencePort, never()).saveLoan(any());
+    }
+
+    @Test
+    void genericEventsCannotForgeScheduledRepaymentCompletion() {
+        assertThatThrownBy(() -> service.processLoanEvent(1L,
+                LoanEvent.EventType.SCHEDULED_REPAYMENT, LocalDate.of(2090, 1, 15),
+                "forged", "SYSTEM", Optional.empty(), Optional.empty()))
+                .hasMessageContaining("scheduled repayment use case");
+        verify(persistencePort, never()).saveLoanEvent(any());
+    }
+
+    @Test
     @DisplayName("대출 생성은 값 참조만 저장하고 기준정보 이름은 transient 설명으로 연결한다.")
     void createLoanValidatesReferencesWithoutMasterDataEntities() {
         Loan loan = pendingLoan();

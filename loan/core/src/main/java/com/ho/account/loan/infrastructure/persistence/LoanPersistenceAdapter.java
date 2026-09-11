@@ -29,6 +29,10 @@ public class LoanPersistenceAdapter implements LoanPersistencePort {
     @Override public Loan saveLoan(Loan loan) { return loanRepository.save(loan); }
     @Override public Optional<Loan> findLoan(Long id) { return loanRepository.findById(id); }
     @Override public Optional<Loan> findLoanForUpdate(Long id) { return loanRepository.findByIdForUpdate(id); }
+    @Override public boolean hasPendingScheduledRepayment(Long loanId) {
+        return loanEventRepository.existsByLoanIdAndEventType(
+                loanId, LoanEvent.EventType.SCHEDULED_REPAYMENT_PENDING);
+    }
     @Override public boolean existsDisbursal(Long loanId) { return loanDisbursalRepository.existsByLoanId(loanId); }
     @Override public LoanDisbursal saveDisbursal(LoanDisbursal disbursal) { return loanDisbursalRepository.save(disbursal); }
     @Override public Optional<DeferredItemType> findDeferredItemType(Long id) { return deferredItemTypeRepository.findById(id); }

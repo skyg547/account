@@ -2,6 +2,8 @@ package com.ho.account.closing.infrastructure.external;
 
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,12 +51,24 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("closing.master-data.base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                // A redirect is neither proof of a status transition nor permission to forward service identity.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         requestFactory.setConnectTimeout(timeoutMillis(connectTimeout, "connect-timeout"));
         requestFactory.setReadTimeout(timeoutMillis(readTimeout, "read-timeout"));
         this.restClient = builder
                 .baseUrl(baseUrl.trim())
                 .requestFactory(requestFactory)
+                .defaultStatusHandler(status -> !status.is2xxSuccessful(), (request, response) -> {
+                    // Do not retain Location, response bodies or URLs in surfaced exceptions.
+                    throw new RestClientResponseException("Master Data returned a non-success status",
+                            response.getStatusCode().value(), "", null, null, null);
+                })
                 .build();
     }
 
@@ -68,10 +82,17 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             return Optional.empty();
         }
         try {
-            return Optional.ofNullable(restClient.get()
+            FiscalPeriodRef response = restClient.get()
                     .uri("/api/basic/fiscal-periods/id/{id}", id)
                     .retrieve()
-                    .body(FiscalPeriodRef.class));
+                    .body(FiscalPeriodRef.class);
+            if (response != null) {
+                requireValidPeriod(response);
+                if (!id.equals(response.id())) {
+                    throw new IllegalStateException("master-data lookup returned a different fiscal period ID");
+                }
+            }
+            return Optional.ofNullable(response);
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
@@ -88,10 +109,18 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             return Optional.empty();
         }
         try {
-            return Optional.ofNullable(restClient.get()
+            FiscalPeriodRef response = restClient.get()
                     .uri("/api/basic/fiscal-periods/{year}/{period}", fiscalYear.trim(), fiscalPeriod.trim())
                     .retrieve()
-                    .body(FiscalPeriodRef.class));
+                    .body(FiscalPeriodRef.class);
+            if (response != null) {
+                requireValidPeriod(response);
+                if (!fiscalYear.trim().equals(response.fiscalYear())
+                        || !fiscalPeriod.trim().equals(response.fiscalPeriod())) {
+                    throw new IllegalStateException("master-data lookup returned a different fiscal year or period");
+                }
+            }
+            return Optional.ofNullable(response);
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
@@ -117,6 +146,10 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             if (response == null) {
                 throw new IllegalStateException("master-data closing status update returned an empty response body");
             }
+            requireValidPeriod(response);
+            if (!fiscalPeriodId.equals(response.id()) || !closingStatus.equals(response.closingStatus())) {
+                throw new IllegalStateException("master-data closing status update returned a different period or status");
+            }
             return response;
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.FORBIDDEN || e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
@@ -125,6 +158,17 @@ public class HttpFiscalPeriodControlAdapter implements FiscalPeriodControlPort {
             throw remoteFailure("closing status update", e);
         } catch (RestClientException e) {
             throw remoteFailure("closing status update", e);
+        }
+    }
+
+    private static void requireValidPeriod(FiscalPeriodRef response) {
+        if (response.id() == null || response.id() < 1
+                || response.fiscalYear() == null || response.fiscalYear().isBlank()
+                || response.fiscalPeriod() == null || response.fiscalPeriod().isBlank()
+                || response.startDate() == null || response.endDate() == null
+                || response.startDate().isAfter(response.endDate())
+                || response.closingStatus() == null || response.closingStatus().isBlank()) {
+            throw new IllegalStateException("master-data returned an invalid fiscal period");
         }
     }
 

@@ -5,6 +5,8 @@ import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.contracts.ledger.LedgerBalanceSummary;
 import com.ho.account.contracts.ledger.LedgerQueryPort;
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -45,7 +47,14 @@ public class HttpReportingLedgerAdapter implements LedgerQueryPort {
         if (isBlank(baseUrl)) {
             throw new IllegalArgumentException("account.reporting.journal-base-url must not be blank");
         }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                // Preserve the original status: a followed GET redirect would bypass non-2xx rejection.
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(timeoutMillis(connectTimeout));
         factory.setReadTimeout(timeoutMillis(readTimeout));
         this.restClient = builder.baseUrl(baseUrl.trim()).requestFactory(factory).build();

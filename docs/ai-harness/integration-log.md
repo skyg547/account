@@ -1,5 +1,13 @@
 # Integration Log
 
+## 2026-09-11 — GH-690 main integration into the issue branch
+
+- Branch/worktree: `agent/690-business-batch-seeds` / `/tmp/account-690-business-batch-seeds`; parent Integrator owns Git and records.
+- Completed the existing merge of `6be62f91` as `20fc07c3`, then integrated `main@56c07971` (merged #689/#695) as `a936d82b`. This records main-to-issue integration; it does not authorize or claim a PR merge into main.
+- Preserved both parents in five history conflicts (10/10 checks) and both index stages in four stash-record conflicts (8/8). The named recovery stash remains. Three HTTP source/test conflicts retain main financial/security checks and #690 retry/precision behavior; see conflict-log.
+- Verification and final runtime results are maintained in [business batch guide](../guides/business-batch-dev-verification.md) and the current worklog/handoff checkpoint. Independent reviewer is read-only. Main foundation changes and the primary dirty checkout were preserved.
+- Rollback: reviewed scoped revert; no force push, reset/clean, branch/worktree deletion, database/volume cleanup, PR Ready, final merge or Issue close.
+
 ## 2026-07-30 - GH-42 Master Data Partner Approval Integration
 
 - Issue: `#42 [frontend] 거래처 심사 승인(Master Data Approval) 화면 구현 및 API 연동`; state `CLOSED`.

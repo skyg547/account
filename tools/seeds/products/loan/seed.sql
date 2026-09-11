@@ -1,0 +1,5 @@
+-- GH690 contractual principal and one due EIR period, in decimal rate units.
+INSERT INTO loans (id,loan_number,business_partner_id,loan_product,loan_type,currency_code,principal_amount,interest_rate,disbursal_date,maturity_date,payment_frequency,repayment_method,initial_eir,current_eir,status,current_principal_balance,deferred_loan_fee,total_interest_paid,total_principal_paid,created_at,updated_at,audit_user)
+VALUES (6900001,'GH690-LOAN',6900002,'GH690-LOAN','TERM_LOAN','KRW',12000000,0.06,DATE '2089-12-15',DATE '2090-12-15','MONTHLY','EQUAL_PRINCIPAL',0.06,0.06,'ACTIVE',12000000,0,0,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'GH690') ON CONFLICT DO NOTHING;
+INSERT INTO eir_amortization_schedules (id,loan_id,schedule_date,beginning_balance,interest_income,principal_repayment,ending_balance,deferred_item_amortization,cash_flow,is_recalculated,created_at,updated_at,audit_user)
+VALUES (6900001,6900001,DATE '2090-01-15',12000000,60000,1000000,11000000,0,1060000,FALSE,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'GH690') ON CONFLICT DO NOTHING;

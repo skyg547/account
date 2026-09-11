@@ -381,6 +381,55 @@ public class Loan {
         auditUser = requireActor(actor);
     }
 
+    /** Apply contractual payment without recalculating EIR or replacing future schedules. */
+    public void applyScheduledRepayment(EIRAmortizationSchedule schedule, String actor) {
+        validateScheduledRepayment(schedule);
+        String normalizedActor = requireActor(actor);
+        BigDecimal principalPaid = totalPrincipalPaid == null ? BigDecimal.ZERO : totalPrincipalPaid;
+        BigDecimal interestPaid = totalInterestPaid == null ? BigDecimal.ZERO : totalInterestPaid;
+        currentPrincipalBalance = schedule.getEndingBalance();
+        totalPrincipalPaid = principalPaid.add(schedule.getPrincipalRepayment());
+        totalInterestPaid = interestPaid.add(schedule.getInterestIncome());
+        if (currentPrincipalBalance.signum() == 0) {
+            status = LoanStatus.REPAID;
+        }
+        auditUser = normalizedActor;
+    }
+
+    public void validateScheduledRepayment(EIRAmortizationSchedule schedule) {
+        requireActive("repay on schedule");
+        if (schedule == null || schedule.getLoan() == null || id == null
+                || !id.equals(schedule.getLoan().getId())) {
+            throw new IllegalArgumentException("Schedule must belong to this persisted loan.");
+        }
+        LocalDate date = schedule.getScheduleDate();
+        if (date == null || date.isBefore(disbursalDate) || date.isAfter(maturityDate)) {
+            throw new IllegalArgumentException("Repayment date must be within the contract period.");
+        }
+        BigDecimal principal = requirePositiveAmount(schedule.getPrincipalRepayment(), "principalRepayment");
+        BigDecimal interest = schedule.getInterestIncome();
+        BigDecimal beginning = schedule.getBeginningBalance();
+        BigDecimal ending = schedule.getEndingBalance();
+        BigDecimal cash = schedule.getCashFlow();
+        if (interest == null || interest.signum() < 0 || beginning == null || ending == null || cash == null
+                || beginning.compareTo(getOutstandingPrincipal()) != 0
+                || principal.compareTo(beginning) > 0 || ending.signum() < 0
+                || beginning.subtract(principal).compareTo(ending) != 0
+                || principal.add(interest).compareTo(cash) != 0) {
+            throw new IllegalArgumentException("Repayment schedule amounts do not reconcile with the loan balance.");
+        }
+        if (schedule.getDeferredItemAmortization() != null
+                && schedule.getDeferredItemAmortization().signum() != 0) {
+            throw new IllegalArgumentException("Deferred amortization requires a separate settlement workflow.");
+        }
+        CurrencyRoundingPolicy rounding = CurrencyRoundingPolicy.of(currencyCode);
+        for (BigDecimal amount : new BigDecimal[] {principal, interest, beginning, ending, cash}) {
+            if (rounding.applyRounding(amount).compareTo(amount) != 0) {
+                throw new IllegalArgumentException("Scheduled payment must already satisfy currency precision.");
+            }
+        }
+    }
+
     public void markDefaulted(String actor) {
         requireActive("mark defaulted");
         status = LoanStatus.DEFAULTED;
