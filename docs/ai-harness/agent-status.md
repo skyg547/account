@@ -1,4 +1,4 @@
-## 2026-09-11 — GH-690 all10 real batches verified / Draft preparation
+## 2026-09-11 — GH-690 all10 real batches verified / Draft PR #704
 
 - Issue #690, `difficulty:high`; branch `agent/690-business-batch-seeds`; isolated worktree `/tmp/account-690-business-batch-seeds`. Full authority covers directly required repairs, runtime/tests and Draft publication. Primary dirty checkout is preserved.
 - Integrated `main@56c07971` (already-merged #689/#695) as `a936d82b`; older unmerged-PR statements below are historical. Both-parent record checks10/10 and stash-stage checks8/8 passed; financial/security tests retained. See conflict-log and integration-log.
@@ -7,7 +7,7 @@
 - All10 real batch gates passed: balances1, fx4, deposit1, loan-interest3, loan-repayment4, depreciation1, ecl1, mart1, reconciliation2, provision5. Every metadata status/exit is COMPLETED with expected outputs, exit0/OOMfalse and inspected CPU0.5/RAM768MiB. Same-parameter all10 verification passed without new execution; Mart exactly1 execution; Loan cross-DB journal ID/slip agree and pending0.
 - Journal API actual bytes/label match tested SHA256 `65eb68586b08cb7d86ec964ed2cbe6b67205cf5e74181a3f9fc43858945dd28c`; health/Eureka/resource/restart0/OOMfalse/error0/by-id gates pass. Previous image retained. Balances is explicitly a valid prior completed execution, not a claim that the newest compiled JAR was rerun.
 - Preserved failure evidence: FX reader lifecycle, provider port and ambiguous response with one persisted draft (same-instance4 reused safely); Deposit duplicate adapters; Loan insufficient pool and missing income mapping; Reconciliation placeholder reads. Corrected and reverified; no metadata deletion or random IDs used to bypass failure.
-- Independent final review Q1–Q4 PASS with no remaining P0–P3; reviewer independently checked XML totals, JAR hashes and safe runtime/repeat logs. Draft PR URL pending publication after review. No Ready/merge/Issue close/cleanup performed.
+- Independent final review Q1–Q4 PASS with no remaining P0–P3; reviewer independently checked XML totals, JAR hashes and safe runtime/repeat logs. Draft PR [#704](https://github.com/skyg547/account/pull/704) published with `Refs #690`; implementation commit `94624150`, base `56c07971`. Dedicated branch pushed; final CI/human review are next gates. No Ready/merge/Issue close/cleanup performed.
 - Limits/rollback: rootless Podman, small synthetic Stage1/shallow reconciliation, FX/ECL drafts, Deposit read-only; no load/distributed atomicity claim. Reconciliation range response is unpaged. Reviewed source revert; manual guarded seed cleanup only after lineage review, unresolved Loan pending/posted journals block blind cleanup. Preserve DB/volumes/metadata and original Journal image.
 - Implementer tier: High reasoning (difficulty:high)
 - Merge authority: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.

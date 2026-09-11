@@ -348,4 +348,4 @@ Batch 설정은 Job/Step 순서, 청크, 분할과 식별 파라미터를 담당
 | Q3 | PASS | business-batch-dev-verification, Loan/Mart/Reconciliation 모듈 문서와 실제 실행표 | 전 항목 적용 | Draft CI·사람 리뷰 | 독립 문서·실행 결과 대조 PASS |
 | Q4 | PASS | scoped reader, 정확한 전표 multiset, 읽기전용 source pool, 원자적 SQL 정리, 실제 HTTP 필터 주석 | 전 항목 적용 | 기간 HTTP 조회의 메모리·분산 스냅샷 한계 문서화 | 독립 source review PASS |
 
-Draft PR은 `Refs #690`과 검증 결과·잔여 제한을 기록한다. **권한 분리: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.** Ready·merge·Issue close는 별도 승인 게이트다.
+Draft PR [#704](https://github.com/skyg547/account/pull/704)에 `Refs #690`과 검증 결과·잔여 제한을 기록했다. **권한 분리: Reviewer 승인 후 Integrator만 병합. 구현 담당은 병합하지 않음.** Ready·merge·Issue close는 별도 승인 게이트다.

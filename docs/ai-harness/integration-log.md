@@ -5,6 +5,7 @@
 - Branch/worktree: `agent/690-business-batch-seeds` / `/tmp/account-690-business-batch-seeds`; parent Integrator owns Git and records.
 - Completed the existing merge of `6be62f91` as `20fc07c3`, then integrated `main@56c07971` (merged #689/#695) as `a936d82b`. This records main-to-issue integration; it does not authorize or claim a PR merge into main.
 - Preserved both parents in five history conflicts (10/10 checks) and both index stages in four stash-record conflicts (8/8). The named recovery stash remains. Three HTTP source/test conflicts retain main financial/security checks and #690 retry/precision behavior; see conflict-log.
+- Publication: Draft PR [#704](https://github.com/skyg547/account/pull/704), implementation commit `94624150`, `Refs #690`; no PR merge/Issue close.
 - Verification and final runtime results are maintained in [business batch guide](../guides/business-batch-dev-verification.md) and the current worklog/handoff checkpoint. Independent reviewer is read-only. Main foundation changes and the primary dirty checkout were preserved.
 - Rollback: reviewed scoped revert; no force push, reset/clean, branch/worktree deletion, database/volume cleanup, PR Ready, final merge or Issue close.
 
