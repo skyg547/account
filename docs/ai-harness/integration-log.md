@@ -214,3 +214,21 @@ Recommended integration order remains:
 - Gate: two Logstash syntax checks, quiet Compose render, live read-only mount/TCP 5000/closed 5044/redacted synthetic/stop-recovery checks, exact green/red/timeout readiness predicates, GitHub JDK 17 Config Server validation, four final checks, Ready-event Guard and independent exact-head review all passed; final review found no P0-P3.
 - Result: PR #585 squash-merged to `main` as `67c53f2f`; Issue #561 closed and active owner/status labels were removed. `account-logstash-dev` remains healthy with no host port and bounded resources.
 - Rollback: use a reviewed revert of the four Logstash files, direct policy test and harness records, then stop/recreate only the exact Logstash Compose service. Never use `down -v`, prune or Elasticsearch data deletion. The obsolete stateless `logstash` container removed during recovery is not recoverable as a container; its image and Elasticsearch data remain.
+
+## 2026-09-11 GH-692 manual PR integration gate
+
+- PR #698, original f5e32b3; incoming main c94afec5. Parent resolved record-only EOF conflicts while preserving complete source and both histories. This is integration into the Issue branch, not a claim of repository PR merge.
+- Separate /root/manual_review_698 GPT-6 Astra xhigh checks fresh integrated tests and source/record semantics. After verified-head CI, Ready-only checks and final main/head check, user-authorized parent alone may merge. Actual publication, merge SHA, main CI and Issue completion are recorded on PR698/Issue692; no resource deletion is implied.
+
+## 2026-09-11 GH-673 manual rework integration gate
+
+- Issue673 / CLOSED-unmerged PR700 P2, original613a556a + mainc94afec5. Parent preserved both record histories; original writer repaired only active whitespace read scope and its Node regression contract. No repository PR merge is claimed at this checkpoint.
+- Separate high Reviewer and actual tests precede new Draft PR, exact-head CI/Ready/latest-main and user-authorized parent merge. Actual PR/merge/main-CI/Issue result is recorded on the new PR and original Issue. Paused schedules and existing branches/worktrees remain preserved.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+
+## 2026-09-11 manual PR completion and GH-696 integration
+
+- PR698 merged UTC01:11:59Z as5b2d184f27c084b4139722fdb6d3215dcb17fd96; Issue692 COMPLETED. Actual merge tree equals independently reviewed head, main CI34549693134 SUCCESS with Journal tests. PR702 (replacing rejected CLOSED/unmerged700) merged UTC01:23:37Z as ef5679b2e3ff01c5caccf8ad6102f3883c632051; Issue673 COMPLETED. Actual merge tree68be5d8fef0f77fae5405eedd6e127ecdcdc2c8f equals reviewed head, main CI34550480459 SUCCESS, Gradle matrix skipped only because no module changes. Independent local71/71 is separate from CI. Resources preserved.
+- PR701 rework integrates that actual latest main into a separate local branch based on3c6f04f9. Four shared-history EOF conflicts resolved by parent; writer owns only Nginx redirect/config regression, parent guide+records. Current user-authorized manual merge gate still requires independent re-review and exact published-head CI/Ready/latest-main; no701 merge or new live verification is claimed at this checkpoint. Scheduled loops remain PAUSED.

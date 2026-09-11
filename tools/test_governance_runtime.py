@@ -117,6 +117,19 @@ class GovernanceRuntimePolicyTests(unittest.TestCase):
                 self.assertIn("proxy_set_header X-Forwarded-Host $http_host;", blocks[path])
         self.assertIn("resolver ${NGINX_LOCAL_RESOLVERS}", config)
 
+    def test_grafana_slash_redirect_stays_relative_to_preserve_public_port(self):
+        config = (ROOT / "tools/nginx-governance-dev.conf").read_text()
+        config = re.sub(r"#.*", "", config)
+        redirects = re.findall(r"^\s*location\s+=\s+/grafana\s*\{([^{}]*)\}",
+                               config, re.MULTILINE)
+        self.assertEqual(len(redirects), 1)
+        # Check only active directives in the exact location, not comments or
+        # another location; reject extra returns that could hide the redirect.
+        directives = [shlex.split(part) for part in redirects[0].split(";")
+                      if part.strip()]
+        self.assertCountEqual(directives, [["absolute_redirect", "off"],
+                                           ["return", "301", "/grafana/"]])
+
     def test_grafana_reuses_existing_volume_without_replacing_admin_credentials(self):
         self.assertEqual(self.grafana["volumes"]["grafana-storage"],
                          {"name": "grafana-storage", "external": True})

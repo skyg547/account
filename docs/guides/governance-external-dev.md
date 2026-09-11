@@ -168,3 +168,36 @@ Commands and limitations above distinguish the tested-JAR image assembly from a
 fresh full multi-stage source build and the retained frontend from a new BFF
 rollout. Authenticated Grafana Save & test and unrelated business operations
 were not executed. Keep the Draft PR and worktree for human review.
+
+## Manual PR review follow-up (2026-09-11)
+
+The later user request authorizes review, bounded code rework and merge of PR701;
+it does not authorize a new deployment or DB/container operation. The earlier
+Draft-only authority and live results above describe the original submission.
+Current PR comments record the final review/CI/merge state. All scheduled loops
+remain paused, and the original live bind-mounted worktree must be retained.
+
+For beginners: a browser request to `/grafana` first needs a trailing slash.
+Nginx listens on internal port80, but the browser uses published port8080 (or
+the configured public port). Its default absolute redirect would replace the
+browser's port with the internal one. The exact `/grafana` location now uses
+`absolute_redirect off` before returning301 `/grafana/`. This keeps the Location
+relative so the browser retains its scheme, host and public port. The separate
+`/grafana/` proxy and frontend/API routes are unchanged. Custom public ports still
+require the matching `GRAFANA_ROOT_URL` described in the Grafana README.
+
+Offline regression from the repository root, using an existing Linux Python3
+with PyYAML (the replay tests also require POSIX `fcntl`):
+
+```sh
+python3 -B -m unittest discover -s tools -p 'test_governance*.py' -v
+```
+
+Expected result after the fix is13 passing tests:10 runtime-policy checks and3
+mocked provisioning replays. The focused policy test removes comments and checks
+only active directives in the exact redirect location; the unfixed template
+fails it. These are static/mocked tests, not a live HTTP response or deployment
+test. This manual rework does not read real env/credentials, contact databases or
+containers, or claim that the existing runtime has loaded the new template.
+Any later runtime update needs its own approved deployment and health checks;
+preserve the existing databases, env files, images, volumes and live worktree.
