@@ -1,12 +1,16 @@
 name: AI Agent Loop Task
 description: Create a scoped task for Codex, Gemini, or another AI agent.
 title: "[AI][module] "
-labels: ["agent-loop", "status:ready"]
+labels: ["agent-loop", "status:draft"]
 body:
   - type: markdown
     attributes:
       value: |
         Use this form for GitHub Issue based AI coding loops. Keep the issue small enough for one branch and one Draft PR.
+
+        This form starts an issue in `status:draft`; submitting it does not authorize implementation or claim.
+        Before Ready/claim, complete the root cause, design, ordered work instructions, allowlist, and verification plan required by [87: Spec-Driven Delegation](https://github.com/skyg547/account/blob/main/docs/ai-harness/87-spec-driven-delegation.md).
+        Only the parent Integrator may confirm the Ready checklist, set `status:ready`, and approve claim after reviewing dependencies, overlapping files, the latest main, and runnable verification commands.
 
   - type: textarea
     id: goal
