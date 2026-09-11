@@ -14,12 +14,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.internalaudit.core.application.port.in.EvaluationUseCase;
+import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
+import com.ho.account.internalaudit.core.application.port.out.EvaluationPersistencePort;
+import com.ho.account.internalaudit.core.application.service.EvaluationService;
+import com.ho.account.internalaudit.core.domain.AuditLogEntry;
 import com.ho.account.internalaudit.core.domain.evaluation.Deficiency;
 import com.ho.account.internalaudit.core.domain.evaluation.DesignEvaluation;
 import com.ho.account.internalaudit.core.domain.evaluation.OperatingEvaluation;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -190,4 +196,106 @@ class EvaluationControllerTest {
 
         verify(useCase).getOperatingEvaluationsByControl("ctrl-1");
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "-1,-2", "-1,0", "0,-1", "-1,NULL", "NULL,-1", "10,11", "0,1",
+            "-2147483648,NULL", "NULL,-2147483648", "2147483646,2147483647"
+    }, nullValues = "NULL")
+    void invalidOperatingCountsReturn400WithoutEvaluationOrAuditPersistence(
+            Integer sampleSize, Integer exceptionCount) throws Exception {
+        EvaluationPersistencePort evaluations = mock(EvaluationPersistencePort.class);
+        AuditLogPersistencePort audits = mock(AuditLogPersistencePort.class);
+        MockMvc realServiceMvc = operatingMvc(evaluations, audits);
+
+        realServiceMvc.perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
+                        .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(operatingJson(sampleSize, exceptionCount)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(evaluations, audits);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "25,2", "10,10", "10,0", "0,0", "NULL,NULL", "0,NULL", "NULL,0",
+            "10,NULL", "NULL,10", "2147483647,2147483647", "2147483647,0"
+    }, nullValues = "NULL")
+    void allowedOperatingCountsReachRealServiceUnchangedWithTrustedActor(
+            Integer sampleSize, Integer exceptionCount) throws Exception {
+        EvaluationPersistencePort evaluations = mock(EvaluationPersistencePort.class);
+        AuditLogPersistencePort audits = mock(AuditLogPersistencePort.class);
+        when(evaluations.controlActivityExists("ctrl-1")).thenReturn(true);
+        when(evaluations.saveOperatingEvaluation(any())).thenAnswer(inv -> inv.getArgument(0));
+        MockMvc realServiceMvc = operatingMvc(evaluations, audits);
+
+        String response = realServiceMvc.perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .header(EvaluationController.AUTH_USER_HEADER, " trusted_auditor ")
+                        .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(operatingJson(sampleSize, exceptionCount)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.evaluatorId").value("trusted_auditor"))
+                .andExpect(jsonPath("$.result").value("EFFECTIVE"))
+                .andReturn().getResponse().getContentAsString();
+
+        ArgumentCaptor<OperatingEvaluation> saved = ArgumentCaptor.forClass(OperatingEvaluation.class);
+        verify(evaluations).saveOperatingEvaluation(saved.capture());
+        assertThat(saved.getValue().sampleSize()).isEqualTo(sampleSize);
+        assertThat(saved.getValue().exceptionCount()).isEqualTo(exceptionCount);
+        assertThat(saved.getValue().evaluatorId()).isEqualTo("trusted_auditor");
+        assertThat(objectMapper.readValue(response, OperatingEvaluation.class)).isEqualTo(saved.getValue());
+        ArgumentCaptor<AuditLogEntry> audit = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(audits).append(audit.capture());
+        assertThat(audit.getValue().actor()).isEqualTo("trusted_auditor");
+        assertThat(objectMapper.readValue(audit.getValue().detailsJson(), OperatingEvaluation.class))
+                .isEqualTo(saved.getValue());
+    }
+
+    @Test
+    void omittedOperatingCountsRemainUnspecifiedInSavedEvaluationAndAudit() throws Exception {
+        EvaluationPersistencePort evaluations = mock(EvaluationPersistencePort.class);
+        AuditLogPersistencePort audits = mock(AuditLogPersistencePort.class);
+        when(evaluations.controlActivityExists("ctrl-1")).thenReturn(true);
+        when(evaluations.saveOperatingEvaluation(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        String response = operatingMvc(evaluations, audits)
+                .perform(post("/api/v1/internalaudit/evaluations/operating")
+                        .header(EvaluationController.AUTH_USER_HEADER, "trusted_auditor")
+                        .header(EvaluationController.AUTH_ROLES_HEADER, "ROLE_AUDITOR")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"evaluationId":"op-omitted","controlId":"ctrl-1","result":"EFFECTIVE"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        ArgumentCaptor<OperatingEvaluation> saved = ArgumentCaptor.forClass(OperatingEvaluation.class);
+        verify(evaluations).saveOperatingEvaluation(saved.capture());
+        assertThat(saved.getValue().sampleSize()).isNull();
+        assertThat(saved.getValue().exceptionCount()).isNull();
+        assertThat(objectMapper.readValue(response, OperatingEvaluation.class)).isEqualTo(saved.getValue());
+        ArgumentCaptor<AuditLogEntry> audit = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(audits).append(audit.capture());
+        assertThat(objectMapper.readValue(audit.getValue().detailsJson(), OperatingEvaluation.class))
+                .isEqualTo(saved.getValue());
+    }
+
+    private MockMvc operatingMvc(EvaluationPersistencePort evaluations, AuditLogPersistencePort audits) {
+        // Exercise Jackson, the controller and the real service; only outbound storage is replaced.
+        return MockMvcBuilders.standaloneSetup(new EvaluationController(new EvaluationService(evaluations, audits)))
+                .setControllerAdvice(new InternalAuditApiExceptionHandler())
+                .build();
+    }
+
+    private String operatingJson(Integer sampleSize, Integer exceptionCount) {
+        // Raw JSON lets invalid values reach Jackson without constructing a validated domain record first.
+        return """
+                {"evaluationId":"op-boundary","controlId":"ctrl-1","evaluatorId":"spoofed_actor",
+                 "evaluationDate":"2026-09-11","sampleSize":%s,"exceptionCount":%s,"result":" effective "}
+                """.formatted(sampleSize, exceptionCount);
+    }
+
 }

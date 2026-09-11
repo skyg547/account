@@ -27,5 +27,17 @@ public record OperatingEvaluation(
             }
             result = normalized;
         }
+
+        // Preserve independently unspecified counts; compare only known values.
+        // See the count policy in internal-audit/docs/process-flow.md.
+        if (sampleSize != null && sampleSize < 0) {
+            throw new IllegalArgumentException("Sample size must not be negative");
+        }
+        if (exceptionCount != null && exceptionCount < 0) {
+            throw new IllegalArgumentException("Exception count must not be negative");
+        }
+        if (sampleSize != null && exceptionCount != null && exceptionCount > sampleSize) {
+            throw new IllegalArgumentException("Exception count must not exceed sample size");
+        }
     }
 }
