@@ -1,3 +1,18 @@
+## 2026-09-10 — GH-664 안전한 migration CLI 오류 출력
+
+- Issue [#664](https://github.com/skyg547/account/issues/664); branch `agent/664-migration-safe-errors`; worktree `C:/tmp/account-664-migration-safe-errors`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`.
+- 구현자 `/root/migration_663_writer` (이번 할당은 GH-664, GPT-6 Astra/high), 독립 Reviewer `/root/harness_ci_audit` (Astra/high). 부모 Integrator만 공유 기록과 Git/GitHub를 담당한다.
+- 변경: `MigrationCommand`의 IllegalArgumentException 원문 출력을 지정 고정 문구로 교체하고 가까이에 보안 이유를 설명했다. usage 두 줄과 exit 2, 기존 정상/list·baseline exit 3·runtime exit 4 흐름을 유지한다.
+- 검증: 테스트만 추가한 RED 16건 중 14실패(오류/skip 0); 합성 malformed URL 세 건에서 기존 합성 호스트 노출 확인. GREEN 대상 16/16, 전체 98/98(기존 85+신규 13), 독립 `--rerun-tasks` 재실행도 98/98, 실패/오류/skip 0. RED는 구현자 실행 근거, 독립 Reviewer는 현재 GREEN을 재실행했다.
+- 범위는 실질 Java/테스트 2파일과 부모 기록 4파일뿐이다. Reviewer APPROVE, P0–P3 finding 없음. `git diff --check`, unmerged 및 실제 conflict marker 검사 통과. 실제 DB/TLS·외부 장애 연결·환경 비밀정보 접근·설치·다운로드·기존 로그 삭제 없음.
+- 게시: [Draft PR #685](https://github.com/skyg547/account/pull/685), 구현 커밋 `d571a5f7760f147eafe85d6d0ae270e1d8a59538`. 이번 후속 커밋은 PR 식별자를 반영한 기록 전용이며 검토한 실질 2파일은 동일하다. 아래 과거 기록은 이력이며 원격 Issue/PR이 최신 상태다. 새 게시 head CI와 최신 main 통합 가능성을 확인한 뒤 Ready로 인계하고 구현 슬롯을 해제한다. 최종 merge/close는 기존 `account` 예약 소유이며 대기 자체로 독립 Issue를 멈추지 않는다.
+- 관련 대기열: #663/PR #684는 동결 Ready, #662/PR #680은 병합 후 account 소유 Issue-close 승인 대기다. #681/PR #682는 병합·종료·main CI 34424476862 성공 확인 후 전용 자원만 정리했고 코드/이력은 main에 보존했다.
+- 롤백: 이 두 코드/테스트 파일의 검토된 revert. 원래 입력값 노출 위험이 돌아오므로 후속 보안 검토가 필요하며 DB나 과거 로그를 지우는 작업은 포함하지 않는다.
+
+현재 할당: GH-664 구현 동결/독립 리뷰 승인, 부모 기록과 게시 head 검증 중. 다음 후보 GH-683은 명세·비중복 탐색만 완료했고 아직 claim/구현하지 않았다. 실제 상태 전이는 원격 handoff를 따른다.
+
+### 보존된 이전 이력 (아래는 현재 지시가 아님)
+
 ## 2026-09-10 - GH-653 runtime and Q1–Q4 PASS / Draft PR #689
 
 - Requested Draft PR published: [#689](https://github.com/skyg547/account/pull/689), `Refs #653`, branch `agent/653-business-runtime`. Only this dedicated branch was pushed. Final frozen head/base and live CI results are recorded in the PR body/checks; this handoff-only commit changes no production code. Issue remains open. Ready/main merge/Issue close/cleanup were not performed.
@@ -50,6 +65,20 @@
 - 예약 account-issue-2의 전역 대기를 제거하고 원래 Issue 재작업/실제 의존성 기준으로 수정했다. ACTIVE·30분·동일 task·기존 품질 블록·최종 merge/close 담당은 보존했고 별도 planner가 정적 검토했다. 실제 미래 예약 실행까지 검증한 것은 아니다.
 - 현재 통합본의 두 Node 계약·diff/marker/링크·별도 리뷰·새 head CI를 확인한 뒤 Ready로 인계한다. 최종 병합/close는 account 예약 소유다. 이번 부모 재작업은 merge/close/자원 삭제를 수행하지 않는다.
 
+## 2026-09-10 — GH-683 회계기간 저장 상태 복원
+
+- Issue [#683](https://github.com/skyg547/account/issues/683); branch `agent/683-fiscal-period-reconstitution`; worktree `C:/tmp/account-683-fiscal-period-reconstitution`; base `05ff6efcf8895fba6b6592da4ab90cf761038480`. 위 GH-681 블록과 아래 이전 항목은 당시 이력이며 원격 Issue/PR과 최신 대화 체크포인트가 우선한다.
+- Writer `/root/fiscal_683_writer` (service / GPT-6 Astra high), 별도 Reviewer `/root/harness_lifecycle_review` (Astra high). 단일 원인의 응집된 수정에 한해 부모가 정확한 Mapper 1개와 matching tests까지 서비스 역할 범위를 명시 승인했다. 부모만 공유 기록·Git/GitHub를 담당한다.
+- 원인: 저장된 상태를 Mapper가 빈 domain의 새 업무 전이로 실행하여 영구 마감 조회·합법 전이 후 저장 결과 복원을 거부했다. 부모의 현재 compiled class 합성 probe 두 건으로 재현했다.
+- 변경: 순수 `FiscalPeriod.reconstitute`가 9개 원값과 nullable 감사 필드를 보존하며 null 상태는 거부한다. Mapper는 업무 전이를 호출하지 않는다. 기존 `changeClosingStatus` 본문·actor 검증은 동일하고 API/contracts/JPA entity/DB schema는 변경하지 않았다.
+- 검증: production 수정 전 실제 Mapper RED 10건 중 3실패, 오류/skip 0. GREEN Domain21+Mapper10+H2 12=43건, core/API/batch 전체 87건(58/24/5), 22 suites, 실패/오류/skip 0(기존44+신규43). 별도 `/root/harness_lifecycle_review`가 3모듈을 `--rerun-tasks`로 재실행해 87/87 PASS(47초) 및 실질5파일 APPROVE, Q1–Q4 PASS를 확인했다. 게시 head CI는 별도 후속 게이트이며 로컬 성공과 구분한다.
+- H2는 실제 Repository/Mapper/Adapter 및 Spring control 프록시를 사용한다. 외부 테스트 rollback 트랜잭션을 끄고 실제 커밋 후 별도 트랜잭션/clear로 ID·잠금 ID·연월 조회를 확인했다. 거부된 명령은 저장 상태·감사값을 보존한다. PostgreSQL 잠금 경합/동시 마감 검증은 아니다.
+- 실질 allowlist 5파일 + 부모 기록4파일. 기존 변경 보존, diff/marker/unmerged 검사 통과. 실제 DB/서버/업무 Batch·비밀정보·설치/다운로드·기존 행/로그 삭제 없음. 자동화 테스트의 H2 fixture만 정리했다.
+- 게시: [Draft PR #686](https://github.com/skyg547/account/pull/686), 구현 커밋 `9a424d2ac8a19d035e7b350fac8ce422256ea570`. 최종9파일 독립 APPROVE 후 게시했으며 이 후속 커밋은 게시 식별자 반영 기록 전용으로 실질5파일은 동일하다. 새 게시 head CI를 확인한 뒤 Ready로 인계한다. 최종 merge/close는 기존 `account` 예약 소유다. 02:03 UTC 배정 당시 #663/PR684·#664/PR685는 동결 Ready였고 선행 병합이나 #662 종료를 기다리지 않았다. 이후 상태 변화는 각 원격 PR과 오케스트레이터 대기열을 따른다.
+- 롤백: 승인된 코드/테스트의 검토된 revert이며 DB·감사 행은 바꾸지 않는다. 롤백하면 원래 영구 마감 복원 결함이 돌아온다. 기능 문서는 기존 전이/terminal 계약을 복원하므로 수정하지 않는다. `local-run.md:83`의 기존18건은 변경 전44건과도 맞지 않던 범위 밖 차이이며 모든 문서가 최신이라고 주장하지 않는다.
+
+상세 Q1–Q4 완료표와 실행 명령은 `docs/ai-harness/worklog.md`의 GH-683 절에 있다. 게시/Ready/병합/종료는 각각 실제 원격 게이트로 구분하며 반려는 원래 Issue 재작업으로 회수한다.
+
 ### 보존된 이전 체크포인트와 제출 이력 (현재 지시 아님)
 
 # Current checkpoint — 2026-09-10 승인된 Issue 루프 재개
@@ -60,6 +89,17 @@
 - 현재 코드 변경은 동결되어 있으며, 독립 사전 리뷰와 대상 Node 테스트 32/32 PASS를 재확인했다. 이 기록 변경의 commit/push 후 최신 head CI와 통합 가능성을 다시 확인해야 Ready로 전환할 수 있다.
 - 다음 행동: 기존 PR #680 완료·정리를 먼저 확인한 다음 이 PR의 최신 main 통합 가능성과 검증을 재확인하여 Ready로 인계한다. 대기 중에는 Draft를 유지하지만, 이는 순차 처리 대기이며 추가 사용자 승인 대기가 아니다. 기존 Account PR 독립 검수·병합(account) 예약이 최종 독립 리뷰·병합·Issue close를 담당한다.
 
+<!-- GH-669 checkpoint start -->
+## 2026-09-10 — GH-669 제출 전 상태 체크포인트
+
+- [Issue #669](https://github.com/skyg547/account/issues/669), 사용자 승인 기능 문서 포함 실질5 + 부모 기록4. Branch `agent/669-mvc-request-errors`, worktree `C:/tmp/account-669-mvc-request-errors`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`.
+- Writer `/root/migration_663_writer`(shared-kernel Module Writer, Astra high), 독립 `/root/harness_lifecycle_review`(Astra high). 실질5파일 동결/APPROVE, Q1–Q4 PASS, 잔여 finding 없음. 부모의 최종 기록 포함9파일 검수·게시 단계가 남는다.
+- 확정 RED14/5fail, 대상 GREEN19, 작성자/독립 소비자149/36suites 각각 PASS(failure/error/skip0), 부모 library build/소비자3 bootJar PASS, Node64 PASS. 실제 provider/인증/외부 시스템 및 전체 CI 성공은 주장하지 않는다.
+- 다음 순서: 최종9파일 검수 → commit/push/Draft(`Refs #669`) → 게시 head의 전체 CI/최신 main 확인 → Ready 인계. PR 번호·현재 SHA/CI/상태는 원격 Issue/PR이 기준이며 이 절은 제출 전 체크포인트다.
+- 최종 merge/Issue close는 `account` 예약 소유. 이번 문서 추가 승인으로 다른 승인 게이트를 우회하지 않는다. 다른 동결 PR/primary checkout/예약은 변경하지 않았다.
+- 롤백은 검토된5파일 revert, 데이터 변경 없음. 상세 검증·Q1–Q4·잔여 위험은 같은 GH-669 worklog 참조.
+<!-- GH-669 checkpoint end -->
+
 ### 병합된 GH-662 측 당시 기록
 - 대상: GH-662 / PR #680. 사용자가 이 대화에서 오케스트레이션과 다음 Issue 진행 재개를 명시 승인했다.
 - 아래의 Draft 제출 시점 기록은 이력이다. 당시 부모가 추가한 Draft-only/별도 지시 대기 조건은 이번 승인으로 대체하며, 구현자와 독립 검수자의 역할 분리 및 검증 게이트는 유지한다.
@@ -69,6 +109,14 @@
 - 부모는 실제 병합·Issue 종료·main CI 및 전용 자원 소유/청결 검증 후에만 승인된 안전 정리를 수행한다. 두 기존 PR을 순서대로 처리하기 전 새 Issue 구현자를 시작하지 않는다. 이후 상태는 원격 PR과 이 대화/예약 체크포인트를 기준으로 확인한다.
 
 ---
+
+## 2026-09-10 — GH-668 independent implementation snapshot
+
+- Workflow Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; `agent/668-master-data-payload-validation` / `C:/tmp/account-668-master-data-payload-validation`, base `b7c1c7c1fa45ec6550ab2431674fcf22a519bcea`. Writer `/root/fiscal_683_writer` service/Astra high, independent `/root/harness_lifecycle_review` Astra high; parent alone owns shared records and Git/GitHub.
+- Stage: five-file source frozen after local and independent review; parent records4 are added without replacing any earlier line. Worker RED211/174 expected no-throw failures,0error/skip (37 prior PASS = BP1 + constructor raw-null/empty/blank36); target GREEN338, full381/19suites = core352/API24/batch5,0failure/error/skip. Independent Astra high forced offline full rerun381/381,48s, same frozen test hash; reviewer APPROVE with no P0–P3 findings.
+- Initial claim: https://github.com/skyg547/account/issues/668#issuecomment-5611884163. Missing validate hooks are fixed before new request save/approval; normal defaults/partial updates/replay remain intact.
+- Current asynchronous queue, not earlier global-stop checkpoints, governs this work. GH-663 record rework reached Ready before this claim; unrelated PR merge/Issue-close/cleanup waits do not occupy this automation's implementation slot.
+- Parent may commit/push/Draft only after final record review; exact published-head CI gates Ready. Remote Issue/PR holds the subsequent publication status, so this local snapshot is not proof of PR creation or merge. account retains final review/authorized merge/close; no bypass, live DB, resource removal or primary-checkout edits.
 
 ### 이전 제출 시점 기록
 
@@ -282,3 +330,17 @@
 | 2026-09-07 | Codex + Test Agent + independent Reviewer | Parent Integrator / Gateway Route Contracts / Reviewer | `agent/466-gateway-config-repo-sync` / `/tmp/account-466-gateway-config-repo-sync` | Stage 2 verified; final review and authorized commit/push pending | Corrected deposit/asset-lease/ECL Eureka targets and nine Controller Path mappings in both YAML files; reporting already matched. Policy assertions and full configuration parity pass, with Java 21 Gateway tests 72/72 and no failures/errors/skips. Prior PR #632 is merged and Issue #466 is closed; no Issue/PR state mutation is requested. Live Eureka smoke remains unperformed. |
 
 | 2026-09-10 | Codex + 4 read-only Explorers + independent Reviewer | Parent Integrator / API contract audit | `agent/179-api-parity-audit` / `/tmp/account-179-api-parity-audit` | [Draft PR #676](https://github.com/skyg547/account/pull/676) / `status:needs-review` | Base `34c75839`; docs-only allowlist. 42 calls:33 mapped/9 MISSING, 3 helpers,54 backend-only. Source validator and 7 negative checks, tsc, build122/122 pass on Node22 (Node20 unverified). Reviewer P3 wording fixed; final independent review found no remaining P0-P3. New-content control checks pass (pre-existing worklog byte unchanged). Universal compatibility not claimed; no merge/close. |
+
+## 2026-09-10 — GH-663 current record-only rework
+
+- Current rework round1/2: parent integrated `origin/main@b7c1c7c1fa45ec6550ab2431674fcf22a519bcea` into original GH-663 head `62836e6cb8fc95fbe5b0512db837f96cfb92fc02` by ordinary merge; no force/rebase/automatic side selection. Four EOF conflicts retain main GH-179 records before the original GH-663 records; both-parent line-order preservation is 8/8 PASS.
+- Owner remains Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`, original branch/worktree. Substantive code/test2 are identical to reviewed62836e6c. Parent alone edits records4 plus required conflict-log.
+- Current-candidate forced offline target46/full125 (8suites,0fail/error/skip) and bootJar PASS. Separate Astra high re-review, publication head CI and Ready are subsequent gates; exact remote state is on PR #684.
+- Earlier checkpoints are historical. GH-681 is now merged/closed/cleaned; GH-664/PR685 and GH-683/PR686 are frozen for final review/merge. GH-662 close and account merge authorization waits do not block independent implementation. Rejected original-Issue rework has priority; #668 follows this Ready handoff. No final merge/close/resource deletion here.
+
+## 2026-09-10 — GH-663 independent implementation checkpoint
+
+- Owner: Account Issue 구현 오케스트레이터 / task `019fa3ea-ac4c-7022-bb45-951559750df7`; parent Integrator only Git/GitHub writer. `agent/663-migration-canonical-sslmode` in `C:/tmp/account-663-migration-canonical-sslmode`, base `5f8103afd4f018723302fd4b15b740b3bcf189c1`.
+- `/root/migration_663_writer` Astra high: two-file security fix implemented and frozen; RED46/16fail → GREEN target46/full125, failure/error/skip0. Independent `/root/harness_ci_audit` Astra high reran full125/125; final review and parent publication gates tracked remotely.
+- This work proceeds independently of GH-662 Issue-close approval and GH-681 record rework. The current automation uses separate implementation/PR-wait/rework/cleanup queues. Previous global serial stop prose is historical, not current authorization.
+- Final merge/close belongs to account. No primary checkout change, live DB/TLS, installs or resource removal.
