@@ -114,3 +114,8 @@ Merge and rebase conflict resolutions are recorded below.
 - Substantive2 are separately repaired for reviewer P2, not involved in merge conflicts. Original local/test approval60 is historical and insufficient; actual rework71 plus new independent review and head CI are required. Same original resources retained; no rebase/reset/force/delete or secret/DB operations. All automations remain PAUSED under current manual user request.
 
 - Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+
+## 2026-09-11 GH-696 manual conflict resolution
+
+- Parent inspected all four EOF blocks in agent-status, handoff, worklog and CODEX_WORKLOG: original3c6f04f9 versus main ef5679b2. Retained complete main692/673 histories first, then original696 entries, with no source conflict or whole-side replacement. Raw Git/Node comparison confirms main prefix4/4 and original ordered history4/4. Original live runtime worktree is untouched; no rebase/force/reset/delete. Two writer files are disjoint from all incoming main changes.

@@ -226,3 +226,9 @@ Recommended integration order remains:
 - Separate high Reviewer and actual tests precede new Draft PR, exact-head CI/Ready/latest-main and user-authorized parent merge. Actual PR/merge/main-CI/Issue result is recorded on the new PR and original Issue. Paused schedules and existing branches/worktrees remain preserved.
 
 - Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+
+## 2026-09-11 manual PR completion and GH-696 integration
+
+- PR698 merged UTC01:11:59Z as5b2d184f27c084b4139722fdb6d3215dcb17fd96; Issue692 COMPLETED. Actual merge tree equals independently reviewed head, main CI34549693134 SUCCESS with Journal tests. PR702 (replacing rejected CLOSED/unmerged700) merged UTC01:23:37Z as ef5679b2e3ff01c5caccf8ad6102f3883c632051; Issue673 COMPLETED. Actual merge tree68be5d8fef0f77fae5405eedd6e127ecdcdc2c8f equals reviewed head, main CI34550480459 SUCCESS, Gradle matrix skipped only because no module changes. Independent local71/71 is separate from CI. Resources preserved.
+- PR701 rework integrates that actual latest main into a separate local branch based on3c6f04f9. Four shared-history EOF conflicts resolved by parent; writer owns only Nginx redirect/config regression, parent guide+records. Current user-authorized manual merge gate still requires independent re-review and exact published-head CI/Ready/latest-main; no701 merge or new live verification is claimed at this checkpoint. Scheduled loops remain PAUSED.

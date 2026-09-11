@@ -96,3 +96,7 @@ application-local.yaml
 !**/src/main/java/**/adapter/out/**
 !**/src/test/java/**/adapter/out/
 !**/src/test/java/**/adapter/out/**
+
+# GH-696 isolated development database credentials (never build context or Git).
+.env.governance-dev
+.env.governance-dev.*

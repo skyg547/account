@@ -386,3 +386,16 @@
 - Independent /root/manual_review_673 Astra high source/test/history review APPROVE, P0–P3 none/Q1–Q4 PASS; ONE direct full Node run UTC2026-09-11 01:06:00.0622846–01:06:00.2262431, exit0/71tests71pass/fail,skip,cancel,todo0/runner108.3914ms. Frozen2 hashes unchanged and historical lines remain ordered. Final record/PR delta remains a separate gate. Parent alone replaces CLOSED/unmerged700 with a new Draft after acceptance, then checks fresh head CI/Ready/main before user-authorized merge. Runtime sandbox, exhaustive secret detection, CI wiring, business code and history split#675 remain non-goals; preserve histories/resources.
 
 - Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
+
+## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
+
+- GH-696: `difficulty:high`, implementation/live verification complete; Draft PR #701 open, awaiting human review. Branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, base `c94afec5`. PR: https://github.com/skyg547/account/pull/701.
+- Parent Integrator owns Git/harness; SQL/Coder/Test writers and independent read-only Reviewer were separate. Python12/12, Java112/112, DB2/2 and independently repeated live gates PASS. Four issue services healthy, restart0/OOMfalse, CPU0.50/RAM768MiB.
+- Next owner: human reviewer; retain runtime-mounted worktree and Draft state. Ready/merge/close/cleanup need separate authorization. Detailed changes, commands, limitations and rollback are in the GH-696 worklog and governance runtime guide.
+
+
+## 2026-09-11 GH-696 manual PR701 redirect rework
+
+- User authorized manual PR review, rejected-code repair and merge; all three automations remain PAUSED. Published implementation-complete handoff was verified before claim5627974078. Parent uses agent/696-review-redirect / C:/tmp/account-696-review-redirect; original live-mounted /tmp/account-696-governance-runtime is preserved and never modified.
+- Independent Astra high /root/manual_review_701 found P2: default absolute redirect loses the published port for bare /grafana. Separate Astra high writer /root/manual_fix_701 changes only the exact-location relative-redirect policy and its regression; parent owns functional guide/shared records and Git/GitHub. Offline rework only: no live DB/container/credentials/deployment/cleanup.
+- Ordinary integration of original head3c6f04f9 with latest main ef5679b2 preserves both histories. Parent resolved four record-only EOF conflicts, complete main prefixes4/4 and original ordered histories4/4 PASS. Earlier PR698 and PR702 are actually MERGED, Issues692/673 COMPLETED; see their remote completion evidence. Independent re-review, published-head CI and Ready/latest-main checks remain required for PR701; actual final state belongs to the remote PR, not a prediction in this checkpoint.
