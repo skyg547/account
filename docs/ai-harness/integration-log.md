@@ -219,3 +219,10 @@ Recommended integration order remains:
 
 - PR #698, original f5e32b3; incoming main c94afec5. Parent resolved record-only EOF conflicts while preserving complete source and both histories. This is integration into the Issue branch, not a claim of repository PR merge.
 - Separate /root/manual_review_698 GPT-6 Astra xhigh checks fresh integrated tests and source/record semantics. After verified-head CI, Ready-only checks and final main/head check, user-authorized parent alone may merge. Actual publication, merge SHA, main CI and Issue completion are recorded on PR698/Issue692; no resource deletion is implied.
+
+## 2026-09-11 GH-673 manual rework integration gate
+
+- Issue673 / CLOSED-unmerged PR700 P2, original613a556a + mainc94afec5. Parent preserved both record histories; original writer repaired only active whitespace read scope and its Node regression contract. No repository PR merge is claimed at this checkpoint.
+- Separate high Reviewer and actual tests precede new Draft PR, exact-head CI/Ready/latest-main and user-authorized parent merge. Actual PR/merge/main-CI/Issue result is recorded on the new PR and original Issue. Paused schedules and existing branches/worktrees remain preserved.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.

@@ -3814,3 +3814,17 @@
 - 사용자 직접 요청으로 PR #698의 공유 기록 충돌을 원 브랜치/외부 worktree에서 보완한다. 세 예약은 PAUSED 상태이며 이번 수동 실행이 예약을 재개하지 않는다. 최신 main c94afec5와 원 head f5e32b3의 양쪽 역사를 모두 보존했다.
 - 실질5파일은 원 head와 Git blob까지 일치한다. 별도 GPT-6 Astra xhigh /root/manual_review_698의 새 통합본 강제 offline 실행은 core117/API30/Batch5, 총152 tests/30 suites, 실패·오류·skip·stale0, exit0/58초/41tasks 모두 실행이다(UTC2026-09-11 01:00:33.8897880–01:01:33.3742691). API/Batch bootJar2도 새로 생성되었으며 패키징 증거이지 실제 서버 기동 증거는 아니다. 독립 코드 검수 P0–P3 없음/Q1–Q4 PASS; 최종 기록 delta와 원격 CI/Ready 검토가 남는다.
 - 부모가 최종 기록·검증 근거와 독립 리뷰를 모아 새 head를 push하고 CI/Ready-only를 확인한다. 사용자 수동 병합 승인 아래 부모만 최종 merge commit/수용 완료 Issue 종료를 수행한다. 기존 자동화 전용 소유 문구는 역사이며 현재 수동 실행의 게이트는 원격 claim5627728952다. 자원 삭제·DB/설정/예약/공유계약 변경은 없다.
+
+## 2026-09-11 GH-673 검수 콘텐츠 읽기 범위
+
+- Gemini 검수표 상단·복붙 프롬프트·handoff는 파일명 조사 → 현재의 명시적 비민감 exact 범위와 변경목록 교집합 → 상태별 한 파일 조회/보류 순서를 따른다. 빈 범위·민감·불명확한 경로는 내용을 읽지 않고 부모에게 확인한다.
+- 실제 문서 정적 회귀와 합성 경로/문서 mutation 테스트를 연결했다. 작성자와 별도 Astra high 리뷰어의 Node 실행 각각60/60 PASS이며, 기존 날짜·모듈·검증 결과는 보존했다. 문서와 테스트의 한계·실행법·초보자 예시를 함께 설명한다.
+- 이 검사는 실제 AI 접근 sandbox나 완전한 비밀 탐지가 아니며, 민감 파일의 존재·내용을 조사하지 않았다. CI 연결과 과거 역사 분리(#675)는 범위 밖이다. 부모 기록 최종 독립 검토 후 Draft/CI/Ready 인계하며 최종 병합·Issue 종료는 별도 account 소유다.
+
+## 2026-09-11 GH-673 manual rework1 — PR700 P2
+
+- User manually authorized review/fix/review/merge; all automations remain PAUSED. Original branch/worktree/Issue retained, new claim5627729450. Removed active bare whitespace-check exemption, applied the same nonempty exact content gate to state-specific whitespace comparisons, preserved historical prose and scope.
+- Original writer Astra high: actual unchanged-document RED1/fail1 exit1 (UTC01:01:18.1185470–01:01:18.2962500), then full Node71/71 PASS/fail,skip,cancel,todo0/exit0 (UTC01:03:20.1429198–01:03:20.3555019). Parent separately used only safe synthetic approved.txt/outside-review.txt in an external fixture: unscoped unstaged/staged checks each exit2 with synthetic outside-line output; exact approved-path alternatives each exit0/no output. This is no real-secret probe; test-file diagnostics remain in-memory, not a claimed real Git execution.
+- Independent /root/manual_review_673 Astra high source/test/history review APPROVE, P0–P3 none/Q1–Q4 PASS; ONE direct full Node run UTC2026-09-11 01:06:00.0622846–01:06:00.2262431, exit0/71tests71pass/fail,skip,cancel,todo0/runner108.3914ms. Frozen2 hashes unchanged and historical lines remain ordered. Final record/PR delta remains a separate gate. Parent alone replaces CLOSED/unmerged700 with a new Draft after acceptance, then checks fresh head CI/Ready/main before user-authorized merge. Runtime sandbox, exhaustive secret detection, CI wiring, business code and history split#675 remain non-goals; preserve histories/resources.
+
+- Latest-main follow-up: reviewed checkpoint240522c2 now integrates actual PR698 merge/main5b2d184f (Issue692 CLOSED). Parent inspected all seven record-only EOF conflicts and preserved complete incoming692 histories then existing673 histories. Source2 and test input remain frozen; current71-test evidence is distinguished from prior60. Independent integration-record review and published-head CI/Ready remain required; no673 PR merge is claimed here.
