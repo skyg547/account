@@ -54,8 +54,11 @@ $env:AUTH_JWT_SECRET="local-ephemeral-secret-key-must-be-32bytes-long-12345"
 java -jar .\budget\api\build\libs\account-budget-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-- **기본 포트:** `8084`
-- **Health Check:** `http://localhost:8084/actuator/health`
-- **Readiness Probe:** `http://localhost:8084/actuator/health/readiness`
+- **기본 포트:** `8096`
+- **Health Check:** `http://localhost:8096/actuator/health`
+- **Readiness Probe:** `http://localhost:8096/actuator/health/readiness`
 
 자세한 흐름은 [docs/README.md](docs/README.md)를 참고하세요.
+
+개발 PostgreSQL 최초 준비와 Eureka/Nginx/Grafana 실기동은
+[Governance 개발 실행 안내](../docs/guides/governance-external-dev.md)를 참고하세요.

@@ -7,6 +7,6 @@ datasources:
   - name: Prometheus         # 그라파나 안에서 보일 데이터 소스의 이름
     type: prometheus         # 어떤 종류의 데이터 베이스인가?
     access: proxy            # 그라파나 서버가 직접 접근 (기본값)
-    url: http://prometheus:9090 # 공통 도커 네트워크 상의 프로메테우스 컨테이너 주소
+    url: http://account-prometheus-dev:9090 # 공통 도커 네트워크 상의 프로메테우스 컨테이너 주소
     isDefault: true          # 기본 데이터 소스로 사용함!
     editable: true           # 나중에 화면에서 설정을 바꿀 수 있게 허용함

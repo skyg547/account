@@ -360,3 +360,9 @@
 - Initial journal74/74 writer and independent success is preserved as evidence, not mistaken for Loan compatibility. Same Issue/claim/resources retained; no new duplicate Issue or guard bypass. Final published head/CI/Ready status will be on the remote Issue.
 - Existing PR697/698 merge waits do not block this independent implementation. Final account review/merge/close remains separate. Primary dirty checkout, other owners/resources, DB and external systems remain untouched.
 - Integrated checkpoint update: local7ed966ea + main65af7e6f, shared-record5 conflicts resolved preserving both histories/conflict-log. Independent xhigh forced full203tests/49suites/bootJar2 PASS, no failures/errors/skips/testNO-SOURCE,54tasks/91.3922881s. Source4 unchanged, no new P0–P3/Q1–Q4PASS; parent integration-record/PR delta precedes mergecommit/Draft, headCI/Ready follows separately. Writer slot is returned; #673 has its own disjoint worktree/writer.
+
+## 2026-09-11 - GH-696 governance API runtime and proxy/observability recovery
+
+- GH-696: `difficulty:high`, implementation/live verification complete; pending Draft publication / human review. Branch `agent/696-governance-runtime`, worktree `/tmp/account-696-governance-runtime`, base `c94afec5`. PR: PENDING-GH-696-DRAFT.
+- Parent Integrator owns Git/harness; SQL/Coder/Test writers and independent read-only Reviewer were separate. Python12/12, Java112/112, DB2/2 and independently repeated live gates PASS. Four issue services healthy, restart0/OOMfalse, CPU0.50/RAM768MiB.
+- Next owner: human reviewer; retain runtime-mounted worktree and Draft state. Ready/merge/close/cleanup need separate authorization. Detailed changes, commands, limitations and rollback are in the GH-696 worklog and governance runtime guide.
