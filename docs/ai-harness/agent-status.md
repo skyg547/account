@@ -552,6 +552,23 @@
 - Publication: Draft PR [#708](https://github.com/skyg547/account/pull/708) created with `Refs #675`; implementation commit `6a42c579` pushed. Final staged8-file/log/PR-text independent review found no P0–P3; exact scope/archive/prefix/marker/scoped whitespace verifier PASS. Issue #675 is `status:needs-review`. This publication entry adds only the actual PR identity/status; substantive files remain frozen. Final remote-head CI and human review remain integration gates; no Ready/merge/close/cleanup.
 
 
+## 2026-09-12 — GH-672 dedicated harness CI gate
+
+- Issue #672; branch `agent/672-harness-ci-gate`; worktree `/tmp/account-672-harness-ci-gate`; base `e83212a773cfabd3a505615554e12f3f0ed555f3`. Parent intake/claim complete; #662 and #674 merged; original dirty checkout preserved.
+- Implementation frozen: five Issue-allowlisted substantive files plus four parent records. Schema (11 roles/4 skills/3 UI/4 workflows/2 forms/55 paths), Python20 and Node32 PASS; diff/marker/scope PASS. Independent re-review and authorized Refs #672 Draft publication pending; hosted CI unrun before publication.
+- Parent owns workflow/validator/guides/Git/GH/shared logs; Test agent owns fixture; Reviewer is read-only. User requested high reasoning; model tier is not mutation authority. No Ready/merge/close/cleanup.
+- Details, initial RED corrections, Q1–Q4 evidence, scope exclusions and rollback: [worklog](worklog.md#2026-09-12--gh-672-dedicated-harness-ci-gate). Next: independent review, parent Draft publication, then human/authorized integration gates.
+
+- Independent final review: `/root/review_672` (Astra high, read-only) found no remaining P0–P3. Independently reran schema PASS, Python20/20 (1.791s), Node32/32 (96.922ms), report20/32 and scoped whitespace/markers; Q1–Q4 all PASS. Initial findings are resolved. Hosted CI remains a postpublication gate.
+
+- Publication: Draft PR [#712](https://github.com/skyg547/account/pull/712) created with `Refs #672`, implementation commit `47e275d0` pushed. Final independent staged9-file/log/PR-text review found no P0–P3; Q-table file:line evidence was completed before creation. Issue moves to `status:needs-review`. This record-only update preserves the reviewed five substantive files. Actual hosted checks remain pending at publication; no Ready/merge/close/cleanup.
+
+- Hosted correction: run [34623919862](https://github.com/skyg547/account/actions/runs/34623919862) on `3674c009` passed existing Python3.12.3/PyYAML6.0.1 and schema, then failed Python20 with six Guard fixture errors because scrubbed `os.defpath` omitted the runner Node toolcache directory; Node suite skipped and fixed result correctly failed. The fixture now resolves the existing absolute Node executable before scrubbing child environment. A nonstandard-PATH regression proves execution, secret-free child environment and missing-runtime failure. Local unittest21/21, schema/report21/diff PASS; this does not claim hosted rerun success.
+
+- Independent portability-fix review: `/root/review_672` found no P0–P3, independently passed unittest21/21 (1.370s), schema55 and scoped diff. Q1–Q4 PASS: helper/test lines33–35/299–312/351 and existing guide95:62–90. No workflow/schema/public command change; hosted rerun at the new head is still required.
+
+- Hosted verification: corrected implementation `5780be0c` passed [Harness Validation run34624098176](https://github.com/skyg547/account/actions/runs/34624098176): actual runner Python3.12.3/PyYAML6.0.1, schema55 paths, Python21/21 (1.550s), Node32/32, zero fail/cancel/skip/todo; both count checks and fixed result PASS. Agent Merge Guard run34624098166 PASS. Full Gradle run34624098167 is still running and is not certified here. This append records the observed successful implementation head; subsequent commit changes only these four records. PR#712 remains Draft, and current-head checks/authority boundaries are reported in its body.
+
 ## 2026-09-12 — GH-670 auxiliary publishing and shared-record ownership
 
 - Issue #670 / parent #661; difficulty:medium, requested high reasoning. Branch `agent/670-aux-publishing-ownership`, worktree `/tmp/account-670-aux-publishing-ownership`, base `origin/main@e83212a773cfabd3a505615554e12f3f0ed555f3`. Prerequisite #662/PR #680 merged as `5f8103afd4f018723302fd4b15b740b3bcf189c1`, confirmed an ancestor. Issue was OPEN/status:ready despite historical draft prose; no competing claim/open PR. Parent claim: issuecomment-5637546870.
