@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.internalaudit.core.application.AuditActorContext;
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
 import com.ho.account.internalaudit.core.application.port.out.EvaluationPersistencePort;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -218,4 +222,45 @@ class EvaluationServiceTest {
         verify(persistencePort, never()).saveOperatingEvaluation(any());
         verify(auditLogPersistencePort, never()).append(any());
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "-1,-2", "-1,0", "0,-1", "-1,NULL", "NULL,-1", "10,11", "0,1"
+    }, nullValues = "NULL")
+    void invalidCountsCannotConstructAServiceCommandOrReachEitherPersistencePort(
+            Integer sampleSize, Integer exceptionCount) {
+        // Constructor validation prevents the invalid command from ever entering the service.
+        assertThatThrownBy(() -> service.submitOperatingEvaluation(new OperatingEvaluation(
+                "op-invalid", "ctrl-1", "auditor", "2026-09-11", sampleSize, exceptionCount,
+                List.of(), "EFFECTIVE", null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(persistencePort, auditLogPersistencePort);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "25,2", "10,10", "10,0", "0,0", "NULL,NULL", "0,NULL", "NULL,0",
+            "10,NULL", "NULL,10", "2147483647,2147483647"
+    }, nullValues = "NULL")
+    void acceptedCountsAreSavedUnchangedAndAudited(Integer sampleSize, Integer exceptionCount) throws Exception {
+        when(persistencePort.controlActivityExists("ctrl-1")).thenReturn(true);
+        when(persistencePort.saveOperatingEvaluation(any())).thenAnswer(inv -> inv.getArgument(0));
+        OperatingEvaluation command = new OperatingEvaluation(
+                "op-boundary", "ctrl-1", " auditor ", "2026-09-11", sampleSize, exceptionCount,
+                List.of(), " effective ", null);
+
+        OperatingEvaluation saved = service.submitOperatingEvaluation(command);
+
+        assertThat(saved).isEqualTo(command);
+        verify(persistencePort).saveOperatingEvaluation(command);
+        ArgumentCaptor<AuditLogEntry> audit = ArgumentCaptor.forClass(AuditLogEntry.class);
+        verify(auditLogPersistencePort).append(audit.capture());
+        assertThat(audit.getValue().actor()).isEqualTo("auditor");
+        OperatingEvaluation audited = new ObjectMapper()
+                .readValue(audit.getValue().detailsJson(), OperatingEvaluation.class);
+        assertThat(audited).isEqualTo(command);
+        assertThat(saved.result()).isEqualTo("EFFECTIVE");
+    }
+
 }
