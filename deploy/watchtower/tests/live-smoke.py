@@ -155,7 +155,9 @@ def main():
             old_image = call('image', 'inspect', '--format', '{{.Id}}', channel)
             new_image = call('image', 'inspect', '--format', '{{.Id}}', address + '/account-710:v2')
             assert old_image != new_image
-            summary(watch('monitor', monitor=True), 2, 0)
+            # v1.7.1's legacy Updated metric includes stale monitor-only images;
+            # container IDs and /version below prove that nothing restarted.
+            summary(watch('monitor', monitor=True), 2, 2)
             assert call('image', 'inspect', '--format', '{{.Id}}', channel) == new_image, 'monitor did not pull registry v2'
             assert all(identity(name) == before[name] for name in targets)
             assert call('exec', selected, 'cat', '/version') == 'v1'
@@ -183,7 +185,13 @@ def main():
             # failed pull must not cause update from the local cache.
             call('tag', address + '/account-710:v1', channel)
             call('stop', '--time', '5', registry)
-            summary(watch('unavailable'), 2, 0, failed=2)
+            unavailable_log = watch('unavailable')
+            # Pull errors are Skipped, excluded from both Scanned and Failed in
+            # 1.7.1. A zero exit/Failed count alone is not success evidence.
+            summary(unavailable_log, 0, 0)
+            assert 'connection refused' in unavailable_log
+            for name in targets:
+                assert re.search(r'Unable to update container[^\n]*' + re.escape(name), unavailable_log)
             assert identity(selected) == after and state(selected)['Running']
             assert identity(selected_two) == after_two and state(selected_two)['Running']
             print('PASS unavailable registry preserves running target', flush=True)

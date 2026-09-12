@@ -51,3 +51,8 @@ removes only its randomly named containers and temporary local fixture tags;
 downloaded base images remain cached. Its temporary registry has no host volume.
 The CI workflow runs the same smoke on an ephemeral Docker runner with read-only
 GitHub permissions, without registry credentials or external deployment rights.
+
+Watchtower 1.7.1's `Updated` counter includes stale images in monitor-only mode;
+pull errors are skipped and omitted from both `Scanned` and `Failed`. Neither exit
+zero nor `Failed=0` proves successful deployment. The smoke checks image IDs,
+container IDs, version contents and explicit failure logs as well as counters.
