@@ -1,0 +1,62 @@
+name: account-portainer
+
+services:
+  portainer:
+    image: docker.io/portainer/portainer-ce:2.39.7
+    container_name: account-portainer
+    restart: unless-stopped
+    command:
+      - --http-enabled
+      - --base-url
+      - /portainer
+      - --host
+      - unix:///var/run/docker.sock
+      - --admin-password-file
+      - /run/secrets/portainer-admin-password
+    # Only Nginx publishes a host port. Edge/agent ports are not needed locally.
+    expose:
+      - "9000"
+    volumes:
+      - type: bind
+        source: ${PORTAINER_SOCKET_PATH:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PORTAINER_ADMIN_PASSWORD_FILE:?Set an absolute path to a private admin password file}
+        target: /run/secrets/portainer-admin-password
+        read_only: true
+        bind:
+          create_host_path: false
+      - portainer-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    # Rootful Docker must read a host-user-owned 0600 bootstrap file without chmod.
+    cap_add:
+      - DAC_READ_SEARCH
+    security_opt:
+      - no-new-privileges:true
+    cpus: 0.5
+    mem_limit: 512m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      account-network:
+        aliases:
+          - account-portainer
+
+volumes:
+  portainer-data:
+    name: account-portainer-data
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true

@@ -27,6 +27,7 @@
 | `/grafana/` | `account-grafana:3000` | 서버 메트릭 & 프로메테우스 시각화 대시보드 (WebSocket 지원) | `GF_SERVER_ROOT_URL`, `GF_SERVER_SERVE_FROM_SUB_PATH=true` |
 | `/zipkin/` | `account-zipkin:9411/zipkin/` | 마이크로서비스 간 분산 트레이싱 추적 UI | `X-Forwarded-Prefix: /zipkin` |
 | `/kibana/` | `account-kibana:5601` | Logstash/Elasticsearch 통합 로그 분석 콘솔 | `SERVER_BASEPATH=/kibana`, `SERVER_REWRITEBASEPATH=true` |
+| `/portainer/` | `account-portainer:9000/` | Portainer CE 컨테이너 관리 콘솔 | 접두사 제거, `--base-url /portainer`, WebSocket, 원래 Host/port 유지 |
 | `/pgadmin/` | `account-pgadmin:80/` | PostgreSQL 데이터베이스 웹 관리자 콘솔 | `X-Script-Name: /pgadmin`, `proxy_redirect off` |
 
 ---
@@ -65,3 +66,7 @@ podman compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 - Zipkin 분산 트레이싱: `http://localhost/zipkin/`
 - Kibana 로그 콘솔: `http://localhost/kibana/`
 - pgAdmin DB 관리자: `http://localhost/pgadmin/`
+
+## Portainer CE 연결
+
+별도 [Portainer 모듈](../portainer/README.md)을 먼저 준비하고 [런북](../docs/guides/portainer.md)에 따라 이 템플릿을 반영합니다. Portainer 자체는 host port를 열지 않으며 `/portainer`는 포트를 유지한 `/portainer/`로 이동합니다. `8080`이 이미 Nginx에 할당되어 있으면 두 번째 프록시를 기동하지 말고 기존 프록시 설정을 검증·갱신합니다. 공식 Portainer 인증은 회계 애플리케이션 로그인과 별개입니다.
