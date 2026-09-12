@@ -44,6 +44,13 @@ python3 deploy/watchtower/tests/live-smoke.py --engine podman \
   --socket "/run/user/$(id -u)/podman/podman.sock"
 ```
 
+The full registry/update/rollback proof currently passes on Docker CI. The local
+rootless Podman 4.9.3 experiment passed label/scope selection with `--no-pull`, but
+its HTTP-registry trial failed the full smoke's scan assertion. Do not treat it as
+supported automatic deployment. This test does not alter the engine's registry
+TLS/trust configuration; validate that separately on a dedicated Podman engine
+before retrying. Existing business engines must not be made globally insecure.
+
 The smoke pulls versioned Watchtower, registry and BusyBox images, builds two tiny
 fixtures, pushes only to its random loopback registry, verifies monitor-only,
 updates, excluded labels/scope/stopped containers, repeat-run and rollback. It

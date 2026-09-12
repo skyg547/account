@@ -192,6 +192,21 @@ draining을 함께 검증한다. [Deployment 동작](https://kubernetes.io/docs/
 
 ## 검증 기록과 권한 분리
 
+2026-09-13 검증 결과:
+
+| 검사 | 근거와 결과 |
+| --- | --- |
+| 정적 계약 | Watchtower 11개, Portainer 7개, base/update Compose render, 소켓 미지정 거부, harness schema55 PASS |
+| Docker CI | [run 34704895259](https://github.com/skyg547/account/actions/runs/34704895259), 구현 `73772b49`: registry v2 실제 pull, monitor 중 v1 유지, 두 대상 순차 교체, 제외 4개 보존, 동일 버전 반복, registry 장애 보존, v1 rollback 모두 PASS |
+| GUI 실기동 | 별도 임시 Portainer2.39.7/rootless Podman4.9.3: 관리자 로그인, 컨테이너73 목록, 합성 probe stats/재시작 PASS; 테스트 인스턴스 제거 |
+| 메모리 | GUI peak 22,380,544 bytes/OOM0; 별도 Docker CI updater idle 9.039MiB. 서로 다른 호스트·시점의 값이며 합산 호스트 peak100MB 증거가 아님 |
+| 남은 적용 gate | rootless 전체 registry 갱신, private GHCR 권한/채널 승격, 실제 개발 서버 배포, 동일 호스트 GUI 활성 사용+pull 중 전체100MB 측정 |
+
+Podman의 `--no-pull` 선택 실험은 2개만 골랐지만 전체 HTTP-registry 시도는 scan
+assertion에서 중단했다. Docker의 통과를 Podman 완전 호환으로 확대하지 않는다.
+브라우저/로그 스트림/WebSocket은 기존 #713 증거를 재사용했고 이번에는 API 검증을
+추가했다. Java/SQL/build 변경이 없어 전체 Gradle 검증은 수행하지 않았다.
+
 정적/실기동 재현 명령은 [prototype README](../../deploy/watchtower/README.md)에 있다.
 #713의 브라우저·로그·WebSocket·재생성 증거는 [Portainer 런북](portainer.md)에
 기록돼 있으며 상시 운영 GUI로 오인하지 않는다. 이번 실측과 CI 결과는 Issue #710
