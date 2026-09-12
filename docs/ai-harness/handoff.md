@@ -1,3 +1,9 @@
+## 2026-09-13 — GH-667 Draft PR publication
+
+- Draft PR [#723](https://github.com/skyg547/account/pull/723) OPEN/DRAFT, `Refs #667`, from `agent/667-scd2-future-overlap` to `main`; implementation commit `da88765c`. Worktree `/tmp/account-667-scd2-future-overlap` retained. Issue #667 OPEN / `status:needs-review` / `agent:codex`; ordered execution split documented and stale `sizing:needs-split` removed.
+- PR body records473 passing module tests,56 focused subset,18 expected red failures, packaged H2 readiness smoke, initial global-health503, Q1–Q4, rollback, remaining PostgreSQL/concurrency gates and explicit Merge authority/session separation. Independent read-only reviewer also cleared final records/body with no findings.
+- GitHub checks have started; no remote CI success is claimed at publication. Draft/Guard trust-policy gates remain before any Ready/merge. Parent only posted/committed/pushed; Ready/merge/Issue close/branch-worktree deletion not performed. Next owner: human reviewer for policy, latest head/base and CI. This checkpoint updates records only, so Java tests are not rerun.
+
 ## 2026-09-13 — GH-667 verified; Draft publication pending
 
 - Issue #667; `agent/667-scd2-future-overlap`; `/tmp/account-667-scd2-future-overlap`; base `e7c462f4`. Common core policy prevents four-type sequential future overlap before mutation/save; finite source bounds and scheduled history are preserved.

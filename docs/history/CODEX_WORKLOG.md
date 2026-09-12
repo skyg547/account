@@ -2736,3 +2736,9 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Independent `/root/independent_review`: no P0–P3; Q1–Q4 PASS. Production5/test4/module-doc1 files plus parent-owned harness/history. No build/config/DB changes.
 - Rollback: reviewed code/test/doc revert; preserve business/scheduled data and migrations. PostgreSQL/concurrent writers/existing-data repair and new end-to-end approved-overlap test remain separate.
 - Parent owns Git/GitHub; implementer and reviewer sessions are separated procedurally. Draft PR uses Refs #667 and Merge authority text. Next: parent Draft publication, then human current-head/base/CI review. No Ready/merge/Issue close/cleanup.
+
+## 2026-09-13 — GH-667 Draft PR publication
+
+- Draft PR [#723](https://github.com/skyg547/account/pull/723) OPEN/DRAFT, `Refs #667`, from `agent/667-scd2-future-overlap` to `main`; implementation commit `da88765c`. Worktree `/tmp/account-667-scd2-future-overlap` retained. Issue #667 OPEN / `status:needs-review` / `agent:codex`; ordered execution split documented and stale `sizing:needs-split` removed.
+- PR body records473 passing module tests,56 focused subset,18 expected red failures, packaged H2 readiness smoke, initial global-health503, Q1–Q4, rollback, remaining PostgreSQL/concurrency gates and explicit Merge authority/session separation. Independent read-only reviewer also cleared final records/body with no findings.
+- GitHub checks have started; no remote CI success is claimed at publication. Draft/Guard trust-policy gates remain before any Ready/merge. Parent only posted/committed/pushed; Ready/merge/Issue close/branch-worktree deletion not performed. Next owner: human reviewer for policy, latest head/base and CI. This checkpoint updates records only, so Java tests are not rerun.

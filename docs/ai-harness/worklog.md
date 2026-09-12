@@ -2800,3 +2800,9 @@ git diff --name-only --diff-filter=U
 
 - Rollback: reviewed revert of this code/test/doc change; preserve all business data, scheduled history, migrations/checksums and harness history. Existing-overlap repair, database exclusion/concurrent writers, real PostgreSQL and new end-to-end approved-overlap execution remain outside scope.
 - Authority: separate implementation and read-only Reviewer sessions; parent alone commits/pushes/publishes Draft PR. This is procedural separation, not separate GitHub credentials or an APPROVED review. PR body includes validation, `Refs #667`, Implementer tier and Merge authority. Ready/merge/Issue close/branch-worktree deletion remain later gates; Guard trust policy remains unconfigured. Next owner: human reviewer for policy, current head/base and CI.
+
+## 2026-09-13 — GH-667 Draft PR publication
+
+- Draft PR [#723](https://github.com/skyg547/account/pull/723) OPEN/DRAFT, `Refs #667`, from `agent/667-scd2-future-overlap` to `main`; implementation commit `da88765c`. Worktree `/tmp/account-667-scd2-future-overlap` retained. Issue #667 OPEN / `status:needs-review` / `agent:codex`; ordered execution split documented and stale `sizing:needs-split` removed.
+- PR body records473 passing module tests,56 focused subset,18 expected red failures, packaged H2 readiness smoke, initial global-health503, Q1–Q4, rollback, remaining PostgreSQL/concurrency gates and explicit Merge authority/session separation. Independent read-only reviewer also cleared final records/body with no findings.
+- GitHub checks have started; no remote CI success is claimed at publication. Draft/Guard trust-policy gates remain before any Ready/merge. Parent only posted/committed/pushed; Ready/merge/Issue close/branch-worktree deletion not performed. Next owner: human reviewer for policy, latest head/base and CI. This checkpoint updates records only, so Java tests are not rerun.
