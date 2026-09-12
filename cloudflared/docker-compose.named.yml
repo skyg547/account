@@ -1,0 +1,28 @@
+# Standalone alternative, not an overlay: Quick mode never parses a required token.
+name: account-cloudflare-tunnel
+
+services:
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --protocol
+      - ${CLOUDFLARE_TUNNEL_PROTOCOL:-auto}
+      - run
+    environment:
+      # Keep the credential out of command arguments; never print rendered config.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in cloudflared/.env}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.50
+    mem_limit: 256m
+    pids_limit: 128
+    networks: [account-network]
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true
