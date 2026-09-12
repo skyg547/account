@@ -5,11 +5,9 @@ import com.ho.account.internalaudit.core.application.AuditActorContext;
 import com.ho.account.internalaudit.core.application.port.in.RcmUseCase;
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
 import com.ho.account.internalaudit.core.application.port.out.RcmPersistencePort;
-import com.ho.account.internalaudit.core.domain.AuditLogEntry;
 import com.ho.account.internalaudit.core.domain.rcm.ControlActivity;
 import com.ho.account.internalaudit.core.domain.rcm.RcmProcess;
 import com.ho.account.internalaudit.core.domain.rcm.RcmRisk;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -21,8 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RcmService implements RcmUseCase {
 
     private final RcmPersistencePort persistencePort;
-    private final AuditLogPersistencePort auditLogPersistencePort;
-    private final ObjectMapper objectMapper;
+    private final IdempotentCommandExecutor commandExecutor;
 
     public RcmService(RcmPersistencePort persistencePort) {
         this(persistencePort, null, new ObjectMapper());
@@ -33,26 +30,22 @@ public class RcmService implements RcmUseCase {
         this(persistencePort, auditLogPersistencePort, new ObjectMapper());
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public RcmService(RcmPersistencePort persistencePort,
-                      AuditLogPersistencePort auditLogPersistencePort,
-                      @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectMapper objectMapper) {
-        this.persistencePort = persistencePort;
-        this.auditLogPersistencePort = auditLogPersistencePort;
-        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+                      AuditLogPersistencePort auditLogPersistencePort, ObjectMapper objectMapper) {
+        this(persistencePort, IdempotentCommandExecutor.unkeyedOnly(auditLogPersistencePort, objectMapper));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public RcmService(RcmPersistencePort persistencePort, IdempotentCommandExecutor commandExecutor) {
+        this.persistencePort = Objects.requireNonNull(persistencePort);
+        this.commandExecutor = Objects.requireNonNull(commandExecutor);
     }
 
     @Override
     public RcmProcess createProcess(RcmProcess command) {
         requireIdentifier(command.processId(), "processId");
-        RcmProcess saved = persistencePort.saveProcess(command);
-        appendAuditLog(
-                resolveActor(command.ownerId()),
-                "CREATE_PROCESS",
-                "RCM_PROCESS",
-                saved.processId(),
-                saved);
-        return saved;
+        return commandExecutor.execute(resolveActor(command.ownerId()), "CREATE_PROCESS", "RCM_PROCESS",
+                command.processId(), null, command, RcmProcess.class, () -> persistencePort.saveProcess(command));
     }
 
     @Override
@@ -62,21 +55,15 @@ public class RcmService implements RcmUseCase {
         if (command.processId() != null && !Objects.equals(processId, command.processId())) {
             throw new IllegalArgumentException("processId in path and request body must match");
         }
-        persistencePort.findProcessById(processId)
-                .orElseThrow(() -> new NoSuchElementException("RCM process was not found"));
-        RcmRisk saved = persistencePort.saveRisk(new RcmRisk(
-                command.riskId(),
-                processId,
-                command.riskDescription(),
-                command.impactLevel(),
-                command.likelihood()));
-        appendAuditLog(
-                resolveActor(null),
-                "ADD_RISK",
-                "RCM_RISK",
-                saved.riskId(),
-                saved);
-        return saved;
+        RcmRisk effectiveCommand = new RcmRisk(command.riskId(), processId,
+                command.riskDescription(), command.impactLevel(), command.likelihood());
+        return commandExecutor.execute(resolveActor(null), "ADD_RISK", "RCM_RISK", command.riskId(),
+                processId, effectiveCommand, RcmRisk.class, () -> {
+                    // A replay restores its original result even if the current parent has changed.
+                    persistencePort.findProcessById(processId)
+                            .orElseThrow(() -> new NoSuchElementException("RCM process was not found"));
+                    return persistencePort.saveRisk(effectiveCommand);
+                });
     }
 
     @Override
@@ -86,23 +73,15 @@ public class RcmService implements RcmUseCase {
         if (command.riskId() != null && !Objects.equals(riskId, command.riskId())) {
             throw new IllegalArgumentException("riskId in path and request body must match");
         }
-        persistencePort.findRiskById(riskId)
-                .orElseThrow(() -> new NoSuchElementException("RCM risk was not found"));
-        ControlActivity saved = persistencePort.saveControlActivity(new ControlActivity(
-                command.controlId(),
-                riskId,
-                command.controlDescription(),
-                command.controlType(),
-                command.executionMethod(),
-                command.frequency(),
-                command.ownerId()));
-        appendAuditLog(
-                resolveActor(command.ownerId()),
-                "ADD_CONTROL",
-                "CONTROL_ACTIVITY",
-                saved.controlId(),
-                saved);
-        return saved;
+        ControlActivity effectiveCommand = new ControlActivity(command.controlId(), riskId,
+                command.controlDescription(), command.controlType(), command.executionMethod(),
+                command.frequency(), command.ownerId());
+        return commandExecutor.execute(resolveActor(command.ownerId()), "ADD_CONTROL", "CONTROL_ACTIVITY",
+                command.controlId(), riskId, effectiveCommand, ControlActivity.class, () -> {
+                    persistencePort.findRiskById(riskId)
+                            .orElseThrow(() -> new NoSuchElementException("RCM risk was not found"));
+                    return persistencePort.saveControlActivity(effectiveCommand);
+                });
     }
 
     @Override
@@ -121,31 +100,6 @@ public class RcmService implements RcmUseCase {
     @Transactional(readOnly = true)
     public List<ControlActivity> getControlsByRisk(String riskId) {
         return persistencePort.findControlActivitiesByRiskId(riskId);
-    }
-
-    private void appendAuditLog(String actor, String action, String aggregateType, String aggregateId, Object payload) {
-        if (auditLogPersistencePort == null) {
-            return;
-        }
-        String detailsJson = null;
-        if (payload != null) {
-            try {
-                detailsJson = objectMapper.writeValueAsString(payload);
-            } catch (Exception e) {
-                detailsJson = String.valueOf(payload);
-            }
-        }
-        AuditLogEntry entry = AuditLogEntry.builder()
-                .actor(actor)
-                .action(action)
-                .aggregateType(aggregateType)
-                .aggregateId(aggregateId)
-                .actionTimestamp(LocalDateTime.now())
-                .correlationId(AuditActorContext.getCorrelationId())
-                .idempotencyKey(AuditActorContext.getIdempotencyKey())
-                .detailsJson(detailsJson)
-                .build();
-        auditLogPersistencePort.append(entry);
     }
 
     private String resolveActor(String fallbackActor) {

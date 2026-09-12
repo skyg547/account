@@ -3,6 +3,10 @@ package com.ho.account.internalaudit.core.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -11,6 +15,9 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ho.account.internalaudit.core.application.AuditActorContext;
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
+import com.ho.account.internalaudit.core.application.port.out.CommandReceiptPort;
+import com.ho.account.internalaudit.core.domain.CommandReceipt;
+import com.ho.account.internalaudit.core.domain.IdempotencyConflictException;
 import com.ho.account.internalaudit.core.application.port.out.EvaluationPersistencePort;
 import com.ho.account.internalaudit.core.domain.AuditLogEntry;
 import com.ho.account.internalaudit.core.domain.evaluation.Deficiency;
@@ -18,6 +25,9 @@ import com.ho.account.internalaudit.core.domain.evaluation.DesignEvaluation;
 import com.ho.account.internalaudit.core.domain.evaluation.OperatingEvaluation;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,11 +47,41 @@ class EvaluationServiceTest {
     @Mock
     private AuditLogPersistencePort auditLogPersistencePort;
 
+    @Mock
+    private CommandReceiptPort receiptPort;
+
+    private final Map<String, CommandReceipt> receipts = new HashMap<>();
+    private final Map<String, AuditLogEntry> storedAudits = new HashMap<>();
     private EvaluationService service;
 
     @BeforeEach
     void setUp() {
-        service = new EvaluationService(persistencePort, auditLogPersistencePort);
+        // This fixture stores only receipts; business and audit writes remain observable mocks.
+        lenient().when(receiptPort.findByKey(anyString()))
+                .thenAnswer(inv -> Optional.ofNullable(receipts.get(inv.getArgument(0))));
+        lenient().doAnswer(inv -> {
+            String key = inv.getArgument(0);
+            receipts.put(key, new CommandReceipt(key, inv.getArgument(1), inv.getArgument(2), 0, null));
+            return null;
+        }).when(receiptPort).reserve(anyString(), anyInt(), anyString());
+        lenient().doAnswer(inv -> {
+            String key = inv.getArgument(0);
+            CommandReceipt receipt = receipts.get(key);
+            receipts.put(key, new CommandReceipt(key, receipt.fingerprintVersion(), receipt.fingerprint(),
+                    inv.getArgument(1), inv.getArgument(2)));
+            return null;
+        }).when(receiptPort).complete(anyString(), anyInt(), anyString());
+        lenient().when(auditLogPersistencePort.findByIdempotencyKey(anyString()))
+                .thenAnswer(inv -> Optional.ofNullable(storedAudits.get(inv.getArgument(0))));
+        lenient().when(auditLogPersistencePort.append(any())).thenAnswer(inv -> {
+            AuditLogEntry entry = inv.getArgument(0);
+            if (entry.idempotencyKey() != null) {
+                storedAudits.put(entry.idempotencyKey(), entry);
+            }
+            return entry;
+        });
+        service = new EvaluationService(persistencePort,
+                new IdempotentCommandExecutor(receiptPort, auditLogPersistencePort, new ObjectMapper()));
     }
 
     @AfterEach
@@ -235,7 +275,8 @@ class EvaluationServiceTest {
                 List.of(), "EFFECTIVE", null)))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verifyNoInteractions(persistencePort, auditLogPersistencePort);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
     }
 
     @ParameterizedTest
@@ -263,4 +304,89 @@ class EvaluationServiceTest {
         assertThat(saved.result()).isEqualTo("EFFECTIVE");
     }
 
+
+    @Test
+    void designReplayNormalizesResultAndPreservesFirstResponseWithoutParentLookup() {
+        AuditActorContext.setActor("trusted");
+        AuditActorContext.setIdempotencyKey("design-key");
+        when(persistencePort.controlActivityExists("c")).thenReturn(true);
+        DesignEvaluation command = new DesignEvaluation("d", "c", "trusted", "2026-09-12", " effective ", null);
+        DesignEvaluation saved = new DesignEvaluation("d", "c", "trusted", "2026-09-12", "EFFECTIVE", "enriched");
+        when(persistencePort.saveDesignEvaluation(command)).thenReturn(saved);
+        assertThat(service.submitDesignEvaluation(command)).isEqualTo(saved);
+        clearInvocations(persistencePort, auditLogPersistencePort);
+        AuditActorContext.setCorrelationId("later-trace");
+
+        assertThat(service.submitDesignEvaluation(new DesignEvaluation(
+                "d", "c", "trusted", "2026-09-12", "EFFECTIVE", null))).isEqualTo(saved);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+        AuditActorContext.setActor("different");
+        assertThatThrownBy(() -> service.submitDesignEvaluation(command))
+                .isInstanceOf(IdempotencyConflictException.class);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+    }
+
+    @Test
+    void operatingReplayPreservesNullCountsEvidenceOrderAndFirstResponse() {
+        AuditActorContext.setIdempotencyKey("operating-key");
+        when(persistencePort.controlActivityExists("c")).thenReturn(true);
+        OperatingEvaluation command = new OperatingEvaluation("o", "c", "actor", "2026-09-12",
+                null, 0, List.of("b", "a"), "effective", null);
+        when(persistencePort.saveOperatingEvaluation(command)).thenReturn(command);
+        assertThat(service.submitOperatingEvaluation(command)).isEqualTo(command);
+        clearInvocations(persistencePort, auditLogPersistencePort);
+
+        assertThat(service.submitOperatingEvaluation(command)).isEqualTo(command);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+        assertThatThrownBy(() -> service.submitOperatingEvaluation(new OperatingEvaluation(
+                "o", "c", "actor", "2026-09-12", 0, 0, List.of("b", "a"), "effective", null)))
+                .isInstanceOf(IdempotencyConflictException.class);
+        assertThatThrownBy(() -> service.submitOperatingEvaluation(new OperatingEvaluation(
+                "o", "c", "actor", "2026-09-12", null, 0, List.of("a", "b"), "effective", null)))
+                .isInstanceOf(IdempotencyConflictException.class);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+    }
+
+    @Test
+    void deficiencyReplayReturnsFirstSavedResultAndSkipsMutableEvaluationLookup() {
+        AuditActorContext.setIdempotencyKey("deficiency-key");
+        when(persistencePort.evaluationExists("evaluation")).thenReturn(true);
+        Deficiency command = new Deficiency("def", "evaluation", "description", null, "IDENTIFIED");
+        Deficiency saved = new Deficiency("def", "evaluation", "description", "saved plan", "IDENTIFIED");
+        when(persistencePort.saveDeficiency(command)).thenReturn(saved);
+        assertThat(service.registerDeficiency(command)).isEqualTo(saved);
+        clearInvocations(persistencePort, auditLogPersistencePort);
+
+        assertThat(service.registerDeficiency(command)).isEqualTo(saved);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+        assertThatThrownBy(() -> service.registerDeficiency(new Deficiency(
+                "def", "other-evaluation", "description", null, "IDENTIFIED")))
+                .isInstanceOf(IdempotencyConflictException.class);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+    }
+
+    @Test
+    void keyedReplayStillRejectsMissingResultBeforeReceiptLookup() {
+        AuditActorContext.setIdempotencyKey("existing-key");
+        assertThatThrownBy(() -> service.submitDesignEvaluation(
+                new DesignEvaluation("d", "c", "actor", "2026-09-12", null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(receiptPort, persistencePort, auditLogPersistencePort);
+    }
+
+    @Test
+    void legacyConvenienceConstructorCannotExecuteKeyedCommand() {
+        EvaluationService legacy = new EvaluationService(persistencePort, auditLogPersistencePort);
+        AuditActorContext.setIdempotencyKey("key");
+        assertThatThrownBy(() -> legacy.registerDeficiency(new Deficiency("d", "e", null, null, null)))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(persistencePort);
+        verify(auditLogPersistencePort, never()).append(any());
+    }
 }

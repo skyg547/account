@@ -285,6 +285,7 @@ class EvaluationControllerTest {
 
     private MockMvc operatingMvc(EvaluationPersistencePort evaluations, AuditLogPersistencePort audits) {
         // Exercise Jackson, the controller and the real service; only outbound storage is replaced.
+        when(audits.append(any())).thenAnswer(invocation -> invocation.getArgument(0));
         return MockMvcBuilders.standaloneSetup(new EvaluationController(new EvaluationService(evaluations, audits)))
                 .setControllerAdvice(new InternalAuditApiExceptionHandler())
                 .build();

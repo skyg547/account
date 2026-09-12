@@ -28,7 +28,7 @@ import org.springframework.core.env.StandardEnvironment;
  *    - 'local' 프로파일 환경에서는 외부 인프라(PostgreSQL, Config Server, Eureka, Vault 등)에
  *      의존하지 않고 단독으로 실행(Self-contained Local Runtime)될 수 있어야 합니다.
  *    - H2 인메모리 데이터베이스를 PostgreSQL 호환 모드('MODE=PostgreSQL')로 구동하고,
- *      Flyway V60 마이그레이션 스크립트를 통해 테이블 스키마를 동적으로 구성합니다.
+ *      Flyway V60–V62 마이그레이션 스크립트를 통해 테이블 스키마를 동적으로 구성합니다.
  *    - Hibernate의 'ddl-auto=validate' 옵션으로 스키마-엔티티 간 정합성을 검증하여,
  *      로컬 개발 및 통합 테스트 시 외부 DB 준비 없이 안전하고 독립적인 검증 환경을 구축합니다.
  *
@@ -50,12 +50,12 @@ class InternalAuditRuntimePolicyTest {
      * [Pedagogical Note / 교육적 주석]
      * local 프로파일 활성화 시:
      * - H2 In-Memory DB (PostgreSQL 호환 모드) 사용 여부
-     * - Flyway V60 마이그레이션 적용 및 Hibernate validate 정책 작동 여부
+     * - Flyway V60–V62 마이그레이션 적용 및 Hibernate validate 정책 작동 여부
      * - Cloud Config, Eureka Discovery, Vault 등 제어 평면 비활성화 여부
      * 를 철저하게 검증하여 독립 단독 구동(Self-contained local execution)을 보장합니다.
      */
     @Test
-    @DisplayName("local 프로파일은 외부 제어 평면 없이 Flyway V61 기반 H2 인메모리 DB로 독립 구동된다")
+    @DisplayName("local 프로파일은 외부 제어 평면 없이 Flyway V62 기반 H2 인메모리 DB로 독립 구동된다")
     void localProfileUsesFlywayOwnedH2WithoutControlPlaneDependencies() {
         try (ConfigurableApplicationContext context = context("local")) {
             Environment environment = context.getEnvironment();
@@ -70,11 +70,11 @@ class InternalAuditRuntimePolicyTest {
             assertThat(environment.getProperty("spring.datasource.driver-class-name"))
                     .isEqualTo("org.h2.Driver");
 
-            // 3. Flyway V61 타깃 마이그레이션 및 JPA validate 정책 검증
+            // 3. Flyway V62 타깃 마이그레이션 및 JPA validate 정책 검증
             assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isTrue();
             assertThat(environment.getProperty("spring.flyway.locations"))
                     .isEqualTo("classpath:db/migration");
-            assertThat(environment.getProperty("spring.flyway.target")).isEqualTo("61");
+            assertThat(environment.getProperty("spring.flyway.target")).isEqualTo("62");
             assertThat(environment.getProperty("spring.jpa.hibernate.ddl-auto"))
                     .isEqualTo("validate");
             assertThat(environment.getProperty("spring.sql.init.mode")).isEqualTo("never");

@@ -40,3 +40,24 @@ bootRun {
 springBoot {
     mainClass = 'com.ho.account.internalaudit.api.InternalAuditApiApplication'
 }
+
+// The PostgreSQL suite must opt in to an isolated, disposable database.
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'postgresql'
+    }
+}
+
+tasks.register('postgresTest', Test) {
+    description = 'Runs command idempotency and concurrency tests against isolated PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'postgresql'
+    }
+    systemProperty 'internalAudit.test.postgresql.url',
+            System.getProperty('internalAudit.test.postgresql.url', '')
+    // A dedicated ephemeral database must be exercised on every invocation.
+    outputs.upToDateWhen { false }
+}

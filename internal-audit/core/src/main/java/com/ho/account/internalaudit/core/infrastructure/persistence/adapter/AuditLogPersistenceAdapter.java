@@ -1,14 +1,16 @@
 package com.ho.account.internalaudit.core.infrastructure.persistence.adapter;
 
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
+import com.ho.account.internalaudit.core.application.port.out.CommandReceiptPort;
 import com.ho.account.internalaudit.core.domain.AuditLogEntry;
+import com.ho.account.internalaudit.core.domain.IdempotencyConflictException;
 import com.ho.account.internalaudit.core.infrastructure.persistence.entity.AuditLogJpaEntity;
 import com.ho.account.internalaudit.core.infrastructure.persistence.repository.AuditLogRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuditLogPersistenceAdapter implements AuditLogPersistencePort {
 
     private final AuditLogRepository repository;
+    private final CommandReceiptPort commandReceiptPort;
 
     @Override
     @Transactional
@@ -35,8 +38,17 @@ public class AuditLogPersistenceAdapter implements AuditLogPersistencePort {
                 : null;
 
         if (idempotencyKey != null) {
+            if (idempotencyKey.length() > 255) {
+                throw new IllegalArgumentException("Idempotency key must contain 1 to 255 characters");
+            }
+            // Direct append and command execution use the same transaction-held lock,
+            // including first use of a key when neither receipt nor audit row exists.
+            commandReceiptPort.lockKey(idempotencyKey);
             Optional<AuditLogJpaEntity> existing = repository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
+                if (!isSameEvent(existing.get(), entry)) {
+                    throw new IdempotencyConflictException();
+                }
                 return toDomain(existing.get());
             }
         }
@@ -52,17 +64,7 @@ public class AuditLogPersistenceAdapter implements AuditLogPersistencePort {
                 .detailsJson(entry.detailsJson())
                 .build();
 
-        try {
-            AuditLogJpaEntity saved = repository.save(entity);
-            return toDomain(saved);
-        } catch (DataIntegrityViolationException ex) {
-            if (idempotencyKey != null) {
-                return repository.findByIdempotencyKey(idempotencyKey)
-                        .map(this::toDomain)
-                        .orElseThrow(() -> ex);
-            }
-            throw ex;
-        }
+        return toDomain(repository.save(entity));
     }
 
     @Override
@@ -89,6 +91,9 @@ public class AuditLogPersistenceAdapter implements AuditLogPersistencePort {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return Optional.empty();
         }
+        if (idempotencyKey.trim().length() > 255) {
+            throw new IllegalArgumentException("Idempotency key must contain 1 to 255 characters");
+        }
         return repository.findByIdempotencyKey(idempotencyKey.trim()).map(this::toDomain);
     }
 
@@ -96,6 +101,16 @@ public class AuditLogPersistenceAdapter implements AuditLogPersistencePort {
     @Transactional(readOnly = true)
     public List<AuditLogEntry> findAll() {
         return repository.findAll().stream().map(this::toDomain).toList();
+    }
+
+    private boolean isSameEvent(AuditLogJpaEntity existing, AuditLogEntry entry) {
+        // Retry transport lineage is deliberately excluded; the first event's
+        // timestamp and correlation ID remain immutable when its result is reused.
+        return Objects.equals(existing.getActor(), entry.actor())
+                && Objects.equals(existing.getAction(), entry.action())
+                && Objects.equals(existing.getAggregateType(), entry.aggregateType())
+                && Objects.equals(existing.getAggregateId(), entry.aggregateId())
+                && Objects.equals(existing.getDetailsJson(), entry.detailsJson());
     }
 
     private AuditLogEntry toDomain(AuditLogJpaEntity entity) {

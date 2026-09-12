@@ -27,6 +27,14 @@ class PostgresqlMigrationResourceTest {
                 .contains("CREATE TABLE operating_evaluation_jpa_entity_evidence_file_paths");
     }
 
+    @Test
+    void commandReceiptMigrationIsIdenticalInBothDialectsAndPackagedRunner() throws IOException {
+        String name = "V62__create_internal_audit_command_receipts.sql";
+        assertThat(read("db/contexts/internal-audit/" + name))
+                .isEqualTo(read("db/migration/" + name))
+                .isEqualTo(read("db/postgresql-migration/" + name));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "db/contexts/account-mart/V6__complete_account_mart_schema.sql",
