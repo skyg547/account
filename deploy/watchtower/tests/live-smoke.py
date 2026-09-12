@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import socket
 import stat
 import subprocess
 import tempfile
@@ -102,23 +103,31 @@ def main():
         assert re.search(r'Updated=' + str(updated) + r'\b', log), 'update count mismatch: ' + counts
         assert re.search(r'Failed=' + str(failed) + r'\b', log), 'failure count mismatch: ' + counts
 
-    try:
-        for image in (spec['image'], 'docker.io/library/registry:2.8.3', 'docker.io/library/busybox:1.37.0'):
-            print('PULL fixture image:', image, flush=True)
-            call('pull', image, timeout=240)
-        registry = create('registry', 'docker.io/library/registry:2.8.3',
-                          extra=('-p', '127.0.0.1::5000', '--tmpfs', '/var/lib/registry:size=32m'))
-        address = call('port', registry, '5000/tcp')
-        assert re.fullmatch(r'127\.0\.0\.1:[0-9]+', address), 'registry not loopback-only'
+    def wait_registry(address):
         for attempt in range(30):
             try:
                 with urllib.request.urlopen('http://' + address + '/v2/', timeout=2) as response:
                     assert response.status == 200
-                break
+                return
             except OSError:
                 time.sleep(1)
-        else:
-            raise RuntimeError('registry not ready')
+        raise RuntimeError('registry not ready')
+
+    try:
+        for image in (spec['image'], 'docker.io/library/registry:2.8.3', 'docker.io/library/busybox:1.37.0'):
+            print('PULL fixture image:', image, flush=True)
+            call('pull', image, timeout=240)
+        # Docker reallocates an unspecified host port on restart. Choose a free
+        # random port now and explicitly bind it so the outage/restore keeps the
+        # same registry identity. A concurrent bind conflict fails safely.
+        with socket.socket() as reservation:
+            reservation.bind(('127.0.0.1', 0))
+            registry_port = reservation.getsockname()[1]
+        registry = create('registry', 'docker.io/library/registry:2.8.3',
+                          extra=('-p', f'127.0.0.1:{registry_port}:5000', '--tmpfs', '/var/lib/registry:size=32m'))
+        address = call('port', registry, '5000/tcp')
+        assert re.fullmatch(r'127\.0\.0\.1:[0-9]+', address), 'registry not loopback-only'
+        wait_registry(address)
         channel = address + '/account-710:dev'
         with tempfile.TemporaryDirectory(prefix=prefix) as directory:
             for version in ('v1', 'v2'):
@@ -195,6 +204,8 @@ def main():
             assert identity(selected_two) == after_two and state(selected_two)['Running']
             print('PASS unavailable registry preserves running target', flush=True)
             call('start', registry)
+            assert call('port', registry, '5000/tcp') == address
+            wait_registry(address)
             publish('v1')
             summary(watch('rollback'), 2, 2)
             assert call('exec', selected, 'cat', '/version') == 'v1'
