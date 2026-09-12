@@ -115,6 +115,11 @@ class MigrationExecutorH2Test {
 
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
              Statement statement = connection.createStatement()) {
+            assertThat(tableExists(statement, "internal_audit_command_receipt")).isTrue();
+            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM internal_audit_key_lock")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getInt(1)).isEqualTo(256);
+            }
             assertThat(Stream.of(
                             "rcm_process", "rcm_risk", "rcm_control_activity",
                             "eval_design", "eval_operating",
@@ -214,17 +219,62 @@ class MigrationExecutorH2Test {
                 .dataSource(url, "sa", "")
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
              Statement statement = connection.createStatement()) {
             assertThat(tableExists(statement, "rcm_process")).isTrue();
+            assertThat(tableExists(statement, "internal_audit_command_receipt")).isTrue();
+            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM internal_audit_key_lock")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getInt(1)).isEqualTo(256);
+            }
             assertThat(tableExists(
                     statement,
                     "operating_evaluation_jpa_entity_evidence_file_paths")).isTrue();
         }
         assertInternalAuditJpaValidation(url);
+    }
+
+    @Test
+    void internalAuditReceiptUpgradePreservesLegacyAuditWithoutBackfill() throws Exception {
+        String url = "jdbc:h2:mem:internal-audit-receipt-upgrade"
+                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+        Flyway.configure().dataSource(url, "sa", "")
+                .locations("classpath:db/contexts/internal-audit").target("61").load().migrate();
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("""
+                    INSERT INTO internal_audit_log
+                        (actor, action, aggregate_type, aggregate_id, action_timestamp, idempotency_key, details_json)
+                    VALUES ('synthetic-auditor', 'CREATE_PROCESS', 'RCM_PROCESS', 'legacy-process',
+                            TIMESTAMP '2026-09-01 00:00:00', 'legacy-key', 'not-json')
+                    """);
+        }
+        Flyway upgraded = Flyway.configure().dataSource(url, "sa", "")
+                .locations("classpath:db/contexts/internal-audit").load();
+        assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+        upgraded.validate();
+        assertThat(upgraded.migrate().migrationsExecuted).isZero();
+        try (Connection connection = DriverManager.getConnection(url, "sa", "");
+             Statement statement = connection.createStatement()) {
+            try (ResultSet rows = statement.executeQuery(
+                    "SELECT actor, details_json FROM internal_audit_log WHERE idempotency_key = 'legacy-key'")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getString(1)).isEqualTo("synthetic-auditor");
+                assertThat(rows.getString(2)).isEqualTo("not-json");
+                assertThat(rows.next()).isFalse();
+            }
+            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM internal_audit_command_receipt")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getInt(1)).isZero();
+            }
+            try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM internal_audit_key_lock")) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getInt(1)).isEqualTo(256);
+            }
+        }
     }
 
     private void assertInternalAuditJpaValidation(String url) {

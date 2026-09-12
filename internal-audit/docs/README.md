@@ -7,7 +7,8 @@
 ## 📚 문서 목록
 
 1. **[process-flow.md](./process-flow.md)**: RCM 통제 활동 등록부터 설계 평가(Design Evaluation), 운영 평가(Operating Evaluation), 결함(Deficiency) 조치까지의 핵심 업무 프로세스 흐름.
-2. **[schema.md](./schema.md)**: 소유 테이블 스키마 구조 (Flyway V60) 및 엔티티 매핑 명세.
+2. **[schema.md](./schema.md)**: 소유 테이블 스키마 구조 (Flyway V60–V62) 및 엔티티 매핑 명세.
+3. **[issue-665-command-idempotency-plan.md](./issue-665-command-idempotency-plan.md)**: 명령 재시도·legacy key·감사 원자성 계약과 격리 PostgreSQL 검증 절차.
 
 ---
 

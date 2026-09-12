@@ -79,16 +79,8 @@ class AuditTrailEndToEndIntegrationTest {
         assertThat(procLog.actionTimestamp()).isNotNull();
         assertThat(procLog.detailsJson()).contains("Inventory Valuation");
 
-        // 2. Retry with the same idempotency key must not duplicate audit log
-        auditLogPersistencePort.append(AuditLogEntry.builder()
-                .actor(actor)
-                .action("CREATE_PROCESS")
-                .aggregateType("RCM_PROCESS")
-                .aggregateId("e2e-proc-1")
-                .correlationId(traceId)
-                .idempotencyKey(idempotencyKey)
-                .detailsJson("{\"retry\":\"payload\"}")
-                .build());
+        // Retry the command itself; an unrelated direct audit event is a conflict.
+        rcmController.createProcess(actor, roles, "trace-e2e-retry", idempotencyKey, procCommand);
 
         List<AuditLogEntry> procLogsAfterRetry = auditLogPersistencePort.findByAggregate("RCM_PROCESS", "e2e-proc-1");
         assertThat(procLogsAfterRetry).hasSize(1);

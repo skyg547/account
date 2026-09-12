@@ -67,3 +67,12 @@ sh ./gradlew :internal-audit:core:test :internal-audit:api:test --offline --no-d
 기대 결과는 기존 테스트와 새 도메인·서비스·HTTP 수치 경계 테스트의 전체 통과다.
 HTTP 회귀는 실제 Jackson/Controller/Service와 mock 저장 포트를 사용한다. 로컬 H2
 구동은 상위 README를 따르며 실제 PostgreSQL·TLS·동시성 검증을 대신하지 않는다.
+
+
+## 명령 멱등성과 감사 기록
+
+여섯 쓰기 명령은 적용할 actor/path/default payload로 동일성을 계산하고 키 잠금을 획득한다.
+완료 receipt가 있으면 최초 결과를 반환하고, 변경된 명령 또는 legacy audit-only key는 저장 전에 409로 거부한다.
+새 키는 receipt 예약 → 업무 검증·저장 → 감사 append → 최초 결과 snapshot 완료를 하나의 트랜잭션으로 실행한다.
+어느 단계든 실패하면 모두 rollback한다. 키가 없으면 receipt 없이 매 정상 변경에 감사 기록을 추가한다.
+상세 오류·호환성·검증·롤백은 [GH-665 계약](issue-665-command-idempotency-plan.md)을 따른다.

@@ -1,14 +1,19 @@
 package com.ho.account.internalaudit.core.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ho.account.internalaudit.core.application.port.out.AuditLogPersistencePort;
+import com.ho.account.internalaudit.core.application.port.out.CommandReceiptPort;
 import com.ho.account.internalaudit.core.domain.AuditLogEntry;
+import com.ho.account.internalaudit.core.domain.IdempotencyConflictException;
 import com.ho.account.internalaudit.core.infrastructure.persistence.adapter.AuditLogPersistenceAdapter;
 import com.ho.account.internalaudit.core.infrastructure.persistence.entity.AuditLogJpaEntity;
 import com.ho.account.internalaudit.core.infrastructure.persistence.repository.AuditLogRepository;
@@ -16,19 +21,26 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 class AuditLogPersistenceAdapterTest {
 
     private AuditLogRepository repository;
+    private CommandReceiptPort commandReceiptPort;
     private AuditLogPersistenceAdapter adapter;
 
     @BeforeEach
     void setUp() {
         repository = mock(AuditLogRepository.class);
-        adapter = new AuditLogPersistenceAdapter(repository);
+        commandReceiptPort = mock(CommandReceiptPort.class);
+        adapter = new AuditLogPersistenceAdapter(repository, commandReceiptPort);
     }
 
     @Test
@@ -86,6 +98,10 @@ class AuditLogPersistenceAdapterTest {
         assertThat(saved.correlationId()).isEqualTo("corr-1");
         assertThat(saved.idempotencyKey()).isEqualTo("idem-1");
         verify(repository).save(any());
+        var order = inOrder(commandReceiptPort, repository);
+        order.verify(commandReceiptPort).lockKey("idem-1");
+        order.verify(repository).findByIdempotencyKey("idem-1");
+        order.verify(repository).save(any());
     }
 
     @Test
@@ -117,7 +133,7 @@ class AuditLogPersistenceAdapterTest {
     }
 
     @Test
-    void concurrentConstraintViolationRecoversExistingIdempotentRecord() {
+    void integrityFailurePropagatesWithoutReadingAnAbortedTransaction() {
         AuditLogEntry entry = AuditLogEntry.builder()
                 .actor("auditor_1")
                 .action("CREATE_PROCESS")
@@ -126,26 +142,92 @@ class AuditLogPersistenceAdapterTest {
                 .idempotencyKey("concurrent-key")
                 .build();
 
-        AuditLogJpaEntity existingEntity = AuditLogJpaEntity.builder()
-                .id(99L)
-                .actor("auditor_1")
-                .action("CREATE_PROCESS")
-                .aggregateType("RCM_PROCESS")
-                .aggregateId("proc-1")
-                .actionTimestamp(LocalDateTime.now())
-                .idempotencyKey("concurrent-key")
-                .build();
+        DataIntegrityViolationException failure = new DataIntegrityViolationException("constraint failure");
+        when(repository.findByIdempotencyKey("concurrent-key")).thenReturn(Optional.empty());
+        when(repository.save(any())).thenThrow(failure);
 
-        // First check returns empty, but save throws DataIntegrityViolationException (race condition)
-        when(repository.findByIdempotencyKey("concurrent-key"))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(existingEntity));
-        when(repository.save(any())).thenThrow(new DataIntegrityViolationException("duplicate key uq_internal_audit_log_idempotency"));
+        assertThatThrownBy(() -> adapter.append(entry)).isSameAs(failure);
+        verify(repository).findByIdempotencyKey("concurrent-key");
+        verify(commandReceiptPort).lockKey("concurrent-key");
+    }
 
-        AuditLogEntry result = adapter.append(entry);
+    @ParameterizedTest
+    @MethodSource("changedEvents")
+    void conflictingDirectEventCannotReuseAnExistingKey(AuditLogEntry changedEvent) {
+        when(repository.findByIdempotencyKey("direct-key")).thenReturn(Optional.of(existingEvent()));
 
-        assertThat(result.id()).isEqualTo(99L);
-        assertThat(result.idempotencyKey()).isEqualTo("concurrent-key");
+        assertThatThrownBy(() -> adapter.append(changedEvent)).isInstanceOf(IdempotencyConflictException.class);
+
+        verify(commandReceiptPort).lockKey("direct-key");
+        verify(repository, never()).save(any());
+    }
+
+    static Stream<AuditLogEntry> changedEvents() {
+        AuditLogEntry entry = directEvent();
+        return Stream.of(
+                entry.toBuilder().actor("other-actor").build(),
+                entry.toBuilder().action("OTHER_ACTION").build(),
+                entry.toBuilder().aggregateType("OTHER_TYPE").build(),
+                entry.toBuilder().aggregateId("other-id").build(),
+                entry.toBuilder().detailsJson("{\"value\":2}").build(),
+                entry.toBuilder().detailsJson("{ \"value\": 1 }").build(),
+                entry.toBuilder().detailsJson(null).build());
+    }
+
+    @Test
+    void exactRetryPreservesFirstLineageDespiteNewTimestampAndCorrelation() {
+        AuditLogJpaEntity existing = existingEvent();
+        when(repository.findByIdempotencyKey("direct-key")).thenReturn(Optional.of(existing));
+
+        AuditLogEntry result = adapter.append(directEvent().toBuilder()
+                .idempotencyKey("  direct-key  ")
+                .actionTimestamp(existing.getActionTimestamp().plusDays(1))
+                .correlationId("retry-correlation")
+                .build());
+
+        assertThat(result.id()).isEqualTo(existing.getId());
+        assertThat(result.correlationId()).isEqualTo("first-correlation");
+        assertThat(result.actionTimestamp()).isEqualTo(existing.getActionTimestamp());
+        verify(commandReceiptPort).lockKey("direct-key");
+        verify(repository, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\n"})
+    void noKeyAppendAlwaysWritesWithoutReceiptLock(String key) {
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuditLogEntry saved = adapter.append(directEvent().toBuilder().idempotencyKey(key).build());
+
+        assertThat(saved.idempotencyKey()).isNull();
+        verify(repository).save(any());
+        verify(repository, never()).findByIdempotencyKey(any());
+        verifyNoInteractions(commandReceiptPort);
+    }
+
+    @Test
+    void invalidKeyFailsBeforeLockOrRepositorySql() {
+        assertThatThrownBy(() -> adapter.append(directEvent().toBuilder()
+                .idempotencyKey("x".repeat(256)).build())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.findByIdempotencyKey("x".repeat(256)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter.append(null)).isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(commandReceiptPort, repository);
+    }
+
+    private static AuditLogEntry directEvent() {
+        return AuditLogEntry.builder().actor("auditor_1").action("CREATE_PROCESS")
+                .aggregateType("RCM_PROCESS").aggregateId("proc-1").idempotencyKey("direct-key")
+                .detailsJson("{\"value\":1}").build();
+    }
+
+    private static AuditLogJpaEntity existingEvent() {
+        return AuditLogJpaEntity.builder().id(99L).actor("auditor_1").action("CREATE_PROCESS")
+                .aggregateType("RCM_PROCESS").aggregateId("proc-1").idempotencyKey("direct-key")
+                .detailsJson("{\"value\":1}").correlationId("first-correlation")
+                .actionTimestamp(LocalDateTime.of(2026, 1, 1, 12, 0)).build();
     }
 
     @Test

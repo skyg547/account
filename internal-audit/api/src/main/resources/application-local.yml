@@ -7,10 +7,10 @@
 #      애플리케이션을 외부 연동 의존성(PostgreSQL, Config Server, Eureka, Vault 등) 없이 단독으로 구동할 수 있도록 보장합니다.
 #    - 외부 런타임 환경 변수 주석이나 외부 서버 미작동으로 인한 개발 생산성 저하를 방지합니다.
 #
-# 2. H2 In-Memory Database with Flyway Migration (Flyway V60 마이그레이션 기반 인메모리 DB)
+# 2. H2 In-Memory Database with Flyway Migration (Flyway V60–V62 마이그레이션 기반 인메모리 DB)
 #    - 외부 PostgreSQL 설치 없이 빠르게 독립 구동할 수 있도록 H2 인메모리 데이터베이스를 사용합니다.
 #    - 'MODE=PostgreSQL' 옵션을 추가하여 PostgreSQL 방언(Dialect) 및 데이터 타입 호환성을 확보합니다.
-#    - 'spring.flyway.enabled=true' 및 'spring.flyway.target=60'을 지정하여 V60 마이그레이션 스크립트를
+#    - 'spring.flyway.enabled=true' 및 'spring.flyway.target=62'을 지정하여 V60–V62 마이그레이션 스크립트를
 #      명시적으로 실행하여 DB 스키마 형상을 정확하게 구축합니다.
 #    - 'spring.jpa.hibernate.ddl-auto=validate'를 설정하여 Flyway로 생성된 스키마와 JPA 엔티티 매핑 간
 #      정합성을 엄격히 다단계로 검증합니다.
@@ -33,7 +33,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    target: "61"
+    target: "62"
   jpa:
     hibernate:
       ddl-auto: validate

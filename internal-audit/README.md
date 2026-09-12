@@ -8,7 +8,7 @@ Internal Audit 서비스는 RCM(Risk Control Matrix) 및 설계·운영 평가, 
 
 1. **RCM (Risk Control Matrix, 리스크 통제 행렬):** 기업 내부 프로세스의 통제 목적, 리스크 및 이에 대응하는 통제 활동(Control Activity)을 관리하는 핵심 명세서입니다.
 2. **독립 단독 런타임 (Self-Contained Local Runtime):** 로컬 개발 환경에서 외부 PostgreSQL DB, Spring Cloud Config, Eureka, Vault 등 외부 제어 서버 연결 없이 단독으로 빠르게 실행 가능한 오프라인 격리 환경입니다.
-3. **Flyway V60 타깃 스키마 & JPA Validate:** 로컬 H2 인메모리 DB 구동 시 Flyway V60 마이그레이션으로 DB 테이블을 자동 생성하고, JPA `validate`로 스키마-엔티티 매핑 정합성을 엄격히 검증합니다.
+3. **Flyway V60–V62 타깃 스키마 & JPA Validate:** 로컬 H2 인메모리 DB 구동 시 Flyway V60–V62 마이그레이션으로 DB 테이블을 자동 생성하고, JPA `validate`로 스키마-엔티티 매핑 정합성을 엄격히 검증합니다.
 
 ---
 
@@ -27,7 +27,7 @@ Internal Audit 서비스는 RCM(Risk Control Matrix) 및 설계·운영 평가, 
 
 ### 📌 런타임 제어 평면 비활성화 & 격리 메커니즘
 - **H2 In-Memory DB**: PostgreSQL 호환 모드 (`MODE=PostgreSQL`) 기반 H2 DB 적용
-- **Flyway V60 Target**: `classpath:db/migration` 내 Flyway V60 마이그레이션 스크립트로 스키마 구축
+- **Flyway V60–V62 Target**: `classpath:db/migration` 내 Flyway V60–V62 마이그레이션 스크립트로 스키마 구축
 - **JPA Validate**: Hibernate `ddl-auto: validate`로 런타임 스키마 정합성 검증
 - **Control Plane Decoupling**: Spring Cloud Config, Eureka Discovery, Vault, Tracing 완전 비활성화
 
@@ -70,3 +70,22 @@ docker compose -f .\internal-audit\docker-compose.yml up --build internal-audit-
 
 기존 개발 인프라에 `internal_audit_db`를 준비하고 Eureka에 등록하는 절차는
 [Governance 개발 실행 안내](../docs/guides/governance-external-dev.md)를 참고하세요.
+
+
+## 명령 재시도와 키 충돌
+
+여섯 RCM/평가 쓰기 API의 `X-Idempotency-Key`는 모듈 전체에서 유효하다.
+동일한 유효 명령은 최초 성공 결과를 재생하고, 다른 actor/action/대상/payload는 409다.
+기존 감사 로그만 있는 키도 409이며 자동 승격하지 않는다. 키 없음/공백은 매 요청을 실행·감사한다.
+과거 결과를 재생해도 이후 업무 변경을 되돌리지 않는다. 과거 키의 실패를 새 키 일괄 재전송으로 처리하지 않는다.
+정확한 fingerprint, snapshot, 오류 및 전환 계약은 [GH-665 계약](docs/issue-665-command-idempotency-plan.md)을 참고한다.
+
+로컬은 V62까지 자동 적용한다. PostgreSQL은 release migration-runner가 V62를 적용한 뒤 새 writer를 시작해야 한다.
+기존 writer는 새 키 잠금에 참여하지 않으므로 배포 시 쓰기를 중단하고 모든 writer를 교체해야 한다.
+애플리케이션만 이전 버전으로 되돌리면 재시도 보호를 잃는다. 감사 데이터와 적용 migration은 삭제하지 않는다.
+
+검증 명령(격리 DB 준비·기동 절차는 위 계약 참고):
+```bash
+sh ./gradlew :internal-audit:core:test :internal-audit:api:test :migration-runner:test :internal-audit:api:bootJar --offline --no-daemon --console=plain --max-workers=1
+sh ./gradlew :internal-audit:api:postgresTest -DinternalAudit.test.postgresql.url=jdbc:postgresql://127.0.0.1:5432/account_idempotency_test --offline --no-daemon --console=plain --max-workers=1
+```
