@@ -705,3 +705,5 @@
 | Q4 | N/A | 실행 코드/비자명 로직 수정 없음; 설정 예시를 제안으로 명시 | 비자명 코드 변경 없음 | 후속 구현 시 의도 주석 검토 | /root/review_rfc 확인 |
 
 - Publication checkpoint (2026-09-12): Draft PR [#720](https://github.com/skyg547/account/pull/720) OPEN/DRAFT, `Refs #719`; implementation commit `f89611ac` pushed. Issue #719 is `status:needs-review`. PR 본문에 검증 결과·미실행 사유·Q1–Q4·Merge authority 및 절차적 권한 분리를 명시했다. GitHub checks는 최종 head에서 별도 확인하며 Ready/merge/Issue close/cleanup은 수행하지 않았다. 다음 담당은 사람 리뷰어(설계·CI·최신 base 검토)다.
+
+| 2026-09-13 | Codex + Test + independent Reviewer | Infra/docs parent / disjoint test / read-only review | `agent/710-container-management` / `/tmp/account-710-container-management` | #710 in progress; pre-Draft CI | Reused Portainer; added scoped two-mode Watchtower/CI/roadmap. Static18/schema55/Compose and fresh GUI auth/inventory/probe/22.38MB peak pass. Runtime found and fixed incompatible monitor+rolling; strict Podman image-selection proof and Docker CI remain before Draft. No merge authority granted. |

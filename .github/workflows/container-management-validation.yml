@@ -1,0 +1,39 @@
+name: Container Management Validation
+
+on:
+  push:
+    branches: [main, 'agent/**']
+    paths:
+      - deploy/watchtower/**
+      - portainer/**
+      - .github/workflows/container-management-validation.yml
+  pull_request:
+    paths:
+      - deploy/watchtower/**
+      - portainer/**
+      - .github/workflows/container-management-validation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prototype:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Safety contracts and Compose rendering
+        env:
+          WATCHTOWER_SOCKET_PATH: /var/run/docker.sock
+          PORTAINER_ADMIN_PASSWORD_FILE: /nonexistent/private-bootstrap
+        run: |
+          /usr/bin/python3 -m unittest discover -s deploy/watchtower/tests -p 'test_*.py' -v
+          /usr/bin/python3 -m unittest discover -s portainer/tests -v
+          docker compose -f deploy/watchtower/compose.yml --profile watchtower config --quiet
+          docker compose -f deploy/watchtower/compose.yml -f deploy/watchtower/compose.update.yml --profile watchtower config --quiet
+          docker compose -f portainer/docker-compose.yml config --quiet
+      - name: Registry build-push-detect-recreate and rollback
+        run: /usr/bin/python3 deploy/watchtower/tests/live-smoke.py --engine docker

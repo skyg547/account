@@ -1,5 +1,8 @@
 # Portainer CE 개발 런북
 
+선택적 이미지 동기화와 Kubernetes 전환은
+[컨테이너 관리·배포 로드맵](container-management-and-deployment-roadmap.md)을 참고하세요.
+
 Portainer는 기존 컨테이너를 브라우저에서 관리하는 별도 관리자 UI입니다.
 Nginx가 `/portainer/` 요청을 내부 `account-portainer:9000`으로 전달하므로
 Portainer의 9000/9443/8000 포트를 호스트에 공개할 필요가 없습니다.
