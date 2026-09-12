@@ -84,12 +84,9 @@ public class DepartmentService implements DepartmentUseCase {
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
                 : LocalDate.of(9999, 12, 31);
-        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
+        MasterDataValidityPolicy.requireVersionSplit(
+                currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
-        
-        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
-            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
-        }
         
         // 참조 검증과 신규 버전 조립을 먼저 끝내야 잘못된 parentCode가 현재 버전을 건드리지 않습니다.
         Department newVersion = new Department();

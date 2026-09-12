@@ -75,12 +75,9 @@ public class ProductService implements ProductUseCase {
         LocalDate newValidTo = command.validTo() != null
                 ? command.validTo()
                 : LocalDate.of(9999, 12, 31);
-        MasterDataValidityPolicy.requireValidityWindow(newValidFrom, newValidTo);
+        MasterDataValidityPolicy.requireVersionSplit(
+                currentActive.getValidFrom(), currentActive.getValidTo(), newValidFrom, newValidTo);
         LocalDate oldValidTo = newValidFrom.minusDays(1);
-
-        if (oldValidTo.isBefore(currentActive.getValidFrom())) {
-            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
-        }
 
         currentActive.terminate(oldValidTo);
         productPersistencePort.save(currentActive);

@@ -1,5 +1,7 @@
 package com.ho.account.masterdata.core.domain.model;
 
+import com.ho.account.masterdata.core.domain.policy.MasterDataValidityPolicy;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -193,11 +195,7 @@ public class BusinessPartner {
                 && !businessPartnerCode.equals(requestedBusinessPartnerCode.trim())) {
             throw new IllegalArgumentException("거래처 코드는 SCD2 버전 수정 시 변경할 수 없습니다.");
         }
-        requireValidityWindow(newValidFrom, newValidTo);
-        LocalDate previousValidTo = newValidFrom.minusDays(1);
-        if (previousValidTo.isBefore(validFrom)) {
-            throw new IllegalArgumentException("새로운 유효 시작일이 기존 시작일보다 빠를 수 없습니다.");
-        }
+        MasterDataValidityPolicy.requireVersionSplit(validFrom, validTo, newValidFrom, newValidTo);
         if (!isActiveAt(LocalDate.now())) {
             throw new IllegalStateException("활성 거래처 버전만 수정할 수 있습니다.");
         }

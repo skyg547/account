@@ -1,3 +1,11 @@
+## 2026-09-13 — GH-667 verified; Draft publication pending
+
+- Issue #667; `agent/667-scd2-future-overlap`; `/tmp/account-667-scd2-future-overlap`; base `e7c462f4`. Common core policy prevents four-type sequential future overlap before mutation/save; finite source bounds and scheduled history are preserved.
+- Verification: RED18 expected failures; GREEN56 focused; full473(core444/API24/Batch5),0 failures/errors/skips; API/Batch bootJar; isolated local H2 packaged API readiness HTTP200/UP; harness32 and static gates PASS. Initial global health503 is documented separately. See GH-667 in worklog.md for exact commands, evidence and scope.
+- Independent `/root/independent_review`: no P0–P3; Q1–Q4 PASS. Production5/test4/module-doc1 files plus parent-owned harness/history. No build/config/DB changes.
+- Rollback: reviewed code/test/doc revert; preserve business/scheduled data and migrations. PostgreSQL/concurrent writers/existing-data repair and new end-to-end approved-overlap test remain separate.
+- Parent owns Git/GitHub; implementer and reviewer sessions are separated procedurally. Draft PR uses Refs #667 and Merge authority text. Next: parent Draft publication, then human current-head/base/CI review. No Ready/merge/Issue close/cleanup.
+
 ## 2026-09-12 — GH-665 Draft PR publication
 
 - Published Draft PR https://github.com/skyg547/account/pull/722 with Refs #665 from `agent/665-command-idempotency` to `main`. Implementation commit: `f640f56c59b9ce382b5000e21fdbbf1907ab5ad0`; worktree: `/tmp/account-665-command-idempotency`. Issue #665 remains OPEN / status:needs-review.

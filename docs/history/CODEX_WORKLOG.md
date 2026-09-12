@@ -2728,3 +2728,11 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 | Q4 | N/A | 실행 코드/비자명 로직 수정 없음; 설정 예시를 제안으로 명시 | 비자명 코드 변경 없음 | 후속 구현 시 의도 주석 검토 | /root/review_rfc 확인 |
 
 - Publication checkpoint (2026-09-12): Draft PR [#720](https://github.com/skyg547/account/pull/720) OPEN/DRAFT, `Refs #719`; implementation commit `f89611ac` pushed. Issue #719 is `status:needs-review`. PR 본문에 검증 결과·미실행 사유·Q1–Q4·Merge authority 및 절차적 권한 분리를 명시했다. GitHub checks는 최종 head에서 별도 확인하며 Ready/merge/Issue close/cleanup은 수행하지 않았다. 다음 담당은 사람 리뷰어(설계·CI·최신 base 검토)다.
+
+## 2026-09-13 — GH-667 verified; Draft publication pending
+
+- Issue #667; `agent/667-scd2-future-overlap`; `/tmp/account-667-scd2-future-overlap`; base `e7c462f4`. Common core policy prevents four-type sequential future overlap before mutation/save; finite source bounds and scheduled history are preserved.
+- Verification: RED18 expected failures; GREEN56 focused; full473(core444/API24/Batch5),0 failures/errors/skips; API/Batch bootJar; isolated local H2 packaged API readiness HTTP200/UP; harness32 and static gates PASS. Initial global health503 is documented separately. See GH-667 in worklog.md for exact commands, evidence and scope.
+- Independent `/root/independent_review`: no P0–P3; Q1–Q4 PASS. Production5/test4/module-doc1 files plus parent-owned harness/history. No build/config/DB changes.
+- Rollback: reviewed code/test/doc revert; preserve business/scheduled data and migrations. PostgreSQL/concurrent writers/existing-data repair and new end-to-end approved-overlap test remain separate.
+- Parent owns Git/GitHub; implementer and reviewer sessions are separated procedurally. Draft PR uses Refs #667 and Merge authority text. Next: parent Draft publication, then human current-head/base/CI review. No Ready/merge/Issue close/cleanup.

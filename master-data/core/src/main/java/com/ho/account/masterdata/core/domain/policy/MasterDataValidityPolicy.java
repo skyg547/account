@@ -66,6 +66,27 @@ public final class MasterDataValidityPolicy {
         }
     }
 
+    /**
+     * 기존 유효구간 안에서만 새 버전을 분할하도록 변경 전에 확인합니다.
+     *
+     * <p>기존 종료일 뒤에는 이미 예약된 버전이 있을 수 있으므로 새 구간을 그 밖으로
+     * 확장하지 않습니다. 시작일은 기존 시작일보다 늦어야 이전 버전도 최소 하루를 유지합니다.</p>
+     */
+    public static void requireVersionSplit(
+            LocalDate currentValidFrom,
+            LocalDate currentValidTo,
+            LocalDate newValidFrom,
+            LocalDate newValidTo) {
+        requireValidityWindow(currentValidFrom, currentValidTo);
+        requireValidityWindow(newValidFrom, newValidTo);
+        if (!newValidFrom.isAfter(currentValidFrom)) {
+            throw new IllegalArgumentException("SCD2 new validFrom must be after the current validFrom.");
+        }
+        if (newValidTo.isAfter(currentValidTo)) {
+            throw new IllegalArgumentException("SCD2 new validity window cannot extend the current validity window.");
+        }
+    }
+
     private static boolean isActive(LocalDate date, LocalDate validFrom, LocalDate validTo) {
         if (date == null || validFrom == null || validTo == null) {
             return false;
