@@ -1,3 +1,11 @@
+## 2026-09-12 — GH-665 Draft PR publication
+
+- Published Draft PR https://github.com/skyg547/account/pull/722 with Refs #665 from `agent/665-command-idempotency` to `main`. Implementation commit: `f640f56c59b9ce382b5000e21fdbbf1907ab5ad0`; worktree: `/tmp/account-665-command-idempotency`. Issue #665 remains OPEN / status:needs-review.
+- The published body contains the legacy-key decision, six-command contract, verification commands/results, Q1–Q4 evidence, rollback/cutover risks and explicit implementer/reviewer/merge-authority separation. Independent read-only xhigh Reviewer cleared both the implementation and final records/body with no remaining findings.
+- Final evidence: 758 Java tests and 32 harness checks PASS; bootJar and 26 actual H2 HTTP checks PASS. The 26 verified source hashes and executable artifact match the reviewed implementation. This publication checkpoint changes only four harness/history records, so production tests are not repeated.
+- Owned ephemeral test containers/pod were removed after verification; the original dirty checkout and this branch/worktree are retained. Existing record histories are preserved.
+- Next owner: human reviewer for policy/integration review and latest-head/base CI. GitHub checks started on publication and were still running at this checkpoint; no CI success is asserted here. PR remains Draft. Ready, merge, Issue close and branch/worktree removal were not performed or authorized.
+
 ## 2026-09-12 — GH-665 command idempotency and atomic audit
 
 - Issue #665; difficulty:very-high / user-designated xhigh. Branch `agent/665-command-idempotency`, external worktree `/tmp/account-665-command-idempotency`, base `origin/main@87206771d8057fdd4f39bd35df0331768d0bf05f`. Existing worktree policy/checkpoint edits and original dirty primary checkout preserved. #666/PR #705 already merged; no concurrent Internal Audit owner conflict.
