@@ -175,6 +175,7 @@ def main():
             assert call('exec', selected, 'cat', '/version') == 'v2'
             assert call('exec', selected_two, 'cat', '/version') == 'v2'
             after_two = identity(selected_two)
+            assert all(call('inspect', '--format', '{{.Config.Image}}', name) == channel for name in targets)
             assert all(identity(name) == before[name] for name in controls)
             assert not state(controls[-1])['Running']
             print('PASS two selected v1 -> v2 sequential recreations; four excluded controls unchanged', flush=True)
@@ -184,14 +185,12 @@ def main():
             # Force an unavailable registry with a different local image: a
             # failed pull must not cause update from the local cache.
             call('tag', address + '/account-710:v1', channel)
+            assert call('image', 'inspect', '--format', '{{.Id}}', channel) == old_image
             call('stop', '--time', '5', registry)
             unavailable_log = watch('unavailable')
-            # Pull errors are Skipped, excluded from both Scanned and Failed in
-            # 1.7.1. A zero exit/Failed count alone is not success evidence.
-            summary(unavailable_log, 0, 0)
-            assert 'connection refused' in unavailable_log
-            for name in targets:
-                assert re.search(r'Unable to update container[^\n]*' + re.escape(name), unavailable_log)
+            # The legacy API can report a pull error in either HTTP status or
+            # its JSON stream; counters are not an outage safety oracle.
+            assert 'connection refused' in unavailable_log, 'missing registry outage evidence: ' + unavailable_log
             assert identity(selected) == after and state(selected)['Running']
             assert identity(selected_two) == after_two and state(selected_two)['Running']
             print('PASS unavailable registry preserves running target', flush=True)
