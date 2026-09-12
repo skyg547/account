@@ -2651,3 +2651,29 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Next owner: parent publishes Draft and records URL, then human reviewer for latest-head/base and CI review; release operator for genuine GHCR integration verification.
 
 - Publication checkpoint (2026-09-12): Draft PR [#716](https://github.com/skyg547/account/pull/716) is OPEN/DRAFT with `Refs #715`; implementation commit `19498521` is pushed. Issue #715 is `status:needs-review`. Independent final record audit found no P0–P3, confirmed all four prior-history prefixes and identical appended entries, and retained Q1–Q4 PASS. PR body contains verification results, honest GHCR/Docker limitations and explicit Merge authority/role separation. GitHub checks are pending at publication; no Ready/merge/Issue close/cleanup performed. Next owner: human reviewer for PR #716 and latest-head CI; release operator for actual GHCR login/push/pull/digest verification.
+
+
+## 2026-09-12 — GH-719 외부 분개 REST / OpenAPI RFC
+
+- Issue: #719; owner: Codex parent Integrator; branch: `agent/719-external-journal-rfc`; worktree: `/tmp/account-719-external-journal-rfc`; base: `origin/main@87206771d8057fdd4f39bd35df0331768d0bf05f`. 기존 dirty 기본 checkout을 보존했다. Draft PR은 검증·독립 리뷰 후 `Refs #719`로 게시한다.
+- 변경 범위: `docs/architecture/external-journal-integration-rfc.md`와 이 4개 공유 기록(`docs/ai-harness/{worklog,agent-status,handoff}.md`, `docs/history/CODEX_WORKLOG.md`). 실행 코드·설정·DB·빌드 변경 없음. RFC 작성/기록은 부모, Gateway 탐색과 독립 리뷰는 별도 읽기 전용 에이전트가 담당했다.
+- 결과: 현재 JournalPostingAdapter/기존 REST 경로와 제안 InternalJournalPortAdapter 역할/외부 controller를 구분했다. 독립 DTO→command 매핑, 인증 주체·원천 권한, 초안 전용 승인 분리, 원자적 receipt 및 replay/충돌/rollback, Gateway API Key/OAuth2 정책, OAS 3.0 전체 YAML 예시와 시퀀스, springdoc group 생성·호환성·배포 및 후속 개방 게이트를 문서화했다.
+- 근거: journal/core/contracts 호출 경로·금액 DECIMAL(19,2)/환율 DECIMAL(19,8), Gateway 인증/route를 읽었다. journal API는 core→shared-kernel을 통해 WebMVC UI 2.5.0을 전달받는다는 점과 기존 사용자 JWT 검증/빈 인증 오류 및 JWKS 지원 공백을 제안과 구분했다. springdoc v2/공식 Gradle plugin/OAS 공식 문서를 확인했다.
+- 검증: `python3 /tmp/account-719-validate.py` PASS — YAML 2개, 공식 OAS 3.0 schema, 내부 참조 38개, 요청/201 응답 예제, 거부 fixture 12개(필수/actor 위조/날짜/side/숫자 금액/scale/precision/음수/baseAmount/라인/환율), 허용 schema 경계 2개, 로컬 링크 18개. 검증기는 기존 PyYAML/jsonschema를 사용했고 공식 schema JSON만 `/tmp/account-719-oas-schema.json`으로 가져왔다. 패키지 설치 없음.
+- 정적 검증: `git diff --check` PASS; tracked 전체 및 신규 RFC 충돌 마커 검사 PASS; `python3 tools/ci/validate-harness.py` PASS (11 roles, 4 skills, 55 required paths). 문서 내 예제의 schema 유효성은 금융 업무 검증이나 실행 API의 구현 증거가 아니다.
+- 미실행: Gradle/API·Gateway 실기동·PostgreSQL 동시성·실제 springdoc 추출·Mermaid 렌더링. 문서만 변경하며 해당 API/profile/task는 제안이므로 실행 성공으로 주장하지 않는다. RFC 7절의 구현·보안·금융·생성 CI·통합 테스트가 실제 개방 조건이다. 다이어그램은 텍스트 의미 리뷰만 수행한다.
+- 독립 리뷰: `/root/review_rfc` 결과와 Q1–Q4 증거표는 아래 publication checkpoint에 확정 기록한다.
+- Rollback: 이 문서 변경을 리뷰된 PR로 revert하고 기존 기록을 보존한다. 런타임 rollback 불필요. 충돌 없음; conflict-log 수정 없음.
+- 권한 분리 / Merge authority: Codex 작성·검증과 읽기 전용 독립 Reviewer를 분리하고 부모 Integrator만 공유 기록/Git/GitHub를 갱신한다. 사용자 승인 범위는 commit/push/Draft PR이며 Ready·merge·Issue close·branch/worktree 삭제는 수행하지 않는다. 독립 세션은 절차적 분리이며 별도 GitHub 계정/자격증명이나 GitHub APPROVED review를 의미하지 않는다.
+- 다음 담당: 독립 리뷰 반영 후 부모가 Draft PR을 게시하고, 사람 리뷰어가 설계/CI/최신 base를 검토한다. 후속 구현자는 RFC 7절의 개방 게이트와 외화/다중 장부 제한을 확인한다.
+
+- 독립 리뷰 확정: `/root/review_rfc`가 실제 source/DDL/Gateway/build와 RFC를 대조하고 검증기를 직접 재실행하여 P0–P3 없음으로 보고했다. springdoc 2.5.0 공식 source의 `/v3/api-docs.yaml/{group}` 경로도 확인했다.
+
+| 항목 | 판정 | 파일·검증 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | N/A | RFC와 공유 기록만 변경; production/test code diff 없음 | 코드 품질 변경 없음 | 제안 구현 시 API/core 경계 검증 | /root/review_rfc 확인 |
+| Q2 | PASS | RFC 2–4절: mapping, 트랜잭션, 재전송, 인증 흐름/예외 | 해당 없음: 설계 설명 대상 | 후속 동시성·보안 통합 테스트 | /root/review_rfc 확인 |
+| Q3 | PASS | RFC 1·5–7절: 현재 근거, 검증된 YAML, 미구현 profile/task 표시 | 해당 없음: 기능 문서 대상 | 실제 springdoc 추출·실기동은 후속 게이트 | /root/review_rfc 확인 |
+| Q4 | N/A | 실행 코드/비자명 로직 수정 없음; 설정 예시를 제안으로 명시 | 비자명 코드 변경 없음 | 후속 구현 시 의도 주석 검토 | /root/review_rfc 확인 |
+
+- Publication checkpoint (2026-09-12): Draft PR [#720](https://github.com/skyg547/account/pull/720) OPEN/DRAFT, `Refs #719`; implementation commit `f89611ac` pushed. Issue #719 is `status:needs-review`. PR 본문에 검증 결과·미실행 사유·Q1–Q4·Merge authority 및 절차적 권한 분리를 명시했다. GitHub checks는 최종 head에서 별도 확인하며 Ready/merge/Issue close/cleanup은 수행하지 않았다. 다음 담당은 사람 리뷰어(설계·CI·최신 base 검토)다.
