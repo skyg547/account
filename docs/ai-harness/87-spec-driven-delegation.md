@@ -232,17 +232,91 @@ make this repository public`). 즉 "required review", "required status check",
 부모 단일 writer 계약을 넓히지 않는다. 도구 이름과 관계없이 구현자/Reviewer는 증거를
 반환하고, 승인된 부모가 게시·상태 변경을 맡는다. 보조 문서 전체 정비는 별도 범위다.
 
-## 7. CI 가드
+## 7. CI 가드: 현재 상태 판정 (#671)
 
-[`.github/workflows/agent-merge-guard.yml`](../../.github/workflows/agent-merge-guard.yml)이
-PR에서 다음을 검사한다.
+초보자 설명: 과거 코드의 승인이나 검토했다는 댓글만으로 현재 코드에 초록불을 주지 않는다.
+PR의 현재 코드·기준 코드·설명과 검토 증거를 함께 확인하며, 읽지 못했거나 달라졌으면 실패한다.
+Draft의 실패는 병합 준비 증명이 없다는 뜻이다. 오프라인 회귀 테스트 PASS와 실제 리뷰 PASS는 별개다.
+동결 Draft 사전리뷰는 이 Ready-only 병합 준비 판정이 실패해도 진행할 수 있다.
 
-- 구현 owner 라벨(`agent:*`)이 붙은 PR에 리뷰 승인 흔적이 있는가
-- PR이 Draft를 벗어났는데 `status:needs-review` 이상으로 진행되었는가
-- PR 본문에 검증 출력과 merge authority 문구가 있는가
+### 신뢰 결정과 허용 증거
 
-branch protection이 없으므로 이 검사는 **실패를 보여줄 뿐 병합을 막지 못한다.**
-required status check로 승격하려면 6절의 1번이 필요하다.
+**상태: 사용자 신뢰 방식 결정 대기.** #662는 역할·수명주기를 통합했지만 동일 계정의
+독립 세션을 GitHub API로 인증하는 계약은 승인하지 않았다. 기존 6절의 동일 계정 soft 선택을
+임의로 계정 분리로 변경하지 않는다. workflow는 `policy: undefined`로 기본 차단한다.
+현재 허용된 기계적 승인 주체는 없으며 `TRUST_POLICY_UNCONFIGURED`는 정상적인 보류 결과다.
+일반 PR/Issue 댓글, 본문에 복사한 APPROVED, 모델 이름·티어·세션 문자열은 승인 증거가 아니다.
+이 상태의 PR을 Ready/merge 가능으로 인계하지 않는다. Draft 산출물은 신뢰 방식 승인 후 활성화해야 한다.
+
+순수 판정기의 **미활성 후보** `github-review-v1`은 별도 계정 방식을 승인할 경우에만 사용할 수 있다.
+테스트의 reviewer ID는 합성 값이며 실제 신뢰 주체 등록이 아니다. 활성화에는 사용자 승인과
+trusted base 코드에 등록한 안정적인 GitHub reviewer ID 목록·최대 유효기간이 필요하다.
+PR 작성자의 ID는 목록에 있어도 승인할 수 없다. 같은 계정 유지 시에는 작성자가 생성·변경할 수 없는
+별도 서명 주체·키 등록·철회·세션 식별 계약이 먼저 필요하며, 이 후보로 대체하지 않는다.
+
+후보 증거 계약:
+
+- GitHub 리뷰 API의 reviewer별 최신 결정만 사용한다. 시간순, 동시각은 review ID로 정렬한다.
+  `COMMENTED`/`PENDING`는 승인을 만들거나 기존 결정을 지우지 않는다. `DISMISSED`는 해당 결정을
+  무효화하고 이전 승인을 되살리지 않는다. 누구의 것이든 최신 `CHANGES_REQUESTED`가 남으면 실패한다.
+- 신뢰 목록에 있는 비작성자의 정식 `APPROVED`, 현재 `commit_id == head SHA`, 미래가 아닌 제출 시각,
+  `0 <= age < maxAgeMs`를 모두 요구한다. 후보 상한은 24시간이며 경계 시각은 만료다.
+- 승인 리뷰 **자체의 본문**에 다음 한 줄을 포함해야 한다. 별도 댓글·PR 본문의 문구는 인정하지 않는다.
+
+```text
+Agent-Merge-Guard: v1 owner/repo#PR_NUMBER HEAD_SHA BASE_SHA METADATA_SHA256
+```
+
+`owner/repo`는 소문자다. digest는 helper `metadataDigest(prSnapshot(pr, identity))`의 결과로,
+저장소·번호·작성자 ID·head/base SHA·head/base ref·Draft 여부·제목·본문·정렬한 라벨을 포함한다.
+현재 API snapshot만 digest 입력으로 사용한다. Guard 출력의 `metadataDigest`를 로컬 adapter 결과에서
+확인할 수 있다. 본문/제목/owner/라벨/Draft/기준 코드가 바뀌면 증거를 다시 발급해야 한다.
+GitHub `commit_id`가 base도 증명한다고 추정하지 않는다. exact-head/base와 만료는 **저장소 정책 후보**이며
+GitHub 기본 승인 의미가 아니다. [리뷰 API 공식 설명](https://docs.github.com/en/rest/pulls/reviews#list-reviews-for-a-pull-request)을 참조한다.
+
+### 입력 → 처리 → 결과
+
+- 라벨 제거로 범위를 벗어나지 않도록 `main` 대상 **모든 PR**을 평가한다. 정상 owner는
+  `agent:codex`, `agent:gemini`, `agent:claude-code` 중 정확히 하나다. 역할 라벨만으로 대체할 수 없다.
+  일반 기여 PR도 이 정책의 적용 대상이므로 별도 예외가 필요하면 후속 승인 계약으로 다룬다.
+- API adapter는 현재 PR을 조회하고 이벤트 head/base와 비교한다. 리뷰를 100건씩 끝까지 두 번 조회하며,
+  최대 100페이지 도달·응답 오류·중복 ID·알 수 없는 결정·필수값 누락은 실패다.
+  마지막 PR 조회에서 head/base·제목·본문·라벨·Draft 변경이 발견되거나 리뷰 두 조회가 다르면 실패한다.
+- pure helper는 owner, 검증 코드 블록, `Merge authority:` 문구, Draft 여부와 신뢰 증거를 판정한다.
+  결과는 `ok`, 고정된 `problems`, 검증한 head/base와 metadata digest다. API 오류의 본문은 출력하지 않는다.
+- PR opened/reopened/synchronize/edited/labeled/unlabeled/ready_for_review/converted_to_draft와
+  리뷰 submitted/edited/dismissed가 다시 평가한다. [GitHub 이벤트 설명](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_review).
+  두 이벤트 계열은 동일 PR concurrency group을 공유한다. 늦게 도착한 이전 이벤트가 새 실행을 취소할 수 있으므로
+  최신 head/base 불일치 시 성공으로 복구하지 않고 실패 후 최신 실행을 요구한다.
+
+### workflow 실행 경계와 검증
+
+[workflow](../../.github/workflows/agent-merge-guard.yml)는 두 job 모두 checkout 전에 `main` 대상인지
+고정 스크립트로 검사한다. 리뷰 이벤트는 branch filter를 지원하지 않으므로 비-main은 이 단계에서 실패한다.
+candidate tests job은 PR head의 Node 테스트를
+읽기 전용 contents 권한과 credential persistence 없이 실행한다. metadata guard는 **이벤트 base SHA**의
+helper와 테스트만 checkout·실행하며 PR 코드를 실행하지 않는다. candidate 테스트 실패도 guard 진행을 막는다.
+`pull_request_target`, write token, secrets, 의존성 설치, API 쓰기는 도입하지 않는다.
+이 workflow를 처음 도입하는 PR에서는 base에 helper가 없어 trusted-base 단계가 실패한다.
+bootstrap 실패를 PASS로 위장하지 않고 후보 테스트와 별도 읽기 전용 리뷰 증거를 남긴다.
+
+```bash
+node --test tools/ci/agent-merge-guard.test.cjs
+/usr/bin/python3 -m unittest discover -s tools/ci -p test_validate_harness.py -v
+node --test tools/ci/harness-pr-contract.test.cjs
+/usr/bin/python3 tools/ci/validate-harness.py
+git diff --check
+```
+
+필수 환경은 기존 Node와 하네스 Python/PyYAML이다. 새 패키지 설치나 실제 PR 승인·병합 없이
+정상 합성 증거, 승인 없음·old head·후속 반려·철회·owner 제거·API 오류·pagination·경합을 재현한다.
+Python 검사는 실제 workflow wrapper와 helper를 synthetic API로 연결하고 YAML 실행 경계를 확인한다.
+
+두 번 읽기도 GitHub의 원자적 snapshot을 만들지는 못한다. 마지막 조회 이후의 변경, base-only push,
+시간 경과에 따른 만료에는 과거 초록 체크가 남을 수 있다. 최종 Integrator는 별도 승인된 병합 직전에
+현재 head/base·리뷰·만료·CI를 다시 평가해야 한다. PR이 자체 workflow 정의를 바꿀 수 있는 한계와
+6절의 soft 운영 계약은 유지한다. **검사 결과는 GitHub 병합 잠금이나 외부 변경 권한이 아니다.**
+롤백은 이 Issue의 Guard/테스트/문서 변경만 후속 검토 PR로 되돌리고 공유 역사 기록을 보존한다.
 
 ## 8. 관련 문서
 

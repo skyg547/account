@@ -311,45 +311,81 @@ class WorkflowExecutionTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Node executable is required"):
                     run_node("process.exit(0)")
 
-    def test_actual_merge_guard_lifecycle_and_api_failure(self):
+    def test_merge_guard_workflow_trust_boundary(self):
         data = harness.load_yaml(contract(".github/workflows/agent-merge-guard.yml"))
-        script = data["jobs"]["guard"]["steps"][0]["with"]["script"]
-        # Execute the checked-in script, not a restatement of its policy. No
-        # network client or credentials enter the vm; paginate is an API double.
+        self.assertEqual(set(data["on"]), {"pull_request", "pull_request_review"})
+        self.assertTrue({"edited", "unlabeled", "synchronize", "converted_to_draft"}.issubset(
+            data["on"]["pull_request"]["types"]))
+        self.assertEqual(set(data["on"]["pull_request_review"]), {"types"})
+        self.assertEqual(set(data["on"]["pull_request_review"]["types"]),
+                         {"submitted", "edited", "dismissed"})
+        self.assertEqual(data["permissions"], {"contents": "read", "pull-requests": "read"})
+        self.assertEqual(data["concurrency"], {
+            "group": "agent-merge-guard-${{ github.repository }}-${{ github.event.pull_request.number }}",
+            "cancel-in-progress": True})
+        for job, source in (("guard", "base"), ("tests", "head")):
+            steps = data["jobs"][job]["steps"]
+            self.assertEqual(steps[0]["env"], {
+                "PR_BASE_REF": "${{ github.event.pull_request.base.ref }}"})
+            for target in ("main", "feature/untrusted", ""):
+                process = subprocess.run(["bash", "-c", steps[0]["run"]],
+                    capture_output=True, text=True, timeout=5,
+                    env={"PATH": os.defpath, "PR_BASE_REF": target})
+                self.assertEqual(process.returncode == 0, target == "main")
+            self.assertEqual(steps[1]["uses"], "actions/checkout@v4")
+            self.assertEqual(steps[1]["with"], {
+                "ref": "${{ github.event.pull_request." + source + ".sha }}",
+                "persist-credentials": False})
+            self.assertEqual(steps[2]["run"], "node --test tools/ci/agent-merge-guard.test.cjs")
+            self.assertNotIn("secrets", data["jobs"][job])
+        self.assertEqual(data["jobs"]["tests"]["permissions"], {"contents": "read"})
+        self.assertEqual(data["jobs"]["guard"]["needs"], ["tests"])
+
+    def test_actual_merge_guard_wrapper_fails_closed_without_trust(self):
+        data = harness.load_yaml(contract(".github/workflows/agent-merge-guard.yml"))
+        steps = data["jobs"]["guard"]["steps"]
+        script = next(step["with"]["script"] for step in steps
+                      if step.get("uses", "").startswith("actions/github-script@"))
+        # Execute the actual workflow wrapper and helper with synthetic API data.
+        # The child environment stays scrubbed, with no credential/network client.
         runner = r'''
 const vm = require('node:vm');
-let input = '';
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', async () => {
-  const test = JSON.parse(input);
-  const summary = {};
-  for (const name of ['addHeading', 'addRaw', 'addList']) summary[name] = () => summary;
-  summary.write = async () => {};
-  const core = {summary, info() {}, setFailed() { process.exitCode = 1; }};
-  const github = {rest: {pulls: {listReviews() {}}}, paginate: async () => {
-    if (test.apiError) throw new Error('synthetic API failure');
-    return test.reviews;
-  }};
-  const context = {repo: {owner: 'fixture', repo: 'fixture'}, payload: {pull_request: test.pr}};
-  try {
-    await vm.runInNewContext('(async () => {' + test.script + '\n})()', {core, github, context}, {timeout: 1000});
-  } catch (error) { process.exitCode = 1; }
-});
+const {readFileSync} = require('node:fs');
+const input = JSON.parse(readFileSync(0, 'utf8'));
+const helper = require(input.helper);
+const sha = 'a'.repeat(40), base = 'b'.repeat(40);
+const pr = {number: 1, state: 'open', draft: false, title: 'Fixture',
+  body: 'Merge authority: parent only\n```\ntests pass\n```',
+  labels: input.owner ? [{name: 'agent:codex'}] : [], user: {id: 1},
+  head: {sha, ref: 'agent/1-fixture'}, base: {sha: base, ref: 'main', repo: {full_name: 'fixture/repo'}}};
+let calls = 0, failures = [];
+const core = {info() {}, setFailed(message) {failures.push(message);}};
+const github = {rest: {pulls: {
+  get: async () => {calls++; if(input.apiError) throw Error('private detail'); return {status:200, data:pr};},
+  listReviews: async () => {calls++; return {status:200, data:[]};}
+}}};
+const context = {repo:{owner:'fixture', repo:'repo'}, payload:{pull_request:pr}};
+(async () => {
+  await vm.runInNewContext('(async () => {' + input.script + '\n})()',
+    {core, github, context, require: name => {
+      if(name !== './tools/ci/agent-merge-guard.cjs') throw Error('unexpected import');
+      return helper;
+    }}, {timeout:1000});
+  process.stdout.write(JSON.stringify({calls, failures}));
+})().catch(() => process.exitCode = 1);
 '''
-        proof = 'Merge authority: independent reviewer\n```\ntests passed\n```'
-        cases = [("draft owner", True, "", [], False, True),
-                 ("ready no proof", False, "Merge authority: reviewer", [], False, False),
-                 ("ready no authority", False, "```\ntests passed\n```", [], False, False),
-                 ("self approval", False, proof, ["author"], False, False),
-                 ("valid ready", False, proof, ["reviewer"], False, True),
-                 ("API failure", True, "", [], True, False)]
-        for label, draft, body, reviewers, api_error, expected in cases:
-            payload = {"script": script, "apiError": api_error,
-                "pr": {"number": 1, "draft": draft, "body": body, "labels": [{"name": "agent:codex"}], "user": {"login": "author"}},
-                "reviews": [{"state": "APPROVED", "user": {"login": user}} for user in reviewers]}
-            with self.subTest(case=label):
-                process = run_node(runner, json.dumps(payload))
-                self.assertEqual(process.returncode == 0, expected, process.stdout + process.stderr)
+        for owner, api_error in ((True, False), (False, False), (True, True)):
+            with self.subTest(owner=owner, api_error=api_error):
+                process = run_node(runner, json.dumps({"script": script,
+                    "helper": str(ROOT / "tools/ci/agent-merge-guard.cjs"),
+                    "owner": owner, "apiError": api_error}))
+                self.assertEqual(process.returncode, 0, process.stderr)
+                result = json.loads(process.stdout)
+                self.assertEqual(result["calls"], 1 if api_error else 4)
+                self.assertEqual(len(result["failures"]), 1)
+                self.assertNotIn("private detail", result["failures"][0])
+                self.assertIn("UNVERIFIED_API_OR_SNAPSHOT" if api_error else
+                              "TRUST_POLICY_UNCONFIGURED", result["failures"][0])
 
 
 if __name__ == "__main__":
