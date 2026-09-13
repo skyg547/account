@@ -1,0 +1,49 @@
+name: account-watchtower
+
+services:
+  watchtower:
+    image: docker.io/containrrr/watchtower:1.7.1
+    # Archived upstream: opt-in development experiment, never production.
+    profiles: [watchtower]
+    restart: unless-stopped
+    command:
+      - --label-enable
+      - --scope
+      - account-dev
+      - --interval
+      - "300"
+      - --stop-timeout
+      - 30s
+    environment:
+      # CLI defaults in 1.7.1 use an obsolete API. Validate against your engine.
+      DOCKER_API_VERSION: "1.44"
+      # v1.7.1 forbids global monitor-only together with rolling-restart.
+      WATCHTOWER_MONITOR_ONLY: "true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+      com.centurylinklabs.watchtower.scope: account-dev
+    volumes:
+      - type: bind
+        source: ${WATCHTOWER_SOCKET_PATH:?Set an absolute path to the local engine Unix socket}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 64m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks: [account-network]
+
+networks:
+  account-network:
+    name: ${ACCOUNT_NETWORK_NAME:-account-network}
+    external: true

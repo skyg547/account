@@ -1,0 +1,14 @@
+# Explicit development update opt-in. Always merge AFTER compose.yml.
+services:
+  watchtower:
+    environment:
+      WATCHTOWER_MONITOR_ONLY: "false"
+    command:
+      - --label-enable
+      - --scope
+      - account-dev
+      - --rolling-restart
+      - --interval
+      - "300"
+      - --stop-timeout
+      - 30s

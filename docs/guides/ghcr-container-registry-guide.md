@@ -1,5 +1,8 @@
 # GHCR 컨테이너 이미지 일괄 게시
 
+개발 채널의 자동 감지·교체와 운영 digest 분리는
+[컨테이너 관리·배포 로드맵](container-management-and-deployment-roadmap.md)을 참고하세요.
+
 `tools/docker/push-ghcr.sh`는 이미 빌드된 로컬 이미지를
 `ghcr.io/skyg547/account/<service>:<tag>`로 태깅하고 순차 푸시한다.
 입력 목록은 [image-targets.json](../../deploy/image-targets.json)의 `enabled: true`
