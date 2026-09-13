@@ -1,3 +1,16 @@
+## 2026-09-13 — AI Harness Module Scope & Cross-Module Policy
+
+- Branch: agent/harness-module-policy, worktree: /tmp/account-harness-module-policy, base: cebf014a (origin/main).
+- Policy update in docs/ai-harness/87-spec-driven-delegation.md:
+  * 단일 모듈 수직 슬라이스(Vertical Slice) 예외 명시: Controller, DTO, Port, Service, Domain, Adapter, Test 등 1개 기능의 온전한 헥사고날 슬라이스 구현 시 파일 5개 제한 대신 대상 모듈 전체(module-name/**)를 Allowlist로 허용 (80-file-ownership.md Module Writer와 정합성 일치).
+  * 다중 모듈(Cross-Module) 3대 처리 패턴 확립:
+    1) Contracts-First: contracts/ 또는 shared-kernel 공통 인터페이스/DTO 선반영 머지 후 모듈별 병렬 진행.
+    2) module:cross-module: 강결합 다중 모듈 작업을 단일 세션이 원자적으로 작업(:mod1:test :mod2:test).
+    3) Fork-Join: 부모 Integrator가 총괄 지휘하고 서브에이전트가 모듈별 분담 후 부모가 통합 PR 작성.
+- Policy update in docs/ai-harness/80-file-ownership.md: Cross-Module Writer 역할 명시.
+- Runner automation in scripts/codex-runner.py: Issue의 module:* 라벨을 자동 파싱하여 모듈별 격리 스코프, 디렉터리 Allowlist, 전용 Gradle 테스트 명령 자동 주입.
+- Verification: node --test tools/ci/harness-pr-contract.test.cjs tools/ci/harness-quality-contract.test.cjs (64 pass), python3 tools/ci/validate-harness.py (PASS), git diff --check PASS.
+
 ## 2026-09-13 — GH-667 Draft PR publication
 
 - Draft PR [#723](https://github.com/skyg547/account/pull/723) OPEN/DRAFT, `Refs #667`, from `agent/667-scd2-future-overlap` to `main`; implementation commit `da88765c`. Worktree `/tmp/account-667-scd2-future-overlap` retained. Issue #667 OPEN / `status:needs-review` / `agent:codex`; ordered execution split documented and stale `sizing:needs-split` removed.
