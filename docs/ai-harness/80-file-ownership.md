@@ -16,6 +16,7 @@ This policy maps custom agent roles to default edit areas. The task or Issue mus
 | Integrator subagent | None | Conflict edits, logs, commits, push, PR/Issue mutations |
 | Documentation | Approved `docs/**`, module `README.md`, runbooks, API docs | Shared harness logs unless parent assigns them |
 | Module Writer | Approved target module directory (`<module-name>/**`) | Files outside assigned module and shared harness logs |
+| Cross-Module Writer | Approved cross-module directories (e.g. `loan/**`, `deposit/**`) under `module:cross-module` | Unapproved modules, shared-kernel without lock, shared harness logs |
 
 ## Shared Records
 
