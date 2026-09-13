@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,11 +15,14 @@ import com.ho.account.masterdata.core.domain.model.BusinessPartner;
 import com.ho.account.masterdata.core.domain.model.BusinessPartnerAccount;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -94,6 +98,121 @@ class BusinessPartnerServiceTest {
         // 새 버전 검증이 끝나기 전에는 과거 행을 닫거나 포트에 저장하지 않습니다.
         assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
         verify(persistencePort, never()).save(any(BusinessPartner.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {10, 21, 30})
+    void sequentialFutureUpdateRejectsOverlapBeforeAnyFurtherSave(int secondStart) {
+        LocalDate today = LocalDate.now();
+        List<BusinessPartner> rows = stubHistory(today);
+        BusinessPartner scheduled = service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Scheduled", today.plusDays(21), BusinessPartner.OPEN_ENDED_VALID_TO));
+        List<VersionState> before = states(rows);
+        BusinessPartnerAccount originalAccount = rows.get(0).getAccounts().get(0);
+        BusinessPartnerAccount scheduledAccount = scheduled.getAccounts().get(0);
+
+        assertThatIllegalArgumentException().isThrownBy(() -> service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Rejected", today.plusDays(secondStart), BusinessPartner.OPEN_ENDED_VALID_TO)));
+
+        assertThat(states(rows)).isEqualTo(before);
+        assertThat(rows).hasSize(2);
+        verify(persistencePort, times(2)).save(any(BusinessPartner.class));
+        assertThat(rows.get(0).getAccounts()).containsExactly(originalAccount);
+        assertThat(originalAccount.getId()).isEqualTo(77L);
+        assertThat(originalAccount.getBusinessPartner()).isSameAs(rows.get(0));
+        assertThat(scheduled.getAccounts()).containsExactly(scheduledAccount);
+        assertThat(scheduledAccount.getBusinessPartner()).isSameAs(scheduled);
+        assertContinuousSingleVersion(rows, today);
+    }
+
+    @Test
+    void omittedEndIsRejectedWhenCurrentWindowAlreadyEndsBeforeScheduledHistory() {
+        LocalDate today = LocalDate.now();
+        List<BusinessPartner> rows = stubHistory(today);
+        service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Scheduled", today.plusDays(21), BusinessPartner.OPEN_ENDED_VALID_TO));
+        List<VersionState> before = states(rows);
+
+        assertThatIllegalArgumentException().isThrownBy(() -> service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Rejected", today.plusDays(10), null)));
+
+        assertThat(states(rows)).isEqualTo(before);
+        verify(persistencePort, times(2)).save(any(BusinessPartner.class));
+        assertContinuousSingleVersion(rows, today);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {10, 20})
+    void containedSecondSplitPreservesScheduledHistoryAndAccountOwnership(int secondStart) {
+        LocalDate today = LocalDate.now();
+        List<BusinessPartner> rows = stubHistory(today);
+        BusinessPartner scheduled = service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Scheduled", today.plusDays(21), BusinessPartner.OPEN_ENDED_VALID_TO));
+        VersionState scheduledBefore = states(rows).get(1);
+
+        BusinessPartner inserted = service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Inserted", today.plusDays(secondStart), today.plusDays(20)));
+
+        assertThat(rows).hasSize(3);
+        verify(persistencePort, times(4)).save(any(BusinessPartner.class));
+        assertThat(rows.get(0).getValidTo()).isEqualTo(today.plusDays(secondStart - 1));
+        assertThat(states(rows).get(1)).isEqualTo(scheduledBefore);
+        assertThat(inserted.getValidFrom()).isEqualTo(today.plusDays(secondStart));
+        assertThat(inserted.getValidTo()).isEqualTo(today.plusDays(20));
+        assertThat(inserted.getAccounts().get(0)).isNotSameAs(scheduled.getAccounts().get(0));
+        assertThat(inserted.getAccounts().get(0).getBusinessPartner()).isSameAs(inserted);
+        assertContinuousSingleVersion(rows, today);
+    }
+
+    @Test
+    void invalidSplitDatesDoNotMutateOrSaveCurrentVersion() {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = currentPartner(today);
+        List<VersionState> before = states(List.of(current));
+        when(persistencePort.findById(10L)).thenReturn(Optional.of(current));
+
+        assertThatIllegalArgumentException().isThrownBy(() -> service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Rejected", current.getValidFrom(), BusinessPartner.OPEN_ENDED_VALID_TO)));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.updateBusinessPartner(10L,
+                command("BP-SERVICE", "Rejected", today.plusDays(10), today.plusDays(9))));
+
+        assertThat(states(List.of(current))).isEqualTo(before);
+        verify(persistencePort, never()).save(any(BusinessPartner.class));
+    }
+
+    private List<BusinessPartner> stubHistory(LocalDate today) {
+        BusinessPartner original = currentPartner(today);
+        List<BusinessPartner> rows = new ArrayList<>(List.of(original));
+        when(persistencePort.findById(10L)).thenAnswer(invocation -> {
+            // The ID still refers to today's original after scheduling a future version.
+            List<BusinessPartner> current = rows.stream().filter(row -> row.isActiveAt(LocalDate.now())).toList();
+            assertThat(current).containsExactly(original);
+            return rows.stream().filter(row -> Long.valueOf(10L).equals(row.getId())).findFirst();
+        });
+        when(persistencePort.save(any(BusinessPartner.class))).thenAnswer(invocation -> {
+            BusinessPartner row = invocation.getArgument(0);
+            if (rows.stream().noneMatch(existing -> existing == row)) {
+                rows.add(row);
+            }
+            return row;
+        });
+        return rows;
+    }
+
+    private record VersionState(BusinessPartner row, LocalDate from, LocalDate to, LocalDateTime updatedAt) { }
+
+    private List<VersionState> states(List<BusinessPartner> rows) {
+        return rows.stream().map(row -> new VersionState(row, row.getValidFrom(), row.getValidTo(), row.getUpdatedAt()))
+                .toList();
+    }
+
+    private void assertContinuousSingleVersion(List<BusinessPartner> rows, LocalDate today) {
+        for (LocalDate date = today.minusDays(30); !date.isAfter(today.plusDays(60)); date = date.plusDays(1)) {
+            LocalDate asOf = date;
+            assertThat(rows.stream().filter(row -> row.isValid(asOf)).count())
+                    .as("valid versions at %s", date).isEqualTo(1);
+        }
+        assertThat(rows.stream().filter(row -> row.isValid(BusinessPartner.OPEN_ENDED_VALID_TO)).count()).isEqualTo(1);
     }
 
     private BusinessPartner currentPartner(LocalDate today) {
