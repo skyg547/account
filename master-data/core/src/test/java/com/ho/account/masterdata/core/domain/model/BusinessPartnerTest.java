@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * {@link BusinessPartner}가 저장소나 Spring 없이도 핵심 거래처 규칙을 지키는지 검증합니다.
@@ -194,6 +196,73 @@ class BusinessPartnerTest {
         assertThat(copiedAccount.getAccountNumber()).isEqualTo(historicalAccount.getAccountNumber());
         assertThat(copiedAccount.isMainAccount()).isTrue();
         assertThat(copiedAccount.getBusinessPartner()).isSameAs(next);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {10, 21, 30})
+    void nextVersionCannotEscapeCurrentWindowAfterAFutureSplit(int secondStart) {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = createForWindow(today.minusDays(30), BusinessPartner.OPEN_ENDED_VALID_TO);
+        BusinessPartner scheduled = nextVersion(current, today.plusDays(21), BusinessPartner.OPEN_ENDED_VALID_TO);
+        current.closeVersion(today.plusDays(20));
+        LocalDateTime currentUpdatedAt = current.getUpdatedAt();
+        LocalDateTime scheduledUpdatedAt = scheduled.getUpdatedAt();
+
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                nextVersion(current, today.plusDays(secondStart), BusinessPartner.OPEN_ENDED_VALID_TO));
+
+        assertThat(current.getValidFrom()).isEqualTo(today.minusDays(30));
+        assertThat(current.getValidTo()).isEqualTo(today.plusDays(20));
+        assertThat(current.getUpdatedAt()).isEqualTo(currentUpdatedAt);
+        assertThat(current.isActiveAt(today)).isTrue();
+        assertThat(scheduled.getValidFrom()).isEqualTo(today.plusDays(21));
+        assertThat(scheduled.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
+        assertThat(scheduled.getUpdatedAt()).isEqualTo(scheduledUpdatedAt);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {10, 20})
+    void nextVersionCanSplitInsideCurrentWindowIncludingItsLastDay(int secondStart) {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = createForWindow(today.minusDays(30), BusinessPartner.OPEN_ENDED_VALID_TO);
+        BusinessPartner scheduled = nextVersion(current, today.plusDays(21), BusinessPartner.OPEN_ENDED_VALID_TO);
+        current.closeVersion(today.plusDays(20));
+
+        BusinessPartner inserted = nextVersion(current, today.plusDays(secondStart), today.plusDays(20));
+        // Creation must remain side-effect free until the service explicitly closes the old version.
+        assertThat(current.getValidTo()).isEqualTo(today.plusDays(20));
+        current.closeVersion(inserted.getValidFrom().minusDays(1));
+
+        List<BusinessPartner> versions = List.of(current, inserted, scheduled);
+        for (LocalDate date = today.minusDays(30); !date.isAfter(today.plusDays(60)); date = date.plusDays(1)) {
+            LocalDate asOf = date;
+            assertThat(versions.stream().filter(version -> version.isValid(asOf)).count())
+                    .as("valid versions at %s", date).isEqualTo(1);
+        }
+        assertThat(inserted.getValidFrom()).isEqualTo(today.plusDays(secondStart));
+        assertThat(inserted.getValidTo()).isEqualTo(today.plusDays(20));
+        assertThat(scheduled.getValidFrom()).isEqualTo(today.plusDays(21));
+        assertThat(scheduled.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
+    }
+
+    @Test
+    void nextVersionRejectsInvalidSplitWithoutChangingCurrentVersion() {
+        LocalDate today = LocalDate.now();
+        BusinessPartner current = createForWindow(today.minusDays(30), BusinessPartner.OPEN_ENDED_VALID_TO);
+        LocalDateTime updatedAt = current.getUpdatedAt();
+
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                nextVersion(current, current.getValidFrom(), BusinessPartner.OPEN_ENDED_VALID_TO));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                nextVersion(current, today.plusDays(10), today.plusDays(9)));
+
+        assertThat(current.getValidTo()).isEqualTo(BusinessPartner.OPEN_ENDED_VALID_TO);
+        assertThat(current.getUpdatedAt()).isEqualTo(updatedAt);
+    }
+
+    private BusinessPartner nextVersion(BusinessPartner current, LocalDate from, LocalDate to) {
+        return current.createNextVersion(current.getBusinessPartnerCode(), "Revised", null, null,
+                null, null, null, null, null, null, from, to);
     }
 
     private BusinessPartner createWithIdentity(String code, String name) {
