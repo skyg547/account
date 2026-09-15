@@ -1,3 +1,19 @@
+## 2026-09-16 — GH-726 AI Harness v2 (Dynamic Model Tiering & Circuit Breaker)
+
+- Issue: #726 (`difficulty:medium`, `agent-loop`, `spec-driven`, `type:docs`, `priority:p1`, `sizing:atomic`)
+- Branch: `agent/726-harness-v2`, worktree: `/tmp/account-726-harness-v2`, base: `6e104a87` (origin/main).
+- Scope:
+  * `docs/ai-harness/70-model-assignment-policy.md`: Dynamic Model Tiering formalized (`gpt-5.6-sol` default, `gpt-6-astra` escalated for `difficulty:very-high` or `model:astra`).
+  * `docs/ai-harness/25-issue-claim-verification.md`: Claim verification early-exit and circuit breaker protocol (2 consecutive failures -> block).
+  * `docs/ai-harness/85-github-issue-agent-loop.md`: Harness v2 model tiering in agent loop and quota guard policy.
+  * `scripts/codex-runner.py`: Continuous runner with dynamic model selection, `--dry-run`, `--list`, `--issue`, quota exit on usage limit, and consecutive failure circuit breaker.
+  * `scripts/test_codex_runner.py`: 7/7 unit tests verifying model tiering, escalation, module extraction.
+- Verification:
+  * `python3 -m unittest discover -s scripts -p 'test_*.py' -v`: 7 tests PASS.
+  * `python3 scripts/codex-runner.py --list`: PASS.
+  * Conflict marker scan: PASS (anchored regex check).
+  * `git diff --check`: PASS.
+
 ## 2026-09-13 — AI Harness Module Scope & Cross-Module Policy
 
 - Branch: agent/harness-module-policy, worktree: /tmp/account-harness-module-policy, base: cebf014a (origin/main).

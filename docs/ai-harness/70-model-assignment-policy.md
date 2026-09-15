@@ -83,3 +83,13 @@ Assign models by capability tier, task risk, and task difficulty, not by vendor 
   - 작업 간 컨텍스트 연속성(Continuity)이 끊기는 것을 방지하고 빠른 파이프라인 흐름을 유지하기 위해, Codex 자동 러너 실행 시에는 `very-high`를 제외한 모든 작업(High/Medium/Low)을 `high` 추론 강도로 연속 수행합니다.
   - 상대적으로 쉬운 작업은 내부 추론 토큰 소진량이 적으므로 `high` 강도에서도 쿼터에 큰 부담 없이 정확하고 신속하게 기계적 완료가 가능합니다.
   - Gemini 3.8 Flash는 빠른 설정 반영, 독립 코드 리뷰, 병렬 탐색 및 프론트엔드/인프라 오버레이 작업에 상시 투입됩니다.
+
+### 3-5. 동적 모델 티어링 및 서킷 브레이커 (Dynamic Model Tiering & Circuit Breaker)
+- **Codex 러너 모델 티어링 (`scripts/codex-runner.py`)**:
+  - **기본 모델 (Default)**: `gpt-5.6-sol` (`model_reasoning_effort = "high"`)
+    - 일반 기능 구현, 단위/통합 테스트 작성, 문서 갱신 등 대다수 표준 작업(`difficulty:low`, `difficulty:medium`, `difficulty:high`)에 기본 적용하여 불필요한 토큰 번(Burn)을 방지합니다.
+  - **고난도 승격 (Escalation)**: `gpt-6-astra` (`model_reasoning_effort = "xhigh"`)
+    - `difficulty:very-high` 또는 `model:astra` 라벨이 부여된 금융 정밀도, 원장 마감 동시성, 멱등성 가드, 보안 정책 이슈에 한해 선별적으로 승격 실행합니다.
+- **서킷 브레이커 (Circuit Breaker) & 토큰 가드**:
+  1. **사용량 한도(Usage Limit) 즉시 탈출**: 러너 실행 중 OpenAI `usage limit` 또는 `rate limit` 감지 시 무한 루프 재시도를 즉시 중단하고 프로세스를 안전하게 종료(`sys.exit(1)`)합니다.
+  2. **연속 실패 차단 (Max Consecutive Failures)**: 동일 이슈에서 2회 연속 에러(`returncode != 0`) 발생 시 해당 이슈를 즉시 `status:blocked`로 전환하고 원인을 댓글에 기록하여 무한 루프로 인한 쿼터 소진을 원천 차단합니다.
