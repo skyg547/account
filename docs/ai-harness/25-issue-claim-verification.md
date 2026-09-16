@@ -205,6 +205,18 @@ Write it in the Issue so the next reader does not repeat the work. Include:
 
 Do not change labels or close the Issue yourself unless you own it. Propose, and let the parent Integrator decide.
 
+## Circuit Breaker & Early Exit on Invalid Diagnosis
+
+### 1. Early Exit Rule
+에이전트가 Issue를 Claim한 직후, 진단 가설이 실제 코드베이스와 불일치하거나 이미 해결된 상태임이 판명되면 **절대로 임의로 다른 코드를 수정하거나 억지로 변경사항을 만들어내지 않습니다.**
+- **조치**: 검증 명령 및 코드 확인 결과(file:line)를 댓글로 명시하고, 수정 없이 `status:ready` 해제 및 이슈 종결(Close)을 제안합니다.
+- **근거**: 틀린 가설을 바탕으로 한 수정은 정상적인 동작을 파괴하는 회귀(Regression) 버그를 유발합니다.
+
+### 2. Circuit Breaker for Agent Loops
+자동화 러너(Codex, Gemini, Claude 등) 실행 루프에서:
+- **연속 2회 실패 시 자동 차단**: 동일 Issue에 대해 빌드/테스트/런타임 실패가 2회 연속 발생할 경우, 무한 재시도 루프를 중단하고 해당 이슈를 `status:blocked`로 전환합니다.
+- **사용량 한도(Usage Limit) 검출 시 안전 중단**: OpenAI/Anthropic/Google API 쿼터 한도에 도달한 경우, 재시도 없이 프로세스를 즉시 종료하여 불필요한 토큰 소모를 방지합니다.
+
 ## Relation To Other Documents
 
 - `20-workflow.md` — the Intake step; this procedure sits between reading the Issue and analysing impact

@@ -322,6 +322,17 @@ git push origin --delete <merged-branch>
 
 Do not delete a branch that is still checked out by an active worktree.
 
+## Dynamic Model Tiering & Circuit Breaker Protocol (Harness v2)
+
+### 1. Model Tiering in Automated Agent Runs
+에이전트 러너(`scripts/codex-runner.py` 등)는 Issue 라벨에 따라 실행 모델을 동적으로 배정합니다:
+- **기본 실행 (Default)**: `gpt-5.6-sol` (reasoning effort: `high`) — `difficulty:low`, `difficulty:medium`, `difficulty:high` 등 대부분의 단일 모듈 구현, 단위 테스트 보강, 문서 수정.
+- **고난도 승격 (Escalation)**: `gpt-6-astra` (reasoning effort: `xhigh`) — `difficulty:very-high` 또는 `model:astra` 라벨이 부여된 금융 정밀도(`BigDecimal`), 마감 동시성 제어, 멱등성 가드, 보안 및 다중 모듈 계약 변경.
+
+### 2. Circuit Breaker & Rate Limit Guard
+- **서킷 브레이커 (2회 연속 실패 차단)**: 동일 Issue가 2회 연속으로 빌드/검증 실패 시 무한 루프 재시도를 금지하고, `status:blocked`로 전환 후 원인을 기록합니다.
+- **사용량 한도(Usage Limit) 조기 탈출**: API 쿼터 고갈 에러(`usage limit` / `rate limit`) 감지 시 프로세스를 즉시 안전하게 종료하여 자원 낭비를 방지합니다.
+
 ## Issue #1 Closure Result
 
 Issue `#1` was handled using the current GitHub Issue Agent Loop:
