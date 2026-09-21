@@ -188,64 +188,32 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
-    @DisplayName("설정된 사용자의 비밀번호가 평문이거나 {noop}인 경우 Fail-Closed 예외가 발생한다")
-    void configuredUserRejectsPlaintextAndNoopPassword() {
+    @DisplayName("설정 사용자의 raw/noop/unknown/malformed/case/whitespace 자격증을 비노출 오류로 거부한다")
+    void configuredUserRejectsInvalidCredentialWithoutDisclosure() {
         String jwtSecret = ephemeralValue();
         String internalToken = ephemeralValue();
+        String username = "configured-" + ephemeralValue().substring(0, 12);
+        String raw = ephemeralValue();
+        String valid = PasswordEncoderPolicy.encode(raw, 4);
+        String payload = valid.substring(PasswordEncoderPolicy.BCRYPT_PREFIX.length());
+        String unknownId = "x" + ephemeralValue().substring(0, 8);
 
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "plaintext123"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 12.");
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{noop}secret"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' uses forbidden '{noop}' prefix. Plaintext passwords are not allowed.");
-    }
-
-    @Test
-    @DisplayName("설정된 사용자의 비밀번호가 알 수 없는 접두사이거나 malformed 페이로드인 경우 Fail-Closed 예외가 발생한다")
-    void configuredUserRejectsUnknownPrefixAndMalformedPayload() {
-        String jwtSecret = ephemeralValue();
-        String internalToken = ephemeralValue();
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{unknown}$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' uses unsupported encoding prefix '{unknown}'. Only '{bcrypt}' is allowed.");
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{bcrypt}x"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 1.");
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", "{bcrypt}not-valid"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt payload must be exactly 60 characters, but was 9.");
-    }
-
-    @Test
-    @DisplayName("설정된 사용자의 비밀번호 cost factor가 범위를 벗어난 경우 Fail-Closed 예외가 발생한다")
-    void configuredUserRejectsOutOfRangeCostFactor() {
-        String jwtSecret = ephemeralValue();
-        String internalToken = ephemeralValue();
-        String validHash = PasswordEncoderPolicy.encode("test-secret", 4);
-        String suffix53 = validHash.substring(15); // {bcrypt}$2a$04$... -> 15 chars before suffix53
-
-        String cost03 = "{bcrypt}$2a$03$" + suffix53;
-        String cost32 = "{bcrypt}$2a$32$" + suffix53;
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", cost03))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt cost factor must be between 4 and 31 (inclusive), but was 3.");
-
-        assertThatThrownBy(() -> securityPolicyContextWithUser(null, jwtSecret, internalToken, "ops", cost32))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage(
-                        "Fail-Closed Security Violation: Password for configured user 'ops' is invalid: Password for configured user 'ops' BCrypt cost factor must be between 4 and 31 (inclusive), but was 32.");
+        for (String candidate : new String[] {
+                raw,
+                "{noop}" + raw,
+                "{" + unknownId + "}" + payload,
+                PasswordEncoderPolicy.BCRYPT_PREFIX + ephemeralValue(),
+                payload,
+                "{BCRYPT}" + payload,
+                " " + valid
+        }) {
+            assertThatThrownBy(() -> securityPolicyContextWithUser(
+                            null, jwtSecret, internalToken, username, candidate))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .satisfies(error -> assertThat(rootCause(error).getMessage())
+                            .contains("auth.users[0].password", "{bcrypt}")
+                            .doesNotContain(username, raw, unknownId, payload, candidate));
+        }
     }
 
     @Test
@@ -253,10 +221,11 @@ class AuthApiRuntimePolicyTest {
     void configuredUserSucceedsWithValidBcryptPassword() {
         String jwtSecret = ephemeralValue();
         String internalToken = ephemeralValue();
-        String validPassword = PasswordEncoderPolicy.encode("dynamic-secret", 4);
+        String username = "configured-" + ephemeralValue().substring(0, 12);
+        String validPassword = PasswordEncoderPolicy.encode(ephemeralValue(), 4);
 
         try (ConfigurableApplicationContext context =
-                securityPolicyContextWithUser("local", jwtSecret, internalToken, "ops", validPassword)) {
+                securityPolicyContextWithUser("local", jwtSecret, internalToken, username, validPassword)) {
             AuthModuleProperties properties = context.getBean(AuthModuleProperties.class);
             assertThat(properties.getUsers()).hasSize(1);
             assertThat(properties.getUsers().get(0).getPassword()).isEqualTo(validPassword);
@@ -382,6 +351,14 @@ class AuthApiRuntimePolicyTest {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private static Throwable rootCause(Throwable error) {
+        Throwable current = error;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private Path repositoryRoot() {

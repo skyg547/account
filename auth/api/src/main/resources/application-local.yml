@@ -26,8 +26,7 @@ spring:
       ddl-auto: validate
   sql:
     init:
-      mode: always
-      data-locations: classpath:db/local-data/data-auth-local.sql
+      mode: never
   data:
     redis:
       repositories:

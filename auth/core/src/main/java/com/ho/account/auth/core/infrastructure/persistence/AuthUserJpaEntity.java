@@ -104,6 +104,10 @@ class AuthUserJpaEntity {
                 roleVersion);
     }
 
+    String getUsername() {
+        return username;
+    }
+
     void addRoleAssignment(RoleAssignmentJpaEntity roleAssignment) {
         roleAssignment.assignUser(this);
         this.roleAssignments.add(roleAssignment);
@@ -127,11 +131,8 @@ class AuthUserJpaEntity {
     }
 
     private static String requireValidEncodedPassword(String storedPassword, String fieldName) {
-        if (storedPassword == null || storedPassword.isBlank()) {
-            throw new IllegalArgumentException(fieldName + " is required.");
-        }
         PasswordEncoderPolicy.validate(storedPassword, fieldName);
-        return storedPassword.trim();
+        return storedPassword;
     }
 
     private static String normalize(String value) {

@@ -37,6 +37,7 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 - 기본 모드는 `auth.persistence.mode=jpa`입니다.
 - `AUTH_PERSISTENCE_MODE=memory`는 로컬 데모용 인메모리 사용자 저장소입니다.
+- JPA configured-user seed는 `local` 프로필과 JPA 영속화 모드가 모두 활성화된 경우에만 실행됩니다. 저장소에 이미 있는 username은 덮어쓰지 않습니다.
 - Flyway 마이그레이션:
   - `V70__auth_user_role_schema.sql`: 사용자와 역할 할당
   - `V71__auth_login_attempts.sql`: 공유 로그인 실패/잠금
@@ -68,13 +69,16 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 ### 📌 통합 비밀번호 인코딩 정책 (PasswordEncoderPolicy)
 
 - **BCrypt 구조 및 포맷 검증**:
-  - Spring Security 위임 접두사 `{bcrypt}` 지원 (선택적 접두사).
+  - 현재 승인된 저장 형식은 정확한 소문자 `{bcrypt}` 접두사와 구조적으로 유효한 BCrypt 페이로드의 조합뿐입니다. 접두사는 필수이며 대소문자 변형이나 앞뒤 공백을 허용하지 않습니다.
   - BCrypt 페이로드 Regex: `^\$2[aby]\$[0-9]{2}\$[./0-9A-Za-z]{53}$`
   - 지원 버전: `$2a$`, `$2b$`, `$2y$`
   - Cost factor: `04` ~ `31` (04 미만 또는 31 초과 시 거부)
   - 페이로드 길이: 접두사 제외 정확히 60자 (Radix64 문자 집합: `.` `/` `0-9` `A-Z` `a-z`)
 - **Fail-Closed 검증 통합**:
-  - 부트스트랩 설정 프로퍼티(`AuthModuleProperties`)와 JPA 엔티티(`AuthUserJpaEntity`) 모두 `PasswordEncoderPolicy`를 사용하여 평문(raw text), `{noop}`, 미지원 접두사(`{unknown}` 등), malformed 페이로드를 애플리케이션 시작 및 엔티티 생성 시점에 즉시 차단합니다.
+  - 설정 바인딩(`AuthModuleProperties`), JPA 엔티티 매핑(`AuthUserJpaEntity`), 로그인 검증(`DelegatingPasswordVerifier`)이 하나의 `PasswordEncoderPolicy`를 공유합니다.
+  - 평문(raw), `{noop}`, 미지원 접두사, 접두사 없음, 대소문자 변형, 공백 포함, malformed 페이로드는 유효한 자격으로 저장·인증되지 않습니다.
+  - configured-user 목록은 repository를 호출하기 전에 전체 검증·매핑됩니다. 사용자 하나라도 잘못되면 일부 seed를 시작하지 않고, 오류 메시지에 사용자명이나 자격증명 입력값을 반영하지 않습니다.
+  - seed 저장의 뒤쪽에서 DB 실패가 발생하면 전체 트랜잭션이 rollback됩니다. 외부 설정을 수정한 뒤 재시작하면 안전하게 재시도할 수 있고, 이미 존재하는 사용자는 변경하지 않습니다.
 - **검증 어댑터 격리 (`DelegatingPasswordVerifier`)**:
   - 저장된 비밀번호가 올바른 BCrypt 포맷이 아닌 경우 예외(500)를 발생시키지 않고 안전하게 `false`를 반환하며, 로그나 에러 메시지에 민감한 비밀번호 페이로드를 노출하지 않습니다.
 - **테스트 규칙**:
@@ -94,10 +98,12 @@ MSA 시스템에서는 서버가 여러 개로 나뉩니다. 사용자가 `maste
 
 **IntelliJ H2 단독 실행:**
 1. Gradle JVM을 JDK 17로 설정하고 Gradle Reload를 실행합니다.
-2. 실행 구성에 `local` 프로파일과 매번 새로 만든 JWT/internal-token 환경변수를 주입합니다.
+2. 실행 구성에 `local` 프로파일과 JWT/internal-token 환경변수를 필수로 주입합니다. 로그인 사용자가 필요하면 저장소 밖의 승인된 런타임 입력으로 configured user를 추가합니다.
 3. `Auth bootRun`을 실행합니다.
 4. Config Server/Eureka/PostgreSQL 없이 내장 WAS가 `8081` 포트에서 시작됩니다.
 5. Flyway V70~V73 적용 후 Hibernate가 스키마를 검증합니다.
+
+local SQL 데모 credential과 기본 사용자는 없으며 `spring.sql.init.mode=never`입니다. 선택적 configured user는 외부 런타임 입력/placeholder인 `AUTH_USERS_0_USERNAME`, `AUTH_USERS_0_PASSWORD` 등으로 제공하고, 저장소 파일·쉘 히스토리·로그에 값을 남기지 않습니다. `AUTH_USERS_0_PASSWORD`는 외부에서 준비한 정책 준수 인코딩 값이어야 합니다.
 
 저장소에는 local JWT secret, internal token, 데모 사용자 비밀번호 기본값을 두지 않습니다. PowerShell에서는 값을 출력하지 않고 다음처럼 현재 프로세스에만 생성합니다.
 
@@ -123,7 +129,7 @@ Remove-Item Env:AUTH_JWT_SECRET, Env:AUTH_INTERNAL_API_TOKEN -ErrorAction Silent
 **PowerShell 검증:**
 
 ```powershell
-.\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --console=plain --max-workers=1
+.\gradlew :auth:core:test :auth:api:test :auth:api:bootJar --no-daemon --console=plain --max-workers=1
 ```
 
 **통합 Docker 실행 기록:**
