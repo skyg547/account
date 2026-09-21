@@ -2883,3 +2883,9 @@ git diff --name-only --diff-filter=U
 
 - Rollback: reviewed revert of only these five documentation/history files. No image, container, cache, registry object, database or runtime rollback is needed. `conflict-log.md` is unchanged because no conflict occurred.
 - Remaining risk/next gate: proposed thresholds and policies are not runtime proof. Human reviewers must approve the Draft and a new executable Issue before plugin/dependency/image activity. Parent publication uses `Refs #642`; Ready, merge, Issue close, branch/worktree deletion and Dockerfile removal remain unauthorized separate gates.
+## 2026-09-22 — GH-642 Draft publication
+
+- Draft PR [#730](https://github.com/skyg547/account/pull/730) created OPEN/DRAFT with `Refs #642`, base `main`, head `agent/642-container-build-study`; reviewed implementation commit `ec9a89d9954f148d7181af1012d4b3d087b8255a` was pushed to origin.
+- Issue #642 remains OPEN and moved from `status:in-progress` to `status:needs-review`; `agent:codex` and `difficulty:medium` remain. PR body records actual base `e375002f`, exact scope, verification, Q1–Q4, skipped runtime gates, rollback and merge-authority separation.
+- This publication checkpoint changes only the four required harness/history records. It does not alter the independently reviewed RFC or executable behavior, so Gradle tests are not repeated. Final static/allowlist checks and clean remote tracking are verified after this commit.
+- Hosted checks are not claimed successful at publication. Next owner is a human reviewer for the RFC and current head/base/CI. Draft Ready, merge, Issue close, branch/worktree deletion, Jib implementation and Dockerfile retirement were not performed.

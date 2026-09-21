@@ -3867,3 +3867,8 @@
 - Independent reviewer initially found missing Eureka client lifecycle evidence. Fixed by requiring synthetic register/lookup/renew/cancel, stale absence and rollback re-registration/registry reconstruction. Final review has no P0–P3; Q1/Q4 N/A for no code change, Q2/Q3 PASS.
 - Rollback: reviewed revert of the five changed documentation/history files. Do not delete images, caches, volumes, branches or the worktree. Runtime/data rollback is unnecessary.
 - Remaining gates: parent commits/pushes and opens Draft `Refs #642`, records the URL/current head, and syncs Issue to needs-review. Human reviewer then checks current head/base/CI and chooses whether to authorize a separate Discovery PoC. Ready/merge/Issue close/Dockerfile retirement/cleanup remain separate approvals.
+## 2026-09-22 — GH-642 Draft publication handoff
+
+- Draft PR [#730](https://github.com/skyg547/account/pull/730) is OPEN/DRAFT with `Refs #642`; reviewed implementation commit `ec9a89d9` is on `origin/agent/642-container-build-study` targeting `main`.
+- Issue #642 is OPEN and synchronized to `status:needs-review`. PR body contains actual base, scope, verification, Q1–Q4, skipped image/runtime gates, rollback and authority separation.
+- This checkpoint is shared-record only. Human review and current-head/base/CI inspection are next; no Ready, merge, Issue close, branch/worktree cleanup, Jib PoC or Dockerfile deletion is authorized.

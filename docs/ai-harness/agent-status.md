@@ -765,3 +765,8 @@
 - Outcome: Jib is a conditional JVM target after Discovery PoC; common Containerfile remains control/fallback; Temurin is the phase-1 base, Distroless phase2; frontend production/dev Containerfiles and infra Dockerfiles remain separate. No Dockerfile deletion is approved.
 - Verification: Discovery6 + bootJar and ContainerImagePolicy9 PASS offline; inventory71/Compose56/Java35/frontend1; local links13/13; diff/allowlist/markers PASS. Independent review after its P2 lifecycle correction: no P0–P3; Q1 N/A, Q2 PASS, Q3 PASS, Q4 N/A.
 - Not executed: any Jib/image/registry/multi-arch/air-gap/Distroless/Compose runtime operation. Rollback is reviewed revert of five docs/history files. Next owner is parent Draft publication, then human review; no Ready/merge/close/cleanup.
+## 2026-09-22 — GH-642 Draft publication
+
+- Status: Draft PR [#730](https://github.com/skyg547/account/pull/730) OPEN/DRAFT, `Refs #642`; implementation head `ec9a89d9` pushed on `agent/642-container-build-study` to `main`.
+- Issue #642: OPEN / `status:needs-review` / `agent:codex` / `difficulty:medium`.
+- Publication record only; reviewed RFC content unchanged. Hosted current-head CI and human review are next. No Ready/merge/close/cleanup or executable PoC.

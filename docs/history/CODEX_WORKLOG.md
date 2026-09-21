@@ -2808,3 +2808,8 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Verification: Discovery6 tests and bootJar PASS offline; ContainerImagePolicy9 PASS offline; inventory and Markdown local links13/13 PASS; final exact allowlist/diff/marker/harness checks before commit. No image build, push, native multi-arch, air-gap or Compose runtime was performed because this branch adds no Jib/executable configuration.
 - Read-only explorers audited inventory/policy. Independent `/root/review_rfc_642` found a Discovery healthy-process-only P2; parent added synthetic register/lookup/renew/cancel, stale absence and rollback re-registration/repopulation gates. Re-review: no P0–P3. Q1 N/A(no code), Q2 PASS(design flow/failures), Q3 PASS(reproducible RFC/commands/limits), Q4 N/A(no nontrivial logic).
 - Rollback is a reviewed revert of five docs/history files; conflict log not changed. Remaining risks are all explicit PoC gates. Next: parent publishes Draft `Refs #642`, then a human reviewer evaluates current head/base/CI before any executable PoC or lifecycle transition.
+## 2026-09-22 — GH-642 Draft PR #730
+
+- Published [Draft PR #730](https://github.com/skyg547/account/pull/730), `Refs #642`, from `agent/642-container-build-study` to `main`; reviewed implementation commit `ec9a89d9954f148d7181af1012d4b3d087b8255a` pushed.
+- Issue remains OPEN and is now `status:needs-review`. Actual base `e375002f`, five-file scope, tests/static gates, Q1–Q4, non-executed Jib/image/runtime work, rollback and procedural Reviewer/Integrator separation are in the PR body.
+- This publication-only append changes no RFC or runtime behavior. Hosted final-head checks are not inferred. Human review is next; no Ready/merge/close/cleanup or executable migration occurred.
