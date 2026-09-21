@@ -1,3 +1,20 @@
+## 2026-09-22 — GH-677 Conflict Marker Self-False-Positive Elimination
+
+- Issue: #677 (`difficulty:low`, `agent-loop`, `spec-driven`, `type:docs`, `priority:p2`, `sizing:atomic`)
+- Branch: `agent/677-conflict-marker`, worktree: `/tmp/account-677-conflict-marker`, base: `e375002f` (origin/main).
+- Scope:
+  * `docs/ai-harness/10-rules.md`: Replaced unanchored conflict marker search with anchored pattern `^(<{7}|={7}|>{7})( |$)`, added explicit approved files scanning, added PowerShell and Linux bash examples, and added beginner smoke-detector analogy and raw `rg` exit code explanation (0=fail, 1=pass, 2+=error).
+  * `docs/ai-harness/40-test-checklist.md`: Aligned pattern and added explicit reproduction cases (example command string -> exit 1, real 3-line markers -> exit 0, non-existent file -> exit 2+).
+- Verification:
+  * Raw rg exit code verification in Linux bash:
+    - Case 1 (example command string): exit 1 (PASS, no self-match)
+    - Case 2 (real conflict marker lines): exit 0 (PASS, markers caught)
+    - Case 3 (missing path): exit 2 (PASS, scan error detected)
+    - Case 4 (the 2 target files): exit 1 (PASS, zero false positive)
+  * `node --test tools/ci/harness-quality-contract.test.cjs`: 32/32 tests PASS.
+  * `python3 -m unittest discover -s tools/ci -p "*.py"`: 22/22 tests PASS.
+  * `git diff --check`: PASS.
+
 ## 2026-09-16 — GH-726 AI Harness v2 (Dynamic Model Tiering & Circuit Breaker)
 
 - Issue: #726 (`difficulty:medium`, `agent-loop`, `spec-driven`, `type:docs`, `priority:p1`, `sizing:atomic`)
