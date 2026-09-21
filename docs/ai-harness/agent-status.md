@@ -756,3 +756,12 @@
 | 2026-09-13 | Codex + independent Reviewer | GH-710 Draft handoff | `agent/710-container-management` / `/tmp/account-710-container-management` | Draft PR[#724](https://github.com/skyg547/account/pull/724); #710 needs-review | CI Docker prototype and18 contracts pass; independent exact implementation review noP0-P3/Q1-Q4 PASS. PR includes authority split/rollback/remaining Podman,GHCR,host100MB gates. No Ready/merge/close. |
 
 | 2026-09-13 | Codex | GH-710 final PR checks | `agent/710-container-management` / Draft#724 | Prototype/Harness PASS; merge gate retained | Published bb2af8d7 passes Docker34705065849 and Harness34705065832; Guard correctly rejects missing merge authority, Draft and unconfigured trust. Module CI pending at observation; no blanket all-CI/Java/merge claim. |
+## 2026-09-22 — GH-642 container build modernization RFC
+
+- Status: verified documentation change; Draft PR publication pending.
+- Issue/branch/worktree/base: `#642` / `agent/642-container-build-study` / `/tmp/account-642-container-build-study` / `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. This supersedes the older base recorded in the intake claim comment.
+- Owner/roles: parent Codex owns RFC, shared records and Git/GitHub; `/root/inventory_audit` and `/root/policy_audit` were read-only explorers; `/root/review_rfc_642` was the independent read-only Reviewer. All delegated agents used `gpt-5.6-sol` with high reasoning and made no mutations.
+- Scope: `docs/guides/container-build-modernization-rfc.md` plus the four required shared records only. Runtime/build/source files are untouched.
+- Outcome: Jib is a conditional JVM target after Discovery PoC; common Containerfile remains control/fallback; Temurin is the phase-1 base, Distroless phase2; frontend production/dev Containerfiles and infra Dockerfiles remain separate. No Dockerfile deletion is approved.
+- Verification: Discovery6 + bootJar and ContainerImagePolicy9 PASS offline; inventory71/Compose56/Java35/frontend1; local links13/13; diff/allowlist/markers PASS. Independent review after its P2 lifecycle correction: no P0–P3; Q1 N/A, Q2 PASS, Q3 PASS, Q4 N/A.
+- Not executed: any Jib/image/registry/multi-arch/air-gap/Distroless/Compose runtime operation. Rollback is reviewed revert of five docs/history files. Next owner is parent Draft publication, then human review; no Ready/merge/close/cleanup.
