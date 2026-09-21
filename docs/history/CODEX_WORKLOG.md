@@ -2849,6 +2849,10 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - RED reproduced 12 policy/properties, 3 intended seed/entity and 1 API failure. Required full command passed core71 + API15 =86 tests, failures/errors/skips0, plus bootJar; independent read-only reviewer reran all tasks and found no P0–P2, Q1–Q4 PASS. Diff/marker/unmerged/fixed-credential/reference scans pass. Boot JAR SHA256 `99ec0656a35214514ac7d0f4ffc42b7ccda674d422471485cfeec9ee8d37b49c`.
 - PostgreSQL, deployed runtime and legacy hash migration/rotation were not exercised. Reviewed path-scoped revert is the code rollback; the deleted fixed credential seed must not be restored as an operational shortcut. Draft `Refs #443` publication is next; Ready/merge/Issue close/cleanup remain separate gates.
 
+### GH-443 Draft publication
+
+- Draft PR [#729](https://github.com/skyg547/account/pull/729) OPEN/DRAFT, `Refs #443`, implementation commit `342aed55964639ae026ddef77041dd9f756bb7d5`; Issue #443 OPEN / `status:needs-review`. GitHub reports mergeable while checks are queued/in progress, so no remote success is claimed. Ready/merge/Issue close/branch-worktree cleanup remain separate gates.
+
 ## 2026-09-22 — GH-642 container build modernization RFC
 
 - Issue #642 / `agent/642-container-build-study` / `/tmp/account-642-container-build-study`; actual fetched base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`, newer than the historical intake comment's base. User authorized the dedicated branch push and Draft PR only; Ready/merge/close/cleanup are not implied.

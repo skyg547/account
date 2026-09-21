@@ -803,6 +803,8 @@
 
 | 2026-09-22 | Codex parent + Service/Test/Coder/Documentation + independent Reviewer | GH-443 Auth configured-password contract | `agent/443-configured-password-contract` / `/tmp/account-443-configured-password-contract` | Verified; Draft publication pending | Exact lowercase `{bcrypt}` only; raw/noop/unknown/malformed/prefixless/case/whitespace fail closed without input disclosure. Whole configured-user list is validated before repository access; AOP/H2 proves rollback, corrected retry and idempotent retry. Fixed local SQL/demo credentials removed and replaced by dynamic runtime configured-user coverage. Full Auth 86/86 + bootJar PASS; reviewer P0-P2 none/Q1-Q4 PASS. Scope amendment: issuecomment-5763609044. PostgreSQL and legacy credential rotation remain external gates; no Ready/merge/close/cleanup. |
 
+| 2026-09-22 | Codex parent + independent Reviewer | GH-443 Draft handoff | `agent/443-configured-password-contract` / Draft [#729](https://github.com/skyg547/account/pull/729) | OPEN/DRAFT; Issue needs-review | Implementation `342aed55964639ae026ddef77041dd9f756bb7d5` pushed; PR is mergeable and checks started but are not yet certified. Independent local review has no P0-P3 and Q1-Q4 PASS. Ready/merge/Issue close/cleanup remain separate gates. |
+
 ## 2026-09-22 — GH-642 container build modernization RFC
 
 - Status: verified documentation change; Draft PR publication pending.

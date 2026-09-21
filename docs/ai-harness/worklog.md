@@ -2940,6 +2940,12 @@ git diff --name-only --diff-filter=U
 - Independent review: no P0/P1/P2 code or security findings. Its only P3 traceability finding was the four-path #652 scope expansion; the Issue comment and these records resolve it before commit. Remaining risks: actual PostgreSQL was not accessed; existing DB rows with prefixless/legacy hashes now intentionally fail authentication and need a separately approved diagnostic/rotation plan. No external DB/container/user/credential was read or changed.
 - Rollback: use a reviewed path-scoped revert of this change, preserving harness history. Re-enabling the deleted fixed credential SQL is not a safe operational rollback; affected local users must be supplied through approved external runtime configuration. Next owner: human reviewer checks the Draft, current head/base and CI before any Ready/merge/Issue-close authorization.
 
+### GH-443 Draft publication
+
+- Draft PR [#729](https://github.com/skyg547/account/pull/729) is OPEN/DRAFT with `Refs #443`; implementation commit `342aed55964639ae026ddef77041dd9f756bb7d5` is pushed on `agent/443-configured-password-contract`. Issue #443 remains OPEN and moved from `status:in-progress` to `status:needs-review`.
+- GitHub reports the PR mergeable. Module Validation detection is queued and Merge Guard candidate/Harness Validation have started; no remote check success is claimed at this checkpoint. Local and independent evidence remains the 86/86 Auth tests, bootJar, static scans and no-P0–P3 review above.
+- This publication update changes only the four parent records. Ready transition, merge, Issue close, branch/worktree deletion and legacy credential rotation were not performed. Next owner: human reviewer verifies the published head, completed CI and latest base.
+
 ## 2026-09-22 — GH-642 container build modernization RFC
 
 - Issue #642 (`difficulty:medium`, requested `gpt-5.6-sol` / high reasoning); branch `agent/642-container-build-study`; isolated worktree `/tmp/account-642-container-build-study`; fetched base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. The earlier claim comment recorded `34c75839`; this run started from and documents the newer fetched base. Existing worktrees and unrelated files were preserved.

@@ -3914,6 +3914,11 @@
 | --- | --- | --- | --- |
 | PASS — cohesive policy/properties/seed responsibilities and full tests | PASS — mapping, error, rollback/retry flow documented | PASS — exact local inputs/commands/limits match implementation | PASS — nontrivial fail-before-repository and policy intent documented near code |
 
+### GH-443 Draft publication
+
+- Draft PR [#729](https://github.com/skyg547/account/pull/729), `Refs #443`, implementation head `342aed55964639ae026ddef77041dd9f756bb7d5`; PR is OPEN/DRAFT and mergeable. Issue #443 is OPEN / `status:needs-review`.
+- Remote checks were queued/in progress when observed, so no CI success is claimed. The worktree and branch are retained. Human review, published-head CI and latest-base confirmation are the next gates; Ready/merge/Issue close/cleanup remain unauthorized.
+
 ## 2026-09-22 — GH-642 verified RFC handoff
 
 - Issue #642 is implemented as documentation only on `agent/642-container-build-study` in `/tmp/account-642-container-build-study`, based on fetched `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. The older intake-comment base is historical and not the reviewed baseline.
