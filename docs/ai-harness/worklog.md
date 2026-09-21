@@ -19,6 +19,7 @@
 - Acceptance result: 현재 gate는 PARTIAL/FAIL. 컨테이너 `Up`만으로 health를 통과시키지 않았다. Config 응답, rootless Podman host-port forwarding, Nginx API health 401 원인을 운영자가 복구한 뒤 같은 검사로 재검증해야 한다. Compose render/image build/schema readiness/migration-runtime role 분리/Batch 비실행/로그인/업무 트랜잭션/부하는 이번 좁은 실기동 요청에서 검증하지 않았다.
 - Quality/review: harness quality 32/32, validator, `git diff --check`, conflict-marker 및 변경 파일 secret-pattern 검사가 PASS했다. 독립 read-only `/root/independent_review`는 P0–P3 없음과 Q1 N/A(코드 없음), Q2 PASS(계층별 입력·응답·실패 경계), Q3 N/A(코드·Compose·사용법 변경 없음), Q4 N/A(비자명 코드·주석 없음)를 확인했다.
 - Rollback/authority: runtime rollback 없음; 문서 커밋만 검토 후 revert. Draft PR은 `Refs #515`; reviewer/사용자 승인 후 Integrator만 merge한다. Ready, merge, Issue close, runtime teardown, branch/worktree 삭제는 하지 않는다.
+- Publication: evidence commit `282387bc`를 원격 branch에 push하고 Draft PR [#728](https://github.com/skyg547/account/pull/728)을 생성했다. Issue #515에는 sanitized 결과와 권한 분리 코멘트를 남겼다. PR은 Draft, Issue는 OPEN 상태로 유지한다.
 
 ## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
 
