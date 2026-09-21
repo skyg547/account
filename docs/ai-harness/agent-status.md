@@ -1,3 +1,15 @@
+## 2026-09-22 — GH-515 external-dev runtime gate PARTIAL / Draft publication pending
+
+- Issue: #515; branch `agent/515-dev-compose-runtime-gate`; worktree `/tmp/account-515-dev-compose-runtime-gate`; base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. 허용 범위는 이 파일, `worklog.md`, `handoff.md`, `docs/history/CODEX_WORKLOG.md`뿐이며 production/test/Compose/DB는 변경하지 않았다.
+- 2026-09-22 00:15–00:23 KST에 Podman 4.9.3의 전체 `podman ps -a`를 확인했다. 대상 PostgreSQL, Redis, Config Server, Discovery, Gateway, Frontend, Nginx, cloudflared 컨테이너는 모두 `Up 4 days`였으나, 컨테이너 실행 상태와 서비스 준비 상태는 일치하지 않았다. 범위 밖 unhealthy/exited 컨테이너는 변경하지 않았다.
+- PASS: PostgreSQL 5432는 호스트 TCP 및 PostgreSQL SSL 협상 응답(`N`, 프로토콜 응답 성공), 컨테이너 `pg_isready` accepting; Redis 6379는 호스트 RESP `+PONG`과 컨테이너 `PONG`; Discovery `/`와 Gateway `/actuator/health`는 `account-network` 내부에서 HTTP 2xx; Quick Tunnel은 journald에서 `<redacted>.trycloudflare.com` URL을 확인했고 해시 식별자 `02ddfba18a25`의 외부 `/`가 HTTP 200이었다.
+- FAIL/PARTIAL: Config 8888은 호스트 connection refused 및 내부 5초 timeout; Discovery 8761과 Gateway 8000은 호스트 TCP 접속 뒤 HTTP 5초 timeout; Frontend 3000과 Nginx 8080은 호스트 connection refused. Tunnel/Nginx 경유 `/api/actuator/health`는 내부와 외부 모두 HTTP 401이므로 건강 상태 성공으로 계산하지 않았다. 외부 `/` 200은 Nginx→Frontend 경로만 증명한다.
+- Runtime management risk: 일부 `podman inspect`, `podman logs`, `podman exec`가 응답 후에도 종료되지 않거나 6–10초 timeout됐다. 진단용 클라이언트 프로세스만 종료했고 서비스 컨테이너는 stop/restart/recreate하지 않았다. `podman stats`와 `podman top`에서 대상 프로세스/PID는 확인됐다.
+- 결론: 전체 external-dev 런타임 게이트는 **PARTIAL/FAIL**이다. DB/Redis와 Quick Tunnel 루트는 통과했지만 Config 및 호스트 포트 포워딩, Nginx API health는 후속 복구와 재검증이 필요하다. 이는 로그인, 업무 API, 부하, Batch, DB schema/role 분리 인증이 아니다.
+- Verification/review: harness quality 32/32, validator, `git diff --check`, conflict-marker 및 변경 파일 secret-pattern 검사가 PASS했다. 독립 read-only `/root/independent_review`는 P0–P3 없음, Q1 N/A/Q2 PASS/Q3 N/A/Q4 N/A를 확인했다.
+- Rollback: 런타임 변경이 없어 컨테이너/DB/볼륨 롤백은 없다. 문서 커밋만 검토 후 revert할 수 있다. 다음 담당자는 개발 서버 운영자이며 Podman 포트 포워딩/관리 지연과 Config 응답을 복구한 뒤 동일한 무자격 증명 검사를 재실행한다.
+- Authority: Draft PR은 `Refs #515`; 독립 리뷰와 사용자 승인을 거친 Integrator만 merge한다. Ready 전환, merge, Issue close, branch/worktree 삭제는 수행하지 않는다.
+
 ## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
 
 - Issue: #694 (`difficulty:high`, `agent-loop`, `spec-driven`, `type:security`, `priority:p1`, `sizing:atomic`, `module:master-data`)

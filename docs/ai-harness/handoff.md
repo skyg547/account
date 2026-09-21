@@ -1,3 +1,12 @@
+## 2026-09-22 — GH-515 runtime gate PARTIAL handoff
+
+- Issue/space: #515; `agent/515-dev-compose-runtime-gate`; `/tmp/account-515-dev-compose-runtime-gate`; base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`; Draft PR expected with `Refs #515`.
+- Current result: 대상 8개 컨테이너는 `podman ps -a`에서 모두 Up이지만 전체 gate는 PARTIAL/FAIL. PostgreSQL 5432 protocol/ready와 Redis 6379 PONG은 PASS. Discovery/Gateway는 내부 2xx지만 host HTTP timeout. Config는 host refused/internal timeout. Frontend/Nginx host ports는 refused. Quick Tunnel external `/`는 200이나 `/api/actuator/health`는 401이다. Quick hostname은 공개하지 않고 hash `02ddfba18a25`만 남겼다.
+- Residual risk: rootless Podman 게시 포트와 관리 명령이 지연/불능 상태일 수 있고 Config 서비스가 응답하지 않는다. 외부 루트 200은 인증·업무 API·DB schema·Batch·부하 성공을 뜻하지 않는다. API health 401을 UP으로 해석하지 않는다.
+- Next owner/action: 개발 서버 운영자가 민감값을 출력하지 않고 Config 프로세스와 Podman 포트 포워딩/관리 지연을 진단·복구한 후 8888/8761/8000/3000/8080 host checks 및 Nginx `/api/actuator/health`를 재실행한다. 별도 승인 전 container restart/recreate/down, DB/schema/data 변경, volume/network 삭제를 하지 않는다.
+- Changed files: `docs/ai-harness/agent-status.md`, `docs/ai-harness/worklog.md`, `docs/ai-harness/handoff.md`, `docs/history/CODEX_WORKLOG.md`. Runtime/source/test/Compose changes 없음. Rollback은 문서 commit revert뿐이다.
+- Verification/authority: runtime commands and sanitized results are in `worklog.md`. Harness quality 32/32, validator, diff/conflict/secret-pattern checks PASS; independent read-only `/root/independent_review` found no P0–P3 and confirmed Q1 N/A/Q2 PASS/Q3 N/A/Q4 N/A. Merge authority는 reviewer/사용자 승인 후 Integrator에게만 있으며, 이 작업은 Ready/merge/Issue close/cleanup을 수행하지 않는다.
+
 ## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
 
 - Issue: #694 (`difficulty:high`, `agent-loop`, `spec-driven`, `type:security`, `priority:p1`, `sizing:atomic`, `module:master-data`)

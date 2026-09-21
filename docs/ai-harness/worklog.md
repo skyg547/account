@@ -1,3 +1,25 @@
+## 2026-09-22 — GH-515 external-dev Compose/PostgreSQL live verification
+
+- Contract: Issue #515, `agent/515-dev-compose-runtime-gate`, `/tmp/account-515-dev-compose-runtime-gate`, base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. 사용자 승인 대상 8개 서비스만 읽기 전용으로 검사했다. credential/env/DB data는 읽거나 출력하지 않았고 컨테이너·DB·볼륨·네트워크를 변경하지 않았다.
+- Observation window: 2026-09-22 00:15–00:23 KST, Podman 4.9.3. 전체 `podman ps -a`에서 대상 8개 컨테이너는 모두 `Up 4 days`였다. 전체 목록의 비대상 unhealthy/exited 리소스는 이번 Issue 결과로 오인하지 않았고 조작하지 않았다.
+
+| 대상 | Podman 게시/실행 | 실제 요청 결과 | 판정 |
+| --- | --- | --- | --- |
+| PostgreSQL 5432 | `account-postgres`, `0.0.0.0:5432`, Up | host TCP open; PostgreSQL SSLRequest에 `N` 응답; container `pg_isready` accepting | PASS |
+| Redis 6379 | `account-redis`, `0.0.0.0:6379`, Up | host RESP `PING` → `+PONG`; container `redis-cli PING` → `PONG` | PASS |
+| Config 8888 | `config-server`, `0.0.0.0:8888`, Up | host connection refused; `account-network` 내부 `/actuator/health` 5초 timeout | FAIL |
+| Discovery 8761 | `discovery`, `0.0.0.0:8761`, Up | host `/` 5초 timeout; 내부 `/` HTTP 2xx | PARTIAL/FAIL (host) |
+| Gateway 8000 | `gateway`, `0.0.0.0:8000`, Up | host `/actuator/health` 5초 timeout; 내부 health HTTP 2xx | PARTIAL/FAIL (host) |
+| Frontend 3000 | `account-frontend`, `0.0.0.0:3000`, Up | host `/` connection refused; Quick Tunnel `/` HTTP 200이 Nginx→Frontend 경로를 증명 | PARTIAL/FAIL (host) |
+| Nginx 8080 | `account-frontend-nginx`, `127.0.0.1:8080`, Up | host `/`와 `/api/actuator/health` connection refused; tunnel 경유 `/` 200, API health 401 | PARTIAL/FAIL |
+| Cloudflare Quick Tunnel | `account-cloudflare-tunnel_cloudflared_1`, Up; Quick 명령 프로세스 확인 | journald URL 발견, hostname 비공개/해시 `02ddfba18a25`; 외부 `/` 200, 외부 API health 401 | PARTIAL |
+
+- Commands/evidence: `podman ps -a --format ...`, 대상 `podman stats --no-stream`/`podman top`, `ss -ltnH`, 제한시간을 둔 `curl`, 자격 증명 없는 Python socket PostgreSQL SSLRequest/Redis RESP PING, Nginx 컨테이너의 내부 `wget`, cloudflared user journal에서 URL만 추출 후 hostname을 비공개 처리한 외부 `curl`. 실제 URL, DB 사용자/비밀번호, JWT, container env는 기록하지 않았다.
+- Podman management anomaly: 일부 `inspect`, `logs`, `exec`가 6–10초 내 끝나지 않았고 Redis `PONG` 등 출력을 낸 뒤에도 client가 지연됐다. Codex가 시작한 진단 client PID만 TERM으로 종료했다. 서비스 프로세스는 중지/재시작/재생성하지 않았다.
+- Acceptance result: 현재 gate는 PARTIAL/FAIL. 컨테이너 `Up`만으로 health를 통과시키지 않았다. Config 응답, rootless Podman host-port forwarding, Nginx API health 401 원인을 운영자가 복구한 뒤 같은 검사로 재검증해야 한다. Compose render/image build/schema readiness/migration-runtime role 분리/Batch 비실행/로그인/업무 트랜잭션/부하는 이번 좁은 실기동 요청에서 검증하지 않았다.
+- Quality/review: harness quality 32/32, validator, `git diff --check`, conflict-marker 및 변경 파일 secret-pattern 검사가 PASS했다. 독립 read-only `/root/independent_review`는 P0–P3 없음과 Q1 N/A(코드 없음), Q2 PASS(계층별 입력·응답·실패 경계), Q3 N/A(코드·Compose·사용법 변경 없음), Q4 N/A(비자명 코드·주석 없음)를 확인했다.
+- Rollback/authority: runtime rollback 없음; 문서 커밋만 검토 후 revert. Draft PR은 `Refs #515`; reviewer/사용자 승인 후 Integrator만 merge한다. Ready, merge, Issue close, runtime teardown, branch/worktree 삭제는 하지 않는다.
+
 ## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
 
 - Issue: #694 (`difficulty:high`, `agent-loop`, `spec-driven`, `type:security`, `priority:p1`, `sizing:atomic`, `module:master-data`)

@@ -1,3 +1,12 @@
+## 2026-09-22 — GH-515 external-dev live runtime evidence
+
+- Codex parent Integrator used `account-issue-loop` and `account-review-handoff` on `agent/515-dev-compose-runtime-gate` in `/tmp/account-515-dev-compose-runtime-gate`, based on `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. Issue #515 and prior authorization were confirmed before runtime inspection.
+- Read-only evidence at 00:15–00:23 KST: all eight target containers showed Up 4 days. PostgreSQL host protocol + container readiness and Redis host/container PONG passed. Discovery and Gateway responded 2xx inside `account-network` but their host endpoints timed out. Config host refused and internal health timed out. Frontend/Nginx host ports refused. Quick Tunnel external root returned 200; Nginx/Gateway API health returned 401. The ephemeral hostname was redacted and represented only by SHA-256 prefix `02ddfba18a25`.
+- Podman management commands intermittently timed out even after response output. Only Codex-owned diagnostic client processes were terminated; no service container, DB, volume, network, image or configuration was changed. No credential/env/DB data was read or persisted.
+- Result: PARTIAL/FAIL, not a successful full-stack certification. Detailed per-endpoint matrix, commands, limitations, rollback and next action are in `docs/ai-harness/worklog.md`. Production/test/Compose code is unchanged, so Java/Node application suites are not applicable; harness static checks and independent review are the commit gate.
+- Q1 N/A (no code), Q2 PASS (layered evidence and failure semantics recorded), Q3 N/A (no code/Compose/usage change, so no feature/module documentation update required; four requested records contain operational evidence only), Q4 N/A (no code/comment logic). Draft PR uses `Refs #515`. Reviewer/user approval is required before Integrator merge; Ready, merge, Issue close and cleanup are not authorized.
+- Verification: harness quality 32/32, validator, diff/conflict/secret-pattern checks PASS. Independent read-only `/root/independent_review` found no P0–P3 and confirmed the Q1–Q4 judgments.
+
 ## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
 
 - Issue: #694 (`difficulty:high`, `agent-loop`, `spec-driven`, `type:security`, `priority:p1`, `sizing:atomic`, `module:master-data`)
