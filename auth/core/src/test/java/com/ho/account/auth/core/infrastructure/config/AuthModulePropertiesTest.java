@@ -1,12 +1,15 @@
 package com.ho.account.auth.core.infrastructure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -88,6 +91,59 @@ class AuthModulePropertiesTest {
         });
     }
 
+    @Test
+    void acceptsValidOtpAndSsoRuntimeConfiguration() {
+        AuthModuleProperties properties = baseline();
+        properties.getOtp().setEnabled(true);
+        properties.getOtp().setUserSecrets(Map.of("alice", "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"));
+        properties.getSso().setEnabled(true);
+        properties.getSso().setIdentities(List.of(identity("alice", UUID.randomUUID().toString())));
+
+        assertThatCode(properties::validateFailClosedPolicy).doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsUnsafeOtpAlgorithmWindowAndMalformedSecret() {
+        AuthModuleProperties wrongAlgorithm = baseline();
+        wrongAlgorithm.getOtp().setAlgorithm("HmacSHA256");
+        assertThatThrownBy(wrongAlgorithm::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("auth.otp.algorithm");
+
+        AuthModuleProperties excessiveWindow = baseline();
+        excessiveWindow.getOtp().setToleranceSteps(2);
+        assertThatThrownBy(excessiveWindow::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("auth.otp.tolerance-steps");
+
+        AuthModuleProperties malformedSecret = baseline();
+        malformedSecret.getOtp().setUserSecrets(Map.of("alice", "not-base32!"));
+        assertThatThrownBy(malformedSecret::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Base32")
+                .hasMessageNotContaining("not-base32!");
+    }
+
+    @Test
+    void rejectsIncompleteAndDuplicateSsoIdentitiesWithoutLeakingCredential() {
+        String credential = UUID.randomUUID().toString();
+        AuthModuleProperties incomplete = baseline();
+        incomplete.getSso().setIdentities(List.of(identity(" ", credential)));
+        assertThatThrownBy(incomplete::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("require provider, credential, and subject")
+                .hasMessageNotContaining(credential);
+
+        AuthModuleProperties duplicate = baseline();
+        duplicate.getSso().setIdentities(List.of(
+                identity("alice", credential),
+                identity("bob", credential)));
+        assertThatThrownBy(duplicate::validateFailClosedPolicy)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("duplicate SSO credentials")
+                .hasMessageNotContaining(credential);
+    }
+
     private static AuthModuleProperties validProperties() {
         AuthModuleProperties properties = new AuthModuleProperties();
         properties.getJwt().setSecret(randomValue());
@@ -110,5 +166,22 @@ class AuthModulePropertiesTest {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private AuthModuleProperties baseline() {
+        AuthModuleProperties properties = new AuthModuleProperties();
+        byte[] secret = new byte[32];
+        new SecureRandom().nextBytes(secret);
+        properties.getJwt().setSecret(Base64.getEncoder().encodeToString(secret));
+        properties.getInternalApi().setToken(UUID.randomUUID().toString());
+        return properties;
+    }
+
+    private AuthModuleProperties.SsoIdentity identity(String subject, String credential) {
+        AuthModuleProperties.SsoIdentity identity = new AuthModuleProperties.SsoIdentity();
+        identity.setProvider("corporate-oidc");
+        identity.setSubject(subject);
+        identity.setCredential(credential);
+        return identity;
     }
 }

@@ -39,9 +39,17 @@ auth:
     max-failures: ${AUTH_LOGIN_MAX_FAILURES:5}
     lock-duration-minutes: ${AUTH_LOGIN_LOCK_DURATION_MINUTES:15}
     store: ${AUTH_LOGIN_SECURITY_STORE:memory}
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+    default-provider: ${AUTH_SSO_DEFAULT_PROVIDER:local}
+  otp:
+    enabled: ${AUTH_OTP_ENABLED:false}
+    algorithm: ${AUTH_OTP_ALGORITHM:HmacSHA1}
+    digits: ${AUTH_OTP_DIGITS:6}
+    period-seconds: ${AUTH_OTP_PERIOD_SECONDS:30}
+    tolerance-steps: ${AUTH_OTP_TOLERANCE_STEPS:1}
   jwt:
     secret: ${AUTH_JWT_SECRET:}
     issuer: ${AUTH_JWT_ISSUER:auth-service}
     expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:3600}
   users: []
-

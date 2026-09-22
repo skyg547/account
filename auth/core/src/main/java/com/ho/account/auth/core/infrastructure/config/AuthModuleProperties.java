@@ -2,7 +2,12 @@ package com.ho.account.auth.core.infrastructure.config;
 
 import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -32,6 +37,8 @@ public class AuthModuleProperties {
     private Persistence persistence = new Persistence();
     private InternalApi internalApi = new InternalApi();
     private LoginSecurity loginSecurity = new LoginSecurity();
+    private Otp otp = new Otp();
+    private Sso sso = new Sso();
     private List<User> users = new ArrayList<>();
 
     @PostConstruct
@@ -70,6 +77,61 @@ public class AuthModuleProperties {
                 throw failClosed(userPath + ".username must not be blank.");
             }
             validateConfiguredUserPassword(user.getPassword(), userPath + ".password");
+        }
+        validateOtpConfiguration();
+        validateSsoConfiguration();
+    }
+
+    private void validateOtpConfiguration() {
+        if (!"HmacSHA1".equals(otp.getAlgorithm())) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.otp.algorithm' must be HmacSHA1.");
+        }
+        if (otp.getDigits() != 6) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.otp.digits' must be 6.");
+        }
+        if (otp.getPeriodSeconds() <= 0) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.otp.period-seconds' must be greater than zero.");
+        }
+        if (otp.getToleranceSteps() < 0 || otp.getToleranceSteps() > 1) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.otp.tolerance-steps' must be 0 or 1.");
+        }
+        otp.getUserSecrets().forEach((username, secret) -> {
+            if (username == null || username.isBlank() || secret == null || secret.isBlank()) {
+                throw new IllegalStateException(
+                        "Fail-Closed Security Violation: configured OTP users and secrets must not be blank.");
+            }
+            String normalizedSecret = secret.trim().toUpperCase(Locale.ROOT);
+            if (!normalizedSecret.matches("[A-Z2-7]+=*")) {
+                throw new IllegalStateException(
+                        "Fail-Closed Security Violation: configured OTP secrets must use Base32 encoding.");
+            }
+        });
+    }
+
+    private void validateSsoConfiguration() {
+        if (sso.getDefaultProvider() == null || sso.getDefaultProvider().isBlank()) {
+            throw new IllegalStateException(
+                    "Fail-Closed Security Violation: 'auth.sso.default-provider' must not be blank.");
+        }
+        Set<String> configuredCredentials = new HashSet<>();
+        for (SsoIdentity identity : sso.getIdentities()) {
+            if (identity == null
+                    || identity.getProvider() == null || identity.getProvider().isBlank()
+                    || identity.getCredential() == null || identity.getCredential().isBlank()
+                    || identity.getSubject() == null || identity.getSubject().isBlank()) {
+                throw new IllegalStateException(
+                        "Fail-Closed Security Violation: configured SSO identities require provider, credential, and subject.");
+            }
+            String credentialKey = identity.getProvider().trim().toLowerCase(Locale.ROOT)
+                    + '\u0000' + identity.getCredential();
+            if (!configuredCredentials.add(credentialKey)) {
+                throw new IllegalStateException(
+                        "Fail-Closed Security Violation: duplicate SSO credentials are not allowed for a provider.");
+            }
         }
     }
 
@@ -123,6 +185,22 @@ public class AuthModuleProperties {
 
     public void setLoginSecurity(LoginSecurity loginSecurity) {
         this.loginSecurity = loginSecurity;
+    }
+
+    public Otp getOtp() {
+        return otp;
+    }
+
+    public void setOtp(Otp otp) {
+        this.otp = otp == null ? new Otp() : otp;
+    }
+
+    public Sso getSso() {
+        return sso;
+    }
+
+    public void setSso(Sso sso) {
+        this.sso = sso == null ? new Sso() : sso;
     }
 
     public List<User> getUsers() {
@@ -226,6 +304,159 @@ public class AuthModuleProperties {
 
         public void setStore(String store) {
             this.store = store;
+        }
+    }
+
+    public static class Otp {
+        private boolean enabled;
+        private String algorithm = "HmacSHA1";
+        private int digits = 6;
+        private long periodSeconds = 30L;
+        private int toleranceSteps = 1;
+        private Map<String, String> userSecrets = new HashMap<>();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getAlgorithm() {
+            return algorithm;
+        }
+
+        public void setAlgorithm(String algorithm) {
+            this.algorithm = algorithm;
+        }
+
+        public int getDigits() {
+            return digits;
+        }
+
+        public void setDigits(int digits) {
+            this.digits = digits;
+        }
+
+        public long getPeriodSeconds() {
+            return periodSeconds;
+        }
+
+        public void setPeriodSeconds(long periodSeconds) {
+            this.periodSeconds = periodSeconds;
+        }
+
+        public int getToleranceSteps() {
+            return toleranceSteps;
+        }
+
+        public void setToleranceSteps(int toleranceSteps) {
+            this.toleranceSteps = toleranceSteps;
+        }
+
+        public Map<String, String> getUserSecrets() {
+            return userSecrets;
+        }
+
+        public void setUserSecrets(Map<String, String> userSecrets) {
+            this.userSecrets = userSecrets == null ? new HashMap<>() : new HashMap<>(userSecrets);
+        }
+    }
+
+    public static class Sso {
+        private boolean enabled;
+        private String defaultProvider = "local";
+        private List<SsoIdentity> identities = new ArrayList<>();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getDefaultProvider() {
+            return defaultProvider;
+        }
+
+        public void setDefaultProvider(String defaultProvider) {
+            this.defaultProvider = defaultProvider;
+        }
+
+        public List<SsoIdentity> getIdentities() {
+            return identities;
+        }
+
+        public void setIdentities(List<SsoIdentity> identities) {
+            this.identities = identities == null ? new ArrayList<>() : new ArrayList<>(identities);
+        }
+    }
+
+    public static class SsoIdentity {
+        private String provider = "local";
+        private String credential;
+        private String subject;
+        private String email;
+        private String name;
+        private String departmentCode;
+        private List<String> roles = new ArrayList<>();
+
+        public String getProvider() {
+            return provider;
+        }
+
+        public void setProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getCredential() {
+            return credential;
+        }
+
+        public void setCredential(String credential) {
+            this.credential = credential;
+        }
+
+        public String getSubject() {
+            return subject;
+        }
+
+        public void setSubject(String subject) {
+            this.subject = subject;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDepartmentCode() {
+            return departmentCode;
+        }
+
+        public void setDepartmentCode(String departmentCode) {
+            this.departmentCode = departmentCode;
+        }
+
+        public List<String> getRoles() {
+            return roles;
+        }
+
+        public void setRoles(List<String> roles) {
+            this.roles = roles == null ? new ArrayList<>() : new ArrayList<>(roles);
         }
     }
 
