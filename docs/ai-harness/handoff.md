@@ -1,3 +1,18 @@
+## 2026-09-23 — GH-694 Master Data Direct Write Authorization Enforcement
+
+- Issue: #694 (`difficulty:high`, `agent-loop`, `spec-driven`, `type:security`, `priority:p1`, `sizing:atomic`, `module:master-data`)
+- Branch: `agent/694-master-direct-write-authorization`, worktree: `/tmp/account-694-master-direct-write-authorization`, base: `e375002f` (origin/main).
+- Scope:
+  * `master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataDirectWritePolicy.java`: Unified administrative role authorization helper for direct CRUD operations (`ADMIN`, `SYSTEM_ADMIN`, `MASTER_MANAGER`, `ACCOUNTING_ADMIN`, `PARTNER_MANAGER`). Rejects missing or non-admin roles with HTTP 403 Forbidden fail-closed.
+  * `AccountSubjectController.java`, `BusinessPartnerController.java`, `ProductController.java`, `DepartmentController.java`: Bound `X-Auth-Roles` header and invoked `requireAdminRole()` across all 10 mutation endpoints (`POST`, `PUT`, `DELETE`). Zero service/use case invocations on unauthorized requests.
+  * `master-data/api/src/test/java/com/ho/account/masterdata/api/web/MasterDataDirectWriteAuthorizationTest.java`: 41 MockMvc test cases verifying missing header, disallowed roles (403), admin roles (200/201/204), and regression coverage for public GET queries.
+  * `master-data/README.md`, `docs/process-flow.md`, `docs/local-run.md`: Updated documentation reflecting administrative authorization policy on direct write APIs.
+- Verification:
+  * `./gradlew :master-data:api:test :master-data:core:test`: 509 tests PASS (API 65, Core 444, 0 failures, 0 errors, 0 skips).
+  * `./gradlew :master-data:api:bootJar`: PASS.
+  * `git diff --check`: PASS.
+  * Conflict marker scan: PASS (exit 1).
+
 ## 2026-09-22 — GH-677 Conflict Marker Self-False-Positive Elimination
 
 - Issue: #677 (`difficulty:low`, `agent-loop`, `spec-driven`, `type:docs`, `priority:p2`, `sizing:atomic`)

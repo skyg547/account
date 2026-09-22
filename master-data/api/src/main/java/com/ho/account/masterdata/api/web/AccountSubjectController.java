@@ -20,7 +20,10 @@ public class AccountSubjectController {
     }
 
     @PostMapping
-    public ResponseEntity<AccountSubjectDto> createAccountSubject(@RequestBody AccountSubjectRequestDto requestDto) {
+    public ResponseEntity<AccountSubjectDto> createAccountSubject(
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @RequestBody AccountSubjectRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(AccountSubjectDto.fromEntity(
                     accountSubjectUseCase.createAccountSubject(requestDto.toCommand())));
@@ -44,7 +47,11 @@ public class AccountSubjectController {
     }
 
     @PutMapping("/{code}")
-    public ResponseEntity<AccountSubjectDto> updateAccountSubject(@PathVariable String code, @RequestBody AccountSubjectRequestDto requestDto) {
+    public ResponseEntity<AccountSubjectDto> updateAccountSubject(
+            @PathVariable String code,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @RequestBody AccountSubjectRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(
                     AccountSubjectDto.fromEntity(accountSubjectUseCase.updateAccountSubject(code, requestDto.toCommand())));
@@ -54,7 +61,10 @@ public class AccountSubjectController {
     }
 
     @DeleteMapping("/{code}")
-    public ResponseEntity<Void> deactivateAccountSubject(@PathVariable String code) {
+    public ResponseEntity<Void> deactivateAccountSubject(
+            @PathVariable String code,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             accountSubjectUseCase.deactivateAccountSubject(code);
             return ResponseEntity.noContent().build();
@@ -63,4 +73,3 @@ public class AccountSubjectController {
         }
     }
 }
-

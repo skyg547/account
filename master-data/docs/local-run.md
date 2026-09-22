@@ -140,5 +140,5 @@ PostgreSQL과 `initialize-schema=never`를 사용하므로 Batch metadata도 rel
 - dev/prod에서는 `ddl-auto=validate`, runtime Flyway/SQL/Batch 초기화 금지 계약을 유지합니다.
 - 일일 유효성 집계는 전체 행을 Java 메모리에 올리지 않고 JPA `COUNT` 쿼리 네 번으로 처리합니다.
 - `CURRENCY`, `EXCHANGE_RATE`, `FISCAL_PERIOD` 변경 요청은 typed applier와 버전 조회 어댑터가 함께 추가되기 전까지 접수 단계에서 fail-closed 됩니다.
-- 직접 CRUD 쓰기 엔드포인트는 승인 흐름과 공존하므로 운영에서는 관리자 보정 권한으로 제한해야 합니다.
+- 직접 CRUD 쓰기 엔드포인트는 `MasterDataDirectWritePolicy`에 의해 관리자 보정 권한(`ROLE_ADMIN`, `ROLE_SYSTEM_ADMIN` 등)으로 제한되어 있으며, `X-Auth-Roles` 헤더가 없거나 비관리자인 경우 HTTP 403으로 거부됩니다.
 - `apply-due`는 현재 최대 500건을 한 트랜잭션으로 처리합니다. 운영 대량 실행 전 요청별 재시작 경계와 `SKIP LOCKED` 파티셔닝이 필요합니다.
