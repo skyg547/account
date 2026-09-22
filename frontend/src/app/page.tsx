@@ -24,11 +24,19 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { mockKpis, mockJournals } from '@/mocks/ledger';
+import { mockStatements } from '@/mocks/reporting';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import AmountDisplay from '@/components/ui/AmountDisplay';
 
 const emptySubscribe = () => () => {};
+
+const statementQuickSummary = {
+  totalAssets: mockStatements.find((item) => item.accountCode === '1000000')?.amountCurrent ?? 0,
+  totalLiabilities: mockStatements.find((item) => item.accountCode === '2000000')?.amountCurrent ?? 0,
+  totalEquity: mockStatements.find((item) => item.accountCode === '3000000')?.amountCurrent ?? 0,
+  netIncome: mockStatements.find((item) => item.accountCode === '9900000')?.amountCurrent ?? 0,
+};
 
 const getStatusVariant = (status: string) => {
   switch (status) {
@@ -142,6 +150,43 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Balance Sheet & Income Statement quick summary */}
+      <section className="rounded-2xl bg-white dark:bg-[#131b2e] border border-[#eaedf4] dark:border-slate-800 p-7 shadow-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-black text-[#17191e] dark:text-slate-100 tracking-tight">
+              재무상태표 &amp; 손익계산서 요약
+            </h2>
+            <p className="text-xs text-[#545b69] dark:text-slate-400 font-medium mt-1">
+              최근 결산 기준 핵심 재무제표 수치를 빠르게 확인합니다.
+            </p>
+          </div>
+          <Link
+            href="/reports/statements"
+            className="text-xs font-bold text-[#4262ff] hover:text-[#3452e6] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-3.5 py-2 rounded-lg transition-all border border-blue-200/50 dark:border-blue-800/50"
+          >
+            재무제표 상세 보기 &rarr;
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: '자산총계', amount: statementQuickSummary.totalAssets, color: 'text-blue-600 dark:text-blue-400' },
+            { label: '부채총계', amount: statementQuickSummary.totalLiabilities, color: 'text-rose-600 dark:text-rose-400' },
+            { label: '자본총계', amount: statementQuickSummary.totalEquity, color: 'text-indigo-600 dark:text-indigo-400' },
+            { label: '당기순이익', amount: statementQuickSummary.netIncome, color: 'text-emerald-600 dark:text-emerald-400' },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-xl border border-[#eaedf4] dark:border-slate-800 bg-[#f7f8fb] dark:bg-slate-900/60 p-4"
+            >
+              <p className="text-[11px] font-bold text-[#8c94a4] dark:text-slate-400 mb-2">{item.label}</p>
+              <AmountDisplay amount={item.amount} className={`text-base sm:text-lg font-black ${item.color}`} />
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Monthly Trends Area Chart */}
       <div className="rounded-2xl bg-white dark:bg-[#131b2e] border border-[#eaedf4] dark:border-slate-800 p-7 shadow-xs">
