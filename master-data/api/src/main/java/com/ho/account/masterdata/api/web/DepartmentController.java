@@ -57,7 +57,10 @@ public class DepartmentController {
      * 부서 등록
      */
     @PostMapping
-    public ResponseEntity<DepartmentDto> createDepartment(@RequestBody DepartmentRequestDto requestDto) {
+    public ResponseEntity<DepartmentDto> createDepartment(
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @RequestBody DepartmentRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         Department created = departmentUseCase.createDepartment(requestDto.toCommand());
         return ResponseEntity.ok(DepartmentDto.fromEntity(created));
     }

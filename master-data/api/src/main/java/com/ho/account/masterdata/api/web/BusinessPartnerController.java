@@ -29,7 +29,10 @@ public class BusinessPartnerController {
      * 거래처 등록
      */
     @PostMapping
-    public ResponseEntity<BusinessPartnerDto> createBusinessPartner(@RequestBody BusinessPartnerRequestDto requestDto) {
+    public ResponseEntity<BusinessPartnerDto> createBusinessPartner(
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @RequestBody BusinessPartnerRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.createBusinessPartner(requestDto.toCommand())));
@@ -84,7 +87,9 @@ public class BusinessPartnerController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<BusinessPartnerDto> updateBusinessPartner(@PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
             @RequestBody BusinessPartnerRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(BusinessPartnerDto.fromDomain(
                     businessPartnerUseCase.updateBusinessPartner(id, requestDto.toCommand())));
@@ -97,7 +102,10 @@ public class BusinessPartnerController {
      * 거래처 삭제
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBusinessPartner(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteBusinessPartner(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             businessPartnerUseCase.deleteBusinessPartner(id);
             return ResponseEntity.noContent().build();

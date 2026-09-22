@@ -21,7 +21,10 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody ProductRequestDto requestDto) {
+    public ResponseEntity<ProductDto> createProduct(
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @Valid @RequestBody ProductRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.createProduct(requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
@@ -44,7 +47,11 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDto> updateProduct(@PathVariable Long id, @Valid @RequestBody ProductRequestDto requestDto) {
+    public ResponseEntity<ProductDto> updateProduct(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles,
+            @Valid @RequestBody ProductRequestDto requestDto) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             return ResponseEntity.ok(ProductDto.fromEntity(productUseCase.updateProduct(id, requestDto.toCommand())));
         } catch (IllegalArgumentException e) {
@@ -53,7 +60,10 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deactivateProduct(@PathVariable Long id) {
+    public ResponseEntity<Void> deactivateProduct(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-Roles", required = false) String authenticatedRoles) {
+        MasterDataDirectWritePolicy.requireAdminRole(authenticatedRoles);
         try {
             productUseCase.deactivateProduct(id);
             return ResponseEntity.noContent().build();
@@ -62,4 +72,3 @@ public class ProductController {
         }
     }
 }
-
