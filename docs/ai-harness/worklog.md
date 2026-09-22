@@ -1,3 +1,29 @@
+## 2026-09-23 — GH-59 Frontend Journal Entry & Approval Workflow Implementation
+
+- Issue: #59 (`difficulty:medium`, `module:frontend`, `status:draft`)
+- Branch: `agent/59-frontend-journal-workflow`, worktree: `/tmp/account-59-frontend-journal-workflow`, base: `origin/main@4a3cb36c`.
+- Scope:
+  * `frontend/src/services/journalService.ts`:
+    - Added `approveJournalEntry(id: number)` calling `POST /api/journals/${id}/approve` with `X-User-ID: frontend-user`.
+    - Added `postJournalEntry(id: number)` calling `POST /api/journals/${id}/post` with `X-User-ID: frontend-user`.
+    - Enhanced `getJournalEntries(params)` supporting `startDate`, `endDate`, and `status` query parameters with graceful mock fallback when offline.
+    - Added DTO alignment translating frontend `details` (and `detailDescription`) to backend `lines` (and `description`) with `baseAmount`.
+  * `frontend/src/app/journal/list/page.tsx`:
+    - Wired date range (`startDate`, `endDate`) and status filter dropdown to `fetchJournals`.
+    - Added row actions: DRAFT journals show '승인' button triggering `approveJournalEntry`, APPROVED journals show '전기' button triggering `postJournalEntry`, POSTED journals show completed badge.
+    - Integrated `useToast` for user notifications and loading/spinner states during action submission.
+  * `frontend/src/app/journal/entry/page.tsx`:
+    - Refactored balance validation to use minor units (`Math.round(amount * 100)`) avoiding floating-point precision errors.
+    - Enforced strict `JournalDetailDto` typing without `@ts-expect-error`.
+    - Added navigation link back to `/journal/list`.
+  * `frontend/src/app/journal/list/JournalList.module.css`:
+    - Added styles for action buttons, disabled states, completed badge, loading spinner, and mock notices.
+- Verification:
+  * TypeScript check (`tsc --noEmit --incremental false --project tsconfig.json`): PASS (exit 0).
+  * ESLint (`eslint src/services/journalService.ts src/app/journal/list/page.tsx src/app/journal/entry/page.tsx`): PASS (exit 0).
+  * `git diff --check`: PASS (0 errors).
+  * Zero conflict markers.
+
 ## 2026-09-22 — GH-515 external-dev Compose/PostgreSQL live verification
 
 - Contract: Issue #515, `agent/515-dev-compose-runtime-gate`, `/tmp/account-515-dev-compose-runtime-gate`, base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. 사용자 승인 대상 8개 서비스만 읽기 전용으로 검사했다. credential/env/DB data는 읽거나 출력하지 않았고 컨테이너·DB·볼륨·네트워크를 변경하지 않았다.
