@@ -1,3 +1,24 @@
+## 2026-09-23 — GH-53 Frontend Financial Statements & Dashboard API Integration
+
+- Issue: #53 (`difficulty:medium`, `module:frontend`, `status:draft`)
+- Branch: `agent/53-frontend-reporting-dashboard`, worktree: `/tmp/account-53-frontend-reporting-dashboard`, base: `origin/main@e8df751c`.
+- Scope:
+  * `frontend/src/services/reportingService.ts`:
+    - Added `normalizeStatementBaseDate` converting `YYYY-MM-DD`, `YYYY-Q#`, and `YYYY-FY` into ISO datetime (`T23:59:59`) compatible with Spring `@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)`.
+    - Enhanced `generateStatement` with `fetchWithTimeout(..., silentToast: true)` returning `{ ...statement, dataSource: 'API' }` with transparent fallback to `createMockStatement` when offline.
+    - Enhanced `exportDocument` with file download, mime-based extension resolution (`.xlsx` vs `.csv`), and user warning toast on network failure.
+  * `frontend/src/app/reports/statements/page.tsx`:
+    - Connected `generateStatement` for parallel fetching of `BALANCE_SHEET` and `INCOME_STATEMENT`.
+    - Mapped API `ReportLineDto` list into hierarchical table model with search and collapse/expand support.
+    - Added "오프라인 Mock 데이터 표시 중" visual indicator badge when running in offline/mock mode.
+    - Wired document export buttons (`PDF` and `Excel`) to `exportDocument`.
+  * `frontend/src/app/page.tsx`:
+    - Added "재무상태표 & 손익계산서 요약" quick widget displaying assets, liabilities, equity, and net income with direct navigation link to `/reports/statements`.
+- Verification:
+  * TypeScript check (`tsc --noEmit --incremental false --project tsconfig.json`): PASS (exit 0).
+  * `git diff --check`: PASS (0 errors).
+  * Zero conflict markers.
+
 ## 2026-09-23 — GH-59 Frontend Journal Entry & Approval Workflow Implementation
 
 - Issue: #59 (`difficulty:medium`, `module:frontend`, `status:draft`)

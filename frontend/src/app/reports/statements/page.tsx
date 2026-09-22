@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileText,
   Download,
@@ -22,7 +22,100 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Tabs from '@/components/ui/Tabs';
 import EmptyState from '@/components/ui/EmptyState';
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton';
-import { mockStatements, FinancialStatementDto } from '@/mocks/reporting';
+import { mockStatements, FinancialStatementDto as StatementRow } from '@/mocks/reporting';
+import {
+  FinancialStatementDto as ApiFinancialStatement,
+  ReportLineDto,
+  StatementType,
+  reportingService,
+} from '@/services/reportingService';
+
+const STATEMENT_TYPES: StatementType[] = ['BALANCE_SHEET', 'INCOME_STATEMENT'];
+
+const CATEGORY_BY_NOTE: Record<string, string> = {
+  AST: '자산',
+  LIA: '부채',
+  EQU: '자본',
+  REV: '수익',
+  EXP: '비용',
+};
+
+const CATEGORY_ROOT_CODES: Partial<Record<StatementType, Record<string, string>>> = {
+  BALANCE_SHEET: {
+    자산: 'BS_TOTAL_ASSETS',
+    부채: 'BS_TOTAL_LIABILITIES',
+    자본: 'BS_TOTAL_EQUITY',
+  },
+  INCOME_STATEMENT: {
+    수익: 'IS_TOTAL_REVENUE',
+    비용: 'IS_TOTAL_EXPENSE',
+    이익: 'IS_NET_INCOME',
+  },
+};
+
+const CATEGORY_ORDER: Record<StatementType, string[]> = {
+  BALANCE_SHEET: ['자산', '부채', '자본'],
+  INCOME_STATEMENT: ['수익', '비용', '이익'],
+};
+
+function inferCategory(type: StatementType, line: ReportLineDto): string {
+  if (line.category) return line.category;
+  if (line.noteNumber && CATEGORY_BY_NOTE[line.noteNumber]) return CATEGORY_BY_NOTE[line.noteNumber];
+
+  const searchableText = `${line.lineCode} ${line.label}`.toUpperCase();
+  if (type === 'BALANCE_SHEET') {
+    if (searchableText.includes('ASSET') || line.label.includes('자산')) return '자산';
+    if (searchableText.includes('LIABILIT') || line.label.includes('부채')) return '부채';
+    return '자본';
+  }
+
+  if (searchableText.includes('NET_INCOME') || line.label.includes('이익')) return '이익';
+  if (searchableText.includes('EXPENSE') || line.label.includes('비용')) return '비용';
+  return '수익';
+}
+
+function adaptStatement(statement: ApiFinancialStatement): StatementRow[] {
+  const rootCodes = CATEGORY_ROOT_CODES[statement.type] ?? {};
+  const hasMockHierarchy = statement.lines.some(
+    (line) => line.category !== undefined || line.parentLineCode !== undefined
+  );
+  const rows = statement.lines.map((line) => {
+    const category = inferCategory(statement.type, line);
+    const categoryRoot = rootCodes[category];
+    const isCategoryRoot = line.lineCode === categoryRoot;
+
+    return {
+      accountCode: line.lineCode,
+      accountName: line.label,
+      amountCurrent: line.currentAmount,
+      amountPrevious: line.previousAmount,
+      variance: line.currentAmount - line.previousAmount,
+      statementType: statement.type === 'BALANCE_SHEET' ? 'BS' as const : 'IS' as const,
+      category,
+      // API level은 1부터 시작하고, 화면 level은 0부터 시작합니다.
+      level: hasMockHierarchy ? line.level : Math.max(line.level - 1, 0),
+      parentId: hasMockHierarchy
+        ? line.parentLineCode ?? null
+        : isCategoryRoot
+          ? null
+          : categoryRoot ?? null,
+    };
+  });
+
+  if (hasMockHierarchy) return rows;
+
+  // Core 응답은 상세 라인 뒤에 합계가 오므로, 카테고리 합계를 먼저 배치해 트리 계층을 유지합니다.
+  const orderedRows = CATEGORY_ORDER[statement.type].flatMap((category) => {
+    const categoryRows = rows.filter((row) => row.category === category);
+    const categoryRoot = rootCodes[category];
+    return [
+      ...categoryRows.filter((row) => row.accountCode === categoryRoot),
+      ...categoryRows.filter((row) => row.accountCode !== categoryRoot),
+    ];
+  });
+  const orderedCodes = new Set(orderedRows.map((row) => row.accountCode));
+  return [...orderedRows, ...rows.filter((row) => !orderedCodes.has(row.accountCode))];
+}
 
 export default function FinancialStatementsPage() {
   const [activeTab, setActiveTab] = useState<string>('BS');
@@ -30,7 +123,11 @@ export default function FinancialStatementsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('2026-Q2');
   const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isOfflineMock, setIsOfflineMock] = useState<boolean>(false);
+  const [statements, setStatements] = useState<StatementRow[]>(mockStatements);
+  const [exportingFormat, setExportingFormat] = useState<'PDF' | 'EXCEL' | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const tabs = [
     { id: 'BS', label: '재무상태표 (BS)', icon: Building2 },
@@ -38,26 +135,25 @@ export default function FinancialStatementsPage() {
     { id: 'ALL', label: '통합 재무제표', icon: FileText },
   ];
 
-  // Quick summary calculations from mockStatements
   const kpiSummary = useMemo(() => {
-    const totalAssets = mockStatements.find(s => s.accountCode === '1000000')?.amountCurrent || 0;
-    const prevAssets = mockStatements.find(s => s.accountCode === '1000000')?.amountPrevious || 0;
+    const totalAssets = statements.find(s => ['1000000', 'BS_TOTAL_ASSETS'].includes(s.accountCode))?.amountCurrent || 0;
+    const prevAssets = statements.find(s => ['1000000', 'BS_TOTAL_ASSETS'].includes(s.accountCode))?.amountPrevious || 0;
     const assetVar = totalAssets - prevAssets;
 
-    const totalLiab = mockStatements.find(s => s.accountCode === '2000000')?.amountCurrent || 0;
+    const totalLiab = statements.find(s => ['2000000', 'BS_TOTAL_LIABILITIES'].includes(s.accountCode))?.amountCurrent || 0;
     
-    const totalEquity = mockStatements.find(s => s.accountCode === '3000000')?.amountCurrent || 0;
+    const totalEquity = statements.find(s => ['3000000', 'BS_TOTAL_EQUITY'].includes(s.accountCode))?.amountCurrent || 0;
     
-    const netIncome = mockStatements.find(s => s.accountCode === '9900000')?.amountCurrent || 0;
-    const prevIncome = mockStatements.find(s => s.accountCode === '9900000')?.amountPrevious || 0;
+    const netIncome = statements.find(s => ['9900000', 'IS_NET_INCOME'].includes(s.accountCode))?.amountCurrent || 0;
+    const prevIncome = statements.find(s => ['9900000', 'IS_NET_INCOME'].includes(s.accountCode))?.amountPrevious || 0;
     const incomeVar = netIncome - prevIncome;
 
     return { totalAssets, assetVar, totalLiab, totalEquity, netIncome, incomeVar };
-  }, []);
+  }, [statements]);
 
   // Filter statements based on tab and search
   const filteredStatements = useMemo(() => {
-    return mockStatements.filter(item => {
+    return statements.filter(item => {
       // Tab filter
       if (activeTab === 'BS' && item.statementType !== 'BS') return false;
       if (activeTab === 'IS' && item.statementType !== 'IS') return false;
@@ -72,18 +168,48 @@ export default function FinancialStatementsPage() {
       }
       return true;
     });
-  }, [activeTab, searchTerm]);
+  }, [activeTab, searchTerm, statements]);
 
   // Determine child existence for collapse toggle
   const hasChildrenMap = useMemo(() => {
     const map = new Map<string, boolean>();
-    mockStatements.forEach(item => {
+    statements.forEach(item => {
       if (item.parentId) {
         map.set(item.parentId, true);
       }
     });
     return map;
-  }, []);
+  }, [statements]);
+
+  const loadStatements = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setIsLoading(true);
+
+    try {
+      const loadedStatements = await Promise.all(
+        STATEMENT_TYPES.map((type) => reportingService.generateStatement(type, selectedPeriod))
+      );
+      if (requestId !== requestIdRef.current) return;
+
+      setStatements(loadedStatements.flatMap(adaptStatement));
+      setIsOfflineMock(loadedStatements.some((statement) => statement.dataSource === 'MOCK'));
+      setCollapsedNodes({});
+    } catch (error) {
+      console.warn('Unable to load reporting statements, using mock data:', error);
+      if (requestId !== requestIdRef.current) return;
+      setStatements(mockStatements);
+      setIsOfflineMock(true);
+    } finally {
+      if (requestId === requestIdRef.current) setIsLoading(false);
+    }
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    void loadStatements();
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [loadStatements]);
 
   const toggleNode = (code: string) => {
     setCollapsedNodes(prev => ({
@@ -95,7 +221,7 @@ export default function FinancialStatementsPage() {
   const expandAll = () => setCollapsedNodes({});
   const collapseAll = () => {
     const next: Record<string, boolean> = {};
-    mockStatements.forEach(s => {
+    statements.forEach(s => {
       if (hasChildrenMap.get(s.accountCode)) {
         next[s.accountCode] = true;
       }
@@ -103,27 +229,36 @@ export default function FinancialStatementsPage() {
     setCollapsedNodes(next);
   };
 
-  const isRowVisible = (item: FinancialStatementDto): boolean => {
+  const isRowVisible = (item: StatementRow): boolean => {
     if (searchTerm.trim()) return true; // When searching, display flat matches
     let currParentId = item.parentId;
     while (currParentId) {
       if (collapsedNodes[currParentId]) return false;
-      const parentObj = mockStatements.find(s => s.accountCode === currParentId);
+      const parentObj = statements.find(s => s.accountCode === currParentId);
       currParentId = parentObj ? parentObj.parentId ?? null : null;
     }
     return true;
   };
 
-  const handleExport = (type: 'PDF' | 'EXCEL') => {
-    setNotification(`${activeTab === 'BS' ? '재무상태표' : activeTab === 'IS' ? '손익계산서' : '통합재무제표'} (${selectedPeriod}) ${type} 내보내기가 완료되었습니다.`);
-    setTimeout(() => setNotification(null), 4000);
-  };
+  const handleExport = async (format: 'PDF' | 'EXCEL') => {
+    const exportTypes = activeTab === 'BS'
+      ? ['BALANCE_SHEET' as const]
+      : activeTab === 'IS'
+        ? ['INCOME_STATEMENT' as const]
+        : STATEMENT_TYPES;
 
-  const handleRefresh = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 600);
+    setExportingFormat(format);
+    try {
+      const results = await Promise.all(
+        exportTypes.map((type) => reportingService.exportDocument(type, selectedPeriod, format))
+      );
+      if (results.every((result) => result === 'DOWNLOADED')) {
+        setNotification(`${activeTab === 'BS' ? '재무상태표' : activeTab === 'IS' ? '손익계산서' : '통합재무제표'} (${selectedPeriod}) ${format} 내보내기가 완료되었습니다.`);
+        setTimeout(() => setNotification(null), 4000);
+      }
+    } finally {
+      setExportingFormat(null);
+    }
   };
 
   return (
@@ -148,20 +283,25 @@ export default function FinancialStatementsPage() {
         actions={
           <div className="flex items-center gap-3">
             <button
-              onClick={() => handleExport('PDF')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 border border-white/10 text-xs font-black uppercase tracking-wider transition-all duration-200"
+              onClick={() => void handleExport('PDF')}
+              disabled={exportingFormat !== null}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 border border-white/10 text-xs font-black uppercase tracking-wider transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download size={15} className="text-rose-400" /> PDF 내보내기
+              <Download size={15} className="text-rose-400" />
+              {exportingFormat === 'PDF' ? '내보내는 중...' : 'PDF 내보내기'}
             </button>
             <button
-              onClick={() => handleExport('EXCEL')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-black uppercase tracking-wider transition-all duration-200"
+              onClick={() => void handleExport('EXCEL')}
+              disabled={exportingFormat !== null}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-black uppercase tracking-wider transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <FileSpreadsheet size={15} className="text-blue-400" /> Excel 내보내기
+              <FileSpreadsheet size={15} className="text-blue-400" />
+              {exportingFormat === 'EXCEL' ? '내보내는 중...' : 'Excel 내보내기'}
             </button>
             <button
-              onClick={handleRefresh}
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 transition-all"
+              onClick={() => void loadStatements()}
+              disabled={isLoading}
+              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 transition-all disabled:cursor-not-allowed disabled:opacity-50"
               title="새로고침"
             >
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
@@ -169,6 +309,13 @@ export default function FinancialStatementsPage() {
           </div>
         }
       />
+
+      {isOfflineMock && (
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300">
+          <span className="h-2 w-2 rounded-full bg-amber-400" />
+          오프라인 Mock 데이터 표시 중
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -431,7 +578,7 @@ export default function FinancialStatementsPage() {
           </div>
           <div className="p-4 bg-white/[0.01] border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
             <span>총 {filteredStatements.length}개 계정 항목 표시 중</span>
-            <span>기준 일시: 2026-06-30 결산 기준 (단위: 원)</span>
+            <span>기준 기간: {selectedPeriod} 결산 기준 (단위: 원)</span>
           </div>
         </div>
       )}
