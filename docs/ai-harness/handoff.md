@@ -3899,6 +3899,26 @@
 
 - On published head `bb2af8d739a43790da4ad9ea2646479733e9f74f`, PR-triggered Docker prototype [34705065849](https://github.com/skyg547/account/actions/runs/34705065849) and Harness [34705065832](https://github.com/skyg547/account/actions/runs/34705065832) SUCCESS. Final docs and PR evidence received independent review with no substantive P0–P3; the requested per-item Q1–Q4 evidence table is now in PR#724.
 - Merge Guard [34705101539](https://github.com/skyg547/account/actions/runs/34705101539) deliberately rejects `MERGE_AUTHORITY_REQUIRED, DRAFT_NOT_MERGE_READY, TRUST_POLICY_UNCONFIGURED`. Candidate guard tests passed; this failure is not waived and no authorization/trust policy is changed. Module Validation was pending at observation; full Java success is not claimed. This append-only record changes no reviewed functionality.
+
+## 2026-09-22 — GH-443 configured-user password contract handoff
+
+- Issue/branch/worktree/base: #443; `agent/443-configured-password-contract`; `/tmp/account-443-configured-password-contract`; `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc` (latest fetch unchanged). Draft publication with `Refs #443` is authorized and pending; no Ready/merge/Issue close/cleanup.
+- Result: exact lowercase `{bcrypt}` plus valid BCrypt payload is the only configured/stored format. Raw/noop/unknown/malformed/prefixless/case/whitespace inputs fail before persistence and invalid stored data cannot authenticate. Generic field-path errors do not repeat supplied credential or username data.
+- Seed/local boundary: every configured user is validated and mapped before repository access; missing users are inserted in one transaction, existing users are not overwritten, late persistence failure rolls back all inserts, and corrected/idempotent retry is covered. Fixed #652 local SQL credentials/default users were removed, SQL init disabled, and a runtime-generated configured-user API integration test replaces the baseline test. Scope expansion is recorded in issuecomment-5763609044.
+- Files: five Auth core production files; eight changed core/API test paths (four modified, one deleted, three new); local application resource plus deleted SQL; `auth/README.md`; `auth/docs/local-run.md`; these four parent-owned records. See `git diff --name-status` for the exact list.
+- Verification: requested Gradle command PASS, core71 + API15 =86 tests with zero failures/errors/skips; the parent's run produced bootJar SHA256 `99ec0656a35214514ac7d0f4ffc42b7ccda674d422471485cfeec9ee8d37b49c`. Independent Reviewer reran all tasks with `--rerun-tasks` and confirmed the same counts, deleted SQL absence, static scans and Q1–Q4 PASS. No P0–P2 findings; P3 scope traceability is resolved by the Issue amendment and records.
+- Skipped/risk: no external PostgreSQL, container, deployed service or real credential access. H2 proves transaction/startup wiring, not PostgreSQL behavior. Existing legacy/prefixless database hashes intentionally stop authenticating; migration/rotation is a separate approved task.
+- Rollback: reviewed path-scoped revert while retaining shared history; never restore the fixed SQL credential as an operational shortcut. Next owner is a human reviewer for Draft diff, published-head CI and latest-base review. Merge authority remains separate.
+
+| Q1 | Q2 | Q3 | Q4 |
+| --- | --- | --- | --- |
+| PASS — cohesive policy/properties/seed responsibilities and full tests | PASS — mapping, error, rollback/retry flow documented | PASS — exact local inputs/commands/limits match implementation | PASS — nontrivial fail-before-repository and policy intent documented near code |
+
+### GH-443 Draft publication
+
+- Draft PR [#729](https://github.com/skyg547/account/pull/729), `Refs #443`, implementation head `342aed55964639ae026ddef77041dd9f756bb7d5`; PR is OPEN/DRAFT and mergeable. Issue #443 is OPEN / `status:needs-review`.
+- Remote checks were queued/in progress when observed, so no CI success is claimed. The worktree and branch are retained. Human review, published-head CI and latest-base confirmation are the next gates; Ready/merge/Issue close/cleanup remain unauthorized.
+
 ## 2026-09-22 — GH-642 verified RFC handoff
 
 - Issue #642 is implemented as documentation only on `agent/642-container-build-study` in `/tmp/account-642-container-build-study`, based on fetched `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. The older intake-comment base is historical and not the reviewed baseline.

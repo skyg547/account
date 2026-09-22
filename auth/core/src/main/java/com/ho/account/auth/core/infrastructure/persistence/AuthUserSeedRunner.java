@@ -1,6 +1,7 @@
 package com.ho.account.auth.core.infrastructure.persistence;
 
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -27,11 +28,16 @@ class AuthUserSeedRunner implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        properties.getUsers().stream()
-                .filter(user -> user.getUsername() != null && !user.getUsername().isBlank())
-                .filter(user -> user.getPassword() != null && !user.getPassword().isBlank())
-                .filter(user -> !repository.existsById(user.getUsername().trim()))
+        // 입력 하나가 잘못된 경우 기존 사용자 조회나 부분 저장이 시작되지 않도록 전체를 먼저 구체화한다.
+        properties.validateConfiguredUsers();
+        List<AuthUserJpaEntity> configuredUsers = properties.getUsers().stream()
                 .map(AuthUserJpaEntity::fromConfiguredUser)
-                .forEach(repository::save);
+                .toList();
+
+        for (AuthUserJpaEntity user : configuredUsers) {
+            if (!repository.existsById(user.getUsername())) {
+                repository.save(user);
+            }
+        }
     }
 }

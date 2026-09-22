@@ -48,28 +48,41 @@ public class AuthModuleProperties {
             throw new IllegalStateException(
                     "Fail-Closed Security Violation: 'auth.internal-api.token' must be provided via AUTH_INTERNAL_API_TOKEN environment variable.");
         }
-        for (User user : users) {
-            if (user != null) {
-                validateConfiguredUserPassword(
-                        user.getPassword(),
-                        user.getUsername() != null ? user.getUsername() : "unknown");
+        validateConfiguredUsers();
+    }
+
+    /**
+     * Configured user 목록 전체를 저장소 접근 전에 검증합니다.
+     *
+     * <p>오류는 입력값이나 사용자 식별자를 반영하지 않고 설정 필드 경로만 제공합니다.</p>
+     */
+    public void validateConfiguredUsers() {
+        if (users == null) {
+            throw failClosed("auth.users must not be null.");
+        }
+        for (int index = 0; index < users.size(); index++) {
+            String userPath = "auth.users[" + index + "]";
+            User user = users.get(index);
+            if (user == null) {
+                throw failClosed(userPath + " must not be null.");
             }
+            if (user.getUsername() == null || user.getUsername().isBlank()) {
+                throw failClosed(userPath + ".username must not be blank.");
+            }
+            validateConfiguredUserPassword(user.getPassword(), userPath + ".password");
         }
     }
 
-    public static void validateConfiguredUserPassword(String password, String username) {
-        if (password == null || password.isBlank()) {
-            throw new IllegalStateException(
-                    "Fail-Closed Security Violation: Password for configured user '" + username
-                            + "' must not be blank.");
-        }
+    public static void validateConfiguredUserPassword(String password, String fieldPath) {
         try {
-            PasswordEncoderPolicy.validate(password, "Password for configured user '" + username + "'");
+            PasswordEncoderPolicy.validate(password, fieldPath);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException(
-                    "Fail-Closed Security Violation: Password for configured user '" + username
-                            + "' is invalid: " + ex.getMessage());
+            throw failClosed(ex.getMessage());
         }
+    }
+
+    private static IllegalStateException failClosed(String message) {
+        return new IllegalStateException("Fail-Closed Security Violation: " + message);
     }
 
     public Jwt getJwt() {
@@ -273,4 +286,3 @@ public class AuthModuleProperties {
         }
     }
 }
-

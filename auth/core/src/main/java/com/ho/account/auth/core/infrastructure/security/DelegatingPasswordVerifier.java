@@ -35,15 +35,10 @@ public class DelegatingPasswordVerifier implements PasswordVerifierPort {
         }
 
         try {
-            String trimmedStored = storedPassword.trim();
-            if (trimmedStored.startsWith("{")) {
-                return passwordEncoder.matches(rawPassword, trimmedStored);
-            }
-            return passwordEncoder.matches(rawPassword, PasswordEncoderPolicy.BCRYPT_PREFIX + trimmedStored);
+            return passwordEncoder.matches(rawPassword, storedPassword);
         } catch (Exception ex) {
             // Fail closed without leaking secret contents
             return false;
         }
     }
 }
-

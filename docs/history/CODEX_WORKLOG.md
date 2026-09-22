@@ -2841,6 +2841,18 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Draft PR [#723](https://github.com/skyg547/account/pull/723) OPEN/DRAFT, `Refs #667`, from `agent/667-scd2-future-overlap` to `main`; implementation commit `da88765c`. Worktree `/tmp/account-667-scd2-future-overlap` retained. Issue #667 OPEN / `status:needs-review` / `agent:codex`; ordered execution split documented and stale `sizing:needs-split` removed.
 - PR body records473 passing module tests,56 focused subset,18 expected red failures, packaged H2 readiness smoke, initial global-health503, Q1–Q4, rollback, remaining PostgreSQL/concurrency gates and explicit Merge authority/session separation. Independent read-only reviewer also cleared final records/body with no findings.
 - GitHub checks have started; no remote CI success is claimed at publication. Draft/Guard trust-policy gates remain before any Ready/merge. Parent only posted/committed/pushed; Ready/merge/Issue close/branch-worktree deletion not performed. Next owner: human reviewer for policy, latest head/base and CI. This checkpoint updates records only, so Java tests are not rerun.
+
+## 2026-09-22 — GH-443 configured-user password contract verified
+
+- Branch `agent/443-configured-password-contract`, isolated worktree `/tmp/account-443-configured-password-contract`, latest base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`. Exact lowercase `{bcrypt}` is now mandatory at configuration, JPA mapping and authentication verification; raw/noop/unknown/malformed/prefixless/case/whitespace values fail closed with non-disclosing errors.
+- Configured-user lists are fully validated/mapped before repository access. Actual AOP/H2 coverage proves late persistence rollback, corrected retry and idempotent retry. Fixed local SQL demo credentials/default users from #652 were removed, SQL init disabled and the integration test now generates runtime user/password/hash/token fixtures. Four-path scope amendment: issuecomment-5763609044.
+- RED reproduced 12 policy/properties, 3 intended seed/entity and 1 API failure. Required full command passed core71 + API15 =86 tests, failures/errors/skips0, plus bootJar; independent read-only reviewer reran all tasks and found no P0–P2, Q1–Q4 PASS. Diff/marker/unmerged/fixed-credential/reference scans pass. Boot JAR SHA256 `99ec0656a35214514ac7d0f4ffc42b7ccda674d422471485cfeec9ee8d37b49c`.
+- PostgreSQL, deployed runtime and legacy hash migration/rotation were not exercised. Reviewed path-scoped revert is the code rollback; the deleted fixed credential seed must not be restored as an operational shortcut. Draft `Refs #443` publication is next; Ready/merge/Issue close/cleanup remain separate gates.
+
+### GH-443 Draft publication
+
+- Draft PR [#729](https://github.com/skyg547/account/pull/729) OPEN/DRAFT, `Refs #443`, implementation commit `342aed55964639ae026ddef77041dd9f756bb7d5`; Issue #443 OPEN / `status:needs-review`. GitHub reports mergeable while checks are queued/in progress, so no remote success is claimed. Ready/merge/Issue close/branch-worktree cleanup remain separate gates.
+
 ## 2026-09-22 — GH-642 container build modernization RFC
 
 - Issue #642 / `agent/642-container-build-study` / `/tmp/account-642-container-build-study`; actual fetched base `origin/main@e375002ff63652aabaaa1f12c74aa611d4ed29bc`, newer than the historical intake comment's base. User authorized the dedicated branch push and Draft PR only; Ready/merge/close/cleanup are not implied.
