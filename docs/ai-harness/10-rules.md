@@ -79,11 +79,49 @@ The parent Integrator updates shared records once after collecting subagent resu
 ## Commit Rules
 
 - Do not commit with conflict markers.
-- Check for conflict markers before commit:
+- Check only the explicit, approved, non-sensitive changed-file list for conflict markers. Do not scan `.` or secret-bearing paths.
+- PowerShell:
 
 ```powershell
-rg -n "<<<<<<<|=======|>>>>>>>" .
+$approvedFiles = @(
+    'docs/ai-harness/10-rules.md'
+    'docs/ai-harness/40-test-checklist.md'
+)
+$markerPattern = '^(<{7}|={7}|>{7})( |$)'
+
+rg -n -- $markerPattern $approvedFiles
+$rgExit = $LASTEXITCODE
+if ($rgExit -eq 0) { throw 'Conflict marker found.' }
+if ($rgExit -ge 2) { throw "Conflict marker scan failed with rg exit code $rgExit." }
+Write-Host 'No conflict markers found.'
 ```
+
+- Linux bash:
+
+```bash
+approved_files=(
+  docs/ai-harness/10-rules.md
+  docs/ai-harness/40-test-checklist.md
+)
+marker_pattern='^(<{7}|={7}|>{7})( |$)'
+
+if rg -n -- "$marker_pattern" "${approved_files[@]}"; then
+  rg_exit=0
+else
+  rg_exit=$?
+fi
+
+case "$rg_exit" in
+  0) echo 'Conflict marker found.' >&2; exit 1 ;;
+  1) echo 'No conflict markers found.' ;;
+  *) echo "Conflict marker scan failed with rg exit code $rg_exit." >&2; exit "$rg_exit" ;;
+esac
+```
+
+- The raw `rg` exit code has three distinct meanings: `0` means a marker was found and the gate fails, `1` means no marker was found and the gate passes, and `2` or greater means the scan itself failed and must not be treated as a pass. The wrappers above normalize only the gate result: a clean raw exit `1` continues successfully, while a match or scan error stops the script.
+- `^` limits a match to the start of a physical line, `{7}` requires exactly seven marker characters, and `( |$)` requires a following space or the end of the line. Therefore, the command text that explains the pattern does not trigger its own alarm.
+
+초보자 설명: 이 검사는 화재 경보기와 같다. 경보기 사용 설명서에 "화재"라는 단어가 적혀 있다는 이유만으로 경보를 울리면 자기 오탐이다. 줄 맨 앞에 놓인 실제 7글자 충돌 마커만 감지하고, `rg`가 파일을 읽지 못한 검사 오류도 "안전"으로 오해하지 않는다.
 
 - Do not commit unrelated generated logs, local settings, secrets, or temporary worktree folders.
 
