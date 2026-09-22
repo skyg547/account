@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Save, AlertCircle, Plus, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './JournalEntry.module.css';
 import { journalService, JournalEntryDto, JournalDetailDto, JournalSide } from '@/services/journalService';
@@ -24,29 +25,33 @@ export default function JournalEntryPage() {
   const [description, setDescription] = useState('');
 
   // 전표 라인 상태
-  const [details, setDetails] = useState<Partial<JournalDetailDto>[]>([
+  const [details, setDetails] = useState<JournalDetailDto[]>([
     { side: 'DEBIT', accountCode: '', amount: 0, detailDescription: '' },
     { side: 'CREDIT', accountCode: '', amount: 0, detailDescription: '' }
   ]);
 
-  // 계산 로직
+  // 금액을 원 단위 부동소수점이 아닌 2자리 소수 단위로 합산해 대차 오차를 방지합니다.
   const { debitTotal, creditTotal, isBalanced } = useMemo(() => {
-    let dTotal = 0;
-    let cTotal = 0;
-    details.forEach(d => {
-      const amt = Number(d.amount) || 0;
-      if (d.side === 'DEBIT') dTotal += amt;
-      else if (d.side === 'CREDIT') cTotal += amt;
+    let debitMinorUnits = 0;
+    let creditMinorUnits = 0;
+    details.forEach((detail) => {
+      const amountInMinorUnits = Math.round((Number(detail.amount) || 0) * 100);
+      if (detail.side === 'DEBIT') debitMinorUnits += amountInMinorUnits;
+      else creditMinorUnits += amountInMinorUnits;
     });
+
     return {
-      debitTotal: dTotal,
-      creditTotal: cTotal,
-      isBalanced: dTotal === cTotal && dTotal > 0
+      debitTotal: debitMinorUnits / 100,
+      creditTotal: creditMinorUnits / 100,
+      isBalanced: debitMinorUnits === creditMinorUnits && debitMinorUnits > 0
     };
   }, [details]);
 
   const handleAddLine = () => {
-    setDetails([...details, { side: 'DEBIT', accountCode: '', amount: 0, detailDescription: '' }]);
+    setDetails((current) => [
+      ...current,
+      { side: 'DEBIT', accountCode: '', amount: 0, detailDescription: '' }
+    ]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -54,16 +59,13 @@ export default function JournalEntryPage() {
       showWarningToast('최소 2개의 분개 라인이 필요합니다.');
       return;
     }
-    const newDetails = [...details];
-    newDetails.splice(index, 1);
-    setDetails(newDetails);
+    setDetails((current) => current.filter((_, rowIndex) => rowIndex !== index));
   };
 
-  const handleDetailChange = (index: number, field: keyof JournalDetailDto, value: string | number | JournalSide) => {
-    const newDetails = [...details];
-    // @ts-expect-error dynamic property assignment
-    newDetails[index][field] = value;
-    setDetails(newDetails);
+  const handleDetailChange = (index: number, changes: Partial<JournalDetailDto>) => {
+    setDetails((current) => current.map((detail, rowIndex) => (
+      rowIndex === index ? { ...detail, ...changes } : detail
+    )));
   };
 
   const handleSave = async () => {
@@ -71,6 +73,10 @@ export default function JournalEntryPage() {
 
     if (!description.trim()) {
       showWarningToast('전표 적요(설명)를 입력해주세요.', { title: '입력 확인' });
+      return;
+    }
+    if (!slipDate) {
+      showWarningToast('전표 일자를 입력해주세요.', { title: '입력 확인' });
       return;
     }
     if (!isBalanced) {
@@ -89,25 +95,32 @@ export default function JournalEntryPage() {
         showWarningToast(`${i + 1}번째 줄의 금액을 올바르게 입력해주세요.`, { title: '금액 오류' });
         return;
       }
+      if (Math.abs(d.amount * 100 - Math.round(d.amount * 100)) > 0.000001) {
+        showWarningToast(`${i + 1}번째 줄의 금액은 소수점 둘째 자리까지만 입력할 수 있습니다.`, { title: '금액 오류' });
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
       const payload: JournalEntryDto = {
-        slipDate: slipDate,
+        slipDate,
         accountingDate: slipDate,
-        description: description,
-        entryType: entryType,
+        description: description.trim(),
+        entryType,
         currencyCode: 'KRW',
         status: 'DRAFT',
-        details: details as JournalDetailDto[]
+        details: details.map((detail) => ({
+          ...detail,
+          accountCode: detail.accountCode.trim(),
+          departmentCode,
+          detailDescription: detail.detailDescription?.trim() || undefined
+        }))
       };
 
-      const result = await journalService.createJournalEntry(payload);
-      if (result) {
-        showSuccessToast('전표가 성공적으로 생성되었습니다.', { title: '전표 저장 완료' });
-        router.push('/journal/list');
-      }
+      await journalService.createJournalEntry(payload);
+      showSuccessToast('전표가 성공적으로 생성되었습니다.', { title: '전표 저장 완료' });
+      router.push('/journal/list');
     } catch (err: unknown) {
       showErrorToast('전표 생성 중 오류가 발생했습니다: ' + (err instanceof Error ? err.message : String(err)), { title: '저장 실패' });
     } finally {
@@ -123,7 +136,7 @@ export default function JournalEntryPage() {
           <p>새로운 분개 전표를 수동으로 생성합니다.</p>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.draftBtn}>임시 저장</button>
+          <Link href="/journal/list" className={styles.draftBtn}>목록으로</Link>
           <button 
             className={`${styles.saveBtn} ${(!isBalanced || isSubmitting) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
             onClick={handleSave}
@@ -209,7 +222,7 @@ export default function JournalEntryPage() {
                 <td>
                   <select 
                     value={row.side} 
-                    onChange={e => handleDetailChange(idx, 'side', e.target.value as JournalSide)}
+                    onChange={e => handleDetailChange(idx, { side: e.target.value as JournalSide })}
                   >
                     <option value="DEBIT">차변</option>
                     <option value="CREDIT">대변</option>
@@ -220,7 +233,7 @@ export default function JournalEntryPage() {
                     type="text" 
                     placeholder="계정 코드 입력..." 
                     value={row.accountCode}
-                    onChange={e => handleDetailChange(idx, 'accountCode', e.target.value)}
+                    onChange={e => handleDetailChange(idx, { accountCode: e.target.value })}
                   />
                 </td>
                 <td>
@@ -230,7 +243,9 @@ export default function JournalEntryPage() {
                     className={styles.numInput} 
                     disabled={row.side === 'CREDIT'}
                     value={row.side === 'DEBIT' ? (row.amount || '') : ''}
-                    onChange={e => handleDetailChange(idx, 'amount', Number(e.target.value))}
+                    min="0.01"
+                    step="0.01"
+                    onChange={e => handleDetailChange(idx, { amount: Number(e.target.value) })}
                   />
                 </td>
                 <td>
@@ -240,15 +255,17 @@ export default function JournalEntryPage() {
                     className={styles.numInput} 
                     disabled={row.side === 'DEBIT'}
                     value={row.side === 'CREDIT' ? (row.amount || '') : ''}
-                    onChange={e => handleDetailChange(idx, 'amount', Number(e.target.value))}
+                    min="0.01"
+                    step="0.01"
+                    onChange={e => handleDetailChange(idx, { amount: Number(e.target.value) })}
                   />
                 </td>
                 <td>
                   <input 
                     type="text" 
                     placeholder="라인 적요..." 
-                    value={row.detailDescription}
-                    onChange={e => handleDetailChange(idx, 'detailDescription', e.target.value)}
+                    value={row.detailDescription ?? ''}
+                    onChange={e => handleDetailChange(idx, { detailDescription: e.target.value })}
                   />
                 </td>
                 <td>
