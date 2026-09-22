@@ -14,6 +14,7 @@ import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.in.AuthUserRoleAssignmentUseCase;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +51,8 @@ class AuthControllerTest {
 
     @Test
     void loginMapsApiRequestToCoreCommandAndCoreResultToResponse() throws Exception {
+        String ssoCredential = UUID.randomUUID().toString();
+        String otpCode = "%06d".formatted(Math.floorMod(UUID.randomUUID().hashCode(), 1_000_000));
         when(authUseCase.login(any())).thenReturn(new AuthenticationResult(
                 "jwt-token",
                 3600L,
@@ -61,8 +64,14 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"username":"admin","password":"1234"}
-                                """))
+                                {
+                                  "username":"admin",
+                                  "password":"%s",
+                                  "loginType":"SSO",
+                                  "otpCode":"%s",
+                                  "ssoProvider":"corporate-oidc"
+                                }
+                                """.formatted(ssoCredential, otpCode)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("jwt-token"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
@@ -73,7 +82,10 @@ class AuthControllerTest {
                 ArgumentCaptor.forClass(AuthUseCase.LoginCommand.class);
         verify(authUseCase).login(commandCaptor.capture());
         assertThat(commandCaptor.getValue().username()).isEqualTo("admin");
-        assertThat(commandCaptor.getValue().password()).isEqualTo("1234");
+        assertThat(commandCaptor.getValue().password()).isEqualTo(ssoCredential);
+        assertThat(commandCaptor.getValue().loginType()).isEqualTo("SSO");
+        assertThat(commandCaptor.getValue().otpCode()).isEqualTo(otpCode);
+        assertThat(commandCaptor.getValue().ssoProvider()).isEqualTo("corporate-oidc");
     }
 
     @Test

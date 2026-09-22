@@ -6,24 +6,30 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ho.account.auth.core.application.exception.InvalidCredentialsException;
 import com.ho.account.auth.core.application.exception.UserAccessDeniedException;
 import com.ho.account.auth.core.application.model.AuthenticationResult;
+import com.ho.account.auth.core.application.model.SsoUserProfile;
 import com.ho.account.auth.core.application.port.in.AuthUseCase;
 import com.ho.account.auth.core.application.port.out.AuthUserQueryPort;
 import com.ho.account.auth.core.application.port.out.DepartmentValidationPort;
 import com.ho.account.auth.core.application.port.out.LoginAttemptPort;
+import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
 import com.ho.account.auth.core.application.port.out.PasswordVerifierPort;
+import com.ho.account.auth.core.application.port.out.SsoAuthenticationPort;
 import com.ho.account.auth.core.application.port.out.TokenIssuerPort;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
-import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
+import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
+import com.ho.account.auth.core.infrastructure.security.InMemoryLoginAttemptAdapter;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
@@ -33,352 +39,412 @@ class AuthServiceTest {
 
     private static final Instant AUTHENTICATED_AT = Instant.parse("2026-07-14T00:00:00Z");
     private static final Clock CLOCK = Clock.fixed(AUTHENTICATED_AT, ZoneOffset.UTC);
+    private final String validPassword = UUID.randomUUID().toString();
+    private final String validOtp = "%06d".formatted(ThreadLocalRandom.current().nextInt(100_000, 1_000_000));
+    private final String validSsoToken = UUID.randomUUID().toString();
 
     @Test
-    void returnsCoreAuthenticationResultUsingOneRoleSnapshot() {
+    void normalLoginWithoutOtpUsesOneInternalRoleSnapshot() {
         RoleAssignment effective = new RoleAssignment(
                 "ROLE_ADMIN", "FIN", AUTHENTICATED_AT.minusSeconds(1), AUTHENTICATED_AT.plusSeconds(1), true);
         RoleAssignment future = new RoleAssignment(
                 "ROLE_FUTURE", "FIN", AUTHENTICATED_AT.plusSeconds(1), null, true);
-        String dynamicPassword = PasswordEncoderPolicy.encode(UUID.randomUUID().toString(), 4);
-        AuthUserQueryPort userQueryPort = users(Map.of(
-                "admin", new AuthUser(
-                        "admin", dynamicPassword, "FIN", true, false, List.of(effective, future), 3L)));
+        AuthUserQueryPort users = users(Map.of(
+                "admin", new AuthUser("admin", "stored", "FIN", true, false, List.of(effective, future), 3L)));
         AtomicReference<TokenIssuerPort.TokenSubject> issuedSubject = new AtomicReference<>();
         AtomicReference<Instant> issuedAt = new AtomicReference<>();
-        TokenIssuerPort tokenIssuerPort = (subject, instant) -> {
+        TokenIssuerPort tokens = (subject, instant) -> {
             issuedSubject.set(subject);
             issuedAt.set(instant);
             return new TokenIssuerPort.IssuedToken("token-123", 3600L);
         };
-        AuthService authService = service(
-                userQueryPort,
-                code -> true,
-                (raw, stored) -> "1234".equals(raw),
-                tokenIssuerPort,
-                new RecordingLoginAttemptPort());
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService service = service(users, code -> true, validPasswordVerifier(), noOtp(), rejectingSso(), tokens, attempts);
 
-        AuthenticationResult result = authService.login(new AuthUseCase.LoginCommand(" admin ", "1234", "NORMAL", null));
+        AuthenticationResult result = service.login(normal(" admin ", null));
 
         assertThat(result.accessToken()).isEqualTo("token-123");
-        assertThat(result.expiresInSeconds()).isEqualTo(3600L);
-        assertThat(result.username()).isEqualTo("admin");
-        assertThat(result.departmentCode()).isEqualTo("FIN");
         assertThat(result.roles()).containsExactly("ROLE_ADMIN");
         assertThat(result.roleVersion()).isEqualTo(3L);
         assertThat(issuedAt.get()).isEqualTo(AUTHENTICATED_AT);
         assertThat(issuedSubject.get().effectiveRoleAssignments()).containsExactly(effective);
+        assertThat(attempts.successes).containsExactly("admin");
+        assertThat(attempts.failures).isEmpty();
     }
 
     @Test
-    void throwsWhenUserDoesNotExist() {
-        AuthService authService = service(
-                users(Map.of()),
-                code -> true,
-                (raw, stored) -> true,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
+    void normalUserRequiringOtpSucceedsWithValidCode() {
+        RecordingOtpPort otp = new RecordingOtpPort(true, validOtp);
+        AuthService service = standardService(otp, rejectingSso(), new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("missing", "1234", "NORMAL", null)))
-                .isInstanceOf(InvalidCredentialsException.class);
-    }
-
-    @Test
-    void throwsWhenPasswordIsWrong() {
-        AuthService authService = service(
-                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                (raw, stored) -> false,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "wrong", "NORMAL", null)))
-                .isInstanceOf(InvalidCredentialsException.class);
-    }
-
-    @Test
-    void rejectsSsoBeforeCredentialAdaptersWhenProviderIsUnavailable() {
-        AtomicBoolean userQueried = new AtomicBoolean();
-        AtomicBoolean passwordVerified = new AtomicBoolean();
-        AtomicBoolean tokenIssued = new AtomicBoolean();
-        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
-        AuthService authService = service(
-                username -> {
-                    userQueried.set(true);
-                    return Optional.of(user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))));
-                },
-                code -> true,
-                (raw, stored) -> {
-                    passwordVerified.set(true);
-                    return true;
-                },
-                (subject, issuedAt) -> {
-                    tokenIssued.set(true);
-                    return new TokenIssuerPort.IssuedToken("token", 1L);
-                },
-                attempts);
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "", "SSO", null)))
-                .isInstanceOf(InvalidCredentialsException.class);
-        assertThat(userQueried).isFalse();
-        assertThat(passwordVerified).isFalse();
-        assertThat(tokenIssued).isFalse();
-        assertThat(attempts.isLockedCalls).isZero();
-        assertThat(attempts.recordFailureCalls).isZero();
-    }
-
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", " ", "KERBEROS"})
-    void rejectsRepeatedUnsupportedLoginTypesBeforeAttemptPolicyAndCredentialAdapters(String loginType) {
-        AtomicBoolean userQueried = new AtomicBoolean();
-        AtomicBoolean passwordVerified = new AtomicBoolean();
-        AtomicBoolean tokenIssued = new AtomicBoolean();
-        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
-        AuthService authService = service(
-                username -> {
-                    userQueried.set(true);
-                    return Optional.of(user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))));
-                },
-                code -> true,
-                (raw, stored) -> {
-                    passwordVerified.set(true);
-                    return true;
-                },
-                (subject, issuedAt) -> {
-                    tokenIssued.set(true);
-                    return new TokenIssuerPort.IssuedToken("token", 1L);
-                },
-                attempts);
-
-        for (int attempt = 0; attempt < 6; attempt++) {
-            assertThatThrownBy(
-                            () -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", loginType, null)))
-                    .isInstanceOf(InvalidCredentialsException.class);
-        }
-        assertThat(userQueried).isFalse();
-        assertThat(passwordVerified).isFalse();
-        assertThat(tokenIssued).isFalse();
-        assertThat(attempts.isLockedCalls).isZero();
-        assertThat(attempts.recordFailureCalls).isZero();
-    }
-
-    @Test
-    void acceptsNormalLoginTypeCaseInsensitively() {
-        AuthService authService = service(
-                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        AuthenticationResult result =
-                authService.login(new AuthUseCase.LoginCommand("admin", "1234", "normal", null));
+        AuthenticationResult result = service.login(normal("admin", validOtp));
 
         assertThat(result.accessToken()).isEqualTo("token");
+        assertThat(otp.lastUsername).isEqualTo("admin");
+        assertThat(otp.lastCode).isEqualTo(validOtp);
     }
 
     @Test
-    void rejectsLegacyFixedOtpForLdapWithoutIssuingToken() {
-        AtomicBoolean tokenIssued = new AtomicBoolean();
+    void normalUserRequiringOtpRejectsInvalidAndMissingCodeWithReasons() {
         RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
-        AuthService authService = service(
-                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                String::equals,
-                (subject, issuedAt) -> {
-                    tokenIssued.set(true);
-                    return new TokenIssuerPort.IssuedToken("token", 1L);
-                },
-                attempts);
+        AuthService service = standardService(new RecordingOtpPort(true, validOtp), rejectingSso(), attempts);
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "LDAP", "123456")))
+        assertThatThrownBy(() -> service.login(normal("admin", "000000")))
                 .isInstanceOf(InvalidCredentialsException.class);
-        assertThat(tokenIssued).isFalse();
-        assertThat(attempts.lastFailureReason).isEqualTo("LDAP_OTP_VERIFIER_UNAVAILABLE");
-    }
+        assertThat(attempts.lastFailureReason()).isEqualTo("INVALID_OTP");
 
-    @Test
-    void rejectsAnyOtherOtpForLdapWithoutIssuingToken() {
-        AtomicBoolean tokenIssued = new AtomicBoolean();
-        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
-        AuthService authService = service(
-                users(Map.of("admin", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                String::equals,
-                (subject, issuedAt) -> {
-                    tokenIssued.set(true);
-                    return new TokenIssuerPort.IssuedToken("token", 1L);
-                },
-                attempts);
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "LDAP", "654321")))
+        assertThatThrownBy(() -> service.login(normal("admin", null)))
                 .isInstanceOf(InvalidCredentialsException.class);
-        assertThat(tokenIssued).isFalse();
-        assertThat(attempts.lastFailureReason).isEqualTo("LDAP_OTP_VERIFIER_UNAVAILABLE");
+        assertThat(attempts.lastFailureReason()).isEqualTo("OTP_REQUIRED");
     }
 
     @Test
-    void throwsWhenUserIsInactive() {
-        AuthService authService = service(
-                users(Map.of("admin", user(false, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
+    void suppliedOtpOnOtherwiseOptionalNormalLoginIsAlwaysVerified() {
+        RecordingOtpPort otp = new RecordingOtpPort(false, validOtp);
+        AuthService service = standardService(otp, rejectingSso(), new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
-                .isInstanceOf(UserAccessDeniedException.class)
-                .hasMessageContaining("inactive");
+        service.login(normal("admin", validOtp));
+
+        assertThat(otp.lastCode).isEqualTo(validOtp);
     }
 
     @Test
-    void throwsWhenUserIsLocked() {
-        AuthService authService = service(
-                users(Map.of("admin", user(true, true, List.of(RoleAssignment.approved("ROLE_ADMIN"))))),
-                code -> true,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
-                .isInstanceOf(UserAccessDeniedException.class)
-                .hasMessageContaining("locked");
-    }
-
-    @Test
-    void throwsWhenDepartmentCodeDoesNotExistInMasterData() {
-        AuthService authService = service(
-                users(Map.of("admin", new AuthUser(
-                        "admin", "1234", "UNKNOWN", true, false, List.of("ROLE_ADMIN")))),
-                code -> false,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
-                .isInstanceOf(UserAccessDeniedException.class)
-                .hasMessageContaining("Department code is invalid");
-    }
-
-    @Test
-    void throwsWhenNoRoleIsEffectiveAtAuthenticationTime() {
-        RoleAssignment expired = new RoleAssignment(
-                "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT, true);
-        AuthService authService = service(
-                users(Map.of("admin", user(true, false, List.of(expired)))),
-                code -> true,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
-                .isInstanceOf(UserAccessDeniedException.class)
-                .hasMessageContaining("no approved effective roles");
-    }
-
-    @Test
-    void validateTokenVersionRequiresMatchingVersionAndAvailableAccount() {
-        Map<String, AuthUser> userMap = Map.of(
-                "active", user(true, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
-                "inactive", user(false, false, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
-                "locked", user(true, true, List.of(RoleAssignment.approved("ROLE_ADMIN"))),
-                "expired", user(true, false, List.of(new RoleAssignment(
-                        "ROLE_ADMIN", "GLOBAL", null, AUTHENTICATED_AT, true))));
-        AuthService authService = service(
-                users(userMap),
-                code -> true,
-                String::equals,
-                tokenIssuer(),
-                new RecordingLoginAttemptPort());
-
-        assertThat(authService.validateTokenVersion("active", 1L)).isTrue();
-        assertThat(authService.validateTokenVersion("active", 0L)).isFalse();
-        assertThat(authService.validateTokenVersion("active", 2L)).isFalse();
-        assertThat(authService.validateTokenVersion("inactive", 1L)).isFalse();
-        assertThat(authService.validateTokenVersion("locked", 1L)).isFalse();
-        assertThat(authService.validateTokenVersion("expired", 1L)).isFalse();
-        assertThat(authService.validateTokenVersion("missing", 1L)).isFalse();
-    }
-
-    @Test
-    void blocksLoginBeforePasswordVerificationWhenAttemptPolicyIsLocked() {
+    void ldapLoginRequiresOtpAndAcceptsOnlyVerifiedCode() {
         RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
-        attempts.locked = true;
-        AuthService authService = service(
-                users(Map.of()),
-                code -> true,
-                (raw, stored) -> true,
-                tokenIssuer(),
-                attempts);
+        AuthService service = standardService(new RecordingOtpPort(false, validOtp), rejectingSso(), attempts);
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand("admin", "1234", "NORMAL", null)))
+        assertThat(service.login(ldap(validOtp)).accessToken()).isEqualTo("token");
+        assertThatThrownBy(() -> service.login(ldap("000000")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(attempts.lastFailureReason()).isEqualTo("INVALID_OTP");
+        assertThatThrownBy(() -> service.login(ldap(null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(attempts.lastFailureReason()).isEqualTo("OTP_REQUIRED");
+    }
+
+    @Test
+    void ssoLoginUsesAuthenticatedSubjectAndInternalRoles() {
+        AtomicReference<TokenIssuerPort.TokenSubject> issued = new AtomicReference<>();
+        SsoAuthenticationPort sso = (provider, credential) -> {
+            assertThat(provider).isEqualTo("corporate-oidc");
+            assertThat(credential).isEqualTo(validSsoToken);
+            return new SsoUserProfile(
+                    "admin", "admin@example.test", "Admin", "FIN", List.of("ROLE_PROVIDER_ADMIN"));
+        };
+        AuthService service = service(
+                standardUsers(),
+                code -> true,
+                (raw, stored) -> { throw new AssertionError("SSO must not verify a local password"); },
+                noOtp(),
+                sso,
+                (subject, instant) -> {
+                    issued.set(subject);
+                    return new TokenIssuerPort.IssuedToken("sso-token", 60L);
+                },
+                new RecordingLoginAttemptPort());
+
+        AuthenticationResult result = service.login(sso("admin", validSsoToken));
+
+        assertThat(result.roles()).containsExactly("ROLE_INTERNAL");
+        assertThat(issued.get().effectiveRoleAssignments())
+                .extracting(RoleAssignment::roleCode)
+                .containsExactly("ROLE_INTERNAL");
+    }
+
+    @Test
+    void ssoRejectsInvalidCredentialDisabledProviderAndRecordsGenericReason() {
+        for (SsoAuthenticationPort failingPort : List.<SsoAuthenticationPort>of(
+                (provider, credential) -> { throw new SsoAuthenticationPort.SsoAuthenticationException(); },
+                (provider, credential) -> { throw new IllegalStateException("disabled"); })) {
+            RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+            AuthService service = standardService(noOtp(), failingPort, attempts);
+            String suppliedCredential = UUID.randomUUID().toString();
+
+            assertThatThrownBy(() -> service.login(sso("admin", suppliedCredential)))
+                    .isInstanceOf(InvalidCredentialsException.class)
+                    .hasMessageNotContaining(suppliedCredential);
+            assertThat(attempts.lastFailureReason()).isEqualTo("SSO_AUTHENTICATION_FAILED");
+        }
+    }
+
+    @Test
+    void ssoRejectsSubjectMismatchAndUnmappedSubject() {
+        RecordingLoginAttemptPort mismatchAttempts = new RecordingLoginAttemptPort();
+        AuthService mismatchService = standardService(
+                noOtp(), profile("different-user", List.of("ROLE_PROVIDER")), mismatchAttempts);
+
+        assertThatThrownBy(() -> mismatchService.login(sso("admin", validSsoToken)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(mismatchAttempts.lastFailureReason()).isEqualTo("SSO_SUBJECT_MISMATCH");
+
+        RecordingLoginAttemptPort unmappedAttempts = new RecordingLoginAttemptPort();
+        AuthService unmappedService = service(
+                users(Map.of()), code -> true, validPasswordVerifier(), noOtp(),
+                profile("missing", List.of()), tokenIssuer(), unmappedAttempts);
+
+        assertThatThrownBy(() -> unmappedService.login(sso("missing", validSsoToken)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(unmappedAttempts.lastFailureReason()).isEqualTo("SSO_UNMAPPED_USER");
+    }
+
+    @Test
+    void repeatedInvalidOtpLocksAccountUsingRealInMemoryPolicy() {
+        InMemoryLoginAttemptAdapter attempts = inMemoryAttempts(2);
+        AuthService service = standardService(new RecordingOtpPort(true, validOtp), rejectingSso(), attempts);
+
+        assertThatThrownBy(() -> service.login(normal("admin", "000000")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> service.login(normal("admin", "000000")))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> service.login(normal("admin", validOtp)))
                 .isInstanceOf(UserAccessDeniedException.class)
                 .hasMessageContaining("temporarily locked");
     }
 
     @Test
-    void rejectsMissingCoreLoginInputBeforeCallingAdapters() {
-        AuthService authService = service(
-                users(Map.of()),
+    void repeatedInvalidSsoCredentialsLockAccountUsingRealInMemoryPolicy() {
+        InMemoryLoginAttemptAdapter attempts = inMemoryAttempts(2);
+        AuthService service = standardService(noOtp(), rejectingSso(), attempts);
+
+        assertThatThrownBy(() -> service.login(sso("admin", UUID.randomUUID().toString())))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> service.login(sso("admin", UUID.randomUUID().toString())))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThatThrownBy(() -> service.login(sso("admin", validSsoToken)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("temporarily locked");
+    }
+
+    @Test
+    void recordsPasswordAndAccountFailures() {
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService wrongPassword = service(
+                standardUsers(), code -> true, (raw, stored) -> false, noOtp(), rejectingSso(), tokenIssuer(), attempts);
+        assertThatThrownBy(() -> wrongPassword.login(normal("admin", null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(attempts.lastFailureReason()).isEqualTo("INVALID_PASSWORD");
+
+        AuthService missingUser = service(
+                users(Map.of()), code -> true, validPasswordVerifier(), noOtp(), rejectingSso(), tokenIssuer(), attempts);
+        assertThatThrownBy(() -> missingUser.login(normal("missing", null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(attempts.lastFailureReason()).isEqualTo("USER_NOT_FOUND");
+    }
+
+    @Test
+    void rejectsInactiveLockedInvalidDepartmentAndMissingRoles() {
+        assertThatThrownBy(() -> serviceForUser(user(false, false, "FIN", approvedRoles()))
+                        .login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("inactive");
+        assertThatThrownBy(() -> serviceForUser(user(true, true, "FIN", approvedRoles()))
+                        .login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("locked");
+
+        AuthService invalidDepartment = service(
+                users(Map.of("admin", user(true, false, "UNKNOWN", approvedRoles()))),
+                code -> false, validPasswordVerifier(), noOtp(), rejectingSso(), tokenIssuer(),
+                new RecordingLoginAttemptPort());
+        assertThatThrownBy(() -> invalidDepartment.login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("Department code is invalid");
+
+        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "FIN", null, AUTHENTICATED_AT, true);
+        assertThatThrownBy(() -> serviceForUser(user(true, false, "FIN", List.of(expired)))
+                        .login(normal("admin", null)))
+                .isInstanceOf(UserAccessDeniedException.class)
+                .hasMessageContaining("no approved effective roles");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "KERBEROS"})
+    void rejectsUnsupportedLoginTypesBeforeAttemptOrCredentialAdapters(String loginType) {
+        AtomicBoolean userQueried = new AtomicBoolean();
+        RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
+        AuthService service = service(
+                username -> { userQueried.set(true); return Optional.empty(); },
                 code -> true,
-                (raw, stored) -> true,
+                validPasswordVerifier(),
+                noOtp(),
+                rejectingSso(),
                 tokenIssuer(),
+                attempts);
+
+        assertThatThrownBy(() -> service.login(
+                        new AuthUseCase.LoginCommand("admin", validPassword, loginType, null, null)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(userQueried).isFalse();
+        assertThat(attempts.isLockedCalls).isZero();
+    }
+
+    @Test
+    void validateTokenVersionRequiresMatchingVersionAndAvailableAccount() {
+        RoleAssignment expired = new RoleAssignment("ROLE_INTERNAL", "FIN", null, AUTHENTICATED_AT, true);
+        Map<String, AuthUser> userMap = Map.of(
+                "active", namedUser("active", true, false, approvedRoles()),
+                "inactive", namedUser("inactive", false, false, approvedRoles()),
+                "locked", namedUser("locked", true, true, approvedRoles()),
+                "expired", namedUser("expired", true, false, List.of(expired)));
+        AuthService service = service(
+                users(userMap), code -> true, validPasswordVerifier(), noOtp(), rejectingSso(), tokenIssuer(),
                 new RecordingLoginAttemptPort());
 
-        assertThatThrownBy(() -> authService.login(new AuthUseCase.LoginCommand(" ", "1234", "NORMAL", null)))
-                .isInstanceOf(InvalidCredentialsException.class);
-        assertThatThrownBy(() -> authService.login(null))
-                .isInstanceOf(InvalidCredentialsException.class);
+        assertThat(service.validateTokenVersion("active", 1L)).isTrue();
+        assertThat(service.validateTokenVersion("active", 0L)).isFalse();
+        assertThat(service.validateTokenVersion("active", 2L)).isFalse();
+        assertThat(service.validateTokenVersion("inactive", 1L)).isFalse();
+        assertThat(service.validateTokenVersion("locked", 1L)).isFalse();
+        assertThat(service.validateTokenVersion("expired", 1L)).isFalse();
+        assertThat(service.validateTokenVersion("missing", 1L)).isFalse();
+    }
+
+    private AuthService standardService(
+            OtpVerificationPort otp, SsoAuthenticationPort sso, LoginAttemptPort attempts) {
+        return service(standardUsers(), code -> true, validPasswordVerifier(), otp, sso, tokenIssuer(), attempts);
+    }
+
+    private AuthService serviceForUser(AuthUser user) {
+        return service(
+                users(Map.of("admin", user)), code -> true, validPasswordVerifier(), noOtp(), rejectingSso(),
+                tokenIssuer(), new RecordingLoginAttemptPort());
     }
 
     private AuthService service(
-            AuthUserQueryPort userQueryPort,
-            DepartmentValidationPort departmentValidationPort,
-            PasswordVerifierPort passwordVerifierPort,
-            TokenIssuerPort tokenIssuerPort,
-            LoginAttemptPort loginAttemptPort) {
-        return new AuthService(
-                userQueryPort,
-                departmentValidationPort,
-                passwordVerifierPort,
-                tokenIssuerPort,
-                loginAttemptPort,
-                CLOCK);
+            AuthUserQueryPort users,
+            DepartmentValidationPort departments,
+            PasswordVerifierPort passwords,
+            OtpVerificationPort otp,
+            SsoAuthenticationPort sso,
+            TokenIssuerPort tokens,
+            LoginAttemptPort attempts) {
+        return new AuthService(users, departments, passwords, otp, sso, tokens, attempts, CLOCK);
     }
 
-    private TokenIssuerPort tokenIssuer() {
-        return (subject, issuedAt) -> new TokenIssuerPort.IssuedToken("token", 1L);
+    private AuthUseCase.LoginCommand normal(String username, String otp) {
+        return new AuthUseCase.LoginCommand(username, validPassword, "NORMAL", otp, null);
     }
 
-    private AuthUser user(boolean active, boolean locked, List<RoleAssignment> assignments) {
-        return new AuthUser("admin", "1234", "FIN", active, locked, assignments, 1L);
+    private AuthUseCase.LoginCommand ldap(String otp) {
+        return new AuthUseCase.LoginCommand("admin", validPassword, "LDAP", otp, null);
+    }
+
+    private AuthUseCase.LoginCommand sso(String username, String credential) {
+        return new AuthUseCase.LoginCommand(username, credential, "SSO", null, "corporate-oidc");
+    }
+
+    private AuthUserQueryPort standardUsers() {
+        return users(Map.of("admin", user(true, false, "FIN", approvedRoles())));
     }
 
     private AuthUserQueryPort users(Map<String, AuthUser> users) {
         return username -> Optional.ofNullable(users.get(username));
     }
 
+    private AuthUser user(boolean active, boolean locked, String department, List<RoleAssignment> assignments) {
+        return namedUser("admin", active, locked, department, assignments);
+    }
+
+    private AuthUser namedUser(String username, boolean active, boolean locked, List<RoleAssignment> assignments) {
+        return namedUser(username, active, locked, "FIN", assignments);
+    }
+
+    private AuthUser namedUser(
+            String username, boolean active, boolean locked, String department, List<RoleAssignment> assignments) {
+        return new AuthUser(username, "stored", department, active, locked, assignments, 1L);
+    }
+
+    private List<RoleAssignment> approvedRoles() {
+        return List.of(RoleAssignment.approved("ROLE_INTERNAL"));
+    }
+
+    private PasswordVerifierPort validPasswordVerifier() {
+        return (raw, stored) -> validPassword.equals(raw);
+    }
+
+    private OtpVerificationPort noOtp() {
+        return new OtpVerificationPort() {
+            @Override
+            public boolean verifyOtp(String username, String otpCode) {
+                return false;
+            }
+
+            @Override
+            public boolean requiresOtp(String username) {
+                return false;
+            }
+        };
+    }
+
+    private SsoAuthenticationPort profile(String subject, List<String> providerRoles) {
+        return (provider, credential) -> new SsoUserProfile(
+                subject, subject + "@example.test", subject, "FIN", providerRoles);
+    }
+
+    private SsoAuthenticationPort rejectingSso() {
+        return (provider, credential) -> { throw new SsoAuthenticationPort.SsoAuthenticationException(); };
+    }
+
+    private TokenIssuerPort tokenIssuer() {
+        return (subject, issuedAt) -> new TokenIssuerPort.IssuedToken("token", 1L);
+    }
+
+    private InMemoryLoginAttemptAdapter inMemoryAttempts(int maxFailures) {
+        AuthModuleProperties properties = new AuthModuleProperties();
+        properties.getLoginSecurity().setMaxFailures(maxFailures);
+        properties.getLoginSecurity().setLockDurationMinutes(15);
+        return new InMemoryLoginAttemptAdapter(properties, CLOCK);
+    }
+
+    private static final class RecordingOtpPort implements OtpVerificationPort {
+        private final boolean required;
+        private final String validCode;
+        private String lastUsername;
+        private String lastCode;
+
+        private RecordingOtpPort(boolean required, String validCode) {
+            this.required = required;
+            this.validCode = validCode;
+        }
+
+        @Override
+        public boolean verifyOtp(String username, String otpCode) {
+            lastUsername = username;
+            lastCode = otpCode;
+            return validCode.equals(otpCode);
+        }
+
+        @Override
+        public boolean requiresOtp(String username) {
+            return required;
+        }
+    }
+
     private static final class RecordingLoginAttemptPort implements LoginAttemptPort {
-        private boolean locked;
+        private final List<String> failures = new ArrayList<>();
+        private final List<String> successes = new ArrayList<>();
         private int isLockedCalls;
-        private int recordFailureCalls;
-        private String lastFailureReason;
 
         @Override
         public boolean isLocked(String username) {
             isLockedCalls++;
-            return locked;
+            return false;
         }
 
         @Override
         public void recordFailure(String username, String reason) {
-            recordFailureCalls++;
-            lastFailureReason = reason;
+            failures.add(username + ":" + reason);
         }
 
         @Override
         public void recordSuccess(String username) {
+            successes.add(username);
+        }
+
+        private String lastFailureReason() {
+            String failure = failures.get(failures.size() - 1);
+            return failure.substring(failure.indexOf(':') + 1);
         }
     }
 }

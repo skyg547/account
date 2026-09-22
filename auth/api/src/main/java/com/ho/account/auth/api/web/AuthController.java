@@ -49,7 +49,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthenticationResult result = authUseCase.login(
-                new AuthUseCase.LoginCommand(request.username(), request.password(), request.loginType(), request.otpCode()));
+                new AuthUseCase.LoginCommand(
+                        request.username(),
+                        request.password(),
+                        request.loginType(),
+                        request.otpCode(),
+                        request.ssoProvider()));
         return ResponseEntity.ok(LoginResponse.from(result));
     }
 

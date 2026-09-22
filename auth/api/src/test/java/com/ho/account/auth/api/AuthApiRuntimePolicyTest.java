@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ho.account.auth.AuthApplication;
+import com.ho.account.auth.core.application.port.out.OtpVerificationPort;
+import com.ho.account.auth.core.application.port.out.SsoAuthenticationPort;
 import com.ho.account.auth.core.infrastructure.config.AuthConfiguration;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
 import com.ho.account.auth.core.infrastructure.security.PasswordEncoderPolicy;
@@ -15,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -164,6 +167,23 @@ class AuthApiRuntimePolicyTest {
     }
 
     @Test
+    @DisplayName("non-local 환경에서 OTP 또는 SSO를 활성화하면 운영 공급자 포트 없이 기동하지 않는다")
+    void nonLocalEnabledEnterpriseAuthenticationRequiresProductionProviderPorts() {
+        String jwtSecret = ephemeralValue();
+        String internalToken = ephemeralValue();
+
+        assertThatThrownBy(() -> fullApplicationContext(
+                        "prod", jwtSecret, internalToken, Map.of("auth.otp.enabled", true)))
+                .hasRootCauseInstanceOf(NoSuchBeanDefinitionException.class)
+                .hasStackTraceContaining(OtpVerificationPort.class.getName());
+
+        assertThatThrownBy(() -> fullApplicationContext(
+                        "prod", jwtSecret, internalToken, Map.of("auth.sso.enabled", true)))
+                .hasRootCauseInstanceOf(NoSuchBeanDefinitionException.class)
+                .hasStackTraceContaining(SsoAuthenticationPort.class.getName());
+    }
+
+    @Test
     @DisplayName("demo user seed runner는 local 프로파일에서만 활성화되고 dev/prod에서는 비활성화된다")
     void demoUserSeedRunnerIsolatedToLocalProfile() {
         String jwtSecret = ephemeralValue();
@@ -270,6 +290,11 @@ class AuthApiRuntimePolicyTest {
 
     private ConfigurableApplicationContext fullApplicationContext(
             String profile, String jwtSecret, String internalToken) {
+        return fullApplicationContext(profile, jwtSecret, internalToken, Map.of());
+    }
+
+    private ConfigurableApplicationContext fullApplicationContext(
+            String profile, String jwtSecret, String internalToken, Map<String, Object> additionalOverrides) {
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put("spring.profiles.active", profile);
         overrides.put("auth.jwt.secret", jwtSecret);
@@ -280,6 +305,7 @@ class AuthApiRuntimePolicyTest {
         overrides.put("spring.flyway.enabled", "false");
         overrides.put("spring.cloud.config.enabled", "false");
         overrides.put("spring.cloud.discovery.enabled", "false");
+        overrides.putAll(additionalOverrides);
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("testOverrides", overrides));
 

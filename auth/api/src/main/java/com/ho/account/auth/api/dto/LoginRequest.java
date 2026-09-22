@@ -7,6 +7,10 @@ public record LoginRequest(
         String username,
         String password,
         String loginType,
-        String otpCode) {
-}
+        String otpCode,
+        String ssoProvider) {
 
+    public LoginRequest(String username, String password, String loginType, String otpCode) {
+        this(username, password, loginType, otpCode, null);
+    }
+}
