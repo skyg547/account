@@ -83,6 +83,19 @@ public class ClosingController {
     // --- ClosingTask (결산 태스크) API ---
 
     /**
+     * 특정 결산 캘린더의 태스크 목록을 조회합니다.
+     * @param calendarId 결산 캘린더 ID
+     * @return 해당 캘린더에 속한 결산 태스크 목록
+     */
+    @GetMapping("/calendars/{calendarId}/tasks")
+    public ResponseEntity<List<ClosingTaskDto>> getClosingTasksByCalendarId(@PathVariable("calendarId") Long calendarId) {
+        List<ClosingTaskDto> tasks = closingUseCase.findClosingTasksByCalendarId(calendarId).stream()
+                .map(ClosingTaskDto::fromEntity)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(tasks);
+    }
+
+    /**
      * 새로운 결산 태스크를 생성합니다.
      * @param requestDto 생성할 결산 태스크 정보
      * @return 생성된 결산 태스크 정보

@@ -12,12 +12,14 @@ import com.ho.account.expenditure.application.port.out.PayableAccountMappingPort
 import com.ho.account.expenditure.application.port.out.PayablePersistencePort;
 import com.ho.account.expenditure.application.port.out.PurchaseInvoicePersistencePort;
 import com.ho.account.expenditure.domain.*;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * [PurchaseService]
@@ -84,6 +86,25 @@ public class PurchaseService implements PurchaseUseCase {
         postPurchaseJournal(savedInvoice, vendor.name());
 
         return savedInvoice;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PurchaseInvoice> findInvoices(String status) {
+        if (status == null || status.isBlank()) {
+            return purchaseInvoicePersistencePort.findAll();
+        }
+
+        // 문자열 조회 조건은 애플리케이션 경계에서 검증해 영속성 포트가 타입 안전한 상태만 받도록 합니다.
+        PurchaseInvoiceStatus invoiceStatus = parseInvoiceStatus(status);
+        return purchaseInvoicePersistencePort.findByStatus(invoiceStatus);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PurchaseInvoice findInvoiceById(Long id) {
+        return purchaseInvoicePersistencePort.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("PurchaseInvoice not found with id: " + id));
     }
 
     @Override
@@ -164,6 +185,15 @@ public class PurchaseService implements PurchaseUseCase {
             throw new IllegalArgumentException("createdBy is required for purchase invoice creation");
         }
         return actor.trim();
+    }
+
+    private PurchaseInvoiceStatus parseInvoiceStatus(String status) {
+        String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
+        try {
+            return PurchaseInvoiceStatus.valueOf(normalizedStatus);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid purchase invoice status: " + status, exception);
+        }
     }
 
     /**

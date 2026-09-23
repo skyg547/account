@@ -2905,3 +2905,11 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Required Gradle verification passed 111 tests (72 + 39), failures/errors/skips 0. Required YAML parse, 13-API merged contract, Spring fallback assertion, shell checks/live report-only/nonexistent-ID no-op, harness 32/32, and static gates passed. No destructive runtime cleanup or deployed Compose smoke was performed.
 - Read-only `/root/review_738` returned an initial P1 preview/TOCTOU safety issue and P2 port wording issue; both were corrected. Final review has no P0–P3 and Q1–Q4 PASS. Asset Lease Config Server 8083 remains explicitly documented and out of scope.
 - Rollback is a reviewed Issue-scoped revert preserving shared history. The requested local commit is the endpoint; no push, PR, Ready, merge, Issue close, branch/worktree deletion, or server cleanup was performed.
+
+## 2026-09-24 — GH-740 Closing/Payable API parity
+
+- Implemented #740 (parent #179) on `agent/740-api-parity-endpoints` in `/tmp/account-740-api-parity-endpoints` from `origin/main@532bde3f`. Closing calendar-task GET and Payable invoice list/detail GET now traverse API DTO, use-case/service, persistence port, and repository boundaries.
+- Payable supports both `/api/purchase` and frontend `/api/payable`; optional status is typed and case-normalized, invalid status returns 400, and missing ID returns 404. Both Gateway config mirrors expose `/api/payable/**` through the existing payable circuit breaker.
+- Tests cover Closing delegation/DTO/empty list, Payable all/filter/id/error behavior and both aliases, plus exact Gateway route parity. The frontend parity matrix marks the three calls MAPPED and retains observed DTO/enum drift.
+- Required four-module Gradle verification passed 246 tests with failures/errors/skips0; forced Gateway policy passed30/30; harness quality32/32 and static gates passed. Independent read-only Reviewer returned initial error/routing/doc findings, verified fixes, and found no remaining P0–P3; Q1–Q4 PASS.
+- No live BFF→Gateway→Payable smoke, PostgreSQL query/load test, remote CI, push, or PR was performed. Rollback is a reviewed Issue-scoped revert with no migration/data recovery. The requested local commit is the endpoint; Ready/merge/Issue close/cleanup remain separate gates.

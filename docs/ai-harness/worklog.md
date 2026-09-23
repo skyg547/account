@@ -3073,3 +3073,21 @@ git diff --name-only --diff-filter=U
 | Q2 | PASS | helper의 report→ID review→revalidate→targeted cleanup 흐름과 runbook troubleshooting | 해당 없음: 비자명 흐름 설명 대상 | mocked Podman/systemd race 자동화 없음 | `/root/review_738` 확인 |
 | Q3 | PASS | `development-compose.md` 17-row inventory, 8080 override/probe contract, Config 8083 drift와 안전 명령 | 해당 없음: 기능 runbook 대상 | 실제 deployed Compose smoke는 후속 | `/root/review_738` 확인 |
 | Q4 | PASS | helper의 candidate/causality, timer naming, exact-target intent comments | 해당 없음: 비자명 shell 로직 | mocked failure-path test는 후속 | `/root/review_738` 확인 |
+
+## 2026-09-24 — GH-740 Closing calendar tasks / Purchase invoice queries
+
+- Issue/branch/worktree/base: #740 (parity parent #179); `agent/740-api-parity-endpoints`; `/tmp/account-740-api-parity-endpoints`; `origin/main@532bde3f`. Issue is OPEN; no PR was requested or created.
+- Closing: added `findClosingTasksByCalendarId` to the inbound use case, read-only service, outbound persistence port, and Spring Data repository (`findByClosingCalendarId`). `GET /api/closing/calendars/{calendarId}/tasks` maps domain tasks to `ClosingTaskDto`; service/controller tests cover delegation, DTO fields, order preservation, and an empty array.
+- Payable: added `findInvoices(String status)` and `findInvoiceById(Long id)` through use case, read-only service, typed persistence port, adapter, and repository. Null/blank status returns all; other values normalize with `Locale.ROOT` to `PurchaseInvoiceStatus`; invalid status returns 400 and missing ID returns 404 through controller-scoped advice. `PurchaseController` serves list/detail and existing POSTs under both `/api/purchase` and `/api/payable`; service and parameterized MockMvc tests cover both aliases and failures.
+- Routing/docs: added `/api/payable/**` to both `gateway/src/main/resources/application.yml` and `config-repo/gateway-service.yml`, retained the existing payable circuit breaker, and updated its exact policy test. Closing/Payable process docs, Gateway README, and the #179 parity matrix document the routes, error behavior, and observed FE `isMandatory` versus BE `mandatory` drift.
+- Verification: `./gradlew :closing:core:test :closing:api:test :payable:core:test :payable:api:test --console=plain` BUILD SUCCESSFUL; XML totals Closing core119/API74, Payable core43/API10 = 246 tests, failures/errors/skips 0. Forced `GatewayRouteSecurityPolicyTest` passed30/30. `node --test tools/ci/harness-quality-contract.test.cjs` passed32/32. Final whitespace, untracked-file whitespace, conflict-marker, and unmerged-index gates pass before commit.
+- Independent review: `/root/independent_review` first found missing Payable 400/404 mapping, unreachable `/api/payable/**` Gateway routing, and stale parity wording. After correction and focused reruns it found no P0–P3 and marked Q1–Q4 PASS.
+- Not executed/residual: no live BFF→Gateway→Payable service smoke, real PostgreSQL seeded repository/query plan, list pagination/order load test, remote CI, push, or PR. Read-only queries do not change financial calculation, state transition, migration, or Batch restart behavior.
+- Rollback/authority: revert this Issue-scoped commit after review while preserving shared history; no DB/data recovery is needed. The parent alone updates shared records and creates the requested local commit. Push, Draft PR, Ready, merge, Issue close, and branch/worktree cleanup remain separate gates.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Closing/Payable controller→use case→service→persistence-port paths; requested246 tests and Gateway30 PASS | 해당 없음: production/API 경계 변경 | PostgreSQL query/load smoke 미실행 | `/root/independent_review`, no P0–P3 |
+| Q2 | PASS | `closing/docs/process-flow.md`, `payable/docs/process-flow.md`; empty list, status normalization, 400/404, alias/Gateway 흐름 테스트 | 해당 없음: 조회 흐름·예외 설명 대상 | live BFF→Gateway smoke는 후속 | `/root/independent_review` 확인 |
+| Q3 | PASS | module process docs, `gateway/README.md`, parity matrix MAPPED 근거와 DTO drift | 해당 없음: 기능/API 문서 변경 | 기존 FE DTO/enum drift는 범위 밖 | `/root/independent_review` 확인 |
+| Q4 | PASS | `PurchaseService`의 문자열→typed enum 경계 의도 주석; 나머지는 선언적 route/단순 위임 | 해당 없음: 비자명 경계 주석 존재 | pagination/order 정책은 후속 계약 | `/root/independent_review` 확인 |

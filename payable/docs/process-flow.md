@@ -6,8 +6,10 @@
 
 | 컨트롤러 | 메서드 | 경로 | 역할 |
 | --- | --- | --- | --- |
-| `PurchaseController` | `POST` | `/api/purchase/invoices` | 매입 인보이스를 등록하고 채무 및 매입 인식 전표를 만든다. |
-| `PurchaseController` | `POST` | `/api/purchase/payables/update-status/{asOfDate}` | 기준일 이전 미지급 채무를 연체 상태로 갱신한다. |
+| `PurchaseController` | `GET` | `/api/purchase/invoices`, `/api/payable/invoices` | 전체 또는 선택한 `status`의 매입 인보이스 목록을 조회한다. |
+| `PurchaseController` | `GET` | `/api/purchase/invoices/{id}`, `/api/payable/invoices/{id}` | ID로 매입 인보이스 한 건을 조회한다. |
+| `PurchaseController` | `POST` | `/api/purchase/invoices`, `/api/payable/invoices` | 매입 인보이스를 등록하고 채무 및 매입 인식 전표를 만든다. |
+| `PurchaseController` | `POST` | `/api/purchase/payables/update-status/{asOfDate}`, `/api/payable/payables/update-status/{asOfDate}` | 기준일 이전 미지급 채무를 연체 상태로 갱신한다. |
 | `PaymentController` | `POST` | `/api/payments/run` | 지급 기준일에 도래한 채무를 모아 지급 런과 지급 후보를 만든다. |
 | `PaymentController` | `POST` | `/api/payments/execute` | 개별 지급을 실행하고 성공 시 채무 잔액을 차감한다. |
 | `PaymentController` | `POST` | `/api/payments/advance` | 공급업체 선급금을 기록하고 전표 초안을 만든다. |
@@ -39,6 +41,21 @@ flowchart TD
 - 공급업체 코드는 `master-data`에서 검증한다.
 - 매입 인식 전표에 필요한 비용, 매입부가세, 매입채무 계정이 존재해야 한다.
 - 채무는 인보이스 번호와 공급업체 코드로 원천 문서를 추적한다.
+
+## 매입 인보이스 조회 흐름
+
+`PurchaseController`는 기존 `/api/purchase`와 프런트엔드가 사용하는 `/api/payable`을 같은 유즈케이스에 연결합니다. Gateway도 두 prefix를 `payable-api`로 전달하며, 두 경로는 같은 `PurchaseInvoiceResponse`를 반환합니다.
+
+```http
+GET /api/payable/invoices
+GET /api/payable/invoices?status=RECEIVED
+GET /api/purchase/invoices/10
+```
+
+- `status`를 생략하거나 공백으로 보내면 전체 목록을 조회합니다.
+- `status`는 대소문자를 구분하지 않고 `RECEIVED`, `APPROVED`, `PAID`, `PARTIAL_PAID`, `OVERDUE`, `CANCELLED` 중 하나를 사용합니다. 다른 값은 `400 INVALID_REQUEST`로 거부됩니다.
+- 존재하지 않는 ID는 빈 응답 객체로 바꾸지 않고 `404 RESOURCE_NOT_FOUND`로 처리합니다.
+- 조회는 읽기 전용이며 인보이스, 채무, 전표 상태를 변경하지 않습니다.
 
 ## 지급 런과 지급 실행 흐름
 

@@ -10,4 +10,7 @@ import java.util.List;
 @Repository
 public interface ClosingTaskRepository extends JpaRepository<ClosingTask, Long>, ClosingTaskPersistencePort {
     List<ClosingTask> findByClosingCalendarOrderByTaskOrderAsc(ClosingCalendar closingCalendar);
+
+    @Override
+    List<ClosingTask> findByClosingCalendarId(Long calendarId);
 }
