@@ -2897,3 +2897,11 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Verification: final rerun of core/API/Batch produced 17 tests with 0 failures/errors/skips; API/Batch bootJars built; PostgreSQL exists in both and Actuator in API; harness quality 32/32; whitespace and markers pass. Earlier independent full `verifyProductionRuntimeDependencies` also passed 154 tasks before the API/document correction, and the affected final API bootJar/tests were rerun afterward.
 - No external PostgreSQL, production adapter, deployed runtime, bulk partition/load behavior, or remote CI was tested. No SQL/data/credential/remote-state change occurred. Rollback is a reviewed Issue-scoped revert preserving shared history.
 - The requested local commit is the endpoint. No push, Draft PR, Ready, merge, Issue close, or cleanup was performed; those remain user/human-review gates.
+
+## 2026-09-24 — GH-738 external-dev Compose healthcheck alignment
+
+- Implemented #738 on `agent/738-dev-server-compose-fix` in `/tmp/account-738-dev-server-compose-fix` from `origin/main@cf53367a`. Closing/Asset Lease now honor `SERVER_PORT` with 8086/8089 fallbacks; 13 package-overlay APIs retain the verified 8080 environment/readiness contract.
+- Added a 17-API port/override inventory and rootless Podman ghost/timer troubleshooting. The targeted helper is report-only by default and requires explicit full IDs plus state revalidation for cleanup; no broad prune or volume/image/network/pod removal.
+- Required Gradle verification passed 111 tests (72 + 39), failures/errors/skips 0. Required YAML parse, 13-API merged contract, Spring fallback assertion, shell checks/live report-only/nonexistent-ID no-op, harness 32/32, and static gates passed. No destructive runtime cleanup or deployed Compose smoke was performed.
+- Read-only `/root/review_738` returned an initial P1 preview/TOCTOU safety issue and P2 port wording issue; both were corrected. Final review has no P0–P3 and Q1–Q4 PASS. Asset Lease Config Server 8083 remains explicitly documented and out of scope.
+- Rollback is a reviewed Issue-scoped revert preserving shared history. The requested local commit is the endpoint; no push, PR, Ready, merge, Issue close, branch/worktree deletion, or server cleanup was performed.

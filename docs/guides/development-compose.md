@@ -46,6 +46,40 @@ Java 서비스는 저장소 루트를 build context로 유지하면서 각 실�
 독립적으로 컨테이너화합니다. Frontend 개발 컨테이너는 `frontend/Containerfile.dev`, 운영 image는
 `frontend/Containerfile`을 사용합니다.
 
+### Microservice Port Inventory
+
+아래 기본 포트는 각 API의 로컬 `application.yml` 또는 Config Server 설정에서 확인한 현재 값입니다.
+루트 Compose와 Accounting/Products/Risk external-dev 오버레이는 API마다 다른 기본 포트를 그대로
+쓰지 않고, 모든 API 컨테이너에 `SERVER_PORT: "8080"`을 명시합니다. 따라서 컨테이너 안에서 실행되는
+공통 readiness probe도 `http://127.0.0.1:8080/actuator/health/readiness`를 사용해야 합니다.
+
+| Microservice | 로컬/Config 기본 포트 | 루트·업무 패키지 컨테이너 `SERVER_PORT` |
+| --- | ---: | ---: |
+| Account Mart API | 8085 | 8080 |
+| Asset Lease API | 8089 (application) / 8083 (기존 Config Server) | 8080 |
+| Auth API | 8084 (Config Server) | 8080 |
+| Budget API | 8096 | 8080 |
+| Closing API | 8086 | 8080 |
+| Deposit API | 8084 | 8080 |
+| ECL API | 8083 | 8080 |
+| Expenditure Resolution API | 8095 | 8080 |
+| Internal Audit API | 8083 | 8080 |
+| Journal Ledger API | 8081 | 8080 |
+| Loan API | 8087 (Config Server) | 8080 |
+| Master Data API | 8082 | 8080 |
+| Payable API | 8091 | 8080 |
+| Receivable API | 8092 | 8080 |
+| Reconciliation API | 8093 | 8080 |
+| Reporting API | 8097 (Config Server) | 8080 |
+| Tax API | 8094 | 8080 |
+
+`SERVER_PORT`는 Spring 설정의 기본값보다 우선합니다. 새 API를 오버레이에 추가할 때는 서비스의
+`environment`에 `SERVER_PORT: "8080"`이 있는지와 상속한 healthcheck의 포트가 같은지 함께
+검토합니다. 저자원 최소 인증/거버넌스 오버레이처럼 전용 포트를 유지하는 예외는 해당 서비스의
+healthcheck도 같은 전용 포트로 설정합니다. Asset Lease의 application fallback은 8089이지만 기존
+Config Server 설정은 아직 8083입니다. external-dev에서는 명시적인 8080 override가 둘보다 우선하며,
+Config Server 기본값 정리는 이 Issue의 두 application 설정 변경 범위 밖입니다.
+
 ## 프로파일
 
 | Profile | 실행 대상 |
@@ -424,6 +458,40 @@ podman start config-server discovery master-data auth gateway account-frontend
 * **Q3. 4 CPU 서버에서 메모리 부족 경고가 발생합니다.**
   - **원인**: 전체 17개 API 프로파일(`--profile apis`)을 기동했거나 Java 서비스들의 메모리 상한이 초과된 경우입니다.
   - **해결**: 최소 인증 스택에서는 Java 컨테이너 1 GiB / 0.60 CPU, Frontend 1 GiB 상한이 적용되어 전체 4 CPU 미만을 유지합니다. 고사양 전용 `--profile apis` 대신 반드시 최소 스택 실행기(`run-minimal-auth-external-dev.py`)를 사용하십시오.
+
+## Ghost Container & Systemd Healthcheck Timer Troubleshooting
+
+rootless Podman은 주기적인 healthcheck를 사용자 systemd transient timer로 실행할 수 있습니다.
+컨테이너 프로세스를 Podman 밖에서 강제 종료하면 Podman의 저장 상태가 잠시 `running`으로 남고,
+전체 컨테이너 ID를 이름으로 사용하는 `<64자리-ID>.timer`가 계속 healthcheck를 호출할 수 있습니다.
+이 상태가 누적되면 컨테이너는 `(unhealthy)` 또는 `stopping`/`unknown`처럼 보이고 사용자 systemd와
+Podman socket에 실패 호출이 반복됩니다. 단순히 readiness가 실패한 정상 실행 컨테이너는 ghost가
+아니므로 먼저 포트와 `/actuator/health/readiness` 응답을 확인합니다.
+
+저장소 helper는 기본적으로 보고만 합니다. `podman ps --sync`로 OCI runtime과 상태를 맞춘 뒤,
+동기화 중 `running`에서 `exited`/`stopped`로 바뀐 컨테이너와 계속 `unknown`/`stopping`/`removing`인
+컨테이너만 ghost 후보로 잡습니다. 또한 컨테이너가 없거나 실행 중이 아닌 64자리 ID healthcheck
+timer만 stale 후보로 표시합니다.
+
+```bash
+# 1. 대상만 확인: 컨테이너나 unit을 삭제/중지하지 않음
+sh tools/cleanup-ghost-containers.sh
+
+# 2. 출력된 전체 64자리 ID와 이름이 이 개발 스택의 대상인지 검토한 뒤에만 적용
+sh tools/cleanup-ghost-containers.sh --apply <full-container-id> [<full-container-id> ...]
+
+# 3. 남은 상태와 실제 readiness 확인
+podman ps -a --sync
+podman healthcheck run <container-name>
+```
+
+`--apply`는 사용자가 명시한 전체 64자리 ID만 처리합니다. 상태를 다시 확인해 여전히 비실행 상태인
+container ID에만 `podman rm --force --ignore`를 실행하며, 선택한 ID와 정확히 일치하고 컨테이너가
+다시 실행되지 않은 사용자 timer만 stop/reset합니다. `--volumes`를 전달하지 않으므로
+named/anonymous volume과 image는 보존합니다.
+그래도 제거 전에는 컨테이너 이름과 ID를 반드시 검토하고, 업무 컨테이너라면 해당 Compose 파일로
+재생성할 준비를 합니다. 전체 호스트를 대상으로 하는 `podman container prune -f`, `podman rm -af`,
+`systemctl --user reset-failed` 무대상 실행은 다른 프로젝트까지 건드리므로 사용하지 않습니다.
 
 
 ## Batch

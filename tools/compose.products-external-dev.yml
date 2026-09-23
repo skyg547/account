@@ -13,6 +13,7 @@ x-api-resource-limit: &api-resource-limit
       reservations:
         memory: 256m
 
+# Every API below sets SERVER_PORT=8080; this in-container probe must stay aligned.
 x-api-healthcheck: &api-healthcheck
   test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
   interval: 10s
