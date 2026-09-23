@@ -3958,3 +3958,11 @@
 - Draft PR [#730](https://github.com/skyg547/account/pull/730) is OPEN/DRAFT with `Refs #642`; reviewed implementation commit `ec9a89d9` is on `origin/agent/642-container-build-study` targeting `main`.
 - Issue #642 is OPEN and synchronized to `status:needs-review`. PR body contains actual base, scope, verification, Q1–Q4, skipped image/runtime gates, rollback and authority separation.
 - This checkpoint is shared-record only. Human review and current-head/base/CI inspection are next; no Ready, merge, Issue close, branch/worktree cleanup, Jib PoC or Dockerfile deletion is authorized.
+
+## 2026-09-23 — GH-418 Local H2 기준 데이터 handoff
+
+- Worktree/branch/base: `/tmp/account-418-local-baseline-data` / `agent/418-local-baseline-data` / `origin/main@3da1f655454d`. Issue #418 remains open; no PR was created.
+- `master-data/api` local startup now runs Flyway then `data-local.sql`, loading 29 baseline rows. The integration test uses a distinct H2 URL and queries currencies, departments, and account subjects at a fixed valid date. The existing create-drop context test explicitly opts out of SQL init.
+- Auth source/resources were not changed. The requested full command passed 612 tests with zero failures/errors/skips, including `AuthApiRuntimePolicyTest`; no static password, hash, JWT secret, or internal token was added.
+- Independent `/root/issue418_review` found no P0–P3 and confirmed Q1–Q3 PASS/Q4 N/A. Remaining limitation is untested repeat initialization against one persistent same-JVM H2 name; normal local process restart resets the in-memory DB.
+- Rollback the five behavior/test/module-doc files through a reviewed revert and preserve these append-only records. H2 needs no data recovery. Next owner may inspect the local commit and decide whether to publish a Draft PR; push/Ready/merge/Issue close/cleanup were not performed.

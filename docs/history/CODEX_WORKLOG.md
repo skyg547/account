@@ -2881,3 +2881,10 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Published [Draft PR #730](https://github.com/skyg547/account/pull/730), `Refs #642`, from `agent/642-container-build-study` to `main`; reviewed implementation commit `ec9a89d9954f148d7181af1012d4b3d087b8255a` pushed.
 - Issue remains OPEN and is now `status:needs-review`. Actual base `e375002f`, five-file scope, tests/static gates, Q1–Q4, non-executed Jib/image/runtime work, rollback and procedural Reviewer/Integrator separation are in the PR body.
 - This publication-only append changes no RFC or runtime behavior. Hosted final-head checks are not inferred. Human review is next; no Ready/merge/close/cleanup or executable migration occurred.
+
+## 2026-09-23 — GH-418 Local H2 기준 데이터
+
+- `agent/418-local-baseline-data`의 격리 worktree에서 master-data local H2용 `data-local.sql` 29건과 SQL init 설정, 격리 통합 테스트, 기존 create-drop 테스트 보호 설정, local-run 설명을 추가했다. Auth main/test 파일은 수정하지 않았다.
+- 지정 명령 `./gradlew :master-data:core:test :master-data:api:test :auth:core:test :auth:api:test --console=plain`이 성공했고 총 612 tests, failures/errors/skips 0이다. Auth fail-closed runtime policy와 동적 테스트 credential 경로도 그대로 통과했다.
+- 읽기 전용 Explorer가 V6 스키마와 초기화 충돌을 확인했고, SQL/Test/Documentation 작성자의 allowlist를 분리했다. 독립 Reviewer는 P0–P3 없음, Q1–Q3 PASS/Q4 N/A와 커밋 가능을 확인했다.
+- Rollback은 다섯 기능/테스트/모듈 문서 파일의 검토된 revert이며 공유 이력은 보존한다. 운영 DB 영향은 없고 고정 H2 이름의 같은-JVM 반복 초기화는 범위 밖이다. 사용자 요청 범위는 commit까지이며 push/PR/Ready/merge/Issue close/cleanup은 수행하지 않는다.
