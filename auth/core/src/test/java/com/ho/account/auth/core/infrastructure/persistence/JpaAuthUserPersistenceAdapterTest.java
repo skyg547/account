@@ -62,6 +62,28 @@ class JpaAuthUserPersistenceAdapterTest {
     }
 
     @Test
+    void findAllUsersEagerlyLoadsRolesInUsernameOrder() {
+        AuthUserJpaEntity teller = userWithRoles();
+        AuthUserJpaEntity admin = new AuthUserJpaEntity(
+                "admin",
+                dynamicPassword,
+                null,
+                true,
+                false,
+                1L);
+        admin.addRoleAssignment(RoleAssignmentJpaEntity.from(RoleAssignment.approved("ROLE_ADMIN")));
+        userRepository.saveAll(List.of(teller, admin));
+        userRepository.flush();
+
+        List<AuthUser> users = adapter.findAllUsers();
+
+        assertThat(users).extracting(AuthUser::getUsername)
+                .containsExactly("admin", "teller");
+        assertThat(users.get(0).effectiveRolesAt(NOW)).containsExactly("ROLE_ADMIN");
+        assertThat(users.get(1).getRoleAssignments()).hasSize(3);
+    }
+
+    @Test
     void seedRunnerPersistsConfiguredUsersOnlyWhenMissing() throws Exception {
         AuthModuleProperties properties = new AuthModuleProperties();
         AuthModuleProperties.User configured = new AuthModuleProperties.User();

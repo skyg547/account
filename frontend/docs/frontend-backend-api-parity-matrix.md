@@ -1,8 +1,8 @@
 # Frontend ↔ Backend API 정합성 전수 감사 — Issue #179
 
-기준: `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e` · 감사일: 2026-09-10 · [Issue #179](https://github.com/skyg547/account/issues/179) · [이전 PR 반려 작업지시](https://github.com/skyg547/account/pull/548#issuecomment-5393624546).
+최초 감사 기준: `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e` · 감사일: 2026-09-10 · endpoint 구현 갱신: 2026-09-24 · [Issue #179](https://github.com/skyg547/account/issues/179) · [이전 PR 반려 작업지시](https://github.com/skyg547/account/pull/548#issuecomment-5393624546).
 
-**현재 서비스 API가 모두 일치하지 않는다.** 15개 TypeScript 파일에서 42개 endpoint 호출과 3개 transport helper 호출을 확인했다. Issue #740 반영 후 42개 중 36개는 HTTP method + Controller mapping이 존재하고, 6개는 `MISSING`이다. 경로가 존재하는 경우에도 아래 DTO/query/응답 처리 drift가 남는다. 이 문서는 정적 매핑 결과이며 모든 API의 Gateway 노출이나 DTO 호환을 주장하지 않는다.
+**현재 42개 endpoint 호출은 모두 Controller mapping이 존재한다.** 15개 TypeScript 파일에서 42개 endpoint 호출과 3개 transport helper 호출을 확인했으며, Issue #179 구현 반영 후 `MAPPED` 42개, `MISSING` 0개다. 경로가 존재하는 경우에도 아래 DTO/query/응답 처리 drift와 정적 snapshot 제한은 남는다. 이 문서는 정적 매핑 결과이며 모든 API의 실데이터 연동이나 전체 DTO 호환을 주장하지 않는다.
 
 ## 범위와 판정 기준
 
@@ -20,7 +20,7 @@ URL의 `{...}`는 호출 시 값이 대입되는 자리다. query는 별도 열�
 
 | ID / 실제 호출 소스 | Method / 실제 URL template | Query | Controller 근거와 판정 |
 |---|---|---|---|
-| <!-- endpoint:adminService:39 --> [frontend/src/services/adminService.ts:39](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/adminService.ts#L39) | `GET /api/admin/users` | — | **MISSING** |
+| <!-- endpoint:adminService:39 --> [frontend/src/services/adminService.ts:39](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/adminService.ts#L39) | `GET /api/admin/users` | — | MAPPED · [AdminUserController.findAllUsers](../../auth/api/src/main/java/com/ho/account/auth/api/web/AdminUserController.java#L25) |
 | <!-- endpoint:adminService:70 --> [frontend/src/services/adminService.ts:70](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/adminService.ts#L70) | `POST /api/audit/approvals/requests` | — | MAPPED · [shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java:134](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java#L134) |
 | <!-- endpoint:assetService:49 --> [frontend/src/services/assetService.ts:49](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/assetService.ts#L49) | `GET /api/fixed-assets?status={status?}` | optional `status:string` | MAPPED · [asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java:76](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java#L76) |
 | <!-- endpoint:assetService:66 --> [frontend/src/services/assetService.ts:66](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/assetService.ts#L66) | `GET /api/fixed-assets/{id}` | — | MAPPED · [asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java:81](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java#L81) |
@@ -28,13 +28,13 @@ URL의 `{...}`는 호출 시 값이 대입되는 자리다. query는 별도 열�
 | <!-- endpoint:assetService:88 --> [frontend/src/services/assetService.ts:88](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/assetService.ts#L88) | `POST /api/fixed-assets/depreciate/{processDate}` | — | MAPPED · [asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java:55](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java#L55) |
 | <!-- endpoint:assetService:99 --> [frontend/src/services/assetService.ts:99](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/assetService.ts#L99) | `POST /api/fixed-assets/dispose` | — | MAPPED · [asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java:63](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/asset-lease/api/src/main/java/com/ho/account/asset/web/FixedAssetController.java#L63) |
 | <!-- endpoint:authService:21 --> [frontend/src/services/authService.ts:21](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/authService.ts#L21) | `POST /api/auth/login` | — | MAPPED · [auth/api/src/main/java/com/ho/account/auth/api/web/AuthController.java:49](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/auth/api/src/main/java/com/ho/account/auth/api/web/AuthController.java#L49) |
-| <!-- endpoint:bankingService:23 --> [frontend/src/services/bankingService.ts:23](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L23) | `GET /api/finance/banking/inter-branch/dashboard` | — | **MISSING** |
-| <!-- endpoint:bankingService:48 --> [frontend/src/services/bankingService.ts:48](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L48) | `POST /api/finance/banking/inter-branch/auto-match` | — | **MISSING** |
+| <!-- endpoint:bankingService:23 --> [frontend/src/services/bankingService.ts:23](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L23) | `GET /api/finance/banking/inter-branch/dashboard` | — | MAPPED · [InterBranchBankingController.getDashboard](../../reconciliation/api/src/main/java/com/ho/account/reconciliation/api/adapter/in/web/InterBranchBankingController.java#L37) |
+| <!-- endpoint:bankingService:48 --> [frontend/src/services/bankingService.ts:48](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L48) | `POST /api/finance/banking/inter-branch/auto-match` | — | MAPPED · [InterBranchBankingController.runAutoMatch](../../reconciliation/api/src/main/java/com/ho/account/reconciliation/api/adapter/in/web/InterBranchBankingController.java#L42) |
 | <!-- endpoint:closingService:35 --> [frontend/src/services/closingService.ts:35](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L35) | `GET /api/closing/calendars/{calendarId}/tasks` | — | MAPPED · [ClosingController.getClosingTasksByCalendarId](../../closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L90) |
 | <!-- endpoint:closingService:54 --> [frontend/src/services/closingService.ts:54](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L54) | `PUT /api/closing/tasks/{taskId}/status` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:105](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L105) |
 | <!-- endpoint:closingService:77 --> [frontend/src/services/closingService.ts:77](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L77) | `POST /api/closing/valuation-batches/run` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:196](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L196) |
 | <!-- endpoint:closingService:95 --> [frontend/src/services/closingService.ts:95](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L95) | `POST /api/closing/provision-batches/run` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:209](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L209) |
-| <!-- endpoint:fxService:32 --> [frontend/src/services/fxService.ts:32](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/fxService.ts#L32) | `GET /api/fx/dashboard` | — | **MISSING** |
+| <!-- endpoint:fxService:32 --> [frontend/src/services/fxService.ts:32](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/fxService.ts#L32) | `GET /api/fx/dashboard` | — | MAPPED · [FxDashboardController.getDashboard](../../journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/fx/FxDashboardController.java#L38) |
 | <!-- endpoint:journalService:30 --> [frontend/src/services/journalService.ts:30](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/journalService.ts#L30) | `GET /api/journals` | — | MAPPED · [journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalController.java:65](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalController.java#L65) |
 | <!-- endpoint:journalService:65 --> [frontend/src/services/journalService.ts:65](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/journalService.ts#L65) | `POST /api/journals` | — | MAPPED · [journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalController.java:32](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalController.java#L32) |
 | <!-- endpoint:leaseService:53 --> [frontend/src/services/leaseService.ts:53](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/leaseService.ts#L53) | `GET /api/ifrs16/leases` | — | MAPPED · [asset-lease/api/src/main/java/com/ho/account/asset/web/LeaseAccountingController.java:54](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/asset-lease/api/src/main/java/com/ho/account/asset/web/LeaseAccountingController.java#L54) |
@@ -49,8 +49,8 @@ URL의 `{...}`는 호출 시 값이 대입되는 자리다. query는 별도 열�
 | <!-- endpoint:masterDataService:181 --> [frontend/src/services/masterDataService.ts:181](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/masterDataService.ts#L181) | `POST /api/master-data/change-requests/{id}/reject` | — | MAPPED · [master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java:79](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java#L79) |
 | <!-- endpoint:payableService:26 --> [frontend/src/services/payableService.ts:26](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L26) | `GET /api/payable/invoices?status={status?}` | optional `status:string` | MAPPED · [PurchaseController.getPurchaseInvoices](../../payable/api/src/main/java/com/ho/account/expenditure/payable/api/adapter/in/web/PurchaseController.java#L50) |
 | <!-- endpoint:payableService:45 --> [frontend/src/services/payableService.ts:45](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L45) | `GET /api/payable/invoices/{id}` | — | MAPPED · [PurchaseController.getPurchaseInvoiceById](../../payable/api/src/main/java/com/ho/account/expenditure/payable/api/adapter/in/web/PurchaseController.java#L62) |
-| <!-- endpoint:receivableService:25 --> [frontend/src/services/receivableService.ts:25](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L25) | `GET /api/receivable/invoices?status={status?}` | optional `status:string` | **MISSING** |
-| <!-- endpoint:receivableService:44 --> [frontend/src/services/receivableService.ts:44](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L44) | `GET /api/receivable/invoices/{id}` | — | **MISSING** |
+| <!-- endpoint:receivableService:25 --> [frontend/src/services/receivableService.ts:25](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L25) | `GET /api/receivable/invoices?status={status?}` | optional `status:string` | MAPPED · [SalesController.findInvoices](../../receivable/api/src/main/java/com/ho/account/receivable/api/adapter/in/web/SalesController.java#L48) |
+| <!-- endpoint:receivableService:44 --> [frontend/src/services/receivableService.ts:44](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L44) | `GET /api/receivable/invoices/{id}` | — | MAPPED · [SalesController.findInvoiceById](../../receivable/api/src/main/java/com/ho/account/receivable/api/adapter/in/web/SalesController.java#L57) |
 | <!-- endpoint:reportingService:59 --> [frontend/src/services/reportingService.ts:59](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/reportingService.ts#L59) | `POST /api/v1/reporting/generate?type={type}&baseDate={baseDate}` | required `type`, `baseDate` | MAPPED · [reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java:46](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java#L46) |
 | <!-- endpoint:reportingService:72 --> [frontend/src/services/reportingService.ts:72](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/reportingService.ts#L72) | `POST /api/v1/reporting/generate/document?type={type}&baseDate={baseDate}&format={format}` | required `type`, `baseDate`; `format` PDF/EXCEL | MAPPED · [reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java:58](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java#L58) |
 | <!-- endpoint:reportingService:90 --> [frontend/src/services/reportingService.ts:90](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/reportingService.ts#L90) | `GET /api/v1/reporting/disclosure-notes?type={type}&baseDate={baseDate}` | required `type`, `baseDate` | MAPPED · [reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java:98](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java#L98) |
@@ -114,7 +114,9 @@ BFF는 same-origin `/api`를 받아 인증된 요청을 전달한다. 브라우�
 
 ### adminService
 
-`FS/adminService.ts:7`의 `UserInfo`는 `id:number`, `name:string`, `email:string`, `role:UserRole`, `status:ACTIVE/PENDING/INACTIVE`, `lastLogin:string`, `dept:string`, `pendingRequestId?:string`이다. `UserRole`은 `frontend/src/context/NavContext.tsx:21`의 SYSTEM_ADMIN/ACCOUNTING_ADMIN/RISK_MANAGER/RISK_ANALYST/MASTER_MANAGER/AUDITOR/USER다. GET `/api/admin/users` Controller가 없어 **8개 필드 모두 대응 계약 부재**다.
+`GET /api/admin/users`는 `AdminUserController`와 `AdminUserDto`로 매핑된다. 응답 필드는 `id:Long`, `name:String`, `email:String`, `role:String`, `status:ACTIVE/INACTIVE`, `lastLogin:String`, `dept:String`이며 FE `UserInfo`의 필수 표시 필드를 모두 제공한다. FE-only `pendingRequestId?:string`은 선택 필드라 응답에서 생략된다.
+
+현재 Auth 저장 모델의 자연키는 username이고 별도 숫자 ID, 프로필 이름·이메일, 마지막 로그인 시각이 없다. 따라서 application query service는 username의 SHA-256 앞 48비트로 JavaScript 안전 정수 범위의 안정적인 표시용 `id`를 만들고, username을 `name`/`email`로 사용한다. 역할은 FE가 지원하는 명시적 집합으로 변환하며 legacy `ROLE_ADMIN`은 `SYSTEM_ADMIN`, 알 수 없는 값은 `USER`로 처리한다. `lastLogin`은 빈 문자열이고 `dept`는 departmentCode 또는 빈 문자열이다. 이 hash ID는 충돌 가능성이 있어 영속 식별·권한·변경 command에 사용하지 않으며 FE의 `PENDING` 상태도 현재 조회 계약에서는 생성하지 않는다. 역할 변경 요청은 계속 email/username을 기준으로 처리한다.
 
 승인 요청 근거: `FS/adminService.ts:59`, `SW/dto/MasterApprovalRequest.java:8`, `SW/dto/MasterApprovalResponse.java:7`, `shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/infrastructure/auth/AuthUserRoleApprovalApplyAdapter.java:35,65,107`.
 
@@ -146,7 +148,7 @@ nested payload의 `username:string`, `userId:string`, `role:UserRole`은 BE `Aut
 
 `getUsers`는 HTTP/transport 오류 시 300ms 뒤 mock을 반환하지만 `return response.json()`을 await하지 않아 비동기 JSON parse 오류는 전파한다. `requestRoleChange`는 HTTP/transport/JSON 오류를 모두 local ID 발급 및 mock user PENDING 변경으로 대체한다(500ms). `requestUserOnboarding`은 API 없이 local PENDING 결과를 만든다.
 
-AuditController mapping은 존재하지만 `gateway/src/main/resources/application.yml`의 선언 Path에 `/api/admin/**`, `/api/audit/**`가 없다. **기본 BFF→Gateway 경로 부재**이며 Controller 존재와 가동/노출을 동일시할 수 없다. BFF `bff.ts:17,335,504`는 브라우저 신원 헤더를 제거하고 cookie 기반 Authorization을 만든다. 고정 `X-User-ID`는 신원 검증 근거가 아니다.
+Gateway의 packaged/config-repo mirror는 `/api/admin/**`를 auth-service로 전달한다. Gateway는 브라우저가 보낸 identity header를 제거한 뒤 검증된 JWT의 `X-Auth-Roles`를 주입하고, Admin Controller는 `ROLE_SYSTEM_ADMIN` 또는 `SYSTEM_ADMIN`만 허용한다. 직접 내부 호출에서 이 header를 신뢰할 수 있게 만드는 네트워크 경계는 배포 구성의 책임이며 live Gateway→Auth 검증은 이번 정적 감사 범위 밖이다. `/api/audit/**`는 여전히 별도 Gateway route가 없다.
 
 ### masterDataService: 계정과목
 
@@ -343,7 +345,7 @@ FinancialStatement root String/type/date에 domain nonnull 검증이 없고 Repo
 
 ### payableService / receivableService
 
-Payable의 GET 목록/단건은 Issue #740에서 `/api/payable`과 `/api/purchase` 별칭으로 매핑되었다. Receivable의 GET 목록/단건 2개는 여전히 MISSING이다. 아래 Payable 비교는 이제 실제 GET의 `PurchaseInvoiceResponse`, Receivable 비교는 후보 POST 응답을 기준으로 한다.
+Payable의 GET 목록/단건은 Issue #740에서 `/api/payable`과 `/api/purchase` 별칭으로 매핑되었다. Receivable의 GET 목록/단건도 Issue #179에서 `/api/receivable`과 `/api/sales` 별칭으로 매핑되었으며 실제 GET은 기존 `SalesInvoiceResponse`를 사용한다. 아래 비교는 두 서비스의 실제 GET 응답을 기준으로 한다.
 
 근거: `frontend/src/services/payableService.ts:1`, `receivableService.ts:1`, `PD/PurchaseInvoiceResponse.java:14`, `SD/SalesInvoiceResponse.java:8`.
 
@@ -482,19 +484,19 @@ getLeases는 ACTIVE 목록만 조회한다(`LeaseEntryService.java:150`). HTTP/t
 
 미사용 remeasure POST의 `AX/dto/LeaseRemeasurementRequest.java:8`: contractId:@NotNull Long, remeasurementDate:@NotNull LocalDate, newMonthlyPayment:nullable BigDecimal(있으면 ≥.01), newEndDate:nullable LocalDate, newDiscountRate:nullable BigDecimal(있으면 ≥0). 성공 LeaseContract, IllegalArgumentException 400 empty, 기타 Exception 500 empty다. 대응 FE 함수 없음.
 
-### bankingService / fxService: 백엔드 계약 없음
+### bankingService / fxService
 
-3개 URL/method 모두 MISSING이다. 비슷한 Treasury/FX 유즈케이스나 Controller 이름을 추정해 매핑하지 않는다. 모든 기대 필드가 required/non-null이고 비교할 endpoint DTO가 없다.
+Issue #179에서 3개 URL/method와 전용 응답 DTO가 추가되었다. 모든 FE 필수 필드는 Java record 응답에 존재하며 금액·환율·비율은 `BigDecimal`, 식별자는 `Long`, 건수는 `int`로 직렬화된다.
 
 | FE 계약 / 근거 | 필드 전수 |
 |---|---|
-| bankingService.ts:10 InterBranchDashboardData | unmatchedCount:number, totalDiscrepancyAmount:number, autoMatchRate:number, unexplainedDepositsCount:number, transactions:InterBranchTransaction[] |
-| bankingService.ts:1 InterBranchTransaction | id:number, sourceBranch:string, targetBranch:string, transactionType:string, amount:number, status:MATCHED/DISCREPANCY/PENDING |
-| fxService.ts:18 FxDashboardData | totalNetPosition:number, totalKrwAmount:number, dailyValuationGainLoss:number, gainLossPercent:number, rates:FxRate[], positions:FxPosition[] |
-| fxService.ts:11 FxRate | pair:string, rate:number, changeAmount:number, changePercent:number |
-| fxService.ts:1 FxPosition | currencyCode:string, currencyName:string, foreignAmount:number, averageRate:number, krwAmount:number, valuationGainLoss:number, limitStatus:SAFE/WARNING/EXCEEDED |
+| bankingService.ts:10 InterBranchDashboardData | `InterBranchDashboardResponse`: unmatchedCount:int, totalDiscrepancyAmount:BigDecimal, autoMatchRate:BigDecimal, unexplainedDepositsCount:int, transactions:List |
+| bankingService.ts:1 InterBranchTransaction | `InterBranchTransactionResponse`: id:Long, sourceBranch:String, targetBranch:String, transactionType:String, amount:BigDecimal, status:MATCHED/DISCREPANCY/PENDING |
+| fxService.ts:18 FxDashboardData | `FxDashboardResponse`: totalNetPosition, totalKrwAmount, dailyValuationGainLoss, gainLossPercent:BigDecimal 각각, rates/positions:List |
+| fxService.ts:11 FxRate | `FxRateDto`: pair:String, rate/changeAmount/changePercent:BigDecimal |
+| fxService.ts:1 FxPosition | `FxPositionDto`: currencyCode/currencyName:String, foreignAmount/averageRate/krwAmount/valuationGainLoss:BigDecimal, limitStatus:SAFE/WARNING/EXCEEDED |
 
-두 dashboard는 HTTP/transport 오류면 mock을 반환하지만 `return response.json()`을 await하지 않아 비동기 JSON 오류는 전파한다. banking mock은 transaction2건, FX mock은 rates2건/positions2건이다. auto-match는 body를 parse하지 않고 response.ok→boolean, 예외→false다. 성공 boolean이 server response DTO는 아니다.
+두 dashboard의 현재 백엔드는 실데이터 포트가 아니라 결정적 호환 snapshot이다. FX는 USD/KRW, EUR/KRW, JPY/KRW 환율과 세 통화 포지션을 반환하고, banking은 0 금액·0 건수·빈 거래 목록을 반환한다. banking auto-match는 실제 core matcher를 실행하지 않으므로 HTTP 501과 `{matchedCount:0,status:"NOT_EXECUTED"}`를 반환해 FE의 `response.ok`가 false가 되게 한다. 두 dashboard는 HTTP/transport 오류면 기존 FE mock을 반환하지만 `return response.json()`을 await하지 않아 비동기 JSON 오류는 전파한다.
 
 ## Backend-only mapping 부록
 
@@ -557,125 +559,112 @@ getLeases는 ACTIVE 목록만 조회한다(`LeaseEntryService.java:150`). HTTP/t
 | [shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java:147](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java#L147) | `POST /api/audit/approvals/{approvalId}/approve` |
 | [shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java:158](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java#L158) | `POST /api/audit/approvals/{approvalId}/reject` |
 
-## 기준 감사 재실행 및 검증 증거 (2026-09-10)
+## 재실행 및 현재 검증 증거 (2026-09-24)
 
-다음 Node 스크립트와 결과는 기준 커밋 감사 당시의 재현 기록이다. Issue #740 이후 `@RequestMapping` 배열 별칭과 세 신규 GET이 추가되었으므로 현재 HEAD 검증 명령으로 사용하지 않는다. 현재 변경은 Closing/Payable Gradle controller 테스트와 표의 source link로 검증한다.
+다음 Node 스크립트는 inventory의 42개 행을 현재 Java Controller mapping과 다시 대조한다. 각 행의 method/path, Controller 파일, line link를 확인하고 Issue #179의 6개 계약, 두 Gateway 설정 mirror, 신규 DTO 필드를 별도 sentinel로 검사한다.
 
-이 extractor는 현재 저장소의 직접 함수 호출/상수 URL 및 annotation 형태에 한정한다. 모든 Java 문법/동적 mapping/전역 Jackson 설정의 일반 검증기는 아니다. DTO nullable/enum/중첩 필드 전체 비교는 앞 절의 수동 소스 감사가 담당한다. 새 간접 helper·annotation 형태·serializer·DTO 변경 시 소스 감사를 다시 해야 한다.
+이 검증기는 문서화된 inventory와 Spring annotation의 현재 정적 형태에 한정한다. TypeScript 호출 추출은 최초 감사 근거를 유지하며, 동적 URL/helper/전역 Jackson 설정과 DTO nullability·enum 전체 비교는 앞 절의 수동 소스 감사 대상이다. 새 호출이나 annotation 형태가 추가되면 extractor 자체도 갱신해야 한다.
 
-저장소 루트에서 아래 javascript block을 `/tmp/account-179-verify.cjs`로 저장한 뒤 `node /tmp/account-179-verify.cjs`를 실행한다. 기존 `frontend/node_modules/typescript`가 필요하며 설치나 API 호출은 하지 않는다.
+저장소 루트에서 아래 block만 표준 입력으로 전달해 `node -`로 실행한다. 패키지 설치나 API 호출은 하지 않는다.
 
 ```javascript
-// Run from repository root, after extracting this block to /tmp/account-179-verify.cjs.
 const fs = require('node:fs');
 const cp = require('node:child_process');
 const assert = require('node:assert/strict');
-const ts = require(process.cwd() + '/frontend/node_modules/typescript');
 const doc = fs.readFileSync('frontend/docs/frontend-backend-api-parity-matrix.md', 'utf8');
-const files = fs.readdirSync('frontend/src/services').filter(f => f.endsWith('.ts')).sort();
-assert.equal(files.length, 15, 'Reaudit added/removed service files');
-const expectedCounts = {adminService:2,apiClient:0,assetService:5,authService:1,bankingService:2,browserSession:0,closingService:4,fxService:1,journalService:2,leaseService:4,masterDataService:6,payableService:2,receivableService:2,reportingService:5,taxService:6};
-const rows = [], helpers = [];
-for (const file of files) {
-  const source = fs.readFileSync('frontend/src/services/' + file, 'utf8');
-  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-  const constant = source.match(/const API_BASE_URL = '([^']+)'/);
-  function visit(n) {
-    if (ts.isCallExpression(n) && ['fetch','fetchWithTimeout','requestJson','requestJsonWithTimeout'].includes(n.expression.getText(ast))) {
-      const name = n.expression.getText(ast), line = ast.getLineAndCharacterOfPosition(n.getStart(ast)).line + 1;
-      if (file === 'apiClient.ts' || (file === 'masterDataService.ts' && name === 'fetch')) helpers.push(file + ':' + line);
-      else {
-        let method = 'GET', url = n.arguments[0].getText(ast);
-        const init = n.arguments[1];
-        if (init) {
-          assert(ts.isObjectLiteralExpression(init), 'Reaudit indirect request options');
-          for (const prop of init.properties) {
-            assert(!ts.isSpreadAssignment(prop), 'Reaudit spread request options');
-            if (ts.isPropertyAssignment(prop) && prop.name.getText(ast) === 'method') method = prop.initializer.text;
-          }
-        }
-        if (constant) url = url.replaceAll('${API_BASE_URL}', constant[1]).replaceAll('API_BASE_URL', constant[1]);
-        url = url.replace(/^[`'"]|[`'"]$/g, '').replace(/\$\{params \?.*/, '?status={status?}');
-        url = url.replace('${params.toString()}', '{query}').replace(/\$\{([^}]+)\}/g, '{$1}');
-        if (file === 'taxService.ts' && line === 37) url = url.replace('{query}', 'startDate={startDate}&endDate={endDate}');
-        if (file === 'reportingService.ts') url = url.replace('{query}', 'type={type}&baseDate={baseDate}' + (line === 72 ? '&format={format}' : line === 113 ? '&entryId={entryId}' : ''));
-        assert(url.startsWith('/api/'), 'Reaudit unresolved URL ' + url);
-        rows.push({id:file.slice(0,-3)+':'+line, file, line, method, url});
-      }
-    }
-    ts.forEachChild(n, visit);
-  }
-  visit(ast);
-  assert.equal(rows.filter(r=>r.file===file).length, expectedCounts[file.slice(0,-3)], file);
-}
-assert.equal(helpers.length, 3);
-const documented = [...doc.split('## 재실행')[0].matchAll(/<!-- endpoint:([^ ]+) -->/g)].map(m=>m[1]);
-assert.deepEqual([...documented].sort(), rows.map(r=>r.id).sort(), 'Endpoint row omission/duplication');
-const tracked = cp.execFileSync('git', ['ls-files','*.java'], {encoding:'utf8'}).trim().split('\n');
-const mappings=[];
-for (const file of tracked.filter(f=>f.includes('/src/main/java/') && f.endsWith('Controller.java'))) {
+const inventory = doc.split('## 전수 endpoint inventory')[1].split('## authService /')[0];
+const lines = inventory.split('\n').filter(line => line.includes('<!-- endpoint:'));
+assert.equal(lines.length, 42, 'Inventory must contain exactly 42 endpoint rows');
+const currentRows = lines.map(line => {
+  const id = /<!-- endpoint:([^ ]+) -->/.exec(line)?.[1];
+  const request = /`(GET|POST|PUT|DELETE|PATCH) ([^`]+)`/.exec(line);
+  const link = /\]\(([^)]+Controller\.java)#L(\d+)\)/.exec(line);
+  assert(id && request && link, 'Malformed inventory row: ' + line);
+  assert(line.includes('MAPPED') && !line.includes('MISSING'), 'Non-mapped row: ' + id);
+  let file = link[1];
+  if (file.includes('/blob/')) file = file.replace(/^.*\/blob\/[^/]+\//, '');
+  else file = file.replace(/^(\.\.\/)+/, '');
+  return {id, method:request[1], path:request[2].split('?')[0], file, line:Number(link[2])};
+});
+assert.equal(new Set(currentRows.map(row => row.id)).size, 42, 'Duplicate endpoint ID');
+
+const controllerFiles = cp.execFileSync('rg', ['--files','-g','*Controller.java'], {encoding:'utf8'}).trim().split('\n');
+const currentMappings=[];
+for (const file of controllerFiles.filter(file => file.includes('/src/main/java/'))) {
   const source=fs.readFileSync(file,'utf8'), cls=/\bclass\s+(\w+)/.exec(source);
   if (!cls) continue;
-  const base=/@RequestMapping\s*\(\s*"([^"]+)"/.exec(source.slice(0,cls.index));
+  const baseAnnotation=/@RequestMapping\s*\(([\s\S]*?)\)/.exec(source.slice(0,cls.index));
+  const bases=[...(baseAnnotation?.[1]||'').matchAll(/"([^"]+)"/g)].map(match=>match[1]);
+  if (!bases.length) bases.push('');
   const offset=cls.index+cls[0].length;
-  for (const m of source.slice(offset).matchAll(/@(Get|Post|Put|Delete|Patch)Mapping(?:\s*\((.*?)\))?/gs)) {
-    const suffix=/"([^"]*)"/.exec(m[2]||'');
-    mappings.push({file, line:source.slice(0,offset+m.index).split('\n').length, method:m[1].toUpperCase(), path:(base?.[1]||'')+(suffix?.[1]||'')});
+  for (const mapping of source.slice(offset).matchAll(/@(Get|Post|Put|Delete|Patch)Mapping(?:\s*\((.*?)\))?/gs)) {
+    const suffix=/"([^"]*)"/.exec(mapping[2]||'');
+    for (const base of bases) currentMappings.push({
+      file,
+      line:source.slice(0,offset+mapping.index).split('\n').length,
+      method:mapping[1].toUpperCase(),
+      path:base+(suffix?.[1]||''),
+    });
   }
 }
 const normalize=s=>s.replace(/\{[^}]*\}/g,'{}');
-let mapped=0, missing=0;
-for (const row of rows) {
-  const line=doc.split('\n').find(s=>s.includes('<!-- endpoint:'+row.id+' -->'));
-  assert(line.includes('`'+row.method+' '+row.url+'`'), 'Document URL/method drift: '+row.id);
-  const matches=mappings.filter(m=>m.method===row.method && normalize(m.path)===normalize(row.url.split('?')[0]));
-  assert(matches.length<=1, 'Ambiguous Controller mapping: '+row.id);
-  if (matches.length) {
-    mapped++;
-    assert(line.includes('/'+matches[0].file+'#L'+matches[0].line), 'Document Controller evidence drift: '+row.id);
-    assert(line.includes('MAPPED') && !line.includes('MISSING'));
-  } else { missing++; assert(line.includes('MISSING'), 'Unreported missing endpoint: '+row.id); }
+for (const row of currentRows) {
+  const matches=currentMappings.filter(mapping => mapping.method===row.method && normalize(mapping.path)===normalize(row.path));
+  assert.equal(matches.length, 1, 'Missing or ambiguous Controller mapping: '+row.id);
+  assert.equal(row.file, matches[0].file, 'Controller source drift: '+row.id);
 }
-assert.equal(mapped,33); assert.equal(missing,9);
-const controllerFiles = new Set(rows.flatMap(r=>mappings.filter(m=>m.method===r.method && normalize(m.path)===normalize(r.url.split('?')[0])).map(m=>m.file)));
-for (const m of mappings) if (/(PurchaseController|SalesController)\.java$/.test(m.file)) controllerFiles.add(m.file);
-const extras=mappings.filter(m=>controllerFiles.has(m.file) && !rows.some(r=>r.method===m.method && normalize(r.url.split('?')[0])===normalize(m.path)));
-assert.equal(controllerFiles.size,13); assert.equal(extras.length,54);
-const appendix=doc.split('## Backend-only mapping 부록')[1]?.split('## 재실행')[0] || '';
-const appendixRows=appendix.split('\n').filter(l=>l.startsWith('| [')).length;
-assert.equal(appendixRows,54,'Backend-only row count drift');
-for (const m of extras) assert(appendix.includes('/'+m.file+'#L'+m.line) && appendix.includes('`'+m.method+' '+m.path+'`'),'Backend-only mapping drift');
 
-// Regression sentinels read actual DTOs: these are intentionally detected mismatches,
-// not compatibility assertions. Full nested/nullable/enum comparison is the manual audit above.
-const journal=fs.readFileSync('journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalApiDto.java','utf8');
-const journalFe=fs.readFileSync('frontend/src/services/journalService.ts','utf8');
-assert(/details:\s*JournalDetailDto\[\]/.test(journalFe) && /List<@Valid LineRequest> lines/.test(journal));
-assert(!/baseAmount\??:/.test(journalFe) && /BigDecimal baseAmount/.test(journal));
-const master=fs.readFileSync('master-data/api/src/main/java/com/ho/account/masterdata/api/dto/AccountSubjectDto.java','utf8');
-assert(!/private\s+\w+\s+(type|status)\s*;/.test(master));
-const tax=fs.readFileSync('tax/api/src/main/java/com/ho/account/tax/api/adapter/in/web/APInvoiceController.java','utf8');
-assert(/@RequestParam String reason/.test(tax));
-assert(!/reason/.test(fs.readFileSync('frontend/src/services/taxService.ts','utf8')));
+const issue179 = new Map([
+  ['adminService:39','GET /api/admin/users'],
+  ['bankingService:23','GET /api/finance/banking/inter-branch/dashboard'],
+  ['bankingService:48','POST /api/finance/banking/inter-branch/auto-match'],
+  ['fxService:32','GET /api/fx/dashboard'],
+  ['receivableService:25','GET /api/receivable/invoices'],
+  ['receivableService:44','GET /api/receivable/invoices/{id}'],
+]);
+for (const [id, request] of issue179) {
+  const row=currentRows.find(value=>value.id===id);
+  assert(row && row.method+' '+row.path===request, 'Issue #179 endpoint drift: '+id);
+  const mapping=currentMappings.find(value=>value.method===row.method && normalize(value.path)===normalize(row.path));
+  assert.equal(row.line, mapping.line, 'Issue #179 Controller line drift: '+id);
+}
+for (const yamlPath of ['gateway/src/main/resources/application.yml','config-repo/gateway-service.yml']) {
+  const yaml=fs.readFileSync(yamlPath,'utf8');
+  for (const route of ['/api/admin/**','/api/fx/**','/api/receivable/**','/api/finance/banking/**']) {
+    assert(yaml.includes(route), yamlPath+' missing '+route);
+  }
+}
+const dtoChecks = {
+  'auth/api/src/main/java/com/ho/account/auth/api/dto/AdminUserDto.java':['Long id','String name','String email','String role','String status','String lastLogin','String dept'],
+  'journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/fx/FxDashboardResponse.java':['BigDecimal totalNetPosition','BigDecimal totalKrwAmount','BigDecimal dailyValuationGainLoss','BigDecimal gainLossPercent','List<FxRateDto> rates','List<FxPositionDto> positions'],
+  'reconciliation/api/src/main/java/com/ho/account/reconciliation/api/dto/InterBranchDashboardResponse.java':['int unmatchedCount','BigDecimal totalDiscrepancyAmount','BigDecimal autoMatchRate','int unexplainedDepositsCount','List<InterBranchTransactionResponse> transactions'],
+  'reconciliation/api/src/main/java/com/ho/account/reconciliation/api/dto/InterBranchTransactionResponse.java':['Long id','String sourceBranch','String targetBranch','String transactionType','BigDecimal amount','Status status','MATCHED','DISCREPANCY','PENDING'],
+  'reconciliation/api/src/main/java/com/ho/account/reconciliation/api/dto/AutoMatchResponse.java':['int matchedCount','Status status','NOT_EXECUTED'],
+};
+for (const [file, fields] of Object.entries(dtoChecks)) {
+  const source=fs.readFileSync(file,'utf8');
+  for (const field of fields) assert(source.includes(field), file+' missing '+field);
+}
 assert(!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(doc), 'Control character');
 assert(!/^(<<<<<<<|=======|>>>>>>>)/m.test(doc), 'Conflict marker');
-console.log('PASS: 15 files, 42 endpoint rows, 3 helpers, 33 mapped, 9 MISSING; known DTO/query drift detected; Markdown controls clean.');
+console.log('PASS: 42 unique endpoint rows mapped to current Controller files/lines; Issue #179 routes and DTO sentinels verified.');
+
 ```
 
 ### 검사기 실패 사례 검증
 
-아래 두 번째 javascript block을 `/tmp/account-179-negative.cjs`로 저장한 뒤 실행한다. 첫 번째 스크립트가 `/tmp/account-179-verify.cjs`에 있어야 한다. 실제 파일을 변경하지 않고 읽기 결과만 메모리에서 변형하여 각 오류를 검출하는지 확인한다.
+아래 두 번째 block은 같은 문서에서 첫 번째 block을 읽고, 실제 파일은 변경하지 않은 채 메모리 변형 6개가 모두 거부되는지 확인한다.
 
 ```javascript
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const code=fs.readFileSync('/tmp/account-179-verify.cjs','utf8');
+const markdown=fs.readFileSync('frontend/docs/frontend-backend-api-parity-matrix.md','utf8');
+const code=markdown.split('```javascript')[1].split('```')[0];
 const cases=[
  ['missing row','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace(/<!-- endpoint:authService:21 -->/,'')],
- ['wrong method','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace('`POST /api/auth/login`','`GET /api/auth/login`')],
- ['wrong prefix','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace('`POST /api/auth/login`','`POST /api/v1/auth/login`')],
- ['wrong controller evidence','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace('AuthController.java#L49','AuthController.java#L999')],
- ['backend-only missing row','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace(/\| \[auth\/.*?validate-token-version.*\n/,'')],
- ['nested DTO drift','journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/journal/JournalApiDto.java',s=>s.replaceAll('BigDecimal baseAmount','BigDecimal renamedAmount')],
+ ['wrong method','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace('`GET /api/admin/users`','`POST /api/admin/users`')],
+ ['wrong route','gateway/src/main/resources/application.yml',s=>s.replace('/api/fx/**','/api/fx-disabled/**')],
+ ['wrong controller line','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s.replace('AdminUserController.java#L25','AdminUserController.java#L999')],
+ ['DTO field drift','journal-ledger/api/src/main/java/com/ho/account/journalledger/adapter/in/web/fx/FxDashboardResponse.java',s=>s.replace('BigDecimal totalNetPosition','BigDecimal renamedNetPosition')],
  ['control character','frontend/docs/frontend-backend-api-parity-matrix.md',s=>s+'\u0007'],
 ];
 for(const [name,file,mutate] of cases){
@@ -689,26 +678,21 @@ for(const [name,file,mutate] of cases){
 }
 ```
 
-### 실행 결과 (2026-09-10)
+### 실행 결과 (2026-09-24)
 
 | 명령 / 검사 | 결과 |
 |---|---|
-| `node /tmp/account-179-verify.cjs` (루트) | PASS: 15 files, 42 endpoint rows, 3 helpers, 33 mapped, 9 MISSING; known DTO/query drift detected; Markdown controls clean. 대응 13 Controller의 87 mapping 중 backend-only 54개 행도 일치 |
-| `node /tmp/account-179-negative.cjs` (루트) | PASS 7/7: row 누락, method 오류, /api↔/api/v1 오류, Controller link 오류, backend-only 행 누락, nested DTO drift, 제어문자 |
-| `node frontend/node_modules/typescript/bin/tsc --project frontend/tsconfig.json --noEmit --incremental false` (루트) | exit 0, diagnostics 없음 |
-| `NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=3072 taskset -c 0 npm run build` (`frontend/`) | exit 0; Next 15.5.23 compiled successfully, type validation, static pages 122/122 |
-| `git diff --check`; tracked source/docs conflict scan; 새 문서 및 추가/변경 줄 control-character scan | PASS |
-| 독립 read-only Reviewer | PUT JSON parse 실패를 null로 잘못 일반화한 P3 수정 후 재검토: 남은 P0-P3 없음 |
+| 현재 Node verifier (루트) | PASS: 42 unique endpoint rows mapped to current Controller files/lines; Issue #179 routes and DTO sentinels verified |
+| 현재 negative verifier (루트) | PASS 6/6: row 누락, method 오류, Gateway route 오류, Controller line 오류, DTO field drift, 제어문자 |
+| `./gradlew :receivable:api:test :receivable:core:test :auth:api:test :auth:core:test :journal-ledger:api:test :reconciliation:api:test :gateway:test` | BUILD SUCCESSFUL; 286 tests, failures/errors/skips 0 |
+| `git diff --check`; 변경 파일 conflict marker/control-character; unmerged index | PASS |
+| 독립 read-only Reviewer | 현재 구현의 별도 검토 결과와 Q1–Q4는 Issue #179 harness 기록에 남긴다. |
 
-기존 `/home/ho/dev/account/frontend/node_modules`를 격리 worktree의 ignored symlink로 재사용했다. 설치/lockfile 변경은 없다. 핵심 설치 버전 Next 15.5.23, TypeScript 5.9.3, React/ReactDOM 19.2.8은 lockfile과 일치한다. 실행 Node는 **22.23.2**, npm 10.9.8이다. 저장소 engines의 Node20 검증으로 주장하지 않으며, Node20 재실행은 별도 환경에서 필요하다.
-
-기존 `docs/ai-harness/worklog.md`에 있던 제어문자 1개는 기준 HEAD와 동일하게 보존했다. 새 문서와 추가/변경 내용의 제어문자 검사는 통과했다.
-
-백엔드 production 코드 변경이 없으므로 Gradle 빌드/테스트는 실행하지 않았다. 실제 Gateway/DB/로그인/금융 API 호출, Jackson 직렬화 smoke, 전체 UI browser smoke는 미실행이다. build/typecheck는 서버 계약 호환성 증명이 아니며 위 정적 감사의 실제 불일치를 해결하지 않는다.
+현재 검증은 기존 의존성만 사용했고 패키지를 설치하지 않았다. 실제 Gateway→서비스 live 호출, PostgreSQL query/load, 외부 환율 feed, 본지점 auto-match 상태 변경, 전체 UI browser smoke는 미실행이다. Gradle/MockMvc와 정적 verifier는 Controller/DTO/routing 계약을 검증하지만 이 외부 연동을 대신하지 않는다.
 
 ## 후속 수정과 인수 기준
 
-- MISSING 6개: admin 사용자 목록 1, banking 2, fx dashboard 1, receivable 2. 사용자 기능 요구와 맞는 backend 계약부터 별도 변경 범위로 합의해야 한다. Closing 1개와 Payable 2개는 Issue #740에서 매핑되었다.
+- endpoint mapping은 Issue #740과 #179 반영 후 42/42 `MAPPED`, `MISSING` 0개다. 다만 admin 표시용 hash ID/빈 lastLogin, FX 정적 snapshot, banking HTTP 501 `NOT_EXECUTED`, receivable 응답 필드·enum 차이는 위 제한대로 남는다.
 - 전표 query와 lines/baseAmount/description, 계정과목 category/type/status, tax reason/PURCHASE/null name, nullable asset/lease/partner 응답, reporting PDF 파일명 등의 DRIFT를 후속 production 변경에서 해결해야 한다.
 - Audit 승인 Gateway 노출과 사용자명/actor 의미, Closing의 `isMandatory`(FE) 대 `mandatory`(BE) 필드명 DRIFT, live 통합 동작을 별도 검증해야 한다.
 - 이번 이슈의 전수 감사 결과는 source 근거와 함께 제출한다. '모든 endpoint가 존재하고 모든 DTO가 호환됨'은 **충족하지 않으므로 이슈를 자동 종료하지 않는다**. 리뷰어는 감사의 완전성과 후속 수정 범위를 판단한다.

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ho.account.contracts.closing.AccountingPeriodStatusPort;
@@ -15,17 +16,24 @@ import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.SalesInvoiceCommand;
+import com.ho.account.receivable.application.port.in.SalesUseCase.InvalidSalesInvoiceStatusException;
+import com.ho.account.receivable.application.port.in.SalesUseCase.SalesInvoiceNotFoundException;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
 import com.ho.account.receivable.domain.SalesInvoice;
+import com.ho.account.receivable.domain.SalesInvoiceStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -123,6 +131,65 @@ class SalesServiceTest {
                 .hasMessageContaining("차변 합계(1000.00)와 대변 합계(950.00)가 일치하지 않습니다");
     }
 
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "   "})
+    @DisplayName("상태가 없거나 공백이면 전체 인보이스를 조회한다")
+    void findInvoicesWithoutStatusReturnsAll(String status) {
+        SalesInvoice invoice = createInvoice(10L, SalesInvoiceStatus.ISSUED);
+        when(salesInvoicePersistencePort.findAll()).thenReturn(List.of(invoice));
+
+        List<SalesInvoice> result = service.findInvoices(status);
+
+        assertThat(result).containsExactly(invoice);
+        verify(salesInvoicePersistencePort).findAll();
+    }
+
+    @Test
+    @DisplayName("상태 문자열은 공백과 대소문자를 정규화한 enum으로 조회한다")
+    void findInvoicesNormalizesStatusBeforeQuery() {
+        SalesInvoice invoice = createInvoice(11L, SalesInvoiceStatus.PARTIAL_PAID);
+        when(salesInvoicePersistencePort.findByStatus(SalesInvoiceStatus.PARTIAL_PAID))
+                .thenReturn(List.of(invoice));
+
+        List<SalesInvoice> result = service.findInvoices("  partial_paid ");
+
+        assertThat(result).containsExactly(invoice);
+        verify(salesInvoicePersistencePort).findByStatus(SalesInvoiceStatus.PARTIAL_PAID);
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 상태 문자열은 저장소 조회 전에 거부한다")
+    void findInvoicesRejectsUnknownStatus() {
+        assertThatThrownBy(() -> service.findInvoices("unknown"))
+                .isInstanceOf(InvalidSalesInvoiceStatusException.class)
+                .hasMessageContaining("Unknown sales invoice status: unknown");
+
+        verifyNoInteractions(salesInvoicePersistencePort);
+    }
+
+    @Test
+    @DisplayName("ID로 존재하는 인보이스를 조회한다")
+    void findInvoiceByIdReturnsInvoice() {
+        SalesInvoice invoice = createInvoice(12L, SalesInvoiceStatus.PAID);
+        when(salesInvoicePersistencePort.findById(12L)).thenReturn(Optional.of(invoice));
+
+        SalesInvoice result = service.findInvoiceById(12L);
+
+        assertThat(result).isSameAs(invoice);
+        verify(salesInvoicePersistencePort).findById(12L);
+    }
+
+    @Test
+    @DisplayName("ID에 해당하는 인보이스가 없으면 명시적으로 실패한다")
+    void findInvoiceByIdRejectsMissingInvoice() {
+        when(salesInvoicePersistencePort.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.findInvoiceById(404L))
+                .isInstanceOf(SalesInvoiceNotFoundException.class)
+                .hasMessageContaining("Sales invoice not found: 404");
+    }
+
     private SalesInvoiceCommand createCommand() {
         return new SalesInvoiceCommand(
                 "SI-001",
@@ -134,5 +201,19 @@ class SalesServiceTest {
                 new BigDecimal("1000.00"),
                 "sales-user",
                 null);
+    }
+
+    private SalesInvoice createInvoice(Long id, SalesInvoiceStatus status) {
+        SalesInvoice invoice = SalesInvoice.create(
+                "SI-QUERY",
+                "C001",
+                LocalDate.of(2026, 5, 29),
+                LocalDate.of(2026, 6, 30),
+                new BigDecimal("1000.00"),
+                new BigDecimal("100.00"),
+                "sales-user");
+        invoice.setId(id);
+        invoice.setStatus(status);
+        return invoice;
     }
 }

@@ -2,16 +2,38 @@
 
 ## API 입구
 
-현재 컨트롤러는 모듈 안에 있지만, `receivable` 자체는 독립 실행 앱이 아니다. 아래 엔드포인트는 receivable 컴포넌트를 포함하는 호스트 Spring Boot 애플리케이션에서 노출될 때 사용할 수 있다.
+`receivable:api`를 실행하면 아래 엔드포인트를 사용할 수 있다. `SalesController`는 기존 `/api/sales`와 프런트엔드 호환 경로인 `/api/receivable`을 같은 기능의 별칭으로 제공한다.
 
 | 컨트롤러 | 메서드 | 경로 | 역할 |
 | --- | --- | --- | --- |
-| `SalesController` | `POST` | `/api/sales/invoices` | 매출 인보이스를 등록하고 채권 및 매출 인식 전표를 만든다. |
-| `SalesController` | `POST` | `/api/sales/receivables/update-status/{asOfDate}` | 기준일 이전 미수 채권을 연체 상태로 갱신한다. |
+| `SalesController` | `POST` | `/api/sales/invoices`, `/api/receivable/invoices` | 매출 인보이스를 등록하고 채권 및 매출 인식 전표를 만든다. |
+| `SalesController` | `GET` | `/api/sales/invoices`, `/api/receivable/invoices` | 전체 인보이스 또는 `status`와 일치하는 인보이스를 조회한다. |
+| `SalesController` | `GET` | `/api/sales/invoices/{id}`, `/api/receivable/invoices/{id}` | ID로 인보이스 한 건을 조회한다. |
+| `SalesController` | `POST` | `/api/sales/receivables/update-status/{asOfDate}`, `/api/receivable/receivables/update-status/{asOfDate}` | 기준일 이전 미수 채권을 연체 상태로 갱신한다. |
 | `CollectionController` | `POST` | `/api/collections` | 고객 입금을 수납으로 기록하고 수납 인식 전표를 만든다. |
 | `CollectionController` | `POST` | `/api/collections/{collectionId}/auto-match` | 특정 수납을 열린 채권 후보와 자동 매칭한다. |
 | `CollectionController` | `GET` | `/api/collections/unmatched` | 자동 매칭되지 않은 수납 목록을 조회한다. |
 | `CollectionController` | `POST` | `/api/collections/manual-match` | 사용자가 지정한 채권에 수동으로 수납액을 배분한다. |
+
+## 매출 인보이스 조회 흐름
+
+```mermaid
+flowchart LR
+    A[GET /api/receivable/invoices] --> B[SalesController]
+    B --> C[SalesService]
+    C -->|status 없음 또는 공백| D[SalesInvoicePersistencePort.findAll]
+    C -->|status 있음| E[SalesInvoiceStatus 변환]
+    E --> F[SalesInvoicePersistencePort.findByStatus]
+    D --> G[SalesInvoiceResponse 목록]
+    F --> G
+```
+
+- `status`는 선택값이다. 생략하거나 공백이면 전체를 반환한다.
+- 값이 있으면 앞뒤 공백과 대소문자를 정규화한 뒤 `ISSUED`, `PAID`, `PARTIAL_PAID`, `OVERDUE`, `CANCELLED` 중 하나로 조회한다.
+- 지원하지 않는 상태는 HTTP `400 Bad Request`, 존재하지 않는 `{id}`는 `404 Not Found`를 반환한다.
+- 조회 서비스는 read-only 트랜잭션이며 도메인 모델을 변경하지 않는다. 같은 요청을 다시 실행해도 조회 결과 외의 상태 변화는 없다.
+
+초보자 예시: `GET /api/receivable/invoices?status=paid`는 수금 완료 인보이스 목록을 반환한다. `GET /api/receivable/invoices/10`은 10번 인보이스 한 건을 반환하며, 10번이 없으면 404가 된다. 기존 클라이언트는 동일하게 `/api/sales` 경로를 사용할 수 있다.
 
 ## 매출 인보이스 등록 흐름
 

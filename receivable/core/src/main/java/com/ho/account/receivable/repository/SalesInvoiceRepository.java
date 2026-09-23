@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface SalesInvoiceRepository extends JpaRepository<SalesInvoiceJpaEntity, Long> {
     Optional<SalesInvoiceJpaEntity> findByInvoiceNo(String invoiceNo);
+    List<SalesInvoiceJpaEntity> findByStatus(SalesInvoiceStatus status);
     List<SalesInvoiceJpaEntity> findByCustomerCodeAndStatus(String customerCode, SalesInvoiceStatus status);
     List<SalesInvoiceJpaEntity> findByDueDateBeforeAndStatusIn(LocalDate dueDate, List<SalesInvoiceStatus> statuses);
 }

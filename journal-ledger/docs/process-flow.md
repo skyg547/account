@@ -149,6 +149,29 @@ sequenceDiagram
 | 전기 | `POST /api/journals/{id}/post` | `X-User-ID` |
 | 거래처별 미결 조회 | `GET /api/unsettled/businesspartner/{businessPartnerCode}` | 거래처 코드 |
 | 반제 | `POST /api/unsettled/{id}/settle` | 금액, `settlementReference`, `X-User-ID` |
+| FX 대시보드 조회 | `GET /api/fx/dashboard` | 입력 없음 |
+
+### FX 대시보드 현재 스냅샷
+
+`GET /api/fx/dashboard`는 프론트엔드가 요구하는 합계, 주요 환율(`USD/KRW`, `EUR/KRW`,
+`JPY/KRW`)과 통화별 포지션을 `BigDecimal` JSON 숫자로 반환합니다. 포지션의 한도 상태는
+`SAFE`, `WARNING`, `EXCEEDED` 중 하나입니다. `totalKrwAmount`와
+`dailyValuationGainLoss`는 각각 포지션의 `krwAmount`와 `valuationGainLoss` 합계와 반드시
+일치하며 DTO 생성 시 불일치가 거부됩니다. `gainLossPercent`는 현재 응답에 계산 기준 금액이
+없으므로 이 scaffold가 공급하는 화면 표시 지표이며, 다른 필드로부터 계산한 값이 아닙니다.
+
+현재 응답은 API 계약 연결을 위한 **결정적 읽기 전용 스냅샷 scaffold**입니다. 저장소를
+조회하거나 외부 환율 공급자와 통신하지 않으며, 실시간 시장 데이터 feed가 아닙니다.
+따라서 같은 배포 버전에서는 호출할 때마다 같은 값이 반환됩니다. 실제 환율과 포지션을
+반영하려면 별도의 core 조회 유즈케이스와 출력 포트가 먼저 정의되어야 합니다.
+
+```http
+GET /api/fx/dashboard
+```
+
+로컬에서는 저장소 루트에서 `./gradlew :journal-ledger:api:test`를 실행하고
+`FxDashboardControllerTest`가 경로, 전체 중첩 필드, 소수 직렬화와 한도 상태를 검증하는지
+확인합니다. 이 검증은 운영 환율 공급자나 포지션 저장소 연결을 확인하지 않습니다.
 
 ## 잔액 재집계 Batch 흐름
 

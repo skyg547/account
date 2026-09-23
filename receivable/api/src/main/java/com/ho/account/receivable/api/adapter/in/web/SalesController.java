@@ -5,12 +5,15 @@ import com.ho.account.receivable.api.dto.SalesInvoiceResponse;
 import com.ho.account.receivable.application.port.in.SalesUseCase;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -27,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 전표 생성 같은 업무 흐름은 core의 {@link SalesUseCase} 구현체가 처리합니다.</p>
  */
 @RestController
-@RequestMapping("/api/sales")
+@RequestMapping({"/api/sales", "/api/receivable"})
 public class SalesController {
 
     private final SalesUseCase salesUseCase;
@@ -40,6 +43,20 @@ public class SalesController {
     public ResponseEntity<SalesInvoiceResponse> createSalesInvoice(@Valid @RequestBody SalesInvoiceRequest request) {
         return ResponseEntity.ok(SalesInvoiceResponse.fromEntity(
                 salesUseCase.createSalesInvoice(request.toCommand())));
+    }
+
+    @GetMapping("/invoices")
+    public ResponseEntity<List<SalesInvoiceResponse>> findInvoices(
+            @RequestParam(value = "status", required = false) String status) {
+        List<SalesInvoiceResponse> response = salesUseCase.findInvoices(status).stream()
+                .map(SalesInvoiceResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/invoices/{id}")
+    public ResponseEntity<SalesInvoiceResponse> findInvoiceById(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(SalesInvoiceResponse.fromEntity(salesUseCase.findInvoiceById(id)));
     }
 
     @PostMapping("/receivables/update-status/{asOfDate}")

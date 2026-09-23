@@ -4,7 +4,7 @@ import com.ho.account.auth.core.application.port.out.AuthUserRepository;
 import com.ho.account.auth.core.domain.model.AuthUser;
 import com.ho.account.auth.core.domain.model.RoleAssignment;
 import com.ho.account.auth.core.infrastructure.config.AuthModuleProperties;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,8 +33,11 @@ public class InMemoryAuthUserQueryAdapter implements AuthUserRepository {
         return Optional.ofNullable(usersByUsername.get(username));
     }
 
-    public List<AuthUser> findAll() {
-        return new ArrayList<>(usersByUsername.values());
+    @Override
+    public List<AuthUser> findAllUsers() {
+        return usersByUsername.values().stream()
+                .sorted(Comparator.comparing(AuthUser::getUsername))
+                .toList();
     }
 
     synchronized AuthUser replaceRoleAssignments(String username, List<RoleAssignment> newAssignments) {
