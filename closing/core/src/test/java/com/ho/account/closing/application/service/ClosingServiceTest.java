@@ -80,6 +80,25 @@ public class ClosingServiceTest {
     }
 
     @Test
+    @DisplayName("결산 캘린더 ID로 태스크 목록을 조회한다")
+    void findClosingTasksByCalendarId_DelegatesToPersistencePort() {
+        // given
+        ClosingTask firstTask = new ClosingTask();
+        firstTask.setId(101L);
+        ClosingTask secondTask = new ClosingTask();
+        secondTask.setId(102L);
+        List<ClosingTask> tasks = List.of(firstTask, secondTask);
+        when(closingTaskPersistencePort.findByClosingCalendarId(42L)).thenReturn(tasks);
+
+        // when
+        List<ClosingTask> result = closingService.findClosingTasksByCalendarId(42L);
+
+        // then
+        assertThat(result).containsExactly(firstTask, secondTask);
+        verify(closingTaskPersistencePort).findByClosingCalendarId(42L);
+    }
+
+    @Test
     @DisplayName("결산 조정 전표 생성 시 회기가 OPEN이 아니면 예외가 발생한다")
     void createClosingAdjustment_PeriodNotOpen_ThrowsException() {
         // given

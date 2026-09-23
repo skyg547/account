@@ -137,7 +137,7 @@ spring:
         - id: payable-api
           uri: lb://payable-api
           predicates:
-            - Path=/api/payments/**,/api/purchase/**,/api/v1/payable/**
+            - Path=/api/payments/**,/api/purchase/**,/api/payable/**,/api/v1/payable/**
           filters:
             - name: CircuitBreaker
               args:

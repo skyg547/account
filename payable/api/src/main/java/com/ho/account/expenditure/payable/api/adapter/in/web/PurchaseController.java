@@ -6,24 +6,27 @@ import com.ho.account.expenditure.payable.api.dto.PurchaseInvoiceResponse;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * [헥사고날 아키텍처 - 인바운드 웹 어댑터]
- * 매입 인보이스 등록과 매입채무 상태 갱신 요청을 애플리케이션 포트로 전달합니다.
+ * 매입 인보이스 등록·조회와 매입채무 상태 갱신 요청을 애플리케이션 포트로 전달합니다.
  *
  * <p>초보자용 설명: 화면이나 API 클라이언트에서 들어온 HTTP 요청을 내부 유즈케이스가
  * 이해할 수 있는 command로 바꿔주는 입구입니다. 실제 업무 규칙은 컨트롤러가 아니라
  * {@link com.ho.account.expenditure.application.service.PurchaseService}에서 처리합니다.</p>
  */
 @RestController
-@RequestMapping("/api/purchase")
+@RequestMapping({"/api/purchase", "/api/payable"})
 public class PurchaseController {
 
     private final PurchaseUseCase purchaseUseCase;
@@ -39,6 +42,26 @@ public class PurchaseController {
     public ResponseEntity<PurchaseInvoiceResponse> createPurchaseInvoice(@Valid @RequestBody PurchaseInvoiceRequest request) {
         // HTTP JSON 입력은 API DTO에서 검증하고, 업무 규칙은 core PurchaseService가 command를 기준으로 처리합니다.
         return ResponseEntity.ok(PurchaseInvoiceResponse.from(purchaseUseCase.createPurchaseInvoice(request.toCommand())));
+    }
+
+    /**
+     * 상태 조건이 있으면 해당 상태의 매입 인보이스를, 없으면 전체를 조회합니다.
+     */
+    @GetMapping("/invoices")
+    public ResponseEntity<List<PurchaseInvoiceResponse>> getPurchaseInvoices(
+            @RequestParam(value = "status", required = false) String status) {
+        List<PurchaseInvoiceResponse> responses = purchaseUseCase.findInvoices(status).stream()
+                .map(PurchaseInvoiceResponse::from)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * 식별자로 매입 인보이스 한 건을 조회합니다.
+     */
+    @GetMapping("/invoices/{id}")
+    public ResponseEntity<PurchaseInvoiceResponse> getPurchaseInvoiceById(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(PurchaseInvoiceResponse.from(purchaseUseCase.findInvoiceById(id)));
     }
 
     /**

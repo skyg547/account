@@ -206,7 +206,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://payable-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/payments/**,/api/purchase/**,/api/v1/payable/**");
+                .isEqualTo("Path=/api/payments/**,/api/purchase/**,/api/payable/**,/api/v1/payable/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))

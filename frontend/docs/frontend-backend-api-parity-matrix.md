@@ -2,7 +2,7 @@
 
 기준: `origin/main@34c75839af2edf10f80ff60d8f24e89504d69e9e` · 감사일: 2026-09-10 · [Issue #179](https://github.com/skyg547/account/issues/179) · [이전 PR 반려 작업지시](https://github.com/skyg547/account/pull/548#issuecomment-5393624546).
 
-**현재 서비스 API가 모두 일치하지 않는다.** 15개 TypeScript 파일에서 42개 endpoint 호출과 3개 transport helper 호출을 확인했다. 42개 중 33개는 HTTP method + Controller mapping이 존재하고, 9개는 `MISSING`이다. 경로가 존재하는 경우에도 아래 DTO/query/응답 처리 drift가 남는다. 이 문서는 검증 결과이며 production 코드 수정이나 모든 API 정상 동작을 주장하지 않는다.
+**현재 서비스 API가 모두 일치하지 않는다.** 15개 TypeScript 파일에서 42개 endpoint 호출과 3개 transport helper 호출을 확인했다. Issue #740 반영 후 42개 중 36개는 HTTP method + Controller mapping이 존재하고, 6개는 `MISSING`이다. 경로가 존재하는 경우에도 아래 DTO/query/응답 처리 drift가 남는다. 이 문서는 정적 매핑 결과이며 모든 API의 Gateway 노출이나 DTO 호환을 주장하지 않는다.
 
 ## 범위와 판정 기준
 
@@ -30,7 +30,7 @@ URL의 `{...}`는 호출 시 값이 대입되는 자리다. query는 별도 열�
 | <!-- endpoint:authService:21 --> [frontend/src/services/authService.ts:21](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/authService.ts#L21) | `POST /api/auth/login` | — | MAPPED · [auth/api/src/main/java/com/ho/account/auth/api/web/AuthController.java:49](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/auth/api/src/main/java/com/ho/account/auth/api/web/AuthController.java#L49) |
 | <!-- endpoint:bankingService:23 --> [frontend/src/services/bankingService.ts:23](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L23) | `GET /api/finance/banking/inter-branch/dashboard` | — | **MISSING** |
 | <!-- endpoint:bankingService:48 --> [frontend/src/services/bankingService.ts:48](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/bankingService.ts#L48) | `POST /api/finance/banking/inter-branch/auto-match` | — | **MISSING** |
-| <!-- endpoint:closingService:35 --> [frontend/src/services/closingService.ts:35](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L35) | `GET /api/closing/calendars/{calendarId}/tasks` | — | **MISSING** |
+| <!-- endpoint:closingService:35 --> [frontend/src/services/closingService.ts:35](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L35) | `GET /api/closing/calendars/{calendarId}/tasks` | — | MAPPED · [ClosingController.getClosingTasksByCalendarId](../../closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L90) |
 | <!-- endpoint:closingService:54 --> [frontend/src/services/closingService.ts:54](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L54) | `PUT /api/closing/tasks/{taskId}/status` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:105](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L105) |
 | <!-- endpoint:closingService:77 --> [frontend/src/services/closingService.ts:77](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L77) | `POST /api/closing/valuation-batches/run` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:196](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L196) |
 | <!-- endpoint:closingService:95 --> [frontend/src/services/closingService.ts:95](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/closingService.ts#L95) | `POST /api/closing/provision-batches/run` | — | MAPPED · [closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java:209](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/closing/api/src/main/java/com/ho/account/closing/web/ClosingController.java#L209) |
@@ -47,8 +47,8 @@ URL의 `{...}`는 호출 시 값이 대입되는 자리다. query는 별도 열�
 | <!-- endpoint:masterDataService:148 --> [frontend/src/services/masterDataService.ts:148](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/masterDataService.ts#L148) | `POST /api/master-data/change-requests` | — | MAPPED · [master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java:51](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java#L51) |
 | <!-- endpoint:masterDataService:164 --> [frontend/src/services/masterDataService.ts:164](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/masterDataService.ts#L164) | `POST /api/master-data/change-requests/{id}/approve` | — | MAPPED · [master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java:70](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java#L70) |
 | <!-- endpoint:masterDataService:181 --> [frontend/src/services/masterDataService.ts:181](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/masterDataService.ts#L181) | `POST /api/master-data/change-requests/{id}/reject` | — | MAPPED · [master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java:79](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/master-data/api/src/main/java/com/ho/account/masterdata/api/web/MasterDataChangeRequestController.java#L79) |
-| <!-- endpoint:payableService:26 --> [frontend/src/services/payableService.ts:26](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L26) | `GET /api/payable/invoices?status={status?}` | optional `status:string` | **MISSING** |
-| <!-- endpoint:payableService:45 --> [frontend/src/services/payableService.ts:45](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L45) | `GET /api/payable/invoices/{id}` | — | **MISSING** |
+| <!-- endpoint:payableService:26 --> [frontend/src/services/payableService.ts:26](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L26) | `GET /api/payable/invoices?status={status?}` | optional `status:string` | MAPPED · [PurchaseController.getPurchaseInvoices](../../payable/api/src/main/java/com/ho/account/expenditure/payable/api/adapter/in/web/PurchaseController.java#L50) |
+| <!-- endpoint:payableService:45 --> [frontend/src/services/payableService.ts:45](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/payableService.ts#L45) | `GET /api/payable/invoices/{id}` | — | MAPPED · [PurchaseController.getPurchaseInvoiceById](../../payable/api/src/main/java/com/ho/account/expenditure/payable/api/adapter/in/web/PurchaseController.java#L62) |
 | <!-- endpoint:receivableService:25 --> [frontend/src/services/receivableService.ts:25](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L25) | `GET /api/receivable/invoices?status={status?}` | optional `status:string` | **MISSING** |
 | <!-- endpoint:receivableService:44 --> [frontend/src/services/receivableService.ts:44](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/receivableService.ts#L44) | `GET /api/receivable/invoices/{id}` | — | **MISSING** |
 | <!-- endpoint:reportingService:59 --> [frontend/src/services/reportingService.ts:59](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/frontend/src/services/reportingService.ts#L59) | `POST /api/v1/reporting/generate?type={type}&baseDate={baseDate}` | required `type`, `baseDate` | MAPPED · [reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java:46](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/reporting/api/src/main/java/com/ho/account/reporting/adapter/in/web/ReportingController.java#L46) |
@@ -262,7 +262,7 @@ GET 호출 `:30`은 required query `startDate`, `endDate`를 보내지 않는다
 
 ### closingService
 
-GET `:35`의 `/api/closing/calendars/{calendarId}/tasks`는 MISSING이다. 아래 task DTO 비교는 실제 PUT 응답에 대한 것이며, 존재하지 않는 GET의 응답 일치를 주장하지 않는다.
+GET `:35`의 `/api/closing/calendars/{calendarId}/tasks`는 Issue #740에서 `ClosingController.getClosingTasksByCalendarId`에 매핑되었다. GET과 기존 PUT은 모두 `ClosingTaskDto`를 사용하므로 아래 task DTO 차이가 두 응답에 동일하게 적용된다.
 
 | 계약 / 필드 | FE | BE / 차이 |
 |---|---|---|
@@ -272,7 +272,7 @@ GET `:35`의 `/api/closing/calendars/{calendarId}/tasks`는 MISSING이다. 아�
 | category | PRE_CLOSING/CLOSING_ENTRY/POST_CLOSING/REPORTING | 같은 enum, domain nullable |
 | status | 위 task status enum | 같은 enum |
 | assignedTo, dueDate | required string 각각 | nullable String/LocalDateTime (`closing/core/src/main/java/com/ho/account/closing/domain/ClosingTask.java:32`) |
-| isMandatory | required boolean | private boolean isMandatory + Lombok @Data → 표준 accessor isMandatory(), Jackson property **mandatory**로 추론; serializer test TODO |
+| isMandatory | required boolean | MockMvc 직렬화 결과는 **mandatory**이므로 필드명이 다른 DRIFT (`ClosingControllerTest`) |
 | errorMessage | optional string | BE 없음 |
 | calendarId | 없음 | Long, mapper 명시적 null 허용 |
 | description, completionConditionJson | 없음 | String 각각 |
@@ -285,7 +285,7 @@ GET `:35`의 `/api/closing/calendars/{calendarId}/tasks`는 MISSING이다. 아�
 | provisionType | ECL/BAD_DEBT/IMPAIRMENT | 같은 값 + WARRANTY/RESTRUCTURING |
 | runBy | required string | @NotBlank @Size(max=50) String |
 
-Task category/assignedTo/dueDate의 nullable은 필수 FE와 다르다. isMandatory wire-name은 `@JsonProperty` 없이 Lombok/JavaBeans 규칙에서 추론한 **TODO**이며 실제 JSON으로 관측한 사실은 아니다. task 상태 enum 값 일치와 유효 상태 전이 여부는 별개다(`ClosingTask.changeStatus:229`).
+Task category/assignedTo/dueDate의 nullable은 필수 FE와 다르다. `isMandatory`는 새 GET의 MockMvc 직렬화 테스트에서 `mandatory`로 관측되어 FE 필드명과 다르다. task 상태 enum 값 일치와 유효 상태 전이 여부는 별개다(`ClosingTask.changeStatus:229`).
 
 Batch 응답 전체는 FE가 버린다. boolean은 `response.ok`에서 만든 것이며 완료 상태 DTO가 아니다. 두 API는 201 `ValuationBatchDto`/`ProvisionBatchDto`를 반환한다(`CD/*BatchDto.java:14`). 전체 필드:
 
@@ -343,7 +343,7 @@ FinancialStatement root String/type/date에 domain nonnull 검증이 없고 Repo
 
 ### payableService / receivableService
 
-두 서비스의 GET 목록/단건 4개는 모두 MISSING이다. PurchaseController와 SalesController는 invoice 생성 POST와 status 갱신 POST만 가진다. **`GET /api/purchase/invoices`, `GET /api/sales/invoices`도 존재하지 않으므로 URL 교체만으로 해결되지 않는다.** 아래는 후보 POST 응답과 의미를 비교한 것이며 실제 GET response 계약으로 판정하지 않는다.
+Payable의 GET 목록/단건은 Issue #740에서 `/api/payable`과 `/api/purchase` 별칭으로 매핑되었다. Receivable의 GET 목록/단건 2개는 여전히 MISSING이다. 아래 Payable 비교는 이제 실제 GET의 `PurchaseInvoiceResponse`, Receivable 비교는 후보 POST 응답을 기준으로 한다.
 
 근거: `frontend/src/services/payableService.ts:1`, `receivableService.ts:1`, `PD/PurchaseInvoiceResponse.java:14`, `SD/SalesInvoiceResponse.java:8`.
 
@@ -498,7 +498,7 @@ getLeases는 ACTIVE 목록만 조회한다(`LeaseEntryService.java:150`). HTTP/t
 
 ## Backend-only mapping 부록
 
-대응 Controller 13개의 전체 87개 mapping 중 위 service에서 사용하지 않는 54개다. `MISSING` 9개를 대신하는 route라는 의미가 아니다. 각 Controller 소스에 request/response 선언이 있다.
+아래는 기준 커밋 `34c75839` 당시 대응 Controller 13개의 전체 87개 mapping 중 service에서 사용하지 않던 54개의 역사적 부록이다. Issue #740의 신규/별칭 route를 다시 열거하는 현재 inventory가 아니다.
 
 | Controller / 근거 | Method / class+method 경로 |
 |---|---|
@@ -557,9 +557,9 @@ getLeases는 ACTIVE 목록만 조회한다(`LeaseEntryService.java:150`). HTTP/t
 | [shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java:147](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java#L147) | `POST /api/audit/approvals/{approvalId}/approve` |
 | [shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java:158](https://github.com/skyg547/account/blob/34c75839af2edf10f80ff60d8f24e89504d69e9e/shared-kernel/src/main/java/com/ho/account/shared/infrastructure/security/web/AuditController.java#L158) | `POST /api/audit/approvals/{approvalId}/reject` |
 
-## 재실행 및 검증 증거
+## 기준 감사 재실행 및 검증 증거 (2026-09-10)
 
-다음 Node 스크립트는 설치된 TypeScript AST로 실제 call-site를 다시 추출하고 문서의 42개 행, method/URL, Controller source link, 대응 Controller의 backend-only 54개 행을 비교한다. 알려진 전표 필드/계정과목 필드/세금계산서 필수 query drift도 실제 소스에서 확인한다. **PASS는 현재 불일치를 정확히 기록했다는 뜻이며 API 호환성 PASS가 아니다.**
+다음 Node 스크립트와 결과는 기준 커밋 감사 당시의 재현 기록이다. Issue #740 이후 `@RequestMapping` 배열 별칭과 세 신규 GET이 추가되었으므로 현재 HEAD 검증 명령으로 사용하지 않는다. 현재 변경은 Closing/Payable Gradle controller 테스트와 표의 source link로 검증한다.
 
 이 extractor는 현재 저장소의 직접 함수 호출/상수 URL 및 annotation 형태에 한정한다. 모든 Java 문법/동적 mapping/전역 Jackson 설정의 일반 검증기는 아니다. DTO nullable/enum/중첩 필드 전체 비교는 앞 절의 수동 소스 감사가 담당한다. 새 간접 helper·annotation 형태·serializer·DTO 변경 시 소스 감사를 다시 해야 한다.
 
@@ -708,8 +708,8 @@ for(const [name,file,mutate] of cases){
 
 ## 후속 수정과 인수 기준
 
-- MISSING 9개: admin 사용자 목록 1, banking 2, fx dashboard 1, payable 2, receivable 2, closing task 목록 1. 사용자 기능 요구와 맞는 backend 계약부터 별도 변경 범위로 합의해야 한다.
+- MISSING 6개: admin 사용자 목록 1, banking 2, fx dashboard 1, receivable 2. 사용자 기능 요구와 맞는 backend 계약부터 별도 변경 범위로 합의해야 한다. Closing 1개와 Payable 2개는 Issue #740에서 매핑되었다.
 - 전표 query와 lines/baseAmount/description, 계정과목 category/type/status, tax reason/PURCHASE/null name, nullable asset/lease/partner 응답, reporting PDF 파일명 등의 DRIFT를 후속 production 변경에서 해결해야 한다.
-- Audit 승인 Gateway 노출과 사용자명/actor 의미, Closing mandatory 직렬화 TODO, live 통합 동작을 별도 검증해야 한다.
+- Audit 승인 Gateway 노출과 사용자명/actor 의미, Closing의 `isMandatory`(FE) 대 `mandatory`(BE) 필드명 DRIFT, live 통합 동작을 별도 검증해야 한다.
 - 이번 이슈의 전수 감사 결과는 source 근거와 함께 제출한다. '모든 endpoint가 존재하고 모든 DTO가 호환됨'은 **충족하지 않으므로 이슈를 자동 종료하지 않는다**. 리뷰어는 감사의 완전성과 후속 수정 범위를 판단한다.
 - 롤백은 이 문서/README/harness 변경 커밋 revert. API/DB migration/배포 롤백은 발생하지 않는다.

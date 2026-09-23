@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PurchaseInvoiceRepository extends JpaRepository<PurchaseInvoiceJpaEntity, Long> {
     Optional<PurchaseInvoiceJpaEntity> findByInvoiceNoAndVendorCode(String invoiceNo, String vendorCode);
+    List<PurchaseInvoiceJpaEntity> findByStatus(PurchaseInvoiceStatus status);
     List<PurchaseInvoiceJpaEntity> findByVendorCodeAndStatus(String vendorCode, PurchaseInvoiceStatus status);
     List<PurchaseInvoiceJpaEntity> findByIssueDateBetween(LocalDate startDate, LocalDate endDate);
 }

@@ -55,6 +55,11 @@ sequenceDiagram
     Service->>Master: 회계기간 존재 확인
     Service->>Store: ClosingCalendar 저장
 
+    User->>API: 캘린더별 태스크 목록 조회
+    API->>Service: findClosingTasksByCalendarId
+    Service->>Store: closingCalendar.id 조건 조회
+    Store-->>User: ClosingTaskDto 배열
+
     User->>API: 태스크 완료/게이트 통과
     API->>Service: updateClosingTaskStatus / checkAndPassClosingGate
     Service->>Store: 상태와 감사 로그 저장
@@ -68,6 +73,8 @@ sequenceDiagram
 ```
 
 마감 완료 판정은 단순히 상태값만 바꾸지 않습니다. 필수 태스크와 게이트를 조회한 뒤 도메인 메서드가 마감 가능 여부를 검증합니다. 이 구조 덕분에 API, Batch, 테스트가 같은 도메인 규칙을 공유할 수 있습니다.
+
+화면은 `GET /api/closing/calendars/{calendarId}/tasks`로 한 캘린더의 태스크를 조회합니다. 예를 들어 `GET /api/closing/calendars/10/tasks`는 해당 캘린더에 속한 태스크를 `ClosingTaskDto` 배열로 반환하고, 태스크가 없으면 빈 배열을 반환합니다. `calendarId`는 양수여야 하며 이 조회는 상태를 변경하거나 감사 로그를 만들지 않습니다.
 
 캘린더는 `OPEN -> IN_PROGRESS -> CLOSED -> OPEN(승인된 재오픈)` 순서만 허용합니다. 필수 태스크와 게이트가 최소 한 개씩 있어야 하며, JSON 조건 문자열이 설정된 태스크/게이트는 아직 typed evidence evaluator가 없으므로 fail-closed 처리합니다.
 

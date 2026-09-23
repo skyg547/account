@@ -7,6 +7,7 @@ import com.ho.account.closing.domain.ClosingTask.ClosingTaskStatus;
 import com.ho.account.closing.domain.ReopenApproval.ReopenApprovalStatus;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 결산 (Closing) 관련 유스케이스 인터페이스.
@@ -16,6 +17,7 @@ public interface ClosingUseCase {
     ClosingCalendar createClosingCalendar(ClosingCalendar closingCalendar);
     ClosingCalendar findClosingCalendarById(Long id);
     ClosingCalendar findClosingCalendarByFiscalPeriod(String fiscalYear, String fiscalPeriod);
+    List<ClosingTask> findClosingTasksByCalendarId(Long calendarId);
     ClosingCalendar updateClosingCalendarStatus(Long id, ClosingCalendarStatus newStatus, String user);
     ClosingTask createClosingTask(ClosingTask closingTask);
     ClosingTask updateClosingTaskStatus(Long taskId, ClosingTaskStatus newStatus, String user);

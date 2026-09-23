@@ -108,6 +108,15 @@ public class ClosingService implements ClosingUseCase {
                 .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found"));
     }
 
+    @Transactional(readOnly = true)
+    @Override
+    public List<ClosingTask> findClosingTasksByCalendarId(Long calendarId) {
+        if (calendarId == null || calendarId <= 0) {
+            throw new IllegalArgumentException("calendarId must be positive");
+        }
+        return closingTaskPersistencePort.findByClosingCalendarId(calendarId);
+    }
+
     @Override
     public ClosingCalendar updateClosingCalendarStatus(Long id, ClosingCalendarStatus newStatus, String user) {
         Objects.requireNonNull(newStatus, "newStatus must not be null");
