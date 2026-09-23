@@ -22,6 +22,27 @@ pipeline에 두어 batch가 업무 규칙을 중복 구현하지 않습니다.
 
 이 실행 설정은 Config Server, Discovery, Vault, 외부 tracing을 끕니다. 따라서 초보자가 인프라를 먼저 띄우지 않아도 기준정보 API와 JPA 매핑을 확인할 수 있습니다. 인메모리 H2이므로 프로세스를 끄면 데이터도 사라집니다.
 
+### local 기준 데이터
+
+`local` profile로 API를 시작하면 Flyway가 스키마 마이그레이션을 마친 뒤
+`data-local.sql`을 실행하여 다음 기준 데이터를 인메모리 H2에 적재합니다.
+
+- 통화 3건: KRW, USD, EUR
+- 부서 3건: 재무팀, 회계팀, 경영관리팀
+- 계정과목 8건
+- 거래처 3건: 신한은행, 삼성전자, 쿠팡
+- 2026년 `OPEN` 회계기간 12건: 1월부터 12월까지
+
+H2는 인메모리 데이터베이스이므로 API 프로세스를 종료하면 적재된 데이터도 초기화되고,
+다음 `local` 실행 시 다시 적재됩니다. 이 초기화 설정은 `local` profile에만 적용되므로
+`dev`와 `prod`의 데이터 초기화 정책에는 영향을 주지 않습니다.
+
+로컬 기준 데이터와 인증 profile 회귀를 함께 확인하려면 저장소 루트에서 다음 명령을 실행합니다.
+
+```powershell
+./gradlew :master-data:core:test :master-data:api:test :auth:core:test :auth:api:test --console=plain
+```
+
 ## PowerShell H2 단독 실행
 
 ```powershell

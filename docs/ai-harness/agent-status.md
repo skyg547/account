@@ -835,3 +835,12 @@
 - Status: Draft PR [#730](https://github.com/skyg547/account/pull/730) OPEN/DRAFT, `Refs #642`; implementation head `ec9a89d9` pushed on `agent/642-container-build-study` to `main`.
 - Issue #642: OPEN / `status:needs-review` / `agent:codex` / `difficulty:medium`.
 - Publication record only; reviewed RFC content unchanged. Hosted current-head CI and human review are next. No Ready/merge/close/cleanup or executable PoC.
+
+## 2026-09-23 — GH-418 Local H2 기준 데이터
+
+- Status: implementation, required verification, and independent review complete; local commit pending at this checkpoint.
+- Trace: `#418` / `agent/418-local-baseline-data` / `/tmp/account-418-local-baseline-data` / `origin/main@3da1f655454d`; PR 없음.
+- Ownership: SQL agent owned two main resources, Test agent owned two tests, Documentation agent owned `master-data/docs/local-run.md`, Explorer/Reviewer were read-only, and the parent owns shared records and Git.
+- Result: master-data local profile seeds 29 schema-valid reference rows after Flyway. Auth files are unchanged and fail-closed/static-credential policy remains intact.
+- Verification: requested four-module command PASS; 612 tests, failures/errors/skips 0. Independent Reviewer: no P0–P3, Q1–Q3 PASS, Q4 N/A. Rollback is a reviewed revert of the five behavior/test/doc files while preserving history.
+- Next owner: human review or separately authorized publication. No push, PR, Ready, merge, Issue close, or cleanup is authorized by this checkpoint.

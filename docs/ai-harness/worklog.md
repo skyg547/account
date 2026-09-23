@@ -3019,3 +3019,20 @@ git diff --name-only --diff-filter=U
 - Issue #642 remains OPEN and moved from `status:in-progress` to `status:needs-review`; `agent:codex` and `difficulty:medium` remain. PR body records actual base `e375002f`, exact scope, verification, Q1–Q4, skipped runtime gates, rollback and merge-authority separation.
 - This publication checkpoint changes only the four required harness/history records. It does not alter the independently reviewed RFC or executable behavior, so Gradle tests are not repeated. Final static/allowlist checks and clean remote tracking are verified after this commit.
 - Hosted checks are not claimed successful at publication. Next owner is a human reviewer for the RFC and current head/base/CI. Draft Ready, merge, Issue close, branch/worktree deletion, Jib implementation and Dockerfile retirement were not performed.
+
+## 2026-09-23 — GH-418 Local H2 기준 데이터
+
+- Issue `#418`; branch `agent/418-local-baseline-data`; worktree `/tmp/account-418-local-baseline-data`; base `origin/main@3da1f655454d`. `master-data:api`의 `local` profile에만 Flyway 이후 `data-local.sql`을 연결했다. Auth production classpath와 profile 설정은 수정하지 않았다.
+- 시드 결과는 통화 3건, 부서 3건, 계정과목 8건, 거래처 3건, 2026년 `OPEN` 회계기간 12건으로 총 29건이다. 유효기간은 `2020-01-01`부터 `9999-12-31`이고, 계정 유형·잔액 방향·거래처 위험/KYC 값과 월말 경계는 V6 스키마 제약에 맞춘다.
+- 신규 `MasterDataLocalProfileDataSeedTest`는 격리 H2와 `@ActiveProfiles("local")`에서 실제 Flyway→SQL init을 거쳐 통화·부서·계정과목의 정확한 값과 고정 기준일 조회를 검증한다. 기존 Flyway-disabled/create-drop 컨텍스트 테스트는 자체 목적을 보존하도록 SQL init만 명시적으로 끈다. 로컬 실행 문서는 데이터 구성, 초기화와 local-only 경계를 설명한다.
+- 사용자 지정 명령 `./gradlew :master-data:core:test :master-data:api:test :auth:core:test :auth:api:test --console=plain`은 `BUILD SUCCESSFUL`(1m25s). XML 결과는 master-data core444/API68, auth core83/API17로 총 612건, failures/errors/skips 0이다. `AuthApiRuntimePolicyTest`를 포함해 정적 credential 없는 fail-closed 정책을 보존했다.
+- 독립 읽기 전용 Reviewer `/root/issue418_review`는 P0–P3 없음과 커밋 가능을 확인했다. `git diff --check`, 승인 파일 conflict marker, unmerged index 검사도 통과했다. 같은 JVM에서 고정 H2 이름으로 시드를 반복 실행하는 경우는 범위 밖이며 신규 테스트는 고유 URL로 격리한다.
+
+| 항목 | 판정 | 파일·검증 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `data-local.sql`, local 설정, seed 통합 테스트; 지정 612 tests PASS | 해당 없음: 실행 설정/테스트 변경 | 실제 PostgreSQL은 대상 아님 | `/root/issue418_review` 확인 |
+| Q2 | PASS | `master-data/docs/local-run.md`의 Flyway→seed→조회/초기화/local-only 설명 | 해당 없음: 초기화 흐름 변경 | 반복 같은-JVM init은 미검증 | `/root/issue418_review` 확인 |
+| Q3 | PASS | 기준 데이터 그룹/건수, 메모리 수명, 검증 명령 문서화 | 해당 없음: local 기능 문서 대상 | dev/prod에는 적용하지 않음 | `/root/issue418_review` 확인 |
+| Q4 | N/A | 선언형 SQL/YAML과 직접 assertion만 변경; SQL 첫 줄에 순서 의도 기록 | 비자명 Java/domain 알고리즘 변경 없음 | 후속 로직 추가 시 재검토 | `/root/issue418_review` 확인 |
+
+- Rollback: 다섯 개 기능/테스트/모듈 문서 파일을 검토된 revert로 되돌리고 공유 이력은 보존한다. H2 데이터는 프로세스 종료 시 사라지며 운영 DB 복구는 없다. 충돌이 없어 `conflict-log.md`는 수정하지 않았다. 사용자 요청은 로컬 커밋까지이며 push, Draft PR, Ready, merge, Issue close, branch/worktree 삭제는 수행하지 않는다.

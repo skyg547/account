@@ -16,7 +16,8 @@ import org.springframework.boot.test.context.SpringBootTest;
     "spring.cloud.discovery.enabled=false",
     "eureka.client.enabled=false",
     "spring.flyway.enabled=false",
-    "spring.jpa.hibernate.ddl-auto=create-drop"
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.sql.init.mode=never"
 })
 class MasterDataApplicationTests {
 
