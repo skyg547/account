@@ -852,3 +852,11 @@
 - Final behavior: scale-2 exact cashflow invariants, DIRECT/INDIRECT activity totals, configurable forecast bands, local memory adapters, REST 400 boundaries, and a parameterized Batch skeleton with same-repository repeat protection and documented H2 restart limitation.
 - Verification: cashflow core/API/Batch 17 tests PASS with rerun; API and Batch bootJars PASS; PostgreSQL/Actuator contents checked; harness quality 32/32; whitespace and markers clean.
 - Remaining gates: external PostgreSQL/production adapters, high-volume reader/partition testing, remote CI, push/PR/human integration review. None is claimed by this initial local skeleton.
+
+## 2026-09-24 — GH-738 external-dev healthcheck port alignment
+
+- Status: implementation, required verification, and independent review complete; requested local commit pending at this checkpoint.
+- Trace: `#738` / `agent/738-dev-server-compose-fix` / `/tmp/account-738-dev-server-compose-fix` / `origin/main@cf53367a`; no PR requested.
+- Result: Closing and Asset Lease now honor `SERVER_PORT` with 8086/8089 fallbacks. The three business overlays retain their verified 8080 in-container contract for 13 APIs. The runbook adds a repository-grounded 17-API inventory and rootless Podman ghost/timer recovery. Cleanup is report-only by default and `--apply` requires explicit full IDs with state revalidation.
+- Verification: requested Gradle command PASS (Closing API 72 + Asset Lease Core 39 = 111 tests, failures/errors/skips 0); requested YAML parse PASS; 13-API port/probe assertion PASS; shell syntax/help, report-only live run, invalid-ID rejection, and nonexistent-ID no-op apply path PASS; harness quality 32/32 PASS. Independent `/root/review_738`: no P0–P3, Q1–Q4 PASS.
+- Limits/next owner: no destructive live cleanup, mocked Podman/systemd race suite, deployed Compose smoke, push, PR, Ready, merge, Issue close, or cleanup. Existing Asset Lease Config Server default 8083 remains documented and out of scope. Next owner is the user/human reviewer for any publication decision.
