@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: cashflow-batch
+  profiles:
+    default: local
+  config:
+    import: optional:configserver:http://localhost:8888
+  main:
+    web-application-type: none
+  batch:
+    job:
+      enabled: false

@@ -44,6 +44,7 @@ subprojects {
 def productionJdbcRuntimeProjects = [
         ':asset-lease:api', ':asset-lease:batch',
         ':budget:api', ':budget:batch',
+        ':cashflow:api', ':cashflow:batch',
         ':closing:api', ':closing:batch',
         ':deposit:api', ':deposit:batch',
         ':expenditure-resolution:api', ':expenditure-resolution:batch',
@@ -60,6 +61,7 @@ def productionJdbcRuntimeProjects = [
 def productionHealthApiProjects = [
         ':asset-lease:api',
         ':budget:api',
+        ':cashflow:api',
         ':closing:api',
         ':deposit:api',
         ':expenditure-resolution:api',

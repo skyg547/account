@@ -844,3 +844,11 @@
 - Result: master-data local profile seeds 29 schema-valid reference rows after Flyway. Auth files are unchanged and fail-closed/static-credential policy remains intact.
 - Verification: requested four-module command PASS; 612 tests, failures/errors/skips 0. Independent Reviewer: no P0–P3, Q1–Q3 PASS, Q4 N/A. Rollback is a reviewed revert of the five behavior/test/doc files while preserving history.
 - Next owner: human review or separately authorized publication. No push, PR, Ready, merge, Issue close, or cleanup is authorized by this checkpoint.
+## 2026-09-23 — GH-47 Cashflow domain
+
+- Status: implementation and independent review complete; local Issue-scoped commit is the authorized endpoint. Branch/worktree/base are `agent/47-cashflow-domain`, `/tmp/account-47-cashflow-domain`, and `origin/main@fd5ebc7e`; no PR exists.
+- Parent Integrator owns all implementation, shared records, and Git state. Read-only `/root/review_47` independently reproduced the initial API/restart findings, then verified their fixes with 17/17 final tests and found no remaining P0–P3. Q1–Q4 are PASS.
+- Scope is `settings.gradle`, root production runtime lists, new `cashflow/**`, and the four required shared records. No existing business module, SQL migration, production service/data, credential, or remote GitHub state changed.
+- Final behavior: scale-2 exact cashflow invariants, DIRECT/INDIRECT activity totals, configurable forecast bands, local memory adapters, REST 400 boundaries, and a parameterized Batch skeleton with same-repository repeat protection and documented H2 restart limitation.
+- Verification: cashflow core/API/Batch 17 tests PASS with rerun; API and Batch bootJars PASS; PostgreSQL/Actuator contents checked; harness quality 32/32; whitespace and markers clean.
+- Remaining gates: external PostgreSQL/production adapters, high-volume reader/partition testing, remote CI, push/PR/human integration review. None is claimed by this initial local skeleton.

@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: cashflow-api
+  profiles:
+    default: local
+  config:
+    import: optional:configserver:http://localhost:8888
+
+server:
+  port: 8101
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
