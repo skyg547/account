@@ -868,3 +868,12 @@
 - Ownership: disjoint Service, Controller, Test, and Gateway agents changed only their allowlists; the parent Integrator owns feature docs, parity matrix, shared records, and Git. Read-only `/root/independent_review` returned initial API-error/Gateway/document findings, verified their fixes, and found no remaining P0–P3; Q1–Q4 PASS.
 - Verification: exact requested four-module Gradle command PASS; Closing core119/API74 and Payable core43/API10 = 246 tests, failures/errors/skips 0. Forced Gateway route policy test30/30 PASS; harness quality32/32 PASS; diff whitespace, untracked whitespace, conflict markers, and unmerged index clean.
 - Limits/next owner: no live BFF→Gateway→Payable smoke, real PostgreSQL repository query/load test, pagination/order contract, push, PR, Ready, merge, Issue close, or cleanup. Rollback is a reviewed Issue-scoped revert; no migration or data recovery is required. Next owner is the user/human reviewer for any publication decision.
+
+## 2026-09-24 — GH-744 rootlessport recovery
+
+- Status: implementation, static/fixture verification, and independent review complete; user-requested local commit pending at this checkpoint.
+- Trace: `#744` / `fix/744-rootlessport-recovery` / `/tmp/account-744` / `origin/main@d5798bc0867832e5d7d8a00a375f39513a025b91`; no PR requested.
+- Result: report mode now finds missing published TCP listeners through `ss` or `/proc`; `--fix-ports` revalidates, restarts only verified drops, and verifies recovery. Existing explicit-ID `--apply` ghost/timer cleanup is preserved.
+- Ownership/review: parent owns implementation, shared records, and Git; `/root/explore_744` and `/root/review_744` were read-only. Reviewer found no P0–P3 and Q1–Q4 PASS.
+- Verification: POSIX shell syntax checks, success/failure/skip fixtures, live `ss`/`/proc` parity, harness quality32/32, diff/marker/index gates PASS. The final live report is 0 ghosts, 0 timers, 1 genuine Elasticsearch9200 port drop; no real restart was authorized or run, so clean-system 0/0/0 is not claimed.
+- Next owner: user/human review after the requested commit. Actual 9200 recovery, push, Draft PR, Ready, merge, Issue close, and cleanup remain separate gates.

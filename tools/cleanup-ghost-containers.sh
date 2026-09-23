@@ -5,44 +5,48 @@ usage() {
     cat <<'EOF'
 Usage: sh tools/cleanup-ghost-containers.sh
        sh tools/cleanup-ghost-containers.sh --apply <full-container-id> [...]
+       sh tools/cleanup-ghost-containers.sh --fix-ports [<full-container-id> ...]
 
-The first form reports rootless Podman ghost containers and stale healthcheck
-timers. The second form revalidates and cleans only the explicitly selected
-64-character IDs. Images, pods, networks, and volumes are never pruned.
+The first form reports rootless Podman ghost containers, stale healthcheck
+timers, and missing published-port listeners. --apply revalidates and cleans
+only the explicitly selected 64-character IDs. --fix-ports restarts all
+port-dropped containers, or only the selected full IDs, and verifies their
+listeners. Images, pods, networks, and volumes are never pruned.
 EOF
 }
 
-apply=false
+mode=report
 case "${1:-}" in
     '') ;;
     --apply)
-        apply=true
+        mode=apply
         shift
         if [ "$#" -eq 0 ]; then
             echo 'ERROR: --apply requires at least one full container ID.' >&2
             usage >&2
             exit 2
         fi
-        for selected_id do
-            case "$selected_id" in
-                *[!0-9a-f]*|'')
-                    echo "ERROR: invalid container ID: $selected_id" >&2
-                    exit 2
-                    ;;
-            esac
-            if [ "${#selected_id}" -ne 64 ]; then
-                echo "ERROR: container ID must contain exactly 64 lowercase hex characters: $selected_id" >&2
-                exit 2
-            fi
-        done
+        ;;
+    --fix-ports)
+        mode=fix_ports
+        shift
         ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
 esac
-if [ "$apply" = false ] && [ "$#" -gt 0 ]; then
-    usage >&2
-    exit 2
-fi
+
+for selected_id do
+    case "$selected_id" in
+        *[!0-9a-f]*|'')
+            echo "ERROR: invalid container ID: $selected_id" >&2
+            exit 2
+            ;;
+    esac
+    if [ "${#selected_id}" -ne 64 ]; then
+        echo "ERROR: container ID must contain exactly 64 lowercase hex characters: $selected_id" >&2
+        exit 2
+    fi
+done
 
 for command_name in podman systemctl awk mktemp; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -69,10 +73,18 @@ ghost_file="$work_dir/ghosts.tsv"
 timer_file="$work_dir/timers.tsv"
 units_file="$work_dir/units.txt"
 eligible_file="$work_dir/eligible-ids.txt"
+port_raw_file="$work_dir/ports-raw.tsv"
+published_port_file="$work_dir/published-ports.tsv"
+listener_raw_file="$work_dir/listeners-raw.txt"
+listener_file="$work_dir/listeners.txt"
+port_drop_file="$work_dir/port-drops.tsv"
+fix_candidates_file="$work_dir/fix-candidates.txt"
 
 cleanup_work_dir() {
     rm -f -- "$before_file" "$after_file" "$before_raw_file" "$after_raw_file" \
-        "$ghost_file" "$timer_file" "$units_file" "$eligible_file"
+        "$ghost_file" "$timer_file" "$units_file" "$eligible_file" \
+        "$port_raw_file" "$published_port_file" "$listener_raw_file" \
+        "$listener_file" "$port_drop_file" "$fix_candidates_file"
     rmdir "$work_dir" 2>/dev/null || true
 }
 trap cleanup_work_dir EXIT HUP INT TERM
@@ -109,6 +121,101 @@ write_snapshot() {
     done <"$raw_snapshot_file" >"$snapshot_file"
 }
 
+write_listening_ports() {
+    if command -v ss >/dev/null 2>&1; then
+        if ! ss -tln >"$listener_raw_file" 2>/dev/null; then
+            echo 'ERROR: unable to query host TCP listeners with ss.' >&2
+            return 1
+        fi
+        awk 'NR > 1 {
+            address = $4
+            sub(/^.*:/, "", address)
+            if (address ~ /^[0-9]+$/) print address
+        }' "$listener_raw_file" | awk '!seen[$0]++' >"$listener_file"
+        return
+    fi
+
+    if [ ! -r /proc/net/tcp ] && [ ! -r /proc/net/tcp6 ]; then
+        echo 'ERROR: neither ss nor readable /proc TCP socket tables are available.' >&2
+        return 1
+    fi
+
+    # POSIX awk does not require hexadecimal numeric literals, so convert the
+    # /proc port field explicitly instead of relying on implementation quirks.
+    {
+        for socket_table in /proc/net/tcp /proc/net/tcp6; do
+            [ -r "$socket_table" ] || continue
+            awk '
+                function hex_to_decimal(hex, index_value, value, digit) {
+                    hex = toupper(hex)
+                    value = 0
+                    for (index_value = 1; index_value <= length(hex); index_value++) {
+                        digit = index("0123456789ABCDEF", substr(hex, index_value, 1)) - 1
+                        if (digit < 0) return -1
+                        value = (value * 16) + digit
+                    }
+                    return value
+                }
+                NR > 1 && $4 == "0A" {
+                    split($2, local_address, ":")
+                    port = hex_to_decimal(local_address[2])
+                    if (port >= 0) print port
+                }
+            ' "$socket_table"
+        done
+    } | awk '!seen[$0]++' >"$listener_file"
+}
+
+write_port_status() {
+    if ! podman ps --no-trunc \
+        --format '{{.ID}}\t{{.Names}}\t{{.State}}\t{{.Ports}}' >"$port_raw_file"; then
+        echo 'ERROR: unable to query running Podman published ports.' >&2
+        return 1
+    fi
+
+    # Podman separates mappings with commas. Only mappings with a host side and
+    # TCP target can have a LISTEN socket; exposed-only and UDP entries are not
+    # rootlessport TCP listener candidates.
+    awk -F '\t' '
+        $3 == "running" {
+            mapping_count = split($4, mappings, ",")
+            for (mapping_index = 1; mapping_index <= mapping_count; mapping_index++) {
+                mapping = mappings[mapping_index]
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", mapping)
+                if (mapping !~ /->.*\/tcp$/) continue
+                host_side = mapping
+                sub(/->.*/, "", host_side)
+                sub(/^.*:/, "", host_side)
+                if (host_side ~ /^[0-9]+$/) {
+                    first_port = host_side + 0
+                    last_port = host_side + 0
+                } else if (host_side ~ /^[0-9]+-[0-9]+$/) {
+                    split(host_side, port_range, "-")
+                    first_port = port_range[1] + 0
+                    last_port = port_range[2] + 0
+                } else {
+                    continue
+                }
+                if (first_port < 1 || last_port > 65535 || first_port > last_port) continue
+                for (host_port = first_port; host_port <= last_port; host_port++) {
+                    key = $1 SUBSEP host_port
+                    if (!seen[key]++) print $1 "\t" $2 "\t" host_port
+                }
+            }
+        }
+    ' "$port_raw_file" >"$published_port_file"
+
+    write_listening_ports
+    awk -F '\t' '
+        FILENAME == ARGV[1] { listening[$1] = 1; next }
+        !($3 in listening) { print $1 "\t" $2 "\t" $3 }
+    ' "$listener_file" "$published_port_file" >"$port_drop_file"
+}
+
+file_has_container() {
+    awk -F '\t' -v id="$2" '$1 == id {found = 1} END {exit !found}' "$1"
+}
+
 # --sync cannot repair every orphaned conmon/runtime record. Both snapshots
 # therefore turn a reported running state into a dead state when its host PID is
 # absent, while retaining the raw state for the running-to-stopped comparison.
@@ -143,8 +250,11 @@ awk '{print $1}' "$units_file" \
         fi
     done >"$timer_file"
 
+write_port_status
+
 ghost_count=$(awk 'END {print NR + 0}' "$ghost_file")
 timer_count=$(awk 'END {print NR + 0}' "$timer_file")
+port_drop_count=$(awk -F '\t' '!seen[$1]++ {count++} END {print count + 0}' "$port_drop_file")
 echo "Ghost containers: $ghost_count"
 while IFS="$(printf '\t')" read -r container_id container_name previous_state current_state; do
     [ -n "$container_id" ] || continue
@@ -155,12 +265,92 @@ while IFS="$(printf '\t')" read -r timer state; do
     [ -n "$timer" ] || continue
     echo "  $timer  container=$state"
 done <"$timer_file"
+echo "Port-dropped containers: $port_drop_count"
+while IFS="$(printf '\t')" read -r container_id container_name host_port; do
+    [ -n "$container_id" ] || continue
+    echo "Port drop: $container_id $container_name ($host_port not listening on host)"
+done <"$port_drop_file"
 
-if [ "$apply" != true ]; then
+if [ "$mode" = report ]; then
     if [ "$ghost_count" -gt 0 ] || [ "$timer_count" -gt 0 ]; then
         echo 'Report only. Re-run with --apply plus the reviewed full container IDs.'
-    else
+    fi
+    if [ "$port_drop_count" -gt 0 ]; then
+        echo 'Report only. Re-run with --fix-ports, optionally followed by reviewed full container IDs.'
+    fi
+    if [ "$ghost_count" -eq 0 ] && [ "$timer_count" -eq 0 ] \
+        && [ "$port_drop_count" -eq 0 ]; then
         echo 'No cleanup required.'
+    fi
+    exit 0
+fi
+
+if [ "$mode" = fix_ports ]; then
+    : >"$fix_candidates_file"
+    if [ "$#" -eq 0 ]; then
+        awk -F '\t' '!seen[$1]++ {print $1}' "$port_drop_file" >"$fix_candidates_file"
+    else
+        for container_id do
+            if awk -v id="$container_id" '$1 == id {found = 1} END {exit !found}' \
+                "$fix_candidates_file"; then
+                echo "Skipping duplicate selected container ID: $container_id"
+                continue
+            fi
+            printf '%s\n' "$container_id" >>"$fix_candidates_file"
+        done
+    fi
+
+    restarted_port_count=0
+    failed_port_count=0
+    while IFS= read -r container_id; do
+        [ -n "$container_id" ] || continue
+
+        # Rebuild both Podman and socket snapshots immediately before restart so
+        # a concurrently recovered, stopped, or reconfigured container is safe.
+        write_port_status
+        if ! file_has_container "$published_port_file" "$container_id"; then
+            echo "Skipping container that is not running with published TCP ports: $container_id"
+            continue
+        fi
+        if ! file_has_container "$port_drop_file" "$container_id"; then
+            echo "Skipping container whose published ports are listening: $container_id"
+            continue
+        fi
+
+        echo "Restarting port-dropped container: $container_id"
+        if ! podman restart "$container_id" >/dev/null; then
+            echo "ERROR: unable to restart port-dropped container: $container_id" >&2
+            failed_port_count=$((failed_port_count + 1))
+            continue
+        fi
+        restarted_port_count=$((restarted_port_count + 1))
+
+        verification_attempt=1
+        port_recovered=false
+        while [ "$verification_attempt" -le 5 ]; do
+            write_port_status
+            if file_has_container "$published_port_file" "$container_id" \
+                && ! file_has_container "$port_drop_file" "$container_id"; then
+                port_recovered=true
+                break
+            fi
+            if [ "$verification_attempt" -lt 5 ]; then
+                sleep 1
+            fi
+            verification_attempt=$((verification_attempt + 1))
+        done
+
+        if [ "$port_recovered" = true ]; then
+            echo "Port recovery verified: $container_id"
+        else
+            echo "ERROR: published ports are still unavailable after restart: $container_id" >&2
+            failed_port_count=$((failed_port_count + 1))
+        fi
+    done <"$fix_candidates_file"
+
+    echo "Port recovery complete: restarted $restarted_port_count container(s), verification failures $failed_port_count."
+    if [ "$failed_port_count" -gt 0 ]; then
+        exit 1
     fi
     exit 0
 fi
