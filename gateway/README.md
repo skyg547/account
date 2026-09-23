@@ -15,7 +15,7 @@ Gateway 하나만 외부에 공개하면 클라이언트는 `http://localhost:80
 
 Gateway의 책임은 다음과 같습니다.
 
-- **주소 은닉과 라우팅**: 기준정보(`/api/basic/**`, `/api/master-data/**`), 전표/원장(`/api/journals/**` 등), 결산(`/api/closing/**`), 예산(`/api/budgets/**`), 내부감사(`/api/v1/internalaudit/**`), 입금(`/api/v1/deposit/**`), 채권(`/api/v1/receivable/**`), 채무(`/api/payable/**`, `/api/v1/payable/**`), 세무(`/api/v1/tax/**`), 대사(`/api/v1/reconciliation/**`), 자산/리스(`/api/v1/asset-lease/**`), 보고서(`/api/v1/reporting/**`), 지출결의(`/api/v1/expenditure/**`), 데이터마트(`/api/v1/mart/**`), ECL(`/api/v1/ecl/**`) 등 16개 분리 마이크로서비스로 명시 라우팅합니다.
+- **주소 은닉과 라우팅**: 관리자 사용자(`/api/admin/**`), 기준정보(`/api/basic/**`, `/api/master-data/**`), 전표/원장과 FX(`/api/journals/**`, `/api/fx/**` 등), 결산(`/api/closing/**`), 예산(`/api/budgets/**`), 내부감사(`/api/v1/internalaudit/**`), 입금(`/api/v1/deposit/**`), 채권(`/api/receivable/**`, `/api/v1/receivable/**`), 채무(`/api/payable/**`, `/api/v1/payable/**`), 세무(`/api/v1/tax/**`), 대사와 지점간 금융(`/api/v1/reconciliation/**`, `/api/finance/banking/**`), 자산/리스(`/api/v1/asset-lease/**`), 보고서(`/api/v1/reporting/**`), 지출결의(`/api/v1/expenditure/**`), 데이터마트(`/api/v1/mart/**`), ECL(`/api/v1/ecl/**`) 등 분리 마이크로서비스로 명시 라우팅합니다.
 - **명시 경로만 공개**: 설정에 선언한 route allowlist만 외부에 노출하며 `/{serviceId}/**` 형태의 자동 경로는 만들지 않습니다. 라우팅에서는 Eureka로 명시적인 `lb://` route의 대상 인스턴스를 선택하고, Gateway 자체의 Eureka 등록과 registry fetch도 유지합니다. 레거시 monolith catch-all(`account-api`)은 완전히 제거되었습니다.
 - **JWT 1차 검문**: 서명, issuer, 발급/만료 시각, 사용자, 역할, `roleVersion`을 검사합니다.
 - **권한 스냅샷 확인**: Auth의 현재 `roleVersion`과 JWT 값을 비교해 역할 변경 전 토큰을 거절합니다.
@@ -23,6 +23,9 @@ Gateway의 책임은 다음과 같습니다.
 - **Master Data 승인 권한**: 변경요청 API는 재생성된 사용자/역할 헤더를 사용해 관리 역할과 maker-checker actor를 검증합니다.
 - **추적 번호 관리**: 안전한 `X-Request-Id`를 요청과 응답에 전달합니다.
 - **서킷 브레이커**: 뒤쪽 서비스 장애가 전체 장애로 번지지 않게 503 fallback을 반환합니다.
+
+Issue #179에서 추가한 채권 조회, FX 대시보드, 지점간 금융 경로는 각 기존 업무 서비스 route의 circuit breaker와 503 fallback을 그대로 사용합니다. 관리자 사용자 조회는 Auth 서비스의 별도 fallback endpoint가 아직 없으므로 존재하지 않는 fallback URI를 만들지 않고 명시적 `lb://auth-service` route로만 전달합니다.
+패키지 기본값 `gateway/src/main/resources/application.yml`과 Config Server가 제공하는 `config-repo/gateway-service.yml`은 같은 route 목록을 유지하며 정책 테스트가 두 설정의 일치를 확인합니다.
 
 Gateway는 회계 계산이나 승인 상태 변경을 수행하지 않습니다. 금액·전표·마감 같은 업무 규칙은 각 도메인 `core`에 남고, Gateway는 입구의 기술/보안 흐름만 조정합니다.
 

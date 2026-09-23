@@ -24,6 +24,14 @@
 | `ReconciliationController` | `POST` | `/api/reconciliation/differences/assign` | 차이를 담당자에게 배정한다. |
 | `ReconciliationController` | `POST` | `/api/reconciliation/differences/resolve` | 차이를 해결 또는 무시 처리한다. |
 | `ReconciliationController` | `GET` | `/api/reconciliation/runs/{runId}/differences` | 실행별 차이 목록을 조회한다. |
+| `InterBranchBankingController` | `GET` | `/api/finance/banking/inter-branch/dashboard` | 본지점 대사 화면에 변경 불가능한 현재 스냅샷을 반환한다. |
+| `InterBranchBankingController` | `POST` | `/api/finance/banking/inter-branch/auto-match` | 아직 core 실행 계약이 없어 HTTP 501과 `matchedCount=0`, `status=NOT_EXECUTED`를 반환하며 대사 상태를 변경하지 않는다. |
+
+### 본지점 뱅킹 API의 현재 경계
+
+본지점 대사 화면 계약은 프론트엔드가 안정적으로 연동할 수 있도록 모든 숫자와 목록 필드를 항상 반환한다. 현재는 조회 가능한 본지점 전용 core 포트가 없으므로 dashboard가 0 금액, 0 건수, 빈 거래 목록인 결정적 스냅샷을 반환한다. 금액과 비율은 `BigDecimal`로 표현한다.
+
+`POST /auto-match`도 실제 매칭 엔진이나 저장소를 호출하지 않는다. HTTP 501과 응답의 `NOT_EXECUTED`는 요청을 수신했지만 기능이 구현되지 않아 금융 대사 상태는 바뀌지 않았다는 뜻이다. 따라서 `response.ok`를 확인하는 프론트엔드는 실행 실패로 처리한다. 향후 core 유즈케이스가 정의되면 API 계층은 그 결과를 DTO로 변환하되, 매칭 판단과 상태 변경은 core에 둔다. 같은 요청을 재실행해도 현재는 외부 상태를 쓰지 않으며 항상 동일한 0건 결과를 반환한다.
 
 
 ## API/core command 경계

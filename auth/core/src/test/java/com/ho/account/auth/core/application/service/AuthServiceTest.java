@@ -264,7 +264,19 @@ class AuthServiceTest {
         AtomicBoolean userQueried = new AtomicBoolean();
         RecordingLoginAttemptPort attempts = new RecordingLoginAttemptPort();
         AuthService service = service(
-                username -> { userQueried.set(true); return Optional.empty(); },
+                new AuthUserQueryPort() {
+                    @Override
+                    public Optional<AuthUser> findByUsername(String username) {
+                        userQueried.set(true);
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public List<AuthUser> findAllUsers() {
+                        userQueried.set(true);
+                        return List.of();
+                    }
+                },
                 code -> true,
                 validPasswordVerifier(),
                 noOtp(),
@@ -339,7 +351,17 @@ class AuthServiceTest {
     }
 
     private AuthUserQueryPort users(Map<String, AuthUser> users) {
-        return username -> Optional.ofNullable(users.get(username));
+        return new AuthUserQueryPort() {
+            @Override
+            public Optional<AuthUser> findByUsername(String username) {
+                return Optional.ofNullable(users.get(username));
+            }
+
+            @Override
+            public List<AuthUser> findAllUsers() {
+                return List.copyOf(users.values());
+            }
+        };
     }
 
     private AuthUser user(boolean active, boolean locked, String department, List<RoleAssignment> assignments) {

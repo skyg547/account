@@ -56,6 +56,38 @@ class GatewayRouteSecurityPolicyTest {
     }
 
     @Test
+    void adminPathsUseExplicitAuthServiceRouteWithoutUnreachableFallback() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "admin-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://auth-service");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/admin/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
+                .isNull();
+    }
+
+    @Test
+    void journalLedgerPathsIncludeFxDashboardRoute() {
+        Properties properties = loadGatewayProperties();
+        int routeIndex = routeIndex(properties, "journal-ledger-api");
+
+        assertThat(routeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
+                .isEqualTo("lb://journal-ledger");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
+                .isEqualTo("Path=/api/journals/**,/api/ledgers/**,/api/unsettled/**,/api/gl-sl/**,/api/drilldown/**,/api/fx/**");
+        assertThat(properties.getProperty(
+                        "spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.fallbackUri"))
+                .isEqualTo("forward:/fallback/journal-ledger");
+    }
+
+    @Test
     void closingPathsUseDedicatedCircuitBreakerRoute() {
         Properties properties = loadGatewayProperties();
         int closingRouteIndex = routeIndex(properties, "closing-api");
@@ -177,7 +209,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://receivable-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/collections/**,/api/sales/**,/api/v1/receivable/**");
+                .isEqualTo("Path=/api/collections/**,/api/sales/**,/api/receivable/**,/api/v1/receivable/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))
@@ -264,7 +296,7 @@ class GatewayRouteSecurityPolicyTest {
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].uri"))
                 .isEqualTo("lb://reconciliation-api");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].predicates[0]"))
-                .isEqualTo("Path=/api/reconciliation/**,/api/v1/reconciliation/**");
+                .isEqualTo("Path=/api/reconciliation/**,/api/v1/reconciliation/**,/api/finance/banking/**");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].name"))
                 .isEqualTo("CircuitBreaker");
         assertThat(properties.getProperty("spring.cloud.gateway.routes[" + routeIndex + "].filters[0].args.name"))

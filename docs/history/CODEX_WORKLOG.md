@@ -2921,3 +2921,11 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Updated the development Compose runbook with symptoms, diagnosis, automatic/manual recovery, output, and disruption cautions. IPv4/loopback/bracketed IPv6/multiple/range/duplicate mappings and TCP-only scope are handled and documented.
 - Syntax, mocked success/skip/failure flows, live `ss`/`/proc` parity, harness quality32/32, and static gates pass. Independent read-only `/root/review_744` found no P0–P3 and Q1–Q4 PASS.
 - Final live reporting found a real Elasticsearch9200 drop (ghost0/timer0/port-drop1), so 0/0/0 is not claimed and no real restart was performed without separate runtime authorization. Rollback is a reviewed scoped revert; the requested local commit is the endpoint and no push/PR/Ready/merge/close/cleanup was performed.
+
+## 2026-09-24 — GH-179 complete frontend/backend endpoint parity
+
+- Implemented the six remaining service calls on `feature/179-api-parity-missing-endpoints` in `/tmp/account-179` from base `11dbd696`: Receivable invoice list/detail, protected Admin user list, FX dashboard, and inter-branch dashboard/auto-match.
+- Receivable and Admin queries respect application/persistence boundaries. Admin is `SYSTEM_ADMIN`-only with explicit FE role mapping and stable display IDs. FX snapshot totals reconcile by invariant; unimplemented auto-match returns HTTP 501 instead of false success. Both Gateway configuration mirrors carry the new routes.
+- The parity inventory is now 42/42 `MAPPED`. Its positive verifier checks current Controller mappings/Issue line links/routes/DTO sentinels and all six negative fixtures fail as expected.
+- Exact required Gradle verification passed 286 tests (Receivable57, Auth115, Journal Ledger34, Reconciliation6, Gateway74) with failures/errors/skips 0. Harness quality/schema and static gates passed. Independent read-only review's initial findings were corrected; final result has no P0–P3 and Q1–Q4 PASS.
+- No live BFF→Gateway→service, PostgreSQL/load, market-data, or matcher mutation test was performed. Static snapshot and documented Receivable DTO drift remain follow-up boundaries. Rollback is a reviewed scoped revert; no push/PR/Ready/merge/Issue close/cleanup was performed.

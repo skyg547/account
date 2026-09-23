@@ -2,6 +2,7 @@ package com.ho.account.auth.core.infrastructure.persistence;
 
 import com.ho.account.auth.core.application.port.out.AuthUserRepository;
 import com.ho.account.auth.core.domain.model.AuthUser;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -23,5 +24,12 @@ public class JpaAuthUserQueryAdapter implements AuthUserRepository {
         }
         return repository.findByUsername(username.trim())
                 .map(AuthUserJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<AuthUser> findAllUsers() {
+        return repository.findAllByOrderByUsernameAsc().stream()
+                .map(AuthUserJpaEntity::toDomain)
+                .toList();
     }
 }

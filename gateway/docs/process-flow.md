@@ -53,7 +53,8 @@ bucket으로 제한됩니다. 위조·만료·잘못된 경로는 직접 연결 
 6. Spring Cloud Gateway route
    - RequestRateLimiter는 JWT 필터가 기록한 내부 principal attribute로 사용자별 bucket 선택
    - 설정에 명시된 route allowlist와 일치하는 외부 경로만 선택
-   - 기준정보, 전표/원장, 결산, 예산, 내부감사, 입금, 채권, 채무, 세무, 대사, 자산/리스, 보고서, 지출결의, 마트, ECL 등 분리된 서비스의 전용 route를 선택
+   - 관리자 사용자(`/api/admin/**`)는 Auth, FX(`/api/fx/**`)는 Journal Ledger, 채권 조회(`/api/receivable/**`)는 Receivable, 지점간 금융(`/api/finance/banking/**`)은 Reconciliation route를 선택
+   - 그 밖의 기준정보, 전표/원장, 결산, 예산, 내부감사, 입금, 채권, 채무, 세무, 대사, 자산/리스, 보고서, 지출결의, 마트, ECL 경로도 분리된 서비스의 전용 route를 선택
    - Eureka에서 선택된 route의 대상 인스턴스(`lb://...`) 확인
    - Discovery locator는 비활성화되어 `/{serviceId}/**` 형태의 자동 경로는 생성되지 않음
    - 요청 전달
@@ -99,6 +100,8 @@ Config 파일이 실수로 `/api/auth/**`를 다시 공개해도 전역 필터�
 ## 6. 뒤쪽 서비스 장애와 fallback
 
 Master Data나 Journal Ledger 호출이 timeout 또는 circuit open 상태가 되면 `FallbackController`가 503과 사용자 안내 메시지를 반환합니다. 이 흐름은 인증 성공 뒤에 발생하므로 인증 장애의 503과 다음 값으로 구분할 수 있습니다.
+
+채권 조회, FX 대시보드, 지점간 금융 API는 각각 Receivable, Journal Ledger, Reconciliation의 기존 circuit breaker와 fallback을 공유합니다. 관리자 사용자 조회 route는 Auth/Admin 전용 fallback 구현이 없으므로 도달할 수 없는 fallback URI를 선언하지 않으며, Auth 연결 실패는 Gateway의 일반 upstream 오류 정책을 따릅니다.
 
 - 인증 인프라 장애: `X-Auth-Error=AUTH_VALIDATION_UNAVAILABLE`
 - 업무 서비스 circuit breaker: fallback JSON의 `status=503`

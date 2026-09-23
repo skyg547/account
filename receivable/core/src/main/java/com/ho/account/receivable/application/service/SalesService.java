@@ -8,6 +8,8 @@ import com.ho.account.contracts.masterdata.BusinessPartnerRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import com.ho.account.receivable.application.port.in.SalesInvoiceCommand;
 import com.ho.account.receivable.application.port.in.SalesUseCase;
+import com.ho.account.receivable.application.port.in.SalesUseCase.InvalidSalesInvoiceStatusException;
+import com.ho.account.receivable.application.port.in.SalesUseCase.SalesInvoiceNotFoundException;
 import com.ho.account.receivable.application.port.out.ReceivableAccountMappingPort;
 import com.ho.account.receivable.application.port.out.ReceivablePersistencePort;
 import com.ho.account.receivable.application.port.out.SalesInvoicePersistencePort;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * [헥사고날 아키텍처 - 애플리케이션 서비스 (Application Service)]
@@ -80,6 +83,30 @@ public class SalesService implements SalesUseCase {
         postSalesJournal(savedInvoice, customer);
 
         return savedInvoice;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SalesInvoice> findInvoices(String status) {
+        if (status == null || status.isBlank()) {
+            return salesInvoicePersistencePort.findAll();
+        }
+
+        SalesInvoiceStatus invoiceStatus;
+        try {
+            // Locale-independent normalization keeps API filtering stable under any server locale.
+            invoiceStatus = SalesInvoiceStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidSalesInvoiceStatusException(status, exception);
+        }
+        return salesInvoicePersistencePort.findByStatus(invoiceStatus);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesInvoice findInvoiceById(Long id) {
+        return salesInvoicePersistencePort.findById(id)
+                .orElseThrow(() -> new SalesInvoiceNotFoundException(id));
     }
 
     @Override

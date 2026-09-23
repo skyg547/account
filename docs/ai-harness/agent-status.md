@@ -877,3 +877,12 @@
 - Ownership/review: parent owns implementation, shared records, and Git; `/root/explore_744` and `/root/review_744` were read-only. Reviewer found no P0–P3 and Q1–Q4 PASS.
 - Verification: POSIX shell syntax checks, success/failure/skip fixtures, live `ss`/`/proc` parity, harness quality32/32, diff/marker/index gates PASS. The final live report is 0 ghosts, 0 timers, 1 genuine Elasticsearch9200 port drop; no real restart was authorized or run, so clean-system 0/0/0 is not claimed.
 - Next owner: user/human review after the requested commit. Actual 9200 recovery, push, Draft PR, Ready, merge, Issue close, and cleanup remain separate gates.
+
+## 2026-09-24 — GH-179 remaining frontend API parity endpoints
+
+- Status: six endpoint implementations, required verification, and independent review complete; user-requested local commit pending at this checkpoint.
+- Trace: `#179` / `feature/179-api-parity-missing-endpoints` / `/tmp/account-179` / base `11dbd6967dc291963d6f3482dd469f6a100195cf`; no push or PR requested.
+- Result: Receivable list/detail traverse use case and persistence ports; Admin user listing traverses an inbound query use case and requires trusted `SYSTEM_ADMIN`; FX and inter-branch dashboard contracts are explicit deterministic snapshots; auto-match fails closed with HTTP 501. Both Gateway config mirrors expose all four new prefixes. The parity inventory is 42 `MAPPED`, 0 `MISSING`.
+- Verification: exact seven-project Gradle command PASS; Receivable API14/Core43, Auth API21/Core94, Journal Ledger API34, Reconciliation API6, Gateway74 = 286 tests, failures/errors/skips 0. Positive matrix verifier and six negative mutations PASS. Harness/static gates are recorded in the worklog.
+- Ownership/review: five disjoint module writers plus parent Integrator; `/root/review_179` was read-only. Initial authorization, false-success, boundary, aggregate, exception, and stale-verifier findings were corrected; final review has no remaining P0–P3 and Q1–Q4 PASS.
+- Limits/next owner: no live BFF→Gateway→service, PostgreSQL query/load, market feed, or real matcher execution. Receivable FE field/enum drift and deterministic snapshot limitations remain documented. Rollback is a reviewed Issue-scoped revert with no migration/data recovery. Push, PR, Ready, merge, Issue close, and cleanup remain separate gates.
