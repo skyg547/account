@@ -3994,3 +3994,12 @@
 - Verification: exact requested four-module command passed 246 tests with zero failures/errors/skips; focused forced Gateway policy suite passed30/30; harness quality passed32/32; final diff/untracked whitespace, conflict-marker, and unmerged-index checks pass. Independent read-only Reviewer found no remaining P0–P3 and Q1–Q4 PASS.
 - Remaining limits: no live BFF/Gateway/service smoke, real PostgreSQL integration/query plan, or high-cardinality pagination/order test. Existing frontend DTO/enum differences remain documented and out of this endpoint-mapping scope.
 - Roll back through a reviewed revert of the Issue-scoped code/test/config/docs commit; no migration or data recovery is needed. Next owner may review the local commit and decide whether to publish. Push, Draft PR, Ready, merge, Issue close, and cleanup remain separate authorization gates.
+
+## 2026-09-24 — GH-744 rootlessport recovery handoff
+
+- Issue #744 is implemented on `fix/744-rootlessport-recovery` in `/tmp/account-744`, based on `origin/main@d5798bc0867832e5d7d8a00a375f39513a025b91`. The requested endpoint is a local commit; no push or PR was requested.
+- `tools/cleanup-ghost-containers.sh` keeps report-only default behavior and existing ghost/timer cleanup. It now reports unique containers whose published TCP ports lack host LISTEN sockets and supports `--fix-ports` for all drops or selected full IDs. Recovery revalidates before restart and verifies afterward with bounded retries.
+- The runbook documents rootlessport-only failure symptoms, `ss`/`/proc` detection, automated and manual recovery, expected output, and restart disruption. UDP/SCTP are intentionally outside the TCP LISTEN contract.
+- Shell syntax, mocked report/recovery/skip/failure paths, live `ss`/`/proc` parity, quality32/32, and static gates pass. Independent `/root/review_744` found no P0–P3 and Q1–Q4 PASS.
+- The current host is not clean: final code detects Elasticsearch port9200 missing while Podman still reports it published. No live restart was performed, so the user's 0/0/0 environment expectation remains an external runtime gate rather than a claimed pass.
+- Roll back with a reviewed Issue-scoped revert while preserving shared records. Because no real remediation or removal ran, no container/data rollback is needed. Next owner decides whether to authorize the targeted Elasticsearch `--fix-ports` action and any publication; push/PR/Ready/merge/Issue close/cleanup remain separate.

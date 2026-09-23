@@ -490,10 +490,11 @@ sh tools/cleanup-ghost-containers.sh
 # 2. 출력된 전체 64자리 ID와 이름이 이 개발 스택의 대상인지 검토한 뒤에만 적용
 sh tools/cleanup-ghost-containers.sh --apply <full-container-id> [<full-container-id> ...]
 
-# 3. cleanup 후 반드시 0/0 재확인
+# 3. cleanup 후 반드시 0/0/0 재확인
 sh tools/cleanup-ghost-containers.sh
 # Ghost containers: 0
 # Stale healthcheck timers: 0
+# Port-dropped containers: 0
 ```
 
 `--apply`는 사용자가 명시한 전체 64자리 ID만 처리합니다. 현재 state/PID를 다시 확인하고, 살아 있는
@@ -505,9 +506,41 @@ PID로 재기동된 대상은 timer와 함께 건너뜁니다. dead ghost라면 
 재생성할 준비를 합니다. 전체 호스트를 대상으로 하는 `podman container prune -f`, `podman rm -af`,
 `systemctl --user reset-failed` 무대상 실행은 다른 프로젝트까지 건드리므로 사용하지 않습니다.
 
+### 실행 중 컨테이너의 rootlessport 리스너 유실
+
+장기 실행한 rootless Podman 컨테이너에서는 컨테이너의 메인 프로세스는 살아 있어도 호스트 포트
+포워딩을 담당하는 `rootlessport` 자식 프로세스만 종료될 수 있습니다. 이때 `podman ps`는 계속
+`running`과 `0.0.0.0:3000->3000/tcp` 같은 Published Port를 표시하지만 `ss -tln`에는 해당
+호스트 포트가 없고 HTTP 요청은 connection refused(code 7) 또는 reset(code 56)으로 실패합니다.
+
+기본 진단은 실행 중인 컨테이너의 Published TCP Port와 실제 호스트 LISTEN 소켓을 대조합니다.
+`ss`가 없으면 `/proc/net/tcp`와 `/proc/net/tcp6`를 사용합니다. 누락이 있으면 컨테이너별로
+`Port drop: <ID> <Name> (<port> not listening on host)`와 합계가 출력됩니다.
+
+```bash
+# 보고만 수행하며 컨테이너를 변경하지 않음
+sh tools/cleanup-ghost-containers.sh
+
+# 감지된 모든 port-drop 컨테이너를 재시작하고 리스너 복구를 검증
+sh tools/cleanup-ghost-containers.sh --fix-ports
+
+# 검토한 전체 64자리 ID만 선택적으로 복구
+sh tools/cleanup-ghost-containers.sh --fix-ports <full-container-id> [<full-container-id> ...]
+
+# helper 없이 한 컨테이너만 수동 복구할 때
+podman restart <container>
+ss -tln
+```
+
+`--fix-ports`는 실행 중이고 Published TCP Port가 실제로 누락된 대상을 재확인한 뒤에만
+`podman restart`를 실행합니다. 재시작 후 모든 Published TCP Port가 다시 LISTEN인지 최대 5회
+검증하며, 복구되지 않으면 오류로 종료합니다. 재시작은 컨테이너 내부의 일시적인 서비스 중단을
+만드므로 전체 자동 복구 전에 이름과 ID를 검토하고, 데이터베이스 같은 상태 저장 서비스의 재시작
+정책도 확인합니다.
+
 ### external-dev 서비스를 깨끗하게 재기동하기
 
-cleanup 재확인이 `0/0`이면 사용 중인 실행 경로 하나만 선택해 재기동합니다. 전체 17-API 경로는
+cleanup 재확인이 `0/0/0`이면 사용 중인 실행 경로 하나만 선택해 재기동합니다. 전체 17-API 경로는
 프로젝트 범위의 `stop` 후 같은 Compose 인자와 profile로 다시 생성합니다. 외부 DB와 volume은
 삭제하지 않습니다.
 

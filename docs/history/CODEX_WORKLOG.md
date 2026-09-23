@@ -2913,3 +2913,11 @@ GH-664의 Q1–Q4는 모두 독립 확인 PASS. CLI 최소 책임, 안전 실패
 - Tests cover Closing delegation/DTO/empty list, Payable all/filter/id/error behavior and both aliases, plus exact Gateway route parity. The frontend parity matrix marks the three calls MAPPED and retains observed DTO/enum drift.
 - Required four-module Gradle verification passed 246 tests with failures/errors/skips0; forced Gateway policy passed30/30; harness quality32/32 and static gates passed. Independent read-only Reviewer returned initial error/routing/doc findings, verified fixes, and found no remaining P0–P3; Q1–Q4 PASS.
 - No live BFF→Gateway→Payable smoke, PostgreSQL query/load test, remote CI, push, or PR was performed. Rollback is a reviewed Issue-scoped revert with no migration/data recovery. The requested local commit is the endpoint; Ready/merge/Issue close/cleanup remain separate gates.
+
+## 2026-09-24 — GH-744 rootlessport listener recovery
+
+- Implemented #744 on `fix/744-rootlessport-recovery` in `/tmp/account-744` from `origin/main@d5798bc0`. Default reporting now compares running containers' published TCP ports with `ss -tln` or `/proc/net/tcp{,6}`, reports missing listeners and a unique-container total, and preserves existing ghost/timer behavior.
+- Added `--fix-ports` for all detected drops or selected full IDs. It revalidates immediately before `podman restart`, skips recovered/ineligible targets, verifies all current published TCP listeners up to five times, and fails nonzero if recovery is incomplete.
+- Updated the development Compose runbook with symptoms, diagnosis, automatic/manual recovery, output, and disruption cautions. IPv4/loopback/bracketed IPv6/multiple/range/duplicate mappings and TCP-only scope are handled and documented.
+- Syntax, mocked success/skip/failure flows, live `ss`/`/proc` parity, harness quality32/32, and static gates pass. Independent read-only `/root/review_744` found no P0–P3 and Q1–Q4 PASS.
+- Final live reporting found a real Elasticsearch9200 drop (ghost0/timer0/port-drop1), so 0/0/0 is not claimed and no real restart was performed without separate runtime authorization. Rollback is a reviewed scoped revert; the requested local commit is the endpoint and no push/PR/Ready/merge/close/cleanup was performed.
