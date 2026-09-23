@@ -462,16 +462,26 @@ podman start config-server discovery master-data auth gateway account-frontend
 ## Ghost Container & Systemd Healthcheck Timer Troubleshooting
 
 rootless Podman은 주기적인 healthcheck를 사용자 systemd transient timer로 실행할 수 있습니다.
-컨테이너 프로세스를 Podman 밖에서 강제 종료하면 Podman의 저장 상태가 잠시 `running`으로 남고,
-전체 컨테이너 ID를 이름으로 사용하는 `<64자리-ID>.timer`가 계속 healthcheck를 호출할 수 있습니다.
-이 상태가 누적되면 컨테이너는 `(unhealthy)` 또는 `stopping`/`unknown`처럼 보이고 사용자 systemd와
-Podman socket에 실패 호출이 반복됩니다. 단순히 readiness가 실패한 정상 실행 컨테이너는 ghost가
-아니므로 먼저 포트와 `/actuator/health/readiness` 응답을 확인합니다.
+컨테이너 프로세스나 `conmon`이 비정상 종료되면 호스트의 `/proc/<pid>`는 사라졌는데 Podman DB는
+계속 `running`, `podman ps`는 `Up (unhealthy)`로 표시할 수 있습니다. 이때 OCI runtime을 직접
+확인하면 `crun state <container-id>`가 `the container is not running`을 반환하지만,
+`podman inspect`의 healthcheck `FailingStreak`은 수만 회까지 계속 증가할 수 있습니다. 전체 컨테이너
+ID를 이름으로 쓰는 `<64자리-ID>.timer`가 남아 Podman socket을 반복 호출하기 때문입니다.
+`podman ps -a --sync`도 끊어진 runtime/conmon 상태를 항상 `exited`로 바꾸지는 못합니다.
 
-저장소 helper는 기본적으로 보고만 합니다. `podman ps --sync`로 OCI runtime과 상태를 맞춘 뒤,
-동기화 중 `running`에서 `exited`/`stopped`로 바뀐 컨테이너와 계속 `unknown`/`stopping`/`removing`인
-컨테이너만 ghost 후보로 잡습니다. 또한 컨테이너가 없거나 실행 중이 아닌 64자리 ID healthcheck
-timer만 stale 후보로 표시합니다.
+단순히 readiness가 실패했지만 `/proc/<pid>`가 존재하는 실행 컨테이너는 ghost가 아닙니다. 먼저
+포트와 `/actuator/health/readiness` 응답을 확인합니다. 반대로 state가 `running`이어도 PID가 0,
+비정상 값, 또는 `/proc/<pid>`가 없으면 helper는 effective state를 `dead (pid missing)`으로 바꿉니다.
+보고 예시는 다음과 같습니다.
+
+```text
+<container-id>  <name>  running -> dead (pid missing)
+```
+
+저장소 helper는 기본적으로 보고만 합니다. 동기화 전후 snapshot 모두에서 Podman이 보고한 PID와
+`/proc`을 대조하며, 이 effective state로 ghost와 stale healthcheck timer를 함께 판정합니다.
+동기화 중 `running`에서 `exited`/`stopped`로 바뀐 컨테이너와 계속
+`unknown`/`stopping`/`removing`인 컨테이너도 기존과 같이 후보에 포함합니다.
 
 ```bash
 # 1. 대상만 확인: 컨테이너나 unit을 삭제/중지하지 않음
@@ -480,18 +490,55 @@ sh tools/cleanup-ghost-containers.sh
 # 2. 출력된 전체 64자리 ID와 이름이 이 개발 스택의 대상인지 검토한 뒤에만 적용
 sh tools/cleanup-ghost-containers.sh --apply <full-container-id> [<full-container-id> ...]
 
-# 3. 남은 상태와 실제 readiness 확인
-podman ps -a --sync
-podman healthcheck run <container-name>
+# 3. cleanup 후 반드시 0/0 재확인
+sh tools/cleanup-ghost-containers.sh
+# Ghost containers: 0
+# Stale healthcheck timers: 0
 ```
 
-`--apply`는 사용자가 명시한 전체 64자리 ID만 처리합니다. 상태를 다시 확인해 여전히 비실행 상태인
-container ID에만 `podman rm --force --ignore`를 실행하며, 선택한 ID와 정확히 일치하고 컨테이너가
-다시 실행되지 않은 사용자 timer만 stop/reset합니다. `--volumes`를 전달하지 않으므로
-named/anonymous volume과 image는 보존합니다.
+`--apply`는 사용자가 명시한 전체 64자리 ID만 처리합니다. 현재 state/PID를 다시 확인하고, 살아 있는
+PID로 재기동된 대상은 timer와 함께 건너뜁니다. dead ghost라면 정확히 일치하는 user-systemd
+`<ID>.timer`와 실행 중인 `<ID>.service`를 중지하고 failed 상태를 reset한 뒤
+`podman rm --force --ignore <ID>`를 실행합니다. 끝에는 제거한 ghost 수와 처리한 timer 수를
+출력합니다. `--volumes`를 전달하지 않으므로 named/anonymous volume과 image는 보존합니다.
 그래도 제거 전에는 컨테이너 이름과 ID를 반드시 검토하고, 업무 컨테이너라면 해당 Compose 파일로
 재생성할 준비를 합니다. 전체 호스트를 대상으로 하는 `podman container prune -f`, `podman rm -af`,
 `systemctl --user reset-failed` 무대상 실행은 다른 프로젝트까지 건드리므로 사용하지 않습니다.
+
+### external-dev 서비스를 깨끗하게 재기동하기
+
+cleanup 재확인이 `0/0`이면 사용 중인 실행 경로 하나만 선택해 재기동합니다. 전체 17-API 경로는
+프로젝트 범위의 `stop` 후 같은 Compose 인자와 profile로 다시 생성합니다. 외부 DB와 volume은
+삭제하지 않습니다.
+
+```bash
+podman compose --env-file .env.external-dev \
+  -f docker-compose.yml -f compose.external-dev.yml \
+  --profile external-dev --profile apis stop
+podman compose --env-file .env.external-dev \
+  -f docker-compose.yml -f compose.external-dev.yml \
+  --profile external-dev --profile apis up -d --no-build --pull never --wait
+```
+
+저자원 최소 인증 + 업무 패키지 경로에서는 기반 스택을 먼저 재기동한 다음 필요한 패키지만
+`account-<package>-external-dev` project 범위로 정지하고 검증 runner로 순차 기동합니다.
+
+```bash
+python3 tools/run-minimal-auth-external-dev.py stop --engine podman
+python3 tools/run-minimal-auth-external-dev.py up \
+  --env-file .env.external-dev --engine podman
+
+# 예: Accounting만 깨끗하게 재기동
+podman compose --project-name account-accounting-external-dev \
+  --env-file .env.external-dev \
+  -f tools/compose.accounting-external-dev.yml --profile external-dev stop
+python3 tools/run-business-external-dev.py up --package accounting \
+  --env-file .env.external-dev --engine podman
+```
+
+Products/Risk는 위 두 명령의 `accounting`을 각각 `products`/`risk`로 바꿉니다. 이미지를 새로
+빌드해야 할 때만 먼저 같은 runner의 `build` action을 실행합니다. `down -v`, 전체 container/image
+prune, 공유 `account-network` 삭제는 clean restart 절차가 아닙니다.
 
 
 ## Batch
