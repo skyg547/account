@@ -1,3 +1,23 @@
+# GH-764 agent status
+
+- Issue: [#764](https://github.com/skyg547/account/issues/764); remote `status:in-progress`, owner `agent:codex`.
+- Status: implementation, audited RED proof, requested local verification and independent review complete; Draft PR publication is the next authorized parent gate.
+- Base: `origin/main@bd2707af704c4a106328c34477f7e3259d827d99`.
+- Branch/worktree: `agent/764-preserve-event-decimals`, `/tmp/account-issue-764`; audited proof `agent/764-regression-proof`, `/tmp/account-764-regression-proof` at `a97d10ab`.
+- Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.
+- Writers: `/root/controller_764` (inbound production config), `/root/test_764` (new regressions), parent (functional docs/records). Independent reviewer: `/root/review_764`, read-only.
+- Allowlist: `journal-ledger/**`; other modules, shared contracts and repository-level shared harness records are unchanged.
+- Result: HTTP and Kafka untyped decimal JSON use the same Boot-managed BigDecimal-preserving mapper before real rule interpolation. Existing core `AccountingPrecision` rejects excess scale without rounding.
+- Verification: audited MVC regressions2/2 expected failures; focused fixed5/5 PASS; exact requested module208/208 PASS (core164/API39/batch5), failures/errors/skips0; API bootJar PASS. Static gates clean.
+- Independent review: initial two P3 gaps corrected by original owners; final no P0–P3, Q1–Q4 PASS.
+- Residual/later gates: no live broker/deployed-server/production-data/load test. Human reviewer owns Ready/merge/Issue close/deployment; branch and both worktrees remain retained.
+
+See [worklog.md](worklog.md) for exact commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits.
+
+---
+
+The following is the retained historical GH-761 checkpoint; its remote state is not a current status report.
+
 # GH-761 agent status
 
 - Issue: [#761](https://github.com/skyg547/account/issues/761); remote `status:needs-review`, owner `agent:codex`.
