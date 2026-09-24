@@ -1,3 +1,26 @@
+# GH-757 handoff
+
+Issue #757 regression proof, required module verification and independent review are complete. [Draft PR #793](https://github.com/skyg547/account/pull/793) is open with `Refs #757`; current `main` already contains the production remediation from merged PR #792, and this branch supplies the missing explicit audited RED/current GREEN evidence without duplicating behavior.
+
+- Issue/branch/worktree: [#757](https://github.com/skyg547/account/issues/757); `agent/757-trusted-journal-audit-actors`; `/tmp/account-757-trusted-journal-audit-actors`; base `894e95e4`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness/history files are unchanged.
+- Behavior: forged, blank and conflicting request-body `createdBy`/`auditUser` cannot outrank the trusted caller at either event or posting-contract MVC boundary. Payload actors are discarded and are not approval identities; Kafka/Spring-event service principals and maker-checker controls remain unchanged.
+- RED/GREEN: byte-identical regression SHA `d6574349…` fails all6 cases on exact audited `a97d10ab` production and passes all6 on current production.
+- Verification: literal `./gradlew :journal-ledger:test` passes250 tests (core188/API51/batch11), failures/errors/skips0; independent related-path selection35/35 and static gates pass.
+- Independent review: `/root/issue757_review` remained read-only, found no P0-P3 and confirmed Q1/Q2/Q4 PASS plus Q3 N/A because current functional documentation already matches behavior.
+- Rollback: remove/revert the regression and this Issue's records. No production code, schema, financial amount or data changes exist.
+- Limits: no live Gateway/JWT, deployment, Kafka broker, PostgreSQL, production data or load test. MockMvc treats `X-Auth-*` as already trusted Gateway context.
+- Remote CI prerequisite: three GitHub Actions entry jobs on publication head `b8f02fd0` did not execute any steps; annotations cite failed recent account payments or a spending limit needing increase. The account owner must resolve Billing & plans and rerun checks. This is neither a remote test pass nor an executed code-test failure.
+- Authority separation: the module writer changed only the regression; the reviewer made no edits; the parent Integrator owns records, commit, push and Draft PR. Ready, merge, Issue close, deployment and cleanup remain later human gates.
+- Publication: reviewed commit `3c1c2069` is pushed; Draft PR #793 records verification and authority separation. Issue #757 is handed off for `status:needs-review`.
+- Next owner: a human reviewer owns Ready, merge, Issue close, deployment and cleanup; the parent retains the branch/worktree/archive for review.
+
+Details, exact commands and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-757 report.
+
 # GH-770 handoff
 
 Issue #770 implementation, audited behavioral RED, H2/PostgreSQL verification and independent review are complete. [Draft PR #786](https://github.com/skyg547/account/pull/786) is open with `Refs #770`; reviewed implementation/record commit `86d2a39e`.

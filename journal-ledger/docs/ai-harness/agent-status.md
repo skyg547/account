@@ -1,3 +1,25 @@
+# GH-757 agent status
+
+- Issue: [#757](https://github.com/skyg547/account/issues/757); owner `agent:codex`, review handoff target `status:needs-review`.
+- Status: audited RED proof, current regression verification and independent review are complete; [Draft PR #793](https://github.com/skyg547/account/pull/793) is open with `Refs #757`. Current `main` already contains the production actor-sanitization remediation from merged PR #792, so this branch adds the missing explicit two-endpoint web-boundary proof instead of duplicating production logic.
+- Base: `origin/main@894e95e4b6ab5854a8252e539dcfda03c572b760`.
+- Branch/worktree: `agent/757-trusted-journal-audit-actors`, `/tmp/account-757-trusted-journal-audit-actors`; audited archive `/tmp/account-757-a97d10a-BzjGLC` contains production blobs verified against `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. `/root/issue757_journal_module` owned `journal-ledger/**`; `/root/issue757_review` remained read-only; parent Integrator owns these module-local records and Git/GitHub.
+- Allowlist: `journal-ledger/**`. Other modules, shared contracts and repository-level shared harness/history files remain unchanged under the user's narrower rule.
+- Result: one MockMvc regression independently covers forged, blank and conflicting `createdBy`/`auditUser` for both `POST /api/journals/from-event` and `POST /api/v1/journals/posting`. Body actor values are discarded and cannot become maker, audit or approval identity.
+- RED/GREEN: the byte-identical test (SHA-256 `d65743492885013a2fe83a94c3e3f1a5aec3a9138fc21dcfcdb96b4b63b35f0d`) fails 6/6 on exact audited production and passes 6/6 on current production.
+- Verification: literal `./gradlew :journal-ledger:test` passes core188/API51/batch11 = 250 tests, failures/errors/skips0. Independent related-path selection passes35/35. Static scope, whitespace, conflict-marker and unmerged-index gates pass.
+- Independent review: `/root/issue757_review` found no P0-P3 and confirmed Q1, Q2 and Q4 PASS; Q3 N/A because the existing README/process-flow already document the verified trusted-actor policy.
+- Rollback/limits: remove the new regression and this Issue's module-local records; production behavior and data are unchanged. No live Gateway/JWT, deployed service, PostgreSQL, production data or load test was used.
+- Publication: reviewed commit `3c1c2069` was pushed and Draft PR #793 was opened. The Issue review handoff preserves `Refs #757`; human review owns Ready, merge, Issue close, deployment and cleanup.
+- Remote CI prerequisite: on publication head `b8f02fd0`, Agent Merge Guard run36038521472, Harness Validation run36038521207 and Module Validation run36038521467 failed before running steps. Their annotations report failed recent account payments or a spending-limit prerequisite. This is an external GitHub account condition, not an executed test failure; no remote CI PASS is claimed.
+
+See [worklog.md](worklog.md) for commands, evidence and Q1-Q4. These records are module-local because the user forbids repository shared-harness edits.
+
+---
+
+The following is retained historical status and is not a current GH-757 report.
+
 # GH-770 agent status
 
 - Issue: [#770](https://github.com/skyg547/account/issues/770); remote status is `status:needs-review`, owner `agent:codex`.
