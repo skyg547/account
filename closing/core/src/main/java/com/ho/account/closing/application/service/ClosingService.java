@@ -1,5 +1,6 @@
 package com.ho.account.closing.application.service;
 
+import com.ho.account.closing.application.port.in.ClosingAdmissionQuery;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.application.port.out.ClosingAdjustmentPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
@@ -71,17 +72,12 @@ public class ClosingService implements ClosingUseCase {
     private final JournalPostingPort journalPostingPort;
     private final JournalQueryPort journalQueryPort;
     private final ClosingAccountingProperties closingAccountingProperties;
+    private final ClosingAdmissionQuery closingAdmissionQuery;
 
     @Transactional(readOnly = true)
     @Override
     public boolean isClosed(LocalDate date) {
-        String fiscalYear = String.valueOf(date.getYear());
-        String fiscalPeriodStr = String.format("%02d", date.getMonthValue());
-
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriod(fiscalYear, fiscalPeriodStr)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Fiscal period is missing for accounting date " + date));
-        return isClosedPeriod(fiscalPeriod);
+        return closingAdmissionQuery.isClosed(date);
     }
 
     @Override
@@ -523,11 +519,6 @@ public class ClosingService implements ClosingUseCase {
         );
 
         return journalPostingPort.createDraftEntry(command);
-    }
-
-    private boolean isClosedPeriod(FiscalPeriodRef fiscalPeriod) {
-        return "CLOSED".equals(fiscalPeriod.closingStatus())
-                || "PERMANENTLY_CLOSED".equals(fiscalPeriod.closingStatus());
     }
 
     private void requireActor(String value, String fieldName) {
