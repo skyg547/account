@@ -37,6 +37,13 @@
 - No live Gateway/JWT, deployed HTTP service, Kafka broker, PostgreSQL, production data, distributed fault injection or load test was used. MockMvc proves request deserialization, headers, routing and downstream port arguments; the module suite protects existing financial and maker-checker controls.
 - Parent is authorized to commit, push and open a Draft PR with `Refs #757`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment and branch/worktree/archive cleanup remain later human gates.
 
+## Draft publication
+
+- Parent committed the independently reviewed four-file module change as `3c1c2069` and pushed only `agent/757-trusted-journal-audit-actors`.
+- Opened [Draft PR #793](https://github.com/skyg547/account/pull/793) against `main` with `Refs #757`. Its body records both endpoint matrices, audited/current results, module250, Q1–Q4, rollback, limits and writer/reviewer/Integrator authority separation.
+- The Issue handoff moves #757 to `status:needs-review` while retaining `agent:codex`. Ready, merge, Issue close, deployment and branch/worktree/archive cleanup were not performed.
+- Remote checks are inspected after this publication-record commit; no remote CI pass is claimed here.
+
 ---
 
 The following entries are retained history and are not current GH-757 evidence.

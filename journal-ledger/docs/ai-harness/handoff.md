@@ -1,6 +1,6 @@
 # GH-757 handoff
 
-Issue #757 regression proof, required module verification and independent review are complete. Current `main` already contains the production remediation from merged PR #792; this branch supplies the missing explicit audited RED/current GREEN evidence without duplicating behavior.
+Issue #757 regression proof, required module verification and independent review are complete. [Draft PR #793](https://github.com/skyg547/account/pull/793) is open with `Refs #757`; current `main` already contains the production remediation from merged PR #792, and this branch supplies the missing explicit audited RED/current GREEN evidence without duplicating behavior.
 
 - Issue/branch/worktree: [#757](https://github.com/skyg547/account/issues/757); `agent/757-trusted-journal-audit-actors`; `/tmp/account-757-trusted-journal-audit-actors`; base `894e95e4`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness/history files are unchanged.
@@ -11,7 +11,8 @@ Issue #757 regression proof, required module verification and independent review
 - Rollback: remove/revert the regression and this Issue's records. No production code, schema, financial amount or data changes exist.
 - Limits: no live Gateway/JWT, deployment, Kafka broker, PostgreSQL, production data or load test. MockMvc treats `X-Auth-*` as already trusted Gateway context.
 - Authority separation: the module writer changed only the regression; the reviewer made no edits; the parent Integrator owns records, commit, push and Draft PR. Ready, merge, Issue close, deployment and cleanup remain later human gates.
-- Next owner: parent publishes the Draft PR and review handoff; a human reviewer owns subsequent readiness and integration gates.
+- Publication: reviewed commit `3c1c2069` is pushed; Draft PR #793 records verification and authority separation. Issue #757 is handed off for `status:needs-review`.
+- Next owner: a human reviewer owns Ready, merge, Issue close, deployment and cleanup; the parent retains the branch/worktree/archive for review.
 
 Details, exact commands and Q1-Q4 evidence are in [worklog.md](worklog.md).
 
