@@ -170,3 +170,9 @@ The publication follow-up updates only the three module harness records. All24 v
 | Q2 | PASS | `closing/docs/process-flow.md:210,224,230,235`; reversal/retry/cursor tests188,205,223,271,288 | 해당 없음: 귀속·역분개·재시작 흐름 변경 | 동시 전기 snapshot·분산 장애 미검증 | 동일 리뷰어 확인 |
 | Q3 | PASS | `closing/README.md`; beginner-guide39, schema84, local-run186; exact378 tests and bootJar2 PASS | 해당 없음: 기능/입문/실행 문서 변경 | 실제 Journal 승인·전기와 운영 PostgreSQL 미검증 | 동일 리뷰어 문서·명령 대조 |
 | Q4 | PASS | Reader intent comments28,43,112; test fixture/reversal/retry comments36,226,277,373 | 해당 없음: 비자명 SQL·테스트 로직 변경 | 고아 원전표 연결은 별도 대사 필요 | 동일 리뷰어 확인 |
+
+### GH-779 Draft publication
+
+- Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
+- Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.

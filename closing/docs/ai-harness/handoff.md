@@ -107,3 +107,9 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 ### GH-779 independent acceptance
 
 `/root/fx_independent_review` directly reran32/32 focused tests successfully, confirmed full378-test evidence and final source/test hashes, and found no unresolved P0–P3. Q1–Q4 all PASS; detailed evidence is in [worklog](worklog.md#independent-review-and-delivery-gate). Parent owns the authorized commit/push/Draft gate; the next owner after publication is a human reviewer for current-head CI and operational limits.
+
+### GH-779 Draft publication
+
+- Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
+- Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.
