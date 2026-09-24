@@ -15,4 +15,6 @@
 
 Verification: exact module command170/170; PostgreSQL16.13 regressions14/14; independent Loan consumer1/1; API/Batch bootJARs include the exact V13 migration. All successful suites have failures/errors/skips0. Audited PostgreSQL baseline fails both new concurrent cases with4 GL rows instead of2. See [worklog.md](worklog.md) for commands and limitations.
 
+Remote CI limitation: GitHub Actions did not start the jobs because account billing/spending-limit prerequisites are unmet. No CI test failure or CI pass is claimed; the account owner must resolve the external prerequisite and rerun checks before later readiness gates.
+
 These module-local records satisfy task traceability within the explicit module allowlist. They do not replace or edit the repository's shared harness history.

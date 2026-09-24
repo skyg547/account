@@ -24,6 +24,8 @@ Changed areas: core persistence adapter/repository and port documentation; GL/SL
 
 ## Remaining gates and resources
 
+Remote CI did not execute: GitHub check annotations report failed account payments or a spending limit needing increase. The account owner must check GitHub Billing & plans, then rerun the checks. Local tests do not replace this remaining remote CI gate; PR stays Draft. See the exact run evidence in the worklog.
+
 Legacy duplicates/NULL references require separately approved financial reconciliation before V13. Constraint creation needs a deployment window appropriate for table size. Production load, process crash injection, concurrent closing and different journals updating shared balances were not verified. No deployment or financial data repair was performed.
 
 Main worktree: `/tmp/account-760-single-posting`; regression-proof worktree: `/tmp/account-760-regression-proof`. Evidence logs and saved PostgreSQL XML remain under `/tmp/account-760-*`. Task-only PostgreSQL container `account-760-postgres` is stopped and retained. Branches/worktrees are retained for human review; shared harness history remains unchanged under the user's allowlist.

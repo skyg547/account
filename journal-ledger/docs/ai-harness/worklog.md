@@ -59,3 +59,9 @@
 - Independent reviewer approved the final three module-local records and PR description; no factual mismatch or unresolved finding. Parent committed the reviewed23-file change as `65a799f4` and pushed only `agent/760-single-posting`.
 - Opened [Draft PR #782](https://github.com/skyg547/account/pull/782) against `main`, using `Refs #760`. The body includes regression/full-suite/packaging evidence, Q1–Q4, user-directed module-local harness exception, rollback limits and explicit authority separation.
 - This publication follow-up changes only these three record files to add the actual PR link. No implementation or test changed after independent approval. Remote CI is a subsequent check and is not represented by local test results. Ready, merge, Issue close and resource deletion were not performed.
+
+## Remote CI execution prerequisite
+
+- On published head `ee1f625f`, [Module Validation](https://github.com/skyg547/account/actions/runs/36003024467), [Harness Validation](https://github.com/skyg547/account/actions/runs/36003024509), and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36003024616) failed before executing any job steps. Failed-job logs were unavailable because jobs never started.
+- Read-only check annotations for jobs107644055366/107644055404/107644055794 all report that recent account payments failed or the spending limit must be increased. This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is claimed.
+- Next owner: repository/account owner resolves GitHub Billing & plans and reruns checks. Parent leaves PR Draft and Issue OPEN/needs-review. This record-only follow-up and PR body disclose the remaining gate; no billing settings, workflow/shared harness files, implementation or tests were changed.
