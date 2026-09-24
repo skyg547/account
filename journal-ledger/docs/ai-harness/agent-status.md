@@ -11,6 +11,7 @@
 - Verification: pre-change module316 PASS; final independent forced module340 PASS (core271/API57/batch12), failures/errors/skips0; quality contract32/32 and static gates PASS.
 - Independent review: three initial P1 findings and one stale-doc issue were returned and corrected. Final `/root/jl763_review` reports no P0-P3 and Q1-Q4 PASS.
 - Publication: reviewed implementation/record commit `1c502c65` is pushed. Draft PR #796 contains verification, rollback/limits, Q1-Q4, and explicit authority separation; this final record-only update changes no production or test behavior.
+- Remote CI prerequisite: on publication head `7da8713d`, Agent Merge Guard, Harness Validation, and Module Validation entry jobs did not start. GitHub annotations report failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
 - Rollback/limits: scoped revert, no migration. No production data, live PostgreSQL, external FX provider, load, or deployment verification. Quote provider/source/date is outside the current contract; invalid existing normal drafts/approvals require approved correction.
 - Authority: user authorized commit, push, and Draft PR. Human review owns Ready, merge, Issue close, deployment, and cleanup.
 

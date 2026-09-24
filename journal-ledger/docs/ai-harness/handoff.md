@@ -12,6 +12,7 @@ Issue #763 implementation, audited RED/current GREEN proof, requested verificati
 - Limits: no production-data reconciliation, live PostgreSQL, external FX feed/provider/source/date, distributed failure, load, or deployment test. Existing invalid normal DRAFT/APPROVED records require approved correction; already POSTED effects can use managed exact-copy reversal.
 - Authority separation: Explorer/Reviewer read-only; disjoint production/test/docs writers; parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and cleanup remain human gates.
 - Publication: Draft PR #796 contains verification results, rollback/limits, Q1-Q4, and explicit authority separation. This final record-only update changes no production or test behavior.
+- Remote CI prerequisite: Agent Merge Guard, Harness Validation, and Module Validation entry jobs on publication head `7da8713d` did not start. Their annotations cite failed recent account payments or a spending-limit prerequisite. The account owner must resolve billing and rerun checks; this is neither a remote test pass nor an executed code-test failure.
 - Next owner: a human reviewer owns remote CI resolution and later Ready, merge, Issue close, deployment, and cleanup gates. Both task and proof worktrees remain retained.
 
 Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
