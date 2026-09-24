@@ -50,6 +50,12 @@
 - Stopped task-owned `account-770-postgres` after fixed and independent PostgreSQL verification; the exited container is retained. The branch, implementation worktree and detached proof worktree also remain retained for human review.
 - This follow-up changes only the three module-local records to add actual publication state. Remote CI is pending; no remote PASS or readiness claim is made.
 
+## Remote CI execution prerequisite
+
+- On published Draft head `a1bbf0c4`, Module Validation run `36019983902`, Harness Validation run `36019983966` and Agent Merge Guard run `36019984123` failed before executing job steps. Downstream module/discipline jobs were skipped.
+- Check-run annotations for the three entry jobs state that recent account payments failed or the spending limit must be increased. Each failed job reports an empty steps array. This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is claimed.
+- Next owner: repository/account owner resolves GitHub Billing & plans and reruns checks. PR remains Draft and Issue remains OPEN/needs-review. No billing settings, workflows, shared harness files, Ready state, merge or Issue close were changed.
+
 ---
 
 The following entries are retained history and are not current GH-770 evidence.
