@@ -12,6 +12,7 @@
 - Independent review: `/root/issue757_review` found no P0-P3 and confirmed Q1, Q2 and Q4 PASS; Q3 N/A because the existing README/process-flow already document the verified trusted-actor policy.
 - Rollback/limits: remove the new regression and this Issue's module-local records; production behavior and data are unchanged. No live Gateway/JWT, deployed service, PostgreSQL, production data or load test was used.
 - Publication: reviewed commit `3c1c2069` was pushed and Draft PR #793 was opened. The Issue review handoff preserves `Refs #757`; human review owns Ready, merge, Issue close, deployment and cleanup.
+- Remote CI prerequisite: on publication head `b8f02fd0`, Agent Merge Guard run36038521472, Harness Validation run36038521207 and Module Validation run36038521467 failed before running steps. Their annotations report failed recent account payments or a spending-limit prerequisite. This is an external GitHub account condition, not an executed test failure; no remote CI PASS is claimed.
 
 See [worklog.md](worklog.md) for commands, evidence and Q1-Q4. These records are module-local because the user forbids repository shared-harness edits.
 

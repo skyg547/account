@@ -44,6 +44,12 @@
 - The Issue handoff moves #757 to `status:needs-review` while retaining `agent:codex`. Ready, merge, Issue close, deployment and branch/worktree/archive cleanup were not performed.
 - Remote checks are inspected after this publication-record commit; no remote CI pass is claimed here.
 
+## Remote CI execution prerequisite
+
+- On publication head `b8f02fd0`, Agent Merge Guard run36038521472/job107764548186, Harness Validation run36038521207/job107764546633 and Module Validation run36038521467/job107764548545 failed before executing any steps. Matrix/downstream jobs were skipped or failed as a consequence.
+- All three entry-job annotations say the jobs were not started because recent account payments failed or the spending limit must be increased. This is an external GitHub account prerequisite, not an executed code, test or harness failure; no remote CI PASS is claimed.
+- Next owner: the repository/account owner resolves GitHub Billing & plans and reruns checks. PR #793 remains Draft and Issue #757 remains OPEN/needs-review. No billing settings, workflows, shared harness files, Ready state, merge, Issue close or cleanup were changed.
+
 ---
 
 The following entries are retained history and are not current GH-757 evidence.

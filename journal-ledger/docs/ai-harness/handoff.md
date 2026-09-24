@@ -10,6 +10,7 @@ Issue #757 regression proof, required module verification and independent review
 - Independent review: `/root/issue757_review` remained read-only, found no P0-P3 and confirmed Q1/Q2/Q4 PASS plus Q3 N/A because current functional documentation already matches behavior.
 - Rollback: remove/revert the regression and this Issue's records. No production code, schema, financial amount or data changes exist.
 - Limits: no live Gateway/JWT, deployment, Kafka broker, PostgreSQL, production data or load test. MockMvc treats `X-Auth-*` as already trusted Gateway context.
+- Remote CI prerequisite: three GitHub Actions entry jobs on publication head `b8f02fd0` did not execute any steps; annotations cite failed recent account payments or a spending limit needing increase. The account owner must resolve Billing & plans and rerun checks. This is neither a remote test pass nor an executed code-test failure.
 - Authority separation: the module writer changed only the regression; the reviewer made no edits; the parent Integrator owns records, commit, push and Draft PR. Ready, merge, Issue close, deployment and cleanup remain later human gates.
 - Publication: reviewed commit `3c1c2069` is pushed; Draft PR #793 records verification and authority separation. Issue #757 is handed off for `status:needs-review`.
 - Next owner: a human reviewer owns Ready, merge, Issue close, deployment and cleanup; the parent retains the branch/worktree/archive for review.
