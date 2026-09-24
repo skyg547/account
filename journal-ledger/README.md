@@ -9,7 +9,7 @@
 **Q. 이 모듈은 정확히 무슨 일을 하나요?**
 거래를 회계 전표로 만들고, 승인받고, 최종적으로 원장(Ledger)에 반영한 뒤, 나중에 감사관이 "이 돈 어디서 왔어?" 하고 물어볼 때 끝까지 추적할 수 있게 기록을 남기는 곳입니다.
 
-**초보자가 알아야 할 핵심 7가지 개념:**
+**초보자가 알아야 할 핵심 8가지 개념:**
 1. **전표 (`JournalEntry`):** 회계 처리 한 건의 헤더 ("2026-04-13 대출 실행 전표")
 2. **전표 라인 (`JournalDetail`):** 실제 차변/대변 상세 줄.
 3. **상태 변화:** 작성 중(`DRAFT`) -> 승인 요청(`REQUESTED`) -> 승인됨(`APPROVED`) -> 원장 반영 완료(**`POSTED`**)
@@ -19,6 +19,7 @@
 5. **Lineage (추적 키):** 이 전표가 시스템의 어떤 원천 문서(지출결의서 등)에서 왔는지 알려주는 꼬리표(`lineageSourceType`, `lineageSourceId`). 드릴다운(Drill-down)의 핵심입니다.
 6. **불변 전기 스냅샷:** 승인된 `JournalEntry`는 `GeneralLedger` Aggregate로 한 번 고정된 뒤 GL과 SL adapter에 전달됩니다. 두 장부가 서로 다른 시점의 가변 데이터를 읽지 않도록 하기 위함입니다.
 7. **전기된 이력은 수정하지 않음:** `POSTED` 전표는 헤더, 감사 정보, 상세 금액·계정·차대 구분·차원·적요와 상세 구성까지 원본 그대로 보존합니다. 오류 정정은 원본을 고치는 대신 원본을 연결한 새 역분개 또는 조정 전표로 기록합니다.
+8. **역분개는 원본당 하나의 작업:** 원본은 `POSTED`로 보존하고 `journal_reversal_operations`가 현재 역분개를 연결합니다. 중복 요청은 첫 요청이 만든 같은 전표를 반환하며, 전기 전 취소한 경우에만 새 역분개를 만들 수 있습니다.
 
 차변과 대변 금액은 단순 `BigDecimal`이 아니라 `Debit`/`Credit` Value Object로 구분합니다.
 두 타입은 기존 DB의 `DECIMAL(19,2)` 계약을 공유하며 소수 둘째 자리를 넘는 값을 몰래
@@ -76,6 +77,8 @@ flowchart LR
 ```mermaid
 erDiagram
     JOURNAL_ENTRY ||--o{ JOURNAL_DETAIL : "contains"
+    JOURNAL_ENTRY ||--o| JOURNAL_REVERSAL_OPERATION : "is source of"
+    JOURNAL_REVERSAL_OPERATION ||--|| JOURNAL_ENTRY : "points to current reversal"
     JOURNAL_ENTRY {
         Long id PK
         String slip_no "유니크 채번"
@@ -90,6 +93,12 @@ erDiagram
         BigDecimal amount "금액"
         String side "DEBIT / CREDIT"
     }
+    JOURNAL_REVERSAL_OPERATION {
+        Long original_journal_entry_id PK
+        String original_journal_status "POSTED"
+        Long reversal_journal_entry_id UK
+        String status "PENDING, POSTED, CANCELLED"
+    }
 ```
 
 ---
@@ -100,8 +109,10 @@ erDiagram
 - 전표 생성 전 반드시 `contracts` 모듈의 Port를 통해 계정 코드와 마감 여부를 확인해야 합니다.
 - **GL/SL 잔액 조회:** 외부 모듈은 `LedgerQueryPort`를 통해 journal-ledger 엔티티 구조를 모르고도 잔액을 조회할 수 있습니다.
 - 전표 HTTP API는 도메인 엔티티를 직접 노출하지 않고 전용 요청/응답 DTO를 사용합니다. 쓰기 명령은 Gateway가 JWT에서 다시 만든 `X-Auth-User`와 `X-Auth-Roles`만 사용하며, maker 작성/승인요청 → 별도 approver 승인 → poster 전기 순서를 강제합니다. 역할과 오류는 [업무 흐름 문서](docs/process-flow.md#maker-checker-승인과-http-권한)를 확인하세요.
+- 공개 `POST /api/journals`의 `entryType`에 caller가 `REVERSAL`을 지정하면 HTTP `400`을 반환합니다. 주변 공백이나 대소문자를 바꾸어도 같게 거부됩니다. 역분개는 원본 잠금과 operation 저장을 함께 수행하는 관리형 `reverseJournalEntry` 유스케이스로만 생성합니다.
 - 미결 반제 요청은 `settlementReference`와 `X-User-ID`를 함께 저장합니다. 동일 참조번호가 재전송되면 금액을 중복 반영하지 않습니다.
 - 같은 전표의 동시 전기는 헤더 잠금과 전표 상세 고유 키로 중복 반영을 차단합니다. 서로 다른 전표의 같은 계정·통화 잔액은 공통 잠금 행을 확보한 뒤 최신 값으로 갱신합니다. `READ_COMMITTED` 쓰기 트랜잭션과 V14가 필요하며, [동작·재시도·배포 조건](docs/posting-concurrency.md)을 확인하세요.
+- 역분개 생성은 원본 `POSTED` 헤더를 잠그고, V17의 원본 PK 관계를 확인합니다. V17은 `journal_entries(id, status)` UNIQUE와 operation의 `(original_journal_entry_id, original_journal_status='POSTED')` 복합 FK로 DB 경계에서도 전기된 원본만 허용합니다. 순차·동시 중복은 첫 작성자가 만든 현재 역분개로 수렴합니다. 생성 날짜는 기존 검증 엔진의 회계기간 검사를 통과해야 하고, 취소는 전기되지 않은 역분개를 `REJECTED` 처리한 뒤 권리를 다시 엽니다. [생성·재시도·취소 흐름](docs/process-flow.md#원본당-단일-역분개-작업)과 [V17 배포 조건](docs/posting-concurrency.md#v17-역분개-작업-업그레이드와-롤백)을 확인하세요.
 - 재집계 Job은 V15의 영속 제어 행을 `REBUILDING`으로 닫고 JobInstance ID와 정규화 기간을 고정합니다. 장애 중에는 잔액 조회·전기·다른 재집계를 fail-closed로 거부하며, 같은 JobInstance만 저장된 chunk checkpoint에서 재개합니다. 최종 GL/SL 대사가 성공해야 `OPEN`으로 공개됩니다.
 - 재무 잔액과 기간 집계 조회에는 원장 반영이 끝난 `POSTED` 전표만 포함됩니다. `APPROVED` 전표는 아직 재무제표 금액이 아닙니다.
 - `POSTED` 전표의 공개 setter, 상세 소유권 변경과 `add/remove/clear/setDetails`는 즉시 `IllegalStateException`으로 거부됩니다. JPA 저장 콜백은 일반 repository 삭제를 포함한 이미 확정된 헤더·상세의 수정, merge, 추가·삭제를 막고, 두 journal repository는 콜백을 우회하는 batch 삭제 메서드를 명시적으로 거부합니다. `DRAFT`/`REQUESTED`/`APPROVED`는 기존 상태 규칙 안에서 계속 편집할 수 있습니다. 상세 경계와 우회 위험은 [업무 흐름](docs/process-flow.md#posted-최종-이력-보호)과 [데이터 모델](docs/schema.md#posted-전표의-영속-이력-보호)을 확인하세요.
@@ -126,12 +137,19 @@ Linux/macOS에서 Issue #758의 전기 이력 보호를 포함한 모듈 전체 
 ./gradlew :journal-ledger:test
 ```
 
-검증된 결과는 core 29 suites/215 tests, API 15/51, batch 4/11로 합계 48 suites/277 tests이며
+이 수치는 Issue #758 당시의 역사적 검증 결과(core 29 suites/215 tests, API 15/51,
+batch 4/11, 합계 48 suites/277 tests)이며
 실패·오류·skip은 0입니다. 이 명령은 JPA/도메인 회귀를 확인하며, 직접 SQL이나 운영 DB 권한을
 검증하는 명령은 아닙니다.
 
+Issue #759 역분개 멱등성 변경도 같은 명령으로 검증합니다. 기대 결과는 순차·동시
+중복, 전기-취소 경쟁, 취소 후 재생성, V17 clean/upgrade, 재집계 회귀를 포함한
+모든 테스트의 실패·오류 0입니다. 실제 통과 여부와 테스트 개수는 Issue/PR 검증 기록을
+기준으로 확인합니다. PR에는 감사 기준 소스에서 실패(RED)하고 수정본에서 통과(GREEN)하는
+호환 회귀 근거와 실제 전기-취소 경쟁 결과를 함께 남겨야 합니다.
+
 프로파일을 생략하면 API와 Batch 모두 `local`이 선택되어 각자의 전용 H2 PostgreSQL mode DB에
-모듈 Flyway V1/V10/V11/V12/V13/V14/V15를 적용하고 Hibernate가 스키마를 검증합니다.
+모듈 Flyway V1/V10/V11/V12/V13/V14/V15/V16/V17을 적용하고 Hibernate가 스키마를 검증합니다.
 `dev`/`prod`는 주입된 PostgreSQL 접속정보를 사용하며
 애플리케이션 Flyway와 SQL/Batch 자동 초기화를 끕니다. 배포 전 migration은 별도
 `migration-runner`만 수행합니다. Journal의 Master Data 조회는 local에서 명시적인 local

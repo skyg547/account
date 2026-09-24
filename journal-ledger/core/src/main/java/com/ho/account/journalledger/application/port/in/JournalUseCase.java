@@ -194,4 +194,17 @@ public interface JournalUseCase {
       * @throws IllegalStateException 원본 전표가 POSTED 상태가 아닌 경우
       */
      JournalEntry reverseJournalEntry(Long id, LocalDate accountingDate, String creator, String reason);
+
+     /**
+      * 아직 전기되지 않은 현재 역분개 전표를 취소하여 역분개 권리를 다시 엽니다.
+      *
+      * <p>연결된 역분개가 PENDING이고 전표가 DRAFT/REQUESTED/APPROVED일 때만 취소할 수
+      * 있습니다. 원본 POSTED 전표는 변경하지 않습니다.</p>
+      *
+      * @param originalJournalEntryId 역분개 대상 원본 전표 ID
+      * @param actor 취소 처리자
+      * @param reason 취소 사유
+      * @return REJECTED로 전환된 역분개 전표
+      */
+     JournalEntry cancelReversal(Long originalJournalEntryId, String actor, String reason);
      }

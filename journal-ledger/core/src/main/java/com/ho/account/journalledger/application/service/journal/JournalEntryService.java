@@ -2,10 +2,13 @@ package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
+import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
 import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,8 +54,25 @@ import java.util.Optional;
  * ─────────────────────────────────────────────────
  */
 @Service
-@RequiredArgsConstructor
 public class JournalEntryService implements JournalUseCase {
+
+    private static final JournalReversalPersistencePort UNAVAILABLE_REVERSAL_PERSISTENCE =
+            new JournalReversalPersistencePort() {
+                @Override
+                public JournalReversalOperation save(JournalReversalOperation operation) {
+                    throw unavailableReversalPersistence();
+                }
+
+                @Override
+                public Optional<JournalReversalOperation> findByOriginalJournalEntryId(Long originalJournalEntryId) {
+                    throw unavailableReversalPersistence();
+                }
+
+                @Override
+                public Optional<JournalReversalOperation> findByReversalJournalEntryId(Long reversalJournalEntryId) {
+                    throw unavailableReversalPersistence();
+                }
+            };
 
     /**
      * 전표 영속성 포트 (Outbound Port).
@@ -60,6 +80,9 @@ public class JournalEntryService implements JournalUseCase {
      * 이 서비스는 "저장해줘", "찾아줘"라는 의도만 표현하고, 기술 세부사항은 모릅니다.
      */
     private final JournalPersistencePort journalPersistencePort;
+
+    /** 원본별 단일 역분개 작업과 그 수명주기를 저장합니다. */
+    private final JournalReversalPersistencePort journalReversalPersistencePort;
 
     /**
      * 자동분개 규칙 엔진.
@@ -80,6 +103,39 @@ public class JournalEntryService implements JournalUseCase {
      */
     private final JournalValidationEngine journalValidationEngine;
 
+    /** Production wiring uses the durable reversal operation port. */
+    @Autowired
+    public JournalEntryService(
+            JournalPersistencePort journalPersistencePort,
+            JournalReversalPersistencePort journalReversalPersistencePort,
+            JournalRuleEngine journalRuleEngine,
+            PostingService postingService,
+            JournalValidationEngine journalValidationEngine) {
+        this.journalPersistencePort = journalPersistencePort;
+        this.journalReversalPersistencePort = journalReversalPersistencePort;
+        this.journalRuleEngine = journalRuleEngine;
+        this.postingService = postingService;
+        this.journalValidationEngine = journalValidationEngine;
+    }
+
+    /**
+     * 기존 직접 생성 소비자의 source compatibility를 유지합니다.
+     *
+     * <p>일반 전표 기능은 유지하지만 영속 operation이 없는 역분개 생성·취소는 fail-closed합니다.</p>
+     */
+    public JournalEntryService(
+            JournalPersistencePort journalPersistencePort,
+            JournalRuleEngine journalRuleEngine,
+            PostingService postingService,
+            JournalValidationEngine journalValidationEngine) {
+        this(journalPersistencePort, UNAVAILABLE_REVERSAL_PERSISTENCE,
+                journalRuleEngine, postingService, journalValidationEngine);
+    }
+
+    private static IllegalStateException unavailableReversalPersistence() {
+        return new IllegalStateException("역분개 작업 영속성이 구성되지 않아 역분개 명령을 처리할 수 없습니다.");
+    }
+
     /**
      * 전표를 수동으로 생성합니다.
      *
@@ -93,6 +149,17 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public JournalEntry createJournalEntry(JournalEntry journalEntry) {
+        if (journalEntry.isReversal()) {
+            // 공개 생성 포트가 operation claim 없이 REVERSAL을 만들 수 있으면 exactly-once 통제를
+            // 우회합니다. 역분개는 reverseJournalEntry가 원본 잠금과 작업 저장을 함께 수행합니다.
+            throw new IllegalArgumentException(
+                    "역분개 전표는 reverseJournalEntry 유스케이스로만 생성할 수 있습니다.");
+        }
+        return validateAndSaveJournalEntry(journalEntry);
+    }
+
+    /** 검증과 채번을 공유하되 역분개 우회 권한을 외부 유스케이스에 노출하지 않습니다. */
+    private JournalEntry validateAndSaveJournalEntry(JournalEntry journalEntry) {
         // 전표 번호 채번 (Simple Implementation)
         if (journalEntry.getSlipNo() == null) {
             if (journalEntry.getSlipDate() == null) {
@@ -202,7 +269,8 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public void requestJournalEntryApproval(Long id, String requester) {
-        JournalEntry entry = journalPersistencePort.findById(id)
+        // 승인 수명주기도 취소/전기와 같은 전표 행을 먼저 잠가, 대기 후 최신 상태로 전이합니다.
+        JournalEntry entry = journalPersistencePort.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
         entry.requestApproval(requester);
         journalPersistencePort.save(entry);
@@ -212,15 +280,15 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public void approveJournalEntry(Long id, String approver) {
-        // 1. 전표 조회 (없으면 즉시 예외)
-        JournalEntry entry = journalPersistencePort.findById(id)
+        // 취소/전기와 동일한 전표 행 잠금 순서를 사용해 stale REQUESTED 승인을 차단합니다.
+        JournalEntry entry = journalPersistencePort.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
 
-        // 2. 도메인 엔티티에 상태 전환 위임 (Rich Domain Model)
+        // 도메인 엔티티에 상태 전환 위임 (Rich Domain Model)
         //    approve() 내부에서 REQUESTED 상태와 maker-checker 분리를 검증합니다.
         entry.approve(approver);
 
-        // 3. 변경된 상태를 저장
+        // 변경된 상태를 저장
         journalPersistencePort.save(entry);
     }
 
@@ -256,14 +324,73 @@ public class JournalEntryService implements JournalUseCase {
     @Override
     @Transactional
     public JournalEntry reverseJournalEntry(Long id, LocalDate accountingDate, String creator, String reason) {
-        // 1. 원본 전표 조회 (상세 내역 포함)
+        // 원본 행이 같은 원본에 대한 모든 생성 요청의 단일 잠금 자원입니다.
         JournalEntry original = journalPersistencePort.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 전표입니다: " + id));
+        original.assertPostedForReversal();
 
-        // 2. 도메인 엔티티에 역분개 생성 위임 (Rich Domain Model)
-        JournalEntry reversal = original.createReversal(creator, accountingDate, reason);
+        Optional<JournalReversalOperation> existingOperation =
+                journalReversalPersistencePort.findByOriginalJournalEntryId(id);
+        if (existingOperation.isPresent()
+                && existingOperation.get().getStatus() != ReversalOperationStatus.CANCELLED) {
+            // 재시도의 날짜/사유가 달라도 최초 요청이 만든 현재 전표를 그대로 반환합니다.
+            // 역분개 행을 추가 잠그지 않아 posting/cancel 경로와 잠금 순서가 뒤집히지 않습니다.
+            return findExistingReversal(existingOperation.get());
+        }
 
-        // 3. 역분개 전표 저장 및 반환
-        return createJournalEntry(reversal);
+        JournalEntry savedReversal = validateAndSaveJournalEntry(
+                original.createReversal(creator, accountingDate, reason));
+        if (savedReversal.getId() == null) {
+            throw new IllegalStateException("저장된 역분개 전표 ID가 없습니다.");
+        }
+
+        JournalReversalOperation operation = existingOperation.orElseGet(
+                () -> JournalReversalOperation.create(id, savedReversal.getId()));
+        if (existingOperation.isPresent()) {
+            operation.restart(savedReversal.getId());
+        }
+        journalReversalPersistencePort.save(operation);
+        return savedReversal;
+    }
+
+    /**
+     * 현재 PENDING 역분개를 전표 행 잠금 아래 취소합니다.
+     *
+     * <p>operation 선조회는 잠글 역분개 ID와 명백한 terminal 상태만 확인합니다. 실제 경쟁은
+     * 역분개 전표 행 잠금으로 직렬화되며, 먼저 전기/취소한 요청의 최신 전표 상태를 뒤 요청이
+     * 다시 읽으므로 stale operation을 변경하기 전에 도메인 상태 검증이 실패합니다.</p>
+     */
+    @Override
+    @Transactional
+    public JournalEntry cancelReversal(Long originalJournalEntryId, String actor, String reason) {
+        JournalReversalOperation operation = journalReversalPersistencePort
+                .findByOriginalJournalEntryId(originalJournalEntryId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "역분개 작업이 존재하지 않습니다: " + originalJournalEntryId));
+
+        if (operation.getStatus() == ReversalOperationStatus.POSTED) {
+            throw new IllegalStateException("전기 완료된 역분개 작업은 취소할 수 없습니다.");
+        }
+        if (operation.getStatus() == ReversalOperationStatus.CANCELLED) {
+            throw new IllegalStateException("이미 취소된 역분개 작업입니다.");
+        }
+
+        Long reversalJournalEntryId = operation.getReversalJournalEntryId();
+        JournalEntry reversal = journalPersistencePort.findByIdWithDetails(reversalJournalEntryId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "역분개 작업에 연결된 전표가 없습니다: " + reversalJournalEntryId));
+
+        reversal.cancelReversal(actor, reason);
+        operation.cancel(reversalJournalEntryId, actor, reason);
+        journalPersistencePort.save(reversal);
+        journalReversalPersistencePort.save(operation);
+        return reversal;
+    }
+
+    private JournalEntry findExistingReversal(JournalReversalOperation operation) {
+        Long reversalJournalEntryId = operation.getReversalJournalEntryId();
+        return journalPersistencePort.findByIdWithDetailsWithoutLock(reversalJournalEntryId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "역분개 작업에 연결된 전표가 없습니다: " + reversalJournalEntryId));
     }
 }

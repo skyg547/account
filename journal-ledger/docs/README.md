@@ -8,7 +8,7 @@
 2. [process-flow.md](./process-flow.md): 전표·원장·미결 업무와 데이터 흐름
 3. [schema.md](./schema.md): 핵심 테이블 관계와 소유권
 4. [ledger-carry-forward.md](./ledger-carry-forward.md): 원장 잔액 이월 상세
-5. [posting-concurrency.md](./posting-concurrency.md): 동일/서로 다른 전표의 동시 전기, 잔액 잠금, 재시도, V13/V14 업그레이드와 검증
+5. [posting-concurrency.md](./posting-concurrency.md): 동일/서로 다른 전표의 동시 전기, 역분개, 잔액 잠금, 재시도, V13/V14/V15/V17 업그레이드와 검증
 6. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
@@ -68,8 +68,8 @@ journal-ledger:
 루트 [docs/local-development.md](../../docs/local-development.md)의 IntelliJ/Gradle 기준을 먼저 확인합니다.
 
 API local과 Batch local은 서로 다른 H2 메모리 DB를 사용하지만 둘 다 module-owned Flyway
-V1~V15를 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15처럼 JPA entity가 없는
-제어 테이블도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
+V1~V17을 적용한 뒤 Hibernate `validate`를 수행합니다. 따라서 V15 제어 테이블과
+V17 역분개 operation 관계도 실제 local entrypoint에서 존재합니다. dev/prod는 runtime Flyway를 계속 끄고
 승인된 별도 migration-runner가 먼저 적용한 스키마를 validate합니다.
 
 ```powershell

@@ -128,6 +128,50 @@ SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
 코드 롤백도 모든 writer를 중지한 상태에서 수행하며 V15 migration과 제어 행은 보존합니다.
 구버전은 barrier를 사용하지 않으므로 복구 전까지 전기/재집계/잔액 조회 트래픽을 열지 않습니다.
 
+## V17 역분개 작업 업그레이드와 롤백
+
+역분개 생성은 원본 `POSTED` 헤더를 `FOR UPDATE`로 잠그고, 원본 ID가 PK인
+`journal_reversal_operations`의 현재 관계를 확인합니다. 순차·동시 재요청은 첫 작성자가
+만든 `PENDING` 또는 이미 `POSTED`된 같은 역분개를 반환합니다. 새 slip 생성과
+operation 저장은 하나의 쓰기 트랜잭션이므로 중간 실패는 둘 다 rollback하고
+원본의 역분개 권리를 소진하지 않습니다.
+
+전기와 취소는 역분개 전표 헤더 잠금을 경쟁 판정자로 사용합니다. 취소는
+operation에서 현재 전표 ID와 terminal 상태를 먼저 확인한 뒤 그 전표를 잠그고 refresh합니다.
+전기가 먼저이면 전표·GL/SL·잔액·operation `POSTED`가 함께 commit되고, 대기하던 취소는
+최신 `POSTED` 전표에서 operation을 바꾸기 전에 거부됩니다. 취소가 먼저이면 전표
+`REJECTED`와 operation `CANCELLED`가 함께 commit되고 뒤의 전기가 거부됩니다. lock timeout,
+deadlock, serialization failure 후에는 중단된 트랜잭션을 계속 사용하지 말고 새
+트랜잭션으로 전체 명령을 재시도합니다.
+
+V17은 인식 가능한 기존 역분개를 backfill하며 부정합을 임의로 삭제·선택하지
+않습니다. 배포 절차는 다음과 같습니다.
+
+1. 구·신 writer를 모두 중지하고, `REVERSAL` + `JOURNAL_ENTRY` lineage의 비숫자
+   원본 ID, orphan, `POSTED`가 아닌 원본, 원본당 복수 활성 역분개를 대사합니다.
+2. migration 전용 권한으로 V17을 migrate/validate합니다. 비숫자 cast, FK, PK/UNIQUE,
+   lifecycle CHECK 중 하나라도 위반하면 적용은 fail-closed로 중단되어야 합니다.
+3. `journal_entries(id, status)` UNIQUE 생성은 기존 행 스캔·index build·DDL lock·추가
+   디스크를 유발할 수 있습니다. 사전 복제본에서 시간과 용량을 측정하고,
+   완료될 때까지 writer 중지 배포 창을 유지합니다.
+4. runtime role에 새 테이블의 SELECT/INSERT/UPDATE만 운영 정책에 맞게 부여하고,
+   Hibernate schema validate를 통과한 뒤 새 코드를 기동합니다.
+5. 배포 후 순차·동시 중복, 취소 후 재생성, 전기-취소 경쟁, `POSTED` 순효과
+   재집계를 폐기 가능한 테스트 데이터로 확인합니다.
+
+실패 롤백은 writer 중지 후 애플리케이션 코드를 이전 버전으로 돌리는 방식입니다.
+이미 성공한 V17 파일을 수정·삭제하거나 Flyway `repair`로 덮지 않고,
+`journal_entries(id, status)` UNIQUE, 원본 `POSTED` 복합 FK, operation 테이블과 backfill
+관계를 모두 보존합니다. 단, V17 이전 애플리케이션은 operation을 읽지 않으므로
+코드를 돌렸다는 이유만으로 역분개 트래픽을 재개하지 않습니다. 수정 버전 또는
+승인된 forward migration으로 보호를 회복할 때까지 역분개 생성·승인·전기 writer를
+비활성화하고, 이 writer를 분리할 수 없으면 영향받는 전체 journal writer를 중지합니다.
+롤백 창에서 생성된 `REVERSAL` 전표는 자동 backfill되지 않으므로, 재개 전에
+원본·역분개·GL/SL·operation을 대사하고 승인된 조정/후속 migration으로 관계를 복구합니다.
+항목별 backfill 규칙과 제약은 [데이터 모델](schema.md#역분개-작업-v17)을
+참고합니다. 직접 SQL writer, 운영 PostgreSQL lock wait/부하, 분산 장애, 기존 부정합의
+자동 복구는 이 변경의 검증 범위 밖입니다.
+
 ## V13 업그레이드
 
 새 `V13__unique_journal_posting.sql`은 GL/SL 각각의 `journal_detail_id`에 `NOT NULL`과

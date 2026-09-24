@@ -89,6 +89,22 @@ public interface JournalPersistencePort {
     Optional<JournalEntry> findByIdWithDetails(Long id);
 
     /**
+     * 전표 상세를 현재 쓰기 트랜잭션에서도 행 잠금 없이 조회합니다.
+     *
+     * <p>동일 원본 역분개 재요청은 원본 행 잠금으로 이미 직렬화되어 있습니다. 기존 역분개
+     * 응답을 반환하면서 그 역분개 행까지 잠그면 전기/취소 경로와 잠금 순서가 뒤집힐 수 있으므로
+     * 이 조회는 명시적으로 비잠금 JOIN FETCH 계약을 사용합니다.</p>
+     *
+     * @param id 전표 내부 PK
+     * @return 상세 라인 포함 전표 (없으면 Optional.empty())
+     */
+    default Optional<JournalEntry> findByIdWithDetailsWithoutLock(Long id) {
+        // 기존 포트 구현의 source compatibility를 유지하는 비잠금 fallback입니다.
+        // 상세 초기화가 필요한 영속 어댑터는 JOIN FETCH 구현으로 override해야 합니다.
+        return findById(id);
+    }
+
+    /**
      * 전표번호(slipNo)로 전표를 조회합니다.
      *
      * [업무 설명]

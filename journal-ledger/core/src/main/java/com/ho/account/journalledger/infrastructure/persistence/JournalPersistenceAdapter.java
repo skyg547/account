@@ -106,7 +106,7 @@ public class JournalPersistenceAdapter implements JournalPersistencePort {
     @Transactional
     public Optional<JournalEntry> findByIdWithDetails(Long id) {
         if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
-            return journalEntryRepository.findByIdWithDetails(id);
+            return journalEntryRepository.findByIdWithDetailsWithoutLock(id);
         }
         // 자동 전표는 생성/승인/전기를 한 트랜잭션에서 수행합니다. refresh가 그 변경을
         // 버리지 않도록 먼저 반영하며, 잠금은 이후 GL/SL·잔액 저장이 끝날 때까지 유지합니다.
@@ -120,6 +120,15 @@ public class JournalPersistenceAdapter implements JournalPersistencePort {
         entityManager.refresh(entry);
         entry.getDetails().size();
         return Optional.of(entry);
+    }
+
+    /**
+     * 현재 트랜잭션의 read-only 여부와 관계없이 행 잠금 없이 상세까지 조회합니다.
+     * 이미 영속 관계로 확정된 역분개를 중복 요청에 반환하는 경로에서 사용합니다.
+     */
+    @Override
+    public Optional<JournalEntry> findByIdWithDetailsWithoutLock(Long id) {
+        return journalEntryRepository.findByIdWithDetailsWithoutLock(id);
     }
 
     /**
