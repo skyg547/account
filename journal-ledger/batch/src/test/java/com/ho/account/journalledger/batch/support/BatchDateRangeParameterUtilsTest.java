@@ -2,6 +2,9 @@ package com.ho.account.journalledger.batch.support;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobInstance;
+import org.springframework.batch.core.StepExecution;
 
 import java.time.LocalDate;
 
@@ -45,5 +48,24 @@ class BatchDateRangeParameterUtilsTest {
         assertThatThrownBy(() -> BatchDateRangeParameterUtils.resolveDateRange(parameters))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("endDate");
+    }
+
+    @Test
+    void freezesNormalizedAliasesInJobExecutionContextForEveryLaterStep() {
+        var parameters = new JobParametersBuilder()
+                .addString("fromDate", " 2026-05-01 ")
+                .addString("toDate", "2026-05-31")
+                .toJobParameters();
+        JobExecution execution = new JobExecution(new JobInstance(767L, "reaggregation"), parameters);
+        StepExecution start = new StepExecution("start", execution);
+
+        BatchDateRangeParameterUtils.DateRange frozen = BatchDateRangeParameterUtils.freezeDateRange(start);
+        BatchDateRangeParameterUtils.DateRange later = BatchDateRangeParameterUtils.resolveFrozenDateRange(
+                new StepExecution("writer", execution));
+
+        assertThat(frozen).isEqualTo(new BatchDateRangeParameterUtils.DateRange(
+                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
+        assertThat(later).isEqualTo(frozen);
+        assertThat(BatchDateRangeParameterUtils.ownerJobInstanceId(start)).isEqualTo(767L);
     }
 }

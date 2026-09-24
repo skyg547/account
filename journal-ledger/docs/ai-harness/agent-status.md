@@ -1,3 +1,24 @@
+# GH-767 agent status
+
+- Issue: [#767](https://github.com/skyg547/account/issues/767); remote handoff target `status:needs-review`, owner `agent:codex`.
+- Status: implementation, audited RED proof, requested local verification and independent review complete; [Draft PR #785](https://github.com/skyg547/account/pull/785) is open with `Refs #767`.
+- Base: `origin/main@795c494a950980864c0e9bc63464dcb505a8d46b`.
+- Branch/worktree: `agent/767-reaggregation-consistency`, `/tmp/account-767-reaggregation-consistency`.
+- Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.
+- Ownership: `/root/implement_767` wrote `journal-ledger/**` production/tests/functional docs; parent writes only these module-local records and owns Git/GitHub; `/root/explore_767` and independent `/root/review_767` remained read-only.
+- Allowlist: `journal-ledger/**`; other modules, shared contracts and repository-level shared harness records are unchanged.
+- Result: V15 persists a singleton `OPEN/REBUILDING` barrier with JobInstance owner, frozen range and epoch. The four-step Job blocks ordinary posting/read/overlap, resumes committed checkpoints for the same instance, and releases only after exact GL/SL reconciliation.
+- Verification: two audited regressions fail as expected; API local schema regression found during review also fails before its fix. Final writer and independent forced module runs pass core173/API40/batch11 = 224 tests, failures/errors/skips0. API local boot returns HTTP200 `[]`; Batch local boots with V15/validate. Static and quality gates pass.
+- Independent review: initial P2 missing API-local V15 table was reproduced with HTTP500 and returned to the writer. The final Flyway/validate fix was independently rerun; no remaining P0-P3 and Q1-Q4 PASS.
+- Remote CI: Module Validation, Harness Validation and Agent Merge Guard jobs did not start. Their annotations report failed recent account payments or a spending limit requiring increase; no remote CI test result is claimed.
+- Residual/later gates: no live PostgreSQL, distributed process kill, production data, runtime-role permission or load test. Direct SQL and old binaries bypass the barrier. Human review owns Ready/merge/Issue close/deployment; branch/worktree remain retained.
+
+See [worklog.md](worklog.md) for commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits.
+
+---
+
+The following is retained historical status and is not a current GH-767 report.
+
 # GH-764 agent status
 
 - Issue: [#764](https://github.com/skyg547/account/issues/764); remote `status:needs-review`, owner `agent:codex`.

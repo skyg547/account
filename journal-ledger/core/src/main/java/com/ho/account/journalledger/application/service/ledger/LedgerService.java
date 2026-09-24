@@ -4,6 +4,7 @@ import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.BalanceAccount;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 public class LedgerService {
 
     private final LedgerBalancePersistencePort ledgerBalancePersistencePort;
+    private final BalanceReaggregationControlPort reaggregationControlPort;
 
     @Transactional
     public void updateLedgerBalances(JournalDetail journalDetail, LocalDate accountingDate) {
@@ -49,6 +51,7 @@ public class LedgerService {
         boolean isDebit = JournalSide.DEBIT.equals(journalDetail.getSide());
 
         ledgerBalancePersistencePort.lockBalanceAccounts(List.of(new BalanceAccount(accountCode, currencyCode)));
+        reaggregationControlPort.assertOpen();
         updateGlBalance(accountCode, currencyCode, amount, isDebit, accountingDate);
         updateSlBalance(accountCode, businessPartnerCode, departmentCode, currencyCode, amount, isDebit, accountingDate);
     }
@@ -127,23 +130,22 @@ public class LedgerService {
     /**
      * 지정된 기간의 GL/SL 원장 잔액 데이터를 사전 삭제(초기화)합니다.
      *
-     * <p>초보자 설명: 배치 작업 재실행 시 기존 잔액 데이터 위에 중복으로 금액이 누적되는 문제를 방지하기 위해,
-     * 재집계 Step(Chunk 프로세싱) 시작 전 대상 기간의 잔액을 먼저 깨끗이 지웁니다.
-     * 이 작업은 배치의 멱등성(Idempotency, 몇 번을 실행해도 동일한 결과를 보장)을 달성하는 핵심 단계입니다.</p>
+     * <p>부분 결과를 공개하는 직접 cleanup은 안전하지 않으므로 거부합니다. Batch는
+     * {@link BalanceReaggregationService}의 owner 검증 경로를 사용해야 합니다.</p>
      *
      * @param startDate 집계 시작일
      * @param endDate   집계 종료일
      */
     @Transactional
     public void clearLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
-        // Rows being rebuilt can be absent or belong to accounts not yet seen in the input.
-        ledgerBalancePersistencePort.lockAllBalanceAccounts();
-        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
+        throw new IllegalStateException("Direct balance cleanup is unsafe; use the owner-controlled reaggregation job");
     }
 
     @Transactional
     public void reaggregateLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
-        clearLedgerBalancesForPeriod(startDate, endDate);
+        ledgerBalancePersistencePort.lockAllBalanceAccounts();
+        reaggregationControlPort.assertOpen();
+        ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
 
         List<JournalDetail> postedJournalDetails =
                 ledgerBalancePersistencePort.findPostedJournalDetailsBetween(startDate, endDate);
@@ -160,6 +162,24 @@ public class LedgerService {
         ledgerBalancePersistencePort.lockBalanceAccounts(journalDetails.stream()
                 .map(detail -> new BalanceAccount(detail.getAccountCode(), detail.getJournalEntry().getCurrencyCode()))
                 .distinct().toList());
+        reaggregationControlPort.assertOpen();
+        updateLedgerBalancesBulkAfterGuard(journalDetails);
+    }
+
+    @Transactional
+    public void updateLedgerBalancesBulkForReaggregation(long ownerJobInstanceId,
+                                                          LocalDate startDate,
+                                                          LocalDate endDate,
+                                                          List<JournalDetail> journalDetails) {
+        if (journalDetails == null || journalDetails.isEmpty()) return;
+        ledgerBalancePersistencePort.lockBalanceAccounts(journalDetails.stream()
+                .map(detail -> new BalanceAccount(detail.getAccountCode(), detail.getJournalEntry().getCurrencyCode()))
+                .distinct().toList());
+        reaggregationControlPort.assertOwner(ownerJobInstanceId, startDate, endDate);
+        updateLedgerBalancesBulkAfterGuard(journalDetails);
+    }
+
+    private void updateLedgerBalancesBulkAfterGuard(List<JournalDetail> journalDetails) {
         Map<LocalDate, List<JournalDetail>> groupedByDate = journalDetails.stream()
                 // Earlier days must be persisted first so later days inherit their closing balance.
                 .collect(Collectors.groupingBy(d -> d.getJournalEntry().getAccountingDate(), TreeMap::new, Collectors.toList()));
@@ -281,9 +301,12 @@ public class LedgerService {
                                          LocalDate endDate,
                                          String accountCode,
                                          String currencyCode) {
+        BalanceReaggregationControlPort.ControlSnapshot before = readableSnapshot();
         List<GlBalance> balances =
                 ledgerBalancePersistencePort.findGlBalances(startDate, endDate, accountCode, currencyCode);
-        return aggregateGlBalances(balances, startDate);
+        List<GlBalance> result = aggregateGlBalances(balances, startDate);
+        verifyReadable(before);
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -293,9 +316,12 @@ public class LedgerService {
                                          String businessPartnerCode,
                                          String departmentCode,
                                          String currencyCode) {
+        BalanceReaggregationControlPort.ControlSnapshot before = readableSnapshot();
         List<SlBalance> results = ledgerBalancePersistencePort.findSlBalances(
                 startDate, endDate, accountCode, businessPartnerCode, departmentCode, currencyCode);
-        return aggregateSlBalances(results, startDate);
+        List<SlBalance> result = aggregateSlBalances(results, startDate);
+        verifyReadable(before);
+        return result;
     }
 
     private List<GlBalance> aggregateGlBalances(List<GlBalance> balances, LocalDate balanceDate) {
@@ -386,6 +412,25 @@ public class LedgerService {
                                                                String accountCode,
                                                                String currencyCode,
                                                                String amountBasis) {
-        return ledgerBalancePersistencePort.calculateGlBalanceAggregate(startDate, endDate, accountCode, currencyCode, amountBasis);
+        BalanceReaggregationControlPort.ControlSnapshot before = readableSnapshot();
+        LedgerAggregateSummary result = ledgerBalancePersistencePort.calculateGlBalanceAggregate(
+                startDate, endDate, accountCode, currencyCode, amountBasis);
+        verifyReadable(before);
+        return result;
+    }
+
+    private BalanceReaggregationControlPort.ControlSnapshot readableSnapshot() {
+        BalanceReaggregationControlPort.ControlSnapshot snapshot = reaggregationControlPort.snapshot();
+        if (!snapshot.isOpen()) {
+            throw new IllegalStateException("Ledger balance reaggregation is active; reads are unavailable");
+        }
+        return snapshot;
+    }
+
+    private void verifyReadable(BalanceReaggregationControlPort.ControlSnapshot before) {
+        BalanceReaggregationControlPort.ControlSnapshot after = reaggregationControlPort.snapshot();
+        if (!after.isOpen() || after.epoch() != before.epoch()) {
+            throw new IllegalStateException("Ledger balance reaggregation changed while the balance read was materialized");
+        }
     }
 }

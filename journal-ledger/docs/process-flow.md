@@ -203,21 +203,23 @@ sequenceDiagram
     participant DB as GL/SL Balance
 
     Scheduler->>Batch: startDate/endDate 또는 baseDate 전달
-    Batch->>Tasklet: cleanup Step 실행
-    Tasklet->>Service: clearLedgerBalancesForPeriod(startDate, endDate)
-    Service->>Port: 전체 잠금 확보 → 기간 잔액 삭제
+    Batch->>Tasklet: start Step: 기간 고정 / owner barrier 획득
+    Tasklet->>Service: owner cleanup Step 실행
+    Service->>Port: 전체 잠금 + owner 검증 → 기간 잔액 삭제
     Note over Batch, DB: cleanup 트랜잭션 커밋
     Batch->>Tasklet: POSTED 상세를 날짜순 100건 chunk로 조회
-    Tasklet->>Service: updateLedgerBalancesBulk(details)
-    Service->>Port: chunk 전체 계정 잠금 → 최신 GL/SL 조회
+    Tasklet->>Service: updateLedgerBalancesBulkForReaggregation(owner, range, details)
+    Service->>Port: chunk 계정 잠금 + owner 검증 → 최신 GL/SL 조회
     Service->>Port: 금액 집계 → bulk 저장
-    Port->>DB: 각 chunk 트랜잭션 커밋
+    Port->>DB: 각 chunk와 checkpoint 트랜잭션 커밋
+    Batch->>Service: 전체 stripe 잠금 → POSTED/GL/SL exact reconciliation
+    Service->>DB: 일치할 때만 OPEN / epoch 증가
 ```
 
 초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. Batch는 날짜 파라미터를 해석하고 core 서비스를 호출할 뿐이며, 실제 잔액 계산과 저장 순서는 `LedgerService`와 출력 포트가 담당합니다.
-각 트랜잭션의 잠금은 전체 Job을 보호하지 않으므로 cleanup부터 마지막 chunk까지 전기를
-중지하고 재집계 Job 하나만 실행해야 합니다. `LedgerService.reaggregateLedgerBalancesForPeriod`는
-별도의 단일 트랜잭션 메서드로 삭제·POSTED 조회·재생성 전체 동안 잠금을 유지합니다.
+V15 barrier가 전체 Job 수명 동안 입력과 공개를 통제합니다. 실패하면 부분 잔액은 DB에 남을 수
+있지만 조회·전기에는 수락되지 않습니다. 같은 JobInstance 재시작은 성공한 cleanup/chunk를
+건너뛰고 checkpoint에서 계속하며, 다른 인스턴스는 owner 충돌로 실패합니다.
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.

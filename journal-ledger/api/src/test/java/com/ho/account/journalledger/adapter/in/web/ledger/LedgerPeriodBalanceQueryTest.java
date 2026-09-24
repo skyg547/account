@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.BalanceReaggregationControlPort;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,7 +55,10 @@ class LedgerPeriodBalanceQueryTest {
     @BeforeEach
     void setUp() {
         // 저장 포트에만 합성 일별 행을 공급한다. 실제 서비스 계산을 HTTP 응답까지 통과시킨다.
-        LedgerService service = new LedgerService(persistencePort);
+        BalanceReaggregationControlPort control = mock(BalanceReaggregationControlPort.class);
+        when(control.snapshot()).thenReturn(new BalanceReaggregationControlPort.ControlSnapshot(
+                BalanceReaggregationControlPort.Status.OPEN, null, null, null, 0));
+        LedgerService service = new LedgerService(persistencePort, control);
         mockMvc = MockMvcBuilders.standaloneSetup(new LedgerController(service), new GlSlController(service))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();

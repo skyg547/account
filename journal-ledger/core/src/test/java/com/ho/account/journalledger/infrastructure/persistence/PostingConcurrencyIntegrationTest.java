@@ -6,6 +6,7 @@ import com.ho.account.journalledger.application.port.out.LedgerEntryPersistenceP
 import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
+import com.ho.account.journalledger.application.service.ledger.BalanceReaggregationService;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
@@ -96,6 +97,8 @@ class PostingConcurrencyIntegrationTest {
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EntryGate gate;
+    @Autowired @Qualifier("jpaBalances") private LedgerBalancePersistencePort jpaBalances;
+    @Autowired private BalanceReaggregationService reaggregationService;
     private TransactionTemplate transactions;
     private Long journalId;
 
@@ -104,6 +107,9 @@ class PostingConcurrencyIntegrationTest {
         transactions = new TransactionTemplate(transactionManager);
         gate.reset();
         transactions.executeWithoutResult(status -> {
+            jdbc.update("UPDATE ledger_reaggregation_control SET status = 'OPEN',"
+                    + " owner_job_instance_id = NULL, range_start = NULL, range_end = NULL, epoch = epoch + 1"
+                    + " WHERE control_id = 1");
             for (String table : List.of("gl_entries", "sl_entries", "gl_balances", "sl_balances",
                     "journal_details", "journal_entries")) {
                 jdbc.update("DELETE FROM " + table);
@@ -226,6 +232,62 @@ class PostingConcurrencyIntegrationTest {
         gate.failBeforeInsert = false;
         posting(mode).postJournalEntry(journalId, "retry-poster");
         assertPostedExactlyOnce("retry-poster");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void postingBlockedByReaggregationRollsBackThenRetriesExactlyOnceAfterRelease(Mode mode) {
+        jdbc.update("UPDATE ledger_reaggregation_control SET status = 'REBUILDING',"
+                + " owner_job_instance_id = 767, range_start = ?, range_end = ?, epoch = epoch + 1"
+                + " WHERE control_id = 1", DATE, DATE);
+
+        assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "blocked-poster"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("reaggregation");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("APPROVED");
+        assertEntryCounts(0);
+        assertBalances("0.00");
+
+        jdbc.update("UPDATE ledger_reaggregation_control SET status = 'OPEN',"
+                + " owner_job_instance_id = NULL, range_start = NULL, range_end = NULL, epoch = epoch + 1"
+                + " WHERE control_id = 1");
+        posting(mode).postJournalEntry(journalId, "retry-after-release");
+        assertPostedExactlyOnce("retry-after-release");
+    }
+
+    @Test
+    void postingThatWinsAnAffectedStripeCommitsBeforeBarrierAndIsInStablePostedSourceOnce() throws Exception {
+        CountDownLatch stripeHeld = new CountDownLatch(1);
+        CountDownLatch allowPosting = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> posting = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                jpaBalances.lockBalanceAccounts(List.of(
+                        new LedgerBalancePersistencePort.BalanceAccount("10100", "KRW"),
+                        new LedgerBalancePersistencePort.BalanceAccount("40100", "KRW")));
+                stripeHeld.countDown();
+                await(allowPosting);
+                jpaPosting.postJournalEntry(journalId, "pre-barrier-poster");
+            }));
+            await(stripeHeld);
+            Future<?> barrier = executor.submit(() -> reaggregationService.start(767, DATE, DATE));
+
+            assertThatThrownBy(() -> barrier.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            allowPosting.countDown();
+            posting.get(15, TimeUnit.SECONDS);
+            barrier.get(15, TimeUnit.SECONDS);
+
+            assertPostedExactlyOnce("pre-barrier-poster");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM journal_entries"
+                    + " WHERE status = 'POSTED' AND accounting_date = ?", Integer.class, DATE)).isOne();
+            assertThat(jdbc.queryForObject("SELECT owner_job_instance_id FROM ledger_reaggregation_control"
+                    + " WHERE control_id = 1", Long.class)).isEqualTo(767L);
+        } finally {
+            allowPosting.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test
@@ -399,26 +461,51 @@ class PostingConcurrencyIntegrationTest {
             return new JdbcLedgerEntryBulkPersistenceAdapter(jdbc);
         }
 
+        @Bean("jpaBalances") LedgerBalancePersistencePort jpaBalances(
+                GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details, EntityManager em) {
+            LedgerBalancePersistencePort balances = new LedgerBalancePersistenceAdapter(gl, sl, details);
+            org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
+            return balances;
+        }
+
+        @Bean("jdbcBalances") LedgerBalancePersistencePort jdbcBalances(
+                JdbcTemplate jdbc, GlBalanceRepository gl, SlBalanceRepository sl,
+                JournalDetailRepository details, EntityManager em) {
+            LedgerBalancePersistencePort balances = new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details);
+            org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
+            return balances;
+        }
+
+        @Bean JdbcBalanceReaggregationControlAdapter reaggregationControl(JdbcTemplate jdbc) {
+            return new JdbcBalanceReaggregationControlAdapter(jdbc);
+        }
+
+        @Bean BalanceReaggregationService reaggregationService(
+                @Qualifier("jpaBalances") LedgerBalancePersistencePort balances,
+                JdbcBalanceReaggregationControlAdapter control) {
+            return new BalanceReaggregationService(balances, control);
+        }
+
         @Bean PostingService jpaPosting(JournalPersistencePort journals,
                 @Qualifier("jpaEntries") LedgerEntryPersistencePort entries,
-                GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
-                EntryGate gate, EntityManager em) {
-            return service(journals, gate.wrap(entries, em), new LedgerBalancePersistenceAdapter(gl, sl, details), em);
+                @Qualifier("jpaBalances") LedgerBalancePersistencePort balances,
+                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
+            return service(journals, gate.wrap(entries, em), balances, em, control);
         }
 
         @Bean PostingService jdbcPosting(JournalPersistencePort journals,
                 @Qualifier("jdbcEntries") LedgerEntryPersistencePort entries, JdbcTemplate jdbc,
-                GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
-                EntryGate gate, EntityManager em) {
-            return service(journals, gate.wrap(entries, em),
-                    new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details), em);
+                @Qualifier("jdbcBalances") LedgerBalancePersistencePort balances,
+                EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
+            return service(journals, gate.wrap(entries, em), balances, em, control);
         }
 
         private PostingService service(JournalPersistencePort journals, LedgerEntryPersistencePort entries,
-                LedgerBalancePersistencePort balances, EntityManager em) {
+                LedgerBalancePersistencePort balances, EntityManager em,
+                JdbcBalanceReaggregationControlAdapter control) {
             // These adapters are nested fixture objects, so Spring cannot inject their persistence context.
             org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
-            return new PostingService(journals, entries, new LedgerService(balances),
+            return new PostingService(journals, entries, new LedgerService(balances, control),
                     new ClosingLockValidationFilter(date -> false));
         }
     }

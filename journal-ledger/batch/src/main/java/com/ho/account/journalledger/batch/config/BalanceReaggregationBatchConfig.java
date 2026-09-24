@@ -3,6 +3,8 @@ package com.ho.account.journalledger.batch.config;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.batch.support.BatchDateRangeParameterUtils;
 import com.ho.account.journalledger.batch.tasklet.BalanceCleanUpTasklet;
+import com.ho.account.journalledger.batch.tasklet.BalanceReaggregationStartTasklet;
+import com.ho.account.journalledger.batch.tasklet.BalanceReaggregationFinalizeTasklet;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
@@ -46,12 +48,12 @@ import java.util.Map;
  *   </li>
  * </ul>
  *
- * <h3>2. 2-Step 파이프라인 구조 (Clean-up Step -> Reaggregation Chunk Step)</h3>
+ * <h3>2. 4-Step fail-closed pipeline</h3>
  * <ol>
- *   <li><b>Step 1: balanceCleanUpStep (Pre-processing Phase):</b>
- *       배치 재실행 및 중복 집계에 따른 멱등성 파괴를 막기 위해 지정된 대상 기간({@code startDate} ~ {@code endDate})의 기존 GL/SL 잔액을 먼저 지웁니다.</li>
- *   <li><b>Step 2: balanceReaggregationStep (Chunk Processing Phase):</b>
- *       대상 기간의 POSTED 상태 전표 상세 데이터를 Chunk 단위로 읽어서(Reader), 원장 서비스에 청크 단위로 집계/저장(Writer)을 위임합니다.</li>
+ *   <li>Start: 기간을 고정하고 JobInstance owner barrier를 획득합니다.</li>
+ *   <li>Cleanup: owner만 대상 기간 잔액을 지웁니다. 성공 Step은 restart에서 건너뜁니다.</li>
+ *   <li>Chunk: 안정된 POSTED 상세를 100건씩 처리하고 checkpoint와 함께 commit합니다.</li>
+ *   <li>Finalize: GL/SL을 원천과 대사한 뒤 일치할 때만 공개합니다.</li>
  * </ol>
  */
 @Slf4j
@@ -62,26 +64,40 @@ public class BalanceReaggregationBatchConfig {
     private static final int CHUNK_SIZE = 100;
 
     private final BalanceCleanUpTasklet balanceCleanUpTasklet;
+    private final BalanceReaggregationStartTasklet balanceReaggregationStartTasklet;
+    private final BalanceReaggregationFinalizeTasklet balanceReaggregationFinalizeTasklet;
     private final LedgerService ledgerService;
     private final EntityManagerFactory entityManagerFactory;
 
     /**
      * 일별 또는 기간별 GL/SL 잔액을 재집계하는 배치 Job.
      *
-     * <p>Step 1 (Clean-up) 후 Step 2 (Chunk 기반 재집계)를 순차적으로 수행합니다.</p>
+     * <p>Start → cleanup → chunk → reconciliation/release를 순차 수행합니다.</p>
      */
     @Bean
     public Job dailyBalanceReaggregationJob(JobRepository jobRepository,
                                            Step balanceCleanUpStep,
-                                           Step balanceReaggregationStep) {
+                                           Step balanceReaggregationStep,
+                                           Step balanceReaggregationStartStep,
+                                           Step balanceReaggregationFinalizeStep) {
         return new JobBuilder("dailyBalanceReaggregationJob", jobRepository)
-                .start(balanceCleanUpStep)
+                .start(balanceReaggregationStartStep)
+                .next(balanceCleanUpStep)
                 .next(balanceReaggregationStep)
+                .next(balanceReaggregationFinalizeStep)
+                .build();
+    }
+
+    @Bean
+    public Step balanceReaggregationStartStep(JobRepository jobRepository,
+                                               PlatformTransactionManager transactionManager) {
+        return new StepBuilder("balanceReaggregationStartStep", jobRepository)
+                .tasklet(balanceReaggregationStartTasklet, transactionManager)
                 .build();
     }
 
     /**
-     * Step 1: 멱등성 보장을 위한 대상 기간 사전 잔액 Clean-up Step.
+     * Step 2: owner가 고정된 대상 기간의 사전 잔액 Clean-up Step.
      */
     @Bean
     public Step balanceCleanUpStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
@@ -91,7 +107,7 @@ public class BalanceReaggregationBatchConfig {
     }
 
     /**
-     * Step 2: 대용량 데이터 분할 처리를 위한 Chunk 기반 재집계 Step.
+     * Step 3: 대용량 데이터 분할 처리를 위한 Chunk 기반 재집계 Step.
      */
     @Bean
     public Step balanceReaggregationStep(JobRepository jobRepository,
@@ -107,6 +123,14 @@ public class BalanceReaggregationBatchConfig {
                 .build();
     }
 
+    @Bean
+    public Step balanceReaggregationFinalizeStep(JobRepository jobRepository,
+                                                  PlatformTransactionManager transactionManager) {
+        return new StepBuilder("balanceReaggregationFinalizeStep", jobRepository)
+                .tasklet(balanceReaggregationFinalizeTasklet, transactionManager)
+                .build();
+    }
+
     /**
      * ItemReader: 지정 기간 내 승인 완료(POSTED)된 전표 상세 목록을 Chunk Size 단위로 Paging 조회.
      *
@@ -119,7 +143,7 @@ public class BalanceReaggregationBatchConfig {
             @Value("#{stepExecution}") StepExecution stepExecution) {
 
         BatchDateRangeParameterUtils.DateRange range =
-                BatchDateRangeParameterUtils.resolveDateRange(stepExecution);
+                BatchDateRangeParameterUtils.resolveFrozenDateRange(stepExecution);
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("startDate", range.startDate());
@@ -155,10 +179,16 @@ public class BalanceReaggregationBatchConfig {
      * <p>각 Chunk 트랜잭션이 성공적으로 commit될 때마다 DB 잔액 상태가 업데이트되어 메모리를 효율적으로 사용합니다.</p>
      */
     @Bean
-    public ItemWriter<JournalDetail> balanceReaggregationItemWriter() {
+    @StepScope
+    public ItemWriter<JournalDetail> balanceReaggregationItemWriter(
+            @Value("#{stepExecution}") StepExecution stepExecution) {
         return chunk -> {
             log.debug("[Journal Ledger Batch Writer] Writing chunk of {} details to ledger balances.", chunk.getItems().size());
-            ledgerService.updateLedgerBalancesBulk(new ArrayList<>(chunk.getItems()));
+            BatchDateRangeParameterUtils.DateRange range =
+                    BatchDateRangeParameterUtils.resolveFrozenDateRange(stepExecution);
+            ledgerService.updateLedgerBalancesBulkForReaggregation(
+                    BatchDateRangeParameterUtils.ownerJobInstanceId(stepExecution),
+                    range.startDate(), range.endDate(), new ArrayList<>(chunk.getItems()));
         };
     }
 }

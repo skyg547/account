@@ -54,8 +54,9 @@ domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항�
 `journal-ledger:batch`는 inbound adapter입니다. Job/Step과 Tasklet은 Spring Batch 기술 객체를 다루지만, 전표·원장 업무 규칙은 core application service에 둡니다.
 
 - `BalanceReaggregationBatchConfig`: Job/Step wiring만 담당합니다.
-- `BalanceReaggregationTasklet`: JobParameter를 기간으로 변환하고 `LedgerService`를 호출합니다.
-- `BatchDateRangeParameterUtils`: Spring Batch `JobParameters`를 `LocalDate` 범위로 바꿉니다.
+- start/cleanup/finalize Tasklet: 기간 고정, owner barrier 획득, 삭제, 최종 대사/공개 순서만 조정합니다.
+- `BatchDateRangeParameterUtils`: JobParameter를 한 번 `LocalDate` 범위로 바꾸고 JobExecutionContext에서 재사용합니다.
+- `BalanceReaggregationService`: core에서 owner 전이와 reconciliation 트랜잭션을 담당합니다.
 ## adapter/in 계층
 
 adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층입니다.
@@ -80,6 +81,8 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 조회/계산/저장합니다. 기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용합니다.
 `LedgerBalanceWriteLock`은 256개 DB 잠금 행의 정렬, 트랜잭션/isolation 검증과 최신 값 refresh를
 두 어댑터에 공유합니다. 금액 계산과 이월 규칙은 계속 `LedgerService`와 도메인에 남습니다.
+재집계 제어는 `BalanceReaggregationControlPort` 뒤의 JDBC adapter가 V15 singleton과 compact
+대사 projection을 처리합니다. Batch가 SQL이나 상태 전이 규칙을 직접 소유하지 않습니다.
 포트의 `save*`는 절대 금액 저장이므로 호출자가 같은 트랜잭션에서 잠금을 선점해야 하며,
 저장 메서드만 직접 호출하는 경로에 동시성 보장을 기대하면 안 됩니다.
 
