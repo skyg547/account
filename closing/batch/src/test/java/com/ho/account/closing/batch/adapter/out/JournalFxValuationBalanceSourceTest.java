@@ -34,7 +34,10 @@ class JournalFxValuationBalanceSourceTest {
                     id BIGINT PRIMARY KEY,
                     status VARCHAR(20) NOT NULL,
                     accounting_date DATE NOT NULL,
-                    currency_code VARCHAR(3) NOT NULL
+                    currency_code VARCHAR(3) NOT NULL,
+                    entry_type VARCHAR(50) DEFAULT 'NORMAL' NOT NULL,
+                    lineage_source_type VARCHAR(50),
+                    lineage_source_id VARCHAR(100)
                 )
                 """);
         jdbcTemplate.execute("""
@@ -52,19 +55,26 @@ class JournalFxValuationBalanceSourceTest {
     @Test
     void readsPostedSignedForeignAndReportingBalancesWithBoundedPartitions() throws Exception {
         jdbcTemplate.update(
-                "INSERT INTO journal_entries VALUES (1, 'POSTED', DATE '2026-05-20', 'EUR')");
+                "INSERT INTO journal_entries (id, status, accounting_date, currency_code) "
+                        + "VALUES (1, 'POSTED', DATE '2026-05-20', 'EUR')");
         jdbcTemplate.update(
-                "INSERT INTO journal_entries VALUES (2, 'DRAFT', DATE '2026-05-21', 'EUR')");
+                "INSERT INTO journal_entries (id, status, accounting_date, currency_code) "
+                        + "VALUES (2, 'DRAFT', DATE '2026-05-21', 'EUR')");
         jdbcTemplate.update(
-                "INSERT INTO journal_entries VALUES (3, 'POSTED', DATE '2026-05-20', 'KRW')");
+                "INSERT INTO journal_entries (id, status, accounting_date, currency_code) "
+                        + "VALUES (3, 'POSTED', DATE '2026-05-20', 'KRW')");
         jdbcTemplate.update(
-                "INSERT INTO journal_details VALUES (1, 1, '11000', 'DEBIT', 100.00, 120.00)");
+                "INSERT INTO journal_details (id, journal_entry_id, account_code, side, amount, base_amount) "
+                        + "VALUES (1, 1, '11000', 'DEBIT', 100.00, 120.00)");
         jdbcTemplate.update(
-                "INSERT INTO journal_details VALUES (2, 1, '11000', 'CREDIT', 20.00, 24.00)");
+                "INSERT INTO journal_details (id, journal_entry_id, account_code, side, amount, base_amount) "
+                        + "VALUES (2, 1, '11000', 'CREDIT', 20.00, 24.00)");
         jdbcTemplate.update(
-                "INSERT INTO journal_details VALUES (3, 2, '11000', 'DEBIT', 999.00, 999.00)");
+                "INSERT INTO journal_details (id, journal_entry_id, account_code, side, amount, base_amount) "
+                        + "VALUES (3, 2, '11000', 'DEBIT', 999.00, 999.00)");
         jdbcTemplate.update(
-                "INSERT INTO journal_details VALUES (4, 3, '11000', 'DEBIT', 999.00, 999.00)");
+                "INSERT INTO journal_details (id, journal_entry_id, account_code, side, amount, base_amount) "
+                        + "VALUES (4, 3, '11000', 'DEBIT', 999.00, 999.00)");
 
         Integer eligibleAccountCount = jdbcTemplate.queryForObject("""
                 SELECT COUNT(DISTINCT d.account_code)
@@ -108,10 +118,12 @@ class JournalFxValuationBalanceSourceTest {
     @Test
     void partitionMetadataNeverExceedsConfiguredGridSize() {
         jdbcTemplate.update(
-                "INSERT INTO journal_entries VALUES (1, 'POSTED', DATE '2026-05-20', 'EUR')");
+                "INSERT INTO journal_entries (id, status, accounting_date, currency_code) "
+                        + "VALUES (1, 'POSTED', DATE '2026-05-20', 'EUR')");
         for (int index = 0; index < 10; index++) {
             jdbcTemplate.update(
-                    "INSERT INTO journal_details VALUES (?, 1, ?, 'DEBIT', 1.00, 1.20)",
+                    "INSERT INTO journal_details (id, journal_entry_id, account_code, side, amount, base_amount) "
+                            + "VALUES (?, 1, ?, 'DEBIT', 1.00, 1.20)",
                     index + 1,
                     String.valueOf(10000 + index));
         }

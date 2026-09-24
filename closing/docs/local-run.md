@@ -183,6 +183,19 @@ bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --conso
 
 ## FX 평가 Job 실행
 
+연속 평가 회귀는 외부 서버 없이 합성 H2 전표에 실제 Reader SQL과 core 평가 서비스를 연결합니다.
+테스트 포트가 생성 명령을 저장·전기 상태로 바꾸므로 실제 Journal의 승인·전기 API 검증을 대체하지는 않습니다.
+
+```bash
+./gradlew :closing:batch:test --tests '*FxValuationPostedHistoryTest' --tests '*JournalFxValuationBalanceSourceTest'
+./gradlew :closing:test
+```
+
+기대 결과는 전체 테스트 통과입니다. USD100 / KRW1,000에 평가 조정 KRW200이 이미 전기되었으면
+다음 환율12에서 추가 전표가 생기지 않아야 합니다. 상승·하락, 부채/비정상 잔액, 같은 계정의
+복수 외화, 전기 상태·기준일, 평가와 역분개의 연결도 확인합니다. 실제 PostgreSQL 실행계획,
+운영 부하, 배포 서비스 간 장애 검증은 별도 환경에서 수행해야 합니다.
+
 선행 조건:
 
 - `journal-ledger`에 기준일까지 전기된 외화 `journal_entries`/`journal_details`와 거래통화·기준통화 금액이 있어야 합니다.
