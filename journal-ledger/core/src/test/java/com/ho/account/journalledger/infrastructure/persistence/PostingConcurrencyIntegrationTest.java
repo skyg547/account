@@ -1,0 +1,423 @@
+package com.ho.account.journalledger.infrastructure.persistence;
+
+import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
+import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
+import com.ho.account.journalledger.application.service.ledger.LedgerService;
+import com.ho.account.journalledger.application.service.ledger.PostingService;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
+import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
+import com.ho.account.journalledger.domain.journal.domain.JournalSide;
+import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
+import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
+import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
+import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
+import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
+import com.ho.account.journalledger.domain.ledger.repository.GlEntryRepository;
+import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import com.ho.account.journalledger.domain.ledger.repository.SlEntryRepository;
+import jakarta.persistence.EntityManager;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@SpringBootTest(classes = PostingConcurrencyIntegrationTest.PostingApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+        "spring.config.name=posting-concurrency-test",
+        "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.jpa.open-in-view=false",
+        "spring.flyway.enabled=true",
+        "spring.flyway.locations=classpath:db/journal-migration",
+        "spring.sql.init.mode=never",
+        "spring.cloud.config.enabled=false",
+        "spring.cloud.discovery.enabled=false",
+        "spring.cloud.vault.enabled=false",
+        "eureka.client.enabled=false"
+})
+class PostingConcurrencyIntegrationTest {
+    private static final PostingTestDatabase DATABASE = PostingTestDatabase.create();
+    private static final LocalDate DATE = LocalDate.of(2026, 9, 24);
+    private static final String POSTING_CONFLICT = "승인된 전표만 원장으로 전기할 수 있습니다.";
+
+    @DynamicPropertySource
+    static void databaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", DATABASE::url);
+        registry.add("spring.datasource.username", DATABASE::username);
+        registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.datasource.driver-class-name", DATABASE::driver);
+        registry.add("spring.flyway.schemas", DATABASE::schema);
+        registry.add("spring.jpa.properties.hibernate.default_schema", DATABASE::schema);
+    }
+
+    enum Mode { JPA, JDBC }
+
+    @Autowired @Qualifier("jpaPosting") private PostingService jpaPosting;
+    @Autowired @Qualifier("jdbcPosting") private PostingService jdbcPosting;
+    @Autowired @Qualifier("jpaEntries") private LedgerEntryPersistencePort jpaEntries;
+    @Autowired @Qualifier("jdbcEntries") private LedgerEntryPersistencePort jdbcEntries;
+    @Autowired private JournalEntryRepository journals;
+    @Autowired private JournalPersistencePort journalPersistence;
+    @Autowired private GlBalanceRepository glBalances;
+    @Autowired private SlBalanceRepository slBalances;
+    @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private JdbcTemplate jdbc;
+    @Autowired private EntryGate gate;
+    private TransactionTemplate transactions;
+    private Long journalId;
+
+    @BeforeEach
+    void seedApprovedJournalAndExistingBalances() {
+        transactions = new TransactionTemplate(transactionManager);
+        gate.reset();
+        transactions.executeWithoutResult(status -> {
+            for (String table : List.of("gl_entries", "sl_entries", "gl_balances", "sl_balances",
+                    "journal_details", "journal_entries")) {
+                jdbc.update("DELETE FROM " + table);
+            }
+            JournalEntry journal = journal();
+            journal.approve("approver");
+            journalId = journals.saveAndFlush(journal).getId();
+            for (JournalDetail detail : journal.getDetails()) {
+                GlBalance gl = new GlBalance();
+                gl.setAccountCode(detail.getAccountCode());
+                gl.setCurrencyCode("KRW");
+                gl.setBalanceDate(DATE);
+                gl.setPeriod(YearMonth.from(DATE));
+                glBalances.save(gl);
+                SlBalance sl = new SlBalance();
+                sl.setAccountCode(detail.getAccountCode());
+                sl.setCurrencyCode("KRW");
+                sl.setBusinessPartnerCode("BP-760");
+                sl.setDepartmentCode("D-760");
+                sl.setBalanceDate(DATE);
+                sl.setPeriod(YearMonth.from(DATE));
+                slBalances.save(sl);
+            }
+        });
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void overlappingRequestsWithPreviouslyLoadedApprovedStatePostExactlyOnce(Mode mode) throws Exception {
+        CountDownLatch bothLoaded = new CountDownLatch(2);
+        CountDownLatch secondAttempted = new CountDownLatch(1);
+        AtomicLong secondConnection = new AtomicLong();
+        gate.holdFirstWriter = true;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Attempt> first = executor.submit(() -> attempt(mode, "winner", bothLoaded, null, null));
+            Future<Attempt> second = executor.submit(() -> attempt(mode, "loser", bothLoaded, secondAttempted, secondConnection));
+            await(secondAttempted);
+            boolean databaseLockObserved = !DATABASE.driver().equals("org.postgresql.Driver")
+                    || awaitPostgresLock(secondConnection.get(), second);
+            boolean secondWaited = false;
+            try {
+                second.get(300, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException expected) {
+                secondWaited = true;
+            } finally {
+                gate.release.countDown();
+            }
+            Attempt winner = first.get(15, TimeUnit.SECONDS);
+            Attempt loser = second.get(15, TimeUnit.SECONDS);
+            assertThat(winner.connectionId()).isNotEqualTo(loser.connectionId());
+            assertThat(winner.failure()).isNull();
+            assertEntryCounts(2);
+            assertThat(loser.failure()).isInstanceOf(IllegalStateException.class).hasMessage(POSTING_CONFLICT);
+            assertThat(databaseLockObserved).as("PostgreSQL reports the second connection waiting on a lock").isTrue();
+            assertThat(secondWaited).as("second transaction waited for the journal claim").isTrue();
+            assertThat(gate.writes.get()).isEqualTo(1);
+            assertPostedExactlyOnce("winner");
+
+            assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "retry"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage(POSTING_CONFLICT);
+            assertPostedExactlyOnce("winner");
+        } finally {
+            gate.release.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private Attempt attempt(Mode mode, String actor, CountDownLatch bothLoaded, CountDownLatch secondAttempted,
+                            AtomicLong secondConnection) {
+        long[] connectionId = {-1};
+        try {
+            transactions.executeWithoutResult(status -> {
+                connectionId[0] = jdbc.queryForObject(DATABASE.driver().equals("org.postgresql.Driver")
+                        ? "SELECT pg_backend_pid()" : "SELECT session_id()", Long.class);
+                // Both persistence contexts already contain APPROVED before either claims the journal.
+                // A lock query without a refresh incorrectly reuses this stale managed object.
+                assertThat(journals.findByIdWithDetails(journalId).orElseThrow().getStatus())
+                        .isEqualTo(JournalEntryStatus.APPROVED);
+                bothLoaded.countDown();
+                await(bothLoaded);
+                if (secondAttempted != null) {
+                    await(gate.beforeEntries);
+                    secondConnection.set(connectionId[0]);
+                    secondAttempted.countDown();
+                }
+                posting(mode).postJournalEntry(journalId, actor);
+            });
+            return new Attempt(connectionId[0], null);
+        } catch (RuntimeException failure) {
+            return new Attempt(connectionId[0], failure);
+        }
+    }
+
+    private boolean awaitPostgresLock(long connectionId, Future<Attempt> request) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        while (System.nanoTime() < deadline && !request.isDone()) {
+            if (jdbc.queryForObject("SELECT COUNT(*) FROM pg_stat_activity WHERE pid = ? AND wait_event_type = 'Lock'",
+                    Integer.class, connectionId) == 1) {
+                return true;
+            }
+            Thread.sleep(10);
+        }
+        return false;
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void failureAfterClaimAndStatusFlushBeforeEntryInsertRollsBackAndCanRetry(Mode mode) {
+        gate.failBeforeInsert = true;
+        assertThatThrownBy(() -> posting(mode).postJournalEntry(journalId, "failed-poster"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("injected failure before entries");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("APPROVED");
+        assertThat(jdbc.queryForObject("SELECT audit_user FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("approver");
+        assertEntryCounts(0);
+        assertBalances("0.00");
+        gate.failBeforeInsert = false;
+        posting(mode).postJournalEntry(journalId, "retry-poster");
+        assertPostedExactlyOnce("retry-poster");
+    }
+
+    @Test
+    void readOnlyDetailLookupReturnsDetailsWithoutRequiringAWriteLock() {
+        TransactionTemplate readOnly = new TransactionTemplate(transactionManager);
+        readOnly.setReadOnly(true);
+        JournalEntry result = readOnly.execute(status ->
+                journalPersistence.findByIdWithDetails(journalId).orElseThrow());
+        assertThat(result.getDetails()).hasSize(2);
+        assertThat(result.getStatus()).isEqualTo(JournalEntryStatus.APPROVED);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void approvalAndPostingInOneTransactionRetainsPendingApproval(Mode mode) {
+        transactions.executeWithoutResult(status -> {
+            JournalEntry draft = journal();
+            draft.setSlipNo("GL760-SAME-TX");
+            journals.saveAndFlush(draft);
+            draft.approve("same-tx-approver");
+            posting(mode).postJournalEntry(draft.getId(), "same-tx-poster");
+            assertThat(draft.getStatus()).isEqualTo(JournalEntryStatus.POSTED);
+        });
+        assertEntryCounts(2);
+        assertBalances("100.00");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void durableIdentityRejectsAdapterReplayWithoutAdditionalFinancialEffects(Mode mode) {
+        GeneralLedger snapshot = transactions.execute(status ->
+                GeneralLedger.fromApproved(journals.findByIdWithDetails(journalId).orElseThrow()));
+        posting(mode).postJournalEntry(journalId, "original");
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> entries(mode).save(snapshot)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertPostedExactlyOnce("original");
+        // Verify SL independently; a replay rejected at GL alone would not prove the SL constraint.
+        for (String table : List.of("gl_entries", "sl_entries")) {
+            assertThatThrownBy(() -> jdbc.update("INSERT INTO " + table
+                    + " (journal_detail_id, account_code, dr_amount, cr_amount, base_dr_amount, base_cr_amount)"
+                    + " SELECT journal_detail_id, account_code, dr_amount, cr_amount, base_dr_amount, base_cr_amount"
+                    + " FROM " + table + " ORDER BY id LIMIT 1"))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> jdbc.update("INSERT INTO " + table
+                    + " (journal_detail_id, account_code, dr_amount, cr_amount, base_dr_amount, base_cr_amount)"
+                    + " VALUES (NULL, '10100', 100, 0, 100, 0)"))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+        assertPostedExactlyOnce("original");
+    }
+
+    private void assertPostedExactlyOnce(String poster) {
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("POSTED");
+        assertThat(jdbc.queryForObject("SELECT audit_user FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo(poster);
+        assertEntryCounts(2);
+        for (String table : List.of("gl_entries", "sl_entries")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT journal_detail_id) FROM " + table, Integer.class))
+                    .isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT SUM(base_dr_amount) FROM " + table, BigDecimal.class))
+                    .isEqualByComparingTo("100.00");
+            assertThat(jdbc.queryForObject("SELECT SUM(base_cr_amount) FROM " + table, BigDecimal.class))
+                    .isEqualByComparingTo("100.00");
+        }
+        assertBalances("100.00");
+    }
+
+    private void assertEntryCounts(int expected) {
+        for (String table : List.of("gl_entries", "sl_entries")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class)).as(table + " entry count").isEqualTo(expected);
+        }
+    }
+
+    private void assertBalances(String amount) {
+        for (String table : List.of("gl_balances", "sl_balances")) {
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class)).isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT SUM(debit_amount) FROM " + table, BigDecimal.class))
+                    .isEqualByComparingTo(amount);
+            assertThat(jdbc.queryForObject("SELECT SUM(credit_amount) FROM " + table, BigDecimal.class))
+                    .isEqualByComparingTo(amount);
+        }
+    }
+
+    private PostingService posting(Mode mode) { return mode == Mode.JPA ? jpaPosting : jdbcPosting; }
+    private LedgerEntryPersistencePort entries(Mode mode) { return mode == Mode.JPA ? jpaEntries : jdbcEntries; }
+
+    private JournalEntry journal() {
+        JournalEntry journal = new JournalEntry();
+        journal.setSlipNo("GL760-CONCURRENT");
+        journal.setSlipDate(DATE);
+        journal.setAccountingDate(DATE);
+        journal.setCurrencyCode("KRW");
+        journal.setLineageSourceType("TEST");
+        journal.setLineageSourceId("GL760");
+        journal.addDetail(detail(JournalSide.DEBIT, "10100"));
+        journal.addDetail(detail(JournalSide.CREDIT, "40100"));
+        journal.initializeDraft();
+        return journal;
+    }
+
+    private JournalDetail detail(JournalSide side, String account) {
+        JournalDetail detail = new JournalDetail();
+        detail.setSide(side);
+        detail.setAccountCode(account);
+        detail.setAmount(new BigDecimal("100.00"));
+        detail.setBaseAmount(new BigDecimal("100.00"));
+        detail.setBusinessPartnerCode("BP-760");
+        detail.setDepartmentCode("D-760");
+        return detail;
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("timed out waiting for posting test coordination");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("posting test interrupted", interrupted);
+        }
+    }
+
+    private record Attempt(long connectionId, RuntimeException failure) { }
+
+    static class EntryGate {
+        volatile boolean holdFirstWriter;
+        volatile boolean failBeforeInsert;
+        CountDownLatch beforeEntries;
+        CountDownLatch release;
+        final AtomicInteger writes = new AtomicInteger();
+
+        void reset() {
+            holdFirstWriter = false;
+            failBeforeInsert = false;
+            beforeEntries = new CountDownLatch(1);
+            release = new CountDownLatch(1);
+            writes.set(0);
+        }
+
+        LedgerEntryPersistencePort wrap(LedgerEntryPersistencePort delegate, EntityManager entityManager) {
+            return ledger -> {
+                if (holdFirstWriter && writes.incrementAndGet() == 1) {
+                    beforeEntries.countDown();
+                    await(release);
+                }
+                if (failBeforeInsert) {
+                    // Persist the claimed POSTED header first, proving database rollback, not just
+                    // disposal of an unflushed in-memory state. No ledger entry has been inserted.
+                    entityManager.flush();
+                    throw new IllegalStateException("injected failure before entries");
+                }
+                delegate.save(ledger);
+            };
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAutoConfiguration
+    @EntityScan("com.ho.account.journalledger.domain")
+    @EnableJpaRepositories("com.ho.account.journalledger.domain")
+    @Import(JournalPersistenceAdapter.class)
+    static class PostingApplication {
+        @Bean EntryGate entryGate() { return new EntryGate(); }
+
+        @Bean LedgerEntryPersistencePort jpaEntries(GlEntryRepository gl, SlEntryRepository sl, EntityManager em) {
+            return new LedgerEntryPersistenceAdapter(gl, sl, em);
+        }
+
+        @Bean LedgerEntryPersistencePort jdbcEntries(JdbcTemplate jdbc) {
+            return new JdbcLedgerEntryBulkPersistenceAdapter(jdbc);
+        }
+
+        @Bean PostingService jpaPosting(JournalPersistencePort journals,
+                @Qualifier("jpaEntries") LedgerEntryPersistencePort entries,
+                GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
+                EntryGate gate, EntityManager em) {
+            return service(journals, gate.wrap(entries, em), new LedgerBalancePersistenceAdapter(gl, sl, details));
+        }
+
+        @Bean PostingService jdbcPosting(JournalPersistencePort journals,
+                @Qualifier("jdbcEntries") LedgerEntryPersistencePort entries, JdbcTemplate jdbc,
+                GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
+                EntryGate gate, EntityManager em) {
+            return service(journals, gate.wrap(entries, em),
+                    new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details));
+        }
+
+        private PostingService service(JournalPersistencePort journals, LedgerEntryPersistencePort entries,
+                LedgerBalancePersistencePort balances) {
+            return new PostingService(journals, entries, new LedgerService(balances),
+                    new ClosingLockValidationFilter(date -> false));
+        }
+    }
+}

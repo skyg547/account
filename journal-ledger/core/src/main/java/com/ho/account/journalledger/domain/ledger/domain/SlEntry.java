@@ -10,7 +10,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "sl_entries")
+@Table(name = "sl_entries", uniqueConstraints =
+        @UniqueConstraint(name = "uk_sl_entries_journal_detail", columnNames = "journal_detail_id"))
 @Getter @Setter
 @NoArgsConstructor
 public class SlEntry {
@@ -20,7 +21,7 @@ public class SlEntry {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_detail_id")
+    @JoinColumn(name = "journal_detail_id", nullable = false)
     private JournalDetail journalDetail;
 
     @Column(name = "account_code", nullable = false, length = 50)

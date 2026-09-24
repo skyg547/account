@@ -8,7 +8,8 @@
 2. [process-flow.md](./process-flow.md): 전표·원장·미결 업무와 데이터 흐름
 3. [schema.md](./schema.md): 핵심 테이블 관계와 소유권
 4. [ledger-carry-forward.md](./ledger-carry-forward.md): 원장 잔액 이월 상세
-5. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
+5. [posting-concurrency.md](./posting-concurrency.md): 동일 전표 동시 전기, 재시도, V13 업그레이드와 검증
+6. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
 

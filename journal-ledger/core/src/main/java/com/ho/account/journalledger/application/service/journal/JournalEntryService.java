@@ -180,7 +180,8 @@ public class JournalEntryService implements JournalUseCase {
      * 전표 상세 화면에서 차변/대변 각 라인(계정과목, 금액, 적요)을 보여줄 때 사용합니다.
      *
      * [개발 설명]
-     * findByIdWithDetails()는 JOIN FETCH로 JournalDetail까지 한 번에 로딩합니다.
+     * findByIdWithDetails()는 짧은 트랜잭션에서 헤더를 잠그고 최신 헤더/상세를 읽습니다.
+     * 명시적인 읽기 전용 트랜잭션에서는 잠금 없이 JOIN FETCH합니다.
      * 일반 findById()는 헤더만 가져오므로 상세 라인 접근 시 LazyInitializationException이 발생합니다.
      *
      * @param id 전표 내부 PK

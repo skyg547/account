@@ -147,3 +147,11 @@ JDK 경로는 설치된 경로에 맞추되 PowerShell의 `-P` 인수는 인용�
   기존 마지막 참조번호를 복사합니다. 이번 정밀도 검증은 기존 V1/V10/V11/V12를 수정하지 않습니다.
 - 운영 배포 전 승인된 PostgreSQL에서 clean/upgrade migrate+validate와 runtime role의 DDL
   거부를 확인합니다. 적용된 V1/V10/V11의 checksum을 `repair`로 덮거나 파일을 수정하지 않습니다.
+
+## 전기 상세의 영속 고유 키 (V13)
+
+`gl_entries.journal_detail_id`와 `sl_entries.journal_detail_id`는 각각 `NOT NULL`이며
+`uk_gl_entries_journal_detail`, `uk_sl_entries_journal_detail` 고유 제약을 갖습니다.
+한 전표 상세는 각 장부에 한 번만 나타납니다. JPA와 JDBC bulk가 같은 제약을 사용합니다.
+기존 중복/NULL 상세 참조가 있으면 V13은 실패하며 자동 삭제하지 않습니다.
+배포 전 확인 쿼리와 중단/복구 절차는 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
