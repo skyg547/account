@@ -3,13 +3,14 @@ package com.ho.account.journalledger.infrastructure.persistence;
 import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 
-import java.math.BigDecimal;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.repository.JournalDetailRepository;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import com.ho.account.journalledger.domain.ledger.repository.GlBalanceRepository;
 import com.ho.account.journalledger.domain.ledger.repository.SlBalanceRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
@@ -71,18 +72,33 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
     private final SlBalanceRepository slBalanceRepository;
     private final JournalDetailRepository journalDetailRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public void lockBalanceAccounts(List<BalanceAccount> accounts) {
+        LedgerBalanceWriteLock.lockAccounts(entityManager, glBalanceRepository, accounts);
+    }
+
+    @Override
+    public void lockAllBalanceAccounts() {
+        LedgerBalanceWriteLock.lockAll(entityManager, glBalanceRepository);
+    }
+
     @Override
     public Optional<GlBalance> findGlBalance(
             String accountCode, String currencyCode, LocalDate balanceDate, YearMonth period) {
         return glBalanceRepository.findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
-                accountCode, currencyCode, balanceDate, period);
+                accountCode, currencyCode, balanceDate, period)
+                .map(balance -> LedgerBalanceWriteLock.refresh(entityManager, balance, true));
     }
 
     @Override
     public Optional<GlBalance> findPreviousGlBalance(
             String accountCode, String currencyCode, LocalDate balanceDate) {
         return glBalanceRepository.findFirstByAccountCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(
-                accountCode, currencyCode, balanceDate);
+                accountCode, currencyCode, balanceDate)
+                .map(balance -> LedgerBalanceWriteLock.refresh(entityManager, balance, true));
     }
 
     @Override
@@ -115,7 +131,8 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
             String accountCode, String businessPartnerCode, String departmentCode,
             String currencyCode, LocalDate balanceDate, YearMonth period) {
         return slBalanceRepository.findByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateAndPeriod(
-                accountCode, businessPartnerCode, departmentCode, currencyCode, balanceDate, period);
+                accountCode, businessPartnerCode, departmentCode, currencyCode, balanceDate, period)
+                .map(balance -> LedgerBalanceWriteLock.refresh(entityManager, balance, true));
     }
 
     @Override
@@ -123,7 +140,8 @@ public class JdbcLedgerBalanceBulkPersistenceAdapter implements LedgerBalancePer
             String accountCode, String businessPartnerCode, String departmentCode,
             String currencyCode, LocalDate balanceDate) {
         return slBalanceRepository.findFirstByAccountCodeAndBusinessPartnerCodeAndDepartmentCodeAndCurrencyCodeAndBalanceDateBeforeOrderByBalanceDateDesc(
-                accountCode, businessPartnerCode, departmentCode, currencyCode, balanceDate);
+                accountCode, businessPartnerCode, departmentCode, currencyCode, balanceDate)
+                .map(balance -> LedgerBalanceWriteLock.refresh(entityManager, balance, true));
     }
 
     @Override

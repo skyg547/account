@@ -4,6 +4,7 @@ import com.ho.account.contracts.ledger.LedgerAggregateSummary;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
+import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort.BalanceAccount;
 import com.ho.account.journalledger.domain.ledger.domain.GlBalance;
 import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +16,12 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +48,7 @@ public class LedgerService {
         BigDecimal amount = journalDetail.getBaseAmount();
         boolean isDebit = JournalSide.DEBIT.equals(journalDetail.getSide());
 
+        ledgerBalancePersistencePort.lockBalanceAccounts(List.of(new BalanceAccount(accountCode, currencyCode)));
         updateGlBalance(accountCode, currencyCode, amount, isDebit, accountingDate);
         updateSlBalance(accountCode, businessPartnerCode, departmentCode, currencyCode, amount, isDebit, accountingDate);
     }
@@ -131,6 +136,8 @@ public class LedgerService {
      */
     @Transactional
     public void clearLedgerBalancesForPeriod(LocalDate startDate, LocalDate endDate) {
+        // Rows being rebuilt can be absent or belong to accounts not yet seen in the input.
+        ledgerBalancePersistencePort.lockAllBalanceAccounts();
         ledgerBalancePersistencePort.deleteBalancesBetween(startDate, endDate);
     }
 
@@ -148,8 +155,14 @@ public class LedgerService {
     public void updateLedgerBalancesBulk(List<JournalDetail> journalDetails) {
         if (journalDetails == null || journalDetails.isEmpty()) return;
 
+        // Lock the complete account set before the first balance read. Locking line by line
+        // would invert the order for journals whose debit/credit account order differs.
+        ledgerBalancePersistencePort.lockBalanceAccounts(journalDetails.stream()
+                .map(detail -> new BalanceAccount(detail.getAccountCode(), detail.getJournalEntry().getCurrencyCode()))
+                .distinct().toList());
         Map<LocalDate, List<JournalDetail>> groupedByDate = journalDetails.stream()
-                .collect(Collectors.groupingBy(d -> d.getJournalEntry().getAccountingDate(), LinkedHashMap::new, Collectors.toList()));
+                // Earlier days must be persisted first so later days inherit their closing balance.
+                .collect(Collectors.groupingBy(d -> d.getJournalEntry().getAccountingDate(), TreeMap::new, Collectors.toList()));
 
         for (Map.Entry<LocalDate, List<JournalDetail>> entry : groupedByDate.entrySet()) {
             LocalDate date = entry.getKey();
@@ -160,13 +173,13 @@ public class LedgerService {
     }
 
     private void updateDailyBalances(LocalDate date, List<JournalDetail> details) {
-        Map<String, BigDecimal> glDebitMap = new LinkedHashMap<>();
-        Map<String, BigDecimal> glCreditMap = new LinkedHashMap<>();
-        Map<String, GlBalanceKey> glKeys = new LinkedHashMap<>();
+        Map<GlBalanceKey, BigDecimal> glDebitMap = new LinkedHashMap<>();
+        Map<GlBalanceKey, BigDecimal> glCreditMap = new LinkedHashMap<>();
+        Set<GlBalanceKey> glKeys = new LinkedHashSet<>();
 
-        Map<String, BigDecimal> slDebitMap = new LinkedHashMap<>();
-        Map<String, BigDecimal> slCreditMap = new LinkedHashMap<>();
-        Map<String, SlBalanceKey> slKeys = new LinkedHashMap<>();
+        Map<SlBalanceKey, BigDecimal> slDebitMap = new LinkedHashMap<>();
+        Map<SlBalanceKey, BigDecimal> slCreditMap = new LinkedHashMap<>();
+        Set<SlBalanceKey> slKeys = new LinkedHashSet<>();
 
         for (JournalDetail detail : details) {
             String accountCode = detail.getAccountCode();
@@ -174,30 +187,30 @@ public class LedgerService {
             BigDecimal amount = detail.getBaseAmount();
             boolean isDebit = JournalSide.DEBIT.equals(detail.getSide());
 
-            String glKeyStr = accountCode + "|" + currencyCode;
-            glKeys.putIfAbsent(glKeyStr, new GlBalanceKey(accountCode, currencyCode));
+            GlBalanceKey glKey = new GlBalanceKey(accountCode, currencyCode);
+            glKeys.add(glKey);
             if (isDebit) {
-                glDebitMap.merge(glKeyStr, amount, BigDecimal::add);
+                glDebitMap.merge(glKey, amount, BigDecimal::add);
             } else {
-                glCreditMap.merge(glKeyStr, amount, BigDecimal::add);
+                glCreditMap.merge(glKey, amount, BigDecimal::add);
             }
 
             String partnerCode = detail.getBusinessPartnerCode();
             String deptCode = detail.getDepartmentCode();
-            String slKeyStr = glKeyStr + "|" + (partnerCode != null ? partnerCode : "NULL") + "|" + (deptCode != null ? deptCode : "NULL");
-            slKeys.putIfAbsent(slKeyStr, new SlBalanceKey(accountCode, partnerCode, deptCode, currencyCode));
+            // SQL NULL is a real dimension value, distinct from a literal code "NULL" or "|".
+            SlBalanceKey slKey = new SlBalanceKey(accountCode, partnerCode, deptCode, currencyCode);
+            slKeys.add(slKey);
             if (isDebit) {
-                slDebitMap.merge(slKeyStr, amount, BigDecimal::add);
+                slDebitMap.merge(slKey, amount, BigDecimal::add);
             } else {
-                slCreditMap.merge(slKeyStr, amount, BigDecimal::add);
+                slCreditMap.merge(slKey, amount, BigDecimal::add);
             }
         }
 
         List<GlBalance> glBalancesToSave = new ArrayList<>();
-        for (Map.Entry<String, GlBalanceKey> entry : glKeys.entrySet()) {
-            GlBalanceKey key = entry.getValue();
-            BigDecimal debitSum = glDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
-            BigDecimal creditSum = glCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+        for (GlBalanceKey key : glKeys) {
+            BigDecimal debitSum = glDebitMap.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal creditSum = glCreditMap.getOrDefault(key, BigDecimal.ZERO);
             glBalancesToSave.add(createOrUpdateGlBalanceWithSums(
                     key.accountCode(), key.currencyCode(), debitSum, creditSum, date));
         }
@@ -207,10 +220,9 @@ public class LedgerService {
         }
 
         List<SlBalance> slBalancesToSave = new ArrayList<>();
-        for (Map.Entry<String, SlBalanceKey> entry : slKeys.entrySet()) {
-            SlBalanceKey key = entry.getValue();
-            BigDecimal debitSum = slDebitMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
-            BigDecimal creditSum = slCreditMap.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+        for (SlBalanceKey key : slKeys) {
+            BigDecimal debitSum = slDebitMap.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal creditSum = slCreditMap.getOrDefault(key, BigDecimal.ZERO);
             slBalancesToSave.add(createOrUpdateSlBalanceWithSums(
                     key.accountCode(), key.partnerCode(), key.deptCode(), key.currencyCode(), debitSum, creditSum, date));
         }

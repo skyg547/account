@@ -18,7 +18,7 @@
 ## 2. 핵심 비즈니스 로직 Flow
 
 1. **전표 전기(Posting) 발생:** 사용자가 전표를 확정하거나 시스템이 자동 생성된 전표를 승인함.
-2. **잔액 레코드 확인:** 해당 날짜(`balanceDate`)와 계정 조합의 잔액 데이터가 이미 있는지 DB에서 확인.
+2. **잠금과 잔액 확인:** 이번 호출에 포함된 모든 계정·통화의 공통 잠금 행을 먼저 확보한 뒤, 해당 날짜(`balanceDate`)의 최신 잔액을 확인. 잔액 행이 아직 없어도 같은 키의 첫 생성은 직렬화됩니다.
 3. **기초 잔액 설정 (Carry-forward):**
    - 레코드가 **없을 경우:** DB에서 해당 날짜 이전(`balanceDate < today`) 중 **가장 최근의 `endingBalance`**를 조회.
    - 조회된 금액을 새로운 레코드의 `beginningBalance`로 설정.
@@ -39,6 +39,7 @@
 ## 4. 주의사항 (Developer Tips)
 - **SCD2 연동:** 계정과목이나 부서가 변경되어도 원장의 이력은 보존되어야 하므로, 잔액 데이터 생성 시점의 마스터 데이터 정보를 정확히 참조합니다.
 - **역날짜 전표(Back-dated):** 과거 날짜의 전표를 입력할 경우, 그 이후 모든 날짜의 잔액을 다시 계산(Re-aggregation)해야 합니다. 현재는 `reaggregateLedgerBalancesForPeriod`와 `journal-ledger:batch`의 `dailyBalanceReaggregationJob`으로 이를 지원합니다. JobParameter는 `startDate/endDate` 또는 단일 `baseDate`를 사용합니다.
+- **순서와 트랜잭션:** bulk 입력은 날짜 오름차순으로 처리해 다음 날 기초가 앞선 날 기말을 읽도록 합니다. 단일 트랜잭션 재집계는 삭제 전에 모든 계정 잠금을 확보합니다. Batch Job은 cleanup/chunk마다 커밋하므로 전체 Job 동안 전기를 중지하고 단일 Job만 실행해야 합니다. [동시성·재시도 제약](posting-concurrency.md)을 확인합니다.
 
 ## 5. 기간 잔액 조회: 기초는 한 번, 거래 흐름은 모두
 

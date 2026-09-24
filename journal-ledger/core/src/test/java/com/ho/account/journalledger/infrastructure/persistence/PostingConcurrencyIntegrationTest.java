@@ -403,7 +403,7 @@ class PostingConcurrencyIntegrationTest {
                 @Qualifier("jpaEntries") LedgerEntryPersistencePort entries,
                 GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
                 EntryGate gate, EntityManager em) {
-            return service(journals, gate.wrap(entries, em), new LedgerBalancePersistenceAdapter(gl, sl, details));
+            return service(journals, gate.wrap(entries, em), new LedgerBalancePersistenceAdapter(gl, sl, details), em);
         }
 
         @Bean PostingService jdbcPosting(JournalPersistencePort journals,
@@ -411,11 +411,13 @@ class PostingConcurrencyIntegrationTest {
                 GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
                 EntryGate gate, EntityManager em) {
             return service(journals, gate.wrap(entries, em),
-                    new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details));
+                    new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details), em);
         }
 
         private PostingService service(JournalPersistencePort journals, LedgerEntryPersistencePort entries,
-                LedgerBalancePersistencePort balances) {
+                LedgerBalancePersistencePort balances, EntityManager em) {
+            // These adapters are nested fixture objects, so Spring cannot inject their persistence context.
+            org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
             return new PostingService(journals, entries, new LedgerService(balances),
                     new ClosingLockValidationFilter(date -> false));
         }

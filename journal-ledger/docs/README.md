@@ -8,7 +8,7 @@
 2. [process-flow.md](./process-flow.md): 전표·원장·미결 업무와 데이터 흐름
 3. [schema.md](./schema.md): 핵심 테이블 관계와 소유권
 4. [ledger-carry-forward.md](./ledger-carry-forward.md): 원장 잔액 이월 상세
-5. [posting-concurrency.md](./posting-concurrency.md): 동일 전표 동시 전기, 재시도, V13 업그레이드와 검증
+5. [posting-concurrency.md](./posting-concurrency.md): 동일/서로 다른 전표의 동시 전기, 잔액 잠금, 재시도, V13/V14 업그레이드와 검증
 6. [layer-guide.md](./layer-guide.md): application/domain/adapter 계층과 출력 포트 경계
 
 루트 `README.md`에는 모듈 개요와 빠른 실행 정보만 두고, 상세 설명은 위 문서에서 통합 관리합니다.
@@ -18,8 +18,9 @@
 `journal-ledger:batch`는 API 서버가 아니라 Spring Batch 실행 모듈입니다. 현재 대표 Job은 `dailyBalanceReaggregationJob`이며, 과거 전표 수정이나 누락 전표 전기 후 GL/SL 잔액을 특정 기간 기준으로 다시 계산할 때 사용합니다.
 
 - batch config: Job/Step 연결만 담당합니다.
-- `BalanceReaggregationTasklet`: `startDate`, `endDate`, `baseDate`, `targetDate` JobParameter를 기간으로 변환합니다.
-- `LedgerService.reaggregateLedgerBalancesForPeriod`: 실제 POSTED 전표 기준 잔액 재집계 업무 흐름을 수행합니다.
+- `BalanceCleanUpTasklet`과 `BatchDateRangeParameterUtils`: JobParameter를 기간으로 변환하고 먼저 기간 잔액을 삭제합니다.
+- `JpaPagingItemReader`는 POSTED 상세를 날짜 순으로 읽고, chunk writer는 `LedgerService.updateLedgerBalancesBulk`로 집계합니다.
+- cleanup과 각 chunk는 서로 다른 트랜잭션입니다. 전체 Job 동안 전기를 중지하고 재집계 Job 하나만 실행해야 합니다. 서비스의 단일 트랜잭션 `reaggregateLedgerBalancesForPeriod`와 범위가 다르며, [잠금·재집계 경계](posting-concurrency.md)를 먼저 확인합니다.
 
 ```powershell
 .\gradlew :journal-ledger:batch:bootRun --args="--spring.profiles.active=local --spring.main.web-application-type=none --spring.batch.job.enabled=true --spring.batch.job.name=dailyBalanceReaggregationJob startDate=2026-04-01 endDate=2026-04-30" --console=plain
@@ -58,7 +59,8 @@ journal-ledger:
 
 - `JdbcLedgerEntryBulkPersistenceAdapter`는 GL/SL 엔트리를 JDBC batch insert로 저장합니다.
 - `JdbcLedgerBalanceBulkPersistenceAdapter`는 GL 잔액을 DB 방언별 upsert로 저장하고, SL 잔액은 거래처·부서가 `null`인 키도 안전하게 처리하도록 bulk update 후 미삽입 행만 bulk insert합니다.
-- 현재 H2 기준 SQL 동작은 core 테스트에서 검증했습니다. 운영 PostgreSQL/MySQL에서는 배치 크기, 인덱스, 락 대기, 재집계 동시성 부하 테스트를 별도로 수행해야 합니다.
+- 두 저장 모드 모두 먼저 동일한 계정·통화 잠금을 획득합니다. SL의 NULL 차원과 아직 없는 잔액 행도 보호하며, JDBC 조회 객체는 분리하여 JPA 자동 flush가 bulk SQL을 덮어쓰지 않게 합니다.
+- 실제 PostgreSQL 검증 명령과 범위는 [posting-concurrency.md](posting-concurrency.md)에 있습니다. 운영 데이터량의 배치 크기, 인덱스와 잠금 대기 부하 검증은 별도입니다. MySQL은 이 PostgreSQL 검증의 대상이 아니며 기본 REPEATABLE_READ에서는 잔액 갱신을 거부합니다.
 
 ## 로컬 실행
 
