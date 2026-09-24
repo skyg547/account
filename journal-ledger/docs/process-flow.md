@@ -68,13 +68,65 @@ repository guard를 우회합니다. 조사된 production 코드에서는 이런
 ./gradlew :journal-ledger:test
 ```
 
-forced full 검증 결과는 core 29 suites/215 tests, API 15/51, batch 4/11로 합계
+Issue #758 당시 forced full 역사적 검증 결과는 core 29 suites/215 tests,
+API 15/51, batch 4/11로 합계
 48 suites/277 tests이며 실패·오류·skip은 0입니다. 집중 persistence 19/19와 batch 5/5도
 통과했습니다. 감사 대상 회귀 3개는 수정 전 기준 commit `a97d10ab`에서 3/3 실패하고 현재
 3/3 통과하여 수정 전후 차이를 확인했습니다. Batch fixture가 먼저
 `APPROVED`를 저장한 뒤 전기하도록 바뀐 것은 합법적인 상태 전이를 준비하는 테스트 설정일 뿐,
 새 production 업무 흐름이나 우회 API를 추가한 것이 아닙니다. Batch 테스트의 직접 SQL cleanup도
 고정된 폐기 가능 H2 테스트 DB만 비우며 production 우회 경로가 아닙니다.
+
+### 원본당 단일 역분개 작업
+
+초보자 설명: 역분개는 원본 전표를 지우는 기능이 아닙니다. `POSTED` 원본을 그대로
+보존하고, 금액은 같으며 차변과 대변이 바뀐 새 전표를 일반 승인·전기 경로로 보냅니다.
+`journal_reversal_operations`는 “이 원본의 현재 역분개가 무엇인가”를 영속적으로 고정하여
+재전송과 동시 요청이 여러 건의 경제 효과를 만들지 못하게 합니다.
+`original_journal_status`는 항상 `POSTED`이며, V17의 `(original_journal_entry_id,
+original_journal_status)` 복합 FK가 `journal_entries(id, status)`를 참조하여 미전기 원본을
+operation에 연결하는 직접 DB 쓰기도 거부합니다.
+
+| 입력 | 처리 | 출력·영속 결과 |
+| --- | --- | --- |
+| `POSTED` 원본 ID, 역분개 회계일, 작성자, 사유 | 원본 헤더를 트랜잭션 종료까지 잠그고 현재 operation을 확인 | 첫 요청이면 `DRAFT` 역분개와 `PENDING` operation 생성 |
+| 같은 원본의 순차·동시 재요청 | 날짜·사유가 달라도 이미 있는 `PENDING`/`POSTED` operation을 첫 요청의 결과로 판단 | 새 slip이 아닌 같은 현재 역분개 전표 반환 |
+| 현재 `PENDING` 역분개 취소 | operation에서 현재 전표 ID를 확인하고, 그 전표를 잠그고 최신 상태를 다시 읽은 뒤 전표를 `REJECTED`, operation을 `CANCELLED`로 함께 전환 | 기존 역분개는 승인·전기 불가, 다음 생성 요청에 권리 재개방 |
+| 승인된 역분개 전기 | 역분개 전표 잠금 → 회계기간 재확인 → GL/SL 반영 → operation `POSTED` | 전표·원장·operation이 하나의 트랜잭션으로 commit |
+
+최초 생성은 원본의 각 라인에서 거래통화 `amount`와 기준통화 `baseAmount`, 계정·부서·
+거래처 차원을 값 변경 없이 복사하고 `DEBIT ↔ CREDIT`만 반전합니다. 생성 전에 작성자·사유·
+날짜와 차대/기준통화 균형을 검사하고, `createJournalEntry` 경로의
+`JournalValidationEngine`이 공급한 회계일의 기간이 열려 있는지 기존 규칙으로 검사합니다.
+
+전기와 취소가 경쟁하면 역분개 전표 헤더가 순서를 결정합니다. 전기가 먼저 commit하면
+뒤의 취소는 refresh된 `POSTED` 전표에서 operation 변경 전에 거부되고, 취소가 먼저
+commit하면 뒤의 전기는 `REJECTED`를 보고 거부됩니다. `POSTED` operation은 취소할 수
+없습니다. 생성·취소·전기 중 예외나 DB 제약 위반이 나면 전표와 operation은 함께
+rollback되므로, 새 트랜잭션으로 전체 명령을 재시도할 수 있습니다.
+
+재집계는 기존처럼 `journal_entries.status = 'POSTED'`인 라인만 읽습니다. 따라서 원본
+`POSTED`와 유효하게 전기된 역분개 `POSTED`를 모두 포함하여 순효과를 재구성하고,
+아직 `DRAFT`/`REQUESTED`/`APPROVED`인 역분개와 취소로 `REJECTED`된 전표는 제외합니다.
+원본을 `REVERSED`로 바꾸지 않는 이유도 이 `POSTED` 스냅샷 정책과 최종 이력 보호를 같이
+유지하기 위해서입니다.
+
+이 변경의 취소 명령은 core `JournalUseCase` 경계입니다. 외부에 공개하는 HTTP 취소
+adapter·DTO·권한 정책은 이 변경에 포함되지 않았으므로, inbound endpoint가 필요하면
+별도 계약과 보안 리뷰 후 연결해야 합니다.
+
+로컬 회귀의 전제는 저장소 루트, JDK 17, 사전 준비된 Gradle/의존성 캐시입니다.
+
+```bash
+./gradlew :journal-ledger:test
+```
+
+기대 결과는 역분개 도메인·서비스·영속성·V17·Batch 재집계 회귀를 포함한 모든
+테스트의 실패·오류 0입니다. 이 문서는 명령의 실제 통과를 선언하지 않으며,
+실행 결과는 Issue/PR 검증 기록을 확인합니다. PR 근거는 감사 기준 소스에서
+중복 역분개 호환 회귀가 실패(RED)하고 수정본에서 통과(GREEN)하는 결과와,
+실제 전기-취소 동시 경쟁 결과를 포함해야 합니다. 합성 H2는 운영 PostgreSQL의 lock wait,
+분산 장애, 운영 부하와 기존 부정합 복구를 대체하지 않습니다.
 
 ### Maker-checker 승인과 HTTP 권한
 
@@ -321,7 +373,7 @@ future가 끝나지 않는지 확인하고, PostgreSQL에서는 독립 backend P
 
 | 기능 | 엔드포인트 | 주요 입력 |
 | --- | --- | --- |
-| 전표 생성 | `POST /api/journals` | 전표 DTO, `X-Auth-User`, maker role |
+| 전표 생성 | `POST /api/journals` | 전표 DTO, `X-Auth-User`, maker role; caller 지정 `REVERSAL`은 `400` |
 | 이벤트 기반 전표 생성 | `POST /api/journals/from-event` | 이벤트 데이터, `X-Auth-User`, maker role |
 | 승인 요청 | `POST /api/journals/{id}/request-approval` | `X-Auth-User`, maker role |
 | 승인 | `POST /api/journals/{id}/approve` | `X-Auth-User`, approver role |
@@ -329,6 +381,13 @@ future가 끝나지 않는지 확인하고, PostgreSQL에서는 독립 backend P
 | 거래처별 미결 조회 | `GET /api/unsettled/businesspartner/{businessPartnerCode}` | 거래처 코드 |
 | 반제 | `POST /api/unsettled/{id}/settle` | 금액, `settlementReference`, `X-User-ID` |
 | FX 대시보드 조회 | `GET /api/fx/dashboard` | 입력 없음 |
+
+`POST /api/journals`는 `entryType`을 trim한 뒤 대소문자 구분 없이 판정합니다. 따라서
+`REVERSAL`, `reversal`, ` reversal `은 모두 같은 HTTP `400`으로 거부되며, 전표 검증·채번·
+저장을 시작하지 않습니다. 이 경계는 caller가 operation claim 없이 역분개를 만들어
+원본당 단일 관계를 우회하지 못하게 합니다. 역분개 생성은 관리형 core
+`reverseJournalEntry`가 원본 잠금, 회계일 검증, 전표·operation 저장을 한 트랜잭션으로
+수행하는 경로만 사용합니다.
 
 ### FX 대시보드 현재 스냅샷
 

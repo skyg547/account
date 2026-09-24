@@ -268,9 +268,9 @@ class JournalEntryAggregateTest {
     }
 
     @Test
-    @DisplayName("POSTED 원본은 그대로 두고 createReversal은 별도의 DRAFT 역분개만 추가 생성한다.")
+    @DisplayName("POSTED 원본은 그대로 두고 금액·계정·차원을 정확히 복사해 차대만 뒤집은 역분개를 만든다.")
     void reversalCreationRemainsAppendOnly() {
-        JournalEntry original = postedEntry();
+        JournalEntry original = precisePostedEntry();
         HeaderState headerBefore = HeaderState.capture(original);
         List<DetailState> detailsBefore = original.getDetails().stream().map(DetailState::capture).toList();
 
@@ -285,6 +285,122 @@ class JournalEntryAggregateTest {
         assertThat(reversal.getLineageSourceId()).isEqualTo(original.getId().toString());
         assertThat(reversal.getDetails()).extracting(JournalDetail::getSide)
                 .containsExactly(JournalSide.CREDIT, JournalSide.DEBIT);
+        assertThat(reversal.getDetails()).satisfiesExactly(
+                detail -> assertCopiedReversalLine(detail, detailsBefore.get(0), JournalSide.CREDIT),
+                detail -> assertCopiedReversalLine(detail, detailsBefore.get(1), JournalSide.DEBIT));
+    }
+
+    @Test
+    @DisplayName("취소된 역분개 작업만 다른 전표 ID로 한 번 재개할 수 있다.")
+    void cancelledReversalOperationCanRestartWithOneReplacement() {
+        JournalReversalOperation operation = JournalReversalOperation.create(759L, 760L);
+
+        operation.cancel(760L, " Cancel.Operator ", " abandoned draft ");
+
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.CANCELLED);
+        assertThat(operation.getCancelledBy()).isEqualTo("cancel.operator");
+        assertThat(operation.getCancellationReason()).isEqualTo("abandoned draft");
+        assertThat(operation.getCancelledAt()).isNotNull();
+
+        operation.restart(761L);
+
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.PENDING);
+        assertThat(operation.getReversalJournalEntryId()).isEqualTo(761L);
+        assertThat(operation.getCancelledBy()).isNull();
+        assertThat(operation.getCancellationReason()).isNull();
+        assertThat(operation.getCancelledAt()).isNull();
+        assertThatThrownBy(() -> operation.restart(762L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("취소된 역분개 작업");
+    }
+
+    @Test
+    @DisplayName("전기 완료된 역분개 작업은 취소하거나 다시 열 수 없다.")
+    void postedReversalOperationCannotCancelOrReopen() {
+        JournalReversalOperation operation = JournalReversalOperation.create(759L, 760L);
+        operation.markPosted(760L);
+
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.POSTED);
+        assertThat(operation.getPostedAt()).isNotNull();
+        assertThatThrownBy(() -> operation.cancel(760L, "operator", "late cancel"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("진행 중인 역분개 작업");
+        assertThatThrownBy(() -> operation.restart(761L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("취소된 역분개 작업");
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.POSTED);
+        assertThat(operation.getReversalJournalEntryId()).isEqualTo(760L);
+    }
+
+    @Test
+    @DisplayName("역분개 작업은 유효한 원본·역분개 ID와 현재 연결 일치를 강제한다.")
+    void reversalOperationValidatesPersistentIdsAndCurrentRelationship() {
+        assertThatThrownBy(() -> JournalReversalOperation.create(null, 760L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("원본 전표 ID");
+        assertThatThrownBy(() -> JournalReversalOperation.create(759L, 0L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("역분개 전표 ID");
+
+        JournalReversalOperation operation = JournalReversalOperation.create(759L, 760L);
+        assertThatThrownBy(() -> operation.cancel(761L, "operator", "wrong relation"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("일치하지 않습니다");
+        assertThatThrownBy(() -> operation.markPosted(761L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("일치하지 않습니다");
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.PENDING);
+        assertThat(operation.getReversalJournalEntryId()).isEqualTo(760L);
+    }
+
+    @Test
+    @DisplayName("취소된 역분개 전표는 REJECTED가 되어 정상 승인·전기 경로로 다시 사용할 수 없다.")
+    void cancelledReversalJournalBecomesNonPostable() {
+        JournalEntry reversal = precisePostedEntry().createReversal(
+                "reversal-maker", LocalDate.of(2026, 9, 30), "correction");
+        reversal.initializeDraft();
+
+        reversal.cancelReversal(" Cancel.Operator ", " abandoned draft ");
+
+        assertThat(reversal.getStatus()).isEqualTo(JournalEntryStatus.REJECTED);
+        assertThat(reversal.getAuditUser()).isEqualTo("cancel.operator");
+        assertThat(reversal.getRejectionReason()).isEqualTo("abandoned draft");
+        assertThatThrownBy(() -> reversal.post("poster"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("승인된 전표만");
+        assertThatThrownBy(() -> reversal.cancelReversal("operator", "again"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("진행 중인 역분개 전표");
+    }
+
+    @Test
+    @DisplayName("POSTED 역분개 전표는 취소할 수 없고 최종 이력을 그대로 보존한다.")
+    void postedReversalJournalCannotBeCancelled() {
+        JournalEntry reversal = precisePostedEntry().createReversal(
+                "reversal-maker", LocalDate.of(2026, 9, 30), "correction");
+        reversal.initializeDraft();
+        reversal.requestApproval("reversal-maker");
+        reversal.approve("reversal-checker");
+        reversal.post("reversal-poster");
+        HeaderState before = HeaderState.capture(reversal);
+
+        assertThatThrownBy(() -> reversal.cancelReversal("operator", "too late"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("POSTED");
+        assertThat(HeaderState.capture(reversal)).isEqualTo(before);
+    }
+
+    private static void assertCopiedReversalLine(
+            JournalDetail reversal,
+            DetailState original,
+            JournalSide expectedSide) {
+        assertThat(reversal.getSide()).isEqualTo(expectedSide);
+        assertThat(reversal.getAccountCode()).isEqualTo(original.accountCode());
+        assertThat(reversal.getAmount()).isEqualByComparingTo(original.amount());
+        assertThat(reversal.getBaseAmount()).isEqualByComparingTo(original.baseAmount());
+        assertThat(reversal.getDepartmentCode()).isEqualTo(original.departmentCode());
+        assertThat(reversal.getBusinessPartnerCode()).isEqualTo(original.businessPartnerCode());
+        assertThat(reversal.getDetailDescription()).isEqualTo("[역분개] " + original.description());
     }
 
     private static JournalDetail detail(
@@ -328,6 +444,36 @@ class JournalEntryAggregateTest {
             detail.setDetailDescription("original detail");
             detail.setAuditUser("maker");
         });
+        entry.requestApproval("maker");
+        entry.approve("checker");
+        entry.post("poster");
+        return entry;
+    }
+
+    private static JournalEntry precisePostedEntry() {
+        JournalEntry entry = new JournalEntry();
+        entry.setId(759L);
+        entry.setSlipNo("JE-POSTED-759");
+        entry.setSlipDate(LocalDate.of(2026, 9, 25));
+        entry.setAccountingDate(LocalDate.of(2026, 9, 25));
+        entry.setDescription("precision reversal fixture");
+        entry.setEntryType("NORMAL");
+        entry.setCurrencyCode("USD");
+        entry.setExchangeRate(new BigDecimal("1.23456789"));
+        entry.setCreatedBy("maker");
+        entry.setLineageSourceType("TEST");
+        entry.setLineageSourceId("ISSUE-759");
+        JournalDetail debit = detail(JournalSide.DEBIT, "10123", "12.34", "16.78");
+        debit.setDepartmentCode("D-DEBIT");
+        debit.setBusinessPartnerCode("BP-DEBIT");
+        debit.setDetailDescription("debit source detail");
+        JournalDetail credit = detail(JournalSide.CREDIT, "40987", "12.34", "16.78");
+        credit.setDepartmentCode("D-CREDIT");
+        credit.setBusinessPartnerCode("BP-CREDIT");
+        credit.setDetailDescription("credit source detail");
+        entry.addDetail(debit);
+        entry.addDetail(credit);
+        entry.initializeDraft();
         entry.requestApproval("maker");
         entry.approve("checker");
         entry.post("poster");

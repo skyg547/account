@@ -82,6 +82,7 @@ import java.util.Objects;
 public class JournalEntry {
 
     static final String FINAL_HISTORY_MUTATION_MESSAGE = "POSTED 전표 이력은 변경하거나 삭제할 수 없습니다.";
+    private static final int MAX_REJECTION_REASON_LENGTH = 500;
 
     /** 시스템 내부 PK (자동 증가) */
     @Id
@@ -384,18 +385,21 @@ public class JournalEntry {
      * @return 생성된 역분개 전표 (id 없음)
      */
     public JournalEntry createReversal(String creator, LocalDate accountingDate, String reason) {
-        if (this.status != JournalEntryStatus.POSTED) {
-            throw new IllegalStateException("전기 완료된 전표만 역분개할 수 있습니다.");
+        assertPostedForReversal();
+        if (accountingDate == null) {
+            throw new IllegalArgumentException("역분개 회계 반영일은 필수입니다.");
         }
+        String canonicalCreator = JournalActor.canonicalize(creator);
+        String normalizedReason = requireReversalReason(reason);
 
         JournalEntry reversal = new JournalEntry();
         reversal.setSlipDate(LocalDate.now());
         reversal.setAccountingDate(accountingDate);
-        reversal.setDescription("[역분개 취소] " + this.description + " (사유: " + reason + ")");
+        reversal.setDescription(buildReversalDescription(normalizedReason));
         reversal.setEntryType("REVERSAL");
         reversal.setCurrencyCode(this.currencyCode);
         reversal.setExchangeRate(this.exchangeRate);
-        reversal.setCreatedBy(creator);
+        reversal.setCreatedBy(canonicalCreator);
         reversal.setLineageSourceType("JOURNAL_ENTRY");
         reversal.setLineageSourceId(this.id.toString());
 
@@ -405,6 +409,60 @@ public class JournalEntry {
 
         reversal.validateBalance();
         return reversal;
+    }
+
+    /** 원본이 변경 불가능한 POSTED 전표인지 역분개 작업 조회 전에 확인합니다. */
+    public void assertPostedForReversal() {
+        if (this.status != JournalEntryStatus.POSTED) {
+            throw new IllegalStateException("전기 완료된 전표만 역분개할 수 있습니다.");
+        }
+        if (this.id == null || this.id <= 0) {
+            throw new IllegalStateException("저장된 원본 전표만 역분개할 수 있습니다.");
+        }
+    }
+
+    /**
+     * 아직 전기되지 않은 역분개 전표를 취소합니다.
+     *
+     * <p>일반 전표나 POSTED 역분개는 이 경로로 변경할 수 없습니다. 취소된 전표를
+     * REJECTED로 확정하여 기존 승인·전기 경로가 다시 사용하지 못하게 합니다.</p>
+     */
+    public void cancelReversal(String actor, String reason) {
+        assertHistoryMutable();
+        if (!isReversal()) {
+            throw new IllegalStateException("역분개 전표만 역분개 취소할 수 있습니다.");
+        }
+        if (this.status != JournalEntryStatus.DRAFT
+                && this.status != JournalEntryStatus.REQUESTED
+                && this.status != JournalEntryStatus.APPROVED) {
+            throw new IllegalStateException("진행 중인 역분개 전표만 취소할 수 있습니다.");
+        }
+        String canonicalActor = JournalActor.canonicalize(actor);
+        String normalizedReason = requireReversalReason(reason);
+        this.status = JournalEntryStatus.REJECTED;
+        this.rejectionReason = normalizedReason;
+        this.auditUser = canonicalActor;
+    }
+
+    private String buildReversalDescription(String reason) {
+        String sourceDescription = this.description == null ? "" : this.description;
+        String reversalDescription = "[역분개 취소] " + sourceDescription + " (사유: " + reason + ")";
+        if (reversalDescription.length() > 200) {
+            throw new IllegalArgumentException("역분개 적요는 200자를 초과할 수 없습니다.");
+        }
+        return reversalDescription;
+    }
+
+    private static String requireReversalReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("역분개 사유는 필수입니다.");
+        }
+        String normalized = reason.trim();
+        if (normalized.length() > MAX_REJECTION_REASON_LENGTH) {
+            throw new IllegalArgumentException(
+                    "역분개 사유는 " + MAX_REJECTION_REASON_LENGTH + "자를 초과할 수 없습니다.");
+        }
+        return normalized;
     }
 
     /**
@@ -612,6 +670,12 @@ public class JournalEntry {
     }
 
     public String getEntryType() { return entryType; }
+
+    /** 대소문자나 주변 공백으로 역분개 전용 통제를 우회하지 못하게 의미를 판정합니다. */
+    public boolean isReversal() {
+        return entryType != null && "REVERSAL".equalsIgnoreCase(entryType.trim());
+    }
+
     public void setEntryType(String entryType) {
         assertHistoryMutable();
         this.entryType = entryType;

@@ -10,7 +10,10 @@ import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
+import com.ho.account.journalledger.domain.journal.domain.JournalReversalOperation;
+import com.ho.account.journalledger.domain.journal.domain.ReversalOperationStatus;
 import com.ho.account.journalledger.domain.ledger.domain.GeneralLedger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +50,8 @@ class PostingServiceTest {
 
     @Mock
     private JournalPersistencePort journalPersistencePort;
+    @Mock
+    private JournalReversalPersistencePort journalReversalPersistencePort;
     @Mock
     private LedgerEntryPersistencePort ledgerEntryPersistencePort;
     @Mock
@@ -181,6 +186,25 @@ class PostingServiceTest {
         verifyNoInteractions(accountingPeriodStatusPort);
     }
 
+    @Test
+    @DisplayName("operation이 연결되지 않은 REVERSAL 전표는 금융 검증과 모든 쓰기 전에 거부한다.")
+    void rejectsReversalWithoutOperationBeforeFinancialWrites() {
+        JournalEntry entry = approvedEntry();
+        entry.setEntryType("REVERSAL");
+        JournalState before = JournalState.capture(entry);
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
+        when(journalReversalPersistencePort.findByReversalJournalEntryId(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.postJournalEntry(1L, "poster"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("역분개 작업이 연결되지 않은 역분개 전표는 전기할 수 없습니다.");
+
+        assertUnchangedWithoutWrites(entry, before);
+        verifyNoInteractions(accountingPeriodStatusPort);
+        verify(journalReversalPersistencePort).findByReversalJournalEntryId(1L);
+        verify(journalReversalPersistencePort, never()).save(any());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     @DisplayName("승인 후 거래통화 또는 기준통화 차대가 깨진 전표는 기간 조회 전에 거부한다.")
@@ -265,8 +289,51 @@ class PostingServiceTest {
         verifyNoMoreInteractions(fiscalPeriodControlPort);
     }
 
+    @Test
+    @DisplayName("PENDING 역분개 전표를 전기하면 원장 반영 뒤 작업도 POSTED로 저장한다.")
+    void marksPendingReversalOperationPostedAfterFinancialWrites() {
+        JournalEntry entry = approvedEntry();
+        JournalReversalOperation operation = JournalReversalOperation.create(759L, entry.getId());
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
+        when(journalReversalPersistencePort.findByReversalJournalEntryId(1L))
+                .thenReturn(Optional.of(operation));
+        when(accountingPeriodStatusPort.isClosed(ACCOUNTING_DATE)).thenReturn(false);
+
+        service.postJournalEntry(1L, "reversal-poster");
+
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.POSTED);
+        assertThat(operation.getPostedAt()).isNotNull();
+        verify(journalReversalPersistencePort).save(operation);
+        InOrder order = inOrder(journalPersistencePort, ledgerEntryPersistencePort,
+                ledgerService, journalReversalPersistencePort);
+        order.verify(journalPersistencePort).save(entry);
+        order.verify(ledgerEntryPersistencePort).save(any(GeneralLedger.class));
+        order.verify(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
+        order.verify(journalReversalPersistencePort).save(operation);
+    }
+
+    @Test
+    @DisplayName("역분개 원장 쓰기가 실패하면 작업은 PENDING이고 POSTED 작업 저장을 시작하지 않는다.")
+    void financialWriteFailureLeavesReversalOperationPending() {
+        JournalEntry entry = approvedEntry();
+        JournalReversalOperation operation = JournalReversalOperation.create(759L, entry.getId());
+        IllegalStateException failure = new IllegalStateException("synthetic balance failure");
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
+        when(journalReversalPersistencePort.findByReversalJournalEntryId(1L))
+                .thenReturn(Optional.of(operation));
+        when(accountingPeriodStatusPort.isClosed(ACCOUNTING_DATE)).thenReturn(false);
+        org.mockito.Mockito.doThrow(failure).when(ledgerService).updateLedgerBalancesBulk(entry.getDetails());
+
+        assertThatThrownBy(() -> service.postJournalEntry(1L, "reversal-poster")).isSameAs(failure);
+
+        assertThat(operation.getStatus()).isEqualTo(ReversalOperationStatus.PENDING);
+        assertThat(operation.getPostedAt()).isNull();
+        verify(journalReversalPersistencePort, never()).save(any());
+    }
+
     private PostingService postingService(AccountingPeriodStatusPort periodStatusPort) {
-        return new PostingService(journalPersistencePort, ledgerEntryPersistencePort, ledgerService,
+        return new PostingService(journalPersistencePort, journalReversalPersistencePort,
+                ledgerEntryPersistencePort, ledgerService,
                 new ClosingLockValidationFilter(periodStatusPort));
     }
 

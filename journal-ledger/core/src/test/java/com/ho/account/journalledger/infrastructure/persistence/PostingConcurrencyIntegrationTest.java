@@ -1,9 +1,13 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
+import com.ho.account.journalledger.application.service.journal.JournalEntryService;
+import com.ho.account.journalledger.application.service.journal.JournalRuleEngine;
 import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
+import com.ho.account.journalledger.application.service.journal.validator.JournalValidationEngine;
 import com.ho.account.journalledger.application.service.ledger.LedgerService;
 import com.ho.account.journalledger.application.service.ledger.PostingService;
 import com.ho.account.journalledger.application.service.ledger.BalanceReaggregationService;
@@ -95,10 +99,12 @@ class PostingConcurrencyIntegrationTest {
     @Autowired private GlBalanceRepository glBalances;
     @Autowired private SlBalanceRepository slBalances;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private EntityManager entityManager;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EntryGate gate;
     @Autowired @Qualifier("jpaBalances") private LedgerBalancePersistencePort jpaBalances;
     @Autowired private BalanceReaggregationService reaggregationService;
+    @Autowired private JournalEntryService reversalCommands;
     private TransactionTemplate transactions;
     private Long journalId;
 
@@ -111,7 +117,7 @@ class PostingConcurrencyIntegrationTest {
                     + " owner_job_instance_id = NULL, range_start = NULL, range_end = NULL, epoch = epoch + 1"
                     + " WHERE control_id = 1");
             for (String table : List.of("gl_entries", "sl_entries", "gl_balances", "sl_balances",
-                    "journal_details", "journal_entries")) {
+                    "journal_reversal_operations", "journal_details", "journal_entries")) {
                 jdbc.update("DELETE FROM " + table);
             }
             JournalEntry journal = journal();
@@ -237,6 +243,114 @@ class PostingConcurrencyIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(Mode.class)
+    void outerFailureAfterReversalOperationIsMarkedPostedRollsBackAndWholePostingCanRetry(Mode mode) {
+        long originalId = journalId + 100_000L;
+        jdbc.update("INSERT INTO journal_entries"
+                + " (id, slip_no, slip_date, accounting_date, status, entry_type, currency_code, created_by, audit_user)"
+                + " VALUES (?, ?, ?, ?, 'POSTED', 'NORMAL', 'KRW', 'maker', 'poster')",
+                originalId, "GL759-RB-" + mode, DATE, DATE);
+        jdbc.update("UPDATE journal_entries SET entry_type = 'REVERSAL',"
+                + " lineage_source_type = 'JOURNAL_ENTRY', lineage_source_id = ? WHERE id = ?",
+                Long.toString(originalId), journalId);
+        jdbc.update("INSERT INTO journal_reversal_operations"
+                + " (original_journal_entry_id, reversal_journal_entry_id, status, created_at, updated_at)"
+                + " VALUES (?, ?, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", originalId, journalId);
+
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status -> {
+            posting(mode).postJournalEntry(journalId, "failed-reversal-poster");
+            entityManager.flush();
+            assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations"
+                    + " WHERE original_journal_entry_id = ?", String.class, originalId)).isEqualTo("POSTED");
+            throw new IllegalStateException("injected failure after reversal operation mark");
+        })).isInstanceOf(IllegalStateException.class)
+                .hasMessage("injected failure after reversal operation mark");
+
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                .isEqualTo("APPROVED");
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations"
+                + " WHERE original_journal_entry_id = ?", String.class, originalId)).isEqualTo("PENDING");
+        assertEntryCounts(0);
+        assertBalances("0.00");
+
+        posting(mode).postJournalEntry(journalId, "retry-reversal-poster");
+
+        assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations"
+                + " WHERE original_journal_entry_id = ?", String.class, originalId)).isEqualTo("POSTED");
+        assertPostedExactlyOnce("retry-reversal-poster");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void postingWinnerMakesConcurrentCancellationFailWithOnePostedEconomicEffect(Mode mode) throws Exception {
+        long originalId = seedPendingReversalOperation("PW-" + mode);
+        gate.holdFirstWriter = true;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> posting = executor.submit(() -> posting(mode).postJournalEntry(journalId, "race-poster"));
+            await(gate.beforeEntries);
+            Future<?> cancellation = executor.submit(() ->
+                    reversalCommands.cancelReversal(originalId, "race-canceller", "too late"));
+
+            assertThatThrownBy(() -> cancellation.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            gate.release.countDown();
+            posting.get(15, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> cancellation.get(15, TimeUnit.SECONDS))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .rootCause().hasMessageContaining("POSTED");
+
+            assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                    .isEqualTo("POSTED");
+            assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations"
+                    + " WHERE original_journal_entry_id = ?", String.class, originalId)).isEqualTo("POSTED");
+            assertPostedExactlyOnce("race-poster");
+        } finally {
+            gate.release.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
+    void cancellationWinnerMakesConcurrentPostingFailWithoutEconomicEffect(Mode mode) throws Exception {
+        long originalId = seedPendingReversalOperation("CW-" + mode);
+        CountDownLatch cancellationApplied = new CountDownLatch(1);
+        CountDownLatch releaseCancellation = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> cancellation = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                reversalCommands.cancelReversal(originalId, "race-canceller", "abandoned");
+                entityManager.flush();
+                cancellationApplied.countDown();
+                await(releaseCancellation);
+            }));
+            await(cancellationApplied);
+            Future<?> posting = executor.submit(() -> posting(mode).postJournalEntry(journalId, "late-poster"));
+
+            assertThatThrownBy(() -> posting.get(300, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            releaseCancellation.countDown();
+            cancellation.get(15, TimeUnit.SECONDS);
+            assertThatThrownBy(() -> posting.get(15, TimeUnit.SECONDS))
+                    .hasRootCauseInstanceOf(IllegalStateException.class)
+                    .rootCause().hasMessageContaining("승인된 전표만");
+
+            assertThat(jdbc.queryForObject("SELECT status FROM journal_entries WHERE id = ?", String.class, journalId))
+                    .isEqualTo("REJECTED");
+            assertThat(jdbc.queryForObject("SELECT status FROM journal_reversal_operations"
+                    + " WHERE original_journal_entry_id = ?", String.class, originalId)).isEqualTo("CANCELLED");
+            assertEntryCounts(0);
+            assertBalances("0.00");
+        } finally {
+            releaseCancellation.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(20, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Mode.class)
     void postingBlockedByReaggregationRollsBackThenRetriesExactlyOnceAfterRelease(Mode mode) {
         jdbc.update("UPDATE ledger_reaggregation_control SET status = 'REBUILDING',"
                 + " owner_job_instance_id = 767, range_start = ?, range_end = ?, epoch = epoch + 1"
@@ -358,6 +472,23 @@ class PostingConcurrencyIntegrationTest {
         assertBalances("100.00");
     }
 
+    private long seedPendingReversalOperation(String suffix) {
+        long originalId = journalId + 200_000L;
+        jdbc.update("INSERT INTO journal_entries"
+                        + " (id, slip_no, slip_date, accounting_date, status, entry_type, currency_code,"
+                        + " created_by, audit_user)"
+                        + " VALUES (?, ?, ?, ?, 'POSTED', 'NORMAL', 'KRW', 'maker', 'poster')",
+                originalId, "GL759-" + suffix, DATE, DATE);
+        jdbc.update("UPDATE journal_entries SET entry_type = 'REVERSAL',"
+                        + " lineage_source_type = 'JOURNAL_ENTRY', lineage_source_id = ? WHERE id = ?",
+                Long.toString(originalId), journalId);
+        jdbc.update("INSERT INTO journal_reversal_operations"
+                        + " (original_journal_entry_id, reversal_journal_entry_id, status, created_at, updated_at)"
+                        + " VALUES (?, ?, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                originalId, journalId);
+        return originalId;
+    }
+
     private void assertEntryCounts(int expected) {
         for (String table : List.of("gl_entries", "sl_entries")) {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class)).as(table + " entry count").isEqualTo(expected);
@@ -452,7 +583,7 @@ class PostingConcurrencyIntegrationTest {
     @EnableAutoConfiguration
     @EntityScan("com.ho.account.journalledger.domain")
     @EnableJpaRepositories("com.ho.account.journalledger.domain")
-    @Import(JournalPersistenceAdapter.class)
+    @Import({JournalPersistenceAdapter.class, JournalReversalPersistenceAdapter.class})
     static class PostingApplication {
         @Bean EntryGate entryGate() { return new EntryGate(); }
 
@@ -489,26 +620,38 @@ class PostingConcurrencyIntegrationTest {
             return new BalanceReaggregationService(balances, control);
         }
 
+        @Bean JournalEntryService reversalCommands(
+                JournalPersistencePort journals,
+                JournalReversalPersistencePort reversals,
+                @Qualifier("jpaPosting") PostingService posting) {
+            return new JournalEntryService(journals, reversals,
+                    org.mockito.Mockito.mock(JournalRuleEngine.class), posting,
+                    new JournalValidationEngine(List.of()));
+        }
+
         @Bean PostingService jpaPosting(JournalPersistencePort journals,
+                JournalReversalPersistencePort reversals,
                 @Qualifier("jpaEntries") LedgerEntryPersistencePort entries,
                 @Qualifier("jpaBalances") LedgerBalancePersistencePort balances,
                 EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
-            return service(journals, gate.wrap(entries, em), balances, em, control);
+            return service(journals, reversals, gate.wrap(entries, em), balances, em, control);
         }
 
         @Bean PostingService jdbcPosting(JournalPersistencePort journals,
+                JournalReversalPersistencePort reversals,
                 @Qualifier("jdbcEntries") LedgerEntryPersistencePort entries, JdbcTemplate jdbc,
                 @Qualifier("jdbcBalances") LedgerBalancePersistencePort balances,
                 EntryGate gate, EntityManager em, JdbcBalanceReaggregationControlAdapter control) {
-            return service(journals, gate.wrap(entries, em), balances, em, control);
+            return service(journals, reversals, gate.wrap(entries, em), balances, em, control);
         }
 
-        private PostingService service(JournalPersistencePort journals, LedgerEntryPersistencePort entries,
+        private PostingService service(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
+                LedgerEntryPersistencePort entries,
                 LedgerBalancePersistencePort balances, EntityManager em,
                 JdbcBalanceReaggregationControlAdapter control) {
             // These adapters are nested fixture objects, so Spring cannot inject their persistence context.
             org.springframework.test.util.ReflectionTestUtils.setField(balances, "entityManager", em);
-            return new PostingService(journals, entries, new LedgerService(balances, control),
+            return new PostingService(journals, reversals, entries, new LedgerService(balances, control),
                     new ClosingLockValidationFilter(date -> false));
         }
     }

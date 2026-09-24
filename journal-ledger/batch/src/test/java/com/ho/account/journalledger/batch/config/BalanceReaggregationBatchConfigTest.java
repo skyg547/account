@@ -206,6 +206,44 @@ class BalanceReaggregationBatchConfigTest {
     }
 
     @Test
+    @DisplayName("재집계는 POSTED 원본과 POSTED 역분개를 함께 반영하고 DRAFT·REJECTED는 제외한다")
+    void rebuildNetsPostedOriginalAndReversalAndExcludesIneffectiveDrafts() throws Exception {
+        LocalDate targetDate = LocalDate.of(2026, 8, 5);
+        JournalEntry original = approvedEntry(
+                "REBUILD-ORIGINAL", targetDate, "10100", "20100", new BigDecimal("100.00"));
+        JournalEntry reversal = approvedEntry(
+                "REBUILD-REVERSAL", targetDate, "20100", "10100", new BigDecimal("100.00"));
+        reversal.setEntryType("REVERSAL");
+        reversal.setLineageSourceType("JOURNAL_ENTRY");
+        reversal.setLineageSourceId("759");
+        JournalEntry abandonedDraft = draftEntry(
+                "REBUILD-DRAFT", targetDate, "10100", "20100", new BigDecimal("70.00"));
+        JournalEntry rejected = draftEntry(
+                "REBUILD-REJECTED", targetDate, "10100", "20100", new BigDecimal("90.00"));
+        rejected.reject("checker", "abandoned reversal");
+        journalEntryRepository.saveAllAndFlush(List.of(original, reversal, abandonedDraft, rejected));
+        postPersistedEntries(List.of(original, reversal));
+
+        JobExecution execution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addString("startDate", targetDate.toString())
+                .addString("endDate", targetDate.toString())
+                .addLong("postedReversalNet", System.currentTimeMillis())
+                .toJobParameters());
+
+        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(glBalanceRepository.findAll()).hasSize(2).allSatisfy(balance -> {
+            assertThat(balance.getDebitAmount()).isEqualByComparingTo("100.00");
+            assertThat(balance.getCreditAmount()).isEqualByComparingTo("100.00");
+            assertThat(balance.getEndingBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        });
+        assertThat(slBalanceRepository.findAll()).hasSize(2).allSatisfy(balance -> {
+            assertThat(balance.getDebitAmount()).isEqualByComparingTo("100.00");
+            assertThat(balance.getCreditAmount()).isEqualByComparingTo("100.00");
+            assertThat(balance.getEndingBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        });
+    }
+
+    @Test
     @DisplayName("cleanup이 커밋된 뒤 장애가 나도 삭제된 잔액을 정상 조회로 수락하지 않는다")
     void rejectsAcceptedEmptyBalancesAfterCommittedCleanup() throws Exception {
         LocalDate targetDate = LocalDate.of(2026, 8, 2);
@@ -332,6 +370,14 @@ class BalanceReaggregationBatchConfigTest {
 
     private JournalEntry approvedEntry(String slipNo, LocalDate date, String debitAccount,
                                        String creditAccount, BigDecimal amount) {
+        JournalEntry entry = draftEntry(slipNo, date, debitAccount, creditAccount, amount);
+        entry.requestApproval("batch-maker");
+        entry.approve("TEST");
+        return entry;
+    }
+
+    private JournalEntry draftEntry(String slipNo, LocalDate date, String debitAccount,
+                                    String creditAccount, BigDecimal amount) {
         JournalEntry entry = new JournalEntry();
         entry.setSlipNo(slipNo);
         entry.setSlipDate(date);
@@ -351,8 +397,6 @@ class BalanceReaggregationBatchConfigTest {
         entry.addDetail(credit);
         entry.setCreatedBy("batch-maker");
         entry.initializeDraft();
-        entry.requestApproval("batch-maker");
-        entry.approve("TEST");
         return entry;
     }
 

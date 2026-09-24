@@ -70,4 +70,13 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
 
     @Query("SELECT je FROM JournalEntry je LEFT JOIN FETCH je.details WHERE je.id = :id")
     Optional<JournalEntry> findByIdWithDetails(@Param("id") Long id);
+
+    /**
+     * 배타 잠금 없이 전표와 상세를 한 번에 조회합니다.
+     *
+     * <p>역분개 재시도에서 이미 연결된 역분개를 반환하는 읽기 경로용입니다. 상세 컬렉션을
+     * 같은 쿼리로 가져와 트랜잭션 밖 lazy loading과 라인별 추가 조회를 피합니다.</p>
+     */
+    @Query("SELECT je FROM JournalEntry je LEFT JOIN FETCH je.details WHERE je.id = :id")
+    Optional<JournalEntry> findByIdWithDetailsWithoutLock(@Param("id") Long id);
 }

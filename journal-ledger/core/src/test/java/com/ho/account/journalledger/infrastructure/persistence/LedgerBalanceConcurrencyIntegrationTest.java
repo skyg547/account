@@ -1,6 +1,7 @@
 package com.ho.account.journalledger.infrastructure.persistence;
 
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
+import com.ho.account.journalledger.application.port.out.JournalReversalPersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerBalancePersistencePort;
 import com.ho.account.journalledger.application.port.out.LedgerEntryPersistencePort;
 import com.ho.account.journalledger.application.service.journal.validator.ClosingLockValidationFilter;
@@ -489,28 +490,31 @@ class LedgerBalanceConcurrencyIntegrationTest {
     @EnableAutoConfiguration
     @EntityScan("com.ho.account.journalledger.domain")
     @EnableJpaRepositories("com.ho.account.journalledger.domain")
-    @Import(JournalPersistenceAdapter.class)
+    @Import({JournalPersistenceAdapter.class, JournalReversalPersistenceAdapter.class})
     static class PostingApplication {
         @Bean BalanceReadGate balanceReadGate() { return new BalanceReadGate(); }
-        @Bean PostingService jpaPosting(JournalPersistencePort journals, GlEntryRepository glEntries,
+        @Bean PostingService jpaPosting(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
+                GlEntryRepository glEntries,
                 SlEntryRepository slEntries, GlBalanceRepository gl, SlBalanceRepository sl,
                 JournalDetailRepository details, EntityManager em, BalanceReadGate gate, JdbcTemplate jdbc) {
-            return service(journals, new LedgerEntryPersistenceAdapter(glEntries, slEntries, em),
+            return service(journals, reversals, new LedgerEntryPersistenceAdapter(glEntries, slEntries, em),
                     new LedgerBalancePersistenceAdapter(gl, sl, details), em, gate, jdbc);
         }
-        @Bean PostingService jdbcPosting(JournalPersistencePort journals, JdbcTemplate jdbc,
+        @Bean PostingService jdbcPosting(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
+                JdbcTemplate jdbc,
                 GlBalanceRepository gl, SlBalanceRepository sl, JournalDetailRepository details,
                 EntityManager em, BalanceReadGate gate) {
-            return service(journals, new JdbcLedgerEntryBulkPersistenceAdapter(jdbc),
+            return service(journals, reversals, new JdbcLedgerEntryBulkPersistenceAdapter(jdbc),
                     new JdbcLedgerBalanceBulkPersistenceAdapter(jdbc, gl, sl, details), em, gate, jdbc);
         }
-        private PostingService service(JournalPersistencePort journals, LedgerEntryPersistencePort entries,
+        private PostingService service(JournalPersistencePort journals, JournalReversalPersistencePort reversals,
+                LedgerEntryPersistencePort entries,
                 LedgerBalancePersistencePort balances, EntityManager em, BalanceReadGate gate, JdbcTemplate jdbc) {
             // Keep the same fixture runnable against the audited pre-fix implementation.
             if (ReflectionUtils.findField(balances.getClass(), "entityManager") != null) {
                 ReflectionTestUtils.setField(balances, "entityManager", em);
             }
-            return new PostingService(journals, entries,
+            return new PostingService(journals, reversals, entries,
                     new LedgerService(gate.wrap(balances), new JdbcBalanceReaggregationControlAdapter(jdbc)),
                     new ClosingLockValidationFilter(date -> false));
         }

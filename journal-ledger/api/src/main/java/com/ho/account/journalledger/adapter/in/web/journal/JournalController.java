@@ -38,7 +38,7 @@ public class JournalController {
         try {
             return ResponseEntity.ok(JournalApiDto.View.from(
                     journalUseCase.createJournalEntry(request.toDomain(maker))));
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(null);
         }
     }

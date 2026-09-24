@@ -7,6 +7,8 @@
 ```mermaid
 erDiagram
     JOURNAL_ENTRIES ||--o{ JOURNAL_DETAILS : contains
+    JOURNAL_ENTRIES ||--o| JOURNAL_REVERSAL_OPERATIONS : source
+    JOURNAL_REVERSAL_OPERATIONS ||--|| JOURNAL_ENTRIES : current_reversal
     JOURNAL_RULES ||--o{ JOURNAL_RULE_CONDITIONS : matches
     JOURNAL_RULES ||--o{ JOURNAL_RULE_DETAILS : creates
     JOURNAL_DETAILS ||--o{ UNSETTLED_ITEMS : opens
@@ -20,6 +22,7 @@ erDiagram
 | --- | --- | --- |
 | `journal_entries` | 전표 헤더와 상태, 원천 추적 | `slip_no`, `status`, `accounting_date`, `created_by`, `approved_by`, `audit_user`, lineage 필드 |
 | `journal_details` | 차변/대변 라인 | `account_code`, `side`, `amount`, 거래처·부서 코드 |
+| `journal_reversal_operations` | 원본당 현재 역분개 작업과 수명주기 | 원본 PK, `original_journal_status=POSTED`, 역분개 UK, `PENDING/POSTED/CANCELLED`, 전기·취소 감사 시간 |
 | `journal_rules` | 적용 가능한 자동분개 규칙 | 규칙 코드, 우선순위, 유효기간 |
 | `journal_rule_conditions` | 규칙 적용 조건 | 필드, 연산자, 비교값 |
 | `journal_rule_details` | 규칙이 생성할 라인 명세 | `drcr_type`, 계정·금액·적요 표현식 |
@@ -52,7 +55,40 @@ flush가 실패하면 해당 트랜잭션을 rollback해야 하며, 새 트랜�
 원래 컬럼 값과 상세 멤버십이 유지됩니다. 감사 identity에도 별도 수정 예외는 없습니다.
 정정은 원본 행을 update하지 않고 원본 lineage를 가진 새 역분개·조정 전표로 기록합니다.
 
-이 제약은 새 DB migration이나 trigger가 아니라 JPA/domain과 두 journal repository의 경계
+### 역분개 operation 소유권과 수명주기
+
+`journal_reversal_operations.original_journal_entry_id`는 operation의 PK이고, 아래의
+`original_journal_status`와 함께 `journal_entries(id, status)`를 참조하는 복합 FK의 일부입니다.
+원본 하나에 operation 행은 하나만 존재하고, `reversal_journal_entry_id`도 UNIQUE/FK이므로
+하나의 역분개 전표를 여러 원본에 재사용할 수 없습니다. 두 ID가 같은 자체 역분개도
+CHECK 제약으로 거부됩니다.
+
+V17은 `journal_entries(id, status)` UNIQUE를 추가하고 operation의
+`(original_journal_entry_id, original_journal_status)`를 그 키에 복합 FK로 연결합니다.
+`original_journal_status`는 `DEFAULT 'POSTED' NOT NULL`이고 CHECK도 `POSTED`만 허용하므로,
+서비스를 우회한 operation insert도 원본이 실제 `POSTED`이면서 그 상태를 유지할
+때만 성공합니다.
+
+다음은 서비스 경로에서 유지하는 정상 조합입니다.
+
+| operation 상태 | 연결 전표 | 시간·감사 컬럼 | 허용되는 다음 동작 |
+| --- | --- | --- | --- |
+| `PENDING` | `DRAFT`, `REQUESTED`, `APPROVED` 중 하나 | `posted_at`, 취소 컬럼이 모두 `NULL` | 같은 전표 반환, 승인·전기, 취소 |
+| `POSTED` | `POSTED` 역분개 | `posted_at` 필수, 취소 컬럼 `NULL` | 같은 전표만 반환; 취소·재시작 거부 |
+| `CANCELLED` | `REJECTED` 된 기존 역분개 | `cancelled_at/by/reason` 필수, `posted_at` `NULL` | 다음 생성 요청이 새 역분개 ID로 같은 operation 재시작 |
+
+상태와 timestamp/취소 컬럼 조합은 `ck_journal_reversal_lifecycle`이 같이 검증합니다.
+새 역분개로 재시작하면 operation의 `reversal_journal_entry_id`가 새 ID로 교체되고
+상태는 `PENDING`으로 돌아갑니다. 이 행은 현재 효과적 역분개의 단일 관계이며,
+과거에 취소된 전표의 이력은 `REJECTED` 전표와 lineage에 남습니다.
+
+`ck_journal_reversal_lifecycle`은 operation 행 내부 컬럼 조합을 검증하고, 복합 FK는
+원본의 `POSTED` 상태를 검증합니다. 다만 operation 상태와 역분개 전표 상태의
+`PENDING↔DRAFT/REQUESTED/APPROVED`, `POSTED↔POSTED`, `CANCELLED↔REJECTED` 조합은
+cross-table CHECK가 아니라 서비스 트랜잭션이 유지합니다. 직접 SQL writer는 이 조합을
+깨뜨릴 수 있으므로 runtime DB 권한으로 제한해야 합니다.
+
+POSTED 전표 이력 보호는 DB trigger가 아니라 JPA/domain과 두 journal repository의 경계
 보호입니다. 따라서 repository 밖의 별도 `EntityManager` bulk JPQL, native SQL과 권한 있는 직접
 JDBC/DB 쓰기는 보호를 우회할 수 있습니다. 현재 production 코드에서 그런 전표 변경 경로는
 확인되지 않았지만, runtime DB 권한과 배포 점검으로 계속 차단해야 하는 잔여 위험입니다. 기존
@@ -226,7 +262,7 @@ Flyway migration이나 기존 schema 업그레이드 검증이 아닙니다. H2�
   완성합니다. clean H2 PostgreSQL mode와 V10→V11 upgrade 경로를 모두 검증합니다.
 - `V12__unsettled_item_settlement_references.sql`은 전체 반제 참조번호 테이블을 만들고
   기존 마지막 참조번호를 복사합니다. 이번 동시 반제 직렬화는 기존 부모 행을 잠그므로
-  새 migration/version 없이 기존 V1~V15 migration 파일을 수정하지 않습니다.
+  새 migration/version 없이 기존 migration 파일을 수정하지 않습니다.
 - 운영 배포 전 승인된 PostgreSQL에서 clean/upgrade migrate+validate와 runtime role의 DDL
   거부를 확인합니다. 적용된 V1/V10/V11의 checksum을 `repair`로 덮거나 파일을 수정하지 않습니다.
 
@@ -256,3 +292,39 @@ SL의 NULL 거래처·부서도 상위 계정 잠금을 공유하므로 아직 �
 행 삭제·추가·수동 OPEN 전환은 금지합니다. runtime role에는 이 행의 SELECT/UPDATE 권한이
 필요합니다. V15 적용 전에는 새 코드가 시작되지 않으며, 구버전/직접 SQL writer는 barrier를
 모르므로 배포 창에서 모든 writer를 함께 교체해야 합니다.
+
+## 역분개 작업 (V17)
+
+`V17__journal_reversal_operations.sql`은 원본-역분개 일대일 관계와 `PENDING/POSTED/CANCELLED`
+수명주기, `POSTED` 원본 복합 참조를 만듭니다. 기존 `REVERSAL` 전표 중 lineage type이 `JOURNAL_ENTRY`이고
+상태가 `DRAFT/REQUESTED/APPROVED/POSTED`인 행만 backfill합니다. 앞의 세 상태는
+`PENDING`, `POSTED`는 `POSTED`로 이전하며 `REJECTED`는 현재 효과적 역분개가 아니므로
+작업 행을 만들지 않습니다.
+기존 전표 헤더·상세의 금액과 상태는 backfill이 수정하지 않습니다.
+
+backfill은 fail-closed입니다. `lineage_source_id`를 `BIGINT`로 변환할 수 없거나, 원본이
+없거나 `POSTED`가 아니어 복합 FK를 만족하지 못하거나, 한 원본에 여러 활성
+역분개가 있으면 V17 적용을
+중단합니다. migration은 행을 삭제하거나 자동으로 승자를 고르지 않습니다. 배포 전
+승인된 대사·정정 절차로 부정합을 해소한 뒤 migration을 처음부터 재시도합니다.
+
+`uk_journal_entry_id_status`를 생성할 때는 기존 `journal_entries`를 스캔하고 UNIQUE index를
+구축하며 DDL lock과 추가 디스크가 필요할 수 있습니다. 운영 이력 건수에 맞는
+배포 창에서 writer를 중지하고, 사전 복제본으로 스캔/잠금 시간과 인덱스 용량을
+측정합니다. 뒤이은 새 테이블의 status index도 DDL이므로 migration 종료까지 새 writer를
+시작하지 않습니다.
+
+배포 순서는 writer 중지 → V17 migrate/validate → runtime role의
+`journal_reversal_operations` SELECT/INSERT/UPDATE 권한 확인 → 새 코드 기동 순서입니다.
+코드 롤백이 필요하면 모든 writer를 먼저 중지하고 애플리케이션을 이전 버전으로 돌리되,
+이미 적용된 V17을 삭제·`repair`하거나 관계 행을 지우지 않습니다.
+`uk_journal_entry_id_status`, 복합 FK, operation 테이블과 backfill 감사 관계를 모두
+보존한 채 후속 forward migration으로만 변경합니다. V17 이전 애플리케이션은
+operation을 무시하므로 역분개 생성·승인·전기 writer를 복구 완료 전에 재개하면
+동일 원본을 다시 역분개할 수 있습니다. 이 writer만 분리할 수 없으면 영향받는
+전체 journal writer를 중지합니다. 롤백 창에서 생성된 역분개는 이미 지나간 V17에
+자동 backfill되지 않으므로, 트래픽 재개 전에 원본·역분개·GL/SL·operation을 대사하고
+승인된 조정 또는 forward migration으로 누락 관계를 복구합니다.
+
+잔여 위험은 JPA 콜백과 포트를 우회하는 직접 SQL writer, 운영 PostgreSQL에서 미검증한
+lock wait/분산 장애/부하, backfill 전에 조정해야 하는 기존 중복·손상 lineage입니다.
