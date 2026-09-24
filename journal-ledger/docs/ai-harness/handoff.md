@@ -1,6 +1,6 @@
 # GH-761 handoff
 
-Implementation, requested local verification and independent review are complete. Draft publication is pending.
+Implementation, requested local verification and independent review are complete. [Draft PR #783](https://github.com/skyg547/account/pull/783) is open with `Refs #761`; implementation commit `b2af5823`.
 
 - Issue: [#761](https://github.com/skyg547/account/issues/761).
 - Branch/worktree: `agent/761-concurrent-balances`, `/tmp/account-761-concurrent-balances`.
@@ -11,7 +11,9 @@ Implementation, requested local verification and independent review are complete
 - Deployment/rollback: quiesce every writer, including embedded journal core users, for V14 and coordinated binary cutover. Never mix pre-lock/new writers. Retain applied migrations on rollback and keep traffic stopped until protected code is restored.
 - Limits:256-stripe contention, actual READ_COMMITTED requirement, whole-transaction caller retry after deadlock, and posting shutdown throughout chunk-based Batch rebuild. Production load/crash/deployment and historical data reconciliation were not performed.
 - Authority separation: writers implement; `/root/balance_review` independently reviews read-only; parent Integrator alone owns records and Git/GitHub. User authorized Draft PR/push with `Refs #761`; Ready, merge, Issue close, deployment and resource deletion remain later gates.
-- Next owner: parent completes Draft publication; human/repository owner reviews remaining CI and deployment gates.
+- Next owner: repository/account owner resolves the GitHub Billing & plans prerequisite and reruns CI; human reviewer owns subsequent Ready/merge/Issue-close and deployment gates. Issue remains OPEN/needs-review.
+
+Remote CI jobs did not start: GitHub annotations report failed recent account payments or a spending limit needing increase. Local verification passed; remote CI is unverified. No billing settings or workflows were changed.
 
 Task-owned disposable PostgreSQL container `account-761-postgres`, regression worktree `/tmp/account-761-regression-proof` and external `/tmp/account-761-*` evidence are retained for handoff; the test-only container is stopped after verification. No production DB or credentials were used.
 
