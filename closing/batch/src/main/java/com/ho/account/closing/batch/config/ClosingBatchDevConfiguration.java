@@ -30,8 +30,8 @@ public class ClosingBatchDevConfiguration {
     }
 
     @Bean
-    public GlAllowanceBalanceLookupAdapter glAllowanceBalanceLookupAdapter(ClosingReadOnlySources sources) {
-        return new GlAllowanceBalanceLookupAdapter(sources.journalJdbcTemplate());
+    public GlAllowanceBalanceLookupAdapter glAllowanceBalanceLookupAdapter(JournalFxValuationBalanceSource balanceSource) {
+        return new GlAllowanceBalanceLookupAdapter(balanceSource);
     }
 
     @Bean

@@ -10,6 +10,11 @@ import java.util.Objects;
  *
  * <p>Closing treats this as an external calculation result. It does not
  * recalculate PD, LGD, EAD, or allowance rates.</p>
+ *
+ * <p>{@code targetAllowanceAmount}, {@code sourceExposureAmount} and all three stage allowance
+ * amounts are denominated in {@code currencyCode}, the transaction currency. They are not
+ * functional-currency GL amounts. Closing aggregates the target in these units before rounding
+ * for posting, then separately converts the cumulative target at the closing-date rate.</p>
  */
 public record EclAllowanceSummary(
         LocalDate baseDate,

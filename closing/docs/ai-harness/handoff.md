@@ -143,3 +143,21 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Initial implementation-head hosted checks did not execute: GitHub annotations explicitly report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36029393022), [Harness Validation](https://github.com/skyg547/account/actions/runs/36029393098), [Merge Guard](https://github.com/skyg547/account/actions/runs/36029392991). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all14 verified Java files remain frozen. The PR body contains426-test verification, independent87, Q1–Q4 and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to resolve hosted Actions availability, then human reviewer to verify current-head CI and approved effective-dated policies/operational prerequisites. Rollback and residual PostgreSQL/load/data-reconciliation gates remain as documented above.
+
+
+## GH-781 — verified implementation handoff
+
+- #781 / CL17; `agent/781-ecl-currency-units`; `/tmp/account-781-ecl-currency-units`; base `0709b1154a2333587e85d19335b548fe68028086`. All27 changed paths are Closing-owned (production12/test7/guides5/records3); full list and evidence are in [worklog](worklog.md#2026-09-25--gh-781-ecl-monetary-units).
+- Required module command passes492 tests (267/127/98), failures/errors/skips0. API/Batch bootJar PASS, packaged Batch local H2/no-job startup PASS18.7s. Full XML and19 Java hashes: `/tmp/account-781-full-evidence/`; audited-equivalent RED2 evidence: `/tmp/account-781-red-evidence/`.
+- Independent review requested/received three additional mixed run/model/entity source-contract cases; these pass. Independent replay and final quality confirmation are pending before publication.
+- Run ECL only after existing foreign allowance has been valued and posted at the same closing-date rate. For USD80/KRW104,000 and rate1,400, first post eligible FX adjustment KRW8,000, then a USD100 target produces USD20/KRW28,000. [Workflow and rounding/retry policy](../process-flow.md#ecl-거래통화와-기능통화-대사-gh-781); [local verification](../local-run.md#ecl-충당-job-실행).
+- JournalSummary omits exchangeRate; ECL persists pair/rate in its compared description. Existing old-format drafts need reconciliation. Source snapshot concurrency and partial remote success still require operator reconciliation; no distributed atomicity claim. Actual PostgreSQL plans/load, deployed Journal behavior and production data recovery were not tested.
+- Rollback: suspend affected ECL jobs, reviewed scoped revert, preserve all posted journals/data/lineage. No schema migration/reset.
+- 권한 분리: 구현자는 코드, 테스트 담당은 회귀 검증, 독립 리뷰어는 읽기 전용 검수, 부모 Integrator는 기록·Git/GitHub 게시를 담당합니다. AI 리뷰는 사람/GitHub 승인을 대체하지 않습니다.
+- Merge authority: 독립 Reviewer 증거와 최신 head/base·CI 확인 후 별도 승인된 부모 Integrator만 병합합니다. 이번 승인 범위는 Draft 게시까지입니다. Ready·merge·Issue close·배포·삭제는 수행하지 않습니다.
+- Next owner: human reviewer of the Draft/current head and authorized accounting/FX operator for operational prerequisites. PR and hosted CI facts will be appended after publication.
+
+### GH-781 review complete
+
+- Independent read-only `/root/closing_independent_review`: focused82 direct replay PASS (Core45/Batch37, fail/error/skip0), full492 archived results independently reconciled;19 Java hashes unchanged. No remaining P0–P3; Q1–Q4 PASS; evidence table is in the module worklog.
+- Parent27-path scope/whitespace/conflict/unmerged checks PASS. Authorized commit/push/Draft publication follows; Ready/merge/Issue close/deployment/cleanup remain separate. No remote CI success is claimed before observing the published head.

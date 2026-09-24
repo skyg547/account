@@ -246,8 +246,23 @@ account:
 
 - `account-mart`가 `allowance_exposure_snapshots`를 생성해야 합니다.
 - `ecl`의 `allowanceEclJob`이 완료되어 `allowance_summary`가 생성되어야 합니다.
-- `journal-ledger`에 기존 대손충당금 GL 잔액이 있어야 합니다.
+- `journal-ledger`의 기준일까지 전기된 충당금 전표에서 거래통화·기능통화 금액을 함께 조회할 수 있어야 합니다. 신규 충당금의 두 잔액은 0입니다.
+- 외화는 기준일 이하 최신 양수 환율이 필요합니다. `fx-valuation-reporting-currency-code`는 원장의 기능통화와 일치해야 합니다.
+- 환율이 바뀌었다면 해당 계정의 유효 FX 정책을 확인하고 FX 평가를 승인·전기한 뒤 ECL을 실행합니다. DRAFT 평가만으로는 선행 조건을 충족하지 않습니다.
 - `allowance_summary`의 계정 매핑 컬럼이 비어 있지 않아야 합니다.
+
+외부 서버 없이 합성 H2 원장과 실제 Closing 조회·환율·전표 어댑터 계약을 검증합니다.
+환율 변경 전 차단/평가 후 성공, 외화 증액·환입·동일 목표, 환율 누락과 양 통화 대사는
+[ECL 업무 흐름](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)에 설명되어 있습니다.
+
+```bash
+./gradlew :closing:core:test --tests '*EclProvision*'
+./gradlew :closing:batch:test --tests '*EclProvision*' --tests '*GlAllowanceBalanceLookupAdapterTest'
+./gradlew :closing:test
+```
+
+기대 결과는 모든 테스트 통과입니다. 합성 전기 포트는 생성 명령을 H2 원장에 반영하며,
+배포된 Journal의 승인·전기 API, 실제 PostgreSQL 실행계획·동시성·운영 부하를 대체하지 않습니다.
 
 ```powershell
 .\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=eclProvisionJob closingDate=2026-04-30 provisionBatchId=20260430 --spring.batch.jdbc.initialize-schema=always" --console=plain

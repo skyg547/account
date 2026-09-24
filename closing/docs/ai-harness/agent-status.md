@@ -89,3 +89,19 @@
 - Initial implementation-head hosted checks did not execute: GitHub annotations explicitly report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36029393022), [Harness Validation](https://github.com/skyg547/account/actions/runs/36029393098), [Merge Guard](https://github.com/skyg547/account/actions/runs/36029392991). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all14 verified Java files remain frozen. The PR body contains426-test verification, independent87, Q1–Q4 and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to resolve hosted Actions availability, then human reviewer to verify current-head CI and approved effective-dated policies/operational prerequisites. Rollback and residual PostgreSQL/load/data-reconciliation gates remain as documented above.
+
+
+## GH-781 — ECL transaction/functional units
+
+- Issue [#781](https://github.com/skyg547/account/issues/781), CL17; branch `agent/781-ecl-currency-units`; worktree `/tmp/account-781-ecl-currency-units`; base `0709b1154a2333587e85d19335b548fe68028086`.
+- Scope `closing/**`; common harness and all other modules unchanged. Records are module-local under the explicit user restriction.
+- GPT-6 Astra / xhigh production and test agents use disjoint 12/7 Java file ownership. Parent alone owns five guides, three records and Git/GitHub; independent reviewer is read-only.
+- Implementation frozen; final required command PASS492 (Core267/API127/Batch98), failure/error/skip0. Both boot JARs built; packaged Batch local/H2/no-job startup exits0. Evidence and source freeze: `/tmp/account-781-full-evidence/`.
+- Independent focused replay and final Q1–Q4 confirmation are in progress. Parent will publish the authorized Draft with `Refs #781` after those gates; no publication/hosted CI success is claimed here.
+- Existing carrying FX must be posted before ECL when rates change. Legacy drafts/source inconsistency and real PostgreSQL/load/concurrency remain documented reconciliation/operational gates.
+- Next owner: human Draft reviewer/current-head CI reviewer; subsequent Ready/merge/Issue close/deployment/resource deletion require their separate authority.
+
+### GH-781 review complete
+
+- Independent read-only `/root/closing_independent_review`: focused82 direct replay PASS (Core45/Batch37, fail/error/skip0), full492 archived results independently reconciled;19 Java hashes unchanged. No remaining P0–P3; Q1–Q4 PASS; evidence table is in the module worklog.
+- Parent27-path scope/whitespace/conflict/unmerged checks PASS. Authorized commit/push/Draft publication follows; Ready/merge/Issue close/deployment/cleanup remain separate. No remote CI success is claimed before observing the published head.
