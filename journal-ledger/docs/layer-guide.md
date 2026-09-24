@@ -36,6 +36,7 @@ application 계층은 유즈케이스 흐름을 조정합니다.
 - `PostingService`는 승인 전표를 GL/SL 엔트리로 변환하고 `LedgerEntryPersistencePort`로 저장합니다.
 - `LedgerService`는 잔액 집계 흐름을 담당하고 `LedgerBalancePersistencePort`에 저장/조회 세부사항을 위임합니다.
 - `UnsettledService`는 미결 반제 유즈케이스를 조정하고 `UnsettledItem` 도메인 메서드가 상태 전이를 처리하게 합니다.
+- `JournalEntryService`는 수동·contract·자동 전표를 같은 검증 파이프라인으로 보내며, `PostingService`는 전기 전에 같은 환산 불변식을 가진 `GeneralLedger` 스냅샷을 만듭니다.
 
 ## domain 계층
 
@@ -47,7 +48,8 @@ domain 계층은 전표, 전표 라인, 자동분개 규칙, 원장, 미결 항�
 - 외부 저장소 조회, HTTP 호출, 캐시, JDBC SQL은 domain에 두지 않습니다.
 - 차대변 문자열은 `JournalSide`로 제한하고, 실제 금액 방향은 불변 `Debit`/`Credit` VO로 표현합니다.
 - `AccountingPrecision`은 원장 금액 `DECIMAL(19,2)`와 환율 `DECIMAL(19,8)`을 강제하며 무음 반올림을 금지합니다.
-- `JournalEntry`는 상세 라인의 소유권과 거래/기준통화 차대일치를, `GeneralLedger`는 승인된 전표의 불변 posting snapshot을 책임집니다.
+- `JournalCurrencyConversionPolicy`는 고정 기준통화 KRW, 통화·환율 유효성, `amount × exchangeRate`, 차대별 `HALF_UP` 목표와 라인 `DOWN`/최대 소수 잔여 배분을 책임집니다.
+- `JournalEntry`는 상세 라인의 소유권, 각 라인의 환산 의미와 거래/기준통화 차대일치를, `GeneralLedger`는 승인된 전표의 불변 posting snapshot을 책임집니다.
 
 ## Batch 계층
 
@@ -64,6 +66,22 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 - Web Controller는 DTO 검증, 헤더 추출, 응답 변환을 담당합니다.
 - Kafka Listener는 이벤트 역직렬화와 실패 전파를 담당합니다.
 - Controller가 JPA Repository를 직접 호출하지 않습니다.
+- 수동 HTTP는 caller의 필수 `baseAmount`를 도메인으로 전달합니다. Contract adapter는 외화 누락을 거부하되, null/공백/KRW 통화와 환율 생략 또는 1인 동일단위 입력에만 누락값을 `amount`로 채우는 호환 예외를 적용합니다. 자동분개는 공통 도메인 정책으로 기준금액을 생성합니다.
+
+### 외화 provenance 경계
+
+현재 계약의 환산 근거는 전표 헤더 거래통화와 거래통화→KRW 환율입니다. `null`/공백 통화는
+호환성을 위해 KRW, KRW 환율은 생략 또는 1이며, 외화에는 명시적인 양수 환율이 필요합니다.
+`JournalRuleEngine`은 거래통화 키 `transactionCurrencyCode`, `currencyCode`, `currency`와
+환율 키 `transactionToBaseRate`, `exchangeRate`, `fxRate`(각 `transaction.*` 포함)만 읽습니다.
+`functionalCurrency`, `reportingCurrency`와 회계정책 기준통화는 이 provenance로 사용하지 않습니다.
+여러 통화 별칭은 trim·대문자 정규화 후, 여러 환율 별칭은 숫자 비교 후 모두 같아야 하며
+같은 값의 중복만 허용합니다. 충돌은 persistence port 호출 전에 거부합니다.
+환율 공급자·출처·적용일을 추가하거나 기준통화를 구성 가능하게 만드는 일은 현재 계약 밖입니다.
+
+관리형 역분개는 일반 환산 의미 검증의 제한된 exact-copy 예외입니다. `POSTED` 원본의 환율,
+거래금액과 기준금액을 복사하고 차대만 반전하여 과거 실제 원장 효과를 상쇄하며, 금액 정밀도와
+거래/기준통화 차대일치는 유지합니다. 공개 생성 포트는 임의 `REVERSAL`을 계속 차단합니다.
 
 ## infrastructure/persistence와 adapter/out 계층
 
@@ -98,6 +116,7 @@ journal-ledger:
 
 - API만 바꾸는가, 도메인 규칙도 바꾸는가를 먼저 분리합니다.
 - 전표 금액은 차대일치 검증을 반드시 거칩니다.
+- 일반 외화 전표는 수동·contract·자동분개 모두 같은 `JournalCurrencyConversionPolicy`를 거치고, 생성·승인·전기 경계에서 fail-closed하는지 확인합니다. 관리형 역분개 exact-copy 예외는 공개 생성 경로로 노출하지 않습니다.
 - 전기 결과 조회는 `POSTED` 상태만 재무 금액으로 취급합니다.
 - 미결 반제는 `settlementReference`로 중복 반영을 막습니다.
 - 대량 저장은 service loop가 아니라 adapter의 batch/upsert 기능으로 해결합니다.

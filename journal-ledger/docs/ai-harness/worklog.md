@@ -1,3 +1,58 @@
+# 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
+
+## Intake, isolation, and ownership
+
+- Confirmed live [Issue #763](https://github.com/skyg547/account/issues/763), moved it from `status:ready` to `status:in-progress`, and added `agent:codex`.
+- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/763-foreign-fx-conversion`, and used isolated `/tmp/account-763-foreign-fx-conversion` at base `8b16566edf47800ae10fb2ae729a8bb4d880e95d`.
+- Used `account-issue-loop`, `account-hexagonal-change`, the single-module form of `account-module-parallel`, and `account-review-handoff` with `gpt-5.6-sol` / high reasoning.
+- Scope is `journal-ledger/**`, including these three module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged under the user's explicit narrower rule.
+- Explorer and independent Reviewer were read-only. Production, test, and documentation writers had disjoint file allowlists; the parent Integrator alone owns module-local records and Git/GitHub mutations.
+
+## Implementation and financial policy
+
+- `JournalCurrencyConversionPolicy` defines KRW as the fixed base currency, validates positive `DECIMAL(19,8)` exchange rates, and enforces each line's transaction amount to base amount meaning before persistence, approval, and posting.
+- Foreign input requires an explicit rate and semantically correct `baseAmount`. KRW accepts omitted/one rate. Contract lines may omit base only for KRW, where `baseAmount=amount` is an explicit same-unit compatibility exception; foreign omission remains rejected.
+- Per accounting side, the policy rounds `sum(amount) * rate` to ledger scale with `HALF_UP`, floors each line with `DOWN`, and allocates remaining cents to the largest fractional remainders. Equal-remainder groups validate the required adjusted-line count without relying on JPA collection order.
+- `JournalRuleEngine` uses only explicit transaction currency/rate aliases, rejects conflicting aliases, calculates base amounts through the common policy, and no longer treats functional/reporting/company/accounting-policy currency as transaction provenance.
+- Managed reversal preserves an exact copy of the original transaction/base amounts and rate, even for pre-remediation POSTED history, so it can undo the actual ledger effect. It still enforces line precision and transaction/base debit-credit equality; public arbitrary `REVERSAL` creation remains blocked.
+- No schema, migration, shared contract, persistence adapter, other-module, or build change was required.
+
+## Audited RED and fixed GREEN
+
+- Created detached proof `/tmp/account-763-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57` and added only `JournalForeignCurrencyConversionRegressionTest`; audited production has no diff.
+- The proof and fixed regression files are byte-identical, SHA-256 `68805fd15c4d3c2aa108669659a93af17b944af8accfbf93371f40569015f4bb`.
+- Audited command: `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.domain.journal.domain.JournalForeignCurrencyConversionRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Expected RED: 7 tests, 4 failures — USD100/rate1300/base100 accepted, foreign rate omission accepted, KRW non-one rate accepted, and a balanced but wrongly allocated rounding residual accepted.
+- Fixed command is identical and passes 7/7.
+
+## Verification and corrected review trail
+
+- Pre-change literal `./gradlew :journal-ledger:test` passed core249/API55/batch12 = 316 tests, failures/errors/skips0. This was a regression baseline, not remediation evidence.
+- Final independent forced command: `./gradlew :journal-ledger:test --rerun-tasks --no-daemon --console=plain --max-workers=1`; core271/API57/batch12 = 340 tests, failures/errors/skips0.
+- Focused tests cover domain conversion and order-independent residuals, manual MVC 400/200, contract foreign rejection and KRW compatibility, rule generation/alias conflicts, posting-before-write rejection, managed legacy reversal, and the unchanged real Payable integration route.
+- Initial independent review returned three P1 findings: a test shim hid KRW producer compatibility, legacy invalid POSTED history could not be reversed, and conflicting event aliases were first-wins. It also found stale module docs. The original production/test/docs owners corrected all findings; the shim was removed and `IntegratedBusinessProcessTest` has no diff.
+- Final read-only review found no P0-P3 and confirmed every acceptance criterion plus Q1-Q4 PASS.
+- `node --test tools/ci/harness-quality-contract.test.cjs` passes32/32. `git diff --check`, untracked whitespace, anchored conflict-marker, unmerged-index, and module allowlist gates pass.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `JournalCurrencyConversionPolicy`, Aggregate/Rule Engine/adapter 경계; forced340/340 | 해당 없음: 코드 변경 적용 | 운영 데이터 대사와 실제 환율 운영 계약은 별도 | `/root/jl763_review`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 입력→환산→잔여 배분→재검증→역분개 흐름; RED4/GREEN7 | 해당 없음: 흐름 변경 적용 | 기존 부정합은 자동 보정하지 않음 | 독립 코드·문서 대조 PASS |
+| Q3 | PASS | `README.md`, `docs/README.md`, beginner/layer/process 문서; 실제 명령과 제한 | 해당 없음: 사용자 계약 변경 적용 | Draft CI와 사람 리뷰 | 독립 문서 대조 PASS |
+| Q4 | PASS | 최대 잔여/동률, KRW 호환, alias 충돌, 관리형 역분개 예외의 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | 정책 변경 시 회귀 재검증 | 독립 source review PASS |
+
+## Rollback, limits, and handoff
+
+- Rollback is a reviewed revert of this Issue-scoped module change; there is no migration or automated data transformation. Reversion restores the known ability to create economically incorrect foreign journals, so foreign creation traffic must not resume without equivalent protection.
+- No production data, live PostgreSQL, external FX provider, distributed fault injection, load test, or deployment was used. The contract records transaction currency/rate but not quote provider, quote source, or rate date. Existing invalid normal DRAFT/APPROVED entries fail closed and require approved correction; managed exact-copy reversal handles already POSTED effects.
+- Local implementation and review are complete. Draft PR publication uses `Refs #763`; Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+
+---
+
+The following entries are retained history and are not current GH-763 evidence.
+
 # 2026-09-25 — GH-758 immutable posted journal history
 
 ## Intake, isolation, and ownership
@@ -500,3 +555,57 @@ maker, expanded the seven-consumer inventory and reran verification. Final revie
   claimed. The repository/account owner must resolve Billing & plans and rerun checks. Human review and the
   seven remote-consumer compatibility changes remain deployment gates. Ready, merge, Issue close, deployment
   and branch/worktree/proof cleanup were not performed.
+# 2026-09-25 — GH-763 foreign journal transaction-to-base conversion
+
+## Intake, isolation, and ownership
+
+- Confirmed live [Issue #763](https://github.com/skyg547/account/issues/763), moved it from `status:ready` to `status:in-progress`, and added `agent:codex`.
+- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/763-foreign-fx-conversion`, and used isolated `/tmp/account-763-foreign-fx-conversion` at base `8b16566edf47800ae10fb2ae729a8bb4d880e95d`.
+- Used `account-issue-loop`, `account-hexagonal-change`, the single-module form of `account-module-parallel`, and `account-review-handoff` with `gpt-5.6-sol` / high reasoning.
+- Scope is `journal-ledger/**`, including these three module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged under the user's explicit narrower rule.
+- Explorer and independent Reviewer were read-only. Production, test, and documentation writers had disjoint file allowlists; the parent Integrator alone owns module-local records and Git/GitHub mutations.
+
+## Implementation and financial policy
+
+- `JournalCurrencyConversionPolicy` defines KRW as the fixed base currency, validates positive `DECIMAL(19,8)` exchange rates, and enforces each line's transaction amount to base amount meaning before persistence, approval, and posting.
+- Foreign input requires an explicit rate and semantically correct `baseAmount`. KRW accepts omitted/one rate. Contract lines may omit base only for KRW, where `baseAmount=amount` is an explicit same-unit compatibility exception; foreign omission remains rejected.
+- Per accounting side, the policy rounds `sum(amount) * rate` to ledger scale with `HALF_UP`, floors each line with `DOWN`, and allocates remaining cents to the largest fractional remainders. Equal-remainder groups validate the required adjusted-line count without relying on JPA collection order.
+- `JournalRuleEngine` uses only explicit transaction currency/rate aliases, rejects conflicting aliases, calculates base amounts through the common policy, and no longer treats functional/reporting/company/accounting-policy currency as transaction provenance.
+- Managed reversal preserves an exact copy of the original transaction/base amounts and rate, even for pre-remediation POSTED history, so it can undo the actual ledger effect. It still enforces line precision and transaction/base debit-credit equality; public arbitrary `REVERSAL` creation remains blocked.
+- No schema, migration, shared contract, persistence adapter, other-module, or build change was required.
+
+## Audited RED and fixed GREEN
+
+- Created detached proof `/tmp/account-763-regression-proof` at exact audited source `a97d10ab6efc2570a88f83d630242cd748f8be57` and added only `JournalForeignCurrencyConversionRegressionTest`; audited production has no diff.
+- The proof and fixed regression files are byte-identical, SHA-256 `68805fd15c4d3c2aa108669659a93af17b944af8accfbf93371f40569015f4bb`.
+- Audited command: `./gradlew :journal-ledger:core:test --tests 'com.ho.account.journalledger.domain.journal.domain.JournalForeignCurrencyConversionRegressionTest' --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`.
+- Expected RED: 7 tests, 4 failures — USD100/rate1300/base100 accepted, foreign rate omission accepted, KRW non-one rate accepted, and a balanced but wrongly allocated rounding residual accepted.
+- Fixed command is identical and passes 7/7.
+
+## Verification and corrected review trail
+
+- Pre-change literal `./gradlew :journal-ledger:test` passed core249/API55/batch12 = 316 tests, failures/errors/skips0. This was a regression baseline, not remediation evidence.
+- Final independent forced command: `./gradlew :journal-ledger:test --rerun-tasks --no-daemon --console=plain --max-workers=1`; core271/API57/batch12 = 340 tests, failures/errors/skips0.
+- Focused tests cover domain conversion and order-independent residuals, manual MVC 400/200, contract foreign rejection and KRW compatibility, rule generation/alias conflicts, posting-before-write rejection, managed legacy reversal, and the unchanged real Payable integration route.
+- Initial independent review returned three P1 findings: a test shim hid KRW producer compatibility, legacy invalid POSTED history could not be reversed, and conflicting event aliases were first-wins. It also found stale module docs. The original production/test/docs owners corrected all findings; the shim was removed and `IntegratedBusinessProcessTest` has no diff.
+- Final read-only review found no P0-P3 and confirmed every acceptance criterion plus Q1-Q4 PASS.
+- `node --test tools/ci/harness-quality-contract.test.cjs` passes32/32. `git diff --check`, untracked whitespace, anchored conflict-marker, unmerged-index, and module allowlist gates pass.
+
+## Q1-Q4 evidence
+
+| 항목 | 판정 (PASS/FAIL/N/A) | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `JournalCurrencyConversionPolicy`, Aggregate/Rule Engine/adapter 경계; forced340/340 | 해당 없음: 코드 변경 적용 | 운영 데이터 대사와 실제 환율 운영 계약은 별도 | `/root/jl763_review`: no P0-P3, PASS |
+| Q2 | PASS | `docs/process-flow.md`의 입력→환산→잔여 배분→재검증→역분개 흐름; RED4/GREEN7 | 해당 없음: 흐름 변경 적용 | 기존 부정합은 자동 보정하지 않음 | 독립 코드·문서 대조 PASS |
+| Q3 | PASS | `README.md`, `docs/README.md`, beginner/layer/process 문서; 실제 명령과 제한 | 해당 없음: 사용자 계약 변경 적용 | Draft CI와 사람 리뷰 | 독립 문서 대조 PASS |
+| Q4 | PASS | 최대 잔여/동률, KRW 호환, alias 충돌, 관리형 역분개 예외의 근접 의도 주석 | 해당 없음: 비자명 로직 변경 적용 | 정책 변경 시 회귀 재검증 | 독립 source review PASS |
+
+## Rollback, limits, and handoff
+
+- Rollback is a reviewed revert of this Issue-scoped module change; there is no migration or automated data transformation. Reversion restores the known ability to create economically incorrect foreign journals, so foreign creation traffic must not resume without equivalent protection.
+- No production data, live PostgreSQL, external FX provider, distributed fault injection, load test, or deployment was used. The contract records transaction currency/rate but not quote provider, quote source, or rate date. Existing invalid normal DRAFT/APPROVED entries fail closed and require approved correction; managed exact-copy reversal handles already POSTED effects.
+- Local implementation and review are complete. Draft PR publication uses `Refs #763`; Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+
+---
+
+The following entries are retained history and are not current GH-763 evidence.

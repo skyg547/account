@@ -1,3 +1,24 @@
+# GH-763 handoff
+
+Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. Draft PR publication with `Refs #763` is the next gate.
+
+- Issue/branch/worktrees: [#763](https://github.com/skyg547/account/issues/763); `agent/763-foreign-fx-conversion`; `/tmp/account-763-foreign-fx-conversion`; base `8b16566e`; proof `/tmp/account-763-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Behavior: USD100/rate1300 requires base130000; foreign missing/inconsistent rate/base and event alias conflicts fail closed. Side-level HALF_UP targets plus per-line DOWN/largest-remainder allocation keep exact base debit-credit equality. KRW contract omission is a narrow same-unit compatibility exception. Managed exact-copy reversal can undo legacy POSTED effects.
+- RED/GREEN: byte-identical fixture SHA `68805fd1…f4bb` fails4/7 on exact audited production and passes7/7 after remediation; proof production is unchanged.
+- Verification: final independent forced `./gradlew :journal-ledger:test --rerun-tasks --no-daemon --console=plain --max-workers=1` passes core271/API57/batch12 =340 tests, failures/errors/skips0. Quality contract32/32 and static gates pass.
+- Independent review: initial P1 compatibility/reversal/alias findings and stale docs were corrected by original owners. Final read-only review reports no P0-P3 and Q1-Q4 PASS.
+- Rollback: reviewed scoped revert only; no schema/data rollback. Reversion reopens the foreign-journal understatement/overstatement defect, so affected traffic must remain stopped without replacement protection.
+- Limits: no production-data reconciliation, live PostgreSQL, external FX feed/provider/source/date, distributed failure, load, or deployment test. Existing invalid normal DRAFT/APPROVED records require approved correction; already POSTED effects can use managed exact-copy reversal.
+- Authority separation: Explorer/Reviewer read-only; disjoint production/test/docs writers; parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Next owner: parent publishes the reviewed Draft and records its URL; then a human reviewer owns CI resolution and later lifecycle gates.
+
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-763 report.
+
 # GH-758 handoff
 
 Issue #758 implementation, audited RED/current GREEN evidence, requested verification, corrected independent review, and module-local records are complete. [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`; reviewed implementation/record commit `c78b8465` is published.
@@ -210,3 +231,23 @@ published.
   account owner must resolve Billing & plans and rerun checks.
 - Next owner is a human reviewer for the Draft diff and consumer compatibility plan. Ready, merge, Issue
   close, deployment, branch/worktree deletion and audited-proof cleanup remain separate approvals.
+# GH-763 handoff
+
+Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. Draft PR publication with `Refs #763` is the next gate.
+
+- Issue/branch/worktrees: [#763](https://github.com/skyg547/account/issues/763); `agent/763-foreign-fx-conversion`; `/tmp/account-763-foreign-fx-conversion`; base `8b16566e`; proof `/tmp/account-763-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Behavior: USD100/rate1300 requires base130000; foreign missing/inconsistent rate/base and event alias conflicts fail closed. Side-level HALF_UP targets plus per-line DOWN/largest-remainder allocation keep exact base debit-credit equality. KRW contract omission is a narrow same-unit compatibility exception. Managed exact-copy reversal can undo legacy POSTED effects.
+- RED/GREEN: byte-identical fixture SHA `68805fd1…f4bb` fails4/7 on exact audited production and passes7/7 after remediation; proof production is unchanged.
+- Verification: final independent forced `./gradlew :journal-ledger:test --rerun-tasks --no-daemon --console=plain --max-workers=1` passes core271/API57/batch12 =340 tests, failures/errors/skips0. Quality contract32/32 and static gates pass.
+- Independent review: initial P1 compatibility/reversal/alias findings and stale docs were corrected by original owners. Final read-only review reports no P0-P3 and Q1-Q4 PASS.
+- Rollback: reviewed scoped revert only; no schema/data rollback. Reversion reopens the foreign-journal understatement/overstatement defect, so affected traffic must remain stopped without replacement protection.
+- Limits: no production-data reconciliation, live PostgreSQL, external FX feed/provider/source/date, distributed failure, load, or deployment test. Existing invalid normal DRAFT/APPROVED records require approved correction; already POSTED effects can use managed exact-copy reversal.
+- Authority separation: Explorer/Reviewer read-only; disjoint production/test/docs writers; parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and cleanup remain human gates.
+- Next owner: parent publishes the reviewed Draft and records its URL; then a human reviewer owns CI resolution and later lifecycle gates.
+
+Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-763 report.

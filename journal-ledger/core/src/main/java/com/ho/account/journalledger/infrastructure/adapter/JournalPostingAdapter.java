@@ -4,8 +4,9 @@ import com.ho.account.contracts.journal.JournalEntryCommand;
 import com.ho.account.contracts.journal.JournalPostingPort;
 import com.ho.account.contracts.journal.JournalPostingResult;
 import com.ho.account.journalledger.application.port.in.JournalUseCase;
-import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalActor;
+import com.ho.account.journalledger.domain.journal.domain.JournalCurrencyConversionPolicy;
+import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntryStatus;
 import com.ho.account.journalledger.domain.journal.domain.JournalSide;
@@ -13,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,7 +73,6 @@ public class JournalPostingAdapter implements JournalPostingPort {
         entry.setSlipDate(command.slipDate());
         entry.setDescription(command.description());
         entry.setEntryType(command.entryType());
-        entry.setExchangeRate(command.exchangeRate() != null ? command.exchangeRate() : BigDecimal.ONE);
         String maker = JournalActor.canonicalize(command.createdBy());
         entry.setCreatedBy(maker);
         // Contract payload auditUser is not an independent identity source at draft creation.
@@ -84,9 +83,19 @@ public class JournalPostingAdapter implements JournalPostingPort {
             entry.setSlipNo(command.slipNo().trim());
         }
 
-        // 기본 통화 KRW (Command에 없으면)
-        String currencyCode = command.currencyCode() != null ? command.currencyCode() : "KRW";
+        // 기존 계약의 null/blank 통화는 KRW이며, 공통 정책으로 환율 1을 명시해 출처를 고정합니다.
+        String currencyCode = command.currencyCode() == null || command.currencyCode().isBlank()
+                ? JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE
+                : command.currencyCode();
         entry.setCurrencyCode(currencyCode);
+        if (JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE.equals(entry.getCurrencyCode())) {
+            entry.setExchangeRate(JournalCurrencyConversionPolicy.normalizeExchangeRate(
+                    entry.getCurrencyCode(),
+                    command.exchangeRate()));
+        } else {
+            // 외화 누락 환율은 보정하지 않고 공통 create 유스케이스의 의미 검증까지 전달합니다.
+            entry.setExchangeRate(command.exchangeRate());
+        }
 
         // 분개 상세(JournalDetail) 라인 생성
         entry.setDetails(command.lines().stream().map(line -> {
@@ -94,7 +103,16 @@ public class JournalPostingAdapter implements JournalPostingPort {
             
             detail.setAccountCode(line.accountCode());
             detail.setAmount(line.amount());
-            detail.setBaseAmount(line.baseAmount() != null ? line.baseAmount() : line.amount());
+            if (line.baseAmount() == null) {
+                if (!JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE.equals(entry.getCurrencyCode())) {
+                    throw new IllegalArgumentException(
+                            "Foreign journal line baseAmount must not be null.");
+                }
+                // KRW는 거래통화와 기준통화의 단위가 같아 기존 계약 소비자의 생략값이 모호하지 않습니다.
+                detail.setBaseAmount(line.amount());
+            } else {
+                detail.setBaseAmount(line.baseAmount());
+            }
             detail.setSide("DEBIT".equalsIgnoreCase(line.drcrType()) ? JournalSide.DEBIT : JournalSide.CREDIT);
             
             if (line.departmentCode() != null) {
