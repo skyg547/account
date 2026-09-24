@@ -82,3 +82,34 @@ Independent `/root/closing_774_review` confirmed Q1–Q4 PASS and no unresolved 
 Initial implementation-head hosted CI did not execute its jobs: GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36024856421), [Harness Validation](https://github.com/skyg547/account/actions/runs/36024856552) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36024856595) are failed before execution; no hosted code/test pass is claimed. The repository account owner must resolve that external gate before current-head CI can run. No billing settings were inspected or changed.
 
 Next owner: repository account owner for the CI service gate, then human reviewer for current-head checks and rollout prerequisites. Ready, merge, Issue close, deployment and branch/worktree deletion have not been performed.
+
+## GH-779 — implementation handoff
+
+Issue [#779](https://github.com/skyg547/account/issues/779) uses `agent/779-fx-carrying-value` at `/tmp/account-779-fx-carrying-value`, base `363cdff48069eb5930ae4a45b0f5e56045d66122`. Scope is `closing/**` including these module-local records. Implementation and verification are in progress; the final evidence and Draft PR link will be appended after review.
+
+The source already has durable attribution: `FX_VALUATION` / `batch|account|sourceCurrency`. Reporting-currency FX account legs must change only carrying value; effective `REVERSAL` / `JOURNAL_ENTRY` ancestry must retain this attribution. Parent owns Git/GitHub and documentation; SQL and test writers have disjoint allowlists; independent review remains read-only.
+
+### GH-779 verified behavior and remaining gates
+
+| Acceptance criterion | Evidence |
+| --- | --- |
+| Same-rate later month produces zero | `FxValuationPostedHistoryTest.unchangedRateAfterPostedValuationCreatesNoAdditionalJournal`: USD100/base1000, posted200, next rate12 no new command; book1200/principal100. |
+| Rising/falling, liability and abnormal signs, multiple currencies | Four explicit normal/actual sign combinations over rates12→13→11; USD/EUR on one account with separate lineage and200/100 incremental adjustments. |
+| Posted-journal carrying value and reversal lineage | Actual Reader/service feedback through synthetic persisted commands; root + posted reversal + reversal-of-reversal, own date/status cutoff, P&L/domestic exclusion, foreign principal unchanged. |
+| Failing regression and preserved controls | Untouched-production RED1/failure1; corrected focused32 PASS; whole378 PASS. Residual-balance fail guard, malformed lineage/header/leg controls, posting default and deterministic retry/cursor restart retained. |
+
+Required `./gradlew :closing:test`:378tests/46suites, failure/error/skip0, exit0,1m23s. API/Batch bootJar both PASS. See [worklog](worklog.md) for exact commands, RED fixture distinction, archived XML and risks. Independent review final confirmation and Draft publication follow this checkpoint.
+
+No migration/backfill or shared contract change. Real PostgreSQL execution/load, deployed Journal writes and distributed faults were not exercised; orphan lineage and concurrent-posting inputs require operational reconciliation/frozen-input controls. A scoped code revert needs review and suspension of affected FX valuation because the old reader repeats adjustments. Existing posted data must remain intact.
+
+**GH-779 권한 분리:** SQL 구현자·테스트 작성자와 독립 읽기 전용 리뷰어를 분리했습니다. 부모 Integrator만 commit·전용 브랜치 push·Draft PR 생성·모듈 하네스 갱신을 수행합니다. 이는 절차상의 권한 분리이며 같은 실행 환경의 보안 격리 또는 GitHub 사람 승인을 의미하지 않습니다. Ready·merge·Issue close·배포·branch/worktree 삭제는 후속 승인 게이트입니다.
+
+### GH-779 independent acceptance
+
+`/root/fx_independent_review` directly reran32/32 focused tests successfully, confirmed full378-test evidence and final source/test hashes, and found no unresolved P0–P3. Q1–Q4 all PASS; detailed evidence is in [worklog](worklog.md#independent-review-and-delivery-gate). Parent owns the authorized commit/push/Draft gate; the next owner after publication is a human reviewer for current-head CI and operational limits.
+
+### GH-779 Draft publication
+
+- Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
+- Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.

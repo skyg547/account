@@ -37,3 +37,28 @@
 
 - GH-774 implementation commit: `9a4348071ca5de39ecee266c08a0009cae16a722`; follow-up publication changes are module records only.
 - GH-774 initial hosted Actions failed before execution due to the reported payment/spending-limit gate; local348 and packaging evidence remain separate. Ready/merge/Issue close/deployment/cleanup were not performed.
+
+## GH-779 — current work
+
+- Issue [#779](https://github.com/skyg547/account/issues/779), CL15; `agent/779-fx-carrying-value`; `/tmp/account-779-fx-carrying-value`; base `363cdff48069eb5930ae4a45b0f5e56045d66122`.
+- Scope is only `closing/**`; this module-local harness honors the shared-document prohibition.
+- Status: implementation and regression proof in progress; no verification pass or PR publication claimed yet.
+- SQL/test writers use disjoint file ownership; GPT-6 Astra / xhigh explicitly selected. Parent alone updates records, commits, pushes and publishes Draft PR. Independent reviewer is read-only.
+- Required gate: `./gradlew :closing:test`, Q1–Q4 evidence and independent review before Draft publication. Subsequent human review controls Ready/merge/Issue closure.
+
+### GH-779 verification checkpoint
+
+- Source/test implementation frozen. Required whole-module command passes378/378 (Core201/API127/Batch50), failure/error/skip0; API/Batch bootJar both pass.
+- Independent `/root/fx_independent_review` found no additional static defect and independently reconciled the archived46 suites. Direct focused replay and final review confirmation are in progress.
+- All11 changed paths remain in Closing. No shared harness, other-module source, production data or schema change. Parent prepares Draft `Refs #779`; publication not yet claimed at this checkpoint.
+
+### GH-779 review complete
+
+- Independent read-only reviewer directly reran32 focused cases: all PASS, failure/error/skip0. Q1–Q4 PASS, no unresolved P0–P3.
+- Required378-test evidence and both boot JARs verified. Parent proceeds with authorized commit/push/OPEN Draft PR, `Refs #779`. Remote publication and hosted checks are recorded separately below.
+
+### GH-779 Draft publication
+
+- Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
+- Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
+- Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.

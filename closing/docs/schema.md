@@ -81,6 +81,13 @@ V52는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 �
 | 환율 | `master-data` | FX 평가 시 외화 금액을 보고통화로 재평가 |
 | `allowance_summary` | `ecl` | ECL 목표 충당금 조회 |
 
+FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineage_source_id`도
+읽습니다. `FX_VALUATION`의 `배치ID|평가계정|원천통화`는 보고통화로 전기된 평가액을
+원래 외화에 귀속시키는 식별자입니다. `REVERSAL` / `JOURNAL_ENTRY`는 원전표 ID를
+연결하며 역분개를 거듭해도 최초 평가의 귀속을 유지합니다. 평가 계정과 일치하는 상세의
+`base_amount`만 장부금액에 더하고 외화 원금에는 더하지 않습니다. 새 컬럼·테이블이나
+기존 lineage의 backfill은 필요하지 않습니다. 근거 없는 레거시 식별자는 별도 대사가 필요합니다.
+
 ## `allowance_summary` 연결 기준
 
 ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코드를 결정합니다.
