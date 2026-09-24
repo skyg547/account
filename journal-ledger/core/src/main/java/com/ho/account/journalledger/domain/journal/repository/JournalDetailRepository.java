@@ -18,6 +18,36 @@ import java.util.List;
 @Repository
 public interface JournalDetailRepository extends JpaRepository<JournalDetail, Long> {
 
+       /*
+        * SimpleJpaRepository의 bulk delete는 엔티티를 로드하지 않아 @PreRemove를 실행하지 않습니다.
+        * 일반 delete API만 남겨 DRAFT 삭제와 최종 이력 차단을 엔티티 callback이 일관되게 판정하게 합니다.
+        */
+       @Override
+       default void deleteAllInBatch() {
+              throw bulkDeleteDisabled();
+       }
+
+       @Override
+       default void deleteAllInBatch(Iterable<JournalDetail> entities) {
+              throw bulkDeleteDisabled();
+       }
+
+       @Override
+       default void deleteAllByIdInBatch(Iterable<Long> ids) {
+              throw bulkDeleteDisabled();
+       }
+
+       @Override
+       @Deprecated
+       default void deleteInBatch(Iterable<JournalDetail> entities) {
+              throw bulkDeleteDisabled();
+       }
+
+       private static IllegalStateException bulkDeleteDisabled() {
+              return new IllegalStateException(
+                            "POSTED 전표 이력 보호를 우회하는 JPA bulk delete는 사용할 수 없습니다.");
+       }
+
        // 재무 조회에는 원장 반영이 완료된 POSTED 전표만 포함합니다.
        // APPROVED는 결재가 끝났지만 아직 원장에 반영되지 않은 상태이므로 잔액/보고 수치에서 제외합니다.
        /**

@@ -33,6 +33,49 @@ flowchart LR
 
 재무 잔액과 기간 집계에는 `POSTED` 전표만 포함합니다. `APPROVED`는 승인됐지만 아직 원장에 반영되지 않은 상태입니다.
 
+### POSTED 최종 이력 보호
+
+초보자 설명: 전기는 장부에 금액을 확정하는 단계입니다. 확정된 원본을 나중에 고치면 당시
+승인 내용과 현재 장부가 달라지므로, `POSTED` 원본은 그대로 두고 정정 사실도 별도 전표로
+남깁니다.
+
+1. 최초 `APPROVED -> POSTED` 전환은 정상 처리됩니다. JPA 콜백은 로드·저장 직후 캡처한
+   persisted 상태와 현재 상태를 함께 보므로, 이 최초 전환을 이미 확정된 이력의 수정으로
+   오인하지 않습니다.
+2. 한번 commit된 `POSTED` 전표에서는 헤더·감사 setter, 상세의 금액·차대 구분·계정·차원·적요·
+   감사 setter, 상세 소유권 변경과 `addDetail`/`removeDetail`/`clearDetails`/`setDetails`가
+   변경 전에 `IllegalStateException`을 냅니다. 감사 identity도 최종 이력이며 “비재무 필드”라는
+   일반 예외는 없습니다.
+3. setter를 거치지 않은 JPA 경로도 persisted-state 콜백이 막습니다. 관리 엔티티 dirty update,
+   detached merge, 새 상세 삽입과 orphan removal이 flush에서 실패합니다. 일반 repository의
+   `delete`/`deleteById`/`deleteAll`은 엔티티 생명주기 콜백을 거치므로 `POSTED` 상세·헤더 삭제가
+   거부됩니다. 콜백을 우회하는 `deleteAllInBatch`/`deleteAllByIdInBatch`와 deprecated
+   `deleteInBatch`는 두 journal repository 경계에서 명시적으로 fail-closed합니다. 실패한
+   트랜잭션은 rollback하며, 확인은 같은 영속성 컨텍스트를 재사용하지 않고 새 트랜잭션에서
+   clear/reload하여 원래 값과 상세 멤버십이 유지됐는지 봅니다.
+4. 정정은 원본을 변경하지 않고 원본 lineage를 연결한 새 역분개 또는 조정 전표를 생성해 기존
+   승인·전기 통제를 다시 거칩니다. `DRAFT`/`REQUESTED`/`APPROVED`는 기존 상태·maker-checker·
+   정밀도 규칙에 따라 계속 편집할 수 있습니다.
+
+이 보호는 도메인과 JPA 영속성 경계의 방어이며 DB trigger가 아닙니다. repository 밖에서 별도
+`EntityManager`로 실행하는 bulk JPQL, native SQL과 권한 있는 직접 JDBC/DB 쓰기는 엔티티 콜백과
+repository guard를 우회합니다. 조사된 production 코드에서는 이런 전표 변경 경로를 찾지 못했지만,
+배포 권한과 향후 우회 writer는 별도 통제로 제한해야 합니다.
+
+저장소 루트에서 전체 회귀를 실행합니다.
+
+```bash
+./gradlew :journal-ledger:test
+```
+
+forced full 검증 결과는 core 29 suites/215 tests, API 15/51, batch 4/11로 합계
+48 suites/277 tests이며 실패·오류·skip은 0입니다. 집중 persistence 19/19와 batch 5/5도
+통과했습니다. 감사 대상 회귀 3개는 수정 전 기준 commit `a97d10ab`에서 3/3 실패하고 현재
+3/3 통과하여 수정 전후 차이를 확인했습니다. Batch fixture가 먼저
+`APPROVED`를 저장한 뒤 전기하도록 바뀐 것은 합법적인 상태 전이를 준비하는 테스트 설정일 뿐,
+새 production 업무 흐름이나 우회 API를 추가한 것이 아닙니다. Batch 테스트의 직접 SQL cleanup도
+고정된 폐기 가능 H2 테스트 DB만 비우며 production 우회 경로가 아닙니다.
+
 ### Maker-checker 승인과 HTTP 권한
 
 HTTP 쓰기 입력은 외부 요청값이 아니라 Gateway가 JWT 검증 뒤 다시 만든 `X-Auth-User`와

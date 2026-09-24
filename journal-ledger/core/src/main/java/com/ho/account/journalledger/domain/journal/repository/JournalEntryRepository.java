@@ -15,6 +15,36 @@ import java.util.Optional;
  */
 @Repository
 public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long> {
+
+    /*
+     * SimpleJpaRepository의 bulk delete는 엔티티를 로드하지 않아 @PreRemove를 실행하지 않습니다.
+     * 상태를 선별하는 것만으로는 같은 우회 API가 다시 사용될 수 있으므로 저장소 경계에서 전부 막습니다.
+     */
+    @Override
+    default void deleteAllInBatch() {
+        throw bulkDeleteDisabled();
+    }
+
+    @Override
+    default void deleteAllInBatch(Iterable<JournalEntry> entities) {
+        throw bulkDeleteDisabled();
+    }
+
+    @Override
+    default void deleteAllByIdInBatch(Iterable<Long> ids) {
+        throw bulkDeleteDisabled();
+    }
+
+    @Override
+    @Deprecated
+    default void deleteInBatch(Iterable<JournalEntry> entities) {
+        throw bulkDeleteDisabled();
+    }
+
+    private static IllegalStateException bulkDeleteDisabled() {
+        return new IllegalStateException(
+                "POSTED 전표 이력 보호를 우회하는 JPA bulk delete는 사용할 수 없습니다.");
+    }
     
     Optional<JournalEntry> findBySlipNo(String slipNo);
     

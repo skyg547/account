@@ -6,6 +6,7 @@ import com.ho.account.journalledger.domain.ledger.domain.Debit;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 전표 상세 라인 (Journal Detail) — 분개 전표의 개별 차변/대변 한 줄.
@@ -133,11 +134,15 @@ public class JournalDetail {
     @Column(length = 50)
     private String auditUser;
 
+    @Transient
+    private JournalEntry persistedJournalEntry;
+
     // ─── 생명주기 콜백 ──────────────────────────────────────
 
     /** 최초 저장 시 createdAt, updatedAt, auditUser 기본값 설정 */
     @PrePersist
     protected void onCreate() {
+        assertHistoryMutable();
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.auditUser == null) this.auditUser = "SYSTEM";
@@ -146,50 +151,91 @@ public class JournalDetail {
     /** 수정 시 updatedAt 자동 갱신 */
     @PreUpdate
     protected void onUpdate() {
+        assertHistoryMutable();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreRemove
+    protected void onRemove() {
+        assertHistoryMutable();
+    }
+
+    /** 부모 참조만 캡처하고 상태를 읽지 않아 @PostLoad에서 lazy-load/N+1을 유발하지 않습니다. */
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    protected void capturePersistedState() {
+        this.persistedJournalEntry = this.journalEntry;
     }
 
     // ─── Getter / Setter ──────────────────────────────────
 
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        assertHistoryMutable();
+        this.id = id;
+    }
 
     public JournalEntry getJournalEntry() { return journalEntry; }
-    public void setJournalEntry(JournalEntry journalEntry) { this.journalEntry = journalEntry; }
+    public void setJournalEntry(JournalEntry journalEntry) {
+        assertCanChangeJournalEntry(journalEntry);
+        this.journalEntry = journalEntry;
+    }
 
     public JournalSide getSide() { return side; }
-    public void setSide(JournalSide side) { this.side = side; }
+    public void setSide(JournalSide side) {
+        assertHistoryMutable();
+        this.side = side;
+    }
 
     public String getAccountCode() { return accountCode; }
     public void setAccountCode(String accountCode) {
+        assertHistoryMutable();
         this.accountCode = accountCode == null ? null : accountCode.trim();
     }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) {
+        assertHistoryMutable();
         this.amount = AccountingPrecision.positiveLedgerAmount(amount);
     }
 
     public BigDecimal getBaseAmount() { return baseAmount; }
     public void setBaseAmount(BigDecimal baseAmount) {
+        assertHistoryMutable();
         this.baseAmount = AccountingPrecision.positiveLedgerAmount(baseAmount);
     }
 
     public String getDepartmentCode() { return departmentCode; }
-    public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
+    public void setDepartmentCode(String departmentCode) {
+        assertHistoryMutable();
+        this.departmentCode = departmentCode;
+    }
 
     public String getBusinessPartnerCode() { return businessPartnerCode; }
-    public void setBusinessPartnerCode(String businessPartnerCode) { this.businessPartnerCode = businessPartnerCode; }
+    public void setBusinessPartnerCode(String businessPartnerCode) {
+        assertHistoryMutable();
+        this.businessPartnerCode = businessPartnerCode;
+    }
 
     public String getDetailDescription() { return detailDescription; }
-    public void setDetailDescription(String detailDescription) { this.detailDescription = detailDescription; }
+    public void setDetailDescription(String detailDescription) {
+        assertHistoryMutable();
+        this.detailDescription = detailDescription;
+    }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        assertHistoryMutable();
+        this.updatedAt = updatedAt;
+    }
 
     public String getAuditUser() { return auditUser; }
-    public void setAuditUser(String auditUser) { this.auditUser = auditUser; }
+    public void setAuditUser(String auditUser) {
+        assertHistoryMutable();
+        this.auditUser = auditUser;
+    }
 
     /**
      * 전표 Aggregate가 이 라인의 필수값과 금액 정책을 한 번에 확인할 때 사용합니다.
@@ -205,8 +251,14 @@ public class JournalDetail {
         if (accountCode == null || accountCode.isBlank()) {
             throw new IllegalStateException("전표 라인의 계정 코드는 필수입니다.");
         }
-        this.amount = AccountingPrecision.positiveLedgerAmount(amount);
-        this.baseAmount = AccountingPrecision.positiveLedgerAmount(baseAmount);
+        BigDecimal normalizedAmount = AccountingPrecision.positiveLedgerAmount(amount);
+        BigDecimal normalizedBaseAmount = AccountingPrecision.positiveLedgerAmount(baseAmount);
+        if (!Objects.equals(this.amount, normalizedAmount)
+                || !Objects.equals(this.baseAmount, normalizedBaseAmount)) {
+            assertHistoryMutable();
+            this.amount = normalizedAmount;
+            this.baseAmount = normalizedBaseAmount;
+        }
     }
 
     public Debit debit() {
@@ -241,5 +293,28 @@ public class JournalDetail {
         flipped.setBusinessPartnerCode(this.businessPartnerCode);
         flipped.setDetailDescription("[역분개] " + this.detailDescription);
         return flipped;
+    }
+
+    void assertCanChangeJournalEntry(JournalEntry newJournalEntry) {
+        assertMutableParent(this.journalEntry);
+        if (this.persistedJournalEntry != this.journalEntry) {
+            assertMutableParent(this.persistedJournalEntry);
+        }
+        if (newJournalEntry != this.journalEntry && newJournalEntry != this.persistedJournalEntry) {
+            assertMutableParent(newJournalEntry);
+        }
+    }
+
+    private void assertHistoryMutable() {
+        assertMutableParent(this.journalEntry);
+        if (this.persistedJournalEntry != this.journalEntry) {
+            assertMutableParent(this.persistedJournalEntry);
+        }
+    }
+
+    private static void assertMutableParent(JournalEntry journalEntry) {
+        if (journalEntry != null && journalEntry.hasFinalHistory()) {
+            throw JournalEntry.finalHistoryMutation();
+        }
     }
 }

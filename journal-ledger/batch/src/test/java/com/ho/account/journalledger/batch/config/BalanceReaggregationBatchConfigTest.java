@@ -35,6 +35,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -110,6 +112,9 @@ class BalanceReaggregationBatchConfigTest {
     @Autowired
     private BalanceReaggregationControlPort reaggregationControl;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @BeforeEach
     void setUp() {
         reset(ledgerService, reaggregationService);
@@ -119,8 +124,10 @@ class BalanceReaggregationBatchConfigTest {
         jobLauncherTestUtils.setJob(dailyBalanceReaggregationJob);
         glBalanceRepository.deleteAllInBatch();
         slBalanceRepository.deleteAllInBatch();
-        journalDetailRepository.deleteAllInBatch();
-        journalEntryRepository.deleteAllInBatch();
+        // This fixed in-memory H2 database is disposable test state. Child rows must be removed first
+        // so fixture cleanup respects the journal_details -> journal_entries foreign key.
+        jdbcTemplate.update("DELETE FROM journal_details");
+        jdbcTemplate.update("DELETE FROM journal_entries");
     }
 
     @Test
@@ -154,9 +161,8 @@ class BalanceReaggregationBatchConfigTest {
         entry1.initializeDraft();
         entry1.requestApproval("batch-maker");
         entry1.approve("TEST");
-        entry1.post("TEST");
-
-        journalEntryRepository.save(entry1);
+        journalEntryRepository.saveAndFlush(entry1);
+        postPersistedEntries(List.of(entry1));
 
         // 1회차 배치 실행
         JobParameters jobParameters1 = new JobParametersBuilder()
@@ -235,8 +241,8 @@ class BalanceReaggregationBatchConfigTest {
         source.initializeDraft();
         source.requestApproval("batch-maker");
         source.approve("TEST");
-        source.post("TEST");
         journalEntryRepository.saveAndFlush(source);
+        postPersistedEntries(List.of(source));
 
         doThrow(new IllegalStateException("injected writer failure after cleanup"))
                 .when(ledgerService).updateLedgerBalancesBulkForReaggregation(
@@ -264,10 +270,11 @@ class BalanceReaggregationBatchConfigTest {
         LocalDate targetDate = LocalDate.of(2026, 8, 3);
         List<JournalEntry> sources = new ArrayList<>();
         for (int index = 0; index < 101; index++) {
-            sources.add(postedEntry("MC-" + failingWriterInvocation + "-" + index, targetDate,
+            sources.add(approvedEntry("MC-" + failingWriterInvocation + "-" + index, targetDate,
                     "10100", "20100", BigDecimal.ONE));
         }
         journalEntryRepository.saveAllAndFlush(sources);
+        postPersistedEntries(sources);
 
         AtomicInteger invocations = new AtomicInteger();
         doAnswer(call -> {
@@ -323,8 +330,8 @@ class BalanceReaggregationBatchConfigTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    private JournalEntry postedEntry(String slipNo, LocalDate date, String debitAccount,
-                                     String creditAccount, BigDecimal amount) {
+    private JournalEntry approvedEntry(String slipNo, LocalDate date, String debitAccount,
+                                       String creditAccount, BigDecimal amount) {
         JournalEntry entry = new JournalEntry();
         entry.setSlipNo(slipNo);
         entry.setSlipDate(date);
@@ -346,8 +353,16 @@ class BalanceReaggregationBatchConfigTest {
         entry.initializeDraft();
         entry.requestApproval("batch-maker");
         entry.approve("TEST");
-        entry.post("TEST");
         return entry;
+    }
+
+    private void postPersistedEntries(List<JournalEntry> approvedEntries) {
+        List<Long> ids = approvedEntries.stream().map(JournalEntry::getId).toList();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            List<JournalEntry> persistedEntries = journalEntryRepository.findAllById(ids);
+            persistedEntries.forEach(entry -> entry.post("TEST"));
+            journalEntryRepository.saveAllAndFlush(persistedEntries);
+        });
     }
 
     @Configuration(proxyBeanMethods = false)
