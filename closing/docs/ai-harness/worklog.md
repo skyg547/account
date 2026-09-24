@@ -226,3 +226,66 @@ The publication follow-up updates only the three module harness records. All24 v
 - Initial implementation-head hosted checks did not execute: GitHub annotations explicitly report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36029393022), [Harness Validation](https://github.com/skyg547/account/actions/runs/36029393098), [Merge Guard](https://github.com/skyg547/account/actions/runs/36029392991). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
 - This publication append changes only the three module records; all14 verified Java files remain frozen. The PR body contains426-test verification, independent87, Q1–Q4 and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
 - Next owner: repository account owner to resolve hosted Actions availability, then human reviewer to verify current-head CI and approved effective-dated policies/operational prerequisites. Rollback and residual PostgreSQL/load/data-reconciliation gates remain as documented above.
+
+
+## 2026-09-25 — GH-781 ECL monetary units
+
+- Issue [#781](https://github.com/skyg547/account/issues/781), CL17; claim [5818387525](https://github.com/skyg547/account/issues/781#issuecomment-5818387525). Branch `agent/781-ecl-currency-units`, worktree `/tmp/account-781-ecl-currency-units`, base `origin/main@0709b1154a2333587e85d19335b548fe68028086`.
+- Scope is `closing/**` only. The user's prohibition on common harness edits takes precedence over default record paths; only this module's three harness records are updated. No other module, shared contract, schema or production data was changed.
+- Ownership/model: GPT-6 Astra / xhigh. `/root/closing_implementation` owns 12 production Java files; `/root/closing_tests` owns seven test files; `/root/closing_independent_review` is read-only. Parent owns five module guides, these records and Git/GitHub publication.
+- Result: ECL reads explicit transaction/functional credit balances from posted journals, including attributed FX adjustments and recursive reversals. Targets remain in their source currency. Dated positive representable rates replace the hardcoded unit rate. Existing foreign carrying value must reconcile at that rate; otherwise eligible FX valuation must be approved/posted first. Same-currency inconsistencies require source reconciliation. Cumulative target base deltas reconcile both units without an extra cent from separately rounding the transaction delta.
+- Controls: all groups validate before the first remote write; default DRAFT, opt-in auto-post, one run/model/entity, date/batch requirements, mappings, rounding and deterministic slip/lineage are preserved. Currency/rate in the compared description rejects changed-rate retries even if rounded line amounts are identical. Legacy drafts require reconciliation.
+- RED: two real-H2/source/outgoing-adapter cases failed on the original wrong103900 release and base100. Six key production blobs at the tested base are identical to audited `a97d10ab6efc2570a88f83d630242cd748f8be57`. Original Java/XML and source equality evidence: `/tmp/account-781-red-evidence/`.
+- Focused writer validation: 79 unique cases individually green across two runs. One Mockito fixture restubbing NPE was corrected; no production failure remained. Independent static review requested three additional real-JDBC mixed run/model/entity cases; all three pass in final full verification.
+- Required `./gradlew :closing:test` PASS: Core267/API127/Batch98 =492 tests, 53 suites, failures/errors/skips0. Initial whole-module run executed489 tests (1m19s); after adding the three batch tests, final exact command passed44s, reran Batch98 and reused verified unchanged Core/API. Complete XML, command logs and 19 Java hashes are archived at `/tmp/account-781-full-evidence/`.
+- Packaging: `./gradlew :closing:api:bootJar :closing:batch:bootJar --offline --console=plain --max-workers=1 --no-daemon` PASS14s. Actual packaged Batch JAR started and exited0 with explicit local/H2/non-web/no-job settings in18.7s; business Job execution was not observed. See `batch-smoke-summary.json` and `batch-smoke.log` in the evidence directory.
+- Independent replay/Q1–Q4 final confirmation and Draft publication are pending at this checkpoint; no hosted CI success is claimed.
+- Limits: synthetic H2 with actual Closing adapters and Journal/Master Data contract doubles; no deployed Journal approval/posting, live PostgreSQL plans/load, distributed faults or concurrent source-write verification. Per-group recursive history aggregation requires operational capacity validation and a maintained reconciled dual-currency read model before very high volumes. Local preflight does not provide a distributed transaction or source snapshot lock. A manual persisted-rate alteration with an unchanged description is outside the shared query's detectable fields.
+- Rollback: suspend affected ECL jobs and use a reviewed scoped revert, preserving posted journals, business data and FX lineage. No migration/data reset. Next owner is the human Draft/current-head CI reviewer and authorized FX/accounting operator. Ready, merge, Issue close, deployment and branch/worktree deletion remain separate gates.
+
+Changed implementation/test/guide paths (the three parent-owned module records are additional):
+
+- `closing/README.md`
+- `closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/GlAllowanceBalanceLookupAdapter.java`
+- `closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalFxValuationBalanceSource.java`
+- `closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalLedgerClosingJournalEntryAdapter.java`
+- `closing/batch/src/main/java/com/ho/account/closing/batch/config/ClosingBatchDevConfiguration.java`
+- `closing/batch/src/test/java/com/ho/account/closing/batch/adapter/out/EclJournalFixture.java`
+- `closing/batch/src/test/java/com/ho/account/closing/batch/adapter/out/EclProvisionCurrencyUnitsTest.java`
+- `closing/batch/src/test/java/com/ho/account/closing/batch/adapter/out/EclProvisionPersistedRetryTest.java`
+- `closing/batch/src/test/java/com/ho/account/closing/batch/adapter/out/GlAllowanceBalanceLookupAdapterTest.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/AllowanceBalance.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/AllowanceBalanceLookupPort.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/ClosingJournalEntryCommand.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/port/out/EclAllowanceResultPort.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/ClosingAccountingProperties.java`
+- `closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java`
+- `closing/core/src/main/java/com/ho/account/closing/domain/ClosingMonetaryPrecision.java`
+- `closing/core/src/main/java/com/ho/account/closing/domain/EclAllowanceSummary.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/port/out/AllowanceBalanceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/EclProvisionServiceTest.java`
+- `closing/core/src/test/java/com/ho/account/closing/application/service/EclProvisionValidationTest.java`
+- `closing/docs/beginner-guide.md`
+- `closing/docs/local-run.md`
+- `closing/docs/process-flow.md`
+- `closing/docs/schema.md`
+
+### GH-781 independent review complete
+
+- Read-only `/root/closing_independent_review` independently reran82 focused tests (Core45/Batch37), six suites, failures/errors/skips0, exit0/35s; all24 tasks forced with `--rerun-tasks --offline --console=plain --max-workers=1 --no-daemon`. Command filters were Core `*EclProvision*`, `*AllowanceBalanceTest` and Batch `*EclProvision*`, `*GlAllowanceBalanceLookupAdapterTest`. Log: `/tmp/account-781-independent-review-tests.log`.
+- Reviewer independently counted the archived full492/53 suites and verified19 Java hashes before/after replay. No remaining P0–P3; Q1–Q4 PASS. Requested identity3 coverage gap is resolved.
+- Parent exact-path checks PASS: all27 changed files stay inside Closing; whitespace/conflict/unmerged checks clean. Implementation and tests remain frozen. Parent now performs the authorized commit/push/Draft publication; subsequent remote facts are recorded separately.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `closing/core/src/main/java/com/ho/account/closing/application/service/EclProvisionService.java:83`; `closing/core/src/main/java/com/ho/account/closing/domain/ClosingMonetaryPrecision.java:15`; full492/independent82 PASS | 해당 없음: 계산·계약 변경 | PostgreSQL query plans/load remain | `/root/closing_independent_review`, no P0–P3 |
+| Q2 | PASS | `closing/docs/process-flow.md:309`; dated rate, prior posted FX, dual-unit reconciliation and restart behavior match implementation | 해당 없음: 흐름 변경 | No distributed atomicity/source snapshot locking | Independent implementation/docs comparison PASS |
+| Q3 | PASS | `closing/docs/local-run.md:243`; `closing/docs/beginner-guide.md:37`; full492, packaging and actual local JAR smoke evidence | 해당 없음: 기능 안내 변경 | Deployed Journal/production recovery not verified | Independent docs/evidence review PASS |
+| Q4 | PASS | `closing/batch/src/main/java/com/ho/account/closing/batch/adapter/out/JournalFxValuationBalanceSource.java:149`; service preflight/cumulative rounding/rate fingerprint comments | 해당 없음: 비자명 로직 변경 | No additional code gate; retain operational limits | Independent intent/implementation comparison PASS |
+
+### GH-781 Draft publication
+
+- Published [Draft PR #791](https://github.com/skyg547/account/pull/791), OPEN/DRAFT, `Refs #781`, from `agent/781-ecl-currency-units` to `main`. Verified implementation commit `1add69bb1b083fc9c5074feba4809fbb77975965`; initial GitHub mergeability is MERGEABLE. Issue #781 remains OPEN / `status:needs-review`; isolated worktree is retained.
+- Initial implementation-head hosted checks did not execute: GitHub check annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36031718246), [Harness Validation](https://github.com/skyg547/account/actions/runs/36031718247), [Merge Guard](https://github.com/skyg547/account/actions/runs/36031718278). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
+- This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.

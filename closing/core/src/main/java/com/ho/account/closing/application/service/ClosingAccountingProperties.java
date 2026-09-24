@@ -6,6 +6,7 @@ import java.util.List;
 import com.ho.account.closing.domain.ValuationBatch;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -44,7 +45,7 @@ public class ClosingAccountingProperties {
         if (!hasText(fxValuationReportingCurrencyCode)) {
             throw new IllegalStateException("FX valuation reporting currency is not configured: account.closing.accounting.fx-valuation-reporting-currency-code");
         }
-        return fxValuationReportingCurrencyCode.trim().toUpperCase();
+        return fxValuationReportingCurrencyCode.trim().toUpperCase(Locale.ROOT);
     }
 
     public String getFxValuationReportingCurrencyCode() {

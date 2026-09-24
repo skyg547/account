@@ -1,6 +1,8 @@
 package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.out.AllowanceBalanceLookupPort;
+import com.ho.account.closing.application.port.out.AllowanceBalance;
+import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryPort;
 import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
@@ -22,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,6 +43,9 @@ class EclProvisionServiceTest {
     @Mock
     private EclAllowanceResultPort eclAllowanceResultPort;
 
+    @Mock
+    private FxExchangeRateLookupPort rates;
+
     private ClosingAccountingProperties accountingProperties;
     private EclProvisionService service;
 
@@ -53,7 +59,7 @@ class EclProvisionServiceTest {
                 allowanceBalanceLookupPort,
                 closingJournalEntryPort,
                 accountingProperties,
-                eclAllowanceResultPort);
+                eclAllowanceResultPort, rates);
     }
 
     @Test
@@ -70,8 +76,9 @@ class EclProvisionServiceTest {
                 "480100",
                 "1000.00");
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(summary));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "USD", closingDate))
-                .thenReturn(new BigDecimal("800.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "USD", "KRW", closingDate))
+                .thenReturn(balance("USD", "800.00", "1040000.00"));
+        when(rates.findRate("USD", "KRW", closingDate)).thenReturn(Optional.of(new BigDecimal("1300")));
         when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
                 .thenReturn(new ClosingJournalEntryResult(901L, "ECL2026053144ABC"));
 
@@ -86,8 +93,8 @@ class EclProvisionServiceTest {
         assertThat(command.lineageSourceId()).isEqualTo("44|129100|USD");
         assertThat(command.slipNo()).startsWith("ECL20260531").hasSize(20);
         assertThat(command.lines()).hasSize(2);
-        assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00");
-        assertLine(command.lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00");
+        assertLine(command.lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00", "260000.00");
+        assertLine(command.lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00", "260000.00");
         verify(closingJournalEntryPort).approveAndPost(901L, "SYSTEM");
     }
 
@@ -104,8 +111,8 @@ class EclProvisionServiceTest {
                 "480100",
                 "800.00");
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(summary));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", closingDate))
-                .thenReturn(new BigDecimal("1000.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", closingDate))
+                .thenReturn(balance("KRW", "1000.00", "1000.00"));
         when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
                 .thenReturn(new ClosingJournalEntryResult(902L, "ECL2026053145DEF"));
 
@@ -148,8 +155,9 @@ class EclProvisionServiceTest {
         EclAllowanceSummary second = summary(
                 closingDate, "RUN-A", "USD", "12100", "129100", "550100", "480100", "400.00");
         when(eclAllowanceResultPort.loadSummaries(closingDate)).thenReturn(List.of(first, second));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "USD", closingDate))
-                .thenReturn(new BigDecimal("800.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "USD", "KRW", closingDate))
+                .thenReturn(balance("USD", "800.00", "1040000.00"));
+        when(rates.findRate("USD", "KRW", closingDate)).thenReturn(Optional.of(new BigDecimal("1300")));
         when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
                 .thenReturn(new ClosingJournalEntryResult(903L, "ECL20260531ABCDEF123"));
 
@@ -158,10 +166,10 @@ class EclProvisionServiceTest {
         ArgumentCaptor<ClosingJournalEntryCommand> captor =
                 ArgumentCaptor.forClass(ClosingJournalEntryCommand.class);
         verify(closingJournalEntryPort).createDraftAdjustment(captor.capture());
-        assertLine(captor.getValue().lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00");
-        assertLine(captor.getValue().lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00");
+        assertLine(captor.getValue().lines().get(0), ClosingJournalSide.DEBIT, "550100", "200.00", "260000.00");
+        assertLine(captor.getValue().lines().get(1), ClosingJournalSide.CREDIT, "129100", "200.00", "260000.00");
         verify(allowanceBalanceLookupPort)
-                .findCreditEndingBalance("129100", "USD", closingDate);
+                .findCreditBalance("129100", "USD", "KRW", closingDate);
     }
 
     @Test
@@ -194,8 +202,8 @@ class EclProvisionServiceTest {
         LocalDate date = LocalDate.of(2026, 5, 31);
         when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
                 date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", target)));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
-                .thenReturn(new BigDecimal(existing));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", existing, existing));
         when(closingJournalEntryPort.createDraftAdjustment(any()))
                 .thenReturn(new ClosingJournalEntryResult(901L, "ECL-TEST"));
 
@@ -216,8 +224,8 @@ class EclProvisionServiceTest {
         when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(
                 summary(date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "50.004"),
                 summary(date, "RUN-A", "KRW", "12100", "129100", "550100", "480100", "50.004")));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
-                .thenReturn(new BigDecimal("100.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "100.00", "100.00"));
         when(closingJournalEntryPort.createDraftAdjustment(any()))
                 .thenReturn(new ClosingJournalEntryResult(901L, "ECL-TEST"));
 
@@ -234,8 +242,8 @@ class EclProvisionServiceTest {
         LocalDate date = LocalDate.of(2026, 5, 31);
         when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
                 date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", target)));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
-                .thenReturn(new BigDecimal("100.00"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenReturn(balance("KRW", "100.00", "100.00"));
 
         service.processEclProvision(date, 690L);
 
@@ -247,11 +255,11 @@ class EclProvisionServiceTest {
         LocalDate date = LocalDate.of(2026, 5, 31);
         when(eclAllowanceResultPort.loadSummaries(date)).thenReturn(List.of(summary(
                 date, "RUN-A", "KRW", "12000", "129100", "550100", "480100", "200.00")));
-        when(allowanceBalanceLookupPort.findCreditEndingBalance("129100", "KRW", date))
-                .thenReturn(new BigDecimal("100.001"));
+        when(allowanceBalanceLookupPort.findCreditBalance("129100", "KRW", "KRW", date))
+                .thenAnswer(invocation -> balance("KRW", "100.001", "100.001"));
 
         assertThatThrownBy(() -> service.processEclProvision(date, 690L))
-                .isInstanceOf(ArithmeticException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(closingJournalEntryPort);
     }
@@ -292,10 +300,19 @@ class EclProvisionServiceTest {
         return rule;
     }
 
+    private static AllowanceBalance balance(String currency, String amount, String base) {
+        return new AllowanceBalance(currency, "KRW", new BigDecimal(amount), new BigDecimal(base));
+    }
+
     private static void assertLine(ClosingJournalLineCommand line, ClosingJournalSide side, String accountCode, String amount) {
+        assertLine(line, side, accountCode, amount, amount);
+    }
+
+    private static void assertLine(ClosingJournalLineCommand line, ClosingJournalSide side, String accountCode,
+                                   String amount, String baseAmount) {
         assertThat(line.side()).isEqualTo(side);
         assertThat(line.accountCode()).isEqualTo(accountCode);
         assertThat(line.amount()).isEqualByComparingTo(amount);
-        assertThat(line.baseAmount()).isEqualByComparingTo(amount);
+        assertThat(line.baseAmount()).isEqualByComparingTo(baseAmount);
     }
 }

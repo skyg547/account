@@ -1,6 +1,8 @@
 package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.closing.application.port.out.AllowanceBalanceLookupPort;
+import com.ho.account.closing.application.port.out.AllowanceBalance;
+import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.closing.application.port.out.EclAllowanceResultPort;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
@@ -45,8 +47,9 @@ class EclProvisionPersistedRetryTest {
         rule.setCreditAccountCode("131900");
         rule.setAmount(BigDecimal.ONE);
         properties.getProvisionRules().put(ProvisionBatch.ProvisionType.ECL, rule);
-        var service = new EclProvisionService(balances, adapter, properties, source);
-        when(balances.findCreditEndingBalance("131900", "KRW", date)).thenReturn(BigDecimal.ZERO);
+        var service = new EclProvisionService(balances, adapter, properties, source, mock(FxExchangeRateLookupPort.class));
+        when(balances.findCreditBalance("131900", "KRW", "KRW", date))
+                .thenReturn(new AllowanceBalance("KRW", "KRW", BigDecimal.ZERO, BigDecimal.ZERO));
         BigDecimal target = new BigDecimal("4808.5714");
         when(source.loadSummaries(date)).thenReturn(List.of(new EclAllowanceSummary(
                 date, "seed-690", "model-690", "SYNTHETIC", "KRW", "131000",

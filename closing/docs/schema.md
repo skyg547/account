@@ -76,9 +76,8 @@ V52는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 �
 | --- | --- | --- |
 | 회계기간 ID/기간/마감 상태 | `master-data` | 캘린더 생성, 마감 확정, 재오픈, 기간 잠금 |
 | 전표 요약/상세 | `journal-ledger` | 결산 조정 전표 검증, 연차 손익 대체 집계 |
-| `POSTED` 전표 라인 | `journal-ledger` | FX 거래통화/기준통화 잔액의 현재 원천 집계 |
-| `gl_balances` | `journal-ledger` | ECL 기존 충당금의 기준일 최신 대변 잔액 조회 |
-| 환율 | `master-data` | FX 평가 시 외화 금액을 보고통화로 재평가 |
+| `POSTED` 전표 라인 | `journal-ledger` | FX/ECL 거래통화·기능통화 잔액의 원천 집계 및 이전 FX 평가 귀속 |
+| 환율 | `master-data` | FX 평가와 ECL 목표·잔액의 기준일 기능통화 환산 |
 | `allowance_summary` | `ecl` | ECL 목표 충당금 조회 |
 
 FX 집계는 기존 `journal_entries.entry_type`, `lineage_source_type`, `lineage_source_id`도
@@ -100,15 +99,15 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | `allowance_account_code` | 대손충당금 계정 |
 | `bad_debt_expense_account_code` | 보충 적립 시 비용 계정 |
 | `reversal_income_account_code` | 환입 시 수익 계정 |
-| `target_allowance_amount` | 목표 충당금 |
+| `target_allowance_amount` | `currency_code` 거래통화 단위의 목표 충당금 |
 
-현재 배치는 JDBC에서 동일 run/model·법인·계정/통화별 금액을 먼저 합산하고, 그룹당 기존 GL 충당금 잔액을 한 번만 차감합니다. GL 잔액은 `debit - credit` 부호로 저장되므로 충당금 조회 어댑터가 대변 잔액을 양수로 변환합니다. GL에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
+현재 배치는 JDBC에서 동일 run/model·법인·계정/통화별 목표를 먼저 합산하고, 실제 전기 원장에서 기존 거래통화·기능통화 잔액을 대변 양수로 함께 조회합니다. 기능통화만 저장하는 `gl_balances`는 ECL의 거래통화 잔액으로 사용하지 않습니다. 외화의 기존 기능통화 잔액이 기준일 환율과 맞지 않으면 FX 평가 전기를 요구하며, 동일 통화의 금액 불일치는 원장 대사가 필요합니다. [통화별 계산·반올림·재시도](process-flow.md#ecl-거래통화와-기능통화-대사-gh-781)를 참고하세요. 원장에 법인 차원이 없기 때문에 한 실행에 여러 법인이 있으면 실패합니다.
 
 ## 설정 키
 
 | 설정 | 기본값/예시 | 설명 |
 | --- | --- | --- |
-| `account.closing.accounting.fx-valuation-reporting-currency-code` | `KRW` | FX 평가 보고통화 |
+| `account.closing.accounting.fx-valuation-reporting-currency-code` | `KRW` | FX 평가 보고통화 및 ECL 기능통화; 원장의 base 금액 단위와 일치해야 함 |
 | `account.closing.accounting.fx-valuation-policies` | 빈 목록; 실행 전 명시 필요 | 계정별 `account-code`, 양 끝 포함 `effective-from`/`effective-to`, `treatment` (`MONETARY`/`HISTORICAL_COST`). 정책 누락·기간 중복은 실패 |
 | `account.closing.accounting.fx-translation-gain-account-code` | `72000` | 외화환산이익 계정 |
 | `account.closing.accounting.fx-translation-loss-account-code` | `92000` | 외화환산손실 계정 |

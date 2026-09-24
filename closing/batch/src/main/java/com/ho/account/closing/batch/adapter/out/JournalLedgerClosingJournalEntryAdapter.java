@@ -70,7 +70,7 @@ public class JournalLedgerClosingJournalEntryAdapter implements ClosingJournalEn
                 command.description(),
                 command.entryType(),
                 command.currencyCode(),
-                BigDecimal.ONE,
+                command.exchangeRate(),
                 command.createdBy(),
                 command.auditUser(),
                 command.lineageSourceType(),

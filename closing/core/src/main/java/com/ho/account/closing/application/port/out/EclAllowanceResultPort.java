@@ -7,6 +7,8 @@ import java.util.List;
 
 /**
  * Outbound port for reading finalized IFRS 9 ECL allowance results.
+ * Each summary's monetary values retain its transaction {@code currencyCode}; adapters must not
+ * substitute functional-currency GL balances or convert targets before the posting-group sum.
  */
 public interface EclAllowanceResultPort {
 

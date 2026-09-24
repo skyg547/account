@@ -1,5 +1,7 @@
 package com.ho.account.closing.application.port.out;
 
+import com.ho.account.closing.domain.ClosingMonetaryPrecision;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -16,6 +18,7 @@ public record ClosingJournalEntryCommand(
         String lineageSourceType,
         String lineageSourceId,
         String currencyCode,
+        BigDecimal exchangeRate,
         String slipNo,
         List<ClosingJournalLineCommand> lines) {
 
@@ -65,9 +68,27 @@ public record ClosingJournalEntryCommand(
         if (!currencyCode.matches("[A-Z]{3}")) {
             throw new IllegalArgumentException("currencyCode must be a 3-letter currency code");
         }
+        exchangeRate = ClosingMonetaryPrecision.exchangeRate(exchangeRate);
         slipNo = slipNo.trim();
         lines = List.copyOf(lines);
         validateBalanced(lines);
+    }
+
+    /** Existing functional-currency callers, including FX adjustments, post with a unit rate. */
+    public ClosingJournalEntryCommand(
+            LocalDate slipDate,
+            LocalDate accountingDate,
+            String description,
+            String entryType,
+            String createdBy,
+            String auditUser,
+            String lineageSourceType,
+            String lineageSourceId,
+            String currencyCode,
+            String slipNo,
+            List<ClosingJournalLineCommand> lines) {
+        this(slipDate, accountingDate, description, entryType, createdBy, auditUser,
+                lineageSourceType, lineageSourceId, currencyCode, BigDecimal.ONE, slipNo, lines);
     }
 
     private static void validateBalanced(List<ClosingJournalLineCommand> lines) {

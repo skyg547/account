@@ -1,5 +1,6 @@
 package com.ho.account.closing.batch.adapter.out;
 
+import com.ho.account.closing.application.port.out.AllowanceBalance;
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import lombok.RequiredArgsConstructor;
@@ -145,9 +146,49 @@ public class JournalFxValuationBalanceSource {
              ORDER BY account_code, currency_code
             """.formatted(INVALID_LINEAGE_SQL);
 
+    // ECL observes posted balances even for accounts excluded by the dated FX policy. It also
+    // needs functional-currency rows. Only the common lineage attribution is shared with FX;
+    // this query must not inherit FX's currency exclusion or its eligibility filter.
+    private static final String ALLOWANCE_BALANCE_SQL = CONTRIBUTIONS_SQL + """
+            SELECT COALESCE(SUM(c.foreign_amount), 0) AS transaction_amount,
+                   COALESCE(SUM(c.base_amount), 0) AS base_amount,
+                   COALESCE(MAX(%s), 0) AS invalid_lineage
+              FROM eligible_contributions c
+              CROSS JOIN (SELECT CAST(? AS DATE) AS valuation_date,
+                                 CAST(? AS VARCHAR(3)) AS reporting_currency) p
+             WHERE c.accounting_date <= p.valuation_date
+               AND (c.invalid_lineage <> 0 OR c.fx_reporting_currency <> p.reporting_currency
+                    OR (c.account_code = ? AND c.currency_code = ?))
+            """.formatted(INVALID_LINEAGE_SQL);
+
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
     private final FxValuationEligibilityResolver eligibilityResolver;
+
+    public AllowanceBalance findCreditBalance(
+            String allowanceAccountCode,
+            String transactionCurrencyCode,
+            String functionalCurrencyCode,
+            LocalDate balanceDate) {
+        if (allowanceAccountCode == null || allowanceAccountCode.isBlank()) {
+            throw new IllegalArgumentException("allowanceAccountCode must not be blank");
+        }
+        if (balanceDate == null) {
+            throw new IllegalArgumentException("balanceDate must not be null");
+        }
+        String transactionCurrency = normalizeCurrency(transactionCurrencyCode);
+        String functionalCurrency = normalizeCurrency(functionalCurrencyCode);
+        return jdbcTemplate.queryForObject(
+                ALLOWANCE_BALANCE_SQL,
+                (resultSet, rowNumber) -> {
+                    requireValidLineage(resultSet.getInt("invalid_lineage"));
+                    // The common relation is debit-positive; ECL allowance balances are credit-positive.
+                    return new AllowanceBalance(transactionCurrency, functionalCurrency,
+                            resultSet.getBigDecimal("transaction_amount").negate(),
+                            resultSet.getBigDecimal("base_amount").negate());
+                },
+                Date.valueOf(balanceDate), functionalCurrency, allowanceAccountCode.trim(), transactionCurrency);
+    }
 
     public Map<String, ExecutionContext> createPartitions(
             LocalDate valuationDate,
