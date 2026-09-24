@@ -1,6 +1,6 @@
 # GH-764 handoff
 
-Issue #764 implementation, audited regression proof, requested local verification and independent review are complete. Draft PR publication with `Refs #764` is the next authorized parent action.
+Issue #764 implementation, audited regression proof, requested local verification and independent review are complete. [Draft PR #784](https://github.com/skyg547/account/pull/784) is OPEN/MERGEABLE with `Refs #764`; implementation commit `6d96ba0d`.
 
 - Issue/branch/worktree: [#764](https://github.com/skyg547/account/issues/764); `agent/764-preserve-event-decimals`; `/tmp/account-issue-764`; base `bd2707af`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness files are unchanged.
@@ -10,7 +10,8 @@ Issue #764 implementation, audited regression proof, requested local verificatio
 - Rollback: reviewed scoped revert of API deserialization configuration, tests and docs. No schema/data rollback is needed.
 - Limits: no live Kafka broker, deployed HTTP server, production data/PostgreSQL or load test. Retry count/DLQ delivery is deployment configuration, not guaranteed by this change.
 - Authority separation: Controller writer changed only inbound production configuration; Test writer changed only regressions; parent owns module docs/records and Git/GitHub; Reviewer did not edit. User authorized push and Draft PR only. Ready, merge, Issue close, deployment and resource cleanup remain later human gates.
-- Next owner: parent publishes the Draft PR and records its URL; human reviewer handles later readiness and merge gates. Both task/proof branches and worktrees stay retained.
+- Remote CI jobs did not start: annotations for Module Validation, Harness Validation and Agent Merge Guard report failed recent account payments or a spending limit requiring increase. This is an external execution prerequisite, not an executed test failure or pass.
+- Next owner: repository/account owner resolves the billing prerequisite and reruns checks; human reviewer handles later readiness and merge gates. Both task/proof branches and worktrees stay retained.
 
 ---
 

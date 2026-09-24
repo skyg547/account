@@ -1,7 +1,7 @@
 # GH-764 agent status
 
-- Issue: [#764](https://github.com/skyg547/account/issues/764); remote `status:in-progress`, owner `agent:codex`.
-- Status: implementation, audited RED proof, requested local verification and independent review complete; Draft PR publication is the next authorized parent gate.
+- Issue: [#764](https://github.com/skyg547/account/issues/764); remote `status:needs-review`, owner `agent:codex`.
+- Status: implementation, audited RED proof, requested local verification and independent review complete; [Draft PR #784](https://github.com/skyg547/account/pull/784) is OPEN/MERGEABLE with `Refs #764`.
 - Base: `origin/main@bd2707af704c4a106328c34477f7e3259d827d99`.
 - Branch/worktree: `agent/764-preserve-event-decimals`, `/tmp/account-issue-764`; audited proof `agent/764-regression-proof`, `/tmp/account-764-regression-proof` at `a97d10ab`.
 - Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.
@@ -10,7 +10,8 @@
 - Result: HTTP and Kafka untyped decimal JSON use the same Boot-managed BigDecimal-preserving mapper before real rule interpolation. Existing core `AccountingPrecision` rejects excess scale without rounding.
 - Verification: audited MVC regressions2/2 expected failures; focused fixed5/5 PASS; exact requested module208/208 PASS (core164/API39/batch5), failures/errors/skips0; API bootJar PASS. Static gates clean.
 - Independent review: initial two P3 gaps corrected by original owners; final no P0–P3, Q1–Q4 PASS.
-- Residual/later gates: no live broker/deployed-server/production-data/load test. Human reviewer owns Ready/merge/Issue close/deployment; branch and both worktrees remain retained.
+- Remote CI: Module Validation, Harness Validation and Agent Merge Guard jobs did not start. Their annotations report failed recent account payments or a spending limit requiring increase; no remote CI test result is claimed.
+- Residual/later gates: no live broker/deployed-server/production-data/load test. Repository/account owner resolves the billing prerequisite and reruns checks; human reviewer owns Ready/merge/Issue close/deployment. Branch and both worktrees remain retained.
 
 See [worklog.md](worklog.md) for exact commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits.
 
