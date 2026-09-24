@@ -4,6 +4,7 @@ import com.ho.account.closing.batch.adapter.out.GlAllowanceBalanceLookupAdapter;
 import com.ho.account.closing.batch.adapter.out.JdbcEclAllowanceResultAdapter;
 import com.ho.account.closing.batch.adapter.out.JournalFxValuationBalanceSource;
 import com.ho.account.closing.infrastructure.source.ClosingReadOnlySources;
+import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import com.ho.account.closing.infrastructure.external.HttpClosingJournalAdapter;
 import com.ho.account.closing.infrastructure.source.ClosingReadOnlySourceConfiguration;
 import com.ho.account.closing.infrastructure.source.JdbcClosingMasterDataAdapter;
@@ -23,8 +24,9 @@ import org.springframework.context.annotation.Profile;
 public class ClosingBatchDevConfiguration {
 
     @Bean
-    public JournalFxValuationBalanceSource journalFxValuationBalanceSource(ClosingReadOnlySources sources) {
-        return new JournalFxValuationBalanceSource(sources.journalDataSource(), sources.journalJdbcTemplate());
+    public JournalFxValuationBalanceSource journalFxValuationBalanceSource(ClosingReadOnlySources sources,
+                                                                       FxValuationEligibilityResolver eligibilityResolver) {
+        return new JournalFxValuationBalanceSource(sources.journalDataSource(), sources.journalJdbcTemplate(), eligibilityResolver);
     }
 
     @Bean

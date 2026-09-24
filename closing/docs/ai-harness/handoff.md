@@ -113,3 +113,26 @@ No migration/backfill or shared contract change. Real PostgreSQL execution/load,
 - Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
 - Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
 - Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.
+
+
+## GH-780 — intake contract
+
+- Issue [#780](https://github.com/skyg547/account/issues/780); branch `agent/780-fx-valuation-eligibility`; worktree `/tmp/account-780-fx-valuation-eligibility`; base `4e20273c661edde3ab901c5e77f59e1ee5d6d8f2`.
+- Delivery: verified Closing-only Draft PR with `Refs #780`. Explicit monetary/historical policy must be effective on the valuation date; unknown policy must not produce FX journals. No generic exception remeasurement or production data correction is included.
+- Scope stays in `closing/**`, including these three module-local harness records. Shared harness and other modules are read-only.
+- Authority separation: implementation writer changes assigned code/tests; independent reviewer reads and verifies without edits; parent Integrator alone records, commits, pushes and creates the authorized Draft. Read-only agent review is not human/GitHub approval. Ready, merge, Issue close and resource deletion remain separate gates.
+- Verification and final ownership will be appended after implementation/review. No completion is claimed at intake.
+
+### GH-780 verified behavior and deployment prerequisites
+
+- Cash/revenue EUR100 at book110/rate1.2 now produces cash gain10 only. Expense/payable and historical fixed/nonfixed-asset/payable pairs produce liability loss10 only. Normal and abnormal balances retain actual debit-positive/credit-negative signs.
+- Required full suite426/50suites PASS, failure/error/skip0; API/Batch packaging PASS. Full XML and frozen14 Java hashes: `/tmp/account-780-full-evidence/`. Audited-source RED evidence: `/tmp/issue-780-red/` (expected1 journal, received2 before remediation).
+- Before execution, provide effective-dated `fx-valuation-policies` for every foreign candidate account, including `HISTORICAL_COST` exclusions. Preserve approved historical rules and dated Master data across restarts. [Configuration and expected result](../local-run.md#fx-평가-적격성-설정-gh-780); [policy, signs and restart boundaries](../process-flow.md#평가-대상-계정의-유효일자-정책-gh-780).
+- Residual checks: actual PostgreSQL plans/load, deployed source/Journal interaction and faults, configuration governance and already-posted ineligible journal reconciliation. Unsupported nonmonetary exceptions require a separate explicit policy implementation.
+- Rollback uses a reviewed scoped revert with affected FX jobs suspended; no schema or data reset is required. Parent retains the branch/worktree and all evidence; independent replay and Draft publication follow.
+
+### GH-780 independent review complete
+
+- Read-only `/root/closing_independent_review` verified full426 evidence, independently reran87 focused tests (all PASS, no failure/error/skip) and confirmed14 Java files unchanged. Q1–Q4 PASS; no remaining P0–P3.
+- Parent alone performs commit/push/Draft publication. **권한 분리:** 구현자는 Closing 코드·테스트, 독립 리뷰어는 읽기 전용 검증, 부모 Integrator는 기록·Git/GitHub 게시를 담당합니다. AI 리뷰는 사람/GitHub 승인을 대체하지 않습니다. Ready·merge·Issue close·배포·삭제는 별도 승인입니다.
+- Next owner: human reviewer of the Draft and its current-head CI, followed by authorized configuration/deployment owners for dated policies and the documented operational gates. PR URL/current-head CI will be appended after actual publication.

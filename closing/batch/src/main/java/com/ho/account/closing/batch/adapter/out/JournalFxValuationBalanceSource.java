@@ -1,10 +1,10 @@
 package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.closing.application.service.FxValuationBalance;
+import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Component;
@@ -147,6 +147,7 @@ public class JournalFxValuationBalanceSource {
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
+    private final FxValuationEligibilityResolver eligibilityResolver;
 
     public Map<String, ExecutionContext> createPartitions(
             LocalDate valuationDate,
@@ -183,6 +184,9 @@ public class JournalFxValuationBalanceSource {
                 },
                 (RowCallbackHandler) resultSet -> {
                     String accountCode = resultSet.getString("account_code");
+                    if (!eligibilityResolver.isEligible(accountCode, valuationDate)) {
+                        return;
+                    }
                     if (rowIndex[0] % accountsPerPartition == 0) {
                         ranges.add(new AccountRange(ranges.size() + 1, accountCode, accountCode));
                     } else {
@@ -214,27 +218,57 @@ public class JournalFxValuationBalanceSource {
             throw new IllegalArgumentException("fetchSize must be positive");
         }
         String reportingCurrency = normalizeCurrency(reportingCurrencyCode);
-        return new JdbcCursorItemReaderBuilder<FxValuationBalance>()
-                .name("fxValuationBalanceReader-" + startAccountCode + "-" + endAccountCode)
-                .dataSource(dataSource)
-                .sql(BALANCE_SQL)
-                .preparedStatementSetter(statement -> {
-                    statement.setDate(1, Date.valueOf(valuationDate));
-                    statement.setString(2, reportingCurrency);
-                    statement.setString(3, startAccountCode);
-                    statement.setString(4, endAccountCode);
-                })
-                .rowMapper((resultSet, rowNumber) -> {
-                    requireValidLineage(resultSet.getInt("invalid_lineage"));
-                    return new FxValuationBalance(
-                            resultSet.getString("account_code"),
-                            resultSet.getString("currency_code"),
-                            resultSet.getBigDecimal("foreign_ending_balance"),
-                            resultSet.getBigDecimal("book_reporting_amount"));
-                })
-                .fetchSize(fetchSize)
-                .saveState(true)
-                .build();
+        if (valuationDate == null) {
+            throw new IllegalArgumentException("valuationDate must not be null");
+        }
+        JdbcCursorItemReader<FxValuationBalance> reader = new JdbcCursorItemReader<>() {
+            private String lastAccountCode;
+            private boolean lastAccountEligible;
+
+            @Override
+            protected void doOpen() throws Exception {
+                lastAccountCode = null;
+                super.doOpen();
+            }
+
+            @Override
+            public FxValuationBalance read() throws Exception {
+                FxValuationBalance balance;
+                // Count every physical row with super.read(): restart offsets must include exclusions.
+                // Returning null from a row mapper would instead terminate at the first historical item.
+                while ((balance = super.read()) != null) {
+                    if (!balance.accountCode().equals(lastAccountCode)) {
+                        lastAccountEligible = eligibilityResolver.isEligible(balance.accountCode(), valuationDate);
+                        lastAccountCode = balance.accountCode();
+                    }
+                    if (lastAccountEligible) {
+                        return balance;
+                    }
+                }
+                return null;
+            }
+        };
+        reader.setName("fxValuationBalanceReader-" + startAccountCode + "-" + endAccountCode);
+        reader.setDataSource(dataSource);
+        reader.setSql(BALANCE_SQL);
+        reader.setPreparedStatementSetter(statement -> {
+            statement.setDate(1, Date.valueOf(valuationDate));
+            statement.setString(2, reportingCurrency);
+            statement.setString(3, startAccountCode);
+            statement.setString(4, endAccountCode);
+        });
+        reader.setRowMapper((resultSet, rowNumber) -> {
+            // Invalid posted history remains an error even if eligibility would exclude its account.
+            requireValidLineage(resultSet.getInt("invalid_lineage"));
+            return new FxValuationBalance(
+                    resultSet.getString("account_code"),
+                    resultSet.getString("currency_code"),
+                    resultSet.getBigDecimal("foreign_ending_balance"),
+                    resultSet.getBigDecimal("book_reporting_amount"));
+        });
+        reader.setFetchSize(fetchSize);
+        reader.setSaveState(true);
+        return reader;
     }
 
     private static void requireValidLineage(int invalidLineage) {

@@ -6,8 +6,6 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalLineCommand;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
-import com.ho.account.contracts.masterdata.AccountSubjectRef;
-import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +34,7 @@ public class FxValuationService {
     private final FxExchangeRateLookupPort fxExchangeRateLookupPort;
     private final ClosingJournalEntryPort closingJournalEntryPort;
     private final ClosingAccountingProperties accountingProperties;
-    private final MasterDataQueryPort masterDataQueryPort;
+    private final FxValuationEligibilityResolver eligibilityResolver;
 
     @Transactional
     public void processFxValuationForAccount(FxValuationBalance balance, LocalDate valuationDate, Long valuationBatchId) {
@@ -55,6 +53,10 @@ public class FxValuationService {
         if (bookReportingAmount == null) {
             throw new IllegalStateException("Base ending balance is missing for account "
                     + balance.accountCode() + ", currency " + balance.currencyCode());
+        }
+        // Direct callers must not bypass the dated gate, even for zero balances or unchanged rates.
+        if (!eligibilityResolver.isEligible(balance.accountCode(), valuationDate)) {
+            return;
         }
         if (foreignAmount.signum() == 0 && bookReportingAmount.signum() == 0) {
             return;
@@ -82,12 +84,8 @@ public class FxValuationService {
             return;
         }
 
-        AccountSubjectRef accountSubject = masterDataQueryPort.findAccountSubjectAt(balance.accountCode(), valuationDate)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Account subject is missing for " + balance.accountCode() + " on " + valuationDate));
-
         createValuationJournalEntry(
-                accountSubject,
+                balance.accountCode(),
                 balance.currencyCode(),
                 difference,
                 valuationDate,
@@ -95,7 +93,7 @@ public class FxValuationService {
                 reportingCurrencyCode);
     }
 
-    private void createValuationJournalEntry(AccountSubjectRef accountSubject,
+    private void createValuationJournalEntry(String accountCode,
                                              String sourceCurrencyCode,
                                              BigDecimal difference,
                                              LocalDate valuationDate,
@@ -121,16 +119,16 @@ public class FxValuationService {
                 BATCH_ACTOR,
                 SYSTEM_ACTOR,
                 "FX_VALUATION",
-                batchId + "|" + accountSubject.code() + "|" + sourceCurrencyCode,
+                batchId + "|" + accountCode + "|" + sourceCurrencyCode,
                 reportingCurrencyCode,
                 ClosingSlipNoFactory.fxValuation(
                         valuationDate,
-                        accountSubject.code() + "|" + sourceCurrencyCode,
+                        accountCode + "|" + sourceCurrencyCode,
                         batchId),
                 List.of(
                         new ClosingJournalLineCommand(
                                 accountSide,
-                                accountSubject.code(),
+                                accountCode,
                                 absDiff,
                                 absDiff,
                                 "FX Revaluation adjustment"),

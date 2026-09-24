@@ -109,6 +109,7 @@ ECL 충당 배치는 아래 컬럼을 기준으로 전표 금액과 계정 코�
 | 설정 | 기본값/예시 | 설명 |
 | --- | --- | --- |
 | `account.closing.accounting.fx-valuation-reporting-currency-code` | `KRW` | FX 평가 보고통화 |
+| `account.closing.accounting.fx-valuation-policies` | 빈 목록; 실행 전 명시 필요 | 계정별 `account-code`, 양 끝 포함 `effective-from`/`effective-to`, `treatment` (`MONETARY`/`HISTORICAL_COST`). 정책 누락·기간 중복은 실패 |
 | `account.closing.accounting.fx-translation-gain-account-code` | `72000` | 외화환산이익 계정 |
 | `account.closing.accounting.fx-translation-loss-account-code` | `92000` | 외화환산손실 계정 |
 | `account.closing.accounting.auto-post-adjustments` | `false` | 결산 조정 전표 자동 승인/전기 여부 |

@@ -6,6 +6,8 @@ import com.ho.account.closing.application.port.out.ClosingJournalEntryResult;
 import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.port.out.FxExchangeRateLookupPort;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.closing.domain.fx.FxValuationPolicy;
+import java.util.List;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,11 +47,16 @@ class FxValuationServiceTest {
         accountingProperties.setFxValuationReportingCurrencyCode("USD");
         accountingProperties.setFxTranslationGainAccountCode("720100");
         accountingProperties.setFxTranslationLossAccountCode("920100");
+        accountingProperties.setFxValuationPolicies(List.of(
+                new FxValuationPolicy.Rule("113000", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31),
+                        FxValuationPolicy.Treatment.MONETARY),
+                new FxValuationPolicy.Rule("221000", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31),
+                        FxValuationPolicy.Treatment.MONETARY)));
         service = new FxValuationService(
                 fxExchangeRateLookupPort,
                 closingJournalEntryPort,
                 accountingProperties,
-                masterDataQueryPort);
+                new FxValuationEligibilityResolver(accountingProperties, masterDataQueryPort));
     }
 
     @Test
@@ -62,7 +69,7 @@ class FxValuationServiceTest {
         when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
                 .thenReturn(Optional.of(new BigDecimal("1.20000000")));
         when(masterDataQueryPort.findAccountSubjectAt("113000", valuationDate))
-                .thenReturn(Optional.of(new AccountSubjectRef("113000", "EUR Cash", false, false, "DEBIT")));
+                .thenReturn(Optional.of(new AccountSubjectRef("113000", "EUR Cash", false, false, "DEBIT", "ASSETS")));
         when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
                 .thenReturn(new ClosingJournalEntryResult(501L, "FXV2026053177ABC"));
 
@@ -95,7 +102,7 @@ class FxValuationServiceTest {
         when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
                 .thenReturn(Optional.of(new BigDecimal("1.20000000")));
         when(masterDataQueryPort.findAccountSubjectAt("221000", valuationDate))
-                .thenReturn(Optional.of(new AccountSubjectRef("221000", "EUR Borrowing", false, false, "CREDIT")));
+                .thenReturn(Optional.of(new AccountSubjectRef("221000", "EUR Borrowing", false, false, "CREDIT", "LIABILITIES")));
         when(closingJournalEntryPort.createDraftAdjustment(any(ClosingJournalEntryCommand.class)))
                 .thenReturn(new ClosingJournalEntryResult(502L, "FXV2026053177DEF"));
 
@@ -129,6 +136,8 @@ class FxValuationServiceTest {
     void processFxValuationFailsWhenRateIsMissing() {
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);
         FxValuationBalance balance = balance("113000", "EUR", "100.00", "110.00");
+        when(masterDataQueryPort.findAccountSubjectAt("113000", valuationDate))
+                .thenReturn(Optional.of(new AccountSubjectRef("113000", "Cash", false, false, "DEBIT", "ASSETS")));
         when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
                 .thenReturn(Optional.empty());
 
@@ -142,8 +151,6 @@ class FxValuationServiceTest {
     void processFxValuationFailsWhenAccountSubjectIsMissing() {
         LocalDate valuationDate = LocalDate.of(2026, 5, 31);
         FxValuationBalance balance = balance("113000", "EUR", "100.00", "110.00");
-        when(fxExchangeRateLookupPort.findRate("EUR", "USD", valuationDate))
-                .thenReturn(Optional.of(new BigDecimal("1.20000000")));
         when(masterDataQueryPort.findAccountSubjectAt("113000", valuationDate))
                 .thenReturn(Optional.empty());
 
