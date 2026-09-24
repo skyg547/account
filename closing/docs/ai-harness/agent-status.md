@@ -62,3 +62,30 @@
 - Published [Draft PR #789](https://github.com/skyg547/account/pull/789), OPEN/DRAFT, `Refs #779`, from `agent/779-fx-carrying-value` to `main`. Verified implementation commit: `b6d2a9ff8df0ebe8b79c9e51b946c03d1fc2cf8b`. Issue #779 remains OPEN / `status:needs-review`; worktree retained.
 - Initial implementation-head GitHub Actions did not start because GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36027412303), [Harness Validation](https://github.com/skyg547/account/actions/runs/36027412183) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36027412321) fail before job execution. These are not hosted code/test results. No billing configuration was accessed or changed.
 - Next owner: repository account owner to resolve the hosted Actions gate, then human reviewer to check current-head CI and the documented PostgreSQL/operational limits. This publication-only append preserves verified production/test contents. Ready, merge, Issue close, deployment and branch/worktree deletion were not performed.
+
+
+## GH-780 — FX valuation eligibility
+
+- Issue [#780](https://github.com/skyg547/account/issues/780), CL16; claim [5818126306](https://github.com/skyg547/account/issues/780#issuecomment-5818126306).
+- Branch `agent/780-fx-valuation-eligibility`; worktree `/tmp/account-780-fx-valuation-eligibility`; base `origin/main@4e20273c661edde3ab901c5e77f59e1ee5d6d8f2`.
+- Scope: `closing/**` only. The user's shared-harness prohibition takes precedence over default record locations; records remain in this module-local directory.
+- Single module writer `/root/closing_implementation` owns core/batch implementation and tests; parent owns module docs, these records and Git/GitHub. Independent review is a separate read-only role. Requested model/reasoning: GPT-6 Astra / xhigh.
+- Status: implementation and regression evidence in progress. Required gate: `./gradlew :closing:test`, Q1–Q4 and independent review before user-authorized Draft PR (`Refs #780`). No pass or publication is claimed at intake.
+
+### GH-780 verified implementation checkpoint
+
+- Implementation frozen; required `./gradlew :closing:test` PASS426/426 (Core236/API127/Batch63), failure/error/skip0. API/Batch bootJar PASS. Source/test14 hashes and complete XML archived under `/tmp/account-780-full-evidence/`.
+- Independent static review has no finding; reviewer is now executing focused replay. No independent final approval or remote CI success is claimed yet.
+- Only22 Closing paths changed. Parent prepares authorized commit/push/Draft with `Refs #780`; human review owns subsequent Ready/merge/Issue close gates.
+
+### GH-780 independent verification complete
+
+- Independent reviewer `/root/closing_independent_review`: forced offline87/87 PASS, Q1–Q4 PASS, no P0–P3. Full426 evidence and unchanged14 Java hashes confirmed.
+- Parent is publishing the authorized Draft PR. Next owner is the human reviewer for current-head CI, approved dated policy rollout and residual operational checks. Branch/worktree are retained.
+
+### GH-780 Draft publication
+
+- Published [Draft PR #790](https://github.com/skyg547/account/pull/790), OPEN/DRAFT, `Refs #780`, branch `agent/780-fx-valuation-eligibility` to `main`. Verified implementation commit `3fd6568d2a6b73f982c3c70d428288cdac796364`. Issue #780 remains OPEN / `status:needs-review`; worktree retained at `/tmp/account-780-fx-valuation-eligibility`.
+- Initial implementation-head hosted checks did not execute: GitHub annotations explicitly report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36029393022), [Harness Validation](https://github.com/skyg547/account/actions/runs/36029393098), [Merge Guard](https://github.com/skyg547/account/actions/runs/36029392991). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
+- This publication append changes only the three module records; all14 verified Java files remain frozen. The PR body contains426-test verification, independent87, Q1–Q4 and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Next owner: repository account owner to resolve hosted Actions availability, then human reviewer to verify current-head CI and approved effective-dated policies/operational prerequisites. Rollback and residual PostgreSQL/load/data-reconciliation gates remain as documented above.

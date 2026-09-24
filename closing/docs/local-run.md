@@ -187,7 +187,8 @@ bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --conso
 테스트 포트가 생성 명령을 저장·전기 상태로 바꾸므로 실제 Journal의 승인·전기 API 검증을 대체하지는 않습니다.
 
 ```bash
-./gradlew :closing:batch:test --tests '*FxValuationPostedHistoryTest' --tests '*JournalFxValuationBalanceSourceTest'
+./gradlew :closing:core:test --tests '*FxValuation*'
+./gradlew :closing:batch:test --tests '*FxValuation*' --tests '*JournalFxValuationBalanceSourceTest'
 ./gradlew :closing:test
 ```
 
@@ -195,16 +196,49 @@ bash gradlew :closing:core:test --tests '*HttpClosingJournalAdapterTest' --conso
 다음 환율12에서 추가 전표가 생기지 않아야 합니다. 상승·하락, 부채/비정상 잔액, 같은 계정의
 복수 외화, 전기 상태·기준일, 평가와 역분개의 연결도 확인합니다. 실제 PostgreSQL 실행계획,
 운영 부하, 배포 서비스 간 장애 검증은 별도 환경에서 수행해야 합니다.
+적격성 회귀는 현금/수익·비용/부채·비화폐성 자산/부채의 양쪽 전표, 기준일 정책과
+설정 바인딩, 분류 누락·모순, 제외 행을 포함한 Cursor 재시작도 확인합니다.
 
 선행 조건:
 
 - `journal-ledger`에 기준일까지 전기된 외화 `journal_entries`/`journal_details`와 거래통화·기준통화 금액이 있어야 합니다.
 - `master-data`에 외화 -> 보고통화 환율이 있어야 합니다.
+- 기준일 유효 Master 계정 정보와 아래의 계정별 평가 정책이 있어야 합니다. 외화 수익·비용처럼 제외할 계정도 `HISTORICAL_COST`로 명시합니다.
 - 외화환산손익 계정 코드 설정이 운영 계정 체계와 맞아야 합니다.
 
 ```powershell
 .\gradlew :closing:batch:bootRun --args="--spring.batch.job.enabled=true --spring.batch.job.name=fxValuationJob valuationDate=2026-04-30 valuationBatchId=20260430 --spring.batch.jdbc.initialize-schema=always" --console=plain
 ```
+
+### FX 평가 적격성 설정 (GH-780)
+
+아래는 합성 현금/수익 두 계정의 설정 형태입니다. 실제 계정 코드와 적용 기간은 승인된
+계정 정책에 맞춰 제공해야 합니다. 숫자 계정 코드는 문자열로 유지하며 기간 양 끝을 포함합니다.
+기본 정책 목록은 비어 있어 계정을 자동으로 화폐성으로 취급하지 않습니다.
+
+```yaml
+account:
+  closing:
+    accounting:
+      fx-valuation-policies:
+        - account-code: "11000"
+          effective-from: 2026-01-01
+          effective-to: 2026-12-31
+          treatment: MONETARY
+        - account-code: "41000"
+          effective-from: 2026-01-01
+          effective-to: 2026-12-31
+          treatment: HISTORICAL_COST
+```
+
+현금 `11000`은 Master에서 `ASSETS`(호환값 `ASSET`), `fixedAsset=false`, 수익 `41000`은 `REVENUE`로
+조회되어야 합니다. 현금/수익 USD100, 장부금액110, 평가환율1.2이면 현금 조정10과
+환산이익10의 전표 하나가 기대 결과입니다. 수익 조정 전표는 생기지 않습니다.
+기간이 만료되거나 겹침·계정 분류 모순이 있으면 실행이 실패하므로 입력 정책을 확인한 뒤
+원장과 같은 기준일·실행 식별자로 재검증합니다. 과거 유효 정책을 덮어쓰지 않습니다.
+
+비화폐성 예외 평가와 기존 잘못된 전표의 자동 정정은 제공하지 않습니다. 위 설정은 실행
+형태를 설명하는 예시이며 운영 Job을 실행했다는 증거는 아닙니다.
 
 ## ECL 충당 Job 실행
 

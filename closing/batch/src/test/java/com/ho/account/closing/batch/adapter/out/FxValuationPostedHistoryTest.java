@@ -7,6 +7,8 @@ import com.ho.account.closing.application.port.out.ClosingJournalSide;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.FxValuationBalance;
 import com.ho.account.closing.application.service.FxValuationService;
+import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
+import com.ho.account.closing.domain.fx.FxValuationPolicy;
 import com.ho.account.contracts.masterdata.AccountSubjectRef;
 import com.ho.account.contracts.masterdata.MasterDataQueryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +58,6 @@ class FxValuationPostedHistoryTest {
                 "jdbc:h2:mem:closing-fx-history-" + System.nanoTime() + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
                 "sa", "");
         jdbc = new JdbcTemplate(dataSource);
-        source = new JournalFxValuationBalanceSource(dataSource, jdbc);
         jdbc.execute("""
                 CREATE TABLE journal_entries (
                     id BIGINT PRIMARY KEY,
@@ -83,12 +84,19 @@ class FxValuationPostedHistoryTest {
         masterData = mock(MasterDataQueryPort.class);
         when(masterData.findAccountSubjectAt(anyString(), any(LocalDate.class))).thenAnswer(invocation ->
                 Optional.of(new AccountSubjectRef(invocation.getArgument(0), "Synthetic account",
-                        false, false, normalSides.getOrDefault(invocation.getArgument(0), "DEBIT"))));
+                        false, false, normalSides.getOrDefault(invocation.getArgument(0), "DEBIT"),
+                        "21000".equals(invocation.getArgument(0)) ? "LIABILITIES" : "ASSETS")));
+
         properties = new ClosingAccountingProperties();
         properties.setFxValuationReportingCurrencyCode("KRW");
         properties.setFxTranslationGainAccountCode("72000");
         properties.setFxTranslationLossAccountCode("92000");
         properties.setAutoPostAdjustments(true);
+        properties.setFxValuationPolicies(List.of("11000", "12000", "21000").stream()
+                .map(account -> new FxValuationPolicy.Rule(account, LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 12, 31), FxValuationPolicy.Treatment.MONETARY)).toList());
+        source = new JournalFxValuationBalanceSource(dataSource, jdbc,
+                new FxValuationEligibilityResolver(properties, masterData));
     }
 
     @Test
@@ -399,7 +407,7 @@ class FxValuationPostedHistoryTest {
         return new FxValuationService((from, to, requestedDate) -> {
             assertThat(to).isEqualTo("KRW");
             return Optional.ofNullable(rates.get(from)).map(BigDecimal::new);
-        }, journals, properties, masterData);
+        }, journals, properties, new FxValuationEligibilityResolver(properties, masterData));
     }
 
     private void assertOnlyBalance(LocalDate date, String account, String currency, String principal, String book)

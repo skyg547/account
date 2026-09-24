@@ -4,6 +4,7 @@ import com.ho.account.closing.application.pipeline.FxValuationPipeline;
 import com.ho.account.closing.application.service.ClosingAccountingProperties;
 import com.ho.account.closing.application.service.EclProvisionService;
 import com.ho.account.closing.application.service.FxValuationService;
+import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
 import com.ho.account.closing.infrastructure.local.ClosingLocalExternalPortConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -32,7 +33,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 })
 @EntityScan(basePackages = "com.ho.account.closing.domain")
 @EnableConfigurationProperties(ClosingAccountingProperties.class)
-@Import({FxValuationService.class, FxValuationPipeline.class, EclProvisionService.class,
+@Import({FxValuationEligibilityResolver.class, FxValuationService.class, FxValuationPipeline.class, EclProvisionService.class,
         ClosingLocalExternalPortConfiguration.class})
 public class ClosingBatchApplication {
     public static void main(String[] args) {

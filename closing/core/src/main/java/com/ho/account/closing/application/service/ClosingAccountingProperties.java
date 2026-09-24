@@ -1,6 +1,8 @@
 package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.domain.ProvisionBatch;
+import com.ho.account.closing.domain.fx.FxValuationPolicy;
+import java.util.List;
 import com.ho.account.closing.domain.ValuationBatch;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -19,6 +21,24 @@ public class ClosingAccountingProperties {
     private String fxTranslationLossAccountCode = "92000"; // Default: 외화환산손실
     private String fxValuationReportingCurrencyCode = "KRW";
     private boolean autoPostAdjustments;
+    private List<FxValuationPolicy.Rule> fxValuationPolicies = List.of();
+    private FxValuationPolicy fxValuationPolicy = new FxValuationPolicy(List.of());
+
+    public List<FxValuationPolicy.Rule> getFxValuationPolicies() {
+        return fxValuationPolicies;
+    }
+
+    public void setFxValuationPolicies(List<FxValuationPolicy.Rule> policies) {
+        List<FxValuationPolicy.Rule> configured = policies == null ? List.of() : List.copyOf(policies);
+        // Validate the whole dated configuration once; a missing rule still fails at the input gate.
+        FxValuationPolicy validated = new FxValuationPolicy(configured);
+        fxValuationPolicies = configured;
+        fxValuationPolicy = validated;
+    }
+
+    public FxValuationPolicy fxValuationPolicy() {
+        return fxValuationPolicy;
+    }
 
     public String requireFxValuationReportingCurrencyCode() {
         if (!hasText(fxValuationReportingCurrencyCode)) {

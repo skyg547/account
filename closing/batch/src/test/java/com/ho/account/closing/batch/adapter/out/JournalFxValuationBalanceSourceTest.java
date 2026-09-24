@@ -1,6 +1,14 @@
 package com.ho.account.closing.batch.adapter.out;
 
 import com.ho.account.closing.application.service.FxValuationBalance;
+import com.ho.account.closing.application.service.ClosingAccountingProperties;
+import com.ho.account.closing.application.service.FxValuationEligibilityResolver;
+import com.ho.account.closing.domain.fx.FxValuationPolicy;
+import com.ho.account.contracts.masterdata.AccountSubjectRef;
+import com.ho.account.contracts.masterdata.MasterDataQueryPort;
+import java.util.Optional;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.item.ExecutionContext;
@@ -28,7 +36,19 @@ class JournalFxValuationBalanceSourceTest {
                 "sa",
                 "");
         jdbcTemplate = new JdbcTemplate(dataSource);
-        source = new JournalFxValuationBalanceSource(dataSource, jdbcTemplate);
+        var properties = new ClosingAccountingProperties();
+        var rules = new ArrayList<FxValuationPolicy.Rule>();
+        var metadata = mock(MasterDataQueryPort.class);
+        for (String account : List.of("11000", "10000", "10001", "10002", "10003", "10004",
+                "10005", "10006", "10007", "10008", "10009")) {
+            rules.add(new FxValuationPolicy.Rule(account, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31),
+                    FxValuationPolicy.Treatment.MONETARY));
+            when(metadata.findAccountSubjectAt(eq(account), any(LocalDate.class))).thenReturn(Optional.of(
+                    new AccountSubjectRef(account, "Synthetic cash", false, false, "DEBIT", "ASSETS")));
+        }
+        properties.setFxValuationPolicies(rules);
+        source = new JournalFxValuationBalanceSource(dataSource, jdbcTemplate,
+                new FxValuationEligibilityResolver(properties, metadata));
         jdbcTemplate.execute("""
                 CREATE TABLE journal_entries (
                     id BIGINT PRIMARY KEY,
