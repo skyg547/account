@@ -156,6 +156,11 @@ class UnsettledSettlementPrecisionTest {
 
         @Override
         public Optional<UnsettledItem> findById(Long id) {
+            return findByIdForSettlement(id);
+        }
+
+        @Override
+        public Optional<UnsettledItem> findByIdForSettlement(Long id) {
             readCalls++;
             return item.getId().equals(id) ? Optional.of(item) : Optional.empty();
         }

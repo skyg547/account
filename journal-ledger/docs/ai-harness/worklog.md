@@ -1,3 +1,65 @@
+# 2026-09-25 — GH-770 concurrent unsettled settlement serialization
+
+## Intake, isolation and ownership
+
+- Confirmed actual GitHub [Issue #770](https://github.com/skyg547/account/issues/770) is OPEN; its body retains the audit draft's historical “No GitHub issue has been created” wording. [Execution contract](https://github.com/skyg547/account/issues/770#issuecomment-5816569426) records branch, isolated worktree, base, module allowlist, verification and Draft PR gate.
+- Preserved the dirty primary checkout. Fetched `origin/main` and created `agent/770-unsettled-settlement-lock` in `/tmp/account-770-unsettled-settlement-lock` at `c0b4f204354045adb0db7d9b1ae031879dc60e78`; final fetch showed the same remote base. Detached proof `/tmp/account-770-regression-proof` remains at audited `a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, the single-module ownership form of `account-module-parallel`, and `account-review-handoff`. Planner/reviewer were read-only; Service, SQL, Test and Documentation writers had disjoint file allowlists. Parent alone owns module-local records and Git/GitHub.
+- Scope is `journal-ledger/**`, including these three module-local records. Other modules, shared contracts, repository-level shared harness files and `docs/history` are frozen by the user's narrower instruction. This is an explicit exception to the repository-wide shared-record contract; no shared-record synchronization is claimed.
+- No production/development credentials, operational database, external service or business data was accessed. PostgreSQL evidence used a task-owned disposable PostgreSQL16 container, loopback-only port, trust authentication, an empty synthetic database and a per-run unique schema.
+
+## Audited defect and behavioral RED
+
+- Current base and audited source have identical unsettled service/domain/port/adapter/repository production files. `UnsettledService` used an ordinary `findById`, so independent transactions could both read remaining100 and persist absolute totals without a version or exclusive lock. The reference-table primary key only deduplicated one reference; it did not serialize distinct effects.
+- The new `UnsettledSettlementConcurrencyIntegrationTest` is byte-identical in proof and fixed worktrees, SHA-256 `48d4dbb74fbaef9a5dcab2aea7518d061271fc56824e51375401c70ba73ed0b9`. The proof worktree has no production diff and only this untracked test fixture.
+- Audited command: `./gradlew :journal-ledger:core:test --tests com.ho.account.journalledger.infrastructure.persistence.UnsettledSettlementConcurrencyIntegrationTest --offline --no-daemon --console=plain --max-workers=1 --rerun-tasks` exited1 after 5 tests with exactly 3 behavioral failures. Distinct40+50 expected90 but stored50; concurrent same-ref raised reference primary-key violation rather than no-op; after committed60, waiting50 saw stale100 and was not rejected. Full-clear known-ref replay and forced-flush rollback controls already passed.
+
+## Implementation and financial controls
+
+- `UnsettledItemPersistencePort.findByIdForSettlement` expresses an exclusive, transaction-scoped settlement claim while preserving generic reads. `UnsettledService.settleItem` alone switches to that intent; public inbound/API signatures and the domain calculation remain unchanged.
+- `UnsettledItemPersistenceAdapter` requires the caller transaction with `Propagation.MANDATORY`, flushes pending work, locks only `unsettled_items.id` via native `FOR UPDATE`, then loads and explicitly refreshes the aggregate and eager reference collection. The ID-only lock avoids PostgreSQL outer-join locking constraints, and refresh prevents a pre-wait first-level-cache snapshot from overwriting the winner.
+- The lock remains through service commit/rollback. Existing `AccountingPrecision`, durable reference no-op policy, actor/reference validation, `OPEN -> PARTIAL -> CLEARED`, resolved flag and audit fields remain domain-owned. No migration, `@Version`, schema rewrite or historical repair was introduced.
+- Same ID becomes intentionally serialized; different IDs do not share this parent-row lock. Deadlock, serialization and timeout errors propagate, and callers must retry the whole use case in a fresh transaction after rollback. Direct SQL or alternate writers bypassing the port remain outside the protection.
+
+## Regression, verification and independent review
+
+- The fixture uses real JPA repositories and executor threads with independent transactions/connections. It preloads stale contender state and deterministically holds the winner claim. It covers distinct refs40+50 =>90/10 and two refs; concurrent same ref exactly once; full-clear known-ref replay; committed60 then waiting50 rejection against latest40; and failure after actual `EntityManager.flush()` rolling back amounts/status/reference/audit before a fresh retry.
+- Parent fixed H2: focused fixture5/5 PASS. Parent disposable PostgreSQL16: identical fixture5/5 PASS, separate backend PIDs and `pg_stat_activity.wait_event_type='Lock'` assertion PASS.
+- Requested exact `./gradlew :journal-ledger:test`: BUILD SUCCESSFUL. Forced `./gradlew :journal-ledger:test --rerun-tasks --offline --no-daemon --console=plain --max-workers=1`: core25 suites/178 tests, API13/40, Batch4/11 =42 suites/229 tests; failures/errors/skips0; all37 Gradle tasks executed.
+- Independent `/root/issue770_review` reran H2 5/5, PostgreSQL 5/5 and forced module229/229. `node --test tools/ci/harness-quality-contract.test.cjs` passed32/32. Reviewer reports no P0-P3 and Q1-Q4 PASS.
+- Parent/reviewer `git diff --check`, untracked trailing-whitespace, explicit changed-file conflict-marker, unmerged-index and module allowlist checks PASS. Nine substantive files are all under `journal-ledger/**` before these parent-owned records.
+
+| Item | Result | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Port/service/adapter responsibilities; H2/PG5 each and forced module229 PASS | Not applicable: production and tests changed | Human/Draft PR and remote CI | `/root/issue770_review`, no P0-P3 |
+| Q2 | PASS | `../process-flow.md`, `../schema.md`; success, replay, stale contention, rollback/retry fixture | Not applicable: nontrivial transaction flow changed | Operational retry and load remain later | Reviewer confirmed implementation/test alignment |
+| Q3 | PASS | Functional docs include beginner100→40+50 example, commands, expected results and limits | Not applicable: observable concurrency contract changed | Deployment-specific test URL/roles remain external | Reviewer independently executed commands |
+| Q4 | PASS | ID-only lock, explicit refresh, stale-cache/flush-rollback test intent comments | Not applicable: locking/cache logic is nontrivial | Recheck if fetch/locking strategy changes | Reviewer confirmed comments match behavior |
+
+## Rollback, limits and publication gate
+
+- Rollback is a reviewed Issue-scoped revert of production, tests and functional/module-local docs; there is no migration or data rollback. Reverting reopens the race, so concurrent settlement traffic must not continue on the reverted version. Existing inconsistent records require separately approved reconciliation.
+- This work does not prove production lock-wait distribution, load, distributed retry, explicit deadlock/serialization/timeout injection, operational-role permissions or historical data correctness. The disposable PostgreSQL fixture validates database row-wait/commit/rollback behavior, not production infrastructure.
+- Parent is authorized to commit, push and open a Draft PR with `Refs #770`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment, branch/worktree deletion and proof/container deletion remain later human gates.
+
+## Draft publication
+
+- Parent committed the independently reviewed 12-file module change as `86d2a39e` and pushed only `agent/770-unsettled-settlement-lock`.
+- Opened [Draft PR #786](https://github.com/skyg547/account/pull/786) against `main` with `Refs #770`. The body records acceptance/RED/GREEN evidence, Q1-Q4, scope, rollback, limits and the writer/reviewer/Integrator authority separation.
+- Moved Issue #770 to `status:needs-review` and added the [verification handoff](https://github.com/skyg547/account/issues/770#issuecomment-5817023301). Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Stopped task-owned `account-770-postgres` after fixed and independent PostgreSQL verification; the exited container is retained. The branch, implementation worktree and detached proof worktree also remain retained for human review.
+- This follow-up changes only the three module-local records to add actual publication state. Remote CI is pending; no remote PASS or readiness claim is made.
+
+## Remote CI execution prerequisite
+
+- On published Draft head `a1bbf0c4`, Module Validation run `36019983902`, Harness Validation run `36019983966` and Agent Merge Guard run `36019984123` failed before executing job steps. Downstream module/discipline jobs were skipped.
+- Check-run annotations for the three entry jobs state that recent account payments failed or the spending limit must be increased. Each failed job reports an empty steps array. This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is claimed.
+- Next owner: repository/account owner resolves GitHub Billing & plans and reruns checks. PR remains Draft and Issue remains OPEN/needs-review. No billing settings, workflows, shared harness files, Ready state, merge or Issue close were changed.
+
+---
+
+The following entries are retained history and are not current GH-770 evidence.
+
 # 2026-09-24 — GH-767 fail-closed balance reaggregation
 
 ## Intake, isolation and ownership

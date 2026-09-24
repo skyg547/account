@@ -2,9 +2,12 @@ package com.ho.account.journalledger.adapter.out.persistence.unsettled;
 
 import com.ho.account.journalledger.domain.unsettled.UnsettledItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 미결 항목 JPA 저장소.
@@ -16,6 +19,10 @@ import java.util.List;
 public interface UnsettledItemRepository extends JpaRepository<UnsettledItem, Long> {
     // 관리번호로 미결 항목 조회
     List<UnsettledItem> findByManagementNo(String managementNo);
+
+    // EAGER element collection의 outer join을 잠그지 않고 미결 항목 부모 행만 점유합니다.
+    @Query(value = "SELECT id FROM unsettled_items WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockByIdForSettlement(@Param("id") Long id);
 
     // 완전히 반제되지 않은 전체 미결 항목 조회
     List<UnsettledItem> findByResolvedFalse();

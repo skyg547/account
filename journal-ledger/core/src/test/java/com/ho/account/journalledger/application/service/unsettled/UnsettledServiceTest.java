@@ -49,7 +49,7 @@ class UnsettledServiceTest {
         UnsettledItem item = new UnsettledItem();
         item.setRemainingAmount(new BigDecimal("100.00"));
         item.setSettledAmount(BigDecimal.ZERO);
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(item));
+        when(persistencePort.findByIdForSettlement(10L)).thenReturn(Optional.of(item));
 
         service.settleItem(10L, new BigDecimal("40.00"), "collector-1", "BANK-1");
 
@@ -64,7 +64,7 @@ class UnsettledServiceTest {
         UnsettledItem item = new UnsettledItem();
         item.setRemainingAmount(new BigDecimal("100.00"));
         item.setSettledAmount(BigDecimal.ZERO);
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(item));
+        when(persistencePort.findByIdForSettlement(10L)).thenReturn(Optional.of(item));
 
         service.settleItem(10L, new BigDecimal("40.00"), "collector-1", "TXN-001");
         service.settleItem(10L, new BigDecimal("35.00"), "collector-2", "TXN-002");
@@ -82,7 +82,7 @@ class UnsettledServiceTest {
         UnsettledItem item = new UnsettledItem();
         item.setRemainingAmount(new BigDecimal("100.00"));
         item.setSettledAmount(BigDecimal.ZERO);
-        when(persistencePort.findById(10L)).thenReturn(Optional.of(item));
+        when(persistencePort.findByIdForSettlement(10L)).thenReturn(Optional.of(item));
 
         // TXN-001 처리
         service.settleItem(10L, new BigDecimal("40.00"), "collector-1", "TXN-001");

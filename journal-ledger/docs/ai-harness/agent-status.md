@@ -1,3 +1,26 @@
+# GH-770 agent status
+
+- Issue: [#770](https://github.com/skyg547/account/issues/770); remote status is `status:needs-review`, owner `agent:codex`.
+- Status: implementation, byte-identical audited RED proof, requested H2/PostgreSQL verification and independent review complete; [Draft PR #786](https://github.com/skyg547/account/pull/786) is open with `Refs #770`.
+- Base: `origin/main@c0b4f204354045adb0db7d9b1ae031879dc60e78`; final fetch matched the branch base.
+- Branch/worktrees: `agent/770-unsettled-settlement-lock`, `/tmp/account-770-unsettled-settlement-lock`; detached proof `/tmp/account-770-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.
+- Ownership: `/root/issue770_service`, `/root/issue770_sql`, `/root/issue770_tests`, and `/root/issue770_docs` wrote disjoint allowlists; `/root/issue770_plan` and independent `/root/issue770_review` were read-only; parent alone owns records and Git/GitHub.
+- Allowlist: `journal-ledger/**`; other modules, shared contracts and repository-level shared harness/history records are unchanged under the user's narrower rule.
+- Result: settlement now claims the existing `unsettled_items` parent row with an ID-only `FOR UPDATE`, refreshes stale parent/reference state, and applies the unchanged precision/idempotency/state domain rules inside one caller-owned transaction. No migration or API/domain signature change.
+- RED/GREEN: the byte-identical fixture at audited production ran 5 tests with 3 expected behavioral failures: distinct40+50 retained only50, concurrent same-ref raised a unique violation, and stale near-balance50 was accepted. Fixed H2 and disposable PostgreSQL each pass5/5; PostgreSQL confirms separate backend PIDs and `pg_stat_activity` lock wait.
+- Verification: exact `./gradlew :journal-ledger:test` succeeds. Forced writer/parent and independent reviewer module runs pass core178/API40/batch11 =229 tests across42 suites, failures/errors/skips0. Quality contract32/32 and static gates pass.
+- Independent review: `/root/issue770_review` made no edits, reports no P0-P3, and confirms Q1-Q4 PASS.
+- Publication: reviewed implementation/record commit `86d2a39e` and Draft handoff head `a1bbf0c4` are pushed; Draft PR #786 and the Issue handoff include verification and authority separation.
+- Remote CI: Module Validation, Harness Validation and Agent Merge Guard jobs did not start. Their annotations report failed recent account payments or a spending limit requiring increase; every failed job has zero executed steps. This is an external prerequisite, not a code-test failure, and no remote PASS is claimed.
+- Residual/later gates: hot-item lock-wait/load distribution, explicit deadlock/serialization/timeout injection, distributed retry, production data reconciliation, remote CI, human Ready/merge/Issue close and deployment. Direct SQL or writers bypassing the port are not protected. Branch/worktrees and the stopped task container remain retained.
+
+See [worklog.md](worklog.md) for commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits; shared records are not claimed synchronized.
+
+---
+
+The following is retained historical status and is not a current GH-770 report.
+
 # GH-767 agent status
 
 - Issue: [#767](https://github.com/skyg547/account/issues/767); remote handoff target `status:needs-review`, owner `agent:codex`.

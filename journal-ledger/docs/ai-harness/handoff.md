@@ -1,3 +1,26 @@
+# GH-770 handoff
+
+Issue #770 implementation, audited behavioral RED, H2/PostgreSQL verification and independent review are complete. [Draft PR #786](https://github.com/skyg547/account/pull/786) is open with `Refs #770`; reviewed implementation/record commit `86d2a39e`.
+
+- Issue/branch/worktrees: [#770](https://github.com/skyg547/account/issues/770); `agent/770-unsettled-settlement-lock`; `/tmp/account-770-unsettled-settlement-lock`; base `c0b4f204`; detached proof `/tmp/account-770-regression-proof@a97d10ab`.
+- Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts and repository-level shared harness/history files are unchanged and not claimed synchronized.
+- Behavior: settlement locks the existing parent ID row through commit/rollback, refreshes stale parent/reference state, and then applies unchanged precision, durable replay and state-transition rules. Concurrent40+50 yields90/10 with both refs; concurrent/cleared known-ref replay is a no-op; a waiting over-settlement validates the latest remaining balance.
+- RED: byte-identical fixture SHA `48d4dbb…` on unchanged audited production fails3/5 as expected: amount loss, same-ref unique collision and stale near-balance acceptance.
+- Verification: fixed H25/5 and disposable PostgreSQL5/5 PASS; PostgreSQL confirms independent backend PIDs and real lock wait. Requested exact module command succeeds; forced writer/parent and independent reviewer runs each pass229 tests (core178/API40/batch11), failures/errors/skips0. Quality/static gates pass.
+- Independent review: `/root/issue770_review` remained read-only, reports no P0-P3, and marks Q1-Q4 PASS.
+- Rollback: reviewed scoped revert only; no migration/data rollback. Do not continue concurrent settlement traffic on the reverted version because the lost-update race would return. Historical divergence requires separate reconciliation.
+- Limits: hot-item lock-wait/load, explicit deadlock/serialization/timeout injection, distributed retry, direct SQL/bypass writers, production data and deployment are not covered.
+- Remote CI prerequisite: Module Validation, Harness Validation and Agent Merge Guard did not start; annotations cite failed recent account payments or a spending limit requiring increase, and failed jobs have no executed steps. The account owner must resolve billing and rerun checks; this is neither a remote test pass nor an executed code-test failure.
+- Test resource: task-owned `account-770-postgres` is stopped and retained for review evidence; it is not an operational database.
+- Authority separation: Planner/Reviewer read-only; Service/SQL/Test/Documentation writers used disjoint allowlists; parent owns records, commit, push and Draft PR. Ready, merge, Issue close, deployment and cleanup remain later human gates.
+- Next owner: repository/human reviewer handles remote CI and later readiness/merge/closure/deployment gates. Branch, worktrees and stopped test container remain retained.
+
+Details, commands and Q1-Q4 evidence are in [worklog.md](worklog.md).
+
+---
+
+The following is retained historical handoff and is not a current GH-770 report.
+
 # GH-767 handoff
 
 Issue #767 implementation, three RED proofs, requested local verification and independent review are complete. [Draft PR #785](https://github.com/skyg547/account/pull/785) is open with `Refs #767`; implementation commit `06e5ccc3`.
