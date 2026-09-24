@@ -64,7 +64,7 @@ API가 정상 기동되면 아래 엔드포인트를 기준으로 흐름을 확�
 
 EOD 변경 명령에는 Gateway가 JWT에서 만든 `X-Auth-User`와 `X-Auth-Roles`가 필요합니다. 허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다. 로컬에서 API 포트를 직접 호출할 때 이 헤더를 임의로 넣을 수 있으므로 해당 방식은 기능 확인용일 뿐 보안 검증이 아닙니다.
 
-Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스를 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
+Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않도록 `classpath:db/closing-migration`만 실행하고 `flyway_schema_history_closing`에 독립적으로 이력을 기록합니다. local clean H2는 V49 clean baseline, V50 EOD/BOD 전환, V51 운영 인덱스, V52 월말 전이 기록을 순서대로 적용합니다. 개발·운영 PostgreSQL은 애플리케이션 시작 Flyway를 끄고 release-time `migration-runner`가 먼저 migrate/validate하며, API와 Batch는 `ddl-auto=validate`로만 부팅합니다.
 
 Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
 
@@ -92,6 +92,53 @@ HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하
 
 이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
 Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
+
+## 월말 전이 조회와 복구 (GH-774)
+
+| 기능 | 엔드포인트 |
+| --- | --- |
+| 진행 중인 전이 조회 | `GET /api/closing/calendars/{id}/transition` |
+| 작업 ID에 묶인 복구 | `POST /api/closing/calendars/{id}/transition/recover` |
+
+복구는 Gateway가 검증해 넣은 `X-Auth-User`, `X-Auth-Roles`를 사용합니다.
+허용 역할은 `ROLE_ADMIN`, `ROLE_ACCOUNTING_ADMIN`, `ROLE_CLOSING_MANAGER`입니다.
+조회와 복구 모두 이 권한을 요구하며, 사용자 헤더 누락은 401, 역할 부족은 403입니다.
+요청 본문에 처리자 이름을 넣어 권한을 대신하지 않습니다. Closing API를 외부에 직접 노출하지 않는
+기존 EOD와 같은 신뢰 경계를 전제로 합니다.
+
+먼저 조회한 작업 ID와 단계, 목표 상태를 확인합니다. `PREPARED`는 최초 전송을 재개할 수 있습니다.
+`DISPATCHED`이면 원 요청이 더 이상 Master에서 실행될 수 없음을 운영 절차로 확인한 후에만
+`remoteRequestTerminated=true`로 복구를 요청합니다. 이 값은 원격 종료를 자동 증명하지 않습니다.
+
+```json
+{
+  "operationId": "조회에서 확인한 작업 UUID",
+  "remoteRequestTerminated": true
+}
+```
+
+복구는 Master 목표 상태를 확인한 뒤 로컬 상태를 완료합니다. 이미 전송한 PUT을 다시 보내지 않으며,
+Master가 원 상태에 남았으면 계속 차단합니다. 해당 경우는 별도 권한의 Master 운영자가 원 요청 종료와
+기간 상태를 대사·조정해야 합니다. 오래된 작업 ID로 재호출하거나 경쟁 결정이 들어오면 충돌로 처리합니다.
+원 승인자의 결정은 복구자 이름으로 덮어쓰지 않습니다.
+
+최초 마감·승인 호출 중 원격 반영이나 로컬 완료가 불명확하면 HTTP 503과
+`PERIOD_TRANSITION_RECOVERY_REQUIRED`를 반환합니다. 이 응답은 승인 결정이 롤백됐다는 뜻이 아닙니다.
+조회 결과의 `operationId`, `target`, `stage`, `decisionActor`를 확인하고 복구 흐름을 사용합니다.
+완료되면 `calendarStatus`가 목표 상태이며 진행 중인 전이 필드는 null입니다.
+경쟁 결정·오래된 작업 ID·확인 누락·Master 상태 불일치는 HTTP 409입니다.
+
+검증 명령:
+
+```bash
+./gradlew :closing:api:test --tests '*ClosingAggregateConcurrencyIntegrationTest' --tests '*ClosingTransitionRecoveryIntegrationTest'
+./gradlew :closing:test
+./gradlew :closing:api:bootJar :closing:batch:bootJar
+```
+
+동시성 테스트는 별도 트랜잭션과 latch로 순서를 제어하고, 원격 역할의 상태는 Closing 트랜잭션과 독립적으로
+저장합니다. 복구 테스트는 응답 유실과 로컬 완료 실패를 주입합니다. H2 검증은 실제 PostgreSQL 잠금·운영 부하나
+배포된 Master의 네트워크 장애 증거를 대신하지 않습니다. 실행 결과는 [모듈 worklog](ai-harness/worklog.md)에 기록합니다.
 
 ## Batch 컨텍스트만 실행
 

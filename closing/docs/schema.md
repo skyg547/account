@@ -43,6 +43,33 @@ erDiagram
 
 월·연 기간 상태는 `closing_calendars`와 Master Data의 `fiscal_periods`가 권위 모델입니다. 별도 `closing_period` 테이블과 setter 기반 병렬 엔티티는 사용하지 않습니다. 연차 손익 대체는 `AnnualClosingService`가 담당합니다.
 
+## 월말 전이 기록 (GH-774)
+
+V52는 `closing_calendars`에 nullable 전이 컬럼을 추가합니다. 기존 캘린더는 전이가 없는 상태로 유지됩니다.
+
+| 컬럼 | 의미 |
+| --- | --- |
+| `transition_id` | 한 번의 마감/재오픈 작업 UUID |
+| `transition_target` | Master와 캘린더가 도달할 `OPEN` 또는 `CLOSED` |
+| `transition_stage` | 아직 전송 권한을 획득하지 않은 `PREPARED`, 전송 여부가 불명확할 수 있는 `DISPATCHED` |
+| `transition_fiscal_period_id` | Master 회계기간 ID |
+| `transition_approval_id` | 재오픈 승인 ID; 마감에서는 null |
+| `transition_actor`, `transition_prepared_at` | 원 결정자와 준비 시각 |
+
+전이 완료는 캘린더 상태 변경·감사 기록·전이 컬럼 제거를 한 로컬 트랜잭션으로 처리합니다.
+실패하면 전이 기록을 보존합니다. DB CHECK 제약은 전이 컬럼의 부분 저장을 거부하고,
+재오픈 의도는 `CLOSED` 캘린더와 승인 ID, 마감 의도는 `IN_PROGRESS` 캘린더와 연결되게 합니다.
+준비·완료·복구 감사 기록에는 작업 ID와 원 결정자를 남깁니다. 완료 감사는 회계기간 ID와 승인 ID도
+보존해 전이 필드를 비운 뒤에도 원 승인을 추적할 수 있으며, 복구 기록의 처리자는 별도로 보존합니다.
+전송 전 재개와 전송 후 종료 확인에 따른 복구는 감사 사유로 구분합니다. `reopen_approvals.status=APPROVED`만으로 실제 재오픈 완료를
+판단하지 말고 캘린더 상태와 미완료 전이를 함께 확인해야 합니다.
+동시성 경계와 운영 복구 조건은 [업무 흐름](process-flow.md#월말-동시-결정과-복구-gh-774)에 설명합니다.
+
+V52는 기존 `migration-runner`의 Closing 리소스 수집 대상에 자동 포함됩니다.
+새 API/Batch를 시작하기 전에 release-time migrate/validate를 수행해야 합니다.
+기존 버전 writer는 새 잠금·전이 규칙을 모르므로 혼합 버전 쓰기를 허용하지 않습니다.
+미해결 전이 컬럼을 삭제하는 down migration이나 데이터 초기화는 롤백 방법이 아닙니다.
+
 ## 외부 데이터 의존성
 
 | 외부 데이터 | 제공 모듈 | `closing`에서 사용하는 이유 |

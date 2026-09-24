@@ -1,4 +1,6 @@
-# GH-772 agent status
+# Closing agent status
+
+## GH-772 historical status
 
 - Issue: [#772](https://github.com/skyg547/account/issues/772), CL02.
 - Branch: `agent/772-closing-journal-admission`.
@@ -15,3 +17,20 @@
 - Independent reviewer is read-only and cannot commit, push, change PR state, merge or close the Issue.
 - Authorized delivery: verified closing-only Draft PR with `Refs #772`.
 - Next owner: human reviewer of the partial Draft; repository account owner for the hosted Actions payment/spending-limit gate; a separately scoped Journal/GL07 integration owner for consumer selection, adjustment authorization and commit fencing before Issue closure.
+
+## GH-774 — current work
+
+- Issue: [#774](https://github.com/skyg547/account/issues/774), CL04.
+- Branch: `agent/774-closing-decision-consistency`.
+- Worktree: `/tmp/account-774-closing-decision-consistency`.
+- Base: `origin/main@1d3e6264c6703bace265186f3319f44407dc1458`.
+- Scope: `closing/**` only; shared harness and other modules are unchanged.
+- Claim: [5817440997](https://github.com/skyg547/account/issues/774#issuecomment-5817440997), `status:in-progress`, `agent:codex`.
+- Model: GPT-6 Astra, xhigh for implementation, integration-test and independent-review agents.
+- Ownership: `/root/closing_774` owns Closing production, migration and existing tests; `/root/closing_774_tests` owns two new transaction/failure integration tests; `/root/closing_774_review` is read-only. Parent owns module docs/build files and all Git/GitHub operations.
+- Status: implementation frozen; required whole-module suite passed 348 tests (Core201/API127/Batch20), failures/errors/skips0. Independent review Q1–Q4 PASS with no unresolved findings; API/Batch packaging passed. Draft publication is the remaining delivery step.
+- Authorized delivery: verified Draft PR with `Refs #774`; Ready, merge, Issue close, deployment and resource deletion require separate gates.
+
+- GH-774 verification: `/tmp/account-774-full-evidence/summary.json`; source24 freeze matches, changed31 paths within Closing. Focused28 included in348.
+- GH-774 packaging: API/Batch bootJar PASS14s, exact V52 included, no Journal runtime dependency.
+- GH-774 next owner: parent for authorized Draft publication, then human current-head CI/release review; operator for any future unresolved source-state Master reconciliation.

@@ -1,4 +1,6 @@
-# GH-772 handoff
+# Closing handoff
+
+## GH-772 historical handoff
 
 This is a **Closing-side implementation, not a completed system-wide journal admission fix**. The Issue must remain open and the PR must remain Draft until the outstanding integration is explicitly scoped, implemented and verified.
 
@@ -46,3 +48,29 @@ Verification and review evidence is recorded below; the Draft PR link is recorde
 - Verified implementation commit: `46800ead5d643d81b6beeaea75b8e25b16e6ad23`; follow-up commits update publication records only.
 - Initial-head hosted CI jobs were not started: GitHub reported an account payment/spending-limit restriction ([Module Validation](https://github.com/skyg547/account/actions/runs/36022330652), [Merge Guard](https://github.com/skyg547/account/actions/runs/36022330328)). Account configuration is outside scope; no remote test pass is claimed.
 - Full #772 acceptance remains HOLD. Keep the Issue open and PR Draft while the next reviewer evaluates the Closing-side supplier and the cross-module scope is resolved.
+
+## GH-774 — verified implementation
+
+- Issue: [#774](https://github.com/skyg547/account/issues/774).
+- Branch/worktree: `agent/774-closing-decision-consistency`, `/tmp/account-774-closing-decision-consistency`.
+- Base: `1d3e6264c6703bace265186f3319f44407dc1458`.
+- Scope: `closing/**`; these module-local records satisfy the requested harness update without changing shared harness documents.
+- Required full verification passed: 348 tests, failures/errors/skips0. Independent review Q1–Q4 PASS, no unresolved findings; API/Batch packaging PASS. Draft publication is recorded below.
+- Parent Integrator owns commit, dedicated-branch push, Draft PR and records. The independent reviewer is read-only. Ready, merge, Issue close, deployment and cleanup are separate authorization gates.
+
+### GH-774 acceptance evidence
+
+| Acceptance criterion | Evidence and boundary |
+| --- | --- |
+| One approve/reject decision; loser conflict | Both winning schedules use controlled Master lookup/PUT barriers and independent Closing transactions. The losing HTTP call returns409; durable approval/calendar/Master/audits agree. |
+| Final calendar/Master agreement after recovery | Independent Master H2 commit plus lost response, local finalization rollback and wrong response ID; PREPARED resume; one terminal audit; no DISPATCHED resend; stale operation rejected. Unresolved source-state DISPATCHED remains fenced and requires supervised Master reconciliation. |
+| Concurrent monthly aggregate policy | Six start/task-create/task-update/gate-create/gate-pass/close contenders wait on a database root lock and validate its new state; actual close-versus-close makes one Master write. Managed stale calendar/task/gate/list cases are refreshed. This is not an exhaustive pairwise or PostgreSQL load test. |
+| Regressions and existing financial controls | Pre-fix RED1/failure1; final focused28; full348/45 suites, no failures/errors/skips. Maker/checker, task/gate evidence, admission and adjustment checks retained. |
+
+`./gradlew :closing:test` passed in1m14s, exit0, Core201/API127/Batch20. The parent task is expected to be NO-SOURCE; all three child test tasks executed. Exact evidence: `/tmp/account-774-full-test.log`, `/tmp/account-774-full-evidence/summary.json` and archived XML. Focused counts are subsets of348.
+
+Recovery and rollout instructions are in [process flow](../process-flow.md#월말-동시-결정과-복구-gh-774), [schema](../schema.md#월말-전이-기록-gh-774) and [local run](../local-run.md#월말-전이-조회와-복구-gh-774). Apply V52 and drain old monthly writers before new traffic. Preserve unresolved intent/audit evidence during rollback; supervise termination and Master reconciliation before reverting the writer. Real PostgreSQL/deployed Master faults/process kills/load and production-data repair were not performed. The original-request termination flag is an operator attestation, not machine-verifiable remote completion.
+
+Independent `/root/closing_774_review` confirmed Q1–Q4 PASS and no unresolved findings on the verified source. Both boot JARs passed; exact V52 contents and absence of a Journal runtime dependency were checked. Artifact hashes, quality table and limits are in the GH-774 section of [worklog](worklog.md).
+
+**GH-774 권한 분리:** 구현/테스트 작성자와 독립 읽기 전용 리뷰어가 분리되었습니다. 부모만 commit·전용 브랜치 push·Draft PR·모듈 하네스 기록을 처리합니다. 이는 절차상의 분리이며 같은 실행 환경의 보안 격리를 뜻하지 않습니다. Ready·merge·Issue close·배포·자원 삭제는 별도 승인 대상입니다.
