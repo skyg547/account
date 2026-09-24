@@ -68,6 +68,31 @@ Closing Flyway는 의존 모듈의 동일 버전 migration과 충돌하지 않�
 
 Closing API 조합 루트는 실제로 사용하는 Master Data의 `FiscalPeriodControlPort`와 `MasterDataQueryPort` 어댑터, 그리고 이들이 요구하는 최소 persistence adapter/mapper를 함께 명시 import합니다. 이는 Closing의 회계기간 제어와 평가 조회 포트를 완성하는 조합 책임이며, Master Data 전체 infrastructure 패키지를 scan하거나 local 전용 fallback으로 production 어댑터를 가리지 않습니다.
 
+## 일반 전표 허용 여부 조회
+
+API가 실행되고 대상 Master 월 회계기간과 Closing 캘린더가 준비된 후 다음 경로를 호출합니다.
+
+```http
+GET /api/closing/admission?accountingDate=2026-01-15
+```
+
+두 상태 모두 `OPEN`이고 잠금이 없으면 `{"accountingDate":"2026-01-15","ordinaryPostingAllowed":true}`,
+잠금·결산 진행·누락된 캘린더 등 차단 조건이면 같은 형태의 `false`를 반환합니다.
+응답은 `Cache-Control: no-store`입니다. 회계일자 누락·잘못된 형식은 400,
+Master 기간 누락·잘못된 기간·조회 장애는 상세 원인을 노출하지 않는 503입니다.
+HTTP 오류, 응답 부재, 역직렬화 실패를 전표 허용으로 해석하면 안 됩니다.
+
+이는 조회 시점의 참고 결과입니다. 현재 독립 Journal에는 이 경로를 호출하는 소비자가 없으며,
+결과 `true`만으로 이후 전기 커밋이 보장되지 않습니다. 통합 한계는
+[업무 흐름](process-flow.md#일반-전표-허용-판정-gh-772)을 참조하세요.
+
+```bash
+./gradlew :closing:test
+```
+
+이 명령은 부모 프로젝트의 빈 테스트 태스크뿐 아니라 Core/API/Batch 테스트를 모두 실행합니다.
+Journal 의존성은 Core 테스트 전용이므로 API/Batch 런타임에 Journal이 추가되지 않습니다.
+
 ## Batch 컨텍스트만 실행
 
 Batch 실행 모듈의 애플리케이션 이름은 `closing-batch`입니다.

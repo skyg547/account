@@ -92,6 +92,45 @@ flowchart LR
 
 `PeriodLock`은 `FiscalPeriod` 엔티티를 직접 참조하지 않고 ID 값을 저장합니다. 이는 `closing` 도메인이 `master-data`의 JPA 모델에 묶이지 않도록 하기 위한 경계입니다.
 
+## 일반 전표 허용 판정 (GH-772)
+
+`ClosingAdmissionService`는 회계일자에서 월 회계기간을 찾고 Master 상태, Closing 캘린더,
+기간 잠금을 결합합니다. `ClosingUseCase.isClosed`, `ClosingStatusAdapter`의
+`AccountingPeriodStatusPort.isClosed`, HTTP 조회가 이 규칙을 공유합니다.
+이때 `isClosed=true`는 **일반 전표 차단**을 뜻하며 최종 마감 완료만을 뜻하지 않습니다.
+
+| 확인 항목 | 허용 조건 | 조건 불충족 시 |
+| --- | --- | --- |
+| Master 회계기간 | 양수 ID, 요청 연월·회계일자에 맞는 유효 기간, 정확한 `OPEN` 상태 | 누락·잘못된 기간은 예외, null·알 수 없는 상태와 모든 비OPEN 상태는 차단 |
+| Closing 캘린더 | 요청 연월에 해당하는 캘린더의 정확한 `OPEN` 상태 | 누락·불일치·null·`IN_PROGRESS`·`CLOSED`·`PERMANENTLY_CLOSED`는 차단 |
+| 활성 기간 잠금 | 대상 ID의 `PeriodLock` 행 없음 | 모든 잠금 유형에서 일반 전표 차단 |
+| 조회 가능 여부 | 필요한 저장소·Master 조회 성공 | 실패를 허용 결과로 바꾸지 않고 예외 전파 |
+
+예를 들어 1월이 두 시스템 모두 `OPEN`이면 일반 전표가 허용됩니다. 같은 기간에 잠금을 등록하면
+차단되고, 잠금을 해제하면 다른 조건을 다시 확인합니다. 캘린더가 `IN_PROGRESS`이면 잠금 해제만으로
+허용되지 않습니다. 마감 후에는 기존 승인된 재오픈 절차로 Master와 캘린더를 모두 `OPEN`으로 바꿔야 하며,
+별도 잠금이 남아 있으면 계속 차단됩니다. 캘린더가 아직 생성되지 않은 기간도 허용하지 않습니다.
+
+현재 잠금은 행의 존재가 활성 여부입니다. `unlockPeriod`는 감사 로그를 남기고 해당 행을 삭제합니다.
+`NON_ADJUSTMENT_ENTRIES`나 `PARTIAL_LOCK`도 날짜만 받는 이 조회에서 일반 전표 예외를 만들지 않습니다.
+전표의 `ADJUSTMENT` 문자열이나 `SYSTEM` 처리자는 승인 증거가 아닙니다. 기존
+`createClosingAdjustment`의 Master OPEN·기간·차대변·0원 거부 검증과 승인자 기록은 그대로 유지됩니다.
+이 등록 절차와 실제 조정 전표 생성·전기는 다르며, 진행 중 조정 전표를 허용하는 정책은 신뢰 가능한
+권한·전표 식별 정보를 받는 별도 계약과 통합 검증이 필요합니다.
+
+쿼리 서비스는 Journal 쓰기 포트에 의존하지 않습니다. 이를 통해 상태 어댑터를 Journal에 조합할 때
+`ClosingService → Journal → ClosingService` 생성자 순환을 피합니다. 테스트는 실제 Journal의
+`ClosingLockValidationFilter`와 `PostingService`에 이 어댑터를 명시적으로 연결하여 차단 시
+승인 전표와 전표·원장·잔액 쓰기가 보존되는지 검사합니다.
+
+**남은 통합 조건:** 독립 Journal은 현재 자신의 `@Primary FiscalPeriodAccountingPeriodStatusAdapter`로
+Master만 조회합니다. Closing API/Batch 배포 산출물에도 Journal core가 포함되어 있지 않으므로 기존
+Journal 패키지 scan 선언만으로 연동이 생기지 않습니다. 이 변경의 HTTP 공급자와 명시적 조합 테스트는
+운영 Journal 소비자 선택을 바꾸지 않습니다. Journal 모듈에서 로컬·원격 소비자를 연결하고,
+GL07/#762에서 진행 중 전기 종료와 마감 확정을 커밋까지 조정하는 검증이 필요합니다.
+두 번째 상태 조회나 JVM 안의 mutex로 이 경쟁을 해결했다고 간주해서는 안 됩니다.
+일별 EOD, 분기·연간 잠금의 월별 전파도 이 월 회계기간 조회의 보장 범위에 포함되지 않습니다.
+
 ## FX 평가 Batch
 
 ```mermaid

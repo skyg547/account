@@ -24,3 +24,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
+// The parent project has no sources; its advertised test command must execute all Closing suites.
+tasks.named('test') {
+    dependsOn ':closing:core:test', ':closing:api:test', ':closing:batch:test'
+}

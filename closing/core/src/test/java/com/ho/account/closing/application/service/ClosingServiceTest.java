@@ -2,6 +2,7 @@ package com.ho.account.closing.application.service;
 
 import com.ho.account.closing.application.port.out.*;
 import com.ho.account.closing.domain.*;
+import com.ho.account.closing.infrastructure.external.ClosingStatusAdapter;
 import com.ho.account.contracts.journal.*;
 import com.ho.account.contracts.masterdata.FiscalPeriodControlPort;
 import com.ho.account.contracts.masterdata.FiscalPeriodRef;
@@ -9,8 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,14 +57,22 @@ public class ClosingServiceTest {
     @Spy
     private ClosingAccountingProperties closingAccountingProperties = new ClosingAccountingProperties();
 
-    @InjectMocks
     private ClosingService closingService;
+    private ClosingAdmissionService closingAdmissionService;
 
     private FiscalPeriodRef openPeriod;
     private FiscalPeriodRef closedPeriod;
 
     @BeforeEach
     void setUp() {
+        closingAdmissionService = new ClosingAdmissionService(
+                fiscalPeriodControlPort, closingCalendarPersistencePort, periodLockPersistencePort);
+        closingService = new ClosingService(
+                closingCalendarPersistencePort, closingTaskPersistencePort, closingGatePersistencePort,
+                periodLockPersistencePort, reopenApprovalPersistencePort, batchExecutionRecorder,
+                closingAdjustmentPersistencePort, closingAuditLogPersistencePort,
+                fiscalPeriodControlPort, journalPostingPort, journalQueryPort, closingAccountingProperties,
+                closingAdmissionService);
         openPeriod = new FiscalPeriodRef(
                 1L,
                 "2026",
@@ -406,6 +417,166 @@ public class ClosingServiceTest {
                 .hasMessageContaining("Fiscal period is missing");
     }
 
+    @ParameterizedTest
+    @EnumSource(PeriodLock.PeriodLockType.class)
+    void isClosed_ActiveLockBlocksOrdinaryJournal(PeriodLock.PeriodLockType lockType) {
+        LocalDate accountingDate = LocalDate.of(2026, 1, 15);
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+        PeriodLock lock = new PeriodLock();
+        lock.assignFiscalPeriod(1L, "2026", "01");
+        lock.setLockType(lockType);
+        when(periodLockPersistencePort.findByFiscalPeriodId(1L)).thenReturn(Optional.of(lock));
+
+        assertThat(closingService.isClosed(accountingDate)).isTrue();
+        assertThat(new ClosingStatusAdapter(closingAdmissionService).isClosed(accountingDate)).isTrue();
+    }
+
+    @Test
+    void isClosed_InProgressCalendarBlocksOrdinaryJournal() {
+        LocalDate accountingDate = LocalDate.of(2026, 1, 15);
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+
+        assertThat(closingService.isClosed(accountingDate)).isTrue();
+        assertThat(new ClosingStatusAdapter(closingAdmissionService).isClosed(accountingDate)).isTrue();
+    }
+
+    @ParameterizedTest
+    @EnumSource(PeriodLock.PeriodLockType.class)
+    void ordinaryAdmissionTracksLockAndUnlockWithoutClosingMaster(PeriodLock.PeriodLockType lockType) {
+        LocalDate accountingDate = LocalDate.of(2026, 1, 15);
+        ClosingCalendar calendar = openCalendar();
+        AtomicReference<PeriodLock> activeLock = new AtomicReference<>();
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+        trackActiveLock(activeLock);
+        ClosingStatusAdapter adapter = new ClosingStatusAdapter(closingAdmissionService);
+
+        assertThat(adapter.isClosed(accountingDate)).isFalse();
+        closingService.lockPeriod(1L, lockType, "CLOSER", "Prepare closing");
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        closingService.unlockPeriod(1L, "CLOSER");
+        assertThat(adapter.isClosed(accountingDate)).isFalse();
+
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+        ArgumentCaptor<ClosingAuditLog> audit = ArgumentCaptor.forClass(ClosingAuditLog.class);
+        verify(closingAuditLogPersistencePort, times(2)).save(audit.capture());
+        assertThat(audit.getAllValues()).extracting(ClosingAuditLog::getActionType)
+                .containsExactly(ClosingAuditLog.ActionType.PERIOD_LOCK, ClosingAuditLog.ActionType.PERIOD_UNLOCK);
+    }
+
+    @Test
+    void startCloseAndReopenRequireEveryIndependentAdmissionControlToOpen() {
+        LocalDate accountingDate = LocalDate.of(2026, 1, 15);
+        ClosingCalendar calendar = openCalendar();
+        AtomicReference<FiscalPeriodRef> master = new AtomicReference<>(openPeriod);
+        AtomicReference<PeriodLock> activeLock = new AtomicReference<>();
+        AtomicReference<ReopenApproval> reopenRequest = new AtomicReference<>();
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01"))
+                .thenAnswer(invocation -> Optional.of(master.get()));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L))
+                .thenAnswer(invocation -> Optional.of(master.get()));
+        when(fiscalPeriodControlPort.updateClosingStatus(eq(1L), any(), any())).thenAnswer(invocation -> {
+            FiscalPeriodRef updated = new FiscalPeriodRef(
+                    1L, "2026", "01", openPeriod.startDate(), openPeriod.endDate(), invocation.getArgument(1));
+            master.set(updated);
+            return updated;
+        });
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+        when(closingCalendarPersistencePort.findById(10L)).thenReturn(Optional.of(calendar));
+        when(closingCalendarPersistencePort.save(calendar)).thenReturn(calendar);
+        trackActiveLock(activeLock);
+        ClosingTask task = new ClosingTask();
+        task.setMandatory(true);
+        task.setStatus(ClosingTask.ClosingTaskStatus.COMPLETED);
+        ClosingGate gate = new ClosingGate();
+        gate.setStatus(ClosingGate.ClosingGateStatus.PASSED);
+        when(closingTaskPersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(task));
+        when(closingGatePersistencePort.findByClosingCalendar(calendar)).thenReturn(List.of(gate));
+        when(reopenApprovalPersistencePort.save(any())).thenAnswer(invocation -> {
+            ReopenApproval approval = invocation.getArgument(0);
+            approval.setId(20L);
+            reopenRequest.set(approval);
+            return approval;
+        });
+        when(reopenApprovalPersistencePort.findById(20L))
+                .thenAnswer(invocation -> Optional.of(reopenRequest.get()));
+        ClosingStatusAdapter adapter = new ClosingStatusAdapter(closingAdmissionService);
+
+        assertThat(adapter.isClosed(accountingDate)).isFalse();
+        closingService.updateClosingCalendarStatus(10L, ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS, "CLOSER");
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        closingService.lockPeriod(1L, PeriodLock.PeriodLockType.NON_ADJUSTMENT_ENTRIES, "CLOSER", "Prepare closing");
+        closingService.unlockPeriod(1L, "CLOSER");
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        assertThat(master.get().closingStatus()).isEqualTo("OPEN");
+
+        closingService.determineClosingStatus(10L, "CLOSER");
+        assertThat(master.get().closingStatus()).isEqualTo("CLOSED");
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        closingService.lockPeriod(1L, PeriodLock.PeriodLockType.ALL_TRANSACTIONS, "CLOSER", "Hold during reopen");
+        closingService.requestPeriodReopen(1L, "REQUESTER", "Approved correction required");
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        closingService.updateReopenApprovalStatus(20L, ReopenApproval.ReopenApprovalStatus.APPROVED, "APPROVER");
+        assertThat(master.get().closingStatus()).isEqualTo("OPEN");
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        // Reopen approves the calendar/master transition; it cannot release an independently held lock.
+        assertThat(adapter.isClosed(accountingDate)).isTrue();
+        closingService.unlockPeriod(1L, "APPROVER");
+        assertThat(adapter.isClosed(accountingDate)).isFalse();
+
+        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "CLOSED", "CLOSER");
+        verify(fiscalPeriodControlPort).updateClosingStatus(1L, "OPEN", "APPROVER");
+        verifyNoInteractions(journalPostingPort, journalQueryPort);
+    }
+
+    @Test
+    void blockedOrdinaryAdmissionPreservesExistingControlledAdjustmentRegistration() {
+        LocalDate accountingDate = LocalDate.of(2026, 1, 15);
+        ClosingCalendar calendar = openCalendar();
+        calendar.start("CLOSER");
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(openPeriod));
+        when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+        JournalSummary summary = new JournalSummary();
+        summary.setAccountingDate(accountingDate);
+        when(journalQueryPort.getJournalSummary(100L)).thenReturn(summary);
+        JournalDetailSummary debit = new JournalDetailSummary();
+        debit.setSide(JournalSide.DEBIT);
+        debit.setAmount(new BigDecimal("1000"));
+        JournalDetailSummary credit = new JournalDetailSummary();
+        credit.setSide(JournalSide.CREDIT);
+        credit.setAmount(new BigDecimal("1000"));
+        when(journalQueryPort.getJournalDetails(100L)).thenReturn(List.of(debit, credit));
+        when(closingAdjustmentPersistencePort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(new ClosingStatusAdapter(closingAdmissionService).isClosed(accountingDate)).isTrue();
+        ClosingAdjustment adjustment = closingService.createClosingAdjustment(
+                1L, 100L, ClosingAdjustment.AdjustmentType.ACCRUAL, "Controlled correction", "APPROVER");
+
+        assertThat(adjustment.getJournalEntryId()).isEqualTo(100L);
+        assertThat(adjustment.getApprovedBy()).isEqualTo("APPROVER");
+        assertThat(calendar.getStatus()).isEqualTo(ClosingCalendar.ClosingCalendarStatus.IN_PROGRESS);
+        verify(fiscalPeriodControlPort, never()).updateClosingStatus(any(), any(), any());
+        verifyNoInteractions(journalPostingPort);
+    }
+
     @Test
     @DisplayName("캘린더 상태는 OPEN으로 직접 되돌릴 수 없다")
     void updateClosingCalendarStatus_DirectOpenRejected() {
@@ -415,6 +586,29 @@ public class ClosingServiceTest {
                 "ADMIN"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("controlled flows");
+    }
+
+    private ClosingCalendar openCalendar() {
+        ClosingCalendar calendar = new ClosingCalendar();
+        calendar.setId(10L);
+        calendar.setFiscalYear("2026");
+        calendar.setFiscalPeriod("01");
+        calendar.setStatus(ClosingCalendar.ClosingCalendarStatus.OPEN);
+        return calendar;
+    }
+
+    private void trackActiveLock(AtomicReference<PeriodLock> activeLock) {
+        when(periodLockPersistencePort.findByFiscalPeriodId(1L))
+                .thenAnswer(invocation -> Optional.ofNullable(activeLock.get()));
+        when(periodLockPersistencePort.save(any())).thenAnswer(invocation -> {
+            PeriodLock saved = invocation.getArgument(0);
+            activeLock.set(saved);
+            return saved;
+        });
+        doAnswer(invocation -> {
+            activeLock.set(null);
+            return null;
+        }).when(periodLockPersistencePort).delete(any());
     }
 
     private ClosingAccountingProperties.AutomatedJournalRule rule(
