@@ -10,6 +10,7 @@ Issue #767 implementation, three RED proofs, requested local verification and in
 - Independent review: `/root/review_767` remained read-only. Its initial P2 missing local V15 schema was corrected by the writer; final review reports no P0-P3 and Q1-Q4 PASS.
 - Rollback/deployment: stop every writer/reader, preserve applied V14/V15 and singleton, revert application under review, and restore one barrier-aware version before traffic. Validate runtime SELECT/UPDATE rights, lock waits and cardinality on approved PostgreSQL before deployment.
 - Limits: no live PostgreSQL, production data, distributed process kill or load test. Direct SQL/old binaries bypass the barrier; privileged DB readers can see in-place partial rows even though application consumers reject them.
+- Remote CI prerequisite: Module Validation, Harness Validation and Agent Merge Guard did not start; annotations cite failed recent account payments or a spending limit needing increase. The account owner must resolve billing and rerun checks; this is not a remote test pass or code-test failure.
 - Authority separation: module writer implemented; explorer/reviewer were read-only; parent owns records and Git/GitHub. User authorized push and Draft PR only. Ready, merge, Issue close, deployment and cleanup remain later human gates.
 - Next owner: human reviewer owns subsequent Ready/merge/Issue-close and deployment gates. The branch and worktree remain retained.
 

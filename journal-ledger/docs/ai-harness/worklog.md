@@ -53,6 +53,12 @@
 - Opened [Draft PR #785](https://github.com/skyg547/account/pull/785) against `main` with `Refs #767`. The body records all RED/GREEN evidence, Q1-Q4, rollback/limits, and the writer/reviewer/Integrator authority separation.
 - This follow-up adds only the actual PR link to the three module-local records. No production or test behavior changed after independent approval. Ready, merge, Issue close, deployment and resource deletion were not performed.
 
+## Remote CI execution prerequisite
+
+- On the published Draft PR head, Module Validation, Harness Validation and Agent Merge Guard failed before executing job steps; downstream module/discipline jobs were skipped.
+- Every failure annotation states that recent account payments failed or the spending limit must be increased. This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is claimed.
+- Next owner: repository/account owner resolves GitHub Billing & plans and reruns checks. PR remains Draft and Issue remains open/needs-review. No billing settings, workflows or shared harness files were changed.
+
 ---
 
 The following entries are retained history and are not current GH-767 evidence.

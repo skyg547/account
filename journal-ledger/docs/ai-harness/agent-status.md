@@ -10,6 +10,7 @@
 - Result: V15 persists a singleton `OPEN/REBUILDING` barrier with JobInstance owner, frozen range and epoch. The four-step Job blocks ordinary posting/read/overlap, resumes committed checkpoints for the same instance, and releases only after exact GL/SL reconciliation.
 - Verification: two audited regressions fail as expected; API local schema regression found during review also fails before its fix. Final writer and independent forced module runs pass core173/API40/batch11 = 224 tests, failures/errors/skips0. API local boot returns HTTP200 `[]`; Batch local boots with V15/validate. Static and quality gates pass.
 - Independent review: initial P2 missing API-local V15 table was reproduced with HTTP500 and returned to the writer. The final Flyway/validate fix was independently rerun; no remaining P0-P3 and Q1-Q4 PASS.
+- Remote CI: Module Validation, Harness Validation and Agent Merge Guard jobs did not start. Their annotations report failed recent account payments or a spending limit requiring increase; no remote CI test result is claimed.
 - Residual/later gates: no live PostgreSQL, distributed process kill, production data, runtime-role permission or load test. Direct SQL and old binaries bypass the barrier. Human review owns Ready/merge/Issue close/deployment; branch/worktree remain retained.
 
 See [worklog.md](worklog.md) for commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits.
