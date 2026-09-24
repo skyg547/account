@@ -1,6 +1,6 @@
 # GH-758 handoff
 
-Issue #758 implementation, audited RED/current GREEN evidence, requested verification, corrected independent review, and module-local records are complete. Draft PR publication remains the parent Integrator's next step.
+Issue #758 implementation, audited RED/current GREEN evidence, requested verification, corrected independent review, and module-local records are complete. [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`; reviewed implementation/record commit `c78b8465` is published.
 
 - Issue/branch/worktrees: [#758](https://github.com/skyg547/account/issues/758); `agent/758-posted-immutability`; `/tmp/account-758-posted-immutability`; base `6fdd7a40`; audited proof `/tmp/account-758-regression-proof@a97d10ab`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
@@ -11,7 +11,9 @@ Issue #758 implementation, audited RED/current GREEN evidence, requested verific
 - Rollback: reviewed scoped revert only; no schema/data rollback. Reversion restores the known mutability weakness and must not be deployed without replacement protection.
 - Limits: no live PostgreSQL, production data, runtime DB-role, load, fault-injection, or deployment test. Separate EntityManager bulk JPQL, native SQL, direct JDBC, and privileged DB writes remain outside this JPA/repository boundary and require operational restriction.
 - Authority separation: disjoint domain/test/docs writers implemented; explorer/planner/reviewer were read-only; parent owns records and Git/GitHub. User authorized Draft PR publication, but Ready, merge, Issue close, deployment, and cleanup remain human gates.
-- Next owner: parent publishes the reviewed commit and Draft PR with `Refs #758`, then a human reviewer owns later gates. Both task and proof worktrees remain retained.
+- Publication: Draft PR #794 contains the verification results, rollback/limits, and explicit authority split. This final record-only update changes no production or test behavior.
+- Remote CI prerequisite: entry jobs on publication commit `c78b8465` did not start; annotations cite failed recent account payments or a spending-limit prerequisite. The account owner must resolve billing and rerun checks. No remote CI PASS or executed code-test failure is claimed.
+- Next owner: a human reviewer owns Ready, merge, Issue close, deployment, and cleanup. Both task and proof worktrees remain retained.
 
 Details, exact commands, the corrected P1 trail, and Q1-Q4 evidence are in [worklog.md](worklog.md).
 

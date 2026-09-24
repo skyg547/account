@@ -55,7 +55,9 @@
 - Roll back by reverting only this Issue-scoped module change before deployment. There is no migration or data transformation. Reversion restores the known ability to mutate posted history, so posting/correction traffic must not resume under the reverted binary without an approved alternative.
 - No live PostgreSQL, production data reconciliation, runtime DB-role test, load, fault injection, or deployment was performed.
 - JPA callbacks and the two public repositories do not cover a separately created EntityManager bulk JPQL query, native SQL, direct JDBC, or privileged DB writes. No production journal mutation path using them was found; module docs make the residual boundary explicit.
-- Parent publication is authorized only through commit, push, and Draft PR with `Refs #758`. Human review retains Ready, merge, Issue close, deployment, and worktree/branch cleanup authority.
+- Reviewed implementation/record commit `c78b8465` is pushed and [Draft PR #794](https://github.com/skyg547/account/pull/794) is open with `Refs #758`. The PR body records verification, limitations, rollback, and writer/reviewer/Integrator authority separation.
+- On publication commit `c78b8465`, Agent Merge Guard run36042763262, Harness Validation run36042763009, and Module Validation run36042763118 failed before executing their entry jobs. Check annotations state that recent account payments failed or the spending limit must be increased. This external GitHub account prerequisite is neither an executed code-test failure nor a remote PASS; the account owner must resolve it and rerun checks.
+- Human review retains Ready, merge, Issue close, deployment, and worktree/branch cleanup authority.
 
 ---
 
