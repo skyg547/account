@@ -42,6 +42,14 @@
 - This work does not prove production lock-wait distribution, load, distributed retry, explicit deadlock/serialization/timeout injection, operational-role permissions or historical data correctness. The disposable PostgreSQL fixture validates database row-wait/commit/rollback behavior, not production infrastructure.
 - Parent is authorized to commit, push and open a Draft PR with `Refs #770`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment, branch/worktree deletion and proof/container deletion remain later human gates.
 
+## Draft publication
+
+- Parent committed the independently reviewed 12-file module change as `86d2a39e` and pushed only `agent/770-unsettled-settlement-lock`.
+- Opened [Draft PR #786](https://github.com/skyg547/account/pull/786) against `main` with `Refs #770`. The body records acceptance/RED/GREEN evidence, Q1-Q4, scope, rollback, limits and the writer/reviewer/Integrator authority separation.
+- Moved Issue #770 to `status:needs-review` and added the [verification handoff](https://github.com/skyg547/account/issues/770#issuecomment-5817023301). Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Stopped task-owned `account-770-postgres` after fixed and independent PostgreSQL verification; the exited container is retained. The branch, implementation worktree and detached proof worktree also remain retained for human review.
+- This follow-up changes only the three module-local records to add actual publication state. Remote CI is pending; no remote PASS or readiness claim is made.
+
 ---
 
 The following entries are retained history and are not current GH-770 evidence.

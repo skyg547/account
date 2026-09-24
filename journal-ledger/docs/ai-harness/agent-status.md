@@ -1,7 +1,7 @@
 # GH-770 agent status
 
-- Issue: [#770](https://github.com/skyg547/account/issues/770); remote status is `status:in-progress`, owner `agent:codex`; Draft PR publication is the next gate.
-- Status: implementation, byte-identical audited RED proof, requested H2/PostgreSQL verification and independent review complete.
+- Issue: [#770](https://github.com/skyg547/account/issues/770); remote status is `status:needs-review`, owner `agent:codex`.
+- Status: implementation, byte-identical audited RED proof, requested H2/PostgreSQL verification and independent review complete; [Draft PR #786](https://github.com/skyg547/account/pull/786) is open with `Refs #770`.
 - Base: `origin/main@c0b4f204354045adb0db7d9b1ae031879dc60e78`; final fetch matched the branch base.
 - Branch/worktrees: `agent/770-unsettled-settlement-lock`, `/tmp/account-770-unsettled-settlement-lock`; detached proof `/tmp/account-770-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
 - Model assignment: `gpt-5.6-sol`, high. Parent owns Git/GitHub and these module-local records.
@@ -11,7 +11,8 @@
 - RED/GREEN: the byte-identical fixture at audited production ran 5 tests with 3 expected behavioral failures: distinct40+50 retained only50, concurrent same-ref raised a unique violation, and stale near-balance50 was accepted. Fixed H2 and disposable PostgreSQL each pass5/5; PostgreSQL confirms separate backend PIDs and `pg_stat_activity` lock wait.
 - Verification: exact `./gradlew :journal-ledger:test` succeeds. Forced writer/parent and independent reviewer module runs pass core178/API40/batch11 =229 tests across42 suites, failures/errors/skips0. Quality contract32/32 and static gates pass.
 - Independent review: `/root/issue770_review` made no edits, reports no P0-P3, and confirms Q1-Q4 PASS.
-- Residual/later gates: hot-item lock-wait/load distribution, explicit deadlock/serialization/timeout injection, distributed retry, production data reconciliation, remote CI, human Ready/merge/Issue close and deployment. Direct SQL or writers bypassing the port are not protected. Branch/worktrees remain retained.
+- Publication: reviewed implementation/record commit `86d2a39e` is pushed; Draft PR #786 and the Issue handoff include verification and authority separation. Remote CI is pending and no PASS is claimed yet.
+- Residual/later gates: hot-item lock-wait/load distribution, explicit deadlock/serialization/timeout injection, distributed retry, production data reconciliation, remote CI, human Ready/merge/Issue close and deployment. Direct SQL or writers bypassing the port are not protected. Branch/worktrees and the stopped task container remain retained.
 
 See [worklog.md](worklog.md) for commands, RED/GREEN evidence, rollback and limits. These records are module-local because the user forbids repository shared-harness edits; shared records are not claimed synchronized.
 
