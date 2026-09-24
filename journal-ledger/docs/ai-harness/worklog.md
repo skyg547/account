@@ -364,3 +364,18 @@ Independent review initially found that V16 would have legitimized legacy self-a
 Spring event listener trusted payload maker identity. The original writer narrowed the migration to
 nonblank, canonically distinct evidence, added negative upgrade rows, bound Spring events to a fixed service
 maker, expanded the seven-consumer inventory and reran verification. Final review found no P0–P3.
+
+## Draft publication and remote CI prerequisite
+
+- Parent committed the independently reviewed39-file module change as
+  `a6ecb1d69be232d9937624e8b26244d0537fd8a9`, pushed only `agent/756-maker-checker-approval`, and opened
+  [Draft PR #792](https://github.com/skyg547/account/pull/792) against `main` with `Refs #756`. The PR is
+  OPEN/DRAFT/MERGEABLE. Issue #756 remains OPEN and is synchronized to `status:needs-review`.
+- On the published implementation head, Module Validation run36036177785/job107756709599, Harness
+  Validation run36036177968/job107756711043 and Agent Merge Guard run36036177942/job107756711683 failed
+  before executing steps. Each failure annotation states that recent account payments failed or the
+  spending limit needs increase. Matrix/downstream checks were skipped or queued.
+- This is an external GitHub Actions prerequisite, not an executed code/test failure; no remote CI PASS is
+  claimed. The repository/account owner must resolve Billing & plans and rerun checks. Human review and the
+  seven remote-consumer compatibility changes remain deployment gates. Ready, merge, Issue close, deployment
+  and branch/worktree/proof cleanup were not performed.

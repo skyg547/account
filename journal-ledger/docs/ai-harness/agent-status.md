@@ -130,3 +130,16 @@ These module-local records satisfy task traceability within the explicit module 
   PostgreSQL or production data was used.
 - Next owner: parent Integrator owns commit/push/Draft PR and remote check inspection; human reviewer owns
   the seven-consumer compatibility gate and all Ready/merge/Issue-close/deployment decisions.
+
+## GH-756 Draft publication
+
+- Implementation commit `a6ecb1d69be232d9937624e8b26244d0537fd8a9` is published on
+  `origin/agent/756-maker-checker-approval`; [Draft PR #792](https://github.com/skyg547/account/pull/792)
+  is OPEN/DRAFT/MERGEABLE against `main` and uses `Refs #756`.
+- Module Validation run36036177785, Harness Validation run36036177968 and Agent Merge Guard
+  run36036177942 did not start their initial jobs. Check annotations say recent account payments failed or
+  the spending limit must be increased. Matrix/downstream checks are skipped or queued as a consequence;
+  no remote CI PASS or code-test failure is claimed.
+- Issue #756 remains OPEN and moves to `status:needs-review`. Human review, the seven-consumer compatibility
+  work, billing prerequisite resolution and remote-check rerun are the next gates. Ready, merge, Issue close,
+  deployment and branch/worktree/proof cleanup remain unauthorized.

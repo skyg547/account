@@ -150,3 +150,17 @@ published.
   fail-closed behavior is intentional.
 - Next owner: parent Integrator for commit/push/Draft PR and remote check inspection. Human reviewer owns
   consumer follow-up, Ready/merge/Issue close/deployment/cleanup gates.
+
+## Draft publication handoff
+
+- Reviewed implementation commit `a6ecb1d69be232d9937624e8b26244d0537fd8a9` is published on
+  `origin/agent/756-maker-checker-approval`; [Draft PR #792](https://github.com/skyg547/account/pull/792)
+  is OPEN/DRAFT/MERGEABLE against `main` with `Refs #756`.
+- Issue #756 remains OPEN and is synchronized to `status:needs-review`. The PR body records module244,
+  audited RED, Q1–Q4, rollback, seven-consumer deployment block and writer/reviewer/Integrator authority
+  separation.
+- The three GitHub Actions entry jobs did not start. Their annotations report failed recent account
+  payments or a spending-limit prerequisite, so no remote CI PASS or code-test failure is claimed. The
+  account owner must resolve Billing & plans and rerun checks.
+- Next owner is a human reviewer for the Draft diff and consumer compatibility plan. Ready, merge, Issue
+  close, deployment, branch/worktree deletion and audited-proof cleanup remain separate approvals.
