@@ -76,6 +76,13 @@ adapter/in은 외부 요청을 내부 유즈케이스 호출로 바꾸는 계층
 | GL/SL 잔액 저장 | `LedgerBalancePersistencePort` | JPA `saveAll` | JDBC upsert/update+insert |
 | 미결 항목 저장 | `UnsettledItemPersistencePort` | JPA | - |
 
+잔액 변경은 `lockBalanceAccounts`로 이번 호출의 모든 계정·통화 잠금을 먼저 획득한 뒤
+조회/계산/저장합니다. 기간 삭제·단일 트랜잭션 재집계는 `lockAllBalanceAccounts`를 사용합니다.
+`LedgerBalanceWriteLock`은 256개 DB 잠금 행의 정렬, 트랜잭션/isolation 검증과 최신 값 refresh를
+두 어댑터에 공유합니다. 금액 계산과 이월 규칙은 계속 `LedgerService`와 도메인에 남습니다.
+포트의 `save*`는 절대 금액 저장이므로 호출자가 같은 트랜잭션에서 잠금을 선점해야 하며,
+저장 메서드만 직접 호출하는 경로에 동시성 보장을 기대하면 안 됩니다.
+
 대량 전기 모드는 아래 설정으로 켭니다.
 
 ```yaml

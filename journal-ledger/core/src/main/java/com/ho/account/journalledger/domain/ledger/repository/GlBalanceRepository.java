@@ -14,6 +14,10 @@ import java.util.Optional;
 @Repository
 public interface GlBalanceRepository extends JpaRepository<GlBalance, Long> {
 
+    @Query(value = "SELECT lock_id FROM ledger_balance_locks "
+            + "WHERE lock_id IN (:lockIds) ORDER BY lock_id FOR UPDATE", nativeQuery = true)
+    List<Integer> lockBalanceStripes(@Param("lockIds") List<Integer> lockIds);
+
     Optional<GlBalance> findByAccountCodeAndCurrencyCodeAndBalanceDateAndPeriod(
             String accountCode, String currencyCode, LocalDate balanceDate, YearMonth period);
 

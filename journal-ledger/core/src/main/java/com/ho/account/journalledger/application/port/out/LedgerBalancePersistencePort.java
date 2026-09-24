@@ -8,6 +8,7 @@ import com.ho.account.journalledger.domain.ledger.domain.SlBalance;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -16,6 +17,22 @@ import java.util.Optional;
  * <p>필터 조합과 bulk 삭제 같은 저장 기술 세부사항을 애플리케이션 서비스에서 숨깁니다.</p>
  */
 public interface LedgerBalancePersistencePort {
+
+    /**
+     * Lock every affected account before reading balances, including keys without a balance row.
+     * Locks cover GL and all SL dimensions/dates until the caller's write transaction completes.
+     */
+    void lockBalanceAccounts(List<BalanceAccount> accounts);
+
+    /** Lock the complete balance key space before deleting/rebuilding a period. */
+    void lockAllBalanceAccounts();
+
+    record BalanceAccount(String accountCode, String currencyCode) {
+        public BalanceAccount {
+            Objects.requireNonNull(accountCode, "accountCode");
+            Objects.requireNonNull(currencyCode, "currencyCode");
+        }
+    }
 
     Optional<GlBalance> findGlBalance(
             String accountCode, String currencyCode, LocalDate balanceDate, YearMonth period);

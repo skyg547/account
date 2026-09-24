@@ -1,3 +1,26 @@
+# GH-761 handoff
+
+Implementation, requested local verification and independent review are complete. [Draft PR #783](https://github.com/skyg547/account/pull/783) is open with `Refs #761`; implementation commit `b2af5823`.
+
+- Issue: [#761](https://github.com/skyg547/account/issues/761).
+- Branch/worktree: `agent/761-concurrent-balances`, `/tmp/account-761-concurrent-balances`.
+- Scope: `journal-ledger/**` only, including these module-local harness records. Shared harness and other modules are unchanged.
+- Behavior: JPA/JDBC hold sorted account/currency transaction locks before GL/SL reads, including missing and nullable keys. Refresh/detach prevents stale persistence-context overwrites; V14 seeds256 locks. Domain precision, posting identity and closing checks remain intact.
+- Verification: requested module203 PASS; new real PostgreSQL26 PASS; initial real PostgreSQL posting9 and V14 upgrade1 PASS; audited16 expected failures. Exact commands/artifacts are in [worklog.md](worklog.md).
+- Independent review: `/root/balance_review`, no remaining P0–P3, Q1–Q4 PASS. Independently executed Loan consumer1 PASS and both bootJARs contain byte-identical V14.
+- Deployment/rollback: quiesce every writer, including embedded journal core users, for V14 and coordinated binary cutover. Never mix pre-lock/new writers. Retain applied migrations on rollback and keep traffic stopped until protected code is restored.
+- Limits:256-stripe contention, actual READ_COMMITTED requirement, whole-transaction caller retry after deadlock, and posting shutdown throughout chunk-based Batch rebuild. Production load/crash/deployment and historical data reconciliation were not performed.
+- Authority separation: writers implement; `/root/balance_review` independently reviews read-only; parent Integrator alone owns records and Git/GitHub. User authorized Draft PR/push with `Refs #761`; Ready, merge, Issue close, deployment and resource deletion remain later gates.
+- Next owner: repository/account owner resolves the GitHub Billing & plans prerequisite and reruns CI; human reviewer owns subsequent Ready/merge/Issue-close and deployment gates. Issue remains OPEN/needs-review.
+
+Remote CI jobs did not start: GitHub annotations report failed recent account payments or a spending limit needing increase. Local verification passed; remote CI is unverified. No billing settings or workflows were changed.
+
+Task-owned disposable PostgreSQL container `account-761-postgres`, regression worktree `/tmp/account-761-regression-proof` and external `/tmp/account-761-*` evidence are retained for handoff; the test-only container is stopped after verification. No production DB or credentials were used.
+
+---
+
+The following is the retained historical GH-760 handoff; its remote state is not a current status report.
+
 # GH-760 handoff
 
 Implementation, verification and independent substantive review are complete. Follow [agent-status.md](agent-status.md) and [worklog.md](worklog.md) for the full evidence.

@@ -1,4 +1,4 @@
-# 동일 전표의 동시 전기와 재시도
+# 전표·잔액의 동시 전기와 재시도
 
 전기(Posting)는 승인 전표 한 건을 GL/SL과 잔액에 반영하는 작업입니다. 같은 전표 ID에
 두 요청이 겹쳐도 경제적 효과는 한 번이어야 합니다. 처리자를 생략한 `SYSTEM` 요청과
@@ -26,7 +26,83 @@
 동안만 짧게 헤더를 잠그며, 명시적인 읽기 전용 트랜잭션은 잠금 없이 JOIN FETCH합니다.
 전기는 쓰기 트랜잭션에서 호출해야 합니다. 쓰기 조회는 잠금과 refresh를 위한 추가 쿼리가
 발생하고 같은 ID 요청은 대기합니다. 기간 조회 지연도 이 잠금 보유 시간을 늘립니다.
-서로 다른 전표가 같은 잔액을 갱신하는 경쟁과 분산 마감 경쟁은 이 제어의 범위 밖입니다.
+서로 다른 전표의 잔액 경쟁은 다음 공통 계정 잠금으로 처리합니다. 분산 마감 경쟁은 별도 통제입니다.
+
+## 서로 다른 전표가 같은 잔액을 갱신할 때
+
+초보자 예: 두 전표가 각각 차변 100.00과 40.00을 반영할 때 둘 다 이전 잔액 0.00을
+읽으면 마지막 저장만 남아 100.00 또는 40.00이 됩니다. 두 번째 전표가 첫 번째 커밋 후
+최신 100.00을 읽어야 최종 140.00이 됩니다. 아직 잔액 행이 없거나 SL의 거래처·부서가
+NULL이어도 같은 순서가 필요합니다.
+
+1. `LedgerService.updateLedgerBalancesBulk`는 모든 상세의 계정·통화를 먼저 모읍니다.
+   단건 변경도 같은 출력 포트 `lockBalanceAccounts`를 사용합니다.
+2. JPA/JDBC 두 어댑터의 `LedgerBalanceWriteLock`은 실제 연결이 `READ_COMMITTED`이고
+   활성 쓰기 트랜잭션인지 확인합니다. `REPEATABLE_READ`/`SERIALIZABLE`은 잠금 대기 전에
+   형성된 snapshot이 refresh 후에도 오래될 수 있으므로 잔액 쓰기를 시작하지 않고 거부합니다.
+3. V14가 미리 만든 256개 행 중 필요한 번호를 중복 제거하고 오름차순으로 `FOR UPDATE`
+   잠급니다. 번호는 `floorMod(31 * accountCode.hashCode() + currencyCode.hashCode(), 256)`입니다.
+   서로 다른 계정이 같은 번호를 가져도 금액 키는 그대로이며 잠금 대기만 늘어납니다.
+   날짜와 SL 차원은 번호에 넣지 않아 이월 조회와 NULL 차원도 같은 계정 잠금에 포함됩니다.
+4. 잠금 전에는 같은 트랜잭션의 이전 작업을 flush하고, 잠금 후 잔액을 조회할 때는
+   관리 중인 객체도 refresh합니다. 따라서 이전에 읽어 둔 오래된 JPA 객체를 재사용하지 않습니다.
+   JDBC는 refresh한 잔액 객체를 detach하여 이후 JPA 자동 flush가 bulk SQL 결과를 덮어쓰지 않게 합니다.
+5. bulk 입력 날짜를 오름차순으로 처리하고 기존 도메인 `BigDecimal` 검증, 이전 기말 이월과
+   `기초 + 차변 - 대변` 계산을 수행합니다. GL/SL 그룹 키는 record 값 비교를 사용하여 실제 NULL,
+   문자열 `"NULL"`, 구분 문자가 포함된 코드를 서로 다른 차원으로 보존합니다.
+6. 계산된 절대 금액을 기존 JPA `saveAll` 또는 JDBC GL upsert/SL null-safe update+insert로
+   저장합니다. 잠금은 전표 상태·엔트리·잔액을 포함한 전체 트랜잭션 커밋/롤백까지 유지됩니다.
+
+단일 호출은 모든 잠금을 먼저 같은 순서로 확보하므로 전표 상세의 계정 순서가 달라도
+잠금 순서가 뒤집히지 않습니다. 다만 한 외부 트랜잭션에서 여러 전표를 순차 전기하거나
+다른 업무 자원도 잠그면 데드락이 발생할 수 있습니다. DB가 중단시킨 트랜잭션은 예외를
+그대로 전파하며 내부에서 재시도하지 않습니다. **호출자는 해당 외부 트랜잭션 전체를 롤백한 뒤
+새 트랜잭션으로 전기를 다시 요청**해야 합니다. 잔액 메서드만 다시 실행하거나 실패한
+트랜잭션을 계속 사용하면 안 됩니다. 이미 커밋한 전표 재요청은 헤더 상태 검증이 거부합니다.
+`LedgerService` 자체는 금액을 누적하는 내부 연산이므로 성공한 delta를 임의 재호출하는
+멱등 API가 아닙니다.
+
+모든 잔액 writer는 같은 잠금 계약을 지켜야 합니다. `saveGlBalances`/`saveSlBalances`만
+직접 호출하거나 DB에 절대 금액을 직접 쓰는 외부 writer까지 자동 보호하지 않습니다.
+256개 번호는 잠금 자원 사용량을 제한하는 대신 무관한 계정의 충돌도 허용합니다. 실제 부하에서
+대기 시간과 트랜잭션 길이를 측정해야 하며 번호 수/매핑을 서비스별로 다르게 설정하면 안 됩니다.
+
+### 재집계와 이월 경계
+
+`reaggregateLedgerBalancesForPeriod`는 한 트랜잭션 안에서 256개 잠금을 모두 잡은 뒤
+기간 잔액 삭제 → 커밋된 POSTED 상세 조회 → 날짜순 재생성을 수행합니다. 전기가 먼저
+잠금을 얻으면 재집계는 그 커밋을 포함하고, 재집계가 먼저면 대기한 전기가 재생성 후 잔액에
+추가됩니다. `clearLedgerBalancesForPeriod`도 삭제 트랜잭션 동안 모든 번호를 잠급니다.
+
+실제 `dailyBalanceReaggregationJob`은 cleanup Step과 100건 단위 chunk를 각각 커밋합니다.
+각 트랜잭션의 갱신은 보호되지만 cleanup부터 마지막 chunk까지의 전체 Job 잠금은 아닙니다.
+따라서 **전체 Job 동안 전기를 중지하고 재집계 Job 하나만 실행**해야 합니다. 온라인으로
+Job을 겹쳐 돌리면 POSTED 입력이 변하거나 이미 전기한 금액을 chunk가 다시 누적할 수 있습니다.
+장애 재시작은 Batch의 커밋된 chunk/checkpoint 기준으로 수행하고 성공한 chunk를 별도로
+재적용하지 않습니다. 이 변경은 Job 단위 분산 유지보수 잠금이나 과거 부정합 복구를 추가하지 않습니다.
+
+잠금은 기존 다음 날 잔액을 자동 재작성하지 않습니다. 과거 날짜를 뒤늦게 전기했다면 여전히
+그 이후 날짜를 포함한 승인된 재집계가 필요합니다. [이월 규칙](ledger-carry-forward.md)을 따릅니다.
+
+## V14 업그레이드와 롤백
+
+다른 업무 모듈에 내장된 journal core까지 포함하여 모든 전기·재집계 writer를 중지한
+배포 창에서 V14를 적용하고, 모든 인스턴스를 같은 잠금 규칙의
+새 버전으로 전환한 후 재개합니다. 잠금을 사용하지 않는 구버전 writer와 혼용하면 안전하지 않습니다.
+V14는 업무 데이터 수정 없이 `ledger_balance_locks(lock_id)` 256행만 생성합니다.
+runtime role은 이 테이블의 `SELECT`와 `UPDATE` 권한이 있어야 `FOR UPDATE`를 실행할 수 있습니다.
+
+승인된 migration 환경에서 다음 결과가 `256, 0, 255`인지 확인합니다.
+
+```sql
+SELECT COUNT(*), MIN(lock_id), MAX(lock_id) FROM ledger_balance_locks;
+```
+
+잠금 행이 누락되거나 V14가 적용되지 않았으면 전기는 실패하고 전체 트랜잭션을 롤백합니다.
+기존 GL/SL 금액과 V13 제약은 유지되며 과거 중복 SL 잔액을 임의 합치지 않습니다.
+롤백 시에도 모든 writer를 중지한 뒤 검토된 코드 revert를 적용하고 V13/V14는 유지합니다.
+이전 코드는 잔액 잠금 보호가 없으므로 수정 버전으로 정합성 보호를 회복할 때까지 전기·재집계
+트래픽을 중지한 상태로 유지합니다. migration 파일 삭제/repair로 적용 이력을 바꾸지 않습니다.
 
 ## V13 업그레이드
 
@@ -76,7 +152,21 @@ PostgreSQL 모드이며 `PostingConcurrencyIntegrationTest`는 각 저장 모드
 
 `PostingIdentityMigrationTest`는 V12에 유효한 원장 이력을 넣고 V13으로 올려 보존/제약을
 확인합니다. GL/SL 중복/NULL 이력 네 경우에서는 V13 실패와 원래 금융 이력 보존을 확인합니다.
-API/Batch 스키마 검증도 V13까지 적용되었는지 확인합니다.
+`LedgerBalanceLockMigrationTest`는 V13의 기존 GL/NULL 차원 SL 금액을 유지하면서 V14의
+0~255 잠금 행이 정확히 적용되는지 확인합니다. API/Batch 스키마 검증도 V14까지
+적용되었는지 확인합니다.
+
+`LedgerBalanceConcurrencyIntegrationTest`는 서로 다른 전표가 같은 잔액을 변경하는 경우를 검사합니다.
+
+- JPA/JDBC 각각에서 기존/신규 잔액, 거래처/부서의 비NULL·한쪽 NULL·양쪽 NULL 조합을 확인합니다.
+- 기존 잔액을 두 연결에서 미리 읽고 첫 번째 갱신을 중간에 멈춥니다. 두 번째 전표는 계정 순서를
+  뒤집어 입력해도 기다린 뒤 최신 값에 합산하며, 전표 차변/대변과 GL/SL 금액이 대사됩니다.
+- 다음 날 첫 잔액 생성은 앞선 날의 진행 중인 전기를 기다린 뒤 커밋된 기말을 이월합니다.
+- 실제 PostgreSQL 데드락으로 한 트랜잭션이 중단되면 상태/감사 사용자/엔트리/잔액이 모두
+  롤백되고, 전체 전기를 새 트랜잭션으로 재시도해 한 번의 효과만 남는지 확인합니다.
+- 실제 연결의 REPEATABLE_READ에서는 앞서 기록한 POSTED/엔트리까지 롤백되는지 확인합니다.
+- 필수 잠금 행 누락 시 전기 전체가 롤백되고, 같은 외부 트랜잭션의 서로 다른 전표 세 건은
+  JPA/JDBC 모두 먼저 반영한 금액을 유지하며 누적되는지 확인합니다.
 
 실제 PostgreSQL은 이 테스트 전용으로 만든 disposable PostgreSQL 16 DB에 연결합니다.
 예시의 포트는 실행자가 생성한 테스트 인스턴스의 포트로 바꿉니다. 사용자 `postgres`, 비밀번호
@@ -84,14 +174,16 @@ API/Batch 스키마 검증도 V13까지 적용되었는지 확인합니다.
 각 테스트 DB fixture는 새 `posting_<random>` 스키마를 만들므로 기존 업무 스키마를 수정하지 않습니다.
 
 ```bash
-JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:43867/posting760 \
+JOURNAL_POSTING_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:44951/posting761 \
   ./gradlew :journal-ledger:core:test \
   --tests '*PostingConcurrencyIntegrationTest' --tests '*PostingIdentityMigrationTest' \
+  --tests '*LedgerBalanceConcurrencyIntegrationTest' --tests '*LedgerBalanceLockMigrationTest' \
   --rerun-tasks --offline --max-workers=1
 ```
 
-기대 결과는 14개 테스트 통과(동시성/트랜잭션 9개, migration 5개), 실패/오류/skip 0입니다.
+PostgreSQL 명령의 기대 결과는 선택한 테스트 모두 통과, 실패/오류/skip 0입니다.
+기본 H2 실행도 자체 DB 데드락/롤백을 검사하지만 PostgreSQL의 잠금과 SQLSTATE 검증을 대체하지 않습니다.
 PostgreSQL 실행에서는 두 번째 연결의 `pg_stat_activity.wait_event_type = 'Lock'`도 직접
 확인합니다. 이것은 독립 연결과 실제 커밋/롤백 검증이며 운영 부하, 프로세스 강제 종료,
-분산 장애 주입, 운영 데이터 정합성이나 서로 다른 전표의 잔액 경쟁을 검증하지는 않습니다.
+분산 장애 주입, 운영 데이터 정합성이나 전체 chunk Job과 온라인 전기의 동시 실행을 검증하지는 않습니다.
 실제 실행한 DB/명령/결과는 Issue 작업 기록과 PR 검증 근거를 기준으로 확인합니다.

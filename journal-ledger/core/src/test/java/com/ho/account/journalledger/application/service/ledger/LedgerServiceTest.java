@@ -28,6 +28,9 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -43,6 +46,92 @@ class LedgerServiceTest {
     @BeforeEach
     void setUp() {
         ledgerService = new LedgerService(ledgerBalancePersistencePort);
+    }
+
+    @Test
+    void failedBalanceLockStopsTheWholeBulkBeforeAnyReadOrWrite() {
+        List<JournalDetail> details = List.of(
+                detail(LocalDate.of(2026, 9, 24), JournalSide.DEBIT, "10100", "10.00"),
+                detail(LocalDate.of(2026, 9, 25), JournalSide.CREDIT, "40100", "10.00"));
+        doThrow(new IllegalStateException("lock unavailable"))
+                .when(ledgerBalancePersistencePort).lockBalanceAccounts(any());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ledgerService.updateLedgerBalancesBulk(details))
+                .isInstanceOf(IllegalStateException.class).hasMessage("lock unavailable");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LedgerBalancePersistencePort.BalanceAccount>> keys = ArgumentCaptor.forClass(List.class);
+        verify(ledgerBalancePersistencePort).lockBalanceAccounts(keys.capture());
+        assertThat(keys.getValue()).containsExactlyInAnyOrder(
+                new LedgerBalancePersistencePort.BalanceAccount("10100", "KRW"),
+                new LedgerBalancePersistencePort.BalanceAccount("40100", "KRW"));
+        verifyNoMoreInteractions(ledgerBalancePersistencePort);
+    }
+
+    @Test
+    void singleUpdateAcquiresAccountLockBeforeReadingBalances() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        ledgerService.updateLedgerBalances(detail(date, JournalSide.DEBIT, "10100", "10.00"), date);
+
+        var ordered = inOrder(ledgerBalancePersistencePort);
+        ordered.verify(ledgerBalancePersistencePort).lockBalanceAccounts(List.of(
+                new LedgerBalancePersistencePort.BalanceAccount("10100", "KRW")));
+        ordered.verify(ledgerBalancePersistencePort).findGlBalance("10100", "KRW", date, YearMonth.from(date));
+    }
+
+    @Test
+    void rebuildLocksAllAccountsBeforeDeletingAndTakingThePostedSnapshot() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        ledgerService.reaggregateLedgerBalancesForPeriod(date, date);
+
+        var ordered = inOrder(ledgerBalancePersistencePort);
+        ordered.verify(ledgerBalancePersistencePort).lockAllBalanceAccounts();
+        ordered.verify(ledgerBalancePersistencePort).deleteBalancesBetween(date, date);
+        ordered.verify(ledgerBalancePersistencePort).findPostedJournalDetailsBetween(date, date);
+    }
+
+    @Test
+    void emptyBulkDoesNotAcquireLocks() {
+        ledgerService.updateLedgerBalancesBulk(List.of());
+        ledgerService.updateLedgerBalancesBulk(null);
+        verifyNoInteractions(ledgerBalancePersistencePort);
+    }
+
+    @Test
+    void absentSlDimensionsRemainDifferentFromLiteralNullCodes() {
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        JournalDetail absent = detail(date, JournalSide.DEBIT, "10100", "10.00");
+        absent.setBusinessPartnerCode(null);
+        absent.setDepartmentCode(null);
+        JournalDetail literal = detail(date, JournalSide.DEBIT, "10100", "20.00");
+        literal.setBusinessPartnerCode("NULL");
+        literal.setDepartmentCode("NULL");
+
+        ledgerService.updateLedgerBalancesBulk(List.of(absent, literal));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<SlBalance>> balances = ArgumentCaptor.forClass(List.class);
+        verify(ledgerBalancePersistencePort).saveSlBalances(balances.capture());
+        assertThat(balances.getValue()).extracting(SlBalance::getBusinessPartnerCode,
+                        SlBalance::getDepartmentCode, SlBalance::getDebitAmount)
+                .containsExactly(tuple(null, null, new BigDecimal("10.00")),
+                        tuple("NULL", "NULL", new BigDecimal("20.00")));
+    }
+
+    @Test
+    void reversedBulkDatesPersistTheEarlierDayBeforeReadingTheLaterOpeningBalance() {
+        LocalDate earlier = LocalDate.of(2026, 9, 24);
+        LocalDate later = earlier.plusDays(1);
+        ledgerService.updateLedgerBalancesBulk(List.of(
+                detail(later, JournalSide.DEBIT, "10100", "20.00"),
+                detail(earlier, JournalSide.DEBIT, "10100", "10.00")));
+
+        // Carry-forward requires the earlier closing balance to be saved before the next
+        // day's previous-balance lookup, regardless of the incoming chunk's ordering.
+        var ordered = inOrder(ledgerBalancePersistencePort);
+        ordered.verify(ledgerBalancePersistencePort).findGlBalance("10100", "KRW", earlier, YearMonth.from(earlier));
+        ordered.verify(ledgerBalancePersistencePort).saveGlBalances(any());
+        ordered.verify(ledgerBalancePersistencePort).findPreviousGlBalance("10100", "KRW", later);
     }
 
     @Test

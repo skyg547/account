@@ -180,25 +180,32 @@ GET /api/fx/dashboard
 sequenceDiagram
     participant Scheduler as 운영자/스케줄러
     participant Batch as dailyBalanceReaggregationJob
-    participant Tasklet as BalanceReaggregationTasklet
+    participant Tasklet as BalanceCleanUpTasklet / Chunk
     participant Service as LedgerService
     participant Port as LedgerBalancePersistencePort
     participant DB as GL/SL Balance
 
     Scheduler->>Batch: startDate/endDate 또는 baseDate 전달
-    Batch->>Tasklet: reaggregateStep 실행
-    Tasklet->>Service: reaggregateLedgerBalancesForPeriod(startDate, endDate)
-    Service->>Port: 기존 기간 잔액 삭제
-    Service->>Port: POSTED 전표 라인 재조회
-    Service->>Port: GL/SL 잔액 재생성
-    Port->>DB: 기간 잔액 저장
+    Batch->>Tasklet: cleanup Step 실행
+    Tasklet->>Service: clearLedgerBalancesForPeriod(startDate, endDate)
+    Service->>Port: 전체 잠금 확보 → 기간 잔액 삭제
+    Note over Batch, DB: cleanup 트랜잭션 커밋
+    Batch->>Tasklet: POSTED 상세를 날짜순 100건 chunk로 조회
+    Tasklet->>Service: updateLedgerBalancesBulk(details)
+    Service->>Port: chunk 전체 계정 잠금 → 최신 GL/SL 조회
+    Service->>Port: 금액 집계 → bulk 저장
+    Port->>DB: 각 chunk 트랜잭션 커밋
 ```
 
 초보자 관점에서는 "과거 날짜의 전표가 바뀌면 그 기간 장부를 다시 더한다"고 이해하면 됩니다. Batch는 날짜 파라미터를 해석하고 core 서비스를 호출할 뿐이며, 실제 잔액 계산과 저장 순서는 `LedgerService`와 출력 포트가 담당합니다.
+각 트랜잭션의 잠금은 전체 Job을 보호하지 않으므로 cleanup부터 마지막 chunk까지 전기를
+중지하고 재집계 Job 하나만 실행해야 합니다. `LedgerService.reaggregateLedgerBalancesForPeriod`는
+별도의 단일 트랜잭션 메서드로 삭제·POSTED 조회·재생성 전체 동안 잠금을 유지합니다.
 ## 재시도와 정합성 주의사항
 
 - 동일 반제 참조번호는 다시 적용하지 않습니다.
 - 같은 전표의 동시 요청은 DB 헤더 잠금으로 직렬화합니다. 커밋 후 재요청은 최신 `POSTED` 상태를 읽고 승인 상태 검증으로 거부하므로 추가 GL/SL·잔액 효과가 없습니다. 상세 동작과 검증은 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
+- 서로 다른 전표도 계정·통화별 공통 잠금을 먼저 확보하여 GL/SL의 최신 금액에 누적합니다. 신규 잔액과 NULL SL 차원도 포함합니다. 데드락 실패는 호출자의 전체 트랜잭션을 롤백한 뒤 새 트랜잭션으로 재시도합니다.
 - 기간 검증 실패 후 재시도해도 기간을 다시 조회합니다. 재개 가능 여부는 별도 승인된 기간 관리 절차로 판단합니다.
 - 과거 날짜 전표는 이후 잔액 재집계 범위를 확인해야 합니다.
 - 거래처별 미결 조회는 출력 포트의 DB 조건 조회를 사용해 대량 데이터를 메모리에 올리지 않습니다.

@@ -34,6 +34,7 @@ erDiagram
 | `gl_balances` | 날짜·계정·통화 단위 GL 잔액 |
 | `sl_entries` | 거래처·부서 등 상세 차원을 가진 원장 거래 |
 | `sl_balances` | 보조원장 잔액 |
+| `ledger_balance_locks` | 신규/기존 GL·SL 잔액의 계정·통화별 갱신을 직렬화하는 256개 고정 잠금 행 |
 
 잔액 조회와 집계는 `POSTED` 전표만 재무 금액으로 취급합니다. 잔액 이월 상세는 [ledger-carry-forward.md](ledger-carry-forward.md)를 참고합니다.
 
@@ -155,3 +156,13 @@ JDK 경로는 설치된 경로에 맞추되 PowerShell의 `-P` 인수는 인용�
 한 전표 상세는 각 장부에 한 번만 나타납니다. JPA와 JDBC bulk가 같은 제약을 사용합니다.
 기존 중복/NULL 상세 참조가 있으면 V13은 실패하며 자동 삭제하지 않습니다.
 배포 전 확인 쿼리와 중단/복구 절차는 [동시 전기 제어](posting-concurrency.md)를 참고합니다.
+
+## 잔액 쓰기 잠금 (V14)
+
+`V14__ledger_balance_write_locks.sql`은 `ledger_balance_locks(lock_id)`를 만들고 0~255를
+한 번 채웁니다. 금액/전표 데이터나 기존 migration checksum은 변경하지 않습니다. 각 writer는
+계정·통화를 같은 규칙으로 잠금 번호에 매핑하고 번호 오름차순으로 `FOR UPDATE`를 획득합니다.
+SL의 NULL 거래처·부서도 상위 계정 잠금을 공유하므로 아직 없는 행의 중복 생성이 막힙니다.
+기존 SL unique 제약의 NULL 의미 자체를 변경하거나 과거 중복 잔액을 자동 복구하지는 않습니다.
+잠금 행을 삭제/재생성하거나 일부만 seed하면 안 되며, 누락된 행을 만난 writer는 실패합니다.
+배포 순서, runtime 권한과 롤백 조건은 [동시 전기 제어](posting-concurrency.md)를 따릅니다.

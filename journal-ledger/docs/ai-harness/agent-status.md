@@ -1,3 +1,24 @@
+# GH-761 agent status
+
+- Issue: [#761](https://github.com/skyg547/account/issues/761); remote `status:needs-review`, owner `agent:codex`.
+- Status: implementation, local verification and independent review complete; [Draft PR #783](https://github.com/skyg547/account/pull/783) open with `Refs #761`.
+- Base: `origin/main@0c0fcd3a7338161e7987c644f9b2c1f31ce29470`.
+- Branch/worktree: `agent/761-concurrent-balances`, `/tmp/account-761-concurrent-balances`.
+- Model assignment: gpt-6-astra, xhigh. Parent owns Git/GitHub and module-local records.
+- Writers: `/root/balance_implementation` (production/docs), `/root/balance_tests` (new integration fixture), parent (existing fixtures and migration regression). Independent reviewer: `/root/balance_review`, read-only.
+- Allowlist: `journal-ledger/**`; shared contracts, other modules and shared harness records frozen by user instruction.
+- Verification: exact requested module suite203/203; new PostgreSQL16.13 concurrency26/26; initial PostgreSQL existing posting9 and V14 upgrade1 pass. Successful suites have failures/errors/skips0. Audited baseline16/16 expected failures establish the regression. Counts overlap and are not additive.
+- Independent review: `/root/balance_review`, no remaining P0–P3, Q1–Q4 PASS; Loan consumer1 PASS and API/Batch bootJARs contain exact V14 source bytes.
+- Later gates: human Ready/merge/Issue-close review, coordinated deployment and production load; branch/worktree deletion remains unrequested.
+
+Remote CI did not start because GitHub reports failed account payments or a spending limit needing increase. The repository/account owner must resolve this prerequisite and rerun checks before later readiness gates. No remote test PASS is claimed.
+
+See [worklog.md](worklog.md) for exact commands, artifacts, rollback and limits. These task records are module-local because the user forbids editing shared harness documents.
+
+---
+
+The following is the retained historical GH-760 checkpoint; its remote state is not a current status report.
+
 # GH-760 agent status
 
 - Issue: [#760](https://github.com/skyg547/account/issues/760)
