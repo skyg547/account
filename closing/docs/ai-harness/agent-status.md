@@ -7,11 +7,11 @@
 - Model: GPT-6 Astra, xhigh for delegated exploration, implementation and review.
 - Allowlist: `closing/**`; shared harness and all other modules remain outside scope.
 - Record location: this module-local directory honors the explicit prohibition on editing shared harness documents.
-- Status: Closing-side implementation frozen; full suite passed (314 tests). Independent review passed for the scoped change (Q1–Q4 PASS, no scoped P0–P3); API/Batch packaging passed. Draft publication is next. Full Issue acceptance remains pending cross-module integration.
+- Status: Closing-side implementation frozen; full suite passed (314 tests). Independent review passed for the scoped change (Q1–Q4 PASS, no scoped P0–P3); API/Batch packaging passed. Published Draft PR [#787](https://github.com/skyg547/account/pull/787); OPEN/DRAFT. Initial-head hosted Actions did not start due to the reported account payment/spending-limit gate. Full Issue acceptance remains pending cross-module integration.
 - Parent Integrator owns build wiring, module documentation, these records and all Git/GitHub mutations.
 - Service writer owns admission query/service, compatibility delegation and core unit tests.
 - Controller writer owns admission controller/DTO and API unit tests.
 - Test writer owns real Journal consumer seam and persisted lifecycle integration tests.
 - Independent reviewer is read-only and cannot commit, push, change PR state, merge or close the Issue.
 - Authorized delivery: verified closing-only Draft PR with `Refs #772`.
-- Next owner: parent completes verification/review/publication; a separately scoped Journal/GL07 integration owner must complete consumer selection, adjustment authorization and commit fencing before Issue closure.
+- Next owner: human reviewer of the partial Draft; repository account owner for the hosted Actions payment/spending-limit gate; a separately scoped Journal/GL07 integration owner for consumer selection, adjustment authorization and commit fencing before Issue closure.

@@ -39,3 +39,10 @@ Verification and review evidence is recorded below; the Draft PR link is recorde
 - Independent `/root/review_772`: no new scoped P0–P3 findings; Q1–Q4 PASS after independent source/XML/log comparison; full Issue acceptance HOLD.
 - API/Batch boot JARs: PASS, 14s/exit0; both omit Journal runtime JARs. Artifact hashes and detailed Q1–Q4 table are in [worklog](worklog.md#independent-review-and-packaging).
 - Next reviewer should review this Closing supplier as a partial Draft only. The next integration owner needs explicit Journal/shared-contract scope and must retain the Issue's original acceptance criteria.
+
+## Published Draft
+
+- [PR #787](https://github.com/skyg547/account/pull/787): OPEN/DRAFT, `Refs #772`.
+- Verified implementation commit: `46800ead5d643d81b6beeaea75b8e25b16e6ad23`; follow-up commits update publication records only.
+- Initial-head hosted CI jobs were not started: GitHub reported an account payment/spending-limit restriction ([Module Validation](https://github.com/skyg547/account/actions/runs/36022330652), [Merge Guard](https://github.com/skyg547/account/actions/runs/36022330328)). Account configuration is outside scope; no remote test pass is claimed.
+- Full #772 acceptance remains HOLD. Keep the Issue open and PR Draft while the next reviewer evaluates the Closing-side supplier and the cross-module scope is resolved.

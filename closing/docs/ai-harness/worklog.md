@@ -54,3 +54,9 @@ Read-only `/root/review_772` independently inspected all 19 approved Closing pat
 | Q4 | PASS | `ClosingAdmissionService.java:61,72`; `ClosingAdmissionController.java:35,53` | 해당 없음: 비자명 로직 변경 | trusted adjustment policy must not use caller strings | `/root/review_772` |
 
 Rollback: reviewed Issue-scoped revert of these Closing files; no migration or data repair. Parent alone publishes the branch and requested Draft PR. Reviewer cannot perform commit/push/Ready/merge/Issue close. Resources and the Issue remain open for the next integration owner.
+
+## Draft publication
+
+Published [Draft PR #787](https://github.com/skyg547/account/pull/787), OPEN/DRAFT, `Refs #772`, from `agent/772-closing-journal-admission` to `main`. Implementation commit `46800ead5d643d81b6beeaea75b8e25b16e6ad23` was pushed after scoped verification and independent review. All 19 changed paths are under `closing/**`. No Ready, merge, Issue close, deployment or resource deletion was performed.
+
+Initial-head hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36022330652) and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36022330328) failed **before jobs started**. Their annotations report failed recent account payments or a spending-limit restriction; the exact account condition was not investigated. No hosted code/test result is inferred. The repository account owner must resolve that external gate before hosted CI can execute. Local 314-test and packaging evidence remains separate. This publication-only record update does not change tested source or build behavior.
