@@ -47,7 +47,8 @@
 
 - Rollback is a reviewed revert of this Issue-scoped module change; there is no migration or automated data transformation. Reversion restores the known ability to create economically incorrect foreign journals, so foreign creation traffic must not resume without equivalent protection.
 - No production data, live PostgreSQL, external FX provider, distributed fault injection, load test, or deployment was used. The contract records transaction currency/rate but not quote provider, quote source, or rate date. Existing invalid normal DRAFT/APPROVED entries fail closed and require approved correction; managed exact-copy reversal handles already POSTED effects.
-- Local implementation and review are complete. Draft PR publication uses `Refs #763`; Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
+- Reviewed implementation/record commit `1c502c65` was pushed and [Draft PR #796](https://github.com/skyg547/account/pull/796) was opened with `Refs #763`. Its body records acceptance evidence, exact verification, rollback/limits, Q1-Q4, and authority separation.
+- Local implementation and review are complete. This final record-only update changes no production or test behavior; Ready, merge, Issue close, deployment, and branch/worktree cleanup remain human gates.
 
 ---
 

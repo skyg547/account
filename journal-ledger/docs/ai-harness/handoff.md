@@ -1,6 +1,6 @@
 # GH-763 handoff
 
-Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. Draft PR publication with `Refs #763` is the next gate.
+Issue #763 implementation, audited RED/current GREEN proof, requested verification, corrected independent review, and module-local records are complete. [Draft PR #796](https://github.com/skyg547/account/pull/796) is open with `Refs #763`; reviewed implementation/record commit `1c502c65` is published.
 
 - Issue/branch/worktrees: [#763](https://github.com/skyg547/account/issues/763); `agent/763-foreign-fx-conversion`; `/tmp/account-763-foreign-fx-conversion`; base `8b16566e`; proof `/tmp/account-763-regression-proof@a97d10ab`.
 - Scope: `journal-ledger/**` only, including these module-local records. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
@@ -11,7 +11,8 @@ Issue #763 implementation, audited RED/current GREEN proof, requested verificati
 - Rollback: reviewed scoped revert only; no schema/data rollback. Reversion reopens the foreign-journal understatement/overstatement defect, so affected traffic must remain stopped without replacement protection.
 - Limits: no production-data reconciliation, live PostgreSQL, external FX feed/provider/source/date, distributed failure, load, or deployment test. Existing invalid normal DRAFT/APPROVED records require approved correction; already POSTED effects can use managed exact-copy reversal.
 - Authority separation: Explorer/Reviewer read-only; disjoint production/test/docs writers; parent Integrator owns records, commit, push, Issue/PR state. Ready, merge, Issue close, deployment, and cleanup remain human gates.
-- Next owner: parent publishes the reviewed Draft and records its URL; then a human reviewer owns CI resolution and later lifecycle gates.
+- Publication: Draft PR #796 contains verification results, rollback/limits, Q1-Q4, and explicit authority separation. This final record-only update changes no production or test behavior.
+- Next owner: a human reviewer owns remote CI resolution and later Ready, merge, Issue close, deployment, and cleanup gates. Both task and proof worktrees remain retained.
 
 Details and Q1-Q4 evidence are in [worklog.md](worklog.md).
 
