@@ -74,3 +74,11 @@ Recovery and rollout instructions are in [process flow](../process-flow.md#월�
 Independent `/root/closing_774_review` confirmed Q1–Q4 PASS and no unresolved findings on the verified source. Both boot JARs passed; exact V52 contents and absence of a Journal runtime dependency were checked. Artifact hashes, quality table and limits are in the GH-774 section of [worklog](worklog.md).
 
 **GH-774 권한 분리:** 구현/테스트 작성자와 독립 읽기 전용 리뷰어가 분리되었습니다. 부모만 commit·전용 브랜치 push·Draft PR·모듈 하네스 기록을 처리합니다. 이는 절차상의 분리이며 같은 실행 환경의 보안 격리를 뜻하지 않습니다. Ready·merge·Issue close·배포·자원 삭제는 별도 승인 대상입니다.
+
+### GH-774 Draft publication
+
+[PR #788](https://github.com/skyg547/account/pull/788) is OPEN/DRAFT, `Refs #774`, branch `agent/774-closing-decision-consistency` to `main`. Verified implementation commit: `9a4348071ca5de39ecee266c08a0009cae16a722`. Issue #774 is OPEN / `status:needs-review`. Worktree is retained.
+
+Initial implementation-head hosted CI did not execute its jobs: GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36024856421), [Harness Validation](https://github.com/skyg547/account/actions/runs/36024856552) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36024856595) are failed before execution; no hosted code/test pass is claimed. The repository account owner must resolve that external gate before current-head CI can run. No billing settings were inspected or changed.
+
+Next owner: repository account owner for the CI service gate, then human reviewer for current-head checks and rollout prerequisites. Ready, merge, Issue close, deployment and branch/worktree deletion have not been performed.

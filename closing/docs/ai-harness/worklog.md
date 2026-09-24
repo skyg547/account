@@ -120,3 +120,11 @@ Read-only `/root/closing_774_review` independently compared source/test/docs, th
 | Q4 | PASS | `ClosingTransitionTransactions.java:63,111,132`, JPA adapter:86, `ClosingCalendar.java:58`; 독립 DB/rollback 주석 | 해당 없음: 비자명 로직 적용 대상 | 원격 종료 확인과 PREPARED 재개의 감사 의미를 유지 | `/root/closing_774_review` |
 
 Rollback/next owner: preserve unresolved operation and audit evidence, reconcile Master before a reviewed Closing-only revert, and drain old writers. Parent publishes only the authorized dedicated branch and Draft PR; a human reviewer owns current-head CI, deployment prerequisites and any later Ready/merge/Issue-close decision. No live database/deployment/cleanup occurred.
+
+### GH-774 Draft publication
+
+Published [Draft PR #788](https://github.com/skyg547/account/pull/788), OPEN/DRAFT with `Refs #774`, from the dedicated branch to `main`. Implementation commit `9a4348071ca5de39ecee266c08a0009cae16a722` was committed/pushed only after full verification and independent source/record/PR review. Issue #774 is OPEN / `status:needs-review`; the [handoff comment](https://github.com/skyg547/account/issues/774#issuecomment-5817690314) preserves evidence and remaining gates.
+
+Initial implementation-head hosted CI did not execute its jobs: GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36024856421), [Harness Validation](https://github.com/skyg547/account/actions/runs/36024856552) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36024856595) are failed before execution; no hosted code/test pass is claimed. The repository account owner must resolve that external gate before current-head CI can run. No billing settings were inspected or changed.
+
+The publication follow-up updates only the three module harness records. All24 verified production/test/migration hashes remain unchanged, so Java tests are not redundantly rerun for publication text. No conflict occurred; no shared harness, other-module files, Ready/merge/Issue close/deployment or resource cleanup changed. Parent retains the branch and isolated worktree for human review.

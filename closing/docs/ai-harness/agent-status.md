@@ -28,9 +28,12 @@
 - Claim: [5817440997](https://github.com/skyg547/account/issues/774#issuecomment-5817440997), `status:in-progress`, `agent:codex`.
 - Model: GPT-6 Astra, xhigh for implementation, integration-test and independent-review agents.
 - Ownership: `/root/closing_774` owns Closing production, migration and existing tests; `/root/closing_774_tests` owns two new transaction/failure integration tests; `/root/closing_774_review` is read-only. Parent owns module docs/build files and all Git/GitHub operations.
-- Status: implementation frozen; required whole-module suite passed 348 tests (Core201/API127/Batch20), failures/errors/skips0. Independent review Q1–Q4 PASS with no unresolved findings; API/Batch packaging passed. Draft publication is the remaining delivery step.
+- Status: implementation frozen; required whole-module suite passed 348 tests (Core201/API127/Batch20), failures/errors/skips0. Independent review Q1–Q4 PASS with no unresolved findings; API/Batch packaging passed. Published [Draft PR #788](https://github.com/skyg547/account/pull/788), OPEN/DRAFT, `Refs #774`; Issue is OPEN/status:needs-review.
 - Authorized delivery: verified Draft PR with `Refs #774`; Ready, merge, Issue close, deployment and resource deletion require separate gates.
 
 - GH-774 verification: `/tmp/account-774-full-evidence/summary.json`; source24 freeze matches, changed31 paths within Closing. Focused28 included in348.
 - GH-774 packaging: API/Batch bootJar PASS14s, exact V52 included, no Journal runtime dependency.
-- GH-774 next owner: parent for authorized Draft publication, then human current-head CI/release review; operator for any future unresolved source-state Master reconciliation.
+- GH-774 next owner: repository account owner for hosted Actions payment/spending-limit gate, then human current-head CI/release review; operator for any future unresolved source-state Master reconciliation.
+
+- GH-774 implementation commit: `9a4348071ca5de39ecee266c08a0009cae16a722`; follow-up publication changes are module records only.
+- GH-774 initial hosted Actions failed before execution due to the reported payment/spending-limit gate; local348 and packaging evidence remain separate. Ready/merge/Issue close/deployment/cleanup were not performed.
