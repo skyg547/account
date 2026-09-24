@@ -40,7 +40,10 @@ import java.util.List;
  * - 이 서비스는 UnsettledItemPersistencePort 출력 포트에만 의존하며,
  *   실제 JPA 조회와 저장은 UnsettledItemPersistenceAdapter가 담당합니다.
  * - 반제 로직은 UnsettledItem.settle() 도메인 메서드에 캡슐화되어 있습니다 (Rich Domain Model).
- *   서비스는 조회 → 도메인 메서드 호출 → 저장의 흐름만 담당합니다.
+ *   서비스는 트랜잭션 안에서 독점 점유 → 최신 상태 조회 → 도메인 메서드 호출 → 저장을
+ *   조정하고, 성공 시 함께 커밋합니다.
+ * - 반제 중 예외가 발생하면 점유와 상태 변경은 함께 rollback됩니다. 잠금 실패나 deadlock을
+ *   재시도할 때는 rollback이 끝난 뒤 유즈케이스 전체를 새 트랜잭션으로 다시 호출해야 합니다.
  * - resolved=false 필터: 미결 항목 목록 조회 시 findByResolvedFalse()를 사용하여
  *   CLEARED(완전 반제)된 항목을 제외합니다.
  * ─────────────────────────────────────────────────
@@ -90,8 +93,12 @@ public class UnsettledService implements UnsettledItemUseCase {
      *   → settledAmount=100,000, remainingAmount=0, status=CLEARED, resolved=true
      *
      * [개발 설명]
-     * 반제 처리 로직은 UnsettledItem.settle() 도메인 메서드 내부에 구현됩니다.
-     * 반제 금액이 잔액보다 크면 도메인 메서드에서 IllegalArgumentException이 발생합니다.
+     * ID·금액·처리자·참조번호 입력을 받은 뒤 출력 포트가 현재 미결 항목을 트랜잭션 범위로
+     * 독점 점유하고 최신 상태를 반환합니다. UnsettledItem.settle()이 정밀도·참조번호 멱등성·
+     * 상태 전이를 검증하며, 서비스는 그 결과를 같은 트랜잭션에서 저장하고 커밋합니다.
+     * 반제 금액이 잔액보다 크거나 다른 검증이 실패하면 예외로 전체 트랜잭션이 rollback됩니다.
+     * 동시성 실패 재시도는 새 트랜잭션에서 이 입력부터 다시 실행해야 최신 잔액과 참조 이력을
+     * 다시 읽습니다.
      *
      * @param id                  반제할 미결 항목의 내부 PK
      * @param amount              반제할 금액 (양수여야 하며, 잔액 이하여야 함)
@@ -102,15 +109,12 @@ public class UnsettledService implements UnsettledItemUseCase {
     @Transactional
     @Override
     public void settleItem(Long id, BigDecimal amount, String actor, String settlementReference) {
-        // 1. 미결 항목 조회 (없으면 즉시 예외)
-        UnsettledItem item = unsettledItemPersistencePort.findById(id)
+        // 최신 잔액과 참조 이력을 기준으로 도메인 결정을 내리도록 commit/rollback까지 점유합니다.
+        UnsettledItem item = unsettledItemPersistencePort.findByIdForSettlement(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unsettled item not found: " + id));
 
-        // 2. 도메인 메서드에 반제 처리 위임 (Rich Domain Model)
-        //    settle() 내부에서: settledAmount 누적, remainingAmount 차감, 상태 전환
         item.settle(amount, actor, settlementReference);
 
-        // 3. 변경된 상태 저장
         unsettledItemPersistencePort.save(item);
     }
 

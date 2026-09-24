@@ -142,20 +142,93 @@ sequenceDiagram
     participant Domain as UnsettledItem
     participant PortOut as UnsettledItemPersistencePort
     participant Adapter as UnsettledItemPersistenceAdapter
-    participant DB as unsettled_items
+    participant DB as unsettled_items / reference rows
 
     API->>PortIn: settle(id, amount, actor, reference)
-    PortIn->>Service: 반제 유즈케이스
-    Service->>PortOut: findById(id)
-    PortOut->>Adapter: 기술 독립 계약
-    Adapter->>DB: JPA 조회
+    PortIn->>Service: 반제 유즈케이스 / 쓰기 트랜잭션 시작
+    Service->>PortOut: findByIdForSettlement(id)
+    PortOut->>Adapter: 반제용 독점 조회 의도
+    Adapter->>DB: 부모 ID만 SELECT ... FOR UPDATE
+    DB-->>Adapter: 선행 트랜잭션 뒤 잠금 획득
+    Adapter->>DB: 현재 상태와 참조 이력 refresh
     Service->>Domain: settle(amount, actor, reference)
-    Domain->>Domain: 금액·중복·상태 검증
+    Domain->>Domain: 정밀도·중복·OPEN/PARTIAL/CLEARED 검증
     Service->>PortOut: save(item)
-    Adapter->>DB: 변경 상태 저장
+    Adapter->>DB: 금액·상태·참조·감사 정보 저장
+    Service-->>PortIn: commit 후 잠금 해제
 ```
 
 상태는 `OPEN -> PARTIAL -> CLEARED` 순서로 진행합니다. `CLEARED`가 되면 `resolved=true`가 되어 활성 미결 조회에서 제외됩니다.
+
+### 같은 미결 항목의 동시 반제
+
+초보자 설명: 잔액 100인 같은 청구서에 두 창구가 동시에 40과 50을 기록하면, 둘 다 옛 잔액
+100을 보고 마지막 저장이 앞선 저장을 덮어써서는 안 됩니다. 이 경로는 청구서에 해당하는
+`unsettled_items` 부모 한 행을 잠가 한 요청씩 처리하고, 뒤 요청은 앞 요청의 커밋 결과를
+다시 읽은 뒤 계산합니다.
+
+1. `UnsettledService.settleItem`의 호출자 트랜잭션이 시작되고, 서비스는 일반 조회가 아니라
+   반제 의도를 표현한 `findByIdForSettlement` 출력 포트를 호출합니다.
+2. JPA adapter는 같은 트랜잭션의 미반영 변경을 먼저 flush하고, 참조 이력을 JOIN하지 않은
+   ID 전용 `SELECT id FROM unsettled_items WHERE id = ? FOR UPDATE`로 부모 행만 잠급니다.
+   `EAGER` 컬렉션까지 한 SQL로 잠그지 않는 이유는 PostgreSQL의 outer join 잠금 제약을
+   피하면서도 모든 반제를 하나의 안정된 부모 잠금으로 직렬화하기 위해서입니다.
+3. 잠금을 기다리기 전에 같은 영속성 컨텍스트가 항목을 읽었을 수 있으므로, 잠금 획득 뒤
+   부모의 현재 금액·상태·감사 정보와 참조 컬렉션을 명시적으로 refresh합니다. 잠금만 얻고
+   오래된 1차 캐시 값을 다시 쓰면 여전히 갱신 유실이 생길 수 있습니다.
+4. 기존 `UnsettledItem.settle`이 `BigDecimal`/`NUMERIC(19,2)` 정밀도, 참조번호 멱등성,
+   잔액 검증과 `OPEN -> PARTIAL -> CLEARED` 전이를 그대로 담당합니다. 서비스는 결과를
+   저장하고 트랜잭션이 commit 또는 rollback될 때까지 부모 잠금을 유지합니다.
+
+따라서 잔액 100에 서로 다른 참조로 40과 50이 겹치면 뒤 요청은 최신 잔액을 기준으로
+계산하여 누적 반제액 90, 잔액 10이 되고 두 참조가 모두 남습니다. 반대로 같은 **이미 처리된**
+참조는 대기 후 최신 이력에서 발견되어 no-op이며, 완전 반제 뒤 그 참조를 다시 보내도 금액·상태·
+감사 정보가 바뀌지 않습니다. 잔액 경계에서는 먼저 커밋한 반제 뒤의 실제 잔액을 사용하므로,
+기다리던 요청 금액이 그 잔액보다 크면 정상적인 업무 검증 실패로 거부될 수 있습니다.
+
+도메인 검증, 저장/flush 또는 이후 커밋 과정이 실패하면 금액, 상태, 참조 이력, 처리자·시각을
+같은 트랜잭션에서 함께 rollback합니다. deadlock, serialization failure 또는 lock timeout은
+실패한 트랜잭션 안에서 잠금/저장만 다시 실행하지 않습니다. 호출자가 전체 반제 입력을 새
+트랜잭션으로 다시 호출해야 최신 잔액과 참조 이력을 다시 검증할 수 있습니다.
+
+이 변경은 기존 부모 행을 잠금 대상으로 사용하므로 migration, schema version, `@Version`
+열을 추가하지 않습니다. 같은 ID의 인기 항목(hot item)은 의도적으로 한 요청씩 처리되며,
+긴 트랜잭션은 lock wait와 처리 지연을 늘릴 수 있으므로 실제 부하의 대기 시간을 별도로
+관찰해야 합니다. 다른 ID는 이 부모 잠금 때문에 직렬화되지 않습니다. 포트를 거치지 않는
+직접 SQL/우회 writer는 보호하지 않으며, 과거 부정합 탐지·대사·복구도 이 변경의 범위가 아닙니다.
+
+### 동시 반제 회귀 실행
+
+저장소 루트에서 JDK 17, Gradle wrapper와 기존 의존성 캐시가 준비되어 있으면 기본 합성 H2
+PostgreSQL mode 회귀를 다음처럼 실행합니다. 두 executor thread가 서로 다른 DB 연결과
+트랜잭션을 사용하며, `UnsettledSettlementConcurrencyIntegrationTest`가 40+50 누적,
+같은 참조와 완전 반제 뒤 재전송의 no-op, 60 커밋 뒤 기다리던 50의 잔액 초과 거부,
+flush 뒤 강제 실패의 전체 rollback과 새 트랜잭션 재시도를 확인합니다.
+
+```bash
+./gradlew :journal-ledger:core:test \
+  --tests '*UnsettledSettlementConcurrencyIntegrationTest' \
+  --rerun-tasks --offline --max-workers=1
+```
+
+PostgreSQL 고유 잠금 동작은 실행자가 만든 **폐기 가능한 독립 테스트 DB** URL을 명시적으로
+공급할 때만 같은 회귀를 실행합니다. fixture는 로컬 테스트 전용 `postgres` 사용자와 빈
+비밀번호를 사용하므로 그 조건으로 격리된 인스턴스여야 합니다. 예시의 주소·포트·DB명은
+테스트 인스턴스 값으로 바꿉니다.
+
+```bash
+JOURNAL_UNSETTLED_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:55432/unsettled770 \
+  ./gradlew :journal-ledger:core:test \
+  --tests '*UnsettledSettlementConcurrencyIntegrationTest' \
+  --rerun-tasks --offline --max-workers=1
+```
+
+기대 결과는 선택한 테스트 실패·오류·skip 0입니다. H2에서는 선행 트랜잭션 동안 두 번째
+future가 끝나지 않는지 확인하고, PostgreSQL에서는 독립 backend PID와
+`pg_stat_activity.wait_event_type = 'Lock'`도 확인합니다. 이 fixture는 매 실행 고유 schema와
+합성 데이터만 사용하며 Flyway migration 검증이 아닙니다. H2 결과는 PostgreSQL 검증을
+대체하지 않고, 두 실행 모두 운영 부하·긴 트랜잭션의 대기 분포·deadlock/serialization/timeout
+장애 주입·분산 재시도·운영 DB 또는 과거 데이터 정합성을 증명하지 않습니다.
 
 ## API 계약 요약
 

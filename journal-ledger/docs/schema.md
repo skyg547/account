@@ -99,7 +99,9 @@ JPA와 JDBC bulk upsert가 같은 잔액 키를 사용하도록 `YearMonthAttrib
 
 1. `POST /api/unsettled/{id}/settle`가 `amount`, `settlementReference`, `X-User-ID`를 받습니다.
    기존 DTO의 필수값·양수 검증은 유지합니다.
-2. `UnsettledService`가 트랜잭션 안에서 출력 포트로 항목을 조회합니다.
+2. `UnsettledService`가 쓰기 트랜잭션 안에서 `findByIdForSettlement` 출력 포트로 항목을
+   독점 조회합니다. adapter는 참조 테이블을 JOIN하지 않고 `unsettled_items`의 ID 한 행만
+   `FOR UPDATE`로 잠근 뒤, 현재 부모 상태와 참조 이력을 명시적으로 refresh합니다.
 3. `UnsettledItem.settle`은 actor/ref 필수 검증 후 참조번호를 trim합니다. 이미 처리한
    참조번호라면 새 금액 검증보다 먼저 종료하여 다시 반제하지 않습니다.
 4. 새 참조번호라면 금액 정규화 → 잔액 비교 → 다음 누적 반제액·잔액 선검증을 수행합니다.
@@ -118,6 +120,31 @@ settlement_reference)` 키로 보존합니다. 지연 재시도와 완전 반제
 no-op에도 기존 서비스는 `save`를 호출하지만 금액·감사·참조 내용은 바뀌지 않습니다.
 HTTP DTO가 거부하는 `null`/0/음수 요청까지 재시도로 허용한다는 뜻은 아닙니다.
 
+### 부모 행 잠금과 동시 반제
+
+`unsettled_items`의 기존 PK 행이 같은 미결 항목에 대한 반제 순서를 정하는 잠금 자원입니다.
+별도 잠금 테이블, `@Version` 열, migration 또는 schema version 변경은 없습니다. 부모 ID만
+잠그는 이유는 `unsettled_item_settlement_references`가 `EAGER` 컬렉션이라 일반 엔티티 조회가
+outer join을 만들 수 있고, PostgreSQL에서는 그 조인 전체에 행 잠금을 거는 방식이 안전하지
+않기 때문입니다. 잠금 후 명시적인 refresh와 참조 컬렉션 로딩으로 대기 전에 1차 캐시에 있던
+오래된 금액·이력도 폐기합니다.
+
+예를 들어 원금 100에 서로 다른 참조로 40과 50을 동시에 반제하면, 한 요청이 부모 행을
+잠근 동안 다른 요청은 기다립니다. 뒤 요청은 앞선 commit의 40/60 상태를 읽어 최종 누적액
+90, 잔액 10을 저장하며 두 참조 row를 모두 유지합니다. 같은 이미 알려진 참조는 완전 반제
+후 재전송되어도 no-op입니다. 먼저 실행된 요청 때문에 최신 잔액이 줄었다면 기다리던 요청은
+그 잔액으로 다시 검증되며, 잔액 초과이면 거부됩니다.
+
+잠금은 `UnsettledService.settleItem` 트랜잭션의 commit/rollback까지 유지됩니다. 금액 검증,
+상태 변경, 참조 row, `last_settled_by`, `last_settlement_reference`, `last_settled_at` 중 어느
+단계든 실패하면 모두 함께 rollback합니다. deadlock, serialization failure, lock timeout 뒤에는
+중단된 트랜잭션을 계속 쓰지 말고 전체 반제를 **새 트랜잭션**으로 재시도해야 합니다.
+
+이 방식은 같은 ID의 hot item을 의도적으로 직렬화하므로 정확성과 맞바꿔 lock wait가 생깁니다.
+트랜잭션 안의 외부 호출이나 불필요한 장기 작업을 늘리지 말고 실제 동시 부하에서 대기 시간을
+별도로 측정합니다. `findByIdForSettlement`을 거치지 않는 직접 SQL·우회 writer는 이 보호를
+받지 않으며, 기존 부정합 데이터의 발견·대사·복구는 별도 승인 작업입니다.
+
 ### 로컬 회귀 검증
 
 전제: 저장소 루트, 설치된 JDK 17 및 기존 Gradle 8.7/의존성 캐시가 필요합니다. 캐시가
@@ -134,9 +161,29 @@ JDK 경로는 설치된 경로에 맞추되 PowerShell의 `-P` 인수는 인용�
 합성 H2 PostgreSQL mode에 V1/V10/V11/V12를 적용하고, 실제 서비스/JPA adapter의 반제 후
 별도 트랜잭션·flush/clear 조회로 금액·상태·참조 row·감사 메타를 확인합니다.
 
-이 회귀는 실제 PostgreSQL 실행, 동시 반제 lock/version, 통화별 minor-unit 정책 및 기존
-부정합 데이터 복구를 검증하거나 변경하지 않습니다. 업무 서버나 Batch Job 실행 명령이
-아니며, 외부 DB 접근은 필요하지 않습니다.
+동시 반제는 기본 합성 H2 PostgreSQL mode 또는 명시적으로 공급한 폐기 가능한 PostgreSQL
+테스트 DB에서 아래 집중 명령으로 확인합니다. PostgreSQL URL을 생략하면 외부 DB에 연결하지
+않고 H2를 사용합니다. PostgreSQL fixture는 격리된 로컬 테스트 전용 `postgres` 사용자와
+빈 비밀번호를 전제로 하며, 업무용 인스턴스를 대상으로 실행하지 않습니다.
+
+```bash
+./gradlew :journal-ledger:core:test --tests '*UnsettledSettlementConcurrencyIntegrationTest' --rerun-tasks --offline --max-workers=1
+
+JOURNAL_UNSETTLED_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:55432/unsettled770 \
+  ./gradlew :journal-ledger:core:test --tests '*UnsettledSettlementConcurrencyIntegrationTest' --rerun-tasks --offline --max-workers=1
+```
+
+`UnsettledSettlementConcurrencyIntegrationTest`는 독립 thread·트랜잭션·DB 연결에서 서로 다른
+40+50 참조의 90/10 결과와 참조 두 건, 같은 참조/완전 반제 후 재전송 no-op, 최신 잔액 40에
+대한 대기 요청 50의 거부, 실제 flush 뒤 강제 실패의 금액·상태·참조·감사 rollback 및 새
+트랜잭션 재시도를 확인합니다. H2는 두 번째 future의 대기를, PostgreSQL은 서로 다른 backend
+PID와 `pg_stat_activity`의 `Lock` wait까지 확인합니다. 기대 결과는 실패·오류·skip 0입니다.
+
+이 집중 fixture는 `ddl-auto=create-drop`과 매 실행 고유 schema의 합성 데이터를 사용하므로
+Flyway migration이나 기존 schema 업그레이드 검증이 아닙니다. H2는 PostgreSQL 잠금 의미를
+대체하지 않으며, 운영 부하·lock wait 분포·deadlock/serialization/timeout 장애 주입·분산
+재시도·통화별 minor-unit 정책·운영 DB·기존 부정합 데이터 복구를 검증하거나 변경하지 않습니다.
+업무 서버나 Batch Job 실행 명령도 아닙니다.
 
 ## 마이그레이션 주의사항
 
@@ -146,7 +193,8 @@ JDK 경로는 설치된 경로에 맞추되 PowerShell의 `-P` 인수는 인용�
   10개 JPA 소유 테이블의 누락 DDL과 정밀도, FK, unique/check/index를 forward-only로
   완성합니다. clean H2 PostgreSQL mode와 V10→V11 upgrade 경로를 모두 검증합니다.
 - `V12__unsettled_item_settlement_references.sql`은 전체 반제 참조번호 테이블을 만들고
-  기존 마지막 참조번호를 복사합니다. 이번 정밀도 검증은 기존 V1/V10/V11/V12를 수정하지 않습니다.
+  기존 마지막 참조번호를 복사합니다. 이번 동시 반제 직렬화는 기존 부모 행을 잠그므로
+  새 migration/version 없이 기존 V1~V15 migration 파일을 수정하지 않습니다.
 - 운영 배포 전 승인된 PostgreSQL에서 clean/upgrade migrate+validate와 runtime role의 DDL
   거부를 확인합니다. 적용된 V1/V10/V11의 checksum을 `repair`로 덮거나 파일을 수정하지 않습니다.
 
