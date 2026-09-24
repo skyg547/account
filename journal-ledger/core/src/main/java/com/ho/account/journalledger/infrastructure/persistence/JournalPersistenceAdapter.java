@@ -3,8 +3,12 @@ package com.ho.account.journalledger.infrastructure.persistence;
 import com.ho.account.journalledger.application.port.out.JournalPersistencePort;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.repository.JournalEntryRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -42,8 +46,8 @@ import java.util.Optional;
  *   - 단위 테스트 시 이 어댑터를 Mock으로 대체하면 DB 없이 서비스 로직만 테스트 가능합니다.
  *
  * 단순 위임(Delegation) 패턴:
- *   이 클래스의 각 메서드는 JournalEntryRepository의 동일한 메서드를 그대로 위임합니다.
- *   복잡한 변환 로직은 없으며, 포트 계약을 JPA에 연결하는 역할만 합니다.
+ *   일반 조회/저장은 Repository에 위임합니다. 전기 조회는 같은 트랜잭션에서 헤더를
+ *   잠그고 최신 상태를 다시 읽어 중복 금융 효과를 방지합니다.
  * ─────────────────────────────────────────────────
  */
 @Component
@@ -57,6 +61,9 @@ public class JournalPersistenceAdapter implements JournalPersistencePort {
      * (서비스는 Repository를 알면 안 됩니다 — 포트로만 접근)
      */
     private final JournalEntryRepository journalEntryRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * 전표를 저장하거나 수정합니다.
@@ -92,19 +99,27 @@ public class JournalPersistenceAdapter implements JournalPersistencePort {
     }
 
     /**
-     * 전표를 상세 라인(JournalDetail)까지 JOIN FETCH하여 조회합니다.
-     *
-     * [개발 설명]
-     * JournalEntryRepository.findByIdWithDetails()는 JPQL의 JOIN FETCH를 사용합니다.
-     * 이를 통해 N+1 문제 없이 단일 쿼리로 헤더와 상세 라인을 한 번에 조회합니다.
-     * PostingService, 전표 상세 화면에서 사용합니다.
-     *
-     * @param id 전표 내부 PK
-     * @return 상세 라인 포함 전표 Optional
+     * 쓰기 트랜잭션에서는 전기 소유권을 확보하고 최신 헤더/상세를 반환합니다.
+     * 일반 상세 조회도 자체 트랜잭션 동안 짧게 잠그며, 읽기 전용 트랜잭션은 잠금 없이 조회합니다.
      */
     @Override
+    @Transactional
     public Optional<JournalEntry> findByIdWithDetails(Long id) {
-        return journalEntryRepository.findByIdWithDetails(id);
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            return journalEntryRepository.findByIdWithDetails(id);
+        }
+        // 자동 전표는 생성/승인/전기를 한 트랜잭션에서 수행합니다. refresh가 그 변경을
+        // 버리지 않도록 먼저 반영하며, 잠금은 이후 GL/SL·잔액 저장이 끝날 때까지 유지합니다.
+        entityManager.flush();
+        if (journalEntryRepository.lockByIdForPosting(id).isEmpty()) {
+            return Optional.empty();
+        }
+        JournalEntry entry = journalEntryRepository.findById(id).orElseThrow();
+        // 잠금만으로는 이미 관리 중인 APPROVED 객체가 갱신되지 않습니다. 경쟁 요청이
+        // 커밋한 POSTED 상태를 반드시 다시 읽어야 중복 요청을 도메인 충돌로 거부합니다.
+        entityManager.refresh(entry);
+        entry.getDetails().size();
+        return Optional.of(entry);
     }
 
     /**

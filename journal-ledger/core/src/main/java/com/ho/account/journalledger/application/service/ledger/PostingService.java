@@ -40,6 +40,7 @@ public class PostingService {
 
     @Transactional
     public void postJournalEntry(Long journalEntryId, String poster) {
+        // 같은 전표의 경쟁 요청은 이 트랜잭션 종료까지 대기한 뒤 최신 상태를 검증합니다.
         JournalEntry journalEntry = journalPersistencePort.findByIdWithDetails(journalEntryId)
                 .orElseThrow(() -> new IllegalArgumentException("JournalEntry not found: " + journalEntryId));
 

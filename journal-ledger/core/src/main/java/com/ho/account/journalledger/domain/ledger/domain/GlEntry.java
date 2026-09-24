@@ -45,7 +45,8 @@ import java.time.LocalDate;
  * ─────────────────────────────────────────────────
  */
 @Entity
-@Table(name = "gl_entries")
+@Table(name = "gl_entries", uniqueConstraints =
+        @UniqueConstraint(name = "uk_gl_entries_journal_detail", columnNames = "journal_detail_id"))
 @Getter @Setter
 @NoArgsConstructor
 public class GlEntry {
@@ -61,7 +62,7 @@ public class GlEntry {
      * drill-down: GL Entry → JournalDetail → JournalEntry → 원천 문서
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "journal_detail_id")
+    @JoinColumn(name = "journal_detail_id", nullable = false)
     private JournalDetail journalDetail;
 
     /**

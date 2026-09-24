@@ -34,6 +34,10 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
      */
     List<JournalEntry> findByAccountingDateAndLineageSourceId(LocalDate accountingDate, String lineageSourceId);
 
+    // PostgreSQL은 LEFT JOIN의 nullable 쪽에 FOR UPDATE를 적용할 수 없으므로 헤더만 잠급니다.
+    @Query(value = "SELECT id FROM journal_entries WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockByIdForPosting(@Param("id") Long id);
+
     @Query("SELECT je FROM JournalEntry je LEFT JOIN FETCH je.details WHERE je.id = :id")
     Optional<JournalEntry> findByIdWithDetails(@Param("id") Long id);
 }

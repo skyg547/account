@@ -1,0 +1,5 @@
+// This module is split into core/API/batch. Keep the module-level verification
+// command from succeeding with zero tests when invoked by humans or automation.
+tasks.named('test') {
+    dependsOn ':journal-ledger:core:test', ':journal-ledger:api:test', ':journal-ledger:batch:test'
+}

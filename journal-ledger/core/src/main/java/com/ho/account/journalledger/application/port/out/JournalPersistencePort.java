@@ -29,7 +29,7 @@ import java.util.Optional;
  *
  * [조회 메서드 설계 원칙]
  * - findById: 헤더만 로딩 (성능 우선, 상세 라인 불필요한 경우)
- * - findByIdWithDetails: 상세 라인(JournalDetail)까지 JOIN FETCH (화면 조회용)
+ * - findByIdWithDetails: 쓰기 트랜잭션에서는 헤더 잠금 후 최신 상세 조회, 읽기 전용이면 JOIN FETCH
  * - findBySlipNo: 전표번호 기반 조회 (외부 참조, 감사 추적용)
  * - findByAccountingDateBetween: 기간별 목록 조회 (월말 마감, 원장 집계용)
  * ─────────────────────────────────────────────────
@@ -77,9 +77,11 @@ public interface JournalPersistencePort {
      * 모두 필요한 경우에 사용합니다.
      *
      * [개발 설명]
-     * JOIN FETCH 쿼리로 JournalDetail을 한 번에 로딩합니다.
-     * N+1 문제 없이 단일 쿼리로 헤더 + 상세를 모두 가져옵니다.
-     * PostingService에서 전기 처리 시 이 메서드를 사용합니다.
+     * 읽기 전용 조회는 JOIN FETCH를 사용합니다. 쓰기 조회는 헤더 잠금 후
+     * 기존 관리 객체까지 새로 읽으므로 잠금/새로고침/상세 로딩에 추가 쿼리가 발생합니다.
+     * 쓰기 트랜잭션에서는 종료까지 전표의 배타적 소유권을 확보하고 최신 상태를 반환합니다.
+     * 전기 시 상태 검증, GL/SL 저장, 잔액 갱신을 같은 쓰기 트랜잭션에서 수행해야 합니다.
+     * 읽기 전용 트랜잭션에서는 잠금 없이 상세를 조회합니다.
      *
      * @param id 전표 내부 PK
      * @return 상세 라인 포함 전표 (없으면 Optional.empty())
