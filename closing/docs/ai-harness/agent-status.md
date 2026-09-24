@@ -82,3 +82,10 @@
 
 - Independent reviewer `/root/closing_independent_review`: forced offline87/87 PASS, Q1–Q4 PASS, no P0–P3. Full426 evidence and unchanged14 Java hashes confirmed.
 - Parent is publishing the authorized Draft PR. Next owner is the human reviewer for current-head CI, approved dated policy rollout and residual operational checks. Branch/worktree are retained.
+
+### GH-780 Draft publication
+
+- Published [Draft PR #790](https://github.com/skyg547/account/pull/790), OPEN/DRAFT, `Refs #780`, branch `agent/780-fx-valuation-eligibility` to `main`. Verified implementation commit `3fd6568d2a6b73f982c3c70d428288cdac796364`. Issue #780 remains OPEN / `status:needs-review`; worktree retained at `/tmp/account-780-fx-valuation-eligibility`.
+- Initial implementation-head hosted checks did not execute: GitHub annotations explicitly report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36029393022), [Harness Validation](https://github.com/skyg547/account/actions/runs/36029393098), [Merge Guard](https://github.com/skyg547/account/actions/runs/36029392991). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
+- This publication append changes only the three module records; all14 verified Java files remain frozen. The PR body contains426-test verification, independent87, Q1–Q4 and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Next owner: repository account owner to resolve hosted Actions availability, then human reviewer to verify current-head CI and approved effective-dated policies/operational prerequisites. Rollback and residual PostgreSQL/load/data-reconciliation gates remain as documented above.
