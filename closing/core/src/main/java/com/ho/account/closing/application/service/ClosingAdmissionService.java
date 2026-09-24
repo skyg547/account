@@ -54,7 +54,7 @@ public class ClosingAdmissionService implements ClosingAdmissionQuery {
         }
         ClosingCalendar calendar = calendarResult.get();
         if (!fiscalYear.equals(calendar.getFiscalYear()) || !fiscalPeriod.equals(calendar.getFiscalPeriod())
-                || calendar.getStatus() != ClosingCalendarStatus.OPEN) {
+                || calendar.getStatus() != ClosingCalendarStatus.OPEN || calendar.getTransitionId() != null) {
             return true;
         }
 

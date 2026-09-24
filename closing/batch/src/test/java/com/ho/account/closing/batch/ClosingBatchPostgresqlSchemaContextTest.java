@@ -44,8 +44,8 @@ class ClosingBatchPostgresqlSchemaContextTest {
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM flyway_schema_history_closing
-                WHERE version IN ('49', '50', '51') AND success = TRUE
-                """, Integer.class)).isEqualTo(3);
+                WHERE version IN ('49', '50', '51', '52') AND success = TRUE
+                """, Integer.class)).isEqualTo(4);
     }
 
     @Configuration(proxyBeanMethods = false)

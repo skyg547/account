@@ -3,6 +3,7 @@ package com.ho.account.closing.application.service;
 import com.ho.account.closing.application.port.in.ClosingAdmissionQuery;
 import com.ho.account.closing.application.port.in.ClosingUseCase;
 import com.ho.account.closing.application.port.out.ClosingAdjustmentPersistencePort;
+import com.ho.account.closing.application.port.out.ClosingAggregatePersistencePort;
 import com.ho.account.closing.application.port.out.ClosingAuditLogPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingCalendarPersistencePort;
 import com.ho.account.closing.application.port.out.ClosingGatePersistencePort;
@@ -73,6 +74,9 @@ public class ClosingService implements ClosingUseCase {
     private final JournalQueryPort journalQueryPort;
     private final ClosingAccountingProperties closingAccountingProperties;
     private final ClosingAdmissionQuery closingAdmissionQuery;
+    private final ClosingAggregatePersistencePort aggregatePersistencePort;
+    private final ClosingPeriodTransitionService periodTransitions;
+    private final ClosingTransitionTransactions transitionTransactions;
 
     @Transactional(readOnly = true)
     @Override
@@ -82,6 +86,7 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingCalendar createClosingCalendar(ClosingCalendar closingCalendar) {
+        requireNewEntity(closingCalendar.getId());
         fiscalPeriodControlPort.findFiscalPeriod(
                 closingCalendar.getFiscalYear(), closingCalendar.getFiscalPeriod())
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
@@ -114,30 +119,24 @@ public class ClosingService implements ClosingUseCase {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NEVER)
     public ClosingCalendar updateClosingCalendarStatus(Long id, ClosingCalendarStatus newStatus, String user) {
         Objects.requireNonNull(newStatus, "newStatus must not be null");
         if (newStatus == ClosingCalendarStatus.CLOSED) {
-            return determineClosingStatus(id, user);
+            return periodTransitions.close(id, user);
         }
         if (newStatus != ClosingCalendarStatus.IN_PROGRESS) {
             throw new IllegalStateException(
                     "Direct calendar status update only supports IN_PROGRESS; close and reopen use controlled flows.");
         }
-        ClosingCalendar calendar = findClosingCalendarById(id);
-        String prevStatus = calendar.getStatus().name();
-        calendar.start(user);
-        ClosingCalendar saved = closingCalendarPersistencePort.save(calendar);
-
-        // 감사 로그 기록
-        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                saved, ActionType.CALENDAR_IN_PROGRESS, prevStatus, newStatus.name(), user, "Status updated by user"));
-        
-        return saved;
+        return transitionTransactions.start(id, user);
     }
 
     @Override
     public ClosingTask createClosingTask(ClosingTask closingTask) {
-        ClosingCalendar calendar = findClosingCalendarById(closingTask.getClosingCalendar().getId());
+        requireNewEntity(closingTask.getId());
+        ClosingCalendar calendar = lockCalendar(closingTask.getClosingCalendar().getId());
+        calendar.requireChecklistMutable();
         closingTask.setClosingCalendar(calendar);
         closingTask.setStatus(ClosingTaskStatus.PENDING);
         return closingTaskPersistencePort.save(closingTask);
@@ -145,7 +144,10 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingTask updateClosingTaskStatus(Long taskId, ClosingTaskStatus newStatus, String user) {
-        ClosingTask task = closingTaskPersistencePort.findById(taskId)
+        ClosingCalendar calendar = aggregatePersistencePort.lockCalendarForTask(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("ClosingTask not found"));
+        calendar.requireChecklistMutable();
+        ClosingTask task = aggregatePersistencePort.refreshTask(taskId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingTask not found"));
         String prevStatus = task.getStatus().name();
         
@@ -170,7 +172,9 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingGate createClosingGate(ClosingGate closingGate) {
-        ClosingCalendar calendar = findClosingCalendarById(closingGate.getClosingCalendar().getId());
+        requireNewEntity(closingGate.getId());
+        ClosingCalendar calendar = lockCalendar(closingGate.getClosingCalendar().getId());
+        calendar.requireChecklistMutable();
         closingGate.setClosingCalendar(calendar);
         closingGate.setStatus(ClosingGateStatus.PENDING);
         return closingGatePersistencePort.save(closingGate);
@@ -178,7 +182,10 @@ public class ClosingService implements ClosingUseCase {
 
     @Override
     public ClosingGate checkAndPassClosingGate(Long gateId, String user) {
-        ClosingGate gate = closingGatePersistencePort.findById(gateId)
+        ClosingCalendar calendar = aggregatePersistencePort.lockCalendarForGate(gateId)
+                .orElseThrow(() -> new EntityNotFoundException("ClosingGate not found"));
+        calendar.requireChecklistMutable();
+        ClosingGate gate = aggregatePersistencePort.refreshGate(gateId)
                 .orElseThrow(() -> new EntityNotFoundException("ClosingGate not found"));
         if (hasText(gate.getCheckConditionJson())) {
             // @todo Introduce a typed ClosingGateEvidencePort. The gate may pass only after the
@@ -186,7 +193,7 @@ public class ClosingService implements ClosingUseCase {
             throw new IllegalStateException(
                     "Configured gate conditions require a typed evidence evaluator.");
         }
-        List<ClosingTask> tasks = closingTaskPersistencePort.findByClosingCalendar(gate.getClosingCalendar());
+        List<ClosingTask> tasks = aggregatePersistencePort.refreshTasks(calendar);
         gate.pass(user, tasks);
         ClosingGate saved = closingGatePersistencePort.save(gate);
 
@@ -202,6 +209,8 @@ public class ClosingService implements ClosingUseCase {
     public PeriodLock lockPeriod(Long fiscalPeriodId, PeriodLock.PeriodLockType lockType, String user, String reason) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        ClosingCalendar calendar = lockCalendar(fiscalPeriod);
+        calendar.requireNoTransition();
         if (periodLockPersistencePort.findByFiscalPeriodId(fiscalPeriod.id()).isPresent()) {
             throw new IllegalStateException("Fiscal period is already locked.");
         }
@@ -217,8 +226,6 @@ public class ClosingService implements ClosingUseCase {
         periodLock.setAuditUser(user);
         PeriodLock saved = periodLockPersistencePort.save(periodLock);
 
-        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
-                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
                 ActionType.PERIOD_LOCK,
@@ -234,10 +241,10 @@ public class ClosingService implements ClosingUseCase {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
         requireActor(user, "user");
+        ClosingCalendar calendar = lockCalendar(fiscalPeriod);
+        calendar.requireNoTransition();
         PeriodLock lock = periodLockPersistencePort.findByFiscalPeriodId(fiscalPeriod.id())
                 .orElseThrow(() -> new IllegalStateException("Fiscal period is not locked."));
-        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
-                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
                 ActionType.PERIOD_UNLOCK,
@@ -254,7 +261,12 @@ public class ClosingService implements ClosingUseCase {
     public ReopenApproval requestPeriodReopen(Long fiscalPeriodId, String requestedBy, String reason) {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-        if (!"CLOSED".equals(fiscalPeriod.closingStatus())) {
+        ClosingCalendar calendar = lockCalendar(fiscalPeriod);
+        calendar.requireNoTransition();
+        // Master status observed before the lock is not an authorization to create a new request.
+        fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+                .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        if (calendar.getStatus() != ClosingCalendarStatus.CLOSED || !"CLOSED".equals(fiscalPeriod.closingStatus())) {
             throw new IllegalStateException(
                     "Only a CLOSED fiscal period can request reopen. Current status: "
                             + fiscalPeriod.closingStatus());
@@ -269,8 +281,6 @@ public class ClosingService implements ClosingUseCase {
         approval.request(requestedBy, reason);
         ReopenApproval saved = reopenApprovalPersistencePort.save(approval);
 
-        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
-                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar, ActionType.REOPEN_REQUEST, "CLOSED", "REOPEN_PENDING", requestedBy, reason));
 
@@ -278,43 +288,9 @@ public class ClosingService implements ClosingUseCase {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NEVER)
     public ReopenApproval updateReopenApprovalStatus(Long approvalId, ReopenApprovalStatus newStatus, String approvedBy) {
-        ReopenApproval approval = reopenApprovalPersistencePort.findById(approvalId)
-                .orElseThrow(() -> new EntityNotFoundException("ReopenApproval not found"));
-        Objects.requireNonNull(newStatus, "newStatus must not be null");
-        if (newStatus == ReopenApprovalStatus.APPROVED) {
-            FiscalPeriodRef fp = fiscalPeriodControlPort.findFiscalPeriodById(approval.getFiscalPeriodId())
-                    .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-            if (!"CLOSED".equals(fp.closingStatus())) {
-                throw new IllegalStateException("Only a CLOSED fiscal period can be reopened.");
-            }
-            approval.assignFiscalPeriod(fp.id(), fp.fiscalYear(), fp.fiscalPeriod());
-            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fp.fiscalYear(), fp.fiscalPeriod());
-            approval.approve(approvedBy);
-            calendar.reopen(approvedBy);
-            FiscalPeriodRef reopenedPeriod = fiscalPeriodControlPort.updateClosingStatus(fp.id(), "OPEN", approvedBy);
-            if (!"OPEN".equals(reopenedPeriod.closingStatus())) {
-                throw new IllegalStateException("Master fiscal period did not transition to OPEN.");
-            }
-            closingCalendarPersistencePort.save(calendar);
-            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                    calendar, ActionType.REOPEN_APPROVED, "CLOSED", "OPEN", approvedBy, "Reopen approved"));
-        } else if (newStatus == ReopenApprovalStatus.REJECTED) {
-            approval.reject(approvedBy);
-            FiscalPeriodRef fp = fiscalPeriodControlPort.findFiscalPeriodById(approval.getFiscalPeriodId())
-                    .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-            ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(fp.fiscalYear(), fp.fiscalPeriod());
-            closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                    calendar,
-                    ActionType.REOPEN_REJECTED,
-                    "REOPEN_PENDING",
-                    "CLOSED",
-                    approvedBy,
-                    "Reopen rejected"));
-        } else {
-            throw new IllegalStateException("Reopen decision must be APPROVED or REJECTED.");
-        }
-        return reopenApprovalPersistencePort.save(approval);
+        return periodTransitions.decide(approvalId, newStatus, approvedBy);
     }
 
     @Override
@@ -385,7 +361,11 @@ public class ClosingService implements ClosingUseCase {
         FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
                 .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
 
-        // 1. 회기 기간 상태 확인
+        ClosingCalendar calendar = lockCalendar(fiscalPeriod);
+        calendar.requireNoTransition();
+        fiscalPeriod = fiscalPeriodControlPort.findFiscalPeriodById(fiscalPeriodId)
+                .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
+        // Read admission again under the same calendar lock used by close/reopen.
         if (!"OPEN".equals(fiscalPeriod.closingStatus())) {
             throw new IllegalStateException("Fiscal period is not OPEN. Current status: " + fiscalPeriod.closingStatus());
         }
@@ -428,8 +408,6 @@ public class ClosingService implements ClosingUseCase {
         adjustment.setAuditUser(approvedBy);
         ClosingAdjustment saved = closingAdjustmentPersistencePort.save(adjustment);
 
-        ClosingCalendar calendar = findClosingCalendarByFiscalPeriod(
-                fiscalPeriod.fiscalYear(), fiscalPeriod.fiscalPeriod());
         closingAuditLogPersistencePort.save(ClosingAuditLog.create(
                 calendar,
                 ActionType.ADJUSTMENT_CREATED,
@@ -442,39 +420,25 @@ public class ClosingService implements ClosingUseCase {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NEVER)
     public ClosingCalendar determineClosingStatus(Long calendarId, String user) {
-        ClosingCalendar calendar = findClosingCalendarById(calendarId);
-        String prevStatus = calendar.getStatus() != null ? calendar.getStatus().name() : ClosingCalendarStatus.OPEN.name();
+        return periodTransitions.close(calendarId, user);
+    }
 
-        // 1. 도메인 메서드에 완료 가능 여부 위임
-        List<ClosingTask> tasks = closingTaskPersistencePort.findByClosingCalendar(calendar);
-        List<ClosingGate> gates = closingGatePersistencePort.findByClosingCalendar(calendar);
-        calendar.validateReadyToClose(tasks, gates);
+    private ClosingCalendar lockCalendar(Long calendarId) {
+        return aggregatePersistencePort.lockCalendar(calendarId)
+                .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found with id: " + calendarId));
+    }
 
-        FiscalPeriodRef fiscalPeriod = fiscalPeriodControlPort
-                .findFiscalPeriod(calendar.getFiscalYear(), calendar.getFiscalPeriod())
-                .orElseThrow(() -> new EntityNotFoundException("FiscalPeriod not found"));
-        if (!"OPEN".equals(fiscalPeriod.closingStatus())) {
-            throw new IllegalStateException(
-                    "Only an OPEN fiscal period can be closed. Current status: "
-                            + fiscalPeriod.closingStatus());
+    private ClosingCalendar lockCalendar(FiscalPeriodRef period) {
+        return aggregatePersistencePort.lockCalendar(period.fiscalYear(), period.fiscalPeriod())
+                .orElseThrow(() -> new EntityNotFoundException("ClosingCalendar not found"));
+    }
+
+    private void requireNewEntity(Long id) {
+        if (id != null) {
+            throw new IllegalArgumentException("Creation cannot overwrite an existing closing aggregate entity.");
         }
-
-        // 2. 도메인 메서드에 상태 변경 위임
-        calendar.close(user);
-        FiscalPeriodRef closedPeriod =
-                fiscalPeriodControlPort.updateClosingStatus(fiscalPeriod.id(), "CLOSED", user);
-        if (!"CLOSED".equals(closedPeriod.closingStatus())) {
-            throw new IllegalStateException("Master fiscal period did not transition to CLOSED.");
-        }
-
-        ClosingCalendar saved = closingCalendarPersistencePort.save(calendar);
-
-        // 감사 로그 기록
-        closingAuditLogPersistencePort.save(ClosingAuditLog.create(
-                saved, ActionType.CALENDAR_CLOSED, prevStatus, "CLOSED", user, "Closing completed successfully"));
-
-        return saved;
     }
 
     private JournalPostingResult createAutomatedJournalEntry(

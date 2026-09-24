@@ -55,11 +55,105 @@ public class ClosingCalendar {
     @Column(length = 50)
     private String auditUser;
 
+    // Durable intent survives a failed/ambiguous remote Master call. Calendar admission stays closed
+    // until the original target is confirmed; a dispatched operation is never automatically replayed.
+    @Column(length = 36)
+    private String transitionId;
+
+    @Column(length = 6)
+    private String transitionTarget;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private TransitionStage transitionStage;
+
+    private Long transitionFiscalPeriodId;
+    private Long transitionApprovalId;
+
+    @Column(length = 50)
+    private String transitionActor;
+
+    private LocalDateTime transitionPreparedAt;
+
     @Transient
     private String name;
 
     public enum ClosingCalendarStatus {
         OPEN, IN_PROGRESS, CLOSED, PERMANENTLY_CLOSED
+    }
+
+    public enum TransitionStage { PREPARED, DISPATCHED }
+
+    public String getTransitionId() { return transitionId; }
+    public String getTransitionTarget() { return transitionTarget; }
+    public TransitionStage getTransitionStage() { return transitionStage; }
+    public Long getTransitionFiscalPeriodId() { return transitionFiscalPeriodId; }
+    public Long getTransitionApprovalId() { return transitionApprovalId; }
+    public String getTransitionActor() { return transitionActor; }
+    public LocalDateTime getTransitionPreparedAt() { return transitionPreparedAt; }
+
+    public void requireNoTransition() {
+        if (transitionId != null) {
+            throw new IllegalStateException("A fiscal period transition is pending recovery: " + transitionId);
+        }
+    }
+
+    public void requireChecklistMutable() {
+        requireNoTransition();
+        if (status != ClosingCalendarStatus.OPEN && status != ClosingCalendarStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Closing tasks and gates cannot change on a closed calendar.");
+        }
+    }
+
+    public void prepareTransition(String target, Long fiscalPeriodId, Long approvalId, String actor) {
+        requireNoTransition();
+        requireActor(actor);
+        if (("OPEN".equals(target) && status != ClosingCalendarStatus.CLOSED)
+                || ("CLOSED".equals(target) && status != ClosingCalendarStatus.IN_PROGRESS)
+                || (!"OPEN".equals(target) && !"CLOSED".equals(target))) {
+            throw new IllegalStateException("Invalid calendar transition target: " + target);
+        }
+        this.transitionId = java.util.UUID.randomUUID().toString();
+        this.transitionTarget = target;
+        this.transitionStage = TransitionStage.PREPARED;
+        this.transitionFiscalPeriodId = java.util.Objects.requireNonNull(fiscalPeriodId);
+        this.transitionApprovalId = approvalId;
+        this.transitionActor = actor.trim();
+        this.transitionPreparedAt = LocalDateTime.now();
+        this.auditUser = actor.trim();
+    }
+
+    public void requireTransition(String operationId) {
+        if (operationId == null || !operationId.equals(transitionId)) {
+            throw new IllegalStateException("Fiscal period transition no longer matches the requested operation.");
+        }
+    }
+
+    public void markTransitionDispatched(String operationId) {
+        requireTransition(operationId);
+        if (transitionStage != TransitionStage.PREPARED) {
+            throw new IllegalStateException("A dispatched fiscal period transition cannot be replayed.");
+        }
+        transitionStage = TransitionStage.DISPATCHED;
+    }
+
+    public void finishTransition(String operationId) {
+        requireTransition(operationId);
+        if (transitionStage != TransitionStage.DISPATCHED) {
+            throw new IllegalStateException("Fiscal period transition has not been dispatched.");
+        }
+        if ("OPEN".equals(transitionTarget)) {
+            reopen(transitionActor);
+        } else {
+            close(transitionActor);
+        }
+        transitionId = null;
+        transitionTarget = null;
+        transitionStage = null;
+        transitionFiscalPeriodId = null;
+        transitionApprovalId = null;
+        transitionActor = null;
+        transitionPreparedAt = null;
     }
 
     @PrePersist

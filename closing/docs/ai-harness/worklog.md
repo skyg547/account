@@ -1,4 +1,4 @@
-# GH-772 worklog
+# Closing worklog
 
 ## 2026-09-25 — contract and reproduction
 
@@ -60,3 +60,71 @@ Rollback: reviewed Issue-scoped revert of these Closing files; no migration or d
 Published [Draft PR #787](https://github.com/skyg547/account/pull/787), OPEN/DRAFT, `Refs #772`, from `agent/772-closing-journal-admission` to `main`. Implementation commit `46800ead5d643d81b6beeaea75b8e25b16e6ad23` was pushed after scoped verification and independent review. All 19 changed paths are under `closing/**`. No Ready, merge, Issue close, deployment or resource deletion was performed.
 
 Initial-head hosted [Module Validation](https://github.com/skyg547/account/actions/runs/36022330652) and [Agent Merge Guard](https://github.com/skyg547/account/actions/runs/36022330328) failed **before jobs started**. Their annotations report failed recent account payments or a spending-limit restriction; the exact account condition was not investigated. No hosted code/test result is inferred. The repository account owner must resolve that external gate before hosted CI can execute. Local 314-test and packaging evidence remains separate. This publication-only record update does not change tested source or build behavior.
+
+## GH-774 — 2026-09-25 contract and design
+
+The user requested Issue #774 through the issue-loop, hexagonal-change and module-parallel skills, with one Closing module writer and disjoint integration-test ownership. Existing dirty primary checkout changes were preserved. The isolated branch starts at fetched `origin/main@1d3e6264c6703bace265186f3319f44407dc1458`.
+
+The explicit `closing/**` allowlist and ban on shared harness edits take precedence over generic shared-record instructions. These existing module-local records are updated by the parent only; GH-772 history is retained.
+
+Required acceptance evidence: barrier-controlled approve/reject with one winning decision and loser conflict; calendar/Master agreement after tested failure recovery; close/start/task/gate schedules under the same root lock; baseline-failing regressions and preserved financial controls. Required full command: `./gradlew :closing:test`.
+
+Inspected the existing Closing service/domain/repositories/API, Master control contract/adapter, migration packaging and module documents. Master currently exposes GET and ordinary status PUT with a row lock, but no operation key/CAS/fencing. A local database transaction cannot roll back a committed remote PUT. The design therefore combines a calendar row lock with durable local transition intent, an at-most-once dispatch marker and explicit reconciliation. An ambiguous dispatched operation must remain fenced instead of being blindly replayed.
+
+Planned substantive paths are Closing core service/domain/ports/persistence and a forward migration, recovery API/DTO/advice, focused unit and H2 transaction/failure tests. Parent updates process/schema/local-run documents from verified implementation. No shared contract, other module, production database, deployment or historical-data repair is authorized. Rollback must preserve unresolved transition evidence; no destructive down migration is planned.
+
+### GH-774 pre-fix regression evidence
+
+The executed pre-fix command was `./gradlew :closing:api:test --tests com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest --console=plain --max-workers=1 --no-daemon`. It produced **1 test, 1 expected assertion failure, 0 errors/skips**: the competing rejection returned successfully while the approval also succeeded. The test stopped at that failed conflict assertion, so this execution does not claim a captured final OPEN/REJECTED database snapshot.
+
+This used real separate Closing Spring transactions and a separate autocommit H2 database for the synthetic Master. The service file blob was `e43a91e7fec8078602c67777baa28df18473d3fd`; the eight relevant decision/request/close/start/task/gate method bodies are byte-identical between audited `a97d10ab6efc2570a88f83d630242cd748f8be57` and fetched base. The full service differs because #772 added the independent admission query. Local evidence: `/tmp/account-774-red-concurrency.log`, `/tmp/account-774-red-concurrency.xml`, `/tmp/account-774-red-concurrency-test.java`, `/tmp/account-774-audited-methods.json`.
+
+The final concurrency regression strengthens the schedule with worker-specific Master lookup barriers rather than a timed scheduling opportunity. Final GREEN results are recorded separately below.
+
+### GH-774 implementation and initial verification
+
+The calendar is the monthly mutation root. The JPA adapter locks and refreshes it before reading mutable approval/task/gate state, including previously managed checklist collections. Closing start/close/decision coordinators reject ambient transactions; independent REQUIRES_NEW phases preserve PREPARED and DISPATCHED intent across remote/local failures. Calendar creation and child creation reject existing IDs to prevent merge-based overwrite outside this policy. Period lock/unlock and controlled adjustments also use the root lock.
+
+Recovery GET/POST APIs use Gateway actor/role headers. The approved decision is durable before Master dispatch; losing decisions return 409, whereas an ambiguous dispatch returns 503 `PERIOD_TRANSITION_RECOVERY_REQUIRED`. Recovery never resends DISPATCHED. PREPARED can resume once. Audit distinguishes pre-dispatch resume from original-request-termination reconciliation and preserves operation/original/recovery actors. V52 adds nullable fields and a completeness/fail-closed CHECK; shared migration-runner discovers it without edits.
+
+Initial focused verification: `./gradlew :closing:core:test --tests com.ho.account.closing.application.service.ClosingServiceTest --tests com.ho.account.closing.domain.ClosingDomainTransitionTest --tests com.ho.account.closing.application.service.ClosingAdmissionServiceTest :closing:api:test --tests com.ho.account.closing.ClosingMonthlyTransitionMigrationTest --tests com.ho.account.closing.ClosingPostgresqlSchemaContextTest --tests com.ho.account.closing.web.ClosingTransitionControllerTest --console=plain --max-workers=1 --no-daemon` passed Core70/API5, failures/errors/skips0 (`/tmp/account-774-narrow.log`). Final additional regression coverage and the required full suite are recorded below rather than inferred from these focused results.
+
+Independent source review found one P2: PREPARED resume incorrectly wrote an original-request-termination attestation. The writer corrected the audit reason; the reviewer confirmed the fix. Initial concurrent/fault-injection suites passed 22 tests; final refinements add direct HTTP409/503, PREPARED recovery and stale gate/calendar evidence before the final whole-module run.
+
+### GH-774 final module verification
+
+| Command / artifact | Result |
+| --- | --- |
+| `./gradlew :closing:api:test --tests com.ho.account.closing.ClosingAggregateConcurrencyIntegrationTest --tests com.ho.account.closing.ClosingTransitionRecoveryIntegrationTest --console=plain --max-workers=1 --no-daemon` | PASS28 (aggregate13/recovery15), failures/errors/skips0,33s; `/tmp/account-774-integration-final.log` |
+| **`./gradlew :closing:test`** | **PASS348/45 suites: Core201/API127/Batch20; failures/errors/skips0, exit0,1m14s,29 tasks(8executed/21up-to-date)** |
+| Scoped diff/new-file whitespace, conflict markers, unmerged index, allowlist | PASS;31 paths all under `closing/**`,24 production/test/migration source hashes unchanged after full test |
+
+All Core/API/Batch test tasks executed; parent `:closing:test NO-SOURCE` does not stand in for child coverage. Focused75 and28 are subsets, not extra unique tests. Final XML and summary are archived in `/tmp/account-774-full-evidence/`, full log `/tmp/account-774-full-test.log`, frozen source manifest `/tmp/account-774-source-freeze.json` and path list `/tmp/account-774-changed-files.txt`.
+
+The tests include actual Spring transaction proxies, an independent committed H2 Master, worker-controlled approve/reject barriers and persisted final state/audit assertions, synthetic post-remote/local-commit failure injection, initial PREPARED recovery and concurrent dispatch claim, stale operation/managed entity defenses and actual MockMvc409/503 responses. Existing random-port HTTP admission lifecycle also ran in the full suite. Clean V49–V52 migration/JPA validation and V51 forward upgrade preserve prior data. H2 PostgreSQL mode is not a live PostgreSQL test. Deployed network faults, process kills, production load/data and deployment were not exercised.
+
+### GH-774 independent review and packaging
+
+Read-only `/root/closing_774_review` independently compared source/test/docs, the preserved RED and method hashes, focused28 XML, full348 archived XML/log, and source freeze. It found no unresolved findings and confirmed Q1–Q4 PASS. The sole earlier P2 audit wording finding was corrected and its two recovery paths are now tested. The reviewer did not edit code or run a concurrent duplicate Gradle build.
+
+`./gradlew :closing:api:bootJar :closing:batch:bootJar --offline --console=plain --max-workers=1 --no-daemon` passed, exit0/14s. Both executable JARs contain the exact V52 resource and transition service from Closing core; neither adds a Journal runtime dependency. This is packaging evidence, not a claim of packaged deployment. Log `/tmp/account-774-packaging.log`, artifact checks `/tmp/account-774-package-evidence.json`.
+
+- API SHA256: `c01b2388f6227eae725151d8d4b90c75635a9ccc6143d429f0e8f3379d6ebe25`.
+- Batch SHA256: `cf5cd5e358b602e1ea0ab962a65ff2b7d7db1444dfd2a8fd0403b308e8a1374b`.
+
+| 항목 | 판정 | 파일·테스트 근거 | N/A 사유 | 위험·다음 검증 게이트 | 독립 리뷰 확인 |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | `ClosingPeriodTransitionService.java:18`, `ClosingTransitionTransactions.java:26,56,105,119`, `JpaClosingAggregatePersistenceAdapter.java:68,83`; focused28/full348 PASS | 해당 없음: 구현 적용 대상 | 실제 PostgreSQL/배포 네트워크 장애·부하 후속 검증 | `/root/closing_774_review`, 미해결 finding 없음 |
+| Q2 | PASS | `closing/docs/process-flow.md:98`; 준비→전송→완료, 실패·복구·호출자 트랜잭션 설명 | 해당 없음: 흐름 설명 적용 대상 | 원 요청 종료는 운영 확인이며 Master 직접 writer 차단 계약 없음 | `/root/closing_774_review` |
+| Q3 | PASS | `closing/docs/local-run.md:96`, `closing/docs/schema.md:46`, README; V52/JPA/API·Batch 검증 | 해당 없음: 기능 문서 적용 대상 | V52 선적용·구버전 writer 종료·실배포 별도 | `/root/closing_774_review` |
+| Q4 | PASS | `ClosingTransitionTransactions.java:63,111,132`, JPA adapter:86, `ClosingCalendar.java:58`; 독립 DB/rollback 주석 | 해당 없음: 비자명 로직 적용 대상 | 원격 종료 확인과 PREPARED 재개의 감사 의미를 유지 | `/root/closing_774_review` |
+
+Rollback/next owner: preserve unresolved operation and audit evidence, reconcile Master before a reviewed Closing-only revert, and drain old writers. Parent publishes only the authorized dedicated branch and Draft PR; a human reviewer owns current-head CI, deployment prerequisites and any later Ready/merge/Issue-close decision. No live database/deployment/cleanup occurred.
+
+### GH-774 Draft publication
+
+Published [Draft PR #788](https://github.com/skyg547/account/pull/788), OPEN/DRAFT with `Refs #774`, from the dedicated branch to `main`. Implementation commit `9a4348071ca5de39ecee266c08a0009cae16a722` was committed/pushed only after full verification and independent source/record/PR review. Issue #774 is OPEN / `status:needs-review`; the [handoff comment](https://github.com/skyg547/account/issues/774#issuecomment-5817690314) preserves evidence and remaining gates.
+
+Initial implementation-head hosted CI did not execute its jobs: GitHub annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36024856421), [Harness Validation](https://github.com/skyg547/account/actions/runs/36024856552) and [Merge Guard](https://github.com/skyg547/account/actions/runs/36024856595) are failed before execution; no hosted code/test pass is claimed. The repository account owner must resolve that external gate before current-head CI can run. No billing settings were inspected or changed.
+
+The publication follow-up updates only the three module harness records. All24 verified production/test/migration hashes remain unchanged, so Java tests are not redundantly rerun for publication text. No conflict occurred; no shared harness, other-module files, Ready/merge/Issue close/deployment or resource cleanup changed. Parent retains the branch and isolated worktree for human review.

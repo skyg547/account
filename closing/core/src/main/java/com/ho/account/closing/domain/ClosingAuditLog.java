@@ -61,7 +61,9 @@ public class ClosingAuditLog {
         REOPEN_REJECTED,
         TASK_STATUS_CHANGED,
         GATE_PASSED,
-        ADJUSTMENT_CREATED
+        ADJUSTMENT_CREATED,
+        PERIOD_TRANSITION_PREPARED,
+        PERIOD_TRANSITION_RECOVERED
     }
 
     @PrePersist

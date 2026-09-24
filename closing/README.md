@@ -9,6 +9,10 @@
 GL07/#762 커밋 동시성 통합 전에는 #772 전체 해결로 간주할 수 없습니다.
 정책과 검증 범위는 [업무 흐름](docs/process-flow.md#일반-전표-허용-판정-gh-772)을 참고하세요.
 
+월말 승인·반려와 체크리스트 변경은 캘린더 단위로 직렬화합니다. 원격 마감·재오픈 반영이
+불명확하면 영속 전이 기록을 유지하고 자동 재전송하지 않습니다.
+[월말 동시 결정과 복구](docs/process-flow.md#월말-동시-결정과-복구-gh-774)를 참고하세요.
+
 ---
 
 ## 0. 📚 문서 읽기 순서
@@ -158,5 +162,5 @@ ECL 충당 Job 예시:
 - FX/ECL 결산 조정 전표는 기본적으로 `DRAFT`로 남아 검토와 승인을 기다립니다. 통제된 환경에서만 `account.closing.accounting.auto-post-adjustments=true`로 자동 승인/전기를 허용합니다.
 - 전표 모듈 연동을 위해 `AccountingPeriodStatusPort` 구현체가 정상적으로 노출되어야 합니다.
 - 현재 `AccountingPeriodStatusPort`는 월 회계기간 잠금만 확인합니다. `EodState.isTransactionAllowed()`를 Journal 신규 전표 게이트에 연결하는 작업은 별도 변경이며, 연결 전에는 일마감 상태만으로 전표가 자동 차단된다고 간주하면 안 됩니다.
-- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시킵니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51을 forward 적용합니다.
+- Closing 전용 Flyway 위치는 `classpath:db/closing-migration`, 독립 이력 테이블은 `flyway_schema_history_closing`입니다. clean DB는 V49의 10개 Closing 소유 테이블 baseline을 적용하고, V50으로 EOD/BOD 상태를 승격한 뒤 V51로 운영 조회 인덱스를 수렴시키고 V52로 월말 전이 기록을 추가합니다. 기존 legacy DB는 runner가 전체 컬럼 타입·길이·nullability·identity·PK/FK/기간 unique를 확인한 경우에만 49 baseline을 기록하고 V50/V51/V52를 forward 적용합니다. V52는 미완료 월말 전이 기록을 추가하며 새 버전 기동 전에 적용해야 합니다.
 - Docker 실행이 필요하면 `closing/docker-compose.yml`을 사용할 수 있지만, 신규 개발자는 먼저 위 Gradle 명령으로 컨텍스트와 테스트를 확인하는 편이 문제 범위를 좁히기 쉽습니다.

@@ -104,6 +104,20 @@ class ClosingAdmissionServiceTest {
     }
 
     @Test
+    void unresolvedIntentBlocksEvenAnOpenCalendarSnapshot() {
+        ClosingCalendar calendar = calendar("2026", "01", ClosingCalendarStatus.CLOSED);
+        calendar.prepareTransition("OPEN", 1L, 20L, "checker");
+        // Defence in depth for imported state or schemas created without the migration CHECK.
+        calendar.setStatus(ClosingCalendarStatus.OPEN);
+        when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(period("OPEN")));
+        when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))
+                .thenReturn(Optional.of(calendar));
+
+        assertThat(service.isClosed(DATE)).isTrue();
+        verifyNoInteractions(periodLockPersistencePort);
+    }
+
+    @Test
     void nullCalendarLookupCannotProveOpen() {
         when(fiscalPeriodControlPort.findFiscalPeriod("2026", "01")).thenReturn(Optional.of(period("OPEN")));
         when(closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod("2026", "01"))

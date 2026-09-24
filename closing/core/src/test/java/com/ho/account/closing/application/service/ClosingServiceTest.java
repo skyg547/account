@@ -57,6 +57,8 @@ public class ClosingServiceTest {
     @Spy
     private ClosingAccountingProperties closingAccountingProperties = new ClosingAccountingProperties();
 
+    @Mock
+    private ClosingAggregatePersistencePort aggregates;
     private ClosingService closingService;
     private ClosingAdmissionService closingAdmissionService;
 
@@ -67,12 +69,29 @@ public class ClosingServiceTest {
     void setUp() {
         closingAdmissionService = new ClosingAdmissionService(
                 fiscalPeriodControlPort, closingCalendarPersistencePort, periodLockPersistencePort);
+        ClosingTransitionTransactions transactions = new ClosingTransitionTransactions(aggregates,
+                closingCalendarPersistencePort, reopenApprovalPersistencePort, closingAuditLogPersistencePort,
+                fiscalPeriodControlPort);
+        ClosingPeriodTransitionService transitions = new ClosingPeriodTransitionService(transactions,
+                closingCalendarPersistencePort);
+        lenient().when(aggregates.lockCalendar(any(Long.class))).thenAnswer(call ->
+                closingCalendarPersistencePort.findById(call.getArgument(0)));
+        lenient().when(aggregates.lockCalendar(any(String.class), any(String.class))).thenAnswer(call ->
+                closingCalendarPersistencePort.findByFiscalYearAndFiscalPeriod(call.getArgument(0), call.getArgument(1)));
+        lenient().when(aggregates.findApprovalFiscalPeriodId(any())).thenAnswer(call ->
+                reopenApprovalPersistencePort.findById(call.getArgument(0)).map(ReopenApproval::getFiscalPeriodId));
+        lenient().when(aggregates.refreshApproval(any())).thenAnswer(call ->
+                reopenApprovalPersistencePort.findById(call.getArgument(0)));
+        lenient().when(aggregates.refreshTasks(any())).thenAnswer(call ->
+                closingTaskPersistencePort.findByClosingCalendar(call.getArgument(0)));
+        lenient().when(aggregates.refreshGates(any())).thenAnswer(call ->
+                closingGatePersistencePort.findByClosingCalendar(call.getArgument(0)));
         closingService = new ClosingService(
                 closingCalendarPersistencePort, closingTaskPersistencePort, closingGatePersistencePort,
                 periodLockPersistencePort, reopenApprovalPersistencePort, batchExecutionRecorder,
                 closingAdjustmentPersistencePort, closingAuditLogPersistencePort,
                 fiscalPeriodControlPort, journalPostingPort, journalQueryPort, closingAccountingProperties,
-                closingAdmissionService);
+                closingAdmissionService, aggregates, transitions, transactions);
         openPeriod = new FiscalPeriodRef(
                 1L,
                 "2026",
@@ -112,6 +131,7 @@ public class ClosingServiceTest {
     @Test
     @DisplayName("결산 조정 전표 생성 시 회기가 OPEN이 아니면 예외가 발생한다")
     void createClosingAdjustment_PeriodNotOpen_ThrowsException() {
+        when(aggregates.lockCalendar(any(String.class), any(String.class))).thenReturn(Optional.of(openCalendar()));
         // given
         when(fiscalPeriodControlPort.findFiscalPeriodById(2L)).thenReturn(Optional.of(closedPeriod));
 
@@ -124,6 +144,7 @@ public class ClosingServiceTest {
     @Test
     @DisplayName("결산 조정 전표 생성 시 전표가 대차 불일치면 예외가 발생한다")
     void createClosingAdjustment_UnbalancedJournal_ThrowsException() {
+        when(aggregates.lockCalendar(any(String.class), any(String.class))).thenReturn(Optional.of(openCalendar()));
         // given
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
         
@@ -150,6 +171,7 @@ public class ClosingServiceTest {
     @Test
     @DisplayName("결산 조정 전표 생성 시 전표 회계 일자가 회기 범위를 벗어나면 예외가 발생한다")
     void createClosingAdjustment_AccountingDateOutsideRange_ThrowsException() {
+        when(aggregates.lockCalendar(any(String.class), any(String.class))).thenReturn(Optional.of(openCalendar()));
         // given
         when(fiscalPeriodControlPort.findFiscalPeriodById(1L)).thenReturn(Optional.of(openPeriod));
         
@@ -586,6 +608,26 @@ public class ClosingServiceTest {
                 "ADMIN"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("controlled flows");
+    }
+
+    @Test
+    void creationCannotMergeExistingEntitiesAroundTheAggregateLock() {
+        ClosingCalendar calendar = openCalendar();
+        ClosingTask task = new ClosingTask();
+        task.setId(11L);
+        task.setClosingCalendar(calendar);
+        ClosingGate gate = new ClosingGate();
+        gate.setId(12L);
+        gate.setClosingCalendar(calendar);
+
+        assertThatThrownBy(() -> closingService.createClosingCalendar(calendar))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("cannot overwrite");
+        assertThatThrownBy(() -> closingService.createClosingTask(task))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("cannot overwrite");
+        assertThatThrownBy(() -> closingService.createClosingGate(gate))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("cannot overwrite");
+        verifyNoInteractions(fiscalPeriodControlPort, closingCalendarPersistencePort,
+                closingTaskPersistencePort, closingGatePersistencePort, aggregates);
     }
 
     private ClosingCalendar openCalendar() {
