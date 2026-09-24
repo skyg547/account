@@ -82,12 +82,169 @@ class JournalRuleEngineTest {
         JournalEntry entry = generated.orElseThrow();
         assertThat(entry.getCreatedBy()).isEqualTo("asset-user");
         assertThat(entry.getAuditUser()).isEqualTo("asset-user");
-        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
+        // Functional/reporting policy is not evidence of the transaction currency.
+        assertThat(entry.getCurrencyCode()).isEqualTo("KRW");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1");
         assertThat(entry.getDetails()).hasSize(2);
         assertThat(entry.getDetails().get(0).getAmount()).isEqualByComparingTo("120000");
         assertThat(entry.getDetails().get(0).getAuditUser()).isEqualTo("asset-user");
         assertThat(entry.getDetails().get(0).getDetailDescription()).isEqualTo("취득-FA-0001");
         assertThat(entry.getDetails().get(1).getAmount()).isEqualByComparingTo("120000");
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getBaseAmount()).isEqualByComparingTo("120000"));
+    }
+
+    @Test
+    @DisplayName("명시 거래통화와 환율로 USD 100을 KRW 130000으로 환산한다.")
+    void convertsExplicitForeignTransactionToBaseCurrency() {
+        stubRuleWithDetails(5L, "FX_RULE", List.of(
+                ruleDetail(51L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(52L, "CREDIT", "21000", "${amount}")));
+
+        JournalEntry entry = engine.generateJournalEntry(
+                        Map.of(
+                                "ruleCode", "FX_RULE",
+                                "amount", new BigDecimal("100.00"),
+                                "transactionCurrencyCode", "USD",
+                                "transactionToBaseRate", new BigDecimal("1300")),
+                        LocalDate.of(2026, 4, 30))
+                .orElseThrow();
+
+        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1300");
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getBaseAmount()).isEqualByComparingTo("130000.00"));
+        entry.validateInvariants();
+    }
+
+    @Test
+    @DisplayName("외화 거래통화에 환율이 없으면 자동분개 생성을 거부한다.")
+    void rejectsForeignTransactionWithoutRate() {
+        stubRuleWithDetails(6L, "FX_MISSING_RATE", List.of(
+                ruleDetail(61L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(62L, "CREDIT", "21000", "${amount}")));
+
+        assertThatThrownBy(() -> engine.generateJournalEntry(
+                Map.of(
+                        "ruleCode", "FX_MISSING_RATE",
+                        "amount", new BigDecimal("100.00"),
+                        "currencyCode", "USD"),
+                LocalDate.of(2026, 4, 30)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("환율");
+    }
+
+    @Test
+    @DisplayName("functional/reporting/accountingPolicy currency는 거래통화 출처로 사용하지 않는다.")
+    void ignoresNonTransactionCurrencyProvenance() {
+        stubRuleWithDetails(7L, "PROVENANCE_RULE", List.of(
+                ruleDetail(71L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(72L, "CREDIT", "21000", "${amount}")));
+
+        JournalEntry entry = engine.generateJournalEntry(
+                        Map.of(
+                                "ruleCode", "PROVENANCE_RULE",
+                                "amount", new BigDecimal("10.00"),
+                                "functionalCurrency", "USD",
+                                "reportingCurrency", "EUR",
+                                "accountingPolicy", Map.of("currencyCode", "JPY")),
+                        LocalDate.of(2026, 4, 30))
+                .orElseThrow();
+
+        assertThat(entry.getCurrencyCode()).isEqualTo("KRW");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1");
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getBaseAmount()).isEqualByComparingTo("10.00"));
+    }
+
+    @Test
+    @DisplayName("여러 외화 라인의 반올림 잔여를 큰 잔여 순으로 배분해 기준통화 차대를 맞춘다.")
+    void allocatesForeignRoundingResidualAcrossMultipleLines() {
+        stubRuleWithDetails(8L, "FX_RESIDUAL", List.of(
+                ruleDetail(81L, "DEBIT", "11000", "${small}"),
+                ruleDetail(82L, "DEBIT", "12000", "${large}"),
+                ruleDetail(83L, "CREDIT", "21000", "${total}")));
+
+        JournalEntry entry = engine.generateJournalEntry(
+                        Map.of(
+                                "ruleCode", "FX_RESIDUAL",
+                                "small", new BigDecimal(".01"),
+                                "large", new BigDecimal(".02"),
+                                "total", new BigDecimal(".03"),
+                                "transactionCurrencyCode", "USD",
+                                "transactionToBaseRate", new BigDecimal("1.33333333")),
+                        LocalDate.of(2026, 4, 30))
+                .orElseThrow();
+
+        assertThat(entry.getDetails()).extracting(detail -> detail.getBaseAmount().toPlainString())
+                .containsExactly("0.01", "0.03", "0.04");
+        entry.validateInvariants();
+    }
+
+    @Test
+    @DisplayName("서로 다른 거래통화 별칭이 함께 오면 출처 충돌로 거부한다.")
+    void rejectsConflictingTransactionCurrencyAliases() {
+        stubRuleWithDetails(9L, "CURRENCY_ALIAS_CONFLICT", List.of(
+                ruleDetail(91L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(92L, "CREDIT", "21000", "${amount}")));
+
+        assertThatThrownBy(() -> engine.generateJournalEntry(
+                Map.of(
+                        "ruleCode", "CURRENCY_ALIAS_CONFLICT",
+                        "amount", new BigDecimal("100.00"),
+                        "transactionCurrencyCode", "USD",
+                        "currencyCode", "EUR",
+                        "transactionToBaseRate", new BigDecimal("1300")),
+                LocalDate.of(2026, 4, 30)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("currency aliases");
+    }
+
+    @Test
+    @DisplayName("서로 다른 환율 별칭이 함께 오면 출처 충돌로 거부한다.")
+    void rejectsConflictingExchangeRateAliases() {
+        stubRuleWithDetails(10L, "RATE_ALIAS_CONFLICT", List.of(
+                ruleDetail(101L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(102L, "CREDIT", "21000", "${amount}")));
+
+        assertThatThrownBy(() -> engine.generateJournalEntry(
+                Map.of(
+                        "ruleCode", "RATE_ALIAS_CONFLICT",
+                        "amount", new BigDecimal("100.00"),
+                        "transactionCurrencyCode", "USD",
+                        "transactionToBaseRate", new BigDecimal("1300"),
+                        "exchangeRate", new BigDecimal("1400")),
+                LocalDate.of(2026, 4, 30)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exchange rate aliases");
+    }
+
+    @Test
+    @DisplayName("값이 같은 통화·환율 별칭은 표현과 위치가 달라도 하나의 출처로 허용한다.")
+    void acceptsDuplicateEqualCurrencyAndRateAliases() {
+        stubRuleWithDetails(11L, "EQUAL_ALIASES", List.of(
+                ruleDetail(111L, "DEBIT", "11000", "${amount}"),
+                ruleDetail(112L, "CREDIT", "21000", "${amount}")));
+
+        JournalEntry entry = engine.generateJournalEntry(
+                        Map.of(
+                                "ruleCode", "EQUAL_ALIASES",
+                                "amount", new BigDecimal("100.00"),
+                                "transactionCurrencyCode", "usd",
+                                "currencyCode", "USD",
+                                "transactionToBaseRate", new BigDecimal("1300"),
+                                "exchangeRate", new BigDecimal("1300.000"),
+                                "transaction", Map.of(
+                                        "currency", "USD",
+                                        "fxRate", "1300.00")),
+                        LocalDate.of(2026, 4, 30))
+                .orElseThrow();
+
+        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1300");
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getBaseAmount()).isEqualByComparingTo("130000.00"));
+        entry.validateInvariants();
     }
 
     @Test
@@ -173,5 +330,21 @@ class JournalRuleEngineTest {
         rule.setPriority(1);
         rule.setValidFrom(LocalDate.of(2025, 1, 1));
         return rule;
+    }
+
+    private void stubRuleWithDetails(Long id, String ruleCode, List<JournalRuleDetail> details) {
+        JournalRule rule = createRule(id, ruleCode);
+        when(journalRuleQueryPort.findActiveRules()).thenReturn(List.of(rule));
+        when(journalRuleQueryPort.findConditions(id)).thenReturn(List.of());
+        when(journalRuleQueryPort.findDetails(id)).thenReturn(details);
+    }
+
+    private JournalRuleDetail ruleDetail(Long id, String side, String accountCode, String amountExpression) {
+        JournalRuleDetail detail = new JournalRuleDetail();
+        detail.setId(id);
+        detail.setDrcrType(side);
+        detail.setAccountSubjectCodeExpression(accountCode);
+        detail.setAmountExpression(amountExpression);
+        return detail;
     }
 }

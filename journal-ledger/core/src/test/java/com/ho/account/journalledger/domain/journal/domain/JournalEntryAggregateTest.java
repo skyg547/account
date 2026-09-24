@@ -3,6 +3,7 @@ package com.ho.account.journalledger.domain.journal.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -291,6 +292,37 @@ class JournalEntryAggregateTest {
     }
 
     @Test
+    @DisplayName("수정 전 POSTED 외화 이력은 실제 금액을 그대로 뒤집어 균형 잡힌 관리형 역분개를 만든다.")
+    void legacyPostedForeignHistoryCanBeReversedWithoutRevaluingIt() {
+        JournalEntry legacyOriginal = inconsistentHistoricalForeignEntry();
+
+        // 같은 값의 신규 NORMAL 전표는 계속 거부되고, reflection은 과거 DB 이력만 표현합니다.
+        assertThatThrownBy(legacyOriginal::validateInvariants)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("기준통화");
+        markAsPersistedPostedHistory(legacyOriginal);
+
+        JournalEntry reversal = legacyOriginal.createReversal(
+                "legacy-reversal-maker", LocalDate.of(2026, 9, 30), "reverse pre-remediation history");
+
+        assertThat(reversal.getEntryType()).isEqualTo("REVERSAL");
+        assertThat(reversal.getCurrencyCode()).isEqualTo("USD");
+        assertThat(reversal.getExchangeRate()).isEqualByComparingTo("1300");
+        assertThat(reversal.getDetails()).satisfiesExactly(
+                line -> {
+                    assertThat(line.getSide()).isEqualTo(JournalSide.CREDIT);
+                    assertThat(line.getAmount()).isEqualByComparingTo("100.00");
+                    assertThat(line.getBaseAmount()).isEqualByComparingTo("100.00");
+                },
+                line -> {
+                    assertThat(line.getSide()).isEqualTo(JournalSide.DEBIT);
+                    assertThat(line.getAmount()).isEqualByComparingTo("100.00");
+                    assertThat(line.getBaseAmount()).isEqualByComparingTo("100.00");
+                });
+        reversal.validateInvariants();
+    }
+
+    @Test
     @DisplayName("취소된 역분개 작업만 다른 전표 ID로 한 번 재개할 수 있다.")
     void cancelledReversalOperationCanRestartWithOneReplacement() {
         JournalReversalOperation operation = JournalReversalOperation.create(759L, 760L);
@@ -463,11 +495,12 @@ class JournalEntryAggregateTest {
         entry.setCreatedBy("maker");
         entry.setLineageSourceType("TEST");
         entry.setLineageSourceId("ISSUE-759");
-        JournalDetail debit = detail(JournalSide.DEBIT, "10123", "12.34", "16.78");
+        // 12.34 USD × 1.23456789 rounds to 15.23 KRW under the common conversion policy.
+        JournalDetail debit = detail(JournalSide.DEBIT, "10123", "12.34", "15.23");
         debit.setDepartmentCode("D-DEBIT");
         debit.setBusinessPartnerCode("BP-DEBIT");
         debit.setDetailDescription("debit source detail");
-        JournalDetail credit = detail(JournalSide.CREDIT, "40987", "12.34", "16.78");
+        JournalDetail credit = detail(JournalSide.CREDIT, "40987", "12.34", "15.23");
         credit.setDepartmentCode("D-CREDIT");
         credit.setBusinessPartnerCode("BP-CREDIT");
         credit.setDetailDescription("credit source detail");
@@ -478,6 +511,39 @@ class JournalEntryAggregateTest {
         entry.approve("checker");
         entry.post("poster");
         return entry;
+    }
+
+    private static JournalEntry inconsistentHistoricalForeignEntry() {
+        JournalEntry entry = new JournalEntry();
+        entry.setId(763L);
+        entry.setSlipNo("JE-LEGACY-FX-763");
+        entry.setSlipDate(LocalDate.of(2026, 9, 24));
+        entry.setAccountingDate(LocalDate.of(2026, 9, 24));
+        entry.setDescription("pre-remediation foreign history");
+        entry.setEntryType("NORMAL");
+        entry.setCurrencyCode("USD");
+        entry.setExchangeRate(new BigDecimal("1300"));
+        entry.setCreatedBy("legacy-maker");
+        entry.setLineageSourceType("LEGACY_TEST");
+        entry.setLineageSourceId("ISSUE-763");
+        entry.addDetail(detail(JournalSide.DEBIT, "11000", "100.00", "100.00"));
+        entry.addDetail(detail(JournalSide.CREDIT, "21000", "100.00", "100.00"));
+        return entry;
+    }
+
+    private static void markAsPersistedPostedHistory(JournalEntry entry) {
+        setHistoricalField(entry, "status", JournalEntryStatus.POSTED);
+        setHistoricalField(entry, "persistedStatus", JournalEntryStatus.POSTED);
+    }
+
+    private static void setHistoricalField(JournalEntry entry, String fieldName, Object value) {
+        try {
+            Field field = JournalEntry.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(entry, value);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError("failed to construct persisted legacy history", exception);
+        }
     }
 
     private static Mutation mutation(String name, Runnable action) {

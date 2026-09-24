@@ -1,3 +1,26 @@
+# GH-763 agent status
+
+- Issue: [#763](https://github.com/skyg547/account/issues/763); owner `agent:codex`, review handoff target `status:needs-review`.
+- Status: implementation, byte-identical audited RED/current GREEN, requested module verification, corrected independent review, and functional documentation are complete; [Draft PR #796](https://github.com/skyg547/account/pull/796) is open with `Refs #763`.
+- Base: `origin/main@8b16566edf47800ae10fb2ae729a8bb4d880e95d`.
+- Branch/worktrees: `agent/763-foreign-fx-conversion`, `/tmp/account-763-foreign-fx-conversion`; detached proof `/tmp/account-763-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. Explorer/Reviewer were read-only; production, test, and documentation writers used disjoint `journal-ledger/**` allowlists; parent owns these records and Git/GitHub.
+- Allowlist: `journal-ledger/**`. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Result: foreign journals require explicit consistent transaction currency/rate/base amounts; rule events calculate controlled line bases; contract KRW has a narrow same-unit omission exception; alias conflicts fail closed; legacy POSTED effects remain exactly reversible.
+- RED/GREEN: byte-identical regression SHA `68805fd1…f4bb` fails 4/7 on audited `a97d10ab` and passes 7/7 after remediation.
+- Verification: pre-change module316 PASS; final independent forced module340 PASS (core271/API57/batch12), failures/errors/skips0; quality contract32/32 and static gates PASS.
+- Independent review: three initial P1 findings and one stale-doc issue were returned and corrected. Final `/root/jl763_review` reports no P0-P3 and Q1-Q4 PASS.
+- Publication: reviewed implementation/record commit `1c502c65` is pushed. Draft PR #796 contains verification, rollback/limits, Q1-Q4, and explicit authority separation; this final record-only update changes no production or test behavior.
+- Remote CI prerequisite: on publication head `7da8713d`, Agent Merge Guard, Harness Validation, and Module Validation entry jobs did not start. GitHub annotations report failed recent account payments or a spending-limit prerequisite; no remote CI PASS or executed code-test failure is claimed.
+- Rollback/limits: scoped revert, no migration. No production data, live PostgreSQL, external FX provider, load, or deployment verification. Quote provider/source/date is outside the current contract; invalid existing normal drafts/approvals require approved correction.
+- Authority: user authorized commit, push, and Draft PR. Human review owns Ready, merge, Issue close, deployment, and cleanup.
+
+See [worklog.md](worklog.md) for commands, RED/GREEN evidence, review corrections, and Q1-Q4.
+
+---
+
+The following is retained historical status and is not a current GH-763 report.
+
 # GH-758 agent status
 
 - Issue: [#758](https://github.com/skyg547/account/issues/758); owner `agent:codex`, current handoff target `status:needs-review` after Draft PR publication.
@@ -188,3 +211,23 @@ These module-local records satisfy task traceability within the explicit module 
 - Issue #756 remains OPEN and moves to `status:needs-review`. Human review, the seven-consumer compatibility
   work, billing prerequisite resolution and remote-check rerun are the next gates. Ready, merge, Issue close,
   deployment and branch/worktree/proof cleanup remain unauthorized.
+# GH-763 agent status
+
+- Issue: [#763](https://github.com/skyg547/account/issues/763); owner `agent:codex`, current status `status:in-progress` until Draft publication handoff.
+- Status: implementation, byte-identical audited RED/current GREEN, requested module verification, corrected independent review, and functional documentation are complete. Draft PR publication is the next parent gate.
+- Base: `origin/main@8b16566edf47800ae10fb2ae729a8bb4d880e95d`.
+- Branch/worktrees: `agent/763-foreign-fx-conversion`, `/tmp/account-763-foreign-fx-conversion`; detached proof `/tmp/account-763-regression-proof@a97d10ab6efc2570a88f83d630242cd748f8be57`.
+- Model/ownership: `gpt-5.6-sol`, high. Explorer/Reviewer were read-only; production, test, and documentation writers used disjoint `journal-ledger/**` allowlists; parent owns these records and Git/GitHub.
+- Allowlist: `journal-ledger/**`. Other modules, shared contracts, and repository-level shared harness/history files are unchanged.
+- Result: foreign journals require explicit consistent transaction currency/rate/base amounts; rule events calculate controlled line bases; contract KRW has a narrow same-unit omission exception; alias conflicts fail closed; legacy POSTED effects remain exactly reversible.
+- RED/GREEN: byte-identical regression SHA `68805fd1…f4bb` fails 4/7 on audited `a97d10ab` and passes 7/7 after remediation.
+- Verification: pre-change module316 PASS; final independent forced module340 PASS (core271/API57/batch12), failures/errors/skips0; quality contract32/32 and static gates PASS.
+- Independent review: three initial P1 findings and one stale-doc issue were returned and corrected. Final `/root/jl763_review` reports no P0-P3 and Q1-Q4 PASS.
+- Rollback/limits: scoped revert, no migration. No production data, live PostgreSQL, external FX provider, load, or deployment verification. Quote provider/source/date is outside the current contract; invalid existing normal drafts/approvals require approved correction.
+- Authority: user authorized commit, push, and Draft PR. Human review owns Ready, merge, Issue close, deployment, and cleanup.
+
+See [worklog.md](worklog.md) for commands, RED/GREEN evidence, review corrections, and Q1-Q4.
+
+---
+
+The following is retained historical status and is not a current GH-763 report.

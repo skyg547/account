@@ -543,6 +543,13 @@ public class JournalEntry {
             throw new IllegalStateException("전표에는 차변과 대변 라인이 각각 하나 이상 필요합니다.");
         }
 
+        // 일반 전표는 각 통화 합계가 우연히 균형이어도 환율 의미가 틀릴 수 있으므로
+        // 모든 라인의 환산을 검증합니다. 관리형 역분개는 이미 POSTED된 과거 원장의 실제
+        // 금액을 그대로 상쇄해야 하며, 외부 createJournalEntry는 REVERSAL 생성을 거부합니다.
+        if (!isReversal()) {
+            JournalCurrencyConversionPolicy.validateBaseAmounts(currencyCode, exchangeRate, details);
+        }
+
         // 각 라인은 DECIMAL(19,2)에 저장되지만 전표 합계 자체는 한 컬럼에 저장되지 않습니다.
         // 따라서 여러 개의 유효한 대형 라인을 더한 합계에 라인 저장 한도를 다시 적용하지
         // 않고, BigDecimal의 임의 정밀도로 합산한 뒤 차대 일치만 비교합니다.

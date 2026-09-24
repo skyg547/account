@@ -100,6 +100,96 @@ class JournalPostingAdapterTest {
     }
 
     @Test
+    void preservesValidForeignRateAndConvertedBaseAmounts() {
+        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(0);
+            entry.validateInvariants();
+            entry.setId(78L);
+            entry.setSlipNo("JE-20260511-0002");
+            entry.initializeDraft();
+            return entry;
+        });
+
+        JournalPostingResult result = adapter.createDraftEntry(foreignCommand(
+                new BigDecimal("1300"), new BigDecimal("130000.00")));
+
+        assertThat(result.journalEntryId()).isEqualTo(78L);
+        ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
+        verify(journalUseCase).createJournalEntry(entryCaptor.capture());
+        JournalEntry entry = entryCaptor.getValue();
+        assertThat(entry.getCurrencyCode()).isEqualTo("USD");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1300");
+        assertThat(entry.getDetails()).allSatisfy(detail ->
+                assertThat(detail.getBaseAmount()).isEqualByComparingTo("130000.00"));
+    }
+
+    @Test
+    void rejectsNullContractBaseAmountInsteadOfDefaultingToTransactionAmount() {
+        JournalEntryCommand command = foreignCommand(new BigDecimal("1300"), null);
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("baseAmount");
+
+        verify(journalUseCase, never()).createJournalEntry(any());
+    }
+
+    @Test
+    void acceptsOmittedRateAndBaseAmountForUnambiguousKrwContract() {
+        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(0);
+            entry.validateInvariants();
+            entry.setId(79L);
+            entry.setSlipNo("JE-20260511-0003");
+            entry.initializeDraft();
+            return entry;
+        });
+
+        JournalPostingResult result = adapter.createDraftEntry(krwCommand(null, null));
+
+        assertThat(result.journalEntryId()).isEqualTo(79L);
+        ArgumentCaptor<JournalEntry> entryCaptor = ArgumentCaptor.forClass(JournalEntry.class);
+        verify(journalUseCase).createJournalEntry(entryCaptor.capture());
+        JournalEntry entry = entryCaptor.getValue();
+        assertThat(entry.getCurrencyCode()).isEqualTo("KRW");
+        assertThat(entry.getExchangeRate()).isEqualByComparingTo("1");
+        assertThat(entry.getDetails()).allSatisfy(detail -> {
+            assertThat(detail.getAmount()).isEqualByComparingTo("100.00");
+            assertThat(detail.getBaseAmount()).isEqualByComparingTo(detail.getAmount());
+        });
+    }
+
+    @Test
+    void rejectsNonOneRateForKrwContract() {
+        assertThatThrownBy(() -> adapter.createDraftEntry(
+                krwCommand(new BigDecimal("1.01"), new BigDecimal("100.00"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1");
+
+        verify(journalUseCase, never()).createJournalEntry(any());
+    }
+
+    @Test
+    void commonValidationRejectsForeignContractWithoutRate() {
+        validateAggregateAtUseCaseBoundary();
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(
+                foreignCommand(null, new BigDecimal("130000.00"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("환율");
+    }
+
+    @Test
+    void commonValidationRejectsInconsistentForeignContractBaseAmount() {
+        validateAggregateAtUseCaseBoundary();
+
+        assertThatThrownBy(() -> adapter.createDraftEntry(
+                foreignCommand(new BigDecimal("1300"), new BigDecimal("100.00"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("기준통화");
+    }
+
+    @Test
     void machineDraftUsesControlledSubmissionBeforeDistinctCheckerApprovalAndPosting() {
         JournalEntry entry = new JournalEntry();
         entry.setCreatedBy("Service:Closing-Maker");
@@ -129,5 +219,41 @@ class JournalPostingAdapterTest {
         verify(journalUseCase, never()).requestJournalEntryApproval(any(), any());
         verify(journalUseCase, never()).approveJournalEntry(any(), any());
         verify(journalUseCase, never()).postJournalEntry(any(), any());
+    }
+
+    private void validateAggregateAtUseCaseBoundary() {
+        when(journalUseCase.createJournalEntry(any(JournalEntry.class))).thenAnswer(invocation -> {
+            JournalEntry entry = invocation.getArgument(0);
+            entry.validateInvariants();
+            return entry;
+        });
+    }
+
+    private JournalEntryCommand foreignCommand(BigDecimal exchangeRate, BigDecimal baseAmount) {
+        return command("USD", exchangeRate, baseAmount);
+    }
+
+    private JournalEntryCommand krwCommand(BigDecimal exchangeRate, BigDecimal baseAmount) {
+        return command("KRW", exchangeRate, baseAmount);
+    }
+
+    private JournalEntryCommand command(
+            String currencyCode, BigDecimal exchangeRate, BigDecimal baseAmount) {
+        return new JournalEntryCommand(
+                LocalDate.of(2026, 5, 12),
+                LocalDate.of(2026, 5, 11),
+                "foreign contract journal",
+                "NORMAL",
+                currencyCode,
+                exchangeRate,
+                "contract-maker",
+                "payload-auditor",
+                "CONTRACT_TEST",
+                "FX-763",
+                List.of(
+                        new JournalLineCommand("DEBIT", "11000", new BigDecimal("100.00"),
+                                baseAmount, null, null, "debit"),
+                        new JournalLineCommand("CREDIT", "21000", new BigDecimal("100.00"),
+                                baseAmount, null, null, "credit")));
     }
 }

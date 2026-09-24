@@ -26,12 +26,54 @@ flowchart LR
 
 | 단계 | 상태 | 핵심 검증 | 데이터 결과 |
 | --- | --- | --- | --- |
-| 작성 | `DRAFT` | 라인 금액, 차대변, 처리자, 원천 추적 | `journal_entries`, `journal_details` |
-| 승인 요청 | `REQUESTED` | 요청자가 canonical 작성자와 동일하고 차대일치 | maker와 요청 상태 |
-| 승인 | `APPROVED` | 승인 역할, `REQUESTED`, maker와 다른 canonical approver | 별도 `approved_by` 증거 |
-| 전기 | `POSTED` | posting 역할, 승인 증거·차대일치·상세 ID 검증 후 회계기간 재확인 | 승인 증거 유지, 최종 actor, GL/SL 엔트리와 잔액 |
+| 작성 | `DRAFT` | 라인 금액, 차대변, 거래통화→KRW 환산, 처리자, 원천 추적 | `journal_entries`, `journal_details` |
+| 승인 요청 | `REQUESTED` | 요청자가 canonical 작성자와 동일하고 차대·환산 일치 | maker와 요청 상태 |
+| 승인 | `APPROVED` | 승인 역할, `REQUESTED`, maker와 다른 canonical approver, 차대·환산 재검증 | 별도 `approved_by` 증거 |
+| 전기 | `POSTED` | posting 역할, 승인 증거·차대·환산·상세 ID 검증 후 회계기간 재확인 | 승인 증거 유지, 최종 actor, GL/SL 엔트리와 잔액 |
 
 재무 잔액과 기간 집계에는 `POSTED` 전표만 포함합니다. `APPROVED`는 승인됐지만 아직 원장에 반영되지 않은 상태입니다.
+
+### 거래통화에서 기준통화(KRW)로 환산
+
+현재 원장의 기준통화는 KRW로 고정되어 있습니다. 전표 헤더의 `currencyCode`는 거래통화,
+`exchangeRate`는 거래통화 1단위를 KRW로 바꾸는 거래통화→기준통화 환율입니다. 이 두 값이
+현재 계약에서 환율 provenance이며, 환율 공급자·출처·적용일은 별도 필드로 보존하지 않습니다.
+
+| 입력 경로 | 기준금액 처리 |
+| --- | --- |
+| 수동 HTTP | 요청 라인의 `baseAmount`가 필수이며 공통 정책과 정확히 일치해야 함 |
+| `JournalPostingPort` contract | 외화는 `baseAmount` 필수; null/공백/KRW와 환율 생략 또는 1인 동일단위 입력만 누락값을 `amount`로 채움 |
+| `JournalRuleEngine` | 명시된 거래통화와 환율로 `baseAmount`를 계산·배분함 |
+
+`currencyCode`가 `null` 또는 공백이면 기존 KRW 입력과의 호환을 위해 KRW로 정규화합니다.
+KRW는 환율을 생략하거나 1로 공급할 수 있지만 1이 아닌 환율은 거부합니다. 외화는 명시적인
+양수 환율이 필수입니다. 수동 HTTP는 모든 통화에서 기준금액을 요구합니다. Contract의 기존
+동일단위 입력은 통화가 null/공백/KRW이고 환율이 생략 또는 1일 때만 누락된 `baseAmount`를
+`amount`로 채우는 명시적 호환 예외가 있습니다. 외화 contract의 기준금액 누락과 모든 공급값
+불일치는 영속화 전에 실패합니다. USD 100, 환율 1300이라면 각 대응 라인의 기준금액은
+KRW 130,000이어야 하며 USD 100을 그대로 공급할 수 없습니다.
+
+라인별 반올림 때문에 기준통화 차대가 어긋나지 않도록 차변과 대변을 각각 전표 단위로
+처리합니다. 각 측의 거래통화 합계×환율을 소수 둘째 자리 `HALF_UP`한 값이 목표 합계입니다.
+각 라인은 먼저 소수 둘째 자리에서 `DOWN`하고, 목표와의 0.01 잔여를 정확한 환산값의 소수
+잔여가 큰 라인부터 배분합니다. 수동·contract 입력도 이 배분 결과와 정확히 맞아야 하며,
+최종 기준통화 차변/대변 합계는 같아야 합니다.
+
+예를 들어 차변이 0.01과 0.02, 대변이 0.03이고 환율이 1.33333333이면 양쪽 목표 합계는
+`0.03 × 1.33333333 = 0.0399999999 → 0.04`입니다. 차변은 먼저 0.01과 0.02로 내림한 뒤
+소수 잔여가 더 큰 0.02 라인에 0.01을 배분하여 기준금액 0.01과 0.03이 됩니다. 대변 0.03은
+기준금액 0.04가 되어 기준통화 차변/대변이 모두 0.04로 정확히 일치합니다.
+
+이 정책은 일반 전표 최초 생성의 `JournalValidationEngine`, 승인 요청·승인 시 Aggregate 검증,
+전기 직전 `GeneralLedger` 불변 스냅샷 생성에서 다시 적용됩니다. 따라서 과거에 저장된 잘못된
+일반 `DRAFT`/`APPROVED` 전표도 다음 단계에서 fail-closed하며 자동으로 고치지 않습니다. 기존
+잘못된 전표와 운영 데이터의 탐지·대사·보정은 이 변경에 없으며 승인된 정정 절차가 필요합니다.
+
+관리형 역분개는 의도적인 exact-copy 예외입니다. 기존 `POSTED` 원본이 새 환산 의미 규칙을
+위반하더라도 원본의 거래통화, 환율, `amount`, `baseAmount`를 그대로 복사하고 차대만 반전하여
+과거에 실제 전기된 원장 효과를 상쇄합니다. 이때 각 금액의 저장 정밀도와 거래통화·기준통화
+차대일치는 계속 검사합니다. 공개 생성 포트의 임의 `REVERSAL`은 차단되므로 이 예외를 새 일반
+전표의 잘못된 환산을 우회하는 데 사용할 수 없습니다.
 
 ### POSTED 최종 이력 보호
 
@@ -96,7 +138,9 @@ operation에 연결하는 직접 DB 쓰기도 거부합니다.
 
 최초 생성은 원본의 각 라인에서 거래통화 `amount`와 기준통화 `baseAmount`, 계정·부서·
 거래처 차원을 값 변경 없이 복사하고 `DEBIT ↔ CREDIT`만 반전합니다. 생성 전에 작성자·사유·
-날짜와 차대/기준통화 균형을 검사하고, `createJournalEntry` 경로의
+날짜, 저장 정밀도와 거래/기준통화 균형을 검사합니다. 이는 새 환산 의미 검증의 exact-copy
+예외이므로 과거 `POSTED` 원본의 실제 원장 효과도 상쇄할 수 있습니다. 공개 생성 포트의 임의
+`REVERSAL`은 계속 거부됩니다. 관리형 경로에서는
 `JournalValidationEngine`이 공급한 회계일의 기간이 열려 있는지 기존 규칙으로 검사합니다.
 
 전기와 취소가 경쟁하면 역분개 전표 헤더가 순서를 결정합니다. 전기가 먼저 commit하면
@@ -246,13 +290,21 @@ JDBC bulk 모드는 H2 기준 SQL 동작을 `JdbcLedgerBulkPersistenceAdapterTes
 
 ## 자동분개 규칙 흐름
 
-1. 이벤트의 거래유형, 금액, 계정, 통화, 처리자 정보를 받습니다.
+1. 이벤트의 거래유형, 금액, 계정, 거래통화, 거래통화→KRW 환율, 처리자 정보를 받습니다.
 2. `JournalRuleCondition`이 문자열·숫자 조건을 평가합니다.
 3. 일치한 규칙의 `JournalRuleDetail`이 생성할 전표 라인을 정의합니다.
-4. 차대변은 `JournalSide` 타입으로 제한되어 잘못된 문자열을 저장 전에 차단합니다.
-5. 필수 표현식 값이 없거나 금액이 0 이하이면 전표 생성을 중단합니다.
+4. `JournalCurrencyConversionPolicy`가 라인별 기준금액과 반올림 잔여를 계산합니다.
+5. 차대변은 `JournalSide` 타입으로 제한되어 잘못된 문자열을 저장 전에 차단합니다.
+6. 필수 표현식 값, 외화 환율이 없거나 금액이 0 이하이면 전표 생성을 중단합니다.
 
 `JournalRuleEngine`은 `JournalRuleQueryPort`를 통해 규칙을 읽습니다. JPA 저장소 세부 구조와 조회 메서드는 `JournalRuleQueryAdapter` 뒤에 숨깁니다.
+거래통화는 `transactionCurrencyCode`, `currencyCode`, `currency`와 각각의 `transaction.*`
+형태만, 환율은 `transactionToBaseRate`, `exchangeRate`, `fxRate`와 각각의 `transaction.*`
+형태만 읽습니다. `functionalCurrency`, `reportingCurrency`나 회계정책의 기준통화 값은 거래통화
+또는 환율 provenance로 추론하지 않습니다. 지원 통화 별칭이 여러 개 있으면 trim·대문자
+정규화 결과가 모두 같아야 하고, 환율 별칭은 `BigDecimal` 숫자 비교 결과가 같아야 합니다.
+예를 들어 `USD`/` usd `와 `1300`/`1300.00` 중복은 허용하지만 서로 다른 통화나 환율은
+모호한 provenance로 판단하여 생성 전에 거부합니다.
 
 ### 이벤트 JSON 금액 정밀도
 

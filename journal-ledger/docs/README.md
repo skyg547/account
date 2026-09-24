@@ -34,7 +34,8 @@ IntelliJ에서는 공유 실행 설정 `Journal Ledger Batch Reaggregation`을 �
   - `KafkaTransactionListener`를 통해 `transaction-events` 토픽으로부터 다른 서브레저 모듈(예: 결산, 대사, 수납)의 회계 이벤트를 수신합니다.
   - 전표 생성에 실패할 경우(예외 발생) 무음 처리하지 않고 명시적으로 `RuntimeException`을 던져, Spring Kafka의 기본 **DLQ(Dead Letter Queue)** 및 Retry 메커니즘을 유도하는 Fail-Safe 설계를 따릅니다.
 - **Journal Rule Engine (자동 분개 룰 엔진)**:
-  - 하드코딩된 계정과 통화를 제거하고, `company`, `accountingPolicy` 등 시스템 설정 룰을 통해 통화, 차대변, 정상 잔액 방향을 판단합니다.
+  - 계정과 차대변은 활성 규칙으로 결정하지만 거래통화와 거래통화→KRW 환율은 이벤트의 명시적인 transaction provenance만 사용합니다. 통화는 `transactionCurrencyCode`/`currencyCode`/`currency`, 환율은 `transactionToBaseRate`/`exchangeRate`/`fxRate`와 각각의 `transaction.*` 형태만 허용하며 `company`, `functionalCurrency`, `reportingCurrency`, `accountingPolicy` 기준통화에서 추론하지 않습니다.
+  - 지원 별칭이 여러 개 공급되면 통화는 trim·대문자 정규화 후, 환율은 숫자 비교 후 모두 같아야 합니다. 같은 값의 중복은 허용하고 충돌은 전표 생성 전에 거부합니다.
   - 필수 DSL 값이 누락되면 `null`을 반환하여 이후 단계에서 크래시를 유도하는 대신, 명시적 도메인 예외를 던져 룰의 엄격한 유효성을 보장합니다.
   - HTTP 이벤트는 Gateway가 검증한 actor로 payload identity를 덮어쓰고, Kafka와 Spring contract 이벤트는 각각 listener 전용 service principal을 maker로 사용합니다. 공유 `SYSTEM` 또는 이벤트 payload actor를 trusted identity로 사용하지 않습니다.
 - **Closing Lock 통제**:

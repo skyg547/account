@@ -207,20 +207,39 @@ class PostingServiceTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    @DisplayName("승인 후 거래통화 또는 기준통화 차대가 깨진 전표는 기간 조회 전에 거부한다.")
+    @DisplayName("승인 후 거래금액 또는 기준통화 금액이 훼손된 전표는 기간 조회 전에 거부한다.")
     void rejectsUnbalancedJournalBeforePeriodLookup(boolean baseCurrency) {
         JournalEntry entry = approvedEntry();
         if (baseCurrency) {
             entry.getDetails().get(0).setBaseAmount(new BigDecimal("101.00"));
         } else {
             entry.getDetails().get(0).setAmount(new BigDecimal("101.00"));
+            // KRW 환산 의미는 유지한 채 거래통화 차대 불일치 통제 자체를 검증합니다.
+            entry.getDetails().get(0).setBaseAmount(new BigDecimal("101.00"));
         }
         JournalState before = JournalState.capture(entry);
         when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
 
         assertThatThrownBy(() -> service.postJournalEntry(1L, "poster-1"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(baseCurrency ? "기준통화 차대변" : "거래통화 차대변");
+                .hasMessageContaining(baseCurrency ? "기준통화" : "거래통화 차대변");
+
+        assertUnchangedWithoutWrites(entry, before);
+        verifyNoInteractions(accountingPeriodStatusPort);
+    }
+
+    @Test
+    @DisplayName("승인 후 환율 의미가 훼손된 외화 전표는 원장 쓰기와 기간 조회 전에 거부한다.")
+    void rejectsMalformedForeignJournalBeforeLedgerWrite() {
+        JournalEntry entry = approvedEntry();
+        entry.setCurrencyCode("USD");
+        entry.setExchangeRate(new BigDecimal("1300"));
+        JournalState before = JournalState.capture(entry);
+        when(journalPersistencePort.findByIdWithDetails(1L)).thenReturn(Optional.of(entry));
+
+        assertThatThrownBy(() -> service.postJournalEntry(1L, "poster-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("기준통화");
 
         assertUnchangedWithoutWrites(entry, before);
         verifyNoInteractions(accountingPeriodStatusPort);

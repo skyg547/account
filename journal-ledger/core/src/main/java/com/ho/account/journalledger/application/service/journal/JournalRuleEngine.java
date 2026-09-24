@@ -2,6 +2,7 @@ package com.ho.account.journalledger.application.service.journal;
 
 import com.ho.account.journalledger.application.port.out.JournalRuleQueryPort;
 import com.ho.account.journalledger.domain.journal.domain.ConditionOperator;
+import com.ho.account.journalledger.domain.journal.domain.JournalCurrencyConversionPolicy;
 import com.ho.account.journalledger.domain.journal.domain.JournalDetail;
 import com.ho.account.journalledger.domain.journal.domain.JournalEntry;
 import com.ho.account.journalledger.domain.journal.domain.JournalRule;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -41,7 +43,6 @@ public class JournalRuleEngine {
     private static final Pattern BRACED_PLACEHOLDER = Pattern.compile("\\$\\{([^}]+)}");
     private static final Pattern HASH_PLACEHOLDER = Pattern.compile("#([A-Za-z0-9_.]+)");
     private static final String SYSTEM_ACTOR = "SYSTEM";
-    private static final String DEFAULT_CURRENCY_CODE = "KRW";
     private static final List<String> ACTOR_REFERENCES = List.of(
             "auditUser",
             "createdBy",
@@ -51,15 +52,19 @@ public class JournalRuleEngine {
             "actor",
             "userId");
     private static final List<String> CURRENCY_REFERENCES = List.of(
+            "transactionCurrencyCode",
+            "transaction.transactionCurrencyCode",
             "currencyCode",
+            "transaction.currencyCode",
             "currency",
-            "functionalCurrency",
-            "reportingCurrency",
-            "company.currencyCode",
-            "company.functionalCurrency",
-            "accountingPolicy.currencyCode",
-            "accountingPolicy.functionalCurrency",
-            "accountingPolicy.defaultCurrencyCode");
+            "transaction.currency");
+    private static final List<String> EXCHANGE_RATE_REFERENCES = List.of(
+            "transactionToBaseRate",
+            "transaction.transactionToBaseRate",
+            "exchangeRate",
+            "transaction.exchangeRate",
+            "fxRate",
+            "transaction.fxRate");
 
     private final JournalRuleQueryPort journalRuleQueryPort;
 
@@ -189,6 +194,10 @@ public class JournalRuleEngine {
         
         String currencyCode = resolveCurrencyCode(eventData);
         entry.setCurrencyCode(currencyCode);
+        BigDecimal exchangeRate = JournalCurrencyConversionPolicy.normalizeExchangeRate(
+                currencyCode,
+                resolveExchangeRate(eventData));
+        entry.setExchangeRate(exchangeRate);
 
         List<JournalRuleDetail> sortedRuleDetails = new ArrayList<>(ruleDetails);
         sortedRuleDetails.sort(Comparator.comparing(JournalRuleDetail::getId, Comparator.nullsLast(Long::compareTo)));
@@ -209,7 +218,6 @@ public class JournalRuleEngine {
             detail.setSide(ruleDetail.getSide());
             detail.setAccountCode(accountCode);
             detail.setAmount(amount);
-            detail.setBaseAmount(amount);
             detail.setDetailDescription(resolveLineDescription(ruleDetail, entry, eventData));
             detail.setAuditUser(entry.getAuditUser());
 
@@ -226,11 +234,61 @@ public class JournalRuleEngine {
             entry.addDetail(detail);
         }
 
+        JournalCurrencyConversionPolicy.calculateAndAssignBaseAmounts(
+                entry.getCurrencyCode(),
+                entry.getExchangeRate(),
+                entry.getDetails());
+
         return entry;
     }
 
     private String resolveCurrencyCode(Map<String, Object> eventData) {
-        return firstResolvedStringValue(eventData, CURRENCY_REFERENCES).orElse(DEFAULT_CURRENCY_CODE);
+        String resolvedCurrency = null;
+        for (String reference : CURRENCY_REFERENCES) {
+            EventValueResolution resolved = lookupValue(eventData, reference);
+            if (resolved.isMissing()) {
+                continue;
+            }
+            String candidate = String.valueOf(resolved.value()).trim();
+            if (candidate.isBlank()) {
+                continue;
+            }
+            candidate = candidate.toUpperCase(Locale.ROOT);
+            if (resolvedCurrency != null && !resolvedCurrency.equals(candidate)) {
+                throw new IllegalArgumentException(
+                        "Inconsistent transaction currency aliases: "
+                                + resolvedCurrency + " and " + candidate);
+            }
+            resolvedCurrency = candidate;
+        }
+        return resolvedCurrency == null
+                ? JournalCurrencyConversionPolicy.BASE_CURRENCY_CODE
+                : resolvedCurrency;
+    }
+
+    private BigDecimal resolveExchangeRate(Map<String, Object> eventData) {
+        BigDecimal resolvedRate = null;
+        for (String reference : EXCHANGE_RATE_REFERENCES) {
+            EventValueResolution resolved = lookupValue(eventData, reference);
+            if (resolved.isMissing()) {
+                continue;
+            }
+            final BigDecimal candidate;
+            try {
+                candidate = toBigDecimal(resolved.value());
+            } catch (RuntimeException exception) {
+                throw new IllegalArgumentException(
+                        "Invalid transaction-to-base exchange rate: " + reference,
+                        exception);
+            }
+            if (resolvedRate != null && resolvedRate.compareTo(candidate) != 0) {
+                throw new IllegalArgumentException(
+                        "Inconsistent transaction-to-base exchange rate aliases: "
+                                + resolvedRate + " and " + candidate);
+            }
+            resolvedRate = candidate;
+        }
+        return resolvedRate;
     }
 
     private String resolveActor(Map<String, Object> eventData) {
