@@ -1,3 +1,46 @@
+# 2026-09-25 — GH-757 trusted journal audit actors
+
+## Intake, overlap analysis and ownership
+
+- Confirmed actual GitHub [Issue #757](https://github.com/skyg547/account/issues/757) is OPEN and claimed it from `status:ready` as `agent:codex`. The historical audit body still says no Issue existed; the live Issue and comments are the remote source of truth.
+- Preserved the dirty primary checkout. Fetched `origin/main`, created `agent/757-trusted-journal-audit-actors` and isolated `/tmp/account-757-trusted-journal-audit-actors` at `894e95e4b6ab5854a8252e539dcfda03c572b760`.
+- Applied `account-issue-loop`, `account-hexagonal-change`, the single-module writer form of `account-module-parallel`, and `account-review-handoff`. `/root/issue757_journal_module` was the sole module writer; `/root/issue757_review` was independently read-only; the parent Integrator owns these module-local records and all Git/GitHub mutations.
+- Scope is `journal-ledger/**`, including these three module-local records. Other modules, shared contracts and repository-level shared harness/history files are frozen by the user's explicit narrower instruction.
+- Current base analysis found that merged PR #792 already changed the audited `putIfAbsent` event enrichment into an unconditional trusted actor overwrite, rebuilt posting-contract commands from `X-Auth-User`, bound adapter audit identity to the canonical maker, and assigned Kafka/Spring-event service principals. Duplicating those production changes would add no protection, so GH-757 closes the remaining explicit regression-evidence gap.
+
+## Web-boundary regression and audited RED
+
+- Added `JournalAuditActorSanitizationMvcTest`, a standalone MockMvc regression covering both `POST /api/journals/from-event` and `POST /api/v1/journals/posting`.
+- Each endpoint has independent forged (`payload-attacker`), blank and conflicting (`payload-maker`/`payload-checker`) cases. The assertions capture the exact map/contract delivered beyond the controller boundary and require both `createdBy` and `auditUser` to equal canonical `trusted-maker`.
+- The request includes legacy `X-User-ID` plus current `X-Auth-User`/`X-Auth-Roles`, so the same source compiles and executes against the audited and current web signatures. The payload identity is discarded rather than stored as source identity and never becomes approval identity.
+- Audited archive `/tmp/account-757-a97d10a-BzjGLC` uses production files whose SHA-256 values match `git cat-file blob a97d10ab:<path>` for `JournalApiDto`, `JournalPostingRestController`, `JournalRuleEngine` and `JournalPostingAdapter`. The test is byte-identical to the fixed branch with SHA-256 `d65743492885013a2fe83a94c3e3f1a5aec3a9138fc21dcfcdb96b4b63b35f0d`.
+- Audited command: `./gradlew :journal-ledger:api:test --tests '*JournalAuditActorSanitizationMvcTest' --console=plain --max-workers=1 --no-daemon`. Expected exit1: 6 tests, 6 failures, errors/skips0—three failures for the event endpoint and three for the posting-contract endpoint. Log: `/tmp/account-757-audited-red.log`; XML remains under the audited archive's API test results.
+
+## GREEN verification and review
+
+- Current focused command with the same test selector passes 6/6, failures/errors/skips0.
+- Literal requested `./gradlew :journal-ledger:test` passes in 47s. XML totals: core27 suites/188 tests, API15/51, Batch4/11 =46 suites/250 tests; failures/errors/skips0. The aggregate task is intentionally `NO-SOURCE` but depends on all three real suites.
+- Independent `/root/issue757_review` additionally ran the related HTTP/listener/core selection: 35/35 PASS, failures/errors/skips0. It found no P0-P3 and approved the change.
+- `git diff --check`, untracked-file whitespace validation, changed-file conflict-marker scan, unmerged-index check and allowlist check pass. Before these parent records, the only working-tree artifact was the permitted new API test.
+- Existing `README.md` and `docs/process-flow.md` already explain that body actors are ignored, HTTP uses Gateway-rebuilt trusted headers, non-HTTP adapters use fixed service principals, and approval identity remains separate. No functional behavior changed on this branch, so duplicative documentation edits were intentionally omitted.
+
+| Item | Result | File/test evidence | N/A reason | Risk / next gate | Independent review |
+| --- | --- | --- | --- | --- | --- |
+| Q1 | PASS | Single-purpose parameterized MVC regression; focused6 and module250 PASS | Not applicable: executable test changed | Human/Draft PR review | `/root/issue757_review`, no P0-P3 |
+| Q2 | PASS | Test traces body/header input through both MVC routes to captured downstream identity; audited6 RED/current6 GREEN | Not applicable: security flow is exercised | Live Gateway remains untested | Reviewer confirmed historical/current comparison |
+| Q3 | N/A | `../../README.md` and `../process-flow.md` already describe trusted HTTP/service actors and maker-checker separation | No production/API behavior changed; existing functional documentation is current | Recheck if actor retention policy changes | Reviewer confirmed no documentation drift |
+| Q4 | PASS | Test comments explain dual-generation headers and why payload identity cannot outrank trusted context | Not applicable: non-obvious compatibility/security intent exists | Keep headers aligned with boundary evolution | Reviewer confirmed comments match implementation |
+
+## Rollback, limits and publication gate
+
+- Rollback is removal/revert of the single regression and these Issue-local records. There is no production code, migration, schema, financial amount or data correction to roll back.
+- No live Gateway/JWT, deployed HTTP service, Kafka broker, PostgreSQL, production data, distributed fault injection or load test was used. MockMvc proves request deserialization, headers, routing and downstream port arguments; the module suite protects existing financial and maker-checker controls.
+- Parent is authorized to commit, push and open a Draft PR with `Refs #757`, then move the Issue to `status:needs-review`. Ready, merge, Issue close, deployment and branch/worktree/archive cleanup remain later human gates.
+
+---
+
+The following entries are retained history and are not current GH-757 evidence.
+
 # 2026-09-25 — GH-770 concurrent unsettled settlement serialization
 
 ## Intake, isolation and ownership
