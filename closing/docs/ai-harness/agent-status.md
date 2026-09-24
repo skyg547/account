@@ -105,3 +105,10 @@
 
 - Independent read-only `/root/closing_independent_review`: focused82 direct replay PASS (Core45/Batch37, fail/error/skip0), full492 archived results independently reconciled;19 Java hashes unchanged. No remaining P0–P3; Q1–Q4 PASS; evidence table is in the module worklog.
 - Parent27-path scope/whitespace/conflict/unmerged checks PASS. Authorized commit/push/Draft publication follows; Ready/merge/Issue close/deployment/cleanup remain separate. No remote CI success is claimed before observing the published head.
+
+### GH-781 Draft publication
+
+- Published [Draft PR #791](https://github.com/skyg547/account/pull/791), OPEN/DRAFT, `Refs #781`, from `agent/781-ecl-currency-units` to `main`. Verified implementation commit `1add69bb1b083fc9c5074feba4809fbb77975965`; initial GitHub mergeability is MERGEABLE. Issue #781 remains OPEN / `status:needs-review`; isolated worktree is retained.
+- Initial implementation-head hosted checks did not execute: GitHub check annotations report failed recent account payments or a spending-limit restriction. [Module Validation](https://github.com/skyg547/account/actions/runs/36031718246), [Harness Validation](https://github.com/skyg547/account/actions/runs/36031718247), [Merge Guard](https://github.com/skyg547/account/actions/runs/36031718278). These failures are infrastructure gating, not executed code/test results. No billing settings were accessed or changed.
+- This publication append changes only the three module records; all19 verified Java files remain frozen. The PR body includes full492, independent82, package/startup evidence, Q1–Q4, rollback, remaining risks and authority separation. Ready, merge, Issue close, deployment and resource deletion were not performed.
+- Next owner: repository account owner to restore hosted Actions availability, then human reviewer to verify current-head CI and FX/accounting operational prerequisites. Actual PostgreSQL/load/distributed behavior and existing-data reconciliation remain separate gates.
