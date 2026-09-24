@@ -53,3 +53,9 @@
 | Q2 | PASS | `../posting-concurrency.md:9`; lock/refresh/commit/failure/retry flow checked against implementation | Not applicable: transaction flow changed | Cross-journal balance and closing races outside scope | `/root/posting_review` confirmed |
 | Q3 | PASS | `../posting-concurrency.md:31`, `:57`; README/process-flow/schema; command/XML/bootJAR evidence | Not applicable: behavior/schema changed | Deployment owner must check actual legacy history and DDL window | `/root/posting_review` confirmed |
 | Q4 | PASS | adapter lines111/118; repository37; V13 line2; concurrency test coordination/rollback comments | Not applicable: nontrivial concurrency logic changed | None: no remaining comment mismatch | `/root/posting_review` confirmed |
+
+## Draft publication
+
+- Independent reviewer approved the final three module-local records and PR description; no factual mismatch or unresolved finding. Parent committed the reviewed23-file change as `65a799f4` and pushed only `agent/760-single-posting`.
+- Opened [Draft PR #782](https://github.com/skyg547/account/pull/782) against `main`, using `Refs #760`. The body includes regression/full-suite/packaging evidence, Q1–Q4, user-directed module-local harness exception, rollback limits and explicit authority separation.
+- This publication follow-up changes only these three record files to add the actual PR link. No implementation or test changed after independent approval. Remote CI is a subsequent check and is not represented by local test results. Ready, merge, Issue close and resource deletion were not performed.

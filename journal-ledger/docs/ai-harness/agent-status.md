@@ -1,7 +1,7 @@
 # GH-760 agent status
 
 - Issue: [#760](https://github.com/skyg547/account/issues/760)
-- Status: implementation and local verification complete; remote Issue `status:needs-review`; Draft PR publication pending.
+- Status: implementation and local verification complete; remote Issue `status:needs-review`; [Draft PR #782](https://github.com/skyg547/account/pull/782) open with `Refs #760`.
 - Base: `origin/main@a97d10ab6efc2570a88f83d630242cd748f8be57`
 - Branch: `agent/760-single-posting`
 - Worktree: `/tmp/account-760-single-posting`

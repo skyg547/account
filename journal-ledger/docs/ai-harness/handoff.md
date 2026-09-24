@@ -4,7 +4,7 @@ Implementation, verification and independent substantive review are complete. Fo
 
 - Issue: [#760](https://github.com/skyg547/account/issues/760)
 - Branch/worktree: `agent/760-single-posting`, `/tmp/account-760-single-posting`
-- PR: Draft publication pending; parent updates the link after creation.
+- PR: [Draft #782](https://github.com/skyg547/account/pull/782), `Refs #760`; implementation commit `65a799f4`.
 - Allowed files: `journal-ledger/**` only. Shared harness and other modules must remain unchanged.
 - Rollback: reviewed scoped code revert before release. Applied migration files are immutable; retain duplicate-posting constraints and use a reviewed forward migration for schema correction. Existing duplicate rows must be investigated, never silently deleted or merged.
 - Next owner: parent Integrator for verification and Draft PR; human reviewer for subsequent Ready/merge/Issue-close decisions.
